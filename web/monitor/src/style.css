@@ -304,6 +304,9 @@ p {
   gap: 16px;
   margin-bottom: 22px;
 }
+.metrics-node {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
 .metric {
   background: #fffdf9;
   border: 1px solid #e6dfd8;

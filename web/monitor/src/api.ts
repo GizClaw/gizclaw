@@ -27,6 +27,7 @@ export const nodeSchema = z.object({
   transport: z.object({
     connections: z.number(),
     services: z.number(),
+    inbound_service_channels: z.number().int().nonnegative(),
     rx_bytes: z.number(),
     tx_bytes: z.number(),
   }),

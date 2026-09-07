@@ -131,6 +131,7 @@
             "required": [
               "connections",
               "services",
+              "inbound_service_channels",
               "rx_bytes",
               "tx_bytes"
             ],
@@ -152,6 +153,11 @@
                 "type": "integer",
                 "minimum": 0,
                 "format": "uint64"
+              },
+              "inbound_service_channels": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Current remote-opened service DataChannels admitted across this process, including pending opens. Released on stream or parent connection close. Excludes locally opened, packet, and native tunnel channels."
               }
             }
           },

@@ -48,7 +48,13 @@ test("poll failure clears live samples and timestamp and recovers with fresh sam
     uptime_seconds: 100,
     goroutines: 12,
     heap_bytes: 1024,
-    transport: { connections: 2, services: 3, rx_bytes: 2048, tx_bytes: 1024 },
+    transport: {
+      connections: 2,
+      services: 3,
+      inbound_service_channels: 17,
+      rx_bytes: 2048,
+      tx_bytes: 1024,
+    },
     logs: [],
   };
   vi.mocked(loadNode).mockResolvedValue(snapshot);
@@ -68,12 +74,15 @@ test("poll failure clears live samples and timestamp and recovers with fresh sam
     "2 samples",
   );
   expect(screen.getByText(/^更新于 /)).toBeTruthy();
+  expect(screen.getByText("入站服务 DataChannel")).toBeTruthy();
+  expect(screen.getByText("17")).toBeTruthy();
 
   vi.mocked(loadNode).mockRejectedValue(new Error("backend disconnected"));
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1000);
   });
   expect(screen.queryByTestId("traffic-chart")).toBeNull();
+  expect(screen.queryByText("17")).toBeNull();
   expect(screen.queryByText(/^更新于 /)).toBeNull();
   expect(screen.getByRole("alert").textContent).toContain(
     "backend disconnected",

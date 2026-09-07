@@ -4,14 +4,17 @@ import "sync/atomic"
 
 var monitorRX atomic.Uint64
 var monitorTX atomic.Uint64
+var monitorInboundServiceChannels atomic.Int64
 
 // MonitorSnapshot reports this process's WebRTC associations and service payload bytes.
 // Byte counters are monotonic for the process lifetime and exclude ICE/DTLS overhead.
 type MonitorSnapshot struct {
-	Connections int    `json:"connections"`
-	Services    int    `json:"services"`
-	RXBytes     uint64 `json:"rx_bytes"`
-	TXBytes     uint64 `json:"tx_bytes"`
+	// InboundServiceChannels counts admitted remote-opened service DataChannels, including pending opens.
+	InboundServiceChannels int    `json:"inbound_service_channels"`
+	Connections            int    `json:"connections"`
+	Services               int    `json:"services"`
+	RXBytes                uint64 `json:"rx_bytes"`
+	TXBytes                uint64 `json:"tx_bytes"`
 }
 
 // ReadMonitorSnapshot takes a short in-memory snapshot without network I/O.
@@ -25,5 +28,5 @@ func ReadMonitorSnapshot() MonitorSnapshot {
 		services += n
 	}
 	activeMetrics.Unlock()
-	return MonitorSnapshot{Connections: connections, Services: services, RXBytes: monitorRX.Load(), TXBytes: monitorTX.Load()}
+	return MonitorSnapshot{InboundServiceChannels: int(monitorInboundServiceChannels.Load()), Connections: connections, Services: services, RXBytes: monitorRX.Load(), TXBytes: monitorTX.Load()}
 }

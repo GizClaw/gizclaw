@@ -66,10 +66,13 @@ type NodeSnapshot struct {
 	Role       string       `json:"role"`
 	Time       time.Time    `json:"time"`
 	Transport  struct {
-		Connections int    `json:"connections"`
-		RxBytes     uint64 `json:"rx_bytes"`
-		Services    int    `json:"services"`
-		TxBytes     uint64 `json:"tx_bytes"`
+		Connections int `json:"connections"`
+
+		// InboundServiceChannels Current remote-opened service DataChannels admitted across this process, including pending opens. Released on stream or parent connection close. Excludes locally opened, packet, and native tunnel channels.
+		InboundServiceChannels int    `json:"inbound_service_channels"`
+		RxBytes                uint64 `json:"rx_bytes"`
+		Services               int    `json:"services"`
+		TxBytes                uint64 `json:"tx_bytes"`
 	} `json:"transport"`
 	UptimeSeconds float64 `json:"uptime_seconds"`
 }

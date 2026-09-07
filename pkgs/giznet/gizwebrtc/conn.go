@@ -459,6 +459,8 @@ func (c *Conn) close(cause error) error {
 			adjustActiveMetric(context.Background(), metricServiceStreamsActive, c.nodeRole, c.metricsRole(), -1)
 		}
 		c.streams = make(map[uint64]map[*dataChannelConn]struct{})
+		monitorInboundServiceChannels.Add(-int64(len(c.inbound)))
+		c.inbound = nil
 		c.serviceMu.Unlock()
 		for _, listener := range listeners {
 			_ = listener.Close()
@@ -603,6 +605,10 @@ func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
 
 func (c *Conn) reserveInboundServiceStream(dc *webrtc.DataChannel) (func(), bool) {
 	c.serviceMu.Lock()
+	if c.closed.Load() {
+		c.serviceMu.Unlock()
+		return nil, false
+	}
 	if c.inbound == nil {
 		c.inbound = make(map[*webrtc.DataChannel]struct{})
 	}
@@ -615,13 +621,17 @@ func (c *Conn) reserveInboundServiceStream(dc *webrtc.DataChannel) (func(), bool
 		return nil, false
 	}
 	c.inbound[dc] = struct{}{}
+	monitorInboundServiceChannels.Add(1)
 	c.serviceMu.Unlock()
 
 	var once sync.Once
 	return func() {
 		once.Do(func() {
 			c.serviceMu.Lock()
-			delete(c.inbound, dc)
+			if _, exists := c.inbound[dc]; exists {
+				delete(c.inbound, dc)
+				monitorInboundServiceChannels.Add(-1)
+			}
 			c.serviceMu.Unlock()
 		})
 	}, true

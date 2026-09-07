@@ -647,7 +647,17 @@ export function App() {
               {last ? `更新于 ${last.toLocaleTimeString()}` : "等待数据"}
             </span>
           </div>
-          <div className="metrics">
+          <div className={isNode ? "metrics metrics-node" : "metrics"}>
+            {isNode && (
+              <Metric
+                label="入站服务 DataChannel"
+                value={
+                  node ? String(node.transport.inbound_service_channels) : "—"
+                }
+                note="对端打开、尚未释放（含待打开）"
+                icon={<ArrowDownLeft size={17} />}
+              />
+            )}
             <Metric
               label={isNode ? "WebRTC 连接" : "设备状态"}
               value={
