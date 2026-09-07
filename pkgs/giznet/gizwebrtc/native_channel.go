@@ -362,6 +362,7 @@ func (c *Conn) newNativeChannel(
 	stream := newDataChannelConn(raw, dc, c.localAddr, c.remoteAddr)
 	stream.rx = &c.rxBytes
 	stream.tx = &c.txBytes
+	stream.activity = &c.lastSeen
 	channel := &NativeChannel{
 		label:   dc.Label(),
 		ordered: dc.Ordered(),

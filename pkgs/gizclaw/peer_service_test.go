@@ -206,7 +206,9 @@ func TestIntegrationPeerServiceServeConnClientCloseUnblocksAndMarksPeerOffline(t
 	if _, ok := server.manager.Peer(clientKey.Public); ok {
 		t.Fatal("peer should be removed after client close")
 	}
-	if runtime := server.manager.PeerRuntime(context.Background(), clientKey.Public); runtime.Online || !runtime.LastSeenAt.IsZero() {
+	// The Peer is offline, and last_seen_at keeps the activity recorded when
+	// the connection went down rather than resetting to the zero time.
+	if runtime := server.manager.PeerRuntime(context.Background(), clientKey.Public); runtime.Online || runtime.LastSeenAt.IsZero() || runtime.LastSeenAt.After(time.Now()) {
 		t.Fatalf("peer runtime after client close = %+v", runtime)
 	}
 }

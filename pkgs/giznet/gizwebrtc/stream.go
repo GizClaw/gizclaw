@@ -67,6 +67,7 @@ type dataChannelConn struct {
 	remote   net.Addr
 	rx       *atomic.Uint64
 	tx       *atomic.Uint64
+	activity *atomic.Int64
 	streamRX atomic.Uint64
 	streamTX atomic.Uint64
 
@@ -194,6 +195,15 @@ func newDataChannelConn(raw datachannel.ReadWriteCloserDeadliner, flow dataChann
 	return c
 }
 
+// touch advances the parent connection's last-activity clock. Streams share
+// the connection counters, so stream transfers count as connection activity.
+func (c *dataChannelConn) touch() {
+	if c == nil || c.activity == nil {
+		return
+	}
+	c.activity.Store(time.Now().UnixNano())
+}
+
 func (c *dataChannelConn) Read(p []byte) (int, error) {
 	if c == nil || c.raw == nil {
 		return 0, giznet.ErrConnClosed
@@ -232,6 +242,7 @@ func (c *dataChannelConn) Read(p []byte) (int, error) {
 		c.rx.Add(uint64(n))
 		monitorRX.Add(uint64(n))
 	}
+	c.touch()
 	c.streamRX.Add(uint64(n))
 	copied := copy(p, buf[:n])
 	if copied < n {
@@ -260,6 +271,7 @@ func (c *dataChannelConn) Write(p []byte) (int, error) {
 			monitorTX.Add(uint64(n))
 		}
 		if n > 0 {
+			c.touch()
 			c.streamTX.Add(uint64(n))
 		}
 		if err != nil {
@@ -301,6 +313,7 @@ func (c *dataChannelConn) WriteBuffers(buffers net.Buffers) (int64, error) {
 			monitorTX.Add(uint64(n))
 		}
 		if n > 0 {
+			c.touch()
 			c.streamTX.Add(uint64(n))
 		}
 		if err != nil {

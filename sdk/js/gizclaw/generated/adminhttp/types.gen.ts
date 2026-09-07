@@ -1394,6 +1394,9 @@ export type RegistrationTombstone = {
 
 export type Runtime = {
     online: boolean;
+    /**
+     * Last observed activity on the Peer connection. While the Peer is online this advances with packet and service-stream traffic; while it is offline this is the activity recorded when the connection went down. It is the zero time only when the Server has never observed the Peer.
+     */
     last_seen_at: string;
     last_addr?: string;
     rx_bytes?: number;
