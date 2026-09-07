@@ -418,15 +418,66 @@ func TestBuildVolcQueryTranslatesAllStructuredOperators(t *testing.T) {
 	}
 }
 
+func TestVolcQueryAcceptsEmptyAnalysisResult(t *testing.T) {
+	for _, analysisJSON := range []string{`null`, `{}`, `{"Schema":null,"Type":null,"Data":null}`, `{"Schema":[],"Type":{},"Data":[]}`} {
+		t.Run(analysisJSON, func(t *testing.T) {
+			for _, pageKind := range []string{"records", "empty", "continuation"} {
+				t.Run(pageKind, func(t *testing.T) {
+					var response tls.SearchLogsResponse
+					body := `{"ResultStatus":"complete","Analysis":false,"ListOver":true,"AnalysisResult":` + analysisJSON + `,"Logs":[{"id":"id","stream":"system","kind":"log","level":"INFO","msg":"hello","__time__":1000}]}`
+					if err := json.Unmarshal([]byte(body), &response); err != nil {
+						t.Fatal(err)
+					}
+					if pageKind == "empty" {
+						response.Logs = nil
+					}
+					if pageKind == "continuation" {
+						response.ListOver = false
+						response.Context = "next"
+					}
+					client := &fakeVolcClient{response: &response}
+					store := &VolcStore{topicID: "topic", client: client}
+					query := validQuery()
+					page, err := store.Query(context.Background(), query)
+					if err != nil {
+						t.Fatalf("Query() error = %v", err)
+					}
+					if len(page.Records) != len(response.Logs) {
+						t.Fatalf("record count = %d, want %d", len(page.Records), len(response.Logs))
+					}
+					if len(page.Records) != 0 && (page.Records[0].ID != "id" || page.Records[0].Message != "hello") {
+						t.Fatalf("record = %+v", page.Records[0])
+					}
+					if page.HasNext != !response.ListOver || (page.NextCursor != "") != page.HasNext {
+						t.Fatalf("pagination = %+v", page)
+					}
+					if page.HasNext {
+						query.Cursor = page.NextCursor
+						response.ListOver = true
+						if _, err := store.Query(context.Background(), query); err != nil {
+							t.Fatalf("continuation error = %v", err)
+						}
+						if client.request.Context != "next" {
+							t.Fatalf("context = %q", client.request.Context)
+						}
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestVolcQueryRejectsInvalidProviderPages(t *testing.T) {
-	analysis := &tls.AnalysisResult{}
 	tests := map[string]*tls.SearchLogsResponse{
-		"nil":              nil,
-		"incomplete":       {Status: "incomplete", ListOver: true},
-		"analysis flag":    {Status: "complete", Analysis: true, ListOver: true},
-		"analysis result":  {Status: "complete", AnalysisResult: analysis, ListOver: true},
-		"missing context":  {Status: "complete", ListOver: false},
-		"too many records": {Status: "complete", ListOver: true, Logs: []map[string]any{{}, {}}},
+		"nil":                             nil,
+		"incomplete":                      {Status: "incomplete", ListOver: true},
+		"analysis flag":                   {Status: "complete", Analysis: true, ListOver: true},
+		"analysis flag with empty result": {Status: "complete", Analysis: true, AnalysisResult: &tls.AnalysisResult{}, ListOver: true},
+		"analysis schema":                 {Status: "complete", AnalysisResult: &tls.AnalysisResult{Schema: []string{"count"}}, ListOver: true},
+		"analysis type":                   {Status: "complete", AnalysisResult: &tls.AnalysisResult{Type: map[string]string{"count": "long"}}, ListOver: true},
+		"analysis data":                   {Status: "complete", AnalysisResult: &tls.AnalysisResult{Data: []map[string]any{{"count": 1}}}, ListOver: true},
+		"missing context":                 {Status: "complete", ListOver: false},
+		"too many records":                {Status: "complete", ListOver: true, Logs: []map[string]any{{}, {}}},
 	}
 	for name, response := range tests {
 		t.Run(name, func(t *testing.T) {
