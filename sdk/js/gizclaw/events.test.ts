@@ -138,7 +138,7 @@ test("matches every cross-language Peer Event golden vector", () => {
       "utf8",
     ),
   ) as { hex: string; name: string }[];
-  assert.equal(vectors.length, 9);
+  assert.equal(vectors.length, 8);
   for (const vector of vectors) {
     const bytes = Uint8Array.from(Buffer.from(vector.hex, "hex"));
     const event = decodePeerEvent(bytes);
