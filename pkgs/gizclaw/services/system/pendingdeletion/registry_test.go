@@ -26,13 +26,13 @@ func TestRegistryRejectsInvalidRegistrations(t *testing.T) {
 		handlers []Handler
 	}{
 		{name: "typed nil source", source: (*KVSource)(nil)},
-		{name: "invalid source name", source: validSource("Gameplay", KindPet), handlers: []Handler{&registryTestHandler{kind: KindPet}}},
+		{name: "invalid source name", source: validSource("Social", KindFriendGroup), handlers: []Handler{&registryTestHandler{kind: KindFriendGroup}}},
 		{name: "no kinds", source: validSource("empty")},
-		{name: "duplicate kind", source: validSource("duplicate", KindPet, KindPet), handlers: []Handler{&registryTestHandler{kind: KindPet}}},
-		{name: "missing handler", source: validSource("missing", KindPet)},
-		{name: "typed nil handler", source: validSource("nil_handler", KindPet), handlers: []Handler{(*registryTestHandler)(nil)}},
-		{name: "unadvertised handler", source: validSource("wrong", KindPet), handlers: []Handler{&registryTestHandler{kind: KindPeer}}},
-		{name: "duplicate handler", source: validSource("handlers", KindPet), handlers: []Handler{&registryTestHandler{kind: KindPet}, &registryTestHandler{kind: KindPet}}},
+		{name: "duplicate kind", source: validSource("duplicate", KindFriendGroup, KindFriendGroup), handlers: []Handler{&registryTestHandler{kind: KindFriendGroup}}},
+		{name: "missing handler", source: validSource("missing", KindFriendGroup)},
+		{name: "typed nil handler", source: validSource("nil_handler", KindFriendGroup), handlers: []Handler{(*registryTestHandler)(nil)}},
+		{name: "unadvertised handler", source: validSource("wrong", KindFriendGroup), handlers: []Handler{&registryTestHandler{kind: KindPeer}}},
+		{name: "duplicate handler", source: validSource("handlers", KindFriendGroup), handlers: []Handler{&registryTestHandler{kind: KindFriendGroup}, &registryTestHandler{kind: KindFriendGroup}}},
 		{name: "missing store", source: KVSource{
 			SourceName: "peer", OwnedKinds: []Kind{KindPeer},
 		}, handlers: []Handler{&registryTestHandler{kind: KindPeer}}},

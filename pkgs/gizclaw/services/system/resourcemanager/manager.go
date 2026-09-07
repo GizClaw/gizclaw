@@ -18,7 +18,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
@@ -42,7 +41,6 @@ type Services struct {
 	Contacts        *contact.Server
 	Friends         *friend.Server
 	FriendGroups    *friendgroup.Server
-	GameplayCatalog gameplay.CatalogAdminService
 	Tools           *toolkit.Server
 	RuntimeProfiles *runtimeprofile.Server
 }
@@ -146,33 +144,6 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, id string
 			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromTool(item)
-	case apitypes.ResourceKindPetDef:
-		item, exists, err := m.getPetDef(ctx, string(servicePathID(id)))
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		if !exists {
-			return apitypes.Resource{}, notFound(kind, id)
-		}
-		return resourceFromPetDef(item)
-	case apitypes.ResourceKindBadgeDef:
-		item, exists, err := m.getBadgeDef(ctx, string(servicePathID(id)))
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		if !exists {
-			return apitypes.Resource{}, notFound(kind, id)
-		}
-		return resourceFromBadgeDef(item)
-	case apitypes.ResourceKindGameDef:
-		item, exists, err := m.getGameDef(ctx, string(servicePathID(id)))
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		if !exists {
-			return apitypes.Resource{}, notFound(kind, id)
-		}
-		return resourceFromGameDef(item)
 	case apitypes.ResourceKindDashScopeTenant:
 		if m.services.ProviderTenants == nil {
 			return apitypes.Resource{}, missingService("provider tenants")
@@ -553,42 +524,6 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 			return apitypes.Resource{}, err
 		}
 		return m.putToolResource(ctx, targetID, item)
-	case string(apitypes.ResourceKindPetDef), "PetDefResource":
-		item, err := resource.AsPetDefResource()
-		if err != nil {
-			return apitypes.Resource{}, applyError(400, "INVALID_PET_DEF_RESOURCE", err.Error())
-		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
-			return apitypes.Resource{}, err
-		}
-		if err := m.putPetDef(ctx, transportID, petDefUpsert(item)); err != nil {
-			return apitypes.Resource{}, err
-		}
-		return m.Get(ctx, apitypes.ResourceKindPetDef, targetID)
-	case string(apitypes.ResourceKindBadgeDef), "BadgeDefResource":
-		item, err := resource.AsBadgeDefResource()
-		if err != nil {
-			return apitypes.Resource{}, applyError(400, "INVALID_BADGE_DEF_RESOURCE", err.Error())
-		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
-			return apitypes.Resource{}, err
-		}
-		if err := m.putBadgeDef(ctx, transportID, badgeDefUpsert(item)); err != nil {
-			return apitypes.Resource{}, err
-		}
-		return m.Get(ctx, apitypes.ResourceKindBadgeDef, targetID)
-	case string(apitypes.ResourceKindGameDef), "GameDefResource":
-		item, err := resource.AsGameDefResource()
-		if err != nil {
-			return apitypes.Resource{}, applyError(400, "INVALID_GAME_DEF_RESOURCE", err.Error())
-		}
-		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
-			return apitypes.Resource{}, err
-		}
-		if err := m.putGameDef(ctx, transportID, gameDefUpsert(item)); err != nil {
-			return apitypes.Resource{}, err
-		}
-		return m.Get(ctx, apitypes.ResourceKindGameDef, targetID)
 	case string(apitypes.ResourceKindVolcTenant), "VolcTenantResource":
 		if m.services.ProviderTenants == nil {
 			return apitypes.Resource{}, missingService("provider tenants")
@@ -855,33 +790,6 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, id str
 			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromTool(item)
-	case apitypes.ResourceKindPetDef:
-		item, exists, err := m.deletePetDef(ctx, string(servicePathID(id)))
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		if !exists {
-			return apitypes.Resource{}, notFound(kind, id)
-		}
-		return resourceFromPetDef(item)
-	case apitypes.ResourceKindBadgeDef:
-		item, exists, err := m.deleteBadgeDef(ctx, string(servicePathID(id)))
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		if !exists {
-			return apitypes.Resource{}, notFound(kind, id)
-		}
-		return resourceFromBadgeDef(item)
-	case apitypes.ResourceKindGameDef:
-		item, exists, err := m.deleteGameDef(ctx, string(servicePathID(id)))
-		if err != nil {
-			return apitypes.Resource{}, err
-		}
-		if !exists {
-			return apitypes.Resource{}, notFound(kind, id)
-		}
-		return resourceFromGameDef(item)
 	case apitypes.ResourceKindDashScopeTenant:
 		if m.services.ProviderTenants == nil {
 			return apitypes.Resource{}, missingService("provider tenants")
@@ -1112,12 +1020,6 @@ func (m *Manager) Apply(ctx context.Context, resource apitypes.Resource) (apityp
 		return m.applyModel(ctx, resource)
 	case string(apitypes.ResourceKindTool), "ToolResource":
 		return m.applyTool(ctx, resource)
-	case string(apitypes.ResourceKindPetDef), "PetDefResource":
-		return m.applyPetDef(ctx, resource)
-	case string(apitypes.ResourceKindBadgeDef), "BadgeDefResource":
-		return m.applyBadgeDef(ctx, resource)
-	case string(apitypes.ResourceKindGameDef), "GameDefResource":
-		return m.applyGameDef(ctx, resource)
 	case string(apitypes.ResourceKindVolcTenant), "VolcTenantResource":
 		return m.applyVolcTenant(ctx, resource)
 	case string(apitypes.ResourceKindResourceList), "ResourceListResource":

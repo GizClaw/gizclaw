@@ -566,8 +566,8 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 	if srv.ContactDB == nil || srv.FriendStore == nil || srv.FriendGroupStore == nil {
 		t.Fatalf("social stores not wired: %+v", srv.Server)
 	}
-	if srv.GameplayCatalogDB == nil || srv.GameplayAssets == nil || srv.WorkspaceAssets == nil || srv.GameplayDB == nil {
-		t.Fatalf("gameplay stores not wired: %+v", srv.Server)
+	if srv.WorkspaceAssets == nil {
+		t.Fatalf("workspace asset store not wired: %+v", srv.Server)
 	}
 }
 
@@ -715,7 +715,6 @@ func TestProfilingConfigValidation(t *testing.T) {
 		"missing store":        {config: ProfilingConfig{Enabled: true}, wantErr: "is required"},
 		"whitespace":           {config: ProfilingConfig{Store: " profiles"}, wantErr: "whitespace"},
 		"workspace shared":     {config: ProfilingConfig{Store: services.Workspace.AssetsStore}, wantErr: "must be dedicated"},
-		"gameplay shared":      {config: ProfilingConfig{Store: services.Gameplay.AssetsStore}, wantErr: "must be dedicated"},
 		"agent host shared":    {config: ProfilingConfig{Store: services.AgentHost.RuntimeStore}, wantErr: "must be dedicated"},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -743,7 +742,7 @@ func TestNewPreservesPostgresDialectThroughLayeredStorage(t *testing.T) {
 		t.Skip("GIZCLAW_TEST_POSTGRES_DSN is not set")
 	}
 	cfg := validLayeredConfig(t.TempDir())
-	cfg.Storage["gameplay-db"] = storage.PostgreSQLConfig{DSN: dsn}
+	cfg.Storage["business-db"] = storage.PostgreSQLConfig{DSN: dsn}
 
 	srv, err := New(cfg)
 	if err != nil {
@@ -755,7 +754,7 @@ func TestNewPreservesPostgresDialectThroughLayeredStorage(t *testing.T) {
 		DriverName() string
 		Rebind(string) string
 	}{
-		"gameplay": srv.GameplayDB,
+		"workspace": srv.WorkspaceDB,
 	} {
 		if db == nil {
 			t.Fatalf("%s DB = nil", name)
@@ -1168,8 +1167,8 @@ func TestParseCompleteServerConfigurationExample(t *testing.T) {
 	for _, name := range []string{
 		"logs", "metrics", "flowcraft-history", "flowcraft-state", "peers", "peer-runs",
 		"api-keys", "credentials", "firmwares", "runtime-profiles", "models", "voices", "memory-layouts",
-		"provider-tenants", "workflows", "workspaces", "tools", "contacts", "friends", "friend-groups", "gameplay", "agenthost",
-		"workspace-history", "workspace-history-assets", "workspace-assets", "gameplay-assets", "gameplay-db",
+		"provider-tenants", "workflows", "workspaces", "tools", "contacts", "friends", "friend-groups", "agenthost",
+		"workspace-history", "workspace-history-assets", "workspace-assets",
 	} {
 		if _, exists := cfg.Stores[name]; !exists {
 			t.Fatalf("stores.%s is missing", name)
@@ -1221,7 +1220,6 @@ func assertCompleteServerConfigInventory(t *testing.T, cfg ConfigFile) {
 	expect("services.credential.store", services.Credential.Store, stores.KindSQL)
 	expect("services.voice.store", services.Voice.Store, stores.KindSQL)
 	expect("services.runtime_profile.store", services.RuntimeProfile.Store, stores.KindSQL)
-	expect("services.gameplay.store", services.Gameplay.Store, stores.KindSQL)
 	expect("services.provider_tenants.store", services.ProviderTenants.Store, stores.KindSQL)
 	for path, name := range map[string]string{
 		"services.api_key.store":      services.APIKey.Store,
@@ -1233,8 +1231,6 @@ func assertCompleteServerConfigInventory(t *testing.T, cfg ConfigFile) {
 	expect("services.workspace.assets_store", services.Workspace.AssetsStore, stores.KindObjectStore)
 	expect("services.workspace.history_store", services.Workspace.HistoryStore, stores.KindLogMutable)
 	expect("services.workspace.history_assets_store", services.Workspace.HistoryAssetsStore, stores.KindObjectStore)
-	expect("services.gameplay.assets_store", services.Gameplay.AssetsStore, stores.KindObjectStore)
-	expect("services.gameplay.database_store", services.Gameplay.DatabaseStore, stores.KindSQL)
 	expect("services.agent_host.runtime_store", services.AgentHost.RuntimeStore, stores.KindObjectStore)
 	expect("services.agent_host.flowcraft.state_store", services.AgentHost.Flowcraft.StateStore, stores.KindSQL)
 	expect("services.agent_host.flowcraft.history_store", services.AgentHost.Flowcraft.HistoryStore, stores.KindLogMutable)
@@ -1497,32 +1493,29 @@ func validLayeredConfig(dir string) Config {
 			"memory":       storage.MemoryConfig{},
 			"local-files":  storage.FilesystemDirConfig{Dir: dir},
 			"peer-runs-db": storage.SQLiteConfig{Dir: filepath.Join(dir, "peer-runs.sqlite")},
-			"gameplay-db":  storage.SQLiteConfig{Dir: filepath.Join(dir, "gameplay.sqlite")},
+			"business-db":  storage.SQLiteConfig{Dir: filepath.Join(dir, "business.sqlite")},
 		},
 		Stores: map[string]stores.Config{
 			"peers":                    {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},
 			"peer-runs":                {Kind: stores.KindSQL, Storage: "peer-runs-db"},
 			"api-keys":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "api-keys"},
-			"credentials":              {Kind: stores.KindSQL, Storage: "gameplay-db"},
-			"firmwares":                {Kind: stores.KindSQL, Storage: "gameplay-db"},
-			"runtime-profiles":         {Kind: stores.KindSQL, Storage: "gameplay-db"},
-			"memory-layouts":           {Kind: stores.KindSQL, Storage: "gameplay-db"},
+			"credentials":              {Kind: stores.KindSQL, Storage: "business-db"},
+			"firmwares":                {Kind: stores.KindSQL, Storage: "business-db"},
+			"runtime-profiles":         {Kind: stores.KindSQL, Storage: "business-db"},
+			"memory-layouts":           {Kind: stores.KindSQL, Storage: "business-db"},
 			"agenthost":                {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "agenthost"},
-			"provider-tenants":         {Kind: stores.KindSQL, Storage: "gameplay-db"},
-			"models":                   {Kind: stores.KindSQL, Storage: "gameplay-db"},
-			"voices":                   {Kind: stores.KindSQL, Storage: "gameplay-db"},
-			"workspaces":               {Kind: stores.KindSQL, Storage: "gameplay-db"},
-			"workflows":                {Kind: stores.KindSQL, Storage: "gameplay-db"},
-			"tools":                    {Kind: stores.KindSQL, Storage: "gameplay-db"},
-			"contacts":                 {Kind: stores.KindSQL, Storage: "gameplay-db"},
+			"provider-tenants":         {Kind: stores.KindSQL, Storage: "business-db"},
+			"models":                   {Kind: stores.KindSQL, Storage: "business-db"},
+			"voices":                   {Kind: stores.KindSQL, Storage: "business-db"},
+			"workspaces":               {Kind: stores.KindSQL, Storage: "business-db"},
+			"workflows":                {Kind: stores.KindSQL, Storage: "business-db"},
+			"tools":                    {Kind: stores.KindSQL, Storage: "business-db"},
+			"contacts":                 {Kind: stores.KindSQL, Storage: "business-db"},
 			"friends":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friends"},
 			"friend-groups":            {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-groups"},
-			"gameplay":                 {Kind: stores.KindSQL, Storage: "gameplay-db"},
-			"gameplay-assets":          {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "gameplay"},
 			"workspace-assets":         {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "workspaces"},
-			"workspace-history":        {Kind: stores.KindLogMutable, Storage: "gameplay-db", Table: "workspace_history", TTL: 30 * 24 * time.Hour},
+			"workspace-history":        {Kind: stores.KindLogMutable, Storage: "business-db", Table: "workspace_history", TTL: 30 * 24 * time.Hour},
 			"workspace-history-assets": {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "workspace-history", TTL: 30 * 24 * time.Hour},
-			"gameplay-db":              {Kind: stores.KindSQL, Storage: "gameplay-db"},
 		},
 		Services: validServicesConfig(),
 	}
@@ -1549,10 +1542,7 @@ func validServicesConfig() *ServicesConfig {
 		Contact:     &SingleStoreConfig{Store: "contacts"},
 		Friend:      &SingleStoreConfig{Store: "friends"},
 		FriendGroup: &SingleStoreConfig{Store: "friend-groups"},
-		Gameplay: &GameplayStoresConfig{
-			Store: "gameplay", AssetsStore: "gameplay-assets", DatabaseStore: "gameplay-db",
-		},
-		AgentHost: &AgentHostConfig{RuntimeStore: "agenthost"},
+		AgentHost:   &AgentHostConfig{RuntimeStore: "agenthost"},
 	}
 }
 

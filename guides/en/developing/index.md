@@ -1,6 +1,6 @@
 # GizClaw Development Guidelines
 
-GizClaw is an agent runtime and edge server for GizClaw devices, browser clients, and SDK integrations. It provides WebRTC connectivity, device and runtime management, agent workflows, AI model adapters, Admin and Public HTTP APIs, Peer RPC, telemetry, OTA, digital-content, social, and gameplay domain services. The same contracts generate Go, JavaScript, C, and Flutter SDK surfaces.
+GizClaw is an agent runtime and edge server for GizClaw devices, browser clients, and SDK integrations. It provides WebRTC connectivity, device and runtime management, agent workflows, AI model adapters, Admin and Public HTTP APIs, Peer RPC, telemetry, OTA, digital-content, and social domain services. The same contracts generate Go, JavaScript, C, and Flutter SDK surfaces.
 
 The development guides support day-to-day implementation, code review, and troubleshooting. They explain the project structure, module boundaries, request paths, code ownership, and where to begin when diagnosing connectivity, protocol, runtime, storage, or provider problems.
 
@@ -15,7 +15,7 @@ Code review should use these boundaries to determine whether changes are in the 
 | Edge ingress | Edge Node accepts public network connections and forwards them to the authoritative Server; business resources and final authorization still belong to the Server. |
 | Agent Runtime | Workspace instantiates the Agent environment, workflow driver determines the running mode, and runtime manages online Agent, input and output, and stream lifecycle. |
 | AI capability | GenX provides unified message, stream, model, tool, generator and transformer contracts, implemented by provider adapters. |
-| Product domains | Device, runtime, AI, system, social and gameplay services have their own resources and business rules. |
+| Product domains | Device, runtime, AI, system and social services have their own resources and business rules. |
 | API and SDK | Root `api/` stores the HTTP and Protobuf source contracts and generates Go, JavaScript, C, Flutter, and other client surfaces. |
 | Storage and media | Store packages provide general persistence/indexing capabilities; Audio packages provide codec, PCM, resampling, and voiceprint. |
 | Observability | Use structured logs to diagnose individual requests and low-cardinality metrics to observe requests, runtimes, and device state. See [Observability](observability) for fields and ownership. |

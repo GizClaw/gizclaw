@@ -40,7 +40,6 @@ func TestConnectMaintainedSurfaceUserStory(t *testing.T) {
 		{"connect", "friend", "--help"},
 		{"connect", "friend-group", "--help"},
 		{"connect", "firmware", "--help"},
-		{"connect", "gameplay", "--help"},
 	} {
 		result := h.RunCLI(args...)
 		result.MustSucceed(t)

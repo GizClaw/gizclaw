@@ -16,7 +16,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -36,9 +35,6 @@ const (
 	profileModels    profileResourceKind = "models"
 	profileVoices    profileResourceKind = "voices"
 	profileTools     profileResourceKind = "tools"
-	profilePetDefs   profileResourceKind = "pet_defs"
-	profileGameDefs  profileResourceKind = "game_defs"
-	profileBadgeDefs profileResourceKind = "badge_defs"
 )
 
 func (s *Server) ownerContext(ctx context.Context) context.Context {
@@ -154,12 +150,6 @@ func profileBindingsFrom(profile *apitypes.RuntimeProfile, kind profileResourceK
 		values = resources.Voices
 	case profileTools:
 		values = resources.Tools
-	case profilePetDefs:
-		values = resources.PetDefs
-	case profileGameDefs:
-		values = resources.GameDefs
-	case profileBadgeDefs:
-		values = resources.BadgeDefs
 	}
 	if values == nil {
 		return map[string]string{}
@@ -345,7 +335,7 @@ func (s *Server) effectiveWorkspacesByLabels(ctx context.Context, selector map[s
 }
 
 // effectiveWorkspaces merges the caller's own Workspaces with the shared
-// Workspaces reachable through Friend, FriendGroup, and Pet relationships. A
+// Workspaces reachable through Friend and FriendGroup relationships. A
 // Workspace whose deletion is already pending is treated as absent, like a
 // Workspace that no longer resolves, so an unfinished asynchronous deletion
 // leaves the remaining Workspaces listable.
@@ -429,22 +419,6 @@ func (s *Server) domainWorkspaceNames(ctx context.Context) ([]string, error) {
 			cursor = page.NextCursor
 		}
 	}
-	if s.Gameplay != nil && s.Gameplay.DB != nil && s.RuntimeProfile != nil {
-		profile := s.RuntimeProfile()
-		if profile == nil {
-			return orderedUnique(names, nil), nil
-		}
-		profileCtx := gameplay.WithRuntimeProfile(ctx, *profile)
-		petWorkspaceNames, err := s.Gameplay.ListPetWorkspaceNames(profileCtx, owner)
-		if err != nil {
-			return nil, err
-		}
-		for _, name := range petWorkspaceNames {
-			if name = strings.TrimSpace(name); name != "" {
-				names = append(names, name)
-			}
-		}
-	}
 	return orderedUnique(names, nil), nil
 }
 
@@ -483,23 +457,6 @@ func (s *Server) canAccessWorkspace(ctx context.Context, item apitypes.Workspace
 		return false, nil
 	case !errors.Is(err, kv.ErrNotFound):
 		return false, err
-	}
-	if isSocialWorkspace(item) {
-		return false, nil
-	}
-	if s.Gameplay != nil && s.RuntimeProfile != nil {
-		profile := s.RuntimeProfile()
-		if profile == nil {
-			return false, nil
-		}
-		profileCtx := gameplay.WithRuntimeProfile(ctx, *profile)
-		allowed, err := s.Gameplay.OwnerHasPetWorkspace(profileCtx, owner, workspaceName)
-		if err != nil {
-			return false, err
-		}
-		if allowed {
-			return true, nil
-		}
 	}
 	return false, nil
 }

@@ -7,7 +7,7 @@ GizClaw exposes two primary interfaces for administrators and peers. The Admin A
 | Interface | Intended caller | Contract | Giznet service | Typical uses |
 | --- | --- | --- | --- | --- |
 | Admin API | Operators, CLI, and management UIs | OpenAPI 3.0 / HTTP | `0x10` (Admin HTTP) | Peer administration, declarative resources, provider configuration, firmware, telemetry, and Server logs |
-| Peer RPC | Devices, apps, and SDKs | Protobuf RPC | `0x00` (Peer RPC) | Runtime state, workspaces, workflows, firmware, social data, gameplay, and device capabilities |
+| Peer RPC | Devices, apps, and SDKs | Protobuf RPC | `0x00` (Peer RPC) | Runtime state, workspaces, workflows, firmware, social data, and device capabilities |
 
 Use the Admin API for Server resources that span peers. Use Peer RPC to read or modify product data as the current peer. Edge-node route control uses the separate Edge RPC service `0x31`; it is not part of the ordinary Peer RPC client.
 
@@ -43,7 +43,7 @@ Ordinary devices and apps must not hold the admin key. Prefer the `gizclaw admin
 - Declarative resources: `POST /@apply` and `/resources/{kind}/{name}`.
 - Peers: query, approve, block, refresh, device information, and runtime.
 - AI and runtime: credentials, provider tenants, models, voices, workflows, workspaces, runtime profiles, and registration tokens.
-- Firmware and gameplay: firmware channel package configuration, game definitions, pet definitions, badge definitions, and peer gameplay data.
+- Firmware: firmware channel package configuration.
 - Operations: peer telemetry queries, the Server log SSE stream, and active pending-deletion inspection/retry.
 
 See [`api/http/admin.json`](https://github.com/GizClaw/gizclaw/blob/main/api/http/admin.json) for the complete paths, parameters, and responses.

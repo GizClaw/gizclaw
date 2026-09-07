@@ -23,7 +23,7 @@ Defines owner context and KV index conventions used by persisted resources. On t
 
 Defines the versioned, backend-neutral `PendingDeletion` envelope, durable task/source contracts, registration, bounded scanning and workers, leases, replay phases, persisted retry state, and the operator list/get/retry service. A domain deletion request atomically creates or reuses one minimal cleanup descriptor in that resource's physical store while retaining the active resource and indexes. Stable locator-derived IDs make producer retries address the same event; the immutable marker fingerprint prevents an earlier generation or stale lease from mutating later work.
 
-The common processor contains no resource deletion policy and never marks a generic task complete after a handler returns. A domain handler revalidates its marker, current lease, and exact resource generation, then atomically removes the resource and its source-owned marker, locator, and task state. Outcomes are `deferred`, bounded retryable failure, or terminal `failed`; operator retry preserves the replay phase. Completed tasks disappear immediately without a receipt or history. The production registry contains `gameplay/pet`, `friend_group/friend_group`, `workspace/workspace`, and `peer/peer`; each source advertises only kinds for which it owns a registered handler. The Peer handler coordinates domains, but narrow domain adapters perform the actual cleanup. The Peer KV retains only its permanent tombstone after completion.
+The common processor contains no resource deletion policy and never marks a generic task complete after a handler returns. A domain handler revalidates its marker, current lease, and exact resource generation, then atomically removes the resource and its source-owned marker, locator, and task state. Outcomes are `deferred`, bounded retryable failure, or terminal `failed`; operator retry preserves the replay phase. Completed tasks disappear immediately without a receipt or history. The production registry contains `friend_group/friend_group`, `workspace/workspace`, and `peer/peer`; each source advertises only kinds for which it owns a registered handler. The Peer handler coordinates domains, but narrow domain adapters perform the actual cleanup. The Peer KV retains only its permanent tombstone after completion.
 
 Metrics report active depth, oldest active age, claims, active workers, phase latency, deferrals, retries, terminal failures, transition errors, and completions using bounded source/kind/status/phase/outcome labels. They never use resource IDs, owners, deletion IDs, descriptors, fingerprints, lease tokens, or error text as labels. Metrics storage failure cannot stop cleanup.
 
@@ -39,7 +39,7 @@ Issues long-lived keys for a registered Peer, stores complete keys in plaintext 
 
 ### resourcemanager
 
-Provides unified declarative resource dispatch for Admin apply, show, and general resource operations. It knows which domain services should be handed over to different resource kinds, but does not reimplement business rules for credentials, workflow, firmware, gameplay or social.
+Provides unified declarative resource dispatch for Admin apply, show, and general resource operations. It knows which domain services should be handed over to different resource kinds, but does not reimplement business rules for credentials, workflow, firmware or social.
 
 Every concrete Resource carries a caller-supplied `metadata.id`. ResourceManager looks up and dispatches by `(kind, id)`, passes that ID unchanged to the domain service on create, and requires the desired ID to match the existing ID on update. It never generates an ID, performs a name lookup, or falls back from name to ID. Foreign-key inputs already contain the target canonical ID. `ResourceList` only dispatches its items in order and has no top-level ID.
 
@@ -52,7 +52,6 @@ flowchart TB
     Admin["Admin resource surface"] --> ResourceManager["resourcemanager"]
     ResourceManager --> AI["services/ai"]
     ResourceManager --> Device["services/device"]
-    ResourceManager --> Gameplay["services/gameplay"]
     ResourceManager --> Social["services/social"]
     ResourceManager --> Profile["runtimeprofile"]
     ResourceManager --> Ownership["ownership"]

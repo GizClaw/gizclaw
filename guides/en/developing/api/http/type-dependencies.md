@@ -54,9 +54,8 @@ The need to generate Go or JavaScript symbols does not constitute a reason for S
 | Error | `error_payload.json`, `error_response.json` | `ErrorPayload`, `ErrorResponse` |
 | Device identity | `device_info.json`, `hardware_info.json`, `peer_imei.json`, `peer_label.json` | Device, hardware, and stable identity values |
 | Runtime, Peer, and Server state | `runtime.json`, `peer*.json`, `registration.json`, `server*.json` | Runtime, registration, Peer lifecycle, stream, telemetry, and Server values |
-| Runtime access | `runtime_profile*.json`, `registration_token.json` | Profile allow lists, Gameplay configuration, and device registration token metadata |
+| Runtime access | `runtime_profile*.json`, `registration_token.json` | Profile allow lists and device registration token metadata |
 | Configuration | `configuration.json`, `agent_selection.json`, `refresh_*.json` | Shared configuration, Agent selection, and refresh contracts |
-| Gameplay | `gameplay.json` | Gameplay metadata and shared rule values |
 | Firmware | `firmware*.json` | Firmware, slot, external package, and spec values |
 | Credential | `credential*.json` | Credential body, spec, and values shared across Resources and APIs |
 | Model | `model*.json` | Model kind, provider, source, spec, and provider-specific typed data |

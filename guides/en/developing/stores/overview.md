@@ -1,6 +1,6 @@
 # pkgs/store Overview
 
-`pkgs/store` Provides GizClaw with basic persistence and indexing capabilities that are used in multiple fields. This defines a storage abstraction and generic implementation that does not own business rules for Peer, Agent, AI, Gameplay or other product resources.
+`pkgs/store` Provides GizClaw with basic persistence and indexing capabilities that are used in multiple fields. This defines a storage abstraction and generic implementation that does not own business rules for Peer, Agent, AI or other product resources.
 
 ## Package structure
 
@@ -22,7 +22,7 @@ pkgs/store/
 | [logstore](./logstore) | Structured record append/mutation, backend-neutral query and pagination | Process logs and conversation/event producers |
 | [memory](./memory) | Raw observations, fact recall/update/delete, and asynchronous operations | Agent runtimes and memory evaluation harnesses |
 | [metrics](./metrics) | Sample writing, instant/range query and aggregation | Peer telemetry, Server metrics |
-| [objectstore](./objectstore) | Binary object, prefix list/delete and expiration | Firmware, workspace, gameplay assets, HNSW |
+| [objectstore](./objectstore) | Binary object, prefix list/delete and expiration | Firmware, workspace assets, HNSW |
 | [vecid](./vecid) | Vector hashing, bucket and identity clustering | Voiceprint detection |
 | [vecstore](./vecstore) | Vector add/search/delete and HNSW persistence | Agent recall, memory index |
 

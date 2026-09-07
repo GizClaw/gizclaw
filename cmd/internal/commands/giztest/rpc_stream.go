@@ -75,26 +75,6 @@ func invokeRPCStream(ctx context.Context, client *gizcli.Client, step giztest.St
 			return operationResult{}, err
 		}
 		return speedTestOperationResult(result), nil
-	case "server.pet.pixa.download":
-		var req rpcapi.PetPixaDownloadRequest
-		if err := decodeRequest(request, &req); err != nil {
-			return operationResult{}, err
-		}
-		result, err := client.DownloadPetPixa(ctx, step.ID, req, buf)
-		if err != nil {
-			return operationResult{}, err
-		}
-		metadata = result
-	case "server.badge_def.pixa.download":
-		var req rpcapi.BadgeDefPixaDownloadRequest
-		if err := decodeRequest(request, &req); err != nil {
-			return operationResult{}, err
-		}
-		result, err := client.DownloadBadgeDefPixa(ctx, step.ID, req, buf)
-		if err != nil {
-			return operationResult{}, err
-		}
-		metadata = result
 	case "server.workspace.icon.download":
 		if object, ok := request.(map[string]any); ok {
 			request = cloneMap(object)

@@ -118,7 +118,7 @@ func (a openAIWorkspaceAdapter) ExecuteWorkspaceText(ctx context.Context, item a
 		return nil, err
 	}
 	host := newPeerAgentHost(
-		a.manager.AgentHost, nil, nil, a.manager.ownerGenX, a.manager.Gameplay,
+		a.manager.AgentHost, nil, nil, a.manager.ownerGenX,
 		a.manager.FlowcraftHistory, a.manager.FlowcraftStateDB, a.manager.MemoryRoot, a.manager.MemoryStores,
 		sfu.Factory{Config: a.manager.SFU, Bindings: a.manager.sfuBindings()},
 	)

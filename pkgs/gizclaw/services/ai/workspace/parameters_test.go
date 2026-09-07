@@ -103,9 +103,6 @@ func TestSetPeerWorkspaceParametersRejectsInvalidPatch(t *testing.T) {
 	if err == nil {
 		t.Fatal("invalid initiative error = nil")
 	}
-	if _, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverPet, nil, &apitypes.ConversationParameters{Initiative: new(apitypes.ConversationParametersInitiativeAgent)}); err != nil {
-		t.Fatalf("pet conversation patch error = %v", err)
-	}
 }
 
 func TestWorkspaceParametersWithPatchDerivesEino(t *testing.T) {
@@ -136,7 +133,7 @@ func TestWorkspaceParametersWithPatchDerivesEino(t *testing.T) {
 func TestWorkspaceParametersPatchSupportsEveryDriver(t *testing.T) {
 	for _, driver := range []apitypes.WorkflowDriver{
 		apitypes.WorkflowDriverAstTranslate, apitypes.WorkflowDriverDoubaoRealtime,
-		apitypes.WorkflowDriverEino, apitypes.WorkflowDriverFlowcraft, apitypes.WorkflowDriverPet,
+		apitypes.WorkflowDriverEino, apitypes.WorkflowDriverFlowcraft,
 		apitypes.WorkflowDriverDashscopeRealtime, apitypes.WorkflowDriverDoubaoRealtimeDuplex,
 		apitypes.WorkflowDriverSfu,
 	} {

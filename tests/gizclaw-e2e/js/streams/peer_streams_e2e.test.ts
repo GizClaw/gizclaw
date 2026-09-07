@@ -97,7 +97,7 @@ async function main(): Promise<void> {
       name: "JavaScript concurrent service Event probe",
     });
     eventProbePeerRegistered = true;
-    const runtimeProfileID = "default-gameplay";
+    const runtimeProfileID = "e2e-giztest";
     const registrationToken = await createRegistrationToken({
       client: admin,
       body: {

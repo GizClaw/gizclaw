@@ -32,7 +32,6 @@ const (
 	PeerEventType_PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED   PeerEventType = 5
 	PeerEventType_PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED PeerEventType = 6
 	PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED        PeerEventType = 7
-	PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED     PeerEventType = 8
 	// Server acknowledgement that an input audio BOS has been authorized and
 	// installed. Clients must receive this before sending its Opus packets.
 	PeerEventType_PEER_EVENT_TYPE_AUDIO_INPUT_READY PeerEventType = 9
@@ -49,7 +48,6 @@ var (
 		5: "PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED",
 		6: "PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED",
 		7: "PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED",
-		8: "PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED",
 		9: "PEER_EVENT_TYPE_AUDIO_INPUT_READY",
 	}
 	PeerEventType_value = map[string]int32{
@@ -61,7 +59,6 @@ var (
 		"PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED":   5,
 		"PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED": 6,
 		"PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED":        7,
-		"PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED":     8,
 		"PEER_EVENT_TYPE_AUDIO_INPUT_READY":           9,
 	}
 )
@@ -317,7 +314,6 @@ type PeerEvent struct {
 	//	*PeerEvent_WorkspaceHistoryUpdated
 	//	*PeerEvent_FriendRelationshipUpdated
 	//	*PeerEvent_FriendGroupUpdated
-	//	*PeerEvent_GameplayRewardUpdated
 	//	*PeerEvent_AudioInputReady
 	Payload       isPeerEvent_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
@@ -438,15 +434,6 @@ func (x *PeerEvent) GetFriendGroupUpdated() *FriendGroupUpdated {
 	return nil
 }
 
-func (x *PeerEvent) GetGameplayRewardUpdated() *GameplayRewardUpdated {
-	if x != nil {
-		if x, ok := x.Payload.(*PeerEvent_GameplayRewardUpdated); ok {
-			return x.GameplayRewardUpdated
-		}
-	}
-	return nil
-}
-
 func (x *PeerEvent) GetAudioInputReady() *AudioInputReady {
 	if x != nil {
 		if x, ok := x.Payload.(*PeerEvent_AudioInputReady); ok {
@@ -488,10 +475,6 @@ type PeerEvent_FriendGroupUpdated struct {
 	FriendGroupUpdated *FriendGroupUpdated `protobuf:"bytes,16,opt,name=friend_group_updated,json=friendGroupUpdated,proto3,oneof"`
 }
 
-type PeerEvent_GameplayRewardUpdated struct {
-	GameplayRewardUpdated *GameplayRewardUpdated `protobuf:"bytes,17,opt,name=gameplay_reward_updated,json=gameplayRewardUpdated,proto3,oneof"`
-}
-
 type PeerEvent_AudioInputReady struct {
 	AudioInputReady *AudioInputReady `protobuf:"bytes,18,opt,name=audio_input_ready,json=audioInputReady,proto3,oneof"`
 }
@@ -509,8 +492,6 @@ func (*PeerEvent_WorkspaceHistoryUpdated) isPeerEvent_Payload() {}
 func (*PeerEvent_FriendRelationshipUpdated) isPeerEvent_Payload() {}
 
 func (*PeerEvent_FriendGroupUpdated) isPeerEvent_Payload() {}
-
-func (*PeerEvent_GameplayRewardUpdated) isPeerEvent_Payload() {}
 
 func (*PeerEvent_AudioInputReady) isPeerEvent_Payload() {}
 
@@ -1150,71 +1131,11 @@ func (x *FriendGroupUpdated) GetAffectedPeerPublicKey() string {
 	return ""
 }
 
-type GameplayRewardUpdated struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	WorkspaceName   string                 `protobuf:"bytes,1,opt,name=workspace_name,json=workspaceName,proto3" json:"workspace_name,omitempty"`
-	RewardGrantName string                 `protobuf:"bytes,2,opt,name=reward_grant_name,json=rewardGrantName,proto3" json:"reward_grant_name,omitempty"`
-	RevisionUnixMs  int64                  `protobuf:"varint,3,opt,name=revision_unix_ms,json=revisionUnixMs,proto3" json:"revision_unix_ms,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
-}
-
-func (x *GameplayRewardUpdated) Reset() {
-	*x = GameplayRewardUpdated{}
-	mi := &file_api_proto_events_peer_event_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GameplayRewardUpdated) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GameplayRewardUpdated) ProtoMessage() {}
-
-func (x *GameplayRewardUpdated) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_events_peer_event_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GameplayRewardUpdated.ProtoReflect.Descriptor instead.
-func (*GameplayRewardUpdated) Descriptor() ([]byte, []int) {
-	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *GameplayRewardUpdated) GetWorkspaceName() string {
-	if x != nil {
-		return x.WorkspaceName
-	}
-	return ""
-}
-
-func (x *GameplayRewardUpdated) GetRewardGrantName() string {
-	if x != nil {
-		return x.RewardGrantName
-	}
-	return ""
-}
-
-func (x *GameplayRewardUpdated) GetRevisionUnixMs() int64 {
-	if x != nil {
-		return x.RevisionUnixMs
-	}
-	return 0
-}
-
 var File_api_proto_events_peer_event_proto protoreflect.FileDescriptor
 
 const file_api_proto_events_peer_event_proto_rawDesc = "" +
 	"\n" +
-	"!api/proto/events/peer_event.proto\x12\x11gizclaw.events.v1\"\xb2\x06\n" +
+	"!api/proto/events/peer_event.proto\x12\x11gizclaw.events.v1\"\xce\x05\n" +
 	"\tPeerEvent\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\rR\aversion\x124\n" +
 	"\x04type\x18\x02 \x01(\x0e2 .gizclaw.events.v1.PeerEventTypeR\x04type\x122\n" +
@@ -1226,8 +1147,7 @@ const file_api_proto_events_peer_event_proto_rawDesc = "" +
 	"\ttext_done\x18\r \x01(\v2\x1b.gizclaw.events.v1.TextDoneH\x00R\btextDone\x12h\n" +
 	"\x19workspace_history_updated\x18\x0e \x01(\v2*.gizclaw.events.v1.WorkspaceHistoryUpdatedH\x00R\x17workspaceHistoryUpdated\x12n\n" +
 	"\x1bfriend_relationship_updated\x18\x0f \x01(\v2,.gizclaw.events.v1.FriendRelationshipUpdatedH\x00R\x19friendRelationshipUpdated\x12Y\n" +
-	"\x14friend_group_updated\x18\x10 \x01(\v2%.gizclaw.events.v1.FriendGroupUpdatedH\x00R\x12friendGroupUpdated\x12b\n" +
-	"\x17gameplay_reward_updated\x18\x11 \x01(\v2(.gizclaw.events.v1.GameplayRewardUpdatedH\x00R\x15gameplayRewardUpdated\x12P\n" +
+	"\x14friend_group_updated\x18\x10 \x01(\v2%.gizclaw.events.v1.FriendGroupUpdatedH\x00R\x12friendGroupUpdated\x12P\n" +
 	"\x11audio_input_ready\x18\x12 \x01(\v2\".gizclaw.events.v1.AudioInputReadyH\x00R\x0faudioInputReadyB\t\n" +
 	"\apayload\".\n" +
 	"\x0fAudioInputReady\x12\x1b\n" +
@@ -1278,11 +1198,7 @@ const file_api_proto_events_peer_event_proto_rawDesc = "" +
 	"\x0eworkspace_name\x18\x02 \x01(\tR\rworkspaceName\x12<\n" +
 	"\x06change\x18\x03 \x01(\x0e2$.gizclaw.events.v1.FriendGroupChangeR\x06change\x12(\n" +
 	"\x10revision_unix_ms\x18\x04 \x01(\x03R\x0erevisionUnixMs\x127\n" +
-	"\x18affected_peer_public_key\x18\x05 \x01(\tR\x15affectedPeerPublicKey\"\x94\x01\n" +
-	"\x15GameplayRewardUpdated\x12%\n" +
-	"\x0eworkspace_name\x18\x01 \x01(\tR\rworkspaceName\x12*\n" +
-	"\x11reward_grant_name\x18\x02 \x01(\tR\x0frewardGrantName\x12(\n" +
-	"\x10revision_unix_ms\x18\x03 \x01(\x03R\x0erevisionUnixMs*\xff\x02\n" +
+	"\x18affected_peer_public_key\x18\x05 \x01(\tR\x15affectedPeerPublicKey*\xd2\x02\n" +
 	"\rPeerEventType\x12\x1f\n" +
 	"\x1bPEER_EVENT_TYPE_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13PEER_EVENT_TYPE_BOS\x10\x01\x12\x17\n" +
@@ -1291,8 +1207,7 @@ const file_api_proto_events_peer_event_proto_rawDesc = "" +
 	"\x19PEER_EVENT_TYPE_TEXT_DONE\x10\x04\x12-\n" +
 	")PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED\x10\x05\x12/\n" +
 	"+PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED\x10\x06\x12(\n" +
-	"$PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED\x10\a\x12+\n" +
-	"'PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED\x10\b\x12%\n" +
+	"$PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED\x10\a\x12%\n" +
 	"!PEER_EVENT_TYPE_AUDIO_INPUT_READY\x10\t*\x84\x01\n" +
 	"\n" +
 	"StreamKind\x12\x1b\n" +
@@ -1330,7 +1245,7 @@ func file_api_proto_events_peer_event_proto_rawDescGZIP() []byte {
 }
 
 var file_api_proto_events_peer_event_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_api_proto_events_peer_event_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_api_proto_events_peer_event_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_api_proto_events_peer_event_proto_goTypes = []any{
 	(PeerEventType)(0),                // 0: gizclaw.events.v1.PeerEventType
 	(StreamKind)(0),                   // 1: gizclaw.events.v1.StreamKind
@@ -1347,7 +1262,6 @@ var file_api_proto_events_peer_event_proto_goTypes = []any{
 	(*WorkspaceHistoryUpdated)(nil),   // 12: gizclaw.events.v1.WorkspaceHistoryUpdated
 	(*FriendRelationshipUpdated)(nil), // 13: gizclaw.events.v1.FriendRelationshipUpdated
 	(*FriendGroupUpdated)(nil),        // 14: gizclaw.events.v1.FriendGroupUpdated
-	(*GameplayRewardUpdated)(nil),     // 15: gizclaw.events.v1.GameplayRewardUpdated
 }
 var file_api_proto_events_peer_event_proto_depIdxs = []int32{
 	0,  // 0: gizclaw.events.v1.PeerEvent.type:type_name -> gizclaw.events.v1.PeerEventType
@@ -1358,19 +1272,18 @@ var file_api_proto_events_peer_event_proto_depIdxs = []int32{
 	12, // 5: gizclaw.events.v1.PeerEvent.workspace_history_updated:type_name -> gizclaw.events.v1.WorkspaceHistoryUpdated
 	13, // 6: gizclaw.events.v1.PeerEvent.friend_relationship_updated:type_name -> gizclaw.events.v1.FriendRelationshipUpdated
 	14, // 7: gizclaw.events.v1.PeerEvent.friend_group_updated:type_name -> gizclaw.events.v1.FriendGroupUpdated
-	15, // 8: gizclaw.events.v1.PeerEvent.gameplay_reward_updated:type_name -> gizclaw.events.v1.GameplayRewardUpdated
-	6,  // 9: gizclaw.events.v1.PeerEvent.audio_input_ready:type_name -> gizclaw.events.v1.AudioInputReady
-	1,  // 10: gizclaw.events.v1.StreamBegin.kind:type_name -> gizclaw.events.v1.StreamKind
-	1,  // 11: gizclaw.events.v1.StreamEnd.kind:type_name -> gizclaw.events.v1.StreamKind
-	9,  // 12: gizclaw.events.v1.StreamEnd.error:type_name -> gizclaw.events.v1.EventError
-	2,  // 13: gizclaw.events.v1.WorkspaceHistoryUpdated.workspace_kind:type_name -> gizclaw.events.v1.WorkspaceKind
-	3,  // 14: gizclaw.events.v1.FriendRelationshipUpdated.change:type_name -> gizclaw.events.v1.FriendRelationshipChange
-	4,  // 15: gizclaw.events.v1.FriendGroupUpdated.change:type_name -> gizclaw.events.v1.FriendGroupChange
-	16, // [16:16] is the sub-list for method output_type
-	16, // [16:16] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	6,  // 8: gizclaw.events.v1.PeerEvent.audio_input_ready:type_name -> gizclaw.events.v1.AudioInputReady
+	1,  // 9: gizclaw.events.v1.StreamBegin.kind:type_name -> gizclaw.events.v1.StreamKind
+	1,  // 10: gizclaw.events.v1.StreamEnd.kind:type_name -> gizclaw.events.v1.StreamKind
+	9,  // 11: gizclaw.events.v1.StreamEnd.error:type_name -> gizclaw.events.v1.EventError
+	2,  // 12: gizclaw.events.v1.WorkspaceHistoryUpdated.workspace_kind:type_name -> gizclaw.events.v1.WorkspaceKind
+	3,  // 13: gizclaw.events.v1.FriendRelationshipUpdated.change:type_name -> gizclaw.events.v1.FriendRelationshipChange
+	4,  // 14: gizclaw.events.v1.FriendGroupUpdated.change:type_name -> gizclaw.events.v1.FriendGroupChange
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_events_peer_event_proto_init() }
@@ -1386,7 +1299,6 @@ func file_api_proto_events_peer_event_proto_init() {
 		(*PeerEvent_WorkspaceHistoryUpdated)(nil),
 		(*PeerEvent_FriendRelationshipUpdated)(nil),
 		(*PeerEvent_FriendGroupUpdated)(nil),
-		(*PeerEvent_GameplayRewardUpdated)(nil),
 		(*PeerEvent_AudioInputReady)(nil),
 	}
 	type x struct{}
@@ -1395,7 +1307,7 @@ func file_api_proto_events_peer_event_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_events_peer_event_proto_rawDesc), len(file_api_proto_events_peer_event_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   11,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

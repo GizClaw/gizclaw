@@ -62,36 +62,6 @@ void main() {
     expect(() => parsePixa(emptyClip), throwsA(isA<PixaParseException>()));
   });
 
-  test('validates petdef and badgedef pixa contracts', () {
-    expect(validatePixa(makePixa(clips: ['default'])), isA<PixaAsset>());
-    expect(
-      validatePixa(
-        makePixa(clips: ['default']),
-        mode: PixaValidationMode.petdef,
-      ),
-      isA<PixaAsset>(),
-    );
-    expect(
-      () => validatePixa(makePixa(clips: []), mode: PixaValidationMode.petdef),
-      throwsA(isA<PixaParseException>()),
-    );
-
-    expect(
-      validatePixa(
-        makePixa(clips: ['icon']),
-        mode: PixaValidationMode.badgedef,
-      ),
-      isA<PixaAsset>(),
-    );
-    expect(
-      () => validatePixa(
-        makePixa(clips: ['idle']),
-        mode: PixaValidationMode.badgedef,
-      ),
-      throwsA(isA<PixaParseException>()),
-    );
-  });
-
   test('selects clips and frame indexes deterministically', () {
     final asset = parsePixa(makePixa(clips: ['idle', 'wave']));
     expect(findPixaClip(asset, 'wave')?.name, 'wave');

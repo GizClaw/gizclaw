@@ -109,8 +109,6 @@ class PixaAsset {
   int get frameCount => frames.length;
 }
 
-enum PixaValidationMode { petdef, badgedef }
-
 class PixaFrameRgba {
   const PixaFrameRgba({
     required this.width,
@@ -265,18 +263,7 @@ PixaAsset parsePixa(Uint8List input) {
   );
 }
 
-PixaAsset validatePixa(Uint8List bytes, {PixaValidationMode? mode}) {
-  final asset = parsePixa(bytes);
-  switch (mode) {
-    case PixaValidationMode.petdef:
-      _validatePetDefPixa(asset);
-    case PixaValidationMode.badgedef:
-      _validateBadgeDefPixa(asset);
-    case null:
-      break;
-  }
-  return asset;
-}
+PixaAsset validatePixa(Uint8List bytes) => parsePixa(bytes);
 
 PixaClip? findPixaClip(PixaAsset asset, String name) {
   for (final clip in asset.clips) {
@@ -376,47 +363,6 @@ PixaFrameRgba renderPixaFrameRgba(PixaAsset asset, int frameIndex) {
     height: asset.canvas.height,
     data: output,
   );
-}
-
-void _validatePetDefPixa(PixaAsset asset) {
-  if (asset.clips.isEmpty) {
-    throw PixaParseException(
-      'PetDef PIXA must contain at least one clip',
-      asset.bytes,
-    );
-  }
-  if (asset.frames.isEmpty) {
-    throw PixaParseException(
-      'PetDef PIXA must contain at least one frame',
-      asset.bytes,
-    );
-  }
-}
-
-void _validateBadgeDefPixa(PixaAsset asset) {
-  final iconClips = asset.clips.where((clip) => clip.name == 'icon').toList();
-  if (iconClips.isEmpty) {
-    throw PixaParseException(
-      'BadgeDef PIXA must contain an icon clip',
-      asset.bytes,
-    );
-  }
-
-  final icon = iconClips.first;
-  if (icon.frameCount != 1) {
-    throw PixaParseException(
-      'BadgeDef icon clip must contain exactly one frame',
-      asset.bytes,
-    );
-  }
-
-  final frame = asset.frames[icon.firstFrame];
-  if (frame.type != PixaFrameType.key) {
-    throw PixaParseException(
-      'BadgeDef icon clip must reference a key frame',
-      asset.bytes,
-    );
-  }
 }
 
 String _readNullTerminatedUtf8(Uint8List bytes, int offset, int length) {

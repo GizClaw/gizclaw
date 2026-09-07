@@ -400,18 +400,6 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 		return err
 	}
 	server.FriendGroupStore = friendGroupRoot
-	server.GameplayCatalogDB, err = resolveSQLStore(registry, "services.gameplay.store", cfg.Gameplay.Store)
-	if err != nil {
-		return err
-	}
-	server.GameplayAssets, err = resolveObjectStore(registry, "services.gameplay.assets_store", cfg.Gameplay.AssetsStore)
-	if err != nil {
-		return err
-	}
-	server.GameplayDB, err = resolveSQLStore(registry, "services.gameplay.database_store", cfg.Gameplay.DatabaseStore)
-	if err != nil {
-		return err
-	}
 	if cfg.AgentHost != nil {
 		if cfg.AgentHost.RuntimeStore != "" {
 			server.AgentHostStore, err = resolveObjectStore(registry, "services.agent_host.runtime_store", cfg.AgentHost.RuntimeStore)

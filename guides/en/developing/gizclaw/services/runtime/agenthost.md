@@ -39,14 +39,11 @@ flowchart TD
 All runtime creation paths must have symmetric cancel, stream close, lease release, and registry cleanup. The persistence of Agent definition, Workflow, and Workspace still belongs to AI services.
 
 History entries written by AgentHost carry the internal `origin=agenthost`
-marker. After persistence succeeds, the callback receives the exact entry
-identity rather than only a timestamp. The callback is a bounded, disposable
-Gameplay scheduling hint, not a durable high-water receipt; dropping it does not
-change persisted History. After a runtime is successfully published, AgentHost
-also reports that exact Workspace activation so Gameplay can lazily reconcile
-only its History checkpoint. Neither callback invokes GenX, and the reward
-evaluator is not exposed as an Agent Tool. Imported and legacy History lacks
-this origin and is not new reward activity.
+marker. A request-scoped History observer attached through
+`WithWorkspaceHistoryObserver` receives the exact persisted entry identity
+rather than only a timestamp; it is a bounded, disposable hint, not a durable
+high-water receipt, and dropping it does not change persisted History. The
+observer never invokes GenX. Imported and legacy History lacks this origin.
 
 ## Current-Peer Tool scope
 
@@ -97,7 +94,7 @@ Transformers and history replay drain provider output into growable stream buffe
 
 ## SFU Workspace runtime
 
-Friend and Friend Group SFU Workspaces share the same Reload, lease, registry, and cancellation paths, but `Host.NewAgent` does not wrap the `sfu` driver in the History wrapper; it installs `noHistoryAgent` instead: history list returns an empty list, play returns `not_found`, nothing is written to History, and neither `workspace_history_updated` nor the Gameplay reward callback fires. The SFU runtime hangs its LiveKit connection, track publication, and remote track readers on the Transform context, so the existing `Service.Reload` order of stopping the previous runtime before activating the new selection is the Workspace-switch cancellation path; no additional state machine exists.
+Friend and Friend Group SFU Workspaces share the same Reload, lease, registry, and cancellation paths, but `Host.NewAgent` does not wrap the `sfu` driver in the History wrapper; it installs `noHistoryAgent` instead: history list returns an empty list, play returns `not_found`, nothing is written to History, and `workspace_history_updated` does not fire. The SFU runtime hangs its LiveKit connection, track publication, and remote track readers on the Transform context, so the existing `Service.Reload` order of stopping the previous runtime before activating the new selection is the Workspace-switch cancellation path; no additional state machine exists.
 
 The SFU downlink is zero-decode passthrough: the session emits only the floor holder's raw Opus packets as `OpusPassthroughMIME` chunks, one fresh `stream_id` per floor hold with the participant identity as `label`. Those chunks never reach the AgentHost decoder or mixer; only their BOS/EOS take part in route bookkeeping so `peerAudioRouteAggregator` emits paired audio BOS/EOS Peer Events to the Device, and the AgentHost mixer keeps serving every other driver. Talk utterances, half-duplex and the floor rules are described in [services/social](/en/developing/gizclaw/services/social#media-and-downlink). Connector behavior is described in [SFU composition boundary](/en/developing/gizclaw/services/ai#sfu-composition-boundary); activation and revocation in [services/social](/en/developing/gizclaw/services/social#sfu-workspace).
 

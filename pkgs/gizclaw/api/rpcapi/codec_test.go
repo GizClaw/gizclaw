@@ -195,9 +195,6 @@ func TestPeerIdentityMessagesUseCompactNameOnlyLayouts(t *testing.T) {
 		fields     []protoreflect.Name
 	}{
 		{(&rpcpb.FirmwareGetResponse{}).ProtoReflect().Descriptor(), []protoreflect.Name{"channel", "description", "url", "sha256", "size"}},
-		{(&rpcpb.GameResult{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "difficulty", "duration_ms", "game_def_name", "name", "idempotency_key", "max_score", "occurred_at", "outcome", "payload", "pet_name", "runtime_profile_name", "score"}},
-		{(&rpcpb.PointsTransaction{}).ProtoReflect().Descriptor(), []protoreflect.Name{"balance_after", "created_at", "delta", "game_result_name", "name", "owner_public_key", "pet_name", "reason", "reward_grant_name", "runtime_profile_name", "source_name", "source_type"}},
-		{(&rpcpb.RewardGrant{}).ProtoReflect().Descriptor(), []protoreflect.Name{"badge_exp_delta", "created_at", "game_result_name", "name", "owner_public_key", "pet_exp_delta", "pet_name", "points_delta", "reason", "runtime_profile_name", "source_name", "source_type"}},
 		{(&rpcpb.FriendObject{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "name", "peer_public_key", "updated_at", "workspace_name"}},
 		{(&rpcpb.FriendGroupMemberObject{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "friend_group_name", "name", "peer_public_key", "role", "updated_at"}},
 		{(&rpcpb.PeerRunHistoryEntry{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "gear_id", "name", "actor_name", "replay_available", "text", "type"}},
@@ -260,10 +257,6 @@ func TestRPCMethodsIntentionallyReuseRetiredValuesWithoutCompatibilityReservatio
 	descriptor := rpcpb.RpcMethod_RPC_METHOD_UNSPECIFIED.Descriptor()
 	if method23 := descriptor.Values().ByNumber(23); method23 != nil {
 		t.Fatalf("retired method 23 is still registered as %s", method23.Name())
-	}
-	badgeDefinition := descriptor.Values().ByName("RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD")
-	if badgeDefinition == nil || badgeDefinition.Number() != 64 {
-		t.Fatalf("Badge definition method = %v, want tag 64", badgeDefinition)
 	}
 	if descriptor.ReservedRanges().Len() != 0 || descriptor.ReservedNames().Len() != 0 {
 		t.Fatalf("RPC method compatibility reservations = ranges:%v names:%v", descriptor.ReservedRanges(), descriptor.ReservedNames())
@@ -616,18 +609,6 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	if err != nil || workflowDecoded.Value.Name != workflow.Value.Name {
 		t.Fatalf("workflow response = %#v, %v", workflowDecoded, err)
 	}
-
-	var statPayload RPCPayload
-	if err := statPayload.encode("PetStats", PetStats{Life: 99, Health: 88, Energy: 77}); err != nil {
-		t.Fatalf("encode PetStats error = %v", err)
-	}
-	var statProto rpcpb.PetStats
-	if err := proto.Unmarshal(statPayload.payload, &statProto); err != nil {
-		t.Fatalf("unmarshal pet stats payload error = %v", err)
-	}
-	if statProto.GetLife() != 99 || statProto.GetHealth() != 88 || statProto.GetEnergy() != 77 {
-		t.Fatalf("stats = %+v", statProto)
-	}
 }
 
 func TestPayloadCodecRoundTripsNewWorkflowContracts(t *testing.T) {
@@ -730,24 +711,6 @@ func TestPayloadCodecRoundTripsNewWorkflowContracts(t *testing.T) {
 		t.Fatalf("Eino voice adapter round trip = %#v", decodedEino.VoiceAdapter)
 	}
 
-	pet := PetWorkflowSpec{
-		Driver:               ReusableWorkflowDriverDoubaoRealtimeDuplex,
-		DoubaoRealtimeDuplex: &duplex,
-	}
-	var petPayload RPCPayload
-	if err := petPayload.encode("PetWorkflowSpec", pet); err != nil {
-		t.Fatalf("encode Pet workflow: %v", err)
-	}
-	var decodedPet PetWorkflowSpec
-	if err := petPayload.decode("PetWorkflowSpec", &decodedPet); err != nil {
-		t.Fatalf("decode Pet workflow: %v", err)
-	}
-	if decodedPet.Driver != ReusableWorkflowDriverDoubaoRealtimeDuplex ||
-		decodedPet.DoubaoRealtimeDuplex == nil ||
-		decodedPet.DoubaoRealtimeDuplex.Model != duplex.Model {
-		t.Fatalf("Pet workflow round trip = %#v", decodedPet)
-	}
-
 	var parameters WorkspaceParameters
 	realtime := WorkspaceInputModeRealtime
 	if err := parameters.FromEinoWorkspaceParameters(EinoWorkspaceParameters{
@@ -770,23 +733,6 @@ func TestPayloadCodecRoundTripsNewWorkflowContracts(t *testing.T) {
 	}
 	if decodedEinoParameters.Input == nil || *decodedEinoParameters.Input != WorkspaceInputModeRealtime {
 		t.Fatalf("Eino Workspace input round trip = %#v", decodedEinoParameters.Input)
-	}
-
-	if err := parameters.FromPetWorkspaceParameters(PetWorkspaceParameters{Input: &realtime}); err != nil {
-		t.Fatalf("encode Pet workspace parameters union: %v", err)
-	}
-	if err := parametersPayload.encode("WorkspaceParameters", parameters); err != nil {
-		t.Fatalf("encode Pet WorkspaceParameters: %v", err)
-	}
-	if err := parametersPayload.decode("WorkspaceParameters", &decodedParameters); err != nil {
-		t.Fatalf("decode Pet WorkspaceParameters: %v", err)
-	}
-	decodedPetParameters, err := decodedParameters.AsPetWorkspaceParameters()
-	if err != nil {
-		t.Fatalf("Pet WorkspaceParameters round trip: %v", err)
-	}
-	if decodedPetParameters.Input == nil || *decodedPetParameters.Input != WorkspaceInputModeRealtime {
-		t.Fatalf("Pet Workspace input round trip = %#v", decodedPetParameters.Input)
 	}
 }
 

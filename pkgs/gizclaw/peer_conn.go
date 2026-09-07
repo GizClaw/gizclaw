@@ -19,7 +19,6 @@ import (
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
@@ -480,7 +479,6 @@ func (h *PeerConn) initAgentHost() {
 		resources,
 		h.serverGenX,
 		h.ownerGenX,
-		manager.Gameplay,
 		manager.FlowcraftHistory,
 		manager.FlowcraftStateDB,
 		manager.MemoryRoot,
@@ -518,25 +516,6 @@ func (h *PeerConn) initAgentHost() {
 			LifecycleDisabled: h.streamLifecycleDisabled,
 		},
 		OnConsumerError: h.broadcastAgentOutputError,
-		OnWorkspaceActivated: func(ctx context.Context, workspaceName string) {
-			// The Server-local name index is scoped by owner, so the record
-			// is resolved through the same access path that activated it.
-			item, rpcErr := resources.ResolveAccessibleWorkspace(ctx, workspaceName)
-			var err error
-			if rpcErr != nil {
-				err = errors.New(rpcErr.Message)
-			} else {
-				err = manager.handleWorkspaceActivated(ctx, item)
-			}
-			if err != nil {
-				slog.Error("activate Workspace reward",
-					"workspace", workspaceName,
-					"error_class", "activation",
-					"error", err,
-				)
-			}
-		},
-		OnWorkspaceHistoryUpdated: manager.handleWorkspaceHistoryUpdated,
 	}
 	if h.rpc != nil {
 		h.rpc.peerRunRuntime = h.agentHost
@@ -629,12 +608,8 @@ func (h *PeerConn) peerResources() *peerresource.Server {
 		Contacts:       manager.Contacts,
 		Friends:        manager.Friends,
 		FriendGroups:   manager.FriendGroups,
-		Gameplay:       manager.Gameplay,
 		Tools:          manager.Tools,
 		RuntimeProfile: h.currentRuntimeProfile,
-	}
-	if h.serverGenX != nil {
-		resources.RewardEvaluator = gameplay.GenXRewardEvaluator{Generator: h.serverGenX.Generator()}
 	}
 	return resources
 }

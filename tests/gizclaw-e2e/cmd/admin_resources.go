@@ -27,6 +27,21 @@ func SetupRuntimeResources(ctx context.Context, api *adminhttp.ClientWithRespons
 	return profile.Spec.Resources, nil
 }
 
+// EnsureMinimalRuntimeProfile upserts a RuntimeProfile that binds no resources
+// and no Workflows, for suites that only need a registration target and must
+// not depend on the standard E2E resource fixtures being loaded.
+func EnsureMinimalRuntimeProfile(ctx context.Context, api *adminhttp.ClientWithResponses, id string) (apitypes.RuntimeProfile, error) {
+	return UpsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{
+		Id: id,
+		Spec: apitypes.RuntimeProfileSpec{
+			Resources: apitypes.RuntimeProfileResources{},
+			Workflows: apitypes.RuntimeProfileWorkflows{
+				Collections: apitypes.RuntimeProfileWorkflowCollections{},
+			},
+		},
+	})
+}
+
 // UpsertRuntimeProfile applies an exact caller-supplied RuntimeProfile ID and
 // assumes every nested Admin reference already contains its canonical ID.
 func UpsertRuntimeProfile(ctx context.Context, api *adminhttp.ClientWithResponses, body adminhttp.RuntimeProfileUpsert) (apitypes.RuntimeProfile, error) {

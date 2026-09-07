@@ -18,16 +18,17 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/providertenants"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
@@ -138,7 +139,6 @@ type Manager struct {
 	Contacts         *contact.Server
 	Friends          *friend.Server
 	FriendGroups     *friendgroup.Server
-	Gameplay         *gameplay.Runtime
 	FlowcraftHistory logstore.MutableStore
 	FlowcraftStateDB *sqlx.DB
 	MemoryRoot       string
@@ -627,6 +627,44 @@ func (m *Manager) runtimeProfileForOwner(ctx context.Context, owner string) (api
 		return apitypes.RuntimeProfile{}, fmt.Errorf("gizclaw: resolve workspace owner %q runtime profile: %w", owner, err)
 	}
 	return profile, nil
+}
+
+// ownerGenX resolves the owner's current RuntimeProfile and builds a GenX
+// service scoped to that owner's visible Model and Voice aliases.
+func (m *Manager) ownerGenX(ctx context.Context, owner string) (*peergenx.Service, error) {
+	if m == nil {
+		return nil, errors.New("gizclaw: manager is not configured")
+	}
+	profile, err := m.runtimeProfileForOwner(ctx, owner)
+	if err != nil {
+		return nil, err
+	}
+	return m.ownerGenXForProfile(ctx, owner, profile)
+}
+
+func (m *Manager) ownerGenXForProfile(
+	_ context.Context,
+	owner string,
+	profile apitypes.RuntimeProfile,
+) (*peergenx.Service, error) {
+	if m == nil {
+		return nil, errors.New("gizclaw: manager is not configured")
+	}
+	var publicKey giznet.PublicKey
+	if err := publicKey.UnmarshalText([]byte(strings.TrimSpace(owner))); err != nil || publicKey.IsZero() {
+		return nil, fmt.Errorf("gizclaw: invalid workspace owner public key %q", owner)
+	}
+	resources := &peerresource.Server{
+		Caller: publicKey, Peers: m.Peers, Firmwares: m.Firmwares,
+		Workspaces: m.Workspaces, Workflows: m.Workflows, Models: m.Models,
+		Voices: m.Voices, Contacts: m.Contacts, Friends: m.Friends,
+		FriendGroups: m.FriendGroups, Tools: m.Tools,
+		RuntimeProfile: func() *apitypes.RuntimeProfile { return &profile },
+	}
+	return peergenx.New(peergenx.Service{
+		Models: resources, Voices: resources, Credentials: m.Credentials,
+		ProviderTenants: m.ProviderTenants,
+	}), nil
 }
 
 func (m *Manager) SetPeerDown(publicKey giznet.PublicKey, conn giznet.Conn) {

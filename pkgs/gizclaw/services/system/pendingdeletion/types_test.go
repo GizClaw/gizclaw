@@ -77,22 +77,16 @@ func TestNewRejectsEmptyOwnerPublicKey(t *testing.T) {
 	}
 }
 
-func TestNewRejectsPetWithoutOwner(t *testing.T) {
-	if _, err := New(KindPet, "pet-a", nil, ReasonResourceDelete, struct{}{}, time.Time{}); err == nil {
-		t.Fatal("New error = nil")
-	}
-}
-
 func TestNewRejectsPaddedResourceIDAndOwner(t *testing.T) {
 	owner := " peer-a "
-	if _, err := New(KindPet, " pet-a ", &owner, ReasonResourceDelete, struct{}{}, time.Time{}); err == nil {
+	if _, err := New(KindWorkspace, " workspace-a ", &owner, ReasonResourceDelete, struct{}{}, time.Time{}); err == nil {
 		t.Fatal("New(padded resource id) error = nil")
 	}
-	if _, err := New(KindPet, "pet-a", &owner, ReasonResourceDelete, struct{}{}, time.Time{}); err == nil {
+	if _, err := New(KindWorkspace, "workspace-a", &owner, ReasonResourceDelete, struct{}{}, time.Time{}); err == nil {
 		t.Fatal("New(padded owner) error = nil")
 	}
 	canonicalOwner := "peer-a"
-	record, err := New(KindPet, "pet-a", &canonicalOwner, ReasonResourceDelete, struct{}{}, time.Time{})
+	record, err := New(KindWorkspace, "workspace-a", &canonicalOwner, ReasonResourceDelete, struct{}{}, time.Time{})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -122,22 +116,6 @@ func TestNewReusesResourceDeletionID(t *testing.T) {
 	}
 }
 
-func TestNewScopesPetDeletionIDByOwner(t *testing.T) {
-	firstOwner := "peer-a"
-	secondOwner := "peer-b"
-	first, err := New(KindPet, "shared-pet", &firstOwner, ReasonResourceDelete, struct{}{}, time.Unix(1, 0))
-	if err != nil {
-		t.Fatalf("New(first): %v", err)
-	}
-	second, err := New(KindPet, "shared-pet", &secondOwner, ReasonResourceDelete, struct{}{}, time.Unix(1, 0))
-	if err != nil {
-		t.Fatalf("New(second): %v", err)
-	}
-	if first.DeletionID == second.DeletionID {
-		t.Fatalf("owner-scoped Pet deletion IDs both = %q", first.DeletionID)
-	}
-}
-
 func TestNewUsesCurrentTimeWhenTimestampIsZero(t *testing.T) {
 	before := time.Now().UTC()
 	record, err := New(KindPeer, "peer-a", nil, ReasonPeerDelete, struct{}{}, time.Time{})
@@ -151,11 +129,11 @@ func TestNewUsesCurrentTimeWhenTimestampIsZero(t *testing.T) {
 
 func TestDeterministicIdentityAndStoredFingerprint(t *testing.T) {
 	owner := "peer-a"
-	record, err := New(KindPet, "pet-a", &owner, ReasonResourceDelete, struct{}{}, time.Unix(1, 0))
+	record, err := New(KindWorkspace, "workspace-a", &owner, ReasonResourceDelete, struct{}{}, time.Unix(1, 0))
 	if err != nil {
 		t.Fatal(err)
 	}
-	deterministic, err := DeterministicDeletionID(Locator{Kind: KindPet, ResourceID: "pet-a", OwnerPublicKey: &owner})
+	deterministic, err := DeterministicDeletionID(Locator{Kind: KindWorkspace, ResourceID: "workspace-a", OwnerPublicKey: &owner})
 	if err != nil || deterministic != record.DeletionID || !IsDeterministic(record) {
 		t.Fatalf("deterministic ID = %q, %v; record = %#v", deterministic, err, record)
 	}

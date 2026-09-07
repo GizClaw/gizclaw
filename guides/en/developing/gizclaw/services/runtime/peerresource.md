@@ -19,4 +19,4 @@ Firmware is not part of the RuntimeProfile name catalog. A RegistrationToken may
 
 Catalog resolution takes a fresh profile snapshot for each operation. A dangling internal binding is unavailable without exposing its canonical target. Removing a Workflow binding does not remove or hide existing Workspace state; execution returns not found until the same Peer name is restored.
 
-Run selection for a built-in SFU Workspace does not depend on a RuntimeProfile. A reconnected Peer can select an SFU Workspace it still belongs to without registering again. Selection still checks current Social membership and Workspace deletion state; ordinary Workflow and Pet Workspaces still require the current RuntimeProfile.
+Run selection for a built-in SFU Workspace does not depend on a RuntimeProfile. A reconnected Peer can select an SFU Workspace it still belongs to without registering again. Selection still checks current Social membership and Workspace deletion state; ordinary Workflow Workspaces still require the current RuntimeProfile.

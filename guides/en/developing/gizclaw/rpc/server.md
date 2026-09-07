@@ -4,7 +4,7 @@
 
 Define `rpcServer`, required domain service interfaces, connection handler, total dispatch and all Server RPC handlers. It dispatches normal or streaming requests based on the RPC method and converts between RPC payloads and domain service types.
 
-Server methods cover Peer info, runtime status, run Agent, run workspace, history, memory recall, reload, stop and say. For methods that have been planned but not yet implemented in the contract, this file returns a unified not-implemented response. It has RPC composition and adaptation, but no domain rules for peers, runtime, firmware or gameplay.
+Server methods cover Peer info, runtime status, run Agent, run workspace, history, memory recall, reload, stop and say. For methods that have been planned but not yet implemented in the contract, this file returns a unified not-implemented response. It has RPC composition and adaptation, but no domain rules for peers, runtime or firmware.
 
 ## Core structure and main function
 

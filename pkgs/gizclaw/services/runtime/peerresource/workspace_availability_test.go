@@ -160,21 +160,21 @@ func (s *profileMutatingWorkspaceService) CreatePeerWorkspace(
 	return created, err
 }
 
-func TestSystemWorkspaceAvailabilityDoesNotRequireCollectionLabel(t *testing.T) {
+func TestSystemWorkspaceAvailabilityRequiresSocialOrCollectionBinding(t *testing.T) {
 	system := true
 	profile := runtimeProfileWithWorkspaceAlias("r1")
-	if !workspaceAvailable(&profile, apitypes.Workspace{
-		Name: "pet-1", WorkflowId: "pet-care", System: &system,
+	if workspaceAvailable(&profile, apitypes.Workspace{
+		Name: "system-1", WorkflowId: "system-workflow", System: &system,
 	}) {
-		t.Fatal("system Workspace without labels is unavailable")
+		t.Fatal("non-Social system Workspace without a collection binding is available")
 	}
 	if workspaceAvailable(nil, apitypes.Workspace{
-		Name: "pet-1", WorkflowId: "pet-care", System: &system,
+		Name: "system-1", WorkflowId: "system-workflow", System: &system,
 	}) {
 		t.Fatal("system Workspace without a RuntimeProfile is available")
 	}
 	if workspaceAvailable(&profile, apitypes.Workspace{
-		Name: "legacy", WorkflowId: "pet-care",
+		Name: "legacy", WorkflowId: "system-workflow",
 	}) {
 		t.Fatal("ordinary unlabeled Workspace is available")
 	}
@@ -190,7 +190,7 @@ func TestSFUWorkspaceProjectionWithoutRuntimeProfile(t *testing.T) {
 		{"sfu", apitypes.Workspace{WorkflowId: socialutil.SFUWorkflowID, System: &system}, true},
 		{"ordinary sfu id", apitypes.Workspace{WorkflowId: socialutil.SFUWorkflowID, System: &ordinary}, false},
 		{"unmarked sfu id", apitypes.Workspace{WorkflowId: socialutil.SFUWorkflowID}, false},
-		{"pet", apitypes.Workspace{WorkflowId: "pet-care", System: &system}, false},
+		{"system non-sfu", apitypes.Workspace{WorkflowId: "system-workflow", System: &system}, false},
 		{"ordinary workflow", apitypes.Workspace{WorkflowId: "canonical-workflow"}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -216,7 +216,6 @@ func runtimeProfileWithWorkspaceAlias(revision string) apitypes.RuntimeProfile {
 				"llm": collectionTestBinding("chat-model", "Chat"),
 			},
 		}, Workflows: apitypes.RuntimeProfileWorkflows{
-			System: apitypes.RuntimeProfileSystemWorkflows{Pet: "pet-care"},
 			Collections: apitypes.RuntimeProfileWorkflowCollections{
 				"story-teller": {"journey": collectionTestBinding("canonical-workflow", "Journey")},
 			},

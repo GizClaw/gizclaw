@@ -530,7 +530,7 @@ flowchart TB
 
 不应该放在 `pkgs/gizedge`：
 
-- Peer、workspace、firmware、gameplay、social 或 Agent 领域服务。
+- Peer、workspace、firmware、social 或 Agent 领域服务。
 - Authoritative resource storage 和最终 resource access 判断。
 - Transport-independent connection contract 或通用 WebRTC 实现。
 - GizClaw Server 的 HTTP/RPC handler。

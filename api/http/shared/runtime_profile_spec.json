@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "RuntimeProfile Spec Schema",
-    "description": "RuntimeProfile alias bindings and gameplay policy.",
+    "description": "RuntimeProfile alias bindings.",
     "version": "1.0.0"
   },
   "paths": {},
@@ -41,26 +41,11 @@
           }
         }
       },
-      "RuntimeProfileSystemWorkflows": {
-        "type": "object",
-        "required": ["pet"],
-        "additionalProperties": false,
-        "properties": {
-          "pet": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Persisted Workflow resource ID for adopted Pet Workspaces."
-          }
-        }
-      },
       "RuntimeProfileWorkflows": {
         "type": "object",
-        "required": ["system", "collections"],
+        "required": ["collections"],
         "additionalProperties": false,
         "properties": {
-          "system": {
-            "$ref": "#/components/schemas/RuntimeProfileSystemWorkflows"
-          },
           "collections": {
             "$ref": "#/components/schemas/RuntimeProfileWorkflowCollections"
           }
@@ -255,335 +240,10 @@
             "type": "object",
             "additionalProperties": { "$ref": "#/components/schemas/RuntimeProfileBinding" }
           },
-          "pet_defs": {
-            "type": "object",
-            "additionalProperties": { "$ref": "#/components/schemas/RuntimeProfileBinding" }
-          },
-          "game_defs": {
-            "type": "object",
-            "additionalProperties": { "$ref": "#/components/schemas/RuntimeProfileBinding" }
-          },
-          "badge_defs": {
-            "type": "object",
-            "additionalProperties": { "$ref": "#/components/schemas/RuntimeProfileBinding" }
-          },
           "memories": {
             "type": "object",
             "additionalProperties": { "$ref": "#/components/schemas/RuntimeProfileMemoryBinding" }
           }
-        }
-      },
-      "RuntimeProfilePointsSpec": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "initial_balance": { "type": "integer", "format": "int64", "default": 0 }
-        }
-      },
-      "RuntimeProfilePetPoolEntry": {
-        "type": "object",
-        "required": ["pet_def", "weight"],
-        "additionalProperties": false,
-        "properties": {
-          "pet_def": { "type": "string" },
-          "weight": { "type": "integer", "format": "int64", "minimum": 1 },
-          "rarity": { "type": "string" },
-          "adoption_cost": { "type": "integer", "format": "int64", "default": 0 }
-        }
-      },
-      "RuntimeProfileAdoptionSpec": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "pool": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/RuntimeProfilePetPoolEntry" }
-          }
-        }
-      },
-      "RuntimeProfileCareDecaySpec": {
-        "type": "object",
-        "required": ["health", "satiety", "hygiene", "mood"],
-        "additionalProperties": false,
-        "properties": {
-          "health": { "type": "number", "format": "double", "minimum": 0 },
-          "satiety": { "type": "number", "format": "double", "minimum": 0 },
-          "hygiene": { "type": "number", "format": "double", "minimum": 0 },
-          "mood": { "type": "number", "format": "double", "minimum": 0 }
-        }
-      },
-      "RuntimeProfileLifeWeightsSpec": {
-        "type": "object",
-        "required": ["health", "satiety", "hygiene", "mood"],
-        "additionalProperties": false,
-        "properties": {
-          "health": { "type": "number", "format": "double", "minimum": 0, "maximum": 1 },
-          "satiety": { "type": "number", "format": "double", "minimum": 0, "maximum": 1 },
-          "hygiene": { "type": "number", "format": "double", "minimum": 0, "maximum": 1 },
-          "mood": { "type": "number", "format": "double", "minimum": 0, "maximum": 1 }
-        }
-      },
-      "RuntimeProfileLifeDecaySpec": {
-        "type": "object",
-        "required": ["contributing_weights", "max_loss_per_hour", "exponent"],
-        "additionalProperties": false,
-        "properties": {
-          "contributing_weights": { "$ref": "#/components/schemas/RuntimeProfileLifeWeightsSpec" },
-          "max_loss_per_hour": { "type": "number", "format": "double", "minimum": 0 },
-          "exponent": { "type": "number", "format": "double", "exclusiveMinimum": true, "minimum": 1 }
-        }
-      },
-      "RuntimeProfilePetTimeSpec": {
-        "type": "object",
-        "required": ["care_decay_per_hour", "energy_recovery_per_hour", "life_decay"],
-        "additionalProperties": false,
-        "properties": {
-          "care_decay_per_hour": { "$ref": "#/components/schemas/RuntimeProfileCareDecaySpec" },
-          "energy_recovery_per_hour": { "type": "number", "format": "double", "minimum": 0 },
-          "life_decay": { "$ref": "#/components/schemas/RuntimeProfileLifeDecaySpec" }
-        }
-      },
-      "RuntimeProfileLevelingSpec": {
-        "type": "object",
-        "required": ["base_exp", "log_scale"],
-        "additionalProperties": false,
-        "properties": {
-          "base_exp": { "type": "integer", "format": "int64", "minimum": 1 },
-          "log_scale": { "type": "number", "format": "double", "minimum": 0, "maximum": 100 }
-        }
-      },
-      "RuntimeProfilePetExperienceSpec": {
-        "type": "object",
-        "required": ["energy_per_pet_exp", "leveling"],
-        "additionalProperties": false,
-        "properties": {
-          "energy_per_pet_exp": { "type": "integer", "format": "int64", "minimum": 1 },
-          "leveling": { "$ref": "#/components/schemas/RuntimeProfileLevelingSpec" }
-        }
-      },
-      "RuntimeProfilePetActionSpec": {
-        "type": "object",
-        "required": ["energy_cost", "stat_delta"],
-        "additionalProperties": false,
-        "properties": {
-          "energy_cost": { "type": "integer", "format": "int64", "minimum": 1, "maximum": 100 },
-          "stat_delta": { "type": "number", "format": "double", "exclusiveMinimum": true, "minimum": 0, "maximum": 100 }
-        }
-      },
-      "RuntimeProfilePetActionsSpec": {
-        "type": "object",
-        "required": ["feed", "bathe", "play", "heal"],
-        "additionalProperties": false,
-        "properties": {
-          "feed": { "$ref": "#/components/schemas/RuntimeProfilePetActionSpec" },
-          "bathe": { "$ref": "#/components/schemas/RuntimeProfilePetActionSpec" },
-          "play": { "$ref": "#/components/schemas/RuntimeProfilePetActionSpec" },
-          "heal": { "$ref": "#/components/schemas/RuntimeProfilePetActionSpec" }
-        }
-      },
-      "RuntimeProfileGameRewardSpec": {
-        "type": "object",
-        "required": ["model", "pet_exp_max", "badge_exp_max_per_badge", "prompt"],
-        "additionalProperties": false,
-        "properties": {
-          "model": { "type": "string", "minLength": 1 },
-          "pet_exp_max": { "type": "integer", "format": "int64", "minimum": 0 },
-          "badge_exp_max_per_badge": { "type": "integer", "format": "int64", "minimum": 0 },
-          "prompt": { "type": "string", "minLength": 1 }
-        }
-      },
-      "RuntimeProfileGameSpec": {
-        "type": "object",
-        "required": ["energy_cost", "points_cost", "reward"],
-        "additionalProperties": false,
-        "properties": {
-          "energy_cost": { "type": "integer", "format": "int64", "minimum": 1, "maximum": 100 },
-          "points_cost": { "type": "integer", "format": "int64", "minimum": 0 },
-          "reward": { "$ref": "#/components/schemas/RuntimeProfileGameRewardSpec" }
-        }
-      },
-      "RuntimeProfilePetGameplaySpec": {
-        "type": "object",
-        "required": ["time", "experience", "actions", "games"],
-        "additionalProperties": false,
-        "properties": {
-          "time": { "$ref": "#/components/schemas/RuntimeProfilePetTimeSpec" },
-          "experience": { "$ref": "#/components/schemas/RuntimeProfilePetExperienceSpec" },
-          "actions": { "$ref": "#/components/schemas/RuntimeProfilePetActionsSpec" },
-          "games": {
-            "type": "object",
-            "additionalProperties": { "$ref": "#/components/schemas/RuntimeProfileGameSpec" }
-          }
-        }
-      },
-      "RuntimeProfileWorkspaceRewardDebounceSpec": {
-        "type": "object",
-        "required": ["quiet_period", "max_window_age"],
-        "additionalProperties": false,
-        "properties": {
-          "quiet_period": { "type": "string", "minLength": 1, "maxLength": 32 },
-          "max_window_age": { "type": "string", "minLength": 1, "maxLength": 32 }
-        }
-      },
-      "RuntimeProfileWorkspaceRewardTranscriptSpec": {
-        "type": "object",
-        "required": ["max_entries", "max_text_bytes"],
-        "additionalProperties": false,
-        "properties": {
-          "max_entries": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 1,
-            "maximum": 1000
-          },
-          "max_text_bytes": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 1,
-            "maximum": 1048576
-          }
-        }
-      },
-      "RuntimeProfileWorkspaceRewardEvaluationSpec": {
-        "type": "object",
-        "required": ["model", "points_prompt", "score_min", "score_max", "qualifying_score"],
-        "additionalProperties": false,
-        "properties": {
-          "model": { "type": "string", "minLength": 1 },
-          "points_prompt": { "type": "string", "minLength": 1, "maxLength": 8192 },
-          "score_min": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0,
-            "maximum": 1000000
-          },
-          "score_max": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0,
-            "maximum": 1000000
-          },
-          "qualifying_score": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0,
-            "maximum": 1000000
-          }
-        }
-      },
-      "RuntimeProfileWorkspaceRewardPointsTier": {
-        "type": "object",
-        "required": ["min_score", "delta"],
-        "additionalProperties": false,
-        "properties": {
-          "min_score": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0,
-            "maximum": 1000000
-          },
-          "delta": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0,
-            "maximum": 1000000
-          }
-        }
-      },
-      "RuntimeProfileWorkspaceRewardPointsSpec": {
-        "type": "object",
-        "required": ["tiers"],
-        "additionalProperties": false,
-        "properties": {
-          "tiers": {
-            "type": "array",
-            "minItems": 1,
-            "maxItems": 100,
-            "items": { "$ref": "#/components/schemas/RuntimeProfileWorkspaceRewardPointsTier" }
-          }
-        }
-      },
-      "RuntimeProfileWorkspaceRewardBadgeSpec": {
-        "type": "object",
-        "required": ["max_exp_per_window"],
-        "additionalProperties": false,
-        "properties": {
-          "max_exp_per_window": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 1,
-            "maximum": 1000000
-          }
-        }
-      },
-      "RuntimeProfileWorkspaceRewardRollingBudgetSpec": {
-        "type": "object",
-        "required": ["period", "points_max", "badge_exp_max"],
-        "additionalProperties": false,
-        "properties": {
-          "period": { "type": "string", "minLength": 1, "maxLength": 32 },
-          "points_max": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0,
-            "maximum": 1000000000
-          },
-          "badge_exp_max": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0,
-            "maximum": 1000000000
-          }
-        }
-      },
-      "RuntimeProfileWorkspaceRewardSpec": {
-        "type": "object",
-        "required": ["enabled"],
-        "additionalProperties": false,
-        "properties": {
-          "enabled": { "type": "boolean" },
-          "workspace_kinds": {
-            "type": "array",
-            "minItems": 1,
-            "maxItems": 1,
-            "uniqueItems": true,
-            "items": {
-              "type": "string",
-              "enum": ["workflow"]
-            }
-          },
-          "debounce": {
-            "$ref": "#/components/schemas/RuntimeProfileWorkspaceRewardDebounceSpec"
-          },
-          "transcript": {
-            "$ref": "#/components/schemas/RuntimeProfileWorkspaceRewardTranscriptSpec"
-          },
-          "evaluation": {
-            "$ref": "#/components/schemas/RuntimeProfileWorkspaceRewardEvaluationSpec"
-          },
-          "points": {
-            "$ref": "#/components/schemas/RuntimeProfileWorkspaceRewardPointsSpec"
-          },
-          "badges": {
-            "type": "object",
-            "maxProperties": 64,
-            "additionalProperties": {
-              "$ref": "#/components/schemas/RuntimeProfileWorkspaceRewardBadgeSpec"
-            }
-          },
-          "rolling_budget": {
-            "$ref": "#/components/schemas/RuntimeProfileWorkspaceRewardRollingBudgetSpec"
-          }
-        }
-      },
-      "RuntimeProfileGameplaySpec": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "points": { "$ref": "#/components/schemas/RuntimeProfilePointsSpec" },
-          "adoption": { "$ref": "#/components/schemas/RuntimeProfileAdoptionSpec" },
-          "pet": { "$ref": "#/components/schemas/RuntimeProfilePetGameplaySpec" },
-          "workspace_reward": { "$ref": "#/components/schemas/RuntimeProfileWorkspaceRewardSpec" }
         }
       },
       "RuntimeProfileSpec": {
@@ -592,8 +252,7 @@
         "additionalProperties": false,
         "properties": {
           "workflows": { "$ref": "#/components/schemas/RuntimeProfileWorkflows" },
-          "resources": { "$ref": "#/components/schemas/RuntimeProfileResources" },
-          "gameplay": { "$ref": "#/components/schemas/RuntimeProfileGameplaySpec" }
+          "resources": { "$ref": "#/components/schemas/RuntimeProfileResources" }
         }
       }
     }

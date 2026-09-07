@@ -27,7 +27,6 @@ const PeerEventType$json = {
     {'1': 'PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED', '2': 5},
     {'1': 'PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED', '2': 6},
     {'1': 'PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED', '2': 7},
-    {'1': 'PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED', '2': 8},
     {'1': 'PEER_EVENT_TYPE_AUDIO_INPUT_READY', '2': 9},
   ],
 };
@@ -39,8 +38,8 @@ final $typed_data.Uint8List peerEventTypeDescriptor = $convert.base64Decode(
     'VF9UWVBFX1RFWFRfREVMVEEQAxIdChlQRUVSX0VWRU5UX1RZUEVfVEVYVF9ET05FEAQSLQopUE'
     'VFUl9FVkVOVF9UWVBFX1dPUktTUEFDRV9ISVNUT1JZX1VQREFURUQQBRIvCitQRUVSX0VWRU5U'
     'X1RZUEVfRlJJRU5EX1JFTEFUSU9OU0hJUF9VUERBVEVEEAYSKAokUEVFUl9FVkVOVF9UWVBFX0'
-    'ZSSUVORF9HUk9VUF9VUERBVEVEEAcSKwonUEVFUl9FVkVOVF9UWVBFX0dBTUVQTEFZX1JFV0FS'
-    'RF9VUERBVEVEEAgSJQohUEVFUl9FVkVOVF9UWVBFX0FVRElPX0lOUFVUX1JFQURZEAk=');
+    'ZSSUVORF9HUk9VUF9VUERBVEVEEAcSJQohUEVFUl9FVkVOVF9UWVBFX0FVRElPX0lOUFVUX1JF'
+    'QURZEAk=');
 
 @$core.Deprecated('Use streamKindDescriptor instead')
 const StreamKind$json = {
@@ -190,15 +189,6 @@ const PeerEvent$json = {
       '10': 'friendGroupUpdated'
     },
     {
-      '1': 'gameplay_reward_updated',
-      '3': 17,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.events.v1.GameplayRewardUpdated',
-      '9': 0,
-      '10': 'gameplayRewardUpdated'
-    },
-    {
       '1': 'audio_input_ready',
       '3': 18,
       '4': 1,
@@ -226,10 +216,8 @@ final $typed_data.Uint8List peerEventDescriptor = $convert.base64Decode(
     'cF91cGRhdGVkGA8gASgLMiwuZ2l6Y2xhdy5ldmVudHMudjEuRnJpZW5kUmVsYXRpb25zaGlwVX'
     'BkYXRlZEgAUhlmcmllbmRSZWxhdGlvbnNoaXBVcGRhdGVkElkKFGZyaWVuZF9ncm91cF91cGRh'
     'dGVkGBAgASgLMiUuZ2l6Y2xhdy5ldmVudHMudjEuRnJpZW5kR3JvdXBVcGRhdGVkSABSEmZyaW'
-    'VuZEdyb3VwVXBkYXRlZBJiChdnYW1lcGxheV9yZXdhcmRfdXBkYXRlZBgRIAEoCzIoLmdpemNs'
-    'YXcuZXZlbnRzLnYxLkdhbWVwbGF5UmV3YXJkVXBkYXRlZEgAUhVnYW1lcGxheVJld2FyZFVwZG'
-    'F0ZWQSUAoRYXVkaW9faW5wdXRfcmVhZHkYEiABKAsyIi5naXpjbGF3LmV2ZW50cy52MS5BdWRp'
-    'b0lucHV0UmVhZHlIAFIPYXVkaW9JbnB1dFJlYWR5QgkKB3BheWxvYWQ=');
+    'VuZEdyb3VwVXBkYXRlZBJQChFhdWRpb19pbnB1dF9yZWFkeRgSIAEoCzIiLmdpemNsYXcuZXZl'
+    'bnRzLnYxLkF1ZGlvSW5wdXRSZWFkeUgAUg9hdWRpb0lucHV0UmVhZHlCCQoHcGF5bG9hZA==');
 
 @$core.Deprecated('Use audioInputReadyDescriptor instead')
 const AudioInputReady$json = {
@@ -444,19 +432,3 @@ final $typed_data.Uint8List friendGroupUpdatedDescriptor = $convert.base64Decode
     'Z2UYAyABKA4yJC5naXpjbGF3LmV2ZW50cy52MS5GcmllbmRHcm91cENoYW5nZVIGY2hhbmdlEi'
     'gKEHJldmlzaW9uX3VuaXhfbXMYBCABKANSDnJldmlzaW9uVW5peE1zEjcKGGFmZmVjdGVkX3Bl'
     'ZXJfcHVibGljX2tleRgFIAEoCVIVYWZmZWN0ZWRQZWVyUHVibGljS2V5');
-
-@$core.Deprecated('Use gameplayRewardUpdatedDescriptor instead')
-const GameplayRewardUpdated$json = {
-  '1': 'GameplayRewardUpdated',
-  '2': [
-    {'1': 'workspace_name', '3': 1, '4': 1, '5': 9, '10': 'workspaceName'},
-    {'1': 'reward_grant_name', '3': 2, '4': 1, '5': 9, '10': 'rewardGrantName'},
-    {'1': 'revision_unix_ms', '3': 3, '4': 1, '5': 3, '10': 'revisionUnixMs'},
-  ],
-};
-
-/// Descriptor for `GameplayRewardUpdated`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List gameplayRewardUpdatedDescriptor = $convert.base64Decode(
-    'ChVHYW1lcGxheVJld2FyZFVwZGF0ZWQSJQoOd29ya3NwYWNlX25hbWUYASABKAlSDXdvcmtzcG'
-    'FjZU5hbWUSKgoRcmV3YXJkX2dyYW50X25hbWUYAiABKAlSD3Jld2FyZEdyYW50TmFtZRIoChBy'
-    'ZXZpc2lvbl91bml4X21zGAMgASgDUg5yZXZpc2lvblVuaXhNcw==');

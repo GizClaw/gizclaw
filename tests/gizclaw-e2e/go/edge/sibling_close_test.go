@@ -183,9 +183,9 @@ func registerDefaultRuntimeProfile(
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	tokenName := fmt.Sprintf("e2e-gocs-%d", time.Now().UnixNano())
-	profile, found, err := clitest.RuntimeProfileByID(ctx, api, "default-gameplay")
+	profile, found, err := clitest.RuntimeProfileByID(ctx, api, "e2e-giztest")
 	if err != nil || !found {
-		t.Fatalf("resolve default gameplay RuntimeProfile: found=%v err=%v", found, err)
+		t.Fatalf("resolve standard E2E RuntimeProfile: found=%v err=%v", found, err)
 	}
 	response, err := api.CreateRegistrationTokenWithResponse(
 		ctx,

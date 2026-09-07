@@ -463,7 +463,7 @@ func TestStorePersistsStructuredFactCandidatesWithExtractionConfigured(t *testin
 func TestStoreDirectFactObservationIsIdempotent(t *testing.T) {
 	store := newTestStore(t, Config{})
 	observation := Observation{
-		Scope: testScope, ID: "gameplay/drive/reward_grant/grant-1",
+		Scope: testScope, ID: "workspace/event/entry-1",
 		Facts: []memorystore.FactCandidate{{
 			Text:       "Pet completed care.",
 			Attributes: map[string]any{"kind": "event", "source_id": "grant-1"},

@@ -149,8 +149,8 @@ bash tests/gizclaw-e2e/run_firmware_tests.sh
 
 Managed-deletion changes use a fixed production vertical-slice entrypoint. It
 validates the shared credential file, starts an isolated Docker stack, and runs
-the dedicated Peer RPC deletion package for Pet, Workspace, Friend Group, and
-Peer resources. The suite covers active-use termination and Peer tombstone
+the dedicated Peer RPC deletion package for Workspace, Friend Group, and Peer
+resources. The suite covers active-use termination and Peer tombstone
 survival across a Server restart, then cleans the project after success or
 failure without running unrelated provider-backed scenarios:
 
@@ -233,7 +233,7 @@ Workspace history is runtime data and must not be seeded by the reset script.
 - `go/delete` retains deletion checks that require Admin observation, restart, and tombstones.
 - `go/edge` retains TURN relay, sibling-close, failure recovery, and network diagnostics.
 - `go/openai` retains typed SDK coverage of the OpenAI-compatible API.
-- `giztest/*.giztest.yaml` covers Peer RPC, conversation, social, gameplay, and Workflow behavior.
+- `giztest/*.giztest.yaml` covers Peer RPC, conversation, social, and Workflow behavior.
 - `cmd` executes `testdata/bin/gizclaw` with `os/exec`; it must not bypass the CLI with `go run` or typed clients.
 - `js/admin` covers WebRTC Admin fetch; `js/rpc` covers peer and server-initiated RPC.
 - `js/giztest`, `flutter/giztest`, and `cgo/giztest` run the same giztest scenarios with their own SDKs; see the next section.

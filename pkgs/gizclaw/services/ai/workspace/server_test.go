@@ -31,8 +31,6 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	srv := newTestServer(t)
 	runtime := &recordingRuntimeStore{}
 	srv.RuntimeStore = runtime
-	deletionFencer := &recordingWorkspaceDeletionFencer{}
-	srv.DeletionFencer = deletionFencer
 	ctx := context.Background()
 	seedWorkflow(t, srv, "workflow-1")
 
@@ -126,9 +124,6 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	}
 	if _, ok := deleteResp.(adminhttp.DeleteWorkspace200JSONResponse); !ok {
 		t.Fatalf("DeleteWorkspace() response = %#v", deleteResp)
-	}
-	if len(deletionFencer.workspaceIDs) != 1 || deletionFencer.workspaceIDs[0] != workspaceID || !deletionFencer.callbackInvoked {
-		t.Fatalf("Workspace deletion fence = %#v", deletionFencer)
 	}
 	if len(runtime.deleted) != 0 {
 		t.Fatalf("runtime deleted during pending-deletion request = %#v", runtime.deleted)
@@ -484,52 +479,6 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	}
 	if len(runtime.deleted) != 1 {
 		t.Fatalf("runtime deleted after missing system delete = %#v, want no name-based cleanup", runtime.deleted)
-	}
-}
-
-func TestServerPetSystemWorkspaceAllowsInputModeUpdates(t *testing.T) {
-	t.Parallel()
-
-	srv := newTestServer(t)
-	seedPetWorkflow(t, srv, "pet-care", apitypes.ReusableWorkflowDriverFlowcraft)
-	ctx := ownership.WithOwner(context.Background(), "peer-a")
-	created, wasCreated, err := srv.CreateSystemWorkspace(ctx, adminhttp.WorkspaceUpsert{
-		Name: "pet-workspace", WorkflowId: "pet-care",
-	})
-	if err != nil || !wasCreated {
-		t.Fatalf("CreateSystemWorkspace() = %#v, %v, %v", created, wasCreated, err)
-	}
-
-	for _, input := range []apitypes.WorkspaceInputMode{
-		apitypes.WorkspaceInputModeRealtime,
-		apitypes.WorkspaceInputModePushToTalk,
-	} {
-		parameters := apitypes.WorkspaceParameters{}
-		if err := parameters.FromPetWorkspaceParameters(apitypes.PetWorkspaceParameters{Input: &input}); err != nil {
-			t.Fatal(err)
-		}
-		body := adminhttp.WorkspaceUpsert{
-			Id: created.Id, Name: created.Name, WorkflowId: created.WorkflowId, Parameters: &parameters,
-		}
-		response, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: created.Id, Body: &body})
-		if err != nil {
-			t.Fatalf("PutWorkspace(%s) error = %v", input, err)
-		}
-		updated, ok := response.(adminhttp.PutWorkspace200JSONResponse)
-		if !ok {
-			t.Fatalf("PutWorkspace(%s) response = %#v", input, response)
-		}
-		petParameters, err := updated.Parameters.AsPetWorkspaceParameters()
-		if err != nil || petParameters.Input == nil || *petParameters.Input != input {
-			t.Fatalf("PutWorkspace(%s) parameters = %#v, %v", input, updated.Parameters, err)
-		}
-	}
-
-	reused, wasCreated, err := srv.CreateSystemWorkspace(ctx, adminhttp.WorkspaceUpsert{
-		Name: "pet-workspace", WorkflowId: "pet-care",
-	})
-	if err != nil || wasCreated || reused.Parameters == nil {
-		t.Fatalf("CreateSystemWorkspace(reuse) = %#v, %v, %v", reused, wasCreated, err)
 	}
 }
 
@@ -1609,16 +1558,6 @@ func seedFlowcraftWorkflow(t *testing.T, srv *Server, name, generateModel string
 	}
 }
 
-func seedPetWorkflow(t *testing.T, srv *Server, name string, driver apitypes.ReusableWorkflowDriver) {
-	t.Helper()
-
-	store := testWorkflowStore(t, srv)
-	body := fmt.Appendf(nil, `{"name":%q,"spec":{"driver":"pet","pet":{"driver":%q,"flowcraft":{"graph":{"name":"Pet","entry":"answer","nodes":[{"id":"answer","type":"passthrough","publish":true}]}}}}}`, name, driver)
-	if err := store.Set(context.Background(), workflowReferenceKey(name), body); err != nil {
-		t.Fatalf("seed Pet workflow %q: %v", name, err)
-	}
-}
-
 func seedModel(t *testing.T, srv *Server, id string, kind apitypes.ModelKind) {
 	t.Helper()
 
@@ -1711,24 +1650,6 @@ func mustWorkspaceUpsert(t *testing.T, raw string) adminhttp.WorkspaceUpsert {
 type recordingRuntimeStore struct {
 	prepared []string
 	deleted  []string
-}
-
-type recordingWorkspaceDeletionFencer struct {
-	workspaceIDs    []string
-	callbackInvoked bool
-}
-
-func (f *recordingWorkspaceDeletionFencer) WithWorkspaceDeletionFence(
-	ctx context.Context,
-	workspaceID string,
-	createMarker func(context.Context, *sqlx.DB, *sqlx.Tx) error,
-) error {
-	f.workspaceIDs = append(f.workspaceIDs, workspaceID)
-	if err := createMarker(ctx, nil, nil); err != nil {
-		return err
-	}
-	f.callbackInvoked = true
-	return nil
 }
 
 func (s *recordingRuntimeStore) PrepareWorkspace(_ context.Context, workspace string) (Runtime, error) {

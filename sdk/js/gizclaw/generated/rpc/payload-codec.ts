@@ -46,12 +46,9 @@ export type PeerRole = "" | "admin" | "client" | "edge-node" | "server" | "unspe
 export type PeerRunHistoryEntryType = "" | "agent" | "gear" | "unspecified" | number;
 export type PeerRunHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type PeerRunStatusState = "" | "error" | "running" | "starting" | "stopped" | "stopping" | "unspecified" | number;
-export type PetBehavior = "" | "bathe" | "feed" | "heal" | "play" | "unspecified" | number;
-export type PetLifecycle = "" | "alive" | "dead" | "unspecified" | number;
-export type PetWorkspaceParametersAgentType = "" | "pet" | "unspecified" | number;
 export type ReusableWorkflowDriver = "" | "ast-translate" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "unspecified" | number;
 export type VolcTenantModelProviderDataApiMode = "" | "asr" | "chat_completions" | "embedding" | "realtime" | "realtime_duplex" | "translation" | "tts" | "unspecified" | number;
-export type WorkflowDriver = "" | "ast-translate" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "pet" | "sfu" | "unspecified" | number;
+export type WorkflowDriver = "" | "ast-translate" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "sfu" | "unspecified" | number;
 export type WorkspaceHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type WorkspaceInputMode = "" | "push-to-talk" | "realtime" | "unspecified" | number;
 export type APIKey = {
@@ -131,29 +128,6 @@ export type AudioPlayerStatus = {
   "error_code"?: string;
   "error_message"?: string;
   "observed_at_unix_ms": number;
-};
-export type Badge = {
-  "active": boolean;
-  "badge_def_name": string;
-  "created_at": string;
-  "exp": number;
-  "level": number;
-  "name": string;
-  "progress": number;
-  "updated_at": string;
-};
-export type BadgeDefPixaDownloadRequest = {
-  "name": string;
-};
-export type BadgeDefPixaDownloadResponse = {
-  "name": string;
-  "pixa_path"?: string;
-  "size_bytes": number;
-};
-export type BadgeListResponse = {
-  "has_next": boolean;
-  "items": Badge[];
-  "next_cursor"?: string;
 };
 export type ClientDeviceAudioPlayerGetRequest = Record<string, never>;
 export type ClientDeviceAudioPlayerGetResponse = AudioPlayerStatus;
@@ -655,41 +629,6 @@ export type FriendObject = {
   "updated_at"?: string;
   "workspace_name"?: string;
 };
-export type GameResult = {
-  "created_at": string;
-  "difficulty"?: string;
-  "duration_ms"?: number;
-  "game_def_name": string;
-  "name": string;
-  "idempotency_key"?: string;
-  "max_score"?: number;
-  "occurred_at": string;
-  "outcome"?: string;
-  "payload"?: GameplayMetadata;
-  "pet_name": string;
-  "runtime_profile_name": string;
-  "score"?: number;
-};
-export type GameResultListResponse = {
-  "has_next": boolean;
-  "items": GameResult[];
-  "next_cursor"?: string;
-};
-export type GameRewardSpec = {
-  "badge_exp_delta": Record<string, number>;
-  "pet_exp_delta": number;
-  "reason": string;
-};
-export type GameplayListRequest = {
-  "cursor"?: string;
-  "limit"?: number;
-};
-export type GameplayMetadata = {
-  "fields": Record<string, unknown>;
-};
-export type GameplayNameGetRequest = {
-  "name": string;
-};
 export type GeminiTenantModelProviderData = {
   "upstream_model"?: string;
   "support_json_output"?: boolean;
@@ -901,176 +840,15 @@ export type PeerStatus = {
   "reported_at"?: string;
   "volume"?: number;
 };
-export type Pet = {
-  "name": string;
-  "runtime_profile_name": string;
-  "pet_def_name": string;
-  "display_name": string;
-  "workspace_name": string;
-  "stats": PetStats;
-  "progression": PetProgression;
-  "lifecycle": PetLifecycle;
-  "died_at"?: string;
-  "state_settled_at": string;
-  "last_active_at": string;
-  "created_at": string;
-  "updated_at": string;
-};
-export type PetActions = {
-  "pet_name": string;
-  "pet_def_name": string;
-  "bindings": PetVisualBindings;
-  "pet_def_updated_at": string;
-  "clip_names": Record<string, string>;
-};
-export type PetAdoptRequest = {
-  "name": string;
-  "display_name": string;
-};
-export type PetAdoptResponse = {
-  "pet": Pet;
-  "points": PointsAccount;
-  "transaction": PointsTransaction;
-};
-export type PetDeleteRequest = {
-  "name": string;
-};
-export type PetDriveGameResultInput = {
-  "difficulty"?: string;
-  "duration_ms"?: number;
-  "game_name": string;
-  "idempotency_key"?: string;
-  "max_score"?: number;
-  "occurred_at"?: string;
-  "outcome"?: string;
-  "payload"?: GameplayMetadata;
-  "score"?: number;
-};
-export type PetDriveRequest = {
-  "behavior"?: PetBehavior;
-  "game_result"?: PetDriveGameResultInput;
-  "pet_name": string;
-  "idempotency_key"?: string;
-};
-export type PetDriveResponse = {
-  "badges": Badge[];
-  "game_result"?: GameResult;
-  "pet": Pet;
-  "points": PointsAccount;
-  "reward_grants": RewardGrant[];
-  "transactions": PointsTransaction[];
-};
-export type PetGetRequest = {
-  "name": string;
-};
-export type PetListResponse = {
-  "has_next": boolean;
-  "items": Pet[];
-  "next_cursor"?: string;
-};
-export type PetPixaDownloadRequest = {
-  "pet_name": string;
-};
-export type PetPixaDownloadResponse = {
-  "pet_name": string;
-  "pet_def_name": string;
-  "pixa_path"?: string;
-  "size_bytes": number;
-};
-export type PetProgression = {
-  "experience": number;
-  "level": number;
-};
-export type PetPutRequest = {
-  "display_name": string;
-  "name": string;
-};
-export type PetStats = {
-  "life": number;
-  "health": number;
-  "satiety": number;
-  "hygiene": number;
-  "mood": number;
-  "energy": number;
-};
-export type PetVisualBindings = {
-  "feed": string;
-  "bathe": string;
-  "play": string;
-  "heal": string;
-  "idle": string;
-  "sick": string;
-  "dead": string;
-  "sleep"?: string;
-};
-export type PetWorkflowSpec = {
-  "driver": ReusableWorkflowDriver;
-  "toolkit"?: ToolkitPolicy;
-  "flowcraft"?: FlowcraftWorkflowSpec;
-  "doubao_realtime"?: DoubaoRealtimeWorkflowSpec;
-  "ast_translate"?: ASTTranslateWorkflowSpec;
-  "dashscope_realtime"?: DashScopeRealtimeWorkflowSpec;
-  "doubao_realtime_duplex"?: DoubaoRealtimeDuplexWorkflowSpec;
-  "eino"?: EinoWorkflowSpec;
-};
-export type PetWorkspaceParameters = {
-  "agent_type": PetWorkspaceParametersAgentType;
-  "input"?: WorkspaceInputMode;
-};
 export type PingRequest = {
   "client_send_time": number;
 };
 export type PingResponse = {
   "server_time": number;
 };
-export type PointsAccount = {
-  "balance": number;
-  "created_at": string;
-  "owner_public_key": string;
-  "runtime_profile_name": string;
-  "updated_at": string;
-};
-export type PointsTransaction = {
-  "balance_after": number;
-  "created_at": string;
-  "delta": number;
-  "game_result_name"?: string;
-  "name": string;
-  "owner_public_key": string;
-  "pet_name"?: string;
-  "reason": string;
-  "reward_grant_name"?: string;
-  "runtime_profile_name": string;
-  "source_name": string;
-  "source_type": string;
-};
-export type PointsTransactionListResponse = {
-  "has_next": boolean;
-  "items": PointsTransaction[];
-  "next_cursor"?: string;
-};
 export type ResourceI18nText = {
   "display_name": string;
   "description"?: string;
-};
-export type RewardGrant = {
-  "badge_exp_delta": Record<string, number>;
-  "created_at": string;
-  "game_result_name"?: string;
-  "name": string;
-  "owner_public_key": string;
-  "pet_exp_delta": number;
-  "pet_name"?: string;
-  "points_delta": number;
-  "reason"?: string;
-  "runtime_profile_name": string;
-  "source_name": string;
-  "source_type": string;
-};
-export type RewardGrantListResponse = {
-  "has_next": boolean;
-  "items": RewardGrant[];
-  "next_cursor"?: string;
 };
 export type Runtime = {
   "debug_mode"?: string;
@@ -1080,22 +858,12 @@ export type Runtime = {
   "rx_bytes"?: number;
   "tx_bytes"?: number;
 };
-export type RuntimeAdoptRequest = PetAdoptRequest;
-export type RuntimeAdoptResponse = PetAdoptResponse;
 export type ServerAPIKeyResolveRequest = {
   "api_key": string;
 };
 export type ServerAPIKeyResolveResponse = {
   "assignment": PeerAssignment;
 };
-export type ServerBadgeGetRequest = GameplayNameGetRequest;
-export type ServerBadgeGetResponse = Badge;
-export type ServerBadgeListRequest = GameplayListRequest;
-export type ServerBadgeListResponse = BadgeListResponse;
-export type ServerGameResultGetRequest = GameplayNameGetRequest;
-export type ServerGameResultGetResponse = GameResult;
-export type ServerGameResultListRequest = GameplayListRequest;
-export type ServerGameResultListResponse = GameResultListResponse;
 export type ServerGetInfoRequest = Record<string, never>;
 export type ServerGetInfoResponse = DeviceInfo;
 export type ServerGetRunAgentRequest = Record<string, never>;
@@ -1127,28 +895,8 @@ export type ServerPeerLookupRequest = {
 export type ServerPeerLookupResponse = {
   "assignment": PeerAssignment;
 };
-export type ServerPetActionsGetRequest = PetGetRequest;
-export type ServerPetActionsGetResponse = PetActions;
-export type ServerPetDeleteRequest = PetDeleteRequest;
-export type ServerPetDeleteResponse = Pet;
-export type ServerPetDriveRequest = PetDriveRequest;
-export type ServerPetDriveResponse = PetDriveResponse;
-export type ServerPetGetRequest = PetGetRequest;
-export type ServerPetGetResponse = Pet;
-export type ServerPetListRequest = GameplayListRequest;
-export type ServerPetListResponse = PetListResponse;
-export type ServerPetPixaDownloadRequest = PetPixaDownloadRequest;
-export type ServerPetPixaDownloadResponse = PetPixaDownloadResponse;
-export type ServerPetPutRequest = PetPutRequest;
-export type ServerPetPutResponse = Pet;
 export type ServerPlayRunWorkspaceHistoryRequest = PeerRunHistoryPlayRequest;
 export type ServerPlayRunWorkspaceHistoryResponse = PeerRunHistoryPlayResponse;
-export type ServerPointsGetRequest = Record<string, never>;
-export type ServerPointsGetResponse = PointsAccount;
-export type ServerPointsTransactionGetRequest = GameplayNameGetRequest;
-export type ServerPointsTransactionGetResponse = PointsTransaction;
-export type ServerPointsTransactionListRequest = GameplayListRequest;
-export type ServerPointsTransactionListResponse = PointsTransactionListResponse;
 export type ServerPutInfoRequest = DeviceProfile;
 export type ServerPutInfoResponse = DeviceInfo;
 export type ServerPutRuntimeRequest = {
@@ -1172,10 +920,6 @@ export type ServerReloadRunWorkspaceWithOptionsRequest = {
   "parameters"?: WorkspaceParametersPatch;
 };
 export type ServerReloadRunWorkspaceWithOptionsResponse = PeerRunWorkspaceState;
-export type ServerRewardGrantGetRequest = GameplayNameGetRequest;
-export type ServerRewardGrantGetResponse = RewardGrant;
-export type ServerRewardGrantListRequest = GameplayListRequest;
-export type ServerRewardGrantListResponse = RewardGrantListResponse;
 export type ServerRouteResolveRequest = {
   "target_peer_public_key": string;
 };
@@ -1430,7 +1174,7 @@ export type WorkspaceListResponse = {
   "runtime_profile_name": string;
   "runtime_profile_revision": string;
 };
-export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | DashScopeRealtimeWorkspaceParameters | DoubaoRealtimeDuplexWorkspaceParameters | EinoWorkspaceParameters | PetWorkspaceParameters;
+export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | DashScopeRealtimeWorkspaceParameters | DoubaoRealtimeDuplexWorkspaceParameters | EinoWorkspaceParameters;
 export type WorkspaceParametersPatch = {
   "input"?: WorkspaceInputMode;
   "conversation"?: ConversationParameters;
@@ -1473,14 +1217,10 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.wifi.saved.list": "ClientWifiSavedListRequest",
   "client.wifi.scan": "ClientWifiScanRequest",
   "client.wifi.status.get": "ClientWifiStatusGetRequest",
-  "runtime.adopt": "RuntimeAdoptRequest",
   "server.api_key.create": "APIKeyCreateRequest",
   "server.api_key.list": "APIKeyListRequest",
   "server.api_key.resolve": "ServerAPIKeyResolveRequest",
   "server.api_key.revoke": "APIKeyRevokeRequest",
-  "server.badge_def.pixa.download": "BadgeDefPixaDownloadRequest",
-  "server.badge.get": "ServerBadgeGetRequest",
-  "server.badge.list": "ServerBadgeListRequest",
   "server.contact.create": "ContactCreateRequest",
   "server.contact.delete": "ContactDeleteRequest",
   "server.contact.get": "ContactGetRequest",
@@ -1507,8 +1247,6 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.friend.invite_token.create": "FriendInviteTokenCreateRequest",
   "server.friend.invite_token.get": "FriendInviteTokenGetRequest",
   "server.friend.list": "FriendListRequest",
-  "server.game_result.get": "ServerGameResultGetRequest",
-  "server.game_result.list": "ServerGameResultListRequest",
   "server.info.get": "ServerGetInfoRequest",
   "server.info.put": "ServerPutInfoRequest",
   "server.model.get": "ModelGetRequest",
@@ -1516,19 +1254,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.peer.assign": "ServerPeerAssignRequest",
   "server.peer.delete": "ServerPeerDeleteRequest",
   "server.peer.lookup": "ServerPeerLookupRequest",
-  "server.pet.actions.get": "ServerPetActionsGetRequest",
-  "server.pet.delete": "ServerPetDeleteRequest",
-  "server.pet.drive": "ServerPetDriveRequest",
-  "server.pet.get": "ServerPetGetRequest",
-  "server.pet.list": "ServerPetListRequest",
-  "server.pet.pixa.download": "ServerPetPixaDownloadRequest",
-  "server.pet.put": "ServerPetPutRequest",
-  "server.points.get": "ServerPointsGetRequest",
-  "server.points.transactions.get": "ServerPointsTransactionGetRequest",
-  "server.points.transactions.list": "ServerPointsTransactionListRequest",
   "server.register": "ServerRegisterRequest",
-  "server.reward_grant.get": "ServerRewardGrantGetRequest",
-  "server.reward_grant.list": "ServerRewardGrantListRequest",
   "server.route.resolve": "ServerRouteResolveRequest",
   "server.run.agent.get": "ServerGetRunAgentRequest",
   "server.run.agent.set": "ServerSetRunAgentRequest",
@@ -1590,14 +1316,10 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.wifi.saved.list": "ClientWifiSavedListResponse",
   "client.wifi.scan": "ClientWifiScanResponse",
   "client.wifi.status.get": "ClientWifiStatusGetResponse",
-  "runtime.adopt": "RuntimeAdoptResponse",
   "server.api_key.create": "APIKeyCreateResponse",
   "server.api_key.list": "APIKeyListResponse",
   "server.api_key.resolve": "ServerAPIKeyResolveResponse",
   "server.api_key.revoke": "APIKeyRevokeResponse",
-  "server.badge_def.pixa.download": "BadgeDefPixaDownloadResponse",
-  "server.badge.get": "ServerBadgeGetResponse",
-  "server.badge.list": "ServerBadgeListResponse",
   "server.contact.create": "ContactCreateResponse",
   "server.contact.delete": "ContactDeleteResponse",
   "server.contact.get": "ContactGetResponse",
@@ -1624,8 +1346,6 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.friend.invite_token.create": "FriendInviteTokenCreateResponse",
   "server.friend.invite_token.get": "FriendInviteTokenGetResponse",
   "server.friend.list": "FriendListResponse",
-  "server.game_result.get": "ServerGameResultGetResponse",
-  "server.game_result.list": "ServerGameResultListResponse",
   "server.info.get": "ServerGetInfoResponse",
   "server.info.put": "ServerPutInfoResponse",
   "server.model.get": "ModelGetResponse",
@@ -1633,19 +1353,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.peer.assign": "ServerPeerAssignResponse",
   "server.peer.delete": "ServerPeerDeleteResponse",
   "server.peer.lookup": "ServerPeerLookupResponse",
-  "server.pet.actions.get": "ServerPetActionsGetResponse",
-  "server.pet.delete": "ServerPetDeleteResponse",
-  "server.pet.drive": "ServerPetDriveResponse",
-  "server.pet.get": "ServerPetGetResponse",
-  "server.pet.list": "ServerPetListResponse",
-  "server.pet.pixa.download": "ServerPetPixaDownloadResponse",
-  "server.pet.put": "ServerPetPutResponse",
-  "server.points.get": "ServerPointsGetResponse",
-  "server.points.transactions.get": "ServerPointsTransactionGetResponse",
-  "server.points.transactions.list": "ServerPointsTransactionListResponse",
   "server.register": "ServerRegisterResponse",
-  "server.reward_grant.get": "ServerRewardGrantGetResponse",
-  "server.reward_grant.list": "ServerRewardGrantListResponse",
   "server.route.resolve": "ServerRouteResolveResponse",
   "server.run.agent.get": "ServerGetRunAgentResponse",
   "server.run.agent.set": "ServerSetRunAgentResponse",
@@ -2032,100 +1740,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "observed_at_unix_ms",
         "number": 10,
         "type": "int64"
-      }
-    ]
-  },
-  "Badge": {
-    "fields": [
-      {
-        "name": "active",
-        "number": 1,
-        "type": "bool"
-      },
-      {
-        "name": "badge_def_name",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "created_at",
-        "number": 3,
-        "type": "string"
-      },
-      {
-        "name": "exp",
-        "number": 4,
-        "type": "int64"
-      },
-      {
-        "name": "level",
-        "number": 5,
-        "type": "int64"
-      },
-      {
-        "name": "name",
-        "number": 6,
-        "type": "string"
-      },
-      {
-        "name": "progress",
-        "number": 7,
-        "type": "int64"
-      },
-      {
-        "name": "updated_at",
-        "number": 8,
-        "type": "string"
-      }
-    ]
-  },
-  "BadgeDefPixaDownloadRequest": {
-    "fields": [
-      {
-        "name": "name",
-        "number": 1,
-        "type": "string"
-      }
-    ]
-  },
-  "BadgeDefPixaDownloadResponse": {
-    "fields": [
-      {
-        "name": "name",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "pixa_path",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "size_bytes",
-        "number": 3,
-        "type": "int64"
-      }
-    ]
-  },
-  "BadgeListResponse": {
-    "fields": [
-      {
-        "name": "has_next",
-        "number": 1,
-        "type": "bool"
-      },
-      {
-        "name": "items",
-        "number": 2,
-        "repeated": true,
-        "type": "Badge"
-      },
-      {
-        "name": "next_cursor",
-        "number": 3,
-        "optional": true,
-        "type": "string"
       }
     ]
   },
@@ -4400,157 +4014,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "GameplayListRequest": {
-    "fields": [
-      {
-        "name": "cursor",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "limit",
-        "number": 2,
-        "optional": true,
-        "type": "int64"
-      }
-    ]
-  },
-  "GameplayMetadata": {
-    "fields": [
-      {
-        "name": "fields",
-        "number": 1,
-        "type": "google.protobuf.Struct"
-      }
-    ]
-  },
-  "GameplayNameGetRequest": {
-    "fields": [
-      {
-        "name": "name",
-        "number": 1,
-        "type": "string"
-      }
-    ]
-  },
-  "GameResult": {
-    "fields": [
-      {
-        "name": "created_at",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "difficulty",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "duration_ms",
-        "number": 3,
-        "optional": true,
-        "type": "int64"
-      },
-      {
-        "name": "game_def_name",
-        "number": 4,
-        "type": "string"
-      },
-      {
-        "name": "name",
-        "number": 5,
-        "type": "string"
-      },
-      {
-        "name": "idempotency_key",
-        "number": 6,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "max_score",
-        "number": 7,
-        "optional": true,
-        "type": "int64"
-      },
-      {
-        "name": "occurred_at",
-        "number": 8,
-        "type": "string"
-      },
-      {
-        "name": "outcome",
-        "number": 9,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "payload",
-        "number": 10,
-        "optional": true,
-        "type": "GameplayMetadata"
-      },
-      {
-        "name": "pet_name",
-        "number": 11,
-        "type": "string"
-      },
-      {
-        "name": "runtime_profile_name",
-        "number": 12,
-        "type": "string"
-      },
-      {
-        "name": "score",
-        "number": 13,
-        "optional": true,
-        "type": "int64"
-      }
-    ]
-  },
-  "GameResultListResponse": {
-    "fields": [
-      {
-        "name": "has_next",
-        "number": 1,
-        "type": "bool"
-      },
-      {
-        "name": "items",
-        "number": 2,
-        "repeated": true,
-        "type": "GameResult"
-      },
-      {
-        "name": "next_cursor",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "GameRewardSpec": {
-    "fields": [
-      {
-        "mapValue": "int64",
-        "name": "badge_exp_delta",
-        "number": 1,
-        "type": "map"
-      },
-      {
-        "name": "pet_exp_delta",
-        "number": 2,
-        "type": "int64"
-      },
-      {
-        "name": "reason",
-        "number": 3,
-        "type": "string"
-      }
-    ]
-  },
   "GeminiTenantModelProviderData": {
     "fields": [
       {
@@ -5552,507 +5015,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "Pet": {
-    "fields": [
-      {
-        "name": "name",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "runtime_profile_name",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "pet_def_name",
-        "number": 3,
-        "type": "string"
-      },
-      {
-        "name": "display_name",
-        "number": 4,
-        "type": "string"
-      },
-      {
-        "name": "workspace_name",
-        "number": 5,
-        "type": "string"
-      },
-      {
-        "name": "stats",
-        "number": 6,
-        "type": "PetStats"
-      },
-      {
-        "name": "progression",
-        "number": 7,
-        "type": "PetProgression"
-      },
-      {
-        "name": "lifecycle",
-        "number": 8,
-        "type": "PetLifecycle"
-      },
-      {
-        "name": "died_at",
-        "number": 9,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "state_settled_at",
-        "number": 10,
-        "type": "string"
-      },
-      {
-        "name": "last_active_at",
-        "number": 11,
-        "type": "string"
-      },
-      {
-        "name": "created_at",
-        "number": 12,
-        "type": "string"
-      },
-      {
-        "name": "updated_at",
-        "number": 13,
-        "type": "string"
-      }
-    ]
-  },
-  "PetActions": {
-    "fields": [
-      {
-        "name": "pet_name",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "pet_def_name",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "bindings",
-        "number": 3,
-        "type": "PetVisualBindings"
-      },
-      {
-        "name": "pet_def_updated_at",
-        "number": 4,
-        "type": "string"
-      },
-      {
-        "mapValue": "string",
-        "name": "clip_names",
-        "number": 5,
-        "type": "map"
-      }
-    ]
-  },
-  "PetAdoptRequest": {
-    "fields": [
-      {
-        "name": "name",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "display_name",
-        "number": 2,
-        "type": "string"
-      }
-    ]
-  },
-  "PetAdoptResponse": {
-    "fields": [
-      {
-        "name": "pet",
-        "number": 1,
-        "type": "Pet"
-      },
-      {
-        "name": "points",
-        "number": 2,
-        "type": "PointsAccount"
-      },
-      {
-        "name": "transaction",
-        "number": 3,
-        "type": "PointsTransaction"
-      }
-    ]
-  },
-  "PetDeleteRequest": {
-    "fields": [
-      {
-        "name": "name",
-        "number": 1,
-        "type": "string"
-      }
-    ]
-  },
-  "PetDriveGameResultInput": {
-    "fields": [
-      {
-        "name": "difficulty",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "duration_ms",
-        "number": 2,
-        "optional": true,
-        "type": "int64"
-      },
-      {
-        "name": "game_name",
-        "number": 3,
-        "type": "string"
-      },
-      {
-        "name": "idempotency_key",
-        "number": 4,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "max_score",
-        "number": 5,
-        "optional": true,
-        "type": "int64"
-      },
-      {
-        "name": "occurred_at",
-        "number": 6,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "outcome",
-        "number": 7,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "payload",
-        "number": 8,
-        "optional": true,
-        "type": "GameplayMetadata"
-      },
-      {
-        "name": "score",
-        "number": 9,
-        "optional": true,
-        "type": "int64"
-      }
-    ]
-  },
-  "PetDriveRequest": {
-    "fields": [
-      {
-        "name": "behavior",
-        "number": 1,
-        "optional": true,
-        "type": "PetBehavior"
-      },
-      {
-        "name": "game_result",
-        "number": 2,
-        "optional": true,
-        "type": "PetDriveGameResultInput"
-      },
-      {
-        "name": "pet_name",
-        "number": 3,
-        "type": "string"
-      },
-      {
-        "name": "idempotency_key",
-        "number": 4,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "PetDriveResponse": {
-    "fields": [
-      {
-        "name": "badges",
-        "number": 1,
-        "repeated": true,
-        "type": "Badge"
-      },
-      {
-        "name": "game_result",
-        "number": 2,
-        "optional": true,
-        "type": "GameResult"
-      },
-      {
-        "name": "pet",
-        "number": 3,
-        "type": "Pet"
-      },
-      {
-        "name": "points",
-        "number": 4,
-        "type": "PointsAccount"
-      },
-      {
-        "name": "reward_grants",
-        "number": 5,
-        "repeated": true,
-        "type": "RewardGrant"
-      },
-      {
-        "name": "transactions",
-        "number": 6,
-        "repeated": true,
-        "type": "PointsTransaction"
-      }
-    ]
-  },
-  "PetGetRequest": {
-    "fields": [
-      {
-        "name": "name",
-        "number": 1,
-        "type": "string"
-      }
-    ]
-  },
-  "PetListResponse": {
-    "fields": [
-      {
-        "name": "has_next",
-        "number": 1,
-        "type": "bool"
-      },
-      {
-        "name": "items",
-        "number": 2,
-        "repeated": true,
-        "type": "Pet"
-      },
-      {
-        "name": "next_cursor",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "PetPixaDownloadRequest": {
-    "fields": [
-      {
-        "name": "pet_name",
-        "number": 1,
-        "type": "string"
-      }
-    ]
-  },
-  "PetPixaDownloadResponse": {
-    "fields": [
-      {
-        "name": "pet_name",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "pet_def_name",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "pixa_path",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "size_bytes",
-        "number": 4,
-        "type": "int64"
-      }
-    ]
-  },
-  "PetProgression": {
-    "fields": [
-      {
-        "name": "experience",
-        "number": 1,
-        "type": "int64"
-      },
-      {
-        "name": "level",
-        "number": 2,
-        "type": "int64"
-      }
-    ]
-  },
-  "PetPutRequest": {
-    "fields": [
-      {
-        "name": "display_name",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "name",
-        "number": 2,
-        "type": "string"
-      }
-    ]
-  },
-  "PetStats": {
-    "fields": [
-      {
-        "name": "life",
-        "number": 1,
-        "type": "double"
-      },
-      {
-        "name": "health",
-        "number": 2,
-        "type": "double"
-      },
-      {
-        "name": "satiety",
-        "number": 3,
-        "type": "double"
-      },
-      {
-        "name": "hygiene",
-        "number": 4,
-        "type": "double"
-      },
-      {
-        "name": "mood",
-        "number": 5,
-        "type": "double"
-      },
-      {
-        "name": "energy",
-        "number": 6,
-        "type": "double"
-      }
-    ]
-  },
-  "PetVisualBindings": {
-    "fields": [
-      {
-        "name": "feed",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "bathe",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "play",
-        "number": 3,
-        "type": "string"
-      },
-      {
-        "name": "heal",
-        "number": 4,
-        "type": "string"
-      },
-      {
-        "name": "idle",
-        "number": 5,
-        "type": "string"
-      },
-      {
-        "name": "sick",
-        "number": 6,
-        "type": "string"
-      },
-      {
-        "name": "dead",
-        "number": 7,
-        "type": "string"
-      },
-      {
-        "name": "sleep",
-        "number": 8,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "PetWorkflowSpec": {
-    "fields": [
-      {
-        "name": "driver",
-        "number": 1,
-        "type": "ReusableWorkflowDriver"
-      },
-      {
-        "name": "toolkit",
-        "number": 2,
-        "optional": true,
-        "type": "ToolkitPolicy"
-      },
-      {
-        "name": "flowcraft",
-        "number": 3,
-        "optional": true,
-        "type": "FlowcraftWorkflowSpec"
-      },
-      {
-        "name": "doubao_realtime",
-        "number": 4,
-        "optional": true,
-        "type": "DoubaoRealtimeWorkflowSpec"
-      },
-      {
-        "name": "ast_translate",
-        "number": 5,
-        "optional": true,
-        "type": "ASTTranslateWorkflowSpec"
-      },
-      {
-        "name": "dashscope_realtime",
-        "number": 7,
-        "optional": true,
-        "type": "DashScopeRealtimeWorkflowSpec"
-      },
-      {
-        "name": "doubao_realtime_duplex",
-        "number": 8,
-        "optional": true,
-        "type": "DoubaoRealtimeDuplexWorkflowSpec"
-      },
-      {
-        "name": "eino",
-        "number": 9,
-        "optional": true,
-        "type": "EinoWorkflowSpec"
-      }
-    ]
-  },
-  "PetWorkspaceParameters": {
-    "fields": [
-      {
-        "name": "agent_type",
-        "number": 1,
-        "type": "PetWorkspaceParametersAgentType"
-      },
-      {
-        "name": "input",
-        "number": 2,
-        "optional": true,
-        "type": "WorkspaceInputMode"
-      }
-    ]
-  },
   "PingRequest": {
     "fields": [
       {
@@ -6071,123 +5033,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "PointsAccount": {
-    "fields": [
-      {
-        "name": "balance",
-        "number": 1,
-        "type": "int64"
-      },
-      {
-        "name": "created_at",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "owner_public_key",
-        "number": 3,
-        "type": "string"
-      },
-      {
-        "name": "runtime_profile_name",
-        "number": 4,
-        "type": "string"
-      },
-      {
-        "name": "updated_at",
-        "number": 5,
-        "type": "string"
-      }
-    ]
-  },
-  "PointsTransaction": {
-    "fields": [
-      {
-        "name": "balance_after",
-        "number": 1,
-        "type": "int64"
-      },
-      {
-        "name": "created_at",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "delta",
-        "number": 3,
-        "type": "int64"
-      },
-      {
-        "name": "game_result_name",
-        "number": 4,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "name",
-        "number": 5,
-        "type": "string"
-      },
-      {
-        "name": "owner_public_key",
-        "number": 6,
-        "type": "string"
-      },
-      {
-        "name": "pet_name",
-        "number": 7,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "reason",
-        "number": 8,
-        "type": "string"
-      },
-      {
-        "name": "reward_grant_name",
-        "number": 9,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "runtime_profile_name",
-        "number": 10,
-        "type": "string"
-      },
-      {
-        "name": "source_name",
-        "number": 11,
-        "type": "string"
-      },
-      {
-        "name": "source_type",
-        "number": 12,
-        "type": "string"
-      }
-    ]
-  },
-  "PointsTransactionListResponse": {
-    "fields": [
-      {
-        "name": "has_next",
-        "number": 1,
-        "type": "bool"
-      },
-      {
-        "name": "items",
-        "number": 2,
-        "repeated": true,
-        "type": "PointsTransaction"
-      },
-      {
-        "name": "next_cursor",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
   "ResourceI18nText": {
     "fields": [
       {
@@ -6198,95 +5043,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "description",
         "number": 2,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "RewardGrant": {
-    "fields": [
-      {
-        "mapValue": "int64",
-        "name": "badge_exp_delta",
-        "number": 1,
-        "type": "map"
-      },
-      {
-        "name": "created_at",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "game_result_name",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "name",
-        "number": 4,
-        "type": "string"
-      },
-      {
-        "name": "owner_public_key",
-        "number": 5,
-        "type": "string"
-      },
-      {
-        "name": "pet_exp_delta",
-        "number": 6,
-        "type": "int64"
-      },
-      {
-        "name": "pet_name",
-        "number": 7,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "points_delta",
-        "number": 8,
-        "type": "int64"
-      },
-      {
-        "name": "reason",
-        "number": 9,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "runtime_profile_name",
-        "number": 10,
-        "type": "string"
-      },
-      {
-        "name": "source_name",
-        "number": 11,
-        "type": "string"
-      },
-      {
-        "name": "source_type",
-        "number": 12,
-        "type": "string"
-      }
-    ]
-  },
-  "RewardGrantListResponse": {
-    "fields": [
-      {
-        "name": "has_next",
-        "number": 1,
-        "type": "bool"
-      },
-      {
-        "name": "items",
-        "number": 2,
-        "repeated": true,
-        "type": "RewardGrant"
-      },
-      {
-        "name": "next_cursor",
-        "number": 3,
         "optional": true,
         "type": "string"
       }
@@ -6330,24 +5086,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "RuntimeAdoptRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "PetAdoptRequest"
-      }
-    ]
-  },
-  "RuntimeAdoptResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "PetAdoptResponse"
-      }
-    ]
-  },
   "ServerAPIKeyResolveRequest": {
     "fields": [
       {
@@ -6363,78 +5101,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "assignment",
         "number": 1,
         "type": "PeerAssignment"
-      }
-    ]
-  },
-  "ServerBadgeGetRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "GameplayNameGetRequest"
-      }
-    ]
-  },
-  "ServerBadgeGetResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Badge"
-      }
-    ]
-  },
-  "ServerBadgeListRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "GameplayListRequest"
-      }
-    ]
-  },
-  "ServerBadgeListResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "BadgeListResponse"
-      }
-    ]
-  },
-  "ServerGameResultGetRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "GameplayNameGetRequest"
-      }
-    ]
-  },
-  "ServerGameResultGetResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "GameResult"
-      }
-    ]
-  },
-  "ServerGameResultListRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "GameplayListRequest"
-      }
-    ]
-  },
-  "ServerGameResultListResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "GameResultListResponse"
       }
     ]
   },
@@ -6594,132 +5260,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "ServerPetActionsGetRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "PetGetRequest"
-      }
-    ]
-  },
-  "ServerPetActionsGetResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "PetActions"
-      }
-    ]
-  },
-  "ServerPetDeleteRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "PetDeleteRequest"
-      }
-    ]
-  },
-  "ServerPetDeleteResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Pet"
-      }
-    ]
-  },
-  "ServerPetDriveRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "PetDriveRequest"
-      }
-    ]
-  },
-  "ServerPetDriveResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "PetDriveResponse"
-      }
-    ]
-  },
-  "ServerPetGetRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "PetGetRequest"
-      }
-    ]
-  },
-  "ServerPetGetResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Pet"
-      }
-    ]
-  },
-  "ServerPetListRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "GameplayListRequest"
-      }
-    ]
-  },
-  "ServerPetListResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "PetListResponse"
-      }
-    ]
-  },
-  "ServerPetPixaDownloadRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "PetPixaDownloadRequest"
-      }
-    ]
-  },
-  "ServerPetPixaDownloadResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "PetPixaDownloadResponse"
-      }
-    ]
-  },
-  "ServerPetPutRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "PetPutRequest"
-      }
-    ]
-  },
-  "ServerPetPutResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Pet"
-      }
-    ]
-  },
   "ServerPlayRunWorkspaceHistoryRequest": {
     "fields": [
       {
@@ -6735,54 +5275,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "PeerRunHistoryPlayResponse"
-      }
-    ]
-  },
-  "ServerPointsGetRequest": {
-    "fields": []
-  },
-  "ServerPointsGetResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "PointsAccount"
-      }
-    ]
-  },
-  "ServerPointsTransactionGetRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "GameplayNameGetRequest"
-      }
-    ]
-  },
-  "ServerPointsTransactionGetResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "PointsTransaction"
-      }
-    ]
-  },
-  "ServerPointsTransactionListRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "GameplayListRequest"
-      }
-    ]
-  },
-  "ServerPointsTransactionListResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "PointsTransactionListResponse"
       }
     ]
   },
@@ -6886,42 +5378,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "PeerRunWorkspaceState"
-      }
-    ]
-  },
-  "ServerRewardGrantGetRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "GameplayNameGetRequest"
-      }
-    ]
-  },
-  "ServerRewardGrantGetResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "RewardGrant"
-      }
-    ]
-  },
-  "ServerRewardGrantListRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "GameplayListRequest"
-      }
-    ]
-  },
-  "ServerRewardGrantListResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "RewardGrantListResponse"
       }
     ]
   },
@@ -8064,13 +6520,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "oneof": true,
         "oneofGroup": "value",
         "type": "EinoWorkspaceParameters"
-      },
-      {
-        "name": "pet_workspace_parameters",
-        "number": 8,
-        "oneof": true,
-        "oneofGroup": "value",
-        "type": "PetWorkspaceParameters"
       }
     ]
   },
@@ -8454,44 +6903,6 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "5": "error"
     }
   },
-  "PetBehavior": {
-    "byName": {
-      "bathe": 2,
-      "feed": 1,
-      "heal": 4,
-      "play": 3,
-      "unspecified": 0
-    },
-    "byNumber": {
-      "0": "",
-      "1": "feed",
-      "2": "bathe",
-      "3": "play",
-      "4": "heal"
-    }
-  },
-  "PetLifecycle": {
-    "byName": {
-      "alive": 1,
-      "dead": 2,
-      "unspecified": 0
-    },
-    "byNumber": {
-      "0": "",
-      "1": "alive",
-      "2": "dead"
-    }
-  },
-  "PetWorkspaceParametersAgentType": {
-    "byName": {
-      "pet": 1,
-      "unspecified": 0
-    },
-    "byNumber": {
-      "0": "",
-      "1": "pet"
-    }
-  },
   "ReusableWorkflowDriver": {
     "byName": {
       "ast-translate": 3,
@@ -8542,7 +6953,6 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "doubao-realtime-duplex": 7,
       "eino": 8,
       "flowcraft": 1,
-      "pet": 5,
       "sfu": 9,
       "unspecified": 0
     },
@@ -8551,7 +6961,6 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "1": "flowcraft",
       "2": "doubao-realtime",
       "3": "ast-translate",
-      "5": "pet",
       "6": "dashscope-realtime",
       "7": "doubao-realtime-duplex",
       "8": "eino",

@@ -1,6 +1,6 @@
 # pkgs/store 总览
 
-`pkgs/store` 提供 GizClaw 多个领域共同使用的持久化与索引基础能力。这里定义 storage abstraction 和通用实现，不拥有 Peer、Agent、AI、Gameplay 或其他产品资源的业务规则。
+`pkgs/store` 提供 GizClaw 多个领域共同使用的持久化与索引基础能力。这里定义 storage abstraction 和通用实现，不拥有 Peer、Agent、AI 或其他产品资源的业务规则。
 
 ## Package 结构
 
@@ -22,7 +22,7 @@ pkgs/store/
 | [logstore](./logstore) | 追加/修改结构化 record、backend-neutral 查询与分页 | 进程日志、conversation/event 等生产者 |
 | [memory](./memory) | 原始 observation、fact recall/update/delete 与异步 operation | Agent runtime、memory evaluation harness |
 | [metrics](./metrics) | Sample 写入、instant/range query 与 aggregation | Peer telemetry、Server metrics |
-| [objectstore](./objectstore) | Binary object、prefix list/delete 与 expiration | Firmware、workspace、gameplay assets、HNSW |
+| [objectstore](./objectstore) | Binary object、prefix list/delete 与 expiration | Firmware、workspace assets、HNSW |
 | [vecid](./vecid) | Vector hashing、bucket 与 identity 聚类 | Voiceprint detection |
 | [vecstore](./vecstore) | Vector add/search/delete 与 HNSW persistence | Agent recall、memory index |
 

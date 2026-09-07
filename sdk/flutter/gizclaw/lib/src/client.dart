@@ -4,7 +4,6 @@ import 'package:fixnum/fixnum.dart';
 
 import 'generated/rpc/payload/enums.pbenum.dart' as enums;
 import 'generated/rpc/payload.pb.dart' as payload;
-import 'pixa.dart';
 import 'rpc_client.dart';
 import 'service_http.dart';
 import 'transport.dart';
@@ -24,18 +23,6 @@ payload.WorkspacePutBody workspacePutBodyFromWorkspace(
     body.toolkit = workspace.toolkit.deepCopy();
   }
   return body;
-}
-
-class PixaDownloadResult<T> {
-  const PixaDownloadResult({
-    required this.metadata,
-    required this.bytes,
-    required this.asset,
-  });
-
-  final T metadata;
-  final Uint8List bytes;
-  final PixaAsset asset;
 }
 
 class IconDownloadResult<T> {
@@ -452,121 +439,6 @@ class GizClawClient {
     return rpc.call<payload.WorkspaceHistoryListResponse>(
       'server.workspace.history.list',
       request,
-    );
-  }
-
-  Future<payload.ServerPetListResponse> listPets({String? cursor, int? limit}) {
-    final value = payload.GameplayListRequest();
-    if (cursor != null) value.cursor = cursor;
-    if (limit != null) value.limit = Int64(limit);
-    return rpc.call<payload.ServerPetListResponse>(
-      'server.pet.list',
-      payload.ServerPetListRequest(value: value),
-    );
-  }
-
-  Future<payload.ServerPetGetResponse> getPet(String name) {
-    return rpc.call<payload.ServerPetGetResponse>(
-      'server.pet.get',
-      payload.ServerPetGetRequest(value: payload.PetGetRequest(name: name)),
-    );
-  }
-
-  Future<payload.RuntimeAdoptResponse> adoptPet({
-    required String name,
-    required String displayName,
-  }) {
-    final normalizedName = name.trim();
-    final normalizedDisplayName = displayName.trim();
-    if (normalizedName.isEmpty) {
-      throw ArgumentError.value(name, 'name', 'must not be empty');
-    }
-    if (normalizedDisplayName.isEmpty) {
-      throw ArgumentError.value(
-        displayName,
-        'displayName',
-        'must not be empty',
-      );
-    }
-    final value = payload.PetAdoptRequest(name: normalizedName);
-    value.displayName = normalizedDisplayName;
-    return rpc.call<payload.RuntimeAdoptResponse>(
-      'runtime.adopt',
-      payload.RuntimeAdoptRequest(value: value),
-    );
-  }
-
-  Future<payload.ServerPetDriveResponse> drivePet(
-    String petName, {
-    required payload.PetBehavior behavior,
-    String? idempotencyKey,
-  }) {
-    final value = payload.PetDriveRequest(petName: petName, behavior: behavior);
-    if (idempotencyKey != null && idempotencyKey.isNotEmpty) {
-      value.idempotencyKey = idempotencyKey;
-    }
-    return rpc.call<payload.ServerPetDriveResponse>(
-      'server.pet.drive',
-      payload.ServerPetDriveRequest(value: value),
-    );
-  }
-
-  Future<payload.ServerPetDriveResponse> drivePetGame(
-    String petName, {
-    required payload.PetDriveGameResultInput gameResult,
-    String? idempotencyKey,
-  }) {
-    final value = payload.PetDriveRequest(
-      petName: petName,
-      gameResult: gameResult,
-    );
-    if (idempotencyKey != null && idempotencyKey.isNotEmpty) {
-      gameResult.idempotencyKey = idempotencyKey;
-    }
-    return rpc.call<payload.ServerPetDriveResponse>(
-      'server.pet.drive',
-      payload.ServerPetDriveRequest(value: value),
-    );
-  }
-
-  Future<payload.ServerPetActionsGetResponse> getPetActions(String petName) {
-    return rpc.call<payload.ServerPetActionsGetResponse>(
-      'server.pet.actions.get',
-      payload.ServerPetActionsGetRequest(
-        value: payload.PetGetRequest(name: petName),
-      ),
-    );
-  }
-
-  Future<PixaDownloadResult<payload.ServerPetPixaDownloadResponse>>
-  downloadPetPixa(String petName) async {
-    final response = await rpc.callBinary(
-      'server.pet.pixa.download',
-      payload.ServerPetPixaDownloadRequest(
-        value: payload.PetPixaDownloadRequest(petName: petName),
-      ),
-    );
-    final metadata = response.response as payload.ServerPetPixaDownloadResponse;
-    final bytes = Uint8List.fromList(response.body);
-    return PixaDownloadResult(
-      metadata: metadata,
-      bytes: bytes,
-      asset: validatePixa(bytes, mode: PixaValidationMode.petdef),
-    );
-  }
-
-  Future<PixaDownloadResult<payload.BadgeDefPixaDownloadResponse>>
-  downloadBadgeDefPixa(String name) async {
-    final response = await rpc.callBinary(
-      'server.badge_def.pixa.download',
-      payload.BadgeDefPixaDownloadRequest(name: name),
-    );
-    final metadata = response.response as payload.BadgeDefPixaDownloadResponse;
-    final bytes = Uint8List.fromList(response.body);
-    return PixaDownloadResult(
-      metadata: metadata,
-      bytes: bytes,
-      asset: validatePixa(bytes, mode: PixaValidationMode.badgedef),
     );
   }
 

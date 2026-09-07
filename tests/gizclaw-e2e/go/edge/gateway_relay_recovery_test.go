@@ -146,20 +146,6 @@ func createGatewayRecoveryRuntimeProfile(
 	api *adminhttp.ClientWithResponses,
 ) string {
 	t.Helper()
-	workflowName := fmt.Sprintf("gw-relay-wf-%d", time.Now().UnixNano())
-	workflowResponse, err := api.CreateWorkflowWithResponse(ctx, gatewayRecoveryPetWorkflow(t, workflowName))
-	if err != nil {
-		t.Fatalf("create gateway recovery Workflow: %v", err)
-	}
-	if workflowResponse.JSON200 == nil {
-		t.Fatalf("create gateway recovery Workflow status=%d response=%+v", workflowResponse.StatusCode(), workflowResponse.JSON400)
-	}
-	workflowID := workflowResponse.JSON200.Id
-	t.Cleanup(func() {
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cleanupCancel()
-		_, _ = api.DeleteWorkflowWithResponse(cleanupCtx, workflowID)
-	})
 	name := fmt.Sprintf("gw-relay-profile-%d", time.Now().UnixNano())
 	response, err := api.CreateRuntimeProfileWithResponse(ctx, adminhttp.RuntimeProfileUpsert{
 		Id: name,
@@ -167,9 +153,6 @@ func createGatewayRecoveryRuntimeProfile(
 			Resources: apitypes.RuntimeProfileResources{},
 			Workflows: apitypes.RuntimeProfileWorkflows{
 				Collections: apitypes.RuntimeProfileWorkflowCollections{},
-				System: apitypes.RuntimeProfileSystemWorkflows{
-					Pet: workflowID,
-				},
 			},
 		},
 	})
@@ -186,32 +169,6 @@ func createGatewayRecoveryRuntimeProfile(
 		_, _ = api.DeleteRuntimeProfileWithResponse(cleanupCtx, profileID)
 	})
 	return profileID
-}
-
-func gatewayRecoveryPetWorkflow(t *testing.T, name string) adminhttp.WorkflowUpsert {
-	t.Helper()
-	publish := true
-	var node apitypes.FlowcraftNode
-	if err := node.FromFlowcraftPassthroughNode(apitypes.FlowcraftPassthroughNode{
-		Id:      "passthrough",
-		Type:    apitypes.FlowcraftPassthroughNodeTypePassthrough,
-		Publish: &publish,
-	}); err != nil {
-		t.Fatalf("build gateway recovery passthrough node: %v", err)
-	}
-	edges := []apitypes.FlowcraftEdge{{From: "passthrough", To: "__end__"}}
-	return adminhttp.WorkflowUpsert{Id: name, Spec: apitypes.WorkflowSpec{
-		Driver: apitypes.WorkflowDriverPet,
-		Pet: &apitypes.PetWorkflowSpec{
-			Driver: apitypes.ReusableWorkflowDriverFlowcraft,
-			Flowcraft: &apitypes.FlowcraftWorkflowSpec{Graph: apitypes.FlowcraftGraph{
-				Name:  "gateway-recovery-passthrough",
-				Entry: "passthrough",
-				Nodes: []apitypes.FlowcraftNode{node},
-				Edges: &edges,
-			}},
-		},
-	}}
 }
 
 func registerAndPingGatewayRecovery(t *testing.T, client *gizcli.Client, token, id string) {

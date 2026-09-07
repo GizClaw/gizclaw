@@ -10,7 +10,6 @@ RPC 模块负责 GizClaw RPC 的 client/server、dispatch、stream framing 和�
 | [Client](./client) | Client-side RPC receiver、Client info 与 identifiers 查询。 | `rpc_client.go` |
 | [Server](./server) | RPC Server composition、dispatch、Server methods 与未实现 method 处理。 | `rpc_server.go` |
 | [Firmware Configuration](./firmware) | 解析 caller Peer 绑定的 Firmware，并返回一个 channel 的 external package 配置。 | `services/runtime/peerresource/firmware.go` |
-| [Gameplay Assets](./gameplay-pixa) | Gameplay pixa asset streaming。 | `rpc_gameplay_pixa.go` |
 | [Workspace History](./workspace-history) | History audio streaming。 | `rpc_workspace_history.go` |
 | [Speech Transcription](./transcription) | 独立流式 audio-to-text。 | `rpc_speech.go` |
 | [Speech Extraction](./extraction) | 独立流式 audio-to-schema-constrained JSON。 | `rpc_speech.go` |
@@ -32,7 +31,6 @@ flowchart TB
     Server --> Common["Common"]
     Server --> Runtime["Peer / Runtime / Run / Workspace services"]
     Server --> Firmware["Firmware Configuration"]
-    Server --> Gameplay["Gameplay Assets"]
     Server --> History["Workspace History"]
     Server --> Speech["Standalone Speech"]
     Server --> Speed["Speed Test"]
@@ -45,7 +43,6 @@ flowchart TB
 
     Runtime --> RuntimeServices["Runtime services"]
     Firmware --> FirmwareSvc["Firmware metadata service"]
-    Gameplay --> GameplaySvc["Gameplay services"]
     Edge --> Routes["Peer Route service"]
 ```
 

@@ -3,7 +3,6 @@ package adminapi
 import (
 	"context"
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -372,21 +371,6 @@ func DeleteFirmware(ctx context.Context, c *gizcli.Client, id string) (apitypes.
 		return *resp.JSON200, nil
 	}
 	return apitypes.Firmware{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
-}
-
-func UploadPetDefPixa(ctx context.Context, c *gizcli.Client, id string, body io.Reader) (apitypes.PetDef, error) {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return apitypes.PetDef{}, err
-	}
-	resp, err := api.UploadPetDefPixaWithBodyWithResponse(ctx, id, "application/octet-stream", body)
-	if err != nil {
-		return apitypes.PetDef{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.PetDef{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
 func ListMiniMaxTenants(ctx context.Context, c *gizcli.Client) ([]apitypes.MiniMaxTenant, error) {

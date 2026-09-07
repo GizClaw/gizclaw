@@ -34,7 +34,7 @@ services/runtime/
 
 ### [peerresource](./peerresource)
 
-聚合 peer 可以访问的 AI、gameplay、social 和 tool 等领域资源，为 Peer-facing surface 提供一致入口。它只做跨领域协调，不重新拥有或复制各领域资源。Firmware 不属于 RuntimeProfile 或 peer resource projection；兼容 RPC 只返回空列表或 not found。
+聚合 peer 可以访问的 AI、social 和 tool 等领域资源，为 Peer-facing surface 提供一致入口。它只做跨领域协调，不重新拥有或复制各领域资源。Firmware 不属于 RuntimeProfile 或 peer resource projection；兼容 RPC 只返回空列表或 not found。
 
 ### [peerroute](./peerroute)
 
@@ -74,5 +74,5 @@ flowchart TB
 
 - WebRTC、service stream 或 packet transport。
 - Workflow、workspace、model、voice 和 credential 的 catalog ownership。
-- Gameplay、social 或 firmware 的领域规则。
+- Social 或 firmware 的领域规则。
 - CLI process、storage backend 和 listener 创建。

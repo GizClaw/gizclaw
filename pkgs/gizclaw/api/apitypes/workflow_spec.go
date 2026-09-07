@@ -26,7 +26,6 @@ func (s *WorkflowSpecObject) UnmarshalJSON(data []byte) error {
 		value.Eino != nil,
 		value.AstTranslate != nil,
 		value.Sfu != nil,
-		value.Pet != nil,
 	); err != nil {
 		return err
 	}
@@ -38,7 +37,7 @@ func (s *WorkflowSpecObject) UnmarshalJSON(data []byte) error {
 }
 
 // UnmarshalJSON enforces the same driver/payload shape for the reusable
-// non-Pet union and rejects recursive Pet nesting through its driver enum.
+// Workflow union.
 func (s *ReusableWorkflowSpecObject) UnmarshalJSON(data []byte) error {
 	type reusableWorkflowSpecObject ReusableWorkflowSpecObject
 	var decoded reusableWorkflowSpecObject
@@ -61,7 +60,6 @@ func (s *ReusableWorkflowSpecObject) UnmarshalJSON(data []byte) error {
 		value.Eino != nil,
 		value.AstTranslate != nil,
 		false,
-		false,
 	); err != nil {
 		return err
 	}
@@ -69,7 +67,7 @@ func (s *ReusableWorkflowSpecObject) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func validateWorkflowDriverPayloads(driver string, flowcraft, doubaoRealtime, dashscopeRealtime, doubaoRealtimeDuplex, eino, astTranslate, sfu, pet bool) error {
+func validateWorkflowDriverPayloads(driver string, flowcraft, doubaoRealtime, dashscopeRealtime, doubaoRealtimeDuplex, eino, astTranslate, sfu bool) error {
 	payloads := []struct {
 		driver  string
 		field   string
@@ -82,7 +80,6 @@ func validateWorkflowDriverPayloads(driver string, flowcraft, doubaoRealtime, da
 		{driver: "eino", field: "eino", present: eino},
 		{driver: "ast-translate", field: "ast_translate", present: astTranslate},
 		{driver: "sfu", field: "sfu", present: sfu},
-		{driver: "pet", field: "pet", present: pet},
 	}
 	for _, payload := range payloads {
 		if payload.driver == driver {

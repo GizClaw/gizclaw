@@ -88,11 +88,6 @@ const events: PeerEvent[] = [
     change: FriendGroupChange.MEMBER_REMOVED,
     revisionUnixMs: 6n,
   }),
-  peerEvent(PeerEventType.GAMEPLAY_REWARD_UPDATED, "gameplayRewardUpdated", {
-    workspaceName: "workflow-a",
-    rewardGrantName: "grant-a",
-    revisionUnixMs: 7n,
-  }),
 ];
 
 test("round-trips every Peer Event oneof arm", () => {

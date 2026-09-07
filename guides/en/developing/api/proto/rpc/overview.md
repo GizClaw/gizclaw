@@ -15,7 +15,6 @@ api/proto/rpc/
     ├── edge.proto
     ├── enums.proto
     ├── firmware.proto
-    ├── gameplay.proto
     ├── social.proto
     ├── system.proto
     └── workspace.proto

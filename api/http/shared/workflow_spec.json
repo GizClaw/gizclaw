@@ -17,8 +17,7 @@
           "doubao-realtime-duplex",
           "eino",
           "ast-translate",
-          "sfu",
-          "pet"
+          "sfu"
         ]
       },
       "ReusableWorkflowDriver": {
@@ -182,7 +181,7 @@
         "additionalProperties": false
       },
       "ReusableWorkflowSpec": {
-        "description": "Reusable non-Pet Workflow union used directly and below the Pet domain wrapper.",
+        "description": "Reusable Workflow union for drivers that carry their own execution configuration.",
         "x-go-type": "ReusableWorkflowSpecObject",
         "oneOf": [
           {
@@ -251,9 +250,6 @@
           },
           "sfu": {
             "$ref": "./workflows/sfu.json#/components/schemas/SFUWorkflowSpec"
-          },
-          "pet": {
-            "$ref": "./workflows/pet.json#/components/schemas/PetWorkflowSpec"
           }
         },
         "additionalProperties": false
@@ -277,33 +273,8 @@
         },
         "additionalProperties": false
       },
-      "PetWorkflowVariant": {
-        "type": "object",
-        "required": [
-          "driver",
-          "pet"
-        ],
-        "properties": {
-          "driver": {
-            "type": "string",
-            "enum": [
-              "pet"
-            ]
-          },
-          "toolkit": {
-            "$ref": "./toolkit_policy.json#/components/schemas/ToolkitPolicy"
-          },
-          "memory": {
-            "$ref": "#/components/schemas/WorkflowMemoryAlias"
-          },
-          "pet": {
-            "$ref": "./workflows/pet.json#/components/schemas/PetWorkflowSpec"
-          }
-        },
-        "additionalProperties": false
-      },
       "WorkflowSpec": {
-        "description": "Workflow union: one reusable non-Pet variant or the Pet domain wrapper.",
+        "description": "Workflow union: one reusable variant or the SFU variant.",
         "x-go-type": "WorkflowSpecObject",
         "oneOf": [
           {
@@ -326,9 +297,6 @@
           },
           {
             "$ref": "#/components/schemas/SFUWorkflowVariant"
-          },
-          {
-            "$ref": "#/components/schemas/PetWorkflowVariant"
           }
         ],
         "discriminator": {
@@ -340,8 +308,7 @@
             "doubao-realtime-duplex": "#/components/schemas/ReusableDoubaoRealtimeDuplexWorkflowVariant",
             "eino": "#/components/schemas/ReusableEinoWorkflowVariant",
             "ast-translate": "#/components/schemas/ReusableASTTranslateWorkflowVariant",
-            "sfu": "#/components/schemas/SFUWorkflowVariant",
-            "pet": "#/components/schemas/PetWorkflowVariant"
+            "sfu": "#/components/schemas/SFUWorkflowVariant"
           }
         }
       }

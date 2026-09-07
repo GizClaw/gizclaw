@@ -17,8 +17,7 @@ Observability 用日志回答“某一次请求发生了什么”，用 metrics 
 
 Process profiling 是 opt-in 能力，由 `cmd/internal/server` 拥有；它不会注册
 `net/http/pprof`，也不会暴露 `/debug/pprof`。需要配置一个专用 logical
-ObjectStore，不能与 Workspace assets、Gameplay assets 或 Agent Host runtime data
-共享：
+ObjectStore，不能与 Workspace assets 或 Agent Host runtime data 共享：
 
 ```yaml
 storage:

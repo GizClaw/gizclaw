@@ -1404,7 +1404,7 @@ func CSDKSocialBasic(t *testing.T, identityDir, registrationToken string) {
 	t.Helper()
 	client := newTestClient(t, identityDir)
 	defer client.Close()
-	requireDefaultGameplayRegistration(t, client, registrationToken)
+	requireStandardRegistration(t, client, registrationToken)
 	unique := time.Now().UnixMilli()
 	contactName := fmt.Sprintf("C SDK Social Contact %d", unique)
 	contactPhone := fmt.Sprintf("+1555%010d", unique%10000000000)
@@ -1494,8 +1494,8 @@ func CSDKSocialRelationships(
 	defer clientA.Close()
 	clientB := newTestClient(t, identityBDir)
 	defer clientB.Close()
-	requireDefaultGameplayRegistration(t, clientA, registrationToken)
-	requireDefaultGameplayRegistration(t, clientB, registrationToken)
+	requireStandardRegistration(t, clientA, registrationToken)
+	requireStandardRegistration(t, clientB, registrationToken)
 
 	var friendToken rpcpb.FriendInviteTokenCreateResponse
 	mustCallRPC(t, clientB, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CREATE, &rpcpb.FriendInviteTokenCreateRequest{}, &friendToken)
@@ -1642,16 +1642,16 @@ func registerClient(t *testing.T, client *Client, registrationToken string) Regi
 	return response
 }
 
-func requireDefaultGameplayRegistration(
+func requireStandardRegistration(
 	t *testing.T,
 	client *Client,
 	registrationToken string,
 ) {
 	t.Helper()
 	registered := registerClient(t, client, registrationToken)
-	if registered.RuntimeProfileName != "default-gameplay" {
+	if registered.RuntimeProfileName != "e2e-giztest" {
 		t.Fatalf(
-			"registered C RuntimeProfile = %q, want default-gameplay",
+			"registered C RuntimeProfile = %q, want e2e-giztest",
 			registered.RuntimeProfileName,
 		)
 	}

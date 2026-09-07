@@ -10,7 +10,6 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -25,14 +24,8 @@ type SocialRetirement interface {
 }
 
 type WorkspaceRetirement interface {
-	SnapshotPeerWorkspaces(context.Context, string, []string) (workspace.PeerRetirementSnapshot, error)
+	SnapshotPeerWorkspaces(context.Context, string) (workspace.PeerRetirementSnapshot, error)
 	RetirePeerWorkspaces(context.Context, workspace.PeerRetirementSnapshot) ([]string, error)
-	RetirePeerPetWorkspaces(context.Context, workspace.PeerRetirementSnapshot) ([]string, error)
-}
-
-type GameplayRetirement interface {
-	SnapshotPeerGameplay(context.Context, string) (gameplay.PeerGameplaySnapshot, error)
-	RetirePeerGameplay(context.Context, gameplay.PeerGameplaySnapshot) (bool, error)
 }
 
 type PeerAPIKeyCleanup interface {
@@ -53,7 +46,6 @@ type retirementPlan struct {
 	Peer              apitypes.Peer                    `json:"peer"`
 	Social            social.PeerSnapshot              `json:"social"`
 	Workspaces        workspace.PeerRetirementSnapshot `json:"workspaces"`
-	Gameplay          gameplay.PeerGameplaySnapshot    `json:"gameplay"`
 	WorkspaceIDs      []string                         `json:"workspace_ids"`
 	FriendGroupIDs    []string                         `json:"friend_group_ids"`
 }
@@ -63,7 +55,6 @@ type DeletionHandler struct {
 	Source            pendingdeletion.KVSource
 	Social            SocialRetirement
 	Workspaces        WorkspaceRetirement
-	Gameplay          GameplayRetirement
 	APIKeys           PeerAPIKeyCleanup
 	RuntimeProfiles   OwnerBindingCleanup
 	Quiescer          PeerQuiescer
@@ -79,7 +70,7 @@ func (h DeletionHandler) Handle(ctx context.Context, claim pendingdeletion.Claim
 	if err != nil {
 		return pendingdeletion.Terminal("invalid_peer_marker", "Peer deletion marker is invalid", err)
 	}
-	if h.Server == nil || h.Social == nil || h.Workspaces == nil || h.Gameplay == nil || h.APIKeys == nil || h.RuntimeProfiles == nil || h.Quiescer == nil || h.WorkspaceLookup == nil || h.FriendGroupLookup == nil {
+	if h.Server == nil || h.Social == nil || h.Workspaces == nil || h.APIKeys == nil || h.RuntimeProfiles == nil || h.Quiescer == nil || h.WorkspaceLookup == nil || h.FriendGroupLookup == nil {
 		return pendingdeletion.Retryable("service_unavailable", "Peer retirement adapter is unavailable", nil)
 	}
 	now := time.Now().UTC()
@@ -99,21 +90,11 @@ func (h DeletionHandler) Handle(ctx context.Context, claim pendingdeletion.Claim
 	if _, err := h.Workspaces.RetirePeerWorkspaces(ctx, plan.Workspaces); err != nil {
 		return pendingdeletion.Retryable("workspace_cleanup_failed", "Peer Workspace handoff failed", err)
 	}
-	ready, err := h.Gameplay.RetirePeerGameplay(ctx, plan.Gameplay)
-	if err != nil {
-		return pendingdeletion.Retryable("gameplay_cleanup_failed", "Peer Gameplay cleanup failed", err)
-	}
 	if err := h.APIKeys.CleanupPeer(ctx, publicKey.String()); err != nil {
 		return pendingdeletion.Retryable("api_key_cleanup_failed", "Peer API key cleanup failed", err)
 	}
 	if err := h.RuntimeProfiles.DeleteOwnerProfileBinding(ctx, publicKey.String()); err != nil {
 		return pendingdeletion.Retryable("binding_cleanup_failed", "Peer RuntimeProfile binding cleanup failed", err)
-	}
-	if !ready {
-		return pendingdeletion.Deferred("pet_cleanup_pending", "Peer Pet cleanup is still completing", peerRetirementPollInterval)
-	}
-	if _, err := h.Workspaces.RetirePeerPetWorkspaces(ctx, plan.Workspaces); err != nil {
-		return pendingdeletion.Retryable("pet_workspace_cleanup_failed", "Peer Pet Workspace handoff failed", err)
 	}
 	if pending, err := childDeletionPending(ctx, h.WorkspaceLookup, pendingdeletion.KindWorkspace, plan.WorkspaceIDs); err != nil {
 		return pendingdeletion.Retryable("workspace_verify_failed", "Peer Workspace cleanup could not be verified", err)
@@ -182,19 +163,11 @@ func (h DeletionHandler) loadOrCreatePlan(ctx context.Context, claim pendingdele
 	if err != nil {
 		return retirementPlan{}, pendingdeletion.Retryable("social_snapshot_failed", "Peer Social snapshot failed", err)
 	}
-	gameplaySnapshot, err := h.Gameplay.SnapshotPeerGameplay(ctx, publicKey.String())
-	if err != nil {
-		return retirementPlan{}, pendingdeletion.Retryable("gameplay_snapshot_failed", "Peer Gameplay snapshot failed", err)
-	}
-	petWorkspaceIDs := make([]string, 0, len(gameplaySnapshot.Pets))
-	for _, pet := range gameplaySnapshot.Pets {
-		petWorkspaceIDs = append(petWorkspaceIDs, pet.WorkspaceID)
-	}
-	workspaceSnapshot, err := h.Workspaces.SnapshotPeerWorkspaces(ctx, publicKey.String(), petWorkspaceIDs)
+	workspaceSnapshot, err := h.Workspaces.SnapshotPeerWorkspaces(ctx, publicKey.String())
 	if err != nil {
 		return retirementPlan{}, pendingdeletion.Retryable("workspace_snapshot_failed", "Peer Workspace snapshot failed", err)
 	}
-	plan := retirementPlan{Version: 1, MarkerFingerprint: claim.MarkerFingerprint, Peer: peerRecord, Social: socialSnapshot, Workspaces: workspaceSnapshot, Gameplay: gameplaySnapshot}
+	plan := retirementPlan{Version: 1, MarkerFingerprint: claim.MarkerFingerprint, Peer: peerRecord, Social: socialSnapshot, Workspaces: workspaceSnapshot}
 	for _, item := range socialSnapshot.Friends {
 		plan.WorkspaceIDs = append(plan.WorkspaceIDs, item.WorkspaceID)
 	}
@@ -205,9 +178,6 @@ func (h DeletionHandler) loadOrCreatePlan(ctx context.Context, claim pendingdele
 		}
 	}
 	for _, item := range workspaceSnapshot.Workspaces {
-		plan.WorkspaceIDs = append(plan.WorkspaceIDs, item.ID)
-	}
-	for _, item := range workspaceSnapshot.PetWorkspaces {
 		plan.WorkspaceIDs = append(plan.WorkspaceIDs, item.ID)
 	}
 	plan.WorkspaceIDs = sortedUnique(plan.WorkspaceIDs)
@@ -229,7 +199,7 @@ func (h DeletionHandler) loadOrCreatePlan(ctx context.Context, claim pendingdele
 func validateRetirementPlan(data []byte, claim pendingdeletion.Claim, publicKey giznet.PublicKey) (retirementPlan, error) {
 	var plan retirementPlan
 	if err := json.Unmarshal(data, &plan); err != nil || plan.Version != 1 || plan.MarkerFingerprint != claim.MarkerFingerprint || plan.Peer.PublicKey != publicKey.String() ||
-		plan.Social.PublicKey != publicKey.String() || plan.Workspaces.PublicKey != publicKey.String() || plan.Gameplay.PublicKey != publicKey.String() {
+		plan.Social.PublicKey != publicKey.String() || plan.Workspaces.PublicKey != publicKey.String() {
 		return retirementPlan{}, pendingdeletion.Terminal("retirement_plan_invalid", "Peer retirement plan is invalid", err)
 	}
 	return plan, nil

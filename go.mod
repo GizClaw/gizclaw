@@ -18,7 +18,6 @@ require (
 	github.com/GizClaw/flowcraft/sdk v0.4.8
 	github.com/GizClaw/flowcraft/sdkx v0.4.10
 	github.com/GizClaw/minimax-go v0.0.0-20260625231851-7a1c8a1f2111
-	github.com/GizClaw/pixa v0.0.0-20260730044130-e59a9ee62701
 	github.com/aliyun/aliyun-oss-go-sdk v3.0.2+incompatible
 	github.com/cloudwego/eino v0.9.13
 	github.com/coder/websocket v1.8.15

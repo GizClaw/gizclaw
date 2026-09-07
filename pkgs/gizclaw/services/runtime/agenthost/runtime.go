@@ -14,7 +14,6 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
@@ -95,8 +94,6 @@ type Service struct {
 	Source                     StreamSource
 	Consumer                   StreamConsumer
 	OnConsumerError            func(context.Context, string, error)
-	OnWorkspaceActivated       func(context.Context, string)
-	OnWorkspaceHistoryUpdated  func(context.Context, string, workspace.HistoryEntry)
 	Logger                     *slog.Logger
 	Now                        func() time.Time
 
@@ -206,7 +203,6 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		_ = input.CloseWithError(err)
 		return s.reloadFailure(ctx, workspaceName, err)
 	}
-	baseCtx = withWorkspaceHistoryNotifier(baseCtx, s.OnWorkspaceHistoryUpdated)
 	runCtx, runCancel := context.WithCancel(baseCtx)
 	stopTransitionCancel := context.AfterFunc(ctx, runCancel)
 	stopLifecycleCancel := context.AfterFunc(s.lifecycleContext(), runCancel)
@@ -293,9 +289,6 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		return s.reloadFailure(ctx, workspaceName, err)
 	}
 	go s.consume(runCtx, next)
-	if s.OnWorkspaceActivated != nil {
-		s.OnWorkspaceActivated(runCtx, selection.WorkspaceName)
-	}
 	return status, nil
 }
 
