@@ -37,6 +37,8 @@ The Admin Friend list retains cross-owner pagination. Current Friend row identit
 
 ### friendgroup
 
+Group records, memberships, invitations, Workspace bindings and locators, retirement intents and receipts, recovery indexes, retired-name indexes, and Friend Group `PendingDeletion` records and task indexes all live inside the configured `FriendGroupStore` namespace. `RelationshipStore` retains that prefixed view. Cross-view atomic operations resolve the underlying Store and restore each key's complete prefix. Background recovery and cleanup use the same view, cannot consume another namespace's tasks, and do not fall back to data outside the namespace.
+
 A group retirement receipt retains the member identities and local names for that group. Cleanup checks only the group record, binding, member set, and the exact belongs/name indexes addressed by that snapshot; it does not scan site-wide data and permits a member to reuse the name for another group. Retired group names resolve through an exact `owner + name` index committed atomically with the receipt. Retrying an older deletion cannot replace the index of a newer deletion with the same scoped name.
 
 Owns friend groups, members, invites, and the authoritative canonical `friend_group_id -> workspace_id` binding. Admin always addresses a Group by canonical ID. Peer RPC accepts only the current member's local Group `name`, which the service resolves to the canonical ID within that owner/member scope. Different peers may use different names for the same Group and may reuse the same name for their own resources. Group membership directly grants access to the group system Workspace.

@@ -407,9 +407,8 @@ func TestAdminCreateFriendGroupRejectsDuplicateCallerID(t *testing.T) {
 
 // TestAdminDeleteFriendGroupMemberFollowsTheConfiguredMemberStores pins that a
 // membership is deleted from the very keys createMember wrote. The member and
-// belong stores are mounted under prefixes the Server's own prefix fields do
-// not name, so a delete that trusted those fields would silently remove
-// nothing and leave the removed Peer able to keep talking in the Room.
+// belong stores are prefixed views, so deletion must address those same views
+// to revoke the removed Peer's access to the Room.
 func TestAdminDeleteFriendGroupMemberFollowsTheConfiguredMemberStores(t *testing.T) {
 	ctx := t.Context()
 	root := kv.NewMemory(nil)
@@ -419,11 +418,6 @@ func TestAdminDeleteFriendGroupMemberFollowsTheConfiguredMemberStores(t *testing
 	s.Members = kv.Prefixed(root, kv.Key{"members"})
 	s.Belongs = kv.Prefixed(root, kv.Key{"belongs"})
 	s.RelationshipStore = root
-	s.GroupRelationshipPrefix = kv.Key{"groups"}
-	s.InviteRelationshipPrefix = kv.Key{"invite-tokens"}
-	// Deliberately wrong: nothing was ever written under these.
-	s.MemberRelationshipPrefix = kv.Key{"unused-members"}
-	s.BelongRelationshipPrefix = kv.Key{"unused-belongs"}
 
 	group, err := s.AdminCreateFriendGroup(ctx, "id-a", "peer-a", "family", nil, nil)
 	if err != nil {
@@ -594,18 +588,14 @@ func TestDeleteFriendGroupIsRelationshipFirstAndRetryable(t *testing.T) {
 
 	workspaces.retireErr = nil
 	restarted := &Server{
-		Groups:                   s.Groups,
-		InviteTokens:             s.InviteTokens,
-		Members:                  s.Members,
-		Belongs:                  s.Belongs,
-		RelationshipStore:        s.RelationshipStore,
-		GroupRelationshipPrefix:  s.GroupRelationshipPrefix,
-		InviteRelationshipPrefix: s.InviteRelationshipPrefix,
-		MemberRelationshipPrefix: s.MemberRelationshipPrefix,
-		BelongRelationshipPrefix: s.BelongRelationshipPrefix,
-		Workspaces:               workspaces,
-		Now:                      s.Now,
-		NotifyPeer:               s.NotifyPeer,
+		Groups:            s.Groups,
+		InviteTokens:      s.InviteTokens,
+		Members:           s.Members,
+		Belongs:           s.Belongs,
+		RelationshipStore: s.RelationshipStore,
+		Workspaces:        workspaces,
+		Now:               s.Now,
+		NotifyPeer:        s.NotifyPeer,
 	}
 	if err := restarted.ReconcileRetirementIntents(ctx); err != nil {
 		t.Fatalf("ReconcileRetirementIntents after restart: %v", err)
