@@ -37,6 +37,8 @@ Admin 好友列表保留跨 owner 的分页查询。当前好友行的定位信�
 
 ### friendgroup
 
+群组的主记录、成员、邀请、Workspace binding 与定位记录、删除意图与回执、恢复索引、已删除名称索引及 Friend Group `PendingDeletion` 记录和任务索引，全部位于配置的 `FriendGroupStore` 命名空间内。`RelationshipStore` 保留这个带前缀的视图；跨视图原子操作解析到底层 Store 时，为每个键恢复完整前缀。后台恢复与清理使用同一视图，不能访问其他命名空间的任务，也不回退读取命名空间外的数据。
+
 群组删除回执保留该群成员的身份和本地名称快照。清理校验只读取群记录、绑定、成员集合及快照中成员的精确归属／名称索引，不扫描全站数据；允许成员将原名称用于另一个群。已删除群的名称通过 `owner + name` 索引直接解析，索引与回执原子提交，较早的删除任务重试不会覆盖较新的同名删除索引。
 
 拥有 friend group、member、invite 以及权威的 canonical `friend_group_id -> workspace_id` 绑定。Admin 始终用 canonical ID 定位 Group；Peer RPC 只接受当前成员自己的本地 Group `name`，服务在 owner/member scope 内把该 name 解析为 canonical ID。不同 Peer 可以为同一 Group 使用不同 name，也可以为各自资源复用相同 name。Group membership 直接决定成员对 group system Workspace 的访问。
