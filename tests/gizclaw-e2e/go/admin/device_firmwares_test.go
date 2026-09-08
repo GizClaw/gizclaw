@@ -46,7 +46,7 @@ func TestAdminAPIFirmwaresListGetAndConfigurePackages(t *testing.T) {
 		Slots: apitypes.FirmwareSlots{
 			Stable: apitypes.FirmwareSlot{
 				Description: ptr("stable package"),
-				Package: &apitypes.FirmwarePackage{
+				Package: &apitypes.FirmwarePackage{Version: new("1.2.3"),
 					Url:    "https://downloads.example.com/firmware/stable.tar.zlib",
 					Sha256: firmwarePackageSHA256,
 					Size:   4096,
@@ -54,14 +54,14 @@ func TestAdminAPIFirmwaresListGetAndConfigurePackages(t *testing.T) {
 			},
 			Beta: apitypes.FirmwareSlot{
 				Description: ptr("beta package"),
-				Package: &apitypes.FirmwarePackage{
+				Package: &apitypes.FirmwarePackage{Version: new("1.2.3"),
 					Url:    "https://downloads.example.com/firmware/beta.tar.zlib",
 					Sha256: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
 					Size:   6144,
 				},
 			},
 			Develop: apitypes.FirmwareSlot{
-				Package: &apitypes.FirmwarePackage{
+				Package: &apitypes.FirmwarePackage{Version: new("1.2.3"),
 					Url:    "https://downloads.example.com/firmware/develop.tar.zlib",
 					Sha256: "123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0",
 					Size:   7168,
@@ -156,7 +156,7 @@ func TestAdminAPIFirmwaresListGetAndConfigurePackages(t *testing.T) {
 	invalidName := mutationName("firmware-invalid")
 	invalid, err := env.api.CreateFirmwareWithResponse(env.ctx, adminhttp.FirmwareUpsert{
 		Id: invalidName,
-		Slots: apitypes.FirmwareSlots{Stable: apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{
+		Slots: apitypes.FirmwareSlots{Stable: apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{Version: new("1.2.3"),
 			Url: "https://downloads.example.com:0/firmware/stable.tar.zlib", Sha256: firmwarePackageSHA256, Size: 1,
 		}}},
 	})

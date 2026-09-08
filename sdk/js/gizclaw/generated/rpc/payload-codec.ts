@@ -518,6 +518,7 @@ export type FirmwareGetResponse = {
   "url": string;
   "sha256": string;
   "size": number;
+  "version"?: string;
 };
 export type FlowcraftWorkflowSpec = {
   "fields": Record<string, unknown>;
@@ -3850,6 +3851,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "size",
         "number": 5,
         "type": "int64"
+      },
+      {
+        "name": "version",
+        "number": 6,
+        "optional": true,
+        "type": "string"
       }
     ]
   },

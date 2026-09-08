@@ -121,7 +121,7 @@ func TestAdminAPIFirmwareResourceRejectsLegacySlots(t *testing.T) {
 
 func firmwareResourceSlot(description, url, sha256 string, size int64) apitypes.FirmwareSpecSlot {
 	slot := apitypes.FirmwareSpecSlot{
-		Package: &apitypes.FirmwarePackage{Url: url, Sha256: sha256, Size: size},
+		Package: &apitypes.FirmwarePackage{Version: new("1.2.3"), Url: url, Sha256: sha256, Size: size},
 	}
 	if description != "" {
 		slot.Description = &description

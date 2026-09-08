@@ -183,6 +183,7 @@ void main() {
     }
 
     final response = FirmwareGetResponse(
+      version: '1.5.0-beta.1+abc123',
       channel: FirmwareChannelName.FIRMWARE_CHANNEL_NAME_STABLE,
       description: 'stable package',
       url: 'https://firmware.example.invalid/devkit/stable.tar.zlib',
@@ -201,6 +202,8 @@ void main() {
     expect(decoded.url, response.url);
     expect(decoded.sha256, response.sha256);
     expect(decoded.size, response.size);
+    expect(decoded.version, response.version);
+    expect(decoded.hasVersion(), isTrue);
 
     final withoutDescription = FirmwareGetResponse(
       channel: FirmwareChannelName.FIRMWARE_CHANNEL_NAME_DEVELOP,
@@ -219,6 +222,7 @@ void main() {
             )
             as FirmwareGetResponse;
     expect(decodedWithoutDescription.hasDescription(), isFalse);
+    expect(decodedWithoutDescription.hasVersion(), isFalse);
   });
 
   test('encodes and decodes structured speech extraction payloads', () {

@@ -23,7 +23,7 @@ API Key 的鉴权和管理契约见 [Peer HTTP · API Key](../../gizclaw/peer/se
 - `GET /device/runtime` 返回 `Runtime`（online、last seen、address、RX/TX），读取不刷新在线状态。
 - `GET /device/status` 返回最近一次 authoritative `PeerStatus` snapshot；不提供 `fresh` 参数，`client.device.status.get` 只用于控制响应回写。
 - `GET /device/telemetry/{field}/latest`、`/device/telemetry`、`/device/telemetry/aggregate` 保留 Admin telemetry 的字段枚举、采样时间、查询边界、排序与 aggregate 语义，只把 Peer 固定为 owner。
-- `GET /device/firmware` 返回 owner 绑定的 Firmware 配置的全部 channel（`stable`、`beta`、`develop`），每个 channel 携带可选的 `description` 与 `package`（`url`、`sha256`、`size`），与 `server.firmware.get` 同源。Channel 选择归调用方：Server 不保存设备当前使用的 channel，本 route 一次返回全部 channel，由调用方自行选择。未绑定 `firmware_id` 或绑定的配置已不存在返回 `404 FIRMWARE_NOT_FOUND`；某个 channel 未配置包时该 slot 省略 `package`，不报错。
+- `GET /device/firmware` 返回 owner 绑定的 Firmware 配置的全部 channel（`stable`、`beta`、`develop`），每个 channel 携带可选的 `description` 与 `package`（`version`、`url`、`sha256`、`size`）（已有包没有版本时省略 `version`，其余信息仍正常返回），与 `server.firmware.get` 同源。Channel 选择归调用方：Server 不保存设备当前使用的 channel，本 route 一次返回全部 channel，由调用方自行选择。未绑定 `firmware_id` 或绑定的配置已不存在返回 `404 FIRMWARE_NOT_FOUND`；某个 channel 未配置包时该 slot 省略 `package`，不报错。
 - `/contacts` 的 list/create/get/put/delete 使用 `services/social/contact` 的同一 owner-scoped 数据；`{contactName}` 是 owner 作用域内不可变的 `name`，跨 owner 与不存在统一返回 `404 CONTACT_NOT_FOUND`，name 或 phone 冲突返回 `409 CONTACT_ALREADY_EXISTS`。
 
 ## 设备控制流程

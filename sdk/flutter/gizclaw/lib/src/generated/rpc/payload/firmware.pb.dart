@@ -81,6 +81,7 @@ class FirmwareGetResponse extends $pb.GeneratedMessage {
     $core.String? url,
     $core.String? sha256,
     $fixnum.Int64? size,
+    $core.String? version,
   }) {
     final result = create();
     if (channel != null) result.channel = channel;
@@ -88,6 +89,7 @@ class FirmwareGetResponse extends $pb.GeneratedMessage {
     if (url != null) result.url = url;
     if (sha256 != null) result.sha256 = sha256;
     if (size != null) result.size = size;
+    if (version != null) result.version = version;
     return result;
   }
 
@@ -110,6 +112,7 @@ class FirmwareGetResponse extends $pb.GeneratedMessage {
     ..aOS(3, _omitFieldNames ? '' : 'url')
     ..aOS(4, _omitFieldNames ? '' : 'sha256')
     ..aInt64(5, _omitFieldNames ? '' : 'size')
+    ..aOS(6, _omitFieldNames ? '' : 'version')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -175,6 +178,17 @@ class FirmwareGetResponse extends $pb.GeneratedMessage {
   $core.bool hasSize() => $_has(4);
   @$pb.TagNumber(5)
   void clearSize() => $_clearField(5);
+
+  /// SemVer 2.0.0 package release version, at most 128 ASCII bytes.
+  /// Absent when the stored package has no version.
+  @$pb.TagNumber(6)
+  $core.String get version => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set version($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasVersion() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearVersion() => $_clearField(6);
 }
 
 class ClientFirmwareUpdateRequest extends $pb.GeneratedMessage {

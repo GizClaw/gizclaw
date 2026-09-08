@@ -2176,7 +2176,49 @@ static int test_rpc_completion_callbacks(
   return 0;
 }
 
+static int test_firmware_version(void) {
+  gizclaw_rpc_v1_FirmwareGetResponse source =
+      gizclaw_rpc_v1_FirmwareGetResponse_init_zero;
+  gizclaw_rpc_v1_FirmwareGetResponse decoded =
+      gizclaw_rpc_v1_FirmwareGetResponse_init_zero;
+  _Static_assert(sizeof(source.version) == 129, "firmware version capacity");
+  source.has_version = true;
+  memcpy(source.version, "1.2.3+", 6);
+  memset(source.version + 6, 'a', 122);
+  source.version[128] = '\0';
+  uint8_t buffer[512];
+  pb_ostream_t output = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  if (!pb_encode(&output, gizclaw_rpc_v1_FirmwareGetResponse_fields, &source)) {
+    return 1;
+  }
+  pb_istream_t input = pb_istream_from_buffer(buffer, output.bytes_written);
+  if (!pb_decode(&input, gizclaw_rpc_v1_FirmwareGetResponse_fields, &decoded) ||
+      !decoded.has_version || strcmp(decoded.version, source.version) != 0) {
+    return 1;
+  }
+  source.has_version = false;
+  output = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  if (!pb_encode(&output, gizclaw_rpc_v1_FirmwareGetResponse_fields, &source)) {
+    return 1;
+  }
+  input = pb_istream_from_buffer(buffer, output.bytes_written);
+  if (!pb_decode(&input, gizclaw_rpc_v1_FirmwareGetResponse_fields, &decoded) ||
+      decoded.has_version) {
+    return 1;
+  }
+  /* Field 6, length-delimited, 129-byte payload exceeds the string bound. */
+  buffer[0] = 0x32;
+  buffer[1] = 0x81;
+  buffer[2] = 0x01;
+  memset(buffer + 3, 'a', 129);
+  input = pb_istream_from_buffer(buffer, 132);
+  return pb_decode(&input, gizclaw_rpc_v1_FirmwareGetResponse_fields, &decoded) ? 1 : 0;
+}
+
 int main(void) {
+  if (test_firmware_version() != 0) {
+    return 1;
+  }
   if (expect(test_peer_event_golden_vectors() == 0,
              "all Peer Event golden vectors match Nanopb") != 0 ||
       test_json_ascii_classification() != 0) {
