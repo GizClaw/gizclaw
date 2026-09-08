@@ -351,14 +351,21 @@ func (o peerAgentOutput) logTerminalRouteError(
 	if code == "" {
 		code = "STREAM_ERROR"
 	}
-	logger.ErrorContext(ctx, "gizclaw: assistant route failed",
+	attrs := []any{
 		"peer_public_key", o.PeerPublicKey,
 		"workspace", workspaceName,
 		"stream_id_hash", safeStreamIDHash(streamID),
 		"stream_label_hash", safeStreamIDHash(chunk.Ctrl.Label),
 		"error_code", code,
 		"retryable", chunk.Ctrl.ErrorRetryable,
-	)
+	}
+	if message := strings.TrimSpace(chunk.Ctrl.Error); message != "" {
+		attrs = append(attrs, "error", message)
+	}
+	if class := strings.TrimSpace(string(chunk.Ctrl.FailureClass)); class != "" {
+		attrs = append(attrs, "failure_class", class)
+	}
+	logger.ErrorContext(ctx, "gizclaw: assistant route failed", attrs...)
 }
 
 func isRouteControlError(ctrl *genx.StreamCtrl) bool {

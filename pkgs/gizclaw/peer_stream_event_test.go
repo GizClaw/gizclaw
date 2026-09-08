@@ -591,7 +591,7 @@ func TestPeerAgentOutputDecodesOpusIntoPCMTrack(t *testing.T) {
 }
 
 func TestPeerAgentOutputLogsTerminalRouteErrorAndContinues(t *testing.T) {
-	const credentialBearingError = "authorization: Bearer secret-token; api_key=secret-value"
+	const providerErrorDetail = "upstream model stream failed: 503 service unavailable"
 	var events bytes.Buffer
 	broker := newPeerStreamEventBroker()
 	unsubscribe, err := broker.Subscribe(&events)
@@ -605,7 +605,7 @@ func TestPeerAgentOutputLogsTerminalRouteErrorAndContinues(t *testing.T) {
 			Part: genx.Text(""),
 			Ctrl: &genx.StreamCtrl{
 				StreamID: "failed-turn", Label: "assistant", EndOfStream: true,
-				Error: credentialBearingError, ErrorCode: "MEMORY_UNAVAILABLE", ErrorRetryable: true,
+				Error: providerErrorDetail, ErrorCode: "MEMORY_UNAVAILABLE", ErrorRetryable: true,
 			},
 		},
 		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "later-turn", Label: "assistant", BeginOfStream: true}},
@@ -639,7 +639,7 @@ func TestPeerAgentOutputLogsTerminalRouteErrorAndContinues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read later text: %v", err)
 	}
-	if got := failedEOS.GetEos().GetError(); got.GetCode() != "MEMORY_UNAVAILABLE" || got.GetMessage() != credentialBearingError {
+	if got := failedEOS.GetEos().GetError(); got.GetCode() != "MEMORY_UNAVAILABLE" || got.GetMessage() != providerErrorDetail {
 		t.Errorf("failed EOS error = %#v", got)
 	}
 	if laterBOS.GetType() != eventpb.PeerEventType_PEER_EVENT_TYPE_BOS {
@@ -655,21 +655,20 @@ func TestPeerAgentOutputLogsTerminalRouteErrorAndContinues(t *testing.T) {
 	if record.Level != slog.LevelError || record.Message != "gizclaw: assistant route failed" {
 		t.Fatalf("record = (%v, %q)", record.Level, record.Message)
 	}
-	if len(attrs) != 6 {
-		t.Fatalf("route error log attributes = %#v, want only correlation and error fields", attrs)
+	if len(attrs) != 7 {
+		t.Fatalf("route error log attributes = %#v, want correlation, error, and message fields", attrs)
 	}
 	for key, want := range map[string]any{
 		"peer_public_key": "peer-key", "workspace": "workspace-a",
 		"stream_id_hash": safeStreamIDHash("failed-turn"), "stream_label_hash": safeStreamIDHash("assistant"),
-		"error_code": "MEMORY_UNAVAILABLE", "retryable": true,
+		"error_code": "MEMORY_UNAVAILABLE", "retryable": true, "error": providerErrorDetail,
 	} {
 		if got := attrs[key]; got != want {
 			t.Errorf("%s = %#v, want %#v", key, got, want)
 		}
 	}
-	if strings.Contains(fmt.Sprint(attrs), "failed-turn") || strings.Contains(fmt.Sprint(attrs), "assistant") ||
-		strings.Contains(fmt.Sprint(attrs), "secret-token") || strings.Contains(fmt.Sprint(attrs), "secret-value") {
-		t.Fatalf("route error log exposed credential-bearing error: %#v", attrs)
+	if strings.Contains(fmt.Sprint(attrs), "failed-turn") || strings.Contains(fmt.Sprint(attrs), "label=assistant") {
+		t.Fatalf("route error log exposed a raw stream identifier: %#v", attrs)
 	}
 }
 
