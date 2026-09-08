@@ -158,6 +158,9 @@ jobs:
       - name: Install modernize
         run: go install golang.org/x/tools/go/analysis/passes/modernize/cmd/modernize@"${MODERNIZE_VERSION}"
 
+      - name: Build embedded monitoring console
+        uses: ./.github/actions/build-console
+
       - name: Check handwritten Go formatting
         run: go run ./tools/quality gofmt
 
@@ -185,15 +188,6 @@ jobs:
           -I sdk/c/gizclaw/include
           -I sdk/c/gizclaw/generated
           -I third_party/nanopb/upstream
-
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: 26
-          cache: npm
-
-      - name: Install JavaScript dependencies
-        run: npm ci
 
       - name: Check TypeScript types
         run: npm run quality:typescript
@@ -299,17 +293,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: 26
-          cache: npm
-
       - name: Download modules
         run: go mod download
 
-      - name: Install UI dependencies
-        run: npm ci
+      - name: Build embedded monitoring console
+        uses: ./.github/actions/build-console
 
       - name: Verify root module is tidy
         run: go mod tidy -diff
@@ -471,6 +459,9 @@ jobs:
       - name: Download modules
         run: go mod download
 
+      - name: Build embedded monitoring console
+        uses: ./.github/actions/build-console
+
       - name: Require PostgreSQL test DSN
         run: test -n "$GIZCLAW_TEST_POSTGRES_DSN"
 
@@ -560,6 +551,9 @@ jobs:
             go.sum
             **/go.sum
 
+      - name: Build embedded monitoring console
+        uses: ./.github/actions/build-console
+
       - name: Test every nested Go module
         shell: bash
         run: |
@@ -605,6 +599,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Build embedded monitoring console
+        uses: ./.github/actions/build-console
 
       - name: Run root module race tests
         run: go test -race -count=1 ./...

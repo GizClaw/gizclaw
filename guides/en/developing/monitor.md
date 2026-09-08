@@ -1,16 +1,16 @@
 # Monitor
 
-Nodes expose monitoring data; they do not serve a UI. The operator front end is
-the standalone console in `web/console/` (React, TypeScript, Vite, shadcn/ui,
-Recharts), deployed as a static site — normally on the access point itself, so
-device APIs are same-origin. `web/console/DESIGN.md` defines its visual language
+The monitoring console in `web/console/` (React, TypeScript, Vite, shadcn/ui,
+Recharts) is built and embedded in the Go executable distributed with Server
+and Edge. Open `/monitor/` on the node; `/monitor` redirects there. No external
+static files are required. `web/console/DESIGN.md` defines its visual language
 and data rules.
 
 ## Node snapshot API and authorization
 
 Server and Edge mount `pkgs/monitor.Handler` on their existing HTTP/HTTPS
-listeners. No dedicated monitor listener is introduced, and no page is served
-under `/monitor`.
+listeners. No dedicated monitor listener is introduced. The page is public;
+node data still requires the independent Monitor Token.
 
 GET `/monitor/api/node` reads this process only and requires
 `Authorization: Bearer gizclaw_mk_...`. Configure each node independently:
@@ -82,8 +82,11 @@ npm test --workspace @gizclaw/console
 go build ./cmd/gizclaw
 ```
 
-The console is a static bundle in `web/console/dist/` (ignored by git) and is
-never embedded into the Go binary. For development,
+The static bundle in `web/console/dist/` (ignored by git) is embedded using
+`go:embed`. Build the console before compiling Go or running tests that depend
+on monitoring; missing assets fail compilation. Linux Docker builds and macOS
+releases perform this step, and the executable needs no source directory at
+runtime. The bundle can also be hosted separately. For development,
 `npm run dev --workspace @gizclaw/console` serves it on port 5174 and proxies
 `/gizclaw` to a local access point (override with `CONSOLE_DEVICE_PROXY`); node
 snapshots are read directly from each configured node URL.
