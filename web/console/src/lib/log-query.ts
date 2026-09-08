@@ -101,7 +101,7 @@ export function summarize(record: LogEntry): string {
       parts.push(fields.route);
     }
     if (fields.status !== undefined) parts.push(`HTTP ${fields.status}`);
-    if (fields.rpc_code !== undefined) {
+    if (fields.rpc_code !== undefined && fields.rpc_code !== "0") {
       const label = rpcStatusLabels[fields.rpc_code];
       parts.push(
         label ? `${label}（RPC ${fields.rpc_code}）` : `RPC ${fields.rpc_code}`,
@@ -110,7 +110,6 @@ export function summarize(record: LogEntry): string {
     if (
       fields.result !== undefined &&
       fields.result !== "success" &&
-      fields.rpc_code === undefined &&
       fields.error_code === undefined
     )
       parts.push(fields.result);

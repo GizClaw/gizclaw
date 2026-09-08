@@ -25,6 +25,33 @@ const record: LogRecord = {
 };
 
 describe("log summary", () => {
+  it("omits redundant successful RPC status", () => {
+    expect(
+      summarize({
+        ...record,
+        fields: {
+          operation: "server.app_config.get",
+          rpc_code: "0",
+          result: "success",
+          duration_ms: "2",
+        },
+      }),
+    ).toBe("server.app_config.get · 2 ms");
+  });
+
+  it("retains RPC cancellation even with a successful code", () => {
+    expect(
+      summarize({
+        ...record,
+        fields: {
+          operation: "server.app_config.get",
+          rpc_code: "0",
+          result: "canceled",
+        },
+      }),
+    ).toBe("server.app_config.get · canceled");
+  });
+
   it("explains application config not-found warnings", () => {
     expect(
       summarize({
@@ -36,7 +63,7 @@ describe("log summary", () => {
           result: "client_error",
         },
       }),
-    ).toBe("server.app_config.get · 未找到（RPC 5） · 2 ms");
+    ).toBe("server.app_config.get · 未找到（RPC 5） · client_error · 2 ms");
   });
 
   it("keeps unknown RPC codes and backend error codes", () => {
