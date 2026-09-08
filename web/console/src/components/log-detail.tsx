@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { LogRecord } from "@/lib/log-query";
+import { summarize, type LogRecord } from "@/lib/log-query";
 
 /** Every field of one record, each one clickable as a filter. */
 export function LogRecordDetail({
@@ -54,6 +54,11 @@ export function LogRecordDetail({
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {summarize(record) !== record.message && (
+          <p className="text-xs break-words text-foreground">
+            {summarize(record)}
+          </p>
+        )}
         <p className="font-mono text-xs break-words text-foreground">
           {record.message}
         </p>
