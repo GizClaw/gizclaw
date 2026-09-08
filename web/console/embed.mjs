@@ -23,7 +23,7 @@ export function generateEmbed(root) {
   }
   collect("dist");
   const html = readFileSync(join(root, "dist/index.html"), "utf8");
-  const references = [...html.matchAll(/(?:src|href)="\.\/(assets\/[^\"]+)"/g)];
+  const references = [...html.matchAll(/(?:src|href)="\.\/(assets\/[^"]+)"/g)];
   if (
     !references.some((ref) => ref[1].endsWith(".js")) ||
     !references.some((ref) => ref[1].endsWith(".css"))
