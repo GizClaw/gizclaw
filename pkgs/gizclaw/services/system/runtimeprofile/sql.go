@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -30,7 +31,7 @@ func initializeProfileSQL(ctx context.Context, db *sqlx.DB) error {
 		`CREATE TABLE IF NOT EXISTS runtime_profile_owners(owner_public_key TEXT PRIMARY KEY, runtime_profile_id TEXT,binding_id TEXT NOT NULL)`,
 		`CREATE INDEX IF NOT EXISTS runtime_profile_owners_profile ON runtime_profile_owners(runtime_profile_id,owner_public_key)`,
 
-		`CREATE TABLE IF NOT EXISTS runtime_profiles(id TEXT PRIMARY KEY CHECK(length(id)>0),revision TEXT NOT NULL,resources_json TEXT NOT NULL,workflows_json TEXT NOT NULL,gameplay_json TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,incarnation TEXT NOT NULL,row_version BIGINT NOT NULL)`,
+		`CREATE TABLE IF NOT EXISTS runtime_profiles(id TEXT PRIMARY KEY CHECK(length(id)>0),revision TEXT NOT NULL,resources_json TEXT NOT NULL,workflows_json TEXT NOT NULL,gameplay_json TEXT NOT NULL,app_config_json TEXT NOT NULL DEFAULT 'null',created_at TEXT NOT NULL,updated_at TEXT NOT NULL,incarnation TEXT NOT NULL,row_version BIGINT NOT NULL)`,
 		`CREATE TABLE IF NOT EXISTS registration_tokens(id TEXT PRIMARY KEY CHECK(length(id)>0),token TEXT NOT NULL,runtime_profile_id TEXT NOT NULL,firmware_id TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,incarnation TEXT NOT NULL,row_version BIGINT NOT NULL)`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS registration_tokens_token ON registration_tokens(token)`,
 		`CREATE INDEX IF NOT EXISTS registration_tokens_profile ON registration_tokens(runtime_profile_id,id)`,
@@ -40,10 +41,41 @@ func initializeProfileSQL(ctx context.Context, db *sqlx.DB) error {
 			return err
 		}
 	}
+	if err := ensureProfileAppConfigColumn(ctx, tx); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 
-const runtimeProfileColumns = "id,revision,resources_json,workflows_json,gameplay_json,created_at,updated_at,incarnation,row_version"
+// ensureProfileAppConfigColumn preserves existing profiles when adding the
+// optional field. Previously omitted configuration cannot be recovered.
+func ensureProfileAppConfigColumn(ctx context.Context, tx *sqlx.Tx) error {
+	// PostgreSQL provides atomic idempotent DDL, avoiding a check/add race
+	// when multiple Servers initialize the shared database.
+	if tx.DriverName() == "postgres" || tx.DriverName() == "pgx" {
+		_, err := tx.ExecContext(ctx, "ALTER TABLE runtime_profiles ADD COLUMN IF NOT EXISTS app_config_json TEXT NOT NULL DEFAULT 'null'")
+		return err
+	}
+	rows, err := tx.QueryContext(ctx, "SELECT * FROM runtime_profiles WHERE 1=0")
+	if err != nil {
+		return err
+	}
+	columns, err := rows.Columns()
+	closeErr := rows.Close()
+	if err != nil {
+		return err
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if slices.Contains(columns, "app_config_json") {
+		return nil
+	}
+	_, err = tx.ExecContext(ctx, "ALTER TABLE runtime_profiles ADD COLUMN app_config_json TEXT NOT NULL DEFAULT 'null'")
+	return err
+}
+
+const runtimeProfileColumns = "id,revision,resources_json,workflows_json,gameplay_json,app_config_json,created_at,updated_at,incarnation,row_version"
 
 func encodeRuntimeProfileSQL(item apitypes.RuntimeProfile) ([]any, error) {
 	j1, err := json.Marshal(item.Spec.Resources)
@@ -58,7 +90,11 @@ func encodeRuntimeProfileSQL(item apitypes.RuntimeProfile) ([]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []any{item.Id, item.Revision, string(j1), string(j2), string(j3), item.CreatedAt.UTC().Format(time.RFC3339Nano), item.UpdatedAt.UTC().Format(time.RFC3339Nano)}, nil
+	j4, err := json.Marshal(item.Spec.AppConfig)
+	if err != nil {
+		return nil, err
+	}
+	return []any{item.Id, item.Revision, string(j1), string(j2), string(j3), string(j4), item.CreatedAt.UTC().Format(time.RFC3339Nano), item.UpdatedAt.UTC().Format(time.RFC3339Nano)}, nil
 }
 func scanRuntimeProfileSQL(row profileScanner) (apitypes.RuntimeProfile, profileRowVersion, error) {
 	var item apitypes.RuntimeProfile
@@ -67,7 +103,8 @@ func scanRuntimeProfileSQL(row profileScanner) (apitypes.RuntimeProfile, profile
 	var j1 string
 	var j2 string
 	var j3 string
-	if err := row.Scan(&item.Id, &item.Revision, &j1, &j2, &j3, &created, &updated, &version.incarnation, &version.revision); err != nil {
+	var j4 string
+	if err := row.Scan(&item.Id, &item.Revision, &j1, &j2, &j3, &j4, &created, &updated, &version.incarnation, &version.revision); err != nil {
 		return item, version, err
 	}
 	var err error
@@ -86,6 +123,9 @@ func scanRuntimeProfileSQL(row profileScanner) (apitypes.RuntimeProfile, profile
 		return item, version, err
 	}
 	if err := json.Unmarshal([]byte(j3), &item.Spec.Gameplay); err != nil {
+		return item, version, err
+	}
+	if err := json.Unmarshal([]byte(j4), &item.Spec.AppConfig); err != nil {
 		return item, version, err
 	}
 	return item, version, nil
@@ -112,7 +152,7 @@ func updateRuntimeProfileSQL(ctx context.Context, db *sqlx.DB, item apitypes.Run
 		return item, version, err
 	}
 	values = append(values[1:len(values)-2], values[len(values)-1], item.Id, version.incarnation, version.revision)
-	return scanRuntimeProfileSQL(db.QueryRowContext(ctx, db.Rebind("UPDATE runtime_profiles SET revision=?,resources_json=?,workflows_json=?,gameplay_json=?,updated_at=?,row_version=row_version+1 WHERE id=? AND incarnation=? AND row_version=? RETURNING "+runtimeProfileColumns), values...))
+	return scanRuntimeProfileSQL(db.QueryRowContext(ctx, db.Rebind("UPDATE runtime_profiles SET revision=?,resources_json=?,workflows_json=?,gameplay_json=?,app_config_json=?,updated_at=?,row_version=row_version+1 WHERE id=? AND incarnation=? AND row_version=? RETURNING "+runtimeProfileColumns), values...))
 }
 func deleteRuntimeProfileSQL(ctx context.Context, db *sqlx.DB, id string, version profileRowVersion) (apitypes.RuntimeProfile, profileRowVersion, error) {
 	return scanRuntimeProfileSQL(db.QueryRowContext(ctx, db.Rebind("DELETE FROM runtime_profiles WHERE id=? AND incarnation=? AND row_version=? RETURNING "+runtimeProfileColumns), id, version.incarnation, version.revision))
