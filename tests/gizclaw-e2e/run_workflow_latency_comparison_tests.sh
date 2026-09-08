@@ -26,6 +26,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 mkdir -p "$script_dir/testdata/bin" "$artifact_dir/runs"
+(cd "$repo_root" && npm ci && npm run build:console)
 (cd "$repo_root" && go build -o "$gizclaw_binary" ./cmd/gizclaw)
 bash "$setup_dir/docker-compose-up.sh"
 set -a

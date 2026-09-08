@@ -1014,6 +1014,7 @@ test("Firmware RPC generated contract round-trips every channel and field", () =
   const response = {
     channel: "stable" as const,
     description: "stable package",
+    version: "1.5.0-beta.1+abc123",
     sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     size: Number.MAX_SAFE_INTEGER,
     url: "https://firmware.example.invalid/devkit/stable.tar.zlib",
@@ -1025,6 +1026,17 @@ test("Firmware RPC generated contract round-trips every channel and field", () =
     ),
     response,
   );
+  const withoutVersion: Omit<typeof response, "version"> & {
+    version?: string;
+  } = { ...response };
+  delete withoutVersion.version;
+  const decodedUnversioned = decodeRPCResponsePayload(
+    "server.firmware.get",
+    encodeRPCResponsePayload("server.firmware.get", withoutVersion),
+  ) as { version?: string };
+  assert.deepEqual(decodedUnversioned, withoutVersion);
+  assert.equal(decodedUnversioned.version, undefined);
+  assert.equal(Object.hasOwn(decodedUnversioned, "version"), false);
   const withoutDescription = { ...response };
   delete (withoutDescription as { description?: string }).description;
   assert.equal(

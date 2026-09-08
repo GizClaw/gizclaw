@@ -71,6 +71,7 @@ done
 rm -f "$artifact_dir/manifest.json" "$artifact_dir/manifest.json.tmp"
 
 echo "==> build Eino first-response qualification CLI"
+(cd "$repo_root" && npm ci && npm run build:console)
 (cd "$repo_root" && go build -o "$gizclaw_binary" ./cmd/gizclaw)
 
 echo "==> start isolated Docker e2e stack project=$GIZCLAW_E2E_DOCKER_PROJECT"

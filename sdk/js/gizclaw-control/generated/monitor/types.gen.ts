@@ -11,6 +11,12 @@ export type MonitorLog = {
     message: string;
     peer_public_key?: string;
     error?: string;
+    /**
+     * Structured attributes of the record, such as request_id, operation, route, status, duration_ms and stream identifiers. At most 24 entries; keys and values are bounded and truncated.
+     */
+    fields?: {
+        [key: string]: string;
+    };
 };
 
 export type NodeSnapshot = {

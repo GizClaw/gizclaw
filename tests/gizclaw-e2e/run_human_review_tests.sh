@@ -23,6 +23,7 @@ run_pkg() {
 
 echo "==> build host e2e CLI"
 mkdir -p "$script_dir/testdata/bin"
+(cd "$repo_root" && npm ci && npm run build:console)
 (cd "$repo_root" && go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw)
 
 echo "==> start Docker e2e stack"

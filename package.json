@@ -8,7 +8,7 @@
     "sdk/js",
     "sdk/js/gizclaw",
     "sdk/js/gizclaw-control",
-    "web/monitor"
+    "web/console"
   ],
   "devDependencies": {
     "@types/node": "26.4.0",
@@ -19,8 +19,8 @@
   },
   "scripts": {
     "quality:typescript": "tsc --noEmit -p sdk/js/gizclaw/tsconfig.json && npm run build --workspace @gizclaw/gizclaw && tsc --noEmit -p sdk/js/gizclaw-control/tsconfig.json && npm run build --workspace @gizclaw/gizclaw-control && tsc --noEmit -p tests/gizclaw-e2e/js/tsconfig.json",
-    "quality:lint": "oxlint --deny-warnings --ignore-path .prettierignore sdk/js tests/gizclaw-e2e/js web/monitor/src",
-    "quality:format": "prettier --check sdk/js tests/gizclaw-e2e/js web/monitor/src web/monitor/vite.config.ts",
-    "build:monitor": "npm run build --workspace @gizclaw/monitor"
+    "quality:lint": "oxlint --deny-warnings --ignore-path .prettierignore sdk/js tests/gizclaw-e2e/js web/console/src web/console/*.mjs",
+    "quality:format": "prettier --check sdk/js tests/gizclaw-e2e/js web/console/src web/console/vite.config.ts web/console/*.mjs",
+    "build:console": "npm run build --workspace @gizclaw/console"
   }
 }

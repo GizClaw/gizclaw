@@ -89,6 +89,13 @@
           },
           "error": {
             "type": "string"
+          },
+          "fields": {
+            "type": "object",
+            "description": "Structured attributes of the record, such as request_id, operation, route, status, duration_ms and stream identifiers. At most 24 entries; keys and values are bounded and truncated.",
+            "additionalProperties": {
+              "type": "string"
+            }
           }
         }
       },

@@ -122,6 +122,7 @@ trap 'exit 143' TERM
 
 echo "==> build host e2e CLI"
 mkdir -p "$script_dir/testdata/bin" "$artifact_dir"
+(cd "$repo_root" && npm ci && npm run build:console)
 (cd "$repo_root" && go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw)
 
 echo "==> start isolated Docker e2e stack project=$GIZCLAW_E2E_DOCKER_PROJECT"

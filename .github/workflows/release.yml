@@ -179,8 +179,8 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Install UI dependencies
-        run: npm ci && npm run build:monitor
+      - name: Build embedded monitoring console
+        uses: ./.github/actions/build-console
 
       - name: Build native macOS executable
         env:

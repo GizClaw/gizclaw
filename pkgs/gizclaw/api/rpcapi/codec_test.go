@@ -194,7 +194,7 @@ func TestPeerIdentityMessagesUseCompactNameOnlyLayouts(t *testing.T) {
 		descriptor protoreflect.MessageDescriptor
 		fields     []protoreflect.Name
 	}{
-		{(&rpcpb.FirmwareGetResponse{}).ProtoReflect().Descriptor(), []protoreflect.Name{"channel", "description", "url", "sha256", "size"}},
+		{(&rpcpb.FirmwareGetResponse{}).ProtoReflect().Descriptor(), []protoreflect.Name{"channel", "description", "url", "sha256", "size", "version"}},
 		{(&rpcpb.FriendObject{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "name", "peer_public_key", "updated_at", "workspace_name"}},
 		{(&rpcpb.FriendGroupMemberObject{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "friend_group_name", "name", "peer_public_key", "role", "updated_at"}},
 		{(&rpcpb.PeerRunHistoryEntry{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "gear_id", "name", "actor_name", "replay_available", "text", "type"}},
@@ -747,6 +747,7 @@ func TestPayloadCodecMapsProtobufDirectlyToGoDTOs(t *testing.T) {
 		t.Fatalf("AsFirmwareGetRequest() error = %v", err)
 	}
 	firmwareResponse := FirmwareGetResponse{
+		Version:     new("1.5.0-beta.1+abc123"),
 		Channel:     FirmwareChannelNameStable,
 		Description: new("stable package"),
 		Url:         "https://firmware.example/stable.tar.zlib",
@@ -762,6 +763,15 @@ func TestPayloadCodecMapsProtobufDirectlyToGoDTOs(t *testing.T) {
 	}
 	if !reflect.DeepEqual(decodedFirmware, firmwareResponse) {
 		t.Fatalf("firmware response round trip = %#v, want %#v", decodedFirmware, firmwareResponse)
+	}
+
+	firmwareResponse.Version = nil
+	if err := firmwarePayload.FromFirmwareGetResponse(firmwareResponse); err != nil {
+		t.Fatal(err)
+	}
+	decodedFirmware, err = firmwarePayload.AsFirmwareGetResponse()
+	if err != nil || !reflect.DeepEqual(decodedFirmware, firmwareResponse) {
+		t.Fatalf("unversioned round trip = %#v, %v", decodedFirmware, err)
 	}
 
 	schemaData, err := proto.Marshal(&rpcpb.DoubaoRealtimeJSONSchema{

@@ -71,7 +71,7 @@ docker run --rm \
   --workdir /src \
   --entrypoint bash \
   "$base_image" \
-  -lc "CGO_ENABLED=1 GOOS=linux go build -trimpath -o '/src/$temporary_output_relative' ./cmd/gizclaw" &
+  -lc "npm ci && npm run build:console && CGO_ENABLED=1 GOOS=linux go build -trimpath -o '/src/$temporary_output_relative' ./cmd/gizclaw" &
 build_pid="$!"
 build_started="$SECONDS"
 last_heartbeat=0

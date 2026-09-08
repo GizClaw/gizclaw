@@ -68,12 +68,15 @@ func (x *FirmwareGetRequest) GetChannel() FirmwareChannelName {
 }
 
 type FirmwareGetResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Channel       FirmwareChannelName    `protobuf:"varint,1,opt,name=channel,proto3,enum=gizclaw.rpc.v1.FirmwareChannelName" json:"channel,omitempty"`
-	Description   *string                `protobuf:"bytes,2,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	Url           string                 `protobuf:"bytes,3,opt,name=url,proto3" json:"url,omitempty"`
-	Sha256        string                 `protobuf:"bytes,4,opt,name=sha256,proto3" json:"sha256,omitempty"`
-	Size          int64                  `protobuf:"varint,5,opt,name=size,proto3" json:"size,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Channel     FirmwareChannelName    `protobuf:"varint,1,opt,name=channel,proto3,enum=gizclaw.rpc.v1.FirmwareChannelName" json:"channel,omitempty"`
+	Description *string                `protobuf:"bytes,2,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	Url         string                 `protobuf:"bytes,3,opt,name=url,proto3" json:"url,omitempty"`
+	Sha256      string                 `protobuf:"bytes,4,opt,name=sha256,proto3" json:"sha256,omitempty"`
+	Size        int64                  `protobuf:"varint,5,opt,name=size,proto3" json:"size,omitempty"`
+	// SemVer 2.0.0 package release version, at most 128 ASCII bytes.
+	// Absent when the stored package has no version.
+	Version       *string `protobuf:"bytes,6,opt,name=version,proto3,oneof" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -141,6 +144,13 @@ func (x *FirmwareGetResponse) GetSize() int64 {
 		return x.Size
 	}
 	return 0
+}
+
+func (x *FirmwareGetResponse) GetVersion() string {
+	if x != nil && x.Version != nil {
+		return *x.Version
+	}
+	return ""
 }
 
 type ClientFirmwareUpdateRequest struct {
@@ -237,14 +247,17 @@ const file_payload_firmware_proto_rawDesc = "" +
 	"\n" +
 	"\x16payload/firmware.proto\x12\x0egizclaw.rpc.v1\x1a\x13payload/enums.proto\"S\n" +
 	"\x12FirmwareGetRequest\x12=\n" +
-	"\achannel\x18\x01 \x01(\x0e2#.gizclaw.rpc.v1.FirmwareChannelNameR\achannel\"\xc9\x01\n" +
+	"\achannel\x18\x01 \x01(\x0e2#.gizclaw.rpc.v1.FirmwareChannelNameR\achannel\"\xf4\x01\n" +
 	"\x13FirmwareGetResponse\x12=\n" +
 	"\achannel\x18\x01 \x01(\x0e2#.gizclaw.rpc.v1.FirmwareChannelNameR\achannel\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x00R\vdescription\x88\x01\x01\x12\x10\n" +
 	"\x03url\x18\x03 \x01(\tR\x03url\x12\x16\n" +
 	"\x06sha256\x18\x04 \x01(\tR\x06sha256\x12\x12\n" +
-	"\x04size\x18\x05 \x01(\x03R\x04sizeB\x0e\n" +
-	"\f_description\"\x95\x01\n" +
+	"\x04size\x18\x05 \x01(\x03R\x04size\x12\x1d\n" +
+	"\aversion\x18\x06 \x01(\tH\x01R\aversion\x88\x01\x01B\x0e\n" +
+	"\f_descriptionB\n" +
+	"\n" +
+	"\b_version\"\x95\x01\n" +
 	"\x1bClientFirmwareUpdateRequest\x12B\n" +
 	"\achannel\x18\x01 \x01(\x0e2#.gizclaw.rpc.v1.FirmwareChannelNameH\x00R\achannel\x88\x01\x01\x12\x1b\n" +
 	"\x06sha256\x18\x02 \x01(\tH\x01R\x06sha256\x88\x01\x01B\n" +

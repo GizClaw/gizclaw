@@ -3,6 +3,9 @@
 本页说明仓库级测试 harness。普通 Go 单元测试仍按改动范围运行；带 build tag、
 Docker、真实 provider 或人工判断的套件必须显式启动，不能把未运行记作通过。
 
+构建 GizClaw CLI 的 E2E 入口会在 Go 编译前安装锁定的 Node workspace 并构建内嵌控制台，
+包括在 Docker 内编译的入口。产物与嵌入清单无需手动复制；独立编译命令的准备步骤见 [Monitor](monitor)。
+
 ## Store E2E
 
 `tests/store-e2e` 通过导出的 Store API 验证 Redis 7.0、PostgreSQL 与 ClickHouse，不依赖

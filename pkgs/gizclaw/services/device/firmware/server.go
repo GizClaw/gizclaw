@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -23,8 +24,12 @@ const (
 	maxListLimit                    = 200
 	maxFirmwareSlotDescriptionBytes = 1024
 	maxFirmwarePackageURLBytes      = 2048
+	maxFirmwarePackageVersionBytes  = 128
 	maxFirmwarePackageSize          = int64(1<<53 - 1)
 )
+
+// Keep this syntax aligned with FirmwarePackage.version in the source OpenAPI.
+var firmwareVersionPattern = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$`)
 
 type Server struct {
 	DB  *sqlx.DB
@@ -98,11 +103,21 @@ func (s *Server) DeleteFirmware(ctx context.Context, request adminhttp.DeleteFir
 		return adminhttp.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id := string(request.Id)
-	item, err := scanFirmware(store.QueryRowContext(ctx, store.Rebind(`DELETE FROM firmwares WHERE id=? RETURNING `+firmwareColumns), id))
+	// Validate the returned record before committing the deletion. Invalid
+	// stored packages must not turn an error response into a successful delete.
+	tx, err := store.BeginTxx(ctx, nil)
+	if err != nil {
+		return adminhttp.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	defer tx.Rollback()
+	item, err := scanFirmware(tx.QueryRowContext(ctx, store.Rebind(`DELETE FROM firmwares WHERE id=? RETURNING `+firmwareColumns), id))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.DeleteFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", id))), nil
 		}
+		return adminhttp.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	if err := tx.Commit(); err != nil {
 		return adminhttp.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.DeleteFirmware200JSONResponse(item), nil
@@ -166,6 +181,13 @@ func scanFirmware(row interface{ Scan(...any) error }) (apitypes.Firmware, error
 	}
 	if err := json.Unmarshal([]byte(slots), &item.Slots); err != nil {
 		return item, err
+	}
+	for _, slot := range []apitypes.FirmwareSlot{item.Slots.Stable, item.Slots.Beta, item.Slots.Develop} {
+		if slot.Package != nil && slot.Package.Version != nil {
+			if err := validatePackageVersion(*slot.Package.Version); err != nil {
+				return apitypes.Firmware{}, fmt.Errorf("stored firmware package requires a valid version; replace the configuration using Admin PUT: %w", err)
+			}
+		}
 	}
 	var err error
 	if item.CreatedAt, err = time.Parse(time.RFC3339Nano, created); err != nil {
@@ -259,7 +281,20 @@ func normalizeSlot(in apitypes.FirmwareSlot) (apitypes.FirmwareSlot, error) {
 	return out, nil
 }
 
+func validatePackageVersion(version string) error {
+	if len(version) > maxFirmwarePackageVersionBytes || !firmwareVersionPattern.MatchString(version) {
+		return errors.New("package version must be SemVer 2.0.0 without a leading v and contain at most 128 ASCII bytes")
+	}
+	return nil
+}
+
 func normalizePackage(in apitypes.FirmwarePackage) (apitypes.FirmwarePackage, error) {
+	if in.Version == nil {
+		return apitypes.FirmwarePackage{}, errors.New("package version is required")
+	}
+	if err := validatePackageVersion(*in.Version); err != nil {
+		return apitypes.FirmwarePackage{}, err
+	}
 	rawURL := strings.TrimSpace(in.Url)
 	if len(rawURL) > maxFirmwarePackageURLBytes {
 		return apitypes.FirmwarePackage{}, fmt.Errorf("package url must contain at most %d bytes", maxFirmwarePackageURLBytes)
@@ -285,7 +320,7 @@ func normalizePackage(in apitypes.FirmwarePackage) (apitypes.FirmwarePackage, er
 	if in.Size <= 0 || in.Size > maxFirmwarePackageSize {
 		return apitypes.FirmwarePackage{}, fmt.Errorf("package size must be between 1 and %d", maxFirmwarePackageSize)
 	}
-	return apitypes.FirmwarePackage{Url: rawURL, Sha256: sha256Value, Size: in.Size}, nil
+	return apitypes.FirmwarePackage{Url: rawURL, Sha256: sha256Value, Size: in.Size, Version: in.Version}, nil
 }
 
 func slotHasPayload(slot apitypes.FirmwareSlot) bool {

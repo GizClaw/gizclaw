@@ -5,6 +5,11 @@ still run according to the changed scope. Suites that require a build tag,
 Docker, live providers, or human judgment must be started explicitly and must
 not be reported as passing when they were not run.
 
+E2E entrypoints that build the GizClaw CLI install the locked Node workspaces
+and build the embedded console before Go compilation, including container builds.
+No manual asset or manifest copy is required; standalone build prerequisites are
+documented in [Monitor](monitor).
+
 ## Store E2E
 
 `tests/store-e2e` verifies Redis 7.0, PostgreSQL, and ClickHouse through exported Store APIs

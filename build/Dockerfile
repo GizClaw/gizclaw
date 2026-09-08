@@ -14,7 +14,7 @@ WORKDIR /src
 
 COPY . .
 
-RUN npm ci && npm run build:monitor
+RUN npm ci && npm run build:console
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
