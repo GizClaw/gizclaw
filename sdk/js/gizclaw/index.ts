@@ -291,6 +291,12 @@ export type GizClawDeviceControlHandlers = {
   ) => Promise<DeviceSettings> | DeviceSettings;
   // factoryReset erases device-local state. keepNetwork retains saved Wi-Fi and
   // cellular configuration so the device can reconnect without provisioning.
+  //
+  // Like reboot, the handler must settle promptly and only then perform the
+  // reset: the acknowledgement is sent from this handler's return, so a handler
+  // that tears down networking or blocks before settling leaves the caller
+  // without the response the method promises. Schedule the reset with
+  // setTimeout or an equivalent and return.
   factoryReset?: (keepNetwork: boolean) => Promise<void> | void;
 };
 

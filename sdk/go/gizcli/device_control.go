@@ -46,7 +46,13 @@ type DeviceControlHandlers struct {
 	SetSettings func(ctx context.Context, patch rpcapi.DeviceSettings) (rpcapi.DeviceSettings, error)
 	// FactoryReset erases device-local state. keepNetwork retains saved Wi-Fi
 	// and cellular configuration so the device can reconnect without being
-	// re-provisioned. Like Reboot, it answers before acting.
+	// re-provisioned.
+	//
+	// Like Reboot, the handler must return promptly and only then perform the
+	// reset: the Server's acknowledgement is written from this handler's
+	// return, so a handler that erases connectivity or blocks before returning
+	// leaves the caller without the response the method promises. Schedule the
+	// reset on a timer or another goroutine and return nil.
 	FactoryReset func(ctx context.Context, keepNetwork bool) error
 }
 

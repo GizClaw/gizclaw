@@ -3,11 +3,15 @@ package monitor
 import (
 	"context"
 	"encoding/json"
-	monitorapi "github.com/GizClaw/gizclaw-go/pkgs/monitor/api"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
+	monitorapi "github.com/GizClaw/gizclaw-go/pkgs/monitor/api"
 )
 
 func TestNodeAuthorizationAndIsolation(t *testing.T) {
@@ -109,7 +113,81 @@ func TestGeneratedMonitorClientContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer response.Body.Close()
-	if response.StatusCode != 405 || response.Header.Get("Allow") != "GET" {
+	if response.StatusCode != 405 || response.Header.Get("Allow") != "GET,OPTIONS" {
 		t.Fatal("method contract mismatch")
 	}
+}
+
+func TestNodeMonitorCORS(t *testing.T) {
+	token := "gizclaw_mk_" + strings.Repeat("x", 32)
+	handler := Handler(Config{Token: token}, "server", "local-key", http.NotFoundHandler())
+	preflight := httptest.NewRecorder()
+	options := httptest.NewRequest("OPTIONS", "/monitor/api/node", nil)
+	options.Header.Set("Origin", "https://console.example.com")
+	handler.ServeHTTP(preflight, options)
+	if preflight.Code != 204 {
+		t.Fatalf("preflight status %d", preflight.Code)
+	}
+	if got := preflight.Header().Get("Access-Control-Allow-Origin"); got != "https://console.example.com" {
+		t.Fatalf("Access-Control-Allow-Origin = %q", got)
+	}
+	if got := preflight.Header().Get("Access-Control-Allow-Headers"); !strings.Contains(got, "Authorization") {
+		t.Fatalf("Access-Control-Allow-Headers = %q", got)
+	}
+	if got := preflight.Header().Get("Vary"); !strings.Contains(got, "Origin") {
+		t.Fatalf("Vary = %q", got)
+	}
+	snapshot := httptest.NewRecorder()
+	get := httptest.NewRequest("GET", "/monitor/api/node", nil)
+	get.Header.Set("Origin", "https://console.example.com")
+	get.Header.Set("Authorization", "Bearer "+token)
+	handler.ServeHTTP(snapshot, get)
+	if snapshot.Code != 200 || snapshot.Header().Get("Access-Control-Allow-Origin") != "https://console.example.com" {
+		t.Fatalf("status=%d headers=%v", snapshot.Code, snapshot.Header())
+	}
+	unauthorized := httptest.NewRecorder()
+	denied := httptest.NewRequest("GET", "/monitor/api/node", nil)
+	denied.Header.Set("Origin", "https://console.example.com")
+	handler.ServeHTTP(unauthorized, denied)
+	if unauthorized.Code != 401 || unauthorized.Header().Get("Access-Control-Allow-Origin") != "https://console.example.com" {
+		t.Fatalf("status=%d headers=%v", unauthorized.Code, unauthorized.Header())
+	}
+}
+
+func TestNodeSnapshotCarriesStructuredLogFields(t *testing.T) {
+	logger, cleanup, err := gizlog.NewLogger(gizlog.Config{Level: "info"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := cleanup(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	logger.LogAttrs(
+		gizlog.WithPeerPublicKey(context.Background(), "peer-key"),
+		slog.LevelInfo,
+		"gizclaw: request completed",
+		slog.String("request_id", "req-monitor-1"),
+		slog.String("operation", "getPeerRuntime"),
+		slog.Int("status", 200),
+	)
+	server := &nodeServer{role: "server", publicKey: "local-key", started: time.Now()}
+	response, err := server.GetNodeMonitor(context.Background(), monitorapi.GetNodeMonitorRequestObject{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, ok := response.(monitorapi.GetNodeMonitor200JSONResponse)
+	if !ok {
+		t.Fatalf("unexpected response %T", response)
+	}
+	for _, entry := range snapshot.Logs {
+		if entry.Fields == nil {
+			continue
+		}
+		if (*entry.Fields)["request_id"] == "req-monitor-1" && (*entry.Fields)["status"] == "200" {
+			return
+		}
+	}
+	t.Fatal("structured log fields missing from the node snapshot")
 }
