@@ -26,7 +26,7 @@ Peer 自己直接下载 URL，并校验压缩后的 bytes。GizClaw 不获取、
 Firmware catalog 和声明式 channel ownership 仍属于
 `services/device/firmware`，由 Admin surface 管理。
 
-Response 的 `version` 来自所选 channel 的 `package.version`，是最多 128 个 ASCII 字符的 SemVer 2.0.0 版本号。C SDK 为它保留 129 bytes（含 NUL）。版本号不替代下载完整性校验和 OTA 请求的 SHA-256 guard。旧 protobuf server 或尚未补齐版本的已有记录可能返回空 version；consumer 不应为它虚构版本。
+Response 的 `version` 来自所选 channel 的 `package.version`，是最多 128 个 ASCII 字符的 SemVer 2.0.0 版本号。C SDK 为它保留 129 bytes（含 NUL）。版本号不替代下载完整性校验和 OTA 请求的 SHA-256 guard。已存储的 package 如果没有合法版本，RPC 返回 internal error；operator 必须通过 Admin PUT 补齐真实版本后再使用该配置。旧 protobuf server 可省略这个新增 wire 字段，但更新后的 service 不会成功返回空版本。
 
 ## 核心结构
 

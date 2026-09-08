@@ -30,7 +30,7 @@ RPC error.
 Firmware catalog and declarative channel ownership remain in
 `services/device/firmware` and are managed through the Admin surface.
 
-Response `version` comes from the selected channel's `package.version`, a SemVer 2.0.0 release version of at most 128 ASCII characters. The C SDK reserves 129 bytes including NUL. The version does not replace download integrity verification or the SHA-256 guard in OTA requests. Older protobuf servers or existing records without a version may return an empty version; consumers must not invent a release version for them.
+Response `version` comes from the selected channel's `package.version`, a SemVer 2.0.0 release version of at most 128 ASCII characters. The C SDK reserves 129 bytes including NUL. The version does not replace download integrity verification or the SHA-256 guard in OTA requests. Stored packages without a valid version produce an internal RPC error; operators must repair their configuration with a real version through Admin PUT. An older protobuf server can omit the added wire field, but the updated service never returns an empty version in a successful response.
 
 ## Core structure
 

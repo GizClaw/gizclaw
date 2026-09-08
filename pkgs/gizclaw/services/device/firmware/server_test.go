@@ -398,3 +398,39 @@ func TestServerVersionWritesAndRollback(t *testing.T) {
 		t.Fatalf("stored rollback version = %q", got)
 	}
 }
+
+func TestStoredUnversionedPackageRequiresExplicitRepair(t *testing.T) {
+	server := &Server{DB: newTestDatabase(t)}
+	input := firmwareUpsert("legacy", firmwareSlot("release", "https://firmware.example/fw.tar.zlib", 42), apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{})
+	createFirmware(t, server, input)
+	legacy := `{"stable":{"package":{"url":"https://firmware.example/fw.tar.zlib","sha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","size":42}},"beta":{},"develop":{}}`
+	if _, err := server.DB.ExecContext(t.Context(), `UPDATE firmwares SET slots_json=? WHERE id=?`, legacy, input.Id); err != nil {
+		t.Fatal(err)
+	}
+	got, err := server.GetFirmware(t.Context(), adminhttp.GetFirmwareRequestObject{Id: input.Id})
+	bad, ok := got.(adminhttp.GetFirmware500JSONResponse)
+	if err != nil || !ok || !strings.Contains(bad.Error.Message, "Admin PUT") {
+		t.Fatalf("legacy get = %T, %v", got, err)
+	}
+	listed, err := server.ListFirmwares(t.Context(), adminhttp.ListFirmwaresRequestObject{})
+	if _, ok := listed.(adminhttp.ListFirmwares500JSONResponse); err != nil || !ok {
+		t.Fatalf("legacy list = %T, %v", listed, err)
+	}
+	deleted, err := server.DeleteFirmware(t.Context(), adminhttp.DeleteFirmwareRequestObject{Id: input.Id})
+	if _, ok := deleted.(adminhttp.DeleteFirmware500JSONResponse); err != nil || !ok {
+		t.Fatalf("legacy delete = %T, %v", deleted, err)
+	}
+	var stored string
+	if err := server.DB.GetContext(t.Context(), &stored, `SELECT slots_json FROM firmwares WHERE id=?`, input.Id); err != nil || stored != legacy {
+		t.Fatalf("failed read/delete mutated stored package: %v", err)
+	}
+	updated, err := server.PutFirmware(t.Context(), adminhttp.PutFirmwareRequestObject{Id: input.Id, Body: &input})
+	if _, ok := updated.(adminhttp.PutFirmware200JSONResponse); err != nil || !ok {
+		t.Fatalf("repair = %T, %v", updated, err)
+	}
+	got, err = server.GetFirmware(t.Context(), adminhttp.GetFirmwareRequestObject{Id: input.Id})
+	valid, ok := got.(adminhttp.GetFirmware200JSONResponse)
+	if err != nil || !ok || valid.Slots.Stable.Package.Version != "1.2.3" {
+		t.Fatalf("repaired get = %T, %v", got, err)
+	}
+}
