@@ -48,6 +48,8 @@ openteam/
 # Build output from tests/gizclaw-e2e/cmd
 /multiserver-seed
 
-# The standalone console is deployed as a static site, never embedded.
+# Console assets are built before Go compilation and embedded in the binary.
 /web/console/dist/
 
+
+/web/console/assets_generated.go

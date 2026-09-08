@@ -23,7 +23,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "==> install locked Node workspace"
-(cd "$repo_root" && npm ci)
+(cd "$repo_root" && npm ci && npm run build:console)
 
 echo "==> initialize nanopb"
 (cd "$repo_root" && git submodule update --init third_party/nanopb/upstream)

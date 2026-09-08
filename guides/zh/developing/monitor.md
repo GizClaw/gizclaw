@@ -1,13 +1,13 @@
 # Monitor
 
-节点只提供监控数据，不再内嵌页面。运维前端是 `web/console/` 中的独立控制台
-（React、TypeScript、Vite、shadcn/ui、Recharts），以静态站点部署，通常就部署在接入点
-上，因此设备接口与页面同源。设计与数据约束见 `web/console/DESIGN.md`。
+监控控制台位于 `web/console/`（React、TypeScript、Vite、shadcn/ui、Recharts），构建后
+嵌入 Go 二进制，随 Server 和 Edge 一起分发。访问节点的 `/monitor/` 即可打开，无需另行部署
+静态文件；`/monitor` 自动重定向到该入口。设计与数据约束见 `web/console/DESIGN.md`。
 
 ## 节点快照接口与权限
 
 Server 与 Edge 在现有 HTTP/HTTPS listener 上挂载 `pkgs/monitor.Handler`，不新增仅监控
-listener，`/monitor` 下也不再提供任何页面。
+listener。页面可公开加载，节点数据仍由独立 Monitor Token 保护。
 
 GET `/monitor/api/node` 只读取当前进程，使用独立的
 `Authorization: Bearer gizclaw_mk_...`。在节点配置文件中设置：
@@ -64,7 +64,10 @@ npm test --workspace @gizclaw/console
 go build ./cmd/gizclaw
 ```
 
-控制台构建产物是 `web/console/dist/` 静态文件（git 忽略），不会嵌入 Go 二进制。开发时
+控制台构建产物是 `web/console/dist/` 静态文件（git 忽略），构建步骤会生成 `assets_generated.go`，通过 `go:embed` 逐个列出产物文件并嵌入二进制。
+清单同样由 git 忽略；缺失任一列出的文件都会使 Go 编译失败。
+编译 Go 或运行依赖监控模块的 Go 测试前必须先构建控制台；缺少产物会使编译失败。Linux Docker
+构建和 macOS 发布流程都会执行此步骤，运行时不依赖源目录。产物也可单独部署为静态站点。开发时
 `npm run dev --workspace @gizclaw/console` 监听 5174，并把 `/gizclaw` 代理到本地接入点
 （可用 `CONSOLE_DEVICE_PROXY` 覆盖）；节点快照直接从配置中的节点地址读取。
 

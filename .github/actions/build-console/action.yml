@@ -1,0 +1,11 @@
+name: Build embedded monitoring console
+description: Prepare static assets required by Go builds and tests
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      with:
+        node-version: 26
+        cache: npm
+    - shell: bash
+      run: npm ci && npm run build:console

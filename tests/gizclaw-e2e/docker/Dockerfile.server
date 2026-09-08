@@ -19,6 +19,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
+RUN npm run build:console
 RUN find tests/gizclaw-e2e/docker -name '*.sh' -exec chmod +x {} +
 
 ENTRYPOINT ["/src/tests/gizclaw-e2e/docker/entrypoint-server.sh"]
