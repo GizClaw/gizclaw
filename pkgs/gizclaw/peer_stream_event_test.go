@@ -672,6 +672,59 @@ func TestPeerAgentOutputLogsTerminalRouteErrorAndContinues(t *testing.T) {
 	}
 }
 
+func TestPeerAgentOutputRouteErrorOmitsAbsentOptionalFields(t *testing.T) {
+	capture := &slogCapture{}
+	output := peerAgentOutput{Logger: slog.New(capture)}
+	output.logTerminalRouteError(t.Context(), &genx.MessageChunk{
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{
+			StreamID: "coded-turn", Label: "assistant", EndOfStream: true,
+			ErrorCode: "PROVIDER_ERROR",
+		},
+	}, make(map[string]struct{}))
+	_, attrs := onlyCapturedRecord(t, capture)
+	if len(attrs) != 6 {
+		t.Fatalf("code-only route error attributes = %#v, want the six always-present fields", attrs)
+	}
+	if _, exists := attrs["error"]; exists {
+		t.Errorf("empty terminal error produced an error attribute: %#v", attrs)
+	}
+	if _, exists := attrs["failure_class"]; exists {
+		t.Errorf("absent failure class produced a failure_class attribute: %#v", attrs)
+	}
+}
+
+func TestPeerAgentOutputRouteErrorLogsOnlyClosedFailureClasses(t *testing.T) {
+	for _, testCase := range []struct {
+		name  string
+		class genx.FailureClass
+		want  any
+	}{
+		{name: "provider", class: genx.FailureClassProvider, want: "provider"},
+		{name: "transform", class: genx.FailureClassTransform, want: "transform"},
+		{name: "unknown", class: genx.FailureClass("provider-network"), want: nil},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			capture := &slogCapture{}
+			output := peerAgentOutput{Logger: slog.New(capture)}
+			output.logTerminalRouteError(t.Context(), &genx.MessageChunk{
+				Part: genx.Text(""),
+				Ctrl: &genx.StreamCtrl{
+					StreamID: "classified-turn", Label: "assistant", EndOfStream: true,
+					Error: "provider failed", FailureClass: testCase.class,
+				},
+			}, make(map[string]struct{}))
+			_, attrs := onlyCapturedRecord(t, capture)
+			if got := attrs["failure_class"]; got != testCase.want {
+				t.Fatalf("failure_class = %#v, want %#v", got, testCase.want)
+			}
+			if got := attrs["error_code"]; got != "STREAM_ERROR" {
+				t.Errorf("uncoded terminal error_code = %#v, want STREAM_ERROR", got)
+			}
+		})
+	}
+}
+
 func TestPeerAgentOutputDisabledLifecycleRouteErrorSkipsWorkspaceLookup(t *testing.T) {
 	capture := &slogCapture{}
 	workspaceCalled := false

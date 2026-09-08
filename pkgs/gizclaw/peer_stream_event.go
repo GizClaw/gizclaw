@@ -362,8 +362,9 @@ func (o peerAgentOutput) logTerminalRouteError(
 	if message := strings.TrimSpace(chunk.Ctrl.Error); message != "" {
 		attrs = append(attrs, "error", message)
 	}
-	if class := strings.TrimSpace(string(chunk.Ctrl.FailureClass)); class != "" {
-		attrs = append(attrs, "failure_class", class)
+	switch chunk.Ctrl.FailureClass {
+	case genx.FailureClassProvider, genx.FailureClassTransform:
+		attrs = append(attrs, "failure_class", string(chunk.Ctrl.FailureClass))
 	}
 	logger.ErrorContext(ctx, "gizclaw: assistant route failed", attrs...)
 }
