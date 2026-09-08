@@ -1,0 +1,33 @@
+# User Story:
+# As a registered device,
+# I want configuration reads to reflect the persisted RuntimeProfile,
+# So that administrator updates survive reconnects and Server restarts.
+version: gizclaw.test/v1alpha1
+name: app-config-empty
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+steps:
+- id: register
+  client: peer
+  rpc:
+    method: server.register
+    request: {token: "${registration_token}"}
+- id: empty_keys
+  client: peer
+  rpc: {method: server.app_config.list, request: {}}
+  expect:
+    /keys: {count: 0}
+    /has_next: {equals: false}
+- id: cleared_key
+  client: peer
+  rpc: {method: server.app_config.get, request: {key: ui.theme}}
+  expect_error: {code: 5}
+finally:
+- client: peer
+  rpc: {method: server.peer.delete, request: {}}

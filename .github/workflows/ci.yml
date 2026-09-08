@@ -470,7 +470,8 @@ jobs:
           GOFLAGS: -mod=readonly
         run: |
           go test -count=1 -p 1 \
-            ./cmd/internal/server
+            ./cmd/internal/server \
+            ./pkgs/gizclaw/services/system/runtimeprofile
           go test -tags=store_e2e -count=1 -p 1 \
             -run '^TestPostgreSQL' \
             ./tests/store-e2e

@@ -10,6 +10,29 @@ and build the embedded console before Go compilation, including container builds
 No manual asset or manifest copy is required; standalone build prerequisites are
 documented in [Monitor](monitor).
 
+## RuntimeProfile configuration persistence regression
+
+`go test ./cmd/internal/server -run '^TestRuntimeProfileAppConfigGiztest$' -count=1`
+starts a real Server with temporary SQLite storage, creates and updates configuration over
+Admin HTTP, and runs the `server.app_config.get/list` scenarios through the Go Giztest CLI's
+WebRTC driver. It covers pagination, device reconnect, configuration replacement, reads after
+a Server restart, and clearing with an empty map or omitted configuration. The update and
+clear assertions live in `tests/gizclaw-e2e/testdata/app-config/` and run at their corresponding
+lifecycle stages. No external AI provider or credentials are required; ordinary Go CI runs
+this path.
+
+PostgreSQL uses isolated test schemas to verify existing-table column addition, repeated
+initialization, and configuration persistence:
+
+```sh
+GIZCLAW_TEST_POSTGRES_DSN='postgres://…' \
+  go test ./pkgs/gizclaw/services/system/runtimeprofile -run '^TestPostgreSQLRuntimeProfileAppConfig$' -count=1
+```
+
+Local runs skip PostgreSQL when the DSN is unset. The PostgreSQL Integration CI job requires
+the DSN and runs this package. Each test cleans up only its own schema.
+
+
 ## Store E2E
 
 `tests/store-e2e` verifies Redis 7.0, PostgreSQL, and ClickHouse through exported Store APIs

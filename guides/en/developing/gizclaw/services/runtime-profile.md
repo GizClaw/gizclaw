@@ -77,6 +77,8 @@ The binding alias identifies the named physical source selected by a Workflow's 
 
 ## app_config
 
+`app_config` is stored in the `app_config_json` column of the same RuntimeProfile row. Creation, updates, and every read path preserve the original string values. Omitted configuration is stored as JSON `null`, and an explicit empty map as `{}`; both represent no configuration and clear previous values on update. Initialization adds the column to existing tables that lack it while preserving other fields and versions. Administrators must resubmit configuration that was never stored.
+
 `spec.app_config` is the optional opaque configuration downlink for the device itself. It puts device-owned product configuration into the RuntimeProfile the device already selects, so switching environments does not require a firmware rebuild. It is a key-value map: keys use exactly the RuntimeProfile alias syntax shared with every other binding (1-63 bytes of dot-separated lowercase kebab-case segments), and values are arbitrary strings.
 
 The Server stores and returns each value verbatim: it never parses, trims, re-encodes, or checks whether a value is JSON. The encoding is the device's choice. The Server validates only the key syntax, a 4096-byte ceiling per value, and a 64-entry ceiling per profile, and rejects a write whose keys collide after normalization. Key syntax and the byte ceiling are both enforced during normalization: OpenAPI 3.0 has no `propertyNames` keyword and its `maxLength` counts characters, while Clients decode into static buffers sized in UTF-8 bytes, so normalization is stricter than the schema.

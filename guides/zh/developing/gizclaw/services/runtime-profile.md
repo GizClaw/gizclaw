@@ -77,6 +77,8 @@ spec:
 
 ## app_config
 
+`app_config` 随同一条 RuntimeProfile 记录保存在 `app_config_json` 列中，创建、更新和所有读取路径都保留原始字符串值。省略配置保存为 JSON `null`，显式空 map 保存为 `{}`；两者都表示没有下发配置，更新时会清除旧值。初始化为缺少该列的已有表补列，保留其他字段和版本；原先未保存的配置需由管理员重新提交。
+
 `spec.app_config` 是可选的不透明设备配置下发通道，把设备自己的产品配置放进它已经使用的 RuntimeProfile，而不需要重新构建固件。它是一个 key-value map：key 使用与其他 RuntimeProfile alias 完全相同的语法（1–63 字节、`.` 分隔的 lowercase kebab-case segment），value 是任意 string。
 
 Server 原样存储并返回每个 value：不解析、不 trim、不做编码转换，也不校验它是不是 JSON。value 用什么格式由设备自己决定。Server 只校验 key 语法、单个 value 不超过 4096 字节、条目不超过 64 个；normalize 后出现重复 key 时拒绝整次写入。key 语法与 value 的字节上限都在 Server 归一化时校验：OpenAPI 3.0 没有 `propertyNames`，`maxLength` 也只能表达字符数，而设备侧按 UTF-8 字节静态分配，因此归一化比 schema 更严格。

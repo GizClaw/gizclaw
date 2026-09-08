@@ -19,6 +19,9 @@ variables:
     type: string
     env: GIZCLAW_TEST_REGISTRATION_TOKEN
     secret: true
+  page_cursor: {direction: output, type: string}
+  last_cursor: {direction: output, type: string}
+  profile_revision: {direction: output, type: string}
 steps:
 - id: register_peer
   client: peer
@@ -49,6 +52,9 @@ steps:
     method: server.app_config.list
     request:
       limit: 1
+  capture:
+    page_cursor: /next_cursor
+    profile_revision: /runtime_profile_revision
   expect:
     "/keys":
       count: 1
@@ -58,6 +64,28 @@ steps:
       equals: true
     "/next_cursor":
       non_empty: true
+- id: second_page
+  client: peer
+  rpc:
+    method: server.app_config.list
+    request: {cursor: "${page_cursor}", limit: 1}
+  capture:
+    last_cursor: /next_cursor
+  expect:
+    /keys: {count: 1}
+    /keys/0: {equals: feature.flags}
+    /has_next: {equals: true}
+    /runtime_profile_revision: {equals: "${profile_revision}"}
+- id: last_page
+  client: peer
+  rpc:
+    method: server.app_config.list
+    request: {cursor: "${last_cursor}", limit: 1}
+  expect:
+    /keys: {count: 1}
+    /keys/0: {equals: ui.theme}
+    /has_next: {equals: false}
+    /runtime_profile_revision: {equals: "${profile_revision}"}
 finally:
 - client: peer
   rpc:
