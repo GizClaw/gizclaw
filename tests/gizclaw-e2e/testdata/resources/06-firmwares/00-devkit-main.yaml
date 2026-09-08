@@ -4,23 +4,25 @@ kind: Firmware
 metadata:
   id: devkit-firmware-main
 spec:
-  name: Devkit Main
   description: Devkit firmware resource entry
   slots:
     beta:
       description: Devkit beta package
       package:
+        version: 1.2.3
         url: https://firmware.example.invalid/devkit/beta.tar.zlib
         sha256: abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789
         size: 8192
     develop:
       package:
+        version: 1.2.3
         url: https://firmware.example.invalid/devkit/develop.tar.zlib
         sha256: 123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0
         size: 12288
     stable:
       description: Devkit stable package
       package:
+        version: 1.2.3
         url: https://firmware.example.invalid/devkit/stable.tar.zlib
         sha256: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
         size: 4096

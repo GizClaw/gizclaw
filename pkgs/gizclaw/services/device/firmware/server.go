@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -23,8 +24,12 @@ const (
 	maxListLimit                    = 200
 	maxFirmwareSlotDescriptionBytes = 1024
 	maxFirmwarePackageURLBytes      = 2048
+	maxFirmwarePackageVersionBytes  = 128
 	maxFirmwarePackageSize          = int64(1<<53 - 1)
 )
+
+// Keep this syntax aligned with FirmwarePackage.version in the source OpenAPI.
+var firmwareVersionPattern = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$`)
 
 type Server struct {
 	DB  *sqlx.DB
@@ -260,6 +265,9 @@ func normalizeSlot(in apitypes.FirmwareSlot) (apitypes.FirmwareSlot, error) {
 }
 
 func normalizePackage(in apitypes.FirmwarePackage) (apitypes.FirmwarePackage, error) {
+	if len(in.Version) > maxFirmwarePackageVersionBytes || !firmwareVersionPattern.MatchString(in.Version) {
+		return apitypes.FirmwarePackage{}, errors.New("package version must be SemVer 2.0.0 without a leading v and contain at most 128 ASCII bytes")
+	}
 	rawURL := strings.TrimSpace(in.Url)
 	if len(rawURL) > maxFirmwarePackageURLBytes {
 		return apitypes.FirmwarePackage{}, fmt.Errorf("package url must contain at most %d bytes", maxFirmwarePackageURLBytes)
@@ -285,7 +293,7 @@ func normalizePackage(in apitypes.FirmwarePackage) (apitypes.FirmwarePackage, er
 	if in.Size <= 0 || in.Size > maxFirmwarePackageSize {
 		return apitypes.FirmwarePackage{}, fmt.Errorf("package size must be between 1 and %d", maxFirmwarePackageSize)
 	}
-	return apitypes.FirmwarePackage{Url: rawURL, Sha256: sha256Value, Size: in.Size}, nil
+	return apitypes.FirmwarePackage{Url: rawURL, Sha256: sha256Value, Size: in.Size, Version: in.Version}, nil
 }
 
 func slotHasPayload(slot apitypes.FirmwareSlot) bool {

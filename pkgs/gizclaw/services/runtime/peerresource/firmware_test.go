@@ -46,9 +46,9 @@ func TestFirmwareGetReturnsRequestedChannelConfiguration(t *testing.T) {
 			return adminhttp.GetFirmware200JSONResponse(apitypes.Firmware{
 				Id: firmwareID,
 				Slots: apitypes.FirmwareSlots{
-					Stable:  apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{Url: "https://firmware.example/stable.tar.zlib", Sha256: firmwareTestSHA256, Size: 10}},
-					Beta:    apitypes.FirmwareSlot{Description: &description, Package: &apitypes.FirmwarePackage{Url: "https://firmware.example/beta.tar.zlib", Sha256: firmwareTestSHA256, Size: 20}},
-					Develop: apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{Url: "https://firmware.example/develop.tar.zlib", Sha256: firmwareTestSHA256, Size: 30}},
+					Stable:  apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{Version: "1.2.3", Url: "https://firmware.example/stable.tar.zlib", Sha256: firmwareTestSHA256, Size: 10}},
+					Beta:    apitypes.FirmwareSlot{Description: &description, Package: &apitypes.FirmwarePackage{Version: "1.2.3", Url: "https://firmware.example/beta.tar.zlib", Sha256: firmwareTestSHA256, Size: 20}},
+					Develop: apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{Version: "1.2.3", Url: "https://firmware.example/develop.tar.zlib", Sha256: firmwareTestSHA256, Size: 30}},
 				},
 			}), nil
 		}),
@@ -73,7 +73,7 @@ func TestFirmwareGetReturnsRequestedChannelConfiguration(t *testing.T) {
 			if err != nil {
 				t.Fatalf("AsFirmwareGetResponse: %v", err)
 			}
-			if got.Channel != test.channel || got.Url != test.url || got.Sha256 != firmwareTestSHA256 || got.Size != test.size {
+			if got.Version != "1.2.3" || got.Channel != test.channel || got.Url != test.url || got.Sha256 != firmwareTestSHA256 || got.Size != test.size {
 				t.Fatalf("response = %#v", got)
 			}
 		})

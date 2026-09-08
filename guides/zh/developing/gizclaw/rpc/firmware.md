@@ -26,9 +26,11 @@ Peer 自己直接下载 URL，并校验压缩后的 bytes。GizClaw 不获取、
 Firmware catalog 和声明式 channel ownership 仍属于
 `services/device/firmware`，由 Admin surface 管理。
 
+Response 的 `version` 来自所选 channel 的 `package.version`，是最多 128 个 ASCII 字符的 SemVer 2.0.0 版本号。C SDK 为它保留 129 bytes（含 NUL）。版本号不替代下载完整性校验和 OTA 请求的 SHA-256 guard。旧 protobuf server 或尚未补齐版本的已有记录可能返回空 version；consumer 不应为它虚构版本。
+
 ## 核心结构
 
 | 符号 | 作用 |
 | --- | --- |
 | `FirmwareGet` | 校验 channel，解析 Peer 绑定并返回该 channel 的 package 配置。 |
-| `FirmwarePackage` | Admin 侧 external package contract：HTTPS URL、SHA-256 和 compressed size。 |
+| `FirmwarePackage` | Admin 侧 external package contract：SemVer version、HTTPS URL、SHA-256 和 compressed size。 |

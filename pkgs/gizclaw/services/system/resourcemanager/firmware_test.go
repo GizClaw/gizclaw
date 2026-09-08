@@ -2,6 +2,7 @@ package resourcemanager
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -45,7 +46,7 @@ func TestFirmwareResourceApplyShowDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsFirmwareResource: %v", err)
 	}
-	if item.Metadata.Id != "devkit" || item.Spec.Slots.Stable.Description == nil || *item.Spec.Slots.Stable.Description != "stable firmware" || item.Spec.Slots.Stable.Package == nil || item.Spec.Slots.Stable.Package.Url != "https://firmware.example/stable.tar.zlib" || item.Spec.Slots.Stable.Package.Size != 4096 {
+	if item.Metadata.Id != "devkit" || item.Spec.Slots.Stable.Description == nil || *item.Spec.Slots.Stable.Description != "stable firmware" || item.Spec.Slots.Stable.Package == nil || item.Spec.Slots.Stable.Package.Url != "https://firmware.example/stable.tar.zlib" || item.Spec.Slots.Stable.Package.Size != 4096 || item.Spec.Slots.Stable.Package.Version != "1.2.3" {
 		t.Fatalf("shown resource = %+v", item)
 	}
 
@@ -257,7 +258,7 @@ func testFirmwareSpecSlots(stableDescription string) apitypes.FirmwareSpecSlots 
 	return apitypes.FirmwareSpecSlots{
 		Stable: apitypes.FirmwareSpecSlot{
 			Description: new(stableDescription),
-			Package: &apitypes.FirmwarePackage{
+			Package: &apitypes.FirmwarePackage{Version: "1.2.3",
 				Url:    "https://firmware.example/stable.tar.zlib",
 				Sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 				Size:   4096,
@@ -273,4 +274,18 @@ func testFirmwareSpecSlots(stableDescription string) apitypes.FirmwareSpecSlots 
 //go:fix inline
 func stringPtr(value string) *string {
 	return new(value)
+}
+
+func TestFirmwareResourceRejectsMissingVersion(t *testing.T) {
+	manager := New(Services{Firmwares: firmwaretest.New(t)})
+	var resource apitypes.Resource
+	if err := json.Unmarshal([]byte(`{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Firmware","metadata":{"id":"invalid-version"},"spec":{"slots":{"stable":{"package":{"url":"https://firmware.example/fw.tar.zlib","sha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","size":42}},"beta":{},"develop":{}}}}`), &resource); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.Apply(t.Context(), resource); err == nil {
+		t.Fatal("apply accepted package without version")
+	}
+	if _, err := manager.Get(t.Context(), apitypes.ResourceKindFirmware, "invalid-version"); !isResourceError(err, 404, "RESOURCE_NOT_FOUND") {
+		t.Fatalf("invalid resource was stored: %v", err)
+	}
 }

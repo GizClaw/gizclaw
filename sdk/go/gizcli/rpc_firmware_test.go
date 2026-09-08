@@ -49,6 +49,7 @@ func TestClientGetFirmwareUsesRPCConnection(t *testing.T) {
 		}
 		response := resourceResponse(request.Id, rpcapi.FirmwareGetResponse{
 			Channel:     rpcapi.FirmwareChannelNameBeta,
+			Version:     "1.5.0-beta.1+abc123",
 			Description: new("beta package"),
 			Url:         "https://firmware.example/beta.tar.zlib",
 			Sha256:      strings.Repeat("a", 64),
@@ -61,7 +62,7 @@ func TestClientGetFirmwareUsesRPCConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetFirmware: %v", err)
 	}
-	if got.Channel != rpcapi.FirmwareChannelNameBeta || got.Description == nil || *got.Description != "beta package" || got.Url != "https://firmware.example/beta.tar.zlib" || got.Sha256 != strings.Repeat("a", 64) || got.Size != 123 {
+	if got.Version != "1.5.0-beta.1+abc123" || got.Channel != rpcapi.FirmwareChannelNameBeta || got.Description == nil || *got.Description != "beta package" || got.Url != "https://firmware.example/beta.tar.zlib" || got.Sha256 != strings.Repeat("a", 64) || got.Size != 123 {
 		t.Fatalf("GetFirmware = %#v", got)
 	}
 	if err := <-serverErr; err != nil {

@@ -194,7 +194,7 @@ func TestPeerIdentityMessagesUseCompactNameOnlyLayouts(t *testing.T) {
 		descriptor protoreflect.MessageDescriptor
 		fields     []protoreflect.Name
 	}{
-		{(&rpcpb.FirmwareGetResponse{}).ProtoReflect().Descriptor(), []protoreflect.Name{"channel", "description", "url", "sha256", "size"}},
+		{(&rpcpb.FirmwareGetResponse{}).ProtoReflect().Descriptor(), []protoreflect.Name{"channel", "description", "url", "sha256", "size", "version"}},
 		{(&rpcpb.GameResult{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "difficulty", "duration_ms", "game_def_name", "name", "idempotency_key", "max_score", "occurred_at", "outcome", "payload", "pet_name", "runtime_profile_name", "score"}},
 		{(&rpcpb.PointsTransaction{}).ProtoReflect().Descriptor(), []protoreflect.Name{"balance_after", "created_at", "delta", "game_result_name", "name", "owner_public_key", "pet_name", "reason", "reward_grant_name", "runtime_profile_name", "source_name", "source_type"}},
 		{(&rpcpb.RewardGrant{}).ProtoReflect().Descriptor(), []protoreflect.Name{"badge_exp_delta", "created_at", "game_result_name", "name", "owner_public_key", "pet_exp_delta", "pet_name", "points_delta", "reason", "runtime_profile_name", "source_name", "source_type"}},
@@ -801,6 +801,7 @@ func TestPayloadCodecMapsProtobufDirectlyToGoDTOs(t *testing.T) {
 		t.Fatalf("AsFirmwareGetRequest() error = %v", err)
 	}
 	firmwareResponse := FirmwareGetResponse{
+		Version:     "1.5.0-beta.1+abc123",
 		Channel:     FirmwareChannelNameStable,
 		Description: new("stable package"),
 		Url:         "https://firmware.example/stable.tar.zlib",

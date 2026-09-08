@@ -8,8 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/api"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
@@ -228,7 +230,7 @@ func firmwareSlot(description, packageURL string, size int64) apitypes.FirmwareS
 }
 
 func testPackage(packageURL, sha256 string, size int64) apitypes.FirmwarePackage {
-	return apitypes.FirmwarePackage{Url: packageURL, Sha256: sha256, Size: size}
+	return apitypes.FirmwarePackage{Version: "1.2.3", Url: packageURL, Sha256: sha256, Size: size}
 }
 
 func assertPackageURL(t *testing.T, slot apitypes.FirmwareSlot, want string) {
@@ -308,5 +310,91 @@ func TestFirmwareRequestsDoNotInitializeSchema(t *testing.T) {
 	}
 	if _, ok := response.(adminhttp.ListFirmwares500JSONResponse); !ok {
 		t.Fatalf("request recreated missing schema: %T", response)
+	}
+}
+
+func TestPackageVersionValidationAndSchema(t *testing.T) {
+	data, err := api.Files.ReadFile("http/shared/firmware_package.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, err := openapi3.NewLoader().LoadFromData(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema := doc.Components.Schemas["FirmwarePackage"].Value
+	cases := []struct {
+		version string
+		valid   bool
+	}{
+		{"0.0.0", true}, {"1.2.3", true}, {"1.5.0-beta.1+abc123", true},
+		{"1.2.3-0", true}, {"1.2.3-01a", true}, {"1.2.3+001", true},
+		{"999999999999999999999999999.2.3", true},
+		{"1.2.3+" + strings.Repeat("a", 122), true},
+		{"", false}, {"v1.2.3", false}, {"1.2", false}, {"1.2.3.4", false},
+		{"01.2.3", false}, {"1.02.3", false}, {"1.2.03", false},
+		{"1.2.3-01", false}, {"1.2.3-beta.01", false},
+		{" 1.2.3", false}, {"1.2.3 ", false}, {"1.2.3\n", false},
+		{"1.2.3-", false}, {"1.2.3+", false}, {"1.2.3-a..b", false},
+		{"1.2.3+a..b", false}, {"1.2.3+a_b", false}, {"1.2.3-测试", false},
+		{"1.2.3+" + strings.Repeat("a", 123), false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.version, func(t *testing.T) {
+			pkg := testPackage("https://firmware.example/fw.tar.zlib", testSHA256, 42)
+			pkg.Version = tc.version
+			got, err := normalizePackage(pkg)
+			if (err == nil) != tc.valid {
+				t.Fatalf("normalizePackage(%q): %v; want valid=%v", tc.version, err, tc.valid)
+			}
+			if tc.valid && got.Version != tc.version {
+				t.Fatalf("version changed to %q", got.Version)
+			}
+			value := map[string]any{"url": pkg.Url, "sha256": pkg.Sha256, "size": float64(pkg.Size), "version": tc.version}
+			if err := schema.VisitJSON(value); (err == nil) != tc.valid {
+				t.Fatalf("schema(%q): %v; want valid=%v", tc.version, err, tc.valid)
+			}
+		})
+	}
+	if err := schema.VisitJSON(map[string]any{"url": "https://firmware.example/fw.tar.zlib", "sha256": testSHA256, "size": float64(42)}); err == nil {
+		t.Fatal("schema accepted a package without version")
+	}
+}
+
+func TestServerVersionWritesAndRollback(t *testing.T) {
+	server := &Server{DB: newTestDatabase(t)}
+	input := firmwareUpsert("versioned", firmwareSlot("release", "https://firmware.example/fw.tar.zlib", 42), apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{})
+	input.Slots.Stable.Package.Version = "2.0.0"
+	createFirmware(t, server, input)
+	for _, version := range []string{"", "v1.2.3", "1.2.3-01", strings.Repeat("1", 129)} {
+		input.Slots.Stable.Package.Version = version
+		response, err := server.PutFirmware(t.Context(), adminhttp.PutFirmwareRequestObject{Id: input.Id, Body: &input})
+		if _, ok := response.(adminhttp.PutFirmware400JSONResponse); err != nil || !ok {
+			t.Fatalf("invalid put %q: %T, %v", version, response, err)
+		}
+		responseCreate, err := server.CreateFirmware(t.Context(), adminhttp.CreateFirmwareRequestObject{Body: &input})
+		if _, ok := responseCreate.(adminhttp.CreateFirmware400JSONResponse); err != nil || !ok {
+			t.Fatalf("invalid create %q: %T, %v", version, responseCreate, err)
+		}
+		stored, err := server.GetFirmware(t.Context(), adminhttp.GetFirmwareRequestObject{Id: input.Id})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := stored.(adminhttp.GetFirmware200JSONResponse).Slots.Stable.Package.Version; got != "2.0.0" {
+			t.Fatalf("rejected write changed version to %q", got)
+		}
+	}
+	input.Slots.Stable.Package.Version = "1.5.0-beta.1+abc123"
+	response, err := server.PutFirmware(t.Context(), adminhttp.PutFirmwareRequestObject{Id: input.Id, Body: &input})
+	updated, ok := response.(adminhttp.PutFirmware200JSONResponse)
+	if err != nil || !ok || updated.Slots.Stable.Package.Version != input.Slots.Stable.Package.Version {
+		t.Fatalf("rollback: %T, %v", response, err)
+	}
+	stored, err := server.GetFirmware(t.Context(), adminhttp.GetFirmwareRequestObject{Id: input.Id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := stored.(adminhttp.GetFirmware200JSONResponse).Slots.Stable.Package.Version; got != input.Slots.Stable.Package.Version {
+		t.Fatalf("stored rollback version = %q", got)
 	}
 }

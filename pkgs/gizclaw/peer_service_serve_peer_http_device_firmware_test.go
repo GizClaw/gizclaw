@@ -29,10 +29,10 @@ func seedBoundFirmware(t *testing.T, f *deviceHTTPFixture, id string) {
 		Slots: apitypes.FirmwareSlots{
 			Stable: apitypes.FirmwareSlot{
 				Description: new("Devkit firmware 1.0.3"),
-				Package:     &apitypes.FirmwarePackage{Url: "https://firmware.example.com/devkit/1.0.3.tar.zlib", Sha256: stableFirmwareSha256, Size: 4096},
+				Package:     &apitypes.FirmwarePackage{Version: "1.0.3", Url: "https://firmware.example.com/devkit/1.0.3.tar.zlib", Sha256: stableFirmwareSha256, Size: 4096},
 			},
 			Beta: apitypes.FirmwareSlot{
-				Package: &apitypes.FirmwarePackage{Url: "https://firmware.example.com/devkit/1.1.0-beta.tar.zlib", Sha256: betaFirmwareSha256, Size: 8192},
+				Package: &apitypes.FirmwarePackage{Version: "1.1.0-beta", Url: "https://firmware.example.com/devkit/1.1.0-beta.tar.zlib", Sha256: betaFirmwareSha256, Size: 8192},
 			},
 		},
 	}})
@@ -61,7 +61,7 @@ func TestGetDeviceFirmwareReturnsEveryChannelWhileOffline(t *testing.T) {
 	if result.Description == nil || *result.Description != "Devkit firmware channels" {
 		t.Fatalf("description = %v", result.Description)
 	}
-	if result.Slots.Stable.Package == nil || result.Slots.Stable.Package.Sha256 != stableFirmwareSha256 || result.Slots.Stable.Package.Size != 4096 {
+	if result.Slots.Stable.Package == nil || result.Slots.Stable.Package.Sha256 != stableFirmwareSha256 || result.Slots.Stable.Package.Size != 4096 || result.Slots.Stable.Package.Version != "1.0.3" {
 		t.Fatalf("stable slot = %+v", result.Slots.Stable)
 	}
 	if result.Slots.Stable.Description == nil || *result.Slots.Stable.Description != "Devkit firmware 1.0.3" {

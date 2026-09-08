@@ -1609,6 +1609,7 @@ type FirmwareGetRequest struct {
 
 // FirmwareGetResponse defines model for FirmwareGetResponse.
 type FirmwareGetResponse struct {
+	Version     string              `json:"version"`
 	Channel     FirmwareChannelName `json:"channel"`
 	Description *string             `json:"description,omitempty"`
 	Sha256      string              `json:"sha256"`

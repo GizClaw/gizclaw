@@ -4131,6 +4131,9 @@ type FirmwarePackage struct {
 
 	// Url Operator-owned HTTPS URL for the exact .tar.zlib archive bytes.
 	Url string `json:"url"`
+
+	// Version SemVer 2.0.0 package release version without a leading v. Build metadata does not affect version precedence; SHA-256 identifies exact archive bytes.
+	Version string `json:"version"`
 }
 
 // FirmwareResource defines model for FirmwareResource.

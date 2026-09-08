@@ -100,7 +100,7 @@ func TestCSDKFirmwareRPCMaximumID(t *testing.T) {
 	}
 	created, err := api.CreateFirmwareWithResponse(ctx, adminhttp.FirmwareUpsert{
 		Id: firmwareID,
-		Slots: apitypes.FirmwareSlots{Stable: apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{
+		Slots: apitypes.FirmwareSlots{Stable: apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{Version: "1.2.3",
 			Url: want.URL, Sha256: want.SHA256, Size: want.Size,
 		}}},
 	})

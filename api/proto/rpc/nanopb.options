@@ -32,6 +32,7 @@ gizclaw.rpc.v1.FriendGroupMessageObject.text max_size:8193
 gizclaw.rpc.v1.FirmwareGetResponse.description max_size:1025
 gizclaw.rpc.v1.FirmwareGetResponse.url max_size:2049
 gizclaw.rpc.v1.FirmwareGetResponse.sha256 max_size:65
+gizclaw.rpc.v1.FirmwareGetResponse.version max_size:129
 gizclaw.rpc.v1.ClientFirmwareUpdateRequest.sha256 max_size:65
 gizclaw.rpc.v1.PeerStatus.firmware_sha256 max_size:65
 gizclaw.rpc.v1.PeerStatus.network_imei max_size:16

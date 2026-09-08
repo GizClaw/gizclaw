@@ -502,6 +502,7 @@ void main() {
             'stable': {
               'description': 'Devkit firmware 1.0.3',
               'package': {
+                'version': '1.5.0-beta.1+abc123',
                 'url': 'https://firmware.example.com/devkit/1.0.3.tar.zlib',
                 'sha256':
                     'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
@@ -510,6 +511,7 @@ void main() {
             },
             'beta': {
               'package': {
+                'version': '1.5.0-beta.1+abc123',
                 'url': 'https://firmware.example.com/devkit/1.1.0.tar.zlib',
                 'sha256':
                     'b1c2d3e4f5061728394a5b6c7d8e9f0ab1c2d3e4f5061728394a5b6c7d8e9f0a',
@@ -524,6 +526,7 @@ void main() {
       expect(recorder.single.method, 'GET');
       expect(recorder.single.url.path, '/gizclaw/v1/device/firmware');
       expect(firmware.description, 'Devkit firmware channels');
+      expect(firmware.stable.package?.version, '1.5.0-beta.1+abc123');
       expect(firmware.stable.description, 'Devkit firmware 1.0.3');
       expect(firmware.stable.package?.size, 4096);
       expect(

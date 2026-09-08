@@ -1027,6 +1027,7 @@ test("Firmware RPC generated contract round-trips every channel and field", () =
   const response = {
     channel: "stable" as const,
     description: "stable package",
+    version: "1.5.0-beta.1+abc123",
     sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     size: Number.MAX_SAFE_INTEGER,
     url: "https://firmware.example.invalid/devkit/stable.tar.zlib",

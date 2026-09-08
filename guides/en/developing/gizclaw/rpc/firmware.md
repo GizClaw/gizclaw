@@ -30,9 +30,11 @@ RPC error.
 Firmware catalog and declarative channel ownership remain in
 `services/device/firmware` and are managed through the Admin surface.
 
+Response `version` comes from the selected channel's `package.version`, a SemVer 2.0.0 release version of at most 128 ASCII characters. The C SDK reserves 129 bytes including NUL. The version does not replace download integrity verification or the SHA-256 guard in OTA requests. Older protobuf servers or existing records without a version may return an empty version; consumers must not invent a release version for them.
+
 ## Core structure
 
 | Symbol | Function |
 | --- | --- |
 | `FirmwareGet` | Validates the requested channel, resolves the Peer binding, and returns that channel package configuration. |
-| `FirmwarePackage` | Admin-side external package contract: HTTPS URL, SHA-256, and compressed size. |
+| `FirmwarePackage` | Admin-side external package contract: SemVer version, HTTPS URL, SHA-256, and compressed size. |
