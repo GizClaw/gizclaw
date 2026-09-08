@@ -5,6 +5,7 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { LogEntry } from "@/lib/api";
+import { summarize } from "@/lib/log-query";
 
 export type LogRow = LogEntry & { source?: string };
 
@@ -27,7 +28,7 @@ export function LogView({
   const shown = entries.filter(
     (entry) =>
       (level === "ALL" || entry.level === level) &&
-      `${entry.message} ${entry.error ?? ""} ${entry.peer_public_key ?? ""} ${entry.source ?? ""}`
+      `${summarize(entry)} ${entry.message} ${entry.error ?? ""} ${entry.peer_public_key ?? ""} ${entry.source ?? ""} ${Object.values(entry.fields ?? {}).join(" ")}`
         .toLowerCase()
         .includes(filter.toLowerCase()),
   );
@@ -72,7 +73,7 @@ export function LogView({
       <div
         ref={box}
         style={{ height }}
-        className="overflow-auto font-mono text-[11px]"
+        className="log-scroll overflow-auto font-mono text-[11px]"
       >
         {shown.length === 0 ? (
           <div className="px-6 py-20 text-center text-[#6c675f]">
@@ -101,8 +102,11 @@ export function LogView({
                   {entry.source}
                 </span>
               )}
-              <span className="truncate">
-                {entry.message}
+              <span
+                className="truncate"
+                title={`${summarize(entry)}${entry.error ? ` · ${entry.error}` : ""}`}
+              >
+                {summarize(entry)}
                 {entry.error ? ` · ${entry.error}` : ""}
               </span>
             </div>

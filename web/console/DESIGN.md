@@ -76,3 +76,13 @@ means the node restarted and the window starts over.
 Sidebar navigation lists the cluster overview and every node; below 768px it
 collapses to a horizontal bar and panels stack. Wide content scrolls inside its
 own container.
+
+## Log presentation
+
+Overview alerts, node logs, and log search share structured summaries: operation,
+HTTP/RPC status, error code, and duration when available. Operation names remain
+verbatim; successful results do not add a redundant success label. Nonzero RPC
+status codes include an explanation, while unknown codes remain visible. Details
+retain the original message and fields alongside the summary. Compact log views
+search both summaries and raw field values, expose full summaries on hover, and
+use the same dark scrollbar as log search.

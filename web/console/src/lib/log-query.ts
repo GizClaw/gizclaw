@@ -85,7 +85,7 @@ export function matches(record: LogRecord, query: LogQuery): boolean {
  * and outcome, a conversation record as who said what, and anything else keeps
  * its message plus the few fields that carry the meaning.
  */
-export function summarize(record: LogRecord): string {
+export function summarize(record: LogEntry): string {
   const fields = record.fields ?? {};
   if (fields.content !== undefined) {
     const role = fields.content_role ?? fields.content_source ?? "";
@@ -100,8 +100,20 @@ export function summarize(record: LogRecord): string {
     } else if (fields.route !== undefined) {
       parts.push(fields.route);
     }
-    if (fields.status !== undefined) parts.push(fields.status);
-    if (fields.rpc_code !== undefined) parts.push(`rpc ${fields.rpc_code}`);
+    if (fields.status !== undefined) parts.push(`HTTP ${fields.status}`);
+    if (fields.rpc_code !== undefined && fields.rpc_code !== "0") {
+      const label = rpcStatusLabels[fields.rpc_code];
+      parts.push(
+        label ? `${label}（RPC ${fields.rpc_code}）` : `RPC ${fields.rpc_code}`,
+      );
+    }
+    if (
+      fields.result !== undefined &&
+      fields.result !== "success" &&
+      fields.error_code === undefined
+    )
+      parts.push(fields.result);
+    if (fields.error_code !== undefined) parts.push(fields.error_code);
     if (fields.duration_ms !== undefined)
       parts.push(`${fields.duration_ms} ms`);
     return parts.join(" · ");
@@ -113,6 +125,25 @@ export function summarize(record: LogRecord): string {
     ? record.message
     : `${record.message} · ${extras.join(" ")}`;
 }
+
+const rpcStatusLabels: Record<string, string> = {
+  "1": "请求已取消",
+  "2": "未知错误",
+  "3": "参数无效",
+  "4": "请求超时",
+  "5": "未找到",
+  "6": "已存在",
+  "7": "权限不足",
+  "8": "资源耗尽",
+  "9": "前置条件不满足",
+  "10": "操作中止",
+  "11": "超出范围",
+  "12": "未实现",
+  "13": "内部错误",
+  "14": "服务不可用",
+  "15": "数据丢失",
+  "16": "未认证",
+};
 
 export function requestId(record: LogRecord): string | undefined {
   return record.fields?.request_id;
