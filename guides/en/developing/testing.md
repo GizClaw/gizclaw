@@ -644,6 +644,15 @@ conventions:
   mode does not support parallel steps, and a driver that cannot run steps
   concurrently does not list the `parallel` operation, so such a document is
   rejected or skipped by `validate` instead of failing at run time.
+- `peer_stream.empty_input: true` is valid for `push-to-talk` only: the turn
+  opens and closes its audio route without sending a frame, the way a device
+  reports a press released before the first frame is captured or a local gate
+  that emitted nothing. It replaces `input` and cannot be combined with
+  `require_text`, `require_audio`, `interrupt_after`, or
+  `completion: first_response`. The default terminal completion requires the
+  turn's assistant text and audio routes to close normally and carry no
+  content; any assistant text or audio fails the step. Use
+  `completion: input_sent` when only the delivery of the input matters.
 - `peer_stream.completion: input_sent` is valid for `push-to-talk` and
   `realtime`: the step completes once the input is fully pushed (including the
   EOS for push-to-talk) without waiting for its own text or audio output and

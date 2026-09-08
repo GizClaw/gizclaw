@@ -1695,8 +1695,38 @@ func (t *Transformer) processSession(
 
 	var textInput doubaoRealtimeTextInput
 	audioSent := 0
+	// turnAudioSent counts the frames submitted for the open push-to-talk turn
+	// only, so a turn that captured nothing is recognizable at its EOS.
+	turnAudioSent := 0
 	inputRouteID := ""
 	inputAudioEnded := false
+	// completeAudiolessTurn closes a push-to-talk turn the provider never saw,
+	// publishing the same empty transcript and assistant routes an empty
+	// ASREnded produces. The provider session stays open because it holds no
+	// state for the turn.
+	completeAudiolessTurn := func(streamID string) error {
+		pttControl.Lock()
+		generation := pttTurn.currentGeneration()
+		if err := pttTurn.markInputEnded(); err != nil {
+			pttControl.Unlock()
+			return err
+		}
+		if _, _, err := pttTurn.markASREndedFor(generation); err != nil {
+			pttControl.Unlock()
+			return err
+		}
+		routeID, completed, err := pttTurn.completeEmptyFor(generation, t.outputMIMEType())
+		if err != nil {
+			pttControl.Unlock()
+			return err
+		}
+		if completed {
+			pushToTalk.completeEmpty(routeID)
+		}
+		pttControl.Unlock()
+		slog.InfoContext(ctx, "doubao: completed push-to-talk turn without audio", "streamID", streamID, "completed", completed)
+		return nil
+	}
 	stop := make(chan struct{})
 	go func() {
 		select {
@@ -1819,6 +1849,7 @@ func (t *Transformer) processSession(
 				pttControl.Unlock()
 				inputRouteID = streamID
 				inputAudioEnded = false
+				turnAudioSent = 0
 				if interrupted {
 					if err := session.Interrupt(ctx); err != nil {
 						return doubaoRealtimeRecoverable("interrupt response", err)
@@ -1883,6 +1914,7 @@ func (t *Transformer) processSession(
 						continue
 					}
 					audioSent++
+					turnAudioSent++
 					if audioSent%50 == 1 { // Log every 50 chunks (1 second at 20ms chunks)
 						slog.DebugContext(ctx, "doubao: sending audio chunk", "streamID", streamID, "len", len(audio), "mime", p.MIMEType, "inputFormat", audioInput.format, "totalSent", audioSent)
 					}
@@ -1919,7 +1951,7 @@ func (t *Transformer) processSession(
 					return err
 				}
 				historyStreamID := streamIDs.historyInput(chunk)
-				slog.InfoContext(ctx, "doubao: received EOS, ending ASR", "streamID", streamID, "historyStreamID", historyStreamID, "audioSent", audioSent)
+				slog.InfoContext(ctx, "doubao: received EOS, ending ASR", "streamID", streamID, "historyStreamID", historyStreamID, "audioSent", audioSent, "turnAudioSent", turnAudioSent)
 				mimeType := ""
 				if blob, ok := chunk.Part.(*genx.Blob); ok {
 					mimeType = blob.MIMEType
@@ -1927,15 +1959,26 @@ func (t *Transformer) processSession(
 				if err := runtime.history.close(output, historyStreamID, mimeType); err != nil {
 					return err
 				}
-				pttASR.add(pttTurn.currentGeneration())
-				// Record the local input boundary before asking the provider to
-				// finish ASR. EndASR may synchronously release ASREnded to Recv.
-				if err := pttTurn.markInputEnded(); err != nil {
-					return err
-				}
-				if err := session.EndASR(ctx); err != nil {
-					slog.ErrorContext(ctx, "doubao: end ASR error", "error", err)
-					return doubaoRealtimeRecoverable("end ASR", err)
+				if turnAudioSent == 0 {
+					// A turn that carried no audio has nothing for the provider to
+					// recognize: EndASR without audio is answered by no ASREnded at
+					// all, which would leave this turn queued forever and make every
+					// later ASREnded match the wrong turn. Complete it locally
+					// instead and keep the provider session untouched.
+					if err := completeAudiolessTurn(streamID); err != nil {
+						return err
+					}
+				} else {
+					pttASR.add(pttTurn.currentGeneration())
+					// Record the local input boundary before asking the provider to
+					// finish ASR. EndASR may synchronously release ASREnded to Recv.
+					if err := pttTurn.markInputEnded(); err != nil {
+						return err
+					}
+					if err := session.EndASR(ctx); err != nil {
+						slog.ErrorContext(ctx, "doubao: end ASR error", "error", err)
+						return doubaoRealtimeRecoverable("end ASR", err)
+					}
 				}
 			} else if !inputAudioEnded && t.mode != ModeText {
 				slog.InfoContext(ctx, "doubao: received realtime EOS, closing local audio input", "streamID", streamID, "audioSent", audioSent)

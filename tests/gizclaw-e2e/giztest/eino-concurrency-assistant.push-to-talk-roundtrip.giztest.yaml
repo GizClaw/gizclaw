@@ -71,6 +71,17 @@ steps:
         text: Giztest audio input
         accepted_content_types: [audio/ogg]
     save_as: input_audio
+  - id: empty_push_to_talk_turn
+    client: peer
+    peer_stream:
+      mode: push-to-talk
+      empty_input: true
+      completion: input_sent
+    expect:
+      /input_sent:
+        equals: true
+      /input_packets:
+        equals: 0
   - id: exercise_workflow
     client: peer
     peer_stream:

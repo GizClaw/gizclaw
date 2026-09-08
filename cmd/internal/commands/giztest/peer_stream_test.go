@@ -1122,6 +1122,66 @@ func TestInvokePeerStreamListenModeUsesListenPath(t *testing.T) {
 	}
 }
 
+func emptyRoute(id, mimeType string, bos bool) *genx.MessageChunk {
+	var part genx.Part = genx.Text("")
+	if mimeType != "text/plain" {
+		part = &genx.Blob{MIMEType: mimeType}
+	}
+	return &genx.MessageChunk{Part: part, Ctrl: &genx.StreamCtrl{StreamID: id, Label: "assistant", BeginOfStream: bos, EndOfStream: !bos}}
+}
+
+func TestInvokePeerStreamEmptyInputSendsTurnWithoutAudio(t *testing.T) {
+	stream := newFakeRelayStream()
+	for _, chunk := range []*genx.MessageChunk{
+		emptyRoute("s1", "text/plain", true),
+		emptyRoute("s1", "text/plain", false),
+		emptyRoute("s1", "audio/opus", true),
+		emptyRoute("s1", "audio/opus", false),
+	} {
+		stream.in <- chunk
+	}
+	step := giztest.Step{ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "push-to-talk", EmptyInput: true}}
+	result, err := invokePeerStream(context.Background(), nil, func() (peerStream, error) { return stream, nil }, step, nil, 0)
+	if err != nil {
+		t.Fatalf("empty turn failed: %v", err)
+	}
+	if got := len(stream.pushes); got != 2 {
+		t.Fatalf("pushed chunks = %d, want an audio route BOS and EOS with no frame", got)
+	}
+	first, second := <-stream.pushes, <-stream.pushes
+	for _, chunk := range []*genx.MessageChunk{first, second} {
+		blob, ok := chunk.Part.(*genx.Blob)
+		if !ok || len(blob.Data) != 0 {
+			t.Fatalf("empty turn pushed audio data: %#v", chunk.Part)
+		}
+	}
+	if !first.IsBeginOfStream() || !second.IsEndOfStream() {
+		t.Fatalf("empty turn boundaries = bos:%t eos:%t", first.IsBeginOfStream(), second.IsEndOfStream())
+	}
+	object := result.assertion.(map[string]any)
+	if object["text_eos"] != true || object["audio_eos"] != true || object["audio_bytes"] != 0 {
+		t.Fatalf("empty turn result = %#v", object)
+	}
+}
+
+func TestInvokePeerStreamEmptyInputRejectsAssistantContent(t *testing.T) {
+	stream := newFakeRelayStream()
+	for _, chunk := range []*genx.MessageChunk{
+		emptyRoute("s1", "text/plain", true),
+		assistantText("s1", "unexpected answer", false),
+		emptyRoute("s1", "text/plain", false),
+		emptyRoute("s1", "audio/opus", true),
+		emptyRoute("s1", "audio/opus", false),
+	} {
+		stream.in <- chunk
+	}
+	step := giztest.Step{ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "push-to-talk", EmptyInput: true}}
+	_, err := invokePeerStream(context.Background(), nil, func() (peerStream, error) { return stream, nil }, step, nil, 0)
+	if err == nil || !strings.Contains(err.Error(), "produced assistant content") {
+		t.Fatalf("error = %v, want the empty turn to reject assistant content", err)
+	}
+}
+
 func TestInvokePeerStreamInputSentCompletesAfterEOS(t *testing.T) {
 	stream := newFakeRelayStream()
 	oggAudio, packets := testOggOpus(t)

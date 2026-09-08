@@ -154,6 +154,55 @@ func TestDoubaoRealtimePushToTalkLiveEmptyASRCompletesAndReusesTransformer(t *te
 	assertDuplexRound(t, 1, result)
 }
 
+// TestDoubaoRealtimePushToTalkLiveAudiolessTurnKeepsConversationAlive covers a
+// Peer turn that opens and closes its audio route without capturing a frame.
+// The provider answers no ASREnded for an ASR turn it received no audio for,
+// so the turn must complete locally and every later turn must still answer.
+func TestDoubaoRealtimePushToTalkLiveAudiolessTurnKeepsConversationAlive(t *testing.T) {
+	requireLiveDoubaoCredentials(t)
+	transcode := false
+	transformer, err := doubaorealtime.New(doubaorealtime.Config{
+		Client:         liveDoubaoClient(t),
+		Model:          string(doubaospeech.RealtimeModelO20),
+		Mode:           doubaorealtime.ModePushToTalk,
+		Instructions:   "Reply in one short English sentence.",
+		InputTranscode: &transcode,
+	})
+	if err != nil {
+		t.Fatalf("doubaorealtime.New() failed: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	input := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
+	defer input.CloseWithError(context.Canceled)
+	output, err := transformer.Transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() failed: %v", err)
+	}
+	defer output.CloseWithError(context.Canceled)
+	events, outputErrors := collectDuplexOutput(output)
+
+	const audiolessStreamID = "doubao-realtime-audioless-ptt"
+	feedDone := make(chan error, 1)
+	go func() {
+		feedDone <- pushDuplexTurn(ctx, input, audiolessStreamID, nil)
+	}()
+	waitLiveEmptyPTTCompletion(t, ctx, events, outputErrors, audiolessStreamID, feedDone)
+
+	const semanticStreamID = "doubao-realtime-after-audioless-ptt"
+	feedDone = make(chan error, 1)
+	semanticPackets := embeddedPromptOpusPackets(t)
+	go func() {
+		feedDone <- pushDuplexTurn(ctx, input, semanticStreamID, semanticPackets)
+	}()
+	result, err := waitDuplexRound(t, ctx, events, outputErrors, semanticStreamID, feedDone)
+	if err != nil {
+		t.Fatalf("semantic response after the audio-less turn failed: %v", err)
+	}
+	assertDuplexRound(t, 1, result)
+}
+
 func requireLiveDoubaoCredentials(t *testing.T) {
 	t.Helper()
 	for _, name := range []string{doubaoAppIDEnv, doubaoAPIKeyEnv} {
