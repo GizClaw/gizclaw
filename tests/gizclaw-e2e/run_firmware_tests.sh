@@ -26,6 +26,7 @@ unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
 cd "$repo_root"
 git submodule update --init --recursive -- third_party/nanopb/upstream
 mkdir -p "$script_dir/testdata/bin"
+npm ci && npm run build:console
 go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw
 bash "$setup_dir/docker-compose-up.sh" --firmware-only
 set -a

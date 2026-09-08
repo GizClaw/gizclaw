@@ -286,6 +286,10 @@ export type FirmwarePackage = {
      * Exact .tar.zlib archive size in bytes.
      */
     size: number;
+    /**
+     * SemVer 2.0.0 package release version without a leading v. Build metadata does not affect version precedence; SHA-256 identifies exact archive bytes. Omitted when the stored package has no version. A valid version is required when creating or updating a package.
+     */
+    version?: string;
 };
 
 export type FirmwareSlot = {

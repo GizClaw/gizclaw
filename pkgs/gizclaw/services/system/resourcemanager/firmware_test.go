@@ -2,6 +2,7 @@ package resourcemanager
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -45,7 +46,7 @@ func TestFirmwareResourceApplyShowDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsFirmwareResource: %v", err)
 	}
-	if item.Metadata.Id != "devkit" || item.Spec.Slots.Stable.Description == nil || *item.Spec.Slots.Stable.Description != "stable firmware" || item.Spec.Slots.Stable.Package == nil || item.Spec.Slots.Stable.Package.Url != "https://firmware.example/stable.tar.zlib" || item.Spec.Slots.Stable.Package.Size != 4096 {
+	if item.Metadata.Id != "devkit" || item.Spec.Slots.Stable.Description == nil || *item.Spec.Slots.Stable.Description != "stable firmware" || item.Spec.Slots.Stable.Package == nil || item.Spec.Slots.Stable.Package.Url != "https://firmware.example/stable.tar.zlib" || item.Spec.Slots.Stable.Package.Size != 4096 || item.Spec.Slots.Stable.Package.Version == nil || *item.Spec.Slots.Stable.Package.Version != "1.2.3" {
 		t.Fatalf("shown resource = %+v", item)
 	}
 
@@ -257,7 +258,7 @@ func testFirmwareSpecSlots(stableDescription string) apitypes.FirmwareSpecSlots 
 	return apitypes.FirmwareSpecSlots{
 		Stable: apitypes.FirmwareSpecSlot{
 			Description: new(stableDescription),
-			Package: &apitypes.FirmwarePackage{
+			Package: &apitypes.FirmwarePackage{Version: new("1.2.3"),
 				Url:    "https://firmware.example/stable.tar.zlib",
 				Sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 				Size:   4096,
@@ -273,4 +274,56 @@ func testFirmwareSpecSlots(stableDescription string) apitypes.FirmwareSpecSlots 
 //go:fix inline
 func stringPtr(value string) *string {
 	return new(value)
+}
+
+func TestFirmwareResourceRejectsMissingVersion(t *testing.T) {
+	manager := New(Services{Firmwares: firmwaretest.New(t)})
+	var resource apitypes.Resource
+	if err := json.Unmarshal([]byte(`{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Firmware","metadata":{"id":"invalid-version"},"spec":{"slots":{"stable":{"package":{"url":"https://firmware.example/fw.tar.zlib","sha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","size":42}},"beta":{},"develop":{}}}}`), &resource); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.Apply(t.Context(), resource); err == nil {
+		t.Fatal("apply accepted package without version")
+	}
+	if _, err := manager.Get(t.Context(), apitypes.ResourceKindFirmware, "invalid-version"); !isResourceError(err, 404, "RESOURCE_NOT_FOUND") {
+		t.Fatalf("invalid resource was stored: %v", err)
+	}
+}
+
+func TestUnversionedFirmwareResourceShowAndApply(t *testing.T) {
+	server := firmwaretest.New(t)
+	manager := New(Services{Firmwares: server})
+	input := adminhttp.FirmwareUpsert{Id: "legacy", Slots: firmwareRuntimeSlots(testFirmwareSpecSlots("release"))}
+	created, err := server.CreateFirmware(t.Context(), adminhttp.CreateFirmwareRequestObject{Body: &input})
+	if _, ok := created.(adminhttp.CreateFirmware200JSONResponse); err != nil || !ok {
+		t.Fatalf("create = %T, %v", created, err)
+	}
+	input.Slots.Stable.Package.Version = nil
+	legacy, err := json.Marshal(input.Slots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.DB.ExecContext(t.Context(), `UPDATE firmwares SET slots_json=? WHERE id=?`, string(legacy), input.Id); err != nil {
+		t.Fatal(err)
+	}
+	shown, err := manager.Get(t.Context(), apitypes.ResourceKindFirmware, input.Id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	item, err := shown.AsFirmwareResource()
+	if err != nil || item.Spec.Slots.Stable.Package == nil || item.Spec.Slots.Stable.Package.Version != nil {
+		t.Fatalf("shown = %#v, %v", item, err)
+	}
+	if _, err := manager.Apply(t.Context(), shown); !isResourceError(err, 400, "INVALID_FIRMWARE_RESOURCE") {
+		t.Fatalf("unversioned unchanged apply = %v", err)
+	}
+	item.Spec.Slots.Stable.Package.Version = new("1.2.3")
+	versioned, err := marshalResource(item)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := manager.Apply(t.Context(), versioned)
+	if err != nil || result.Action != apitypes.ApplyActionUpdated {
+		t.Fatalf("versioned apply = %#v, %v", result, err)
+	}
 }

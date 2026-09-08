@@ -30,9 +30,11 @@ RPC error.
 Firmware catalog and declarative channel ownership remain in
 `services/device/firmware` and are managed through the Admin surface.
 
+Response `version` is optional and comes from the selected channel's `package.version`: strict SemVer 2.0.0, at most 128 ASCII characters when present. Stored packages without versions remain available; the server omits the field without inferring a release. Protobuf field 6 is `optional string`: Go exposes a nullable pointer, JavaScript an optional property (`undefined` when absent), Dart `hasVersion()`, and C `has_version` with 129 bytes of string storage including NUL. Versions do not replace download integrity verification or the SHA-256 guard in OTA requests.
+
 ## Core structure
 
 | Symbol | Function |
 | --- | --- |
 | `FirmwareGet` | Validates the requested channel, resolves the Peer binding, and returns that channel package configuration. |
-| `FirmwarePackage` | Admin-side external package contract: HTTPS URL, SHA-256, and compressed size. |
+| `FirmwarePackage` | Admin-side external package contract: SemVer version, HTTPS URL, SHA-256, and compressed size. |

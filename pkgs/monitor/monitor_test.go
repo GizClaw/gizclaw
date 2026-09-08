@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -190,4 +191,48 @@ func TestNodeSnapshotCarriesStructuredLogFields(t *testing.T) {
 		}
 	}
 	t.Fatal("structured log fields missing from the node snapshot")
+}
+
+func TestEmbeddedConsole(t *testing.T) {
+	// An unrelated working directory proves serving does not read web/console/dist.
+	t.Chdir(t.TempDir())
+	handler := Handler(Config{}, "edge", "local-key", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTeapot)
+	}))
+	for path, want := range map[string]int{
+		"/monitor":                   308,
+		"/monitor/":                  200,
+		"/monitor/api/node":          503,
+		"/monitor/api/missing":       404,
+		"/monitor/assets/missing.js": 404,
+		"/unrelated":                 418,
+	} {
+		out := httptest.NewRecorder()
+		handler.ServeHTTP(out, httptest.NewRequest("GET", path, nil))
+		if out.Code != want {
+			t.Fatalf("%s: status %d, want %d", path, out.Code, want)
+		}
+		if path == "/monitor" && out.Header().Get("Location") != "/monitor/" {
+			t.Fatal("missing canonical redirect")
+		}
+	}
+	page := httptest.NewRecorder()
+	handler.ServeHTTP(page, httptest.NewRequest("GET", "/monitor/", nil))
+	if !strings.Contains(page.Body.String(), `<div id="root">`) {
+		t.Fatal("console application missing")
+	}
+	references := regexp.MustCompile(`(?:src|href)="\./(assets/[^\"]+)"`).FindAllStringSubmatch(page.Body.String(), -1)
+	if len(references) < 2 {
+		t.Fatal("missing built JavaScript and CSS references")
+	}
+	for _, ref := range references {
+		out := httptest.NewRecorder()
+		handler.ServeHTTP(out, httptest.NewRequest("GET", "/monitor/"+ref[1], nil))
+		if out.Code != 200 || out.Body.Len() == 0 {
+			t.Fatalf("asset %s: status %d", ref[1], out.Code)
+		}
+		if strings.Contains(out.Header().Get("Content-Type"), "text/html") {
+			t.Fatalf("asset %s returned HTML", ref[1])
+		}
+	}
 }

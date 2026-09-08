@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	monitorapi "github.com/GizClaw/gizclaw-go/pkgs/monitor/api"
+	"github.com/GizClaw/gizclaw-go/web/console"
 )
 
 // Config grants read-only access to this node; an empty token disables node data.
@@ -69,10 +70,10 @@ func (s *nodeServer) GetNodeMonitor(_ context.Context, _ monitorapi.GetNodeMonit
 	return monitorapi.GetNodeMonitor200JSONResponse(snapshot), nil
 }
 
-// Handler serves the token-protected node snapshot API. The monitoring UI is
-// the separately hosted console in web/console, so no assets are embedded.
+// Handler serves the embedded monitoring console and token-protected node API.
 func Handler(cfg Config, role, publicKey string, next http.Handler) http.Handler {
 	endpoint := monitorapi.Handler(monitorapi.NewStrictHandler(&nodeServer{role: role, publicKey: publicKey, started: time.Now()}, nil))
+	ui := http.StripPrefix("/monitor/", console.Handler())
 	tokenHash := sha256.Sum256([]byte(cfg.Token))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/monitor/api/node" {
@@ -104,8 +105,17 @@ func Handler(cfg Config, role, publicKey string, next http.Handler) http.Handler
 			endpoint.ServeHTTP(w, r)
 			return
 		}
-		if r.URL.Path == "/monitor" || strings.HasPrefix(r.URL.Path, "/monitor/") {
-			http.NotFound(w, r)
+		if r.URL.Path == "/monitor" {
+			http.Redirect(w, r, "/monitor/", http.StatusPermanentRedirect)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/monitor/") {
+			if r.URL.Path == "/monitor/api" || strings.HasPrefix(r.URL.Path, "/monitor/api/") {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Cache-Control", "no-cache")
+			ui.ServeHTTP(w, r)
 			return
 		}
 		next.ServeHTTP(w, r)

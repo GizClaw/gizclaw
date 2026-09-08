@@ -1,7 +1,7 @@
 # GizClaw Console design
 
-A standalone, statically hosted monitoring console for a whole fleet. Nodes no
-longer embed a UI: they expose `/monitor/api/node`, and this console is the only
+A fleet monitoring console embedded in Server and Edge binaries at `/monitor/`.
+Nodes expose `/monitor/api/node`, and this console is the only
 monitoring front end.
 
 ## Access model

@@ -6,6 +6,7 @@ import tailwindcss from "@tailwindcss/vite";
 // same-origin in production. In development they are proxied to a node.
 const deviceProxy = process.env.CONSOLE_DEVICE_PROXY ?? "http://127.0.0.1:9821";
 export default defineConfig({
+  base: "./",
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },

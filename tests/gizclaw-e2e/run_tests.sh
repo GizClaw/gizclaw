@@ -275,7 +275,7 @@ run_timed() {
 
 prepare_node_dependencies() {
 	(cd "$repo_root" && npm ci)
-	(cd "$repo_root" && npm run build --workspace @gizclaw/gizclaw-control)
+	(cd "$repo_root" && npm run build:console)
 }
 
 prepare_nanopb() {

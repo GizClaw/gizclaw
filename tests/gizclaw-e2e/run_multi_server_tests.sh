@@ -101,6 +101,7 @@ if [[ "${GIZCLAW_E2E_REUSE_BINARIES:-}" != 1 || ! -x "$server_bin" || ! -x "$tes
     -v "$build_cache:/root/.cache/go-build" \
     "$GIZCLAW_E2E_DOCKER_BASE_IMAGE" \
     -lc 'cd /src \
+      && npm ci && npm run build:console \
       && go build -o tests/gizclaw-e2e/testdata/bin/gizclaw-linux ./cmd/gizclaw \
       && go build -o tests/gizclaw-e2e/testdata/bin/multiserver-seed-linux ./tests/gizclaw-e2e/cmd/multiserver-seed \
       && go test -c -tags gizclaw_e2e -o tests/gizclaw-e2e/testdata/bin/multiserver-e2e-linux ./tests/gizclaw-e2e/go/multiserver'

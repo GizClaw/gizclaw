@@ -26,9 +26,11 @@ Peer 自己直接下载 URL，并校验压缩后的 bytes。GizClaw 不获取、
 Firmware catalog 和声明式 channel ownership 仍属于
 `services/device/firmware`，由 Admin surface 管理。
 
+Response 的 `version` 是可选字段，来自所选 channel 的 `package.version`；存在时为最多 128 个 ASCII 字符的严格 SemVer 2.0.0。没有版本的已有包仍可用，服务端省略该字段，不推断版本。Protobuf 字段 6 使用 `optional string`：Go 以可空指针表示，JavaScript 缺失属性读作 `undefined`，Dart 用 `hasVersion()` 判断，C 用 `has_version` 判断并保留 129 bytes 字符串空间（含 NUL）。版本不替代下载完整性校验和 OTA 请求的 SHA-256 guard。
+
 ## 核心结构
 
 | 符号 | 作用 |
 | --- | --- |
 | `FirmwareGet` | 校验 channel，解析 Peer 绑定并返回该 channel 的 package 配置。 |
-| `FirmwarePackage` | Admin 侧 external package contract：HTTPS URL、SHA-256 和 compressed size。 |
+| `FirmwarePackage` | Admin 侧 external package contract：SemVer version、HTTPS URL、SHA-256 和 compressed size。 |

@@ -24,7 +24,7 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 			"slots": {
 				"stable": {
 					"description": "stable channel",
-					"package": {
+					"package": {"version": "1.2.3",
 						"url": "https://downloads.example.com/devkit/stable.tar.zlib",
 						"sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 						"size": 4096
@@ -32,14 +32,14 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 				},
 				"beta": {
 					"description": "beta channel",
-					"package": {
+					"package": {"version": "1.2.3",
 						"url": "https://downloads.example.com/devkit/beta.tar.zlib",
 						"sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
 						"size": 6144
 					}
 				},
 				"develop": {
-					"package": {
+					"package": {"version": "1.2.3",
 						"url": "https://downloads.example.com/devkit/develop.tar.zlib",
 						"sha256": "123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0",
 						"size": 7168

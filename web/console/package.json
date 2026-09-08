@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
+    "postbuild": "node embed.mjs",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "vitest run",
+    "test": "node --test embed.test.mjs && vitest run",
     "prebuild": "npm run build --prefix ../../sdk/js/gizclaw-control",
     "pretest": "npm run build --prefix ../../sdk/js/gizclaw-control"
   },
@@ -26,7 +27,7 @@
     "vitest": "^5.0.0"
   },
   "dependencies": {
-    "@gizclaw/gizclaw-control": "^0.5.0",
+    "@gizclaw/gizclaw-control": "^0.6.0",
     "@radix-ui/react-dialog": "^1.1.23",
     "@radix-ui/react-label": "^2.1.9",
     "@radix-ui/react-separator": "^1.1.8",

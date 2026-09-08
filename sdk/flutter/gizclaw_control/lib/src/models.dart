@@ -684,6 +684,7 @@ enum FirmwareChannelName {
 class FirmwarePackage {
   const FirmwarePackage({
     required this.url,
+    this.version,
     required this.sha256,
     required this.size,
   });
@@ -692,10 +693,14 @@ class FirmwarePackage {
     final object = asJsonObject(json, 'FirmwarePackage');
     return FirmwarePackage(
       url: readString(object, 'url'),
+      version: readOptionalString(object, 'version'),
       sha256: readString(object, 'sha256'),
       size: readInt(object, 'size'),
     );
   }
+
+  /// SemVer 2.0.0 release version; absent for unversioned stored packages.
+  final String? version;
 
   /// HTTPS URL of the exact `.tar.zlib` archive bytes.
   final String url;
@@ -706,7 +711,12 @@ class FirmwarePackage {
   /// Exact archive size in bytes.
   final int size;
 
-  JsonObject toJson() => {'url': url, 'sha256': sha256, 'size': size};
+  JsonObject toJson() => {
+    'url': url,
+    'sha256': sha256,
+    'size': size,
+    if (version != null) 'version': version,
+  };
 }
 
 /// One firmware channel of a Firmware configuration (`FirmwareSlot`).

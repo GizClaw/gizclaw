@@ -66,6 +66,7 @@ func (s *Server) getFirmwareChannel(ctx context.Context, channel rpcapi.Firmware
 		Url:         slot.Package.Url,
 		Sha256:      slot.Package.Sha256,
 		Size:        slot.Package.Size,
+		Version:     slot.Package.Version,
 	}, nil
 }
 
