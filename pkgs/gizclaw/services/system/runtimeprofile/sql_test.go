@@ -181,6 +181,11 @@ func TestRuntimeProfileSQLAppConfigPersistence(t *testing.T) {
 		db.SetMaxOpenConns(1)
 		return db
 	}
+	testRuntimeProfileSQLAppConfigPersistence(t, open)
+}
+
+func testRuntimeProfileSQLAppConfigPersistence(t *testing.T, open func() *sqlx.DB) {
+	t.Helper()
 	db := open()
 	t.Cleanup(func() { _ = db.Close() })
 	ctx := t.Context()
@@ -267,8 +272,13 @@ func TestRuntimeProfileSQLAddsAppConfigToExistingTable(t *testing.T) {
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(1)
+	testRuntimeProfileSQLAddsAppConfigToExistingTable(t, db)
+}
+
+func testRuntimeProfileSQLAddsAppConfigToExistingTable(t *testing.T, db *sqlx.DB) {
+	t.Helper()
 	ctx := t.Context()
-	_, err = db.ExecContext(ctx, `CREATE TABLE runtime_profiles(id TEXT PRIMARY KEY CHECK(length(id)>0),revision TEXT NOT NULL,resources_json TEXT NOT NULL,workflows_json TEXT NOT NULL,gameplay_json TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,incarnation TEXT NOT NULL,row_version BIGINT NOT NULL)`)
+	_, err := db.ExecContext(ctx, `CREATE TABLE runtime_profiles(id TEXT PRIMARY KEY CHECK(length(id)>0),revision TEXT NOT NULL,resources_json TEXT NOT NULL,workflows_json TEXT NOT NULL,gameplay_json TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,incarnation TEXT NOT NULL,row_version BIGINT NOT NULL)`)
 	if err != nil {
 		t.Fatal(err)
 	}
