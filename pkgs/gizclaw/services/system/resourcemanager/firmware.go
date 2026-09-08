@@ -18,6 +18,13 @@ func (m *Manager) applyFirmware(ctx context.Context, resource apitypes.Resource)
 	if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
+	// Presence is required before the unchanged-resource shortcut as well as
+	// before writes. The shared schema allows absence for exported old records.
+	for _, slot := range []apitypes.FirmwareSpecSlot{item.Spec.Slots.Stable, item.Spec.Slots.Beta, item.Spec.Slots.Develop} {
+		if slot.Package != nil && slot.Package.Version == nil {
+			return apitypes.ApplyResult{}, applyError(400, "INVALID_FIRMWARE_RESOURCE", "package version is required")
+		}
+	}
 	body := firmwareUpsert(item)
 	return applyConcreteResource(ctx, item.Metadata, apitypes.ResourceKindFirmware, item.Spec,
 		m.getFirmware,

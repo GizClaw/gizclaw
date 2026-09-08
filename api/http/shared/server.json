@@ -177,8 +177,7 @@
           "channel",
           "url",
           "sha256",
-          "size",
-          "version"
+          "size"
         ],
         "additionalProperties": false,
         "properties": {
@@ -208,7 +207,7 @@
             "type": "string",
             "maxLength": 128,
             "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$",
-            "description": "SemVer 2.0.0 package release version without a leading v. Build metadata does not affect version precedence; SHA-256 identifies exact archive bytes.",
+            "description": "SemVer 2.0.0 package release version without a leading v. Build metadata does not affect version precedence; SHA-256 identifies exact archive bytes. Omitted when the stored package has no version.",
             "example": "1.5.0-beta.1+abc123"
           }
         }

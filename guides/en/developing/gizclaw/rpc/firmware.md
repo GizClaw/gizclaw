@@ -30,7 +30,7 @@ RPC error.
 Firmware catalog and declarative channel ownership remain in
 `services/device/firmware` and are managed through the Admin surface.
 
-Response `version` comes from the selected channel's `package.version`, a SemVer 2.0.0 release version of at most 128 ASCII characters. The C SDK reserves 129 bytes including NUL. The version does not replace download integrity verification or the SHA-256 guard in OTA requests. Stored packages without a valid version produce an internal RPC error; operators must repair their configuration with a real version through Admin PUT. An older protobuf server can omit the added wire field, but the updated service never returns an empty version in a successful response.
+Response `version` is optional and comes from the selected channel's `package.version`: strict SemVer 2.0.0, at most 128 ASCII characters when present. Stored packages without versions remain available; the server omits the field without inferring a release. Protobuf field 6 is `optional string`: Go exposes a nullable pointer, JavaScript an optional property (`undefined` when absent), Dart `hasVersion()`, and C `has_version` with 129 bytes of string storage including NUL. Versions do not replace download integrity verification or the SHA-256 guard in OTA requests.
 
 ## Core structure
 

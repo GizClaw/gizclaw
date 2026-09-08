@@ -511,7 +511,6 @@ void main() {
             },
             'beta': {
               'package': {
-                'version': '1.5.0-beta.1+abc123',
                 'url': 'https://firmware.example.com/devkit/1.1.0.tar.zlib',
                 'sha256':
                     'b1c2d3e4f5061728394a5b6c7d8e9f0ab1c2d3e4f5061728394a5b6c7d8e9f0a',
@@ -533,6 +532,8 @@ void main() {
         firmware.slot(FirmwareChannelName.beta).package?.url,
         'https://firmware.example.com/devkit/1.1.0.tar.zlib',
       );
+      expect(firmware.beta.package?.version, isNull);
+      expect(firmware.beta.package!.toJson().containsKey('version'), isFalse);
       // An unconfigured channel decodes as an empty slot, not as an error.
       expect(firmware.develop.package, isNull);
       expect(firmware.develop.description, isNull);

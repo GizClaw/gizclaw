@@ -59,10 +59,19 @@ const FirmwareGetResponse$json = {
     {'1': 'url', '3': 3, '4': 1, '5': 9, '10': 'url'},
     {'1': 'sha256', '3': 4, '4': 1, '5': 9, '10': 'sha256'},
     {'1': 'size', '3': 5, '4': 1, '5': 3, '10': 'size'},
-    {'1': 'version', '3': 6, '4': 1, '5': 9, '10': 'version'},
+    {
+      '1': 'version',
+      '3': 6,
+      '4': 1,
+      '5': 9,
+      '9': 1,
+      '10': 'version',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_description'},
+    {'1': '_version'},
   ],
 };
 
@@ -71,8 +80,8 @@ final $typed_data.Uint8List firmwareGetResponseDescriptor = $convert.base64Decod
     'ChNGaXJtd2FyZUdldFJlc3BvbnNlEj0KB2NoYW5uZWwYASABKA4yIy5naXpjbGF3LnJwYy52MS'
     '5GaXJtd2FyZUNoYW5uZWxOYW1lUgdjaGFubmVsEiUKC2Rlc2NyaXB0aW9uGAIgASgJSABSC2Rl'
     'c2NyaXB0aW9uiAEBEhAKA3VybBgDIAEoCVIDdXJsEhYKBnNoYTI1NhgEIAEoCVIGc2hhMjU2Eh'
-    'IKBHNpemUYBSABKANSBHNpemUSGAoHdmVyc2lvbhgGIAEoCVIHdmVyc2lvbkIOCgxfZGVzY3Jp'
-    'cHRpb24=');
+    'IKBHNpemUYBSABKANSBHNpemUSHQoHdmVyc2lvbhgGIAEoCUgBUgd2ZXJzaW9uiAEBQg4KDF9k'
+    'ZXNjcmlwdGlvbkIKCghfdmVyc2lvbg==');
 
 @$core.Deprecated('Use clientFirmwareUpdateRequestDescriptor instead')
 const ClientFirmwareUpdateRequest$json = {

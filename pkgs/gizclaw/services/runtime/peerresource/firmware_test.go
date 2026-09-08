@@ -46,9 +46,9 @@ func TestFirmwareGetReturnsRequestedChannelConfiguration(t *testing.T) {
 			return adminhttp.GetFirmware200JSONResponse(apitypes.Firmware{
 				Id: firmwareID,
 				Slots: apitypes.FirmwareSlots{
-					Stable:  apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{Version: "1.2.3", Url: "https://firmware.example/stable.tar.zlib", Sha256: firmwareTestSHA256, Size: 10}},
-					Beta:    apitypes.FirmwareSlot{Description: &description, Package: &apitypes.FirmwarePackage{Version: "1.2.3", Url: "https://firmware.example/beta.tar.zlib", Sha256: firmwareTestSHA256, Size: 20}},
-					Develop: apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{Version: "1.2.3", Url: "https://firmware.example/develop.tar.zlib", Sha256: firmwareTestSHA256, Size: 30}},
+					Stable:  apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{Version: new("1.2.3"), Url: "https://firmware.example/stable.tar.zlib", Sha256: firmwareTestSHA256, Size: 10}},
+					Beta:    apitypes.FirmwareSlot{Description: &description, Package: &apitypes.FirmwarePackage{Version: new("1.2.3"), Url: "https://firmware.example/beta.tar.zlib", Sha256: firmwareTestSHA256, Size: 20}},
+					Develop: apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{Version: new("1.2.3"), Url: "https://firmware.example/develop.tar.zlib", Sha256: firmwareTestSHA256, Size: 30}},
 				},
 			}), nil
 		}),
@@ -73,10 +73,30 @@ func TestFirmwareGetReturnsRequestedChannelConfiguration(t *testing.T) {
 			if err != nil {
 				t.Fatalf("AsFirmwareGetResponse: %v", err)
 			}
-			if got.Version != "1.2.3" || got.Channel != test.channel || got.Url != test.url || got.Sha256 != firmwareTestSHA256 || got.Size != test.size {
+			if got.Version == nil || *got.Version != "1.2.3" || got.Channel != test.channel || got.Url != test.url || got.Sha256 != firmwareTestSHA256 || got.Size != test.size {
 				t.Fatalf("response = %#v", got)
 			}
 		})
+	}
+}
+
+func TestFirmwareGetOmitsUnknownVersion(t *testing.T) {
+	firmwareID := "legacy"
+	server := &Server{
+		Peers: peerFirmwareBindingFunc(func(context.Context, giznet.PublicKey) (apitypes.Peer, error) {
+			return apitypes.Peer{FirmwareId: &firmwareID}, nil
+		}),
+		Firmwares: firmwarePeerServiceFunc(func(context.Context, adminhttp.GetFirmwareRequestObject) (adminhttp.GetFirmwareResponseObject, error) {
+			return adminhttp.GetFirmware200JSONResponse(apitypes.Firmware{Id: firmwareID, Slots: apitypes.FirmwareSlots{Stable: apitypes.FirmwareSlot{Package: &apitypes.FirmwarePackage{Url: "https://firmware.example/legacy.tar.zlib", Sha256: firmwareTestSHA256, Size: 42}}}}), nil
+		}),
+	}
+	response := server.handleFirmwareGet(t.Context(), firmwareRPCRequest(t, "legacy", rpcapi.FirmwareGetRequest{Channel: rpcapi.FirmwareChannelNameStable}))
+	if response.Error != nil {
+		t.Fatalf("legacy RPC error = %#v", response.Error)
+	}
+	got, err := response.Result.AsFirmwareGetResponse()
+	if err != nil || got.Version != nil || got.Url != "https://firmware.example/legacy.tar.zlib" || got.Sha256 != firmwareTestSHA256 || got.Size != 42 {
+		t.Fatalf("legacy RPC = %#v, %v", got, err)
 	}
 }
 

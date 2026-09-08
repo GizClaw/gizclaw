@@ -45,4 +45,4 @@ flowchart LR
 
 Firmware catalog 保存在 `firmwares` 业务表中，ID 为主键，描述、创建时间和更新时间为独立列，频道配置保留为 JSON。Server 启动时初始化表结构，并复用配置的 SQL 连接池；请求不执行 DDL。列表按 ID 使用数据库范围查询与 `LIMIT` 分页，更新和删除使用 SQL `RETURNING`，不通过 KV 枚举。
 
-Package 的 `version` 是必填的 SemVer 2.0.0 字符串，最多 128 个 ASCII 字符；接受正式版、预发布和 build metadata，不接受 `v` 前缀、首尾空白或数字标识符的非法前导零。空 channel 可省略整个 package。Create、put 和 resource apply 在写入前校验版本，非法替换不会改变已有配置。Channel 允许指向较低版本用于回滚；版本用于展示和 SemVer 排序，build metadata 不影响排序，SHA-256 仍标识精确的包字节。服务端不从 URL 或 description 推断版本，也不补写已有记录的版本；缺失或非法版本的已有记录在读取时返回 internal error，不返回违反 Schema 的 package。Operator 必须用完整配置通过直接 Admin PUT 修复记录；resource apply 会先读取旧记录，因此不能用于这种修复。删除在返回记录校验失败时回滚，保留原始记录。
+Package 的 `version` 在 create、put 和 resource apply 写入时必填：严格 SemVer 2.0.0，最多 128 个 ASCII 字符，支持预发布和 build metadata，不接受 `v` 前缀、空白或非法数字前导零。拒绝写入时保留已有配置。共享 package Schema 和 SDK 模型将版本声明为可选，因为读取还要支持没有版本的已有包：Admin get/list/resource show、设备 HTTP 和 RPC 正常返回包并省略 `version`。读取不补写、不推断版本；更新这类包时必须提供真实版本，删除仍可正常执行。已有记录中存在但非法的版本仍返回 internal error，删除在返回记录校验失败时回滚。空 channel 可以省略 package。Channel 允许指向较低版本用于回滚；build metadata 不影响 SemVer 排序，SHA-256 仍标识精确的包字节。

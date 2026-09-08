@@ -183,8 +183,8 @@ func scanFirmware(row interface{ Scan(...any) error }) (apitypes.Firmware, error
 		return item, err
 	}
 	for _, slot := range []apitypes.FirmwareSlot{item.Slots.Stable, item.Slots.Beta, item.Slots.Develop} {
-		if slot.Package != nil {
-			if err := validatePackageVersion(slot.Package.Version); err != nil {
+		if slot.Package != nil && slot.Package.Version != nil {
+			if err := validatePackageVersion(*slot.Package.Version); err != nil {
 				return apitypes.Firmware{}, fmt.Errorf("stored firmware package requires a valid version; replace the configuration using Admin PUT: %w", err)
 			}
 		}
@@ -289,7 +289,10 @@ func validatePackageVersion(version string) error {
 }
 
 func normalizePackage(in apitypes.FirmwarePackage) (apitypes.FirmwarePackage, error) {
-	if err := validatePackageVersion(in.Version); err != nil {
+	if in.Version == nil {
+		return apitypes.FirmwarePackage{}, errors.New("package version is required")
+	}
+	if err := validatePackageVersion(*in.Version); err != nil {
 		return apitypes.FirmwarePackage{}, err
 	}
 	rawURL := strings.TrimSpace(in.Url)

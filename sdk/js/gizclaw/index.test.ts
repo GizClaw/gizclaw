@@ -1039,6 +1039,17 @@ test("Firmware RPC generated contract round-trips every channel and field", () =
     ),
     response,
   );
+  const withoutVersion: Omit<typeof response, "version"> & {
+    version?: string;
+  } = { ...response };
+  delete withoutVersion.version;
+  const decodedUnversioned = decodeRPCResponsePayload(
+    "server.firmware.get",
+    encodeRPCResponsePayload("server.firmware.get", withoutVersion),
+  ) as { version?: string };
+  assert.deepEqual(decodedUnversioned, withoutVersion);
+  assert.equal(decodedUnversioned.version, undefined);
+  assert.equal(Object.hasOwn(decodedUnversioned, "version"), false);
   const withoutDescription = { ...response };
   delete (withoutDescription as { description?: string }).description;
   assert.equal(

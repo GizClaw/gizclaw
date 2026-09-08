@@ -19,7 +19,8 @@ message FirmwareGetResponse {
   string sha256 = 4;
   int64 size = 5;
   // SemVer 2.0.0 package release version, at most 128 ASCII bytes.
-  string version = 6;
+  // Absent when the stored package has no version.
+  optional string version = 6;
 }
 
 message ClientFirmwareUpdateRequest {

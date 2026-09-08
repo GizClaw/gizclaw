@@ -669,7 +669,7 @@ enum FirmwareChannelName {
 class FirmwarePackage {
   const FirmwarePackage({
     required this.url,
-    required this.version,
+    this.version,
     required this.sha256,
     required this.size,
   });
@@ -678,14 +678,14 @@ class FirmwarePackage {
     final object = asJsonObject(json, 'FirmwarePackage');
     return FirmwarePackage(
       url: readString(object, 'url'),
-      version: readString(object, 'version'),
+      version: readOptionalString(object, 'version'),
       sha256: readString(object, 'sha256'),
       size: readInt(object, 'size'),
     );
   }
 
-  /// SemVer 2.0.0 release version of the package.
-  final String version;
+  /// SemVer 2.0.0 release version; absent for unversioned stored packages.
+  final String? version;
 
   /// HTTPS URL of the exact `.tar.zlib` archive bytes.
   final String url;
@@ -700,7 +700,7 @@ class FirmwarePackage {
     'url': url,
     'sha256': sha256,
     'size': size,
-    'version': version,
+    if (version != null) 'version': version,
   };
 }
 

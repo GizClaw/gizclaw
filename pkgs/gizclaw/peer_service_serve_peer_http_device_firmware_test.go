@@ -29,10 +29,10 @@ func seedBoundFirmware(t *testing.T, f *deviceHTTPFixture, id string) {
 		Slots: apitypes.FirmwareSlots{
 			Stable: apitypes.FirmwareSlot{
 				Description: new("Devkit firmware 1.0.3"),
-				Package:     &apitypes.FirmwarePackage{Version: "1.0.3", Url: "https://firmware.example.com/devkit/1.0.3.tar.zlib", Sha256: stableFirmwareSha256, Size: 4096},
+				Package:     &apitypes.FirmwarePackage{Version: new("1.0.3"), Url: "https://firmware.example.com/devkit/1.0.3.tar.zlib", Sha256: stableFirmwareSha256, Size: 4096},
 			},
 			Beta: apitypes.FirmwareSlot{
-				Package: &apitypes.FirmwarePackage{Version: "1.1.0-beta", Url: "https://firmware.example.com/devkit/1.1.0-beta.tar.zlib", Sha256: betaFirmwareSha256, Size: 8192},
+				Package: &apitypes.FirmwarePackage{Version: new("1.1.0-beta"), Url: "https://firmware.example.com/devkit/1.1.0-beta.tar.zlib", Sha256: betaFirmwareSha256, Size: 8192},
 			},
 		},
 	}})
@@ -61,7 +61,7 @@ func TestGetDeviceFirmwareReturnsEveryChannelWhileOffline(t *testing.T) {
 	if result.Description == nil || *result.Description != "Devkit firmware channels" {
 		t.Fatalf("description = %v", result.Description)
 	}
-	if result.Slots.Stable.Package == nil || result.Slots.Stable.Package.Sha256 != stableFirmwareSha256 || result.Slots.Stable.Package.Size != 4096 || result.Slots.Stable.Package.Version != "1.0.3" {
+	if result.Slots.Stable.Package == nil || result.Slots.Stable.Package.Sha256 != stableFirmwareSha256 || result.Slots.Stable.Package.Size != 4096 || result.Slots.Stable.Package.Version == nil || *result.Slots.Stable.Package.Version != "1.0.3" {
 		t.Fatalf("stable slot = %+v", result.Slots.Stable)
 	}
 	if result.Slots.Stable.Description == nil || *result.Slots.Stable.Description != "Devkit firmware 1.0.3" {
@@ -73,6 +73,24 @@ func TestGetDeviceFirmwareReturnsEveryChannelWhileOffline(t *testing.T) {
 	// An unconfigured channel is reported as an empty slot, never as an error.
 	if result.Slots.Develop.Package != nil || result.Slots.Develop.Description != nil {
 		t.Fatalf("develop slot = %+v, want empty", result.Slots.Develop)
+	}
+}
+
+func TestGetDeviceFirmwareOmitsStoredUnknownVersion(t *testing.T) {
+	f := newDeviceHTTPFixture(t)
+	seedBoundFirmware(t, f, "legacy")
+	legacy := `{"stable":{"package":{"url":"https://firmware.example/legacy.tar.zlib","sha256":"` + stableFirmwareSha256 + `","size":42}},"beta":{},"develop":{}}`
+	if _, err := f.firmware.DB.ExecContext(t.Context(), `UPDATE firmwares SET slots_json=? WHERE id=?`, legacy, "legacy"); err != nil {
+		t.Fatal(err)
+	}
+	response := f.do(t, http.MethodGet, "/gizclaw/v1/device/firmware", "")
+	if response.Code != http.StatusOK || strings.Contains(response.Body.String(), `"version"`) {
+		t.Fatalf("legacy HTTP = %d %s", response.Code, response.Body.String())
+	}
+	result := decodeJSON[peerhttp.DeviceFirmware](t, response)
+	pkg := result.Slots.Stable.Package
+	if pkg == nil || pkg.Version != nil || pkg.Url != "https://firmware.example/legacy.tar.zlib" || pkg.Sha256 != stableFirmwareSha256 || pkg.Size != 42 {
+		t.Fatalf("legacy package = %#v", pkg)
 	}
 }
 

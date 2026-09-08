@@ -180,6 +180,7 @@ class FirmwareGetResponse extends $pb.GeneratedMessage {
   void clearSize() => $_clearField(5);
 
   /// SemVer 2.0.0 package release version, at most 128 ASCII bytes.
+  /// Absent when the stored package has no version.
   @$pb.TagNumber(6)
   $core.String get version => $_getSZ(5);
   @$pb.TagNumber(6)

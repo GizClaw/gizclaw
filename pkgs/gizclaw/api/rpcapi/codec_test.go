@@ -801,7 +801,7 @@ func TestPayloadCodecMapsProtobufDirectlyToGoDTOs(t *testing.T) {
 		t.Fatalf("AsFirmwareGetRequest() error = %v", err)
 	}
 	firmwareResponse := FirmwareGetResponse{
-		Version:     "1.5.0-beta.1+abc123",
+		Version:     new("1.5.0-beta.1+abc123"),
 		Channel:     FirmwareChannelNameStable,
 		Description: new("stable package"),
 		Url:         "https://firmware.example/stable.tar.zlib",
@@ -817,6 +817,15 @@ func TestPayloadCodecMapsProtobufDirectlyToGoDTOs(t *testing.T) {
 	}
 	if !reflect.DeepEqual(decodedFirmware, firmwareResponse) {
 		t.Fatalf("firmware response round trip = %#v, want %#v", decodedFirmware, firmwareResponse)
+	}
+
+	firmwareResponse.Version = nil
+	if err := firmwarePayload.FromFirmwareGetResponse(firmwareResponse); err != nil {
+		t.Fatal(err)
+	}
+	decodedFirmware, err = firmwarePayload.AsFirmwareGetResponse()
+	if err != nil || !reflect.DeepEqual(decodedFirmware, firmwareResponse) {
+		t.Fatalf("unversioned round trip = %#v, %v", decodedFirmware, err)
 	}
 
 	schemaData, err := proto.Marshal(&rpcpb.DoubaoRealtimeJSONSchema{

@@ -203,6 +203,7 @@ void main() {
     expect(decoded.sha256, response.sha256);
     expect(decoded.size, response.size);
     expect(decoded.version, response.version);
+    expect(decoded.hasVersion(), isTrue);
 
     final withoutDescription = FirmwareGetResponse(
       channel: FirmwareChannelName.FIRMWARE_CHANNEL_NAME_DEVELOP,
@@ -221,6 +222,7 @@ void main() {
             )
             as FirmwareGetResponse;
     expect(decodedWithoutDescription.hasDescription(), isFalse);
+    expect(decodedWithoutDescription.hasVersion(), isFalse);
   });
 
   test('encodes and decodes structured speech extraction payloads', () {

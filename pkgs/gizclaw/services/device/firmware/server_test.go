@@ -230,7 +230,7 @@ func firmwareSlot(description, packageURL string, size int64) apitypes.FirmwareS
 }
 
 func testPackage(packageURL, sha256 string, size int64) apitypes.FirmwarePackage {
-	return apitypes.FirmwarePackage{Version: "1.2.3", Url: packageURL, Sha256: sha256, Size: size}
+	return apitypes.FirmwarePackage{Version: new("1.2.3"), Url: packageURL, Sha256: sha256, Size: size}
 }
 
 func assertPackageURL(t *testing.T, slot apitypes.FirmwareSlot, want string) {
@@ -342,13 +342,13 @@ func TestPackageVersionValidationAndSchema(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.version, func(t *testing.T) {
 			pkg := testPackage("https://firmware.example/fw.tar.zlib", testSHA256, 42)
-			pkg.Version = tc.version
+			pkg.Version = new(tc.version)
 			got, err := normalizePackage(pkg)
 			if (err == nil) != tc.valid {
 				t.Fatalf("normalizePackage(%q): %v; want valid=%v", tc.version, err, tc.valid)
 			}
-			if tc.valid && got.Version != tc.version {
-				t.Fatalf("version changed to %q", got.Version)
+			if tc.valid && (got.Version == nil || *got.Version != tc.version) {
+				t.Fatalf("version changed to %v", got.Version)
 			}
 			value := map[string]any{"url": pkg.Url, "sha256": pkg.Sha256, "size": float64(pkg.Size), "version": tc.version}
 			if err := schema.VisitJSON(value); (err == nil) != tc.valid {
@@ -356,18 +356,18 @@ func TestPackageVersionValidationAndSchema(t *testing.T) {
 			}
 		})
 	}
-	if err := schema.VisitJSON(map[string]any{"url": "https://firmware.example/fw.tar.zlib", "sha256": testSHA256, "size": float64(42)}); err == nil {
-		t.Fatal("schema accepted a package without version")
+	if err := schema.VisitJSON(map[string]any{"url": "https://firmware.example/fw.tar.zlib", "sha256": testSHA256, "size": float64(42)}); err != nil {
+		t.Fatalf("response schema rejected an unversioned stored package: %v", err)
 	}
 }
 
 func TestServerVersionWritesAndRollback(t *testing.T) {
 	server := &Server{DB: newTestDatabase(t)}
 	input := firmwareUpsert("versioned", firmwareSlot("release", "https://firmware.example/fw.tar.zlib", 42), apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{})
-	input.Slots.Stable.Package.Version = "2.0.0"
+	input.Slots.Stable.Package.Version = new("2.0.0")
 	createFirmware(t, server, input)
 	for _, version := range []string{"", "v1.2.3", "1.2.3-01", strings.Repeat("1", 129)} {
-		input.Slots.Stable.Package.Version = version
+		input.Slots.Stable.Package.Version = new(version)
 		response, err := server.PutFirmware(t.Context(), adminhttp.PutFirmwareRequestObject{Id: input.Id, Body: &input})
 		if _, ok := response.(adminhttp.PutFirmware400JSONResponse); err != nil || !ok {
 			t.Fatalf("invalid put %q: %T, %v", version, response, err)
@@ -380,57 +380,104 @@ func TestServerVersionWritesAndRollback(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := stored.(adminhttp.GetFirmware200JSONResponse).Slots.Stable.Package.Version; got != "2.0.0" {
-			t.Fatalf("rejected write changed version to %q", got)
+		if got := stored.(adminhttp.GetFirmware200JSONResponse).Slots.Stable.Package.Version; got == nil || *got != "2.0.0" {
+			t.Fatalf("rejected write changed version to %v", got)
 		}
 	}
-	input.Slots.Stable.Package.Version = "1.5.0-beta.1+abc123"
+	input.Slots.Stable.Package.Version = new("1.5.0-beta.1+abc123")
 	response, err := server.PutFirmware(t.Context(), adminhttp.PutFirmwareRequestObject{Id: input.Id, Body: &input})
 	updated, ok := response.(adminhttp.PutFirmware200JSONResponse)
-	if err != nil || !ok || updated.Slots.Stable.Package.Version != input.Slots.Stable.Package.Version {
+	if err != nil || !ok || updated.Slots.Stable.Package.Version == nil || *updated.Slots.Stable.Package.Version != *input.Slots.Stable.Package.Version {
 		t.Fatalf("rollback: %T, %v", response, err)
 	}
 	stored, err := server.GetFirmware(t.Context(), adminhttp.GetFirmwareRequestObject{Id: input.Id})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := stored.(adminhttp.GetFirmware200JSONResponse).Slots.Stable.Package.Version; got != input.Slots.Stable.Package.Version {
-		t.Fatalf("stored rollback version = %q", got)
+	if got := stored.(adminhttp.GetFirmware200JSONResponse).Slots.Stable.Package.Version; got == nil || *got != *input.Slots.Stable.Package.Version {
+		t.Fatalf("stored rollback version = %v", got)
 	}
 }
 
-func TestStoredUnversionedPackageRequiresExplicitRepair(t *testing.T) {
+func TestStoredUnversionedPackageRemainsReadable(t *testing.T) {
 	server := &Server{DB: newTestDatabase(t)}
 	input := firmwareUpsert("legacy", firmwareSlot("release", "https://firmware.example/fw.tar.zlib", 42), apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{})
 	createFirmware(t, server, input)
 	legacy := `{"stable":{"package":{"url":"https://firmware.example/fw.tar.zlib","sha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","size":42}},"beta":{},"develop":{}}`
-	if _, err := server.DB.ExecContext(t.Context(), `UPDATE firmwares SET slots_json=? WHERE id=?`, legacy, input.Id); err != nil {
-		t.Fatal(err)
+	seedLegacy := func() {
+		t.Helper()
+		if _, err := server.DB.ExecContext(t.Context(), `UPDATE firmwares SET slots_json=? WHERE id=?`, legacy, input.Id); err != nil {
+			t.Fatal(err)
+		}
 	}
+	seedLegacy()
 	got, err := server.GetFirmware(t.Context(), adminhttp.GetFirmwareRequestObject{Id: input.Id})
-	bad, ok := got.(adminhttp.GetFirmware500JSONResponse)
-	if err != nil || !ok || !strings.Contains(bad.Error.Message, "Admin PUT") {
-		t.Fatalf("legacy get = %T, %v", got, err)
+	valid, ok := got.(adminhttp.GetFirmware200JSONResponse)
+	if err != nil || !ok || valid.Slots.Stable.Package == nil || valid.Slots.Stable.Package.Version != nil {
+		t.Fatalf("legacy get = %#v, %v", got, err)
+	}
+	data, err := json.Marshal(valid)
+	if err != nil || strings.Contains(string(data), `"version"`) || !strings.Contains(string(data), `"url":"https://firmware.example/fw.tar.zlib"`) {
+		t.Fatalf("legacy JSON = %s, %v", data, err)
 	}
 	listed, err := server.ListFirmwares(t.Context(), adminhttp.ListFirmwaresRequestObject{})
-	if _, ok := listed.(adminhttp.ListFirmwares500JSONResponse); err != nil || !ok {
+	if _, ok := listed.(adminhttp.ListFirmwares200JSONResponse); err != nil || !ok {
 		t.Fatalf("legacy list = %T, %v", listed, err)
 	}
-	deleted, err := server.DeleteFirmware(t.Context(), adminhttp.DeleteFirmwareRequestObject{Id: input.Id})
-	if _, ok := deleted.(adminhttp.DeleteFirmware500JSONResponse); err != nil || !ok {
-		t.Fatalf("legacy delete = %T, %v", deleted, err)
+	missing := input
+	missing.Slots.Stable.Package = new(*input.Slots.Stable.Package)
+	missing.Slots.Stable.Package.Version = nil
+	rejected, err := server.PutFirmware(t.Context(), adminhttp.PutFirmwareRequestObject{Id: input.Id, Body: &missing})
+	if _, ok := rejected.(adminhttp.PutFirmware400JSONResponse); err != nil || !ok {
+		t.Fatalf("unversioned put = %T, %v", rejected, err)
+	}
+	missing.Id = "new-unversioned"
+	created, err := server.CreateFirmware(t.Context(), adminhttp.CreateFirmwareRequestObject{Body: &missing})
+	if _, ok := created.(adminhttp.CreateFirmware400JSONResponse); err != nil || !ok {
+		t.Fatalf("unversioned create = %T, %v", created, err)
 	}
 	var stored string
 	if err := server.DB.GetContext(t.Context(), &stored, `SELECT slots_json FROM firmwares WHERE id=?`, input.Id); err != nil || stored != legacy {
-		t.Fatalf("failed read/delete mutated stored package: %v", err)
+		t.Fatalf("reads/rejected writes mutated stored package: %v", err)
 	}
 	updated, err := server.PutFirmware(t.Context(), adminhttp.PutFirmwareRequestObject{Id: input.Id, Body: &input})
-	if _, ok := updated.(adminhttp.PutFirmware200JSONResponse); err != nil || !ok {
-		t.Fatalf("repair = %T, %v", updated, err)
+	versioned, ok := updated.(adminhttp.PutFirmware200JSONResponse)
+	if err != nil || !ok || versioned.Slots.Stable.Package.Version == nil || *versioned.Slots.Stable.Package.Version != "1.2.3" {
+		t.Fatalf("versioned put = %#v, %v", updated, err)
 	}
-	got, err = server.GetFirmware(t.Context(), adminhttp.GetFirmwareRequestObject{Id: input.Id})
-	valid, ok := got.(adminhttp.GetFirmware200JSONResponse)
-	if err != nil || !ok || valid.Slots.Stable.Package.Version != "1.2.3" {
-		t.Fatalf("repaired get = %T, %v", got, err)
+	seedLegacy()
+	deleted, err := server.DeleteFirmware(t.Context(), adminhttp.DeleteFirmwareRequestObject{Id: input.Id})
+	if _, ok := deleted.(adminhttp.DeleteFirmware200JSONResponse); err != nil || !ok {
+		t.Fatalf("legacy delete = %T, %v", deleted, err)
+	}
+}
+
+func TestStoredInvalidVersionRejectsReadAndPreservesDelete(t *testing.T) {
+	for _, version := range []string{"", "v1.2.3"} {
+		t.Run(version, func(t *testing.T) {
+			server := &Server{DB: newTestDatabase(t)}
+			input := firmwareUpsert("invalid", firmwareSlot("release", "https://firmware.example/fw.tar.zlib", 42), apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{})
+			createFirmware(t, server, input)
+			input.Slots.Stable.Package.Version = new(version)
+			invalid, err := json.Marshal(input.Slots)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := server.DB.ExecContext(t.Context(), `UPDATE firmwares SET slots_json=? WHERE id=?`, string(invalid), input.Id); err != nil {
+				t.Fatal(err)
+			}
+			got, err := server.GetFirmware(t.Context(), adminhttp.GetFirmwareRequestObject{Id: input.Id})
+			if _, ok := got.(adminhttp.GetFirmware500JSONResponse); err != nil || !ok {
+				t.Fatalf("invalid get = %T, %v", got, err)
+			}
+			deleted, err := server.DeleteFirmware(t.Context(), adminhttp.DeleteFirmwareRequestObject{Id: input.Id})
+			if _, ok := deleted.(adminhttp.DeleteFirmware500JSONResponse); err != nil || !ok {
+				t.Fatalf("invalid delete = %T, %v", deleted, err)
+			}
+			var stored string
+			if err := server.DB.GetContext(t.Context(), &stored, `SELECT slots_json FROM firmwares WHERE id=?`, input.Id); err != nil || stored != string(invalid) {
+				t.Fatalf("invalid record mutated: %v", err)
+			}
+		})
 	}
 }

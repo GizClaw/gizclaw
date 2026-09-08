@@ -22,7 +22,9 @@ typedef struct _gizclaw_rpc_v1_FirmwareGetResponse {
     char url[2049];
     char sha256[65];
     int64_t size;
-    /* SemVer 2.0.0 package release version, at most 128 ASCII bytes. */
+    /* SemVer 2.0.0 package release version, at most 128 ASCII bytes.
+ Absent when the stored package has no version. */
+    bool has_version;
     char version[129];
 } gizclaw_rpc_v1_FirmwareGetResponse;
 
@@ -44,11 +46,11 @@ extern "C" {
 
 /* Initializer values for message structs */
 #define gizclaw_rpc_v1_FirmwareGetRequest_init_default {_gizclaw_rpc_v1_FirmwareChannelName_MIN}
-#define gizclaw_rpc_v1_FirmwareGetResponse_init_default {_gizclaw_rpc_v1_FirmwareChannelName_MIN, false, "", "", "", 0, ""}
+#define gizclaw_rpc_v1_FirmwareGetResponse_init_default {_gizclaw_rpc_v1_FirmwareChannelName_MIN, false, "", "", "", 0, false, ""}
 #define gizclaw_rpc_v1_ClientFirmwareUpdateRequest_init_default {false, _gizclaw_rpc_v1_FirmwareChannelName_MIN, false, ""}
 #define gizclaw_rpc_v1_ClientFirmwareUpdateResponse_init_default {0}
 #define gizclaw_rpc_v1_FirmwareGetRequest_init_zero {_gizclaw_rpc_v1_FirmwareChannelName_MIN}
-#define gizclaw_rpc_v1_FirmwareGetResponse_init_zero {_gizclaw_rpc_v1_FirmwareChannelName_MIN, false, "", "", "", 0, ""}
+#define gizclaw_rpc_v1_FirmwareGetResponse_init_zero {_gizclaw_rpc_v1_FirmwareChannelName_MIN, false, "", "", "", 0, false, ""}
 #define gizclaw_rpc_v1_ClientFirmwareUpdateRequest_init_zero {false, _gizclaw_rpc_v1_FirmwareChannelName_MIN, false, ""}
 #define gizclaw_rpc_v1_ClientFirmwareUpdateResponse_init_zero {0}
 
@@ -75,7 +77,7 @@ X(a, STATIC,   OPTIONAL, STRING,   description,       2) \
 X(a, STATIC,   SINGULAR, STRING,   url,               3) \
 X(a, STATIC,   SINGULAR, STRING,   sha256,            4) \
 X(a, STATIC,   SINGULAR, INT64,    size,              5) \
-X(a, STATIC,   SINGULAR, STRING,   version,           6)
+X(a, STATIC,   OPTIONAL, STRING,   version,           6)
 #define gizclaw_rpc_v1_FirmwareGetResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_FirmwareGetResponse_DEFAULT NULL
 
