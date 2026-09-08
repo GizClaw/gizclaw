@@ -32,3 +32,5 @@ tests/gizclaw-e2e/testdata/server-workspace/*.log
 tests/gizclaw-e2e/testdata/server-workspace/*.pid
 
 web/console/dist
+
+/web/console/assets_generated.go

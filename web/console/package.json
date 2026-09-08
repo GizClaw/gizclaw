@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
+    "postbuild": "node embed.mjs",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "vitest run",
+    "test": "node --test embed.test.mjs && vitest run",
     "prebuild": "npm run build --prefix ../../sdk/js/gizclaw-control",
     "pretest": "npm run build --prefix ../../sdk/js/gizclaw-control"
   },

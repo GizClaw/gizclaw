@@ -83,7 +83,8 @@ go build ./cmd/gizclaw
 ```
 
 The static bundle in `web/console/dist/` (ignored by git) is embedded using
-`go:embed`. Build the console before compiling Go or running tests that depend
+a generated, git-ignored `assets_generated.go` manifest that names every output
+file in `go:embed`. Removing any listed file fails Go compilation. Build the console before compiling Go or running tests that depend
 on monitoring; missing assets fail compilation. Linux Docker builds and macOS
 releases perform this step, and the executable needs no source directory at
 runtime. The bundle can also be hosted separately. For development,

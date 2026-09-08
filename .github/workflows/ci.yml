@@ -639,6 +639,12 @@ jobs:
       - name: Install guide dependencies
         run: npm --prefix guides ci
 
+      - name: Set up Go for embedded asset compile tests
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+          cache: true
+
       - name: Build and test console
         run: npm run build --workspace @gizclaw/console && npm test --workspace @gizclaw/console
 

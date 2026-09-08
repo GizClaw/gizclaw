@@ -51,3 +51,5 @@ openteam/
 # Console assets are built before Go compilation and embedded in the binary.
 /web/console/dist/
 
+
+/web/console/assets_generated.go

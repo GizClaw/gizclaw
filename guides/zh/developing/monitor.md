@@ -64,7 +64,8 @@ npm test --workspace @gizclaw/console
 go build ./cmd/gizclaw
 ```
 
-控制台构建产物是 `web/console/dist/` 静态文件（git 忽略），通过 `go:embed` 嵌入二进制。
+控制台构建产物是 `web/console/dist/` 静态文件（git 忽略），构建步骤会生成 `assets_generated.go`，通过 `go:embed` 逐个列出产物文件并嵌入二进制。
+清单同样由 git 忽略；缺失任一列出的文件都会使 Go 编译失败。
 编译 Go 或运行依赖监控模块的 Go 测试前必须先构建控制台；缺少产物会使编译失败。Linux Docker
 构建和 macOS 发布流程都会执行此步骤，运行时不依赖源目录。产物也可单独部署为静态站点。开发时
 `npm run dev --workspace @gizclaw/console` 监听 5174，并把 `/gizclaw` 代理到本地接入点
