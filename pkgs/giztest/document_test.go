@@ -575,6 +575,51 @@ func TestLoadDocumentValidatesListenPeerStream(t *testing.T) {
 	}
 }
 
+func TestLoadDocumentValidatesEmptyInputTurn(t *testing.T) {
+	turn := func(extra string) string {
+		return validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: push-to-talk\n      empty_input: true\n" + extra
+	}
+	doc, err := LoadDocument(writeTestDocument(t, turn("")), nil)
+	if err != nil {
+		t.Fatalf("empty_input turn rejected: %v", err)
+	}
+	op := doc.Steps[len(doc.Steps)-1].PeerStream
+	if !op.EmptyInput || op.Input != nil {
+		t.Fatalf("peer_stream operation = %#v", op)
+	}
+	if _, err := LoadDocument(writeTestDocument(t, turn("      completion: input_sent\n")), nil); err != nil {
+		t.Fatalf("empty_input with input_sent completion rejected: %v", err)
+	}
+	for name, tc := range map[string]struct {
+		body string
+		want string
+	}{
+		"realtime mode": {
+			body: validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: realtime\n      empty_input: true\n",
+			want: "requires push-to-talk mode",
+		},
+		"with input":      {body: turn("      input: ${endpoint}\n"), want: "cannot set input"},
+		"require_text":    {body: turn("      require_text: false\n"), want: "remove require_text and require_audio"},
+		"require_audio":   {body: turn("      require_audio: true\n"), want: "remove require_text and require_audio"},
+		"interrupt_after": {body: turn("      interrupt_after: 1s\n"), want: "no response to interrupt"},
+		"first_response": {
+			body: turn("      completion: first_response\n      first_text_timeout: 5s\n      first_audio_timeout: 5s\n"),
+			want: "cannot use first_response completion",
+		},
+		"empty_input false": {
+			body: validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: push-to-talk\n      empty_input: false\n",
+			want: "schema validation",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := LoadDocument(writeTestDocument(t, tc.body), nil)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+}
+
 func TestLoadDocumentValidatesInputSentCompletion(t *testing.T) {
 	turn := func(mode, extra string) string {
 		return validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: " + mode + "\n      input: ${endpoint}\n      completion: input_sent\n" + extra

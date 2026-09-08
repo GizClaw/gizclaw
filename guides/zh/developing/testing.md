@@ -513,6 +513,12 @@ SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而�
   child 的 `status`、`duration_ms`、`error` 与 evidence。play 模式不支持 `parallel` step；
   无法并发执行步骤的 driver 不声明 `parallel` 操作，这类文档在 `validate` 阶段就被拒绝或跳过，
   而不是运行时失败。
+- `peer_stream.empty_input: true` 只对 `push-to-talk` 有效：这一轮打开又关闭音频
+  route，但不发送任何音频帧，对应设备按下后在采到第一帧之前就松开、或本地门控没有产出
+  帧的情况。它与 `input` 互斥，也不能与 `require_text`、`require_audio`、
+  `interrupt_after` 或 `completion: first_response` 组合。默认的 terminal completion
+  要求这一轮的 assistant 文本与音频 route 都正常关闭且不带任何内容，assistant 出现文本
+  或音频即判失败；只想确认输入已经送出时改用 `completion: input_sent`。
 - `peer_stream.completion: input_sent` 只对 `push-to-talk` 与 `realtime` 有效：输入推送完成
   （push-to-talk 还包括 EOS）即完成，不等待自己的文本或音频下发，也没有 terminal label。它
   不能与 `first_text_timeout`、`first_audio_timeout`、`wait_for_history`、`require_text`、
