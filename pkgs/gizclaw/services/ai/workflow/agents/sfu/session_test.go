@@ -305,6 +305,29 @@ func (h *harness) talking(peer string) bool {
 	return s.talk.open
 }
 
+// preroll reports how many voiced packets are buffered for identity's tracks
+// while utterance is identity's open utterance. It reports -1 when the
+// session is gone or a different utterance is open, so waiting on a count
+// cannot be satisfied under the wrong utterance.
+func (h *harness) preroll(peer, identity, utterance string) int {
+	s := h.session(peer)
+	if s == nil {
+		return -1
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if open := s.utterances[identity]; open == nil || open.id != utterance {
+		return -1
+	}
+	held := 0
+	for _, track := range s.tracks {
+		if track.identity == identity {
+			held += len(track.preroll)
+		}
+	}
+	return held
+}
+
 func (h *harness) dropped(peer string) uint64 {
 	status, _ := h.agent.SessionStatus(peer)
 	return status.DroppedPackets
@@ -926,6 +949,11 @@ func TestPrerollDoesNotCrossUtterances(t *testing.T) {
 	readerC.voiced(0xC2)
 	readerB.voiced(0xB1)
 	waitFor(t, func() bool { return h.queued(testPeer) >= 2 }, "B forwarded while holding the floor")
+	// Ingestion is asynchronous, so wait until both packets are actually held
+	// under u-c1. Without this the EOS can be applied first, which attributes
+	// them to u-c2 and makes the assertions below report a boundary that was
+	// never crossed.
+	waitFor(t, func() bool { return h.preroll(testPeer, testRemoteC, "u-c1") == 2 }, "C's packets buffered under u-c1")
 
 	// C's utterance ends while it is still buffered, then C opens another.
 	client.remoteTalk(testRemoteC, talkTypeEOS, "u-c1", 8)
