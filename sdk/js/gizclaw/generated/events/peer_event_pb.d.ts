@@ -83,13 +83,6 @@ export declare type PeerEvent = Message<"gizclaw.events.v1.PeerEvent"> & {
       }
     | {
         /**
-         * @generated from field: gizclaw.events.v1.GameplayRewardUpdated gameplay_reward_updated = 17;
-         */
-        value: GameplayRewardUpdated;
-        case: "gameplayRewardUpdated";
-      }
-    | {
-        /**
          * @generated from field: gizclaw.events.v1.AudioInputReady audio_input_ready = 18;
          */
         value: AudioInputReady;
@@ -403,33 +396,6 @@ export declare type FriendGroupUpdated =
 export declare const FriendGroupUpdatedSchema: GenMessage<FriendGroupUpdated>;
 
 /**
- * @generated from message gizclaw.events.v1.GameplayRewardUpdated
- */
-export declare type GameplayRewardUpdated =
-  Message<"gizclaw.events.v1.GameplayRewardUpdated"> & {
-    /**
-     * @generated from field: string workspace_name = 1;
-     */
-    workspaceName: string;
-
-    /**
-     * @generated from field: string reward_grant_name = 2;
-     */
-    rewardGrantName: string;
-
-    /**
-     * @generated from field: int64 revision_unix_ms = 3;
-     */
-    revisionUnixMs: bigint;
-  };
-
-/**
- * Describes the message gizclaw.events.v1.GameplayRewardUpdated.
- * Use `create(GameplayRewardUpdatedSchema)` to create a new message.
- */
-export declare const GameplayRewardUpdatedSchema: GenMessage<GameplayRewardUpdated>;
-
-/**
  * @generated from enum gizclaw.events.v1.PeerEventType
  */
 export enum PeerEventType {
@@ -472,11 +438,6 @@ export enum PeerEventType {
    * @generated from enum value: PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED = 7;
    */
   FRIEND_GROUP_UPDATED = 7,
-
-  /**
-   * @generated from enum value: PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED = 8;
-   */
-  GAMEPLAY_REWARD_UPDATED = 8,
 
   /**
    * Server acknowledgement that an input audio BOS has been authorized and

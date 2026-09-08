@@ -75,7 +75,7 @@ func TestCreatePeerWorkspaceDoesNotBlockIndependentOwner(t *testing.T) {
 		err      error
 	}, 1)
 	go func() {
-		snapshot, err := server.SnapshotPeerWorkspaces(ownerA, "peer-a", nil)
+		snapshot, err := server.SnapshotPeerWorkspaces(ownerA, "peer-a")
 		snapshotDone <- struct {
 			snapshot PeerRetirementSnapshot
 			err      error

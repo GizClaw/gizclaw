@@ -161,7 +161,7 @@ bash tests/gizclaw-e2e/run_firmware_tests.sh
 ```
 
 托管删除变更使用固定的 production vertical-slice 入口。该入口校验统一的 credential
-file，启动隔离的 Docker stack，并在独立的 Peer RPC 删除测试包中覆盖 Pet、Workspace、
+file，启动隔离的 Docker stack，并在独立的 Peer RPC 删除测试包中覆盖 Workspace、
 Friend Group 和 Peer。测试会验证使用中资源被终止，以及 Peer tombstone 在 Server 重启后
 仍然生效；成功或失败后都会清理 project，且不运行无关的 provider-backed 场景：
 
@@ -238,7 +238,7 @@ Workspace history 是运行时数据，不能由 reset 脚本直接 seed。
 - `go/delete` 保留需要 Admin 观察、重启与 tombstone 的删除测试。
 - `go/edge` 保留 TURN relay、sibling-close、故障恢复和网络诊断。
 - `go/openai` 保留 OpenAI 兼容 API 的 typed SDK 测试。
-- `giztest/*.giztest.yaml` 验证 Peer RPC、conversation、social、gameplay 和 Workflow 行为。
+- `giztest/*.giztest.yaml` 验证 Peer RPC、conversation、social 和 Workflow 行为。
 - `cmd` 通过 `os/exec` 运行 `testdata/bin/gizclaw`，不能用 `go run` 或 typed client 绕过 CLI。
 - `js/admin` 验证 WebRTC Admin fetch；`js/rpc` 验证 peer 与 server-initiated RPC。
 - `js/giztest`、`flutter/giztest` 与 `cgo/giztest` 用各自语言的 SDK 执行同一批 giztest 场景，见下一节。

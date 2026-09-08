@@ -100,7 +100,7 @@ owner_public_key: <initiator or Group owner>
 
 `system-sfu` is a built-in system Workflow: its driver is `sfu`, its payload is an empty object, and `EnsureBuiltinWorkflows` in `services/ai/workflow` materializes it idempotently on every Server at startup. Admin create, put, and delete against it return `409`, `400`, and `404` with error code `WORKFLOW_BUILTIN`, and the Workflow list hides it. `sfu` is not a `ReusableWorkflowDriver`, so Pet cannot nest it.
 
-An SFU Workspace is an empty runtime entry point. It owns no Workspace History, messages, media assets, Agent memory, or configurable fields, and generic Workspace put cannot modify it. History RPCs return empty results for it, it never emits `workspace_history_updated`, it is not eligible for Gameplay Workspace Reward, and it cannot back an OpenAI Conversation.
+An SFU Workspace is an empty runtime entry point. It owns no Workspace History, messages, media assets, Agent memory, or configurable fields, and generic Workspace put cannot modify it. History RPCs return empty results for it, it never emits `workspace_history_updated`, and it cannot back an OpenAI Conversation.
 
 ### Binding
 

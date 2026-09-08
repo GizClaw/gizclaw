@@ -13,7 +13,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/doubaorealtimeduplex"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/eino"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/flowcraft"
-	petagent "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/pet"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
@@ -69,7 +68,7 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 	base := agenthost.New(peerAgentHostTestResolver{})
 	history := &peerAgentHostHistoryStore{}
 	state, _ := sqltest.New(t)
-	got := newPeerAgentHost(base, nil, nil, nil, nil, history, state, t.TempDir(), nil, sfu.Factory{})
+	got := newPeerAgentHost(base, nil, nil, nil, history, state, t.TempDir(), nil, sfu.Factory{})
 	if got == nil {
 		t.Fatal("newPeerAgentHost() = nil", sfu.Factory{})
 	}
@@ -89,7 +88,6 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 		doubaorealtimeduplex.Type,
 		eino.Type,
 		flowcraft.Type,
-		petagent.Type,
 		sfu.Type,
 	} {
 		t.Run(agentType, func(t *testing.T) {
@@ -98,18 +96,7 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 			}
 		})
 	}
-	registered, ok := got.Registry.Get(petagent.Type)
-	if !ok {
-		t.Fatal("pet agent was not registered")
-	}
-	petFactory, ok := registered.(petagent.Factory)
-	if !ok {
-		t.Fatalf("pet factory = %T, want pet.Factory", registered)
-	}
-	if petFactory.Factories != got.Registry {
-		t.Fatal("pet factory did not receive the shared driver registry")
-	}
-	registered, ok = got.Registry.Get(flowcraft.Type)
+	registered, ok := got.Registry.Get(flowcraft.Type)
 	if !ok {
 		t.Fatal("flowcraft agent was not registered")
 	}
@@ -137,7 +124,7 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 }
 
 func TestNewPeerAgentHostNilBase(t *testing.T) {
-	if got := newPeerAgentHost(nil, nil, nil, nil, nil, nil, nil, "", nil, sfu.Factory{}); got != nil {
+	if got := newPeerAgentHost(nil, nil, nil, nil, nil, nil, "", nil, sfu.Factory{}); got != nil {
 		t.Fatalf("newPeerAgentHost(nil) = %#v, want nil", got)
 	}
 }

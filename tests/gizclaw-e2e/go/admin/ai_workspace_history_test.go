@@ -240,9 +240,6 @@ func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*giz
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: resources,
 			Workflows: apitypes.RuntimeProfileWorkflows{
-				System: apitypes.RuntimeProfileSystemWorkflows{
-					Pet: "pet-care",
-				},
 				Collections: apitypes.RuntimeProfileWorkflowCollections{
 					adminHistoryCollection: {adminHistoryWorkflowAlias: binding},
 				},

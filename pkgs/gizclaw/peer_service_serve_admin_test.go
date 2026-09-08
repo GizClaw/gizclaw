@@ -23,7 +23,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
@@ -33,7 +32,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
-	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
 
@@ -166,109 +164,50 @@ func TestAdminFriendGroupMemberObjectUsesCanonicalMembershipID(t *testing.T) {
 	}
 }
 
-func TestAdminServiceDeletePeerPetUsesGameplayLifecycle(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-	db, err := sqlx.Open("sqlite", "file:admin-delete-peer-pet?mode=memory&cache=shared")
-	if err != nil {
-		t.Fatalf("sql.Open() error = %v", err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	workspaces := &adminGameplayWorkspaceService{}
-	runtime := &gameplay.Runtime{DB: db, Workspaces: workspaces}
-	if err := runtime.Migration(ctx); err != nil {
-		t.Fatalf("Migration() error = %v", err)
-	}
-	now := time.Date(2026, 7, 16, 12, 0, 0, 0, time.UTC).Format(time.RFC3339Nano)
-	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pets (
-		owner_public_key, id, name, runtime_profile_id, pet_def_id, display_name, workspace_id,
-		stats_json, progression_json, lifecycle, died_at, state_settled_at, last_active_at, created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		"peer-a", "pet-a", "pet-name", "runtime-profile-default", "petdef-a", "Pet A", "id-pet-pet-a",
-		`{"life":100,"health":100,"satiety":100,"hygiene":100,"mood":100,"energy":100}`, `{"experience":0,"level":1}`, "alive", nil, now, now, now, now,
-	); err != nil {
-		t.Fatalf("insert pet: %v", err)
-	}
-
-	service := &adminService{Gameplay: runtime}
-	resp, err := service.DeletePeerPet(ctx, adminhttp.DeletePeerPetRequestObject{PublicKey: "peer-a", Id: "pet-a"})
-	if err != nil {
-		t.Fatalf("DeletePeerPet() error = %v", err)
-	}
-	deleted, ok := resp.(adminhttp.DeletePeerPet200JSONResponse)
-	if !ok || deleted.Id != "pet-a" {
-		t.Fatalf("DeletePeerPet() response = %#v", resp)
-	}
-	if len(workspaces.deleted) != 0 {
-		t.Fatalf("DeletePeerPet deleted bound Workspace = %#v", workspaces.deleted)
-	}
-	var pendingCount int
-	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_pending_deletions WHERE kind = 'pet' AND owner_public_key = ? AND resource_id = ?`, "peer-a", "pet-a").Scan(&pendingCount); err != nil {
-		t.Fatalf("query Pet pending deletion: %v", err)
-	}
-	if pendingCount != 1 {
-		t.Fatalf("Pet pending deletion count = %d, want 1", pendingCount)
-	}
-	resp, err = service.DeletePeerPet(ctx, adminhttp.DeletePeerPetRequestObject{PublicKey: "peer-a", Id: "pet-a"})
-	if err != nil {
-		t.Fatalf("DeletePeerPet(retry) error = %v", err)
-	}
-	if _, ok := resp.(adminhttp.DeletePeerPet200JSONResponse); !ok {
-		t.Fatalf("DeletePeerPet(retry) response = %#v", resp)
-	}
-	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_pending_deletions WHERE kind = 'pet' AND owner_public_key = ? AND resource_id = ?`, "peer-a", "pet-a").Scan(&pendingCount); err != nil {
-		t.Fatalf("query repeated Pet pending deletion: %v", err)
-	}
-	if pendingCount != 1 {
-		t.Fatalf("repeated Pet pending deletion count = %d, want 1", pendingCount)
-	}
-}
-
-type adminGameplayWorkspaceService struct {
+type adminTestWorkspaceService struct {
 	deleted []string
 }
 
 func newTestFriendServer(store kv.Store) *friend.Server {
 	return &friend.Server{
 		Friends:    store,
-		Workspaces: &adminGameplayWorkspaceService{},
+		Workspaces: &adminTestWorkspaceService{},
 		SFUURL:     "wss://sfu.test",
 	}
 }
 
-func (s *adminGameplayWorkspaceService) CreateSystemWorkspace(_ context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
+func (s *adminTestWorkspaceService) CreateSystemWorkspace(_ context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
 	system := true
 	return apitypes.Workspace{Id: "id-" + body.Name, Name: body.Name, WorkflowId: body.WorkflowId, System: &system}, true, nil
 }
 
-func (s *adminGameplayWorkspaceService) DeleteSystemWorkspace(_ context.Context, name string) (apitypes.Workspace, error) {
+func (s *adminTestWorkspaceService) DeleteSystemWorkspace(_ context.Context, name string) (apitypes.Workspace, error) {
 	s.deleted = append(s.deleted, name)
 	system := true
 	return apitypes.Workspace{Name: name, System: &system}, nil
 }
 
-func (s *adminGameplayWorkspaceService) GetWorkspaceByName(_ context.Context, name string) (apitypes.Workspace, error) {
+func (s *adminTestWorkspaceService) GetWorkspaceByName(_ context.Context, name string) (apitypes.Workspace, error) {
 	return apitypes.Workspace{Id: "id-" + name, Name: name}, nil
 }
 
-func (s *adminGameplayWorkspaceService) GetWorkspace(_ context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
+func (s *adminTestWorkspaceService) GetWorkspace(_ context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
 	return adminhttp.GetWorkspace200JSONResponse(apitypes.Workspace{Id: request.Id}), nil
 }
 
-func (s *adminGameplayWorkspaceService) RetireSystemWorkspace(_ context.Context, name string, _ socialutil.SFUWorkspaceKind, _ string) (apitypes.Workspace, error) {
+func (s *adminTestWorkspaceService) RetireSystemWorkspace(_ context.Context, name string, _ socialutil.SFUWorkspaceKind, _ string) (apitypes.Workspace, error) {
 	return apitypes.Workspace{Name: name}, nil
 }
 
-func (s *adminGameplayWorkspaceService) RetireSystemWorkspaceByID(_ context.Context, id string, _ socialutil.SFUWorkspaceKind, _ string) (apitypes.Workspace, error) {
+func (s *adminTestWorkspaceService) RetireSystemWorkspaceByID(_ context.Context, id string, _ socialutil.SFUWorkspaceKind, _ string) (apitypes.Workspace, error) {
 	return apitypes.Workspace{Id: id}, nil
 }
 
-func (s *adminGameplayWorkspaceService) GetRetiredSystemWorkspace(_ context.Context, _ string, _ socialutil.SFUWorkspaceKind, _ string) (apitypes.Workspace, error) {
+func (s *adminTestWorkspaceService) GetRetiredSystemWorkspace(_ context.Context, _ string, _ socialutil.SFUWorkspaceKind, _ string) (apitypes.Workspace, error) {
 	return apitypes.Workspace{}, kv.ErrNotFound
 }
 
-func (s *adminGameplayWorkspaceService) GetRetiredSystemWorkspaceByID(_ context.Context, _ string, _ socialutil.SFUWorkspaceKind, _ string) (apitypes.Workspace, error) {
+func (s *adminTestWorkspaceService) GetRetiredSystemWorkspaceByID(_ context.Context, _ string, _ socialutil.SFUWorkspaceKind, _ string) (apitypes.Workspace, error) {
 	return apitypes.Workspace{}, kv.ErrNotFound
 }
 
@@ -438,7 +377,7 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 		Members:           groupStore,
 		Belongs:           groupStore,
 		RelationshipStore: groupStore,
-		Workspaces:        &adminGameplayWorkspaceService{},
+		Workspaces:        &adminTestWorkspaceService{},
 		SFUURL:            "wss://sfu.test",
 		Now:               func() time.Time { return time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC) },
 		NewID:             func() string { return "group-a" },
@@ -488,7 +427,7 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"peer_public_key":"peer-a"`) {
 		t.Fatalf("GET peer-b friends status=%d body=%s", rec.Code, rec.Body.String())
 	}
-	friendService.Workspaces = &adminGameplayWorkspaceService{}
+	friendService.Workspaces = &adminTestWorkspaceService{}
 	rec = serveAdminAsset(app, http.MethodDelete, "/social/friends/peer-a/peer-a:peer-b", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("DELETE friend status = %d body=%s", rec.Code, rec.Body.String())
@@ -562,7 +501,7 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("DELETE member status=%d body=%s", rec.Code, rec.Body.String())
 	}
-	groupService.Workspaces = &adminGameplayWorkspaceService{}
+	groupService.Workspaces = &adminTestWorkspaceService{}
 	rec = serveAdminAsset(app, http.MethodDelete, "/social/friend-groups/group-a", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("DELETE group status=%d body=%s", rec.Code, rec.Body.String())

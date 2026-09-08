@@ -91,21 +91,6 @@ func (e AudioPlayerModeSetRequestRepeat) Valid() bool {
 	}
 }
 
-// Defines values for BadgeDefResourceKind.
-const (
-	BadgeDefResourceKindBadgeDef BadgeDefResourceKind = "BadgeDef"
-)
-
-// Valid indicates whether the value is a known member of the BadgeDefResourceKind enum.
-func (e BadgeDefResourceKind) Valid() bool {
-	switch e {
-	case BadgeDefResourceKindBadgeDef:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ClientRPCToolSpecType.
 const (
 	ClientRPCToolSpecTypeClientRpc ClientRPCToolSpecType = "client_rpc"
@@ -1567,21 +1552,6 @@ func (e FriendResourceKind) Valid() bool {
 	}
 }
 
-// Defines values for GameDefResourceKind.
-const (
-	GameDefResourceKindGameDef GameDefResourceKind = "GameDef"
-)
-
-// Valid indicates whether the value is a known member of the GameDefResourceKind enum.
-func (e GameDefResourceKind) Valid() bool {
-	switch e {
-	case GameDefResourceKindGameDef:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for GeminiTenantResourceKind.
 const (
 	GeminiTenantResourceKindGeminiTenant GeminiTenantResourceKind = "GeminiTenant"
@@ -2018,7 +1988,6 @@ func (e PeerTelemetryOrder) Valid() bool {
 const (
 	PendingDeletionKindFriendGroup PendingDeletionKind = "friend_group"
 	PendingDeletionKindPeer        PendingDeletionKind = "peer"
-	PendingDeletionKindPet         PendingDeletionKind = "pet"
 	PendingDeletionKindWorkspace   PendingDeletionKind = "workspace"
 )
 
@@ -2028,8 +1997,6 @@ func (e PendingDeletionKind) Valid() bool {
 	case PendingDeletionKindFriendGroup:
 		return true
 	case PendingDeletionKindPeer:
-		return true
-	case PendingDeletionKindPet:
 		return true
 	case PendingDeletionKindWorkspace:
 		return true
@@ -2056,93 +2023,6 @@ func (e PendingDeletionStatus) Valid() bool {
 	case PendingDeletionStatusRetryWait:
 		return true
 	case PendingDeletionStatusRunning:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PetBehavior.
-const (
-	PetBehaviorBathe PetBehavior = "bathe"
-	PetBehaviorFeed  PetBehavior = "feed"
-	PetBehaviorHeal  PetBehavior = "heal"
-	PetBehaviorPlay  PetBehavior = "play"
-)
-
-// Valid indicates whether the value is a known member of the PetBehavior enum.
-func (e PetBehavior) Valid() bool {
-	switch e {
-	case PetBehaviorBathe:
-		return true
-	case PetBehaviorFeed:
-		return true
-	case PetBehaviorHeal:
-		return true
-	case PetBehaviorPlay:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PetDefResourceKind.
-const (
-	PetDefResourceKindPetDef PetDefResourceKind = "PetDef"
-)
-
-// Valid indicates whether the value is a known member of the PetDefResourceKind enum.
-func (e PetDefResourceKind) Valid() bool {
-	switch e {
-	case PetDefResourceKindPetDef:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PetLifecycle.
-const (
-	PetLifecycleAlive PetLifecycle = "alive"
-	PetLifecycleDead  PetLifecycle = "dead"
-)
-
-// Valid indicates whether the value is a known member of the PetLifecycle enum.
-func (e PetLifecycle) Valid() bool {
-	switch e {
-	case PetLifecycleAlive:
-		return true
-	case PetLifecycleDead:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PetWorkflowVariantDriver.
-const (
-	PetWorkflowVariantDriverPet PetWorkflowVariantDriver = "pet"
-)
-
-// Valid indicates whether the value is a known member of the PetWorkflowVariantDriver enum.
-func (e PetWorkflowVariantDriver) Valid() bool {
-	switch e {
-	case PetWorkflowVariantDriverPet:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PetWorkspaceParametersAgentType.
-const (
-	PetWorkspaceParametersAgentTypePet PetWorkspaceParametersAgentType = "pet"
-)
-
-// Valid indicates whether the value is a known member of the PetWorkspaceParametersAgentType enum.
-func (e PetWorkspaceParametersAgentType) Valid() bool {
-	switch e {
-	case PetWorkspaceParametersAgentTypePet:
 		return true
 	default:
 		return false
@@ -2196,7 +2076,6 @@ func (e ResourceAPIVersion) Valid() bool {
 
 // Defines values for ResourceKind.
 const (
-	ResourceKindBadgeDef               ResourceKind = "BadgeDef"
 	ResourceKindContact                ResourceKind = "Contact"
 	ResourceKindCredential             ResourceKind = "Credential"
 	ResourceKindDashScopeTenant        ResourceKind = "DashScopeTenant"
@@ -2206,13 +2085,11 @@ const (
 	ResourceKindFriendGroup            ResourceKind = "FriendGroup"
 	ResourceKindFriendGroupInviteToken ResourceKind = "FriendGroupInviteToken"
 	ResourceKindFriendGroupMember      ResourceKind = "FriendGroupMember"
-	ResourceKindGameDef                ResourceKind = "GameDef"
 	ResourceKindGeminiTenant           ResourceKind = "GeminiTenant"
 	ResourceKindMemoryLayout           ResourceKind = "MemoryLayout"
 	ResourceKindMiniMaxTenant          ResourceKind = "MiniMaxTenant"
 	ResourceKindModel                  ResourceKind = "Model"
 	ResourceKindOpenAITenant           ResourceKind = "OpenAITenant"
-	ResourceKindPetDef                 ResourceKind = "PetDef"
 	ResourceKindRegistrationToken      ResourceKind = "RegistrationToken"
 	ResourceKindResourceList           ResourceKind = "ResourceList"
 	ResourceKindRuntimeProfile         ResourceKind = "RuntimeProfile"
@@ -2226,8 +2103,6 @@ const (
 // Valid indicates whether the value is a known member of the ResourceKind enum.
 func (e ResourceKind) Valid() bool {
 	switch e {
-	case ResourceKindBadgeDef:
-		return true
 	case ResourceKindContact:
 		return true
 	case ResourceKindCredential:
@@ -2246,8 +2121,6 @@ func (e ResourceKind) Valid() bool {
 		return true
 	case ResourceKindFriendGroupMember:
 		return true
-	case ResourceKindGameDef:
-		return true
 	case ResourceKindGeminiTenant:
 		return true
 	case ResourceKindMemoryLayout:
@@ -2257,8 +2130,6 @@ func (e ResourceKind) Valid() bool {
 	case ResourceKindModel:
 		return true
 	case ResourceKindOpenAITenant:
-		return true
-	case ResourceKindPetDef:
 		return true
 	case ResourceKindRegistrationToken:
 		return true
@@ -2536,21 +2407,6 @@ const (
 func (e RuntimeProfileVolcMem0ConnectionType) Valid() bool {
 	switch e {
 	case RuntimeProfileVolcMem0ConnectionTypeVolcMem0:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RuntimeProfileWorkspaceRewardSpecWorkspaceKinds.
-const (
-	RuntimeProfileWorkspaceRewardSpecWorkspaceKindsWorkflow RuntimeProfileWorkspaceRewardSpecWorkspaceKinds = "workflow"
-)
-
-// Valid indicates whether the value is a known member of the RuntimeProfileWorkspaceRewardSpecWorkspaceKinds enum.
-func (e RuntimeProfileWorkspaceRewardSpecWorkspaceKinds) Valid() bool {
-	switch e {
-	case RuntimeProfileWorkspaceRewardSpecWorkspaceKindsWorkflow:
 		return true
 	default:
 		return false
@@ -2895,7 +2751,6 @@ const (
 	WorkflowDriverDoubaoRealtimeDuplex WorkflowDriver = "doubao-realtime-duplex"
 	WorkflowDriverEino                 WorkflowDriver = "eino"
 	WorkflowDriverFlowcraft            WorkflowDriver = "flowcraft"
-	WorkflowDriverPet                  WorkflowDriver = "pet"
 	WorkflowDriverSfu                  WorkflowDriver = "sfu"
 )
 
@@ -2913,8 +2768,6 @@ func (e WorkflowDriver) Valid() bool {
 	case WorkflowDriverEino:
 		return true
 	case WorkflowDriverFlowcraft:
-		return true
-	case WorkflowDriverPet:
 		return true
 	case WorkflowDriverSfu:
 		return true
@@ -3127,56 +2980,6 @@ type AudioPlayerStatus struct {
 
 	// State Device state: stopped, buffering, playing, ended or error.
 	State string `json:"state"`
-}
-
-// Badge defines model for Badge.
-type Badge struct {
-	Active         bool      `json:"active"`
-	BadgeDefId     string    `json:"badge_def_id"`
-	CreatedAt      time.Time `json:"created_at"`
-	Exp            int64     `json:"exp"`
-	Id             string    `json:"id"`
-	Level          int64     `json:"level"`
-	OwnerPublicKey string    `json:"owner_public_key"`
-	Progress       int64     `json:"progress"`
-	UpdatedAt      time.Time `json:"updated_at"`
-}
-
-// BadgeDef defines model for BadgeDef.
-type BadgeDef struct {
-	CreatedAt time.Time    `json:"created_at"`
-	Id        string       `json:"id"`
-	PixaPath  *string      `json:"pixa_path,omitempty"`
-	Spec      BadgeDefSpec `json:"spec"`
-	UpdatedAt time.Time    `json:"updated_at"`
-}
-
-// BadgeDefResource defines model for BadgeDefResource.
-type BadgeDefResource struct {
-	// ApiVersion API version for declarative GizClaw resources.
-	ApiVersion ResourceAPIVersion   `json:"apiVersion"`
-	Kind       BadgeDefResourceKind `json:"kind"`
-	Metadata   ResourceMetadata     `json:"metadata"`
-	Spec       BadgeDefSpec         `json:"spec"`
-}
-
-// BadgeDefResourceKind defines model for BadgeDefResource.Kind.
-type BadgeDefResourceKind string
-
-// BadgeDefSpec defines model for BadgeDefSpec.
-type BadgeDefSpec struct {
-	Description  *string           `json:"description,omitempty"`
-	DisplayName  string            `json:"display_name"`
-	Metadata     *GameplayMetadata `json:"metadata,omitempty"`
-	RewardPrompt *string           `json:"reward_prompt,omitempty"`
-	Tags         *[]string         `json:"tags,omitempty"`
-}
-
-// BadgeListResponse defines model for BadgeListResponse.
-type BadgeListResponse struct {
-	HasNext    bool    `json:"has_next"`
-	Items      []Badge `json:"items"`
-	NextCursor *string `json:"next_cursor,omitempty"`
 }
 
 // ClientRPCToolSpec defines model for ClientRPCToolSpec.
@@ -4558,84 +4361,6 @@ type FriendSpec struct {
 	PeerPublicKey string `json:"peer_public_key"`
 }
 
-// GameDef defines model for GameDef.
-type GameDef struct {
-	CreatedAt time.Time   `json:"created_at"`
-	Icon      *Icon       `json:"icon,omitempty"`
-	Id        string      `json:"id"`
-	Spec      GameDefSpec `json:"spec"`
-	UpdatedAt time.Time   `json:"updated_at"`
-}
-
-// GameDefResource defines model for GameDefResource.
-type GameDefResource struct {
-	// ApiVersion API version for declarative GizClaw resources.
-	ApiVersion ResourceAPIVersion  `json:"apiVersion"`
-	Icon       *Icon               `json:"icon,omitempty"`
-	Kind       GameDefResourceKind `json:"kind"`
-	Metadata   ResourceMetadata    `json:"metadata"`
-	Spec       GameDefSpec         `json:"spec"`
-}
-
-// GameDefResourceKind defines model for GameDefResource.Kind.
-type GameDefResourceKind string
-
-// GameDefSpec defines model for GameDefSpec.
-type GameDefSpec struct {
-	Description *string           `json:"description,omitempty"`
-	DisplayName string            `json:"display_name"`
-	Metadata    *GameplayMetadata `json:"metadata,omitempty"`
-	Outcomes    *[]string         `json:"outcomes,omitempty"`
-	ScoreSchema *GameplayMetadata `json:"score_schema,omitempty"`
-	Tags        *[]string         `json:"tags,omitempty"`
-}
-
-// GameResult defines model for GameResult.
-type GameResult struct {
-	CreatedAt        time.Time         `json:"created_at"`
-	Difficulty       *string           `json:"difficulty,omitempty"`
-	DurationMs       *int64            `json:"duration_ms,omitempty"`
-	GameDefId        string            `json:"game_def_id"`
-	Id               string            `json:"id"`
-	IdempotencyKey   *string           `json:"idempotency_key,omitempty"`
-	MaxScore         *int64            `json:"max_score,omitempty"`
-	OccurredAt       time.Time         `json:"occurred_at"`
-	Outcome          *string           `json:"outcome,omitempty"`
-	OwnerPublicKey   string            `json:"owner_public_key"`
-	Payload          *GameplayMetadata `json:"payload,omitempty"`
-	PetId            string            `json:"pet_id"`
-	RuntimeProfileId string            `json:"runtime_profile_id"`
-	Score            *int64            `json:"score,omitempty"`
-}
-
-// GameResultListResponse defines model for GameResultListResponse.
-type GameResultListResponse struct {
-	HasNext    bool         `json:"has_next"`
-	Items      []GameResult `json:"items"`
-	NextCursor *string      `json:"next_cursor,omitempty"`
-}
-
-// GameRewardSpec defines model for GameRewardSpec.
-type GameRewardSpec struct {
-	BadgeExpDelta map[string]int64 `json:"badge_exp_delta"`
-	PetExpDelta   int64            `json:"pet_exp_delta"`
-	Reason        string           `json:"reason"`
-}
-
-// GameplayGetRequest defines model for GameplayGetRequest.
-type GameplayGetRequest struct {
-	Id string `json:"id"`
-}
-
-// GameplayListRequest defines model for GameplayListRequest.
-type GameplayListRequest struct {
-	Cursor *string `json:"cursor,omitempty"`
-	Limit  *int    `json:"limit,omitempty"`
-}
-
-// GameplayMetadata defines model for GameplayMetadata.
-type GameplayMetadata map[string]interface{}
-
 // GeminiCredentialBody defines model for GeminiCredentialBody.
 type GeminiCredentialBody struct {
 	ApiKey  *string `json:"api_key,omitempty"`
@@ -5284,279 +5009,6 @@ type PendingDeletionTask struct {
 	UpdatedAt  time.Time             `json:"updated_at"`
 }
 
-// Pet defines model for Pet.
-type Pet struct {
-	CreatedAt        time.Time      `json:"created_at"`
-	DiedAt           *time.Time     `json:"died_at,omitempty"`
-	DisplayName      string         `json:"display_name"`
-	Id               string         `json:"id"`
-	LastActiveAt     time.Time      `json:"last_active_at"`
-	Lifecycle        PetLifecycle   `json:"lifecycle"`
-	Name             string         `json:"name"`
-	OwnerPublicKey   string         `json:"owner_public_key"`
-	PetDefId         string         `json:"pet_def_id"`
-	Progression      PetProgression `json:"progression"`
-	RuntimeProfileId string         `json:"runtime_profile_id"`
-	StateSettledAt   time.Time      `json:"state_settled_at"`
-	Stats            PetStats       `json:"stats"`
-	UpdatedAt        time.Time      `json:"updated_at"`
-	WorkspaceId      string         `json:"workspace_id"`
-}
-
-// PetAdoptRequest defines model for PetAdoptRequest.
-type PetAdoptRequest struct {
-	DisplayName string `json:"display_name"`
-	Name        string `json:"name"`
-}
-
-// PetAdoptResponse defines model for PetAdoptResponse.
-type PetAdoptResponse struct {
-	Pet         Pet               `json:"pet"`
-	Points      PointsAccount     `json:"points"`
-	Transaction PointsTransaction `json:"transaction"`
-}
-
-// PetBehavior defines model for PetBehavior.
-type PetBehavior string
-
-// PetDef defines model for PetDef.
-type PetDef struct {
-	CreatedAt time.Time  `json:"created_at"`
-	Id        string     `json:"id"`
-	PixaPath  *string    `json:"pixa_path,omitempty"`
-	Spec      PetDefSpec `json:"spec"`
-	UpdatedAt time.Time  `json:"updated_at"`
-}
-
-// PetDefBehaviorBindingsSpec defines model for PetDefBehaviorBindingsSpec.
-type PetDefBehaviorBindingsSpec struct {
-	Bathe string `json:"bathe"`
-	Feed  string `json:"feed"`
-	Heal  string `json:"heal"`
-	Play  string `json:"play"`
-}
-
-// PetDefCharacterSpec defines model for PetDefCharacterSpec.
-type PetDefCharacterSpec struct {
-	Prompt string `json:"prompt"`
-}
-
-// PetDefPixaCanvasMetadata defines model for PetDefPixaCanvasMetadata.
-type PetDefPixaCanvasMetadata struct {
-	Height int64 `json:"height"`
-	Width  int64 `json:"width"`
-}
-
-// PetDefPixaClipMetadata defines model for PetDefPixaClipMetadata.
-type PetDefPixaClipMetadata struct {
-	Id           string `json:"id"`
-	PixaClipName string `json:"pixa_clip_name"`
-}
-
-// PetDefPixaMetadata defines model for PetDefPixaMetadata.
-type PetDefPixaMetadata struct {
-	Canvas  PetDefPixaCanvasMetadata `json:"canvas"`
-	Clips   []PetDefPixaClipMetadata `json:"clips"`
-	Version string                   `json:"version"`
-}
-
-// PetDefPixaSpec defines model for PetDefPixaSpec.
-type PetDefPixaSpec struct {
-	AssetRef string             `json:"asset_ref"`
-	Metadata PetDefPixaMetadata `json:"metadata"`
-}
-
-// PetDefResource defines model for PetDefResource.
-type PetDefResource struct {
-	// ApiVersion API version for declarative GizClaw resources.
-	ApiVersion ResourceAPIVersion `json:"apiVersion"`
-	Kind       PetDefResourceKind `json:"kind"`
-	Metadata   ResourceMetadata   `json:"metadata"`
-	Spec       PetDefSpec         `json:"spec"`
-}
-
-// PetDefResourceKind defines model for PetDefResource.Kind.
-type PetDefResourceKind string
-
-// PetDefSpec defines model for PetDefSpec.
-type PetDefSpec struct {
-	Character PetDefCharacterSpec `json:"character"`
-	Visual    PetDefVisualSpec    `json:"visual"`
-	Voice     PetDefVoiceSpec     `json:"voice"`
-}
-
-// PetDefStateBindingsSpec defines model for PetDefStateBindingsSpec.
-type PetDefStateBindingsSpec struct {
-	Dead  string  `json:"dead"`
-	Idle  string  `json:"idle"`
-	Sick  string  `json:"sick"`
-	Sleep *string `json:"sleep,omitempty"`
-}
-
-// PetDefVisualBindingsSpec defines model for PetDefVisualBindingsSpec.
-type PetDefVisualBindingsSpec struct {
-	Behaviors PetDefBehaviorBindingsSpec `json:"behaviors"`
-	States    PetDefStateBindingsSpec    `json:"states"`
-}
-
-// PetDefVisualRefSpec defines model for PetDefVisualRefSpec.
-type PetDefVisualRefSpec struct {
-	Id      string  `json:"id"`
-	Notes   *string `json:"notes,omitempty"`
-	Purpose string  `json:"purpose"`
-	Uri     string  `json:"uri"`
-}
-
-// PetDefVisualRefsSpec defines model for PetDefVisualRefsSpec.
-type PetDefVisualRefsSpec struct {
-	Images *[]PetDefVisualRefSpec `json:"images,omitempty"`
-	Videos *[]PetDefVisualRefSpec `json:"videos,omitempty"`
-}
-
-// PetDefVisualSpec defines model for PetDefVisualSpec.
-type PetDefVisualSpec struct {
-	Bindings PetDefVisualBindingsSpec `json:"bindings"`
-	Pixa     PetDefPixaSpec           `json:"pixa"`
-	Refs     PetDefVisualRefsSpec     `json:"refs"`
-}
-
-// PetDefVoiceSpec defines model for PetDefVoiceSpec.
-type PetDefVoiceSpec struct {
-	Prompt string `json:"prompt"`
-}
-
-// PetDeleteRequest defines model for PetDeleteRequest.
-type PetDeleteRequest struct {
-	Id string `json:"id"`
-}
-
-// PetDriveGameResultInput defines model for PetDriveGameResultInput.
-type PetDriveGameResultInput struct {
-	Difficulty     *string           `json:"difficulty,omitempty"`
-	DurationMs     *int64            `json:"duration_ms,omitempty"`
-	GameDefId      string            `json:"game_def_id"`
-	IdempotencyKey *string           `json:"idempotency_key,omitempty"`
-	MaxScore       *int64            `json:"max_score,omitempty"`
-	OccurredAt     *time.Time        `json:"occurred_at,omitempty"`
-	Outcome        *string           `json:"outcome,omitempty"`
-	Payload        *GameplayMetadata `json:"payload,omitempty"`
-	Score          *int64            `json:"score,omitempty"`
-}
-
-// PetDriveRequest defines model for PetDriveRequest.
-type PetDriveRequest struct {
-	Behavior       *PetBehavior             `json:"behavior,omitempty"`
-	GameResult     *PetDriveGameResultInput `json:"game_result,omitempty"`
-	IdempotencyKey *string                  `json:"idempotency_key,omitempty"`
-	PetId          string                   `json:"pet_id"`
-}
-
-// PetDriveResponse defines model for PetDriveResponse.
-type PetDriveResponse struct {
-	Badges       []Badge             `json:"badges"`
-	GameResult   *GameResult         `json:"game_result,omitempty"`
-	Pet          Pet                 `json:"pet"`
-	Points       PointsAccount       `json:"points"`
-	RewardGrants []RewardGrant       `json:"reward_grants"`
-	Transactions []PointsTransaction `json:"transactions"`
-}
-
-// PetGetRequest defines model for PetGetRequest.
-type PetGetRequest struct {
-	Id string `json:"id"`
-}
-
-// PetLifecycle defines model for PetLifecycle.
-type PetLifecycle string
-
-// PetListResponse defines model for PetListResponse.
-type PetListResponse struct {
-	HasNext    bool    `json:"has_next"`
-	Items      []Pet   `json:"items"`
-	NextCursor *string `json:"next_cursor,omitempty"`
-}
-
-// PetProgression defines model for PetProgression.
-type PetProgression struct {
-	Experience int64 `json:"experience"`
-	Level      int64 `json:"level"`
-}
-
-// PetPutRequest defines model for PetPutRequest.
-type PetPutRequest struct {
-	DisplayName string `json:"display_name"`
-	Id          string `json:"id"`
-}
-
-// PetStats defines model for PetStats.
-type PetStats struct {
-	Energy  float64 `json:"energy"`
-	Health  float64 `json:"health"`
-	Hygiene float64 `json:"hygiene"`
-	Life    float64 `json:"life"`
-	Mood    float64 `json:"mood"`
-	Satiety float64 `json:"satiety"`
-}
-
-// PetWorkflowSpec defines model for PetWorkflowSpec.
-type PetWorkflowSpec = ReusableWorkflowSpecObject
-
-// PetWorkflowVariant defines model for PetWorkflowVariant.
-type PetWorkflowVariant struct {
-	Driver PetWorkflowVariantDriver `json:"driver"`
-
-	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
-	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
-	Pet    PetWorkflowSpec      `json:"pet"`
-
-	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
-	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
-}
-
-// PetWorkflowVariantDriver defines model for PetWorkflowVariant.Driver.
-type PetWorkflowVariantDriver string
-
-// PetWorkspaceParameters defines model for PetWorkspaceParameters.
-type PetWorkspaceParameters struct {
-	AgentType PetWorkspaceParametersAgentType `json:"agent_type"`
-	Input     *WorkspaceInputMode             `json:"input,omitempty"`
-}
-
-// PetWorkspaceParametersAgentType defines model for PetWorkspaceParameters.AgentType.
-type PetWorkspaceParametersAgentType string
-
-// PointsAccount defines model for PointsAccount.
-type PointsAccount struct {
-	Balance          int64     `json:"balance"`
-	CreatedAt        time.Time `json:"created_at"`
-	OwnerPublicKey   string    `json:"owner_public_key"`
-	RuntimeProfileId string    `json:"runtime_profile_id"`
-	UpdatedAt        time.Time `json:"updated_at"`
-}
-
-// PointsTransaction defines model for PointsTransaction.
-type PointsTransaction struct {
-	BalanceAfter     int64     `json:"balance_after"`
-	CreatedAt        time.Time `json:"created_at"`
-	Delta            int64     `json:"delta"`
-	GameResultId     *string   `json:"game_result_id,omitempty"`
-	Id               string    `json:"id"`
-	OwnerPublicKey   string    `json:"owner_public_key"`
-	PetId            *string   `json:"pet_id,omitempty"`
-	Reason           string    `json:"reason"`
-	RewardGrantId    *string   `json:"reward_grant_id,omitempty"`
-	RuntimeProfileId string    `json:"runtime_profile_id"`
-	SourceId         string    `json:"source_id"`
-	SourceType       string    `json:"source_type"`
-}
-
-// PointsTransactionListResponse defines model for PointsTransactionListResponse.
-type PointsTransactionListResponse struct {
-	HasNext    bool                `json:"has_next"`
-	Items      []PointsTransaction `json:"items"`
-	NextCursor *string             `json:"next_cursor,omitempty"`
-}
-
 // Registration defines model for Registration.
 type Registration struct {
 	ApprovedAt     *time.Time  `json:"approved_at,omitempty"`
@@ -5746,7 +5198,7 @@ type ReusableFlowcraftWorkflowVariantDriver string
 // ReusableWorkflowDriver defines model for ReusableWorkflowDriver.
 type ReusableWorkflowDriver string
 
-// ReusableWorkflowSpec Reusable non-Pet Workflow union used directly and below the Pet domain wrapper.
+// ReusableWorkflowSpec Reusable Workflow union for drivers that carry their own execution configuration.
 type ReusableWorkflowSpec = ReusableWorkflowSpecObject
 
 // ReusableWorkflowSpecObject defines model for ReusableWorkflowSpecObject.
@@ -5764,29 +5216,6 @@ type ReusableWorkflowSpecObject struct {
 
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
-}
-
-// RewardGrant defines model for RewardGrant.
-type RewardGrant struct {
-	BadgeExpDelta    map[string]int64 `json:"badge_exp_delta"`
-	CreatedAt        time.Time        `json:"created_at"`
-	GameResultId     *string          `json:"game_result_id,omitempty"`
-	Id               string           `json:"id"`
-	OwnerPublicKey   string           `json:"owner_public_key"`
-	PetExpDelta      int64            `json:"pet_exp_delta"`
-	PetId            *string          `json:"pet_id,omitempty"`
-	PointsDelta      int64            `json:"points_delta"`
-	Reason           *string          `json:"reason,omitempty"`
-	RuntimeProfileId string           `json:"runtime_profile_id"`
-	SourceId         string           `json:"source_id"`
-	SourceType       string           `json:"source_type"`
-}
-
-// RewardGrantListResponse defines model for RewardGrantListResponse.
-type RewardGrantListResponse struct {
-	HasNext    bool          `json:"has_next"`
-	Items      []RewardGrant `json:"items"`
-	NextCursor *string       `json:"next_cursor,omitempty"`
 }
 
 // Runtime defines model for Runtime.
@@ -5813,11 +5242,6 @@ type RuntimeProfile struct {
 	UpdatedAt time.Time          `json:"updated_at"`
 }
 
-// RuntimeProfileAdoptionSpec defines model for RuntimeProfileAdoptionSpec.
-type RuntimeProfileAdoptionSpec struct {
-	Pool *[]RuntimeProfilePetPoolEntry `json:"pool,omitempty"`
-}
-
 // RuntimeProfileAppConfig Opaque device-defined configuration downlink. Keys use the RuntimeProfile alias syntax and values are bounded at 4096 UTF-8 bytes; both are enforced during Server-side normalization because OpenAPI 3.0 has no propertyNames keyword and expresses maxLength in characters. The Server stores and returns every value verbatim and never parses it. Clients read it through server.app_config.list and server.app_config.get and cannot write it. Any registered device bound to this RuntimeProfile can read every entry, so values must not contain credentials, API keys or other secrets.
 type RuntimeProfileAppConfig map[string]string
 
@@ -5825,14 +5249,6 @@ type RuntimeProfileAppConfig map[string]string
 type RuntimeProfileBinding struct {
 	I18n       map[string]RuntimeProfileI18nText `json:"i18n"`
 	ResourceId string                            `json:"resource_id"`
-}
-
-// RuntimeProfileCareDecaySpec defines model for RuntimeProfileCareDecaySpec.
-type RuntimeProfileCareDecaySpec struct {
-	Health  float64 `json:"health"`
-	Hygiene float64 `json:"hygiene"`
-	Mood    float64 `json:"mood"`
-	Satiety float64 `json:"satiety"`
 }
 
 // RuntimeProfileFlowcraftBBHConnection defines model for RuntimeProfileFlowcraftBBHConnection.
@@ -5871,54 +5287,10 @@ type RuntimeProfileFlowcraftRedis8Connection struct {
 // RuntimeProfileFlowcraftRedis8ConnectionType defines model for RuntimeProfileFlowcraftRedis8Connection.Type.
 type RuntimeProfileFlowcraftRedis8ConnectionType string
 
-// RuntimeProfileGameRewardSpec defines model for RuntimeProfileGameRewardSpec.
-type RuntimeProfileGameRewardSpec struct {
-	BadgeExpMaxPerBadge int64  `json:"badge_exp_max_per_badge"`
-	Model               string `json:"model"`
-	PetExpMax           int64  `json:"pet_exp_max"`
-	Prompt              string `json:"prompt"`
-}
-
-// RuntimeProfileGameSpec defines model for RuntimeProfileGameSpec.
-type RuntimeProfileGameSpec struct {
-	EnergyCost int64                        `json:"energy_cost"`
-	PointsCost int64                        `json:"points_cost"`
-	Reward     RuntimeProfileGameRewardSpec `json:"reward"`
-}
-
-// RuntimeProfileGameplaySpec defines model for RuntimeProfileGameplaySpec.
-type RuntimeProfileGameplaySpec struct {
-	Adoption        *RuntimeProfileAdoptionSpec        `json:"adoption,omitempty"`
-	Pet             *RuntimeProfilePetGameplaySpec     `json:"pet,omitempty"`
-	Points          *RuntimeProfilePointsSpec          `json:"points,omitempty"`
-	WorkspaceReward *RuntimeProfileWorkspaceRewardSpec `json:"workspace_reward,omitempty"`
-}
-
 // RuntimeProfileI18nText defines model for RuntimeProfileI18nText.
 type RuntimeProfileI18nText struct {
 	Description *string `json:"description,omitempty"`
 	DisplayName string  `json:"display_name"`
-}
-
-// RuntimeProfileLevelingSpec defines model for RuntimeProfileLevelingSpec.
-type RuntimeProfileLevelingSpec struct {
-	BaseExp  int64   `json:"base_exp"`
-	LogScale float64 `json:"log_scale"`
-}
-
-// RuntimeProfileLifeDecaySpec defines model for RuntimeProfileLifeDecaySpec.
-type RuntimeProfileLifeDecaySpec struct {
-	ContributingWeights RuntimeProfileLifeWeightsSpec `json:"contributing_weights"`
-	Exponent            float64                       `json:"exponent"`
-	MaxLossPerHour      float64                       `json:"max_loss_per_hour"`
-}
-
-// RuntimeProfileLifeWeightsSpec defines model for RuntimeProfileLifeWeightsSpec.
-type RuntimeProfileLifeWeightsSpec struct {
-	Health  float64 `json:"health"`
-	Hygiene float64 `json:"hygiene"`
-	Mood    float64 `json:"mood"`
-	Satiety float64 `json:"satiety"`
 }
 
 // RuntimeProfileMem0Connection defines model for RuntimeProfileMem0Connection.
@@ -5950,54 +5322,6 @@ type RuntimeProfileMemoryConnection struct {
 // RuntimeProfileMemoryDriver defines model for RuntimeProfileMemoryDriver.
 type RuntimeProfileMemoryDriver string
 
-// RuntimeProfilePetActionSpec defines model for RuntimeProfilePetActionSpec.
-type RuntimeProfilePetActionSpec struct {
-	EnergyCost int64   `json:"energy_cost"`
-	StatDelta  float64 `json:"stat_delta"`
-}
-
-// RuntimeProfilePetActionsSpec defines model for RuntimeProfilePetActionsSpec.
-type RuntimeProfilePetActionsSpec struct {
-	Bathe RuntimeProfilePetActionSpec `json:"bathe"`
-	Feed  RuntimeProfilePetActionSpec `json:"feed"`
-	Heal  RuntimeProfilePetActionSpec `json:"heal"`
-	Play  RuntimeProfilePetActionSpec `json:"play"`
-}
-
-// RuntimeProfilePetExperienceSpec defines model for RuntimeProfilePetExperienceSpec.
-type RuntimeProfilePetExperienceSpec struct {
-	EnergyPerPetExp int64                      `json:"energy_per_pet_exp"`
-	Leveling        RuntimeProfileLevelingSpec `json:"leveling"`
-}
-
-// RuntimeProfilePetGameplaySpec defines model for RuntimeProfilePetGameplaySpec.
-type RuntimeProfilePetGameplaySpec struct {
-	Actions    RuntimeProfilePetActionsSpec      `json:"actions"`
-	Experience RuntimeProfilePetExperienceSpec   `json:"experience"`
-	Games      map[string]RuntimeProfileGameSpec `json:"games"`
-	Time       RuntimeProfilePetTimeSpec         `json:"time"`
-}
-
-// RuntimeProfilePetPoolEntry defines model for RuntimeProfilePetPoolEntry.
-type RuntimeProfilePetPoolEntry struct {
-	AdoptionCost *int64  `json:"adoption_cost,omitempty"`
-	PetDef       string  `json:"pet_def"`
-	Rarity       *string `json:"rarity,omitempty"`
-	Weight       int64   `json:"weight"`
-}
-
-// RuntimeProfilePetTimeSpec defines model for RuntimeProfilePetTimeSpec.
-type RuntimeProfilePetTimeSpec struct {
-	CareDecayPerHour      RuntimeProfileCareDecaySpec `json:"care_decay_per_hour"`
-	EnergyRecoveryPerHour float64                     `json:"energy_recovery_per_hour"`
-	LifeDecay             RuntimeProfileLifeDecaySpec `json:"life_decay"`
-}
-
-// RuntimeProfilePointsSpec defines model for RuntimeProfilePointsSpec.
-type RuntimeProfilePointsSpec struct {
-	InitialBalance *int64 `json:"initial_balance,omitempty"`
-}
-
 // RuntimeProfileResource defines model for RuntimeProfileResource.
 type RuntimeProfileResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
@@ -6012,28 +5336,18 @@ type RuntimeProfileResourceKind string
 
 // RuntimeProfileResources defines model for RuntimeProfileResources.
 type RuntimeProfileResources struct {
-	BadgeDefs *map[string]RuntimeProfileBinding       `json:"badge_defs,omitempty"`
-	GameDefs  *map[string]RuntimeProfileBinding       `json:"game_defs,omitempty"`
-	Memories  *map[string]RuntimeProfileMemoryBinding `json:"memories,omitempty"`
-	Models    *map[string]RuntimeProfileBinding       `json:"models,omitempty"`
-	PetDefs   *map[string]RuntimeProfileBinding       `json:"pet_defs,omitempty"`
-	Tools     *map[string]RuntimeProfileBinding       `json:"tools,omitempty"`
-	Voices    *map[string]RuntimeProfileBinding       `json:"voices,omitempty"`
+	Memories *map[string]RuntimeProfileMemoryBinding `json:"memories,omitempty"`
+	Models   *map[string]RuntimeProfileBinding       `json:"models,omitempty"`
+	Tools    *map[string]RuntimeProfileBinding       `json:"tools,omitempty"`
+	Voices   *map[string]RuntimeProfileBinding       `json:"voices,omitempty"`
 }
 
 // RuntimeProfileSpec defines model for RuntimeProfileSpec.
 type RuntimeProfileSpec struct {
 	// AppConfig Opaque device-defined configuration downlink. Keys use the RuntimeProfile alias syntax and values are bounded at 4096 UTF-8 bytes; both are enforced during Server-side normalization because OpenAPI 3.0 has no propertyNames keyword and expresses maxLength in characters. The Server stores and returns every value verbatim and never parses it. Clients read it through server.app_config.list and server.app_config.get and cannot write it. Any registered device bound to this RuntimeProfile can read every entry, so values must not contain credentials, API keys or other secrets.
-	AppConfig *RuntimeProfileAppConfig    `json:"app_config,omitempty"`
-	Gameplay  *RuntimeProfileGameplaySpec `json:"gameplay,omitempty"`
-	Resources RuntimeProfileResources     `json:"resources"`
-	Workflows RuntimeProfileWorkflows     `json:"workflows"`
-}
-
-// RuntimeProfileSystemWorkflows defines model for RuntimeProfileSystemWorkflows.
-type RuntimeProfileSystemWorkflows struct {
-	// Pet Persisted Workflow resource ID for adopted Pet Workspaces.
-	Pet string `json:"pet"`
+	AppConfig *RuntimeProfileAppConfig `json:"app_config,omitempty"`
+	Resources RuntimeProfileResources  `json:"resources"`
+	Workflows RuntimeProfileWorkflows  `json:"workflows"`
 }
 
 // RuntimeProfileVolcMem0Connection defines model for RuntimeProfileVolcMem0Connection.
@@ -6056,66 +5370,6 @@ type RuntimeProfileWorkflowCollections map[string]map[string]RuntimeProfileBindi
 // RuntimeProfileWorkflows defines model for RuntimeProfileWorkflows.
 type RuntimeProfileWorkflows struct {
 	Collections RuntimeProfileWorkflowCollections `json:"collections"`
-	System      RuntimeProfileSystemWorkflows     `json:"system"`
-}
-
-// RuntimeProfileWorkspaceRewardBadgeSpec defines model for RuntimeProfileWorkspaceRewardBadgeSpec.
-type RuntimeProfileWorkspaceRewardBadgeSpec struct {
-	MaxExpPerWindow int64 `json:"max_exp_per_window"`
-}
-
-// RuntimeProfileWorkspaceRewardDebounceSpec defines model for RuntimeProfileWorkspaceRewardDebounceSpec.
-type RuntimeProfileWorkspaceRewardDebounceSpec struct {
-	MaxWindowAge string `json:"max_window_age"`
-	QuietPeriod  string `json:"quiet_period"`
-}
-
-// RuntimeProfileWorkspaceRewardEvaluationSpec defines model for RuntimeProfileWorkspaceRewardEvaluationSpec.
-type RuntimeProfileWorkspaceRewardEvaluationSpec struct {
-	Model           string `json:"model"`
-	PointsPrompt    string `json:"points_prompt"`
-	QualifyingScore int64  `json:"qualifying_score"`
-	ScoreMax        int64  `json:"score_max"`
-	ScoreMin        int64  `json:"score_min"`
-}
-
-// RuntimeProfileWorkspaceRewardPointsSpec defines model for RuntimeProfileWorkspaceRewardPointsSpec.
-type RuntimeProfileWorkspaceRewardPointsSpec struct {
-	Tiers []RuntimeProfileWorkspaceRewardPointsTier `json:"tiers"`
-}
-
-// RuntimeProfileWorkspaceRewardPointsTier defines model for RuntimeProfileWorkspaceRewardPointsTier.
-type RuntimeProfileWorkspaceRewardPointsTier struct {
-	Delta    int64 `json:"delta"`
-	MinScore int64 `json:"min_score"`
-}
-
-// RuntimeProfileWorkspaceRewardRollingBudgetSpec defines model for RuntimeProfileWorkspaceRewardRollingBudgetSpec.
-type RuntimeProfileWorkspaceRewardRollingBudgetSpec struct {
-	BadgeExpMax int64  `json:"badge_exp_max"`
-	Period      string `json:"period"`
-	PointsMax   int64  `json:"points_max"`
-}
-
-// RuntimeProfileWorkspaceRewardSpec defines model for RuntimeProfileWorkspaceRewardSpec.
-type RuntimeProfileWorkspaceRewardSpec struct {
-	Badges         *map[string]RuntimeProfileWorkspaceRewardBadgeSpec `json:"badges,omitempty"`
-	Debounce       *RuntimeProfileWorkspaceRewardDebounceSpec         `json:"debounce,omitempty"`
-	Enabled        bool                                               `json:"enabled"`
-	Evaluation     *RuntimeProfileWorkspaceRewardEvaluationSpec       `json:"evaluation,omitempty"`
-	Points         *RuntimeProfileWorkspaceRewardPointsSpec           `json:"points,omitempty"`
-	RollingBudget  *RuntimeProfileWorkspaceRewardRollingBudgetSpec    `json:"rolling_budget,omitempty"`
-	Transcript     *RuntimeProfileWorkspaceRewardTranscriptSpec       `json:"transcript,omitempty"`
-	WorkspaceKinds *[]RuntimeProfileWorkspaceRewardSpecWorkspaceKinds `json:"workspace_kinds,omitempty"`
-}
-
-// RuntimeProfileWorkspaceRewardSpecWorkspaceKinds defines model for RuntimeProfileWorkspaceRewardSpec.WorkspaceKinds.
-type RuntimeProfileWorkspaceRewardSpecWorkspaceKinds string
-
-// RuntimeProfileWorkspaceRewardTranscriptSpec defines model for RuntimeProfileWorkspaceRewardTranscriptSpec.
-type RuntimeProfileWorkspaceRewardTranscriptSpec struct {
-	MaxEntries   int64 `json:"max_entries"`
-	MaxTextBytes int64 `json:"max_text_bytes"`
 }
 
 // SFUWorkflowSpec Empty SFU Workflow payload. The Workspace binds the current Peer to the SFU Room declared by its Social resource; the Workflow itself carries no configuration.
@@ -6545,7 +5799,7 @@ type Workflow struct {
 	// Id Immutable opaque canonical ID supplied by the caller.
 	Id string `json:"id"`
 
-	// Spec Workflow union: one reusable non-Pet variant or the Pet domain wrapper.
+	// Spec Workflow union: one reusable variant or the SFU variant.
 	Spec WorkflowSpec `json:"spec"`
 }
 
@@ -6564,14 +5818,14 @@ type WorkflowResource struct {
 	// Metadata metadata.id is the caller-supplied canonical Workflow ID. RuntimeProfile binding aliases remain the separate Peer-visible selectors.
 	Metadata ResourceMetadata `json:"metadata"`
 
-	// Spec Workflow union: one reusable non-Pet variant or the Pet domain wrapper.
+	// Spec Workflow union: one reusable variant or the SFU variant.
 	Spec WorkflowSpec `json:"spec"`
 }
 
 // WorkflowResourceKind defines model for WorkflowResource.Kind.
 type WorkflowResourceKind string
 
-// WorkflowSpec Workflow union: one reusable non-Pet variant or the Pet domain wrapper.
+// WorkflowSpec Workflow union: one reusable variant or the SFU variant.
 type WorkflowSpec = WorkflowSpecObject
 
 // WorkflowSpecObject defines model for WorkflowSpecObject.
@@ -6586,7 +5840,6 @@ type WorkflowSpecObject struct {
 
 	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
 	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
-	Pet    *PetWorkflowSpec     `json:"pet,omitempty"`
 
 	// Sfu Empty SFU Workflow payload. The Workspace binds the current Peer to the SFU Room declared by its Social resource; the Workflow itself carries no configuration.
 	Sfu *SFUWorkflowSpec `json:"sfu,omitempty"`
@@ -7232,90 +6485,6 @@ func (t *ConcreteResource) MergeWorkspaceResource(v WorkspaceResource) error {
 	return err
 }
 
-// AsPetDefResource returns the union data inside the ConcreteResource as a PetDefResource
-func (t ConcreteResource) AsPetDefResource() (PetDefResource, error) {
-	var body PetDefResource
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPetDefResource overwrites any union data inside the ConcreteResource as the provided PetDefResource
-func (t *ConcreteResource) FromPetDefResource(v PetDefResource) error {
-	v.Kind = "PetDef"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePetDefResource performs a merge with any union data inside the ConcreteResource, using the provided PetDefResource
-func (t *ConcreteResource) MergePetDefResource(v PetDefResource) error {
-	v.Kind = "PetDef"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsBadgeDefResource returns the union data inside the ConcreteResource as a BadgeDefResource
-func (t ConcreteResource) AsBadgeDefResource() (BadgeDefResource, error) {
-	var body BadgeDefResource
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromBadgeDefResource overwrites any union data inside the ConcreteResource as the provided BadgeDefResource
-func (t *ConcreteResource) FromBadgeDefResource(v BadgeDefResource) error {
-	v.Kind = "BadgeDef"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeBadgeDefResource performs a merge with any union data inside the ConcreteResource, using the provided BadgeDefResource
-func (t *ConcreteResource) MergeBadgeDefResource(v BadgeDefResource) error {
-	v.Kind = "BadgeDef"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsGameDefResource returns the union data inside the ConcreteResource as a GameDefResource
-func (t ConcreteResource) AsGameDefResource() (GameDefResource, error) {
-	var body GameDefResource
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromGameDefResource overwrites any union data inside the ConcreteResource as the provided GameDefResource
-func (t *ConcreteResource) FromGameDefResource(v GameDefResource) error {
-	v.Kind = "GameDef"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeGameDefResource performs a merge with any union data inside the ConcreteResource, using the provided GameDefResource
-func (t *ConcreteResource) MergeGameDefResource(v GameDefResource) error {
-	v.Kind = "GameDef"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
 // AsMemoryLayoutResource returns the union data inside the ConcreteResource as a MemoryLayoutResource
 func (t ConcreteResource) AsMemoryLayoutResource() (MemoryLayoutResource, error) {
 	var body MemoryLayoutResource
@@ -7414,8 +6583,6 @@ func (t ConcreteResource) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
-	case "BadgeDef":
-		return t.AsBadgeDefResource()
 	case "Contact":
 		return t.AsContactResource()
 	case "Credential":
@@ -7434,8 +6601,6 @@ func (t ConcreteResource) ValueByDiscriminator() (interface{}, error) {
 		return t.AsFriendGroupInviteTokenResource()
 	case "FriendGroupMember":
 		return t.AsFriendGroupMemberResource()
-	case "GameDef":
-		return t.AsGameDefResource()
 	case "GeminiTenant":
 		return t.AsGeminiTenantResource()
 	case "MemoryLayout":
@@ -7446,8 +6611,6 @@ func (t ConcreteResource) ValueByDiscriminator() (interface{}, error) {
 		return t.AsModelResource()
 	case "OpenAITenant":
 		return t.AsOpenAITenantResource()
-	case "PetDef":
-		return t.AsPetDefResource()
 	case "RegistrationToken":
 		return t.AsRegistrationTokenResource()
 	case "RuntimeProfile":
@@ -7909,84 +7072,6 @@ func (t *ConcreteResourceWritable) FromWorkflowResource(v WorkflowResource) erro
 
 // MergeWorkflowResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided WorkflowResource
 func (t *ConcreteResourceWritable) MergeWorkflowResource(v WorkflowResource) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsPetDefResource returns the union data inside the ConcreteResourceWritable as a PetDefResource
-func (t ConcreteResourceWritable) AsPetDefResource() (PetDefResource, error) {
-	var body PetDefResource
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPetDefResource overwrites any union data inside the ConcreteResourceWritable as the provided PetDefResource
-func (t *ConcreteResourceWritable) FromPetDefResource(v PetDefResource) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePetDefResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided PetDefResource
-func (t *ConcreteResourceWritable) MergePetDefResource(v PetDefResource) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsBadgeDefResource returns the union data inside the ConcreteResourceWritable as a BadgeDefResource
-func (t ConcreteResourceWritable) AsBadgeDefResource() (BadgeDefResource, error) {
-	var body BadgeDefResource
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromBadgeDefResource overwrites any union data inside the ConcreteResourceWritable as the provided BadgeDefResource
-func (t *ConcreteResourceWritable) FromBadgeDefResource(v BadgeDefResource) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeBadgeDefResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided BadgeDefResource
-func (t *ConcreteResourceWritable) MergeBadgeDefResource(v BadgeDefResource) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsGameDefResource returns the union data inside the ConcreteResourceWritable as a GameDefResource
-func (t ConcreteResourceWritable) AsGameDefResource() (GameDefResource, error) {
-	var body GameDefResource
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromGameDefResource overwrites any union data inside the ConcreteResourceWritable as the provided GameDefResource
-func (t *ConcreteResourceWritable) FromGameDefResource(v GameDefResource) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeGameDefResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided GameDefResource
-func (t *ConcreteResourceWritable) MergeGameDefResource(v GameDefResource) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -9455,90 +8540,6 @@ func (t *Resource) MergeWorkspaceResource(v WorkspaceResource) error {
 	return err
 }
 
-// AsPetDefResource returns the union data inside the Resource as a PetDefResource
-func (t Resource) AsPetDefResource() (PetDefResource, error) {
-	var body PetDefResource
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPetDefResource overwrites any union data inside the Resource as the provided PetDefResource
-func (t *Resource) FromPetDefResource(v PetDefResource) error {
-	v.Kind = "PetDef"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePetDefResource performs a merge with any union data inside the Resource, using the provided PetDefResource
-func (t *Resource) MergePetDefResource(v PetDefResource) error {
-	v.Kind = "PetDef"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsBadgeDefResource returns the union data inside the Resource as a BadgeDefResource
-func (t Resource) AsBadgeDefResource() (BadgeDefResource, error) {
-	var body BadgeDefResource
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromBadgeDefResource overwrites any union data inside the Resource as the provided BadgeDefResource
-func (t *Resource) FromBadgeDefResource(v BadgeDefResource) error {
-	v.Kind = "BadgeDef"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeBadgeDefResource performs a merge with any union data inside the Resource, using the provided BadgeDefResource
-func (t *Resource) MergeBadgeDefResource(v BadgeDefResource) error {
-	v.Kind = "BadgeDef"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsGameDefResource returns the union data inside the Resource as a GameDefResource
-func (t Resource) AsGameDefResource() (GameDefResource, error) {
-	var body GameDefResource
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromGameDefResource overwrites any union data inside the Resource as the provided GameDefResource
-func (t *Resource) FromGameDefResource(v GameDefResource) error {
-	v.Kind = "GameDef"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeGameDefResource performs a merge with any union data inside the Resource, using the provided GameDefResource
-func (t *Resource) MergeGameDefResource(v GameDefResource) error {
-	v.Kind = "GameDef"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
 // AsMemoryLayoutResource returns the union data inside the Resource as a MemoryLayoutResource
 func (t Resource) AsMemoryLayoutResource() (MemoryLayoutResource, error) {
 	var body MemoryLayoutResource
@@ -9665,8 +8666,6 @@ func (t Resource) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
-	case "BadgeDef":
-		return t.AsBadgeDefResource()
 	case "Contact":
 		return t.AsContactResource()
 	case "Credential":
@@ -9685,8 +8684,6 @@ func (t Resource) ValueByDiscriminator() (interface{}, error) {
 		return t.AsFriendGroupInviteTokenResource()
 	case "FriendGroupMember":
 		return t.AsFriendGroupMemberResource()
-	case "GameDef":
-		return t.AsGameDefResource()
 	case "GeminiTenant":
 		return t.AsGeminiTenantResource()
 	case "MemoryLayout":
@@ -9697,8 +8694,6 @@ func (t Resource) ValueByDiscriminator() (interface{}, error) {
 		return t.AsModelResource()
 	case "OpenAITenant":
 		return t.AsOpenAITenantResource()
-	case "PetDef":
-		return t.AsPetDefResource()
 	case "RegistrationToken":
 		return t.AsRegistrationTokenResource()
 	case "ResourceList":
@@ -10605,34 +9600,6 @@ func (t *WorkspaceParameters) MergeASTTranslateWorkspaceParameters(v ASTTranslat
 	return err
 }
 
-// AsPetWorkspaceParameters returns the union data inside the WorkspaceParameters as a PetWorkspaceParameters
-func (t WorkspaceParameters) AsPetWorkspaceParameters() (PetWorkspaceParameters, error) {
-	var body PetWorkspaceParameters
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPetWorkspaceParameters overwrites any union data inside the WorkspaceParameters as the provided PetWorkspaceParameters
-func (t *WorkspaceParameters) FromPetWorkspaceParameters(v PetWorkspaceParameters) error {
-	v.AgentType = "pet"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePetWorkspaceParameters performs a merge with any union data inside the WorkspaceParameters, using the provided PetWorkspaceParameters
-func (t *WorkspaceParameters) MergePetWorkspaceParameters(v PetWorkspaceParameters) error {
-	v.AgentType = "pet"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
 func (t WorkspaceParameters) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"agent_type"`
@@ -10659,8 +9626,6 @@ func (t WorkspaceParameters) ValueByDiscriminator() (interface{}, error) {
 		return t.AsEinoWorkspaceParameters()
 	case "flowcraft":
 		return t.AsFlowcraftWorkspaceParameters()
-	case "pet":
-		return t.AsPetWorkspaceParameters()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}

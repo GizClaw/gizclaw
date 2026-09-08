@@ -146,49 +146,44 @@ func completeExternalTestServer(t testing.TB, server *gizclaw.Server) *gizclaw.S
 	set(&server.FriendStore, "friends")
 	set(&server.FriendGroupStore, "friend-groups")
 	server.WorkspaceAssets = newTestObjectStore(t)
-	server.GameplayAssets = newTestObjectStore(t)
 	db, err := sqlx.Open("sqlite", ":memory:")
 	if err != nil {
-		t.Fatalf("open test gameplay database: %v", err)
+		t.Fatalf("open test database: %v", err)
 	}
 	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = db.Close() })
-	server.GameplayDB = db
 	if server.WorkspaceDB == nil {
-		server.WorkspaceDB = server.GameplayDB
+		server.WorkspaceDB = db
 	}
 	if server.ProviderTenantDB == nil {
-		server.ProviderTenantDB = server.GameplayDB
-	}
-	if server.GameplayCatalogDB == nil {
-		server.GameplayCatalogDB = server.GameplayDB
+		server.ProviderTenantDB = db
 	}
 	if server.RuntimeProfileDB == nil {
-		server.RuntimeProfileDB = server.GameplayDB
+		server.RuntimeProfileDB = db
 	}
 	if server.VoiceDB == nil {
-		server.VoiceDB = server.GameplayDB
+		server.VoiceDB = db
 	}
 	if server.CredentialDB == nil {
-		server.CredentialDB = server.GameplayDB
+		server.CredentialDB = db
 	}
 	if server.ModelDB == nil {
-		server.ModelDB = server.GameplayDB
+		server.ModelDB = db
 	}
 	if server.WorkflowDB == nil {
-		server.WorkflowDB = server.GameplayDB
+		server.WorkflowDB = db
 	}
 	if server.ContactDB == nil {
-		server.ContactDB = server.GameplayDB
+		server.ContactDB = db
 	}
 	if server.MemoryLayoutDB == nil {
-		server.MemoryLayoutDB = server.GameplayDB
+		server.MemoryLayoutDB = db
 	}
 	if server.ToolDB == nil {
-		server.ToolDB = server.GameplayDB
+		server.ToolDB = db
 	}
 	if server.FirmwareDB == nil {
-		server.FirmwareDB = server.GameplayDB
+		server.FirmwareDB = db
 	}
 	if server.PeerRunDB == nil {
 		server.PeerRunDB = db

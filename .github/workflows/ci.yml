@@ -471,7 +471,6 @@ jobs:
         run: |
           go test -count=1 -p 1 \
             ./cmd/internal/server \
-            ./pkgs/gizclaw/services/gameplay \
             ./pkgs/gizclaw/services/system/runtimeprofile
           go test -tags=store_e2e -count=1 -p 1 \
             -run '^TestPostgreSQL' \

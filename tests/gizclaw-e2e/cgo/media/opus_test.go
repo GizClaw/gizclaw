@@ -88,9 +88,6 @@ func createMediaRegistrationToken(t *testing.T, h *clitest.Harness) string {
 			Spec: apitypes.RuntimeProfileSpec{
 				Resources: resources,
 				Workflows: apitypes.RuntimeProfileWorkflows{
-					System: apitypes.RuntimeProfileSystemWorkflows{
-						Pet: "pet-care",
-					},
 					Collections: apitypes.RuntimeProfileWorkflowCollections{
 						"assistants": runtimeBindings(map[string]string{
 							"realtime-workflow": "doubao-realtime-conversation",

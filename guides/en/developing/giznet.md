@@ -28,7 +28,7 @@ The root package holds transport-independent connection contracts and underlying
 - Peer and service level security policy entry.
 - Protocol, key and error definitions shared by all transport implementations.
 
-These definitions must remain independent of GizClaw business. The upper layer can use them to host different services, but the root package does not know product concepts such as Admin, Device, Agent, OTA or Gameplay.
+These definitions must remain independent of GizClaw business. The upper layer can use them to host different services, but the root package does not know product concepts such as Admin, Device, Agent or OTA.
 
 ### gizhttp
 
@@ -242,7 +242,7 @@ Should be placed at `pkgs/giznet/gizhttp`:
 Should not be placed in `pkgs/giznet`:
 
 - Specific RPC method, HTTP route or service ID ownership of Admin, Peer and Edge.
-- Device, Agent, OTA, Gameplay, Social and other business services.
+- Device, Agent, OTA, Social and other business services.
 - Server storage, workspace, configuration loading and CLI startup assembly.
 - Firmware, board, desktop UI or browser product logic.
 - Authorization rules that only make sense for a single GizClaw business surface.

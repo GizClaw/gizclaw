@@ -47,7 +47,7 @@ func TestWorkspaceIconLifecycleAndProjection(t *testing.T) {
 	}
 
 	downloadResponse, err := srv.DownloadWorkspaceIcon(ctx, adminhttp.DownloadWorkspaceIconRequestObject{
-		Id: workspaceID, Format: adminhttp.Png,
+		Id: workspaceID, Format: adminhttp.DownloadWorkspaceIconParamsFormatPng,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -128,7 +128,7 @@ func TestWorkspaceIconAdminReadRemainsAvailableWhileMutationsAreFenced(t *testin
 	} else if _, ok := response.(adminhttp.DeleteWorkspace200JSONResponse); !ok {
 		t.Fatalf("DeleteWorkspace() response = %#v", response)
 	}
-	if response, err := srv.DownloadWorkspaceIcon(ctx, adminhttp.DownloadWorkspaceIconRequestObject{Id: created.Id, Format: adminhttp.Png}); err != nil {
+	if response, err := srv.DownloadWorkspaceIcon(ctx, adminhttp.DownloadWorkspaceIconRequestObject{Id: created.Id, Format: adminhttp.DownloadWorkspaceIconParamsFormatPng}); err != nil {
 		t.Fatal(err)
 	} else if _, ok := response.(adminhttp.DownloadWorkspaceIcon200ImagepngResponse); !ok {
 		t.Fatalf("DownloadWorkspaceIcon() while pending = %#v", response)

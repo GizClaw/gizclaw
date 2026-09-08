@@ -20,11 +20,6 @@ type WorkspaceQuiescer interface {
 	QuiesceWorkspace(context.Context, string) error
 }
 
-type GameplayWorkspaceCleanup interface {
-	DeleteWorkspaceData(context.Context, string) error
-	WorkspaceDataAbsent(context.Context, string) (bool, error)
-}
-
 // FlowcraftWorkspaceCleanup retires and verifies scoped Board checkpoints.
 type FlowcraftWorkspaceCleanup interface {
 	DeleteWorkspaceState(context.Context, string, string) error
@@ -36,7 +31,6 @@ type DeletionHandler struct {
 	Server    *Server
 	Source    workspaceSQLDeletionSource
 	Quiescer  WorkspaceQuiescer
-	Gameplay  GameplayWorkspaceCleanup
 	Flowcraft FlowcraftWorkspaceCleanup
 	Now       func() time.Time
 }
@@ -217,11 +211,6 @@ func (h DeletionHandler) cleanupArtifacts(ctx context.Context, descriptor valida
 		}
 	}
 
-	if h.Gameplay != nil {
-		if err := h.Gameplay.DeleteWorkspaceData(ctx, descriptor.ID); err != nil {
-			return pendingdeletion.Retryable("gameplay_cleanup_failed", "Workspace Gameplay data could not be deleted", err)
-		}
-	}
 	if h.Server.RuntimeStore != nil {
 		if err := h.Server.RuntimeStore.DeleteWorkspaceRuntime(ctx, descriptor.ID); err != nil {
 			return pendingdeletion.Retryable("runtime_cleanup_failed", "Workspace runtime data could not be deleted", err)
@@ -255,15 +244,6 @@ func (h DeletionHandler) verifyArtifactsAbsent(ctx context.Context, descriptor v
 		}
 	}
 
-	if h.Gameplay != nil {
-		absent, err := h.Gameplay.WorkspaceDataAbsent(ctx, descriptor.ID)
-		if err != nil {
-			return pendingdeletion.Retryable("gameplay_verify_failed", "Workspace Gameplay cleanup could not be verified", err)
-		}
-		if !absent {
-			return pendingdeletion.Retryable("gameplay_residual", "Workspace Gameplay data remains", nil)
-		}
-	}
 	if h.Server.RuntimeStore != nil {
 		cleanupStore, ok := h.Server.RuntimeStore.(RuntimeCleanupStore)
 		if !ok {

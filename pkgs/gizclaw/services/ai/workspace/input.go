@@ -52,13 +52,6 @@ func workspaceParametersWithInput(
 		}
 		value.Input = &input
 		return updated, updated.FromFlowcraftWorkspaceParameters(value)
-	case string(apitypes.WorkflowDriverPet):
-		value := apitypes.PetWorkspaceParameters{AgentType: apitypes.PetWorkspaceParametersAgentTypePet}
-		if err := decodeWorkspaceParametersVariant(parameters, &value, apitypes.WorkspaceParameters.AsPetWorkspaceParameters); err != nil {
-			return nil, err
-		}
-		value.Input = &input
-		return updated, updated.FromPetWorkspaceParameters(value)
 	default:
 		return parameters, nil
 	}

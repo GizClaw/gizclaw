@@ -61,9 +61,6 @@ Concrete kinds:
 - `Tool`
 - `Workflow`
 - `Workspace`
-- `PetDef`
-- `BadgeDef`
-- `GameDef`
 - `MemoryLayout`
 - `RuntimeProfile`
 - `RegistrationToken`

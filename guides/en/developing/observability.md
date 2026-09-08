@@ -17,8 +17,8 @@ The server currently provides:
 
 Process profiling is opt-in and owned by `cmd/internal/server`. It does not
 register `net/http/pprof` or expose `/debug/pprof`. Configure a dedicated
-logical ObjectStore that is not shared with Workspace assets, Gameplay assets,
-or Agent Host runtime data:
+logical ObjectStore that is not shared with Workspace assets or Agent Host
+runtime data:
 
 ```yaml
 storage:

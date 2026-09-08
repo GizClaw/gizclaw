@@ -1,6 +1,6 @@
 # GizClaw 开发指引
 
-GizClaw 是面向 GizClaw 设备、浏览器客户端和 SDK 集成的 Agent Runtime 与 Edge Server。它提供 WebRTC 连接、设备与运行时管理、Agent workflow、AI 模型适配、Admin/Public HTTP API、Peer RPC、遥测、OTA、数字内容、社交与 Gameplay 领域服务，并从同一套 contract 生成 Go、JavaScript、C 和 Flutter SDK surface。
+GizClaw 是面向 GizClaw 设备、浏览器客户端和 SDK 集成的 Agent Runtime 与 Edge Server。它提供 WebRTC 连接、设备与运行时管理、Agent workflow、AI 模型适配、Admin/Public HTTP API、Peer RPC、遥测、OTA、数字内容与社交领域服务，并从同一套 contract 生成 Go、JavaScript、C 和 Flutter SDK surface。
 
 开发指引用于指导日常开发、代码审查和问题排查。它解释项目如何组成、模块边界在哪里、一次请求如何穿过系统、新代码应该放到哪个目录，以及出现连接、协议、运行时、存储或 Provider 问题时应从哪一层开始定位。
 
@@ -15,7 +15,7 @@ GizClaw 是面向 GizClaw 设备、浏览器客户端和 SDK 集成的 Agent Run
 | Edge ingress | Edge Node 接受公网连接并转发到 authoritative Server；业务资源和最终授权仍属于 Server。 |
 | Agent Runtime | Workspace 实例化 Agent 环境，workflow driver 决定运行方式，runtime 管理在线 Agent、输入输出和 stream lifecycle。 |
 | AI capability | GenX 提供统一的 message、stream、model、tool、generator 和 transformer contract，并由 provider adapters 实现。 |
-| Product domains | Device、runtime、AI、system、social 和 gameplay services 拥有各自资源与业务规则。 |
+| Product domains | Device、runtime、AI、system 和 social services 拥有各自资源与业务规则。 |
 | API 与 SDK | 根 `api/` 保存 HTTP/Protobuf source contract，并生成 Go、JavaScript、C、Flutter 等调用 surface。 |
 | Storage 与 media | Store packages 提供通用持久化/索引能力；Audio packages 提供 codec、PCM、重采样和 voiceprint。 |
 | Observability | 使用结构化日志定位单次请求，通过低 cardinality metrics 观察请求、runtime 与设备状态。具体字段与 ownership 见 [Observability](observability)。 |

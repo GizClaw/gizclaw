@@ -28,9 +28,9 @@ done
 
 # Store layout: peers, friends and friend-groups are the shared Social KV in
 # Redis; runtime-profiles, workspaces and workflows use the template's
-# Server-local gameplay SQLite file, so a
-# Social Workspace retirement and the gameplay reward fence exercise one
-# single-connection SQLite handle exactly as a real deployment would.
+# Server-local business SQLite file, so a Social Workspace retirement
+# exercises one single-connection SQLite handle exactly as a real
+# deployment would.
 mkdir -p "$workspace_dir/data" "$sfu_dir"
 umask 077
 printf '%s\n' "$GIZCLAW_E2E_LIVEKIT_API_KEY" >"$sfu_dir/api_key"

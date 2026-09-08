@@ -10,7 +10,6 @@ The RPC module is responsible for client/server, dispatch, stream framing and do
 | [Client](./client) | Client-side RPC receiver, Client info and identifiers query. | `rpc_client.go` |
 | [Server](./server) | RPC Server composition, dispatch, Server methods, and handling for unimplemented methods. | `rpc_server.go` |
 | [Firmware Configuration](./firmware) | Resolves the caller Peer's bound Firmware and returns one channel's external package configuration. | `services/runtime/peerresource/firmware.go` |
-| [Gameplay Assets](./gameplay-pixa) | Gameplay pixa asset streaming. | `rpc_gameplay_pixa.go` |
 | [Workspace History](./workspace-history) | History audio streaming. | `rpc_workspace_history.go` |
 | [Speech Transcription](./transcription) | Standalone streaming audio-to-text. | `rpc_speech.go` |
 | [Speech Extraction](./extraction) | Standalone streaming audio-to-schema-constrained JSON. | `rpc_speech.go` |
@@ -32,7 +31,6 @@ flowchart TB
     Server --> Common["Common"]
     Server --> Runtime["Peer / Runtime / Run / Workspace services"]
     Server --> Firmware["Firmware Configuration"]
-    Server --> Gameplay["Gameplay Assets"]
     Server --> History["Workspace History"]
     Server --> Speech["Standalone Speech"]
     Server --> Speed["Speed Test"]
@@ -45,7 +43,6 @@ flowchart TB
 
     Runtime --> RuntimeServices["Runtime services"]
     Firmware --> FirmwareSvc["Firmware metadata service"]
-    Gameplay --> GameplaySvc["Gameplay services"]
     Edge --> Routes["Peer Route service"]
 ```
 

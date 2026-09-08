@@ -188,9 +188,6 @@ func createCSDKChatRegistrationToken(t *testing.T, h *clitest.Harness, scenario 
 	profile, err := clitest.UpsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{
 		Id: profileName,
 		Spec: apitypes.RuntimeProfileSpec{Resources: resources, Workflows: apitypes.RuntimeProfileWorkflows{
-			System: apitypes.RuntimeProfileSystemWorkflows{
-				Pet: "pet-care",
-			},
 			Collections: apitypes.RuntimeProfileWorkflowCollections{
 				"assistants": runtimeBindings(workflowResources),
 			},

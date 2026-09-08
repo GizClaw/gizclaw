@@ -36,8 +36,6 @@ const (
 	KindWorkspace Kind = "workspace"
 	// KindFriendGroup identifies retired Friend Group data pending deletion.
 	KindFriendGroup Kind = "friend_group"
-	// KindPet identifies a Pet row pending deletion.
-	KindPet Kind = "pet"
 )
 
 // Reason identifies the lifecycle operation that produced a deletion event.
@@ -173,19 +171,7 @@ func deletionIDForLocator(kind Kind, resourceID string, ownerPublicKey *string) 
 		return "", fmt.Errorf("pending deletion: invalid resource id: %w", err)
 	}
 	encode := base64.RawURLEncoding.EncodeToString
-	if kind != KindPet {
-		locator := string(kind) + "\x00" + encode([]byte(resourceID))
-		return uuid.NewSHA1(deletionIDNamespace, []byte(locator)).String(), nil
-	}
-	if ownerPublicKey == nil || strings.TrimSpace(*ownerPublicKey) == "" {
-		return "", errors.New("pending deletion: Pet requires owner public key")
-	}
-	if *ownerPublicKey != strings.TrimSpace(*ownerPublicKey) {
-		return "", errors.New("pending deletion: non-canonical owner public key")
-	}
-	locator := string(kind) + "\x00" +
-		encode([]byte(*ownerPublicKey)) + "\x00" +
-		encode([]byte(resourceID))
+	locator := string(kind) + "\x00" + encode([]byte(resourceID))
 	return uuid.NewSHA1(deletionIDNamespace, []byte(locator)).String(), nil
 }
 
@@ -267,7 +253,7 @@ func StoredFingerprint(record Record) (string, error) {
 
 func (k Kind) valid() bool {
 	switch k {
-	case KindPeer, KindWorkspace, KindFriendGroup, KindPet:
+	case KindPeer, KindWorkspace, KindFriendGroup:
 		return true
 	default:
 		return false

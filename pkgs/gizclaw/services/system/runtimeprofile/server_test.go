@@ -395,7 +395,7 @@ func TestDanglingRuntimeProfileResourceNamesAreRejected(t *testing.T) {
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Id: "pet-runtime",
 		Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{
+			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{
 				"assistants": {"missing": runtimeProfileTestBinding("missing-workflow")},
 			}},
 			Resources: apitypes.RuntimeProfileResources{Models: new(map[string]apitypes.RuntimeProfileBinding{"missing": runtimeProfileTestBinding("missing-model")})},
@@ -406,38 +406,6 @@ func TestDanglingRuntimeProfileResourceNamesAreRejected(t *testing.T) {
 	}
 	if _, ok := response.(adminhttp.CreateRuntimeProfile400JSONResponse); !ok {
 		t.Fatalf("response = %#v, want invalid resource", response)
-	}
-}
-
-func TestNormalizeProfileRequiresExactSystemWorkflowIDs(t *testing.T) {
-	t.Parallel()
-	base := adminhttp.RuntimeProfileUpsert{
-		Id: "test-profile",
-		Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{
-				System: apitypes.RuntimeProfileSystemWorkflows{
-					Pet: "pet-care",
-				},
-				Collections: apitypes.RuntimeProfileWorkflowCollections{},
-			},
-		},
-	}
-	normalized, err := normalizeProfile(base, "")
-	if err != nil {
-		t.Fatalf("normalizeProfile() error = %v", err)
-	}
-	if got := normalized.Spec.Workflows.System; got.Pet != "pet-care" {
-		t.Fatalf("normalized system Workflows = %#v", got)
-	}
-	withWhitespace := base
-	withWhitespace.Spec.Workflows.System.Pet = " pet-care "
-	if _, err := normalizeProfile(withWhitespace, ""); err == nil || !strings.Contains(err.Error(), "surrounding whitespace") {
-		t.Fatalf("normalizeProfile(whitespace ID) error = %v", err)
-	}
-	invalid := base
-	invalid.Spec.Workflows.System.Pet = " "
-	if _, err := normalizeProfile(invalid, ""); err == nil || !strings.Contains(err.Error(), "workflows.system.pet") {
-		t.Fatalf("normalizeProfile(empty pet) error = %v", err)
 	}
 }
 
@@ -459,7 +427,7 @@ func TestRuntimeProfileRejectsResolverReturningWrongResourceKind(t *testing.T) {
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Id: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{}},
+			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{}},
 			Resources: apitypes.RuntimeProfileResources{Models: &models},
 		},
 	}})
@@ -747,34 +715,6 @@ func TestValidateNewWorkflowRuntimeAliases(t *testing.T) {
 	}
 }
 
-func TestValidatePetRuntimeAliases(t *testing.T) {
-	t.Parallel()
-	pet := apitypes.PetWorkflowSpec{
-		Driver:    apitypes.ReusableWorkflowDriverFlowcraft,
-		Flowcraft: runtimeProfileTestFlowcraftSpec(t, "pet-chat", "pet-voice"),
-	}
-	workflow := apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &pet}
-	models := map[string]apitypes.ModelResource{
-		"pet-chat": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}},
-	}
-	if err := validateWorkflowRuntimeAliases("workflows.system.pet", workflow, models, nil); err == nil || !strings.Contains(err.Error(), "pet-voice") {
-		t.Fatalf("validateWorkflowRuntimeAliases(missing nested voice) error = %v", err)
-	}
-	voices := map[string]apitypes.VoiceResource{"pet-voice": {}}
-	if err := validateWorkflowRuntimeAliases("workflows.system.pet", workflow, models, voices); err != nil {
-		t.Fatalf("validateWorkflowRuntimeAliases(valid nested aliases) error = %v", err)
-	}
-}
-
-func TestPetGameplayValidatesConfiguredRewardModels(t *testing.T) {
-	t.Parallel()
-	pet := validPetGameplaySpecForTest()
-	models := map[string]apitypes.ModelResource{}
-	if err := validatePetRewardModels(pet, models); err != nil {
-		t.Fatalf("validatePetRewardModels() error = %v", err)
-	}
-}
-
 func TestRuntimeProfileRejectsAliasesSharedAcrossResourceKinds(t *testing.T) {
 	t.Parallel()
 	s := &Server{DB: profileSQLTestDB(t)}
@@ -783,7 +723,7 @@ func TestRuntimeProfileRejectsAliasesSharedAcrossResourceKinds(t *testing.T) {
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Id: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{}},
+			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{}},
 			Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices},
 		},
 	}})
@@ -879,15 +819,6 @@ func scopedAliasProfileForTest(t *testing.T) adminhttp.RuntimeProfileUpsert {
 	tools := map[string]apitypes.RuntimeProfileBinding{
 		"journey.tool": runtimeProfileTestBinding("journey-tool"),
 	}
-	petDefs := map[string]apitypes.RuntimeProfileBinding{
-		"pet-care.definition": runtimeProfileTestBinding("pet-definition"),
-	}
-	gameDefs := map[string]apitypes.RuntimeProfileBinding{
-		"journey.game": runtimeProfileTestBinding("journey-game"),
-	}
-	badgeDefs := map[string]apitypes.RuntimeProfileBinding{
-		"reward.science": runtimeProfileTestBinding("science-badge"),
-	}
 	var memory apitypes.RuntimeProfileMemoryBinding
 	if err := json.Unmarshal([]byte(`{
 		"layout_id":"journey-memory-layout",
@@ -900,28 +831,10 @@ func scopedAliasProfileForTest(t *testing.T) adminhttp.RuntimeProfileUpsert {
 		"journey.memory": memory,
 	}
 
-	pet := validPetGameplaySpecForTest()
-	pet.Games = map[string]apitypes.RuntimeProfileGameSpec{
-		"journey.game": {
-			EnergyCost: 10,
-			Reward: apitypes.RuntimeProfileGameRewardSpec{
-				Model: "game.reward-model", Prompt: "Evaluate the game result.", PetExpMax: 10, BadgeExpMaxPerBadge: 5,
-			},
-		},
-	}
-	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "pet-care.definition", Weight: 1}}
-	reward := validWorkspaceRewardProfileForTest().Spec.Gameplay.WorkspaceReward
-	reward.Evaluation.Model = "reward.evaluator"
-	rewardBadges := map[string]apitypes.RuntimeProfileWorkspaceRewardBadgeSpec{
-		"reward.science": {MaxExpPerWindow: 5},
-	}
-	reward.Badges = &rewardBadges
-
 	return adminhttp.RuntimeProfileUpsert{
 		Id: "scoped-profile",
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{
-				System: runtimeProfileTestSystemWorkflows(),
 				Collections: apitypes.RuntimeProfileWorkflowCollections{
 					"story.catalog": {
 						"story.journey-center-earth": runtimeProfileTestBinding("journey-workflow"),
@@ -929,12 +842,7 @@ func scopedAliasProfileForTest(t *testing.T) adminhttp.RuntimeProfileUpsert {
 				},
 			},
 			Resources: apitypes.RuntimeProfileResources{
-				Models: &models, Voices: &voices, Tools: &tools, PetDefs: &petDefs,
-				GameDefs: &gameDefs, BadgeDefs: &badgeDefs, Memories: &memories,
-			},
-			Gameplay: &apitypes.RuntimeProfileGameplaySpec{
-				Adoption: &apitypes.RuntimeProfileAdoptionSpec{Pool: &pool},
-				Pet:      &pet, WorkspaceReward: reward,
+				Models: &models, Voices: &voices, Tools: &tools, Memories: &memories,
 			},
 		},
 	}
@@ -946,12 +854,9 @@ func assertScopedProfileAliases(t *testing.T, spec apitypes.RuntimeProfileSpec) 
 		t.Fatalf("Workflow collections = %#v", spec.Workflows.Collections)
 	}
 	for name, aliases := range map[string][]string{
-		"models":     {"journey.model", "reward.evaluator", "game.reward-model"},
-		"voices":     {"journey.narrator", "journey-narrator"},
-		"tools":      {"journey.tool"},
-		"pet_defs":   {"pet-care.definition"},
-		"game_defs":  {"journey.game"},
-		"badge_defs": {"reward.science"},
+		"models": {"journey.model", "reward.evaluator", "game.reward-model"},
+		"voices": {"journey.narrator", "journey-narrator"},
+		"tools":  {"journey.tool"},
 	} {
 		var bindings *map[string]apitypes.RuntimeProfileBinding
 		switch name {
@@ -961,12 +866,6 @@ func assertScopedProfileAliases(t *testing.T, spec apitypes.RuntimeProfileSpec) 
 			bindings = spec.Resources.Voices
 		case "tools":
 			bindings = spec.Resources.Tools
-		case "pet_defs":
-			bindings = spec.Resources.PetDefs
-		case "game_defs":
-			bindings = spec.Resources.GameDefs
-		case "badge_defs":
-			bindings = spec.Resources.BadgeDefs
 		}
 		for _, alias := range aliases {
 			if bindings == nil {
@@ -983,15 +882,6 @@ func assertScopedProfileAliases(t *testing.T, spec apitypes.RuntimeProfileSpec) 
 	if _, ok := (*spec.Resources.Memories)["journey.memory"]; !ok {
 		t.Fatalf("Memory aliases = %#v", *spec.Resources.Memories)
 	}
-	if spec.Gameplay == nil || spec.Gameplay.Adoption == nil || spec.Gameplay.Adoption.Pool == nil ||
-		(*spec.Gameplay.Adoption.Pool)[0].PetDef != "pet-care.definition" ||
-		spec.Gameplay.Pet == nil || spec.Gameplay.Pet.Games["journey.game"].Reward.Model != "game.reward-model" ||
-		spec.Gameplay.WorkspaceReward == nil || spec.Gameplay.WorkspaceReward.Evaluation.Model != "reward.evaluator" {
-		t.Fatalf("gameplay dotted references = %#v", spec.Gameplay)
-	}
-	if _, ok := (*spec.Gameplay.WorkspaceReward.Badges)["reward.science"]; !ok {
-		t.Fatalf("workspace reward Badge aliases = %#v", *spec.Gameplay.WorkspaceReward.Badges)
-	}
 }
 
 func TestRuntimeProfileRejectsWorkflowCollectionsDuplicatedAfterNormalization(t *testing.T) {
@@ -999,7 +889,6 @@ func TestRuntimeProfileRejectsWorkflowCollectionsDuplicatedAfterNormalization(t 
 	_, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{
 		Id: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
-			System: runtimeProfileTestSystemWorkflows(),
 			Collections: apitypes.RuntimeProfileWorkflowCollections{
 				"assistants":   {},
 				" assistants ": {},
@@ -1010,343 +899,6 @@ func TestRuntimeProfileRejectsWorkflowCollectionsDuplicatedAfterNormalization(t 
 	}
 }
 
-func TestRuntimeProfileRejectsInvalidGameplayReferences(t *testing.T) {
-	t.Parallel()
-	s := &Server{DB: profileSQLTestDB(t)}
-	petDefs := map[string]apitypes.RuntimeProfileBinding{"pet": runtimeProfileTestBinding("petdef-basic")}
-	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "missing", Weight: 1}}
-	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
-		Id: "test-profile",
-		Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{}},
-			Resources: apitypes.RuntimeProfileResources{PetDefs: &petDefs},
-			Gameplay:  &apitypes.RuntimeProfileGameplaySpec{Adoption: &apitypes.RuntimeProfileAdoptionSpec{Pool: &pool}},
-		},
-	}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := response.(adminhttp.CreateRuntimeProfile400JSONResponse); !ok {
-		t.Fatalf("response = %#v, want undeclared adoption PetDef rejection", response)
-	}
-}
-
-func TestRuntimeProfileNormalizesWorkspaceRewardPolicy(t *testing.T) {
-	t.Parallel()
-	upsert := validWorkspaceRewardProfileForTest()
-	normalized, err := normalizeProfile(upsert, "")
-	if err != nil {
-		t.Fatalf("normalizeProfile() error = %v", err)
-	}
-	reward := normalized.Spec.Gameplay.WorkspaceReward
-	if reward == nil || !reward.Enabled {
-		t.Fatalf("workspace reward = %#v", reward)
-	}
-	if reward.Debounce.QuietPeriod != "1m0s" ||
-		reward.Debounce.MaxWindowAge != "10m0s" ||
-		reward.RollingBudget.Period != "24h0m0s" {
-		t.Fatalf("normalized durations = %#v, %#v", reward.Debounce, reward.RollingBudget)
-	}
-	if got := *reward.WorkspaceKinds; len(got) != 1 ||
-		got[0] != apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKindsWorkflow {
-		t.Fatalf("normalized workspace kinds = %#v", got)
-	}
-	pointsOnly := validWorkspaceRewardProfileForTest()
-	emptyBadges := map[string]apitypes.RuntimeProfileWorkspaceRewardBadgeSpec{}
-	pointsOnly.Spec.Gameplay.WorkspaceReward.Badges = &emptyBadges
-	if _, err := normalizeProfile(pointsOnly, ""); err != nil {
-		t.Fatalf("normalizeProfile(points only) error = %v", err)
-	}
-
-	disabled := upsert
-	disabled.Spec.Gameplay.WorkspaceReward.Enabled = false
-	disabledProfile, err := normalizeProfile(disabled, "")
-	if err != nil {
-		t.Fatalf("normalizeProfile(disabled) error = %v", err)
-	}
-	if got := disabledProfile.Spec.Gameplay.WorkspaceReward; got == nil || got.Enabled ||
-		got.Debounce != nil || got.Evaluation != nil {
-		t.Fatalf("disabled workspace reward = %#v, want canonical disabled policy", got)
-	}
-}
-
-func TestRuntimeProfileRejectsInvalidWorkspaceRewardPolicy(t *testing.T) {
-	t.Parallel()
-	for name, mutate := range map[string]func(*apitypes.RuntimeProfileWorkspaceRewardSpec){
-		"incomplete": func(reward *apitypes.RuntimeProfileWorkspaceRewardSpec) {
-			reward.Transcript = nil
-		},
-		"duplicate kind": func(reward *apitypes.RuntimeProfileWorkspaceRewardSpec) {
-			kinds := []apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKinds{
-				apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKindsWorkflow,
-				apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKindsWorkflow,
-			}
-			reward.WorkspaceKinds = &kinds
-		},
-		"window before quiet": func(reward *apitypes.RuntimeProfileWorkspaceRewardSpec) {
-			reward.Debounce.MaxWindowAge = "30s"
-		},
-		"score bounds": func(reward *apitypes.RuntimeProfileWorkspaceRewardSpec) {
-			reward.Evaluation.QualifyingScore = 101
-		},
-		"tier order": func(reward *apitypes.RuntimeProfileWorkspaceRewardSpec) {
-			reward.Points.Tiers = append(reward.Points.Tiers,
-				apitypes.RuntimeProfileWorkspaceRewardPointsTier{MinScore: 80, Delta: 20})
-		},
-		"unknown badge": func(reward *apitypes.RuntimeProfileWorkspaceRewardSpec) {
-			badges := map[string]apitypes.RuntimeProfileWorkspaceRewardBadgeSpec{
-				"unknown": {MaxExpPerWindow: 5},
-			}
-			reward.Badges = &badges
-		},
-		"unbounded period": func(reward *apitypes.RuntimeProfileWorkspaceRewardSpec) {
-			reward.RollingBudget.Period = "8761h"
-		},
-	} {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			upsert := validWorkspaceRewardProfileForTest()
-			mutate(upsert.Spec.Gameplay.WorkspaceReward)
-			if _, err := normalizeProfile(upsert, ""); err == nil {
-				t.Fatal("normalizeProfile() succeeded")
-			}
-		})
-	}
-}
-
-func TestRuntimeProfileValidatesWorkspaceRewardResources(t *testing.T) {
-	t.Parallel()
-	normalized, err := normalizeProfile(validWorkspaceRewardProfileForTest(), "")
-	if err != nil {
-		t.Fatalf("normalizeProfile() error = %v", err)
-	}
-	rewardPrompt := "Reward scientific reasoning."
-	for name, test := range map[string]struct {
-		modelKind    apitypes.ModelKind
-		rewardPrompt *string
-		wantError    string
-	}{
-		"valid generic LLM alias": {
-			modelKind: apitypes.ModelKindLlm, rewardPrompt: &rewardPrompt,
-		},
-		"wrong model kind": {
-			modelKind: apitypes.ModelKindAsr, rewardPrompt: &rewardPrompt,
-			wantError: `want "llm"`,
-		},
-		"missing Badge prompt": {
-			modelKind: apitypes.ModelKindLlm,
-			wantError: "requires BadgeDef reward_prompt",
-		},
-	} {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			server := &Server{
-				ResolveResource: workspaceRewardResourceResolverForTest(
-					t,
-					test.modelKind,
-					test.rewardPrompt,
-				),
-			}
-			err := server.validateResources(t.Context(), normalized.Spec)
-			if test.wantError == "" {
-				if err != nil {
-					t.Fatalf("validateResources() error = %v", err)
-				}
-			} else if err == nil || !strings.Contains(err.Error(), test.wantError) {
-				t.Fatalf("validateResources() error = %v, want %q", err, test.wantError)
-			}
-		})
-	}
-}
-
-func workspaceRewardResourceResolverForTest(
-	t *testing.T,
-	modelKind apitypes.ModelKind,
-	rewardPrompt *string,
-) func(context.Context, apitypes.ResourceKind, string) (apitypes.Resource, error) {
-	t.Helper()
-	return func(_ context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
-		var resource apitypes.Resource
-		switch kind {
-		case apitypes.ResourceKindWorkflow:
-			spec := apitypes.WorkflowSpec{
-				Driver: apitypes.WorkflowDriverEino,
-				Eino:   &apitypes.EinoWorkflowSpec{},
-			}
-			if name == "pet-care" {
-				spec = apitypes.WorkflowSpec{
-					Driver: apitypes.WorkflowDriverPet,
-					Pet: &apitypes.PetWorkflowSpec{
-						Driver: apitypes.ReusableWorkflowDriverEino,
-						Eino:   &apitypes.EinoWorkflowSpec{},
-					},
-				}
-			}
-			err := resource.FromWorkflowResource(apitypes.WorkflowResource{
-				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
-				Kind:       apitypes.WorkflowResourceKindWorkflow,
-				Metadata:   apitypes.ResourceMetadata{Id: name},
-				Spec:       spec,
-			})
-			return resource, err
-		case apitypes.ResourceKindModel:
-			err := resource.FromModelResource(apitypes.ModelResource{
-				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
-				Kind:       apitypes.ModelResourceKindModel,
-				Metadata:   apitypes.ResourceMetadata{Id: name},
-				Spec:       apitypes.ModelSpec{Kind: modelKind},
-			})
-			return resource, err
-		case apitypes.ResourceKindBadgeDef:
-			err := resource.FromBadgeDefResource(apitypes.BadgeDefResource{
-				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
-				Kind:       apitypes.BadgeDefResourceKindBadgeDef,
-				Metadata:   apitypes.ResourceMetadata{Id: name},
-				Spec: apitypes.BadgeDefSpec{
-					DisplayName: "Science", RewardPrompt: rewardPrompt,
-				},
-			})
-			return resource, err
-		default:
-			return apitypes.Resource{}, sql.ErrNoRows
-		}
-	}
-}
-
-func validWorkspaceRewardProfileForTest() adminhttp.RuntimeProfileUpsert {
-	models := map[string]apitypes.RuntimeProfileBinding{
-		"reward-evaluator": runtimeProfileTestBinding("model-reward"),
-	}
-	badgeDefs := map[string]apitypes.RuntimeProfileBinding{
-		"science": runtimeProfileTestBinding("badge-science"),
-	}
-	kinds := []apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKinds{
-		apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKindsWorkflow,
-	}
-	badges := map[string]apitypes.RuntimeProfileWorkspaceRewardBadgeSpec{
-		"science": {MaxExpPerWindow: 5},
-	}
-	return adminhttp.RuntimeProfileUpsert{
-		Id: "workspace-reward-profile",
-		Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{
-				System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{},
-			},
-			Resources: apitypes.RuntimeProfileResources{Models: &models, BadgeDefs: &badgeDefs},
-			Gameplay: &apitypes.RuntimeProfileGameplaySpec{
-				WorkspaceReward: &apitypes.RuntimeProfileWorkspaceRewardSpec{
-					Enabled:        true,
-					WorkspaceKinds: &kinds,
-					Debounce: &apitypes.RuntimeProfileWorkspaceRewardDebounceSpec{
-						QuietPeriod: " 60s ", MaxWindowAge: "10m",
-					},
-					Transcript: &apitypes.RuntimeProfileWorkspaceRewardTranscriptSpec{
-						MaxEntries: 20, MaxTextBytes: 4096,
-					},
-					Evaluation: &apitypes.RuntimeProfileWorkspaceRewardEvaluationSpec{
-						Model: " reward-evaluator ", PointsPrompt: " Reward good learning. ",
-						ScoreMin: 0, ScoreMax: 100, QualifyingScore: 80,
-					},
-					Points: &apitypes.RuntimeProfileWorkspaceRewardPointsSpec{
-						Tiers: []apitypes.RuntimeProfileWorkspaceRewardPointsTier{
-							{MinScore: 80, Delta: 10}, {MinScore: 90, Delta: 20},
-						},
-					},
-					Badges: &badges,
-					RollingBudget: &apitypes.RuntimeProfileWorkspaceRewardRollingBudgetSpec{
-						Period: "24h", PointsMax: 100, BadgeExpMax: 50,
-					},
-				},
-			},
-		},
-	}
-}
-
-func TestRuntimeProfileRequiresPetPolicyForAdoption(t *testing.T) {
-	t.Parallel()
-	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "pet", Weight: 1}}
-	_, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{
-		Id: "test-profile",
-		Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{}},
-			Gameplay:  &apitypes.RuntimeProfileGameplaySpec{Adoption: &apitypes.RuntimeProfileAdoptionSpec{Pool: &pool}},
-		},
-	}, "")
-	if err == nil || !strings.Contains(err.Error(), "gameplay.pet is required") {
-		t.Fatalf("normalizeProfile() error = %v, want missing Pet policy rejection", err)
-	}
-}
-
-func TestPetGameplayRejectsNegativeLifeDecayWeight(t *testing.T) {
-	t.Parallel()
-	pet := validPetGameplaySpecForTest()
-	pet.Time.LifeDecay.ContributingWeights = apitypes.RuntimeProfileLifeWeightsSpec{
-		Health: -0.1, Satiety: 0.4, Hygiene: 0.4, Mood: 0.3,
-	}
-	if err := normalizePetGameplay(&pet, apitypes.RuntimeProfileResources{}); err == nil || !strings.Contains(err.Error(), "must not be negative") {
-		t.Fatalf("normalizePetGameplay() error = %v, want negative-weight rejection", err)
-	}
-}
-
-func TestPetGameplayRewardModelMustBeLLM(t *testing.T) {
-	t.Parallel()
-	pet := validPetGameplaySpecForTest()
-	pet.Games = map[string]apitypes.RuntimeProfileGameSpec{
-		"puzzle": {Reward: apitypes.RuntimeProfileGameRewardSpec{Model: "reward"}},
-	}
-	models := map[string]apitypes.ModelResource{
-		"reward": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindEmbedding}},
-	}
-	if err := validatePetRewardModels(pet, models); err == nil || !strings.Contains(err.Error(), "want \"llm\"") {
-		t.Fatalf("validatePetRewardModels() error = %v, want LLM-kind rejection", err)
-	}
-}
-
-func TestPetGameplayRejectsDuplicateGameDefResources(t *testing.T) {
-	t.Parallel()
-	pet := validPetGameplaySpecForTest()
-	game := apitypes.RuntimeProfileGameSpec{
-		EnergyCost: 10,
-		Reward:     apitypes.RuntimeProfileGameRewardSpec{Model: "reward", Prompt: "Evaluate."},
-	}
-	pet.Games = map[string]apitypes.RuntimeProfileGameSpec{"puzzle-a": game, "puzzle-b": game}
-	gameDefs := map[string]apitypes.RuntimeProfileBinding{
-		"puzzle-a": runtimeProfileTestBinding("game-puzzle"),
-		"puzzle-b": runtimeProfileTestBinding("game-puzzle"),
-	}
-	models := map[string]apitypes.RuntimeProfileBinding{"reward": runtimeProfileTestBinding("model-reward")}
-	resources := apitypes.RuntimeProfileResources{GameDefs: &gameDefs, Models: &models}
-	if err := normalizePetGameplay(&pet, resources); err == nil || !strings.Contains(err.Error(), "same GameDef") {
-		t.Fatalf("normalizePetGameplay() error = %v, want duplicate GameDef rejection", err)
-	}
-}
-
-func TestPetGameplayRejectsUnboundedLogScale(t *testing.T) {
-	t.Parallel()
-	pet := validPetGameplaySpecForTest()
-	pet.Experience.Leveling.LogScale = 101
-	if err := normalizePetGameplay(&pet, apitypes.RuntimeProfileResources{}); err == nil || !strings.Contains(err.Error(), "0..100") {
-		t.Fatalf("normalizePetGameplay() error = %v, want log-scale bound", err)
-	}
-}
-
-func validPetGameplaySpecForTest() apitypes.RuntimeProfilePetGameplaySpec {
-	action := apitypes.RuntimeProfilePetActionSpec{EnergyCost: 10, StatDelta: 10}
-	return apitypes.RuntimeProfilePetGameplaySpec{
-		Time: apitypes.RuntimeProfilePetTimeSpec{
-			LifeDecay: apitypes.RuntimeProfileLifeDecaySpec{
-				ContributingWeights: apitypes.RuntimeProfileLifeWeightsSpec{Health: 0.4, Satiety: 0.25, Hygiene: 0.2, Mood: 0.15},
-				Exponent:            2,
-			},
-		},
-		Experience: apitypes.RuntimeProfilePetExperienceSpec{
-			EnergyPerPetExp: 5,
-			Leveling:        apitypes.RuntimeProfileLevelingSpec{BaseExp: 30, LogScale: 10},
-		},
-		Actions: apitypes.RuntimeProfilePetActionsSpec{Feed: action, Bathe: action, Play: action, Heal: action},
-	}
-}
-
 func TestRuntimeProfileAcceptsDefaultName(t *testing.T) {
 	t.Parallel()
 	s := &Server{DB: profileSQLTestDB(t)}
@@ -1354,7 +906,6 @@ func TestRuntimeProfileAcceptsDefaultName(t *testing.T) {
 		Id: "default",
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{
-				System:      runtimeProfileTestSystemWorkflows(),
 				Collections: apitypes.RuntimeProfileWorkflowCollections{},
 			},
 		},
@@ -1470,26 +1021,8 @@ func TestOwnerProfileBindingSurvivesConnectionLifetimeAndLoadsCurrentRevision(t 
 		t.Fatalf("ResolveOwnerProfile() = %#v, %v", first, err)
 	}
 	updated := adminhttp.RuntimeProfileUpsert{Id: first.Id, Spec: first.Spec}
-	updated.Spec.Workflows.System.Pet = "pet-care-v2"
-	previousResolver := s.ResolveResource
-	s.ResolveResource = func(ctx context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
-		if kind == apitypes.ResourceKindWorkflow && name == "pet-care-v2" {
-			var resource apitypes.Resource
-			err := resource.FromWorkflowResource(apitypes.WorkflowResource{
-				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
-				Kind:       apitypes.WorkflowResourceKindWorkflow,
-				Metadata:   apitypes.ResourceMetadata{Id: name},
-				Spec: apitypes.WorkflowSpec{
-					Driver: apitypes.WorkflowDriverPet,
-					Pet: &apitypes.PetWorkflowSpec{
-						Driver: apitypes.ReusableWorkflowDriverEino,
-						Eino:   &apitypes.EinoWorkflowSpec{},
-					},
-				},
-			})
-			return resource, err
-		}
-		return previousResolver(ctx, kind, name)
+	updated.Spec.Workflows.Collections = apitypes.RuntimeProfileWorkflowCollections{
+		"assistants": {"chat": runtimeProfileTestBinding("chat-v2")},
 	}
 	response, err := s.PutRuntimeProfile(t.Context(), adminhttp.PutRuntimeProfileRequestObject{Id: first.Id, Body: &updated})
 	if err != nil {
@@ -1502,7 +1035,7 @@ func TestOwnerProfileBindingSurvivesConnectionLifetimeAndLoadsCurrentRevision(t 
 	if err != nil {
 		t.Fatalf("ResolveOwnerProfile(updated) error = %v", err)
 	}
-	if current.Spec.Workflows.System.Pet != "pet-care-v2" || current.Revision == first.Revision {
+	if current.Spec.Workflows.Collections["assistants"]["chat"].ResourceId != "chat-v2" || current.Revision == first.Revision {
 		t.Fatalf("ResolveOwnerProfile(updated) = %#v, initial revision %q", current, first.Revision)
 	}
 }
@@ -1616,18 +1149,7 @@ func createProfile(t testing.TB, s *Server, name string, models map[string]strin
 	previousResolver := s.ResolveResource
 	s.ResolveResource = func(ctx context.Context, kind apitypes.ResourceKind, resourceName string) (apitypes.Resource, error) {
 		if kind == apitypes.ResourceKindWorkflow {
-			driver := apitypes.WorkflowDriverEino
-			spec := apitypes.WorkflowSpec{Driver: driver, Eino: &apitypes.EinoWorkflowSpec{}}
-			if resourceName == "pet-care" {
-				driver = apitypes.WorkflowDriverPet
-				spec = apitypes.WorkflowSpec{
-					Driver: driver,
-					Pet: &apitypes.PetWorkflowSpec{
-						Driver: apitypes.ReusableWorkflowDriverEino,
-						Eino:   &apitypes.EinoWorkflowSpec{},
-					},
-				}
-			}
+			spec := apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverEino, Eino: &apitypes.EinoWorkflowSpec{}}
 			var resource apitypes.Resource
 			err := resource.FromWorkflowResource(apitypes.WorkflowResource{
 				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
@@ -1663,7 +1185,6 @@ func createProfile(t testing.TB, s *Server, name string, models map[string]strin
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Id: name, Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{
-				System:      runtimeProfileTestSystemWorkflows(),
 				Collections: apitypes.RuntimeProfileWorkflowCollections{},
 			},
 			Resources: resources,
@@ -1791,15 +1312,6 @@ func TestRuntimeProfileRejectsMissingMemoryLayoutWithoutPersistingRevision(t *te
 				Driver: apitypes.WorkflowDriverEino,
 				Eino:   &apitypes.EinoWorkflowSpec{},
 			}
-			if name == "pet-care" {
-				spec = apitypes.WorkflowSpec{
-					Driver: apitypes.WorkflowDriverPet,
-					Pet: &apitypes.PetWorkflowSpec{
-						Driver: apitypes.ReusableWorkflowDriverEino,
-						Eino:   &apitypes.EinoWorkflowSpec{},
-					},
-				}
-			}
 			var resource apitypes.Resource
 			err := resource.FromWorkflowResource(apitypes.WorkflowResource{
 				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
@@ -1829,7 +1341,7 @@ func TestRuntimeProfileRejectsMissingMemoryLayoutWithoutPersistingRevision(t *te
 			Id: "default",
 			Spec: apitypes.RuntimeProfileSpec{
 				Workflows: apitypes.RuntimeProfileWorkflows{
-					System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{},
+					Collections: apitypes.RuntimeProfileWorkflowCollections{},
 				},
 				Resources: apitypes.RuntimeProfileResources{Memories: &memories},
 			},
@@ -1851,12 +1363,6 @@ func runtimeProfileTestBinding(resourceID string) apitypes.RuntimeProfileBinding
 	return apitypes.RuntimeProfileBinding{ResourceId: resourceID, I18n: map[string]apitypes.RuntimeProfileI18nText{
 		"en": {DisplayName: "Test"}, "zh-CN": {DisplayName: "测试"},
 	}}
-}
-
-func runtimeProfileTestSystemWorkflows() apitypes.RuntimeProfileSystemWorkflows {
-	return apitypes.RuntimeProfileSystemWorkflows{
-		Pet: "pet-care",
-	}
 }
 
 func runtimeProfileTestFlowcraftSpec(t *testing.T, modelAlias, voiceAlias string) *apitypes.FlowcraftWorkflowSpec {

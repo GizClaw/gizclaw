@@ -126,10 +126,6 @@ stores:
     storage: database
     prefix: friend-groups
 
-  gameplay:
-    kind: sql
-    storage: database
-
   agenthost:
     kind: objectstore
     storage: local-assets
@@ -139,15 +135,6 @@ stores:
     kind: objectstore
     storage: local-assets
     prefix: workspaces
-
-  gameplay-assets:
-    kind: objectstore
-    storage: local-assets
-    prefix: gameplay
-
-  gameplay-db:
-    kind: sql
-    storage: database
 
 # Fixed service schema. Internal collections and indexes are code-owned; each
 # service names only one Store per capability it consumes.
@@ -199,10 +186,6 @@ services:
     reconnect_timeout: 30s
     talk_hangover: 500ms
     floor_idle: 300ms
-  gameplay:
-    store: gameplay
-    assets_store: gameplay-assets
-    database_store: gameplay-db
   agent_host:
     runtime_store: agenthost
     flowcraft:

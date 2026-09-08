@@ -166,10 +166,6 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 			return client.GetFirmware(ctx, conn, "firmware-get", rpcapi.FirmwareGetRequest{Channel: rpcapi.FirmwareChannelNameStable})
 		})
 	})
-
-	t.Run("gameplay pixa", func(t *testing.T) {
-		runBadgeDefPixaDownloadWrapperTest(t, client)
-	})
 }
 
 func TestClientDeletePeerUsesRPCConnection(t *testing.T) {
@@ -326,50 +322,6 @@ func resourceResponse[T any](id string, value T, encode func(*rpcapi.RPCPayload,
 		panic(err)
 	}
 	return resp
-}
-
-func runBadgeDefPixaDownloadWrapperTest(t *testing.T, client *rpcClient) {
-	t.Helper()
-	serverSide, clientSide := net.Pipe()
-	defer serverSide.Close()
-	defer clientSide.Close()
-
-	payload := []byte("badgedef-pixa")
-	pixaPath := "badge-defs/badge-a/pixa"
-	serverErrCh := make(chan error, 1)
-	go func() {
-		req, err := readRPCRequestWithEOS(serverSide)
-		if err != nil {
-			serverErrCh <- err
-			return
-		}
-		if req.Method != rpcapi.RPCMethodServerBadgeDefPixaDownload {
-			serverErrCh <- &unexpectedRPCMethodError{got: req.Method, want: rpcapi.RPCMethodServerBadgeDefPixaDownload}
-			return
-		}
-		resp := resourceResponse(req.Id, rpcapi.BadgeDefPixaDownloadResponse{Name: "badge-a", PixaPath: &pixaPath, SizeBytes: int64(len(payload))}, (*rpcapi.RPCPayload).FromBadgeDefPixaDownloadResponse)
-		if err := rpcapi.WriteResponseForMethod(serverSide, req.Method, resp); err != nil {
-			serverErrCh <- err
-			return
-		}
-		if err := rpcapi.WriteFrame(serverSide, rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: payload}); err != nil {
-			serverErrCh <- err
-			return
-		}
-		serverErrCh <- rpcapi.WriteEOS(serverSide)
-	}()
-
-	var out bytes.Buffer
-	result, err := client.DownloadBadgeDefPixa(context.Background(), clientSide, "badgedef-pixa-download", rpcapi.BadgeDefPixaDownloadRequest{Name: "badge-a"}, &out)
-	if err != nil {
-		t.Fatalf("badgedef pixa download call error = %v", err)
-	}
-	if result.Metadata.Name != "badge-a" || result.Bytes != int64(len(payload)) || out.String() != string(payload) {
-		t.Fatalf("badgedef pixa download result = %#v payload %q", result, out.String())
-	}
-	if err := <-serverErrCh; err != nil {
-		t.Fatalf("badgedef pixa download server error = %v", err)
-	}
 }
 
 func runWorkspaceHistoryAudioDownloadWrapperTest(t *testing.T, client *rpcClient) {

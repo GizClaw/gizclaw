@@ -55,9 +55,9 @@ func createRuntimeProfileRegistrationToken(t *testing.T, h *clitest.Harness) str
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	profile, found, err := clitest.RuntimeProfileByID(ctx, api, "default-gameplay")
-	if err != nil || !found {
-		t.Fatalf("resolve firmware RuntimeProfile: found=%v err=%v", found, err)
+	profile, err := clitest.EnsureMinimalRuntimeProfile(ctx, api, "e2e-firmware-shared")
+	if err != nil {
+		t.Fatalf("ensure firmware RuntimeProfile: %v", err)
 	}
 	tokenName := "e2e-firmware-main-token"
 	if err := clitest.DeleteRegistrationTokenByID(ctx, api, tokenName); err != nil {

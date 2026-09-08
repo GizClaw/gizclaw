@@ -171,9 +171,9 @@ func createCSDKRegistrationToken(t *testing.T, h *clitest.Harness, scenario stri
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	profile, found, err := clitest.RuntimeProfileByID(ctx, api, "default-gameplay")
-	if err != nil || !found {
-		t.Fatalf("resolve C SDK RuntimeProfile: found=%v err=%v", found, err)
+	profile, err := clitest.EnsureMinimalRuntimeProfile(ctx, api, "cgo-rpc")
+	if err != nil {
+		t.Fatalf("ensure C SDK RuntimeProfile: %v", err)
 	}
 	tokenName := "cgo-" + scenario
 	if err := clitest.DeleteRegistrationTokenByID(ctx, api, tokenName); err != nil {

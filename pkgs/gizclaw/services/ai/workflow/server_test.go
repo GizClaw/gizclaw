@@ -161,37 +161,6 @@ func TestServerRejectsUnknownWorkflowDriver(t *testing.T) {
 	}
 }
 
-func TestValidateDriverSpecRequiresPetConfig(t *testing.T) {
-	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet}); err == nil || !strings.Contains(err.Error(), "spec.pet") {
-		t.Fatalf("validateDriverSpec() error = %v", err)
-	}
-	petSpec := apitypes.PetWorkflowSpec{
-		Driver:       apitypes.ReusableWorkflowDriverAstTranslate,
-		AstTranslate: &apitypes.ASTTranslateWorkflowSpec{},
-	}
-	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &petSpec}); err != nil {
-		t.Fatalf("validateDriverSpec(valid pet) error = %v", err)
-	}
-	petSpec.AstTranslate = nil
-	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &petSpec}); err == nil || !strings.Contains(err.Error(), "spec.ast_translate is required") {
-		t.Fatalf("validateDriverSpec(missing nested payload) error = %v", err)
-	}
-	petSpec.AstTranslate = &apitypes.ASTTranslateWorkflowSpec{}
-	petSpec.Flowcraft = &apitypes.FlowcraftWorkflowSpec{}
-	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &petSpec}); err == nil || !strings.Contains(err.Error(), "does not match") {
-		t.Fatalf("validateDriverSpec(mismatched nested config) error = %v", err)
-	}
-	petSpec.Flowcraft = nil
-	petSpec.Driver = apitypes.ReusableWorkflowDriver("pet")
-	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &petSpec}); err == nil || !strings.Contains(err.Error(), "not a reusable") {
-		t.Fatalf("validateDriverSpec(recursive pet) error = %v", err)
-	}
-	petSpec.Driver = apitypes.ReusableWorkflowDriver(apitypes.WorkflowDriverSfu)
-	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &petSpec}); err == nil || !strings.Contains(err.Error(), "cannot be nested") {
-		t.Fatalf("validateDriverSpec(nested sfu) error = %v", err)
-	}
-}
-
 func TestValidateDriverSpecRejectsDoubaoRealtimeTools(t *testing.T) {
 	tools := []apitypes.DoubaoRealtimeFunctionTool{{
 		Type: apitypes.DoubaoRealtimeFunctionToolTypeFunction,
@@ -389,50 +358,6 @@ func TestServerRejectsInvalidToolkitPolicy(t *testing.T) {
 	}
 	if _, ok := putResp.(adminhttp.PutWorkflow404JSONResponse); !ok {
 		t.Fatalf("PutWorkflow() response = %#v", putResp)
-	}
-}
-
-func TestServerCanonicalizesNestedPetToolkitPolicy(t *testing.T) {
-	t.Parallel()
-
-	srv := newTestServer(t)
-	ctx := context.Background()
-	toolIDs := []string{"tool-b", "tool-a", "tool-a"}
-	doc := adminhttp.WorkflowUpsert{
-		Id: "pet-care",
-		Spec: apitypes.WorkflowSpec{
-			Driver: apitypes.WorkflowDriverPet,
-			Pet: &apitypes.PetWorkflowSpec{
-				Driver:       apitypes.ReusableWorkflowDriverAstTranslate,
-				AstTranslate: &apitypes.ASTTranslateWorkflowSpec{},
-				Toolkit:      &apitypes.ToolkitPolicy{ToolIds: &toolIDs},
-			},
-		},
-	}
-
-	createResp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
-	if err != nil {
-		t.Fatalf("CreateWorkflow() error = %v", err)
-	}
-	created, ok := createResp.(adminhttp.CreateWorkflow200JSONResponse)
-	if !ok {
-		t.Fatalf("CreateWorkflow() response = %#v", createResp)
-	}
-	if created.Spec.Pet == nil || created.Spec.Pet.Toolkit == nil || created.Spec.Pet.Toolkit.ToolIds == nil {
-		t.Fatalf("CreateWorkflow() nested toolkit = %#v", created.Spec.Pet)
-	}
-	if got := *created.Spec.Pet.Toolkit.ToolIds; len(got) != 2 || got[0] != "tool-a" || got[1] != "tool-b" {
-		t.Fatalf("CreateWorkflow() nested tool IDs = %#v", got)
-	}
-
-	invalidIDs := []string{" tool-a "}
-	doc.Spec.Pet.Toolkit = &apitypes.ToolkitPolicy{ToolIds: &invalidIDs}
-	invalidResp, err := srv.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Id: created.Id, Body: &doc})
-	if err != nil {
-		t.Fatalf("PutWorkflow() error = %v", err)
-	}
-	if _, ok := invalidResp.(adminhttp.PutWorkflow400JSONResponse); !ok {
-		t.Fatalf("PutWorkflow() response = %#v", invalidResp)
 	}
 }
 

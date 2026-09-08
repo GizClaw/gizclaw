@@ -19,7 +19,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/flowstate"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
@@ -78,10 +77,7 @@ type Server struct {
 	ContactDB              *sqlx.DB
 	FriendStore            kv.Store
 	FriendGroupStore       kv.Store
-	GameplayCatalogDB      *sqlx.DB
-	GameplayAssets         objectstore.ObjectStore
 	WorkspaceAssets        objectstore.ObjectStore
-	GameplayDB             *sqlx.DB
 	MetricsStore           metrics.Store
 	PendingDeletionConfig  pendingdeletion.Config
 	ServerLogQuery         ServerLogQueryService
@@ -111,10 +107,6 @@ type Server struct {
 	listeners                []giznet.Listener
 	closed                   bool
 	httpHandler              http.Handler
-	driveFactStop            context.CancelFunc
-	driveFactDone            <-chan struct{}
-	workspaceRewardStop      context.CancelFunc
-	workspaceRewardDone      <-chan struct{}
 	pendingDeletionProcessor *pendingdeletion.Processor
 }
 
@@ -168,11 +160,6 @@ func (s *Server) Listen() error {
 	s.listeners = listeners
 	s.closed = false
 	s.listenerMu.Unlock()
-	s.startDriveFactDispatcher()
-	if err := s.startWorkspaceRewardDispatcher(); err != nil {
-		_ = s.Close()
-		return err
-	}
 	if s.pendingDeletionProcessor != nil {
 		s.pendingDeletionProcessor.Start(context.Background())
 	}
@@ -279,22 +266,6 @@ func (s *Server) Close() error {
 			errs = append(errs, listener.Close())
 		}
 	}
-	if s.driveFactStop != nil {
-		s.driveFactStop()
-		s.driveFactStop = nil
-	}
-	if s.driveFactDone != nil {
-		<-s.driveFactDone
-		s.driveFactDone = nil
-	}
-	if s.workspaceRewardStop != nil {
-		s.workspaceRewardStop()
-		s.workspaceRewardStop = nil
-	}
-	if s.workspaceRewardDone != nil {
-		<-s.workspaceRewardDone
-		s.workspaceRewardDone = nil
-	}
 	if s.pendingDeletionProcessor != nil {
 		s.pendingDeletionProcessor.Close()
 		s.pendingDeletionProcessor = nil
@@ -310,31 +281,6 @@ func (s *Server) Close() error {
 	return errors.Join(errs...)
 }
 
-func (s *Server) startDriveFactDispatcher() {
-	if s == nil || s.driveFactStop != nil || s.manager == nil || s.manager.Gameplay == nil ||
-		s.manager.Gameplay.DB == nil || s.manager.Gameplay.DriveFacts == nil {
-		return
-	}
-	stop, done := s.manager.Gameplay.StartDriveFactDispatcher(context.Background())
-	s.driveFactStop = stop
-	s.driveFactDone = done
-}
-
-func (s *Server) startWorkspaceRewardDispatcher() error {
-	if s == nil || s.workspaceRewardStop != nil || s.manager == nil ||
-		s.manager.Gameplay == nil || s.manager.Gameplay.DB == nil ||
-		s.manager.Gameplay.WorkspaceRewards == nil {
-		return nil
-	}
-	stop, done, err := s.manager.Gameplay.StartWorkspaceRewardDispatcher(context.Background())
-	if err != nil {
-		return fmt.Errorf("gizclaw: start Workspace reward dispatcher: %w", err)
-	}
-	s.workspaceRewardStop = stop
-	s.workspaceRewardDone = done
-	return nil
-}
-
 func (s *Server) init() error {
 	if s == nil {
 		return errors.New("gizclaw: nil server")
@@ -348,8 +294,6 @@ func (s *Server) init() error {
 		return errors.New("gizclaw: nil peer run database")
 	case s.ProviderTenantDB == nil:
 		return errors.New("gizclaw: nil provider tenant database")
-	case s.GameplayCatalogDB == nil:
-		return errors.New("gizclaw: nil gameplay catalog database")
 	case s.RuntimeProfileDB == nil:
 		return errors.New("gizclaw: nil runtime profile database")
 	case s.VoiceDB == nil:
@@ -388,12 +332,6 @@ func (s *Server) init() error {
 	}
 	if s.AgentHostStore != nil && (s.WorkspaceHistory == nil || s.WorkspaceHistoryAssets == nil) {
 		return errors.New("gizclaw: nil workspace history store")
-	}
-	if s.GameplayAssets == nil {
-		return errors.New("gizclaw: nil gameplay assets store")
-	}
-	if s.GameplayDB == nil {
-		return errors.New("gizclaw: nil gameplay database store")
 	}
 
 	peerStore := kv.Prefixed(s.PeerStore, kv.Key{"records"})
@@ -618,41 +556,11 @@ func (s *Server) init() error {
 	if err := providerTenantsServer.Initialize(context.Background()); err != nil {
 		return fmt.Errorf("initialize provider tenant database: %w", err)
 	}
-	gameplayCatalog := &gameplay.Catalog{
-		DB:     s.GameplayCatalogDB,
-		Assets: s.GameplayAssets,
-	}
-	if err := gameplayCatalog.Initialize(context.Background()); err != nil {
-		return fmt.Errorf("initialize gameplay catalog: %w", err)
-	}
-	gameplayRuntime := &gameplay.Runtime{
-		DB:         s.GameplayDB,
-		Catalog:    gameplayCatalog,
-		Workflows:  workflowServer,
-		Workspaces: workspaceServer,
-		PeerAvailability: func(ctx context.Context, publicKey string) error {
-			key, err := parsePeerPublicKey(publicKey)
-			if err != nil {
-				return err
-			}
-			return peersServer.EnsureAvailable(ctx, key)
-		},
-	}
-	if s.GameplayDB != nil {
-		if err := gameplayRuntime.Migration(context.Background()); err != nil {
-			return err
-		}
-		workspaceServer.DeletionFencer = gameplayRuntime
-	}
 	pendingDeletionRegistry := pendingdeletion.NewRegistry()
 	workspacePendingDeletionSource := workspace.NewPendingDeletionSource(workspaceDB)
 	var flowcraftWorkspaceCleanup workspace.FlowcraftWorkspaceCleanup
 	if s.FlowcraftStateDB != nil {
 		flowcraftWorkspaceCleanup = flowstate.WorkspaceCleanup{DB: s.FlowcraftStateDB}
-	}
-	var gameplayWorkspaceCleanup workspace.GameplayWorkspaceCleanup
-	if s.GameplayDB != nil {
-		gameplayWorkspaceCleanup = gameplayRuntime
 	}
 	if err := pendingDeletionRegistry.Register(
 		workspacePendingDeletionSource,
@@ -660,7 +568,6 @@ func (s *Server) init() error {
 			Server:    workspaceServer,
 			Source:    workspacePendingDeletionSource,
 			Quiescer:  manager,
-			Gameplay:  gameplayWorkspaceCleanup,
 			Flowcraft: flowcraftWorkspaceCleanup,
 		},
 	); err != nil {
@@ -676,22 +583,14 @@ func (s *Server) init() error {
 	); err != nil {
 		return fmt.Errorf("gizclaw: register Friend Group pending deletion: %w", err)
 	}
-	if s.GameplayDB != nil {
-		if err := pendingDeletionRegistry.Register(
-			gameplay.PendingDeletionSource{DB: s.GameplayDB},
-			gameplay.PetDeletionHandler{DB: s.GameplayDB},
-		); err != nil {
-			return fmt.Errorf("gizclaw: register Gameplay pending deletion: %w", err)
-		}
-	}
 	peerPendingDeletionSource := peer.PendingDeletionSource(peerStore)
 	if err := pendingDeletionRegistry.Register(
 		peerPendingDeletionSource,
 		peer.DeletionHandler{
 			Server: peersServer, Source: peerPendingDeletionSource,
 			Social:     social.PeerRetirement{Contacts: contactServer, Friends: friendServer, FriendGroups: friendGroupServer},
-			Workspaces: workspaceServer, Gameplay: gameplay.PeerRetirement{Runtime: gameplayRuntime},
-			APIKeys: apiKeyServer, RuntimeProfiles: runtimeProfileServer, Quiescer: manager,
+			Workspaces: workspaceServer,
+			APIKeys:    apiKeyServer, RuntimeProfiles: runtimeProfileServer, Quiescer: manager,
 			WorkspaceLookup: workspacePendingDeletionSource, FriendGroupLookup: friendGroupPendingDeletionSource,
 		},
 	); err != nil {
@@ -709,7 +608,6 @@ func (s *Server) init() error {
 	if err != nil {
 		return fmt.Errorf("gizclaw: pending deletion processor: %w", err)
 	}
-	gameplayRuntime.PendingDeletionWake = pendingDeletionProcessor.Wake
 	pendingDeletionAdmin := pendingdeletion.NewAdmin(pendingDeletionRegistry, pendingDeletionProcessor.Wake)
 	s.pendingDeletionProcessor = pendingDeletionProcessor
 	manager.Tools = toolServer
@@ -725,10 +623,6 @@ func (s *Server) init() error {
 		HTTPTools:              s.ToolHTTPExecutor,
 	}
 	manager.AgentHost = agenthost.New(agentResolver)
-	gameplayRuntime.DriveFacts = &driveWorkspaceMemory{
-		resolver: agentResolver, stores: manager.MemoryStores,
-		serverRoot: s.MemoryRoot, genXForOwner: manager.ownerGenX,
-	}
 	manager.Workspaces = workspaceServer
 	manager.Workflows = workflowServer
 	manager.Firmwares = firmwareServer
@@ -753,10 +647,6 @@ func (s *Server) init() error {
 		return fmt.Errorf("gizclaw: reconcile Friend Group retirement intents: %w", err)
 	}
 	manager.ProviderTenants = providerTenantsServer
-	manager.Gameplay = gameplayRuntime
-	gameplayRuntime.WorkspaceRewards = &workspaceRewardEnvironment{
-		manager: manager, workspaces: workspaceServer,
-	}
 	manager.Metrics = s.MetricsStore
 	resourceManager := resourcemanager.New(resourcemanager.Services{
 		Credentials:     credentialServer,
@@ -771,7 +661,6 @@ func (s *Server) init() error {
 		Contacts:        contactServer,
 		Friends:         friendServer,
 		FriendGroups:    friendGroupServer,
-		GameplayCatalog: gameplayCatalog,
 		Tools:           toolServer,
 		RuntimeProfiles: runtimeProfileServer,
 	})
@@ -797,9 +686,6 @@ func (s *Server) init() error {
 			Contacts:                    contactServer,
 			Friends:                     friendServer,
 			FriendGroups:                friendGroupServer,
-			CatalogAdminService:         gameplayCatalog,
-			GameDefIconAdminService:     gameplayCatalog,
-			Gameplay:                    gameplayRuntime,
 			ResourceManager:             resourceManager,
 			ServerLogs:                  s.ServerLogQuery,
 			PeerTelemetry:               &peertelemetry.AdminService{Metrics: s.MetricsStore},

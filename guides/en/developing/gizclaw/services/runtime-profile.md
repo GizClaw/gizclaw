@@ -1,6 +1,6 @@
 # RuntimeProfile and device registration
 
-`RuntimeProfile` is the connection-scoped environment exposed to a device. Administrators create canonical Workflow, Model, Voice, Tool, PetDef, GameDef, BadgeDef, and Path resources; a Peer cannot create those resources. A Peer may create Workspace state and adopt Pet instances.
+`RuntimeProfile` is the connection-scoped environment exposed to a device. Administrators create canonical Workflow, Model, Voice, Tool, and Path resources; a Peer cannot create those resources. A Peer may create Workspace state.
 
 ## Declarative structure
 
@@ -11,8 +11,6 @@ metadata:
   id: default
 spec:
   workflows:
-    system:
-      pet: pet-care
     collections:
       assistants:
         doubao-realtime:
@@ -49,8 +47,8 @@ spec:
           en: {display_name: Speech Recognition}
           zh-CN: {display_name: 语音识别}
     memories:
-      pet-memory:
-        layout_id: pet-memory
+      assistant-memory:
+        layout_id: assistant-memory
         driver: flowcraft
         connection:
           type: flowcraft_redis8
@@ -61,38 +59,9 @@ spec:
         i18n:
           en: {display_name: Cute Pet}
           zh-CN: {display_name: 奶气萌宠}
-    pet_defs:
-      codex:
-        resource_id: petdef-codex
-        i18n:
-          en: {display_name: Codex}
-          zh-CN: {display_name: Codex}
-  gameplay:
-    points:
-      initial_balance: 100
-    adoption:
-      pool:
-        - {pet_def: codex, weight: 100, rarity: common, adoption_cost: 10}
-    pet:
-      time:
-        care_decay_per_hour: {health: 0.5, satiety: 1.3888888889, hygiene: 0.7, mood: 1}
-        energy_recovery_per_hour: 10
-        life_decay:
-          max_loss_per_hour: 4
-          exponent: 2
-          contributing_weights: {health: 0.25, satiety: 0.25, hygiene: 0.25, mood: 0.25}
-      experience:
-        energy_per_pet_exp: 5
-        leveling: {base_exp: 30, log_scale: 10}
-      actions:
-        feed: {energy_cost: 10, stat_delta: 10}
-        bathe: {energy_cost: 10, stat_delta: 10}
-        play: {energy_cost: 10, stat_delta: 10}
-        heal: {energy_cost: 10, stat_delta: 10}
-      games: {}
 ```
 
-`workflows.system` has exactly one required value, `pet`: a canonical Admin-created Workflow ID, not a Collection alias, used by Pet adoption. RuntimeProfile create and update validate that ID, its expected outer driver, and the Model, Voice, and Tool aliases used inside the Workflow. Friend and Friend Group Workspaces are always bound to the built-in `system-sfu` Workflow and are not selected through RuntimeProfile; see [services/social](/en/developing/gizclaw/services/social#sfu-workspace).
+`workflows` contains only `collections`. RuntimeProfile create and update validate every referenced canonical Workflow ID, its driver, and the Model, Voice, and Tool aliases used inside the Workflow. Friend and Friend Group Workspaces are always bound to the built-in `system-sfu` Workflow and are not selected through RuntimeProfile; see [services/social](/en/developing/gizclaw/services/social#sfu-workspace).
 
 Optional Workflow aliases live under `workflows.collections.<collection>.<alias>`. Alias IDs are globally unique across Collections, while the client owns its fixed Collection navigation, ordering, icons, and Collection translations. RuntimeProfile supplies dynamic Workflow membership and alias-level `en` and `zh-CN` display text; it has no top-level locale or Collection presentation section.
 
@@ -105,54 +74,6 @@ Every RuntimeProfile alias is 1-63 bytes of dot-separated lowercase kebab-case s
 The binding alias identifies the named physical source selected by a Workflow's scalar `memory` field. Within the same Workspace, driver, and physical binding, changing extraction policy, Graph Recall/Observe policy, prompts, or `top_k` does not create another canonical data namespace. Changing the driver or connection can select another source without migrating or deleting the old one.
 
 `flowcraft_bbh` is no longer a supported connection. A persisted profile that still uses it is rejected on read or runtime resolution with the affected profile and binding names, but remains replaceable through `PUT` with `flowcraft_redis8` or `flowcraft_object_store`. GizClaw does not migrate, reinterpret, or delete the former managed local directory when the profile is rejected, replaced, or deleted; operators must retain or back up that directory and perform any data transfer explicitly before switching the binding.
-
-Each `gameplay.adoption.pool` entry references only a `pet_defs` alias. The localized PetDef name also comes from that RuntimeProfile binding rather than duplicated i18n in PetDef. PetDef stores only character/speaking style, PIXA metadata, and fixed behavior-to-animation bindings. Models, Voices, and Tools used by a Pet Workflow are symbolic aliases in the canonical Workflow spec and resolve through the system Workspace owner's RuntimeProfile.
-
-`gameplay.pet` completely configures fixed-Pet time decay, passive energy recovery, leveling, and all four standard behaviors. `games` has no default. Each key must also exist in `resources.game_defs` and independently configures energy/points cost plus reward model, prompt, and maxima. Driving an unconfigured GameDef is a no-write no-op.
-
-`gameplay.workspace_reward` configures AI rewards for Workspace conversation
-quality. When enabled, it must fully declare eligible Workspace kinds, debounce,
-transcript bounds, the LLM evaluator, Points tiers, a Badge allowlist, and a
-rolling budget. The evaluator model is an ordinary LLM alias in
-`resources.models`. Each Badge alias must exist in `resources.badge_defs`, and
-its BadgeDef must declare a non-empty `reward_prompt`. The `badges` map may be
-empty for a Points-only policy. For example:
-
-```yaml
-resources:
-  models:
-    reward-evaluator:
-      resource_id: reward-evaluator-model
-  badge_defs:
-    science:
-      resource_id: badge-science
-gameplay:
-  points:
-    initial_balance: 100
-  workspace_reward:
-    enabled: true
-    workspace_kinds: [workflow]
-    debounce: {quiet_period: 2m, max_window_age: 15m}
-    transcript: {max_entries: 100, max_text_bytes: 65536}
-    evaluation:
-      model: reward-evaluator
-      points_prompt: Reward thoughtful conversation and demonstrated learning progress.
-      score_min: 0
-      score_max: 100
-      qualifying_score: 80
-    points:
-      tiers:
-      - {min_score: 80, delta: 5}
-      - {min_score: 90, delta: 10}
-    badges:
-      science: {max_exp_per_window: 5}
-    rolling_budget: {period: 24h, points_max: 50, badge_exp_max: 20}
-```
-
-`workspace_reward: {enabled: false}` is the canonical disabled form; an absent
-field also grants no conversation rewards. The policy freezes when each
-debounced window opens, so later RuntimeProfile or BadgeDef updates affect only
-new windows. It does not register an Admin Tool, built-in Tool, or Toolkit.
 
 ## app_config
 
@@ -179,7 +100,7 @@ app_config participates in spec normalization and revision computation, so chang
 
 The normalized spec has an opaque deterministic revision. Catalog list/get responses include the RuntimeProfile ID and revision. Pagination cursors are revision-bound. Each list, get, Workspace reload, and standalone Speech call obtains one current profile snapshot; a concurrent update affects the next operation.
 
-RuntimeProfile create and update validate the complete dependency graph before publishing a revision. Snapshot reads, including Workspace reload, trust that persisted revision and do not traverse Workflow, Model, Voice, Tool, Memory, or gameplay dependencies again. Each consumer resolves only the exact bindings it uses; an unavailable selected dependency fails in that consumer, while unrelated unavailable resources do not block the snapshot or an unaffected Workspace.
+RuntimeProfile create and update validate the complete dependency graph before publishing a revision. Snapshot reads, including Workspace reload, trust that persisted revision and do not traverse Workflow, Model, Voice, Tool, or Memory dependencies again. Each consumer resolves only the exact bindings it uses; an unavailable selected dependency fails in that consumer, while unrelated unavailable resources do not block the snapshot or an unaffected Workspace.
 
 ## RegistrationToken
 
@@ -203,8 +124,7 @@ RegistrationToken is submitted only through `server.register` on a reliable Peer
 - Workflow, Model, Credential, and Tool create/put/delete are not Peer RPC methods. Admin owns canonical resource management.
 - Workspace create requires `collection` and `workflow_name`; Workspace list requires `collection`. The Server stores Collection as an internal Workspace label and does not return generic labels through Peer RPC. The same typed create capability is used by OpenAI Conversation creation; Admin cannot create or apply a Workspace.
 - A removed Workflow binding does not hide or delete its Workspace. List/get still return it, while reload/run fails with not found until the same Peer name is restored.
-- Pet instances remain Peer/domain state. Adoption and all reward values come from `gameplay`; Server config contains only operational settings.
 
 Firmware remains an independent Admin resource and is not part of the RuntimeProfile projection. A RegistrationToken may bind its Firmware ID independently of the RuntimeProfile, without binding a channel. Credentials and ProviderTenants remain Server-only dependencies of canonical Model and Voice resources.
 
-RuntimeProfile uses the SQL `runtime_profiles`, `registration_tokens`, and `runtime_profile_owners` tables. Profile ID, configuration revision, token, referenced Profile/Firmware IDs, owner, and timestamps have separate columns; resource, Workflow, and Gameplay configuration remain JSON. A unique index enforces token uniqueness. Registration and owner-profile resolution use joins, and lists apply ID cursors and limits in SQL. Profile and token updates/deletes compare row version and creation identity. Owner binding writes use short transactions. External registration callbacks run outside SQL transactions; failure restores the previous binding only when the write identity still matches, protecting later updates. Registrations and snapshot publication for one owner remain serialized within the process while unrelated owners can proceed.
+RuntimeProfile uses the SQL `runtime_profiles`, `registration_tokens`, and `runtime_profile_owners` tables. Profile ID, configuration revision, token, referenced Profile/Firmware IDs, owner, and timestamps have separate columns; resource and Workflow configuration remain JSON. Startup also drops superseded `runtime_profiles` columns that an earlier release created as `NOT NULL`, so a database upgraded in place converges on the current schema instead of rejecting every write that omits them. A unique index enforces token uniqueness. Registration and owner-profile resolution use joins, and lists apply ID cursors and limits in SQL. Profile and token updates/deletes compare row version and creation identity. Owner binding writes use short transactions. External registration callbacks run outside SQL transactions; failure restores the previous binding only when the write identity still matches, protecting later updates. Registrations and snapshot publication for one owner remain serialized within the process while unrelated owners can proceed.

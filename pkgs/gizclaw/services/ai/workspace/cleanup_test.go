@@ -94,10 +94,9 @@ func TestWorkspaceDeletionHandlerRemovesOwnedDataAndPreservesForeignData(t *test
 	}
 	source := NewPendingDeletionSource(srv.DB)
 	claim := claimWorkspaceTask(t, source, now.Add(time.Second))
-	gameplay := &recordingWorkspaceCleanup{rows: map[string]bool{item.Id: true, foreign.Id: true}}
 	quiescer := &recordingWorkspaceQuiescer{}
 	handler := DeletionHandler{
-		Server: srv, Source: source, Quiescer: quiescer, Gameplay: gameplay, Flowcraft: flowstate.WorkspaceCleanup{DB: stateDB},
+		Server: srv, Source: source, Quiescer: quiescer, Flowcraft: flowstate.WorkspaceCleanup{DB: stateDB},
 		Now: func() time.Time { return now.Add(time.Second) },
 	}
 	if err := handler.Handle(ctx, claim); err != nil {
@@ -114,9 +113,6 @@ func TestWorkspaceDeletionHandlerRemovesOwnedDataAndPreservesForeignData(t *test
 	}
 	if absent, err := srv.RuntimeStore.(RuntimeCleanupStore).WorkspaceRuntimeAbsent(ctx, foreign.Id); err != nil || absent {
 		t.Fatalf("foreign runtime absent = %v, %v", absent, err)
-	}
-	if gameplay.rows[item.Id] || !gameplay.rows[foreign.Id] {
-		t.Fatalf("Gameplay rows = %#v", gameplay.rows)
 	}
 	if len(quiescer.ids) != 2 || quiescer.ids[0] != item.Id || quiescer.ids[1] != item.Id {
 		t.Fatalf("quiesced Workspaces = %#v", quiescer.ids)
@@ -195,19 +191,6 @@ func claimWorkspaceTask(t *testing.T, source workspaceSQLDeletionSource, now tim
 		t.Fatalf("Claim() = %#v, %v, %v", claim, claimed, err)
 	}
 	return claim
-}
-
-type recordingWorkspaceCleanup struct {
-	rows map[string]bool
-}
-
-func (c *recordingWorkspaceCleanup) DeleteWorkspaceData(_ context.Context, id string) error {
-	delete(c.rows, id)
-	return nil
-}
-
-func (c *recordingWorkspaceCleanup) WorkspaceDataAbsent(_ context.Context, id string) (bool, error) {
-	return !c.rows[id], nil
 }
 
 type recordingWorkspaceQuiescer struct {

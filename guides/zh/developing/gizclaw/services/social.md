@@ -96,7 +96,7 @@ owner_public_key: <发起方或 Group owner>
 
 `system-sfu` 是内置 system Workflow：driver 为 `sfu`，payload 为空对象，由 `services/ai/workflow` 的 `EnsureBuiltinWorkflows` 在每台 Server 启动时幂等 materialize。Admin 对它的 create、put、delete 分别返回 `409`、`400`、`404` 与错误码 `WORKFLOW_BUILTIN`，Workflow list 不显示它。`sfu` 不属于 `ReusableWorkflowDriver`，Pet 不能嵌套它。
 
-SFU Workspace 是空的运行入口，不拥有 Workspace History、Message、media asset、Agent memory 或任何可配置项；通用 Workspace put 不能修改它。History RPC 对它返回空结果，它不发送 `workspace_history_updated`，不参与 Gameplay Workspace Reward，也不能绑定 OpenAI Conversation。
+SFU Workspace 是空的运行入口，不拥有 Workspace History、Message、media asset、Agent memory 或任何可配置项；通用 Workspace put 不能修改它。History RPC 对它返回空结果，它不发送 `workspace_history_updated`，也不能绑定 OpenAI Conversation。
 
 ### Binding
 

@@ -74,7 +74,6 @@ var workflowFixtureFiles = []string{
 	"17-eino-memory.yaml",
 	"18-flowcraft-configured-memory.yaml",
 	"19-flowcraft-realtime-chat.yaml",
-	"23-pet-care.yaml",
 }
 
 type workflowFixture struct {
@@ -134,9 +133,8 @@ func TestServerWorkspaceFixtureHasNoImplicitOrUnconsumedStoreEntries(t *testing.
 		}
 	}
 	workspace := services["workspace"].(map[string]any)
-	gameplay := services["gameplay"].(map[string]any)
-	if workspace["assets_store"] != "workspace-assets" || gameplay["assets_store"] != "gameplay-assets" {
-		t.Fatalf("owner asset bindings = workspace:%v gameplay:%v", workspace["assets_store"], gameplay["assets_store"])
+	if workspace["assets_store"] != "workspace-assets" {
+		t.Fatalf("owner asset binding = workspace:%v", workspace["assets_store"])
 	}
 	if workspace["history_store"] != "workspace-history" {
 		t.Fatalf("workspace history binding = %v, want workspace-history", workspace["history_store"])
@@ -145,7 +143,7 @@ func TestServerWorkspaceFixtureHasNoImplicitOrUnconsumedStoreEntries(t *testing.
 		t.Fatalf("workspace history asset binding = %v", workspace["history_assets_store"])
 	}
 	history := stores["workspace-history"].(map[string]any)
-	if history["kind"] != "log.mutable" || history["storage"] != "gameplay-db" || history["table"] != "workspace_history" || history["ttl"] != "720h" {
+	if history["kind"] != "log.mutable" || history["storage"] != "business-db" || history["table"] != "workspace_history" || history["ttl"] != "720h" {
 		t.Fatalf("workspace history Store = %#v", history)
 	}
 	historyAssets := stores["workspace-history-assets"].(map[string]any)
@@ -764,7 +762,6 @@ func TestE2EServerConfigProvidesOwnerAssetStores(t *testing.T) {
 		t.Fatal(err)
 	}
 	wants := map[string]string{
-		"gameplay-assets":  "gameplay",
 		"workspace-assets": "workspaces",
 	}
 	for name, prefix := range wants {

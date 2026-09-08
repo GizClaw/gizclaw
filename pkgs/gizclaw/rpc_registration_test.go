@@ -420,9 +420,6 @@ func createRegistrationToken(t *testing.T, server *runtimeprofile.Server, profil
 
 func testRuntimeProfileWorkflows() apitypes.RuntimeProfileWorkflows {
 	return apitypes.RuntimeProfileWorkflows{
-		System: apitypes.RuntimeProfileSystemWorkflows{
-			Pet: "pet-care",
-		},
 		Collections: apitypes.RuntimeProfileWorkflowCollections{},
 	}
 }
@@ -430,23 +427,6 @@ func testRuntimeProfileWorkflows() apitypes.RuntimeProfileWorkflows {
 func installTestSystemWorkflowResolver(server *runtimeprofile.Server) {
 	fallback := server.ResolveResource
 	server.ResolveResource = func(ctx context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
-		if kind == apitypes.ResourceKindWorkflow && name == "pet-care" {
-			spec := apitypes.WorkflowSpec{
-				Driver: apitypes.WorkflowDriverPet,
-				Pet: &apitypes.PetWorkflowSpec{
-					Driver: apitypes.ReusableWorkflowDriverEino,
-					Eino:   &apitypes.EinoWorkflowSpec{},
-				},
-			}
-			var resource apitypes.Resource
-			err := resource.FromWorkflowResource(apitypes.WorkflowResource{
-				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
-				Kind:       apitypes.WorkflowResourceKindWorkflow,
-				Metadata:   apitypes.ResourceMetadata{Id: name},
-				Spec:       spec,
-			})
-			return resource, err
-		}
 		if fallback != nil {
 			return fallback(ctx, kind, name)
 		}

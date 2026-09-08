@@ -1652,7 +1652,6 @@ static int test_peer_event_golden_vectors(void) {
       "0801100572100a0a6469726563742d612d6210021804",
       "080110067a180a06706565722d62120a6469726563742d612d6218022005",
       "080110078201190a0767726f75702d61120a67726f75702d726f6f6d18042006",
-      "080110088a01170a0a776f726b666c6f772d6112076772616e742d611807",
   };
   for (size_t i = 0; i < sizeof(vectors) / sizeof(vectors[0]); ++i) {
     const char *hex = vectors[i];
@@ -3150,12 +3149,6 @@ int main(void) {
     return 1;
   }
   if (expect(method_id == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING, "request method id value") != 0) {
-    return 1;
-  }
-  if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD == 87, "pet pixa method id value") != 0) {
-    return 1;
-  }
-  if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD == 64, "badge pixa method id value") != 0) {
     return 1;
   }
   if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_CREATE == 96, "API key create method id value") != 0) {

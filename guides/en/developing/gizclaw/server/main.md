@@ -76,8 +76,7 @@ The main capability groups are:
 | `services.peer_run.store` | distinct `keyvalue`; owns Server-local Peer status and Agent selection state |
 | `services.api_key.store` | `keyvalue`; stores API keys, secret indexes, and owner indexes, and must be shared for multi-Server API routing |
 | login, credential, firmware, RuntimeProfile, model, voice, MemoryLayout, provider tenants, workflow, toolkit, contact, friend, and Friend Group | one `keyvalue` each; code owns internal collection prefixes |
-| `services.workspace.history_assets_store`, `services.workspace.assets_store`, `services.gameplay.assets_store`, `services.agent_host.runtime_store` | `objectstore` |
-| `services.gameplay.database_store` | `sql` |
+| `services.workspace.history_assets_store`, `services.workspace.assets_store`, `services.agent_host.runtime_store` | `objectstore` |
 | `services.workspace.history_store` | `log.mutable` |
 | `services.agent_host.flowcraft.history_store` | `log.mutable` |
 | `services.metrics.store` | `metrics` |
@@ -90,11 +89,11 @@ In a multi-Server topology, all Servers may bind Peer, Friend, and Friend Group 
 
 Startup strictly parses the configuration, opens physical connectors, builds logical Stores, resolves service capabilities, lets active SQL-backed services validate their schemas, and installs logging and metrics. After workspace PID ownership is acquired, optional process profiling resolves its dedicated ObjectStore and publishes a baseline; only then are public listeners opened and `Server.Listen` started. Logical Stores never close borrowed connectors. Shutdown joins the profiling worker before closing logging, logical wrappers, and physical connectors. Process profiling belongs to `cmd/internal/server`; the reusable `pkgs/gizclaw.Server` has no pprof dependency.
 
-The old one-layer Store configuration, top-level pseudo-service blocks, implicit Store names, generic `kind: log`, and `gizclaw migrate` command are unsupported. Recreate development workspaces with the current configuration; no old data is imported or transformed. Gameplay and ClickHouse Store table initialization remain active schema lifecycle, not old-data migration.
+The old one-layer Store configuration, top-level pseudo-service blocks, implicit Store names, generic `kind: log`, and `gizclaw migrate` command are unsupported. Recreate development workspaces with the current configuration; no old data is imported or transformed. ClickHouse Store table initialization remains active schema lifecycle, not old-data migration.
 
 ### Complete configuration
 
-The complete production configuration below lets prefix-scoped KV, table-scoped Metrics, immutable/mutable Log, and Gameplay raw SQL Stores borrow one PostgreSQL pool while ObjectStores use a separate filesystem root. The SQL backend maps each KV prefix directly to its physical table; the KV declaration has no `table` field. Every logical SQL Store directly ensures its business table and indexes, then validates the exact schema before listeners start; no version or history table is created. Any failure stops startup without a backend fallback. A local SQLite deployment keeps the same `stores` and `services` and changes only `storage.database` to `kind: sqlite` with `dir` or `dsn`.
+The complete production configuration below lets prefix-scoped KV, table-scoped Metrics, and immutable/mutable Log Stores borrow one PostgreSQL pool while ObjectStores use a separate filesystem root. The SQL backend maps each KV prefix directly to its physical table; the KV declaration has no `table` field. Every logical SQL Store directly ensures its business table and indexes, then validates the exact schema before listeners start; no version or history table is created. Any failure stops startup without a backend fallback. A local SQLite deployment keeps the same `stores` and `services` and changes only `storage.database` to `kind: sqlite` with `dir` or `dsn`.
 
 <<< ../../../../snippets/server-storage-stores-services.yaml{yaml}
 
@@ -102,22 +101,11 @@ The complete production configuration below lets prefix-scoped KV, table-scoped 
 
 Each Workspace Agent generation resolves its memory alias from the current RuntimeProfile snapshot. Construction failure fails Agent initialization or reload explicitly. Server shutdown closes the shared Memory registry. Workspace reload and release of the final Agent reference close that generation's lease without migrating, merging, copying, or deleting durable data.
 
-## Workspace reward lifecycle
-
-Starting the Workspace reward dispatcher validates Gameplay SQL schema and the
-single activation boundary, then starts its bounded due-work poller. It never
-enumerates or reads persisted Workspace records or History during Server
-startup, and it has no periodic Workspace catalog scan. A successfully
-published AgentHost runtime schedules lazy catch-up for that exact Workspace;
-post-History-append notifications are optional latency hints and may be dropped.
-Durable pending, retry, and expired-claim windows resume directly from Gameplay
-SQL after restart.
-
 ## Pending-deletion processor
 
 Server initialization validates the pending-deletion source and handler registry without starting background work. `Server.Listen` starts one immediate scanner plus a bounded worker pool; `Server.Close` cancels scans and active attempts, waits for all processor goroutines, and only then lets command-layer stores close. The durable domain store is the queue source of truth. Producer wake signals and the in-memory dispatch channel only reduce latency, so startup and periodic scans recover committed work after a restart or a dropped signal.
 
-The first production registration is `source=gameplay`, advertising only `kind=pet`, and it exists only when `GameplayDB` is configured. Peer, Workspace, and Friend Group are not registered without their domain handlers. An invalid, duplicate, incomplete, or capability-incompatible registration fails initialization.
+Production registrations are `source=workspace` (`kind=workspace`), `source=friend_group` (`kind=friend_group`), and `source=peer` (`kind=peer`), each bound to its domain handler. An invalid, duplicate, incomplete, or capability-incompatible registration fails initialization.
 
 The optional top-level `pending_deletion` configuration defaults to `scan_interval: 30s`, `page_size: 100`, `dispatch_capacity: 256`, `workers: 4`, `lease_duration: 2m`, `attempt_timeout: 90s`, `retry_initial: 5s`, `retry_max: 30m`, and `max_attempts: 10`. Durations and counts must be positive and bounded, attempt timeout must be shorter than the lease, retry initial must not exceed retry max, and unknown keys fail strict configuration parsing. There is no completion-retention setting.
 

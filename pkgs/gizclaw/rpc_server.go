@@ -116,10 +116,6 @@ func (s *rpcServer) dispatchStream(ctx context.Context, stream *rpcStream, req *
 		return true, s.handleSpeechExtract(ctx, stream, req)
 	case rpcapi.RPCMethodServerSpeechSynthesize:
 		return true, s.handleSpeechSynthesize(ctx, stream, req)
-	case rpcapi.RPCMethodServerPetPixaDownload:
-		return true, s.handlePetPixaDownload(ctx, stream, req)
-	case rpcapi.RPCMethodServerBadgeDefPixaDownload:
-		return true, s.handleBadgeDefPixaDownload(ctx, stream, req)
 	case rpcapi.RPCMethodServerWorkspaceIconDownload:
 		return true, s.handleWorkspaceIconDownload(ctx, stream, req)
 	case rpcapi.RPCMethodServerWorkspaceHistoryAudioDownload:
@@ -293,8 +289,7 @@ func isPlannedServerMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerFriendGroupMembersList,
 		rpcapi.RPCMethodServerFriendGroupMembersAdd,
 		rpcapi.RPCMethodServerFriendGroupMembersPut,
-		rpcapi.RPCMethodServerFriendGroupMembersDelete,
-		rpcapi.RPCMethodServerBadgeDefPixaDownload:
+		rpcapi.RPCMethodServerFriendGroupMembersDelete:
 		return true
 	default:
 		return false

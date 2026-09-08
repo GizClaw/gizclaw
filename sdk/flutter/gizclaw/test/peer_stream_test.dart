@@ -172,7 +172,7 @@ void main() {
     ).readAsStringSync();
     final vectors = (jsonDecode(source) as List<Object?>)
         .cast<Map<String, Object?>>();
-    expect(vectors, hasLength(9));
+    expect(vectors, hasLength(8));
     for (final vector in vectors) {
       final expected = _hexBytes(vector['hex']! as String);
       final event = PeerEvent.fromBuffer(expected);

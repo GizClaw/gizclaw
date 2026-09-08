@@ -29,7 +29,7 @@ pkgs/giznet/
 - Peer 与 service 级别的安全策略入口。
 - 所有 transport 实现共享的 protocol、key 和 error 定义。
 
-这些定义必须保持与 GizClaw 业务无关。上层可以用它们承载不同服务，但根 package 不知道 Admin、Device、Agent、OTA 或 Gameplay 等产品概念。
+这些定义必须保持与 GizClaw 业务无关。上层可以用它们承载不同服务，但根 package 不知道 Admin、Device、Agent 或 OTA 等产品概念。
 
 ### gizhttp
 
@@ -216,7 +216,7 @@ flowchart TB
 不应该放在 `pkgs/giznet`：
 
 - Admin、Peer、Edge 的具体 RPC method、HTTP route 或 service ID ownership。
-- Device、Agent、OTA、Gameplay、Social 和其他业务服务。
+- Device、Agent、OTA、Social 和其他业务服务。
 - Server storage、workspace、配置加载和 CLI 启动组装。
 - Firmware、board、desktop UI 或浏览器产品逻辑。
 - 只对单个 GizClaw 业务 surface 有意义的授权规则。

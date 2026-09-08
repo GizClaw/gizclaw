@@ -1,6 +1,6 @@
 # RPC API Reference
 
-本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 117 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
+本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 99 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
 
 `all.*` 由连接两端提供，`client.*` 由 Client/Device 提供，普通 `server.*` 与 `runtime.*` 由 Server 提供。最后一组 Edge RPC 使用独立 service `0x31`，只对 Edge-node 开放；其余方法使用 Peer RPC service `0x00`。
 
@@ -112,28 +112,6 @@ Workflow、Model 与 Voice 由当前 RuntimeProfile 投影为 Peer name catalog�
 | 60 | `server.friend_group.members.put` | 修改 Friend Group 成员的 member/admin role。 |
 | 61 | `server.friend_group.members.delete` | 从 Friend Group 删除成员。 |
 
-## Gameplay
-
-| ID | Method | 作用 |
-| ---: | --- | --- |
-| 64 | `server.badge_def.pixa.download` | 按 BadgeDef name 返回 PIXA metadata，并通过 binary frames 传输素材 bytes。 |
-| 65 | `server.pet.list` | 分页列出当前 Peer 的 Pet names。 |
-| 66 | `server.pet.get` | 按当前 Peer 作用域内的 name 读取 Pet。 |
-| 67 | `runtime.adopt` | 使用 caller-supplied peer-scoped Pet name 按当前 RuntimeProfile 领养 Pet。 |
-| 68 | `server.pet.put` | 按 Pet name 修改 display name。 |
-| 69 | `server.pet.delete` | 按 Pet name 原子创建或复用 pending-deletion handoff，同时保留 Pet 与绑定的 system Workspace。 |
-| 70 | `server.pet.drive` | 按 Pet name 执行 action 或提交按 Game name 选择的 game result，并原子返回 Pet、Points、Badge 与 reward 变化。 |
-| 71 | `server.points.get` | 读取当前 Peer 与 RuntimeProfile 的 Points account。 |
-| 72 | `server.points.transactions.list` | 分页列出 Points transactions。 |
-| 73 | `server.points.transactions.get` | 按 ID 读取一条 Points transaction。 |
-| 74 | `server.badge.list` | 分页列出当前 Peer 的 Badge。 |
-| 75 | `server.badge.get` | 按 ID 读取当前 Peer 的 Badge。 |
-| 76 | `server.game_result.list` | 分页列出当前 Peer 的 Game Result。 |
-| 77 | `server.game_result.get` | 按 ID 读取一条 Game Result。 |
-| 78 | `server.reward_grant.list` | 分页列出当前 Peer 的 Reward Grant。 |
-| 79 | `server.reward_grant.get` | 按 ID 读取一条 Reward Grant。 |
-| 86 | `server.pet.actions.get` | 按 Pet name 读取当前可用的 actions、效果和 clip 映射。 |
-| 87 | `server.pet.pixa.download` | 按 Pet name 返回对应 PIXA metadata，并通过 binary frames 传输素材 bytes。 |
 
 ## Tool
 

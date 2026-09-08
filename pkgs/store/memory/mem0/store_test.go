@@ -310,7 +310,7 @@ func TestStoreDirectFactObservationIsIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 	observation := Observation{
-		Scope: Scope{AppID: "workspace"}, ID: "gameplay/drive/reward_grant/grant-1",
+		Scope: Scope{AppID: "workspace"}, ID: "workspace/event/entry-1",
 		Facts: []FactCandidate{{
 			Text:       "Pet completed care.",
 			Attributes: map[string]any{"kind": "event", "source_id": "grant-1"},

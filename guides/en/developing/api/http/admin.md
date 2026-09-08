@@ -15,7 +15,6 @@ See the [Admin API Reference](/api/) for exact endpoints, parameters, requests, 
 | Peer | Peer query, approval, blocking, refresh, configuration and runtime |
 | Runtime access | RuntimeProfile and RegistrationToken management |
 | AI | Credential, Model, Voice, Provider Tenant, Workflow, Workspace |
-| Gameplay | Game Rule, Pet, Badge, Points, Result and Reward |
 | Social | Contact, Friend and Friend Group Management |
 | Firmware | Declarative Firmware resources and external stable, beta, and develop package configuration |
 | Observability | Server log stream, Peer telemetry query, and active pending-deletion operations |
@@ -38,7 +37,7 @@ This contract gives declarative providers such as Terraform a stable `<kind>/<id
 
 ## Pending-deletion operations
 
-`DELETE /peers/{publicKey}`, `DELETE /workspaces/{name}`, and `DELETE /peers/{publicKey}/pets/{id}` atomically create or reuse one domain pending-deletion handoff and return the projection captured at deletion time. The handoff record is exposed only through the operator endpoints below. A Workspace marker immediately rejects selection, runtime, history/icon access, and mutations for that Workspace, while Admin Workspace get/list remain available for diagnostics. A Peer marker immediately closes the online connection and rejects reconnect, login, sessions, RPC, WebRTC, business reads, and mutations for that identity; only Admin Peer get/list and the same delete remain. Completion leaves a permanent Peer tombstone, so the public key cannot register again. Workspace deletion accepts only user-created Workspaces and returns `SYSTEM_WORKSPACE_DELETE_FORBIDDEN` for a system Workspace. Ordinary Pet deletion retains its binding and system Workspace.
+`DELETE /peers/{publicKey}` and `DELETE /workspaces/{name}` atomically create or reuse one domain pending-deletion handoff and return the projection captured at deletion time. The handoff record is exposed only through the operator endpoints below. A Workspace marker immediately rejects selection, runtime, history/icon access, and mutations for that Workspace, while Admin Workspace get/list remain available for diagnostics. A Peer marker immediately closes the online connection and rejects reconnect, login, sessions, RPC, WebRTC, business reads, and mutations for that identity; only Admin Peer get/list and the same delete remain. Completion leaves a permanent Peer tombstone, so the public key cannot register again. Workspace deletion accepts only user-created Workspaces and returns `SYSTEM_WORKSPACE_DELETE_FORBIDDEN` for a system Workspace.
 
 Operators inspect active cleanup work through `GET /pending-deletions` and `GET /pending-deletions/{deletionId}?source=...`. `POST /pending-deletions/{deletionId}/retry?source=...` requeues only a `failed` task; retrying any other active state returns `409`. List cursors are opaque and bind every filter except `limit`. Responses expose a domain-approved locator and bounded failure metadata, but never owner identities, descriptors, payloads, credentials, lease tokens, marker fingerprints, raw backend errors, or stack traces. Successful finalization immediately removes the task, so get and retry then return `404`; there is no completion receipt or history endpoint.
 

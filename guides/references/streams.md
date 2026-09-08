@@ -144,7 +144,7 @@ RPC service stream 内使用统一的 4-byte little-endian header：前 2 bytes 
 | `FrameTypeBinary` | `2` | bytes | Protobuf envelope、PeerEvent 或业务 binary chunk。 |
 | `FrameTypeText` | `3` | text / continuation bytes | RPC text payload；Peer Event Stream 不接受。 |
 
-普通 unary RPC 的双方序列都是 `Protobuf envelope → EOS`。Binary RPC 在 request 或 response envelope 与 EOS 之间加入零个或多个 `FrameTypeBinary` chunks。`all.speed_test.run` 可以同时进行双向 binary frames；Firmware、history audio、Workspace icon、Badge PIXA 和 Pet PIXA 下载使用 Server → Client / Device binary frames。
+普通 unary RPC 的双方序列都是 `Protobuf envelope → EOS`。Binary RPC 在 request 或 response envelope 与 EOS 之间加入零个或多个 `FrameTypeBinary` chunks。`all.speed_test.run` 可以同时进行双向 binary frames；Firmware、history audio、Workspace icon 下载使用 Server → Client / Device binary frames。
 
 RPC EOS 结束当前方向的 frame sequence；完整 request/response lifecycle 结束后，Provider 关闭该 service DataChannel。它不等于 [Event `type=eos`](./events#four-different-end-boundaries)。一条 RPC DataChannel 只承载一个请求；顺序或提前缓冲的第二个请求不会被 dispatch，下一次 RPC 必须新建 channel。
 
@@ -161,8 +161,6 @@ RPC EOS 结束当前方向的 frame sequence；完整 request/response lifecycle
 | `server.speech.synthesize` | Server → Client / Device | Response metadata 后返回的有界合成音频。 |
 | `server.workspace.history.audio.download` | Server → Client / Device | Workspace history 音频。 |
 | `server.workspace.icon.download` | Server → Client / Device | Workspace icon。 |
-| `server.badge_def.pixa.download` | Server → Client / Device | Badge Definition PIXA。 |
-| `server.pet.pixa.download` | Server → Client / Device | Pet PIXA。 |
 
 每个方向都以 RPC EOS 结束。方法参数和用途见 [RPC API Reference](./rpc)，其中语音方法位于[独立流式语音](./rpc#独立流式语音)，history audio 位于 [Workspace 与 history](./rpc#workspace-与-history)。
 

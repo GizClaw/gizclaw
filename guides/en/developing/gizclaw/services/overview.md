@@ -10,7 +10,6 @@ The root `pkgs/gizclaw` package is responsible for assembling these services int
 pkgs/gizclaw/services/
 ├── ai/          # AI providers, models, voices, workflows, and workspaces
 ├── device/      # device-owned resources, currently focused on firmware
-├── gameplay/    # gameplay catalog, pets, points, rewards, and assets
 ├── runtime/     # online Peer and Agent runtime capabilities
 ├── social/      # contacts, friends, and friend groups
 └── system/      # RuntimeProfile, ownership, API keys, and resource management
@@ -22,13 +21,10 @@ pkgs/gizclaw/services/
 flowchart TB
     Root["pkgs/gizclaw<br/>Server composition"] --> AI["ai"]
     Root --> Device["device"]
-    Root --> Gameplay["gameplay"]
     Root --> Runtime["runtime"]
     Root --> Social["social"]
     Root --> System["system"]
     Runtime --> AI
-    Gameplay --> AI
-    Gameplay --> System
     Social --> System
     AI --> System
 ```
@@ -36,8 +32,7 @@ flowchart TB
 Dependencies in the diagram represent explicit collaborations that are allowed to exist, not that one domain owns data from another domain:
 
 - Runtime starts the Agent using AI resources but does not own the workflow, workspace, model or credentials.
-- Gameplay can use Workspace, RuntimeProfile, and ownership, but does not own Agent Runtime.
-- AI, Gameplay, and Social use RuntimeProfile, ownership, or unified resource capabilities from System while retaining their own domain resources.
+- AI and Social use RuntimeProfile, ownership, or unified resource capabilities from System while retaining their own domain resources.
 
 ## Service Catalog Rules
 
@@ -60,7 +55,6 @@ The following content should not be placed in `services/`:
 
 - [AI](ai.md)
 - [Device](device.md)
-- [Gameplay](gameplay.md)
 - [Runtime](runtime/overview.md)
 - [Social](social.md)
 - [System](system.md)

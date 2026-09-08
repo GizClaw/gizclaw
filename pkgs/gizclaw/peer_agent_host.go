@@ -15,7 +15,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/doubaorealtimeduplex"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/eino"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/flowcraft"
-	petagent "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/pet"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
@@ -28,7 +27,6 @@ func newPeerAgentHost(
 	workspaces peerAgentWorkspaceResolver,
 	peerGenX *peergenx.Service,
 	ownerGenX func(context.Context, string) (*peergenx.Service, error),
-	pets petagent.ContextProvider,
 	history logstore.MutableStore,
 	state *sqlx.DB,
 	memoryRoot string,
@@ -82,7 +80,6 @@ func newPeerAgentHost(
 		ServerRoot:   memoryRoot,
 		MemoryStores: memoryStores,
 	})
-	_ = host.Register(petagent.Type, petagent.Factory{Pets: pets, Factories: host.Registry})
 	_ = host.Register(sfu.Type, sfuFactory)
 	return host
 }

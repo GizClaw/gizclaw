@@ -14,9 +14,6 @@ func TestWorkflowSpecJSONOneOf(t *testing.T) {
 		"sfu": {
 			raw: `{"driver":"sfu","sfu":{}}`,
 		},
-		"nested dashscope realtime": {
-			raw: `{"driver":"pet","pet":{"driver":"dashscope-realtime","dashscope_realtime":{"model":"realtime"}}}`,
-		},
 		"dashscope realtime": {
 			raw: `{"driver":"dashscope-realtime","dashscope_realtime":{"model":"realtime"}}`,
 		},
@@ -53,13 +50,9 @@ func TestWorkflowSpecJSONOneOf(t *testing.T) {
 			raw:     `{"driver":"sfu","sfu":{},"ast_translate":{"translation_model":"translation"}}`,
 			wantErr: "does not match",
 		},
-		"recursive pet": {
-			raw:     `{"driver":"pet","pet":{"driver":"pet"}}`,
-			wantErr: "unsupported reusable driver",
-		},
-		"nested sfu": {
+		"pet driver removed": {
 			raw:     `{"driver":"pet","pet":{"driver":"sfu","sfu":{}}}`,
-			wantErr: `unknown field "sfu"`,
+			wantErr: `unknown field "pet"`,
 		},
 		"unknown field": {
 			raw:     `{"driver":"sfu","sfu":{},"config":{}}`,

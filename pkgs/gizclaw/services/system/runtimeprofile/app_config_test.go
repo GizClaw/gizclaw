@@ -13,7 +13,6 @@ func appConfigUpsert(config apitypes.RuntimeProfileAppConfig) adminhttp.RuntimeP
 		Id: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{
-				System:      apitypes.RuntimeProfileSystemWorkflows{Pet: "pet-care"},
 				Collections: apitypes.RuntimeProfileWorkflowCollections{},
 			},
 			AppConfig: &config,

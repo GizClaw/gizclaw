@@ -11,7 +11,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -62,11 +61,6 @@ func TestPeerSelfDeletionStopsActiveConnectionAndRuntime(t *testing.T) {
 		t.Fatalf("resolve direct Friend Workspace: found=%v error=%v", found, err)
 	}
 
-	adopted, err := peer.client.AdoptPet(env.ctx, "delete.peer.pet", rpcapi.RuntimeAdoptRequest{Name: "delete-peer-pet", DisplayName: "Delete Peer Pet"})
-	if err != nil {
-		t.Fatalf("adopt Peer-owned Pet: %v", err)
-	}
-	storedPet := findPeerPet(t, env, peer.publicKey, adopted.Pet.Name)
 	group, err := peer.client.CreateFriendGroup(env.ctx, "delete.peer.group", rpcapi.FriendGroupCreateRequest{Name: "delete-peer-owned-group"})
 	if err != nil {
 		t.Fatalf("create Peer-owned Friend Group: %v", err)
@@ -131,11 +125,6 @@ func TestPeerSelfDeletionStopsActiveConnectionAndRuntime(t *testing.T) {
 	}
 	env.waitWorkspaceAbsent(t, *storedGroup.WorkspaceId)
 	env.waitWorkspaceAbsent(t, directChatWorkspace.Id)
-	if response, err := env.api.GetPeerPetWithResponse(env.ctx, peer.publicKey, storedPet.Id); err != nil || response.StatusCode() != http.StatusConflict {
-		t.Fatalf("deleted Peer Pet endpoint: status=%d body=%s error=%v", response.StatusCode(), response.Body, err)
-	}
-	env.waitWorkspaceAbsent(t, storedPet.WorkspaceId)
-	requirePeerGameplayPurged(t, peer.publicKey, storedPet.Id)
 	if response, err := env.api.GetContactWithResponse(env.ctx, peer.publicKey, storedOwnedContact.Id); err != nil || response.StatusCode() != http.StatusNotFound {
 		t.Fatalf("Peer-owned Contact survived deletion: status=%d body=%s error=%v", response.StatusCode(), response.Body, err)
 	}
@@ -378,27 +367,5 @@ func assertGroupMemberships(t *testing.T, env *deletionHarness, groupID, ownerPu
 	}
 	if !hasOwner {
 		t.Fatalf("foreign Friend Group lost its owner: %#v", response.JSON200.Items)
-	}
-}
-
-func requirePeerGameplayPurged(t *testing.T, publicKey, petID string) {
-	t.Helper()
-	project := strings.TrimSpace(os.Getenv("GIZCLAW_E2E_DOCKER_PROJECT"))
-	if project == "" {
-		t.Fatal("GIZCLAW_E2E_DOCKER_PROJECT is required for direct Gameplay verification")
-	}
-	lookup := exec.CommandContext(t.Context(), "docker", "ps", "-q",
-		"--filter", "label=com.docker.compose.project="+project,
-		"--filter", "label=com.docker.compose.service=server")
-	container, err := lookup.Output()
-	if err != nil || strings.TrimSpace(string(container)) == "" {
-		t.Fatalf("resolve E2E Server container: output=%q error=%v", container, err)
-	}
-	command := exec.CommandContext(t.Context(), "docker", "exec", "-w", "/src", strings.TrimSpace(string(container)),
-		"go", "run", "./tests/gizclaw-e2e/cmd/assert-peer-gameplay-deleted",
-		"--db", "/src/tests/gizclaw-e2e/testdata/server-workspace/data/gameplay.sqlite",
-		"--owner", publicKey, "--pet", petID)
-	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("verify retired Peer Gameplay storage: %s: %v", output, err)
 	}
 }

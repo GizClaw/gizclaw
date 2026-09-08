@@ -171,6 +171,53 @@ func TestOwnerRollbackCannotOverwriteLaterBinding(t *testing.T) {
 	}
 }
 
+// TestInitializeProfileSQLUpgradesLegacyGameplayColumn pins the in-place upgrade
+// path: a table created by an earlier release carries a NOT NULL gameplay_json
+// column that CREATE TABLE IF NOT EXISTS cannot remove, and every current insert
+// omits it.
+func TestInitializeProfileSQLUpgradesLegacyGameplayColumn(t *testing.T) {
+	db, err := sqlx.Open("sqlite", filepath.Join(t.TempDir(), "legacy.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	ctx := t.Context()
+	if _, err := db.ExecContext(ctx, `CREATE TABLE runtime_profiles(id TEXT PRIMARY KEY CHECK(length(id)>0),revision TEXT NOT NULL,resources_json TEXT NOT NULL,workflows_json TEXT NOT NULL,gameplay_json TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,incarnation TEXT NOT NULL,row_version BIGINT NOT NULL)`); err != nil {
+		t.Fatalf("create legacy table: %v", err)
+	}
+	now := time.Date(2026, 9, 8, 1, 2, 3, 4, time.UTC)
+	if _, err := db.ExecContext(ctx, `INSERT INTO runtime_profiles(id,revision,resources_json,workflows_json,gameplay_json,created_at,updated_at,incarnation,row_version) VALUES ('legacy','revision','{}','{}','{"points":{}}',?,?,'incarnation',1)`,
+		now.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano)); err != nil {
+		t.Fatalf("seed legacy row: %v", err)
+	}
+	if err := initializeProfileSQL(ctx, db); err != nil {
+		t.Fatalf("initializeProfileSQL(legacy) error = %v", err)
+	}
+	if err := initializeProfileSQL(ctx, db); err != nil {
+		t.Fatalf("initializeProfileSQL(repeat) error = %v", err)
+	}
+	var columns int
+	if err := db.GetContext(ctx, &columns, `SELECT COUNT(*) FROM pragma_table_info('runtime_profiles') WHERE name = 'gameplay_json'`); err != nil {
+		t.Fatalf("inspect columns: %v", err)
+	}
+	if columns != 0 {
+		t.Fatalf("gameplay_json columns = %d, want 0", columns)
+	}
+	item := apitypes.RuntimeProfile{Id: "upgraded", CreatedAt: now, UpdatedAt: now, Revision: "revision", Spec: apitypes.RuntimeProfileSpec{}}
+	if created, err := insertRuntimeProfileSQL(ctx, db, item); err != nil || !created {
+		t.Fatalf("insert after upgrade = %v, %v", created, err)
+	}
+	retained, _, err := getRuntimeProfileSQL(ctx, db, "legacy")
+	if err != nil || retained.Id != "legacy" || retained.Revision != "revision" {
+		t.Fatalf("retained legacy profile = %#v, %v", retained, err)
+	}
+}
+
 func TestRuntimeProfileSQLAppConfigPersistence(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "profiles.sqlite")
 	open := func() *sqlx.DB {

@@ -83,25 +83,12 @@ func TestRuntimeProfileAppConfigGiztest(t *testing.T) {
 	}
 	start()
 	t.Cleanup(func() { stop() })
-	var node apitypes.FlowcraftNode
-	if err := node.FromFlowcraftPassthroughNode(apitypes.FlowcraftPassthroughNode{Id: "passthrough", Type: apitypes.FlowcraftPassthroughNodeTypePassthrough, Publish: new(true)}); err != nil {
-		t.Fatal(err)
-	}
-	_, err = adminapi.CreateWorkflow(ctx, admin, apitypes.Workflow{Id: "pet-care", Spec: apitypes.WorkflowSpec{
-		Driver: apitypes.WorkflowDriverPet,
-		Pet: &apitypes.PetWorkflowSpec{Driver: apitypes.ReusableWorkflowDriverFlowcraft, Flowcraft: &apitypes.FlowcraftWorkflowSpec{
-			Graph: apitypes.FlowcraftGraph{Name: "app-config-pet", Entry: "passthrough", Nodes: []apitypes.FlowcraftNode{node}, Edges: new([]apitypes.FlowcraftEdge{{From: "passthrough", To: "__end__"}})},
-		}},
-	}})
-	if err != nil {
-		t.Fatal(err)
-	}
 	config := apitypes.RuntimeProfileAppConfig{
-		"ui.theme": "dark", "feature.flags": "beta-voice,beta-pet",
+		"ui.theme": "dark", "feature.flags": "beta-voice,beta-audio",
 		"app.entrypoints": "{\"home\": \"/tab/home\", \"settings\": \"/tab/settings\"}\n",
 	}
 	request := adminhttp.RuntimeProfileUpsert{Id: "app-config-giztest", Spec: apitypes.RuntimeProfileSpec{
-		Workflows: apitypes.RuntimeProfileWorkflows{System: apitypes.RuntimeProfileSystemWorkflows{Pet: "pet-care"}, Collections: apitypes.RuntimeProfileWorkflowCollections{}},
+		Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{}},
 		AppConfig: &config,
 	}}
 	created, err := adminapi.CreateRuntimeProfile(ctx, admin, request)

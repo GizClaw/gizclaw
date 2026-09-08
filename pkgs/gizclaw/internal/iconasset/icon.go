@@ -47,10 +47,6 @@ func ObjectName(identity string, format Format) string {
 	return customid.OpaquePathSegment(identity) + "/icon." + string(format)
 }
 
-func GameDefObjectName(identity string, format Format) string {
-	return "game-defs/" + ObjectName(identity, format)
-}
-
 func ReadValidated(r io.Reader, format Format) ([]byte, error) {
 	if r == nil {
 		return nil, fmt.Errorf("%w: request body required", ErrInvalid)

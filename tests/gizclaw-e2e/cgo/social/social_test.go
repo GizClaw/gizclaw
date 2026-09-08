@@ -59,11 +59,11 @@ func createCSDKSocialRegistrationToken(
 		t.Fatalf("create C social admin client: %v", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	profile, found, err := clitest.RuntimeProfileByID(ctx, api, "default-gameplay")
+	profile, found, err := clitest.RuntimeProfileByID(ctx, api, "e2e-giztest")
 	if err != nil || !found {
 		cancel()
 		admin.Close()
-		t.Fatalf("resolve default gameplay RuntimeProfile: found=%v err=%v", found, err)
+		t.Fatalf("resolve standard E2E RuntimeProfile: found=%v err=%v", found, err)
 	}
 	response, err := api.CreateRegistrationTokenWithResponse(
 		ctx,

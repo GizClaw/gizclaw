@@ -7,7 +7,7 @@ GizClaw 为管理端和 Peer 提供两套主要接口：Admin API 用于管理�
 | 接口 | 适用调用方 | Contract | Giznet service | 典型用途 |
 | --- | --- | --- | --- | --- |
 | Admin API | operator、CLI、管理 UI | OpenAPI 3.0 / HTTP | `0x10`（Admin HTTP） | Peer 管理、声明式资源、Provider 配置、Firmware、Telemetry 与 Server 日志 |
-| Peer RPC | 设备、App、SDK | Protobuf RPC | `0x00`（Peer RPC） | 运行状态、Workspace、Workflow、Firmware、社交、玩法和设备能力 |
+| Peer RPC | 设备、App、SDK | Protobuf RPC | `0x00`（Peer RPC） | 运行状态、Workspace、Workflow、Firmware、社交和设备能力 |
 
 需要管理跨 Peer 的 Server 资源时使用 Admin API；需要以当前 Peer 的身份读取或操作产品数据时使用 Peer RPC。Edge node 的路由控制使用独立的 Edge RPC service `0x31`，不属于普通 Peer RPC client。
 
@@ -42,7 +42,7 @@ Server 只允许以下身份打开 Admin HTTP service：
 - 声明式资源：`POST /@apply` 与 `/resources/{kind}/{name}`。
 - Peer：查询、批准、阻止、刷新、设备信息与 runtime。
 - AI 与 Runtime：Credential、Provider Tenant、Model、Voice、Workflow、Workspace、RuntimeProfile 与 RegistrationToken。
-- Firmware 与玩法：Firmware channel package 配置、GameDef、PetDef、BadgeDef 和 Peer 玩法数据。
+- Firmware：Firmware channel package 配置。
 - 运维：Peer telemetry 查询、Server log SSE stream 与 active pending-deletion 查看/重试。
 
 完整 path、参数和 response 以 [`api/http/admin.json`](https://github.com/GizClaw/gizclaw/blob/main/api/http/admin.json) 为准。

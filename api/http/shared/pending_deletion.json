@@ -12,8 +12,7 @@
         "enum": [
           "peer",
           "workspace",
-          "friend_group",
-          "pet"
+          "friend_group"
         ]
       },
       "PendingDeletionStatus": {
