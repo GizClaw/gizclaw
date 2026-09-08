@@ -590,33 +590,59 @@ func TestLoadDocumentValidatesEmptyInputTurn(t *testing.T) {
 	if _, err := LoadDocument(writeTestDocument(t, turn("      completion: input_sent\n")), nil); err != nil {
 		t.Fatalf("empty_input with input_sent completion rejected: %v", err)
 	}
+	// The schema owns these rules so a consumer validating the document
+	// without the Go runner rejects exactly what the runner rejects.
+	for name, body := range map[string]string{
+		"realtime mode":     validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: realtime\n      empty_input: true\n",
+		"text mode":         validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: text\n      empty_input: true\n",
+		"listen mode":       validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: listen\n      duration: 3s\n      empty_input: true\n",
+		"empty_input false": validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: push-to-talk\n      empty_input: false\n",
+		"with input":        turn("      input: ${endpoint}\n"),
+		"require_text":      turn("      require_text: false\n"),
+		"require_audio":     turn("      require_audio: true\n"),
+		"interrupt_after":   turn("      interrupt_after: 1s\n"),
+		"first_response":    turn("      completion: first_response\n      first_text_timeout: 5s\n      first_audio_timeout: 5s\n"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := LoadDocument(writeTestDocument(t, body), nil)
+			if err == nil || !strings.Contains(err.Error(), "schema validation") {
+				t.Fatalf("error = %v, want schema validation", err)
+			}
+		})
+	}
+}
+
+func TestValidatePeerStreamStepRejectsEmptyInputCombinations(t *testing.T) {
+	step := func(op PeerStreamOperation) Step {
+		op.EmptyInput = true
+		if op.Mode == "" {
+			op.Mode = "push-to-talk"
+		}
+		return Step{ID: "turn", Client: "peer", PeerStream: &op}
+	}
+	requireText := false
 	for name, tc := range map[string]struct {
-		body string
+		step Step
 		want string
 	}{
-		"realtime mode": {
-			body: validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: realtime\n      empty_input: true\n",
-			want: "requires push-to-talk mode",
-		},
-		"with input":      {body: turn("      input: ${endpoint}\n"), want: "cannot set input"},
-		"require_text":    {body: turn("      require_text: false\n"), want: "remove require_text and require_audio"},
-		"require_audio":   {body: turn("      require_audio: true\n"), want: "remove require_text and require_audio"},
-		"interrupt_after": {body: turn("      interrupt_after: 1s\n"), want: "no response to interrupt"},
+		"realtime mode":   {step: step(PeerStreamOperation{Mode: "realtime"}), want: "requires push-to-talk mode"},
+		"with input":      {step: step(PeerStreamOperation{Input: "${endpoint}"}), want: "cannot set input"},
+		"require_text":    {step: step(PeerStreamOperation{RequireText: &requireText}), want: "remove require_text and require_audio"},
+		"interrupt_after": {step: step(PeerStreamOperation{InterruptAfter: "1s"}), want: "no response to interrupt"},
 		"first_response": {
-			body: turn("      completion: first_response\n      first_text_timeout: 5s\n      first_audio_timeout: 5s\n"),
+			step: step(PeerStreamOperation{Completion: "first_response", FirstTextTimeout: "5s", FirstAudioTimeout: "5s"}),
 			want: "cannot use first_response completion",
-		},
-		"empty_input false": {
-			body: validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: push-to-talk\n      empty_input: false\n",
-			want: "schema validation",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, err := LoadDocument(writeTestDocument(t, tc.body), nil)
+			err := validatePeerStreamStep(tc.step, false)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("error = %v, want %q", err, tc.want)
 			}
 		})
+	}
+	if err := validatePeerStreamStep(step(PeerStreamOperation{}), false); err != nil {
+		t.Fatalf("empty_input push-to-talk turn rejected: %v", err)
 	}
 }
 
