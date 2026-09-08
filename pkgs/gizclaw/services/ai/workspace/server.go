@@ -61,16 +61,8 @@ type Server struct {
 	IconLocks        iconasset.Locker
 	NewID            func() string
 	PeerAvailability func(context.Context, string) error
-	DeletionFencer   WorkspaceDeletionFencer
 
 	ownerCreateLocks keyedlock.Locker[string]
-}
-
-// WorkspaceDeletionFencer serializes authoritative PendingDeletion marker
-// creation with any not-yet-committed reward settlement for the same
-// Workspace. The callback must be invoked while the durable fence is held.
-type WorkspaceDeletionFencer interface {
-	WithWorkspaceDeletionFence(context.Context, string, func(context.Context, *sqlx.DB, *sqlx.Tx) error) error
 }
 
 // WorkflowService resolves Workflow resources without exposing the owning
@@ -265,7 +257,7 @@ func (s *Server) ListWorkspaces(ctx context.Context, request adminhttp.ListWorks
 
 // ListWorkspacesByOwner reads the immutable owner index used by Peer RPC.
 // System Workspaces are intentionally absent and are added through their
-// Friend, FriendGroup, and Pet domain relationships.
+// Friend and FriendGroup domain relationships.
 func (s *Server) ListWorkspacesByOwner(ctx context.Context, owner string) ([]apitypes.Workspace, error) {
 	return s.ListWorkspacesByOwnerAndLabels(ctx, owner, nil)
 }
@@ -674,28 +666,10 @@ func (s *Server) retireSystemWorkspace(ctx context.Context, store *sqlx.DB, item
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
-	// Social SFU Workspaces are never reward eligible and need no settlement
-	// fence. Other system Workspaces retain reward fencing; when both services
-	// share a database, the marker is created in the reward transaction.
-	if !workspaceIsSocialSFU(item) {
-		if err := s.createPendingDeletion(ctx, store, record); err != nil {
-			return apitypes.Workspace{}, err
-		}
-		return item, nil
-	}
-	if _, _, err := NewPendingDeletionSource(store).CreateOrGet(ctx, record); err != nil {
+	if err := s.createPendingDeletion(ctx, store, record); err != nil {
 		return apitypes.Workspace{}, err
 	}
 	return item, nil
-}
-
-// workspaceIsSocialSFU reports the exact shape a Friend or Friend Group SFU
-// Workspace is materialized with: a system Workspace bound to the built-in SFU
-// Workflow and carrying no agent parameters.
-func workspaceIsSocialSFU(item apitypes.Workspace) bool {
-	return workspaceIsSystem(item) &&
-		strings.TrimSpace(item.WorkflowId) == socialutil.SFUWorkflowID &&
-		item.Parameters == nil
 }
 
 // GetRetiredSystemWorkspace returns an existing Social SFU Workspace
@@ -856,41 +830,9 @@ func (s *Server) fastDeleteWorkspaceRecord(ctx context.Context, store *sqlx.DB, 
 	return s.createPendingDeletion(ctx, store, record)
 }
 
-func (s *Server) retirePeerPetWorkspaceRecord(ctx context.Context, store *sqlx.DB, item apitypes.Workspace, owner string) error {
-	if item.OwnerPublicKey == nil || *item.OwnerPublicKey != owner || !workspaceIsSystem(item) {
-		return errors.New("workspace: invalid Peer-owned Pet system Workspace")
-	}
-	descriptor := workspaceDeletionDescriptor{
-		ID: item.Id, Name: item.Name, OwnerPublicKey: cloneString(item.OwnerPublicKey),
-		HasIcon: item.Icon != nil, System: true,
-	}
-	record, err := pendingdeletion.New(
-		pendingdeletion.KindWorkspace,
-		item.Id,
-		item.OwnerPublicKey,
-		pendingdeletion.ReasonPeerDelete,
-		descriptor,
-		time.Now(),
-	)
-	if err != nil {
-		return err
-	}
-	return s.createPendingDeletion(ctx, store, record)
-}
-
 func (s *Server) createPendingDeletion(ctx context.Context, db *sqlx.DB, record pendingdeletion.Record) error {
-	create := func(ctx context.Context, fenceDB *sqlx.DB, tx *sqlx.Tx) error {
-		if fenceDB == db && tx != nil {
-			_, _, err := createWorkspaceDeletionTx(ctx, tx, record)
-			return err
-		}
-		_, _, err := NewPendingDeletionSource(db).CreateOrGet(ctx, record)
-		return err
-	}
-	if s.DeletionFencer == nil {
-		return create(ctx, nil, nil)
-	}
-	return s.DeletionFencer.WithWorkspaceDeletionFence(ctx, record.ResourceID, create)
+	_, _, err := NewPendingDeletionSource(db).CreateOrGet(ctx, record)
+	return err
 }
 
 func (s *Server) GetWorkspace(ctx context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
@@ -1065,7 +1007,7 @@ func (s *Server) putWorkspaceRecord(
 		!systemWorkspaceAllowsInputUpdate(previous, normalized) {
 		return adminhttp.PutWorkspace409JSONResponse(apitypes.NewErrorResponse(
 			SystemWorkspaceUpdateForbiddenCode,
-			fmt.Sprintf("system workspace %q only permits changing the chat or pet input mode", previous.Name),
+			fmt.Sprintf("system workspace %q only permits changing the chat input mode", previous.Name),
 		)), nil
 	}
 	if err := s.validateReferences(ctx, normalized, true); err != nil {
@@ -1139,8 +1081,7 @@ func systemWorkspaceMatches(existing apitypes.Workspace, desired adminhttp.Works
 		strings.TrimSpace(*existing.OwnerPublicKey) == owner &&
 		existing.WorkflowId == desired.WorkflowId &&
 		reflect.DeepEqual(existing.Labels, cloneLabelsOrEmpty(desired.Labels)) &&
-		(systemWorkspaceDomainParametersMatch(existing.Parameters, desired.Parameters) ||
-			systemPetWorkspaceInputUpdate(existing.Parameters, desired.Parameters)) &&
+		systemWorkspaceDomainParametersMatch(existing.Parameters, desired.Parameters) &&
 		reflect.DeepEqual(existing.Toolkit, cloneToolkitPolicy(desired.Toolkit))
 }
 
@@ -1152,31 +1093,7 @@ func systemWorkspaceAllowsInputUpdate(existing apitypes.Workspace, desired admin
 	return existing.WorkflowId == desired.WorkflowId &&
 		reflect.DeepEqual(existing.Labels, desiredLabels) &&
 		reflect.DeepEqual(existing.Toolkit, cloneToolkitPolicy(desired.Toolkit)) &&
-		(systemWorkspaceDomainParametersMatch(existing.Parameters, desired.Parameters) ||
-			systemPetWorkspaceInputUpdate(existing.Parameters, desired.Parameters))
-}
-
-func systemPetWorkspaceInputUpdate(existing, desired *apitypes.WorkspaceParameters) bool {
-	existingPet, existingIsPet := petWorkspaceInput(existing)
-	desiredPet, desiredIsPet := petWorkspaceInput(desired)
-	if !existingIsPet && !desiredIsPet {
-		return false
-	}
-	return (existing == nil || existingIsPet) &&
-		(desired == nil || desiredIsPet) &&
-		(existingPet == nil || existingPet.Valid()) &&
-		(desiredPet == nil || desiredPet.Valid())
-}
-
-func petWorkspaceInput(parameters *apitypes.WorkspaceParameters) (*apitypes.WorkspaceInputMode, bool) {
-	if parameters == nil {
-		return nil, false
-	}
-	value, err := parameters.AsPetWorkspaceParameters()
-	if err != nil || !value.AgentType.Valid() {
-		return nil, false
-	}
-	return value.Input, true
+		systemWorkspaceDomainParametersMatch(existing.Parameters, desired.Parameters)
 }
 
 func systemWorkspaceDomainParametersMatch(existing, desired *apitypes.WorkspaceParameters) bool {
@@ -1370,9 +1287,6 @@ func (s *Server) validateReferences(ctx context.Context, workspace adminhttp.Wor
 	if err != nil {
 		return err
 	}
-	if workflow.Spec.Driver == apitypes.WorkflowDriverPet {
-		return validatePetOverrides(workflow.Spec.Pet, workspace.Parameters)
-	}
 	if workflow.Spec.Driver == apitypes.WorkflowDriverAstTranslate && runtimeAlias {
 		return s.validateASTTranslateOverrides(ctx, workspace.Parameters)
 	}
@@ -1420,40 +1334,6 @@ func (s *Server) validateReferences(ctx context.Context, workspace adminhttp.Wor
 		}
 	}
 	return nil
-}
-
-func validatePetOverrides(workflow *apitypes.PetWorkflowSpec, workspaceParameters *apitypes.WorkspaceParameters) error {
-	if workspaceParameters == nil {
-		return nil
-	}
-	if err := requireWorkspaceParametersVariant(workspaceParameters, "pet"); err != nil {
-		return invalidWorkspaceReference("pet parameters are required: %v", err)
-	}
-	parameters, err := workspaceParameters.AsPetWorkspaceParameters()
-	if err != nil {
-		return invalidWorkspaceReference("pet parameters are required: %v", err)
-	}
-	if !parameters.AgentType.Valid() {
-		return invalidWorkspaceReference("pet parameters.agent_type %q is unsupported", parameters.AgentType)
-	}
-	if parameters.Input == nil {
-		return nil
-	}
-	if !parameters.Input.Valid() {
-		return invalidWorkspaceReference("pet parameters.input %q is unsupported", *parameters.Input)
-	}
-	if workflow == nil {
-		return invalidWorkspaceReference("pet workflow spec is required")
-	}
-	switch workflow.Driver {
-	case apitypes.ReusableWorkflowDriverFlowcraft,
-		apitypes.ReusableWorkflowDriverDoubaoRealtime,
-		apitypes.ReusableWorkflowDriverEino,
-		apitypes.ReusableWorkflowDriverAstTranslate:
-		return nil
-	default:
-		return invalidWorkspaceReference("pet nested workflow driver %q does not support workspace input switching", workflow.Driver)
-	}
 }
 
 func validateDoubaoRealtimeOverrides(workspaceParameters *apitypes.WorkspaceParameters) error {

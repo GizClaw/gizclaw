@@ -179,7 +179,7 @@ func workspaceParametersWithPatch(
 			value.Input = input
 		}
 		return updated, updated.FromDoubaoRealtimeWorkspaceParameters(value)
-	case apitypes.WorkflowDriverAstTranslate, apitypes.WorkflowDriverPet:
+	case apitypes.WorkflowDriverAstTranslate:
 		if input != nil {
 			return workspaceParametersWithInput(parameters, driver, *input)
 		}

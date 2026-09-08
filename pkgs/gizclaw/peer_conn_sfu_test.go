@@ -15,7 +15,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -395,22 +394,6 @@ type retiredNameWorkspaceService struct {
 
 func (s retiredNameWorkspaceService) GetWorkspaceByName(context.Context, string) (apitypes.Workspace, error) {
 	return apitypes.Workspace{}, workspace.ErrWorkspacePendingDeletion
-}
-
-func TestManagerHandleWorkspaceActivatedSkipsSFUWorkspaces(t *testing.T) {
-	manager := &Manager{Gameplay: &gameplay.Runtime{WorkspaceRewards: &workspaceRewardEnvironment{}}}
-	// Both records carry an invalid ID: Gameplay rejects it, so reaching the
-	// enqueue is observable, while the SFU Workspace must return before it.
-	social := apitypes.Workspace{Name: "social-direct-1", WorkflowId: socialutil.SFUWorkflowID, System: new(true)}
-	if err := manager.handleWorkspaceActivated(t.Context(), social); err != nil {
-		t.Fatalf("handleWorkspaceActivated(sfu) error = %v, want nil", err)
-	}
-	if err := manager.handleWorkspaceActivated(t.Context(), apitypes.Workspace{Name: "chat", WorkflowId: "workflow-1"}); err == nil {
-		t.Fatal("handleWorkspaceActivated(workflow) did not reach the reward activation")
-	}
-	if err := (&Manager{}).handleWorkspaceActivated(t.Context(), social); err != nil {
-		t.Fatalf("handleWorkspaceActivated without Gameplay error = %v", err)
-	}
 }
 
 func audioEndEvent(streamID string) *eventpb.PeerEvent {

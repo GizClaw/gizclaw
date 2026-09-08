@@ -32,7 +32,7 @@ Has server-side Peer resources, identity, registration and basic status. Transpo
 
 ### [peerresource](./peerresource)
 
-Aggregates domain resources such as AI, gameplay, social, and tools that peers can access to provide a consistent entry point for the Peer-facing surface. It only performs cross-domain coordination and does not re-own or copy resources in each domain. Firmware is not part of RuntimeProfile or peer resource projection; compatibility RPCs return an empty list or not found.
+Aggregates domain resources such as AI, social, and tools that peers can access to provide a consistent entry point for the Peer-facing surface. It only performs cross-domain coordination and does not re-own or copy resources in each domain. Firmware is not part of RuntimeProfile or peer resource projection; compatibility RPCs return an empty list or not found.
 
 ### [peerroute](./peerroute)
 
@@ -72,5 +72,5 @@ Shouldn't be placed here:
 
 - WebRTC, service stream or packet transport.
 - Catalog ownership of Workflow, workspace, model, voice and credential.
-- Domain rules for Gameplay, social or firmware.
+- Domain rules for social or firmware.
 - CLI process, storage backend and listener creation.

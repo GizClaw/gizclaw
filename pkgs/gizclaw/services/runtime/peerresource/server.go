@@ -23,7 +23,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
@@ -34,20 +33,18 @@ import (
 )
 
 type Server struct {
-	Caller          giznet.PublicKey
-	Peers           peerFirmwareBindingService
-	Firmwares       firmwarePeerService
-	Workspaces      workspace.WorkspaceAdminService
-	Workflows       workflow.WorkflowAdminService
-	Models          model.ModelAdminService
-	Voices          voice.VoiceAdminService
-	Contacts        *contact.Server
-	Friends         *friend.Server
-	FriendGroups    *friendgroup.Server
-	Gameplay        *gameplay.Runtime
-	RewardEvaluator gameplay.RewardEvaluator
-	Tools           *toolkit.Server
-	RuntimeProfile  func() *apitypes.RuntimeProfile
+	Caller         giznet.PublicKey
+	Peers          peerFirmwareBindingService
+	Firmwares      firmwarePeerService
+	Workspaces     workspace.WorkspaceAdminService
+	Workflows      workflow.WorkflowAdminService
+	Models         model.ModelAdminService
+	Voices         voice.VoiceAdminService
+	Contacts       *contact.Server
+	Friends        *friend.Server
+	FriendGroups   *friendgroup.Server
+	Tools          *toolkit.Server
+	RuntimeProfile func() *apitypes.RuntimeProfile
 }
 
 type WorkspaceHistoryService interface {
@@ -172,24 +169,6 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerFriendGroupMembersAdd,
 		rpcapi.RPCMethodServerFriendGroupMembersPut,
 		rpcapi.RPCMethodServerFriendGroupMembersDelete,
-		rpcapi.RPCMethodServerBadgeDefPixaDownload,
-		rpcapi.RPCMethodServerPetList,
-		rpcapi.RPCMethodServerPetGet,
-		rpcapi.RPCMethodServerPetActionsGet,
-		rpcapi.RPCMethodServerPetPixaDownload,
-		rpcapi.RPCMethodRuntimeAdopt,
-		rpcapi.RPCMethodServerPetPut,
-		rpcapi.RPCMethodServerPetDelete,
-		rpcapi.RPCMethodServerPetDrive,
-		rpcapi.RPCMethodServerPointsGet,
-		rpcapi.RPCMethodServerPointsTransactionsList,
-		rpcapi.RPCMethodServerPointsTransactionsGet,
-		rpcapi.RPCMethodServerBadgeList,
-		rpcapi.RPCMethodServerBadgeGet,
-		rpcapi.RPCMethodServerGameResultList,
-		rpcapi.RPCMethodServerGameResultGet,
-		rpcapi.RPCMethodServerRewardGrantList,
-		rpcapi.RPCMethodServerRewardGrantGet,
 		rpcapi.RPCMethodServerToolList,
 		rpcapi.RPCMethodServerToolGet,
 		rpcapi.RPCMethodServerAppConfigList,
@@ -287,42 +266,6 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleFriendGroupMembersPut(ctx, req), true, nil
 	case rpcapi.RPCMethodServerFriendGroupMembersDelete:
 		return s.handleFriendGroupMembersDelete(ctx, req), true, nil
-	case rpcapi.RPCMethodServerBadgeDefPixaDownload:
-		return s.handleBadgeDefPixaDownload(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPetList:
-		return s.handlePetList(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPetGet:
-		return s.handlePetGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPetActionsGet:
-		return s.handlePetActionsGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPetPixaDownload:
-		return s.handlePetPixaDownload(ctx, req), true, nil
-	case rpcapi.RPCMethodRuntimeAdopt:
-		return s.handlePetAdopt(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPetPut:
-		return s.handlePetPut(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPetDelete:
-		return s.handlePetDelete(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPetDrive:
-		return s.handlePetDrive(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPointsGet:
-		return s.handlePointsGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPointsTransactionsList:
-		return s.handlePointsTransactionsList(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPointsTransactionsGet:
-		return s.handlePointsTransactionsGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerBadgeList:
-		return s.handleBadgeList(ctx, req), true, nil
-	case rpcapi.RPCMethodServerBadgeGet:
-		return s.handleBadgeGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerGameResultList:
-		return s.handleGameResultList(ctx, req), true, nil
-	case rpcapi.RPCMethodServerGameResultGet:
-		return s.handleGameResultGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerRewardGrantList:
-		return s.handleRewardGrantList(ctx, req), true, nil
-	case rpcapi.RPCMethodServerRewardGrantGet:
-		return s.handleRewardGrantGet(ctx, req), true, nil
 	case rpcapi.RPCMethodServerToolList:
 		return s.handleToolList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerToolGet:
@@ -569,9 +512,6 @@ func workspaceWorkflowName(profile *apitypes.RuntimeProfile, item apitypes.Works
 	}
 	if profile == nil {
 		return "", false
-	}
-	if item.System != nil && *item.System && item.WorkflowId == profile.Spec.Workflows.System.Pet {
-		return "pet", true
 	}
 	if item.Labels == nil {
 		return "", false

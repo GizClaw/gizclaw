@@ -7,15 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
-	"github.com/jmoiron/sqlx"
-	_ "modernc.org/sqlite"
 )
 
 func TestOrderedUniqueKeepsProfileBeforeOwner(t *testing.T) {
@@ -89,97 +85,6 @@ func TestPageVoicesUsesProfileOrder(t *testing.T) {
 	if !reflect.DeepEqual(page, items[2:]) || hasNext || cursor != nil {
 		t.Fatalf("second page = %#v, hasNext=%v cursor=%v", page, hasNext, cursor)
 	}
-}
-
-func TestDomainWorkspaceNamesSkipsGameplayWithoutDatabase(t *testing.T) {
-	server := &Server{Gameplay: &gameplay.Runtime{}}
-	names, err := server.domainWorkspaceNames(context.Background())
-	if err != nil {
-		t.Fatalf("domainWorkspaceNames() error = %v", err)
-	}
-	if len(names) != 0 {
-		t.Fatalf("domainWorkspaceNames() = %#v, want empty", names)
-	}
-}
-
-func TestDomainWorkspaceNamesRetainsDeletedPetWorkspaceWithinRuntimeProfile(t *testing.T) {
-	ctx := context.Background()
-	db, err := sqlx.Open("sqlite", ":memory:")
-	if err != nil {
-		t.Fatalf("open database: %v", err)
-	}
-	db.SetMaxOpenConns(1)
-	t.Cleanup(func() { _ = db.Close() })
-	workspaces := workspaceNameService{names: map[string]string{
-		"profile-a-workspace-id": "  profile-a-workspace  ",
-		"profile-b-workspace-id": "profile-b-workspace",
-		"empty-workspace-id":     " ",
-	}}
-	runtime := &gameplay.Runtime{DB: db, Workspaces: workspaces}
-	if err := runtime.Migration(ctx); err != nil {
-		t.Fatalf("Migration() error = %v", err)
-	}
-	caller := giznet.PublicKey{1}
-	now := time.Date(2026, 7, 19, 7, 45, 0, 0, time.UTC).Format(time.RFC3339Nano)
-	for _, profileName := range []string{"profile-a", "profile-b"} {
-		workspaceID := profileName + "-workspace-id"
-		_, err := db.ExecContext(ctx, `INSERT INTO gameplay_pets (owner_public_key, id, name, runtime_profile_id, pet_def_id, display_name, workspace_id, stats_json, progression_json, lifecycle, died_at, state_settled_at, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			caller.String(), profileName+"-pet", profileName+"-pet", profileName, "petdef-basic", profileName, workspaceID, `{"life":100,"health":100,"satiety":100,"hygiene":100,"mood":100,"energy":100}`, `{"experience":0,"level":1}`, "alive", nil, now, now, now, now)
-		if err != nil {
-			t.Fatalf("insert pet for %s: %v", profileName, err)
-		}
-	}
-	_, err = db.ExecContext(ctx, `INSERT INTO gameplay_pets (owner_public_key, id, name, runtime_profile_id, pet_def_id, display_name, workspace_id, stats_json, progression_json, lifecycle, died_at, state_settled_at, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		caller.String(), "profile-a-empty-pet", "profile-a-empty-pet", "profile-a", "petdef-basic", "empty", "empty-workspace-id", `{"life":100,"health":100,"satiety":100,"hygiene":100,"mood":100,"energy":100}`, `{"experience":0,"level":1}`, "alive", nil, now, now, now, now)
-	if err != nil {
-		t.Fatalf("insert pet with empty workspace: %v", err)
-	}
-	profileCtx := gameplay.WithRuntimeProfile(ctx, apitypes.RuntimeProfile{Id: "profile-a"})
-	if _, err := runtime.DeletePet(profileCtx, caller.String(), "profile-a-pet"); err != nil {
-		t.Fatalf("DeletePet(profile-a) error = %v", err)
-	}
-	if _, err := db.ExecContext(ctx, `DELETE FROM gameplay_pending_deletions WHERE kind = 'pet' AND owner_public_key = ? AND resource_id = ?`, caller.String(), "profile-a-pet"); err != nil {
-		t.Fatalf("simulate completed pending cleanup: %v", err)
-	}
-	profile := apitypes.RuntimeProfile{Id: "profile-a"}
-	server := &Server{
-		Caller:   caller,
-		Gameplay: runtime,
-		RuntimeProfile: func() *apitypes.RuntimeProfile {
-			return &profile
-		},
-	}
-	names, err := server.domainWorkspaceNames(ctx)
-	if err != nil {
-		t.Fatalf("domainWorkspaceNames() error = %v", err)
-	}
-	if !reflect.DeepEqual(names, []string{"profile-a-workspace"}) {
-		t.Fatalf("domainWorkspaceNames() = %#v", names)
-	}
-}
-
-type workspaceNameService struct {
-	names map[string]string
-}
-
-func (workspaceNameService) CreateSystemWorkspace(context.Context, adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
-	return apitypes.Workspace{}, false, errors.New("unexpected CreateSystemWorkspace")
-}
-
-func (workspaceNameService) DeleteSystemWorkspace(context.Context, string) (apitypes.Workspace, error) {
-	return apitypes.Workspace{}, errors.New("unexpected DeleteSystemWorkspace")
-}
-
-func (s workspaceNameService) GetWorkspace(_ context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
-	name, ok := s.names[request.Id]
-	if !ok {
-		return adminhttp.GetWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "not found")), nil
-	}
-	return adminhttp.GetWorkspace200JSONResponse(apitypes.Workspace{Id: request.Id, Name: name}), nil
-}
-
-func (workspaceNameService) GetWorkspaceByName(context.Context, string) (apitypes.Workspace, error) {
-	return apitypes.Workspace{}, errors.New("unexpected GetWorkspaceByName")
 }
 
 type deviceReadInfoStub struct {

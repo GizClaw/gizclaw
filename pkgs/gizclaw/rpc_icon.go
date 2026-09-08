@@ -36,3 +36,24 @@ func (s *rpcServer) handleWorkspaceIconDownload(ctx context.Context, stream *rpc
 	defer reader.Close()
 	return writeRPCDownload(ctx, stream, req, metadata, (*rpcapi.RPCPayload).FromWorkspaceIconDownloadResponse, reader)
 }
+
+// writeRPCDownload writes typed metadata, the binary frames of reader, and EOS.
+func writeRPCDownload[T any](ctx context.Context, stream *rpcStream, req *rpcapi.RPCRequest, metadata T, encode func(*rpcapi.RPCPayload, T) error, reader io.Reader) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	resp, err := newRPCResultResponse(req.Id, metadata, encode)
+	if err != nil {
+		return err
+	}
+	metadataEOS, err := stream.WriteResponseEnvelopeForMethod(req.Method, resp)
+	if err != nil {
+		return err
+	}
+	if metadataEOS {
+		if err := stream.WriteEOS(); err != nil {
+			return err
+		}
+	}
+	return writeReaderBinaryFrames(stream, reader)
+}

@@ -496,33 +496,6 @@ class EinoWorkspaceParametersAgentType extends $pb.ProtobufEnum {
   const EinoWorkspaceParametersAgentType._(super.value, super.name);
 }
 
-class PetWorkspaceParametersAgentType extends $pb.ProtobufEnum {
-  static const PetWorkspaceParametersAgentType
-      PET_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED =
-      PetWorkspaceParametersAgentType._(
-          0,
-          _omitEnumNames
-              ? ''
-              : 'PET_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED');
-  static const PetWorkspaceParametersAgentType
-      PET_WORKSPACE_PARAMETERS_AGENT_TYPE_PET =
-      PetWorkspaceParametersAgentType._(
-          1, _omitEnumNames ? '' : 'PET_WORKSPACE_PARAMETERS_AGENT_TYPE_PET');
-
-  static const $core.List<PetWorkspaceParametersAgentType> values =
-      <PetWorkspaceParametersAgentType>[
-    PET_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED,
-    PET_WORKSPACE_PARAMETERS_AGENT_TYPE_PET,
-  ];
-
-  static final $core.List<PetWorkspaceParametersAgentType?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 1);
-  static PetWorkspaceParametersAgentType? valueOf($core.int value) =>
-      value < 0 || value >= _byValue.length ? null : _byValue[value];
-
-  const PetWorkspaceParametersAgentType._(super.value, super.name);
-}
-
 class FriendGroupMemberMutableRole extends $pb.ProtobufEnum {
   static const FriendGroupMemberMutableRole
       FRIEND_GROUP_MEMBER_MUTABLE_ROLE_UNSPECIFIED =
@@ -822,8 +795,6 @@ class WorkflowDriver extends $pb.ProtobufEnum {
           2, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_DOUBAO_REALTIME');
   static const WorkflowDriver WORKFLOW_DRIVER_AST_TRANSLATE = WorkflowDriver._(
       3, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_AST_TRANSLATE');
-  static const WorkflowDriver WORKFLOW_DRIVER_PET =
-      WorkflowDriver._(5, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_PET');
   static const WorkflowDriver WORKFLOW_DRIVER_DASH_SCOPE_REALTIME =
       WorkflowDriver._(
           6, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_DASH_SCOPE_REALTIME');
@@ -840,7 +811,6 @@ class WorkflowDriver extends $pb.ProtobufEnum {
     WORKFLOW_DRIVER_FLOWCRAFT,
     WORKFLOW_DRIVER_DOUBAO_REALTIME,
     WORKFLOW_DRIVER_AST_TRANSLATE,
-    WORKFLOW_DRIVER_PET,
     WORKFLOW_DRIVER_DASH_SCOPE_REALTIME,
     WORKFLOW_DRIVER_DOUBAO_REALTIME_DUPLEX,
     WORKFLOW_DRIVER_EINO,

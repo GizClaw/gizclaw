@@ -350,9 +350,6 @@ func workflowToolkitPolicies(spec apitypes.WorkflowSpec) []*apitypes.ToolkitPoli
 	if spec.Toolkit != nil {
 		policies = append(policies, spec.Toolkit)
 	}
-	if spec.Pet != nil && spec.Pet.Toolkit != nil {
-		policies = append(policies, spec.Pet.Toolkit)
-	}
 	return policies
 }
 

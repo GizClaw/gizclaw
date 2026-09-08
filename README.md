@@ -23,7 +23,7 @@ ingress; a self-organizing multi-server mesh remains future work.
 
 It provides the server, CLI, WebRTC transport, Admin/RPC APIs, workflow-backed
 agent runtime, device telemetry, state monitoring, OTA firmware delivery,
-digital content distribution, social graph, gameplay services, and shared SDK
+digital content distribution, social graph, and shared SDK
 contracts for connected devices, browser integrations, external clients, and
 test harnesses.
 
@@ -50,9 +50,6 @@ workspace-backed agents through the CLI and APIs.
   `.tar.zlib` package URLs and integrity metadata.
 - [x] Social workspace resources for contacts, friends, and friend groups,
   each bound to an SFU Workspace for real-time multi-party voice.
-- [x] Gameplay rulesets, point accounts, reward grants, pet adoption, drive
-  actions, pet workspaces, game results, badge progression, and pixa asset
-  delivery.
 - [x] Generated API packages and SDK surfaces for Go, JavaScript, Dart/Flutter,
   C-facing clients, CLI, and e2e harnesses.
 
@@ -63,18 +60,12 @@ workspace-backed agents through the CLI and APIs.
   - [ ] OpenAI Realtime
   - [ ] Coze
   - [ ] Eino
-- [ ] Generalized gameplay reward entry points beyond `pet.drive`, including
-  built-in tool exposure for agent-driven reward grants.
-- [ ] Pet-readable gameplay event writes into pet workspace memory/history after
-  care actions and game results.
 - [ ] Self-organizing server mesh where devices attach to one node and requests
   can route through other nodes to the node that owns the target device data.
 - [ ] Stabilize the Flutter SDK and mobile client for broader end-user and
   platform coverage.
 - [ ] Third-party digital content federation with joint authorization and access
   from agent runtimes.
-- [ ] Expanded digital content delivery for gameplay content beyond current pet
-  and badge pixa resources.
 - [ ] Additional process-wide `slog` sinks beyond stderr and Volc TLS.
 - [ ] Refresh repository-local agent skills for current CLI, admin, server,
   firmware, gear, workspace, and Play workflows.

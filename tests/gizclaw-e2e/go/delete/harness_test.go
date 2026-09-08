@@ -22,7 +22,7 @@ import (
 
 const (
 	deleteAdminContext = "delete-admin"
-	deleteProfileID    = "default-gameplay"
+	deleteProfileID    = "e2e-deletion"
 	deleteCollection   = "deletion"
 	deleteWorkflowName = "workspace"
 	deleteWorkflowID   = "flowcraft-scenario-000"
@@ -88,24 +88,28 @@ func newDeletionHarness(t *testing.T) *deletionHarness {
 
 func (e *deletionHarness) ensureRuntimeProfile(t *testing.T) {
 	t.Helper()
-	profile, found, err := clitest.RuntimeProfileByID(e.ctx, e.api, deleteProfileID)
-	if err != nil || !found {
-		t.Fatalf("resolve deletion RuntimeProfile: found=%v error=%v", found, err)
+	resources, err := clitest.SetupRuntimeResources(e.ctx, e.api)
+	if err != nil {
+		t.Fatalf("read E2E runtime resources: %v", err)
 	}
-	if profile.Spec.Workflows.Collections == nil {
-		profile.Spec.Workflows.Collections = apitypes.RuntimeProfileWorkflowCollections{}
-	}
-	profile.Spec.Workflows.Collections[deleteCollection] = map[string]apitypes.RuntimeProfileBinding{
-		deleteWorkflowName: {
-			ResourceId: deleteWorkflowID,
-			I18n: map[string]apitypes.RuntimeProfileI18nText{
-				"en":    {DisplayName: "Deletion Workspace"},
-				"zh-CN": {DisplayName: "删除工作区"},
+	spec := apitypes.RuntimeProfileSpec{
+		Resources: resources,
+		Workflows: apitypes.RuntimeProfileWorkflows{
+			Collections: apitypes.RuntimeProfileWorkflowCollections{
+				deleteCollection: {
+					deleteWorkflowName: {
+						ResourceId: deleteWorkflowID,
+						I18n: map[string]apitypes.RuntimeProfileI18nText{
+							"en":    {DisplayName: "Deletion Workspace"},
+							"zh-CN": {DisplayName: "删除工作区"},
+						},
+					},
+				},
 			},
 		},
 	}
-	if _, err := clitest.UpsertRuntimeProfile(e.ctx, e.api, adminhttp.RuntimeProfileUpsert{Id: profile.Id, Spec: profile.Spec}); err != nil {
-		t.Fatalf("update deletion RuntimeProfile: %v", err)
+	if _, err := clitest.UpsertRuntimeProfile(e.ctx, e.api, adminhttp.RuntimeProfileUpsert{Id: deleteProfileID, Spec: spec}); err != nil {
+		t.Fatalf("upsert deletion RuntimeProfile: %v", err)
 	}
 }
 

@@ -29,7 +29,6 @@ enum PeerEvent_Payload {
   workspaceHistoryUpdated,
   friendRelationshipUpdated,
   friendGroupUpdated,
-  gameplayRewardUpdated,
   audioInputReady,
   notSet
 }
@@ -45,7 +44,6 @@ class PeerEvent extends $pb.GeneratedMessage {
     WorkspaceHistoryUpdated? workspaceHistoryUpdated,
     FriendRelationshipUpdated? friendRelationshipUpdated,
     FriendGroupUpdated? friendGroupUpdated,
-    GameplayRewardUpdated? gameplayRewardUpdated,
     AudioInputReady? audioInputReady,
   }) {
     final result = create();
@@ -61,8 +59,6 @@ class PeerEvent extends $pb.GeneratedMessage {
       result.friendRelationshipUpdated = friendRelationshipUpdated;
     if (friendGroupUpdated != null)
       result.friendGroupUpdated = friendGroupUpdated;
-    if (gameplayRewardUpdated != null)
-      result.gameplayRewardUpdated = gameplayRewardUpdated;
     if (audioInputReady != null) result.audioInputReady = audioInputReady;
     return result;
   }
@@ -85,7 +81,6 @@ class PeerEvent extends $pb.GeneratedMessage {
     14: PeerEvent_Payload.workspaceHistoryUpdated,
     15: PeerEvent_Payload.friendRelationshipUpdated,
     16: PeerEvent_Payload.friendGroupUpdated,
-    17: PeerEvent_Payload.gameplayRewardUpdated,
     18: PeerEvent_Payload.audioInputReady,
     0: PeerEvent_Payload.notSet
   };
@@ -94,7 +89,7 @@ class PeerEvent extends $pb.GeneratedMessage {
       package:
           const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.events.v1'),
       createEmptyInstance: create)
-    ..oo(0, [10, 11, 12, 13, 14, 15, 16, 17, 18])
+    ..oo(0, [10, 11, 12, 13, 14, 15, 16, 18])
     ..aI(1, _omitFieldNames ? '' : 'version', fieldType: $pb.PbFieldType.OU3)
     ..aE<PeerEventType>(2, _omitFieldNames ? '' : 'type',
         enumValues: PeerEventType.values)
@@ -114,9 +109,6 @@ class PeerEvent extends $pb.GeneratedMessage {
         subBuilder: FriendRelationshipUpdated.create)
     ..aOM<FriendGroupUpdated>(16, _omitFieldNames ? '' : 'friendGroupUpdated',
         subBuilder: FriendGroupUpdated.create)
-    ..aOM<GameplayRewardUpdated>(
-        17, _omitFieldNames ? '' : 'gameplayRewardUpdated',
-        subBuilder: GameplayRewardUpdated.create)
     ..aOM<AudioInputReady>(18, _omitFieldNames ? '' : 'audioInputReady',
         subBuilder: AudioInputReady.create)
     ..hasRequiredFields = false;
@@ -146,7 +138,6 @@ class PeerEvent extends $pb.GeneratedMessage {
   @$pb.TagNumber(14)
   @$pb.TagNumber(15)
   @$pb.TagNumber(16)
-  @$pb.TagNumber(17)
   @$pb.TagNumber(18)
   PeerEvent_Payload whichPayload() => _PeerEvent_PayloadByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
@@ -156,7 +147,6 @@ class PeerEvent extends $pb.GeneratedMessage {
   @$pb.TagNumber(14)
   @$pb.TagNumber(15)
   @$pb.TagNumber(16)
-  @$pb.TagNumber(17)
   @$pb.TagNumber(18)
   void clearPayload() => $_clearField($_whichOneof(0));
 
@@ -257,28 +247,16 @@ class PeerEvent extends $pb.GeneratedMessage {
   @$pb.TagNumber(16)
   FriendGroupUpdated ensureFriendGroupUpdated() => $_ensure(8);
 
-  @$pb.TagNumber(17)
-  GameplayRewardUpdated get gameplayRewardUpdated => $_getN(9);
-  @$pb.TagNumber(17)
-  set gameplayRewardUpdated(GameplayRewardUpdated value) =>
-      $_setField(17, value);
-  @$pb.TagNumber(17)
-  $core.bool hasGameplayRewardUpdated() => $_has(9);
-  @$pb.TagNumber(17)
-  void clearGameplayRewardUpdated() => $_clearField(17);
-  @$pb.TagNumber(17)
-  GameplayRewardUpdated ensureGameplayRewardUpdated() => $_ensure(9);
-
   @$pb.TagNumber(18)
-  AudioInputReady get audioInputReady => $_getN(10);
+  AudioInputReady get audioInputReady => $_getN(9);
   @$pb.TagNumber(18)
   set audioInputReady(AudioInputReady value) => $_setField(18, value);
   @$pb.TagNumber(18)
-  $core.bool hasAudioInputReady() => $_has(10);
+  $core.bool hasAudioInputReady() => $_has(9);
   @$pb.TagNumber(18)
   void clearAudioInputReady() => $_clearField(18);
   @$pb.TagNumber(18)
-  AudioInputReady ensureAudioInputReady() => $_ensure(10);
+  AudioInputReady ensureAudioInputReady() => $_ensure(9);
 }
 
 class AudioInputReady extends $pb.GeneratedMessage {
@@ -1150,86 +1128,6 @@ class FriendGroupUpdated extends $pb.GeneratedMessage {
   $core.bool hasAffectedPeerPublicKey() => $_has(4);
   @$pb.TagNumber(5)
   void clearAffectedPeerPublicKey() => $_clearField(5);
-}
-
-class GameplayRewardUpdated extends $pb.GeneratedMessage {
-  factory GameplayRewardUpdated({
-    $core.String? workspaceName,
-    $core.String? rewardGrantName,
-    $fixnum.Int64? revisionUnixMs,
-  }) {
-    final result = create();
-    if (workspaceName != null) result.workspaceName = workspaceName;
-    if (rewardGrantName != null) result.rewardGrantName = rewardGrantName;
-    if (revisionUnixMs != null) result.revisionUnixMs = revisionUnixMs;
-    return result;
-  }
-
-  GameplayRewardUpdated._();
-
-  factory GameplayRewardUpdated.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory GameplayRewardUpdated.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'GameplayRewardUpdated',
-      package:
-          const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.events.v1'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'workspaceName')
-    ..aOS(2, _omitFieldNames ? '' : 'rewardGrantName')
-    ..aInt64(3, _omitFieldNames ? '' : 'revisionUnixMs')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  GameplayRewardUpdated clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  GameplayRewardUpdated copyWith(
-          void Function(GameplayRewardUpdated) updates) =>
-      super.copyWith((message) => updates(message as GameplayRewardUpdated))
-          as GameplayRewardUpdated;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static GameplayRewardUpdated create() => GameplayRewardUpdated._();
-  @$core.override
-  GameplayRewardUpdated createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static GameplayRewardUpdated getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<GameplayRewardUpdated>(create);
-  static GameplayRewardUpdated? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get workspaceName => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set workspaceName($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasWorkspaceName() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearWorkspaceName() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get rewardGrantName => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set rewardGrantName($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasRewardGrantName() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearRewardGrantName() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $fixnum.Int64 get revisionUnixMs => $_getI64(2);
-  @$pb.TagNumber(3)
-  set revisionUnixMs($fixnum.Int64 value) => $_setInt64(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasRevisionUnixMs() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearRevisionUnixMs() => $_clearField(3);
 }
 
 const $core.bool _omitFieldNames =

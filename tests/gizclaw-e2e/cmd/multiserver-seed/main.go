@@ -57,7 +57,6 @@ func run() error {
 	var (
 		server            = flag.String("server", "", "Server endpoint, e.g. server-a:9820")
 		profileID         = flag.String("profile-id", "", "RuntimeProfile ID to upsert")
-		workflowID        = flag.String("workflow-id", "", "Pet Workflow ID to upsert (default <profile-id>-pet)")
 		monitorWorkflowID = flag.String("monitor-workflow-id", "", "Optional model-free Flowcraft Workflow for Monitor history tests")
 		tokenID           = flag.String("token-id", "", "RegistrationToken ID to upsert (default <profile-id>-token)")
 		token             = flag.String("token", "", "RegistrationToken value (default the token ID)")
@@ -67,9 +66,6 @@ func run() error {
 	flag.Parse()
 	if *server == "" || *profileID == "" {
 		return errors.New("-server and -profile-id are required")
-	}
-	if *workflowID == "" {
-		*workflowID = *profileID + "-pet"
 	}
 	if *tokenID == "" {
 		*tokenID = *profileID + "-token"
@@ -123,15 +119,12 @@ func run() error {
 	} else if err := seedProvider(ctx, api, provider); err != nil {
 		return err
 	}
-	if err := upsertWorkflow(ctx, api, adminhttp.WorkflowUpsert{Id: *workflowID, Spec: petWorkflowSpec()}); err != nil {
-		return err
-	}
 	if *monitorWorkflowID != "" {
 		if err := upsertWorkflow(ctx, api, adminhttp.WorkflowUpsert{Id: *monitorWorkflowID, Spec: monitorWorkflowSpec()}); err != nil {
 			return err
 		}
 	}
-	profileSpec := runtimeProfileSpec(*workflowID, providerErr == nil)
+	profileSpec := runtimeProfileSpec(providerErr == nil)
 	if *monitorWorkflowID != "" {
 		profileSpec.Workflows.Collections["assistants"] = map[string]apitypes.RuntimeProfileBinding{
 			*monitorWorkflowID: binding(*monitorWorkflowID, "Monitor Echo", "监控回声测试"),
@@ -277,40 +270,11 @@ func seedProvider(ctx context.Context, api *adminhttp.ClientWithResponses, creds
 	})
 }
 
-// petWorkflowSpec is the minimal Pet Workflow the RuntimeProfile schema
-// requires: a nested Flowcraft graph with a single publishing passthrough node
-// and no model, voice or memory aliases.
-func petWorkflowSpec() apitypes.WorkflowSpec {
-	var node apitypes.FlowcraftNode
-	if err := node.FromFlowcraftPassthroughNode(apitypes.FlowcraftPassthroughNode{
-		Id:      "passthrough",
-		Type:    apitypes.FlowcraftPassthroughNodeTypePassthrough,
-		Publish: new(true),
-	}); err != nil {
-		panic(err)
-	}
-	return apitypes.WorkflowSpec{
-		Driver: apitypes.WorkflowDriverPet,
-		Pet: &apitypes.PetWorkflowSpec{
-			Driver: apitypes.ReusableWorkflowDriverFlowcraft,
-			Flowcraft: &apitypes.FlowcraftWorkflowSpec{
-				Graph: apitypes.FlowcraftGraph{
-					Name:  "multi-server-pet",
-					Entry: "passthrough",
-					Nodes: []apitypes.FlowcraftNode{node},
-					Edges: &[]apitypes.FlowcraftEdge{{From: "passthrough", To: "__end__"}},
-				},
-			},
-		},
-	}
-}
-
-func runtimeProfileSpec(workflowID string, provider bool) apitypes.RuntimeProfileSpec {
+func runtimeProfileSpec(provider bool) apitypes.RuntimeProfileSpec {
 	spec := apitypes.RuntimeProfileSpec{
 		Resources: apitypes.RuntimeProfileResources{},
 		Workflows: apitypes.RuntimeProfileWorkflows{
 			Collections: apitypes.RuntimeProfileWorkflowCollections{},
-			System:      apitypes.RuntimeProfileSystemWorkflows{Pet: workflowID},
 		},
 	}
 	if provider {

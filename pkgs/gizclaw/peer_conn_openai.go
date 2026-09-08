@@ -118,7 +118,6 @@ func (s *PeerService) peerResourcesWithRegistration(publicKey giznet.PublicKey, 
 		Contacts:     manager.Contacts,
 		Friends:      manager.Friends,
 		FriendGroups: manager.FriendGroups,
-		Gameplay:     manager.Gameplay,
 		Tools:        manager.Tools,
 		RuntimeProfile: func() *apitypes.RuntimeProfile {
 			if inheritActiveConnection {

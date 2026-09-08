@@ -2049,8 +2049,11 @@ type PeerStatus struct {
 	// unknown future values.
 	Activity       *string `protobuf:"bytes,18,opt,name=activity,proto3,oneof" json:"activity,omitempty"`
 	ActivityDetail *string `protobuf:"bytes,19,opt,name=activity_detail,json=activityDetail,proto3,oneof" json:"activity_detail,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Human-readable firmware release the device reports running, next to the
+	// exact-package firmware_sha256 digest.
+	FirmwareVersion *string `protobuf:"bytes,20,opt,name=firmware_version,json=firmwareVersion,proto3,oneof" json:"firmware_version,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *PeerStatus) Reset() {
@@ -2209,23 +2212,31 @@ func (x *PeerStatus) GetActivityDetail() string {
 	return ""
 }
 
+func (x *PeerStatus) GetFirmwareVersion() string {
+	if x != nil && x.FirmwareVersion != nil {
+		return *x.FirmwareVersion
+	}
+	return ""
+}
+
 // PeerStatusTelemetryObservedAt records when the device observed the value now
 // stored in each sibling PeerStatus field, as an RFC 3339 timestamp. The
 // Server uses these to reject an out-of-order or replayed report without
 // overwriting a newer observation. A member is empty until first observed.
 type PeerStatusTelemetryObservedAt struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	BatteryPercent *string                `protobuf:"bytes,1,opt,name=battery_percent,json=batteryPercent,proto3,oneof" json:"battery_percent,omitempty"`
-	Charging       *string                `protobuf:"bytes,2,opt,name=charging,proto3,oneof" json:"charging,omitempty"`
-	GnssLatitude   *string                `protobuf:"bytes,3,opt,name=gnss_latitude,json=gnssLatitude,proto3,oneof" json:"gnss_latitude,omitempty"`
-	GnssLongitude  *string                `protobuf:"bytes,4,opt,name=gnss_longitude,json=gnssLongitude,proto3,oneof" json:"gnss_longitude,omitempty"`
-	GnssAltitudeM  *string                `protobuf:"bytes,5,opt,name=gnss_altitude_m,json=gnssAltitudeM,proto3,oneof" json:"gnss_altitude_m,omitempty"`
-	GnssAccuracyM  *string                `protobuf:"bytes,6,opt,name=gnss_accuracy_m,json=gnssAccuracyM,proto3,oneof" json:"gnss_accuracy_m,omitempty"`
-	NetworkImei    *string                `protobuf:"bytes,7,opt,name=network_imei,json=networkImei,proto3,oneof" json:"network_imei,omitempty"`
-	NetworkImsi    *string                `protobuf:"bytes,8,opt,name=network_imsi,json=networkImsi,proto3,oneof" json:"network_imsi,omitempty"`
-	Activity       *string                `protobuf:"bytes,9,opt,name=activity,proto3,oneof" json:"activity,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	BatteryPercent  *string                `protobuf:"bytes,1,opt,name=battery_percent,json=batteryPercent,proto3,oneof" json:"battery_percent,omitempty"`
+	Charging        *string                `protobuf:"bytes,2,opt,name=charging,proto3,oneof" json:"charging,omitempty"`
+	GnssLatitude    *string                `protobuf:"bytes,3,opt,name=gnss_latitude,json=gnssLatitude,proto3,oneof" json:"gnss_latitude,omitempty"`
+	GnssLongitude   *string                `protobuf:"bytes,4,opt,name=gnss_longitude,json=gnssLongitude,proto3,oneof" json:"gnss_longitude,omitempty"`
+	GnssAltitudeM   *string                `protobuf:"bytes,5,opt,name=gnss_altitude_m,json=gnssAltitudeM,proto3,oneof" json:"gnss_altitude_m,omitempty"`
+	GnssAccuracyM   *string                `protobuf:"bytes,6,opt,name=gnss_accuracy_m,json=gnssAccuracyM,proto3,oneof" json:"gnss_accuracy_m,omitempty"`
+	NetworkImei     *string                `protobuf:"bytes,7,opt,name=network_imei,json=networkImei,proto3,oneof" json:"network_imei,omitempty"`
+	NetworkImsi     *string                `protobuf:"bytes,8,opt,name=network_imsi,json=networkImsi,proto3,oneof" json:"network_imsi,omitempty"`
+	Activity        *string                `protobuf:"bytes,9,opt,name=activity,proto3,oneof" json:"activity,omitempty"`
+	FirmwareVersion *string                `protobuf:"bytes,10,opt,name=firmware_version,json=firmwareVersion,proto3,oneof" json:"firmware_version,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *PeerStatusTelemetryObservedAt) Reset() {
@@ -2317,6 +2328,13 @@ func (x *PeerStatusTelemetryObservedAt) GetNetworkImsi() string {
 func (x *PeerStatusTelemetryObservedAt) GetActivity() string {
 	if x != nil && x.Activity != nil {
 		return *x.Activity
+	}
+	return ""
+}
+
+func (x *PeerStatusTelemetryObservedAt) GetFirmwareVersion() string {
+	if x != nil && x.FirmwareVersion != nil {
+		return *x.FirmwareVersion
 	}
 	return ""
 }
@@ -3851,7 +3869,8 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x11_download_percentB\x11\n" +
 	"\x0f_target_versionB\r\n" +
 	"\v_error_codeB\x10\n" +
-	"\x0e_error_message\"\xc4\t\n" +
+	"\x0e_error_message\"\x89\n" +
+	"\n" +
 	"\n" +
 	"PeerStatus\x124\n" +
 	"\x03ota\x18\r \x01(\v2\x1d.gizclaw.rpc.v1.PeerOtaStatusH\x00R\x03ota\x88\x01\x01\x12,\n" +
@@ -3874,7 +3893,8 @@ const file_payload_system_proto_rawDesc = "" +
 	"\fnetwork_imsi\x18\x10 \x01(\tH\rR\vnetworkImsi\x88\x01\x01\x12f\n" +
 	"\x15telemetry_observed_at\x18\x11 \x01(\v2-.gizclaw.rpc.v1.PeerStatusTelemetryObservedAtH\x0eR\x13telemetryObservedAt\x88\x01\x01\x12\x1f\n" +
 	"\bactivity\x18\x12 \x01(\tH\x0fR\bactivity\x88\x01\x01\x12,\n" +
-	"\x0factivity_detail\x18\x13 \x01(\tH\x10R\x0eactivityDetail\x88\x01\x01\x1a9\n" +
+	"\x0factivity_detail\x18\x13 \x01(\tH\x10R\x0eactivityDetail\x88\x01\x01\x12.\n" +
+	"\x10firmware_version\x18\x14 \x01(\tH\x11R\x0ffirmwareVersion\x88\x01\x01\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x06\n" +
@@ -3894,7 +3914,8 @@ const file_payload_system_proto_rawDesc = "" +
 	"\r_network_imsiB\x18\n" +
 	"\x16_telemetry_observed_atB\v\n" +
 	"\t_activityB\x12\n" +
-	"\x10_activity_detailJ\x04\b\x03\x10\x04R\adetails\"\xac\x04\n" +
+	"\x10_activity_detailB\x13\n" +
+	"\x11_firmware_versionJ\x04\b\x03\x10\x04R\adetails\"\xf1\x04\n" +
 	"\x1dPeerStatusTelemetryObservedAt\x12,\n" +
 	"\x0fbattery_percent\x18\x01 \x01(\tH\x00R\x0ebatteryPercent\x88\x01\x01\x12\x1f\n" +
 	"\bcharging\x18\x02 \x01(\tH\x01R\bcharging\x88\x01\x01\x12(\n" +
@@ -3904,7 +3925,9 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x0fgnss_accuracy_m\x18\x06 \x01(\tH\x05R\rgnssAccuracyM\x88\x01\x01\x12&\n" +
 	"\fnetwork_imei\x18\a \x01(\tH\x06R\vnetworkImei\x88\x01\x01\x12&\n" +
 	"\fnetwork_imsi\x18\b \x01(\tH\aR\vnetworkImsi\x88\x01\x01\x12\x1f\n" +
-	"\bactivity\x18\t \x01(\tH\bR\bactivity\x88\x01\x01B\x12\n" +
+	"\bactivity\x18\t \x01(\tH\bR\bactivity\x88\x01\x01\x12.\n" +
+	"\x10firmware_version\x18\n" +
+	" \x01(\tH\tR\x0ffirmwareVersion\x88\x01\x01B\x12\n" +
 	"\x10_battery_percentB\v\n" +
 	"\t_chargingB\x10\n" +
 	"\x0e_gnss_latitudeB\x11\n" +
@@ -3913,7 +3936,8 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x10_gnss_accuracy_mB\x0f\n" +
 	"\r_network_imeiB\x0f\n" +
 	"\r_network_imsiB\v\n" +
-	"\t_activity\"7\n" +
+	"\t_activityB\x13\n" +
+	"\x11_firmware_version\"7\n" +
 	"\vPingRequest\x12(\n" +
 	"\x10client_send_time\x18\x01 \x01(\x03R\x0eclientSendTime\"/\n" +
 	"\fPingResponse\x12\x1f\n" +

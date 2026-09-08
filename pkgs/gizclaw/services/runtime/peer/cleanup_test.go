@@ -2,14 +2,15 @@ package peer
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -35,9 +36,9 @@ func TestPeerDeletionFinalizesExactPermanentTombstone(t *testing.T) {
 	}
 	source := PendingDeletionSource(store)
 	claim := claimPeerDeletion(t, source, time.Now().Add(time.Second))
-	adapters := &peerDeletionAdapters{publicKey: key.String(), gameplayReady: true}
+	adapters := &peerDeletionAdapters{publicKey: key.String()}
 	handler := DeletionHandler{
-		Server: server, Source: source, Social: adapters, Workspaces: adapters, Gameplay: adapters,
+		Server: server, Source: source, Social: adapters, Workspaces: adapters,
 		APIKeys: adapters, RuntimeProfiles: adapters, Quiescer: adapters,
 		WorkspaceLookup: emptyPeerLookup{}, FriendGroupLookup: emptyPeerLookup{},
 		Now: func() time.Time { return claim.UpdatedAt.Add(time.Second) },
@@ -91,39 +92,6 @@ func TestPeerDeletionFinalizesExactPermanentTombstone(t *testing.T) {
 	}
 }
 
-func TestPeerDeletionDefersBeforeTombstoneWhileChildCleanupPending(t *testing.T) {
-	ctx := t.Context()
-	store := kv.NewMemory(nil)
-	server := &Server{Store: store}
-	key := giznet.PublicKey{22}
-	saveTestPeer(t, server, key, apitypes.DeviceInfo{})
-	if err := server.DeleteSelf(ctx, key); err != nil {
-		t.Fatal(err)
-	}
-	source := PendingDeletionSource(store)
-	claim := claimPeerDeletion(t, source, time.Now().Add(time.Second))
-	adapters := &peerDeletionAdapters{publicKey: key.String(), gameplayReady: false}
-	handler := DeletionHandler{
-		Server: server, Source: source, Social: adapters, Workspaces: adapters, Gameplay: adapters,
-		APIKeys: adapters, RuntimeProfiles: adapters, Quiescer: adapters,
-		WorkspaceLookup: emptyPeerLookup{}, FriendGroupLookup: emptyPeerLookup{},
-	}
-	err := handler.Handle(ctx, claim)
-	var outcome *pendingdeletion.OutcomeError
-	if !errors.As(err, &outcome) || outcome.Class != pendingdeletion.OutcomeDeferred {
-		t.Fatalf("Handle() error = %v", err)
-	}
-	if _, err := server.LoadPeer(ctx, key); err != nil {
-		t.Fatalf("Peer finalized while child pending: %v", err)
-	}
-	if _, err := store.Get(ctx, peerRetirementPlanKey(claim.Record.DeletionID)); err != nil {
-		t.Fatalf("retirement plan missing: %v", err)
-	}
-	if adapters.petWorkspaceCalls != 0 {
-		t.Fatalf("Pet Workspace handoff ran before Pet completion: %d", adapters.petWorkspaceCalls)
-	}
-}
-
 func claimPeerDeletion(t *testing.T, source pendingdeletion.KVSource, now time.Time) pendingdeletion.Claim {
 	t.Helper()
 	refs, _, err := source.ScanDue(t.Context(), now, 10, "")
@@ -138,12 +106,10 @@ func claimPeerDeletion(t *testing.T, source pendingdeletion.KVSource, now time.T
 }
 
 type peerDeletionAdapters struct {
-	publicKey         string
-	gameplayReady     bool
-	sessionCalls      int
-	bindingCalls      int
-	quiesceCalls      int
-	petWorkspaceCalls int
+	publicKey    string
+	sessionCalls int
+	bindingCalls int
+	quiesceCalls int
 }
 
 func (a *peerDeletionAdapters) SnapshotPeerSocial(context.Context, string) (social.PeerSnapshot, error) {
@@ -152,21 +118,11 @@ func (a *peerDeletionAdapters) SnapshotPeerSocial(context.Context, string) (soci
 func (a *peerDeletionAdapters) RetirePeerSocial(context.Context, social.PeerSnapshot) (social.PeerRetirementResult, error) {
 	return social.PeerRetirementResult{}, nil
 }
-func (a *peerDeletionAdapters) SnapshotPeerWorkspaces(context.Context, string, []string) (workspace.PeerRetirementSnapshot, error) {
+func (a *peerDeletionAdapters) SnapshotPeerWorkspaces(context.Context, string) (workspace.PeerRetirementSnapshot, error) {
 	return workspace.PeerRetirementSnapshot{PublicKey: a.publicKey}, nil
 }
 func (a *peerDeletionAdapters) RetirePeerWorkspaces(context.Context, workspace.PeerRetirementSnapshot) ([]string, error) {
 	return nil, nil
-}
-func (a *peerDeletionAdapters) RetirePeerPetWorkspaces(context.Context, workspace.PeerRetirementSnapshot) ([]string, error) {
-	a.petWorkspaceCalls++
-	return nil, nil
-}
-func (a *peerDeletionAdapters) SnapshotPeerGameplay(context.Context, string) (gameplay.PeerGameplaySnapshot, error) {
-	return gameplay.PeerGameplaySnapshot{PublicKey: a.publicKey}, nil
-}
-func (a *peerDeletionAdapters) RetirePeerGameplay(context.Context, gameplay.PeerGameplaySnapshot) (bool, error) {
-	return a.gameplayReady, nil
 }
 func (a *peerDeletionAdapters) CleanupPeer(context.Context, string) error {
 	a.sessionCalls++
@@ -188,4 +144,61 @@ func (emptyPeerLookup) Get(context.Context, string) (pendingdeletion.Record, err
 }
 func (emptyPeerLookup) HasLocator(context.Context, pendingdeletion.Locator) (bool, error) {
 	return false, nil
+}
+
+// TestPeerDeletionRejectsLegacyRetirementPlan pins the upgrade boundary: a plan
+// persisted by an earlier release recorded Pet system Workspaces in
+// WorkspaceIDs that a retirement pass this handler no longer has was expected
+// to remove. Accepting it would observe no pending marker for those Workspaces,
+// treat them as complete, and tombstone the Peer while they remain.
+func TestPeerDeletionRejectsLegacyRetirementPlan(t *testing.T) {
+	ctx := t.Context()
+	store := kv.NewMemory(nil)
+	server := &Server{Store: store}
+	key := giznet.PublicKey{22}
+	saveTestPeer(t, server, key, apitypes.DeviceInfo{})
+	if err := server.DeleteSelf(ctx, key); err != nil {
+		t.Fatal(err)
+	}
+	source := PendingDeletionSource(store)
+	claim := claimPeerDeletion(t, source, time.Now().Add(time.Second))
+	record, err := server.LoadPeer(ctx, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encodedPeer, err := json.Marshal(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := fmt.Appendf(nil, `{
+		"version": 1,
+		"marker_fingerprint": %q,
+		"peer": %s,
+		"social": {"public_key": %q},
+		"workspaces": {
+			"public_key": %q,
+			"workspaces": [],
+			"pet_workspaces": [{"id": "workspace-pet", "name": "pet-1", "has_icon": false}]
+		},
+		"workspace_ids": ["workspace-pet"],
+		"friend_group_ids": []
+	}`, claim.MarkerFingerprint, encodedPeer, key.String(), key.String())
+	if err := store.Set(ctx, peerRetirementPlanKey(claim.Record.DeletionID), legacy); err != nil {
+		t.Fatal(err)
+	}
+	adapters := &peerDeletionAdapters{publicKey: key.String()}
+	handler := DeletionHandler{
+		Server: server, Source: source, Social: adapters, Workspaces: adapters,
+		APIKeys: adapters, RuntimeProfiles: adapters, Quiescer: adapters,
+		WorkspaceLookup: emptyPeerLookup{}, FriendGroupLookup: emptyPeerLookup{},
+		Now: func() time.Time { return claim.UpdatedAt.Add(time.Second) },
+	}
+	var outcome *pendingdeletion.OutcomeError
+	err = handler.Handle(ctx, claim)
+	if !errors.As(err, &outcome) || outcome.Class != pendingdeletion.OutcomeTerminal || outcome.Code != "retirement_plan_unsupported" {
+		t.Fatalf("Handle(legacy plan) error = %v", err)
+	}
+	if _, err := server.LoadPeer(ctx, key); err != nil {
+		t.Fatalf("Peer tombstoned despite the unretired Workspace: %v", err)
+	}
 }

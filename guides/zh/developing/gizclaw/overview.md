@@ -29,7 +29,7 @@ pkgs/gizclaw/
 
 ### services
 
-[services](./services/overview) 是实际存在的领域层目录，拥有 AI、device、gameplay、runtime、social 和 system 的资源、validation、storage 与 service lifecycle。
+[services](./services/overview) 是实际存在的领域层目录，拥有 AI、device、runtime、social 和 system 的资源、validation、storage 与 service lifecycle。
 
 ### generated
 
@@ -95,10 +95,10 @@ classDiagram
 
 ### 各 surface 的边界
 
-- **Peer RPC**：承载 common、client 与 server RPC method。它是设备和 Server 交换信息、runtime、workspace、workflow、social 与 gameplay 数据的 RPC surface；method 与调用路径见 [RPC](./rpc/overview)。
+- **Peer RPC**：承载 common、client 与 server RPC method。它是设备和 Server 交换信息、runtime、workspace、workflow 与 social 数据的 RPC surface；method 与调用路径见 [RPC](./rpc/overview)。
 - **Peer HTTP**：通过 `/server-info`、`/webrtc/v1/offer` 与 `/gizclaw/v1/api-keys/*` 承载连接建立和设备绑定的 API Key 管理；handler 组织见 [Peer HTTP · WebRTC](./peer/service/webrtc) 和 [Peer HTTP · API Key](./peer/service/api-keys)。
 - **Peer OpenAI-compatible HTTP**：将 OpenAI-compatible handler 放在独立 service stream 上，不与 Peer HTTP 的 bootstrap、signaling endpoint 混用。
-- **Admin HTTP**：为具有 active `admin` role 的 Peer 提供资源管理 surface。它覆盖 RuntimeProfile、RegistrationToken、workflow、firmware、credential、model、gameplay、AI tenant、workspace、Peer 与 social resource；各领域入口见 [Peer Services](./peer/service/overview)。
+- **Admin HTTP**：为具有 active `admin` role 的 Peer 提供资源管理 surface。它覆盖 RuntimeProfile、RegistrationToken、workflow、firmware、credential、model、AI tenant、workspace、Peer 与 social resource；各领域入口见 [Peer Services](./peer/service/overview)。
 - **Edge HTTP**：Edge 使用 incoming token 的 Peer identity，把 browser/device public API 请求转发到权威 Server；它不是 Admin surface。
 - **Edge RPC**：只提供 `server.peer.lookup`、`server.peer.assign` 和 `server.route.resolve` 三个 edge-node control method；实现边界见 [Edge RPC](./rpc/edge)。
 - **Edge tunnel namespace**：Edge transport 完成认证并激活后，Server 才在该 physical

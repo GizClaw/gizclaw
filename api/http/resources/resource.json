@@ -37,9 +37,6 @@
           "Tool",
           "Workflow",
           "Workspace",
-          "PetDef",
-          "BadgeDef",
-          "GameDef",
           "MemoryLayout",
           "RuntimeProfile",
           "RegistrationToken",
@@ -135,15 +132,6 @@
             "$ref": "./workspace.json#/components/schemas/WorkspaceResource"
           },
           {
-            "$ref": "./pet_def.json#/components/schemas/PetDefResource"
-          },
-          {
-            "$ref": "./badge_def.json#/components/schemas/BadgeDefResource"
-          },
-          {
-            "$ref": "./game_def.json#/components/schemas/GameDefResource"
-          },
-          {
             "$ref": "./memory_layout.json#/components/schemas/MemoryLayoutResource"
           },
           {
@@ -178,9 +166,6 @@
             "Workflow": "./workflow.json#/components/schemas/WorkflowResource",
             "Workspace": "./workspace.json#/components/schemas/WorkspaceResource",
             "ResourceList": "./resource_list.json#/components/schemas/ResourceListResource",
-            "PetDef": "./pet_def.json#/components/schemas/PetDefResource",
-            "BadgeDef": "./badge_def.json#/components/schemas/BadgeDefResource",
-            "GameDef": "./game_def.json#/components/schemas/GameDefResource",
             "MemoryLayout": "./memory_layout.json#/components/schemas/MemoryLayoutResource",
             "RuntimeProfile": "./runtime_profile.json#/components/schemas/RuntimeProfileResource",
             "RegistrationToken": "./registration_token.json#/components/schemas/RegistrationTokenResource"
@@ -252,15 +237,6 @@
             "$ref": "./workspace.json#/components/schemas/WorkspaceResource"
           },
           {
-            "$ref": "./pet_def.json#/components/schemas/PetDefResource"
-          },
-          {
-            "$ref": "./badge_def.json#/components/schemas/BadgeDefResource"
-          },
-          {
-            "$ref": "./game_def.json#/components/schemas/GameDefResource"
-          },
-          {
             "$ref": "./memory_layout.json#/components/schemas/MemoryLayoutResource"
           },
           {
@@ -291,9 +267,6 @@
             "Tool": "./tool.json#/components/schemas/ToolResource",
             "Workflow": "./workflow.json#/components/schemas/WorkflowResource",
             "Workspace": "./workspace.json#/components/schemas/WorkspaceResource",
-            "PetDef": "./pet_def.json#/components/schemas/PetDefResource",
-            "BadgeDef": "./badge_def.json#/components/schemas/BadgeDefResource",
-            "GameDef": "./game_def.json#/components/schemas/GameDefResource",
             "MemoryLayout": "./memory_layout.json#/components/schemas/MemoryLayoutResource",
             "RuntimeProfile": "./runtime_profile.json#/components/schemas/RuntimeProfileResource",
             "RegistrationToken": "./registration_token.json#/components/schemas/RegistrationTokenResource"
@@ -320,9 +293,6 @@
           {"$ref": "./voice.json#/components/schemas/VoiceResource"},
           {"$ref": "./tool.json#/components/schemas/ToolResource"},
           {"$ref": "./workflow.json#/components/schemas/WorkflowResource"},
-          {"$ref": "./pet_def.json#/components/schemas/PetDefResource"},
-          {"$ref": "./badge_def.json#/components/schemas/BadgeDefResource"},
-          {"$ref": "./game_def.json#/components/schemas/GameDefResource"},
           {"$ref": "./memory_layout.json#/components/schemas/MemoryLayoutResource"},
           {"$ref": "./runtime_profile.json#/components/schemas/RuntimeProfileResource"},
           {"$ref": "./registration_token.json#/components/schemas/RegistrationTokenResource"}

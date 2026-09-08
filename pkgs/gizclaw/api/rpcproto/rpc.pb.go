@@ -180,30 +180,12 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD           RpcMethod = 59
 	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT           RpcMethod = 60
 	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE        RpcMethod = 61
-	RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD            RpcMethod = 64
-	RpcMethod_RPC_METHOD_SERVER_PET_LIST                           RpcMethod = 65
-	RpcMethod_RPC_METHOD_SERVER_PET_GET                            RpcMethod = 66
-	RpcMethod_RPC_METHOD_RUNTIME_ADOPT                             RpcMethod = 67
-	RpcMethod_RPC_METHOD_SERVER_PET_PUT                            RpcMethod = 68
-	RpcMethod_RPC_METHOD_SERVER_PET_DELETE                         RpcMethod = 69
-	RpcMethod_RPC_METHOD_SERVER_PET_DRIVE                          RpcMethod = 70
-	RpcMethod_RPC_METHOD_SERVER_POINTS_GET                         RpcMethod = 71
-	RpcMethod_RPC_METHOD_SERVER_POINTS_TRANSACTIONS_LIST           RpcMethod = 72
-	RpcMethod_RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET            RpcMethod = 73
-	RpcMethod_RPC_METHOD_SERVER_BADGE_LIST                         RpcMethod = 74
-	RpcMethod_RPC_METHOD_SERVER_BADGE_GET                          RpcMethod = 75
-	RpcMethod_RPC_METHOD_SERVER_GAME_RESULT_LIST                   RpcMethod = 76
-	RpcMethod_RPC_METHOD_SERVER_GAME_RESULT_GET                    RpcMethod = 77
-	RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_LIST                  RpcMethod = 78
-	RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_GET                   RpcMethod = 79
 	RpcMethod_RPC_METHOD_SERVER_TOOL_LIST                          RpcMethod = 80
 	RpcMethod_RPC_METHOD_SERVER_TOOL_GET                           RpcMethod = 81
 	RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE                        RpcMethod = 82
 	RpcMethod_RPC_METHOD_SERVER_PEER_LOOKUP                        RpcMethod = 83
 	RpcMethod_RPC_METHOD_SERVER_PEER_ASSIGN                        RpcMethod = 84
 	RpcMethod_RPC_METHOD_SERVER_ROUTE_RESOLVE                      RpcMethod = 85
-	RpcMethod_RPC_METHOD_SERVER_PET_ACTIONS_GET                    RpcMethod = 86
-	RpcMethod_RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD                  RpcMethod = 87
 	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD            RpcMethod = 88
 	RpcMethod_RPC_METHOD_SERVER_FRIEND_INFO_GET                    RpcMethod = 89
 	RpcMethod_RPC_METHOD_SERVER_REGISTER                           RpcMethod = 90
@@ -307,30 +289,12 @@ var (
 		59:  "RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD",
 		60:  "RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT",
 		61:  "RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE",
-		64:  "RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD",
-		65:  "RPC_METHOD_SERVER_PET_LIST",
-		66:  "RPC_METHOD_SERVER_PET_GET",
-		67:  "RPC_METHOD_RUNTIME_ADOPT",
-		68:  "RPC_METHOD_SERVER_PET_PUT",
-		69:  "RPC_METHOD_SERVER_PET_DELETE",
-		70:  "RPC_METHOD_SERVER_PET_DRIVE",
-		71:  "RPC_METHOD_SERVER_POINTS_GET",
-		72:  "RPC_METHOD_SERVER_POINTS_TRANSACTIONS_LIST",
-		73:  "RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET",
-		74:  "RPC_METHOD_SERVER_BADGE_LIST",
-		75:  "RPC_METHOD_SERVER_BADGE_GET",
-		76:  "RPC_METHOD_SERVER_GAME_RESULT_LIST",
-		77:  "RPC_METHOD_SERVER_GAME_RESULT_GET",
-		78:  "RPC_METHOD_SERVER_REWARD_GRANT_LIST",
-		79:  "RPC_METHOD_SERVER_REWARD_GRANT_GET",
 		80:  "RPC_METHOD_SERVER_TOOL_LIST",
 		81:  "RPC_METHOD_SERVER_TOOL_GET",
 		82:  "RPC_METHOD_CLIENT_TOOL_INVOKE",
 		83:  "RPC_METHOD_SERVER_PEER_LOOKUP",
 		84:  "RPC_METHOD_SERVER_PEER_ASSIGN",
 		85:  "RPC_METHOD_SERVER_ROUTE_RESOLVE",
-		86:  "RPC_METHOD_SERVER_PET_ACTIONS_GET",
-		87:  "RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD",
 		88:  "RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD",
 		89:  "RPC_METHOD_SERVER_FRIEND_INFO_GET",
 		90:  "RPC_METHOD_SERVER_REGISTER",
@@ -431,30 +395,12 @@ var (
 		"RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD":           59,
 		"RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT":           60,
 		"RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE":        61,
-		"RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD":            64,
-		"RPC_METHOD_SERVER_PET_LIST":                           65,
-		"RPC_METHOD_SERVER_PET_GET":                            66,
-		"RPC_METHOD_RUNTIME_ADOPT":                             67,
-		"RPC_METHOD_SERVER_PET_PUT":                            68,
-		"RPC_METHOD_SERVER_PET_DELETE":                         69,
-		"RPC_METHOD_SERVER_PET_DRIVE":                          70,
-		"RPC_METHOD_SERVER_POINTS_GET":                         71,
-		"RPC_METHOD_SERVER_POINTS_TRANSACTIONS_LIST":           72,
-		"RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET":            73,
-		"RPC_METHOD_SERVER_BADGE_LIST":                         74,
-		"RPC_METHOD_SERVER_BADGE_GET":                          75,
-		"RPC_METHOD_SERVER_GAME_RESULT_LIST":                   76,
-		"RPC_METHOD_SERVER_GAME_RESULT_GET":                    77,
-		"RPC_METHOD_SERVER_REWARD_GRANT_LIST":                  78,
-		"RPC_METHOD_SERVER_REWARD_GRANT_GET":                   79,
 		"RPC_METHOD_SERVER_TOOL_LIST":                          80,
 		"RPC_METHOD_SERVER_TOOL_GET":                           81,
 		"RPC_METHOD_CLIENT_TOOL_INVOKE":                        82,
 		"RPC_METHOD_SERVER_PEER_LOOKUP":                        83,
 		"RPC_METHOD_SERVER_PEER_ASSIGN":                        84,
 		"RPC_METHOD_SERVER_ROUTE_RESOLVE":                      85,
-		"RPC_METHOD_SERVER_PET_ACTIONS_GET":                    86,
-		"RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD":                  87,
 		"RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD":            88,
 		"RPC_METHOD_SERVER_FRIEND_INFO_GET":                    89,
 		"RPC_METHOD_SERVER_REGISTER":                           90,
@@ -1063,7 +1009,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x14STATUS_CODE_INTERNAL\x10\r\x12\x1b\n" +
 	"\x17STATUS_CODE_UNAVAILABLE\x10\x0e\x12\x19\n" +
 	"\x15STATUS_CODE_DATA_LOSS\x10\x0f\x12\x1f\n" +
-	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\x97w\n" +
+	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\xa2f\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -1190,39 +1136,7 @@ const file_rpc_proto_rawDesc = "" +
 	"*RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT\x10<\x1a`\xc2\xf3\x18\\\n" +
 	"\x1fserver.friend_group.members.put\x12\x1bFriendGroupMemberPutRequest\x1a\x1cFriendGroupMemberPutResponse\x12\x9c\x01\n" +
 	"-RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE\x10=\x1ai\xc2\xf3\x18e\n" +
-	"\"server.friend_group.members.delete\x12\x1eFriendGroupMemberDeleteRequest\x1a\x1fFriendGroupMemberDeleteResponse\x12\x8e\x01\n" +
-	")RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD\x10@\x1a_\xc2\xf3\x18[\n" +
-	"\x1eserver.badge_def.pixa.download\x12\x1bBadgeDefPixaDownloadRequest\x1a\x1cBadgeDefPixaDownloadResponse\x12b\n" +
-	"\x1aRPC_METHOD_SERVER_PET_LIST\x10A\x1aB\xc2\xf3\x18>\n" +
-	"\x0fserver.pet.list\x12\x14ServerPetListRequest\x1a\x15ServerPetListResponse\x12^\n" +
-	"\x19RPC_METHOD_SERVER_PET_GET\x10B\x1a?\xc2\xf3\x18;\n" +
-	"\x0eserver.pet.get\x12\x13ServerPetGetRequest\x1a\x14ServerPetGetResponse\x12\\\n" +
-	"\x18RPC_METHOD_RUNTIME_ADOPT\x10C\x1a>\xc2\xf3\x18:\n" +
-	"\rruntime.adopt\x12\x13RuntimeAdoptRequest\x1a\x14RuntimeAdoptResponse\x12^\n" +
-	"\x19RPC_METHOD_SERVER_PET_PUT\x10D\x1a?\xc2\xf3\x18;\n" +
-	"\x0eserver.pet.put\x12\x13ServerPetPutRequest\x1a\x14ServerPetPutResponse\x12j\n" +
-	"\x1cRPC_METHOD_SERVER_PET_DELETE\x10E\x1aH\xc2\xf3\x18D\n" +
-	"\x11server.pet.delete\x12\x16ServerPetDeleteRequest\x1a\x17ServerPetDeleteResponse\x12f\n" +
-	"\x1bRPC_METHOD_SERVER_PET_DRIVE\x10F\x1aE\xc2\xf3\x18A\n" +
-	"\x10server.pet.drive\x12\x15ServerPetDriveRequest\x1a\x16ServerPetDriveResponse\x12j\n" +
-	"\x1cRPC_METHOD_SERVER_POINTS_GET\x10G\x1aH\xc2\xf3\x18D\n" +
-	"\x11server.points.get\x12\x16ServerPointsGetRequest\x1a\x17ServerPointsGetResponse\x12\x9e\x01\n" +
-	"*RPC_METHOD_SERVER_POINTS_TRANSACTIONS_LIST\x10H\x1an\xc2\xf3\x18j\n" +
-	"\x1fserver.points.transactions.list\x12\"ServerPointsTransactionListRequest\x1a#ServerPointsTransactionListResponse\x12\x9a\x01\n" +
-	")RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET\x10I\x1ak\xc2\xf3\x18g\n" +
-	"\x1eserver.points.transactions.get\x12!ServerPointsTransactionGetRequest\x1a\"ServerPointsTransactionGetResponse\x12j\n" +
-	"\x1cRPC_METHOD_SERVER_BADGE_LIST\x10J\x1aH\xc2\xf3\x18D\n" +
-	"\x11server.badge.list\x12\x16ServerBadgeListRequest\x1a\x17ServerBadgeListResponse\x12f\n" +
-	"\x1bRPC_METHOD_SERVER_BADGE_GET\x10K\x1aE\xc2\xf3\x18A\n" +
-	"\x10server.badge.get\x12\x15ServerBadgeGetRequest\x1a\x16ServerBadgeGetResponse\x12\x80\x01\n" +
-	"\"RPC_METHOD_SERVER_GAME_RESULT_LIST\x10L\x1aX\xc2\xf3\x18T\n" +
-	"\x17server.game_result.list\x12\x1bServerGameResultListRequest\x1a\x1cServerGameResultListResponse\x12|\n" +
-	"!RPC_METHOD_SERVER_GAME_RESULT_GET\x10M\x1aU\xc2\xf3\x18Q\n" +
-	"\x16server.game_result.get\x12\x1aServerGameResultGetRequest\x1a\x1bServerGameResultGetResponse\x12\x84\x01\n" +
-	"#RPC_METHOD_SERVER_REWARD_GRANT_LIST\x10N\x1a[\xc2\xf3\x18W\n" +
-	"\x18server.reward_grant.list\x12\x1cServerRewardGrantListRequest\x1a\x1dServerRewardGrantListResponse\x12\x80\x01\n" +
-	"\"RPC_METHOD_SERVER_REWARD_GRANT_GET\x10O\x1aX\xc2\xf3\x18T\n" +
-	"\x17server.reward_grant.get\x12\x1bServerRewardGrantGetRequest\x1a\x1cServerRewardGrantGetResponse\x12Z\n" +
+	"\"server.friend_group.members.delete\x12\x1eFriendGroupMemberDeleteRequest\x1a\x1fFriendGroupMemberDeleteResponse\x12Z\n" +
 	"\x1bRPC_METHOD_SERVER_TOOL_LIST\x10P\x1a9\xc2\xf3\x185\n" +
 	"\x10server.tool.list\x12\x0fToolListRequest\x1a\x10ToolListResponse\x12V\n" +
 	"\x1aRPC_METHOD_SERVER_TOOL_GET\x10Q\x1a6\xc2\xf3\x182\n" +
@@ -1234,11 +1148,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1dRPC_METHOD_SERVER_PEER_ASSIGN\x10T\x1aK\xc2\xf3\x18G\n" +
 	"\x12server.peer.assign\x12\x17ServerPeerAssignRequest\x1a\x18ServerPeerAssignResponse\x12v\n" +
 	"\x1fRPC_METHOD_SERVER_ROUTE_RESOLVE\x10U\x1aQ\xc2\xf3\x18M\n" +
-	"\x14server.route.resolve\x12\x19ServerRouteResolveRequest\x1a\x1aServerRouteResolveResponse\x12|\n" +
-	"!RPC_METHOD_SERVER_PET_ACTIONS_GET\x10V\x1aU\xc2\xf3\x18Q\n" +
-	"\x16server.pet.actions.get\x12\x1aServerPetActionsGetRequest\x1a\x1bServerPetActionsGetResponse\x12\x84\x01\n" +
-	"#RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD\x10W\x1a[\xc2\xf3\x18W\n" +
-	"\x18server.pet.pixa.download\x12\x1cServerPetPixaDownloadRequest\x1a\x1dServerPetPixaDownloadResponse\x12\x90\x01\n" +
+	"\x14server.route.resolve\x12\x19ServerRouteResolveRequest\x1a\x1aServerRouteResolveResponse\x12\x90\x01\n" +
 	")RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD\x10X\x1aa\xc2\xf3\x18]\n" +
 	"\x1eserver.workspace.icon.download\x12\x1cWorkspaceIconDownloadRequest\x1a\x1dWorkspaceIconDownloadResponse\x12p\n" +
 	"!RPC_METHOD_SERVER_FRIEND_INFO_GET\x10Y\x1aI\xc2\xf3\x18E\n" +

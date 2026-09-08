@@ -120,7 +120,6 @@ type ServicesConfig struct {
 	Contact         *SingleStoreConfig     `yaml:"contact"`
 	Friend          *SingleStoreConfig     `yaml:"friend"`
 	FriendGroup     *SingleStoreConfig     `yaml:"friend_group"`
-	Gameplay        *GameplayStoresConfig  `yaml:"gameplay"`
 	AgentHost       *AgentHostConfig       `yaml:"agent_host"`
 	Metrics         *SingleStoreConfig     `yaml:"metrics"`
 	SystemLog       *gizlog.Config         `yaml:"system_log"`
@@ -255,12 +254,6 @@ func readSecretFile(path, file string) (string, error) {
 		return "", fmt.Errorf("server: %s is empty", path)
 	}
 	return value, nil
-}
-
-type GameplayStoresConfig struct {
-	Store         string `yaml:"store"`
-	AssetsStore   string `yaml:"assets_store"`
-	DatabaseStore string `yaml:"database_store"`
 }
 
 type FriendsConfig struct{}
@@ -1045,7 +1038,6 @@ func validateProfilingConfig(cfg ProfilingConfig, services *ServicesConfig) erro
 	}
 	for path, businessStore := range map[string]string{
 		"services.workspace.assets_store": services.Workspace.AssetsStore,
-		"services.gameplay.assets_store":  services.Gameplay.AssetsStore,
 		"services.agent_host.runtime_store": func() string {
 			if services.AgentHost == nil {
 				return ""
@@ -1159,7 +1151,6 @@ func validateServicesConfig(cfg *ServicesConfig) error {
 		{"services.contact", cfg.Contact != nil},
 		{"services.friend", cfg.Friend != nil},
 		{"services.friend_group", cfg.FriendGroup != nil},
-		{"services.gameplay", cfg.Gameplay != nil},
 	} {
 		if err := requireBlock(block.path, block.present); err != nil {
 			return err
@@ -1185,9 +1176,6 @@ func validateServicesConfig(cfg *ServicesConfig) error {
 		reference{"services.contact.store", cfg.Contact.Store},
 		reference{"services.friend.store", cfg.Friend.Store},
 		reference{"services.friend_group.store", cfg.FriendGroup.Store},
-		reference{"services.gameplay.store", cfg.Gameplay.Store},
-		reference{"services.gameplay.assets_store", cfg.Gameplay.AssetsStore},
-		reference{"services.gameplay.database_store", cfg.Gameplay.DatabaseStore},
 	)
 	for _, ref := range references {
 		if strings.TrimSpace(ref.value) == "" {
@@ -1429,7 +1417,6 @@ func validateServicesConfigShape(services map[string]any) error {
 		"contact":          {"store"},
 		"friend":           {"store"},
 		"friend_group":     {"store"},
-		"gameplay":         {"store", "assets_store", "database_store"},
 		"metrics":          {"store"},
 	}
 	for service, fields := range stringFields {

@@ -63,11 +63,6 @@ func (e *PeerEvent) Validate() error {
 			strings.TrimSpace(payload.FriendGroupUpdated.GetWorkspaceName()) == "" {
 			return fmt.Errorf("%w: friend group", ErrMissingIdentifier)
 		}
-	case *PeerEvent_GameplayRewardUpdated:
-		if strings.TrimSpace(payload.GameplayRewardUpdated.GetWorkspaceName()) == "" ||
-			strings.TrimSpace(payload.GameplayRewardUpdated.GetRewardGrantName()) == "" {
-			return fmt.Errorf("%w: gameplay reward", ErrMissingIdentifier)
-		}
 	}
 	return nil
 }
@@ -113,9 +108,6 @@ func payloadMatchesType(e *PeerEvent) bool {
 		return ok
 	case PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED:
 		_, ok := e.Payload.(*PeerEvent_FriendGroupUpdated)
-		return ok
-	case PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED:
-		_, ok := e.Payload.(*PeerEvent_GameplayRewardUpdated)
 		return ok
 	default:
 		return false
@@ -205,8 +197,6 @@ func (e *PeerEvent) TimestampUnixMilli() int64 {
 		return payload.FriendRelationshipUpdated.GetRevisionUnixMs()
 	case *PeerEvent_FriendGroupUpdated:
 		return payload.FriendGroupUpdated.GetRevisionUnixMs()
-	case *PeerEvent_GameplayRewardUpdated:
-		return payload.GameplayRewardUpdated.GetRevisionUnixMs()
 	default:
 		return 0
 	}

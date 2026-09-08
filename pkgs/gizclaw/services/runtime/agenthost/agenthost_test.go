@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -331,37 +330,6 @@ func TestServiceResolverDefersCurrentPeerToolkitScopeUntilTransform(t *testing.T
 	}
 	if resolved.ToolInvoker == nil {
 		t.Fatal("Resolve() ToolInvoker = nil")
-	}
-}
-
-func TestResolveToolkitAppliesNestedPetWorkflowPolicy(t *testing.T) {
-	outerIDs := []string{"search", "clock"}
-	nestedIDs := []string{"search"}
-	workflow := apitypes.Workflow{Spec: apitypes.WorkflowSpec{
-		Driver: apitypes.WorkflowDriverPet,
-		Toolkit: &apitypes.ToolkitPolicy{
-			ToolIds: &outerIDs,
-		},
-		Pet: &apitypes.PetWorkflowSpec{
-			Driver: apitypes.ReusableWorkflowDriverFlowcraft,
-			Toolkit: &apitypes.ToolkitPolicy{
-				ToolIds: &nestedIDs,
-			},
-			Flowcraft: &apitypes.FlowcraftWorkflowSpec{},
-		},
-	}}
-	resolver := ServiceResolver{
-		ToolBuilder: &toolkit.Builder{},
-	}
-	resolved, err := resolver.resolveToolkit(context.Background(), apitypes.Workspace{}, workflow)
-	if err != nil {
-		t.Fatalf("resolveToolkit() error = %v", err)
-	}
-	if resolved == nil || !resolved.Request.RestrictTools {
-		t.Fatalf("resolved toolkit = %#v", resolved)
-	}
-	if got, want := resolved.Request.AllowedTools, []string{"search"}; !slices.Equal(got, want) {
-		t.Fatalf("AllowedTools = %#v, want %#v", got, want)
 	}
 }
 

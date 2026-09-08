@@ -322,22 +322,6 @@ final $typed_data.Uint8List einoWorkspaceParametersAgentTypeDescriptor =
         'JBTUVURVJTX0FHRU5UX1RZUEVfVU5TUEVDSUZJRUQQABItCilFSU5PX1dPUktTUEFDRV9QQVJB'
         'TUVURVJTX0FHRU5UX1RZUEVfRUlOTxAB');
 
-@$core.Deprecated('Use petWorkspaceParametersAgentTypeDescriptor instead')
-const PetWorkspaceParametersAgentType$json = {
-  '1': 'PetWorkspaceParametersAgentType',
-  '2': [
-    {'1': 'PET_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED', '2': 0},
-    {'1': 'PET_WORKSPACE_PARAMETERS_AGENT_TYPE_PET', '2': 1},
-  ],
-};
-
-/// Descriptor for `PetWorkspaceParametersAgentType`. Decode as a `google.protobuf.EnumDescriptorProto`.
-final $typed_data.Uint8List petWorkspaceParametersAgentTypeDescriptor =
-    $convert.base64Decode(
-        'Ch9QZXRXb3Jrc3BhY2VQYXJhbWV0ZXJzQWdlbnRUeXBlEjMKL1BFVF9XT1JLU1BBQ0VfUEFSQU'
-        '1FVEVSU19BR0VOVF9UWVBFX1VOU1BFQ0lGSUVEEAASKwonUEVUX1dPUktTUEFDRV9QQVJBTUVU'
-        'RVJTX0FHRU5UX1RZUEVfUEVUEAE=');
-
 @$core.Deprecated('Use friendGroupMemberMutableRoleDescriptor instead')
 const FriendGroupMemberMutableRole$json = {
   '1': 'FriendGroupMemberMutableRole',
@@ -503,7 +487,6 @@ const WorkflowDriver$json = {
     {'1': 'WORKFLOW_DRIVER_FLOWCRAFT', '2': 1},
     {'1': 'WORKFLOW_DRIVER_DOUBAO_REALTIME', '2': 2},
     {'1': 'WORKFLOW_DRIVER_AST_TRANSLATE', '2': 3},
-    {'1': 'WORKFLOW_DRIVER_PET', '2': 5},
     {'1': 'WORKFLOW_DRIVER_DASH_SCOPE_REALTIME', '2': 6},
     {'1': 'WORKFLOW_DRIVER_DOUBAO_REALTIME_DUPLEX', '2': 7},
     {'1': 'WORKFLOW_DRIVER_EINO', '2': 8},
@@ -515,10 +498,10 @@ const WorkflowDriver$json = {
 final $typed_data.Uint8List workflowDriverDescriptor = $convert.base64Decode(
     'Cg5Xb3JrZmxvd0RyaXZlchIfChtXT1JLRkxPV19EUklWRVJfVU5TUEVDSUZJRUQQABIdChlXT1'
     'JLRkxPV19EUklWRVJfRkxPV0NSQUZUEAESIwofV09SS0ZMT1dfRFJJVkVSX0RPVUJBT19SRUFM'
-    'VElNRRACEiEKHVdPUktGTE9XX0RSSVZFUl9BU1RfVFJBTlNMQVRFEAMSFwoTV09SS0ZMT1dfRF'
-    'JJVkVSX1BFVBAFEicKI1dPUktGTE9XX0RSSVZFUl9EQVNIX1NDT1BFX1JFQUxUSU1FEAYSKgom'
-    'V09SS0ZMT1dfRFJJVkVSX0RPVUJBT19SRUFMVElNRV9EVVBMRVgQBxIYChRXT1JLRkxPV19EUk'
-    'lWRVJfRUlOTxAIEhcKE1dPUktGTE9XX0RSSVZFUl9TRlUQCQ==');
+    'VElNRRACEiEKHVdPUktGTE9XX0RSSVZFUl9BU1RfVFJBTlNMQVRFEAMSJwojV09SS0ZMT1dfRF'
+    'JJVkVSX0RBU0hfU0NPUEVfUkVBTFRJTUUQBhIqCiZXT1JLRkxPV19EUklWRVJfRE9VQkFPX1JF'
+    'QUxUSU1FX0RVUExFWBAHEhgKFFdPUktGTE9XX0RSSVZFUl9FSU5PEAgSFwoTV09SS0ZMT1dfRF'
+    'JJVkVSX1NGVRAJ');
 
 @$core.Deprecated('Use reusableWorkflowDriverDescriptor instead')
 const ReusableWorkflowDriver$json = {

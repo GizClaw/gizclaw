@@ -21,7 +21,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
@@ -45,13 +44,10 @@ type adminService struct {
 	workspace.WorkspaceIconAdminService
 	workflow.WorkflowAdminService
 	memorylayout.MemoryLayoutAdminService
-	gameplay.CatalogAdminService
-	gameplay.GameDefIconAdminService
 	runtimeprofile.AdminService
 	Contacts         *contact.Server
 	Friends          *friend.Server
 	FriendGroups     *friendgroup.Server
-	Gameplay         *gameplay.Runtime
 	ResourceManager  *resourcemanager.Manager
 	ServerLogs       ServerLogQueryService
 	PeerTelemetry    *peertelemetry.AdminService

@@ -401,24 +401,6 @@ func (c *Client) GetFirmware(ctx context.Context, id string, request rpcapi.Firm
 	})
 }
 
-func (c *Client) DownloadPetPixa(ctx context.Context, id string, request rpcapi.PetPixaDownloadRequest, out io.Writer) (PetPixaDownloadResult, error) {
-	stream, err := c.rpcConn()
-	if err != nil {
-		return PetPixaDownloadResult{}, err
-	}
-	defer func() { _ = stream.Close() }()
-	return c.rpcClient().DownloadPetPixa(ctx, stream, id, request, out)
-}
-
-func (c *Client) DownloadBadgeDefPixa(ctx context.Context, id string, request rpcapi.BadgeDefPixaDownloadRequest, out io.Writer) (BadgeDefPixaDownloadResult, error) {
-	stream, err := c.rpcConn()
-	if err != nil {
-		return BadgeDefPixaDownloadResult{}, err
-	}
-	defer func() { _ = stream.Close() }()
-	return c.rpcClient().DownloadBadgeDefPixa(ctx, stream, id, request, out)
-}
-
 func (c *Client) DownloadWorkspaceIcon(ctx context.Context, id string, request rpcapi.WorkspaceIconDownloadRequest, out io.Writer) (WorkspaceIconDownloadResult, error) {
 	stream, err := c.rpcConn()
 	if err != nil {

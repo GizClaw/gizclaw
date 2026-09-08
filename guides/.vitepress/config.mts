@@ -78,7 +78,6 @@ const zhDevelopingSidebar = [
                   { text: "HTTP Service Entrypoints", link: "/zh/developing/gizclaw/peer/service/public-http" },
                   { text: "Peer HTTP · /me", link: "/zh/developing/gizclaw/peer/service/peer-http-me" },
                   { text: "Admin HTTP · Resources", link: "/zh/developing/gizclaw/peer/service/admin-resources" },
-                  { text: "Admin HTTP · Gameplay", link: "/zh/developing/gizclaw/peer/service/admin-gameplay" },
                   { text: "Admin HTTP · Logs", link: "/zh/developing/gizclaw/peer/service/admin-logs" },
                   { text: "Admin HTTP · Social", link: "/zh/developing/gizclaw/peer/service/admin-social" },
                   { text: "Admin HTTP · Telemetry", link: "/zh/developing/gizclaw/peer/service/admin-telemetry" },
@@ -110,7 +109,6 @@ const zhDevelopingSidebar = [
               { text: "Client", link: "/zh/developing/gizclaw/rpc/client" },
               { text: "Server", link: "/zh/developing/gizclaw/rpc/server" },
               { text: "Firmware Download", link: "/zh/developing/gizclaw/rpc/firmware" },
-              { text: "Gameplay Assets", link: "/zh/developing/gizclaw/rpc/gameplay-pixa" },
               { text: "Workspace History", link: "/zh/developing/gizclaw/rpc/workspace-history" },
               { text: "Speed Test", link: "/zh/developing/gizclaw/rpc/speed" },
               { text: "Streaming", link: "/zh/developing/gizclaw/rpc/stream" },
@@ -127,7 +125,6 @@ const zhDevelopingSidebar = [
               { text: "总览", link: "/zh/developing/gizclaw/services/overview" },
               { text: "AI", link: "/zh/developing/gizclaw/services/ai" },
               { text: "Device", link: "/zh/developing/gizclaw/services/device" },
-              { text: "Gameplay", link: "/zh/developing/gizclaw/services/gameplay" },
               {
                 text: "Runtime",
                 collapsed: false,

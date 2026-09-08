@@ -164,11 +164,6 @@ message EinoWorkspaceParameters {
   optional WorkspaceInputMode input = 4;
 }
 
-message PetWorkspaceParameters {
-  PetWorkspaceParametersAgentType agent_type = 1;
-  optional WorkspaceInputMode input = 2;
-}
-
 message DoubaoRealtimeAIGCMetadata {
   optional string content_producer = 1;
   optional string content_propagator = 2;
@@ -314,17 +309,6 @@ message FlowcraftWorkspaceParameters {
   optional ConversationParameters conversation = 2;
   optional bool e2e = 3;
   optional WorkspaceInputMode input = 4;
-}
-
-message PetWorkflowSpec {
-  ReusableWorkflowDriver driver = 1;
-  optional ToolkitPolicy toolkit = 2;
-  optional FlowcraftWorkflowSpec flowcraft = 3;
-  optional DoubaoRealtimeWorkflowSpec doubao_realtime = 4;
-  optional ASTTranslateWorkflowSpec ast_translate = 5;
-  optional DashScopeRealtimeWorkflowSpec dashscope_realtime = 7;
-  optional DoubaoRealtimeDuplexWorkflowSpec doubao_realtime_duplex = 8;
-  optional EinoWorkflowSpec eino = 9;
 }
 
 message Model {

@@ -20,13 +20,13 @@ storage:
   agenthost-files:
     kind: filesystem.dir
     dir: data/agenthost
-  gameplay-db:
+  business-db:
     kind: sqlite
-    dir: data/gameplay.sqlite
+    dir: data/business.sqlite
 stores:
   monitor-logs:
     kind: log.immutable
-    storage: gameplay-db
+    storage: business-db
     table: monitor_logs
   peers:
     kind: keyvalue
@@ -34,44 +34,44 @@ stores:
     prefix: peers
   peer-runs:
     kind: sql
-    storage: gameplay-db
+    storage: business-db
   api-keys:
     kind: keyvalue
     storage: memory
     prefix: api-keys
   flowcraft-state:
     kind: sql
-    storage: gameplay-db
+    storage: business-db
   credentials:
     kind: sql
-    storage: gameplay-db
+    storage: business-db
   firmwares:
     kind: sql
-    storage: gameplay-db
+    storage: business-db
   runtime-profiles:
     kind: sql
-    storage: gameplay-db
+    storage: business-db
   memory-layouts:
     kind: sql
-    storage: gameplay-db
+    storage: business-db
   agenthost:
     kind: objectstore
     storage: agenthost-files
   provider-tenants:
     kind: sql
-    storage: gameplay-db
+    storage: business-db
   models:
     kind: sql
-    storage: gameplay-db
+    storage: business-db
   voices:
     kind: sql
-    storage: gameplay-db
+    storage: business-db
   workspaces:
     kind: sql
-    storage: gameplay-db
+    storage: business-db
   workspace-history:
     kind: log.mutable
-    storage: gameplay-db
+    storage: business-db
     table: workspace_history
     ttl: 720h
   workspace-history-assets:
@@ -81,27 +81,17 @@ stores:
     ttl: 720h
   workflows:
     kind: sql
-    storage: gameplay-db
+    storage: business-db
   tools:
     kind: sql
-    storage: gameplay-db
-  gameplay:
-    kind: sql
-    storage: gameplay-db
-  gameplay-assets:
-    kind: objectstore
-    storage: local-files
-    prefix: gameplay
+    storage: business-db
   workspace-assets:
     kind: objectstore
     storage: local-files
     prefix: workspaces
-  gameplay-db:
-    kind: sql
-    storage: gameplay-db
   contacts:
     kind: sql
-    storage: gameplay-db
+    storage: business-db
   friends:
     kind: keyvalue
     storage: memory
@@ -149,10 +139,6 @@ services:
     store: friends
   friend_group:
     store: friend-groups
-  gameplay:
-    store: gameplay
-    assets_store: gameplay-assets
-    database_store: gameplay-db
   agent_host:
     runtime_store: agenthost
     flowcraft:

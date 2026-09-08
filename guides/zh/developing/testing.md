@@ -6,6 +6,26 @@ Docker、真实 provider 或人工判断的套件必须显式启动，不能把�
 构建 GizClaw CLI 的 E2E 入口会在 Go 编译前安装锁定的 Node workspace 并构建内嵌控制台，
 包括在 Docker 内编译的入口。产物与嵌入清单无需手动复制；独立编译命令的准备步骤见 [Monitor](monitor)。
 
+## RuntimeProfile 配置持久化回归
+
+`go test ./cmd/internal/server -run '^TestRuntimeProfileAppConfigGiztest$' -count=1`
+启动使用临时 SQLite 数据库的真实 Server，通过 Admin HTTP 创建和更新配置，再用
+Go Giztest CLI 的 WebRTC driver 执行 `server.app_config.get/list` 场景。测试覆盖
+分页、设备重连、配置替换、Server 重启后读取，以及空 map 和省略配置的清空行为。
+更新和清空断言位于 `tests/gizclaw-e2e/testdata/app-config/`，由该测试在相应生命周期
+阶段执行；不需要外部 AI provider 或凭据，普通 Go CI 会执行这条链路。
+
+PostgreSQL 使用独立测试 schema 验证已有表补列、重复初始化和配置读写：
+
+```sh
+GIZCLAW_TEST_POSTGRES_DSN='postgres://…' \
+  go test ./pkgs/gizclaw/services/system/runtimeprofile -run '^TestPostgreSQLRuntimeProfileAppConfig$' -count=1
+```
+
+本地未设置 DSN 时跳过 PostgreSQL 测试；CI 的 PostgreSQL Integration job 强制提供
+DSN 并运行该 package。测试只清理自己创建的 schema。
+
+
 ## Store E2E
 
 `tests/store-e2e` 通过导出的 Store API 验证 Redis 7.0、PostgreSQL 与 ClickHouse，不依赖
@@ -141,7 +161,7 @@ bash tests/gizclaw-e2e/run_firmware_tests.sh
 ```
 
 托管删除变更使用固定的 production vertical-slice 入口。该入口校验统一的 credential
-file，启动隔离的 Docker stack，并在独立的 Peer RPC 删除测试包中覆盖 Pet、Workspace、
+file，启动隔离的 Docker stack，并在独立的 Peer RPC 删除测试包中覆盖 Workspace、
 Friend Group 和 Peer。测试会验证使用中资源被终止，以及 Peer tombstone 在 Server 重启后
 仍然生效；成功或失败后都会清理 project，且不运行无关的 provider-backed 场景：
 
@@ -218,7 +238,7 @@ Workspace history 是运行时数据，不能由 reset 脚本直接 seed。
 - `go/delete` 保留需要 Admin 观察、重启与 tombstone 的删除测试。
 - `go/edge` 保留 TURN relay、sibling-close、故障恢复和网络诊断。
 - `go/openai` 保留 OpenAI 兼容 API 的 typed SDK 测试。
-- `giztest/*.giztest.yaml` 验证 Peer RPC、conversation、social、gameplay 和 Workflow 行为。
+- `giztest/*.giztest.yaml` 验证 Peer RPC、conversation、social 和 Workflow 行为。
 - `cmd` 通过 `os/exec` 运行 `testdata/bin/gizclaw`，不能用 `go run` 或 typed client 绕过 CLI。
 - `js/admin` 验证 WebRTC Admin fetch；`js/rpc` 验证 peer 与 server-initiated RPC。
 - `js/giztest`、`flutter/giztest` 与 `cgo/giztest` 用各自语言的 SDK 执行同一批 giztest 场景，见下一节。

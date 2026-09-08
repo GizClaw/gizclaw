@@ -270,13 +270,6 @@ func validateWorkflow(item apitypes.Workflow, expectedID string) (apitypes.Workf
 	if err != nil {
 		return apitypes.Workflow{}, nil, fmt.Errorf("spec.toolkit: %w", err)
 	}
-	if item.Spec.Pet != nil {
-		nestedPolicy, err := toolkit.NormalizePolicy(item.Spec.Pet.Toolkit)
-		if err != nil {
-			return apitypes.Workflow{}, nil, fmt.Errorf("spec.pet.toolkit: %w", err)
-		}
-		item.Spec.Pet.Toolkit = nestedPolicy
-	}
 
 	item.Spec.Toolkit = policy
 	raw, err = json.Marshal(item)
@@ -296,7 +289,6 @@ func validateDriverSpec(spec apitypes.WorkflowSpec) error {
 		spec.Eino != nil,
 		spec.AstTranslate != nil,
 		spec.Sfu != nil,
-		spec.Pet != nil,
 	); err != nil {
 		return err
 	}
@@ -311,8 +303,6 @@ func validateDriverSpec(spec apitypes.WorkflowSpec) error {
 			return errors.New("spec.sfu must be an empty object")
 		}
 		return nil
-	case apitypes.WorkflowDriverPet:
-		return validateNestedPetWorkflow(*spec.Pet)
 	case apitypes.WorkflowDriverDoubaoRealtime:
 		if strings.TrimSpace(spec.DoubaoRealtime.Model) == "" {
 			return errors.New("spec.doubao_realtime.model is required")
@@ -343,30 +333,7 @@ func validateDriverSpec(spec apitypes.WorkflowSpec) error {
 	}
 }
 
-func validateNestedPetWorkflow(spec apitypes.PetWorkflowSpec) error {
-	if apitypes.WorkflowDriver(spec.Driver) == apitypes.WorkflowDriverSfu {
-		return errors.New("spec.pet.driver \"sfu\" cannot be nested in a Pet Workflow")
-	}
-	if !spec.Driver.Valid() {
-		return fmt.Errorf("spec.pet.driver %q is not a reusable Workflow driver", spec.Driver)
-	}
-	nested := apitypes.WorkflowSpec{
-		Driver:               apitypes.WorkflowDriver(spec.Driver),
-		Toolkit:              spec.Toolkit,
-		Flowcraft:            spec.Flowcraft,
-		DoubaoRealtime:       spec.DoubaoRealtime,
-		DashscopeRealtime:    spec.DashscopeRealtime,
-		DoubaoRealtimeDuplex: spec.DoubaoRealtimeDuplex,
-		Eino:                 spec.Eino,
-		AstTranslate:         spec.AstTranslate,
-	}
-	if err := validateDriverSpec(nested); err != nil {
-		return fmt.Errorf("spec.pet: %w", err)
-	}
-	return nil
-}
-
-func validateDriverPayloads(driver apitypes.WorkflowDriver, flowcraft, doubaoRealtime, dashscopeRealtime, doubaoRealtimeDuplex, eino, astTranslate, sfu, pet bool) error {
+func validateDriverPayloads(driver apitypes.WorkflowDriver, flowcraft, doubaoRealtime, dashscopeRealtime, doubaoRealtimeDuplex, eino, astTranslate, sfu bool) error {
 	payloads := []struct {
 		driver  apitypes.WorkflowDriver
 		field   string
@@ -379,7 +346,6 @@ func validateDriverPayloads(driver apitypes.WorkflowDriver, flowcraft, doubaoRea
 		{apitypes.WorkflowDriverEino, "eino", eino},
 		{apitypes.WorkflowDriverAstTranslate, "ast_translate", astTranslate},
 		{apitypes.WorkflowDriverSfu, "sfu", sfu},
-		{apitypes.WorkflowDriverPet, "pet", pet},
 	}
 	for _, payload := range payloads {
 		if payload.driver == driver {

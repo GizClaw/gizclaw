@@ -90,6 +90,6 @@ Cleanup 或 retention 失败属于未完成操作，应由拥有该 feature 的 
 
 ## 主要用途
 
-Workspace 与 Gameplay assets、Agent Host runtime data、HNSW persistence 和 Server
+Workspace assets、Agent Host runtime data、HNSW persistence 和 Server
 process profile 使用 ObjectStore。Firmware OTA package 仍是 external HTTPS resource，
 不存放在这里。

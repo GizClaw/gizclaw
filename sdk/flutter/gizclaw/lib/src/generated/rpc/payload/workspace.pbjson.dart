@@ -1783,15 +1783,6 @@ const WorkspaceParameters$json = {
       '9': 0,
       '10': 'einoWorkspaceParameters'
     },
-    {
-      '1': 'pet_workspace_parameters',
-      '3': 8,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.PetWorkspaceParameters',
-      '9': 0,
-      '10': 'petWorkspaceParameters'
-    },
   ],
   '8': [
     {'1': 'value'},
@@ -1814,9 +1805,7 @@ final $typed_data.Uint8List workspaceParametersDescriptor = $convert.base64Decod
     '5ycGMudjEuRG91YmFvUmVhbHRpbWVEdXBsZXhXb3Jrc3BhY2VQYXJhbWV0ZXJzSABSJ2RvdWJh'
     'b1JlYWx0aW1lRHVwbGV4V29ya3NwYWNlUGFyYW1ldGVycxJlChllaW5vX3dvcmtzcGFjZV9wYX'
     'JhbWV0ZXJzGAcgASgLMicuZ2l6Y2xhdy5ycGMudjEuRWlub1dvcmtzcGFjZVBhcmFtZXRlcnNI'
-    'AFIXZWlub1dvcmtzcGFjZVBhcmFtZXRlcnMSYgoYcGV0X3dvcmtzcGFjZV9wYXJhbWV0ZXJzGA'
-    'ggASgLMiYuZ2l6Y2xhdy5ycGMudjEuUGV0V29ya3NwYWNlUGFyYW1ldGVyc0gAUhZwZXRXb3Jr'
-    'c3BhY2VQYXJhbWV0ZXJzQgcKBXZhbHVl');
+    'AFIXZWlub1dvcmtzcGFjZVBhcmFtZXRlcnNCBwoFdmFsdWU=');
 
 @$core.Deprecated('Use workspacePutRequestDescriptor instead')
 const WorkspacePutRequest$json = {

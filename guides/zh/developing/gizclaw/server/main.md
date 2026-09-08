@@ -68,8 +68,7 @@ Edge 进程。
 | `services.peer_run.store` | 独立的 `keyvalue`；保存当前 Server 本地的 Peer 状态与 Agent selection |
 | `services.api_key.store` | `keyvalue`；保存 API Key、secret index 与 owner index，多 Server API routing 时必须共享 |
 | login、credential、firmware、RuntimeProfile、model、voice、MemoryLayout、provider tenants、workflow、toolkit、contact、friend 与 Friend Group | 各一个 `keyvalue`；内部 collection prefix 由代码拥有 |
-| `services.workspace.history_assets_store`、`services.workspace.assets_store`、`services.gameplay.assets_store`、`services.agent_host.runtime_store` | `objectstore` |
-| `services.gameplay.database_store` | `sql` |
+| `services.workspace.history_assets_store`、`services.workspace.assets_store`、`services.agent_host.runtime_store` | `objectstore` |
 | `services.workspace.history_store` | `log.mutable` |
 | `services.agent_host.flowcraft.history_store` | `log.mutable` |
 | `services.metrics.store` | `metrics` |
@@ -82,11 +81,11 @@ Friend Group 的 groups、invite tokens、members 与 belongs 是同一 Service 
 
 启动顺序依次为严格解析配置、打开物理 connector、构造逻辑 Store、解析 service 能力、由活跃 SQL 服务校验 schema，并安装日志与 metrics。取得 workspace PID ownership 后，可选 process profiling 解析其专用 ObjectStore 并发布 baseline；完成后才打开 public listener 并启动 `Server.Listen`。逻辑 Store 不关闭借用的 connector。Shutdown 会先 join profiling worker，再关闭 logging、逻辑 wrapper 与物理 connector。Process profiling 属于 `cmd/internal/server`；可复用的 `pkgs/gizclaw.Server` 不依赖 pprof。
 
-旧的一层 Store 配置、顶层伪 service block、隐式 Store 名称、通用 `kind: log` 和 `gizclaw migrate` 命令均不受支持。开发环境应使用当前配置重新创建，不导入或转换旧数据。Gameplay 与 ClickHouse Store 初始化表仍属于活跃 schema lifecycle，不属于旧数据迁移。
+旧的一层 Store 配置、顶层伪 service block、隐式 Store 名称、通用 `kind: log` 和 `gizclaw migrate` 命令均不受支持。开发环境应使用当前配置重新创建，不导入或转换旧数据。ClickHouse Store 初始化表仍属于活跃 schema lifecycle，不属于旧数据迁移。
 
 ### 完整配置
 
-下面的完整生产配置让 prefix-scoped KV、table-scoped Metrics、immutable/mutable Log 和 Gameplay raw SQL Store 借用同一个 PostgreSQL pool，并让 ObjectStore 使用独立 filesystem root。SQL KV 的 prefix 由后端直接映射为物理表；配置没有 `table` 字段。所有逻辑 SQL Store 在 listener 启动前直接保证业务表与索引存在，再精确校验 schema；不会创建 version/history 表。任何一个失败都会终止启动而不会回退到其他 backend。SQLite 本地部署使用相同 `stores` 与 `services`，只把 `storage.database` 改为 `kind: sqlite` 和 `dir`/`dsn`。
+下面的完整生产配置让 prefix-scoped KV、table-scoped Metrics、和 immutable/mutable Log Store 借用同一个 PostgreSQL pool，并让 ObjectStore 使用独立 filesystem root。SQL KV 的 prefix 由后端直接映射为物理表；配置没有 `table` 字段。所有逻辑 SQL Store 在 listener 启动前直接保证业务表与索引存在，再精确校验 schema；不会创建 version/history 表。任何一个失败都会终止启动而不会回退到其他 backend。SQLite 本地部署使用相同 `stores` 与 `services`，只把 `storage.database` 改为 `kind: sqlite` 和 `dir`/`dsn`。
 
 <<< ../../../../snippets/server-storage-stores-services.yaml{yaml}
 
@@ -94,19 +93,11 @@ Friend Group 的 groups、invite tokens、members 与 belongs 是同一 Service 
 
 每个 Workspace Agent generation 根据当前 RuntimeProfile snapshot 解析 memory alias。构造失败会使 Agent 初始化或 reload 显式失败。Server shutdown 关闭共享 Memory registry；Workspace reload 与最后一个 Agent 引用释放会关闭该 generation 的 lease，但不迁移、合并、复制或删除持久数据。
 
-## Workspace reward 生命周期
-
-启动 Workspace reward dispatcher 时只验证 Gameplay SQL schema 与单例 activation
-boundary，然后启动有界 due-work poller。Server 启动期间不会枚举或读取任何持久化
-Workspace record 或 History，也没有周期性的 Workspace catalog scan。AgentHost runtime
-成功发布后只为该精确 Workspace 安排懒对账；History append 后的通知只是可选的低延迟
-提示，允许丢弃。已有 pending、retry 与过期 claim window 在重启后直接从 Gameplay SQL 恢复。
-
 ## Pending-deletion processor
 
 Server 初始化会验证 pending-deletion source 与 handler registry，但不会启动后台任务。`Server.Listen` 启动一次立即扫描和有界 worker pool；`Server.Close` 取消 scan 与 active attempt，等待全部 processor goroutine 退出，然后 command layer 才能关闭 store。领域持久化 store 是 queue 的唯一事实来源；producer wake signal 与内存 dispatch channel 只用于降低延迟，因此重启和周期扫描仍能恢复已提交但 signal 丢失的 work。
 
-首个 production registration 是 `source=gameplay`，只声明 `kind=pet`，并且仅在配置 `GameplayDB` 时存在。Peer、Workspace 与 Friend Group 在对应领域 handler 实现前不会注册。非法、重复、不完整或 backend capability 不满足要求的 registration 会让初始化失败。
+Production registration 为 `source=workspace`（`kind=workspace`）、`source=friend_group`（`kind=friend_group`）与 `source=peer`（`kind=peer`），各自绑定对应领域 handler。非法、重复、不完整或 backend capability 不满足要求的 registration 会让初始化失败。
 
 可选顶层 `pending_deletion` 配置的默认值为：`scan_interval: 30s`、`page_size: 100`、`dispatch_capacity: 256`、`workers: 4`、`lease_duration: 2m`、`attempt_timeout: 90s`、`retry_initial: 5s`、`retry_max: 30m`、`max_attempts: 10`。Duration 与 count 必须为正且有界；attempt timeout 必须短于 lease；retry initial 不能大于 retry max；严格配置解析会拒绝未知字段。系统没有 completion retention 配置。
 

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -30,7 +31,7 @@ func initializeProfileSQL(ctx context.Context, db *sqlx.DB) error {
 		`CREATE TABLE IF NOT EXISTS runtime_profile_owners(owner_public_key TEXT PRIMARY KEY, runtime_profile_id TEXT,binding_id TEXT NOT NULL)`,
 		`CREATE INDEX IF NOT EXISTS runtime_profile_owners_profile ON runtime_profile_owners(runtime_profile_id,owner_public_key)`,
 
-		`CREATE TABLE IF NOT EXISTS runtime_profiles(id TEXT PRIMARY KEY CHECK(length(id)>0),revision TEXT NOT NULL,resources_json TEXT NOT NULL,workflows_json TEXT NOT NULL,gameplay_json TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,incarnation TEXT NOT NULL,row_version BIGINT NOT NULL)`,
+		`CREATE TABLE IF NOT EXISTS runtime_profiles(id TEXT PRIMARY KEY CHECK(length(id)>0),revision TEXT NOT NULL,resources_json TEXT NOT NULL,workflows_json TEXT NOT NULL,app_config_json TEXT NOT NULL DEFAULT 'null',created_at TEXT NOT NULL,updated_at TEXT NOT NULL,incarnation TEXT NOT NULL,row_version BIGINT NOT NULL)`,
 		`CREATE TABLE IF NOT EXISTS registration_tokens(id TEXT PRIMARY KEY CHECK(length(id)>0),token TEXT NOT NULL,runtime_profile_id TEXT NOT NULL,firmware_id TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,incarnation TEXT NOT NULL,row_version BIGINT NOT NULL)`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS registration_tokens_token ON registration_tokens(token)`,
 		`CREATE INDEX IF NOT EXISTS registration_tokens_profile ON registration_tokens(runtime_profile_id,id)`,
@@ -40,10 +41,87 @@ func initializeProfileSQL(ctx context.Context, db *sqlx.DB) error {
 			return err
 		}
 	}
+	if err := ensureProfileAppConfigColumn(ctx, tx); err != nil {
+		return err
+	}
+	if err := dropLegacyProfileColumns(ctx, tx); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 
-const runtimeProfileColumns = "id,revision,resources_json,workflows_json,gameplay_json,created_at,updated_at,incarnation,row_version"
+// legacyProfileColumns are columns earlier releases created as NOT NULL on
+// runtime_profiles. CREATE TABLE IF NOT EXISTS leaves an existing table
+// untouched, so a deployment upgraded in place keeps them and rejects every
+// insert that omits them. Dropping them makes startup converge on the current
+// schema instead of requiring a hand-written migration.
+var legacyProfileColumns = []string{"gameplay_json"}
+
+// ensureProfileAppConfigColumn preserves existing profiles when adding the
+// optional field. Previously omitted configuration cannot be recovered.
+func ensureProfileAppConfigColumn(ctx context.Context, tx *sqlx.Tx) error {
+	// PostgreSQL provides atomic idempotent DDL, avoiding a check/add race
+	// when multiple Servers initialize the shared database.
+	if tx.DriverName() == "postgres" || tx.DriverName() == "pgx" {
+		_, err := tx.ExecContext(ctx, "ALTER TABLE runtime_profiles ADD COLUMN IF NOT EXISTS app_config_json TEXT NOT NULL DEFAULT 'null'")
+		return err
+	}
+	columns, err := profileTableColumns(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if slices.Contains(columns, "app_config_json") {
+		return nil
+	}
+	_, err = tx.ExecContext(ctx, "ALTER TABLE runtime_profiles ADD COLUMN app_config_json TEXT NOT NULL DEFAULT 'null'")
+	return err
+}
+
+func dropLegacyProfileColumns(ctx context.Context, tx *sqlx.Tx) error {
+	switch tx.DriverName() {
+	case "postgres", "pgx":
+		for _, column := range legacyProfileColumns {
+			if _, err := tx.ExecContext(ctx, `ALTER TABLE runtime_profiles DROP COLUMN IF EXISTS `+column); err != nil {
+				return fmt.Errorf("runtimeprofile: drop legacy column %q: %w", column, err)
+			}
+		}
+		return nil
+	case "sqlite":
+		present, err := profileTableColumns(ctx, tx)
+		if err != nil {
+			return err
+		}
+		for _, column := range legacyProfileColumns {
+			if !slices.Contains(present, column) {
+				continue
+			}
+			if _, err := tx.ExecContext(ctx, `ALTER TABLE runtime_profiles DROP COLUMN `+column); err != nil {
+				return fmt.Errorf("runtimeprofile: drop legacy column %q: %w", column, err)
+			}
+		}
+		return nil
+	default:
+		return fmt.Errorf("runtimeprofile: unsupported SQL driver %q", tx.DriverName())
+	}
+}
+
+func profileTableColumns(ctx context.Context, tx *sqlx.Tx) ([]string, error) {
+	rows, err := tx.QueryContext(ctx, "SELECT * FROM runtime_profiles WHERE 1=0")
+	if err != nil {
+		return nil, err
+	}
+	columns, err := rows.Columns()
+	closeErr := rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	if closeErr != nil {
+		return nil, closeErr
+	}
+	return columns, nil
+}
+
+const runtimeProfileColumns = "id,revision,resources_json,workflows_json,app_config_json,created_at,updated_at,incarnation,row_version"
 
 func encodeRuntimeProfileSQL(item apitypes.RuntimeProfile) ([]any, error) {
 	j1, err := json.Marshal(item.Spec.Resources)
@@ -54,7 +132,7 @@ func encodeRuntimeProfileSQL(item apitypes.RuntimeProfile) ([]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	j3, err := json.Marshal(item.Spec.Gameplay)
+	j3, err := json.Marshal(item.Spec.AppConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +163,7 @@ func scanRuntimeProfileSQL(row profileScanner) (apitypes.RuntimeProfile, profile
 	if err := json.Unmarshal([]byte(j2), &item.Spec.Workflows); err != nil {
 		return item, version, err
 	}
-	if err := json.Unmarshal([]byte(j3), &item.Spec.Gameplay); err != nil {
+	if err := json.Unmarshal([]byte(j3), &item.Spec.AppConfig); err != nil {
 		return item, version, err
 	}
 	return item, version, nil
@@ -112,7 +190,7 @@ func updateRuntimeProfileSQL(ctx context.Context, db *sqlx.DB, item apitypes.Run
 		return item, version, err
 	}
 	values = append(values[1:len(values)-2], values[len(values)-1], item.Id, version.incarnation, version.revision)
-	return scanRuntimeProfileSQL(db.QueryRowContext(ctx, db.Rebind("UPDATE runtime_profiles SET revision=?,resources_json=?,workflows_json=?,gameplay_json=?,updated_at=?,row_version=row_version+1 WHERE id=? AND incarnation=? AND row_version=? RETURNING "+runtimeProfileColumns), values...))
+	return scanRuntimeProfileSQL(db.QueryRowContext(ctx, db.Rebind("UPDATE runtime_profiles SET revision=?,resources_json=?,workflows_json=?,app_config_json=?,updated_at=?,row_version=row_version+1 WHERE id=? AND incarnation=? AND row_version=? RETURNING "+runtimeProfileColumns), values...))
 }
 func deleteRuntimeProfileSQL(ctx context.Context, db *sqlx.DB, id string, version profileRowVersion) (apitypes.RuntimeProfile, profileRowVersion, error) {
 	return scanRuntimeProfileSQL(db.QueryRowContext(ctx, db.Rebind("DELETE FROM runtime_profiles WHERE id=? AND incarnation=? AND row_version=? RETURNING "+runtimeProfileColumns), id, version.incarnation, version.revision))

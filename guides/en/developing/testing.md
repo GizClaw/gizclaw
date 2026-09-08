@@ -10,6 +10,29 @@ and build the embedded console before Go compilation, including container builds
 No manual asset or manifest copy is required; standalone build prerequisites are
 documented in [Monitor](monitor).
 
+## RuntimeProfile configuration persistence regression
+
+`go test ./cmd/internal/server -run '^TestRuntimeProfileAppConfigGiztest$' -count=1`
+starts a real Server with temporary SQLite storage, creates and updates configuration over
+Admin HTTP, and runs the `server.app_config.get/list` scenarios through the Go Giztest CLI's
+WebRTC driver. It covers pagination, device reconnect, configuration replacement, reads after
+a Server restart, and clearing with an empty map or omitted configuration. The update and
+clear assertions live in `tests/gizclaw-e2e/testdata/app-config/` and run at their corresponding
+lifecycle stages. No external AI provider or credentials are required; ordinary Go CI runs
+this path.
+
+PostgreSQL uses isolated test schemas to verify existing-table column addition, repeated
+initialization, and configuration persistence:
+
+```sh
+GIZCLAW_TEST_POSTGRES_DSN='postgres://…' \
+  go test ./pkgs/gizclaw/services/system/runtimeprofile -run '^TestPostgreSQLRuntimeProfileAppConfig$' -count=1
+```
+
+Local runs skip PostgreSQL when the DSN is unset. The PostgreSQL Integration CI job requires
+the DSN and runs this package. Each test cleans up only its own schema.
+
+
 ## Store E2E
 
 `tests/store-e2e` verifies Redis 7.0, PostgreSQL, and ClickHouse through exported Store APIs
@@ -154,8 +177,8 @@ bash tests/gizclaw-e2e/run_firmware_tests.sh
 
 Managed-deletion changes use a fixed production vertical-slice entrypoint. It
 validates the shared credential file, starts an isolated Docker stack, and runs
-the dedicated Peer RPC deletion package for Pet, Workspace, Friend Group, and
-Peer resources. The suite covers active-use termination and Peer tombstone
+the dedicated Peer RPC deletion package for Workspace, Friend Group, and Peer
+resources. The suite covers active-use termination and Peer tombstone
 survival across a Server restart, then cleans the project after success or
 failure without running unrelated provider-backed scenarios:
 
@@ -238,7 +261,7 @@ Workspace history is runtime data and must not be seeded by the reset script.
 - `go/delete` retains deletion checks that require Admin observation, restart, and tombstones.
 - `go/edge` retains TURN relay, sibling-close, failure recovery, and network diagnostics.
 - `go/openai` retains typed SDK coverage of the OpenAI-compatible API.
-- `giztest/*.giztest.yaml` covers Peer RPC, conversation, social, gameplay, and Workflow behavior.
+- `giztest/*.giztest.yaml` covers Peer RPC, conversation, social, and Workflow behavior.
 - `cmd` executes `testdata/bin/gizclaw` with `os/exec`; it must not bypass the CLI with `go run` or typed clients.
 - `js/admin` covers WebRTC Admin fetch; `js/rpc` covers peer and server-initiated RPC.
 - `js/giztest`, `flutter/giztest`, and `cgo/giztest` run the same giztest scenarios with their own SDKs; see the next section.

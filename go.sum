@@ -100,8 +100,6 @@ github.com/GizClaw/pion-sctp v0.0.0-20260907061509-d1608eb71478 h1:BkKoc4Wmbg8y0
 github.com/GizClaw/pion-sctp v0.0.0-20260907061509-d1608eb71478/go.mod h1:UeyX8aRca892UhRetke5BTkhvISxX/wiBdLl+njo1Lo=
 github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260807105346-69086b0b86b0 h1:Pck8GZrQB/AB8snYZK8i9AfotVgslCakncpwRhblQJs=
 github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260807105346-69086b0b86b0/go.mod h1:Vhw0p7Y+Sy/zvuQKBpQmzM1wcE8cmeni94j36HlY0k0=
-github.com/GizClaw/pixa v0.0.0-20260730044130-e59a9ee62701 h1:62RK6cJC++X/hy8LFgb1KFKhLF99tAcl3sd2mwbbqjE=
-github.com/GizClaw/pixa v0.0.0-20260730044130-e59a9ee62701/go.mod h1:vuKKNwc3tWhbZViT5kZjC6x1htocCmdFkb+oqCEpe7s=
 github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.32.0 h1:rIkQfkCOVKc1OiRCNcSDD8ml5RJlZbH/Xsq7lbpynwc=
 github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.32.0/go.mod h1:RD2SsorTmYhF6HkTmDw7KmPYQk8OBYwTkuasChwv7R4=
 github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.57.0 h1:jLdiS1vO+XJFyDSWRHBx56r4s/NNtcl5J6KyCcWUX/w=

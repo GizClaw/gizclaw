@@ -66,12 +66,12 @@ func TestAdminAIProviderCatalogUserStory(t *testing.T) {
 
 	profilesList := h.RunCLI("admin", "runtime-profiles", "list", "--context", "admin-a")
 	profilesList.MustSucceed(t)
-	assertOutputContains(t, profilesList.Stdout, `"id":"default-gameplay"`)
-	profileID := adminResourceID(t, profilesList.Stdout, "default-gameplay")
+	assertOutputContains(t, profilesList.Stdout, `"id":"e2e-giztest"`)
+	profileID := adminResourceID(t, profilesList.Stdout, "e2e-giztest")
 
 	profileGet := h.RunCLI("admin", "runtime-profiles", "get", profileID, "--context", "admin-a")
 	profileGet.MustSucceed(t)
-	assertOutputContains(t, profileGet.Stdout, `"pet_defs":{"starter-pet":{`, `"resource_id":`)
+	assertOutputContains(t, profileGet.Stdout, `"models":{`, `"llm":{`, `"resource_id":`)
 }
 
 func assertOutputContains(t *testing.T, output string, values ...string) {

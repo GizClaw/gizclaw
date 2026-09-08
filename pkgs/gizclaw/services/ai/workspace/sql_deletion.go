@@ -103,7 +103,7 @@ func (s workspaceSQLDeletionSource) CreateOrGet(ctx context.Context, record pend
 	return stored, created, nil
 }
 
-// createWorkspaceDeletionTx shares the caller's transaction with reward fencing.
+// createWorkspaceDeletionTx creates or reuses the marker inside the caller's transaction.
 func createWorkspaceDeletionTx(ctx context.Context, tx *sqlx.Tx, record pendingdeletion.Record) (pendingdeletion.Record, bool, error) {
 	if err := record.Validate(); err != nil {
 		return pendingdeletion.Record{}, false, err

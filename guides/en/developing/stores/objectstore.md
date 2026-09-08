@@ -98,6 +98,6 @@ must be treated as incomplete operations and retried by the owning feature.
 
 ## Main uses
 
-Workspace and Gameplay assets, Agent Host runtime data, HNSW persistence, and
+Workspace assets, Agent Host runtime data, HNSW persistence, and
 Server process profiles use ObjectStore. Firmware OTA packages remain external
 HTTPS resources and are not stored here.

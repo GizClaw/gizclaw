@@ -65,14 +65,6 @@ func (e EinoWorkspaceParametersAgentType) Valid() bool {
 	return e == EinoWorkspaceParametersAgentTypeEino
 }
 
-const (
-	PetWorkspaceParametersAgentTypePet PetWorkspaceParametersAgentType = "pet"
-)
-
-func (e PetWorkspaceParametersAgentType) Valid() bool {
-	return e == PetWorkspaceParametersAgentTypePet
-}
-
 // Defines values for DashScopeTenantModelProviderDataApiMode.
 const (
 	DashScopeTenantModelProviderDataApiModeChatCompletions DashScopeTenantModelProviderDataApiMode = "chat_completions"
@@ -594,9 +586,6 @@ const (
 	RPCMethodClientDeviceSettingsSet             RPCMethod = "client.device.settings.set"
 	RPCMethodClientDeviceFactoryReset            RPCMethod = "client.device.factory_reset"
 	RPCMethodClientRPCMethodsGet                 RPCMethod = "client.rpc.methods.get"
-	RPCMethodServerBadgeDefPixaDownload          RPCMethod = "server.badge_def.pixa.download"
-	RPCMethodServerBadgeGet                      RPCMethod = "server.badge.get"
-	RPCMethodServerBadgeList                     RPCMethod = "server.badge.list"
 	RPCMethodServerContactCreate                 RPCMethod = "server.contact.create"
 	RPCMethodServerContactDelete                 RPCMethod = "server.contact.delete"
 	RPCMethodServerContactGet                    RPCMethod = "server.contact.get"
@@ -623,8 +612,6 @@ const (
 	RPCMethodServerFriendInviteTokenCreate       RPCMethod = "server.friend.invite_token.create"
 	RPCMethodServerFriendInviteTokenGet          RPCMethod = "server.friend.invite_token.get"
 	RPCMethodServerFriendList                    RPCMethod = "server.friend.list"
-	RPCMethodServerGameResultGet                 RPCMethod = "server.game_result.get"
-	RPCMethodServerGameResultList                RPCMethod = "server.game_result.list"
 	RPCMethodServerInfoGet                       RPCMethod = "server.info.get"
 	RPCMethodServerInfoPut                       RPCMethod = "server.info.put"
 	RPCMethodServerAPIKeyCreate                  RPCMethod = "server.api_key.create"
@@ -634,19 +621,6 @@ const (
 	RPCMethodServerRegister                      RPCMethod = "server.register"
 	RPCMethodServerModelGet                      RPCMethod = "server.model.get"
 	RPCMethodServerModelList                     RPCMethod = "server.model.list"
-	RPCMethodRuntimeAdopt                        RPCMethod = "runtime.adopt"
-	RPCMethodServerPetDelete                     RPCMethod = "server.pet.delete"
-	RPCMethodServerPetDrive                      RPCMethod = "server.pet.drive"
-	RPCMethodServerPetGet                        RPCMethod = "server.pet.get"
-	RPCMethodServerPetList                       RPCMethod = "server.pet.list"
-	RPCMethodServerPetPixaDownload               RPCMethod = "server.pet.pixa.download"
-	RPCMethodServerPetActionsGet                 RPCMethod = "server.pet.actions.get"
-	RPCMethodServerPetPut                        RPCMethod = "server.pet.put"
-	RPCMethodServerPointsGet                     RPCMethod = "server.points.get"
-	RPCMethodServerPointsTransactionsGet         RPCMethod = "server.points.transactions.get"
-	RPCMethodServerPointsTransactionsList        RPCMethod = "server.points.transactions.list"
-	RPCMethodServerRewardGrantGet                RPCMethod = "server.reward_grant.get"
-	RPCMethodServerRewardGrantList               RPCMethod = "server.reward_grant.list"
 	RPCMethodServerPeerAssign                    RPCMethod = "server.peer.assign"
 	RPCMethodServerPeerDelete                    RPCMethod = "server.peer.delete"
 	RPCMethodServerPeerLookup                    RPCMethod = "server.peer.lookup"
@@ -734,12 +708,6 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodServerAppConfigGet:
 		return true
-	case RPCMethodServerBadgeDefPixaDownload:
-		return true
-	case RPCMethodServerBadgeGet:
-		return true
-	case RPCMethodServerBadgeList:
-		return true
 	case RPCMethodServerContactCreate:
 		return true
 	case RPCMethodServerContactDelete:
@@ -792,10 +760,6 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodServerFriendList:
 		return true
-	case RPCMethodServerGameResultGet:
-		return true
-	case RPCMethodServerGameResultList:
-		return true
 	case RPCMethodServerInfoGet:
 		return true
 	case RPCMethodServerInfoPut:
@@ -813,32 +777,6 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerModelGet:
 		return true
 	case RPCMethodServerModelList:
-		return true
-	case RPCMethodRuntimeAdopt:
-		return true
-	case RPCMethodServerPetDelete:
-		return true
-	case RPCMethodServerPetDrive:
-		return true
-	case RPCMethodServerPetGet:
-		return true
-	case RPCMethodServerPetList:
-		return true
-	case RPCMethodServerPetPixaDownload:
-		return true
-	case RPCMethodServerPetActionsGet:
-		return true
-	case RPCMethodServerPetPut:
-		return true
-	case RPCMethodServerPointsGet:
-		return true
-	case RPCMethodServerPointsTransactionsGet:
-		return true
-	case RPCMethodServerPointsTransactionsList:
-		return true
-	case RPCMethodServerRewardGrantGet:
-		return true
-	case RPCMethodServerRewardGrantList:
 		return true
 	case RPCMethodServerPeerAssign:
 		return true
@@ -1053,7 +991,6 @@ const (
 	WorkflowDriverDoubaoRealtimeDuplex WorkflowDriver = "doubao-realtime-duplex"
 	WorkflowDriverEino                 WorkflowDriver = "eino"
 	WorkflowDriverFlowcraft            WorkflowDriver = "flowcraft"
-	WorkflowDriverPet                  WorkflowDriver = "pet"
 	WorkflowDriverSfu                  WorkflowDriver = "sfu"
 )
 
@@ -1071,8 +1008,6 @@ func (e WorkflowDriver) Valid() bool {
 	case WorkflowDriverEino:
 		return true
 	case WorkflowDriverFlowcraft:
-		return true
-	case WorkflowDriverPet:
 		return true
 	case WorkflowDriverSfu:
 		return true
@@ -1180,54 +1115,6 @@ type ASTTranslateWorkspaceParametersAgentType string
 // AgentSelection defines model for AgentSelection.
 type AgentSelection struct {
 	WorkspaceName string `json:"workspace_name"`
-}
-
-// Badge defines model for Badge.
-type Badge struct {
-	Active       bool      `json:"active"`
-	BadgeDefName string    `json:"badge_def_name"`
-	CreatedAt    time.Time `json:"created_at"`
-	Exp          int64     `json:"exp"`
-	Level        int64     `json:"level"`
-	Name         string    `json:"name"`
-	Progress     int64     `json:"progress"`
-	UpdatedAt    time.Time `json:"updated_at"`
-}
-
-// BadgeDef defines model for BadgeDef.
-type BadgeDef struct {
-	CreatedAt time.Time    `json:"created_at"`
-	Id        string       `json:"id"`
-	PixaPath  *string      `json:"pixa_path,omitempty"`
-	Spec      BadgeDefSpec `json:"spec"`
-	UpdatedAt time.Time    `json:"updated_at"`
-}
-
-// BadgeDefPixaDownloadRequest defines model for BadgeDefPixaDownloadRequest.
-type BadgeDefPixaDownloadRequest struct {
-	Name string `json:"name"`
-}
-
-// BadgeDefPixaDownloadResponse defines model for BadgeDefPixaDownloadResponse.
-type BadgeDefPixaDownloadResponse struct {
-	Name      string  `json:"name"`
-	PixaPath  *string `json:"pixa_path,omitempty"`
-	SizeBytes int64   `json:"size_bytes"`
-}
-
-// BadgeDefSpec defines model for BadgeDefSpec.
-type BadgeDefSpec struct {
-	Description *string           `json:"description,omitempty"`
-	DisplayName string            `json:"display_name"`
-	Metadata    *GameplayMetadata `json:"metadata,omitempty"`
-	Tags        *[]string         `json:"tags,omitempty"`
-}
-
-// BadgeListResponse defines model for BadgeListResponse.
-type BadgeListResponse struct {
-	HasNext    bool    `json:"has_next"`
-	Items      []Badge `json:"items"`
-	NextCursor *string `json:"next_cursor,omitempty"`
 }
 
 // ClientGetIdentifiersRequest defines model for ClientGetIdentifiersRequest.
@@ -1638,13 +1525,6 @@ type EinoWorkspaceParameters struct {
 
 type EinoWorkspaceParametersAgentType string
 
-type PetWorkspaceParameters struct {
-	AgentType PetWorkspaceParametersAgentType `json:"agent_type"`
-	Input     *WorkspaceInputMode             `json:"input,omitempty"`
-}
-
-type PetWorkspaceParametersAgentType string
-
 // FirmwareChannelName defines model for FirmwareChannelName.
 type FirmwareChannelName string
 
@@ -1941,69 +1821,6 @@ type FriendObject struct {
 	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
 	WorkspaceName *string    `json:"workspace_name,omitempty"`
 }
-
-// GameDef defines model for GameDef.
-type GameDef struct {
-	CreatedAt time.Time   `json:"created_at"`
-	Id        string      `json:"id"`
-	Spec      GameDefSpec `json:"spec"`
-	UpdatedAt time.Time   `json:"updated_at"`
-}
-
-// GameDefSpec defines model for GameDefSpec.
-type GameDefSpec struct {
-	Description *string           `json:"description,omitempty"`
-	DisplayName string            `json:"display_name"`
-	Metadata    *GameplayMetadata `json:"metadata,omitempty"`
-	Outcomes    *[]string         `json:"outcomes,omitempty"`
-	ScoreSchema *GameplayMetadata `json:"score_schema,omitempty"`
-	Tags        *[]string         `json:"tags,omitempty"`
-}
-
-// GameResult defines model for GameResult.
-type GameResult struct {
-	CreatedAt          time.Time         `json:"created_at"`
-	Difficulty         *string           `json:"difficulty,omitempty"`
-	DurationMs         *int64            `json:"duration_ms,omitempty"`
-	GameDefName        string            `json:"game_def_name"`
-	Name               string            `json:"name"`
-	IdempotencyKey     *string           `json:"idempotency_key,omitempty"`
-	MaxScore           *int64            `json:"max_score,omitempty"`
-	OccurredAt         time.Time         `json:"occurred_at"`
-	Outcome            *string           `json:"outcome,omitempty"`
-	Payload            *GameplayMetadata `json:"payload,omitempty"`
-	PetName            string            `json:"pet_name"`
-	RuntimeProfileName string            `json:"runtime_profile_name"`
-	Score              *int64            `json:"score,omitempty"`
-}
-
-// GameResultListResponse defines model for GameResultListResponse.
-type GameResultListResponse struct {
-	HasNext    bool         `json:"has_next"`
-	Items      []GameResult `json:"items"`
-	NextCursor *string      `json:"next_cursor,omitempty"`
-}
-
-// GameRewardSpec defines model for GameRewardSpec.
-type GameRewardSpec struct {
-	BadgeExpDelta map[string]int64 `json:"badge_exp_delta"`
-	PetExpDelta   int64            `json:"pet_exp_delta"`
-	Reason        string           `json:"reason"`
-}
-
-// GameplayNameGetRequest defines model for GameplayNameGetRequest.
-type GameplayNameGetRequest struct {
-	Name string `json:"name"`
-}
-
-// GameplayListRequest defines model for GameplayListRequest.
-type GameplayListRequest struct {
-	Cursor *string `json:"cursor,omitempty"`
-	Limit  *int    `json:"limit,omitempty"`
-}
-
-// GameplayMetadata defines model for GameplayMetadata.
-type GameplayMetadata map[string]any
 
 // GeminiCredentialBody defines model for GeminiCredentialBody.
 type GeminiCredentialBody struct {
@@ -2356,181 +2173,6 @@ type PeerStatus struct {
 	Volume              *int                                 `json:"volume,omitempty"`
 }
 
-// Pet defines model for Pet.
-type Pet struct {
-	Name               string         `json:"name"`
-	RuntimeProfileName string         `json:"runtime_profile_name"`
-	PetDefName         string         `json:"pet_def_name"`
-	DisplayName        string         `json:"display_name"`
-	WorkspaceName      string         `json:"workspace_name"`
-	Stats              PetStats       `json:"stats"`
-	Progression        PetProgression `json:"progression"`
-	Lifecycle          PetLifecycle   `json:"lifecycle"`
-	DiedAt             *time.Time     `json:"died_at,omitempty"`
-	StateSettledAt     time.Time      `json:"state_settled_at"`
-	LastActiveAt       time.Time      `json:"last_active_at"`
-	CreatedAt          time.Time      `json:"created_at"`
-	UpdatedAt          time.Time      `json:"updated_at"`
-}
-
-// PetAdoptRequest defines model for PetAdoptRequest.
-type PetAdoptRequest struct {
-	Name        string `json:"name"`
-	DisplayName string `json:"display_name"`
-}
-
-// PetAdoptResponse defines model for PetAdoptResponse.
-type PetAdoptResponse struct {
-	Pet         Pet               `json:"pet"`
-	Points      PointsAccount     `json:"points"`
-	Transaction PointsTransaction `json:"transaction"`
-}
-
-// PetDef defines model for PetDef.
-type PetDef struct {
-	CreatedAt time.Time  `json:"created_at"`
-	Id        string     `json:"id"`
-	PixaPath  *string    `json:"pixa_path,omitempty"`
-	Spec      PetDefSpec `json:"spec"`
-	UpdatedAt time.Time  `json:"updated_at"`
-}
-
-// PetDefCharacterSpec defines model for PetDefCharacterSpec.
-type PetDefCharacterSpec struct {
-	Prompt string `json:"prompt"`
-}
-
-// PetDefPixaCanvasMetadata defines model for PetDefPixaCanvasMetadata.
-type PetDefPixaCanvasMetadata struct {
-	Height int64 `json:"height"`
-	Width  int64 `json:"width"`
-}
-
-// PetDefPixaClipMetadata defines model for PetDefPixaClipMetadata.
-type PetDefPixaClipMetadata struct {
-	Id           string `json:"id"`
-	PixaClipName string `json:"pixa_clip_name"`
-}
-
-// PetDefPixaMetadata defines model for PetDefPixaMetadata.
-type PetDefPixaMetadata struct {
-	Canvas  PetDefPixaCanvasMetadata `json:"canvas"`
-	Clips   []PetDefPixaClipMetadata `json:"clips"`
-	Version string                   `json:"version"`
-}
-
-// PetDefPixaSpec defines model for PetDefPixaSpec.
-type PetDefPixaSpec struct {
-	AssetRef string             `json:"asset_ref"`
-	Metadata PetDefPixaMetadata `json:"metadata"`
-}
-
-// PetDefSpec defines model for PetDefSpec.
-type PetDefSpec struct {
-	Character PetDefCharacterSpec `json:"character"`
-	Visual    PetDefVisualSpec    `json:"visual"`
-	Voice     PetDefVoiceSpec     `json:"voice"`
-}
-
-type PetDefBehaviorBindingsSpec struct {
-	Feed  string `json:"feed"`
-	Bathe string `json:"bathe"`
-	Play  string `json:"play"`
-	Heal  string `json:"heal"`
-}
-
-type PetDefStateBindingsSpec struct {
-	Idle  string  `json:"idle"`
-	Sick  string  `json:"sick"`
-	Dead  string  `json:"dead"`
-	Sleep *string `json:"sleep,omitempty"`
-}
-
-type PetDefVisualBindingsSpec struct {
-	Behaviors PetDefBehaviorBindingsSpec `json:"behaviors"`
-	States    PetDefStateBindingsSpec    `json:"states"`
-}
-
-// PetDefVisualRefSpec defines model for PetDefVisualRefSpec.
-type PetDefVisualRefSpec struct {
-	Id      string  `json:"id"`
-	Notes   *string `json:"notes,omitempty"`
-	Purpose string  `json:"purpose"`
-	Uri     string  `json:"uri"`
-}
-
-// PetDefVisualRefsSpec defines model for PetDefVisualRefsSpec.
-type PetDefVisualRefsSpec struct {
-	Images *[]PetDefVisualRefSpec `json:"images,omitempty"`
-	Videos *[]PetDefVisualRefSpec `json:"videos,omitempty"`
-}
-
-// PetDefVisualSpec defines model for PetDefVisualSpec.
-type PetDefVisualSpec struct {
-	Pixa     PetDefPixaSpec           `json:"pixa"`
-	Refs     PetDefVisualRefsSpec     `json:"refs"`
-	Bindings PetDefVisualBindingsSpec `json:"bindings"`
-}
-
-// PetDefVoiceSpec defines model for PetDefVoiceSpec.
-type PetDefVoiceSpec struct {
-	Prompt string `json:"prompt"`
-}
-
-// PetDeleteRequest defines model for PetDeleteRequest.
-type PetDeleteRequest struct {
-	Name string `json:"name"`
-}
-
-// PetDriveGameResultInput defines model for PetDriveGameResultInput.
-type PetDriveGameResultInput struct {
-	Difficulty     *string           `json:"difficulty,omitempty"`
-	DurationMs     *int64            `json:"duration_ms,omitempty"`
-	GameName       string            `json:"game_name"`
-	IdempotencyKey *string           `json:"idempotency_key,omitempty"`
-	MaxScore       *int64            `json:"max_score,omitempty"`
-	OccurredAt     *time.Time        `json:"occurred_at,omitempty"`
-	Outcome        *string           `json:"outcome,omitempty"`
-	Payload        *GameplayMetadata `json:"payload,omitempty"`
-	Score          *int64            `json:"score,omitempty"`
-}
-
-// PetDriveRequest defines model for PetDriveRequest.
-type PetDriveRequest struct {
-	Behavior       *PetBehavior             `json:"behavior,omitempty"`
-	GameResult     *PetDriveGameResultInput `json:"game_result,omitempty"`
-	PetName        string                   `json:"pet_name"`
-	IdempotencyKey *string                  `json:"idempotency_key,omitempty"`
-}
-
-// PetDriveResponse defines model for PetDriveResponse.
-type PetDriveResponse struct {
-	Badges       []Badge             `json:"badges"`
-	GameResult   *GameResult         `json:"game_result,omitempty"`
-	Pet          Pet                 `json:"pet"`
-	Points       PointsAccount       `json:"points"`
-	RewardGrants []RewardGrant       `json:"reward_grants"`
-	Transactions []PointsTransaction `json:"transactions"`
-}
-
-// PetGetRequest defines model for PetGetRequest.
-type PetGetRequest struct {
-	Name string `json:"name"`
-}
-
-// PetListResponse defines model for PetListResponse.
-type PetListResponse struct {
-	HasNext    bool    `json:"has_next"`
-	Items      []Pet   `json:"items"`
-	NextCursor *string `json:"next_cursor,omitempty"`
-}
-
-// PetPutRequest defines model for PetPutRequest.
-type PetPutRequest struct {
-	DisplayName string `json:"display_name"`
-	Name        string `json:"name"`
-}
-
 // PingRequest defines model for PingRequest.
 type PingRequest struct {
 	ClientSendTime int64 `json:"client_send_time"`
@@ -2539,38 +2181,6 @@ type PingRequest struct {
 // PingResponse defines model for PingResponse.
 type PingResponse struct {
 	ServerTime int64 `json:"server_time"`
-}
-
-// PointsAccount defines model for PointsAccount.
-type PointsAccount struct {
-	Balance            int64     `json:"balance"`
-	CreatedAt          time.Time `json:"created_at"`
-	OwnerPublicKey     string    `json:"owner_public_key"`
-	RuntimeProfileName string    `json:"runtime_profile_name"`
-	UpdatedAt          time.Time `json:"updated_at"`
-}
-
-// PointsTransaction defines model for PointsTransaction.
-type PointsTransaction struct {
-	BalanceAfter       int64     `json:"balance_after"`
-	CreatedAt          time.Time `json:"created_at"`
-	Delta              int64     `json:"delta"`
-	GameResultName     *string   `json:"game_result_name,omitempty"`
-	Name               string    `json:"name"`
-	OwnerPublicKey     string    `json:"owner_public_key"`
-	PetName            *string   `json:"pet_name,omitempty"`
-	Reason             string    `json:"reason"`
-	RewardGrantName    *string   `json:"reward_grant_name,omitempty"`
-	RuntimeProfileName string    `json:"runtime_profile_name"`
-	SourceName         string    `json:"source_name"`
-	SourceType         string    `json:"source_type"`
-}
-
-// PointsTransactionListResponse defines model for PointsTransactionListResponse.
-type PointsTransactionListResponse struct {
-	HasNext    bool                `json:"has_next"`
-	Items      []PointsTransaction `json:"items"`
-	NextCursor *string             `json:"next_cursor,omitempty"`
 }
 
 // RPCStatus is the terminal status of one RPC. Code is the class a caller
@@ -2613,29 +2223,6 @@ type RPCResponse struct {
 // RPCVersion defines model for RPCVersion.
 type RPCVersion int
 
-// RewardGrant defines model for RewardGrant.
-type RewardGrant struct {
-	BadgeExpDelta      map[string]int64 `json:"badge_exp_delta"`
-	CreatedAt          time.Time        `json:"created_at"`
-	GameResultName     *string          `json:"game_result_name,omitempty"`
-	Name               string           `json:"name"`
-	OwnerPublicKey     string           `json:"owner_public_key"`
-	PetExpDelta        int64            `json:"pet_exp_delta"`
-	PetName            *string          `json:"pet_name,omitempty"`
-	PointsDelta        int64            `json:"points_delta"`
-	Reason             *string          `json:"reason,omitempty"`
-	RuntimeProfileName string           `json:"runtime_profile_name"`
-	SourceName         string           `json:"source_name"`
-	SourceType         string           `json:"source_type"`
-}
-
-// RewardGrantListResponse defines model for RewardGrantListResponse.
-type RewardGrantListResponse struct {
-	HasNext    bool          `json:"has_next"`
-	Items      []RewardGrant `json:"items"`
-	NextCursor *string       `json:"next_cursor,omitempty"`
-}
-
 // Runtime defines model for Runtime.
 type Runtime struct {
 	DebugMode  *string   `json:"debug_mode,omitempty"`
@@ -2645,30 +2232,6 @@ type Runtime struct {
 	RxBytes    *uint64   `json:"rx_bytes,omitempty"`
 	TxBytes    *uint64   `json:"tx_bytes,omitempty"`
 }
-
-// ServerBadgeGetRequest defines model for ServerBadgeGetRequest.
-type ServerBadgeGetRequest = GameplayNameGetRequest
-
-// ServerBadgeGetResponse defines model for ServerBadgeGetResponse.
-type ServerBadgeGetResponse = Badge
-
-// ServerBadgeListRequest defines model for ServerBadgeListRequest.
-type ServerBadgeListRequest = GameplayListRequest
-
-// ServerBadgeListResponse defines model for ServerBadgeListResponse.
-type ServerBadgeListResponse = BadgeListResponse
-
-// ServerGameResultGetRequest defines model for ServerGameResultGetRequest.
-type ServerGameResultGetRequest = GameplayNameGetRequest
-
-// ServerGameResultGetResponse defines model for ServerGameResultGetResponse.
-type ServerGameResultGetResponse = GameResult
-
-// ServerGameResultListRequest defines model for ServerGameResultListRequest.
-type ServerGameResultListRequest = GameplayListRequest
-
-// ServerGameResultListResponse defines model for ServerGameResultListResponse.
-type ServerGameResultListResponse = GameResultListResponse
 
 // ServerGetInfoRequest defines model for ServerGetInfoRequest.
 type ServerGetInfoRequest = map[string]any
@@ -2718,65 +2281,11 @@ type ServerListRunWorkspaceHistoryRequest = PeerRunHistoryListRequest
 // ServerListRunWorkspaceHistoryResponse defines model for ServerListRunWorkspaceHistoryResponse.
 type ServerListRunWorkspaceHistoryResponse = PeerRunHistoryListResponse
 
-// RuntimeAdoptRequest defines model for RuntimeAdoptRequest.
-type RuntimeAdoptRequest = PetAdoptRequest
-
-// RuntimeAdoptResponse defines model for RuntimeAdoptResponse.
-type RuntimeAdoptResponse = PetAdoptResponse
-
-// ServerPetDeleteRequest defines model for ServerPetDeleteRequest.
-type ServerPetDeleteRequest = PetDeleteRequest
-
-// ServerPetDeleteResponse defines model for ServerPetDeleteResponse.
-type ServerPetDeleteResponse = Pet
-
-// ServerPetDriveRequest defines model for ServerPetDriveRequest.
-type ServerPetDriveRequest = PetDriveRequest
-
-// ServerPetDriveResponse defines model for ServerPetDriveResponse.
-type ServerPetDriveResponse = PetDriveResponse
-
-// ServerPetGetRequest defines model for ServerPetGetRequest.
-type ServerPetGetRequest = PetGetRequest
-
-// ServerPetGetResponse defines model for ServerPetGetResponse.
-type ServerPetGetResponse = Pet
-
-// ServerPetListRequest defines model for ServerPetListRequest.
-type ServerPetListRequest = GameplayListRequest
-
-// ServerPetListResponse defines model for ServerPetListResponse.
-type ServerPetListResponse = PetListResponse
-
-// ServerPetPutRequest defines model for ServerPetPutRequest.
-type ServerPetPutRequest = PetPutRequest
-
-// ServerPetPutResponse defines model for ServerPetPutResponse.
-type ServerPetPutResponse = Pet
-
 // ServerPlayRunWorkspaceHistoryRequest defines model for ServerPlayRunWorkspaceHistoryRequest.
 type ServerPlayRunWorkspaceHistoryRequest = PeerRunHistoryPlayRequest
 
 // ServerPlayRunWorkspaceHistoryResponse defines model for ServerPlayRunWorkspaceHistoryResponse.
 type ServerPlayRunWorkspaceHistoryResponse = PeerRunHistoryPlayResponse
-
-// ServerPointsGetRequest defines model for ServerPointsGetRequest.
-type ServerPointsGetRequest = map[string]any
-
-// ServerPointsGetResponse defines model for ServerPointsGetResponse.
-type ServerPointsGetResponse = PointsAccount
-
-// ServerPointsTransactionGetRequest defines model for ServerPointsTransactionGetRequest.
-type ServerPointsTransactionGetRequest = GameplayNameGetRequest
-
-// ServerPointsTransactionGetResponse defines model for ServerPointsTransactionGetResponse.
-type ServerPointsTransactionGetResponse = PointsTransaction
-
-// ServerPointsTransactionListRequest defines model for ServerPointsTransactionListRequest.
-type ServerPointsTransactionListRequest = GameplayListRequest
-
-// ServerPointsTransactionListResponse defines model for ServerPointsTransactionListResponse.
-type ServerPointsTransactionListResponse = PointsTransactionListResponse
 
 // ServerPutInfoRequest defines model for ServerPutInfoRequest.
 type ServerPutInfoRequest = DeviceProfile
@@ -2804,18 +2313,6 @@ type ServerReloadRunWorkspaceWithOptionsRequest struct {
 
 // ServerReloadRunWorkspaceResponse defines model for ServerReloadRunWorkspaceResponse.
 type ServerReloadRunWorkspaceResponse = PeerRunWorkspaceState
-
-// ServerRewardGrantGetRequest defines model for ServerRewardGrantGetRequest.
-type ServerRewardGrantGetRequest = GameplayNameGetRequest
-
-// ServerRewardGrantGetResponse defines model for ServerRewardGrantGetResponse.
-type ServerRewardGrantGetResponse = RewardGrant
-
-// ServerRewardGrantListRequest defines model for ServerRewardGrantListRequest.
-type ServerRewardGrantListRequest = GameplayListRequest
-
-// ServerRewardGrantListResponse defines model for ServerRewardGrantListResponse.
-type ServerRewardGrantListResponse = RewardGrantListResponse
 
 // ServerRunSayRequest defines model for ServerRunSayRequest.
 type ServerRunSayRequest struct {
@@ -2864,53 +2361,11 @@ type SpeedTestResponse struct {
 	UpContentLength   int64 `json:"up_content_length"`
 }
 
-// PetProgression defines model for PetProgression.
-type PetProgression struct {
-	Experience int64 `json:"experience"`
-	Level      int64 `json:"level"`
-}
+const ()
 
-// PetStats defines the fixed bounded care state.
-type PetStats struct {
-	Life    float64 `json:"life"`
-	Health  float64 `json:"health"`
-	Satiety float64 `json:"satiety"`
-	Hygiene float64 `json:"hygiene"`
-	Mood    float64 `json:"mood"`
-	Energy  float64 `json:"energy"`
-}
+const ()
 
-// PetBehavior defines executable fixed care behaviors.
-type PetBehavior string
-
-const (
-	PetBehaviorFeed  PetBehavior = "feed"
-	PetBehaviorBathe PetBehavior = "bathe"
-	PetBehaviorPlay  PetBehavior = "play"
-	PetBehaviorHeal  PetBehavior = "heal"
-)
-
-// PetLifecycle defines the authoritative Pet lifecycle.
-type PetLifecycle string
-
-const (
-	PetLifecycleAlive PetLifecycle = "alive"
-	PetLifecycleDead  PetLifecycle = "dead"
-)
-
-// PetWorkflowSpec defines model for PetWorkflowSpec.
-type PetWorkflowSpec struct {
-	AstTranslate         *ASTTranslateWorkflowSpec         `json:"ast_translate,omitempty"`
-	DashscopeRealtime    *DashScopeRealtimeWorkflowSpec    `json:"dashscope_realtime,omitempty"`
-	DoubaoRealtime       *DoubaoRealtimeWorkflowSpec       `json:"doubao_realtime,omitempty"`
-	DoubaoRealtimeDuplex *DoubaoRealtimeDuplexWorkflowSpec `json:"doubao_realtime_duplex,omitempty"`
-	Driver               ReusableWorkflowDriver            `json:"driver"`
-	Eino                 *EinoWorkflowSpec                 `json:"eino,omitempty"`
-	Flowcraft            *FlowcraftWorkflowSpec            `json:"flowcraft,omitempty"`
-	Toolkit              *ToolkitPolicy                    `json:"toolkit,omitempty"`
-}
-
-// ReusableWorkflowDriver defines a non-Pet Workflow driver allowed inside a Pet wrapper.
+// ReusableWorkflowDriver defines a Workflow driver that carries its own execution configuration.
 type ReusableWorkflowDriver string
 
 // Voice defines model for Voice.
@@ -3060,7 +2515,6 @@ type WorkflowSpec struct {
 	Eino                 *EinoWorkflowSpec                 `json:"eino,omitempty"`
 	Flowcraft            *FlowcraftWorkflowSpec            `json:"flowcraft,omitempty"`
 	Memory               *string                           `json:"memory,omitempty"`
-	Pet                  *PetWorkflowSpec                  `json:"pet,omitempty"`
 
 	// Sfu Empty SFU Workflow payload. The Workspace binds the current Peer to the SFU Room declared by its Social resource; the Workflow itself carries no configuration.
 	Sfu     *SFUWorkflowSpec `json:"sfu,omitempty"`
@@ -4510,278 +3964,6 @@ func (t *RPCPayload) MergeFriendGroupMemberDeleteRequest(v FriendGroupMemberDele
 	return t.merge("FriendGroupMemberDeleteRequest", v)
 }
 
-// AsBadgeDefPixaDownloadRequest decodes the RPCPayload as a BadgeDefPixaDownloadRequest
-func (t RPCPayload) AsBadgeDefPixaDownloadRequest() (BadgeDefPixaDownloadRequest, error) {
-	var body BadgeDefPixaDownloadRequest
-	err := t.decode("BadgeDefPixaDownloadRequest", &body)
-	return body, err
-}
-
-// FromBadgeDefPixaDownloadRequest overwrites any protobuf payload as the provided BadgeDefPixaDownloadRequest
-func (t *RPCPayload) FromBadgeDefPixaDownloadRequest(v BadgeDefPixaDownloadRequest) error {
-	return t.encode("BadgeDefPixaDownloadRequest", v)
-}
-
-// MergeBadgeDefPixaDownloadRequest performs a merge with any protobuf payload, using the provided BadgeDefPixaDownloadRequest
-func (t *RPCPayload) MergeBadgeDefPixaDownloadRequest(v BadgeDefPixaDownloadRequest) error {
-	return t.merge("BadgeDefPixaDownloadRequest", v)
-}
-
-// AsServerPetListRequest decodes the RPCPayload as a ServerPetListRequest
-func (t RPCPayload) AsServerPetListRequest() (ServerPetListRequest, error) {
-	var body ServerPetListRequest
-	err := t.decode("ServerPetListRequest", &body)
-	return body, err
-}
-
-// FromServerPetListRequest overwrites any protobuf payload as the provided ServerPetListRequest
-func (t *RPCPayload) FromServerPetListRequest(v ServerPetListRequest) error {
-	return t.encode("ServerPetListRequest", v)
-}
-
-// MergeServerPetListRequest performs a merge with any protobuf payload, using the provided ServerPetListRequest
-func (t *RPCPayload) MergeServerPetListRequest(v ServerPetListRequest) error {
-	return t.merge("ServerPetListRequest", v)
-}
-
-// AsServerPetGetRequest decodes the RPCPayload as a ServerPetGetRequest
-func (t RPCPayload) AsServerPetGetRequest() (ServerPetGetRequest, error) {
-	var body ServerPetGetRequest
-	err := t.decode("ServerPetGetRequest", &body)
-	return body, err
-}
-
-// FromServerPetGetRequest overwrites any protobuf payload as the provided ServerPetGetRequest
-func (t *RPCPayload) FromServerPetGetRequest(v ServerPetGetRequest) error {
-	return t.encode("ServerPetGetRequest", v)
-}
-
-// MergeServerPetGetRequest performs a merge with any protobuf payload, using the provided ServerPetGetRequest
-func (t *RPCPayload) MergeServerPetGetRequest(v ServerPetGetRequest) error {
-	return t.merge("ServerPetGetRequest", v)
-}
-
-// AsRuntimeAdoptRequest decodes the RPCPayload as a RuntimeAdoptRequest
-func (t RPCPayload) AsRuntimeAdoptRequest() (RuntimeAdoptRequest, error) {
-	var body RuntimeAdoptRequest
-	err := t.decode("RuntimeAdoptRequest", &body)
-	return body, err
-}
-
-// FromRuntimeAdoptRequest overwrites any protobuf payload as the provided RuntimeAdoptRequest
-func (t *RPCPayload) FromRuntimeAdoptRequest(v RuntimeAdoptRequest) error {
-	return t.encode("RuntimeAdoptRequest", v)
-}
-
-// MergeRuntimeAdoptRequest performs a merge with any protobuf payload, using the provided RuntimeAdoptRequest
-func (t *RPCPayload) MergeRuntimeAdoptRequest(v RuntimeAdoptRequest) error {
-	return t.merge("RuntimeAdoptRequest", v)
-}
-
-// AsServerPetPutRequest decodes the RPCPayload as a ServerPetPutRequest
-func (t RPCPayload) AsServerPetPutRequest() (ServerPetPutRequest, error) {
-	var body ServerPetPutRequest
-	err := t.decode("ServerPetPutRequest", &body)
-	return body, err
-}
-
-// FromServerPetPutRequest overwrites any protobuf payload as the provided ServerPetPutRequest
-func (t *RPCPayload) FromServerPetPutRequest(v ServerPetPutRequest) error {
-	return t.encode("ServerPetPutRequest", v)
-}
-
-// MergeServerPetPutRequest performs a merge with any protobuf payload, using the provided ServerPetPutRequest
-func (t *RPCPayload) MergeServerPetPutRequest(v ServerPetPutRequest) error {
-	return t.merge("ServerPetPutRequest", v)
-}
-
-// AsServerPetDeleteRequest decodes the RPCPayload as a ServerPetDeleteRequest
-func (t RPCPayload) AsServerPetDeleteRequest() (ServerPetDeleteRequest, error) {
-	var body ServerPetDeleteRequest
-	err := t.decode("ServerPetDeleteRequest", &body)
-	return body, err
-}
-
-// FromServerPetDeleteRequest overwrites any protobuf payload as the provided ServerPetDeleteRequest
-func (t *RPCPayload) FromServerPetDeleteRequest(v ServerPetDeleteRequest) error {
-	return t.encode("ServerPetDeleteRequest", v)
-}
-
-// MergeServerPetDeleteRequest performs a merge with any protobuf payload, using the provided ServerPetDeleteRequest
-func (t *RPCPayload) MergeServerPetDeleteRequest(v ServerPetDeleteRequest) error {
-	return t.merge("ServerPetDeleteRequest", v)
-}
-
-// AsServerPetDriveRequest decodes the RPCPayload as a ServerPetDriveRequest
-func (t RPCPayload) AsServerPetDriveRequest() (ServerPetDriveRequest, error) {
-	var body ServerPetDriveRequest
-	err := t.decode("ServerPetDriveRequest", &body)
-	return body, err
-}
-
-// FromServerPetDriveRequest overwrites any protobuf payload as the provided ServerPetDriveRequest
-func (t *RPCPayload) FromServerPetDriveRequest(v ServerPetDriveRequest) error {
-	return t.encode("ServerPetDriveRequest", v)
-}
-
-// MergeServerPetDriveRequest performs a merge with any protobuf payload, using the provided ServerPetDriveRequest
-func (t *RPCPayload) MergeServerPetDriveRequest(v ServerPetDriveRequest) error {
-	return t.merge("ServerPetDriveRequest", v)
-}
-
-// AsServerPointsGetRequest decodes the RPCPayload as a ServerPointsGetRequest
-func (t RPCPayload) AsServerPointsGetRequest() (ServerPointsGetRequest, error) {
-	var body ServerPointsGetRequest
-	err := t.decode("ServerPointsGetRequest", &body)
-	return body, err
-}
-
-// FromServerPointsGetRequest overwrites any protobuf payload as the provided ServerPointsGetRequest
-func (t *RPCPayload) FromServerPointsGetRequest(v ServerPointsGetRequest) error {
-	return t.encode("ServerPointsGetRequest", v)
-}
-
-// MergeServerPointsGetRequest performs a merge with any protobuf payload, using the provided ServerPointsGetRequest
-func (t *RPCPayload) MergeServerPointsGetRequest(v ServerPointsGetRequest) error {
-	return t.merge("ServerPointsGetRequest", v)
-}
-
-// AsServerPointsTransactionListRequest decodes the RPCPayload as a ServerPointsTransactionListRequest
-func (t RPCPayload) AsServerPointsTransactionListRequest() (ServerPointsTransactionListRequest, error) {
-	var body ServerPointsTransactionListRequest
-	err := t.decode("ServerPointsTransactionListRequest", &body)
-	return body, err
-}
-
-// FromServerPointsTransactionListRequest overwrites any protobuf payload as the provided ServerPointsTransactionListRequest
-func (t *RPCPayload) FromServerPointsTransactionListRequest(v ServerPointsTransactionListRequest) error {
-	return t.encode("ServerPointsTransactionListRequest", v)
-}
-
-// MergeServerPointsTransactionListRequest performs a merge with any protobuf payload, using the provided ServerPointsTransactionListRequest
-func (t *RPCPayload) MergeServerPointsTransactionListRequest(v ServerPointsTransactionListRequest) error {
-	return t.merge("ServerPointsTransactionListRequest", v)
-}
-
-// AsServerPointsTransactionGetRequest decodes the RPCPayload as a ServerPointsTransactionGetRequest
-func (t RPCPayload) AsServerPointsTransactionGetRequest() (ServerPointsTransactionGetRequest, error) {
-	var body ServerPointsTransactionGetRequest
-	err := t.decode("ServerPointsTransactionGetRequest", &body)
-	return body, err
-}
-
-// FromServerPointsTransactionGetRequest overwrites any protobuf payload as the provided ServerPointsTransactionGetRequest
-func (t *RPCPayload) FromServerPointsTransactionGetRequest(v ServerPointsTransactionGetRequest) error {
-	return t.encode("ServerPointsTransactionGetRequest", v)
-}
-
-// MergeServerPointsTransactionGetRequest performs a merge with any protobuf payload, using the provided ServerPointsTransactionGetRequest
-func (t *RPCPayload) MergeServerPointsTransactionGetRequest(v ServerPointsTransactionGetRequest) error {
-	return t.merge("ServerPointsTransactionGetRequest", v)
-}
-
-// AsServerBadgeListRequest decodes the RPCPayload as a ServerBadgeListRequest
-func (t RPCPayload) AsServerBadgeListRequest() (ServerBadgeListRequest, error) {
-	var body ServerBadgeListRequest
-	err := t.decode("ServerBadgeListRequest", &body)
-	return body, err
-}
-
-// FromServerBadgeListRequest overwrites any protobuf payload as the provided ServerBadgeListRequest
-func (t *RPCPayload) FromServerBadgeListRequest(v ServerBadgeListRequest) error {
-	return t.encode("ServerBadgeListRequest", v)
-}
-
-// MergeServerBadgeListRequest performs a merge with any protobuf payload, using the provided ServerBadgeListRequest
-func (t *RPCPayload) MergeServerBadgeListRequest(v ServerBadgeListRequest) error {
-	return t.merge("ServerBadgeListRequest", v)
-}
-
-// AsServerBadgeGetRequest decodes the RPCPayload as a ServerBadgeGetRequest
-func (t RPCPayload) AsServerBadgeGetRequest() (ServerBadgeGetRequest, error) {
-	var body ServerBadgeGetRequest
-	err := t.decode("ServerBadgeGetRequest", &body)
-	return body, err
-}
-
-// FromServerBadgeGetRequest overwrites any protobuf payload as the provided ServerBadgeGetRequest
-func (t *RPCPayload) FromServerBadgeGetRequest(v ServerBadgeGetRequest) error {
-	return t.encode("ServerBadgeGetRequest", v)
-}
-
-// MergeServerBadgeGetRequest performs a merge with any protobuf payload, using the provided ServerBadgeGetRequest
-func (t *RPCPayload) MergeServerBadgeGetRequest(v ServerBadgeGetRequest) error {
-	return t.merge("ServerBadgeGetRequest", v)
-}
-
-// AsServerGameResultListRequest decodes the RPCPayload as a ServerGameResultListRequest
-func (t RPCPayload) AsServerGameResultListRequest() (ServerGameResultListRequest, error) {
-	var body ServerGameResultListRequest
-	err := t.decode("ServerGameResultListRequest", &body)
-	return body, err
-}
-
-// FromServerGameResultListRequest overwrites any protobuf payload as the provided ServerGameResultListRequest
-func (t *RPCPayload) FromServerGameResultListRequest(v ServerGameResultListRequest) error {
-	return t.encode("ServerGameResultListRequest", v)
-}
-
-// MergeServerGameResultListRequest performs a merge with any protobuf payload, using the provided ServerGameResultListRequest
-func (t *RPCPayload) MergeServerGameResultListRequest(v ServerGameResultListRequest) error {
-	return t.merge("ServerGameResultListRequest", v)
-}
-
-// AsServerGameResultGetRequest decodes the RPCPayload as a ServerGameResultGetRequest
-func (t RPCPayload) AsServerGameResultGetRequest() (ServerGameResultGetRequest, error) {
-	var body ServerGameResultGetRequest
-	err := t.decode("ServerGameResultGetRequest", &body)
-	return body, err
-}
-
-// FromServerGameResultGetRequest overwrites any protobuf payload as the provided ServerGameResultGetRequest
-func (t *RPCPayload) FromServerGameResultGetRequest(v ServerGameResultGetRequest) error {
-	return t.encode("ServerGameResultGetRequest", v)
-}
-
-// MergeServerGameResultGetRequest performs a merge with any protobuf payload, using the provided ServerGameResultGetRequest
-func (t *RPCPayload) MergeServerGameResultGetRequest(v ServerGameResultGetRequest) error {
-	return t.merge("ServerGameResultGetRequest", v)
-}
-
-// AsServerRewardGrantListRequest decodes the RPCPayload as a ServerRewardGrantListRequest
-func (t RPCPayload) AsServerRewardGrantListRequest() (ServerRewardGrantListRequest, error) {
-	var body ServerRewardGrantListRequest
-	err := t.decode("ServerRewardGrantListRequest", &body)
-	return body, err
-}
-
-// FromServerRewardGrantListRequest overwrites any protobuf payload as the provided ServerRewardGrantListRequest
-func (t *RPCPayload) FromServerRewardGrantListRequest(v ServerRewardGrantListRequest) error {
-	return t.encode("ServerRewardGrantListRequest", v)
-}
-
-// MergeServerRewardGrantListRequest performs a merge with any protobuf payload, using the provided ServerRewardGrantListRequest
-func (t *RPCPayload) MergeServerRewardGrantListRequest(v ServerRewardGrantListRequest) error {
-	return t.merge("ServerRewardGrantListRequest", v)
-}
-
-// AsServerRewardGrantGetRequest decodes the RPCPayload as a ServerRewardGrantGetRequest
-func (t RPCPayload) AsServerRewardGrantGetRequest() (ServerRewardGrantGetRequest, error) {
-	var body ServerRewardGrantGetRequest
-	err := t.decode("ServerRewardGrantGetRequest", &body)
-	return body, err
-}
-
-// FromServerRewardGrantGetRequest overwrites any protobuf payload as the provided ServerRewardGrantGetRequest
-func (t *RPCPayload) FromServerRewardGrantGetRequest(v ServerRewardGrantGetRequest) error {
-	return t.encode("ServerRewardGrantGetRequest", v)
-}
-
-// MergeServerRewardGrantGetRequest performs a merge with any protobuf payload, using the provided ServerRewardGrantGetRequest
-func (t *RPCPayload) MergeServerRewardGrantGetRequest(v ServerRewardGrantGetRequest) error {
-	return t.merge("ServerRewardGrantGetRequest", v)
-}
-
 // AsPingResponse decodes the RPCPayload as a PingResponse
 func (t RPCPayload) AsPingResponse() (PingResponse, error) {
 	var body PingResponse
@@ -5819,278 +5001,6 @@ func (t *RPCPayload) MergeFriendGroupMemberDeleteResponse(v FriendGroupMemberDel
 	return t.merge("FriendGroupMemberDeleteResponse", v)
 }
 
-// AsBadgeDefPixaDownloadResponse decodes the RPCPayload as a BadgeDefPixaDownloadResponse
-func (t RPCPayload) AsBadgeDefPixaDownloadResponse() (BadgeDefPixaDownloadResponse, error) {
-	var body BadgeDefPixaDownloadResponse
-	err := t.decode("BadgeDefPixaDownloadResponse", &body)
-	return body, err
-}
-
-// FromBadgeDefPixaDownloadResponse overwrites any protobuf payload as the provided BadgeDefPixaDownloadResponse
-func (t *RPCPayload) FromBadgeDefPixaDownloadResponse(v BadgeDefPixaDownloadResponse) error {
-	return t.encode("BadgeDefPixaDownloadResponse", v)
-}
-
-// MergeBadgeDefPixaDownloadResponse performs a merge with any protobuf payload, using the provided BadgeDefPixaDownloadResponse
-func (t *RPCPayload) MergeBadgeDefPixaDownloadResponse(v BadgeDefPixaDownloadResponse) error {
-	return t.merge("BadgeDefPixaDownloadResponse", v)
-}
-
-// AsServerPetListResponse decodes the RPCPayload as a ServerPetListResponse
-func (t RPCPayload) AsServerPetListResponse() (ServerPetListResponse, error) {
-	var body ServerPetListResponse
-	err := t.decode("ServerPetListResponse", &body)
-	return body, err
-}
-
-// FromServerPetListResponse overwrites any protobuf payload as the provided ServerPetListResponse
-func (t *RPCPayload) FromServerPetListResponse(v ServerPetListResponse) error {
-	return t.encode("ServerPetListResponse", v)
-}
-
-// MergeServerPetListResponse performs a merge with any protobuf payload, using the provided ServerPetListResponse
-func (t *RPCPayload) MergeServerPetListResponse(v ServerPetListResponse) error {
-	return t.merge("ServerPetListResponse", v)
-}
-
-// AsServerPetGetResponse decodes the RPCPayload as a ServerPetGetResponse
-func (t RPCPayload) AsServerPetGetResponse() (ServerPetGetResponse, error) {
-	var body ServerPetGetResponse
-	err := t.decode("ServerPetGetResponse", &body)
-	return body, err
-}
-
-// FromServerPetGetResponse overwrites any protobuf payload as the provided ServerPetGetResponse
-func (t *RPCPayload) FromServerPetGetResponse(v ServerPetGetResponse) error {
-	return t.encode("ServerPetGetResponse", v)
-}
-
-// MergeServerPetGetResponse performs a merge with any protobuf payload, using the provided ServerPetGetResponse
-func (t *RPCPayload) MergeServerPetGetResponse(v ServerPetGetResponse) error {
-	return t.merge("ServerPetGetResponse", v)
-}
-
-// AsRuntimeAdoptResponse decodes the RPCPayload as a RuntimeAdoptResponse
-func (t RPCPayload) AsRuntimeAdoptResponse() (RuntimeAdoptResponse, error) {
-	var body RuntimeAdoptResponse
-	err := t.decode("RuntimeAdoptResponse", &body)
-	return body, err
-}
-
-// FromRuntimeAdoptResponse overwrites any protobuf payload as the provided RuntimeAdoptResponse
-func (t *RPCPayload) FromRuntimeAdoptResponse(v RuntimeAdoptResponse) error {
-	return t.encode("RuntimeAdoptResponse", v)
-}
-
-// MergeRuntimeAdoptResponse performs a merge with any protobuf payload, using the provided RuntimeAdoptResponse
-func (t *RPCPayload) MergeRuntimeAdoptResponse(v RuntimeAdoptResponse) error {
-	return t.merge("RuntimeAdoptResponse", v)
-}
-
-// AsServerPetPutResponse decodes the RPCPayload as a ServerPetPutResponse
-func (t RPCPayload) AsServerPetPutResponse() (ServerPetPutResponse, error) {
-	var body ServerPetPutResponse
-	err := t.decode("ServerPetPutResponse", &body)
-	return body, err
-}
-
-// FromServerPetPutResponse overwrites any protobuf payload as the provided ServerPetPutResponse
-func (t *RPCPayload) FromServerPetPutResponse(v ServerPetPutResponse) error {
-	return t.encode("ServerPetPutResponse", v)
-}
-
-// MergeServerPetPutResponse performs a merge with any protobuf payload, using the provided ServerPetPutResponse
-func (t *RPCPayload) MergeServerPetPutResponse(v ServerPetPutResponse) error {
-	return t.merge("ServerPetPutResponse", v)
-}
-
-// AsServerPetDeleteResponse decodes the RPCPayload as a ServerPetDeleteResponse
-func (t RPCPayload) AsServerPetDeleteResponse() (ServerPetDeleteResponse, error) {
-	var body ServerPetDeleteResponse
-	err := t.decode("ServerPetDeleteResponse", &body)
-	return body, err
-}
-
-// FromServerPetDeleteResponse overwrites any protobuf payload as the provided ServerPetDeleteResponse
-func (t *RPCPayload) FromServerPetDeleteResponse(v ServerPetDeleteResponse) error {
-	return t.encode("ServerPetDeleteResponse", v)
-}
-
-// MergeServerPetDeleteResponse performs a merge with any protobuf payload, using the provided ServerPetDeleteResponse
-func (t *RPCPayload) MergeServerPetDeleteResponse(v ServerPetDeleteResponse) error {
-	return t.merge("ServerPetDeleteResponse", v)
-}
-
-// AsServerPetDriveResponse decodes the RPCPayload as a ServerPetDriveResponse
-func (t RPCPayload) AsServerPetDriveResponse() (ServerPetDriveResponse, error) {
-	var body ServerPetDriveResponse
-	err := t.decode("ServerPetDriveResponse", &body)
-	return body, err
-}
-
-// FromServerPetDriveResponse overwrites any protobuf payload as the provided ServerPetDriveResponse
-func (t *RPCPayload) FromServerPetDriveResponse(v ServerPetDriveResponse) error {
-	return t.encode("ServerPetDriveResponse", v)
-}
-
-// MergeServerPetDriveResponse performs a merge with any protobuf payload, using the provided ServerPetDriveResponse
-func (t *RPCPayload) MergeServerPetDriveResponse(v ServerPetDriveResponse) error {
-	return t.merge("ServerPetDriveResponse", v)
-}
-
-// AsServerPointsGetResponse decodes the RPCPayload as a ServerPointsGetResponse
-func (t RPCPayload) AsServerPointsGetResponse() (ServerPointsGetResponse, error) {
-	var body ServerPointsGetResponse
-	err := t.decode("ServerPointsGetResponse", &body)
-	return body, err
-}
-
-// FromServerPointsGetResponse overwrites any protobuf payload as the provided ServerPointsGetResponse
-func (t *RPCPayload) FromServerPointsGetResponse(v ServerPointsGetResponse) error {
-	return t.encode("ServerPointsGetResponse", v)
-}
-
-// MergeServerPointsGetResponse performs a merge with any protobuf payload, using the provided ServerPointsGetResponse
-func (t *RPCPayload) MergeServerPointsGetResponse(v ServerPointsGetResponse) error {
-	return t.merge("ServerPointsGetResponse", v)
-}
-
-// AsServerPointsTransactionListResponse decodes the RPCPayload as a ServerPointsTransactionListResponse
-func (t RPCPayload) AsServerPointsTransactionListResponse() (ServerPointsTransactionListResponse, error) {
-	var body ServerPointsTransactionListResponse
-	err := t.decode("ServerPointsTransactionListResponse", &body)
-	return body, err
-}
-
-// FromServerPointsTransactionListResponse overwrites any protobuf payload as the provided ServerPointsTransactionListResponse
-func (t *RPCPayload) FromServerPointsTransactionListResponse(v ServerPointsTransactionListResponse) error {
-	return t.encode("ServerPointsTransactionListResponse", v)
-}
-
-// MergeServerPointsTransactionListResponse performs a merge with any protobuf payload, using the provided ServerPointsTransactionListResponse
-func (t *RPCPayload) MergeServerPointsTransactionListResponse(v ServerPointsTransactionListResponse) error {
-	return t.merge("ServerPointsTransactionListResponse", v)
-}
-
-// AsServerPointsTransactionGetResponse decodes the RPCPayload as a ServerPointsTransactionGetResponse
-func (t RPCPayload) AsServerPointsTransactionGetResponse() (ServerPointsTransactionGetResponse, error) {
-	var body ServerPointsTransactionGetResponse
-	err := t.decode("ServerPointsTransactionGetResponse", &body)
-	return body, err
-}
-
-// FromServerPointsTransactionGetResponse overwrites any protobuf payload as the provided ServerPointsTransactionGetResponse
-func (t *RPCPayload) FromServerPointsTransactionGetResponse(v ServerPointsTransactionGetResponse) error {
-	return t.encode("ServerPointsTransactionGetResponse", v)
-}
-
-// MergeServerPointsTransactionGetResponse performs a merge with any protobuf payload, using the provided ServerPointsTransactionGetResponse
-func (t *RPCPayload) MergeServerPointsTransactionGetResponse(v ServerPointsTransactionGetResponse) error {
-	return t.merge("ServerPointsTransactionGetResponse", v)
-}
-
-// AsServerBadgeListResponse decodes the RPCPayload as a ServerBadgeListResponse
-func (t RPCPayload) AsServerBadgeListResponse() (ServerBadgeListResponse, error) {
-	var body ServerBadgeListResponse
-	err := t.decode("ServerBadgeListResponse", &body)
-	return body, err
-}
-
-// FromServerBadgeListResponse overwrites any protobuf payload as the provided ServerBadgeListResponse
-func (t *RPCPayload) FromServerBadgeListResponse(v ServerBadgeListResponse) error {
-	return t.encode("ServerBadgeListResponse", v)
-}
-
-// MergeServerBadgeListResponse performs a merge with any protobuf payload, using the provided ServerBadgeListResponse
-func (t *RPCPayload) MergeServerBadgeListResponse(v ServerBadgeListResponse) error {
-	return t.merge("ServerBadgeListResponse", v)
-}
-
-// AsServerBadgeGetResponse decodes the RPCPayload as a ServerBadgeGetResponse
-func (t RPCPayload) AsServerBadgeGetResponse() (ServerBadgeGetResponse, error) {
-	var body ServerBadgeGetResponse
-	err := t.decode("ServerBadgeGetResponse", &body)
-	return body, err
-}
-
-// FromServerBadgeGetResponse overwrites any protobuf payload as the provided ServerBadgeGetResponse
-func (t *RPCPayload) FromServerBadgeGetResponse(v ServerBadgeGetResponse) error {
-	return t.encode("ServerBadgeGetResponse", v)
-}
-
-// MergeServerBadgeGetResponse performs a merge with any protobuf payload, using the provided ServerBadgeGetResponse
-func (t *RPCPayload) MergeServerBadgeGetResponse(v ServerBadgeGetResponse) error {
-	return t.merge("ServerBadgeGetResponse", v)
-}
-
-// AsServerGameResultListResponse decodes the RPCPayload as a ServerGameResultListResponse
-func (t RPCPayload) AsServerGameResultListResponse() (ServerGameResultListResponse, error) {
-	var body ServerGameResultListResponse
-	err := t.decode("ServerGameResultListResponse", &body)
-	return body, err
-}
-
-// FromServerGameResultListResponse overwrites any protobuf payload as the provided ServerGameResultListResponse
-func (t *RPCPayload) FromServerGameResultListResponse(v ServerGameResultListResponse) error {
-	return t.encode("ServerGameResultListResponse", v)
-}
-
-// MergeServerGameResultListResponse performs a merge with any protobuf payload, using the provided ServerGameResultListResponse
-func (t *RPCPayload) MergeServerGameResultListResponse(v ServerGameResultListResponse) error {
-	return t.merge("ServerGameResultListResponse", v)
-}
-
-// AsServerGameResultGetResponse decodes the RPCPayload as a ServerGameResultGetResponse
-func (t RPCPayload) AsServerGameResultGetResponse() (ServerGameResultGetResponse, error) {
-	var body ServerGameResultGetResponse
-	err := t.decode("ServerGameResultGetResponse", &body)
-	return body, err
-}
-
-// FromServerGameResultGetResponse overwrites any protobuf payload as the provided ServerGameResultGetResponse
-func (t *RPCPayload) FromServerGameResultGetResponse(v ServerGameResultGetResponse) error {
-	return t.encode("ServerGameResultGetResponse", v)
-}
-
-// MergeServerGameResultGetResponse performs a merge with any protobuf payload, using the provided ServerGameResultGetResponse
-func (t *RPCPayload) MergeServerGameResultGetResponse(v ServerGameResultGetResponse) error {
-	return t.merge("ServerGameResultGetResponse", v)
-}
-
-// AsServerRewardGrantListResponse decodes the RPCPayload as a ServerRewardGrantListResponse
-func (t RPCPayload) AsServerRewardGrantListResponse() (ServerRewardGrantListResponse, error) {
-	var body ServerRewardGrantListResponse
-	err := t.decode("ServerRewardGrantListResponse", &body)
-	return body, err
-}
-
-// FromServerRewardGrantListResponse overwrites any protobuf payload as the provided ServerRewardGrantListResponse
-func (t *RPCPayload) FromServerRewardGrantListResponse(v ServerRewardGrantListResponse) error {
-	return t.encode("ServerRewardGrantListResponse", v)
-}
-
-// MergeServerRewardGrantListResponse performs a merge with any protobuf payload, using the provided ServerRewardGrantListResponse
-func (t *RPCPayload) MergeServerRewardGrantListResponse(v ServerRewardGrantListResponse) error {
-	return t.merge("ServerRewardGrantListResponse", v)
-}
-
-// AsServerRewardGrantGetResponse decodes the RPCPayload as a ServerRewardGrantGetResponse
-func (t RPCPayload) AsServerRewardGrantGetResponse() (ServerRewardGrantGetResponse, error) {
-	var body ServerRewardGrantGetResponse
-	err := t.decode("ServerRewardGrantGetResponse", &body)
-	return body, err
-}
-
-// FromServerRewardGrantGetResponse overwrites any protobuf payload as the provided ServerRewardGrantGetResponse
-func (t *RPCPayload) FromServerRewardGrantGetResponse(v ServerRewardGrantGetResponse) error {
-	return t.encode("ServerRewardGrantGetResponse", v)
-}
-
-// MergeServerRewardGrantGetResponse performs a merge with any protobuf payload, using the provided ServerRewardGrantGetResponse
-func (t *RPCPayload) MergeServerRewardGrantGetResponse(v ServerRewardGrantGetResponse) error {
-	return t.merge("ServerRewardGrantGetResponse", v)
-}
-
 // AsServerPeerLookupRequest decodes the RPCPayload as a ServerPeerLookupRequest
 func (t RPCPayload) AsServerPeerLookupRequest() (rpcpb.ServerPeerLookupRequest, error) {
 	var body rpcpb.ServerPeerLookupRequest
@@ -6398,22 +5308,6 @@ func (t *WorkspaceParameters) MergeEinoWorkspaceParameters(v EinoWorkspaceParame
 	return nil
 }
 
-func (t WorkspaceParameters) AsPetWorkspaceParameters() (PetWorkspaceParameters, error) {
-	return rpcUnionAs[PetWorkspaceParameters](t.Value, "WorkspaceParameters", "PetWorkspaceParameters")
-}
-
-func (t *WorkspaceParameters) FromPetWorkspaceParameters(v PetWorkspaceParameters) error {
-	v.AgentType = PetWorkspaceParametersAgentTypePet
-	t.Value = v
-	return nil
-}
-
-func (t *WorkspaceParameters) MergePetWorkspaceParameters(v PetWorkspaceParameters) error {
-	v.AgentType = PetWorkspaceParametersAgentTypePet
-	t.Value = v
-	return nil
-}
-
 // AsASTTranslateWorkspaceParameters returns the union data inside the WorkspaceParameters as a ASTTranslateWorkspaceParameters
 func (t WorkspaceParameters) AsASTTranslateWorkspaceParameters() (ASTTranslateWorkspaceParameters, error) {
 	return rpcUnionAs[ASTTranslateWorkspaceParameters](t.Value, "WorkspaceParameters", "ASTTranslateWorkspaceParameters")
@@ -6445,8 +5339,6 @@ func (t WorkspaceParameters) Discriminator() (string, error) {
 		return string(v.AgentType), nil
 	case EinoWorkspaceParameters:
 		return string(v.AgentType), nil
-	case PetWorkspaceParameters:
-		return string(v.AgentType), nil
 	case ASTTranslateWorkspaceParameters:
 		return string(v.AgentType), nil
 	case nil:
@@ -6474,8 +5366,6 @@ func (t WorkspaceParameters) ValueByDiscriminator() (any, error) {
 		return t.AsEinoWorkspaceParameters()
 	case "flowcraft":
 		return t.AsFlowcraftWorkspaceParameters()
-	case "pet":
-		return t.AsPetWorkspaceParameters()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}

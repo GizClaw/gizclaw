@@ -142,7 +142,7 @@ services:
       GIZCLAW_E2E_UPSTREAM_B_PUBLIC_KEY: BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T
     healthcheck: *edge-health
 
-  # Seeds one Server's local catalog (Pet Workflow, RuntimeProfile,
+  # Seeds one Server's local catalog (RuntimeProfile, optional Monitor Workflow,
   # RegistrationToken) through the Admin API. Invoked once per Server by
   # run_multi_server_tests.sh with `docker compose run --rm seed <flags>`.
   seed:
@@ -167,8 +167,8 @@ services:
       GIZCLAW_E2E_EDGE_A: edge-a:9821
       GIZCLAW_E2E_EDGE_B: edge-b:9821
       GIZCLAW_E2E_REDIS_DSN: redis://redis:6379/0
-      GIZCLAW_E2E_SERVER_A_STATE: /server-a-state/data/gameplay.sqlite
-      GIZCLAW_E2E_SERVER_B_STATE: /server-b-state/data/gameplay.sqlite
+      GIZCLAW_E2E_SERVER_A_STATE: /server-a-state/data/business.sqlite
+      GIZCLAW_E2E_SERVER_B_STATE: /server-b-state/data/business.sqlite
       GIZCLAW_E2E_ADMIN_PRIVATE_KEY_A: BHUtU547UzMM5ZBvGCEEgiFcCND4hpMvRcfTSHVayiDr
       GIZCLAW_E2E_ADMIN_PRIVATE_KEY_B: BJ4LoLyU7mbs1e56jahtyJEJHyh3DEWHXsBZr98SyQyf
       GIZCLAW_E2E_LIVEKIT_URL: http://livekit:7880

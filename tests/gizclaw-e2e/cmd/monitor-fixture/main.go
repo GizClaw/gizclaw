@@ -89,7 +89,7 @@ func run() error {
 		return fmt.Errorf("fixture workspace lookup status %d: %s", response.StatusCode(), response.Body)
 	}
 	id := (*response.JSON200)[0].Id
-	db, err := sqlx.Open("sqlite", filepath.Join(*dataDir, "gameplay.sqlite")+"?_pragma=busy_timeout(5000)")
+	db, err := sqlx.Open("sqlite", filepath.Join(*dataDir, "business.sqlite")+"?_pragma=busy_timeout(5000)")
 	if err != nil {
 		return err
 	}

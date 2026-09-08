@@ -154,7 +154,7 @@ func TestPrepareWorkspaceConfigLoadsWorkspaceConfig(t *testing.T) {
 		cfg.HTTP.Listeners[0].Listen = cfg.WebRTC.Listen
 		cfg.AdminPublicKey = adminKP.Public
 		cfg.Storage["local-files"] = storageFileConfig{Kind: storage.KindFilesystemDir, Dir: "."}
-		cfg.Storage["gameplay-db"] = storageFileConfig{Kind: storage.KindSQLite, Dir: "data/gameplay.sqlite"}
+		cfg.Storage["business-db"] = storageFileConfig{Kind: storage.KindSQLite, Dir: "data/business.sqlite"}
 	})
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
@@ -183,8 +183,8 @@ func TestPrepareWorkspaceConfigLoadsWorkspaceConfig(t *testing.T) {
 	if got, ok := cfg.Storage["local-files"].(storage.FilesystemDirConfig); !ok || got.Dir != workspace {
 		t.Fatalf("local-files storage = %#v", cfg.Storage["local-files"])
 	}
-	if got, ok := cfg.Storage["gameplay-db"].(storage.SQLiteConfig); !ok || got.Dir != filepath.Join(workspace, "data", "gameplay.sqlite") {
-		t.Fatalf("gameplay-db storage = %#v", cfg.Storage["gameplay-db"])
+	if got, ok := cfg.Storage["business-db"].(storage.SQLiteConfig); !ok || got.Dir != filepath.Join(workspace, "data", "business.sqlite") {
+		t.Fatalf("business-db storage = %#v", cfg.Storage["business-db"])
 	}
 }
 
@@ -489,7 +489,7 @@ func TestPrepareWorkspaceConfigResolvesRelativeStoreDirs(t *testing.T) {
 	workspace := t.TempDir()
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
 		cfg.Storage["local-files"] = storageFileConfig{Kind: storage.KindFilesystemDir, Dir: "."}
-		cfg.Storage["gameplay-db"] = storageFileConfig{Kind: storage.KindSQLite, Dir: "data/fixture.sqlite"}
+		cfg.Storage["business-db"] = storageFileConfig{Kind: storage.KindSQLite, Dir: "data/fixture.sqlite"}
 	})
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
@@ -502,8 +502,8 @@ func TestPrepareWorkspaceConfigResolvesRelativeStoreDirs(t *testing.T) {
 	if got, ok := cfg.Storage["local-files"].(storage.FilesystemDirConfig); !ok || got.Dir != workspace {
 		t.Fatalf("local-files storage = %#v", cfg.Storage["local-files"])
 	}
-	if got, ok := cfg.Storage["gameplay-db"].(storage.SQLiteConfig); !ok || got.Dir != filepath.Join(workspace, "data", "fixture.sqlite") {
-		t.Fatalf("gameplay-db storage = %#v", cfg.Storage["gameplay-db"])
+	if got, ok := cfg.Storage["business-db"].(storage.SQLiteConfig); !ok || got.Dir != filepath.Join(workspace, "data", "fixture.sqlite") {
+		t.Fatalf("business-db storage = %#v", cfg.Storage["business-db"])
 	}
 	if got := cfg.Stores["workspace-assets"].Prefix; got != "workspaces" {
 		t.Fatalf("workspace-assets prefix = %q", got)

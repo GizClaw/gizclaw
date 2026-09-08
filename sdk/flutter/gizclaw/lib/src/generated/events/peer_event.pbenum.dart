@@ -34,9 +34,6 @@ class PeerEventType extends $pb.ProtobufEnum {
   static const PeerEventType PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED =
       PeerEventType._(
           7, _omitEnumNames ? '' : 'PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED');
-  static const PeerEventType PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED =
-      PeerEventType._(
-          8, _omitEnumNames ? '' : 'PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED');
 
   /// Server acknowledgement that an input audio BOS has been authorized and
   /// installed. Clients must receive this before sending its Opus packets.
@@ -53,7 +50,6 @@ class PeerEventType extends $pb.ProtobufEnum {
     PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED,
     PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED,
     PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED,
-    PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED,
     PEER_EVENT_TYPE_AUDIO_INPUT_READY,
   ];
 

@@ -102,9 +102,6 @@ func TestOwnerObjectNames(t *testing.T) {
 	if got, want := ObjectName("team/demo", FormatPNG), "id-sha256-c79aaa1b9e3a8241f274b167b4e13a459c640171308e69ef3ef85f30b2b1f743/icon.png"; got != want {
 		t.Fatalf("ObjectName() = %q, want %q", got, want)
 	}
-	if got, want := GameDefObjectName("game one", FormatPixa), "game-defs/id-sha256-c09e357f5149ed79d038667f02e8463cae9d257709378fb26691561b7ecb5f87/icon.pixa"; got != want {
-		t.Fatalf("GameDefObjectName() = %q, want %q", got, want)
-	}
 	for _, id := range []string{".", "..", "team/demo", `team\demo`, "a:b"} {
 		name := ObjectName(id, FormatPNG)
 		if strings.Contains(name, "../") || strings.Contains(name, `\`) || strings.HasPrefix(name, "/") {
