@@ -144,8 +144,11 @@ type SpeechOperation struct {
 	Cache   string `json:"cache,omitempty" yaml:"cache,omitempty"`
 }
 type PeerStreamOperation struct {
-	Mode  string `json:"mode" yaml:"mode"`
-	Input any    `json:"input,omitempty" yaml:"input,omitempty"`
+	// OverlapInput repeats the audio on the same PeerStream while the first
+	// assistant audio response is still open, and verifies both response endings.
+	OverlapInput bool   `json:"overlap_input,omitempty" yaml:"overlap_input,omitempty"`
+	Mode         string `json:"mode" yaml:"mode"`
+	Input        any    `json:"input,omitempty" yaml:"input,omitempty"`
 	// EmptyInput sends a push-to-talk turn whose audio route opens and closes
 	// without a frame, the way a Peer reports a press released before the first
 	// frame is captured or a device whose gate emitted nothing. It replaces
@@ -946,6 +949,15 @@ func collectReferences(v any) []string {
 // one parallel child. finalizer reports whether the step came from the
 // document's finally block.
 func validatePeerStreamStep(step Step, finalizer bool) error {
+	op := step.PeerStream
+	if op.OverlapInput {
+		if (op.Mode != "push-to-talk" && op.Mode != "realtime") || op.EmptyInput || op.Input == nil {
+			return fmt.Errorf("step %s overlap_input requires nonempty audio input", step.ID)
+		}
+		if op.InterruptAfter != "" || op.Completion != "" || op.Session != "" || op.KeepOpen || op.AwaitRearm != "" || op.TerminalLabel != "" || op.RequireText != nil || op.RequireAudio != nil || op.FirstTextTimeout != "" || op.FirstAudioTimeout != "" || op.WaitForHistory || op.IdleTimeout != "" {
+			return fmt.Errorf("step %s overlap_input only supports mode, input and pacing; use step timeout", step.ID)
+		}
+	}
 	persistent := step.PeerStream.KeepOpen || step.PeerStream.AwaitRearm != ""
 	if step.PeerStream.Mode == "listen" {
 		if err := validateListenPeerStream(step); err != nil {

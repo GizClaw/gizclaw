@@ -1,0 +1,98 @@
+# User Story:
+# As a device sending audio to an agent,
+# I want to start another input while the first spoken response is unfinished,
+# So that overlapping input completes on the same PeerStream.
+version: gizclaw.test/v1alpha1
+name: doubao-realtime-conversation.push-to-talk-overlapping-input
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  input_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        collection: assistants
+        workflow_name: doubao-realtime-conversation
+        parameters:
+          doubao_realtime_workspace_parameters:
+            agent_type: DOUBAO_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_DOUBAO_REALTIME
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  - id: synthesize_input
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 请用中文从一数到三十
+        accepted_content_types: [audio/ogg]
+    save_as: input_audio
+  - id: overlapping_input
+    client: peer
+    timeout: 120s
+    peer_stream:
+      mode: push-to-talk
+      input: ${input_audio}
+      pacing: 20ms
+      overlap_input: true
+    expect:
+      /session_connection_reused:
+        equals: true
+      /input_overlap:
+        equals: true
+      /second_input_sent:
+        equals: true
+      /second_text_eos:
+        equals: true
+      /second_audio_eos:
+        equals: true
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

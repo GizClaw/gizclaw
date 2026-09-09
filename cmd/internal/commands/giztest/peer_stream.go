@@ -530,6 +530,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	if op == nil {
 		return operationResult{}, fmt.Errorf("peer_stream operation required")
 	}
+	if op.OverlapInput {
+		return invokeOverlappingPeerInput(ctx, stream, op, input)
+	}
 	var observeAudio audioObserver
 	if len(observers) > 0 {
 		observeAudio = observers[0]

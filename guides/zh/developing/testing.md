@@ -367,6 +367,21 @@ wire type 原样上传，其他音频格式在 RPC 打开前失败；文档不�
 并要求该 response 实际产出所需模态的非空内容。没有观察到 BOS 或内容的迟到 EOS
 不参与完成判定，不同 StreamID 的文本和音频 EOS 不能拼成一次成功；
 以已持久化用户 transcript 为终止边界的场景显式设为 `transcript`。
+
+`peer_stream.overlap_input: true` 在同一 PeerStream 重复发送声明的音频输入。
+支持 `push-to-talk` 和 `realtime`：第一轮输入发送完成（realtime 包括 VAD 尾部静音）且
+收到第一轮 assistant 音频后开始第二轮，不关闭流、不发送显式打断请求。第一轮音频已结束
+则失败；成功要求第二轮首个音频包发送成功的时间早于第一轮音频 EOS 的接收时间，并且两轮
+各自的文本和音频 route 都结束，第二轮实际产出文本与音频且没有错误。第一轮在第二轮输入
+之后报告 `interrupted` 可以通过，结果记录 `first_response_interrupted`，不预设 Provider
+必须打断还是继续输出。该模式只接受 `mode`、`input`、`pacing`，总时限用步骤 `timeout`。
+结果包含 `input_overlap`、`session_connection_reused`、`second_input_sent`、
+`first_audio_ms`、`second_input_audio_ms`、`first_audio_eos_ms` 和第二轮 EOS 标记。
+Doubao、Eino、Flowcraft 的 `*-overlapping-input.giztest.yaml` 分别覆盖两种输入模式；
+这些场景由 Go runner 执行，JavaScript 和 Flutter runner 按不支持的 `peer_stream` 跳过。
+
+空的 assistant BOS 不建立回复归属；只有实际文本或音频内容才确定第一轮和第二轮回复。用例使用单句中文数数请求，减少录音内部停顿造成的额外 VAD 轮次。
+
 `peer_stream.completion: first_response` 是面向部署探针的有界替代模式。
 `require_text` 和 `require_audio` 选择必须等待的模态，二者都默认为 true；每个必需模态必须
 声明对应的正数 Go duration `first_text_timeout` 或 `first_audio_timeout`，禁用的模态不声明
