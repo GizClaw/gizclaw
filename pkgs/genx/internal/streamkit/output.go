@@ -1,12 +1,14 @@
 package streamkit
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"sync"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/streamlog"
 )
 
 // ErrOutputLimit is returned when queued content exceeds OutputConfig.MaxBytes.
@@ -14,6 +16,8 @@ var ErrOutputLimit = errors.New("streamkit: output buffer limit exceeded")
 
 // OutputConfig configures a growable pull-output buffer.
 type OutputConfig struct {
+	// LogContext supplies the invocation-local stage observer.
+	LogContext      context.Context
 	InitialCapacity int
 	MaxBytes        int64
 	Observe         func(*genx.MessageChunk)
@@ -37,8 +41,9 @@ type deferredObservation struct {
 // downstream pulls unless memory allocation itself blocks. A positive MaxBytes
 // limits queued content bytes and turns overflow into an observable error.
 type Output struct {
-	mu   sync.Mutex
-	cond *sync.Cond
+	logRecorder *streamlog.Recorder
+	mu          sync.Mutex
+	cond        *sync.Cond
 
 	queue       []outputEntry
 	queuedBytes int64
@@ -63,10 +68,11 @@ var _ genx.Stream = (*Output)(nil)
 func NewOutput(config OutputConfig) *Output {
 	capacity := max(config.InitialCapacity, 0)
 	output := &Output{
-		queue:    make([]outputEntry, 0, capacity),
-		maxBytes: config.MaxBytes,
-		done:     make(chan struct{}),
-		observe:  config.Observe,
+		logRecorder: streamlog.OutputRecorder(config.LogContext),
+		queue:       make([]outputEntry, 0, capacity),
+		maxBytes:    config.MaxBytes,
+		done:        make(chan struct{}),
+		observe:     config.Observe,
 	}
 	output.cond = sync.NewCond(&output.mu)
 	return output
@@ -74,7 +80,17 @@ func NewOutput(config OutputConfig) *Output {
 
 // Next returns the next queued chunk. Observation happens only after the chunk
 // has crossed this pull-visible boundary.
-func (o *Output) Next() (*genx.MessageChunk, error) {
+func (o *Output) Next() (chunk *genx.MessageChunk, err error) {
+	defer func() {
+		if o != nil {
+			if chunk != nil {
+				o.logRecorder.Observe(chunk)
+			}
+			if err != nil {
+				o.logRecorder.Close(err)
+			}
+		}
+	}()
 	if o == nil {
 		return nil, io.EOF
 	}
@@ -277,7 +293,11 @@ func (o *Output) CloseWithError(err error) error {
 	}
 	o.mu.Lock()
 	abandoned := o.closeWithErrorLocked(err)
+	terminalErr := o.closeErr
 	o.mu.Unlock()
+	if terminalErr != nil {
+		o.logRecorder.Close(terminalErr)
+	}
 	runAbandonments(abandoned)
 	return nil
 }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -203,7 +203,7 @@ func (p *Processor) scan(ctx context.Context, dispatch chan<- dispatchItem) {
 			// A store closed under a running scan reports an error here. Log it
 			// so a shutdown-order mistake is visible instead of silent, and
 			// keep scanning the remaining sources.
-			log.Printf("pending deletion: scan source %q failed: %v", source.Name(), err)
+			slog.WarnContext(ctx, "pending deletion: source scan failed", "source_name", source.Name(), "error", err)
 			p.observe(source.Name(), "", "", "", "scan_error")
 			continue
 		}
@@ -429,6 +429,6 @@ func (p *Processor) appendMetrics(samples []metrics.Sample) {
 	defer cancel()
 	err := p.metrics.Append(ctx, samples)
 	if err != nil {
-		log.Printf("pending deletion: metrics append failed")
+		slog.WarnContext(ctx, "pending deletion: metrics append failed", "sample_count", len(samples))
 	}
 }

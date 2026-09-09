@@ -155,3 +155,70 @@ describe("watched peers", () => {
     expect(parseWatchedPeers("not json")).toEqual([]);
   });
 });
+
+describe("access log summaries", () => {
+  it("shows the actual unmatched path and IP instead of unknown twice", () => {
+    expect(
+      summarize({
+        ...record,
+        fields: {
+          operation: "unknown",
+          method: "GET",
+          route: "unknown",
+          request_path: "/.env",
+          client_ip: "192.0.2.10",
+          status: "404",
+          duration_ms: "0",
+        },
+      }),
+    ).toBe("GET /.env · 192.0.2.10 · HTTP 404 · 0 ms");
+  });
+});
+
+describe("uniform HTTP access format", () => {
+  it.each(["200", "404"])(
+    "uses the actual path for registered routes with status %s",
+    (status) => {
+      expect(
+        summarize({
+          ...record,
+          fields: {
+            method: "GET",
+            operation: "getDevice",
+            route: "/devices/:id",
+            request_path: "/devices/device-123",
+            client_ip: "192.0.2.10",
+            status,
+            duration_ms: "12",
+          },
+        }),
+      ).toBe(`GET /devices/device-123 · 192.0.2.10 · HTTP ${status} · 12 ms`);
+    },
+  );
+  it("retains the route fallback for historical HTTP records", () => {
+    expect(
+      summarize({
+        ...record,
+        fields: {
+          method: "GET",
+          operation: "getServerInfo",
+          route: "/server-info",
+          status: "200",
+          duration_ms: "2",
+        },
+      }),
+    ).toBe("GET /server-info · HTTP 200 · 2 ms");
+  });
+  it("retains operation names for RPC records", () => {
+    expect(
+      summarize({
+        ...record,
+        fields: {
+          operation: "ping",
+          rpc_code: "0",
+          duration_ms: "1",
+        },
+      }),
+    ).toBe("ping · 1 ms");
+  });
+});

@@ -91,11 +91,13 @@ type Service struct {
 	ValidateWorkspaceSelection WorkspaceSelectionValidatorFunc
 	AllowRestrictedReload      func(context.Context, string) bool
 	PublicKey                  giznet.PublicKey
-	Source                     StreamSource
-	Consumer                   StreamConsumer
-	OnConsumerError            func(context.Context, string, error)
-	Logger                     *slog.Logger
-	Now                        func() time.Time
+	// SessionID is the owning connection identity, independent of reload requests.
+	SessionID       string
+	Source          StreamSource
+	Consumer        StreamConsumer
+	OnConsumerError func(context.Context, string, error)
+	Logger          *slog.Logger
+	Now             func() time.Time
 
 	transitionGateOnce sync.Once
 	transitionGate     chan struct{}
@@ -193,7 +195,8 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 			profileSnapshot = &snapshot
 		}
 	}
-	baseCtx := gizlog.WithPeerPublicKey(context.WithoutCancel(ctx), s.PublicKey.String())
+	s.logger().InfoContext(gizlog.WithSessionID(gizlog.WithPeerPublicKey(ctx, s.PublicKey.String()), s.SessionID), "agenthost: runtime starting", "workspace", workspaceName)
+	baseCtx := s.runtimeLogContext(ctx)
 	baseCtx = WithResourceAccess(withHistoryGearID(baseCtx, s.PublicKey.String()), s.PublicKey.String(), profileToolBindings, profileWorkflowBindings, profileFingerprint)
 	if profileSnapshot != nil {
 		baseCtx = withRuntimeProfile(baseCtx, *profileSnapshot)
@@ -299,14 +302,14 @@ func (s *Service) reloadFailure(ctx context.Context, workspaceName string, cause
 	}
 	fallbackStatus, err := s.installReloadErrorRuntime(ctx, workspaceName, cause)
 	if err != nil {
-		s.logger().Error("agenthost: install reload error runtime", "workspace", workspaceName, "error", err)
+		s.logger().ErrorContext(ctx, "agenthost: install reload error runtime", "workspace", workspaceName, "error", err)
 		return status, cause
 	}
 	return fallbackStatus, cause
 }
 
 func (s *Service) installReloadErrorRuntime(ctx context.Context, workspaceName string, cause error) (apitypes.PeerRunStatus, error) {
-	runCtx, runCancel := context.WithCancel(context.WithoutCancel(ctx))
+	runCtx, runCancel := context.WithCancel(s.runtimeLogContext(ctx))
 	stopLifecycleCancel := context.AfterFunc(s.lifecycleContext(), runCancel)
 	cancel := func() {
 		stopLifecycleCancel()
@@ -1032,7 +1035,7 @@ func (s *Service) consume(ctx context.Context, rt *runtime) {
 		if !s.failRuntime(rt, err) {
 			return
 		}
-		s.logger().Error("agenthost: output consumer failed", append([]any{"workspace", rt.workspace, "error", err}, probe.logAttrs()...)...)
+		s.logger().ErrorContext(ctx, "agenthost: output consumer failed", append([]any{"workspace", rt.workspace, "error", err}, probe.logAttrs()...)...)
 		if s.OnConsumerError != nil {
 			s.OnConsumerError(context.WithoutCancel(ctx), rt.workspace, err)
 		}
@@ -1237,4 +1240,15 @@ func mergeWorkspaceState(dst *apitypes.PeerRunWorkspaceState, src apitypes.PeerR
 	if src.UpdatedAt != nil {
 		dst.UpdatedAt = src.UpdatedAt
 	}
+}
+
+// A persistent runtime belongs to the connection; later input must not inherit
+// the credential or request ID of the HTTP/RPC operation that reloaded it.
+func (s *Service) runtimeLogContext(ctx context.Context) context.Context {
+	ctx = gizlog.WithPeerPublicKey(context.WithoutCancel(ctx), s.PublicKey.String())
+	if s.SessionID != "" {
+		ctx = gizlog.WithSessionID(ctx, s.SessionID)
+	}
+	ctx = gizlog.WithRequestID(ctx, "")
+	return gizlog.WithAPIKeyName(ctx, "")
 }

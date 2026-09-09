@@ -25,7 +25,6 @@ const snapshot: NodeSnapshot = {
     rx_bytes: 10,
     tx_bytes: 20,
   },
-  logs: [],
 };
 
 const server = (overrides: Partial<ConsoleServer> = {}): ConsoleServer => ({

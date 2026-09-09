@@ -13,6 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 )
 
 var errRPCMissingResult = errors.New("rpc: missing result")
@@ -20,6 +21,8 @@ var errRPCMissingResult = errors.New("rpc: missing result")
 type rpcStreamDispatch func(context.Context, *rpcStream, *rpcapi.RPCRequest) (bool, error)
 
 type rpcObservationOptions struct {
+	trustedEdge   bool
+	sessionID     string
 	peerPublicKey string
 }
 
@@ -96,6 +99,14 @@ func handleRPCStreamRequestObserved(
 	if observation != nil {
 		outcome = observability.NewOutcome(observability.TransportRPC, observability.SurfacePeerRPC, "unknown")
 		outcome.SetPeer(observation.peerPublicKey, "")
+		requestID, idErr := gizlog.NewID()
+		if idErr != nil {
+			return false, idErr
+		}
+		outcome.SetRequestID(requestID)
+		completionCtx = gizlog.WithRequestID(completionCtx, requestID)
+		completionCtx = gizlog.WithPeerPublicKey(completionCtx, observation.peerPublicKey)
+		completionCtx = gizlog.WithSessionID(completionCtx, observation.sessionID)
 		completionCtx = observability.WithOutcome(completionCtx, outcome)
 		defer func() {
 			panicValue := recover()
@@ -127,7 +138,12 @@ func handleRPCStreamRequestObserved(
 	}
 	if outcome != nil && req != nil {
 		outcome.SetOperation(string(req.Method))
-		outcome.SetRequestID(req.Id)
+		// Only the authenticated Edge control service carries an ingress trace ID
+		// in this otherwise protocol-only field. Public Peer RPC always generates one.
+		if observation.trustedEdge && requestIDRE.MatchString(req.Id) {
+			outcome.SetRequestID(req.Id)
+			completionCtx = gizlog.WithRequestID(completionCtx, req.Id)
+		}
 	}
 	previousResponseObserver := stream.responseObserver
 	stream.responseObserver = func(resp *rpcapi.RPCResponse) {
@@ -162,6 +178,9 @@ func handleRPCStreamRequestObserved(
 
 	ctx, stop := rpcConnContext(stream.conn)
 	if outcome != nil {
+		ctx = gizlog.WithRequestID(ctx, gizlog.RequestID(completionCtx))
+		ctx = gizlog.WithPeerPublicKey(ctx, gizlog.PeerPublicKey(completionCtx))
+		ctx = gizlog.WithSessionID(ctx, gizlog.SessionID(completionCtx))
 		ctx = observability.WithOutcome(ctx, outcome)
 		completionCtx = ctx
 	}

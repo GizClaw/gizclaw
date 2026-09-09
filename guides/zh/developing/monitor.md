@@ -40,14 +40,7 @@ fullcontrol 才允许音量和重启等操作，Server 每次重新校验权限�
 每 5 秒并行轮询所有节点，用累计计数换算速率（重启读作 0，而不是尖峰），每个节点最多保留
 600 个采样，提供 2/10/30 分钟窗口。
 
-节点日志环保留 500 条结构化进程记录，每条消息最多 4096 字节，并保留最多 24 个结构化字段
-（键 ≤ 64 字节、值 ≤ 512 字节）：`request_id`、`operation`、`route`、`status`、
-`duration_ms`、stream 标识等，因此可以按 `request_id` 跨记录、跨节点追踪同一个请求。身份
-只取自可信的日志上下文，调用方自带的 `peer_public_key` 属性只是普通字段。记录不跨重启保留。
-控制台按各节点的记录 id 合并多次轮询，保留窗口长于节点自身的环。
-
-`/gizclaw/v1/device/logs` 只返回结构化 peer_public_key 与授权设备完全一致的记录，这些是
-服务端的设备相关日志，不是固件串口日志。
+日志通过设备的持久化 LogStore 搜索接口查询，支持时间范围、文本、级别与分页。节点快照只返回运行状态和传输计数。
 
 Telemetry 分两类：指标字段（`battery.*`、`network.rssi_dbm`、`network.signal_level`、
 `network.connected`、`system.*`、`gnss.*`）会写入采样存储，可按时间区间查询历史；只反映
@@ -79,7 +72,7 @@ go build ./cmd/gizclaw
 
 | 状态 | 响应 |
 | --- | --- |
-| 200 | 生成的 `NodeSnapshot`，包含本地计数与有界日志 |
+| 200 | 生成的 `NodeSnapshot`，包含本地运行状态与计数 |
 | 401 | `{"error":"INVALID_MONITOR_TOKEN"}` |
 | 503 | 未配置 Token 时返回 `{"error":"MONITOR_DISABLED"}` |
 | 405 | 空响应体，`Allow: GET,OPTIONS` |
@@ -89,7 +82,7 @@ go build ./cmd/gizclaw
 生成，配置与产物路径见 [API 生成](api/generation)。
 
 `go test ./pkgs/monitor` 覆盖 Token 授权、CORS 契约、405 方法边界、生成 client 的
-200/401/503 处理，以及结构化日志字段进入快照；`go test ./pkgs/gizlog` 覆盖记录环与字段上限。
+200/401/503 处理，以及节点快照不包含日志；`go test ./pkgs/gizlog` 验证配置的日志输出。
 
 ## 控制台使用的设备接口
 

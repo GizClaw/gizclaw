@@ -15,13 +15,14 @@ import (
 )
 
 type edgeRPCServer struct {
-	routes         *peerroute.Server
-	apiKeys        *apikey.Server
-	isPeerRetiring func() bool
+	callerPublicKey string
+	routes          *peerroute.Server
+	apiKeys         *apikey.Server
+	isPeerRetiring  func() bool
 }
 
 func (s *edgeRPCServer) Handle(conn net.Conn) error {
-	return handleRPCWithStream(conn, s.dispatch, nil)
+	return handleRPCWithStreamObserved(conn, s.dispatch, nil, &rpcObservationOptions{trustedEdge: true, peerPublicKey: s.callerPublicKey})
 }
 
 func (s *edgeRPCServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
@@ -63,6 +64,7 @@ func (s *edgeRPCServer) handleAPIKeyResolve(ctx context.Context, req *rpcapi.RPC
 		}
 		return edgeRPCError(req.Id, err)
 	}
+	ctx = withAPIKeyLogIdentity(ctx, principal)
 	publicKey, err := peerroute.ParsePublicKey(principal.Key.Owner)
 	if err != nil {
 		return edgeRPCError(req.Id, err)

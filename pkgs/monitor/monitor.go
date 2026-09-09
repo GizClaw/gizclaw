@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	monitorapi "github.com/GizClaw/gizclaw-go/pkgs/monitor/api"
 	"github.com/GizClaw/gizclaw-go/web/console"
@@ -46,27 +45,13 @@ type nodeServer struct {
 func (s *nodeServer) GetNodeMonitor(_ context.Context, _ monitorapi.GetNodeMonitorRequestObject) (monitorapi.GetNodeMonitorResponseObject, error) {
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
-	snapshot := monitorapi.NodeSnapshot{PublicKey: s.publicKey, Role: s.role, Time: time.Now().UTC(), UptimeSeconds: time.Since(s.started).Seconds(), Goroutines: runtime.NumGoroutine(), HeapBytes: mem.HeapAlloc, Logs: []monitorapi.MonitorLog{}}
+	snapshot := monitorapi.NodeSnapshot{PublicKey: s.publicKey, Role: s.role, Time: time.Now().UTC(), UptimeSeconds: time.Since(s.started).Seconds(), Goroutines: runtime.NumGoroutine(), HeapBytes: mem.HeapAlloc}
 	transport := gizwebrtc.ReadMonitorSnapshot()
 	snapshot.Transport.Connections = transport.Connections
 	snapshot.Transport.Services = transport.Services
 	snapshot.Transport.InboundServiceChannels = transport.InboundServiceChannels
 	snapshot.Transport.RxBytes = transport.RXBytes
 	snapshot.Transport.TxBytes = transport.TXBytes
-	for _, entry := range gizlog.ReadMonitorLogs("") {
-		log := monitorapi.MonitorLog{Id: entry.ID, Time: entry.Time, Level: entry.Level, Message: entry.Message}
-		if entry.Error != "" {
-			log.Error = &entry.Error
-		}
-		if entry.PeerPublicKey != "" {
-			log.PeerPublicKey = &entry.PeerPublicKey
-		}
-		if len(entry.Fields) > 0 {
-			fields := entry.Fields
-			log.Fields = &fields
-		}
-		snapshot.Logs = append(snapshot.Logs, log)
-	}
 	return monitorapi.GetNodeMonitor200JSONResponse(snapshot), nil
 }
 

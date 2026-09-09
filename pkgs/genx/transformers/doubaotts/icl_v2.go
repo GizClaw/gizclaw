@@ -8,6 +8,7 @@ import (
 	"github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/streamlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/audiostream"
 )
 
@@ -79,6 +80,7 @@ func NewICLV2(config ICLV2Config) (*ICLV2, error) {
 // ICLV2 does not require connection setup, so it returns immediately.
 // The context governs provider work and the invocation-local output lifetime.
 func (t *ICLV2) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	ctx = streamlog.StartStage(ctx, "doubaotts_icl", streamlog.Model{Provider: "volc", Model: doubaospeech.ResourceVoiceCloneV2, Kind: "tts"})
 	return streamkit.NewTTSStream(ctx, input, streamkit.OutputConfig{InitialCapacity: 100}, t.mimeType(), t.synthesize), nil
 }
 

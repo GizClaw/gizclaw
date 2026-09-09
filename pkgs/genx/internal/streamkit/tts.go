@@ -10,6 +10,7 @@ import (
 	"unicode"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/streamlog"
 )
 
 const (
@@ -243,7 +244,7 @@ func runTTS(invocation *Invocation, input genx.Stream, mimeType string, synthesi
 			if !hasReadableTTSSpokenText(segment) {
 				continue
 			}
-			debugTTSSegment(state.meta, segment, all)
+			debugTTSSegment(ctx, state.meta, segment, all)
 			// Synthesis starts as soon as the text is segmented, not when the
 			// segment's turn to be emitted arrives, so its first-audio latency
 			// runs while the preceding segment is still being delivered.
@@ -293,7 +294,7 @@ func runTTS(invocation *Invocation, input genx.Stream, mimeType string, synthesi
 	}
 
 	for {
-		chunk, err := input.Next()
+		chunk, err := streamlog.ReadInput(ctx, input)
 		if err != nil {
 			if !errors.Is(err, io.EOF) && !errors.Is(err, genx.ErrDone) {
 				_ = invocation.Fail(err)

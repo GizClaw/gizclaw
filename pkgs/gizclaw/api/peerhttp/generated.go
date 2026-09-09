@@ -145,16 +145,6 @@ type DeviceLogPage struct {
 	Items []externalRef0.ServerLogEntry   `json:"items"`
 }
 
-// DeviceMonitorLog defines model for DeviceMonitorLog.
-type DeviceMonitorLog struct {
-	Error         *string   `json:"error,omitempty"`
-	Id            uint64    `json:"id"`
-	Level         string    `json:"level"`
-	Message       string    `json:"message"`
-	PeerPublicKey *string   `json:"peer_public_key,omitempty"`
-	Time          time.Time `json:"time"`
-}
-
 // DevicePlaySoundRequest defines model for DevicePlaySoundRequest.
 type DevicePlaySoundRequest struct {
 	// DurationMs Optional playback duration in milliseconds.
@@ -566,9 +556,6 @@ type ClientInterface interface {
 
 	// GetDeviceFirmware request
 	GetDeviceFirmware(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetDeviceLogs request
-	GetDeviceLogs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SearchDeviceLogs request
 	SearchDeviceLogs(ctx context.Context, params *SearchDeviceLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1047,18 +1034,6 @@ func (c *Client) AppendDeviceAudioPlayerPlaylist(ctx context.Context, body Appen
 
 func (c *Client) GetDeviceFirmware(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetDeviceFirmwareRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetDeviceLogs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetDeviceLogsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -2229,33 +2204,6 @@ func NewGetDeviceFirmwareRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewGetDeviceLogsRequest generates requests for GetDeviceLogs
-func NewGetDeviceLogsRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/logs")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewSearchDeviceLogsRequest generates requests for SearchDeviceLogs
 func NewSearchDeviceLogsRequest(server string, params *SearchDeviceLogsParams) (*http.Request, error) {
 	var err error
@@ -3305,9 +3253,6 @@ type ClientWithResponsesInterface interface {
 	// GetDeviceFirmwareWithResponse request
 	GetDeviceFirmwareWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceFirmwareResponse, error)
 
-	// GetDeviceLogsWithResponse request
-	GetDeviceLogsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceLogsResponse, error)
-
 	// SearchDeviceLogsWithResponse request
 	SearchDeviceLogsWithResponse(ctx context.Context, params *SearchDeviceLogsParams, reqEditors ...RequestEditorFn) (*SearchDeviceLogsResponse, error)
 
@@ -4205,41 +4150,6 @@ func (r GetDeviceFirmwareResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetDeviceFirmwareResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type GetDeviceLogsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *[]DeviceMonitorLog
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON409      *Conflict
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r GetDeviceLogsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetDeviceLogsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetDeviceLogsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -5226,15 +5136,6 @@ func (c *ClientWithResponses) GetDeviceFirmwareWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseGetDeviceFirmwareResponse(rsp)
-}
-
-// GetDeviceLogsWithResponse request returning *GetDeviceLogsResponse
-func (c *ClientWithResponses) GetDeviceLogsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceLogsResponse, error) {
-	rsp, err := c.GetDeviceLogs(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetDeviceLogsResponse(rsp)
 }
 
 // SearchDeviceLogsWithResponse request returning *SearchDeviceLogsResponse
@@ -7061,67 +6962,6 @@ func ParseGetDeviceFirmwareResponse(rsp *http.Response) (*GetDeviceFirmwareRespo
 	return response, nil
 }
 
-// ParseGetDeviceLogsResponse parses an HTTP response from a GetDeviceLogsWithResponse call
-func ParseGetDeviceLogsResponse(rsp *http.Response) (*GetDeviceLogsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetDeviceLogsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []DeviceMonitorLog
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseSearchDeviceLogsResponse parses an HTTP response from a SearchDeviceLogsWithResponse call
 func ParseSearchDeviceLogsResponse(rsp *http.Response) (*SearchDeviceLogsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -8436,9 +8276,6 @@ type ServerInterface interface {
 	// Get the firmware channels configured for the bound device
 	// (GET /gizclaw/v1/device/firmware)
 	GetDeviceFirmware(c *fiber.Ctx) error
-	// Read recent server-side logs scoped to the authenticated device
-	// (GET /gizclaw/v1/device/logs)
-	GetDeviceLogs(c *fiber.Ctx) error
 	// Search persistent system logs scoped to the authenticated device
 	// (GET /gizclaw/v1/device/logs/search)
 	SearchDeviceLogs(c *fiber.Ctx, params SearchDeviceLogsParams) error
@@ -9061,26 +8898,6 @@ func (siw *ServerInterfaceWrapper) GetDeviceFirmware(c *fiber.Ctx) error {
 
 	handler := func(c *fiber.Ctx) error {
 		return siw.Handler.GetDeviceFirmware(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// GetDeviceLogs operation middleware
-func (siw *ServerInterfaceWrapper) GetDeviceLogs(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.GetDeviceLogs(c)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -9869,8 +9686,6 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Post(options.BaseURL+"/gizclaw/v1/device/audioplayer/playlist/append", wrapper.AppendDeviceAudioPlayerPlaylist)
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device/firmware", wrapper.GetDeviceFirmware)
-
-	router.Get(options.BaseURL+"/gizclaw/v1/device/logs", wrapper.GetDeviceLogs)
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device/logs/search", wrapper.SearchDeviceLogs)
 
@@ -11681,67 +11496,6 @@ func (response GetDeviceFirmware500JSONResponse) VisitGetDeviceFirmwareResponse(
 	return ctx.JSON(&response)
 }
 
-type GetDeviceLogsRequestObject struct {
-}
-
-type GetDeviceLogsResponseObject interface {
-	VisitGetDeviceLogsResponse(ctx *fiber.Ctx) error
-}
-
-type GetDeviceLogs200JSONResponse []DeviceMonitorLog
-
-func (response GetDeviceLogs200JSONResponse) VisitGetDeviceLogsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceLogs400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response GetDeviceLogs400JSONResponse) VisitGetDeviceLogsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceLogs401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response GetDeviceLogs401JSONResponse) VisitGetDeviceLogsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceLogs403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response GetDeviceLogs403JSONResponse) VisitGetDeviceLogsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceLogs409JSONResponse struct{ ConflictJSONResponse }
-
-func (response GetDeviceLogs409JSONResponse) VisitGetDeviceLogsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceLogs500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response GetDeviceLogs500JSONResponse) VisitGetDeviceLogsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
 type SearchDeviceLogsRequestObject struct {
 	Params SearchDeviceLogsParams
 }
@@ -13151,9 +12905,6 @@ type StrictServerInterface interface {
 	// Get the firmware channels configured for the bound device
 	// (GET /gizclaw/v1/device/firmware)
 	GetDeviceFirmware(ctx context.Context, request GetDeviceFirmwareRequestObject) (GetDeviceFirmwareResponseObject, error)
-	// Read recent server-side logs scoped to the authenticated device
-	// (GET /gizclaw/v1/device/logs)
-	GetDeviceLogs(ctx context.Context, request GetDeviceLogsRequestObject) (GetDeviceLogsResponseObject, error)
 	// Search persistent system logs scoped to the authenticated device
 	// (GET /gizclaw/v1/device/logs/search)
 	SearchDeviceLogs(ctx context.Context, request SearchDeviceLogsRequestObject) (SearchDeviceLogsResponseObject, error)
@@ -13872,31 +13623,6 @@ func (sh *strictHandler) GetDeviceFirmware(ctx *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(GetDeviceFirmwareResponseObject); ok {
 		if err := validResponse.VisitGetDeviceFirmwareResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// GetDeviceLogs operation middleware
-func (sh *strictHandler) GetDeviceLogs(ctx *fiber.Ctx) error {
-	var request GetDeviceLogsRequestObject
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.GetDeviceLogs(ctx.UserContext(), request.(GetDeviceLogsRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetDeviceLogs")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(GetDeviceLogsResponseObject); ok {
-		if err := validResponse.VisitGetDeviceLogsResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

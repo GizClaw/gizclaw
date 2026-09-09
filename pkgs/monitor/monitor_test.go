@@ -3,15 +3,12 @@ package monitor
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	monitorapi "github.com/GizClaw/gizclaw-go/pkgs/monitor/api"
 )
 
@@ -39,6 +36,9 @@ func TestNodeAuthorizationAndIsolation(t *testing.T) {
 			}
 			if !strings.Contains(out.Body.String(), `"inbound_service_channels":0`) {
 				t.Fatal("missing inbound service channel count")
+			}
+			if strings.Contains(out.Body.String(), `"logs"`) {
+				t.Fatal("node snapshot must not contain cached logs")
 			}
 			if strings.Contains(out.Body.String(), token) {
 				t.Fatal("token leaked")
@@ -93,7 +93,7 @@ func TestGeneratedMonitorClientContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if authorized.JSON200 == nil || authorized.JSON200.PublicKey != "local-node" || authorized.JSON200.Logs == nil {
+	if authorized.JSON200 == nil || authorized.JSON200.PublicKey != "local-node" {
 		t.Fatalf("unexpected snapshot: %+v", authorized)
 	}
 	disabledServer := httptest.NewServer(Handler(Config{}, "edge", "local-node", http.NotFoundHandler()))
@@ -153,44 +153,6 @@ func TestNodeMonitorCORS(t *testing.T) {
 	if unauthorized.Code != 401 || unauthorized.Header().Get("Access-Control-Allow-Origin") != "https://console.example.com" {
 		t.Fatalf("status=%d headers=%v", unauthorized.Code, unauthorized.Header())
 	}
-}
-
-func TestNodeSnapshotCarriesStructuredLogFields(t *testing.T) {
-	logger, cleanup, err := gizlog.NewLogger(gizlog.Config{Level: "info"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := cleanup(); err != nil {
-			t.Fatal(err)
-		}
-	}()
-	logger.LogAttrs(
-		gizlog.WithPeerPublicKey(context.Background(), "peer-key"),
-		slog.LevelInfo,
-		"gizclaw: request completed",
-		slog.String("request_id", "req-monitor-1"),
-		slog.String("operation", "getPeerRuntime"),
-		slog.Int("status", 200),
-	)
-	server := &nodeServer{role: "server", publicKey: "local-key", started: time.Now()}
-	response, err := server.GetNodeMonitor(context.Background(), monitorapi.GetNodeMonitorRequestObject{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	snapshot, ok := response.(monitorapi.GetNodeMonitor200JSONResponse)
-	if !ok {
-		t.Fatalf("unexpected response %T", response)
-	}
-	for _, entry := range snapshot.Logs {
-		if entry.Fields == nil {
-			continue
-		}
-		if (*entry.Fields)["request_id"] == "req-monitor-1" && (*entry.Fields)["status"] == "200" {
-			return
-		}
-	}
-	t.Fatal("structured log fields missing from the node snapshot")
 }
 
 func TestEmbeddedConsole(t *testing.T) {

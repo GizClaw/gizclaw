@@ -40,6 +40,9 @@ func TestResponseStreamAssignsFreshIDsToModelOutput(t *testing.T) {
 	if chunks[0].Ctrl.StreamID != "turn-1" || chunks[1].Ctrl.StreamID != "turn-1" {
 		t.Fatalf("user route IDs = %q / %q", chunks[0].Ctrl.StreamID, chunks[1].Ctrl.StreamID)
 	}
+	if chunks[2].Ctrl.SourceStreamID != "turn-1" || chunks[3].Ctrl.SourceStreamID != "turn-1" || chunks[2].Ctrl.ResponseEpoch != nil {
+		t.Fatal("remapping must retain logging provenance without inventing response ownership")
+	}
 	responseID := chunks[2].Ctrl.StreamID
 	if responseID == "" || responseID == "turn-1" {
 		t.Fatalf("model response ID = %q", responseID)

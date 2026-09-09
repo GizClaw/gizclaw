@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/toolrun"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/streamlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
@@ -123,6 +124,7 @@ func (owner *taskOwner) Close() error {
 // completion close the stream out from under a later turn, which the runtime
 // would otherwise observe as an unexpected output end.
 func (t *Agent) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	ctx = streamlog.StartStage(ctx, "flowcraft")
 	if t == nil || t.engine == nil {
 		return nil, fmt.Errorf("flowcraft: Transformer is nil")
 	}
@@ -220,10 +222,10 @@ func (s *session) run() {
 		return
 	}
 	if initiative {
-		previous = s.startTurn("", nil)
+		previous = s.startTurn("", "", nil)
 	}
 	for {
-		chunk, err := s.input.Next()
+		chunk, err := streamlog.ReadInput(s.invocation.Context(), s.input)
 		if err != nil {
 			if !isStreamEnd(err) {
 				s.interruptActive()
@@ -265,7 +267,7 @@ func (s *session) run() {
 					break
 				}
 				if strings.TrimSpace(text.String()) != "" {
-					previous = s.startTurn(text.String(), previous)
+					previous = s.startTurn(text.String(), activeInputID, previous)
 				}
 				text.Reset()
 				inText = false
@@ -296,7 +298,7 @@ func (s *session) run() {
 					break
 				}
 				if strings.TrimSpace(text.String()) != "" {
-					previous = s.startTurn(text.String(), previous)
+					previous = s.startTurn(text.String(), activeInputID, previous)
 				}
 				text.Reset()
 				inText = false
@@ -408,13 +410,15 @@ func takePendingBegin(pending *[]pendingBegin, streamID string) *genx.MessageChu
 	return chunk
 }
 
-func (s *session) startTurn(user string, previous <-chan struct{}) <-chan struct{} {
+func (s *session) startTurn(user, inputID string, previous <-chan struct{}) <-chan struct{} {
+	outputID := genx.NewStreamID()
+	streamlog.OutputRecorder(s.invocation.Context()).LinkOutput(inputID, outputID)
 	response, err := s.invocation.StartResponse(streamkit.ResponseConfig{
 		// Published data chunks keep their node ID in Name for node-specific
 		// voice routing. The synthesized route EOS uses the stable assistant
 		// name/label pair so downstream history can close every published node
 		// channel belonging to this response.
-		Role: genx.RoleModel, Name: assistantLabel, Label: assistantLabel,
+		StreamID: outputID, Role: genx.RoleModel, Name: assistantLabel, Label: assistantLabel,
 	}, "text/plain")
 	if err != nil {
 		_ = s.invocation.Fail(err)

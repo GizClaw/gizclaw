@@ -251,7 +251,7 @@ func TestRPCSpeechExtractCompletionLogHasSafeErrorCode(t *testing.T) {
 	finishSpeechRPCServer(t, client, serverDone)
 	record, attrs := onlyCapturedRecord(t, capture)
 	if record.Level.String() != "ERROR" || attrs["operation"] != string(rpcapi.RPCMethodServerSpeechExtract) ||
-		attrs["request_id"] != "speech-safe-code" || attrs["rpc_code"] != int64(rpcapi.StatusCodeInternal) ||
+		!requestIDRE.MatchString(fmt.Sprint(attrs["request_id"])) || attrs["rpc_code"] != int64(rpcapi.StatusCodeInternal) ||
 		attrs["error_code"] != "SPEECH_EXTRACT_PROVIDER_FAILURE" {
 		t.Fatalf("completion record = (%s, %#v)", record.Level, attrs)
 	}

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizmetrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
@@ -330,7 +331,12 @@ func validateMem0Metadata(metadata map[string]any) error {
 }
 
 // Recall performs semantic search with provider-native structured filters.
-func (s *Store) Recall(ctx context.Context, query memorystore.Query) (memorystore.RecallResult, error) {
+func (s *Store) Recall(ctx context.Context, query memorystore.Query) (_ memorystore.RecallResult, outcomeErr error) {
+	started := time.Now()
+	defer func() {
+		gizmetrics.ObserveDuration(ctx, "memory_recall_duration_seconds", time.Since(started), gizmetrics.Label{Name: "backend", Value: "mem0"}, gizmetrics.Label{Name: "flavor", Value: string(s.config.Flavor)}, gizmetrics.Label{Name: "result", Value: gizmetrics.Result(outcomeErr)})
+	}()
+
 	if err := validateQuery(query); err != nil {
 		return recallResult{}, err
 	}

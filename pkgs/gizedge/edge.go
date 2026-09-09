@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -18,6 +19,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/felixge/httpsnoop"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -38,14 +41,25 @@ const edgeShutdownTimeout = 5 * time.Second
 func Serve(root string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	return ServeContext(ctx, root)
-}
-
-func ServeContext(ctx context.Context, root string) (serveErr error) {
 	cfg, err := PrepareWorkspaceConfig(root)
 	if err != nil {
 		return err
 	}
+	// The standalone process owns its logger even without explicit sinks.
+	// Embedded ServeContext callers may instead supply their host logger.
+	cfg.systemLogConfigured = true
+	return servePreparedContext(ctx, cfg)
+}
+
+func ServeContext(ctx context.Context, root string) error {
+	cfg, err := PrepareWorkspaceConfig(root)
+	if err != nil {
+		return err
+	}
+	return servePreparedContext(ctx, cfg)
+}
+
+func servePreparedContext(ctx context.Context, cfg Config) (serveErr error) {
 	closeLogging, err := installConfiguredEdgeLogging(cfg)
 	if err != nil {
 		return fmt.Errorf("edge: configure system log: %w", err)
@@ -419,6 +433,27 @@ func newPeerHTTPProxy(edgeEndpoint string, transport http.RoundTripper, gatewayT
 		ErrorHandler: writeEdgeProxyError,
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		metadata := gizlog.HTTPRequestMetadata(req, false)
+		requestID, err := gizlog.NewID()
+		if err != nil {
+			http.Error(w, "request ID generation failed", http.StatusInternalServerError)
+			return
+		}
+		req = req.Clone(gizlog.WithRequestID(req.Context(), requestID))
+		req.Header.Set("X-Request-ID", requestID)
+		req.Header.Set(gizlog.ClientIPHeader, metadata.ClientIP)
+		req.Header.Del(gizlog.AuthenticatedPeerHeader)
+		req.Header.Del(gizlog.APIKeyNameHeader)
+		completionCtx := req.Context()
+		w.Header().Set("X-Request-ID", requestID)
+		started := time.Now()
+		status := http.StatusOK
+		w = httpsnoop.Wrap(w, httpsnoop.Hooks{WriteHeader: func(next httpsnoop.WriteHeaderFunc) httpsnoop.WriteHeaderFunc {
+			return func(code int) { status = code; w.Header().Set("X-Request-ID", requestID); next(code) }
+		}})
+		defer func() {
+			slog.InfoContext(context.WithoutCancel(completionCtx), "gizedge: HTTP request completed", "request_path", metadata.RequestPath, "client_ip", metadata.ClientIP, "user_agent", metadata.UserAgent, "method", req.Method, "status", status, "started_at", started, "ended_at", time.Now(), "duration_ms", time.Since(started).Milliseconds())
+		}()
 		// Capture the ingress origin before the Director rewrites the request.
 		requestTransport := infoTransport
 		if infoTransport != nil && req.URL.Path == "/server-info" {
@@ -440,6 +475,10 @@ func newPeerHTTPProxy(edgeEndpoint string, transport http.RoundTripper, gatewayT
 		}
 		requestProxy := *proxy
 		requestProxy.ModifyResponse = func(resp *http.Response) error {
+			completionCtx = gizlog.WithPeerPublicKey(completionCtx, resp.Header.Get(gizlog.AuthenticatedPeerHeader))
+			completionCtx = gizlog.WithAPIKeyName(completionCtx, resp.Header.Get(gizlog.APIKeyNameHeader))
+			resp.Header.Del(gizlog.AuthenticatedPeerHeader)
+			resp.Header.Del(gizlog.APIKeyNameHeader)
 			clearEdgeUpstreamCORSHeaders(resp.Header)
 			if resp.Request != nil && resp.Request.URL != nil && resp.Request.URL.Path == "/server-info" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 				return rewriteServerInfo(resp, edgeEndpoint, requestTransport)

@@ -14,8 +14,6 @@ import { Select } from "@/components/ui/select";
 import { PageHeading } from "@/components/app-shell";
 import { LogStream } from "@/components/log-stream";
 import { LogRecordDetail } from "@/components/log-detail";
-import type { ConsoleConfig } from "@/lib/config";
-import type { FleetState } from "@/hooks/use-fleet";
 import { matches, parseQuery, type LogRecord } from "@/lib/log-query";
 import {
   loadDeviceLogs,
@@ -31,50 +29,23 @@ const WINDOWS = [
   { label: "最近 5 分钟", seconds: 300 },
   { label: "最近 15 分钟", seconds: 900 },
   { label: "最近 1 小时", seconds: 3600 },
-  { label: "本次会话全部", seconds: 0 },
+  { label: "最近 24 小时", seconds: 0 },
 ];
 
-// The console polls the nodes and its watched devices itself, so its own
-// requests would otherwise dominate the stream.
-const SELF_NODE_ROUTE = "/monitor/api/node";
-const SELF_DEVICE_ROUTES = new Set([
-  "/gizclaw/v1/device",
-  "/gizclaw/v1/device/runtime",
-  "/gizclaw/v1/device/status",
-]);
-
-function isConsoleTraffic(record: LogRecord, watched: Set<string>): boolean {
-  const route = record.fields?.route;
-  if (route === SELF_NODE_ROUTE) return true;
-  return (
-    route !== undefined &&
-    SELF_DEVICE_ROUTES.has(route) &&
-    record.peer_public_key !== undefined &&
-    watched.has(record.peer_public_key)
-  );
-}
-
 export function LogsPage({
-  config,
-  fleet,
   peers,
   initialQuery,
 }: {
-  config: ConsoleConfig;
-  fleet: FleetState;
   peers: WatchedPeer[];
   initialQuery: string;
 }) {
   const [text, setText] = useState(initialQuery);
   const [level, setLevel] = useState<string>("ALL");
-  const [node, setNode] = useState<string>("ALL");
   const [windowSeconds, setWindowSeconds] = useState(900);
-  const [hideSelf, setHideSelf] = useState(true);
   const [selected, setSelected] = useState<LogRecord | undefined>();
-  // Two sources answer different questions: the node snapshots carry live
-  // process records with request tracing, a device reads its persisted Log
-  // Store on the Server.
-  const [source, setSource] = useState("nodes");
+  const [source, setSource] = useState(() =>
+    peers[0] ? peerId(peers[0]) : "",
+  );
   const device = peers.find((peer) => peerId(peer) === source);
   const [deviceRecords, setDeviceRecords] = useState<LogRecord[]>([]);
   const [deviceError, setDeviceError] = useState("");
@@ -83,13 +54,7 @@ export function LogsPage({
   const [deviceNext, setDeviceNext] = useState<string>();
   const deviceRecordCount = useRef(0);
 
-  const all = useMemo(() => {
-    if (device) return deviceRecords;
-    const merged = config.servers.flatMap(
-      (server) => fleet[server.id]?.logs ?? [],
-    );
-    return merged.sort((a, b) => Date.parse(a.time) - Date.parse(b.time));
-  }, [config.servers, fleet, device, deviceRecords]);
+  const all = deviceRecords;
 
   // The Log Store filters server-side, so the supported filters travel with the
   // query instead of being applied to one page after the fact. Free text is
@@ -160,22 +125,16 @@ export function LogsPage({
     return () => controller.abort();
   }, [device, deviceQuery, deviceLevel, windowSeconds, deviceCursor]);
 
-  const watchedKeys = useMemo(
-    () => new Set(peers.map((peer) => peer.publicKey)),
-    [peers],
-  );
   const query = useMemo(() => parseQuery(text), [text]);
   const cutoff = windowSeconds > 0 ? Date.now() - windowSeconds * 1000 : 0;
   const shown = useMemo(
     () =>
       all.filter((record) => {
-        if (!device && node !== "ALL" && record.node !== node) return false;
         if (level !== "ALL" && record.level !== level) return false;
         if (cutoff > 0 && Date.parse(record.time) < cutoff) return false;
-        if (hideSelf && isConsoleTraffic(record, watchedKeys)) return false;
         return matches(record, query);
       }),
-    [all, device, node, level, cutoff, hideSelf, query, watchedKeys],
+    [all, level, cutoff, query],
   );
 
   const errors = shown.filter((record) => record.level === "ERROR").length;
@@ -187,7 +146,7 @@ export function LogsPage({
       <PageHeading
         eyebrow="LOG SEARCH"
         title="日志查询"
-        description="跨节点检索进程日志：按字段过滤，点开任意一条查看完整字段，并按 request_id 追踪整个请求。"
+        description="查询设备的持久化日志，查看完整字段，并按 request_id 追踪请求。"
       />
       <Card>
         <CardHeader>
@@ -223,27 +182,13 @@ export function LogsPage({
               value={source}
               onChange={(event) => setSource(event.target.value)}
             >
-              <option value="nodes">节点进程日志</option>
+              <option value="">选择设备</option>
               {peers.map((peer) => (
                 <option key={peerId(peer)} value={peerId(peer)}>
                   设备 · {peerLabel(peer, undefined)}
                 </option>
               ))}
             </Select>
-            {!device && (
-              <Select
-                aria-label="节点"
-                value={node}
-                onChange={(event) => setNode(event.target.value)}
-              >
-                <option value="ALL">全部节点</option>
-                {config.servers.map((server) => (
-                  <option key={server.id} value={server.id}>
-                    {server.name}
-                  </option>
-                ))}
-              </Select>
-            )}
             <Select
               aria-label="级别"
               value={level}
@@ -266,16 +211,6 @@ export function LogsPage({
             </Select>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-            {!device && (
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={hideSelf}
-                  onChange={(event) => setHideSelf(event.target.checked)}
-                />
-                隐藏 Console 自身的轮询请求（节点快照与关注设备）
-              </label>
-            )}
             {device && (
               <span>
                 Log Store · {peerLabel(device, undefined)} ·
@@ -297,14 +232,13 @@ export function LogsPage({
               命中 {shown.length} / {all.length} 条 · ERROR {errors} · WARN{" "}
               {warnings}
             </span>
-            {(text !== "" || level !== "ALL" || node !== "ALL") && (
+            {(text !== "" || level !== "ALL") && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
                   setText("");
                   setLevel("ALL");
-                  setNode("ALL");
                 }}
               >
                 <X size={13} /> 清空过滤
@@ -341,7 +275,7 @@ export function LogsPage({
             all.length === 0
               ? device
                 ? "这段时间没有该设备的持久化日志。"
-                : "还没有收到日志。节点快照每 5 秒送来一次进程记录。"
+                : "请选择设备查询持久化日志；没有设备时，请先添加关注设备。"
               : "没有命中的记录。放宽过滤条件或时间范围。"
           }
         />

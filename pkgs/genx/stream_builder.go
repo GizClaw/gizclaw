@@ -2,7 +2,6 @@ package genx
 
 import (
 	"fmt"
-	"log/slog"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/buffer"
 )
@@ -92,10 +91,7 @@ func (sb *StreamBuilder) Unexpected(stats Usage, err error) error {
 func (sb *StreamBuilder) Add(evt ...*MessageChunk) error {
 	for _, e := range evt {
 		if e.ToolCall != nil && e.ToolCall.FuncCall != nil {
-			t, ok := sb.funcTools[e.ToolCall.FuncCall.Name]
-			if !ok {
-				slog.Warn("genx/stream_builder: tool call not found", "name", e.ToolCall.FuncCall.Name)
-			} else {
+			if t, ok := sb.funcTools[e.ToolCall.FuncCall.Name]; ok {
 				e.ToolCall.FuncCall.tool = t
 			}
 		}

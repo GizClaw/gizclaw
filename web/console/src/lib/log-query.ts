@@ -1,7 +1,15 @@
-import type { LogEntry } from "@/lib/api";
-
-/** One record as shown by the console, tagged with the node it came from. */
-export type LogRecord = LogEntry & { node: string; nodeName: string };
+/** One persistent log record as shown by the console. */
+export type LogRecord = {
+  id: number;
+  time: string;
+  level: string;
+  message: string;
+  error?: string;
+  peer_public_key?: string;
+  fields?: Record<string, string>;
+  node: string;
+  nodeName: string;
+};
 
 export type LogQuery = {
   text: string[];
@@ -54,6 +62,7 @@ function fieldValue(record: LogRecord, key: string): string | undefined {
 function haystack(record: LogRecord): string {
   return [
     record.message,
+    summarize(record),
     record.error ?? "",
     record.peer_public_key ?? "",
     record.nodeName,
@@ -81,25 +90,38 @@ export function matches(record: LogRecord, query: LogQuery): boolean {
 }
 
 /**
- * One readable line per record: an HTTP/RPC completion reads as its operation
- * and outcome, a conversation record as who said what, and anything else keeps
+ * One readable line per record: HTTP uses access fields, RPC uses its operation
+ * and outcome, a conversation record shows who said what, and anything else keeps
  * its message plus the few fields that carry the meaning.
  */
-export function summarize(record: LogEntry): string {
+export function summarize(record: LogRecord): string {
   const fields = record.fields ?? {};
   if (fields.content !== undefined) {
-    const role = fields.content_role ?? fields.content_source ?? "";
+    const role =
+      fields.role ?? fields.content_role ?? fields.content_source ?? "";
+    const scope = [role, fields.boundary, fields.event]
+      .filter(Boolean)
+      .join(" · ");
     const turn =
       fields.turn_index === undefined ? "" : ` #${fields.turn_index}`;
-    return `${role}${turn}: ${fields.content}`;
+    return `${scope}${turn}: ${fields.content}`;
   }
-  if (fields.operation !== undefined) {
-    const parts = [fields.operation];
-    if (fields.method !== undefined && fields.route !== undefined) {
-      parts.push(`${fields.method} ${fields.route}`);
-    } else if (fields.route !== undefined) {
-      parts.push(fields.route);
+  if (fields.operation !== undefined || fields.method !== undefined) {
+    const parts =
+      fields.method === undefined &&
+      fields.operation &&
+      fields.operation !== "unknown"
+        ? [fields.operation]
+        : [];
+    const path =
+      fields.request_path ??
+      (fields.route && fields.route !== "unknown" ? fields.route : undefined);
+    if (fields.method !== undefined) {
+      parts.push(`${fields.method} ${path ?? "unknown"}`);
+    } else if (path !== undefined) {
+      parts.push(path);
     }
+    if (fields.client_ip) parts.push(fields.client_ip);
     if (fields.status !== undefined) parts.push(`HTTP ${fields.status}`);
     if (fields.rpc_code !== undefined && fields.rpc_code !== "0") {
       const label = rpcStatusLabels[fields.rpc_code];
@@ -114,11 +136,22 @@ export function summarize(record: LogEntry): string {
     )
       parts.push(fields.result);
     if (fields.error_code !== undefined) parts.push(fields.error_code);
+
     if (fields.duration_ms !== undefined)
       parts.push(`${fields.duration_ms} ms`);
     return parts.join(" · ");
   }
-  const extras = ["component", "event_type", "state", "reason", "duration_ms"]
+  const extras = [
+    "component",
+    "event",
+    "role",
+    "boundary",
+    "stream_id",
+    "event_type",
+    "state",
+    "reason",
+    "duration_ms",
+  ]
     .filter((key) => fields[key] !== undefined)
     .map((key) => `${key}=${fields[key]}`);
   return extras.length === 0

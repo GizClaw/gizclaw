@@ -470,7 +470,7 @@ func TestProcessorScanRacingStoreCloseLogsErrorAndExitsCleanly(t *testing.T) {
 		t.Fatal("processor did not stop after the store closed")
 	}
 
-	if !strings.Contains(logs.String(), "pending deletion: scan source \"peer\" failed") {
+	if !strings.Contains(logs.String(), "pending deletion: source scan failed") || !strings.Contains(logs.String(), "source_name=peer") || !strings.Contains(logs.String(), "kv: store closed") {
 		t.Fatalf("scan error was not logged, log = %q", logs.String())
 	}
 }

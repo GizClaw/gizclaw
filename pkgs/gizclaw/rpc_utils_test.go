@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -246,12 +247,15 @@ func TestRPCServerLogsDomainFailureOnce(t *testing.T) {
 	}
 
 	record, attrs := onlyCapturedRecord(t, capture)
+	if !requestIDRE.MatchString(fmt.Sprint(attrs["request_id"])) {
+		t.Fatalf("not a server generated request ID: %v", attrs)
+	}
 	if record.Level.String() != "WARN" {
 		t.Fatalf("level = %s, want WARN", record.Level)
 	}
 	for key, want := range map[string]any{
 		"transport": "rpc", "surface": "peer-rpc", "operation": "server.workspace.create",
-		"result": "client_error", "rpc_code": int64(rpcapi.StatusCodeInvalidArgument), "request_id": "request-1",
+		"result": "client_error", "rpc_code": int64(rpcapi.StatusCodeInvalidArgument),
 		"error_code": "INVALID_WORKSPACE", "workspace_name": "workspace-a", "workflow_name": "chat",
 	} {
 		if got := attrs[key]; got != want {
@@ -297,6 +301,9 @@ func TestRPCServerLogsMalformedRequestAfterFirstFrame(t *testing.T) {
 	}
 
 	record, attrs := onlyCapturedRecord(t, capture)
+	if !requestIDRE.MatchString(fmt.Sprint(attrs["request_id"])) {
+		t.Fatalf("not a server generated request ID: %v", attrs)
+	}
 	if record.Level.String() != "ERROR" {
 		t.Fatalf("level = %s, want ERROR", record.Level)
 	}
@@ -308,7 +315,7 @@ func TestRPCServerLogsMalformedRequestAfterFirstFrame(t *testing.T) {
 			t.Errorf("%s = %#v, want %#v", key, got, want)
 		}
 	}
-	for _, key := range []string{"rpc_code", "request_id", "error_message"} {
+	for _, key := range []string{"rpc_code", "error_message"} {
 		if _, ok := attrs[key]; ok {
 			t.Errorf("unexpected %s = %#v", key, attrs[key])
 		}
@@ -340,6 +347,9 @@ func TestRPCServerLogsExistingParseErrorResponseAsWarn(t *testing.T) {
 		t.Fatalf("server error = %v", err)
 	}
 	record, attrs := onlyCapturedRecord(t, capture)
+	if !requestIDRE.MatchString(fmt.Sprint(attrs["request_id"])) {
+		t.Fatalf("not a server generated request ID: %v", attrs)
+	}
 	if record.Level.String() != "WARN" || attrs["rpc_code"] != int64(rpcapi.StatusCodeInvalidArgument) || attrs["result"] != "client_error" {
 		t.Fatalf("record = (%s, %#v)", record.Level, attrs)
 	}
@@ -390,10 +400,13 @@ func TestRPCServerLogsRethrownPanic(t *testing.T) {
 	}
 
 	record, attrs := onlyCapturedRecord(t, capture)
+	if !requestIDRE.MatchString(fmt.Sprint(attrs["request_id"])) {
+		t.Fatalf("not a server generated request ID: %v", attrs)
+	}
 	if record.Level.String() != "ERROR" || attrs["result"] != "panic" || attrs["status_class"] != "unknown" {
 		t.Fatalf("record = (%s, %#v)", record.Level, attrs)
 	}
-	if attrs["operation"] != string(rpcapi.RPCMethodAllPing) || attrs["request_id"] != "panic-1" || attrs["peer_public_key"] != "peer-key" {
+	if attrs["operation"] != string(rpcapi.RPCMethodAllPing) || !requestIDRE.MatchString(fmt.Sprint(attrs["request_id"])) || attrs["peer_public_key"] != "peer-key" {
 		t.Fatalf("record = %#v", attrs)
 	}
 	if _, ok := attrs["rpc_code"]; ok {
@@ -456,6 +469,9 @@ func TestRPCServerLogsStreamingDispatchCompletionOnce(t *testing.T) {
 		t.Fatalf("server error = %v", err)
 	}
 	record, attrs := onlyCapturedRecord(t, capture)
+	if !requestIDRE.MatchString(fmt.Sprint(attrs["request_id"])) {
+		t.Fatalf("not a server generated request ID: %v", attrs)
+	}
 	if record.Level.String() != "INFO" || attrs["result"] != "success" || attrs["operation"] != string(rpcapi.RPCMethodAllPing) {
 		t.Fatalf("record = (%s, %#v)", record.Level, attrs)
 	}
@@ -497,6 +513,9 @@ func TestRPCServerLogsStreamingErrorResponse(t *testing.T) {
 		t.Fatalf("server error = %v", err)
 	}
 	record, attrs := onlyCapturedRecord(t, capture)
+	if !requestIDRE.MatchString(fmt.Sprint(attrs["request_id"])) {
+		t.Fatalf("not a server generated request ID: %v", attrs)
+	}
 	if record.Level.String() != "WARN" || attrs["result"] != "client_error" || attrs["rpc_code"] != int64(rpcapi.StatusCodeInvalidArgument) {
 		t.Fatalf("record = (%s, %#v)", record.Level, attrs)
 	}
@@ -818,5 +837,34 @@ func TestWriteRPCStatusResponsePreservesReason(t *testing.T) {
 	}
 	if response.Error.Reason != "WORKSPACE_PENDING_DELETION" {
 		t.Fatalf("reason = %q, want WORKSPACE_PENDING_DELETION", response.Error.Reason)
+	}
+}
+
+func TestInternalEdgeRPCPreservesIngressTraceID(t *testing.T) {
+	capture := captureSlog(t)
+	serverSide, clientSide := net.Pipe()
+	t.Cleanup(func() { _ = serverSide.Close(); _ = clientSide.Close() })
+	id := strings.Repeat("b", 32)
+	done := make(chan error, 1)
+	go func() {
+		done <- handleRPCWithStreamObserved(serverSide, func(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+			if gizlog.RequestID(ctx) != id {
+				t.Errorf("lost ingress request ID: %q", gizlog.RequestID(ctx))
+			}
+			return &rpcapi.RPCResponse{V: rpcapi.RPCVersionV1, Id: req.Id}, nil
+		}, nil, &rpcObservationOptions{trustedEdge: true})
+	}()
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	if _, err := callRPC(ctx, clientSide, &rpcapi.RPCRequest{V: rpcapi.RPCVersionV1, Id: id, Method: rpcapi.RPCMethodAllPing}); err != nil {
+		t.Fatal(err)
+	}
+	_ = clientSide.Close()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	_, attrs := onlyCapturedRecord(t, capture)
+	if attrs["request_id"] != id {
+		t.Fatalf("completion trace: %v", attrs)
 	}
 }

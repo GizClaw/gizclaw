@@ -14,6 +14,9 @@ func WithPeerPublicKey(ctx context.Context, publicKey string) context.Context {
 	if publicKey == "" {
 		return ctx
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return context.WithValue(ctx, peerPublicKeyContextKey{}, publicKey)
 }
 
@@ -53,16 +56,22 @@ func (h *contextHandler) Handle(ctx context.Context, record slog.Record) error {
 	if h == nil || h.scoped == nil {
 		return nil
 	}
-	record = withoutLogIdentityAttrs(record)
+	record = withoutLogContextAttrs(ctx, record)
 	next := h.scoped
-	if publicKey, _ := ctx.Value(peerPublicKeyContextKey{}).(string); publicKey != "" {
-		next = h.root.WithAttrs([]slog.Attr{slog.String("peer_public_key", publicKey)})
+	if attrs := contextIdentityAttrs(ctx); len(attrs) > 0 {
+		next = h.root.WithAttrs(attrs)
 		for _, operation := range h.operations {
 			if operation.group != "" {
 				next = next.WithGroup(operation.group)
 				continue
 			}
-			next = next.WithAttrs(operation.attrs)
+			attrs := make([]slog.Attr, 0, len(operation.attrs))
+			for _, attr := range operation.attrs {
+				if correlation(ctx, correlationKey(attr.Key)) == "" {
+					attrs = append(attrs, attr)
+				}
+			}
+			next = next.WithAttrs(attrs)
 		}
 	}
 	return next.Handle(ctx, record)
@@ -93,10 +102,10 @@ func (h *contextHandler) WithGroup(name string) slog.Handler {
 	return &contextHandler{root: h.root, scoped: h.scoped.WithGroup(name), operations: operations}
 }
 
-func withoutLogIdentityAttrs(record slog.Record) slog.Record {
+func withoutLogContextAttrs(ctx context.Context, record slog.Record) slog.Record {
 	filtered := slog.NewRecord(record.Time, record.Level, record.Message, record.PC)
 	record.Attrs(func(attr slog.Attr) bool {
-		if !isReservedLogIdentity(attr.Key) {
+		if !isReservedLogIdentity(attr.Key) && correlation(ctx, correlationKey(attr.Key)) == "" {
 			filtered.AddAttrs(attr)
 		}
 		return true

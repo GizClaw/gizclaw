@@ -271,8 +271,7 @@ func (o peerAgentOutput) prepareAgentOutput(output genx.Stream) bool {
 	if !ok {
 		return false
 	}
-	observer.SetOutputProductionObserver(o.Lifecycle.observeOutputProduced)
-	return true
+	return observer.SetOutputProductionObserver(o.Lifecycle.observeOutputProduced)
 }
 
 func (o peerAgentOutput) observeAgentOutputStream(output genx.Stream) genx.Stream {

@@ -14,6 +14,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/streamlog"
 )
 
 const initialOutputCapacity = 64
@@ -37,6 +38,7 @@ func New(config Config) (*Dock, error) {
 
 // Transform starts one independent Audio Dock invocation.
 func (d *Dock) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	ctx = streamlog.StartStage(ctx, "audiodock")
 	if d == nil || d.config.Agent == nil {
 		return nil, fmt.Errorf("audiodock: Dock is nil")
 	}
@@ -1093,7 +1095,7 @@ func (r *inputRouter) routeInput() {
 		defer r.asrInput.Close()
 	}
 	for {
-		chunk, err := r.input.Next()
+		chunk, err := streamlog.ReadInput(r.ctx, r.input)
 		if err != nil {
 			if streamDone(err) {
 				return
