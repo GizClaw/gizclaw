@@ -29,7 +29,7 @@ const WINDOWS = [
   { label: "最近 5 分钟", seconds: 300 },
   { label: "最近 15 分钟", seconds: 900 },
   { label: "最近 1 小时", seconds: 3600 },
-  { label: "最近 24 小时", seconds: 0 },
+  { label: "最近 24 小时", seconds: 24 * 60 * 60 },
 ];
 
 export function LogsPage({
@@ -88,7 +88,7 @@ export function LogsPage({
       device.publicKey,
       deviceQuery,
       deviceLevel,
-      end - (windowSeconds > 0 ? windowSeconds * 1000 : 24 * 3600000),
+      end - windowSeconds * 1000,
       end,
       deviceCursor,
       controller.signal,
@@ -126,7 +126,7 @@ export function LogsPage({
   }, [device, deviceQuery, deviceLevel, windowSeconds, deviceCursor]);
 
   const query = useMemo(() => parseQuery(text), [text]);
-  const cutoff = windowSeconds > 0 ? Date.now() - windowSeconds * 1000 : 0;
+  const cutoff = Date.now() - windowSeconds * 1000;
   const shown = useMemo(
     () =>
       all.filter((record) => {

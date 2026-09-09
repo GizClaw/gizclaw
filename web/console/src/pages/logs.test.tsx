@@ -1,5 +1,11 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LogsPage } from "@/pages/logs";
 
 const loadDeviceLogs = vi.fn();
@@ -8,6 +14,8 @@ vi.mock("@/lib/peers", () => ({
   peerId: (peer: { publicKey: string }) => peer.publicKey,
   peerLabel: (peer: { publicKey: string }) => peer.publicKey,
 }));
+
+afterEach(cleanup);
 
 describe("persistent log search", () => {
   beforeEach(() => {
@@ -47,4 +55,45 @@ describe("persistent log search", () => {
     ]);
     expect(screen.queryByText("节点进程日志")).toBeNull();
   });
+});
+
+it("excludes records older than 24 hours from the selected window", async () => {
+  const now = Date.now();
+  loadDeviceLogs.mockResolvedValue({
+    items: [
+      {
+        time_ms: now - 2 * 3600000,
+        level: "INFO",
+        message: "recent record",
+        fields: {},
+      },
+      {
+        time_ms: now - 25 * 3600000,
+        level: "INFO",
+        message: "expired record",
+        fields: {},
+      },
+    ],
+    end: { has_next: false },
+  });
+  render(
+    <LogsPage
+      peers={[
+        {
+          publicKey: "device-key",
+          label: "Device",
+          endpoint: "https://edge.example.com",
+          addedAt: 1,
+        },
+      ]}
+      initialQuery=""
+    />,
+  );
+  fireEvent.change(screen.getByLabelText("时间范围"), {
+    target: { value: "86400" },
+  });
+  await waitFor(() => expect(screen.getByText("recent record")).toBeTruthy());
+  expect(screen.queryByText("expired record")).toBeNull();
+  const args = loadDeviceLogs.mock.calls.at(-1)!;
+  expect(args[5] - args[4]).toBe(86400000);
 });
