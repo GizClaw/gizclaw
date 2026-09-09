@@ -55,6 +55,13 @@ func TestPTTAudioOwnershipRejectsUnknownAndAmbiguousStarts(t *testing.T) {
 		t.Fatal("identified audio did not match its response")
 	}
 	responses.startAudio(first.identity)
+	if got := responses.startAudio(anonymous); got != nil {
+		t.Fatal("guessed ownership for an unidentified overlapping TTS start")
+	}
+	if got := responses.matchAudio(anonymous); got != nil {
+		t.Fatal("unidentified overlapping TTS audio leaked into the previous response")
+	}
+	responses.startAudio(first.identity)
 	if got := responses.startAudio(doubaoRealtimePTTResponseIdentity{replyID: "unknown"}); got != nil {
 		t.Fatal("matched an unknown TTS start")
 	}

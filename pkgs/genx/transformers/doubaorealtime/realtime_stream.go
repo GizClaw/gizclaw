@@ -1153,7 +1153,10 @@ func (q *doubaoRealtimePTTResponses) match(identity doubaoRealtimePTTResponseIde
 }
 
 func (q *doubaoRealtimePTTResponses) startAudio(identity doubaoRealtimePTTResponseIdentity) *doubaoRealtimePTTResponse {
-	q.audioResponse = q.match(identity)
+	q.audioResponse = nil
+	if !identity.empty() || len(q.items) == 1 {
+		q.audioResponse = q.match(identity)
+	}
 	q.audioBound = true
 	return q.audioResponse
 }
