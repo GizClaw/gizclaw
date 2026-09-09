@@ -70,14 +70,17 @@ func (g *GeminiGenerator) GenerateStream(ctx context.Context, _ string, mctx Mod
 	}
 	sb := NewStreamBuilder(mctx, 32)
 	go func() {
-		if err := geminiPull(sb, g.Client.Models.GenerateContentStream(ctx, g.Model, contents, cfg)); err != nil {
+		timing := newModelTiming(ctx, "gemini", g.Model)
+		err := geminiPull(sb, g.Client.Models.GenerateContentStream(ctx, g.Model, contents, cfg), timing)
+		timing.finish(err)
+		if err != nil {
 			sb.Abort(err)
 		}
 	}()
 	return sb.Stream(), nil
 }
 
-func geminiPull(builder *StreamBuilder, itr iter.Seq2[*genai.GenerateContentResponse, error]) error {
+func geminiPull(builder *StreamBuilder, itr iter.Seq2[*genai.GenerateContentResponse, error], timings ...*modelTiming) error {
 	var selIdx int32
 	for chunk, err := range itr {
 		if err != nil {
@@ -111,6 +114,9 @@ func geminiPull(builder *StreamBuilder, itr iter.Seq2[*genai.GenerateContentResp
 			for _, p := range sel.Content.Parts {
 				switch {
 				case p.Text != "":
+					if !p.Thought && len(timings) > 0 {
+						timings[0].text(p.Text)
+					}
 					sb.WriteString(p.Text)
 				case p.InlineData != nil:
 					if _, ok := blobs[p.InlineData.MIMEType]; !ok {

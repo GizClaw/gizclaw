@@ -21,7 +21,10 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 type slogCapture struct {
@@ -65,7 +68,7 @@ func TestObserveHTTPHandlerLogsSafeDomainErrorAndRequestID(t *testing.T) {
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusBadRequest || rec.Header().Get(requestIDHeader) != "request-1" {
+	if rec.Code != http.StatusBadRequest || !requestIDRE.MatchString(rec.Header().Get(requestIDHeader)) {
 		t.Fatalf("response = (%d, %q)", rec.Code, rec.Header().Get(requestIDHeader))
 	}
 	record, attrs := onlyCapturedRecord(t, capture)
@@ -75,7 +78,7 @@ func TestObserveHTTPHandlerLogsSafeDomainErrorAndRequestID(t *testing.T) {
 	for key, want := range map[string]any{
 		"transport": "http", "surface": "admin-http", "operation": "createWorkspace",
 		"route": "/workspaces", "method": "POST", "status": int64(400), "status_class": "4xx",
-		"result": "client_error", "error_code": "INVALID_WORKSPACE", "request_id": "request-1",
+		"result": "client_error", "error_code": "INVALID_WORKSPACE", "request_id": rec.Header().Get(requestIDHeader),
 		"peer_public_key": "peer-key", "peer_role": "admin",
 	} {
 		if got := attrs[key]; got != want {
@@ -139,15 +142,15 @@ func TestObserveOpenAIHandlerUsesClosedRouteAndOperationLabels(t *testing.T) {
 		)
 		handler.ServeHTTP(
 			httptest.NewRecorder(),
-			httptest.NewRequest(http.MethodPost, "/v1/responses/model-secret", nil),
+			httptest.NewRequest(http.MethodPost, "/v1/responses/missing?token=query-secret", nil),
 		)
 
 		_, attrs := onlyCapturedRecord(t, capture)
 		if attrs["route"] != "unknown" || attrs["operation"] != "unknown" {
 			t.Fatalf("unsupported OpenAI observation attrs = %#v", attrs)
 		}
-		if strings.Contains(fmt.Sprint(attrs), "model-secret") {
-			t.Fatalf("unsupported path leaked into observation attrs = %#v", attrs)
+		if attrs["request_path"] != "/v1/responses/missing" || strings.Contains(fmt.Sprint(attrs), "query-secret") {
+			t.Fatalf("missing path or leaked query in observation attrs = %#v", attrs)
 		}
 	})
 }
@@ -250,20 +253,13 @@ func TestObserveHTTPHandlerOmitsRequestIDWhenEntropyFails(t *testing.T) {
 	}
 	capture.mu.Lock()
 	defer capture.mu.Unlock()
-	if len(capture.records) != 2 {
-		t.Fatalf("records = %d, want warning and completion", len(capture.records))
+	if len(capture.records) != 1 || rec.Code != http.StatusInternalServerError {
+		t.Fatalf("records = %d, status = %d; want warning and 500", len(capture.records), rec.Code)
 	}
 	if capture.records[0].Message != "gizclaw: request id generation failed" || capture.records[0].Level != slog.LevelWarn {
 		t.Fatalf("warning = (%q, %s)", capture.records[0].Message, capture.records[0].Level)
 	}
-	attrs := make(map[string]any)
-	capture.records[1].Attrs(func(attr slog.Attr) bool {
-		attrs[attr.Key] = attr.Value.Any()
-		return true
-	})
-	if _, ok := attrs["request_id"]; ok {
-		t.Fatalf("completion attrs = %#v", attrs)
-	}
+
 }
 
 type failingEntropyReader struct{}
@@ -632,4 +628,67 @@ func onlyCapturedRecord(t *testing.T, capture *slogCapture) (slog.Record, map[st
 		return true
 	})
 	return record, attrs
+}
+
+func TestObserveHTTPHandlerTrustsOnlyInternalEdgeIDs(t *testing.T) {
+	forwarded := strings.Repeat("a", 32)
+	for _, trusted := range []bool{false, true} {
+		var downstream string
+		handler := observeHTTPHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			downstream = gizlog.RequestID(r.Context())
+			w.WriteHeader(http.StatusNoContent)
+		}), httpObservationOptions{trustedEdge: trusted})
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Header.Set(requestIDHeader, forwarded)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if downstream != rec.Header().Get(requestIDHeader) || !requestIDRE.MatchString(downstream) || (downstream == forwarded) != trusted {
+			t.Fatalf("trusted=%v downstream=%q response=%q", trusted, downstream, rec.Header().Get(requestIDHeader))
+		}
+	}
+}
+
+func TestHTTPAPIKeyIdentityReachesDownstreamAndCompletion(t *testing.T) {
+	capture := captureSlog(t)
+	keys := apikey.NewServer(kv.NewMemory(nil))
+	owner, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"first", "second"} {
+		key, err := keys.Create(t.Context(), owner.Public.String(), name, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		handler := observeHTTPHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			principal, ok := authenticateHTTPAPIKey(w, r, keys)
+			if !ok {
+				t.Error("authentication failed")
+				return
+			}
+			if gizlog.PeerPublicKey(r.Context()) != owner.Public.String() || gizlog.APIKeyName(r.Context()) != principal.Key.Name || !requestIDRE.MatchString(gizlog.RequestID(r.Context())) {
+				t.Errorf("lost request identity")
+			}
+			w.WriteHeader(http.StatusNoContent)
+		}), httpObservationOptions{trustedEdge: true})
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Header.Set("Authorization", "Bearer "+key.Secret)
+		req.Header.Set(gizlog.ClientIPHeader, "192.0.2.10")
+		req.Header.Set("User-Agent", "test-client/1.0")
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNoContent || rec.Header().Get(gizlog.APIKeyNameHeader) != key.Key.Name || rec.Header().Get(gizlog.AuthenticatedPeerHeader) != owner.Public.String() {
+			t.Fatalf("response identity: %v", rec.Header())
+		}
+		attrs := lifecycleRecordAttrs(capture.records[len(capture.records)-1])
+		if attrs["client_ip"] != "192.0.2.10" || attrs["user_agent"] != "test-client/1.0" || attrs["request_path"] != "/" {
+			t.Fatalf("lost access metadata: %v", attrs)
+		}
+		if attrs["api_key_name"] != key.Key.Name || attrs["peer_public_key"] != owner.Public.String() || attrs["request_id"] != rec.Header().Get(requestIDHeader) {
+			t.Fatalf("completion: %v", attrs)
+		}
+		if strings.Contains(fmt.Sprint(attrs), key.Secret) {
+			t.Fatal("credential leaked")
+		}
+	}
 }

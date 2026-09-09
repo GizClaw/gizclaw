@@ -47,27 +47,13 @@ type MonitorError struct {
 // MonitorErrorError defines model for MonitorError.Error.
 type MonitorErrorError string
 
-// MonitorLog defines model for MonitorLog.
-type MonitorLog struct {
-	Error *string `json:"error,omitempty"`
-
-	// Fields Structured attributes of the record, such as request_id, operation, route, status, duration_ms and stream identifiers. At most 24 entries; keys and values are bounded and truncated.
-	Fields        *map[string]string `json:"fields,omitempty"`
-	Id            uint64             `json:"id"`
-	Level         string             `json:"level"`
-	Message       string             `json:"message"`
-	PeerPublicKey *string            `json:"peer_public_key,omitempty"`
-	Time          time.Time          `json:"time"`
-}
-
 // NodeSnapshot defines model for NodeSnapshot.
 type NodeSnapshot struct {
-	Goroutines int          `json:"goroutines"`
-	HeapBytes  uint64       `json:"heap_bytes"`
-	Logs       []MonitorLog `json:"logs"`
-	PublicKey  string       `json:"public_key"`
-	Role       string       `json:"role"`
-	Time       time.Time    `json:"time"`
+	Goroutines int       `json:"goroutines"`
+	HeapBytes  uint64    `json:"heap_bytes"`
+	PublicKey  string    `json:"public_key"`
+	Role       string    `json:"role"`
+	Time       time.Time `json:"time"`
 	Transport  struct {
 		Connections int `json:"connections"`
 

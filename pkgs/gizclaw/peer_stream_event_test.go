@@ -316,8 +316,9 @@ func TestPeerAgentOutputWithoutLifecycleInstallsNoObservation(t *testing.T) {
 	}
 }
 
-func (s *peerProductionObservedStream) SetOutputProductionObserver(observe func(*genx.MessageChunk)) {
+func (s *peerProductionObservedStream) SetOutputProductionObserver(observe func(*genx.MessageChunk)) bool {
 	s.observe = observe
+	return true
 }
 
 func (s *peerProductionObservedStream) Next() (*genx.MessageChunk, error) {

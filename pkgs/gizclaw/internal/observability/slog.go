@@ -21,9 +21,13 @@ func Log(ctx context.Context, outcome *Outcome) {
 	// The logger reserves identity attributes and accepts them only through
 	// context. Carry the authenticated outcome identity into that channel.
 	for _, attr := range attrs {
-		if attr.Key == "peer_public_key" {
+		switch attr.Key {
+		case "peer_public_key":
 			ctx = gizlog.WithPeerPublicKey(ctx, attr.Value.String())
-			break
+		case "request_id":
+			ctx = gizlog.WithRequestID(ctx, attr.Value.String())
+		case "api_key_name":
+			ctx = gizlog.WithAPIKeyName(ctx, attr.Value.String())
 		}
 	}
 	slog.LogAttrs(context.WithoutCancel(ctx), level, CompletionMessage, attrs...)

@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/toolrun"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/streamlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtime"
 )
 
@@ -615,6 +616,7 @@ func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.St
 	if input == nil {
 		return nil, fmt.Errorf("dashscope realtime: input stream is required")
 	}
+	ctx = streamlog.StartStage(ctx, "dashscoperealtime", streamlog.Model{Provider: "dashscope", Model: t.model, Kind: "realtime"})
 	tools, err := resolveDashScopeTools(ctx, t.toolInvoker)
 	if err != nil {
 		return nil, err
@@ -674,7 +676,7 @@ func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.St
 	}
 
 	// Create output stream
-	output := newBufferStream(100)
+	output := newBufferStream(100, ctx)
 	stream := &Stream{
 		Stream:  output,
 		session: session,
@@ -732,13 +734,13 @@ func (t *Transformer) processLoop(
 			switch event.Type {
 			case dashscope.EventTypeInputSpeechStarted:
 				// User started speaking - cancel current response
-				slog.Info("dashscope: speech started - canceling response")
+				slog.InfoContext(ctx, "dashscope: speech started - canceling response")
 				if err := routes.interrupt(streamIDs.currentResponseRoutes()...); err != nil {
 					fail(err)
 					return
 				}
 				if err := session.CancelResponse(); err != nil {
-					slog.Error("dashscope: cancel response error", "error", err)
+					slog.ErrorContext(ctx, "dashscope: cancel response error", "error", err)
 				}
 
 			case dashscope.EventTypeResponseCreated:
@@ -869,7 +871,7 @@ func (t *Transformer) processLoop(
 				// Examples: "Conversation has none active response" when CancelResponse
 				// is called without an active response
 				if event.Error != nil {
-					slog.Warn("dashscope error event",
+					slog.WarnContext(ctx, "dashscope error event",
 						"code", event.Error.Code,
 						"message", event.Error.Message,
 						"type", event.Error.Type)
@@ -891,7 +893,7 @@ func (t *Transformer) processLoop(
 		default:
 		}
 
-		chunk, err := input.Next()
+		chunk, err := streamlog.ReadInput(ctx, input)
 		if err != nil {
 			select {
 			case <-eventsDone:

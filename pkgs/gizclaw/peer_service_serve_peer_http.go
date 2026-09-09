@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 )
@@ -87,7 +88,7 @@ func (s *PeerService) edgeHTTPHandlerForPeer(apiKeys *apikey.Server, peerPublicK
 	mux.Handle("/webrtc/v1/offer", publicHandler)
 	mux.Handle("/gizclaw/v1/", publicHandler)
 	mux.Handle("/openai/v1/", s.edgeOpenAIHTTPHandler(apiKeys))
-	return observeHTTPHandler(mux, httpObservationOptions{surface: observability.SurfaceEdgeHTTP, peerPublicKey: peerPublicKey, peerRole: string(apitypes.PeerRoleEdgeNode)})
+	return observeHTTPHandler(mux, httpObservationOptions{surface: observability.SurfaceEdgeHTTP, peerPublicKey: peerPublicKey, peerRole: string(apitypes.PeerRoleEdgeNode), trustedEdge: peerPublicKey != ""})
 }
 
 func (s *PeerService) edgeOpenAIHTTPHandler(apiKeys *apikey.Server) http.Handler {
@@ -173,7 +174,7 @@ func (s *PeerService) publicHTTPHandlerWithOptions(apiKeys *apikey.Server, opts 
 				ctx.Status(http.StatusForbidden)
 				return ctx.JSON(apitypes.NewErrorResponse("DEBUG_ACCESS_FORBIDDEN", "device debug mode does not permit this operation"))
 			}
-			ctx.SetUserContext(peerhttp.WithCallerPublicKey(base, publicKey))
+			ctx.SetUserContext(peerhttp.WithCallerPublicKey(gizlog.WithPeerPublicKey(base, publicKey.String()), publicKey))
 			observability.SetPeer(ctx.UserContext(), publicKey.String(), "")
 			return ctx.Next()
 		}
@@ -190,7 +191,7 @@ func (s *PeerService) publicHTTPHandlerWithOptions(apiKeys *apikey.Server, opts 
 			writeFiberAPIKeyOwnerError(ctx, err)
 			return nil
 		}
-		ctx.SetUserContext(peerhttp.WithCallerPublicKey(apikey.WithPrincipal(base, principal), publicKey))
+		ctx.SetUserContext(peerhttp.WithCallerPublicKey(ctx.UserContext(), publicKey))
 		observability.SetPeer(ctx.UserContext(), publicKey.String(), "")
 		return ctx.Next()
 	})

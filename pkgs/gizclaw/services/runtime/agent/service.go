@@ -147,7 +147,7 @@ func (s *Service) consume(ctx context.Context, rt *runtime) {
 	defer close(rt.done)
 	err := s.Consumer.ConsumeAgentOutput(ctx, rt.output)
 	if err != nil && ctx.Err() == nil {
-		s.logger().Error("agent: output consumer failed", "error", err)
+		s.logger().ErrorContext(ctx, "agent: output consumer failed", "error", err)
 	}
 }
 

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
@@ -1633,5 +1634,32 @@ func TestPeerHTTPProxyRejectsInvalidSignalingAuthority(t *testing.T) {
 				t.Fatalf("response = %d %q", response.Code, response.Body.String())
 			}
 		})
+	}
+}
+
+func TestPeerHTTPProxyGeneratesAndPropagatesRequestIdentity(t *testing.T) {
+	var forwarded string
+	handler := newPeerHTTPProxy("edge:9821", roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		forwarded = req.Header.Get("X-Request-ID")
+		if req.Header.Get(gizlog.ClientIPHeader) != "192.0.2.1" {
+			t.Error("client socket IP not forwarded")
+		}
+		if len(forwarded) != 32 || forwarded == strings.Repeat("a", 32) || gizlog.RequestID(req.Context()) != forwarded {
+			t.Error("untrusted or missing request ID")
+		}
+		if req.Header.Get(gizlog.AuthenticatedPeerHeader) != "" || req.Header.Get(gizlog.APIKeyNameHeader) != "" {
+			t.Error("client identity forwarded")
+		}
+		return &http.Response{StatusCode: http.StatusNoContent, Header: http.Header{gizlog.AuthenticatedPeerHeader: []string{"authenticated-owner"}, gizlog.APIKeyNameHeader: []string{"key_name"}}, Body: io.NopCloser(strings.NewReader("")), Request: req}, nil
+	}))
+	req := httptest.NewRequest(http.MethodGet, "http://edge.example/gizclaw/v1/device", nil)
+	req.Header.Set("X-Request-ID", strings.Repeat("a", 32))
+	req.Header.Set(gizlog.ClientIPHeader, "203.0.113.99")
+	req.Header.Set(gizlog.AuthenticatedPeerHeader, "forged")
+	req.Header.Set(gizlog.APIKeyNameHeader, "forged")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Header().Get("X-Request-ID") != forwarded || rec.Header().Get(gizlog.AuthenticatedPeerHeader) != "" || rec.Header().Get(gizlog.APIKeyNameHeader) != "" {
+		t.Fatalf("public response headers: %v", rec.Header())
 	}
 }

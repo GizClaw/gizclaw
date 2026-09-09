@@ -3,6 +3,7 @@ package gizclaw
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -561,7 +562,7 @@ func TestRPCServerContextCancelsWhenConnCloses(t *testing.T) {
 		t.Fatalf("Handle() error = %v, want %v or %v", err, io.EOF, io.ErrClosedPipe)
 	}
 	record, attrs := onlyCapturedRecord(t, capture)
-	if record.Level.String() != "WARN" || attrs["result"] != "canceled" || attrs["operation"] != string(rpcapi.RPCMethodServerInfoPut) || attrs["request_id"] != "put-info-cancel" {
+	if record.Level.String() != "WARN" || attrs["result"] != "canceled" || attrs["operation"] != string(rpcapi.RPCMethodServerInfoPut) || !requestIDRE.MatchString(fmt.Sprint(attrs["request_id"])) {
 		t.Fatalf("record = (%s, %#v)", record.Level, attrs)
 	}
 	if attrs["rpc_code"] != int64(rpcapi.StatusCodeInternal) {

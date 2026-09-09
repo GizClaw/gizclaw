@@ -35,6 +35,7 @@ func NewInvocation(parent context.Context, outputConfig OutputConfig) *Invocatio
 		parent = context.Background()
 	}
 	ctx, cancel := context.WithCancelCause(parent)
+	outputConfig.LogContext = ctx
 	invocation := &Invocation{
 		ctx:       ctx,
 		cancel:    cancel,

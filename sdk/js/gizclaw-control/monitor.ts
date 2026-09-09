@@ -12,10 +12,7 @@ import {
   findPublicKeysByImei,
 } from "@gizclaw/gizclaw/peerhttp";
 
-export type {
-  NodeSnapshot,
-  MonitorLog,
-} from "./generated/monitor/types.gen.ts";
+export type { NodeSnapshot } from "./generated/monitor/types.gen.ts";
 
 /** Public, unauthenticated identifier lookup; duplicate identifiers return every match. */
 export function createGizClawDiscoveryClient(

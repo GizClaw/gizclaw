@@ -79,60 +79,34 @@ func TestPeerStreamLifecycleCorrelatesSequentialTurns(t *testing.T) {
 	}
 }
 
-func TestPeerStreamLifecycleRecordsUserAndDeliveredAssistantContent(t *testing.T) {
+func TestPeerStreamLifecycleAggregatesDeliveredAndTranscriptContent(t *testing.T) {
 	capture := &slogCapture{}
 	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-content", "peer-content")
 	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-content", nil))
-	lifecycle.observeAgentInputPush(&genx.MessageChunk{
-		Role: genx.RoleUser,
-		Part: genx.Text("用户问题"),
-		Ctrl: &genx.StreamCtrl{StreamID: "input-content"},
-	})
-	output := attachTestResponseEpoch("input-content", &genx.MessageChunk{
-		Role: genx.RoleModel,
-		Part: genx.Text("AI 回复"),
-		Ctrl: &genx.StreamCtrl{StreamID: "output-content", Label: "assistant"},
-	})
-	lifecycle.observePeerEventDelivered(t.Context(), output, peerStreamEventsFromChunk(output)[0], nil)
-
-	records := capturedConversationContentRecords(t, capture)
-	if len(records) != 2 {
-		t.Fatalf("content records = %d, want user and assistant", len(records))
+	lifecycle.observeAgentInputPush(&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("问题。"), Ctrl: &genx.StreamCtrl{StreamID: "input-content"}})
+	epoch := genx.NewResponseEpoch("input-content")
+	for _, text := range []string{"AI", " 回复", "。"} {
+		chunk := &genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(text), Ctrl: &genx.StreamCtrl{StreamID: "output-content", ResponseEpoch: epoch}}
+		lifecycle.observeOutputProduced(chunk)
+		lifecycle.observePeerEventDelivered(t.Context(), chunk, peerStreamEventsFromChunk(chunk)[0], nil)
 	}
-	user := lifecycleRecordAttrs(records[0])
-	if user["peer_public_key"] != "peer-content" || user["tunnel_session_id"] != "session-content" ||
-		user["turn_index"] != uint64(1) || user["content_role"] != "user" ||
-		user["content_index"] != uint64(0) || user["content"] != "用户问题" || user["content_source"] != "agent_input" {
-		t.Fatalf("user content = %#v", user)
+	lifecycle.producedLog.Close(nil)
+	lifecycle.deliveredLog.Close(nil)
+	counts := map[string]int{}
+	for _, record := range capture.records {
+		if record.Message != "genx: stream" {
+			continue
+		}
+		attrs := lifecycleRecordAttrs(record)
+		if attrs["event"] == "text" {
+			counts[attrs["boundary"].(string)]++
+			if attrs["boundary"] != "agent_input" && attrs["content"] != "AI 回复。" {
+				t.Fatalf("fragmented content: %v", attrs)
+			}
+		}
 	}
-	assistant := lifecycleRecordAttrs(records[1])
-	if assistant["peer_public_key"] != "peer-content" || assistant["turn_index"] != uint64(1) ||
-		assistant["content_role"] != "assistant" || assistant["content_index"] != uint64(0) ||
-		assistant["content"] != "AI 回复" || assistant["content_source"] != "peer_delivery" {
-		t.Fatalf("assistant content = %#v", assistant)
-	}
-}
-
-func TestPeerStreamLifecycleRecordsFinalTranscriptContent(t *testing.T) {
-	capture := &slogCapture{}
-	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-transcript", "peer-transcript")
-	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-transcript", nil))
-	transcript := attachTestResponseEpoch("input-transcript", &genx.MessageChunk{
-		Role: genx.RoleUser,
-		Name: "transcript",
-		Part: genx.Text("最终转写"),
-		Ctrl: &genx.StreamCtrl{StreamID: "output-transcript", Label: "transcript"},
-	})
-	lifecycle.observeOutputProduced(transcript)
-
-	records := capturedConversationContentRecords(t, capture)
-	if len(records) != 1 {
-		t.Fatalf("content records = %d, want final transcript", len(records))
-	}
-	attrs := lifecycleRecordAttrs(records[0])
-	if attrs["content_role"] != "user" || attrs["content_source"] != "final_transcript" ||
-		attrs["content"] != "最终转写" || attrs["content_index"] != uint64(0) {
-		t.Fatalf("final transcript content = %#v", attrs)
+	if counts["agent_input"] != 1 || counts["model_output"] != 1 || counts["peer_delivery"] != 1 {
+		t.Fatalf("content counts = %v", counts)
 	}
 }
 
@@ -867,6 +841,7 @@ func TestPeerStreamLifecycleResultIsExhaustiveAndBounded(t *testing.T) {
 		{name: "canceled", err: context.Canceled, wantResult: "canceled", wantReason: "context_canceled"},
 		{name: "timeout", err: context.DeadlineExceeded, wantResult: "timeout", wantReason: "deadline_exceeded"},
 		{name: "closed", err: io.EOF, wantResult: "closed", wantReason: "stream_closed"},
+		{name: "closed pipe", err: fmt.Errorf("event stream: %w", io.ErrClosedPipe), wantResult: "closed", wantReason: "stream_closed"},
 		{name: "runtime", err: errors.New("provider secret"), wantResult: "runtime_error", wantReason: "internal_error"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -1075,7 +1050,7 @@ func capturedConversationContentRecords(t *testing.T, capture *slogCapture) []sl
 	defer capture.mu.Unlock()
 	var records []slog.Record
 	for _, record := range capture.records {
-		if record.Message == peerConversationContentMessage {
+		if attrs := lifecycleRecordAttrs(record); record.Message == "genx: stream" && attrs["boundary"] == "peer_delivery" && attrs["event"] == "text" {
 			records = append(records, record)
 		}
 	}
@@ -1129,4 +1104,15 @@ func (h *lifecycleTestFanoutHandler) WithGroup(name string) slog.Handler {
 		handlers = append(handlers, handler.WithGroup(name))
 	}
 	return &lifecycleTestFanoutHandler{handlers: handlers}
+}
+
+func TestPeerStreamLifecycleSingleChunkDeliveryIsLoggedOnce(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session", "peer")
+	chunk := &genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("一条回复"), Ctrl: &genx.StreamCtrl{StreamID: "output", BeginOfStream: true, EndOfStream: true}}
+	lifecycle.observeOutput(t.Context(), chunk, nil)
+	records := capturedConversationContentRecords(t, capture)
+	if len(records) != 1 {
+		t.Fatalf("delivered content records=%d, want 1", len(records))
+	}
 }

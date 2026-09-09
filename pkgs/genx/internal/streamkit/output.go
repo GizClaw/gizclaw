@@ -1,12 +1,14 @@
 package streamkit
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"sync"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/streamlog"
 )
 
 // ErrOutputLimit is returned when queued content exceeds OutputConfig.MaxBytes.
@@ -14,6 +16,8 @@ var ErrOutputLimit = errors.New("streamkit: output buffer limit exceeded")
 
 // OutputConfig configures a growable pull-output buffer.
 type OutputConfig struct {
+	// LogContext supplies the invocation-local stage observer.
+	LogContext      context.Context
 	InitialCapacity int
 	MaxBytes        int64
 	Observe         func(*genx.MessageChunk)
@@ -33,12 +37,23 @@ type deferredObservation struct {
 	abandon func(*genx.MessageChunk)
 }
 
+type outputLogEntry struct {
+	chunk *genx.MessageChunk
+	ready bool
+}
+
 // Output is a growable, concurrency-safe GenX Stream. Producers never wait for
 // downstream pulls unless memory allocation itself blocks. A positive MaxBytes
 // limits queued content bytes and turns overflow into an observable error.
 type Output struct {
-	mu   sync.Mutex
-	cond *sync.Cond
+	logRecorder *streamlog.Recorder
+	logQueue    []*outputLogEntry
+	logging     bool
+	logTerminal bool
+	logClosed   bool
+	logCloseErr error
+	mu          sync.Mutex
+	cond        *sync.Cond
 
 	queue       []outputEntry
 	queuedBytes int64
@@ -63,10 +78,11 @@ var _ genx.Stream = (*Output)(nil)
 func NewOutput(config OutputConfig) *Output {
 	capacity := max(config.InitialCapacity, 0)
 	output := &Output{
-		queue:    make([]outputEntry, 0, capacity),
-		maxBytes: config.MaxBytes,
-		done:     make(chan struct{}),
-		observe:  config.Observe,
+		logRecorder: streamlog.OutputRecorder(config.LogContext),
+		queue:       make([]outputEntry, 0, capacity),
+		maxBytes:    config.MaxBytes,
+		done:        make(chan struct{}),
+		observe:     config.Observe,
 	}
 	output.cond = sync.NewCond(&output.mu)
 	return output
@@ -74,7 +90,7 @@ func NewOutput(config OutputConfig) *Output {
 
 // Next returns the next queued chunk. Observation happens only after the chunk
 // has crossed this pull-visible boundary.
-func (o *Output) Next() (*genx.MessageChunk, error) {
+func (o *Output) Next() (chunk *genx.MessageChunk, err error) {
 	if o == nil {
 		return nil, io.EOF
 	}
@@ -85,17 +101,24 @@ func (o *Output) Next() (*genx.MessageChunk, error) {
 	if o.closeErr != nil {
 		err := o.closeErr
 		o.mu.Unlock()
+		o.closeLog(err)
 		return nil, err
 	}
 	if len(o.queue) == 0 {
 		err := o.failErr
 		o.mu.Unlock()
-		if err != nil {
-			return nil, err
+		if err == nil {
+			err = io.EOF
 		}
-		return nil, io.EOF
+		o.closeLog(err)
+		return nil, err
 	}
 	entry := o.queue[0]
+	if o.logRecorder != nil {
+		ticket := &outputLogEntry{chunk: entry.chunk}
+		o.logQueue = append(o.logQueue, ticket)
+		defer o.finishLogPull(ticket)
+	}
 	var zero outputEntry
 	o.queue[0] = zero
 	o.queue = o.queue[1:]
@@ -124,6 +147,58 @@ func (o *Output) Next() (*genx.MessageChunk, error) {
 		}()
 	}
 	return entry.chunk, nil
+}
+
+// Log tickets preserve dequeue order without waiting for user callbacks under
+// the Output mutex. A terminal read/abort only flushes after every claimed pull.
+func (o *Output) finishLogPull(ticket *outputLogEntry) {
+	o.mu.Lock()
+	ticket.ready = true
+	o.mu.Unlock()
+	o.drainLogs()
+}
+
+func (o *Output) closeLog(err error) {
+	if o.logRecorder == nil {
+		return
+	}
+	o.mu.Lock()
+	if !o.logTerminal {
+		o.logTerminal = true
+		o.logCloseErr = err
+	}
+	o.mu.Unlock()
+	o.drainLogs()
+}
+
+func (o *Output) drainLogs() {
+	o.mu.Lock()
+	if o.logging {
+		o.mu.Unlock()
+		return
+	}
+	o.logging = true
+	for {
+		if len(o.logQueue) == 0 || !o.logQueue[0].ready {
+			closeRecorder := len(o.logQueue) == 0 && o.logTerminal && !o.logClosed
+			err := o.logCloseErr
+			if closeRecorder {
+				o.logClosed = true
+			}
+			o.logging = false
+			o.mu.Unlock()
+			if closeRecorder {
+				o.logRecorder.Close(err)
+			}
+			return
+		}
+		ticket := o.logQueue[0]
+		o.logQueue[0] = nil
+		o.logQueue = o.logQueue[1:]
+		o.mu.Unlock()
+		o.logRecorder.Observe(ticket.chunk)
+		o.mu.Lock()
+	}
 }
 
 func (o *Output) finishObservation() {
@@ -170,6 +245,7 @@ func (o *Output) PushTracked(chunk *genx.MessageChunk, observe, abandon func(*ge
 			abandoned = append(abandoned, deferredObservation{chunk: entry.chunk, abandon: entry.abandon})
 		}
 		o.mu.Unlock()
+		o.closeLog(err)
 		runAbandonments(abandoned)
 		return err
 	}
@@ -277,7 +353,11 @@ func (o *Output) CloseWithError(err error) error {
 	}
 	o.mu.Lock()
 	abandoned := o.closeWithErrorLocked(err)
+	terminalErr := o.closeErr
 	o.mu.Unlock()
+	if terminalErr != nil {
+		o.closeLog(terminalErr)
+	}
 	runAbandonments(abandoned)
 	return nil
 }

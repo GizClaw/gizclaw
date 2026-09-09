@@ -4,6 +4,7 @@ package admin_test
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -19,16 +20,20 @@ const observabilityConversationPrompt = "Hello from an independent Giztest workf
 
 func TestAdminLogStreamVolcSmoke(t *testing.T) {
 	h := newAdminAPIHarness(t)
-	requestID := "log-store-smoke-" + strconv.FormatInt(time.Now().UnixNano(), 10)
-	limit := int32(1)
-	seed, err := h.api.ListPeersWithResponse(h.ctx, &adminhttp.ListPeersParams{Limit: &limit}, func(_ context.Context, request *http.Request) error {
-		request.Header.Set("X-Request-ID", requestID)
+	clientRequestID := "log-store-smoke-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	seed, err := h.api.GetPeerWithResponse(h.ctx, h.peerKey, func(_ context.Context, request *http.Request) error {
+		request.Header.Set("X-Request-ID", clientRequestID)
 		return nil
 	})
 	if err != nil {
 		t.Fatalf("seed system log: %v", err)
 	}
 	requireStatusOK(t, seed, seed.Body)
+	requestID := seed.HTTPResponse.Header.Get("X-Request-ID")
+	decoded, decodeErr := hex.DecodeString(requestID)
+	if decodeErr != nil || len(decoded) != 16 || requestID == clientRequestID {
+		t.Fatalf("request ID must be a fresh server-generated 128-bit ID: %q", requestID)
+	}
 
 	deadline := time.Now().Add(30 * time.Second)
 	var lastBody string
@@ -62,94 +67,79 @@ func TestAdminConversationAuditLogs(t *testing.T) {
 	}
 	h := newAdminAPIHarness(t)
 	deadline := time.Now().Add(30 * time.Second)
-	var userEntry, assistantEntry *struct {
-		Fields  map[string]string `json:"fields"`
-		Message string            `json:"message"`
-	}
-	lifecycleStages := make(map[string]bool)
 	for time.Now().Before(deadline) {
 		now := time.Now().UTC()
-		filter := `content_role:user AND content:"` + observabilityConversationPrompt + `"`
+		filter := `boundary:agent_input AND event:text AND content:"` + observabilityConversationPrompt + `"`
 		resp, err := h.api.StreamServerLogsWithResponse(h.ctx, &adminhttp.StreamServerLogsParams{
-			Filter: &filter, StartTimeMs: ptr(now.Add(-5 * time.Minute).UnixMilli()),
+			Filter: &filter, StartTimeMs: ptr(now.Add(-30 * time.Minute).UnixMilli()),
 			EndTimeMs: ptr(now.Add(time.Minute).UnixMilli()), Limit: ptr(int32(10)),
 		})
 		if err != nil {
-			t.Fatalf("query user conversation log: %v", err)
+			t.Fatalf("query input: %v", err)
 		}
-		if resp.StatusCode() != http.StatusOK {
-			t.Fatalf("query user conversation log status = %d body=%s", resp.StatusCode(), resp.Body)
-		}
+		requireStatusOK(t, resp, resp.Body)
 		entries := decodeLogStreamEntries(t, string(resp.Body))
 		if len(entries) == 0 {
 			time.Sleep(time.Second)
 			continue
 		}
-		userEntry = &entries[0]
-		peerKey := userEntry.Fields["peer_public_key"]
-		turnIndex := userEntry.Fields["turn_index"]
-		tunnelSessionID := userEntry.Fields["tunnel_session_id"]
-		if peerKey == "" || turnIndex == "" || tunnelSessionID == "" ||
-			userEntry.Fields["content_source"] != "agent_input" ||
-			userEntry.Message != "gizclaw: AI conversation content" {
-			t.Fatalf("invalid user conversation log: %+v", *userEntry)
-		}
-		assistantFilter := "content_role:assistant AND peer_public_key:" + peerKey +
-			" AND turn_index:" + turnIndex + " AND tunnel_session_id:" + tunnelSessionID
-		assistantResp, err := h.api.StreamServerLogsWithResponse(h.ctx, &adminhttp.StreamServerLogsParams{
-			Filter: &assistantFilter, StartTimeMs: ptr(now.Add(-5 * time.Minute).UnixMilli()),
-			EndTimeMs: ptr(now.Add(time.Minute).UnixMilli()), Limit: ptr(int32(100)),
-		})
-		if err != nil {
-			t.Fatalf("query assistant conversation log: %v", err)
-		}
-		if assistantResp.StatusCode() != http.StatusOK {
-			t.Fatalf("query assistant conversation log status = %d body=%s", assistantResp.StatusCode(), assistantResp.Body)
-		}
-		assistantEntries := decodeLogStreamEntries(t, string(assistantResp.Body))
-		for index := range assistantEntries {
-			entry := &assistantEntries[index]
-			if entry.Message == "gizclaw: AI conversation content" &&
-				entry.Fields["content_source"] == "peer_delivery" && entry.Fields["content"] != "" {
-				assistantEntry = entry
-				break
+		input := entries[0].Fields
+		for _, key := range []string{"peer_public_key", "session_id", "stream_id", "source_file", "source_line"} {
+			if input[key] == "" {
+				t.Fatalf("input missing %s: %v", key, input)
 			}
 		}
-		lifecycleFilter := "stage:* AND peer_public_key:" + peerKey +
-			" AND turn_index:" + turnIndex + " AND tunnel_session_id:" + tunnelSessionID
-		lifecycleResp, err := h.api.StreamServerLogsWithResponse(h.ctx, &adminhttp.StreamServerLogsParams{
-			Filter: &lifecycleFilter, StartTimeMs: ptr(now.Add(-5 * time.Minute).UnixMilli()),
-			EndTimeMs: ptr(now.Add(time.Minute).UnixMilli()), Limit: ptr(int32(100)),
+		filter = "session_id:" + input["session_id"] + " AND event:*"
+		resp, err = h.api.StreamServerLogsWithResponse(h.ctx, &adminhttp.StreamServerLogsParams{
+			Filter: &filter, StartTimeMs: ptr(now.Add(-30 * time.Minute).UnixMilli()),
+			EndTimeMs: ptr(now.Add(time.Minute).UnixMilli()), Limit: ptr(int32(1000)),
 		})
 		if err != nil {
-			t.Fatalf("query peer lifecycle logs: %v", err)
+			t.Fatalf("query conversation: %v", err)
 		}
-		if lifecycleResp.StatusCode() != http.StatusOK {
-			t.Fatalf("query peer lifecycle logs status = %d body=%s", lifecycleResp.StatusCode(), lifecycleResp.Body)
-		}
-		for _, entry := range decodeLogStreamEntries(t, string(lifecycleResp.Body)) {
-			if entry.Message == "gizclaw: peer stream lifecycle" {
-				lifecycleStages[entry.Fields["stage"]] = true
+		requireStatusOK(t, resp, resp.Body)
+		found := map[string]bool{}
+		routes := map[string]map[string]int{}
+		for _, entry := range decodeLogStreamEntries(t, string(resp.Body)) {
+			if entry.Message != "genx: stream" {
+				continue
+			}
+			f := entry.Fields
+			for _, key := range []string{"peer_public_key", "session_id", "stream_id", "source_file", "source_line", "started_at", "observed_at"} {
+				if f[key] == "" {
+					t.Fatalf("stream missing %s: %v", key, f)
+				}
+			}
+			route := strings.Join([]string{f["request_id"], f["transformer"], f["boundary"], f["stream_id"], f["role"], f["mime_type"], f["segment_index"]}, "/")
+			if routes[route] == nil {
+				routes[route] = map[string]int{}
+			}
+			routes[route][f["event"]]++
+			if f["role"] == "assistant" && f["input_stream_id"] == input["stream_id"] {
+				if f["event"] == "first_text" || f["event"] == "first_audio" {
+					if _, err := strconv.ParseFloat(f["input_elapsed_ms"], 64); err != nil {
+						t.Fatalf("invalid input latency: %v", f)
+					}
+					found[f["boundary"]+"/"+f["event"]] = true
+				}
 			}
 		}
-		if assistantEntry != nil && lifecycleStages["turn_started"] && lifecycleStages["agent_input_first_push"] &&
-			lifecycleStages["output_first_event"] && lifecycleStages["turn_terminal"] {
-			break
+		complete := true
+		for _, key := range []string{"model_output/first_text", "model_output/first_audio", "peer_delivery/first_text", "peer_delivery/first_audio"} {
+			complete = complete && found[key]
+		}
+		for route, events := range routes {
+			if events["stream_start"] > 1 || events["stream_end"] > 1 || events["first_text"] > 1 || events["first_audio"] > 1 {
+				t.Fatalf("duplicate route events %s: %v", route, events)
+			}
+			complete = complete && events["stream_start"] == 1 && events["stream_end"] == 1
+		}
+		if complete {
+			return
 		}
 		time.Sleep(time.Second)
 	}
-	if userEntry == nil {
-		t.Fatal("persisted user conversation content log was not found")
-	}
-	if assistantEntry == nil {
-		t.Fatalf("persisted assistant reply content log was not found for peer=%s turn=%s tunnel=%s",
-			userEntry.Fields["peer_public_key"], userEntry.Fields["turn_index"], userEntry.Fields["tunnel_session_id"])
-	}
-	for _, stage := range []string{"turn_started", "agent_input_first_push", "output_first_event", "turn_terminal"} {
-		if !lifecycleStages[stage] {
-			t.Errorf("persisted lifecycle stage %q was not found; got stages=%v", stage, lifecycleStages)
-		}
-	}
+	t.Fatal("conversation has missing timing boundaries or dangling streams; inspect persisted session logs")
 }
 
 func logStreamContainsRequestID(t *testing.T, body, requestID string) bool {

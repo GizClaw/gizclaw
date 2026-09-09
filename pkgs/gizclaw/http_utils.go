@@ -26,6 +26,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 )
 
 func authenticateFiberAPIKey(ctx *fiber.Ctx, server *apikey.Server) (apikey.Principal, bool) {
@@ -37,6 +38,11 @@ func authenticateFiberAPIKey(ctx *fiber.Ctx, server *apikey.Server) (apikey.Prin
 	if err != nil {
 		writeFiberAPIKeyError(ctx, err)
 		return apikey.Principal{}, false
+	}
+	ctx.SetUserContext(withAPIKeyLogIdentity(ctx.UserContext(), principal))
+	if trusted, _ := ctx.UserContext().Value(trustedEdgeHTTPKey{}).(bool); trusted {
+		ctx.Set(gizlog.AuthenticatedPeerHeader, principal.Key.Owner)
+		ctx.Set(gizlog.APIKeyNameHeader, principal.Key.Name)
 	}
 	return principal, true
 }
@@ -51,7 +57,21 @@ func authenticateHTTPAPIKey(w http.ResponseWriter, r *http.Request, server *apik
 		writeHTTPAPIKeyError(w, err)
 		return apikey.Principal{}, false
 	}
+	*r = *r.WithContext(withAPIKeyLogIdentity(r.Context(), principal))
+	if trusted, _ := r.Context().Value(trustedEdgeHTTPKey{}).(bool); trusted {
+		w.Header().Set(gizlog.AuthenticatedPeerHeader, principal.Key.Owner)
+		w.Header().Set(gizlog.APIKeyNameHeader, principal.Key.Name)
+	}
 	return principal, true
+}
+
+func withAPIKeyLogIdentity(ctx context.Context, principal apikey.Principal) context.Context {
+	ctx = apikey.WithPrincipal(ctx, principal)
+	ctx = gizlog.WithPeerPublicKey(ctx, principal.Key.Owner)
+	ctx = gizlog.WithAPIKeyName(ctx, principal.Key.Name)
+	observability.SetPeer(ctx, principal.Key.Owner, "")
+	observability.FromContext(ctx).SetAPIKeyName(principal.Key.Name)
+	return ctx
 }
 
 func bearerCredential(value string) string {
@@ -101,16 +121,19 @@ const (
 	maxObservedResponseBytes = 64 << 10
 )
 
-var requestIDRE = regexp.MustCompile(`^[A-Za-z0-9._-]{1,128}$`)
+var requestIDRE = regexp.MustCompile(`^[a-f0-9]{32}$`)
 var observedErrorCodeRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
 
 var requestIDWarningAt atomic.Int64
+
+type trustedEdgeHTTPKey struct{}
 
 type httpObservationOptions struct {
 	surface       observability.Surface
 	peerPublicKey string
 	peerRole      string
 	entropy       io.Reader
+	trustedEdge   bool
 }
 
 func observeHTTPHandler(next http.Handler, opts httpObservationOptions) http.Handler {
@@ -120,20 +143,30 @@ func observeHTTPHandler(next http.Handler, opts httpObservationOptions) http.Han
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		outcome := observability.NewOutcome(observability.TransportHTTP, opts.surface, "unknown")
 		outcome.SetPeer(opts.peerPublicKey, opts.peerRole)
+		outcome.SetHTTPMetadata(gizlog.HTTPRequestMetadata(request, opts.trustedEdge))
 		entropy := opts.entropy
 		if entropy == nil {
 			entropy = rand.Reader
 		}
-		requestID, requestIDErr := validOrNewRequestID(request.Header.Get(requestIDHeader), entropy)
+		forwardedID := ""
+		if opts.trustedEdge {
+			forwardedID = request.Header.Get(requestIDHeader)
+		}
+		requestID, requestIDErr := validOrNewRequestID(forwardedID, entropy)
 		if requestIDErr != nil {
 			warnRequestIDGeneration(request.Context())
+			http.Error(writer, "request ID generation failed", http.StatusInternalServerError)
+			return
 		}
 		if requestID != "" {
 			request.Header.Set(requestIDHeader, requestID)
 			writer.Header().Set(requestIDHeader, requestID)
 			outcome.SetRequestID(requestID)
 		}
-		ctx := observability.WithOutcome(request.Context(), outcome)
+		ctx := gizlog.WithRequestID(request.Context(), requestID)
+		ctx = gizlog.WithPeerPublicKey(ctx, opts.peerPublicKey)
+		ctx = context.WithValue(ctx, trustedEdgeHTTPKey{}, opts.trustedEdge)
+		ctx = observability.WithOutcome(ctx, outcome)
 		request = request.WithContext(ctx)
 
 		status := http.StatusOK

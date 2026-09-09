@@ -12,6 +12,7 @@ import (
 
 	"github.com/GizClaw/flowcraft/memory/recall"
 	"github.com/GizClaw/flowcraft/sdk/errdefs"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizmetrics"
 	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
@@ -328,7 +329,12 @@ func stringSliceAttribute(attributes map[string]any, key string) []string {
 }
 
 // Recall returns facts relevant to the query.
-func (s *Store) Recall(ctx context.Context, query memorystore.Query) (memorystore.RecallResult, error) {
+func (s *Store) Recall(ctx context.Context, query memorystore.Query) (_ memorystore.RecallResult, outcomeErr error) {
+	started := time.Now()
+	defer func() {
+		gizmetrics.ObserveDuration(ctx, "memory_recall_duration_seconds", time.Since(started), gizmetrics.Label{Name: "backend", Value: "flowcraft"}, gizmetrics.Label{Name: "embedding_model_ref", Value: s.config.Embedding.Model}, gizmetrics.Label{Name: "rerank_model_ref", Value: s.config.Rerank.Model}, gizmetrics.Label{Name: "result", Value: gizmetrics.Result(outcomeErr)})
+	}()
+
 	if err := validateQuery(query); err != nil {
 		return recallResult{}, err
 	}

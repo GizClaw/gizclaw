@@ -19,6 +19,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/streamlog"
 )
 
 const (
@@ -181,7 +182,8 @@ func (t *Transformer) transform(ctx context.Context, input genx.Stream) (genx.St
 	if input == nil {
 		return nil, fmt.Errorf("doubao ast translate: input stream is required")
 	}
-	output := newBufferStream(64)
+	ctx = streamlog.StartStage(ctx, "doubaoast", streamlog.Model{Provider: "volc", Model: t.resourceID, Kind: "ast"})
+	output := newBufferStream(64, ctx)
 	go t.transformLoop(ctx, input, output)
 	return output, nil
 }
@@ -560,7 +562,7 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 			output.CloseWithError(err)
 			return
 		}
-		chunk, err := input.Next()
+		chunk, err := streamlog.ReadInput(ctx, input)
 		if limitErr := handlePTTOutputLimit(); limitErr != nil {
 			output.CloseWithError(limitErr)
 			return

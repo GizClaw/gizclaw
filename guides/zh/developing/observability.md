@@ -157,6 +157,15 @@ Streaming RPC 只在完整 stream handler 返回时输出一次 completion recor
 
 `server.speech.extract` 只通过同一条 completion record 暴露封闭的阶段/类别 code。阶段包括 request、ASR、Extract Provider、结果解析、Schema 校验和 response 编码。即使 wire response 是通用 internal error，也不会记录 Provider 原始错误或 request/result 内容。
 
+
+HTTP completion 还记录 `request_path`（不含 query，最多 1024 bytes）、`client_ip`、`user_agent`（最多 512 bytes）。即使没有匹配的 route，也保留实际路径用于排查 404。公网 Edge 从 socket 地址提取 IP，覆盖内部转发头；Server 只在已认证的 Edge service 接受该 IP。其他 `X-Forwarded-For` / `X-Real-IP` 不作为可信来源；若入口前还有额外代理，socket IP 反映该代理。路径、IP、User-Agent 均只用于日志，不进入指标 labels。Console 对已注册接口和未注册路径统一显示 HTTP 方法、实际路径、IP、状态码和耗时；业务 operation、route 模板与 User-Agent 在完整字段中查看。历史记录缺少实际路径时回退到已有 route。
+
+### Context 与请求身份
+
+HTTP 入口始终生成 128-bit 随机十六进制 `request_id` 并返回 `X-Request-ID`，不采纳客户端填写的 ID。Edge 在公网入口生成 ID，Server 仅在已认证的内部 Edge HTTP service 上接受该 ID。API Key 验证成功后，`peer_public_key` 是 Key 所属设备，`api_key_name` 是 Key 的资源名称，不是显示名称或 bearer secret。Context 贯穿业务调用，completion 同时保留这三个字段和请求开始、结束时间。Server 通过内部响应头回传已认证的身份供 Edge completion 使用；Edge 删除这些头后才返回客户端。认证前或失败时不伪造 Key 身份。
+
+公共 Peer RPC 的日志 ID 也由 Server 随机生成，协议 `RPCRequest.Id` 仅用于 wire response 匹配。已认证的 Edge 内部控制 RPC 使用该字段传递 Edge 自己生成的入口 ID；Server 只在这个内部 service 接受它，从而关联 HTTP 转发前的路由查询。设备会话日志使用 `session_id`：Edge logical session 与 Server 共享 tunnel ID；direct 连接单独生成。Edge 初始握手重试仍会产生新的 logical session ID。RPC 子请求保留其连接 Session ID。长期 Agent runtime 使用连接身份，启动记录关联触发 reload 的请求；后续独立语音输入不会继承该 HTTP/RPC 请求的 Key 或 ID。Context 不会自动跨进程传播，也不会把请求身份永久绑定到复用的 Edge 上游物理连接。
+
 ### 筛选
 
 `GET /logs/stream` 的 `filter` 使用 GizClaw-owned grammar，不接受 backend-native query。Filter 为 `*`，或最多 32 个 uppercase `AND` 连接的 clause；支持 `level:value`、`text:value`、`field:value`、`field!=value`、`field:*` 和 `-field:*`。例如：
@@ -307,7 +316,11 @@ per-service record 或复制 raw error。
 
 每个授权通过的 input BOS 都在当前 Peer connection 内分配一个单调递增的正数 `turn_index`。Edge 路径使用 `(tunnel_session_id, turn_index)`，direct 路径使用 `(peer_public_key, turn_index)` 查询单个 logical turn；这些字段不进入 wire contract，也不能成为 metric label。Input 与 assistant output 的 stream identifier 可以不同，分别记录为安全的 `input_stream_id_hash` 和 `output_stream_id_hash`。Output 只通过 producer response epoch 的不可变 owning input route 绑定；不存在 current-turn、timing、Workspace 或 output-ID fallback。被替换 turn 会有界保留，使旧 epoch 第一次迟到的 chunk 与 terminal 仍归属原 turn；无 provenance output 不归属 per-turn record。
 
-稳定 message `gizclaw: AI conversation content` 记录该 turn 的实际对话内容。每条 record 包含 `peer_public_key`、可用时的 `tunnel_session_id`、`turn_index`、`content_role=user|assistant`、从 0 开始且按 role 独立递增的 `content_index`、`content_source`、`event_type` 和原始 `content`。Direct text 只在授权输入成功进入 Agent queue 后以 `content_source=agent_input` 记录；音频输入的最终 ASR 文本在 Agent 产出 transcript 时以 `content_source=final_transcript` 记录；AI 文本只在对应 Peer event 成功 broadcast 后以 `content_source=peer_delivery` 记录。生成但未投递的 AI 文本不记为回复。在同一 `content_source` 内按 `(peer_public_key, tunnel_session_id?, turn_index, content_role, content_index)` 排序并拼接 `content`，可分别重组直接问话、最终 transcript 或实际投递回复，避免混淆 direct input 与 ASR 两种表示。
+GenX 的统一内容日志使用 `genx: stream`。查询 scope 为 `peer_public_key → session_id → stream_id → role/boundary/segment_index`。`boundary=agent_input` 表示授权输入进入 Agent，`model_output` 表示 Agent 输出可被消费（原生生产者支持回调时在入队前观察，否则在消费读取时观察），`peer_delivery` 表示成功投递；这些位置分别记录，不把模型生成或音频 drain 当成设备实际播放。观察器由 `pkgs/genx/streamlog` 实现。除 Peer 边界外，ASR、TTS、Realtime、Eino、Flowcraft 和 Audio Dock 的原生 Transformer 入口也创建独立观察器；直接调用 typed Transformer 无需经过 Peer 或 Mux。`transformer_input` 记录阶段实际读取的输入，`transformer_output` 记录阶段输出被读取的时刻，`transformer` 字段标记具体实现。输出日志不会确认下游投递，不改变原流的可选接口或中断语义。正常关闭后继续记录已排队输出；读取终态或实际中止时刷新未完文本。组合层的内部搬运队列不重复创建阶段记录。
+
+事件包括 `stream_start`、非空的 `first_text` / `first_audio`、聚合文本 `text`、`stream_end`。首文字记录首个非空片段，首音频记录 MIME 和帧字节数，不记录二进制内容，也不推断音节。文本按句末标点或换行聚合；EOS、错误、取消和 runtime 结束时刷出未完句子。每个观察器最多保留 64 条 MIME route，每条未完文本最多 4096 bytes，超长文本按 UTF-8 边界分段；容量淘汰也会记录终止原因。Reload 只 flush 旧 runtime，连接观察器继续接收新输入。
+
+`started_at`、`observed_at`、`ended_at` 为绝对时间，`duration_ms` 从当前输出 route 首次被观察开始计算。已知输入归属时另记录 `input_started_at`、`input_elapsed_ms`；输入 EOS 已到达时增加 `input_ended_at`、`after_input_end_ms`。首字、首音频的响应延迟应读取 `input_elapsed_ms`，不能使用可能为零的输出 route `duration_ms`。PTT 最终 transcript 的 `after_input_end_ms` 可观察提交音频后的识别等待；它不是 Provider 内部纯计算时间。Eino/Flowcraft 在创建回复时显式记录输入和输出 Stream ID 的关联；该关联只用于日志，不改变 ResponseEpoch 或中断所有权。既没有输入 ID、显式生产者关联，也没有不可变 ResponseEpoch 归属的输出不虚构输入耗时。`genx_input_to_first_output_seconds` histogram 通过 `gizmetrics` 写入已配置的 metrics store，labels 只有 `boundary`、`event`、`role`。
 
 有界的 per-turn stage 包括 `turn_started`、`input_first_event`、`input_terminal`、`interrupt_observed`、`agent_input_first_push`、`agent_transform_started`、`agent_output_produced`、`output_first_event`、`agent_output_delivered`、`agent_terminal`、`output_terminal` 和 `turn_terminal`。Turn boundary 使用 `component=peer_turn`，transport input/output stage 保持 `component=peer_input|agent_output`，四个 Agent boundary stage 使用 `component=agent_runtime`。每个适用 stage 在一个 turn 中最多输出一次。首次 produced/delivered record 包含一个封闭的 `output_modality` 值：`transcript_text`、`assistant_text`、`assistant_audio`、`assistant_eos`、`interrupt`、`control` 或 `other`；后续 chunk 只更新有界 terminal snapshot。
 
@@ -315,10 +328,40 @@ per-service record 或复制 raw error。
 
 `agent_terminal.terminal_class` 只能是 `completed`、`interrupted`、`provider_error`、`transform_error`、`stream_error`、`caller_canceled` 或 `deadline_exceeded`。`turn_terminal` 在既有有界布尔值之外增加 `agent_transform_started`、`agent_terminal_observed`、`produced_modalities`、`delivered_modalities` 与五组排序去重的 class：`source_part_classes`（`text`、`audio`、`control`、`other`），`source_label_classes` 和 `peer_event_label_classes`（`assistant`、`transcript`、`history`、`empty`、`other`），`peer_event_types`（`bos`、`eos`、`text_delta`、`text_done`），以及 `peer_event_kinds`（`text`、`audio`、`video`、`mixed`、`unspecified`）。这些字段在不记录 raw label 或 payload 的前提下区分 zero output、transcript-only、audio-only、仅 EOS/interruption、Agent failure 与 downstream delivery failure。封闭的 `result` 取值为 `success`、`replaced`、`interrupted`、`canceled`、`timeout`、`closed`、`runtime_error` 和 `incomplete`；terminal 或 interruption 的封闭 `reason` 取值为 `completed`、`input_replaced`、`control_interrupt`、`expected_interruption`、`caller_canceled`、`deadline_exceeded`、`stream_closed`、`internal_error` 和 `state_limit`。Raw error 绝不被复制。
 
-Lifecycle stage 日志量只随 turn 数乘固定 stage 集合增长，不随 packet、audio frame、text delta 或 control fragment 增长；对话内容日志则按文本 chunk 增长，以避免在 lifecycle state 中缓存无界内容。Active 与 recently replaced state 有固定上限，completed state 会被释放；connection teardown 会为每个仍保留的 incomplete turn 输出一次 terminal summary，再清空 correlation map。Instrumentation 不阻塞、不重试、不重排，也不改变 Peer、AgentHost、provider、interruption、timeout 或 cleanup 行为。
+Lifecycle stage 日志量只随 turn 数乘固定 stage 集合增长，不随 packet、audio frame、text delta 或 control fragment 增长；对话内容日志按句子和固定生命周期事件增长，未完文本有固定内存上限。Active 与 recently replaced state 有固定上限，completed state 会被释放；connection teardown 会为每个仍保留的 incomplete turn 输出一次 terminal summary，再清空 correlation map。观察器不重试、不重排 stream 数据，也不接管 Peer、AgentHost、provider、interruption、timeout 或 cleanup 生命周期；日志 sink 保留既有同步处理语义。
 
 Server 为每个 direct 或 Edge logical Peer 构造 connection、turn 与 Agent-runtime observer；对话审计内容不是可选字段，也没有独立关闭配置。日志 sink 仍负责持久化与级别策略，但 runtime 不再因为启动时 `INFO` 被过滤而跳过内容关联状态。
 
 既有 `gizclaw: assistant route failed` Error record 保留有界 route 与 Workspace 字段，并记录 terminal 失败本身：`error_code`（producer 未设置时为 `STREAM_ERROR`）、`retryable`、producer 原始 `error` 文本（非空时）以及 chunk 携带的 `failure_class`（`provider` 或 `transform`）。这里复制 raw error 是刻意的：不复制的话运维只能看到某个 turn 失败了，却看不到失败原因。与 stream ID 同理，上游不得把凭据或秘密放进 terminal error 文本。它仍是运维失败 record，不是对话内容 record，也不能替代按 turn 关联的实际投递回复。
 
-不可信 stream identifier 使用稳定的 128-bit hash，绝不记录 raw `stream_id`。哈希契约固定为：去掉首尾 Unicode 空白字符，将结果按 UTF-8 编码，使用无密钥 SHA-256，保留摘要前 16 字节并输出 32 位小写十六进制；规范化后为空时省略该字段。不做大小写折叠或 Unicode 规范化，也不使用 salt 或 HMAC key。例如 `stream-42` 固定得到 `0f3a788cbbee0b932cfcac7d71645f31`。它只是避免意外暴露原值的稳定关联 token，不是匿名化边界：低熵 ID 仍可被字典枚举，因此上游不得把凭据或秘密放进 stream ID。Session、turn、Peer、Workspace 和 stream identifier 只能用于日志查询，不能成为 metric label。Lifecycle record 禁止包含 remote address、SDP、ICE candidate body、credential、provider raw error 或 panic value；`gizclaw: assistant route failed` 不是 lifecycle record，它会记录 raw terminal error；这条限制不禁止记录用户与 AI 之间的输入、最终 ASR transcript 和实际投递的 AI 回复内容。
+Lifecycle 诊断中的 stream identifier 保留稳定的 128-bit hash；GenX 内容日志使用实际 `stream_id`，以便对照设备事件。哈希契约固定为：去掉首尾 Unicode 空白字符，将结果按 UTF-8 编码，使用无密钥 SHA-256，保留摘要前 16 字节并输出 32 位小写十六进制；规范化后为空时省略该字段。不做大小写折叠或 Unicode 规范化，也不使用 salt 或 HMAC key。例如 `stream-42` 固定得到 `0f3a788cbbee0b932cfcac7d71645f31`。它只是避免意外暴露原值的稳定关联 token，不是匿名化边界：低熵 ID 仍可被字典枚举，因此上游不得把凭据或秘密放进 stream ID。Session、turn、Peer、Workspace 和 stream identifier 只能用于日志查询，不能成为 metric label。Lifecycle record 禁止包含 remote address、SDP、ICE candidate body、credential、provider raw error 或 panic value；`gizclaw: assistant route failed` 不是 lifecycle record，它会记录 raw terminal error；这条限制不禁止记录用户与 AI 之间的输入、最终 ASR transcript 和实际投递的 AI 回复内容。
+
+### 日志检查范围
+
+运行链路中的日志使用调用 context，保留已认证的请求或连接身份。SFU participant 生命周期和 talk 事件使用 attachment context；物理 upstream ICE、通道容量和节点启动日志使用节点、upstream ID、connection epoch 等自身维度，不绑定某个复用连接上的请求。StreamBuilder 不再逐片段警告未绑定工具，实际工具执行仍返回明确的缺失工具错误。Provider 文本发送片段由统一阶段聚合记录，不重复逐字输出。
+
+内部适配器改写 Stream ID 时保留进程内的 `source_stream_id`。只有它精确命中已观察的输入，才用于计算输入耗时；不据此生成或改变 ResponseEpoch，也不传输到设备协议。
+
+### 语音与模型性能指标
+
+以下 histogram 经 `gizmetrics` 写入配置的 metrics store，单位为秒；使用 `_count`、`_sum` 和累计 `_bucket` 查询次数、平均值与分位数。首输出只统计非空内容，每个实际请求或输出流只计一次；空结果、缺少输入归属或未到达的首输出不补零。
+
+| Metric | 计时起点 → 终点 |
+| --- | --- |
+| `genx_asr_first_text_seconds` | 首个非空输入音频 → 首个非空识别文本 |
+| `genx_asr_final_result_seconds` | 输入 EOS → 成功且有内容的识别文本流 EOS |
+| `genx_model_first_text_seconds` | 实际流式模型请求开始 → 首个非空回复文本 |
+| `genx_model_request_duration_seconds` | 实际流式模型请求开始 → 请求结束，包括失败和取消 |
+| `genx_tts_first_audio_seconds` | 首个非空输入文本 → 首个非空音频块 |
+| `genx_realtime_first_text_seconds` | 首个非空输入 → 实时模型首个回复文本 |
+| `genx_realtime_first_audio_seconds` | 首个非空输入 → 实时模型首个回复音频 |
+| `memory_recall_duration_seconds` | Recall 调用 → 返回，包括检索、过滤和结果加载 |
+| `genx_input_end_to_first_output_seconds` | 已知归属的输入 EOS → 首字或首音频输出 |
+
+模型请求指标覆盖 OpenAI-compatible 和 Gemini 的流式生成，包含 Eino、Flowcraft 通过这些生成器发起的实际请求，排除调用前的 recall、工具和 workflow 准备。语音指标覆盖 Doubao ASR、AST、TTS、realtime/duplex、DashScope realtime 与 MiniMax TTS 的原生输出观察点。ASR 首字是 Transformer 实际暴露的首个文本；仅输出最终结果的模式不能解释为供应商首次 interim 的时间。Realtime 指标含输入持续时间，不能与文本模型 TTFT 混合比较。首音频表示服务端收到音频数据，不表示设备已播放。
+
+语音与模型性能系列单独允许配置的模型维度；HTTP/RPC 请求指标仍遵守前述 label 限制。模型标签为 `provider`、`model`，语音另有 `mode`（`asr`、`ast`、`tts`、`realtime`）。`model` 使用配置的供应商模型、版本或 speech resource ID，不使用 workflow 名称、voice ID 或用户请求值。Recall 使用 `backend`；Flowcraft 另有 `embedding_model_ref`、`rerank_model_ref`，表示配置的模型引用而非已解析的上游型号；Mem0 使用 `flavor`，服务未暴露的内部模型不虚构。请求总耗时和 Recall 的 `result` 为 `success`、`error`、`timeout`、`canceled`。
+
+端到端指标只使用 `boundary`、`event`、`role`，分别观察模型产出与 Peer 投递。它与从输入开始计时的 `genx_input_to_first_output_seconds` 分开。输入 EOS 尚未到达的提前输出没有 EOS 起点样本。Public Key、API key name、session/request/stream ID 和文本仍只进入日志，不进入这些指标。
+
+`tests/gizclaw-e2e/run_observability_tests.sh` 运行 Eino 文本、Doubao realtime PTT 与 Flowcraft 语音 Giztest，随后查询实际采集的指标，验证必需系列、模型标签、次数、秒单位及累计 buckets。

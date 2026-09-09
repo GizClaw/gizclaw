@@ -9,6 +9,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -101,8 +102,15 @@ func resolvePeerAssignment(ctx context.Context, conn giznet.Conn, peerKey giznet
 	if err := params.FromServerRouteResolveRequest(rpcpb.ServerRouteResolveRequest{TargetPeerPublicKey: peerKey.String()}); err != nil {
 		return nil, fmt.Errorf("edge: encode route request: %w", err)
 	}
+	requestID := gizlog.RequestID(ctx)
+	if requestID == "" {
+		requestID, err = gizlog.NewID()
+		if err != nil {
+			return nil, err
+		}
+	}
 	request := &rpcapi.RPCRequest{
-		V: rpcapi.RPCVersionV1, Id: "edge-route", Method: rpcapi.RPCMethodServerRouteResolve, Params: &params,
+		V: rpcapi.RPCVersionV1, Id: requestID, Method: rpcapi.RPCMethodServerRouteResolve, Params: &params,
 	}
 	if err := rpcapi.WriteRequest(stream, request); err != nil {
 		return nil, fmt.Errorf("edge: write route request: %w", err)
@@ -151,8 +159,15 @@ func resolveAPIKeyAssignment(ctx context.Context, conn giznet.Conn, apiKey strin
 	if err := params.FromServerAPIKeyResolveRequest(rpcpb.ServerAPIKeyResolveRequest{ApiKey: apiKey}); err != nil {
 		return nil, errors.New("edge: encode API route request")
 	}
+	requestID := gizlog.RequestID(ctx)
+	if requestID == "" {
+		requestID, err = gizlog.NewID()
+		if err != nil {
+			return nil, err
+		}
+	}
 	request := &rpcapi.RPCRequest{
-		V: rpcapi.RPCVersionV1, Id: "edge-api-route", Method: rpcapi.RPCMethodServerAPIKeyResolve, Params: &params,
+		V: rpcapi.RPCVersionV1, Id: requestID, Method: rpcapi.RPCMethodServerAPIKeyResolve, Params: &params,
 	}
 	if err := rpcapi.WriteRequest(stream, request); err != nil {
 		return nil, fmt.Errorf("edge: write API route request: %w", err)

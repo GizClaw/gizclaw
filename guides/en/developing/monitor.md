@@ -52,18 +52,7 @@ node in parallel every five seconds, derives rates from the cumulative counters
 (a restart reads as zero, never a spike) and retains at most 600 samples per
 node with 2/10/30 minute windows.
 
-The node log buffer retains 500 structured process records, each with at most
-4096 message bytes and up to 24 structured fields (keys ≤ 64 bytes, values ≤ 512
-bytes) taken from the record's own attributes — `request_id`, `operation`,
-`route`, `status`, `duration_ms`, stream identifiers and the rest — so one
-request can be followed across records and nodes. Identity comes only from the
-trusted logging context: a caller-supplied `peer_public_key` attribute stays an
-ordinary field. Records do not survive restart. The console merges each node's
-records by id across polls, so its window outlives the node's own ring.
-
-`/gizclaw/v1/device/logs` returns only records whose structured peer_public_key
-exactly matches the authorized device. These are server-side device-related
-logs, not firmware serial logs.
+Logs are queried through the device persistent LogStore search API, with time ranges, text, level and pagination. Node snapshots contain runtime status and transport counters.
 
 Telemetry splits in two: metric fields (`battery.*`, `network.rssi_dbm`,
 `network.signal_level`, `network.connected`, `system.*`, `gnss.*`) become stored
@@ -102,7 +91,7 @@ assignment or Admin authentication.
 
 | Status | Response |
 | --- | --- |
-| 200 | Generated `NodeSnapshot` with local counters and bounded logs |
+| 200 | Generated `NodeSnapshot` with local runtime status and counters |
 | 401 | `{"error":"INVALID_MONITOR_TOKEN"}` |
 | 503 | `{"error":"MONITOR_DISABLED"}` when no token is configured |
 | 405 | Empty body, `Allow: GET,OPTIONS` for unsupported methods |
@@ -115,8 +104,7 @@ documented in [API generation](api/generation).
 
 `go test ./pkgs/monitor` verifies token authorization, the CORS contract, the
 405 method boundary, the generated client's 200/401/503 handling, and that
-structured log fields reach the snapshot. `go test ./pkgs/gizlog` covers the
-bounded record ring and its field limits.
+node snapshots exclude logs. `go test ./pkgs/gizlog` covers configured log sinks.
 
 ## Device APIs used by the console
 

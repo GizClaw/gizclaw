@@ -258,13 +258,14 @@ func (s *historyOutputStream) AbandonOutputObservation(chunk *genx.MessageChunk)
 	}
 }
 
-func (s *historyOutputStream) SetOutputProductionObserver(observe func(*genx.MessageChunk)) {
+func (s *historyOutputStream) SetOutputProductionObserver(observe func(*genx.MessageChunk)) bool {
 	if s == nil || s.output == nil {
-		return
+		return false
 	}
 	s.output.productionMu.Lock()
 	s.output.productionObserver = observe
 	s.output.productionMu.Unlock()
+	return true
 }
 
 func (s *historyOutputStream) Close() error {

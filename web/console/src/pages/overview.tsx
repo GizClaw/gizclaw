@@ -1,7 +1,6 @@
 import {
   ArrowDownLeft,
   ArrowUpRight,
-  CircleAlert,
   Server as ServerIcon,
   Wifi,
 } from "lucide-react";
@@ -25,7 +24,6 @@ import {
 } from "@/components/ui/table";
 import { MetricCard } from "@/components/metric-card";
 import { TrafficChart, TrafficLegend } from "@/components/traffic-chart";
-import { LogView, type LogRow } from "@/components/log-view";
 import { PageHeading } from "@/components/app-shell";
 import type { ConsoleServer } from "@/lib/config";
 import type { FleetState } from "@/hooks/use-fleet";
@@ -76,14 +74,6 @@ export function OverviewPage({
     (total, { server }) => total + (latest(server.id)?.tx ?? 0),
     0,
   );
-  const alerts: LogRow[] = states
-    .flatMap(({ server, state }) =>
-      (state?.snapshot?.logs ?? [])
-        .filter((entry) => entry.level === "ERROR" || entry.level === "WARN")
-        .map((entry) => ({ ...entry, source: server.name })),
-    )
-    .sort((a, b) => Date.parse(a.time) - Date.parse(b.time))
-    .slice(-200);
 
   return (
     <>
@@ -141,7 +131,7 @@ export function OverviewPage({
       <Card>
         <CardHeader>
           <CardTitle>节点</CardTitle>
-          <CardDescription>点击节点查看流量、日志与运行快照。</CardDescription>
+          <CardDescription>点击节点查看流量与运行快照。</CardDescription>
         </CardHeader>
         <CardContent className="px-0">
           <Table>
@@ -211,19 +201,6 @@ export function OverviewPage({
               })}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CircleAlert size={15} className="text-warning" /> 集群告警
-          </CardTitle>
-          <CardDescription>
-            各节点最新快照中的 WARN 与 ERROR 记录，按节点标注来源。
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <LogView entries={alerts} title="WARN / ERROR" height={240} />
         </CardContent>
       </Card>
     </>

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 )
 
 const maxDimensionLength = 128
@@ -34,6 +35,8 @@ type Outcome struct {
 	rpcCode       int
 	hasRPCCode    bool
 	requestID     string
+	httpMetadata  gizlog.HTTPMetadata
+	apiKeyName    string
 	peerPublicKey string
 	peerRole      string
 	errorCode     string
@@ -52,6 +55,16 @@ func NewOutcome(transport Transport, surface Surface, operation string) *Outcome
 		statusClass: StatusClassUnknown,
 		route:       "unknown",
 	}
+}
+
+// SetHTTPMetadata retains the ingress access fields through authentication.
+func (o *Outcome) SetHTTPMetadata(metadata gizlog.HTTPMetadata) {
+	if o == nil {
+		return
+	}
+	o.mu.Lock()
+	o.httpMetadata = metadata
+	o.mu.Unlock()
 }
 
 // SetHTTP records the final HTTP transport fields.
@@ -146,6 +159,16 @@ func (o *Outcome) SetRequestID(id string) {
 	o.mu.Unlock()
 }
 
+// SetAPIKeyName records the authenticated credential name, never its secret.
+func (o *Outcome) SetAPIKeyName(name string) {
+	if o == nil {
+		return
+	}
+	o.mu.Lock()
+	o.apiKeyName = boundedDimension(name, "")
+	o.mu.Unlock()
+}
+
 // SetPeer sets already-authenticated peer identity without doing a lookup.
 func (o *Outcome) SetPeer(publicKey, role string) {
 	if o == nil {
@@ -210,14 +233,18 @@ func (o *Outcome) logRecord() (slog.Level, []slog.Attr) {
 		slog.String("result", string(o.result)),
 		slog.String("status_class", string(o.statusClass)),
 		slog.Int64("duration_ms", time.Since(o.started).Milliseconds()),
+		slog.Time("started_at", o.started),
+		slog.Time("ended_at", time.Now()),
 	}
 	if o.transport == TransportHTTP {
+		attrs = append(attrs, o.httpMetadata.Attrs()...)
 		attrs = append(attrs, slog.String("method", o.method), slog.String("route", o.route), slog.Int("status", o.status))
 	} else if o.transport == TransportRPC && o.hasRPCCode {
 		attrs = append(attrs, slog.Int("rpc_code", o.rpcCode))
 	}
 	for _, item := range []struct{ key, value string }{
 		{"request_id", o.requestID},
+		{"api_key_name", o.apiKeyName},
 		{"peer_public_key", o.peerPublicKey},
 		{"peer_role", o.peerRole},
 		{"error_code", o.errorCode},

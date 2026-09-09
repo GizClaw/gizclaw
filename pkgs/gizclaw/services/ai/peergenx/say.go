@@ -54,7 +54,11 @@ func (r SayRequest) transformerPattern() (string, error) {
 
 func newTextStream(text string) genx.Stream {
 	builder := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 4)
-	_ = builder.Add(&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text(text)}, genx.NewTextEndOfStream())
+	streamID := genx.NewStreamID()
+	_ = builder.Add(
+		&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text(text), Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true}},
+		&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true}},
+	)
 	_ = builder.Done(genx.Usage{})
 	return builder.Stream()
 }

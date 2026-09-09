@@ -13,18 +13,23 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/streamlog"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 )
 
 const (
 	peerStreamLifecycleMessage          = "gizclaw: peer stream lifecycle"
-	peerConversationContentMessage      = "gizclaw: AI conversation content"
 	peerStreamLifecycleMaxRetainedTurns = 64
 	peerStreamLifecycleMaxOutputRoutes  = 64
 )
 
 type peerStreamLifecycle struct {
 	logger          *slog.Logger
+	logCtx          context.Context
+	inputLog        *streamlog.Recorder
+	producedLog     *streamlog.Recorder
+	deliveredLog    *streamlog.Recorder
 	tunnelSessionID string
 	peerPublicKey   string
 	started         time.Time
@@ -77,8 +82,6 @@ type peerStreamTurn struct {
 	agentTerminalObserved  bool
 	assistantEpochBound    bool
 	terminalPending        bool
-	userContentIndex       uint64
-	assistantContentIndex  uint64
 }
 
 type peerStreamLifecycleRecord struct {
@@ -122,7 +125,17 @@ func newPeerStreamLifecycle(logger *slog.Logger, tunnelSessionID, peerPublicKey 
 }
 
 func newEnabledPeerStreamLifecycle(logger *slog.Logger, tunnelSessionID, peerPublicKey string) *peerStreamLifecycle {
+	ctx := gizlog.WithPeerPublicKey(context.Background(), peerPublicKey)
+	sessionID := strings.TrimSpace(tunnelSessionID)
+	if sessionID == "" {
+		sessionID, _ = gizlog.NewID()
+	}
+	ctx = gizlog.WithSessionID(ctx, sessionID)
 	return &peerStreamLifecycle{
+		logCtx:             ctx,
+		inputLog:           streamlog.New(ctx, logger, "agent_input"),
+		producedLog:        streamlog.New(ctx, logger, "model_output"),
+		deliveredLog:       streamlog.New(ctx, logger, "peer_delivery"),
 		logger:             logger,
 		tunnelSessionID:    strings.TrimSpace(tunnelSessionID),
 		peerPublicKey:      strings.TrimSpace(peerPublicKey),
@@ -173,6 +186,11 @@ func (l *peerStreamLifecycle) observeInput(event *eventpb.PeerEvent) {
 		}
 	}
 	l.mu.Unlock()
+	if event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_BOS || isPeerInputTerminal(event) {
+		timing := &genx.MessageChunk{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, EndOfStream: isPeerInputTerminal(event)}}
+		l.producedLog.ObserveInput(timing)
+		l.deliveredLog.ObserveInput(timing)
+	}
 	l.logTurnRecords(records)
 	l.recordOnce("peer_input/input_first_event", "peer_input", "input_first_event",
 		slog.String("stream_id_hash", safeStreamIDHash(streamID)))
@@ -194,12 +212,10 @@ func (l *peerStreamLifecycle) observeAgentInputPush(chunk *genx.MessageChunk) {
 	}
 	streamID := streamIDFromChunk(chunk)
 	var record *peerStreamLifecycleRecord
-	var contentTurn *peerStreamTurn
 	l.mu.Lock()
 	l.agentInputPushed = true
 	turn := l.inputTurnLocked(streamID)
 	if turn != nil {
-		contentTurn = turn
 		turn.agentInputPushed = true
 		record = l.turnRecordOnceLocked(turn, "peer_input", "agent_input_first_push", "success", "")
 	}
@@ -207,7 +223,9 @@ func (l *peerStreamLifecycle) observeAgentInputPush(chunk *genx.MessageChunk) {
 	if record != nil {
 		l.logTurnRecord(*record)
 	}
-	l.logConversationChunk(contentTurn, chunk, "user", "agent_input")
+	l.producedLog.ObserveInput(chunk)
+	l.deliveredLog.ObserveInput(chunk)
+	l.inputLog.Observe(chunk)
 	l.recordOnce("peer_input/agent_input_first_push", "peer_input", "agent_input_first_push",
 		slog.String("stream_id_hash", safeStreamIDHash(streamID)))
 }
@@ -271,12 +289,10 @@ func (l *peerStreamLifecycle) observePeerEventDelivered(
 		workspace = strings.TrimSpace(workspaceName(ctx))
 	}
 	var records []peerStreamLifecycleRecord
-	var contentTurn *peerStreamTurn
 	l.mu.Lock()
 	l.outputEventObserved = true
 	turn := l.outputTurnLocked(chunk, &records)
 	if turn != nil {
-		contentTurn = turn
 		turn.outputEventObserved = true
 		if turn.outputStreamIDHash == "" {
 			turn.outputStreamIDHash = safeStreamIDHash(streamID)
@@ -301,7 +317,13 @@ func (l *peerStreamLifecycle) observePeerEventDelivered(
 		}
 	}
 	l.mu.Unlock()
-	l.logDeliveredConversationContent(contentTurn, chunk, event)
+	if text, ok := chunk.Part.(genx.Text); ok && event.Text() != "" {
+		copyChunk := *chunk
+		copyChunk.Part = genx.Text(event.Text())
+		if string(text) != "" {
+			l.deliveredLog.Observe(&copyChunk)
+		}
+	}
 	for i := range records {
 		if records[i].stage == "output_first_event" && workspace != "" {
 			l.logTurnRecordWithAttrs(records[i], slog.String("workspace_name", workspace))
@@ -319,63 +341,16 @@ func (l *peerStreamLifecycle) observePeerEventDelivered(
 	l.recordOnce("agent_output/output_first_event", "agent_output", "output_first_event", attrs...)
 }
 
-func (l *peerStreamLifecycle) logDeliveredConversationContent(turn *peerStreamTurn, chunk *genx.MessageChunk, event *eventpb.PeerEvent) {
-	if turn == nil || chunk == nil || event == nil || strings.TrimSpace(event.Text()) == "" {
-		return
-	}
-	if chunk.Role == genx.RoleUser || strings.EqualFold(strings.TrimSpace(chunk.Name), "transcript") ||
-		chunk.Ctrl != nil && strings.EqualFold(strings.TrimSpace(chunk.Ctrl.Label), "transcript") {
-		return
-	}
-	l.logConversationContent(turn, "assistant", "peer_delivery", event.Text(), event.Type.String())
-}
-
-func (l *peerStreamLifecycle) logConversationChunk(turn *peerStreamTurn, chunk *genx.MessageChunk, role, source string) {
-	if turn == nil || chunk == nil || chunk.Role != genx.RoleUser {
-		return
-	}
-	text, ok := chunk.Part.(genx.Text)
-	if !ok || strings.TrimSpace(string(text)) == "" {
-		return
-	}
-	l.logConversationContent(turn, role, source, string(text), "agent_input_chunk")
-}
-
-func (l *peerStreamLifecycle) logConversationContent(turn *peerStreamTurn, role, source, content, eventType string) {
-	if l == nil || turn == nil || content == "" {
-		return
-	}
-	l.mu.Lock()
-	index := turn.assistantContentIndex
-	if role == "user" {
-		index = turn.userContentIndex
-		turn.userContentIndex++
-	} else {
-		turn.assistantContentIndex++
-	}
-	turnIndex := turn.index
-	l.mu.Unlock()
-	attrs := []slog.Attr{
-		slog.Uint64("turn_index", turnIndex),
-		slog.String("content_role", role),
-		slog.Uint64("content_index", index),
-		slog.String("content_source", source),
-		slog.String("content", content),
-		slog.String("event_type", eventType),
-	}
-	if l.tunnelSessionID != "" {
-		attrs = append(attrs, slog.String("tunnel_session_id", l.tunnelSessionID))
-	}
-	if l.peerPublicKey != "" {
-		attrs = append(attrs, slog.String("peer_public_key", l.peerPublicKey))
-	}
-	l.logger.LogAttrs(context.Background(), slog.LevelInfo, peerConversationContentMessage, attrs...)
-}
-
 // observeOutputDrained records the final consumer boundary after all Peer
 // broadcasts for chunk have succeeded. Audio reaches this point only after its
 // mixer track drains, including when aggregate audio suppresses a source EOS.
 func (l *peerStreamLifecycle) observeOutputDrained(chunk *genx.MessageChunk) {
+	if l != nil && chunk != nil {
+		text, _ := chunk.Part.(genx.Text)
+		if _, audio := chunk.Part.(*genx.Blob); audio || chunk.IsEndOfStream() && text == "" {
+			l.deliveredLog.Observe(chunk)
+		}
+	}
 	if l == nil || chunk == nil || chunk.Ctrl == nil || !chunk.Ctrl.ResponseEpochEnd {
 		return
 	}
@@ -408,11 +383,9 @@ func (l *peerStreamLifecycle) observeOutputProduced(chunk *genx.MessageChunk) {
 	}
 	streamID := streamIDFromChunk(chunk)
 	var records []peerStreamLifecycleRecord
-	var contentTurn *peerStreamTurn
 	l.mu.Lock()
 	turn := l.outputTurnLocked(chunk, &records)
 	if turn != nil {
-		contentTurn = turn
 		if turn.outputStreamIDHash == "" {
 			turn.outputStreamIDHash = safeStreamIDHash(streamID)
 		}
@@ -439,24 +412,8 @@ func (l *peerStreamLifecycle) observeOutputProduced(chunk *genx.MessageChunk) {
 		}
 	}
 	l.mu.Unlock()
-	l.logFinalTranscriptChunk(contentTurn, chunk)
+	l.producedLog.Observe(chunk)
 	l.logTurnRecords(records)
-}
-
-func (l *peerStreamLifecycle) logFinalTranscriptChunk(turn *peerStreamTurn, chunk *genx.MessageChunk) {
-	if turn == nil || chunk == nil {
-		return
-	}
-	isTranscript := chunk.Role == genx.RoleUser || strings.EqualFold(strings.TrimSpace(chunk.Name), "transcript") ||
-		chunk.Ctrl != nil && strings.EqualFold(strings.TrimSpace(chunk.Ctrl.Label), "transcript")
-	if !isTranscript {
-		return
-	}
-	text, ok := chunk.Part.(genx.Text)
-	if !ok || strings.TrimSpace(string(text)) == "" {
-		return
-	}
-	l.logConversationContent(turn, "user", "final_transcript", string(text), "agent_output_chunk")
 }
 
 func (l *peerStreamLifecycle) finish(component string, err error) {
@@ -466,6 +423,14 @@ func (l *peerStreamLifecycle) finish(component string, err error) {
 	component = strings.TrimSpace(component)
 	if component == "" {
 		return
+	}
+	if component == "agent_output" {
+		l.producedLog.Flush(err)
+		l.deliveredLog.Flush(err)
+	}
+	if component == "server_tunnel" {
+		l.producedLog.Close(err)
+		l.deliveredLog.Close(err)
 	}
 	result, reason := peerStreamLifecycleResult(err)
 	var turnRecords []peerStreamLifecycleRecord
@@ -489,6 +454,10 @@ func (l *peerStreamLifecycle) finish(component string, err error) {
 		turnRecords = l.terminateAllTurnsLocked(component, result, reason)
 	}
 	l.mu.Unlock()
+
+	if component == "peer_input" || component == "server_tunnel" {
+		l.inputLog.Close(err)
+	}
 	l.logTurnRecords(turnRecords)
 	l.log(
 		slog.String("component", component),
@@ -937,7 +906,7 @@ func (l *peerStreamLifecycle) log(attrs ...slog.Attr) {
 	if l.peerPublicKey != "" {
 		attrs = append(attrs, slog.String("peer_public_key", l.peerPublicKey))
 	}
-	l.logger.LogAttrs(context.Background(), slog.LevelInfo, peerStreamLifecycleMessage, attrs...)
+	l.logger.LogAttrs(l.logCtx, slog.LevelInfo, peerStreamLifecycleMessage, attrs...)
 }
 
 func peerStreamLifecycleResult(err error) (string, string) {
@@ -948,7 +917,7 @@ func peerStreamLifecycleResult(err error) (string, string) {
 		return "canceled", "context_canceled"
 	case errors.Is(err, context.DeadlineExceeded):
 		return "timeout", "deadline_exceeded"
-	case errors.Is(err, io.EOF), isPeerServiceClosed(err):
+	case errors.Is(err, io.EOF), errors.Is(err, io.ErrClosedPipe), isPeerServiceClosed(err):
 		return "closed", "stream_closed"
 	default:
 		return "runtime_error", "internal_error"
