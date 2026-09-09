@@ -25,9 +25,11 @@ type OutputObservationStream interface {
 }
 
 // OutputProductionObserver lets the final producer boundary report a chunk
-// before it becomes available to an independently scheduled consumer.
+// before it becomes available to an independently scheduled consumer. The return
+// value reports whether a real producer accepted the callback; wrappers must
+// return false when their underlying stream does not support this protocol.
 type OutputProductionObserver interface {
-	SetOutputProductionObserver(func(*genx.MessageChunk))
+	SetOutputProductionObserver(func(*genx.MessageChunk)) bool
 }
 
 type outputObservationAbandoner interface {

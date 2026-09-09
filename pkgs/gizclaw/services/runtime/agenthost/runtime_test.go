@@ -56,7 +56,7 @@ func TestServiceReloadBindsPeerPublicKeyToLogContext(t *testing.T) {
 	if _, err := svc.Reload(ctx); err != nil {
 		t.Fatalf("Reload() error = %v", err)
 	}
-	if len(logs.records) != 1 || logs.records[0].Attributes["peer_public_key"] != publicKey.String() {
+	if len(logs.records) != 2 || logs.records[0].Attributes["peer_public_key"] != publicKey.String() || logs.records[1].Attributes["peer_public_key"] != publicKey.String() {
 		t.Fatalf("records = %+v", logs.records)
 	}
 	if _, err := svc.Stop(ctx); err != nil {

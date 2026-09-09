@@ -43,6 +43,8 @@ type OpenAISchemaFormatter func(m *jsonschema.Schema) *jsonschema.Schema
 // OpenAIGenerator implements Generator using OpenAI API.
 type OpenAIGenerator struct {
 	Client *openai.Client `json:"-"`
+	// Provider identifies the configured vendor, not its URL or credentials.
+	Provider string `json:"-"`
 
 	Model string `json:"model"`
 
@@ -82,7 +84,14 @@ func (g *OpenAIGenerator) GenerateStream(ctx context.Context, _ string, mctx Mod
 	}
 	sb := NewStreamBuilder(mctx, 32)
 	go func() {
-		if err := (&oaiPuller{}).pull(sb, g.Client.Chat.Completions.NewStreaming(ctx, params)); err != nil {
+		provider := g.Provider
+		if provider == "" {
+			provider = "openai_compatible"
+		}
+		timing := newModelTiming(ctx, provider, string(params.Model))
+		err := (&oaiPuller{timing: timing}).pull(sb, g.Client.Chat.Completions.NewStreaming(ctx, params))
+		timing.finish(err)
+		if err != nil {
 			sb.Abort(err)
 		}
 	}()
@@ -302,6 +311,7 @@ func (g *OpenAIGenerator) promptRole() PromptRole {
 }
 
 type oaiPuller struct {
+	timing      *modelTiming
 	runningTool *openai.ChatCompletionChunkChoiceDeltaToolCall
 }
 
@@ -348,6 +358,7 @@ func (p *oaiPuller) pull(sb *StreamBuilder, stream *ssestream.Stream[openai.Chat
 			}
 		}
 		if s := sel.Delta.Content; s != "" {
+			p.timing.text(s)
 			if err := sb.Add(&MessageChunk{
 				Role: RoleModel,
 				Part: Text(s),

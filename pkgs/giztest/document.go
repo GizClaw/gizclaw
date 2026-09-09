@@ -144,8 +144,14 @@ type SpeechOperation struct {
 	Cache   string `json:"cache,omitempty" yaml:"cache,omitempty"`
 }
 type PeerStreamOperation struct {
-	Mode              string `json:"mode" yaml:"mode"`
-	Input             any    `json:"input,omitempty" yaml:"input,omitempty"`
+	Mode  string `json:"mode" yaml:"mode"`
+	Input any    `json:"input,omitempty" yaml:"input,omitempty"`
+	// EmptyInput sends a push-to-talk turn whose audio route opens and closes
+	// without a frame, the way a Peer reports a press released before the first
+	// frame is captured or a device whose gate emitted nothing. It replaces
+	// Input, and the step asserts that the turn completes with empty assistant
+	// routes instead of waiting for a response.
+	EmptyInput        bool   `json:"empty_input,omitempty" yaml:"empty_input,omitempty"`
 	Duration          string `json:"duration,omitempty" yaml:"duration,omitempty"`
 	Pacing            string `json:"pacing,omitempty" yaml:"pacing,omitempty"`
 	InterruptAfter    string `json:"interrupt_after,omitempty" yaml:"interrupt_after,omitempty"`
@@ -972,7 +978,23 @@ func validatePeerStreamStep(step Step, finalizer bool) error {
 	if persistent && finalizer {
 		return fmt.Errorf("step %s persistent peer_stream is not allowed in finally", step.ID)
 	}
-	if step.PeerStream.Input == nil && step.PeerStream.Mode != "listen" {
+	if step.PeerStream.EmptyInput {
+		if step.PeerStream.Mode != "push-to-talk" {
+			return fmt.Errorf("step %s peer_stream empty_input requires push-to-talk mode", step.ID)
+		}
+		if step.PeerStream.Input != nil {
+			return fmt.Errorf("step %s peer_stream empty_input cannot set input", step.ID)
+		}
+		if step.PeerStream.RequireText != nil || step.PeerStream.RequireAudio != nil {
+			return fmt.Errorf("step %s peer_stream empty_input completes with empty assistant routes: remove require_text and require_audio", step.ID)
+		}
+		if step.PeerStream.InterruptAfter != "" {
+			return fmt.Errorf("step %s peer_stream empty_input has no response to interrupt", step.ID)
+		}
+		if step.PeerStream.Completion == "first_response" {
+			return fmt.Errorf("step %s peer_stream empty_input cannot use first_response completion", step.ID)
+		}
+	} else if step.PeerStream.Input == nil && step.PeerStream.Mode != "listen" {
 		return fmt.Errorf("step %s peer_stream requires input", step.ID)
 	}
 	if step.PeerStream.Pacing != "" {

@@ -23,6 +23,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giztunnel"
 	"golang.org/x/sync/errgroup"
@@ -156,7 +157,7 @@ func (h *PeerConn) serve() error {
 		h.streamLifecycleDisabled = h.streamLifecycle == nil
 	}
 	if h.Service.manager.allowActivePeerRole(
-		context.Background(),
+		h.logContext(),
 		h.Conn.PublicKey(),
 		apitypes.PeerRoleEdgeNode,
 	) {
@@ -181,7 +182,7 @@ func (h *PeerConn) serve() error {
 		_ = h.close()
 		return err
 	}
-	oldConn, err := h.Service.activateConn(context.Background(), h.Conn)
+	oldConn, err := h.Service.activateConn(h.logContext(), h.Conn)
 	if err != nil {
 		unsubscribeEvent()
 		_ = eventStream.Close()
@@ -216,10 +217,10 @@ func (h *PeerConn) serve() error {
 	g.Go(h.serveEdgeRPC)
 	g.Go(h.serveOpenAI)
 	g.Go(func() error {
-		ctx, cancel := context.WithTimeout(context.Background(), peerDeviceInfoRefreshTimeout)
+		ctx, cancel := context.WithTimeout(h.logContext(), peerDeviceInfoRefreshTimeout)
 		defer cancel()
 		if _, _, err := h.Service.manager.RefreshPeer(ctx, h.Conn.PublicKey()); err != nil {
-			slog.Debug("peer device info refresh failed", "peer_public_key", h.Conn.PublicKey().String(), "error", err)
+			slog.DebugContext(ctx, "peer device info refresh failed", "peer_public_key", h.Conn.PublicKey().String(), "error", err)
 		}
 		return nil
 	})
@@ -268,7 +269,7 @@ func (h *PeerConn) acceptMandatoryEventStream(listener giznet.ServiceListener) (
 }
 
 func (h *PeerConn) serveEdgeNode() error {
-	if err := h.Service.manager.activateEdgeTransport(context.Background(), h.Conn); err != nil {
+	if err := h.Service.manager.activateEdgeTransport(h.logContext(), h.Conn); err != nil {
 		_ = h.close()
 		return err
 	}
@@ -303,7 +304,7 @@ func (h *PeerConn) serveEdgePackets() error {
 		}
 		if err := h.tunnelRouter.HandlePacket(buf[:n]); err != nil &&
 			!errors.Is(err, giztunnel.ErrSessionNotFound) {
-			slog.Warn("gizclaw: edge tunnel packet ignored", "error", err)
+			slog.WarnContext(h.logContext(), "gizclaw: edge tunnel packet ignored", "error", err)
 		}
 	}
 }
@@ -361,7 +362,7 @@ func (h *PeerConn) serveEdgeRPC() error {
 	defer func() {
 		_ = listener.Close()
 	}()
-	server := &edgeRPCServer{routes: h.Service.manager.PeerRoutes, apiKeys: h.Service.apiKeys, isPeerRetiring: h.isRetiring}
+	server := &edgeRPCServer{callerPublicKey: h.Conn.PublicKey().String(), routes: h.Service.manager.PeerRoutes, apiKeys: h.Service.apiKeys, isPeerRetiring: h.isRetiring}
 	for {
 		stream, err := listener.Accept()
 		if err != nil {
@@ -403,7 +404,7 @@ func (h *PeerConn) initRPC() {
 	if h == nil || h.rpc != nil {
 		return
 	}
-	h.rpc = &rpcServer{}
+	h.rpc = &rpcServer{sessionID: gizlog.SessionID(h.logContext())}
 	h.rpc.isPeerRetiring = h.isRetiring
 	h.rpc.onPeerRetiring = h.retire
 	h.rpc.onPeerDeleted = func() {
@@ -489,6 +490,7 @@ func (h *PeerConn) initAgentHost() {
 		Host:           host,
 		PeerRun:        manager.PeerRun,
 		PublicKey:      h.Conn.PublicKey(),
+		SessionID:      gizlog.SessionID(h.logContext()),
 		RuntimeProfile: h.currentRuntimeProfile,
 		ClientTools:    peerClientToolInvoker{conn: h.Conn},
 		ValidateWorkspaceSelection: func(ctx context.Context, name string) (string, error) {
@@ -622,7 +624,7 @@ func (h *PeerConn) currentRuntimeProfile() *apitypes.RuntimeProfile {
 	if registration == nil {
 		return nil
 	}
-	profile, err := h.Service.manager.RuntimeProfiles.ResolveOwnerProfile(context.Background(), h.Conn.PublicKey().String())
+	profile, err := h.Service.manager.RuntimeProfiles.ResolveOwnerProfile(h.logContext(), h.Conn.PublicKey().String())
 	if err != nil {
 		return nil
 	}
@@ -677,7 +679,7 @@ func (h *PeerConn) close() error {
 			if timeout <= 0 {
 				timeout = peerConnRuntimeStopTimeout
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			ctx, cancel := context.WithTimeout(h.logContext(), timeout)
 			defer cancel()
 			_, err := h.agentHost.Shutdown(ctx)
 			closeErr = errors.Join(closeErr, err)
@@ -761,7 +763,7 @@ func (h *PeerConn) readEventStream(stream net.Conn) (err error) {
 		if h.isRetiring() {
 			return ErrPeerConnRetiring
 		}
-		authorized, err := h.authorizeInputEvent(context.Background(), event)
+		authorized, err := h.authorizeInputEvent(h.logContext(), event)
 		if err != nil {
 			return err
 		}
@@ -773,7 +775,7 @@ func (h *PeerConn) readEventStream(stream net.Conn) (err error) {
 		if err != nil {
 			return err
 		}
-		if err := h.pushAgentInputChunk(context.Background(), chunk); err != nil {
+		if err := h.pushAgentInputChunk(h.logContext(), chunk); err != nil {
 			return err
 		}
 		if event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_BOS &&
@@ -887,7 +889,7 @@ func (h *PeerConn) abortAgentInputTurn(ctx context.Context) error {
 		return nil
 	}
 	if ctx == nil {
-		ctx = context.Background()
+		ctx = h.logContext()
 	}
 	ctx, cancel := context.WithTimeout(ctx, peerConnInputAbortTimeout)
 	defer cancel()
@@ -1107,7 +1109,7 @@ func (h *PeerConn) updateAcceptedAudioRevision(streamID string) {
 	if revision%2 != 0 {
 		return
 	}
-	status, err := h.agentHost.Status(context.Background())
+	status, err := h.agentHost.Status(h.logContext())
 	if err != nil || status.WorkspaceName == nil || status.State != apitypes.PeerRunStatusStateRunning {
 		return
 	}
@@ -1160,7 +1162,7 @@ func (h *PeerConn) broadcastAgentOutputError(_ context.Context, _ string, err er
 
 func (h *PeerConn) serveDirectPackets() error {
 	buf := make([]byte, 64*1024)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(h.logContext())
 	defer cancel()
 	var peer giznet.PublicKey
 	if h != nil && h.Conn != nil {
@@ -1209,14 +1211,14 @@ func (h *PeerConn) serveDirectPackets() error {
 			if !ok {
 				continue
 			}
-			authorized, err := h.authorizeAudioPacket(context.Background())
+			authorized, err := h.authorizeAudioPacket(h.logContext())
 			if err != nil {
 				return err
 			}
 			if !authorized {
 				continue
 			}
-			if err := h.pushAuthorizedAudioChunk(context.Background(), chunk); err != nil {
+			if err := h.pushAuthorizedAudioChunk(h.logContext(), chunk); err != nil {
 				return err
 			}
 		case EventStreamTelemetry:
@@ -1224,7 +1226,7 @@ func (h *PeerConn) serveDirectPackets() error {
 			select {
 			case telemetryPackets <- payload:
 			default:
-				slog.Warn("gizclaw: peer telemetry packet dropped", "reason", "queue_full")
+				slog.WarnContext(ctx, "gizclaw: peer telemetry packet dropped", "reason", "queue_full")
 			}
 		default:
 			// Unknown direct packets are ignored by the echo slice; service
@@ -1240,7 +1242,7 @@ func (h *PeerConn) processTelemetryPackets(ctx context.Context, packets <-chan [
 			continue
 		}
 		if err := h.handleTelemetryPacket(ctx, payload); err != nil && !errors.Is(err, context.Canceled) {
-			slog.Warn("gizclaw: peer telemetry packet ignored", "error", err)
+			slog.WarnContext(ctx, "gizclaw: peer telemetry packet ignored", "error", err)
 		}
 	}
 }
@@ -1336,7 +1338,7 @@ func (h *PeerConn) streamMixedAudioLoop() {
 		wrote, err := h.streamMixedAudio(hasWrittenBefore)
 		hasWrittenBefore = hasWrittenBefore || wrote
 		if err != nil {
-			slog.Error("gizclaw: mixed audio stream failed; retrying", "error", err)
+			slog.ErrorContext(h.logContext(), "gizclaw: mixed audio stream failed; retrying", "error", err)
 		}
 	}
 }
@@ -1492,4 +1494,16 @@ func peerConnPCMChunkToInt16(chunk pcm.Chunk) []int16 {
 		out[i] = int16(lo | hi)
 	}
 	return out
+}
+
+// logContext carries connection identity without extending an individual HTTP request.
+func (h *PeerConn) logContext() context.Context {
+	if h != nil && h.streamLifecycle != nil {
+		return h.streamLifecycle.logCtx
+	}
+	ctx := context.Background()
+	if h != nil && h.Conn != nil {
+		ctx = gizlog.WithPeerPublicKey(ctx, h.Conn.PublicKey().String())
+	}
+	return ctx
 }

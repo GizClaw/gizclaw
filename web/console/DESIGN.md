@@ -36,12 +36,10 @@ text.
 
 Cluster overview, per-node detail, a dedicated log search, and a device watch
 list. Log search is its own page because it is the troubleshooting surface:
-records from every node are merged into one stream, filtered by free text or
-`key:value` clauses (`-key:value` excludes), and any record opens a panel with
-its full structured fields. Records carry the request's own attributes —
-`request_id`, `operation`, `route`, `status`, `duration_ms`, `peer_public_key`,
-stream identifiers — so one request can be followed across nodes by filtering on
-its `request_id`. The console's own Monitor polling is hidden by default.
+device records are queried from the configured persistent LogStore through the
+Peer HTTP API, filtered by free text or `key:value` clauses (`-key:value`
+excludes), and any record opens a panel with its full structured fields.
+Text and level filters apply server-side; field clauses apply to loaded records.
 
 The device watch list adds a device by SN, IMEI or public key through a chosen
 node and removes it again; the list lives in the same encrypted browser storage
@@ -65,14 +63,21 @@ error row and never blanks the others. Rates come from cumulative byte counters,
 so a restart reads as zero rather than a spike. Charts contain measured samples
 only — an empty window stays visibly empty — and at most 600 samples per node
 are retained in memory with 2/10/30 minute display windows. Fleet traffic sums
-per-node samples into 5-second buckets. The overview's alert feed is the WARN
-and ERROR records of each node's latest snapshot, labelled by node. Log records
-are merged by their per-node id across polls, so the console keeps a window that
-outlives the node's own 500-record ring; a lower id than the one already held
-means the node restarted and the window starts over.
+per-node samples into 5-second buckets. Node snapshots contain runtime status
+and transport counters; log search uses the persistent LogStore.
 
 ## Layout
 
 Sidebar navigation lists the cluster overview and every node; below 768px it
 collapses to a horizontal bar and panels stack. Wide content scrolls inside its
 own container.
+
+## Log presentation
+
+Overview alerts, node logs, and log search share structured summaries: operation,
+HTTP/RPC status, error code, and duration when available. Operation names remain
+verbatim; successful results do not add a redundant success label. Nonzero RPC
+status codes include an explanation, while unknown codes remain visible. Details
+retain the original message and fields alongside the summary. Compact log views
+search both summaries and raw field values, expose full summaries on hover, and
+use the same dark scrollbar as log search.

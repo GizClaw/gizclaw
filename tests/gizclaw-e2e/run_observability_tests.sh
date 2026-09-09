@@ -37,6 +37,8 @@ export GIZCLAW_E2E_OBSERVABILITY=1
 
 (cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run \
   "$script_dir/giztest/eino-memory-assistant.text-roundtrip.giztest.yaml" \
+  "$script_dir/giztest/doubao-realtime-conversation.push-to-talk-roundtrip.giztest.yaml" \
+  "$script_dir/giztest/flowcraft-voice-assistant.push-to-talk-roundtrip.giztest.yaml" \
   --parallel 1 --output "$script_dir/testdata/giztest-observability-report.json")
 
 # Recorders flush every ten seconds; wait for one complete interval before querying.
@@ -73,3 +75,7 @@ if not {"application", "edge"}.issubset(roles):
     raise SystemExit(f"missing WebRTC node_role coverage: got {sorted(str(role) for role in roles)}")
 print(f"observability metrics accepted: samples={len(samples)} required={len(required)} node_roles={sorted(roles)}")
 '
+
+# Each model call/stream is counted once, regardless of the number of log boundaries.
+docker compose "${compose_args[@]}" exec -T metrics-sink curl -fsS http://127.0.0.1:9090/dump |
+  python3 "$setup_dir/assert_speech_metrics.py"

@@ -633,17 +633,22 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			return pushTextTurn(ctx, replacementID)
 		}
 	case "push-to-talk", "realtime":
-		audio, ok := input.([]byte)
-		if !ok {
-			return operationResult{}, fmt.Errorf("audio peer_stream input must be in-memory Opus bytes")
-		}
 		mimeType := "audio/opus"
-		packets, err := decodeOpusPackets(audio)
-		if err != nil {
-			return operationResult{}, err
+		var packets [][]byte
+		if !op.EmptyInput {
+			audio, ok := input.([]byte)
+			if !ok {
+				return operationResult{}, fmt.Errorf("audio peer_stream input must be in-memory Opus bytes")
+			}
+			decoded, err := decodeOpusPackets(audio)
+			if err != nil {
+				return operationResult{}, err
+			}
+			packets = decoded
 		}
+		var err error
 		inputPackets, inputDuration = len(packets), opusPacketsDuration(packets)
-		if observeAudio != nil {
+		if observeAudio != nil && len(packets) > 0 {
 			if err := observeAudioPackets(observeAudio, step.Client, "user", packets); err != nil {
 				return operationResult{}, fmt.Errorf("play user audio: %w", err)
 			}
@@ -823,8 +828,11 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	if terminalLabel == "" {
 		terminalLabel = "assistant"
 	}
-	requireText := op.RequireText == nil || *op.RequireText
-	requireAudio := op.RequireAudio == nil || *op.RequireAudio
+	// An empty push-to-talk turn has no response to wait for: it completes when
+	// both assistant routes close, and it must close them without content.
+	emptyTurn := op.EmptyInput
+	requireText := !emptyTurn && (op.RequireText == nil || *op.RequireText)
+	requireAudio := !emptyTurn && (op.RequireAudio == nil || *op.RequireAudio)
 	var firstTextDeadline, firstAudioDeadline <-chan time.Time
 	var firstTextTimer, firstAudioTimer *time.Timer
 	var firstTextTimeout, firstAudioTimeout time.Duration
@@ -1230,11 +1238,20 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 						response.audioEOS = true
 						response.audioEOSMS = nowMS
 					}
-					if (requireText && !response.textEOS) || (requireAudio && !response.audioEOS) {
-						continue
-					}
-					if (requireText && !response.textObserved) || (requireAudio && !response.audioObserved) {
-						return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream response %q completed without required assistant content (%s)", actualStreamID, counters())
+					if emptyTurn {
+						if !response.textEOS || !response.audioEOS {
+							continue
+						}
+						if response.textObserved || response.audioObserved {
+							return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream empty turn response %q produced assistant content (%s)", actualStreamID, counters())
+						}
+					} else {
+						if (requireText && !response.textEOS) || (requireAudio && !response.audioEOS) {
+							continue
+						}
+						if (requireText && !response.textObserved) || (requireAudio && !response.audioObserved) {
+							return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream response %q completed without required assistant content (%s)", actualStreamID, counters())
+						}
 					}
 					textEOS, audioEOS = response.textEOS, response.audioEOS
 					textEOSMS, audioEOSMS = response.textEOSMS, response.audioEOSMS

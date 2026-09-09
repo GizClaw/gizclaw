@@ -2,46 +2,21 @@ import { useEffect, useRef, useState } from "react";
 import type { ConsoleServer } from "@/lib/config";
 import { loadNode, nodeErrorMessage, type NodeSnapshot } from "@/lib/api";
 import { rates, type Sample } from "@/lib/format";
-import type { LogRecord } from "@/lib/log-query";
 
 const MAX_SAMPLES = 600;
-// Each snapshot carries the node's bounded ring, so the console keeps its own
-// window of records that survives polls the ring has already rotated past.
-const MAX_LOGS = 4000;
-
 export type ServerState = {
   status: "loading" | "online" | "error";
   snapshot?: NodeSnapshot;
   error?: string;
   updatedAt?: number;
   samples: Sample[];
-  logs: LogRecord[];
 };
 export type FleetState = Record<string, ServerState>;
 
 const initial = (): ServerState => ({
   status: "loading",
   samples: [],
-  logs: [],
 });
-
-// Record ids are per-process and monotonic; a lower id than the one already
-// held means the node restarted, so the retained window starts over.
-function mergeLogs(
-  previous: LogRecord[],
-  snapshot: NodeSnapshot,
-  node: string,
-  nodeName: string,
-): LogRecord[] {
-  const lastId = previous.at(-1)?.id ?? 0;
-  const highest = snapshot.logs.at(-1)?.id ?? 0;
-  const kept = highest < lastId ? [] : previous;
-  const added = snapshot.logs
-    .filter((entry) => entry.id > (kept.at(-1)?.id ?? 0))
-    .map((entry) => ({ ...entry, node, nodeName }));
-  if (added.length === 0) return kept;
-  return [...kept, ...added].slice(-MAX_LOGS);
-}
 
 /** Polls every configured node in parallel; one failure never hides the rest. */
 export function useFleet(
@@ -105,12 +80,6 @@ export function useFleet(
                   snapshot,
                   updatedAt: Date.now(),
                   samples: [...previous.samples, sample].slice(-MAX_SAMPLES),
-                  logs: mergeLogs(
-                    previous.logs,
-                    snapshot,
-                    server.id,
-                    server.name,
-                  ),
                 },
               };
             });

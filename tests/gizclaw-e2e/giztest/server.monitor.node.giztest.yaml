@@ -34,4 +34,4 @@ steps:
       /transport/connections: {minimum: 1}
       /transport/rx_bytes: {minimum: 0}
       /transport/tx_bytes: {minimum: 0}
-      /logs: {present: true}
+      /logs: {present: false}

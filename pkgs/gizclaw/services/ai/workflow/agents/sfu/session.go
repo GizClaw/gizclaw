@@ -280,7 +280,7 @@ func (s *session) reconnect() error {
 	if old != nil {
 		old.Disconnect()
 	}
-	s.logger.Warn("sfu: participant disconnected, reconnecting", "room", s.binding.SFU.RoomToken)
+	s.logger.WarnContext(s.ctx, "sfu: participant disconnected, reconnecting", "room", s.binding.SFU.RoomToken)
 
 	deadline := time.Now().Add(s.config.ReconnectTimeout)
 	// Let the SFU settle before the first attempt. A Room that is being torn
@@ -310,7 +310,7 @@ func (s *session) reconnect() error {
 			s.forwarding = true
 			s.state = StateConnected
 			s.mu.Unlock()
-			s.logger.Info("sfu: participant reconnected", "room", s.binding.SFU.RoomToken, "attempts", attempt)
+			s.logger.InfoContext(s.ctx, "sfu: participant reconnected", "room", s.binding.SFU.RoomToken, "attempts", attempt)
 			return nil
 		}
 		if s.ctx.Err() != nil {
@@ -378,9 +378,9 @@ func (s *session) revoke(cause error) {
 	s.forwarding = false
 	s.mu.Unlock()
 	if cause != nil {
-		s.logger.Warn("sfu: workspace binding revoked", "room", s.binding.SFU.RoomToken, "error", cause)
+		s.logger.WarnContext(s.ctx, "sfu: workspace binding revoked", "room", s.binding.SFU.RoomToken, "error", cause)
 	} else {
-		s.logger.Warn("sfu: workspace binding generation changed", "room", s.binding.SFU.RoomToken)
+		s.logger.WarnContext(s.ctx, "sfu: workspace binding generation changed", "room", s.binding.SFU.RoomToken)
 	}
 	s.cancel(ErrRevoked)
 }
@@ -447,7 +447,7 @@ func (s *session) forwardUplinkFrame(frame []byte) {
 	}
 	s.mu.Unlock()
 	if err := client.WriteAudio(media.Sample{Data: frame, Duration: duration}); err != nil {
-		s.logger.Debug("sfu: write uplink sample", "error", err)
+		s.logger.DebugContext(s.ctx, "sfu: write uplink sample", "error", err)
 	}
 }
 
@@ -478,7 +478,7 @@ func (s *session) openTalkLocked() {
 	s.talk.gen++
 	s.queueTalkLocked(talkTypeBOS, s.talk.utterance)
 	s.releaseFloorLocked(false)
-	s.logger.Debug("sfu: talk utterance opened", "utterance", s.talk.utterance)
+	s.logger.DebugContext(s.ctx, "sfu: talk utterance opened", "utterance", s.talk.utterance)
 }
 
 // closeTalkLocked closes the Peer's utterance, announces EOS and lets the
@@ -488,7 +488,7 @@ func (s *session) closeTalkLocked() {
 		return
 	}
 	s.queueTalkLocked(talkTypeEOS, s.talk.utterance)
-	s.logger.Debug("sfu: talk utterance closed", "utterance", s.talk.utterance)
+	s.logger.DebugContext(s.ctx, "sfu: talk utterance closed", "utterance", s.talk.utterance)
 	s.resetTalkLocked()
 	s.acquireFloorLocked()
 }
@@ -565,11 +565,11 @@ func (s *session) publishTalk() {
 			}
 			payload, err := message.encode()
 			if err != nil {
-				s.logger.Warn("sfu: encode talk message", "error", err)
+				s.logger.WarnContext(s.ctx, "sfu: encode talk message", "error", err)
 				continue
 			}
 			if err := client.PublishData(talkTopic, payload); err != nil {
-				s.logger.Debug("sfu: publish talk message", "type", message.Type, "error", err)
+				s.logger.DebugContext(s.ctx, "sfu: publish talk message", "type", message.Type, "error", err)
 			}
 		}
 	}
@@ -730,7 +730,7 @@ func (s *session) onDataPacket(identity, topic string, payload []byte) {
 	message, err := decodeTalkMessage(payload)
 	if err != nil {
 		s.rejectedData.Add(1)
-		s.logger.Debug("sfu: talk message rejected", "participant", identity, "error", err)
+		s.logger.DebugContext(s.ctx, "sfu: talk message rejected", "participant", identity, "error", err)
 		return
 	}
 	s.mu.Lock()
@@ -759,7 +759,7 @@ func (s *session) onDataPacket(identity, topic string, payload []byte) {
 	case talkTypeEOS:
 		current := s.utterances[identity]
 		if current == nil || current.id != message.Utterance {
-			s.logger.Debug("sfu: stale talk EOS ignored", "participant", identity, "utterance", message.Utterance)
+			s.logger.DebugContext(s.ctx, "sfu: stale talk EOS ignored", "participant", identity, "utterance", message.Utterance)
 			return
 		}
 		delete(s.utterances, identity)
@@ -813,7 +813,7 @@ func (s *session) acquireFloorLocked() bool {
 	}
 	s.floorGen++
 	s.floor = &floorHold{identity: holder, utterance: utterance.id, streamID: s.nextStreamID(holder)}
-	s.logger.Debug("sfu: floor granted", "participant", holder, "utterance", utterance.id)
+	s.logger.DebugContext(s.ctx, "sfu: floor granted", "participant", holder, "utterance", utterance.id)
 	s.out.push(s.chunk(holder, s.floor.streamID, nil, true, false))
 	now := time.Now()
 	for _, track := range s.tracks {
@@ -863,7 +863,7 @@ func (s *session) releaseFloorLocked(markIdle bool) {
 	if s.floorIdle != nil {
 		s.floorIdle.Stop()
 	}
-	s.logger.Debug("sfu: floor released", "participant", floor.identity, "idle", markIdle)
+	s.logger.DebugContext(s.ctx, "sfu: floor released", "participant", floor.identity, "idle", markIdle)
 }
 
 func (s *session) armFloorIdleLocked() {

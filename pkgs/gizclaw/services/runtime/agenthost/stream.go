@@ -54,10 +54,11 @@ func (s *leaseStream) AbandonOutputObservation(chunk *genx.MessageChunk) {
 	}
 }
 
-func (s *leaseStream) SetOutputProductionObserver(observe func(*genx.MessageChunk)) {
+func (s *leaseStream) SetOutputProductionObserver(observe func(*genx.MessageChunk)) bool {
 	if observer, ok := s.Stream.(OutputProductionObserver); ok {
-		observer.SetOutputProductionObserver(observe)
+		return observer.SetOutputProductionObserver(observe)
 	}
+	return false
 }
 
 func (s *leaseStream) releaseOnce() {

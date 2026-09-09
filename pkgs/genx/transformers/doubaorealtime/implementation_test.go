@@ -1429,6 +1429,121 @@ func TestTransformerPTTEmptyASRCompletesImmediatelyAndReplacesProviderSession(t 
 	}
 }
 
+func TestTransformerPTTAudiolessTurnCompletesWithoutProviderASR(t *testing.T) {
+	endASR := make(chan struct{})
+	eventsDrained := make(chan struct{})
+	session := &fakeTransformerSession{
+		beforeRecv:    endASR,
+		endASR:        endASR,
+		eventsDrained: eventsDrained,
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRResponse, Text: "second transcript", QuestionID: "q-2"},
+			{Type: doubaospeech.EventASREnded, QuestionID: "q-2"},
+			{Type: doubaospeech.EventChatResponse, Text: "second answer", QuestionID: "q-2", ReplyID: "r-2"},
+			{Type: doubaospeech.EventChatEnded, QuestionID: "q-2", ReplyID: "r-2"},
+			{Type: doubaospeech.EventTTSStarted, QuestionID: "q-2", ReplyID: "r-2"},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{1, 2}, QuestionID: "q-2", ReplyID: "r-2"},
+			{Type: doubaospeech.EventTTSFinished, QuestionID: "q-2", ReplyID: "r-2"},
+		},
+		blockAfterEvents: make(chan struct{}),
+	}
+	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}
+	tfr := newTransformer(nil,
+		withDoubaoRealtimeOpener(opener),
+		withMode(ModePushToTalk),
+		withInputFormat("pcm"),
+		withInputTranscode(false),
+		withFormat("pcm"),
+	)
+	input := newBufferStream(16)
+	output, err := tfr.transform(t.Context(), input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	type outputResult struct {
+		chunks []*genx.MessageChunk
+		err    error
+	}
+	outputResultCh := make(chan outputResult, 1)
+	go func() {
+		var chunks []*genx.MessageChunk
+		for {
+			chunk, err := output.Next()
+			if err != nil {
+				if err == io.EOF || err == genx.ErrDone {
+					err = nil
+				}
+				outputResultCh <- outputResult{chunks: chunks, err: err}
+				return
+			}
+			if chunk != nil {
+				chunks = append(chunks, chunk)
+			}
+		}
+	}()
+	// A push-to-talk route that carries no audio frame: the Peer opened and
+	// closed the turn without capturing anything.
+	for _, chunk := range []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+	} {
+		if err := input.Push(chunk); err != nil {
+			t.Fatalf("Push(turn-1) error = %v", err)
+		}
+	}
+	pushPTTTestTurn(t, input, "turn-2", 2)
+	if !session.waitForEndASRCount(1, 2*time.Second) {
+		t.Fatalf("EndASR calls = %d, want the audio-bearing turn only", session.endASRCount())
+	}
+	select {
+	case <-eventsDrained:
+	case <-time.After(2 * time.Second):
+		t.Fatal("provider response did not complete")
+	}
+	if err := input.Close(); err != nil {
+		t.Fatalf("Close(input) error = %v", err)
+	}
+	var chunks []*genx.MessageChunk
+	select {
+	case result := <-outputResultCh:
+		if result.err != nil {
+			t.Fatalf("output Next() error = %v", result.err)
+		}
+		chunks = result.chunks
+	case <-time.After(2 * time.Second):
+		t.Fatal("transform output did not close after the audio-less turn")
+	}
+	if got := session.endASRCount(); got != 1 {
+		t.Fatalf("EndASR calls = %d, want 1; the audio-less turn must not reach the provider", got)
+	}
+	if opener.callCount() != 1 {
+		t.Fatalf("OpenSession calls = %d, want the provider session kept", opener.callCount())
+	}
+
+	var turnOne []*genx.MessageChunk
+	for _, chunk := range chunks {
+		if chunk == nil || chunk.Ctrl == nil || chunk.Ctrl.StreamID != "turn-1" {
+			continue
+		}
+		turnOne = append(turnOne, chunk)
+		if chunk.Ctrl.Error != "" {
+			t.Fatalf("audio-less turn error = %q, want success", chunk.Ctrl.Error)
+		}
+	}
+	requireRealtimeOwnedRouteLifecycles(t, turnOne, genx.RoleUser, doubaoRealtimeTranscriptLabel, 1)
+	requireRealtimeOwnedRouteLifecycles(t, turnOne, genx.RoleModel, doubaoRealtimeAssistantLabel, 2)
+	if hasRealtimeTestText(turnOne, genx.RoleUser, "second transcript") ||
+		hasRealtimeTestText(turnOne, genx.RoleModel, "second answer") {
+		t.Fatalf("audio-less turn contains data chunks: %#v", turnOne)
+	}
+	if !hasRealtimeTestText(chunks, genx.RoleUser, "second transcript") ||
+		!hasRealtimeTestText(chunks, genx.RoleModel, "second answer") {
+		t.Fatalf("turn after the audio-less turn did not complete: %#v", chunks)
+	}
+}
+
 func TestTransformerPTTEmptyASRHandoffStopsRetryOnCancellation(t *testing.T) {
 	endASR := make(chan struct{})
 	retryWaiting := make(chan struct{})

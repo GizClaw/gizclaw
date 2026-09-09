@@ -218,10 +218,6 @@ func TestGroupRetirementUsesActualStorePrefixes(t *testing.T) {
 	s.Belongs = kv.Prefixed(root, kv.Key{"actual", "belongs"})
 	s.InviteTokens = kv.Prefixed(root, kv.Key{"actual", "invites"})
 	s.RelationshipStore = kv.Prefixed(root, kv.Key{"actual", "relationships"})
-	s.GroupRelationshipPrefix = kv.Key{"wrong-groups"}
-	s.MemberRelationshipPrefix = kv.Key{"wrong-members"}
-	s.BelongRelationshipPrefix = kv.Key{"wrong-belongs"}
-	s.InviteRelationshipPrefix = kv.Key{"wrong-invites"}
 	group, err := s.AdminCreateFriendGroup(t.Context(), "prefix-group", "owner", "room", nil, nil)
 	if err != nil {
 		t.Fatal(err)

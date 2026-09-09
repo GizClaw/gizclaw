@@ -69,6 +69,7 @@ type rpcServerGenXService interface {
 }
 
 type rpcServer struct {
+	sessionID           string
 	peer                rpcPeerService
 	peerRun             rpcPeerRunService
 	peerRunRuntime      rpcPeerRunRuntime
@@ -94,6 +95,7 @@ func (s *rpcServer) Handle(conn net.Conn) error {
 	}
 	return handleRPCWithStreamObserved(conn, s.dispatch, s.dispatchStream, &rpcObservationOptions{
 		peerPublicKey: peerPublicKey,
+		sessionID:     s.sessionID,
 	})
 }
 

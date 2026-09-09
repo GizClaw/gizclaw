@@ -41,6 +41,10 @@ type MessageChunk struct {
 
 // StreamCtrl controls Stream routing and state.
 type StreamCtrl struct {
+	// SourceStreamID retains the original route when an internal adapter remaps
+	// StreamID. It is process-local logging metadata, not response ownership.
+	SourceStreamID string `json:"-"`
+
 	StreamID         string         `json:"stream_id,omitempty"`
 	Label            string         `json:"label,omitempty"`
 	Error            string         `json:"error,omitempty"`

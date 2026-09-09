@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/resampler"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/streamlog"
 )
 
 // Transformer is an ASR transformer using Doubao BigModel ASR (大模型语音识别).
@@ -170,7 +171,8 @@ func firstNonEmpty(value, fallback string) string {
 // The ctx is the parent lifecycle for lazy session creation, provider sends,
 // pacing timers, and result forwarding.
 func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
-	output := newBufferStream(100)
+	ctx = streamlog.StartStage(ctx, "doubaoasr", streamlog.Model{Provider: "volc", Model: t.resourceID, Kind: "asr"})
+	output := newBufferStream(100, ctx)
 
 	go t.transformLoop(ctx, input, output)
 
@@ -478,7 +480,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 	// Process input stream
 	for {
 
-		chunk, err := input.Next()
+		chunk, err := streamlog.ReadInput(ctx, input)
 		if err != nil {
 			if !errors.Is(err, genx.ErrDone) && !errors.Is(err, io.EOF) {
 				if session != nil {

@@ -53,13 +53,11 @@ type Server struct {
 	// SFUURL is the SFU endpoint recorded in every new Friend Group SFU binding.
 	SFUURL string
 
-	// RelationshipStore is the shared transaction boundary for Group,
-	// membership, belongs, invite-token, and retirement-intent records.
-	RelationshipStore        kv.Store
-	GroupRelationshipPrefix  kv.Key
-	InviteRelationshipPrefix kv.Key
-	MemberRelationshipPrefix kv.Key
-	BelongRelationshipPrefix kv.Key
+	// RelationshipStore scopes Workspace bindings, retirement records and
+	// pending-deletion work to the configured namespace. It must share an
+	// atomic transaction boundary with Groups, Members, Belongs and InviteTokens;
+	// it must not discard its namespace when that boundary is resolved.
+	RelationshipStore kv.Store
 
 	Now   func() time.Time
 	NewID func() string

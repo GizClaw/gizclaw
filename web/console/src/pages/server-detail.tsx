@@ -18,7 +18,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { MetricCard } from "@/components/metric-card";
 import { TrafficChart, TrafficLegend } from "@/components/traffic-chart";
-import { LogView } from "@/components/log-view";
 import { PageHeading } from "@/components/app-shell";
 import { StatusBadge } from "@/pages/overview";
 import type { ConsoleServer } from "@/lib/config";
@@ -137,7 +136,6 @@ export function ServerDetailPage({
       <Tabs defaultValue="traffic">
         <TabsList>
           <TabsTrigger value="traffic">流量</TabsTrigger>
-          <TabsTrigger value="logs">运行日志</TabsTrigger>
           <TabsTrigger value="snapshot">运行快照</TabsTrigger>
         </TabsList>
         <TabsContent value="traffic">
@@ -159,9 +157,6 @@ export function ServerDetailPage({
               />
             </CardContent>
           </Card>
-        </TabsContent>
-        <TabsContent value="logs">
-          <LogView entries={snapshot?.logs ?? []} />
         </TabsContent>
         <TabsContent value="snapshot">
           <Card>

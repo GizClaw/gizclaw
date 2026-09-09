@@ -1974,3 +1974,12 @@ func (s *blockingHistoryStream) Close() error {
 func (s *blockingHistoryStream) CloseWithError(err error) error {
 	return s.Close()
 }
+
+func TestProductionObserverWrappersReportUnsupportedProducer(t *testing.T) {
+	stream := historyStreamFromChunks()
+	probe := newOutputProbe(&leaseStream{Stream: stream})
+	if probe.SetOutputProductionObserver(func(*genx.MessageChunk) { t.Error("unexpected callback") }) {
+		t.Fatal("wrappers claimed a producer callback that the underlying stream cannot install")
+	}
+	_ = probe.Close()
+}

@@ -316,8 +316,9 @@ func TestPeerAgentOutputWithoutLifecycleInstallsNoObservation(t *testing.T) {
 	}
 }
 
-func (s *peerProductionObservedStream) SetOutputProductionObserver(observe func(*genx.MessageChunk)) {
+func (s *peerProductionObservedStream) SetOutputProductionObserver(observe func(*genx.MessageChunk)) bool {
 	s.observe = observe
+	return true
 }
 
 func (s *peerProductionObservedStream) Next() (*genx.MessageChunk, error) {
@@ -591,7 +592,7 @@ func TestPeerAgentOutputDecodesOpusIntoPCMTrack(t *testing.T) {
 }
 
 func TestPeerAgentOutputLogsTerminalRouteErrorAndContinues(t *testing.T) {
-	const credentialBearingError = "authorization: Bearer secret-token; api_key=secret-value"
+	const providerErrorDetail = "upstream model stream failed: 503 service unavailable"
 	var events bytes.Buffer
 	broker := newPeerStreamEventBroker()
 	unsubscribe, err := broker.Subscribe(&events)
@@ -605,7 +606,7 @@ func TestPeerAgentOutputLogsTerminalRouteErrorAndContinues(t *testing.T) {
 			Part: genx.Text(""),
 			Ctrl: &genx.StreamCtrl{
 				StreamID: "failed-turn", Label: "assistant", EndOfStream: true,
-				Error: credentialBearingError, ErrorCode: "MEMORY_UNAVAILABLE", ErrorRetryable: true,
+				Error: providerErrorDetail, ErrorCode: "MEMORY_UNAVAILABLE", ErrorRetryable: true,
 			},
 		},
 		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "later-turn", Label: "assistant", BeginOfStream: true}},
@@ -639,7 +640,7 @@ func TestPeerAgentOutputLogsTerminalRouteErrorAndContinues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read later text: %v", err)
 	}
-	if got := failedEOS.GetEos().GetError(); got.GetCode() != "MEMORY_UNAVAILABLE" || got.GetMessage() != credentialBearingError {
+	if got := failedEOS.GetEos().GetError(); got.GetCode() != "MEMORY_UNAVAILABLE" || got.GetMessage() != providerErrorDetail {
 		t.Errorf("failed EOS error = %#v", got)
 	}
 	if laterBOS.GetType() != eventpb.PeerEventType_PEER_EVENT_TYPE_BOS {
@@ -655,21 +656,73 @@ func TestPeerAgentOutputLogsTerminalRouteErrorAndContinues(t *testing.T) {
 	if record.Level != slog.LevelError || record.Message != "gizclaw: assistant route failed" {
 		t.Fatalf("record = (%v, %q)", record.Level, record.Message)
 	}
-	if len(attrs) != 6 {
-		t.Fatalf("route error log attributes = %#v, want only correlation and error fields", attrs)
+	if len(attrs) != 7 {
+		t.Fatalf("route error log attributes = %#v, want correlation, error, and message fields", attrs)
 	}
 	for key, want := range map[string]any{
 		"peer_public_key": "peer-key", "workspace": "workspace-a",
 		"stream_id_hash": safeStreamIDHash("failed-turn"), "stream_label_hash": safeStreamIDHash("assistant"),
-		"error_code": "MEMORY_UNAVAILABLE", "retryable": true,
+		"error_code": "MEMORY_UNAVAILABLE", "retryable": true, "error": providerErrorDetail,
 	} {
 		if got := attrs[key]; got != want {
 			t.Errorf("%s = %#v, want %#v", key, got, want)
 		}
 	}
-	if strings.Contains(fmt.Sprint(attrs), "failed-turn") || strings.Contains(fmt.Sprint(attrs), "assistant") ||
-		strings.Contains(fmt.Sprint(attrs), "secret-token") || strings.Contains(fmt.Sprint(attrs), "secret-value") {
-		t.Fatalf("route error log exposed credential-bearing error: %#v", attrs)
+	if strings.Contains(fmt.Sprint(attrs), "failed-turn") || strings.Contains(fmt.Sprint(attrs), "label=assistant") {
+		t.Fatalf("route error log exposed a raw stream identifier: %#v", attrs)
+	}
+}
+
+func TestPeerAgentOutputRouteErrorOmitsAbsentOptionalFields(t *testing.T) {
+	capture := &slogCapture{}
+	output := peerAgentOutput{Logger: slog.New(capture)}
+	output.logTerminalRouteError(t.Context(), &genx.MessageChunk{
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{
+			StreamID: "coded-turn", Label: "assistant", EndOfStream: true,
+			ErrorCode: "PROVIDER_ERROR",
+		},
+	}, make(map[string]struct{}))
+	_, attrs := onlyCapturedRecord(t, capture)
+	if len(attrs) != 6 {
+		t.Fatalf("code-only route error attributes = %#v, want the six always-present fields", attrs)
+	}
+	if _, exists := attrs["error"]; exists {
+		t.Errorf("empty terminal error produced an error attribute: %#v", attrs)
+	}
+	if _, exists := attrs["failure_class"]; exists {
+		t.Errorf("absent failure class produced a failure_class attribute: %#v", attrs)
+	}
+}
+
+func TestPeerAgentOutputRouteErrorLogsOnlyClosedFailureClasses(t *testing.T) {
+	for _, testCase := range []struct {
+		name  string
+		class genx.FailureClass
+		want  any
+	}{
+		{name: "provider", class: genx.FailureClassProvider, want: "provider"},
+		{name: "transform", class: genx.FailureClassTransform, want: "transform"},
+		{name: "unknown", class: genx.FailureClass("provider-network"), want: nil},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			capture := &slogCapture{}
+			output := peerAgentOutput{Logger: slog.New(capture)}
+			output.logTerminalRouteError(t.Context(), &genx.MessageChunk{
+				Part: genx.Text(""),
+				Ctrl: &genx.StreamCtrl{
+					StreamID: "classified-turn", Label: "assistant", EndOfStream: true,
+					Error: "provider failed", FailureClass: testCase.class,
+				},
+			}, make(map[string]struct{}))
+			_, attrs := onlyCapturedRecord(t, capture)
+			if got := attrs["failure_class"]; got != testCase.want {
+				t.Fatalf("failure_class = %#v, want %#v", got, testCase.want)
+			}
+			if got := attrs["error_code"]; got != "STREAM_ERROR" {
+				t.Errorf("uncoded terminal error_code = %#v, want STREAM_ERROR", got)
+			}
+		})
 	}
 }
 

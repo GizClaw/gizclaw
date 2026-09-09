@@ -16,6 +16,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizmetrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giztunnel"
@@ -597,12 +598,13 @@ func (g *Gateway) openLogicalSession(
 	if err != nil {
 		return nil, "", false
 	}
+	ctx = gizlog.WithSessionID(gizlog.WithPeerPublicKey(ctx, client.PublicKey().String()), sessionID.String())
 	handshakeCtx, cancelHandshake, completeHandshakeBudget := boundedAttemptContext(
 		ctx,
 		gatewaySessionHandshakeTimeout,
 	)
 	handshakeStarted := time.Now()
-	slog.InfoContext(g.ctx, peerStreamLifecycleMessage,
+	slog.InfoContext(ctx, peerStreamLifecycleMessage,
 		"component", "edge_gateway",
 		"stage", "session_establishing",
 		"result", "success",
@@ -625,11 +627,11 @@ func (g *Gateway) openLogicalSession(
 		labels := []gizmetrics.Label{{Name: "result", Value: result}, {Name: "reason", Value: reason}}
 		gizmetrics.AddCounter(g.ctx, metricEdgeSessionEstablishments, 1, labels...)
 		recordEdgeDuration(g.ctx, metricEdgeSessionEstablishDuration, handshakeStarted, labels...)
-		slog.InfoContext(g.ctx, "gateway logical session establishment failed",
+		slog.InfoContext(ctx, "gateway logical session establishment failed",
 			"entry_id", entry.id,
 			"reason", reason,
 		)
-		slog.InfoContext(g.ctx, peerStreamLifecycleMessage,
+		slog.InfoContext(ctx, peerStreamLifecycleMessage,
 			"component", "edge_gateway",
 			"stage", "terminal",
 			"result", gatewaySessionEstablishmentResult(err, completeHandshakeBudget),
@@ -645,7 +647,7 @@ func (g *Gateway) openLogicalSession(
 	labels := []gizmetrics.Label{{Name: "result", Value: "success"}, {Name: "reason", Value: "completed"}}
 	gizmetrics.AddCounter(g.ctx, metricEdgeSessionEstablishments, 1, labels...)
 	recordEdgeDuration(g.ctx, metricEdgeSessionEstablishDuration, handshakeStarted, labels...)
-	slog.InfoContext(g.ctx, peerStreamLifecycleMessage,
+	slog.InfoContext(ctx, peerStreamLifecycleMessage,
 		"component", "edge_gateway",
 		"stage", "session_accepted",
 		"result", "success",
@@ -735,8 +737,9 @@ func isPreAcceptHandshakeTimeout(err error) bool {
 }
 
 func (g *Gateway) bridgeLogicalSession(client giznet.Conn, logical *giztunnel.Conn, entryID uint64, sessionID string) {
+	ctx := gizlog.WithSessionID(gizlog.WithPeerPublicKey(g.ctx, client.PublicKey().String()), sessionID)
 	started := time.Now()
-	slog.InfoContext(g.ctx, peerStreamLifecycleMessage,
+	slog.InfoContext(ctx, peerStreamLifecycleMessage,
 		"component", "edge_gateway",
 		"stage", "bridge_started",
 		"result", "success",
@@ -767,7 +770,7 @@ func (g *Gateway) bridgeLogicalSession(client giznet.Conn, logical *giztunnel.Co
 		"entry_id", entryID,
 	}
 	attrs = append(attrs, gatewayBridgeObservationAttrs(observation)...)
-	slog.InfoContext(g.ctx, peerStreamLifecycleMessage,
+	slog.InfoContext(ctx, peerStreamLifecycleMessage,
 		attrs...,
 	)
 }

@@ -6,17 +6,6 @@ import { z } from "zod";
 import type { ConsoleServer } from "@/lib/config";
 import { isLocal } from "@/lib/config";
 
-export const logSchema = z.object({
-  id: z.number(),
-  time: z.string(),
-  level: z.string(),
-  message: z.string(),
-  error: z.string().optional(),
-  peer_public_key: z.string().optional(),
-  fields: z.record(z.string(), z.string()).optional(),
-});
-export type LogEntry = z.infer<typeof logSchema>;
-
 export const nodeSchema = z.object({
   public_key: z.string(),
   role: z.string(),
@@ -31,7 +20,6 @@ export const nodeSchema = z.object({
     rx_bytes: z.number(),
     tx_bytes: z.number(),
   }),
-  logs: z.array(logSchema),
 });
 export type NodeSnapshot = z.infer<typeof nodeSchema>;
 

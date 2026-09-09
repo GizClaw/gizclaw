@@ -4,21 +4,6 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
-export type MonitorLog = {
-    id: number;
-    time: string;
-    level: string;
-    message: string;
-    peer_public_key?: string;
-    error?: string;
-    /**
-     * Structured attributes of the record, such as request_id, operation, route, status, duration_ms and stream identifiers. At most 24 entries; keys and values are bounded and truncated.
-     */
-    fields?: {
-        [key: string]: string;
-    };
-};
-
 export type NodeSnapshot = {
     public_key: string;
     role: string;
@@ -36,7 +21,6 @@ export type NodeSnapshot = {
          */
         inbound_service_channels: number;
     };
-    logs: Array<MonitorLog>;
 };
 
 export type MonitorError = {

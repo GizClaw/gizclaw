@@ -80,6 +80,9 @@ func (s *ResponseStream) Next() (*genx.MessageChunk, error) {
 	}
 	upstreamID := strings.TrimSpace(copyCtrl.StreamID)
 	copyCtrl.StreamID = s.responseID(upstreamID, chunk)
+	if copyCtrl.SourceStreamID == "" {
+		copyCtrl.SourceStreamID = upstreamID
+	}
 	copyChunk.Ctrl = &copyCtrl
 	result := &copyChunk
 

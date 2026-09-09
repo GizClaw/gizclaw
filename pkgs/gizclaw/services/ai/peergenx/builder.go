@@ -118,6 +118,7 @@ func (b DefaultBuilder) buildOpenAICompatibleGenerator(apiKey, baseURL, modelNam
 	}
 	client := openai.NewClient(opts...)
 	return &genx.OpenAIGenerator{
+		Provider:          strings.TrimSuffix(cfg.Tenant.Kind, "-tenant"),
 		Client:            &client,
 		Model:             modelName,
 		SupportJSONOutput: boolValue(providerData.SupportJsonOutput),
@@ -340,6 +341,7 @@ func (b DefaultBuilder) buildOpenAIGenerator(cfg GeneratorConfig) (genx.Generato
 		return nil, fmt.Errorf("%w: model %q missing upstream model", ErrInvalid, cfg.Model.Id)
 	}
 	return &genx.OpenAIGenerator{
+		Provider:          strings.TrimSuffix(cfg.Tenant.Kind, "-tenant"),
 		Client:            &client,
 		Model:             modelName,
 		SupportJSONOutput: boolValue(providerData.SupportJsonOutput),
@@ -381,6 +383,7 @@ func (b DefaultBuilder) buildVolcArkGenerator(cfg GeneratorConfig) (genx.Generat
 		return nil, fmt.Errorf("%w: model %q missing upstream model", ErrInvalid, cfg.Model.Id)
 	}
 	return &genx.OpenAIGenerator{
+		Provider:          strings.TrimSuffix(cfg.Tenant.Kind, "-tenant"),
 		Client:            &client,
 		Model:             modelName,
 		SupportJSONOutput: boolValue(providerData.SupportJsonOutput),

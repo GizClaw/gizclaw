@@ -344,19 +344,10 @@ func (s *Server) init() error {
 	friendGroupInviteTokenStore := kv.Prefixed(s.FriendGroupStore, kv.Key{"invite-tokens"})
 	friendGroupMemberStore := kv.Prefixed(s.FriendGroupStore, kv.Key{"members"})
 	friendGroupBelongStore := kv.Prefixed(s.FriendGroupStore, kv.Key{"belongs"})
-	friendGroupRelationshipStore, friendGroupRelationshipPrefixes, ok := kv.SharedAtomicStore(
-		friendGroupStore,
-		friendGroupInviteTokenStore,
-		friendGroupMemberStore,
-		friendGroupBelongStore,
-	)
-	if !ok {
-		return errors.New("gizclaw: friend group relationship stores must share one atomic transaction boundary")
-	}
-	friendGroupPrefix := friendGroupRelationshipPrefixes[0]
-	friendGroupInvitePrefix := friendGroupRelationshipPrefixes[1]
-	friendGroupMemberPrefix := friendGroupRelationshipPrefixes[2]
-	friendGroupBelongPrefix := friendGroupRelationshipPrefixes[3]
+	// Keep auxiliary records and pending-deletion work inside the configured
+	// namespace. Domain mutations resolve the common atomic root and restore
+	// the full prefix of each participating view themselves.
+	friendGroupRelationshipStore := s.FriendGroupStore
 	if !kv.SupportsCreateIfAbsent(peerStore) {
 		return fmt.Errorf("gizclaw: peer store: %w", kv.ErrCreateIfAbsentUnsupported)
 	}
@@ -528,17 +519,13 @@ func (s *Server) init() error {
 		SFUURL: s.SFUURL,
 	}
 	friendGroupServer := &friendgroup.Server{
-		Groups:                   friendGroupStore,
-		InviteTokens:             friendGroupInviteTokenStore,
-		Members:                  friendGroupMemberStore,
-		Belongs:                  friendGroupBelongStore,
-		RelationshipStore:        friendGroupRelationshipStore,
-		GroupRelationshipPrefix:  friendGroupPrefix,
-		InviteRelationshipPrefix: friendGroupInvitePrefix,
-		MemberRelationshipPrefix: friendGroupMemberPrefix,
-		BelongRelationshipPrefix: friendGroupBelongPrefix,
-		Workspaces:               workspaceServer,
-		NotifyPeer:               notifyPeer,
+		Groups:            friendGroupStore,
+		InviteTokens:      friendGroupInviteTokenStore,
+		Members:           friendGroupMemberStore,
+		Belongs:           friendGroupBelongStore,
+		RelationshipStore: friendGroupRelationshipStore,
+		Workspaces:        workspaceServer,
+		NotifyPeer:        notifyPeer,
 		PeerAvailability: func(ctx context.Context, publicKey string) error {
 			key, err := parsePeerPublicKey(publicKey)
 			if err != nil {

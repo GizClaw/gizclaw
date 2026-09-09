@@ -1,16 +1,17 @@
 package streamkit
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"unicode/utf8"
 )
 
-func debugTTSSegment(meta TTSMeta, segment string, flushAll bool) {
+func debugTTSSegment(ctx context.Context, meta TTSMeta, segment string, flushAll bool) {
 	if !ttsDebugEnabled() {
 		return
 	}
-	slog.Info(
+	slog.InfoContext(ctx,
 		"tts: segment",
 		"stream_id", meta.StreamID,
 		"name", meta.Name,

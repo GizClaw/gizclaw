@@ -13,6 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/toolrun"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/streamlog"
 	"github.com/cloudwego/eino/schema"
 )
 
@@ -103,6 +104,7 @@ func (transformer *Transformer) Close() error {
 // Transform consumes one long-lived GenX Stream. Every completed text input
 // route executes a fresh Graph run.
 func (transformer *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	ctx = streamlog.StartStage(ctx, "eino")
 	if transformer == nil || transformer.graph == nil {
 		return nil, fmt.Errorf("eino: Transformer is nil")
 	}
@@ -200,10 +202,10 @@ func (session *session) run() {
 		return
 	}
 	if initiative {
-		previous = session.startTurn("", nil, nil, true)
+		previous = session.startTurn("", "", nil, nil, true)
 	}
 	for {
-		chunk, err := session.input.Next()
+		chunk, err := streamlog.ReadInput(session.invocation.Context(), session.input)
 		if err != nil {
 			if !isStreamEnd(err) {
 				inputFailure = err
@@ -265,7 +267,7 @@ func (session *session) run() {
 					inputFailure = fmt.Errorf("eino: input text Stream failed: %s", chunk.Ctrl.Error)
 					break
 				}
-				previous = session.startTurn(text.String(), parts, previous)
+				previous = session.startTurn(text.String(), activeInputID, parts, previous)
 				text.Reset()
 				parts = nil
 				inText = false
@@ -288,7 +290,7 @@ func (session *session) run() {
 					inputFailure = fmt.Errorf("eino: input text Stream failed: %s", chunk.Ctrl.Error)
 					break
 				}
-				previous = session.startTurn(text.String(), parts, previous)
+				previous = session.startTurn(text.String(), activeInputID, parts, previous)
 				text.Reset()
 				parts = nil
 				inText = false
@@ -381,7 +383,7 @@ type outputRoute struct {
 	response   *streamkit.Response
 }
 
-func (session *session) startTurn(user string, parts []any, previous <-chan struct{}, initiative ...bool) <-chan struct{} {
+func (session *session) startTurn(user, inputID string, parts []any, previous <-chan struct{}, initiative ...bool) <-chan struct{} {
 	runCtx, cancel := context.WithCancelCause(session.invocation.Context())
 	run := &turnRun{
 		session: session, user: user, parts: parts, ctx: runCtx, cancel: cancel,
@@ -390,8 +392,10 @@ func (session *session) startTurn(user string, parts []any, previous <-chan stru
 	}
 	run.initiative = len(initiative) != 0 && initiative[0]
 	for _, output := range session.transformer.graph.definition.Outputs {
+		outputID := genx.NewStreamID()
+		streamlog.OutputRecorder(session.invocation.Context()).LinkOutput(inputID, outputID)
 		response, err := session.invocation.StartResponse(streamkit.ResponseConfig{
-			Role: genx.RoleModel, Name: output.Name, Label: output.Name,
+			StreamID: outputID, Role: genx.RoleModel, Name: output.Name, Label: output.Name,
 		}, output.MIMEType)
 		if err != nil {
 			_ = session.invocation.Fail(err)

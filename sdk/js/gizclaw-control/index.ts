@@ -661,4 +661,4 @@ export {
   createGizClawPeerMonitorClient,
   createGizClawNodeMonitorClient,
 } from "./monitor.ts";
-export type { NodeSnapshot, MonitorLog } from "./monitor.ts";
+export type { NodeSnapshot } from "./monitor.ts";

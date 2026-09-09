@@ -13,6 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/streamlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/audiostream"
 	"github.com/GizClaw/minimax-go"
 )
@@ -130,6 +131,7 @@ func normalizeFormat(format string) string {
 // Transformer does not require connection setup, so it returns immediately.
 // The context governs provider work and the invocation-local output lifetime.
 func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	ctx = streamlog.StartStage(ctx, "minimaxtts", streamlog.Model{Provider: "minimax", Model: t.model, Kind: "tts"})
 	return streamkit.NewTTSStream(ctx, input, streamkit.OutputConfig{InitialCapacity: 100}, t.mimeType(), t.synthesize), nil
 }
 

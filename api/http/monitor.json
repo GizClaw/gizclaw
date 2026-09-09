@@ -61,44 +61,6 @@
       }
     },
     "schemas": {
-      "MonitorLog": {
-        "type": "object",
-        "required": [
-          "id",
-          "time",
-          "level",
-          "message"
-        ],
-        "properties": {
-          "id": {
-            "type": "integer",
-            "format": "uint64"
-          },
-          "time": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "level": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          },
-          "peer_public_key": {
-            "type": "string"
-          },
-          "error": {
-            "type": "string"
-          },
-          "fields": {
-            "type": "object",
-            "description": "Structured attributes of the record, such as request_id, operation, route, status, duration_ms and stream identifiers. At most 24 entries; keys and values are bounded and truncated.",
-            "additionalProperties": {
-              "type": "string"
-            }
-          }
-        }
-      },
       "NodeSnapshot": {
         "type": "object",
         "required": [
@@ -108,8 +70,7 @@
           "uptime_seconds",
           "goroutines",
           "heap_bytes",
-          "transport",
-          "logs"
+          "transport"
         ],
         "properties": {
           "public_key": {
@@ -166,13 +127,6 @@
                 "minimum": 0,
                 "description": "Current remote-opened service DataChannels admitted across this process, including pending opens. Released on stream or parent connection close. Excludes locally opened, packet, and native tunnel channels."
               }
-            }
-          },
-          "logs": {
-            "type": "array",
-            "maxItems": 500,
-            "items": {
-              "$ref": "#/components/schemas/MonitorLog"
             }
           }
         }
