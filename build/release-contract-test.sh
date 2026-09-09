@@ -13,9 +13,9 @@ ci_workflow="$repo_root/.github/workflows/ci.yml"
 semver_publisher="$(awk '/^  publish-semver:/{selected=1} selected' "$release_workflow")"
 grep -Fq "buildinfo.Version=\${BUILD_VERSION}" "$repo_root/build/Dockerfile"
 grep -Fq "buildinfo.Commit=\${BUILD_COMMIT}" "$repo_root/build/Dockerfile"
-[[ "$(grep -Fc "BUILD_VERSION: \${{ needs.prepare.outputs.version }}" "$release_workflow")" -eq 4 ]]
-[[ "$(grep -Fc "BUILD_COMMIT: \${{ needs.prepare.outputs.source_commit }}" "$release_workflow")" -eq 2 ]]
-grep -Fq "gizclaw version \$BUILD_VERSION" "$release_workflow"
+[[ "$(grep -Fc "BUILD_VERSION: \${{ needs.prepare.outputs.version }}" "$release_workflow")" -eq 2 ]]
+[[ "$(grep -Fc "BUILD_COMMIT: \${{ needs.prepare.outputs.source_commit }}" "$release_workflow")" -eq 1 ]]
+grep -Fq "gizclaw version \$1" "$release_workflow"
 grep -Fq 'tags:' "$release_workflow"
 grep -Fq -- '- "v*"' "$release_workflow"
 if grep -Eq '^    branches:|^  workflow_dispatch:|publish-snapshot|refs/tags/latest|gh release .*latest|0\.0\.0\+main' "$release_workflow"; then
@@ -151,8 +151,6 @@ make_formal_payloads() {
   mkdir -p "$directory"
   make_fixture_deb amd64 "$directory/gizclaw_${version}_amd64.deb"
   make_fixture_deb arm64 "$directory/gizclaw_${version}_arm64.deb"
-  install -m 0755 "$fixture_binary" "$directory/gizclaw-darwin-amd64"
-  install -m 0755 "$fixture_binary" "$directory/gizclaw-darwin-arm64"
   c_sdk_archive="gizclaw-c-sdk-${version}.tar.gz"
   printf '%s\n' "C SDK source archive fixture for $source_commit" >"$directory/$c_sdk_archive"
   printf '%s  %s\n' "$(sha256sum "$directory/$c_sdk_archive" | awk '{print $1}')" "$c_sdk_archive" \
@@ -178,13 +176,6 @@ published_json="$fixture_root/published.json"
 jq -n --arg tag "$tag" --arg source_commit "$source_commit" --argjson assets "$release_assets" \
   '{tag_name:$tag,target_commitish:$source_commit,draft:false,prerelease:false,assets:$assets}' >"$published_json"
 "$repo_root/build/check-release.sh" published "$payloads" "$tag" "$source_commit" "$published_json"
-
-downloaded_payloads="$fixture_root/downloaded-formal"
-cp -a "$payloads" "$downloaded_payloads"
-chmod 0644 "$downloaded_payloads"/gizclaw-darwin-*
-"$repo_root/build/check-release.sh" published "$downloaded_payloads" "$tag" "$source_commit" "$published_json"
-expect_failure "local Darwin payload without executable mode" "$repo_root/build/check-release.sh" \
-  semver "$downloaded_payloads" "$tag" "$source_commit"
 
 draft_json="$fixture_root/draft.json"
 jq '.draft = true' "$published_json" >"$draft_json"
@@ -226,12 +217,12 @@ expect_failure "formal extra asset" "$repo_root/build/check-release.sh" semver "
 
 formal_missing="$fixture_root/formal-missing"
 cp -a "$payloads" "$formal_missing"
-rm "$formal_missing/gizclaw-darwin-arm64"
+rm "$formal_missing/gizclaw_${version}_arm64.deb"
 expect_failure "formal missing asset" "$repo_root/build/check-release.sh" semver "$formal_missing" "$tag" "$source_commit"
 
 formal_digest="$fixture_root/formal-digest"
 cp -a "$payloads" "$formal_digest"
-printf '%s\n' tampered >>"$formal_digest/gizclaw-darwin-amd64"
+printf '%s\n' tampered >>"$formal_digest/gizclaw_${version}_amd64.deb"
 expect_failure "altered digest" "$repo_root/build/check-release.sh" semver "$formal_digest" "$tag" "$source_commit"
 
 formal_checksums="$fixture_root/formal-checksums"
@@ -253,10 +244,10 @@ expect_failure "altered C SDK archive digest" "$repo_root/build/check-release.sh
 
 formal_arch="$fixture_root/formal-architecture"
 cp -a "$payloads" "$formal_arch"
-jq '(.assets[] | select(.name == "gizclaw-darwin-amd64") | .architecture) = "arm64"' \
+jq --arg name "gizclaw_${version}_amd64.deb" '(.assets[] | select(.name == $name) | .architecture) = "arm64"' \
   "$formal_arch/release-manifest.json" >"$formal_arch/changed.json"
 mv "$formal_arch/changed.json" "$formal_arch/release-manifest.json"
-expect_failure "swapped macOS architecture" "$repo_root/build/check-release.sh" semver "$formal_arch" "$tag" "$source_commit"
+expect_failure "swapped Debian architecture" "$repo_root/build/check-release.sh" semver "$formal_arch" "$tag" "$source_commit"
 
 formal_duplicate="$fixture_root/formal-duplicate"
 cp -a "$payloads" "$formal_duplicate"
