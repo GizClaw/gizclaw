@@ -140,83 +140,6 @@ jobs:
           path: .tmp/release/*
           if-no-files-found: error
 
-  darwin:
-    name: Darwin ${{ matrix.arch }} Release Asset
-    needs: prepare
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: amd64
-            machine: x86_64
-            runner: macos-15-intel
-          - arch: arm64
-            machine: arm64
-            runner: macos-15
-    steps:
-      - name: Check out selected source commit
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ needs.prepare.outputs.source_commit }}
-          lfs: true
-
-      - name: Ensure Git LFS assets are available
-        run: git lfs pull
-
-      - name: Initialize nanopb submodule
-        run: git submodule update --init --depth=1 third_party/nanopb/upstream
-
-      - name: Verify native macOS runner
-        run: test "$(uname -m)" = "${{ matrix.machine }}"
-
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Build embedded monitoring console
-        uses: ./.github/actions/build-console
-
-      - name: Build native macOS executable
-        env:
-          CGO_ENABLED: "1"
-          GOOS: darwin
-          GOARCH: ${{ matrix.arch }}
-          BUILD_VERSION: ${{ needs.prepare.outputs.version }}
-          BUILD_COMMIT: ${{ needs.prepare.outputs.source_commit }}
-        run: |
-          mkdir -p .tmp/release
-          go build -trimpath \
-            -ldflags "-X github.com/GizClaw/gizclaw-go/cmd/internal/buildinfo.Version=${BUILD_VERSION} -X github.com/GizClaw/gizclaw-go/cmd/internal/buildinfo.Commit=${BUILD_COMMIT}" \
-            -o ".tmp/release/gizclaw-darwin-${{ matrix.arch }}" ./cmd/gizclaw
-
-      - name: Verify native macOS executable
-        env:
-          BINARY: .tmp/release/gizclaw-darwin-${{ matrix.arch }}
-          BUILD_VERSION: ${{ needs.prepare.outputs.version }}
-        run: |
-          test -f "$BINARY" && test ! -L "$BINARY" && test -x "$BINARY" && test -s "$BINARY"
-          file "$BINARY"
-          test "$(lipo -archs "$BINARY")" = "${{ matrix.machine }}"
-          if strings "$BINARY" | grep -F "$GITHUB_WORKSPACE"; then
-            echo "macOS executable contains the checkout path" >&2
-            exit 1
-          fi
-          test "$("$BINARY" --version)" = "gizclaw version $BUILD_VERSION"
-          "$BINARY" --help >/dev/null
-
-      - name: Upload Darwin release asset
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: darwin-${{ matrix.arch }}
-          path: .tmp/release/gizclaw-darwin-${{ matrix.arch }}
-          if-no-files-found: error
-
   c-sdk:
     name: C SDK Source Release Asset
     needs: prepare
@@ -283,7 +206,6 @@ jobs:
     needs:
       - prepare
       - linux
-      - darwin
       - c-sdk
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -314,9 +236,7 @@ jobs:
             name="$(basename "$artifact")"
             test ! -e ".tmp/publish/$name"
             test -f "$artifact" && test ! -L "$artifact" && test -s "$artifact"
-            mode=0644
-            [[ "$name" != gizclaw-darwin-* ]] || mode=0755
-            install -m "$mode" "$artifact" ".tmp/publish/$name"
+            install -m 0644 "$artifact" ".tmp/publish/$name"
           done < <(find .tmp/download -type f -print0)
           build/build-release-manifest.sh \
             --asset-dir .tmp/publish \

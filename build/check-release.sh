@@ -54,8 +54,6 @@ release_expected="$(printf '%s\n' \
   SHA256SUMS \
   "gizclaw-c-sdk-${version}.tar.gz" \
   "gizclaw-c-sdk-${version}.tar.gz.sha256" \
-  gizclaw-darwin-amd64 \
-  gizclaw-darwin-arm64 \
   "gizclaw_${version}_amd64.deb" \
   "gizclaw_${version}_arm64.deb" \
   release-manifest.json | LC_ALL=C sort)"
@@ -74,29 +72,23 @@ jq -e \
   .go_module_version == $tag and
   .debian_version == $version and
   .source_commit == $source_commit and .workflow == ".github/workflows/release.yml" and
-  (.assets | length == 5) and
+  (.assets | length == 3) and
   ([.assets[].name] == ([.assets[].name] | sort)) and
-  ([.assets[].name] | unique | length == 5) and
+  ([.assets[].name] | unique | length == 3) and
   ([.assets[] | {name,kind,os,architecture}] == [
     {name:("gizclaw-c-sdk-" + $version + ".tar.gz"),kind:"source",os:null,architecture:null},
-    {name:"gizclaw-darwin-amd64",kind:"executable",os:"darwin",architecture:"amd64"},
-    {name:"gizclaw-darwin-arm64",kind:"executable",os:"darwin",architecture:"arm64"},
     {name:("gizclaw_" + $version + "_amd64.deb"),kind:"deb",os:"linux",architecture:"amd64"},
     {name:("gizclaw_" + $version + "_arm64.deb"),kind:"deb",os:"linux",architecture:"arm64"}
   ]) and
   all(.assets[];
     (keys | all(. == "architecture" or . == "installed_path" or . == "kind" or . == "module" or . == "name" or . == "os" or . == "package" or . == "sha256" or . == "size" or . == "source_commit" or . == "version")) and
     (.name | type == "string" and length > 0) and
-    (.kind == "deb" or .kind == "executable" or .kind == "source") and
+    (.kind == "deb" or .kind == "source") and
     (.size | type == "number" and . > 0 and floor == .) and
     (.sha256 | test("^[0-9a-f]{64}$")) and
     (if .kind == "deb" then
       .os == "linux" and .package == "gizclaw" and .version == $version and
       .installed_path == "/usr/bin/gizclaw" and .source_commit == $source_commit
-     elif .kind == "executable" then
-      .os == "darwin" and
-      (.architecture == "amd64" or .architecture == "arm64") and
-      ((has("package") or has("version") or has("installed_path") or has("source_commit") or has("module")) | not)
      else
       .name == ("gizclaw-c-sdk-" + $version + ".tar.gz") and
       .module == "gizclaw_c_sdk" and .version == $version and .source_commit == $source_commit and
@@ -106,7 +98,6 @@ jq -e \
 
 expected_payloads="$(printf '%s\n' \
   "gizclaw-c-sdk-${version}.tar.gz" \
-  gizclaw-darwin-amd64 gizclaw-darwin-arm64 \
   "gizclaw_${version}_amd64.deb" "gizclaw_${version}_arm64.deb" | LC_ALL=C sort)"
 manifest_payloads="$(jq -r '.assets[].name' "$manifest")"
 [[ "$manifest_payloads" == "$expected_payloads" ]] || { echo "manifest payload inventory mismatch" >&2; exit 1; }
@@ -143,11 +134,6 @@ for deb_arch in amd64 arm64; do
   [[ "$(dpkg-deb --field "$deb" Architecture)" == "$deb_arch" ]]
   [[ "$(dpkg-deb --field "$deb" X-GizClaw-Source-Commit)" == "$source_commit" ]]
 done
-if [[ "$requested_mode" == semver ]]; then
-  for darwin_arch in amd64 arm64; do
-    [[ -x "$asset_dir/gizclaw-darwin-$darwin_arch" ]] || { echo "local Darwin asset is not executable" >&2; exit 1; }
-  done
-fi
 
 if [[ "$requested_mode" == draft || "$requested_mode" == published ]]; then
   expected_draft=false
@@ -166,8 +152,8 @@ if [[ "$requested_mode" == draft || "$requested_mode" == published ]]; then
       .target_commitish == $source_commit and
       .draft == $expected_draft and
       .prerelease == false and
-      (.assets | length == 8) and
-      ([.assets[].name] | unique | length == 8) and
+      (.assets | length == 6) and
+      ([.assets[].name] | unique | length == 6) and
       all(.assets[];
         (keys | all(. == "name" or . == "size")) and
         (.name | type == "string" and length > 0) and

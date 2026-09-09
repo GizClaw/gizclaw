@@ -245,7 +245,6 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
-          - macos-latest
     env:
       CGO_ENABLED: "1"
     steps:

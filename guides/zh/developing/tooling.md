@@ -103,7 +103,7 @@ commit/describe。Native package 是否可用仍以对应 package 的 build/runt
 仓库只在 push canonical protected tag `vMAJOR.MINOR.PATCH` 时发布正式、非
 prerelease Release。push `main` 不会构建或发布 Release。
 
-每个 Release 严格包含两个 Debian package、两个 Darwin executable、一个独立 C SDK
+每个 Release 严格包含两个 Debian package、一个独立 C SDK
 源码包及其 checksum sidecar、`release-manifest.json` 和 `SHA256SUMS`，不发布 Linux raw
 executable。Debian package 的 `gizclaw_<version>_{amd64,arm64}.deb` 从 tag 取得
 `<version>`。平台无关的源码 payload 命名为 `gizclaw-c-sdk-<version>.tar.gz`，相邻的
@@ -122,11 +122,8 @@ Annotated 与 lightweight tag 都 peel 到完整 source commit，且该 commit �
 
 每个 Debian package 只拥有 root/root、mode `0755` 的 `/usr/bin/gizclaw`。
 Shared-library dependency 从 packaged ELF 自动推导，并在匹配架构的干净 Ubuntu
-24.04 容器中验证安装、执行、删除、重装以及篡改后的同版本重装恢复。两个 Darwin
-资产是独立的 single-architecture command-line executable，分别在 native macOS 15
-Intel 与 Apple Silicon runner 上构建和执行。Windows、macOS universal binary、
-application bundle、installer、notarization 以及 package-manager repository 发布
-不属于本仓库的 Release contract。
+24.04 容器中验证安装、执行、删除、重装以及篡改后的同版本重装恢复。
+Windows、macOS 产物以及 package-manager repository 发布不属于本仓库的 Release contract。
 
 下载 Release 后，应同时验证 checksum、manifest 与 source identity，不能只信任
 文件名：
@@ -135,7 +132,6 @@ application bundle、installer、notarization 以及 package-manager repository 
 tag=v1.2.3
 gh release download "$tag" --repo GizClaw/gizclaw --dir ".tmp/$tag"
 (cd ".tmp/$tag" && sha256sum --check SHA256SUMS)
-chmod +x ".tmp/$tag"/gizclaw-darwin-*
 build/check-release.sh semver ".tmp/$tag" "$tag" "$(git rev-list -n 1 "$tag")"
 ```
 
@@ -143,7 +139,7 @@ build/check-release.sh semver ".tmp/$tag" "$tag" "$(git rev-list -n 1 "$tag")"
 绑定到完整 source commit。Native payload 另外绑定平台和架构；C SDK source entry 绑定
 module `gizclaw_c_sdk`、版本与 source commit；Debian entry 还绑定 package metadata
 与 `/usr/bin/gizclaw`。Formal rerun 只有在现有 published Release 的 metadata 与
-全部八个下载文件逐字节一致时才是 idempotent success。首次上传失败留下的 exact-tag
+全部六个下载文件逐字节一致时才是 idempotent success。首次上传失败留下的 exact-tag
 draft 也必须通过相同的 metadata、inventory、digest 与逐字节校验，workflow 才会发布
 同一个 draft。Partial、tag moved、重复 exact-tag Release 或任何 mismatch 都会 fail
 closed；workflow 从不删除、替换或覆盖已发布的 SemVer Release。下游 Homebrew 与 APT
