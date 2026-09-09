@@ -127,6 +127,8 @@ Push-to-Talk 在匹配的 `ASREnded` 到达时，根据当前 turn 累积并 tri
 
 Realtime 模式把普通 BOS、MIME EOS 和 route EOS 只视为本地 stream boundary；它们不会调用 `EndASR`、注入静音、commit audio 或发送 `ClientInterrupt`。唯一由 BOS 触发的 session replacement 是上述本地 interruption handoff。Input EOF 仍是 transform 终态：它停止重连，并在已提交的有限 Push-to-Talk 或 Text turn 排空匹配的 Chat/TTS response 后关闭当前 session；没有待完成 response 时直接关闭，且不会触发重建。Provider `ASRInfo` 在 response pending 时执行同样的本地 close-and-replace handoff；closed epoch 的重复或迟到 event 不能影响 replacement。Text 模式永不发送 `EndASR` 或 `ClientInterrupt`，只有 Push-to-Talk 使用这两个 provider operation。
 
+PTT 的二进制音频帧不携带 question/reply ID，归属由最近一次 TTS-start 事件确定。下一轮输入开始后，上一轮尚未完成的 Chat/TTS 记录仍用于匹配迟到的带 ID 事件，但不能抢占新一轮的无 ID 音频。旧响应的结束事件只关闭自己的 route。
+
 ### Realtime Dialogue Agent initiative
 
 Workspace `conversation.initiative` 为 `agent` 时，`doubaorealtime.Transformer` 让对话模型自己生成开场：第一个 provider session 建立后，Transformer 立即通过 ChatTextQuery（event 501，SDK `SendText`）发送一条隐藏 query，默认文本要求模型主动打招呼并开启话题，Workflow `doubao_realtime.initiative_query` 可覆盖。隐藏 query 永远不进入 output stream 和 Workspace History，只有模型的回复以 assistant text/audio route 发布；这条 route 的 StreamID 固定为 `initiative`（Realtime 模式下带 segment 后缀），不是任何 Peer 输入 route。`Config.Initiative` 只支持 `on_reload`：每个 `Transform` session 最多发送一次，同一个已配置 Transformer 服务的每个 Workspace 各自开场，reload 得到的新 Agent generation 会再次开场；`once_when_empty` 由 factory 在 Workspace History 为空时映射为 `on_reload`，History 非空时不启用。不发送 SayHello 或 ChatTTSText。

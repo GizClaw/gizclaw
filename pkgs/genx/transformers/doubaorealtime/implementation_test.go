@@ -923,6 +923,124 @@ func TestTransformerPTTLateTerminalEventKeepsOriginalTurnBinding(t *testing.T) {
 	}
 }
 
+func TestTransformerPTTOverlappingInputRoutesAnonymousAudioToCurrentTTS(t *testing.T) {
+	endASR := make(chan struct{})
+	eventPaused := make(chan struct{})
+	resumeEvents := make(chan struct{})
+	eventsDrained := make(chan struct{})
+	session := &fakeTransformerSession{
+		beforeRecv:       endASR,
+		endASR:           endASR,
+		eventsDrained:    eventsDrained,
+		blockAfterEvents: make(chan struct{}),
+		pauseBeforeEvent: 4,
+		eventPaused:      eventPaused,
+		resumeEvents:     resumeEvents,
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRResponse, Text: "first", QuestionID: "q-1"},
+			{Type: doubaospeech.EventASREnded, QuestionID: "q-1"},
+			{Type: doubaospeech.EventTTSStarted, QuestionID: "q-1", ReplyID: "r-1"},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{1, 0}},
+			{Type: doubaospeech.EventASRResponse, Text: "second", QuestionID: "q-2"},
+			{Type: doubaospeech.EventASREnded, QuestionID: "q-2"},
+			{Type: doubaospeech.EventChatResponse, Text: "second answer", QuestionID: "q-2", ReplyID: "r-2"},
+			{Type: doubaospeech.EventChatEnded, ReplyID: "r-2"},
+			{Type: doubaospeech.EventTTSStarted, ReplyID: "r-2"},
+			// Binary audio frames do not carry question_id or reply_id.
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{2, 3}},
+			{Type: doubaospeech.EventTTSFinished, ReplyID: "r-2"},
+			{Type: doubaospeech.EventTTSFinished, ReplyID: "r-1"},
+			{Type: doubaospeech.EventChatEnded, ReplyID: "r-1"},
+		},
+	}
+	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}
+	tfr := newTransformer(nil,
+		withDoubaoRealtimeOpener(opener),
+		withMode(ModePushToTalk),
+		withInputFormat("pcm"),
+		withInputTranscode(false),
+		withFormat("pcm"),
+	)
+	input := newBufferStream(16)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	output, err := tfr.transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	for _, chunk := range []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+	} {
+		if err := input.Push(chunk); err != nil {
+			t.Fatalf("Push(first turn) error = %v", err)
+		}
+	}
+	select {
+	case <-eventPaused:
+	case <-time.After(2 * time.Second):
+		t.Fatal("provider events did not pause during the first turn audio")
+	}
+	// Observe real first-turn audio before submitting the next input.
+	var chunks []*genx.MessageChunk
+	for {
+		chunk, err := output.Next()
+		if err != nil {
+			t.Fatal(err)
+		}
+		chunks = append(chunks, chunk)
+		if blob, ok := chunk.Part.(*genx.Blob); ok && chunk.Role == genx.RoleModel && len(blob.Data) > 0 {
+			break
+		}
+	}
+	for _, chunk := range []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn-2", BeginOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-2"}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-2", EndOfStream: true}},
+	} {
+		if err := input.Push(chunk); err != nil {
+			t.Fatalf("Push(second turn) error = %v", err)
+		}
+	}
+	if !session.waitForEndASRCount(2, 2*time.Second) {
+		t.Fatalf("EndASR calls = %d, want 2", session.endASRCount())
+	}
+	close(resumeEvents)
+	select {
+	case <-eventsDrained:
+	case <-time.After(2 * time.Second):
+		t.Fatal("provider events did not drain")
+	}
+	if err := input.Close(); err != nil {
+		t.Fatalf("Close(input) error = %v", err)
+	}
+	chunks = append(chunks, drainRealtimeTestOutput(t, output)...)
+	var secondAudio []byte
+	terminals := map[string]int{}
+	for _, chunk := range chunks {
+		if chunk.Ctrl == nil || chunk.Ctrl.StreamID != "turn-2" || chunk.Role != genx.RoleModel {
+			continue
+		}
+		if chunk.IsEndOfStream() {
+			if chunk.Ctrl.Error != "" {
+				t.Fatalf("second response failed: %s", chunk.Ctrl.Error)
+			}
+			mime, _ := chunk.MIMEType()
+			terminals[mime]++
+		}
+		if blob, ok := chunk.Part.(*genx.Blob); ok {
+			secondAudio = append(secondAudio, blob.Data...)
+		}
+	}
+	if terminals["text/plain"] != 1 || terminals["audio/pcm"] != 1 {
+		t.Fatalf("second response terminals = %v, want one text and audio EOS", terminals)
+	}
+	if !bytes.Equal(secondAudio, []byte{2, 3}) {
+		t.Fatalf("second response audio = %v, want [2 3]", secondAudio)
+	}
+}
+
 func TestTransformerPTTBargeInIgnoresDelayedASRTerminal(t *testing.T) {
 	endASR := make(chan struct{})
 	eventPaused := make(chan struct{})

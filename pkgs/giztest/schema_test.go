@@ -38,3 +38,22 @@ func TestEmbeddedSchemaValidatesPersistentPeerStreamFields(t *testing.T) {
 func persistentPeerStreamDocument(fields string) string {
 	return validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: realtime\n      input: hello\n" + fields
 }
+
+func TestOverlapInputContract(t *testing.T) {
+	for _, mode := range []string{"push-to-talk", "realtime"} {
+		valid := validDocument + "  - id: overlap\n    client: peer\n    peer_stream:\n      mode: " + mode + "\n      input: audio\n      overlap_input: true\n"
+		if _, err := LoadDocument(writeTestDocument(t, valid), nil); err != nil {
+			t.Fatal(err)
+		}
+		for _, extra := range []string{"interrupt_after: 1s", "completion: first_response", "keep_open: true", "require_audio: false", "idle_timeout: 1s", "empty_input: true"} {
+			if _, err := LoadDocument(writeTestDocument(t, valid+"      "+extra+"\n"), nil); err == nil {
+				t.Fatalf("accepted overlap with %s", extra)
+			}
+		}
+	}
+	for _, mode := range []string{"text", "listen"} {
+		if err := validatePeerStreamStep(Step{ID: "overlap", PeerStream: &PeerStreamOperation{Mode: mode, Input: "audio", OverlapInput: true}}, false); err == nil {
+			t.Fatalf("accepted %s overlap", mode)
+		}
+	}
+}
