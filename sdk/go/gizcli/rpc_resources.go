@@ -148,6 +148,18 @@ func (c *rpcClient) GetFriendInfo(ctx context.Context, conn net.Conn, id string,
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendInfoGet, request, (*rpcapi.RPCPayload).FromFriendInfoGetRequest, rpcapi.RPCPayload.AsFriendInfoGetResponse, "friend info get")
 }
 
+func (c *rpcClient) PingFriend(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendPingRequest) (*rpcapi.FriendPingResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendPing, request, (*rpcapi.RPCPayload).FromFriendPingRequest, rpcapi.RPCPayload.AsFriendPingResponse, "friend ping")
+}
+
+func (c *rpcClient) PingFriendGroup(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupPingRequest) (*rpcapi.FriendGroupPingResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupPing, request, (*rpcapi.RPCPayload).FromFriendGroupPingRequest, rpcapi.RPCPayload.AsFriendGroupPingResponse, "friend group ping")
+}
+
+func (c *rpcClient) GetProfiles(ctx context.Context, conn net.Conn, id string, request rpcapi.ProfileGetRequest) (*rpcapi.ProfileGetResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerProfileGet, request, (*rpcapi.RPCPayload).FromProfileGetRequest, rpcapi.RPCPayload.AsProfileGetResponse, "profile get")
+}
+
 func (c *rpcClient) DeleteFriend(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendDeleteRequest) (*rpcapi.FriendDeleteResponse, error) {
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendDelete, request, (*rpcapi.RPCPayload).FromFriendDeleteRequest, rpcapi.RPCPayload.AsFriendDeleteResponse, "friend delete")
 }

@@ -709,6 +709,26 @@ int gzc_control_play_device_sound(
   return builder_send(&builder, client, call, GZC_HTTP_METHOD_POST, url, body);
 }
 
+int gzc_control_find_device(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_find_request_t *request) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  gzc_control_builder_t builder;
+  builder_begin(&builder, client, call, "/device/actions/find");
+  gzc_str_t url = builder_url(&builder);
+  gzc_json_writer_t writer;
+  builder_body_begin(&builder, &writer);
+  if (builder.rc == GZC_OK && request != NULL && request->has_duration_ms) {
+    builder.rc = gzc_json_field_i64(&writer, "duration_ms", request->duration_ms);
+  }
+  gzc_str_t body = builder_body(&builder, &writer);
+  return builder_send(&builder, client, call, GZC_HTTP_METHOD_POST, url, body);
+}
+
 int gzc_control_reboot_device(
     gzc_control_client_t *client,
     gzc_control_call_t *call,

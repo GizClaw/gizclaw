@@ -364,6 +364,21 @@ class GizClawControlClient {
     );
   }
 
+  /// `POST /gizclaw/v1/device/actions/find`.
+  ///
+  /// Rings the device's built-in find-me sound with a rising volume ramp.
+  /// [durationMs] is the requested ring time; the device picks its own default
+  /// when it is null. A device without a find provider answers
+  /// [GizClawControlErrorKind.deviceUnsupported].
+  Future<void> findDevice({int? durationMs}) {
+    return _noContent(
+      'POST',
+      '/device/actions/find',
+      body: DeviceFindRequest(durationMs: durationMs).toJson(),
+      operation: 'findDevice',
+    );
+  }
+
   /// `POST /gizclaw/v1/device/actions/reboot`.
   ///
   /// The device acknowledges before rebooting; later control calls fail with

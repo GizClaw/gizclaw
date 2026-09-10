@@ -48,7 +48,7 @@ func TestOverlappingPeerInput(t *testing.T) {
 				stream.in <- empty
 				stream.in <- assistantText("provisional", "", true)
 				stream.in <- assistantText("first", "story", false)
-				stream.in <- assistantBlob("first", []byte{1}, outcome == "already-ended")
+				stream.in <- assistantBlob("first", testAudibleOpus(t), outcome == "already-ended")
 				// Drain the first input and wait for a fresh BOS on the SAME stream.
 				for {
 					select {
@@ -83,7 +83,7 @@ func TestOverlappingPeerInput(t *testing.T) {
 				stream.in <- assistantBlob("stale", nil, true)
 				stream.in <- assistantText("second", "reply", false)
 				if outcome != "second-no-audio" {
-					stream.in <- assistantBlob("second", []byte{1}, false)
+					stream.in <- assistantBlob("second", testAudibleOpus(t), false)
 				}
 				stream.in <- assistantText("second", "", true)
 				if outcome != "missing-second-audio" {

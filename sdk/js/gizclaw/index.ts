@@ -27,6 +27,7 @@ import {
   type SpeechTranscribeRequest,
   type SpeechTranscribeResponse,
   type SpeedTestRequest,
+  type ClientDeviceFindRequest,
   type ClientDeviceRebootRequest,
   type ClientDeviceSoundPlayRequest,
   type ClientDeviceVolumeSetRequest,
@@ -34,6 +35,7 @@ import {
   type FirmwareChannelName,
   type ClientGetIdentifiersResponse,
   type ClientGetInfoResponse,
+  type ClientSocialPingRequest,
   type ClientWifiSavedForgetRequest,
   type ClientWifiConnectRequest,
   type ClientWifiScanRequest,
@@ -254,6 +256,10 @@ export type GizClawAudioPlayerHandlers = {
 export type GizClawDeviceControlHandlers = {
   audioplayer?: GizClawAudioPlayerHandlers;
   connectWifi?: (ssid: string, passphrase?: string) => Promise<void> | void;
+  // find plays the device's own built-in find-me sound with a rising volume
+  // ramp. durationMs is undefined when the caller leaves the ring time to the
+  // device.
+  find?: (durationMs?: number) => Promise<void> | void;
   forgetWifi?: (ssid: string) => Promise<void> | void;
   playSound?: (sound: string, durationMs?: number) => Promise<void> | void;
   reboot?: (delayMs?: number) => Promise<void> | void;
@@ -285,6 +291,13 @@ export type GizClawPeerRPCHandlers = {
   deviceIdentifiers?: () =>
     Promise<ClientGetIdentifiersResponse> | ClientGetIdentifiersResponse;
   deviceInfo?: () => Promise<ClientGetInfoResponse> | ClientGetInfoResponse;
+  // socialPing answers client.social.ping: a friend pinged this device, or a
+  // Friend Group member rallied the group. friend_group_name is this device's
+  // own name for the group and is absent for a friend ping. The Server counts
+  // the device as reached only when the handler resolves within its short
+  // push timeout, so alert the user without waiting on them, and leave the
+  // handler unset on a device that cannot alert its user.
+  socialPing?: (request: ClientSocialPingRequest) => Promise<void> | void;
 };
 
 // GizClawDeviceControlError makes a device control handler answer one specific
@@ -2390,6 +2403,34 @@ function deviceControlDuration(value: unknown): number | undefined | null {
   return value;
 }
 
+// validSocialPingParams checks an inbound client.social.ping request. The
+// sender key is required; the display name and the group name are optional,
+// and an absent optional field stays absent rather than becoming "".
+function validSocialPingParams(value: unknown): ClientSocialPingRequest | null {
+  if (value == null || typeof value !== "object") {
+    return null;
+  }
+  const params = value as Partial<
+    Record<keyof ClientSocialPingRequest, unknown>
+  >;
+  const from = params.from_peer_public_key;
+  if (typeof from !== "string" || from.length === 0) {
+    return null;
+  }
+  const request: ClientSocialPingRequest = { from_peer_public_key: from };
+  for (const field of ["from_display_name", "friend_group_name"] as const) {
+    const text = params[field];
+    if (text === undefined) {
+      continue;
+    }
+    if (typeof text !== "string") {
+      return null;
+    }
+    request[field] = text;
+  }
+  return request;
+}
+
 // answerClientRequest answers one inbound client.* RPC from the handlers the
 // caller installed. An unhandled method answers METHOD_NOT_FOUND so the server
 // maps it to 501 DEVICE_UNSUPPORTED, matching the Go and Dart SDKs.
@@ -2513,6 +2554,31 @@ async function answerClientRequest(
           return invalid();
         }
         await handler(sound, durationMs);
+        return ok({});
+      }
+      case "client.device.find": {
+        const handler = control?.find;
+        if (handler == null) {
+          return unsupported();
+        }
+        const params = request.params as ClientDeviceFindRequest | undefined;
+        const durationMs = deviceControlDuration(params?.duration_ms);
+        if (durationMs === null) {
+          return invalid();
+        }
+        await handler(durationMs);
+        return ok({});
+      }
+      case "client.social.ping": {
+        const handler = handlers?.socialPing;
+        if (handler == null) {
+          return unsupported();
+        }
+        const params = validSocialPingParams(request.params);
+        if (params == null) {
+          return invalid();
+        }
+        await handler(params);
         return ok({});
       }
       case "client.device.reboot": {

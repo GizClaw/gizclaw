@@ -509,6 +509,7 @@ func (s *Server) init() error {
 		Workspaces:   workspaceServer,
 		Profiles:     peersServer,
 		NotifyPeer:   notifyPeer,
+		Pings:        manager,
 		PeerAvailability: func(ctx context.Context, publicKey string) error {
 			key, err := parsePeerPublicKey(publicKey)
 			if err != nil {
@@ -526,6 +527,8 @@ func (s *Server) init() error {
 		RelationshipStore: friendGroupRelationshipStore,
 		Workspaces:        workspaceServer,
 		NotifyPeer:        notifyPeer,
+		Profiles:          peersServer,
+		Pings:             manager,
 		PeerAvailability: func(ctx context.Context, publicKey string) error {
 			key, err := parsePeerPublicKey(publicKey)
 			if err != nil {

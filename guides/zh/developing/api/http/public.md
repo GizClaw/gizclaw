@@ -44,6 +44,7 @@ PUT /gizclaw/v1/device/volume { level: 0..100, muted }
 | --- | --- | --- |
 | `PUT /device/volume` | `client.device.volume.set` | `200 { status }` |
 | `POST /device/actions/play-sound` `{ sound, duration_ms? }` | `client.device.sound.play` | `204` |
+| `POST /device/actions/find` `{ duration_ms? }` | `client.device.find` | `204` |
 | `POST /device/actions/reboot` `{ delay_ms? }` | `client.device.reboot` | `204` |
 | `POST /device/actions/firmware-update` `{ channel?, sha256? }` | `client.firmware.update` | `204` |
 | `GET /device/wifi` | `client.wifi.status.get` | `200 DeviceWifiStatus` |
@@ -53,6 +54,8 @@ PUT /gizclaw/v1/device/volume { level: 0..100, muted }
 | `PUT /device/wifi` `{ ssid, passphrase? }` | `client.wifi.connect` | `202` |
 
 `firmware-update` 通知设备执行一次 OTA，设备应答后自行下载、校验、写入并重启。`channel` 取自 `GET /device/firmware` 返回的 channel，省略时设备沿用自身的 channel；`sha256` 是调用方看到的目标包摘要，Server 只校验它是 64 位小写 hex，是否与设备解析出的包一致由设备判断，不一致时设备返回 `INVALID_PARAMS`，映射为 `400 DEVICE_REJECTED`。设备当前运行的包由 `PeerStatus.firmware_sha256` 上报，调用方与目标 channel 的 `package.sha256` 比较即可判断是否需要升级。
+
+`find` 是“找设备”：设备播放内置的本地找寻提示音并逐步增大音量，不涉及音频 URL、曲库或 `sound` 取值；body 可省略，`duration_ms` 必须非负，省略时由设备决定时长。App 的“找设备”入口应调用 `find`，不应借用 `play-sound` 播放曲目。
 
 `sound` 是设备自定义字符串，Server 只检查非空且不超过 32 UTF‑8 bytes，由设备 provider 校验取值；`ssid` 同样限制 32 bytes。扫描 `timeout_ms` 缺省为 8000，并夹取到 1000–15000；它不复用其他控制 route 的 5 秒超时。加入开放网络时省略 `passphrase`，PSK 长度为 8–63 bytes。`202` 只表示设备接受凭据：设备先应答 RPC 再切网，随后必然掉线；掉线期间控制 route 返回 `409 DEVICE_OFFLINE`，客户端在设备重连后轮询 `GET /device/wifi`，以 `ssid` 是否变为目标网络判断成功或回退。密码只经过转发路径，不持久化、不记录日志、不回显。扫描结果由设备提供，Server 在返回前重新校验：最多 32 条，`ssid` 非空且不超过 32 bytes，`bssid` 不超过 17 bytes，`security` 不超过 5 bytes，越界的应答整体按 `502 DEVICE_ERROR` 拒绝而不回显越界值。
 

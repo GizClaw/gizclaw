@@ -564,7 +564,16 @@ func TestPeerAgentOutputDecodesOpusIntoPCMTrack(t *testing.T) {
 		t.Fatalf("NewEncoder() error = %v", err)
 	}
 	defer encoder.Close()
-	packet, err := encoder.Encode(make([]int16, frameSize), frameSize)
+	// Agent audio opens its track at the first audible sample, so the frame
+	// carries a tone rather than digital silence.
+	frame := make([]int16, frameSize)
+	for i := range frame {
+		frame[i] = 8000
+		if i%48 >= 24 {
+			frame[i] = -8000
+		}
+	}
+	packet, err := encoder.Encode(frame, frameSize)
 	if err != nil {
 		t.Fatalf("Encode() error = %v", err)
 	}
@@ -1038,7 +1047,7 @@ func TestPeerAgentOutputPreservesNonAudioRouteEOS(t *testing.T) {
 	tracks := &peerStreamFakeTracks{createdCh: make(chan struct{}, 1)}
 	pcmChunk := func(streamID, label string) *genx.MessageChunk {
 		return &genx.MessageChunk{
-			Part: &genx.Blob{MIMEType: "audio/L16; rate=16000; channels=1", Data: []byte{1, 0}},
+			Part: &genx.Blob{MIMEType: "audio/L16; rate=16000; channels=1", Data: []byte{0, 1}},
 			Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: label, BeginOfStream: true},
 		}
 	}
@@ -1116,7 +1125,7 @@ func TestPeerAgentOutputPreservesTextEOSForSharedAudioRoute(t *testing.T) {
 		{
 			Part: &genx.Blob{
 				MIMEType: "audio/L16; rate=16000; channels=1",
-				Data:     []byte{1, 0},
+				Data:     []byte{0, 1},
 			},
 			Ctrl: &genx.StreamCtrl{
 				StreamID:      "answer",
@@ -1407,8 +1416,8 @@ func peerOutputAudioBoundary(eventType eventpb.PeerEventType, streamID, label, m
 func TestPeerAgentOutputReusesPCMTrack(t *testing.T) {
 	tracks := &peerStreamFakeTracks{createdCh: make(chan struct{}, 1)}
 	output := &peerStreamSliceStream{chunks: []*genx.MessageChunk{
-		{Part: &genx.Blob{MIMEType: "audio/L16; rate=16000; channels=1", Data: []byte{1, 0}}},
-		{Part: &genx.Blob{MIMEType: "audio/L16; rate=16000; channels=1", Data: []byte{2, 0}}},
+		{Part: &genx.Blob{MIMEType: "audio/L16; rate=16000; channels=1", Data: []byte{0, 1}}},
+		{Part: &genx.Blob{MIMEType: "audio/L16; rate=16000; channels=1", Data: []byte{0, 2}}},
 	}, doneErr: genx.ErrDone}
 	done := make(chan error, 1)
 	go func() {

@@ -1,0 +1,77 @@
+# User Story:
+# As a GizClaw device showing a member list,
+# I want the public display name and emoji of any Peer by public key,
+# So that the list shows names instead of raw keys without a Friend relationship.
+version: gizclaw.test/v1alpha1
+name: server.profile.get
+clients:
+  alice:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+  carol:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  carol_invite:
+    direction: output
+    type: string
+    secret: true
+  carol_key:
+    direction: output
+    type: string
+steps:
+- id: register_alice
+  client: alice
+  rpc: {method: server.register, request: {token: "${registration_token}"}}
+- id: register_carol
+  client: carol
+  rpc: {method: server.register, request: {token: "${registration_token}"}}
+- id: carol_profile
+  client: carol
+  rpc: {method: server.info.put, request: {value: {name: Carol, emoji: "🐱"}}}
+# A Friend relationship only reveals carol's public key; it is removed again
+# before the lookup, which needs no relationship.
+- id: carol_invite
+  client: carol
+  rpc: {method: server.friend.invite_token.create, request: {}}
+  capture:
+    carol_invite: /invite_token
+- id: alice_adds_carol
+  client: alice
+  rpc: {method: server.friend.add, request: {invite_token: "${carol_invite}"}}
+  capture:
+    carol_key: /name
+- id: alice_deletes_carol
+  client: alice
+  rpc: {method: server.friend.delete, request: {name: "${carol_key}"}}
+- id: primary_rpc
+  client: alice
+  rpc: {method: server.profile.get, request: {peer_public_keys: ["${carol_key}", "${carol_key}"]}}
+  expect:
+    /items: {count: 1}
+    /items/0/peer_public_key: {equals: "${carol_key}"}
+    /items/0/display_name: {equals: Carol}
+    /items/0/emoji: {equals: "🐱"}
+- id: invalid_key
+  client: alice
+  rpc: {method: server.profile.get, request: {peer_public_keys: [not-a-key]}}
+  expect_error:
+    code: 3 # INVALID_ARGUMENT
+finally:
+- client: alice
+  rpc: {method: server.peer.delete, request: {}}
+- client: carol
+  rpc: {method: server.peer.delete, request: {}}
+report:
+  redact: [registration_token, carol_invite]

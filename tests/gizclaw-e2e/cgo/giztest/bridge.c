@@ -376,6 +376,7 @@ static void split_route(gzc_str_t path, gzt_route_t *out) {
       "/device/actions/play-sound",
       "/device/runtime-profile",
       "/device/actions/reboot",
+      "/device/actions/find",
       "/device/wifi/saved",
       "/device/telemetry",
       "/device/runtime",
@@ -692,6 +693,11 @@ int gzt_control_request(
       request.duration_ms = (int32_t)duration;
     }
     rc = gzc_control_play_device_sound(&control, &call, &request);
+  } else if (post && route_is(&route, "/device/actions/find", false)) {
+    gzc_control_find_request_t request;
+    memset(&request, 0, sizeof(request));
+    request.has_duration_ms = body_i64(body, "duration_ms", &request.duration_ms);
+    rc = gzc_control_find_device(&control, &call, &request);
   } else if (post && route_is(&route, "/device/actions/reboot", false)) {
     gzc_control_reboot_request_t request;
     int64_t delay = 0;

@@ -366,6 +366,57 @@ static void test_contract_caps_are_not_enforced_locally(void) {
   check(strcmp(stub.body, "{\"sound\":\"chime\",\"duration_ms\":1200}") == 0, "play sound body");
 }
 
+/*
+ * The find body is optional: NULL and an absent duration both send `{}` so
+ * the device picks its own ring time, and a negative duration still reaches
+ * the Server, whose 400 is what classifies it.
+ */
+static void test_find_device(void) {
+  stub_t stub;
+  gzc_http_vtable_t http;
+  gzc_control_client_t client;
+  memset(&stub, 0, sizeof(stub));
+  stub.status_code = 204;
+  stub.response_body = "";
+  init_client(&client, &stub, &http);
+
+  uint8_t scratch[512];
+  uint8_t response[512];
+  gzc_control_call_t call;
+  check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "call init");
+
+  check(gzc_control_find_device(&client, &call, NULL) == GZC_OK, "find with device default");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/actions/find") == 0, "find path");
+  check(stub.method == GZC_HTTP_METHOD_POST, "find method");
+  check(strcmp(stub.body, "{}") == 0, "find without request sends an empty object");
+  check(call.status_code == 204, "find status");
+
+  gzc_control_find_request_t find;
+  memset(&find, 0, sizeof(find));
+  check(gzc_control_find_device(&client, &call, &find) == GZC_OK, "find without duration");
+  check(strcmp(stub.body, "{}") == 0, "absent duration is omitted");
+
+  find.has_duration_ms = true;
+  find.duration_ms = 8000;
+  check(gzc_control_find_device(&client, &call, &find) == GZC_OK, "find with duration");
+  check(strcmp(stub.body, "{\"duration_ms\":8000}") == 0, "find duration body");
+
+  stub.status_code = 400;
+  stub.response_body = "{\"error\":{\"code\":\"INVALID_REQUEST\",\"message\":\"duration_ms must be non-negative\"}}";
+  find.duration_ms = -1;
+  check(gzc_control_find_device(&client, &call, &find) == GZC_ERR_HTTP, "negative duration is sent");
+  check(strcmp(stub.body, "{\"duration_ms\":-1}") == 0, "negative duration body");
+  check(call.error.kind == GZC_CONTROL_ERROR_INVALID_REQUEST, "negative duration classifies on the response");
+
+  stub.status_code = 501;
+  stub.response_body = "{\"error\":{\"code\":\"DEVICE_UNSUPPORTED\",\"message\":\"device does not support find\"}}";
+  check(gzc_control_find_device(&client, &call, NULL) == GZC_ERR_HTTP, "unsupported find fails");
+  check(call.error.kind == GZC_CONTROL_ERROR_DEVICE_UNSUPPORTED, "unsupported find classifies");
+
+  check(gzc_control_find_device(NULL, &call, NULL) == GZC_ERR_INVALID_ARGUMENT, "find requires a client");
+  check(gzc_control_find_device(&client, NULL, NULL) == GZC_ERR_INVALID_ARGUMENT, "find requires a call");
+}
+
 /* The header sink must reject header injection identically in every backend. */
 static void test_response_header_validation(void) {
   gzc_http_request_t request;
@@ -812,6 +863,7 @@ int main(void) {
   test_set_volume_encodes_body();
   test_query_parameters_and_encoding();
   test_contract_caps_are_not_enforced_locally();
+  test_find_device();
   test_response_header_validation();
   test_error_classification();
   test_error_response_is_decoded();

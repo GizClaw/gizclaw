@@ -168,7 +168,7 @@ func invokeOverlappingPeerInput(ctx context.Context, stream peerStream, op *gizt
 			}
 			response.textObserved = response.textObserved || hasText
 			response.audioObserved = response.audioObserved || hasAudio
-			if id == firstID && hasAudio && firstAudio.IsZero() {
+			if id == firstID && received.audio.audible && firstAudio.IsZero() {
 				firstAudio = received.receivedAt
 			}
 			if chunk.IsEndOfStream() {

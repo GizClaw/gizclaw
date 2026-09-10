@@ -644,6 +644,17 @@ class DevicePlaySoundRequest {
       withoutNulls({'sound': sound, 'duration_ms': durationMs});
 }
 
+/// Body of `POST /gizclaw/v1/device/actions/find` (`DeviceFindRequest`).
+class DeviceFindRequest {
+  const DeviceFindRequest({this.durationMs});
+
+  /// Requested ring time in milliseconds; the device picks its own default
+  /// when null.
+  final int? durationMs;
+
+  JsonObject toJson() => withoutNulls({'duration_ms': durationMs});
+}
+
 /// Body of `POST /gizclaw/v1/device/actions/reboot` (`DeviceRebootRequest`).
 class DeviceRebootRequest {
   const DeviceRebootRequest({this.delayMs});

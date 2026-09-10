@@ -184,6 +184,11 @@ const RpcMethod$json = {
     {'1': 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET', '2': 119, '3': {}},
     {'1': 'RPC_METHOD_SERVER_APP_CONFIG_LIST', '2': 121, '3': {}},
     {'1': 'RPC_METHOD_SERVER_APP_CONFIG_GET', '2': 122, '3': {}},
+    {'1': 'RPC_METHOD_SERVER_FRIEND_PING', '2': 123, '3': {}},
+    {'1': 'RPC_METHOD_SERVER_FRIEND_GROUP_PING', '2': 124, '3': {}},
+    {'1': 'RPC_METHOD_SERVER_PROFILE_GET', '2': 125, '3': {}},
+    {'1': 'RPC_METHOD_CLIENT_DEVICE_FIND', '2': 126, '3': {}},
+    {'1': 'RPC_METHOD_CLIENT_SOCIAL_PING', '2': 127, '3': {}},
   ],
 };
 
@@ -414,7 +419,17 @@ final $typed_data.Uint8List rpcMethodDescriptor = $convert.base64Decode(
     'X1NFUlZFUl9BUFBfQ09ORklHX0xJU1QQeRpJwvMYRQoWc2VydmVyLmFwcF9jb25maWcubGlzdB'
     'IUQXBwQ29uZmlnTGlzdFJlcXVlc3QaFUFwcENvbmZpZ0xpc3RSZXNwb25zZRJsCiBSUENfTUVU'
     'SE9EX1NFUlZFUl9BUFBfQ09ORklHX0dFVBB6GkbC8xhCChVzZXJ2ZXIuYXBwX2NvbmZpZy5nZX'
-    'QSE0FwcENvbmZpZ0dldFJlcXVlc3QaFEFwcENvbmZpZ0dldFJlc3BvbnNl');
+    'QSE0FwcENvbmZpZ0dldFJlcXVlc3QaFEFwcENvbmZpZ0dldFJlc3BvbnNlEmIKHVJQQ19NRVRI'
+    'T0RfU0VSVkVSX0ZSSUVORF9QSU5HEHsaP8LzGDsKEnNlcnZlci5mcmllbmQucGluZxIRRnJpZW'
+    '5kUGluZ1JlcXVlc3QaEkZyaWVuZFBpbmdSZXNwb25zZRJ4CiNSUENfTUVUSE9EX1NFUlZFUl9G'
+    'UklFTkRfR1JPVVBfUElORxB8Gk/C8xhLChhzZXJ2ZXIuZnJpZW5kX2dyb3VwLnBpbmcSFkZyaW'
+    'VuZEdyb3VwUGluZ1JlcXVlc3QaF0ZyaWVuZEdyb3VwUGluZ1Jlc3BvbnNlEmIKHVJQQ19NRVRI'
+    'T0RfU0VSVkVSX1BST0ZJTEVfR0VUEH0aP8LzGDsKEnNlcnZlci5wcm9maWxlLmdldBIRUHJvZm'
+    'lsZUdldFJlcXVlc3QaElByb2ZpbGVHZXRSZXNwb25zZRJuCh1SUENfTUVUSE9EX0NMSUVOVF9E'
+    'RVZJQ0VfRklORBB+GkvC8xhHChJjbGllbnQuZGV2aWNlLmZpbmQSF0NsaWVudERldmljZUZpbm'
+    'RSZXF1ZXN0GhhDbGllbnREZXZpY2VGaW5kUmVzcG9uc2USbgodUlBDX01FVEhPRF9DTElFTlRf'
+    'U09DSUFMX1BJTkcQfxpLwvMYRwoSY2xpZW50LnNvY2lhbC5waW5nEhdDbGllbnRTb2NpYWxQaW'
+    '5nUmVxdWVzdBoYQ2xpZW50U29jaWFsUGluZ1Jlc3BvbnNl');
 
 @$core.Deprecated('Use rpcResponseDescriptor instead')
 const RpcResponse$json = {

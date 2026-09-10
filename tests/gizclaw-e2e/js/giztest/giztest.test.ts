@@ -276,6 +276,35 @@ test("loadDocuments loads every device, contact and API key scenario", async () 
   assert.equal(documents.length, selected.length - 1);
 });
 
+test("loadDocuments loads the find, social ping and profile scenarios", async () => {
+  const names = [
+    "server.device.find",
+    "server.device.find.unsupported",
+    "server.friend.ping",
+    "server.friend_group.ping",
+    "server.profile.get",
+  ];
+  const { documents, skipped } = await loadDocuments(
+    names.map((name) => path.join(scenarioRoot, `${name}.giztest.yaml`)),
+  );
+  assert.deepEqual(skipped, []);
+  assert.deepEqual(
+    documents.map((document) => document.name),
+    names,
+  );
+  const providers = documents.flatMap((document) =>
+    document.steps.flatMap((step) =>
+      step.client_rpc == null ? [] : [step.client_rpc.method],
+    ),
+  );
+  assert.deepEqual(providers, [
+    "client.device.find",
+    "client.device.find",
+    "client.social.ping",
+    "client.social.ping",
+  ]);
+});
+
 test("loadDocuments skips scenarios that use unsupported step kinds", async () => {
   const paths = await discover([scenarioRoot]);
   const { skipped } = await loadDocuments(paths);
