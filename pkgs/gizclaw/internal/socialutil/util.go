@@ -282,13 +282,16 @@ func InviteTokenIndexKey(root kv.Key, token string) kv.Key {
 }
 
 // WriteInviteToken atomically replaces an invitation and its unique token index.
+// A non-zero expires_at becomes the storage deadline of both records, so expired
+// invitations are removed by the store instead of accumulating.
 func WriteInviteToken(ctx context.Context, store kv.Store, key kv.Key, value any) error {
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
 	var next struct {
-		Token string `json:"invite_token"`
+		Token     string    `json:"invite_token"`
+		ExpiresAt time.Time `json:"expires_at"`
 	}
 	if err := json.Unmarshal(data, &next); err != nil {
 		return err
@@ -323,7 +326,7 @@ func WriteInviteToken(ctx context.Context, store kv.Store, key kv.Key, value any
 		}
 		mutation := kv.Mutation{
 			Conditions: []kv.Condition{{Key: key, Expected: old}, {Key: index, Expected: indexed}},
-			Entries:    []kv.Entry{{Key: key, Value: data}, {Key: index, Value: locator}},
+			Entries:    []kv.Entry{{Key: key, Value: data, Deadline: next.ExpiresAt}, {Key: index, Value: locator, Deadline: next.ExpiresAt}},
 		}
 		if previous.Token != "" && previous.Token != next.Token {
 			mutation.DeleteKeys = []kv.Key{InviteTokenIndexKey(key[:len(key)-1], previous.Token)}

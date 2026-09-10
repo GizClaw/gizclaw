@@ -31,6 +31,20 @@ func businessError(id string, err error) *rpcapi.RPCResponse {
 			Reason:    "FRIEND_GROUP_FULL",
 			Message:   "friend group is full",
 		}.RPCResponse()
+	case errors.Is(err, friendgroup.ErrPeerFriendGroupLimit):
+		return rpcapi.Error{
+			RequestID: id,
+			Code:      rpcapi.StatusCodeResourceExhausted,
+			Reason:    "FRIEND_GROUP_LIMIT_REACHED",
+			Message:   "peer friend group limit reached",
+		}.RPCResponse()
+	case errors.Is(err, friend.ErrPeerFriendLimit):
+		return rpcapi.Error{
+			RequestID: id,
+			Code:      rpcapi.StatusCodeResourceExhausted,
+			Reason:    "FRIEND_LIMIT_REACHED",
+			Message:   "peer friend limit reached",
+		}.RPCResponse()
 	case errors.Is(err, friend.ErrInviteTokenRequired):
 		return statusError(id, rpcapi.StatusCodeInvalidArgument, "friend invite token is required")
 	case errors.Is(err, friend.ErrInviteTokenUnavailable):

@@ -112,9 +112,20 @@ node snapshots exclude logs. `go test ./pkgs/gizlog` covers configured log sinks
 including system Workspaces, grouped by Workflow. Shared and ownerless
 Workspaces are excluded. `GET /gizclaw/v1/device/workspaces/{workspaceId}/history`
 searches persisted text with cursor pagination (up to 200 entries; the console
-uses 100). History cursors are entry-ID timestamp boundaries, not authorization
-tokens; malformed values return 400 `INVALID_HISTORY_CURSOR`. Browsing does not
-start an Agent. The nested `/{historyId}/audio.ogg` endpoint serves retained Ogg
+uses 100). `order` defaults to `desc` (newest first) and also accepts `asc`;
+optional `start_time_ms` (inclusive) and `end_time_ms` (exclusive) bound
+creation time in Unix milliseconds and still apply to continuation requests.
+History cursors are exclusive entry-ID timestamp boundaries: pass the previous
+`next_cursor` to continue in the same order, or any item `name` to page away
+from that item in the requested order. Console search lists only the entries
+matching `query`; selecting one reads its surroundings with that entry's `name`
+as the cursor in both `asc` and `desc`, locates and highlights it in the full
+timeline, then continues with `desc` for older entries and reads newer entries
+with `asc` from the topmost item `name`.
+Cursors are not authorization tokens; malformed values return 400
+`INVALID_HISTORY_CURSOR`, and invalid parameters such as a `start_time_ms` not
+before `end_time_ms` return 400 `INVALID_REQUEST`. Browsing does not start an
+Agent. The nested `/{historyId}/audio.ogg` endpoint serves retained Ogg
 audio through authenticated requests.
 
 `GET /gizclaw/v1/device/telemetry/{field}/latest` returns the newest sample of

@@ -34,8 +34,6 @@ done
 expected=(
   "gizclaw_${debian_version}_amd64.deb"
   "gizclaw_${debian_version}_arm64.deb"
-  gizclaw-darwin-amd64
-  gizclaw-darwin-arm64
   "gizclaw-c-sdk-${debian_version}.tar.gz"
 )
 c_sdk_archive="gizclaw-c-sdk-${debian_version}.tar.gz"
@@ -65,7 +63,6 @@ assets_json='[]'
 while IFS= read -r name; do
   artifact="$asset_dir/$name"
   [[ -f "$artifact" && ! -L "$artifact" && -s "$artifact" ]] || { echo "invalid payload: $name" >&2; exit 1; }
-  kind=executable
   extra='{}'
   if [[ "$name" == *.deb ]]; then
     kind=deb
@@ -85,11 +82,8 @@ while IFS= read -r name; do
     extra="$(jq -cn --arg module gizclaw_c_sdk --arg version "$debian_version" --arg source_commit "$source_commit" \
       '{module:$module,version:$version,source_commit:$source_commit}')"
   else
-    os=darwin
-    architecture="${name##*-}"
-    [[ "$architecture" == amd64 || "$architecture" == arm64 ]] || { echo "invalid payload architecture: $name" >&2; exit 1; }
-    extra="$(jq -cn --arg os "$os" --arg architecture "$architecture" '{os:$os,architecture:$architecture}')"
-    [[ -x "$artifact" ]] || { echo "Darwin payload is not executable: $name" >&2; exit 1; }
+    echo "unsupported payload: $name" >&2
+    exit 1
   fi
   if [[ "$kind" == deb ]]; then
     [[ "$architecture" == amd64 || "$architecture" == arm64 ]] || { echo "invalid payload architecture: $name" >&2; exit 1; }

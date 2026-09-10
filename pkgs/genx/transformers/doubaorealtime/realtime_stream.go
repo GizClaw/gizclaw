@@ -655,6 +655,10 @@ type doubaoRealtimePTTResponseIdentity struct {
 
 type doubaoRealtimePTTResponses struct {
 	items []*doubaoRealtimePTTResponse
+	// Binary audio carries no response IDs. Its owner follows TTSStarted,
+	// independently of older responses awaiting ChatEnded or TTSFinished.
+	audioResponse *doubaoRealtimePTTResponse
+	audioBound    bool
 }
 
 type doubaoRealtimeTextResponse struct {
@@ -1146,6 +1150,30 @@ func (q *doubaoRealtimePTTResponses) match(identity doubaoRealtimePTTResponseIde
 		return q.items[0]
 	}
 	return nil
+}
+
+func (q *doubaoRealtimePTTResponses) startAudio(identity doubaoRealtimePTTResponseIdentity) *doubaoRealtimePTTResponse {
+	q.audioResponse = nil
+	if !identity.empty() || len(q.items) == 1 {
+		q.audioResponse = q.match(identity)
+	}
+	q.audioBound = true
+	return q.audioResponse
+}
+
+func (q *doubaoRealtimePTTResponses) matchAudio(identity doubaoRealtimePTTResponseIdentity) *doubaoRealtimePTTResponse {
+	var response *doubaoRealtimePTTResponse
+	if identity.empty() && q.audioBound {
+		response = q.audioResponse
+	} else if !identity.empty() || len(q.items) == 1 {
+		// A provider that sends audio without TTSStarted is unambiguous only
+		// when it supplies an ID or there is a single pending response.
+		response = q.match(identity)
+	}
+	if response == nil || response.ttsFinished {
+		return nil
+	}
+	return response
 }
 
 func (q *doubaoRealtimePTTResponses) finish(response *doubaoRealtimePTTResponse) {

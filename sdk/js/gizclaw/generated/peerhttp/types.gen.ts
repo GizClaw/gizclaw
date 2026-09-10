@@ -1025,6 +1025,9 @@ export type ListDeviceWorkspaceHistoryData = {
         cursor?: string;
         limit?: number;
         query?: string;
+        order?: 'asc' | 'desc';
+        start_time_ms?: number;
+        end_time_ms?: number;
     };
     url: '/gizclaw/v1/device/workspaces/{workspaceId}/history';
 };

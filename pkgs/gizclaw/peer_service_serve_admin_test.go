@@ -59,6 +59,8 @@ func TestAdminSocialErrorMapsGroupConflicts(t *testing.T) {
 	}{
 		{err: friendgroup.ErrFriendGroupFull, code: "FRIEND_GROUP_FULL", message: friendgroup.ErrFriendGroupFull.Error()},
 		{err: friendgroup.ErrGroupChanged, code: "FRIEND_GROUP_CHANGED", message: friendgroup.ErrGroupChanged.Error()},
+		{err: friendgroup.ErrPeerFriendGroupLimit, code: "FRIEND_GROUP_LIMIT_REACHED", message: friendgroup.ErrPeerFriendGroupLimit.Error()},
+		{err: friend.ErrPeerFriendLimit, code: "FRIEND_LIMIT_REACHED", message: friend.ErrPeerFriendLimit.Error()},
 	} {
 		status, body := adminSocialError(fmt.Errorf("wrapped: %w", test.err))
 		if status != http.StatusConflict || body.Error.Code != test.code || body.Error.Message != test.message {
@@ -371,6 +373,9 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 
 	friendService := newTestFriendServer(kv.NewMemory(nil))
 	groupStore := kv.NewMemory(nil)
+	// Invite tokens use their expiry as the store deadline, which the store
+	// checks against wall time, so the injected clock starts at wall time.
+	now := time.Now().UTC().Truncate(time.Second)
 	groupService := &friendgroup.Server{
 		Groups:            groupStore,
 		InviteTokens:      groupStore,
@@ -379,7 +384,7 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 		RelationshipStore: groupStore,
 		Workspaces:        &adminTestWorkspaceService{},
 		SFUURL:            "wss://sfu.test",
-		Now:               func() time.Time { return time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC) },
+		Now:               func() time.Time { return now },
 		NewID:             func() string { return "group-a" },
 	}
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
@@ -484,7 +489,7 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"role":"admin"`) {
 		t.Fatalf("PUT member status=%d body=%s", rec.Code, rec.Body.String())
 	}
-	expiresAt := time.Date(2026, 6, 13, 0, 5, 0, 0, time.UTC).Format(time.RFC3339)
+	expiresAt := now.Add(5 * time.Minute).Format(time.RFC3339)
 	rec = serveAdminJSON(app, http.MethodPut, "/social/friend-groups/group-a/invite-token", `{"id":"group-a","invite_token":"token-a","expires_at":"`+expiresAt+`"}`)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"invite_token":"token-a"`) {
 		t.Fatalf("PUT token status=%d body=%s", rec.Code, rec.Body.String())
@@ -540,9 +545,16 @@ func TestAdminWorkspaceHistoryHandlersServePersistedHistoryAndOggAudio(t *testin
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{WorkspaceAdminService: history}, nil))
 
-	rec := serveAdminAsset(app, http.MethodGet, "/workspaces/workspace-a/history?order=asc&limit=1", "")
+	rec := serveAdminAsset(app, http.MethodGet, "/workspaces/workspace-a/history?order=asc&limit=1&start_time_ms=1781308800000&end_time_ms=1781395200000", "")
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"id":"history-a"`) {
 		t.Fatalf("GET history status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if history.req.Order == nil || *history.req.Order != apitypes.PeerRunHistoryListRequestOrderAsc || !history.filter.Start.Equal(time.UnixMilli(1781308800000)) || !history.filter.End.Equal(time.UnixMilli(1781395200000)) {
+		t.Fatalf("history query req=%+v filter=%+v", history.req, history.filter)
+	}
+	rec = serveAdminAsset(app, http.MethodGet, "/workspaces/workspace-a/history?start_time_ms=2000&end_time_ms=1000", "")
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "INVALID_REQUEST") {
+		t.Fatalf("GET inverted history range status=%d body=%s", rec.Code, rec.Body.String())
 	}
 	rec = serveAdminAsset(app, http.MethodGet, "/workspaces/workspace-a/history/history-a", "")
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"text":"hello"`) {
@@ -828,9 +840,11 @@ func adminTestStringPtr(value string) *string {
 }
 
 type fakeAdminWorkspaceHistory struct {
-	list  apitypes.PeerRunHistoryListResponse
-	entry workspace.HistoryEntry
-	audio []byte
+	list   apitypes.PeerRunHistoryListResponse
+	entry  workspace.HistoryEntry
+	audio  []byte
+	req    apitypes.PeerRunHistoryListRequest
+	filter workspace.HistoryFilter
 }
 
 type fakeServerLogQuery struct {
@@ -869,7 +883,8 @@ func (f *fakeAdminWorkspaceHistory) PutWorkspace(context.Context, adminhttp.PutW
 	return nil, nil
 }
 
-func (f *fakeAdminWorkspaceHistory) AdminListWorkspaceHistory(context.Context, string, apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
+func (f *fakeAdminWorkspaceHistory) AdminListWorkspaceHistory(_ context.Context, _ string, req apitypes.PeerRunHistoryListRequest, filter workspace.HistoryFilter) (apitypes.PeerRunHistoryListResponse, error) {
+	f.req, f.filter = req, filter
 	return f.list, nil
 }
 

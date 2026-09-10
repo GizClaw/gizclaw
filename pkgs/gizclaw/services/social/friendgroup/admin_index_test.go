@@ -92,7 +92,7 @@ func createGroupRecord(ctx context.Context, store kv.Store, id string, data []by
 
 func TestOwnerPagesBoundMembershipReads(t *testing.T) {
 	s := newTestServer(t)
-	for i := range 1000 {
+	for i := range socialutil.PeerFriendGroupLimit {
 		id := fmt.Sprintf("item-%04d", i)
 		if _, err := s.AdminCreateFriendGroup(t.Context(), id, "owner", id, nil, nil); err != nil {
 			t.Fatal(err)

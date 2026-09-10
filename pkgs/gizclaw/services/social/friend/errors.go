@@ -11,4 +11,10 @@ var (
 	ErrInviteTokenSelfOwned = errors.New("social: friend invite token belongs to the caller")
 	// ErrInviteTokenLookupFailed reports an internal failure while resolving a Friend invite token.
 	ErrInviteTokenLookupFailed = errors.New("social: friend invite token lookup failed")
+	// ErrPeerFriendLimit reports that one side of a new Friend relationship
+	// already has socialutil.PeerFriendLimit Friends.
+	ErrPeerFriendLimit = errors.New("social: peer friend limit reached")
+	// errFriendCapacityChanged reports that another relationship committed for
+	// one of the Peers after its Friend count was read; read again and retry.
+	errFriendCapacityChanged = errors.New("social: peer friends changed concurrently; retry")
 )

@@ -1488,7 +1488,7 @@ func (t *Transformer) processSession(
 					var response *doubaoRealtimePTTResponse
 					var epoch uint64
 					if pttEvents() {
-						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
+						response = pttResponses.startAudio(doubaoRealtimeEventResponseIdentity(event))
 						if response == nil {
 							continue
 						}
@@ -1545,7 +1545,7 @@ func (t *Transformer) processSession(
 					var response *doubaoRealtimePTTResponse
 					epoch := assistant.currentEpoch()
 					if pttEvents() {
-						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
+						response = pttResponses.matchAudio(doubaoRealtimeEventResponseIdentity(event))
 						if response == nil {
 							continue
 						}

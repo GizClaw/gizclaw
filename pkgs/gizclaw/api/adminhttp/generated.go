@@ -917,6 +917,12 @@ type ListWorkspaceHistoryParams struct {
 
 	// Order History ordering.
 	Order *ListWorkspaceHistoryParamsOrder `form:"order,omitempty" json:"order,omitempty"`
+
+	// StartTimeMs Inclusive lower bound on created_at, in Unix milliseconds. It still applies to continuation requests.
+	StartTimeMs *int64 `form:"start_time_ms,omitempty" json:"start_time_ms,omitempty"`
+
+	// EndTimeMs Exclusive upper bound on created_at, in Unix milliseconds. It must be greater than start_time_ms when both are set and still applies to continuation requests.
+	EndTimeMs *int64 `form:"end_time_ms,omitempty" json:"end_time_ms,omitempty"`
 }
 
 // ListWorkspaceHistoryParamsOrder defines parameters for ListWorkspaceHistory.
@@ -9640,6 +9646,30 @@ func NewListWorkspaceHistoryRequest(server string, id string, params *ListWorksp
 		if params.Order != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "order", *params.Order, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.StartTimeMs != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start_time_ms", *params.StartTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.EndTimeMs != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end_time_ms", *params.EndTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -26411,6 +26441,20 @@ func (siw *ServerInterfaceWrapper) ListWorkspaceHistory(c *fiber.Ctx) error {
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "order", query, &params.Order, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter order: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "start_time_ms" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "start_time_ms", query, &params.StartTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter start_time_ms: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "end_time_ms" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "end_time_ms", query, &params.EndTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter end_time_ms: %w", err).Error())
 	}
 
 	handler := func(c *fiber.Ctx) error {

@@ -1615,11 +1615,31 @@ const WorkspaceHistoryListRequest$json = {
       '17': true
     },
     {'1': 'workspace_name', '3': 4, '4': 1, '5': 9, '10': 'workspaceName'},
+    {
+      '1': 'start_time_ms',
+      '3': 5,
+      '4': 1,
+      '5': 3,
+      '9': 3,
+      '10': 'startTimeMs',
+      '17': true
+    },
+    {
+      '1': 'end_time_ms',
+      '3': 6,
+      '4': 1,
+      '5': 3,
+      '9': 4,
+      '10': 'endTimeMs',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_cursor'},
     {'1': '_limit'},
     {'1': '_order'},
+    {'1': '_start_time_ms'},
+    {'1': '_end_time_ms'},
   ],
 };
 
@@ -1628,8 +1648,10 @@ final $typed_data.Uint8List workspaceHistoryListRequestDescriptor = $convert.bas
     'ChtXb3Jrc3BhY2VIaXN0b3J5TGlzdFJlcXVlc3QSGwoGY3Vyc29yGAEgASgJSABSBmN1cnNvco'
     'gBARIZCgVsaW1pdBgCIAEoA0gBUgVsaW1pdIgBARJLCgVvcmRlchgDIAEoDjIwLmdpemNsYXcu'
     'cnBjLnYxLldvcmtzcGFjZUhpc3RvcnlMaXN0UmVxdWVzdE9yZGVySAJSBW9yZGVyiAEBEiUKDn'
-    'dvcmtzcGFjZV9uYW1lGAQgASgJUg13b3Jrc3BhY2VOYW1lQgkKB19jdXJzb3JCCAoGX2xpbWl0'
-    'QggKBl9vcmRlcg==');
+    'dvcmtzcGFjZV9uYW1lGAQgASgJUg13b3Jrc3BhY2VOYW1lEicKDXN0YXJ0X3RpbWVfbXMYBSAB'
+    'KANIA1ILc3RhcnRUaW1lTXOIAQESIwoLZW5kX3RpbWVfbXMYBiABKANIBFIJZW5kVGltZU1ziA'
+    'EBQgkKB19jdXJzb3JCCAoGX2xpbWl0QggKBl9vcmRlckIQCg5fc3RhcnRfdGltZV9tc0IOCgxf'
+    'ZW5kX3RpbWVfbXM=');
 
 @$core.Deprecated('Use workspaceHistoryListResponseDescriptor instead')
 const WorkspaceHistoryListResponse$json = {

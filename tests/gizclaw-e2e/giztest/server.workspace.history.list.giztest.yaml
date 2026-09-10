@@ -48,6 +48,31 @@ steps:
     method: server.workspace.history.list
     request:
       workspace_name: "${resource_name}"
+- id: time_range_rpc
+  client: peer
+  rpc:
+    method: server.workspace.history.list
+    request:
+      workspace_name: "${resource_name}"
+      order: WORKSPACE_HISTORY_LIST_REQUEST_ORDER_DESC
+      start_time_ms: 1
+      end_time_ms: 4102444800000
+      limit: 10
+  expect:
+    /items:
+      count: 0
+    /has_next:
+      equals: false
+- id: inverted_time_range_rpc
+  client: peer
+  rpc:
+    method: server.workspace.history.list
+    request:
+      workspace_name: "${resource_name}"
+      start_time_ms: 2
+      end_time_ms: 1
+  expect_error:
+    code: 3
 finally:
 - id: cleanup_workspace
   client: peer

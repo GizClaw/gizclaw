@@ -257,21 +257,36 @@ export async function loadWorkspaces(
   );
 }
 
+/** One server-side History read; the server owns ordering and time bounds. */
+export type HistoryRequest = {
+  query: string;
+  /** Exclusive entry-ID boundary: a next_cursor or any loaded item name. */
+  cursor?: string;
+  order: "asc" | "desc";
+  /** Inclusive lower bound on created_at, Unix milliseconds. */
+  startTimeMs?: number;
+  /** Exclusive upper bound on created_at, Unix milliseconds. */
+  endTimeMs?: number;
+  limit?: number;
+};
+
 export async function loadHistory(
   endpoint: string,
   publicKey: string,
   workspaceId: string,
-  query: string,
-  cursor: string | undefined,
+  request: HistoryRequest,
   signal: AbortSignal,
 ) {
   return historyPage.parse(
     await client(endpoint, publicKey, signal).listWorkspaceHistory(
       workspaceId,
       {
-        query,
-        cursor,
-        limit: 100,
+        query: request.query,
+        cursor: request.cursor,
+        order: request.order,
+        start_time_ms: request.startTimeMs,
+        end_time_ms: request.endTimeMs,
+        limit: request.limit ?? 100,
       },
     ),
   );

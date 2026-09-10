@@ -87,6 +87,10 @@ func (s *Server) createGroupWithOwner(ctx context.Context, id string, group rpca
 	if err != nil {
 		return err
 	}
+	peerRevision, err := s.readPeerGroupCapacity(ctx, owner)
+	if err != nil {
+		return err
+	}
 	now := s.now()
 	member := friendGroupMemberRecord{FriendGroupID: id, PeerPublicKey: owner, FriendGroupName: name,
 		Role: rpcapi.FriendGroupMemberRoleOwner, CreatedAt: now, UpdatedAt: now}
@@ -122,6 +126,7 @@ func (s *Server) createGroupWithOwner(ctx context.Context, id string, group rpca
 		mutation.Conditions = append(mutation.Conditions, kv.Condition{Key: entry.Key})
 		mutation.Entries = append(mutation.Entries, entry)
 	}
+	peerRevisionKey := s.admitPeerToGroup(&mutation, prefixes[2], owner, peerRevision)
 	created, err := store.ApplyMutation(ctx, mutation)
 	if err != nil {
 		// A lost write acknowledgement must not trigger deletion of a Workspace
@@ -133,6 +138,11 @@ func (s *Server) createGroupWithOwner(ctx context.Context, id string, group rpca
 		return errors.Join(errGroupCreateUncertain, err, readErr)
 	}
 	if !created {
+		if changed, err := peerGroupRevisionChanged(ctx, store, peerRevisionKey, peerRevision); err != nil {
+			return err
+		} else if changed {
+			return ErrGroupChanged
+		}
 		if _, err := store.Get(ctx, nameKey); err == nil {
 			return errors.New("social: friend group name already exists")
 		} else if !errors.Is(err, kv.ErrNotFound) {
@@ -182,5 +192,8 @@ func (s *Server) checkGroupCreate(ctx context.Context, id, owner, name string) e
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return err
 	}
-	return nil
+	// Reject before the caller creates the Workspace; createGroupWithOwner
+	// repeats the check under the Peer revision when it commits.
+	_, err = s.readPeerGroupCapacity(ctx, owner)
+	return err
 }

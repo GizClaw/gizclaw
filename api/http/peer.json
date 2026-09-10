@@ -482,7 +482,7 @@
     "/gizclaw/v1/device/workspaces/{workspaceId}/history": {
       "get": {
         "operationId": "listDeviceWorkspaceHistory",
-        "description": "Query only the named owned Workspace. Optional limit is 1..200 (default 50); query is literal text with a 512 UTF-8 byte limit. History is returned newest first as PeerRunHistoryListResponse (available, items, has_next, optional next_cursor). Each item has name (entry ID), type, actor_name, text, created_at, replay_available, and optional gear_id. Cursor is the previous next_cursor, an entry-ID timestamp boundary formatted YYYYMMDDTHHMMSS.nnnnnnnnnZ-suffix; it is not an authorization token. A well-formed boundary from another stream still queries only this owned Workspace. Malformed cursors return 400 INVALID_HISTORY_CURSOR; invalid query/limit returns 400 INVALID_REQUEST. Foreign or absent Workspace IDs return 404 WORKSPACE_NOT_FOUND. Shared Bearer/runtime errors apply. Missing service/history storage or backend failures return 500 INTERNAL_ERROR. ErrorResponse carries error.code and error.message.",
+        "description": "Query only the named owned Workspace. Optional limit is 1..200 (default 50); query is literal text with a 512 UTF-8 byte limit. Optional order is desc (default, newest first) or asc (oldest first). Optional start_time_ms (inclusive) and end_time_ms (exclusive) bound created_at in Unix milliseconds; either side may be omitted, so end_time_ms alone jumps to entries before a moment and start_time_ms alone reads entries from a moment onward. History is returned in the requested order as PeerRunHistoryListResponse (available, items, has_next, optional next_cursor). Each item has name (entry ID), type, actor_name, text, created_at, replay_available, and optional gear_id. Cursor is an exclusive entry-ID boundary formatted YYYYMMDDTHHMMSS.nnnnnnnnnZ-suffix: the previous next_cursor to continue in the same order, or any returned item name to page away from that item in the requested order. It is not an authorization token. Time bounds still apply to continuation requests. A well-formed boundary from another stream still queries only this owned Workspace. Malformed cursors return 400 INVALID_HISTORY_CURSOR; invalid query/limit/order or a start_time_ms not before end_time_ms returns 400 INVALID_REQUEST. Foreign or absent Workspace IDs return 404 WORKSPACE_NOT_FOUND. Shared Bearer/runtime errors apply. Missing service/history storage or backend failures return 500 INTERNAL_ERROR. ErrorResponse carries error.code and error.message.",
         "summary": "Read history from a Workspace owned by the authenticated device",
         "tags": [
           "Device"
@@ -526,6 +526,38 @@
             "schema": {
               "type": "string",
               "maxLength": 512
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "start_time_ms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "end_time_ms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
             }
           }
         ],

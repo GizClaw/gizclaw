@@ -35,6 +35,8 @@ Friend invite token 是不透明且区分每个字节的 credential。`friend.ad
 
 Admin 好友列表保留跨 owner 的分页查询。当前好友行的定位信息写入 256 个分片有序集合，目录最多保存 256 个分片名称；创建／删除好友时，同一原子操作同步更新双方的管理索引。分页游标是不透明值，排序为分片与分片内的 owner／关系 ID，索引范围与返回数量下推到存储后端，仅读取当前页记录，并在页内复用 Workspace binding 查询。
 
+每个 Peer 最多 10 个好友，自己发起和对方发起的关系合并计数；上限由 `socialutil.PeerFriendLimit` 写死，不通过 RuntimeProfile 或配置调整。创建前先检查双方人数，避免为注定失败的请求创建 Workspace；提交 relationship 时再次检查：每次创建都原子推进双方的 per-Peer 好友版本，提交时比较双方版本，因此不同 Server 并发创建也不会超过上限。任一方已满时，`friend.add` RPC 返回 `RESOURCE_EXHAUSTED`（8），reason 为 `FRIEND_LIMIT_REACHED`；Admin HTTP 创建返回 `409 Conflict` 与错误码 `FRIEND_LIMIT_REACHED`。提交时已放不下的待创建关系会被取消并删除其 Workspace。重复添加已有好友仍然成功。
+
 ### friendgroup
 
 群组的主记录、成员、邀请、Workspace binding 与定位记录、删除意图与回执、恢复索引、已删除名称索引及 Friend Group `PendingDeletion` 记录和任务索引，全部位于配置的 `FriendGroupStore` 命名空间内。`RelationshipStore` 保留这个带前缀的视图；跨视图原子操作解析到底层 Store 时，为每个键恢复完整前缀。后台恢复与清理使用同一视图，不能访问其他命名空间的任务，也不回退读取命名空间外的数据。
@@ -45,7 +47,7 @@ Admin 好友列表保留跨 owner 的分页查询。当前好友行的定位信�
 
 每个 Friend Group 生命周期拥有一个 system Workspace。创建 rollback 可以立即删除未投入使用的 Workspace；正式删除群组时先在一个共享 relationship store transaction 中原子删除 Group、invite、member 与 belongs 记录并保存 retirement intent。提交成功后，服务先创建一条 Friend Group 数据 `PendingDeletion`，再把 Workspace 放入它自己的 `PendingDeletion`。runtime 与 artifact 保持物理完整，由各自 ownership 的异步 cleaner 处理。Peer 创建的群归创建者所有；Admin 创建必须显式给出 owner。成员身份只授予 Workspace 访问，不改变 ownership。Workspace 固定绑定内置 `system-sfu` Workflow；Group 的 SFU binding 保存在 `social-workspace-bindings/friend-groups/<groupID>`。群组主记录、binding、owner 成员、名称与集合索引一次原子提交，其他 Server 不会读到尚未初始化 owner 的群组。
 
-Peer membership object 以 `friend_group_name` scope 内的 `name` 作为身份；Admin membership object 继续同时保留 canonical `id` 与 scoped `name`。Friend Group 成员上限固定为 10 人（含 owner），由 `socialutil.FriendGroupMemberLimit` 写死，不通过 RuntimeProfile 或配置调整。成员数已达上限时，`friend_group.join`、`members.add` RPC 返回 `RESOURCE_EXHAUSTED`（8），reason 为 `FRIEND_GROUP_FULL`；Admin HTTP 创建成员返回 `409 Conflict` 与错误码 `FRIEND_GROUP_FULL`。这些拒绝不消费 invite token。每次成员增删、角色或群组资料更新都会原子推进共享群组版本；人数检查和整组删除在提交时比较该版本及主记录，过期快照不能提交，调用方需重新读取后重试。Friend Group 不拥有消息、History、音频 store、独立 TTL 或清理循环。
+Peer membership object 以 `friend_group_name` scope 内的 `name` 作为身份；Admin membership object 继续同时保留 canonical `id` 与 scoped `name`。Friend Group 成员上限固定为 10 人（含 owner），由 `socialutil.FriendGroupMemberLimit` 写死，不通过 RuntimeProfile 或配置调整。成员数已达上限时，`friend_group.join`、`members.add` RPC 返回 `RESOURCE_EXHAUSTED`（8），reason 为 `FRIEND_GROUP_FULL`；Admin HTTP 创建成员返回 `409 Conflict` 与错误码 `FRIEND_GROUP_FULL`。这些拒绝不消费 invite token。每次成员增删、角色或群组资料更新都会原子推进共享群组版本；人数检查和整组删除在提交时比较该版本及主记录，过期快照不能提交，调用方需重新读取后重试。每个 Peer 最多属于 10 个 Friend Group，自己创建、通过邀请加入和被他人添加的群合并计数；上限由 `socialutil.PeerFriendGroupLimit` 写死。创建群组、`friend_group.join`、`members.add` 及 Admin 创建成员在该 Peer 已满时返回 `RESOURCE_EXHAUSTED`（8）/ reason `FRIEND_GROUP_LIMIT_REACHED`，Admin HTTP 返回 `409 Conflict` 与错误码 `FRIEND_GROUP_LIMIT_REACHED`；创建群组在建 Workspace 前即拒绝。每次加入都原子推进该 Peer 的群组版本，提交时比较该版本，不同 Server 并发加入不会超过上限，过期时返回 `FRIEND_GROUP_CHANGED`。已有成员的角色变更不受影响。Friend Group 不拥有消息、History、音频 store、独立 TTL 或清理循环。
 
 relationship 提交与 Workspace retirement 分成两个可重试阶段：第一阶段失败时
 relationship 与 Workspace 都保持可用；第二阶段失败时保留 retirement intent，
@@ -197,6 +199,8 @@ credential 只通过文件在启动时读取，不进入 Social KV、Workspace�
 ### 限制
 
 - Friend Group 成员上限 10 人（含 owner），超出返回 `FRIEND_GROUP_FULL`。
+- 每个 Peer 最多属于 10 个 Friend Group（创建、加入、被添加合并计数），超出返回 `FRIEND_GROUP_LIMIT_REACHED`。
+- 每个 Peer 最多 10 个好友（双向合并计数），超出返回 `FRIEND_LIMIT_REACHED`。
 - 每个 Peer 同一时刻只有一个 participant；同一 Server 上每个 Workspace 只有一个共享 Agent。
 - 每个听者同一时刻只听一位发言者（floor），半双工；不混音，不解码下行。
 - 不提供语音留言、历史消息、录音下载或历史播放。
@@ -234,6 +238,6 @@ Friend 与 Friend Group 通过 Workspace ID 和系统生成的规范名称直接
 
 每个 Peer 的好友关系 ID、每个 Peer 的群组 ID、每个群组的成员公钥分别保存在独立 Set。关系和成员的完整记录继续独立保存，角色等字段可以扩展。创建、删除与角色更新通过原子 mutation 保持主记录、名称索引和 Set 一致。群成员 RPC 列表和 Peer 的好友／群组列表从相应集合读取，不执行任意前缀扫描；分页只加载当前页的详细记录。群组的 SFU 鉴权直接读取成员 Set，不逐个加载成员详情。这些集合按 Peer 或群组隔离，不构建全站大 Set。
 
-邀请令牌使用独立的摘要索引定位所属记录，再精确读取主记录并验证令牌和有效期。好友与群组的令牌分别位于各自存储域，查询不扫描其他令牌。令牌替换和显式清除原子更新主记录与索引；同一存储域内不同资源不能占用同一个令牌。过期读取只返回不可用，不执行清理写入；替换时移除旧索引，避免查询清理误删并发生成的新令牌。
+邀请令牌使用独立的摘要索引定位所属记录，再精确读取主记录并验证令牌和有效期。好友与群组的令牌分别位于各自存储域，查询不扫描其他令牌。令牌替换和显式清除原子更新主记录与索引；同一存储域内不同资源不能占用同一个令牌。过期读取只返回不可用，不执行清理写入；替换时移除旧索引，避免查询清理误删并发生成的新令牌。写入时以令牌有效期作为主记录与索引共同的 KV deadline，过期后由 KV backend（生产部署为 Redis TTL）物理删除，服务不运行额外的清理循环。
 
 Peer 的好友和群组分页另有按 owner 隔离的有序索引，保存转义后的关系／群组 ID。创建、加入、退出和删除在同一 mutation 中维护该索引。分页将游标和 `limit + 1` 下推存储，仅加载最多 `limit` 条详细记录；返回游标仍为原始 ID。遇到并发删除时允许当前页少于 limit，游标按已读取的索引位置前进，不回退全量集合读取。

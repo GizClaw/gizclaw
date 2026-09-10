@@ -332,6 +332,18 @@
           "limit": {
             "type": "integer",
             "minimum": 1
+          },
+          "start_time_ms": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Inclusive lower bound on created_at, in Unix milliseconds. It still applies to continuation requests."
+          },
+          "end_time_ms": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Exclusive upper bound on created_at, in Unix milliseconds. It must be greater than start_time_ms when both are set and still applies to continuation requests."
           }
         },
         "required": [

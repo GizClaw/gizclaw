@@ -426,6 +426,24 @@ for each required modality. Late EOS events without an observed BOS or content
 do not complete a turn, and EOS events from different StreamIDs cannot be combined.
 Turns that complete on the
 persisted user transcript declare `transcript` explicitly.
+
+`peer_stream.overlap_input: true` repeats the declared audio input on the same PeerStream.
+It supports `push-to-talk` and `realtime`. After sending the first input (including realtime
+VAD tail silence) and receiving first-response assistant audio, it starts the second input
+without closing the stream or sending an explicit interruption. An already completed first
+audio response fails. Success requires the second input's first audio packet to be successfully
+sent before receipt of the first response's audio EOS. Both responses must close their text
+and audio routes; the second must contain text and audio and complete without errors.
+A first response reporting `interrupted` after the second input is allowed and recorded as
+`first_response_interrupted`; the test does not require a particular provider interruption policy.
+Only `mode`, `input`, and `pacing` can accompany this option; use the step `timeout` for the bound.
+Results include `input_overlap`, `session_connection_reused`, `second_input_sent`,
+`first_audio_ms`, `second_input_audio_ms`, `first_audio_eos_ms`, and second-response EOS flags.
+The Doubao, Eino, and Flowcraft `*-overlapping-input.giztest.yaml` scenarios cover both input
+modes in the Go runner. JavaScript and Flutter runners skip the unsupported `peer_stream` operation.
+
+Empty assistant BOS events do not establish response ownership; actual text or audio content does. The scenarios use a single Chinese counting request to reduce extra VAD turns caused by pauses within the recording.
+
 `peer_stream.completion: first_response` is the bounded deployment-probe
 alternative. `require_text` and `require_audio` select its required modalities
 and both default to true. Every required modality needs its corresponding

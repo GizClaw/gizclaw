@@ -6486,6 +6486,28 @@
                 "desc"
               ]
             }
+          },
+          {
+            "name": "start_time_ms",
+            "in": "query",
+            "required": false,
+            "description": "Inclusive lower bound on created_at, in Unix milliseconds. It still applies to continuation requests.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "end_time_ms",
+            "in": "query",
+            "required": false,
+            "description": "Exclusive upper bound on created_at, in Unix milliseconds. It must be greater than start_time_ms when both are set and still applies to continuation requests.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
           }
         ],
         "responses": {
