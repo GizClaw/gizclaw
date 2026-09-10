@@ -1,0 +1,129 @@
+# User Story:
+# As a child with a GizClaw device,
+# I want to ping a friend whose device is online,
+# So that their device rings once, and repeated pings are held back for a minute.
+version: gizclaw.test/v1alpha1
+name: server.friend.ping
+clients:
+  alice:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+  bob:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+  carol:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  bob_invite:
+    direction: output
+    type: string
+    secret: true
+  carol_invite:
+    direction: output
+    type: string
+    secret: true
+  bob_name:
+    direction: output
+    type: string
+  carol_name:
+    direction: output
+    type: string
+  alice_name:
+    direction: output
+    type: string
+steps:
+- id: register_alice
+  client: alice
+  rpc: {method: server.register, request: {token: "${registration_token}"}}
+- id: register_bob
+  client: bob
+  rpc: {method: server.register, request: {token: "${registration_token}"}}
+- id: register_carol
+  client: carol
+  rpc: {method: server.register, request: {token: "${registration_token}"}}
+- id: alice_profile
+  client: alice
+  rpc: {method: server.info.put, request: {value: {name: Alice}}}
+- id: bob_invite
+  client: bob
+  rpc: {method: server.friend.invite_token.create, request: {}}
+  capture:
+    bob_invite: /invite_token
+- id: alice_adds_bob
+  client: alice
+  rpc: {method: server.friend.add, request: {invite_token: "${bob_invite}"}}
+  capture:
+    bob_name: /name
+- id: carol_invite
+  client: carol
+  rpc: {method: server.friend.invite_token.create, request: {}}
+  capture:
+    carol_invite: /invite_token
+- id: alice_adds_carol
+  client: alice
+  rpc: {method: server.friend.add, request: {invite_token: "${carol_invite}"}}
+  capture:
+    carol_name: /name
+- id: bob_lists_alice
+  client: bob
+  rpc: {method: server.friend.list, request: {}}
+  capture:
+    alice_name: /items/0/name
+- id: alice_pings_bob
+  client: alice
+  rpc: {method: server.friend.ping, request: {name: "${bob_name}"}}
+  expect:
+    /result: {equals: SOCIAL_PING_RESULT_DELIVERED}
+    /delivered_count: {equals: 1}
+- id: alice_pings_bob_again
+  client: alice
+  rpc: {method: server.friend.ping, request: {name: "${bob_name}"}}
+  expect:
+    /result: {equals: SOCIAL_PING_RESULT_RATE_LIMITED}
+    /retry_after_seconds: {minimum: 1, maximum: 60}
+# The window belongs to the pair, so bob cannot ping straight back either.
+- id: bob_pings_alice_within_window
+  client: bob
+  rpc: {method: server.friend.ping, request: {name: "${alice_name}"}}
+  expect:
+    /result: {equals: SOCIAL_PING_RESULT_RATE_LIMITED}
+# carol is connected but installs no ping provider, so nothing acknowledges
+# the ping and no window opens.
+- id: alice_pings_carol_unreached
+  client: alice
+  rpc: {method: server.friend.ping, request: {name: "${carol_name}"}}
+  expect:
+    /result: {equals: SOCIAL_PING_RESULT_NOT_ONLINE}
+    /retry_after_seconds: {present: false}
+- id: bob_pings_non_friend
+  client: bob
+  rpc: {method: server.friend.ping, request: {name: "${carol_name}"}}
+  expect_error:
+    code: 5 # NOT_FOUND: carol is not bob's friend
+- id: bob_receives_ping
+  client: bob
+  client_rpc:
+    method: client.social.ping
+    expect_calls: 1
+finally:
+- client: alice
+  rpc: {method: server.peer.delete, request: {}}
+- client: bob
+  rpc: {method: server.peer.delete, request: {}}
+- client: carol
+  rpc: {method: server.peer.delete, request: {}}
+report:
+  redact: [registration_token, bob_invite, carol_invite]

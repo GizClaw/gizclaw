@@ -69,6 +69,30 @@ func (c *rpcClient) PlayDeviceSound(ctx context.Context, conn net.Conn, id strin
 	return result, nil
 }
 
+func (c *rpcClient) FindDevice(ctx context.Context, conn net.Conn, id string, request rpcapi.ClientDeviceFindRequest) (*rpcapi.ClientDeviceFindResponse, error) {
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromClientDeviceFindRequest)
+	if err != nil {
+		return nil, err
+	}
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientDeviceFind, params), rpcapi.RPCPayload.AsClientDeviceFindResponse)
+	if err != nil {
+		return nil, wrapRPCResultError("device find", err)
+	}
+	return result, nil
+}
+
+func (c *rpcClient) PingSocial(ctx context.Context, conn net.Conn, id string, request rpcapi.ClientSocialPingRequest) (*rpcapi.ClientSocialPingResponse, error) {
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromClientSocialPingRequest)
+	if err != nil {
+		return nil, err
+	}
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientSocialPing, params), rpcapi.RPCPayload.AsClientSocialPingResponse)
+	if err != nil {
+		return nil, wrapRPCResultError("social ping", err)
+	}
+	return result, nil
+}
+
 func (c *rpcClient) RebootDevice(ctx context.Context, conn net.Conn, id string, request rpcapi.ClientDeviceRebootRequest) (*rpcapi.ClientDeviceRebootResponse, error) {
 	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromClientDeviceRebootRequest)
 	if err != nil {

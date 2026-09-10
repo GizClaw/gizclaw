@@ -21,4 +21,6 @@ Firmware 不属于 RuntimeProfile name catalog。RegistrationToken 可以给 Pee
 
 每次 catalog 操作都重新取得当前 profile snapshot。Dangling internal binding 只表现为不可用，不泄漏真实 target。删除 Workflow binding 不会删除或隐藏已有 Workspace；在相同 Peer name 恢复前，执行操作返回 not found。
 
+Social 方法同样经由 `peerresource` 分发，但只做解码、参数校验与错误映射：`server.friend.ping` 与 `server.friend_group.ping` 要求非空且无首尾空白的 `name`，领域规则由 social 服务执行；`server.profile.get` 校验 1–16 个规范 public key、去重后逐个读取公开资料，存储错误统一脱敏为 `profile lookup failed`。
+
 内置 SFU Workspace 的运行选择不依赖 RuntimeProfile；同一 Peer 重连后无需再次注册即可选择仍有成员权限的 SFU Workspace。选择仍校验当前 Social 成员关系与 Workspace 删除状态，普通 Workflow Workspace 仍依赖当前 RuntimeProfile。

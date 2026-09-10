@@ -23,6 +23,63 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// SocialPingResult is the outcome of one friend ping or Friend Group rally.
+type SocialPingResult int32
+
+const (
+	SocialPingResult_SOCIAL_PING_RESULT_UNSPECIFIED SocialPingResult = 0
+	// At least one target device acknowledged the ping.
+	SocialPingResult_SOCIAL_PING_RESULT_DELIVERED SocialPingResult = 1
+	// No target device is online; nothing was sent and no rate-limit window
+	// was started.
+	SocialPingResult_SOCIAL_PING_RESULT_NOT_ONLINE SocialPingResult = 2
+	// The friend pair or the Friend Group pinged within the last minute.
+	SocialPingResult_SOCIAL_PING_RESULT_RATE_LIMITED SocialPingResult = 3
+)
+
+// Enum value maps for SocialPingResult.
+var (
+	SocialPingResult_name = map[int32]string{
+		0: "SOCIAL_PING_RESULT_UNSPECIFIED",
+		1: "SOCIAL_PING_RESULT_DELIVERED",
+		2: "SOCIAL_PING_RESULT_NOT_ONLINE",
+		3: "SOCIAL_PING_RESULT_RATE_LIMITED",
+	}
+	SocialPingResult_value = map[string]int32{
+		"SOCIAL_PING_RESULT_UNSPECIFIED":  0,
+		"SOCIAL_PING_RESULT_DELIVERED":    1,
+		"SOCIAL_PING_RESULT_NOT_ONLINE":   2,
+		"SOCIAL_PING_RESULT_RATE_LIMITED": 3,
+	}
+)
+
+func (x SocialPingResult) Enum() *SocialPingResult {
+	p := new(SocialPingResult)
+	*p = x
+	return p
+}
+
+func (x SocialPingResult) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SocialPingResult) Descriptor() protoreflect.EnumDescriptor {
+	return file_payload_social_proto_enumTypes[0].Descriptor()
+}
+
+func (SocialPingResult) Type() protoreflect.EnumType {
+	return &file_payload_social_proto_enumTypes[0]
+}
+
+func (x SocialPingResult) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SocialPingResult.Descriptor instead.
+func (SocialPingResult) EnumDescriptor() ([]byte, []int) {
+	return file_payload_social_proto_rawDescGZIP(), []int{0}
+}
+
 type ContactCreateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -2767,6 +2824,320 @@ func (x *FriendListResponse) GetNextCursor() string {
 	return ""
 }
 
+type FriendPingRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FriendPingRequest) Reset() {
+	*x = FriendPingRequest{}
+	mi := &file_payload_social_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FriendPingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FriendPingRequest) ProtoMessage() {}
+
+func (x *FriendPingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_social_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FriendPingRequest.ProtoReflect.Descriptor instead.
+func (*FriendPingRequest) Descriptor() ([]byte, []int) {
+	return file_payload_social_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *FriendPingRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type FriendPingResponse struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Result SocialPingResult       `protobuf:"varint,1,opt,name=result,proto3,enum=gizclaw.rpc.v1.SocialPingResult" json:"result,omitempty"`
+	// Number of devices that acknowledged the ping: 1 or 0.
+	DeliveredCount int32 `protobuf:"varint,2,opt,name=delivered_count,json=deliveredCount,proto3" json:"delivered_count,omitempty"`
+	// Whole seconds, rounded up, until the pair may ping again. Set only when
+	// result is SOCIAL_PING_RESULT_RATE_LIMITED.
+	RetryAfterSeconds *int32 `protobuf:"varint,3,opt,name=retry_after_seconds,json=retryAfterSeconds,proto3,oneof" json:"retry_after_seconds,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *FriendPingResponse) Reset() {
+	*x = FriendPingResponse{}
+	mi := &file_payload_social_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FriendPingResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FriendPingResponse) ProtoMessage() {}
+
+func (x *FriendPingResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_social_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FriendPingResponse.ProtoReflect.Descriptor instead.
+func (*FriendPingResponse) Descriptor() ([]byte, []int) {
+	return file_payload_social_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *FriendPingResponse) GetResult() SocialPingResult {
+	if x != nil {
+		return x.Result
+	}
+	return SocialPingResult_SOCIAL_PING_RESULT_UNSPECIFIED
+}
+
+func (x *FriendPingResponse) GetDeliveredCount() int32 {
+	if x != nil {
+		return x.DeliveredCount
+	}
+	return 0
+}
+
+func (x *FriendPingResponse) GetRetryAfterSeconds() int32 {
+	if x != nil && x.RetryAfterSeconds != nil {
+		return *x.RetryAfterSeconds
+	}
+	return 0
+}
+
+type FriendGroupPingRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FriendGroupPingRequest) Reset() {
+	*x = FriendGroupPingRequest{}
+	mi := &file_payload_social_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FriendGroupPingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FriendGroupPingRequest) ProtoMessage() {}
+
+func (x *FriendGroupPingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_social_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FriendGroupPingRequest.ProtoReflect.Descriptor instead.
+func (*FriendGroupPingRequest) Descriptor() ([]byte, []int) {
+	return file_payload_social_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *FriendGroupPingRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type FriendGroupPingResponse struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Result SocialPingResult       `protobuf:"varint,1,opt,name=result,proto3,enum=gizclaw.rpc.v1.SocialPingResult" json:"result,omitempty"`
+	// Number of member devices, excluding the caller, that acknowledged the
+	// rally.
+	DeliveredCount int32 `protobuf:"varint,2,opt,name=delivered_count,json=deliveredCount,proto3" json:"delivered_count,omitempty"`
+	// Whole seconds, rounded up, until the group may rally again. Set only when
+	// result is SOCIAL_PING_RESULT_RATE_LIMITED.
+	RetryAfterSeconds *int32 `protobuf:"varint,3,opt,name=retry_after_seconds,json=retryAfterSeconds,proto3,oneof" json:"retry_after_seconds,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *FriendGroupPingResponse) Reset() {
+	*x = FriendGroupPingResponse{}
+	mi := &file_payload_social_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FriendGroupPingResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FriendGroupPingResponse) ProtoMessage() {}
+
+func (x *FriendGroupPingResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_social_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FriendGroupPingResponse.ProtoReflect.Descriptor instead.
+func (*FriendGroupPingResponse) Descriptor() ([]byte, []int) {
+	return file_payload_social_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *FriendGroupPingResponse) GetResult() SocialPingResult {
+	if x != nil {
+		return x.Result
+	}
+	return SocialPingResult_SOCIAL_PING_RESULT_UNSPECIFIED
+}
+
+func (x *FriendGroupPingResponse) GetDeliveredCount() int32 {
+	if x != nil {
+		return x.DeliveredCount
+	}
+	return 0
+}
+
+func (x *FriendGroupPingResponse) GetRetryAfterSeconds() int32 {
+	if x != nil && x.RetryAfterSeconds != nil {
+		return *x.RetryAfterSeconds
+	}
+	return 0
+}
+
+// ClientSocialPingRequest tells a device that a friend pinged it or a Friend
+// Group member rallied the group. friend_group_name is the receiving device's
+// own name for the group and is absent for a friend ping.
+type ClientSocialPingRequest struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	FromPeerPublicKey string                 `protobuf:"bytes,1,opt,name=from_peer_public_key,json=fromPeerPublicKey,proto3" json:"from_peer_public_key,omitempty"`
+	FromDisplayName   *string                `protobuf:"bytes,2,opt,name=from_display_name,json=fromDisplayName,proto3,oneof" json:"from_display_name,omitempty"`
+	FriendGroupName   *string                `protobuf:"bytes,3,opt,name=friend_group_name,json=friendGroupName,proto3,oneof" json:"friend_group_name,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *ClientSocialPingRequest) Reset() {
+	*x = ClientSocialPingRequest{}
+	mi := &file_payload_social_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientSocialPingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientSocialPingRequest) ProtoMessage() {}
+
+func (x *ClientSocialPingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_social_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientSocialPingRequest.ProtoReflect.Descriptor instead.
+func (*ClientSocialPingRequest) Descriptor() ([]byte, []int) {
+	return file_payload_social_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *ClientSocialPingRequest) GetFromPeerPublicKey() string {
+	if x != nil {
+		return x.FromPeerPublicKey
+	}
+	return ""
+}
+
+func (x *ClientSocialPingRequest) GetFromDisplayName() string {
+	if x != nil && x.FromDisplayName != nil {
+		return *x.FromDisplayName
+	}
+	return ""
+}
+
+func (x *ClientSocialPingRequest) GetFriendGroupName() string {
+	if x != nil && x.FriendGroupName != nil {
+		return *x.FriendGroupName
+	}
+	return ""
+}
+
+type ClientSocialPingResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientSocialPingResponse) Reset() {
+	*x = ClientSocialPingResponse{}
+	mi := &file_payload_social_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientSocialPingResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientSocialPingResponse) ProtoMessage() {}
+
+func (x *ClientSocialPingResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_social_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientSocialPingResponse.ProtoReflect.Descriptor instead.
+func (*ClientSocialPingResponse) Descriptor() ([]byte, []int) {
+	return file_payload_social_proto_rawDescGZIP(), []int{59}
+}
+
 type FriendObject struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	CreatedAt     *string                `protobuf:"bytes,1,opt,name=created_at,json=createdAt,proto3,oneof" json:"created_at,omitempty"`
@@ -2780,7 +3151,7 @@ type FriendObject struct {
 
 func (x *FriendObject) Reset() {
 	*x = FriendObject{}
-	mi := &file_payload_social_proto_msgTypes[54]
+	mi := &file_payload_social_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2792,7 +3163,7 @@ func (x *FriendObject) String() string {
 func (*FriendObject) ProtoMessage() {}
 
 func (x *FriendObject) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[54]
+	mi := &file_payload_social_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2805,7 +3176,7 @@ func (x *FriendObject) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendObject.ProtoReflect.Descriptor instead.
 func (*FriendObject) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{54}
+	return file_payload_social_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *FriendObject) GetCreatedAt() string {
@@ -3061,7 +3432,28 @@ const file_payload_social_proto_rawDesc = "" +
 	"\x05items\x18\x02 \x03(\v2\x1c.gizclaw.rpc.v1.FriendObjectR\x05items\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
 	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"\x88\x02\n" +
+	"\f_next_cursor\"'\n" +
+	"\x11FriendPingRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\xc4\x01\n" +
+	"\x12FriendPingResponse\x128\n" +
+	"\x06result\x18\x01 \x01(\x0e2 .gizclaw.rpc.v1.SocialPingResultR\x06result\x12'\n" +
+	"\x0fdelivered_count\x18\x02 \x01(\x05R\x0edeliveredCount\x123\n" +
+	"\x13retry_after_seconds\x18\x03 \x01(\x05H\x00R\x11retryAfterSeconds\x88\x01\x01B\x16\n" +
+	"\x14_retry_after_seconds\",\n" +
+	"\x16FriendGroupPingRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\xc9\x01\n" +
+	"\x17FriendGroupPingResponse\x128\n" +
+	"\x06result\x18\x01 \x01(\x0e2 .gizclaw.rpc.v1.SocialPingResultR\x06result\x12'\n" +
+	"\x0fdelivered_count\x18\x02 \x01(\x05R\x0edeliveredCount\x123\n" +
+	"\x13retry_after_seconds\x18\x03 \x01(\x05H\x00R\x11retryAfterSeconds\x88\x01\x01B\x16\n" +
+	"\x14_retry_after_seconds\"\xd8\x01\n" +
+	"\x17ClientSocialPingRequest\x12/\n" +
+	"\x14from_peer_public_key\x18\x01 \x01(\tR\x11fromPeerPublicKey\x12/\n" +
+	"\x11from_display_name\x18\x02 \x01(\tH\x00R\x0ffromDisplayName\x88\x01\x01\x12/\n" +
+	"\x11friend_group_name\x18\x03 \x01(\tH\x01R\x0ffriendGroupName\x88\x01\x01B\x14\n" +
+	"\x12_from_display_nameB\x14\n" +
+	"\x12_friend_group_name\"\x1a\n" +
+	"\x18ClientSocialPingResponse\"\x88\x02\n" +
 	"\fFriendObject\x12\"\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tH\x00R\tcreatedAt\x88\x01\x01\x12\x12\n" +
@@ -3073,7 +3465,12 @@ const file_payload_social_proto_rawDesc = "" +
 	"\v_created_atB\x12\n" +
 	"\x10_peer_public_keyB\r\n" +
 	"\v_updated_atB\x11\n" +
-	"\x0f_workspace_nameB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
+	"\x0f_workspace_name*\xa0\x01\n" +
+	"\x10SocialPingResult\x12\"\n" +
+	"\x1eSOCIAL_PING_RESULT_UNSPECIFIED\x10\x00\x12 \n" +
+	"\x1cSOCIAL_PING_RESULT_DELIVERED\x10\x01\x12!\n" +
+	"\x1dSOCIAL_PING_RESULT_NOT_ONLINE\x10\x02\x12#\n" +
+	"\x1fSOCIAL_PING_RESULT_RATE_LIMITED\x10\x03B?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 
 var (
 	file_payload_social_proto_rawDescOnce sync.Once
@@ -3087,96 +3484,106 @@ func file_payload_social_proto_rawDescGZIP() []byte {
 	return file_payload_social_proto_rawDescData
 }
 
-var file_payload_social_proto_msgTypes = make([]protoimpl.MessageInfo, 55)
+var file_payload_social_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_payload_social_proto_msgTypes = make([]protoimpl.MessageInfo, 61)
 var file_payload_social_proto_goTypes = []any{
-	(*ContactCreateRequest)(nil),                 // 0: gizclaw.rpc.v1.ContactCreateRequest
-	(*ContactCreateResponse)(nil),                // 1: gizclaw.rpc.v1.ContactCreateResponse
-	(*ContactDeleteRequest)(nil),                 // 2: gizclaw.rpc.v1.ContactDeleteRequest
-	(*ContactDeleteResponse)(nil),                // 3: gizclaw.rpc.v1.ContactDeleteResponse
-	(*ContactGetRequest)(nil),                    // 4: gizclaw.rpc.v1.ContactGetRequest
-	(*ContactGetResponse)(nil),                   // 5: gizclaw.rpc.v1.ContactGetResponse
-	(*ContactListRequest)(nil),                   // 6: gizclaw.rpc.v1.ContactListRequest
-	(*ContactListResponse)(nil),                  // 7: gizclaw.rpc.v1.ContactListResponse
-	(*ContactObject)(nil),                        // 8: gizclaw.rpc.v1.ContactObject
-	(*ContactPutRequest)(nil),                    // 9: gizclaw.rpc.v1.ContactPutRequest
-	(*ContactPutResponse)(nil),                   // 10: gizclaw.rpc.v1.ContactPutResponse
-	(*FriendAddRequest)(nil),                     // 11: gizclaw.rpc.v1.FriendAddRequest
-	(*FriendAddResponse)(nil),                    // 12: gizclaw.rpc.v1.FriendAddResponse
-	(*FriendDeleteRequest)(nil),                  // 13: gizclaw.rpc.v1.FriendDeleteRequest
-	(*FriendDeleteResponse)(nil),                 // 14: gizclaw.rpc.v1.FriendDeleteResponse
-	(*FriendInfo)(nil),                           // 15: gizclaw.rpc.v1.FriendInfo
-	(*FriendInfoGetRequest)(nil),                 // 16: gizclaw.rpc.v1.FriendInfoGetRequest
-	(*FriendInfoGetResponse)(nil),                // 17: gizclaw.rpc.v1.FriendInfoGetResponse
-	(*FriendGroupCreateRequest)(nil),             // 18: gizclaw.rpc.v1.FriendGroupCreateRequest
-	(*FriendGroupCreateResponse)(nil),            // 19: gizclaw.rpc.v1.FriendGroupCreateResponse
-	(*FriendGroupDeleteRequest)(nil),             // 20: gizclaw.rpc.v1.FriendGroupDeleteRequest
-	(*FriendGroupDeleteResponse)(nil),            // 21: gizclaw.rpc.v1.FriendGroupDeleteResponse
-	(*FriendGroupGetRequest)(nil),                // 22: gizclaw.rpc.v1.FriendGroupGetRequest
-	(*FriendGroupGetResponse)(nil),               // 23: gizclaw.rpc.v1.FriendGroupGetResponse
-	(*FriendGroupInviteTokenClearRequest)(nil),   // 24: gizclaw.rpc.v1.FriendGroupInviteTokenClearRequest
-	(*FriendGroupInviteTokenClearResponse)(nil),  // 25: gizclaw.rpc.v1.FriendGroupInviteTokenClearResponse
-	(*FriendGroupInviteTokenCreateRequest)(nil),  // 26: gizclaw.rpc.v1.FriendGroupInviteTokenCreateRequest
-	(*FriendGroupInviteTokenCreateResponse)(nil), // 27: gizclaw.rpc.v1.FriendGroupInviteTokenCreateResponse
-	(*FriendGroupInviteTokenGetRequest)(nil),     // 28: gizclaw.rpc.v1.FriendGroupInviteTokenGetRequest
-	(*FriendGroupInviteTokenGetResponse)(nil),    // 29: gizclaw.rpc.v1.FriendGroupInviteTokenGetResponse
-	(*FriendGroupJoinRequest)(nil),               // 30: gizclaw.rpc.v1.FriendGroupJoinRequest
-	(*FriendGroupJoinResponse)(nil),              // 31: gizclaw.rpc.v1.FriendGroupJoinResponse
-	(*FriendGroupListRequest)(nil),               // 32: gizclaw.rpc.v1.FriendGroupListRequest
-	(*FriendGroupListResponse)(nil),              // 33: gizclaw.rpc.v1.FriendGroupListResponse
-	(*FriendGroupMemberAddRequest)(nil),          // 34: gizclaw.rpc.v1.FriendGroupMemberAddRequest
-	(*FriendGroupMemberAddResponse)(nil),         // 35: gizclaw.rpc.v1.FriendGroupMemberAddResponse
-	(*FriendGroupMemberDeleteRequest)(nil),       // 36: gizclaw.rpc.v1.FriendGroupMemberDeleteRequest
-	(*FriendGroupMemberDeleteResponse)(nil),      // 37: gizclaw.rpc.v1.FriendGroupMemberDeleteResponse
-	(*FriendGroupMemberListRequest)(nil),         // 38: gizclaw.rpc.v1.FriendGroupMemberListRequest
-	(*FriendGroupMemberListResponse)(nil),        // 39: gizclaw.rpc.v1.FriendGroupMemberListResponse
-	(*FriendGroupMemberObject)(nil),              // 40: gizclaw.rpc.v1.FriendGroupMemberObject
-	(*FriendGroupMemberPutRequest)(nil),          // 41: gizclaw.rpc.v1.FriendGroupMemberPutRequest
-	(*FriendGroupMemberPutResponse)(nil),         // 42: gizclaw.rpc.v1.FriendGroupMemberPutResponse
-	(*FriendGroupObject)(nil),                    // 43: gizclaw.rpc.v1.FriendGroupObject
-	(*FriendGroupPutRequest)(nil),                // 44: gizclaw.rpc.v1.FriendGroupPutRequest
-	(*FriendGroupPutResponse)(nil),               // 45: gizclaw.rpc.v1.FriendGroupPutResponse
-	(*FriendInviteTokenClearRequest)(nil),        // 46: gizclaw.rpc.v1.FriendInviteTokenClearRequest
-	(*FriendInviteTokenClearResponse)(nil),       // 47: gizclaw.rpc.v1.FriendInviteTokenClearResponse
-	(*FriendInviteTokenCreateRequest)(nil),       // 48: gizclaw.rpc.v1.FriendInviteTokenCreateRequest
-	(*FriendInviteTokenCreateResponse)(nil),      // 49: gizclaw.rpc.v1.FriendInviteTokenCreateResponse
-	(*FriendInviteTokenGetRequest)(nil),          // 50: gizclaw.rpc.v1.FriendInviteTokenGetRequest
-	(*FriendInviteTokenGetResponse)(nil),         // 51: gizclaw.rpc.v1.FriendInviteTokenGetResponse
-	(*FriendListRequest)(nil),                    // 52: gizclaw.rpc.v1.FriendListRequest
-	(*FriendListResponse)(nil),                   // 53: gizclaw.rpc.v1.FriendListResponse
-	(*FriendObject)(nil),                         // 54: gizclaw.rpc.v1.FriendObject
-	(FriendGroupMemberMutableRole)(0),            // 55: gizclaw.rpc.v1.FriendGroupMemberMutableRole
-	(FriendGroupMemberRole)(0),                   // 56: gizclaw.rpc.v1.FriendGroupMemberRole
+	(SocialPingResult)(0),                        // 0: gizclaw.rpc.v1.SocialPingResult
+	(*ContactCreateRequest)(nil),                 // 1: gizclaw.rpc.v1.ContactCreateRequest
+	(*ContactCreateResponse)(nil),                // 2: gizclaw.rpc.v1.ContactCreateResponse
+	(*ContactDeleteRequest)(nil),                 // 3: gizclaw.rpc.v1.ContactDeleteRequest
+	(*ContactDeleteResponse)(nil),                // 4: gizclaw.rpc.v1.ContactDeleteResponse
+	(*ContactGetRequest)(nil),                    // 5: gizclaw.rpc.v1.ContactGetRequest
+	(*ContactGetResponse)(nil),                   // 6: gizclaw.rpc.v1.ContactGetResponse
+	(*ContactListRequest)(nil),                   // 7: gizclaw.rpc.v1.ContactListRequest
+	(*ContactListResponse)(nil),                  // 8: gizclaw.rpc.v1.ContactListResponse
+	(*ContactObject)(nil),                        // 9: gizclaw.rpc.v1.ContactObject
+	(*ContactPutRequest)(nil),                    // 10: gizclaw.rpc.v1.ContactPutRequest
+	(*ContactPutResponse)(nil),                   // 11: gizclaw.rpc.v1.ContactPutResponse
+	(*FriendAddRequest)(nil),                     // 12: gizclaw.rpc.v1.FriendAddRequest
+	(*FriendAddResponse)(nil),                    // 13: gizclaw.rpc.v1.FriendAddResponse
+	(*FriendDeleteRequest)(nil),                  // 14: gizclaw.rpc.v1.FriendDeleteRequest
+	(*FriendDeleteResponse)(nil),                 // 15: gizclaw.rpc.v1.FriendDeleteResponse
+	(*FriendInfo)(nil),                           // 16: gizclaw.rpc.v1.FriendInfo
+	(*FriendInfoGetRequest)(nil),                 // 17: gizclaw.rpc.v1.FriendInfoGetRequest
+	(*FriendInfoGetResponse)(nil),                // 18: gizclaw.rpc.v1.FriendInfoGetResponse
+	(*FriendGroupCreateRequest)(nil),             // 19: gizclaw.rpc.v1.FriendGroupCreateRequest
+	(*FriendGroupCreateResponse)(nil),            // 20: gizclaw.rpc.v1.FriendGroupCreateResponse
+	(*FriendGroupDeleteRequest)(nil),             // 21: gizclaw.rpc.v1.FriendGroupDeleteRequest
+	(*FriendGroupDeleteResponse)(nil),            // 22: gizclaw.rpc.v1.FriendGroupDeleteResponse
+	(*FriendGroupGetRequest)(nil),                // 23: gizclaw.rpc.v1.FriendGroupGetRequest
+	(*FriendGroupGetResponse)(nil),               // 24: gizclaw.rpc.v1.FriendGroupGetResponse
+	(*FriendGroupInviteTokenClearRequest)(nil),   // 25: gizclaw.rpc.v1.FriendGroupInviteTokenClearRequest
+	(*FriendGroupInviteTokenClearResponse)(nil),  // 26: gizclaw.rpc.v1.FriendGroupInviteTokenClearResponse
+	(*FriendGroupInviteTokenCreateRequest)(nil),  // 27: gizclaw.rpc.v1.FriendGroupInviteTokenCreateRequest
+	(*FriendGroupInviteTokenCreateResponse)(nil), // 28: gizclaw.rpc.v1.FriendGroupInviteTokenCreateResponse
+	(*FriendGroupInviteTokenGetRequest)(nil),     // 29: gizclaw.rpc.v1.FriendGroupInviteTokenGetRequest
+	(*FriendGroupInviteTokenGetResponse)(nil),    // 30: gizclaw.rpc.v1.FriendGroupInviteTokenGetResponse
+	(*FriendGroupJoinRequest)(nil),               // 31: gizclaw.rpc.v1.FriendGroupJoinRequest
+	(*FriendGroupJoinResponse)(nil),              // 32: gizclaw.rpc.v1.FriendGroupJoinResponse
+	(*FriendGroupListRequest)(nil),               // 33: gizclaw.rpc.v1.FriendGroupListRequest
+	(*FriendGroupListResponse)(nil),              // 34: gizclaw.rpc.v1.FriendGroupListResponse
+	(*FriendGroupMemberAddRequest)(nil),          // 35: gizclaw.rpc.v1.FriendGroupMemberAddRequest
+	(*FriendGroupMemberAddResponse)(nil),         // 36: gizclaw.rpc.v1.FriendGroupMemberAddResponse
+	(*FriendGroupMemberDeleteRequest)(nil),       // 37: gizclaw.rpc.v1.FriendGroupMemberDeleteRequest
+	(*FriendGroupMemberDeleteResponse)(nil),      // 38: gizclaw.rpc.v1.FriendGroupMemberDeleteResponse
+	(*FriendGroupMemberListRequest)(nil),         // 39: gizclaw.rpc.v1.FriendGroupMemberListRequest
+	(*FriendGroupMemberListResponse)(nil),        // 40: gizclaw.rpc.v1.FriendGroupMemberListResponse
+	(*FriendGroupMemberObject)(nil),              // 41: gizclaw.rpc.v1.FriendGroupMemberObject
+	(*FriendGroupMemberPutRequest)(nil),          // 42: gizclaw.rpc.v1.FriendGroupMemberPutRequest
+	(*FriendGroupMemberPutResponse)(nil),         // 43: gizclaw.rpc.v1.FriendGroupMemberPutResponse
+	(*FriendGroupObject)(nil),                    // 44: gizclaw.rpc.v1.FriendGroupObject
+	(*FriendGroupPutRequest)(nil),                // 45: gizclaw.rpc.v1.FriendGroupPutRequest
+	(*FriendGroupPutResponse)(nil),               // 46: gizclaw.rpc.v1.FriendGroupPutResponse
+	(*FriendInviteTokenClearRequest)(nil),        // 47: gizclaw.rpc.v1.FriendInviteTokenClearRequest
+	(*FriendInviteTokenClearResponse)(nil),       // 48: gizclaw.rpc.v1.FriendInviteTokenClearResponse
+	(*FriendInviteTokenCreateRequest)(nil),       // 49: gizclaw.rpc.v1.FriendInviteTokenCreateRequest
+	(*FriendInviteTokenCreateResponse)(nil),      // 50: gizclaw.rpc.v1.FriendInviteTokenCreateResponse
+	(*FriendInviteTokenGetRequest)(nil),          // 51: gizclaw.rpc.v1.FriendInviteTokenGetRequest
+	(*FriendInviteTokenGetResponse)(nil),         // 52: gizclaw.rpc.v1.FriendInviteTokenGetResponse
+	(*FriendListRequest)(nil),                    // 53: gizclaw.rpc.v1.FriendListRequest
+	(*FriendListResponse)(nil),                   // 54: gizclaw.rpc.v1.FriendListResponse
+	(*FriendPingRequest)(nil),                    // 55: gizclaw.rpc.v1.FriendPingRequest
+	(*FriendPingResponse)(nil),                   // 56: gizclaw.rpc.v1.FriendPingResponse
+	(*FriendGroupPingRequest)(nil),               // 57: gizclaw.rpc.v1.FriendGroupPingRequest
+	(*FriendGroupPingResponse)(nil),              // 58: gizclaw.rpc.v1.FriendGroupPingResponse
+	(*ClientSocialPingRequest)(nil),              // 59: gizclaw.rpc.v1.ClientSocialPingRequest
+	(*ClientSocialPingResponse)(nil),             // 60: gizclaw.rpc.v1.ClientSocialPingResponse
+	(*FriendObject)(nil),                         // 61: gizclaw.rpc.v1.FriendObject
+	(FriendGroupMemberMutableRole)(0),            // 62: gizclaw.rpc.v1.FriendGroupMemberMutableRole
+	(FriendGroupMemberRole)(0),                   // 63: gizclaw.rpc.v1.FriendGroupMemberRole
 }
 var file_payload_social_proto_depIdxs = []int32{
-	8,  // 0: gizclaw.rpc.v1.ContactCreateResponse.value:type_name -> gizclaw.rpc.v1.ContactObject
-	8,  // 1: gizclaw.rpc.v1.ContactDeleteResponse.value:type_name -> gizclaw.rpc.v1.ContactObject
-	8,  // 2: gizclaw.rpc.v1.ContactGetResponse.value:type_name -> gizclaw.rpc.v1.ContactObject
-	8,  // 3: gizclaw.rpc.v1.ContactListResponse.items:type_name -> gizclaw.rpc.v1.ContactObject
-	8,  // 4: gizclaw.rpc.v1.ContactPutResponse.value:type_name -> gizclaw.rpc.v1.ContactObject
-	54, // 5: gizclaw.rpc.v1.FriendAddResponse.value:type_name -> gizclaw.rpc.v1.FriendObject
-	54, // 6: gizclaw.rpc.v1.FriendDeleteResponse.value:type_name -> gizclaw.rpc.v1.FriendObject
-	15, // 7: gizclaw.rpc.v1.FriendInfoGetResponse.value:type_name -> gizclaw.rpc.v1.FriendInfo
-	43, // 8: gizclaw.rpc.v1.FriendGroupCreateResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
-	43, // 9: gizclaw.rpc.v1.FriendGroupDeleteResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
-	43, // 10: gizclaw.rpc.v1.FriendGroupGetResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
-	43, // 11: gizclaw.rpc.v1.FriendGroupJoinResponse.group:type_name -> gizclaw.rpc.v1.FriendGroupObject
-	40, // 12: gizclaw.rpc.v1.FriendGroupJoinResponse.member:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
-	43, // 13: gizclaw.rpc.v1.FriendGroupListResponse.items:type_name -> gizclaw.rpc.v1.FriendGroupObject
-	55, // 14: gizclaw.rpc.v1.FriendGroupMemberAddRequest.role:type_name -> gizclaw.rpc.v1.FriendGroupMemberMutableRole
-	40, // 15: gizclaw.rpc.v1.FriendGroupMemberAddResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
-	40, // 16: gizclaw.rpc.v1.FriendGroupMemberDeleteResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
-	40, // 17: gizclaw.rpc.v1.FriendGroupMemberListResponse.items:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
-	56, // 18: gizclaw.rpc.v1.FriendGroupMemberObject.role:type_name -> gizclaw.rpc.v1.FriendGroupMemberRole
-	55, // 19: gizclaw.rpc.v1.FriendGroupMemberPutRequest.role:type_name -> gizclaw.rpc.v1.FriendGroupMemberMutableRole
-	40, // 20: gizclaw.rpc.v1.FriendGroupMemberPutResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
-	56, // 21: gizclaw.rpc.v1.FriendGroupObject.my_role:type_name -> gizclaw.rpc.v1.FriendGroupMemberRole
-	43, // 22: gizclaw.rpc.v1.FriendGroupPutResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
-	54, // 23: gizclaw.rpc.v1.FriendListResponse.items:type_name -> gizclaw.rpc.v1.FriendObject
-	24, // [24:24] is the sub-list for method output_type
-	24, // [24:24] is the sub-list for method input_type
-	24, // [24:24] is the sub-list for extension type_name
-	24, // [24:24] is the sub-list for extension extendee
-	0,  // [0:24] is the sub-list for field type_name
+	9,  // 0: gizclaw.rpc.v1.ContactCreateResponse.value:type_name -> gizclaw.rpc.v1.ContactObject
+	9,  // 1: gizclaw.rpc.v1.ContactDeleteResponse.value:type_name -> gizclaw.rpc.v1.ContactObject
+	9,  // 2: gizclaw.rpc.v1.ContactGetResponse.value:type_name -> gizclaw.rpc.v1.ContactObject
+	9,  // 3: gizclaw.rpc.v1.ContactListResponse.items:type_name -> gizclaw.rpc.v1.ContactObject
+	9,  // 4: gizclaw.rpc.v1.ContactPutResponse.value:type_name -> gizclaw.rpc.v1.ContactObject
+	61, // 5: gizclaw.rpc.v1.FriendAddResponse.value:type_name -> gizclaw.rpc.v1.FriendObject
+	61, // 6: gizclaw.rpc.v1.FriendDeleteResponse.value:type_name -> gizclaw.rpc.v1.FriendObject
+	16, // 7: gizclaw.rpc.v1.FriendInfoGetResponse.value:type_name -> gizclaw.rpc.v1.FriendInfo
+	44, // 8: gizclaw.rpc.v1.FriendGroupCreateResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
+	44, // 9: gizclaw.rpc.v1.FriendGroupDeleteResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
+	44, // 10: gizclaw.rpc.v1.FriendGroupGetResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
+	44, // 11: gizclaw.rpc.v1.FriendGroupJoinResponse.group:type_name -> gizclaw.rpc.v1.FriendGroupObject
+	41, // 12: gizclaw.rpc.v1.FriendGroupJoinResponse.member:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
+	44, // 13: gizclaw.rpc.v1.FriendGroupListResponse.items:type_name -> gizclaw.rpc.v1.FriendGroupObject
+	62, // 14: gizclaw.rpc.v1.FriendGroupMemberAddRequest.role:type_name -> gizclaw.rpc.v1.FriendGroupMemberMutableRole
+	41, // 15: gizclaw.rpc.v1.FriendGroupMemberAddResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
+	41, // 16: gizclaw.rpc.v1.FriendGroupMemberDeleteResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
+	41, // 17: gizclaw.rpc.v1.FriendGroupMemberListResponse.items:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
+	63, // 18: gizclaw.rpc.v1.FriendGroupMemberObject.role:type_name -> gizclaw.rpc.v1.FriendGroupMemberRole
+	62, // 19: gizclaw.rpc.v1.FriendGroupMemberPutRequest.role:type_name -> gizclaw.rpc.v1.FriendGroupMemberMutableRole
+	41, // 20: gizclaw.rpc.v1.FriendGroupMemberPutResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
+	63, // 21: gizclaw.rpc.v1.FriendGroupObject.my_role:type_name -> gizclaw.rpc.v1.FriendGroupMemberRole
+	44, // 22: gizclaw.rpc.v1.FriendGroupPutResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
+	61, // 23: gizclaw.rpc.v1.FriendListResponse.items:type_name -> gizclaw.rpc.v1.FriendObject
+	0,  // 24: gizclaw.rpc.v1.FriendPingResponse.result:type_name -> gizclaw.rpc.v1.SocialPingResult
+	0,  // 25: gizclaw.rpc.v1.FriendGroupPingResponse.result:type_name -> gizclaw.rpc.v1.SocialPingResult
+	26, // [26:26] is the sub-list for method output_type
+	26, // [26:26] is the sub-list for method input_type
+	26, // [26:26] is the sub-list for extension type_name
+	26, // [26:26] is the sub-list for extension extendee
+	0,  // [0:26] is the sub-list for field type_name
 }
 
 func init() { file_payload_social_proto_init() }
@@ -3203,19 +3610,23 @@ func file_payload_social_proto_init() {
 	file_payload_social_proto_msgTypes[51].OneofWrappers = []any{}
 	file_payload_social_proto_msgTypes[52].OneofWrappers = []any{}
 	file_payload_social_proto_msgTypes[53].OneofWrappers = []any{}
-	file_payload_social_proto_msgTypes[54].OneofWrappers = []any{}
+	file_payload_social_proto_msgTypes[55].OneofWrappers = []any{}
+	file_payload_social_proto_msgTypes[57].OneofWrappers = []any{}
+	file_payload_social_proto_msgTypes[58].OneofWrappers = []any{}
+	file_payload_social_proto_msgTypes[60].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_social_proto_rawDesc), len(file_payload_social_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   55,
+			NumEnums:      1,
+			NumMessages:   61,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_payload_social_proto_goTypes,
 		DependencyIndexes: file_payload_social_proto_depIdxs,
+		EnumInfos:         file_payload_social_proto_enumTypes,
 		MessageInfos:      file_payload_social_proto_msgTypes,
 	}.Build()
 	File_payload_social_proto = out.File

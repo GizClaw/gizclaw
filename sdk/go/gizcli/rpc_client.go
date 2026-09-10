@@ -38,13 +38,18 @@ func (c *rpcClient) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpca
 		rpcapi.RPCMethodClientDeviceAudioPlayerPlay, rpcapi.RPCMethodClientDeviceAudioPlayerStop, rpcapi.RPCMethodClientDeviceAudioPlayerModeSet:
 		return c.handleAudioPlayer(ctx, req)
 	case rpcapi.RPCMethodClientDeviceStatusGet, rpcapi.RPCMethodClientDeviceVolumeSet, rpcapi.RPCMethodClientDeviceSoundPlay,
-		rpcapi.RPCMethodClientDeviceReboot, rpcapi.RPCMethodClientWifiStatusGet, rpcapi.RPCMethodClientWifiSavedList,
+		rpcapi.RPCMethodClientDeviceFind, rpcapi.RPCMethodClientDeviceReboot, rpcapi.RPCMethodClientWifiStatusGet, rpcapi.RPCMethodClientWifiSavedList,
 		rpcapi.RPCMethodClientWifiSavedForget, rpcapi.RPCMethodClientWifiScan, rpcapi.RPCMethodClientWifiConnect,
 		rpcapi.RPCMethodClientFirmwareUpdate:
 		if c.peer == nil {
 			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer client not configured"}.RPCResponse(), nil
 		}
 		return c.handleDeviceControl(ctx, req)
+	case rpcapi.RPCMethodClientSocialPing:
+		if c.peer == nil {
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer client not configured"}.RPCResponse(), nil
+		}
+		return c.handleSocialPing(ctx, req)
 	case rpcapi.RPCMethodAllPing:
 		return handleRPCPing(ctx, req)
 	default:

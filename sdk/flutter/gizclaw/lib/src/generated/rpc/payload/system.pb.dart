@@ -557,6 +557,103 @@ class ClientDeviceSoundPlayResponse extends $pb.GeneratedMessage {
   static ClientDeviceSoundPlayResponse? _defaultInstance;
 }
 
+/// ClientDeviceFindRequest asks the device to play its built-in find-me sound.
+/// duration_ms is the requested ring time; the device picks its own default
+/// when it is absent.
+class ClientDeviceFindRequest extends $pb.GeneratedMessage {
+  factory ClientDeviceFindRequest({
+    $fixnum.Int64? durationMs,
+  }) {
+    final result = create();
+    if (durationMs != null) result.durationMs = durationMs;
+    return result;
+  }
+
+  ClientDeviceFindRequest._();
+
+  factory ClientDeviceFindRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientDeviceFindRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientDeviceFindRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aInt64(1, _omitFieldNames ? '' : 'durationMs')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceFindRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceFindRequest copyWith(
+          void Function(ClientDeviceFindRequest) updates) =>
+      super.copyWith((message) => updates(message as ClientDeviceFindRequest))
+          as ClientDeviceFindRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceFindRequest create() => ClientDeviceFindRequest._();
+  @$core.override
+  ClientDeviceFindRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceFindRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientDeviceFindRequest>(create);
+  static ClientDeviceFindRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get durationMs => $_getI64(0);
+  @$pb.TagNumber(1)
+  set durationMs($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasDurationMs() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearDurationMs() => $_clearField(1);
+}
+
+class ClientDeviceFindResponse extends $pb.GeneratedMessage {
+  factory ClientDeviceFindResponse() => create();
+
+  ClientDeviceFindResponse._();
+
+  factory ClientDeviceFindResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientDeviceFindResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientDeviceFindResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceFindResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceFindResponse copyWith(
+          void Function(ClientDeviceFindResponse) updates) =>
+      super.copyWith((message) => updates(message as ClientDeviceFindResponse))
+          as ClientDeviceFindResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceFindResponse create() => ClientDeviceFindResponse._();
+  @$core.override
+  ClientDeviceFindResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceFindResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientDeviceFindResponse>(create);
+  static ClientDeviceFindResponse? _defaultInstance;
+}
+
 class ClientDeviceRebootRequest extends $pb.GeneratedMessage {
   factory ClientDeviceRebootRequest({
     $fixnum.Int64? delayMs,
@@ -3711,6 +3808,189 @@ class ServerPutInfoResponse extends $pb.GeneratedMessage {
   void clearValue() => $_clearField(1);
   @$pb.TagNumber(1)
   DeviceInfo ensureValue() => $_ensure(0);
+}
+
+/// ProfileGetRequest looks up the public profile of up to 16 Peers by public
+/// key. Any registered Peer may look up any other Peer.
+class ProfileGetRequest extends $pb.GeneratedMessage {
+  factory ProfileGetRequest({
+    $core.Iterable<$core.String>? peerPublicKeys,
+  }) {
+    final result = create();
+    if (peerPublicKeys != null) result.peerPublicKeys.addAll(peerPublicKeys);
+    return result;
+  }
+
+  ProfileGetRequest._();
+
+  factory ProfileGetRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ProfileGetRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ProfileGetRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..pPS(1, _omitFieldNames ? '' : 'peerPublicKeys')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ProfileGetRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ProfileGetRequest copyWith(void Function(ProfileGetRequest) updates) =>
+      super.copyWith((message) => updates(message as ProfileGetRequest))
+          as ProfileGetRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ProfileGetRequest create() => ProfileGetRequest._();
+  @$core.override
+  ProfileGetRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ProfileGetRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ProfileGetRequest>(create);
+  static ProfileGetRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<$core.String> get peerPublicKeys => $_getList(0);
+}
+
+/// ProfileGetResponse holds one item per distinct requested key, in request
+/// order. A Peer that does not exist, or has not set a field, has that field
+/// absent.
+class ProfileGetResponse extends $pb.GeneratedMessage {
+  factory ProfileGetResponse({
+    $core.Iterable<PublicProfile>? items,
+  }) {
+    final result = create();
+    if (items != null) result.items.addAll(items);
+    return result;
+  }
+
+  ProfileGetResponse._();
+
+  factory ProfileGetResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ProfileGetResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ProfileGetResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..pPM<PublicProfile>(1, _omitFieldNames ? '' : 'items',
+        subBuilder: PublicProfile.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ProfileGetResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ProfileGetResponse copyWith(void Function(ProfileGetResponse) updates) =>
+      super.copyWith((message) => updates(message as ProfileGetResponse))
+          as ProfileGetResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ProfileGetResponse create() => ProfileGetResponse._();
+  @$core.override
+  ProfileGetResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ProfileGetResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ProfileGetResponse>(create);
+  static ProfileGetResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<PublicProfile> get items => $_getList(0);
+}
+
+/// PublicProfile is the public projection of a Peer's DeviceInfo. It carries
+/// only the self-chosen display name and emoji; online state, hardware,
+/// identifiers and location never enter it.
+class PublicProfile extends $pb.GeneratedMessage {
+  factory PublicProfile({
+    $core.String? peerPublicKey,
+    $core.String? displayName,
+    $core.String? emoji,
+  }) {
+    final result = create();
+    if (peerPublicKey != null) result.peerPublicKey = peerPublicKey;
+    if (displayName != null) result.displayName = displayName;
+    if (emoji != null) result.emoji = emoji;
+    return result;
+  }
+
+  PublicProfile._();
+
+  factory PublicProfile.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PublicProfile.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PublicProfile',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'peerPublicKey')
+    ..aOS(2, _omitFieldNames ? '' : 'displayName')
+    ..aOS(3, _omitFieldNames ? '' : 'emoji')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PublicProfile clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PublicProfile copyWith(void Function(PublicProfile) updates) =>
+      super.copyWith((message) => updates(message as PublicProfile))
+          as PublicProfile;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PublicProfile create() => PublicProfile._();
+  @$core.override
+  PublicProfile createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PublicProfile getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PublicProfile>(create);
+  static PublicProfile? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get peerPublicKey => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set peerPublicKey($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPeerPublicKey() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPeerPublicKey() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get displayName => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set displayName($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDisplayName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDisplayName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get emoji => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set emoji($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasEmoji() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearEmoji() => $_clearField(3);
 }
 
 class SpeedTestRequest extends $pb.GeneratedMessage {

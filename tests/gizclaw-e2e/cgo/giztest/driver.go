@@ -64,7 +64,7 @@ var controlRoutes = map[string][]string{
 	},
 	http.MethodPost: {
 		"/device/audioplayer/actions/play", "/device/audioplayer/actions/stop", "/device/audioplayer/playlist/append",
-		"/device/actions/play-sound", "/device/actions/reboot", "/api-keys", "/contacts",
+		"/device/actions/play-sound", "/device/actions/reboot", "/device/actions/find", "/api-keys", "/contacts",
 	},
 	http.MethodPut: {"/device/audioplayer/playlist", "/device/audioplayer/mode", "/device/volume", "/contacts/*"},
 	http.MethodDelete: {

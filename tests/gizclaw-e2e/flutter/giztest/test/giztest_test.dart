@@ -323,6 +323,32 @@ void main() {
       expect(result.documents.length, selected.length - 1);
     });
 
+    test('load the find, social ping and profile scenarios', () async {
+      final names = [
+        'server.device.find',
+        'server.device.find.unsupported',
+        'server.friend.ping',
+        'server.friend_group.ping',
+        'server.profile.get',
+      ];
+      final result = await loadDocuments([
+        for (final name in names) '$scenarioRoot/$name.giztest.yaml',
+      ]);
+      expect(result.skipped, isEmpty);
+      expect(result.documents.map((document) => document.name), names);
+      final clientRpc = [
+        for (final document in result.documents)
+          for (final step in document.steps)
+            if (step.clientRpc != null) step.clientRpc!['method'],
+      ];
+      expect(clientRpc, [
+        'client.device.find',
+        'client.device.find',
+        'client.social.ping',
+        'client.social.ping',
+      ]);
+    });
+
     test('skip scenarios that use unsupported step kinds', () async {
       final result = await loadDocuments(await discover([scenarioRoot]));
       expect(result.skipped, isNotEmpty);

@@ -422,6 +422,14 @@ typedef struct {
   int32_t duration_ms;
 } gzc_control_play_sound_request_t;
 
+/* Body of `POST /gizclaw/v1/device/actions/find` (`DeviceFindRequest`). */
+typedef struct {
+  /* Requested ring time; the device picks its own default when absent. The
+   * Server rejects a negative value with 400. */
+  bool has_duration_ms;
+  int64_t duration_ms;
+} gzc_control_find_request_t;
+
 /* Body of `POST /gizclaw/v1/device/actions/reboot` (`DeviceRebootRequest`). */
 typedef struct {
   bool has_delay_ms;
@@ -625,6 +633,17 @@ int gzc_control_play_device_sound(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
     const gzc_control_play_sound_request_t *request);
+
+/*
+ * `POST /gizclaw/v1/device/actions/find`.
+ *
+ * Rings the device's built-in find-me sound. request may be NULL to let the
+ * device pick its own ring time.
+ */
+int gzc_control_find_device(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_find_request_t *request);
 
 /*
  * `POST /gizclaw/v1/device/actions/reboot`.

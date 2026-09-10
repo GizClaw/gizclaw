@@ -1878,6 +1878,235 @@ static int test_device_control_payload_bounds(void) {
 }
 
 /*
+ * Find, social ping and public profile payloads decode into fixed nanopb
+ * buffers, so every field must round trip at its declared bound and one byte
+ * or one item past it must be rejected rather than truncated.
+ */
+static int test_social_profile_payload_bounds(void) {
+  static uint8_t buffer[gizclaw_rpc_v1_ProfileGetResponse_size];
+  static gizclaw_rpc_v1_ProfileGetResponse profiles;
+  static gizclaw_rpc_v1_ProfileGetResponse decoded_profiles;
+
+  gizclaw_rpc_v1_ClientDeviceFindRequest find =
+      gizclaw_rpc_v1_ClientDeviceFindRequest_init_zero;
+  find.has_duration_ms = true;
+  find.duration_ms = INT64_MAX;
+  pb_ostream_t output = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  if (expect(pb_encode(&output, gizclaw_rpc_v1_ClientDeviceFindRequest_fields, &find) &&
+                 output.bytes_written <= gizclaw_rpc_v1_ClientDeviceFindRequest_size,
+             "find request with maximum duration encodes") != 0) {
+    return 1;
+  }
+  gizclaw_rpc_v1_ClientDeviceFindRequest decoded_find =
+      gizclaw_rpc_v1_ClientDeviceFindRequest_init_zero;
+  pb_istream_t input = pb_istream_from_buffer(buffer, output.bytes_written);
+  if (expect(pb_decode(&input, gizclaw_rpc_v1_ClientDeviceFindRequest_fields, &decoded_find) &&
+                 decoded_find.has_duration_ms && decoded_find.duration_ms == INT64_MAX,
+             "find request duration round trips") != 0) {
+    return 1;
+  }
+  decoded_find = (gizclaw_rpc_v1_ClientDeviceFindRequest)
+      gizclaw_rpc_v1_ClientDeviceFindRequest_init_zero;
+  input = pb_istream_from_buffer(buffer, 0);
+  if (expect(pb_decode(&input, gizclaw_rpc_v1_ClientDeviceFindRequest_fields, &decoded_find) &&
+                 !decoded_find.has_duration_ms,
+             "empty find request leaves the duration to the device") != 0) {
+    return 1;
+  }
+
+  gizclaw_rpc_v1_ClientSocialPingRequest ping =
+      gizclaw_rpc_v1_ClientSocialPingRequest_init_zero;
+  memset(ping.from_peer_public_key, 'k', 64);
+  ping.from_peer_public_key[64] = '\0';
+  ping.has_from_display_name = true;
+  memset(ping.from_display_name, 'd', 256);
+  ping.from_display_name[256] = '\0';
+  ping.has_friend_group_name = true;
+  memset(ping.friend_group_name, 'g', 255);
+  ping.friend_group_name[255] = '\0';
+  output = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  if (expect(pb_encode(&output, gizclaw_rpc_v1_ClientSocialPingRequest_fields, &ping) &&
+                 output.bytes_written == gizclaw_rpc_v1_ClientSocialPingRequest_size,
+             "social ping request with every field at its bound encodes") != 0) {
+    return 1;
+  }
+  gizclaw_rpc_v1_ClientSocialPingRequest decoded_ping =
+      gizclaw_rpc_v1_ClientSocialPingRequest_init_zero;
+  input = pb_istream_from_buffer(buffer, output.bytes_written);
+  if (expect(pb_decode(&input, gizclaw_rpc_v1_ClientSocialPingRequest_fields, &decoded_ping) &&
+                 strcmp(decoded_ping.from_peer_public_key, ping.from_peer_public_key) == 0 &&
+                 decoded_ping.has_from_display_name &&
+                 strcmp(decoded_ping.from_display_name, ping.from_display_name) == 0 &&
+                 decoded_ping.has_friend_group_name &&
+                 strcmp(decoded_ping.friend_group_name, ping.friend_group_name) == 0,
+             "social ping request round trips") != 0) {
+    return 1;
+  }
+
+  /* A friend ping carries no group name; its absence must survive decoding. */
+  ping.has_friend_group_name = false;
+  output = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  decoded_ping = (gizclaw_rpc_v1_ClientSocialPingRequest)
+      gizclaw_rpc_v1_ClientSocialPingRequest_init_zero;
+  bool ok = pb_encode(&output, gizclaw_rpc_v1_ClientSocialPingRequest_fields, &ping);
+  input = pb_istream_from_buffer(buffer, output.bytes_written);
+  if (expect(ok &&
+                 pb_decode(&input, gizclaw_rpc_v1_ClientSocialPingRequest_fields, &decoded_ping) &&
+                 decoded_ping.has_from_display_name && !decoded_ping.has_friend_group_name,
+             "friend ping request omits the group name") != 0) {
+    return 1;
+  }
+
+  /* A 257-byte display name is valid protobuf but exceeds the bounded field. */
+  size_t oversized_len = 0;
+  buffer[oversized_len++] = 0x12;
+  buffer[oversized_len++] = 0x81;
+  buffer[oversized_len++] = 0x02;
+  memset(buffer + oversized_len, 'd', 257);
+  oversized_len += 257;
+  input = pb_istream_from_buffer(buffer, oversized_len);
+  decoded_ping = (gizclaw_rpc_v1_ClientSocialPingRequest)
+      gizclaw_rpc_v1_ClientSocialPingRequest_init_zero;
+  if (expect(!pb_decode(&input, gizclaw_rpc_v1_ClientSocialPingRequest_fields, &decoded_ping),
+             "257-byte display name is rejected by the nanopb bound") != 0) {
+    return 1;
+  }
+
+  gizclaw_rpc_v1_FriendPingResponse friend_ping =
+      gizclaw_rpc_v1_FriendPingResponse_init_zero;
+  friend_ping.result = gizclaw_rpc_v1_SocialPingResult_SOCIAL_PING_RESULT_RATE_LIMITED;
+  friend_ping.delivered_count = 0;
+  friend_ping.has_retry_after_seconds = true;
+  friend_ping.retry_after_seconds = 60;
+  output = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  if (expect(pb_encode(&output, gizclaw_rpc_v1_FriendPingResponse_fields, &friend_ping) &&
+                 output.bytes_written <= gizclaw_rpc_v1_FriendPingResponse_size,
+             "rate-limited friend ping response encodes") != 0) {
+    return 1;
+  }
+  gizclaw_rpc_v1_FriendPingResponse decoded_friend_ping =
+      gizclaw_rpc_v1_FriendPingResponse_init_zero;
+  input = pb_istream_from_buffer(buffer, output.bytes_written);
+  if (expect(pb_decode(&input, gizclaw_rpc_v1_FriendPingResponse_fields, &decoded_friend_ping) &&
+                 decoded_friend_ping.result ==
+                     gizclaw_rpc_v1_SocialPingResult_SOCIAL_PING_RESULT_RATE_LIMITED &&
+                 decoded_friend_ping.delivered_count == 0 &&
+                 decoded_friend_ping.has_retry_after_seconds &&
+                 decoded_friend_ping.retry_after_seconds == 60,
+             "friend ping response round trips retry_after_seconds") != 0) {
+    return 1;
+  }
+
+  gizclaw_rpc_v1_FriendGroupPingResponse group_ping =
+      gizclaw_rpc_v1_FriendGroupPingResponse_init_zero;
+  group_ping.result = gizclaw_rpc_v1_SocialPingResult_SOCIAL_PING_RESULT_DELIVERED;
+  group_ping.delivered_count = INT32_MAX;
+  output = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  if (expect(pb_encode(&output, gizclaw_rpc_v1_FriendGroupPingResponse_fields, &group_ping),
+             "delivered group ping response encodes") != 0) {
+    return 1;
+  }
+  gizclaw_rpc_v1_FriendGroupPingResponse decoded_group_ping =
+      gizclaw_rpc_v1_FriendGroupPingResponse_init_zero;
+  input = pb_istream_from_buffer(buffer, output.bytes_written);
+  if (expect(pb_decode(&input, gizclaw_rpc_v1_FriendGroupPingResponse_fields, &decoded_group_ping) &&
+                 decoded_group_ping.result ==
+                     gizclaw_rpc_v1_SocialPingResult_SOCIAL_PING_RESULT_DELIVERED &&
+                 decoded_group_ping.delivered_count == INT32_MAX &&
+                 !decoded_group_ping.has_retry_after_seconds,
+             "group ping response round trips without retry_after_seconds") != 0) {
+    return 1;
+  }
+
+  gizclaw_rpc_v1_ProfileGetRequest lookup = gizclaw_rpc_v1_ProfileGetRequest_init_zero;
+  lookup.peer_public_keys_count = 16;
+  for (size_t i = 0; i < 16; i++) {
+    memset(lookup.peer_public_keys[i], (int)('a' + i), 64);
+    lookup.peer_public_keys[i][64] = '\0';
+  }
+  output = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  if (expect(pb_encode(&output, gizclaw_rpc_v1_ProfileGetRequest_fields, &lookup) &&
+                 output.bytes_written == gizclaw_rpc_v1_ProfileGetRequest_size,
+             "16-key profile lookup encodes") != 0) {
+    return 1;
+  }
+  size_t lookup_len = output.bytes_written;
+  gizclaw_rpc_v1_ProfileGetRequest decoded_lookup =
+      gizclaw_rpc_v1_ProfileGetRequest_init_zero;
+  input = pb_istream_from_buffer(buffer, lookup_len);
+  if (expect(pb_decode(&input, gizclaw_rpc_v1_ProfileGetRequest_fields, &decoded_lookup) &&
+                 decoded_lookup.peer_public_keys_count == 16 &&
+                 strcmp(decoded_lookup.peer_public_keys[15], lookup.peer_public_keys[15]) == 0,
+             "16-key profile lookup round trips") != 0) {
+    return 1;
+  }
+  /* Append a 17th key: the repeated field is capped at 16 items. */
+  buffer[lookup_len] = 0x0a;
+  buffer[lookup_len + 1] = 64;
+  memset(buffer + lookup_len + 2, 'q', 64);
+  input = pb_istream_from_buffer(buffer, lookup_len + 66);
+  decoded_lookup = (gizclaw_rpc_v1_ProfileGetRequest)
+      gizclaw_rpc_v1_ProfileGetRequest_init_zero;
+  if (expect(!pb_decode(&input, gizclaw_rpc_v1_ProfileGetRequest_fields, &decoded_lookup),
+             "17-key profile lookup is rejected by the nanopb bound") != 0) {
+    return 1;
+  }
+
+  profiles = (gizclaw_rpc_v1_ProfileGetResponse)gizclaw_rpc_v1_ProfileGetResponse_init_zero;
+  profiles.items_count = 16;
+  for (size_t i = 0; i < 16; i++) {
+    gizclaw_rpc_v1_PublicProfile *item = &profiles.items[i];
+    memset(item->peer_public_key, (int)('a' + i), 64);
+    item->peer_public_key[64] = '\0';
+    item->has_display_name = true;
+    memset(item->display_name, 'n', 256);
+    item->display_name[256] = '\0';
+    item->has_emoji = true;
+    memset(item->emoji, 'e', 64);
+    item->emoji[64] = '\0';
+  }
+  output = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  if (expect(pb_encode(&output, gizclaw_rpc_v1_ProfileGetResponse_fields, &profiles) &&
+                 output.bytes_written == gizclaw_rpc_v1_ProfileGetResponse_size,
+             "16-profile response with maximum strings encodes") != 0) {
+    return 1;
+  }
+  decoded_profiles =
+      (gizclaw_rpc_v1_ProfileGetResponse)gizclaw_rpc_v1_ProfileGetResponse_init_zero;
+  input = pb_istream_from_buffer(buffer, output.bytes_written);
+  if (expect(pb_decode(&input, gizclaw_rpc_v1_ProfileGetResponse_fields, &decoded_profiles) &&
+                 decoded_profiles.items_count == 16 &&
+                 strcmp(decoded_profiles.items[15].peer_public_key,
+                        profiles.items[15].peer_public_key) == 0 &&
+                 decoded_profiles.items[15].has_display_name &&
+                 strlen(decoded_profiles.items[15].display_name) == 256 &&
+                 decoded_profiles.items[15].has_emoji &&
+                 strlen(decoded_profiles.items[15].emoji) == 64,
+             "16-profile response round trips") != 0) {
+    return 1;
+  }
+
+  /* A Peer that set neither field keeps both absent after decoding. */
+  profiles.items_count = 1;
+  profiles.items[0].has_display_name = false;
+  profiles.items[0].has_emoji = false;
+  output = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  decoded_profiles =
+      (gizclaw_rpc_v1_ProfileGetResponse)gizclaw_rpc_v1_ProfileGetResponse_init_zero;
+  ok = pb_encode(&output, gizclaw_rpc_v1_ProfileGetResponse_fields, &profiles);
+  input = pb_istream_from_buffer(buffer, output.bytes_written);
+  if (expect(ok &&
+                 pb_decode(&input, gizclaw_rpc_v1_ProfileGetResponse_fields, &decoded_profiles) &&
+                 decoded_profiles.items_count == 1 &&
+                 !decoded_profiles.items[0].has_display_name &&
+                 !decoded_profiles.items[0].has_emoji,
+             "profile without display name or emoji keeps both absent") != 0) {
+    return 1;
+  }
+  return 0;
+}
+
+/*
  * Covers every terminal transition that must reach gzc_rpc_complete_cb exactly
  * once, plus the ordering guarantee for streaming requests. The caller owns the
  * only gzc_client_poll() context, so every notification below is synchronous.
@@ -4701,6 +4930,9 @@ int main(void) {
   if (test_device_control_payload_bounds() != 0) {
     return 1;
   }
+  if (test_social_profile_payload_bounds() != 0) {
+    return 1;
+  }
   {
     gizclaw_rpc_v1_ClientDeviceVolumeSetRequest volume_request =
         gizclaw_rpc_v1_ClientDeviceVolumeSetRequest_init_zero;
@@ -4715,6 +4947,35 @@ int main(void) {
                "encode device volume request") != 0) {
       return 1;
     }
+    gizclaw_rpc_v1_ClientDeviceFindRequest find_request =
+        gizclaw_rpc_v1_ClientDeviceFindRequest_init_zero;
+    find_request.has_duration_ms = true;
+    find_request.duration_ms = 8000;
+    gzc_buf_t find_payload;
+    gzc_buf_init(&find_payload);
+    rc = encode_test_pb_message(
+        platform, gizclaw_rpc_v1_ClientDeviceFindRequest_fields,
+        &find_request, &find_payload);
+    if (expect(rc == GZC_OK && find_payload.len > 0u,
+               "encode device find request") != 0) {
+      return 1;
+    }
+    gizclaw_rpc_v1_ClientSocialPingRequest ping_request =
+        gizclaw_rpc_v1_ClientSocialPingRequest_init_zero;
+    memset(ping_request.from_peer_public_key, 'k', 64);
+    ping_request.has_from_display_name = true;
+    strcpy(ping_request.from_display_name, "Alice");
+    ping_request.has_friend_group_name = true;
+    strcpy(ping_request.friend_group_name, "my-team");
+    gzc_buf_t ping_payload;
+    gzc_buf_init(&ping_payload);
+    rc = encode_test_pb_message(
+        platform, gizclaw_rpc_v1_ClientSocialPingRequest_fields,
+        &ping_request, &ping_payload);
+    if (expect(rc == GZC_OK && ping_payload.len > 0u,
+               "encode social ping request") != 0) {
+      return 1;
+    }
     static const gizclaw_rpc_v1_RpcMethod control_methods[] = {
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_STATUS_GET,
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_VOLUME_SET,
@@ -4725,8 +4986,10 @@ int main(void) {
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET,
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SCAN,
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_CONNECT,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_FIND,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_SOCIAL_PING,
     };
-    static const int control_method_ids[] = {100, 101, 102, 103, 104, 105, 106, 108, 109};
+    static const int control_method_ids[] = {100, 101, 102, 103, 104, 105, 106, 108, 109, 126, 127};
     for (size_t i = 0; i < sizeof(control_methods) / sizeof(control_methods[0]); i++) {
       if (expect((int)control_methods[i] == control_method_ids[i],
                  "device control method id matches rpc.proto") != 0) {
@@ -4737,6 +5000,16 @@ int main(void) {
           gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_VOLUME_SET) {
         control_params = gzc_str_from_parts((const char *)control_payload.data,
                                             control_payload.len);
+      }
+      if (control_methods[i] ==
+          gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_FIND) {
+        control_params = gzc_str_from_parts((const char *)find_payload.data,
+                                            find_payload.len);
+      }
+      if (control_methods[i] ==
+          gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_SOCIAL_PING) {
+        control_params = gzc_str_from_parts((const char *)ping_payload.data,
+                                            ping_payload.len);
       }
       announce_remote_rpc(&fake_webrtc, 0);
       gzc_buf_reset(&inbound_request);
@@ -4784,6 +5057,8 @@ int main(void) {
       close_remote_rpc(&fake_webrtc, 0);
     }
     gzc_buf_free(&control_payload, platform);
+    gzc_buf_free(&find_payload, platform);
+    gzc_buf_free(&ping_payload, platform);
   }
 
   gizclaw_rpc_v1_ToolInvokeRequest tool_request =

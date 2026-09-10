@@ -1,0 +1,96 @@
+# User Story:
+# As a Friend Group member with a GizClaw device,
+# I want to rally my group,
+# So that every other online member's device rings, at most once a minute per group.
+version: gizclaw.test/v1alpha1
+name: server.friend_group.ping
+clients:
+  owner:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+  member:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+  quiet:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  group_invite:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_owner
+  client: owner
+  rpc: {method: server.register, request: {token: "${registration_token}"}}
+- id: register_member
+  client: member
+  rpc: {method: server.register, request: {token: "${registration_token}"}}
+- id: register_quiet
+  client: quiet
+  rpc: {method: server.register, request: {token: "${registration_token}"}}
+- id: create_group
+  client: owner
+  rpc: {method: server.friend_group.create, request: {name: "${resource_name}"}}
+- id: group_invite
+  client: owner
+  rpc: {method: server.friend_group.invite_token.create, request: {friend_group_name: "${resource_name}"}}
+  capture:
+    group_invite: /invite_token
+- id: member_joins
+  client: member
+  rpc: {method: server.friend_group.join, request: {name: my-team, invite_token: "${group_invite}"}}
+- id: quiet_joins
+  client: quiet
+  rpc: {method: server.friend_group.join, request: {name: their-team, invite_token: "${group_invite}"}}
+# A plain member rallies. The owner acknowledges; quiet installs no ping
+# provider, so it is not counted.
+- id: member_rallies
+  client: member
+  rpc: {method: server.friend_group.ping, request: {name: my-team}}
+  expect:
+    /result: {equals: SOCIAL_PING_RESULT_DELIVERED}
+    /delivered_count: {equals: 1}
+- id: owner_rallies_within_window
+  client: owner
+  rpc: {method: server.friend_group.ping, request: {name: "${resource_name}"}}
+  expect:
+    /result: {equals: SOCIAL_PING_RESULT_RATE_LIMITED}
+    /retry_after_seconds: {minimum: 1, maximum: 60}
+- id: unknown_group
+  client: quiet
+  rpc: {method: server.friend_group.ping, request: {name: not-my-group}}
+  expect_error:
+    code: 5 # NOT_FOUND
+- id: owner_receives_rally
+  client: owner
+  client_rpc:
+    method: client.social.ping
+    expect_calls: 1
+finally:
+- client: owner
+  rpc: {method: server.friend_group.delete, request: {name: "${resource_name}"}}
+- client: owner
+  rpc: {method: server.peer.delete, request: {}}
+- client: member
+  rpc: {method: server.peer.delete, request: {}}
+- client: quiet
+  rpc: {method: server.peer.delete, request: {}}
+report:
+  redact: [registration_token, group_invite]

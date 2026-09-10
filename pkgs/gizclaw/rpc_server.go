@@ -278,6 +278,7 @@ func isPlannedServerMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerFriendAdd,
 		rpcapi.RPCMethodServerFriendList,
 		rpcapi.RPCMethodServerFriendInfoGet,
+		rpcapi.RPCMethodServerFriendPing,
 		rpcapi.RPCMethodServerFriendDelete,
 		rpcapi.RPCMethodServerFriendGroupList,
 		rpcapi.RPCMethodServerFriendGroupGet,
@@ -291,7 +292,9 @@ func isPlannedServerMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerFriendGroupMembersList,
 		rpcapi.RPCMethodServerFriendGroupMembersAdd,
 		rpcapi.RPCMethodServerFriendGroupMembersPut,
-		rpcapi.RPCMethodServerFriendGroupMembersDelete:
+		rpcapi.RPCMethodServerFriendGroupMembersDelete,
+		rpcapi.RPCMethodServerFriendGroupPing,
+		rpcapi.RPCMethodServerProfileGet:
 		return true
 	default:
 		return false

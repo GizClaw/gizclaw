@@ -15,6 +15,23 @@ import 'dart:convert' as $convert;
 import 'dart:core' as $core;
 import 'dart:typed_data' as $typed_data;
 
+@$core.Deprecated('Use socialPingResultDescriptor instead')
+const SocialPingResult$json = {
+  '1': 'SocialPingResult',
+  '2': [
+    {'1': 'SOCIAL_PING_RESULT_UNSPECIFIED', '2': 0},
+    {'1': 'SOCIAL_PING_RESULT_DELIVERED', '2': 1},
+    {'1': 'SOCIAL_PING_RESULT_NOT_ONLINE', '2': 2},
+    {'1': 'SOCIAL_PING_RESULT_RATE_LIMITED', '2': 3},
+  ],
+};
+
+/// Descriptor for `SocialPingResult`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List socialPingResultDescriptor = $convert.base64Decode(
+    'ChBTb2NpYWxQaW5nUmVzdWx0EiIKHlNPQ0lBTF9QSU5HX1JFU1VMVF9VTlNQRUNJRklFRBAAEi'
+    'AKHFNPQ0lBTF9QSU5HX1JFU1VMVF9ERUxJVkVSRUQQARIhCh1TT0NJQUxfUElOR19SRVNVTFRf'
+    'Tk9UX09OTElORRACEiMKH1NPQ0lBTF9QSU5HX1JFU1VMVF9SQVRFX0xJTUlURUQQAw==');
+
 @$core.Deprecated('Use contactCreateRequestDescriptor instead')
 const ContactCreateRequest$json = {
   '1': 'ContactCreateRequest',
@@ -1300,6 +1317,153 @@ final $typed_data.Uint8List friendListResponseDescriptor = $convert.base64Decode
     'ChJGcmllbmRMaXN0UmVzcG9uc2USGQoIaGFzX25leHQYASABKAhSB2hhc05leHQSMgoFaXRlbX'
     'MYAiADKAsyHC5naXpjbGF3LnJwYy52MS5GcmllbmRPYmplY3RSBWl0ZW1zEiQKC25leHRfY3Vy'
     'c29yGAMgASgJSABSCm5leHRDdXJzb3KIAQFCDgoMX25leHRfY3Vyc29y');
+
+@$core.Deprecated('Use friendPingRequestDescriptor instead')
+const FriendPingRequest$json = {
+  '1': 'FriendPingRequest',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+  ],
+};
+
+/// Descriptor for `FriendPingRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List friendPingRequestDescriptor = $convert
+    .base64Decode('ChFGcmllbmRQaW5nUmVxdWVzdBISCgRuYW1lGAEgASgJUgRuYW1l');
+
+@$core.Deprecated('Use friendPingResponseDescriptor instead')
+const FriendPingResponse$json = {
+  '1': 'FriendPingResponse',
+  '2': [
+    {
+      '1': 'result',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.SocialPingResult',
+      '10': 'result'
+    },
+    {'1': 'delivered_count', '3': 2, '4': 1, '5': 5, '10': 'deliveredCount'},
+    {
+      '1': 'retry_after_seconds',
+      '3': 3,
+      '4': 1,
+      '5': 5,
+      '9': 0,
+      '10': 'retryAfterSeconds',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_retry_after_seconds'},
+  ],
+};
+
+/// Descriptor for `FriendPingResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List friendPingResponseDescriptor = $convert.base64Decode(
+    'ChJGcmllbmRQaW5nUmVzcG9uc2USOAoGcmVzdWx0GAEgASgOMiAuZ2l6Y2xhdy5ycGMudjEuU2'
+    '9jaWFsUGluZ1Jlc3VsdFIGcmVzdWx0EicKD2RlbGl2ZXJlZF9jb3VudBgCIAEoBVIOZGVsaXZl'
+    'cmVkQ291bnQSMwoTcmV0cnlfYWZ0ZXJfc2Vjb25kcxgDIAEoBUgAUhFyZXRyeUFmdGVyU2Vjb2'
+    '5kc4gBAUIWChRfcmV0cnlfYWZ0ZXJfc2Vjb25kcw==');
+
+@$core.Deprecated('Use friendGroupPingRequestDescriptor instead')
+const FriendGroupPingRequest$json = {
+  '1': 'FriendGroupPingRequest',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+  ],
+};
+
+/// Descriptor for `FriendGroupPingRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List friendGroupPingRequestDescriptor =
+    $convert.base64Decode(
+        'ChZGcmllbmRHcm91cFBpbmdSZXF1ZXN0EhIKBG5hbWUYASABKAlSBG5hbWU=');
+
+@$core.Deprecated('Use friendGroupPingResponseDescriptor instead')
+const FriendGroupPingResponse$json = {
+  '1': 'FriendGroupPingResponse',
+  '2': [
+    {
+      '1': 'result',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.SocialPingResult',
+      '10': 'result'
+    },
+    {'1': 'delivered_count', '3': 2, '4': 1, '5': 5, '10': 'deliveredCount'},
+    {
+      '1': 'retry_after_seconds',
+      '3': 3,
+      '4': 1,
+      '5': 5,
+      '9': 0,
+      '10': 'retryAfterSeconds',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_retry_after_seconds'},
+  ],
+};
+
+/// Descriptor for `FriendGroupPingResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List friendGroupPingResponseDescriptor = $convert.base64Decode(
+    'ChdGcmllbmRHcm91cFBpbmdSZXNwb25zZRI4CgZyZXN1bHQYASABKA4yIC5naXpjbGF3LnJwYy'
+    '52MS5Tb2NpYWxQaW5nUmVzdWx0UgZyZXN1bHQSJwoPZGVsaXZlcmVkX2NvdW50GAIgASgFUg5k'
+    'ZWxpdmVyZWRDb3VudBIzChNyZXRyeV9hZnRlcl9zZWNvbmRzGAMgASgFSABSEXJldHJ5QWZ0ZX'
+    'JTZWNvbmRziAEBQhYKFF9yZXRyeV9hZnRlcl9zZWNvbmRz');
+
+@$core.Deprecated('Use clientSocialPingRequestDescriptor instead')
+const ClientSocialPingRequest$json = {
+  '1': 'ClientSocialPingRequest',
+  '2': [
+    {
+      '1': 'from_peer_public_key',
+      '3': 1,
+      '4': 1,
+      '5': 9,
+      '10': 'fromPeerPublicKey'
+    },
+    {
+      '1': 'from_display_name',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'fromDisplayName',
+      '17': true
+    },
+    {
+      '1': 'friend_group_name',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '9': 1,
+      '10': 'friendGroupName',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_from_display_name'},
+    {'1': '_friend_group_name'},
+  ],
+};
+
+/// Descriptor for `ClientSocialPingRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientSocialPingRequestDescriptor = $convert.base64Decode(
+    'ChdDbGllbnRTb2NpYWxQaW5nUmVxdWVzdBIvChRmcm9tX3BlZXJfcHVibGljX2tleRgBIAEoCV'
+    'IRZnJvbVBlZXJQdWJsaWNLZXkSLwoRZnJvbV9kaXNwbGF5X25hbWUYAiABKAlIAFIPZnJvbURp'
+    'c3BsYXlOYW1liAEBEi8KEWZyaWVuZF9ncm91cF9uYW1lGAMgASgJSAFSD2ZyaWVuZEdyb3VwTm'
+    'FtZYgBAUIUChJfZnJvbV9kaXNwbGF5X25hbWVCFAoSX2ZyaWVuZF9ncm91cF9uYW1l');
+
+@$core.Deprecated('Use clientSocialPingResponseDescriptor instead')
+const ClientSocialPingResponse$json = {
+  '1': 'ClientSocialPingResponse',
+};
+
+/// Descriptor for `ClientSocialPingResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientSocialPingResponseDescriptor =
+    $convert.base64Decode('ChhDbGllbnRTb2NpYWxQaW5nUmVzcG9uc2U=');
 
 @$core.Deprecated('Use friendObjectDescriptor instead')
 const FriendObject$json = {

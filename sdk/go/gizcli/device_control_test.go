@@ -34,7 +34,8 @@ func TestRPCClientDeviceControlHandlers(t *testing.T) {
 	var gotLevel int64
 	var gotMuted bool
 	var gotSound string
-	var gotDuration, gotDelay *int64
+	var gotDuration, gotDelay, gotFindDuration *int64
+	findCalls := 0
 	var gotScanTimeout *int64
 	var gotConnectSSID string
 	var gotPassphrase *string
@@ -53,6 +54,11 @@ func TestRPCClientDeviceControlHandlers(t *testing.T) {
 			return nil
 		},
 		Reboot: func(_ context.Context, delay *int64) error { gotDelay = delay; return nil },
+		Find: func(_ context.Context, duration *int64) error {
+			findCalls++
+			gotFindDuration = duration
+			return nil
+		},
 		WifiStatus: func(context.Context) (rpcapi.WifiStatus, error) {
 			return rpcapi.WifiStatus{Connected: true, Ssid: new("home")}, nil
 		},
@@ -108,6 +114,22 @@ func TestRPCClientDeviceControlHandlers(t *testing.T) {
 		t.Fatalf("rejected sound = %#v", resp)
 	}
 
+	resp = deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceFind, func(p *rpcapi.RPCPayload) error {
+		return p.FromClientDeviceFindRequest(rpcapi.ClientDeviceFindRequest{DurationMs: new(int64(8000))})
+	})
+	if resp.Error != nil || gotFindDuration == nil || *gotFindDuration != 8000 {
+		t.Fatalf("find = %#v duration=%v", resp, gotFindDuration)
+	}
+	if resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceFind, nil); resp.Error != nil || gotFindDuration != nil {
+		t.Fatalf("find without params = %#v duration=%v", resp, gotFindDuration)
+	}
+	resp = deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceFind, func(p *rpcapi.RPCPayload) error {
+		return p.FromClientDeviceFindRequest(rpcapi.ClientDeviceFindRequest{DurationMs: new(int64(-1))})
+	})
+	if resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument || findCalls != 2 {
+		t.Fatalf("negative find duration = %#v after %d calls", resp, findCalls)
+	}
+
 	resp = deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceReboot, func(p *rpcapi.RPCPayload) error {
 		return p.FromClientDeviceRebootRequest(rpcapi.ClientDeviceRebootRequest{DelayMs: new(int64(2000))})
 	})
@@ -152,7 +174,7 @@ func TestRPCClientDeviceControlHandlers(t *testing.T) {
 	if resp.Error != nil || gotConnectSSID != "office" || gotPassphrase == nil || *gotPassphrase != passphrase {
 		t.Fatalf("connect = %#v ssid=%q passphrase=%v", resp, gotConnectSSID, gotPassphrase)
 	}
-	if len(observed) != 12 {
+	if len(observed) != 14 {
 		t.Fatalf("observed %d valid dispatches: %v", len(observed), observed)
 	}
 }
@@ -258,5 +280,36 @@ func TestRPCClientFirmwareUpdateProvider(t *testing.T) {
 	// Firmware without the provider answers METHOD_NOT_FOUND.
 	if resp := deviceControlDispatch(t, &Client{}, rpcapi.RPCMethodClientFirmwareUpdate, nil); resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeUnimplemented {
 		t.Fatalf("update without handler = %#v", resp)
+	}
+}
+
+func TestRPCClientSocialPingHandler(t *testing.T) {
+	device := &Client{}
+	ping := func(p *rpcapi.RPCPayload) error {
+		return p.FromClientSocialPingRequest(rpcapi.ClientSocialPingRequest{FromPeerPublicKey: "friend", FriendGroupName: new("team")})
+	}
+	if resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientSocialPing, ping); resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeUnimplemented {
+		t.Fatalf("ping without handler = %#v", resp)
+	}
+	var got rpcapi.ClientSocialPingRequest
+	if err := device.HandleSocialPing(func(_ context.Context, request rpcapi.ClientSocialPingRequest) error {
+		got = request
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientSocialPing, ping); resp.Error != nil || got.FromPeerPublicKey != "friend" || got.FriendGroupName == nil || *got.FriendGroupName != "team" {
+		t.Fatalf("ping = %#v got=%+v", resp, got)
+	}
+	if resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientSocialPing, func(p *rpcapi.RPCPayload) error {
+		return p.FromClientSocialPingRequest(rpcapi.ClientSocialPingRequest{})
+	}); resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument {
+		t.Fatalf("ping without sender = %#v", resp)
+	}
+	if err := device.HandleSocialPing(func(context.Context, rpcapi.ClientSocialPingRequest) error { return errors.New("busy") }); err != nil {
+		t.Fatal(err)
+	}
+	if resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientSocialPing, ping); resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInternal {
+		t.Fatalf("failing handler = %#v", resp)
 	}
 }

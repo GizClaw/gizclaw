@@ -126,6 +126,7 @@ func TestDeviceControlOfflineAndTimeout(t *testing.T) {
 	}
 	for _, route := range []struct{ method, path string }{
 		{http.MethodPost, "/gizclaw/v1/device/actions/play-sound"},
+		{http.MethodPost, "/gizclaw/v1/device/actions/find"},
 		{http.MethodPost, "/gizclaw/v1/device/actions/reboot"},
 		{http.MethodGet, "/gizclaw/v1/device/wifi"},
 		{http.MethodGet, "/gizclaw/v1/device/wifi/saved"},
@@ -469,6 +470,67 @@ func TestDeviceWifiRoutesMapDeviceErrors(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestDeviceControlFindForwardsFindNotSound(t *testing.T) {
+	f := newDeviceHTTPFixture(t)
+	var requests []rpcapi.ClientDeviceFindRequest
+	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		if req.Method != rpcapi.RPCMethodClientDeviceFind {
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unexpected " + string(req.Method)}.RPCResponse(), nil
+		}
+		params := rpcapi.ClientDeviceFindRequest{}
+		if req.Params != nil {
+			decoded, err := req.Params.AsClientDeviceFindRequest()
+			if err != nil {
+				return nil, err
+			}
+			params = decoded
+		}
+		requests = append(requests, params)
+		return newRPCResultResponse(req.Id, rpcapi.ClientDeviceFindResponse{}, (*rpcapi.RPCPayload).FromClientDeviceFindResponse)
+	})
+	f.manager.SetPeerUp(f.owner, device)
+
+	if response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/find", `{"duration_ms":8000}`); response.Code != http.StatusNoContent {
+		t.Fatalf("find status = %d body=%s", response.Code, response.Body.String())
+	}
+	if response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/find", ""); response.Code != http.StatusNoContent {
+		t.Fatalf("find without body status = %d body=%s", response.Code, response.Body.String())
+	}
+	if len(requests) != 2 || requests[0].DurationMs == nil || *requests[0].DurationMs != 8000 || requests[1].DurationMs != nil {
+		t.Fatalf("find requests = %+v", requests)
+	}
+	if response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/find", `{"duration_ms":-1}`); response.Code != http.StatusBadRequest {
+		t.Fatalf("negative duration status = %d body=%s", response.Code, response.Body.String())
+	}
+	if calls := device.calls.Load(); calls != 2 {
+		t.Fatalf("device calls = %d, want 2 (invalid input must not reach the device)", calls)
+	}
+}
+
+func TestDeviceControlFindMapsDeviceErrors(t *testing.T) {
+	f := newDeviceHTTPFixture(t)
+	var code rpcapi.StatusCode
+	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		return rpcapi.Error{RequestID: req.Id, Code: code, Message: "private detail"}.RPCResponse(), nil
+	})
+	f.manager.SetPeerUp(f.owner, device)
+	for _, tc := range []struct {
+		code   rpcapi.StatusCode
+		status int
+		public string
+	}{
+		{rpcapi.StatusCodeInvalidArgument, http.StatusBadRequest, deviceRejectedCode},
+		{rpcapi.StatusCodeUnimplemented, http.StatusNotImplemented, deviceUnsupportedCode},
+		{rpcapi.StatusCodeInternal, http.StatusBadGateway, deviceErrorCode},
+	} {
+		code = tc.code
+		response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/find", `{}`)
+		if response.Code != tc.status || errorCode(t, response) != tc.public || strings.Contains(response.Body.String(), "private detail") {
+			t.Fatalf("code %d status = %d body=%s", tc.code, response.Code, response.Body.String())
+		}
 	}
 }
 

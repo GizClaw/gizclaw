@@ -424,6 +424,7 @@ _Handlers _buildHandlers(
   Map<String, Object?> deviceInfo = const {};
   Map<String, Object?>? identifiers;
   var control = const GizClawDeviceControlHandlers();
+  GizClawSocialPingHandler? socialPing;
 
   for (final step in steps) {
     final clientRpc = step.clientRpc;
@@ -595,6 +596,19 @@ _Handlers _buildHandlers(
             if (failure != null) throw failure;
           },
         );
+      case 'client.device.find':
+        control = _copyControl(
+          control,
+          find: (_) {
+            count(method);
+            if (failure != null) throw failure;
+          },
+        );
+      case 'client.social.ping':
+        socialPing = (_) {
+          count(method);
+          if (failure != null) throw failure;
+        };
       case 'client.device.reboot':
         control = _copyControl(
           control,
@@ -719,6 +733,7 @@ _Handlers _buildHandlers(
               );
             },
       deviceControl: control,
+      socialPing: socialPing,
     ),
     inbound,
   );
@@ -734,6 +749,7 @@ GizClawDeviceControlHandlers _copyControl(
   PeerStatus Function()? status,
   PeerStatus Function(int level, bool muted)? setVolume,
   void Function(String sound, int? durationMs)? playSound,
+  void Function(int? durationMs)? find,
   void Function(int? delayMs)? reboot,
   WifiStatus Function()? wifiStatus,
   List<WifiSavedNetwork> Function()? savedWifi,
@@ -744,6 +760,7 @@ GizClawDeviceControlHandlers _copyControl(
   return GizClawDeviceControlHandlers(
     audioplayer: audioplayer ?? base.audioplayer,
     connectWifi: connectWifi ?? base.connectWifi,
+    find: find ?? base.find,
     forgetWifi: forgetWifi ?? base.forgetWifi,
     playSound: playSound ?? base.playSound,
     reboot: reboot ?? base.reboot,

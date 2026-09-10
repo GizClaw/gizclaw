@@ -53,6 +53,11 @@ type Server struct {
 	Workspaces       WorkspaceService
 	NotifyPeer       func(context.Context, string, *eventpb.PeerEvent)
 	PeerAvailability func(context.Context, string) error
+	// Profiles and Pings serve server.friend_group.ping: Profiles names the
+	// rallying member and Pings reaches member devices connected to this
+	// Server. A nil Pings disables rallies.
+	Profiles ProfileService
+	Pings    socialutil.PingDelivery
 	// SFUURL is the SFU endpoint recorded in every new Friend Group SFU binding.
 	SFUURL string
 

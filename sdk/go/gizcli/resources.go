@@ -176,6 +176,31 @@ func (c *Client) GetFriendInfo(ctx context.Context, id string, request rpcapi.Fr
 	})
 }
 
+// PingFriend rings the device of the Friend named request.Name. The result
+// reports delivered, not_online (nothing was sent and no rate-limit window
+// opened) or rate_limited with the seconds left.
+func (c *Client) PingFriend(ctx context.Context, id string, request rpcapi.FriendPingRequest) (*rpcapi.FriendPingResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendPingResponse, error) {
+		return client.PingFriend(ctx, conn, id, request)
+	})
+}
+
+// PingFriendGroup rallies every other online member of the Friend Group named
+// request.Name.
+func (c *Client) PingFriendGroup(ctx context.Context, id string, request rpcapi.FriendGroupPingRequest) (*rpcapi.FriendGroupPingResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupPingResponse, error) {
+		return client.PingFriendGroup(ctx, conn, id, request)
+	})
+}
+
+// GetProfiles reads the public display name and emoji of up to
+// rpcapi.MaxProfileGetKeys Peers.
+func (c *Client) GetProfiles(ctx context.Context, id string, request rpcapi.ProfileGetRequest) (*rpcapi.ProfileGetResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ProfileGetResponse, error) {
+		return client.GetProfiles(ctx, conn, id, request)
+	})
+}
+
 func (c *Client) DeleteFriend(ctx context.Context, id string, request rpcapi.FriendDeleteRequest) (*rpcapi.FriendDeleteResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendDeleteResponse, error) {
 		return client.DeleteFriend(ctx, conn, id, request)

@@ -16,8 +16,11 @@ import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 
 import 'enums.pbenum.dart' as $0;
+import 'social.pbenum.dart';
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
+
+export 'social.pbenum.dart';
 
 class ContactCreateRequest extends $pb.GeneratedMessage {
   factory ContactCreateRequest({
@@ -3587,6 +3590,404 @@ class FriendListResponse extends $pb.GeneratedMessage {
   $core.bool hasNextCursor() => $_has(2);
   @$pb.TagNumber(3)
   void clearNextCursor() => $_clearField(3);
+}
+
+class FriendPingRequest extends $pb.GeneratedMessage {
+  factory FriendPingRequest({
+    $core.String? name,
+  }) {
+    final result = create();
+    if (name != null) result.name = name;
+    return result;
+  }
+
+  FriendPingRequest._();
+
+  factory FriendPingRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory FriendPingRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'FriendPingRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FriendPingRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FriendPingRequest copyWith(void Function(FriendPingRequest) updates) =>
+      super.copyWith((message) => updates(message as FriendPingRequest))
+          as FriendPingRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static FriendPingRequest create() => FriendPingRequest._();
+  @$core.override
+  FriendPingRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static FriendPingRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<FriendPingRequest>(create);
+  static FriendPingRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+}
+
+class FriendPingResponse extends $pb.GeneratedMessage {
+  factory FriendPingResponse({
+    SocialPingResult? result,
+    $core.int? deliveredCount,
+    $core.int? retryAfterSeconds,
+  }) {
+    final result$ = create();
+    if (result != null) result$.result = result;
+    if (deliveredCount != null) result$.deliveredCount = deliveredCount;
+    if (retryAfterSeconds != null)
+      result$.retryAfterSeconds = retryAfterSeconds;
+    return result$;
+  }
+
+  FriendPingResponse._();
+
+  factory FriendPingResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory FriendPingResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'FriendPingResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aE<SocialPingResult>(1, _omitFieldNames ? '' : 'result',
+        enumValues: SocialPingResult.values)
+    ..aI(2, _omitFieldNames ? '' : 'deliveredCount')
+    ..aI(3, _omitFieldNames ? '' : 'retryAfterSeconds')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FriendPingResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FriendPingResponse copyWith(void Function(FriendPingResponse) updates) =>
+      super.copyWith((message) => updates(message as FriendPingResponse))
+          as FriendPingResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static FriendPingResponse create() => FriendPingResponse._();
+  @$core.override
+  FriendPingResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static FriendPingResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<FriendPingResponse>(create);
+  static FriendPingResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  SocialPingResult get result => $_getN(0);
+  @$pb.TagNumber(1)
+  set result(SocialPingResult value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasResult() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearResult() => $_clearField(1);
+
+  /// Number of devices that acknowledged the ping: 1 or 0.
+  @$pb.TagNumber(2)
+  $core.int get deliveredCount => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set deliveredCount($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDeliveredCount() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDeliveredCount() => $_clearField(2);
+
+  /// Whole seconds, rounded up, until the pair may ping again. Set only when
+  /// result is SOCIAL_PING_RESULT_RATE_LIMITED.
+  @$pb.TagNumber(3)
+  $core.int get retryAfterSeconds => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set retryAfterSeconds($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasRetryAfterSeconds() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearRetryAfterSeconds() => $_clearField(3);
+}
+
+class FriendGroupPingRequest extends $pb.GeneratedMessage {
+  factory FriendGroupPingRequest({
+    $core.String? name,
+  }) {
+    final result = create();
+    if (name != null) result.name = name;
+    return result;
+  }
+
+  FriendGroupPingRequest._();
+
+  factory FriendGroupPingRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory FriendGroupPingRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'FriendGroupPingRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FriendGroupPingRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FriendGroupPingRequest copyWith(
+          void Function(FriendGroupPingRequest) updates) =>
+      super.copyWith((message) => updates(message as FriendGroupPingRequest))
+          as FriendGroupPingRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static FriendGroupPingRequest create() => FriendGroupPingRequest._();
+  @$core.override
+  FriendGroupPingRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static FriendGroupPingRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<FriendGroupPingRequest>(create);
+  static FriendGroupPingRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+}
+
+class FriendGroupPingResponse extends $pb.GeneratedMessage {
+  factory FriendGroupPingResponse({
+    SocialPingResult? result,
+    $core.int? deliveredCount,
+    $core.int? retryAfterSeconds,
+  }) {
+    final result$ = create();
+    if (result != null) result$.result = result;
+    if (deliveredCount != null) result$.deliveredCount = deliveredCount;
+    if (retryAfterSeconds != null)
+      result$.retryAfterSeconds = retryAfterSeconds;
+    return result$;
+  }
+
+  FriendGroupPingResponse._();
+
+  factory FriendGroupPingResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory FriendGroupPingResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'FriendGroupPingResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aE<SocialPingResult>(1, _omitFieldNames ? '' : 'result',
+        enumValues: SocialPingResult.values)
+    ..aI(2, _omitFieldNames ? '' : 'deliveredCount')
+    ..aI(3, _omitFieldNames ? '' : 'retryAfterSeconds')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FriendGroupPingResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FriendGroupPingResponse copyWith(
+          void Function(FriendGroupPingResponse) updates) =>
+      super.copyWith((message) => updates(message as FriendGroupPingResponse))
+          as FriendGroupPingResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static FriendGroupPingResponse create() => FriendGroupPingResponse._();
+  @$core.override
+  FriendGroupPingResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static FriendGroupPingResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<FriendGroupPingResponse>(create);
+  static FriendGroupPingResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  SocialPingResult get result => $_getN(0);
+  @$pb.TagNumber(1)
+  set result(SocialPingResult value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasResult() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearResult() => $_clearField(1);
+
+  /// Number of member devices, excluding the caller, that acknowledged the
+  /// rally.
+  @$pb.TagNumber(2)
+  $core.int get deliveredCount => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set deliveredCount($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDeliveredCount() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDeliveredCount() => $_clearField(2);
+
+  /// Whole seconds, rounded up, until the group may rally again. Set only when
+  /// result is SOCIAL_PING_RESULT_RATE_LIMITED.
+  @$pb.TagNumber(3)
+  $core.int get retryAfterSeconds => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set retryAfterSeconds($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasRetryAfterSeconds() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearRetryAfterSeconds() => $_clearField(3);
+}
+
+/// ClientSocialPingRequest tells a device that a friend pinged it or a Friend
+/// Group member rallied the group. friend_group_name is the receiving device's
+/// own name for the group and is absent for a friend ping.
+class ClientSocialPingRequest extends $pb.GeneratedMessage {
+  factory ClientSocialPingRequest({
+    $core.String? fromPeerPublicKey,
+    $core.String? fromDisplayName,
+    $core.String? friendGroupName,
+  }) {
+    final result = create();
+    if (fromPeerPublicKey != null) result.fromPeerPublicKey = fromPeerPublicKey;
+    if (fromDisplayName != null) result.fromDisplayName = fromDisplayName;
+    if (friendGroupName != null) result.friendGroupName = friendGroupName;
+    return result;
+  }
+
+  ClientSocialPingRequest._();
+
+  factory ClientSocialPingRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientSocialPingRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientSocialPingRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'fromPeerPublicKey')
+    ..aOS(2, _omitFieldNames ? '' : 'fromDisplayName')
+    ..aOS(3, _omitFieldNames ? '' : 'friendGroupName')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientSocialPingRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientSocialPingRequest copyWith(
+          void Function(ClientSocialPingRequest) updates) =>
+      super.copyWith((message) => updates(message as ClientSocialPingRequest))
+          as ClientSocialPingRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientSocialPingRequest create() => ClientSocialPingRequest._();
+  @$core.override
+  ClientSocialPingRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientSocialPingRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientSocialPingRequest>(create);
+  static ClientSocialPingRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get fromPeerPublicKey => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set fromPeerPublicKey($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasFromPeerPublicKey() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearFromPeerPublicKey() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get fromDisplayName => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set fromDisplayName($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasFromDisplayName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearFromDisplayName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get friendGroupName => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set friendGroupName($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasFriendGroupName() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearFriendGroupName() => $_clearField(3);
+}
+
+class ClientSocialPingResponse extends $pb.GeneratedMessage {
+  factory ClientSocialPingResponse() => create();
+
+  ClientSocialPingResponse._();
+
+  factory ClientSocialPingResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientSocialPingResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientSocialPingResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientSocialPingResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientSocialPingResponse copyWith(
+          void Function(ClientSocialPingResponse) updates) =>
+      super.copyWith((message) => updates(message as ClientSocialPingResponse))
+          as ClientSocialPingResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientSocialPingResponse create() => ClientSocialPingResponse._();
+  @$core.override
+  ClientSocialPingResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientSocialPingResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientSocialPingResponse>(create);
+  static ClientSocialPingResponse? _defaultInstance;
 }
 
 class FriendObject extends $pb.GeneratedMessage {
