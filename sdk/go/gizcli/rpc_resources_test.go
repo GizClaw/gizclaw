@@ -117,6 +117,15 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendList, rpcapi.FriendListResponse{}, (*rpcapi.RPCPayload).FromFriendListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendListResponse, error) {
 			return client.ListFriends(ctx, conn, "friend-list", rpcapi.FriendListRequest{})
 		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendPing, rpcapi.FriendPingResponse{Result: rpcapi.SocialPingResultDelivered, DeliveredCount: 1}, (*rpcapi.RPCPayload).FromFriendPingResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendPingResponse, error) {
+			return client.PingFriend(ctx, conn, "friend-ping", rpcapi.FriendPingRequest{Name: "friend-a"})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupPing, rpcapi.FriendGroupPingResponse{Result: rpcapi.SocialPingResultNotOnline}, (*rpcapi.RPCPayload).FromFriendGroupPingResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupPingResponse, error) {
+			return client.PingFriendGroup(ctx, conn, "friend-group-ping", rpcapi.FriendGroupPingRequest{Name: "group-a"})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerProfileGet, rpcapi.ProfileGetResponse{Items: []rpcapi.PublicProfile{{PeerPublicKey: "peer-a"}}}, (*rpcapi.RPCPayload).FromProfileGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ProfileGetResponse, error) {
+			return client.GetProfiles(ctx, conn, "profile-get", rpcapi.ProfileGetRequest{PeerPublicKeys: []string{"peer-a"}})
+		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendDelete, rpcapi.FriendDeleteResponse{}, (*rpcapi.RPCPayload).FromFriendDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendDeleteResponse, error) {
 			return client.DeleteFriend(ctx, conn, "friend-delete", rpcapi.FriendDeleteRequest{Name: "friend-a"})
 		})

@@ -148,6 +148,7 @@ Go SDK 把常用 RPC 暴露为 `gizcli.Client` 的 typed 方法。传入的 requ
 | `GET /gizclaw/v1/device/telemetry/{field}/latest`、`/telemetry`、`/telemetry/aggregate` | 与 Admin telemetry 相同语义的采样查询 |
 | `PUT /gizclaw/v1/device/volume` | 设置音量与静音，返回设备实时回报的 status |
 | `POST /gizclaw/v1/device/actions/play-sound` | 播放设备自定义提示音 |
+| `POST /gizclaw/v1/device/actions/find` | 找设备：设备播放内置找寻提示音并逐步增大音量 |
 | `POST /gizclaw/v1/device/actions/reboot` | 重启设备 |
 | `GET /gizclaw/v1/device/firmware` | 设备绑定的 Firmware 配置的全部 channel 与各自的包 |
 | `POST /gizclaw/v1/device/actions/firmware-update` | 通知设备执行一次 OTA |

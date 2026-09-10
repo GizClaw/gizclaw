@@ -130,12 +130,17 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY = 117,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP = 118,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET = 119,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET = 123,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET = 124,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET = 125,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_GET = 126,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET = 128,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET = 129,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET = 130,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_GET = 131,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_APP_CONFIG_LIST = 121,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_APP_CONFIG_GET = 122
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_APP_CONFIG_GET = 122,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_PING = 123,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_PING = 124,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PROFILE_GET = 125,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_FIND = 126,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_SOCIAL_PING = 127
 } gizclaw_rpc_v1_RpcMethod;
 
 /* Struct definitions */

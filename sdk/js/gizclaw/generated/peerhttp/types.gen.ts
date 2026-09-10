@@ -81,6 +81,13 @@ export type DevicePlaySoundRequest = {
     duration_ms?: number;
 };
 
+export type DeviceFindRequest = {
+    /**
+     * Optional ring time in milliseconds; the device picks its own default when omitted.
+     */
+    duration_ms?: number;
+};
+
 export type DeviceRebootRequest = {
     /**
      * Optional delay before the device reboots, in milliseconds.
@@ -1946,6 +1953,59 @@ export type PlayDeviceSoundResponses = {
 };
 
 export type PlayDeviceSoundResponse = PlayDeviceSoundResponses[keyof PlayDeviceSoundResponses];
+
+export type FindDeviceData = {
+    body?: DeviceFindRequest;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/actions/find';
+};
+
+export type FindDeviceErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type FindDeviceError = FindDeviceErrors[keyof FindDeviceErrors];
+
+export type FindDeviceResponses = {
+    /**
+     * The device accepted the find request.
+     */
+    204: void;
+};
+
+export type FindDeviceResponse = FindDeviceResponses[keyof FindDeviceResponses];
 
 export type RebootDeviceData = {
     body?: DeviceRebootRequest;

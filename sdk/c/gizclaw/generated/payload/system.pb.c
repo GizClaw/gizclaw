@@ -63,6 +63,12 @@ PB_BIND(gizclaw_rpc_v1_ClientRpcMethodsGetRequest, gizclaw_rpc_v1_ClientRpcMetho
 PB_BIND(gizclaw_rpc_v1_ClientRpcMethodsGetResponse, gizclaw_rpc_v1_ClientRpcMethodsGetResponse, 4)
 
 
+PB_BIND(gizclaw_rpc_v1_ClientDeviceFindRequest, gizclaw_rpc_v1_ClientDeviceFindRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientDeviceFindResponse, gizclaw_rpc_v1_ClientDeviceFindResponse, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_ClientDeviceRebootRequest, gizclaw_rpc_v1_ClientDeviceRebootRequest, AUTO)
 
 
@@ -208,6 +214,15 @@ PB_BIND(gizclaw_rpc_v1_ServerPutInfoRequest, gizclaw_rpc_v1_ServerPutInfoRequest
 
 
 PB_BIND(gizclaw_rpc_v1_ServerPutInfoResponse, gizclaw_rpc_v1_ServerPutInfoResponse, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_ProfileGetRequest, gizclaw_rpc_v1_ProfileGetRequest, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_ProfileGetResponse, gizclaw_rpc_v1_ProfileGetResponse, 4)
+
+
+PB_BIND(gizclaw_rpc_v1_PublicProfile, gizclaw_rpc_v1_PublicProfile, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_SpeedTestRequest, gizclaw_rpc_v1_SpeedTestRequest, AUTO)

@@ -45,6 +45,8 @@ func businessError(id string, err error) *rpcapi.RPCResponse {
 			Reason:    "FRIEND_LIMIT_REACHED",
 			Message:   "peer friend limit reached",
 		}.RPCResponse()
+	case errors.Is(err, friend.ErrPingUnavailable), errors.Is(err, friendgroup.ErrPingUnavailable):
+		return statusError(id, rpcapi.StatusCodeUnavailable, "ping delivery is not available")
 	case errors.Is(err, friend.ErrInviteTokenRequired):
 		return statusError(id, rpcapi.StatusCodeInvalidArgument, "friend invite token is required")
 	case errors.Is(err, friend.ErrInviteTokenUnavailable):

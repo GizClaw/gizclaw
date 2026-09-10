@@ -79,7 +79,15 @@ func configureClientRPC(client *gizcli.Client, clientName string, steps []giztes
 			}); err != nil {
 				return err
 			}
-		case "client.device.status.get", "client.device.volume.set", "client.device.sound.play", "client.device.reboot",
+		case "client.social.ping":
+			scripted, err := deviceControlErrorResponse(response)
+			if err != nil {
+				return fmt.Errorf("step %s response: %w", step.ID, err)
+			}
+			if err := client.HandleSocialPing(func(context.Context, rpcapi.ClientSocialPingRequest) error { return scripted }); err != nil {
+				return err
+			}
+		case "client.device.status.get", "client.device.volume.set", "client.device.sound.play", "client.device.find", "client.device.reboot",
 			"client.device.audioplayer.get", "client.device.audioplayer.playlist.get", "client.device.audioplayer.playlist.set", "client.device.audioplayer.playlist.append", "client.device.audioplayer.play", "client.device.audioplayer.stop", "client.device.audioplayer.mode.set",
 			"client.wifi.status.get", "client.wifi.saved.list", "client.wifi.saved.forget", "client.wifi.scan", "client.wifi.connect":
 			if err := installDeviceControl(&device, step.ClientRPC.Method, response); err != nil {
@@ -187,6 +195,8 @@ func installDeviceControl(handlers *gizcli.DeviceControlHandlers, method string,
 			}
 		case "client.device.sound.play":
 			handlers.PlaySound = func(ctx context.Context, _ string, _ *int64) error { return fail(ctx) }
+		case "client.device.find":
+			handlers.Find = func(ctx context.Context, _ *int64) error { return fail(ctx) }
 		case "client.device.reboot":
 			handlers.Reboot = func(ctx context.Context, _ *int64) error { return fail(ctx) }
 		case "client.wifi.status.get":
@@ -229,6 +239,8 @@ func installDeviceControl(handlers *gizcli.DeviceControlHandlers, method string,
 		}
 	case "client.device.sound.play":
 		handlers.PlaySound = func(context.Context, string, *int64) error { return nil }
+	case "client.device.find":
+		handlers.Find = func(context.Context, *int64) error { return nil }
 	case "client.device.reboot":
 		handlers.Reboot = func(context.Context, *int64) error { return nil }
 	case "client.wifi.status.get":

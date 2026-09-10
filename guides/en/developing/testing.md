@@ -349,7 +349,7 @@ is the step value for `expect`, `capture`, and `save_as`, and a 4xx/5xx without 
 an assertion failure. The API key comes from a `server.api_key.create` step with
 `capture: {api_key: /api_key}` and is sent as the `Authorization: "Bearer ${api_key}"` header.
 `client_rpc` may declare `client.device.status.get`, `client.device.volume.set`,
-`client.device.sound.play`, `client.device.reboot`, `client.wifi.status.get`, `client.wifi.saved.list`,
+`client.device.sound.play`, `client.device.find`, `client.device.reboot`, `client.social.ping`, `client.wifi.status.get`, `client.wifi.saved.list`,
 `client.wifi.saved.forget`, `client.wifi.scan`, and `client.wifi.connect`: the runner installs the scripted `response` as that client's device
 provider at connect time (`volume.set` echoes the requested `level`/`muted` into its response), and
 `response: {error_code: 3}` makes the provider answer a fixed canonical status code; undeclared methods stay
@@ -429,7 +429,7 @@ persisted user transcript declare `transcript` explicitly.
 
 `peer_stream.overlap_input: true` repeats the declared audio input on the same PeerStream.
 It supports `push-to-talk` and `realtime`. After sending the first input (including realtime
-VAD tail silence) and receiving first-response assistant audio, it starts the second input
+VAD tail silence) and receiving first-response audible assistant audio, it starts the second input
 without closing the stream or sending an explicit interruption. An already completed first
 audio response fails. Success requires the second input's first audio packet to be successfully
 sent before receipt of the first response's audio EOS. Both responses must close their text
@@ -451,7 +451,8 @@ positive `first_text_timeout` or `first_audio_timeout` Go duration; a disabled
 modality omits its deadline, and at least one modality must remain required.
 The deadlines start only after the whole turn input has been pushed. The runner
 succeeds and closes that logical stream as soon as it has observed the first
-non-empty assistant chunk for every required modality; it does not wait for
+assistant content for every required modality (a non-empty text fragment, or
+the first audible audio frame); it does not wait for
 either EOS. A missing required modality fails with
 `deadline=first_text_timeout` or `deadline=first_audio_timeout`. This completion
 cannot be combined with `interrupt_after`, `terminal_label`, or
@@ -563,6 +564,36 @@ pacing assertions without exercising them, since the surplus a broken pacer
 accumulates grows with the length of the turn. The two cases cover the flowcraft
 and eino drivers, which share the same cascaded text-to-TTS downlink.
 
+`first_audio_ms` records the first **audible frame**, not the first audio
+packet. The runner decodes every Opus packet on the stream reader at 16 kHz
+mono and counts a frame as audible once its decoded peak reaches about
+-42 dBFS (sample magnitude 256): provider TTS output opens with a low-level
+lead-in before speech (measured peaks up to about 210), and speech onsets
+measure 300 and above. A payload that cannot be decoded, and non-Opus audio,
+count as audible, as every payload did before silence could be told apart.
+Silence received ahead of the first audible frame is summed on the Opus clock
+as `leading_silence_ms`, and the part of it that decodes to exact digital
+silence is reported again as `leading_digital_silence_ms`. It records what the
+receiver observed, not who produced it: the downlink mixer fills a track that
+has no buffered audio with digital silence, and a provider could emit it too.
+Both are accumulated per stream and reported for the
+stream that produced the first audible frame, so the tail of an earlier reply
+still arriving from the downlink buffer is not charged to this one. Both are
+present in the `peer_stream` (including `listen`) result and evidence, and
+that time is not credited as first audio. The `first_response` audio deadline
+and the `overlap_input` second-turn start use the same definition.
+`eino-concurrency-assistant.push-to-talk-leading-silence.giztest.yaml` takes
+three turns on one Workspace and requires `leading_digital_silence_ms` of at most
+80 ms and `leading_silence_ms` of at most 200 ms on each: a reply track created
+before its TTS has decoded audio makes the mixer send digital silence for it
+first, the pacer delivers that silence into the device buffer faster than real
+time, and the device must play it before the reply can be heard. The 80 ms
+bound leaves room for the 60 ms preroll the server keeps ahead of speech,
+should a provider's lead-in be digital silence, plus one 20 ms frame for a
+track that opens a frame before its first write lands. The 300 to 600 ms
+low-level lead-in provider TTS emits before speech is trimmed by the server to
+that preroll, which the `leading_silence_ms` bound holds it to.
+
 `workspace_relay` connects two selected Workspaces in one task as one bounded
 conversation: the tester Workflow owns test intent, generated user behavior,
 semantic evaluation, and its final verdict, while Giztest owns transport,
@@ -603,7 +634,7 @@ conventions:
   counts as received audio, because SFU downlink labels identify the remote
   participant. The result exposes `audio_bytes`, `packets`, `events`,
   `streams`, `first_text_ms`, `first_transcript_ms`, `first_audio_ms`,
-  `last_event_ms`, `duration_ms`, `listened_ms`, bounded `text`, `audio_pacing`, and `/audio` in the same encoding as the
+  `leading_silence_ms`, `leading_digital_silence_ms`, `last_event_ms`, `duration_ms`, `listened_ms`, bounded `text`, `audio_pacing`, and `/audio` in the same encoding as the
   existing `peer_stream` result (Ogg/Opus, present only when a `/audio` capture
   is declared and audio arrived, bounded by the output variable's
   `max_bytes`), so it feeds `server.speech.transcribe` directly. Receiving no

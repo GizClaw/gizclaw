@@ -89,6 +89,8 @@ Agent 构造可以共享，但每个 connection attachment 都拥有独立 input
 
 Transformer 与 history replay 必须尽快把 provider output drain 到 growable stream buffer，不在该层按播放时钟等待。Raw Opus、Ogg/Opus、MP3 与 PCM audio 都先 decode/normalize，再进入 mixer 的 PCM stream；`PeerConn` 只在 mixer 出口每个 20ms pacing opportunity 读取一帧、编码 Opus 并写入 WebRTC。唯一例外是 passthrough Opus（`agenthost.OpusPassthroughMIME`）：`MixerOutput.Passthrough` 在任何解码之前认领这些 chunk，`PeerConn` 把 payload 原样写入 Device Opus Track，不进入 mixer 也不走 pacer；mixer 没有 track 时不会向 Device 写任何内容，所以 passthrough route 不会与 mixer 静音交织。普通 EOS 使用 `CloseWrite` 让已缓存 PCM 排空，error EOS 使用 `CloseWithError` 丢弃对应 track 和尚未消费的 stream backlog。
 
+mixer track 从创建起就是实时的：track 没有缓存音频时 mixer 会为它填充数字静音，pacer 又以快于实时的速度把静音送进设备缓冲，设备必须先播完才能听到回复。因此 `MixerOutput` 在 route 解码出**有声** PCM 之前不创建 track：只含 OpusHead 的 Ogg 页、仍在缓存的 MP3 body 等解码不出音频的 blob 不会打开 track；Provider TTS 在开口前带的低电平引入（采样绝对值低于 256，约 -42 dBFS）也在 route 开头被丢弃，只保留有声样本之前 60 ms 的 preroll，避免吞掉弱起音。每条 route 最多丢弃 2 s，更长的安静被视为有意内容，从那里开始照常播放；第一个有声样本之后的安静（句间停顿）不做处理。从未出现有声样本的 route 不创建 track。
+
 ## SFU Workspace runtime
 
 Friend 与 Friend Group 的 SFU Workspace 走同一套 Reload、lease、registry 与 cancellation 路径，但 `Host.NewAgent` 对 `sfu` driver 不套 History wrapper，而是安装 `noHistoryAgent`：history list 返回空列表，play 返回 `not_found`，不写 History，也不触发 `workspace_history_updated`。SFU runtime 把 LiveKit connection、Track publish 与远端 Track reader 全部挂在 Transform context 上，因此 `Service.Reload` 先停旧 runtime 再激活新 selection 的现有顺序就是 Workspace 切换的取消通路，不新增状态机。

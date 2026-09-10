@@ -17,6 +17,7 @@ import {
   RPC_FRAME_TYPE_TEXT,
   STATUS_CODE_INTERNAL,
   STATUS_CODE_INVALID_ARGUMENT,
+  STATUS_CODE_UNAVAILABLE,
   STATUS_CODE_UNIMPLEMENTED,
   SPEECH_EXTRACTION_REQUEST_TIMEOUT_MS,
   SPEECH_SYNTHESIS_REQUEST_TIMEOUT_MS,
@@ -58,6 +59,7 @@ import {
   decodeRPCResponsePayload,
   encodeRPCRequestPayload,
   encodeRPCResponsePayload,
+  type ClientSocialPingRequest,
 } from "./generated/rpc/payload-codec.ts";
 import { RPC_METHOD_IDS, RPC_METHODS } from "./generated/rpc/method-map.ts";
 import * as peerhttp from "./peerhttp.ts";
@@ -776,6 +778,110 @@ test("RPC API key root management methods preserve IDs and payloads", () => {
   );
 });
 
+test("RPC find, social ping and profile methods preserve IDs and payloads", () => {
+  assert.equal(RPC_METHOD_IDS["server.friend.ping"], 123);
+  assert.equal(RPC_METHOD_IDS["server.friend_group.ping"], 124);
+  assert.equal(RPC_METHOD_IDS["server.profile.get"], 125);
+  assert.equal(RPC_METHOD_IDS["client.device.find"], 126);
+  assert.equal(RPC_METHOD_IDS["client.social.ping"], 127);
+
+  const find = { duration_ms: 8000 };
+  assert.deepEqual(
+    decodeRPCRequestPayload(
+      "client.device.find",
+      encodeRPCRequestPayload("client.device.find", find),
+    ),
+    find,
+  );
+  assert.deepEqual(
+    decodeRPCRequestPayload(
+      "client.device.find",
+      encodeRPCRequestPayload("client.device.find", {}),
+    ),
+    {},
+  );
+
+  const friendPing = {
+    from_peer_public_key: "alice-key",
+    from_display_name: "Alice",
+  };
+  assert.deepEqual(
+    decodeRPCRequestPayload(
+      "client.social.ping",
+      encodeRPCRequestPayload("client.social.ping", friendPing),
+    ),
+    friendPing,
+  );
+  const rally = { ...friendPing, friend_group_name: "my-team" };
+  assert.deepEqual(
+    decodeRPCRequestPayload(
+      "client.social.ping",
+      encodeRPCRequestPayload("client.social.ping", rally),
+    ),
+    rally,
+  );
+
+  assert.deepEqual(
+    decodeRPCRequestPayload(
+      "server.friend.ping",
+      encodeRPCRequestPayload("server.friend.ping", { name: "bob" }),
+    ),
+    { name: "bob" },
+  );
+  const delivered = { result: "delivered" as const, delivered_count: 1 };
+  assert.deepEqual(
+    decodeRPCResponsePayload(
+      "server.friend.ping",
+      encodeRPCResponsePayload("server.friend.ping", delivered),
+    ),
+    delivered,
+  );
+  const limited = {
+    result: "rate_limited" as const,
+    delivered_count: 0,
+    retry_after_seconds: 42,
+  };
+  assert.deepEqual(
+    decodeRPCResponsePayload(
+      "server.friend_group.ping",
+      encodeRPCResponsePayload("server.friend_group.ping", limited),
+    ),
+    limited,
+  );
+  assert.deepEqual(
+    decodeRPCResponsePayload(
+      "server.friend_group.ping",
+      encodeRPCResponsePayload("server.friend_group.ping", {
+        result: "not_online",
+        delivered_count: 0,
+      }),
+    ),
+    { result: "not_online", delivered_count: 0 },
+  );
+
+  const profileRequest = { peer_public_keys: ["carol-key", "dave-key"] };
+  assert.deepEqual(
+    decodeRPCRequestPayload(
+      "server.profile.get",
+      encodeRPCRequestPayload("server.profile.get", profileRequest),
+    ),
+    profileRequest,
+  );
+  const profiles = {
+    items: [
+      { peer_public_key: "carol-key", display_name: "Carol", emoji: "🐱" },
+      { peer_public_key: "dave-key" },
+    ],
+  };
+  assert.deepEqual(
+    decodeRPCResponsePayload(
+      "server.profile.get",
+      encodeRPCResponsePayload("server.profile.get", profiles),
+    ),
+    profiles,
+  );
+});
+
 test("RPC payload codec decodes omitted proto3 defaults", () => {
   assert.deepEqual(
     decodeRPCResponsePayload("all.speed_test.run", new Uint8Array()),
@@ -861,6 +967,7 @@ test("peer HTTP SDK exposes device and contact operations", () => {
     "aggregateDeviceTelemetry",
     "setDeviceVolume",
     "playDeviceSound",
+    "findDevice",
     "rebootDevice",
     "getDeviceWifi",
     "listDeviceSavedWifi",
@@ -1832,6 +1939,60 @@ test("createPeerRPCClient calls generated typed RPC methods", async () => {
     {
       method: "server.workspace.history.list",
       params: { workspace_name: "main" },
+    },
+  ]);
+});
+
+test("createPeerRPCClient calls friend ping and profile methods", async () => {
+  const calls: Array<{ method: string; params: unknown }> = [];
+  const results: Record<string, unknown> = {
+    "server.friend.ping": { result: "delivered", delivered_count: 1 },
+    "server.friend_group.ping": {
+      result: "rate_limited",
+      delivered_count: 0,
+      retry_after_seconds: 30,
+    },
+    "server.profile.get": {
+      items: [{ peer_public_key: "carol-key", display_name: "Carol" }],
+    },
+  };
+  const client = {
+    call: async (method: string, params: unknown) => {
+      calls.push({ method, params });
+      return results[method];
+    },
+    callBinary: async () => {
+      throw new Error("unexpected binary call");
+    },
+    transcribeSpeech: async () => {
+      throw new Error("unexpected transcription call");
+    },
+    extractSpeech: async () => {
+      throw new Error("unexpected extraction call");
+    },
+    synthesizeSpeech: async () => {
+      throw new Error("unexpected synthesis call");
+    },
+  } as unknown as WebRTCRPCClient;
+  const rpc = createPeerRPCClient(client);
+
+  const friend = await rpc.call("server.friend.ping", { name: "bob" });
+  const group = await rpc.call("server.friend_group.ping", { name: "my-team" });
+  const profiles = await rpc.call("server.profile.get", {
+    peer_public_keys: ["carol-key"],
+  });
+
+  assert.equal(friend.result, "delivered");
+  assert.equal(friend.delivered_count, 1);
+  assert.equal(group.result, "rate_limited");
+  assert.equal(group.retry_after_seconds, 30);
+  assert.equal(profiles.items[0]?.display_name, "Carol");
+  assert.deepEqual(calls, [
+    { method: "server.friend.ping", params: { name: "bob" } },
+    { method: "server.friend_group.ping", params: { name: "my-team" } },
+    {
+      method: "server.profile.get",
+      params: { peer_public_keys: ["carol-key"] },
     },
   ]);
 });
@@ -3708,6 +3869,121 @@ test("inbound client.device.reboot and sound.play answer empty results", async (
   assert.deepEqual(calls, ["reboot:3000", "play:chime:500"]);
 });
 
+test("inbound client.device.find forwards the optional ring time", async () => {
+  const calls: Array<number | undefined> = [];
+  const control = {
+    find: (durationMs?: number) => {
+      calls.push(durationMs);
+    },
+  };
+
+  const timed = await serveInboundClientRPC(
+    "client.device.find",
+    { duration_ms: 8000 },
+    { deviceControl: control },
+  );
+  assert.equal(timed.error, undefined);
+  assert.deepEqual(timed.result, {});
+
+  const deviceDefault = await serveInboundClientRPC(
+    "client.device.find",
+    {},
+    { deviceControl: control },
+  );
+  assert.equal(deviceDefault.error, undefined);
+  assert.deepEqual(calls, [8000, undefined]);
+
+  const negative = await serveInboundClientRPC(
+    "client.device.find",
+    { duration_ms: -1 },
+    { deviceControl: control },
+  );
+  assert.equal(negative.error?.code, STATUS_CODE_INVALID_ARGUMENT);
+  assert.equal(calls.length, 2);
+
+  // A device without the provider answers METHOD_NOT_FOUND, which the server
+  // maps to 501 DEVICE_UNSUPPORTED.
+  const unsupported = await serveInboundClientRPC(
+    "client.device.find",
+    { duration_ms: 8000 },
+    { deviceControl: {} },
+  );
+  assert.equal(unsupported.error?.code, STATUS_CODE_UNIMPLEMENTED);
+
+  const failed = await serveInboundClientRPC(
+    "client.device.find",
+    {},
+    {
+      deviceControl: {
+        find: () => {
+          throw new GizClawDeviceControlError(
+            STATUS_CODE_UNAVAILABLE,
+            "speaker busy",
+          );
+        },
+      },
+    },
+  );
+  assert.equal(failed.error?.code, STATUS_CODE_UNAVAILABLE);
+  assert.equal(failed.error?.message, "speaker busy");
+});
+
+test("inbound client.social.ping forwards the sender and group", async () => {
+  const seen: ClientSocialPingRequest[] = [];
+  const handlers: GizClawPeerRPCHandlers = {
+    socialPing: (request) => {
+      seen.push(request);
+    },
+  };
+
+  const friend = await serveInboundClientRPC(
+    "client.social.ping",
+    { from_peer_public_key: "alice-key", from_display_name: "Alice" },
+    handlers,
+  );
+  assert.equal(friend.error, undefined);
+  assert.deepEqual(friend.result, {});
+
+  const rally = await serveInboundClientRPC(
+    "client.social.ping",
+    { from_peer_public_key: "bob-key", friend_group_name: "my-team" },
+    handlers,
+  );
+  assert.equal(rally.error, undefined);
+  assert.deepEqual(seen, [
+    { from_peer_public_key: "alice-key", from_display_name: "Alice" },
+    { from_peer_public_key: "bob-key", friend_group_name: "my-team" },
+  ]);
+
+  // The codec decodes an absent proto3 string as "", which is not a sender.
+  const anonymous = await serveInboundClientRPC(
+    "client.social.ping",
+    {},
+    handlers,
+  );
+  assert.equal(anonymous.error?.code, STATUS_CODE_INVALID_ARGUMENT);
+  assert.equal(seen.length, 2);
+
+  const unsupported = await serveInboundClientRPC(
+    "client.social.ping",
+    { from_peer_public_key: "alice-key" },
+    { deviceControl: {} },
+  );
+  assert.equal(unsupported.error?.code, STATUS_CODE_UNIMPLEMENTED);
+  assert.match(unsupported.error?.message ?? "", /unsupported method/u);
+
+  const failed = await serveInboundClientRPC(
+    "client.social.ping",
+    { from_peer_public_key: "alice-key" },
+    {
+      socialPing: () => {
+        throw new Error("speaker unavailable");
+      },
+    },
+  );
+  assert.equal(failed.error?.code, STATUS_CODE_INTERNAL);
+});
+
 test("inbound audioplayer forwards explicit zero index and rejects missing index", async () => {
   let calls = 0;
   const handlers = {
@@ -3960,4 +4236,19 @@ test("inbound client.device.factory_reset defaults keep_network to false", async
     undefined,
   );
   assert.deepEqual(seen, [false, true]);
+});
+
+test("inbound client.rpc.methods.get includes find and social ping when registered", async () => {
+  const response = await serveInboundClientRPC(
+    "client.rpc.methods.get",
+    {},
+    {
+      deviceControl: { find: () => {} },
+      socialPing: () => {},
+    },
+  );
+  assert.equal(response.error, undefined);
+  const methods = (response.result as { methods: string[] }).methods;
+  assert.ok(methods.includes("client.device.find"), `${methods}`);
+  assert.ok(methods.includes("client.social.ping"), `${methods}`);
 });

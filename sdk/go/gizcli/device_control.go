@@ -25,6 +25,9 @@ type DeviceControlHandlers struct {
 	Status      func(context.Context) (rpcapi.PeerStatus, error)
 	SetVolume   func(ctx context.Context, level int64, muted bool) (rpcapi.PeerStatus, error)
 	PlaySound   func(ctx context.Context, sound string, durationMs *int64) error
+	// Find rings the device's built-in find-me sound. durationMs is nil when
+	// the caller leaves the ring time to the device.
+	Find        func(ctx context.Context, durationMs *int64) error
 	Reboot      func(ctx context.Context, delayMs *int64) error
 	WifiStatus  func(context.Context) (rpcapi.WifiStatus, error)
 	SavedWifi   func(context.Context) ([]rpcapi.WifiSavedNetwork, error)
@@ -70,6 +73,7 @@ func (h *DeviceControlHandlers) supportedDeviceMethods() []string {
 		{rpcapi.RPCMethodClientDeviceStatusGet, h.Status != nil},
 		{rpcapi.RPCMethodClientDeviceVolumeSet, h.SetVolume != nil},
 		{rpcapi.RPCMethodClientDeviceSoundPlay, h.PlaySound != nil},
+		{rpcapi.RPCMethodClientDeviceFind, h.Find != nil},
 		{rpcapi.RPCMethodClientDeviceReboot, h.Reboot != nil},
 		{rpcapi.RPCMethodClientDeviceSettingsGet, h.GetSettings != nil},
 		{rpcapi.RPCMethodClientDeviceSettingsSet, h.SetSettings != nil},
@@ -140,6 +144,21 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 		return nil, err
 	}
 	handlers := c.peer.deviceControlHandlers()
+	// A device with no device control handlers still implements the methods the
+	// Client answers itself, so the capability list is answered before the
+	// missing-handlers check rather than reported as unsupported.
+	if req.Method == rpcapi.RPCMethodClientRPCMethodsGet {
+		c.peer.observeClientRPC(req.Method)
+		// client.info.get and client.identifiers.get are answered by the Client
+		// itself, and client.social.ping only once a handler is installed; the
+		// device control methods come from the installed handlers.
+		methods := []string{string(rpcapi.RPCMethodClientInfoGet), string(rpcapi.RPCMethodClientIdentifiersGet)}
+		if c.peer.socialPingHandler() != nil {
+			methods = append(methods, string(rpcapi.RPCMethodClientSocialPing))
+		}
+		methods = append(methods, handlers.supportedDeviceMethods()...)
+		return newRPCResultResponse(req.Id, rpcapi.ClientRPCMethodsGetResponse{Methods: methods}, (*rpcapi.RPCPayload).FromClientRPCMethodsGetResponse)
+	}
 	if handlers == nil {
 		return deviceControlUnsupported(req.Id, req.Method), nil
 	}
@@ -190,6 +209,23 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 			return deviceControlError(req.Id, err), nil
 		}
 		return newRPCResultResponse(req.Id, rpcapi.ClientDeviceSoundPlayResponse{}, (*rpcapi.RPCPayload).FromClientDeviceSoundPlayResponse)
+	case rpcapi.RPCMethodClientDeviceFind:
+		params := rpcapi.ClientDeviceFindRequest{}
+		if req.Params != nil {
+			decoded, err := req.Params.AsClientDeviceFindRequest()
+			if err != nil || (decoded.DurationMs != nil && *decoded.DurationMs < 0) {
+				return rpcInvalidParams(req.Id), nil
+			}
+			params = decoded
+		}
+		if handlers.Find == nil {
+			return deviceControlUnsupported(req.Id, req.Method), nil
+		}
+		c.peer.observeClientRPC(req.Method)
+		if err := handlers.Find(ctx, params.DurationMs); err != nil {
+			return deviceControlError(req.Id, err), nil
+		}
+		return newRPCResultResponse(req.Id, rpcapi.ClientDeviceFindResponse{}, (*rpcapi.RPCPayload).FromClientDeviceFindResponse)
 	case rpcapi.RPCMethodClientDeviceReboot:
 		params := rpcapi.ClientDeviceRebootRequest{}
 		if req.Params != nil {
@@ -258,9 +294,6 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 			return deviceControlError(req.Id, err), nil
 		}
 		return newRPCResultResponse(req.Id, rpcapi.ClientDeviceFactoryResetResponse{}, (*rpcapi.RPCPayload).FromClientDeviceFactoryResetResponse)
-	case rpcapi.RPCMethodClientRPCMethodsGet:
-		c.peer.observeClientRPC(req.Method)
-		return newRPCResultResponse(req.Id, rpcapi.ClientRPCMethodsGetResponse{Methods: handlers.supportedDeviceMethods()}, (*rpcapi.RPCPayload).FromClientRPCMethodsGetResponse)
 	case rpcapi.RPCMethodClientFirmwareUpdate:
 		params := rpcapi.ClientFirmwareUpdateRequest{}
 		if req.Params != nil {

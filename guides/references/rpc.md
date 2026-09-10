@@ -1,6 +1,6 @@
 # RPC API Reference
 
-本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 103 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
+本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 108 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
 
 `all.*` 由连接两端提供，`client.*` 由 Client/Device 提供，普通 `server.*` 与 `runtime.*` 由 Server 提供。最后一组 Edge RPC 使用独立 service `0x31`，只对 Edge-node 开放；其余方法使用 Peer RPC service `0x00`。
 
@@ -14,6 +14,7 @@
 | 4 | `client.identifiers.get` | Server 从 Client 读取 SN、IMEI 和设备 labels。 |
 | 5 | `server.info.get` | 读取当前 Peer 在 Server 上的设备资料与标识信息。 |
 | 6 | `server.info.put` | 更新当前 Peer 的 name、emoji 等可编辑设备资料，并返回完整资料。 |
+| 125 | `server.profile.get` | 按 public key 批量（1–16 个）读取任意 Peer 的公开资料，只含 `display_name` 与 `emoji`；不要求好友关系，不暴露在线状态、SN、位置等其他字段。 |
 | 7 | `server.runtime.get` | 读取当前 Peer 的在线状态、最后地址、最后在线时间、传输字节统计和调试模式。 |
 | 8 | `server.status.get` | 读取当前 Peer 最近上报的电量、充电、GNSS、音量、静音等状态。 |
 | 90 | `server.register` | 使用 RegistrationToken 为当前 Peer 选择 RuntimeProfile，持久化并返回 RuntimeProfile name；可选 Firmware binding 仅保存在服务端。 |
@@ -93,6 +94,8 @@ Workflow、Model 与 Voice 由当前 RuntimeProfile 投影为 Peer name catalog�
 | 47 | `server.friend.list` | 分页列出当前 Peer 的好友关系。 |
 | 48 | `server.friend.delete` | 删除一条好友关系及其关联资源。 |
 | 89 | `server.friend.info.get` | 读取指定好友对当前 Peer 可见的 name 和 emoji。 |
+| 123 | `server.friend.ping` | 呼叫指定好友：好友设备在线则推送 `client.social.ping`，返回 `delivered`；不在线立即返回 `not_online`；同一好友对每分钟一次，超出返回 `rate_limited` 与剩余秒数。 |
+| 127 | `client.social.ping` | Server 调用设备：通知好友呼叫或 Friend Group 集结，携带发起方 public key、可选 `display_name` 与接收方自己的 `friend_group_name`。 |
 
 ## Friend Group
 
@@ -111,6 +114,7 @@ Workflow、Model 与 Voice 由当前 RuntimeProfile 投影为 Peer name catalog�
 | 59 | `server.friend_group.members.add` | 向 Friend Group 添加成员并设置 member/admin role。 |
 | 60 | `server.friend_group.members.put` | 修改 Friend Group 成员的 member/admin role。 |
 | 61 | `server.friend_group.members.delete` | 从 Friend Group 删除成员。 |
+| 124 | `server.friend_group.ping` | 任意成员集结 Friend Group：向除自己外所有在线成员推送 `client.social.ping`，返回送达数；无人在线返回 `not_online`；每个群每分钟一次，超出返回 `rate_limited` 与剩余秒数。 |
 
 
 ## Tool
@@ -151,6 +155,7 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 | 100 | `client.device.status.get` | Server 从设备读取实时 `PeerStatus`；用于控制响应回写，不由 `/device/status` 读取触发。 |
 | 101 | `client.device.volume.set` | 设置绝对音量 `level`（0–100）与 `muted`，返回设备应用后的 `PeerStatus`。 |
 | 102 | `client.device.sound.play` | 播放设备自定义的提示音 `sound`，可选 `duration_ms`。 |
+| 126 | `client.device.find` | “找设备”：设备播放内置的本地找寻提示音并逐步增大音量，可选 `duration_ms`；不需要音频 URL 或曲目。 |
 | 103 | `client.device.reboot` | 设备在发出响应后重启，可选 `delay_ms`。 |
 | 104 | `client.wifi.status.get` | 读取设备当前 Wi‑Fi 连接状态（`connected`、`ssid`、`rssi_dbm`、`ip`、`bssid`）。 |
 | 105 | `client.wifi.saved.list` | 列出设备已保存的 Wi‑Fi 网络 `ssid`。 |
@@ -165,10 +170,10 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 | 117 | `client.device.audioplayer.play` | 按零起始 `index` 从所选歌曲开头播放，替换当前播放；响应只表示设备接受请求，实际播放由 telemetry 上报。 |
 | 118 | `client.device.audioplayer.stop` | 幂等停止播放，保留播放列表与循环模式。 |
 | 119 | `client.device.audioplayer.mode.set` | 设置循环模式 `repeat`：`off` 播完列表停止，`one` 单曲循环，`all` 列表循环；不打断当前歌曲。 |
-| 123 | `client.device.settings.get` | 读取设备自身配置 `DeviceSettings`：4G 开关、熄屏时间、屏幕与指示灯亮度、语言、默认交互模式、按键提示方式。缺省的成员表示该设备没有这项配置。 |
-| 124 | `client.device.settings.set` | 只应用请求中出现的成员，未出现的保持不变；响应返回应用后的完整 `DeviceSettings`，调用方据此得知设备实际接受了哪些项。 |
-| 125 | `client.device.factory_reset` | 设备清除本机状态并恢复出厂设置，设备侧不可撤销；可选 `keep_network` 保留已保存的 Wi‑Fi 与蜂窝配置，避免重新配网。Server 自身的 Peer 记录不受影响。 |
-| 126 | `client.rpc.methods.get` | 设备上报自己实现的 RPC method name 列表，调用方据此隐藏或跳过设备不支持的控制项。未知名称应忽略而不是拒绝。 |
+| 128 | `client.device.settings.get` | 读取设备自身配置 `DeviceSettings`：4G 开关、熄屏时间、屏幕与指示灯亮度、语言、默认交互模式、按键提示方式。缺省的成员表示该设备没有这项配置。 |
+| 129 | `client.device.settings.set` | 只应用请求中出现的成员，未出现的保持不变；响应返回应用后的完整 `DeviceSettings`，调用方据此得知设备实际接受了哪些项。 |
+| 130 | `client.device.factory_reset` | 设备清除本机状态并恢复出厂设置，设备侧不可撤销；可选 `keep_network` 保留已保存的 Wi‑Fi 与蜂窝配置，避免重新配网。Server 自身的 Peer 记录不受影响。 |
+| 131 | `client.rpc.methods.get` | 设备上报自己实现的 RPC method name 列表，调用方据此隐藏或跳过设备不支持的控制项。未知名称应忽略而不是拒绝。 |
 
 ## 独立流式语音
 

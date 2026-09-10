@@ -484,6 +484,20 @@ void main() {
       expect(jsonDecode(recorder.single.body), {'sound': 'chime'});
     });
 
+    test('findDevice posts and accepts 204', () async {
+      final recorder = Recorder([noContent()]);
+      await clientWith(recorder).findDevice(durationMs: 8000);
+      expect(recorder.single.method, 'POST');
+      expect(recorder.single.url.path, '/gizclaw/v1/device/actions/find');
+      expect(jsonDecode(recorder.single.body), {'duration_ms': 8000});
+    });
+
+    test('findDevice posts an empty object by default', () async {
+      final recorder = Recorder([noContent()]);
+      await clientWith(recorder).findDevice();
+      expect(jsonDecode(recorder.single.body), <String, Object?>{});
+    });
+
     test('rebootDevice posts an empty object by default', () async {
       final recorder = Recorder([noContent(), noContent()]);
       final client = clientWith(recorder);
@@ -801,6 +815,21 @@ void main() {
       );
       expect(exception.kind, GizClawControlErrorKind.deviceRejected);
       expect(exception.details, {'sound': 'nope'});
+    });
+
+    test('maps an unsupported find to deviceUnsupported', () async {
+      final recorder = Recorder([
+        error(501, 'DEVICE_UNSUPPORTED', message: 'no find provider'),
+        error(409, 'DEVICE_OFFLINE', message: 'offline'),
+      ]);
+      final client = clientWith(recorder);
+      var exception = await failure(client.findDevice(durationMs: 8000));
+      expect(exception.kind, GizClawControlErrorKind.deviceUnsupported);
+      expect(exception.statusCode, 501);
+      expect(exception.code, 'DEVICE_UNSUPPORTED');
+      exception = await failure(client.findDevice());
+      expect(exception.kind, GizClawControlErrorKind.deviceOffline);
+      expect(exception.statusCode, 409);
     });
 
     test('maps transport failures to network', () async {

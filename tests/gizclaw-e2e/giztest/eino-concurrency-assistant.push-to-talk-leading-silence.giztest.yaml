@@ -1,0 +1,143 @@
+# User Story:
+# As a registered device using the eino-concurrency-assistant Workflow,
+# I want every spoken reply to start with its first audible frame,
+# So that silence queued ahead of the reply never delays when I hear it.
+version: gizclaw.test/v1alpha1
+name: eino-concurrency-assistant.push-to-talk-leading-silence
+timeout: 300s
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  input_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        collection: assistants
+        workflow_name: eino-concurrency-assistant
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  - id: synthesize_input
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: Please answer in two short sentences. What is your favorite season?
+        accepted_content_types: [audio/ogg]
+    save_as: input_audio
+  # The downlink mixer is realtime for every track it holds: a track with no
+  # buffered audio is filled with digital silence. A reply track opened before
+  # its TTS has decoded audio therefore sends silence ahead of the first
+  # audible frame, and the downlink pacer delivers it faster than real time to
+  # build its buffer, so the device plays it before the reply.
+  # leading_digital_silence_ms is the exact digital silence received ahead of
+  # the first audible frame, which is what that padding decodes to. The bound
+  # leaves room for the 60 ms preroll the server keeps ahead of speech, should
+  # a provider's lead-in be digital silence, plus one 20 ms frame for a track
+  # that opens a frame before its first write lands. leading_silence_ms also
+  # counts the quiet lead-in provider TTS emits before speech (300 to 600 ms
+  # measured), which the server trims to that preroll, so it bounds how soon
+  # the reply becomes audible once its first packet arrives.
+  - id: turn_1
+    client: peer
+    timeout: 120s
+    peer_stream:
+      mode: push-to-talk
+      input: ${input_audio}
+      pacing: 20ms
+    expect:
+      /audio_eos:
+        equals: true
+      /first_audio_ms:
+        minimum: 1
+      /leading_digital_silence_ms:
+        maximum: 80
+      /leading_silence_ms:
+        maximum: 200
+  # Later turns open their reply track on a mixer that already paced a turn,
+  # so they are checked the same way.
+  - id: turn_2
+    client: peer
+    timeout: 120s
+    peer_stream:
+      mode: push-to-talk
+      input: ${input_audio}
+      pacing: 20ms
+    expect:
+      /audio_eos:
+        equals: true
+      /first_audio_ms:
+        minimum: 1
+      /leading_digital_silence_ms:
+        maximum: 80
+      /leading_silence_ms:
+        maximum: 200
+  - id: turn_3
+    client: peer
+    timeout: 120s
+    peer_stream:
+      mode: push-to-talk
+      input: ${input_audio}
+      pacing: 20ms
+    expect:
+      /audio_eos:
+        equals: true
+      /first_audio_ms:
+        minimum: 1
+      /leading_digital_silence_ms:
+        maximum: 80
+      /leading_silence_ms:
+        maximum: 200
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

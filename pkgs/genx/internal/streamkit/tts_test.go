@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -268,6 +269,108 @@ func TestTTSStreamSynthesizesAheadWhilePriorSegmentEmits(t *testing.T) {
 		t.Fatalf("emitted audio = %#v, want %#v in segment order", audio, want)
 	}
 }
+
+// The first segment's audio must reach the listener while the model is still
+// generating the next sentence. Holding it until the second segment is cut
+// delays the first sound of every reply by a whole sentence of generation.
+func TestTTSStreamEmitsFirstSegmentBeforeNextSegmentIsCut(t *testing.T) {
+	input := newChanStream()
+	output := NewTTSStream(context.Background(), input, OutputConfig{}, "audio/ogg", func(_ context.Context, text string, _ TTSMeta, _ string, emit func([]byte) error) error {
+		return emit([]byte("audio:" + text))
+	})
+	input.send(&genx.MessageChunk{Part: genx.Text("第一句话已经说完了。"), Ctrl: &genx.StreamCtrl{StreamID: "s1"}})
+	input.send(&genx.MessageChunk{Part: genx.Text("第二句还在生成"), Ctrl: &genx.StreamCtrl{StreamID: "s1"}})
+
+	audio := make(chan string, 1)
+	go func() {
+		for {
+			chunk, err := output.Next()
+			if err != nil {
+				return
+			}
+			if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) > 0 {
+				audio <- string(blob.Data)
+				return
+			}
+		}
+	}()
+	select {
+	case got := <-audio:
+		if got != "audio:第一句话已经说完了。" {
+			t.Fatalf("first audio = %q, want the first segment", got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("first segment audio was held until the next segment was cut")
+	}
+	input.send(&genx.MessageChunk{Part: genx.Text("。"), Ctrl: &genx.StreamCtrl{StreamID: "s1"}})
+	input.send(&genx.MessageChunk{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "s1", EndOfStream: true}})
+	input.close()
+	var rest []string
+	for _, chunk := range collectTransformerChunks(t, output) {
+		if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) > 0 {
+			rest = append(rest, string(blob.Data))
+		}
+	}
+	if want := []string{"audio:第二句还在生成。"}; !reflect.DeepEqual(rest, want) {
+		t.Fatalf("remaining audio = %#v, want %#v", rest, want)
+	}
+}
+
+// A failed segment abandons the segments behind it, and text that keeps
+// arriving afterwards reports the failure instead of waiting on the emitter.
+func TestTTSStreamProviderFailureWhileTextContinues(t *testing.T) {
+	wantErr := errors.New("provider failed")
+	input := newChanStream()
+	var calls atomic.Int32
+	output := NewTTSStream(context.Background(), input, OutputConfig{}, "audio/ogg", func(context.Context, string, TTSMeta, string, func([]byte) error) error {
+		calls.Add(1)
+		return wantErr
+	})
+	go func() {
+		for _, text := range []string{"第一句话已经说完了。", "第二句话也说完了。", "第三句话同样说完了。", "第四句话还是说完了。"} {
+			input.send(&genx.MessageChunk{Part: genx.Text(text), Ctrl: &genx.StreamCtrl{StreamID: "s1"}})
+		}
+		input.close()
+	}()
+	done := make(chan error, 1)
+	go func() {
+		_, err := collectTransformerChunksUntilError(output)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if !errors.Is(err, wantErr) {
+			t.Fatalf("terminal error = %v, want %v", err, wantErr)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("provider failure with continuing text never terminated the stream")
+	}
+	if got := calls.Load(); got > ttsLookahead+2 {
+		t.Fatalf("synthesized %d segments after the first failed, want the rest abandoned", got)
+	}
+}
+
+type chanStream struct {
+	chunks chan *genx.MessageChunk
+}
+
+func newChanStream() *chanStream {
+	return &chanStream{chunks: make(chan *genx.MessageChunk, 16)}
+}
+
+func (s *chanStream) send(chunk *genx.MessageChunk) { s.chunks <- chunk }
+func (s *chanStream) close()                        { close(s.chunks) }
+
+func (s *chanStream) Next() (*genx.MessageChunk, error) {
+	chunk, ok := <-s.chunks
+	if !ok {
+		return nil, io.EOF
+	}
+	return chunk, nil
+}
+
+func (*chanStream) Close() error               { return nil }
+func (*chanStream) CloseWithError(error) error { return nil }
 
 func TestTTSStreamPassesThroughNonTextWithoutFlushing(t *testing.T) {
 	input := &testStream{chunks: []*genx.MessageChunk{

@@ -330,6 +330,96 @@ void main() {
     );
     expect((await deleteGroupFuture).value.name, 'group-a');
   });
+
+  test('pings a friend and a friend group', () async {
+    final factory = FakeDataChannelFactory();
+    final client = GizClawClient(factory);
+
+    final friendFuture = client.pingFriend('friend-a');
+    final friendRequest = await _request(factory, 0);
+    final friendPayload =
+        decodeRpcRequestPayload('server.friend.ping', friendRequest.payload)
+            as payload.FriendPingRequest;
+    expect(friendPayload.name, 'friend-a');
+    _respond(
+      factory.channels[0],
+      friendRequest.id,
+      'server.friend.ping',
+      payload.FriendPingResponse(
+        result: payload.SocialPingResult.SOCIAL_PING_RESULT_DELIVERED,
+        deliveredCount: 1,
+      ),
+    );
+    final friend = await friendFuture;
+    expect(
+      friend.result,
+      payload.SocialPingResult.SOCIAL_PING_RESULT_DELIVERED,
+    );
+    expect(friend.deliveredCount, 1);
+    expect(friend.hasRetryAfterSeconds(), isFalse);
+
+    final groupFuture = client.pingFriendGroup('my-team');
+    final groupRequest = await _request(factory, 1);
+    final groupPayload =
+        decodeRpcRequestPayload(
+              'server.friend_group.ping',
+              groupRequest.payload,
+            )
+            as payload.FriendGroupPingRequest;
+    expect(groupPayload.name, 'my-team');
+    _respond(
+      factory.channels[1],
+      groupRequest.id,
+      'server.friend_group.ping',
+      payload.FriendGroupPingResponse(
+        result: payload.SocialPingResult.SOCIAL_PING_RESULT_RATE_LIMITED,
+        retryAfterSeconds: 42,
+      ),
+    );
+    final group = await groupFuture;
+    expect(
+      group.result,
+      payload.SocialPingResult.SOCIAL_PING_RESULT_RATE_LIMITED,
+    );
+    expect(group.deliveredCount, 0);
+    expect(group.retryAfterSeconds, 42);
+  });
+
+  test('reads public profiles by peer public key', () async {
+    final factory = FakeDataChannelFactory();
+    final client = GizClawClient(factory);
+
+    final future = client.getProfiles(['peer-a', 'peer-b']);
+    final request = await _request(factory, 0);
+    final body =
+        decodeRpcRequestPayload('server.profile.get', request.payload)
+            as payload.ProfileGetRequest;
+    expect(body.peerPublicKeys, ['peer-a', 'peer-b']);
+    _respond(
+      factory.channels.single,
+      request.id,
+      'server.profile.get',
+      payload.ProfileGetResponse(
+        items: [
+          payload.PublicProfile(
+            peerPublicKey: 'peer-a',
+            displayName: 'Carol',
+            emoji: '🐱',
+          ),
+          payload.PublicProfile(peerPublicKey: 'peer-b'),
+        ],
+      ),
+    );
+    final response = await future;
+    expect(response.items.map((item) => item.peerPublicKey), [
+      'peer-a',
+      'peer-b',
+    ]);
+    expect(response.items.first.displayName, 'Carol');
+    expect(response.items.first.emoji, '🐱');
+    expect(response.items.last.hasDisplayName(), isFalse);
+    expect(response.items.last.hasEmoji(), isFalse);
+  });
 }
 
 Future<rpc.RpcRequest> _request(

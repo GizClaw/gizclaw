@@ -32,7 +32,10 @@ segment of lookahead runs that latency concurrently with the preceding
 segment's delivery, bounding a stream to two concurrent provider sessions.
 Audio is still emitted strictly in segment order: a segment that finishes
 early waits in a bounded queue, and a failed or interrupted stream cancels
-every segment still in flight.
+every segment still in flight. Each stream's ordered emitter runs beside the
+text loop, so a segment's audio is emitted as soon as its provider produces it
+rather than once the next segment is cut; otherwise the first sound of every
+reply would also wait for the model to finish its second sentence.
 
 If interruption or cancellation discards an explicit TTS BOS that downstream has not pulled yet, StreamKit preserves that producer-owned declaration as an empty BOS followed by the error EOS. It never restores discarded audio data and never invents a BOS that the producer did not emit.
 

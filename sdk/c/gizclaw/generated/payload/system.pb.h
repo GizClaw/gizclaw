@@ -115,6 +115,18 @@ typedef struct _gizclaw_rpc_v1_ClientRpcMethodsGetResponse {
     char methods[160][64];
 } gizclaw_rpc_v1_ClientRpcMethodsGetResponse;
 
+/* ClientDeviceFindRequest asks the device to play its built-in find-me sound.
+ duration_ms is the requested ring time; the device picks its own default
+ when it is absent. */
+typedef struct _gizclaw_rpc_v1_ClientDeviceFindRequest {
+    bool has_duration_ms;
+    int64_t duration_ms;
+} gizclaw_rpc_v1_ClientDeviceFindRequest;
+
+typedef struct _gizclaw_rpc_v1_ClientDeviceFindResponse {
+    char dummy_field;
+} gizclaw_rpc_v1_ClientDeviceFindResponse;
+
 typedef struct _gizclaw_rpc_v1_ClientDeviceRebootRequest {
     bool has_delay_ms;
     int64_t delay_ms;
@@ -481,6 +493,32 @@ typedef struct _gizclaw_rpc_v1_ServerPutInfoResponse {
     gizclaw_rpc_v1_DeviceInfo value;
 } gizclaw_rpc_v1_ServerPutInfoResponse;
 
+/* ProfileGetRequest looks up the public profile of up to 16 Peers by public
+ key. Any registered Peer may look up any other Peer. */
+typedef struct _gizclaw_rpc_v1_ProfileGetRequest {
+    pb_size_t peer_public_keys_count;
+    char peer_public_keys[16][65];
+} gizclaw_rpc_v1_ProfileGetRequest;
+
+/* PublicProfile is the public projection of a Peer's DeviceInfo. It carries
+ only the self-chosen display name and emoji; online state, hardware,
+ identifiers and location never enter it. */
+typedef struct _gizclaw_rpc_v1_PublicProfile {
+    char peer_public_key[65];
+    bool has_display_name;
+    char display_name[257];
+    bool has_emoji;
+    char emoji[65];
+} gizclaw_rpc_v1_PublicProfile;
+
+/* ProfileGetResponse holds one item per distinct requested key, in request
+ order. A Peer that does not exist, or has not set a field, has that field
+ absent. */
+typedef struct _gizclaw_rpc_v1_ProfileGetResponse {
+    pb_size_t items_count;
+    gizclaw_rpc_v1_PublicProfile items[16];
+} gizclaw_rpc_v1_ProfileGetResponse;
+
 typedef struct _gizclaw_rpc_v1_SpeedTestRequest {
     int64_t down_content_length;
     int64_t up_content_length;
@@ -524,6 +562,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetResponse_init_default {0}
 #define gizclaw_rpc_v1_ClientRpcMethodsGetRequest_init_default {0}
 #define gizclaw_rpc_v1_ClientRpcMethodsGetResponse_init_default {0, {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""}}
+#define gizclaw_rpc_v1_ClientDeviceFindRequest_init_default {false, 0}
+#define gizclaw_rpc_v1_ClientDeviceFindResponse_init_default {0}
 #define gizclaw_rpc_v1_ClientDeviceRebootRequest_init_default {false, 0}
 #define gizclaw_rpc_v1_ClientDeviceRebootResponse_init_default {0}
 #define gizclaw_rpc_v1_WifiStatus_init_default   {0, false, "", false, 0, false, "", false, ""}
@@ -573,6 +613,9 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerGetStatusResponse_init_default {false, gizclaw_rpc_v1_PeerStatus_init_default}
 #define gizclaw_rpc_v1_ServerPutInfoRequest_init_default {false, gizclaw_rpc_v1_DeviceProfile_init_default}
 #define gizclaw_rpc_v1_ServerPutInfoResponse_init_default {false, gizclaw_rpc_v1_DeviceInfo_init_default}
+#define gizclaw_rpc_v1_ProfileGetRequest_init_default {0, {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""}}
+#define gizclaw_rpc_v1_ProfileGetResponse_init_default {0, {gizclaw_rpc_v1_PublicProfile_init_default, gizclaw_rpc_v1_PublicProfile_init_default, gizclaw_rpc_v1_PublicProfile_init_default, gizclaw_rpc_v1_PublicProfile_init_default, gizclaw_rpc_v1_PublicProfile_init_default, gizclaw_rpc_v1_PublicProfile_init_default, gizclaw_rpc_v1_PublicProfile_init_default, gizclaw_rpc_v1_PublicProfile_init_default, gizclaw_rpc_v1_PublicProfile_init_default, gizclaw_rpc_v1_PublicProfile_init_default, gizclaw_rpc_v1_PublicProfile_init_default, gizclaw_rpc_v1_PublicProfile_init_default, gizclaw_rpc_v1_PublicProfile_init_default, gizclaw_rpc_v1_PublicProfile_init_default, gizclaw_rpc_v1_PublicProfile_init_default, gizclaw_rpc_v1_PublicProfile_init_default}}
+#define gizclaw_rpc_v1_PublicProfile_init_default {"", false, "", false, ""}
 #define gizclaw_rpc_v1_SpeedTestRequest_init_default {0, 0}
 #define gizclaw_rpc_v1_SpeedTestResponse_init_default {0, 0}
 #define gizclaw_rpc_v1_ServerPutRuntimeRequest_init_default {{{NULL}, NULL}}
@@ -596,6 +639,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetResponse_init_zero {0}
 #define gizclaw_rpc_v1_ClientRpcMethodsGetRequest_init_zero {0}
 #define gizclaw_rpc_v1_ClientRpcMethodsGetResponse_init_zero {0, {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""}}
+#define gizclaw_rpc_v1_ClientDeviceFindRequest_init_zero {false, 0}
+#define gizclaw_rpc_v1_ClientDeviceFindResponse_init_zero {0}
 #define gizclaw_rpc_v1_ClientDeviceRebootRequest_init_zero {false, 0}
 #define gizclaw_rpc_v1_ClientDeviceRebootResponse_init_zero {0}
 #define gizclaw_rpc_v1_WifiStatus_init_zero      {0, false, "", false, 0, false, "", false, ""}
@@ -645,6 +690,9 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerGetStatusResponse_init_zero {false, gizclaw_rpc_v1_PeerStatus_init_zero}
 #define gizclaw_rpc_v1_ServerPutInfoRequest_init_zero {false, gizclaw_rpc_v1_DeviceProfile_init_zero}
 #define gizclaw_rpc_v1_ServerPutInfoResponse_init_zero {false, gizclaw_rpc_v1_DeviceInfo_init_zero}
+#define gizclaw_rpc_v1_ProfileGetRequest_init_zero {0, {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""}}
+#define gizclaw_rpc_v1_ProfileGetResponse_init_zero {0, {gizclaw_rpc_v1_PublicProfile_init_zero, gizclaw_rpc_v1_PublicProfile_init_zero, gizclaw_rpc_v1_PublicProfile_init_zero, gizclaw_rpc_v1_PublicProfile_init_zero, gizclaw_rpc_v1_PublicProfile_init_zero, gizclaw_rpc_v1_PublicProfile_init_zero, gizclaw_rpc_v1_PublicProfile_init_zero, gizclaw_rpc_v1_PublicProfile_init_zero, gizclaw_rpc_v1_PublicProfile_init_zero, gizclaw_rpc_v1_PublicProfile_init_zero, gizclaw_rpc_v1_PublicProfile_init_zero, gizclaw_rpc_v1_PublicProfile_init_zero, gizclaw_rpc_v1_PublicProfile_init_zero, gizclaw_rpc_v1_PublicProfile_init_zero, gizclaw_rpc_v1_PublicProfile_init_zero, gizclaw_rpc_v1_PublicProfile_init_zero}}
+#define gizclaw_rpc_v1_PublicProfile_init_zero   {"", false, "", false, ""}
 #define gizclaw_rpc_v1_SpeedTestRequest_init_zero {0, 0}
 #define gizclaw_rpc_v1_SpeedTestResponse_init_zero {0, 0}
 #define gizclaw_rpc_v1_ServerPutRuntimeRequest_init_zero {{{NULL}, NULL}}
@@ -667,6 +715,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientDeviceSettingsSetResponse_value_tag 1
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetRequest_keep_network_tag 1
 #define gizclaw_rpc_v1_ClientRpcMethodsGetResponse_methods_tag 1
+#define gizclaw_rpc_v1_ClientDeviceFindRequest_duration_ms_tag 1
 #define gizclaw_rpc_v1_ClientDeviceRebootRequest_delay_ms_tag 1
 #define gizclaw_rpc_v1_WifiStatus_connected_tag  1
 #define gizclaw_rpc_v1_WifiStatus_ssid_tag       2
@@ -785,6 +834,11 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerGetStatusResponse_value_tag 1
 #define gizclaw_rpc_v1_ServerPutInfoRequest_value_tag 1
 #define gizclaw_rpc_v1_ServerPutInfoResponse_value_tag 1
+#define gizclaw_rpc_v1_ProfileGetRequest_peer_public_keys_tag 1
+#define gizclaw_rpc_v1_PublicProfile_peer_public_key_tag 1
+#define gizclaw_rpc_v1_PublicProfile_display_name_tag 2
+#define gizclaw_rpc_v1_PublicProfile_emoji_tag   3
+#define gizclaw_rpc_v1_ProfileGetResponse_items_tag 1
 #define gizclaw_rpc_v1_SpeedTestRequest_down_content_length_tag 1
 #define gizclaw_rpc_v1_SpeedTestRequest_up_content_length_tag 2
 #define gizclaw_rpc_v1_SpeedTestResponse_down_content_length_tag 1
@@ -902,6 +956,16 @@ X(a, STATIC,   OPTIONAL, BOOL,     keep_network,      1)
 X(a, STATIC,   REPEATED, STRING,   methods,           1)
 #define gizclaw_rpc_v1_ClientRpcMethodsGetResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_ClientRpcMethodsGetResponse_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ClientDeviceFindRequest_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, INT64,    duration_ms,       1)
+#define gizclaw_rpc_v1_ClientDeviceFindRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_ClientDeviceFindRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ClientDeviceFindResponse_FIELDLIST(X, a) \
+
+#define gizclaw_rpc_v1_ClientDeviceFindResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_ClientDeviceFindResponse_DEFAULT NULL
 
 #define gizclaw_rpc_v1_ClientDeviceRebootRequest_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, INT64,    delay_ms,          1)
@@ -1240,6 +1304,24 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 #define gizclaw_rpc_v1_ServerPutInfoResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_ServerPutInfoResponse_value_MSGTYPE gizclaw_rpc_v1_DeviceInfo
 
+#define gizclaw_rpc_v1_ProfileGetRequest_FIELDLIST(X, a) \
+X(a, STATIC,   REPEATED, STRING,   peer_public_keys,   1)
+#define gizclaw_rpc_v1_ProfileGetRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_ProfileGetRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ProfileGetResponse_FIELDLIST(X, a) \
+X(a, STATIC,   REPEATED, MESSAGE,  items,             1)
+#define gizclaw_rpc_v1_ProfileGetResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_ProfileGetResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_ProfileGetResponse_items_MSGTYPE gizclaw_rpc_v1_PublicProfile
+
+#define gizclaw_rpc_v1_PublicProfile_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   peer_public_key,   1) \
+X(a, STATIC,   OPTIONAL, STRING,   display_name,      2) \
+X(a, STATIC,   OPTIONAL, STRING,   emoji,             3)
+#define gizclaw_rpc_v1_PublicProfile_CALLBACK NULL
+#define gizclaw_rpc_v1_PublicProfile_DEFAULT NULL
+
 #define gizclaw_rpc_v1_SpeedTestRequest_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, INT64,    down_content_length,   1) \
 X(a, STATIC,   SINGULAR, INT64,    up_content_length,   2)
@@ -1281,6 +1363,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ClientDeviceFactoryResetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientDeviceFactoryResetResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientRpcMethodsGetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientRpcMethodsGetResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ClientDeviceFindRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ClientDeviceFindResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientDeviceRebootRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientDeviceRebootResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WifiStatus_msg;
@@ -1330,6 +1414,9 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerGetStatusRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerGetStatusResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutInfoRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutInfoResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ProfileGetRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ProfileGetResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_PublicProfile_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeRequest_msg;
@@ -1355,6 +1442,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetResponse_fields &gizclaw_rpc_v1_ClientDeviceFactoryResetResponse_msg
 #define gizclaw_rpc_v1_ClientRpcMethodsGetRequest_fields &gizclaw_rpc_v1_ClientRpcMethodsGetRequest_msg
 #define gizclaw_rpc_v1_ClientRpcMethodsGetResponse_fields &gizclaw_rpc_v1_ClientRpcMethodsGetResponse_msg
+#define gizclaw_rpc_v1_ClientDeviceFindRequest_fields &gizclaw_rpc_v1_ClientDeviceFindRequest_msg
+#define gizclaw_rpc_v1_ClientDeviceFindResponse_fields &gizclaw_rpc_v1_ClientDeviceFindResponse_msg
 #define gizclaw_rpc_v1_ClientDeviceRebootRequest_fields &gizclaw_rpc_v1_ClientDeviceRebootRequest_msg
 #define gizclaw_rpc_v1_ClientDeviceRebootResponse_fields &gizclaw_rpc_v1_ClientDeviceRebootResponse_msg
 #define gizclaw_rpc_v1_WifiStatus_fields &gizclaw_rpc_v1_WifiStatus_msg
@@ -1404,6 +1493,9 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 #define gizclaw_rpc_v1_ServerGetStatusResponse_fields &gizclaw_rpc_v1_ServerGetStatusResponse_msg
 #define gizclaw_rpc_v1_ServerPutInfoRequest_fields &gizclaw_rpc_v1_ServerPutInfoRequest_msg
 #define gizclaw_rpc_v1_ServerPutInfoResponse_fields &gizclaw_rpc_v1_ServerPutInfoResponse_msg
+#define gizclaw_rpc_v1_ProfileGetRequest_fields &gizclaw_rpc_v1_ProfileGetRequest_msg
+#define gizclaw_rpc_v1_ProfileGetResponse_fields &gizclaw_rpc_v1_ProfileGetResponse_msg
+#define gizclaw_rpc_v1_PublicProfile_fields &gizclaw_rpc_v1_PublicProfile_msg
 #define gizclaw_rpc_v1_SpeedTestRequest_fields &gizclaw_rpc_v1_SpeedTestRequest_msg
 #define gizclaw_rpc_v1_SpeedTestResponse_fields &gizclaw_rpc_v1_SpeedTestResponse_msg
 #define gizclaw_rpc_v1_ServerPutRuntimeRequest_fields &gizclaw_rpc_v1_ServerPutRuntimeRequest_msg
@@ -1442,6 +1534,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 #define gizclaw_rpc_v1_AppConfigListRequest_size 185
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetRequest_size 2
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetResponse_size 0
+#define gizclaw_rpc_v1_ClientDeviceFindRequest_size 11
+#define gizclaw_rpc_v1_ClientDeviceFindResponse_size 0
 #define gizclaw_rpc_v1_ClientDeviceRebootRequest_size 11
 #define gizclaw_rpc_v1_ClientDeviceRebootResponse_size 0
 #define gizclaw_rpc_v1_ClientDeviceSettingsGetRequest_size 0
@@ -1471,6 +1565,9 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 #define gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_size 370
 #define gizclaw_rpc_v1_PingRequest_size          11
 #define gizclaw_rpc_v1_PingResponse_size         11
+#define gizclaw_rpc_v1_ProfileGetRequest_size    1056
+#define gizclaw_rpc_v1_ProfileGetResponse_size   6304
+#define gizclaw_rpc_v1_PublicProfile_size        391
 #define gizclaw_rpc_v1_ServerGetInfoRequest_size 0
 #define gizclaw_rpc_v1_ServerGetStatusRequest_size 0
 #define gizclaw_rpc_v1_ServerPeerDeleteRequest_size 0

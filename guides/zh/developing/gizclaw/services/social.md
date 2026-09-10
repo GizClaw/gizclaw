@@ -73,6 +73,22 @@ Friend、Friend Group 与 Peer Store 通过共享 KV backend（multi-server 部�
 
 每台可能承载成员连接的 Server 都能只依赖共享 Social KV 和本地 `sfu` driver 激活同一个 Workspace，不需要回调某个 owner Server。本地 Workspace record 的按需 materialize 见[多 Server materialize](#多-server-materialize)。
 
+## 好友呼叫与群集结
+
+`server.friend.ping` 呼叫一个好友的设备；`server.friend_group.ping` 集结一个 Friend Group，呼叫除自己外所有成员的设备，任何成员都可以集结。规则由 `friend.PingFriend` 与 `friendgroup.PingFriendGroup` 拥有，`peerresource` 只负责解码请求和映射错误。
+
+1. 先解析调用方的关系：按 name 找到好友关系，或按调用方自己的群 name 找到群并确认其当前成员身份。name 未知时直接返回 `NOT_FOUND`。
+2. 限流窗口未结束时返回 `RATE_LIMITED` 与剩余秒数，不接触任何设备。
+3. 用 `PeerOnline` 过滤目标，它与 `Runtime.online` 读取同一份连接状态；集结时排除调用方。没有目标在线时立即返回 `NOT_ONLINE`，不发送任何内容，也不开启窗口。
+4. 用 `CreateIfAbsent` 原子占用窗口，竞争失败时返回 `RATE_LIMITED`。
+5. 并发向每个目标推送 `client.social.ping`，每个推送 3 秒内等待确认，不重试。集结时每个接收方收到它自己对该群的本地 name；发起方设置了 `display_name` 时一并携带。没有任何设备确认时，用 compare-and-delete 释放窗口并返回 `NOT_ONLINE`，触达不了的目标不会让调用方白等一分钟；否则返回 `DELIVERED` 与确认设备数。
+
+窗口固定为一分钟（`socialutil.PingWindow`），不可配置，以 store deadline 保存在共享 Social KV：好友窗口是 Friend store 中的 `friend-ping-windows/<relationID>`，一对好友双向共享；群窗口是 Friend Group store 中的 `friend-group-ping-windows/<groupID>`，全体成员共享。窗口结束后由 KV backend（生产部署为 Redis TTL）删除，不运行清理循环，所有 Server 执行同一个窗口。
+
+在线状态与推送和其他 Server→设备 RPC 一样是 Server 本地的：连接在另一台 Server 上的目标被视为不在线，提醒也不会排队补发。Server 只推送调用方有权发出的提醒，设备无需再校验关系。当前不提供好友在线状态查询、在 `server.friend.list` 中内嵌资料，以及跨 Server 推送。
+
+`server.profile.get` 按 public key 批量（1–16 个）返回 Peer 的公开资料，不做任何关系校验：只包含该 Peer 通过 `server.info.put` 设置的 `display_name` 与 `emoji`（`peer.Server.GetPublicProfile`）。不存在、已删除或 pending deletion 的 Peer 只返回 key。
+
 ## SFU Workspace
 
 Friend 与 Friend Group 的实时语音运行在同一种 SFU Workspace 上：Social resource 拥有一个逻辑 Workspace，在线 Peer 通过 `server.run.workspace.set` 选择它后，GizClaw Server 把该 Peer 的 GenX 音频流桥接到 Social resource 声明的 SFU Room。Device 只保持已有的 WebRTC connection，不连接也不感知 LiveKit；Edge 只转发既有 Giznet connection。
@@ -200,6 +216,7 @@ credential 只通过文件在启动时读取，不进入 Social KV、Workspace�
 
 - Friend Group 成员上限 10 人（含 owner），超出返回 `FRIEND_GROUP_FULL`。
 - 每个 Peer 最多属于 10 个 Friend Group（创建、加入、被添加合并计数），超出返回 `FRIEND_GROUP_LIMIT_REACHED`。
+- 每对好友每分钟最多呼叫一次，每个 Friend Group 每分钟最多集结一次；窗口未结束时返回 `RATE_LIMITED` 与剩余秒数。
 - 每个 Peer 最多 10 个好友（双向合并计数），超出返回 `FRIEND_LIMIT_REACHED`。
 - 每个 Peer 同一时刻只有一个 participant；同一 Server 上每个 Workspace 只有一个共享 Agent。
 - 每个听者同一时刻只听一位发言者（floor），半双工；不混音，不解码下行。

@@ -109,6 +109,16 @@ message ClientRpcMethodsGetResponse {
   repeated string methods = 1;
 }
 
+// ClientDeviceFindRequest asks the device to play its built-in find-me sound.
+// duration_ms is the requested ring time; the device picks its own default
+// when it is absent.
+message ClientDeviceFindRequest {
+  optional int64 duration_ms = 1;
+}
+
+message ClientDeviceFindResponse {
+}
+
 message ClientDeviceRebootRequest {
   optional int64 delay_ms = 1;
 }
@@ -380,6 +390,28 @@ message ServerPutInfoRequest {
 
 message ServerPutInfoResponse {
   DeviceInfo value = 1;
+}
+
+// ProfileGetRequest looks up the public profile of up to 16 Peers by public
+// key. Any registered Peer may look up any other Peer.
+message ProfileGetRequest {
+  repeated string peer_public_keys = 1;
+}
+
+// ProfileGetResponse holds one item per distinct requested key, in request
+// order. A Peer that does not exist, or has not set a field, has that field
+// absent.
+message ProfileGetResponse {
+  repeated PublicProfile items = 1;
+}
+
+// PublicProfile is the public projection of a Peer's DeviceInfo. It carries
+// only the self-chosen display name and emoji; online state, hardware,
+// identifiers and location never enter it.
+message PublicProfile {
+  string peer_public_key = 1;
+  optional string display_name = 2;
+  optional string emoji = 3;
 }
 
 message SpeedTestRequest {

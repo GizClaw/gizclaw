@@ -30,7 +30,7 @@ curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/wifi" \
   -d '{"ssid":"Office","passphrase":"correct-horse"}'
 ```
 
-`PUT /device/volume` 成功返回 `200 { "status": PeerStatus }`，其中的 `volume`、`muted` 与随后 `GET /device/status` 读到的一致；`play-sound`、`reboot` 与 `DELETE /wifi/saved/{ssid}` 成功返回 `204`。Wi-Fi 扫描同步返回网络列表；`timeout_ms` 缺省 8000 并夹取到 1000–15000。加入网络返回 `202`，只表示设备已接受凭据并开始切换；设备随后掉线，控制 route 返回 `409 DEVICE_OFFLINE`。设备重连后轮询 `GET /device/wifi`：`ssid` 为目标网络表示成功，仍为旧网络表示加入失败并已回退。服务端不保存、记录或回显密码。
+`PUT /device/volume` 成功返回 `200 { "status": PeerStatus }`，其中的 `volume`、`muted` 与随后 `GET /device/status` 读到的一致；`play-sound`、`find`、`reboot` 与 `DELETE /wifi/saved/{ssid}` 成功返回 `204`。Wi-Fi 扫描同步返回网络列表；`timeout_ms` 缺省 8000 并夹取到 1000–15000。加入网络返回 `202`，只表示设备已接受凭据并开始切换；设备随后掉线，控制 route 返回 `409 DEVICE_OFFLINE`。设备重连后轮询 `GET /device/wifi`：`ssid` 为目标网络表示成功，仍为旧网络表示加入失败并已回退。服务端不保存、记录或回显密码。
 
 设备不在线时控制 route 返回 `409 DEVICE_OFFLINE`，普通控制在 5 秒内无响应、扫描在其请求上界内无响应返回 `504 DEVICE_TIMEOUT`，两者都不会改变已存储的 status；`reboot` 得到确认后，设备重连前的控制请求同样返回 `409`。设备拒绝参数返回 `400 DEVICE_REJECTED`，设备固件未实现对应能力返回 `501 DEVICE_UNSUPPORTED`。Key 被撤销或设备 Peer 被删除后，所有设备与 Contact 请求立即失败。
 

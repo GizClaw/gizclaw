@@ -50,6 +50,9 @@ type Server struct {
 	Profiles         ProfileService
 	NotifyPeer       func(context.Context, string, *eventpb.PeerEvent)
 	PeerAvailability func(context.Context, string) error
+	// Pings reaches Friend devices connected to this Server for
+	// server.friend.ping; nil disables pinging.
+	Pings socialutil.PingDelivery
 	// SFUURL is the SFU endpoint recorded in every new Friend SFU binding.
 	SFUURL string
 

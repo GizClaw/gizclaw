@@ -237,7 +237,7 @@ func TestInvokePeerStreamPropagatesAudioObserverFailure(t *testing.T) {
 	stream := newFakeRelayStream()
 	go func() {
 		drainPushes(stream, 3)
-		stream.in <- assistantBlob("s1", []byte{1}, false)
+		stream.in <- assistantBlob("s1", testAudibleOpus(t), false)
 		stream.in <- assistantText("s1", "done", false)
 		stream.in <- assistantText("s1", "", true)
 		stream.in <- assistantBlob("s1", nil, true)
@@ -673,7 +673,7 @@ func TestInvokePeerStreamFirstResponseReturnsWithoutEOS(t *testing.T) {
 		drainPushes(stream, 3)
 		stream.in <- transcriptText("user-1", "question", false)
 		stream.in <- assistantText("s1", "hello", false)
-		stream.in <- assistantBlob("s1", []byte{1, 2, 3}, false)
+		stream.in <- assistantBlob("s1", testAudibleOpus(t), false)
 	}()
 	result, err := invokeFakePeerStream(context.Background(), giztest.PeerStreamOperation{
 		Mode: "text", Completion: "first_response", FirstTextTimeout: "100ms", FirstAudioTimeout: "150ms",
@@ -717,7 +717,7 @@ func TestInvokePeerStreamFirstResponseSelectedModalities(t *testing.T) {
 				Mode: "text", Completion: "first_response", FirstAudioTimeout: "100ms",
 				RequireText: &textDisabled, RequireAudio: &audioRequired,
 			},
-			send: func(stream *fakeRelayStream) { stream.in <- assistantBlob("s1", []byte{1}, false) },
+			send: func(stream *fakeRelayStream) { stream.in <- assistantBlob("s1", testAudibleOpus(t), false) },
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -801,7 +801,7 @@ func TestInvokePeerStreamFirstResponseDeadlines(t *testing.T) {
 	}{
 		{
 			name: "text", textLimit: "30ms", audioLimit: "100ms", deadline: "first_text_timeout",
-			send: func(stream *fakeRelayStream) { stream.in <- assistantBlob("s1", []byte{1}, false) },
+			send: func(stream *fakeRelayStream) { stream.in <- assistantBlob("s1", testAudibleOpus(t), false) },
 		},
 		{
 			name: "audio", textLimit: "100ms", audioLimit: "30ms", deadline: "first_audio_timeout",
@@ -876,7 +876,7 @@ func TestPeerStreamFirstResponseArrivalWinsSchedulingRace(t *testing.T) {
 		within func(*peerStreamFirstResponseArrivals, time.Duration) bool
 	}{
 		{name: "text", chunk: assistantText("s1", "hello", false), within: (*peerStreamFirstResponseArrivals).firstTextWithin},
-		{name: "audio", chunk: assistantBlob("s1", []byte{1}, false), within: (*peerStreamFirstResponseArrivals).firstAudioWithin},
+		{name: "audio", chunk: assistantBlob("s1", testAudibleOpus(t), false), within: (*peerStreamFirstResponseArrivals).firstAudioWithin},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			stream := newFakeRelayStream()
@@ -976,7 +976,7 @@ func listenStep(duration string) giztest.Step {
 
 func TestListenPeerStreamCapturesReceivedOpusFromAnyLabel(t *testing.T) {
 	stream := newFakeRelayStream()
-	oggAudio, packets := testOggOpus(t)
+	packets := testAudibleOpusPackets(t, 2)
 	wantBytes := 0
 	for _, packet := range packets {
 		wantBytes += len(packet)
@@ -986,7 +986,7 @@ func TestListenPeerStreamCapturesReceivedOpusFromAnyLabel(t *testing.T) {
 	stream.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus", Data: packets[1]}, Ctrl: &genx.StreamCtrl{StreamID: "remote-b", Label: "participant-b"}}
 	stream.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "text/plain"}, Ctrl: &genx.StreamCtrl{StreamID: "remote-a", Label: "participant-a", EndOfStream: true}}
 	started := time.Now()
-	result, err := listenPeerStream(context.Background(), stream, listenStep("250ms"), len(oggAudio)*4)
+	result, err := listenPeerStream(context.Background(), stream, listenStep("250ms"), 1<<20)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1423,7 +1423,7 @@ func TestInvokePeerStreamRealtimeFirstResponseTimesFromSpeechEnd(t *testing.T) {
 		time.Sleep(responseDelay)
 		for _, chunk := range []*genx.MessageChunk{
 			assistantText("reply", "hello", false),
-			assistantBlob("reply", []byte{0xf8}, false),
+			assistantBlob("reply", testAudibleOpus(t), false),
 		} {
 			select {
 			case stream.in <- chunk:
@@ -1486,7 +1486,7 @@ func TestInvokePeerStreamRealtimeFirstResponseDeadlineIgnoresTailSilence(t *test
 				Mode: "realtime", Completion: "first_response", Pacing: "2ms", FirstAudioTimeout: "100ms",
 				RequireText: &textDisabled, RequireAudio: &audioRequired,
 			},
-			response: assistantBlob("reply", []byte{0xf8}, false),
+			response: assistantBlob("reply", testAudibleOpus(t), false),
 			deadline: "first_audio_timeout",
 		},
 		{
@@ -1584,7 +1584,7 @@ func TestInvokePeerStreamFirstResponseTimingsStayNonNegative(t *testing.T) {
 				for _, chunk := range []*genx.MessageChunk{
 					transcriptText("user-1", "question", false),
 					assistantText("reply", "hello", false),
-					assistantBlob("reply", []byte{0xf8}, false),
+					assistantBlob("reply", testAudibleOpus(t), false),
 				} {
 					select {
 					case stream.in <- chunk:

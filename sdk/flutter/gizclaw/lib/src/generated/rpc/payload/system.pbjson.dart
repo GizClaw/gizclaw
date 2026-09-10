@@ -391,6 +391,40 @@ final $typed_data.Uint8List clientRpcMethodsGetResponseDescriptor =
         'ChtDbGllbnRScGNNZXRob2RzR2V0UmVzcG9uc2USGAoHbWV0aG9kcxgBIAMoCVIHbWV0aG9kcw'
         '==');
 
+@$core.Deprecated('Use clientDeviceFindRequestDescriptor instead')
+const ClientDeviceFindRequest$json = {
+  '1': 'ClientDeviceFindRequest',
+  '2': [
+    {
+      '1': 'duration_ms',
+      '3': 1,
+      '4': 1,
+      '5': 3,
+      '9': 0,
+      '10': 'durationMs',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_duration_ms'},
+  ],
+};
+
+/// Descriptor for `ClientDeviceFindRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientDeviceFindRequestDescriptor =
+    $convert.base64Decode(
+        'ChdDbGllbnREZXZpY2VGaW5kUmVxdWVzdBIkCgtkdXJhdGlvbl9tcxgBIAEoA0gAUgpkdXJhdG'
+        'lvbk1ziAEBQg4KDF9kdXJhdGlvbl9tcw==');
+
+@$core.Deprecated('Use clientDeviceFindResponseDescriptor instead')
+const ClientDeviceFindResponse$json = {
+  '1': 'ClientDeviceFindResponse',
+};
+
+/// Descriptor for `ClientDeviceFindResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientDeviceFindResponseDescriptor =
+    $convert.base64Decode('ChhDbGllbnREZXZpY2VGaW5kUmVzcG9uc2U=');
+
 @$core.Deprecated('Use clientDeviceRebootRequestDescriptor instead')
 const ClientDeviceRebootRequest$json = {
   '1': 'ClientDeviceRebootRequest',
@@ -1726,6 +1760,67 @@ const ServerPutInfoResponse$json = {
 final $typed_data.Uint8List serverPutInfoResponseDescriptor = $convert.base64Decode(
     'ChVTZXJ2ZXJQdXRJbmZvUmVzcG9uc2USMAoFdmFsdWUYASABKAsyGi5naXpjbGF3LnJwYy52MS'
     '5EZXZpY2VJbmZvUgV2YWx1ZQ==');
+
+@$core.Deprecated('Use profileGetRequestDescriptor instead')
+const ProfileGetRequest$json = {
+  '1': 'ProfileGetRequest',
+  '2': [
+    {'1': 'peer_public_keys', '3': 1, '4': 3, '5': 9, '10': 'peerPublicKeys'},
+  ],
+};
+
+/// Descriptor for `ProfileGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List profileGetRequestDescriptor = $convert.base64Decode(
+    'ChFQcm9maWxlR2V0UmVxdWVzdBIoChBwZWVyX3B1YmxpY19rZXlzGAEgAygJUg5wZWVyUHVibG'
+    'ljS2V5cw==');
+
+@$core.Deprecated('Use profileGetResponseDescriptor instead')
+const ProfileGetResponse$json = {
+  '1': 'ProfileGetResponse',
+  '2': [
+    {
+      '1': 'items',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.PublicProfile',
+      '10': 'items'
+    },
+  ],
+};
+
+/// Descriptor for `ProfileGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List profileGetResponseDescriptor = $convert.base64Decode(
+    'ChJQcm9maWxlR2V0UmVzcG9uc2USMwoFaXRlbXMYASADKAsyHS5naXpjbGF3LnJwYy52MS5QdW'
+    'JsaWNQcm9maWxlUgVpdGVtcw==');
+
+@$core.Deprecated('Use publicProfileDescriptor instead')
+const PublicProfile$json = {
+  '1': 'PublicProfile',
+  '2': [
+    {'1': 'peer_public_key', '3': 1, '4': 1, '5': 9, '10': 'peerPublicKey'},
+    {
+      '1': 'display_name',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'displayName',
+      '17': true
+    },
+    {'1': 'emoji', '3': 3, '4': 1, '5': 9, '9': 1, '10': 'emoji', '17': true},
+  ],
+  '8': [
+    {'1': '_display_name'},
+    {'1': '_emoji'},
+  ],
+};
+
+/// Descriptor for `PublicProfile`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List publicProfileDescriptor = $convert.base64Decode(
+    'Cg1QdWJsaWNQcm9maWxlEiYKD3BlZXJfcHVibGljX2tleRgBIAEoCVINcGVlclB1YmxpY0tleR'
+    'ImCgxkaXNwbGF5X25hbWUYAiABKAlIAFILZGlzcGxheU5hbWWIAQESGQoFZW1vamkYAyABKAlI'
+    'AVIFZW1vammIAQFCDwoNX2Rpc3BsYXlfbmFtZUIICgZfZW1vamk=');
 
 @$core.Deprecated('Use speedTestRequestDescriptor instead')
 const SpeedTestRequest$json = {

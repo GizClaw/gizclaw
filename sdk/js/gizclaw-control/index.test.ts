@@ -346,6 +346,32 @@ test("device control: volume, sound, reboot, wifi", async () => {
   );
 });
 
+test("device find: ring time and device default", async () => {
+  const h = harness([noContent(), noContent()]);
+  await h.client.device.find({ duration_ms: 8000 });
+  await h.client.device.find();
+
+  assert.equal(h.seen[0]!.method, "POST");
+  assert.equal(h.seen[0]!.url.pathname, "/gizclaw/v1/device/actions/find");
+  assert.equal(h.seen[0]!.headers.get("authorization"), `Bearer ${apiKey}`);
+  assert.deepEqual(JSON.parse(h.seen[0]!.body), { duration_ms: 8000 });
+  assert.equal(h.seen[1]!.url.pathname, "/gizclaw/v1/device/actions/find");
+  assert.deepEqual(JSON.parse(h.seen[1]!.body), {});
+});
+
+test("device find: an unsupported device surfaces DEVICE_UNSUPPORTED", async () => {
+  const h = harness([
+    errorResponse(501, "DEVICE_UNSUPPORTED", "device does not support find"),
+  ]);
+  await assert.rejects(h.client.device.find(), (error: unknown) => {
+    assert.ok(error instanceof GizClawControlError);
+    assert.equal(error.status, 501);
+    assert.equal(error.kind, "deviceUnsupported");
+    assert.equal(error.code, "DEVICE_UNSUPPORTED");
+    return true;
+  });
+});
+
 test("device wifi: scan and connect", async () => {
   const h = harness([
     json(200, {

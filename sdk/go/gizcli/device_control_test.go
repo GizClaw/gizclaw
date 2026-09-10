@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -35,7 +36,8 @@ func TestRPCClientDeviceControlHandlers(t *testing.T) {
 	var gotLevel int64
 	var gotMuted bool
 	var gotSound string
-	var gotDuration, gotDelay *int64
+	var gotDuration, gotDelay, gotFindDuration *int64
+	findCalls := 0
 	var gotScanTimeout *int64
 	var gotConnectSSID string
 	var gotPassphrase *string
@@ -54,6 +56,11 @@ func TestRPCClientDeviceControlHandlers(t *testing.T) {
 			return nil
 		},
 		Reboot: func(_ context.Context, delay *int64) error { gotDelay = delay; return nil },
+		Find: func(_ context.Context, duration *int64) error {
+			findCalls++
+			gotFindDuration = duration
+			return nil
+		},
 		WifiStatus: func(context.Context) (rpcapi.WifiStatus, error) {
 			return rpcapi.WifiStatus{Connected: true, Ssid: new("home")}, nil
 		},
@@ -109,6 +116,22 @@ func TestRPCClientDeviceControlHandlers(t *testing.T) {
 		t.Fatalf("rejected sound = %#v", resp)
 	}
 
+	resp = deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceFind, func(p *rpcapi.RPCPayload) error {
+		return p.FromClientDeviceFindRequest(rpcapi.ClientDeviceFindRequest{DurationMs: new(int64(8000))})
+	})
+	if resp.Error != nil || gotFindDuration == nil || *gotFindDuration != 8000 {
+		t.Fatalf("find = %#v duration=%v", resp, gotFindDuration)
+	}
+	if resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceFind, nil); resp.Error != nil || gotFindDuration != nil {
+		t.Fatalf("find without params = %#v duration=%v", resp, gotFindDuration)
+	}
+	resp = deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceFind, func(p *rpcapi.RPCPayload) error {
+		return p.FromClientDeviceFindRequest(rpcapi.ClientDeviceFindRequest{DurationMs: new(int64(-1))})
+	})
+	if resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument || findCalls != 2 {
+		t.Fatalf("negative find duration = %#v after %d calls", resp, findCalls)
+	}
+
 	resp = deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceReboot, func(p *rpcapi.RPCPayload) error {
 		return p.FromClientDeviceRebootRequest(rpcapi.ClientDeviceRebootRequest{DelayMs: new(int64(2000))})
 	})
@@ -153,7 +176,7 @@ func TestRPCClientDeviceControlHandlers(t *testing.T) {
 	if resp.Error != nil || gotConnectSSID != "office" || gotPassphrase == nil || *gotPassphrase != passphrase {
 		t.Fatalf("connect = %#v ssid=%q passphrase=%v", resp, gotConnectSSID, gotPassphrase)
 	}
-	if len(observed) != 12 {
+	if len(observed) != 14 {
 		t.Fatalf("observed %d valid dispatches: %v", len(observed), observed)
 	}
 }
@@ -309,5 +332,151 @@ func TestDeviceSettingsHandlersAndCapabilityList(t *testing.T) {
 		if validDeviceSettingsPatch(patch) {
 			t.Fatalf("validDeviceSettingsPatch(%s) = true, want false", name)
 		}
+	}
+}
+
+func TestRPCClientSocialPingHandler(t *testing.T) {
+	device := &Client{}
+	ping := func(p *rpcapi.RPCPayload) error {
+		return p.FromClientSocialPingRequest(rpcapi.ClientSocialPingRequest{FromPeerPublicKey: "friend", FriendGroupName: new("team")})
+	}
+	if resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientSocialPing, ping); resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeUnimplemented {
+		t.Fatalf("ping without handler = %#v", resp)
+	}
+	var got rpcapi.ClientSocialPingRequest
+	if err := device.HandleSocialPing(func(_ context.Context, request rpcapi.ClientSocialPingRequest) error {
+		got = request
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientSocialPing, ping); resp.Error != nil || got.FromPeerPublicKey != "friend" || got.FriendGroupName == nil || *got.FriendGroupName != "team" {
+		t.Fatalf("ping = %#v got=%+v", resp, got)
+	}
+	if resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientSocialPing, func(p *rpcapi.RPCPayload) error {
+		return p.FromClientSocialPingRequest(rpcapi.ClientSocialPingRequest{})
+	}); resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument {
+		t.Fatalf("ping without sender = %#v", resp)
+	}
+	if err := device.HandleSocialPing(func(context.Context, rpcapi.ClientSocialPingRequest) error { return errors.New("busy") }); err != nil {
+		t.Fatal(err)
+	}
+	if resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientSocialPing, ping); resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInternal {
+		t.Fatalf("failing handler = %#v", resp)
+	}
+}
+
+// The settings, factory-reset and capability methods are reached through the
+// real inbound dispatch, not only through their helpers: an unrouted method
+// answers UNIMPLEMENTED even when its handler is installed.
+func TestRPCClientDeviceSettingsDispatch(t *testing.T) {
+	device := &Client{}
+	var applied rpcapi.DeviceSettings
+	var resetKeepNetwork *bool
+	if err := device.HandleDeviceControl(DeviceControlHandlers{
+		Find: func(context.Context, *int64) error { return nil },
+		GetSettings: func(context.Context) (rpcapi.DeviceSettings, error) {
+			return rpcapi.DeviceSettings{ScreenBrightness: new(int64(30))}, nil
+		},
+		SetSettings: func(_ context.Context, patch rpcapi.DeviceSettings) (rpcapi.DeviceSettings, error) {
+			applied = patch
+			return patch, nil
+		},
+		FactoryReset: func(_ context.Context, keepNetwork bool) error {
+			resetKeepNetwork = &keepNetwork
+			return nil
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	get := deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceSettingsGet, nil)
+	if get.Error != nil {
+		t.Fatalf("settings.get = %#v", get.Error)
+	}
+	got, err := get.Result.AsClientDeviceSettingsGetResponse()
+	if err != nil || got.Value.ScreenBrightness == nil || *got.Value.ScreenBrightness != 30 {
+		t.Fatalf("settings.get value = %+v err=%v", got, err)
+	}
+
+	set := deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceSettingsSet, func(p *rpcapi.RPCPayload) error {
+		return p.FromClientDeviceSettingsSetRequest(rpcapi.ClientDeviceSettingsSetRequest{Value: rpcapi.DeviceSettings{LedBrightness: new(int64(40))}})
+	})
+	if set.Error != nil || applied.LedBrightness == nil || *applied.LedBrightness != 40 {
+		t.Fatalf("settings.set = %#v applied=%+v", set.Error, applied)
+	}
+	// An out-of-range member is rejected before the handler sees any of it.
+	applied = rpcapi.DeviceSettings{}
+	bad := deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceSettingsSet, func(p *rpcapi.RPCPayload) error {
+		return p.FromClientDeviceSettingsSetRequest(rpcapi.ClientDeviceSettingsSetRequest{Value: rpcapi.DeviceSettings{ScreenBrightness: new(int64(140))}})
+	})
+	if bad.Error == nil || bad.Error.Code != rpcapi.StatusCodeInvalidArgument || applied.ScreenBrightness != nil {
+		t.Fatalf("out-of-range settings.set = %#v applied=%+v", bad.Error, applied)
+	}
+
+	reset := deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceFactoryReset, func(p *rpcapi.RPCPayload) error {
+		return p.FromClientDeviceFactoryResetRequest(rpcapi.ClientDeviceFactoryResetRequest{KeepNetwork: new(true)})
+	})
+	if reset.Error != nil || resetKeepNetwork == nil || !*resetKeepNetwork {
+		t.Fatalf("factory_reset = %#v keepNetwork=%v", reset.Error, resetKeepNetwork)
+	}
+
+	if err := device.HandleSocialPing(func(context.Context, rpcapi.ClientSocialPingRequest) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	list := deviceControlDispatch(t, device, rpcapi.RPCMethodClientRPCMethodsGet, nil)
+	if list.Error != nil {
+		t.Fatalf("rpc.methods.get = %#v", list.Error)
+	}
+	methods, err := list.Result.AsClientRPCMethodsGetResponse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Every advertised method must itself be answered, not UNIMPLEMENTED.
+	for _, method := range methods.Methods {
+		if resp := deviceControlDispatch(t, device, rpcapi.RPCMethod(method), nil); resp.Error != nil && resp.Error.Code == rpcapi.StatusCodeUnimplemented {
+			t.Fatalf("advertised method %s answered UNIMPLEMENTED", method)
+		}
+	}
+	for _, want := range []rpcapi.RPCMethod{
+		rpcapi.RPCMethodClientInfoGet,
+		rpcapi.RPCMethodClientIdentifiersGet,
+		rpcapi.RPCMethodClientDeviceFind,
+		rpcapi.RPCMethodClientDeviceSettingsGet,
+		rpcapi.RPCMethodClientDeviceSettingsSet,
+		rpcapi.RPCMethodClientDeviceFactoryReset,
+		rpcapi.RPCMethodClientSocialPing,
+		rpcapi.RPCMethodClientRPCMethodsGet,
+	} {
+		if !slices.Contains(methods.Methods, string(want)) {
+			t.Fatalf("rpc.methods.get = %v, missing %s", methods.Methods, want)
+		}
+	}
+	for _, absent := range []rpcapi.RPCMethod{rpcapi.RPCMethodClientDeviceReboot, rpcapi.RPCMethodClientWifiScan} {
+		if slices.Contains(methods.Methods, string(absent)) {
+			t.Fatalf("rpc.methods.get = %v, advertises uninstalled %s", methods.Methods, absent)
+		}
+	}
+}
+
+// A device that installed no device control handlers still reports what it
+// implements: the methods the Client answers itself, and the capability method.
+func TestRPCClientCapabilityListWithoutDeviceHandlers(t *testing.T) {
+	device := &Client{}
+	resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientRPCMethodsGet, nil)
+	if resp.Error != nil {
+		t.Fatalf("rpc.methods.get without handlers = %#v", resp.Error)
+	}
+	got, err := resp.Result.AsClientRPCMethodsGetResponse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		string(rpcapi.RPCMethodClientInfoGet),
+		string(rpcapi.RPCMethodClientIdentifiersGet),
+		string(rpcapi.RPCMethodClientRPCMethodsGet),
+	}
+	if !reflect.DeepEqual(got.Methods, want) {
+		t.Fatalf("rpc.methods.get without handlers = %v, want %v", got.Methods, want)
 	}
 }

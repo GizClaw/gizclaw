@@ -25,6 +25,7 @@ import {
   createContact,
   createPeerHTTPClient,
   deleteContact,
+  findDevice,
   forgetDeviceSavedWifi,
   getApiKey,
   getContact,
@@ -67,6 +68,7 @@ import type {
   ContactList,
   ContactPutRequest,
   DeviceControlStatus,
+  DeviceFindRequest,
   DeviceInfo,
   DevicePlaySoundRequest,
   DeviceRebootRequest,
@@ -111,6 +113,7 @@ export type {
   ContactList,
   ContactPutRequest,
   DeviceControlStatus,
+  DeviceFindRequest,
   DeviceInfo,
   DevicePlaySoundRequest,
   DeviceRebootRequest,
@@ -382,6 +385,13 @@ export interface GizClawControlDevice {
   setVolume(body: DeviceVolumeSetRequest): Promise<DeviceControlStatus>;
   /** `POST /gizclaw/v1/device/actions/play-sound`. */
   playSound(body: DevicePlaySoundRequest): Promise<void>;
+  /**
+   * `POST /gizclaw/v1/device/actions/find`.
+   *
+   * Rings the device's own built-in find-me sound with a rising volume ramp.
+   * Omit `duration_ms` to let the device pick its default ring time.
+   */
+  find(body?: DeviceFindRequest): Promise<void>;
   /** `POST /gizclaw/v1/device/actions/reboot`. */
   reboot(body?: DeviceRebootRequest): Promise<void>;
   /** `GET /gizclaw/v1/device/wifi`. */
@@ -601,6 +611,8 @@ export function createGizClawControlClient(
         unwrap("setDeviceVolume", setDeviceVolume({ ...common, body })),
       playSound: (body) =>
         unwrapEmpty("playDeviceSound", playDeviceSound({ ...common, body })),
+      find: (body = {}) =>
+        unwrapEmpty("findDevice", findDevice({ ...common, body })),
       reboot: (body = {}) =>
         unwrapEmpty("rebootDevice", rebootDevice({ ...common, body })),
       getWifi: () => unwrap("getDeviceWifi", getDeviceWifi(common)),

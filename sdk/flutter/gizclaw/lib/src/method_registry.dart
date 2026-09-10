@@ -598,25 +598,25 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     responseType: 'ClientDeviceAudioPlayerModeSetResponse',
   ),
   'client.device.settings.get': RpcMethodDescriptor(
-    id: 123,
+    id: 128,
     name: 'client.device.settings.get',
     requestType: 'ClientDeviceSettingsGetRequest',
     responseType: 'ClientDeviceSettingsGetResponse',
   ),
   'client.device.settings.set': RpcMethodDescriptor(
-    id: 124,
+    id: 129,
     name: 'client.device.settings.set',
     requestType: 'ClientDeviceSettingsSetRequest',
     responseType: 'ClientDeviceSettingsSetResponse',
   ),
   'client.device.factory_reset': RpcMethodDescriptor(
-    id: 125,
+    id: 130,
     name: 'client.device.factory_reset',
     requestType: 'ClientDeviceFactoryResetRequest',
     responseType: 'ClientDeviceFactoryResetResponse',
   ),
   'client.rpc.methods.get': RpcMethodDescriptor(
-    id: 126,
+    id: 131,
     name: 'client.rpc.methods.get',
     requestType: 'ClientRpcMethodsGetRequest',
     responseType: 'ClientRpcMethodsGetResponse',
@@ -632,6 +632,36 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     name: 'server.app_config.get',
     requestType: 'AppConfigGetRequest',
     responseType: 'AppConfigGetResponse',
+  ),
+  'server.friend.ping': RpcMethodDescriptor(
+    id: 123,
+    name: 'server.friend.ping',
+    requestType: 'FriendPingRequest',
+    responseType: 'FriendPingResponse',
+  ),
+  'server.friend_group.ping': RpcMethodDescriptor(
+    id: 124,
+    name: 'server.friend_group.ping',
+    requestType: 'FriendGroupPingRequest',
+    responseType: 'FriendGroupPingResponse',
+  ),
+  'server.profile.get': RpcMethodDescriptor(
+    id: 125,
+    name: 'server.profile.get',
+    requestType: 'ProfileGetRequest',
+    responseType: 'ProfileGetResponse',
+  ),
+  'client.device.find': RpcMethodDescriptor(
+    id: 126,
+    name: 'client.device.find',
+    requestType: 'ClientDeviceFindRequest',
+    responseType: 'ClientDeviceFindResponse',
+  ),
+  'client.social.ping': RpcMethodDescriptor(
+    id: 127,
+    name: 'client.social.ping',
+    requestType: 'ClientSocialPingRequest',
+    responseType: 'ClientSocialPingResponse',
   ),
 };
 
@@ -733,12 +763,17 @@ const rpcMethodNamesById = <int, String>{
   117: 'client.device.audioplayer.play',
   118: 'client.device.audioplayer.stop',
   119: 'client.device.audioplayer.mode.set',
-  123: 'client.device.settings.get',
-  124: 'client.device.settings.set',
-  125: 'client.device.factory_reset',
-  126: 'client.rpc.methods.get',
+  128: 'client.device.settings.get',
+  129: 'client.device.settings.set',
+  130: 'client.device.factory_reset',
+  131: 'client.rpc.methods.get',
   121: 'server.app_config.list',
   122: 'server.app_config.get',
+  123: 'server.friend.ping',
+  124: 'server.friend_group.ping',
+  125: 'server.profile.get',
+  126: 'client.device.find',
+  127: 'client.social.ping',
 };
 
 RpcMethodDescriptor rpcMethodByName(String name) {
