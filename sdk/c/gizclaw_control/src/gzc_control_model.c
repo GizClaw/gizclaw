@@ -366,7 +366,7 @@ int gzc_control_runtime_profile_collection_workflows(
     gzc_str_t *out,
     size_t cap,
     size_t *out_count) {
-  if (collection == NULL) {
+  if (collection == NULL || out_count == NULL || (out == NULL && cap != 0)) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   return gzc_control_decode_array(

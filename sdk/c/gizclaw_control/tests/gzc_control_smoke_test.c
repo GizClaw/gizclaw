@@ -597,6 +597,21 @@ static void test_device_runtime_profile(void) {
       gzc_control_runtime_profile_collection_workflows(&collections[1], workflows, 1, &workflow_count) ==
           GZC_ERR_BUFFER_TOO_SMALL,
       "small workflow array reports overflow");
+  check(
+      gzc_control_runtime_profile_collection_workflows(&collections[1], workflows, 4, NULL) ==
+          GZC_ERR_INVALID_ARGUMENT,
+      "null workflow count is rejected");
+  check(
+      gzc_control_runtime_profile_collection_workflows(&collections[1], NULL, 4, &workflow_count) ==
+          GZC_ERR_INVALID_ARGUMENT,
+      "null workflow array with capacity is rejected");
+  check(
+      gzc_control_runtime_profile_collection_workflows(NULL, workflows, 4, &workflow_count) ==
+          GZC_ERR_INVALID_ARGUMENT,
+      "null collection is rejected");
+  check(
+      gzc_control_get_device_runtime_profile(&client, &call, &profile, NULL, 4, &count) == GZC_ERR_INVALID_ARGUMENT,
+      "null collection array with capacity is rejected");
 
   check(
       gzc_control_get_device_runtime_profile(&client, &call, &profile, collections, 1, &count) ==
