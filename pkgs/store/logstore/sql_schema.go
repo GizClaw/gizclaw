@@ -19,6 +19,9 @@ var sqlLogIndexes = []struct {
 }{
 	{purpose: "page_idx", columns: "timestamp_unix_nano, stream, id", want: []string{"timestamp_unix_nano", "stream", "id"}},
 	{purpose: "selector_idx", columns: "stream, kind, severity", want: []string{"stream", "kind", "severity"}},
+	// Single-stream pages seek one stream's time range in order instead of
+	// sorting every record of that stream.
+	{purpose: "stream_page_idx", columns: "stream, timestamp_unix_nano, id", want: []string{"stream", "timestamp_unix_nano", "id"}},
 	{purpose: "expiry_idx", columns: "expires_at_unix_nano", want: []string{"expires_at_unix_nano"}},
 }
 

@@ -6764,6 +6764,14 @@ export type ListWorkspaceHistoryData = {
          * History ordering.
          */
         order?: 'asc' | 'desc';
+        /**
+         * Inclusive lower bound on created_at, in Unix milliseconds. It still applies to continuation requests.
+         */
+        start_time_ms?: number;
+        /**
+         * Exclusive upper bound on created_at, in Unix milliseconds. It must be greater than start_time_ms when both are set and still applies to continuation requests.
+         */
+        end_time_ms?: number;
     };
     url: '/workspaces/{id}/history';
 };

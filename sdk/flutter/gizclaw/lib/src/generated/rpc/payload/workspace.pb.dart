@@ -4258,12 +4258,16 @@ class WorkspaceHistoryListRequest extends $pb.GeneratedMessage {
     $fixnum.Int64? limit,
     $4.WorkspaceHistoryListRequestOrder? order,
     $core.String? workspaceName,
+    $fixnum.Int64? startTimeMs,
+    $fixnum.Int64? endTimeMs,
   }) {
     final result = create();
     if (cursor != null) result.cursor = cursor;
     if (limit != null) result.limit = limit;
     if (order != null) result.order = order;
     if (workspaceName != null) result.workspaceName = workspaceName;
+    if (startTimeMs != null) result.startTimeMs = startTimeMs;
+    if (endTimeMs != null) result.endTimeMs = endTimeMs;
     return result;
   }
 
@@ -4285,6 +4289,8 @@ class WorkspaceHistoryListRequest extends $pb.GeneratedMessage {
     ..aE<$4.WorkspaceHistoryListRequestOrder>(3, _omitFieldNames ? '' : 'order',
         enumValues: $4.WorkspaceHistoryListRequestOrder.values)
     ..aOS(4, _omitFieldNames ? '' : 'workspaceName')
+    ..aInt64(5, _omitFieldNames ? '' : 'startTimeMs')
+    ..aInt64(6, _omitFieldNames ? '' : 'endTimeMs')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4344,6 +4350,24 @@ class WorkspaceHistoryListRequest extends $pb.GeneratedMessage {
   $core.bool hasWorkspaceName() => $_has(3);
   @$pb.TagNumber(4)
   void clearWorkspaceName() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get startTimeMs => $_getI64(4);
+  @$pb.TagNumber(5)
+  set startTimeMs($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStartTimeMs() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStartTimeMs() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get endTimeMs => $_getI64(5);
+  @$pb.TagNumber(6)
+  set endTimeMs($fixnum.Int64 value) => $_setInt64(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasEndTimeMs() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearEndTimeMs() => $_clearField(6);
 }
 
 class WorkspaceHistoryListResponse extends $pb.GeneratedMessage {

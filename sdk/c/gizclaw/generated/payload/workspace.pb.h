@@ -320,6 +320,10 @@ typedef struct _gizclaw_rpc_v1_WorkspaceHistoryListRequest {
     bool has_order;
     gizclaw_rpc_v1_WorkspaceHistoryListRequestOrder order;
     pb_callback_t workspace_name;
+    bool has_start_time_ms;
+    int64_t start_time_ms;
+    bool has_end_time_ms;
+    int64_t end_time_ms;
 } gizclaw_rpc_v1_WorkspaceHistoryListRequest;
 
 typedef struct _gizclaw_rpc_v1_WorkspaceHistoryListResponse {
@@ -513,7 +517,7 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadResponse_init_default {{{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspaceHistoryGetRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspaceHistoryGetResponse_init_default {false, gizclaw_rpc_v1_PeerRunHistoryEntry_init_default}
-#define gizclaw_rpc_v1_WorkspaceHistoryListRequest_init_default {{{NULL}, NULL}, false, 0, false, _gizclaw_rpc_v1_WorkspaceHistoryListRequestOrder_MIN, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_WorkspaceHistoryListRequest_init_default {{{NULL}, NULL}, false, 0, false, _gizclaw_rpc_v1_WorkspaceHistoryListRequestOrder_MIN, {{NULL}, NULL}, false, 0, false, 0}
 #define gizclaw_rpc_v1_WorkspaceHistoryListResponse_init_default {false, gizclaw_rpc_v1_PeerRunHistoryListResponse_init_default}
 #define gizclaw_rpc_v1_WorkspaceListRequest_init_default {{{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspaceListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -582,7 +586,7 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadResponse_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspaceHistoryGetRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspaceHistoryGetResponse_init_zero {false, gizclaw_rpc_v1_PeerRunHistoryEntry_init_zero}
-#define gizclaw_rpc_v1_WorkspaceHistoryListRequest_init_zero {{{NULL}, NULL}, false, 0, false, _gizclaw_rpc_v1_WorkspaceHistoryListRequestOrder_MIN, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_WorkspaceHistoryListRequest_init_zero {{{NULL}, NULL}, false, 0, false, _gizclaw_rpc_v1_WorkspaceHistoryListRequestOrder_MIN, {{NULL}, NULL}, false, 0, false, 0}
 #define gizclaw_rpc_v1_WorkspaceHistoryListResponse_init_zero {false, gizclaw_rpc_v1_PeerRunHistoryListResponse_init_zero}
 #define gizclaw_rpc_v1_WorkspaceListRequest_init_zero {{{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspaceListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -702,6 +706,8 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceHistoryListRequest_limit_tag 2
 #define gizclaw_rpc_v1_WorkspaceHistoryListRequest_order_tag 3
 #define gizclaw_rpc_v1_WorkspaceHistoryListRequest_workspace_name_tag 4
+#define gizclaw_rpc_v1_WorkspaceHistoryListRequest_start_time_ms_tag 5
+#define gizclaw_rpc_v1_WorkspaceHistoryListRequest_end_time_ms_tag 6
 #define gizclaw_rpc_v1_WorkspaceHistoryListResponse_value_tag 1
 #define gizclaw_rpc_v1_WorkspaceListRequest_cursor_tag 1
 #define gizclaw_rpc_v1_WorkspaceListRequest_limit_tag 2
@@ -1170,7 +1176,9 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 X(a, CALLBACK, OPTIONAL, STRING,   cursor,            1) \
 X(a, STATIC,   OPTIONAL, INT64,    limit,             2) \
 X(a, STATIC,   OPTIONAL, UENUM,    order,             3) \
-X(a, CALLBACK, SINGULAR, STRING,   workspace_name,    4)
+X(a, CALLBACK, SINGULAR, STRING,   workspace_name,    4) \
+X(a, STATIC,   OPTIONAL, INT64,    start_time_ms,     5) \
+X(a, STATIC,   OPTIONAL, INT64,    end_time_ms,       6)
 #define gizclaw_rpc_v1_WorkspaceHistoryListRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_WorkspaceHistoryListRequest_DEFAULT NULL
 

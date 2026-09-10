@@ -2562,10 +2562,16 @@ type WorkspaceHistoryGetResponse = PeerRunHistoryEntry
 
 // WorkspaceHistoryListRequest defines model for WorkspaceHistoryListRequest.
 type WorkspaceHistoryListRequest struct {
-	Cursor        *string                           `json:"cursor,omitempty"`
-	Limit         *int                              `json:"limit,omitempty"`
-	Order         *WorkspaceHistoryListRequestOrder `json:"order,omitempty"`
-	WorkspaceName string                            `json:"workspace_name"`
+	Cursor *string `json:"cursor,omitempty"`
+
+	// EndTimeMs Exclusive upper bound on created_at, in Unix milliseconds. It must be greater than start_time_ms when both are set and still applies to continuation requests.
+	EndTimeMs *int64                            `json:"end_time_ms,omitempty"`
+	Limit     *int                              `json:"limit,omitempty"`
+	Order     *WorkspaceHistoryListRequestOrder `json:"order,omitempty"`
+
+	// StartTimeMs Inclusive lower bound on created_at, in Unix milliseconds. It still applies to continuation requests.
+	StartTimeMs   *int64 `json:"start_time_ms,omitempty"`
+	WorkspaceName string `json:"workspace_name"`
 }
 
 // WorkspaceHistoryListRequestOrder defines model for WorkspaceHistoryListRequest.Order.

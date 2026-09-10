@@ -325,6 +325,8 @@ message WorkspaceHistoryListRequest {
   optional int64 limit = 2;
   optional WorkspaceHistoryListRequestOrder order = 3;
   string workspace_name = 4;
+  optional int64 start_time_ms = 5;
+  optional int64 end_time_ms = 6;
 }
 
 message WorkspaceHistoryListResponse {

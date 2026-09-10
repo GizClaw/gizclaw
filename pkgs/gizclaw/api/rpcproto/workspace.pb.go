@@ -3188,6 +3188,8 @@ type WorkspaceHistoryListRequest struct {
 	Limit         *int64                            `protobuf:"varint,2,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	Order         *WorkspaceHistoryListRequestOrder `protobuf:"varint,3,opt,name=order,proto3,enum=gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder,oneof" json:"order,omitempty"`
 	WorkspaceName string                            `protobuf:"bytes,4,opt,name=workspace_name,json=workspaceName,proto3" json:"workspace_name,omitempty"`
+	StartTimeMs   *int64                            `protobuf:"varint,5,opt,name=start_time_ms,json=startTimeMs,proto3,oneof" json:"start_time_ms,omitempty"`
+	EndTimeMs     *int64                            `protobuf:"varint,6,opt,name=end_time_ms,json=endTimeMs,proto3,oneof" json:"end_time_ms,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3248,6 +3250,20 @@ func (x *WorkspaceHistoryListRequest) GetWorkspaceName() string {
 		return x.WorkspaceName
 	}
 	return ""
+}
+
+func (x *WorkspaceHistoryListRequest) GetStartTimeMs() int64 {
+	if x != nil && x.StartTimeMs != nil {
+		return *x.StartTimeMs
+	}
+	return 0
+}
+
+func (x *WorkspaceHistoryListRequest) GetEndTimeMs() int64 {
+	if x != nil && x.EndTimeMs != nil {
+		return *x.EndTimeMs
+	}
+	return 0
 }
 
 type WorkspaceHistoryListResponse struct {
@@ -4108,15 +4124,19 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\fhistory_name\x18\x01 \x01(\tR\vhistoryName\x12%\n" +
 	"\x0eworkspace_name\x18\x02 \x01(\tR\rworkspaceName\"X\n" +
 	"\x1bWorkspaceHistoryGetResponse\x129\n" +
-	"\x05value\x18\x01 \x01(\v2#.gizclaw.rpc.v1.PeerRunHistoryEntryR\x05value\"\xe8\x01\n" +
+	"\x05value\x18\x01 \x01(\v2#.gizclaw.rpc.v1.PeerRunHistoryEntryR\x05value\"\xd8\x02\n" +
 	"\x1bWorkspaceHistoryListRequest\x12\x1b\n" +
 	"\x06cursor\x18\x01 \x01(\tH\x00R\x06cursor\x88\x01\x01\x12\x19\n" +
 	"\x05limit\x18\x02 \x01(\x03H\x01R\x05limit\x88\x01\x01\x12K\n" +
 	"\x05order\x18\x03 \x01(\x0e20.gizclaw.rpc.v1.WorkspaceHistoryListRequestOrderH\x02R\x05order\x88\x01\x01\x12%\n" +
-	"\x0eworkspace_name\x18\x04 \x01(\tR\rworkspaceNameB\t\n" +
+	"\x0eworkspace_name\x18\x04 \x01(\tR\rworkspaceName\x12'\n" +
+	"\rstart_time_ms\x18\x05 \x01(\x03H\x03R\vstartTimeMs\x88\x01\x01\x12#\n" +
+	"\vend_time_ms\x18\x06 \x01(\x03H\x04R\tendTimeMs\x88\x01\x01B\t\n" +
 	"\a_cursorB\b\n" +
 	"\x06_limitB\b\n" +
-	"\x06_order\"`\n" +
+	"\x06_orderB\x10\n" +
+	"\x0e_start_time_msB\x0e\n" +
+	"\f_end_time_ms\"`\n" +
 	"\x1cWorkspaceHistoryListResponse\x12@\n" +
 	"\x05value\x18\x01 \x01(\v2*.gizclaw.rpc.v1.PeerRunHistoryListResponseR\x05value\"\xab\x01\n" +
 	"\x14WorkspaceListRequest\x12\x1b\n" +

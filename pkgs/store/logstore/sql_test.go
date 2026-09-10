@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -245,5 +246,44 @@ func TestSQLLogRejectsOutOfRangeTime(t *testing.T) {
 	}})
 	if err == nil || !strings.Contains(err.Error(), "outside signed nanosecond range") {
 		t.Fatalf("Append() error = %v", err)
+	}
+}
+
+func TestSQLiteSingleStreamPageSeeksWithoutSorting(t *testing.T) {
+	store, db := newSQLiteLog(t)
+	base := time.UnixMilli(1000).UTC()
+	records := make([]Record, 0, 200)
+	for i := range 200 {
+		records = append(records, Record{ID: fmt.Sprintf("row-%03d", i), Stream: fmt.Sprintf("stream-%d", i%4), Kind: "agent", Time: base.Add(time.Duration(i) * time.Millisecond), Message: "hello"})
+	}
+	if _, err := store.Append(t.Context(), records); err != nil {
+		t.Fatal(err)
+	}
+	index, err := storage.SQLIndexName(store.table, "stream_page_idx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, order := range []Order{OrderAsc, OrderDesc} {
+		statement, args, err := store.buildQuery(sqlBoundQuery{Streams: []string{"stream-1"}, Kinds: []string{"gear", "agent"}, StartMS: 1000, EndMS: 1100, Order: order}, nil, time.Now().UnixNano(), 101)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var plan []struct {
+			ID     int    `db:"id"`
+			Parent int    `db:"parent"`
+			Unused int    `db:"notused"`
+			Detail string `db:"detail"`
+		}
+		if err := db.Select(&plan, "EXPLAIN QUERY PLAN "+statement, args...); err != nil {
+			t.Fatal(err)
+		}
+		var details []string
+		for _, step := range plan {
+			details = append(details, step.Detail)
+		}
+		joined := strings.Join(details, "; ")
+		if !strings.Contains(joined, index) || strings.Contains(joined, "TEMP B-TREE") {
+			t.Fatalf("%s single-stream plan = %q, want an ordered seek on %s", order, joined, index)
+		}
 	}
 }

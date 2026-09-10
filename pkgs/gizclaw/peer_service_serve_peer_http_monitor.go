@@ -40,7 +40,8 @@ func (s *peerHTTP) ListDeviceWorkspaceHistory(ctx context.Context, req peerhttp.
 	if s.Workspaces == nil {
 		return peerhttp.ListDeviceWorkspaceHistory500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(internalPublicHTTP())}, nil
 	}
-	if (req.Params.Limit != nil && (*req.Params.Limit < 1 || *req.Params.Limit > 200)) || (req.Params.Query != nil && len(*req.Params.Query) > 512) {
+	filter, validRange := workspace.HistoryTimeFilter(req.Params.StartTimeMs, req.Params.EndTimeMs)
+	if (req.Params.Limit != nil && (*req.Params.Limit < 1 || *req.Params.Limit > 200)) || (req.Params.Query != nil && len(*req.Params.Query) > 512) || (req.Params.Order != nil && !req.Params.Order.Valid()) || !validRange {
 		return peerhttp.ListDeviceWorkspaceHistory400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(apiError("INVALID_REQUEST", "invalid history query"))}, nil
 	}
 	items, err := s.Workspaces.ListOwnedHistoryWorkspaces(ctx, owner.String())
@@ -57,12 +58,14 @@ func (s *peerHTTP) ListDeviceWorkspaceHistory(ctx context.Context, req peerhttp.
 	if !allowed {
 		return peerhttp.ListDeviceWorkspaceHistory404JSONResponse{NotFoundJSONResponse: peerhttp.NotFoundJSONResponse(apiError("WORKSPACE_NOT_FOUND", "workspace not found"))}, nil
 	}
-	query := ""
 	if req.Params.Query != nil {
-		query = strings.TrimSpace(*req.Params.Query)
+		filter.Text = strings.TrimSpace(*req.Params.Query)
 	}
 	order := apitypes.PeerRunHistoryListRequestOrderDesc
-	result, err := s.Workspaces.SearchWorkspaceHistoryByID(ctx, req.WorkspaceId, apitypes.PeerRunHistoryListRequest{Cursor: req.Params.Cursor, Limit: req.Params.Limit, Order: &order}, query)
+	if req.Params.Order != nil {
+		order = apitypes.PeerRunHistoryListRequestOrder(*req.Params.Order)
+	}
+	result, err := s.Workspaces.SearchWorkspaceHistoryByID(ctx, req.WorkspaceId, apitypes.PeerRunHistoryListRequest{Cursor: req.Params.Cursor, Limit: req.Params.Limit, Order: &order}, filter)
 	if err != nil {
 		if errors.Is(err, workspace.ErrInvalidHistoryCursor) {
 			return peerhttp.ListDeviceWorkspaceHistory400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(apiError("INVALID_HISTORY_CURSOR", "invalid history cursor"))}, nil
