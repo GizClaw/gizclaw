@@ -45,16 +45,105 @@ type ttsStreamState struct {
 	meta      TTSMeta
 	segmenter *ttsSentenceSegmenter
 	response  *Response
-	pending   []*ttsSegmentJob
+	emitter   *ttsSegmentEmitter
 }
 
 // cancelPending abandons every segment still in flight. Their goroutines
-// observe the cancelled context and exit without emitting.
+// observe the cancelled context and exit; audio they still hand over is
+// rejected by the retired response.
 func (s *ttsStreamState) cancelPending() {
-	for _, job := range s.pending {
-		job.cancel()
+	if s.emitter != nil {
+		s.emitter.abort()
+		s.emitter = nil
 	}
-	s.pending = nil
+}
+
+// ttsSegmentEmitter emits one stream's segments in order, each as soon as its
+// provider produces audio. Emission runs beside the text loop rather than
+// waiting for the next segment to be cut: a first segment held until the model
+// finishes its second sentence would reach the listener only after that whole
+// sentence had been generated. At most ttsLookahead+1 syntheses are in flight,
+// the one emitting and the ones synthesized ahead of it.
+type ttsSegmentEmitter struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+	slots  chan struct{}
+	queue  chan *ttsSegmentJob
+	done   chan struct{}
+	failed chan struct{}
+	err    error
+}
+
+func newTTSSegmentEmitter(ctx context.Context, emit func([]byte) error) *ttsSegmentEmitter {
+	ctx, cancel := context.WithCancel(ctx)
+	e := &ttsSegmentEmitter{
+		ctx:    ctx,
+		cancel: cancel,
+		slots:  make(chan struct{}, ttsLookahead+1),
+		queue:  make(chan *ttsSegmentJob, ttsLookahead+1),
+		done:   make(chan struct{}),
+		failed: make(chan struct{}),
+	}
+	go e.run(emit)
+	return e
+}
+
+func (e *ttsSegmentEmitter) run(emit func([]byte) error) {
+	defer close(e.done)
+	for job := range e.queue {
+		if e.err != nil || e.ctx.Err() != nil {
+			job.cancel()
+			<-job.done
+		} else if emitErr, synthErr := job.drain(emit); emitErr != nil {
+			e.fail(emitErr)
+		} else if synthErr != nil {
+			e.fail(genx.ClassifyFailure(synthErr, genx.FailureClassProvider))
+		}
+		<-e.slots
+	}
+}
+
+// fail records the first emission or synthesis error and abandons the
+// segments queued behind it. Only the run goroutine calls it.
+func (e *ttsSegmentEmitter) fail(err error) {
+	e.err = err
+	close(e.failed)
+	e.cancel()
+}
+
+// enqueue starts synthesizing segment once a lookahead slot is free and queues
+// it behind the segments already accepted.
+func (e *ttsSegmentEmitter) enqueue(start func(context.Context) *ttsSegmentJob) error {
+	select {
+	case e.slots <- struct{}{}:
+	case <-e.ctx.Done():
+	}
+	// A failure also cancels ctx, so the recorded failure takes precedence;
+	// fail writes err before closing failed.
+	select {
+	case <-e.failed:
+		return e.err
+	default:
+	}
+	if err := e.ctx.Err(); err != nil {
+		return err
+	}
+	e.queue <- start(e.ctx)
+	return nil
+}
+
+// finish waits until every accepted segment has been emitted.
+func (e *ttsSegmentEmitter) finish() error {
+	close(e.queue)
+	<-e.done
+	e.cancel()
+	return e.err
+}
+
+// abort abandons every accepted segment without waiting for their providers.
+func (e *ttsSegmentEmitter) abort() {
+	e.cancel()
+	close(e.queue)
 }
 
 // ttsSegmentJob is one segment being synthesized ahead of its turn to be
@@ -220,47 +309,35 @@ func runTTS(invocation *Invocation, input genx.Stream, mimeType string, synthesi
 		return state, nil
 	}
 
-	drainSegment := func(state *ttsStreamState) error {
-		job := state.pending[0]
-		state.pending = state.pending[1:]
-		emitErr, synthErr := job.drain(func(data []byte) error {
-			return invocation.Emit(state.response, &genx.MessageChunk{
-				Part: &genx.Blob{MIMEType: mimeType, Data: data},
-			})
-		})
-		if emitErr != nil {
-			state.cancelPending()
-			return emitErr
-		}
-		if synthErr != nil {
-			state.cancelPending()
-			return genx.ClassifyFailure(synthErr, genx.FailureClassProvider)
-		}
-		return nil
-	}
-
 	flushState := func(state *ttsStreamState, all bool) error {
 		for _, segment := range state.segmenter.Segments(all) {
 			if !hasReadableTTSSpokenText(segment) {
 				continue
 			}
 			debugTTSSegment(ctx, state.meta, segment, all)
+			if state.emitter == nil {
+				response := state.response
+				state.emitter = newTTSSegmentEmitter(ctx, func(data []byte) error {
+					return invocation.Emit(response, &genx.MessageChunk{
+						Part: &genx.Blob{MIMEType: mimeType, Data: data},
+					})
+				})
+			}
 			// Synthesis starts as soon as the text is segmented, not when the
 			// segment's turn to be emitted arrives, so its first-audio latency
 			// runs while the preceding segment is still being delivered.
-			state.pending = append(state.pending, startTTSSegment(ctx, segment, state.meta, mimeType, synthesize))
-			for len(state.pending) > ttsLookahead {
-				if err := drainSegment(state); err != nil {
-					return err
-				}
+			meta := state.meta
+			if err := state.emitter.enqueue(func(jobCtx context.Context) *ttsSegmentJob {
+				return startTTSSegment(jobCtx, segment, meta, mimeType, synthesize)
+			}); err != nil {
+				state.cancelPending()
+				return err
 			}
 		}
-		if all {
-			for len(state.pending) > 0 {
-				if err := drainSegment(state); err != nil {
-					return err
-				}
-			}
+		if all && state.emitter != nil {
+			err := state.emitter.finish()
+			state.emitter = nil
+			return err
 		}
 		return nil
 	}

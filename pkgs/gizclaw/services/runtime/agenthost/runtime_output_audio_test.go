@@ -21,10 +21,10 @@ func TestAudioOutputTracksKeyByStreamAndCanonicalMIME(t *testing.T) {
 	creator := newRecordingAudioTrackCreator()
 	tracks := newAudioOutputTracks(creator)
 	chunks := []*genx.MessageChunk{
-		pcmOutputChunk("stream-a", "audio/L16; rate=16000; channels=1", []byte{1, 0}, false, ""),
-		pcmOutputChunk("stream-a", "AUDIO/L16; channels=1; rate=16000", []byte{2, 0}, false, ""),
-		pcmOutputChunk("stream-a", "audio/L16; rate=24000; channels=1", []byte{3, 0}, false, ""),
-		pcmOutputChunk("stream-b", "audio/L16; rate=16000; channels=1", []byte{4, 0}, false, ""),
+		pcmOutputChunk("stream-a", "audio/L16; rate=16000; channels=1", []byte{0, 1}, false, ""),
+		pcmOutputChunk("stream-a", "AUDIO/L16; channels=1; rate=16000", []byte{0, 2}, false, ""),
+		pcmOutputChunk("stream-a", "audio/L16; rate=24000; channels=1", []byte{0, 3}, false, ""),
+		pcmOutputChunk("stream-b", "audio/L16; rate=16000; channels=1", []byte{0, 4}, false, ""),
 	}
 	for _, chunk := range chunks {
 		if err := tracks.consume(chunk); err != nil {
@@ -45,10 +45,10 @@ func TestAudioOutputTracksMIMEEOSClosesOnlyMatchingTrack(t *testing.T) {
 	mime16 := "audio/L16; rate=16000; channels=1"
 	mime24 := "audio/L16; rate=24000; channels=1"
 	for _, chunk := range []*genx.MessageChunk{
-		pcmOutputChunk("stream-a", mime16, []byte{1, 0}, false, ""),
-		pcmOutputChunk("stream-a", mime24, []byte{2, 0}, false, ""),
-		pcmOutputChunk("stream-b", mime16, []byte{3, 0}, false, ""),
-		pcmOutputChunk("stream-a", mime16, []byte{4, 0}, true, ""),
+		pcmOutputChunk("stream-a", mime16, []byte{0, 1}, false, ""),
+		pcmOutputChunk("stream-a", mime24, []byte{0, 2}, false, ""),
+		pcmOutputChunk("stream-b", mime16, []byte{0, 3}, false, ""),
+		pcmOutputChunk("stream-a", mime16, []byte{0, 4}, true, ""),
 	} {
 		if err := tracks.consume(chunk); err != nil {
 			t.Fatalf("consume() error = %v", err)
@@ -74,9 +74,9 @@ func TestAudioOutputTracksErrorEOSAndRouteEOS(t *testing.T) {
 	mime16 := "audio/L16; rate=16000; channels=1"
 	mime24 := "audio/L16; rate=24000; channels=1"
 	for _, chunk := range []*genx.MessageChunk{
-		pcmOutputChunk("stream-a", mime16, []byte{1, 0}, false, ""),
-		pcmOutputChunk("stream-a", mime24, []byte{2, 0}, false, ""),
-		pcmOutputChunk("stream-b", mime16, []byte{3, 0}, false, ""),
+		pcmOutputChunk("stream-a", mime16, []byte{0, 1}, false, ""),
+		pcmOutputChunk("stream-a", mime24, []byte{0, 2}, false, ""),
+		pcmOutputChunk("stream-b", mime16, []byte{0, 3}, false, ""),
 		pcmOutputChunk("stream-a", mime16, nil, true, "interrupted"),
 	} {
 		if err := tracks.consume(chunk); err != nil {
@@ -110,7 +110,7 @@ func TestAudioOutputTracksCutoverInheritsLabelFromBOS(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("consume(first BOS) error = %v", err)
 	}
-	if err := tracks.consume(pcmOutputChunk("first", mimeType, []byte{1, 0}, false, "")); err != nil {
+	if err := tracks.consume(pcmOutputChunk("first", mimeType, []byte{0, 1}, false, "")); err != nil {
 		t.Fatalf("consume(first data) error = %v", err)
 	}
 	first := creator.tracks[0]
@@ -129,7 +129,7 @@ func TestAudioOutputTracksCutoverInheritsLabelFromBOS(t *testing.T) {
 func TestAudioOutputTracksRejectInvalidPCMWithContext(t *testing.T) {
 	creator := newRecordingAudioTrackCreator()
 	tracks := newAudioOutputTracks(creator)
-	err := tracks.consume(pcmOutputChunk("answer", "audio/L16; rate=44100; channels=1", []byte{1, 0}, false, ""))
+	err := tracks.consume(pcmOutputChunk("answer", "audio/L16; rate=44100; channels=1", []byte{0, 1}, false, ""))
 	if err == nil || !strings.Contains(err.Error(), `stream_id="answer"`) || !strings.Contains(err.Error(), "44100") {
 		t.Fatalf("consume invalid PCM error = %v", err)
 	}
@@ -141,7 +141,7 @@ func TestAudioOutputTracksRejectInvalidPCMWithContext(t *testing.T) {
 func TestAudioOutputTracksRejectMalformedAudioMIMEWithContext(t *testing.T) {
 	creator := newRecordingAudioTrackCreator()
 	tracks := newAudioOutputTracks(creator)
-	err := tracks.consume(pcmOutputChunk("answer", "audio/L16; rate", []byte{1, 0}, false, ""))
+	err := tracks.consume(pcmOutputChunk("answer", "audio/L16; rate", []byte{0, 1}, false, ""))
 	if err == nil || !strings.Contains(err.Error(), `stream_id="answer"`) || !strings.Contains(err.Error(), `mime="audio/L16; rate"`) {
 		t.Fatalf("consume malformed MIME error = %v", err)
 	}
@@ -221,7 +221,7 @@ func TestMixerOutputPublishesEOSAfterTrackDrain(t *testing.T) {
 	creator := newRecordingAudioTrackCreator()
 	observed := make(chan struct{})
 	source := &blockingSliceStream{sliceStream: sliceStream{chunks: []*genx.MessageChunk{
-		pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, true, ""),
+		pcmOutputChunk("answer", "audio/pcm", []byte{0, 1}, true, ""),
 	}, doneErr: genx.ErrDone}, release: make(chan struct{})}
 	output := newRecordingObservationStream(source)
 	done := make(chan error, 1)
@@ -283,9 +283,9 @@ func TestMixerOutputSignalsCutoverBeforeReplacementBOS(t *testing.T) {
 	newBOS.Ctrl.BeginOfStream = true
 	output := &sliceStream{chunks: []*genx.MessageChunk{
 		oldBOS,
-		pcmOutputChunk("old", mimeType, []byte{1, 0}, false, ""),
+		pcmOutputChunk("old", mimeType, []byte{0, 1}, false, ""),
 		newBOS,
-		pcmOutputChunk("new", mimeType, []byte{2, 0}, true, ""),
+		pcmOutputChunk("new", mimeType, []byte{0, 2}, true, ""),
 	}, doneErr: genx.ErrDone}
 	var cutoverSignaled atomic.Bool
 	done := make(chan error, 1)
@@ -381,7 +381,7 @@ func TestMixerOutputConsumesInterruptWhilePreviousTrackDrains(t *testing.T) {
 	creator := newRecordingAudioTrackCreator()
 	var observed []*genx.MessageChunk
 	observedChunk := make(chan *genx.MessageChunk, 1)
-	normalEOS := pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, true, "")
+	normalEOS := pcmOutputChunk("answer", "audio/pcm", []byte{0, 1}, true, "")
 	rawOutput := &notifyingSliceStream{sliceStream: sliceStream{chunks: []*genx.MessageChunk{
 		normalEOS,
 		pcmOutputChunk("answer", "audio/pcm", nil, true, "interrupted"),
@@ -457,7 +457,7 @@ func TestMixerOutputConsumesRouteInterruptWhilePreviousTrackDrains(t *testing.T)
 		Ctrl: &genx.StreamCtrl{StreamID: "answer", EndOfStream: true},
 	}
 	output := &notifyingSliceStream{sliceStream: sliceStream{chunks: []*genx.MessageChunk{
-		pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, true, ""),
+		pcmOutputChunk("answer", "audio/pcm", []byte{0, 1}, true, ""),
 		routeEOS,
 		interrupt,
 	}, doneErr: genx.ErrDone}, secondRead: make(chan struct{})}
@@ -514,8 +514,8 @@ func TestMixerOutputInterruptsOneRouteWhileAnotherDrains(t *testing.T) {
 	drained := pcmOutputChunk("route-b", "audio/pcm", nil, true, "")
 	observedEOS := make(chan *genx.MessageChunk, 2)
 	output := &sliceStream{chunks: []*genx.MessageChunk{
-		pcmOutputChunk("route-a", "audio/pcm", []byte{1, 0}, false, ""),
-		pcmOutputChunk("route-b", "audio/pcm", []byte{2, 0}, false, ""),
+		pcmOutputChunk("route-a", "audio/pcm", []byte{0, 1}, false, ""),
+		pcmOutputChunk("route-b", "audio/pcm", []byte{0, 2}, false, ""),
 		interrupted,
 		drained,
 	}, doneErr: genx.ErrDone}
@@ -683,7 +683,7 @@ func waitForTrackWriteError(t *testing.T, track pcm.Track, contains string) {
 func TestAudioOutputTracksWaitCancellationKeepsPendingTrack(t *testing.T) {
 	creator := newRecordingAudioTrackCreator()
 	tracks := newAudioOutputTracks(creator)
-	if err := tracks.consume(pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, true, "")); err != nil {
+	if err := tracks.consume(pcmOutputChunk("answer", "audio/pcm", []byte{0, 1}, true, "")); err != nil {
 		t.Fatalf("consume() error = %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -725,6 +725,153 @@ func TestAudioOutputTracksErrorEOSAbandonsPartialOgg(t *testing.T) {
 	if err := tracks.consume(pcmOutputChunk("answer", "audio/ogg", nil, true, "interrupted")); err != nil {
 		t.Fatalf("consume interrupted EOS error = %v", err)
 	}
+}
+
+// A mixer track is realtime from the moment it exists, so a track opened
+// before the route has decoded audio makes the mixer play silence ahead of the
+// first audible frame. The Ogg header pages decode to nothing and must not
+// open a track; the first audio page opens it with audio already buffered.
+func TestAudioOutputTracksOpenTrackOnFirstDecodedOggAudio(t *testing.T) {
+	pages := oggOpusPages(t, audibleOpusPackets(t, 3))
+	if len(pages) < 3 {
+		t.Fatalf("Ogg pages = %d, want header pages followed by audio", len(pages))
+	}
+	creator := newRecordingAudioTrackCreator()
+	tracks := newAudioOutputTracks(creator)
+	for _, page := range pages[:2] {
+		if err := tracks.consume(pcmOutputChunk("answer", "audio/ogg", page, false, "")); err != nil {
+			t.Fatalf("consume(Ogg header page) error = %v", err)
+		}
+	}
+	if got := len(creator.tracks); got != 0 {
+		t.Fatalf("tracks after header-only pages = %d, want 0", got)
+	}
+	for _, page := range pages[2:] {
+		if err := tracks.consume(pcmOutputChunk("answer", "audio/ogg", page, false, "")); err != nil {
+			t.Fatalf("consume(Ogg audio page) error = %v", err)
+		}
+	}
+	if got := len(creator.tracks); got != 1 {
+		t.Fatalf("tracks after audio page = %d, want 1", got)
+	}
+	requireFirstMixerFrameAudible(t, creator.mixer)
+}
+
+func TestAudioOutputTracksOpenMP3TrackWhenFinalized(t *testing.T) {
+	var encoded bytes.Buffer
+	encoder, err := mp3.NewEncoder(&encoded, 24000, 1)
+	if err != nil {
+		t.Fatalf("NewEncoder() error = %v", err)
+	}
+	if _, err := encoder.Write(audiblePCM(24000 / 10)); err != nil {
+		t.Fatalf("encoder.Write() error = %v", err)
+	}
+	if err := encoder.Close(); err != nil {
+		t.Fatalf("encoder.Close() error = %v", err)
+	}
+	creator := newRecordingAudioTrackCreator()
+	tracks := newAudioOutputTracks(creator)
+	if err := tracks.consume(pcmOutputChunk("answer", "audio/mpeg", encoded.Bytes(), false, "")); err != nil {
+		t.Fatalf("consume(MP3 body) error = %v", err)
+	}
+	if got := len(creator.tracks); got != 0 {
+		t.Fatalf("tracks while MP3 is buffered = %d, want 0", got)
+	}
+	if err := tracks.consume(pcmOutputChunk("answer", "audio/mpeg", nil, true, "")); err != nil {
+		t.Fatalf("consume(MP3 EOS) error = %v", err)
+	}
+	if got := len(creator.tracks); got != 1 {
+		t.Fatalf("tracks after MP3 EOS = %d, want 1", got)
+	}
+	if !tracks.hasPending() {
+		t.Fatal("finalized MP3 track is not pending drain")
+	}
+	requireFirstMixerFrameAudible(t, creator.mixer)
+}
+
+func TestAudioOutputTracksRouteWithoutDecodedAudioOpensNoTrack(t *testing.T) {
+	pages := oggOpusPages(t, audibleOpusPackets(t, 1))
+	creator := newRecordingAudioTrackCreator()
+	tracks := newAudioOutputTracks(creator)
+	if err := tracks.consume(pcmOutputChunk("answer", "audio/ogg", pages[0], false, "")); err != nil {
+		t.Fatalf("consume(OpusHead page) error = %v", err)
+	}
+	if err := tracks.consume(pcmOutputChunk("answer", "audio/ogg", nil, true, "")); err != nil {
+		t.Fatalf("consume(EOS) error = %v", err)
+	}
+	if got := len(creator.tracks); got != 0 {
+		t.Fatalf("tracks for a route without audio = %d, want 0", got)
+	}
+	if tracks.hasPending() || len(tracks.channels) != 0 {
+		t.Fatalf("route without audio left pending=%t channels=%d", tracks.hasPending(), len(tracks.channels))
+	}
+}
+
+func requireFirstMixerFrameAudible(t *testing.T, mixer *pcm.Mixer) {
+	t.Helper()
+	frame := make([]byte, pcm.L16Mono16K.BytesInDuration(20*time.Millisecond))
+	if _, err := mixer.Read(frame); err != nil {
+		t.Fatalf("mixer.Read() error = %v", err)
+	}
+	if bytes.Count(frame, []byte{0}) == len(frame) {
+		t.Fatal("first mixer frame after the track opened is silence")
+	}
+}
+
+func audiblePCM(samples int) []byte {
+	data := make([]byte, samples*2)
+	for i := range samples {
+		sample := int16(8000)
+		if i%40 >= 20 {
+			sample = -8000
+		}
+		data[i*2] = byte(sample)
+		data[i*2+1] = byte(uint16(sample) >> 8)
+	}
+	return data
+}
+
+func audibleOpusPackets(t *testing.T, count int) [][]byte {
+	t.Helper()
+	encoder, err := opus.NewEncoder(48000, 1, opus.ApplicationAudio)
+	if err != nil {
+		t.Fatalf("NewEncoder() error = %v", err)
+	}
+	defer encoder.Close()
+	pcmData := audiblePCM(960)
+	samples := make([]int16, 960)
+	for i := range samples {
+		samples[i] = int16(uint16(pcmData[i*2]) | uint16(pcmData[i*2+1])<<8)
+	}
+	packets := make([][]byte, count)
+	for i := range packets {
+		packets[i], err = encoder.Encode(samples, len(samples))
+		if err != nil {
+			t.Fatalf("Encode() error = %v", err)
+		}
+	}
+	return packets
+}
+
+// oggOpusPages splits an Ogg Opus stream into its pages, so a test can deliver
+// the OpusHead and OpusTags pages before any audio page.
+func oggOpusPages(t *testing.T, packets [][]byte) [][]byte {
+	t.Helper()
+	stream, err := historyOggOpusAsset(packets)
+	if err != nil {
+		t.Fatalf("historyOggOpusAsset() error = %v", err)
+	}
+	var pages [][]byte
+	for len(stream) > 0 {
+		next := bytes.Index(stream[4:], []byte("OggS"))
+		if next < 0 {
+			pages = append(pages, stream)
+			break
+		}
+		pages = append(pages, stream[:next+4])
+		stream = stream[next+4:]
+	}
+	return pages
 }
 
 func TestOggOpusPCMDecoderAcceptsChainedStreams(t *testing.T) {
@@ -797,7 +944,7 @@ func TestMixerOutputOuterCloseModes(t *testing.T) {
 	t.Run("normal completion closes writes", func(t *testing.T) {
 		creator := newRecordingAudioTrackCreator()
 		output := &sliceStream{
-			chunks:  []*genx.MessageChunk{pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, false, "")},
+			chunks:  []*genx.MessageChunk{pcmOutputChunk("answer", "audio/pcm", []byte{0, 1}, false, "")},
 			doneErr: genx.ErrDone,
 		}
 		if err := (MixerOutput{Tracks: creator}).ConsumeAgentOutput(t.Context(), output); err != nil {
@@ -811,7 +958,7 @@ func TestMixerOutputOuterCloseModes(t *testing.T) {
 	t.Run("normal completion drains active track", func(t *testing.T) {
 		creator := newRecordingAudioTrackCreator()
 		output := &sliceStream{
-			chunks:  []*genx.MessageChunk{pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, false, "")},
+			chunks:  []*genx.MessageChunk{pcmOutputChunk("answer", "audio/pcm", []byte{0, 1}, false, "")},
 			doneErr: genx.ErrDone,
 		}
 		done := make(chan error, 1)
@@ -853,7 +1000,7 @@ func TestMixerOutputOuterCloseModes(t *testing.T) {
 		creator := newRecordingAudioTrackCreator()
 		wantErr := errors.New("provider failed")
 		output := &sliceStream{
-			chunks:  []*genx.MessageChunk{pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, false, "")},
+			chunks:  []*genx.MessageChunk{pcmOutputChunk("answer", "audio/pcm", []byte{0, 1}, false, "")},
 			doneErr: wantErr,
 		}
 		err := (MixerOutput{Tracks: creator}).ConsumeAgentOutput(t.Context(), output)
@@ -873,7 +1020,7 @@ func TestMixerOutputObservesTextWhileAudioDrains(t *testing.T) {
 		Part: genx.Text("ready"),
 		Ctrl: &genx.StreamCtrl{StreamID: "answer", Label: "assistant"},
 	}
-	audio := pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, false, "")
+	audio := pcmOutputChunk("answer", "audio/pcm", []byte{0, 1}, false, "")
 	audioEOS := pcmOutputChunk("answer", "audio/pcm", nil, true, "")
 	output := &sliceStream{chunks: []*genx.MessageChunk{audio, audioEOS, text}, doneErr: genx.ErrDone}
 	observed := make(chan *genx.MessageChunk, 3)

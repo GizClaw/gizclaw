@@ -29,7 +29,9 @@ provider 请求，串行 pipeline 会在每个 segment 边界留下一整个首�
 收听端 jitter buffer 能覆盖的长度。提前一个 segment 合成可以让这段延迟与前一个 segment
 的下发并行，同时把单条 stream 的 provider 并发会话数限制为两个。音频仍严格按 segment
 顺序发出：提前合成完的 segment 在有界队列中等待；stream 失败或被 interrupt 时，所有
-在途 segment 都会被取消。
+在途 segment 都会被取消。下发由每条 stream 独立的有序 emitter 负责，与文本读取并行：
+segment 的音频一产出就发出，不等下一个 segment 被切出，否则每条回复的首音都要多等模型
+生成完第二句话。
 
 Interrupt 或 cancel 删除了 downstream 尚未 pull 的显式 TTS BOS 时，StreamKit 会把这个由 producer 声明的边界保留为空 BOS，再发送 error EOS；它不恢复已丢弃的音频 data，也不会替从未发送 BOS 的 producer 创建边界。
 

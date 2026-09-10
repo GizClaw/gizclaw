@@ -39,11 +39,19 @@ type audioOutputPending struct {
 	ctrl  *pcm.TrackCtrl
 }
 
+// audioOutputChannel owns one route's decoder and, once the decoder has
+// produced audible PCM, its mixer track. The track is opened lazily because a
+// mixer track is realtime from the moment it exists: the mixer emits silence
+// for a track with no buffered audio, so a track opened on a header-only Ogg
+// page, a buffered MP3 body, or any other blob that decodes to nothing would
+// prepend silence the device must play before the first audible frame.
 type audioOutputChannel struct {
+	key     audioOutputKey
 	track   pcm.Track
 	ctrl    *pcm.TrackCtrl
 	decoder audioPCMDecoder
 	label   string
+	lead    audioLeadTrimmer
 }
 
 type audioPCMDecoder interface {
@@ -119,11 +127,9 @@ func (o *audioOutputTracks) consume(chunk *genx.MessageChunk) error {
 			_ = o.closeChannel(key, err.Error())
 			return fmt.Errorf("agenthost: decode audio stream_id=%q mime=%q: %w", streamID, mimeType, err)
 		}
-		for _, pcmChunk := range chunks {
-			if err := channel.track.Write(pcmChunk); err != nil {
-				_ = o.closeChannel(key, err.Error())
-				return fmt.Errorf("agenthost: write audio stream_id=%q mime=%q: %w", streamID, mimeType, err)
-			}
+		if err := o.writePCM(channel, chunks); err != nil {
+			_ = o.closeChannel(key, err.Error())
+			return err
 		}
 	}
 	if chunk.IsEndOfStream() {
@@ -148,21 +154,59 @@ func (o *audioOutputTracks) channel(key audioOutputKey, label string) (*audioOut
 	if err != nil {
 		return nil, fmt.Errorf("agenthost: create audio decoder stream_id=%q mime=%q: %w", key.streamID, key.mimeType, err)
 	}
+	channel := &audioOutputChannel{key: key, decoder: decoder, label: label}
+	o.channels[key] = channel
+	return channel, nil
+}
+
+// writePCM writes decoded PCM to the channel's mixer track after trimming the
+// route's quiet lead-in, opening the track on the first audio left to play so
+// it never exists without audio buffered.
+func (o *audioOutputTracks) writePCM(channel *audioOutputChannel, chunks []pcm.Chunk) error {
+	for _, chunk := range chunks {
+		if chunk == nil || chunk.Len() == 0 {
+			continue
+		}
+		for _, out := range channel.lead.trim(chunk) {
+			if channel.track == nil {
+				if err := o.openTrack(channel); err != nil {
+					return err
+				}
+			}
+			if err := channel.track.Write(out); err != nil {
+				return fmt.Errorf("agenthost: write audio stream_id=%q mime=%q: %w", channel.key.streamID, channel.key.mimeType, err)
+			}
+		}
+	}
+	return nil
+}
+
+func (o *audioOutputTracks) openTrack(channel *audioOutputChannel) error {
+	key := channel.key
+	if o.creator == nil {
+		return fmt.Errorf("agenthost: audio track creator is required")
+	}
 	track, ctrl, err := o.creator.CreateAudioTrack(pcm.WithTrackLabel("agent"))
 	if err != nil {
-		_ = decoder.Close()
-		return nil, fmt.Errorf("agenthost: create audio track stream_id=%q mime=%q: %w", key.streamID, key.mimeType, err)
+		return fmt.Errorf("agenthost: create audio track stream_id=%q mime=%q: %w", key.streamID, key.mimeType, err)
 	}
 	if track == nil || ctrl == nil {
-		_ = decoder.Close()
 		if ctrl != nil {
 			_ = ctrl.Close()
 		}
-		return nil, fmt.Errorf("agenthost: create audio track stream_id=%q mime=%q returned nil track or control", key.streamID, key.mimeType)
+		return fmt.Errorf("agenthost: create audio track stream_id=%q mime=%q returned nil track or control", key.streamID, key.mimeType)
 	}
-	channel := &audioOutputChannel{track: track, ctrl: ctrl, decoder: decoder, label: label}
-	o.channels[key] = channel
-	return channel, nil
+	channel.track, channel.ctrl = track, ctrl
+	return nil
+}
+
+// closeTrackWithError fails the channel's mixer track, if the channel ever
+// opened one.
+func (c *audioOutputChannel) closeTrackWithError(err error) error {
+	if c.ctrl == nil {
+		return nil
+	}
+	return c.ctrl.CloseWithError(err)
 }
 
 // cutover closes every other route that shares the new stream's label: a BOS
@@ -235,13 +279,10 @@ func (o *audioOutputTracks) closeChannelWithPending(key audioOutputKey, errorTex
 			chunks, err := finalizer.Finalize()
 			if err != nil {
 				decoderErr := fmt.Errorf("agenthost: finalize audio decoder stream_id=%q mime=%q: %w", key.streamID, key.mimeType, err)
-				return errors.Join(decoderErr, channel.decoder.Close(), channel.ctrl.CloseWithError(decoderErr))
+				return errors.Join(decoderErr, channel.decoder.Close(), channel.closeTrackWithError(decoderErr))
 			}
-			for _, chunk := range chunks {
-				if err := channel.track.Write(chunk); err != nil {
-					writeErr := fmt.Errorf("agenthost: write final audio stream_id=%q mime=%q: %w", key.streamID, key.mimeType, err)
-					return errors.Join(writeErr, channel.decoder.Close(), channel.ctrl.CloseWithError(writeErr))
-				}
+			if err := o.writePCM(channel, chunks); err != nil {
+				return errors.Join(err, channel.decoder.Close(), channel.closeTrackWithError(err))
 			}
 		}
 	}
@@ -259,6 +300,9 @@ func (o *audioOutputTracks) closeChannelWithPending(key audioOutputKey, errorTex
 		pendingErr := o.closePending(func(pending audioOutputPending) bool {
 			return pending.key == key
 		}, errorText)
+		if channel.ctrl == nil {
+			return errors.Join(decoderErr, pendingErr)
+		}
 		ctrlErr := channel.ctrl.CloseWithError(closeErr)
 		if retainPending {
 			o.pending = append(o.pending, audioOutputPending{key: key, label: channel.label, ctrl: channel.ctrl})
@@ -266,7 +310,11 @@ func (o *audioOutputTracks) closeChannelWithPending(key audioOutputKey, errorTex
 		return errors.Join(decoderErr, pendingErr, ctrlErr)
 	}
 	if decoderErr != nil {
-		return errors.Join(decoderErr, channel.ctrl.CloseWithError(decoderErr))
+		return errors.Join(decoderErr, channel.closeTrackWithError(decoderErr))
+	}
+	if channel.ctrl == nil {
+		// The route never decoded audio, so there is no track to drain.
+		return nil
 	}
 	if err := channel.ctrl.CloseWrite(); err != nil {
 		return err
@@ -381,7 +429,7 @@ func (o *audioOutputTracks) closeWithError(err error) error {
 	var errs error
 	for key, channel := range o.channels {
 		delete(o.channels, key)
-		errs = errors.Join(errs, abortAudioPCMDecoder(channel.decoder), channel.ctrl.CloseWithError(err))
+		errs = errors.Join(errs, abortAudioPCMDecoder(channel.decoder), channel.closeTrackWithError(err))
 	}
 	for _, pending := range o.pending {
 		errs = errors.Join(errs, pending.ctrl.CloseWithError(err))

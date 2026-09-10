@@ -1780,7 +1780,7 @@ func TestMixerOutputConsumesPCMBlob(t *testing.T) {
 	tracks := &fakeTracks{}
 	output := &sliceStream{chunks: []*genx.MessageChunk{
 		{Part: genx.Text("ignored")},
-		{Part: &genx.Blob{MIMEType: "audio/L16; rate=16000; channels=1", Data: []byte{1, 0, 2, 0}}},
+		{Part: &genx.Blob{MIMEType: "audio/L16; rate=16000; channels=1", Data: []byte{0, 1, 0, 2}}},
 	}, doneErr: genx.ErrDone}
 	if err := (MixerOutput{Tracks: tracks}).ConsumeAgentOutput(context.Background(), output); err != nil {
 		t.Fatalf("ConsumeAgentOutput() error = %v", err)
@@ -1798,14 +1798,14 @@ func TestMixerOutputErrors(t *testing.T) {
 		t.Fatalf("ConsumeAgentOutput(nil) error = %v", err)
 	}
 	if err := (MixerOutput{}).ConsumeAgentOutput(context.Background(), &sliceStream{chunks: []*genx.MessageChunk{
-		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{0, 1}}},
 	}}); err == nil || !strings.Contains(err.Error(), "audio track creator") {
 		t.Fatalf("ConsumeAgentOutput(nil tracks) error = %v", err)
 	}
 	writeErr := errors.New("write failed")
 	tracks := &fakeTracks{writeErr: writeErr}
 	if err := (MixerOutput{Tracks: tracks}).ConsumeAgentOutput(context.Background(), &sliceStream{chunks: []*genx.MessageChunk{
-		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{0, 1}}},
 	}}); !errors.Is(err, writeErr) {
 		t.Fatalf("ConsumeAgentOutput(write error) error = %v, want %v", err, writeErr)
 	}
