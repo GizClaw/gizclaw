@@ -371,6 +371,9 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 
 	friendService := newTestFriendServer(kv.NewMemory(nil))
 	groupStore := kv.NewMemory(nil)
+	// Invite tokens use their expiry as the store deadline, which the store
+	// checks against wall time, so the injected clock starts at wall time.
+	now := time.Now().UTC().Truncate(time.Second)
 	groupService := &friendgroup.Server{
 		Groups:            groupStore,
 		InviteTokens:      groupStore,
@@ -379,7 +382,7 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 		RelationshipStore: groupStore,
 		Workspaces:        &adminTestWorkspaceService{},
 		SFUURL:            "wss://sfu.test",
-		Now:               func() time.Time { return time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC) },
+		Now:               func() time.Time { return now },
 		NewID:             func() string { return "group-a" },
 	}
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
@@ -484,7 +487,7 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"role":"admin"`) {
 		t.Fatalf("PUT member status=%d body=%s", rec.Code, rec.Body.String())
 	}
-	expiresAt := time.Date(2026, 6, 13, 0, 5, 0, 0, time.UTC).Format(time.RFC3339)
+	expiresAt := now.Add(5 * time.Minute).Format(time.RFC3339)
 	rec = serveAdminJSON(app, http.MethodPut, "/social/friend-groups/group-a/invite-token", `{"id":"group-a","invite_token":"token-a","expires_at":"`+expiresAt+`"}`)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"invite_token":"token-a"`) {
 		t.Fatalf("PUT token status=%d body=%s", rec.Code, rec.Body.String())

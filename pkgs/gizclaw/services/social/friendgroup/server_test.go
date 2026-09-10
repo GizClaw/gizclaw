@@ -1273,7 +1273,9 @@ func TestCreateMemberAtomicallyClaimsIdentityAcrossServers(t *testing.T) {
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
 	store := kv.NewMemory(nil)
-	now := time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC)
+	// Invite tokens use their expiry as the store deadline, which the store
+	// checks against wall time, so the injected clock starts at wall time.
+	now := time.Now().UTC().Truncate(time.Second)
 	nextID := 0
 	return &Server{
 		Groups:            store,

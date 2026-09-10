@@ -1366,7 +1366,7 @@ func TestInviteTokenExpiryAndClear(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateFriendInviteToken: %v", err)
 	}
-	s.Now = func() time.Time { return time.Date(2026, 6, 13, 0, 6, 0, 0, time.UTC) }
+	s.Now = func() time.Time { return testNow.Add(6 * time.Minute) }
 	if _, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: created.InviteToken}); !errors.Is(err, ErrInviteTokenUnavailable) {
 		t.Fatalf("AddFriend expired token error = %v, want unavailable", err)
 	}
@@ -1664,7 +1664,7 @@ func TestAddFriendRejectsCorruptInviteTokenRecords(t *testing.T) {
 			value: mustJSON(t, inviteTokenRecord{
 				PeerPublicKey: "peer-b",
 				InviteToken:   "token",
-				ExpiresAt:     time.Date(2026, 6, 13, 0, 5, 0, 0, time.UTC),
+				ExpiresAt:     testNow.Add(5 * time.Minute),
 			}),
 			token: "token",
 		},
@@ -1673,8 +1673,8 @@ func TestAddFriendRejectsCorruptInviteTokenRecords(t *testing.T) {
 			value: mustJSON(t, inviteTokenRecord{
 				PeerPublicKey: " peer-b ",
 				InviteToken:   "token",
-				CreatedAt:     time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC),
-				ExpiresAt:     time.Date(2026, 6, 13, 0, 5, 0, 0, time.UTC),
+				CreatedAt:     testNow,
+				ExpiresAt:     testNow.Add(5 * time.Minute),
 			}),
 			token: "token",
 		},
@@ -1706,11 +1706,16 @@ func TestAddFriendRejectsExpiredInviteTokenWithoutCleanup(t *testing.T) {
 	record := inviteTokenRecord{
 		PeerPublicKey: "peer-b",
 		InviteToken:   "expired",
-		CreatedAt:     time.Date(2026, 6, 12, 23, 0, 0, 0, time.UTC),
-		ExpiresAt:     time.Date(2026, 6, 12, 23, 5, 0, 0, time.UTC),
+		CreatedAt:     testNow.Add(-time.Hour),
+		ExpiresAt:     testNow.Add(-55 * time.Minute),
 	}
-	if err := socialutil.WriteInviteToken(t.Context(), s.InviteTokens, socialutil.FriendInviteTokenKey("peer-b"), record); err != nil {
+	// Seed raw records: the store would reject an already-past deadline, but the
+	// service must still refuse an expired record the store has not collected.
+	if err := s.InviteTokens.Set(t.Context(), socialutil.FriendInviteTokenKey("peer-b"), mustJSON(t, record)); err != nil {
 		t.Fatalf("seed expired invite token: %v", err)
+	}
+	if err := s.InviteTokens.Set(t.Context(), socialutil.InviteTokenIndexKey(socialutil.FriendInviteTokensRoot, record.InviteToken), mustJSON(t, socialutil.FriendInviteTokenKey("peer-b"))); err != nil {
+		t.Fatalf("seed expired invite token index: %v", err)
 	}
 
 	_, err := s.AddFriend(t.Context(), "peer-a", rpcapi.FriendAddRequest{InviteToken: record.InviteToken})
@@ -1752,8 +1757,12 @@ func assertNoFriendCreationState(t *testing.T, store kv.Store) {
 	}
 }
 
+// testNow anchors the injected clock to wall time because invite tokens use
+// their expiry as the store deadline, which the store checks against wall time.
+var testNow = time.Now().UTC().Truncate(time.Second)
+
 func newTestServer() *Server {
-	now := time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC)
+	now := testNow
 	nextID := 0
 	return &Server{
 		InviteTokens: kv.NewMemory(nil),
