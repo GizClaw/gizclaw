@@ -165,6 +165,30 @@ func TestInviteTokenIndexRotationAndUniqueness(t *testing.T) {
 	}
 }
 
+func TestInviteTokenExpiresFromStore(t *testing.T) {
+	store := kv.NewMemory(nil)
+	key := FriendInviteTokenKey("peer-a")
+	index := InviteTokenIndexKey(FriendInviteTokensRoot, "short")
+	expiresAt := time.Now().Add(50 * time.Millisecond)
+	value := map[string]any{"invite_token": "short", "expires_at": expiresAt}
+	if err := WriteInviteToken(t.Context(), store, key, value); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadInviteToken(t.Context(), store, FriendInviteTokensRoot, "short"); err != nil {
+		t.Fatalf("token unavailable before expiry: %v", err)
+	}
+	time.Sleep(time.Until(expiresAt) + 20*time.Millisecond)
+	for _, k := range []kv.Key{key, index} {
+		if _, err := store.Get(t.Context(), k); !errors.Is(err, kv.ErrNotFound) {
+			t.Fatalf("expired invite key %v remains: %v", k, err)
+		}
+	}
+	// The expired token no longer reserves its index for the previous owner.
+	if err := WriteInviteToken(t.Context(), store, FriendInviteTokenKey("peer-b"), map[string]string{"invite_token": "short"}); err != nil {
+		t.Fatalf("expired token still claimed: %v", err)
+	}
+}
+
 func TestInviteTokenConcurrentClaimHasOneOwner(t *testing.T) {
 	store := kv.NewMemory(nil)
 	start := make(chan struct{})
