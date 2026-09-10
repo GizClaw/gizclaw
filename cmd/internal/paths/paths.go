@@ -1,10 +1,6 @@
 package paths
 
-import (
-	"os"
-	"path/filepath"
-	"runtime"
-)
+import "github.com/GizClaw/gizclaw-go/sdk/go/gizcli/contextconn"
 
 // ConfigDir returns the gizclaw configuration root directory.
 //
@@ -17,20 +13,5 @@ import (
 //
 //	%AppData%\gizclaw          (via os.UserConfigDir)
 func ConfigDir() (string, error) {
-	if runtime.GOOS != "windows" {
-		if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-			return filepath.Join(xdg, "gizclaw"), nil
-		}
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-		return filepath.Join(home, ".config", "gizclaw"), nil
-	}
-
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "gizclaw"), nil
+	return contextconn.ConfigDir()
 }

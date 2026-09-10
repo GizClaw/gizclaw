@@ -3,19 +3,14 @@ package admincmd
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
-	"regexp"
 	"strings"
 
-	"github.com/GizClaw/gizclaw-go/cmd/internal/connection"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
-	"github.com/goccy/go-yaml"
+	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli/adminresource"
+	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli/contextconn"
 	"github.com/spf13/cobra"
 )
 
@@ -26,79 +21,12 @@ type resourceClient interface {
 	Close() error
 }
 
-type adminResourceAPI interface {
-	ApplyResourceWithResponse(ctx context.Context, body adminhttp.ApplyResourceJSONRequestBody, reqEditors ...adminhttp.RequestEditorFn) (*adminhttp.ApplyResourceResponse, error)
-	DeleteResourceWithResponse(ctx context.Context, kind adminhttp.ResourceKind, id string, reqEditors ...adminhttp.RequestEditorFn) (*adminhttp.DeleteResourceResponse, error)
-	GetResourceWithResponse(ctx context.Context, kind adminhttp.ResourceKind, id string, reqEditors ...adminhttp.RequestEditorFn) (*adminhttp.GetResourceResponse, error)
-}
-
-type resourceClientBridge struct {
-	api   adminResourceAPI
-	close func() error
-}
-
-func (r *resourceClientBridge) ApplyResource(ctx context.Context, resource apitypes.Resource) (apitypes.ApplyResult, error) {
-	data, err := json.Marshal(resource)
-	if err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	var writable adminhttp.ApplyResourceJSONRequestBody
-	if err := json.Unmarshal(data, &writable); err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	resp, err := r.api.ApplyResourceWithResponse(ctx, writable)
-	if err != nil {
-		return apitypes.ApplyResult{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.ApplyResult{}, resourceResponseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500, resp.JSON501)
-}
-
-func (r *resourceClientBridge) DeleteResource(ctx context.Context, kind apitypes.ResourceKind, id string) (apitypes.Resource, error) {
-	resp, err := r.api.DeleteResourceWithResponse(ctx, kind, id)
-	if err != nil {
-		return apitypes.Resource{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.Resource{}, resourceResponseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON409, resp.JSON500)
-}
-
-func (r *resourceClientBridge) GetResource(ctx context.Context, kind apitypes.ResourceKind, id string) (apitypes.Resource, error) {
-	resp, err := r.api.GetResourceWithResponse(ctx, kind, id)
-	if err != nil {
-		return apitypes.Resource{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.Resource{}, resourceResponseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON500, resp.JSON501)
-}
-
-func (r *resourceClientBridge) Close() error {
-	if r.close == nil {
-		return nil
-	}
-	return r.close()
-}
-
 var openResourceClient = func(ctxName string) (resourceClient, error) {
-	c, err := connection.ConnectFromContext(ctxName)
+	c, err := adminresource.Connect(contextconn.Options{Context: ctxName})
 	if err != nil {
 		return nil, err
 	}
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		_ = c.Close()
-		return nil, err
-	}
-	return &resourceClientBridge{
-		api:   api,
-		close: c.Close,
-	}, nil
+	return c, nil
 }
 
 func newApplyCmd(ctxName *string) *cobra.Command {
@@ -190,273 +118,21 @@ func decodeResourceData(path string, data []byte) (apitypes.Resource, error) {
 	if err != nil {
 		return apitypes.Resource{}, err
 	}
-	return decodePreparedResource(prepared)
+	return adminresource.DecodePrepared(prepared)
 }
 
 func prepareResourceData(path string, data []byte) ([]byte, error) {
-	switch resourceFileFormat(path) {
-	case "json":
-		expanded, err := expandResourceEnv(data)
-		if err != nil {
-			return nil, err
-		}
-		data = expanded
-	case "yaml":
-		var value any
-		if err := yaml.Unmarshal(data, &value); err != nil {
-			return nil, err
-		}
-		expanded, err := expandResourceYAMLValue(value)
-		if err != nil {
-			return nil, err
-		}
-		data, err = json.Marshal(expanded)
-		if err != nil {
-			return nil, err
-		}
-	default:
-		return nil, &unsupportedResourceFormatError{extension: filepath.Ext(path)}
-	}
-	return normalizeResourceKind(data)
-}
-
-func resourceFileFormat(path string) string {
-	if path == "-" {
-		return "json"
-	}
-	switch strings.ToLower(filepath.Ext(path)) {
-	case ".json":
-		return "json"
-	case ".yaml", ".yml":
-		return "yaml"
-	default:
-		return ""
-	}
-}
-
-func decodePreparedResource(data []byte) (apitypes.Resource, error) {
-	var resource apitypes.Resource
-	if err := json.Unmarshal(data, &resource); err != nil {
-		return apitypes.Resource{}, err
-	}
-	return resource, nil
-}
-
-func normalizeResourceKind(data []byte) ([]byte, error) {
-	var envelope map[string]json.RawMessage
-	if err := json.Unmarshal(data, &envelope); err != nil {
-		return nil, err
-	}
-	rawKind, ok := envelope["kind"]
-	if !ok {
-		return data, nil
-	}
-	var kind string
-	if err := json.Unmarshal(rawKind, &kind); err != nil {
-		if _, ok := errors.AsType[*json.UnmarshalTypeError](err); ok {
-			return data, nil
-		}
-		return nil, err
-	}
-
-	if apitypes.ResourceKind(kind).Valid() {
-		return data, nil
-	}
-	if alias, ok := strings.CutSuffix(kind, "Resource"); ok && apitypes.ResourceKind(alias).Valid() {
-		normalized, err := json.Marshal(alias)
-		if err != nil {
-			return nil, err
-		}
-		envelope["kind"] = normalized
-		return json.Marshal(envelope)
-	}
-	return nil, &unknownResourceKindError{kind: kind}
-}
-
-func expandResourceYAMLValue(value any) (any, error) {
-	switch v := value.(type) {
-	case map[string]any:
-		out := make(map[string]any, len(v))
-		for key, item := range v {
-			expanded, err := expandResourceYAMLValue(item)
-			if err != nil {
-				return nil, err
-			}
-			out[key] = expanded
-		}
-		return out, nil
-	case map[any]any:
-		out := make(map[string]any, len(v))
-		for key, item := range v {
-			name, ok := key.(string)
-			if !ok {
-				return nil, fmt.Errorf("resource YAML map key must be a string, got %T", key)
-			}
-			expanded, err := expandResourceYAMLValue(item)
-			if err != nil {
-				return nil, err
-			}
-			out[name] = expanded
-		}
-		return out, nil
-	case []any:
-		out := make([]any, len(v))
-		for i, item := range v {
-			expanded, err := expandResourceYAMLValue(item)
-			if err != nil {
-				return nil, err
-			}
-			out[i] = expanded
-		}
-		return out, nil
-	case string:
-		return expandResourceEnvString(v)
-	default:
-		return value, nil
-	}
-}
-
-var resourceEnvPattern = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)(:-([^}]*))?\}`)
-
-func expandResourceEnv(data []byte) ([]byte, error) {
-	input := string(data)
-	expanded, err := expandResourceEnvWith(input, func(replacement string, offset int) string {
-		if insideJSONString(input, offset) {
-			return escapeJSONStringFragment(replacement)
-		}
-		return replacement
-	})
+	format, err := adminresource.FormatForPath(path)
 	if err != nil {
 		return nil, err
 	}
-	return []byte(expanded), nil
-}
-
-func expandResourceEnvString(input string) (string, error) {
-	return expandResourceEnvWith(input, func(replacement string, _ int) string {
-		return replacement
-	})
-}
-
-func expandResourceEnvWith(input string, formatReplacement func(string, int) string) (string, error) {
-	matches := resourceEnvPattern.FindAllStringSubmatchIndex(input, -1)
-	if len(matches) == 0 {
-		return input, nil
-	}
-	var firstErr error
-	var expanded strings.Builder
-	last := 0
-	for _, match := range matches {
-		if firstErr != nil {
-			break
-		}
-		expanded.WriteString(input[last:match[0]])
-		name := input[match[2]:match[3]]
-		replacement := ""
-		if value, ok := os.LookupEnv(name); ok && value != "" {
-			replacement = value
-		} else if match[4] != -1 {
-			replacement = input[match[6]:match[7]]
-		} else {
-			firstErr = &missingResourceEnvError{name: name}
-			break
-		}
-		expanded.WriteString(formatReplacement(replacement, match[0]))
-		last = match[1]
-	}
-	if firstErr != nil {
-		return "", firstErr
-	}
-	expanded.WriteString(input[last:])
-	return expanded.String(), nil
-}
-
-type unsupportedResourceFormatError struct {
-	extension string
-}
-
-func (e *unsupportedResourceFormatError) Error() string {
-	return fmt.Sprintf("unsupported resource file extension %q; use .json, .yaml, or .yml", e.extension)
-}
-
-type unknownResourceKindError struct {
-	kind string
-}
-
-func (e *unknownResourceKindError) Error() string {
-	return fmt.Sprintf("unknown resource kind %q", e.kind)
-}
-
-type missingResourceEnvError struct {
-	name string
-}
-
-func (e *missingResourceEnvError) Error() string {
-	return fmt.Sprintf("environment variable %s is required", e.name)
-}
-
-func insideJSONString(input string, offset int) bool {
-	inString := false
-	escaped := false
-	for i := range offset {
-		switch input[i] {
-		case '\\':
-			if escaped {
-				escaped = false
-			} else {
-				escaped = true
-			}
-		case '"':
-			if !escaped {
-				inString = !inString
-			}
-			escaped = false
-		default:
-			escaped = false
-		}
-	}
-	return inString
-}
-
-func escapeJSONStringFragment(value string) string {
-	data, err := json.Marshal(value)
-	if err != nil {
-		return value
-	}
-	quoted := string(data)
-	return quoted[1 : len(quoted)-1]
+	return adminresource.PrepareManifest(format, data)
 }
 
 func parseResourceIDArgs(args []string) (apitypes.ResourceKind, string, error) {
-	kind := apitypes.ResourceKind(args[0])
-	if !kind.Valid() {
-		return "", "", fmt.Errorf("unknown resource kind %q", args[0])
+	ref, err := adminresource.ParseReference(args[0], args[1])
+	if err != nil {
+		return "", "", err
 	}
-	if kind == apitypes.ResourceKindResourceList {
-		return "", "", fmt.Errorf("resource kind %q cannot be addressed by ID", kind)
-	}
-	id := args[1]
-	if err := customid.ValidateResourceID(id); err != nil {
-		return "", "", fmt.Errorf("invalid resource ID: %w", err)
-	}
-	return kind, id, nil
-}
-
-func resourceResponseError(status int, body []byte, errs ...any) error {
-	for _, errResp := range errs {
-		switch e := errResp.(type) {
-		case *apitypes.ErrorResponse:
-			if e != nil {
-				return fmt.Errorf("%s: %s", e.Error.Code, e.Error.Message)
-			}
-		}
-	}
-	text := strings.TrimSpace(string(body))
-	if text != "" {
-		return fmt.Errorf("unexpected status %d: %s", status, text)
-	}
-	if status != 0 {
-		return fmt.Errorf("unexpected status %d", status)
-	}
-	return fmt.Errorf("unexpected empty response")
+	return ref.Kind, ref.ID, nil
 }
