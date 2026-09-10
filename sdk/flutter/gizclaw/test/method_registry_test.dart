@@ -25,6 +25,11 @@ void main() {
     expect(rpcMethodByName('client.wifi.saved.forget').id, 106);
     expect(rpcMethodByName('client.wifi.scan').id, 108);
     expect(rpcMethodByName('client.wifi.connect').id, 109);
+    expect(rpcMethodByName('server.friend.ping').id, 123);
+    expect(rpcMethodByName('server.friend_group.ping').id, 124);
+    expect(rpcMethodByName('server.profile.get').id, 125);
+    expect(rpcMethodByName('client.device.find').id, 126);
+    expect(rpcMethodByName('client.social.ping').id, 127);
     expect(
       () => rpcMethodByName('server.firmware.download'),
       throwsArgumentError,
@@ -132,6 +137,90 @@ void main() {
       expect(decodedForget.ssid, 'office');
     },
   );
+
+  test('round-trips find, social ping and public profile payloads', () {
+    expect(
+      rpcMethodByName('client.device.find').requestType,
+      'ClientDeviceFindRequest',
+    );
+    expect(
+      rpcMethodByName('client.social.ping').responseType,
+      'ClientSocialPingResponse',
+    );
+    expect(
+      rpcMethodByName('server.friend_group.ping').responseType,
+      'FriendGroupPingResponse',
+    );
+
+    final find =
+        decodeRpcRequestPayload(
+              'client.device.find',
+              encodeRpcRequestPayload(
+                'client.device.find',
+                ClientDeviceFindRequest(durationMs: Int64(8000)),
+              ),
+            )
+            as ClientDeviceFindRequest;
+    expect(find.durationMs, Int64(8000));
+    final findDefault =
+        decodeRpcRequestPayload('client.device.find', const [])
+            as ClientDeviceFindRequest;
+    expect(findDefault.hasDurationMs(), isFalse);
+
+    final ping =
+        decodeRpcRequestPayload(
+              'client.social.ping',
+              encodeRpcRequestPayload(
+                'client.social.ping',
+                ClientSocialPingRequest(
+                  fromPeerPublicKey: 'peer-a',
+                  fromDisplayName: 'Alice',
+                  friendGroupName: 'my-team',
+                ),
+              ),
+            )
+            as ClientSocialPingRequest;
+    expect(ping.fromPeerPublicKey, 'peer-a');
+    expect(ping.fromDisplayName, 'Alice');
+    expect(ping.friendGroupName, 'my-team');
+
+    final pinged =
+        decodeRpcResponsePayload(
+              'server.friend.ping',
+              encodeRpcResponsePayload(
+                'server.friend.ping',
+                FriendPingResponse(
+                  result: SocialPingResult.SOCIAL_PING_RESULT_RATE_LIMITED,
+                  retryAfterSeconds: 30,
+                ),
+              ),
+            )
+            as FriendPingResponse;
+    expect(pinged.result, SocialPingResult.SOCIAL_PING_RESULT_RATE_LIMITED);
+    expect(pinged.retryAfterSeconds, 30);
+    expect(SocialPingResult.SOCIAL_PING_RESULT_NOT_ONLINE.value, 2);
+
+    final profiles =
+        decodeRpcResponsePayload(
+              'server.profile.get',
+              encodeRpcResponsePayload(
+                'server.profile.get',
+                ProfileGetResponse(
+                  items: [
+                    PublicProfile(
+                      peerPublicKey: 'peer-a',
+                      displayName: 'Carol',
+                      emoji: '🐱',
+                    ),
+                  ],
+                ),
+              ),
+            )
+            as ProfileGetResponse;
+    expect(profiles.items.single.peerPublicKey, 'peer-a');
+    expect(profiles.items.single.displayName, 'Carol');
+    expect(profiles.items.single.emoji, '🐱');
+  });
 
   test('round-trips Edge API key route payloads', () {
     final request = ServerAPIKeyResolveRequest(apiKey: 'gzk_test');

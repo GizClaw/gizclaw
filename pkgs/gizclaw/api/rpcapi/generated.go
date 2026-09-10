@@ -539,6 +539,8 @@ const (
 	RPCMethodClientDeviceReboot                  RPCMethod = "client.device.reboot"
 	RPCMethodClientFirmwareUpdate                RPCMethod = "client.firmware.update"
 	RPCMethodClientDeviceSoundPlay               RPCMethod = "client.device.sound.play"
+	RPCMethodClientDeviceFind                    RPCMethod = "client.device.find"
+	RPCMethodClientSocialPing                    RPCMethod = "client.social.ping"
 	RPCMethodClientDeviceStatusGet               RPCMethod = "client.device.status.get"
 	RPCMethodClientDeviceVolumeSet               RPCMethod = "client.device.volume.set"
 	RPCMethodClientIdentifiersGet                RPCMethod = "client.identifiers.get"
@@ -557,6 +559,9 @@ const (
 	RPCMethodServerFriendAdd                     RPCMethod = "server.friend.add"
 	RPCMethodServerFriendDelete                  RPCMethod = "server.friend.delete"
 	RPCMethodServerFriendInfoGet                 RPCMethod = "server.friend.info.get"
+	RPCMethodServerFriendPing                    RPCMethod = "server.friend.ping"
+	RPCMethodServerFriendGroupPing               RPCMethod = "server.friend_group.ping"
+	RPCMethodServerProfileGet                    RPCMethod = "server.profile.get"
 	RPCMethodServerFriendGroupCreate             RPCMethod = "server.friend_group.create"
 	RPCMethodServerFriendGroupDelete             RPCMethod = "server.friend_group.delete"
 	RPCMethodServerFriendGroupGet                RPCMethod = "server.friend_group.get"
@@ -642,6 +647,10 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodClientDeviceSoundPlay:
 		return true
+	case RPCMethodClientDeviceFind:
+		return true
+	case RPCMethodClientSocialPing:
+		return true
 	case RPCMethodClientDeviceReboot:
 		return true
 	case RPCMethodClientWifiStatusGet:
@@ -679,6 +688,12 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerFriendDelete:
 		return true
 	case RPCMethodServerFriendInfoGet:
+		return true
+	case RPCMethodServerFriendPing:
+		return true
+	case RPCMethodServerFriendGroupPing:
+		return true
+	case RPCMethodServerProfileGet:
 		return true
 	case RPCMethodServerFriendGroupCreate:
 		return true

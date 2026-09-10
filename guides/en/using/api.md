@@ -149,6 +149,7 @@ An API key bound to one device (see [API keys](./api-keys)) can reach `/gizclaw/
 | `GET /gizclaw/v1/device/telemetry/{field}/latest`, `/telemetry`, `/telemetry/aggregate` | Sampled telemetry queries with Admin telemetry semantics |
 | `PUT /gizclaw/v1/device/volume` | Set volume and mute; returns the status the device reports |
 | `POST /gizclaw/v1/device/actions/play-sound` | Play a device-defined sound |
+| `POST /gizclaw/v1/device/actions/find` | Find my device: the device rings its built-in find-me sound with a rising volume |
 | `POST /gizclaw/v1/device/actions/reboot` | Reboot the device |
 | `GET /gizclaw/v1/device/firmware` | Every channel of the Firmware configuration bound to the device, with its package |
 | `POST /gizclaw/v1/device/actions/firmware-update` | Notify the device to run one OTA |

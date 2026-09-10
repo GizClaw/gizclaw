@@ -483,6 +483,7 @@ void deviceControlTests() {
     var muted = false;
     String? lastSound;
     int? lastDuration;
+    final findDurations = <int?>[];
     int? lastDelay;
     int? lastScanTimeout;
     String? lastConnectSsid;
@@ -510,6 +511,15 @@ void deviceControlTests() {
           }
           lastSound = sound;
           lastDuration = durationMs;
+        },
+        find: (durationMs) {
+          if (durationMs == 1) {
+            throw const GizClawDeviceControlException(
+              rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED,
+              'no speaker',
+            );
+          }
+          findDurations.add(durationMs);
         },
         reboot: (delayMs) => lastDelay = delayMs,
         wifiStatus: () =>
@@ -604,6 +614,42 @@ void deviceControlTests() {
       request: ClientDeviceSoundPlayRequest(sound: 'a' * 33),
     );
     expect(response.status.code, rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT);
+
+    for (final duration in <int?>[8000, null]) {
+      response = await callDevice(
+        handlers,
+        id: 'find',
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_FIND,
+        methodName: 'client.device.find',
+        request: ClientDeviceFindRequest(
+          durationMs: duration == null ? null : Int64(duration),
+        ),
+      );
+      expect(response.hasStatus(), isFalse);
+      expect(
+        decodeRpcResponsePayload('client.device.find', response.payload),
+        isA<ClientDeviceFindResponse>(),
+      );
+    }
+    expect(findDurations, [8000, null]);
+    response = await callDevice(
+      handlers,
+      id: 'find-negative',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_FIND,
+      methodName: 'client.device.find',
+      request: ClientDeviceFindRequest(durationMs: Int64(-1)),
+    );
+    expect(response.status.code, rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT);
+    response = await callDevice(
+      handlers,
+      id: 'find-rejected',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_FIND,
+      methodName: 'client.device.find',
+      request: ClientDeviceFindRequest(durationMs: Int64(1)),
+    );
+    expect(response.status.code, rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED);
+    expect(response.status.message, 'no speaker');
+    expect(findDurations, [8000, null]);
 
     response = await callDevice(
       handlers,
@@ -724,6 +770,11 @@ void deviceControlTests() {
           'client.wifi.connect',
           ClientWifiConnectRequest(ssid: 'home'),
         ),
+        (
+          rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_FIND,
+          'client.device.find',
+          ClientDeviceFindRequest(),
+        ),
       ]) {
         response = await callDevice(
           partial,
@@ -745,4 +796,87 @@ void deviceControlTests() {
       expect(response.status.code, rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED);
     },
   );
+
+  test('serves configured social ping handler', () async {
+    final pings = <ClientSocialPingRequest>[];
+    final handlers = GizClawPeerRpcHandlers(
+      deviceInfo: () => device,
+      socialPing: (request) {
+        if (request.fromPeerPublicKey == 'busy') {
+          throw const GizClawDeviceControlException(
+            rpc.StatusCode.STATUS_CODE_UNAVAILABLE,
+            'busy',
+          );
+        }
+        pings.add(request);
+      },
+    );
+
+    var response = await callDevice(
+      handlers,
+      id: 'friend-ping',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_SOCIAL_PING,
+      methodName: 'client.social.ping',
+      request: ClientSocialPingRequest(
+        fromPeerPublicKey: 'peer-a',
+        fromDisplayName: 'Alice',
+      ),
+    );
+    expect(response.hasStatus(), isFalse);
+    expect(
+      decodeRpcResponsePayload('client.social.ping', response.payload),
+      isA<ClientSocialPingResponse>(),
+    );
+    response = await callDevice(
+      handlers,
+      id: 'group-ping',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_SOCIAL_PING,
+      methodName: 'client.social.ping',
+      request: ClientSocialPingRequest(
+        fromPeerPublicKey: 'peer-b',
+        friendGroupName: 'my-team',
+      ),
+    );
+    expect(response.hasStatus(), isFalse);
+    expect(pings.map((ping) => ping.fromPeerPublicKey), ['peer-a', 'peer-b']);
+    expect(pings.first.fromDisplayName, 'Alice');
+    expect(pings.first.hasFriendGroupName(), isFalse);
+    expect(pings.last.hasFromDisplayName(), isFalse);
+    expect(pings.last.friendGroupName, 'my-team');
+
+    response = await callDevice(
+      handlers,
+      id: 'ping-missing-sender',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_SOCIAL_PING,
+      methodName: 'client.social.ping',
+      request: ClientSocialPingRequest(),
+    );
+    expect(response.status.code, rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT);
+    response = await callDevice(
+      handlers,
+      id: 'ping-rejected',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_SOCIAL_PING,
+      methodName: 'client.social.ping',
+      request: ClientSocialPingRequest(fromPeerPublicKey: 'busy'),
+    );
+    expect(response.status.code, rpc.StatusCode.STATUS_CODE_UNAVAILABLE);
+    expect(response.status.message, 'busy');
+    expect(pings, hasLength(2));
+  });
+
+  test('answers METHOD_NOT_FOUND for social ping without handler', () async {
+    for (final handlers in [
+      GizClawPeerRpcHandlers(deviceInfo: () => device),
+      null,
+    ]) {
+      final response = await callDevice(
+        handlers,
+        id: 'no-social-ping',
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_SOCIAL_PING,
+        methodName: 'client.social.ping',
+        request: ClientSocialPingRequest(fromPeerPublicKey: 'peer-a'),
+      );
+      expect(response.status.code, rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED);
+    }
+  });
 }

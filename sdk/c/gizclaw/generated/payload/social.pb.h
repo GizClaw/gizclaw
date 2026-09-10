@@ -10,6 +10,19 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
+/* Enum definitions */
+/* SocialPingResult is the outcome of one friend ping or Friend Group rally. */
+typedef enum _gizclaw_rpc_v1_SocialPingResult {
+    gizclaw_rpc_v1_SocialPingResult_SOCIAL_PING_RESULT_UNSPECIFIED = 0,
+    /* At least one target device acknowledged the ping. */
+    gizclaw_rpc_v1_SocialPingResult_SOCIAL_PING_RESULT_DELIVERED = 1,
+    /* No target device is online; nothing was sent and no rate-limit window
+ was started. */
+    gizclaw_rpc_v1_SocialPingResult_SOCIAL_PING_RESULT_NOT_ONLINE = 2,
+    /* The friend pair or the Friend Group pinged within the last minute. */
+    gizclaw_rpc_v1_SocialPingResult_SOCIAL_PING_RESULT_RATE_LIMITED = 3
+} gizclaw_rpc_v1_SocialPingResult;
+
 /* Struct definitions */
 typedef struct _gizclaw_rpc_v1_ContactCreateRequest {
     pb_callback_t name;
@@ -292,6 +305,50 @@ typedef struct _gizclaw_rpc_v1_FriendListResponse {
     pb_callback_t next_cursor;
 } gizclaw_rpc_v1_FriendListResponse;
 
+typedef struct _gizclaw_rpc_v1_FriendPingRequest {
+    char name[256];
+} gizclaw_rpc_v1_FriendPingRequest;
+
+typedef struct _gizclaw_rpc_v1_FriendPingResponse {
+    gizclaw_rpc_v1_SocialPingResult result;
+    /* Number of devices that acknowledged the ping: 1 or 0. */
+    int32_t delivered_count;
+    /* Whole seconds, rounded up, until the pair may ping again. Set only when
+ result is SOCIAL_PING_RESULT_RATE_LIMITED. */
+    bool has_retry_after_seconds;
+    int32_t retry_after_seconds;
+} gizclaw_rpc_v1_FriendPingResponse;
+
+typedef struct _gizclaw_rpc_v1_FriendGroupPingRequest {
+    char name[256];
+} gizclaw_rpc_v1_FriendGroupPingRequest;
+
+typedef struct _gizclaw_rpc_v1_FriendGroupPingResponse {
+    gizclaw_rpc_v1_SocialPingResult result;
+    /* Number of member devices, excluding the caller, that acknowledged the
+ rally. */
+    int32_t delivered_count;
+    /* Whole seconds, rounded up, until the group may rally again. Set only when
+ result is SOCIAL_PING_RESULT_RATE_LIMITED. */
+    bool has_retry_after_seconds;
+    int32_t retry_after_seconds;
+} gizclaw_rpc_v1_FriendGroupPingResponse;
+
+/* ClientSocialPingRequest tells a device that a friend pinged it or a Friend
+ Group member rallied the group. friend_group_name is the receiving device's
+ own name for the group and is absent for a friend ping. */
+typedef struct _gizclaw_rpc_v1_ClientSocialPingRequest {
+    char from_peer_public_key[65];
+    bool has_from_display_name;
+    char from_display_name[257];
+    bool has_friend_group_name;
+    char friend_group_name[256];
+} gizclaw_rpc_v1_ClientSocialPingRequest;
+
+typedef struct _gizclaw_rpc_v1_ClientSocialPingResponse {
+    char dummy_field;
+} gizclaw_rpc_v1_ClientSocialPingResponse;
+
 typedef struct _gizclaw_rpc_v1_FriendObject {
     pb_callback_t created_at;
     pb_callback_t name;
@@ -314,6 +371,79 @@ typedef struct _gizclaw_rpc_v1_FriendDeleteResponse {
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* Helper constants for enums */
+#define _gizclaw_rpc_v1_SocialPingResult_MIN gizclaw_rpc_v1_SocialPingResult_SOCIAL_PING_RESULT_UNSPECIFIED
+#define _gizclaw_rpc_v1_SocialPingResult_MAX gizclaw_rpc_v1_SocialPingResult_SOCIAL_PING_RESULT_RATE_LIMITED
+#define _gizclaw_rpc_v1_SocialPingResult_ARRAYSIZE ((gizclaw_rpc_v1_SocialPingResult)(gizclaw_rpc_v1_SocialPingResult_SOCIAL_PING_RESULT_RATE_LIMITED+1))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#define gizclaw_rpc_v1_FriendGroupMemberAddRequest_role_ENUMTYPE gizclaw_rpc_v1_FriendGroupMemberMutableRole
+
+
+
+
+
+
+#define gizclaw_rpc_v1_FriendGroupMemberObject_role_ENUMTYPE gizclaw_rpc_v1_FriendGroupMemberRole
+
+#define gizclaw_rpc_v1_FriendGroupMemberPutRequest_role_ENUMTYPE gizclaw_rpc_v1_FriendGroupMemberMutableRole
+
+
+#define gizclaw_rpc_v1_FriendGroupObject_my_role_ENUMTYPE gizclaw_rpc_v1_FriendGroupMemberRole
+
+
+
+
+
+
+
+
+
+
+
+
+#define gizclaw_rpc_v1_FriendPingResponse_result_ENUMTYPE gizclaw_rpc_v1_SocialPingResult
+
+
+#define gizclaw_rpc_v1_FriendGroupPingResponse_result_ENUMTYPE gizclaw_rpc_v1_SocialPingResult
+
+
+
+
 
 /* Initializer values for message structs */
 #define gizclaw_rpc_v1_ContactCreateRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -370,6 +500,12 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendInviteTokenGetResponse_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendListRequest_init_default {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_FriendListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_FriendPingRequest_init_default {""}
+#define gizclaw_rpc_v1_FriendPingResponse_init_default {_gizclaw_rpc_v1_SocialPingResult_MIN, 0, false, 0}
+#define gizclaw_rpc_v1_FriendGroupPingRequest_init_default {""}
+#define gizclaw_rpc_v1_FriendGroupPingResponse_init_default {_gizclaw_rpc_v1_SocialPingResult_MIN, 0, false, 0}
+#define gizclaw_rpc_v1_ClientSocialPingRequest_init_default {"", false, "", false, ""}
+#define gizclaw_rpc_v1_ClientSocialPingResponse_init_default {0}
 #define gizclaw_rpc_v1_FriendObject_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ContactCreateRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ContactCreateResponse_init_zero {false, gizclaw_rpc_v1_ContactObject_init_zero}
@@ -425,6 +561,12 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendInviteTokenGetResponse_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendListRequest_init_zero {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_FriendListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_FriendPingRequest_init_zero {""}
+#define gizclaw_rpc_v1_FriendPingResponse_init_zero {_gizclaw_rpc_v1_SocialPingResult_MIN, 0, false, 0}
+#define gizclaw_rpc_v1_FriendGroupPingRequest_init_zero {""}
+#define gizclaw_rpc_v1_FriendGroupPingResponse_init_zero {_gizclaw_rpc_v1_SocialPingResult_MIN, 0, false, 0}
+#define gizclaw_rpc_v1_ClientSocialPingRequest_init_zero {"", false, "", false, ""}
+#define gizclaw_rpc_v1_ClientSocialPingResponse_init_zero {0}
 #define gizclaw_rpc_v1_FriendObject_init_zero    {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 
 /* Field tags (for use in manual encoding/decoding) */
@@ -526,6 +668,17 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendListResponse_has_next_tag 1
 #define gizclaw_rpc_v1_FriendListResponse_items_tag 2
 #define gizclaw_rpc_v1_FriendListResponse_next_cursor_tag 3
+#define gizclaw_rpc_v1_FriendPingRequest_name_tag 1
+#define gizclaw_rpc_v1_FriendPingResponse_result_tag 1
+#define gizclaw_rpc_v1_FriendPingResponse_delivered_count_tag 2
+#define gizclaw_rpc_v1_FriendPingResponse_retry_after_seconds_tag 3
+#define gizclaw_rpc_v1_FriendGroupPingRequest_name_tag 1
+#define gizclaw_rpc_v1_FriendGroupPingResponse_result_tag 1
+#define gizclaw_rpc_v1_FriendGroupPingResponse_delivered_count_tag 2
+#define gizclaw_rpc_v1_FriendGroupPingResponse_retry_after_seconds_tag 3
+#define gizclaw_rpc_v1_ClientSocialPingRequest_from_peer_public_key_tag 1
+#define gizclaw_rpc_v1_ClientSocialPingRequest_from_display_name_tag 2
+#define gizclaw_rpc_v1_ClientSocialPingRequest_friend_group_name_tag 3
 #define gizclaw_rpc_v1_FriendObject_created_at_tag 1
 #define gizclaw_rpc_v1_FriendObject_name_tag     2
 #define gizclaw_rpc_v1_FriendObject_peer_public_key_tag 3
@@ -876,6 +1029,42 @@ X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3)
 #define gizclaw_rpc_v1_FriendListResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_FriendListResponse_items_MSGTYPE gizclaw_rpc_v1_FriendObject
 
+#define gizclaw_rpc_v1_FriendPingRequest_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   name,              1)
+#define gizclaw_rpc_v1_FriendPingRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_FriendPingRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_FriendPingResponse_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UENUM,    result,            1) \
+X(a, STATIC,   SINGULAR, INT32,    delivered_count,   2) \
+X(a, STATIC,   OPTIONAL, INT32,    retry_after_seconds,   3)
+#define gizclaw_rpc_v1_FriendPingResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_FriendPingResponse_DEFAULT NULL
+
+#define gizclaw_rpc_v1_FriendGroupPingRequest_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   name,              1)
+#define gizclaw_rpc_v1_FriendGroupPingRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_FriendGroupPingRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_FriendGroupPingResponse_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UENUM,    result,            1) \
+X(a, STATIC,   SINGULAR, INT32,    delivered_count,   2) \
+X(a, STATIC,   OPTIONAL, INT32,    retry_after_seconds,   3)
+#define gizclaw_rpc_v1_FriendGroupPingResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_FriendGroupPingResponse_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ClientSocialPingRequest_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   from_peer_public_key,   1) \
+X(a, STATIC,   OPTIONAL, STRING,   from_display_name,   2) \
+X(a, STATIC,   OPTIONAL, STRING,   friend_group_name,   3)
+#define gizclaw_rpc_v1_ClientSocialPingRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_ClientSocialPingRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ClientSocialPingResponse_FIELDLIST(X, a) \
+
+#define gizclaw_rpc_v1_ClientSocialPingResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_ClientSocialPingResponse_DEFAULT NULL
+
 #define gizclaw_rpc_v1_FriendObject_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   created_at,        1) \
 X(a, CALLBACK, SINGULAR, STRING,   name,              2) \
@@ -939,6 +1128,12 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_FriendInviteTokenGetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FriendInviteTokenGetResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FriendListRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FriendListResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_FriendPingRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_FriendPingResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_FriendGroupPingRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_FriendGroupPingResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ClientSocialPingRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ClientSocialPingResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FriendObject_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
@@ -996,6 +1191,12 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_FriendObject_msg;
 #define gizclaw_rpc_v1_FriendInviteTokenGetResponse_fields &gizclaw_rpc_v1_FriendInviteTokenGetResponse_msg
 #define gizclaw_rpc_v1_FriendListRequest_fields &gizclaw_rpc_v1_FriendListRequest_msg
 #define gizclaw_rpc_v1_FriendListResponse_fields &gizclaw_rpc_v1_FriendListResponse_msg
+#define gizclaw_rpc_v1_FriendPingRequest_fields &gizclaw_rpc_v1_FriendPingRequest_msg
+#define gizclaw_rpc_v1_FriendPingResponse_fields &gizclaw_rpc_v1_FriendPingResponse_msg
+#define gizclaw_rpc_v1_FriendGroupPingRequest_fields &gizclaw_rpc_v1_FriendGroupPingRequest_msg
+#define gizclaw_rpc_v1_FriendGroupPingResponse_fields &gizclaw_rpc_v1_FriendGroupPingResponse_msg
+#define gizclaw_rpc_v1_ClientSocialPingRequest_fields &gizclaw_rpc_v1_ClientSocialPingRequest_msg
+#define gizclaw_rpc_v1_ClientSocialPingResponse_fields &gizclaw_rpc_v1_ClientSocialPingResponse_msg
 #define gizclaw_rpc_v1_FriendObject_fields &gizclaw_rpc_v1_FriendObject_msg
 
 /* Maximum encoded size of messages (where known) */
@@ -1047,7 +1248,11 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_FriendObject_msg;
 /* gizclaw_rpc_v1_FriendListResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_FriendObject_size depends on runtime parameters */
 #define GIZCLAW_RPC_V1_PAYLOAD_SOCIAL_PB_H_MAX_SIZE gizclaw_rpc_v1_FriendInfoGetResponse_size
+#define gizclaw_rpc_v1_ClientSocialPingRequest_size 583
+#define gizclaw_rpc_v1_ClientSocialPingResponse_size 0
 #define gizclaw_rpc_v1_FriendGroupInviteTokenClearResponse_size 0
+#define gizclaw_rpc_v1_FriendGroupPingRequest_size 258
+#define gizclaw_rpc_v1_FriendGroupPingResponse_size 24
 #define gizclaw_rpc_v1_FriendInfoGetRequest_size 258
 #define gizclaw_rpc_v1_FriendInfoGetResponse_size 586
 #define gizclaw_rpc_v1_FriendInfo_size           325
@@ -1055,6 +1260,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_FriendObject_msg;
 #define gizclaw_rpc_v1_FriendInviteTokenClearResponse_size 0
 #define gizclaw_rpc_v1_FriendInviteTokenCreateRequest_size 0
 #define gizclaw_rpc_v1_FriendInviteTokenGetRequest_size 0
+#define gizclaw_rpc_v1_FriendPingRequest_size    258
+#define gizclaw_rpc_v1_FriendPingResponse_size   24
 
 #ifdef __cplusplus
 } /* extern "C" */

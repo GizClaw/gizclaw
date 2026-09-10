@@ -47,6 +47,7 @@ export type PeerRunHistoryEntryType = "" | "agent" | "gear" | "unspecified" | nu
 export type PeerRunHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type PeerRunStatusState = "" | "error" | "running" | "starting" | "stopped" | "stopping" | "unspecified" | number;
 export type ReusableWorkflowDriver = "" | "ast-translate" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "unspecified" | number;
+export type SocialPingResult = "" | "delivered" | "not_online" | "rate_limited" | "unspecified" | number;
 export type VolcTenantModelProviderDataApiMode = "" | "asr" | "chat_completions" | "embedding" | "realtime" | "realtime_duplex" | "translation" | "tts" | "unspecified" | number;
 export type WorkflowDriver = "" | "ast-translate" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "sfu" | "unspecified" | number;
 export type WorkspaceHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
@@ -173,6 +174,10 @@ export type ClientDeviceAudioPlayerPlaylistSetRequest = {
 export type ClientDeviceAudioPlayerPlaylistSetResponse = AudioPlayerStatus;
 export type ClientDeviceAudioPlayerStopRequest = Record<string, never>;
 export type ClientDeviceAudioPlayerStopResponse = AudioPlayerStatus;
+export type ClientDeviceFindRequest = {
+  "duration_ms"?: number;
+};
+export type ClientDeviceFindResponse = Record<string, never>;
 export type ClientDeviceRebootRequest = {
   "delay_ms"?: number;
 };
@@ -198,6 +203,12 @@ export type ClientGetIdentifiersRequest = Record<string, never>;
 export type ClientGetIdentifiersResponse = DeviceIdentifiers;
 export type ClientGetInfoRequest = Record<string, never>;
 export type ClientGetInfoResponse = HardwareInfo;
+export type ClientSocialPingRequest = {
+  "from_peer_public_key": string;
+  "from_display_name"?: string;
+  "friend_group_name"?: string;
+};
+export type ClientSocialPingResponse = Record<string, never>;
 export type ClientWifiConnectRequest = {
   "ssid": string;
   "passphrase"?: string;
@@ -606,6 +617,14 @@ export type FriendGroupObject = {
   "updated_at"?: string;
   "workspace_name"?: string;
 };
+export type FriendGroupPingRequest = {
+  "name": string;
+};
+export type FriendGroupPingResponse = {
+  "result": SocialPingResult;
+  "delivered_count": number;
+  "retry_after_seconds"?: number;
+};
 export type FriendGroupPutRequest = {
   "description"?: string;
   "name": string;
@@ -650,6 +669,14 @@ export type FriendObject = {
   "peer_public_key"?: string;
   "updated_at"?: string;
   "workspace_name"?: string;
+};
+export type FriendPingRequest = {
+  "name": string;
+};
+export type FriendPingResponse = {
+  "result": SocialPingResult;
+  "delivered_count": number;
+  "retry_after_seconds"?: number;
 };
 export type GeminiTenantModelProviderData = {
   "upstream_model"?: string;
@@ -869,6 +896,17 @@ export type PingRequest = {
 };
 export type PingResponse = {
   "server_time": number;
+};
+export type ProfileGetRequest = {
+  "peer_public_keys": string[];
+};
+export type ProfileGetResponse = {
+  "items": PublicProfile[];
+};
+export type PublicProfile = {
+  "peer_public_key": string;
+  "display_name"?: string;
+  "emoji"?: string;
 };
 export type ResourceI18nText = {
   "display_name": string;
@@ -1230,6 +1268,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.device.audioplayer.playlist.get": "ClientDeviceAudioPlayerPlaylistGetRequest",
   "client.device.audioplayer.playlist.set": "ClientDeviceAudioPlayerPlaylistSetRequest",
   "client.device.audioplayer.stop": "ClientDeviceAudioPlayerStopRequest",
+  "client.device.find": "ClientDeviceFindRequest",
   "client.device.reboot": "ClientDeviceRebootRequest",
   "client.device.sound.play": "ClientDeviceSoundPlayRequest",
   "client.device.status.get": "ClientDeviceStatusGetRequest",
@@ -1237,6 +1276,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.firmware.update": "ClientFirmwareUpdateRequest",
   "client.identifiers.get": "ClientGetIdentifiersRequest",
   "client.info.get": "ClientGetInfoRequest",
+  "client.social.ping": "ClientSocialPingRequest",
   "client.tool.invoke": "ToolInvokeRequest",
   "client.wifi.connect": "ClientWifiConnectRequest",
   "client.wifi.saved.forget": "ClientWifiSavedForgetRequest",
@@ -1267,6 +1307,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.friend_group.members.delete": "FriendGroupMemberDeleteRequest",
   "server.friend_group.members.list": "FriendGroupMemberListRequest",
   "server.friend_group.members.put": "FriendGroupMemberPutRequest",
+  "server.friend_group.ping": "FriendGroupPingRequest",
   "server.friend_group.put": "FriendGroupPutRequest",
   "server.friend.add": "FriendAddRequest",
   "server.friend.delete": "FriendDeleteRequest",
@@ -1275,6 +1316,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.friend.invite_token.create": "FriendInviteTokenCreateRequest",
   "server.friend.invite_token.get": "FriendInviteTokenGetRequest",
   "server.friend.list": "FriendListRequest",
+  "server.friend.ping": "FriendPingRequest",
   "server.info.get": "ServerGetInfoRequest",
   "server.info.put": "ServerPutInfoRequest",
   "server.model.get": "ModelGetRequest",
@@ -1282,6 +1324,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.peer.assign": "ServerPeerAssignRequest",
   "server.peer.delete": "ServerPeerDeleteRequest",
   "server.peer.lookup": "ServerPeerLookupRequest",
+  "server.profile.get": "ProfileGetRequest",
   "server.register": "ServerRegisterRequest",
   "server.route.resolve": "ServerRouteResolveRequest",
   "server.run.agent.get": "ServerGetRunAgentRequest",
@@ -1331,6 +1374,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.device.audioplayer.playlist.get": "ClientDeviceAudioPlayerPlaylistGetResponse",
   "client.device.audioplayer.playlist.set": "ClientDeviceAudioPlayerPlaylistSetResponse",
   "client.device.audioplayer.stop": "ClientDeviceAudioPlayerStopResponse",
+  "client.device.find": "ClientDeviceFindResponse",
   "client.device.reboot": "ClientDeviceRebootResponse",
   "client.device.sound.play": "ClientDeviceSoundPlayResponse",
   "client.device.status.get": "ClientDeviceStatusGetResponse",
@@ -1338,6 +1382,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.firmware.update": "ClientFirmwareUpdateResponse",
   "client.identifiers.get": "ClientGetIdentifiersResponse",
   "client.info.get": "ClientGetInfoResponse",
+  "client.social.ping": "ClientSocialPingResponse",
   "client.tool.invoke": "ToolInvokeResponse",
   "client.wifi.connect": "ClientWifiConnectResponse",
   "client.wifi.saved.forget": "ClientWifiSavedForgetResponse",
@@ -1368,6 +1413,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.friend_group.members.delete": "FriendGroupMemberDeleteResponse",
   "server.friend_group.members.list": "FriendGroupMemberListResponse",
   "server.friend_group.members.put": "FriendGroupMemberPutResponse",
+  "server.friend_group.ping": "FriendGroupPingResponse",
   "server.friend_group.put": "FriendGroupPutResponse",
   "server.friend.add": "FriendAddResponse",
   "server.friend.delete": "FriendDeleteResponse",
@@ -1376,6 +1422,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.friend.invite_token.create": "FriendInviteTokenCreateResponse",
   "server.friend.invite_token.get": "FriendInviteTokenGetResponse",
   "server.friend.list": "FriendListResponse",
+  "server.friend.ping": "FriendPingResponse",
   "server.info.get": "ServerGetInfoResponse",
   "server.info.put": "ServerPutInfoResponse",
   "server.model.get": "ModelGetResponse",
@@ -1383,6 +1430,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.peer.assign": "ServerPeerAssignResponse",
   "server.peer.delete": "ServerPeerDeleteResponse",
   "server.peer.lookup": "ServerPeerLookupResponse",
+  "server.profile.get": "ProfileGetResponse",
   "server.register": "ServerRegisterResponse",
   "server.route.resolve": "ServerRouteResolveResponse",
   "server.run.agent.get": "ServerGetRunAgentResponse",
@@ -1965,6 +2013,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "ClientDeviceFindRequest": {
+    "fields": [
+      {
+        "name": "duration_ms",
+        "number": 1,
+        "optional": true,
+        "type": "int64"
+      }
+    ]
+  },
+  "ClientDeviceFindResponse": {
+    "fields": []
+  },
   "ClientDeviceRebootRequest": {
     "fields": [
       {
@@ -2073,6 +2134,30 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "HardwareInfo"
       }
     ]
+  },
+  "ClientSocialPingRequest": {
+    "fields": [
+      {
+        "name": "from_peer_public_key",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "from_display_name",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "friend_group_name",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "ClientSocialPingResponse": {
+    "fields": []
   },
   "ClientWifiConnectRequest": {
     "fields": [
@@ -3956,6 +4041,35 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "FriendGroupPingRequest": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "FriendGroupPingResponse": {
+    "fields": [
+      {
+        "name": "result",
+        "number": 1,
+        "type": "SocialPingResult"
+      },
+      {
+        "name": "delivered_count",
+        "number": 2,
+        "type": "int32"
+      },
+      {
+        "name": "retry_after_seconds",
+        "number": 3,
+        "optional": true,
+        "type": "int32"
+      }
+    ]
+  },
   "FriendGroupPutRequest": {
     "fields": [
       {
@@ -4134,6 +4248,35 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 5,
         "optional": true,
         "type": "string"
+      }
+    ]
+  },
+  "FriendPingRequest": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "FriendPingResponse": {
+    "fields": [
+      {
+        "name": "result",
+        "number": 1,
+        "type": "SocialPingResult"
+      },
+      {
+        "name": "delivered_count",
+        "number": 2,
+        "type": "int32"
+      },
+      {
+        "name": "retry_after_seconds",
+        "number": 3,
+        "optional": true,
+        "type": "int32"
       }
     ]
   },
@@ -5165,6 +5308,47 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "server_time",
         "number": 1,
         "type": "int64"
+      }
+    ]
+  },
+  "ProfileGetRequest": {
+    "fields": [
+      {
+        "name": "peer_public_keys",
+        "number": 1,
+        "repeated": true,
+        "type": "string"
+      }
+    ]
+  },
+  "ProfileGetResponse": {
+    "fields": [
+      {
+        "name": "items",
+        "number": 1,
+        "repeated": true,
+        "type": "PublicProfile"
+      }
+    ]
+  },
+  "PublicProfile": {
+    "fields": [
+      {
+        "name": "peer_public_key",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "display_name",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "emoji",
+        "number": 3,
+        "optional": true,
+        "type": "string"
       }
     ]
   },
@@ -7068,6 +7252,20 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "5": "dashscope-realtime",
       "6": "doubao-realtime-duplex",
       "7": "eino"
+    }
+  },
+  "SocialPingResult": {
+    "byName": {
+      "delivered": 1,
+      "not_online": 2,
+      "rate_limited": 3,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "delivered",
+      "2": "not_online",
+      "3": "rate_limited"
     }
   },
   "VolcTenantModelProviderDataApiMode": {

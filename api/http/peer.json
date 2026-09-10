@@ -1172,6 +1172,29 @@
         }
       }
     },
+    "/gizclaw/v1/device/actions/find": {
+      "post": {
+        "operationId": "findDevice",
+        "summary": "Ring the bound device so it can be found",
+        "tags": ["DeviceControl"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "description": "Forwards client.device.find to the online device. The device plays its own built-in find-me sound with a rising volume ramp; no audio URL or catalog track is involved. duration_ms is the requested ring time, and the device picks its own default when it is omitted.",
+        "requestBody": {"required": false, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceFindRequest"}}}},
+        "responses": {
+          "204": {"description": "The device accepted the find request."},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/DeviceOffline"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "501": {"$ref": "#/components/responses/DeviceUnsupported"},
+          "502": {"$ref": "#/components/responses/DeviceError"},
+          "504": {"$ref": "#/components/responses/DeviceTimeout"}
+        }
+      }
+    },
     "/gizclaw/v1/device/actions/reboot": {
       "post": {
         "operationId": "rebootDevice",
@@ -1674,6 +1697,11 @@
           "sound": {"type": "string", "minLength": 1, "maxLength": 32, "description": "Device-defined sound identifier; at most 32 UTF-8 bytes. The device validates the value."},
           "duration_ms": {"type": "integer", "format": "int64", "minimum": 0, "description": "Optional playback duration in milliseconds."}
         }
+      },
+      "DeviceFindRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {"duration_ms": {"type": "integer", "format": "int64", "minimum": 0, "description": "Optional ring time in milliseconds; the device picks its own default when omitted."}}
       },
       "DeviceRebootRequest": {
         "type": "object",

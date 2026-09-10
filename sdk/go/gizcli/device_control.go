@@ -25,6 +25,9 @@ type DeviceControlHandlers struct {
 	Status      func(context.Context) (rpcapi.PeerStatus, error)
 	SetVolume   func(ctx context.Context, level int64, muted bool) (rpcapi.PeerStatus, error)
 	PlaySound   func(ctx context.Context, sound string, durationMs *int64) error
+	// Find rings the device's built-in find-me sound. durationMs is nil when
+	// the caller leaves the ring time to the device.
+	Find        func(ctx context.Context, durationMs *int64) error
 	Reboot      func(ctx context.Context, delayMs *int64) error
 	WifiStatus  func(context.Context) (rpcapi.WifiStatus, error)
 	SavedWifi   func(context.Context) ([]rpcapi.WifiSavedNetwork, error)
@@ -131,6 +134,23 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 			return deviceControlError(req.Id, err), nil
 		}
 		return newRPCResultResponse(req.Id, rpcapi.ClientDeviceSoundPlayResponse{}, (*rpcapi.RPCPayload).FromClientDeviceSoundPlayResponse)
+	case rpcapi.RPCMethodClientDeviceFind:
+		params := rpcapi.ClientDeviceFindRequest{}
+		if req.Params != nil {
+			decoded, err := req.Params.AsClientDeviceFindRequest()
+			if err != nil || (decoded.DurationMs != nil && *decoded.DurationMs < 0) {
+				return rpcInvalidParams(req.Id), nil
+			}
+			params = decoded
+		}
+		if handlers.Find == nil {
+			return deviceControlUnsupported(req.Id, req.Method), nil
+		}
+		c.peer.observeClientRPC(req.Method)
+		if err := handlers.Find(ctx, params.DurationMs); err != nil {
+			return deviceControlError(req.Id, err), nil
+		}
+		return newRPCResultResponse(req.Id, rpcapi.ClientDeviceFindResponse{}, (*rpcapi.RPCPayload).FromClientDeviceFindResponse)
 	case rpcapi.RPCMethodClientDeviceReboot:
 		params := rpcapi.ClientDeviceRebootRequest{}
 		if req.Params != nil {

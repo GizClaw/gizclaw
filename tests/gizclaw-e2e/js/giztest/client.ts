@@ -449,6 +449,18 @@ function buildHandlers(
           if (failure != null) throw failure;
         };
         break;
+      case "client.device.find":
+        control.find = () => {
+          count(method);
+          if (failure != null) throw failure;
+        };
+        break;
+      case "client.social.ping":
+        handlers.socialPing = () => {
+          count(method);
+          if (failure != null) throw failure;
+        };
+        break;
       case "client.device.reboot":
         control.reboot = () => {
           count(method);

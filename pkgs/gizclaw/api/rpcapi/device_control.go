@@ -28,6 +28,15 @@ type ClientDeviceSoundPlayRequest struct {
 // ClientDeviceSoundPlayResponse acknowledges a sound playback request.
 type ClientDeviceSoundPlayResponse struct{}
 
+// ClientDeviceFindRequest asks the device to play its built-in find-me sound.
+// DurationMs is the requested ring time; nil leaves it to the device.
+type ClientDeviceFindRequest struct {
+	DurationMs *int64 `json:"duration_ms,omitempty"`
+}
+
+// ClientDeviceFindResponse acknowledges a find request.
+type ClientDeviceFindResponse struct{}
+
 // ClientDeviceRebootRequest asks the device to reboot after the response is sent.
 type ClientDeviceRebootRequest struct {
 	DelayMs *int64 `json:"delay_ms,omitempty"`
@@ -172,6 +181,30 @@ func (t RPCPayload) AsClientDeviceSoundPlayResponse() (ClientDeviceSoundPlayResp
 // FromClientDeviceSoundPlayResponse encodes the ClientDeviceSoundPlayResponse into the RPCPayload.
 func (t *RPCPayload) FromClientDeviceSoundPlayResponse(v ClientDeviceSoundPlayResponse) error {
 	return t.encode("ClientDeviceSoundPlayResponse", v)
+}
+
+// AsClientDeviceFindRequest decodes the RPCPayload as a ClientDeviceFindRequest.
+func (t RPCPayload) AsClientDeviceFindRequest() (ClientDeviceFindRequest, error) {
+	var body ClientDeviceFindRequest
+	err := t.decode("ClientDeviceFindRequest", &body)
+	return body, err
+}
+
+// FromClientDeviceFindRequest encodes the ClientDeviceFindRequest into the RPCPayload.
+func (t *RPCPayload) FromClientDeviceFindRequest(v ClientDeviceFindRequest) error {
+	return t.encode("ClientDeviceFindRequest", v)
+}
+
+// AsClientDeviceFindResponse decodes the RPCPayload as a ClientDeviceFindResponse.
+func (t RPCPayload) AsClientDeviceFindResponse() (ClientDeviceFindResponse, error) {
+	var body ClientDeviceFindResponse
+	err := t.decode("ClientDeviceFindResponse", &body)
+	return body, err
+}
+
+// FromClientDeviceFindResponse encodes the ClientDeviceFindResponse into the RPCPayload.
+func (t *RPCPayload) FromClientDeviceFindResponse(v ClientDeviceFindResponse) error {
+	return t.encode("ClientDeviceFindResponse", v)
 }
 
 // AsClientDeviceRebootRequest decodes the RPCPayload as a ClientDeviceRebootRequest.

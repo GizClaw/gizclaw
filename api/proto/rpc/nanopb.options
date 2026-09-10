@@ -102,3 +102,13 @@ gizclaw.rpc.v1.AppConfigListResponse.runtime_profile_revision max_size:65
 gizclaw.rpc.v1.AppConfigGetRequest.key max_size:64
 gizclaw.rpc.v1.AppConfigGetResponse.value max_size:4097
 gizclaw.rpc.v1.AppConfigGetResponse.runtime_profile_revision max_size:65
+gizclaw.rpc.v1.FriendPingRequest.name max_size:256
+gizclaw.rpc.v1.FriendGroupPingRequest.name max_size:256
+gizclaw.rpc.v1.ClientSocialPingRequest.from_peer_public_key max_size:65
+gizclaw.rpc.v1.ClientSocialPingRequest.from_display_name max_size:257
+gizclaw.rpc.v1.ClientSocialPingRequest.friend_group_name max_size:256
+gizclaw.rpc.v1.ProfileGetRequest.peer_public_keys max_count:16 max_size:65
+gizclaw.rpc.v1.ProfileGetResponse.items max_count:16
+gizclaw.rpc.v1.PublicProfile.peer_public_key max_size:65
+gizclaw.rpc.v1.PublicProfile.display_name max_size:257
+gizclaw.rpc.v1.PublicProfile.emoji max_size:65

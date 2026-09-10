@@ -43,6 +43,7 @@ PUT /gizclaw/v1/device/volume { level: 0..100, muted }
 | --- | --- | --- |
 | `PUT /device/volume` | `client.device.volume.set` | `200 { status }` |
 | `POST /device/actions/play-sound` `{ sound, duration_ms? }` | `client.device.sound.play` | `204` |
+| `POST /device/actions/find` `{ duration_ms? }` | `client.device.find` | `204` |
 | `POST /device/actions/reboot` `{ delay_ms? }` | `client.device.reboot` | `204` |
 | `POST /device/actions/firmware-update` `{ channel?, sha256? }` | `client.firmware.update` | `204` |
 | `GET /device/wifi` | `client.wifi.status.get` | `200 DeviceWifiStatus` |
@@ -52,6 +53,8 @@ PUT /gizclaw/v1/device/volume { level: 0..100, muted }
 | `PUT /device/wifi` `{ ssid, passphrase? }` | `client.wifi.connect` | `202` |
 
 `firmware-update` notifies the device to run one OTA; the device acknowledges first and then downloads, verifies, writes, and restarts on its own. `channel` names a channel from `GET /device/firmware` and defaults to the channel the device already uses. `sha256` is the digest the caller saw: the Server only checks that it is a 64-character lowercase hex string, and the device decides whether it matches the package it resolves, answering `INVALID_PARAMS` (mapped to `400 DEVICE_REJECTED`) when it does not. The package the device currently runs is reported as `PeerStatus.firmware_sha256`, so a caller compares it with the target channel's `package.sha256` to tell whether an update is needed.
+
+`find` is "find my device": the device plays its own built-in find-me sound with a rising volume ramp, with no audio URL, catalog track, or `sound` value involved. The body is optional; `duration_ms` must be non-negative, and the device picks the ring time when it is omitted. An app's find-my-device action calls `find` rather than borrowing `play-sound` to play a track.
 
 `sound` is a device-defined string: the Server only checks that it is non-empty and at most 32 UTF‑8 bytes, and the device provider validates the value; `ssid` has the same 32-byte bound. Wi-Fi scan defaults `timeout_ms` to 8000 and clamps it to 1000–15000 instead of using the normal 5-second control timeout. Omit `passphrase` for an open network; a PSK is 8–63 bytes. A `202` connect response only means the device accepted the credentials: it answers RPC before switching, then necessarily goes offline. Control routes answer `409 DEVICE_OFFLINE` during the outage. After reconnect, clients poll `GET /device/wifi` and compare `ssid` with the target to distinguish success from fallback. The passphrase is only forwarded and is never persisted, logged, or echoed. Scan results come from the device, so the Server revalidates them before answering: at most 32 entries, a non-empty `ssid` of at most 32 bytes, a `bssid` of at most 17, and a `security` of at most 5. An answer outside those bounds is rejected whole as `502 DEVICE_ERROR` without echoing the offending value.
 

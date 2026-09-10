@@ -168,7 +168,27 @@ PB_BIND(gizclaw_rpc_v1_FriendListRequest, gizclaw_rpc_v1_FriendListRequest, AUTO
 PB_BIND(gizclaw_rpc_v1_FriendListResponse, gizclaw_rpc_v1_FriendListResponse, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_FriendPingRequest, gizclaw_rpc_v1_FriendPingRequest, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_FriendPingResponse, gizclaw_rpc_v1_FriendPingResponse, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_FriendGroupPingRequest, gizclaw_rpc_v1_FriendGroupPingRequest, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_FriendGroupPingResponse, gizclaw_rpc_v1_FriendGroupPingResponse, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientSocialPingRequest, gizclaw_rpc_v1_ClientSocialPingRequest, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientSocialPingResponse, gizclaw_rpc_v1_ClientSocialPingResponse, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_FriendObject, gizclaw_rpc_v1_FriendObject, AUTO)
+
+
 
 
 

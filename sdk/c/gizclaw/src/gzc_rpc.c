@@ -986,6 +986,8 @@ static bool inbound_is_client_method(gizclaw_rpc_v1_RpcMethod method) {
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_VOLUME_SET:
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY:
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_REBOOT:
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_FIND:
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_SOCIAL_PING:
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_STATUS_GET:
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_LIST:
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET:

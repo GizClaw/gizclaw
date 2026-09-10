@@ -19,10 +19,11 @@ Client provider 只能返回该 Client 拥有或可执行的数据。Server reso
 
 ## 设备控制 provider
 
-`client.device.status.get`（100）、`client.device.volume.set`（101）、`client.device.sound.play`（102）、`client.device.reboot`（103）、`client.wifi.status.get`（104）、`client.wifi.saved.list`（105）、`client.wifi.saved.forget`（106）、`client.wifi.scan`（108）、`client.wifi.connect`（109）与 `client.firmware.update`（111）由设备 `rpc_provider` 实现；Server 在处理 Public HTTP `/gizclaw/v1/device*` 控制请求时调用它们。除扫描使用请求中 1–15 秒的上界外，控制超时为 5 秒。Provider 责任：
+`client.device.status.get`（100）、`client.device.volume.set`（101）、`client.device.sound.play`（102）、`client.device.find`（126）、`client.device.reboot`（103）、`client.wifi.status.get`（104）、`client.wifi.saved.list`（105）、`client.wifi.saved.forget`（106）、`client.wifi.scan`（108）、`client.wifi.connect`（109）与 `client.firmware.update`（111）由设备 `rpc_provider` 实现；Server 在处理 Public HTTP `/gizclaw/v1/device*` 控制请求时调用它们。除扫描使用请求中 1–15 秒的上界外，控制超时为 5 秒。Provider 责任：
 
 - `volume.set` 设置绝对 `level`（0–100）与 `muted`，并在响应中返回应用后的完整 `PeerStatus`；`status.get` 返回当前 `PeerStatus`。相同输入重复调用结果相同。
 - `sound.play` 的 `sound` 是设备自定义字符串（最多 32 UTF‑8 bytes），由设备校验取值，未知取值返回 `INVALID_PARAMS`；`duration_ms` 可选。
+- `find` 让用户找到设备：设备播放内置的本地找寻提示音并逐步增大音量，不下载任何 URL 或曲目。`duration_ms` 可选且非负，省略时由设备决定响铃时长。设备开始响铃后即应答，重复调用重新开始响铃。
 - `reboot` 必须先发出响应再执行重启，可选 `delay_ms`。
 - `firmware.update` 必须先发出响应再执行 OTA。可选 `channel` 指定要安装的 channel，省略时沿用设备自身的 channel；可选 `sha256` 是调用方看到的目标包摘要，与设备解析出的包不一致时返回 `INVALID_PARAMS`。设备自行下载、校验、写入并重启；已经运行目标包时直接返回成功。设备通过 `PeerStatus.firmware_sha256` 上报当前运行的包，`status.get` 与 `volume.set` 的响应会把它写回 Server。
 - `wifi.status.get` 返回 `WifiStatus { connected, ssid, rssi_dbm, ip, bssid }`；`wifi.saved.list` 返回已保存网络的 `ssid`；`wifi.saved.forget` 对不存在的 `ssid` 返回 `NOT_FOUND`，删除已存在的网络后再次调用同样返回 `NOT_FOUND`。`ssid` 最多 32 UTF‑8 bytes，nanopb 设有界长度。
@@ -53,3 +54,9 @@ Go Client 的 provider dispatch 位于 `sdk/go/gizcli` 的 RPC Client implementa
 `play` 成功只表示接受请求。设备通过 telemetry 的 `audioplayer` observation（field 15）报告 `stopped`、`buffering`、`playing`、`ended` 或 `error`，包含当前索引、实际播放进度 `position_ms`、可选时长 `duration_ms`、循环模式、列表长度和版本。未知时长省略；毫秒整数不超过 JavaScript 安全整数上限。错误仅在 `error` 状态携带 `error_code`（128 bytes）和 `error_message`（512 bytes），不得包含 URL 凭据。设备应在状态切换时立即上报，并在播放中以适当间隔上报进度。
 
 Server 把状态写入现有 KV `PeerStatus.audioplayer` 快照，按观察时间拒绝旧状态覆盖新状态，不生成 Prometheus 播放器序列。RPC 状态响应也更新同一快照；未提供设备墙钟时使用服务器接收时间。应用读取 `/device/status` 查看快照，调用播放器 `get` 才联系在线设备。Go provider 位于 `DeviceControlHandlers.AudioPlayer`；JavaScript 和 Flutter 位于 `deviceControl.audioplayer`；C 使用已有 `rpc_provider` 和有界 nanopb 消息。Go、JavaScript、C 的 telemetry 接口均支持播放器 observation。
+
+## 社交提醒
+
+`client.social.ping`（127）通知设备有好友呼叫（`server.friend.ping`）或 Friend Group 成员发起集结（`server.friend_group.ping`）。请求携带 `from_peer_public_key`、发起方自己设置的可选 `from_display_name`，集结时还携带 `friend_group_name`——它是接收设备自己对该群的本地 name，与该设备 `server.friend_group.list` 中的 name 一致。设备提醒用户后应尽快返回空的 `ClientSocialPingResponse`：Server 最多等待 3 秒，超时、`METHOD_NOT_FOUND` 或其他错误都计为未送达，不重试。Server 只推送调用方有权发出的提醒，设备无需再校验关系。
+
+C SDK 的 `inbound_is_client_method` 接受 `client.device.find` 与 `client.social.ping` 并分发到 `rpc_provider`，nanopb 消息有界（`from_display_name` 256 bytes、`friend_group_name` 255 bytes）。Go SDK 提供 `DeviceControlHandlers.Find` 与 `gizcli.Client.HandleSocialPing`；JavaScript 使用 `deviceControl.find` 与顶层 `socialPing` handler；Flutter 使用 `GizClawDeviceControlHandlers.find` 与 `GizClawPeerRpcHandlers.socialPing`。各 SDK 在 handler 未设置时回复 `METHOD_NOT_FOUND`，`duration_ms` 为负或 `from_peer_public_key` 为空时回复 `INVALID_PARAMS`。“找设备”在控制 SDK 中分别是 `device.find`（JavaScript）、`findDevice`（Flutter）与 `gzc_control_find_device`（C）。

@@ -142,6 +142,12 @@ type DeviceControlStatus struct {
 	Status externalRef0.PeerStatus `json:"status"`
 }
 
+// DeviceFindRequest defines model for DeviceFindRequest.
+type DeviceFindRequest struct {
+	// DurationMs Optional ring time in milliseconds; the device picks its own default when omitted.
+	DurationMs *int64 `json:"duration_ms,omitempty"`
+}
+
 // DeviceFirmware defines model for DeviceFirmware.
 type DeviceFirmware struct {
 	// Description Description of the Firmware configuration bound to the device.
@@ -383,6 +389,9 @@ type CreateContactJSONRequestBody = ContactCreateRequest
 // PutContactJSONRequestBody defines body for PutContact for application/json ContentType.
 type PutContactJSONRequestBody = ContactPutRequest
 
+// FindDeviceJSONRequestBody defines body for FindDevice for application/json ContentType.
+type FindDeviceJSONRequestBody = DeviceFindRequest
+
 // UpdateDeviceFirmwareJSONRequestBody defines body for UpdateDeviceFirmware for application/json ContentType.
 type UpdateDeviceFirmwareJSONRequestBody = DeviceFirmwareUpdateRequest
 
@@ -527,6 +536,14 @@ type ClientInterface interface {
 
 	// GetDevice request
 	GetDevice(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// FindDevice request without the optional body
+	FindDevice(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// FindDeviceWithBody request with any body
+	FindDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	FindDeviceWithJSONBody(ctx context.Context, body FindDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateDeviceFirmware request without the optional body
 	UpdateDeviceFirmware(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -818,6 +835,42 @@ func (c *Client) PutContact(ctx context.Context, contactName string, body PutCon
 
 func (c *Client) GetDevice(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetDeviceRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) FindDevice(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFindDeviceRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) FindDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFindDeviceRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) FindDeviceWithJSONBody(ctx context.Context, body FindDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFindDeviceRequestWithJSONBody(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1816,6 +1869,56 @@ func NewGetDeviceRequest(server string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewFindDeviceRequest generates a request without the optional body.
+func NewFindDeviceRequest(server string) (*http.Request, error) {
+	req, err := NewFindDeviceRequestWithBody(server, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Del("Content-Type")
+	return req, nil
+}
+
+// NewFindDeviceRequestWithJSONBody calls the generic FindDevice builder with application/json body
+func NewFindDeviceRequestWithJSONBody(server string, body FindDeviceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewFindDeviceRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewFindDeviceRequestWithBody generates requests for FindDevice with any type of body
+func NewFindDeviceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/actions/find")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -3260,6 +3363,14 @@ type ClientWithResponsesInterface interface {
 	// GetDeviceWithResponse request
 	GetDeviceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceResponse, error)
 
+	// FindDeviceWithResponse request without the optional body
+	FindDeviceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*FindDeviceResponse, error)
+
+	// FindDeviceWithBodyWithResponse request with any body
+	FindDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FindDeviceResponse, error)
+
+	FindDeviceWithJSONBodyWithResponse(ctx context.Context, body FindDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*FindDeviceResponse, error)
+
 	// UpdateDeviceFirmwareWithResponse request without the optional body
 	UpdateDeviceFirmwareWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*UpdateDeviceFirmwareResponse, error)
 
@@ -3792,6 +3903,43 @@ func (r GetDeviceResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetDeviceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type FindDeviceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *DeviceOffline
+	JSON500      *InternalError
+	JSON501      *DeviceUnsupported
+	JSON502      *DeviceError
+	JSON504      *DeviceTimeout
+}
+
+// Status returns HTTPResponse.Status
+func (r FindDeviceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r FindDeviceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r FindDeviceResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -5025,6 +5173,32 @@ func (c *ClientWithResponses) GetDeviceWithResponse(ctx context.Context, reqEdit
 	return ParseGetDeviceResponse(rsp)
 }
 
+// FindDeviceWithResponse request without the optional body returning *FindDeviceResponse
+func (c *ClientWithResponses) FindDeviceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*FindDeviceResponse, error) {
+	rsp, err := c.FindDevice(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFindDeviceResponse(rsp)
+}
+
+// FindDeviceWithBodyWithResponse request with arbitrary body returning *FindDeviceResponse
+func (c *ClientWithResponses) FindDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FindDeviceResponse, error) {
+	rsp, err := c.FindDeviceWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFindDeviceResponse(rsp)
+}
+
+func (c *ClientWithResponses) FindDeviceWithJSONBodyWithResponse(ctx context.Context, body FindDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*FindDeviceResponse, error) {
+	rsp, err := c.FindDeviceWithJSONBody(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFindDeviceResponse(rsp)
+}
+
 // UpdateDeviceFirmwareWithResponse request without the optional body returning *UpdateDeviceFirmwareResponse
 func (c *ClientWithResponses) UpdateDeviceFirmwareWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*UpdateDeviceFirmwareResponse, error) {
 	rsp, err := c.UpdateDeviceFirmware(ctx, reqEditors...)
@@ -6114,6 +6288,81 @@ func ParseGetDeviceResponse(rsp *http.Response) (*GetDeviceResponse, error) {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseFindDeviceResponse parses an HTTP response from a FindDeviceWithResponse call
+func ParseFindDeviceResponse(rsp *http.Response) (*FindDeviceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &FindDeviceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest DeviceOffline
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest DeviceUnsupported
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest DeviceError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
+		var dest DeviceTimeout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON504 = &dest
 
 	}
 
@@ -8303,6 +8552,9 @@ type ServerInterface interface {
 	// Get the device bound to the API key
 	// (GET /gizclaw/v1/device)
 	GetDevice(c *fiber.Ctx) error
+	// Ring the bound device so it can be found
+	// (POST /gizclaw/v1/device/actions/find)
+	FindDevice(c *fiber.Ctx) error
 	// Notify the bound device to run a firmware update
 	// (POST /gizclaw/v1/device/actions/firmware-update)
 	UpdateDeviceFirmware(c *fiber.Ctx) error
@@ -8738,6 +8990,26 @@ func (siw *ServerInterfaceWrapper) GetDevice(c *fiber.Ctx) error {
 
 	handler := func(c *fiber.Ctx) error {
 		return siw.Handler.GetDevice(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// FindDevice operation middleware
+func (siw *ServerInterfaceWrapper) FindDevice(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.FindDevice(c)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -9746,6 +10018,8 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device", wrapper.GetDevice)
 
+	router.Post(options.BaseURL+"/gizclaw/v1/device/actions/find", wrapper.FindDevice)
+
 	router.Post(options.BaseURL+"/gizclaw/v1/device/actions/firmware-update", wrapper.UpdateDeviceFirmware)
 
 	router.Post(options.BaseURL+"/gizclaw/v1/device/actions/play-sound", wrapper.PlayDeviceSound)
@@ -10574,6 +10848,94 @@ type GetDevice500JSONResponse struct{ InternalErrorJSONResponse }
 func (response GetDevice500JSONResponse) VisitGetDeviceResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type FindDeviceRequestObject struct {
+	Body *FindDeviceJSONRequestBody
+}
+
+type FindDeviceResponseObject interface {
+	VisitFindDeviceResponse(ctx *fiber.Ctx) error
+}
+
+type FindDevice204Response struct {
+}
+
+func (response FindDevice204Response) VisitFindDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Status(204)
+	return nil
+}
+
+type FindDevice400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response FindDevice400JSONResponse) VisitFindDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type FindDevice401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response FindDevice401JSONResponse) VisitFindDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type FindDevice403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response FindDevice403JSONResponse) VisitFindDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type FindDevice409JSONResponse struct{ DeviceOfflineJSONResponse }
+
+func (response FindDevice409JSONResponse) VisitFindDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type FindDevice500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response FindDevice500JSONResponse) VisitFindDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type FindDevice501JSONResponse struct{ DeviceUnsupportedJSONResponse }
+
+func (response FindDevice501JSONResponse) VisitFindDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(501)
+
+	return ctx.JSON(&response)
+}
+
+type FindDevice502JSONResponse struct{ DeviceErrorJSONResponse }
+
+func (response FindDevice502JSONResponse) VisitFindDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(502)
+
+	return ctx.JSON(&response)
+}
+
+type FindDevice504JSONResponse struct{ DeviceTimeoutJSONResponse }
+
+func (response FindDevice504JSONResponse) VisitFindDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(504)
 
 	return ctx.JSON(&response)
 }
@@ -12953,6 +13315,9 @@ type StrictServerInterface interface {
 	// Get the device bound to the API key
 	// (GET /gizclaw/v1/device)
 	GetDevice(ctx context.Context, request GetDeviceRequestObject) (GetDeviceResponseObject, error)
+	// Ring the bound device so it can be found
+	// (POST /gizclaw/v1/device/actions/find)
+	FindDevice(ctx context.Context, request FindDeviceRequestObject) (FindDeviceResponseObject, error)
 	// Notify the bound device to run a firmware update
 	// (POST /gizclaw/v1/device/actions/firmware-update)
 	UpdateDeviceFirmware(ctx context.Context, request UpdateDeviceFirmwareRequestObject) (UpdateDeviceFirmwareResponseObject, error)
@@ -13381,6 +13746,40 @@ func (sh *strictHandler) GetDevice(ctx *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(GetDeviceResponseObject); ok {
 		if err := validResponse.VisitGetDeviceResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// FindDevice operation middleware
+func (sh *strictHandler) FindDevice(ctx *fiber.Ctx) error {
+	var request FindDeviceRequestObject
+
+	var body FindDeviceJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.FindDevice(ctx.UserContext(), request.(FindDeviceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FindDevice")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(FindDeviceResponseObject); ok {
+		if err := validResponse.VisitFindDeviceResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

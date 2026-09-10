@@ -448,6 +448,89 @@ func (*ClientDeviceSoundPlayResponse) Descriptor() ([]byte, []int) {
 	return file_payload_system_proto_rawDescGZIP(), []int{9}
 }
 
+// ClientDeviceFindRequest asks the device to play its built-in find-me sound.
+// duration_ms is the requested ring time; the device picks its own default
+// when it is absent.
+type ClientDeviceFindRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DurationMs    *int64                 `protobuf:"varint,1,opt,name=duration_ms,json=durationMs,proto3,oneof" json:"duration_ms,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientDeviceFindRequest) Reset() {
+	*x = ClientDeviceFindRequest{}
+	mi := &file_payload_system_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientDeviceFindRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientDeviceFindRequest) ProtoMessage() {}
+
+func (x *ClientDeviceFindRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_system_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientDeviceFindRequest.ProtoReflect.Descriptor instead.
+func (*ClientDeviceFindRequest) Descriptor() ([]byte, []int) {
+	return file_payload_system_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ClientDeviceFindRequest) GetDurationMs() int64 {
+	if x != nil && x.DurationMs != nil {
+		return *x.DurationMs
+	}
+	return 0
+}
+
+type ClientDeviceFindResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientDeviceFindResponse) Reset() {
+	*x = ClientDeviceFindResponse{}
+	mi := &file_payload_system_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientDeviceFindResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientDeviceFindResponse) ProtoMessage() {}
+
+func (x *ClientDeviceFindResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_system_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientDeviceFindResponse.ProtoReflect.Descriptor instead.
+func (*ClientDeviceFindResponse) Descriptor() ([]byte, []int) {
+	return file_payload_system_proto_rawDescGZIP(), []int{11}
+}
+
 type ClientDeviceRebootRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	DelayMs       *int64                 `protobuf:"varint,1,opt,name=delay_ms,json=delayMs,proto3,oneof" json:"delay_ms,omitempty"`
@@ -457,7 +540,7 @@ type ClientDeviceRebootRequest struct {
 
 func (x *ClientDeviceRebootRequest) Reset() {
 	*x = ClientDeviceRebootRequest{}
-	mi := &file_payload_system_proto_msgTypes[10]
+	mi := &file_payload_system_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -469,7 +552,7 @@ func (x *ClientDeviceRebootRequest) String() string {
 func (*ClientDeviceRebootRequest) ProtoMessage() {}
 
 func (x *ClientDeviceRebootRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[10]
+	mi := &file_payload_system_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -482,7 +565,7 @@ func (x *ClientDeviceRebootRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientDeviceRebootRequest.ProtoReflect.Descriptor instead.
 func (*ClientDeviceRebootRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{10}
+	return file_payload_system_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ClientDeviceRebootRequest) GetDelayMs() int64 {
@@ -500,7 +583,7 @@ type ClientDeviceRebootResponse struct {
 
 func (x *ClientDeviceRebootResponse) Reset() {
 	*x = ClientDeviceRebootResponse{}
-	mi := &file_payload_system_proto_msgTypes[11]
+	mi := &file_payload_system_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -512,7 +595,7 @@ func (x *ClientDeviceRebootResponse) String() string {
 func (*ClientDeviceRebootResponse) ProtoMessage() {}
 
 func (x *ClientDeviceRebootResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[11]
+	mi := &file_payload_system_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -525,7 +608,7 @@ func (x *ClientDeviceRebootResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientDeviceRebootResponse.ProtoReflect.Descriptor instead.
 func (*ClientDeviceRebootResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{11}
+	return file_payload_system_proto_rawDescGZIP(), []int{13}
 }
 
 type WifiStatus struct {
@@ -541,7 +624,7 @@ type WifiStatus struct {
 
 func (x *WifiStatus) Reset() {
 	*x = WifiStatus{}
-	mi := &file_payload_system_proto_msgTypes[12]
+	mi := &file_payload_system_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -553,7 +636,7 @@ func (x *WifiStatus) String() string {
 func (*WifiStatus) ProtoMessage() {}
 
 func (x *WifiStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[12]
+	mi := &file_payload_system_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -566,7 +649,7 @@ func (x *WifiStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WifiStatus.ProtoReflect.Descriptor instead.
 func (*WifiStatus) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{12}
+	return file_payload_system_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *WifiStatus) GetConnected() bool {
@@ -613,7 +696,7 @@ type WifiSavedNetwork struct {
 
 func (x *WifiSavedNetwork) Reset() {
 	*x = WifiSavedNetwork{}
-	mi := &file_payload_system_proto_msgTypes[13]
+	mi := &file_payload_system_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -625,7 +708,7 @@ func (x *WifiSavedNetwork) String() string {
 func (*WifiSavedNetwork) ProtoMessage() {}
 
 func (x *WifiSavedNetwork) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[13]
+	mi := &file_payload_system_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -638,7 +721,7 @@ func (x *WifiSavedNetwork) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WifiSavedNetwork.ProtoReflect.Descriptor instead.
 func (*WifiSavedNetwork) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{13}
+	return file_payload_system_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *WifiSavedNetwork) GetSsid() string {
@@ -656,7 +739,7 @@ type ClientWifiStatusGetRequest struct {
 
 func (x *ClientWifiStatusGetRequest) Reset() {
 	*x = ClientWifiStatusGetRequest{}
-	mi := &file_payload_system_proto_msgTypes[14]
+	mi := &file_payload_system_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -668,7 +751,7 @@ func (x *ClientWifiStatusGetRequest) String() string {
 func (*ClientWifiStatusGetRequest) ProtoMessage() {}
 
 func (x *ClientWifiStatusGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[14]
+	mi := &file_payload_system_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -681,7 +764,7 @@ func (x *ClientWifiStatusGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientWifiStatusGetRequest.ProtoReflect.Descriptor instead.
 func (*ClientWifiStatusGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{14}
+	return file_payload_system_proto_rawDescGZIP(), []int{16}
 }
 
 type ClientWifiStatusGetResponse struct {
@@ -693,7 +776,7 @@ type ClientWifiStatusGetResponse struct {
 
 func (x *ClientWifiStatusGetResponse) Reset() {
 	*x = ClientWifiStatusGetResponse{}
-	mi := &file_payload_system_proto_msgTypes[15]
+	mi := &file_payload_system_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -705,7 +788,7 @@ func (x *ClientWifiStatusGetResponse) String() string {
 func (*ClientWifiStatusGetResponse) ProtoMessage() {}
 
 func (x *ClientWifiStatusGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[15]
+	mi := &file_payload_system_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -718,7 +801,7 @@ func (x *ClientWifiStatusGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientWifiStatusGetResponse.ProtoReflect.Descriptor instead.
 func (*ClientWifiStatusGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{15}
+	return file_payload_system_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ClientWifiStatusGetResponse) GetValue() *WifiStatus {
@@ -736,7 +819,7 @@ type ClientWifiSavedListRequest struct {
 
 func (x *ClientWifiSavedListRequest) Reset() {
 	*x = ClientWifiSavedListRequest{}
-	mi := &file_payload_system_proto_msgTypes[16]
+	mi := &file_payload_system_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -748,7 +831,7 @@ func (x *ClientWifiSavedListRequest) String() string {
 func (*ClientWifiSavedListRequest) ProtoMessage() {}
 
 func (x *ClientWifiSavedListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[16]
+	mi := &file_payload_system_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -761,7 +844,7 @@ func (x *ClientWifiSavedListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientWifiSavedListRequest.ProtoReflect.Descriptor instead.
 func (*ClientWifiSavedListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{16}
+	return file_payload_system_proto_rawDescGZIP(), []int{18}
 }
 
 type ClientWifiSavedListResponse struct {
@@ -773,7 +856,7 @@ type ClientWifiSavedListResponse struct {
 
 func (x *ClientWifiSavedListResponse) Reset() {
 	*x = ClientWifiSavedListResponse{}
-	mi := &file_payload_system_proto_msgTypes[17]
+	mi := &file_payload_system_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -785,7 +868,7 @@ func (x *ClientWifiSavedListResponse) String() string {
 func (*ClientWifiSavedListResponse) ProtoMessage() {}
 
 func (x *ClientWifiSavedListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[17]
+	mi := &file_payload_system_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -798,7 +881,7 @@ func (x *ClientWifiSavedListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientWifiSavedListResponse.ProtoReflect.Descriptor instead.
 func (*ClientWifiSavedListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{17}
+	return file_payload_system_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ClientWifiSavedListResponse) GetNetworks() []*WifiSavedNetwork {
@@ -817,7 +900,7 @@ type ClientWifiSavedForgetRequest struct {
 
 func (x *ClientWifiSavedForgetRequest) Reset() {
 	*x = ClientWifiSavedForgetRequest{}
-	mi := &file_payload_system_proto_msgTypes[18]
+	mi := &file_payload_system_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -829,7 +912,7 @@ func (x *ClientWifiSavedForgetRequest) String() string {
 func (*ClientWifiSavedForgetRequest) ProtoMessage() {}
 
 func (x *ClientWifiSavedForgetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[18]
+	mi := &file_payload_system_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -842,7 +925,7 @@ func (x *ClientWifiSavedForgetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientWifiSavedForgetRequest.ProtoReflect.Descriptor instead.
 func (*ClientWifiSavedForgetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{18}
+	return file_payload_system_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ClientWifiSavedForgetRequest) GetSsid() string {
@@ -860,7 +943,7 @@ type ClientWifiSavedForgetResponse struct {
 
 func (x *ClientWifiSavedForgetResponse) Reset() {
 	*x = ClientWifiSavedForgetResponse{}
-	mi := &file_payload_system_proto_msgTypes[19]
+	mi := &file_payload_system_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -872,7 +955,7 @@ func (x *ClientWifiSavedForgetResponse) String() string {
 func (*ClientWifiSavedForgetResponse) ProtoMessage() {}
 
 func (x *ClientWifiSavedForgetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[19]
+	mi := &file_payload_system_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -885,7 +968,7 @@ func (x *ClientWifiSavedForgetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientWifiSavedForgetResponse.ProtoReflect.Descriptor instead.
 func (*ClientWifiSavedForgetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{19}
+	return file_payload_system_proto_rawDescGZIP(), []int{21}
 }
 
 type WifiScanResult struct {
@@ -901,7 +984,7 @@ type WifiScanResult struct {
 
 func (x *WifiScanResult) Reset() {
 	*x = WifiScanResult{}
-	mi := &file_payload_system_proto_msgTypes[20]
+	mi := &file_payload_system_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -913,7 +996,7 @@ func (x *WifiScanResult) String() string {
 func (*WifiScanResult) ProtoMessage() {}
 
 func (x *WifiScanResult) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[20]
+	mi := &file_payload_system_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -926,7 +1009,7 @@ func (x *WifiScanResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WifiScanResult.ProtoReflect.Descriptor instead.
 func (*WifiScanResult) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{20}
+	return file_payload_system_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *WifiScanResult) GetSsid() string {
@@ -973,7 +1056,7 @@ type ClientWifiScanRequest struct {
 
 func (x *ClientWifiScanRequest) Reset() {
 	*x = ClientWifiScanRequest{}
-	mi := &file_payload_system_proto_msgTypes[21]
+	mi := &file_payload_system_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -985,7 +1068,7 @@ func (x *ClientWifiScanRequest) String() string {
 func (*ClientWifiScanRequest) ProtoMessage() {}
 
 func (x *ClientWifiScanRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[21]
+	mi := &file_payload_system_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -998,7 +1081,7 @@ func (x *ClientWifiScanRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientWifiScanRequest.ProtoReflect.Descriptor instead.
 func (*ClientWifiScanRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{21}
+	return file_payload_system_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ClientWifiScanRequest) GetTimeoutMs() int64 {
@@ -1017,7 +1100,7 @@ type ClientWifiScanResponse struct {
 
 func (x *ClientWifiScanResponse) Reset() {
 	*x = ClientWifiScanResponse{}
-	mi := &file_payload_system_proto_msgTypes[22]
+	mi := &file_payload_system_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1029,7 +1112,7 @@ func (x *ClientWifiScanResponse) String() string {
 func (*ClientWifiScanResponse) ProtoMessage() {}
 
 func (x *ClientWifiScanResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[22]
+	mi := &file_payload_system_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1042,7 +1125,7 @@ func (x *ClientWifiScanResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientWifiScanResponse.ProtoReflect.Descriptor instead.
 func (*ClientWifiScanResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{22}
+	return file_payload_system_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ClientWifiScanResponse) GetNetworks() []*WifiScanResult {
@@ -1062,7 +1145,7 @@ type ClientWifiConnectRequest struct {
 
 func (x *ClientWifiConnectRequest) Reset() {
 	*x = ClientWifiConnectRequest{}
-	mi := &file_payload_system_proto_msgTypes[23]
+	mi := &file_payload_system_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1074,7 +1157,7 @@ func (x *ClientWifiConnectRequest) String() string {
 func (*ClientWifiConnectRequest) ProtoMessage() {}
 
 func (x *ClientWifiConnectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[23]
+	mi := &file_payload_system_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1087,7 +1170,7 @@ func (x *ClientWifiConnectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientWifiConnectRequest.ProtoReflect.Descriptor instead.
 func (*ClientWifiConnectRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{23}
+	return file_payload_system_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ClientWifiConnectRequest) GetSsid() string {
@@ -1112,7 +1195,7 @@ type ClientWifiConnectResponse struct {
 
 func (x *ClientWifiConnectResponse) Reset() {
 	*x = ClientWifiConnectResponse{}
-	mi := &file_payload_system_proto_msgTypes[24]
+	mi := &file_payload_system_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1124,7 +1207,7 @@ func (x *ClientWifiConnectResponse) String() string {
 func (*ClientWifiConnectResponse) ProtoMessage() {}
 
 func (x *ClientWifiConnectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[24]
+	mi := &file_payload_system_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1137,7 +1220,7 @@ func (x *ClientWifiConnectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientWifiConnectResponse.ProtoReflect.Descriptor instead.
 func (*ClientWifiConnectResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{24}
+	return file_payload_system_proto_rawDescGZIP(), []int{26}
 }
 
 type DeviceInfo struct {
@@ -1152,7 +1235,7 @@ type DeviceInfo struct {
 
 func (x *DeviceInfo) Reset() {
 	*x = DeviceInfo{}
-	mi := &file_payload_system_proto_msgTypes[25]
+	mi := &file_payload_system_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1164,7 +1247,7 @@ func (x *DeviceInfo) String() string {
 func (*DeviceInfo) ProtoMessage() {}
 
 func (x *DeviceInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[25]
+	mi := &file_payload_system_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1177,7 +1260,7 @@ func (x *DeviceInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeviceInfo.ProtoReflect.Descriptor instead.
 func (*DeviceInfo) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{25}
+	return file_payload_system_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *DeviceInfo) GetHardware() *HardwareInfo {
@@ -1218,7 +1301,7 @@ type DeviceProfile struct {
 
 func (x *DeviceProfile) Reset() {
 	*x = DeviceProfile{}
-	mi := &file_payload_system_proto_msgTypes[26]
+	mi := &file_payload_system_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1230,7 +1313,7 @@ func (x *DeviceProfile) String() string {
 func (*DeviceProfile) ProtoMessage() {}
 
 func (x *DeviceProfile) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[26]
+	mi := &file_payload_system_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1243,7 +1326,7 @@ func (x *DeviceProfile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeviceProfile.ProtoReflect.Descriptor instead.
 func (*DeviceProfile) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{26}
+	return file_payload_system_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *DeviceProfile) GetName() string {
@@ -1271,7 +1354,7 @@ type DeviceIdentifiers struct {
 
 func (x *DeviceIdentifiers) Reset() {
 	*x = DeviceIdentifiers{}
-	mi := &file_payload_system_proto_msgTypes[27]
+	mi := &file_payload_system_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1283,7 +1366,7 @@ func (x *DeviceIdentifiers) String() string {
 func (*DeviceIdentifiers) ProtoMessage() {}
 
 func (x *DeviceIdentifiers) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[27]
+	mi := &file_payload_system_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1296,7 +1379,7 @@ func (x *DeviceIdentifiers) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeviceIdentifiers.ProtoReflect.Descriptor instead.
 func (*DeviceIdentifiers) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{27}
+	return file_payload_system_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *DeviceIdentifiers) GetSn() string {
@@ -1331,7 +1414,7 @@ type HardwareInfo struct {
 
 func (x *HardwareInfo) Reset() {
 	*x = HardwareInfo{}
-	mi := &file_payload_system_proto_msgTypes[28]
+	mi := &file_payload_system_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1343,7 +1426,7 @@ func (x *HardwareInfo) String() string {
 func (*HardwareInfo) ProtoMessage() {}
 
 func (x *HardwareInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[28]
+	mi := &file_payload_system_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1356,7 +1439,7 @@ func (x *HardwareInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HardwareInfo.ProtoReflect.Descriptor instead.
 func (*HardwareInfo) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{28}
+	return file_payload_system_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *HardwareInfo) GetHardwareRevision() string {
@@ -1391,7 +1474,7 @@ type PeerIMEI struct {
 
 func (x *PeerIMEI) Reset() {
 	*x = PeerIMEI{}
-	mi := &file_payload_system_proto_msgTypes[29]
+	mi := &file_payload_system_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1403,7 +1486,7 @@ func (x *PeerIMEI) String() string {
 func (*PeerIMEI) ProtoMessage() {}
 
 func (x *PeerIMEI) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[29]
+	mi := &file_payload_system_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1416,7 +1499,7 @@ func (x *PeerIMEI) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerIMEI.ProtoReflect.Descriptor instead.
 func (*PeerIMEI) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{29}
+	return file_payload_system_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *PeerIMEI) GetName() string {
@@ -1450,7 +1533,7 @@ type PeerLabel struct {
 
 func (x *PeerLabel) Reset() {
 	*x = PeerLabel{}
-	mi := &file_payload_system_proto_msgTypes[30]
+	mi := &file_payload_system_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1462,7 +1545,7 @@ func (x *PeerLabel) String() string {
 func (*PeerLabel) ProtoMessage() {}
 
 func (x *PeerLabel) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[30]
+	mi := &file_payload_system_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1475,7 +1558,7 @@ func (x *PeerLabel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerLabel.ProtoReflect.Descriptor instead.
 func (*PeerLabel) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{30}
+	return file_payload_system_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *PeerLabel) GetKey() string {
@@ -1508,7 +1591,7 @@ type PeerOtaStatus struct {
 
 func (x *PeerOtaStatus) Reset() {
 	*x = PeerOtaStatus{}
-	mi := &file_payload_system_proto_msgTypes[31]
+	mi := &file_payload_system_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1520,7 +1603,7 @@ func (x *PeerOtaStatus) String() string {
 func (*PeerOtaStatus) ProtoMessage() {}
 
 func (x *PeerOtaStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[31]
+	mi := &file_payload_system_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1533,7 +1616,7 @@ func (x *PeerOtaStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerOtaStatus.ProtoReflect.Descriptor instead.
 func (*PeerOtaStatus) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{31}
+	return file_payload_system_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *PeerOtaStatus) GetState() string {
@@ -1609,7 +1692,7 @@ type PeerStatus struct {
 
 func (x *PeerStatus) Reset() {
 	*x = PeerStatus{}
-	mi := &file_payload_system_proto_msgTypes[32]
+	mi := &file_payload_system_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1621,7 +1704,7 @@ func (x *PeerStatus) String() string {
 func (*PeerStatus) ProtoMessage() {}
 
 func (x *PeerStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[32]
+	mi := &file_payload_system_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1634,7 +1717,7 @@ func (x *PeerStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerStatus.ProtoReflect.Descriptor instead.
 func (*PeerStatus) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{32}
+	return file_payload_system_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *PeerStatus) GetOta() *PeerOtaStatus {
@@ -1758,7 +1841,7 @@ type PingRequest struct {
 
 func (x *PingRequest) Reset() {
 	*x = PingRequest{}
-	mi := &file_payload_system_proto_msgTypes[33]
+	mi := &file_payload_system_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1770,7 +1853,7 @@ func (x *PingRequest) String() string {
 func (*PingRequest) ProtoMessage() {}
 
 func (x *PingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[33]
+	mi := &file_payload_system_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1783,7 +1866,7 @@ func (x *PingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PingRequest.ProtoReflect.Descriptor instead.
 func (*PingRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{33}
+	return file_payload_system_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *PingRequest) GetClientSendTime() int64 {
@@ -1802,7 +1885,7 @@ type PingResponse struct {
 
 func (x *PingResponse) Reset() {
 	*x = PingResponse{}
-	mi := &file_payload_system_proto_msgTypes[34]
+	mi := &file_payload_system_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1814,7 +1897,7 @@ func (x *PingResponse) String() string {
 func (*PingResponse) ProtoMessage() {}
 
 func (x *PingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[34]
+	mi := &file_payload_system_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1827,7 +1910,7 @@ func (x *PingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PingResponse.ProtoReflect.Descriptor instead.
 func (*PingResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{34}
+	return file_payload_system_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *PingResponse) GetServerTime() int64 {
@@ -1846,7 +1929,7 @@ type ServerRegisterRequest struct {
 
 func (x *ServerRegisterRequest) Reset() {
 	*x = ServerRegisterRequest{}
-	mi := &file_payload_system_proto_msgTypes[35]
+	mi := &file_payload_system_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1858,7 +1941,7 @@ func (x *ServerRegisterRequest) String() string {
 func (*ServerRegisterRequest) ProtoMessage() {}
 
 func (x *ServerRegisterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[35]
+	mi := &file_payload_system_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1871,7 +1954,7 @@ func (x *ServerRegisterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerRegisterRequest.ProtoReflect.Descriptor instead.
 func (*ServerRegisterRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{35}
+	return file_payload_system_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ServerRegisterRequest) GetToken() string {
@@ -1890,7 +1973,7 @@ type ServerRegisterResponse struct {
 
 func (x *ServerRegisterResponse) Reset() {
 	*x = ServerRegisterResponse{}
-	mi := &file_payload_system_proto_msgTypes[36]
+	mi := &file_payload_system_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1902,7 +1985,7 @@ func (x *ServerRegisterResponse) String() string {
 func (*ServerRegisterResponse) ProtoMessage() {}
 
 func (x *ServerRegisterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[36]
+	mi := &file_payload_system_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1915,7 +1998,7 @@ func (x *ServerRegisterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerRegisterResponse.ProtoReflect.Descriptor instead.
 func (*ServerRegisterResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{36}
+	return file_payload_system_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ServerRegisterResponse) GetRuntimeProfileName() string {
@@ -1938,7 +2021,7 @@ type AppConfigListRequest struct {
 
 func (x *AppConfigListRequest) Reset() {
 	*x = AppConfigListRequest{}
-	mi := &file_payload_system_proto_msgTypes[37]
+	mi := &file_payload_system_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1950,7 +2033,7 @@ func (x *AppConfigListRequest) String() string {
 func (*AppConfigListRequest) ProtoMessage() {}
 
 func (x *AppConfigListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[37]
+	mi := &file_payload_system_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1963,7 +2046,7 @@ func (x *AppConfigListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AppConfigListRequest.ProtoReflect.Descriptor instead.
 func (*AppConfigListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{37}
+	return file_payload_system_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *AppConfigListRequest) GetCursor() string {
@@ -1993,7 +2076,7 @@ type AppConfigListResponse struct {
 
 func (x *AppConfigListResponse) Reset() {
 	*x = AppConfigListResponse{}
-	mi := &file_payload_system_proto_msgTypes[38]
+	mi := &file_payload_system_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2005,7 +2088,7 @@ func (x *AppConfigListResponse) String() string {
 func (*AppConfigListResponse) ProtoMessage() {}
 
 func (x *AppConfigListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[38]
+	mi := &file_payload_system_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2018,7 +2101,7 @@ func (x *AppConfigListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AppConfigListResponse.ProtoReflect.Descriptor instead.
 func (*AppConfigListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{38}
+	return file_payload_system_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *AppConfigListResponse) GetKeys() []string {
@@ -2065,7 +2148,7 @@ type AppConfigGetRequest struct {
 
 func (x *AppConfigGetRequest) Reset() {
 	*x = AppConfigGetRequest{}
-	mi := &file_payload_system_proto_msgTypes[39]
+	mi := &file_payload_system_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2077,7 +2160,7 @@ func (x *AppConfigGetRequest) String() string {
 func (*AppConfigGetRequest) ProtoMessage() {}
 
 func (x *AppConfigGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[39]
+	mi := &file_payload_system_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2090,7 +2173,7 @@ func (x *AppConfigGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AppConfigGetRequest.ProtoReflect.Descriptor instead.
 func (*AppConfigGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{39}
+	return file_payload_system_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *AppConfigGetRequest) GetKey() string {
@@ -2111,7 +2194,7 @@ type AppConfigGetResponse struct {
 
 func (x *AppConfigGetResponse) Reset() {
 	*x = AppConfigGetResponse{}
-	mi := &file_payload_system_proto_msgTypes[40]
+	mi := &file_payload_system_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2123,7 +2206,7 @@ func (x *AppConfigGetResponse) String() string {
 func (*AppConfigGetResponse) ProtoMessage() {}
 
 func (x *AppConfigGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[40]
+	mi := &file_payload_system_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2136,7 +2219,7 @@ func (x *AppConfigGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AppConfigGetResponse.ProtoReflect.Descriptor instead.
 func (*AppConfigGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{40}
+	return file_payload_system_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *AppConfigGetResponse) GetValue() string {
@@ -2174,7 +2257,7 @@ type APIKey struct {
 
 func (x *APIKey) Reset() {
 	*x = APIKey{}
-	mi := &file_payload_system_proto_msgTypes[41]
+	mi := &file_payload_system_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2186,7 +2269,7 @@ func (x *APIKey) String() string {
 func (*APIKey) ProtoMessage() {}
 
 func (x *APIKey) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[41]
+	mi := &file_payload_system_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2199,7 +2282,7 @@ func (x *APIKey) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use APIKey.ProtoReflect.Descriptor instead.
 func (*APIKey) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{41}
+	return file_payload_system_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *APIKey) GetName() string {
@@ -2254,7 +2337,7 @@ type APIKeyCreateRequest struct {
 
 func (x *APIKeyCreateRequest) Reset() {
 	*x = APIKeyCreateRequest{}
-	mi := &file_payload_system_proto_msgTypes[42]
+	mi := &file_payload_system_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2266,7 +2349,7 @@ func (x *APIKeyCreateRequest) String() string {
 func (*APIKeyCreateRequest) ProtoMessage() {}
 
 func (x *APIKeyCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[42]
+	mi := &file_payload_system_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2279,7 +2362,7 @@ func (x *APIKeyCreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use APIKeyCreateRequest.ProtoReflect.Descriptor instead.
 func (*APIKeyCreateRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{42}
+	return file_payload_system_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *APIKeyCreateRequest) GetDisplayName() string {
@@ -2306,7 +2389,7 @@ type APIKeyCreateResponse struct {
 
 func (x *APIKeyCreateResponse) Reset() {
 	*x = APIKeyCreateResponse{}
-	mi := &file_payload_system_proto_msgTypes[43]
+	mi := &file_payload_system_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2318,7 +2401,7 @@ func (x *APIKeyCreateResponse) String() string {
 func (*APIKeyCreateResponse) ProtoMessage() {}
 
 func (x *APIKeyCreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[43]
+	mi := &file_payload_system_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2331,7 +2414,7 @@ func (x *APIKeyCreateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use APIKeyCreateResponse.ProtoReflect.Descriptor instead.
 func (*APIKeyCreateResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{43}
+	return file_payload_system_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *APIKeyCreateResponse) GetValue() *APIKey {
@@ -2358,7 +2441,7 @@ type APIKeyListRequest struct {
 
 func (x *APIKeyListRequest) Reset() {
 	*x = APIKeyListRequest{}
-	mi := &file_payload_system_proto_msgTypes[44]
+	mi := &file_payload_system_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2370,7 +2453,7 @@ func (x *APIKeyListRequest) String() string {
 func (*APIKeyListRequest) ProtoMessage() {}
 
 func (x *APIKeyListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[44]
+	mi := &file_payload_system_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2383,7 +2466,7 @@ func (x *APIKeyListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use APIKeyListRequest.ProtoReflect.Descriptor instead.
 func (*APIKeyListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{44}
+	return file_payload_system_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *APIKeyListRequest) GetCursor() string {
@@ -2410,7 +2493,7 @@ type APIKeyListResponse struct {
 
 func (x *APIKeyListResponse) Reset() {
 	*x = APIKeyListResponse{}
-	mi := &file_payload_system_proto_msgTypes[45]
+	mi := &file_payload_system_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2422,7 +2505,7 @@ func (x *APIKeyListResponse) String() string {
 func (*APIKeyListResponse) ProtoMessage() {}
 
 func (x *APIKeyListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[45]
+	mi := &file_payload_system_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2435,7 +2518,7 @@ func (x *APIKeyListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use APIKeyListResponse.ProtoReflect.Descriptor instead.
 func (*APIKeyListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{45}
+	return file_payload_system_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *APIKeyListResponse) GetItems() []*APIKey {
@@ -2461,7 +2544,7 @@ type APIKeyRevokeRequest struct {
 
 func (x *APIKeyRevokeRequest) Reset() {
 	*x = APIKeyRevokeRequest{}
-	mi := &file_payload_system_proto_msgTypes[46]
+	mi := &file_payload_system_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2473,7 +2556,7 @@ func (x *APIKeyRevokeRequest) String() string {
 func (*APIKeyRevokeRequest) ProtoMessage() {}
 
 func (x *APIKeyRevokeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[46]
+	mi := &file_payload_system_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2486,7 +2569,7 @@ func (x *APIKeyRevokeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use APIKeyRevokeRequest.ProtoReflect.Descriptor instead.
 func (*APIKeyRevokeRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{46}
+	return file_payload_system_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *APIKeyRevokeRequest) GetName() string {
@@ -2504,7 +2587,7 @@ type APIKeyRevokeResponse struct {
 
 func (x *APIKeyRevokeResponse) Reset() {
 	*x = APIKeyRevokeResponse{}
-	mi := &file_payload_system_proto_msgTypes[47]
+	mi := &file_payload_system_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2516,7 +2599,7 @@ func (x *APIKeyRevokeResponse) String() string {
 func (*APIKeyRevokeResponse) ProtoMessage() {}
 
 func (x *APIKeyRevokeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[47]
+	mi := &file_payload_system_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2529,7 +2612,7 @@ func (x *APIKeyRevokeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use APIKeyRevokeResponse.ProtoReflect.Descriptor instead.
 func (*APIKeyRevokeResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{47}
+	return file_payload_system_proto_rawDescGZIP(), []int{49}
 }
 
 type ServerPeerDeleteRequest struct {
@@ -2540,7 +2623,7 @@ type ServerPeerDeleteRequest struct {
 
 func (x *ServerPeerDeleteRequest) Reset() {
 	*x = ServerPeerDeleteRequest{}
-	mi := &file_payload_system_proto_msgTypes[48]
+	mi := &file_payload_system_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2552,7 +2635,7 @@ func (x *ServerPeerDeleteRequest) String() string {
 func (*ServerPeerDeleteRequest) ProtoMessage() {}
 
 func (x *ServerPeerDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[48]
+	mi := &file_payload_system_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2565,7 +2648,7 @@ func (x *ServerPeerDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPeerDeleteRequest.ProtoReflect.Descriptor instead.
 func (*ServerPeerDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{48}
+	return file_payload_system_proto_rawDescGZIP(), []int{50}
 }
 
 type ServerPeerDeleteResponse struct {
@@ -2576,7 +2659,7 @@ type ServerPeerDeleteResponse struct {
 
 func (x *ServerPeerDeleteResponse) Reset() {
 	*x = ServerPeerDeleteResponse{}
-	mi := &file_payload_system_proto_msgTypes[49]
+	mi := &file_payload_system_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2588,7 +2671,7 @@ func (x *ServerPeerDeleteResponse) String() string {
 func (*ServerPeerDeleteResponse) ProtoMessage() {}
 
 func (x *ServerPeerDeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[49]
+	mi := &file_payload_system_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2601,7 +2684,7 @@ func (x *ServerPeerDeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPeerDeleteResponse.ProtoReflect.Descriptor instead.
 func (*ServerPeerDeleteResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{49}
+	return file_payload_system_proto_rawDescGZIP(), []int{51}
 }
 
 type Runtime struct {
@@ -2618,7 +2701,7 @@ type Runtime struct {
 
 func (x *Runtime) Reset() {
 	*x = Runtime{}
-	mi := &file_payload_system_proto_msgTypes[50]
+	mi := &file_payload_system_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2630,7 +2713,7 @@ func (x *Runtime) String() string {
 func (*Runtime) ProtoMessage() {}
 
 func (x *Runtime) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[50]
+	mi := &file_payload_system_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2643,7 +2726,7 @@ func (x *Runtime) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Runtime.ProtoReflect.Descriptor instead.
 func (*Runtime) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{50}
+	return file_payload_system_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *Runtime) GetDebugMode() string {
@@ -2696,7 +2779,7 @@ type ServerGetInfoRequest struct {
 
 func (x *ServerGetInfoRequest) Reset() {
 	*x = ServerGetInfoRequest{}
-	mi := &file_payload_system_proto_msgTypes[51]
+	mi := &file_payload_system_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2708,7 +2791,7 @@ func (x *ServerGetInfoRequest) String() string {
 func (*ServerGetInfoRequest) ProtoMessage() {}
 
 func (x *ServerGetInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[51]
+	mi := &file_payload_system_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2721,7 +2804,7 @@ func (x *ServerGetInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGetInfoRequest.ProtoReflect.Descriptor instead.
 func (*ServerGetInfoRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{51}
+	return file_payload_system_proto_rawDescGZIP(), []int{53}
 }
 
 type ServerGetInfoResponse struct {
@@ -2733,7 +2816,7 @@ type ServerGetInfoResponse struct {
 
 func (x *ServerGetInfoResponse) Reset() {
 	*x = ServerGetInfoResponse{}
-	mi := &file_payload_system_proto_msgTypes[52]
+	mi := &file_payload_system_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2745,7 +2828,7 @@ func (x *ServerGetInfoResponse) String() string {
 func (*ServerGetInfoResponse) ProtoMessage() {}
 
 func (x *ServerGetInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[52]
+	mi := &file_payload_system_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2758,7 +2841,7 @@ func (x *ServerGetInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGetInfoResponse.ProtoReflect.Descriptor instead.
 func (*ServerGetInfoResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{52}
+	return file_payload_system_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *ServerGetInfoResponse) GetValue() *DeviceInfo {
@@ -2776,7 +2859,7 @@ type ServerGetStatusRequest struct {
 
 func (x *ServerGetStatusRequest) Reset() {
 	*x = ServerGetStatusRequest{}
-	mi := &file_payload_system_proto_msgTypes[53]
+	mi := &file_payload_system_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2788,7 +2871,7 @@ func (x *ServerGetStatusRequest) String() string {
 func (*ServerGetStatusRequest) ProtoMessage() {}
 
 func (x *ServerGetStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[53]
+	mi := &file_payload_system_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2801,7 +2884,7 @@ func (x *ServerGetStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGetStatusRequest.ProtoReflect.Descriptor instead.
 func (*ServerGetStatusRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{53}
+	return file_payload_system_proto_rawDescGZIP(), []int{55}
 }
 
 type ServerGetStatusResponse struct {
@@ -2813,7 +2896,7 @@ type ServerGetStatusResponse struct {
 
 func (x *ServerGetStatusResponse) Reset() {
 	*x = ServerGetStatusResponse{}
-	mi := &file_payload_system_proto_msgTypes[54]
+	mi := &file_payload_system_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2825,7 +2908,7 @@ func (x *ServerGetStatusResponse) String() string {
 func (*ServerGetStatusResponse) ProtoMessage() {}
 
 func (x *ServerGetStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[54]
+	mi := &file_payload_system_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2838,7 +2921,7 @@ func (x *ServerGetStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGetStatusResponse.ProtoReflect.Descriptor instead.
 func (*ServerGetStatusResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{54}
+	return file_payload_system_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *ServerGetStatusResponse) GetValue() *PeerStatus {
@@ -2857,7 +2940,7 @@ type ServerPutInfoRequest struct {
 
 func (x *ServerPutInfoRequest) Reset() {
 	*x = ServerPutInfoRequest{}
-	mi := &file_payload_system_proto_msgTypes[55]
+	mi := &file_payload_system_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2869,7 +2952,7 @@ func (x *ServerPutInfoRequest) String() string {
 func (*ServerPutInfoRequest) ProtoMessage() {}
 
 func (x *ServerPutInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[55]
+	mi := &file_payload_system_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2882,7 +2965,7 @@ func (x *ServerPutInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPutInfoRequest.ProtoReflect.Descriptor instead.
 func (*ServerPutInfoRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{55}
+	return file_payload_system_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *ServerPutInfoRequest) GetValue() *DeviceProfile {
@@ -2901,7 +2984,7 @@ type ServerPutInfoResponse struct {
 
 func (x *ServerPutInfoResponse) Reset() {
 	*x = ServerPutInfoResponse{}
-	mi := &file_payload_system_proto_msgTypes[56]
+	mi := &file_payload_system_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2913,7 +2996,7 @@ func (x *ServerPutInfoResponse) String() string {
 func (*ServerPutInfoResponse) ProtoMessage() {}
 
 func (x *ServerPutInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[56]
+	mi := &file_payload_system_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2926,7 +3009,7 @@ func (x *ServerPutInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPutInfoResponse.ProtoReflect.Descriptor instead.
 func (*ServerPutInfoResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{56}
+	return file_payload_system_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *ServerPutInfoResponse) GetValue() *DeviceInfo {
@@ -2934,6 +3017,162 @@ func (x *ServerPutInfoResponse) GetValue() *DeviceInfo {
 		return x.Value
 	}
 	return nil
+}
+
+// ProfileGetRequest looks up the public profile of up to 16 Peers by public
+// key. Any registered Peer may look up any other Peer.
+type ProfileGetRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	PeerPublicKeys []string               `protobuf:"bytes,1,rep,name=peer_public_keys,json=peerPublicKeys,proto3" json:"peer_public_keys,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ProfileGetRequest) Reset() {
+	*x = ProfileGetRequest{}
+	mi := &file_payload_system_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProfileGetRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProfileGetRequest) ProtoMessage() {}
+
+func (x *ProfileGetRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_system_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProfileGetRequest.ProtoReflect.Descriptor instead.
+func (*ProfileGetRequest) Descriptor() ([]byte, []int) {
+	return file_payload_system_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *ProfileGetRequest) GetPeerPublicKeys() []string {
+	if x != nil {
+		return x.PeerPublicKeys
+	}
+	return nil
+}
+
+// ProfileGetResponse holds one item per distinct requested key, in request
+// order. A Peer that does not exist, or has not set a field, has that field
+// absent.
+type ProfileGetResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*PublicProfile       `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProfileGetResponse) Reset() {
+	*x = ProfileGetResponse{}
+	mi := &file_payload_system_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProfileGetResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProfileGetResponse) ProtoMessage() {}
+
+func (x *ProfileGetResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_system_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProfileGetResponse.ProtoReflect.Descriptor instead.
+func (*ProfileGetResponse) Descriptor() ([]byte, []int) {
+	return file_payload_system_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *ProfileGetResponse) GetItems() []*PublicProfile {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+// PublicProfile is the public projection of a Peer's DeviceInfo. It carries
+// only the self-chosen display name and emoji; online state, hardware,
+// identifiers and location never enter it.
+type PublicProfile struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PeerPublicKey string                 `protobuf:"bytes,1,opt,name=peer_public_key,json=peerPublicKey,proto3" json:"peer_public_key,omitempty"`
+	DisplayName   *string                `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3,oneof" json:"display_name,omitempty"`
+	Emoji         *string                `protobuf:"bytes,3,opt,name=emoji,proto3,oneof" json:"emoji,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PublicProfile) Reset() {
+	*x = PublicProfile{}
+	mi := &file_payload_system_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublicProfile) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublicProfile) ProtoMessage() {}
+
+func (x *PublicProfile) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_system_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublicProfile.ProtoReflect.Descriptor instead.
+func (*PublicProfile) Descriptor() ([]byte, []int) {
+	return file_payload_system_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *PublicProfile) GetPeerPublicKey() string {
+	if x != nil {
+		return x.PeerPublicKey
+	}
+	return ""
+}
+
+func (x *PublicProfile) GetDisplayName() string {
+	if x != nil && x.DisplayName != nil {
+		return *x.DisplayName
+	}
+	return ""
+}
+
+func (x *PublicProfile) GetEmoji() string {
+	if x != nil && x.Emoji != nil {
+		return *x.Emoji
+	}
+	return ""
 }
 
 type SpeedTestRequest struct {
@@ -2946,7 +3185,7 @@ type SpeedTestRequest struct {
 
 func (x *SpeedTestRequest) Reset() {
 	*x = SpeedTestRequest{}
-	mi := &file_payload_system_proto_msgTypes[57]
+	mi := &file_payload_system_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2958,7 +3197,7 @@ func (x *SpeedTestRequest) String() string {
 func (*SpeedTestRequest) ProtoMessage() {}
 
 func (x *SpeedTestRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[57]
+	mi := &file_payload_system_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2971,7 +3210,7 @@ func (x *SpeedTestRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SpeedTestRequest.ProtoReflect.Descriptor instead.
 func (*SpeedTestRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{57}
+	return file_payload_system_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *SpeedTestRequest) GetDownContentLength() int64 {
@@ -2998,7 +3237,7 @@ type SpeedTestResponse struct {
 
 func (x *SpeedTestResponse) Reset() {
 	*x = SpeedTestResponse{}
-	mi := &file_payload_system_proto_msgTypes[58]
+	mi := &file_payload_system_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3010,7 +3249,7 @@ func (x *SpeedTestResponse) String() string {
 func (*SpeedTestResponse) ProtoMessage() {}
 
 func (x *SpeedTestResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[58]
+	mi := &file_payload_system_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3023,7 +3262,7 @@ func (x *SpeedTestResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SpeedTestResponse.ProtoReflect.Descriptor instead.
 func (*SpeedTestResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{58}
+	return file_payload_system_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *SpeedTestResponse) GetDownContentLength() int64 {
@@ -3049,7 +3288,7 @@ type ServerPutRuntimeRequest struct {
 
 func (x *ServerPutRuntimeRequest) Reset() {
 	*x = ServerPutRuntimeRequest{}
-	mi := &file_payload_system_proto_msgTypes[59]
+	mi := &file_payload_system_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3061,7 +3300,7 @@ func (x *ServerPutRuntimeRequest) String() string {
 func (*ServerPutRuntimeRequest) ProtoMessage() {}
 
 func (x *ServerPutRuntimeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[59]
+	mi := &file_payload_system_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3074,7 +3313,7 @@ func (x *ServerPutRuntimeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPutRuntimeRequest.ProtoReflect.Descriptor instead.
 func (*ServerPutRuntimeRequest) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{59}
+	return file_payload_system_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *ServerPutRuntimeRequest) GetDebugMode() string {
@@ -3093,7 +3332,7 @@ type ServerPutRuntimeResponse struct {
 
 func (x *ServerPutRuntimeResponse) Reset() {
 	*x = ServerPutRuntimeResponse{}
-	mi := &file_payload_system_proto_msgTypes[60]
+	mi := &file_payload_system_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3105,7 +3344,7 @@ func (x *ServerPutRuntimeResponse) String() string {
 func (*ServerPutRuntimeResponse) ProtoMessage() {}
 
 func (x *ServerPutRuntimeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_system_proto_msgTypes[60]
+	mi := &file_payload_system_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3118,7 +3357,7 @@ func (x *ServerPutRuntimeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPutRuntimeResponse.ProtoReflect.Descriptor instead.
 func (*ServerPutRuntimeResponse) Descriptor() ([]byte, []int) {
-	return file_payload_system_proto_rawDescGZIP(), []int{60}
+	return file_payload_system_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *ServerPutRuntimeResponse) GetDebugMode() string {
@@ -3152,7 +3391,12 @@ const file_payload_system_proto_rawDesc = "" +
 	"\vduration_ms\x18\x02 \x01(\x03H\x00R\n" +
 	"durationMs\x88\x01\x01B\x0e\n" +
 	"\f_duration_ms\"\x1f\n" +
-	"\x1dClientDeviceSoundPlayResponse\"H\n" +
+	"\x1dClientDeviceSoundPlayResponse\"O\n" +
+	"\x17ClientDeviceFindRequest\x12$\n" +
+	"\vduration_ms\x18\x01 \x01(\x03H\x00R\n" +
+	"durationMs\x88\x01\x01B\x0e\n" +
+	"\f_duration_ms\"\x1a\n" +
+	"\x18ClientDeviceFindResponse\"H\n" +
 	"\x19ClientDeviceRebootRequest\x12\x1e\n" +
 	"\bdelay_ms\x18\x01 \x01(\x03H\x00R\adelayMs\x88\x01\x01B\v\n" +
 	"\t_delay_ms\"\x1c\n" +
@@ -3369,7 +3613,17 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x14ServerPutInfoRequest\x123\n" +
 	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.DeviceProfileR\x05value\"I\n" +
 	"\x15ServerPutInfoResponse\x120\n" +
-	"\x05value\x18\x01 \x01(\v2\x1a.gizclaw.rpc.v1.DeviceInfoR\x05value\"n\n" +
+	"\x05value\x18\x01 \x01(\v2\x1a.gizclaw.rpc.v1.DeviceInfoR\x05value\"=\n" +
+	"\x11ProfileGetRequest\x12(\n" +
+	"\x10peer_public_keys\x18\x01 \x03(\tR\x0epeerPublicKeys\"I\n" +
+	"\x12ProfileGetResponse\x123\n" +
+	"\x05items\x18\x01 \x03(\v2\x1d.gizclaw.rpc.v1.PublicProfileR\x05items\"\x95\x01\n" +
+	"\rPublicProfile\x12&\n" +
+	"\x0fpeer_public_key\x18\x01 \x01(\tR\rpeerPublicKey\x12&\n" +
+	"\fdisplay_name\x18\x02 \x01(\tH\x00R\vdisplayName\x88\x01\x01\x12\x19\n" +
+	"\x05emoji\x18\x03 \x01(\tH\x01R\x05emoji\x88\x01\x01B\x0f\n" +
+	"\r_display_nameB\b\n" +
+	"\x06_emoji\"n\n" +
 	"\x10SpeedTestRequest\x12.\n" +
 	"\x13down_content_length\x18\x01 \x01(\x03R\x11downContentLength\x12*\n" +
 	"\x11up_content_length\x18\x02 \x01(\x03R\x0fupContentLength\"o\n" +
@@ -3395,7 +3649,7 @@ func file_payload_system_proto_rawDescGZIP() []byte {
 	return file_payload_system_proto_rawDescData
 }
 
-var file_payload_system_proto_msgTypes = make([]protoimpl.MessageInfo, 62)
+var file_payload_system_proto_msgTypes = make([]protoimpl.MessageInfo, 67)
 var file_payload_system_proto_goTypes = []any{
 	(*ClientGetIdentifiersRequest)(nil),   // 0: gizclaw.rpc.v1.ClientGetIdentifiersRequest
 	(*ClientGetIdentifiersResponse)(nil),  // 1: gizclaw.rpc.v1.ClientGetIdentifiersResponse
@@ -3407,88 +3661,94 @@ var file_payload_system_proto_goTypes = []any{
 	(*ClientDeviceVolumeSetResponse)(nil), // 7: gizclaw.rpc.v1.ClientDeviceVolumeSetResponse
 	(*ClientDeviceSoundPlayRequest)(nil),  // 8: gizclaw.rpc.v1.ClientDeviceSoundPlayRequest
 	(*ClientDeviceSoundPlayResponse)(nil), // 9: gizclaw.rpc.v1.ClientDeviceSoundPlayResponse
-	(*ClientDeviceRebootRequest)(nil),     // 10: gizclaw.rpc.v1.ClientDeviceRebootRequest
-	(*ClientDeviceRebootResponse)(nil),    // 11: gizclaw.rpc.v1.ClientDeviceRebootResponse
-	(*WifiStatus)(nil),                    // 12: gizclaw.rpc.v1.WifiStatus
-	(*WifiSavedNetwork)(nil),              // 13: gizclaw.rpc.v1.WifiSavedNetwork
-	(*ClientWifiStatusGetRequest)(nil),    // 14: gizclaw.rpc.v1.ClientWifiStatusGetRequest
-	(*ClientWifiStatusGetResponse)(nil),   // 15: gizclaw.rpc.v1.ClientWifiStatusGetResponse
-	(*ClientWifiSavedListRequest)(nil),    // 16: gizclaw.rpc.v1.ClientWifiSavedListRequest
-	(*ClientWifiSavedListResponse)(nil),   // 17: gizclaw.rpc.v1.ClientWifiSavedListResponse
-	(*ClientWifiSavedForgetRequest)(nil),  // 18: gizclaw.rpc.v1.ClientWifiSavedForgetRequest
-	(*ClientWifiSavedForgetResponse)(nil), // 19: gizclaw.rpc.v1.ClientWifiSavedForgetResponse
-	(*WifiScanResult)(nil),                // 20: gizclaw.rpc.v1.WifiScanResult
-	(*ClientWifiScanRequest)(nil),         // 21: gizclaw.rpc.v1.ClientWifiScanRequest
-	(*ClientWifiScanResponse)(nil),        // 22: gizclaw.rpc.v1.ClientWifiScanResponse
-	(*ClientWifiConnectRequest)(nil),      // 23: gizclaw.rpc.v1.ClientWifiConnectRequest
-	(*ClientWifiConnectResponse)(nil),     // 24: gizclaw.rpc.v1.ClientWifiConnectResponse
-	(*DeviceInfo)(nil),                    // 25: gizclaw.rpc.v1.DeviceInfo
-	(*DeviceProfile)(nil),                 // 26: gizclaw.rpc.v1.DeviceProfile
-	(*DeviceIdentifiers)(nil),             // 27: gizclaw.rpc.v1.DeviceIdentifiers
-	(*HardwareInfo)(nil),                  // 28: gizclaw.rpc.v1.HardwareInfo
-	(*PeerIMEI)(nil),                      // 29: gizclaw.rpc.v1.PeerIMEI
-	(*PeerLabel)(nil),                     // 30: gizclaw.rpc.v1.PeerLabel
-	(*PeerOtaStatus)(nil),                 // 31: gizclaw.rpc.v1.PeerOtaStatus
-	(*PeerStatus)(nil),                    // 32: gizclaw.rpc.v1.PeerStatus
-	(*PingRequest)(nil),                   // 33: gizclaw.rpc.v1.PingRequest
-	(*PingResponse)(nil),                  // 34: gizclaw.rpc.v1.PingResponse
-	(*ServerRegisterRequest)(nil),         // 35: gizclaw.rpc.v1.ServerRegisterRequest
-	(*ServerRegisterResponse)(nil),        // 36: gizclaw.rpc.v1.ServerRegisterResponse
-	(*AppConfigListRequest)(nil),          // 37: gizclaw.rpc.v1.AppConfigListRequest
-	(*AppConfigListResponse)(nil),         // 38: gizclaw.rpc.v1.AppConfigListResponse
-	(*AppConfigGetRequest)(nil),           // 39: gizclaw.rpc.v1.AppConfigGetRequest
-	(*AppConfigGetResponse)(nil),          // 40: gizclaw.rpc.v1.AppConfigGetResponse
-	(*APIKey)(nil),                        // 41: gizclaw.rpc.v1.APIKey
-	(*APIKeyCreateRequest)(nil),           // 42: gizclaw.rpc.v1.APIKeyCreateRequest
-	(*APIKeyCreateResponse)(nil),          // 43: gizclaw.rpc.v1.APIKeyCreateResponse
-	(*APIKeyListRequest)(nil),             // 44: gizclaw.rpc.v1.APIKeyListRequest
-	(*APIKeyListResponse)(nil),            // 45: gizclaw.rpc.v1.APIKeyListResponse
-	(*APIKeyRevokeRequest)(nil),           // 46: gizclaw.rpc.v1.APIKeyRevokeRequest
-	(*APIKeyRevokeResponse)(nil),          // 47: gizclaw.rpc.v1.APIKeyRevokeResponse
-	(*ServerPeerDeleteRequest)(nil),       // 48: gizclaw.rpc.v1.ServerPeerDeleteRequest
-	(*ServerPeerDeleteResponse)(nil),      // 49: gizclaw.rpc.v1.ServerPeerDeleteResponse
-	(*Runtime)(nil),                       // 50: gizclaw.rpc.v1.Runtime
-	(*ServerGetInfoRequest)(nil),          // 51: gizclaw.rpc.v1.ServerGetInfoRequest
-	(*ServerGetInfoResponse)(nil),         // 52: gizclaw.rpc.v1.ServerGetInfoResponse
-	(*ServerGetStatusRequest)(nil),        // 53: gizclaw.rpc.v1.ServerGetStatusRequest
-	(*ServerGetStatusResponse)(nil),       // 54: gizclaw.rpc.v1.ServerGetStatusResponse
-	(*ServerPutInfoRequest)(nil),          // 55: gizclaw.rpc.v1.ServerPutInfoRequest
-	(*ServerPutInfoResponse)(nil),         // 56: gizclaw.rpc.v1.ServerPutInfoResponse
-	(*SpeedTestRequest)(nil),              // 57: gizclaw.rpc.v1.SpeedTestRequest
-	(*SpeedTestResponse)(nil),             // 58: gizclaw.rpc.v1.SpeedTestResponse
-	(*ServerPutRuntimeRequest)(nil),       // 59: gizclaw.rpc.v1.ServerPutRuntimeRequest
-	(*ServerPutRuntimeResponse)(nil),      // 60: gizclaw.rpc.v1.ServerPutRuntimeResponse
-	nil,                                   // 61: gizclaw.rpc.v1.PeerStatus.LabelsEntry
-	(*structpb.Struct)(nil),               // 62: google.protobuf.Struct
-	(*AudioPlayerStatus)(nil),             // 63: gizclaw.rpc.v1.AudioPlayerStatus
+	(*ClientDeviceFindRequest)(nil),       // 10: gizclaw.rpc.v1.ClientDeviceFindRequest
+	(*ClientDeviceFindResponse)(nil),      // 11: gizclaw.rpc.v1.ClientDeviceFindResponse
+	(*ClientDeviceRebootRequest)(nil),     // 12: gizclaw.rpc.v1.ClientDeviceRebootRequest
+	(*ClientDeviceRebootResponse)(nil),    // 13: gizclaw.rpc.v1.ClientDeviceRebootResponse
+	(*WifiStatus)(nil),                    // 14: gizclaw.rpc.v1.WifiStatus
+	(*WifiSavedNetwork)(nil),              // 15: gizclaw.rpc.v1.WifiSavedNetwork
+	(*ClientWifiStatusGetRequest)(nil),    // 16: gizclaw.rpc.v1.ClientWifiStatusGetRequest
+	(*ClientWifiStatusGetResponse)(nil),   // 17: gizclaw.rpc.v1.ClientWifiStatusGetResponse
+	(*ClientWifiSavedListRequest)(nil),    // 18: gizclaw.rpc.v1.ClientWifiSavedListRequest
+	(*ClientWifiSavedListResponse)(nil),   // 19: gizclaw.rpc.v1.ClientWifiSavedListResponse
+	(*ClientWifiSavedForgetRequest)(nil),  // 20: gizclaw.rpc.v1.ClientWifiSavedForgetRequest
+	(*ClientWifiSavedForgetResponse)(nil), // 21: gizclaw.rpc.v1.ClientWifiSavedForgetResponse
+	(*WifiScanResult)(nil),                // 22: gizclaw.rpc.v1.WifiScanResult
+	(*ClientWifiScanRequest)(nil),         // 23: gizclaw.rpc.v1.ClientWifiScanRequest
+	(*ClientWifiScanResponse)(nil),        // 24: gizclaw.rpc.v1.ClientWifiScanResponse
+	(*ClientWifiConnectRequest)(nil),      // 25: gizclaw.rpc.v1.ClientWifiConnectRequest
+	(*ClientWifiConnectResponse)(nil),     // 26: gizclaw.rpc.v1.ClientWifiConnectResponse
+	(*DeviceInfo)(nil),                    // 27: gizclaw.rpc.v1.DeviceInfo
+	(*DeviceProfile)(nil),                 // 28: gizclaw.rpc.v1.DeviceProfile
+	(*DeviceIdentifiers)(nil),             // 29: gizclaw.rpc.v1.DeviceIdentifiers
+	(*HardwareInfo)(nil),                  // 30: gizclaw.rpc.v1.HardwareInfo
+	(*PeerIMEI)(nil),                      // 31: gizclaw.rpc.v1.PeerIMEI
+	(*PeerLabel)(nil),                     // 32: gizclaw.rpc.v1.PeerLabel
+	(*PeerOtaStatus)(nil),                 // 33: gizclaw.rpc.v1.PeerOtaStatus
+	(*PeerStatus)(nil),                    // 34: gizclaw.rpc.v1.PeerStatus
+	(*PingRequest)(nil),                   // 35: gizclaw.rpc.v1.PingRequest
+	(*PingResponse)(nil),                  // 36: gizclaw.rpc.v1.PingResponse
+	(*ServerRegisterRequest)(nil),         // 37: gizclaw.rpc.v1.ServerRegisterRequest
+	(*ServerRegisterResponse)(nil),        // 38: gizclaw.rpc.v1.ServerRegisterResponse
+	(*AppConfigListRequest)(nil),          // 39: gizclaw.rpc.v1.AppConfigListRequest
+	(*AppConfigListResponse)(nil),         // 40: gizclaw.rpc.v1.AppConfigListResponse
+	(*AppConfigGetRequest)(nil),           // 41: gizclaw.rpc.v1.AppConfigGetRequest
+	(*AppConfigGetResponse)(nil),          // 42: gizclaw.rpc.v1.AppConfigGetResponse
+	(*APIKey)(nil),                        // 43: gizclaw.rpc.v1.APIKey
+	(*APIKeyCreateRequest)(nil),           // 44: gizclaw.rpc.v1.APIKeyCreateRequest
+	(*APIKeyCreateResponse)(nil),          // 45: gizclaw.rpc.v1.APIKeyCreateResponse
+	(*APIKeyListRequest)(nil),             // 46: gizclaw.rpc.v1.APIKeyListRequest
+	(*APIKeyListResponse)(nil),            // 47: gizclaw.rpc.v1.APIKeyListResponse
+	(*APIKeyRevokeRequest)(nil),           // 48: gizclaw.rpc.v1.APIKeyRevokeRequest
+	(*APIKeyRevokeResponse)(nil),          // 49: gizclaw.rpc.v1.APIKeyRevokeResponse
+	(*ServerPeerDeleteRequest)(nil),       // 50: gizclaw.rpc.v1.ServerPeerDeleteRequest
+	(*ServerPeerDeleteResponse)(nil),      // 51: gizclaw.rpc.v1.ServerPeerDeleteResponse
+	(*Runtime)(nil),                       // 52: gizclaw.rpc.v1.Runtime
+	(*ServerGetInfoRequest)(nil),          // 53: gizclaw.rpc.v1.ServerGetInfoRequest
+	(*ServerGetInfoResponse)(nil),         // 54: gizclaw.rpc.v1.ServerGetInfoResponse
+	(*ServerGetStatusRequest)(nil),        // 55: gizclaw.rpc.v1.ServerGetStatusRequest
+	(*ServerGetStatusResponse)(nil),       // 56: gizclaw.rpc.v1.ServerGetStatusResponse
+	(*ServerPutInfoRequest)(nil),          // 57: gizclaw.rpc.v1.ServerPutInfoRequest
+	(*ServerPutInfoResponse)(nil),         // 58: gizclaw.rpc.v1.ServerPutInfoResponse
+	(*ProfileGetRequest)(nil),             // 59: gizclaw.rpc.v1.ProfileGetRequest
+	(*ProfileGetResponse)(nil),            // 60: gizclaw.rpc.v1.ProfileGetResponse
+	(*PublicProfile)(nil),                 // 61: gizclaw.rpc.v1.PublicProfile
+	(*SpeedTestRequest)(nil),              // 62: gizclaw.rpc.v1.SpeedTestRequest
+	(*SpeedTestResponse)(nil),             // 63: gizclaw.rpc.v1.SpeedTestResponse
+	(*ServerPutRuntimeRequest)(nil),       // 64: gizclaw.rpc.v1.ServerPutRuntimeRequest
+	(*ServerPutRuntimeResponse)(nil),      // 65: gizclaw.rpc.v1.ServerPutRuntimeResponse
+	nil,                                   // 66: gizclaw.rpc.v1.PeerStatus.LabelsEntry
+	(*structpb.Struct)(nil),               // 67: google.protobuf.Struct
+	(*AudioPlayerStatus)(nil),             // 68: gizclaw.rpc.v1.AudioPlayerStatus
 }
 var file_payload_system_proto_depIdxs = []int32{
-	27, // 0: gizclaw.rpc.v1.ClientGetIdentifiersResponse.value:type_name -> gizclaw.rpc.v1.DeviceIdentifiers
-	28, // 1: gizclaw.rpc.v1.ClientGetInfoResponse.value:type_name -> gizclaw.rpc.v1.HardwareInfo
-	32, // 2: gizclaw.rpc.v1.ClientDeviceStatusGetResponse.value:type_name -> gizclaw.rpc.v1.PeerStatus
-	32, // 3: gizclaw.rpc.v1.ClientDeviceVolumeSetResponse.value:type_name -> gizclaw.rpc.v1.PeerStatus
-	12, // 4: gizclaw.rpc.v1.ClientWifiStatusGetResponse.value:type_name -> gizclaw.rpc.v1.WifiStatus
-	13, // 5: gizclaw.rpc.v1.ClientWifiSavedListResponse.networks:type_name -> gizclaw.rpc.v1.WifiSavedNetwork
-	20, // 6: gizclaw.rpc.v1.ClientWifiScanResponse.networks:type_name -> gizclaw.rpc.v1.WifiScanResult
-	28, // 7: gizclaw.rpc.v1.DeviceInfo.hardware:type_name -> gizclaw.rpc.v1.HardwareInfo
-	27, // 8: gizclaw.rpc.v1.DeviceInfo.identifiers:type_name -> gizclaw.rpc.v1.DeviceIdentifiers
-	29, // 9: gizclaw.rpc.v1.DeviceIdentifiers.imeis:type_name -> gizclaw.rpc.v1.PeerIMEI
-	30, // 10: gizclaw.rpc.v1.DeviceIdentifiers.labels:type_name -> gizclaw.rpc.v1.PeerLabel
-	31, // 11: gizclaw.rpc.v1.PeerStatus.ota:type_name -> gizclaw.rpc.v1.PeerOtaStatus
-	62, // 12: gizclaw.rpc.v1.PeerStatus.details:type_name -> google.protobuf.Struct
-	63, // 13: gizclaw.rpc.v1.PeerStatus.audioplayer:type_name -> gizclaw.rpc.v1.AudioPlayerStatus
-	61, // 14: gizclaw.rpc.v1.PeerStatus.labels:type_name -> gizclaw.rpc.v1.PeerStatus.LabelsEntry
-	41, // 15: gizclaw.rpc.v1.APIKeyCreateResponse.value:type_name -> gizclaw.rpc.v1.APIKey
-	41, // 16: gizclaw.rpc.v1.APIKeyListResponse.items:type_name -> gizclaw.rpc.v1.APIKey
-	25, // 17: gizclaw.rpc.v1.ServerGetInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
-	32, // 18: gizclaw.rpc.v1.ServerGetStatusResponse.value:type_name -> gizclaw.rpc.v1.PeerStatus
-	26, // 19: gizclaw.rpc.v1.ServerPutInfoRequest.value:type_name -> gizclaw.rpc.v1.DeviceProfile
-	25, // 20: gizclaw.rpc.v1.ServerPutInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
-	21, // [21:21] is the sub-list for method output_type
-	21, // [21:21] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	29, // 0: gizclaw.rpc.v1.ClientGetIdentifiersResponse.value:type_name -> gizclaw.rpc.v1.DeviceIdentifiers
+	30, // 1: gizclaw.rpc.v1.ClientGetInfoResponse.value:type_name -> gizclaw.rpc.v1.HardwareInfo
+	34, // 2: gizclaw.rpc.v1.ClientDeviceStatusGetResponse.value:type_name -> gizclaw.rpc.v1.PeerStatus
+	34, // 3: gizclaw.rpc.v1.ClientDeviceVolumeSetResponse.value:type_name -> gizclaw.rpc.v1.PeerStatus
+	14, // 4: gizclaw.rpc.v1.ClientWifiStatusGetResponse.value:type_name -> gizclaw.rpc.v1.WifiStatus
+	15, // 5: gizclaw.rpc.v1.ClientWifiSavedListResponse.networks:type_name -> gizclaw.rpc.v1.WifiSavedNetwork
+	22, // 6: gizclaw.rpc.v1.ClientWifiScanResponse.networks:type_name -> gizclaw.rpc.v1.WifiScanResult
+	30, // 7: gizclaw.rpc.v1.DeviceInfo.hardware:type_name -> gizclaw.rpc.v1.HardwareInfo
+	29, // 8: gizclaw.rpc.v1.DeviceInfo.identifiers:type_name -> gizclaw.rpc.v1.DeviceIdentifiers
+	31, // 9: gizclaw.rpc.v1.DeviceIdentifiers.imeis:type_name -> gizclaw.rpc.v1.PeerIMEI
+	32, // 10: gizclaw.rpc.v1.DeviceIdentifiers.labels:type_name -> gizclaw.rpc.v1.PeerLabel
+	33, // 11: gizclaw.rpc.v1.PeerStatus.ota:type_name -> gizclaw.rpc.v1.PeerOtaStatus
+	67, // 12: gizclaw.rpc.v1.PeerStatus.details:type_name -> google.protobuf.Struct
+	68, // 13: gizclaw.rpc.v1.PeerStatus.audioplayer:type_name -> gizclaw.rpc.v1.AudioPlayerStatus
+	66, // 14: gizclaw.rpc.v1.PeerStatus.labels:type_name -> gizclaw.rpc.v1.PeerStatus.LabelsEntry
+	43, // 15: gizclaw.rpc.v1.APIKeyCreateResponse.value:type_name -> gizclaw.rpc.v1.APIKey
+	43, // 16: gizclaw.rpc.v1.APIKeyListResponse.items:type_name -> gizclaw.rpc.v1.APIKey
+	27, // 17: gizclaw.rpc.v1.ServerGetInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
+	34, // 18: gizclaw.rpc.v1.ServerGetStatusResponse.value:type_name -> gizclaw.rpc.v1.PeerStatus
+	28, // 19: gizclaw.rpc.v1.ServerPutInfoRequest.value:type_name -> gizclaw.rpc.v1.DeviceProfile
+	27, // 20: gizclaw.rpc.v1.ServerPutInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
+	61, // 21: gizclaw.rpc.v1.ProfileGetResponse.items:type_name -> gizclaw.rpc.v1.PublicProfile
+	22, // [22:22] is the sub-list for method output_type
+	22, // [22:22] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_payload_system_proto_init() }
@@ -3500,28 +3760,30 @@ func file_payload_system_proto_init() {
 	file_payload_system_proto_msgTypes[8].OneofWrappers = []any{}
 	file_payload_system_proto_msgTypes[10].OneofWrappers = []any{}
 	file_payload_system_proto_msgTypes[12].OneofWrappers = []any{}
-	file_payload_system_proto_msgTypes[20].OneofWrappers = []any{}
-	file_payload_system_proto_msgTypes[21].OneofWrappers = []any{}
+	file_payload_system_proto_msgTypes[14].OneofWrappers = []any{}
+	file_payload_system_proto_msgTypes[22].OneofWrappers = []any{}
 	file_payload_system_proto_msgTypes[23].OneofWrappers = []any{}
 	file_payload_system_proto_msgTypes[25].OneofWrappers = []any{}
-	file_payload_system_proto_msgTypes[26].OneofWrappers = []any{}
 	file_payload_system_proto_msgTypes[27].OneofWrappers = []any{}
 	file_payload_system_proto_msgTypes[28].OneofWrappers = []any{}
 	file_payload_system_proto_msgTypes[29].OneofWrappers = []any{}
+	file_payload_system_proto_msgTypes[30].OneofWrappers = []any{}
 	file_payload_system_proto_msgTypes[31].OneofWrappers = []any{}
-	file_payload_system_proto_msgTypes[32].OneofWrappers = []any{}
-	file_payload_system_proto_msgTypes[37].OneofWrappers = []any{}
-	file_payload_system_proto_msgTypes[38].OneofWrappers = []any{}
-	file_payload_system_proto_msgTypes[44].OneofWrappers = []any{}
-	file_payload_system_proto_msgTypes[45].OneofWrappers = []any{}
-	file_payload_system_proto_msgTypes[50].OneofWrappers = []any{}
+	file_payload_system_proto_msgTypes[33].OneofWrappers = []any{}
+	file_payload_system_proto_msgTypes[34].OneofWrappers = []any{}
+	file_payload_system_proto_msgTypes[39].OneofWrappers = []any{}
+	file_payload_system_proto_msgTypes[40].OneofWrappers = []any{}
+	file_payload_system_proto_msgTypes[46].OneofWrappers = []any{}
+	file_payload_system_proto_msgTypes[47].OneofWrappers = []any{}
+	file_payload_system_proto_msgTypes[52].OneofWrappers = []any{}
+	file_payload_system_proto_msgTypes[61].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_system_proto_rawDesc), len(file_payload_system_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   62,
+			NumMessages:   67,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -309,7 +309,7 @@ gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 \
 `save_as`；未声明 `status` 时 4xx/5xx 视为断言失败。API Key 由 `server.api_key.create` step
 `capture: {api_key: /api_key}` 得到，并以 `Authorization: "Bearer ${api_key}"` header 传入。
 `client_rpc` 可声明 `client.device.status.get`、`client.device.volume.set`、`client.device.sound.play`、
-`client.device.reboot`、`client.wifi.status.get`、`client.wifi.saved.list`、`client.wifi.saved.forget`、
+`client.device.find`、`client.device.reboot`、`client.social.ping`、`client.wifi.status.get`、`client.wifi.saved.list`、`client.wifi.saved.forget`、
 `client.wifi.scan` 与 `client.wifi.connect`：
 runner 在连接时把脚本给定的 `response` 安装为该 client 的设备 provider（`volume.set` 会把请求的
 `level`/`muted` 回填进响应），`response: {error_code: 3}` 让 provider 返回固定的 canonical status code；

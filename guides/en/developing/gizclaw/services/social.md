@@ -77,6 +77,22 @@ Servers share logical identity, never in-process objects:
 
 Any Server that may host a member's connection activates the same Workspace using only the shared Social KV and its local `sfu` driver; no call back to an owner Server is needed. On-demand creation of the local Workspace record is described in [Multi-Server materialization](#multi-server-materialization).
 
+## Ping and rally
+
+`server.friend.ping` rings one Friend's device; `server.friend_group.ping` rallies a Friend Group by ringing every other member's device. Any member may rally. `friend.PingFriend` and `friendgroup.PingFriendGroup` own the rules; `peerresource` only decodes the request and maps errors.
+
+1. The caller's relationship is resolved first: the Friend relationship by name, or the caller's own Group name and current membership. An unknown name answers `NOT_FOUND` before anything else is read.
+2. If the rate window is closed, the call answers `RATE_LIMITED` with the seconds left, without touching any device.
+3. Targets are filtered by `PeerOnline`, the same connection state `Runtime.online` reports. A rally skips the caller. With no target online the call answers `NOT_ONLINE` at once; nothing is sent, and no window opens.
+4. The window is claimed atomically (`CreateIfAbsent`). Losing that race answers `RATE_LIMITED`.
+5. `client.social.ping` is pushed to every target concurrently, each with a 3-second acknowledgement timeout and no retry. A rally carries each recipient's own local Group name, and every push carries the sender's `display_name` when it has set one. When no device acknowledges, the window is released with compare-and-delete and the call answers `NOT_ONLINE`, so an unreachable target never costs the caller a minute. Otherwise it answers `DELIVERED` with the number of acknowledging devices.
+
+The window is fixed at one minute (`socialutil.PingWindow`), not configurable, and lives in the shared Social KV with a store deadline: `friend-ping-windows/<relationID>` in the Friend store, shared by both directions of a pair, and `friend-group-ping-windows/<groupID>` in the Friend Group store, shared by all members. The backend (Redis TTL in production) deletes it when it closes, so no cleanup loop runs, and every Server enforces the same window.
+
+Online state and delivery are Server-local, like every other Server→device RPC. A target whose connection lives on a different Server is reported as not online, and pings are never queued for later delivery. The Server pushes only pings the caller may send, so devices do not recheck the relationship. Friend online status, profiles inside `server.friend.list`, and cross-Server delivery are not provided.
+
+`server.profile.get` returns the public profile of 1–16 Peers by public key without any relationship check: only the `display_name` and `emoji` a Peer set through `server.info.put` (`peer.Server.GetPublicProfile`). A missing, deleted, or pending-deletion Peer comes back with only its key.
+
 ## SFU Workspace
 
 Friend and Friend Group voice run on one kind of SFU Workspace: the Social resource owns a logical Workspace, and once an online Peer selects it through `server.run.workspace.set`, the GizClaw Server bridges that Peer's GenX audio stream into the SFU Room declared by the Social resource. The Device keeps its existing WebRTC connection and never connects to or learns about LiveKit; the Edge only forwards the existing Giznet connection.
@@ -205,6 +221,7 @@ Credentials are read from files at startup only and never enter the Social KV, W
 - Membership changes, role changes and group updates atomically advance a shared group version. Capacity checks and retirement compare that version and the primary record before committing; a stale snapshot is rejected and must be reread before retrying. A Friend Group holds at most 10 members including the owner; exceeding it returns `FRIEND_GROUP_FULL`.
 - A Peer belongs to at most 10 Friend Groups (created, joined, and added combined); exceeding it returns `FRIEND_GROUP_LIMIT_REACHED`.
 - A Peer has at most 10 Friends (both directions combined); exceeding it returns `FRIEND_LIMIT_REACHED`.
+- One ping per Friend pair and one rally per Friend Group per minute; a closed window answers `RATE_LIMITED` with the seconds left.
 - One participant per Peer at a time; one shared Agent per Workspace per Server.
 - Every listener hears one speaker at a time (the floor), half-duplex; no mixing and no downlink decoding.
 - No voice mail, message history, recording download, or history playback.

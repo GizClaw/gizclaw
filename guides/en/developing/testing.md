@@ -349,7 +349,7 @@ is the step value for `expect`, `capture`, and `save_as`, and a 4xx/5xx without 
 an assertion failure. The API key comes from a `server.api_key.create` step with
 `capture: {api_key: /api_key}` and is sent as the `Authorization: "Bearer ${api_key}"` header.
 `client_rpc` may declare `client.device.status.get`, `client.device.volume.set`,
-`client.device.sound.play`, `client.device.reboot`, `client.wifi.status.get`, `client.wifi.saved.list`,
+`client.device.sound.play`, `client.device.find`, `client.device.reboot`, `client.social.ping`, `client.wifi.status.get`, `client.wifi.saved.list`,
 `client.wifi.saved.forget`, `client.wifi.scan`, and `client.wifi.connect`: the runner installs the scripted `response` as that client's device
 provider at connect time (`volume.set` echoes the requested `level`/`muted` into its response), and
 `response: {error_code: 3}` makes the provider answer a fixed canonical status code; undeclared methods stay

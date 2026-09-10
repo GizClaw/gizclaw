@@ -330,6 +330,16 @@ class RpcMethod extends $pb.ProtobufEnum {
       121, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_APP_CONFIG_LIST');
   static const RpcMethod RPC_METHOD_SERVER_APP_CONFIG_GET = RpcMethod._(
       122, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_APP_CONFIG_GET');
+  static const RpcMethod RPC_METHOD_SERVER_FRIEND_PING =
+      RpcMethod._(123, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_PING');
+  static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_PING = RpcMethod._(
+      124, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_PING');
+  static const RpcMethod RPC_METHOD_SERVER_PROFILE_GET =
+      RpcMethod._(125, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PROFILE_GET');
+  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_FIND =
+      RpcMethod._(126, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_FIND');
+  static const RpcMethod RPC_METHOD_CLIENT_SOCIAL_PING =
+      RpcMethod._(127, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_SOCIAL_PING');
 
   static const $core.List<RpcMethod> values = <RpcMethod>[
     RPC_METHOD_UNSPECIFIED,
@@ -432,10 +442,15 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET,
     RPC_METHOD_SERVER_APP_CONFIG_LIST,
     RPC_METHOD_SERVER_APP_CONFIG_GET,
+    RPC_METHOD_SERVER_FRIEND_PING,
+    RPC_METHOD_SERVER_FRIEND_GROUP_PING,
+    RPC_METHOD_SERVER_PROFILE_GET,
+    RPC_METHOD_CLIENT_DEVICE_FIND,
+    RPC_METHOD_CLIENT_SOCIAL_PING,
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 122);
+      $pb.ProtobufEnum.$_initByValueList(values, 127);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

@@ -44,6 +44,7 @@ type Server struct {
 	Friends        *friend.Server
 	FriendGroups   *friendgroup.Server
 	Tools          *toolkit.Server
+	Profiles       publicProfileService
 	RuntimeProfile func() *apitypes.RuntimeProfile
 }
 
@@ -155,6 +156,7 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerFriendAdd,
 		rpcapi.RPCMethodServerFriendList,
 		rpcapi.RPCMethodServerFriendInfoGet,
+		rpcapi.RPCMethodServerFriendPing,
 		rpcapi.RPCMethodServerFriendDelete,
 		rpcapi.RPCMethodServerFriendGroupList,
 		rpcapi.RPCMethodServerFriendGroupGet,
@@ -169,6 +171,8 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerFriendGroupMembersAdd,
 		rpcapi.RPCMethodServerFriendGroupMembersPut,
 		rpcapi.RPCMethodServerFriendGroupMembersDelete,
+		rpcapi.RPCMethodServerFriendGroupPing,
+		rpcapi.RPCMethodServerProfileGet,
 		rpcapi.RPCMethodServerToolList,
 		rpcapi.RPCMethodServerToolGet,
 		rpcapi.RPCMethodServerAppConfigList,
@@ -238,6 +242,8 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleFriendList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerFriendInfoGet:
 		return s.handleFriendInfoGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendPing:
+		return s.handleFriendPing(ctx, req), true, nil
 	case rpcapi.RPCMethodServerFriendDelete:
 		return s.handleFriendDelete(ctx, req), true, nil
 	case rpcapi.RPCMethodServerFriendGroupList:
@@ -266,6 +272,10 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleFriendGroupMembersPut(ctx, req), true, nil
 	case rpcapi.RPCMethodServerFriendGroupMembersDelete:
 		return s.handleFriendGroupMembersDelete(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendGroupPing:
+		return s.handleFriendGroupPing(ctx, req), true, nil
+	case rpcapi.RPCMethodServerProfileGet:
+		return s.handleProfileGet(ctx, req), true, nil
 	case rpcapi.RPCMethodServerToolList:
 		return s.handleToolList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerToolGet:

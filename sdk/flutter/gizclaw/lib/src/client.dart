@@ -108,6 +108,15 @@ class GizClawClient {
     );
   }
 
+  /// Reads the public display name and emoji of up to 16 Peers by public key.
+  /// The response holds one item per distinct key, in request order.
+  Future<payload.ProfileGetResponse> getProfiles(List<String> peerPublicKeys) {
+    return rpc.call<payload.ProfileGetResponse>(
+      'server.profile.get',
+      payload.ProfileGetRequest(peerPublicKeys: peerPublicKeys),
+    );
+  }
+
   /// Updates this authenticated device's runtime debug mode.
   Future<payload.ServerPutRuntimeResponse> putServerRuntime(String debugMode) {
     return rpc.call<payload.ServerPutRuntimeResponse>(
@@ -214,6 +223,15 @@ class GizClawClient {
     );
   }
 
+  /// Rings the device of the Friend named [name]. A repeated ping within the
+  /// pair's rate-limit window reports `SOCIAL_PING_RESULT_RATE_LIMITED`.
+  Future<payload.FriendPingResponse> pingFriend(String name) {
+    return rpc.call<payload.FriendPingResponse>(
+      'server.friend.ping',
+      payload.FriendPingRequest(name: name),
+    );
+  }
+
   Future<payload.FriendInviteTokenGetResponse> getFriendInviteToken() {
     return rpc.call<payload.FriendInviteTokenGetResponse>(
       'server.friend.invite_token.get',
@@ -276,6 +294,16 @@ class GizClawClient {
     return rpc.call<payload.FriendGroupDeleteResponse>(
       'server.friend_group.delete',
       payload.FriendGroupDeleteRequest(name: name),
+    );
+  }
+
+  /// Rallies every other online member of the caller's Friend Group named
+  /// [name]. A repeated rally within the group's rate-limit window reports
+  /// `SOCIAL_PING_RESULT_RATE_LIMITED`.
+  Future<payload.FriendGroupPingResponse> pingFriendGroup(String name) {
+    return rpc.call<payload.FriendGroupPingResponse>(
+      'server.friend_group.ping',
+      payload.FriendGroupPingRequest(name: name),
     );
   }
 

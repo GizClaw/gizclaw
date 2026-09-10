@@ -54,3 +54,48 @@ test("SDK response conversion retains protobuf int64 strings and defaults", () =
   );
   assert.equal(response.server_time, "123");
 });
+
+test("social ping responses keep Protobuf JSON enum names and optional presence", () => {
+  assert.deepEqual(
+    responseToProtoJSON("server.friend.ping", {
+      result: "delivered",
+      delivered_count: 1,
+    }),
+    { result: "SOCIAL_PING_RESULT_DELIVERED", delivered_count: 1 },
+  );
+  assert.deepEqual(
+    responseToProtoJSON("server.friend_group.ping", {
+      result: "rate_limited",
+      delivered_count: 0,
+      retry_after_seconds: 42,
+    }),
+    {
+      result: "SOCIAL_PING_RESULT_RATE_LIMITED",
+      delivered_count: 0,
+      retry_after_seconds: 42,
+    },
+  );
+});
+
+test("profile lookups convert keys and public profiles", () => {
+  assert.deepEqual(
+    requestFromProtoJSON("server.profile.get", {
+      peer_public_keys: ["carol-key"],
+    }),
+    { peer_public_keys: ["carol-key"] },
+  );
+  assert.deepEqual(
+    responseToProtoJSON("server.profile.get", {
+      items: [
+        { peer_public_key: "carol-key", display_name: "Carol", emoji: "🐱" },
+        { peer_public_key: "dave-key" },
+      ],
+    }),
+    {
+      items: [
+        { peer_public_key: "carol-key", display_name: "Carol", emoji: "🐱" },
+        { peer_public_key: "dave-key" },
+      ],
+    },
+  );
+});

@@ -21,6 +21,13 @@ typedef GizClawDeviceIdentifiersProvider =
 typedef GizClawToolHandler =
     FutureOr<Object?> Function(Map<String, Object?> arguments);
 
+/// Receives `client.social.ping`: a Friend pinged this device, or a Friend
+/// Group member rallied the group when `friendGroupName` is set. It should
+/// alert the user and return promptly; the Server counts an error or a late
+/// acknowledgement as not delivered.
+typedef GizClawSocialPingHandler =
+    FutureOr<void> Function(payload.ClientSocialPingRequest request);
+
 /// Thrown by a device control handler to answer the Server with a specific
 /// RPC error code, for example `INVALID_PARAMS` for an unknown sound or
 /// `NOT_FOUND` for an unknown saved network.
@@ -83,6 +90,7 @@ class GizClawDeviceControlHandlers {
     this.status,
     this.setVolume,
     this.playSound,
+    this.find,
     this.reboot,
     this.wifiStatus,
     this.savedWifi,
@@ -96,6 +104,10 @@ class GizClawDeviceControlHandlers {
   final FutureOr<payload.PeerStatus> Function()? status;
   final FutureOr<payload.PeerStatus> Function(int level, bool muted)? setVolume;
   final FutureOr<void> Function(String sound, int? durationMs)? playSound;
+
+  /// Rings the built-in find-me sound for `client.device.find`. `durationMs`
+  /// is null when the caller leaves the ring time to the device.
+  final FutureOr<void> Function(int? durationMs)? find;
   final FutureOr<void> Function(int? delayMs)? reboot;
   final FutureOr<payload.WifiStatus> Function()? wifiStatus;
   final FutureOr<List<payload.WifiSavedNetwork>> Function()? savedWifi;
@@ -122,6 +134,7 @@ class GizClawPeerRpcHandlers {
     Map<String, GizClawToolHandler> tools = const {},
     this.deviceControl,
     this.deviceIdentifiers,
+    this.socialPing,
   }) : tools = Map.unmodifiable(tools);
 
   final GizClawDeviceInfoProvider deviceInfo;
@@ -132,6 +145,11 @@ class GizClawPeerRpcHandlers {
   /// [deviceInfo] are used, so a device that already reports them there needs
   /// no separate provider.
   final GizClawDeviceIdentifiersProvider? deviceIdentifiers;
+
+  /// Answers `client.social.ping`. When null the device answers
+  /// `METHOD_NOT_FOUND`, which the Server counts as not delivered. Throw
+  /// [GizClawDeviceControlException] to answer a specific RPC error code.
+  final GizClawSocialPingHandler? socialPing;
 }
 
 const _deviceControlMethods = {
@@ -146,6 +164,7 @@ const _deviceControlMethods = {
   'client.device.status.get',
   'client.device.volume.set',
   'client.device.sound.play',
+  'client.device.find',
   'client.device.reboot',
   'client.wifi.status.get',
   'client.wifi.saved.list',
@@ -333,6 +352,7 @@ class _InboundPeerRpcChannel {
       case 'client.device.status.get':
       case 'client.device.volume.set':
       case 'client.device.sound.play':
+      case 'client.device.find':
       case 'client.device.reboot':
       case 'client.wifi.status.get':
       case 'client.wifi.saved.list':
@@ -340,6 +360,7 @@ class _InboundPeerRpcChannel {
       case 'client.wifi.scan':
       case 'client.wifi.connect':
       case 'client.firmware.update':
+      case 'client.social.ping':
         return;
       default:
         _ignoreBody = true;
@@ -363,6 +384,7 @@ class _InboundPeerRpcChannel {
         'client.info.get' => await _getClientInfo(request),
         'client.identifiers.get' => await _getClientIdentifiers(request),
         'client.tool.invoke' => await _invokeClientTool(request),
+        'client.social.ping' => await _serveSocialPing(request),
         _ when _deviceControlMethods.contains(methodName) =>
           await _serveDeviceControl(request, methodName),
         _ => throw StateError('unsupported client method: $methodName'),
@@ -504,6 +526,46 @@ class _InboundPeerRpcChannel {
     }
   }
 
+  Future<rpc.RpcResponse> _serveSocialPing(rpc.RpcRequest request) async {
+    const methodName = 'client.social.ping';
+    late payload.ClientSocialPingRequest params;
+    try {
+      params =
+          decodeRpcRequestPayload(
+                methodName,
+                request.hasPayload() ? request.payload : const [],
+              )
+              as payload.ClientSocialPingRequest;
+    } catch (_) {
+      return _rpcErrorResponse(
+        request.id,
+        rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
+        'invalid params',
+      );
+    }
+    if (params.fromPeerPublicKey.isEmpty) {
+      return _rpcErrorResponse(
+        request.id,
+        rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
+        'invalid params',
+      );
+    }
+    final handler = handlers?.socialPing;
+    if (handler == null) {
+      return _rpcErrorResponse(
+        request.id,
+        rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED,
+        'unsupported method: $methodName',
+      );
+    }
+    await handler(params);
+    return _rpcPayloadResponse(
+      request.id,
+      methodName,
+      payload.ClientSocialPingResponse(),
+    );
+  }
+
   Future<rpc.RpcResponse> _serveDeviceControl(
     rpc.RpcRequest request,
     String methodName,
@@ -638,6 +700,20 @@ class _InboundPeerRpcChannel {
           request.id,
           methodName,
           payload.ClientDeviceSoundPlayResponse(),
+        );
+      case 'client.device.find':
+        final handler = handlers?.find;
+        if (handler == null) return unsupported();
+        final find = params as payload.ClientDeviceFindRequest;
+        final durationMs = find.hasDurationMs()
+            ? find.durationMs.toInt()
+            : null;
+        if (durationMs != null && durationMs < 0) return invalid();
+        await handler(durationMs);
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          payload.ClientDeviceFindResponse(),
         );
       case 'client.device.reboot':
         final handler = handlers?.reboot;
@@ -877,6 +953,7 @@ class _InboundPeerRpcChannel {
     return methodName == 'client.info.get' ||
         methodName == 'client.identifiers.get' ||
         methodName == 'client.tool.invoke' ||
+        methodName == 'client.social.ping' ||
         _deviceControlMethods.contains(methodName);
   }
 

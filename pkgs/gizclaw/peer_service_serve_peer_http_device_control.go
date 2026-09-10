@@ -348,6 +348,45 @@ func playDeviceSoundError(e *deviceControlError) peerhttp.PlayDeviceSoundRespons
 	}
 }
 
+func (s *peerHTTP) FindDevice(ctx context.Context, request peerhttp.FindDeviceRequestObject) (peerhttp.FindDeviceResponseObject, error) {
+	owner, err := publicHTTPOwner(ctx)
+	if err != nil {
+		return peerhttp.FindDevice401JSONResponse{UnauthorizedJSONResponse: peerhttp.UnauthorizedJSONResponse(unauthorizedPublicHTTP())}, nil
+	}
+	params := rpcapi.ClientDeviceFindRequest{}
+	if request.Body != nil {
+		if request.Body.DurationMs != nil && *request.Body.DurationMs < 0 {
+			return peerhttp.FindDevice400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(apiError(publicHTTPInvalidRequestCode, "duration_ms must not be negative"))}, nil
+		}
+		params.DurationMs = request.Body.DurationMs
+	}
+	_, controlErr := callDeviceControl(ctx, s.DeviceControl, owner, deviceControlOptions{}, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcapi.ClientDeviceFindResponse, error) {
+		return client.FindDevice(ctx, conn, "client.device.find", params)
+	}, nil)
+	if controlErr != nil {
+		return findDeviceError(controlErr), nil
+	}
+	return peerhttp.FindDevice204Response{}, nil
+}
+
+func findDeviceError(e *deviceControlError) peerhttp.FindDeviceResponseObject {
+	body := e.response()
+	switch e.Status {
+	case http.StatusBadRequest:
+		return peerhttp.FindDevice400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(body)}
+	case http.StatusConflict:
+		return peerhttp.FindDevice409JSONResponse{DeviceOfflineJSONResponse: peerhttp.DeviceOfflineJSONResponse(body)}
+	case http.StatusNotImplemented:
+		return peerhttp.FindDevice501JSONResponse{DeviceUnsupportedJSONResponse: peerhttp.DeviceUnsupportedJSONResponse(body)}
+	case http.StatusGatewayTimeout:
+		return peerhttp.FindDevice504JSONResponse{DeviceTimeoutJSONResponse: peerhttp.DeviceTimeoutJSONResponse(body)}
+	case http.StatusInternalServerError:
+		return peerhttp.FindDevice500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(body)}
+	default:
+		return peerhttp.FindDevice502JSONResponse{DeviceErrorJSONResponse: peerhttp.DeviceErrorJSONResponse(body)}
+	}
+}
+
 func (s *peerHTTP) RebootDevice(ctx context.Context, request peerhttp.RebootDeviceRequestObject) (peerhttp.RebootDeviceResponseObject, error) {
 	owner, err := publicHTTPOwner(ctx)
 	if err != nil {
