@@ -72,14 +72,6 @@ func (s *Server) ListWorkspaceHistory(ctx context.Context, workspaceName string,
 	return store.List(ctx, req)
 }
 
-func (s *Server) ListWorkspaceHistoryByID(ctx context.Context, workspaceID string, req apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
-	store, err := s.historyStoreByID(ctx, workspaceID)
-	if err != nil {
-		return apitypes.PeerRunHistoryListResponse{}, err
-	}
-	return store.List(ctx, req)
-}
-
 // ListWorkspaceHistoryPage returns one internal History page for Server-owned
 // projections that need authoritative entry and asset metadata.
 func (s *Server) ListWorkspaceHistoryPage(ctx context.Context, workspaceName string, req apitypes.PeerRunHistoryListRequest) (HistoryEntryPage, error) {
@@ -155,12 +147,12 @@ func (s *Server) LatestWorkspaceHistoryEntryBeforeByID(ctx context.Context, work
 	return store.LatestEntryBefore(ctx, before)
 }
 
-func (s *Server) AdminListWorkspaceHistory(ctx context.Context, workspaceName string, req apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
+func (s *Server) AdminListWorkspaceHistory(ctx context.Context, workspaceName string, req apitypes.PeerRunHistoryListRequest, filter HistoryFilter) (apitypes.PeerRunHistoryListResponse, error) {
 	store, err := s.adminHistoryStoreByID(ctx, workspaceName)
 	if err != nil {
 		return apitypes.PeerRunHistoryListResponse{}, err
 	}
-	return store.List(ctx, req)
+	return store.Search(ctx, req, filter)
 }
 
 func (s *Server) GetWorkspaceHistory(ctx context.Context, workspaceName, historyID string) (HistoryEntry, error) {
@@ -343,12 +335,12 @@ func bumpWorkspaceLastActive(ctx context.Context, db *sqlx.DB, name string, acti
 
 // SearchWorkspaceHistoryByID queries persisted history without selecting a runtime.
 // Callers must enforce access to the Workspace before invoking this method.
-func (s *Server) SearchWorkspaceHistoryByID(ctx context.Context, id string, req apitypes.PeerRunHistoryListRequest, text string) (apitypes.PeerRunHistoryListResponse, error) {
+func (s *Server) SearchWorkspaceHistoryByID(ctx context.Context, id string, req apitypes.PeerRunHistoryListRequest, filter HistoryFilter) (apitypes.PeerRunHistoryListResponse, error) {
 	store, err := s.historyStoreByID(ctx, id)
 	if err != nil {
 		return apitypes.PeerRunHistoryListResponse{}, err
 	}
-	return store.Search(ctx, req, text)
+	return store.Search(ctx, req, filter)
 }
 
 // ListOwnedHistoryWorkspaces includes domain-owned Workspaces (such as Pets)

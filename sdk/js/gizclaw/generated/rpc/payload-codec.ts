@@ -1174,6 +1174,8 @@ export type WorkspaceHistoryListRequest = {
   "limit"?: number;
   "order"?: WorkspaceHistoryListRequestOrder;
   "workspace_name": string;
+  "start_time_ms"?: number;
+  "end_time_ms"?: number;
 };
 export type WorkspaceHistoryListResponse = PeerRunHistoryListResponse;
 export type WorkspaceIconDownloadRequest = {
@@ -6507,6 +6509,18 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "workspace_name",
         "number": 4,
         "type": "string"
+      },
+      {
+        "name": "start_time_ms",
+        "number": 5,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "end_time_ms",
+        "number": 6,
+        "optional": true,
+        "type": "int64"
       }
     ]
   },

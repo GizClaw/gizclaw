@@ -21,7 +21,7 @@ import (
 )
 
 type adminWorkspaceHistoryService interface {
-	AdminListWorkspaceHistory(context.Context, string, apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error)
+	AdminListWorkspaceHistory(context.Context, string, apitypes.PeerRunHistoryListRequest, workspace.HistoryFilter) (apitypes.PeerRunHistoryListResponse, error)
 	AdminGetWorkspaceHistory(context.Context, string, string) (workspace.HistoryEntry, error)
 	AdminReadWorkspaceHistoryAudio(context.Context, string, string) (io.ReadCloser, int64, error)
 }
@@ -660,7 +660,11 @@ func (s *adminService) ListWorkspaceHistory(ctx context.Context, request adminht
 		order := apitypes.PeerRunHistoryListRequestOrder(*request.Params.Order)
 		req.Order = &order
 	}
-	resp, err := history.AdminListWorkspaceHistory(ctx, request.Id, req)
+	filter, validRange := workspace.HistoryTimeFilter(request.Params.StartTimeMs, request.Params.EndTimeMs)
+	if !validRange {
+		return adminhttp.ListWorkspaceHistory400JSONResponse(apitypes.NewErrorResponse("INVALID_REQUEST", "invalid history time range")), nil
+	}
+	resp, err := history.AdminListWorkspaceHistory(ctx, request.Id, req, filter)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {

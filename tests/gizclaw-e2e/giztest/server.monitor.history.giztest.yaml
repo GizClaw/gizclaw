@@ -1,7 +1,7 @@
 # User Story:
 # As a device owner using Monitor,
-# I want the owning Server to enforce my runtime access setting on every monitor API,
-# So that a public key never bypasses disabled access or Workspace ownership.
+# I want the owning Server to enforce ownership and page my chat history by time range and order over HTTP and Peer RPC,
+# So that I can jump to any day while a public key never bypasses disabled access or Workspace ownership.
 version: gizclaw.test/v1alpha1
 name: server.monitor.history
 clients:
@@ -18,6 +18,9 @@ variables:
   other_key: {direction: output, type: string, secret: true}
   first_entry: {direction: output, type: string}
   history_cursor: {direction: output, type: string}
+  oldest_entry: {direction: output, type: string}
+  range_entry: {direction: output, type: string}
+  range_cursor: {direction: output, type: string}
 steps:
   - id: register
     client: peer
@@ -106,6 +109,136 @@ steps:
     expect:
       /items: {count: 0}
       /has_next: {equals: false}
+  - id: oldest_history_page
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history?query=Monitor&order=asc&limit=1
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 200
+    capture: {oldest_entry: /items/0/name}
+    expect:
+      /items: {count: 1}
+      /items/0/text: {contains: first}
+      /has_next: {equals: true}
+  - id: newer_than_oldest
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history?query=Monitor&order=asc&limit=1&cursor=${oldest_entry}
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 200
+    expect:
+      /items: {count: 1}
+      /items/0/text: {contains: Monitor}
+      /items/0/name: {not_contains: "${oldest_entry}"}
+  - id: history_before_all
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history?query=Monitor&end_time_ms=1
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 200
+    expect:
+      /items: {count: 0}
+      /has_next: {equals: false}
+  - id: history_after_all
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history?query=Monitor&order=asc&start_time_ms=4102444800000
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 200
+    expect:
+      /items: {count: 0}
+      /has_next: {equals: false}
+  - id: history_within_range
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history?query=Monitor&start_time_ms=1&end_time_ms=4102444800000&limit=1
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 200
+    capture: {range_entry: /items/0/name, range_cursor: /next_cursor}
+    expect:
+      /items: {count: 1}
+      /has_next: {equals: true}
+  - id: history_range_continuation
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history?query=Monitor&start_time_ms=1&end_time_ms=4102444800000&limit=1&cursor=${range_cursor}
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 200
+    expect:
+      /items: {count: 1}
+      /items/0/name: {not_contains: "${range_entry}"}
+  - id: history_inverted_range
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history?start_time_ms=2&end_time_ms=1
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 400
+    expect:
+      /error/code: {equals: INVALID_REQUEST}
+  - id: history_unknown_order
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history?order=sideways
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 400
+    expect:
+      /error/code: {equals: INVALID_REQUEST}
+  - id: rpc_oldest_history
+    client: peer
+    rpc:
+      method: server.workspace.history.list
+      request: {workspace_name: "${workspace_name}", order: WORKSPACE_HISTORY_LIST_REQUEST_ORDER_ASC, limit: 1}
+    expect:
+      /items: {count: 1}
+      /items/0/text: {contains: first}
+      /has_next: {equals: true}
+  - id: rpc_newer_than_oldest
+    client: peer
+    rpc:
+      method: server.workspace.history.list
+      request: {workspace_name: "${workspace_name}", order: WORKSPACE_HISTORY_LIST_REQUEST_ORDER_ASC, limit: 1, cursor: "${oldest_entry}"}
+    expect:
+      /items: {count: 1}
+      /items/0/name: {not_contains: "${oldest_entry}"}
+  - id: rpc_history_before_all
+    client: peer
+    rpc:
+      method: server.workspace.history.list
+      request: {workspace_name: "${workspace_name}", order: WORKSPACE_HISTORY_LIST_REQUEST_ORDER_DESC, end_time_ms: 1}
+    expect:
+      /items: {count: 0}
+      /has_next: {equals: false}
+  - id: rpc_history_after_all
+    client: peer
+    rpc:
+      method: server.workspace.history.list
+      request: {workspace_name: "${workspace_name}", order: WORKSPACE_HISTORY_LIST_REQUEST_ORDER_ASC, start_time_ms: 4102444800000}
+    expect:
+      /items: {count: 0}
+      /has_next: {equals: false}
+  - id: rpc_history_within_range
+    client: peer
+    rpc:
+      method: server.workspace.history.list
+      request: {workspace_name: "${workspace_name}", order: WORKSPACE_HISTORY_LIST_REQUEST_ORDER_DESC, start_time_ms: 1, end_time_ms: 4102444800000, limit: 1}
+    expect:
+      /items: {count: 1}
+      /has_next: {equals: true}
+  - id: rpc_history_inverted_range
+    client: peer
+    rpc:
+      method: server.workspace.history.list
+      request: {workspace_name: "${workspace_name}", start_time_ms: 2, end_time_ms: 1}
+    expect_error:
+      code: 3
   - id: register_other
     client: other
     rpc: {method: server.register, request: {token: "${registration_token}"}}

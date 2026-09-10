@@ -89,8 +89,13 @@ go build ./cmd/gizclaw
 `GET /gizclaw/v1/device/workspaces` 只列出该 Peer 明确拥有的 Workspace（含系统 Workspace），
 按 Workflow 分组，不返回共享和无 owner 的空间。
 `GET /gizclaw/v1/device/workspaces/{workspaceId}/history` 从持久化 History 查询文本并游标
-分页，每页最多 200 条（控制台使用 100 条）。游标是 entry ID 时间边界，不是授权凭证，格式非法
-返回 400 `INVALID_HISTORY_CURSOR`。浏览历史不启动 Agent。音频通过同路径下的
+分页，每页最多 200 条（控制台使用 100 条）。`order` 默认 `desc`（最新在前），也可为 `asc`；
+可选的 `start_time_ms`（含）与 `end_time_ms`（不含）按 Unix 毫秒限定创建时间，续页请求同样生效。
+游标是不含自身的 entry ID 时间边界：传上一页的 `next_cursor` 按同一方向继续，或传任一条目的
+`name` 按所请求方向离开该条目。控制台用 `end_time_ms` 跳到所选日期当天结束之前的记录，再用
+`desc` 续页读更早的记录、用最上面条目的 `name` 加 `asc` 读更新的记录。游标不是授权凭证，格式非法
+返回 400 `INVALID_HISTORY_CURSOR`；`start_time_ms` 不早于 `end_time_ms` 等非法参数返回 400
+`INVALID_REQUEST`。浏览历史不启动 Agent。音频通过同路径下的
 `/{historyId}/audio.ogg` 认证读取。
 
 `GET /gizclaw/v1/device/telemetry/{field}/latest` 返回单个字段的最新采样；

@@ -540,9 +540,16 @@ func TestAdminWorkspaceHistoryHandlersServePersistedHistoryAndOggAudio(t *testin
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{WorkspaceAdminService: history}, nil))
 
-	rec := serveAdminAsset(app, http.MethodGet, "/workspaces/workspace-a/history?order=asc&limit=1", "")
+	rec := serveAdminAsset(app, http.MethodGet, "/workspaces/workspace-a/history?order=asc&limit=1&start_time_ms=1781308800000&end_time_ms=1781395200000", "")
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"id":"history-a"`) {
 		t.Fatalf("GET history status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if history.req.Order == nil || *history.req.Order != apitypes.PeerRunHistoryListRequestOrderAsc || !history.filter.Start.Equal(time.UnixMilli(1781308800000)) || !history.filter.End.Equal(time.UnixMilli(1781395200000)) {
+		t.Fatalf("history query req=%+v filter=%+v", history.req, history.filter)
+	}
+	rec = serveAdminAsset(app, http.MethodGet, "/workspaces/workspace-a/history?start_time_ms=2000&end_time_ms=1000", "")
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "INVALID_REQUEST") {
+		t.Fatalf("GET inverted history range status=%d body=%s", rec.Code, rec.Body.String())
 	}
 	rec = serveAdminAsset(app, http.MethodGet, "/workspaces/workspace-a/history/history-a", "")
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"text":"hello"`) {
@@ -828,9 +835,11 @@ func adminTestStringPtr(value string) *string {
 }
 
 type fakeAdminWorkspaceHistory struct {
-	list  apitypes.PeerRunHistoryListResponse
-	entry workspace.HistoryEntry
-	audio []byte
+	list   apitypes.PeerRunHistoryListResponse
+	entry  workspace.HistoryEntry
+	audio  []byte
+	req    apitypes.PeerRunHistoryListRequest
+	filter workspace.HistoryFilter
 }
 
 type fakeServerLogQuery struct {
@@ -869,7 +878,8 @@ func (f *fakeAdminWorkspaceHistory) PutWorkspace(context.Context, adminhttp.PutW
 	return nil, nil
 }
 
-func (f *fakeAdminWorkspaceHistory) AdminListWorkspaceHistory(context.Context, string, apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
+func (f *fakeAdminWorkspaceHistory) AdminListWorkspaceHistory(_ context.Context, _ string, req apitypes.PeerRunHistoryListRequest, filter workspace.HistoryFilter) (apitypes.PeerRunHistoryListResponse, error) {
+	f.req, f.filter = req, filter
 	return f.list, nil
 }
 

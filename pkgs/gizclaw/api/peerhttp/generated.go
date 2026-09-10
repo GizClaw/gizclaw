@@ -49,6 +49,24 @@ func (e SearchDeviceLogsParamsLevel) Valid() bool {
 	}
 }
 
+// Defines values for ListDeviceWorkspaceHistoryParamsOrder.
+const (
+	Asc  ListDeviceWorkspaceHistoryParamsOrder = "asc"
+	Desc ListDeviceWorkspaceHistoryParamsOrder = "desc"
+)
+
+// Valid indicates whether the value is a known member of the ListDeviceWorkspaceHistoryParamsOrder enum.
+func (e ListDeviceWorkspaceHistoryParamsOrder) Valid() bool {
+	switch e {
+	case Asc:
+		return true
+	case Desc:
+		return true
+	default:
+		return false
+	}
+}
+
 // APIKey defines model for APIKey.
 type APIKey struct {
 	// ApiKey Complete recoverable API key stored by the server.
@@ -333,10 +351,16 @@ type AggregateDeviceTelemetryParams struct {
 
 // ListDeviceWorkspaceHistoryParams defines parameters for ListDeviceWorkspaceHistory.
 type ListDeviceWorkspaceHistoryParams struct {
-	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
-	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
-	Query  *string `form:"query,omitempty" json:"query,omitempty"`
+	Cursor      *string                                `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit       *int                                   `form:"limit,omitempty" json:"limit,omitempty"`
+	Query       *string                                `form:"query,omitempty" json:"query,omitempty"`
+	Order       *ListDeviceWorkspaceHistoryParamsOrder `form:"order,omitempty" json:"order,omitempty"`
+	StartTimeMs *int64                                 `form:"start_time_ms,omitempty" json:"start_time_ms,omitempty"`
+	EndTimeMs   *int64                                 `form:"end_time_ms,omitempty" json:"end_time_ms,omitempty"`
 }
+
+// ListDeviceWorkspaceHistoryParamsOrder defines parameters for ListDeviceWorkspaceHistory.
+type ListDeviceWorkspaceHistoryParamsOrder string
 
 // CreateGiznetWebRTCOfferParams defines parameters for CreateGiznetWebRTCOffer.
 type CreateGiznetWebRTCOfferParams struct {
@@ -2889,6 +2913,42 @@ func NewListDeviceWorkspaceHistoryRequest(server string, workspaceId string, par
 		if params.Query != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "query", *params.Query, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Order != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "order", *params.Order, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.StartTimeMs != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start_time_ms", *params.StartTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.EndTimeMs != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end_time_ms", *params.EndTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -9392,6 +9452,27 @@ func (siw *ServerInterfaceWrapper) ListDeviceWorkspaceHistory(c *fiber.Ctx) erro
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "query", query, &params.Query, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter query: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "order" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "order", query, &params.Order, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter order: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "start_time_ms" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "start_time_ms", query, &params.StartTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter start_time_ms: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "end_time_ms" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "end_time_ms", query, &params.EndTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter end_time_ms: %w", err).Error())
 	}
 
 	handler := func(c *fiber.Ctx) error {

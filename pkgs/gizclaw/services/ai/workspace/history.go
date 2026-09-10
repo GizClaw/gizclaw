@@ -166,12 +166,44 @@ func (s *HistoryStore) Append(ctx context.Context, req AppendHistoryRequest) (Hi
 }
 
 func (s *HistoryStore) List(ctx context.Context, req apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
-	return s.Search(ctx, req, "")
+	return s.Search(ctx, req, HistoryFilter{})
 }
 
-// Search returns a page of persisted history matching text.
-func (s *HistoryStore) Search(ctx context.Context, req apitypes.PeerRunHistoryListRequest, text string) (apitypes.PeerRunHistoryListResponse, error) {
-	entries, hasNext, nextCursor, err := s.listMatching(ctx, req, text)
+// HistoryFilter narrows a History query. Zero fields leave that side open.
+type HistoryFilter struct {
+	// Text matches entry text literally.
+	Text string
+	// Start is the inclusive lower bound on entry creation time.
+	Start time.Time
+	// End is the exclusive upper bound on entry creation time.
+	End time.Time
+}
+
+// HistoryTimeFilter converts optional [start, end) Unix-millisecond bounds and
+// reports false when a bound is negative or the range is empty.
+func HistoryTimeFilter(startMs, endMs *int64) (HistoryFilter, bool) {
+	var filter HistoryFilter
+	if startMs != nil {
+		if *startMs < 0 {
+			return HistoryFilter{}, false
+		}
+		filter.Start = time.UnixMilli(*startMs).UTC()
+	}
+	if endMs != nil {
+		if *endMs < 0 {
+			return HistoryFilter{}, false
+		}
+		filter.End = time.UnixMilli(*endMs).UTC()
+	}
+	if startMs != nil && endMs != nil && *startMs >= *endMs {
+		return HistoryFilter{}, false
+	}
+	return filter, true
+}
+
+// Search returns a page of persisted history matching filter.
+func (s *HistoryStore) Search(ctx context.Context, req apitypes.PeerRunHistoryListRequest, filter HistoryFilter) (apitypes.PeerRunHistoryListResponse, error) {
+	entries, hasNext, nextCursor, err := s.listMatching(ctx, req, filter)
 	if err != nil {
 		return apitypes.PeerRunHistoryListResponse{}, err
 	}
@@ -400,10 +432,10 @@ func (e HistoryEntry) Public() apitypes.PeerRunHistoryEntry {
 }
 
 func (s *HistoryStore) listInternal(ctx context.Context, req apitypes.PeerRunHistoryListRequest) ([]HistoryEntry, bool, *string, error) {
-	return s.listMatching(ctx, req, "")
+	return s.listMatching(ctx, req, HistoryFilter{})
 }
 
-func (s *HistoryStore) listMatching(ctx context.Context, req apitypes.PeerRunHistoryListRequest, text string) ([]HistoryEntry, bool, *string, error) {
+func (s *HistoryStore) listMatching(ctx context.Context, req apitypes.PeerRunHistoryListRequest, filter HistoryFilter) ([]HistoryEntry, bool, *string, error) {
 	if err := ctxErr(ctx); err != nil {
 		return nil, false, nil, err
 	}
@@ -439,18 +471,29 @@ func (s *HistoryStore) listMatching(ctx context.Context, req apitypes.PeerRunHis
 	if err != nil {
 		return nil, false, nil, err
 	}
+	if !filter.Start.IsZero() && filter.Start.After(start) {
+		start = filter.Start
+	}
+	if !filter.End.IsZero() && filter.End.Before(end) {
+		end = filter.End
+	}
+	if !start.Before(end) {
+		return nil, false, nil, nil
+	}
 	out := make([]HistoryEntry, 0, limit)
 	storeCursor := ""
 	for {
 		page, err := s.Records.Query(ctx, logstore.Query{
 			Streams: []string{s.stream()},
 			Kinds:   []string{historyEntryTypeGear, historyEntryTypeAgent},
-			Text:    text,
+			Text:    filter.Text,
 			Start:   start,
 			End:     end,
-			Limit:   logstore.MaxLimit,
-			Order:   queryOrder,
-			Cursor:  storeCursor,
+			// One extra record detects has_next; entries skipped below are
+			// refilled by the next store page.
+			Limit:  limit + 1,
+			Order:  queryOrder,
+			Cursor: storeCursor,
 		})
 		if err != nil {
 			return nil, false, nil, fmt.Errorf("workspace history: query records: %w", err)

@@ -48,7 +48,7 @@ type Server struct {
 }
 
 type WorkspaceHistoryService interface {
-	ListWorkspaceHistoryByID(context.Context, string, apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error)
+	SearchWorkspaceHistoryByID(context.Context, string, apitypes.PeerRunHistoryListRequest, workspace.HistoryFilter) (apitypes.PeerRunHistoryListResponse, error)
 	ListWorkspaceHistoryPageByID(context.Context, string, apitypes.PeerRunHistoryListRequest) (workspace.HistoryEntryPage, error)
 	GetWorkspaceHistoryByID(context.Context, string, string) (workspace.HistoryEntry, error)
 	ReadWorkspaceHistoryAssetByID(context.Context, string, string) (io.ReadCloser, error)
@@ -845,7 +845,11 @@ func (s *Server) handleWorkspaceHistoryList(ctx context.Context, req *rpcapi.RPC
 	if params.Order != nil && !params.Order.Valid() {
 		return statusError(req.Id, rpcapi.StatusCodeInvalidArgument, "unsupported workspace history order")
 	}
-	workspace, rpcErr := s.ResolveAccessibleWorkspace(ctx, params.WorkspaceName)
+	filter, validRange := workspace.HistoryTimeFilter(params.StartTimeMs, params.EndTimeMs)
+	if !validRange {
+		return statusError(req.Id, rpcapi.StatusCodeInvalidArgument, "invalid workspace history time range")
+	}
+	target, rpcErr := s.ResolveAccessibleWorkspace(ctx, params.WorkspaceName)
 	if rpcErr != nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcErr.Code, Message: rpcErr.Message}.RPCResponse()
 	}
@@ -854,11 +858,11 @@ func (s *Server) handleWorkspaceHistoryList(ctx context.Context, req *rpcapi.RPC
 		converted := apitypes.PeerRunHistoryListRequestOrder(*params.Order)
 		order = &converted
 	}
-	list, err := history.ListWorkspaceHistoryByID(ctx, workspace.Id, apitypes.PeerRunHistoryListRequest{
+	list, err := history.SearchWorkspaceHistoryByID(ctx, target.Id, apitypes.PeerRunHistoryListRequest{
 		Cursor: params.Cursor,
 		Limit:  params.Limit,
 		Order:  order,
-	})
+	}, filter)
 	if err != nil {
 		return historyRPCResponse(req.Id, err)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -263,14 +264,14 @@ func TestHistorySearchPaginatesMatchingRecords(t *testing.T) {
 		}
 	}
 	limit := 1
-	first, err := store.Search(t.Context(), apitypes.PeerRunHistoryListRequest{Limit: &limit}, "orange")
+	first, err := store.Search(t.Context(), apitypes.PeerRunHistoryListRequest{Limit: &limit}, HistoryFilter{Text: "orange"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(first.Items) != 1 || first.Items[0].Text != "orange one" || !first.HasNext {
 		t.Fatalf("first page=%+v", first)
 	}
-	second, err := store.Search(t.Context(), apitypes.PeerRunHistoryListRequest{Limit: &limit, Cursor: first.NextCursor}, "orange")
+	second, err := store.Search(t.Context(), apitypes.PeerRunHistoryListRequest{Limit: &limit, Cursor: first.NextCursor}, HistoryFilter{Text: "orange"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -281,8 +282,68 @@ func TestHistorySearchPaginatesMatchingRecords(t *testing.T) {
 
 func TestHistorySearchRejectsMalformedCursor(t *testing.T) {
 	store := newTestHistoryStore(t, newTestObjectStore(t), "demo")
-	_, err := store.Search(t.Context(), apitypes.PeerRunHistoryListRequest{Cursor: new("not-a-history-id")}, "")
+	_, err := store.Search(t.Context(), apitypes.PeerRunHistoryListRequest{Cursor: new("not-a-history-id")}, HistoryFilter{})
 	if !errors.Is(err, ErrInvalidHistoryCursor) {
 		t.Fatalf("malformed cursor error = %v", err)
+	}
+}
+
+func TestHistorySearchJumpsToTimeAndPagesBothWays(t *testing.T) {
+	store := newTestHistoryStore(t, newTestObjectStore(t), "jump")
+	day := func(d, h int) time.Time { return time.Date(2026, 6, d, h, 0, 0, 0, time.UTC) }
+	var ids []string
+	for _, at := range []time.Time{day(1, 10), day(2, 9), day(2, 18), day(3, 8), day(4, 12)} {
+		entry, err := store.Append(t.Context(), AppendHistoryRequest{Type: "agent", Name: "assistant", Text: at.Format(time.RFC3339), CreatedAt: at})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, entry.ID)
+	}
+	names := func(resp apitypes.PeerRunHistoryListResponse) []string {
+		out := make([]string, 0, len(resp.Items))
+		for _, item := range resp.Items {
+			out = append(out, item.Name)
+		}
+		return out
+	}
+	desc := apitypes.PeerRunHistoryListRequestOrderDesc
+	asc := apitypes.PeerRunHistoryListRequestOrderAsc
+	limit := 2
+	endOfDay2 := HistoryFilter{End: day(3, 0)}
+
+	jump, err := store.Search(t.Context(), apitypes.PeerRunHistoryListRequest{Limit: &limit, Order: &desc}, endOfDay2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := names(jump); !slices.Equal(got, []string{ids[2], ids[1]}) || !jump.HasNext {
+		t.Fatalf("jump page=%v has_next=%v", got, jump.HasNext)
+	}
+	older, err := store.Search(t.Context(), apitypes.PeerRunHistoryListRequest{Limit: &limit, Order: &desc, Cursor: jump.NextCursor}, endOfDay2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := names(older); !slices.Equal(got, []string{ids[0]}) || older.HasNext {
+		t.Fatalf("older page=%v has_next=%v", got, older.HasNext)
+	}
+	newer, err := store.Search(t.Context(), apitypes.PeerRunHistoryListRequest{Limit: &limit, Order: &asc, Cursor: &jump.Items[0].Name}, HistoryFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := names(newer); !slices.Equal(got, []string{ids[3], ids[4]}) || newer.HasNext {
+		t.Fatalf("newer page=%v has_next=%v", got, newer.HasNext)
+	}
+	from, err := store.Search(t.Context(), apitypes.PeerRunHistoryListRequest{Order: &asc}, HistoryFilter{Start: day(2, 9), End: day(3, 8)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := names(from); !slices.Equal(got, []string{ids[1], ids[2]}) {
+		t.Fatalf("[start, end) page=%v", got)
+	}
+	empty, err := store.Search(t.Context(), apitypes.PeerRunHistoryListRequest{Order: &desc}, HistoryFilter{Start: day(3, 0), End: day(3, 0)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(empty.Items) != 0 || empty.HasNext {
+		t.Fatalf("empty range page=%+v", empty)
 	}
 }
