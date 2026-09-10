@@ -28,6 +28,9 @@ variables:
   alice_key:
     direction: output
     type: string
+  alice_j1_member:
+    direction: output
+    type: string
   j1_invite:
     direction: output
     type: string
@@ -82,6 +85,8 @@ steps:
   - id: alice_joins_j1
     client: alice
     rpc: {method: server.friend_group.join, request: {name: "${prefix}-j1", invite_token: "${j1_invite}"}}
+    capture:
+      alice_j1_member: /member/name
   - id: bob_creates_j2
     client: bob
     rpc: {method: server.friend_group.create, request: {name: "${prefix}-j2"}}
@@ -188,10 +193,11 @@ steps:
     rpc: {method: server.friend_group.list, request: {}}
     expect:
       /items: {count: 10}
-  # Leaving one group frees a slot.
+  # Leaving one group frees a slot. The membership name comes from alice's own
+  # join response.
   - id: alice_leaves_j1
     client: alice
-    rpc: {method: server.friend_group.members.delete, request: {friend_group_name: "${prefix}-j1", name: "${alice_key}"}}
+    rpc: {method: server.friend_group.members.delete, request: {friend_group_name: "${prefix}-j1", name: "${alice_j1_member}"}}
   - id: alice_joins_x_after_leaving
     client: alice
     rpc: {method: server.friend_group.join, request: {name: "${prefix}-x", invite_token: "${x_invite}"}}
