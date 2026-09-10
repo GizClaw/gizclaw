@@ -6,5 +6,6 @@
 
 - [API](./api)：选择和调用 Admin API、Peer RPC
 - [CLI](./cli)
+- [Terraform Provider](./terraform)：用 Terraform 管理 Admin Resource
 - [API Key](./api-keys)
 - SDK：[Go](./sdk/go) · [TypeScript](./sdk/typescript) · [Flutter](./sdk/flutter) · [C](./sdk/c)
