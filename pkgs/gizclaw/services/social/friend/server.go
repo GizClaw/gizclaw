@@ -1,6 +1,7 @@
 package friend
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -22,6 +23,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/google/uuid"
 )
 
 type WorkspaceService interface {
@@ -595,6 +597,54 @@ func friendCollectionKey(owner string) kv.Key {
 	return kv.Key{"friend-collections", socialutil.EscapeStoreSegment(strings.TrimSpace(owner))}
 }
 
+func peerFriendRevisionKey(owner string) kv.Key {
+	return kv.Key{"friend-peer-revisions", socialutil.EscapeStoreSegment(strings.TrimSpace(owner))}
+}
+
+// readPeerFriendCapacity rejects one more Friend for each Peer that already
+// has socialutil.PeerFriendLimit Friends. It returns each Peer's relationship
+// revision, read before its count, as the Conditions a creation must commit
+// under; every creation advances them. Retirements leave the revisions alone
+// because they only lower the count.
+func readPeerFriendCapacity(ctx context.Context, store kv.Store, peers ...string) ([]kv.Condition, error) {
+	conditions := make([]kv.Condition, 0, len(peers))
+	for _, peer := range peers {
+		key := peerFriendRevisionKey(peer)
+		revision, err := store.Get(ctx, key)
+		if errors.Is(err, kv.ErrNotFound) {
+			revision = nil
+		} else if err != nil {
+			return nil, err
+		}
+		friends, err := store.ListMembers(ctx, friendCollectionKey(peer))
+		if err != nil {
+			return nil, err
+		}
+		if len(friends) >= socialutil.PeerFriendLimit {
+			return nil, fmt.Errorf("%w: %d friends", ErrPeerFriendLimit, len(friends))
+		}
+		conditions = append(conditions, kv.Condition{Key: key, Expected: revision})
+	}
+	return conditions, nil
+}
+
+// peerFriendRevisionsChanged reports whether any revision guarded by
+// conditions moved after readPeerFriendCapacity read it.
+func peerFriendRevisionsChanged(ctx context.Context, store kv.Store, conditions []kv.Condition) (bool, error) {
+	for _, condition := range conditions {
+		current, err := store.Get(ctx, condition.Key)
+		if errors.Is(err, kv.ErrNotFound) {
+			current = nil
+		} else if err != nil {
+			return false, err
+		}
+		if !bytes.Equal(current, condition.Expected) || (current == nil) != (condition.Expected == nil) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // WorkspaceRecipientsByID returns the peers whose reciprocal relationship
 // binds the canonical Friend SFU Workspace.
 func (s *Server) WorkspaceRecipientsByID(ctx context.Context, workspaceID string) ([]string, error) {
@@ -1035,6 +1085,11 @@ func (s *Server) createFriend(
 				return rpcapi.FriendObject{}, err
 			}
 		}
+		// Reject before creating the Workspace; commitFriendCreation repeats
+		// the check under the Peer revisions.
+		if _, err := readPeerFriendCapacity(ctx, store, from, to); err != nil {
+			return rpcapi.FriendObject{}, err
+		}
 		intent, err := s.getOrCreateCreationIntent(
 			ctx,
 			store,
@@ -1059,7 +1114,11 @@ func (s *Server) createFriend(
 		if err != nil {
 			return rpcapi.FriendObject{}, err
 		}
-		return s.commitFriendCreation(ctx, store, from, to, intent, workspace)
+		item, err := s.commitFriendCreation(ctx, store, from, to, intent, workspace)
+		if errors.Is(err, errFriendCapacityChanged) {
+			continue
+		}
+		return item, err
 	}
 }
 
@@ -1261,6 +1320,18 @@ func (s *Server) commitFriendCreation(
 	workspace apitypes.Workspace,
 ) (rpcapi.FriendObject, error) {
 	relationID := socialutil.RelationID(from, to)
+	capacity, err := readPeerFriendCapacity(ctx, store, from, to)
+	if errors.Is(err, ErrPeerFriendLimit) {
+		// Cancel the pending creation so recovery does not keep retrying a
+		// relationship that can no longer fit, and release its Workspace.
+		if _, cancelErr := s.cancelFriendCreation(ctx, store, from, relationID, intent); cancelErr != nil {
+			return rpcapi.FriendObject{}, errors.Join(err, cancelErr)
+		}
+		return rpcapi.FriendObject{}, err
+	}
+	if err != nil {
+		return rpcapi.FriendObject{}, err
+	}
 	entries := make([]kv.Entry, 0, 2)
 	var ownerRow friendRecord
 	now := s.now()
@@ -1317,8 +1388,12 @@ func (s *Server) commitFriendCreation(
 	entries = append(entries, locatorEntries...)
 
 	entries = append(entries, kv.Entry{Key: creationDecisionKey(relationID, intent.IncarnationID), Value: decisionData})
+	conditions := append([]kv.Condition{{Key: creationDecisionKey(relationID, intent.IncarnationID)}}, capacity...)
+	for _, condition := range capacity {
+		entries = append(entries, kv.Entry{Key: condition.Key, Value: []byte(uuid.NewString())})
+	}
 	created, err := store.ApplyMutation(ctx, kv.Mutation{
-		Conditions: []kv.Condition{{Key: creationDecisionKey(relationID, intent.IncarnationID)}}, Entries: entries,
+		Conditions: conditions, Entries: entries,
 		AddMembers:        []kv.SetMembers{{Key: friendCollectionKey(from), Members: []string{relationID}}, {Key: friendCollectionKey(to), Members: []string{relationID}}, adminFriendDirectoryMembership(from, relationID), adminFriendDirectoryMembership(to, relationID)},
 		AddOrderedMembers: []kv.SetMembers{adminFriendMembership(from, relationID), adminFriendMembership(to, relationID), friendPageMembership(from, relationID), friendPageMembership(to, relationID)},
 	})
@@ -1327,6 +1402,13 @@ func (s *Server) commitFriendCreation(
 	}
 	if !created {
 		existingDecision, err := store.Get(ctx, creationDecisionKey(relationID, intent.IncarnationID))
+		if errors.Is(err, kv.ErrNotFound) {
+			if changed, changedErr := peerFriendRevisionsChanged(ctx, store, capacity); changedErr != nil {
+				return rpcapi.FriendObject{}, changedErr
+			} else if changed {
+				return rpcapi.FriendObject{}, errFriendCapacityChanged
+			}
+		}
 		if err != nil {
 			return rpcapi.FriendObject{}, err
 		}
@@ -1584,7 +1666,10 @@ func (s *Server) ReconcileCreationIntents(ctx context.Context) error {
 							current,
 							workspace,
 						)
-						if errors.Is(err, errFriendCreationCancelled) {
+						// A limit rejection already cancelled the creation; a
+						// capacity race leaves it for the next pass.
+						if errors.Is(err, errFriendCreationCancelled) || errors.Is(err, ErrPeerFriendLimit) ||
+							errors.Is(err, errFriendCapacityChanged) {
 							err = nil
 						}
 					}

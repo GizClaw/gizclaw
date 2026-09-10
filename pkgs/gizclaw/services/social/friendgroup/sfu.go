@@ -1,6 +1,7 @@
 package friendgroup
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/google/uuid"
 )
 
 // requireMemberCapacity rejects adding one more member when the Group already
@@ -26,6 +28,60 @@ func (s *Server) requireMemberCapacity(ctx context.Context, friendGroupID string
 		return fmt.Errorf("%w: %d members", ErrFriendGroupFull, len(members))
 	}
 	return nil
+}
+
+func peerGroupRevisionKey(peerID string) kv.Key {
+	return kv.Key{"friend-group-peer-revisions", socialutil.EscapeStoreSegment(peerID)}
+}
+
+// readPeerGroupCapacity rejects admitting peerID to one more Friend Group when
+// it already belongs to socialutil.PeerFriendGroupLimit groups. It returns the
+// Peer's membership revision, read before the count, so the admission can
+// commit only while that revision is unchanged; every admission advances it.
+// A nil revision means no admission has recorded one yet. Removals leave the
+// revision alone because they only lower the count.
+func (s *Server) readPeerGroupCapacity(ctx context.Context, peerID string) ([]byte, error) {
+	belongs, err := s.belongsStore()
+	if err != nil {
+		return nil, err
+	}
+	revision, err := belongs.Get(ctx, peerGroupRevisionKey(peerID))
+	if errors.Is(err, kv.ErrNotFound) {
+		revision = nil
+	} else if err != nil {
+		return nil, err
+	}
+	groups, err := belongs.ListMembers(ctx, belongCollectionKey(peerID))
+	if err != nil {
+		return nil, err
+	}
+	if len(groups) >= socialutil.PeerFriendGroupLimit {
+		return nil, fmt.Errorf("%w: %d groups", ErrPeerFriendGroupLimit, len(groups))
+	}
+	return revision, nil
+}
+
+// admitPeerToGroup guards mutation with the revision from
+// readPeerGroupCapacity and advances it. belongPrefix is the atomic prefix of
+// the belongs store.
+func (s *Server) admitPeerToGroup(mutation *kv.Mutation, belongPrefix kv.Key, peerID string, revision []byte) kv.Key {
+	key := s.relationshipKey(belongPrefix, peerGroupRevisionKey(peerID))
+	mutation.Conditions = append(mutation.Conditions, kv.Condition{Key: key, Expected: revision})
+	mutation.Entries = append(mutation.Entries, kv.Entry{Key: key, Value: []byte(uuid.NewString())})
+	return key
+}
+
+// peerGroupRevisionChanged reports whether a rejected admission lost its race
+// on the Peer membership revision rather than on another condition.
+func peerGroupRevisionChanged(ctx context.Context, store kv.Store, key kv.Key, revision []byte) (bool, error) {
+	current, err := store.Get(ctx, key)
+	if errors.Is(err, kv.ErrNotFound) {
+		return revision != nil, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return revision == nil || !bytes.Equal(current, revision), nil
 }
 
 // removeMember atomically deletes one membership together with its belongs

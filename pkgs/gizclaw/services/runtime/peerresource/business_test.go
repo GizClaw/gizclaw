@@ -38,6 +38,23 @@ func TestBusinessErrorMapsFriendGroupFullToResourceExhausted(t *testing.T) {
 	}
 }
 
+func TestBusinessErrorMapsPeerSocialLimitsToResourceExhausted(t *testing.T) {
+	for _, test := range []struct {
+		err     error
+		reason  string
+		message string
+	}{
+		{friendgroup.ErrPeerFriendGroupLimit, "FRIEND_GROUP_LIMIT_REACHED", "peer friend group limit reached"},
+		{friend.ErrPeerFriendLimit, "FRIEND_LIMIT_REACHED", "peer friend limit reached"},
+	} {
+		response := businessError("social", fmt.Errorf("wrapped: %w", test.err))
+		if response.Error == nil || response.Error.Code != rpcapi.StatusCodeResourceExhausted ||
+			response.Error.Reason != test.reason || response.Error.Message != test.message {
+			t.Fatalf("businessError(%v) = %#v", test.err, response)
+		}
+	}
+}
+
 func TestBusinessErrorMapsFriendInviteTokenErrors(t *testing.T) {
 	tests := []struct {
 		name    string

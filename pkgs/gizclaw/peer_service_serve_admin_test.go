@@ -59,6 +59,8 @@ func TestAdminSocialErrorMapsGroupConflicts(t *testing.T) {
 	}{
 		{err: friendgroup.ErrFriendGroupFull, code: "FRIEND_GROUP_FULL", message: friendgroup.ErrFriendGroupFull.Error()},
 		{err: friendgroup.ErrGroupChanged, code: "FRIEND_GROUP_CHANGED", message: friendgroup.ErrGroupChanged.Error()},
+		{err: friendgroup.ErrPeerFriendGroupLimit, code: "FRIEND_GROUP_LIMIT_REACHED", message: friendgroup.ErrPeerFriendGroupLimit.Error()},
+		{err: friend.ErrPeerFriendLimit, code: "FRIEND_LIMIT_REACHED", message: friend.ErrPeerFriendLimit.Error()},
 	} {
 		status, body := adminSocialError(fmt.Errorf("wrapped: %w", test.err))
 		if status != http.StatusConflict || body.Error.Code != test.code || body.Error.Message != test.message {
