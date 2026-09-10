@@ -4,8 +4,9 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type ReactNode,
 } from "react";
-import { CalendarDays, Pause, Play, Search, X } from "lucide-react";
+import { ArrowLeft, Pause, Play, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -40,39 +41,44 @@ type Timeline = {
   hasNewer: boolean;
 };
 
-/** Local midnight after `day` (YYYY-MM-DD): the exclusive end of that day. */
-function endOfDay(day: string): number {
-  const [year, month, date] = day.split("-").map(Number);
-  return new Date(year, month - 1, date + 1).getTime();
-}
+/** Search hits, newest first, paged toward older matches. */
+type Results = {
+  items: HistoryItem[];
+  older?: string;
+};
 
-function today(): string {
-  const now = new Date();
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-}
+/** Where the timeline starts: the newest entry, or one entry and its context. */
+type Anchor = { kind: "latest" } | { kind: "entry"; entry: HistoryItem };
 
 // Scrolling within this many pixels of an edge loads the next page there.
 const EDGE_PX = 48;
+// Context loaded around a located entry before edge paging takes over.
+const CONTEXT_NEWER = 20;
+const CONTEXT_OLDER = 40;
 
 /** Persisted Workspace history: what the device and the agent actually said. */
 export function PeerChat({ peer }: { peer: WatchedPeer }) {
   const [workspaces, setWorkspaces] = useState<Workspaces>([]);
   const [workspace, setWorkspace] = useState("");
+  const [anchor, setAnchor] = useState<Anchor>({ kind: "latest" });
   const [timeline, setTimeline] = useState<Timeline>();
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
-  const [day, setDay] = useState("");
+  const [results, setResults] = useState<Results>();
+  const [showResults, setShowResults] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [paging, setPaging] = useState<"older" | "newer">();
+  const [resultsBusy, setResultsBusy] = useState(false);
+  const [paging, setPaging] = useState<"older" | "newer" | "results">();
   const scroller = useRef<HTMLDivElement>(null);
   // One edge request at a time; a new query aborts it so a stale page can
-  // never be stitched onto a different timeline.
+  // never be stitched onto a different list.
   const pending = useRef<AbortController>(null);
   // Prepending newer entries must not move what the reader is looking at.
-  const anchor = useRef<{ height: number; top: number }>(null);
+  const keep = useRef<{ height: number; top: number }>(null);
+  // A located entry is scrolled into the middle once its context renders.
+  const reveal = useRef<string>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -96,21 +102,25 @@ export function PeerChat({ peer }: { peer: WatchedPeer }) {
     return () => controller.abort();
   }, [peer.endpoint, peer.publicKey]);
 
-  useEffect(() => {
-    if (workspace === "") return;
-    const controller = new AbortController();
+  const abortPaging = () => {
     pending.current?.abort();
     pending.current = null;
     setPaging(undefined);
+  };
+
+  useEffect(() => {
+    if (workspace === "") return;
+    const controller = new AbortController();
+    abortPaging();
     setBusy(true);
     setError("");
     const load = async (): Promise<Timeline> => {
-      if (day === "") {
+      if (anchor.kind === "latest") {
         const page = await loadHistory(
           peer.endpoint,
           peer.publicKey,
           workspace,
-          { query: search, order: "desc" },
+          { query: "", order: "desc" },
           controller.signal,
         );
         return {
@@ -119,36 +129,38 @@ export function PeerChat({ peer }: { peer: WatchedPeer }) {
           hasNewer: false,
         };
       }
-      // Jumping to a day shows that day's newest entries first, then older
-      // ones below; one probe tells whether anything exists after that day.
-      const end = endOfDay(day);
-      const [page, after] = await Promise.all([
+      // An entry's own name is an exclusive cursor in both directions, so the
+      // two reads return exactly what surrounds it.
+      const name = anchor.entry.name;
+      const [newer, older] = await Promise.all([
         loadHistory(
           peer.endpoint,
           peer.publicKey,
           workspace,
-          { query: search, order: "desc", endTimeMs: end },
+          { query: "", order: "asc", cursor: name, limit: CONTEXT_NEWER },
           controller.signal,
         ),
         loadHistory(
           peer.endpoint,
           peer.publicKey,
           workspace,
-          { query: search, order: "asc", startTimeMs: end, limit: 1 },
+          { query: "", order: "desc", cursor: name, limit: CONTEXT_OLDER },
           controller.signal,
         ),
       ]);
       return {
-        items: page.items,
-        older: page.has_next ? page.next_cursor : undefined,
-        hasNewer: after.items.length > 0,
+        items: [...[...newer.items].reverse(), anchor.entry, ...older.items],
+        older: older.has_next ? older.next_cursor : undefined,
+        hasNewer: newer.has_next,
       };
     };
     load()
       .then((result) => {
         if (controller.signal.aborted) return;
+        reveal.current = anchor.kind === "entry" ? anchor.entry.name : null;
         setTimeline(result);
-        if (scroller.current) scroller.current.scrollTop = 0;
+        if (anchor.kind === "latest" && scroller.current)
+          scroller.current.scrollTop = 0;
       })
       .catch((failure: unknown) => {
         if (!controller.signal.aborted) setError(nodeErrorMessage(failure));
@@ -161,38 +173,80 @@ export function PeerChat({ peer }: { peer: WatchedPeer }) {
       pending.current?.abort();
       pending.current = null;
     };
-  }, [peer.endpoint, peer.publicKey, workspace, search, day]);
+  }, [peer.endpoint, peer.publicKey, workspace, anchor]);
 
-  useLayoutEffect(() => {
-    const element = scroller.current;
-    const saved = anchor.current;
-    if (!element || !saved) return;
-    anchor.current = null;
-    element.scrollTop = saved.top + (element.scrollHeight - saved.height);
-  }, [timeline]);
-
-  const loadOlder = () => {
-    if (!timeline?.older || busy || pending.current) return;
+  useEffect(() => {
+    if (workspace === "" || search === "") {
+      setResults(undefined);
+      return;
+    }
     const controller = new AbortController();
-    pending.current = controller;
-    setPaging("older");
+    abortPaging();
+    setResultsBusy(true);
+    setError("");
     loadHistory(
       peer.endpoint,
       peer.publicKey,
       workspace,
-      { query: search, order: "desc", cursor: timeline.older },
+      { query: search, order: "desc" },
       controller.signal,
     )
       .then((page) => {
         if (controller.signal.aborted) return;
-        setTimeline(
-          (current) =>
-            current && {
-              ...current,
-              items: [...current.items, ...page.items],
-              older: page.has_next ? page.next_cursor : undefined,
-            },
-        );
+        setResults({
+          items: page.items,
+          older: page.has_next ? page.next_cursor : undefined,
+        });
+      })
+      .catch((failure: unknown) => {
+        if (!controller.signal.aborted) setError(nodeErrorMessage(failure));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setResultsBusy(false);
+      });
+    return () => controller.abort();
+  }, [peer.endpoint, peer.publicKey, workspace, search]);
+
+  useLayoutEffect(() => {
+    const element = scroller.current;
+    if (!element) return;
+    const saved = keep.current;
+    if (saved) {
+      keep.current = null;
+      element.scrollTop = saved.top + (element.scrollHeight - saved.height);
+      return;
+    }
+    const name = reveal.current;
+    if (name === null) return;
+    reveal.current = null;
+    const row = element.querySelector<HTMLElement>(
+      `[data-history="${CSS.escape(name)}"]`,
+    );
+    if (row) {
+      element.scrollTop =
+        row.offsetTop - element.clientHeight / 2 + row.offsetHeight / 2;
+    }
+  }, [timeline, showResults]);
+
+  const page = (
+    kind: "older" | "newer" | "results",
+    request: Parameters<typeof loadHistory>[3],
+    apply: (items: HistoryItem[], hasNext: boolean, next?: string) => void,
+  ) => {
+    if (busy || resultsBusy || pending.current) return;
+    const controller = new AbortController();
+    pending.current = controller;
+    setPaging(kind);
+    loadHistory(
+      peer.endpoint,
+      peer.publicKey,
+      workspace,
+      request,
+      controller.signal,
+    )
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        apply(result.items, result.has_next, result.next_cursor);
       })
       .catch((failure: unknown) => {
         if (!controller.signal.aborted) setError(nodeErrorMessage(failure));
@@ -204,81 +258,108 @@ export function PeerChat({ peer }: { peer: WatchedPeer }) {
       });
   };
 
+  const loadOlder = () => {
+    if (!timeline?.older) return;
+    page(
+      "older",
+      { query: "", order: "desc", cursor: timeline.older },
+      (items, hasNext, next) =>
+        setTimeline(
+          (current) =>
+            current && {
+              ...current,
+              items: [...current.items, ...items],
+              older: hasNext ? next : undefined,
+            },
+        ),
+    );
+  };
+
   const loadNewer = () => {
-    if (!timeline?.hasNewer || busy || pending.current) return;
-    const controller = new AbortController();
-    pending.current = controller;
-    setPaging("newer");
-    const top = timeline.items[0]?.name;
-    loadHistory(
-      peer.endpoint,
-      peer.publicKey,
-      workspace,
-      {
-        query: search,
-        order: "asc",
-        // An empty jump has no entry to page from; start after the day instead.
-        cursor: top,
-        startTimeMs:
-          top === undefined && day !== "" ? endOfDay(day) : undefined,
-      },
-      controller.signal,
-    )
-      .then((page) => {
-        if (controller.signal.aborted) return;
+    const top = timeline?.items[0]?.name;
+    if (!timeline?.hasNewer || top === undefined) return;
+    page(
+      "newer",
+      { query: "", order: "asc", cursor: top },
+      (items, hasNext) => {
         const element = scroller.current;
         if (element) {
-          anchor.current = {
+          keep.current = {
             height: element.scrollHeight,
             top: element.scrollTop,
           };
         }
-        // The server returns this page oldest first; it sits above the
-        // current newest entry, so its newest entry goes on top.
-        const newer = [...page.items].reverse();
+        // The server returns this page oldest first; it sits above the current
+        // newest entry, so its newest entry goes on top.
+        const newer = [...items].reverse();
         setTimeline(
           (current) =>
             current && {
               ...current,
               items: [...newer, ...current.items],
-              hasNewer: page.has_next,
+              hasNewer: hasNext,
             },
         );
-      })
-      .catch((failure: unknown) => {
-        if (!controller.signal.aborted) setError(nodeErrorMessage(failure));
-      })
-      .finally(() => {
-        if (pending.current !== controller) return;
-        pending.current = null;
-        setPaging(undefined);
-      });
+      },
+    );
+  };
+
+  const loadMoreResults = () => {
+    if (!results?.older) return;
+    page(
+      "results",
+      { query: search, order: "desc", cursor: results.older },
+      (items, hasNext, next) =>
+        setResults(
+          (current) =>
+            current && {
+              items: [...current.items, ...items],
+              older: hasNext ? next : undefined,
+            },
+        ),
+    );
   };
 
   const onScroll = () => {
     const element = scroller.current;
     if (!element) return;
+    const nearBottom =
+      element.scrollHeight - element.scrollTop - element.clientHeight < EDGE_PX;
+    if (showResults) {
+      if (nearBottom) loadMoreResults();
+      return;
+    }
     if (element.scrollTop < EDGE_PX) loadNewer();
-    if (
-      element.scrollHeight - element.scrollTop - element.clientHeight <
-      EDGE_PX
-    )
-      loadOlder();
+    if (nearBottom) loadOlder();
   };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    setSearch(query);
+    const text = query.trim();
+    setSearch(text);
+    setShowResults(text !== "");
+  };
+
+  const clearSearch = () => {
+    setQuery("");
+    setSearch("");
+    setShowResults(false);
+  };
+
+  const locate = (entry: HistoryItem) => {
+    setShowResults(false);
+    setAnchor({ kind: "entry", entry });
   };
 
   const selected = workspaces.find((item) => item.id === workspace);
+  const focused = anchor.kind === "entry" ? anchor.entry.name : undefined;
   return (
     <Card>
       <CardHeader>
         <CardTitle>对话记录</CardTitle>
         <CardDescription>
           {
-            "该设备拥有的 Workspace 及其持久化聊天记录，最新的在最上面。选择日期可跳到那一天，向上滚动读取更新的记录，向下滚动读取更早的记录。"
+            "该设备拥有的 Workspace 及其持久化聊天记录，最新的在最上面，向上滚动读取更新的记录，向下滚动读取更早的记录。搜索会列出命中的记录，点击一条即可定位到那个时间点并查看前后上下文。"
           }
         </CardDescription>
       </CardHeader>
@@ -303,9 +384,8 @@ export function PeerChat({ peer }: { peer: WatchedPeer }) {
                 value={workspace}
                 onChange={(event) => {
                   setWorkspace(event.target.value);
-                  setQuery("");
-                  setSearch("");
-                  setDay("");
+                  clearSearch();
+                  setAnchor({ kind: "latest" });
                   setTimeline(undefined);
                 }}
               >
@@ -326,43 +406,96 @@ export function PeerChat({ peer }: { peer: WatchedPeer }) {
                 <Button type="submit" variant="outline">
                   <Search size={14} /> 搜索
                 </Button>
+                {search !== "" && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearSearch}
+                  >
+                    <X size={13} /> 清除搜索
+                  </Button>
+                )}
               </form>
-              <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <CalendarDays size={14} />
-                <Input
-                  type="date"
-                  aria-label="跳到日期"
-                  value={day}
-                  max={today()}
-                  onChange={(event) => setDay(event.target.value)}
-                  className="w-40"
-                />
-              </label>
-              {day !== "" && (
-                <Button variant="ghost" size="sm" onClick={() => setDay("")}>
-                  <X size={13} /> 回到最新
-                </Button>
-              )}
               {selected && (
                 <span className="text-[11px] text-muted-foreground">
                   最后活跃 {new Date(selected.last_active_at).toLocaleString()}
                 </span>
               )}
             </div>
-            {busy ? (
+            {!showResults && (search !== "" || anchor.kind === "entry") && (
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                {anchor.kind === "entry" && (
+                  <span>
+                    已定位到 {formatStamp(anchor.entry.created_at)} 的记录
+                  </span>
+                )}
+                {search !== "" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowResults(true)}
+                  >
+                    <ArrowLeft size={13} /> 返回搜索结果
+                  </Button>
+                )}
+                {anchor.kind === "entry" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAnchor({ kind: "latest" })}
+                  >
+                    回到最新
+                  </Button>
+                )}
+              </div>
+            )}
+            {showResults ? (
+              resultsBusy ? (
+                <p className="text-xs text-muted-foreground">正在搜索…</p>
+              ) : results === undefined ? null : results.items.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  没有匹配“{search}”的记录。
+                </p>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  <p className="m-0 text-[11px] text-muted-foreground">
+                    “{search}”的搜索结果，点击一条记录定位到它的上下文。
+                  </p>
+                  <div
+                    ref={scroller}
+                    onScroll={onScroll}
+                    className="relative max-h-[70vh] overflow-y-auto rounded-md border border-border"
+                  >
+                    <div className="divide-y divide-border">
+                      {results.items.map((item) => (
+                        <ResultRow
+                          key={item.name}
+                          item={item}
+                          search={search}
+                          onSelect={() => locate(item)}
+                        />
+                      ))}
+                    </div>
+                    {results.older !== undefined && (
+                      <EdgeButton
+                        busy={paging === "results"}
+                        label="更多结果"
+                        onClick={loadMoreResults}
+                      />
+                    )}
+                  </div>
+                </div>
+              )
+            ) : busy ? (
               <p className="text-xs text-muted-foreground">正在读取历史记录…</p>
-            ) : timeline === undefined ? null : timeline.items.length === 0 &&
-              !timeline.hasNewer ? (
-              <p className="text-xs text-muted-foreground">
-                {day === ""
-                  ? "没有匹配的历史记录。"
-                  : "这一天及之前没有匹配的历史记录。"}
-              </p>
+            ) : timeline === undefined ? null : timeline.items.length === 0 ? (
+              <p className="text-xs text-muted-foreground">还没有聊天记录。</p>
             ) : (
               <div
                 ref={scroller}
                 onScroll={onScroll}
-                className="max-h-[70vh] overflow-y-auto rounded-md border border-border"
+                className="relative max-h-[70vh] overflow-y-auto rounded-md border border-border"
               >
                 {timeline.hasNewer && (
                   <EdgeButton
@@ -380,7 +513,7 @@ export function PeerChat({ peer }: { peer: WatchedPeer }) {
                       new Date(previous.created_at).toLocaleDateString() !==
                         date;
                     return (
-                      <div key={item.name}>
+                      <div key={item.name} data-history={item.name}>
                         {divider && (
                           <div className="bg-secondary/60 px-3 py-1 text-[10px] font-medium text-muted-foreground">
                             {date}
@@ -390,6 +523,7 @@ export function PeerChat({ peer }: { peer: WatchedPeer }) {
                           peer={peer}
                           workspace={workspace}
                           item={item}
+                          focused={item.name === focused}
                         />
                       </div>
                     );
@@ -408,6 +542,73 @@ export function PeerChat({ peer }: { peer: WatchedPeer }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function formatStamp(value: string): string {
+  const date = new Date(value);
+  return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+}
+
+/** Literal, case-sensitive highlighting, matching the server's text search. */
+function Highlight({ text, search }: { text: string; search: string }) {
+  if (search === "") return <>{text}</>;
+  const parts: ReactNode[] = [];
+  let from = 0;
+  for (
+    let at = text.indexOf(search);
+    at !== -1;
+    at = text.indexOf(search, from)
+  ) {
+    if (at > from) parts.push(text.slice(from, at));
+    parts.push(
+      <mark key={at} className="rounded-sm bg-[#f3e2d6] px-0.5 text-inherit">
+        {search}
+      </mark>,
+    );
+    from = at + search.length;
+  }
+  parts.push(text.slice(from));
+  return <>{parts}</>;
+}
+
+function ResultRow({
+  item,
+  search,
+  onSelect,
+}: {
+  item: HistoryItem;
+  search: string;
+  onSelect: () => void;
+}) {
+  const role = ROLES[item.type] ?? {
+    label: item.type,
+    className: "bg-secondary text-muted-foreground",
+  };
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="grid w-full cursor-pointer grid-cols-[auto_2.75rem_7rem_minmax(0,1fr)] items-baseline gap-3 px-3 py-1.5 text-left hover:bg-secondary/60"
+    >
+      <time className="font-mono text-[10px] whitespace-nowrap text-muted-foreground">
+        {formatStamp(item.created_at)}
+      </time>
+      <span
+        className={cn(
+          "rounded px-1.5 py-0.5 text-center text-[10px] font-medium",
+          role.className,
+        )}
+      >
+        {role.label}
+      </span>
+      <span className="truncate text-[11px] text-muted-foreground">
+        {item.actor_name || item.type}
+      </span>
+      <span className="text-xs leading-relaxed break-words whitespace-pre-wrap">
+        <Highlight text={item.text} search={search} />
+      </span>
+    </button>
   );
 }
 
@@ -440,10 +641,12 @@ function Message({
   peer,
   workspace,
   item,
+  focused = false,
 }: {
   peer: WatchedPeer;
   workspace: string;
   item: HistoryItem;
+  focused?: boolean;
 }) {
   // A transcript reads like a log: one line per turn, with the speaking side
   // named explicitly rather than implied by which edge it sits on.
@@ -452,7 +655,13 @@ function Message({
     className: "bg-secondary text-muted-foreground",
   };
   return (
-    <article className="grid grid-cols-[auto_2.75rem_7rem_minmax(0,1fr)_auto] items-baseline gap-3 px-3 py-1.5 hover:bg-secondary/60">
+    <article
+      aria-current={focused ? "true" : undefined}
+      className={cn(
+        "grid grid-cols-[auto_2.75rem_7rem_minmax(0,1fr)_auto] items-baseline gap-3 px-3 py-1.5 hover:bg-secondary/60",
+        focused && "bg-[#f3e2d6] hover:bg-[#f3e2d6]",
+      )}
+    >
       <time className="font-mono text-[10px] whitespace-nowrap text-muted-foreground">
         {new Date(item.created_at).toLocaleTimeString()}
       </time>

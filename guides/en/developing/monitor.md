@@ -117,9 +117,11 @@ optional `start_time_ms` (inclusive) and `end_time_ms` (exclusive) bound
 creation time in Unix milliseconds and still apply to continuation requests.
 History cursors are exclusive entry-ID timestamp boundaries: pass the previous
 `next_cursor` to continue in the same order, or any item `name` to page away
-from that item in the requested order. The console uses `end_time_ms` to jump
-to the entries before the end of a chosen day, continues with `desc` for older
-entries, and reads newer entries with `asc` from the topmost item `name`.
+from that item in the requested order. Console search lists only the entries
+matching `query`; selecting one reads its surroundings with that entry's `name`
+as the cursor in both `asc` and `desc`, locates and highlights it in the full
+timeline, then continues with `desc` for older entries and reads newer entries
+with `asc` from the topmost item `name`.
 Cursors are not authorization tokens; malformed values return 400
 `INVALID_HISTORY_CURSOR`, and invalid parameters such as a `start_time_ms` not
 before `end_time_ms` return 400 `INVALID_REQUEST`. Browsing does not start an
