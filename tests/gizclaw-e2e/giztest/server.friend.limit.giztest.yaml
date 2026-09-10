@@ -1,0 +1,199 @@
+# User Story:
+# As a GizClaw service operator,
+# I want every Peer capped at 10 Friends, counting relationships it started and relationships others started with it,
+# So that one device cannot keep an unbounded number of Friend SFU Workspaces live on the Server.
+version: gizclaw.test/v1alpha1
+name: server.friend.limit
+clients:
+  alice: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}", registration_token: "${registration_token}"}
+  o01: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}", registration_token: "${registration_token}"}
+  o02: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}", registration_token: "${registration_token}"}
+  o03: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}", registration_token: "${registration_token}"}
+  o04: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}", registration_token: "${registration_token}"}
+  o05: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}", registration_token: "${registration_token}"}
+  o06: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}", registration_token: "${registration_token}"}
+  o07: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}", registration_token: "${registration_token}"}
+  o08: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}", registration_token: "${registration_token}"}
+  o09: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}", registration_token: "${registration_token}"}
+  o10: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}", registration_token: "${registration_token}"}
+  stranger: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}", registration_token: "${registration_token}"}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  alice_invite:
+    direction: output
+    type: string
+    secret: true
+  o06_invite:
+    direction: output
+    type: string
+    secret: true
+  o07_invite:
+    direction: output
+    type: string
+    secret: true
+  o08_invite:
+    direction: output
+    type: string
+    secret: true
+  o09_invite:
+    direction: output
+    type: string
+    secret: true
+  o10_invite:
+    direction: output
+    type: string
+    secret: true
+  stranger_invite:
+    direction: output
+    type: string
+    secret: true
+  o06_name:
+    direction: output
+    type: string
+steps:
+  - id: alice_invite
+    client: alice
+    rpc: {method: server.friend.invite_token.create, request: {}}
+    capture:
+      alice_invite: /invite_token
+  # Half of alice's Friends add her through her own invite token.
+  - id: o01_adds_alice
+    client: o01
+    rpc: {method: server.friend.add, request: {invite_token: "${alice_invite}"}}
+  - id: o02_adds_alice
+    client: o02
+    rpc: {method: server.friend.add, request: {invite_token: "${alice_invite}"}}
+  - id: o03_adds_alice
+    client: o03
+    rpc: {method: server.friend.add, request: {invite_token: "${alice_invite}"}}
+  - id: o04_adds_alice
+    client: o04
+    rpc: {method: server.friend.add, request: {invite_token: "${alice_invite}"}}
+  - id: o05_adds_alice
+    client: o05
+    rpc: {method: server.friend.add, request: {invite_token: "${alice_invite}"}}
+  # The other half are added by alice through their invite tokens.
+  - id: o06_invite
+    client: o06
+    rpc: {method: server.friend.invite_token.create, request: {}}
+    capture:
+      o06_invite: /invite_token
+  - id: alice_adds_o06
+    client: alice
+    rpc: {method: server.friend.add, request: {invite_token: "${o06_invite}"}}
+    capture:
+      o06_name: /name
+  - id: o07_invite
+    client: o07
+    rpc: {method: server.friend.invite_token.create, request: {}}
+    capture:
+      o07_invite: /invite_token
+  - id: alice_adds_o07
+    client: alice
+    rpc: {method: server.friend.add, request: {invite_token: "${o07_invite}"}}
+  - id: o08_invite
+    client: o08
+    rpc: {method: server.friend.invite_token.create, request: {}}
+    capture:
+      o08_invite: /invite_token
+  - id: alice_adds_o08
+    client: alice
+    rpc: {method: server.friend.add, request: {invite_token: "${o08_invite}"}}
+  - id: o09_invite
+    client: o09
+    rpc: {method: server.friend.invite_token.create, request: {}}
+    capture:
+      o09_invite: /invite_token
+  - id: alice_adds_o09
+    client: alice
+    rpc: {method: server.friend.add, request: {invite_token: "${o09_invite}"}}
+  - id: o10_invite
+    client: o10
+    rpc: {method: server.friend.invite_token.create, request: {}}
+    capture:
+      o10_invite: /invite_token
+  - id: alice_adds_o10
+    client: alice
+    rpc: {method: server.friend.add, request: {invite_token: "${o10_invite}"}}
+  - id: alice_has_ten_friends
+    client: alice
+    rpc: {method: server.friend.list, request: {}}
+    expect:
+      /items: {count: 10}
+  - id: stranger_invite
+    client: stranger
+    rpc: {method: server.friend.invite_token.create, request: {}}
+    capture:
+      stranger_invite: /invite_token
+  - id: alice_adds_eleventh_rejected
+    client: alice
+    rpc: {method: server.friend.add, request: {invite_token: "${stranger_invite}"}}
+    expect_error:
+      code: 8 # RESOURCE_EXHAUSTED: alice already has 10 Friends
+      message_contains: peer friend limit reached
+  - id: stranger_adds_alice_rejected
+    client: stranger
+    rpc: {method: server.friend.add, request: {invite_token: "${alice_invite}"}}
+    expect_error:
+      code: 8 # RESOURCE_EXHAUSTED: the invite owner is full too
+      message_contains: peer friend limit reached
+  - id: alice_still_has_ten_friends
+    client: alice
+    rpc: {method: server.friend.list, request: {}}
+    expect:
+      /items: {count: 10}
+  # An existing Friend can still be re-added at the limit.
+  - id: alice_readds_o06
+    client: alice
+    rpc: {method: server.friend.add, request: {invite_token: "${o06_invite}"}}
+    expect:
+      /name: {equals: "${o06_name}"}
+  # Deleting one Friend frees a slot.
+  - id: alice_deletes_o06
+    client: alice
+    rpc: {method: server.friend.delete, request: {name: "${o06_name}"}}
+  - id: stranger_adds_alice_after_delete
+    client: stranger
+    rpc: {method: server.friend.add, request: {invite_token: "${alice_invite}"}}
+    expect:
+      /name: {non_empty: true}
+  - id: alice_back_to_ten_friends
+    client: alice
+    rpc: {method: server.friend.list, request: {}}
+    expect:
+      /items: {count: 10}
+finally:
+  - client: alice
+    rpc: {method: server.peer.delete, request: {}}
+  - client: o01
+    rpc: {method: server.peer.delete, request: {}}
+  - client: o02
+    rpc: {method: server.peer.delete, request: {}}
+  - client: o03
+    rpc: {method: server.peer.delete, request: {}}
+  - client: o04
+    rpc: {method: server.peer.delete, request: {}}
+  - client: o05
+    rpc: {method: server.peer.delete, request: {}}
+  - client: o06
+    rpc: {method: server.peer.delete, request: {}}
+  - client: o07
+    rpc: {method: server.peer.delete, request: {}}
+  - client: o08
+    rpc: {method: server.peer.delete, request: {}}
+  - client: o09
+    rpc: {method: server.peer.delete, request: {}}
+  - client: o10
+    rpc: {method: server.peer.delete, request: {}}
+  - client: stranger
+    rpc: {method: server.peer.delete, request: {}}
+report:
+  redact: [registration_token, alice_invite, o06_invite, o07_invite, o08_invite, o09_invite, o10_invite, stranger_invite]

@@ -145,7 +145,7 @@ func TestAdminFriendReadsBoundConcurrencyAndStopOnCancellation(t *testing.T) {
 
 func TestOwnerPagesBoundMembershipReads(t *testing.T) {
 	s := newTestServer()
-	for i := range 1000 {
+	for i := range socialutil.PeerFriendLimit {
 		id := fmt.Sprintf("item-%04d", i)
 		if _, err := s.AdminCreateFriend(t.Context(), "owner", id); err != nil {
 			t.Fatal(err)

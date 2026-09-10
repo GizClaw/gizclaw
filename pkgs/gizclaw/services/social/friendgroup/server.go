@@ -34,6 +34,9 @@ var (
 	// ErrFriendGroupFull reports that the Group already holds
 	// socialutil.FriendGroupMemberLimit members, including the owner.
 	ErrFriendGroupFull = errors.New("social: friend group is full")
+	// ErrPeerFriendGroupLimit reports that the Peer already belongs to
+	// socialutil.PeerFriendGroupLimit Friend Groups.
+	ErrPeerFriendGroupLimit = errors.New("social: peer friend group limit reached")
 	// ErrSFUNotConfigured reports that the Server has no SFU URL, so no Friend
 	// Group Workspace can be bound to an SFU Room.
 	ErrSFUNotConfigured = errors.New("social: SFU is not configured")
@@ -1582,16 +1585,22 @@ func (s *Server) createMember(ctx context.Context, friendGroupID, peerID string,
 	if err := s.requireMemberCapacity(ctx, friendGroupID); err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
+	peerRevision, err := s.readPeerGroupCapacity(ctx, peerID)
+	if err != nil {
+		return rpcapi.FriendGroupMemberObject{}, err
+	}
 	store, prefixes := guard.store, guard.prefixes
 	memberKey := s.relationshipKey(prefixes[0], socialutil.GroupMemberKey(friendGroupID, peerID))
 	belongKey := s.relationshipKey(prefixes[1], socialutil.GroupBelongKey(peerID, friendGroupID))
 	nameKey := s.relationshipKey(prefixes[1], socialutil.GroupNameKey(peerID, localName))
-	created, err := guard.apply(ctx, kv.Mutation{
+	mutation := kv.Mutation{
 		Conditions:        []kv.Condition{{Key: memberKey}, {Key: nameKey}},
 		Entries:           []kv.Entry{{Key: memberKey, Value: data}, {Key: nameKey, Value: []byte(friendGroupID)}, {Key: belongKey, Value: data}},
 		AddMembers:        []kv.SetMembers{{Key: s.relationshipKey(prefixes[0], memberCollectionKey(friendGroupID)), Members: []string{peerID}}, {Key: s.relationshipKey(prefixes[1], belongCollectionKey(peerID)), Members: []string{friendGroupID}}},
 		AddOrderedMembers: []kv.SetMembers{{Key: s.relationshipKey(prefixes[1], belongPageKey(peerID)), Members: []string{socialutil.EscapeStoreSegment(friendGroupID)}}},
-	}, false)
+	}
+	s.admitPeerToGroup(&mutation, prefixes[1], peerID, peerRevision)
+	created, err := guard.apply(ctx, mutation, false)
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}

@@ -17,6 +17,16 @@ const (
 	// room size; the cap is kept as a product limit for now and is
 	// deliberately not configurable.
 	FriendGroupMemberLimit = 10
+	// PeerFriendGroupLimit is the fixed number of Friend Groups one Peer may
+	// belong to, counting groups it created, joined, or was added to. Every
+	// membership keeps an SFU Workspace live for the Peer, so the cap bounds
+	// per-Peer Server cost and is deliberately not configurable.
+	PeerFriendGroupLimit = 10
+	// PeerFriendLimit is the fixed number of Friends one Peer may have,
+	// counting relationships in either direction. Every Friend keeps an SFU
+	// Workspace live for both Peers, so the cap bounds per-Peer Server cost and
+	// is deliberately not configurable.
+	PeerFriendLimit = 10
 )
 
 // SFUWorkspaceKind names which Social resource owns an SFU Workspace.

@@ -1,0 +1,209 @@
+# User Story:
+# As a GizClaw service operator,
+# I want every Peer capped at 10 Friend Groups, counting groups it created, joined by invite, or was added to,
+# So that one device cannot keep an unbounded number of Friend Group SFU Workspaces live on the Server.
+version: gizclaw.test/v1alpha1
+name: server.friend-group.limit
+clients:
+  alice: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}", registration_token: "${registration_token}"}
+  bob: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}", registration_token: "${registration_token}"}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  prefix:
+    direction: input
+    type: string
+    generate: token
+  alice_friend_invite:
+    direction: output
+    type: string
+    secret: true
+  alice_key:
+    direction: output
+    type: string
+  j1_invite:
+    direction: output
+    type: string
+    secret: true
+  j2_invite:
+    direction: output
+    type: string
+    secret: true
+  j3_invite:
+    direction: output
+    type: string
+    secret: true
+  x_invite:
+    direction: output
+    type: string
+    secret: true
+steps:
+  # bob learns alice's public key through a Friend relationship so he can add
+  # her to groups directly.
+  - id: alice_friend_invite
+    client: alice
+    rpc: {method: server.friend.invite_token.create, request: {}}
+    capture:
+      alice_friend_invite: /invite_token
+  - id: bob_adds_alice
+    client: bob
+    rpc: {method: server.friend.add, request: {invite_token: "${alice_friend_invite}"}}
+    capture:
+      alice_key: /name
+  # alice creates four groups.
+  - id: alice_creates_a1
+    client: alice
+    rpc: {method: server.friend_group.create, request: {name: "${prefix}-a1"}}
+  - id: alice_creates_a2
+    client: alice
+    rpc: {method: server.friend_group.create, request: {name: "${prefix}-a2"}}
+  - id: alice_creates_a3
+    client: alice
+    rpc: {method: server.friend_group.create, request: {name: "${prefix}-a3"}}
+  - id: alice_creates_a4
+    client: alice
+    rpc: {method: server.friend_group.create, request: {name: "${prefix}-a4"}}
+  # alice joins three of bob's groups through invite tokens.
+  - id: bob_creates_j1
+    client: bob
+    rpc: {method: server.friend_group.create, request: {name: "${prefix}-j1"}}
+  - id: bob_invites_j1
+    client: bob
+    rpc: {method: server.friend_group.invite_token.create, request: {friend_group_name: "${prefix}-j1"}}
+    capture:
+      j1_invite: /invite_token
+  - id: alice_joins_j1
+    client: alice
+    rpc: {method: server.friend_group.join, request: {name: "${prefix}-j1", invite_token: "${j1_invite}"}}
+  - id: bob_creates_j2
+    client: bob
+    rpc: {method: server.friend_group.create, request: {name: "${prefix}-j2"}}
+  - id: bob_invites_j2
+    client: bob
+    rpc: {method: server.friend_group.invite_token.create, request: {friend_group_name: "${prefix}-j2"}}
+    capture:
+      j2_invite: /invite_token
+  - id: alice_joins_j2
+    client: alice
+    rpc: {method: server.friend_group.join, request: {name: "${prefix}-j2", invite_token: "${j2_invite}"}}
+  - id: bob_creates_j3
+    client: bob
+    rpc: {method: server.friend_group.create, request: {name: "${prefix}-j3"}}
+  - id: bob_invites_j3
+    client: bob
+    rpc: {method: server.friend_group.invite_token.create, request: {friend_group_name: "${prefix}-j3"}}
+    capture:
+      j3_invite: /invite_token
+  - id: alice_joins_j3
+    client: alice
+    rpc: {method: server.friend_group.join, request: {name: "${prefix}-j3", invite_token: "${j3_invite}"}}
+  # bob adds alice to three more groups directly.
+  - id: bob_creates_m1
+    client: bob
+    rpc: {method: server.friend_group.create, request: {name: "${prefix}-m1"}}
+  - id: bob_adds_alice_to_m1
+    client: bob
+    rpc:
+      method: server.friend_group.members.add
+      request:
+        friend_group_name: "${prefix}-m1"
+        peer_public_key: "${alice_key}"
+        member_name: "${prefix}-m1"
+        role: FRIEND_GROUP_MEMBER_MUTABLE_ROLE_MEMBER
+  - id: bob_creates_m2
+    client: bob
+    rpc: {method: server.friend_group.create, request: {name: "${prefix}-m2"}}
+  - id: bob_adds_alice_to_m2
+    client: bob
+    rpc:
+      method: server.friend_group.members.add
+      request:
+        friend_group_name: "${prefix}-m2"
+        peer_public_key: "${alice_key}"
+        member_name: "${prefix}-m2"
+        role: FRIEND_GROUP_MEMBER_MUTABLE_ROLE_MEMBER
+  - id: bob_creates_m3
+    client: bob
+    rpc: {method: server.friend_group.create, request: {name: "${prefix}-m3"}}
+  - id: bob_adds_alice_to_m3
+    client: bob
+    rpc:
+      method: server.friend_group.members.add
+      request:
+        friend_group_name: "${prefix}-m3"
+        peer_public_key: "${alice_key}"
+        member_name: "${prefix}-m3"
+        role: FRIEND_GROUP_MEMBER_MUTABLE_ROLE_MEMBER
+  - id: alice_belongs_to_ten_groups
+    client: alice
+    rpc: {method: server.friend_group.list, request: {}}
+    expect:
+      /items: {count: 10}
+  - id: alice_creates_eleventh_rejected
+    client: alice
+    rpc: {method: server.friend_group.create, request: {name: "${prefix}-a5"}}
+    expect_error:
+      code: 8 # RESOURCE_EXHAUSTED: alice already belongs to 10 groups
+      message_contains: peer friend group limit reached
+  - id: bob_creates_x
+    client: bob
+    rpc: {method: server.friend_group.create, request: {name: "${prefix}-x"}}
+  - id: bob_invites_x
+    client: bob
+    rpc: {method: server.friend_group.invite_token.create, request: {friend_group_name: "${prefix}-x"}}
+    capture:
+      x_invite: /invite_token
+  - id: alice_joins_eleventh_rejected
+    client: alice
+    rpc: {method: server.friend_group.join, request: {name: "${prefix}-x", invite_token: "${x_invite}"}}
+    expect_error:
+      code: 8 # RESOURCE_EXHAUSTED
+      message_contains: peer friend group limit reached
+  - id: bob_adds_alice_to_eleventh_rejected
+    client: bob
+    rpc:
+      method: server.friend_group.members.add
+      request:
+        friend_group_name: "${prefix}-x"
+        peer_public_key: "${alice_key}"
+        member_name: "${prefix}-x"
+        role: FRIEND_GROUP_MEMBER_MUTABLE_ROLE_MEMBER
+    expect_error:
+      code: 8 # RESOURCE_EXHAUSTED
+      message_contains: peer friend group limit reached
+  - id: x_has_only_bob
+    client: bob
+    rpc: {method: server.friend_group.members.list, request: {friend_group_name: "${prefix}-x"}}
+    expect:
+      /items: {count: 1}
+  - id: alice_still_belongs_to_ten_groups
+    client: alice
+    rpc: {method: server.friend_group.list, request: {}}
+    expect:
+      /items: {count: 10}
+  # Leaving one group frees a slot.
+  - id: alice_leaves_j1
+    client: alice
+    rpc: {method: server.friend_group.members.delete, request: {friend_group_name: "${prefix}-j1", name: "${alice_key}"}}
+  - id: alice_joins_x_after_leaving
+    client: alice
+    rpc: {method: server.friend_group.join, request: {name: "${prefix}-x", invite_token: "${x_invite}"}}
+  - id: alice_back_to_ten_groups
+    client: alice
+    rpc: {method: server.friend_group.list, request: {}}
+    expect:
+      /items: {count: 10}
+finally:
+  - client: alice
+    rpc: {method: server.peer.delete, request: {}}
+  - client: bob
+    rpc: {method: server.peer.delete, request: {}}
+report:
+  redact: [registration_token, alice_friend_invite, j1_invite, j2_invite, j3_invite, x_invite]
