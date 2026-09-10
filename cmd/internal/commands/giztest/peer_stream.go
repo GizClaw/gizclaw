@@ -65,12 +65,12 @@ func (s *peerStreamSession) startReader() {
 	}
 }
 
-func (s *peerStreamSession) observeArrival(chunk *genx.MessageChunk, receivedAt time.Time) {
+func (s *peerStreamSession) observeArrival(chunk *genx.MessageChunk, receivedAt time.Time, audio peerAudioClass) {
 	s.mu.RLock()
 	arrivals := s.arrivals
 	s.mu.RUnlock()
 	if arrivals != nil {
-		arrivals.observe(chunk, receivedAt)
+		arrivals.observe(chunk, receivedAt, audio)
 	}
 }
 
@@ -298,7 +298,8 @@ func listenPeerStream(ctx context.Context, stream peerStream, step giztest.Step,
 	audioBytes, packets, events, droppedText := 0, 0, 0, 0
 	streams := make(map[string]struct{})
 	var firstTextMS, firstTranscriptMS, firstAudioMS, lastEventMS int64
-	firstTextObserved, firstTranscriptObserved, firstAudioObserved := false, false, false
+	firstTextObserved, firstTranscriptObserved := false, false
+	var lead peerAudioLead
 	observationOpen := false
 	defer func() {
 		if observeAudio != nil && observationOpen {
@@ -306,11 +307,11 @@ func listenPeerStream(ctx context.Context, stream peerStream, step giztest.Step,
 		}
 	}()
 	evidence := func() map[string]any {
-		return map[string]any{
+		return mapsWith(map[string]any{
 			"mode": "listen", "duration_ms": duration.Milliseconds(), "events": events, "audio_bytes": audioBytes,
 			"packets": packets, "streams": len(streams), "first_text_ms": firstTextMS,
 			"first_transcript_ms": firstTranscriptMS, "first_audio_ms": firstAudioMS, "last_event_ms": lastEventMS,
-		}
+		}, lead.fields())
 	}
 	counters := func() string {
 		return fmt.Sprintf("events=%d audio_bytes=%d packets=%d streams=%d", events, audioBytes, packets, len(streams))
@@ -322,12 +323,12 @@ func listenPeerStream(ctx context.Context, stream peerStream, step giztest.Step,
 				return operationResult{}, fmt.Errorf("play received audio: %w", err)
 			}
 		}
-		object := map[string]any{
+		object := mapsWith(map[string]any{
 			"text": texts, "audio_bytes": audioBytes, "packets": packets, "events": events, "streams": len(streams),
 			"first_text_ms": firstTextMS, "first_transcript_ms": firstTranscriptMS,
 			"first_audio_ms": firstAudioMS, "last_event_ms": lastEventMS, "duration_ms": duration.Milliseconds(),
 			"listened_ms": time.Since(started).Milliseconds(), "dropped_text": droppedText,
-		}
+		}, lead.fields())
 		result := evidence()
 		if summary := pacing.summary(); summary != nil {
 			object["audio_pacing"] = summary
@@ -426,8 +427,7 @@ func listenPeerStream(ctx context.Context, stream peerStream, step giztest.Step,
 				}
 				pacing.observe(result.receivedAt, opusPackets)
 				packets += len(opusPackets)
-				if !firstAudioObserved {
-					firstAudioObserved = true
+				if lead.observe(result.chunk, result.audio) {
 					firstAudioMS = max(int64(1), elapsed.Milliseconds())
 				}
 				if observeAudio != nil {
@@ -807,6 +807,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	var terminalErrors []string
 	var firstTranscriptMS, firstTextMS, firstAudioMS, textEOSMS, audioEOSMS, lastEventMS int64
 	var firstTextElapsed, firstAudioElapsed time.Duration
+	var lead peerAudioLead
 	firstTranscriptObserved, firstTextObserved, firstAudioObserved := false, false, false
 	textEOS, audioEOS := false, false
 	responses := make(map[string]*peerStreamResponseProgress)
@@ -825,7 +826,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 		evidence["deadline"] = deadline
 		evidence["first_text_ms"] = firstTextMS
 		evidence["first_audio_ms"] = firstAudioMS
-		return evidence
+		return mapsWith(evidence, lead.fields())
 	}
 	terminalLabel := strings.TrimSpace(op.TerminalLabel)
 	if terminalLabel == "" {
@@ -864,6 +865,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 		}
 		object := map[string]any{"text": texts, "audio_bytes": audioBytes, "events": events, "text_eos": textEOS, "audio_eos": audioEOS, "interrupted": interrupted, "interrupt_observed": observedInterrupted, "first_transcript_ms": firstTranscriptMS, "first_text_ms": firstTextMS, "first_audio_ms": firstAudioMS, "text_eos_ms": textEOSMS, "audio_eos_ms": audioEOSMS}
+		maps.Copy(object, lead.fields())
 		if inputSent {
 			object["input_sent"] = true
 			object["input_packets"] = inputPackets
@@ -894,6 +896,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 		evidence["audio_bytes"] = audioBytes
 		evidence["first_text_ms"] = firstTextMS
 		evidence["first_audio_ms"] = firstAudioMS
+		maps.Copy(evidence, lead.fields())
 		evidence["text_eos_ms"] = textEOSMS
 		evidence["audio_eos_ms"] = audioEOSMS
 		if pacingSummary != nil {
@@ -963,7 +966,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 					firstTextMS = lastEventMS
 				}
 			case *genx.Blob:
-				if len(part.Data) > 0 && !firstAudioObserved {
+				if lead.observe(result.chunk, result.audio) {
 					firstAudioObserved = true
 					firstAudioMS = lastEventMS
 				}
@@ -1157,7 +1160,10 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 						assistantPackets = append(assistantPackets, append([]byte(nil), part.Data...))
 					}
 				}
-				if !firstAudioObserved && label == "assistant" && len(part.Data) > 0 {
+				// First audio is the first audible frame: silence the downlink
+				// sends ahead of it is time the listener still waits, so it is
+				// reported as leading_silence_ms rather than as a response.
+				if label == "assistant" && len(part.Data) > 0 && lead.observe(result.chunk, result.audio) {
 					firstAudioObserved = true
 					firstAudioElapsed = eventElapsed
 					firstAudioMS = firstAudioElapsed.Milliseconds()
@@ -1334,6 +1340,9 @@ type nextPeerStreamResult struct {
 	chunk      *genx.MessageChunk
 	err        error
 	receivedAt time.Time
+	// audio classifies the chunk's audio payload, decoded on the reader
+	// goroutine so the receipt time is not delayed by the operation loop.
+	audio peerAudioClass
 }
 
 func mapsWith(base, extra map[string]any) map[string]any {
@@ -1398,7 +1407,7 @@ func waitForPeerStreamRearm(ctx context.Context, name string, session *peerStrea
 }
 
 // peerStreamFirstResponseArrivals records when the first assistant text and
-// audio actually arrived, so a first_response deadline that fires while those
+// audible audio actually arrived, so a first_response deadline that fires while those
 // chunks are still queued for the operation loop can be rescued. Receipts are
 // stored as absolute nanoseconds because the reader observes them before the
 // response clock origin is known: the origin is applied by setStarted once the
@@ -1416,7 +1425,7 @@ func (a *peerStreamFirstResponseArrivals) setStarted(started time.Time) {
 	a.started = started
 }
 
-func (a *peerStreamFirstResponseArrivals) observe(chunk *genx.MessageChunk, receivedAt time.Time) {
+func (a *peerStreamFirstResponseArrivals) observe(chunk *genx.MessageChunk, receivedAt time.Time, audio peerAudioClass) {
 	if a == nil || chunk == nil {
 		return
 	}
@@ -1445,7 +1454,7 @@ func (a *peerStreamFirstResponseArrivals) observe(chunk *genx.MessageChunk, rece
 			a.firstText.CompareAndSwap(0, receipt)
 		}
 	case *genx.Blob:
-		if len(part.Data) > 0 {
+		if audio.audible {
 			a.firstAudio.CompareAndSwap(0, receipt)
 		}
 	}
@@ -1474,17 +1483,20 @@ func readPeerStream(ctx context.Context, stream peerStream, arrivals *peerStream
 	return readPeerStreamObserved(ctx, stream, arrivals.observe)
 }
 
-func readPeerStreamObserved(ctx context.Context, stream peerStream, observe func(*genx.MessageChunk, time.Time)) <-chan nextPeerStreamResult {
+func readPeerStreamObserved(ctx context.Context, stream peerStream, observe func(*genx.MessageChunk, time.Time, peerAudioClass)) <-chan nextPeerStreamResult {
 	next := make(chan nextPeerStreamResult, 64)
 	go func() {
+		var audibility peerAudioAudibility
+		defer audibility.Close()
 		for {
 			chunk, err := stream.Next()
 			receivedAt := time.Now()
+			audio := audibility.classify(chunk)
 			if observe != nil {
-				observe(chunk, receivedAt)
+				observe(chunk, receivedAt, audio)
 			}
 			select {
-			case next <- nextPeerStreamResult{chunk: chunk, err: err, receivedAt: receivedAt}:
+			case next <- nextPeerStreamResult{chunk: chunk, err: err, receivedAt: receivedAt, audio: audio}:
 			case <-ctx.Done():
 				return
 			}

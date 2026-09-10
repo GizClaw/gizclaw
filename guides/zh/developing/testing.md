@@ -370,7 +370,7 @@ wire type 原样上传，其他音频格式在 RPC 打开前失败；文档不�
 
 `peer_stream.overlap_input: true` 在同一 PeerStream 重复发送声明的音频输入。
 支持 `push-to-talk` 和 `realtime`：第一轮输入发送完成（realtime 包括 VAD 尾部静音）且
-收到第一轮 assistant 音频后开始第二轮，不关闭流、不发送显式打断请求。第一轮音频已结束
+收到第一轮 assistant 有声音频后开始第二轮，不关闭流、不发送显式打断请求。第一轮音频已结束
 则失败；成功要求第二轮首个音频包发送成功的时间早于第一轮音频 EOS 的接收时间，并且两轮
 各自的文本和音频 route 都结束，第二轮实际产出文本与音频且没有错误。第一轮在第二轮输入
 之后报告 `interrupted` 可以通过，结果记录 `first_response_interrupted`，不预设 Provider
@@ -386,7 +386,7 @@ Doubao、Eino、Flowcraft 的 `*-overlapping-input.giztest.yaml` 分别覆盖两
 `require_text` 和 `require_audio` 选择必须等待的模态，二者都默认为 true；每个必需模态必须
 声明对应的正数 Go duration `first_text_timeout` 或 `first_audio_timeout`，禁用的模态不声明
 对应 deadline，并且至少保留一个必需模态。deadline 只在完整 turn 输入推送完成后开始；
-runner 一旦观察到所有必需模态的第一段非空 assistant chunk 就成功并关闭该逻辑 stream，
+runner 一旦观察到所有必需模态的第一段 assistant 内容（文本为非空片段，音频为第一个有声帧）就成功并关闭该逻辑 stream，
 不等待任何 EOS。缺少必需模态时分别以 `deadline=first_text_timeout` 或
 `deadline=first_audio_timeout` 失败。该模式不能与 `interrupt_after`、`terminal_label` 或
 `wait_for_history` 组合。
@@ -466,6 +466,23 @@ Workspace 连续跑三轮，每轮要求至少 200 包、`buffer_surplus_ms` 不
 通过，因为 pacer 出问题时累积的超前量随回合长度增长。这两个用例分别覆盖 flowcraft 与
 eino driver——它们共用同一条级联 text 到 TTS 的下行路径。
 
+`first_audio_ms` 记录的是第一个**有声帧**，而不是第一个音频包。runner 在 stream reader
+上把每个 Opus 包按 16 kHz 单声道解码，解码后峰值达到约 -42 dBFS（采样绝对值 256）才算有声：
+Provider TTS 输出在开口前带一段低电平引入（实测峰值不超过约 210），语音起音在 300 以上。
+无法解码的载荷与非 Opus 音频按有声处理，与区分静音之前的计法一致。有声帧之前收到的静音按
+Opus 时钟累加为 `leading_silence_ms`，其中解码后恰好为数字静音的部分另记为
+`leading_digital_silence_ms`。它只记录接收端观察到的数字静音，不断言由谁产生：下行 mixer
+为暂无缓冲音频的 track 填充的就是数字静音，Provider 也可能输出数字静音。两项按 stream
+分别累计，只报告产生第一个有声帧的那条 stream，上一轮回复仍在下行缓冲中到达的尾部不会被
+计入本轮。两项出现在 `peer_stream`（含 `listen`）的 result 与 evidence 中，这段时间不计入
+首音。`first_response` 的首音 deadline 与 `overlap_input` 的第二轮起点使用同一口径。
+`eino-concurrency-assistant.push-to-talk-leading-silence.giztest.yaml` 在同一个 Workspace
+连续跑三轮，每轮要求 `leading_digital_silence_ms` 不超过 80 ms、`leading_silence_ms` 不超过 200 ms：
+回复 track 若在 TTS 解码出音频之前就被创建，mixer 会先为它下发数字静音，pacer 又会以快于实时的
+速度把这段静音送进设备缓冲，设备必须先播完它才能听到回复。80 ms 容纳服务端在语音前保留的
+60 ms preroll（Provider 引入恰为数字静音时）和 track 比首次写入早打开一帧的 20 ms。Provider TTS
+开口前 300 到 600 ms 的低电平引入由服务端裁到该 preroll，`leading_silence_ms` 的上限约束的就是这一点。
+
 `workspace_relay` 在一个 task 内把两个已选中的 Workspace 接成一场有界对话：
 tester Workflow 拥有测试意图、生成的用户行为、语义评判和最终裁决；Giztest 拥有传输、
 封帧、`max_turns` 与固定字节/事件上限、归因、失败阶段和清理。转发是流式的——源端
@@ -492,7 +509,7 @@ SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而�
   （正数且不超过 5m），不推送任何输入，在该时长内记录 PeerStream 下发的全部 chunk。任何
   label 的 Opus blob 都算收到的音频（SFU 下行以远端 participant 作为 label）。result 暴露
   `audio_bytes`、`packets`、`events`、`streams`、`first_text_ms`、
-  `first_transcript_ms`、`first_audio_ms`、`last_event_ms`、
+  `first_transcript_ms`、`first_audio_ms`、`leading_silence_ms`、`leading_digital_silence_ms`、`last_event_ms`、
   `duration_ms`、`listened_ms`、有界的 `text`、`audio_pacing`，以及与现有 `peer_stream`
   相同编码的 `/audio`（Ogg/Opus，只在声明了 `/audio` capture 且收到音频时提供，受 output
   variable 的 `max_bytes` 约束），可以直接交给 `server.speech.transcribe`。收到零音频不是
