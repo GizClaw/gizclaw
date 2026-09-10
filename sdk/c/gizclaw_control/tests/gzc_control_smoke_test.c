@@ -551,6 +551,79 @@ static void test_lists_and_malformed_bodies(void) {
   check(call.error.kind == GZC_CONTROL_ERROR_MALFORMED_RESPONSE, "malformed body classified");
 }
 
+static void test_device_runtime_profile(void) {
+  stub_t stub;
+  gzc_http_vtable_t http;
+  gzc_control_client_t client;
+  memset(&stub, 0, sizeof(stub));
+  stub.status_code = 200;
+  stub.response_body =
+      "{\"name\":\"h106-tiga\",\"revision\":\"rev-1\",\"collections\":["
+      "{\"name\":\"games\",\"workflows\":[]},"
+      "{\"name\":\"story-teller\",\"workflows\":[{\"name\":\"story.aesop\"},{\"name\":\"story.alice\"}]}]}";
+  init_client(&client, &stub, &http);
+
+  uint8_t scratch[512];
+  uint8_t response[1024];
+  gzc_control_call_t call;
+  check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "call init");
+
+  gzc_control_device_runtime_profile_t profile;
+  gzc_control_runtime_profile_collection_t collections[4];
+  size_t count = 0;
+  check(
+      gzc_control_get_device_runtime_profile(&client, &call, &profile, collections, 4, &count) == GZC_OK,
+      "get runtime profile");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/runtime-profile") == 0, "runtime profile url");
+  check_str(profile.name, "h106-tiga", "runtime profile name");
+  check_str(profile.revision, "rev-1", "runtime profile revision");
+  check(count == 2, "runtime profile collection count");
+  check_str(collections[0].name, "games", "first collection");
+  check_str(collections[1].name, "story-teller", "second collection");
+
+  gzc_str_t workflows[4];
+  size_t workflow_count = 1;
+  check(
+      gzc_control_runtime_profile_collection_workflows(&collections[0], workflows, 4, &workflow_count) == GZC_OK &&
+          workflow_count == 0,
+      "empty collection has no workflows");
+  check(
+      gzc_control_runtime_profile_collection_workflows(&collections[1], workflows, 4, &workflow_count) == GZC_OK &&
+          workflow_count == 2,
+      "collection workflows");
+  check_str(workflows[0], "story.aesop", "first workflow");
+  check_str(workflows[1], "story.alice", "second workflow");
+  check(
+      gzc_control_runtime_profile_collection_workflows(&collections[1], workflows, 1, &workflow_count) ==
+          GZC_ERR_BUFFER_TOO_SMALL,
+      "small workflow array reports overflow");
+
+  check(
+      gzc_control_get_device_runtime_profile(&client, &call, &profile, collections, 1, &count) ==
+          GZC_ERR_BUFFER_TOO_SMALL,
+      "small collection array reports overflow");
+  check(call.error.kind == GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL, "collection overflow kind");
+
+  stub.response_body = "{\"name\":\"h106-tiga\",\"revision\":\"rev-1\",\"collections\":[{\"name\":\"games\"}]}";
+  check(
+      gzc_control_get_device_runtime_profile(&client, &call, &profile, collections, 4, &count) != GZC_OK,
+      "collection without workflows fails");
+  check(call.error.kind == GZC_CONTROL_ERROR_MALFORMED_RESPONSE, "missing workflows is malformed");
+
+  stub.response_body = "{\"name\":\"h106-tiga\",\"revision\":\"rev-1\"}";
+  check(
+      gzc_control_get_device_runtime_profile(&client, &call, &profile, collections, 4, &count) != GZC_OK,
+      "missing collections fails");
+  check(call.error.kind == GZC_CONTROL_ERROR_MALFORMED_RESPONSE, "missing collections is malformed");
+
+  stub.status_code = 403;
+  stub.response_body = "{\"error\":{\"code\":\"API_KEY_OWNER_UNAVAILABLE\",\"message\":\"Forbidden\"}}";
+  check(
+      gzc_control_get_device_runtime_profile(&client, &call, &profile, collections, 4, &count) != GZC_OK,
+      "unbound owner fails");
+  check(call.error.kind == GZC_CONTROL_ERROR_FORBIDDEN, "unbound owner is forbidden");
+}
+
 static void test_device_wifi_scan_and_connect(void) {
   stub_t stub;
   gzc_http_vtable_t http;
@@ -730,6 +803,7 @@ int main(void) {
   test_transport_failure_is_network();
   test_scratch_exhaustion_is_reported();
   test_lists_and_malformed_bodies();
+  test_device_runtime_profile();
   test_device_wifi_scan_and_connect();
   test_device_info_raw_and_identifiers();
   if (failures != 0) {

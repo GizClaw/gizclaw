@@ -293,6 +293,39 @@ typedef struct {
   int64_t tx_bytes;
 } gzc_control_device_runtime_t;
 
+/*
+ * Identity of the RuntimeProfile bound to the device (`DeviceRuntimeProfile`).
+ *
+ * `name` and `revision` equal `runtime_profile_name` and
+ * `runtime_profile_revision` in Peer RPC responses.
+ */
+typedef struct {
+  gzc_str_t name;
+  gzc_str_t revision;
+} gzc_control_device_runtime_profile_t;
+
+/*
+ * One workflow collection of the bound RuntimeProfile
+ * (`DeviceRuntimeProfileCollection`). Iterate its workflow names with
+ * gzc_control_runtime_profile_collection_workflows().
+ */
+typedef struct {
+  gzc_str_t name;
+  /* Raw `workflows` JSON array. */
+  gzc_str_t workflows;
+} gzc_control_runtime_profile_collection_t;
+
+/*
+ * Decodes up to cap workflow names of collection into out and reports the
+ * decoded count. Names arrive sorted and are the names the device uses with
+ * `server.workflow.*`.
+ */
+int gzc_control_runtime_profile_collection_workflows(
+    const gzc_control_runtime_profile_collection_t *collection,
+    gzc_str_t *out,
+    size_t cap,
+    size_t *out_count);
+
 /* Strings borrow from the response buffer until the next call. */
 typedef struct {
   gzc_str_t url;
@@ -550,6 +583,21 @@ int gzc_control_get_device_runtime(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
     gzc_control_device_runtime_t *out_runtime);
+
+/*
+ * `GET /gizclaw/v1/device/runtime-profile`.
+ *
+ * Fills out_profile and up to cap collections, sorted by name, into
+ * out_collections. More collections than cap fail with
+ * GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL after filling the first cap.
+ */
+int gzc_control_get_device_runtime_profile(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_control_device_runtime_profile_t *out_profile,
+    gzc_control_runtime_profile_collection_t *out_collections,
+    size_t cap,
+    size_t *out_count);
 
 /* `GET /gizclaw/v1/device/status`. Returns the stored snapshot without
  * contacting the device. */

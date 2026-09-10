@@ -374,6 +374,7 @@ static void split_route(gzc_str_t path, gzt_route_t *out) {
       "/device/audioplayer",
       "/device/telemetry/aggregate",
       "/device/actions/play-sound",
+      "/device/runtime-profile",
       "/device/actions/reboot",
       "/device/wifi/saved",
       "/device/telemetry",
@@ -546,6 +547,9 @@ int gzt_control_request(
   gzc_control_peer_status_t status;
   gzc_control_device_info_t device;
   gzc_control_device_runtime_t runtime;
+  gzc_control_device_runtime_profile_t runtime_profile;
+  gzc_control_runtime_profile_collection_t profile_collections[32];
+  gzc_str_t profile_workflows[128];
   gzc_control_wifi_status_t wifi;
   gzc_control_contact_t contact;
   gzc_control_api_key_t api_key_value;
@@ -580,6 +584,19 @@ int gzt_control_request(
     rc = gzc_control_get_device(&control, &call, &device);
   } else if (get && route_is(&route, "/device/runtime", false)) {
     rc = gzc_control_get_device_runtime(&control, &call, &runtime);
+  } else if (get && route_is(&route, "/device/runtime-profile", false)) {
+    rc = gzc_control_get_device_runtime_profile(
+        &control, &call, &runtime_profile, profile_collections,
+        sizeof(profile_collections) / sizeof(profile_collections[0]), &count);
+    for (size_t i = 0; rc == GZC_OK && i < count; i++) {
+      size_t workflow_count = 0;
+      int workflows_rc = gzc_control_runtime_profile_collection_workflows(
+          &profile_collections[i], profile_workflows,
+          sizeof(profile_workflows) / sizeof(profile_workflows[0]), &workflow_count);
+      if (workflows_rc != GZC_OK) {
+        return fail(errbuf, errbuf_len, "decode runtime profile workflows", workflows_rc);
+      }
+    }
   } else if (get && route_is(&route, "/device/status", false)) {
     rc = gzc_control_get_device_status(&control, &call, &status);
   } else if (get && route_is(&route, "/device/telemetry", true) &&

@@ -56,7 +56,7 @@ is up.
 */
 var controlRoutes = map[string][]string{
 	http.MethodGet: {
-		"/device", "/device/runtime", "/device/status", "/device/audioplayer", "/device/audioplayer/playlist",
+		"/device", "/device/runtime", "/device/runtime-profile", "/device/status", "/device/audioplayer", "/device/audioplayer/playlist",
 		"/device/telemetry", "/device/telemetry/*/latest", "/device/telemetry/aggregate",
 		"/device/wifi", "/device/wifi/saved",
 		"/api-keys", "/api-keys/self", "/api-keys/*",
