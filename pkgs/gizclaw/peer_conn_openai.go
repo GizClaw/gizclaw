@@ -156,6 +156,9 @@ func (s *PeerService) deviceReadsForAPIKey(publicKey giznet.PublicKey) peerresou
 	if s.manager.Firmwares != nil {
 		reads.Firmwares = s.manager.Firmwares
 	}
+	if s.manager.RuntimeProfiles != nil {
+		reads.Profiles = s.manager.RuntimeProfiles
+	}
 	if s.manager.Metrics != nil {
 		reads.Telemetry = &peertelemetry.AdminService{Metrics: s.manager.Metrics}
 	}

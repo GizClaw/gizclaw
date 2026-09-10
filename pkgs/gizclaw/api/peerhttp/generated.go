@@ -178,6 +178,33 @@ type DeviceRebootRequest struct {
 	DelayMs *int64 `json:"delay_ms,omitempty"`
 }
 
+// DeviceRuntimeProfile defines model for DeviceRuntimeProfile.
+type DeviceRuntimeProfile struct {
+	// Collections Workflow collections sorted by name.
+	Collections []DeviceRuntimeProfileCollection `json:"collections"`
+
+	// Name RuntimeProfile name; equals runtime_profile_name in Peer RPC responses.
+	Name string `json:"name"`
+
+	// Revision Opaque RuntimeProfile revision; equals runtime_profile_revision in Peer RPC responses.
+	Revision string `json:"revision"`
+}
+
+// DeviceRuntimeProfileCollection defines model for DeviceRuntimeProfileCollection.
+type DeviceRuntimeProfileCollection struct {
+	// Name Collection name, as passed to server.workflow.list.
+	Name string `json:"name"`
+
+	// Workflows Workflows in the collection sorted by name.
+	Workflows []DeviceRuntimeProfileWorkflow `json:"workflows"`
+}
+
+// DeviceRuntimeProfileWorkflow defines model for DeviceRuntimeProfileWorkflow.
+type DeviceRuntimeProfileWorkflow struct {
+	// Name Workflow alias the device uses with server.workflow.*.
+	Name string `json:"name"`
+}
+
 // DeviceVolumeSetRequest defines model for DeviceVolumeSetRequest.
 type DeviceVolumeSetRequest struct {
 	// Level Absolute volume level.
@@ -586,6 +613,9 @@ type ClientInterface interface {
 
 	// GetDeviceRuntime request
 	GetDeviceRuntime(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDeviceRuntimeProfile request
+	GetDeviceRuntimeProfile(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetDeviceStatus request
 	GetDeviceStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1082,6 +1112,18 @@ func (c *Client) SearchDeviceLogs(ctx context.Context, params *SearchDeviceLogsP
 
 func (c *Client) GetDeviceRuntime(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetDeviceRuntimeRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDeviceRuntimeProfile(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeviceRuntimeProfileRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -2361,6 +2403,33 @@ func NewGetDeviceRuntimeRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewGetDeviceRuntimeProfileRequest generates requests for GetDeviceRuntimeProfile
+func NewGetDeviceRuntimeProfileRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/runtime-profile")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetDeviceStatusRequest generates requests for GetDeviceStatus
 func NewGetDeviceStatusRequest(server string) (*http.Request, error) {
 	var err error
@@ -3318,6 +3387,9 @@ type ClientWithResponsesInterface interface {
 
 	// GetDeviceRuntimeWithResponse request
 	GetDeviceRuntimeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceRuntimeResponse, error)
+
+	// GetDeviceRuntimeProfileWithResponse request
+	GetDeviceRuntimeProfileWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceRuntimeProfileResponse, error)
 
 	// GetDeviceStatusWithResponse request
 	GetDeviceStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceStatusResponse, error)
@@ -4287,6 +4359,41 @@ func (r GetDeviceRuntimeResponse) ContentType() string {
 	return ""
 }
 
+type GetDeviceRuntimeProfileResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeviceRuntimeProfile
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeviceRuntimeProfileResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeviceRuntimeProfileResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDeviceRuntimeProfileResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetDeviceStatusResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -5214,6 +5321,15 @@ func (c *ClientWithResponses) GetDeviceRuntimeWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseGetDeviceRuntimeResponse(rsp)
+}
+
+// GetDeviceRuntimeProfileWithResponse request returning *GetDeviceRuntimeProfileResponse
+func (c *ClientWithResponses) GetDeviceRuntimeProfileWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceRuntimeProfileResponse, error) {
+	rsp, err := c.GetDeviceRuntimeProfile(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeviceRuntimeProfileResponse(rsp)
 }
 
 // GetDeviceStatusWithResponse request returning *GetDeviceStatusResponse
@@ -7151,6 +7267,67 @@ func ParseGetDeviceRuntimeResponse(rsp *http.Response) (*GetDeviceRuntimeRespons
 	return response, nil
 }
 
+// ParseGetDeviceRuntimeProfileResponse parses an HTTP response from a GetDeviceRuntimeProfileWithResponse call
+func ParseGetDeviceRuntimeProfileResponse(rsp *http.Response) (*GetDeviceRuntimeProfileResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeviceRuntimeProfileResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeviceRuntimeProfile
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetDeviceStatusResponse parses an HTTP response from a GetDeviceStatusWithResponse call
 func ParseGetDeviceStatusResponse(rsp *http.Response) (*GetDeviceStatusResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -8342,6 +8519,9 @@ type ServerInterface interface {
 	// Get the online runtime of the bound device
 	// (GET /gizclaw/v1/device/runtime)
 	GetDeviceRuntime(c *fiber.Ctx) error
+	// Get the RuntimeProfile workflow catalog of the bound device
+	// (GET /gizclaw/v1/device/runtime-profile)
+	GetDeviceRuntimeProfile(c *fiber.Ctx) error
 	// Get the latest reported status of the bound device
 	// (GET /gizclaw/v1/device/status)
 	GetDeviceStatus(c *fiber.Ctx) error
@@ -9065,6 +9245,26 @@ func (siw *ServerInterfaceWrapper) GetDeviceRuntime(c *fiber.Ctx) error {
 	return handler(c)
 }
 
+// GetDeviceRuntimeProfile operation middleware
+func (siw *ServerInterfaceWrapper) GetDeviceRuntimeProfile(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.GetDeviceRuntimeProfile(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
 // GetDeviceStatus operation middleware
 func (siw *ServerInterfaceWrapper) GetDeviceStatus(c *fiber.Ctx) error {
 
@@ -9771,6 +9971,8 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Get(options.BaseURL+"/gizclaw/v1/device/logs/search", wrapper.SearchDeviceLogs)
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device/runtime", wrapper.GetDeviceRuntime)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/device/runtime-profile", wrapper.GetDeviceRuntimeProfile)
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device/status", wrapper.GetDeviceStatus)
 
@@ -11709,6 +11911,67 @@ func (response GetDeviceRuntime500JSONResponse) VisitGetDeviceRuntimeResponse(ct
 	return ctx.JSON(&response)
 }
 
+type GetDeviceRuntimeProfileRequestObject struct {
+}
+
+type GetDeviceRuntimeProfileResponseObject interface {
+	VisitGetDeviceRuntimeProfileResponse(ctx *fiber.Ctx) error
+}
+
+type GetDeviceRuntimeProfile200JSONResponse DeviceRuntimeProfile
+
+func (response GetDeviceRuntimeProfile200JSONResponse) VisitGetDeviceRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceRuntimeProfile400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetDeviceRuntimeProfile400JSONResponse) VisitGetDeviceRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceRuntimeProfile401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetDeviceRuntimeProfile401JSONResponse) VisitGetDeviceRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceRuntimeProfile403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetDeviceRuntimeProfile403JSONResponse) VisitGetDeviceRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceRuntimeProfile409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetDeviceRuntimeProfile409JSONResponse) VisitGetDeviceRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceRuntimeProfile500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetDeviceRuntimeProfile500JSONResponse) VisitGetDeviceRuntimeProfileResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
 type GetDeviceStatusRequestObject struct {
 }
 
@@ -12992,6 +13255,9 @@ type StrictServerInterface interface {
 	// Get the online runtime of the bound device
 	// (GET /gizclaw/v1/device/runtime)
 	GetDeviceRuntime(ctx context.Context, request GetDeviceRuntimeRequestObject) (GetDeviceRuntimeResponseObject, error)
+	// Get the RuntimeProfile workflow catalog of the bound device
+	// (GET /gizclaw/v1/device/runtime-profile)
+	GetDeviceRuntimeProfile(ctx context.Context, request GetDeviceRuntimeProfileRequestObject) (GetDeviceRuntimeProfileResponseObject, error)
 	// Get the latest reported status of the bound device
 	// (GET /gizclaw/v1/device/status)
 	GetDeviceStatus(ctx context.Context, request GetDeviceStatusRequestObject) (GetDeviceStatusResponseObject, error)
@@ -13756,6 +14022,31 @@ func (sh *strictHandler) GetDeviceRuntime(ctx *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(GetDeviceRuntimeResponseObject); ok {
 		if err := validResponse.VisitGetDeviceRuntimeResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetDeviceRuntimeProfile operation middleware
+func (sh *strictHandler) GetDeviceRuntimeProfile(ctx *fiber.Ctx) error {
+	var request GetDeviceRuntimeProfileRequestObject
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDeviceRuntimeProfile(ctx.UserContext(), request.(GetDeviceRuntimeProfileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDeviceRuntimeProfile")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetDeviceRuntimeProfileResponseObject); ok {
+		if err := validResponse.VisitGetDeviceRuntimeProfileResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

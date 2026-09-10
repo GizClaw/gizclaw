@@ -96,6 +96,39 @@ export type DeviceFirmware = {
     slots: FirmwareSlots;
 };
 
+export type DeviceRuntimeProfile = {
+    /**
+     * RuntimeProfile name; equals runtime_profile_name in Peer RPC responses.
+     */
+    name: string;
+    /**
+     * Opaque RuntimeProfile revision; equals runtime_profile_revision in Peer RPC responses.
+     */
+    revision: string;
+    /**
+     * Workflow collections sorted by name.
+     */
+    collections: Array<DeviceRuntimeProfileCollection>;
+};
+
+export type DeviceRuntimeProfileCollection = {
+    /**
+     * Collection name, as passed to server.workflow.list.
+     */
+    name: string;
+    /**
+     * Workflows in the collection sorted by name.
+     */
+    workflows: Array<DeviceRuntimeProfileWorkflow>;
+};
+
+export type DeviceRuntimeProfileWorkflow = {
+    /**
+     * Workflow alias the device uses with server.workflow.*.
+     */
+    name: string;
+};
+
 export type DeviceFirmwareUpdateRequest = {
     channel?: FirmwareChannelName;
     /**
@@ -1814,6 +1847,47 @@ export type GetDeviceFirmwareResponses = {
 };
 
 export type GetDeviceFirmwareResponse = GetDeviceFirmwareResponses[keyof GetDeviceFirmwareResponses];
+
+export type GetDeviceRuntimeProfileData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/runtime-profile';
+};
+
+export type GetDeviceRuntimeProfileErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type GetDeviceRuntimeProfileError = GetDeviceRuntimeProfileErrors[keyof GetDeviceRuntimeProfileErrors];
+
+export type GetDeviceRuntimeProfileResponses = {
+    /**
+     * RuntimeProfile workflow catalog of the bound device.
+     */
+    200: DeviceRuntimeProfile;
+};
+
+export type GetDeviceRuntimeProfileResponse = GetDeviceRuntimeProfileResponses[keyof GetDeviceRuntimeProfileResponses];
 
 export type SetDeviceVolumeData = {
     body: DeviceVolumeSetRequest;

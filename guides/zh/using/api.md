@@ -146,6 +146,7 @@ Go SDK 把常用 RPC 暴露为 `gizcli.Client` 的 typed 方法。传入的 requ
 | `GET /gizclaw/v1/device/runtime` | 在线状态、最后在线时间与流量 |
 | `GET /gizclaw/v1/device/status` | 最近一次上报的电量、充电、音量、静音与 GNSS |
 | `GET /gizclaw/v1/device/telemetry/{field}/latest`、`/telemetry`、`/telemetry/aggregate` | 与 Admin telemetry 相同语义的采样查询 |
+| `GET /gizclaw/v1/device/runtime-profile` | 设备绑定的 RuntimeProfile name、revision，以及各 collection 的 workflow name |
 | `PUT /gizclaw/v1/device/volume` | 设置音量与静音，返回设备实时回报的 status |
 | `POST /gizclaw/v1/device/actions/play-sound` | 播放设备自定义提示音 |
 | `POST /gizclaw/v1/device/actions/reboot` | 重启设备 |
@@ -157,6 +158,8 @@ Go SDK 把常用 RPC 暴露为 `gizcli.Client` 的 typed 方法。传入的 requ
 读取 route 只投影 Server 已有数据，不会唤醒设备；控制 route 经 Server→设备 RPC 实时执行，设备离线返回 `409 DEVICE_OFFLINE`，5 秒无响应返回 `504 DEVICE_TIMEOUT`，设备未实现返回 `501 DEVICE_UNSUPPORTED`。状态变化通过轮询 `GET /device/status` 获取。Wi‑Fi 配网仍由设备本地 BLE 完成。
 
 `GET /device/firmware` 一次返回 `stable`、`beta`、`develop` 三个 channel 及各自的 `package`（`version`、`url`、`sha256`、`size`）（已有包没有版本时省略 `version`，其余信息仍正常返回）；Server 不保存设备当前使用的 channel，选哪个由调用方决定，`POST /device/actions/firmware-update` 用 `channel` 指定，省略时设备沿用自身的 channel。要判断是否需要升级，把 `GET /device/status` 的 `firmware_sha256`（设备上报的当前运行包）与目标 channel 的 `package.sha256` 比较；请求里带上同一个 `sha256`，设备解析出不同的包时会拒绝，避免升到与界面显示不同的版本。设备固件太旧、未实现该 RPC 时返回 `501 DEVICE_UNSUPPORTED`，应据此隐藏升级入口，而不是提示升级失败。
+
+`GET /device/runtime-profile` 只返回 RuntimeProfile 的 `name`、`revision` 与 `collections[].workflows[].name`，collection 与 workflow 均按 name 排序；workflow name 即设备调用 `server.workflow.*` 使用的 name，直接取自 RuntimeProfile binding、不校验对应 Workflow 资源是否仍存在；`name`/`revision` 等于 RPC 响应中的 `runtime_profile_name`/`runtime_profile_revision`。封面、描述、显示名称等展示信息不在响应中，调用方按 `<profile name>/<collection>` 与 `<profile name>/<workflow name>` 自行对应；展示顺序同样由调用方决定。
 
 ```sh
 curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/volume" \

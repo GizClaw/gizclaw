@@ -546,6 +546,87 @@ void main() {
       expect(exception.code, 'FIRMWARE_NOT_FOUND');
     });
 
+    test('getDeviceRuntimeProfile decodes the workflow catalog', () async {
+      final recorder = Recorder([
+        json(200, {
+          'name': 'h106-tiga',
+          'revision': 'rev-1',
+          'collections': [
+            {'name': 'games', 'workflows': <Object?>[]},
+            {
+              'name': 'story-teller',
+              'workflows': [
+                {'name': 'story.aesop'},
+                {'name': 'story.alice', 'future_field': true},
+              ],
+            },
+          ],
+        }),
+      ]);
+      final profile = await clientWith(recorder).getDeviceRuntimeProfile();
+      expect(recorder.single.method, 'GET');
+      expect(recorder.single.url.path, '/gizclaw/v1/device/runtime-profile');
+      expect(recorder.single.headers['Authorization'], 'Bearer $apiKey');
+      expect(profile.name, 'h106-tiga');
+      expect(profile.revision, 'rev-1');
+      expect(profile.collections.map((item) => item.name), [
+        'games',
+        'story-teller',
+      ]);
+      expect(profile.collections.first.workflows, isEmpty);
+      expect(profile.collections.last.workflows.map((item) => item.name), [
+        'story.aesop',
+        'story.alice',
+      ]);
+      expect(profile.toJson(), {
+        'name': 'h106-tiga',
+        'revision': 'rev-1',
+        'collections': [
+          {'name': 'games', 'workflows': <Object?>[]},
+          {
+            'name': 'story-teller',
+            'workflows': [
+              {'name': 'story.aesop'},
+              {'name': 'story.alice'},
+            ],
+          },
+        ],
+      });
+    });
+
+    test('getDeviceRuntimeProfile rejects a malformed catalog', () async {
+      final recorder = Recorder([
+        json(200, {
+          'name': 'h106-tiga',
+          'revision': 'rev-1',
+          'collections': [
+            {
+              'name': 'games',
+              'workflows': [
+                {'name': 7},
+              ],
+            },
+          ],
+        }),
+      ]);
+      final exception = await failure(
+        clientWith(recorder).getDeviceRuntimeProfile(),
+      );
+      expect(exception.kind, GizClawControlErrorKind.malformedResponse);
+    });
+
+    test(
+      'getDeviceRuntimeProfile maps an unbound owner to forbidden',
+      () async {
+        final recorder = Recorder([error(403, 'API_KEY_OWNER_UNAVAILABLE')]);
+        final exception = await failure(
+          clientWith(recorder).getDeviceRuntimeProfile(),
+        );
+        expect(exception.kind, GizClawControlErrorKind.forbidden);
+        expect(exception.code, 'API_KEY_OWNER_UNAVAILABLE');
+      },
+    );
+
     test('updateDeviceFirmware posts an empty object by default', () async {
       final recorder = Recorder([noContent(), noContent()]);
       final client = clientWith(recorder);

@@ -122,6 +122,27 @@ func (s *peerHTTP) GetDeviceFirmware(ctx context.Context, _ peerhttp.GetDeviceFi
 	return peerhttp.GetDeviceFirmware200JSONResponse{Description: item.Description, Slots: item.Slots}, nil
 }
 
+func (s *peerHTTP) GetDeviceRuntimeProfile(ctx context.Context, _ peerhttp.GetDeviceRuntimeProfileRequestObject) (peerhttp.GetDeviceRuntimeProfileResponseObject, error) {
+	owner, err := publicHTTPOwner(ctx)
+	if err != nil {
+		return peerhttp.GetDeviceRuntimeProfile401JSONResponse{UnauthorizedJSONResponse: peerhttp.UnauthorizedJSONResponse(unauthorizedPublicHTTP())}, nil
+	}
+	reads, ok := s.deviceReads(owner)
+	if !ok {
+		return peerhttp.GetDeviceRuntimeProfile500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(internalPublicHTTP())}, nil
+	}
+	profile, err := reads.DeviceRuntimeProfile(ctx)
+	if err != nil {
+		// The binding can disappear after the request passed owner validation;
+		// answer exactly like the owner check would.
+		if errors.Is(err, peerresource.ErrDeviceRuntimeProfileNotBound) {
+			return peerhttp.GetDeviceRuntimeProfile403JSONResponse{ForbiddenJSONResponse: peerhttp.ForbiddenJSONResponse(apiError("API_KEY_OWNER_UNAVAILABLE", http.StatusText(http.StatusForbidden)))}, nil
+		}
+		return peerhttp.GetDeviceRuntimeProfile500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(internalPublicHTTP())}, nil
+	}
+	return peerhttp.GetDeviceRuntimeProfile200JSONResponse(profile), nil
+}
+
 func (s *peerHTTP) GetDeviceTelemetryLatest(ctx context.Context, request peerhttp.GetDeviceTelemetryLatestRequestObject) (peerhttp.GetDeviceTelemetryLatestResponseObject, error) {
 	owner, err := publicHTTPOwner(ctx)
 	if err != nil {

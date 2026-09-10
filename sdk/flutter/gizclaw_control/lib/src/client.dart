@@ -319,6 +319,20 @@ class GizClawControlClient {
     );
   }
 
+  /// `GET /gizclaw/v1/device/runtime-profile`.
+  ///
+  /// Returns the RuntimeProfile bound to the device with its workflow
+  /// collections and workflow names, sorted by name. The read never contacts
+  /// the device, so it works while the device is offline.
+  Future<DeviceRuntimeProfile> getDeviceRuntimeProfile() {
+    return _json(
+      'GET',
+      '/device/runtime-profile',
+      DeviceRuntimeProfile.fromJson,
+      operation: 'getDeviceRuntimeProfile',
+    );
+  }
+
   // Device control.
 
   /// `PUT /gizclaw/v1/device/volume`.

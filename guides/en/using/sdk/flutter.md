@@ -48,7 +48,7 @@ server, which sends the credential in the clear.
 `GizClawControlClient` covers every `/gizclaw/v1/*` route:
 
 - API keys: `createApiKey`, `listApiKeys`, `getSelfApiKey`, `revokeSelfApiKey`, `getApiKey`, `revokeApiKey`.
-- Device reads: `getDevice`, `getDeviceRuntime`, `getDeviceStatus`, `getDeviceFirmware`, `getDeviceTelemetryLatest`, `queryDeviceTelemetry`, `aggregateDeviceTelemetry`.
+- Device reads: `getDevice`, `getDeviceRuntime`, `getDeviceStatus`, `getDeviceFirmware`, `getDeviceRuntimeProfile`, `getDeviceTelemetryLatest`, `queryDeviceTelemetry`, `aggregateDeviceTelemetry`.
 - Device control: `setDeviceVolume`, `playDeviceSound`, `rebootDevice`, `updateDeviceFirmware`, `getDeviceWifi`, `scanDeviceWifi`, `connectDeviceWifi`, `listDeviceSavedWifi`, `forgetDeviceSavedWifi`.
 - Contacts: `listContacts`, `createContact`, `getContact`, `putContact`, `deleteContact`.
 
