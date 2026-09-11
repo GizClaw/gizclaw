@@ -71,7 +71,7 @@ require (
 	golang.org/x/tools v0.49.0
 	gonum.org/v1/gonum v0.17.0
 	google.golang.org/api v0.290.0
-	google.golang.org/genai v1.68.0
+	google.golang.org/genai v1.71.0
 	google.golang.org/protobuf v1.36.12
 	modernc.org/sqlite v1.57.0
 	sigs.k8s.io/yaml v1.6.0
