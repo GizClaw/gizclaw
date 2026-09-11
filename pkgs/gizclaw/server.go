@@ -702,6 +702,9 @@ func (s *Server) init() error {
 			},
 			Contacts:      contactServer,
 			DeviceControl: newDeviceController(manager, manager.PeerRun),
+			Friends:       friendServer,
+			FriendGroups:  friendGroupServer,
+			Profiles:      peersServer,
 		},
 	}
 	s.peerService.public.DeviceReads = s.peerService.deviceReadsForAPIKey

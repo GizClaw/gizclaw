@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.ts';
 import { client } from './client.gen.ts';
-import type { AggregateDeviceTelemetryData, AggregateDeviceTelemetryErrors, AggregateDeviceTelemetryResponses, AppendDeviceAudioPlayerPlaylistData, AppendDeviceAudioPlayerPlaylistErrors, AppendDeviceAudioPlayerPlaylistResponses, ConnectDeviceWifiData, ConnectDeviceWifiErrors, ConnectDeviceWifiResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateGiznetWebRtcOfferData, CreateGiznetWebRtcOfferErrors, CreateGiznetWebRtcOfferResponses, DeleteContactData, DeleteContactErrors, DeleteContactResponses, DeleteDeviceWorkspaceData, DeleteDeviceWorkspaceErrors, DeleteDeviceWorkspaceResponses, DownloadDeviceHistoryAudioData, DownloadDeviceHistoryAudioErrors, DownloadDeviceHistoryAudioResponses, FindDeviceData, FindDeviceErrors, FindDeviceResponses, FindPublicKeysByImeiData, FindPublicKeysByImeiErrors, FindPublicKeysByImeiResponses, FindPublicKeysBySnData, FindPublicKeysBySnErrors, FindPublicKeysBySnResponses, ForgetDeviceSavedWifiData, ForgetDeviceSavedWifiErrors, ForgetDeviceSavedWifiResponses, GetApiKeyData, GetApiKeyErrors, GetApiKeyResponses, GetContactData, GetContactErrors, GetContactResponses, GetDeviceAudioPlayerData, GetDeviceAudioPlayerErrors, GetDeviceAudioPlayerPlaylistData, GetDeviceAudioPlayerPlaylistErrors, GetDeviceAudioPlayerPlaylistResponses, GetDeviceAudioPlayerResponses, GetDeviceData, GetDeviceErrors, GetDeviceFirmwareData, GetDeviceFirmwareErrors, GetDeviceFirmwareResponses, GetDeviceResponses, GetDeviceRuntimeData, GetDeviceRuntimeErrors, GetDeviceRuntimeProfileData, GetDeviceRuntimeProfileErrors, GetDeviceRuntimeProfileResponses, GetDeviceRuntimeResponses, GetDeviceStatusData, GetDeviceStatusErrors, GetDeviceStatusResponses, GetDeviceTelemetryLatestData, GetDeviceTelemetryLatestErrors, GetDeviceTelemetryLatestResponses, GetDeviceWifiData, GetDeviceWifiErrors, GetDeviceWifiResponses, GetSelfApiKeyData, GetSelfApiKeyErrors, GetSelfApiKeyResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListContactsData, ListContactsErrors, ListContactsResponses, ListDeviceSavedWifiData, ListDeviceSavedWifiErrors, ListDeviceSavedWifiResponses, ListDeviceWorkspaceHistoryData, ListDeviceWorkspaceHistoryErrors, ListDeviceWorkspaceHistoryResponses, ListDeviceWorkspacesData, ListDeviceWorkspacesErrors, ListDeviceWorkspacesResponses, PlayDeviceAudioPlayerData, PlayDeviceAudioPlayerErrors, PlayDeviceAudioPlayerResponses, PlayDeviceSoundData, PlayDeviceSoundErrors, PlayDeviceSoundResponses, PutContactData, PutContactErrors, PutContactResponses, QueryDeviceTelemetryData, QueryDeviceTelemetryErrors, QueryDeviceTelemetryResponses, RebootDeviceData, RebootDeviceErrors, RebootDeviceResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSelfApiKeyData, RevokeSelfApiKeyErrors, RevokeSelfApiKeyResponses, ScanDeviceWifiData, ScanDeviceWifiErrors, ScanDeviceWifiResponses, SearchDeviceLogsData, SearchDeviceLogsErrors, SearchDeviceLogsResponses, SetDeviceAudioPlayerModeData, SetDeviceAudioPlayerModeErrors, SetDeviceAudioPlayerModeResponses, SetDeviceAudioPlayerPlaylistData, SetDeviceAudioPlayerPlaylistErrors, SetDeviceAudioPlayerPlaylistResponses, SetDeviceVolumeData, SetDeviceVolumeErrors, SetDeviceVolumeResponses, StopDeviceAudioPlayerData, StopDeviceAudioPlayerErrors, StopDeviceAudioPlayerResponses, UpdateDeviceFirmwareData, UpdateDeviceFirmwareErrors, UpdateDeviceFirmwareResponses } from './types.gen.ts';
+import type { AddFriendData, AddFriendErrors, AddFriendGroupMemberData, AddFriendGroupMemberErrors, AddFriendGroupMemberResponses, AddFriendResponses, AggregateDeviceTelemetryData, AggregateDeviceTelemetryErrors, AggregateDeviceTelemetryResponses, AppendDeviceAudioPlayerPlaylistData, AppendDeviceAudioPlayerPlaylistErrors, AppendDeviceAudioPlayerPlaylistResponses, ClearFriendGroupInviteTokenData, ClearFriendGroupInviteTokenErrors, ClearFriendGroupInviteTokenResponses, ClearFriendInviteTokenData, ClearFriendInviteTokenErrors, ClearFriendInviteTokenResponses, ConnectDeviceWifiData, ConnectDeviceWifiErrors, ConnectDeviceWifiResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateFriendGroupData, CreateFriendGroupErrors, CreateFriendGroupInviteTokenData, CreateFriendGroupInviteTokenErrors, CreateFriendGroupInviteTokenResponses, CreateFriendGroupResponses, CreateFriendInviteTokenData, CreateFriendInviteTokenErrors, CreateFriendInviteTokenResponses, CreateGiznetWebRtcOfferData, CreateGiznetWebRtcOfferErrors, CreateGiznetWebRtcOfferResponses, DeleteContactData, DeleteContactErrors, DeleteContactResponses, DeleteDeviceWorkspaceData, DeleteDeviceWorkspaceErrors, DeleteDeviceWorkspaceResponses, DeleteFriendData, DeleteFriendErrors, DeleteFriendGroupData, DeleteFriendGroupErrors, DeleteFriendGroupMemberData, DeleteFriendGroupMemberErrors, DeleteFriendGroupMemberResponses, DeleteFriendGroupResponses, DeleteFriendResponses, DownloadDeviceHistoryAudioData, DownloadDeviceHistoryAudioErrors, DownloadDeviceHistoryAudioResponses, FindDeviceData, FindDeviceErrors, FindDeviceResponses, FindPublicKeysByImeiData, FindPublicKeysByImeiErrors, FindPublicKeysByImeiResponses, FindPublicKeysBySnData, FindPublicKeysBySnErrors, FindPublicKeysBySnResponses, ForgetDeviceSavedWifiData, ForgetDeviceSavedWifiErrors, ForgetDeviceSavedWifiResponses, GetApiKeyData, GetApiKeyErrors, GetApiKeyResponses, GetContactData, GetContactErrors, GetContactResponses, GetDeviceAudioPlayerData, GetDeviceAudioPlayerErrors, GetDeviceAudioPlayerPlaylistData, GetDeviceAudioPlayerPlaylistErrors, GetDeviceAudioPlayerPlaylistResponses, GetDeviceAudioPlayerResponses, GetDeviceData, GetDeviceErrors, GetDeviceFirmwareData, GetDeviceFirmwareErrors, GetDeviceFirmwareResponses, GetDeviceResponses, GetDeviceRuntimeData, GetDeviceRuntimeErrors, GetDeviceRuntimeProfileData, GetDeviceRuntimeProfileErrors, GetDeviceRuntimeProfileResponses, GetDeviceRuntimeResponses, GetDeviceStatusData, GetDeviceStatusErrors, GetDeviceStatusResponses, GetDeviceTelemetryLatestData, GetDeviceTelemetryLatestErrors, GetDeviceTelemetryLatestResponses, GetDeviceWifiData, GetDeviceWifiErrors, GetDeviceWifiResponses, GetFriendData, GetFriendErrors, GetFriendGroupData, GetFriendGroupErrors, GetFriendGroupInviteTokenData, GetFriendGroupInviteTokenErrors, GetFriendGroupInviteTokenResponses, GetFriendGroupResponses, GetFriendInviteTokenData, GetFriendInviteTokenErrors, GetFriendInviteTokenResponses, GetFriendResponses, GetSelfApiKeyData, GetSelfApiKeyErrors, GetSelfApiKeyResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, JoinFriendGroupData, JoinFriendGroupErrors, JoinFriendGroupResponses, LeaveFriendGroupData, LeaveFriendGroupErrors, LeaveFriendGroupResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListContactsData, ListContactsErrors, ListContactsResponses, ListDeviceSavedWifiData, ListDeviceSavedWifiErrors, ListDeviceSavedWifiResponses, ListDeviceWorkspaceHistoryData, ListDeviceWorkspaceHistoryErrors, ListDeviceWorkspaceHistoryResponses, ListDeviceWorkspacesData, ListDeviceWorkspacesErrors, ListDeviceWorkspacesResponses, ListFriendGroupMembersData, ListFriendGroupMembersErrors, ListFriendGroupMembersResponses, ListFriendGroupsData, ListFriendGroupsErrors, ListFriendGroupsResponses, ListFriendsData, ListFriendsErrors, ListFriendsResponses, PlayDeviceAudioPlayerData, PlayDeviceAudioPlayerErrors, PlayDeviceAudioPlayerResponses, PlayDeviceSoundData, PlayDeviceSoundErrors, PlayDeviceSoundResponses, PutContactData, PutContactErrors, PutContactResponses, PutFriendGroupData, PutFriendGroupErrors, PutFriendGroupMemberData, PutFriendGroupMemberErrors, PutFriendGroupMemberResponses, PutFriendGroupResponses, QueryDeviceTelemetryData, QueryDeviceTelemetryErrors, QueryDeviceTelemetryResponses, RebootDeviceData, RebootDeviceErrors, RebootDeviceResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSelfApiKeyData, RevokeSelfApiKeyErrors, RevokeSelfApiKeyResponses, ScanDeviceWifiData, ScanDeviceWifiErrors, ScanDeviceWifiResponses, SearchDeviceLogsData, SearchDeviceLogsErrors, SearchDeviceLogsResponses, SetDeviceAudioPlayerModeData, SetDeviceAudioPlayerModeErrors, SetDeviceAudioPlayerModeResponses, SetDeviceAudioPlayerPlaylistData, SetDeviceAudioPlayerPlaylistErrors, SetDeviceAudioPlayerPlaylistResponses, SetDeviceVolumeData, SetDeviceVolumeErrors, SetDeviceVolumeResponses, StopDeviceAudioPlayerData, StopDeviceAudioPlayerErrors, StopDeviceAudioPlayerResponses, UpdateDeviceFirmwareData, UpdateDeviceFirmwareErrors, UpdateDeviceFirmwareResponses } from './types.gen.ts';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -492,6 +492,269 @@ export const getContact = <ThrowOnError extends boolean = false>(options: Option
 export const putContact = <ThrowOnError extends boolean = false>(options: Options<PutContactData, ThrowOnError>): RequestResult<PutContactResponses, PutContactErrors, ThrowOnError> => (options.client ?? client).put<PutContactResponses, PutContactErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/gizclaw/v1/contacts/{contactName}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Revoke the bound device's Friend invite token
+ *
+ * Same as server.friend.invite_token.clear. Idempotent: succeeds when no token exists.
+ */
+export const clearFriendInviteToken = <ThrowOnError extends boolean = false>(options?: Options<ClearFriendInviteTokenData, ThrowOnError>): RequestResult<ClearFriendInviteTokenResponses, ClearFriendInviteTokenErrors, ThrowOnError> => (options?.client ?? client).delete<ClearFriendInviteTokenResponses, ClearFriendInviteTokenErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friends/invite-token',
+    ...options
+});
+
+/**
+ * Read the bound device's active Friend invite token
+ *
+ * Same data as server.friend.invite_token.get. Reads the shared Social store and never contacts the device.
+ */
+export const getFriendInviteToken = <ThrowOnError extends boolean = false>(options?: Options<GetFriendInviteTokenData, ThrowOnError>): RequestResult<GetFriendInviteTokenResponses, GetFriendInviteTokenErrors, ThrowOnError> => (options?.client ?? client).get<GetFriendInviteTokenResponses, GetFriendInviteTokenErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friends/invite-token',
+    ...options
+});
+
+/**
+ * Create or return the bound device's Friend invite token
+ *
+ * Without ttl_seconds this is server.friend.invite_token.create: an active token is returned unchanged and a new token lives 5 minutes. With ttl_seconds a new token lives that long, and an active token keeps its value while its expires_at is extended to now + ttl_seconds; it is never shortened. The body may be omitted.
+ */
+export const createFriendInviteToken = <ThrowOnError extends boolean = false>(options?: Options<CreateFriendInviteTokenData, ThrowOnError>): RequestResult<CreateFriendInviteTokenResponses, CreateFriendInviteTokenErrors, ThrowOnError> => (options?.client ?? client).post<CreateFriendInviteTokenResponses, CreateFriendInviteTokenErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friends/invite-token',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers
+    }
+});
+
+/**
+ * List Friends of the bound device
+ *
+ * Same relationships as server.friend.list, each with the Friend's public profile info. Never contacts the device.
+ */
+export const listFriends = <ThrowOnError extends boolean = false>(options?: Options<ListFriendsData, ThrowOnError>): RequestResult<ListFriendsResponses, ListFriendsErrors, ThrowOnError> => (options?.client ?? client).get<ListFriendsResponses, ListFriendsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friends',
+    ...options
+});
+
+/**
+ * Befriend the Peer that owns an invite token
+ *
+ * Same as server.friend.add, except that an already active relationship is reported as FRIEND_ALREADY_EXISTS instead of being returned again. Creates both directions of the relationship and their shared Friend Workspace.
+ */
+export const addFriend = <ThrowOnError extends boolean = false>(options: Options<AddFriendData, ThrowOnError>): RequestResult<AddFriendResponses, AddFriendErrors, ThrowOnError> => (options.client ?? client).post<AddFriendResponses, AddFriendErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friends',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * End a Friend relationship of the bound device
+ *
+ * Same as server.friend.delete: removes both directions and retires their Friend Workspace. Repeating a delete that already completed succeeds.
+ */
+export const deleteFriend = <ThrowOnError extends boolean = false>(options: Options<DeleteFriendData, ThrowOnError>): RequestResult<DeleteFriendResponses, DeleteFriendErrors, ThrowOnError> => (options.client ?? client).delete<DeleteFriendResponses, DeleteFriendErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friends/{friendName}',
+    ...options
+});
+
+/**
+ * Get one Friend of the bound device
+ *
+ * The relationship plus the Friend's public profile info (server.friend.info.get).
+ */
+export const getFriend = <ThrowOnError extends boolean = false>(options: Options<GetFriendData, ThrowOnError>): RequestResult<GetFriendResponses, GetFriendErrors, ThrowOnError> => (options.client ?? client).get<GetFriendResponses, GetFriendErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friends/{friendName}',
+    ...options
+});
+
+/**
+ * List Friend Groups the bound device belongs to
+ *
+ * Same as server.friend_group.list. name is the device's own name for each Group and my_role its role.
+ */
+export const listFriendGroups = <ThrowOnError extends boolean = false>(options?: Options<ListFriendGroupsData, ThrowOnError>): RequestResult<ListFriendGroupsResponses, ListFriendGroupsErrors, ThrowOnError> => (options?.client ?? client).get<ListFriendGroupsResponses, ListFriendGroupsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friend-groups',
+    ...options
+});
+
+/**
+ * Create a Friend Group owned by the bound device
+ *
+ * Same as server.friend_group.create. The device becomes the owner.
+ */
+export const createFriendGroup = <ThrowOnError extends boolean = false>(options: Options<CreateFriendGroupData, ThrowOnError>): RequestResult<CreateFriendGroupResponses, CreateFriendGroupErrors, ThrowOnError> => (options.client ?? client).post<CreateFriendGroupResponses, CreateFriendGroupErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friend-groups',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Join a Friend Group with its invite token
+ *
+ * Same as server.friend_group.join. name is the device's own name for the Group. Joining again with the same name returns the existing membership.
+ */
+export const joinFriendGroup = <ThrowOnError extends boolean = false>(options: Options<JoinFriendGroupData, ThrowOnError>): RequestResult<JoinFriendGroupResponses, JoinFriendGroupErrors, ThrowOnError> => (options.client ?? client).post<JoinFriendGroupResponses, JoinFriendGroupErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friend-groups/@join',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Dissolve a Friend Group
+ *
+ * Same as server.friend_group.delete. Owner only: removes every membership and retires the Group Workspace.
+ */
+export const deleteFriendGroup = <ThrowOnError extends boolean = false>(options: Options<DeleteFriendGroupData, ThrowOnError>): RequestResult<DeleteFriendGroupResponses, DeleteFriendGroupErrors, ThrowOnError> => (options.client ?? client).delete<DeleteFriendGroupResponses, DeleteFriendGroupErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}',
+    ...options
+});
+
+/**
+ * Get a Friend Group the bound device belongs to
+ *
+ * Same as server.friend_group.get. Any member may read.
+ */
+export const getFriendGroup = <ThrowOnError extends boolean = false>(options: Options<GetFriendGroupData, ThrowOnError>): RequestResult<GetFriendGroupResponses, GetFriendGroupErrors, ThrowOnError> => (options.client ?? client).get<GetFriendGroupResponses, GetFriendGroupErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}',
+    ...options
+});
+
+/**
+ * Update a Friend Group's display name and description
+ *
+ * Same as server.friend_group.put. Owner only.
+ */
+export const putFriendGroup = <ThrowOnError extends boolean = false>(options: Options<PutFriendGroupData, ThrowOnError>): RequestResult<PutFriendGroupResponses, PutFriendGroupErrors, ThrowOnError> => (options.client ?? client).put<PutFriendGroupResponses, PutFriendGroupErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Revoke a Friend Group's invite token
+ *
+ * Same as server.friend_group.invite_token.clear. Owner only; idempotent when no token exists.
+ */
+export const clearFriendGroupInviteToken = <ThrowOnError extends boolean = false>(options: Options<ClearFriendGroupInviteTokenData, ThrowOnError>): RequestResult<ClearFriendGroupInviteTokenResponses, ClearFriendGroupInviteTokenErrors, ThrowOnError> => (options.client ?? client).delete<ClearFriendGroupInviteTokenResponses, ClearFriendGroupInviteTokenErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}/invite-token',
+    ...options
+});
+
+/**
+ * Read a Friend Group's active invite token
+ *
+ * Same as server.friend_group.invite_token.get. Owner only.
+ */
+export const getFriendGroupInviteToken = <ThrowOnError extends boolean = false>(options: Options<GetFriendGroupInviteTokenData, ThrowOnError>): RequestResult<GetFriendGroupInviteTokenResponses, GetFriendGroupInviteTokenErrors, ThrowOnError> => (options.client ?? client).get<GetFriendGroupInviteTokenResponses, GetFriendGroupInviteTokenErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}/invite-token',
+    ...options
+});
+
+/**
+ * Create or return a Friend Group's invite token
+ *
+ * Owner only. Without ttl_seconds this is server.friend_group.invite_token.create: an active token is returned unchanged and a new token lives 5 minutes. With ttl_seconds a new token lives that long, and an active token keeps its value while its expires_at is extended to now + ttl_seconds; it is never shortened. The body may be omitted.
+ */
+export const createFriendGroupInviteToken = <ThrowOnError extends boolean = false>(options: Options<CreateFriendGroupInviteTokenData, ThrowOnError>): RequestResult<CreateFriendGroupInviteTokenResponses, CreateFriendGroupInviteTokenErrors, ThrowOnError> => (options.client ?? client).post<CreateFriendGroupInviteTokenResponses, CreateFriendGroupInviteTokenErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}/invite-token',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Leave a Friend Group
+ *
+ * Removes the bound device's own membership, like server.friend_group.members.delete for its own public key. Members and admins may leave; the owner must dissolve the Group instead.
+ */
+export const leaveFriendGroup = <ThrowOnError extends boolean = false>(options: Options<LeaveFriendGroupData, ThrowOnError>): RequestResult<LeaveFriendGroupResponses, LeaveFriendGroupErrors, ThrowOnError> => (options.client ?? client).post<LeaveFriendGroupResponses, LeaveFriendGroupErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}/@leave',
+    ...options
+});
+
+/**
+ * List a Friend Group's members
+ *
+ * Same as server.friend_group.members.list, each member with its public profile info. Any member may read.
+ */
+export const listFriendGroupMembers = <ThrowOnError extends boolean = false>(options: Options<ListFriendGroupMembersData, ThrowOnError>): RequestResult<ListFriendGroupMembersResponses, ListFriendGroupMembersErrors, ThrowOnError> => (options.client ?? client).get<ListFriendGroupMembersResponses, ListFriendGroupMembersErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}/members',
+    ...options
+});
+
+/**
+ * Add a Peer to a Friend Group
+ *
+ * Same as server.friend_group.members.add. Owners and admins may add members; only the owner may add admins. member_name is the added Peer's own name for the Group.
+ */
+export const addFriendGroupMember = <ThrowOnError extends boolean = false>(options: Options<AddFriendGroupMemberData, ThrowOnError>): RequestResult<AddFriendGroupMemberResponses, AddFriendGroupMemberErrors, ThrowOnError> => (options.client ?? client).post<AddFriendGroupMemberResponses, AddFriendGroupMemberErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}/members',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Remove a member from a Friend Group
+ *
+ * Same as server.friend_group.members.delete. Owners and admins may remove members, only the owner may remove admins, and a member may remove itself.
+ */
+export const deleteFriendGroupMember = <ThrowOnError extends boolean = false>(options: Options<DeleteFriendGroupMemberData, ThrowOnError>): RequestResult<DeleteFriendGroupMemberResponses, DeleteFriendGroupMemberErrors, ThrowOnError> => (options.client ?? client).delete<DeleteFriendGroupMemberResponses, DeleteFriendGroupMemberErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}/members/{memberName}',
+    ...options
+});
+
+/**
+ * Change a Friend Group member's role
+ *
+ * Same as server.friend_group.members.put. Owner only.
+ */
+export const putFriendGroupMember = <ThrowOnError extends boolean = false>(options: Options<PutFriendGroupMemberData, ThrowOnError>): RequestResult<PutFriendGroupMemberResponses, PutFriendGroupMemberErrors, ThrowOnError> => (options.client ?? client).put<PutFriendGroupMemberResponses, PutFriendGroupMemberErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}/members/{memberName}',
     ...options,
     headers: {
         'Content-Type': 'application/json',

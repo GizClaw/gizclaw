@@ -29,6 +29,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
@@ -49,6 +50,8 @@ type deviceHTTPFixture struct {
 	apiKeys    *apikey.Server
 	firmware   *firmware.Server
 	workspaces *workspace.Server
+	public     *peerHTTP
+	profiles   *runtimeprofile.Server
 }
 
 func newDeviceHTTPFixture(t *testing.T) *deviceHTTPFixture {
@@ -95,7 +98,7 @@ func newDeviceHTTPFixture(t *testing.T) *deviceHTTPFixture {
 	return &deviceHTTPFixture{
 		handler: service.publicHTTPHandler(keys), owner: ownerKey.Public, secret: created.Secret,
 		manager: manager, peers: peers, contacts: contacts, control: control, metrics: manager.Metrics.(*metrics.MemoryStore),
-		apiKeys: keys, firmware: firmwares, workspaces: workspaces,
+		apiKeys: keys, firmware: firmwares, workspaces: workspaces, public: service.public, profiles: profiles,
 	}
 }
 
