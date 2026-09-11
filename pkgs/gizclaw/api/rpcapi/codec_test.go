@@ -237,7 +237,7 @@ func TestFriendListResponseCarriesPresenceAndProfile(t *testing.T) {
 	var payload RPCPayload
 	if err := payload.FromFriendListResponse(FriendListResponse{Items: []FriendObject{
 		{Name: "online", Online: &online, LastSeenAt: &seen, DisplayName: &name, Emoji: &emoji},
-		{Name: "never-seen", Online: &offline},
+		{Name: "never-seen", Online: &offline, Emoji: new("")},
 		{Name: "added"},
 	}}); err != nil {
 		t.Fatal(err)
@@ -253,7 +253,7 @@ func TestFriendListResponseCarriesPresenceAndProfile(t *testing.T) {
 	if first := items[0]; !first.GetOnline() || first.GetLastSeenAt() != "2026-09-12T00:30:00Z" || first.GetDisplayName() != name || first.GetEmoji() != emoji {
 		t.Fatalf("wire online Friend = %+v", first)
 	}
-	if second := items[1]; second.Online == nil || second.GetOnline() || second.LastSeenAt != nil || second.DisplayName != nil || second.Emoji != nil {
+	if second := items[1]; second.Online == nil || second.GetOnline() || second.LastSeenAt != nil || second.DisplayName != nil || second.Emoji == nil || second.GetEmoji() != "" {
 		t.Fatalf("wire never-seen Friend = %+v", second)
 	}
 	if third := items[2]; third.Online != nil || third.LastSeenAt != nil {

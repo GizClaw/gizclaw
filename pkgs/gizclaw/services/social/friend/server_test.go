@@ -300,7 +300,7 @@ func TestListFriendsCarriesPresenceAndProfile(t *testing.T) {
 	}
 	if item := byPeer[offline]; item.Online == nil || *item.Online ||
 		item.LastSeenAt == nil || !item.LastSeenAt.Equal(offlineSeen) ||
-		socialutil.StringValue(item.DisplayName) != offlineName || item.Emoji != nil {
+		socialutil.StringValue(item.DisplayName) != offlineName || item.Emoji == nil || *item.Emoji != "" {
 		t.Fatalf("offline Friend = %+v", item)
 	}
 	if item := byPeer[never]; item.Online == nil || *item.Online || item.LastSeenAt != nil ||

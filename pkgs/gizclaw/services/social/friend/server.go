@@ -633,8 +633,10 @@ func (s *Server) addFriendListDetails(ctx context.Context, item *rpcapi.FriendOb
 	if err != nil {
 		return
 	}
-	item.DisplayName = socialutil.OptionalString(socialutil.StringValue(info.Name))
-	item.Emoji = socialutil.OptionalString(socialutil.StringValue(info.Emoji))
+	// Like server.friend.info.get, an explicitly empty name or emoji stays
+	// present so clients can tell it from an unset one.
+	item.DisplayName = info.Name
+	item.Emoji = info.Emoji
 }
 
 func friendCollectionKey(owner string) kv.Key {
