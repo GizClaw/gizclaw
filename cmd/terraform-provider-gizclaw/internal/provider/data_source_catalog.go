@@ -263,6 +263,41 @@ func resolveCatalog(sources, productSources []string) (resolvedCatalog, error) {
 			selected[id] = struct{}{}
 		}
 	}
+	// Raids are selected before Workflow dependencies are closed so a tester
+	// Workflow brings its MemoryLayout like any other selected Workflow.
+	descriptors, err := loadRaidDescriptors(sources)
+	if err != nil {
+		return resolvedCatalog{}, err
+	}
+	selectedRaids := make(map[string]string)
+	for _, descriptor := range descriptors {
+		used := false
+		for _, implementation := range descriptor.raid.Implementations {
+			if implementation.WorkflowID == "" {
+				continue
+			}
+			if _, exists := selected["Workflow/"+implementation.WorkflowID]; exists {
+				used = true
+				break
+			}
+		}
+		if !used {
+			continue
+		}
+		selectedRaids[descriptor.raid.ID] = descriptor.encoded
+		testerID := strings.TrimSpace(descriptor.raid.Tester.WorkflowID)
+		if testerID == "" {
+			continue
+		}
+		// The tester Workflow ships with the raid so Raids can exercise it on a
+		// deployed cluster. It is deployed, never bound by a product RuntimeProfile.
+		id := "Workflow/" + testerID
+		if _, exists := effective[id]; !exists {
+			return resolvedCatalog{}, fmt.Errorf("raid %q tester references missing %s", descriptor.raid.ID, id)
+		}
+		selected[id] = struct{}{}
+	}
+
 	for id := range cloneStringSet(selected) {
 		entry, exists := effective[id]
 		if !exists || entry.stage != "workflows" {
@@ -321,39 +356,6 @@ func resolveCatalog(sources, productSources []string) (resolvedCatalog, error) {
 			return resolvedCatalog{}, fmt.Errorf("%s requires missing %s", id, credentialID)
 		}
 		selected[credentialID] = struct{}{}
-	}
-
-	descriptors, err := loadRaidDescriptors(sources)
-	if err != nil {
-		return resolvedCatalog{}, err
-	}
-	selectedRaids := make(map[string]string)
-	for _, descriptor := range descriptors {
-		used := false
-		for _, implementation := range descriptor.raid.Implementations {
-			if implementation.WorkflowID == "" {
-				continue
-			}
-			if _, exists := selected["Workflow/"+implementation.WorkflowID]; exists {
-				used = true
-				break
-			}
-		}
-		if !used {
-			continue
-		}
-		selectedRaids[descriptor.raid.ID] = descriptor.encoded
-		testerID := strings.TrimSpace(descriptor.raid.Tester.WorkflowID)
-		if testerID == "" {
-			continue
-		}
-		// The tester Workflow ships with the raid so Raids can exercise it on a
-		// deployed cluster. It is deployed, never bound by a product RuntimeProfile.
-		id := "Workflow/" + testerID
-		if _, exists := effective[id]; !exists {
-			return resolvedCatalog{}, fmt.Errorf("raid %q tester references missing %s", descriptor.raid.ID, id)
-		}
-		selected[id] = struct{}{}
 	}
 
 	result := resolvedCatalog{byStage: make(map[string]map[string]string), raids: selectedRaids}

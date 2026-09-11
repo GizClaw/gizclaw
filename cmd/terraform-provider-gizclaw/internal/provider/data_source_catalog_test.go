@@ -602,3 +602,20 @@ spec: {token: default-token, runtime_profile_id: default}
 		t.Fatal("missing product source was accepted")
 	}
 }
+
+func TestResolveCatalogSelectsRaidTesterMemoryLayout(t *testing.T) {
+	catalog, product := t.TempDir(), t.TempDir()
+	writeCatalogTestFile(t, catalog, "memory-layouts/tester.yaml", "apiVersion: gizclaw.admin/v1alpha1\nkind: MemoryLayout\nmetadata: {id: tester-memory}\nspec: {flowcraft: {}}\n")
+	writeCatalogTestFile(t, catalog, "workflows/demo/flowcraft.yaml", "apiVersion: gizclaw.admin/v1alpha1\nkind: Workflow\nmetadata: {id: demo-flowcraft}\nspec: {driver: flowcraft}\n")
+	writeCatalogTestFile(t, catalog, "workflows/demo/test.yaml", "apiVersion: gizclaw.admin/v1alpha1\nkind: Workflow\nmetadata: {id: demo-test}\nspec: {driver: eino, memory: tester-memory}\n")
+	writeCatalogTestFile(t, catalog, "workflows/demo/raid.json", `{"id": "demo", "implementations": {"flowcraft": {"workflow_id": "demo-flowcraft"}}, "tester": {"workflow_id": "demo-test"}}`)
+	writeCatalogTestFile(t, product, "runtime-profiles/demo.yaml", "apiVersion: gizclaw.admin/v1alpha1\nkind: RuntimeProfile\nmetadata: {id: demo}\nspec:\n  workflows: {collections: {raids: {demo: {resource_id: demo-flowcraft}}}}\n")
+
+	resolved, err := resolveCatalog([]string{catalog}, []string{product})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := resolved.byStage["memory_layouts"]["MemoryLayout/tester-memory"]; !ok {
+		t.Fatal("MemoryLayout of a selected raid tester Workflow was not selected")
+	}
+}
