@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"strings"
 	"testing"
@@ -475,6 +476,68 @@ func TestVolcControlAddress(t *testing.T) {
 	for _, endpoint := range []string{"ftp://example.test", "https://user@example.test", "https://example.test/path"} {
 		if _, _, err := volcControlAddress(endpoint, "cn-beijing"); !errors.Is(err, memorystore.ErrInvalidInput) {
 			t.Fatalf("endpoint %q error = %v", endpoint, err)
+		}
+	}
+}
+
+func TestStorePurgesWorkspaceByReservedScopeUser(t *testing.T) {
+	t.Parallel()
+	var requests []string
+	listed := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Token explicit" {
+			t.Errorf("Authorization = %q", r.Header.Get("Authorization"))
+		}
+		requests = append(requests, r.Method+" "+r.URL.Path+" "+r.URL.RawQuery)
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodGet {
+			listed++
+			if listed == 1 {
+				_, _ = io.WriteString(w, `{"results":[{"id":"late-job-fact","memory":"late"}]}`)
+				return
+			}
+			_, _ = io.WriteString(w, `{"results":[]}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{}`)
+	}))
+	defer server.Close()
+	store, err := Open(context.Background(), Config{Mem0: mem0.Config{Endpoint: server.URL, APIKey: "explicit", HTTPClient: server.Client()}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bound, err := memorystore.BindApp(store, "workspace-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, wantEmpty := range []bool{false, true} {
+		if err := memorystore.PurgeScope(t.Context(), bound, memorystore.Scope{}); err != nil {
+			t.Fatal(err)
+		}
+		empty, err := memorystore.ScopeEmpty(t.Context(), bound, memorystore.Scope{})
+		if err != nil || empty != wantEmpty {
+			t.Fatalf("ScopeEmpty() = %v, %v; want %v", empty, err, wantEmpty)
+		}
+	}
+	if len(requests) != 4 {
+		t.Fatalf("requests = %q", requests)
+	}
+	for index, request := range requests {
+		method, rest, _ := strings.Cut(request, " ")
+		path, rawQuery, _ := strings.Cut(rest, " ")
+		query, err := url.ParseQuery(rawQuery)
+		if err != nil {
+			t.Fatal(err)
+		}
+		wantMethod := http.MethodDelete
+		if index%2 == 1 {
+			wantMethod = http.MethodGet
+		}
+		if method != wantMethod || path != "/v1/memories/" || !strings.HasPrefix(query.Get("user_id"), "gizclaw-volc-scope-v1:") {
+			t.Fatalf("request %d = %q", index, request)
+		}
+		if method == http.MethodDelete && len(query) != 1 {
+			t.Fatalf("delete query = %v, want only user_id", query)
 		}
 	}
 }

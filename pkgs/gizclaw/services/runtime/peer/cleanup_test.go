@@ -202,3 +202,52 @@ func TestPeerDeletionRejectsLegacyRetirementPlan(t *testing.T) {
 		t.Fatalf("Peer tombstoned despite the unretired Workspace: %v", err)
 	}
 }
+
+type pendingWorkspaceAdapters struct {
+	*peerDeletionAdapters
+}
+
+func (a pendingWorkspaceAdapters) SnapshotPeerWorkspaces(context.Context, string) (workspace.PeerRetirementSnapshot, error) {
+	return workspace.PeerRetirementSnapshot{
+		PublicKey:  a.publicKey,
+		Workspaces: []workspace.PeerRetirementWorkspace{{ID: "workspace-a", Name: "room-a"}},
+	}, nil
+}
+
+type pendingWorkspaceLookup struct{ emptyPeerLookup }
+
+func (pendingWorkspaceLookup) HasLocator(_ context.Context, locator pendingdeletion.Locator) (bool, error) {
+	return locator.Kind == pendingdeletion.KindWorkspace && locator.ResourceID == "workspace-a", nil
+}
+
+// Workspace cleanup resolves the Memory binding it purges through the owner's
+// RuntimeProfile, so the Peer keeps that binding until no child Workspace
+// deletion is pending.
+func TestPeerDeletionKeepsRuntimeProfileBindingWhileWorkspaceCleanupIsPending(t *testing.T) {
+	ctx := t.Context()
+	store := kv.NewMemory(nil)
+	server := &Server{Store: store}
+	key := giznet.PublicKey{22}
+	saveTestPeer(t, server, key, apitypes.DeviceInfo{})
+	if err := server.DeleteSelf(ctx, key); err != nil {
+		t.Fatal(err)
+	}
+	source := PendingDeletionSource(store)
+	claim := claimPeerDeletion(t, source, time.Now().Add(time.Second))
+	base := &peerDeletionAdapters{publicKey: key.String()}
+	adapters := pendingWorkspaceAdapters{peerDeletionAdapters: base}
+	handler := DeletionHandler{
+		Server: server, Source: source, Social: base, Workspaces: adapters,
+		APIKeys: base, RuntimeProfiles: base, Quiescer: base,
+		WorkspaceLookup: pendingWorkspaceLookup{}, FriendGroupLookup: emptyPeerLookup{},
+		Now: func() time.Time { return claim.UpdatedAt.Add(time.Second) },
+	}
+	err := handler.Handle(ctx, claim)
+	var outcome *pendingdeletion.OutcomeError
+	if !errors.As(err, &outcome) || outcome.Class != pendingdeletion.OutcomeDeferred || outcome.Code != "workspace_cleanup_pending" {
+		t.Fatalf("Handle() error = %#v, want deferred workspace_cleanup_pending", err)
+	}
+	if base.bindingCalls != 0 {
+		t.Fatalf("RuntimeProfile binding deleted %d times while Workspace cleanup was pending", base.bindingCalls)
+	}
+}

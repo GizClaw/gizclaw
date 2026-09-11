@@ -103,13 +103,15 @@ func (h DeletionHandler) Handle(ctx context.Context, claim pendingdeletion.Claim
 	if err := h.APIKeys.CleanupPeer(ctx, publicKey.String()); err != nil {
 		return pendingdeletion.Retryable("api_key_cleanup_failed", "Peer API key cleanup failed", err)
 	}
-	if err := h.RuntimeProfiles.DeleteOwnerProfileBinding(ctx, publicKey.String()); err != nil {
-		return pendingdeletion.Retryable("binding_cleanup_failed", "Peer RuntimeProfile binding cleanup failed", err)
-	}
+	// Workspace cleanup resolves the Memory binding it purges through the
+	// owner's RuntimeProfile, so the binding outlives every child Workspace.
 	if pending, err := childDeletionPending(ctx, h.WorkspaceLookup, pendingdeletion.KindWorkspace, plan.WorkspaceIDs); err != nil {
 		return pendingdeletion.Retryable("workspace_verify_failed", "Peer Workspace cleanup could not be verified", err)
 	} else if pending {
 		return pendingdeletion.Deferred("workspace_cleanup_pending", "Peer Workspace cleanup is still completing", peerRetirementPollInterval)
+	}
+	if err := h.RuntimeProfiles.DeleteOwnerProfileBinding(ctx, publicKey.String()); err != nil {
+		return pendingdeletion.Retryable("binding_cleanup_failed", "Peer RuntimeProfile binding cleanup failed", err)
 	}
 	if pending, err := childDeletionPending(ctx, h.FriendGroupLookup, pendingdeletion.KindFriendGroup, plan.FriendGroupIDs); err != nil {
 		return pendingdeletion.Retryable("friend_group_verify_failed", "Peer Friend Group cleanup could not be verified", err)

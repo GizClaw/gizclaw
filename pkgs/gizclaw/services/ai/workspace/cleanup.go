@@ -14,6 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
 type WorkspaceQuiescer interface {
@@ -26,12 +27,21 @@ type FlowcraftWorkspaceCleanup interface {
 	WorkspaceStateAbsent(context.Context, string, string) (bool, error)
 }
 
+// MemoryWorkspaceCleanup irreversibly purges and verifies the long-term
+// memory a Workspace wrote through its current Memory binding. A Workspace
+// without a resolvable binding has nothing to purge and reports absent.
+type MemoryWorkspaceCleanup interface {
+	PurgeWorkspaceMemory(context.Context, string) error
+	WorkspaceMemoryAbsent(context.Context, string) (bool, error)
+}
+
 // DeletionHandler owns Workspace artifact cleanup and record finalization.
 type DeletionHandler struct {
 	Server    *Server
 	Source    workspaceSQLDeletionSource
 	Quiescer  WorkspaceQuiescer
 	Flowcraft FlowcraftWorkspaceCleanup
+	Memory    MemoryWorkspaceCleanup
 	Now       func() time.Time
 }
 
@@ -201,6 +211,11 @@ func (h DeletionHandler) cleanupArtifacts(ctx context.Context, descriptor valida
 			return pendingdeletion.Retryable("quiesce_failed", "Workspace runtime could not be quiesced", err)
 		}
 	}
+	if h.Memory != nil {
+		if err := h.Memory.PurgeWorkspaceMemory(ctx, descriptor.ID); err != nil {
+			return memoryCleanupError("memory_cleanup_failed", "Workspace long-term memory could not be purged", err)
+		}
+	}
 	if h.Flowcraft != nil {
 		owner := ""
 		if descriptor.OwnerPublicKey != nil {
@@ -230,6 +245,15 @@ func (h DeletionHandler) cleanupArtifacts(ctx context.Context, descriptor valida
 }
 
 func (h DeletionHandler) verifyArtifactsAbsent(ctx context.Context, descriptor validatedDeletion) error {
+	if h.Memory != nil {
+		absent, err := h.Memory.WorkspaceMemoryAbsent(ctx, descriptor.ID)
+		if err != nil {
+			return memoryCleanupError("memory_verify_failed", "Workspace long-term memory cleanup could not be verified", err)
+		}
+		if !absent {
+			return pendingdeletion.Retryable("memory_residual", "Workspace long-term memory remains", nil)
+		}
+	}
 	if h.Flowcraft != nil {
 		owner := ""
 		if descriptor.OwnerPublicKey != nil {
@@ -270,6 +294,16 @@ func (h DeletionHandler) verifyArtifactsAbsent(ctx context.Context, descriptor v
 		}
 	}
 	return nil
+}
+
+// memoryCleanupError keeps provider failures retryable. A binding the
+// provider can never purge, such as a scope its bulk delete cannot express,
+// is terminal so an operator can intervene instead of retrying forever.
+func memoryCleanupError(code, message string, err error) error {
+	if errors.Is(err, memory.ErrUnsupported) || errors.Is(err, memory.ErrInvalidInput) {
+		return pendingdeletion.Terminal("memory_cleanup_unsupported", "Workspace long-term memory cannot be purged by its provider", err)
+	}
+	return pendingdeletion.Retryable(code, message, err)
 }
 
 func equalOptionalString(a, b *string) bool {

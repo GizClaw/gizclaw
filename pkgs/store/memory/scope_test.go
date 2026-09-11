@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -285,4 +286,68 @@ func (*scopeAllTestStore) ProcessAsync(_ context.Context, _ OperationRequest) (O
 
 func (*scopeAllTestStore) Stats(_ context.Context, _ Scope) (Statistics, error) {
 	return Statistics{}, nil
+}
+
+type scopePurgerTestStore struct {
+	*scopeWaiterProcessorTestStore
+	purged  []Scope
+	checked []Scope
+}
+
+func (s *scopePurgerTestStore) PurgeScope(_ context.Context, scope Scope) error {
+	s.purged = append(s.purged, scope)
+	return nil
+}
+
+func (s *scopePurgerTestStore) ScopeEmpty(_ context.Context, scope Scope) (bool, error) {
+	s.checked = append(s.checked, scope)
+	return true, nil
+}
+
+func TestPurgeScopeUnwrapsBoundViewsAndBindsScope(t *testing.T) {
+	t.Parallel()
+	underlying := &scopePurgerTestStore{scopeWaiterProcessorTestStore: &scopeWaiterProcessorTestStore{&scopeTestStore{}}}
+	bound, err := BindApp(underlying, "workspace-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rebound, err := BindApp(bound, "workspace-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := PurgeScope(t.Context(), rebound, Scope{UserID: "user"}); err != nil {
+		t.Fatal(err)
+	}
+	if empty, err := ScopeEmpty(t.Context(), rebound, Scope{}); err != nil || !empty {
+		t.Fatalf("ScopeEmpty() = %v, %v", empty, err)
+	}
+	if want := []Scope{{AppID: "workspace-a", UserID: "user"}}; !reflect.DeepEqual(underlying.purged, want) {
+		t.Fatalf("purged = %+v, want %+v", underlying.purged, want)
+	}
+	if want := []Scope{{AppID: "workspace-a"}}; !reflect.DeepEqual(underlying.checked, want) {
+		t.Fatalf("checked = %+v, want %+v", underlying.checked, want)
+	}
+	if err := PurgeScope(t.Context(), bound, Scope{AppID: "workspace-b"}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("PurgeScope(conflicting app) error = %v, want ErrInvalidInput", err)
+	}
+	if len(underlying.purged) != 1 {
+		t.Fatalf("conflicting purge reached the provider: %+v", underlying.purged)
+	}
+}
+
+func TestPurgeScopeRequiresProviderCapability(t *testing.T) {
+	t.Parallel()
+	bound, err := BindApp(&scopeTestStore{}, "workspace-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := PurgeScope(t.Context(), bound, Scope{}); !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("PurgeScope() error = %v, want ErrUnsupported", err)
+	}
+	if _, err := ScopeEmpty(t.Context(), bound, Scope{}); !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("ScopeEmpty() error = %v, want ErrUnsupported", err)
+	}
+	if err := PurgeScope(t.Context(), nil, Scope{}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("PurgeScope(nil) error = %v, want ErrInvalidInput", err)
+	}
 }

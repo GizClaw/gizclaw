@@ -113,6 +113,54 @@ TOS 可另外使用 `GIZCLAW_TOS_SESSION_TOKEN`，OSS 可使用
 credential value。没有可用 account 时，应把对应 provider 明确记录为 `SKIP` 并保留
 interoperability risk；只完成 tagged compile 不能算 live pass。
 
+### Remote Memory scope purge
+
+同一个 tagged package 包含 `TestMemoryScopePurge`，用真实的 Mem0 系 provider 校验
+Workspace 删除时的 memory purge。通过 `GIZCLAW_MEMORY_PROVIDER` 选择：
+
+| Provider | 必填变量 | 可选变量 |
+| --- | --- | --- |
+| `volc-mem0` | `GIZCLAW_VOLC_MEM0_ENDPOINT`、`GIZCLAW_VOLC_MEM0_API_KEY` | |
+| `mem0-self-hosted` | `GIZCLAW_MEM0_SELF_HOSTED_URL` | `GIZCLAW_MEM0_SELF_HOSTED_API_KEY` |
+| `mem0-platform` | `GIZCLAW_MEM0_API_KEY` | `GIZCLAW_MEM0_ENDPOINT`（默认 `https://api.mem0.ai`） |
+
+```sh
+GIZCLAW_MEMORY_PROVIDER=volc-mem0 \
+GIZCLAW_VOLC_MEM0_ENDPOINT=https://... GIZCLAW_VOLC_MEM0_API_KEY=... \
+  go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
+```
+
+Volc data-plane key 决定 memory project，因此应使用专用测试 project 的 key，不需要
+project ID 或 AccessKey。Self-hosted lane 使用仓库的 Mem0 OSS 服务
+（`tests/gizclaw-e2e/docker/Dockerfile.mem0`，`mem0ai 2.0.3`），它提供标准的按 entity
+过滤的 `GET /memories` 与 `DELETE /memories`，并从挂载的 `tests/gizclaw-e2e/.env`
+读取模型 key：
+
+```sh
+docker build -f tests/gizclaw-e2e/docker/Dockerfile.mem0 -t gizclaw-mem0 .
+docker run -d --rm -p 127.0.0.1:18000:8000 \
+  -v "$PWD/tests/gizclaw-e2e/.env:/run/gizclaw-e2e.env:ro" gizclaw-mem0
+GIZCLAW_MEMORY_PROVIDER=mem0-self-hosted GIZCLAW_MEM0_SELF_HOSTED_URL=http://127.0.0.1:18000 \
+  go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
+```
+
+未设置 provider 时 skip；未知 provider 或缺少所选 provider 的必填变量会在发出任何请求前
+失败，provider 错误或超时一律失败，不会降级为 skip。每轮向两个生成的 Workspace ID
+各写入一条 direct Fact，并为第一个提交 extraction；在异步 job 可能仍在运行时 purge
+第一个 Workspace，等待 job 结束，再像 Workspace 删除重试 `memory_residual` 那样反复
+purge 与校验。之后如果第一个 Workspace 在静置期间又出现迟到的 Fact，或第二个
+Workspace 的 Fact 被删除，测试失败。测试只触及通过 `memory.BindApp` 绑定的
+`gizclaw-e2e-purge-<unix-nanos>-a`/`-b` 两个生成 Workspace ID；cleanup 即使在失败后
+也会 purge 两者直到校验为空。日志记录校验为空前用了几轮 purge。
+
+Flowcraft purge 不需要 provider 账号：PostgreSQL job 运行
+`TestPostgreSQLFlowcraftMemoryPurge`，通过 `memorystore.Registry` purge
+`flowcraft_postgresql` binding 的 canonical fact、retrieval index 与排队的 extraction job，
+并保留另一个 Workspace 的记忆。Redis 8 lane 为
+`FLOWCRAFT_REDIS8_URL=redis://... go test ./pkgs/store/memory/flowcraft/redis8`，需要
+Redis 8.4 或更高版本。
+
+
 ## Credential-backed harness 约束
 
 GizClaw、GenX 和 Memory 的 live suite 各自只拥有一个 ignored `.env`，

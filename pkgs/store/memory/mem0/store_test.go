@@ -732,3 +732,45 @@ func TestClientRedactsSecrets(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 }
+
+// Mem0 OSS rejects filters whose entity field is not at the top level, so
+// self-hosted filters keep the encoded user_id there and nest other clauses.
+func TestStoreSelfHostedKeepsEntityFilterAtTopLevel(t *testing.T) {
+	t.Parallel()
+	scope := Scope{AppID: "workspace"}
+	encoded := encodeSelfHostedScope(scope)
+	var filters []any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if r.URL.Path == "/search" {
+			filters = append(filters, body["filters"])
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"results":[{"id":"fact","memory":"remembered","user_id":%q}]}`, encoded)
+	}))
+	defer server.Close()
+	store, err := New(Config{Endpoint: server.URL, Flavor: SelfHosted, HTTPClient: server.Client()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Recall(t.Context(), Query{
+		Scope: scope, Text: "remembered", Limit: 1,
+		Filters: []Filter{{Field: "lane", Operator: FilterEqual, Value: "owner"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Observe(t.Context(), Observation{
+		Scope: scope, ID: "observation", Facts: []FactCandidate{{Text: "remembered"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	want := []any{
+		map[string]any{"user_id": encoded, "AND": []any{map[string]any{"lane": "owner"}}},
+		map[string]any{"user_id": encoded, "AND": []any{map[string]any{mem0ObservationIDMetadata: "observation"}}},
+	}
+	if !reflect.DeepEqual(filters, want) {
+		t.Fatalf("search filters = %#v, want %#v", filters, want)
+	}
+}

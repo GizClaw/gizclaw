@@ -559,6 +559,16 @@ func (s *Server) init() error {
 			Source:    workspacePendingDeletionSource,
 			Quiescer:  manager,
 			Flowcraft: flowcraftWorkspaceCleanup,
+			Memory: workspaceMemoryCleanup{
+				Resolver: agenthost.ServiceResolver{
+					Workspaces:             workspaceServer,
+					Workflows:              workflowServer,
+					MemoryLayouts:          memoryLayoutServer,
+					RuntimeProfileForOwner: manager.runtimeProfileForOwner,
+				},
+				Stores:     manager.MemoryStores,
+				ServerRoot: manager.MemoryRoot,
+			},
 		},
 	); err != nil {
 		return fmt.Errorf("gizclaw: register Workspace pending deletion: %w", err)
