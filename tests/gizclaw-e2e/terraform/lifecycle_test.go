@@ -479,10 +479,8 @@ func lifecycleCases(adminKey, peerKey string) []lifecycleCase {
 	}
 }
 
-// toolSpec is written in the Server's normalized form: gizclaw_resource
-// compares the stored spec literally, so omitting the Server defaults for
-// enabled, http.headers, and http.success_status_codes would plan a change on
-// every refresh.
+// toolSpec omits the fields the Server fills in (enabled, http.headers,
+// http.success_status_codes); refresh must still plan no change.
 func toolSpec(invokeName, description string) map[string]any {
 	return map[string]any{
 		"type":        "http_request",
