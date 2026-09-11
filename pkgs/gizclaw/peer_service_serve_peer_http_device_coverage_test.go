@@ -27,6 +27,7 @@ var deviceExtensionRoutes = []struct{ method, path, body string }{
 	{http.MethodGet, "/gizclaw/v1/device/telemetry?field=battery.percent&start_time_ms=1&end_time_ms=2", ""},
 	{http.MethodGet, "/gizclaw/v1/device/telemetry/aggregate?field=battery.percent&start_time_ms=1&end_time_ms=2&bucket_ms=1&aggregate=avg", ""},
 	{http.MethodGet, "/gizclaw/v1/device/firmware", ""},
+	{http.MethodGet, "/gizclaw/v1/device/runtime-profile", ""},
 	{http.MethodPut, "/gizclaw/v1/device/volume", `{"level":1,"muted":false}`},
 	{http.MethodPost, "/gizclaw/v1/device/actions/play-sound", `{"sound":"chime"}`},
 	{http.MethodPost, "/gizclaw/v1/device/actions/reboot", ""},

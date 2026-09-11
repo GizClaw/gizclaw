@@ -1123,6 +1123,23 @@
         }
       }
     },
+    "/gizclaw/v1/device/runtime-profile": {
+      "get": {
+        "operationId": "getDeviceRuntimeProfile",
+        "summary": "Get the RuntimeProfile workflow catalog of the bound device",
+        "tags": ["Device"],
+        "security": [{"BearerAuth": []}],
+        "description": "Returns the identity of the RuntimeProfile currently bound to the caller device together with its workflow collections and the workflow names in each collection. name and revision equal runtime_profile_name and runtime_profile_revision in Peer RPC responses, and each workflow name is the alias the device uses with server.workflow.*. The response is projected from the RuntimeProfile bindings only and does not check whether the Workflow resource behind a binding still exists: resource bindings, i18n text, drivers, models, voices, memory, pet definitions and app configuration are never returned. Collections and workflows are sorted by name. Reading never contacts the device.",
+        "responses": {
+          "200": {"description": "RuntimeProfile workflow catalog of the bound device.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceRuntimeProfile"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
     "/gizclaw/v1/device/volume": {
       "put": {
         "operationId": "setDeviceVolume",
@@ -1715,6 +1732,33 @@
         "properties": {
           "description": {"type": "string", "description": "Description of the Firmware configuration bound to the device."},
           "slots": {"$ref": "./shared.json#/components/schemas/FirmwareSlots", "description": "Every configured channel. A channel with no configured package carries no package field."}
+        }
+      },
+      "DeviceRuntimeProfile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "revision", "collections"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1, "description": "RuntimeProfile name; equals runtime_profile_name in Peer RPC responses."},
+          "revision": {"type": "string", "minLength": 1, "description": "Opaque RuntimeProfile revision; equals runtime_profile_revision in Peer RPC responses."},
+          "collections": {"type": "array", "description": "Workflow collections sorted by name.", "items": {"$ref": "#/components/schemas/DeviceRuntimeProfileCollection"}}
+        }
+      },
+      "DeviceRuntimeProfileCollection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "workflows"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1, "description": "Collection name, as passed to server.workflow.list."},
+          "workflows": {"type": "array", "description": "Workflows in the collection sorted by name.", "items": {"$ref": "#/components/schemas/DeviceRuntimeProfileWorkflow"}}
+        }
+      },
+      "DeviceRuntimeProfileWorkflow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1, "description": "Workflow alias the device uses with server.workflow.*."}
         }
       },
       "DeviceFirmwareUpdateRequest": {
