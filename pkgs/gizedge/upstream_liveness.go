@@ -83,10 +83,12 @@ func (c upstreamLivenessConfig) check(ctx context.Context, conn giznet.Conn) err
 	}
 	if ctx.Err() == nil && probeCtx.Err() != nil {
 		if rxAfter, ok := upstreamRxBytes(conn); rxKnown && ok && rxAfter > rxBefore {
+			// Slow is not a liveness failure: never wrap errUpstreamLivenessProbe.
 			return fmt.Errorf("%w: no probe response within %s but received %d bytes: %w",
 				errUpstreamSlow, c.timeout, rxAfter-rxBefore, err)
 		}
-		err = fmt.Errorf("no response and no inbound data within %s: %w", c.timeout, err)
+		return fmt.Errorf("%w: no response and no inbound data within %s: %w",
+			errUpstreamLivenessProbe, c.timeout, err)
 	}
 	return fmt.Errorf("%w: %w", errUpstreamLivenessProbe, err)
 }
