@@ -1,0 +1,8 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: Voice
+metadata: {id: tf-alloy}
+spec:
+  source: manual
+  provider: {kind: openai-tenant, id: tf-openai}
+  display_name: Terraform Alloy
+  provider_data: {voice_id: alloy}

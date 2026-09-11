@@ -1,0 +1,6 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: Firmware
+metadata: {id: tf-devkit}
+spec:
+  description: Terraform e2e firmware channels
+  slots: {stable: {}, beta: {}, develop: {}}

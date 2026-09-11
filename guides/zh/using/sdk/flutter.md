@@ -47,7 +47,7 @@ client.close();
 `GizClawControlClient` 覆盖 `/gizclaw/v1/*` 的全部 route：
 
 - API Key：`createApiKey`、`listApiKeys`、`getSelfApiKey`、`revokeSelfApiKey`、`getApiKey`、`revokeApiKey`。
-- 设备读取：`getDevice`、`getDeviceRuntime`、`getDeviceStatus`、`getDeviceFirmware`、`getDeviceTelemetryLatest`、`queryDeviceTelemetry`、`aggregateDeviceTelemetry`。
+- 设备读取：`getDevice`、`getDeviceRuntime`、`getDeviceStatus`、`getDeviceFirmware`、`getDeviceRuntimeProfile`、`getDeviceTelemetryLatest`、`queryDeviceTelemetry`、`aggregateDeviceTelemetry`。
 - 设备控制：`setDeviceVolume`、`playDeviceSound`、`findDevice`、`rebootDevice`、`updateDeviceFirmware`、`getDeviceWifi`、`scanDeviceWifi`、`connectDeviceWifi`、`listDeviceSavedWifi`、`forgetDeviceSavedWifi`。
 - Contact：`listContacts`、`createContact`、`getContact`、`putContact`、`deleteContact`。
 

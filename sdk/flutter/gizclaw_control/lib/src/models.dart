@@ -785,6 +785,96 @@ class DeviceFirmware {
   });
 }
 
+/// Workflow catalog of the RuntimeProfile bound to the device
+/// (`DeviceRuntimeProfile`).
+///
+/// Read with [GizClawControlClient.getDeviceRuntimeProfile]. [name] and
+/// [revision] are the values Peer RPC responses carry as
+/// `runtime_profile_name` and `runtime_profile_revision`. Collections and
+/// workflows arrive sorted by name; display metadata is not part of the
+/// response.
+class DeviceRuntimeProfile {
+  const DeviceRuntimeProfile({
+    required this.name,
+    required this.revision,
+    required this.collections,
+  });
+
+  factory DeviceRuntimeProfile.fromJson(Object? json) {
+    final object = asJsonObject(json, 'DeviceRuntimeProfile');
+    return DeviceRuntimeProfile(
+      name: readString(object, 'name'),
+      revision: readString(object, 'revision'),
+      collections: readList(
+        object,
+        'collections',
+        DeviceRuntimeProfileCollection.fromJson,
+      ),
+    );
+  }
+
+  /// RuntimeProfile name.
+  final String name;
+
+  /// Opaque RuntimeProfile revision.
+  final String revision;
+
+  final List<DeviceRuntimeProfileCollection> collections;
+
+  JsonObject toJson() => {
+    'name': name,
+    'revision': revision,
+    'collections': collections
+        .map((item) => item.toJson())
+        .toList(growable: false),
+  };
+}
+
+/// One workflow collection of a [DeviceRuntimeProfile].
+class DeviceRuntimeProfileCollection {
+  const DeviceRuntimeProfileCollection({
+    required this.name,
+    required this.workflows,
+  });
+
+  factory DeviceRuntimeProfileCollection.fromJson(Object? json) {
+    final object = asJsonObject(json, 'DeviceRuntimeProfileCollection');
+    return DeviceRuntimeProfileCollection(
+      name: readString(object, 'name'),
+      workflows: readList(
+        object,
+        'workflows',
+        DeviceRuntimeProfileWorkflow.fromJson,
+      ),
+    );
+  }
+
+  /// Collection name.
+  final String name;
+
+  final List<DeviceRuntimeProfileWorkflow> workflows;
+
+  JsonObject toJson() => {
+    'name': name,
+    'workflows': workflows.map((item) => item.toJson()).toList(growable: false),
+  };
+}
+
+/// One workflow of a [DeviceRuntimeProfileCollection].
+class DeviceRuntimeProfileWorkflow {
+  const DeviceRuntimeProfileWorkflow({required this.name});
+
+  factory DeviceRuntimeProfileWorkflow.fromJson(Object? json) {
+    final object = asJsonObject(json, 'DeviceRuntimeProfileWorkflow');
+    return DeviceRuntimeProfileWorkflow(name: readString(object, 'name'));
+  }
+
+  /// Workflow name the device uses with `server.workflow.*`.
+  final String name;
+
+  JsonObject toJson() => {'name': name};
+}
+
 /// Body of `POST /gizclaw/v1/device/actions/firmware-update`.
 class DeviceFirmwareUpdateRequest {
   const DeviceFirmwareUpdateRequest({this.channel, this.sha256});

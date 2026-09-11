@@ -155,6 +155,9 @@ func TestDeviceReadsReportMissingServices(t *testing.T) {
 	if _, err := reads.DeviceStatus(context.Background()); !errors.Is(err, ErrDeviceServiceNotConfigured) {
 		t.Fatalf("DeviceStatus error = %v", err)
 	}
+	if _, err := reads.DeviceRuntimeProfile(context.Background()); !errors.Is(err, ErrDeviceServiceNotConfigured) {
+		t.Fatalf("DeviceRuntimeProfile error = %v", err)
+	}
 	if _, err := reads.DeviceTelemetryLatest(context.Background(), nil); !errors.Is(err, ErrDeviceServiceNotConfigured) {
 		t.Fatalf("DeviceTelemetryLatest error = %v", err)
 	}

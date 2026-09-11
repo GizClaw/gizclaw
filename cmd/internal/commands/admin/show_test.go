@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli/adminresource"
 )
 
 type batchShowClient struct {
@@ -44,9 +45,9 @@ func installShowClient(t *testing.T, client resourceClient) *atomic.Int32 {
 
 func TestShowBatchConcurrentOrderedAndSharedConnection(t *testing.T) {
 	const count = 19
-	refs := make([]resourceReference, count)
+	refs := make([]adminresource.Reference, count)
 	for i := range refs {
-		refs[i] = resourceReference{Kind: apitypes.ResourceKindModel, ID: fmt.Sprintf("model-%d", i)}
+		refs[i] = adminresource.Reference{Kind: apitypes.ResourceKindModel, ID: fmt.Sprintf("model-%d", i)}
 	}
 	refs[1].Kind = apitypes.ResourceKindRuntimeProfile
 	refs[18] = refs[0] // Duplicate references preserve their positions.

@@ -44,6 +44,9 @@ func newOrderedUpstreamTransport(ctx context.Context, cfg Config) (*orderedUpstr
 	}
 	for _, entry := range transport.entries {
 		if _, _, err := entry.currentConn(); err == nil {
+			for _, monitored := range transport.entries {
+				monitored.startLivenessMonitor()
+			}
 			return transport, nil
 		}
 	}

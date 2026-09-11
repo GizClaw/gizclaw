@@ -477,6 +477,7 @@ run_timed "cgo:social" run_pkg "./tests/gizclaw-e2e/cgo/social"
 run_timed "go:admin" run_pkg "./tests/gizclaw-e2e/go/admin"
 run_timed "go:openai" run_pkg "./tests/gizclaw-e2e/go/openai"
 run_timed "cli" run_pkg_serial "./tests/gizclaw-e2e/cmd/..."
+run_timed "terraform" bash "$script_dir/run_terraform_provider_tests.sh"
 run_timed "giztest:standard" run_standard_giztest
 run_timed "giztest:failure-cleanup" run_failure_cleanup_giztest
 run_timed "giztest:c-sdk" run_c_giztest

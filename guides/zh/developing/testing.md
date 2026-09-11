@@ -141,6 +141,7 @@ tests/gizclaw-e2e/
 ├── cmd/         # 真实 gizclaw CLI 测试
 ├── giztest/     # 声明式 Peer RPC、Workflow 与 benchmark 场景
 ├── go/          # Admin、delete、Edge 与 OpenAI 专项测试
+├── terraform/   # 连接真实 Server 的 Terraform provider 测试
 ├── js/          # JavaScript/TypeScript WebRTC 测试与 giztest runner
 └── flutter/     # Flutter/Dart giztest runner
 ```
@@ -170,8 +171,8 @@ bash tests/gizclaw-e2e/run_pending_deletion_tests.sh
 ```
 
 完整 gate 会安装锁定的 Node workspace、初始化 nanopb submodule、构建 E2E CLI、
-启动 Compose、等待 Server 与 Edge，然后依次运行 JS、C/cgo、Go Admin/OpenAI、CLI
-和 Giztest 套件，最后执行一次有界清理。总 deadline 默认 90 分钟；
+启动 Compose、等待 Server 与 Edge，然后依次运行 JS、C/cgo、Go Admin/OpenAI、CLI、
+Terraform provider 和 Giztest 套件，最后执行一次有界清理。总 deadline 默认 90 分钟；
 各 phase 默认 15 分钟，Docker setup 和 CLI 为 30 分钟，live chat 为 45 分钟，
 cleanup 为 5 分钟。可通过以下正整数秒变量覆盖：
 
@@ -270,13 +271,13 @@ Go 与 C runner 共用 `pkgs/giztest`，由它拥有文档 schema、变量、cap
 Flutter runner 是桌面二进制而不是纯 Dart CLI，因为设备端需要 `flutter_webrtc` 的
 platform implementation。`run_tests.sh` 在 macOS 与 Linux 上构建并运行它，其他 host 跳过。
 
-已知跨 runner 差异，都只影响 `rpc` step 的响应投影：
-
-- Go 用 `protojson` 的 `EmitUnpopulated`，零值字段也会出现；JavaScript 与 Flutter 的
-  codec 只输出已设置的字段。断言未设置字段的零值时结果不同。
-- Go 与 Flutter 按 proto3 JSON 把 `int64` / `uint64` 字段输出为字符串，JavaScript codec
-  输出数字。因此断言 `int64` 字段时，`equals: 35` 只在 JavaScript 下通过，
-  `equals: "35"` 只在 Go 与 Flutter 下通过；`minimum` / `maximum` 两种形式都接受。
+所有 runner 都把 `rpc` step 的响应投影为使用 proto 字段名的 proto3 JSON：`int64` /
+`uint64` 字段输出为字符串，处于默认值的 implicit-presence 字段（标量、枚举、repeated 与
+map）也会出现（`has_next: false`、`items: []`）。Go 使用 `protojson` 的
+`EmitUnpopulated`，JavaScript runner 使用 `alwaysEmitImplicit`；Dart protobuf 运行时不记录
+proto3 `optional`，Flutter runner 依据生成的 `payloadFieldIsProto3Optional` 表补齐同样的字段。
+唯一剩余差异是未设置的 message、oneof 与 proto3 `optional` 字段：Go 输出 `null`，
+JavaScript 与 Flutter 省略该字段。
 
 ### Giztest 场景
 
@@ -985,6 +986,15 @@ bash tests/gizclaw-e2e/run_monitor_tests.sh
 - node：独立 Monitor Token 认证、拒绝设备公钥，以及当前节点指标。
 
 测试使用 SQLite、文件资产 Store 和无需外部模型的脚本 Workflow。音频素材由测试工具写入真实 History/Asset Store，不代表完成了外部 TTS 合成测试。结束后删除临时运行数据和容器，报告留在 `.testbench/monitor-*/reports/`。不读取云端 E2E 凭证，也不验证云端 TLS IAM 权限。
+
+### Terraform provider
+
+`bash tests/gizclaw-e2e/run_terraform_provider_tests.sh` 用共享 workspace fixture 启动隔离的真实 Server，不需要模型或 provider 凭据，只需要 `PATH` 上的 `terraform` CLI（或由 `GIZCLAW_E2E_TERRAFORM` 指定）。入口以 `CGO_ENABLED=0` 构建 `terraform-provider-gizclaw` 并放入 filesystem mirror，通过 `provider_installation` 执行 `terraform init`。Server 上的资源用 `gizclaw admin show` 检查。包含两个测试：
+
+- `TestTerraformProviderAppliesCatalogSelection` 用 `gizclaw_catalog` 解析 `tests/gizclaw-e2e/terraform/testdata` 下的分层 fixture，并用 `gizclaw_resource` apply 选中的资源。它检查 override 优先级、未选中条目、raid tester、`overridden_ids` 与 `raids`，再验证无变化的 refresh plan、修改 catalog、移出选择集后的删除以及 `terraform destroy`。
+- `TestTerraformProviderResourceLifecycle` 为每种可由 Admin apply 的 kind 各管理一个资源：Credential、六种 provider Tenant、Model、Voice、MemoryLayout、Workflow、Tool、Firmware、RuntimeProfile、RegistrationToken、Contact、Friend、FriendGroup、FriendGroupMember 与 FriendGroupInviteToken。每种 kind 都经过创建、更新、无变化的 refresh 与 import。refresh 必须发现带外修改和带外删除，由 apply 恢复；Server 从不返回的 Credential spec 保持配置值。测试还覆盖 `input_revision`、显式 `api_version`、修改 `resource_id` 触发替换、环境变量占位符展开与缺失变量、provider 与 Server 两侧的拒绝、Server 重启、幂等 destroy、版本 0 state 升级，以及 Server 停止时的 `gizclaw_catalog`。
+
+测试给 Server 配置一个占位 SFU URL，使 Friend 与 Friend Group 能绑定 Room 身份，该地址没有服务监听。Workspace 归 Peer 所有，只检查 Admin 拒绝。`endpoint` 覆盖要求 https，不在此处验证。独立 CI job 与完整 gate 运行相同入口。
 
 ### Audioplayer Giztest
 

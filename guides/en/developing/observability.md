@@ -280,6 +280,28 @@ material product delta is assigned to the local Coturn relay path rather than
 an Edge/Server resource owner. The counters support this bounded causal claim;
 configuration alone would not.
 
+## Edge upstream liveness
+
+A healthy ICE pair does not prove a live upstream: ICE consent only shows that
+the Server's UDP socket answers STUN, while Pion SCTP retransmits forever and
+a DataChannel opens locally without a peer acknowledgement. The Edge therefore
+probes every control and gateway upstream end to end with `GET /server-info`
+over the Server's Edge HTTP service every 10 seconds (2 second timeout). The
+control upstream skips a periodic probe after recent response headers and
+probes immediately when a forwarded request waits 1 second for headers.
+
+A probe that times out while the association received no other inbound data
+logs `edge: upstream stalled` (`trigger=periodic|slow_request`, `probe_ms`,
+`last_activity`) and `edge: upstream evicted` (`reason=liveness_probe_failed`).
+Eviction closes the association, which fails its in-flight requests; `GET`,
+`HEAD` and `OPTIONS` are retried on a fresh association. A timed-out probe
+while other data still arrives is only `edge: upstream slow` at info level.
+Replacement is logged as `edge: upstream redialing` followed by
+`edge: upstream ICE selected` with a new epoch; failures log
+`edge: upstream redial failed` with an exponential `retry_in` capped at 30
+seconds. Every proxy failure logs `gizedge: upstream proxy error` with its
+cause, at info level when the client had already gone away.
+
 ## Adding instrumentation
 
 1. Decide whether the question needs one-request evidence, an aggregate trend, or both.
