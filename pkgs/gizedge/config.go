@@ -37,6 +37,7 @@ type Config struct {
 	SystemLog        gizlog.Config
 
 	systemLogConfigured bool
+	build               BuildInfo
 }
 
 // WebRTCConfig defines the Edge WebRTC transport bind and published tuples.

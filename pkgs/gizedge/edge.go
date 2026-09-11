@@ -39,7 +39,12 @@ const edgeShutdownTimeout = 5 * time.Second
 
 // Serve starts the Edge HTTP ingress and optional client gateway, forwarding
 // authoritative work to the configured Server over giznet.
-func Serve(root string) error {
+// BuildInfo is the binary identity an Edge reports in its monitor snapshot.
+type BuildInfo struct {
+	Version, Commit string
+}
+
+func Serve(root string, build BuildInfo) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	cfg, err := PrepareWorkspaceConfig(root)
@@ -49,6 +54,7 @@ func Serve(root string) error {
 	// The standalone process owns its logger even without explicit sinks.
 	// Embedded ServeContext callers may instead supply their host logger.
 	cfg.systemLogConfigured = true
+	cfg.build = build
 	return servePreparedContext(ctx, cfg)
 }
 
@@ -115,7 +121,12 @@ func servePreparedContext(ctx context.Context, cfg Config) (serveErr error) {
 		}
 	}
 	proxy := newPeerHTTPProxy(cfg.WebRTC.Endpoint, upstreamTransport, transport)
-	handler := monitor.Handler(cfg.Monitor, "edge", cfg.KeyPair.Public.String(), edgeIngressHandler(proxy, gateway))
+	handler := monitor.Handler(cfg.Monitor, monitor.Node{
+		Role:      "edge",
+		PublicKey: cfg.KeyPair.Public.String(),
+		Version:   cfg.build.Version,
+		Commit:    cfg.build.Commit,
+	}, edgeIngressHandler(proxy, gateway))
 	httpRuntime, err := startEdgeHTTP(cfg.HTTP.Listeners, handler)
 	if err != nil {
 		return err

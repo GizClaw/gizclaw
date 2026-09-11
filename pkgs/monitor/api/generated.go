@@ -49,12 +49,14 @@ type MonitorErrorError string
 
 // NodeSnapshot defines model for NodeSnapshot.
 type NodeSnapshot struct {
-	Goroutines int       `json:"goroutines"`
-	HeapBytes  uint64    `json:"heap_bytes"`
-	PublicKey  string    `json:"public_key"`
-	Role       string    `json:"role"`
-	Time       time.Time `json:"time"`
-	Transport  struct {
+	// BuildCommit Source commit embedded in this process binary; "dev" for unversioned builds.
+	BuildCommit string    `json:"build_commit"`
+	Goroutines  int       `json:"goroutines"`
+	HeapBytes   uint64    `json:"heap_bytes"`
+	PublicKey   string    `json:"public_key"`
+	Role        string    `json:"role"`
+	Time        time.Time `json:"time"`
+	Transport   struct {
 		Connections int `json:"connections"`
 
 		// InboundServiceChannels Current remote-opened service DataChannels admitted across this process, including pending opens. Released on stream or parent connection close. Excludes locally opened, packet, and native tunnel channels.
@@ -64,6 +66,9 @@ type NodeSnapshot struct {
 		TxBytes                uint64 `json:"tx_bytes"`
 	} `json:"transport"`
 	UptimeSeconds float64 `json:"uptime_seconds"`
+
+	// Version Software version embedded in this process binary; "dev" for unversioned builds.
+	Version string `json:"version"`
 }
 
 // monitorTokenContextKey is the context key for MonitorToken security scheme
