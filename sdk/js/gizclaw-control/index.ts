@@ -47,6 +47,27 @@ import {
   revokeSelfApiKey,
   scanDeviceWifi,
   setDeviceVolume,
+  addFriend,
+  addFriendGroupMember,
+  clearFriendGroupInviteToken,
+  clearFriendInviteToken,
+  createFriendGroup,
+  createFriendGroupInviteToken,
+  createFriendInviteToken,
+  deleteFriend,
+  deleteFriendGroup,
+  deleteFriendGroupMember,
+  getFriend,
+  getFriendGroup,
+  getFriendGroupInviteToken,
+  getFriendInviteToken,
+  joinFriendGroup,
+  leaveFriendGroup,
+  listFriendGroupMembers,
+  listFriendGroups,
+  listFriends,
+  putFriendGroup,
+  putFriendGroupMember,
 } from "@gizclaw/gizclaw/peerhttp";
 import type {
   AudioPlayerResponse,
@@ -90,6 +111,21 @@ import type {
   PeerTelemetryOrder,
   PeerTelemetryRangeResponse,
   Runtime,
+  Friend,
+  FriendAddRequest,
+  FriendGroup,
+  FriendGroupCreateRequest,
+  FriendGroupJoinRequest,
+  FriendGroupJoinResult,
+  FriendGroupList,
+  FriendGroupMember,
+  FriendGroupMemberAddRequest,
+  FriendGroupMemberList,
+  FriendGroupMemberPutRequest,
+  FriendGroupPutRequest,
+  FriendList,
+  InviteToken,
+  InviteTokenCreateRequest,
 } from "@gizclaw/gizclaw/peerhttp";
 
 export type {
@@ -138,6 +174,24 @@ export type {
   PeerTelemetryOrder,
   PeerTelemetryRangeResponse,
   Runtime,
+  Friend,
+  FriendAddRequest,
+  FriendGroup,
+  FriendGroupCreateRequest,
+  FriendGroupJoinRequest,
+  FriendGroupJoinResult,
+  FriendGroupList,
+  FriendGroupMember,
+  FriendGroupMemberAddRequest,
+  FriendGroupMemberList,
+  FriendGroupMemberPutRequest,
+  FriendGroupMutableRole,
+  FriendGroupPutRequest,
+  FriendGroupRole,
+  FriendList,
+  InviteToken,
+  InviteTokenCreateRequest,
+  PeerProfileInfo,
 } from "@gizclaw/gizclaw/peerhttp";
 
 /**
@@ -151,7 +205,7 @@ export type GizClawControlErrorKind =
   | "unauthorized"
   /** `403`: the API key does not authorize this operation. */
   | "forbidden"
-  /** `404`: the key, contact, or saved Wi-Fi network does not exist. */
+  /** `404`: the key, contact, friend, friend group, invite token, or saved Wi-Fi network does not exist. */
   | "notFound"
   /** `409 DEVICE_OFFLINE`: no active device connection, or rebooting. */
   | "deviceOffline"
@@ -163,7 +217,7 @@ export type GizClawControlErrorKind =
   | "deviceUnsupported"
   /** `502 DEVICE_ERROR`: the device answered with an unexpected RPC error. */
   | "deviceError"
-  /** `409` with any other code, such as a duplicate contact. */
+  /** `409` with any other code, such as a duplicate contact or friend. */
   | "conflict"
   /** `400` with any other code. */
   | "invalidRequest"
@@ -439,12 +493,83 @@ export interface GizClawControlContacts {
   delete(contactName: string): Promise<void>;
 }
 
+/** Friend relationships of the bound device; no call contacts the device. */
+export interface GizClawControlFriends {
+  /** `GET /gizclaw/v1/friends/invite-token`; rejects with `notFound` when none is active. */
+  getInviteToken(): Promise<InviteToken>;
+  /**
+   * `POST /gizclaw/v1/friends/invite-token`. Without `ttl_seconds` an active
+   * token is returned unchanged; with it the token lives at least that long.
+   */
+  createInviteToken(body?: InviteTokenCreateRequest): Promise<InviteToken>;
+  /** `DELETE /gizclaw/v1/friends/invite-token`. */
+  clearInviteToken(): Promise<void>;
+  /** `POST /gizclaw/v1/friends`; `409 FRIEND_ALREADY_EXISTS` when already friends. */
+  add(body: FriendAddRequest): Promise<Friend>;
+  /** `GET /gizclaw/v1/friends`. */
+  list(query?: { cursor?: string; limit?: number }): Promise<FriendList>;
+  /** `GET /gizclaw/v1/friends/{friendName}`. */
+  get(friendName: string): Promise<Friend>;
+  /** `DELETE /gizclaw/v1/friends/{friendName}`. */
+  delete(friendName: string): Promise<void>;
+}
+
+/** Friend Groups of the bound device, addressed by its own Group names. */
+export interface GizClawControlFriendGroups {
+  /** `GET /gizclaw/v1/friend-groups`. */
+  list(query?: { cursor?: string; limit?: number }): Promise<FriendGroupList>;
+  /** `POST /gizclaw/v1/friend-groups`. */
+  create(body: FriendGroupCreateRequest): Promise<FriendGroup>;
+  /** `POST /gizclaw/v1/friend-groups/@join`. */
+  join(body: FriendGroupJoinRequest): Promise<FriendGroupJoinResult>;
+  /** `GET /gizclaw/v1/friend-groups/{friendGroupName}`. */
+  get(friendGroupName: string): Promise<FriendGroup>;
+  /** `PUT /gizclaw/v1/friend-groups/{friendGroupName}`; owner only. */
+  put(
+    friendGroupName: string,
+    body: FriendGroupPutRequest,
+  ): Promise<FriendGroup>;
+  /** `DELETE /gizclaw/v1/friend-groups/{friendGroupName}`: dissolve; owner only. */
+  delete(friendGroupName: string): Promise<void>;
+  /** `POST /gizclaw/v1/friend-groups/{friendGroupName}/@leave`; the owner gets `409`. */
+  leave(friendGroupName: string): Promise<void>;
+  /** `GET /gizclaw/v1/friend-groups/{friendGroupName}/invite-token`; owner only. */
+  getInviteToken(friendGroupName: string): Promise<InviteToken>;
+  /** `POST /gizclaw/v1/friend-groups/{friendGroupName}/invite-token`; owner only. */
+  createInviteToken(
+    friendGroupName: string,
+    body?: InviteTokenCreateRequest,
+  ): Promise<InviteToken>;
+  /** `DELETE /gizclaw/v1/friend-groups/{friendGroupName}/invite-token`; owner only. */
+  clearInviteToken(friendGroupName: string): Promise<void>;
+  /** `GET /gizclaw/v1/friend-groups/{friendGroupName}/members`. */
+  listMembers(
+    friendGroupName: string,
+    query?: { cursor?: string; limit?: number },
+  ): Promise<FriendGroupMemberList>;
+  /** `POST /gizclaw/v1/friend-groups/{friendGroupName}/members`. */
+  addMember(
+    friendGroupName: string,
+    body: FriendGroupMemberAddRequest,
+  ): Promise<FriendGroupMember>;
+  /** `PUT /gizclaw/v1/friend-groups/{friendGroupName}/members/{memberName}`; owner only. */
+  putMember(
+    friendGroupName: string,
+    memberName: string,
+    body: FriendGroupMemberPutRequest,
+  ): Promise<FriendGroupMember>;
+  /** `DELETE /gizclaw/v1/friend-groups/{friendGroupName}/members/{memberName}`. */
+  deleteMember(friendGroupName: string, memberName: string): Promise<void>;
+}
+
 export interface GizClawControlClient {
   /** Configured generated client for calls this wrapper does not expose. */
   readonly client: PeerHTTPClient;
   readonly apiKeys: GizClawControlApiKeys;
   readonly device: GizClawControlDevice;
   readonly contacts: GizClawControlContacts;
+  readonly friends: GizClawControlFriends;
+  readonly friendGroups: GizClawControlFriendGroups;
 }
 
 interface GeneratedResult<T> {
@@ -689,6 +814,139 @@ export function createGizClawControlClient(
           }),
         ),
     },
+    friends: {
+      getInviteToken: () =>
+        unwrap("getFriendInviteToken", getFriendInviteToken(common)),
+      createInviteToken: (body = {}) =>
+        unwrap(
+          "createFriendInviteToken",
+          createFriendInviteToken({ ...common, body }),
+        ),
+      clearInviteToken: () =>
+        unwrapEmpty("clearFriendInviteToken", clearFriendInviteToken(common)),
+      add: (body) => unwrap("addFriend", addFriend({ ...common, body })),
+      list: (query) => unwrap("listFriends", listFriends({ ...common, query })),
+      get: async (friendName) =>
+        unwrap(
+          "getFriend",
+          getFriend({
+            ...common,
+            path: { friendName: requireSegment("friendName", friendName) },
+          }),
+        ),
+      delete: async (friendName) =>
+        unwrapEmpty(
+          "deleteFriend",
+          deleteFriend({
+            ...common,
+            path: { friendName: requireSegment("friendName", friendName) },
+          }),
+        ),
+    },
+    friendGroups: {
+      list: (query) =>
+        unwrap("listFriendGroups", listFriendGroups({ ...common, query })),
+      create: (body) =>
+        unwrap("createFriendGroup", createFriendGroup({ ...common, body })),
+      join: (body) =>
+        unwrap("joinFriendGroup", joinFriendGroup({ ...common, body })),
+      get: async (friendGroupName) =>
+        unwrap(
+          "getFriendGroup",
+          getFriendGroup({ ...common, path: groupPath(friendGroupName) }),
+        ),
+      put: async (friendGroupName, body) =>
+        unwrap(
+          "putFriendGroup",
+          putFriendGroup({ ...common, path: groupPath(friendGroupName), body }),
+        ),
+      delete: async (friendGroupName) =>
+        unwrapEmpty(
+          "deleteFriendGroup",
+          deleteFriendGroup({ ...common, path: groupPath(friendGroupName) }),
+        ),
+      leave: async (friendGroupName) =>
+        unwrapEmpty(
+          "leaveFriendGroup",
+          leaveFriendGroup({ ...common, path: groupPath(friendGroupName) }),
+        ),
+      getInviteToken: async (friendGroupName) =>
+        unwrap(
+          "getFriendGroupInviteToken",
+          getFriendGroupInviteToken({
+            ...common,
+            path: groupPath(friendGroupName),
+          }),
+        ),
+      createInviteToken: async (friendGroupName, body = {}) =>
+        unwrap(
+          "createFriendGroupInviteToken",
+          createFriendGroupInviteToken({
+            ...common,
+            path: groupPath(friendGroupName),
+            body,
+          }),
+        ),
+      clearInviteToken: async (friendGroupName) =>
+        unwrapEmpty(
+          "clearFriendGroupInviteToken",
+          clearFriendGroupInviteToken({
+            ...common,
+            path: groupPath(friendGroupName),
+          }),
+        ),
+      listMembers: async (friendGroupName, query) =>
+        unwrap(
+          "listFriendGroupMembers",
+          listFriendGroupMembers({
+            ...common,
+            path: groupPath(friendGroupName),
+            query,
+          }),
+        ),
+      addMember: async (friendGroupName, body) =>
+        unwrap(
+          "addFriendGroupMember",
+          addFriendGroupMember({
+            ...common,
+            path: groupPath(friendGroupName),
+            body,
+          }),
+        ),
+      putMember: async (friendGroupName, memberName, body) =>
+        unwrap(
+          "putFriendGroupMember",
+          putFriendGroupMember({
+            ...common,
+            path: memberPath(friendGroupName, memberName),
+            body,
+          }),
+        ),
+      deleteMember: async (friendGroupName, memberName) =>
+        unwrapEmpty(
+          "deleteFriendGroupMember",
+          deleteFriendGroupMember({
+            ...common,
+            path: memberPath(friendGroupName, memberName),
+          }),
+        ),
+    },
+  };
+}
+
+function groupPath(friendGroupName: string): { friendGroupName: string } {
+  return {
+    friendGroupName: requireSegment("friendGroupName", friendGroupName),
+  };
+}
+
+function memberPath(
+  friendGroupName: string,
+  memberName: string,
+): { friendGroupName: string; memberName: string } {
+  return {
+    ...groupPath(friendGroupName),
+    memberName: requireSegment("memberName", memberName),
   };
 }
 

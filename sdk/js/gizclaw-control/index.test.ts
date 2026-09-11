@@ -496,6 +496,135 @@ test("contacts: list, create, named routes", async () => {
   assert.equal(h.seen[4]!.url.pathname, encoded);
 });
 
+const friendJson = {
+  name: "7hwyLuAApKGgUbVCd8xYnLEiugfniMFfAsZ7RH8cPYAM",
+  peer_public_key: "7hwyLuAApKGgUbVCd8xYnLEiugfniMFfAsZ7RH8cPYAM",
+  workspace_name: "social-direct-1",
+  created_at: "2026-09-12T01:02:03Z",
+  updated_at: "2026-09-12T01:02:03Z",
+  info: { display_name: "Kitchen", emoji: "🔊" },
+};
+
+const inviteTokenJson = {
+  invite_token: "0123456789abcdef",
+  expires_at: "2026-09-19T01:02:03Z",
+};
+
+test("friends: invite token ttl, add, list, named routes", async () => {
+  const h = harness([
+    errorResponse(404, "INVITE_TOKEN_NOT_FOUND"),
+    json(200, inviteTokenJson),
+    json(200, inviteTokenJson),
+    noContent(),
+    json(201, friendJson),
+    errorResponse(409, "FRIEND_ALREADY_EXISTS"),
+    json(200, { items: [friendJson], has_next: false }),
+    json(200, friendJson),
+    noContent(),
+  ]);
+  const missing = await h.client.friends.getInviteToken().catch((e) => e);
+  assert.ok(missing instanceof GizClawControlError);
+  assert.equal(missing.kind, "notFound");
+  assert.equal(missing.code, "INVITE_TOKEN_NOT_FOUND");
+  await h.client.friends.createInviteToken();
+  const token = await h.client.friends.createInviteToken({
+    ttl_seconds: 604800,
+  });
+  await h.client.friends.clearInviteToken();
+  const friend = await h.client.friends.add({ invite_token: "0123" });
+  const duplicate = await h.client.friends
+    .add({ invite_token: "0123" })
+    .catch((e) => e);
+  const list = await h.client.friends.list({ limit: 10 });
+  await h.client.friends.get(friendJson.name);
+  await h.client.friends.delete(friendJson.name);
+
+  assert.equal(h.seen[1]!.method, "POST");
+  assert.deepEqual(JSON.parse(h.seen[1]!.body), {});
+  assert.deepEqual(JSON.parse(h.seen[2]!.body), { ttl_seconds: 604800 });
+  assert.equal(token.invite_token, "0123456789abcdef");
+  assert.equal(h.seen[3]!.method, "DELETE");
+  assert.equal(h.seen[3]!.url.pathname, "/gizclaw/v1/friends/invite-token");
+  assert.equal(friend.info?.display_name, "Kitchen");
+  assert.equal(duplicate.kind, "conflict");
+  assert.equal(duplicate.code, "FRIEND_ALREADY_EXISTS");
+  assert.equal(list.items.length, 1);
+  assert.equal(h.seen[6]!.url.searchParams.get("limit"), "10");
+  assert.equal(
+    h.seen[7]!.url.pathname,
+    `/gizclaw/v1/friends/${friendJson.name}`,
+  );
+  assert.equal(h.seen[8]!.method, "DELETE");
+  await assert.rejects(h.client.friends.get(""), TypeError);
+});
+
+test("friend groups: join, leave, members, invite token", async () => {
+  const groupJson = { name: "家/1", my_role: "owner" };
+  const memberJson = {
+    name: friendJson.name,
+    peer_public_key: friendJson.name,
+    role: "member",
+    info: { display_name: "Kitchen" },
+  };
+  const h = harness([
+    json(200, { items: [groupJson], has_next: false }),
+    json(201, groupJson),
+    json(200, { group: groupJson, member: memberJson }),
+    json(200, groupJson),
+    json(200, groupJson),
+    json(200, inviteTokenJson),
+    json(200, inviteTokenJson),
+    noContent(),
+    json(200, { items: [memberJson], has_next: false }),
+    json(201, memberJson),
+    json(200, memberJson),
+    noContent(),
+    errorResponse(409, "FRIEND_GROUP_OWNER_CANNOT_LEAVE"),
+    errorResponse(403, "FRIEND_GROUP_PERMISSION_DENIED"),
+  ]);
+  const groups = h.client.friendGroups;
+  await groups.list({ cursor: "c", limit: 2 });
+  await groups.create({ name: "家/1", display_name: "Family" });
+  const joined = await groups.join({ invite_token: "abc", name: "家/1" });
+  await groups.get("家/1");
+  await groups.put("家/1", { description: "weekend" });
+  await groups.getInviteToken("家/1");
+  await groups.createInviteToken("家/1", { ttl_seconds: 3600 });
+  await groups.clearInviteToken("家/1");
+  const members = await groups.listMembers("家/1", { limit: 5 });
+  await groups.addMember("家/1", {
+    peer_public_key: friendJson.name,
+    member_name: "kids",
+    role: "member",
+  });
+  await groups.putMember("家/1", friendJson.name, { role: "admin" });
+  await groups.deleteMember("家/1", friendJson.name);
+  const leave = await groups.leave("家/1").catch((e) => e);
+  const dissolve = await groups.delete("家/1").catch((e) => e);
+
+  const encoded = "/gizclaw/v1/friend-groups/%E5%AE%B6%2F1";
+  assert.equal(h.seen[2]!.url.pathname, "/gizclaw/v1/friend-groups/@join");
+  assert.equal(joined.member.info?.display_name, "Kitchen");
+  assert.equal(h.seen[3]!.url.pathname, encoded);
+  assert.equal(h.seen[4]!.method, "PUT");
+  assert.equal(h.seen[5]!.url.pathname, `${encoded}/invite-token`);
+  assert.deepEqual(JSON.parse(h.seen[6]!.body), { ttl_seconds: 3600 });
+  assert.equal(h.seen[7]!.method, "DELETE");
+  assert.equal(members.items[0]!.role, "member");
+  assert.equal(h.seen[8]!.url.pathname, `${encoded}/members`);
+  assert.equal(h.seen[9]!.method, "POST");
+  assert.equal(
+    h.seen[10]!.url.pathname,
+    `${encoded}/members/${friendJson.name}`,
+  );
+  assert.equal(h.seen[11]!.method, "DELETE");
+  assert.equal(h.seen[12]!.url.pathname, `${encoded}/@leave`);
+  assert.equal(leave.kind, "conflict");
+  assert.equal(leave.code, "FRIEND_GROUP_OWNER_CANNOT_LEAVE");
+  assert.equal(dissolve.kind, "forbidden");
+  await assert.rejects(groups.deleteMember("家/1", ""), TypeError);
+});
+
 const cases: Array<[number, string, GizClawControlErrorKind]> = [
   [401, "UNAUTHORIZED", "unauthorized"],
   [403, "FORBIDDEN", "forbidden"],

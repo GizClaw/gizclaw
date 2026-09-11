@@ -648,6 +648,316 @@ class GizClawControlClient {
     );
   }
 
+  // Friends. None of these calls contacts the device.
+
+  /// `GET /gizclaw/v1/friends/invite-token`.
+  ///
+  /// Throws [GizClawControlErrorKind.notFound] with code
+  /// `INVITE_TOKEN_NOT_FOUND` when the device has no active invite token.
+  Future<InviteToken> getFriendInviteToken() {
+    return _json(
+      'GET',
+      '/friends/invite-token',
+      InviteToken.fromJson,
+      operation: 'getFriendInviteToken',
+    );
+  }
+
+  /// `POST /gizclaw/v1/friends/invite-token`.
+  ///
+  /// Without [ttl] an active token is returned unchanged and a new one lives
+  /// five minutes. With [ttl] (1 minute to 7 days, whole seconds) a new token
+  /// lives that long and an active token keeps its value while its expiry is
+  /// extended to now + [ttl]; it is never shortened.
+  Future<InviteToken> createFriendInviteToken({Duration? ttl}) {
+    return _json(
+      'POST',
+      '/friends/invite-token',
+      InviteToken.fromJson,
+      body: _inviteTokenBody(ttl),
+      operation: 'createFriendInviteToken',
+    );
+  }
+
+  /// `DELETE /gizclaw/v1/friends/invite-token`.
+  Future<void> clearFriendInviteToken() {
+    return _noContent(
+      'DELETE',
+      '/friends/invite-token',
+      operation: 'clearFriendInviteToken',
+    );
+  }
+
+  /// `POST /gizclaw/v1/friends`: befriend the Peer owning [inviteToken].
+  ///
+  /// Throws [GizClawControlErrorKind.conflict] with code
+  /// `FRIEND_ALREADY_EXISTS` when the devices are already Friends.
+  Future<Friend> addFriend(String inviteToken) {
+    return _json(
+      'POST',
+      '/friends',
+      Friend.fromJson,
+      body: {'invite_token': inviteToken},
+      operation: 'addFriend',
+    );
+  }
+
+  /// `GET /gizclaw/v1/friends`.
+  Future<FriendList> listFriends({String? cursor, int? limit}) {
+    return _json(
+      'GET',
+      '/friends',
+      FriendList.fromJson,
+      query: {'cursor': cursor, 'limit': limit?.toString()},
+      operation: 'listFriends',
+    );
+  }
+
+  /// `GET /gizclaw/v1/friends/{friendName}`.
+  Future<Friend> getFriend(String friendName) {
+    return _json(
+      'GET',
+      '/friends/${_segment(friendName, 'friendName')}',
+      Friend.fromJson,
+      operation: 'getFriend',
+    );
+  }
+
+  /// `DELETE /gizclaw/v1/friends/{friendName}`: end the relationship and
+  /// retire the shared Workspace.
+  Future<void> deleteFriend(String friendName) {
+    return _noContent(
+      'DELETE',
+      '/friends/${_segment(friendName, 'friendName')}',
+      operation: 'deleteFriend',
+    );
+  }
+
+  // Friend Groups. Groups are named by the bound device's own Group name.
+
+  /// `GET /gizclaw/v1/friend-groups`.
+  Future<FriendGroupList> listFriendGroups({String? cursor, int? limit}) {
+    return _json(
+      'GET',
+      '/friend-groups',
+      FriendGroupList.fromJson,
+      query: {'cursor': cursor, 'limit': limit?.toString()},
+      operation: 'listFriendGroups',
+    );
+  }
+
+  /// `POST /gizclaw/v1/friend-groups`: the device becomes the owner.
+  Future<FriendGroup> createFriendGroup({
+    required String name,
+    String? displayName,
+    String? description,
+  }) {
+    return _json(
+      'POST',
+      '/friend-groups',
+      FriendGroup.fromJson,
+      body: withoutNulls({
+        'name': name,
+        'display_name': displayName,
+        'description': description,
+      }),
+      operation: 'createFriendGroup',
+    );
+  }
+
+  /// `POST /gizclaw/v1/friend-groups/@join`; [name] becomes the device's own
+  /// name for the Group.
+  Future<FriendGroupJoinResult> joinFriendGroup({
+    required String inviteToken,
+    required String name,
+  }) {
+    return _json(
+      'POST',
+      '/friend-groups/@join',
+      FriendGroupJoinResult.fromJson,
+      body: {'invite_token': inviteToken, 'name': name},
+      operation: 'joinFriendGroup',
+    );
+  }
+
+  /// `GET /gizclaw/v1/friend-groups/{friendGroupName}`.
+  Future<FriendGroup> getFriendGroup(String friendGroupName) {
+    return _json(
+      'GET',
+      _groupRoute(friendGroupName),
+      FriendGroup.fromJson,
+      operation: 'getFriendGroup',
+    );
+  }
+
+  /// `PUT /gizclaw/v1/friend-groups/{friendGroupName}`; owner only.
+  Future<FriendGroup> putFriendGroup(
+    String friendGroupName, {
+    String? displayName,
+    String? description,
+  }) {
+    return _json(
+      'PUT',
+      _groupRoute(friendGroupName),
+      FriendGroup.fromJson,
+      body: withoutNulls({
+        'display_name': displayName,
+        'description': description,
+      }),
+      operation: 'putFriendGroup',
+    );
+  }
+
+  /// `DELETE /gizclaw/v1/friend-groups/{friendGroupName}`: dissolve the
+  /// Group; owner only.
+  Future<void> deleteFriendGroup(String friendGroupName) {
+    return _noContent(
+      'DELETE',
+      _groupRoute(friendGroupName),
+      operation: 'deleteFriendGroup',
+    );
+  }
+
+  /// `POST /gizclaw/v1/friend-groups/{friendGroupName}/@leave`.
+  ///
+  /// Members and admins leave; the owner receives
+  /// [GizClawControlErrorKind.conflict] with code
+  /// `FRIEND_GROUP_OWNER_CANNOT_LEAVE` and dissolves the Group instead.
+  Future<void> leaveFriendGroup(String friendGroupName) {
+    return _noContent(
+      'POST',
+      '${_groupRoute(friendGroupName)}/@leave',
+      operation: 'leaveFriendGroup',
+    );
+  }
+
+  /// `GET /gizclaw/v1/friend-groups/{friendGroupName}/invite-token`; owner
+  /// only.
+  Future<InviteToken> getFriendGroupInviteToken(String friendGroupName) {
+    return _json(
+      'GET',
+      '${_groupRoute(friendGroupName)}/invite-token',
+      InviteToken.fromJson,
+      operation: 'getFriendGroupInviteToken',
+    );
+  }
+
+  /// `POST /gizclaw/v1/friend-groups/{friendGroupName}/invite-token`; owner
+  /// only. [ttl] follows [createFriendInviteToken].
+  Future<InviteToken> createFriendGroupInviteToken(
+    String friendGroupName, {
+    Duration? ttl,
+  }) {
+    return _json(
+      'POST',
+      '${_groupRoute(friendGroupName)}/invite-token',
+      InviteToken.fromJson,
+      body: _inviteTokenBody(ttl),
+      operation: 'createFriendGroupInviteToken',
+    );
+  }
+
+  /// `DELETE /gizclaw/v1/friend-groups/{friendGroupName}/invite-token`; owner
+  /// only.
+  Future<void> clearFriendGroupInviteToken(String friendGroupName) {
+    return _noContent(
+      'DELETE',
+      '${_groupRoute(friendGroupName)}/invite-token',
+      operation: 'clearFriendGroupInviteToken',
+    );
+  }
+
+  /// `GET /gizclaw/v1/friend-groups/{friendGroupName}/members`.
+  Future<FriendGroupMemberList> listFriendGroupMembers(
+    String friendGroupName, {
+    String? cursor,
+    int? limit,
+  }) {
+    return _json(
+      'GET',
+      '${_groupRoute(friendGroupName)}/members',
+      FriendGroupMemberList.fromJson,
+      query: {'cursor': cursor, 'limit': limit?.toString()},
+      operation: 'listFriendGroupMembers',
+    );
+  }
+
+  /// `POST /gizclaw/v1/friend-groups/{friendGroupName}/members`.
+  ///
+  /// [memberName] is the added Peer's own name for the Group. [role] must be
+  /// [FriendGroupRole.admin] or [FriendGroupRole.member].
+  Future<FriendGroupMember> addFriendGroupMember(
+    String friendGroupName, {
+    required String peerPublicKey,
+    required String memberName,
+    FriendGroupRole role = FriendGroupRole.member,
+  }) {
+    return _json(
+      'POST',
+      '${_groupRoute(friendGroupName)}/members',
+      FriendGroupMember.fromJson,
+      body: {
+        'peer_public_key': peerPublicKey,
+        'member_name': memberName,
+        'role': _mutableRole(role),
+      },
+      operation: 'addFriendGroupMember',
+    );
+  }
+
+  /// `PUT /gizclaw/v1/friend-groups/{friendGroupName}/members/{memberName}`;
+  /// owner only. [role] must be [FriendGroupRole.admin] or
+  /// [FriendGroupRole.member].
+  Future<FriendGroupMember> putFriendGroupMember(
+    String friendGroupName,
+    String memberName,
+    FriendGroupRole role,
+  ) {
+    return _json(
+      'PUT',
+      _memberRoute(friendGroupName, memberName),
+      FriendGroupMember.fromJson,
+      body: {'role': _mutableRole(role)},
+      operation: 'putFriendGroupMember',
+    );
+  }
+
+  /// `DELETE /gizclaw/v1/friend-groups/{friendGroupName}/members/{memberName}`.
+  Future<void> deleteFriendGroupMember(
+    String friendGroupName,
+    String memberName,
+  ) {
+    return _noContent(
+      'DELETE',
+      _memberRoute(friendGroupName, memberName),
+      operation: 'deleteFriendGroupMember',
+    );
+  }
+
+  static String _groupRoute(String friendGroupName) =>
+      '/friend-groups/${_segment(friendGroupName, 'friendGroupName')}';
+
+  static String _memberRoute(String friendGroupName, String memberName) =>
+      '${_groupRoute(friendGroupName)}/members/'
+      '${_segment(memberName, 'memberName')}';
+
+  static String _mutableRole(FriendGroupRole role) {
+    if (role == FriendGroupRole.owner) {
+      throw ArgumentError.value(role, 'role', 'must be admin or member');
+    }
+    return role.wireValue;
+  }
+
+  static JsonObject _inviteTokenBody(Duration? ttl) {
+    if (ttl == null) {
+      return const {};
+    }
+    if (ttl.inMicroseconds % Duration.microsecondsPerSecond != 0) {
+      throw ArgumentError.value(ttl, 'ttl', 'must be whole seconds');
+    }
+    return {'ttl_seconds': ttl.inSeconds};
+  }
+
   /// Sends one request to `<baseUrl><path>` with the bearer header, for a
   /// route this package does not model yet.
   ///

@@ -70,7 +70,8 @@ typedef enum {
   GZC_CONTROL_ERROR_UNAUTHORIZED,
   /* 403: the API key does not authorize this operation. */
   GZC_CONTROL_ERROR_FORBIDDEN,
-  /* 404: the key, contact, or saved Wi-Fi network does not exist. */
+  /* 404: the key, contact, friend, friend group, invite token, or saved Wi-Fi
+   * network does not exist. */
   GZC_CONTROL_ERROR_NOT_FOUND,
   /* 409 DEVICE_OFFLINE: no active device connection, or rebooting. */
   GZC_CONTROL_ERROR_DEVICE_OFFLINE,
@@ -82,7 +83,7 @@ typedef enum {
   GZC_CONTROL_ERROR_DEVICE_UNSUPPORTED,
   /* 502 DEVICE_ERROR: the device answered with an unexpected RPC error. */
   GZC_CONTROL_ERROR_DEVICE_ERROR,
-  /* 409 with any other code, such as a duplicate contact. */
+  /* 409 with any other code, such as a duplicate contact or friend. */
   GZC_CONTROL_ERROR_CONFLICT,
   /* 400 with any other code: the request itself was rejected. */
   GZC_CONTROL_ERROR_INVALID_REQUEST,
@@ -548,8 +549,106 @@ typedef struct {
   gzc_str_t phone_number;
 } gzc_control_contact_request_t;
 
+/* Public profile of another Peer (`PeerProfileInfo`): its device name and
+ * emoji. */
+typedef struct {
+  gzc_str_t display_name;
+  gzc_str_t emoji;
+} gzc_control_peer_profile_info_t;
+
+/* Friend or Friend Group invite token (`InviteToken`). */
+typedef struct {
+  gzc_str_t invite_token;
+  /* RFC 3339 expiry. */
+  gzc_str_t expires_at;
+} gzc_control_invite_token_t;
+
+/* Invite token lifetime bounds, in seconds, a create request may ask for. */
+#define GZC_CONTROL_MIN_INVITE_TOKEN_TTL_SECONDS 60
+#define GZC_CONTROL_MAX_INVITE_TOKEN_TTL_SECONDS 604800
+
 /*
- * Cursor page options shared by the two list routes. An empty cursor leaves
+ * Body of the two invite token create routes (`InviteTokenCreateRequest`).
+ *
+ * Without has_ttl_seconds an active token is returned unchanged and a new
+ * token lives five minutes. With it a new token lives ttl_seconds and an
+ * active token keeps its value while its expiry is extended, never shortened.
+ */
+typedef struct {
+  bool has_ttl_seconds;
+  int32_t ttl_seconds;
+} gzc_control_invite_token_request_t;
+
+/* One Friend of the bound device (`Friend`). `name` equals `peer_public_key`. */
+typedef struct {
+  gzc_str_t name;
+  gzc_str_t peer_public_key;
+  gzc_str_t workspace_name;
+  gzc_str_t created_at;
+  gzc_str_t updated_at;
+  /* False when the Friend's Peer no longer exists. */
+  bool has_info;
+  gzc_control_peer_profile_info_t info;
+} gzc_control_friend_t;
+
+/*
+ * A Friend Group the bound device belongs to (`FriendGroup`).
+ *
+ * `name` is the device's own name for the Group and addresses it in every
+ * Friend Group route. `my_role` is "owner", "admin", or "member".
+ */
+typedef struct {
+  gzc_str_t name;
+  gzc_str_t my_role;
+  gzc_str_t display_name;
+  gzc_str_t description;
+  gzc_str_t created_by_peer_public_key;
+  gzc_str_t workspace_name;
+  gzc_str_t created_at;
+  gzc_str_t updated_at;
+} gzc_control_friend_group_t;
+
+/* One Friend Group member (`FriendGroupMember`). `name` equals
+ * `peer_public_key`; `role` is "owner", "admin", or "member". */
+typedef struct {
+  gzc_str_t name;
+  gzc_str_t peer_public_key;
+  gzc_str_t role;
+  gzc_str_t created_at;
+  gzc_str_t updated_at;
+  /* False when the member's Peer no longer exists. */
+  bool has_info;
+  gzc_control_peer_profile_info_t info;
+} gzc_control_friend_group_member_t;
+
+/* Body of `POST /gizclaw/v1/friend-groups` (`FriendGroupCreateRequest`) and
+ * of `PUT /gizclaw/v1/friend-groups/{friendGroupName}`
+ * (`FriendGroupPutRequest`, which ignores `name`). Empty optional fields are
+ * omitted from the encoded body. */
+typedef struct {
+  gzc_str_t name;
+  gzc_str_t display_name;
+  gzc_str_t description;
+} gzc_control_friend_group_request_t;
+
+/* Body of `POST /gizclaw/v1/friend-groups/@join` (`FriendGroupJoinRequest`).
+ * `name` becomes the device's own name for the Group. */
+typedef struct {
+  gzc_str_t invite_token;
+  gzc_str_t name;
+} gzc_control_friend_group_join_request_t;
+
+/* Body of `POST /gizclaw/v1/friend-groups/{friendGroupName}/members`
+ * (`FriendGroupMemberAddRequest`). `member_name` is the added Peer's own name
+ * for the Group; `role` is "admin" or "member". */
+typedef struct {
+  gzc_str_t peer_public_key;
+  gzc_str_t member_name;
+  gzc_str_t role;
+} gzc_control_friend_group_member_request_t;
+
+/*
+ * Cursor page options shared by the paged list routes. An empty cursor leaves
  * the parameter off the request.
  *
  * has_limit is what puts `limit` on the request, so a caller can send limit=0
@@ -846,6 +945,180 @@ int gzc_control_delete_contact(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
     gzc_str_t contact_name);
+
+/* --- Friends -------------------------------------------------------------
+ *
+ * Friend and Friend Group routes read and write the Server's social store and
+ * never contact the device, so they work while it is offline.
+ */
+
+/* `GET /gizclaw/v1/friends/invite-token`. No active token fails with
+ * GZC_CONTROL_ERROR_NOT_FOUND and code `INVITE_TOKEN_NOT_FOUND`. */
+int gzc_control_get_friend_invite_token(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_control_invite_token_t *out_token);
+
+/* `POST /gizclaw/v1/friends/invite-token`. request may be NULL. */
+int gzc_control_create_friend_invite_token(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_invite_token_request_t *request,
+    gzc_control_invite_token_t *out_token);
+
+/* `DELETE /gizclaw/v1/friends/invite-token`. */
+int gzc_control_clear_friend_invite_token(gzc_control_client_t *client, gzc_control_call_t *call);
+
+/* `POST /gizclaw/v1/friends`. Already being Friends fails with
+ * GZC_CONTROL_ERROR_CONFLICT and code `FRIEND_ALREADY_EXISTS`. */
+int gzc_control_add_friend(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t invite_token,
+    gzc_control_friend_t *out_friend);
+
+/* `GET /gizclaw/v1/friends`. */
+int gzc_control_list_friends(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_page_t *page,
+    gzc_control_friend_t *out_items,
+    size_t cap,
+    size_t *out_count,
+    bool *out_has_next,
+    gzc_str_t *out_next_cursor);
+
+/* `GET /gizclaw/v1/friends/{friendName}`. */
+int gzc_control_get_friend(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_name,
+    gzc_control_friend_t *out_friend);
+
+/* `DELETE /gizclaw/v1/friends/{friendName}`. */
+int gzc_control_delete_friend(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_name);
+
+/* --- Friend Groups ------------------------------------------------------ */
+
+/* `GET /gizclaw/v1/friend-groups`. */
+int gzc_control_list_friend_groups(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_page_t *page,
+    gzc_control_friend_group_t *out_items,
+    size_t cap,
+    size_t *out_count,
+    bool *out_has_next,
+    gzc_str_t *out_next_cursor);
+
+/* `POST /gizclaw/v1/friend-groups`. The device becomes the owner. */
+int gzc_control_create_friend_group(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_friend_group_request_t *request,
+    gzc_control_friend_group_t *out_group);
+
+/* `POST /gizclaw/v1/friend-groups/@join`. out_member is the device's own
+ * membership. */
+int gzc_control_join_friend_group(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_friend_group_join_request_t *request,
+    gzc_control_friend_group_t *out_group,
+    gzc_control_friend_group_member_t *out_member);
+
+/* `GET /gizclaw/v1/friend-groups/{friendGroupName}`. */
+int gzc_control_get_friend_group(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name,
+    gzc_control_friend_group_t *out_group);
+
+/* `PUT /gizclaw/v1/friend-groups/{friendGroupName}`; owner only.
+ * `request->name` is ignored. */
+int gzc_control_put_friend_group(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name,
+    const gzc_control_friend_group_request_t *request,
+    gzc_control_friend_group_t *out_group);
+
+/* `DELETE /gizclaw/v1/friend-groups/{friendGroupName}`: dissolve the Group;
+ * owner only. */
+int gzc_control_delete_friend_group(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name);
+
+/* `POST /gizclaw/v1/friend-groups/{friendGroupName}/@leave`. The owner fails
+ * with GZC_CONTROL_ERROR_CONFLICT and code `FRIEND_GROUP_OWNER_CANNOT_LEAVE`. */
+int gzc_control_leave_friend_group(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name);
+
+/* `GET /gizclaw/v1/friend-groups/{friendGroupName}/invite-token`; owner only. */
+int gzc_control_get_friend_group_invite_token(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name,
+    gzc_control_invite_token_t *out_token);
+
+/* `POST /gizclaw/v1/friend-groups/{friendGroupName}/invite-token`; owner
+ * only. request may be NULL. */
+int gzc_control_create_friend_group_invite_token(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name,
+    const gzc_control_invite_token_request_t *request,
+    gzc_control_invite_token_t *out_token);
+
+/* `DELETE /gizclaw/v1/friend-groups/{friendGroupName}/invite-token`; owner
+ * only. */
+int gzc_control_clear_friend_group_invite_token(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name);
+
+/* `GET /gizclaw/v1/friend-groups/{friendGroupName}/members`. */
+int gzc_control_list_friend_group_members(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name,
+    const gzc_control_page_t *page,
+    gzc_control_friend_group_member_t *out_items,
+    size_t cap,
+    size_t *out_count,
+    bool *out_has_next,
+    gzc_str_t *out_next_cursor);
+
+/* `POST /gizclaw/v1/friend-groups/{friendGroupName}/members`. */
+int gzc_control_add_friend_group_member(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name,
+    const gzc_control_friend_group_member_request_t *request,
+    gzc_control_friend_group_member_t *out_member);
+
+/* `PUT /gizclaw/v1/friend-groups/{friendGroupName}/members/{memberName}`;
+ * owner only. `role` is "admin" or "member". */
+int gzc_control_put_friend_group_member(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name,
+    gzc_str_t member_name,
+    gzc_str_t role,
+    gzc_control_friend_group_member_t *out_member);
+
+/* `DELETE /gizclaw/v1/friend-groups/{friendGroupName}/members/{memberName}`. */
+int gzc_control_delete_friend_group_member(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name,
+    gzc_str_t member_name);
 
 /* Player controls never retry implicitly. Playlist set replaces and stops;
  * append preserves playback. Play acknowledges acceptance, not audible output. */
