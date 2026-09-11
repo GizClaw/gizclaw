@@ -76,7 +76,7 @@ Peer 监控使用 `Authorization: Bearer gizclaw_pk_<public key>`，由所属 Se
 
 Peer client 提供设备快照、Telemetry、`listWorkspaces`、
 `listWorkspaceHistory`、`searchLogs` 和 `downloadHistoryAudio`。
-API Key 用户可以通过 `createGizClawControlClient(...).device` 使用同样的读取方法。
+API Key 用户可以通过 `createGizClawControlClient(...).device` 使用同样的读取方法。`listWorkspaces` 接受可选的 `collection` 与 `workflow_name` 过滤，`deleteWorkspace` 在 Server 返回 `202` 后 resolve（公钥 bearer 需要 fullcontrol）。
 客户端接受 AbortSignal；HTTP 错误由 `GizClawControlError` 保留状态码和错误代码。
 Ogg 下载返回 Blob。
 

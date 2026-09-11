@@ -690,6 +690,88 @@ static void test_device_runtime_profile(void) {
   check(call.error.kind == GZC_CONTROL_ERROR_FORBIDDEN, "unbound owner is forbidden");
 }
 
+static void test_device_workspaces(void) {
+  stub_t stub;
+  gzc_http_vtable_t http;
+  gzc_control_client_t client;
+  memset(&stub, 0, sizeof(stub));
+  stub.status_code = 200;
+  stub.response_body =
+      "[{\"id\":\"ws-aesop\",\"name\":\"aesop-save\",\"collection\":\"story-teller\","
+      "\"workflow_name\":\"story.aesop\",\"available\":true,\"system\":false,"
+      "\"created_at\":\"2026-09-01T08:00:00Z\",\"updated_at\":\"2026-09-01T09:00:00Z\","
+      "\"last_active_at\":\"2026-09-01T10:00:00Z\"},"
+      "{\"id\":\"ws-pet\",\"name\":\"pet\",\"available\":false,\"system\":true,"
+      "\"created_at\":\"2026-09-01T08:00:00Z\",\"updated_at\":\"2026-09-01T08:00:00Z\","
+      "\"last_active_at\":\"2026-09-01T08:00:00Z\"}]";
+  init_client(&client, &stub, &http);
+
+  uint8_t scratch[512];
+  uint8_t response[1024];
+  gzc_control_call_t call;
+  check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "call init");
+
+  gzc_control_workspace_filter_t filter = {
+      .collection = gzc_str_from_cstr("story teller"),
+      .workflow_name = gzc_str_from_cstr("story.aesop"),
+  };
+  gzc_control_device_workspace_t items[4];
+  size_t count = 0;
+  check(gzc_control_list_device_workspaces(&client, &call, &filter, items, 4, &count) == GZC_OK, "list workspaces");
+  check(stub.method == GZC_HTTP_METHOD_GET, "list workspaces method");
+  check(
+      strcmp(
+          stub.url,
+          "https://ap.gizclaw.com/gizclaw/v1/device/workspaces?collection=story%20teller&workflow_name=story.aesop") ==
+          0,
+      "list workspaces url");
+  check(count == 2, "workspace count");
+  check_str(items[0].id, "ws-aesop", "workspace id");
+  check_str(items[0].collection, "story-teller", "workspace collection");
+  check_str(items[0].workflow_name, "story.aesop", "workspace workflow name");
+  check(items[0].available && !items[0].system, "workspace flags");
+  check_str(items[0].last_active_at, "2026-09-01T10:00:00Z", "workspace last active");
+  check(items[1].system && !items[1].available, "system workspace flags");
+  check(items[1].collection.len == 0, "system workspace has no collection");
+  check(items[1].workflow_name.len == 0, "unresolved workflow name is empty");
+
+  check(gzc_control_list_device_workspaces(&client, &call, NULL, items, 4, &count) == GZC_OK, "unfiltered list");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/workspaces") == 0, "unfiltered url");
+  check(
+      gzc_control_list_device_workspaces(&client, &call, NULL, items, 1, &count) == GZC_ERR_BUFFER_TOO_SMALL,
+      "small workspace array reports overflow");
+  check(call.error.kind == GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL, "workspace overflow kind");
+  check(
+      gzc_control_list_device_workspaces(&client, &call, NULL, NULL, 4, &count) == GZC_ERR_INVALID_ARGUMENT,
+      "null workspace array with capacity is rejected");
+
+  stub.response_body = "{\"items\":[]}";
+  check(gzc_control_list_device_workspaces(&client, &call, NULL, items, 4, &count) != GZC_OK, "object body fails");
+  check(call.error.kind == GZC_CONTROL_ERROR_MALFORMED_RESPONSE, "object body is malformed");
+  stub.response_body = "[{\"id\":\"ws\",\"name\":\"n\",\"system\":false}]";
+  check(gzc_control_list_device_workspaces(&client, &call, NULL, items, 4, &count) != GZC_OK, "missing fields fail");
+  check(call.error.kind == GZC_CONTROL_ERROR_MALFORMED_RESPONSE, "missing fields are malformed");
+
+  stub.status_code = 202;
+  stub.response_body = "";
+  check(
+      gzc_control_delete_device_workspace(&client, &call, gzc_str_from_cstr("ws/aesop")) == GZC_OK,
+      "delete workspace");
+  check(stub.method == GZC_HTTP_METHOD_DELETE, "delete workspace method");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/workspaces/ws%2Faesop") == 0, "delete url");
+  check(
+      gzc_control_delete_device_workspace(&client, &call, gzc_str_from_parts(NULL, 0)) == GZC_ERR_INVALID_ARGUMENT,
+      "empty workspace id is rejected");
+
+  stub.status_code = 409;
+  stub.response_body = "{\"error\":{\"code\":\"SYSTEM_WORKSPACE_DELETE_FORBIDDEN\",\"message\":\"system\"}}";
+  check(
+      gzc_control_delete_device_workspace(&client, &call, gzc_str_from_cstr("ws-pet")) != GZC_OK,
+      "system workspace delete fails");
+  check(call.error.kind == GZC_CONTROL_ERROR_CONFLICT, "system workspace delete is a conflict");
+  check_str(call.error.code, "SYSTEM_WORKSPACE_DELETE_FORBIDDEN", "system workspace delete code");
+}
+
 static void test_device_wifi_scan_and_connect(void) {
   stub_t stub;
   gzc_http_vtable_t http;
@@ -871,6 +953,7 @@ int main(void) {
   test_scratch_exhaustion_is_reported();
   test_lists_and_malformed_bodies();
   test_device_runtime_profile();
+  test_device_workspaces();
   test_device_wifi_scan_and_connect();
   test_device_info_raw_and_identifiers();
   if (failures != 0) {

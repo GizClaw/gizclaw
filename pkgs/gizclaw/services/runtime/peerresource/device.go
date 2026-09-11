@@ -42,15 +42,17 @@ type ownerProfileResolver interface {
 var ErrDeviceRuntimeProfileNotBound = errors.New("peerresource: device has no runtime profile bound")
 
 // DeviceReads exposes the caller's own device projection to Public HTTP
-// adapters. Every read is pinned to Caller; adapters cannot select another Peer.
+// adapters. Every read, and the Workspace deletion, is pinned to Caller;
+// adapters cannot select another Peer.
 type DeviceReads struct {
-	Caller    giznet.PublicKey
-	Info      deviceInfoService
-	Status    deviceStatusService
-	Peers     peerFirmwareBindingService
-	Firmwares firmwarePeerService
-	Profiles  ownerProfileResolver
-	Telemetry *peertelemetry.AdminService
+	Caller     giznet.PublicKey
+	Info       deviceInfoService
+	Status     deviceStatusService
+	Peers      peerFirmwareBindingService
+	Firmwares  firmwarePeerService
+	Profiles   ownerProfileResolver
+	Telemetry  *peertelemetry.AdminService
+	Workspaces deviceWorkspaceService
 }
 
 // DeviceInfo returns the caller's authoritative device identity.

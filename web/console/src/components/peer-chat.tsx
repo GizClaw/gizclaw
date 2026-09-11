@@ -391,7 +391,10 @@ export function PeerChat({ peer }: { peer: WatchedPeer }) {
               >
                 {workspaces.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name} · {item.workflow_id}
+                    {item.name} ·{" "}
+                    {[item.collection, item.workflow_name]
+                      .filter(Boolean)
+                      .join("/") || "—"}
                   </option>
                 ))}
               </Select>

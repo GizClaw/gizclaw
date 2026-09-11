@@ -461,6 +461,50 @@ int gzc_control_get_device_runtime_profile(
   return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
 }
 
+int gzc_control_list_device_workspaces(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_workspace_filter_t *filter,
+    gzc_control_device_workspace_t *out_items,
+    size_t cap,
+    size_t *out_count) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out_count == NULL || (out_items == NULL && cap != 0)) {
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  }
+  *out_count = 0;
+  gzc_control_builder_t builder;
+  builder_begin(&builder, client, call, "/device/workspaces");
+  if (filter != NULL) {
+    builder_query_str(&builder, "collection", filter->collection);
+    builder_query_str(&builder, "workflow_name", filter->workflow_name);
+  }
+  gzc_str_t url = builder_url(&builder);
+  rc = builder_send(&builder, client, call, GZC_HTTP_METHOD_GET, url, gzc_str_from_parts(NULL, 0));
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  /* The body is a bare JSON array, so an empty body is malformed rather
+   * than an empty list. */
+  rc = gzc_control_str_empty(call->body) ? GZC_ERR_JSON : GZC_OK;
+  if (rc == GZC_OK) {
+    rc = gzc_control_decode_array(
+        call->body, out_items, sizeof(*out_items), cap, out_count,
+        gzc_control_decode_device_workspace_item);
+  }
+  return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
+}
+
+int gzc_control_delete_device_workspace(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t workspace_id) {
+  if (gzc_control_str_empty(workspace_id)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  return delete_route(client, call, "/device/workspaces", workspace_id);
+}
+
 int gzc_control_get_device_status(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
