@@ -63,8 +63,8 @@ error row and never blanks the others. Rates come from cumulative byte counters,
 so a restart reads as zero rather than a spike. Charts contain measured samples
 only — an empty window stays visibly empty — and at most 600 samples per node
 are retained in memory with 2/10/30 minute display windows. Fleet traffic sums
-per-node samples into 5-second buckets. Node snapshots contain runtime status
-and transport counters; log search uses the persistent LogStore.
+per-node samples into 5-second buckets. Node snapshots contain build identity,
+runtime status and transport counters; log search uses the persistent LogStore.
 
 ## Layout
 

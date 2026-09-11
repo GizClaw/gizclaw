@@ -14,7 +14,7 @@ import (
 
 func TestNodeAuthorizationAndIsolation(t *testing.T) {
 	token := "gizclaw_mk_" + strings.Repeat("x", 32)
-	handler := Handler(Config{Token: token}, "server", "local-key", http.NotFoundHandler())
+	handler := Handler(Config{Token: token}, Node{Role: "server", PublicKey: "local-key", Version: "0.9.1", Commit: "abc123"}, http.NotFoundHandler())
 	for _, tc := range []struct {
 		auth string
 		want int
@@ -34,6 +34,9 @@ func TestNodeAuthorizationAndIsolation(t *testing.T) {
 			if snapshot.PublicKey != "local-key" || snapshot.Role != "server" {
 				t.Fatal("wrong node")
 			}
+			if snapshot.Version != "0.9.1" || snapshot.BuildCommit != "abc123" {
+				t.Fatalf("build = %q %q", snapshot.Version, snapshot.BuildCommit)
+			}
 			if !strings.Contains(out.Body.String(), `"inbound_service_channels":0`) {
 				t.Fatal("missing inbound service channel count")
 			}
@@ -46,7 +49,7 @@ func TestNodeAuthorizationAndIsolation(t *testing.T) {
 		}
 	}
 	disabled := httptest.NewRecorder()
-	Handler(Config{}, "edge", "edge-key", http.NotFoundHandler()).ServeHTTP(disabled, httptest.NewRequest("GET", "/monitor/api/node", nil))
+	Handler(Config{}, Node{Role: "edge", PublicKey: "edge-key"}, http.NotFoundHandler()).ServeHTTP(disabled, httptest.NewRequest("GET", "/monitor/api/node", nil))
 	if disabled.Code != 503 {
 		t.Fatal(disabled.Code)
 	}
@@ -73,7 +76,7 @@ func TestMonitorTokenConfig(t *testing.T) {
 
 func TestGeneratedMonitorClientContract(t *testing.T) {
 	token := "gizclaw_mk_" + strings.Repeat("t", 32)
-	server := httptest.NewServer(Handler(Config{Token: token}, "edge", "local-node", http.NotFoundHandler()))
+	server := httptest.NewServer(Handler(Config{Token: token}, Node{Role: "edge", PublicKey: "local-node"}, http.NotFoundHandler()))
 	defer server.Close()
 	client, err := monitorapi.NewClientWithResponses(server.URL)
 	if err != nil {
@@ -96,7 +99,10 @@ func TestGeneratedMonitorClientContract(t *testing.T) {
 	if authorized.JSON200 == nil || authorized.JSON200.PublicKey != "local-node" {
 		t.Fatalf("unexpected snapshot: %+v", authorized)
 	}
-	disabledServer := httptest.NewServer(Handler(Config{}, "edge", "local-node", http.NotFoundHandler()))
+	if authorized.JSON200.Version != "dev" || authorized.JSON200.BuildCommit != "dev" {
+		t.Fatalf("unversioned build = %q %q", authorized.JSON200.Version, authorized.JSON200.BuildCommit)
+	}
+	disabledServer := httptest.NewServer(Handler(Config{}, Node{Role: "edge", PublicKey: "local-node"}, http.NotFoundHandler()))
 	defer disabledServer.Close()
 	disabledClient, err := monitorapi.NewClientWithResponses(disabledServer.URL)
 	if err != nil {
@@ -121,7 +127,7 @@ func TestGeneratedMonitorClientContract(t *testing.T) {
 
 func TestNodeMonitorCORS(t *testing.T) {
 	token := "gizclaw_mk_" + strings.Repeat("x", 32)
-	handler := Handler(Config{Token: token}, "server", "local-key", http.NotFoundHandler())
+	handler := Handler(Config{Token: token}, Node{Role: "server", PublicKey: "local-key"}, http.NotFoundHandler())
 	preflight := httptest.NewRecorder()
 	options := httptest.NewRequest("OPTIONS", "/monitor/api/node", nil)
 	options.Header.Set("Origin", "https://console.example.com")
@@ -158,7 +164,7 @@ func TestNodeMonitorCORS(t *testing.T) {
 func TestEmbeddedConsole(t *testing.T) {
 	// An unrelated working directory proves serving does not read web/console/dist.
 	t.Chdir(t.TempDir())
-	handler := Handler(Config{}, "edge", "local-key", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := Handler(Config{}, Node{Role: "edge", PublicKey: "local-key"}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusTeapot)
 	}))
 	for path, want := range map[string]int{

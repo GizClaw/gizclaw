@@ -7,6 +7,14 @@ export type ClientOptions = {
 export type NodeSnapshot = {
     public_key: string;
     role: string;
+    /**
+     * Software version embedded in this process binary; "dev" for unversioned builds.
+     */
+    version: string;
+    /**
+     * Source commit embedded in this process binary; "dev" for unversioned builds.
+     */
+    build_commit: string;
     time: string;
     uptime_seconds: number;
     goroutines: number;
