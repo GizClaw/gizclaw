@@ -295,6 +295,23 @@ warning；仅凭配置不能宣称实际使用了 relay。
 relay path，而不是 Edge/Server resource owner。这里的 counter 支撑有界因果结论；仅凭
 配置不能得出该结论。
 
+## Edge upstream liveness
+
+ICE pair 健康不代表 upstream 存活：ICE consent 只说明 Server 的 UDP socket 仍回应 STUN，
+而 Pion SCTP 会无限重传，DataChannel 也无需对端确认就在本地打开。因此 Edge 每 10 秒
+通过 Server 的 Edge HTTP service 对每条 control 和 gateway upstream 做端到端
+`GET /server-info` 探测（超时 2 秒）。control upstream 在最近收到过响应头时跳过周期探测，
+转发请求等待响应头超过 1 秒时立即探测。
+
+探测超时且期间该 association 没有收到任何其他入站数据时，记录 `edge: upstream stalled`
+（`trigger=periodic|slow_request`、`probe_ms`、`last_activity`）和 `edge: upstream evicted`
+（`reason=liveness_probe_failed`）。驱逐会关闭 association 并让其上的在途请求失败；
+`GET`、`HEAD`、`OPTIONS` 会在新 association 上重试。探测超时但仍有其他数据到达时只记录
+info 级别的 `edge: upstream slow`。重建依次记录 `edge: upstream redialing` 和带新 epoch 的
+`edge: upstream ICE selected`；失败记录 `edge: upstream redial failed`，`retry_in` 指数退避，
+上限 30 秒。每次代理失败都会记录带原因的 `gizedge: upstream proxy error`，客户端已先断开时为
+info 级别。
+
 ## 新增埋点时
 
 1. 先判断问题需要单次请求证据、聚合趋势，还是两者都需要。
