@@ -486,7 +486,6 @@ func lifecycleCases(adminKey, peerKey string) []lifecycleCase {
 func toolSpec(invokeName, description string) map[string]any {
 	return map[string]any{
 		"type":        "http_request",
-		"enabled":     true,
 		"invoke_name": invokeName,
 		"description": description,
 		"input_schema": map[string]any{
@@ -496,7 +495,6 @@ func toolSpec(invokeName, description string) map[string]any {
 		"http": map[string]any{
 			"url": "https://weather.example/v1", "method": "GET",
 			"auth": map[string]any{"method": "none"}, "timeout": "5s", "max_response_bytes": 4096,
-			"headers": map[string]any{}, "success_status_codes": []any{200},
 		},
 	}
 }

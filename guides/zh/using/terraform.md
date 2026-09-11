@@ -145,8 +145,15 @@ resource "gizclaw_resource" "openai" {
 - 刷新时，Server 返回的 `spec` 与配置语义一致就保留配置中的写法；不一致时记录 Server 的值，
   下一次 plan 显示差异。`Credential` 的 `spec` 永远保留配置值，因为 Server 不返回密钥。环境变量
   占位符（包括 `${NAME:-default}`）按 apply 时的规则展开后与 Server 返回值相同即视为一致。
-- 除上述规则外，刷新按字面值比较。Server 会补默认值或规范化的字段需要写成规范化后的值：
-  Tool 需要显式设置 `enabled`、`http.headers` 与 `http.success_status_codes`，否则每次 plan 都显示变化。
+- Tool 配置省略某个字段或设为 `null`，而 Server 返回该字段的默认值时视为一致：`enabled: true`、
+  空的 `http.headers`、`http.success_status_codes: [200]`，以及每个 `http.query` 与 `http.body`
+  binding 的 `required: true`。Server 返回配置值的规范化形式时同样视为一致：大写的
+  `http.method`、重新编码的 `http.url`、`http.timeout` 的规范写法（`60s` 保存为 `1m0s`）、
+  `http.headers` 与 `http.auth.header` 中的规范 header 名，以及排序去重后的
+  `http.success_status_codes`（空列表等同于 `[200]`）。其他值都会被记录，例如带外改成的
+  `enabled: false` 或新增的 header。
+- 除上述规则外，刷新按字面值比较。Server 会补默认值或规范化的其他字段需要写成规范化后的值，
+  否则每次 plan 都显示变化。
 - Delete 调用 Admin delete；资源已不存在时视为成功。
 - Import 使用 `<kind>/<resource_id>`：`terraform import gizclaw_resource.openai Credential/openai-main`。
   Import 不会写入 `spec`，下一次 apply 会用配置中的 `spec` 覆盖 Server 上的值。

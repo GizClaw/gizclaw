@@ -153,9 +153,18 @@ Resource behavior:
   difference. `Credential` always keeps the configured `spec` because the Server does not
   return secrets. A string with environment placeholders, including `${NAME:-default}`, is
   consistent when its expansion under the apply rules equals the Server value.
+- A Tool is consistent when its configuration omits a field, or sets it to `null`, and the
+  Server returns that field's default: `enabled: true`, empty `http.headers`,
+  `http.success_status_codes: [200]`, and `required: true` on each `http.query` and
+  `http.body` binding. A Tool is also consistent when the Server returns the normalized form
+  of a configured value: an upper-case `http.method`, the re-encoded `http.url`, the
+  canonical form of `http.timeout` (`60s` is stored as `1m0s`), canonical header names in
+  `http.headers` and `http.auth.header`, and sorted, de-duplicated
+  `http.success_status_codes` (an empty list means `[200]`). Any other value is recorded,
+  such as `enabled: false` or a header added out of band.
 - Refresh compares values literally apart from the rules above. When the Server fills in
-  defaults or normalizes a field, write the normalized value: for a Tool, set `enabled`,
-  `http.headers`, and `http.success_status_codes` explicitly, or every plan shows a change.
+  defaults or normalizes another field, write the normalized value, or every plan shows a
+  change.
 - Delete calls Admin delete; an already absent resource counts as success.
 - Import takes `<kind>/<resource_id>`:
   `terraform import gizclaw_resource.openai Credential/openai-main`. Import does not record
