@@ -8,6 +8,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/contextstore"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli/contextconn"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -144,6 +145,15 @@ func TestProviderMetadataAndResources(t *testing.T) {
 	resources[0]().Metadata(context.Background(), resource.MetadataRequest{ProviderTypeName: meta.TypeName}, &resourceMeta)
 	if resourceMeta.TypeName != "gizclaw_resource" {
 		t.Fatalf("resource type = %q", resourceMeta.TypeName)
+	}
+	dataSources := p.DataSources(context.Background())
+	if len(dataSources) != 1 {
+		t.Fatalf("data sources = %d", len(dataSources))
+	}
+	var dataSourceMeta datasource.MetadataResponse
+	dataSources[0]().Metadata(context.Background(), datasource.MetadataRequest{ProviderTypeName: meta.TypeName}, &dataSourceMeta)
+	if dataSourceMeta.TypeName != "gizclaw_catalog" {
+		t.Fatalf("data source type = %q", dataSourceMeta.TypeName)
 	}
 	if !strings.HasPrefix(Address, "gizclaw.local/") {
 		t.Fatalf("address = %q", Address)

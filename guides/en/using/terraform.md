@@ -11,6 +11,7 @@ builds.
 | Provider source address | `gizclaw.local/gizclaw/gizclaw` |
 | Provider version | Same as the GizClaw Release version, for example `0.17.6` for `v0.17.6` |
 | Resource type | `gizclaw_resource` |
+| Data source | `gizclaw_catalog` |
 | Platforms | `darwin_amd64`, `darwin_arm64`, `linux_amd64`, `linux_arm64` |
 
 `gizclaw.local` is not a public registry. Terraform installs this provider only from a
@@ -162,3 +163,63 @@ upgrades it to `resource_id` automatically.
 
 The Terraform state of `gizclaw_resource` stores `spec`, which can contain secret placeholders
 or plaintext secrets. Manage the state backend as secret storage.
+
+## `gizclaw_catalog`
+
+`gizclaw_catalog` resolves layered local manifest directories into the Admin Resources that
+product definitions select. It only reads local files: it sends no Admin request and opens no
+Server connection. The provider block still loads its context during configuration.
+
+```hcl
+data "gizclaw_catalog" "selected" {
+  sources         = ["${path.root}/catalogs/upstream", "${path.root}/catalogs/overrides"]
+  product_sources = ["${path.root}/products/default"]
+}
+
+resource "gizclaw_resource" "workflows" {
+  for_each    = data.gizclaw_catalog.selected.workflows
+  kind        = jsondecode(each.value).kind
+  resource_id = jsondecode(each.value).metadata.id
+  spec        = jsonencode(jsondecode(each.value).spec)
+}
+```
+
+| Attribute | Kind | Description |
+| --- | --- | --- |
+| `sources` | required | Reusable catalog directories, lowest to highest precedence. |
+| `product_sources` | required | Product directories containing RuntimeProfile and RegistrationToken manifests. |
+| `credentials`, `tenants`, `voices`, `models`, `memory_layouts`, `workflows`, `firmwares`, `runtime_profiles`, `registration_tokens` | computed | Map from `<Kind>/<id>` to the selected manifest encoded as JSON. |
+| `raids` | computed | Map from raid ID to the unchanged bytes of each selected `raid.json`. |
+| `overridden_ids` | computed | Set of `<Kind>/<id>` defined by more than one entry of `sources`. |
+
+A catalog source may contain `credentials/`, `tenants/`, `voices/`, `models/`,
+`memory-layouts/`, `workflows/`, `firmwares/`, and `runtime-profiles/`; a product source may
+contain only `runtime-profiles/` and `registration-tokens/`, with manifests of the matching
+kind. Every `.yaml` and `.yml` file below these directories is read. Each manifest needs
+`apiVersion`, `kind`, `metadata.id`, and `spec`; `metadata.id` follows the caller-defined ID
+rules of `gizclaw_resource`, and `metadata.name` is rejected.
+
+Resolution:
+
+- A `<Kind>/<id>` in a later source replaces the one from an earlier source and is listed in
+  `overridden_ids`. One source defining the same `<Kind>/<id>` twice, or a product source
+  defining a `<Kind>/<id>` that already exists, fails the read.
+- Selection starts from every product manifest. A RegistrationToken selects the RuntimeProfile
+  in `spec.runtime_profile_id`, which may come from a catalog source, and the Firmware in
+  `spec.firmware_id` when set. A RuntimeProfile selects the Workflows bound in
+  `spec.workflows.collections`, the Models and Voices bound in `spec.resources.models` and
+  `spec.resources.voices`, and the MemoryLayouts named by `spec.resources.memories.*.layout_id`.
+  A Workflow selects the MemoryLayout in `spec.memory`, a Model or Voice selects the Tenant in
+  `spec.provider.id`, and a Tenant selects the Credential in `spec.credential_id`.
+- A `raid.json` below a catalog source's `workflows/` is selected when one of its
+  `implementations.*.workflow_id` Workflows is selected; its `tester.workflow_id` Workflow is
+  then selected as well. For the same raid ID, the later source wins.
+- A missing or invalid reference fails the read, as does a selected RuntimeProfile with
+  `spec.gameplay`, `spec.workflows.system`, or `spec.resources.pet_defs`, `game_defs`, or
+  `badge_defs`, or a selected Workflow with `spec.driver` `pet`.
+
+Each manifest value is compact JSON with the fields `apiVersion`, `kind`, `metadata.id`, and
+`spec`, with object keys in `spec` sorted. `${NAME}` placeholders are kept as written;
+`gizclaw_resource` expands them during apply. YAML is decoded with YAML 1.1 scalar rules, so
+unquoted `yes` and `on` become `true`. Values are not sensitive; keep secrets in placeholders
+rather than in catalog files.
