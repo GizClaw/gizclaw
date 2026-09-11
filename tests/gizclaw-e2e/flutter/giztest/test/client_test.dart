@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:giztest/src/client.dart';
 import 'package:gizclaw/gizclaw.dart';
+import 'package:protobuf/well_known_types/google/protobuf/struct.pb.dart';
 
 void main() {
   test('scenario requests wrap single-value messages exactly once', () {
@@ -148,6 +149,61 @@ void main() {
         'items': [
           {'peer_public_key': '', 'emoji': '🐱'},
         ],
+      },
+    );
+  });
+
+  test('responses emit empty maps and project message map values', () {
+    // An unset map renders as {}; each message value gets its own implicit
+    // defaults while its proto3 optional description stays absent. Keys are
+    // paired with values without re-encoding. The unset provider_data oneof
+    // stays absent.
+    expect(camelToSnakeKeys(unwrapValueMessage(Model())), {
+      'name': '',
+      'i18n': <String, Object?>{},
+      'kind': 'MODEL_KIND_UNSPECIFIED',
+      'provider_kind': 'MODEL_PROVIDER_KIND_UNSPECIFIED',
+    });
+    expect(
+      camelToSnakeKeys(
+        unwrapValueMessage(
+          Model(
+            name: 'gpt',
+            i18n: {
+              'en': ResourceI18nText(),
+              'zh': ResourceI18nText(displayName: '模型', description: 'd'),
+            }.entries,
+          ),
+        ),
+      ),
+      {
+        'name': 'gpt',
+        'i18n': {
+          'en': {'display_name': ''},
+          'zh': {'display_name': '模型', 'description': 'd'},
+        },
+        'kind': 'MODEL_KIND_UNSPECIFIED',
+        'provider_kind': 'MODEL_PROVIDER_KIND_UNSPECIFIED',
+      },
+    );
+  });
+
+  test('responses keep well-known type JSON shapes', () {
+    // google.protobuf.Struct renders as a plain JSON object; its internal
+    // fields map is not filled in as if it were a payload message.
+    expect(
+      camelToSnakeKeys(
+        unwrapValueMessage(
+          PeerStatus(
+            details: Struct(
+              fields: {'mode': Value(stringValue: 'idle')}.entries,
+            ),
+          ),
+        ),
+      ),
+      {
+        'details': {'mode': 'idle'},
+        'labels': <String, Object?>{},
       },
     );
   });
