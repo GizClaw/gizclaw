@@ -246,9 +246,9 @@ func TestConnReservesPacketDataChannelBeforeOpen(t *testing.T) {
 
 func TestConnBoundsInboundServiceStreams(t *testing.T) {
 	conn := &Conn{}
-	channels := make([]webrtc.DataChannel, maxInboundServiceStreams+1)
-	releases := make([]func(), maxInboundServiceStreams)
-	for index := range maxInboundServiceStreams {
+	channels := make([]webrtc.DataChannel, MaxInboundServiceStreams+1)
+	releases := make([]func(), MaxInboundServiceStreams)
+	for index := range MaxInboundServiceStreams {
 		var ok bool
 		releases[index], ok = conn.reserveInboundServiceStream(&channels[index])
 		if !ok {
@@ -256,11 +256,11 @@ func TestConnBoundsInboundServiceStreams(t *testing.T) {
 		}
 		t.Cleanup(releases[index])
 	}
-	if _, ok := conn.reserveInboundServiceStream(&channels[maxInboundServiceStreams]); ok {
-		t.Fatalf("reserve inbound service stream accepted above limit %d", maxInboundServiceStreams)
+	if _, ok := conn.reserveInboundServiceStream(&channels[MaxInboundServiceStreams]); ok {
+		t.Fatalf("reserve inbound service stream accepted above limit %d", MaxInboundServiceStreams)
 	}
 	releases[0]()
-	if release, ok := conn.reserveInboundServiceStream(&channels[maxInboundServiceStreams]); !ok {
+	if release, ok := conn.reserveInboundServiceStream(&channels[MaxInboundServiceStreams]); !ok {
 		t.Fatal("reserve inbound service stream did not release closed channel capacity")
 	} else {
 		t.Cleanup(release)

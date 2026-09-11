@@ -52,10 +52,12 @@ const (
 	readPacketQueueSize  = 256
 	acceptQueueSize      = 64
 	serviceQueueSize     = 64
-	// Bound remote service DataChannel admission per connection. This matches
-	// the gateway's supported active-session ceiling per upstream association;
-	// the SCTP receive window independently bounds aggregate queued bytes.
-	maxInboundServiceStreams  = 2048
+	// MaxInboundServiceStreams bounds the remotely opened service DataChannels
+	// one connection admits at a time. It matches the gateway's supported
+	// active-session ceiling per upstream association; the SCTP receive window
+	// independently bounds aggregate queued bytes. A service DataChannel opened
+	// beyond it is closed before delivery.
+	MaxInboundServiceStreams  = 2048
 	maxNativeChannelLabelSize = 512
 	maxInboundNativeChannels  = 8192
 )

@@ -2,9 +2,9 @@ module github.com/GizClaw/gizclaw-go
 
 go 1.26.4
 
-replace github.com/pion/sctp => github.com/GizClaw/pion-sctp v0.0.0-20260911153715-01fa7f6a297a
+replace github.com/pion/sctp => github.com/GizClaw/pion-sctp v0.0.0-20260911190413-e8b04f488c05
 
-replace github.com/pion/webrtc/v4 => github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260911150935-41dcf7a741ef
+replace github.com/pion/webrtc/v4 => github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260911183140-12d9838cfb98
 
 require (
 	cloud.google.com/go/storage v1.64.0
