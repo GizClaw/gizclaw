@@ -64,6 +64,8 @@ func (s *peerHTTP) DeleteDeviceWorkspace(ctx context.Context, req peerhttp.Delet
 	switch {
 	case err == nil:
 		return peerhttp.DeleteDeviceWorkspace202Response{}, nil
+	case errors.Is(err, peerresource.ErrDeviceRuntimeProfileNotBound):
+		return peerhttp.DeleteDeviceWorkspace403JSONResponse{ForbiddenJSONResponse: peerhttp.ForbiddenJSONResponse(apiError("API_KEY_OWNER_UNAVAILABLE", http.StatusText(http.StatusForbidden)))}, nil
 	case errors.Is(err, peerresource.ErrDeviceWorkspaceNotFound):
 		return peerhttp.DeleteDeviceWorkspace404JSONResponse{NotFoundJSONResponse: peerhttp.NotFoundJSONResponse(apiError("WORKSPACE_NOT_FOUND", "workspace not found"))}, nil
 	case errors.As(err, &conflict):

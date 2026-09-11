@@ -218,6 +218,16 @@ func TestDeviceWorkspaceHandlersMapFailures(t *testing.T) {
 	if forbidden, ok := response.(peerhttp.ListDeviceWorkspaces403JSONResponse); !ok || forbidden.Error.Code != "API_KEY_OWNER_UNAVAILABLE" {
 		t.Fatalf("lost binding response = %#v", response)
 	}
+	deleted, err := handler.DeleteDeviceWorkspace(ctx, peerhttp.DeleteDeviceWorkspaceRequestObject{WorkspaceId: "ws-aesop"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if forbidden, ok := deleted.(peerhttp.DeleteDeviceWorkspace403JSONResponse); !ok || forbidden.Error.Code != "API_KEY_OWNER_UNAVAILABLE" {
+		t.Fatalf("lost binding delete response = %#v", deleted)
+	}
+	if _, err := f.workspaces.GetAvailableWorkspaceByID(context.Background(), "ws-aesop"); err != nil {
+		t.Fatalf("Workspace deleted without a binding: %v", err)
+	}
 
 	if response, _ := (&peerHTTP{}).ListDeviceWorkspaces(ctx, peerhttp.ListDeviceWorkspacesRequestObject{}); !isResponseType[peerhttp.ListDeviceWorkspaces500JSONResponse](response) {
 		t.Fatalf("unconfigured list response = %#v", response)

@@ -46,14 +46,8 @@ type DeviceWorkspaceFilter struct {
 // RuntimeProfile, exactly like the Peer RPC Workspace projection; the Admin
 // Workflow ID never leaves the Server.
 func (r DeviceReads) DeviceWorkspaces(ctx context.Context, filter DeviceWorkspaceFilter) ([]peerhttp.DeviceWorkspace, error) {
-	if r.Workspaces == nil || r.Profiles == nil {
-		return nil, ErrDeviceServiceNotConfigured
-	}
-	profile, err := r.Profiles.ResolveOwnerProfile(ctx, r.Caller.String())
+	profile, err := r.deviceWorkspaceProfile(ctx)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrDeviceRuntimeProfileNotBound
-		}
 		return nil, err
 	}
 	items, err := r.Workspaces.ListOwnedHistoryWorkspaces(ctx, r.Caller.String())
@@ -78,8 +72,10 @@ func (r DeviceReads) DeviceWorkspaces(ctx context.Context, filter DeviceWorkspac
 // owned by the caller through the shared Workspace deletion lifecycle. It
 // never contacts the device.
 func (r DeviceReads) DeleteDeviceWorkspace(ctx context.Context, workspaceID string) error {
-	if r.Workspaces == nil {
-		return ErrDeviceServiceNotConfigured
+	// A binding removed after owner validation must refuse the deletion the
+	// same way the list refuses the read.
+	if _, err := r.deviceWorkspaceProfile(ctx); err != nil {
+		return err
 	}
 	items, err := r.Workspaces.ListOwnedHistoryWorkspaces(ctx, r.Caller.String())
 	if err != nil {
@@ -109,6 +105,17 @@ func (r DeviceReads) DeleteDeviceWorkspace(ctx context.Context, workspaceID stri
 	default:
 		return errors.New("peerresource: workspace deletion failed")
 	}
+}
+
+func (r DeviceReads) deviceWorkspaceProfile(ctx context.Context) (apitypes.RuntimeProfile, error) {
+	if r.Workspaces == nil || r.Profiles == nil {
+		return apitypes.RuntimeProfile{}, ErrDeviceServiceNotConfigured
+	}
+	profile, err := r.Profiles.ResolveOwnerProfile(ctx, r.Caller.String())
+	if errors.Is(err, sql.ErrNoRows) {
+		return apitypes.RuntimeProfile{}, ErrDeviceRuntimeProfileNotBound
+	}
+	return profile, err
 }
 
 // deviceWorkspaceOwnerError classifies an owner that became unavailable after
