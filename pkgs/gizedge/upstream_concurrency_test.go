@@ -76,6 +76,37 @@ func TestUpstreamTransportAcquireSlotSemantics(t *testing.T) {
 	}
 }
 
+// TestUpstreamTransportRejectsSlotAfterShutdown covers a canceled transport
+// lifetime while capacity is still free: shutdown must stop new forwarding
+// instead of admitting it onto the existing association.
+func TestUpstreamTransportRejectsSlotAfterShutdown(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	tr := &upstreamTransport{ctx: ctx}
+	release, err := tr.acquireSlot(context.Background())
+	if err != nil {
+		t.Fatalf("acquireSlot before shutdown error = %v", err)
+	}
+	release()
+
+	cancel()
+	if _, err := tr.acquireSlot(context.Background()); !errors.Is(err, context.Canceled) {
+		t.Fatalf("acquireSlot after shutdown with free capacity error = %v, want context.Canceled", err)
+	}
+
+	// The request context only bounds the wait: an already-canceled request
+	// still takes a free slot so RoundTrip can clean up a stale association.
+	reqCtx, reqCancel := context.WithCancel(context.Background())
+	reqCancel()
+	live := &upstreamTransport{ctx: context.Background()}
+	for range 100 {
+		release, err := live.acquireSlot(reqCtx)
+		if err != nil {
+			t.Fatalf("acquireSlot with a canceled request and free capacity error = %v, want a slot", err)
+		}
+		release()
+	}
+}
+
 func reqCtxTimeout(t *testing.T, d time.Duration) context.Context {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), d)

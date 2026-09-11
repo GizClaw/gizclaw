@@ -288,13 +288,15 @@ func upstreamSignalingURL(upstreamURL *url.URL) string {
 // silently drops the DATA of any new stream beyond that. A dropped open only
 // recovers through SCTP T3 retransmission with exponential backoff, and a
 // burst that starves the receive window can wedge the accept loop for good.
-// Keeping at most 16 opens in flight means the accept queue cannot overflow
-// regardless of packet timing, and stays far below the receive window
+// The bound is 15 so that, together with the single-flight liveness probe,
+// which bypasses it so a saturated bound cannot fail the probe and evict a
+// healthy association, at most 16 opens are in flight: the accept queue cannot
+// overflow regardless of packet timing, and stays far below the receive window
 // provisioned for GatewaySCTPReceiveBufferSize. Burst tests showed a bound of
 // 64 failed as badly as no bound, because slots held by requests waiting on
 // retransmission starved the queued requests. Excess requests wait for a slot
 // or fail with their context rather than piling onto SCTP.
-const maxConcurrentUpstreamRequests = 16
+const maxConcurrentUpstreamRequests = 15
 
 type upstreamTransport struct {
 	ctx         context.Context
@@ -323,16 +325,19 @@ type upstreamTransport struct {
 
 // acquireSlot reserves one concurrent-request slot on this upstream. It returns
 // a release function that must be called exactly once when the forwarded
-// request (including its streamed response body) is done. Waiting honors both
-// the request context and the transport's lifetime context.
+// request (including its streamed response body) is done. A canceled transport
+// lifetime rejects acquisition even when a slot is free. The request context
+// only bounds the wait: a free slot is always taken, so a request that is
+// already canceled still reaches the round trip's stale-connection handling.
 func (t *upstreamTransport) acquireSlot(ctx context.Context) (func(), error) {
 	t.semOnce.Do(func() { t.sem = make(chan struct{}, maxConcurrentUpstreamRequests) })
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	var closed <-chan struct{}
 	if t.ctx != nil {
-		closed = t.ctx.Done()
+		if err := t.ctx.Err(); err != nil {
+			return nil, err
+		}
 	}
 	select {
 	case t.sem <- struct{}{}:
@@ -341,7 +346,7 @@ func (t *upstreamTransport) acquireSlot(ctx context.Context) (func(), error) {
 		case t.sem <- struct{}{}:
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		case <-closed:
+		case <-t.contextDone():
 			return nil, t.ctx.Err()
 		}
 	}
