@@ -40,7 +40,7 @@ fullcontrol 才允许音量和重启等操作，Server 每次重新校验权限�
 每 5 秒并行轮询所有节点，用累计计数换算速率（重启读作 0，而不是尖峰），每个节点最多保留
 600 个采样，提供 2/10/30 分钟窗口。
 
-日志通过设备的持久化 LogStore 搜索接口查询，支持时间范围、文本、级别与分页。节点快照只返回运行状态和传输计数。
+日志通过设备的持久化 LogStore 搜索接口查询，支持时间范围、文本、级别与分页。节点快照只返回二进制版本与构建提交、运行状态和传输计数；控制台在节点列表和运行快照中显示版本。
 
 Telemetry 分两类：指标字段（`battery.*`、`network.rssi_dbm`、`network.signal_level`、
 `network.connected`、`system.*`、`gnss.*`）会写入采样存储，可按时间区间查询历史；只反映
@@ -72,7 +72,7 @@ go build ./cmd/gizclaw
 
 | 状态 | 响应 |
 | --- | --- |
-| 200 | 生成的 `NodeSnapshot`，包含本地运行状态与计数 |
+| 200 | 生成的 `NodeSnapshot`，包含构建信息、本地运行状态与计数 |
 | 401 | `{"error":"INVALID_MONITOR_TOKEN"}` |
 | 503 | 未配置 Token 时返回 `{"error":"MONITOR_DISABLED"}` |
 | 405 | 空响应体，`Allow: GET,OPTIONS` |

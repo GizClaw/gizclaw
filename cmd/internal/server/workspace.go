@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/cmd/internal/buildinfo"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/monitor"
@@ -264,7 +265,12 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err
 		return err
 	}
 	defer srv.Close()
-	monitorHandler := monitor.Handler(cfg.Monitor, "server", cfg.KeyPair.Public.String(), srv)
+	monitorHandler := monitor.Handler(cfg.Monitor, monitor.Node{
+		Role:      "server",
+		PublicKey: cfg.KeyPair.Public.String(),
+		Version:   buildinfo.Version,
+		Commit:    buildinfo.Commit,
+	}, srv)
 	for index := range preparedHTTP {
 		preparedHTTP[index].server.Handler = monitorHandler
 	}
