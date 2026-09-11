@@ -81,7 +81,7 @@ type dataChannelConn struct {
 
 	writeMu           sync.Mutex
 	budgetMu          sync.Mutex
-	writeBudgets      []*WriteBudget
+	writeBudgets      []*giznet.WriteBudget
 	budgetOutstanding uint64
 	budgetMonitor     bool
 
@@ -96,46 +96,17 @@ type dataChannelConn struct {
 	onClose   func()
 }
 
-// WriteBudget bounds bytes queued across a group of reliable DataChannels.
-// Reservations are released by each channel as its BufferedAmount drains.
-type WriteBudget struct {
-	limit uint64
-	mu    sync.Mutex
-	used  uint64
-	wake  chan struct{}
-}
-
-// NewWriteBudget constructs a shared outstanding-byte budget.
-func NewWriteBudget(limit uint64) *WriteBudget {
-	return &WriteBudget{limit: limit, wake: make(chan struct{})}
-}
-
-// Used reports the currently reserved byte count.
-func (b *WriteBudget) Used() uint64 {
-	if b == nil {
-		return 0
-	}
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.used
-}
-
-func (b *WriteBudget) acquire(size uint64, stream *dataChannelConn) error {
-	if b == nil || size == 0 {
-		return nil
-	}
-	if size > b.limit {
-		return giznet.ErrPacketTooLarge
-	}
+// acquireWriteBudget waits until b reserves size bytes for stream. Reservations
+// are released by each channel as its BufferedAmount drains.
+func acquireWriteBudget(b *giznet.WriteBudget, size uint64, stream *dataChannelConn) error {
 	for {
-		b.mu.Lock()
-		if b.used <= b.limit-size {
-			b.used += size
-			b.mu.Unlock()
+		acquired, wake, err := b.TryAcquire(size)
+		if err != nil {
+			return err
+		}
+		if acquired {
 			return nil
 		}
-		wake := b.wake
-		b.mu.Unlock()
 		deadline, deadlineWake := stream.writeDeadlineSnapshot()
 		var timer *time.Timer
 		var timerCh <-chan time.Time
@@ -162,20 +133,6 @@ func (b *WriteBudget) acquire(size uint64, stream *dataChannelConn) error {
 			timer.Stop()
 		}
 	}
-}
-
-func (b *WriteBudget) release(size uint64) {
-	if b == nil || size == 0 {
-		return
-	}
-	b.mu.Lock()
-	if size > b.used {
-		size = b.used
-	}
-	b.used -= size
-	close(b.wake)
-	b.wake = make(chan struct{})
-	b.mu.Unlock()
 }
 
 func newDataChannelConn(raw datachannel.ReadWriteCloserDeadliner, flow dataChannelFlow, local, remote net.Addr) *dataChannelConn {
@@ -361,25 +318,25 @@ func (c *dataChannelConn) Close() error {
 	return err
 }
 
-func (c *dataChannelConn) setWriteBudgets(budgets ...*WriteBudget) error {
+func (c *dataChannelConn) setWriteBudgets(budgets ...*giznet.WriteBudget) error {
 	c.budgetMu.Lock()
 	defer c.budgetMu.Unlock()
 	if c.budgetOutstanding != 0 || c.streamTX.Load() != 0 {
 		return errors.New("gizwebrtc: write budgets configured after writing")
 	}
-	c.writeBudgets = append([]*WriteBudget(nil), budgets...)
+	c.writeBudgets = append([]*giznet.WriteBudget(nil), budgets...)
 	return nil
 }
 
 func (c *dataChannelConn) reserveSharedWriteBudgets(size uint64) error {
 	c.budgetMu.Lock()
-	budgets := append([]*WriteBudget(nil), c.writeBudgets...)
+	budgets := append([]*giznet.WriteBudget(nil), c.writeBudgets...)
 	c.budgetMu.Unlock()
 	acquired := 0
 	for _, budget := range budgets {
-		if err := budget.acquire(size, c); err != nil {
+		if err := acquireWriteBudget(budget, size, c); err != nil {
 			for index := acquired - 1; index >= 0; index-- {
-				budgets[index].release(size)
+				budgets[index].Release(size)
 			}
 			return err
 		}
@@ -414,10 +371,10 @@ func (c *dataChannelConn) writeDataChannelBudgeted(payload []byte) (int, error) 
 
 func (c *dataChannelConn) releaseSharedWriteBudgets(size uint64) {
 	c.budgetMu.Lock()
-	budgets := append([]*WriteBudget(nil), c.writeBudgets...)
+	budgets := append([]*giznet.WriteBudget(nil), c.writeBudgets...)
 	c.budgetMu.Unlock()
 	for _, budget := range budgets {
-		budget.release(size)
+		budget.Release(size)
 	}
 }
 

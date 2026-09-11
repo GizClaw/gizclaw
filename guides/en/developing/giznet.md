@@ -25,6 +25,7 @@ The root package holds transport-independent connection contracts and underlying
 - Peer identity and connection status.
 - Public abstraction of Connection and listener.
 - Transmission model for Reliable service stream and direct packet.
+- The optional labeled native channel surface `ChannelConn`/`Channel` and the shared outstanding-byte account `WriteBudget`.
 - Peer and service level security policy entry.
 - Protocol, key and error definitions shared by all transport implementations.
 
@@ -75,6 +76,22 @@ wrapper with a ten-second native service-open bound. `giztunnel.Conn` also
 implements `ContextDialer`: it waits up to the bridge drain bound plus one
 second for active-channel capacity, then applies the ten-second native-open
 bound. A shorter caller context bounds both stages.
+
+Transports whose every logical stream can be one transport-native stream may
+also implement `giznet.ChannelConn`. `OpenChannel(ctx, label, reliability)`
+opens one labeled `giznet.Channel` and returns once the local transport has
+opened it, which does not imply remote application acceptance; `HandleChannels`
+claims one incoming label prefix and its unregister function closes every
+channel delivered to that handler. `ChannelReliable` is a reliable ordered byte
+stream used through `Read`/`Write`, and callers must not rely on `Read`
+preserving write boundaries. `ChannelUnreliable` is unordered, never
+retransmitted, and preserves message boundaries through
+`ReadMessage`/`WriteMessage`. A remote channel whose negotiated semantics match
+neither class reports `ChannelReliabilityUnknown`. `gizwebrtc` maps the two
+classes to ordered DataChannels without partial reliability and to unordered
+DataChannels with `maxRetransmits=0`. `giznet.WriteBudget` only keeps the
+shared byte account through `TryAcquire`/`Release`; each transport owns how a
+writer waits and when its reservation drains.
 
 Every open service DataChannel is registered against its logical service until
 the corresponding `net.Conn` closes. Closing the stream removes it immediately,
@@ -153,8 +170,10 @@ candidate-pair counters for diagnosis.
 
 ### giztunnel
 
-`pkgs/giznet/giztunnel` aggregates native WebRTC DataChannels into logical
-`giznet.Conn` values. Each logical session has a random 16-byte ID, one reliable
+`pkgs/giznet/giztunnel` aggregates the labeled native channels of any
+`giznet.ChannelConn` into logical `giznet.Conn` values, and its non-test code
+depends only on the giznet root package. Today `gizwebrtc` provides that
+transport, so every native channel is one WebRTC DataChannel. Each logical session has a random 16-byte ID, one reliable
 ordered control channel, one unordered `maxRetransmits=0` packet channel, and
 one reliable ordered native channel for every Event, RPC, HTTP, or other
 service stream. Service payloads contain only their existing upper-layer
@@ -165,7 +184,9 @@ service, and channel instance. Only an authenticated active Edge connection
 registers this namespace. The control label is the sole logical identity
 declaration, and the Server exposes the logical connection only after both
 persistent channels are attached and it sends the exact `GZT2` application
-acceptance result. DCEP open alone is not acceptance.
+acceptance result. DCEP open alone is not acceptance. The Edge reads that
+result by its header length, so a result split across several reads of the
+reliable control stream is still decoded as one frame.
 
 Direct packets retain message boundaries on the per-session unreliable channel.
 Opus remains on the shared physical unreliable lane as a versioned session-ID
@@ -175,8 +196,11 @@ and close/reset, but all channels on one PeerConnection still share its SCTP
 association and congestion controller.
 
 Active limits default to 32 channels per session and 8,192 per upstream. Reliable
-service writes use per-channel, per-session, and 32 MiB association budgets whose
-reservations remain held until `BufferedAmount` drains.
+service writes use per-channel, per-session, and association budgets whose
+reservations remain held until `BufferedAmount` drains. The association budget
+comes from `Config.MaxAssociationBufferedBytes`, which defaults to 32 MiB; the
+Edge and Server pass `gizwebrtc.GatewaySCTPWriteBudgetSize` so it stays aligned
+with the configured SCTP receive buffer.
 
 `giztunnel.Bridge` remains the compatibility API for forwarding the two service
 accept loops and two packet-copy loops until the first connection-level loop
@@ -213,6 +237,7 @@ flowchart TB
     GizClaw["pkgs/gizclaw<br/>Products and Services"] --> Giznet["pkgs/giznet<br/>Generic transport boundary"]
     GizEdge["pkgs/gizedge<br/>Edge runtime"] --> Giznet
     GizHTTP["pkgs/giznet/gizhttp<br/>HTTP adapter"] --> Giznet
+    GizTunnel["pkgs/giznet/giztunnel<br/>logical connection mux"] --> Giznet
     GizWebRTC["pkgs/giznet/gizwebrtc<br/>WebRTC transport"] --> Giznet
     GizWebRTC --> WebRTC["Pion WebRTC"]
 ```
@@ -221,6 +246,7 @@ The dependency direction is:
 
 - `pkgs/gizclaw` and `pkgs/gizedge` consume the generic transport boundaries provided by giznet.
 - `gizhttp` and `gizwebrtc` rely on the giznet root package to complete the transport adapter or implementation.
+- `giztunnel` depends only on the giznet root package and reaches native channels through `giznet.ChannelConn`; callers that construct a Router assert that interface on the physical connection.
 - `pkgs/giznet` does not rely on `pkgs/gizclaw`, `pkgs/gizedge` or specific business services.
 
 ## Ownership Boundary
