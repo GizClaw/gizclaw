@@ -57,6 +57,8 @@ type appStore struct {
 
 func (s *appStore) underlyingMemoryStore() Store { return s.store }
 
+func (s *appStore) appStoreView() *appStore { return s }
+
 func (s *appStore) Observe(ctx context.Context, observation Observation) (ObserveResult, error) {
 	scope, err := s.bindScope(observation.Scope)
 	if err != nil {

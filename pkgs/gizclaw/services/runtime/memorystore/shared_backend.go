@@ -117,7 +117,20 @@ func openSharedFlowcraft(ctx context.Context, request Request) (sharedBackend, e
 		if err != nil {
 			return nil, err
 		}
-		if err := ensureLocalProjection(ctx, dir, backend.TemporalStore(), backend.EvidenceStore(), backend.SideEffectOutbox(), policy, config); err != nil {
+		// A maintenance open never rebuilds the derived index: it needs no
+		// model, and BBH opens an existing index with its persisted mapping.
+		// It records the published manifest signature instead, so the next
+		// runtime Store still rebuilds an index whose policy is stale.
+		var signature string
+		if request.maintenance {
+			signature, err = publishedProjectionSignature(dir)
+		} else {
+			err = ensureLocalProjection(ctx, dir, backend.TemporalStore(), backend.EvidenceStore(), backend.SideEffectOutbox(), policy, config)
+			if err == nil {
+				signature, err = projectionSignature(policy)
+			}
+		}
+		if err != nil {
 			return nil, errors.Join(err, backend.Close())
 		}
 		retrievalWorkspace, err := sdkworkspace.NewLocalWorkspace(retrievalDirectory(dir))
@@ -128,10 +141,6 @@ func openSharedFlowcraft(ctx context.Context, request Request) (sharedBackend, e
 		rawIndex, err := bbh.New(retrievalWorkspace, bbh.WithConfig(bbhConfig))
 		if err != nil {
 			return nil, errors.Join(err, backend.Close())
-		}
-		signature, err := projectionSignature(policy)
-		if err != nil {
-			return nil, errors.Join(err, rawIndex.Close(), backend.Close())
 		}
 		index := newSharedBBHIndex(rawIndex, bbhConfig)
 		return &sharedFlowcraftBackend{
@@ -215,6 +224,9 @@ func retrievalDirectory(dir string) string {
 
 func (backend *sharedFlowcraftBackend) NewStore(ctx context.Context, request Request) (Result, io.Closer, error) {
 	policy := request.Layout.Spec.Flowcraft
+	if request.maintenance {
+		return backend.newMaintenanceStore(ctx, policy)
+	}
 	config, err := flowcraftConfig(policy, request.ModelLoader)
 	if err != nil {
 		return Result{}, nil, err
@@ -264,6 +276,22 @@ func (backend *sharedFlowcraftBackend) NewStore(ctx context.Context, request Req
 	backend.configure(&config, policy)
 	backend.mu.Unlock()
 	store, err := backend.construct(ctx, config)
+	if err != nil {
+		return Result{}, nil, err
+	}
+	return flowcraftStoreResult(store), store, nil
+}
+
+// newMaintenanceStore constructs a model-free logical Store over the shared
+// physical dependencies. It always attaches the durable async queue, so a
+// purge also cancels jobs a previous async write policy left behind.
+func (backend *sharedFlowcraftBackend) newMaintenanceStore(ctx context.Context, policy apitypes.FlowcraftMemoryLayoutPolicy) (Result, io.Closer, error) {
+	config := memoryflowcraft.Config{
+		TemporalStore: backend.temporal, EvidenceStore: backend.evidence,
+		SideEffectOutbox: backend.outbox, RetrievalIndex: backend.index,
+		AsyncQueue: backend.queue, GraphEnabled: boolValue(policy.GraphEnabled),
+	}
+	store, err := memoryflowcraft.NewMaintenance(ctx, config)
 	if err != nil {
 		return Result{}, nil, err
 	}

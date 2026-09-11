@@ -35,6 +35,7 @@ type Store struct {
 	closeOnce   sync.Once
 	closeErr    error
 	directMu    sync.Mutex
+	maintenance bool
 }
 
 func newStore(config Config, memory recall.Memory, temporal recall.TemporalStore, queue *flowcraftAsyncQueue) *Store {
@@ -52,6 +53,9 @@ func (*Store) SupportsDirectFactObservation() bool { return true }
 
 // Observe extracts and persists facts from raw text or turns.
 func (s *Store) Observe(ctx context.Context, observation memorystore.Observation) (memorystore.ObserveResult, error) {
+	if s.maintenance {
+		return observeResult{}, fmt.Errorf("%w: flowcraft maintenance store cannot observe", errUnsupported)
+	}
 	if err := validateObservation(observation); err != nil {
 		return observeResult{}, err
 	}
@@ -400,6 +404,71 @@ func (s *Store) Rebuild(ctx context.Context, scope memorystore.Scope) error {
 		return mapFlowcraftError("rebuild projections", err)
 	}
 	return nil
+}
+
+// PurgeScope hard-deletes one Flowcraft partition through ForgetAll: canonical
+// facts and provenance markers, every registered projection, evidence refs,
+// and the partition's async semantic and side-effect jobs. AgentID is soft
+// isolation inside a partition, so a scope selecting AgentID is unsupported
+// instead of being widened to the whole partition.
+func (s *Store) PurgeScope(ctx context.Context, scope memorystore.Scope) error {
+	native, err := purgeableScope(scope)
+	if err != nil {
+		return err
+	}
+	if _, err := s.memory.ForgetAll(ctx, native, recall.ForgetHard, native.PartitionKey()); err != nil {
+		return mapFlowcraftError("purge scope", err)
+	}
+	s.forgetPartitionOperations(native)
+	return nil
+}
+
+// ScopeEmpty reports whether the canonical temporal store still holds any
+// fact revision, including superseded revisions and provenance markers, in the
+// scope's partition.
+func (s *Store) ScopeEmpty(ctx context.Context, scope memorystore.Scope) (bool, error) {
+	native, err := purgeableScope(scope)
+	if err != nil {
+		return false, err
+	}
+	facts, err := s.temporal.List(ctx, native, recall.ListQuery{IncludeSuperseded: true, Limit: 1})
+	if err != nil {
+		return false, mapFlowcraftError("list purged scope", err)
+	}
+	return len(facts) == 0, nil
+}
+
+func purgeableScope(scope memorystore.Scope) (recall.Scope, error) {
+	native, err := nativeScope(scope)
+	if err != nil {
+		return recall.Scope{}, err
+	}
+	if native.AgentID != "" {
+		return recall.Scope{}, fmt.Errorf("%w: flowcraft cannot purge one agent inside a memory partition", errUnsupported)
+	}
+	return native, nil
+}
+
+func (s *Store) forgetPartitionOperations(scope recall.Scope) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, cache := range []map[string]struct{}{s.ready, s.failed} {
+		for locator := range cache {
+			if locatorInPartition(locator, scope) {
+				delete(cache, locator)
+			}
+		}
+	}
+	for locator := range s.operations {
+		if locatorInPartition(locator, scope) {
+			delete(s.operations, locator)
+		}
+	}
+}
+
+func locatorInPartition(locator string, scope recall.Scope) bool {
+	decoded, _, err := decodeLocator(locator)
+	return err == nil && decoded.PartitionKey() == scope.PartitionKey()
 }
 
 // Update appends a Flowcraft revision that supersedes the current fact.

@@ -13,6 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/flowstate"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -232,6 +233,147 @@ func TestWorkspaceDeletionClaimOwnerScope(t *testing.T) {
 			}})
 			if (err != nil) != tc.wantError {
 				t.Fatalf("validateWorkspaceDeletionClaim() = %v, want error %v", err, tc.wantError)
+			}
+		})
+	}
+}
+
+type recordingMemoryCleanup struct {
+	events   *[]string
+	purgeErr error
+	absent   []bool
+	verified int
+}
+
+func (m *recordingMemoryCleanup) PurgeWorkspaceMemory(_ context.Context, id string) error {
+	*m.events = append(*m.events, "purge:"+id)
+	return m.purgeErr
+}
+
+func (m *recordingMemoryCleanup) WorkspaceMemoryAbsent(_ context.Context, id string) (bool, error) {
+	*m.events = append(*m.events, "verify:"+id)
+	absent := true
+	if m.verified < len(m.absent) {
+		absent = m.absent[m.verified]
+	}
+	m.verified++
+	return absent, nil
+}
+
+type orderedWorkspaceQuiescer struct{ events *[]string }
+
+func (q orderedWorkspaceQuiescer) QuiesceWorkspace(_ context.Context, id string) error {
+	*q.events = append(*q.events, "quiesce:"+id)
+	return nil
+}
+
+func seedMemoryDeletion(t *testing.T, srv *Server, now time.Time) (apitypes.Workspace, workspaceSQLDeletionSource) {
+	t.Helper()
+	owner := "peer-a"
+	item := deletionTestWorkspace("workspace-a", "room-a", &owner, false, now)
+	if err := seedWorkspaceRecord(t.Context(), srv.DB, item); err != nil {
+		t.Fatal(err)
+	}
+	record, err := pendingdeletion.New(
+		pendingdeletion.KindWorkspace, item.Id, item.OwnerPublicKey, pendingdeletion.ReasonResourceDelete,
+		workspaceDeletionDescriptor{ID: item.Id, Name: item.Name, OwnerPublicKey: item.OwnerPublicKey}, now,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := NewPendingDeletionSource(srv.DB)
+	if _, _, err := source.CreateOrGet(t.Context(), record); err != nil {
+		t.Fatal(err)
+	}
+	return item, source
+}
+
+func TestWorkspaceDeletionHandlerPurgesMemoryAfterQuiesceAndVerifiesBeforeFinalize(t *testing.T) {
+	srv := newTestServer(t)
+	now := time.Date(2026, 8, 7, 1, 0, 0, 0, time.UTC)
+	item, source := seedMemoryDeletion(t, srv, now)
+	var events []string
+	handler := DeletionHandler{
+		Server: srv, Source: source, Quiescer: orderedWorkspaceQuiescer{events: &events},
+		Memory: &recordingMemoryCleanup{events: &events},
+		Now:    func() time.Time { return now.Add(time.Second) },
+	}
+	if err := handler.Handle(t.Context(), claimWorkspaceTask(t, source, now.Add(time.Second))); err != nil {
+		t.Fatalf("Handle() error = %v", err)
+	}
+	want := []string{
+		"quiesce:" + item.Id, "purge:" + item.Id,
+		"quiesce:" + item.Id, "purge:" + item.Id, "verify:" + item.Id,
+	}
+	if strings.Join(events, ",") != strings.Join(want, ",") {
+		t.Fatalf("events = %q, want %q", events, want)
+	}
+	if _, err := getWorkspaceByID(t.Context(), srv.DB, item.Id); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("Workspace after verified purge error = %v, want not found", err)
+	}
+}
+
+func TestWorkspaceDeletionHandlerRetriesWhileMemoryRemains(t *testing.T) {
+	srv := newTestServer(t)
+	now := time.Date(2026, 8, 7, 1, 0, 0, 0, time.UTC)
+	item, source := seedMemoryDeletion(t, srv, now)
+	var events []string
+	memory := &recordingMemoryCleanup{events: &events, absent: []bool{false}}
+	handler := DeletionHandler{
+		Server: srv, Source: source, Memory: memory,
+		Now: func() time.Time { return now.Add(time.Second) },
+	}
+	err := handler.Handle(t.Context(), claimWorkspaceTask(t, source, now.Add(time.Second)))
+	var outcome *pendingdeletion.OutcomeError
+	if !errors.As(err, &outcome) || outcome.Class != pendingdeletion.OutcomeRetryable || outcome.Code != "memory_residual" {
+		t.Fatalf("Handle() error = %#v, want retryable memory_residual", err)
+	}
+	if _, err := getWorkspaceByID(t.Context(), srv.DB, item.Id); err != nil {
+		t.Fatalf("Workspace finalized while memory remained: %v", err)
+	}
+
+	retry := claimWorkspaceTask(t, source, now.Add(time.Hour))
+	if retry.Phase != pendingdeletion.PhaseFinalize {
+		t.Fatalf("retry phase = %q, want finalize", retry.Phase)
+	}
+	handler.Now = func() time.Time { return now.Add(time.Hour) }
+	if err := handler.Handle(t.Context(), retry); err != nil {
+		t.Fatalf("retry Handle() error = %v", err)
+	}
+	if purges := strings.Count(strings.Join(events, ","), "purge:"); purges != 3 {
+		t.Fatalf("purges = %d in %q, want the retry to purge again before verifying", purges, events)
+	}
+	if _, err := getWorkspaceByID(t.Context(), srv.DB, item.Id); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("Workspace after retried purge error = %v, want not found", err)
+	}
+}
+
+func TestWorkspaceDeletionHandlerClassifiesMemoryPurgeFailures(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		err   error
+		class pendingdeletion.OutcomeClass
+		code  string
+	}{
+		{name: "transient", err: errors.Join(memory.ErrUnavailable, errors.New("provider down")), class: pendingdeletion.OutcomeRetryable, code: "memory_cleanup_failed"},
+		{name: "unsupported", err: memory.ErrUnsupported, class: pendingdeletion.OutcomeTerminal, code: "memory_cleanup_unsupported"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := newTestServer(t)
+			now := time.Date(2026, 8, 7, 1, 0, 0, 0, time.UTC)
+			item, source := seedMemoryDeletion(t, srv, now)
+			var events []string
+			handler := DeletionHandler{
+				Server: srv, Source: source, Memory: &recordingMemoryCleanup{events: &events, purgeErr: tc.err},
+				Now: func() time.Time { return now.Add(time.Second) },
+			}
+			err := handler.Handle(t.Context(), claimWorkspaceTask(t, source, now.Add(time.Second)))
+			var outcome *pendingdeletion.OutcomeError
+			if !errors.As(err, &outcome) || outcome.Class != tc.class || outcome.Code != tc.code {
+				t.Fatalf("Handle() error = %#v, want %s %s", err, tc.class, tc.code)
+			}
+			if _, err := getWorkspaceByID(t.Context(), srv.DB, item.Id); err != nil {
+				t.Fatalf("Workspace finalized after failed purge: %v", err)
 			}
 		})
 	}

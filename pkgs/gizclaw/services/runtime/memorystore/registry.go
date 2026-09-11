@@ -9,6 +9,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
@@ -126,6 +127,46 @@ func (registry *Registry) Resolve(ctx context.Context, request Request) (Result,
 		logical:  logicalCloser,
 	}
 	return result, nil
+}
+
+// PurgeWorkspace irreversibly removes request.WorkspaceID's long-term memory
+// from the physical backend its binding selects. The backend is shared with
+// runtime Stores of the same binding and is opened for maintenance: no model
+// is loaded and no derived index is rebuilt, so the purge does not depend on
+// the owner's model catalog. Remote providers can finish deleting after this
+// returns; verify with WorkspaceMemoryEmpty.
+func (registry *Registry) PurgeWorkspace(ctx context.Context, request Request) error {
+	return registry.maintain(ctx, request, func(store memory.Store) error {
+		return memory.PurgeScope(ctx, store, memory.Scope{})
+	})
+}
+
+// WorkspaceMemoryEmpty reports whether the binding's physical backend still
+// holds any long-term memory of request.WorkspaceID.
+func (registry *Registry) WorkspaceMemoryEmpty(ctx context.Context, request Request) (bool, error) {
+	var empty bool
+	err := registry.maintain(ctx, request, func(store memory.Store) error {
+		var err error
+		empty, err = memory.ScopeEmpty(ctx, store, memory.Scope{})
+		return err
+	})
+	return empty, err
+}
+
+func (registry *Registry) maintain(ctx context.Context, request Request, operation func(memory.Store) error) error {
+	if registry == nil {
+		return errors.New("memory store: registry is required for Workspace maintenance")
+	}
+	if err := customid.ValidateResourceID(request.WorkspaceID); err != nil {
+		return fmt.Errorf("memory store: invalid workspace id: %w", err)
+	}
+	request.maintenance = true
+	request.ModelLoader = nil
+	result, err := registry.Resolve(ctx, request)
+	if err != nil {
+		return err
+	}
+	return errors.Join(operation(result.Store), result.Closer.Close())
 }
 
 // reserve returns the shared entry for key. When the previous backend for that
