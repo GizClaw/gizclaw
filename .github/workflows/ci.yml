@@ -429,6 +429,11 @@ jobs:
           GOFLAGS: -mod=readonly
         run: go test -count=1 ./...
 
+      - name: Run e2e fixture tests
+        env:
+          GOFLAGS: -mod=readonly
+        run: go test -count=1 ./tests/gizclaw-e2e/testdata
+
   postgres:
     name: PostgreSQL Integration
     runs-on: ubuntu-latest

@@ -160,6 +160,23 @@ tests/gizclaw-e2e/
 └── flutter/     # Flutter/Dart giztest runner
 ```
 
+`workflow_catalog_test.go` below `tests/gizclaw-e2e/testdata` holds static
+fixture checks that need neither Docker nor credentials. They cover the Workflow
+catalog, Flowcraft graphs, Workspaces, and the Server/Edge config templates. Go
+`./...` patterns skip directories named `testdata`, so the package is not part
+of `go test ./...`; the CI Go Test job runs it separately, and local fixture
+changes must run it too:
+
+```bash
+go test -count=1 ./tests/gizclaw-e2e/testdata
+```
+
+LLM nodes in `*-flowcraft-*` Workflow resources and `flowcraft-*` Workspaces
+must use `max_tokens: 2048`. The latency comparison benchmark fixture is the only
+exception: it uses the same 64/128 caps as `21-eino-latency-comparison.yaml` so
+both drivers produce comparably short answers. The exception and its per-node
+caps are registered in the test's `benchmarkFlowcraftTokenBudgets`.
+
 Copy the provider credential template first. `.env` is only for provider
 credentials; runtime addresses, resource/model/voice IDs, and E2E identities do
 not belong there. Never commit real credentials.
