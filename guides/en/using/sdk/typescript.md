@@ -47,6 +47,8 @@ The client is organized by route group, with method names that mirror the `gizcl
 - `apiKeys`: `create`, `list`, `getSelf`, `revokeSelf`, `get`, `revoke`.
 - `device`: `get`, `getRuntime`, `getStatus`, `getTelemetryLatest`, `queryTelemetry`, `aggregateTelemetry`, `setVolume`, `playSound`, `find`, `reboot`, `getWifi`, `scanWifi`, `connectWifi`, `listSavedWifi`, `forgetSavedWifi`.
 - `contacts`: `list`, `create`, `get`, `put`, `delete`.
+- `friends`: `getInviteToken`, `createInviteToken` (optional `{ ttl_seconds }`), `clearInviteToken`, `add`, `list`, `get`, `delete`.
+- `friendGroups`: `list`, `create`, `join`, `get`, `put`, `delete` (dissolve), `leave`, `getInviteToken`, `createInviteToken`, `clearInviteToken`, `listMembers`, `addMember`, `putMember`, `deleteMember`.
 
 Request and response types come straight from the generated types in `@gizclaw/gizclaw/peerhttp` (`PeerStatus`, `DeviceControlStatus`, `Contact`, and so on), so field names match the wire format. `204` routes resolve to `void`. `control.client` exposes the generated client already configured with the bearer token and `baseUrl`, ready to pass to other `@gizclaw/gizclaw/peerhttp` functions. The optional `fetch` option injects a custom or test fetch.
 

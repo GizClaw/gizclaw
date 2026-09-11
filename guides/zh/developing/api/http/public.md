@@ -15,7 +15,7 @@ API Key 的鉴权和管理契约见 [Peer HTTP · API Key](../../gizclaw/peer/se
 
 ## 设备与 Contact surface
 
-`/gizclaw/v1/device*` 与 `/gizclaw/v1/contacts*` 支持 `Authorization: Bearer <api-key>`，也支持下述设备调试访问。Server 从 Key record 取得不可变的 owner Peer；Bearer API Key 的 owner 始终由 Key 决定，manager Key 与普通 Key 对这些 route 拥有相同的 owner-scoped 能力。Key 无效或已撤销返回 `401 INVALID_API_KEY`，owner 不是 active Client 或没有 RuntimeProfile binding 返回 `403 API_KEY_OWNER_UNAVAILABLE`，owner pending deletion 返回 `409 PEER_PENDING_DELETION`，validation 与分页错误返回 `400 INVALID_REQUEST`，store 或 service 故障统一返回脱敏的 `500 INTERNAL_ERROR`。
+`/gizclaw/v1/device*`、`/gizclaw/v1/contacts*`、`/gizclaw/v1/friends*` 与 `/gizclaw/v1/friend-groups*` 支持 `Authorization: Bearer <api-key>`，也支持下述设备调试访问。Server 从 Key record 取得不可变的 owner Peer；Bearer API Key 的 owner 始终由 Key 决定，manager Key 与普通 Key 对这些 route 拥有相同的 owner-scoped 能力。Key 无效或已撤销返回 `401 INVALID_API_KEY`，owner 不是 active Client 或没有 RuntimeProfile binding 返回 `403 API_KEY_OWNER_UNAVAILABLE`，owner pending deletion 返回 `409 PEER_PENDING_DELETION`，validation 与分页错误返回 `400 INVALID_REQUEST`，store 或 service 故障统一返回脱敏的 `500 INTERNAL_ERROR`。
 
 读路径直接投影 authoritative service，不向设备发送 RPC：
 
@@ -28,6 +28,64 @@ API Key 的鉴权和管理契约见 [Peer HTTP · API Key](../../gizclaw/peer/se
 - `GET /device/workspaces` 返回 owner 明确拥有的 Workspace（含系统 Workspace），不含共享、无 owner 与已进入 pending deletion 的 Workspace。每项是 `DeviceWorkspace`：`id`、`name`、`collection`、`workflow_name`、`available`、`system`、`created_at`、`updated_at`、`last_active_at`。Workflow 只以 `collection` label 与它在 owner 当前 RuntimeProfile 中解析出的 alias（即 `/device/runtime-profile` 列出的 workflow name）表示，与 Peer RPC `Workspace.workflow_name` 同一解析规则；Admin Workflow ID 不返回。alias 不再解析时省略 `workflow_name` 且 `available=false`；没有 collection label 的 Workspace（如系统 Workspace）省略 `collection`。可选 query `collection`、`workflow_name` 精确过滤，`workflow_name` 过滤永远不匹配 alias 已失效的 Workspace；空过滤值返回 `400 INVALID_REQUEST`。
 - `DELETE /device/workspaces/{workspaceId}` 走与 `server.workspace.delete` 相同的 Workspace 删除：立即写入 pending deletion 并返回 `202`（无 body），历史、音频、运行状态与图标由后台清理，不联系设备。删除期间设备对该 Workspace 的读取返回 `WORKSPACE_PENDING_DELETION`，同名 `server.workspace.create` 返回 `ALREADY_EXISTS`，直到清理完成。跨 owner、不存在或已在删除中的 ID 统一返回 `404 WORKSPACE_NOT_FOUND`；系统 Workspace 返回 `409 SYSTEM_WORKSPACE_DELETE_FORBIDDEN`，owner 自身 pending deletion 返回 `409 PEER_PENDING_DELETION`。长期记忆不在当前 Workspace 清理范围内。
 - `/contacts` 的 list/create/get/put/delete 使用 `services/social/contact` 的同一 owner-scoped 数据；`{contactName}` 是 owner 作用域内不可变的 `name`，跨 owner 与不存在统一返回 `404 CONTACT_NOT_FOUND`，name 或 phone 冲突返回 `409 CONTACT_ALREADY_EXISTS`，owner 已有 8 个联系人时创建返回 `409 CONTACT_LIMIT_REACHED`。
+
+## 好友与群组 surface
+
+`/gizclaw/v1/friends*` 与 `/gizclaw/v1/friend-groups*` 以 Key owner 的身份调用 `services/social/friend` 与 `services/social/friendgroup`，业务规则、权限和持久化与 `server.friend.*`、`server.friend_group.*` RPC 相同。它们只读写共享 Social KV，不联系设备，设备离线时同样可用。没有单独的社交 scope：能访问 `/device*` 的 Key 就能管理好友与群组。
+
+| Route | 复用 | 成功 |
+| --- | --- | --- |
+| `GET /friends/invite-token` | `GetFriendInviteToken` | `200 InviteToken`；没有有效邀请码 `404 INVITE_TOKEN_NOT_FOUND` |
+| `POST /friends/invite-token` `{ttl_seconds?}` | `CreateFriendInviteTokenWithTTL` | `200 InviteToken` |
+| `DELETE /friends/invite-token` | `ClearFriendInviteToken` | `204`，幂等 |
+| `POST /friends` `{invite_token}` | `AddFriendReportingExisting` | `201 Friend` |
+| `GET /friends` | `ListFriends` | `200 FriendList` |
+| `GET /friends/{friendName}` | `GetFriendRelation` | `200 Friend` |
+| `DELETE /friends/{friendName}` | `DeleteFriend` | `204`；删除已完成后重复删除同样返回 `204` |
+| `GET /friend-groups` | `ListFriendGroups` | `200 FriendGroupList`，每项带 `my_role` |
+| `POST /friend-groups` `{name, display_name?, description?}` | `CreateFriendGroup` | `201 FriendGroup` |
+| `POST /friend-groups/@join` `{invite_token, name}` | `JoinFriendGroup` | `200 {group, member}`；已用同名加入时幂等 |
+| `GET /friend-groups/{friendGroupName}` | `GetFriendGroup` | `200 FriendGroup`，任意成员 |
+| `PUT /friend-groups/{friendGroupName}` | `PutFriendGroup` | `200 FriendGroup`，仅 owner |
+| `DELETE /friend-groups/{friendGroupName}` | `DeleteFriendGroup` | `204` 解散，仅 owner |
+| `GET`/`POST`/`DELETE /friend-groups/{friendGroupName}/invite-token` | `Get`/`CreateWithTTL`/`ClearFriendGroupInviteToken` | 仅 owner |
+| `POST /friend-groups/{friendGroupName}/@leave` | `LeaveFriendGroup` | `204`，member 与 admin |
+| `GET /friend-groups/{friendGroupName}/members` | `ListFriendGroupMembers` | `200 FriendGroupMemberList`，任意成员 |
+| `POST /friend-groups/{friendGroupName}/members` `{peer_public_key, member_name, role}` | `AddFriendGroupMember` | `201`；admin 可加 member，owner 可加 admin |
+| `PUT /friend-groups/{friendGroupName}/members/{memberName}` `{role}` | `PutFriendGroupMember` | `200`，仅 owner |
+| `DELETE /friend-groups/{friendGroupName}/members/{memberName}` | `DeleteFriendGroupMember` | `204`；删 member 需 admin/owner 或本人，删 admin 需 owner |
+
+- `{friendName}` 与 `{memberName}` 是对方的 canonical public key（也是 `Friend.name` / `FriendGroupMember.name`）。`{friendGroupName}` 是调用方自己命名空间里的群名，非成员解析不到任何名字，因此非成员统一得到 `404 FRIEND_GROUP_NOT_FOUND`。路径与 body 中的名字带首尾空白时返回 `400 INVALID_REQUEST`，分页 `cursor`/`limit` 规则同 contacts（limit 1–200，cursor 为不透明值）。
+- `Friend` 与 `FriendGroupMember` 带 `info {display_name, emoji}`，来源与 `server.friend.info.get` 相同（`Profiles.GetSelfInfo`）；对方 Peer 已不存在或已删除时省略 `info`，其他读取失败返回 500。好友与群成员各有 10 个上限，列表逐项读取 profile。`FriendGroupMember` 不返回成员自己命名空间里的群名。
+- `ttl_seconds` 范围 60–604800（7 天），越界 `400 INVALID_REQUEST`，body 可省略。不带时与 RPC 完全一致：已有有效邀请码原样返回，否则新建 5 分钟的码。带时新建码按该 TTL 过期；已有有效码保持码值不变，只把 `expires_at` 延长到 `now + ttl_seconds`，绝不缩短，因此设备正在展示的码继续有效。设备 RPC 的默认 TTL 不变。
+- `POST /friends` 在关系已存在时返回 `409 FRIEND_ALREADY_EXISTS`，而 `server.friend.add` 继续幂等地返回已有关系。
+- `@leave` 删除调用方自己的成员记录。owner 得到 `409 FRIEND_GROUP_OWNER_CANNOT_LEAVE`，应改为解散；admin 也可以退出（`members.delete` 删除 admin 自己仍要求 owner 角色）。
+
+错误码：
+
+| HTTP | code | 场景 |
+| --- | --- | --- |
+| 400 | `INVALID_REQUEST` | body 缺失、名字为空或带首尾空白、分页参数、`ttl_seconds` 越界、非法角色 |
+| 400 | `FRIEND_SELF_INVITE` | 使用自己的好友邀请码 |
+| 403 | `FRIEND_GROUP_PERMISSION_DENIED` | 调用方角色不允许该操作 |
+| 404 | `INVITE_TOKEN_NOT_FOUND` | 读取邀请码时没有有效邀请码 |
+| 404 | `INVITE_TOKEN_INVALID` | 加好友或入群时邀请码不存在或已过期 |
+| 404 | `FRIEND_NOT_FOUND` | 好友关系不存在 |
+| 404 | `FRIEND_GROUP_NOT_FOUND` | 调用方没有该名字的群（含非成员） |
+| 404 | `FRIEND_GROUP_MEMBER_NOT_FOUND` | 目标 Peer 不是成员 |
+| 409 | `FRIEND_ALREADY_EXISTS` | 已是好友 |
+| 409 | `FRIEND_LIMIT_REACHED` | 任一方已有 10 个好友 |
+| 409 | `FRIEND_GROUP_NAME_CONFLICT` | 该名字已指向另一个群 |
+| 409 | `FRIEND_GROUP_ALREADY_JOINED` | 已用其他名字加入同一个群 |
+| 409 | `FRIEND_GROUP_FULL` | 群已满 10 人 |
+| 409 | `FRIEND_GROUP_LIMIT_REACHED` | Peer 已加入 10 个群 |
+| 409 | `FRIEND_GROUP_OWNER_CANNOT_LEAVE` | owner 调用 `@leave` |
+| 409 | `FRIEND_GROUP_OWNER_CANNOT_BE_REMOVED` | 删除 owner 成员 |
+| 409 | `FRIEND_GROUP_OWNER_ROLE_IMMUTABLE` | 修改 owner 角色 |
+| 409 | `FRIEND_GROUP_CHANGED` | 并发修改，可重试 |
+| 409 | `FRIEND_GROUP_PENDING_DELETION` | 群正在删除 |
+| 409 | `PEER_PENDING_DELETION` / `PEER_DELETED` | owner 或对方 Peer 正在删除 / 已不存在 |
+| 500 | `INTERNAL_ERROR` | store 或配置故障，脱敏 |
 
 ## 设备控制流程
 
@@ -72,11 +130,11 @@ PUT /gizclaw/v1/device/volume { level: 0..100, muted }
 该设置由设备所属 authoritative Server 持久化到 本机 PeerRun SQL 表的 `debug_mode` 列（按公钥定位），通过 Runtime 的 `debug_mode` 字段读取；不属于 DeviceInfo，
 也不通过 `server.info.put` 修改。断线重连保持设置，缺失记录按 off 处理。
 
-设备和联系人 HTTP 接口使用 `Authorization: Bearer gizclaw_pk_<Base58公钥>` 选择调试设备。
+设备、联系人、好友与群组 HTTP 接口使用 `Authorization: Bearer gizclaw_pk_<Base58公钥>` 选择调试设备。
 公钥必须是 canonical Base58，裸公钥和 `public_key` query 不提供调试授权。
 `gizclaw_sk_v1_` API Key 继续走原有鉴权，不会回退为公钥。
 Edge 从公钥查询已有 Peer assignment 并代理到配置中的所属 Server；Edge 不读取 DeviceInfo 或调试模式。
-所属 Server 每次从 PeerRun 读取当前权限：readonly 只允许 GET，fullcontrol 允许设备/联系人接口的读写和控制。
+所属 Server 每次从 PeerRun 读取当前权限：readonly 只允许 GET，fullcontrol 允许设备/联系人/好友/群组接口的读写和控制。
 设备仍须为可用的 active Client 且具有 RuntimeProfile binding。
 API key 管理、Admin 和 OpenAI 接口不接受公钥调试授权。
 关闭模式后拒绝新请求，已开始的请求不被撤销；存储失败时拒绝访问，响应不暴露底层错误。

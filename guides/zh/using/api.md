@@ -138,7 +138,7 @@ Go SDK 把常用 RPC 暴露为 `gizcli.Client` 的 typed 方法。传入的 requ
 
 ## 设备 HTTP API
 
-绑定单一设备的 API Key（见 [API Key](./api-keys)）可以不建立 Peer connection，直接经 Direct Server HTTP（`serve-to-clients=true`）或 Edge HTTPS 访问 `/gizclaw/v1/device*` 与 `/gizclaw/v1/contacts*`。所有请求发送 `Authorization: Bearer <api-key>`；资源与命令始终作用于 Key 绑定的设备，不能指定其他 Peer。
+绑定单一设备的 API Key（见 [API Key](./api-keys)）可以不建立 Peer connection，直接经 Direct Server HTTP（`serve-to-clients=true`）或 Edge HTTPS 访问 `/gizclaw/v1/device*`、`/gizclaw/v1/contacts*`、`/gizclaw/v1/friends*` 与 `/gizclaw/v1/friend-groups*`。所有请求发送 `Authorization: Bearer <api-key>`；资源与命令始终作用于 Key 绑定的设备，不能指定其他 Peer。
 
 | Route | 作用 |
 | --- | --- |
@@ -157,6 +157,10 @@ Go SDK 把常用 RPC 暴露为 `gizcli.Client` 的 typed 方法。传入的 requ
 | `POST /gizclaw/v1/device/actions/firmware-update` | 通知设备执行一次 OTA |
 | `GET /gizclaw/v1/device/wifi`、`/wifi/saved`，`DELETE /wifi/saved/{ssid}` | 查询 Wi‑Fi 状态、列出与清理已保存网络 |
 | `/gizclaw/v1/contacts`、`/contacts/{contactName}` | 设备联系人的 list/create/get/put/delete |
+| `/gizclaw/v1/friends/invite-token` | 读取、生成（可选 `ttl_seconds`，最长 7 天）或作废设备的好友邀请码 |
+| `/gizclaw/v1/friends`、`/friends/{friendName}` | 用邀请码加好友、列出（带对方名字与 emoji）、查看、删除好友 |
+| `/gizclaw/v1/friend-groups`、`/friend-groups/@join`、`/friend-groups/{friendGroupName}` | 列出、创建、用邀请码加入、查看、修改、解散群组 |
+| `/friend-groups/{friendGroupName}/@leave`、`/invite-token`、`/members`、`/members/{memberName}` | 退群、群邀请码、查看成员（带名字与 emoji）与成员管理 |
 
 读取 route 只投影 Server 已有数据，不会唤醒设备；控制 route 经 Server→设备 RPC 实时执行，设备离线返回 `409 DEVICE_OFFLINE`，5 秒无响应返回 `504 DEVICE_TIMEOUT`，设备未实现返回 `501 DEVICE_UNSUPPORTED`。状态变化通过轮询 `GET /device/status` 获取。Wi‑Fi 配网仍由设备本地 BLE 完成。
 
@@ -165,6 +169,8 @@ Go SDK 把常用 RPC 暴露为 `gizcli.Client` 的 typed 方法。传入的 requ
 `GET /device/runtime-profile` 只返回 RuntimeProfile 的 `name`、`revision` 与 `collections[].workflows[].name`，collection 与 workflow 均按 name 排序；workflow name 即设备调用 `server.workflow.*` 使用的 name，直接取自 RuntimeProfile binding、不校验对应 Workflow 资源是否仍存在；`name`/`revision` 等于 RPC 响应中的 `runtime_profile_name`/`runtime_profile_revision`。封面、描述、显示名称等展示信息不在响应中，调用方按 `<profile name>/<collection>` 与 `<profile name>/<workflow name>` 自行对应；展示顺序同样由调用方决定。
 
 `GET /device/workspaces` 用同一套名字标识 Workflow：每个 Workspace 带 `collection` 与 `workflow_name`，可以用 `?collection=...&workflow_name=...` 只取某个游戏的存档，再用 `id` 读取 `/history`。响应不含 Admin Workflow ID；Workflow 已从当前 RuntimeProfile 移除时省略 `workflow_name`、`available` 为 `false`。`DELETE /device/workspaces/{workspaceId}` 返回 `202` 后该存档立即从列表消失，历史与状态在后台清理；清理完成前设备用同名重建会得到 `ALREADY_EXISTS`，稍后重试即可。系统 Workspace 不能删除（`409`），别的设备的 Workspace 返回 `404`。
+
+好友与群组 route 只读写 Server 的社交数据，设备离线或丢失时同样可用。家长把邀请码发给对方时应带 `ttl_seconds`，默认 5 分钟的码往往来不及；已有有效码时只延长有效期，设备正在展示的码不受影响。群组以设备自己的群名寻址，群主不能退群（`409 FRIEND_GROUP_OWNER_CANNOT_LEAVE`），应改为解散；非群主解散返回 `403`。完整错误码见 [Public API](../developing/api/http/public#好友与群组-surface)。
 
 ```sh
 curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/volume" \

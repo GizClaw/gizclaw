@@ -413,7 +413,9 @@ gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 \
 ```
 
 The device control and Contact Public HTTP contract is covered by the `server.device.*` and
-`server.contacts.*` scenarios. An `http` step sends one Public HTTP request to the current client's
+`server.contacts.*` scenarios, and friends and Friend Groups by `server.friends.http` and
+`server.friend_groups.http` (two devices with their own API keys cover long-lived invite codes, a
+repeated befriend, a non-owner dissolving, the owner leaving, and a member leaving). An `http` step sends one Public HTTP request to the current client's
 `access_point` origin (`method`, `path`, `headers`, JSON `body`, optional `status`); the response JSON
 is the step value for `expect`, `capture`, and `save_as`, and a 4xx/5xx without a declared `status` is
 an assertion failure. The API key comes from a `server.api_key.create` step with
