@@ -135,6 +135,14 @@ Workspace `conversation.initiative` 为 `agent` 时，`doubaorealtime.Transforme
 
 开场回复走非 Push-to-Talk 的 event 路径：Push-to-Talk 模式下它不属于任何 turn，不经过 `pttResponses` 匹配和 turn 状态机，Chat/TTS event 直接映射到 `initiative` route，与 Realtime 模式相同；Text 模式把它当作一次普通 text response 等待。非 Text 模式为这次回复启动 response deadline。开场期间 Peer 发出 BOS（Push-to-Talk barge-in 或 Realtime 新 route）按普通 interruption 处理：`initiative` route 收到 `interrupted` EOS，Push-to-Talk 发送 `ClientInterrupt`，Realtime 走本地 close-and-replace handoff；被打断或已开始的开场不会在 replacement session 上重发。只有 provider 在回复开始前丢失（包括 `SendText` 失败）时，replacement session 才重新发送隐藏 query。
 
+### Realtime Dialogue 文字输出
+
+`Config.Output` 选择回复模态：默认 `audio`，由 provider 同时返回回复文本和 TTS 音频；`text`（pattern 参数 `output=text`）在 StartSession 中发送 `dialog.extra.output_modalities: ["text"]`，provider 不合成音频，也不发送 TTSSentenceStart、TTSSentenceEnd、TTSResponse 或 TTSEnded。该字段不在上游公开文档中，由 `doubao-speech-go` 的 live E2E 验证。Provider 仍要求 `tts.speaker`，所以 session 照常携带 speaker。
+
+Text 输出下，每个 response 只拥有一条 assistant text route：ChatResponse（event 550）的文本到达即发布，ChatEnded（event 559）关闭 text route 并完成 response，不再等待 TTS。Push-to-Talk turn、Text 模式排空、Realtime response deadline 和 assistant lifecycle 都以 ChatEnded 为完成点；没有回复文本的 response（包括空 Push-to-Talk turn）仍发布空 audio lifecycle，客户端照常看到 text 与 audio 两个 EOS；interruption 只关闭 text route。Provider 若仍发送 TTS event 或音频，transformer 忽略它们。
+
+Workflow `doubao_realtime.tts.voice` 配置后，factory 为 pattern 追加 `output=text`，在 reload 时校验该 RuntimeProfile Voice 可解析，并用 `audiodock` 把 assistant 回复文本流式送入 `voice/<alias>` 合成；用户音频仍直接进入 realtime 模型。`audio.output.voice` 保持必填，用于满足 provider 的 speaker 要求。
+
 ### doubaorealtime Push-to-Talk 状态机
 
 本节只描述 `doubaorealtime.Transformer` 对 Realtime Dialogue API 原生 Push-to-Talk 模式的适配。`doubaorealtimeduplex.Transformer` 不支持 Push-to-Talk，不使用这套状态机。
@@ -188,7 +196,7 @@ Doubao Transformers 同时处理 provider session、并发 event receiver、audi
 | Input format | PCM、MP3、raw Opus；支持的采样率和声道；非法 MIME 与损坏 frame。 |
 | Stream contract | BOS、data、EOS；duplicate/out-of-order marker；StreamID、role、label 和 terminal error。 |
 | Lifecycle | normal close、context cancel、provider EOF/error、blocked Send/Recv、session restart 和 repeated Close。 |
-| Realtime Dialogue | Push-to-Talk 合法状态转换、每 turn 单次 EndASR、Realtime VAD、text mode、Interrupt 与 agent initiative 隐藏 query。 |
+| Realtime Dialogue | Push-to-Talk 合法状态转换、每 turn 单次 EndASR、Realtime VAD、text mode、Interrupt、agent initiative 隐藏 query 与 text 输出在 ChatEnded 完成。 |
 | Realtime Duplex | continuous input、transcription、text/audio response、function call output 与 CancelResponse。 |
 | Barge-in | pending response、正在输出 text、正在输出 audio；只产生一次 interrupted EOS，旧 epoch 不得继续输出。 |
 | Output buffering | provider audio 必须立即 drain 到 growable buffer；慢 consumer 不得反向阻塞 provider session。 |

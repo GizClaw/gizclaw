@@ -570,6 +570,16 @@ func TestValidateVoiceProducingWorkflowsRequireRuntimeVoiceAliases(t *testing.T)
 		t.Fatalf("validateWorkflowRuntimeAliases(Doubao incompatible voice) error = %v", err)
 	}
 	voices[voice] = apitypes.VoiceResource{}
+	realtime.DoubaoRealtime.Tts = &apitypes.DoubaoRealtimeTTS{Voice: "narrator"}
+	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.demo", realtime, models, voices); err == nil ||
+		!strings.Contains(err.Error(), `tts.voice voice alias "narrator" is not declared`) {
+		t.Fatalf("validateWorkflowRuntimeAliases(Doubao undeclared tts voice) error = %v", err)
+	}
+	realtime.DoubaoRealtime.Tts.Voice = "translator"
+	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.demo", realtime, models, voices); err != nil {
+		t.Fatalf("validateWorkflowRuntimeAliases(Doubao tts voice) error = %v", err)
+	}
+	realtime.DoubaoRealtime.Tts = nil
 	tools := []apitypes.DoubaoRealtimeFunctionTool{{
 		Type: apitypes.DoubaoRealtimeFunctionToolTypeFunction,
 		Name: "get_weather",

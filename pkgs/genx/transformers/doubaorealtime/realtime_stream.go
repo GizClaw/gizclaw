@@ -23,6 +23,9 @@ type realtimeAssistantLifecycle struct {
 	audioStarted bool
 	textDone     bool
 	audioDone    bool
+	// textOnly marks sessions without provider audio: a response completes
+	// with its text route, and any audio route it opens is an empty terminal.
+	textOnly bool
 }
 
 type realtimeResponseDeadline struct {
@@ -144,7 +147,7 @@ func (s *realtimeAssistantLifecycle) markPending(streamID string, epoch uint64) 
 	s.textStarted = false
 	s.audioStarted = false
 	s.textDone = false
-	s.audioDone = false
+	s.audioDone = s.textOnly
 	s.mu.Unlock()
 }
 
@@ -163,7 +166,7 @@ func (s *realtimeAssistantLifecycle) markStarted(streamID string) uint64 {
 		s.textStarted = false
 		s.audioStarted = false
 		s.textDone = false
-		s.audioDone = false
+		s.audioDone = s.textOnly
 	}
 	s.mu.Unlock()
 	return epoch
@@ -280,7 +283,7 @@ func (s *realtimeAssistantLifecycle) interruptRoutes(fallback string, force bool
 	}
 	if !wasActive && force {
 		interruption.textOpen = true
-		interruption.audioOpen = true
+		interruption.audioOpen = !s.textOnly
 		interruption.textStarted = false
 		interruption.audioStarted = false
 	}
@@ -516,18 +519,24 @@ type doubaoRealtimeSpokenResponse struct {
 	textClosed   bool
 	audioOpen    bool
 	audioClosed  bool
+	// textOnly streams ChatResponse text as it arrives and completes the
+	// response at ChatEnded; the provider emits no TTS events in this mode.
+	textOnly bool
 }
 
 func (r *doubaoRealtimeSpokenResponse) chat(text string) doubaoRealtimeSpokenTransition {
 	if r == nil || strings.TrimSpace(text) == "" || r.ttsSelected || r.textFinished {
 		return doubaoRealtimeSpokenTransition{}
 	}
+	if r.textOnly {
+		return doubaoRealtimeSpokenTransition{text: []string{text}, openText: r.openText()}
+	}
 	r.chatText = append(r.chatText, text)
 	return doubaoRealtimeSpokenTransition{}
 }
 
 func (r *doubaoRealtimeSpokenResponse) ttsStarted(text string) doubaoRealtimeSpokenTransition {
-	if r == nil || r.ttsFinished {
+	if r == nil || r.ttsFinished || r.textOnly {
 		return doubaoRealtimeSpokenTransition{}
 	}
 	transition := doubaoRealtimeSpokenTransition{openAudio: r.openAudio()}
@@ -548,14 +557,14 @@ func (r *doubaoRealtimeSpokenResponse) ttsStarted(text string) doubaoRealtimeSpo
 }
 
 func (r *doubaoRealtimeSpokenResponse) audioStarted() doubaoRealtimeSpokenTransition {
-	if r == nil || r.ttsFinished {
+	if r == nil || r.ttsFinished || r.textOnly {
 		return doubaoRealtimeSpokenTransition{}
 	}
 	return doubaoRealtimeSpokenTransition{openAudio: r.openAudio()}
 }
 
 func (r *doubaoRealtimeSpokenResponse) finishTTS() doubaoRealtimeSpokenTransition {
-	if r == nil || r.ttsFinished {
+	if r == nil || r.ttsFinished || r.textOnly {
 		return doubaoRealtimeSpokenTransition{}
 	}
 	r.ttsFinished = true
@@ -574,6 +583,17 @@ func (r *doubaoRealtimeSpokenResponse) finishChat() doubaoRealtimeSpokenTransiti
 	}
 	r.chatFinished = true
 	transition := doubaoRealtimeSpokenTransition{}
+	if r.textOnly {
+		// No TTS lifecycle follows: ChatEnded is the end of the response. A
+		// reply without text leaves external TTS nothing to speak, so close an
+		// empty audio route to keep the response's text and audio terminals.
+		r.ttsFinished = true
+		if !r.textOpen {
+			transition.openAudio = r.openAudio()
+			r.audioClosed = true
+			transition.closeAudio = transition.openAudio
+		}
+	}
 	r.finishTextIfReady(&transition)
 	return transition
 }
@@ -924,6 +944,9 @@ func (t *doubaoRealtimePTTTurn) completeEmptyFor(generation uint64, audioMIMETyp
 	completion := t.completion
 	t.mu.Unlock()
 
+	// Open both routes before closing either, as ordinary responses do, so a
+	// downstream composition that completes a response once every open route
+	// has closed still receives the audio terminal.
 	for _, chunk := range []*genx.MessageChunk{
 		{
 			Role: genx.RoleModel,
@@ -932,13 +955,13 @@ func (t *doubaoRealtimePTTTurn) completeEmptyFor(generation uint64, audioMIMETyp
 		},
 		{
 			Role: genx.RoleModel,
-			Part: genx.Text(""),
-			Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true},
+			Part: &genx.Blob{MIMEType: audioMIMEType},
+			Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, BeginOfStream: true},
 		},
 		{
 			Role: genx.RoleModel,
-			Part: &genx.Blob{MIMEType: audioMIMEType},
-			Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, BeginOfStream: true},
+			Part: genx.Text(""),
+			Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true},
 		},
 		{
 			Role: genx.RoleModel,
@@ -1253,6 +1276,9 @@ type doubaoPushToTalkState struct {
 	streamID            string
 	ttsStarted          bool
 	providerTTSFinished bool
+	// textOnly completes Responding on the assistant text EOS because
+	// text-only responses carry no audio route.
+	textOnly bool
 }
 
 func (s *doubaoPushToTalkState) begin(streamID string) (bool, string, error) {
@@ -1380,11 +1406,15 @@ func (s *doubaoPushToTalkState) observeAssistantOutput(label string, chunk *genx
 		chunk.Ctrl.Label != label || !chunk.IsEndOfStream() {
 		return
 	}
-	if _, ok := chunk.Part.(*genx.Blob); !ok {
-		return
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.textOnly {
+		if _, ok := chunk.Part.(genx.Text); !ok {
+			return
+		}
+	} else if _, ok := chunk.Part.(*genx.Blob); !ok {
+		return
+	}
 	if s.streamID != strings.TrimSpace(chunk.Ctrl.StreamID) {
 		return
 	}

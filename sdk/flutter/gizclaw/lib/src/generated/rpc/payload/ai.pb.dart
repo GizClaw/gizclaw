@@ -3549,6 +3549,60 @@ class DoubaoRealtimeTTSExtra extends $pb.GeneratedMessage {
   void clearTts20Model() => $_clearField(3);
 }
 
+class DoubaoRealtimeTTS extends $pb.GeneratedMessage {
+  factory DoubaoRealtimeTTS({
+    $core.String? voice,
+  }) {
+    final result = create();
+    if (voice != null) result.voice = voice;
+    return result;
+  }
+
+  DoubaoRealtimeTTS._();
+
+  factory DoubaoRealtimeTTS.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DoubaoRealtimeTTS.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DoubaoRealtimeTTS',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'voice')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DoubaoRealtimeTTS clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DoubaoRealtimeTTS copyWith(void Function(DoubaoRealtimeTTS) updates) =>
+      super.copyWith((message) => updates(message as DoubaoRealtimeTTS))
+          as DoubaoRealtimeTTS;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DoubaoRealtimeTTS create() => DoubaoRealtimeTTS._();
+  @$core.override
+  DoubaoRealtimeTTS createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DoubaoRealtimeTTS getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeTTS>(create);
+  static DoubaoRealtimeTTS? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get voice => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set voice($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasVoice() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearVoice() => $_clearField(1);
+}
+
 class DoubaoRealtimeWorkflowSpec extends $pb.GeneratedMessage {
   factory DoubaoRealtimeWorkflowSpec({
     DoubaoRealtimeAudio? audio,
@@ -3557,6 +3611,7 @@ class DoubaoRealtimeWorkflowSpec extends $pb.GeneratedMessage {
     $core.String? model,
     $core.Iterable<DoubaoRealtimeFunctionTool>? tools,
     $core.String? initiativeQuery,
+    DoubaoRealtimeTTS? tts,
   }) {
     final result = create();
     if (audio != null) result.audio = audio;
@@ -3565,6 +3620,7 @@ class DoubaoRealtimeWorkflowSpec extends $pb.GeneratedMessage {
     if (model != null) result.model = model;
     if (tools != null) result.tools.addAll(tools);
     if (initiativeQuery != null) result.initiativeQuery = initiativeQuery;
+    if (tts != null) result.tts = tts;
     return result;
   }
 
@@ -3590,6 +3646,8 @@ class DoubaoRealtimeWorkflowSpec extends $pb.GeneratedMessage {
     ..pPM<DoubaoRealtimeFunctionTool>(5, _omitFieldNames ? '' : 'tools',
         subBuilder: DoubaoRealtimeFunctionTool.create)
     ..aOS(6, _omitFieldNames ? '' : 'initiativeQuery')
+    ..aOM<DoubaoRealtimeTTS>(7, _omitFieldNames ? '' : 'tts',
+        subBuilder: DoubaoRealtimeTTS.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3664,6 +3722,17 @@ class DoubaoRealtimeWorkflowSpec extends $pb.GeneratedMessage {
   $core.bool hasInitiativeQuery() => $_has(5);
   @$pb.TagNumber(6)
   void clearInitiativeQuery() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  DoubaoRealtimeTTS get tts => $_getN(6);
+  @$pb.TagNumber(7)
+  set tts(DoubaoRealtimeTTS value) => $_setField(7, value);
+  @$pb.TagNumber(7)
+  $core.bool hasTts() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearTts() => $_clearField(7);
+  @$pb.TagNumber(7)
+  DoubaoRealtimeTTS ensureTts() => $_ensure(6);
 }
 
 class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {

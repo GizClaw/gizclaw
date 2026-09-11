@@ -646,7 +646,7 @@ const _explicitPresenceFields = <String, Set<int>>{
   'gizclaw.rpc.v1.DoubaoRealtimeJSONSchema': {1, 3, 5, 6, 7, 8, 9, 12},
   'gizclaw.rpc.v1.DoubaoRealtimeTTSExtension': {1},
   'gizclaw.rpc.v1.DoubaoRealtimeTTSExtra': {1, 2, 3},
-  'gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec': {1, 2, 3, 6},
+  'gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec': {1, 2, 3, 6, 7},
   'gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters': {2, 3, 4, 5, 6, 7, 9},
   'gizclaw.rpc.v1.EinoWorkflowSpec': {2, 3, 4},
   'gizclaw.rpc.v1.EinoWorkspaceParameters': {2, 3, 4},

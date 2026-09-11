@@ -30,7 +30,9 @@ import (
 //
 // This is a bidirectional transformer:
 // Input: genx.Stream with audio Blob chunks (user audio)
-// Output: genx.Stream with audio Blob chunks (model response)
+// Output: genx.Stream with assistant text and audio Blob chunks. With
+// OutputText the provider synthesizes no audio and only the text route is
+// published, so callers can attach their own TTS.
 //
 // Internally uses ASR → LLM → TTS pipeline.
 type Transformer struct {
@@ -58,6 +60,7 @@ type Transformer struct {
 	dialogExtra       *doubaospeech.RealtimeDialogExtra
 	model             string // Model version: O, SC, 1.2.1.0 (O2.0), 2.2.0.0 (SC2.0)
 	mode              Mode
+	textOutput        bool
 	retryInitial      time.Duration
 	retryMax          time.Duration
 	retryWait         func(context.Context, <-chan struct{}, time.Duration) bool
@@ -297,6 +300,13 @@ func withMode(mode Mode) option {
 	}
 }
 
+// withOutput selects the reply modality requested from the dialogue model.
+func withOutput(output Output) option {
+	return func(t *Transformer) {
+		t.textOutput = output == OutputText
+	}
+}
+
 func withDoubaoRealtimeOpener(opener doubaoRealtimeOpener) option {
 	return func(t *Transformer) {
 		t.realtime = opener
@@ -379,6 +389,7 @@ func (t *Transformer) transform(ctx context.Context, input genx.Stream) (genx.St
 		"outputFormat", t.format,
 		"outputSampleRate", t.sampleRate,
 		"outputChannels", t.channels,
+		"textOutput", t.textOutput,
 	)
 
 	output := newBufferStream(16, ctx)
@@ -424,6 +435,12 @@ func (t *Transformer) realtimeConfig() *doubaospeech.RealtimeConfig {
 		},
 		InputMode: t.realtimeInputMode(),
 		Model:     doubaospeech.RealtimeModelVersion(t.model),
+	}
+	if t.textOutput {
+		if config.Dialog.Extra == nil {
+			config.Dialog.Extra = &doubaospeech.RealtimeDialogExtra{}
+		}
+		config.Dialog.Extra.OutputModalities = []doubaospeech.RealtimeOutputModality{doubaospeech.RealtimeOutputModalityText}
 	}
 	if t.speechRate != nil {
 		config.TTS.AudioConfig.SpeechRate = *t.speechRate
@@ -509,6 +526,7 @@ func cloneDoubaoRealtimeDialogExtra(extra *doubaospeech.RealtimeDialogExtra) *do
 		value := *extra.EnableUserQueryExit
 		copied.EnableUserQueryExit = &value
 	}
+	copied.OutputModalities = slices.Clone(extra.OutputModalities)
 	return &copied
 }
 
@@ -577,9 +595,11 @@ type doubaoRealtimeRuntime struct {
 }
 
 func newDoubaoRealtimeRuntime(t *Transformer) *doubaoRealtimeRuntime {
+	assistant := newRealtimeAssistantLifecycle()
+	assistant.textOnly = t.textOutput
 	return &doubaoRealtimeRuntime{
-		assistant:   newRealtimeAssistantLifecycle(),
-		pushToTalk:  &doubaoPushToTalkState{},
+		assistant:   assistant,
+		pushToTalk:  &doubaoPushToTalkState{textOnly: t.textOutput},
 		pttTurn:     &doubaoRealtimePTTTurn{},
 		streamIDs:   newDoubaoRealtimeStreamIDs(t.mode),
 		audioInputs: newDoubaoRealtimeAudioInputs(t.inputFormat, t.inputSampleRate, t.inputChannels, t.inputTranscode),
@@ -1201,20 +1221,24 @@ func (t *Transformer) processSession(
 		return nil
 	}
 	spokenResponse := func(response *doubaoRealtimePTTResponse) *doubaoRealtimeSpokenResponse {
-		if response != nil {
-			return &response.spoken
-		}
-		if t.mode == ModeText {
+		var state *doubaoRealtimeSpokenResponse
+		switch {
+		case response != nil:
+			state = &response.spoken
+		case t.mode == ModeText:
 			current := textResponses.current()
 			if current == nil {
 				return nil
 			}
-			return &current.spoken
+			state = &current.spoken
+		default:
+			if realtimeSpoken == nil {
+				realtimeSpoken = &doubaoRealtimeSpokenResponse{}
+			}
+			state = realtimeSpoken
 		}
-		if realtimeSpoken == nil {
-			realtimeSpoken = &doubaoRealtimeSpokenResponse{}
-		}
-		return realtimeSpoken
+		state.textOnly = t.textOutput
+		return state
 	}
 	applySpokenTransition := func(
 		epoch uint64,
@@ -1485,6 +1509,11 @@ func (t *Transformer) processSession(
 					}
 
 				case doubaospeech.EventTTSStarted:
+					if t.textOutput {
+						// Text-only sessions own no audio route; any provider TTS
+						// lifecycle is ignored.
+						continue
+					}
 					var response *doubaoRealtimePTTResponse
 					var epoch uint64
 					if pttEvents() {
@@ -1529,6 +1558,10 @@ func (t *Transformer) processSession(
 						pushToTalk.responseStarted(streamID, false)
 					} else if !assistant.acceptsOutput() {
 						continue
+					} else if t.textOutput {
+						// Text-only responses start at their first ChatResponse
+						// instead of TTSStarted.
+						epoch = markAssistantStarted(streamID)
 					}
 					state := spokenResponse(response)
 					if state == nil {
@@ -1542,6 +1575,9 @@ func (t *Transformer) processSession(
 					}
 
 				case doubaospeech.EventTTSAudioData:
+					if t.textOutput {
+						continue
+					}
 					var response *doubaoRealtimePTTResponse
 					epoch := assistant.currentEpoch()
 					if pttEvents() {
@@ -1586,6 +1622,9 @@ func (t *Transformer) processSession(
 					}
 
 				case doubaospeech.EventTTSFinished:
+					if t.textOutput {
+						continue
+					}
 					var response *doubaoRealtimePTTResponse
 					epoch := assistant.currentEpoch()
 					if pttEvents() {
@@ -1633,8 +1672,18 @@ func (t *Transformer) processSession(
 						streamID = response.streamID
 						epoch = response.epoch
 						pushToTalk.chatEnded(streamID)
+						if t.textOutput {
+							// ChatEnded completes a text-only response. Record the
+							// provider completion before the text EOS can be observed.
+							pushToTalk.responseStarted(streamID, false)
+							pushToTalk.ttsFinished(streamID)
+							response.ttsFinished = true
+						}
 					} else if !assistant.acceptsOutput() {
 						if t.mode == ModeText {
+							if t.textOutput {
+								textResponses.markTTSFinished()
+							}
 							textResponses.markChatEnded()
 						}
 						continue
@@ -1653,6 +1702,9 @@ func (t *Transformer) processSession(
 						response.chatEnded = true
 						pttResponses.finish(response)
 					} else if t.mode == ModeText {
+						if t.textOutput {
+							textResponses.markTTSFinished()
+						}
 						textResponses.markChatEnded()
 					}
 					if state.done() {

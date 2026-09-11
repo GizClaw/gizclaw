@@ -274,6 +274,10 @@ message DoubaoRealtimeTTSExtra {
   optional string tts_2_0_model = 3;
 }
 
+message DoubaoRealtimeTTS {
+  string voice = 1;
+}
+
 message DoubaoRealtimeWorkflowSpec {
   optional DoubaoRealtimeAudio audio = 1;
   optional DoubaoRealtimeExtension extension = 2;
@@ -281,6 +285,7 @@ message DoubaoRealtimeWorkflowSpec {
   string model = 4;
   repeated DoubaoRealtimeFunctionTool tools = 5;
   optional string initiative_query = 6;
+  optional DoubaoRealtimeTTS tts = 7;
 }
 
 message DoubaoRealtimeWorkspaceParameters {

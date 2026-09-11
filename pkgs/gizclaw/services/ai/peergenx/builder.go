@@ -629,7 +629,27 @@ func (b DefaultBuilder) buildVolcRealtime(cfg TransformerConfig) (genx.Transform
 	if value := mapString(data, "initiative_query"); value != "" {
 		config.InitiativeQuery = value
 	}
+	if value := mapString(data, "output"); value != "" {
+		parsed, err := doubaoRealtimeOutput(value)
+		if err != nil {
+			return nil, err
+		}
+		config.Output = parsed
+	}
 	return doubaorealtime.New(config)
+}
+
+// doubaoRealtimeOutput maps the output pattern parameter to the reply modality
+// requested from the dialogue model.
+func doubaoRealtimeOutput(value string) (doubaorealtime.Output, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "audio":
+		return doubaorealtime.OutputAudio, nil
+	case "text":
+		return doubaorealtime.OutputText, nil
+	default:
+		return "", fmt.Errorf("%w: doubao realtime output %q", ErrUnsupported, value)
+	}
 }
 
 // doubaoRealtimeInitiative maps the Workflow-facing initiative parameter to the

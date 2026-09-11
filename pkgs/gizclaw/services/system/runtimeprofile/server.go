@@ -1086,10 +1086,18 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 		if err := requireModel("model", workflow.DoubaoRealtime.Model, apitypes.ModelKindRealtime); err != nil {
 			return err
 		}
+		// The provider requires tts.speaker even for text-only sessions, so
+		// audio.output.voice stays mandatory when tts synthesizes the replies.
 		if workflow.DoubaoRealtime.Audio == nil || workflow.DoubaoRealtime.Audio.Output.Voice == nil || strings.TrimSpace(*workflow.DoubaoRealtime.Audio.Output.Voice) == "" {
 			return fmt.Errorf("%s.audio.output.voice requires a RuntimeProfile Voice alias", path)
 		}
-		return requireCompatibleVoice("audio.output.voice", *workflow.DoubaoRealtime.Audio.Output.Voice, workflow.DoubaoRealtime.Model)
+		if err := requireCompatibleVoice("audio.output.voice", *workflow.DoubaoRealtime.Audio.Output.Voice, workflow.DoubaoRealtime.Model); err != nil {
+			return err
+		}
+		if workflow.DoubaoRealtime.Tts != nil {
+			return requireVoice("tts.voice", workflow.DoubaoRealtime.Tts.Voice)
+		}
+		return nil
 	case apitypes.WorkflowDriverDashscopeRealtime:
 		if workflow.DashscopeRealtime == nil {
 			return fmt.Errorf("%s has no dashscope_realtime spec", path)

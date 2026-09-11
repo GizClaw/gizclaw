@@ -363,6 +363,10 @@ typedef struct _gizclaw_rpc_v1_DoubaoRealtimeExtension {
     gizclaw_rpc_v1_DoubaoRealtimeTTSExtension tts;
 } gizclaw_rpc_v1_DoubaoRealtimeExtension;
 
+typedef struct _gizclaw_rpc_v1_DoubaoRealtimeTTS {
+    pb_callback_t voice;
+} gizclaw_rpc_v1_DoubaoRealtimeTTS;
+
 typedef struct _gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec {
     bool has_audio;
     gizclaw_rpc_v1_DoubaoRealtimeAudio audio;
@@ -372,6 +376,8 @@ typedef struct _gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec {
     pb_callback_t model;
     pb_callback_t tools;
     pb_callback_t initiative_query;
+    bool has_tts;
+    gizclaw_rpc_v1_DoubaoRealtimeTTS tts;
 } gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec;
 
 typedef struct _gizclaw_rpc_v1_ConversationParameters {
@@ -787,6 +793,7 @@ extern "C" {
 
 
 
+
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParametersAgentType
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
 
@@ -872,7 +879,8 @@ extern "C" {
 #define gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_PropertiesEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_init_default}
 #define gizclaw_rpc_v1_DoubaoRealtimeTTSExtension_init_default {false, gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_init_default}
 #define gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_init_default {false, gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_default {false, gizclaw_rpc_v1_DoubaoRealtimeAudio_init_default, false, gizclaw_rpc_v1_DoubaoRealtimeExtension_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_DoubaoRealtimeTTS_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_default {false, gizclaw_rpc_v1_DoubaoRealtimeAudio_init_default, false, gizclaw_rpc_v1_DoubaoRealtimeExtension_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_DoubaoRealtimeTTS_init_default}
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_init_default {_gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_DoubaoRealtimeAudio_init_default, false, 0, false, gizclaw_rpc_v1_DoubaoRealtimeExtension_init_default, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ConversationParameters_init_default}
 #define gizclaw_rpc_v1_ConversationParameters_init_default {false, _gizclaw_rpc_v1_ConversationParametersAgentInitiativePolicy_MIN, false, _gizclaw_rpc_v1_ConversationParametersInitiative_MIN}
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_default {false, google_protobuf_Struct_init_default}
@@ -947,7 +955,8 @@ extern "C" {
 #define gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_PropertiesEntry_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_init_zero}
 #define gizclaw_rpc_v1_DoubaoRealtimeTTSExtension_init_zero {false, gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_init_zero}
 #define gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_init_zero {false, gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_zero {false, gizclaw_rpc_v1_DoubaoRealtimeAudio_init_zero, false, gizclaw_rpc_v1_DoubaoRealtimeExtension_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_DoubaoRealtimeTTS_init_zero {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_zero {false, gizclaw_rpc_v1_DoubaoRealtimeAudio_init_zero, false, gizclaw_rpc_v1_DoubaoRealtimeExtension_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_DoubaoRealtimeTTS_init_zero}
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_init_zero {_gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_DoubaoRealtimeAudio_init_zero, false, 0, false, gizclaw_rpc_v1_DoubaoRealtimeExtension_init_zero, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ConversationParameters_init_zero}
 #define gizclaw_rpc_v1_ConversationParameters_init_zero {false, _gizclaw_rpc_v1_ConversationParametersAgentInitiativePolicy_MIN, false, _gizclaw_rpc_v1_ConversationParametersInitiative_MIN}
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_zero {false, google_protobuf_Struct_init_zero}
@@ -1149,12 +1158,14 @@ extern "C" {
 #define gizclaw_rpc_v1_DoubaoRealtimeExtension_asr_tag 1
 #define gizclaw_rpc_v1_DoubaoRealtimeExtension_dialog_tag 2
 #define gizclaw_rpc_v1_DoubaoRealtimeExtension_tts_tag 3
+#define gizclaw_rpc_v1_DoubaoRealtimeTTS_voice_tag 1
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_audio_tag 1
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_extension_tag 2
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_instructions_tag 3
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_model_tag 4
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_tools_tag 5
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_initiative_query_tag 6
+#define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_tts_tag 7
 #define gizclaw_rpc_v1_ConversationParameters_agent_initiative_policy_tag 1
 #define gizclaw_rpc_v1_ConversationParameters_initiative_tag 2
 #define gizclaw_rpc_v1_EinoWorkspaceParameters_agent_type_tag 1
@@ -1664,18 +1675,25 @@ X(a, CALLBACK, OPTIONAL, STRING,   tts_2_0_model,     3)
 #define gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_DEFAULT NULL
 #define gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_aigc_metadata_MSGTYPE gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata
 
+#define gizclaw_rpc_v1_DoubaoRealtimeTTS_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   voice,             1)
+#define gizclaw_rpc_v1_DoubaoRealtimeTTS_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_DoubaoRealtimeTTS_DEFAULT NULL
+
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  audio,             1) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  extension,         2) \
 X(a, CALLBACK, OPTIONAL, STRING,   instructions,      3) \
 X(a, CALLBACK, SINGULAR, STRING,   model,             4) \
 X(a, CALLBACK, REPEATED, MESSAGE,  tools,             5) \
-X(a, CALLBACK, OPTIONAL, STRING,   initiative_query,   6)
+X(a, CALLBACK, OPTIONAL, STRING,   initiative_query,   6) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  tts,               7)
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_DEFAULT NULL
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_audio_MSGTYPE gizclaw_rpc_v1_DoubaoRealtimeAudio
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_extension_MSGTYPE gizclaw_rpc_v1_DoubaoRealtimeExtension
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_tools_MSGTYPE gizclaw_rpc_v1_DoubaoRealtimeFunctionTool
+#define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_tts_MSGTYPE gizclaw_rpc_v1_DoubaoRealtimeTTS
 
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UENUM,    agent_type,        1) \
@@ -2062,6 +2080,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_PropertiesEntry_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_DoubaoRealtimeTTSExtension_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_DoubaoRealtimeTTS_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ConversationParameters_msg;
@@ -2139,6 +2158,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 #define gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_PropertiesEntry_fields &gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_PropertiesEntry_msg
 #define gizclaw_rpc_v1_DoubaoRealtimeTTSExtension_fields &gizclaw_rpc_v1_DoubaoRealtimeTTSExtension_msg
 #define gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_fields &gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_msg
+#define gizclaw_rpc_v1_DoubaoRealtimeTTS_fields &gizclaw_rpc_v1_DoubaoRealtimeTTS_msg
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_fields &gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_msg
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_fields &gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_msg
 #define gizclaw_rpc_v1_ConversationParameters_fields &gizclaw_rpc_v1_ConversationParameters_msg
@@ -2206,6 +2226,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 /* gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_PropertiesEntry_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DoubaoRealtimeTTSExtension_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_size depends on runtime parameters */
+/* gizclaw_rpc_v1_DoubaoRealtimeTTS_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size depends on runtime parameters */
 /* gizclaw_rpc_v1_Model_size depends on runtime parameters */

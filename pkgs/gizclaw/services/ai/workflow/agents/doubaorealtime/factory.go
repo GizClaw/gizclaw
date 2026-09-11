@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 )
@@ -19,6 +20,10 @@ const Type = "doubao-realtime"
 type Factory struct {
 	Transformer         genx.TransformerMux
 	TransformerForOwner func(context.Context, string) (genx.TransformerMux, error)
+	// ValidateVoice checks that a RuntimeProfile Voice alias resolves to a
+	// Voice resource in the runtime of owner, which is empty for the Peer
+	// runtime. It is required by Workflows that configure tts.
+	ValidateVoice func(ctx context.Context, owner, alias string) error
 }
 
 func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
@@ -29,11 +34,45 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if transformer == nil {
 		return nil, fmt.Errorf("doubaorealtime: transformer is required")
 	}
-	pattern, err := resolveRealtimeModelPattern(ctx, spec)
+	pattern, ttsVoice, err := resolveRealtimeModelPattern(ctx, spec)
 	if err != nil {
 		return nil, err
 	}
-	return agenthost.NewTransformerAgent(patternTransformer{Transformer: transformer, Pattern: pattern}), nil
+	core := patternTransformer{Transformer: transformer, Pattern: pattern}
+	if ttsVoice == "" {
+		return agenthost.NewTransformerAgent(core), nil
+	}
+	if f.ValidateVoice == nil {
+		return nil, fmt.Errorf("doubaorealtime: tts.voice requires a Voice validator")
+	}
+	if err := f.ValidateVoice(ctx, workspaceOwner(spec.Workspace), ttsVoice); err != nil {
+		return nil, fmt.Errorf("doubaorealtime: resolve tts.voice %q: %w", ttsVoice, err)
+	}
+	// The realtime model returns text only; Audio Dock streams each reply
+	// into the configured Voice while user audio still reaches the model.
+	dock, err := audiodock.New(audiodock.Config{
+		Agent:        core,
+		TTS:          transformer,
+		ResolveVoice: realtimeVoiceResolver(ttsVoice),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("doubaorealtime: compose tts: %w", err)
+	}
+	return agenthost.NewTransformerAgent(dock), nil
+}
+
+func workspaceOwner(workspace apitypes.Workspace) string {
+	if workspace.OwnerPublicKey == nil {
+		return ""
+	}
+	return strings.TrimSpace(*workspace.OwnerPublicKey)
+}
+
+func realtimeVoiceResolver(alias string) audiodock.VoiceResolver {
+	pattern := "voice/" + alias
+	return func(context.Context, audiodock.VoiceRequest) (string, error) {
+		return pattern, nil
+	}
 }
 
 func resolveOwnerTransformer(ctx context.Context, workspace apitypes.Workspace, fallback genx.TransformerMux, resolve func(context.Context, string) (genx.TransformerMux, error)) (genx.TransformerMux, error) {
@@ -66,13 +105,23 @@ func (t patternTransformer) Transform(ctx context.Context, input genx.Stream) (g
 	return t.Transformer.Transform(ctx, t.Pattern, input)
 }
 
-func resolveRealtimeModelPattern(ctx context.Context, spec agenthost.Spec) (string, error) {
+// resolveRealtimeModelPattern returns the realtime model pattern and the
+// Voice alias of the Workflow tts, which is empty when the realtime model
+// speaks with its own voice.
+func resolveRealtimeModelPattern(ctx context.Context, spec agenthost.Spec) (string, string, error) {
 	workflowSpec := spec.Workflow.Spec.DoubaoRealtime
 	if workflowSpec == nil {
-		return "", fmt.Errorf("doubaorealtime: workflow doubao_realtime spec is required")
+		return "", "", fmt.Errorf("doubaorealtime: workflow doubao_realtime spec is required")
 	}
 	if err := rejectTools("workflow", workflowSpec.Tools); err != nil {
-		return "", err
+		return "", "", err
+	}
+	ttsVoice := ""
+	if workflowSpec.Tts != nil {
+		ttsVoice = strings.TrimSpace(workflowSpec.Tts.Voice)
+		if ttsVoice == "" {
+			return "", "", fmt.Errorf("doubaorealtime: workflow tts.voice is required")
+		}
 	}
 
 	model := strings.TrimSpace(workflowSpec.Model)
@@ -80,32 +129,35 @@ func resolveRealtimeModelPattern(ctx context.Context, spec agenthost.Spec) (stri
 	if spec.Workspace.Parameters != nil {
 		typed, err := spec.Workspace.Parameters.AsDoubaoRealtimeWorkspaceParameters()
 		if err != nil {
-			return "", fmt.Errorf("doubaorealtime: decode workspace parameters: %w", err)
+			return "", "", fmt.Errorf("doubaorealtime: decode workspace parameters: %w", err)
 		}
 		if typed.Model != nil && strings.TrimSpace(*typed.Model) != "" {
 			model = strings.TrimSpace(*typed.Model)
 		}
 		if err := rejectTools("workspace", typed.Tools); err != nil {
-			return "", err
+			return "", "", err
 		}
 		params = mergeDoubaoRealtimeWorkspaceParams(params, typed)
 		params, err = applyDoubaoRealtimeInitiative(ctx, spec, typed, params)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 	}
 	dialogID := spec.Workspace.Id
 	if dialogID == "" {
-		return "", fmt.Errorf("doubaorealtime: canonical workspace id is required")
+		return "", "", fmt.Errorf("doubaorealtime: canonical workspace id is required")
 	}
 	if params == nil {
 		params = make(map[string]any)
 	}
 	params["dialog_id"] = dialogID
-	if model == "" {
-		return "", fmt.Errorf("doubaorealtime: model is required")
+	if ttsVoice != "" {
+		params["output"] = "text"
 	}
-	return normalizeModelPattern(appendPatternParams(model, params)), nil
+	if model == "" {
+		return "", "", fmt.Errorf("doubaorealtime: model is required")
+	}
+	return normalizeModelPattern(appendPatternParams(model, params)), ttsVoice, nil
 }
 
 func normalizeModelPattern(pattern string) string {
