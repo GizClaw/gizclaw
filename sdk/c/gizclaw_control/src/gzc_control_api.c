@@ -417,6 +417,50 @@ int gzc_control_get_device_runtime(
   return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
 }
 
+int gzc_control_get_device_runtime_profile(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_control_device_runtime_profile_t *out_profile,
+    gzc_control_runtime_profile_collection_t *out_collections,
+    size_t cap,
+    size_t *out_count) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out_profile == NULL || out_count == NULL || (out_collections == NULL && cap != 0)) {
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  }
+  memset(out_profile, 0, sizeof(*out_profile));
+  *out_count = 0;
+  gzc_control_builder_t builder;
+  builder_begin(&builder, client, call, "/device/runtime-profile");
+  gzc_str_t url = builder_url(&builder);
+  rc = builder_send(&builder, client, call, GZC_HTTP_METHOD_GET, url, gzc_str_from_parts(NULL, 0));
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  gzc_str_t object;
+  gzc_str_t collections;
+  bool present = false;
+  rc = decoded_object(call, &object);
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_str(object, "name", &out_profile->name);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_str(object, "revision", &out_profile->revision);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_field(object, "collections", &collections, &present);
+  }
+  if (rc == GZC_OK && !present) {
+    rc = GZC_ERR_JSON;
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_decode_array(
+        collections, out_collections, sizeof(*out_collections), cap, out_count,
+        gzc_control_decode_runtime_profile_collection_item);
+  }
+  return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
+}
+
 int gzc_control_get_device_status(
     gzc_control_client_t *client,
     gzc_control_call_t *call,

@@ -33,7 +33,7 @@
     "test": "node --test --experimental-strip-types *.test.ts"
   },
   "dependencies": {
-    "@gizclaw/gizclaw": "^0.26.0"
+    "@gizclaw/gizclaw": "^0.27.0"
   },
   "devDependencies": {
     "@types/node": "26.4.0",

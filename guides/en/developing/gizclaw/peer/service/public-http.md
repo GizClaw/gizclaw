@@ -4,7 +4,7 @@
 
 Provides ordinary Peer Public HTTP and Edge Public HTTP, assembles API key, CORS, OpenAI API, Edge signaling routes, and the `/gizclaw/v1/device*` and `/gizclaw/v1/contacts*` device extension, and performs access judgment of Edge client/signaling Peer.
 
-This file has HTTP surface composition; API key state belongs to `services/system/apikey`, and specific API behavior belongs to the corresponding domain service. The device extension handlers live in two files: `peer_service_serve_peer_http_device_api.go` adapts `/device`, `/device/runtime`, `/device/status`, `/device/telemetry*`, and `/contacts*` to `peerresource.DeviceReads` and `services/social/contact`; `peer_service_serve_peer_http_device_control.go` forwards `PUT /device/volume`, `POST /device/actions/*`, and `/device/wifi*` through `deviceController` as `client.device.*` / `client.wifi.*` RPCs and writes the reported `PeerStatus` back through `services/runtime/peertelemetry`.
+This file has HTTP surface composition; API key state belongs to `services/system/apikey`, and specific API behavior belongs to the corresponding domain service. The device extension handlers live in two files: `peer_service_serve_peer_http_device_api.go` adapts `/device`, `/device/runtime`, `/device/runtime-profile`, `/device/status`, `/device/telemetry*`, and `/contacts*` to `peerresource.DeviceReads` and `services/social/contact`; `peer_service_serve_peer_http_device_control.go` forwards `PUT /device/volume`, `POST /device/actions/*`, and `/device/wifi*` through `deviceController` as `client.device.*` / `client.wifi.*` RPCs and writes the reported `PeerStatus` back through `services/runtime/peertelemetry`.
 
 ## Owner binding and ingress
 

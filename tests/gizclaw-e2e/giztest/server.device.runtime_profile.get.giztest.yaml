@@ -1,0 +1,96 @@
+# User Story:
+# As a GizClaw API key holder,
+# I want read the RuntimeProfile workflow catalog of my device over Public HTTP,
+# So that a controller app can group the device's workflows by collection
+# with the same profile identity and workflow names the device sees over RPC.
+version: gizclaw.test/v1alpha1
+name: server.device.runtime_profile.get
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  profile_name: {direction: output, type: string}
+  profile_revision: {direction: output, type: string}
+  first_workflow: {direction: output, type: string}
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: rpc_workflows
+  client: peer
+  rpc:
+    method: server.workflow.list
+    request:
+      collection: assistants
+  capture:
+    profile_name: /runtime_profile_name
+    profile_revision: /runtime_profile_revision
+    first_workflow: /items/0/name
+  expect:
+    /runtime_profile_name: {non_empty: true}
+    /runtime_profile_revision: {non_empty: true}
+    /items/0/name: {non_empty: true}
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+- id: primary_http
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/runtime-profile
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  expect:
+    /name: {equals: "${profile_name}"}
+    /revision: {equals: "${profile_revision}"}
+    /collections: {count: 1}
+    /collections/0/name: {equals: assistants}
+    /collections/0/workflows/0/name: {equals: "${first_workflow}"}
+    /collections/0/workflows/0/resource_id: {present: false}
+    /collections/0/workflows/0/i18n: {present: false}
+    /spec: {present: false}
+    /app_config: {present: false}
+- id: invalid_api_key
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/runtime-profile
+    headers:
+      Authorization: "Bearer gizclaw_sk_v1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    status: 401
+  expect:
+    /error/code: {equals: INVALID_API_KEY}
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

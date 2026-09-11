@@ -4,7 +4,7 @@
 
 提供普通 Peer Public HTTP 与 Edge Public HTTP，组装 API Key、CORS、OpenAI API、Edge signaling routes 以及 `/gizclaw/v1/device*`、`/gizclaw/v1/contacts*` 设备扩展，并执行 Edge client/signaling Peer 的准入判断。
 
-该文件拥有 HTTP surface composition；API Key 状态属于 `services/system/apikey`，具体 API 行为属于对应领域 service。设备扩展 handler 分布在两个文件：`peer_service_serve_peer_http_device_api.go` 把 `/device`、`/device/runtime`、`/device/status`、`/device/telemetry*` 与 `/contacts*` 适配到 `peerresource.DeviceReads` 和 `services/social/contact`；`peer_service_serve_peer_http_device_control.go` 把 `PUT /device/volume`、`POST /device/actions/*` 与 `/device/wifi*` 经 `deviceController` 转发为 `client.device.*` / `client.wifi.*` RPC，并把设备回报的 `PeerStatus` 写回 `services/runtime/peertelemetry`。
+该文件拥有 HTTP surface composition；API Key 状态属于 `services/system/apikey`，具体 API 行为属于对应领域 service。设备扩展 handler 分布在两个文件：`peer_service_serve_peer_http_device_api.go` 把 `/device`、`/device/runtime`、`/device/runtime-profile`、`/device/status`、`/device/telemetry*` 与 `/contacts*` 适配到 `peerresource.DeviceReads` 和 `services/social/contact`；`peer_service_serve_peer_http_device_control.go` 把 `PUT /device/volume`、`POST /device/actions/*` 与 `/device/wifi*` 经 `deviceController` 转发为 `client.device.*` / `client.wifi.*` RPC，并把设备回报的 `PeerStatus` 写回 `services/runtime/peertelemetry`。
 
 ## Owner binding 与 ingress
 
