@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"strings"
@@ -271,7 +272,7 @@ func (s *Store) findDirectObservation(ctx context.Context, scope scope, observat
 	if s.usesPlatformAPI() {
 		metadataFilter = map[string]any{"metadata": metadataFilter}
 	}
-	filters = map[string]any{"AND": []any{filters, metadataFilter}}
+	filters = s.combineScopeFilter(filters, []any{metadataFilter})
 	payload := map[string]any{"query": observationID, "top_k": 10, "filters": filters}
 	path := "/search"
 	method := http.MethodPost
@@ -699,7 +700,7 @@ func volcScopeUserID(input scope) string {
 }
 
 func (s *Store) mem0Filters(scope scope, input []filter) (map[string]any, error) {
-	clauses := []any{s.mem0ScopeFilter(scope)}
+	clauses := make([]any, 0, len(input))
 	for _, filter := range input {
 		clause, err := s.mem0FilterClause(filter)
 		if err != nil {
@@ -707,10 +708,22 @@ func (s *Store) mem0Filters(scope scope, input []filter) (map[string]any, error)
 		}
 		clauses = append(clauses, clause)
 	}
-	if len(clauses) == 1 {
-		return clauses[0].(map[string]any), nil
+	return s.combineScopeFilter(s.mem0ScopeFilter(scope), clauses), nil
+}
+
+// combineScopeFilter ANDs clauses with the scope filter. Mem0 OSS requires
+// its entity field at the top level of filters, so self-hosted filters keep
+// the encoded user_id there and nest only the remaining clauses under AND.
+func (s *Store) combineScopeFilter(scopeFilter map[string]any, clauses []any) map[string]any {
+	if len(clauses) == 0 {
+		return scopeFilter
 	}
-	return map[string]any{"AND": clauses}, nil
+	if s.config.Flavor == SelfHosted {
+		combined := maps.Clone(scopeFilter)
+		combined["AND"] = clauses
+		return combined
+	}
+	return map[string]any{"AND": append([]any{scopeFilter}, clauses...)}
 }
 
 func (s *Store) mem0ScopeFilter(scope scope) map[string]any {
