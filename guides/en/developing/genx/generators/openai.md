@@ -4,7 +4,7 @@ OpenAI Adapter is implemented by `OpenAIGenerator` in the root package and adapt
 
 ## Convert boundaries
 
-- Convert prompts, messages, tools and model parameters of `ModelContext` to OpenAI request.
+- Convert prompts, messages, tools and model parameters of `ModelContext` to OpenAI request. Model text followed by tool calls becomes one assistant message carrying every call, and a tool's declared `Parameters` and `Strict` are sent unchanged.
 - Convert streaming text, binary content, tool call and finish reason to `MessageChunk` and `State`.
 - `Invoke` It is preferred to use JSON Schema structured output, and function tool call can also be used.
 - Convert token usage to unified `genx.Usage`.

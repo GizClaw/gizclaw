@@ -113,7 +113,7 @@ Composition layers may also attach a process-local response epoch to `StreamCtrl
 
 ### Tool
 
-[`Tool`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#Tool) is a restricted collection of tool types. Currently implemented by [`FuncTool`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#FuncTool) and `SearchWebTool`.
+[`Tool`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#Tool) is a restricted collection of tool types. Currently implemented by [`FuncTool`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#FuncTool) and `SearchWebTool`. `FuncTool.Parameters` holds a caller-declared JSON Schema that adapters send instead of `Argument` without their own normalization; `Strict` asks the provider to enforce that schema, and an adapter that cannot enforce it rejects the tool.
 
 `ToolInvoker` is the two-method runtime boundary used by Transformers. `ResolveTools` returns the currently available function names, descriptions, and JSON Schemas, while `InvokeTool` accepts only a function name and raw JSON arguments and returns raw JSON. RuntimeProfile lookup, authorization, availability, argument validation, and executor dispatch remain implementation details of the injected invoker.
 

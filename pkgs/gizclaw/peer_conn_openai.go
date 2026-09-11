@@ -67,6 +67,7 @@ func (s *PeerService) openAIHTTPHandlerForPeer(publicKey giznet.PublicKey, genxS
 	}
 	if genxSvc != nil {
 		svc.Generator = genxSvc.Generator()
+		svc.ToolCalls = genxSvc
 		svc.Transformer = genxSvc.Transformer()
 	}
 	if s == nil {

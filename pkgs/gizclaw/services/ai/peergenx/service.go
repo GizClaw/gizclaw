@@ -213,6 +213,58 @@ func modelContextForGenerator(cfg GeneratorConfig, mctx genx.ModelContext) (genx
 	return generatorModelContext{ModelContext: mctx, params: &params}, nil
 }
 
+// SupportsToolCalls reports whether the LLM model selected by pattern declares
+// function tool call support. The pattern resolves exactly as Generator does.
+func (s *Service) SupportsToolCalls(ctx context.Context, pattern string) (bool, error) {
+	if s == nil {
+		return false, ErrNotConfigured
+	}
+	cfg, err := s.ResolveGenerator(ctx, pattern)
+	if err != nil {
+		return false, err
+	}
+	return modelSupportsToolCalls(cfg.Model)
+}
+
+func modelSupportsToolCalls(model apitypes.Model) (bool, error) {
+	var (
+		supported *bool
+		err       error
+	)
+	switch model.Provider.Kind {
+	case apitypes.ModelProviderKindOpenaiTenant:
+		var value apitypes.OpenAITenantModelProviderData
+		value, err = model.ProviderData.AsOpenAITenantModelProviderData()
+		supported = value.SupportToolCalls
+	case apitypes.ModelProviderKindGeminiTenant:
+		var value apitypes.GeminiTenantModelProviderData
+		value, err = model.ProviderData.AsGeminiTenantModelProviderData()
+		supported = value.SupportToolCalls
+	case apitypes.ModelProviderKindDashscopeTenant:
+		var value apitypes.DashScopeTenantModelProviderData
+		value, err = model.ProviderData.AsDashScopeTenantModelProviderData()
+		supported = value.SupportToolCalls
+	case apitypes.ModelProviderKindVolcTenant:
+		var value apitypes.VolcTenantModelProviderData
+		value, err = model.ProviderData.AsVolcTenantModelProviderData()
+		supported = value.SupportToolCalls
+	case apitypes.ModelProviderKindDeepseekTenant:
+		var value apitypes.DeepSeekTenantModelProviderData
+		value, err = model.ProviderData.AsDeepSeekTenantModelProviderData()
+		supported = value.SupportToolCalls
+	case apitypes.ModelProviderKindMinimaxTenant:
+		var value apitypes.MiniMaxTenantModelProviderData
+		value, err = model.ProviderData.AsMiniMaxTenantModelProviderData()
+		supported = value.SupportToolCalls
+	default:
+		return false, fmt.Errorf("%w: unsupported model provider kind %q", ErrInvalid, model.Provider.Kind)
+	}
+	if err != nil {
+		return false, fmt.Errorf("%w: decode %s model provider_data: %w", ErrInvalid, model.Provider.Kind, err)
+	}
+	return boolValue(supported), nil
+}
+
 type modelThinkingConfig struct {
 	supported    bool
 	param        *string

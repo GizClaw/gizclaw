@@ -825,6 +825,92 @@ func TestOpenAIHandlerPreservesThinkingAndBodyLimit(t *testing.T) {
 	}
 }
 
+func TestOpenAIHandlerRoundTripsClientToolCalls(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair() error = %v", err)
+	}
+	handler := newOpenAIHTTPHandler(&openaiapi.Server{
+		Caller:    keyPair.Public,
+		ToolCalls: peerConnToolCallSupport(true),
+		Generator: peerConnOpenAIGeneratorFunc(func(_ context.Context, _ string, modelContext genx.ModelContext) (genx.Stream, error) {
+			tools := 0
+			for range modelContext.Tools() {
+				tools++
+			}
+			if tools != 1 {
+				t.Fatalf("tools = %d, want 1", tools)
+			}
+			return &peerConnOpenAIToolCallStream{call: &genx.ToolCall{
+				ID: "call_b", FuncCall: &genx.FuncCall{Name: "node_snapshot", Arguments: `{"node":"b"}`},
+			}}, nil
+		}),
+	})
+	// The shape @openai/agents sends in Chat Completions mode on its second turn.
+	const history = `"messages":[{"role":"system","content":"diagnose"},{"role":"user","content":"which node is busy?"},` +
+		`{"role":"assistant","tool_calls":[{"id":"call_a","type":"function","function":{"name":"node_snapshot","arguments":"{\"node\":\"a\"}"}}]},` +
+		`{"role":"tool","tool_call_id":"call_a","content":"{\"connections\":3}"}],` +
+		`"tools":[{"type":"function","function":{"name":"node_snapshot","description":"Read one node.",` +
+		`"parameters":{"type":"object","properties":{"node":{"type":"string"}},"required":["node"],"additionalProperties":false},"strict":true}}]`
+	for _, test := range []struct {
+		name string
+		body string
+		want []string
+	}{
+		{
+			name: "json",
+			body: `{"model":"chat",` + history + `}`,
+			want: []string{`"finish_reason":"tool_calls"`, `"id":"call_b"`, `"arguments":"{\"node\":\"b\"}"`},
+		},
+		{
+			name: "sse",
+			body: `{"model":"chat","stream":true,"stream_options":{"include_usage":true},` + history + `}`,
+			want: []string{`"tool_calls":[{`, `"index":0`, `"finish_reason":"tool_calls"`, "data: [DONE]"},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(test.body))
+			request.Header.Set("Content-Type", "application/json")
+			handler.ServeHTTP(recorder, request)
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("status = %d body=%s", recorder.Code, recorder.Body.String())
+			}
+			for _, want := range test.want {
+				if !strings.Contains(recorder.Body.String(), want) {
+					t.Fatalf("body = %s, want %s", recorder.Body.String(), want)
+				}
+			}
+		})
+	}
+}
+
+type peerConnToolCallSupport bool
+
+func (s peerConnToolCallSupport) SupportsToolCalls(context.Context, string) (bool, error) {
+	return bool(s), nil
+}
+
+type peerConnOpenAIToolCallStream struct {
+	call *genx.ToolCall
+}
+
+func (s *peerConnOpenAIToolCallStream) Next() (*genx.MessageChunk, error) {
+	if s.call == nil {
+		return nil, genx.ErrDone
+	}
+	call := s.call
+	s.call = nil
+	return &genx.MessageChunk{Role: genx.RoleModel, ToolCall: call}, nil
+}
+
+func (s *peerConnOpenAIToolCallStream) Close() error {
+	s.call = nil
+	return nil
+}
+
+func (s *peerConnOpenAIToolCallStream) CloseWithError(error) error { return s.Close() }
+
 type peerConnOpenAIGeneratorFunc func(context.Context, string, genx.ModelContext) (genx.Stream, error)
 
 func (f peerConnOpenAIGeneratorFunc) GenerateStream(ctx context.Context, pattern string, modelContext genx.ModelContext) (genx.Stream, error) {
