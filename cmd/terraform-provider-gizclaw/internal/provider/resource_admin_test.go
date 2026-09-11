@@ -362,3 +362,149 @@ func TestSetModelPreservesDefaultedEnvironmentPlaceholders(t *testing.T) {
 		t.Fatal("drift from a defaulted placeholder was hidden")
 	}
 }
+
+const toolConfiguredWithoutDefaults = `{"type":"http_request","invoke_name":"weather","input_schema":{"type":"object"},` +
+	`"http":{"url":"https://weather.example/v1","method":"get","timeout":"60s","max_response_bytes":4096,` +
+	`"auth":{"method":"header_api_key","header":"x-api-key"},"query":[{"argument_pointer":"/city","target":"city"}]}}`
+
+// toolObservedWithDefaults is toolConfiguredWithoutDefaults as the Server
+// stores it: defaults filled in and normalizable fields normalized.
+func toolObservedWithDefaults(overrides string) json.RawMessage {
+	var spec map[string]any
+	if err := json.Unmarshal([]byte(
+		`{"type":"http_request","enabled":true,"invoke_name":"weather","input_schema":{"type":"object"},`+
+			`"http":{"url":"https://weather.example/v1","method":"GET","timeout":"1m0s","max_response_bytes":4096,`+
+			`"auth":{"method":"header_api_key","header":"X-Api-Key"},"headers":{},"success_status_codes":[200],`+
+			`"query":[{"argument_pointer":"/city","target":"city","required":true}]}}`,
+	), &spec); err != nil {
+		panic(err)
+	}
+	if overrides != "" {
+		var patch map[string]any
+		if err := json.Unmarshal([]byte(overrides), &patch); err != nil {
+			panic(err)
+		}
+		mergeJSONObject(spec, patch)
+	}
+	encoded, err := json.Marshal(spec)
+	if err != nil {
+		panic(err)
+	}
+	return encoded
+}
+
+func mergeJSONObject(target, patch map[string]any) {
+	for key, value := range patch {
+		if nested, ok := value.(map[string]any); ok {
+			if existing, ok := target[key].(map[string]any); ok {
+				mergeJSONObject(existing, nested)
+				continue
+			}
+		}
+		target[key] = value
+	}
+}
+
+func TestSetModelPreservesToolSpecOmittingServerDefaults(t *testing.T) {
+	model := adminResourceModel{Spec: types.StringValue(toolConfiguredWithoutDefaults)}
+	setModel(&model, resourceEnvelope{
+		APIVersion: resourceAPIVersion,
+		Kind:       "Tool",
+		Metadata:   resourceMetadata{ID: "weather"},
+		Spec:       toolObservedWithDefaults(""),
+	}, true)
+	if got := model.Spec.ValueString(); got != toolConfiguredWithoutDefaults {
+		t.Fatalf("spec = %q", got)
+	}
+}
+
+func TestSetModelPreservesToolSpecWithNormalizableValues(t *testing.T) {
+	configured := `{"type":"http_request","enabled":null,"invoke_name":"weather","input_schema":{"type":"object"},` +
+		`"http":{"method":" Post ","url":"HTTPS://weather.example/v 1/é","headers":{"accept":"application/json"," x-trace ":"on"},` +
+		`"success_status_codes":[204,200,204],"timeout":"${GIZCLAW_TEST_TOOL_TIMEOUT}"}}`
+	t.Setenv("GIZCLAW_TEST_TOOL_TIMEOUT", "1500ms")
+	model := adminResourceModel{Spec: types.StringValue(configured)}
+	setModel(&model, resourceEnvelope{
+		APIVersion: resourceAPIVersion,
+		Kind:       "Tool",
+		Metadata:   resourceMetadata{ID: "weather"},
+		Spec: json.RawMessage(`{"type":"http_request","enabled":true,"invoke_name":"weather","input_schema":{"type":"object"},` +
+			`"http":{"method":"POST","url":"https://weather.example/v%201/%C3%A9","headers":{"Accept":"application/json","X-Trace":"on"},` +
+			`"success_status_codes":[200,204],"timeout":"1.5s"}}`),
+	}, true)
+	if got := model.Spec.ValueString(); got != configured {
+		t.Fatalf("spec = %q", got)
+	}
+}
+
+func TestSetModelRecordsToolDriftFromServerDefaults(t *testing.T) {
+	for name, overrides := range map[string]string{
+		"disabled":              `{"enabled":false}`,
+		"added header":          `{"http":{"headers":{"X-Trace":"on"}}}`,
+		"extra success status":  `{"http":{"success_status_codes":[200,201]}}`,
+		"optional binding":      `{"http":{"query":[{"argument_pointer":"/city","target":"city","required":false}]}}`,
+		"changed method":        `{"http":{"method":"POST"}}`,
+		"changed timeout":       `{"http":{"timeout":"30s"}}`,
+		"changed auth header":   `{"http":{"auth":{"header":"X-Other-Key"}}}`,
+		"changed invoke name":   `{"invoke_name":"forecast"}`,
+		"unexpected extra http": `{"http":{"response_pointer":"/data"}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			observed := toolObservedWithDefaults(overrides)
+			model := adminResourceModel{Spec: types.StringValue(toolConfiguredWithoutDefaults)}
+			setModel(&model, resourceEnvelope{
+				APIVersion: resourceAPIVersion,
+				Kind:       "Tool",
+				Metadata:   resourceMetadata{ID: "weather"},
+				Spec:       observed,
+			}, true)
+			if got := model.Spec.ValueString(); got != string(observed) {
+				t.Fatalf("spec = %q, want observed %q", got, observed)
+			}
+		})
+	}
+}
+
+func TestSetModelRecordsToolDriftForConfiguredValues(t *testing.T) {
+	for name, tc := range map[string]struct{ configured, observed string }{
+		"enabled true to false": {
+			`{"enabled":true}`, `{"enabled":false}`,
+		},
+		"colliding header names": {
+			`{"http":{"headers":{"x-trace":"a","X-Trace":"b"}}}`, `{"http":{"headers":{"X-Trace":"b"}}}`,
+		},
+		"header value": {
+			`{"http":{"headers":{"accept":"text/plain"}}}`, `{"http":{"headers":{"Accept":"application/json"}}}`,
+		},
+		"success status set": {
+			`{"http":{"success_status_codes":[204]}}`, `{"http":{"success_status_codes":[200]}}`,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			model := adminResourceModel{Spec: types.StringValue(tc.configured)}
+			setModel(&model, resourceEnvelope{
+				APIVersion: resourceAPIVersion,
+				Kind:       "Tool",
+				Metadata:   resourceMetadata{ID: "weather"},
+				Spec:       json.RawMessage(tc.observed),
+			}, true)
+			if got := model.Spec.ValueString(); got != tc.observed {
+				t.Fatalf("spec = %q, want observed %q", got, tc.observed)
+			}
+		})
+	}
+}
+
+func TestSetModelRecordsToolDefaultsForOtherKinds(t *testing.T) {
+	model := adminResourceModel{Spec: types.StringValue(`{"http":{"method":"get"}}`)}
+	observed := `{"enabled":true,"http":{"method":"GET","headers":{},"success_status_codes":[200]}}`
+	setModel(&model, resourceEnvelope{
+		APIVersion: resourceAPIVersion,
+		Kind:       "Workflow",
+		Metadata:   resourceMetadata{ID: "example-workflow"},
+		Spec:       json.RawMessage(observed),
+	}, true)
+	if got := model.Spec.ValueString(); got != observed {
+		t.Fatalf("spec = %q", got)
+	}
+}
