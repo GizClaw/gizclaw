@@ -153,9 +153,15 @@ and the Server selects it only after the authenticated peer is an active
 `edge-node`. It matches the qualified burst of 64 transferring service streams
 times their 512 KiB per-DataChannel send budget and prevents interleaved partial
 messages from exhausting the receiver window before delivery. A connection
-also admits at most 2,048 remotely opened service DataChannels, matching the
-gateway's active-session ceiling per upstream association; excess channels are
-closed before delivery, so service labels cannot create unbounded queues.
+also admits at most `gizwebrtc.MaxInboundServiceStreams` (2,048) remotely
+opened service DataChannels, matching the gateway's active-session ceiling per
+upstream association; excess channels are closed before delivery, so service
+labels cannot create unbounded queues. Because the opener has already written
+its request when the Server closes an excess channel, the Edge keeps its
+forwarded requests and route RPCs on one control association to a quarter of
+that limit: the Server releases a stream's admission only after the stream
+reset reaches it, so it can briefly hold about two and a half times the Edge's
+in-flight streams when many requests finish together.
 The default client Dial owns one wildcard IPv4 UDP mux and socket per
 PeerConnection. All local-interface host candidates for that connection share
 one OS-unique source port, so NAT cannot collapse independently allocated

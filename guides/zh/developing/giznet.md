@@ -132,9 +132,13 @@ profile receive credit 限制在 256 MiB；额度释放前，后续 association 
 `max-upstreams` 上限内显式请求该窗口，Server 只在认证 peer 是 active `edge-node` 后选择
 该窗口。它与验收 burst 中 64 条正在传输
 的 service streams 各自 512 KiB 的 DataChannel send budget 一致，避免 interleaved partial
-messages 在交付前耗尽 receiver window。每条 connection 最多接收远端打开的 2,048 条
-service DataChannel，与 gateway 每条 upstream association 的 active-session 上限一致；
-超出上限的 channel 会在交付前关闭，service label 不能创建无界 queue。
+messages 在交付前耗尽 receiver window。每条 connection 最多接收远端打开的
+`gizwebrtc.MaxInboundServiceStreams`（2,048）条 service DataChannel，与 gateway 每条
+upstream association 的 active-session 上限一致；超出上限的 channel 会在交付前关闭，
+service label 不能创建无界 queue。Server 关闭超额 channel 时发起方已经写出请求，因此
+Edge 把单条控制面 association 上转发的请求和路由 RPC 限制在该上限的四分之一：Server 要等
+stream reset 到达后才释放该 stream 的准入名额，大量请求同时结束时，Server 会短暂持有约为
+Edge 在途 stream 两倍半的数量。
 默认客户端 Dial 为每条 PeerConnection 独占一个 wildcard IPv4 UDP mux 和 socket。同一
 connection 的所有本地网卡 host candidates 共用一个由 OS 保证唯一的 source port，避免
 NAT 把各网卡独立分配的相同端口折叠成同一个 remote tuple。这个 mux 不跨

@@ -117,9 +117,12 @@ func reqCtxTimeout(t *testing.T, d time.Duration) context.Context {
 // TestUpstreamTransportBoundsConcurrentForwardedRequests drives real service
 // DataChannels over a live gizwebrtc association and asserts that a burst of
 // forwarded requests never opens more than maxConcurrentUpstreamRequests
-// concurrent upstream streams. This is the Edge-side guard that keeps a burst
-// from starving the Server's serial DataChannel accept loop, which the
-// production incident wedged permanently.
+// concurrent upstream streams. Every in-flight request completes at the same
+// moment and the next wave opens at once, so the Server still holds the
+// previous waves' streams while their resets are processed; every request must
+// still succeed, proving the bound leaves enough of the Server's per-connection
+// admission limit for that teardown lag. A bound of half the Server limit fails
+// this test.
 func TestUpstreamTransportBoundsConcurrentForwardedRequests(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {

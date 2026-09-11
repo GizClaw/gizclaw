@@ -293,24 +293,23 @@ func upstreamSignalingURL(upstreamURL *url.URL) string {
 
 // maxConcurrentUpstreamRequests bounds the service streams the Edge opens
 // concurrently on one upstream Server association: forwarded HTTP requests and
-// route-resolution RPCs share it. Every such request opens a fresh service
-// DataChannel, and the Server accepts inbound DataChannels through a single
-// serial loop fed by pion-sctp's accept queue, which holds 16 streams and
-// silently drops the DATA of any new stream beyond that. A dropped open only
-// recovers through SCTP T3 retransmission with exponential backoff. The pinned
-// pion-webrtc fork reads each stream's DCEP OPEN off that loop with a
-// deadline, so a lost open no longer wedges it, but an overflowing queue still
-// delays opens by whole retransmission timeouts. The bound is 15 so that,
-// together with the single-flight liveness probe, which bypasses it so a
-// saturated bound cannot fail the probe and evict a healthy association, at
-// most 16 opens are in flight: the accept queue cannot overflow regardless of
-// packet timing, and stays far below the receive window provisioned for
-// GatewaySCTPReceiveBufferSize. Burst tests against the earlier blocking accept
-// loop showed a bound of 64 failed as badly as no bound, because slots held by
-// requests waiting on retransmission starved the queued requests. Excess
-// requests wait for a slot or fail with their context rather than piling onto
-// SCTP.
-const maxConcurrentUpstreamRequests = 15
+// route-resolution RPCs share it. The Server admits at most
+// gizwebrtc.MaxInboundServiceStreams remotely opened service DataChannels per
+// connection and closes any beyond that. The opener has already written its
+// request by then, so a rejected open fails the request instead of applying
+// backpressure. The Edge frees a slot as soon as the response body closes, but
+// the Server frees its admission only after the stream reset reaches it and its
+// handler closes the stream, so when many requests finish together the Server
+// briefly holds about two and a half times the Edge's in-flight streams. A burst
+// that completed every in-flight request at once failed with half of the Server
+// limit and passed with a quarter, also under the race detector and with
+// GOMAXPROCS=1. A quarter also leaves room for the single-flight liveness probe,
+// which bypasses the bound so a saturated bound cannot fail the probe and evict
+// a healthy association. Bursts below the bound open at once: the pinned pion
+// forks queue every incoming stream until it is accepted and read each DCEP
+// OPEN off the accept loop, so concurrent opens no longer wait on SCTP
+// retransmission. Excess requests wait for a slot or fail with their context.
+const maxConcurrentUpstreamRequests = gizwebrtc.MaxInboundServiceStreams / 4
 
 type upstreamTransport struct {
 	ctx         context.Context
