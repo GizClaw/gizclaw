@@ -2,6 +2,7 @@ package genx
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -43,6 +44,12 @@ type FuncTool struct {
 	Name        string
 	Description string
 	Argument    *jsonschema.Schema
+	// Parameters is a caller-declared JSON Schema object. When set, adapters
+	// send it instead of Argument and do not apply their own normalization.
+	Parameters json.RawMessage
+	// Strict asks the provider to enforce the declared schema exactly.
+	// Adapters without schema enforcement reject a strict tool.
+	Strict bool
 
 	typeSchemas map[reflect.Type]*jsonschema.Schema
 

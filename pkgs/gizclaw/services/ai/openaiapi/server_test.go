@@ -91,7 +91,14 @@ func TestHandleChatRejectsUnsupportedOption(t *testing.T) {
 	}{
 		{body: `{"model":"chat","messages":[],"top_p":0.5}`, param: "request"},
 		{body: `{"model":"chat","messages":[{"role":"user","content":[{"type":"image_url","image_url":{"url":"https://example.com/image.png"}}]}]}`, param: "messages.content"},
-		{body: `{"model":"chat","messages":[{"role":"assistant","content":"ok","tool_calls":[]}]}`, param: "messages"},
+		{body: `{"model":"chat","messages":[{"role":"user","content":"ok","tool_calls":[]}]}`, param: "messages"},
+		{body: `{"model":"chat","messages":[{"role":"tool","tool_call_id":"call","content":"ok","name":"fn"}]}`, param: "messages"},
+		{body: `{"model":"chat","messages":[],"tools":[{"type":"custom","custom":{"name":"fn"}}]}`, param: "tools"},
+		{body: `{"model":"chat","messages":[],"tools":[{"type":"function","function":{"name":"fn","extra":true}}]}`, param: "tools"},
+		{body: `{"model":"chat","messages":[],"tool_choice":"required"}`, param: "tool_choice"},
+		{body: `{"model":"chat","messages":[],"tool_choice":{"type":"function","function":{"name":"fn"}}}`, param: "tool_choice"},
+		{body: `{"model":"chat","messages":[],"parallel_tool_calls":false}`, param: "parallel_tool_calls"},
+		{body: `{"model":"chat","messages":[],"stream":true,"stream_options":{"include_obfuscation":false}}`, param: "stream_options"},
 	} {
 		_, err := (&Server{Caller: key.Public}).Handle(context.Background(), requestFor(
 			key.Public, backend.CapabilityChat, "createChatCompletion", json.RawMessage(test.body),

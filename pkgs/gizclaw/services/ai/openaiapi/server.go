@@ -12,6 +12,7 @@ import (
 	"mime/multipart"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -61,6 +62,12 @@ type WorkspaceExecutor interface {
 	ExecuteWorkspaceText(context.Context, apitypes.Workspace, string, func(string) error) ([]workspace.HistoryEntry, error)
 }
 
+// ToolCallSupport reports whether the model selected by a Generator pattern
+// can return function tool calls.
+type ToolCallSupport interface {
+	SupportsToolCalls(context.Context, string) (bool, error)
+}
+
 // VoiceListParams contains the pagination accepted by the RuntimeProfile-scoped
 // OpenAI-compatible voice catalog.
 type VoiceListParams struct {
@@ -75,6 +82,7 @@ type Server struct {
 	Models      ModelLister
 	Voices      VoiceLister
 	Generator   genx.Generator
+	ToolCalls   ToolCallSupport
 	Transformer genx.TransformerMux
 	Workspaces  ConversationWorkspaces
 	Executor    WorkspaceExecutor
@@ -144,23 +152,34 @@ type thinkingOptions struct {
 }
 
 type chatCompletionRequest struct {
-	Messages    []map[string]any `json:"messages"`
-	Model       string           `json:"model"`
-	Stream      *bool            `json:"stream,omitempty"`
-	Temperature *float32         `json:"temperature,omitempty"`
-	Thinking    *thinkingOptions `json:"thinking,omitempty"`
+	Messages          []map[string]any `json:"messages"`
+	Model             string           `json:"model"`
+	ParallelToolCalls *bool            `json:"parallel_tool_calls,omitempty"`
+	Stream            *bool            `json:"stream,omitempty"`
+	StreamOptions     map[string]any   `json:"stream_options,omitempty"`
+	Temperature       *float32         `json:"temperature,omitempty"`
+	Thinking          *thinkingOptions `json:"thinking,omitempty"`
+	ToolChoice        any              `json:"tool_choice,omitempty"`
+	Tools             []map[string]any `json:"tools,omitempty"`
 }
 
 func (s *Server) createChatCompletion(ctx context.Context, request backend.Request) (backend.Response, error) {
 	var body chatCompletionRequest
-	if err := decodeJSONProjection(request.Input.JSON, &body, "messages", "model", "stream", "temperature", "thinking"); err != nil {
+	if err := decodeJSONProjection(request.Input.JSON, &body,
+		"messages", "model", "parallel_tool_calls", "stream", "stream_options", "temperature", "thinking", "tool_choice", "tools",
+	); err != nil {
 		return backend.Response{}, err
 	}
 	model := strings.TrimSpace(body.Model)
 	if model == "" {
 		return backend.Response{}, invalid("missing_model", "model", "The model field is required.")
 	}
-	modelContext, err := buildModelContext(&body)
+	streaming := body.Stream != nil && *body.Stream
+	includeUsage, err := chatStreamOptions(body.StreamOptions, streaming)
+	if err != nil {
+		return backend.Response{}, err
+	}
+	modelContext, usesTools, err := buildModelContext(&body)
 	if err != nil {
 		if backendErr, ok := errors.AsType[*backend.Error](err); ok {
 			return backend.Response{}, backendErr
@@ -170,6 +189,11 @@ func (s *Server) createChatCompletion(ctx context.Context, request backend.Reque
 	if s.Generator == nil {
 		return backend.Response{}, unavailable("generator_unavailable", "The model generator is unavailable.", nil)
 	}
+	if usesTools {
+		if err := s.requireToolCalls(ctx, model); err != nil {
+			return backend.Response{}, err
+		}
+	}
 	stream, err := s.Generator.GenerateStream(ctx, "model/"+model, modelContext)
 	if err != nil {
 		return backend.Response{}, internal(err)
@@ -177,22 +201,44 @@ func (s *Server) createChatCompletion(ctx context.Context, request backend.Reque
 	if nilInterface(stream) {
 		return backend.Response{}, unavailable("generator_unavailable", "The model generator is unavailable.", nil)
 	}
-	if body.Stream != nil && *body.Stream {
-		return backend.Response{Stream: newChatEventStream(ctx, stream, model, s.now())}, nil
+	if streaming {
+		return backend.Response{Stream: newChatEventStream(ctx, stream, model, s.now(), includeUsage)}, nil
 	}
-	text, err := readTextStream(stream)
+	output, err := readChatStream(stream)
 	if err != nil {
 		return backend.Response{}, internal(err)
+	}
+	message := map[string]any{"content": output.text, "refusal": nil, "role": "assistant"}
+	finishReason := "stop"
+	if len(output.toolCalls) > 0 {
+		message["tool_calls"] = output.toolCalls
+		if output.text == "" {
+			message["content"] = nil
+		}
+		finishReason = "tool_calls"
 	}
 	now := s.now()
 	return jsonResponse(map[string]any{
 		"id": idWithPrefix("chatcmpl", func() time.Time { return now }), "object": "chat.completion",
 		"created": now.Unix(), "model": model,
 		"choices": []any{map[string]any{
-			"finish_reason": "stop", "index": 0, "logprobs": nil,
-			"message": map[string]any{"content": text, "refusal": nil, "role": "assistant"},
+			"finish_reason": finishReason, "index": 0, "logprobs": nil, "message": message,
 		}},
 	})
+}
+
+func (s *Server) requireToolCalls(ctx context.Context, model string) error {
+	if s.ToolCalls == nil {
+		return unavailable("tool_calls_unavailable", "Tool call support is unavailable.", nil)
+	}
+	supported, err := s.ToolCalls.SupportsToolCalls(ctx, "model/"+model)
+	if err != nil {
+		return internal(err)
+	}
+	if !supported {
+		return invalid("unsupported_option", "tools", "The model does not support tool calls.")
+	}
+	return nil
 }
 
 type speechRequest struct {
@@ -389,7 +435,9 @@ func modelFromResource(model apitypes.Model) openAIModel {
 	return openAIModel{ID: model.Id, Object: "model", Created: created, OwnedBy: owner}
 }
 
-func buildModelContext(body *chatCompletionRequest) (genx.ModelContext, error) {
+// buildModelContext maps a chat request to GenX and reports whether it
+// declares tools or replays tool calls, which requires model support.
+func buildModelContext(body *chatCompletionRequest) (genx.ModelContext, bool, error) {
 	var builder genx.ModelContextBuilder
 	if body.Temperature != nil {
 		builder.Params = &genx.ModelParams{Temperature: *body.Temperature}
@@ -400,19 +448,30 @@ func buildModelContext(body *chatCompletionRequest) (genx.ModelContext, error) {
 		}
 		builder.Params.Thinking = thinkingParams(body.Thinking)
 	}
+	tools, err := chatTools(body)
+	if err != nil {
+		return nil, false, err
+	}
+	for _, tool := range tools {
+		builder.AddTool(tool)
+	}
+	usesTools := len(tools) > 0
 	for _, message := range body.Messages {
-		for field := range message {
-			switch field {
-			case "role", "name", "content":
-			default:
-				return nil, invalid("unsupported_option", "messages", "A message option is not supported by GizClaw.")
-			}
-		}
 		role, _ := message["role"].(string)
 		name, _ := message["name"].(string)
+		allowed := []string{"role", "name", "content"}
+		switch role {
+		case "assistant":
+			allowed = append(allowed, "tool_calls")
+		case "tool":
+			allowed = []string{"role", "content", "tool_call_id"}
+		}
+		if err := rejectUnknownFields(message, "messages", allowed...); err != nil {
+			return nil, false, err
+		}
 		text, blobs, err := parseMessageContent(message["content"])
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		switch role {
 		case "system", "developer":
@@ -427,14 +486,35 @@ func buildModelContext(body *chatCompletionRequest) (genx.ModelContext, error) {
 				builder.UserBlob(name, blob.MIMEType, blob.Data)
 			}
 		case "assistant":
+			if len(blobs) > 0 {
+				return nil, false, invalid("unsupported_option", "messages.content", "Assistant audio content is not supported by GizClaw.")
+			}
 			if text != "" {
 				builder.ModelText(name, text)
 			}
+			calls, err := parseAssistantToolCalls(message["tool_calls"])
+			if err != nil {
+				return nil, false, err
+			}
+			for _, call := range calls {
+				builder.AddMessage(&genx.Message{Role: genx.RoleModel, Name: name, Payload: call})
+			}
+			usesTools = usesTools || len(calls) > 0
+		case "tool":
+			id, _ := message["tool_call_id"].(string)
+			if strings.TrimSpace(id) == "" {
+				return nil, false, invalid("invalid_messages", "messages.tool_call_id", "A tool message requires tool_call_id.")
+			}
+			if len(blobs) > 0 {
+				return nil, false, invalid("unsupported_option", "messages.content", "Tool message content must be text.")
+			}
+			builder.AddMessage(&genx.Message{Role: genx.RoleTool, Payload: &genx.ToolResult{ID: id, Result: text}})
+			usesTools = true
 		default:
-			return nil, invalid("unsupported_option", "messages.role", "This message role is not supported by GizClaw.")
+			return nil, false, invalid("unsupported_option", "messages.role", "This message role is not supported by GizClaw.")
 		}
 	}
-	return builder.Build(), nil
+	return builder.Build(), usesTools, nil
 }
 
 func thinkingParams(options *thinkingOptions) *genx.ThinkingParams {
@@ -493,13 +573,13 @@ func parseMessageContent(value any) (string, []*genx.Blob, error) {
 }
 
 func requireFields(value map[string]any, allowed ...string) error {
-	allowedSet := make(map[string]struct{}, len(allowed))
-	for _, field := range allowed {
-		allowedSet[field] = struct{}{}
-	}
+	return rejectUnknownFields(value, "messages.content", allowed...)
+}
+
+func rejectUnknownFields(value map[string]any, parameter string, allowed ...string) error {
 	for field := range value {
-		if _, ok := allowedSet[field]; !ok {
-			return invalid("unsupported_option", "messages.content", "A message content option is not supported by GizClaw.")
+		if !slices.Contains(allowed, field) {
+			return invalid("unsupported_option", parameter, "A request option is not supported by GizClaw.")
 		}
 	}
 	return nil
@@ -734,47 +814,75 @@ func sendJSON(send eventSender, value any) bool {
 	return err == nil && send(data)
 }
 
-func newChatEventStream(ctx context.Context, source genx.Stream, model string, now time.Time) backend.Stream {
+func newChatEventStream(ctx context.Context, source genx.Stream, model string, now time.Time, includeUsage bool) backend.Stream {
 	id := idWithPrefix("chatcmpl", func() time.Time { return now })
 	created := now.Unix()
 	return newEventStream(ctx, source, func(streamCtx context.Context, source genx.Stream, send eventSender) {
 		sentRole := false
+		toolCalls := 0
+		sendChoice := func(choice map[string]any) bool {
+			return sendJSON(send, map[string]any{
+				"id": id, "object": "chat.completion.chunk", "created": created, "model": model,
+				"choices": []any{choice},
+			})
+		}
+		sendDelta := func(delta map[string]any) bool {
+			if !sentRole {
+				delta["role"] = "assistant"
+				sentRole = true
+			}
+			return sendChoice(map[string]any{"index": 0, "delta": delta})
+		}
+		var doneErr error
 		for {
 			chunk, err := source.Next()
 			if streamDone(err) {
 				if streamCtx.Err() != nil {
 					return
 				}
+				doneErr = err
 				break
 			}
 			if err != nil {
 				sendJSON(send, streamErrorEvent())
 				return
 			}
-			if chunk == nil || chunk.IsEndOfStream() {
+			if chunk == nil {
+				continue
+			}
+			if call := chunk.ToolCall; call != nil && call.FuncCall != nil {
+				toolCall := chatToolCall(call)
+				toolCall["index"] = toolCalls
+				toolCalls++
+				if !sendDelta(map[string]any{"tool_calls": []any{toolCall}}) {
+					return
+				}
+			}
+			if chunk.IsEndOfStream() {
 				continue
 			}
 			text, ok := chunk.Part.(genx.Text)
 			if !ok || text == "" {
 				continue
 			}
-			delta := map[string]any{"content": string(text)}
-			if !sentRole {
-				delta["role"] = "assistant"
-				sentRole = true
-			}
-			if !sendJSON(send, map[string]any{
-				"id": id, "object": "chat.completion.chunk", "created": created, "model": model,
-				"choices": []any{map[string]any{"index": 0, "delta": delta}},
-			}) {
+			if !sendDelta(map[string]any{"content": string(text)}) {
 				return
 			}
 		}
-		if !sendJSON(send, map[string]any{
-			"id": id, "object": "chat.completion.chunk", "created": created, "model": model,
-			"choices": []any{map[string]any{"index": 0, "delta": map[string]any{}, "finish_reason": "stop"}},
-		}) {
+		finishReason := "stop"
+		if toolCalls > 0 {
+			finishReason = "tool_calls"
+		}
+		if !sendChoice(map[string]any{"index": 0, "delta": map[string]any{}, "finish_reason": finishReason}) {
 			return
+		}
+		if usage, ok := chatUsage(doneErr); includeUsage && ok {
+			if !sendJSON(send, map[string]any{
+				"id": id, "object": "chat.completion.chunk", "created": created, "model": model,
+				"choices": []any{}, "usage": usage,
+			}) {
+				return
+			}
 		}
 		send(json.RawMessage("[DONE]"))
 	})
