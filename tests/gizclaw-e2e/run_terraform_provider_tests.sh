@@ -12,5 +12,5 @@ if ! command -v "$terraform_bin" >/dev/null 2>&1; then
 fi
 cd "$repo_dir"
 go test -tags gizclaw_e2e -count=1 -v -timeout 15m \
-	-run '^TestTerraformProviderAppliesCatalogSelection$' \
+	-run '^(TestTerraformProviderAppliesCatalogSelection|TestTerraformProviderResourceLifecycle)$' \
 	./tests/gizclaw-e2e/terraform

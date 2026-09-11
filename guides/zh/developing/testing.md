@@ -989,7 +989,12 @@ bash tests/gizclaw-e2e/run_monitor_tests.sh
 
 ### Terraform provider
 
-`bash tests/gizclaw-e2e/run_terraform_provider_tests.sh` 用共享 workspace fixture 启动隔离的真实 Server，不需要模型或 provider 凭据，只需要 `PATH` 上的 `terraform` CLI（或由 `GIZCLAW_E2E_TERRAFORM` 指定）。入口以 `CGO_ENABLED=0` 构建 `terraform-provider-gizclaw` 并放入 filesystem mirror，通过 `provider_installation` 执行 `terraform init`，再运行一个 root module：它用 `gizclaw_catalog` 解析 `tests/gizclaw-e2e/terraform/testdata` 下的分层 fixture，并用 `gizclaw_resource` apply 所有选中的 manifest。测试用 `gizclaw admin show` 检查 Server 上创建的资源，包括 override 优先级、未选中的 catalog 条目、raid tester、`overridden_ids` 与 `raids`；随后验证 apply 后的 refresh plan 没有变化、修改 catalog 会 plan 并 apply 更新、离开选择集的资源会被删除，以及 `terraform destroy` 清除全部资源。独立 CI job 与完整 gate 运行相同入口。
+`bash tests/gizclaw-e2e/run_terraform_provider_tests.sh` 用共享 workspace fixture 启动隔离的真实 Server，不需要模型或 provider 凭据，只需要 `PATH` 上的 `terraform` CLI（或由 `GIZCLAW_E2E_TERRAFORM` 指定）。入口以 `CGO_ENABLED=0` 构建 `terraform-provider-gizclaw` 并放入 filesystem mirror，通过 `provider_installation` 执行 `terraform init`。Server 上的资源用 `gizclaw admin show` 检查。包含两个测试：
+
+- `TestTerraformProviderAppliesCatalogSelection` 用 `gizclaw_catalog` 解析 `tests/gizclaw-e2e/terraform/testdata` 下的分层 fixture，并用 `gizclaw_resource` apply 选中的资源。它检查 override 优先级、未选中条目、raid tester、`overridden_ids` 与 `raids`，再验证无变化的 refresh plan、修改 catalog、移出选择集后的删除以及 `terraform destroy`。
+- `TestTerraformProviderResourceLifecycle` 为每种可由 Admin apply 的 kind 各管理一个资源：Credential、六种 provider Tenant、Model、Voice、MemoryLayout、Workflow、Tool、Firmware、RuntimeProfile、RegistrationToken、Contact、Friend、FriendGroup、FriendGroupMember 与 FriendGroupInviteToken。每种 kind 都经过创建、更新、无变化的 refresh 与 import。refresh 必须发现带外修改和带外删除，由 apply 恢复；Server 从不返回的 Credential spec 保持配置值。测试还覆盖 `input_revision`、显式 `api_version`、修改 `resource_id` 触发替换、环境变量占位符展开与缺失变量、provider 与 Server 两侧的拒绝、Server 重启、幂等 destroy、版本 0 state 升级，以及 Server 停止时的 `gizclaw_catalog`。
+
+测试给 Server 配置一个占位 SFU URL，使 Friend 与 Friend Group 能绑定 Room 身份，该地址没有服务监听。Workspace 归 Peer 所有，只检查 Admin 拒绝。`endpoint` 覆盖要求 https，不在此处验证。独立 CI job 与完整 gate 运行相同入口。
 
 ### Audioplayer Giztest
 

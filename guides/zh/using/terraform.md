@@ -145,6 +145,8 @@ resource "gizclaw_resource" "openai" {
 - 刷新时，Server 返回的 `spec` 与配置语义一致就保留配置中的写法；不一致时记录 Server 的值，
   下一次 plan 显示差异。`Credential` 的 `spec` 永远保留配置值，因为 Server 不返回密钥。环境变量
   占位符（包括 `${NAME:-default}`）按 apply 时的规则展开后与 Server 返回值相同即视为一致。
+- 除上述规则外，刷新按字面值比较。Server 会补默认值或规范化的字段需要写成规范化后的值：
+  Tool 需要显式设置 `enabled`、`http.headers` 与 `http.success_status_codes`，否则每次 plan 都显示变化。
 - Delete 调用 Admin delete；资源已不存在时视为成功。
 - Import 使用 `<kind>/<resource_id>`：`terraform import gizclaw_resource.openai Credential/openai-main`。
   Import 不会写入 `spec`，下一次 apply 会用配置中的 `spec` 覆盖 Server 上的值。

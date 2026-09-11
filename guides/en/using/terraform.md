@@ -153,6 +153,9 @@ Resource behavior:
   difference. `Credential` always keeps the configured `spec` because the Server does not
   return secrets. A string with environment placeholders, including `${NAME:-default}`, is
   consistent when its expansion under the apply rules equals the Server value.
+- Refresh compares values literally apart from the rules above. When the Server fills in
+  defaults or normalizes a field, write the normalized value: for a Tool, set `enabled`,
+  `http.headers`, and `http.success_status_codes` explicitly, or every plan shows a change.
 - Delete calls Admin delete; an already absent resource counts as success.
 - Import takes `<kind>/<resource_id>`:
   `terraform import gizclaw_resource.openai Credential/openai-main`. Import does not record
