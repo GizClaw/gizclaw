@@ -13,7 +13,7 @@ cmd/
 ├── gizclaw/          # executable main
 └── internal/
     ├── commands/     # command tree 与各命令入口
-    ├── connection/   # CLI connection orchestration
+    ├── connection/   # CLI context 连接，委托 sdk/go/gizcli/contextconn
     ├── adminapi/     # Admin API adapter
     ├── deviceapi/    # Device-facing adapter
     ├── peerapi/      # Peer-facing adapter
@@ -22,5 +22,7 @@ cmd/
     ├── storage/      # CLI-owned local state
     └── stores/       # CLI store construction
 ```
+
+`gizclaw admin apply|show|delete|validate` 的 manifest 准备、单个与批量读取、错误文本和 NOT_FOUND 判定来自 `sdk/go/gizcli/adminresource`，与 [Terraform Provider](/zh/using/terraform) 共用同一实现。`cmd/terraform-provider-gizclaw` 是独立的 provider executable，只依赖这些 SDK package，不依赖 `cmd/internal`。
 
 修改 CLI 调用的 API 或 RPC 时，应同时阅读对应 [API Design](../api/overview) 和 SDK 文档。

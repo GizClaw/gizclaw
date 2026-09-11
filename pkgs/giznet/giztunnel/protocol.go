@@ -1,5 +1,6 @@
-// Package giztunnel binds logical giznet connections to native WebRTC
-// DataChannels while retaining an unreliable session-tagged Opus lane.
+// Package giztunnel binds logical giznet connections to labeled native
+// channels of a giznet.ChannelConn while retaining an unreliable session-tagged
+// Opus lane.
 package giztunnel
 
 import (
@@ -236,6 +237,24 @@ func decodeSessionResult(payload []byte) (sessionResultStatus, string, error) {
 		return 0, "", ErrInvalidFrame
 	}
 	return status, reason, nil
+}
+
+// readSessionResult reads one complete session result from a reliable byte
+// stream, which may deliver the frame across several reads.
+func readSessionResult(r io.Reader) (sessionResultStatus, string, error) {
+	frame := make([]byte, sessionResultHeaderSize+maxRejectReasonSize)
+	if _, err := io.ReadFull(r, frame[:sessionResultHeaderSize]); err != nil {
+		return 0, "", err
+	}
+	reasonSize := int(binary.BigEndian.Uint16(frame[5:sessionResultHeaderSize]))
+	if string(frame[:4]) != string(sessionResultMagic[:]) || reasonSize > maxRejectReasonSize {
+		return 0, "", ErrInvalidFrame
+	}
+	size := sessionResultHeaderSize + reasonSize
+	if _, err := io.ReadFull(r, frame[sessionResultHeaderSize:size]); err != nil {
+		return 0, "", err
+	}
+	return decodeSessionResult(frame[:size])
 }
 
 func rejectionError(reason string) error {

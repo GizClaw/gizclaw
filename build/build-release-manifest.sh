@@ -27,14 +27,19 @@ done
 }
 [[ "$debian_version" == "${tag#v}" ]] || { echo "SemVer tag and Debian version differ" >&2; exit 2; }
 [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source commit" >&2; exit 2; }
-for command_name in dpkg-deb jq sha256sum; do
+for command_name in dpkg-deb jq sha256sum unzip; do
   command -v "$command_name" >/dev/null 2>&1 || { echo "required command not found: $command_name" >&2; exit 2; }
 done
 
+provider_executable="terraform-provider-gizclaw_v${debian_version}"
 expected=(
   "gizclaw_${debian_version}_amd64.deb"
   "gizclaw_${debian_version}_arm64.deb"
   "gizclaw-c-sdk-${debian_version}.tar.gz"
+  "terraform-provider-gizclaw_${debian_version}_darwin_amd64.zip"
+  "terraform-provider-gizclaw_${debian_version}_darwin_arm64.zip"
+  "terraform-provider-gizclaw_${debian_version}_linux_amd64.zip"
+  "terraform-provider-gizclaw_${debian_version}_linux_arm64.zip"
 )
 c_sdk_archive="gizclaw-c-sdk-${debian_version}.tar.gz"
 c_sdk_checksum="${c_sdk_archive}.sha256"
@@ -77,6 +82,20 @@ while IFS= read -r name; do
     }
     extra="$(jq -cn --arg os "$os" --arg architecture "$architecture" --arg package "$package" --arg version "$package_version" --arg source_commit "$package_source" \
       '{os:$os,architecture:$architecture,package:$package,version:$version,installed_path:"/usr/bin/gizclaw",source_commit:$source_commit}')"
+  elif [[ "$name" == "terraform-provider-gizclaw_${debian_version}_"*.zip ]]; then
+    kind=terraform-provider
+    platform="${name#"terraform-provider-gizclaw_${debian_version}_"}"
+    platform="${platform%.zip}"
+    os="${platform%_*}"
+    architecture="${platform#*_}"
+    [[ "$os" == darwin || "$os" == linux ]] || { echo "invalid payload platform: $name" >&2; exit 1; }
+    [[ "$(unzip -Z1 "$artifact")" == "$provider_executable" ]] || {
+      echo "Terraform provider archive must contain only $provider_executable: $name" >&2
+      exit 1
+    }
+    extra="$(jq -cn --arg os "$os" --arg architecture "$architecture" --arg version "$debian_version" \
+      --arg executable "$provider_executable" --arg source_commit "$source_commit" \
+      '{os:$os,architecture:$architecture,provider:"gizclaw",version:$version,executable:$executable,source_commit:$source_commit}')"
   elif [[ "$name" == "$c_sdk_archive" ]]; then
     kind=source
     extra="$(jq -cn --arg module gizclaw_c_sdk --arg version "$debian_version" --arg source_commit "$source_commit" \
@@ -85,7 +104,7 @@ while IFS= read -r name; do
     echo "unsupported payload: $name" >&2
     exit 1
   fi
-  if [[ "$kind" == deb ]]; then
+  if [[ "$kind" == deb || "$kind" == terraform-provider ]]; then
     [[ "$architecture" == amd64 || "$architecture" == arm64 ]] || { echo "invalid payload architecture: $name" >&2; exit 1; }
   fi
   size="$(wc -c <"$artifact" | tr -d ' ')"
@@ -108,7 +127,7 @@ jq -n \
   --arg source_commit "$source_commit" \
   --argjson assets "$assets_json" '
     {
-      schema_version: 3,
+      schema_version: 4,
       repository: "GizClaw/gizclaw",
       go_module: "github.com/GizClaw/gizclaw-go",
       release_channel: "stable",

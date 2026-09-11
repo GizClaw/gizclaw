@@ -6,18 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"sync"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli/adminresource"
 	"github.com/spf13/cobra"
 )
-
-const showConcurrency = 8
-
-type resourceReference struct {
-	Kind apitypes.ResourceKind `json:"kind"`
-	ID   string                `json:"id"`
-}
 
 func newShowCmd(ctxName *string) *cobra.Command {
 	var file string
@@ -59,14 +52,14 @@ func newShowCmd(ctxName *string) *cobra.Command {
 	return cmd
 }
 
-func readResourceReferences(cmd *cobra.Command, file string) ([]resourceReference, error) {
+func readResourceReferences(cmd *cobra.Command, file string) ([]adminresource.Reference, error) {
 	data, err := readResourceData(cmd, file)
 	if err != nil {
 		return nil, err
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
-	var refs []resourceReference
+	var refs []adminresource.Reference
 	if err := decoder.Decode(&refs); err != nil {
 		return nil, fmt.Errorf("decode resource references: %w", err)
 	}
@@ -103,28 +96,13 @@ func showResourceBatch(cmd *cobra.Command, ctxName, file string) error {
 	}
 	defer c.Close()
 
-	errs := make([]error, len(refs))
-	var workers sync.WaitGroup
-	for worker := range min(showConcurrency, len(refs)) {
-		workers.Go(func() {
-			// Each worker owns disjoint indices; output is written only after Wait.
-			for i := worker; i < len(refs); i += showConcurrency {
-				ref := refs[i]
-				requestErr := cmd.Context().Err()
-				if requestErr == nil {
-					var resource apitypes.Resource
-					resource, requestErr = c.GetResource(cmd.Context(), ref.Kind, ref.ID)
-					if requestErr == nil {
-						results[i] = &resource
-					}
-				}
-				if requestErr != nil {
-					errs[i] = fmt.Errorf("resource [%d] %s/%s: %w", i, ref.Kind, ref.ID, requestErr)
-				}
-			}
-		})
+	var errs []error
+	for i, result := range adminresource.GetResources(cmd.Context(), c, refs) {
+		results[i] = result.Resource
+		if result.Err != nil {
+			errs = append(errs, fmt.Errorf("resource [%d] %s/%s: %w", i, refs[i].Kind, refs[i].ID, result.Err))
+		}
 	}
-	workers.Wait()
 	if err := json.NewEncoder(cmd.OutOrStdout()).Encode(results); err != nil {
 		return err
 	}

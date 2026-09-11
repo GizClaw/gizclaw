@@ -2,11 +2,14 @@ package peerresource
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
@@ -30,6 +33,14 @@ type deviceStatusService interface {
 // no Firmware configuration bound, or whose bound configuration is gone.
 var ErrDeviceFirmwareNotBound = errors.New("peerresource: device has no firmware configuration bound")
 
+type ownerProfileResolver interface {
+	ResolveOwnerProfile(context.Context, string) (apitypes.RuntimeProfile, error)
+}
+
+// ErrDeviceRuntimeProfileNotBound reports a RuntimeProfile read for a caller
+// whose owner has no RuntimeProfile binding.
+var ErrDeviceRuntimeProfileNotBound = errors.New("peerresource: device has no runtime profile bound")
+
 // DeviceReads exposes the caller's own device projection to Public HTTP
 // adapters. Every read is pinned to Caller; adapters cannot select another Peer.
 type DeviceReads struct {
@@ -38,6 +49,7 @@ type DeviceReads struct {
 	Status    deviceStatusService
 	Peers     peerFirmwareBindingService
 	Firmwares firmwarePeerService
+	Profiles  ownerProfileResolver
 	Telemetry *peertelemetry.AdminService
 }
 
@@ -95,6 +107,42 @@ func (r DeviceReads) DeviceFirmware(ctx context.Context) (apitypes.Firmware, err
 	default:
 		return apitypes.Firmware{}, errors.New("peerresource: firmware lookup failed")
 	}
+}
+
+// DeviceRuntimeProfile returns the workflow catalog of the RuntimeProfile
+// currently bound to the caller: the profile name and revision, and the
+// workflow names of every collection, all sorted by name. Resource bindings
+// and every other profile section stay on the Server.
+func (r DeviceReads) DeviceRuntimeProfile(ctx context.Context) (peerhttp.DeviceRuntimeProfile, error) {
+	if r.Profiles == nil {
+		return peerhttp.DeviceRuntimeProfile{}, ErrDeviceServiceNotConfigured
+	}
+	profile, err := r.Profiles.ResolveOwnerProfile(ctx, r.Caller.String())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return peerhttp.DeviceRuntimeProfile{}, ErrDeviceRuntimeProfileNotBound
+		}
+		return peerhttp.DeviceRuntimeProfile{}, err
+	}
+	collections := profile.Spec.Workflows.Collections
+	names := make([]string, 0, len(collections))
+	for name := range collections {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	result := peerhttp.DeviceRuntimeProfile{
+		Name: profile.Id, Revision: profile.Revision,
+		Collections: make([]peerhttp.DeviceRuntimeProfileCollection, 0, len(names)),
+	}
+	for _, name := range names {
+		aliases := sortedBindingAliases(collections[name])
+		workflows := make([]peerhttp.DeviceRuntimeProfileWorkflow, len(aliases))
+		for i, alias := range aliases {
+			workflows[i] = peerhttp.DeviceRuntimeProfileWorkflow{Name: alias}
+		}
+		result.Collections = append(result.Collections, peerhttp.DeviceRuntimeProfileCollection{Name: name, Workflows: workflows})
+	}
+	return result, nil
 }
 
 // DeviceTelemetryLatest returns the latest sampled telemetry values of the caller.

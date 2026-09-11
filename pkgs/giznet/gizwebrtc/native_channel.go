@@ -3,6 +3,7 @@ package gizwebrtc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -71,6 +72,22 @@ func (c *NativeChannel) MaxRetransmits() *uint16 {
 	}
 	value := *c.maxRetransmits
 	return &value
+}
+
+// Reliability maps the negotiated DataChannel parameters onto the giznet
+// delivery classes. Any other partial-reliability combination is unknown.
+func (c *NativeChannel) Reliability() giznet.ChannelReliability {
+	if c == nil || c.maxPacketLifeTime != nil {
+		return giznet.ChannelReliabilityUnknown
+	}
+	switch {
+	case c.ordered && c.maxRetransmits == nil:
+		return giznet.ChannelReliable
+	case !c.ordered && c.maxRetransmits != nil && *c.maxRetransmits == 0:
+		return giznet.ChannelUnreliable
+	default:
+		return giznet.ChannelReliabilityUnknown
+	}
 }
 
 // ReadMessage reads exactly one DataChannel message.
@@ -175,7 +192,7 @@ func (c *NativeChannel) SetWriteDeadline(deadline time.Time) error {
 // SetWriteBudgets applies shared outstanding-byte budgets to reliable writes.
 // It must be called before the first write. Each successful write remains
 // reserved until the DataChannel BufferedAmount reports the bytes drained.
-func (c *NativeChannel) SetWriteBudgets(budgets ...*WriteBudget) error {
+func (c *NativeChannel) SetWriteBudgets(budgets ...*giznet.WriteBudget) error {
 	if c == nil || c.stream == nil {
 		return giznet.ErrConnClosed
 	}
@@ -280,6 +297,40 @@ func (c *Conn) OpenNativeChannel(
 	channel := c.newNativeChannel(dc, raw)
 	if err := c.trackNativeChannel(dc, channel, nil); err != nil {
 		_ = channel.Close()
+		return nil, err
+	}
+	return channel, nil
+}
+
+// HandleChannels implements giznet.ChannelConn on top of
+// RegisterNativeChannelHandler.
+func (c *Conn) HandleChannels(prefix string, handler func(giznet.Channel)) (func(), error) {
+	if handler == nil {
+		return nil, errors.New("gizwebrtc: invalid native channel handler")
+	}
+	return c.RegisterNativeChannelHandler(prefix, func(channel *NativeChannel) { handler(channel) })
+}
+
+// OpenChannel implements giznet.ChannelConn. Reliable channels are ordered
+// DataChannels without partial reliability; unreliable channels are unordered
+// with zero retransmissions.
+func (c *Conn) OpenChannel(
+	ctx context.Context,
+	label string,
+	reliability giznet.ChannelReliability,
+) (giznet.Channel, error) {
+	var options NativeChannelOptions
+	switch reliability {
+	case giznet.ChannelReliable:
+		options.Ordered = true
+	case giznet.ChannelUnreliable:
+		zero := uint16(0)
+		options.MaxRetransmits = &zero
+	default:
+		return nil, fmt.Errorf("gizwebrtc: unsupported channel reliability %s", reliability)
+	}
+	channel, err := c.OpenNativeChannel(ctx, label, options)
+	if err != nil {
 		return nil, err
 	}
 	return channel, nil
@@ -421,6 +472,8 @@ func (c *Conn) trackNativeChannel(
 }
 
 var (
-	_ net.Conn  = (*NativeChannel)(nil)
-	_ io.Reader = (*NativeChannel)(nil)
+	_ net.Conn           = (*NativeChannel)(nil)
+	_ io.Reader          = (*NativeChannel)(nil)
+	_ giznet.Channel     = (*NativeChannel)(nil)
+	_ giznet.ChannelConn = (*Conn)(nil)
 )

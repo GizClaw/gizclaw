@@ -121,7 +121,7 @@ func TestDataChannelConnWriteDeadlineExpiresWhileWaitingForBackpressure(t *testi
 }
 
 func TestDataChannelConnSharedWriteBudgetPreservesSiblingProgress(t *testing.T) {
-	budget := NewWriteBudget(streamChunkSize)
+	budget := giznet.NewWriteBudget(streamChunkSize)
 	firstFlow := newFakeDataChannelFlow()
 	first := newDataChannelConn(&bufferingStreamRaw{flow: firstFlow}, firstFlow, addr("local"), addr("remote"))
 	defer first.Close()
@@ -163,7 +163,7 @@ func TestDataChannelConnSharedWriteBudgetPreservesSiblingProgress(t *testing.T) 
 }
 
 func TestDataChannelConnSharedWriteBudgetDeadlineAndCloseRelease(t *testing.T) {
-	budget := NewWriteBudget(streamChunkSize)
+	budget := giznet.NewWriteBudget(streamChunkSize)
 	flow := newFakeDataChannelFlow()
 	conn := newDataChannelConn(&bufferingStreamRaw{flow: flow}, flow, addr("local"), addr("remote"))
 	if err := conn.setWriteBudgets(budget); err != nil {

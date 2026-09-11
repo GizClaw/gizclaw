@@ -44,13 +44,16 @@ jobs:
             dpkg-dev \
             libprotobuf-dev \
             protobuf-compiler \
-            shellcheck
+            shellcheck \
+            unzip \
+            zip
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 
       - name: Check release shell scripts
         run: >-
           shellcheck
           build/build-linux.sh
+          build/build-terraform-provider.sh
           build/package-deb.sh
           build/check-deb.sh
           build/build-release-manifest.sh
@@ -75,6 +78,14 @@ jobs:
         run: |
           go generate ./sdk/c/gizclaw
           git diff --exit-code -- sdk/c/gizclaw/generated
+
+      - name: Build Terraform provider release archives
+        run: |
+          build/build-terraform-provider.sh \
+            --version 0.0.0 \
+            --source-commit "$(git rev-parse HEAD)" \
+            --source-epoch "$(git show -s --format=%ct HEAD)" \
+            --output-dir "${RUNNER_TEMP}/terraform-provider"
 
       - name: Test standalone C SDK source archive
         run: tools/c-sdk/source_archive_test.sh

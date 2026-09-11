@@ -4,7 +4,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-for command_name in dpkg-deb jq sha256sum; do
+for command_name in dpkg-deb jq sha256sum unzip zip; do
   command -v "$command_name" >/dev/null 2>&1 || { echo "required command not found: $command_name" >&2; exit 2; }
 done
 
@@ -48,6 +48,9 @@ draft_transition="gh api --method PATCH \"repos/\$GH_REPO/releases/\$release_id\
 grep -Fq "build/find-release-by-tag.sh \"\$GH_REPO\" \"\$TAG\"" <<<"$semver_publisher"
 grep -Fq "repos/\$GH_REPO/releases/assets/\$asset_id" <<<"$semver_publisher"
 grep -Fq -- '- c-sdk' <<<"$semver_publisher"
+grep -Fq -- '- terraform-provider' <<<"$semver_publisher"
+grep -Fq 'build/build-terraform-provider.sh' "$release_workflow"
+grep -Fq 'build/build-terraform-provider.sh' "$ci_workflow"
 grep -Fq 'pattern: "*"' <<<"$semver_publisher"
 grep -Fq 'merge-multiple: true' <<<"$semver_publisher"
 if grep -Fq "releases/tags/\$TAG" <<<"$semver_publisher"; then
@@ -146,11 +149,41 @@ EOF
   dpkg-deb --build --root-owner-group "$root" "$output" >/dev/null
 }
 
+provider_platforms=(darwin_amd64 darwin_arm64 linux_amd64 linux_arm64)
+
+# Write the leading bytes of a Mach-O or ELF executable for one platform.
+write_fixture_executable_header() {
+  case "$1" in
+    darwin_amd64) printf '\317\372\355\376\007\000\000\001' ;;
+    darwin_arm64) printf '\317\372\355\376\014\000\000\001' ;;
+    linux_amd64) printf '\177ELF\002\001\001\000\000\000\000\000\000\000\000\000\002\000\076\000' ;;
+    linux_arm64) printf '\177ELF\002\001\001\000\000\000\000\000\000\000\000\000\002\000\267\000' ;;
+    *) return 1 ;;
+  esac
+}
+
+make_fixture_provider_zip() {
+  local platform="$1" output="$2" binary_platform="${3:-$1}" entry="${4:-terraform-provider-gizclaw_v$version}" mode="${5:-0755}" root
+  root="$fixture_root/provider-$(basename "$output")-$RANDOM"
+  mkdir -p "$root"
+  {
+    write_fixture_executable_header "$binary_platform"
+    printf '%s\n' "Terraform provider fixture for $platform"
+  } >"$root/$entry"
+  chmod "$mode" "$root/$entry"
+  rm -f "$output"
+  (cd "$root" && zip -q -X "$output" "$entry")
+}
+
 make_formal_payloads() {
-  local directory="$1" c_sdk_archive
+  local directory="$1" c_sdk_archive platform
   mkdir -p "$directory"
+  directory="$(cd "$directory" && pwd)"
   make_fixture_deb amd64 "$directory/gizclaw_${version}_amd64.deb"
   make_fixture_deb arm64 "$directory/gizclaw_${version}_arm64.deb"
+  for platform in "${provider_platforms[@]}"; do
+    make_fixture_provider_zip "$platform" "$directory/terraform-provider-gizclaw_${version}_${platform}.zip"
+  done
   c_sdk_archive="gizclaw-c-sdk-${version}.tar.gz"
   printf '%s\n' "C SDK source archive fixture for $source_commit" >"$directory/$c_sdk_archive"
   printf '%s  %s\n' "$(sha256sum "$directory/$c_sdk_archive" | awk '{print $1}')" "$c_sdk_archive" \
@@ -260,6 +293,61 @@ cp -a "$payloads" "$formal_unstable"
 jq '.run_id = 123' "$formal_unstable/release-manifest.json" >"$formal_unstable/changed.json"
 mv "$formal_unstable/changed.json" "$formal_unstable/release-manifest.json"
 expect_failure "per-run manifest value" "$repo_root/build/check-release.sh" semver "$formal_unstable" "$tag" "$source_commit"
+
+jq -e --arg version "$version" --arg source_commit "$source_commit" '
+  .schema_version == 4 and
+  ([.assets[] | select(.kind == "terraform-provider")] | length == 4) and
+  all(.assets[] | select(.kind == "terraform-provider");
+    .provider == "gizclaw" and .version == $version and .source_commit == $source_commit and
+    .executable == ("terraform-provider-gizclaw_v" + $version) and
+    .name == ("terraform-provider-gizclaw_" + $version + "_" + .os + "_" + .architecture + ".zip"))
+' "$payloads/release-manifest.json" >/dev/null
+for platform in "${provider_platforms[@]}"; do
+  grep -Eq "^[0-9a-f]{64}  terraform-provider-gizclaw_${version}_${platform}\.zip\$" "$payloads/SHA256SUMS"
+done
+
+formal_missing_provider="$fixture_root/formal-missing-provider"
+cp -a "$payloads" "$formal_missing_provider"
+rm "$formal_missing_provider/terraform-provider-gizclaw_${version}_darwin_arm64.zip"
+expect_failure "formal missing provider archive" "$repo_root/build/check-release.sh" \
+  semver "$formal_missing_provider" "$tag" "$source_commit"
+
+formal_provider_digest="$fixture_root/formal-provider-digest"
+cp -a "$payloads" "$formal_provider_digest"
+make_fixture_provider_zip linux_amd64 "$formal_provider_digest/terraform-provider-gizclaw_${version}_linux_amd64.zip" linux_arm64
+expect_failure "altered provider archive digest" "$repo_root/build/check-release.sh" \
+  semver "$formal_provider_digest" "$tag" "$source_commit"
+
+# Rebuild metadata after each provider mutation so only the archive check can fail.
+rebuild_provider_case() {
+  local label="$1" directory="$fixture_root/$2" platform="$3" binary_platform="$4" entry="$5" mode="$6"
+  make_formal_payloads "$directory"
+  make_fixture_provider_zip "$platform" "$directory/terraform-provider-gizclaw_${version}_${platform}.zip" \
+    "$binary_platform" "$entry" "$mode"
+  "$repo_root/build/build-release-manifest.sh" \
+    --asset-dir "$directory" --tag "$tag" --debian-version "$version" --source-commit "$source_commit" >/dev/null
+  expect_failure "$label" "$repo_root/build/check-release.sh" semver "$directory" "$tag" "$source_commit"
+}
+rebuild_provider_case "provider archive for the wrong architecture" provider-wrong-arch \
+  linux_amd64 linux_arm64 "terraform-provider-gizclaw_v$version" 0755
+rebuild_provider_case "provider archive for the wrong operating system" provider-wrong-os \
+  darwin_arm64 linux_arm64 "terraform-provider-gizclaw_v$version" 0755
+rebuild_provider_case "provider executable without execute mode" provider-mode \
+  darwin_amd64 darwin_amd64 "terraform-provider-gizclaw_v$version" 0644
+
+provider_wrong_entry="$fixture_root/provider-wrong-entry"
+make_formal_payloads "$provider_wrong_entry"
+make_fixture_provider_zip linux_arm64 "$provider_wrong_entry/terraform-provider-gizclaw_${version}_linux_arm64.zip" \
+  linux_arm64 terraform-provider-gizclaw
+expect_failure "provider archive with a non-Terraform executable name" "$repo_root/build/build-release-manifest.sh" \
+  --asset-dir "$provider_wrong_entry" --tag "$tag" --debian-version "$version" --source-commit "$source_commit"
+
+provider_extra_entry="$fixture_root/provider-extra-entry"
+make_formal_payloads "$provider_extra_entry"
+printf '%s\n' extra >"$fixture_root/README"
+(cd "$fixture_root" && zip -q -X "$provider_extra_entry/terraform-provider-gizclaw_${version}_linux_amd64.zip" README)
+expect_failure "provider archive with an extra entry" "$repo_root/build/build-release-manifest.sh" \
+  --asset-dir "$provider_extra_entry" --tag "$tag" --debian-version "$version" --source-commit "$source_commit"
 
 wrong_metadata="$fixture_root/wrong-metadata"
 make_formal_payloads "$wrong_metadata"

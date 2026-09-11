@@ -7,17 +7,19 @@ import (
 	"io"
 	"maps"
 	"net"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 )
 
 const (
 	defaultMaxChannelsPerSession = 32
 	defaultMaxChannels           = 8192
+	defaultMaxAssociationBuffer  = 32 << 20
+	maxAssociationBuffer         = 256 << 20
 	defaultMaxPendingSessions    = 2048
 	defaultServiceQueueSize      = 16
 	defaultHandshakeTimeout      = 10 * time.Second
@@ -40,6 +42,10 @@ type Config struct {
 	// OnActiveChannels receives association-wide active tunnel channel counts.
 	// The callback must be non-blocking and must not call back into this Router.
 	OnActiveChannels func(active int)
+	// MaxAssociationBufferedBytes bounds reliable bytes outstanding across all
+	// sessions on the physical connection. Callers align it with the
+	// transport's receive buffer; zero selects 32 MiB.
+	MaxAssociationBufferedBytes int64
 }
 
 func (c Config) withDefaults() Config {
@@ -61,6 +67,9 @@ func (c Config) withDefaults() Config {
 	if c.MaxBufferedBytes <= 0 {
 		c.MaxBufferedBytes = 1 << 20
 	}
+	if c.MaxAssociationBufferedBytes == 0 {
+		c.MaxAssociationBufferedBytes = defaultMaxAssociationBuffer
+	}
 	return c
 }
 
@@ -77,12 +86,15 @@ func (c Config) validate() error {
 	if c.MaxBufferedBytes < 64*1024 || c.MaxBufferedBytes > 16*1024*1024 {
 		return fmt.Errorf("giztunnel: max buffered bytes must be between 65536 and 16777216")
 	}
+	if c.MaxAssociationBufferedBytes < c.MaxBufferedBytes || c.MaxAssociationBufferedBytes > maxAssociationBuffer {
+		return fmt.Errorf("giztunnel: max association buffered bytes must be between max buffered bytes and %d", maxAssociationBuffer)
+	}
 	return nil
 }
 
-// Router owns the v2 tunnel namespace on one physical WebRTC connection.
+// Router owns the v2 tunnel namespace on one physical native-channel connection.
 type Router struct {
-	transport *gizwebrtc.Conn
+	transport giznet.ChannelConn
 	cfg       Config
 
 	mu                sync.Mutex
@@ -98,7 +110,7 @@ type Router struct {
 	closeOnce         sync.Once
 	unregister        func()
 	packetWriteMu     sync.Mutex
-	writeBudget       *gizwebrtc.WriteBudget
+	writeBudget       *giznet.WriteBudget
 }
 
 type acceptedSession struct {
@@ -148,7 +160,7 @@ func (l *channelLease) release() {
 }
 
 type trackedChannel struct {
-	*gizwebrtc.NativeChannel
+	giznet.Channel
 	lease *channelLease
 	once  sync.Once
 }
@@ -159,8 +171,8 @@ func (c *trackedChannel) Close() error {
 	}
 	var closeErr error
 	c.once.Do(func() {
-		if c.NativeChannel != nil {
-			closeErr = c.NativeChannel.Close()
+		if c.Channel != nil {
+			closeErr = c.Channel.Close()
 		}
 		c.lease.release()
 	})
@@ -168,8 +180,8 @@ func (c *trackedChannel) Close() error {
 }
 
 // NewRouter claims the v2 tunnel namespace on transport.
-func NewRouter(transport *gizwebrtc.Conn, cfg Config) (*Router, error) {
-	if transport == nil {
+func NewRouter(transport giznet.ChannelConn, cfg Config) (*Router, error) {
+	if isNilTransport(transport) {
 		return nil, giznet.ErrNilConn
 	}
 	cfg = cfg.withDefaults()
@@ -185,9 +197,9 @@ func NewRouter(transport *gizwebrtc.Conn, cfg Config) (*Router, error) {
 		acceptCh:         make(chan acceptedSession, cfg.MaxPendingSessions),
 		closeCh:          make(chan struct{}),
 		channelAvailable: make(chan struct{}),
-		writeBudget:      gizwebrtc.NewWriteBudget(gizwebrtc.GatewaySCTPWriteBudgetSize),
+		writeBudget:      giznet.NewWriteBudget(uint64(cfg.MaxAssociationBufferedBytes)),
 	}
-	unregister, err := transport.RegisterNativeChannelHandler(LabelPrefix, router.handleNativeChannel)
+	unregister, err := transport.HandleChannels(LabelPrefix, router.handleChannel)
 	if err != nil {
 		return nil, err
 	}
@@ -195,8 +207,18 @@ func NewRouter(transport *gizwebrtc.Conn, cfg Config) (*Router, error) {
 	return router, nil
 }
 
+// isNilTransport also rejects a typed nil pointer stored in the interface,
+// which would otherwise pass a plain nil check and panic on first use.
+func isNilTransport(transport giznet.ChannelConn) bool {
+	if transport == nil {
+		return true
+	}
+	value := reflect.ValueOf(transport)
+	return value.Kind() == reflect.Pointer && value.IsNil()
+}
+
 // Dial establishes one Edge-declared logical session and waits for the Server
-// application result, not merely DCEP open.
+// application result, not merely the native channel open.
 func (r *Router) Dial(ctx context.Context, declaration SessionDeclaration) (*Conn, error) {
 	if ctx == nil {
 		return nil, errors.New("giztunnel: nil dial context")
@@ -226,7 +248,7 @@ func (r *Router) Dial(ctx context.Context, declaration SessionDeclaration) (*Con
 		return nil, err
 	}
 
-	control, err := r.transport.OpenNativeChannel(ctx, controlName, gizwebrtc.NativeChannelOptions{Ordered: true})
+	control, err := r.transport.OpenChannel(ctx, controlName, giznet.ChannelReliable)
 	if err != nil {
 		r.dropPending(declaration.SessionID, pending)
 		return nil, err
@@ -237,14 +259,10 @@ func (r *Router) Dial(ctx context.Context, declaration SessionDeclaration) (*Con
 		_ = control.Close()
 		return nil, giznet.ErrConnClosed
 	}
-	pending.control = &trackedChannel{NativeChannel: control, lease: pending.controlLease}
+	pending.control = &trackedChannel{Channel: control, lease: pending.controlLease}
 	r.mu.Unlock()
 
-	zero := uint16(0)
-	packet, err := r.transport.OpenNativeChannel(ctx, packetName, gizwebrtc.NativeChannelOptions{
-		Ordered:        false,
-		MaxRetransmits: &zero,
-	})
+	packet, err := r.transport.OpenChannel(ctx, packetName, giznet.ChannelUnreliable)
 	if err != nil {
 		r.dropPending(declaration.SessionID, pending)
 		return nil, err
@@ -255,7 +273,7 @@ func (r *Router) Dial(ctx context.Context, declaration SessionDeclaration) (*Con
 		_ = packet.Close()
 		return nil, giznet.ErrConnClosed
 	}
-	pending.packet = &trackedChannel{NativeChannel: packet, lease: pending.packetLease}
+	pending.packet = &trackedChannel{Channel: packet, lease: pending.packetLease}
 	r.mu.Unlock()
 
 	reset, err := setChannelDeadline(ctx, pending.control, r.cfg.HandshakeTimeout)
@@ -263,14 +281,8 @@ func (r *Router) Dial(ctx context.Context, declaration SessionDeclaration) (*Con
 		r.dropPending(declaration.SessionID, pending)
 		return nil, err
 	}
-	result := make([]byte, sessionResultHeaderSize+maxRejectReasonSize)
-	n, readErr := pending.control.Read(result)
+	status, reason, err := readSessionResult(pending.control)
 	reset()
-	if readErr != nil {
-		r.dropPending(declaration.SessionID, pending)
-		return nil, readErr
-	}
-	status, reason, err := decodeSessionResult(result[:n])
 	if err != nil {
 		r.dropPending(declaration.SessionID, pending)
 		return nil, err
@@ -335,7 +347,7 @@ func (r *Router) ActiveChannels() int {
 	return r.activeChannels
 }
 
-func (r *Router) handleNativeChannel(channel *gizwebrtc.NativeChannel) {
+func (r *Router) handleChannel(channel giznet.Channel) {
 	label, err := parseLabel(channel.Label())
 	if err != nil {
 		_ = channel.Close()
@@ -357,50 +369,48 @@ func (r *Router) handleNativeChannel(channel *gizwebrtc.NativeChannel) {
 	}
 }
 
-func channelOptionsMatch(kind labelKind, channel *gizwebrtc.NativeChannel) bool {
+func channelOptionsMatch(kind labelKind, channel giznet.Channel) bool {
 	if channel == nil {
 		return false
 	}
 	switch kind {
 	case labelPacket:
-		maxRetransmits := channel.MaxRetransmits()
-		return !channel.Ordered() && channel.MaxPacketLifeTime() == nil &&
-			maxRetransmits != nil && *maxRetransmits == 0
+		return channel.Reliability() == giznet.ChannelUnreliable
 	case labelControl, labelService:
-		return channel.Ordered() && channel.MaxPacketLifeTime() == nil && channel.MaxRetransmits() == nil
+		return channel.Reliability() == giznet.ChannelReliable
 	default:
 		return false
 	}
 }
 
-func (r *Router) handleControlChannel(label parsedLabel, native *gizwebrtc.NativeChannel) {
+func (r *Router) handleControlChannel(label parsedLabel, native giznet.Channel) {
 	declaration := SessionDeclaration{SessionID: label.session, ClientPublicKey: label.client, RemoteAddr: label.remote}
 	r.mu.Lock()
 	if !r.cfg.AcceptSessions {
 		r.mu.Unlock()
-		rejectNativeChannel(native, "remote session creation is disabled")
+		rejectChannel(native, "remote session creation is disabled")
 		return
 	}
 	if err := r.reservePendingLocked(declaration, false); err != nil {
 		r.mu.Unlock()
-		rejectNativeChannel(native, err.Error())
+		rejectChannel(native, err.Error())
 		return
 	}
 	pending := r.pending[label.session]
 	if pending.control != nil {
 		r.mu.Unlock()
-		rejectNativeChannel(native, "duplicate control channel")
+		rejectChannel(native, "duplicate control channel")
 		return
 	}
 	lease, err := r.reserveChannelLocked(label.session)
 	if err != nil {
 		r.mu.Unlock()
-		rejectNativeChannel(native, err.Error())
+		rejectChannel(native, err.Error())
 		r.dropPending(label.session, pending)
 		return
 	}
 	pending.controlLease = lease
-	pending.control = &trackedChannel{NativeChannel: native, lease: lease}
+	pending.control = &trackedChannel{Channel: native, lease: lease}
 	ready := pending.packet != nil
 	r.mu.Unlock()
 	if ready {
@@ -408,7 +418,7 @@ func (r *Router) handleControlChannel(label parsedLabel, native *gizwebrtc.Nativ
 	}
 }
 
-func (r *Router) handlePacketChannel(label parsedLabel, native *gizwebrtc.NativeChannel) {
+func (r *Router) handlePacketChannel(label parsedLabel, native giznet.Channel) {
 	r.mu.Lock()
 	if !r.cfg.AcceptSessions {
 		conn := r.sessions[label.session]
@@ -447,14 +457,14 @@ func (r *Router) handlePacketChannel(label parsedLabel, native *gizwebrtc.Native
 		control := pending.control
 		r.mu.Unlock()
 		if control != nil {
-			rejectNativeChannel(control.NativeChannel, err.Error())
+			rejectChannel(control.Channel, err.Error())
 		}
 		_ = native.Close()
 		r.dropPending(label.session, pending)
 		return
 	}
 	pending.packetLease = lease
-	pending.packet = &trackedChannel{NativeChannel: native, lease: lease}
+	pending.packet = &trackedChannel{Channel: native, lease: lease}
 	ready := pending.control != nil
 	r.mu.Unlock()
 	if ready {
@@ -462,7 +472,7 @@ func (r *Router) handlePacketChannel(label parsedLabel, native *gizwebrtc.Native
 	}
 }
 
-func (r *Router) handleServiceChannel(label parsedLabel, native *gizwebrtc.NativeChannel) {
+func (r *Router) handleServiceChannel(label parsedLabel, native giznet.Channel) {
 	r.mu.Lock()
 	conn := r.sessions[label.session]
 	if conn == nil || r.closed || !conn.applicationAccepted() {
@@ -476,7 +486,7 @@ func (r *Router) handleServiceChannel(label parsedLabel, native *gizwebrtc.Nativ
 		_ = native.Close()
 		return
 	}
-	tracked := &trackedChannel{NativeChannel: native, lease: lease}
+	tracked := &trackedChannel{Channel: native, lease: lease}
 	if err := conn.acceptRemoteService(label.service, label.channelID, tracked); err != nil {
 		_ = tracked.Close()
 	}
@@ -645,7 +655,7 @@ func (r *Router) acceptPending(id SessionID, pending *pendingSession) {
 	}
 }
 
-func rejectNativeChannel(channel *gizwebrtc.NativeChannel, reason string) {
+func rejectChannel(channel giznet.Channel, reason string) {
 	if len(reason) > maxRejectReasonSize {
 		reason = reason[:maxRejectReasonSize]
 	}
@@ -781,7 +791,7 @@ type Conn struct {
 	nextID         uint64
 	localParity    uint64
 	activeChannels atomic.Int64
-	writeBudget    *gizwebrtc.WriteBudget
+	writeBudget    *giznet.WriteBudget
 	admission      atomic.Uint32
 	admissionSlot  atomic.Bool
 	admissionMu    sync.Mutex
@@ -833,7 +843,7 @@ func newConn(
 		serviceCh:   make(chan acceptedService, router.cfg.ServiceQueueSize),
 		readCh:      make(chan directPacket, 256),
 		closeCh:     make(chan struct{}),
-		writeBudget: gizwebrtc.NewWriteBudget(uint64(router.cfg.MaxBufferedBytes)),
+		writeBudget: giznet.NewWriteBudget(uint64(router.cfg.MaxBufferedBytes)),
 	}
 	if initiator {
 		conn.admission.Store(admissionAccepted)
@@ -999,7 +1009,7 @@ func (c *Conn) DialContext(ctx context.Context, service uint64) (net.Conn, error
 		return nil, err
 	}
 	openCtx, cancelOpen := context.WithTimeout(ctx, serviceOpenTimeout)
-	native, err := c.router.transport.OpenNativeChannel(openCtx, label, gizwebrtc.NativeChannelOptions{Ordered: true})
+	native, err := c.router.transport.OpenChannel(openCtx, label, giznet.ChannelReliable)
 	cancelOpen()
 	if err != nil {
 		lease.release()
@@ -1010,7 +1020,7 @@ func (c *Conn) DialContext(ctx context.Context, service uint64) (net.Conn, error
 		lease.release()
 		return nil, err
 	}
-	stream := newServiceStream(c, id, service, &trackedChannel{NativeChannel: native, lease: lease})
+	stream := newServiceStream(c, id, service, &trackedChannel{Channel: native, lease: lease})
 	if err := c.addLocalStream(stream); err != nil {
 		_ = stream.Close()
 		return nil, err
@@ -1215,7 +1225,7 @@ func (c *Conn) acceptRemoteService(service, id uint64, channel *trackedChannel) 
 	if c.router.cfg.AllowRemoteService != nil && !c.router.cfg.AllowRemoteService(c.PublicKey(), service) {
 		return fmt.Errorf("%w: %d", ErrServiceForbidden, service)
 	}
-	if err := c.configureServiceWriteBudgets(channel.NativeChannel); err != nil {
+	if err := c.configureServiceWriteBudgets(channel.Channel); err != nil {
 		return err
 	}
 	c.mu.Lock()
@@ -1248,7 +1258,7 @@ func (c *Conn) acceptRemoteService(service, id uint64, channel *trackedChannel) 
 	return listener.enqueue(stream)
 }
 
-func (c *Conn) configureServiceWriteBudgets(channel *gizwebrtc.NativeChannel) error {
+func (c *Conn) configureServiceWriteBudgets(channel giznet.Channel) error {
 	if c == nil || channel == nil {
 		return giznet.ErrNilConn
 	}
@@ -1257,7 +1267,7 @@ func (c *Conn) configureServiceWriteBudgets(channel *gizwebrtc.NativeChannel) er
 		return ErrBufferLimit
 	}
 	return channel.SetWriteBudgets(
-		gizwebrtc.NewWriteBudget(perChannel),
+		giznet.NewWriteBudget(perChannel),
 		c.writeBudget,
 		c.router.writeBudget,
 	)
