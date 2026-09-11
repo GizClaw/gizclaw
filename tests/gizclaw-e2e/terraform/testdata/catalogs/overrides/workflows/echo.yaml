@@ -1,0 +1,11 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata: {id: tf-echo}
+spec:
+  driver: flowcraft
+  flowcraft:
+    graph:
+      name: tf-echo-override
+      entry: passthrough
+      nodes: [{id: passthrough, type: passthrough, publish: true}]
+      edges: [{from: passthrough, to: __end__}]

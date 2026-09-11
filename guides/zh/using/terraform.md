@@ -10,6 +10,7 @@
 | Provider source address | `gizclaw.local/gizclaw/gizclaw` |
 | Provider 版本 | 与 GizClaw Release 版本相同，例如 `v0.17.6` 对应 `0.17.6` |
 | 资源类型 | `gizclaw_resource` |
+| 数据源 | `gizclaw_catalog` |
 | 支持平台 | `darwin_amd64`、`darwin_arm64`、`linux_amd64`、`linux_arm64` |
 
 `gizclaw.local` 不是公开 registry。Terraform 只能从 filesystem mirror 或
@@ -144,6 +145,15 @@ resource "gizclaw_resource" "openai" {
 - 刷新时，Server 返回的 `spec` 与配置语义一致就保留配置中的写法；不一致时记录 Server 的值，
   下一次 plan 显示差异。`Credential` 的 `spec` 永远保留配置值，因为 Server 不返回密钥。环境变量
   占位符（包括 `${NAME:-default}`）按 apply 时的规则展开后与 Server 返回值相同即视为一致。
+- Tool 配置省略某个字段或设为 `null`，而 Server 返回该字段的默认值时视为一致：`enabled: true`、
+  空的 `http.headers`、`http.success_status_codes: [200]`，以及每个 `http.query` 与 `http.body`
+  binding 的 `required: true`。Server 返回配置值的规范化形式时同样视为一致：大写的
+  `http.method`、重新编码的 `http.url`、`http.timeout` 的规范写法（`60s` 保存为 `1m0s`）、
+  `http.headers` 与 `http.auth.header` 中的规范 header 名，以及排序去重后的
+  `http.success_status_codes`（空列表等同于 `[200]`）。其他值都会被记录，例如带外改成的
+  `enabled: false` 或新增的 header。
+- 除上述规则外，刷新按字面值比较。Server 会补默认值或规范化的其他字段需要写成规范化后的值，
+  否则每次 plan 都显示变化。
 - Delete 调用 Admin delete；资源已不存在时视为成功。
 - Import 使用 `<kind>/<resource_id>`：`terraform import gizclaw_resource.openai Credential/openai-main`。
   Import 不会写入 `spec`，下一次 apply 会用配置中的 `spec` 覆盖 Server 上的值。
@@ -153,3 +163,58 @@ State schema 版本为 1。版本 0 的 state 使用 `name` 表示资源 ID，pr
 
 `gizclaw_resource` 的 Terraform state 保存 `spec`，其中可能包含展开前的 secret 占位符或明文
 secret。State backend 需要按 secret 存储管理。
+
+## `gizclaw_catalog`
+
+`gizclaw_catalog` 把分层的本地 manifest 目录解析为产品定义选中的 Admin Resource。它只读取本地
+文件，不发送 Admin 请求，也不建立 Server 连接；provider 块在配置阶段仍会加载 context。
+
+```hcl
+data "gizclaw_catalog" "selected" {
+  sources         = ["${path.root}/catalogs/upstream", "${path.root}/catalogs/overrides"]
+  product_sources = ["${path.root}/products/default"]
+}
+
+resource "gizclaw_resource" "workflows" {
+  for_each    = data.gizclaw_catalog.selected.workflows
+  kind        = jsondecode(each.value).kind
+  resource_id = jsondecode(each.value).metadata.id
+  spec        = jsonencode(jsondecode(each.value).spec)
+}
+```
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `sources` | required | 可复用的 catalog 目录，按优先级从低到高排列。 |
+| `product_sources` | required | 包含 RuntimeProfile 与 RegistrationToken manifest 的产品目录。 |
+| `credentials`、`tenants`、`voices`、`models`、`memory_layouts`、`workflows`、`firmwares`、`runtime_profiles`、`registration_tokens` | computed | 以 `<Kind>/<id>` 为 key、以选中 manifest 的 JSON 编码为值的 map。 |
+| `raids` | computed | 以 raid ID 为 key、以选中 `raid.json` 原始字节为值的 map。 |
+| `overridden_ids` | computed | 在多个 `sources` 中出现的 `<Kind>/<id>` 集合。 |
+
+catalog source 可以包含 `credentials/`、`tenants/`、`voices/`、`models/`、`memory-layouts/`、
+`workflows/`、`firmwares/` 与 `runtime-profiles/`；product source 只能包含 `runtime-profiles/` 与
+`registration-tokens/`，且 manifest 的 kind 必须与目录一致。这些目录下的所有 `.yaml` 与 `.yml`
+文件都会被读取。每个 manifest 必须包含 `apiVersion`、`kind`、`metadata.id` 与 `spec`；
+`metadata.id` 遵守 `gizclaw_resource` 的 caller-defined ID 规则，`metadata.name` 会被拒绝。
+
+解析规则：
+
+- 后面 source 中的 `<Kind>/<id>` 替换前面 source 中的同名资源，并列入 `overridden_ids`。同一个
+  source 重复定义同一 `<Kind>/<id>`，或 product source 定义已存在的 `<Kind>/<id>`，都会让读取失败。
+- 选择从所有产品 manifest 开始。RegistrationToken 选中 `spec.runtime_profile_id` 指向的
+  RuntimeProfile（可以来自 catalog source），设置了 `spec.firmware_id` 时再选中对应 Firmware。
+  RuntimeProfile 选中 `spec.workflows.collections` 中绑定的 Workflow、`spec.resources.models` 与
+  `spec.resources.voices` 中绑定的 Model 与 Voice，以及 `spec.resources.memories.*.layout_id`
+  指向的 MemoryLayout。Workflow 选中 `spec.memory` 指向的 MemoryLayout，Model 或 Voice 选中
+  `spec.provider.id` 指向的 Tenant，Tenant 选中 `spec.credential_id` 指向的 Credential。
+- catalog source 的 `workflows/` 下的 `raid.json`，在其任一 `implementations.*.workflow_id`
+  Workflow 被选中时被选中，同时选中它的 `tester.workflow_id` Workflow。同一 raid ID 以后面的
+  source 为准。
+- 引用缺失或无效会让读取失败；选中的 RuntimeProfile 含有 `spec.gameplay`、
+  `spec.workflows.system` 或 `spec.resources.pet_defs`、`game_defs`、`badge_defs`，或选中的
+  Workflow 的 `spec.driver` 为 `pet`，也会失败。
+
+每个 manifest 值都是紧凑 JSON，字段为 `apiVersion`、`kind`、`metadata.id` 与 `spec`，`spec`
+中的 object key 按字典序排列。`${NAME}` 占位符按原样保留，由 `gizclaw_resource` 在 apply 时展开。
+YAML 按 YAML 1.1 标量规则解码，未加引号的 `yes`、`on` 会变成 `true`。这些值不是 sensitive，
+secret 应写成占位符，而不是写进 catalog 文件。

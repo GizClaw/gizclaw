@@ -1,0 +1,6 @@
+{
+  "schema": "raids.raid/v1alpha1",
+  "id": "tf-demo-raid",
+  "implementations": {"flowcraft": {"workflow_id": "tf-raid-flowcraft"}},
+  "tester": {"workflow_id": "tf-raid-test"}
+}

@@ -98,7 +98,7 @@ func (p *gizclawProvider) Resources(context.Context) []func() resource.Resource 
 }
 
 func (p *gizclawProvider) DataSources(context.Context) []func() datasource.DataSource {
-	return nil
+	return []func() datasource.DataSource{newCatalogDataSource}
 }
 
 func stringOrEnv(value types.String, env string) string {

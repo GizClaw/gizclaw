@@ -385,6 +385,10 @@ func observedSubsetOfConfigured(kind string, fieldPath []string, configured, obs
 			}
 			return true
 		}
+		configuredValue, ok = toolCanonicalHeaders(kind, fieldPath, configuredValue)
+		if !ok {
+			return false
+		}
 		for key, configuredEntry := range configuredValue {
 			observedEntry, ok := observedValue[key]
 			childPath := append(fieldPath, key)
@@ -393,6 +397,9 @@ func observedSubsetOfConfigured(kind string, fieldPath []string, configured, obs
 					continue
 				}
 				return false
+			}
+			if configuredEntry == nil && toolObservedDefault(kind, childPath, observedEntry) {
+				continue
 			}
 			if !observedSubsetOfConfigured(
 				kind,
@@ -403,15 +410,20 @@ func observedSubsetOfConfigured(kind string, fieldPath []string, configured, obs
 				return false
 			}
 		}
-		for key := range observedValue {
-			if _, configured := configuredValue[key]; !configured {
+		for key, observedEntry := range observedValue {
+			if _, configured := configuredValue[key]; !configured &&
+				!toolObservedDefault(kind, append(fieldPath, key), observedEntry) {
 				return false
 			}
 		}
 		return true
 	case []any:
 		configuredValue, ok := configured.([]any)
-		if !ok || len(configuredValue) != len(observedValue) {
+		if !ok {
+			return false
+		}
+		configuredValue = toolNormalizedSuccessStatusCodes(kind, fieldPath, configuredValue)
+		if len(configuredValue) != len(observedValue) {
 			return false
 		}
 		for index := range observedValue {
@@ -430,7 +442,8 @@ func observedSubsetOfConfigured(kind string, fieldPath []string, configured, obs
 		if !ok {
 			return false
 		}
-		if expandedEnvironmentValueMatches(configuredValue, observedValue) {
+		if expandedEnvironmentValueMatches(configuredValue, observedValue) ||
+			toolNormalizedStringMatches(kind, fieldPath, configuredValue, observedValue) {
 			return true
 		}
 		if memoryLayoutCustomInstructionsPath(kind, fieldPath) {

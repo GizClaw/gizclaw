@@ -74,6 +74,7 @@ require (
 	google.golang.org/genai v1.68.0
 	google.golang.org/protobuf v1.36.12
 	modernc.org/sqlite v1.57.0
+	sigs.k8s.io/yaml v1.6.0
 )
 
 require (
@@ -284,6 +285,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.28.0 // indirect
 	go.uber.org/zap/exp v0.3.0 // indirect
+	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/arch v0.11.0 // indirect
 	golang.org/x/exp v0.0.0-20260709172345-9ea1abe57597 // indirect
