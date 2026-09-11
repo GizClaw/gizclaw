@@ -109,13 +109,19 @@ stream; only then may the allocator assign that identifier to a new DataChannel.
 This reuses the finite identifier space, not the channel or RPC stream.
 
 The root Go module temporarily replaces `github.com/pion/sctp` and
-`github.com/pion/webrtc/v4` with immutable GizClaw fork pseudo-versions that
-report completed stream resets and release DataChannel identifiers. Go does not
+`github.com/pion/webrtc/v4` with pseudo-versions of the `gizclaw` integration
+branch of GizClaw/pion-sctp and GizClaw/pion-webrtc. Each fork keeps `main` as
+an upstream mirror and one `fix/*` branch per upstream pull request. The forks
+report completed stream resets, release DataChannel identifiers, and read each
+accepted stream's DCEP OPEN outside the SCTP accept loop with a 10-second
+deadline, so a lost or delayed OPEN cannot stop later DataChannels from being
+accepted. To move a pin, replace the module with `@gizclaw` and run
+`go mod tidy`, which records that branch head as a pseudo-version. Go does not
 propagate a dependency module's `replace` directives, so executables that
 consume GizClaw as a module must mirror both replacements until upstream
-releases contain both fixes. The replacements must be removed together after
-those releases are selected and the reset/reuse integration and race tests pass
-without the forks.
+releases contain these fixes. The replacements must be removed together after
+those releases are selected and the reset/reuse, DataChannel accept, and race
+tests pass without the forks.
 
 Each live service stream lazily allocates a 32 KiB detached-DataChannel message
 buffer on its first read and reuses it for subsequent reads. If SCTP reports a

@@ -2,9 +2,9 @@ module github.com/GizClaw/gizclaw-go
 
 go 1.26.4
 
-replace github.com/pion/sctp => github.com/GizClaw/pion-sctp v0.0.0-20260907061509-d1608eb71478
+replace github.com/pion/sctp => github.com/GizClaw/pion-sctp v0.0.0-20260911153715-01fa7f6a297a
 
-replace github.com/pion/webrtc/v4 => github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260807105346-69086b0b86b0
+replace github.com/pion/webrtc/v4 => github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260911150935-41dcf7a741ef
 
 require (
 	cloud.google.com/go/storage v1.64.0
@@ -48,13 +48,13 @@ require (
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/openai/openai-go v1.12.0
 	github.com/pion/datachannel v1.6.2
-	github.com/pion/ice/v4 v4.4.1
-	github.com/pion/interceptor v0.1.47
+	github.com/pion/ice/v4 v4.4.2
+	github.com/pion/interceptor v0.1.48
 	github.com/pion/logging v0.2.4
 	github.com/pion/rtp v1.10.5
 	github.com/pion/sdp/v3 v3.0.19
 	github.com/pion/turn/v4 v4.1.4
-	github.com/pion/webrtc/v4 v4.2.18
+	github.com/pion/webrtc/v4 v4.2.20
 	github.com/prometheus/client_golang v1.24.1
 	github.com/prometheus/prometheus v0.314.0
 	github.com/redis/go-redis/v9 v9.20.0
@@ -218,15 +218,16 @@ require (
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/pierrec/lz4/v4 v4.1.27 // indirect
-	github.com/pion/dtls/v3 v3.1.5 // indirect
-	github.com/pion/mdns/v2 v2.1.0 // indirect
+	github.com/pion/dtls/v3 v3.1.8 // indirect
+	github.com/pion/mdns/v2 v2.2.0 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.17 // indirect
 	github.com/pion/sctp v1.11.1 // indirect
-	github.com/pion/srtp/v3 v3.0.13 // indirect
+	github.com/pion/srtp/v3 v3.0.15 // indirect
 	github.com/pion/stun/v3 v3.1.6 // indirect
+	github.com/pion/stun/v4 v4.0.0 // indirect
 	github.com/pion/transport/v4 v4.1.0 // indirect
-	github.com/pion/turn/v5 v5.0.12 // indirect
+	github.com/pion/turn/v5 v5.1.1 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect

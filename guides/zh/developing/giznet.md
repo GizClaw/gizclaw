@@ -98,12 +98,16 @@ SCTP 的 outgoing reset 在同一 association 上一次只发送一个待确认�
 `In progress` 响应不会提前发送下一批。这避免并发关闭时 reset 乱序被拒绝后遗留远端流，
 也避免大批关闭生成超出默认 MTU 的 reset 包。
 
-根 Go module 暂时把 `github.com/pion/sctp` 和 `github.com/pion/webrtc/v4` replace 到固定的
-GizClaw fork pseudo-version，用于报告已完成的 stream reset 并释放 DataChannel ID。Go 不会
-向下游传播依赖 module 的 `replace`，因此把 GizClaw 作为 module 使用的 executable 在上游
-release 同时包含这两项修复前，也必须复制这两条 replacement。选择包含两项修复的上游
-release，并在不使用 fork 时通过 reset/reuse integration test 和 race test 后，才能同时移除
-两条 replacement。
+根 Go module 暂时把 `github.com/pion/sctp` 和 `github.com/pion/webrtc/v4` replace 到
+GizClaw/pion-sctp 与 GizClaw/pion-webrtc 的 `gizclaw` 集成分支的 pseudo-version。两个 fork
+的 `main` 只镜像上游，每个上游 pull request 对应一个 `fix/*` 分支。fork 报告已完成的
+stream reset、释放 DataChannel ID，并在 SCTP accept loop 之外为每个已接受的 stream 读取
+DCEP OPEN，最长等待 10 秒，因此丢失或延迟的 OPEN 不会阻止后续 DataChannel 被接受。
+更新 pin 时把 module replace 到 `@gizclaw` 并运行 `go mod tidy`，它会把该分支当前 head
+记录为 pseudo-version。Go 不会向下游传播依赖 module 的 `replace`，因此把 GizClaw 作为
+module 使用的 executable 在上游 release 包含这些修复前，也必须复制这两条 replacement。
+选择包含这些修复的上游 release，并在不使用 fork 时通过 reset/reuse、DataChannel accept
+和 race test 后，才能同时移除两条 replacement。
 
 Service stream 在首次读取时惰性分配 32 KiB detached-DataChannel message
 buffer，之后的读取重复使用它。如果 SCTP 报告当前排队 message 更大，该 stream
