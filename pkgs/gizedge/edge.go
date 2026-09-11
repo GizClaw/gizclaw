@@ -280,12 +280,33 @@ func upstreamSignalingURL(upstreamURL *url.URL) string {
 	return next.String()
 }
 
+// maxConcurrentUpstreamRequests bounds the service streams the Edge opens
+// concurrently on one upstream Server association: forwarded HTTP requests and
+// route-resolution RPCs share it. Every such request opens a fresh service
+// DataChannel, and the Server accepts inbound DataChannels through a single
+// serial loop fed by pion-sctp's accept queue, which holds 16 streams and
+// silently drops the DATA of any new stream beyond that. A dropped open only
+// recovers through SCTP T3 retransmission with exponential backoff, and a
+// burst that starves the receive window can wedge the accept loop for good.
+// The bound is 15 so that, together with the single-flight liveness probe,
+// which bypasses it so a saturated bound cannot fail the probe and evict a
+// healthy association, at most 16 opens are in flight: the accept queue cannot
+// overflow regardless of packet timing, and stays far below the receive window
+// provisioned for GatewaySCTPReceiveBufferSize. Burst tests showed a bound of
+// 64 failed as badly as no bound, because slots held by requests waiting on
+// retransmission starved the queued requests. Excess requests wait for a slot
+// or fail with their context rather than piling onto SCTP.
+const maxConcurrentUpstreamRequests = 15
+
 type upstreamTransport struct {
 	ctx         context.Context
 	cfg         Config
 	upstreamURL *url.URL
 	relay       *upstreamRelaySelector
 	liveness    upstreamLivenessConfig
+
+	semOnce sync.Once
+	sem     chan struct{}
 
 	mu           sync.Mutex
 	conn         giznet.Conn
@@ -300,6 +321,37 @@ type upstreamTransport struct {
 	probeKick    chan struct{}
 	monitorStop  chan struct{}
 	monitorDone  chan struct{}
+}
+
+// acquireSlot reserves one concurrent-request slot on this upstream. It returns
+// a release function that must be called exactly once when the forwarded
+// request (including its streamed response body) is done. A canceled transport
+// lifetime rejects acquisition even when a slot is free. The request context
+// only bounds the wait: a free slot is always taken, so a request that is
+// already canceled still reaches the round trip's stale-connection handling.
+func (t *upstreamTransport) acquireSlot(ctx context.Context) (func(), error) {
+	t.semOnce.Do(func() { t.sem = make(chan struct{}, maxConcurrentUpstreamRequests) })
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if t.ctx != nil {
+		if err := t.ctx.Err(); err != nil {
+			return nil, err
+		}
+	}
+	select {
+	case t.sem <- struct{}{}:
+	default:
+		select {
+		case t.sem <- struct{}{}:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-t.contextDone():
+			return nil, t.ctx.Err()
+		}
+	}
+	var once sync.Once
+	return func() { once.Do(func() { <-t.sem }) }, nil
 }
 
 func newUpstreamTransport(
@@ -488,6 +540,23 @@ func (t *upstreamTransport) evictConn(epoch uint64) bool {
 }
 
 func (t *upstreamTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	release, err := t.acquireSlot(req.Context())
+	if err != nil {
+		return nil, err
+	}
+	resp, err := t.roundTripWithRetry(req)
+	if err != nil {
+		release()
+		return nil, err
+	}
+	// Hold the slot until the streamed response body is closed: the upstream
+	// service DataChannel stays open for the whole response, so concurrency is
+	// bounded by in-flight requests, not just by RoundTrip calls in progress.
+	resp.Body = &releaseReadCloser{ReadCloser: resp.Body, release: release}
+	return resp, nil
+}
+
+func (t *upstreamTransport) roundTripWithRetry(req *http.Request) (*http.Response, error) {
 	resp, conn, epoch, err := t.roundTrip(req)
 	if err == nil {
 		return resp, nil
@@ -507,6 +576,19 @@ func (t *upstreamTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 	resp, _, _, err = t.roundTrip(req)
 	return resp, err
+}
+
+// releaseReadCloser releases the upstream concurrency slot once, after the
+// wrapped response body is closed.
+type releaseReadCloser struct {
+	io.ReadCloser
+	release func()
+}
+
+func (r *releaseReadCloser) Close() error {
+	err := r.ReadCloser.Close()
+	r.release()
+	return err
 }
 
 func upstreamDiscoveryTimedOut(req *http.Request, err error) bool {
