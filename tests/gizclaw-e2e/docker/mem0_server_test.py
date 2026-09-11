@@ -103,5 +103,44 @@ class ConfigurationTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "positive integer"):
                 mem0_server._build_memory()
 
+
+class EntityBulkEndpointTest(unittest.TestCase):
+    def setUp(self):
+        self.memory = mock.Mock()
+        patcher = mock.patch.object(mem0_server, "_memory", self.memory)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_list_memories_filters_by_entity(self):
+        self.memory.get_all.return_value = {"results": [{"id": "fact"}]}
+        result = mem0_server.list_memories(
+            user_id="gizclaw-scope-v1:encoded", top_k=1
+        )
+        self.assertEqual(result, {"results": [{"id": "fact"}]})
+        self.memory.get_all.assert_called_once_with(
+            filters={"user_id": "gizclaw-scope-v1:encoded"}, top_k=1
+        )
+
+    def test_delete_memories_deletes_one_entity(self):
+        result = mem0_server.delete_memories(user_id="gizclaw-scope-v1:encoded")
+        self.assertIn("message", result)
+        self.memory.delete_all.assert_called_once_with(
+            user_id="gizclaw-scope-v1:encoded"
+        )
+
+    def test_bulk_endpoints_reject_empty_and_wildcard_entities(self):
+        for call in (
+            lambda: mem0_server.list_memories(top_k=10),
+            lambda: mem0_server.delete_memories(),
+            lambda: mem0_server.list_memories(user_id="*", top_k=10),
+            lambda: mem0_server.delete_memories(user_id="*"),
+        ):
+            with self.assertRaises(mem0_server.HTTPException) as raised:
+                call()
+            self.assertEqual(raised.exception.status_code, 400)
+        self.memory.get_all.assert_not_called()
+        self.memory.delete_all.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

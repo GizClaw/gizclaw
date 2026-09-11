@@ -124,8 +124,18 @@ func openMemoryPurgeStore(t *testing.T, provider string) memory.Store {
 			t.Fatal(err)
 		}
 		return store
+	case "mem0-self-hosted":
+		store, err := memorymem0.New(memorymem0.Config{
+			Endpoint: requiredEnvironment(t, "GIZCLAW_MEM0_SELF_HOSTED_URL"),
+			APIKey:   strings.TrimSpace(os.Getenv("GIZCLAW_MEM0_SELF_HOSTED_API_KEY")),
+			Flavor:   memorymem0.SelfHosted,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return store
 	default:
-		t.Fatalf("GIZCLAW_MEMORY_PROVIDER must be volc-mem0 or mem0-platform, got %q", provider)
+		t.Fatalf("GIZCLAW_MEMORY_PROVIDER must be volc-mem0, mem0-platform, or mem0-self-hosted, got %q", provider)
 		return nil
 	}
 }

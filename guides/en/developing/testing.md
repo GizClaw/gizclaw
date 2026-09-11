@@ -125,29 +125,55 @@ without a live account is not passing live evidence.
 ### Remote Memory scope purge
 
 The same tagged package contains `TestMemoryScopePurge`, which checks the
-Workspace deletion memory purge against a live remote provider. Select it with
-`GIZCLAW_MEMORY_PROVIDER` set to `volc-mem0` or `mem0-platform`:
+Workspace deletion memory purge against a live Mem0-family provider. Select it
+with `GIZCLAW_MEMORY_PROVIDER`:
+
+| Provider | Required variables | Optional |
+| --- | --- | --- |
+| `volc-mem0` | `GIZCLAW_VOLC_MEM0_ENDPOINT`, `GIZCLAW_VOLC_MEM0_API_KEY` | |
+| `mem0-self-hosted` | `GIZCLAW_MEM0_SELF_HOSTED_URL` | `GIZCLAW_MEM0_SELF_HOSTED_API_KEY` |
+| `mem0-platform` | `GIZCLAW_MEM0_API_KEY` | `GIZCLAW_MEM0_ENDPOINT` (default `https://api.mem0.ai`) |
 
 ```sh
-GIZCLAW_MEMORY_PROVIDER=volc-mem0 GIZCLAW_VOLC_MEM0_ENDPOINT=https://... GIZCLAW_VOLC_MEM0_API_KEY=...   go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
-
-GIZCLAW_MEMORY_PROVIDER=mem0-platform GIZCLAW_MEM0_API_KEY=...   go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
+GIZCLAW_MEMORY_PROVIDER=volc-mem0 \
+GIZCLAW_VOLC_MEM0_ENDPOINT=https://... GIZCLAW_VOLC_MEM0_API_KEY=... \
+  go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
 ```
 
-`GIZCLAW_MEM0_ENDPOINT` is optional and defaults to `https://api.mem0.ai`. The
-Volc data-plane key selects the memory project, so use a key of a dedicated test
-project; no project ID or AccessKey is needed. An unset provider skips the test;
-an unknown provider or a missing required variable fails before any request, and
-provider errors or timeouts fail rather than skip. Each
-run writes a direct Fact to two generated Workspace IDs and submits an
-extraction job for the first, purges the first while the job may still run, waits
-for the job to finish, and repeats purge and verification the way Workspace
-deletion retries `memory_residual`. It then fails if the first Workspace gains a
-late Fact during a settle interval or if the second Workspace lost its Fact. The
-generated `gizclaw-e2e-purge-<unix-nanos>-a`/`-b` Workspace IDs bound through
-`memory.BindApp` are the only scopes the test touches, and cleanup purges both
-until verification reports empty, also after a failure. The log records how many purge rounds
-verification needed.
+The Volc data-plane key selects the memory project, so use a key of a dedicated
+test project; no project ID or AccessKey is needed. The self-hosted lane targets
+the repository's Mem0 OSS service (`tests/gizclaw-e2e/docker/Dockerfile.mem0`,
+`mem0ai 2.0.3`), which serves the standard entity-scoped `GET /memories` and
+`DELETE /memories` routes and reads its model key from a mounted
+`tests/gizclaw-e2e/.env`:
+
+```sh
+docker build -f tests/gizclaw-e2e/docker/Dockerfile.mem0 -t gizclaw-mem0 .
+docker run -d --rm -p 127.0.0.1:18000:8000 \
+  -v "$PWD/tests/gizclaw-e2e/.env:/run/gizclaw-e2e.env:ro" gizclaw-mem0
+GIZCLAW_MEMORY_PROVIDER=mem0-self-hosted GIZCLAW_MEM0_SELF_HOSTED_URL=http://127.0.0.1:18000 \
+  go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
+```
+
+An unset provider skips the test; an unknown provider or a missing required
+variable fails before any request, and provider errors or timeouts fail rather
+than skip. Each run writes a direct Fact to two generated Workspace IDs and
+submits an extraction for the first, purges the first while an asynchronous job
+may still run, waits for the job to finish, and repeats purge and verification
+the way Workspace deletion retries `memory_residual`. It then fails if the first
+Workspace gains a late Fact during a settle interval or if the second Workspace
+lost its Fact. The generated `gizclaw-e2e-purge-<unix-nanos>-a`/`-b` Workspace IDs
+bound through `memory.BindApp` are the only scopes the test touches, and cleanup
+purges both until verification reports empty, also after a failure. The log
+records how many purge rounds verification needed.
+
+Flowcraft purge is covered without a provider account: the PostgreSQL job runs
+`TestPostgreSQLFlowcraftMemoryPurge`, which purges a `flowcraft_postgresql`
+binding's canonical facts, retrieval index, and queued extraction job through
+`memorystore.Registry` and keeps another Workspace's memory. The Redis 8 lane is
+`FLOWCRAFT_REDIS8_URL=redis://... go test ./pkgs/store/memory/flowcraft/redis8`,
+which needs Redis 8.4 or later.
+
 
 ## Credential-backed harness contract
 
