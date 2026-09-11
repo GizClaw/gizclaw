@@ -77,7 +77,11 @@ void main() {
           ),
         ),
       ),
-      {'result': 'SOCIAL_PING_RESULT_RATE_LIMITED', 'retry_after_seconds': 42},
+      {
+        'result': 'SOCIAL_PING_RESULT_RATE_LIMITED',
+        'delivered_count': 0,
+        'retry_after_seconds': 42,
+      },
     );
     expect(
       camelToSnakeKeys(
@@ -96,6 +100,53 @@ void main() {
       {
         'items': [
           {'peer_public_key': 'peer-a', 'display_name': 'Carol', 'emoji': '🐱'},
+        ],
+      },
+    );
+  });
+
+  test('responses emit implicit-presence defaults like Go and JavaScript', () {
+    // Go protojson EmitUnpopulated and the JavaScript alwaysEmitImplicit
+    // projection both render unset scalars, enums, repeated fields and maps.
+    // proto3 optional, oneof and message fields stay absent.
+    expect(camelToSnakeKeys(unwrapValueMessage(AppConfigListResponse())), {
+      'keys': <Object?>[],
+      'has_next': false,
+      'runtime_profile_name': '',
+      'runtime_profile_revision': '',
+    });
+    expect(
+      camelToSnakeKeys(
+        unwrapValueMessage(
+          WorkspaceHistoryListResponse(value: PeerRunHistoryListResponse()),
+        ),
+      ),
+      {'available': false, 'has_next': false, 'items': <Object?>[]},
+    );
+    expect(camelToSnakeKeys(unwrapValueMessage(FriendPingResponse())), {
+      'result': 'SOCIAL_PING_RESULT_UNSPECIFIED',
+      'delivered_count': 0,
+    });
+    expect(
+      camelToSnakeKeys(
+        unwrapValueMessage(WorkspaceHistoryAudioDownloadResponse()),
+      ),
+      {
+        'history_name': '',
+        'mime_type': '',
+        'size_bytes': '0',
+        'workspace_name': '',
+      },
+    );
+    expect(
+      camelToSnakeKeys(
+        unwrapValueMessage(
+          ProfileGetResponse(items: [PublicProfile(emoji: '🐱')]),
+        ),
+      ),
+      {
+        'items': [
+          {'peer_public_key': '', 'emoji': '🐱'},
         ],
       },
     );
