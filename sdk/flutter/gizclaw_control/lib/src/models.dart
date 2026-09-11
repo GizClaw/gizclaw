@@ -890,6 +890,156 @@ class DeviceRuntimeProfileWorkflow {
   JsonObject toJson() => {'name': name};
 }
 
+/// One Workspace owned by the bound device (`DeviceWorkspace`), such as the
+/// save of one game.
+///
+/// The Workflow is identified only by [collection] and [workflowName], the
+/// names [DeviceRuntimeProfile] lists; the Server never returns its Admin
+/// Workflow ID.
+class DeviceWorkspace {
+  const DeviceWorkspace({
+    required this.id,
+    required this.name,
+    this.collection,
+    this.workflowName,
+    required this.available,
+    required this.system,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.lastActiveAt,
+  });
+
+  factory DeviceWorkspace.fromJson(Object? json) {
+    final object = asJsonObject(json, 'DeviceWorkspace');
+    return DeviceWorkspace(
+      id: readString(object, 'id'),
+      name: readString(object, 'name'),
+      collection: readOptionalString(object, 'collection'),
+      workflowName: readOptionalString(object, 'workflow_name'),
+      available: readBool(object, 'available'),
+      system: readBool(object, 'system'),
+      createdAt: readDateTime(object, 'created_at'),
+      updatedAt: readDateTime(object, 'updated_at'),
+      lastActiveAt: readDateTime(object, 'last_active_at'),
+    );
+  }
+
+  /// Workspace ID addressed by the history, audio, and delete routes.
+  final String id;
+
+  /// Workspace name the device uses with `server.workspace.*`.
+  final String name;
+
+  /// Workflow collection the Workspace was created in, or `null` when it
+  /// carries none, such as a system Workspace.
+  final String? collection;
+
+  /// Workflow name in [collection] of the current RuntimeProfile, or `null`
+  /// when the Workflow no longer resolves.
+  final String? workflowName;
+
+  /// Whether [workflowName] resolves in the current RuntimeProfile.
+  final bool available;
+
+  final bool system;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime lastActiveAt;
+
+  JsonObject toJson() => withoutNulls({
+    'id': id,
+    'name': name,
+    'collection': collection,
+    'workflow_name': workflowName,
+    'available': available,
+    'system': system,
+    'created_at': encodeDateTime(createdAt),
+    'updated_at': encodeDateTime(updatedAt),
+    'last_active_at': encodeDateTime(lastActiveAt),
+  });
+}
+
+/// Ordering of [GizClawControlClient.listDeviceWorkspaceHistory].
+enum WorkspaceHistoryOrder {
+  asc('asc'),
+  desc('desc');
+
+  const WorkspaceHistoryOrder(this.wireValue);
+
+  /// Value sent on the wire.
+  final String wireValue;
+}
+
+/// One page of Workspace chat history (`PeerRunHistoryListResponse`).
+class WorkspaceHistoryPage {
+  const WorkspaceHistoryPage({
+    required this.available,
+    required this.items,
+    required this.hasNext,
+    this.nextCursor,
+    this.message,
+  });
+
+  factory WorkspaceHistoryPage.fromJson(Object? json) {
+    final object = asJsonObject(json, 'PeerRunHistoryListResponse');
+    return WorkspaceHistoryPage(
+      available: readBool(object, 'available'),
+      items: readList(object, 'items', WorkspaceHistoryEntry.fromJson),
+      hasNext: readBool(object, 'has_next'),
+      nextCursor: readOptionalString(object, 'next_cursor'),
+      message: readOptionalString(object, 'message'),
+    );
+  }
+
+  final bool available;
+  final List<WorkspaceHistoryEntry> items;
+  final bool hasNext;
+
+  /// Cursor for the next page in the same order, or `null` on the last page.
+  final String? nextCursor;
+  final String? message;
+}
+
+/// One persisted history entry (`PeerRunHistoryEntry`).
+class WorkspaceHistoryEntry {
+  const WorkspaceHistoryEntry({
+    required this.name,
+    required this.type,
+    this.gearId,
+    required this.actorName,
+    required this.text,
+    required this.createdAt,
+    required this.replayAvailable,
+  });
+
+  factory WorkspaceHistoryEntry.fromJson(Object? json) {
+    final object = asJsonObject(json, 'PeerRunHistoryEntry');
+    return WorkspaceHistoryEntry(
+      name: readString(object, 'name'),
+      type: readString(object, 'type'),
+      gearId: readOptionalString(object, 'gear_id'),
+      actorName: readString(object, 'actor_name'),
+      text: readString(object, 'text'),
+      createdAt: readDateTime(object, 'created_at'),
+      replayAvailable: readBool(object, 'replay_available'),
+    );
+  }
+
+  /// Entry ID; the `historyId` of the audio routes and a valid cursor.
+  final String name;
+
+  /// `gear` for input from a device or `agent` for an Agent reply.
+  final String type;
+  final String? gearId;
+  final String actorName;
+  final String text;
+  final DateTime createdAt;
+
+  /// Whether the entry kept replayable media. It does not guarantee that Ogg
+  /// audio exists.
+  final bool replayAvailable;
+}
+
 /// Body of `POST /gizclaw/v1/device/actions/firmware-update`.
 class DeviceFirmwareUpdateRequest {
   const DeviceFirmwareUpdateRequest({this.channel, this.sha256});

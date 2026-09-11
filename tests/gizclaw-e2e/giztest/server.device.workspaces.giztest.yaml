@@ -1,0 +1,172 @@
+# User Story:
+# As a GizClaw API key holder,
+# I want to list my device's Workspaces by collection and workflow name and delete one over Public HTTP,
+# So that a controller app can show each game's saves and restart a game without ever seeing Admin Workflow IDs.
+version: gizclaw.test/v1alpha1
+name: server.device.workspaces
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+  other:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+  other_key:
+    direction: output
+    type: string
+    secret: true
+  workspace_id:
+    direction: output
+    type: string
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_workspace
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${resource_name}"
+      collection: assistants
+      workflow_name: flowcraft-chat-assistant
+      parameters:
+        flowcraft_workspace_parameters:
+          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+- id: list_by_workflow
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/workspaces?collection=assistants&workflow_name=flowcraft-chat-assistant
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  capture:
+    workspace_id: /0/id
+  expect:
+    "": {count: 1}
+    /0/id: {non_empty: true}
+    /0/name: {equals: "${resource_name}"}
+    /0/collection: {equals: assistants}
+    /0/workflow_name: {equals: flowcraft-chat-assistant}
+    /0/available: {equals: true}
+    /0/system: {equals: false}
+    /0/created_at: {non_empty: true}
+    /0/updated_at: {non_empty: true}
+    /0/last_active_at: {non_empty: true}
+    /0/workflow_id: {present: false}
+- id: list_other_workflow
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/workspaces?workflow_name=missing-workflow
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  expect:
+    "": {count: 0}
+- id: register_other
+  client: other
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_other_key
+  client: other
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}-other"
+  capture:
+    other_key: /api_key
+- id: foreign_delete
+  client: other
+  http:
+    method: DELETE
+    path: /gizclaw/v1/device/workspaces/${workspace_id}
+    headers:
+      Authorization: "Bearer ${other_key}"
+    status: 404
+  expect:
+    /error/code: {equals: WORKSPACE_NOT_FOUND}
+- id: delete_workspace
+  client: peer
+  http:
+    method: DELETE
+    path: /gizclaw/v1/device/workspaces/${workspace_id}
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 202
+- id: list_after_delete
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/workspaces?collection=assistants&workflow_name=flowcraft-chat-assistant
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  expect:
+    "": {count: 0}
+- id: delete_again
+  client: peer
+  http:
+    method: DELETE
+    path: /gizclaw/v1/device/workspaces/${workspace_id}
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 404
+  expect:
+    /error/code: {equals: WORKSPACE_NOT_FOUND}
+- id: invalid_api_key
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/workspaces
+    headers:
+      Authorization: "Bearer gizclaw_sk_v1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    status: 401
+  expect:
+    /error/code: {equals: INVALID_API_KEY}
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}
+- id: cleanup_other
+  client: other
+  rpc:
+    method: server.peer.delete
+    request: {}

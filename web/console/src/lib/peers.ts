@@ -212,7 +212,10 @@ export const workspaceList = z.array(
   z.object({
     id: z.string(),
     name: z.string(),
-    workflow_id: z.string(),
+    collection: z.string().optional(),
+    workflow_name: z.string().optional(),
+    available: z.boolean(),
+    system: z.boolean(),
     last_active_at: z.string(),
   }),
 );

@@ -265,10 +265,24 @@ type DeviceWifiStatus struct {
 
 // DeviceWorkspace defines model for DeviceWorkspace.
 type DeviceWorkspace struct {
+	// Available Whether workflow_name resolves in the current RuntimeProfile, like Peer RPC Workspace.available.
+	Available bool `json:"available"`
+
+	// Collection RuntimeProfile workflow collection the Workspace was created in. Omitted when the Workspace carries no collection, such as a system Workspace.
+	Collection *string   `json:"collection,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+
+	// Id Workspace ID addressed by the history, audio and delete routes.
 	Id           string    `json:"id"`
 	LastActiveAt time.Time `json:"last_active_at"`
-	Name         string    `json:"name"`
-	WorkflowId   string    `json:"workflow_id"`
+
+	// Name Workspace name the device uses with server.workspace.*.
+	Name      string    `json:"name"`
+	System    bool      `json:"system"`
+	UpdatedAt time.Time `json:"updated_at"`
+
+	// WorkflowName Workflow name of the Workspace in its collection of the current RuntimeProfile, as listed by GET /gizclaw/v1/device/runtime-profile. Omitted when the alias no longer resolves.
+	WorkflowName *string `json:"workflow_name,omitempty"`
 }
 
 // GiznetWebRTCSignalingError defines model for GiznetWebRTCSignalingError.
@@ -380,6 +394,15 @@ type AggregateDeviceTelemetryParams struct {
 
 	// Aggregate Aggregate mode
 	Aggregate externalRef0.PeerTelemetryAggregate `form:"aggregate" json:"aggregate"`
+}
+
+// ListDeviceWorkspacesParams defines parameters for ListDeviceWorkspaces.
+type ListDeviceWorkspacesParams struct {
+	// Collection Return only Workspaces created in this RuntimeProfile workflow collection.
+	Collection *string `form:"collection,omitempty" json:"collection,omitempty"`
+
+	// WorkflowName Return only Workspaces whose workflow name resolves to this RuntimeProfile alias.
+	WorkflowName *string `form:"workflow_name,omitempty" json:"workflow_name,omitempty"`
 }
 
 // ListDeviceWorkspaceHistoryParams defines parameters for ListDeviceWorkspaceHistory.
@@ -674,7 +697,10 @@ type ClientInterface interface {
 	ScanDeviceWifiWithJSONBody(ctx context.Context, body ScanDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListDeviceWorkspaces request
-	ListDeviceWorkspaces(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListDeviceWorkspaces(ctx context.Context, params *ListDeviceWorkspacesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteDeviceWorkspace request
+	DeleteDeviceWorkspace(ctx context.Context, workspaceId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListDeviceWorkspaceHistory request
 	ListDeviceWorkspaceHistory(ctx context.Context, workspaceId string, params *ListDeviceWorkspaceHistoryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1355,8 +1381,20 @@ func (c *Client) ScanDeviceWifiWithJSONBody(ctx context.Context, body ScanDevice
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListDeviceWorkspaces(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListDeviceWorkspacesRequest(c.Server)
+func (c *Client) ListDeviceWorkspaces(ctx context.Context, params *ListDeviceWorkspacesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDeviceWorkspacesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteDeviceWorkspace(ctx context.Context, workspaceId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteDeviceWorkspaceRequest(c.Server, workspaceId)
 	if err != nil {
 		return nil, err
 	}
@@ -2997,7 +3035,7 @@ func NewScanDeviceWifiRequestWithBody(server string, contentType string, body io
 }
 
 // NewListDeviceWorkspacesRequest generates requests for ListDeviceWorkspaces
-func NewListDeviceWorkspacesRequest(server string) (*http.Request, error) {
+func NewListDeviceWorkspacesRequest(server string, params *ListDeviceWorkspacesParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -3015,7 +3053,80 @@ func NewListDeviceWorkspacesRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Collection != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "collection", *params.Collection, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.WorkflowName != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "workflow_name", *params.WorkflowName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteDeviceWorkspaceRequest generates requests for DeleteDeviceWorkspace
+func NewDeleteDeviceWorkspaceRequest(server string, workspaceId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspaceId", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/workspaces/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -3542,7 +3653,10 @@ type ClientWithResponsesInterface interface {
 	ScanDeviceWifiWithJSONBodyWithResponse(ctx context.Context, body ScanDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*ScanDeviceWifiResponse, error)
 
 	// ListDeviceWorkspacesWithResponse request
-	ListDeviceWorkspacesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDeviceWorkspacesResponse, error)
+	ListDeviceWorkspacesWithResponse(ctx context.Context, params *ListDeviceWorkspacesParams, reqEditors ...RequestEditorFn) (*ListDeviceWorkspacesResponse, error)
+
+	// DeleteDeviceWorkspaceWithResponse request
+	DeleteDeviceWorkspaceWithResponse(ctx context.Context, workspaceId string, reqEditors ...RequestEditorFn) (*DeleteDeviceWorkspaceResponse, error)
 
 	// ListDeviceWorkspaceHistoryWithResponse request
 	ListDeviceWorkspaceHistoryWithResponse(ctx context.Context, workspaceId string, params *ListDeviceWorkspaceHistoryParams, reqEditors ...RequestEditorFn) (*ListDeviceWorkspaceHistoryResponse, error)
@@ -4945,6 +5059,41 @@ func (r ListDeviceWorkspacesResponse) ContentType() string {
 	return ""
 }
 
+type DeleteDeviceWorkspaceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteDeviceWorkspaceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteDeviceWorkspaceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteDeviceWorkspaceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListDeviceWorkspaceHistoryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -5630,12 +5779,21 @@ func (c *ClientWithResponses) ScanDeviceWifiWithJSONBodyWithResponse(ctx context
 }
 
 // ListDeviceWorkspacesWithResponse request returning *ListDeviceWorkspacesResponse
-func (c *ClientWithResponses) ListDeviceWorkspacesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDeviceWorkspacesResponse, error) {
-	rsp, err := c.ListDeviceWorkspaces(ctx, reqEditors...)
+func (c *ClientWithResponses) ListDeviceWorkspacesWithResponse(ctx context.Context, params *ListDeviceWorkspacesParams, reqEditors ...RequestEditorFn) (*ListDeviceWorkspacesResponse, error) {
+	rsp, err := c.ListDeviceWorkspaces(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseListDeviceWorkspacesResponse(rsp)
+}
+
+// DeleteDeviceWorkspaceWithResponse request returning *DeleteDeviceWorkspaceResponse
+func (c *ClientWithResponses) DeleteDeviceWorkspaceWithResponse(ctx context.Context, workspaceId string, reqEditors ...RequestEditorFn) (*DeleteDeviceWorkspaceResponse, error) {
+	rsp, err := c.DeleteDeviceWorkspace(ctx, workspaceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteDeviceWorkspaceResponse(rsp)
 }
 
 // ListDeviceWorkspaceHistoryWithResponse request returning *ListDeviceWorkspaceHistoryResponse
@@ -8374,6 +8532,67 @@ func ParseListDeviceWorkspacesResponse(rsp *http.Response) (*ListDeviceWorkspace
 	return response, nil
 }
 
+// ParseDeleteDeviceWorkspaceResponse parses an HTTP response from a DeleteDeviceWorkspaceWithResponse call
+func ParseDeleteDeviceWorkspaceResponse(rsp *http.Response) (*DeleteDeviceWorkspaceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteDeviceWorkspaceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListDeviceWorkspaceHistoryResponse parses an HTTP response from a ListDeviceWorkspaceHistoryWithResponse call
 func ParseListDeviceWorkspaceHistoryResponse(rsp *http.Response) (*ListDeviceWorkspaceHistoryResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -8806,7 +9025,10 @@ type ServerInterface interface {
 	ScanDeviceWifi(c *fiber.Ctx) error
 	// List Workspaces owned by the authenticated device
 	// (GET /gizclaw/v1/device/workspaces)
-	ListDeviceWorkspaces(c *fiber.Ctx) error
+	ListDeviceWorkspaces(c *fiber.Ctx, params ListDeviceWorkspacesParams) error
+	// Delete a Workspace owned by the authenticated device
+	// (DELETE /gizclaw/v1/device/workspaces/{workspaceId})
+	DeleteDeviceWorkspace(c *fiber.Ctx, workspaceId string) error
 	// Read history from a Workspace owned by the authenticated device
 	// (GET /gizclaw/v1/device/workspaces/{workspaceId}/history)
 	ListDeviceWorkspaceHistory(c *fiber.Ctx, workspaceId string, params ListDeviceWorkspaceHistoryParams) error
@@ -9863,10 +10085,67 @@ func (siw *ServerInterfaceWrapper) ScanDeviceWifi(c *fiber.Ctx) error {
 // ListDeviceWorkspaces operation middleware
 func (siw *ServerInterfaceWrapper) ListDeviceWorkspaces(c *fiber.Ctx) error {
 
+	var err error
+	_ = err
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListDeviceWorkspacesParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "collection" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "collection", query, &params.Collection, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter collection: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "workflow_name" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "workflow_name", query, &params.WorkflowName, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter workflow_name: %w", err).Error())
+	}
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.ListDeviceWorkspaces(c, params)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// DeleteDeviceWorkspace operation middleware
+func (siw *ServerInterfaceWrapper) DeleteDeviceWorkspace(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", c.Params("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter workspaceId: %w", err).Error())
+	}
+
 	c.Context().SetUserValue((BearerAuthScopes), []string{})
 
 	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.ListDeviceWorkspaces(c)
+		return siw.Handler.DeleteDeviceWorkspace(c, workspaceId)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -10269,6 +10548,8 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Post(options.BaseURL+"/gizclaw/v1/device/wifi/scan", wrapper.ScanDeviceWifi)
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device/workspaces", wrapper.ListDeviceWorkspaces)
+
+	router.Delete(options.BaseURL+"/gizclaw/v1/device/workspaces/:workspaceId", wrapper.DeleteDeviceWorkspace)
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device/workspaces/:workspaceId/history", wrapper.ListDeviceWorkspaceHistory)
 
@@ -13121,6 +13402,7 @@ func (response ScanDeviceWifi504JSONResponse) VisitScanDeviceWifiResponse(ctx *f
 }
 
 type ListDeviceWorkspacesRequestObject struct {
+	Params ListDeviceWorkspacesParams
 }
 
 type ListDeviceWorkspacesResponseObject interface {
@@ -13184,6 +13466,76 @@ func (response ListDeviceWorkspaces409JSONResponse) VisitListDeviceWorkspacesRes
 type ListDeviceWorkspaces500JSONResponse struct{ InternalErrorJSONResponse }
 
 func (response ListDeviceWorkspaces500JSONResponse) VisitListDeviceWorkspacesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteDeviceWorkspaceRequestObject struct {
+	WorkspaceId string `json:"workspaceId"`
+}
+
+type DeleteDeviceWorkspaceResponseObject interface {
+	VisitDeleteDeviceWorkspaceResponse(ctx *fiber.Ctx) error
+}
+
+type DeleteDeviceWorkspace202Response struct {
+}
+
+func (response DeleteDeviceWorkspace202Response) VisitDeleteDeviceWorkspaceResponse(ctx *fiber.Ctx) error {
+	ctx.Status(202)
+	return nil
+}
+
+type DeleteDeviceWorkspace400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response DeleteDeviceWorkspace400JSONResponse) VisitDeleteDeviceWorkspaceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteDeviceWorkspace401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteDeviceWorkspace401JSONResponse) VisitDeleteDeviceWorkspaceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteDeviceWorkspace403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteDeviceWorkspace403JSONResponse) VisitDeleteDeviceWorkspaceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteDeviceWorkspace404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteDeviceWorkspace404JSONResponse) VisitDeleteDeviceWorkspaceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteDeviceWorkspace409JSONResponse struct{ ConflictJSONResponse }
+
+func (response DeleteDeviceWorkspace409JSONResponse) VisitDeleteDeviceWorkspaceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteDeviceWorkspace500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response DeleteDeviceWorkspace500JSONResponse) VisitDeleteDeviceWorkspaceResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
 
@@ -13656,6 +14008,9 @@ type StrictServerInterface interface {
 	// List Workspaces owned by the authenticated device
 	// (GET /gizclaw/v1/device/workspaces)
 	ListDeviceWorkspaces(ctx context.Context, request ListDeviceWorkspacesRequestObject) (ListDeviceWorkspacesResponseObject, error)
+	// Delete a Workspace owned by the authenticated device
+	// (DELETE /gizclaw/v1/device/workspaces/{workspaceId})
+	DeleteDeviceWorkspace(ctx context.Context, request DeleteDeviceWorkspaceRequestObject) (DeleteDeviceWorkspaceResponseObject, error)
 	// Read history from a Workspace owned by the authenticated device
 	// (GET /gizclaw/v1/device/workspaces/{workspaceId}/history)
 	ListDeviceWorkspaceHistory(ctx context.Context, request ListDeviceWorkspaceHistoryRequestObject) (ListDeviceWorkspaceHistoryResponseObject, error)
@@ -14734,8 +15089,10 @@ func (sh *strictHandler) ScanDeviceWifi(ctx *fiber.Ctx) error {
 }
 
 // ListDeviceWorkspaces operation middleware
-func (sh *strictHandler) ListDeviceWorkspaces(ctx *fiber.Ctx) error {
+func (sh *strictHandler) ListDeviceWorkspaces(ctx *fiber.Ctx, params ListDeviceWorkspacesParams) error {
 	var request ListDeviceWorkspacesRequestObject
+
+	request.Params = params
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.ListDeviceWorkspaces(ctx.UserContext(), request.(ListDeviceWorkspacesRequestObject))
@@ -14750,6 +15107,33 @@ func (sh *strictHandler) ListDeviceWorkspaces(ctx *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(ListDeviceWorkspacesResponseObject); ok {
 		if err := validResponse.VisitListDeviceWorkspacesResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteDeviceWorkspace operation middleware
+func (sh *strictHandler) DeleteDeviceWorkspace(ctx *fiber.Ctx, workspaceId string) error {
+	var request DeleteDeviceWorkspaceRequestObject
+
+	request.WorkspaceId = workspaceId
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteDeviceWorkspace(ctx.UserContext(), request.(DeleteDeviceWorkspaceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteDeviceWorkspace")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeleteDeviceWorkspaceResponseObject); ok {
+		if err := validResponse.VisitDeleteDeviceWorkspaceResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

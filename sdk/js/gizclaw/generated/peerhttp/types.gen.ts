@@ -5,9 +5,29 @@ export type ClientOptions = {
 };
 
 export type DeviceWorkspace = {
+    /**
+     * Workspace ID addressed by the history, audio and delete routes.
+     */
     id: string;
+    /**
+     * Workspace name the device uses with server.workspace.*.
+     */
     name: string;
-    workflow_id: string;
+    /**
+     * RuntimeProfile workflow collection the Workspace was created in. Omitted when the Workspace carries no collection, such as a system Workspace.
+     */
+    collection?: string;
+    /**
+     * Workflow name of the Workspace in its collection of the current RuntimeProfile, as listed by GET /gizclaw/v1/device/runtime-profile. Omitted when the alias no longer resolves.
+     */
+    workflow_name?: string;
+    /**
+     * Whether workflow_name resolves in the current RuntimeProfile, like Peer RPC Workspace.available.
+     */
+    available: boolean;
+    system: boolean;
+    created_at: string;
+    updated_at: string;
     last_active_at: string;
 };
 
@@ -1014,7 +1034,16 @@ export type SetDeviceAudioPlayerModeResponse = SetDeviceAudioPlayerModeResponses
 export type ListDeviceWorkspacesData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Return only Workspaces created in this RuntimeProfile workflow collection.
+         */
+        collection?: string;
+        /**
+         * Return only Workspaces whose workflow name resolves to this RuntimeProfile alias.
+         */
+        workflow_name?: string;
+    };
     url: '/gizclaw/v1/device/workspaces';
 };
 
@@ -1055,6 +1084,51 @@ export type ListDeviceWorkspacesResponses = {
 };
 
 export type ListDeviceWorkspacesResponse = ListDeviceWorkspacesResponses[keyof ListDeviceWorkspacesResponses];
+
+export type DeleteDeviceWorkspaceData = {
+    body?: never;
+    path: {
+        workspaceId: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/device/workspaces/{workspaceId}';
+};
+
+export type DeleteDeviceWorkspaceErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key was not found for this owner.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteDeviceWorkspaceError = DeleteDeviceWorkspaceErrors[keyof DeleteDeviceWorkspaceErrors];
+
+export type DeleteDeviceWorkspaceResponses = {
+    /**
+     * Deletion accepted; cleanup continues in the background.
+     */
+    202: unknown;
+};
 
 export type ListDeviceWorkspaceHistoryData = {
     body?: never;

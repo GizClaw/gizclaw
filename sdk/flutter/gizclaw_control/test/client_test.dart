@@ -100,7 +100,214 @@ Future<GizClawControlException> failure(Future<Object?> future) async {
   fail('expected GizClawControlException');
 }
 
+const workspaceJson = {
+  'id': 'ws-aesop',
+  'name': 'aesop-save',
+  'collection': 'story-teller',
+  'workflow_name': 'story.aesop',
+  'available': true,
+  'system': false,
+  'created_at': '2026-09-01T08:00:00Z',
+  'updated_at': '2026-09-01T09:00:00Z',
+  'last_active_at': '2026-09-01T10:00:00Z',
+};
+
 void main() {
+  group('device workspaces', () {
+    test('listDeviceWorkspaces filters and decodes alias identity', () async {
+      final recorder = Recorder([
+        json(200, [
+          workspaceJson,
+          {
+            'id': 'ws-pet',
+            'name': 'pet',
+            'available': false,
+            'system': true,
+            'created_at': '2026-09-01T08:00:00Z',
+            'updated_at': '2026-09-01T08:00:00Z',
+            'last_active_at': '2026-09-01T08:00:00Z',
+            'future_field': 1,
+          },
+        ]),
+        json(200, <Object?>[]),
+      ]);
+      final client = clientWith(recorder);
+      final items = await client.listDeviceWorkspaces(
+        collection: 'story-teller',
+        workflowName: 'story.aesop',
+      );
+      await client.listDeviceWorkspaces();
+
+      final first = recorder.requests[0];
+      expect(first.method, 'GET');
+      expect(first.url.path, '/gizclaw/v1/device/workspaces');
+      expect(first.url.queryParameters, {
+        'collection': 'story-teller',
+        'workflow_name': 'story.aesop',
+      });
+      expect(recorder.requests[1].url.hasQuery, isFalse);
+      expect(items, hasLength(2));
+      final aesop = items.first;
+      expect(aesop.id, 'ws-aesop');
+      expect(aesop.collection, 'story-teller');
+      expect(aesop.workflowName, 'story.aesop');
+      expect(aesop.available, isTrue);
+      expect(aesop.lastActiveAt, DateTime.utc(2026, 9, 1, 10));
+      expect(aesop.toJson(), workspaceJson);
+      final pet = items.last;
+      expect(pet.system, isTrue);
+      expect(pet.available, isFalse);
+      expect(pet.collection, isNull);
+      expect(pet.workflowName, isNull);
+    });
+
+    test('listDeviceWorkspaces rejects empty filters and bad items', () async {
+      final recorder = Recorder([
+        json(200, [
+          {...workspaceJson, 'available': 'yes'},
+        ]),
+      ]);
+      final client = clientWith(recorder);
+      expect(
+        () => client.listDeviceWorkspaces(collection: ''),
+        throwsArgumentError,
+      );
+      expect(
+        () => client.listDeviceWorkspaces(workflowName: ''),
+        throwsArgumentError,
+      );
+      final exception = await failure(client.listDeviceWorkspaces());
+      expect(exception.kind, GizClawControlErrorKind.malformedResponse);
+    });
+
+    test('deleteDeviceWorkspace sends DELETE and maps refusals', () async {
+      final recorder = Recorder([
+        accepted(),
+        error(409, 'SYSTEM_WORKSPACE_DELETE_FORBIDDEN'),
+        error(404, 'WORKSPACE_NOT_FOUND'),
+      ]);
+      final client = clientWith(recorder);
+      await client.deleteDeviceWorkspace('ws/aesop');
+      expect(recorder.requests[0].method, 'DELETE');
+      expect(
+        recorder.requests[0].url.toString(),
+        'https://ap.gizclaw.com/gizclaw/v1/device/workspaces/ws%2Faesop',
+      );
+      final system = await failure(client.deleteDeviceWorkspace('ws-pet'));
+      expect(system.kind, GizClawControlErrorKind.conflict);
+      expect(system.code, 'SYSTEM_WORKSPACE_DELETE_FORBIDDEN');
+      final missing = await failure(client.deleteDeviceWorkspace('ws-gone'));
+      expect(missing.kind, GizClawControlErrorKind.notFound);
+      expect(missing.code, 'WORKSPACE_NOT_FOUND');
+      expect(() => client.deleteDeviceWorkspace(''), throwsArgumentError);
+    });
+
+    test('listDeviceWorkspaceHistory pages with a cursor', () async {
+      final recorder = Recorder([
+        json(200, {
+          'available': true,
+          'items': [
+            {
+              'name': '20260901T100000.000000000Z-a',
+              'type': 'gear',
+              'gear_id': 'device-key',
+              'actor_name': 'child',
+              'text': 'tell me a story',
+              'created_at': '2026-09-01T10:00:00Z',
+              'replay_available': true,
+            },
+            {
+              'name': '20260901T100001.000000000Z-b',
+              'type': 'agent',
+              'actor_name': 'assistant',
+              'text': 'Once upon a time',
+              'created_at': '2026-09-01T10:00:01Z',
+              'replay_available': false,
+            },
+          ],
+          'has_next': true,
+          'next_cursor': '20260901T100001.000000000Z-b',
+        }),
+      ]);
+      final page = await clientWith(recorder).listDeviceWorkspaceHistory(
+        'ws-aesop',
+        cursor: '20260901T110000.000000000Z-c',
+        limit: 2,
+        order: WorkspaceHistoryOrder.asc,
+        startTimeMs: 1,
+        endTimeMs: 2,
+        query: 'story',
+      );
+      final request = recorder.single;
+      expect(
+        request.url.path,
+        '/gizclaw/v1/device/workspaces/ws-aesop/history',
+      );
+      expect(request.url.queryParameters, {
+        'cursor': '20260901T110000.000000000Z-c',
+        'limit': '2',
+        'order': 'asc',
+        'start_time_ms': '1',
+        'end_time_ms': '2',
+        'query': 'story',
+      });
+      expect(page.available, isTrue);
+      expect(page.hasNext, isTrue);
+      expect(page.nextCursor, '20260901T100001.000000000Z-b');
+      expect(page.items.map((item) => item.type), ['gear', 'agent']);
+      expect(page.items.first.gearId, 'device-key');
+      expect(page.items.last.gearId, isNull);
+      expect(page.items.last.createdAt, DateTime.utc(2026, 9, 1, 10, 0, 1));
+    });
+
+    test('listDeviceWorkspaceHistory maps a foreign Workspace', () async {
+      final recorder = Recorder([error(404, 'WORKSPACE_NOT_FOUND')]);
+      final exception = await failure(
+        clientWith(recorder).listDeviceWorkspaceHistory('foreign'),
+      );
+      expect(exception.kind, GizClawControlErrorKind.notFound);
+      expect(recorder.single.url.hasQuery, isFalse);
+    });
+
+    test('downloadDeviceHistoryAudio returns the Ogg bytes', () async {
+      final recorder = Recorder([
+        (_) => http.Response.bytes(
+          [0x4f, 0x67, 0x67, 0x53],
+          200,
+          headers: {'content-type': 'audio/ogg'},
+        ),
+        error(404, 'HISTORY_NOT_FOUND'),
+      ]);
+      final client = clientWith(recorder);
+      final audio = await client.downloadDeviceHistoryAudio('ws-aesop', 'e/1');
+      expect(audio, [0x4f, 0x67, 0x67, 0x53]);
+      final request = recorder.requests.first;
+      expect(
+        request.url.toString(),
+        'https://ap.gizclaw.com/gizclaw/v1/device/workspaces/ws-aesop/history/e%2F1/audio.ogg',
+      );
+      expect(request.headers['Accept'], 'audio/ogg');
+      expect(request.headers['Authorization'], 'Bearer $apiKey');
+      final missing = await failure(
+        client.downloadDeviceHistoryAudio('ws-aesop', 'text-only'),
+      );
+      expect(missing.code, 'HISTORY_NOT_FOUND');
+    });
+
+    test('deviceHistoryAudioUri needs the authorization headers', () {
+      final client = GizClawControlClient(
+        baseUrl: Uri.parse('https://ap.gizclaw.com/prefix/'),
+        apiKey: apiKey,
+      );
+      addTearDown(client.close);
+      expect(
+        client.deviceHistoryAudioUri('ws-aesop', 'entry').toString(),
+        'https://ap.gizclaw.com/prefix/gizclaw/v1/device/workspaces/ws-aesop/history/entry/audio.ogg',
+      );
+      expect(client.authorizationHeaders, {'Authorization': 'Bearer $apiKey'});
+    });
+  });
+
   group('constructor', () {
     test('rejects an empty API key', () {
       expect(
