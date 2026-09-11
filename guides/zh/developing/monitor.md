@@ -87,7 +87,8 @@ go build ./cmd/gizclaw
 ## 控制台使用的设备接口
 
 `GET /gizclaw/v1/device/workspaces` 只列出该 Peer 明确拥有的 Workspace（含系统 Workspace），
-按 Workflow 分组，不返回共享和无 owner 的空间。
+不返回共享、无 owner 和删除中的空间；每项以 `collection` 与 `workflow_name` 标识 Workflow，
+控制台按这两个名字标注，不显示 Admin Workflow ID。
 `GET /gizclaw/v1/device/workspaces/{workspaceId}/history` 从持久化 History 查询文本并游标
 分页，每页最多 200 条（控制台使用 100 条）。`order` 默认 `desc`（最新在前），也可为 `asc`；
 可选的 `start_time_ms`（含）与 `end_time_ms`（不含）按 Unix 毫秒限定创建时间，续页请求同样生效。

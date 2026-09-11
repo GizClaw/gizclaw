@@ -162,6 +162,9 @@ func (s *PeerService) deviceReadsForAPIKey(publicKey giznet.PublicKey) peerresou
 	if s.manager.Metrics != nil {
 		reads.Telemetry = &peertelemetry.AdminService{Metrics: s.manager.Metrics}
 	}
+	if s.public != nil && s.public.Workspaces != nil {
+		reads.Workspaces = s.public.Workspaces
+	}
 	return reads
 }
 

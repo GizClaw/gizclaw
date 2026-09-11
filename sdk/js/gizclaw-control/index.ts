@@ -16,6 +16,7 @@ import {
   stopDeviceAudioPlayer,
   setDeviceAudioPlayerMode,
   listDeviceWorkspaces,
+  deleteDeviceWorkspace,
   listDeviceWorkspaceHistory,
   searchDeviceLogs,
   downloadDeviceHistoryAudio,
@@ -57,6 +58,7 @@ import type {
   DeviceWorkspace,
   DeviceLogPage,
   PeerRunHistoryListResponse,
+  ListDeviceWorkspacesData,
   ListDeviceWorkspaceHistoryData,
   SearchDeviceLogsData,
   ApiKey,
@@ -102,6 +104,7 @@ export type {
   DeviceWorkspace,
   DeviceLogPage,
   PeerRunHistoryListResponse,
+  ListDeviceWorkspacesData,
   ListDeviceWorkspaceHistoryData,
   SearchDeviceLogsData,
   ApiKey,
@@ -343,8 +346,18 @@ export interface GizClawControlDevice {
     body: AudioPlayerModeSetRequest,
   ): Promise<AudioPlayerResponse>;
 
-  /** Owned Workspaces, including system Workspaces. */
-  listWorkspaces(): Promise<DeviceWorkspace[]>;
+  /**
+   * Owned Workspaces, including system Workspaces. Workflows are identified by
+   * `collection` and `workflow_name`; the filters match exactly.
+   */
+  listWorkspaces(
+    query?: ListDeviceWorkspacesData["query"],
+  ): Promise<DeviceWorkspace[]>;
+  /**
+   * Start the asynchronous deletion of an owned Workspace. Resolves once the
+   * Server accepted it (`202`); cleanup continues in the background.
+   */
+  deleteWorkspace(workspaceId: string): Promise<void>;
   /** Search persisted chat within an owned Workspace. */
   listWorkspaceHistory(
     workspaceId: string,
@@ -528,8 +541,19 @@ export function createGizClawControlClient(
         ),
     },
     device: {
-      listWorkspaces: () =>
-        unwrap("listDeviceWorkspaces", listDeviceWorkspaces(common)),
+      listWorkspaces: (query) =>
+        unwrap(
+          "listDeviceWorkspaces",
+          listDeviceWorkspaces({ ...common, query }),
+        ),
+      deleteWorkspace: async (workspaceId) =>
+        unwrapEmpty(
+          "deleteDeviceWorkspace",
+          deleteDeviceWorkspace({
+            ...common,
+            path: { workspaceId: requireSegment("workspaceId", workspaceId) },
+          }),
+        ),
       listWorkspaceHistory: (workspaceId, query) =>
         unwrap(
           "listDeviceWorkspaceHistory",

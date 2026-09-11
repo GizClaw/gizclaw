@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -333,6 +334,123 @@ class GizClawControlClient {
     );
   }
 
+  /// `GET /gizclaw/v1/device/workspaces`.
+  ///
+  /// Returns the Workspaces the device owns, including system Workspaces but
+  /// not those whose deletion is pending. [collection] and [workflowName]
+  /// filter exactly by the names [getDeviceRuntimeProfile] lists; a
+  /// [workflowName] filter never matches a Workspace whose Workflow no longer
+  /// resolves. Reading never contacts the device.
+  Future<List<DeviceWorkspace>> listDeviceWorkspaces({
+    String? collection,
+    String? workflowName,
+  }) {
+    if (collection != null && collection.isEmpty) {
+      throw ArgumentError.value(collection, 'collection', 'must not be empty');
+    }
+    if (workflowName != null && workflowName.isEmpty) {
+      throw ArgumentError.value(
+        workflowName,
+        'workflowName',
+        'must not be empty',
+      );
+    }
+    return _json(
+      'GET',
+      '/device/workspaces',
+      (json) => asJsonList(
+        json,
+        'DeviceWorkspace list',
+      ).map(DeviceWorkspace.fromJson).toList(growable: false),
+      query: {'collection': collection, 'workflow_name': workflowName},
+      operation: 'listDeviceWorkspaces',
+    );
+  }
+
+  /// `DELETE /gizclaw/v1/device/workspaces/{workspaceId}`.
+  ///
+  /// Starts the asynchronous deletion of an owned Workspace and returns once
+  /// the Server accepted it. The Workspace leaves [listDeviceWorkspaces] at
+  /// once; its history and state are removed in the background. A system
+  /// Workspace fails with [GizClawControlErrorKind.conflict], and a foreign,
+  /// absent, or already deleted Workspace with
+  /// [GizClawControlErrorKind.notFound].
+  Future<void> deleteDeviceWorkspace(String workspaceId) {
+    return _noContent(
+      'DELETE',
+      '/device/workspaces/${_segment(workspaceId, 'workspaceId')}',
+      operation: 'deleteDeviceWorkspace',
+    );
+  }
+
+  /// `GET /gizclaw/v1/device/workspaces/{workspaceId}/history`.
+  ///
+  /// Reads persisted chat of an owned Workspace, newest first unless [order]
+  /// is [WorkspaceHistoryOrder.asc]. Pass the previous page's
+  /// [WorkspaceHistoryPage.nextCursor], or any entry name, as [cursor].
+  /// [limit] is 1..200 (default 50). [query] matches literal text.
+  /// [startTimeMs] (inclusive) and [endTimeMs] (exclusive) bound the entry
+  /// creation time in Unix milliseconds.
+  Future<WorkspaceHistoryPage> listDeviceWorkspaceHistory(
+    String workspaceId, {
+    String? cursor,
+    int? limit,
+    String? query,
+    WorkspaceHistoryOrder? order,
+    int? startTimeMs,
+    int? endTimeMs,
+  }) {
+    return _json(
+      'GET',
+      '/device/workspaces/${_segment(workspaceId, 'workspaceId')}/history',
+      WorkspaceHistoryPage.fromJson,
+      query: {
+        'cursor': cursor,
+        'limit': limit?.toString(),
+        'query': query,
+        'order': order?.wireValue,
+        'start_time_ms': startTimeMs?.toString(),
+        'end_time_ms': endTimeMs?.toString(),
+      },
+      operation: 'listDeviceWorkspaceHistory',
+    );
+  }
+
+  /// `GET /gizclaw/v1/device/workspaces/{workspaceId}/history/{historyId}/audio.ogg`.
+  ///
+  /// Downloads the stored Ogg audio of one history entry. An entry without
+  /// stored audio fails with [GizClawControlErrorKind.notFound].
+  Future<Uint8List> downloadDeviceHistoryAudio(
+    String workspaceId,
+    String historyId,
+  ) async {
+    final response = await _send(
+      'GET',
+      _historyAudioRoute(workspaceId, historyId),
+      accept: 'audio/ogg',
+      operation: 'downloadDeviceHistoryAudio',
+    );
+    return response.bodyBytes;
+  }
+
+  /// URL of [downloadDeviceHistoryAudio] for players that stream it
+  /// themselves. The URL is not a credential: every request to it must carry
+  /// [authorizationHeaders].
+  Uri deviceHistoryAudioUri(String workspaceId, String historyId) {
+    return _uri(_historyAudioRoute(workspaceId, historyId), null);
+  }
+
+  /// Headers that authorize a request to a URL such as
+  /// [deviceHistoryAudioUri]. They carry the API key.
+  Map<String, String> get authorizationHeaders => {
+    'Authorization': 'Bearer $_apiKey',
+  };
+
+  static String _historyAudioRoute(String workspaceId, String historyId) {
+    return '/device/workspaces/${_segment(workspaceId, 'workspaceId')}'
+        '/history/${_segment(historyId, 'historyId')}/audio.ogg';
+  }
+
   // Device control.
 
   /// `PUT /gizclaw/v1/device/volume`.
@@ -634,6 +752,7 @@ class GizClawControlClient {
     String route, {
     Map<String, String?>? query,
     JsonObject? body,
+    String accept = 'application/json',
     required String operation,
   }) async {
     if (_closed) {
@@ -644,7 +763,7 @@ class GizClawControlClient {
     }
     final request = http.Request(method, _uri(route, query));
     request.headers['Authorization'] = 'Bearer $_apiKey';
-    request.headers['Accept'] = 'application/json';
+    request.headers['Accept'] = accept;
     if (body != null) {
       request.headers['Content-Type'] = 'application/json';
       request.body = jsonEncode(body);

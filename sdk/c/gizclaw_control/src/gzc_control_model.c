@@ -351,6 +351,40 @@ int gzc_control_decode_runtime_profile_collection_item(gzc_str_t object_json, vo
   return rc;
 }
 
+int gzc_control_decode_device_workspace_item(gzc_str_t object_json, void *out) {
+  gzc_control_device_workspace_t *workspace = out;
+  memset(workspace, 0, sizeof(*workspace));
+  int rc = gzc_json_validate_object(object_json);
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_str(object_json, "id", &workspace->id);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_str(object_json, "name", &workspace->name);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_str(object_json, "collection", &workspace->collection);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_str(object_json, "workflow_name", &workspace->workflow_name);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_bool(object_json, "available", &workspace->available);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_bool(object_json, "system", &workspace->system);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_str(object_json, "created_at", &workspace->created_at);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_str(object_json, "updated_at", &workspace->updated_at);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_str(object_json, "last_active_at", &workspace->last_active_at);
+  }
+  return rc;
+}
+
 static int decode_workflow_name_item(gzc_str_t object_json, void *out) {
   gzc_str_t *name = out;
   *name = gzc_str_from_parts(NULL, 0);

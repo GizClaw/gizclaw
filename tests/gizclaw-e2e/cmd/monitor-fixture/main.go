@@ -81,7 +81,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	response, err := api.ListDeviceWorkspacesWithResponse(ctx)
+	response, err := api.ListDeviceWorkspacesWithResponse(ctx, nil)
 	if err != nil {
 		return err
 	}

@@ -4,7 +4,7 @@
 
 Provides ordinary Peer Public HTTP and Edge Public HTTP, assembles API key, CORS, OpenAI API, Edge signaling routes, and the `/gizclaw/v1/device*` and `/gizclaw/v1/contacts*` device extension, and performs access judgment of Edge client/signaling Peer.
 
-This file has HTTP surface composition; API key state belongs to `services/system/apikey`, and specific API behavior belongs to the corresponding domain service. The device extension handlers live in two files: `peer_service_serve_peer_http_device_api.go` adapts `/device`, `/device/runtime`, `/device/runtime-profile`, `/device/status`, `/device/telemetry*`, and `/contacts*` to `peerresource.DeviceReads` and `services/social/contact`; `peer_service_serve_peer_http_device_control.go` forwards `PUT /device/volume`, `POST /device/actions/*`, and `/device/wifi*` through `deviceController` as `client.device.*` / `client.wifi.*` RPCs and writes the reported `PeerStatus` back through `services/runtime/peertelemetry`.
+This file has HTTP surface composition; API key state belongs to `services/system/apikey`, and specific API behavior belongs to the corresponding domain service. The device extension handlers live in three files: `peer_service_serve_peer_http_device_api.go` adapts `/device`, `/device/runtime`, `/device/runtime-profile`, `/device/status`, `/device/telemetry*`, and `/contacts*` to `peerresource.DeviceReads` and `services/social/contact`; `peer_service_serve_peer_http_device_control.go` forwards `PUT /device/volume`, `POST /device/actions/*`, and `/device/wifi*` through `deviceController` as `client.device.*` / `client.wifi.*` RPCs and writes the reported `PeerStatus` back through `services/runtime/peertelemetry`; `peer_service_serve_peer_http_monitor.go` adapts `GET /device/workspaces` and `DELETE /device/workspaces/{workspaceId}` to `peerresource.DeviceReads` (alias projection against the current RuntimeProfile, shared Workspace deletion) and serves history, audio, and `/device/logs/search` from the Workspace and log services.
 
 ## Owner binding and ingress
 
@@ -25,7 +25,7 @@ When a browser request carries `Origin`, Direct Server, Peer Public HTTP, and Ed
 | `servePublic` / `serveEdgePublic` | Start normal or Edge Public HTTP on the corresponding Giznet service. |
 | `publicHTTPHandlerWithOptions` | Assemble API key management, device extension, and signaling routes, and complete owner binding. |
 | `deviceController` | Serialize device control commands, map offline/timeout/device errors, and write back `PeerStatus`. |
-| `deviceReadsForAPIKey` | Build the read-only `peerresource.DeviceReads` for an API key owner. |
+| `deviceReadsForAPIKey` | Build the owner-scoped `peerresource.DeviceReads` (reads and Workspace deletion) for an API key owner. |
 | `allowEdgeClientPeer` | Determine whether the Peer is allowed to serve as an Edge client. |
 | `allowEdgeSignalingPeer` | Determine whether the Peer is allowed to initiate signaling through the Edge. |
 | `setPeerHTTPCORSHeaders` | Set the CORS headers of the Peer HTTP surface. |

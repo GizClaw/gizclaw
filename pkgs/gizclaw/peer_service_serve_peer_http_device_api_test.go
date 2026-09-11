@@ -17,10 +17,13 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/peerruntest"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/workspacetest"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	telemetrypb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
@@ -35,16 +38,17 @@ import (
 // deviceHTTPFixture is one API-key-bound owner served by the Public HTTP
 // device and contact extension without a real Giznet listener.
 type deviceHTTPFixture struct {
-	handler  http.Handler
-	owner    giznet.PublicKey
-	secret   string
-	manager  *Manager
-	peers    *peer.Server
-	contacts *contact.Server
-	control  *deviceController
-	metrics  *metrics.MemoryStore
-	apiKeys  *apikey.Server
-	firmware *firmware.Server
+	handler    http.Handler
+	owner      giznet.PublicKey
+	secret     string
+	manager    *Manager
+	peers      *peer.Server
+	contacts   *contact.Server
+	control    *deviceController
+	metrics    *metrics.MemoryStore
+	apiKeys    *apikey.Server
+	firmware   *firmware.Server
+	workspaces *workspace.Server
 }
 
 func newDeviceHTTPFixture(t *testing.T) *deviceHTTPFixture {
@@ -81,16 +85,17 @@ func newDeviceHTTPFixture(t *testing.T) *deviceHTTPFixture {
 	}
 	manager.RuntimeProfiles = profiles
 	control := newDeviceController(manager, manager.PeerRun)
+	workspaces := workspacetest.New(t)
 	service := &PeerService{
 		apiKeys: keys,
 		manager: manager,
-		public:  &peerHTTP{PeerHTTPService: peers, APIKeys: keys, Contacts: contacts, DeviceControl: control},
+		public:  &peerHTTP{Workspaces: workspaces, PeerHTTPService: peers, APIKeys: keys, Contacts: contacts, DeviceControl: control},
 	}
 	service.public.DeviceReads = service.deviceReadsForAPIKey
 	return &deviceHTTPFixture{
 		handler: service.publicHTTPHandler(keys), owner: ownerKey.Public, secret: created.Secret,
 		manager: manager, peers: peers, contacts: contacts, control: control, metrics: manager.Metrics.(*metrics.MemoryStore),
-		apiKeys: keys, firmware: firmwares,
+		apiKeys: keys, firmware: firmwares, workspaces: workspaces,
 	}
 }
 

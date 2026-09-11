@@ -75,7 +75,10 @@ steps:
     capture: {workspace_id: /0/id}
     expect:
       /0/name: {equals: "${workspace_name}"}
-      /0/workflow_id: {equals: "${workflow_name}"}
+      /0/collection: {equals: assistants}
+      /0/workflow_name: {equals: "${workflow_name}"}
+      /0/available: {equals: true}
+      /0/workflow_id: {present: false}
   - id: first_history_page
     client: peer
     http:

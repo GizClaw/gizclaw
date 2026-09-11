@@ -147,6 +147,8 @@ Go SDK 把常用 RPC 暴露为 `gizcli.Client` 的 typed 方法。传入的 requ
 | `GET /gizclaw/v1/device/status` | 最近一次上报的电量、充电、音量、静音与 GNSS |
 | `GET /gizclaw/v1/device/telemetry/{field}/latest`、`/telemetry`、`/telemetry/aggregate` | 与 Admin telemetry 相同语义的采样查询 |
 | `GET /gizclaw/v1/device/runtime-profile` | 设备绑定的 RuntimeProfile name、revision，以及各 collection 的 workflow name |
+| `GET /gizclaw/v1/device/workspaces`，`DELETE /device/workspaces/{workspaceId}` | 按 collection 与 workflow name 列出设备的 Workspace（如游戏存档），删除其中一个 |
+| `GET /gizclaw/v1/device/workspaces/{workspaceId}/history`、`/history/{historyId}/audio.ogg` | 读取 Workspace 的聊天历史与保存的音频 |
 | `PUT /gizclaw/v1/device/volume` | 设置音量与静音，返回设备实时回报的 status |
 | `POST /gizclaw/v1/device/actions/play-sound` | 播放设备自定义提示音 |
 | `POST /gizclaw/v1/device/actions/find` | 找设备：设备播放内置找寻提示音并逐步增大音量 |
@@ -161,6 +163,8 @@ Go SDK 把常用 RPC 暴露为 `gizcli.Client` 的 typed 方法。传入的 requ
 `GET /device/firmware` 一次返回 `stable`、`beta`、`develop` 三个 channel 及各自的 `package`（`version`、`url`、`sha256`、`size`）（已有包没有版本时省略 `version`，其余信息仍正常返回）；Server 不保存设备当前使用的 channel，选哪个由调用方决定，`POST /device/actions/firmware-update` 用 `channel` 指定，省略时设备沿用自身的 channel。要判断是否需要升级，把 `GET /device/status` 的 `firmware_sha256`（设备上报的当前运行包）与目标 channel 的 `package.sha256` 比较；请求里带上同一个 `sha256`，设备解析出不同的包时会拒绝，避免升到与界面显示不同的版本。设备固件太旧、未实现该 RPC 时返回 `501 DEVICE_UNSUPPORTED`，应据此隐藏升级入口，而不是提示升级失败。
 
 `GET /device/runtime-profile` 只返回 RuntimeProfile 的 `name`、`revision` 与 `collections[].workflows[].name`，collection 与 workflow 均按 name 排序；workflow name 即设备调用 `server.workflow.*` 使用的 name，直接取自 RuntimeProfile binding、不校验对应 Workflow 资源是否仍存在；`name`/`revision` 等于 RPC 响应中的 `runtime_profile_name`/`runtime_profile_revision`。封面、描述、显示名称等展示信息不在响应中，调用方按 `<profile name>/<collection>` 与 `<profile name>/<workflow name>` 自行对应；展示顺序同样由调用方决定。
+
+`GET /device/workspaces` 用同一套名字标识 Workflow：每个 Workspace 带 `collection` 与 `workflow_name`，可以用 `?collection=...&workflow_name=...` 只取某个游戏的存档，再用 `id` 读取 `/history`。响应不含 Admin Workflow ID；Workflow 已从当前 RuntimeProfile 移除时省略 `workflow_name`、`available` 为 `false`。`DELETE /device/workspaces/{workspaceId}` 返回 `202` 后该存档立即从列表消失，历史与状态在后台清理；清理完成前设备用同名重建会得到 `ALREADY_EXISTS`，稍后重试即可。系统 Workspace 不能删除（`409`），别的设备的 Workspace 返回 `404`。
 
 ```sh
 curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/volume" \
