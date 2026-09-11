@@ -7,6 +7,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 )
@@ -46,6 +47,7 @@ func TestBusinessErrorMapsPeerSocialLimitsToResourceExhausted(t *testing.T) {
 	}{
 		{friendgroup.ErrPeerFriendGroupLimit, "FRIEND_GROUP_LIMIT_REACHED", "peer friend group limit reached"},
 		{friend.ErrPeerFriendLimit, "FRIEND_LIMIT_REACHED", "peer friend limit reached"},
+		{contact.ErrPeerContactLimit, "CONTACT_LIMIT_REACHED", "peer contact limit reached"},
 	} {
 		response := businessError("social", fmt.Errorf("wrapped: %w", test.err))
 		if response.Error == nil || response.Error.Code != rpcapi.StatusCodeResourceExhausted ||

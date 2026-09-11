@@ -796,6 +796,8 @@ func adminSocialError(err error) (int, apitypes.ErrorResponse) {
 		return http.StatusConflict, apitypes.NewErrorResponse(runtimepeer.PeerPendingDeletionCode, err.Error())
 	case errors.Is(err, runtimepeer.ErrPeerDeleted):
 		return http.StatusConflict, apitypes.NewErrorResponse(runtimepeer.PeerDeletedCode, err.Error())
+	case errors.Is(err, contact.ErrPeerContactLimit):
+		return http.StatusConflict, apitypes.NewErrorResponse(contact.ContactLimitReachedCode, contact.ErrPeerContactLimit.Error())
 	case errors.Is(err, contact.ErrPeerPendingDeletion):
 		return http.StatusConflict, apitypes.NewErrorResponse(contact.PeerPendingDeletionCode, err.Error())
 	case errors.Is(err, contact.ErrPeerDeleted):

@@ -22,7 +22,13 @@ import (
 const (
 	PeerPendingDeletionCode = "PEER_PENDING_DELETION"
 	PeerDeletedCode         = "PEER_DELETED"
-	contactColumns          = "id,owner_public_key,name,display_name,phone_number,created_at,updated_at,incarnation"
+	// ContactLimitReachedCode is the stable error code for ErrPeerContactLimit.
+	ContactLimitReachedCode = "CONTACT_LIMIT_REACHED"
+	// PeerContactLimit is the fixed number of Contacts one owner Peer may
+	// have. Devices size their Contact arrays and offline allowlists to it and
+	// reject longer lists, so it is deliberately not configurable.
+	PeerContactLimit = 8
+	contactColumns   = "id,owner_public_key,name,display_name,phone_number,created_at,updated_at,incarnation"
 )
 
 var (
@@ -30,6 +36,8 @@ var (
 	ErrPeerDeleted         = errors.New("social: Peer deleted")
 	// ErrNotFound means no Contact matches the requested identity and owner.
 	ErrNotFound = errors.New("social: contact not found")
+	// ErrPeerContactLimit means the owner already has PeerContactLimit Contacts.
+	ErrPeerContactLimit = errors.New("social: peer contact limit reached")
 )
 
 // Server owns the SQL Contact catalog and owner admission coordination.
@@ -296,6 +304,14 @@ func (s *Server) createContact(ctx context.Context, owner, id, name string, disp
 	defer release()
 	if err := s.ensurePeerAvailable(ctx, owner); err != nil {
 		return rpcapi.ContactObject{}, err
+	}
+	// The owner lock serializes this count with the insert below.
+	var existing int
+	if err := db.QueryRowContext(ctx, db.Rebind(`SELECT COUNT(*) FROM contacts WHERE owner_public_key=?`), owner).Scan(&existing); err != nil {
+		return rpcapi.ContactObject{}, err
+	}
+	if existing >= PeerContactLimit {
+		return rpcapi.ContactObject{}, fmt.Errorf("%w: %d contacts", ErrPeerContactLimit, existing)
 	}
 	now := s.now()
 	item := rpcapi.ContactObject{Name: name, DisplayName: display, PhoneNumber: phone, CreatedAt: &now, UpdatedAt: &now}

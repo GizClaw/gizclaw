@@ -70,6 +70,9 @@ func (m *Manager) applyContact(ctx context.Context, resource apitypes.Resource) 
 			if errors.Is(err, socialutil.ErrResourceAlreadyExists) {
 				return apitypes.ApplyResult{}, applyError(409, "CONTACT_ALREADY_EXISTS", err.Error())
 			}
+			if errors.Is(err, contact.ErrPeerContactLimit) {
+				return apitypes.ApplyResult{}, applyError(409, contact.ContactLimitReachedCode, contact.ErrPeerContactLimit.Error())
+			}
 			return apitypes.ApplyResult{}, err
 		}
 		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindContact, created.Id), nil

@@ -93,7 +93,7 @@ func TestCRUDUsesDirectFieldsAndPerPeerScope(t *testing.T) {
 	}
 }
 
-func TestDuplicatePhoneConstraintAcrossLargeCatalog(t *testing.T) {
+func TestDuplicatePhoneConstraintAcrossCatalog(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer(t)
 	nextID := 0
@@ -103,7 +103,7 @@ func TestDuplicatePhoneConstraintAcrossLargeCatalog(t *testing.T) {
 	}
 
 	var lastPhone string
-	for i := range socialutil.MaxListLimit + 1 {
+	for i := range PeerContactLimit - 1 {
 		lastPhone = fmt.Sprintf("+1 555 9%03d", i)
 		if _, err := s.CreateContact(ctx, "peer-a", rpcapi.ContactCreateRequest{
 			Name:        fmt.Sprintf("contact-%03d", i),
@@ -114,8 +114,109 @@ func TestDuplicatePhoneConstraintAcrossLargeCatalog(t *testing.T) {
 		}
 	}
 	if _, err := s.CreateContact(ctx, "peer-a", rpcapi.ContactCreateRequest{Name: "duplicate-phone", PhoneNumber: new(lastPhone)}); err == nil {
-		t.Fatal("CreateContact duplicate phone beyond first page error = nil")
+		t.Fatal("CreateContact duplicate phone error = nil")
 	}
+}
+
+func TestCreateContactEnforcesPeerLimit(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer(t)
+	for i := range PeerContactLimit {
+		if _, err := s.CreateContact(ctx, "peer-a", rpcapi.ContactCreateRequest{Name: fmt.Sprintf("person-%d", i), PhoneNumber: new(fmt.Sprintf("+1 555 01%02d", i))}); err != nil {
+			t.Fatalf("CreateContact %d: %v", i+1, err)
+		}
+	}
+	before := contactNames(t, s, "peer-a")
+	if _, err := s.CreateContact(ctx, "peer-a", rpcapi.ContactCreateRequest{Name: "overflow", DisplayName: new("Overflow")}); !errors.Is(err, ErrPeerContactLimit) {
+		t.Fatalf("CreateContact over limit error = %v, want %v", err, ErrPeerContactLimit)
+	}
+	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{Id: "admin-overflow", OwnerPublicKey: "peer-a", Name: "admin-overflow", DisplayName: new("Overflow")}); !errors.Is(err, ErrPeerContactLimit) {
+		t.Fatalf("AdminCreateContact over limit error = %v, want %v", err, ErrPeerContactLimit)
+	}
+	if after := contactNames(t, s, "peer-a"); strings.Join(after, ",") != strings.Join(before, ",") {
+		t.Fatalf("contacts after rejected create = %v, want %v", after, before)
+	}
+	if _, err := s.CreateContact(ctx, "peer-b", rpcapi.ContactCreateRequest{Name: "other", DisplayName: new("Other")}); err != nil {
+		t.Fatalf("CreateContact for another owner: %v", err)
+	}
+
+	if _, err := s.PutContact(ctx, "peer-a", rpcapi.ContactPutRequest{Name: "person-0", DisplayName: new("Updated")}); err != nil {
+		t.Fatalf("PutContact at limit: %v", err)
+	}
+	if _, err := s.DeleteContact(ctx, "peer-a", rpcapi.ContactDeleteRequest{Name: "person-0"}); err != nil {
+		t.Fatalf("DeleteContact at limit: %v", err)
+	}
+	if _, err := s.CreateContact(ctx, "peer-a", rpcapi.ContactCreateRequest{Name: "replacement", DisplayName: new("Replacement")}); err != nil {
+		t.Fatalf("CreateContact after delete: %v", err)
+	}
+	if got := len(contactNames(t, s, "peer-a")); got != PeerContactLimit {
+		t.Fatalf("contacts = %d, want %d", got, PeerContactLimit)
+	}
+}
+
+func TestConcurrentCreateContactRespectsPeerLimit(t *testing.T) {
+	s := newTestServer(t)
+	const attempts = PeerContactLimit * 3
+	start := make(chan struct{})
+	results := make(chan error, attempts)
+	for i := range attempts {
+		go func() {
+			<-start
+			_, err := s.AdminCreateContact(t.Context(), adminhttp.AdminContactCreateRequest{Id: fmt.Sprintf("contact-%02d", i), OwnerPublicKey: "owner", Name: fmt.Sprintf("person-%02d", i), DisplayName: new("Person")})
+			results <- err
+		}()
+	}
+	close(start)
+	successes := 0
+	for range attempts {
+		err := <-results
+		switch {
+		case err == nil:
+			successes++
+		case errors.Is(err, ErrPeerContactLimit):
+		default:
+			t.Fatal(err)
+		}
+	}
+	if got := len(contactNames(t, s, "owner")); successes != PeerContactLimit || got != PeerContactLimit {
+		t.Fatalf("successes = %d, stored = %d, want %d", successes, got, PeerContactLimit)
+	}
+}
+
+func TestCreateContactKeepsContactsAboveLimit(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer(t)
+	for i := range PeerContactLimit + 2 {
+		id := fmt.Sprintf("legacy-%02d", i)
+		if _, err := s.DB.ExecContext(ctx, `INSERT INTO contacts(id,owner_public_key,name,display_name,created_at,updated_at,incarnation) VALUES (?,?,?,?,?,?,?)`, id, "peer-a", id, "Legacy", "2026-09-06T00:00:00Z", "2026-09-06T00:00:00Z", id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := s.CreateContact(ctx, "peer-a", rpcapi.ContactCreateRequest{Name: "overflow", DisplayName: new("Overflow")}); !errors.Is(err, ErrPeerContactLimit) {
+		t.Fatalf("CreateContact above limit error = %v, want %v", err, ErrPeerContactLimit)
+	}
+	if got := len(contactNames(t, s, "peer-a")); got != PeerContactLimit+2 {
+		t.Fatalf("contacts = %d, want existing %d kept", got, PeerContactLimit+2)
+	}
+	if _, err := s.PutContact(ctx, "peer-a", rpcapi.ContactPutRequest{Name: "legacy-00", DisplayName: new("Updated")}); err != nil {
+		t.Fatalf("PutContact above limit: %v", err)
+	}
+	if _, err := s.DeleteContact(ctx, "peer-a", rpcapi.ContactDeleteRequest{Name: "legacy-00"}); err != nil {
+		t.Fatalf("DeleteContact above limit: %v", err)
+	}
+}
+
+func contactNames(t *testing.T, s *Server, owner string) []string {
+	t.Helper()
+	list, err := s.ListContacts(t.Context(), owner, rpcapi.ContactListRequest{Limit: new(socialutil.MaxListLimit)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := make([]string, 0, len(list.Items))
+	for _, item := range list.Items {
+		names = append(names, item.Name)
+	}
+	return names
 }
 
 func TestAdminContactCRUDAndPagination(t *testing.T) {
