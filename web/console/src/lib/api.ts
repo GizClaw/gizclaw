@@ -9,6 +9,9 @@ import { isLocal } from "@/lib/config";
 export const nodeSchema = z.object({
   public_key: z.string(),
   role: z.string(),
+  // Nodes built before the snapshot carried build identity omit both fields.
+  version: z.string().optional(),
+  build_commit: z.string().optional(),
   time: z.string(),
   uptime_seconds: z.number(),
   goroutines: z.number(),

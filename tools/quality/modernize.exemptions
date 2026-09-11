@@ -668,5 +668,5 @@ pkgs/gizclaw/api/rpcproto/social.pb.go:3620:19: reflect.TypeOf call can be simpl
 pkgs/gizclaw/api/rpcproto/system.pb.go:4452:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/rpcproto/workspace.pb.go:4395:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/telemetry/peer_telemetry.pb.go:1052:19: reflect.TypeOf call can be simplified using TypeFor
-pkgs/monitor/api/generated.go:574:101: interface{} can be replaced by any
-pkgs/monitor/api/generated.go:574:87: interface{} can be replaced by any
+pkgs/monitor/api/generated.go:579:101: interface{} can be replaced by any
+pkgs/monitor/api/generated.go:579:87: interface{} can be replaced by any

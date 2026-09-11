@@ -55,27 +55,6 @@ type flowcraftFixtureNode struct {
 	} `json:"config" yaml:"config"`
 }
 
-var workflowFixtureFiles = []string{
-	"00-ast-translate-tts.yaml",
-	"01-ast-translate-zh-jp.yaml",
-	"02-ast-translate.yaml",
-	"04-doubao-realtime.yaml",
-	"05-flowcraft-basic.yaml",
-	"06-flowcraft-chat.yaml",
-	"07-doubao-realtime-quality.yaml",
-	"08-flowcraft-journey.yaml",
-	"10-flowcraft-multi-role-storyteller.yaml",
-	"11-flowcraft-murder-mystery.yaml",
-	"12-flowcraft-poetry-adventure-li-bai.yaml",
-	"13-flowcraft-werewolf.yaml",
-	"14-ast-translate-zh-en.yaml",
-	"15-dashscope-realtime.yaml",
-	"16-doubao-realtime-duplex.yaml",
-	"17-eino-memory.yaml",
-	"18-flowcraft-configured-memory.yaml",
-	"19-flowcraft-realtime-chat.yaml",
-}
-
 type workflowFixture struct {
 	Kind     string `yaml:"kind"`
 	Metadata struct {
@@ -83,6 +62,20 @@ type workflowFixture struct {
 	} `yaml:"metadata"`
 	I18n any `yaml:"i18n"`
 	Icon any `yaml:"icon"`
+	Spec struct {
+		Items []workflowFixture `yaml:"items"`
+	} `yaml:"spec"`
+}
+
+// benchmarkFlowcraftTokenBudgets lists Flowcraft fixtures that deliberately
+// cap generator output below the production budget, keyed by fixture name
+// without extension. The latency comparison gate
+// (run_workflow_latency_comparison_tests.sh) pairs this graph with
+// 21-eino-latency-comparison.yaml, which uses the same caps, so both drivers
+// produce comparably short answers.
+var benchmarkFlowcraftTokenBudgets = map[string]map[string]int{
+	"20-flowcraft-latency-comparison": {"planner-model": 64, "answer-model": 128},
+	"flowcraft-latency-comparison":    {"planner-model": 64, "answer-model": 128},
 }
 
 func TestServerWorkspaceFixtureHasNoImplicitOrUnconsumedStoreEntries(t *testing.T) {
@@ -192,10 +185,16 @@ func collectFixtureReferences(value any, stores map[string]any, references map[s
 }
 
 func TestWorkflowCatalogFixtures(t *testing.T) {
-	workflowDir := filepath.Join("resources", "04-workflows")
-	for _, filename := range workflowFixtureFiles {
-		t.Run(filename, func(t *testing.T) {
-			raw, err := os.ReadFile(filepath.Join(workflowDir, filename))
+	paths, err := filepath.Glob(filepath.Join("resources", "04-workflows", "*.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) == 0 {
+		t.Fatal("no Workflow fixtures found")
+	}
+	for _, path := range paths {
+		t.Run(filepath.Base(path), func(t *testing.T) {
+			raw, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -203,13 +202,27 @@ func TestWorkflowCatalogFixtures(t *testing.T) {
 			if err := yaml.Unmarshal(raw, &fixture); err != nil {
 				t.Fatal(err)
 			}
-			if fixture.Kind != "Workflow" || fixture.Metadata.ID == "" {
-				t.Fatalf("fixture identity = kind %q id %q", fixture.Kind, fixture.Metadata.ID)
+			workflows := []workflowFixture{fixture}
+			if fixture.Kind == "ResourceList" {
+				if len(fixture.Spec.Items) == 0 {
+					t.Fatal("ResourceList has no items")
+				}
+				workflows = fixture.Spec.Items
 			}
-			if fixture.Icon != nil || fixture.I18n != nil {
-				t.Fatalf("Workflow display metadata must be client-owned: icon=%#v i18n=%#v", fixture.Icon, fixture.I18n)
+			for _, workflow := range workflows {
+				assertWorkflowCatalogFixture(t, workflow)
 			}
 		})
+	}
+}
+
+func assertWorkflowCatalogFixture(t *testing.T, fixture workflowFixture) {
+	t.Helper()
+	if fixture.Kind != "Workflow" || fixture.Metadata.ID == "" {
+		t.Fatalf("fixture identity = kind %q id %q", fixture.Kind, fixture.Metadata.ID)
+	}
+	if fixture.Icon != nil || fixture.I18n != nil {
+		t.Fatalf("Workflow %q display metadata must be client-owned: icon=%#v i18n=%#v", fixture.Metadata.ID, fixture.Icon, fixture.I18n)
 	}
 }
 
@@ -586,8 +599,11 @@ func TestFlowcraftGeneratorsUseProductionTokenBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	checked := map[string]bool{}
 	for _, path := range resourcePaths {
-		t.Run(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), func(t *testing.T) {
+		name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+		checked[name] = true
+		t.Run(name, func(t *testing.T) {
 			raw, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
@@ -604,7 +620,7 @@ func TestFlowcraftGeneratorsUseProductionTokenBudget(t *testing.T) {
 			if err := yaml.Unmarshal(raw, &resource); err != nil {
 				t.Fatal(err)
 			}
-			assertFlowcraftGeneratorTokenBudget(t, resource.Spec.Flowcraft.Graph.Nodes)
+			assertFlowcraftGeneratorTokenBudget(t, name, resource.Spec.Flowcraft.Graph.Nodes)
 		})
 	}
 
@@ -613,7 +629,9 @@ func TestFlowcraftGeneratorsUseProductionTokenBudget(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, path := range workspacePaths {
-		t.Run(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), func(t *testing.T) {
+		name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+		checked[name] = true
+		t.Run(name, func(t *testing.T) {
 			raw, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
@@ -630,17 +648,40 @@ func TestFlowcraftGeneratorsUseProductionTokenBudget(t *testing.T) {
 			if err := json.Unmarshal(raw, &workspace); err != nil {
 				t.Fatal(err)
 			}
-			assertFlowcraftGeneratorTokenBudget(t, workspace.Workflow.Flowcraft.Graph.Nodes)
+			assertFlowcraftGeneratorTokenBudget(t, name, workspace.Workflow.Flowcraft.Graph.Nodes)
 		})
+	}
+
+	for name := range benchmarkFlowcraftTokenBudgets {
+		if !checked[name] {
+			t.Errorf("benchmark token budget exemption %q matches no Flowcraft fixture", name)
+		}
 	}
 }
 
-func assertFlowcraftGeneratorTokenBudget(t *testing.T, nodes []flowcraftGeneratorNode) {
+func assertFlowcraftGeneratorTokenBudget(t *testing.T, fixture string, nodes []flowcraftGeneratorNode) {
 	t.Helper()
+	budgets, benchmark := benchmarkFlowcraftTokenBudgets[fixture]
+	generators := 0
 	for _, node := range nodes {
-		if node.Type == "llm" && node.Config.MaxTokens != 2048 {
-			t.Errorf("generator node %q max_tokens = %d, want 2048", node.ID, node.Config.MaxTokens)
+		if node.Type != "llm" {
+			continue
 		}
+		generators++
+		want := 2048
+		if benchmark {
+			var ok bool
+			if want, ok = budgets[node.ID]; !ok {
+				t.Errorf("benchmark generator node %q has no declared token budget", node.ID)
+				continue
+			}
+		}
+		if node.Config.MaxTokens != want {
+			t.Errorf("generator node %q max_tokens = %d, want %d", node.ID, node.Config.MaxTokens, want)
+		}
+	}
+	if benchmark && generators != len(budgets) {
+		t.Errorf("benchmark generator count = %d, want %d declared budgets", generators, len(budgets))
 	}
 }
 

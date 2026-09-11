@@ -39,7 +39,12 @@ const edgeShutdownTimeout = 5 * time.Second
 
 // Serve starts the Edge HTTP ingress and optional client gateway, forwarding
 // authoritative work to the configured Server over giznet.
-func Serve(root string) error {
+// BuildInfo is the binary identity an Edge reports in its monitor snapshot.
+type BuildInfo struct {
+	Version, Commit string
+}
+
+func Serve(root string, build BuildInfo) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	cfg, err := PrepareWorkspaceConfig(root)
@@ -49,6 +54,7 @@ func Serve(root string) error {
 	// The standalone process owns its logger even without explicit sinks.
 	// Embedded ServeContext callers may instead supply their host logger.
 	cfg.systemLogConfigured = true
+	cfg.build = build
 	return servePreparedContext(ctx, cfg)
 }
 
@@ -115,7 +121,12 @@ func servePreparedContext(ctx context.Context, cfg Config) (serveErr error) {
 		}
 	}
 	proxy := newPeerHTTPProxy(cfg.WebRTC.Endpoint, upstreamTransport, transport)
-	handler := monitor.Handler(cfg.Monitor, "edge", cfg.KeyPair.Public.String(), edgeIngressHandler(proxy, gateway))
+	handler := monitor.Handler(cfg.Monitor, monitor.Node{
+		Role:      "edge",
+		PublicKey: cfg.KeyPair.Public.String(),
+		Version:   cfg.build.Version,
+		Commit:    cfg.build.Commit,
+	}, edgeIngressHandler(proxy, gateway))
 	httpRuntime, err := startEdgeHTTP(cfg.HTTP.Listeners, handler)
 	if err != nil {
 		return err
@@ -286,16 +297,19 @@ func upstreamSignalingURL(upstreamURL *url.URL) string {
 // DataChannel, and the Server accepts inbound DataChannels through a single
 // serial loop fed by pion-sctp's accept queue, which holds 16 streams and
 // silently drops the DATA of any new stream beyond that. A dropped open only
-// recovers through SCTP T3 retransmission with exponential backoff, and a
-// burst that starves the receive window can wedge the accept loop for good.
-// The bound is 15 so that, together with the single-flight liveness probe,
-// which bypasses it so a saturated bound cannot fail the probe and evict a
-// healthy association, at most 16 opens are in flight: the accept queue cannot
-// overflow regardless of packet timing, and stays far below the receive window
-// provisioned for GatewaySCTPReceiveBufferSize. Burst tests showed a bound of
-// 64 failed as badly as no bound, because slots held by requests waiting on
-// retransmission starved the queued requests. Excess requests wait for a slot
-// or fail with their context rather than piling onto SCTP.
+// recovers through SCTP T3 retransmission with exponential backoff. The pinned
+// pion-webrtc fork reads each stream's DCEP OPEN off that loop with a
+// deadline, so a lost open no longer wedges it, but an overflowing queue still
+// delays opens by whole retransmission timeouts. The bound is 15 so that,
+// together with the single-flight liveness probe, which bypasses it so a
+// saturated bound cannot fail the probe and evict a healthy association, at
+// most 16 opens are in flight: the accept queue cannot overflow regardless of
+// packet timing, and stays far below the receive window provisioned for
+// GatewaySCTPReceiveBufferSize. Burst tests against the earlier blocking accept
+// loop showed a bound of 64 failed as badly as no bound, because slots held by
+// requests waiting on retransmission starved the queued requests. Excess
+// requests wait for a slot or fail with their context rather than piling onto
+// SCTP.
 const maxConcurrentUpstreamRequests = 15
 
 type upstreamTransport struct {

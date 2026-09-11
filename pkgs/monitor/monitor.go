@@ -37,15 +37,22 @@ func (*configError) Error() string {
 	return "monitor.token must begin with gizclaw_mk_ and contain at least 32 additional characters"
 }
 
+// Node identifies the process a snapshot describes. Empty build fields report
+// "dev", matching the Peer server info of unversioned builds.
+type Node struct {
+	Role, PublicKey string
+	Version, Commit string
+}
+
 type nodeServer struct {
-	role, publicKey string
-	started         time.Time
+	node    Node
+	started time.Time
 }
 
 func (s *nodeServer) GetNodeMonitor(_ context.Context, _ monitorapi.GetNodeMonitorRequestObject) (monitorapi.GetNodeMonitorResponseObject, error) {
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
-	snapshot := monitorapi.NodeSnapshot{PublicKey: s.publicKey, Role: s.role, Time: time.Now().UTC(), UptimeSeconds: time.Since(s.started).Seconds(), Goroutines: runtime.NumGoroutine(), HeapBytes: mem.HeapAlloc}
+	snapshot := monitorapi.NodeSnapshot{PublicKey: s.node.PublicKey, Role: s.node.Role, Version: s.node.Version, BuildCommit: s.node.Commit, Time: time.Now().UTC(), UptimeSeconds: time.Since(s.started).Seconds(), Goroutines: runtime.NumGoroutine(), HeapBytes: mem.HeapAlloc}
 	transport := gizwebrtc.ReadMonitorSnapshot()
 	snapshot.Transport.Connections = transport.Connections
 	snapshot.Transport.Services = transport.Services
@@ -56,8 +63,14 @@ func (s *nodeServer) GetNodeMonitor(_ context.Context, _ monitorapi.GetNodeMonit
 }
 
 // Handler serves the embedded monitoring console and token-protected node API.
-func Handler(cfg Config, role, publicKey string, next http.Handler) http.Handler {
-	endpoint := monitorapi.Handler(monitorapi.NewStrictHandler(&nodeServer{role: role, publicKey: publicKey, started: time.Now()}, nil))
+func Handler(cfg Config, node Node, next http.Handler) http.Handler {
+	if node.Version == "" {
+		node.Version = "dev"
+	}
+	if node.Commit == "" {
+		node.Commit = "dev"
+	}
+	endpoint := monitorapi.Handler(monitorapi.NewStrictHandler(&nodeServer{node: node, started: time.Now()}, nil))
 	ui := http.StripPrefix("/monitor/", console.Handler())
 	tokenHash := sha256.Sum256([]byte(cfg.Token))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

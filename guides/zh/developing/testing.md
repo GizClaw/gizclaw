@@ -146,6 +146,20 @@ tests/gizclaw-e2e/
 └── flutter/     # Flutter/Dart giztest runner
 ```
 
+`tests/gizclaw-e2e/testdata` 下的 `workflow_catalog_test.go` 是不需要 Docker 或
+credential 的静态 fixture 检查，覆盖 Workflow catalog、Flowcraft graph、Workspace
+与 Server/Edge 配置模板。Go 的 `./...` 模式会跳过名为 `testdata` 的目录，所以它不属于
+`go test ./...`；CI 的 Go Test job 单独运行它，本地修改这些 fixture 时也要执行：
+
+```bash
+go test -count=1 ./tests/gizclaw-e2e/testdata
+```
+
+`*-flowcraft-*` Workflow resource 与 `flowcraft-*` Workspace 的 LLM 节点必须使用
+`max_tokens: 2048`。Latency comparison benchmark fixture 是唯一例外：它与
+`21-eino-latency-comparison.yaml` 使用相同的 64/128 上限，使两个 driver 的回答长度可比；
+例外及每个节点的上限登记在测试的 `benchmarkFlowcraftTokenBudgets` 中。
+
 先复制 provider credential 模板。`.env` 只能保存 provider credential，不能保存
 runtime 地址、resource ID、model/voice ID 或 E2E identity；真实密钥不得提交。
 

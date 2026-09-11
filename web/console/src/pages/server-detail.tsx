@@ -169,6 +169,8 @@ export function ServerDetailPage({
             <CardContent className="flex flex-col gap-5">
               <dl className="grid gap-x-10 gap-y-2.5 sm:grid-cols-2 xl:grid-cols-3">
                 <Field label="角色" value={snapshot?.role} />
+                <Field label="版本" value={snapshot?.version} />
+                <Field label="构建提交" value={snapshot?.build_commit} />
                 <Field
                   label="快照时间"
                   value={

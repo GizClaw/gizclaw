@@ -66,6 +66,8 @@
         "required": [
           "public_key",
           "role",
+          "version",
+          "build_commit",
           "time",
           "uptime_seconds",
           "goroutines",
@@ -78,6 +80,14 @@
           },
           "role": {
             "type": "string"
+          },
+          "version": {
+            "type": "string",
+            "description": "Software version embedded in this process binary; \"dev\" for unversioned builds."
+          },
+          "build_commit": {
+            "type": "string",
+            "description": "Source commit embedded in this process binary; \"dev\" for unversioned builds."
           },
           "time": {
             "type": "string",
