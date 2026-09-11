@@ -46,7 +46,7 @@ type resourceMetadata struct {
 // operations share this connection instead of dialing per resource.
 type adminClient struct {
 	opts       contextconn.Options
-	connect    func(contextconn.Options) (resourceConn, error)
+	connect    func(context.Context, contextconn.Options) (resourceConn, error)
 	retryDelay time.Duration
 
 	dial   singleflight.Group
@@ -63,8 +63,8 @@ type adminClient struct {
 func newAdminClient(opts contextconn.Options) *adminClient {
 	return &adminClient{
 		opts: opts,
-		connect: func(opts contextconn.Options) (resourceConn, error) {
-			conn, err := adminresource.Connect(opts)
+		connect: func(ctx context.Context, opts contextconn.Options) (resourceConn, error) {
+			conn, err := adminresource.Connect(ctx, opts)
 			if err != nil {
 				return nil, err
 			}
@@ -76,16 +76,18 @@ func newAdminClient(opts contextconn.Options) *adminClient {
 }
 
 // connection returns the shared connection, opening it when needed.
-// Concurrent callers share one dial; connMu never covers the dial itself.
-func (c *adminClient) connection() (resourceConn, error) {
+// Concurrent callers share one dial bounded by the context of the caller that
+// started it; every caller stops waiting when its own ctx is done. connMu
+// never covers the dial itself.
+func (c *adminClient) connection(ctx context.Context) (resourceConn, error) {
 	if conn := c.current(); conn != nil {
 		return conn, nil
 	}
-	value, err, _ := c.dial.Do("connect", func() (any, error) {
+	result := c.dial.DoChan("connect", func() (any, error) {
 		if conn := c.current(); conn != nil {
 			return conn, nil
 		}
-		conn, err := c.connect(c.opts)
+		conn, err := c.connect(ctx, c.opts)
 		if err != nil {
 			return nil, fmt.Errorf("connect to GizClaw Server: %w", err)
 		}
@@ -94,10 +96,15 @@ func (c *adminClient) connection() (resourceConn, error) {
 		c.connMu.Unlock()
 		return conn, nil
 	})
-	if err != nil {
-		return nil, err
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case r := <-result:
+		if r.Err != nil {
+			return nil, r.Err
+		}
+		return r.Val.(resourceConn), nil
 	}
-	return value.(resourceConn), nil
 }
 
 func (c *adminClient) current() resourceConn {
@@ -131,13 +138,16 @@ func (c *adminClient) do(ctx context.Context, op func(resourceConn) error) error
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		conn, err := c.connection()
+		conn, err := c.connection(ctx)
 		if err == nil {
 			err = c.run(ctx, conn, op)
 			if err == nil || isResponseError(err) || ctx.Err() != nil {
 				return err
 			}
 			c.discard(conn)
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
 		if attempt == maxOperationAttempts {
 			return err

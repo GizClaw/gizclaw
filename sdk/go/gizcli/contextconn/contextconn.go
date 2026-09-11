@@ -116,14 +116,16 @@ func LoadContext(opts Options) (*contextstore.Context, error) {
 
 // Dial loads the context, fetches the Server's server-info, and returns a
 // client configured for the WebRTC transport together with the Server public
-// key and base URL. The returned client is not connected yet.
-func Dial(opts Options) (*gizcli.Client, giznet.PublicKey, string, error) {
+// key and base URL. The returned client is not connected yet. ctx bounds the
+// server-info requests and the later WebRTC dial performed by the client's
+// DialTransport.
+func Dial(ctx context.Context, opts Options) (*gizcli.Client, giznet.PublicKey, string, error) {
 	cliCtx, err := LoadContext(opts)
 	if err != nil {
 		return nil, giznet.PublicKey{}, "", err
 	}
 
-	info, err := fetchServerInfoWithRetry(cliCtx.Config.Server.BaseURL())
+	info, err := fetchServerInfoWithRetry(ctx, cliCtx.Config.Server.BaseURL())
 	if err != nil {
 		return nil, giznet.PublicKey{}, "", err
 	}
@@ -132,9 +134,9 @@ func Dial(opts Options) (*gizcli.Client, giznet.PublicKey, string, error) {
 		DialTransport: func(key *giznet.KeyPair, serverPK giznet.PublicKey, serverAddr string, securityPolicy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error) {
 			_ = serverPK
 			_ = serverAddr
-			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			dialCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 			defer cancel()
-			l, conn, err := gizwebrtc.Dial(ctx, key, info.TransportPublicKey, gizwebrtc.DialConfig{
+			l, conn, err := gizwebrtc.Dial(dialCtx, key, info.TransportPublicKey, gizwebrtc.DialConfig{
 				SignalingURL:   info.SignalingURL,
 				ICEServers:     info.ICEServers,
 				SecurityPolicy: securityPolicy,
@@ -155,34 +157,40 @@ var dialClient = func(c *gizcli.Client, serverPK giznet.PublicKey, serverAddr st
 var serveClient = func(c *gizcli.Client) error {
 	return c.Serve()
 }
-var probeReady = probePeerHTTPReady
+var probeReady = func(ctx context.Context, c *gizcli.Client) error {
+	return probePeerHTTPReady(ctx, c)
+}
 var connectReadyTimeout = 5 * time.Second
 var connectPollInterval = 10 * time.Millisecond
 
-func fetchServerInfoWithRetry(serverURL string) (gizcli.ServerInfoMetadata, error) {
+func fetchServerInfoWithRetry(ctx context.Context, serverURL string) (gizcli.ServerInfoMetadata, error) {
 	var lastErr error
 	for attempt := range serverInfoRetryAttempts {
-		ctx, cancel := context.WithTimeout(context.Background(), serverInfoAttemptTimeout)
-		info, err := fetchServerInfo(ctx, serverURL)
+		attemptCtx, cancel := context.WithTimeout(ctx, serverInfoAttemptTimeout)
+		info, err := fetchServerInfo(attemptCtx, serverURL)
 		cancel()
 		if err == nil {
 			return info, nil
 		}
 		lastErr = err
 
-		if !gizcli.IsRetryableServerInfoError(err) || attempt+1 == serverInfoRetryAttempts {
+		if ctx.Err() != nil || !gizcli.IsRetryableServerInfoError(err) || attempt+1 == serverInfoRetryAttempts {
 			return gizcli.ServerInfoMetadata{}, err
 		}
-		time.Sleep(serverInfoRetryDelay)
+		if err := sleepContext(ctx, serverInfoRetryDelay); err != nil {
+			return gizcli.ServerInfoMetadata{}, err
+		}
 	}
 	return gizcli.ServerInfoMetadata{}, lastErr
 }
 
 // Connect dials the selected context, starts serving the client-side Peer
-// services, and returns once the Peer HTTP service answers. The caller owns
-// the returned client and must Close it.
-func Connect(opts Options) (*gizcli.Client, error) {
-	c, serverPK, serverAddr, err := dialOptions(opts)
+// services, and returns once the Peer HTTP service answers. Cancelling ctx
+// stops server-info requests, the WebRTC dial, and the readiness wait; a
+// client that was already dialed is closed. The caller owns the returned
+// client and must Close it.
+func Connect(ctx context.Context, opts Options) (*gizcli.Client, error) {
+	c, serverPK, serverAddr, err := dialOptions(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -205,28 +213,42 @@ func Connect(opts Options) (*gizcli.Client, error) {
 			return nil, fmt.Errorf("gizclaw: client stopped before ready")
 		default:
 		}
-		if err := probeReady(c); err == nil {
+		if err := probeReady(ctx, c); err == nil {
 			return c, nil
 		}
-		time.Sleep(connectPollInterval)
+		if err := sleepContext(ctx, connectPollInterval); err != nil {
+			_ = c.Close()
+			return nil, err
+		}
 	}
 	_ = c.Close()
 	return nil, fmt.Errorf("gizclaw: timeout waiting for client readiness")
 }
 
-func probePeerHTTPReady(c *gizcli.Client) error {
+func sleepContext(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func probePeerHTTPReady(ctx context.Context, c *gizcli.Client) error {
 	if c == nil {
 		return fmt.Errorf("gizclaw: nil client")
 	}
 	if c.PeerConn() == nil {
 		return fmt.Errorf("gizclaw: client is not connected")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	probeCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
 	defer cancel()
 	api, err := c.PeerHTTPClient()
 	if err != nil {
 		return err
 	}
-	_, err = api.GetServerInfoWithResponse(ctx)
+	_, err = api.GetServerInfoWithResponse(probeCtx)
 	return err
 }

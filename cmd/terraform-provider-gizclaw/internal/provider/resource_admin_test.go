@@ -336,3 +336,29 @@ func TestSetModelPreservesCredentialSpecOnRead(t *testing.T) {
 		t.Fatalf("spec = %q", got)
 	}
 }
+
+func TestSetModelPreservesDefaultedEnvironmentPlaceholders(t *testing.T) {
+	t.Setenv("GIZCLAW_TEST_SET_REGION", "")
+	t.Setenv("GIZCLAW_TEST_SET_HOST", "api.example.com")
+	configured := `{"region":"${GIZCLAW_TEST_SET_REGION:-cn-beijing}","base_url":"https://${GIZCLAW_TEST_SET_HOST}/v1","unset":"${GIZCLAW_TEST_SET_UNSET:-fallback}"}`
+	model := adminResourceModel{Spec: types.StringValue(configured)}
+	setModel(&model, resourceEnvelope{
+		APIVersion: resourceAPIVersion,
+		Kind:       "VolcTenant",
+		Metadata:   resourceMetadata{ID: "volc"},
+		Spec:       json.RawMessage(`{"region":"cn-beijing","base_url":"https://api.example.com/v1","unset":"fallback"}`),
+	}, true)
+	if got := model.Spec.ValueString(); got != configured {
+		t.Fatalf("spec = %q", got)
+	}
+
+	setModel(&model, resourceEnvelope{
+		APIVersion: resourceAPIVersion,
+		Kind:       "VolcTenant",
+		Metadata:   resourceMetadata{ID: "volc"},
+		Spec:       json.RawMessage(`{"region":"cn-shanghai","base_url":"https://api.example.com/v1","unset":"fallback"}`),
+	}, true)
+	if got := model.Spec.ValueString(); got == configured {
+		t.Fatal("drift from a defaulted placeholder was hidden")
+	}
+}

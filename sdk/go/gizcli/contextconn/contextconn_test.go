@@ -86,7 +86,7 @@ func testServerPrivateKey(fill byte) giznet.Key {
 func TestDialNoActiveContext(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	_, _, _, err := Dial(Options{Context: ""})
+	_, _, _, err := Dial(context.Background(), Options{Context: ""})
 	if err == nil {
 		t.Fatal("Dial should fail without an active context")
 	}
@@ -108,7 +108,7 @@ func TestDialInvalidServerInfoPublicKey(t *testing.T) {
 		t.Fatalf("Create error = %v", err)
 	}
 
-	_, _, _, err = Dial(Options{Context: "local"})
+	_, _, _, err = Dial(context.Background(), Options{Context: "local"})
 	if err == nil || !strings.Contains(err.Error(), "server-info invalid public_key") {
 		t.Fatalf("Dial error = %v", err)
 	}
@@ -127,7 +127,7 @@ func TestDialMissingServerInfoPublicKey(t *testing.T) {
 		t.Fatalf("Create error = %v", err)
 	}
 
-	_, _, _, err = Dial(Options{Context: "local"})
+	_, _, _, err = Dial(context.Background(), Options{Context: "local"})
 	if err == nil || !strings.Contains(err.Error(), "server-info missing public_key") {
 		t.Fatalf("Dial error = %v", err)
 	}
@@ -159,7 +159,7 @@ func TestDialRetriesTransientServerInfoTimeout(t *testing.T) {
 		t.Fatalf("Create error = %v", err)
 	}
 
-	_, serverPK, _, err := Dial(Options{Context: "local"})
+	_, serverPK, _, err := Dial(context.Background(), Options{Context: "local"})
 	if err != nil {
 		t.Fatalf("Dial error = %v", err)
 	}
@@ -194,7 +194,7 @@ func TestDialRetriesServerInfo5xx(t *testing.T) {
 		t.Fatalf("Create error = %v", err)
 	}
 
-	_, _, _, err = Dial(Options{Context: "local"})
+	_, _, _, err = Dial(context.Background(), Options{Context: "local"})
 	if err != nil {
 		t.Fatalf("Dial error = %v", err)
 	}
@@ -222,7 +222,7 @@ func TestDialDoesNotRetryInvalidServerInfo(t *testing.T) {
 		t.Fatalf("Create error = %v", err)
 	}
 
-	_, _, _, err = Dial(Options{Context: "local"})
+	_, _, _, err = Dial(context.Background(), Options{Context: "local"})
 	if err == nil || !strings.Contains(err.Error(), "server-info protocol") {
 		t.Fatalf("Dial error = %v", err)
 	}
@@ -244,7 +244,7 @@ func TestDialUsesCurrentContext(t *testing.T) {
 		t.Fatalf("Create error = %v", err)
 	}
 
-	client, serverPK, serverAddr, err := Dial(Options{Context: ""})
+	client, serverPK, serverAddr, err := Dial(context.Background(), Options{Context: ""})
 	if err != nil {
 		t.Fatalf("Dial error = %v", err)
 	}
@@ -304,7 +304,7 @@ server:
 		t.Fatalf("write context config: %v", err)
 	}
 
-	client, serverPK, serverAddr, err := Dial(Options{Context: "webrtc"})
+	client, serverPK, serverAddr, err := Dial(context.Background(), Options{Context: "webrtc"})
 	if err != nil {
 		t.Fatalf("Dial error = %v", err)
 	}
@@ -341,7 +341,7 @@ server:
 func TestDialMissingNamedContext(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	_, _, _, err := Dial(Options{Context: "missing"})
+	_, _, _, err := Dial(context.Background(), Options{Context: "missing"})
 	if err == nil {
 		t.Fatal("Dial should fail for a missing named context")
 	}
@@ -353,7 +353,7 @@ func TestDialMissingNamedContext(t *testing.T) {
 func TestConnectReturnsReadyClient(t *testing.T) {
 	resetConnectHooks(t)
 	want := &gizcli.Client{}
-	dialOptions = func(opts Options) (*gizcli.Client, giznet.PublicKey, string, error) {
+	dialOptions = func(_ context.Context, opts Options) (*gizcli.Client, giznet.PublicKey, string, error) {
 		if opts.Context != "local" {
 			t.Fatalf("context = %q", opts.Context)
 		}
@@ -374,13 +374,13 @@ func TestConnectReturnsReadyClient(t *testing.T) {
 		<-serveBlock
 		return nil
 	}
-	probeReady = func(c *gizcli.Client) error {
+	probeReady = func(_ context.Context, c *gizcli.Client) error {
 		if c != want {
 			t.Fatal("probe received wrong client")
 		}
 		return nil
 	}
-	got, err := Connect(Options{Context: "local"})
+	got, err := Connect(context.Background(), Options{Context: "local"})
 	if err != nil {
 		t.Fatalf("Connect error = %v", err)
 	}
@@ -391,10 +391,10 @@ func TestConnectReturnsReadyClient(t *testing.T) {
 
 func TestConnectPropagatesContextDialError(t *testing.T) {
 	resetConnectHooks(t)
-	dialOptions = func(Options) (*gizcli.Client, giznet.PublicKey, string, error) {
+	dialOptions = func(context.Context, Options) (*gizcli.Client, giznet.PublicKey, string, error) {
 		return nil, giznet.PublicKey{}, "", errors.New("missing")
 	}
-	_, err := Connect(Options{Context: "local"})
+	_, err := Connect(context.Background(), Options{Context: "local"})
 	if err == nil || err.Error() != "missing" {
 		t.Fatalf("Connect error = %v", err)
 	}
@@ -402,13 +402,13 @@ func TestConnectPropagatesContextDialError(t *testing.T) {
 
 func TestConnectPropagatesDialError(t *testing.T) {
 	resetConnectHooks(t)
-	dialOptions = func(Options) (*gizcli.Client, giznet.PublicKey, string, error) {
+	dialOptions = func(context.Context, Options) (*gizcli.Client, giznet.PublicKey, string, error) {
 		return &gizcli.Client{}, giznet.PublicKey{}, "127.0.0.1:9820", nil
 	}
 	dialClient = func(*gizcli.Client, giznet.PublicKey, string) error {
 		return errors.New("dial failed")
 	}
-	_, err := Connect(Options{Context: "local"})
+	_, err := Connect(context.Background(), Options{Context: "local"})
 	if err == nil || err.Error() != "dial failed" {
 		t.Fatalf("Connect error = %v", err)
 	}
@@ -416,13 +416,13 @@ func TestConnectPropagatesDialError(t *testing.T) {
 
 func TestConnectReportsEarlyServeStop(t *testing.T) {
 	resetConnectHooks(t)
-	dialOptions = func(Options) (*gizcli.Client, giznet.PublicKey, string, error) {
+	dialOptions = func(context.Context, Options) (*gizcli.Client, giznet.PublicKey, string, error) {
 		return &gizcli.Client{}, giznet.PublicKey{}, "127.0.0.1:9820", nil
 	}
 	dialClient = func(*gizcli.Client, giznet.PublicKey, string) error { return nil }
 	serveClient = func(*gizcli.Client) error { return nil }
-	probeReady = func(*gizcli.Client) error { return errors.New("not ready") }
-	_, err := Connect(Options{Context: "local"})
+	probeReady = func(context.Context, *gizcli.Client) error { return errors.New("not ready") }
+	_, err := Connect(context.Background(), Options{Context: "local"})
 	if err == nil || !strings.Contains(err.Error(), "client stopped before ready") {
 		t.Fatalf("Connect error = %v", err)
 	}
@@ -430,13 +430,13 @@ func TestConnectReportsEarlyServeStop(t *testing.T) {
 
 func TestConnectPropagatesEarlyServeError(t *testing.T) {
 	resetConnectHooks(t)
-	dialOptions = func(Options) (*gizcli.Client, giznet.PublicKey, string, error) {
+	dialOptions = func(context.Context, Options) (*gizcli.Client, giznet.PublicKey, string, error) {
 		return &gizcli.Client{}, giznet.PublicKey{}, "127.0.0.1:9820", nil
 	}
 	dialClient = func(*gizcli.Client, giznet.PublicKey, string) error { return nil }
 	serveClient = func(*gizcli.Client) error { return errors.New("serve failed") }
-	probeReady = func(*gizcli.Client) error { return errors.New("not ready") }
-	_, err := Connect(Options{Context: "local"})
+	probeReady = func(context.Context, *gizcli.Client) error { return errors.New("not ready") }
+	_, err := Connect(context.Background(), Options{Context: "local"})
 	if err == nil || err.Error() != "serve failed" {
 		t.Fatalf("Connect error = %v", err)
 	}
@@ -448,7 +448,7 @@ func TestConnectTimesOut(t *testing.T) {
 	connectPollInterval = time.Millisecond
 	serveBlock := make(chan struct{})
 	t.Cleanup(func() { close(serveBlock) })
-	dialOptions = func(Options) (*gizcli.Client, giznet.PublicKey, string, error) {
+	dialOptions = func(context.Context, Options) (*gizcli.Client, giznet.PublicKey, string, error) {
 		return &gizcli.Client{}, giznet.PublicKey{}, "127.0.0.1:9820", nil
 	}
 	dialClient = func(*gizcli.Client, giznet.PublicKey, string) error { return nil }
@@ -456,15 +456,15 @@ func TestConnectTimesOut(t *testing.T) {
 		<-serveBlock
 		return nil
 	}
-	probeReady = func(*gizcli.Client) error { return errors.New("not ready") }
-	_, err := Connect(Options{Context: "local"})
+	probeReady = func(context.Context, *gizcli.Client) error { return errors.New("not ready") }
+	_, err := Connect(context.Background(), Options{Context: "local"})
 	if err == nil || !strings.Contains(err.Error(), "timeout waiting for client readiness") {
 		t.Fatalf("Connect error = %v", err)
 	}
 }
 
 func TestProbePeerHTTPReadyNilClient(t *testing.T) {
-	err := probePeerHTTPReady(nil)
+	err := probePeerHTTPReady(context.Background(), nil)
 	if err == nil {
 		t.Fatal("probePeerHTTPReady should fail for nil client")
 	}
@@ -474,7 +474,7 @@ func TestProbePeerHTTPReadyNilClient(t *testing.T) {
 }
 
 func TestProbePeerHTTPReadyRequiresConnection(t *testing.T) {
-	err := probePeerHTTPReady(&gizcli.Client{})
+	err := probePeerHTTPReady(context.Background(), &gizcli.Client{})
 	if err == nil {
 		t.Fatal("probePeerHTTPReady should fail without connection")
 	}
@@ -561,7 +561,7 @@ func TestProbePeerHTTPReadyConnectedClient(t *testing.T) {
 		}
 	}()
 
-	if err := probePeerHTTPReady(client); err != nil {
+	if err := probePeerHTTPReady(context.Background(), client); err != nil {
 		t.Fatalf("probePeerHTTPReady error = %v", err)
 	}
 }
@@ -641,5 +641,64 @@ func TestConfigDirUsesXDGConfigHome(t *testing.T) {
 	got, err := ConfigDir()
 	if err != nil || got != filepath.Join(home, "gizclaw") {
 		t.Fatalf("ConfigDir = %q, %v", got, err)
+	}
+}
+
+func TestConnectStopsWaitingWhenContextIsCanceled(t *testing.T) {
+	resetConnectHooks(t)
+	connectReadyTimeout = time.Minute
+	connectPollInterval = time.Hour
+	serveBlock := make(chan struct{})
+	t.Cleanup(func() { close(serveBlock) })
+	dialOptions = func(context.Context, Options) (*gizcli.Client, giznet.PublicKey, string, error) {
+		return &gizcli.Client{}, giznet.PublicKey{}, "127.0.0.1:9820", nil
+	}
+	dialClient = func(*gizcli.Client, giznet.PublicKey, string) error { return nil }
+	serveClient = func(*gizcli.Client) error {
+		<-serveBlock
+		return nil
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	probeReady = func(context.Context, *gizcli.Client) error {
+		cancel()
+		return errors.New("not ready")
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, err := Connect(ctx, Options{Context: "local"})
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("Connect error = %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Connect ignored cancellation")
+	}
+}
+
+func TestFetchServerInfoRetryStopsWhenContextIsCanceled(t *testing.T) {
+	resetConnectHooks(t)
+	serverInfoRetryDelay = time.Hour
+	var calls atomic.Int32
+	ctx, cancel := context.WithCancel(context.Background())
+	fetchServerInfo = func(context.Context, string) (gizcli.ServerInfoMetadata, error) {
+		calls.Add(1)
+		cancel()
+		return gizcli.ServerInfoMetadata{}, context.DeadlineExceeded
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, err := fetchServerInfoWithRetry(ctx, "http://127.0.0.1:9820")
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err == nil || calls.Load() != 1 {
+			t.Fatalf("err=%v calls=%d", err, calls.Load())
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("server-info retry ignored cancellation")
 	}
 }

@@ -18,9 +18,13 @@ func TestProviderDependencyBoundary(t *testing.T) {
 		goos, goarch, _ := strings.Cut(platform, "/")
 		cmd := exec.Command(goBinary, "list", "-deps", "-f", "{{.ImportPath}} {{len .CgoFiles}}", "github.com/GizClaw/gizclaw-go/cmd/terraform-provider-gizclaw")
 		cmd.Env = append(cmd.Environ(), "CGO_ENABLED=0", "GOOS="+goos, "GOARCH="+goarch)
-		out, err := cmd.CombinedOutput()
+		// Only stdout carries package records; stderr may hold toolchain notices
+		// such as module downloads.
+		var stderr strings.Builder
+		cmd.Stderr = &stderr
+		out, err := cmd.Output()
 		if err != nil {
-			t.Fatalf("%s: go list: %v\n%s", platform, err, out)
+			t.Fatalf("%s: go list: %v\n%s", platform, err, stderr.String())
 		}
 		for line := range strings.SplitSeq(strings.TrimSpace(string(out)), "\n") {
 			importPath, cgoFiles, _ := strings.Cut(line, " ")

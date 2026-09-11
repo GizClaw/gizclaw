@@ -113,7 +113,7 @@ Each provider process therefore opens one long-lived connection per `context`/`e
 pair, only when the first Server request is needed, and every resource operation reuses it
 with at most 8 requests in flight. Connection or transport failures discard the connection
 and retry with a new one, up to 3 attempts per operation; structured Admin API errors are not
-retried. Do not use the same context from several Terraform or CLI processes at once.
+retried. When Terraform cancels an operation, in-progress connection setup, reconnect waits, and requests stop. Do not use the same context from several Terraform or CLI processes at once.
 
 ## `gizclaw_resource`
 
@@ -150,8 +150,8 @@ Resource behavior:
 - On refresh, a Server `spec` that is semantically consistent with the configuration keeps
   the configured form; otherwise the Server value is recorded and the next plan shows the
   difference. `Credential` always keeps the configured `spec` because the Server does not
-  return secrets. An environment placeholder is consistent when its expanded value equals the
-  Server value.
+  return secrets. A string with environment placeholders, including `${NAME:-default}`, is
+  consistent when its expansion under the apply rules equals the Server value.
 - Delete calls Admin delete; an already absent resource counts as success.
 - Import takes `<kind>/<resource_id>`:
   `terraform import gizclaw_resource.openai Credential/openai-main`. Import does not record

@@ -12,7 +12,7 @@ Go SDK 是 client-facing boundary，不拥有 server domain behavior。API 和 R
 
 两个子 package 为 CLI 与 Terraform provider 提供共享的纯 Go 能力，在 `CGO_ENABLED=0` 下可为 darwin/linux 的 amd64/arm64 构建，不依赖 `cmd/...`、嵌入的 Console 或 native model runtime。
 
-- `sdk/go/gizcli/contextconn`：`ConfigDir` 返回 CLI context 根目录；`LoadContext` 读取 `<ConfigDir>/<context>/config.yaml`（名称为空时读取 current context），并用 `Options.Endpoint` 替换 `server.endpoint`，覆盖值必须是 `https://host[:port]`；`Dial` 获取 server-info 并准备 WebRTC client；`Connect` 连接、启动 client-side Peer service 并等待 Peer HTTP 可用。调用方拥有返回的 client 并负责 `Close`。
+- `sdk/go/gizcli/contextconn`：`ConfigDir` 返回 CLI context 根目录；`LoadContext` 读取 `<ConfigDir>/<context>/config.yaml`（名称为空时读取 current context），并用 `Options.Endpoint` 替换 `server.endpoint`，覆盖值必须是 `https://host[:port]`；`Dial` 获取 server-info 并准备 WebRTC client；`Connect` 连接、启动 client-side Peer service 并等待 Peer HTTP 可用；传入的 `context.Context` 可取消 server-info 请求、WebRTC dial 与就绪等待。调用方拥有返回的 client 并负责 `Close`。
 - `sdk/go/gizcli/adminresource`：`Client` 封装 Admin HTTP 的 `ApplyResource`、`GetResource` 与 `DeleteResource`；非成功 response 返回 `*ResponseError`，文本保持 `CODE: message`，`IsNotFound` 只识别 `<SCOPE>_NOT_FOUND` 错误码。`GetResources` 在一条连接上最多并发 8 个读取，并按输入顺序返回每个引用的结果。`PrepareManifest`、`DecodeManifest` 与 `FormatForPath` 实现 `gizclaw admin apply|validate` 的 JSON/YAML、`${VAR}` 展开与 `<Kind>Resource` 别名规则。
 
 [contextconn API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/sdk/go/gizcli/contextconn) · [adminresource API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/sdk/go/gizcli/adminresource)

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -443,22 +442,15 @@ func observedSubsetOfConfigured(kind string, fieldPath []string, configured, obs
 	}
 }
 
+// expandedEnvironmentValueMatches reports whether configured contains
+// environment references that expand, under the same rules used when the
+// manifest is applied, to exactly the observed Server value.
 func expandedEnvironmentValueMatches(configured, observed string) bool {
-	if len(configured) < 4 || !strings.HasPrefix(configured, "${") || !strings.HasSuffix(configured, "}") {
+	if !adminresource.HasEnvReference(configured) {
 		return false
 	}
-	name := configured[2 : len(configured)-1]
-	if name == "" {
-		return false
-	}
-	for index, character := range name {
-		if (character >= 'A' && character <= 'Z') || character == '_' || (index > 0 && character >= '0' && character <= '9') {
-			continue
-		}
-		return false
-	}
-	value, exists := os.LookupEnv(name)
-	return exists && value == observed
+	expanded, err := adminresource.ExpandEnvString(configured)
+	return err == nil && expanded == observed
 }
 
 func observedFieldMayBeOmitted(kind string, fieldPath []string) bool {

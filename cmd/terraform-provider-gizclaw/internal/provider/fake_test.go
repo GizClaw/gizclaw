@@ -129,10 +129,19 @@ type fakeConnector struct {
 	connects atomic.Int32
 	closes   atomic.Int32
 	failures atomic.Int32
+	// block, when non-nil, delays connects until closed or ctx is done.
+	block chan struct{}
 }
 
-func (f *fakeConnector) connect(contextconn.Options) (resourceConn, error) {
+func (f *fakeConnector) connect(ctx context.Context, _ contextconn.Options) (resourceConn, error) {
 	f.connects.Add(1)
+	if f.block != nil {
+		select {
+		case <-f.block:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
 	if n := f.failures.Load(); n > 0 && f.failures.CompareAndSwap(n, n-1) {
 		return nil, errors.New("gizclaw: timeout waiting for client readiness")
 	}

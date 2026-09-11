@@ -82,3 +82,18 @@ func TestPrepareManifestErrors(t *testing.T) {
 		t.Fatal("non-string YAML key was accepted")
 	}
 }
+
+func TestExpandEnvString(t *testing.T) {
+	t.Setenv("GIZCLAW_TEST_EXPAND_SET", "value")
+	t.Setenv("GIZCLAW_TEST_EXPAND_EMPTY", "")
+	got, err := ExpandEnvString("a-${GIZCLAW_TEST_EXPAND_SET}-${GIZCLAW_TEST_EXPAND_EMPTY:-d}-${GIZCLAW_TEST_EXPAND_UNSET:-u}")
+	if err != nil || got != "a-value-d-u" {
+		t.Fatalf("ExpandEnvString = %q, %v", got, err)
+	}
+	if _, err := ExpandEnvString("${GIZCLAW_TEST_EXPAND_EMPTY}"); err == nil {
+		t.Fatal("empty variable without default was accepted")
+	}
+	if HasEnvReference("plain") || !HasEnvReference("${A:-b}") {
+		t.Fatal("HasEnvReference mismatch")
+	}
+}

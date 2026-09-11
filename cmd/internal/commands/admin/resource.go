@@ -22,7 +22,7 @@ type resourceClient interface {
 }
 
 var openResourceClient = func(ctxName string) (resourceClient, error) {
-	c, err := adminresource.Connect(contextconn.Options{Context: ctxName})
+	c, err := adminresource.Connect(context.Background(), contextconn.Options{Context: ctxName})
 	if err != nil {
 		return nil, err
 	}

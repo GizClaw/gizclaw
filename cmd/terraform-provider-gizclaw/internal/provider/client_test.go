@@ -3,9 +3,11 @@ package provider
 import (
 	"context"
 	"errors"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli/adminresource"
 )
@@ -143,5 +145,71 @@ func TestAdminClientCanceledContext(t *testing.T) {
 	}
 	if connector.connects.Load() != 0 {
 		t.Fatal("canceled operation opened a connection")
+	}
+}
+
+func TestAdminClientConnectIsCancellable(t *testing.T) {
+	client, connector := newTestClient(newFakeServer())
+	connector.block = make(chan struct{})
+	defer close(connector.block)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, err := client.get(ctx, "Model", "m")
+		done <- err
+	}()
+	for connector.connects.Load() == 0 {
+		runtime.Gosched()
+	}
+	cancel()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("error = %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("cancellation did not stop the blocked connect")
+	}
+	if connector.connects.Load() != 1 {
+		t.Fatalf("connects = %d, want no retry after cancellation", connector.connects.Load())
+	}
+}
+
+func TestAdminClientWaiterStopsOnOwnCancellation(t *testing.T) {
+	server := newFakeServer()
+	server.put(t, modelManifest)
+	client, connector := newTestClient(server)
+	connector.block = make(chan struct{})
+	leader := make(chan error, 1)
+	go func() {
+		_, err := client.get(context.Background(), "Model", "example-model")
+		leader <- err
+	}()
+	for connector.connects.Load() == 0 {
+		runtime.Gosched()
+	}
+	waiterCtx, cancel := context.WithCancel(context.Background())
+	waiter := make(chan error, 1)
+	go func() {
+		_, err := client.get(waiterCtx, "Model", "example-model")
+		waiter <- err
+	}()
+	// Give the waiter time to join the in-flight dial before cancelling it.
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	select {
+	case err := <-waiter:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("waiter error = %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("waiter ignored its own cancellation")
+	}
+	close(connector.block)
+	if err := <-leader; err != nil {
+		t.Fatalf("leader error = %v", err)
+	}
+	if connector.connects.Load() != 1 {
+		t.Fatalf("connects = %d", connector.connects.Load())
 	}
 }

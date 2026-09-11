@@ -109,7 +109,7 @@ identity 无效或 endpoint 不合法时直接报错。`context` 或 `endpoint` 
 同一个 identity 的第二条 WebRTC 连接会在 Server 上替换第一条连接。因此每个 provider
 进程只为同一组 `context`/`endpoint` 建立一条长连接，首次需要访问 Server 时才连接，所有
 资源操作都复用它，同时最多 8 个请求。连接或传输失败时丢弃该连接并重连重试，每个操作最多
-3 次；Admin API 返回的结构化错误不重试。不要让同一个 context 同时被多个 Terraform 或 CLI
+3 次；Admin API 返回的结构化错误不重试。Terraform 取消操作时，正在进行的连接建立、重连等待与请求都会停止。不要让同一个 context 同时被多个 Terraform 或 CLI
 进程使用。
 
 ## `gizclaw_resource`
@@ -143,7 +143,7 @@ resource "gizclaw_resource" "openai" {
   Server 返回 `<SCOPE>_NOT_FOUND` 错误码时资源从 state 中移除；其他错误保留 state 并报错。
 - 刷新时，Server 返回的 `spec` 与配置语义一致就保留配置中的写法；不一致时记录 Server 的值，
   下一次 plan 显示差异。`Credential` 的 `spec` 永远保留配置值，因为 Server 不返回密钥。环境变量
-  占位符在展开值与 Server 返回值相同时视为一致。
+  占位符（包括 `${NAME:-default}`）按 apply 时的规则展开后与 Server 返回值相同即视为一致。
 - Delete 调用 Admin delete；资源已不存在时视为成功。
 - Import 使用 `<kind>/<resource_id>`：`terraform import gizclaw_resource.openai Credential/openai-main`。
   Import 不会写入 `spec`，下一次 apply 会用配置中的 `spec` 覆盖 Server 上的值。

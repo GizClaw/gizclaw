@@ -210,6 +210,20 @@ func expandJSONEnv(data []byte) ([]byte, error) {
 	return []byte(expanded), nil
 }
 
+// HasEnvReference reports whether input contains a ${NAME} or
+// ${NAME:-default} reference.
+func HasEnvReference(input string) bool {
+	return envPattern.MatchString(input)
+}
+
+// ExpandEnvString expands ${NAME} and ${NAME:-default} references in one
+// string with the rules PrepareManifest applies to string values: an unset or
+// empty variable uses its default, and fails with *MissingEnvError when there
+// is none.
+func ExpandEnvString(input string) (string, error) {
+	return expandEnvString(input)
+}
+
 func expandEnvString(input string) (string, error) {
 	return expandEnvWith(input, func(replacement string, _ int) string {
 		return replacement

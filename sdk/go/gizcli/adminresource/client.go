@@ -39,9 +39,10 @@ func NewClient(api API, closeFn func() error) *Client {
 }
 
 // Connect opens a ready connection for the selected CLI context and returns a
-// Client that owns it. The caller must Close the Client.
-func Connect(opts contextconn.Options) (*Client, error) {
-	c, err := contextconn.Connect(opts)
+// Client that owns it. ctx bounds connection setup only. The caller must Close
+// the Client.
+func Connect(ctx context.Context, opts contextconn.Options) (*Client, error) {
+	c, err := contextconn.Connect(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
