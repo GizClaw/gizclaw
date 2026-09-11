@@ -134,13 +134,19 @@ GIZCLAW_MEMORY_PROVIDER=volc-mem0 GIZCLAW_VOLC_MEM0_ENDPOINT=https://... GIZCLAW
 GIZCLAW_MEMORY_PROVIDER=mem0-platform GIZCLAW_MEM0_API_KEY=...   go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
 ```
 
-`GIZCLAW_MEM0_ENDPOINT` is optional and defaults to `https://api.mem0.ai`. Each
+`GIZCLAW_MEM0_ENDPOINT` is optional and defaults to `https://api.mem0.ai`. The
+Volc data-plane key selects the memory project, so use a key of a dedicated test
+project; no project ID or AccessKey is needed. An unset provider skips the test;
+an unknown provider or a missing required variable fails before any request, and
+provider errors or timeouts fail rather than skip. Each
 run writes a direct Fact to two generated Workspace IDs and submits an
 extraction job for the first, purges the first while the job may still run, waits
 for the job to finish, and repeats purge and verification the way Workspace
 deletion retries `memory_residual`. It then fails if the first Workspace gains a
-late Fact during a settle interval or if the second Workspace lost its Fact, and
-purges both Workspaces during cleanup. The log records how many purge rounds
+late Fact during a settle interval or if the second Workspace lost its Fact. The
+generated `gizclaw-e2e-purge-<unix-nanos>-a`/`-b` Workspace IDs bound through
+`memory.BindApp` are the only scopes the test touches, and cleanup purges both
+until verification reports empty, also after a failure. The log records how many purge rounds
 verification needed.
 
 ## Credential-backed harness contract
