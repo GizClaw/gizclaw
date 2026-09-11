@@ -233,11 +233,11 @@ func TestPeerIdentityMessagesUseCompactNameOnlyLayouts(t *testing.T) {
 func TestFriendListResponseCarriesPresenceAndProfile(t *testing.T) {
 	seen := time.Date(2026, 9, 12, 0, 30, 0, 0, time.UTC)
 	online, offline := true, false
-	name, emoji := "Astronaut", "🧑‍🚀"
+	name, emoji, empty := "Astronaut", "🧑‍🚀", ""
 	var payload RPCPayload
 	if err := payload.FromFriendListResponse(FriendListResponse{Items: []FriendObject{
 		{Name: "online", Online: &online, LastSeenAt: &seen, DisplayName: &name, Emoji: &emoji},
-		{Name: "never-seen", Online: &offline, Emoji: new("")},
+		{Name: "never-seen", Online: &offline, Emoji: &empty},
 		{Name: "added"},
 	}}); err != nil {
 		t.Fatal(err)
