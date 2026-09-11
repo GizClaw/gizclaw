@@ -270,13 +270,13 @@ Go 与 C runner 共用 `pkgs/giztest`，由它拥有文档 schema、变量、cap
 Flutter runner 是桌面二进制而不是纯 Dart CLI，因为设备端需要 `flutter_webrtc` 的
 platform implementation。`run_tests.sh` 在 macOS 与 Linux 上构建并运行它，其他 host 跳过。
 
-已知跨 runner 差异，都只影响 `rpc` step 的响应投影：
-
-- Go 用 `protojson` 的 `EmitUnpopulated`，零值字段也会出现；JavaScript 与 Flutter 的
-  codec 只输出已设置的字段。断言未设置字段的零值时结果不同。
-- Go 与 Flutter 按 proto3 JSON 把 `int64` / `uint64` 字段输出为字符串，JavaScript codec
-  输出数字。因此断言 `int64` 字段时，`equals: 35` 只在 JavaScript 下通过，
-  `equals: "35"` 只在 Go 与 Flutter 下通过；`minimum` / `maximum` 两种形式都接受。
+所有 runner 都把 `rpc` step 的响应投影为使用 proto 字段名的 proto3 JSON：`int64` /
+`uint64` 字段输出为字符串，处于默认值的 implicit-presence 字段（标量、枚举、repeated 与
+map）也会出现（`has_next: false`、`items: []`）。Go 使用 `protojson` 的
+`EmitUnpopulated`，JavaScript runner 使用 `alwaysEmitImplicit`；Dart protobuf 运行时不记录
+proto3 `optional`，Flutter runner 依据生成的 `payloadFieldIsProto3Optional` 表补齐同样的字段。
+唯一剩余差异是未设置的 message、oneof 与 proto3 `optional` 字段：Go 输出 `null`，
+JavaScript 与 Flutter 省略该字段。
 
 ### Giztest 场景
 

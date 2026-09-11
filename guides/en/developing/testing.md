@@ -300,16 +300,15 @@ The Flutter runner is a desktop binary rather than a plain Dart CLI because the
 device side needs the `flutter_webrtc` platform implementation. `run_tests.sh`
 builds and runs it on macOS and Linux and skips it on other hosts.
 
-Two known cross-runner differences, both in how an `rpc` step projects its
-response:
-
-- Go marshals with protojson's `EmitUnpopulated`, so zero-valued fields are
-  present, while the JavaScript and Dart codecs emit only fields that were set.
-  An expectation on the zero value of an unset field behaves differently.
-- Go and Flutter follow proto3 JSON and emit `int64` and `uint64` fields as
-  strings; the JavaScript codec emits numbers. On such a field `equals: 35`
-  passes only under JavaScript and `equals: "35"` only under Go and Flutter,
-  while `minimum` and `maximum` accept both forms.
+Every runner projects an `rpc` step response to proto3 JSON with proto field
+names: `int64` and `uint64` fields are strings, and implicit-presence fields
+left at their default — scalars, enums, repeated fields, and maps — are present
+(`has_next: false`, `items: []`). Go uses protojson's `EmitUnpopulated`, the
+JavaScript runner uses `alwaysEmitImplicit`, and the Flutter runner fills the
+same fields from the generated `payloadFieldIsProto3Optional` table because the
+Dart protobuf runtime does not record proto3 `optional`. The one remaining
+difference is an unset message, oneof, or proto3 `optional` field: Go renders it
+as `null`, while JavaScript and Flutter omit it.
 
 ### Giztest scenarios
 

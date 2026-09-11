@@ -93,12 +93,102 @@ String _camelToSnake(String name) => name.replaceAllMapped(
   (match) => '_${match.group(0)!.toLowerCase()}',
 );
 
+/// Renders [message] as proto3 JSON that also carries implicit-presence fields
+/// left at their defaults: scalars, enums, repeated fields and maps. Go
+/// protojson (`EmitUnpopulated`) and the JavaScript runner
+/// (`alwaysEmitImplicit`) emit these, so a scenario asserting `has_next: false`
+/// or an empty `items` list must see them here too. Message, oneof and proto3
+/// `optional` fields keep explicit presence and stay absent when unset, as in
+/// the JavaScript runner.
+Object? protoJsonWithImplicitDefaults(GeneratedMessage message) =>
+    _emitImplicitDefaults(message, message.toProto3Json());
+
+Object? _emitImplicitDefaults(GeneratedMessage message, Object? json) {
+  // Well-known types such as Struct have their own JSON shape.
+  if (json is! Map<String, dynamic> ||
+      message.info_.qualifiedMessageName.startsWith('google.protobuf.')) {
+    return json;
+  }
+  for (final field in message.info_.byIndex) {
+    final value = json[field.name];
+    if (field.isMapField) {
+      if (value == null) {
+        json[field.name] = <String, Object?>{};
+      } else if (PbFieldType.isGroupOrMessage(
+        (field as MapFieldInfo).valueFieldType,
+      )) {
+        // toProto3Json keeps the PbMap iteration order, so entries pair up
+        // without re-encoding their keys.
+        final messages = (message.getField(field.tagNumber) as PbMap).values;
+        final entries = (value as Map).values;
+        for (final (child, childJson) in _zip(messages, entries)) {
+          _emitImplicitDefaults(child as GeneratedMessage, childJson);
+        }
+      }
+    } else if (field.isRepeated) {
+      if (value == null) {
+        json[field.name] = <Object?>[];
+      } else if (field.isGroupOrMessage) {
+        final messages = message.getField(field.tagNumber) as List;
+        for (final (child, childJson) in _zip(messages, value as List)) {
+          _emitImplicitDefaults(child as GeneratedMessage, childJson);
+        }
+      }
+    } else if (field.isGroupOrMessage) {
+      if (value != null) {
+        _emitImplicitDefaults(
+          message.getField(field.tagNumber) as GeneratedMessage,
+          value,
+        );
+      }
+    } else if (value == null &&
+        !message.info_.oneofs.containsKey(field.tagNumber) &&
+        !payloadFieldIsProto3Optional(message, field.tagNumber)) {
+      json[field.name] = _implicitDefaultJson(field);
+    }
+  }
+  return json;
+}
+
+Iterable<(Object?, Object?)> _zip(
+  Iterable<Object?> a,
+  Iterable<Object?> b,
+) sync* {
+  final left = a.iterator;
+  final right = b.iterator;
+  while (left.moveNext() && right.moveNext()) {
+    yield (left.current, right.current);
+  }
+}
+
+Object _implicitDefaultJson(FieldInfo field) {
+  if (field.isEnum) {
+    return (field.makeDefault!() as ProtobufEnum).name;
+  }
+  switch (PbFieldType.baseType(field.type)) {
+    case PbFieldType.BOOL_BIT:
+      return false;
+    case PbFieldType.STRING_BIT:
+    case PbFieldType.BYTES_BIT:
+      return '';
+    case PbFieldType.INT64_BIT:
+    case PbFieldType.SINT64_BIT:
+    case PbFieldType.UINT64_BIT:
+    case PbFieldType.FIXED64_BIT:
+    case PbFieldType.SFIXED64_BIT:
+      // proto3 JSON renders 64-bit integers as strings.
+      return '0';
+    default:
+      return 0;
+  }
+}
+
 /// Projects an RPC response to proto3 JSON, unwrapping a response whose only
 /// field is a `value` message so scenario pointers start below it. The Go
 /// runner and the JavaScript codec apply the same rule.
 Object? unwrapValueMessage(GeneratedMessage response) {
   final fields = response.info_.byIndex;
-  final json = response.toProto3Json();
+  final json = protoJsonWithImplicitDefaults(response);
   if (fields.length != 1 || fields.single.name != 'value') {
     return json;
   }
