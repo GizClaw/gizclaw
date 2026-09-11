@@ -418,6 +418,49 @@ test("rejects an empty path parameter before sending", async () => {
   assert.equal(h.seen.length, 0);
 });
 
+test("device workspaces: filters, alias identity, delete", async () => {
+  const workspace = {
+    id: "ws-aesop",
+    name: "aesop-save",
+    collection: "story-teller",
+    workflow_name: "story.aesop",
+    available: true,
+    system: false,
+    created_at: "2026-09-01T08:00:00Z",
+    updated_at: "2026-09-01T09:00:00Z",
+    last_active_at: "2026-09-01T10:00:00Z",
+  };
+  const h = harness([
+    json(200, [workspace]),
+    json(200, []),
+    accepted(),
+    errorResponse(409, "SYSTEM_WORKSPACE_DELETE_FORBIDDEN"),
+  ]);
+  const items = await h.client.device.listWorkspaces({
+    collection: "story-teller",
+    workflow_name: "story.aesop",
+  });
+  await h.client.device.listWorkspaces();
+  await h.client.device.deleteWorkspace("ws/aesop");
+  const error = await failure(h.client.device.deleteWorkspace("ws-pet"));
+
+  assert.deepEqual(items, [workspace]);
+  assert.equal(h.seen[0]!.url.pathname, "/gizclaw/v1/device/workspaces");
+  assert.deepEqual(Object.fromEntries(h.seen[0]!.url.searchParams), {
+    collection: "story-teller",
+    workflow_name: "story.aesop",
+  });
+  assert.equal(h.seen[1]!.url.search, "");
+  assert.equal(h.seen[2]!.method, "DELETE");
+  assert.equal(
+    h.seen[2]!.url.pathname,
+    "/gizclaw/v1/device/workspaces/ws%2Faesop",
+  );
+  assert.equal(error.status, 409);
+  assert.equal(error.code, "SYSTEM_WORKSPACE_DELETE_FORBIDDEN");
+  await assert.rejects(h.client.device.deleteWorkspace(""), TypeError);
+});
+
 test("contacts: list, create, named routes", async () => {
   const h = harness([
     json(200, { items: [contactJson], has_next: true, next_cursor: "alice" }),

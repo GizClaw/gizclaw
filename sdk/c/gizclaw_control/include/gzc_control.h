@@ -326,6 +326,33 @@ int gzc_control_runtime_profile_collection_workflows(
     size_t cap,
     size_t *out_count);
 
+/*
+ * One Workspace owned by the bound device (`DeviceWorkspace`), such as the
+ * save of one game. The Workflow is identified only by `collection` and
+ * `workflow_name`, the names gzc_control_get_device_runtime_profile() lists;
+ * the Server never returns its Admin Workflow ID. `collection` is empty when
+ * the Workspace carries none, and `workflow_name` is empty when the Workflow
+ * no longer resolves (`available` is then false).
+ */
+typedef struct {
+  gzc_str_t id;
+  gzc_str_t name;
+  gzc_str_t collection;
+  gzc_str_t workflow_name;
+  bool available;
+  bool system;
+  gzc_str_t created_at;
+  gzc_str_t updated_at;
+  gzc_str_t last_active_at;
+} gzc_control_device_workspace_t;
+
+/* Exact filters of gzc_control_list_device_workspaces(). Empty fields are
+ * left off the request. */
+typedef struct {
+  gzc_str_t collection;
+  gzc_str_t workflow_name;
+} gzc_control_workspace_filter_t;
+
 /* Strings borrow from the response buffer until the next call. */
 typedef struct {
   gzc_str_t url;
@@ -606,6 +633,35 @@ int gzc_control_get_device_runtime_profile(
     gzc_control_runtime_profile_collection_t *out_collections,
     size_t cap,
     size_t *out_count);
+
+/*
+ * `GET /gizclaw/v1/device/workspaces`.
+ *
+ * Fills up to cap Workspaces owned by the device, including system
+ * Workspaces but not those pending deletion. filter may be NULL. More
+ * Workspaces than cap fail with GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL after
+ * filling the first cap.
+ */
+int gzc_control_list_device_workspaces(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_workspace_filter_t *filter,
+    gzc_control_device_workspace_t *out_items,
+    size_t cap,
+    size_t *out_count);
+
+/*
+ * `DELETE /gizclaw/v1/device/workspaces/{workspaceId}`.
+ *
+ * Starts the asynchronous deletion of an owned Workspace and returns once the
+ * Server accepted it (`202`). A system Workspace fails with
+ * GZC_CONTROL_ERROR_CONFLICT; a foreign, absent, or already deleted one with
+ * GZC_CONTROL_ERROR_NOT_FOUND.
+ */
+int gzc_control_delete_device_workspace(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t workspace_id);
 
 /* `GET /gizclaw/v1/device/status`. Returns the stored snapshot without
  * contacting the device. */

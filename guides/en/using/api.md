@@ -148,6 +148,8 @@ An API key bound to one device (see [API keys](./api-keys)) can reach `/gizclaw/
 | `GET /gizclaw/v1/device/status` | Latest reported battery, charging, volume, mute, and GNSS |
 | `GET /gizclaw/v1/device/telemetry/{field}/latest`, `/telemetry`, `/telemetry/aggregate` | Sampled telemetry queries with Admin telemetry semantics |
 | `GET /gizclaw/v1/device/runtime-profile` | Name and revision of the device's RuntimeProfile, with the workflow names of each collection |
+| `GET /gizclaw/v1/device/workspaces`, `DELETE /device/workspaces/{workspaceId}` | List the device's Workspaces (such as game saves) by collection and workflow name, and delete one |
+| `GET /gizclaw/v1/device/workspaces/{workspaceId}/history`, `/history/{historyId}/audio.ogg` | Read a Workspace's chat history and stored audio |
 | `PUT /gizclaw/v1/device/volume` | Set volume and mute; returns the status the device reports |
 | `POST /gizclaw/v1/device/actions/play-sound` | Play a device-defined sound |
 | `POST /gizclaw/v1/device/actions/find` | Find my device: the device rings its built-in find-me sound with a rising volume |
@@ -162,6 +164,8 @@ Read routes project data the Server already holds and never wake the device. Con
 `GET /device/firmware` returns the `stable`, `beta`, and `develop` channels at once, each with its `package` (`version`, `url`, `sha256`, `size`) (stored packages without a version omit `version` and remain available). The Server does not store the channel the device uses, so the caller picks one and names it in `POST /device/actions/firmware-update` via `channel`; omitting it leaves the choice to the device. To tell whether an update is needed, compare `firmware_sha256` from `GET /device/status` — the package the device reports running — with the target channel's `package.sha256`, and pass that same `sha256` in the request so the device refuses when it resolves a different package than the one shown. Firmware too old to implement the RPC answers `501 DEVICE_UNSUPPORTED`; hide the update entry point in that case instead of reporting a failed update.
 
 `GET /device/runtime-profile` returns only the RuntimeProfile `name`, `revision`, and `collections[].workflows[].name`, with collections and workflows sorted by name. Each workflow name is the name the device uses with `server.workflow.*`, taken directly from the RuntimeProfile bindings without checking that the Workflow resource still exists, and `name`/`revision` equal `runtime_profile_name`/`runtime_profile_revision` in RPC responses. Covers, descriptions, and display names are not part of the response: callers key their own metadata by `<profile name>/<collection>` and `<profile name>/<workflow name>`, and decide display order themselves.
+
+`GET /device/workspaces` identifies Workflows by the same names: every Workspace carries `collection` and `workflow_name`, so `?collection=...&workflow_name=...` returns the saves of one game, and its `id` reads `/history`. The response never contains the Admin Workflow ID; when the Workflow is gone from the current RuntimeProfile, `workflow_name` is omitted and `available` is `false`. After `DELETE /device/workspaces/{workspaceId}` answers `202`, the save leaves the list at once and its history and state are cleaned up in the background; until then a same-named recreate on the device gets `ALREADY_EXISTS` and should be retried later. System Workspaces cannot be deleted (`409`), and another device's Workspace returns `404`.
 
 ```sh
 curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/volume" \

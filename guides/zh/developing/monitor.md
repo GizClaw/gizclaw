@@ -40,7 +40,7 @@ fullcontrol 才允许音量和重启等操作，Server 每次重新校验权限�
 每 5 秒并行轮询所有节点，用累计计数换算速率（重启读作 0，而不是尖峰），每个节点最多保留
 600 个采样，提供 2/10/30 分钟窗口。
 
-日志通过设备的持久化 LogStore 搜索接口查询，支持时间范围、文本、级别与分页。节点快照只返回运行状态和传输计数。
+日志通过设备的持久化 LogStore 搜索接口查询，支持时间范围、文本、级别与分页。节点快照只返回二进制版本与构建提交、运行状态和传输计数；控制台在节点列表和运行快照中显示版本。
 
 Telemetry 分两类：指标字段（`battery.*`、`network.rssi_dbm`、`network.signal_level`、
 `network.connected`、`system.*`、`gnss.*`）会写入采样存储，可按时间区间查询历史；只反映
@@ -72,7 +72,7 @@ go build ./cmd/gizclaw
 
 | 状态 | 响应 |
 | --- | --- |
-| 200 | 生成的 `NodeSnapshot`，包含本地运行状态与计数 |
+| 200 | 生成的 `NodeSnapshot`，包含构建信息、本地运行状态与计数 |
 | 401 | `{"error":"INVALID_MONITOR_TOKEN"}` |
 | 503 | 未配置 Token 时返回 `{"error":"MONITOR_DISABLED"}` |
 | 405 | 空响应体，`Allow: GET,OPTIONS` |
@@ -87,7 +87,8 @@ go build ./cmd/gizclaw
 ## 控制台使用的设备接口
 
 `GET /gizclaw/v1/device/workspaces` 只列出该 Peer 明确拥有的 Workspace（含系统 Workspace），
-按 Workflow 分组，不返回共享和无 owner 的空间。
+不返回共享、无 owner 和删除中的空间；每项以 `collection` 与 `workflow_name` 标识 Workflow，
+控制台按这两个名字标注，不显示 Admin Workflow ID。
 `GET /gizclaw/v1/device/workspaces/{workspaceId}/history` 从持久化 History 查询文本并游标
 分页，每页最多 200 条（控制台使用 100 条）。`order` 默认 `desc`（最新在前），也可为 `asc`；
 可选的 `start_time_ms`（含）与 `end_time_ms`（不含）按 Unix 毫秒限定创建时间，续页请求同样生效。

@@ -16,7 +16,10 @@ vi.mock("@/lib/peers", () => ({
       {
         id: "ws",
         name: "Pet",
-        workflow_id: "flow",
+        collection: "pets",
+        workflow_name: "pet.cat",
+        available: true,
+        system: true,
         last_active_at: new Date(0).toISOString(),
       },
     ]),

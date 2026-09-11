@@ -496,165 +496,170 @@ pkgs/gizclaw/api/apitypes/generated.go:9169:47: interface{} can be replaced by a
 pkgs/gizclaw/api/apitypes/generated.go:9270:43: interface{} can be replaced by any
 pkgs/gizclaw/api/apitypes/generated.go:9611:54: interface{} can be replaced by any
 pkgs/gizclaw/api/eventproto/peer_event.pb.go:1307:19: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/api/peerhttp/generated.go:10030:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:10059:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:10077:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:10163:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:13697:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13697:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13728:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13728:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13753:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13753:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13778:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13778:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13805:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13805:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13832:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13832:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13859:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13859:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13890:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13890:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13917:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13917:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13944:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13944:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13977:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:13977:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14002:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14002:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14036:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14036:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14070:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14070:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14101:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14101:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14135:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14135:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:10003:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:10023:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:10054:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:10074:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:10120:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:10151:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:10233:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:10272:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:10309:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:10338:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:10356:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:10442:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:14052:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14052:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14083:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14083:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14108:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14108:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14133:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14133:56: interface{} can be replaced by any
 pkgs/gizclaw/api/peerhttp/generated.go:14160:42: interface{} can be replaced by any
 pkgs/gizclaw/api/peerhttp/generated.go:14160:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14191:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14191:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14216:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14216:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14247:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14247:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14187:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14187:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14214:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14214:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14245:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14245:56: interface{} can be replaced by any
 pkgs/gizclaw/api/peerhttp/generated.go:14272:42: interface{} can be replaced by any
 pkgs/gizclaw/api/peerhttp/generated.go:14272:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14303:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14303:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14334:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14334:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14359:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14359:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14386:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14386:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14411:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14411:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14436:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14436:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14461:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14461:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14488:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14488:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14299:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14299:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14332:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14332:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14357:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14357:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14391:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14391:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14425:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14425:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14456:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14456:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14490:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14490:56: interface{} can be replaced by any
 pkgs/gizclaw/api/peerhttp/generated.go:14515:42: interface{} can be replaced by any
 pkgs/gizclaw/api/peerhttp/generated.go:14515:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14542:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14542:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14573:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14573:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14598:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14598:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14629:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14629:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14654:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14654:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14681:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14681:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14715:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14715:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14740:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14740:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:1475:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:14768:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14768:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14796:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14796:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14824:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14824:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14851:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14851:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14876:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14876:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:1487:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:14905:42: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:14905:56: interface{} can be replaced by any
-pkgs/gizclaw/api/peerhttp/generated.go:1703:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:1715:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:2407:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:2415:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:2425:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:2437:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:2449:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:2461:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:2594:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:2602:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:2610:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:2620:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:2632:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:2644:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:2696:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:2704:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:2712:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:2720:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:2728:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:3066:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:3078:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:3090:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:3102:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:3114:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:3126:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/peerhttp/generated.go:8874:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:8894:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:8914:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:8934:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:8965:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:8996:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9042:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9062:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9093:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9124:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9155:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9175:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9195:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9215:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9235:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9255:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9275:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9295:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:14546:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14546:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14571:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14571:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14602:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14602:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14627:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14627:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14658:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14658:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14689:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14689:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14714:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14714:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14741:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14741:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14766:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14766:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14791:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14791:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14816:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14816:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14843:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14843:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14870:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14870:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14897:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14897:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14928:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14928:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14953:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14953:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14984:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:14984:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:15009:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:15009:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:15036:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:15036:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:15070:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:15070:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:15097:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:15097:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:15124:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:15124:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:1513:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:15152:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:15152:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:15180:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:15180:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:15208:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:15208:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:15235:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:15235:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:1525:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:15260:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:15260:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:15289:42: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:15289:56: interface{} can be replaced by any
+pkgs/gizclaw/api/peerhttp/generated.go:1741:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:1753:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:2445:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:2453:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:2463:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:2475:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:2487:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:2499:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:2632:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:2640:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:2648:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:2658:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:2670:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:2682:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:2734:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:2742:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:2750:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:2758:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:2766:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:3070:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:3082:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:3177:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:3189:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:3201:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:3213:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:3225:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:3237:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/peerhttp/generated.go:9096:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9116:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9136:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9156:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9187:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9218:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9264:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9284:6: backward loop over slice can be modernized using slices.Backward
 pkgs/gizclaw/api/peerhttp/generated.go:9315:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9335:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9355:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9375:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9395:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9415:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9489:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9509:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9529:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9549:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9623:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9690:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9721:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9741:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9761:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9781:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9801:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9832:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9852:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9872:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9954:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/peerhttp/generated.go:9993:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9346:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9377:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9397:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9417:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9437:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9457:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9477:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9497:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9517:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9537:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9557:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9577:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9597:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9617:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9637:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9711:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9731:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9751:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9771:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9845:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9912:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9943:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9963:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/peerhttp/generated.go:9983:6: backward loop over slice can be modernized using slices.Backward
 pkgs/gizclaw/api/rpcapi/tool_generated.go:15:21: interface{} can be replaced by any
 pkgs/gizclaw/api/rpcapi/tool_generated.go:24:26: interface{} can be replaced by any
 pkgs/gizclaw/api/rpcapi/tool_generated.go:59:24: interface{} can be replaced by any
@@ -669,5 +674,5 @@ pkgs/gizclaw/api/rpcproto/social.pb.go:3620:19: reflect.TypeOf call can be simpl
 pkgs/gizclaw/api/rpcproto/system.pb.go:3783:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/rpcproto/workspace.pb.go:4395:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/telemetry/peer_telemetry.pb.go:966:19: reflect.TypeOf call can be simplified using TypeFor
-pkgs/monitor/api/generated.go:574:101: interface{} can be replaced by any
-pkgs/monitor/api/generated.go:574:87: interface{} can be replaced by any
+pkgs/monitor/api/generated.go:579:101: interface{} can be replaced by any
+pkgs/monitor/api/generated.go:579:87: interface{} can be replaced by any

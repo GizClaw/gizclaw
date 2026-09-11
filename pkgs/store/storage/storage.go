@@ -261,10 +261,16 @@ func (s *Storage) build(name string, configs map[string]Config, states map[strin
 
 type externalOperationError struct {
 	operation string
+	sqlState  string
 	err       error
 }
 
-func (e *externalOperationError) Error() string { return e.operation + " failed" }
+func (e *externalOperationError) Error() string {
+	if e.sqlState != "" {
+		return e.operation + " failed (SQLSTATE " + e.sqlState + ")"
+	}
+	return e.operation + " failed"
+}
 func (e *externalOperationError) Unwrap() error { return e.err }
 
 type closeIdler interface {

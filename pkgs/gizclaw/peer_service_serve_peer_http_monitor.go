@@ -4,32 +4,75 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-func (s *peerHTTP) ListDeviceWorkspaces(ctx context.Context, _ peerhttp.ListDeviceWorkspacesRequestObject) (peerhttp.ListDeviceWorkspacesResponseObject, error) {
+func (s *peerHTTP) ListDeviceWorkspaces(ctx context.Context, req peerhttp.ListDeviceWorkspacesRequestObject) (peerhttp.ListDeviceWorkspacesResponseObject, error) {
 	owner, err := publicHTTPOwner(ctx)
 	if err != nil {
 		return peerhttp.ListDeviceWorkspaces401JSONResponse{UnauthorizedJSONResponse: peerhttp.UnauthorizedJSONResponse(unauthorizedPublicHTTP())}, nil
 	}
-	if s.Workspaces == nil {
+	reads, ok := s.deviceReads(owner)
+	if !ok {
 		return peerhttp.ListDeviceWorkspaces500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(internalPublicHTTP())}, nil
 	}
-	items, err := s.Workspaces.ListOwnedHistoryWorkspaces(ctx, owner.String())
+	var filter peerresource.DeviceWorkspaceFilter
+	if req.Params.Collection != nil {
+		filter.Collection = *req.Params.Collection
+	}
+	if req.Params.WorkflowName != nil {
+		filter.WorkflowName = *req.Params.WorkflowName
+	}
+	if (req.Params.Collection != nil && filter.Collection == "") || (req.Params.WorkflowName != nil && filter.WorkflowName == "") {
+		return peerhttp.ListDeviceWorkspaces400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(apiError(publicHTTPInvalidRequestCode, "empty workspace filter"))}, nil
+	}
+	items, err := reads.DeviceWorkspaces(ctx, filter)
+	var conflict *peerresource.DeviceWorkspaceConflictError
+	switch {
+	case err == nil:
+		return peerhttp.ListDeviceWorkspaces200JSONResponse(items), nil
+	case errors.Is(err, peerresource.ErrDeviceRuntimeProfileNotBound):
+		// The binding can disappear after the request passed owner validation;
+		// answer exactly like the owner check would.
+		return peerhttp.ListDeviceWorkspaces403JSONResponse{ForbiddenJSONResponse: peerhttp.ForbiddenJSONResponse(apiError("API_KEY_OWNER_UNAVAILABLE", http.StatusText(http.StatusForbidden)))}, nil
+	case errors.As(err, &conflict):
+		return peerhttp.ListDeviceWorkspaces409JSONResponse{ConflictJSONResponse: peerhttp.ConflictJSONResponse(apiError(conflict.Code, conflict.Message))}, nil
+	default:
+		return peerhttp.ListDeviceWorkspaces500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(internalPublicHTTP())}, nil
+	}
+}
+
+func (s *peerHTTP) DeleteDeviceWorkspace(ctx context.Context, req peerhttp.DeleteDeviceWorkspaceRequestObject) (peerhttp.DeleteDeviceWorkspaceResponseObject, error) {
+	owner, err := publicHTTPOwner(ctx)
 	if err != nil {
-		return peerhttp.ListDeviceWorkspaces500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(internalPublicHTTP())}, nil
+		return peerhttp.DeleteDeviceWorkspace401JSONResponse{UnauthorizedJSONResponse: peerhttp.UnauthorizedJSONResponse(unauthorizedPublicHTTP())}, nil
 	}
-	result := make(peerhttp.ListDeviceWorkspaces200JSONResponse, 0, len(items))
-	for _, item := range items {
-		result = append(result, peerhttp.DeviceWorkspace{Id: item.Id, Name: item.Name, WorkflowId: item.WorkflowId, LastActiveAt: item.LastActiveAt})
+	reads, ok := s.deviceReads(owner)
+	if !ok {
+		return peerhttp.DeleteDeviceWorkspace500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(internalPublicHTTP())}, nil
 	}
-	return result, nil
+	err = reads.DeleteDeviceWorkspace(ctx, req.WorkspaceId)
+	var conflict *peerresource.DeviceWorkspaceConflictError
+	switch {
+	case err == nil:
+		return peerhttp.DeleteDeviceWorkspace202Response{}, nil
+	case errors.Is(err, peerresource.ErrDeviceRuntimeProfileNotBound):
+		return peerhttp.DeleteDeviceWorkspace403JSONResponse{ForbiddenJSONResponse: peerhttp.ForbiddenJSONResponse(apiError("API_KEY_OWNER_UNAVAILABLE", http.StatusText(http.StatusForbidden)))}, nil
+	case errors.Is(err, peerresource.ErrDeviceWorkspaceNotFound):
+		return peerhttp.DeleteDeviceWorkspace404JSONResponse{NotFoundJSONResponse: peerhttp.NotFoundJSONResponse(apiError("WORKSPACE_NOT_FOUND", "workspace not found"))}, nil
+	case errors.As(err, &conflict):
+		return peerhttp.DeleteDeviceWorkspace409JSONResponse{ConflictJSONResponse: peerhttp.ConflictJSONResponse(apiError(conflict.Code, conflict.Message))}, nil
+	default:
+		return peerhttp.DeleteDeviceWorkspace500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(internalPublicHTTP())}, nil
+	}
 }
 
 func (s *peerHTTP) ListDeviceWorkspaceHistory(ctx context.Context, req peerhttp.ListDeviceWorkspaceHistoryRequestObject) (peerhttp.ListDeviceWorkspaceHistoryResponseObject, error) {

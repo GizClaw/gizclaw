@@ -139,6 +139,7 @@ export function OverviewPage({
               <TableRow>
                 <TableHead className="pl-5">节点</TableHead>
                 <TableHead>状态</TableHead>
+                <TableHead>版本</TableHead>
                 <TableHead>连接</TableHead>
                 <TableHead>接收 / 发送</TableHead>
                 <TableHead>运行时间</TableHead>
@@ -166,6 +167,19 @@ export function OverviewPage({
                       {state?.status === "error" && (
                         <div className="mt-1 max-w-64 truncate text-[10px] text-destructive">
                           {state.error}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-mono text-xs">
+                        {state?.snapshot?.version ?? "—"}
+                      </div>
+                      {state?.snapshot?.build_commit && (
+                        <div
+                          className="mt-1 font-mono text-[10px] text-muted-foreground"
+                          title={state.snapshot.build_commit}
+                        >
+                          {state.snapshot.build_commit.slice(0, 7)}
                         </div>
                       )}
                     </TableCell>

@@ -49,10 +49,11 @@ server, which sends the credential in the clear.
 
 - API keys: `createApiKey`, `listApiKeys`, `getSelfApiKey`, `revokeSelfApiKey`, `getApiKey`, `revokeApiKey`.
 - Device reads: `getDevice`, `getDeviceRuntime`, `getDeviceStatus`, `getDeviceFirmware`, `getDeviceRuntimeProfile`, `getDeviceTelemetryLatest`, `queryDeviceTelemetry`, `aggregateDeviceTelemetry`.
+- Workspaces: `listDeviceWorkspaces` (optional `collection` and `workflowName` filters), `deleteDeviceWorkspace`, `listDeviceWorkspaceHistory`, `downloadDeviceHistoryAudio`, plus `deviceHistoryAudioUri` and `authorizationHeaders` for players that stream the audio themselves.
 - Device control: `setDeviceVolume`, `playDeviceSound`, `findDevice`, `rebootDevice`, `updateDeviceFirmware`, `getDeviceWifi`, `scanDeviceWifi`, `connectDeviceWifi`, `listDeviceSavedWifi`, `forgetDeviceSavedWifi`.
 - Contacts: `listContacts`, `createContact`, `getContact`, `putContact`, `deleteContact`.
 
-Every method sends `Authorization: Bearer <apiKey>` and returns the immutable model for the contract type; `204` routes return `Future<void>`. Models ignore unknown JSON keys, and the open-ended schemas (`PeerStatus`, `DeviceInfo`) also expose `raw` with the complete decoded object. Path parameters (`ssid`, `contactName`) are URL-encoded by the SDK. The optional `httpClient` injects or shares an `http.Client`; `timeout` defaults to 30 seconds.
+Every method sends `Authorization: Bearer <apiKey>` and returns the immutable model for the contract type; `202` and `204` routes return `Future<void>`. Models ignore unknown JSON keys, and the open-ended schemas (`PeerStatus`, `DeviceInfo`) also expose `raw` with the complete decoded object. Path parameters (`ssid`, `contactName`, `workspaceId`, `historyId`) are URL-encoded by the SDK. The optional `httpClient` injects or shares an `http.Client`; `timeout` defaults to 30 seconds.
 
 ## Error handling
 

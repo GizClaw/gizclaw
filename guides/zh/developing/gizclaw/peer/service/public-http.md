@@ -4,7 +4,7 @@
 
 提供普通 Peer Public HTTP 与 Edge Public HTTP，组装 API Key、CORS、OpenAI API、Edge signaling routes 以及 `/gizclaw/v1/device*`、`/gizclaw/v1/contacts*` 设备扩展，并执行 Edge client/signaling Peer 的准入判断。
 
-该文件拥有 HTTP surface composition；API Key 状态属于 `services/system/apikey`，具体 API 行为属于对应领域 service。设备扩展 handler 分布在两个文件：`peer_service_serve_peer_http_device_api.go` 把 `/device`、`/device/runtime`、`/device/runtime-profile`、`/device/status`、`/device/telemetry*` 与 `/contacts*` 适配到 `peerresource.DeviceReads` 和 `services/social/contact`；`peer_service_serve_peer_http_device_control.go` 把 `PUT /device/volume`、`POST /device/actions/*` 与 `/device/wifi*` 经 `deviceController` 转发为 `client.device.*` / `client.wifi.*` RPC，并把设备回报的 `PeerStatus` 写回 `services/runtime/peertelemetry`。
+该文件拥有 HTTP surface composition；API Key 状态属于 `services/system/apikey`，具体 API 行为属于对应领域 service。设备扩展 handler 分布在三个文件：`peer_service_serve_peer_http_device_api.go` 把 `/device`、`/device/runtime`、`/device/runtime-profile`、`/device/status`、`/device/telemetry*` 与 `/contacts*` 适配到 `peerresource.DeviceReads` 和 `services/social/contact`；`peer_service_serve_peer_http_device_control.go` 把 `PUT /device/volume`、`POST /device/actions/*` 与 `/device/wifi*` 经 `deviceController` 转发为 `client.device.*` / `client.wifi.*` RPC，并把设备回报的 `PeerStatus` 写回 `services/runtime/peertelemetry`；`peer_service_serve_peer_http_monitor.go` 把 `GET /device/workspaces` 与 `DELETE /device/workspaces/{workspaceId}` 适配到 `peerresource.DeviceReads`（按当前 RuntimeProfile 投影 alias、复用 Workspace 删除），并直接用 Workspace service 服务 History、音频与 `/device/logs/search`。
 
 ## Owner binding 与 ingress
 
@@ -25,7 +25,7 @@ Direct Server HTTP（`server.go` 的 mux，`serve-to-clients=true` 时开放）�
 | `servePublic` / `serveEdgePublic` | 在对应 Giznet service 上启动普通或 Edge Public HTTP。 |
 | `publicHTTPHandlerWithOptions` | 组装 API Key 管理、设备扩展与 signaling routes，并完成 owner binding。 |
 | `deviceController` | 串行转发设备控制命令，映射离线/超时/设备错误，写回 `PeerStatus`。 |
-| `deviceReadsForAPIKey` | 为 API Key owner 构造只读的 `peerresource.DeviceReads`。 |
+| `deviceReadsForAPIKey` | 为 API Key owner 构造 owner-scoped 的 `peerresource.DeviceReads`（读取与 Workspace 删除）。 |
 | `allowEdgeClientPeer` | 判断 Peer 是否允许作为 Edge client。 |
 | `allowEdgeSignalingPeer` | 判断 Peer 是否允许通过 Edge 发起 signaling。 |
 | `setPeerHTTPCORSHeaders` | 设置 Peer HTTP surface 的 CORS headers。 |

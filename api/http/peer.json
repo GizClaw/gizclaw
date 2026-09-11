@@ -433,7 +433,7 @@
     "/gizclaw/v1/device/workspaces": {
       "get": {
         "operationId": "listDeviceWorkspaces",
-        "description": "Return an unpaginated array of DeviceWorkspace (id, name, workflow_id, last_active_at date-time) explicitly owned by the authenticated Peer, including system Workspaces. Shared and ownerless Workspaces are excluded. An empty owned set returns []. Uses existing Bearer owner/runtime authorization: 400 INVALID_REQUEST for a malformed public-key bearer, 401 INVALID_API_KEY, 403 DEBUG_ACCESS_FORBIDDEN or API_KEY_OWNER_UNAVAILABLE, 409 for conflicting routing, and 500 INTERNAL_ERROR for unavailable services or storage failures. Errors use ErrorResponse with error.code and error.message.",
+        "description": "Return an unpaginated array of DeviceWorkspace explicitly owned by the authenticated Peer, including system Workspaces. Shared and ownerless Workspaces, and Workspaces whose asynchronous deletion is pending, are excluded. An empty owned set returns []. Workflows are identified only by the collection and RuntimeProfile workflow name that GET /gizclaw/v1/device/runtime-profile lists, resolved against the current RuntimeProfile exactly like Peer RPC Workspace.workflow_name; the Admin Workflow ID is never returned. When the alias no longer resolves, workflow_name is omitted and available is false. Optional collection and workflow_name filters match exactly; a workflow_name filter never matches a Workspace whose alias does not resolve. Uses existing Bearer owner/runtime authorization: 400 INVALID_REQUEST for a malformed public-key bearer, 401 INVALID_API_KEY, 403 DEBUG_ACCESS_FORBIDDEN or API_KEY_OWNER_UNAVAILABLE, 409 for conflicting routing or PEER_PENDING_DELETION when the owner's own deletion is pending, and 500 INTERNAL_ERROR for unavailable services or storage failures. An empty collection or workflow_name filter returns 400 INVALID_REQUEST. Errors use ErrorResponse with error.code and error.message.",
         "summary": "List Workspaces owned by the authenticated device",
         "tags": [
           "Device"
@@ -443,7 +443,28 @@
             "BearerAuth": []
           }
         ],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "query",
+            "required": false,
+            "description": "Return only Workspaces created in this RuntimeProfile workflow collection.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "workflow_name",
+            "in": "query",
+            "required": false,
+            "description": "Return only Workspaces whose workflow name resolves to this RuntimeProfile alias.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
         "responses": {
           "400": {
             "$ref": "#/components/responses/BadRequest"
@@ -475,6 +496,54 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/gizclaw/v1/device/workspaces/{workspaceId}": {
+      "delete": {
+        "operationId": "deleteDeviceWorkspace",
+        "description": "Start the asynchronous deletion of one Workspace owned by the authenticated Peer, using the same Workspace deletion as Peer RPC server.workspace.delete: the Workspace leaves every list at once, and its history, audio, runtime state and icon are removed in the background. The route never contacts the device. A session that is still running on the Workspace stops when the background cleanup quiesces it; until the cleanup finishes, the device reading the Workspace receives WORKSPACE_PENDING_DELETION and creating another Workspace with the same name returns ALREADY_EXISTS. Foreign, absent, or already pending-deletion Workspace IDs return 404 WORKSPACE_NOT_FOUND. A system Workspace returns 409 SYSTEM_WORKSPACE_DELETE_FORBIDDEN, and an owner whose own deletion is pending returns 409 PEER_PENDING_DELETION. Shared Bearer/runtime errors apply; a public-key bearer requires fullcontrol debug mode. Unavailable services or storage failures return 500 INTERNAL_ERROR. Errors use ErrorResponse with error.code and error.message.",
+        "summary": "Delete a Workspace owned by the authenticated device",
+        "tags": [
+          "Device"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Deletion accepted; cleanup continues in the background."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
           }
         }
       }
@@ -1617,18 +1686,43 @@
         "required": [
           "id",
           "name",
-          "workflow_id",
+          "available",
+          "system",
+          "created_at",
+          "updated_at",
           "last_active_at"
         ],
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "description": "Workspace ID addressed by the history, audio and delete routes."
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "Workspace name the device uses with server.workspace.*."
           },
-          "workflow_id": {
-            "type": "string"
+          "collection": {
+            "type": "string",
+            "description": "RuntimeProfile workflow collection the Workspace was created in. Omitted when the Workspace carries no collection, such as a system Workspace."
+          },
+          "workflow_name": {
+            "type": "string",
+            "description": "Workflow name of the Workspace in its collection of the current RuntimeProfile, as listed by GET /gizclaw/v1/device/runtime-profile. Omitted when the alias no longer resolves."
+          },
+          "available": {
+            "type": "boolean",
+            "description": "Whether workflow_name resolves in the current RuntimeProfile, like Peer RPC Workspace.available."
+          },
+          "system": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
           },
           "last_active_at": {
             "type": "string",

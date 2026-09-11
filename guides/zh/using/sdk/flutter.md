@@ -48,10 +48,11 @@ client.close();
 
 - API Key：`createApiKey`、`listApiKeys`、`getSelfApiKey`、`revokeSelfApiKey`、`getApiKey`、`revokeApiKey`。
 - 设备读取：`getDevice`、`getDeviceRuntime`、`getDeviceStatus`、`getDeviceFirmware`、`getDeviceRuntimeProfile`、`getDeviceTelemetryLatest`、`queryDeviceTelemetry`、`aggregateDeviceTelemetry`。
+- Workspace：`listDeviceWorkspaces`（可选 `collection`、`workflowName` 过滤）、`deleteDeviceWorkspace`、`listDeviceWorkspaceHistory`、`downloadDeviceHistoryAudio`，以及供自行拉流的播放器使用的 `deviceHistoryAudioUri` 与 `authorizationHeaders`。
 - 设备控制：`setDeviceVolume`、`playDeviceSound`、`findDevice`、`rebootDevice`、`updateDeviceFirmware`、`getDeviceWifi`、`scanDeviceWifi`、`connectDeviceWifi`、`listDeviceSavedWifi`、`forgetDeviceSavedWifi`。
 - Contact：`listContacts`、`createContact`、`getContact`、`putContact`、`deleteContact`。
 
-每个方法发送 `Authorization: Bearer <apiKey>`，返回 contract 对应的不可变 model；`204` route 返回 `Future<void>`。model 忽略未知 JSON 字段；开放式 schema（`PeerStatus`、`DeviceInfo`）额外提供 `raw` 保存完整解码对象。路径参数（`ssid`、`contactName`）由 SDK 做 URL 编码。可选参数 `httpClient` 用于注入或复用 `http.Client`，`timeout` 默认 30 秒。
+每个方法发送 `Authorization: Bearer <apiKey>`，返回 contract 对应的不可变 model；`202`/`204` route 返回 `Future<void>`。model 忽略未知 JSON 字段；开放式 schema（`PeerStatus`、`DeviceInfo`）额外提供 `raw` 保存完整解码对象。路径参数（`ssid`、`contactName`、`workspaceId`、`historyId`）由 SDK 做 URL 编码。可选参数 `httpClient` 用于注入或复用 `http.Client`，`timeout` 默认 30 秒。
 
 ## 错误处理
 

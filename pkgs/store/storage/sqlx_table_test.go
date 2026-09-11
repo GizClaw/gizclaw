@@ -219,15 +219,42 @@ type testSQLStateError string
 func (err testSQLStateError) Error() string    { return "database error" }
 func (err testSQLStateError) SQLState() string { return string(err) }
 
-func TestConcurrentDDLConflictClassification(t *testing.T) {
-	for _, code := range []string{"23505", "42P07"} {
-		if !isConcurrentDDLConflict(fmt.Errorf("wrapped: %w", testSQLStateError(code))) {
-			t.Errorf("SQLSTATE %s was not classified as a concurrent DDL conflict", code)
+func TestExternalSQLErrorReportsSQLState(t *testing.T) {
+	underlying := fmt.Errorf("wrapped: %w", testSQLStateError("42710"))
+	err := ExternalSQLError("storage: sql initialize kv table \"items\"", underlying)
+	if !errors.Is(err, underlying) {
+		t.Fatalf("ExternalSQLError() lost the underlying cause: %v", err)
+	}
+	var state sqlStateError
+	if !errors.As(err, &state) || state.SQLState() != "42710" {
+		t.Fatalf("ExternalSQLError() does not expose SQLSTATE through Unwrap: %v", err)
+	}
+	if got, want := err.Error(), `storage: sql initialize kv table "items" failed (SQLSTATE 42710)`; got != want {
+		t.Fatalf("ExternalSQLError() = %q, want %q", got, want)
+	}
+	for _, code := range []string{"", "4271", "42710 secret", "42p07"} {
+		if got := ExternalSQLError("storage: sql query", testSQLStateError(code)).Error(); got != "storage: sql query failed" {
+			t.Errorf("ExternalSQLError(SQLSTATE %q) = %q", code, got)
 		}
 	}
-	for _, err := range []error{testSQLStateError("23503"), errors.New("plain error")} {
-		if isConcurrentDDLConflict(err) {
-			t.Errorf("%v was classified as a concurrent DDL conflict", err)
-		}
+}
+
+func TestLockPostgreSQLTableRejectsNonPostgreSQLTables(t *testing.T) {
+	db := sqlx.MustOpen("sqlite", ":memory:")
+	t.Cleanup(func() { _ = db.Close() })
+	backend, err := PrepareSQLTable(db, "kv", "items")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err := db.Beginx()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tx.Rollback() })
+	if err := LockPostgreSQLTable(context.Background(), tx, backend); err == nil {
+		t.Fatal("LockPostgreSQLTable accepted a SQLite table")
+	}
+	if err := LockPostgreSQLTable(context.Background(), nil, backend); err == nil {
+		t.Fatal("LockPostgreSQLTable accepted a nil tx")
 	}
 }

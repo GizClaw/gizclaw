@@ -52,7 +52,7 @@ node in parallel every five seconds, derives rates from the cumulative counters
 (a restart reads as zero, never a spike) and retains at most 600 samples per
 node with 2/10/30 minute windows.
 
-Logs are queried through the device persistent LogStore search API, with time ranges, text, level and pagination. Node snapshots contain runtime status and transport counters.
+Logs are queried through the device persistent LogStore search API, with time ranges, text, level and pagination. Node snapshots contain the binary version and build commit, runtime status and transport counters; the console shows the version in the node list and snapshot tab.
 
 Telemetry splits in two: metric fields (`battery.*`, `network.rssi_dbm`,
 `network.signal_level`, `network.connected`, `system.*`, `gnss.*`) become stored
@@ -91,7 +91,7 @@ assignment or Admin authentication.
 
 | Status | Response |
 | --- | --- |
-| 200 | Generated `NodeSnapshot` with local runtime status and counters |
+| 200 | Generated `NodeSnapshot` with build identity, local runtime status and counters |
 | 401 | `{"error":"INVALID_MONITOR_TOKEN"}` |
 | 503 | `{"error":"MONITOR_DISABLED"}` when no token is configured |
 | 405 | Empty body, `Allow: GET,OPTIONS` for unsupported methods |
@@ -109,8 +109,9 @@ node snapshots exclude logs. `go test ./pkgs/gizlog` covers configured log sinks
 ## Device APIs used by the console
 
 `GET /gizclaw/v1/device/workspaces` lists explicitly Peer-owned Workspaces,
-including system Workspaces, grouped by Workflow. Shared and ownerless
-Workspaces are excluded. `GET /gizclaw/v1/device/workspaces/{workspaceId}/history`
+including system Workspaces. Shared, ownerless, and pending-deletion
+Workspaces are excluded. Each item identifies its Workflow by `collection` and
+`workflow_name`, which the console shows instead of an Admin Workflow ID. `GET /gizclaw/v1/device/workspaces/{workspaceId}/history`
 searches persisted text with cursor pagination (up to 200 entries; the console
 uses 100). `order` defaults to `desc` (newest first) and also accepts `asc`;
 optional `start_time_ms` (inclusive) and `end_time_ms` (exclusive) bound

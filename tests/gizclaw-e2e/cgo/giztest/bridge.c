@@ -375,6 +375,7 @@ static void split_route(gzc_str_t path, gzt_route_t *out) {
       "/device/telemetry/aggregate",
       "/device/actions/play-sound",
       "/device/runtime-profile",
+      "/device/workspaces",
       "/device/actions/reboot",
       "/device/actions/find",
       "/device/wifi/saved",
@@ -551,6 +552,7 @@ int gzt_control_request(
   gzc_control_device_runtime_profile_t runtime_profile;
   gzc_control_runtime_profile_collection_t profile_collections[32];
   gzc_str_t profile_workflows[128];
+  gzc_control_device_workspace_t workspaces[64];
   gzc_control_wifi_status_t wifi;
   gzc_control_contact_t contact;
   gzc_control_api_key_t api_key_value;
@@ -598,6 +600,15 @@ int gzt_control_request(
         return fail(errbuf, errbuf_len, "decode runtime profile workflows", workflows_rc);
       }
     }
+  } else if (get && route_is(&route, "/device/workspaces", false)) {
+    gzc_control_workspace_filter_t filter;
+    memset(&filter, 0, sizeof(filter));
+    (void)query_param(query, "collection", &filter.collection);
+    (void)query_param(query, "workflow_name", &filter.workflow_name);
+    rc = gzc_control_list_device_workspaces(
+        &control, &call, &filter, workspaces, sizeof(workspaces) / sizeof(workspaces[0]), &count);
+  } else if (del && route_is(&route, "/device/workspaces", true)) {
+    rc = gzc_control_delete_device_workspace(&control, &call, tail);
   } else if (get && route_is(&route, "/device/status", false)) {
     rc = gzc_control_get_device_status(&control, &call, &status);
   } else if (get && route_is(&route, "/device/telemetry", true) &&

@@ -82,7 +82,9 @@ no credential and returns all matches.
 The peer client exposes device snapshots, Telemetry, `listWorkspaces`,
 `listWorkspaceHistory`, `searchLogs` and `downloadHistoryAudio`. The same read
 methods are available on `createGizClawControlClient(...).device` for API-key
-users. Clients accept an AbortSignal; HTTP failures retain status and error
+users. `listWorkspaces` accepts optional `collection` and `workflow_name`
+filters, and `deleteWorkspace` resolves once the Server answers `202` (a
+public-key bearer needs fullcontrol). Clients accept an AbortSignal; HTTP failures retain status and error
 code through `GizClawControlError`. Ogg downloads return a Blob.
 
 Node Monitor generated output belongs to `gizclaw-control/generated/monitor`.
