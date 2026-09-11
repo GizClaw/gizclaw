@@ -19,6 +19,8 @@ Owns peer's contact resources and contact lifecycle. Contact is the address book
 
 Contact uses the `contacts` business table through the Server-local SQL connection pool. ID, owner, name, display name, phone number, normalized phone number, timestamps, and creation identity have separate columns. Database constraints enforce unique names and normalized phone numbers per owner. ID and owner/name lookups are direct; lists use the `(owner_public_key, id)` index for cursor pagination and fetch complete records in one query. Tables and indexes are initialized at startup. Peer retirement snapshots retain creation identity so conditional deletion cannot remove a recreated Contact with the same ID.
 
+An owner Peer has at most 8 Contacts. The cap is fixed by `contact.PeerContactLimit` to match the device-side Contact array and offline allowlist capacity, and is not configurable through RuntimeProfile or Server config. Creation counts and inserts inside the owner lock, so concurrent creations on one Server cannot exceed the cap. When the owner is full, the `server.contact.create` RPC returns `RESOURCE_EXHAUSTED` (8) with reason `CONTACT_LIMIT_REACHED`; Peer HTTP creation, Admin HTTP creation, and Resource apply creation return `409 Conflict` with error code `CONTACT_LIMIT_REACHED` and write nothing. Updates and deletions are unaffected. Owners that already had more than 8 Contacts keep them; only new creations are rejected until the count drops below 8.
+
 ### friend
 
 Owns friend-request creation, acceptance, rejection, and friend-relationship reads and deletion. A Friend relationship directly grants both peers access to its system Workspace without creating a generic access role.

@@ -2527,7 +2527,7 @@ export type CreateContactErrors = {
      */
     403: ErrorResponse;
     /**
-     * The contact name or phone number already exists, or the owner is pending deletion.
+     * CONTACT_ALREADY_EXISTS when the contact name or phone number already exists; CONTACT_LIMIT_REACHED when the owner already has 8 contacts (existing contacts above the limit are kept, only creation is rejected); PEER_PENDING_DELETION or PEER_DELETED when the owner is being retired.
      */
     409: ErrorResponse;
     /**

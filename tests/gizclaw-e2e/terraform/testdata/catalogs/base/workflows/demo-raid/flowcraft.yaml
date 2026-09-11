@@ -1,0 +1,11 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata: {id: tf-raid-flowcraft}
+spec:
+  driver: flowcraft
+  flowcraft:
+    graph:
+      name: tf-raid-flowcraft
+      entry: passthrough
+      nodes: [{id: passthrough, type: passthrough, publish: true}]
+      edges: [{from: passthrough, to: __end__}]

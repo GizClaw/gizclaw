@@ -1,6 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 
+// protoc_plugin ships the descriptor.proto bindings only under src/.
+// ignore: implementation_imports
+import 'package:protoc_plugin/src/gen/google/protobuf/descriptor.pb.dart';
+
 void main() {
   final repo = _repoRoot();
   final package = '$repo/sdk/flutter/gizclaw';
@@ -23,10 +27,13 @@ void main() {
     throw StateError('api/proto/rpc/payload did not contain any proto files');
   }
 
+  final descriptorDir = Directory.systemTemp.createTempSync('gizclaw-rpc-');
+  final descriptorSet = '${descriptorDir.path}/rpc.pb';
   final protocArgs = [
     '--proto_path=$repo/api/proto/rpc',
     '--plugin=protoc-gen-dart=${_protocGenDart(package)}',
     '--dart_out=$outDir',
+    '--descriptor_set_out=$descriptorSet',
     '$repo/api/proto/rpc/rpc.proto',
     ...payloadFiles,
   ];
@@ -35,6 +42,10 @@ void main() {
     stderr.write(result.stderr);
     exit(result.exitCode);
   }
+  final explicitPresence = _explicitPresenceFields(
+    FileDescriptorSet.fromBuffer(File(descriptorSet).readAsBytesSync()),
+  );
+  descriptorDir.deleteSync(recursive: true);
 
   _writePayloadBarrels(outDir, payloadFiles);
 
@@ -47,8 +58,37 @@ void main() {
     );
   }
   _writeMethodRegistry(package, methods);
-  _writePayloadCodec(package, methods);
+  _writePayloadCodec(package, methods, explicitPresence);
   _formatGeneratedFiles(package, outDir);
+}
+
+/// Collects the proto3 `optional` fields of every message, keyed by the fully
+/// qualified message name. protoc-gen-dart does not record this presence in
+/// the generated BuilderInfo, so proto3 JSON projections read it from here.
+Map<String, List<int>> _explicitPresenceFields(FileDescriptorSet set) {
+  final fields = <String, List<int>>{};
+  void visit(String scope, DescriptorProto message) {
+    final name = scope.isEmpty ? message.name : '$scope.${message.name}';
+    final tags = [
+      for (final field in message.field)
+        if (field.proto3Optional) field.number,
+    ]..sort();
+    if (tags.isNotEmpty) {
+      fields[name] = tags;
+    }
+    for (final nested in message.nestedType) {
+      visit(name, nested);
+    }
+  }
+
+  for (final file in set.file) {
+    for (final message in file.messageType) {
+      visit(file.package, message);
+    }
+  }
+  return Map.fromEntries(
+    fields.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
+  );
 }
 
 String _protocGenDart(String package) {
@@ -213,7 +253,11 @@ void _writeMethodRegistry(String package, List<_Method> methods) {
   ).writeAsStringSync(buffer.toString());
 }
 
-void _writePayloadCodec(String package, List<_Method> methods) {
+void _writePayloadCodec(
+  String package,
+  List<_Method> methods,
+  Map<String, List<int>> explicitPresence,
+) {
   final types = <String>{};
   for (final method in methods) {
     types
@@ -291,6 +335,39 @@ void _writePayloadCodec(String package, List<_Method> methods) {
     ..writeln('  final message = newPayloadMessage(type);')
     ..writeln('  message.mergeFromBuffer(bytes);')
     ..writeln('  return message;')
+    ..writeln('}')
+    ..writeln()
+    ..writeln(
+      '/// Proto3 `optional` field numbers, keyed by fully qualified message name.',
+    )
+    ..writeln('const _explicitPresenceFields = <String, Set<int>>{');
+  for (final entry in explicitPresence.entries) {
+    buffer.writeln("  '${entry.key}': {${entry.value.join(', ')}},");
+  }
+  buffer
+    ..writeln('};')
+    ..writeln()
+    ..writeln(
+      '/// Reports whether [tagNumber] of [message] is a proto3 `optional` field.',
+    )
+    ..writeln('///')
+    ..writeln(
+      '/// Such a field has explicit presence: proto3 JSON omits it when unset',
+    )
+    ..writeln(
+      '/// even where implicit-presence defaults are emitted. The generated',
+    )
+    ..writeln(
+      '/// BuilderInfo does not record this, so the schema is consulted here.',
+    )
+    ..writeln('bool payloadFieldIsProto3Optional(')
+    ..writeln('  GeneratedMessage message,')
+    ..writeln('  int tagNumber,')
+    ..writeln(') {')
+    ..writeln(
+      '  final fields = _explicitPresenceFields[message.info_.qualifiedMessageName];',
+    )
+    ..writeln('  return fields != null && fields.contains(tagNumber);')
     ..writeln('}')
     ..writeln()
     ..writeln('GeneratedMessage? decodeEmptyRpcResponsePayload(')

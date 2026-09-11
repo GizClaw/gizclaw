@@ -13,7 +13,7 @@ cmd/
 ├── gizclaw/          # executable main
 └── internal/
     ├── commands/     # command tree and command entry points
-    ├── connection/   # CLI connection orchestration
+    ├── connection/   # CLI context connections, delegating to sdk/go/gizcli/contextconn
     ├── adminapi/     # Admin API adapter
     ├── deviceapi/    # Device-facing adapter
     ├── peerapi/      # Peer-facing adapter
@@ -22,5 +22,7 @@ cmd/
     ├── storage/      # CLI-owned local state
     └── stores/       # CLI store construction
 ```
+
+Manifest preparation, single and batch reads, error text, and NOT_FOUND detection for `gizclaw admin apply|show|delete|validate` come from `sdk/go/gizcli/adminresource`, the same implementation used by the [Terraform Provider](/en/using/terraform). `cmd/terraform-provider-gizclaw` is a separate provider executable that depends only on these SDK packages, not on `cmd/internal`.
 
 When modifying the API or RPC called by the CLI, you should also read the corresponding [API Design](../api/overview) and SDK documentation.

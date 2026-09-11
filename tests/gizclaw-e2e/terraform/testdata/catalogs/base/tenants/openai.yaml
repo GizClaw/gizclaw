@@ -1,0 +1,8 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: OpenAITenant
+metadata: {id: tf-openai}
+spec:
+  kind: compatible
+  credential_id: tf-openai
+  base_url: https://api.openai.com/v1
+  api_mode: chat_completions

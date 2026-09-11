@@ -109,13 +109,16 @@ The repository publishes a formal, non-prerelease Release only when a canonical
 protected tag `vMAJOR.MINOR.PATCH` is pushed. A push to `main` does not build or
 publish a Release.
 
-Each Release contains exactly two Debian packages, the two Darwin executables,
-one standalone C SDK source archive, its checksum sidecar,
-`release-manifest.json`, and `SHA256SUMS`; it does not publish raw Linux
-executables. The Debian packages use `<version>` from the tag in
-`gizclaw_<version>_{amd64,arm64}.deb`. The platform-neutral source payload is
+Each Release contains exactly two Debian packages, four Terraform provider
+packages, one standalone C SDK source archive, its checksum sidecar,
+`release-manifest.json`, and `SHA256SUMS`, ten files in total; it does not
+publish raw Linux executables. The Debian packages use `<version>` from the tag
+in `gizclaw_<version>_{amd64,arm64}.deb`. The platform-neutral source payload is
 named `gizclaw-c-sdk-<version>.tar.gz`; its adjacent `.sha256` contains the
-archive digest and canonical filename.
+archive digest and canonical filename. The Terraform provider packages are named
+`terraform-provider-gizclaw_<version>_{darwin,linux}_{amd64,arm64}.zip`, and the
+provider version equals the Release version; see
+[Terraform Provider](/en/using/terraform) for installation and usage.
 
 For formal releases, the Git tag is the only source version. It is both the Go
 module version and GitHub Release tag; removing its leading `v` gives the Debian
@@ -133,11 +136,17 @@ administration.
 Each Debian package owns only root-owned mode-`0755` `/usr/bin/gizclaw`.
 Shared-library dependencies are derived from the packaged ELF and validated by
 a clean matching-architecture Ubuntu 24.04 install, removal, reinstall, and
-tamper/reinstall cycle. The Darwin assets are separate single-architecture
-command-line executables built and run on native macOS 15 Intel and Apple
-Silicon runners. Windows, universal macOS binaries, application bundles,
-installers, notarization, and package-manager repository publication are not
-part of this repository release contract.
+tamper/reinstall cycle.
+
+`build/build-terraform-provider.sh` cross-compiles each Terraform provider
+package with `CGO_ENABLED=0` on a Linux runner. Each zip contains only the
+mode-`0755` executable `terraform-provider-gizclaw_v<version>`, with its
+timestamp taken from the source commit, so rebuilds are byte-identical.
+`build/check-release.sh` validates each zip's single entry name, execute mode,
+and that its Mach-O/ELF header matches the declared platform and architecture.
+
+Windows artifacts, the `gizclaw` CLI on macOS, and package-manager repository
+publication are not part of this repository release contract.
 
 Download and verify a Release without trusting filenames alone:
 
@@ -145,7 +154,6 @@ Download and verify a Release without trusting filenames alone:
 tag=v1.2.3
 gh release download "$tag" --repo GizClaw/gizclaw --dir ".tmp/$tag"
 (cd ".tmp/$tag" && sha256sum --check SHA256SUMS)
-chmod +x ".tmp/$tag"/gizclaw-darwin-*
 build/check-release.sh semver ".tmp/$tag" "$tag" "$(git rev-list -n 1 "$tag")"
 ```
 
@@ -153,8 +161,10 @@ build/check-release.sh semver ".tmp/$tag" "$tag" "$(git rev-list -n 1 "$tag")"
 name, byte size, and SHA-256 to the full source commit. Native payloads also
 bind platform and architecture; the C SDK source entry binds module
 `gizclaw_c_sdk`, version, and source commit. Debian entries also bind package metadata and
-`/usr/bin/gizclaw`. A formal rerun accepts an existing published Release only
-when its metadata and all eight downloaded files match byte-for-byte. An
+`/usr/bin/gizclaw`; `terraform-provider` entries also bind provider `gizclaw`,
+the version, and the executable name inside the zip. A formal rerun accepts an
+existing published Release only when its metadata and all ten downloaded files
+match byte-for-byte. An
 exact-tag draft left by an interrupted first upload must pass the same metadata,
 inventory, digest, and byte-for-byte checks before the workflow publishes that
 same draft. Partial, moved, duplicate exact-tag, or mismatched Releases fail

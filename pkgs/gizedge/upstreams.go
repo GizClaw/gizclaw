@@ -44,6 +44,9 @@ func newOrderedUpstreamTransport(ctx context.Context, cfg Config) (*orderedUpstr
 	}
 	for _, entry := range transport.entries {
 		if _, _, err := entry.currentConn(); err == nil {
+			for _, monitored := range transport.entries {
+				monitored.startLivenessMonitor()
+			}
 			return transport, nil
 		}
 	}
@@ -115,7 +118,17 @@ func (t *orderedUpstreamTransport) resolveAPIKeyAssignment(ctx context.Context, 
 			errs = append(errs, err)
 			continue
 		}
+		release, err := entry.acquireSlot(ctx)
+		if err != nil {
+			if ctx.Err() != nil {
+				return nil, err
+			}
+			// This upstream's transport is shutting down; try the next one.
+			errs = append(errs, err)
+			continue
+		}
 		assignment, err := resolveAPIKeyAssignment(ctx, conn, apiKey)
+		release()
 		if err == nil {
 			return assignment, nil
 		}
@@ -165,7 +178,17 @@ func (t *orderedUpstreamTransport) resolvePeerAssignment(
 			errs = append(errs, err)
 			continue
 		}
+		release, err := entry.acquireSlot(ctx)
+		if err != nil {
+			if ctx.Err() != nil {
+				return nil, err
+			}
+			// This upstream's transport is shutting down; try the next one.
+			errs = append(errs, err)
+			continue
+		}
 		assignment, err := resolvePeerAssignment(ctx, conn, peerKey)
+		release()
 		if err == nil {
 			return assignment, err
 		}

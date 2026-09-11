@@ -2,6 +2,7 @@ package resourcemanager
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -139,6 +140,25 @@ func TestApplyContactResourceCreatesUpdatesAndDeletes(t *testing.T) {
 	}
 	_, err = manager.Get(context.Background(), apitypes.ResourceKindContact, "alice001")
 	assertResourceError(t, err, 404, "RESOURCE_NOT_FOUND")
+}
+
+func TestApplyContactResourceRejectsOwnerAtLimit(t *testing.T) {
+	manager := newSocialResourceManager(t)
+	for i := range contact.PeerContactLimit + 1 {
+		_, err := manager.Apply(context.Background(), mustResource(t, fmt.Sprintf(`{
+			"apiVersion": "gizclaw.admin/v1alpha1",
+			"kind": "Contact",
+			"metadata": {"id": "person-%d"},
+			"spec": {"owner_public_key": "peer-a", "name": "person-%d", "display_name": "Person"}
+		}`, i, i)))
+		if i < contact.PeerContactLimit {
+			if err != nil {
+				t.Fatalf("Apply(contact %d) returned error: %v", i+1, err)
+			}
+			continue
+		}
+		assertResourceError(t, err, 409, contact.ContactLimitReachedCode)
+	}
 }
 
 func TestApplyFriendGroupResourceCreatesUpdatesAndDeletes(t *testing.T) {

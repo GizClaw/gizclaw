@@ -3446,7 +3446,7 @@ export type CreateContactErrors = {
      */
     404: ErrorResponse;
     /**
-     * Contact ID, name, or phone number already exists
+     * CONTACT_ALREADY_EXISTS when the contact ID, name, or phone number already exists; CONTACT_LIMIT_REACHED when the owner already has 8 contacts; PEER_PENDING_DELETION or PEER_DELETED when the owner is being retired
      */
     409: ErrorResponse;
     /**

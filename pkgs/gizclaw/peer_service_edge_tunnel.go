@@ -24,16 +24,17 @@ func (h *PeerConn) initEdgeTunnelRouter() (*giztunnel.Router, error) {
 	if h.tunnelRouter != nil {
 		return h.tunnelRouter, nil
 	}
-	transport, ok := h.Conn.(*gizwebrtc.Conn)
+	transport, ok := h.Conn.(giznet.ChannelConn)
 	if !ok {
-		return nil, errors.New("gizclaw: edge tunnel requires WebRTC transport")
+		return nil, errors.New("gizclaw: edge tunnel requires a native-channel transport")
 	}
 	router, err := giztunnel.NewRouter(transport, giztunnel.Config{
-		AcceptSessions:        true,
-		MaxChannelsPerSession: edgeTunnelMaxChannelsPerSession,
-		MaxChannels:           edgeTunnelMaxChannels,
-		MaxPendingSessions:    edgeTunnelMaxPendingSessions,
-		MaxBufferedBytes:      edgeTunnelSessionBufferBytes,
+		AcceptSessions:              true,
+		MaxChannelsPerSession:       edgeTunnelMaxChannelsPerSession,
+		MaxChannels:                 edgeTunnelMaxChannels,
+		MaxPendingSessions:          edgeTunnelMaxPendingSessions,
+		MaxBufferedBytes:            edgeTunnelSessionBufferBytes,
+		MaxAssociationBufferedBytes: gizwebrtc.GatewaySCTPWriteBudgetSize,
 		AllowRemoteService: func(client giznet.PublicKey, service uint64) bool {
 			return h.Service.manager.allowService(context.Background(), client, service)
 		},

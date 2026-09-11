@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -250,6 +251,22 @@ func TestDeviceHTTPTelemetryUsesOwnerAndValidatesQuery(t *testing.T) {
 
 func itoa(value int64) string {
 	return strconv.FormatInt(value, 10)
+}
+
+func TestDeviceHTTPContactCreateRejectsOwnerAtLimit(t *testing.T) {
+	f := newDeviceHTTPFixture(t)
+	for i := range contact.PeerContactLimit {
+		if response := f.do(t, http.MethodPost, "/gizclaw/v1/contacts", fmt.Sprintf(`{"name":"person-%d","display_name":"Person"}`, i)); response.Code != http.StatusCreated {
+			t.Fatalf("create %d status = %d body=%s", i+1, response.Code, response.Body.String())
+		}
+	}
+	response := f.do(t, http.MethodPost, "/gizclaw/v1/contacts", `{"name":"overflow","display_name":"Overflow"}`)
+	if response.Code != http.StatusConflict || errorCode(t, response) != contact.ContactLimitReachedCode {
+		t.Fatalf("over-limit create status = %d body=%s", response.Code, response.Body.String())
+	}
+	if response := f.do(t, http.MethodGet, "/gizclaw/v1/contacts/overflow", ""); response.Code != http.StatusNotFound {
+		t.Fatalf("rejected contact get status = %d body=%s", response.Code, response.Body.String())
+	}
 }
 
 func TestDeviceHTTPContactsCRUD(t *testing.T) {

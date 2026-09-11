@@ -201,12 +201,51 @@ jobs:
             .tmp/release/gizclaw-c-sdk-*.tar.gz.sha256
           if-no-files-found: error
 
+  terraform-provider:
+    name: Terraform Provider Release Assets
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Check out selected source commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.prepare.outputs.source_commit }}
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build cgo-free Terraform provider archives
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+          SOURCE_EPOCH: ${{ needs.prepare.outputs.source_epoch }}
+        run: |
+          build/build-terraform-provider.sh \
+            --version "$VERSION" \
+            --source-commit "$SOURCE_COMMIT" \
+            --source-epoch "$SOURCE_EPOCH" \
+            --output-dir .tmp/release
+
+      - name: Upload Terraform provider release assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: terraform-provider
+          path: .tmp/release/terraform-provider-gizclaw_*.zip
+          if-no-files-found: error
+
   publish-semver:
     name: Publish Protected SemVer Release
     needs:
       - prepare
       - linux
       - c-sdk
+      - terraform-provider
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
