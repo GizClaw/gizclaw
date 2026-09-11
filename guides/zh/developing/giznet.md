@@ -26,6 +26,7 @@ pkgs/giznet/
 - Peer identity 和连接状态。
 - Connection 与 listener 的公共抽象。
 - Reliable service stream 和 direct packet 的传输模型。
+- 带 label 的原生 channel 可选接口 `ChannelConn`/`Channel`，以及共享在途字节记账 `WriteBudget`。
 - Peer 与 service 级别的安全策略入口。
 - 所有 transport 实现共享的 protocol、key 和 error 定义。
 
@@ -67,6 +68,18 @@ Coturn relay path。它仍只是本机 Docker transport 诊断，不是 producti
 `Dial` 保持为十秒 native service-open 上限的兼容 wrapper。`giztunnel.Conn` 也实现
 `ContextDialer`：它最多等待 bridge drain 上限加一秒来获取 active-channel capacity，之后再应用
 十秒 native-open 上限。更短的 caller context 同时约束这两个阶段。
+
+每条 logical stream 都能对应一条 transport 原生 stream 的 transport 可以额外实现
+`giznet.ChannelConn`。`OpenChannel(ctx, label, reliability)` 打开一条带 label 的
+`giznet.Channel`，返回只表示本端 transport 已打开，不代表远端应用接受；`HandleChannels`
+认领一个入站 label prefix，返回的 unregister 会关闭交付给该 handler 的所有 channel。
+`ChannelReliable` 是通过 `Read`/`Write` 使用的可靠有序字节流，调用方不得依赖 `Read`
+保留写入边界；`ChannelUnreliable` 无序、不重传，并通过 `ReadMessage`/`WriteMessage`
+保留消息边界。协商语义不属于这两类的远端 channel 报告 `ChannelReliabilityUnknown`。
+`gizwebrtc` 把两类分别映射为无 partial reliability 的有序 DataChannel 和
+`maxRetransmits=0` 的无序 DataChannel。`giznet.WriteBudget` 只通过
+`TryAcquire`/`Release` 维护共享字节账目；writer 如何等待以及 reservation 何时释放由各
+transport 负责。
 
 每条已打开的 service DataChannel 都会登记在对应 logical service 下，直到相应的 `net.Conn`
 关闭。Stream 关闭时会立即解除登记；service 或父连接关闭时，则在 registry lock 外关闭已
@@ -134,8 +147,9 @@ candidate-pair 计数，用于诊断。
 
 ### giztunnel
 
-`pkgs/giznet/giztunnel` 把一条 physical WebRTC PeerConnection 上的原生 DataChannel 聚合为
-多个 logical `giznet.Conn`。每个 session 有随机 16-byte ID、一条可靠有序 control
+`pkgs/giznet/giztunnel` 把任意 `giznet.ChannelConn` 上带 label 的原生 channel 聚合为
+多个 logical `giznet.Conn`，其非测试代码只依赖 giznet 根 package。目前由 `gizwebrtc`
+提供该 transport，每条原生 channel 就是一条 WebRTC DataChannel。每个 session 有随机 16-byte ID、一条可靠有序 control
 channel、一条无序且 `maxRetransmits=0` 的 packet channel，以及每条 Event、RPC、HTTP 或
 其他 service 独立的可靠有序 channel。service payload 只保留原有上层 framing，不再包含
 virtual open/data/close frame。
@@ -143,7 +157,8 @@ virtual open/data/close frame。
 canonical `giznet/v2/tunnel/...` label 声明 session、logical client、service 与 channel
 instance。只有已经认证并激活为 `edge-node` 的 physical connection 才注册该 namespace；
 control label 是 logical identity 的唯一声明。Server 收齐 control 与 packet 后仍要由应用
-显式 Accept 并发送精确的 `GZT2` result，DCEP open 本身不是 logical acceptance。
+显式 Accept 并发送精确的 `GZT2` result，DCEP open 本身不是 logical acceptance。Edge
+按帧头长度读取该 result，因此即使 result 在可靠 control stream 上分多次到达，仍按一帧解码。
 
 Direct packet 在每 session 的 unreliable channel 保留消息边界。`ProtocolOpusPacket` 继续
 使用 shared physical unreliable lane 上带 version 和 session ID 的 envelope，并合并回
@@ -152,8 +167,10 @@ backpressure 与 close/reset，但同一 PeerConnection 上的 channel 仍共享
 和 congestion controller。
 
 active limit 默认是每 session 32 条、每 upstream 8192 条。可靠 service write 同时受
-per-channel、per-session 与 32 MiB association budget 约束，reservation 要等
-`BufferedAmount` 排空后才释放。
+per-channel、per-session 与 association budget 约束，reservation 要等
+`BufferedAmount` 排空后才释放。association budget 来自
+`Config.MaxAssociationBufferedBytes`，默认 32 MiB；Edge 与 Server 传入
+`gizwebrtc.GatewaySCTPWriteBudgetSize`，使其与配置的 SCTP 接收缓冲保持一致。
 
 `giztunnel.Bridge` 保持为兼容 forwarding API：两条 service accept loop 与两条 packet copy
 loop 中第一个 connection-level loop 结束时关闭两端。`BridgeWithObservation` 保持完全相同的
@@ -191,6 +208,7 @@ flowchart TB
 
 - `pkgs/gizclaw` 和 `pkgs/gizedge` 消费 giznet 提供的通用传输边界。
 - `gizhttp` 和 `gizwebrtc` 依赖 giznet 根 package 完成 transport adapter 或实现。
+- `giztunnel` 只依赖 giznet 根 package，通过 `giznet.ChannelConn` 使用原生 channel；构造 Router 的调用方在 physical connection 上断言该接口。
 - `pkgs/giznet` 不反向依赖 `pkgs/gizclaw`、`pkgs/gizedge` 或具体业务 service。
 
 ## Ownership 边界

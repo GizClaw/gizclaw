@@ -82,6 +82,9 @@ func TestNativeChannelPrefixOwnershipOptionsAndClose(t *testing.T) {
 	if inbound.Label() != outbound.Label() || inbound.Ordered() || inbound.MaxRetransmits() == nil || *inbound.MaxRetransmits() != 0 {
 		t.Fatalf("inbound options label=%q ordered=%t retransmits=%v", inbound.Label(), inbound.Ordered(), inbound.MaxRetransmits())
 	}
+	if got := inbound.Reliability(); got != giznet.ChannelUnreliable {
+		t.Fatalf("packet Reliability = %s, want unreliable", got)
+	}
 	if _, err := outbound.WriteMessage([]byte("packet")); err != nil {
 		t.Fatal(err)
 	}
@@ -161,6 +164,39 @@ func TestNativeChannelReportsMaxPacketLifeTime(t *testing.T) {
 	}
 	if inbound.MaxRetransmits() != nil {
 		t.Fatalf("inbound MaxRetransmits = %v, want nil", inbound.MaxRetransmits())
+	}
+	if got := inbound.Reliability(); got != giznet.ChannelReliabilityUnknown {
+		t.Fatalf("lifetime-limited Reliability = %s, want unknown", got)
+	}
+}
+
+func TestOpenChannelMapsReliabilityClasses(t *testing.T) {
+	client, server := nativeChannelTestPair(t)
+	accepted := make(chan giznet.Channel, 2)
+	if _, err := server.HandleChannels("giznet/v2/tunnel/", func(channel giznet.Channel) {
+		accepted <- channel
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.HandleChannels("other/", func(giznet.Channel) {}); err == nil {
+		t.Fatal("duplicate channel namespace registration succeeded")
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	for _, reliability := range []giznet.ChannelReliability{giznet.ChannelReliable, giznet.ChannelUnreliable} {
+		outbound, err := client.OpenChannel(ctx, "giznet/v2/tunnel/test/"+reliability.String(), reliability)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer outbound.Close()
+		inbound := <-accepted
+		defer inbound.Close()
+		if outbound.Reliability() != reliability || inbound.Reliability() != reliability {
+			t.Fatalf("reliability outbound=%s inbound=%s, want %s", outbound.Reliability(), inbound.Reliability(), reliability)
+		}
+	}
+	if _, err := client.OpenChannel(ctx, "giznet/v2/tunnel/test/unknown", giznet.ChannelReliabilityUnknown); err == nil {
+		t.Fatal("OpenChannel accepted unknown reliability")
 	}
 }
 

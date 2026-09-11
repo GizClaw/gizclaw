@@ -1415,11 +1415,11 @@ func (p *gatewayPool) dial(ctx context.Context) (*gatewayUpstream, error) {
 	if err != nil {
 		return nil, err
 	}
-	webrtcConn, ok := conn.(*gizwebrtc.Conn)
+	channelConn, ok := conn.(giznet.ChannelConn)
 	if !ok {
 		_ = conn.Close()
 		_ = listener.Close()
-		return nil, errors.New("edge: gateway upstream is not WebRTC")
+		return nil, errors.New("edge: gateway upstream does not support native channels")
 	}
 	entry := &gatewayUpstream{
 		pool:         p,
@@ -1428,13 +1428,14 @@ func (p *gatewayPool) dial(ctx context.Context) (*gatewayUpstream, error) {
 		relayAttempt: relayAttempt,
 		icePair:      icePair,
 	}
-	router, err := giztunnel.NewRouter(webrtcConn, giztunnel.Config{
-		MaxChannelsPerSession: p.cfg.Gateway.ChannelsPerSession,
-		MaxChannels:           p.cfg.Gateway.ChannelsPerUpstream,
-		MaxPendingSessions:    p.cfg.Gateway.MaxPendingHandshakes,
-		MaxBufferedBytes:      p.cfg.Gateway.SessionBufferBytes,
-		HandshakeTimeout:      gatewaySessionHandshakeTimeout,
-		AggregateServices:     true,
+	router, err := giztunnel.NewRouter(channelConn, giztunnel.Config{
+		MaxChannelsPerSession:       p.cfg.Gateway.ChannelsPerSession,
+		MaxChannels:                 p.cfg.Gateway.ChannelsPerUpstream,
+		MaxPendingSessions:          p.cfg.Gateway.MaxPendingHandshakes,
+		MaxBufferedBytes:            p.cfg.Gateway.SessionBufferBytes,
+		MaxAssociationBufferedBytes: gizwebrtc.GatewaySCTPWriteBudgetSize,
+		HandshakeTimeout:            gatewaySessionHandshakeTimeout,
+		AggregateServices:           true,
 		AllowRemoteService: func(_ giznet.PublicKey, service uint64) bool {
 			return service != retiredEdgeTunnelServiceID
 		},
