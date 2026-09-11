@@ -1,0 +1,26 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  id: doubao-realtime-tts-conversation
+spec:
+  driver: doubao-realtime
+  doubao_realtime:
+    model: realtime
+    instructions: 你是一个简短、自然的中文语音聊天助手，每次用一两句完整的话回答。
+    audio:
+      input:
+        format:
+          type: speech_opus
+          rate: 16000
+      output:
+        format:
+          type: ogg_opus
+          rate: 24000
+        # Required even with external TTS: the provider rejects sessions
+        # without tts.speaker.
+        voice: doubao-assistant
+    # External TTS: the realtime model returns text only and this Voice,
+    # independent of the realtime speaker, synthesizes every reply.
+    tts:
+      voice: assistant-voice

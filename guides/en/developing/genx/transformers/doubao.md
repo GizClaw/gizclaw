@@ -135,6 +135,14 @@ When the Workspace `conversation.initiative` is `agent`, `doubaorealtime.Transfo
 
 The opening reply follows the non-Push-to-Talk event path. In Push-to-Talk mode it belongs to no turn, bypasses `pttResponses` matching and the turn state machine, and its Chat/TTS events map straight onto the `initiative` route, exactly as in Realtime mode; Text mode waits for it as an ordinary text response. Non-Text modes arm the response deadline for it. A Peer BOS during the opening (a Push-to-Talk barge-in or a new Realtime route) is an ordinary interruption: the `initiative` route receives an `interrupted` EOS, Push-to-Talk sends `ClientInterrupt`, and Realtime performs the local close-and-replace handoff. An interrupted or already started opening is never resent on the replacement session. Only a provider loss before the reply starts, including a failed `SendText`, makes the replacement session submit the hidden query again.
 
+### Realtime Dialogue text output
+
+`Config.Output` selects the reply modality. The default `audio` returns reply text together with provider TTS audio. `text` (pattern parameter `output=text`) sends `dialog.extra.output_modalities: ["text"]` in StartSession; the provider then synthesizes no audio and sends no TTSSentenceStart, TTSSentenceEnd, TTSResponse, or TTSEnded events. The field is absent from the upstream public document and is verified by the `doubao-speech-go` live E2E test. The provider still requires `tts.speaker`, so the session keeps sending the speaker.
+
+With text output each response owns only one assistant text route. ChatResponse (event 550) text is published as it arrives, and ChatEnded (event 559) closes the text route and completes the response without waiting for TTS. Push-to-Talk turns, Text-mode draining, the Realtime response deadline, and the assistant lifecycle all complete at ChatEnded; a response without reply text (including an empty Push-to-Talk turn) still publishes an empty audio lifecycle so clients keep seeing both text and audio EOS, while interruptions close only the text route. The transformer ignores any TTS events or audio the provider still sends.
+
+When a Workflow sets `doubao_realtime.tts.voice`, the factory appends `output=text` to the pattern, checks on reload that the RuntimeProfile Voice resolves, and uses `audiodock` to stream each assistant reply into `voice/<alias>`; user audio still goes straight to the realtime model. `audio.output.voice` stays required to satisfy the provider speaker requirement.
+
 ### doubaorealtime Push-to-Talk state machine
 
 This section only describes `doubaorealtime.Transformer`'s adaptation to the Realtime Dialogue API's native Push-to-Talk mode. `doubaorealtimeduplex.Transformer` does not support Push-to-Talk and does not use this state machine.
@@ -188,7 +196,7 @@ Doubao Transformers handle provider session, concurrent event receiver, audio co
 | Input format | PCM, MP3, raw Opus; supported sample rates and channels; illegal MIME and corrupt frames. |
 | Stream contract | BOS, data, EOS; duplicate/out-of-order marker; StreamID, role, label and terminal error. |
 | Lifecycle | normal close, context cancel, provider EOF/error, blocked Send/Recv, session restart and repeated Close. |
-| Realtime Dialogue | Push-to-Talk legal state transitions, single EndASR per turn, Realtime VAD, text mode, Interrupt, and the agent-initiative hidden query. |
+| Realtime Dialogue | Push-to-Talk legal state transitions, single EndASR per turn, Realtime VAD, text mode, Interrupt, the agent-initiative hidden query, and text output completing at ChatEnded. |
 | Realtime Duplex | continuous input, transcription, text/audio response, function call output and CancelResponse. |
 | Barge-in | pending response, text is being output, audio is being output; only one interrupted EOS is generated, and old epochs must not continue to be output. |
 | Output buffering | Provider audio drains immediately into a growable buffer; a slow consumer must not backpressure the provider session. |
