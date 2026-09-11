@@ -188,7 +188,7 @@ func (store *SQLStore) Append(ctx context.Context, records []Record) ([]RecordKe
 	}
 	defer tx.Rollback()
 	if store.partitioned {
-		if err := store.lockPostgresPartitionMaintenance(ctx, tx); err != nil {
+		if err := storage.LockPostgreSQLTable(ctx, tx, store.table); err != nil {
 			return nil, err
 		}
 		maintenanceTime := time.Now().UTC()
