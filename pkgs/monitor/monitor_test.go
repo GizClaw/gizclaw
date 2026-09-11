@@ -96,11 +96,9 @@ func TestGeneratedMonitorClientContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if authorized.JSON200 == nil || authorized.JSON200.PublicKey != "local-node" {
-		t.Fatalf("unexpected snapshot: %+v", authorized)
-	}
-	if authorized.JSON200.Version != "dev" || authorized.JSON200.BuildCommit != "dev" {
-		t.Fatalf("unversioned build = %q %q", authorized.JSON200.Version, authorized.JSON200.BuildCommit)
+	// Unversioned builds report "dev" for both build fields.
+	if snapshot := authorized.JSON200; snapshot == nil || snapshot.PublicKey != "local-node" || snapshot.Version != "dev" || snapshot.BuildCommit != "dev" {
+		t.Fatalf("unexpected snapshot: %+v", snapshot)
 	}
 	disabledServer := httptest.NewServer(Handler(Config{}, Node{Role: "edge", PublicKey: "local-node"}, http.NotFoundHandler()))
 	defer disabledServer.Close()
