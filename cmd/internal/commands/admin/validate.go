@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli/adminresource"
 	"github.com/goccy/go-yaml"
 	"github.com/spf13/cobra"
 )
@@ -45,7 +46,7 @@ func newValidateCmd() *cobra.Command {
 			if err := apitypes.ValidateResourceJSON(prepared); err != nil {
 				return fmt.Errorf("%s: %w", resourceInputName(file), err)
 			}
-			resource, err := decodePreparedResource(prepared)
+			resource, err := adminresource.DecodePrepared(prepared)
 			if err != nil {
 				return fmt.Errorf("%s: validated resource could not be decoded", resourceInputName(file))
 			}
@@ -94,13 +95,13 @@ func resourceKindAndID(resource apitypes.Resource) (apitypes.ResourceKind, strin
 
 func safeResourceInputError(path string, err error) error {
 	input := resourceInputName(path)
-	if formatError, ok := errors.AsType[*unsupportedResourceFormatError](err); ok {
+	if formatError, ok := errors.AsType[*adminresource.UnsupportedFormatError](err); ok {
 		return fmt.Errorf("%s: %w", input, formatError)
 	}
-	if envError, ok := errors.AsType[*missingResourceEnvError](err); ok {
-		return fmt.Errorf("%s: environment variable %s is required", input, envError.name)
+	if envError, ok := errors.AsType[*adminresource.MissingEnvError](err); ok {
+		return fmt.Errorf("%s: environment variable %s is required", input, envError.Name)
 	}
-	if _, ok := errors.AsType[*unknownResourceKindError](err); ok {
+	if _, ok := errors.AsType[*adminresource.UnknownKindError](err); ok {
 		return fmt.Errorf("%s: /kind [discriminator]: invalid resource kind", input)
 	}
 	if syntaxError, ok := errors.AsType[*json.SyntaxError](err); ok {
