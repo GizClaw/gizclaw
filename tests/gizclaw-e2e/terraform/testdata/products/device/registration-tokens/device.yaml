@@ -1,0 +1,7 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: RegistrationToken
+metadata: {id: tf-device}
+spec:
+  token: tf-device-token
+  runtime_profile_id: tf-device
+  firmware_id: tf-devkit

@@ -1,0 +1,23 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: RuntimeProfile
+metadata: {id: tf-device}
+spec:
+  workflows:
+    collections:
+      assistants:
+        echo:
+          resource_id: tf-echo
+          i18n: {en: {display_name: Echo}, zh-CN: {display_name: 回声}}
+      raids:
+        demo:
+          resource_id: tf-raid-flowcraft
+          i18n: {en: {display_name: Demo raid}, zh-CN: {display_name: 演示}}
+  resources:
+    models:
+      chat:
+        resource_id: tf-chat
+        i18n: {en: {display_name: Chat}, zh-CN: {display_name: 对话}}
+    voices:
+      assistant:
+        resource_id: tf-alloy
+        i18n: {en: {display_name: Alloy}, zh-CN: {display_name: 合金}}

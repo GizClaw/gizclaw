@@ -155,6 +155,7 @@ tests/gizclaw-e2e/
 ├── cmd/         # real gizclaw CLI tests
 ├── giztest/     # declarative Peer RPC, Workflow, and benchmark scenarios
 ├── go/          # focused Admin, delete, Edge, and OpenAI tests
+├── terraform/   # Terraform provider against a real Server
 ├── js/          # JavaScript/TypeScript WebRTC tests and giztest runner
 └── flutter/     # Flutter/Dart giztest runner
 ```
@@ -188,7 +189,7 @@ bash tests/gizclaw-e2e/run_pending_deletion_tests.sh
 
 The full gate installs locked Node workspaces, initializes nanopb, builds the
 E2E CLI, starts Compose, waits for Server and Edge, runs JS, C/cgo, Go
-Admin/OpenAI, CLI, and Giztest phases in order, and performs one bounded
+Admin/OpenAI, CLI, Terraform provider, and Giztest phases in order, and performs one bounded
 cleanup. The total deadline defaults to 90 minutes. Per-phase defaults
 are 15 minutes, with 30 minutes for Docker setup and CLI, 45 minutes for live
 chat, and 5 minutes for cleanup. Positive integer seconds may be supplied in:
@@ -1230,6 +1231,10 @@ The runner generates identities, starts isolated Server/Edge processes, seeds a 
 - node: independent Monitor Token authentication, rejection of device public keys and local node metrics.
 
 SQLite, filesystem assets and a script Workflow avoid external model dependencies. The audio fixture writes an Ogg asset into the real History/Asset Store; this is not a TTS synthesis test. Containers and temporary runtime data are removed on exit; reports remain under `.testbench/monitor-*/reports/`. This lane neither reads cloud E2E credentials nor validates cloud TLS IAM permissions.
+
+### Terraform provider
+
+`bash tests/gizclaw-e2e/run_terraform_provider_tests.sh` starts an isolated real Server from the shared workspace fixture and needs no model/provider credentials, only a `terraform` CLI on `PATH` (or named by `GIZCLAW_E2E_TERRAFORM`). It builds `terraform-provider-gizclaw` with `CGO_ENABLED=0` into a filesystem mirror, runs `terraform init` through `provider_installation`, and drives a root module that resolves `gizclaw_catalog` from the layered fixtures under `tests/gizclaw-e2e/terraform/testdata` and applies every selected manifest with `gizclaw_resource`. It checks the created Server resources with `gizclaw admin show`, including override precedence, unselected catalog entries, raid testers, `overridden_ids`, and `raids`. It also checks that a refreshing plan after apply has no changes, that a catalog edit plans and applies an update, that resources leaving the selection are deleted, and that `terraform destroy` removes everything. The dedicated CI job and the full gate run this same entrypoint.
 
 ### Audioplayer Giztest
 
