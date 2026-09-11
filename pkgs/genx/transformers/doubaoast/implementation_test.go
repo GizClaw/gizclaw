@@ -79,10 +79,11 @@ func TestTransformerStreamsTranslationAndAudio(t *testing.T) {
 	}
 
 	chunks := readAllASTTranslateChunks(t, out)
-	if len(fake.sentAudio) != 1 || len(fake.sentAudio[0]) == 0 || bytes.Equal(fake.sentAudio[0], sourcePacket) {
-		t.Fatalf("sentAudio = %v", fake.sentAudio)
+	sentAudio := fake.sentAudioSnapshot()
+	if len(sentAudio) != 1 || len(sentAudio[0]) == 0 || bytes.Equal(sentAudio[0], sourcePacket) {
+		t.Fatalf("sentAudio = %v", sentAudio)
 	}
-	if !fake.finished {
+	if _, finished := fake.state(); !finished {
 		t.Fatalf("session was not finished")
 	}
 	assertASTTranslateTextChunk(t, chunks, genx.RoleUser, doubaoASTTranslateTranscriptLabel, "turn-1", "你好")
@@ -566,10 +567,10 @@ func TestTransformerPTTOutputLimitKeepsTransformerUsable(t *testing.T) {
 	}
 
 	chunks := append([]*genx.MessageChunk{limitChunk}, readAllASTTranslateChunks(t, out)...)
-	if !limited.closed || limited.finished {
-		t.Fatalf("limited session closed/finished = %t/%t, want true/false", limited.closed, limited.finished)
+	if closed, finished := limited.state(); !closed || finished {
+		t.Fatalf("limited session closed/finished = %t/%t, want true/false", closed, finished)
 	}
-	if !fresh.finished {
+	if _, finished := fresh.state(); !finished {
 		t.Fatal("reused StreamID session was not finished")
 	}
 	if len(sessions) != 0 {
@@ -724,10 +725,7 @@ func TestTransformerPTTProviderErrorBeforeEOSDoesNotLeak(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for provider receive cleanup")
 	}
-	fake.mu.Lock()
-	closed := fake.closed
-	fake.mu.Unlock()
-	if !closed {
+	if closed, _ := fake.state(); !closed {
 		t.Fatal("provider session was not closed after terminal failure")
 	}
 }
@@ -886,10 +884,7 @@ func TestTransformerRealtimeCompletionTimeoutClosesSilentSession(t *testing.T) {
 	}
 	deadline := time.Now().Add(time.Second)
 	for {
-		fake.mu.Lock()
-		closed := fake.closed
-		finished := fake.finished
-		fake.mu.Unlock()
+		closed, finished := fake.state()
 		if closed && finished {
 			break
 		}
@@ -933,7 +928,7 @@ func TestTransformerPushToTalkIgnoresRealtimeCompletionTimeout(t *testing.T) {
 		t.Fatalf("Close(input): %v", err)
 	}
 	_ = readAllASTTranslateChunks(t, out)
-	if !fake.finished {
+	if _, finished := fake.state(); !finished {
 		t.Fatal("push-to-talk session was not finished")
 	}
 }
@@ -1044,10 +1039,10 @@ func TestTransformerInterruptsActiveSessionOnNewInputStream(t *testing.T) {
 	}
 
 	chunks := readAllASTTranslateChunks(t, out)
-	if !first.closed || !first.finished {
-		t.Fatalf("first session closed/finished = %t/%t, want finished and closed interrupt", first.closed, first.finished)
+	if closed, finished := first.state(); !closed || !finished {
+		t.Fatalf("first session closed/finished = %t/%t, want finished and closed interrupt", closed, finished)
 	}
-	if !second.finished {
+	if _, finished := second.state(); !finished {
 		t.Fatal("second session was not finished")
 	}
 	assertASTTranslateInterruptedEOS(t, chunks, "turn-1", genx.Text(""))
@@ -1125,11 +1120,11 @@ func TestTransformerClosesRepeatedInterruptedTurnsBeforeReplacementBOS(t *testin
 
 	chunks := readAllASTTranslateChunks(t, out)
 	for _, session := range []*fakeASTTranslateSession{first, second} {
-		if !session.closed || !session.finished {
-			t.Fatalf("interrupted session closed/finished = %t/%t", session.closed, session.finished)
+		if closed, finished := session.state(); !closed || !finished {
+			t.Fatalf("interrupted session closed/finished = %t/%t", closed, finished)
 		}
 	}
-	if !third.finished {
+	if _, finished := third.state(); !finished {
 		t.Fatal("third session was not finished")
 	}
 	assertASTTranslateHandoffOrder(t, chunks, "turn-1", "turn-2")
@@ -1319,10 +1314,10 @@ func TestTransformerIgnoresLateInterruptedStreamChunks(t *testing.T) {
 	if len(sessions) != 0 {
 		t.Fatalf("unused sessions = %d", len(sessions))
 	}
-	if !second.finished {
+	if _, finished := second.state(); !finished {
 		t.Fatal("second session was not finished")
 	}
-	if !reused.finished {
+	if _, finished := reused.state(); !finished {
 		t.Fatal("reused StreamID session was not finished")
 	}
 }
@@ -1437,6 +1432,20 @@ func (s *fakeASTTranslateSession) Close() error {
 		})
 	}
 	return nil
+}
+
+// state reads closed and finished under mu because provider cleanup may still
+// call Close from a context.AfterFunc goroutine after the transform stream ends.
+func (s *fakeASTTranslateSession) state() (closed, finished bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.closed, s.finished
+}
+
+func (s *fakeASTTranslateSession) sentAudioSnapshot() [][]byte {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([][]byte(nil), s.sentAudio...)
 }
 
 func (s *fakeASTTranslateSession) waitSentAudio(t *testing.T) {
