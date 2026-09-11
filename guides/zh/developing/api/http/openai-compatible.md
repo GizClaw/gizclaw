@@ -38,6 +38,6 @@ JSON、binary 与 ordered SSE response 均由 Shell 拥有并 framing。GenX str
 
 Chat Completions 支持由调用方执行的 function tool。`tools` 只接受 `type: "function"`，`function` 可带 `name`、`description`、`parameters` 与 `strict`；名称必须匹配 `^[A-Za-z0-9_-]{1,64}$` 且在请求内唯一。`parameters` 按原样传给 provider，不经过 GenX 的 structured-output 规范化。`tool_choice` 只接受 `"auto"`，`parallel_tool_calls` 只接受 `true`，其他取值显式拒绝。
 
-Assistant message 可以带 `tool_calls` 回放上一轮调用，`role: "tool"` message 用 `tool_call_id` 与文本 `content` 返回结果。GizClaw 从不执行这些 tool，只转发声明、调用与结果。请求声明 tool 或回放 tool 状态时，所选 model 必须在 provider_data 中声明 `support_tool_calls`，否则返回 `unsupported_option`；Gemini 不能强制 schema，因此 `strict: true` 的 tool 会在 generation 前失败。
+Assistant message 可以带 `tool_calls` 回放上一轮调用，`role: "tool"` message 用 `tool_call_id` 与文本 `content` 返回结果。Assistant message 的文本 content part 只读取 `type` 与 `text`：`@openai/agents` 在模型同时输出文字和调用后，会在该 part 中回放原响应的 `role`、`refusal`、`tool_calls` 等字段，这些回放不改变请求语义；user 等其他 message 的 content part 仍拒绝未知字段。GizClaw 从不执行这些 tool，只转发声明、调用与结果。请求声明 tool 或回放 tool 状态时，所选 model 必须在 provider_data 中声明 `support_tool_calls`，否则返回 `unsupported_option`；Gemini 不能强制 schema，因此 `strict: true` 的 tool 会在 generation 前失败。
 
 Tool call 响应使用 `finish_reason: "tool_calls"`；JSON 响应在只有调用时 `content` 为 `null`。SSE 为每个调用发送一个完整的 `delta.tool_calls` 元素并按出现顺序编号 `index`。`stream_options` 只在 `stream: true` 时接受，且只支持 `include_usage`；只有 provider 报告了 token 用量时才发送 usage chunk。

@@ -91,6 +91,7 @@ func TestHandleChatRejectsUnsupportedOption(t *testing.T) {
 	}{
 		{body: `{"model":"chat","messages":[],"top_p":0.5}`, param: "request"},
 		{body: `{"model":"chat","messages":[{"role":"user","content":[{"type":"image_url","image_url":{"url":"https://example.com/image.png"}}]}]}`, param: "messages.content"},
+		{body: `{"model":"chat","messages":[{"role":"user","content":[{"type":"text","text":"hi","refusal":null}]}]}`, param: "messages.content"},
 		{body: `{"model":"chat","messages":[{"role":"user","content":"ok","tool_calls":[]}]}`, param: "messages"},
 		{body: `{"model":"chat","messages":[{"role":"tool","tool_call_id":"call","content":"ok","name":"fn"}]}`, param: "messages"},
 		{body: `{"model":"chat","messages":[],"tools":[{"type":"custom","custom":{"name":"fn"}}]}`, param: "tools"},

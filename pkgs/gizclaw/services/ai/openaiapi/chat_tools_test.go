@@ -95,6 +95,38 @@ func TestHandleChatForwardsToolsAndReturnsToolCalls(t *testing.T) {
 	}
 }
 
+func TestHandleChatReadsEchoedAssistantTextParts(t *testing.T) {
+	key := mustKey(t)
+	server := &Server{
+		Caller:    key.Public,
+		ToolCalls: toolCallSupportFunc(func(context.Context, string) (bool, error) { return true, nil }),
+		Generator: generatorFunc(func(_ context.Context, _ string, modelContext genx.ModelContext) (genx.Stream, error) {
+			var payloads []genx.Payload
+			for message := range modelContext.Messages() {
+				payloads = append(payloads, message.Payload)
+			}
+			text, ok := payloads[1].(genx.Contents)
+			if len(payloads) != 4 || !ok || len(text) != 1 || text[0] != genx.Text("checking a") {
+				t.Fatalf("messages = %#v", payloads)
+			}
+			if call, ok := payloads[2].(*genx.ToolCall); !ok || call.ID != "call_a" {
+				t.Fatalf("tool call = %#v", payloads[2])
+			}
+			return newTextStream("done"), nil
+		}),
+	}
+	// @openai/agents replays the rest of an earlier response message beside
+	// type and text when the model spoke and called a tool at once.
+	body := `{"model":"chat","messages":[{"role":"user","content":"hi"},` +
+		`{"role":"assistant","content":[{"type":"text","text":"checking a","refusal":null,"role":"assistant",` +
+		`"tool_calls":[{"function":{"arguments":"{}","name":"fn"},"id":"call_a","type":"function"}]}],` +
+		`"tool_calls":[{"id":"call_a","type":"function","function":{"name":"fn","arguments":"{}"}}]},` +
+		`{"role":"tool","tool_call_id":"call_a","content":"ok"}],"tools":[{"type":"function","function":{"name":"fn"}}]}`
+	if _, err := server.Handle(context.Background(), requestFor(key.Public, backend.CapabilityChat, "createChatCompletion", json.RawMessage(body))); err != nil {
+		t.Fatalf("Handle() error = %v", err)
+	}
+}
+
 func TestHandleChatStreamsToolCallsAndUsage(t *testing.T) {
 	key := mustKey(t)
 	server := &Server{
