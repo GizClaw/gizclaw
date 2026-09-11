@@ -96,10 +96,10 @@ github.com/GizClaw/flowcraft/sdkx v0.4.10 h1:YKjuRxE9iN2R2baOckfbH0f87d0P0Qkltip
 github.com/GizClaw/flowcraft/sdkx v0.4.10/go.mod h1:1a2Rw1uxXqTCypP+j0zHfszwtOhlsiXwgQSM4k4LMrw=
 github.com/GizClaw/minimax-go v0.0.0-20260625231851-7a1c8a1f2111 h1:YDuhGJfgRzbBCsN5YHS99K4v1GVsUk05DeK/11r6fug=
 github.com/GizClaw/minimax-go v0.0.0-20260625231851-7a1c8a1f2111/go.mod h1:GYb/V+peMdzoU+4tCfiWnL3Efls+wDgA0rirlPhOFL8=
-github.com/GizClaw/pion-sctp v0.0.0-20260911153715-01fa7f6a297a h1:FeyBqoT4TbsCFsbbq8fLPsGKh281V+RyrL+2WV0cLCM=
-github.com/GizClaw/pion-sctp v0.0.0-20260911153715-01fa7f6a297a/go.mod h1:5oNmXqYXPzdmfhH9WtvOFQiaC7ZUSQJ34Q4WVklFMAo=
-github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260911150935-41dcf7a741ef h1:ga86VuMRd7m0177Irzfd6oMyJHPXBTIbbylvRucthcM=
-github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260911150935-41dcf7a741ef/go.mod h1:aDUNewknTGH0/+cvv9YsjWF55C+f65aFrXKAGMNJKZg=
+github.com/GizClaw/pion-sctp v0.0.0-20260911190413-e8b04f488c05 h1:y9fzebEo2dERG3iiDcB+o/G3FvApFyh7SwdFfVJ0rLc=
+github.com/GizClaw/pion-sctp v0.0.0-20260911190413-e8b04f488c05/go.mod h1:5oNmXqYXPzdmfhH9WtvOFQiaC7ZUSQJ34Q4WVklFMAo=
+github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260911183140-12d9838cfb98 h1:puBOTe3+HH4w7NKmpdiEi8ah0rv5/w0qIOBB4eKmIrk=
+github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260911183140-12d9838cfb98/go.mod h1:EPl2ZTCIB/s7UmGSQ4LXE6zEGDvUhr0nLMkiyASGfQI=
 github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.32.0 h1:rIkQfkCOVKc1OiRCNcSDD8ml5RJlZbH/Xsq7lbpynwc=
 github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.32.0/go.mod h1:RD2SsorTmYhF6HkTmDw7KmPYQk8OBYwTkuasChwv7R4=
 github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.57.0 h1:jLdiS1vO+XJFyDSWRHBx56r4s/NNtcl5J6KyCcWUX/w=

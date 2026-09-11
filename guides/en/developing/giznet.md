@@ -112,10 +112,17 @@ The root Go module temporarily replaces `github.com/pion/sctp` and
 `github.com/pion/webrtc/v4` with pseudo-versions of the `gizclaw` integration
 branch of GizClaw/pion-sctp and GizClaw/pion-webrtc. Each fork keeps `main` as
 an upstream mirror and one `fix/*` branch per upstream pull request. The forks
-report completed stream resets, release DataChannel identifiers, and read each
-accepted stream's DCEP OPEN outside the SCTP accept loop with a 10-second
-deadline, so a lost or delayed OPEN cannot stop later DataChannels from being
-accepted. To move a pin, replace the module with `@gizclaw` and run
+report completed stream resets, release DataChannel identifiers, queue every
+incoming stream until the application accepts it instead of dropping new
+streams' DATA once 16 are waiting, and read each accepted stream's DCEP OPEN
+outside the SCTP accept loop with a 10-second deadline. A burst of new
+DataChannels therefore opens without waiting on SCTP retransmission, and a lost
+or delayed OPEN cannot stop later DataChannels from being accepted. The
+pion-webrtc fork also enables pion-sctp's `WithDiscardInboundAfterClose`, so data
+that keeps arriving for a closed DataChannel is discarded instead of holding the
+association's shared receive window, and a full receive window still accepts
+the DATA chunk that advances the cumulative TSN when no queued message is
+complete, so interleaved partial messages cannot deadlock the association. To move a pin, replace the module with `@gizclaw` and run
 `go mod tidy`, which records that branch head as a pseudo-version. Go does not
 propagate a dependency module's `replace` directives, so executables that
 consume GizClaw as a module must mirror both replacements until upstream

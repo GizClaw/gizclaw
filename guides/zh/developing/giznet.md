@@ -101,8 +101,13 @@ SCTP 的 outgoing reset 在同一 association 上一次只发送一个待确认�
 根 Go module 暂时把 `github.com/pion/sctp` 和 `github.com/pion/webrtc/v4` replace 到
 GizClaw/pion-sctp 与 GizClaw/pion-webrtc 的 `gizclaw` 集成分支的 pseudo-version。两个 fork
 的 `main` 只镜像上游，每个上游 pull request 对应一个 `fix/*` 分支。fork 报告已完成的
-stream reset、释放 DataChannel ID，并在 SCTP accept loop 之外为每个已接受的 stream 读取
-DCEP OPEN，最长等待 10 秒，因此丢失或延迟的 OPEN 不会阻止后续 DataChannel 被接受。
+stream reset、释放 DataChannel ID，在应用接受之前把每条入站 stream 排队保存，不再在 16 条
+待接受 stream 之后丢弃新 stream 的 DATA，并在 SCTP accept loop 之外为每个已接受的 stream
+读取 DCEP OPEN，最长等待 10 秒。因此一批新 DataChannel 打开时无需等待 SCTP 重传，丢失或
+延迟的 OPEN 也不会阻止后续 DataChannel 被接受。pion-webrtc fork 还启用了 pion-sctp 的
+`WithDiscardInboundAfterClose`，已关闭的 DataChannel 继续收到的数据会被丢弃，不再占用
+association 共享的 receive window；receive window 已满且排队的消息都不完整时，仍会接收推进
+cumulative TSN 的 DATA chunk，interleaved partial messages 因此不会让 association 死锁。
 更新 pin 时把 module replace 到 `@gizclaw` 并运行 `go mod tidy`，它会把该分支当前 head
 记录为 pseudo-version。Go 不会向下游传播依赖 module 的 `replace`，因此把 GizClaw 作为
 module 使用的 executable 在上游 release 包含这些修复前，也必须复制这两条 replacement。
