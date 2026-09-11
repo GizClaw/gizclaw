@@ -376,6 +376,8 @@ func publicContactError(err error) (int, apitypes.ErrorResponse) {
 		return http.StatusNotFound, apiError(publicHTTPContactNotFound, "contact not found")
 	case errors.Is(err, socialutil.ErrResourceAlreadyExists):
 		return http.StatusConflict, apiError(publicHTTPContactExists, err.Error())
+	case errors.Is(err, contact.ErrPeerContactLimit):
+		return http.StatusConflict, apiError(contact.ContactLimitReachedCode, contact.ErrPeerContactLimit.Error())
 	case errors.Is(err, contact.ErrPeerPendingDeletion):
 		return http.StatusConflict, apiError(contact.PeerPendingDeletionCode, err.Error())
 	case errors.Is(err, contact.ErrPeerDeleted):

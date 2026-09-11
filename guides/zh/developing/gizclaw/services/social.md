@@ -19,6 +19,8 @@ services/social/
 
 Contact 使用 Server 本地 SQL 连接池中的 `contacts` 业务表。ID、owner、名称、显示名、手机号、规范化手机号、时间和创建标识分别保存为列；数据库约束保证同一 owner 下名称与规范化手机号唯一。按 ID 或 owner/name 直接查询，列表使用 `(owner_public_key, id)` 索引进行游标分页，一次读取完整记录。启动阶段创建表和索引。Peer 清理快照保留创建标识，条件删除不会误删同 ID 重建后的联系人。
 
+每个 owner Peer 最多 8 个联系人；上限由 `contact.PeerContactLimit` 写死，与设备端联系人数组和离线白名单容量一致，不通过 RuntimeProfile 或配置调整。创建时在 owner 锁内先计数再写入，同一 Server 上的并发创建不会超过上限。已满时 `server.contact.create` RPC 返回 `RESOURCE_EXHAUSTED`（8），reason 为 `CONTACT_LIMIT_REACHED`；Peer HTTP、Admin HTTP 创建和 Resource apply 新建返回 `409 Conflict` 与错误码 `CONTACT_LIMIT_REACHED`，不写入任何数据。更新与删除不受影响。上限生效前已超过 8 个的存量联系人会保留，只阻止继续新增，直到删除到 8 个以下。
+
 ### friend
 
 拥有 friend request 的创建、接受、拒绝，以及 friend relationship 的读取和删除。Friend 关系直接决定双方对 system Workspace 的访问，不创建通用访问 role。
