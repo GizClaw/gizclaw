@@ -344,6 +344,16 @@ func (s *Server) GetFriendInviteToken(ctx context.Context, owner string, _ rpcap
 }
 
 func (s *Server) CreateFriendInviteToken(ctx context.Context, owner string, _ rpcapi.FriendInviteTokenCreateRequest) (rpcapi.FriendInviteTokenCreateResponse, error) {
+	return s.CreateFriendInviteTokenWithTTL(ctx, owner, 0)
+}
+
+// CreateFriendInviteTokenWithTTL returns the owner's active invite token or
+// creates one. A zero ttl keeps the server.friend.invite_token.create
+// behavior: an active token is returned unchanged and a new one lives for
+// socialutil.DefaultInviteTokenTTL. A non-zero ttl must pass
+// socialutil.ValidateInviteTokenTTL; an active token keeps its value and its
+// expiry is extended to now+ttl, never shortened.
+func (s *Server) CreateFriendInviteTokenWithTTL(ctx context.Context, owner string, ttl time.Duration) (rpcapi.FriendInviteTokenCreateResponse, error) {
 	store, err := s.inviteTokensStore()
 	if err != nil {
 		return rpcapi.FriendInviteTokenCreateResponse{}, err
@@ -352,17 +362,31 @@ func (s *Server) CreateFriendInviteToken(ctx context.Context, owner string, _ rp
 	if owner == "" {
 		return rpcapi.FriendInviteTokenCreateResponse{}, errors.New("social: peer public key is required")
 	}
-	if record, ok, err := s.activeInviteToken(ctx, store, owner); err != nil {
-		return rpcapi.FriendInviteTokenCreateResponse{}, err
-	} else if ok {
-		return rpcapi.FriendInviteTokenCreateResponse{InviteToken: record.InviteToken, ExpiresAt: record.ExpiresAt}, nil
+	if ttl != 0 {
+		if err := socialutil.ValidateInviteTokenTTL(ttl); err != nil {
+			return rpcapi.FriendInviteTokenCreateResponse{}, err
+		}
 	}
 	now := s.now()
-	record := inviteTokenRecord{
-		PeerPublicKey: owner,
-		InviteToken:   s.newID(),
-		CreatedAt:     now,
-		ExpiresAt:     now.Add(s.inviteTokenTTL()),
+	record, ok, err := s.activeInviteToken(ctx, store, owner)
+	if err != nil {
+		return rpcapi.FriendInviteTokenCreateResponse{}, err
+	}
+	if ok {
+		if ttl == 0 || !record.ExpiresAt.Before(now.Add(ttl)) {
+			return rpcapi.FriendInviteTokenCreateResponse{InviteToken: record.InviteToken, ExpiresAt: record.ExpiresAt}, nil
+		}
+		record.ExpiresAt = now.Add(ttl)
+	} else {
+		if ttl == 0 {
+			ttl = s.inviteTokenTTL()
+		}
+		record = inviteTokenRecord{
+			PeerPublicKey: owner,
+			InviteToken:   s.newID(),
+			CreatedAt:     now,
+			ExpiresAt:     now.Add(ttl),
+		}
 	}
 	if strings.TrimSpace(record.InviteToken) == "" {
 		return rpcapi.FriendInviteTokenCreateResponse{}, errors.New("social: invite token is empty")
@@ -389,25 +413,42 @@ func (s *Server) ClearFriendInviteToken(ctx context.Context, owner string, _ rpc
 }
 
 func (s *Server) AddFriend(ctx context.Context, owner string, req rpcapi.FriendAddRequest) (rpcapi.FriendAddResponse, error) {
+	item, _, err := s.AddFriendReportingExisting(ctx, owner, req)
+	return item, err
+}
+
+// AddFriendReportingExisting is AddFriend that also reports whether the
+// relationship was already active, in which case it is returned unchanged.
+func (s *Server) AddFriendReportingExisting(ctx context.Context, owner string, req rpcapi.FriendAddRequest) (rpcapi.FriendObject, bool, error) {
 	owner = strings.TrimSpace(owner)
 	if owner == "" {
-		return rpcapi.FriendAddResponse{}, errors.New("social: peer public key is required")
+		return rpcapi.FriendObject{}, false, errors.New("social: peer public key is required")
 	}
 	record, err := s.findInviteToken(ctx, req.InviteToken)
 	if err != nil {
-		return rpcapi.FriendAddResponse{}, err
+		return rpcapi.FriendObject{}, false, err
 	}
 	to := record.PeerPublicKey
 	if owner == to {
-		return rpcapi.FriendAddResponse{}, ErrInviteTokenSelfOwned
+		return rpcapi.FriendObject{}, false, ErrInviteTokenSelfOwned
+	}
+	store, err := s.friendsStore()
+	if err != nil {
+		return rpcapi.FriendObject{}, false, err
 	}
 	relationID := socialutil.RelationID(owner, to)
 	unlock, err := s.lockRelationMutation(ctx, relationID, owner, to)
 	if err != nil {
-		return rpcapi.FriendAddResponse{}, err
+		return rpcapi.FriendObject{}, false, err
 	}
 	defer unlock()
-	return s.createFriend(ctx, owner, to, to)
+	if existing, active, err := readActiveRelationship(ctx, store, owner, to); err != nil {
+		return rpcapi.FriendObject{}, false, err
+	} else if active {
+		return existing, true, nil
+	}
+	item, err := s.createFriend(ctx, owner, to, to)
+	return item, false, err
 }
 
 func (s *Server) AdminCreateFriend(ctx context.Context, owner string, peerPublicKey string) (rpcapi.FriendObject, error) {

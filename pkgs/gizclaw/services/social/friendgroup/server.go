@@ -397,8 +397,34 @@ var (
 )
 
 var (
-	errFriendGroupPendingDeletion     = errors.New("social: friend group is pending deletion")
+	// ErrFriendGroupPendingDeletion reports a Group whose retirement has
+	// started and whose data can no longer be read or changed.
+	ErrFriendGroupPendingDeletion     = errors.New("social: friend group is pending deletion")
 	ErrFriendGroupMemberAlreadyExists = errors.New("social: friend group member already exists")
+	// ErrFriendGroupPermissionDenied reports a caller whose role in the Group
+	// does not permit the operation.
+	ErrFriendGroupPermissionDenied = errors.New("social: friend group permission denied")
+	// ErrFriendGroupNameExists reports a Peer-local Group name already bound
+	// to a different Group.
+	ErrFriendGroupNameExists = errors.New("social: friend group name already exists")
+	// ErrFriendGroupMembershipNameImmutable reports an attempt to rename an
+	// existing membership through join or member writes.
+	ErrFriendGroupMembershipNameImmutable = errors.New("social: friend group membership name is immutable")
+	// ErrFriendGroupOwnerCannotBeRemoved reports an attempt to delete the owner
+	// membership; the owner deletes the Group instead.
+	ErrFriendGroupOwnerCannotBeRemoved = errors.New("social: cannot delete friend group owner")
+	// ErrFriendGroupOwnerCannotLeave reports the owner leaving its own Group.
+	ErrFriendGroupOwnerCannotLeave = errors.New("social: friend group owner cannot leave")
+	// ErrFriendGroupOwnerRoleImmutable reports an attempt to change the owner
+	// membership role.
+	ErrFriendGroupOwnerRoleImmutable = errors.New("social: cannot change owner role")
+	// ErrInviteTokenUnavailable reports a missing or expired Group invite token.
+	ErrInviteTokenUnavailable = errors.New("social: invite token not found")
+	// ErrFriendGroupMemberNotFound reports a target Peer that is not a member
+	// of the Group. It wraps kv.ErrNotFound.
+	ErrFriendGroupMemberNotFound = fmt.Errorf("social: friend group member not found: %w", kv.ErrNotFound)
+	// ErrInvalidMemberRole reports a role outside the writable member roles.
+	ErrInvalidMemberRole = errors.New("social: invalid group member role")
 )
 
 func (s *Server) CreateFriendGroup(ctx context.Context, owner string, req rpcapi.FriendGroupCreateRequest) (rpcapi.FriendGroupObject, error) {
@@ -651,7 +677,7 @@ func (s *Server) ResolveFriendGroupWorkspace(ctx context.Context, owner, friendG
 		return "", err
 	}
 	if err := s.rejectDataPendingDeletion(ctx, friendGroupID); err != nil {
-		if errors.Is(err, errFriendGroupPendingDeletion) {
+		if errors.Is(err, ErrFriendGroupPendingDeletion) {
 			return "", kv.ErrNotFound
 		}
 		return "", err
@@ -902,6 +928,21 @@ func (s *Server) GetFriendGroupInviteToken(ctx context.Context, owner string, re
 }
 
 func (s *Server) CreateFriendGroupInviteToken(ctx context.Context, owner string, req rpcapi.FriendGroupInviteTokenCreateRequest) (rpcapi.FriendGroupInviteTokenCreateResponse, error) {
+	return s.CreateFriendGroupInviteTokenWithTTL(ctx, owner, req, 0)
+}
+
+// CreateFriendGroupInviteTokenWithTTL returns the Group's active invite token
+// or creates one; only the owner may call it. A zero ttl keeps the
+// server.friend_group.invite_token.create behavior: an active token is
+// returned unchanged and a new one lives for socialutil.DefaultInviteTokenTTL.
+// A non-zero ttl must pass socialutil.ValidateInviteTokenTTL; an active token
+// keeps its value and its expiry is extended to now+ttl, never shortened.
+func (s *Server) CreateFriendGroupInviteTokenWithTTL(ctx context.Context, owner string, req rpcapi.FriendGroupInviteTokenCreateRequest, ttl time.Duration) (rpcapi.FriendGroupInviteTokenCreateResponse, error) {
+	if ttl != 0 {
+		if err := socialutil.ValidateInviteTokenTTL(ttl); err != nil {
+			return rpcapi.FriendGroupInviteTokenCreateResponse{}, err
+		}
+	}
 	store, err := s.groupInviteTokensStore()
 	if err != nil {
 		return rpcapi.FriendGroupInviteTokenCreateResponse{}, err
@@ -925,17 +966,26 @@ func (s *Server) CreateFriendGroupInviteToken(ctx context.Context, owner string,
 	}
 	defer releasePeers()
 	ctx = lockedCtx
-	if record, ok, err := s.activeGroupInviteToken(ctx, store, friendGroupID); err != nil {
-		return rpcapi.FriendGroupInviteTokenCreateResponse{}, err
-	} else if ok {
-		return rpcapi.FriendGroupInviteTokenCreateResponse{InviteToken: record.InviteToken, ExpiresAt: record.ExpiresAt}, nil
-	}
 	now := s.now()
-	record := inviteTokenRecord{
-		FriendGroupID: friendGroupID,
-		InviteToken:   s.newID(),
-		CreatedAt:     now,
-		ExpiresAt:     now.Add(s.inviteTokenTTL()),
+	record, ok, err := s.activeGroupInviteToken(ctx, store, friendGroupID)
+	if err != nil {
+		return rpcapi.FriendGroupInviteTokenCreateResponse{}, err
+	}
+	if ok {
+		if ttl == 0 || !record.ExpiresAt.Before(now.Add(ttl)) {
+			return rpcapi.FriendGroupInviteTokenCreateResponse{InviteToken: record.InviteToken, ExpiresAt: record.ExpiresAt}, nil
+		}
+		record.ExpiresAt = now.Add(ttl)
+	} else {
+		if ttl == 0 {
+			ttl = s.inviteTokenTTL()
+		}
+		record = inviteTokenRecord{
+			FriendGroupID: friendGroupID,
+			InviteToken:   s.newID(),
+			CreatedAt:     now,
+			ExpiresAt:     now.Add(ttl),
+		}
 	}
 	if strings.TrimSpace(record.InviteToken) == "" {
 		return rpcapi.FriendGroupInviteTokenCreateResponse{}, errors.New("social: invite token is empty")
@@ -1072,7 +1122,7 @@ func (s *Server) JoinFriendGroup(ctx context.Context, owner string, req rpcapi.F
 		return rpcapi.FriendGroupJoinResponse{}, err
 	}
 	if existingID, err := s.resolveFriendGroupName(ctx, owner, name); err == nil && existingID != friendGroupID {
-		return rpcapi.FriendGroupJoinResponse{}, errors.New("social: friend group name already exists")
+		return rpcapi.FriendGroupJoinResponse{}, ErrFriendGroupNameExists
 	} else if err != nil && !errors.Is(err, kv.ErrNotFound) {
 		return rpcapi.FriendGroupJoinResponse{}, err
 	}
@@ -1080,7 +1130,7 @@ func (s *Server) JoinFriendGroup(ctx context.Context, owner string, req rpcapi.F
 	defer unlock()
 	if existing, err := s.groupMember(ctx, friendGroupID, owner); err == nil {
 		if socialutil.StringValue(existing.FriendGroupName) != name {
-			return rpcapi.FriendGroupJoinResponse{}, errors.New("social: friend group membership name is immutable")
+			return rpcapi.FriendGroupJoinResponse{}, ErrFriendGroupMembershipNameImmutable
 		}
 		group, err := s.GetFriendGroup(ctx, owner, rpcapi.FriendGroupGetRequest{Name: name})
 		if err != nil {
@@ -1123,11 +1173,11 @@ func (s *Server) AddFriendGroupMember(ctx context.Context, owner string, req rpc
 	memberName := strings.TrimSpace(req.MemberName)
 	req.PeerPublicKey = strings.TrimSpace(req.PeerPublicKey)
 	if memberName == "" || !req.Role.Valid() {
-		return rpcapi.FriendGroupMemberObject{}, errors.New("social: invalid group member role")
+		return rpcapi.FriendGroupMemberObject{}, ErrInvalidMemberRole
 	}
 	if existingID, err := s.resolveFriendGroupName(ctx, req.PeerPublicKey, memberName); err == nil {
 		if existingID != friendGroupID {
-			return rpcapi.FriendGroupMemberObject{}, errors.New("social: friend group name already exists for target member")
+			return rpcapi.FriendGroupMemberObject{}, fmt.Errorf("%w for target member", ErrFriendGroupNameExists)
 		}
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return rpcapi.FriendGroupMemberObject{}, err
@@ -1146,7 +1196,7 @@ func (s *Server) AddFriendGroupMember(ctx context.Context, owner string, req rpc
 		return rpcapi.FriendGroupMemberObject{}, currentErr
 	}
 	if currentErr == nil && socialutil.GroupRole(current) == rpcapi.FriendGroupMemberRoleOwner {
-		return rpcapi.FriendGroupMemberObject{}, errors.New("social: cannot change owner role")
+		return rpcapi.FriendGroupMemberObject{}, ErrFriendGroupOwnerRoleImmutable
 	}
 	if currentErr != nil {
 		if err := s.requireMemberCapacity(ctx, friendGroupID); err != nil {
@@ -1175,19 +1225,19 @@ func (s *Server) PutFriendGroupMember(ctx context.Context, owner string, req rpc
 	}
 	req.Name = strings.TrimSpace(req.Name)
 	if !req.Role.Valid() {
-		return rpcapi.FriendGroupMemberObject{}, errors.New("social: invalid group member role")
+		return rpcapi.FriendGroupMemberObject{}, ErrInvalidMemberRole
 	}
 	unlock := s.lockGroup(friendGroupID)
 	defer unlock()
 	if err := s.requireRole(ctx, owner, friendGroupID, rpcapi.FriendGroupMemberRoleOwner); err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
-	current, err := s.groupMember(ctx, friendGroupID, req.Name)
+	current, err := s.targetMember(ctx, friendGroupID, req.Name)
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
 	if current.Role != nil && *current.Role == rpcapi.FriendGroupMemberRoleOwner {
-		return rpcapi.FriendGroupMemberObject{}, errors.New("social: cannot change owner role")
+		return rpcapi.FriendGroupMemberObject{}, ErrFriendGroupOwnerRoleImmutable
 	}
 	member, err := s.writeMember(ctx, friendGroupID, req.Name, rpcapi.FriendGroupMemberRole(req.Role))
 	if err != nil {
@@ -1204,6 +1254,23 @@ func (s *Server) PutFriendGroupMember(ctx context.Context, owner string, req rpc
 }
 
 func (s *Server) DeleteFriendGroupMember(ctx context.Context, owner string, req rpcapi.FriendGroupMemberDeleteRequest) (rpcapi.FriendGroupMemberObject, error) {
+	return s.deleteFriendGroupMember(ctx, owner, req, false)
+}
+
+// LeaveFriendGroup removes the caller's own membership from the Group it
+// names friendGroupName. Members and admins may leave; the owner receives
+// ErrFriendGroupOwnerCannotLeave and deletes the Group instead.
+func (s *Server) LeaveFriendGroup(ctx context.Context, owner, friendGroupName string) (rpcapi.FriendGroupMemberObject, error) {
+	owner = strings.TrimSpace(owner)
+	if owner == "" {
+		return rpcapi.FriendGroupMemberObject{}, errors.New("social: peer public key is required")
+	}
+	return s.deleteFriendGroupMember(ctx, owner, rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: friendGroupName, Name: owner}, true)
+}
+
+// deleteFriendGroupMember removes req.Name from the Group. A leave removes the
+// caller itself, which needs no role beyond the membership being removed.
+func (s *Server) deleteFriendGroupMember(ctx context.Context, owner string, req rpcapi.FriendGroupMemberDeleteRequest, leave bool) (rpcapi.FriendGroupMemberObject, error) {
 	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, req.FriendGroupName)
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
@@ -1221,15 +1288,19 @@ func (s *Server) DeleteFriendGroupMember(ctx context.Context, owner string, req 
 	}
 	defer releasePeers()
 	ctx = lockedCtx
-	current, err := s.groupMember(ctx, friendGroupID, req.Name)
+	current, err := s.targetMember(ctx, friendGroupID, req.Name)
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
 	role := socialutil.GroupRole(current)
-	switch role {
-	case rpcapi.FriendGroupMemberRoleOwner:
-		return rpcapi.FriendGroupMemberObject{}, errors.New("social: cannot delete friend group owner")
-	case rpcapi.FriendGroupMemberRoleAdmin:
+	switch {
+	case role == rpcapi.FriendGroupMemberRoleOwner && leave:
+		return rpcapi.FriendGroupMemberObject{}, ErrFriendGroupOwnerCannotLeave
+	case role == rpcapi.FriendGroupMemberRoleOwner:
+		return rpcapi.FriendGroupMemberObject{}, ErrFriendGroupOwnerCannotBeRemoved
+	case leave:
+		// A member or admin removing itself needs no further role.
+	case role == rpcapi.FriendGroupMemberRoleAdmin:
 		if err := s.requireRole(ctx, owner, friendGroupID, rpcapi.FriendGroupMemberRoleOwner); err != nil {
 			return rpcapi.FriendGroupMemberObject{}, err
 		}
@@ -1283,7 +1354,7 @@ func (s *Server) AdminCreateFriendGroupMember(ctx context.Context, friendGroupID
 		return rpcapi.FriendGroupMemberObject{}, errors.New("social: friend group id and peer public key are required")
 	}
 	if !role.Valid() {
-		return rpcapi.FriendGroupMemberObject{}, errors.New("social: invalid group member role")
+		return rpcapi.FriendGroupMemberObject{}, ErrInvalidMemberRole
 	}
 	group, err := s.AdminGetFriendGroup(ctx, friendGroupID)
 	if err != nil {
@@ -1320,7 +1391,7 @@ func (s *Server) AdminPutFriendGroupMember(ctx context.Context, friendGroupID, p
 		return rpcapi.FriendGroupMemberObject{}, errors.New("social: friend group id and peer public key are required")
 	}
 	if !role.Valid() {
-		return rpcapi.FriendGroupMemberObject{}, errors.New("social: invalid group member role")
+		return rpcapi.FriendGroupMemberObject{}, ErrInvalidMemberRole
 	}
 	group, err := s.AdminGetFriendGroup(ctx, friendGroupID)
 	if err != nil {
@@ -1468,7 +1539,7 @@ func (s *Server) writeMember(ctx context.Context, friendGroupID, peerID string, 
 		return rpcapi.FriendGroupMemberObject{}, errors.New("social: friend group id and peer public key are required")
 	}
 	if !role.Valid() {
-		return rpcapi.FriendGroupMemberObject{}, errors.New("social: invalid group member role")
+		return rpcapi.FriendGroupMemberObject{}, ErrInvalidMemberRole
 	}
 	if !peerMutationLocked(ctx) {
 		group, err := s.AdminGetFriendGroup(ctx, friendGroupID)
@@ -1505,7 +1576,7 @@ func (s *Server) writeMember(ctx context.Context, friendGroupID, peerID string, 
 			localName = current.FriendGroupName
 		}
 		if localName != "" && current.FriendGroupName != localName {
-			return rpcapi.FriendGroupMemberObject{}, errors.New("social: friend group membership name is immutable")
+			return rpcapi.FriendGroupMemberObject{}, ErrFriendGroupMembershipNameImmutable
 		}
 		current.Role = role
 		current.UpdatedAt = now
@@ -1520,7 +1591,7 @@ func (s *Server) writeMember(ctx context.Context, friendGroupID, peerID string, 
 		item = friendGroupMemberRecord{FriendGroupID: friendGroupID, FriendGroupName: localName, PeerPublicKey: peerID, Role: role, CreatedAt: now, UpdatedAt: now}
 	}
 	if existingID, err := belongs.Get(ctx, socialutil.GroupNameKey(peerID, localName)); err == nil && string(existingID) != friendGroupID {
-		return rpcapi.FriendGroupMemberObject{}, errors.New("social: friend group name already exists")
+		return rpcapi.FriendGroupMemberObject{}, ErrFriendGroupNameExists
 	} else if err != nil && !errors.Is(err, kv.ErrNotFound) {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
@@ -1568,7 +1639,7 @@ func (s *Server) createMember(ctx context.Context, friendGroupID, peerID string,
 		return rpcapi.FriendGroupMemberObject{}, errors.New("social: friend group membership name is required")
 	}
 	if !role.Valid() {
-		return rpcapi.FriendGroupMemberObject{}, errors.New("social: invalid group member role")
+		return rpcapi.FriendGroupMemberObject{}, ErrInvalidMemberRole
 	}
 	now := s.now()
 	item := friendGroupMemberRecord{
@@ -1616,7 +1687,7 @@ func (s *Server) createMember(ctx context.Context, friendGroupID, peerID string,
 			return rpcapi.FriendGroupMemberObject{}, err
 		}
 		if _, err := store.Get(ctx, nameKey); err == nil {
-			return rpcapi.FriendGroupMemberObject{}, errors.New("social: friend group name already exists")
+			return rpcapi.FriendGroupMemberObject{}, ErrFriendGroupNameExists
 		} else if !errors.Is(err, kv.ErrNotFound) {
 			return rpcapi.FriendGroupMemberObject{}, err
 		}
@@ -1950,7 +2021,7 @@ func (s *Server) rejectDataPendingDeletion(ctx context.Context, friendGroupID st
 	if pending {
 		return fmt.Errorf(
 			"%w: friend group %q cannot be reused",
-			errFriendGroupPendingDeletion,
+			ErrFriendGroupPendingDeletion,
 			friendGroupID,
 		)
 	}
@@ -2302,7 +2373,7 @@ func (s *Server) requireAdmin(ctx context.Context, owner, friendGroupID string) 
 	}
 	role := socialutil.GroupRole(member)
 	if role != rpcapi.FriendGroupMemberRoleOwner && role != rpcapi.FriendGroupMemberRoleAdmin {
-		return errors.New("social: friend group admin required")
+		return fmt.Errorf("%w: admin required", ErrFriendGroupPermissionDenied)
 	}
 	return nil
 }
@@ -2313,7 +2384,7 @@ func (s *Server) requireRole(ctx context.Context, owner, friendGroupID string, r
 		return err
 	}
 	if socialutil.GroupRole(member) != required {
-		return fmt.Errorf("social: friend group role %s required", required)
+		return fmt.Errorf("%w: role %s required", ErrFriendGroupPermissionDenied, required)
 	}
 	return nil
 }
@@ -2365,6 +2436,16 @@ func (s *Server) deleteWorkspace(ctx context.Context, workspaceName string) erro
 	return err
 }
 
+// targetMember reads the membership a member write targets, reporting a
+// missing one as ErrFriendGroupMemberNotFound.
+func (s *Server) targetMember(ctx context.Context, friendGroupID, peerID string) (rpcapi.FriendGroupMemberObject, error) {
+	member, err := s.groupMember(ctx, friendGroupID, peerID)
+	if errors.Is(err, kv.ErrNotFound) {
+		return rpcapi.FriendGroupMemberObject{}, ErrFriendGroupMemberNotFound
+	}
+	return member, err
+}
+
 func (s *Server) groupMember(ctx context.Context, friendGroupID, peerID string) (rpcapi.FriendGroupMemberObject, error) {
 	store, err := s.membersStore()
 	if err != nil {
@@ -2409,7 +2490,7 @@ func (s *Server) findGroupInviteToken(ctx context.Context, inviteToken string) (
 
 	data, err := socialutil.ReadInviteToken(ctx, store, socialutil.GroupInviteTokensRoot, inviteToken)
 	if errors.Is(err, kv.ErrNotFound) {
-		return inviteTokenRecord{}, errors.New("social: invite token not found")
+		return inviteTokenRecord{}, ErrInviteTokenUnavailable
 	}
 	if err != nil {
 		return inviteTokenRecord{}, err
@@ -2419,7 +2500,7 @@ func (s *Server) findGroupInviteToken(ctx context.Context, inviteToken string) (
 		return inviteTokenRecord{}, err
 	}
 	if !record.ExpiresAt.After(s.now()) {
-		return inviteTokenRecord{}, errors.New("social: invite token not found")
+		return inviteTokenRecord{}, ErrInviteTokenUnavailable
 	}
 	return record, nil
 }

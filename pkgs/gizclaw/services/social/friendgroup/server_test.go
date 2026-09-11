@@ -1571,3 +1571,162 @@ func (s storeWithoutCreateIfAbsent) RangeOrderedMembers(ctx context.Context, key
 func (s failingSetStore) ApplyMutation(context.Context, kv.Mutation) (bool, error) {
 	return false, errors.New("forced set failure")
 }
+
+func TestLeaveFriendGroupRoleRules(t *testing.T) {
+	ctx := context.Background()
+	s := newTestServer(t)
+	group, err := s.CreateFriendGroup(ctx, "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"})
+	if err != nil {
+		t.Fatalf("CreateFriendGroup: %v", err)
+	}
+	friendGroupID := mustGroupID(t, s, "peer-a", group.Name)
+	if _, err := s.AddFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberAddRequest{FriendGroupName: group.Name, PeerPublicKey: "peer-b", Role: rpcapi.FriendGroupMemberMutableRole("member"), MemberName: "room-b"}); err != nil {
+		t.Fatalf("AddFriendGroupMember peer-b: %v", err)
+	}
+	if _, err := s.AddFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberAddRequest{FriendGroupName: group.Name, PeerPublicKey: "peer-c", Role: rpcapi.FriendGroupMemberMutableRole("admin"), MemberName: "room-c"}); err != nil {
+		t.Fatalf("AddFriendGroupMember peer-c admin: %v", err)
+	}
+
+	if _, err := s.LeaveFriendGroup(ctx, "peer-a", group.Name); !errors.Is(err, ErrFriendGroupOwnerCannotLeave) {
+		t.Fatalf("owner leave error = %v, want ErrFriendGroupOwnerCannotLeave", err)
+	}
+	assertBelongs(t, ctx, s, "peer-a", friendGroupID, "room", rpcapi.FriendGroupMemberRoleOwner)
+	if _, err := s.LeaveFriendGroup(ctx, "peer-d", "room"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("non-member leave error = %v, want kv.ErrNotFound", err)
+	}
+
+	// An admin cannot remove itself through members.delete, but may leave.
+	if _, err := s.DeleteFriendGroupMember(ctx, "peer-c", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: "room-c", Name: "peer-c"}); !errors.Is(err, ErrFriendGroupPermissionDenied) {
+		t.Fatalf("admin self delete error = %v, want ErrFriendGroupPermissionDenied", err)
+	}
+	left, err := s.LeaveFriendGroup(ctx, "peer-c", "room-c")
+	if err != nil {
+		t.Fatalf("admin leave: %v", err)
+	}
+	if socialutil.StringValue(left.PeerPublicKey) != "peer-c" {
+		t.Fatalf("admin leave peer_public_key = %q, want peer-c", socialutil.StringValue(left.PeerPublicKey))
+	}
+	assertNoBelongs(t, ctx, s, "peer-c", friendGroupID)
+
+	if _, err := s.LeaveFriendGroup(ctx, "peer-b", "room-b"); err != nil {
+		t.Fatalf("member leave: %v", err)
+	}
+	assertNoBelongs(t, ctx, s, "peer-b", friendGroupID)
+	if _, err := s.LeaveFriendGroup(ctx, "peer-b", "room-b"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("repeated leave error = %v, want kv.ErrNotFound", err)
+	}
+}
+
+func TestFriendGroupFailuresMatchSentinels(t *testing.T) {
+	ctx := context.Background()
+	s := newTestServer(t)
+	group, err := s.CreateFriendGroup(ctx, "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"})
+	if err != nil {
+		t.Fatalf("CreateFriendGroup: %v", err)
+	}
+	other, err := s.CreateFriendGroup(ctx, "peer-b", rpcapi.FriendGroupCreateRequest{Name: "taken"})
+	if err != nil {
+		t.Fatalf("CreateFriendGroup other: %v", err)
+	}
+	if _, err := s.CreateFriendGroup(ctx, "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"}); !errors.Is(err, ErrFriendGroupNameExists) {
+		t.Fatalf("duplicate create error = %v, want ErrFriendGroupNameExists", err)
+	}
+	token, err := s.CreateFriendGroupInviteToken(ctx, "peer-a", rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupName: group.Name})
+	if err != nil {
+		t.Fatalf("CreateFriendGroupInviteToken: %v", err)
+	}
+	if _, err := s.JoinFriendGroup(ctx, "peer-b", rpcapi.FriendGroupJoinRequest{InviteToken: token.InviteToken, Name: other.Name}); !errors.Is(err, ErrFriendGroupNameExists) {
+		t.Fatalf("join with taken name error = %v, want ErrFriendGroupNameExists", err)
+	}
+	if _, err := s.JoinFriendGroup(ctx, "peer-b", rpcapi.FriendGroupJoinRequest{InviteToken: "missing", Name: "joined"}); !errors.Is(err, ErrInviteTokenUnavailable) {
+		t.Fatalf("join with missing token error = %v, want ErrInviteTokenUnavailable", err)
+	}
+	if _, err := s.JoinFriendGroup(ctx, "peer-b", rpcapi.FriendGroupJoinRequest{InviteToken: token.InviteToken, Name: "joined"}); err != nil {
+		t.Fatalf("JoinFriendGroup: %v", err)
+	}
+	if _, err := s.JoinFriendGroup(ctx, "peer-b", rpcapi.FriendGroupJoinRequest{InviteToken: token.InviteToken, Name: "renamed"}); !errors.Is(err, ErrFriendGroupMembershipNameImmutable) {
+		t.Fatalf("rejoin with another name error = %v, want ErrFriendGroupMembershipNameImmutable", err)
+	}
+	for name, call := range map[string]func() error{
+		"put": func() error {
+			_, err := s.PutFriendGroup(ctx, "peer-b", rpcapi.FriendGroupPutRequest{Name: "joined"})
+			return err
+		},
+		"delete": func() error {
+			_, err := s.DeleteFriendGroup(ctx, "peer-b", rpcapi.FriendGroupDeleteRequest{Name: "joined"})
+			return err
+		},
+		"invite token": func() error {
+			_, err := s.GetFriendGroupInviteToken(ctx, "peer-b", rpcapi.FriendGroupInviteTokenGetRequest{FriendGroupName: "joined"})
+			return err
+		},
+		"member put": func() error {
+			_, err := s.PutFriendGroupMember(ctx, "peer-b", rpcapi.FriendGroupMemberPutRequest{FriendGroupName: "joined", Name: "peer-b", Role: "admin"})
+			return err
+		},
+		"member add": func() error {
+			_, err := s.AddFriendGroupMember(ctx, "peer-b", rpcapi.FriendGroupMemberAddRequest{FriendGroupName: "joined", PeerPublicKey: "peer-c", Role: "member", MemberName: "c"})
+			return err
+		},
+	} {
+		if err := call(); !errors.Is(err, ErrFriendGroupPermissionDenied) {
+			t.Fatalf("%s by member error = %v, want ErrFriendGroupPermissionDenied", name, err)
+		}
+	}
+	if _, err := s.DeleteFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: group.Name, Name: "peer-a"}); !errors.Is(err, ErrFriendGroupOwnerCannotBeRemoved) {
+		t.Fatalf("delete owner error = %v, want ErrFriendGroupOwnerCannotBeRemoved", err)
+	}
+	if _, err := s.PutFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberPutRequest{FriendGroupName: group.Name, Name: "peer-a", Role: "admin"}); !errors.Is(err, ErrFriendGroupOwnerRoleImmutable) {
+		t.Fatalf("change owner role error = %v, want ErrFriendGroupOwnerRoleImmutable", err)
+	}
+	if _, err := s.PutFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberPutRequest{FriendGroupName: group.Name, Name: "peer-b", Role: "owner"}); !errors.Is(err, ErrInvalidMemberRole) {
+		t.Fatalf("invalid role error = %v, want ErrInvalidMemberRole", err)
+	}
+}
+
+func TestCreateFriendGroupInviteTokenWithTTL(t *testing.T) {
+	ctx := context.Background()
+	s := newTestServer(t)
+	group, err := s.CreateFriendGroup(ctx, "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"})
+	if err != nil {
+		t.Fatalf("CreateFriendGroup: %v", err)
+	}
+	req := rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupName: group.Name}
+	if _, err := s.CreateFriendGroupInviteTokenWithTTL(ctx, "peer-a", req, socialutil.MaxInviteTokenTTL+time.Second); !errors.Is(err, socialutil.ErrInvalidInviteTokenTTL) {
+		t.Fatalf("ttl above maximum error = %v, want ErrInvalidInviteTokenTTL", err)
+	}
+	now := s.now()
+	device, err := s.CreateFriendGroupInviteToken(ctx, "peer-a", req)
+	if err != nil {
+		t.Fatalf("CreateFriendGroupInviteToken: %v", err)
+	}
+	if !device.ExpiresAt.Equal(now.Add(socialutil.DefaultInviteTokenTTL)) {
+		t.Fatalf("default expiry = %s, want %s", device.ExpiresAt, now.Add(socialutil.DefaultInviteTokenTTL))
+	}
+	extended, err := s.CreateFriendGroupInviteTokenWithTTL(ctx, "peer-a", req, 48*time.Hour)
+	if err != nil {
+		t.Fatalf("CreateFriendGroupInviteTokenWithTTL: %v", err)
+	}
+	if extended.InviteToken != device.InviteToken || !extended.ExpiresAt.Equal(now.Add(48*time.Hour)) {
+		t.Fatalf("extended token = %#v, want %q until %s", extended, device.InviteToken, now.Add(48*time.Hour))
+	}
+	shorter, err := s.CreateFriendGroupInviteTokenWithTTL(ctx, "peer-a", req, time.Hour)
+	if err != nil {
+		t.Fatalf("CreateFriendGroupInviteTokenWithTTL shorter: %v", err)
+	}
+	if !shorter.ExpiresAt.Equal(extended.ExpiresAt) {
+		t.Fatalf("shorter ttl expiry = %s, want unchanged %s", shorter.ExpiresAt, extended.ExpiresAt)
+	}
+	got, err := s.GetFriendGroupInviteToken(ctx, "peer-a", rpcapi.FriendGroupInviteTokenGetRequest{FriendGroupName: group.Name})
+	if err != nil || got.ExpiresAt == nil || !got.ExpiresAt.Equal(extended.ExpiresAt) {
+		t.Fatalf("GetFriendGroupInviteToken = %#v, %v; want extended expiry", got, err)
+	}
+	s.Now = func() time.Time { return now.Add(time.Hour) }
+	if _, err := s.JoinFriendGroup(ctx, "peer-b", rpcapi.FriendGroupJoinRequest{InviteToken: device.InviteToken, Name: "joined"}); err != nil {
+		t.Fatalf("join after default lifetime: %v", err)
+	}
+	s.Now = func() time.Time { return now.Add(49 * time.Hour) }
+	if _, err := s.JoinFriendGroup(ctx, "peer-c", rpcapi.FriendGroupJoinRequest{InviteToken: device.InviteToken, Name: "joined"}); !errors.Is(err, ErrInviteTokenUnavailable) {
+		t.Fatalf("join after extended lifetime error = %v, want ErrInviteTokenUnavailable", err)
+	}
+}

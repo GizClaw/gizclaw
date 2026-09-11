@@ -2028,3 +2028,85 @@ func TestListFriendsPaginatesEscapedRelationIDs(t *testing.T) {
 		t.Fatalf("friends=%q want=%q", got, want)
 	}
 }
+
+func TestCreateFriendInviteTokenWithTTLExtendsWithoutShortening(t *testing.T) {
+	ctx := context.Background()
+	s := newTestServer()
+	if _, err := s.CreateFriendInviteTokenWithTTL(ctx, "peer-b", time.Second); !errors.Is(err, socialutil.ErrInvalidInviteTokenTTL) {
+		t.Fatalf("ttl below minimum error = %v, want ErrInvalidInviteTokenTTL", err)
+	}
+	if _, err := s.CreateFriendInviteTokenWithTTL(ctx, "peer-b", socialutil.MaxInviteTokenTTL+time.Second); !errors.Is(err, socialutil.ErrInvalidInviteTokenTTL) {
+		t.Fatalf("ttl above maximum error = %v, want ErrInvalidInviteTokenTTL", err)
+	}
+	if got, _ := s.GetFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenGetRequest{}); got.InviteToken != nil {
+		t.Fatalf("rejected ttl created token %#v", got)
+	}
+
+	device, err := s.CreateFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenCreateRequest{})
+	if err != nil {
+		t.Fatalf("CreateFriendInviteToken: %v", err)
+	}
+	extended, err := s.CreateFriendInviteTokenWithTTL(ctx, "peer-b", 24*time.Hour)
+	if err != nil {
+		t.Fatalf("CreateFriendInviteTokenWithTTL extend: %v", err)
+	}
+	if extended.InviteToken != device.InviteToken || !extended.ExpiresAt.Equal(testNow.Add(24*time.Hour)) {
+		t.Fatalf("extended token = %#v, want %q until %s", extended, device.InviteToken, testNow.Add(24*time.Hour))
+	}
+	shorter, err := s.CreateFriendInviteTokenWithTTL(ctx, "peer-b", time.Hour)
+	if err != nil {
+		t.Fatalf("CreateFriendInviteTokenWithTTL shorter: %v", err)
+	}
+	if shorter.InviteToken != device.InviteToken || !shorter.ExpiresAt.Equal(extended.ExpiresAt) {
+		t.Fatalf("shorter ttl token = %#v, want unchanged %#v", shorter, extended)
+	}
+	// The default RPC path returns the extended token unchanged.
+	rpc, err := s.CreateFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenCreateRequest{})
+	if err != nil {
+		t.Fatalf("CreateFriendInviteToken after extend: %v", err)
+	}
+	if rpc.InviteToken != device.InviteToken || !rpc.ExpiresAt.Equal(extended.ExpiresAt) {
+		t.Fatalf("RPC token after extend = %#v, want %#v", rpc, extended)
+	}
+
+	// The extended token stays usable after the default lifetime.
+	s.Now = func() time.Time { return testNow.Add(2 * time.Hour) }
+	if _, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: device.InviteToken}); err != nil {
+		t.Fatalf("AddFriend with extended token: %v", err)
+	}
+
+	fresh, err := s.CreateFriendInviteTokenWithTTL(ctx, "peer-c", 7*24*time.Hour)
+	if err != nil {
+		t.Fatalf("CreateFriendInviteTokenWithTTL new: %v", err)
+	}
+	if fresh.InviteToken == device.InviteToken || !fresh.ExpiresAt.Equal(testNow.Add(2*time.Hour+7*24*time.Hour)) {
+		t.Fatalf("new ttl token = %#v", fresh)
+	}
+}
+
+func TestAddFriendReportingExisting(t *testing.T) {
+	ctx := context.Background()
+	s := newTestServer()
+	token, err := s.CreateFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenCreateRequest{})
+	if err != nil {
+		t.Fatalf("CreateFriendInviteToken: %v", err)
+	}
+	created, existed, err := s.AddFriendReportingExisting(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: token.InviteToken})
+	if err != nil || existed {
+		t.Fatalf("AddFriendReportingExisting first = existed %v, err %v; want new relationship", existed, err)
+	}
+	again, existed, err := s.AddFriendReportingExisting(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: token.InviteToken})
+	if err != nil || !existed {
+		t.Fatalf("AddFriendReportingExisting again = existed %v, err %v; want existing relationship", existed, err)
+	}
+	if again.Name != created.Name || socialutil.StringValue(again.WorkspaceName) != socialutil.StringValue(created.WorkspaceName) {
+		t.Fatalf("existing relationship = %#v, want %#v", again, created)
+	}
+	if _, _, err := s.AddFriendReportingExisting(ctx, "peer-b", rpcapi.FriendAddRequest{InviteToken: token.InviteToken}); !errors.Is(err, ErrInviteTokenSelfOwned) {
+		t.Fatalf("self token error = %v, want ErrInviteTokenSelfOwned", err)
+	}
+	// AddFriend keeps the idempotent RPC behavior.
+	if item, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: token.InviteToken}); err != nil || item.Name != created.Name {
+		t.Fatalf("AddFriend existing = %#v, %v; want existing relationship", item, err)
+	}
+}

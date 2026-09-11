@@ -205,3 +205,16 @@ func TestInviteTokenConcurrentClaimHasOneOwner(t *testing.T) {
 		t.Fatalf("claims = %v / %v, want exactly one success", first, second)
 	}
 }
+
+func TestValidateInviteTokenTTL(t *testing.T) {
+	for _, ttl := range []time.Duration{MinInviteTokenTTL, time.Hour, MaxInviteTokenTTL} {
+		if err := ValidateInviteTokenTTL(ttl); err != nil {
+			t.Fatalf("ValidateInviteTokenTTL(%s) = %v, want nil", ttl, err)
+		}
+	}
+	for _, ttl := range []time.Duration{0, -time.Minute, MinInviteTokenTTL - time.Second, MaxInviteTokenTTL + time.Second} {
+		if err := ValidateInviteTokenTTL(ttl); !errors.Is(err, ErrInvalidInviteTokenTTL) {
+			t.Fatalf("ValidateInviteTokenTTL(%s) = %v, want ErrInvalidInviteTokenTTL", ttl, err)
+		}
+	}
+}
