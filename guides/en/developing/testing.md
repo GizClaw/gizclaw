@@ -122,6 +122,27 @@ Never print or commit credential values. When an account is unavailable, record
 that provider as `SKIP` and retain the interoperability risk; a tagged compile
 without a live account is not passing live evidence.
 
+### Remote Memory scope purge
+
+The same tagged package contains `TestMemoryScopePurge`, which checks the
+Workspace deletion memory purge against a live remote provider. Select it with
+`GIZCLAW_MEMORY_PROVIDER` set to `volc-mem0` or `mem0-platform`:
+
+```sh
+GIZCLAW_MEMORY_PROVIDER=volc-mem0 GIZCLAW_VOLC_MEM0_ENDPOINT=https://... GIZCLAW_VOLC_MEM0_API_KEY=...   go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
+
+GIZCLAW_MEMORY_PROVIDER=mem0-platform GIZCLAW_MEM0_API_KEY=...   go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
+```
+
+`GIZCLAW_MEM0_ENDPOINT` is optional and defaults to `https://api.mem0.ai`. Each
+run writes a direct Fact to two generated Workspace IDs and submits an
+extraction job for the first, purges the first while the job may still run, waits
+for the job to finish, and repeats purge and verification the way Workspace
+deletion retries `memory_residual`. It then fails if the first Workspace gains a
+late Fact during a settle interval or if the second Workspace lost its Fact, and
+purges both Workspaces during cleanup. The log records how many purge rounds
+verification needed.
+
 ## Credential-backed harness contract
 
 GizClaw, GenX, and Memory live suites each own one ignored `.env`,

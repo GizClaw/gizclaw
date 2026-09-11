@@ -113,6 +113,25 @@ TOS 可另外使用 `GIZCLAW_TOS_SESSION_TOKEN`，OSS 可使用
 credential value。没有可用 account 时，应把对应 provider 明确记录为 `SKIP` 并保留
 interoperability risk；只完成 tagged compile 不能算 live pass。
 
+### Remote Memory scope purge
+
+同一个 tagged package 包含 `TestMemoryScopePurge`，用真实远程 provider 校验 Workspace
+删除时的 memory purge。通过 `GIZCLAW_MEMORY_PROVIDER` 选择 `volc-mem0` 或
+`mem0-platform`：
+
+```sh
+GIZCLAW_MEMORY_PROVIDER=volc-mem0 GIZCLAW_VOLC_MEM0_ENDPOINT=https://... GIZCLAW_VOLC_MEM0_API_KEY=...   go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
+
+GIZCLAW_MEMORY_PROVIDER=mem0-platform GIZCLAW_MEM0_API_KEY=...   go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
+```
+
+`GIZCLAW_MEM0_ENDPOINT` 可选，默认 `https://api.mem0.ai`。每轮向两个生成的 Workspace ID
+各写入一条 direct Fact，并为第一个提交 extraction job；在 job 可能仍在运行时 purge
+第一个 Workspace，等待 job 结束，再像 Workspace 删除重试 `memory_residual` 那样反复
+purge 与校验。之后如果第一个 Workspace 在静置期间又出现迟到的 Fact，或第二个
+Workspace 的 Fact 被删除，测试失败；cleanup 会 purge 两个 Workspace。日志记录校验
+为空前用了几轮 purge。
+
 ## Credential-backed harness 约束
 
 GizClaw、GenX 和 Memory 的 live suite 各自只拥有一个 ignored `.env`，
