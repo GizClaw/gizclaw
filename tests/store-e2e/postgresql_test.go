@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -112,6 +113,49 @@ func TestPostgreSQLRootRegistry(t *testing.T) {
 	}
 	if err := raw.Ping(); err != nil {
 		t.Fatalf("logical Close() closed physical pool: %v", err)
+	}
+}
+
+// Concurrent CREATE ... IF NOT EXISTS on one new relation can fail with
+// catalog conflicts (for example SQLSTATE 42710) unless initialization is
+// serialized. Every SQL Store kind must tolerate simultaneous constructors.
+func TestPostgreSQLConcurrentSchemaInitialization(t *testing.T) {
+	db := openPostgreSQL(t)
+	constructors := map[string]func(table string) (io.Closer, error){
+		"kv": func(table string) (io.Closer, error) { return kv.NewSQLWithDB(db, table, nil) },
+		"metrics": func(table string) (io.Closer, error) {
+			return metrics.NewSQLStoreWithDB(db, table)
+		},
+		"logs": func(table string) (io.Closer, error) { return logstore.NewSQLStoreWithDB(db, table) },
+	}
+	const rounds, callers = 5, 8
+	for kind, construct := range constructors {
+		t.Run(kind, func(t *testing.T) {
+			for range rounds {
+				table := uniqueTable("init_" + kind)
+				cleanupPostgreSQLTables(t, db, table)
+				stores := make([]io.Closer, callers)
+				errs := make([]error, callers)
+				start := make(chan struct{})
+				var wg sync.WaitGroup
+				for index := range callers {
+					wg.Go(func() {
+						<-start
+						stores[index], errs[index] = construct(table)
+					})
+				}
+				close(start)
+				wg.Wait()
+				for _, store := range stores {
+					if store != nil {
+						_ = store.Close()
+					}
+				}
+				if err := errors.Join(errs...); err != nil {
+					t.Fatalf("concurrent %s constructors on %q: %v", kind, table, err)
+				}
+			}
+		})
 	}
 }
 

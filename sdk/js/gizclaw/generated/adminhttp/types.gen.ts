@@ -2126,6 +2126,16 @@ export type DoubaoRealtimeJsonSchema = {
     anyOf?: Array<DoubaoRealtimeJsonSchema>;
 };
 
+/**
+ * Synthesizes replies with a RuntimeProfile Voice instead of the realtime model's own voice. When set, the realtime model returns text only and the reply text is streamed into this Voice.
+ */
+export type DoubaoRealtimeTts = {
+    /**
+     * RuntimeProfile Voice alias that synthesizes the reply text.
+     */
+    voice: string;
+};
+
 export type DoubaoRealtimeTtsExtension = {
     extra?: DoubaoRealtimeTtsExtra;
 };
@@ -2149,6 +2159,7 @@ export type DoubaoRealtimeWorkflowSpec = {
     audio?: DoubaoRealtimeAudio;
     tools?: Array<DoubaoRealtimeFunctionTool>;
     extension?: DoubaoRealtimeExtension;
+    tts?: DoubaoRealtimeTts;
 };
 
 export type DoubaoRealtimeDuplexOptions = {

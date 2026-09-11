@@ -1907,6 +1907,18 @@ final $typed_data.Uint8List doubaoRealtimeTTSExtraDescriptor = $convert.base64De
     'JfMF9tb2RlbBgDIAEoCUgCUgp0dHMyME1vZGVsiAEBQhAKDl9haWdjX21ldGFkYXRhQhMKEV9l'
     'eHBsaWNpdF9kaWFsZWN0QhAKDl90dHNfMl8wX21vZGVs');
 
+@$core.Deprecated('Use doubaoRealtimeTTSDescriptor instead')
+const DoubaoRealtimeTTS$json = {
+  '1': 'DoubaoRealtimeTTS',
+  '2': [
+    {'1': 'voice', '3': 1, '4': 1, '5': 9, '10': 'voice'},
+  ],
+};
+
+/// Descriptor for `DoubaoRealtimeTTS`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List doubaoRealtimeTTSDescriptor = $convert
+    .base64Decode('ChFEb3ViYW9SZWFsdGltZVRUUxIUCgV2b2ljZRgBIAEoCVIFdm9pY2U=');
+
 @$core.Deprecated('Use doubaoRealtimeWorkflowSpecDescriptor instead')
 const DoubaoRealtimeWorkflowSpec$json = {
   '1': 'DoubaoRealtimeWorkflowSpec',
@@ -1958,12 +1970,23 @@ const DoubaoRealtimeWorkflowSpec$json = {
       '10': 'initiativeQuery',
       '17': true
     },
+    {
+      '1': 'tts',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.DoubaoRealtimeTTS',
+      '9': 4,
+      '10': 'tts',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_audio'},
     {'1': '_extension'},
     {'1': '_instructions'},
     {'1': '_initiative_query'},
+    {'1': '_tts'},
   ],
 };
 
@@ -1975,8 +1998,9 @@ final $typed_data.Uint8List doubaoRealtimeWorkflowSpecDescriptor = $convert.base
     'EBEicKDGluc3RydWN0aW9ucxgDIAEoCUgCUgxpbnN0cnVjdGlvbnOIAQESFAoFbW9kZWwYBCAB'
     'KAlSBW1vZGVsEkAKBXRvb2xzGAUgAygLMiouZ2l6Y2xhdy5ycGMudjEuRG91YmFvUmVhbHRpbW'
     'VGdW5jdGlvblRvb2xSBXRvb2xzEi4KEGluaXRpYXRpdmVfcXVlcnkYBiABKAlIA1IPaW5pdGlh'
-    'dGl2ZVF1ZXJ5iAEBQggKBl9hdWRpb0IMCgpfZXh0ZW5zaW9uQg8KDV9pbnN0cnVjdGlvbnNCEw'
-    'oRX2luaXRpYXRpdmVfcXVlcnk=');
+    'dGl2ZVF1ZXJ5iAEBEjgKA3R0cxgHIAEoCzIhLmdpemNsYXcucnBjLnYxLkRvdWJhb1JlYWx0aW'
+    '1lVFRTSARSA3R0c4gBAUIICgZfYXVkaW9CDAoKX2V4dGVuc2lvbkIPCg1faW5zdHJ1Y3Rpb25z'
+    'QhMKEV9pbml0aWF0aXZlX3F1ZXJ5QgYKBF90dHM=');
 
 @$core.Deprecated('Use doubaoRealtimeWorkspaceParametersDescriptor instead')
 const DoubaoRealtimeWorkspaceParameters$json = {

@@ -61,9 +61,36 @@ func newPeerAgentHost(
 		}
 		return service.Transformer(), nil
 	}
+	validateVoice := func(ctx context.Context, owner, alias string) error {
+		service := peerGenX
+		if owner != "" {
+			if ownerGenX == nil {
+				return fmt.Errorf("owner GenX resolver is not configured")
+			}
+			var err error
+			if service, err = ownerGenX(ctx, owner); err != nil {
+				return err
+			}
+		}
+		if service == nil {
+			return fmt.Errorf("GenX service is not configured")
+		}
+		resolved, err := service.ResolveTransformer(ctx, "voice/"+alias)
+		if err != nil {
+			return err
+		}
+		if resolved.Voice == nil {
+			return fmt.Errorf("%q is not a Voice resource", alias)
+		}
+		return nil
+	}
 	_ = host.Register(asttranslate.Type, asttranslate.Factory{Transformer: transformer, TransformerForOwner: transformerForOwner})
 	_ = host.Register(dashscoperealtime.Type, dashscoperealtime.Factory{GenX: peerGenX, GenXForOwner: ownerGenX})
-	_ = host.Register(doubaorealtime.Type, doubaorealtime.Factory{Transformer: transformer, TransformerForOwner: transformerForOwner})
+	_ = host.Register(doubaorealtime.Type, doubaorealtime.Factory{
+		Transformer:         transformer,
+		TransformerForOwner: transformerForOwner,
+		ValidateVoice:       validateVoice,
+	})
 	_ = host.Register(doubaorealtimeduplex.Type, doubaorealtimeduplex.Factory{GenX: peerGenX, GenXForOwner: ownerGenX})
 	_ = host.Register(eino.Type, eino.Factory{
 		GenX:         peerGenX,

@@ -3511,6 +3511,12 @@ type DoubaoRealtimeJSONSchema struct {
 	Type                 *string                              `json:"type,omitempty"`
 }
 
+// DoubaoRealtimeTTS Synthesizes replies with a RuntimeProfile Voice instead of the realtime model's own voice. When set, the realtime model returns text only and the reply text is streamed into this Voice.
+type DoubaoRealtimeTTS struct {
+	// Voice RuntimeProfile Voice alias that synthesizes the reply text.
+	Voice string `json:"voice"`
+}
+
 // DoubaoRealtimeTTSExtension defines model for DoubaoRealtimeTTSExtension.
 type DoubaoRealtimeTTSExtension struct {
 	Extra *DoubaoRealtimeTTSExtra `json:"extra,omitempty"`
@@ -3535,6 +3541,9 @@ type DoubaoRealtimeWorkflowSpec struct {
 	// Model RuntimeProfile realtime Model alias. The canonical Model and upstream version are resolved on Workspace reload.
 	Model string                        `json:"model"`
 	Tools *[]DoubaoRealtimeFunctionTool `json:"tools,omitempty"`
+
+	// Tts Synthesizes replies with a RuntimeProfile Voice instead of the realtime model's own voice. When set, the realtime model returns text only and the reply text is streamed into this Voice.
+	Tts *DoubaoRealtimeTTS `json:"tts,omitempty"`
 }
 
 // DoubaoRealtimeWorkspaceParameters defines model for DoubaoRealtimeWorkspaceParameters.

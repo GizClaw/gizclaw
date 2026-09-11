@@ -16,11 +16,10 @@ import (
 // names after the helper ownership moves into storage.
 const sqlIndexNamespacePrefix = "gizclaw/store/sql" + "backend/v1\x00"
 
-const concurrentDDLAttempts = 8
-
 var (
 	identifierRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 	tableNameRE  = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]*$`)
+	sqlStateRE   = regexp.MustCompile(`^[0-9A-Z]{5}$`)
 )
 
 // SQLDialect identifies a supported SQL Store dialect.
@@ -71,11 +70,21 @@ func (table SQLTable) validate() error {
 
 // ExternalSQLError preserves error identity while keeping driver text, which can
 // contain bound values or connection details, out of the public error string.
+// A driver SQLSTATE code carries no bound data and is kept for diagnosis.
 func ExternalSQLError(operation string, err error) error {
 	if err == nil {
 		return nil
 	}
-	return &externalOperationError{operation: operation, err: err}
+	external := &externalOperationError{operation: operation, err: err}
+	var state sqlStateError
+	if errors.As(err, &state) && sqlStateRE.MatchString(state.SQLState()) {
+		external.sqlState = state.SQLState()
+	}
+	return external
+}
+
+type sqlStateError interface {
+	SQLState() string
 }
 
 // SQLUnixNano returns a lossless signed nanosecond representation.
@@ -116,6 +125,10 @@ func PrepareSQLTable(db *sqlx.DB, kind, table string) (SQLTable, error) {
 
 // EnsureSQLTable directly executes idempotent table/index initialization statements.
 // It records no version or history and leaves the borrowed pool open.
+//
+// PostgreSQL can reject concurrent CREATE ... IF NOT EXISTS statements for the
+// same relation with catalog conflicts, so PostgreSQL statements run in one
+// transaction serialized by [LockPostgreSQLTable]. SQLite executes them directly.
 func EnsureSQLTable(ctx context.Context, db *sqlx.DB, table SQLTable, statements ...string) error {
 	if db == nil {
 		return errors.New("storage: sql db is nil")
@@ -126,46 +139,62 @@ func EnsureSQLTable(ctx context.Context, db *sqlx.DB, table SQLTable, statements
 	if err := db.PingContext(ctx); err != nil {
 		return ExternalSQLError(fmt.Sprintf("storage: sql ping %s table %q", table.dialect, table.name), err)
 	}
+	if table.dialect == SQLDialectPostgreSQL {
+		return ensurePostgreSQLTable(ctx, db, table, statements)
+	}
 	for _, statement := range statements {
-		if err := executeInitializationStatement(ctx, db, table, statement); err != nil {
-			return ExternalSQLError(fmt.Sprintf("storage: sql initialize %s table %q", table.kind, table.name), err)
+		if _, err := db.ExecContext(ctx, statement); err != nil {
+			return table.initializeError(err)
 		}
 	}
 	return nil
 }
 
-func executeInitializationStatement(ctx context.Context, db *sqlx.DB, table SQLTable, statement string) error {
-	for attempt := range concurrentDDLAttempts {
-		if _, err := db.ExecContext(ctx, statement); err == nil {
-			return nil
-		} else if table.dialect != SQLDialectPostgreSQL || !isConcurrentDDLConflict(err) || attempt == concurrentDDLAttempts-1 {
-			return err
+func ensurePostgreSQLTable(ctx context.Context, db *sqlx.DB, table SQLTable, statements []string) error {
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return ExternalSQLError(fmt.Sprintf("storage: sql begin %s table %q initialization", table.kind, table.name), err)
+	}
+	defer tx.Rollback()
+	if err := LockPostgreSQLTable(ctx, tx, table); err != nil {
+		return err
+	}
+	for _, statement := range statements {
+		if _, err := tx.ExecContext(ctx, statement); err != nil {
+			return table.initializeError(err)
 		}
-		// PostgreSQL can transiently report a catalog uniqueness conflict when
-		// concurrent CREATE ... IF NOT EXISTS statements race. Retry the same
-		// idempotent statement after the winning transaction becomes visible.
-		delay := time.Duration(1<<attempt) * time.Millisecond
-		timer := time.NewTimer(delay)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return ctx.Err()
-		case <-timer.C:
-		}
+	}
+	if err := tx.Commit(); err != nil {
+		return ExternalSQLError(fmt.Sprintf("storage: sql commit %s table %q initialization", table.kind, table.name), err)
 	}
 	return nil
 }
 
-type sqlStateError interface {
-	SQLState() string
+func (table SQLTable) initializeError(err error) error {
+	return ExternalSQLError(fmt.Sprintf("storage: sql initialize %s table %q", table.kind, table.name), err)
 }
 
-func isConcurrentDDLConflict(err error) bool {
-	var state sqlStateError
-	if !errors.As(err, &state) {
-		return false
+// LockPostgreSQLTable takes the transaction advisory lock that serializes DDL
+// for one PostgreSQL table name in the current schema. Every Store kind uses the
+// same key, so initialization and other DDL on that table cannot interleave.
+func LockPostgreSQLTable(ctx context.Context, tx *sqlx.Tx, table SQLTable) error {
+	if tx == nil {
+		return errors.New("storage: sql tx is nil")
 	}
-	return state.SQLState() == "23505" || state.SQLState() == "42P07"
+	if err := table.validate(); err != nil {
+		return err
+	}
+	if table.dialect != SQLDialectPostgreSQL {
+		return fmt.Errorf("storage: sql table %q is not PostgreSQL", table.name)
+	}
+	if _, err := tx.ExecContext(
+		ctx,
+		"SELECT pg_advisory_xact_lock(hashtext(current_schema()::text), hashtext($1))",
+		table.name,
+	); err != nil {
+		return ExternalSQLError(fmt.Sprintf("storage: sql lock %s table %q", table.kind, table.name), err)
+	}
+	return nil
 }
 
 // SQLIndexName derives a stable, bounded identifier for one table index.

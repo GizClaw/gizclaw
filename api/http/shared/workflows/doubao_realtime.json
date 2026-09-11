@@ -347,6 +347,22 @@
           }
         }
       },
+      "DoubaoRealtimeTTS": {
+        "type": "object",
+        "description": "Synthesizes replies with a RuntimeProfile Voice instead of the realtime model's own voice. When set, the realtime model returns text only and the reply text is streamed into this Voice.",
+        "required": [
+          "voice"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "voice": {
+            "type": "string",
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$",
+            "description": "RuntimeProfile Voice alias that synthesizes the reply text."
+          }
+        }
+      },
       "DoubaoRealtimeWorkflowSpec": {
         "type": "object",
         "required": [
@@ -376,6 +392,9 @@
           },
           "extension": {
             "$ref": "#/components/schemas/DoubaoRealtimeExtension"
+          },
+          "tts": {
+            "$ref": "#/components/schemas/DoubaoRealtimeTTS"
           }
         }
       }

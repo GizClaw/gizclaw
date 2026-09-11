@@ -20,6 +20,17 @@ const (
 	ModeText Mode = "text"
 )
 
+// Output selects which reply modality the dialogue model produces.
+type Output string
+
+const (
+	// OutputAudio returns reply text together with provider TTS audio.
+	OutputAudio Output = "audio"
+	// OutputText requests text-only replies through
+	// dialog.extra.output_modalities; the provider synthesizes no audio.
+	OutputText Output = "text"
+)
+
 // InitiativePolicy controls whether the Agent opens the conversation without
 // Peer input by sending a hidden ChatTextQuery on the first provider session.
 type InitiativePolicy string
@@ -61,6 +72,8 @@ type Config struct {
 	SearchAPIKey      string
 	Model             string
 	Mode              Mode
+	// Output selects the reply modality; empty means OutputAudio.
+	Output Output
 	// Initiative selects the agent-initiative policy; InitiativeQuery replaces
 	// DefaultInitiativeQuery as the hidden ChatTextQuery text.
 	Initiative      InitiativePolicy
@@ -79,6 +92,11 @@ func New(config Config) (*Transformer, error) {
 	case InitiativeDisabled, InitiativeOnReload:
 	default:
 		return nil, fmt.Errorf("doubao realtime: unsupported Initiative %q", config.Initiative)
+	}
+	switch config.Output {
+	case "", OutputAudio, OutputText:
+	default:
+		return nil, fmt.Errorf("doubao realtime: unsupported Output %q", config.Output)
 	}
 	config, err := cloneConfig(config)
 	if err != nil {
@@ -153,6 +171,9 @@ func New(config Config) (*Transformer, error) {
 	}
 	if config.Mode != "" {
 		opts = append(opts, withMode(config.Mode))
+	}
+	if config.Output != "" {
+		opts = append(opts, withOutput(config.Output))
 	}
 	if config.Initiative != InitiativeDisabled {
 		opts = append(opts, withInitiative(config.Initiative, config.InitiativeQuery))

@@ -1,5 +1,6 @@
 import 'package:fixnum/fixnum.dart';
 import 'package:gizclaw/gizclaw.dart';
+import 'package:protobuf/protobuf.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -353,5 +354,44 @@ void main() {
 
   test('exports generated enum payload types from public barrel', () {
     expect(ASTTranslateMode.ASTTRANSLATE_MODE_S2S.value, 2);
+  });
+
+  test('registers device configuration RPC method IDs', () {
+    expect(rpcMethodByName('client.device.settings.get').id, 128);
+    expect(rpcMethodByName('client.device.settings.set').id, 129);
+    expect(rpcMethodByName('client.device.factory_reset').id, 130);
+    expect(rpcMethodByName('client.rpc.methods.get').id, 131);
+  });
+
+  // The presence table is generated from the protos, but a textual merge can
+  // keep a stale copy that lacks newer optional fields. A missing entry makes an
+  // unset field project as its default, which erases "absent" — the meaning
+  // DeviceSettings relies on to say "this device has no such option".
+  test('treats device settings and status observation fields as optional', () {
+    void expectOptional(GeneratedMessage message, Iterable<int> tags) {
+      for (final tag in tags) {
+        expect(
+          payloadFieldIsProto3Optional(message, tag),
+          isTrue,
+          reason: '${message.info_.qualifiedMessageName} field $tag',
+        );
+      }
+    }
+
+    expectOptional(DeviceSettings(), [1, 2, 3, 4, 5, 6, 7]);
+    expectOptional(ClientDeviceFactoryResetRequest(), [1]);
+    expectOptional(PeerStatus(), [17, 18, 19, 20]);
+    expectOptional(PeerStatusTelemetryObservedAt(), [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+    ]);
   });
 }

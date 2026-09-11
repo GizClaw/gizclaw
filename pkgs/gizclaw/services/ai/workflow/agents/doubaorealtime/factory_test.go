@@ -2,11 +2,13 @@ package doubaorealtime
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -424,3 +426,212 @@ func TestFactoryOnceWhenEmptyInitiativeFollowsHistory(t *testing.T) {
 		t.Fatalf("NewAgent() without history error = %v, want history required", err)
 	}
 }
+
+func TestFactoryTTSRequestsTextOutputAndSynthesizesWithVoice(t *testing.T) {
+	var validated []string
+	mux := &ttsComposeMux{}
+	factory := Factory{
+		Transformer: mux,
+		ValidateVoice: func(_ context.Context, owner, alias string) error {
+			validated = append(validated, owner+"|"+alias)
+			return nil
+		},
+	}
+	agent, err := factory.NewAgent(context.Background(), agenthost.Spec{
+		Workspace: apitypes.Workspace{Id: "workspace-dialog-id", Name: "demo"},
+		Workflow: testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{
+			Model: "doubao-dialog",
+			Tts:   &apitypes.DoubaoRealtimeTTS{Voice: " narrator "},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("NewAgent() error = %v", err)
+	}
+	if len(validated) != 1 || validated[0] != "|narrator" {
+		t.Fatalf("validated voices = %q, want the Peer runtime narrator", validated)
+	}
+	output, err := agent.Transform(context.Background(), emptyStream{})
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	var texts []string
+	var audio int
+	for {
+		chunk, err := output.Next()
+		if err != nil {
+			if err == io.EOF || err == genx.ErrDone {
+				break
+			}
+			t.Fatalf("Next() error = %v", err)
+		}
+		switch part := chunk.Part.(type) {
+		case genx.Text:
+			if part != "" {
+				texts = append(texts, string(part))
+			}
+		case *genx.Blob:
+			if chunk.Role == genx.RoleModel && len(part.Data) > 0 {
+				audio++
+			}
+		}
+	}
+	if len(texts) != 1 || texts[0] != "hello" || audio != 1 {
+		t.Fatalf("texts/audio = %q/%d, want the reply text and its synthesized audio", texts, audio)
+	}
+	patterns := mux.recorded()
+	if len(patterns) != 2 || patterns[1] != "voice/narrator" {
+		t.Fatalf("patterns = %q, want the realtime model then voice/narrator", patterns)
+	}
+	if got := patternQuery(t, patterns[0]).Get("output"); got != "text" {
+		t.Fatalf("model pattern output = %q, want text; pattern=%s", got, patterns[0])
+	}
+}
+
+func TestFactoryWithoutTTSKeepsProviderVoice(t *testing.T) {
+	factory := Factory{Transformer: recordingTransformer{}}
+	agent, err := factory.NewAgent(context.Background(), agenthost.Spec{
+		Workspace: apitypes.Workspace{Id: "workspace-dialog-id", Name: "demo"},
+		Workflow:  testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{Model: "doubao-dialog"}),
+	})
+	if err != nil {
+		t.Fatalf("NewAgent() error = %v", err)
+	}
+	if got := patternQuery(t, transformPattern(t, agent)).Get("output"); got != "" {
+		t.Fatalf("output = %q, want provider default", got)
+	}
+}
+
+func TestFactoryTTSValidation(t *testing.T) {
+	owner := "owner-public-key"
+	ownerMux := func(context.Context, string) (genx.TransformerMux, error) { return recordingTransformer{}, nil }
+	for name, tc := range map[string]struct {
+		factory   Factory
+		workspace apitypes.Workspace
+		voice     string
+		want      string
+	}{
+		"empty voice": {
+			factory:   Factory{Transformer: recordingTransformer{}, ValidateVoice: func(context.Context, string, string) error { return nil }},
+			workspace: apitypes.Workspace{Id: "id", Name: "demo"},
+			voice:     " ",
+			want:      "tts.voice is required",
+		},
+		"missing validator": {
+			factory:   Factory{Transformer: recordingTransformer{}},
+			workspace: apitypes.Workspace{Id: "id", Name: "demo"},
+			voice:     "narrator",
+			want:      "requires a Voice validator",
+		},
+		"unknown voice": {
+			factory: Factory{
+				TransformerForOwner: ownerMux,
+				ValidateVoice: func(_ context.Context, gotOwner, alias string) error {
+					if gotOwner != owner || alias != "narrator" {
+						t.Errorf("ValidateVoice(%q, %q), want owner runtime narrator", gotOwner, alias)
+					}
+					return errors.New("voice not found")
+				},
+			},
+			workspace: apitypes.Workspace{Id: "id", Name: "demo", OwnerPublicKey: &owner},
+			voice:     "narrator",
+			want:      `resolve tts.voice "narrator": voice not found`,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := tc.factory.NewAgent(context.Background(), agenthost.Spec{
+				Workspace: tc.workspace,
+				Workflow: testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{
+					Model: "doubao-dialog",
+					Tts:   &apitypes.DoubaoRealtimeTTS{Voice: tc.voice},
+				}),
+			})
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("NewAgent() error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+}
+
+// ttsComposeMux serves the realtime model with one text reply and the Voice
+// with one audio packet per synthesized text route.
+type ttsComposeMux struct {
+	mu       sync.Mutex
+	patterns []string
+}
+
+func (m *ttsComposeMux) Transform(_ context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
+	m.mu.Lock()
+	m.patterns = append(m.patterns, pattern)
+	m.mu.Unlock()
+	if strings.HasPrefix(pattern, "voice/") {
+		return &fakeTTSStream{input: input}, nil
+	}
+	return &chunkSliceStream{chunks: []*genx.MessageChunk{
+		{Role: genx.RoleModel, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "reply", Label: "assistant", BeginOfStream: true}},
+		{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "reply", Label: "assistant", EndOfStream: true}},
+	}}, nil
+}
+
+func (m *ttsComposeMux) recorded() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]string(nil), m.patterns...)
+}
+
+type chunkSliceStream struct {
+	chunks []*genx.MessageChunk
+}
+
+func (s *chunkSliceStream) Next() (*genx.MessageChunk, error) {
+	if len(s.chunks) == 0 {
+		return nil, io.EOF
+	}
+	chunk := s.chunks[0]
+	s.chunks = s.chunks[1:]
+	return chunk, nil
+}
+
+func (s *chunkSliceStream) Close() error { return nil }
+
+func (s *chunkSliceStream) CloseWithError(error) error { return nil }
+
+// fakeTTSStream consumes one text route and answers with one audio route.
+type fakeTTSStream struct {
+	input  genx.Stream
+	output []*genx.MessageChunk
+	read   bool
+}
+
+func (s *fakeTTSStream) Next() (*genx.MessageChunk, error) {
+	if !s.read {
+		s.read = true
+		streamID := ""
+		for {
+			chunk, err := s.input.Next()
+			if err != nil {
+				break
+			}
+			if chunk.Ctrl != nil && streamID == "" {
+				streamID = chunk.Ctrl.StreamID
+			}
+			if chunk.IsEndOfStream() {
+				break
+			}
+		}
+		s.output = []*genx.MessageChunk{
+			{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true}},
+			{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 2}}, Ctrl: &genx.StreamCtrl{StreamID: streamID}},
+			{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true}},
+		}
+	}
+	if len(s.output) == 0 {
+		return nil, io.EOF
+	}
+	chunk := s.output[0]
+	s.output = s.output[1:]
+	return chunk, nil
+}
+
+func (s *fakeTTSStream) Close() error { return s.input.Close() }
+
+func (s *fakeTTSStream) CloseWithError(err error) error { return s.input.CloseWithError(err) }

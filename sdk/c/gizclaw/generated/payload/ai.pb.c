@@ -114,6 +114,9 @@ PB_BIND(gizclaw_rpc_v1_DoubaoRealtimeTTSExtension, gizclaw_rpc_v1_DoubaoRealtime
 PB_BIND(gizclaw_rpc_v1_DoubaoRealtimeTTSExtra, gizclaw_rpc_v1_DoubaoRealtimeTTSExtra, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_DoubaoRealtimeTTS, gizclaw_rpc_v1_DoubaoRealtimeTTS, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec, gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec, 2)
 
 

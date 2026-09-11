@@ -1,0 +1,97 @@
+# User Story:
+# As a registered device using a doubao-realtime Workflow with external TTS,
+# I want realtime replies written by the realtime model and spoken by the Workflow's configured Voice,
+# So that server-VAD conversations also work with an external TTS Voice.
+version: gizclaw.test/v1alpha1
+name: doubao-realtime-tts-conversation.realtime-roundtrip
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  input_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        collection: assistants
+        workflow_name: doubao-realtime-tts-conversation
+        parameters:
+          doubao_realtime_workspace_parameters:
+            agent_type: DOUBAO_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_DOUBAO_REALTIME
+            input: WORKSPACE_INPUT_MODE_REALTIME
+  - id: select_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  - id: synthesize_input
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 你好，请用一句话介绍一下你自己。
+        accepted_content_types: [audio/ogg]
+    save_as: input_audio
+  - id: exercise_workflow
+    client: peer
+    timeout: 60s
+    peer_stream:
+      mode: realtime
+      input: ${input_audio}
+      pacing: 20ms
+      require_text: true
+      require_audio: true
+    expect:
+      /text:
+        non_empty: true
+      /text_eos:
+        equals: true
+      /audio_eos:
+        equals: true
+      /audio_bytes:
+        minimum: 2000
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

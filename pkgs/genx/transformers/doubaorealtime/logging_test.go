@@ -3,6 +3,7 @@ package doubaorealtime
 import (
 	"context"
 	"errors"
+	"log"
 	"log/slog"
 	"testing"
 	"time"
@@ -82,9 +83,15 @@ func installPeerLogStore(t *testing.T) *peerLogStore {
 		t.Fatalf("NewLogger() error = %v", err)
 	}
 	previous := slog.Default()
+	// slog.SetDefault also redirects the log package into the new handler, and
+	// restoring the default slog handler does not undo that; restore log
+	// explicitly so later tests do not block on this store's bounded channel.
+	previousWriter, previousFlags := log.Writer(), log.Flags()
 	slog.SetDefault(logger)
 	t.Cleanup(func() {
 		slog.SetDefault(previous)
+		log.SetOutput(previousWriter)
+		log.SetFlags(previousFlags)
 		_ = cleanup()
 	})
 	return store

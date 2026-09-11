@@ -478,6 +478,9 @@ export type DoubaoRealtimeJSONSchema = {
   "required"?: string[];
   "type"?: string;
 };
+export type DoubaoRealtimeTTS = {
+  "voice": string;
+};
 export type DoubaoRealtimeTTSExtension = {
   "extra"?: DoubaoRealtimeTTSExtra;
 };
@@ -493,6 +496,7 @@ export type DoubaoRealtimeWorkflowSpec = {
   "model": string;
   "tools": DoubaoRealtimeFunctionTool[];
   "initiative_query"?: string;
+  "tts"?: DoubaoRealtimeTTS;
 };
 export type DoubaoRealtimeWorkspaceParameters = {
   "agent_type": string;
@@ -3482,6 +3486,15 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "DoubaoRealtimeTTS": {
+    "fields": [
+      {
+        "name": "voice",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
   "DoubaoRealtimeTTSExtension": {
     "fields": [
       {
@@ -3550,6 +3563,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 6,
         "optional": true,
         "type": "string"
+      },
+      {
+        "name": "tts",
+        "number": 7,
+        "optional": true,
+        "type": "DoubaoRealtimeTTS"
       }
     ]
   },
