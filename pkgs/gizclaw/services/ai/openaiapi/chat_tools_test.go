@@ -174,6 +174,13 @@ func TestHandleChatRejectsInvalidToolState(t *testing.T) {
 		`{"model":"chat","messages":[{"role":"assistant","tool_calls":[{"id":"call","type":"function","function":{"name":"fn"}}]}]}`,
 		`{"model":"chat","messages":[{"role":"tool","content":"ok"}]}`,
 		`{"model":"chat","messages":[],"stream_options":{"include_usage":true}}`,
+		// Explicit nulls are present values and must satisfy the contract.
+		`{"model":"chat","messages":[],"tools":[{"type":"function","function":{"name":"fn","strict":null}}]}`,
+		`{"model":"chat","messages":[],"stream_options":null}`,
+		`{"model":"chat","messages":[],"stream":true,"stream_options":null}`,
+		`{"model":"chat","messages":[],"stream":true,"stream_options":{"include_usage":null}}`,
+		`{"model":"chat","messages":[],"tool_choice":null}`,
+		`{"model":"chat","messages":[],"parallel_tool_calls":null}`,
 	} {
 		_, err := (&Server{Caller: key.Public}).Handle(context.Background(), requestFor(
 			key.Public, backend.CapabilityChat, "createChatCompletion", json.RawMessage(body),

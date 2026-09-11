@@ -15,17 +15,15 @@ var chatFunctionName = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 // chatTools converts client-declared function tools. The caller executes
 // every call it receives; GizClaw only forwards declarations and calls.
 func chatTools(body *chatCompletionRequest) ([]*genx.FuncTool, error) {
-	switch choice := body.ToolChoice.(type) {
-	case nil:
-	case string:
-		if choice != "auto" {
-			return nil, invalid("unsupported_option", "tool_choice", "Only the auto tool_choice is supported by GizClaw.")
-		}
-	default:
+	if body.ToolChoice != nil && string(body.ToolChoice) != `"auto"` {
 		return nil, invalid("unsupported_option", "tool_choice", "Only the auto tool_choice is supported by GizClaw.")
 	}
-	if body.ParallelToolCalls != nil && !*body.ParallelToolCalls {
+	switch string(body.ParallelToolCalls) {
+	case "", "true":
+	case "false":
 		return nil, invalid("unsupported_option", "parallel_tool_calls", "Disabling parallel tool calls is not supported by GizClaw.")
+	default:
+		return nil, invalid("invalid_request", "parallel_tool_calls", "parallel_tool_calls must be a boolean.")
 	}
 	tools := make([]*genx.FuncTool, 0, len(body.Tools))
 	names := make(map[string]struct{}, len(body.Tools))
@@ -78,7 +76,7 @@ func chatTool(declaration map[string]any) (*genx.FuncTool, error) {
 		}
 		tool.Parameters = encoded
 	}
-	if value, ok := function["strict"]; ok && value != nil {
+	if value, ok := function["strict"]; ok {
 		if tool.Strict, ok = value.(bool); !ok {
 			return nil, invalid("invalid_tools", "tools", "Tool strict must be a boolean.")
 		}
@@ -87,18 +85,22 @@ func chatTool(declaration map[string]any) (*genx.FuncTool, error) {
 }
 
 // chatStreamOptions validates stream_options and reports include_usage.
-func chatStreamOptions(options map[string]any, streaming bool) (bool, error) {
-	if options == nil {
+func chatStreamOptions(raw json.RawMessage, streaming bool) (bool, error) {
+	if raw == nil {
 		return false, nil
 	}
 	if !streaming {
 		return false, invalid("invalid_stream_options", "stream_options", "stream_options requires stream to be true.")
 	}
+	var options map[string]any
+	if err := json.Unmarshal(raw, &options); err != nil || options == nil {
+		return false, invalid("invalid_stream_options", "stream_options", "stream_options must be an object.")
+	}
 	if err := rejectUnknownFields(options, "stream_options", "include_usage"); err != nil {
 		return false, err
 	}
 	value, ok := options["include_usage"]
-	if !ok || value == nil {
+	if !ok {
 		return false, nil
 	}
 	includeUsage, ok := value.(bool)

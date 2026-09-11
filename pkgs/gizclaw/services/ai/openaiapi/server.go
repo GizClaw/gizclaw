@@ -151,15 +151,17 @@ type thinkingOptions struct {
 	Level   *string `json:"level,omitempty"`
 }
 
+// chatCompletionRequest keeps the tool options raw so an explicit null is
+// validated like any other present value instead of reading as absent.
 type chatCompletionRequest struct {
 	Messages          []map[string]any `json:"messages"`
 	Model             string           `json:"model"`
-	ParallelToolCalls *bool            `json:"parallel_tool_calls,omitempty"`
+	ParallelToolCalls json.RawMessage  `json:"parallel_tool_calls,omitempty"`
 	Stream            *bool            `json:"stream,omitempty"`
-	StreamOptions     map[string]any   `json:"stream_options,omitempty"`
+	StreamOptions     json.RawMessage  `json:"stream_options,omitempty"`
 	Temperature       *float32         `json:"temperature,omitempty"`
 	Thinking          *thinkingOptions `json:"thinking,omitempty"`
-	ToolChoice        any              `json:"tool_choice,omitempty"`
+	ToolChoice        json.RawMessage  `json:"tool_choice,omitempty"`
 	Tools             []map[string]any `json:"tools,omitempty"`
 }
 
