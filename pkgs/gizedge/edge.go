@@ -279,17 +279,64 @@ func upstreamSignalingURL(upstreamURL *url.URL) string {
 	return next.String()
 }
 
+// maxConcurrentUpstreamRequests bounds the service streams the Edge opens
+// concurrently on one upstream Server association: forwarded HTTP requests and
+// route-resolution RPCs share it. Every such request opens a fresh service
+// DataChannel, and the Server accepts inbound DataChannels through a single
+// serial loop fed by pion-sctp's accept queue, which holds 16 streams and
+// silently drops the DATA of any new stream beyond that. A dropped open only
+// recovers through SCTP T3 retransmission with exponential backoff, and a
+// burst that starves the receive window can wedge the accept loop for good.
+// Keeping at most 16 opens in flight means the accept queue cannot overflow
+// regardless of packet timing, and stays far below the receive window
+// provisioned for GatewaySCTPReceiveBufferSize. Burst tests showed a bound of
+// 64 failed as badly as no bound, because slots held by requests waiting on
+// retransmission starved the queued requests. Excess requests wait for a slot
+// or fail with their context rather than piling onto SCTP.
+const maxConcurrentUpstreamRequests = 16
+
 type upstreamTransport struct {
 	ctx         context.Context
 	cfg         Config
 	upstreamURL *url.URL
 	relay       *upstreamRelaySelector
 
+	semOnce sync.Once
+	sem     chan struct{}
+
 	mu           sync.Mutex
 	conn         giznet.Conn
 	listener     giznet.Listener
 	relayAttempt *upstreamRelayAttempt
 	connEpoch    uint64
+}
+
+// acquireSlot reserves one concurrent-request slot on this upstream. It returns
+// a release function that must be called exactly once when the forwarded
+// request (including its streamed response body) is done. Waiting honors both
+// the request context and the transport's lifetime context.
+func (t *upstreamTransport) acquireSlot(ctx context.Context) (func(), error) {
+	t.semOnce.Do(func() { t.sem = make(chan struct{}, maxConcurrentUpstreamRequests) })
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var closed <-chan struct{}
+	if t.ctx != nil {
+		closed = t.ctx.Done()
+	}
+	select {
+	case t.sem <- struct{}{}:
+	default:
+		select {
+		case t.sem <- struct{}{}:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-closed:
+			return nil, t.ctx.Err()
+		}
+	}
+	var once sync.Once
+	return func() { once.Do(func() { <-t.sem }) }, nil
 }
 
 func newUpstreamTransport(
@@ -306,6 +353,23 @@ func newUpstreamTransport(
 }
 
 func (t *upstreamTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	release, err := t.acquireSlot(req.Context())
+	if err != nil {
+		return nil, err
+	}
+	resp, err := t.roundTripWithRetry(req)
+	if err != nil {
+		release()
+		return nil, err
+	}
+	// Hold the slot until the streamed response body is closed: the upstream
+	// service DataChannel stays open for the whole response, so concurrency is
+	// bounded by in-flight requests, not just by RoundTrip calls in progress.
+	resp.Body = &releaseReadCloser{ReadCloser: resp.Body, release: release}
+	return resp, nil
+}
+
+func (t *upstreamTransport) roundTripWithRetry(req *http.Request) (*http.Response, error) {
 	resp, conn, epoch, err := t.roundTrip(req)
 	if err == nil {
 		return resp, nil
@@ -325,6 +389,19 @@ func (t *upstreamTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 	resp, _, _, err = t.roundTrip(req)
 	return resp, err
+}
+
+// releaseReadCloser releases the upstream concurrency slot once, after the
+// wrapped response body is closed.
+type releaseReadCloser struct {
+	io.ReadCloser
+	release func()
+}
+
+func (r *releaseReadCloser) Close() error {
+	err := r.ReadCloser.Close()
+	r.release()
+	return err
 }
 
 func upstreamDiscoveryTimedOut(req *http.Request, err error) bool {

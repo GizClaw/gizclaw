@@ -115,7 +115,12 @@ func (t *orderedUpstreamTransport) resolveAPIKeyAssignment(ctx context.Context, 
 			errs = append(errs, err)
 			continue
 		}
+		release, err := entry.acquireSlot(ctx)
+		if err != nil {
+			return nil, err
+		}
 		assignment, err := resolveAPIKeyAssignment(ctx, conn, apiKey)
+		release()
 		if err == nil {
 			return assignment, nil
 		}
@@ -165,7 +170,12 @@ func (t *orderedUpstreamTransport) resolvePeerAssignment(
 			errs = append(errs, err)
 			continue
 		}
+		release, err := entry.acquireSlot(ctx)
+		if err != nil {
+			return nil, err
+		}
 		assignment, err := resolvePeerAssignment(ctx, conn, peerKey)
+		release()
 		if err == nil {
 			return assignment, err
 		}
