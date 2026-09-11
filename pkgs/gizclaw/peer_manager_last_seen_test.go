@@ -65,3 +65,34 @@ func TestPeerRuntimeLastSeenZeroForUnknownPeer(t *testing.T) {
 		t.Fatalf("never-seen runtime = %+v", runtime)
 	}
 }
+
+// TestPeerPresenceMatchesRuntimeAndPeerOnline covers the presence
+// server.friend.list reads: the same online state as PeerOnline and the same
+// last_seen_at as Runtime, online, offline, and never seen.
+func TestPeerPresenceMatchesRuntimeAndPeerOnline(t *testing.T) {
+	ctx := context.Background()
+	manager := &Manager{PeerRun: peerruntest.New(t)}
+	key := giznet.PublicKey{4}
+	activity := time.Date(2026, 9, 12, 9, 0, 0, 0, time.UTC)
+	conn := &testGiznetConn{publicKey: key, peerInfo: &giznet.PeerInfo{PublicKey: key, LastSeen: activity}}
+	manager.SetPeerUp(key, conn)
+
+	online, seen := manager.PeerPresence(ctx, key.String())
+	if !online || !manager.PeerOnline(key.String()) || !seen.Equal(activity) {
+		t.Fatalf("online presence = %v, %v; want online at %v", online, seen, activity)
+	}
+
+	manager.SetPeerDown(key, conn)
+	online, seen = manager.PeerPresence(ctx, key.String())
+	if online || manager.PeerOnline(key.String()) || !seen.Equal(activity) {
+		t.Fatalf("offline presence = %v, %v; want offline at %v", online, seen, activity)
+	}
+
+	online, seen = manager.PeerPresence(ctx, giznet.PublicKey{5}.String())
+	if online || !seen.IsZero() {
+		t.Fatalf("never-seen presence = %v, %v", online, seen)
+	}
+	if online, seen := manager.PeerPresence(ctx, "not-a-key"); online || !seen.IsZero() {
+		t.Fatalf("malformed key presence = %v, %v", online, seen)
+	}
+}

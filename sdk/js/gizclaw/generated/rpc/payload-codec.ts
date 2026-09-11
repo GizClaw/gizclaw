@@ -673,6 +673,10 @@ export type FriendObject = {
   "peer_public_key"?: string;
   "updated_at"?: string;
   "workspace_name"?: string;
+  "online"?: boolean;
+  "last_seen_at"?: string;
+  "display_name"?: string;
+  "emoji"?: string;
 };
 export type FriendPingRequest = {
   "name": string;
@@ -4265,6 +4269,30 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "workspace_name",
         "number": 5,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "online",
+        "number": 6,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "last_seen_at",
+        "number": 7,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "display_name",
+        "number": 8,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "emoji",
+        "number": 9,
         "optional": true,
         "type": "string"
       }

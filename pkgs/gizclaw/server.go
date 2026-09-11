@@ -510,6 +510,7 @@ func (s *Server) init() error {
 		Profiles:     peersServer,
 		NotifyPeer:   notifyPeer,
 		Pings:        manager,
+		Presence:     manager,
 		PeerAvailability: func(ctx context.Context, publicKey string) error {
 			key, err := parsePeerPublicKey(publicKey)
 			if err != nil {

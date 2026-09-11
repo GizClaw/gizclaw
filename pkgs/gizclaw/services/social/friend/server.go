@@ -36,6 +36,13 @@ type ProfileService interface {
 	GetSelfInfo(context.Context, giznet.PublicKey) (apitypes.DeviceInfo, error)
 }
 
+// PresenceService reads a Peer's connection state as Runtime.online and
+// Runtime.last_seen_at report it. lastSeenAt is the zero time when the Server
+// has never observed the Peer.
+type PresenceService interface {
+	PeerPresence(ctx context.Context, peerPublicKey string) (online bool, lastSeenAt time.Time)
+}
+
 // ErrSFUNotConfigured reports that the Server has no SFU URL, so no Friend
 // Workspace can be bound to an SFU Room.
 var ErrSFUNotConfigured = errors.New("social: SFU is not configured")
@@ -53,6 +60,9 @@ type Server struct {
 	// Pings reaches Friend devices connected to this Server for
 	// server.friend.ping; nil disables pinging.
 	Pings socialutil.PingDelivery
+	// Presence reports Friend device presence for server.friend.list; nil
+	// leaves online and last_seen_at out of every listed Friend.
+	Presence PresenceService
 	// SFUURL is the SFU endpoint recorded in every new Friend SFU binding.
 	SFUURL string
 
@@ -591,9 +601,40 @@ func (s *Server) ListFriends(ctx context.Context, owner string, req rpcapi.Frien
 		if record.RelationID != id {
 			return rpcapi.FriendListResponse{}, errors.New("social: friend collection identity mismatch")
 		}
-		items = append(items, record.peerObject())
+		item := record.peerObject()
+		s.addFriendListDetails(ctx, &item)
+		items = append(items, item)
 	}
 	return rpcapi.FriendListResponse{Items: items, HasNext: hasNext, NextCursor: nextCursor}, nil
+}
+
+// addFriendListDetails adds the Friend's presence and profile to one
+// server.friend.list item. Presence and profile only decorate the list: a
+// Friend whose profile cannot be read is still listed, without a display
+// name or emoji.
+func (s *Server) addFriendListDetails(ctx context.Context, item *rpcapi.FriendObject) {
+	peerPublicKey := socialutil.StringValue(item.PeerPublicKey)
+	if s.Presence != nil {
+		online, lastSeenAt := s.Presence.PeerPresence(ctx, peerPublicKey)
+		item.Online = &online
+		if !lastSeenAt.IsZero() {
+			lastSeenAt = lastSeenAt.UTC()
+			item.LastSeenAt = &lastSeenAt
+		}
+	}
+	if s.Profiles == nil {
+		return
+	}
+	var publicKey giznet.PublicKey
+	if err := publicKey.UnmarshalText([]byte(peerPublicKey)); err != nil {
+		return
+	}
+	info, err := s.Profiles.GetSelfInfo(ctx, publicKey)
+	if err != nil {
+		return
+	}
+	item.DisplayName = socialutil.OptionalString(socialutil.StringValue(info.Name))
+	item.Emoji = socialutil.OptionalString(socialutil.StringValue(info.Emoji))
 }
 
 func friendCollectionKey(owner string) kv.Key {

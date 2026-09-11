@@ -327,4 +327,15 @@ message FriendObject {
   optional string peer_public_key = 3;
   optional string updated_at = 4;
   optional string workspace_name = 5;
+  // Friend presence and profile, set only by server.friend.list. online is
+  // whether the Friend's device is connected to the answering Server, the
+  // same state as Runtime.online.
+  optional bool online = 6;
+  // Last observed activity of the Friend's device in the Runtime.last_seen_at
+  // format. Absent when the Server has never observed the Friend.
+  optional string last_seen_at = 7;
+  // The Friend's self-chosen display name and emoji from its profile. Absent
+  // when the Friend has not set them.
+  optional string display_name = 8;
+  optional string emoji = 9;
 }

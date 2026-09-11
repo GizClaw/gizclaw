@@ -234,6 +234,92 @@ func TestGetFriendInfoRequiresCallerRelation(t *testing.T) {
 	}
 }
 
+type profileMap map[giznet.PublicKey]apitypes.DeviceInfo
+
+func (m profileMap) GetSelfInfo(_ context.Context, key giznet.PublicKey) (apitypes.DeviceInfo, error) {
+	info, ok := m[key]
+	if !ok {
+		return apitypes.DeviceInfo{}, errors.New("peer not found")
+	}
+	return info, nil
+}
+
+type presenceStub map[string]struct {
+	online   bool
+	lastSeen time.Time
+}
+
+func (p presenceStub) PeerPresence(_ context.Context, peer string) (bool, time.Time) {
+	state := p[peer]
+	return state.online, state.lastSeen
+}
+
+func TestListFriendsCarriesPresenceAndProfile(t *testing.T) {
+	ctx := t.Context()
+	owner := giznet.PublicKey{1}.String()
+	onlineKey, offlineKey, neverKey := giznet.PublicKey{2}, giznet.PublicKey{3}, giznet.PublicKey{4}
+	online, offline, never := onlineKey.String(), offlineKey.String(), neverKey.String()
+	s := newTestServer()
+	for _, peer := range []string{online, offline, never} {
+		token, err := s.CreateFriendInviteToken(ctx, peer, rpcapi.FriendInviteTokenCreateRequest{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.AddFriend(ctx, owner, rpcapi.FriendAddRequest{InviteToken: token.InviteToken}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	onlineSeen := time.Date(2026, 9, 12, 8, 30, 0, 0, time.FixedZone("CST", 8*3600))
+	offlineSeen := time.Date(2026, 9, 11, 22, 0, 0, 0, time.UTC)
+	s.Presence = presenceStub{
+		online:  {online: true, lastSeen: onlineSeen},
+		offline: {lastSeen: offlineSeen},
+	}
+	onlineName, onlineEmoji, offlineName, blank := "Astronaut", "🧑‍🚀", "Bob", ""
+	s.Profiles = profileMap{
+		onlineKey:  {Name: &onlineName, Emoji: &onlineEmoji},
+		offlineKey: {Name: &offlineName, Emoji: &blank},
+	}
+
+	got, err := s.ListFriends(ctx, owner, rpcapi.FriendListRequest{})
+	if err != nil {
+		t.Fatalf("ListFriends() error = %v", err)
+	}
+	byPeer := map[string]rpcapi.FriendObject{}
+	for _, item := range got.Items {
+		byPeer[item.Name] = item
+	}
+	if len(byPeer) != 3 {
+		t.Fatalf("ListFriends() items = %#v, want three Friends", got.Items)
+	}
+	if item := byPeer[online]; item.Online == nil || !*item.Online ||
+		item.LastSeenAt == nil || !item.LastSeenAt.Equal(onlineSeen) || item.LastSeenAt.Location() != time.UTC ||
+		socialutil.StringValue(item.DisplayName) != onlineName || socialutil.StringValue(item.Emoji) != onlineEmoji ||
+		socialutil.StringValue(item.PeerPublicKey) != online || socialutil.StringValue(item.WorkspaceName) == "" {
+		t.Fatalf("online Friend = %+v", item)
+	}
+	if item := byPeer[offline]; item.Online == nil || *item.Online ||
+		item.LastSeenAt == nil || !item.LastSeenAt.Equal(offlineSeen) ||
+		socialutil.StringValue(item.DisplayName) != offlineName || item.Emoji != nil {
+		t.Fatalf("offline Friend = %+v", item)
+	}
+	if item := byPeer[never]; item.Online == nil || *item.Online || item.LastSeenAt != nil ||
+		item.DisplayName != nil || item.Emoji != nil {
+		t.Fatalf("never-seen Friend without profile = %+v", item)
+	}
+
+	s.Presence, s.Profiles = nil, nil
+	got, err = s.ListFriends(ctx, owner, rpcapi.FriendListRequest{})
+	if err != nil {
+		t.Fatalf("ListFriends() without presence error = %v", err)
+	}
+	for _, item := range got.Items {
+		if item.Online != nil || item.LastSeenAt != nil || item.DisplayName != nil || item.Emoji != nil {
+			t.Fatalf("ListFriends() without presence or profiles = %+v", item)
+		}
+	}
+}
+
 func TestIncompleteFriendRecordIsRejected(t *testing.T) {
 	ctx := t.Context()
 	s := newTestServer()
