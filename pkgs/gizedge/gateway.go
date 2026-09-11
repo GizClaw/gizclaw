@@ -140,6 +140,7 @@ func newGateway(
 		pool := newGatewayPool(ctx, upstreamCfg, configuredURL, selector)
 		gateway.pools[upstream.PublicKey] = pool
 		gateway.poolOrder = append(gateway.poolOrder, pool)
+		go pool.monitorLiveness()
 	}
 	var startupPool *gatewayPool
 	var startupErrs []error
@@ -1014,6 +1015,7 @@ type gatewayPool struct {
 	upstreamURL *url.URL
 	relay       *upstreamRelaySelector
 	newUpstream func(context.Context) (*gatewayUpstream, error)
+	liveness    upstreamLivenessConfig
 
 	mu         sync.Mutex
 	entries    []*gatewayUpstream
@@ -1142,6 +1144,7 @@ func (p *gatewayPool) replenishWarm(done chan struct{}) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	retryDelay := gatewayPoolReplenishRetryDelay
 	for {
 		p.mu.Lock()
 		if p.growthDone != done || p.closed || p.contextErr() != nil {
@@ -1205,7 +1208,13 @@ func (p *gatewayPool) replenishWarm(done chan struct{}) {
 		}
 		p.mu.Unlock()
 
-		timer := time.NewTimer(gatewayPoolReplenishRetryDelay)
+		slog.WarnContext(ctx, "edge: upstream redial failed",
+			"upstream_kind", "gateway",
+			"retry_in", retryDelay.String(),
+			"error", err,
+		)
+		timer := time.NewTimer(retryDelay)
+		retryDelay = min(retryDelay*2, upstreamRedialBackoffMaximum)
 		select {
 		case <-timer.C:
 		case <-ctx.Done():
@@ -1603,6 +1612,78 @@ func (p *gatewayPool) Close() error {
 	}
 	closeWG.Wait()
 	return errors.Join(errs...)
+}
+
+// monitorLiveness probes every selectable upstream. A gateway upstream that
+// stops answering is failed, which closes its tunnel sessions and replenishes
+// the warm pool, instead of staying selectable for new admissions.
+func (p *gatewayPool) monitorLiveness() {
+	cfg := p.liveness.withDefaults()
+	ticker := time.NewTicker(cfg.interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-p.contextDone():
+			return
+		case <-ticker.C:
+		}
+		p.mu.Lock()
+		if p.closed {
+			p.mu.Unlock()
+			return
+		}
+		entries := make([]*gatewayUpstream, 0, len(p.entries))
+		for _, entry := range p.entries {
+			if entry.state == gatewayUpstreamSelectable && entry.conn != nil {
+				entries = append(entries, entry)
+			}
+		}
+		p.mu.Unlock()
+		var wg sync.WaitGroup
+		for _, entry := range entries {
+			wg.Go(func() { p.probeUpstream(cfg, entry) })
+		}
+		wg.Wait()
+	}
+}
+
+func (p *gatewayPool) probeUpstream(cfg upstreamLivenessConfig, entry *gatewayUpstream) {
+	ctx := p.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	started := time.Now()
+	err := cfg.check(ctx, entry.conn)
+	if err == nil || entry.closing.Load() || p.contextErr() != nil {
+		return
+	}
+	if errors.Is(err, errUpstreamSlow) {
+		slog.InfoContext(ctx, "edge: upstream slow",
+			"upstream_kind", "gateway",
+			"upstream_id", fmt.Sprintf("%d", entry.id),
+			"connection_epoch", entry.id,
+			"probe_ms", time.Since(started).Milliseconds(),
+			"error", err,
+		)
+		return
+	}
+	slog.WarnContext(ctx, "edge: upstream stalled",
+		"upstream_kind", "gateway",
+		"upstream_id", fmt.Sprintf("%d", entry.id),
+		"connection_epoch", entry.id,
+		"trigger", "periodic",
+		"probe_ms", time.Since(started).Milliseconds(),
+		"last_activity", upstreamLastActivity(entry.conn),
+		"error", err,
+	)
+	if p.markFailed(entry, "liveness_probe_failed", true) {
+		slog.WarnContext(ctx, "edge: upstream evicted",
+			"upstream_kind", "gateway",
+			"upstream_id", fmt.Sprintf("%d", entry.id),
+			"connection_epoch", entry.id,
+			"reason", "liveness_probe_failed",
+		)
+	}
 }
 
 func (e *gatewayUpstream) readPackets() {

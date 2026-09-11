@@ -17,6 +17,7 @@ import (
 	"os/signal"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -284,12 +285,21 @@ type upstreamTransport struct {
 	cfg         Config
 	upstreamURL *url.URL
 	relay       *upstreamRelaySelector
+	liveness    upstreamLivenessConfig
 
 	mu           sync.Mutex
 	conn         giznet.Conn
 	listener     giznet.Listener
 	relayAttempt *upstreamRelayAttempt
 	connEpoch    uint64
+	closed       bool
+
+	// lastResponse records when a forwarded request last received response
+	// headers; recent traffic already proves liveness, so periodic probes skip.
+	lastResponse atomic.Int64
+	probeKick    chan struct{}
+	monitorStop  chan struct{}
+	monitorDone  chan struct{}
 }
 
 func newUpstreamTransport(
@@ -302,7 +312,179 @@ func newUpstreamTransport(
 	if _, _, err := transport.currentConn(); err != nil {
 		return nil, err
 	}
+	transport.startLivenessMonitor()
 	return transport, nil
+}
+
+// startLivenessMonitor must run before the transport is shared.
+func (t *upstreamTransport) startLivenessMonitor() {
+	if t.monitorStop != nil {
+		return
+	}
+	t.liveness = t.liveness.withDefaults()
+	t.probeKick = make(chan struct{}, 1)
+	t.monitorStop = make(chan struct{})
+	t.monitorDone = make(chan struct{})
+	go t.monitorLiveness()
+}
+
+func (t *upstreamTransport) kickLivenessProbe() {
+	select {
+	case t.probeKick <- struct{}{}:
+	default:
+	}
+}
+
+func (t *upstreamTransport) monitorContext() context.Context {
+	if t.ctx == nil {
+		return context.Background()
+	}
+	return t.ctx
+}
+
+func (t *upstreamTransport) contextDone() <-chan struct{} {
+	if t.ctx == nil {
+		return nil
+	}
+	return t.ctx.Done()
+}
+
+func (t *upstreamTransport) monitorLiveness() {
+	defer close(t.monitorDone)
+	cfg := t.liveness
+	backoff := cfg.backoffInitial
+	timer := time.NewTimer(cfg.interval)
+	defer timer.Stop()
+	for {
+		kicked := false
+		select {
+		case <-t.contextDone():
+			return
+		case <-t.monitorStop:
+			return
+		case <-timer.C:
+		case <-t.probeKick:
+			kicked = true
+			timer.Stop()
+		}
+		next := cfg.interval
+		conn, epoch, redial, closed := t.livenessTarget()
+		switch {
+		case closed:
+			return
+		case redial:
+			// A previously connected upstream was evicted or reset. Reconnect in
+			// the background so the next request finds a ready association.
+			slog.Info("edge: upstream redialing",
+				"upstream_kind", "control",
+				"upstream_id", "control",
+				"previous_connection_epoch", epoch,
+			)
+			if _, _, err := t.currentConn(); err != nil {
+				if t.ctx != nil && t.ctx.Err() != nil {
+					return
+				}
+				slog.Warn("edge: upstream redial failed",
+					"upstream_kind", "control",
+					"upstream_id", "control",
+					"previous_connection_epoch", epoch,
+					"retry_in", backoff.String(),
+					"error", err,
+				)
+				next = backoff
+				backoff = nextUpstreamRedialBackoff(backoff, cfg)
+			} else {
+				backoff = cfg.backoffInitial
+			}
+		case conn == nil:
+			// Never connected: ordered fallbacks stay lazy until a request needs them.
+		case !kicked && time.Since(time.Unix(0, t.lastResponse.Load())) < cfg.interval:
+		default:
+			started := time.Now()
+			err := cfg.check(t.monitorContext(), conn)
+			if err == nil {
+				break
+			}
+			if t.ctx != nil && t.ctx.Err() != nil {
+				return
+			}
+			if current, _, _, closed := t.livenessTarget(); closed || current != conn {
+				// Closed or replaced while probing; the failure says nothing new.
+				break
+			}
+			if errors.Is(err, errUpstreamSlow) {
+				slog.Info("edge: upstream slow",
+					"upstream_kind", "control",
+					"upstream_id", "control",
+					"connection_epoch", epoch,
+					"trigger", livenessTrigger(kicked),
+					"probe_ms", time.Since(started).Milliseconds(),
+					"error", err,
+				)
+				break
+			}
+			slog.Warn("edge: upstream stalled",
+				"upstream_kind", "control",
+				"upstream_id", "control",
+				"connection_epoch", epoch,
+				"trigger", livenessTrigger(kicked),
+				"probe_ms", time.Since(started).Milliseconds(),
+				"last_activity", upstreamLastActivity(conn),
+				"error", err,
+			)
+			if t.evictConn(epoch) {
+				slog.Warn("edge: upstream evicted",
+					"upstream_kind", "control",
+					"upstream_id", "control",
+					"connection_epoch", epoch,
+					"reason", "liveness_probe_failed",
+				)
+			}
+			next = 0
+		}
+		timer.Reset(max(next, time.Nanosecond))
+	}
+}
+
+func livenessTrigger(kicked bool) string {
+	if kicked {
+		return "slow_request"
+	}
+	return "periodic"
+}
+
+func upstreamLastActivity(conn giznet.Conn) string {
+	info := conn.PeerInfo()
+	if info == nil || info.LastSeen.IsZero() {
+		return ""
+	}
+	return info.LastSeen.Format(time.RFC3339Nano)
+}
+
+func (t *upstreamTransport) livenessTarget() (giznet.Conn, uint64, bool, bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.closed {
+		return nil, 0, false, true
+	}
+	if t.conn == nil {
+		return nil, t.connEpoch, t.connEpoch > 0, false
+	}
+	return t.conn, t.connEpoch, false, false
+}
+
+// evictConn closes the association of epoch after a failed liveness probe.
+// Closing it fails every in-flight request on it, which RoundTrip retries on
+// a fresh association when the method allows.
+func (t *upstreamTransport) evictConn(epoch uint64) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.conn == nil || epoch != t.connEpoch {
+		return false
+	}
+	t.relayAttempt.reportFailure()
+	_ = t.closeLocked()
+	return true
 }
 
 func (t *upstreamTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -337,13 +519,26 @@ func (t *upstreamTransport) roundTrip(req *http.Request) (*http.Response, giznet
 	if err != nil {
 		return nil, nil, 0, err
 	}
+	var stallProbe *time.Timer
+	if t.probeKick != nil {
+		stallProbe = time.AfterFunc(t.liveness.stallDelay, t.kickLivenessProbe)
+	}
 	resp, err := gizhttp.NewRoundTripper(conn, gizclaw.ServiceEdgeHTTP).RoundTrip(req)
+	if stallProbe != nil {
+		stallProbe.Stop()
+	}
+	if err == nil {
+		t.lastResponse.Store(time.Now().UnixNano())
+	}
 	return resp, conn, epoch, err
 }
 
 func (t *upstreamTransport) currentConn() (giznet.Conn, uint64, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	if t.closed {
+		return nil, 0, giznet.ErrConnClosed
+	}
 	if t.conn != nil {
 		return t.conn, t.connEpoch, nil
 	}
@@ -384,8 +579,15 @@ func (t *upstreamTransport) resetConn(epoch uint64, reportRelayFailure bool) {
 
 func (t *upstreamTransport) Close() error {
 	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.closeLocked()
+	alreadyClosed := t.closed
+	t.closed = true
+	err := t.closeLocked()
+	t.mu.Unlock()
+	if t.monitorStop != nil && !alreadyClosed {
+		close(t.monitorStop)
+		<-t.monitorDone
+	}
+	return err
 }
 
 func (t *upstreamTransport) closeLocked() error {
@@ -539,6 +741,18 @@ func writeEdgeProxyError(w http.ResponseWriter, req *http.Request, err error) {
 		status = http.StatusServiceUnavailable
 		code = "API_KEY_SERVER_UNAVAILABLE"
 	}
+	level := slog.LevelWarn
+	if req.Context().Err() != nil {
+		// The client went away first; the upstream error is only a consequence.
+		level = slog.LevelInfo
+	}
+	slog.Log(context.WithoutCancel(req.Context()), level, "gizedge: upstream proxy error",
+		"request_path", req.URL.Path,
+		"method", req.Method,
+		"status", status,
+		"client_canceled", req.Context().Err() != nil,
+		"error", err,
+	)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(apitypes.NewErrorResponse(code, http.StatusText(status)))
