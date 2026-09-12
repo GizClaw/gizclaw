@@ -10,6 +10,7 @@ import (
 	"iter"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -653,10 +654,14 @@ func TestTransformerEmitInterimReopensCompletedProviderSession(t *testing.T) {
 	first := newFakeDoubaoASRSession()
 	first.recvDone = make(chan struct{})
 	first.recvErr = &doubaospeech.Error{Code: doubaoASRPacketWaitTimeout, Message: "waiting next packet timeout"}
-	// Complete the first provider session only after both segment-a frames
-	// reached it. Completing it on the first frame lets the receiver finish
-	// before the transformer reads the continuation, which then reaps the
-	// completed session and opens a replacement for segment-a.
+	// Hold the transform loop inside the first send until the test has read
+	// the segment-a transcript EOS, so the receiver has fully processed the
+	// result before the continuation is read. The provider session completes
+	// only after the continuation reaches it; completing it on the first frame
+	// would let the transformer reap it and open a replacement for segment-a.
+	firstTranscriptRead := make(chan struct{})
+	releaseFirstSend := sync.OnceFunc(func() { close(firstTranscriptRead) })
+	t.Cleanup(releaseFirstSend)
 	first.sendAudio = func(_ context.Context, data []byte, isLast bool) error {
 		first.sends = append(first.sends, fakeDoubaoASRSend{data: slices.Clone(data), isLast: isLast})
 		switch len(first.sends) {
@@ -667,6 +672,7 @@ func TestTransformerEmitInterimReopensCompletedProviderSession(t *testing.T) {
 					{Text: "first segment", StartTime: 0, EndTime: 100, Definite: true},
 				},
 			}
+			<-firstTranscriptRead
 		case 2:
 			close(first.result)
 		}
@@ -704,6 +710,7 @@ func TestTransformerEmitInterimReopensCompletedProviderSession(t *testing.T) {
 			break
 		}
 	}
+	releaseFirstSend()
 	select {
 	case <-first.recvDone:
 	case <-time.After(5 * time.Second):
