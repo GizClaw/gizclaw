@@ -98,6 +98,12 @@ int gzc_control_decode_wifi_scan_result(
     gzc_str_t object_json,
     gzc_control_wifi_scan_result_t *out);
 int gzc_control_decode_contact(gzc_str_t object_json, gzc_control_contact_t *out);
+int gzc_control_decode_invite_token(gzc_str_t object_json, gzc_control_invite_token_t *out);
+int gzc_control_decode_friend(gzc_str_t object_json, gzc_control_friend_t *out);
+int gzc_control_decode_friend_group(gzc_str_t object_json, gzc_control_friend_group_t *out);
+int gzc_control_decode_friend_group_member(
+    gzc_str_t object_json,
+    gzc_control_friend_group_member_t *out);
 int gzc_control_decode_telemetry_value(gzc_str_t object_json, gzc_control_telemetry_value_t *out);
 int gzc_control_decode_telemetry_point(gzc_str_t object_json, gzc_control_telemetry_point_t *out);
 int gzc_control_decode_telemetry_bucket(gzc_str_t object_json, gzc_control_telemetry_bucket_t *out);
@@ -123,6 +129,9 @@ int gzc_control_decode_array(
 /* gzc_control_decode_fn adapters for the list routes. */
 int gzc_control_decode_api_key_item(gzc_str_t object_json, void *out);
 int gzc_control_decode_contact_item(gzc_str_t object_json, void *out);
+int gzc_control_decode_friend_item(gzc_str_t object_json, void *out);
+int gzc_control_decode_friend_group_item(gzc_str_t object_json, void *out);
+int gzc_control_decode_friend_group_member_item(gzc_str_t object_json, void *out);
 int gzc_control_decode_telemetry_value_item(gzc_str_t object_json, void *out);
 int gzc_control_decode_telemetry_point_item(gzc_str_t object_json, void *out);
 int gzc_control_decode_telemetry_bucket_item(gzc_str_t object_json, void *out);

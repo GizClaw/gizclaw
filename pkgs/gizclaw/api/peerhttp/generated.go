@@ -25,6 +25,45 @@ const (
 	BearerAuthScopes bearerAuthContextKey = "BearerAuth.Scopes"
 )
 
+// Defines values for FriendGroupMutableRole.
+const (
+	FriendGroupMutableRoleAdmin  FriendGroupMutableRole = "admin"
+	FriendGroupMutableRoleMember FriendGroupMutableRole = "member"
+)
+
+// Valid indicates whether the value is a known member of the FriendGroupMutableRole enum.
+func (e FriendGroupMutableRole) Valid() bool {
+	switch e {
+	case FriendGroupMutableRoleAdmin:
+		return true
+	case FriendGroupMutableRoleMember:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FriendGroupRole.
+const (
+	FriendGroupRoleAdmin  FriendGroupRole = "admin"
+	FriendGroupRoleMember FriendGroupRole = "member"
+	FriendGroupRoleOwner  FriendGroupRole = "owner"
+)
+
+// Valid indicates whether the value is a known member of the FriendGroupRole enum.
+func (e FriendGroupRole) Valid() bool {
+	switch e {
+	case FriendGroupRoleAdmin:
+		return true
+	case FriendGroupRoleMember:
+		return true
+	case FriendGroupRoleOwner:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SearchDeviceLogsParamsLevel.
 const (
 	DEBUG SearchDeviceLogsParamsLevel = "DEBUG"
@@ -285,9 +324,151 @@ type DeviceWorkspace struct {
 	WorkflowName *string `json:"workflow_name,omitempty"`
 }
 
+// Friend defines model for Friend.
+type Friend struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// Info Public profile of another Peer, taken from its device name and emoji. Omitted when the Peer no longer exists.
+	Info *PeerProfileInfo `json:"info,omitempty"`
+
+	// Name Friend name, equal to peer_public_key.
+	Name          string    `json:"name"`
+	PeerPublicKey string    `json:"peer_public_key"`
+	UpdatedAt     time.Time `json:"updated_at"`
+
+	// WorkspaceName Name of the Workspace the two Friends share.
+	WorkspaceName string `json:"workspace_name"`
+}
+
+// FriendAddRequest defines model for FriendAddRequest.
+type FriendAddRequest struct {
+	InviteToken string `json:"invite_token"`
+}
+
+// FriendGroup defines model for FriendGroup.
+type FriendGroup struct {
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// CreatedByPeerPublicKey Owner public key.
+	CreatedByPeerPublicKey *string         `json:"created_by_peer_public_key,omitempty"`
+	Description            *string         `json:"description,omitempty"`
+	DisplayName            *string         `json:"display_name,omitempty"`
+	MyRole                 FriendGroupRole `json:"my_role"`
+
+	// Name The bound device's own immutable name for the Group.
+	Name      string     `json:"name"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+
+	// WorkspaceName Name of the Workspace the members share.
+	WorkspaceName *string `json:"workspace_name,omitempty"`
+}
+
+// FriendGroupCreateRequest defines model for FriendGroupCreateRequest.
+type FriendGroupCreateRequest struct {
+	Description *string `json:"description,omitempty"`
+	DisplayName *string `json:"display_name,omitempty"`
+
+	// Name The device's own immutable name for the Group, without surrounding whitespace.
+	Name string `json:"name"`
+}
+
+// FriendGroupJoinRequest defines model for FriendGroupJoinRequest.
+type FriendGroupJoinRequest struct {
+	InviteToken string `json:"invite_token"`
+
+	// Name The device's own immutable name for the joined Group, without surrounding whitespace.
+	Name string `json:"name"`
+}
+
+// FriendGroupJoinResult defines model for FriendGroupJoinResult.
+type FriendGroupJoinResult struct {
+	Group  FriendGroup       `json:"group"`
+	Member FriendGroupMember `json:"member"`
+}
+
+// FriendGroupList defines model for FriendGroupList.
+type FriendGroupList struct {
+	HasNext    bool          `json:"has_next"`
+	Items      []FriendGroup `json:"items"`
+	NextCursor *string       `json:"next_cursor,omitempty"`
+}
+
+// FriendGroupMember defines model for FriendGroupMember.
+type FriendGroupMember struct {
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// Info Public profile of another Peer, taken from its device name and emoji. Omitted when the Peer no longer exists.
+	Info *PeerProfileInfo `json:"info,omitempty"`
+
+	// Name Member name, equal to peer_public_key.
+	Name          string          `json:"name"`
+	PeerPublicKey string          `json:"peer_public_key"`
+	Role          FriendGroupRole `json:"role"`
+	UpdatedAt     *time.Time      `json:"updated_at,omitempty"`
+}
+
+// FriendGroupMemberAddRequest defines model for FriendGroupMemberAddRequest.
+type FriendGroupMemberAddRequest struct {
+	// MemberName The added Peer's own immutable name for the Group.
+	MemberName    string                 `json:"member_name"`
+	PeerPublicKey string                 `json:"peer_public_key"`
+	Role          FriendGroupMutableRole `json:"role"`
+}
+
+// FriendGroupMemberList defines model for FriendGroupMemberList.
+type FriendGroupMemberList struct {
+	HasNext    bool                `json:"has_next"`
+	Items      []FriendGroupMember `json:"items"`
+	NextCursor *string             `json:"next_cursor,omitempty"`
+}
+
+// FriendGroupMemberPutRequest defines model for FriendGroupMemberPutRequest.
+type FriendGroupMemberPutRequest struct {
+	Role FriendGroupMutableRole `json:"role"`
+}
+
+// FriendGroupMutableRole defines model for FriendGroupMutableRole.
+type FriendGroupMutableRole string
+
+// FriendGroupPutRequest defines model for FriendGroupPutRequest.
+type FriendGroupPutRequest struct {
+	Description *string `json:"description,omitempty"`
+	DisplayName *string `json:"display_name,omitempty"`
+}
+
+// FriendGroupRole defines model for FriendGroupRole.
+type FriendGroupRole string
+
+// FriendList defines model for FriendList.
+type FriendList struct {
+	HasNext    bool     `json:"has_next"`
+	Items      []Friend `json:"items"`
+	NextCursor *string  `json:"next_cursor,omitempty"`
+}
+
 // GiznetWebRTCSignalingError defines model for GiznetWebRTCSignalingError.
 type GiznetWebRTCSignalingError struct {
 	Error string `json:"error"`
+}
+
+// InviteToken defines model for InviteToken.
+type InviteToken struct {
+	ExpiresAt time.Time `json:"expires_at"`
+
+	// InviteToken Opaque invite code to share with the joining Peer.
+	InviteToken string `json:"invite_token"`
+}
+
+// InviteTokenCreateRequest defines model for InviteTokenCreateRequest.
+type InviteTokenCreateRequest struct {
+	// TtlSeconds Requested lifetime. Omit to keep the default 5 minute lifetime and to return an active token unchanged.
+	TtlSeconds *int32 `json:"ttl_seconds,omitempty"`
+}
+
+// PeerProfileInfo Public profile of another Peer, taken from its device name and emoji. Omitted when the Peer no longer exists.
+type PeerProfileInfo struct {
+	DisplayName *string `json:"display_name,omitempty"`
+	Emoji       *string `json:"emoji,omitempty"`
 }
 
 // PublicKeyList defines model for PublicKeyList.
@@ -318,6 +499,18 @@ type FirmwareNotFound = externalRef0.ErrorResponse
 
 // Forbidden defines model for Forbidden.
 type Forbidden = externalRef0.ErrorResponse
+
+// FriendGroupConflict defines model for FriendGroupConflict.
+type FriendGroupConflict = externalRef0.ErrorResponse
+
+// FriendGroupForbidden defines model for FriendGroupForbidden.
+type FriendGroupForbidden = externalRef0.ErrorResponse
+
+// FriendGroupMemberNotFound defines model for FriendGroupMemberNotFound.
+type FriendGroupMemberNotFound = externalRef0.ErrorResponse
+
+// FriendGroupNotFound defines model for FriendGroupNotFound.
+type FriendGroupNotFound = externalRef0.ErrorResponse
 
 // InternalError defines model for InternalError.
 type InternalError = externalRef0.ErrorResponse
@@ -418,6 +611,27 @@ type ListDeviceWorkspaceHistoryParams struct {
 // ListDeviceWorkspaceHistoryParamsOrder defines parameters for ListDeviceWorkspaceHistory.
 type ListDeviceWorkspaceHistoryParamsOrder string
 
+// ListFriendGroupsParams defines parameters for ListFriendGroups.
+type ListFriendGroupsParams struct {
+	// Cursor Opaque next_cursor returned by the previous page.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int32  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListFriendGroupMembersParams defines parameters for ListFriendGroupMembers.
+type ListFriendGroupMembersParams struct {
+	// Cursor Opaque next_cursor returned by the previous page.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int32  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListFriendsParams defines parameters for ListFriends.
+type ListFriendsParams struct {
+	// Cursor Opaque next_cursor returned by the previous page.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int32  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // CreateGiznetWebRTCOfferParams defines parameters for CreateGiznetWebRTCOffer.
 type CreateGiznetWebRTCOfferParams struct {
 	// XGiznetPublicKey Client public key.
@@ -471,6 +685,30 @@ type ConnectDeviceWifiJSONRequestBody = DeviceWifiConnectRequest
 
 // ScanDeviceWifiJSONRequestBody defines body for ScanDeviceWifi for application/json ContentType.
 type ScanDeviceWifiJSONRequestBody = DeviceWifiScanRequest
+
+// CreateFriendGroupJSONRequestBody defines body for CreateFriendGroup for application/json ContentType.
+type CreateFriendGroupJSONRequestBody = FriendGroupCreateRequest
+
+// JoinFriendGroupJSONRequestBody defines body for JoinFriendGroup for application/json ContentType.
+type JoinFriendGroupJSONRequestBody = FriendGroupJoinRequest
+
+// PutFriendGroupJSONRequestBody defines body for PutFriendGroup for application/json ContentType.
+type PutFriendGroupJSONRequestBody = FriendGroupPutRequest
+
+// CreateFriendGroupInviteTokenJSONRequestBody defines body for CreateFriendGroupInviteToken for application/json ContentType.
+type CreateFriendGroupInviteTokenJSONRequestBody = InviteTokenCreateRequest
+
+// AddFriendGroupMemberJSONRequestBody defines body for AddFriendGroupMember for application/json ContentType.
+type AddFriendGroupMemberJSONRequestBody = FriendGroupMemberAddRequest
+
+// PutFriendGroupMemberJSONRequestBody defines body for PutFriendGroupMember for application/json ContentType.
+type PutFriendGroupMemberJSONRequestBody = FriendGroupMemberPutRequest
+
+// AddFriendJSONRequestBody defines body for AddFriend for application/json ContentType.
+type AddFriendJSONRequestBody = FriendAddRequest
+
+// CreateFriendInviteTokenJSONRequestBody defines body for CreateFriendInviteToken for application/json ContentType.
+type CreateFriendInviteTokenJSONRequestBody = InviteTokenCreateRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -707,6 +945,91 @@ type ClientInterface interface {
 
 	// DownloadDeviceHistoryAudio request
 	DownloadDeviceHistoryAudio(ctx context.Context, workspaceId string, historyId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListFriendGroups request
+	ListFriendGroups(ctx context.Context, params *ListFriendGroupsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateFriendGroupWithBody request with any body
+	CreateFriendGroupWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateFriendGroup(ctx context.Context, body CreateFriendGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// JoinFriendGroupWithBody request with any body
+	JoinFriendGroupWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	JoinFriendGroup(ctx context.Context, body JoinFriendGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteFriendGroup request
+	DeleteFriendGroup(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetFriendGroup request
+	GetFriendGroup(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutFriendGroupWithBody request with any body
+	PutFriendGroupWithBody(ctx context.Context, friendGroupName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutFriendGroup(ctx context.Context, friendGroupName string, body PutFriendGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LeaveFriendGroup request
+	LeaveFriendGroup(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ClearFriendGroupInviteToken request
+	ClearFriendGroupInviteToken(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetFriendGroupInviteToken request
+	GetFriendGroupInviteToken(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateFriendGroupInviteToken request without the optional body
+	CreateFriendGroupInviteToken(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateFriendGroupInviteTokenWithBody request with any body
+	CreateFriendGroupInviteTokenWithBody(ctx context.Context, friendGroupName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateFriendGroupInviteTokenWithJSONBody(ctx context.Context, friendGroupName string, body CreateFriendGroupInviteTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListFriendGroupMembers request
+	ListFriendGroupMembers(ctx context.Context, friendGroupName string, params *ListFriendGroupMembersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AddFriendGroupMemberWithBody request with any body
+	AddFriendGroupMemberWithBody(ctx context.Context, friendGroupName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AddFriendGroupMember(ctx context.Context, friendGroupName string, body AddFriendGroupMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteFriendGroupMember request
+	DeleteFriendGroupMember(ctx context.Context, friendGroupName string, memberName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutFriendGroupMemberWithBody request with any body
+	PutFriendGroupMemberWithBody(ctx context.Context, friendGroupName string, memberName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutFriendGroupMember(ctx context.Context, friendGroupName string, memberName string, body PutFriendGroupMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListFriends request
+	ListFriends(ctx context.Context, params *ListFriendsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AddFriendWithBody request with any body
+	AddFriendWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AddFriend(ctx context.Context, body AddFriendJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ClearFriendInviteToken request
+	ClearFriendInviteToken(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetFriendInviteToken request
+	GetFriendInviteToken(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateFriendInviteToken request without the optional body
+	CreateFriendInviteToken(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateFriendInviteTokenWithBody request with any body
+	CreateFriendInviteTokenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateFriendInviteTokenWithJSONBody(ctx context.Context, body CreateFriendInviteTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteFriend request
+	DeleteFriend(ctx context.Context, friendName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetFriend request
+	GetFriend(ctx context.Context, friendName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// FindPublicKeysByIMEI request
 	FindPublicKeysByIMEI(ctx context.Context, tac string, serial string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1419,6 +1742,378 @@ func (c *Client) ListDeviceWorkspaceHistory(ctx context.Context, workspaceId str
 
 func (c *Client) DownloadDeviceHistoryAudio(ctx context.Context, workspaceId string, historyId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDownloadDeviceHistoryAudioRequest(c.Server, workspaceId, historyId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListFriendGroups(ctx context.Context, params *ListFriendGroupsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListFriendGroupsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateFriendGroupWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateFriendGroupRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateFriendGroup(ctx context.Context, body CreateFriendGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateFriendGroupRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) JoinFriendGroupWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewJoinFriendGroupRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) JoinFriendGroup(ctx context.Context, body JoinFriendGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewJoinFriendGroupRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteFriendGroup(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteFriendGroupRequest(c.Server, friendGroupName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetFriendGroup(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFriendGroupRequest(c.Server, friendGroupName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutFriendGroupWithBody(ctx context.Context, friendGroupName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutFriendGroupRequestWithBody(c.Server, friendGroupName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutFriendGroup(ctx context.Context, friendGroupName string, body PutFriendGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutFriendGroupRequest(c.Server, friendGroupName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) LeaveFriendGroup(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLeaveFriendGroupRequest(c.Server, friendGroupName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ClearFriendGroupInviteToken(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClearFriendGroupInviteTokenRequest(c.Server, friendGroupName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetFriendGroupInviteToken(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFriendGroupInviteTokenRequest(c.Server, friendGroupName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateFriendGroupInviteToken(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateFriendGroupInviteTokenRequest(c.Server, friendGroupName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateFriendGroupInviteTokenWithBody(ctx context.Context, friendGroupName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateFriendGroupInviteTokenRequestWithBody(c.Server, friendGroupName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateFriendGroupInviteTokenWithJSONBody(ctx context.Context, friendGroupName string, body CreateFriendGroupInviteTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateFriendGroupInviteTokenRequestWithJSONBody(c.Server, friendGroupName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListFriendGroupMembers(ctx context.Context, friendGroupName string, params *ListFriendGroupMembersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListFriendGroupMembersRequest(c.Server, friendGroupName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AddFriendGroupMemberWithBody(ctx context.Context, friendGroupName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddFriendGroupMemberRequestWithBody(c.Server, friendGroupName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AddFriendGroupMember(ctx context.Context, friendGroupName string, body AddFriendGroupMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddFriendGroupMemberRequest(c.Server, friendGroupName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteFriendGroupMember(ctx context.Context, friendGroupName string, memberName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteFriendGroupMemberRequest(c.Server, friendGroupName, memberName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutFriendGroupMemberWithBody(ctx context.Context, friendGroupName string, memberName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutFriendGroupMemberRequestWithBody(c.Server, friendGroupName, memberName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutFriendGroupMember(ctx context.Context, friendGroupName string, memberName string, body PutFriendGroupMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutFriendGroupMemberRequest(c.Server, friendGroupName, memberName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListFriends(ctx context.Context, params *ListFriendsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListFriendsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AddFriendWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddFriendRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AddFriend(ctx context.Context, body AddFriendJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddFriendRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ClearFriendInviteToken(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClearFriendInviteTokenRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetFriendInviteToken(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFriendInviteTokenRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateFriendInviteToken(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateFriendInviteTokenRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateFriendInviteTokenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateFriendInviteTokenRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateFriendInviteTokenWithJSONBody(ctx context.Context, body CreateFriendInviteTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateFriendInviteTokenRequestWithJSONBody(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteFriend(ctx context.Context, friendName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteFriendRequest(c.Server, friendName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetFriend(ctx context.Context, friendName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFriendRequest(c.Server, friendName)
 	if err != nil {
 		return nil, err
 	}
@@ -3296,6 +3991,919 @@ func NewDownloadDeviceHistoryAudioRequest(server string, workspaceId string, his
 	return req, nil
 }
 
+// NewListFriendGroupsRequest generates requests for ListFriendGroups
+func NewListFriendGroupsRequest(server string, params *ListFriendGroupsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friend-groups")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateFriendGroupRequest calls the generic CreateFriendGroup builder with application/json body
+func NewCreateFriendGroupRequest(server string, body CreateFriendGroupJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateFriendGroupRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateFriendGroupRequestWithBody generates requests for CreateFriendGroup with any type of body
+func NewCreateFriendGroupRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friend-groups")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewJoinFriendGroupRequest calls the generic JoinFriendGroup builder with application/json body
+func NewJoinFriendGroupRequest(server string, body JoinFriendGroupJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewJoinFriendGroupRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewJoinFriendGroupRequestWithBody generates requests for JoinFriendGroup with any type of body
+func NewJoinFriendGroupRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friend-groups/@join")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteFriendGroupRequest generates requests for DeleteFriendGroup
+func NewDeleteFriendGroupRequest(server string, friendGroupName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "friendGroupName", friendGroupName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friend-groups/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetFriendGroupRequest generates requests for GetFriendGroup
+func NewGetFriendGroupRequest(server string, friendGroupName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "friendGroupName", friendGroupName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friend-groups/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutFriendGroupRequest calls the generic PutFriendGroup builder with application/json body
+func NewPutFriendGroupRequest(server string, friendGroupName string, body PutFriendGroupJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutFriendGroupRequestWithBody(server, friendGroupName, "application/json", bodyReader)
+}
+
+// NewPutFriendGroupRequestWithBody generates requests for PutFriendGroup with any type of body
+func NewPutFriendGroupRequestWithBody(server string, friendGroupName string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "friendGroupName", friendGroupName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friend-groups/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewLeaveFriendGroupRequest generates requests for LeaveFriendGroup
+func NewLeaveFriendGroupRequest(server string, friendGroupName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "friendGroupName", friendGroupName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friend-groups/%s/@leave", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewClearFriendGroupInviteTokenRequest generates requests for ClearFriendGroupInviteToken
+func NewClearFriendGroupInviteTokenRequest(server string, friendGroupName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "friendGroupName", friendGroupName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friend-groups/%s/invite-token", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetFriendGroupInviteTokenRequest generates requests for GetFriendGroupInviteToken
+func NewGetFriendGroupInviteTokenRequest(server string, friendGroupName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "friendGroupName", friendGroupName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friend-groups/%s/invite-token", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateFriendGroupInviteTokenRequest generates a request without the optional body.
+func NewCreateFriendGroupInviteTokenRequest(server string, friendGroupName string) (*http.Request, error) {
+	req, err := NewCreateFriendGroupInviteTokenRequestWithBody(server, friendGroupName, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Del("Content-Type")
+	return req, nil
+}
+
+// NewCreateFriendGroupInviteTokenRequestWithJSONBody calls the generic CreateFriendGroupInviteToken builder with application/json body
+func NewCreateFriendGroupInviteTokenRequestWithJSONBody(server string, friendGroupName string, body CreateFriendGroupInviteTokenJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateFriendGroupInviteTokenRequestWithBody(server, friendGroupName, "application/json", bodyReader)
+}
+
+// NewCreateFriendGroupInviteTokenRequestWithBody generates requests for CreateFriendGroupInviteToken with any type of body
+func NewCreateFriendGroupInviteTokenRequestWithBody(server string, friendGroupName string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "friendGroupName", friendGroupName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friend-groups/%s/invite-token", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListFriendGroupMembersRequest generates requests for ListFriendGroupMembers
+func NewListFriendGroupMembersRequest(server string, friendGroupName string, params *ListFriendGroupMembersParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "friendGroupName", friendGroupName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friend-groups/%s/members", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAddFriendGroupMemberRequest calls the generic AddFriendGroupMember builder with application/json body
+func NewAddFriendGroupMemberRequest(server string, friendGroupName string, body AddFriendGroupMemberJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAddFriendGroupMemberRequestWithBody(server, friendGroupName, "application/json", bodyReader)
+}
+
+// NewAddFriendGroupMemberRequestWithBody generates requests for AddFriendGroupMember with any type of body
+func NewAddFriendGroupMemberRequestWithBody(server string, friendGroupName string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "friendGroupName", friendGroupName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friend-groups/%s/members", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteFriendGroupMemberRequest generates requests for DeleteFriendGroupMember
+func NewDeleteFriendGroupMemberRequest(server string, friendGroupName string, memberName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "friendGroupName", friendGroupName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "memberName", memberName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friend-groups/%s/members/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutFriendGroupMemberRequest calls the generic PutFriendGroupMember builder with application/json body
+func NewPutFriendGroupMemberRequest(server string, friendGroupName string, memberName string, body PutFriendGroupMemberJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutFriendGroupMemberRequestWithBody(server, friendGroupName, memberName, "application/json", bodyReader)
+}
+
+// NewPutFriendGroupMemberRequestWithBody generates requests for PutFriendGroupMember with any type of body
+func NewPutFriendGroupMemberRequestWithBody(server string, friendGroupName string, memberName string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "friendGroupName", friendGroupName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "memberName", memberName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friend-groups/%s/members/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListFriendsRequest generates requests for ListFriends
+func NewListFriendsRequest(server string, params *ListFriendsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friends")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAddFriendRequest calls the generic AddFriend builder with application/json body
+func NewAddFriendRequest(server string, body AddFriendJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAddFriendRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAddFriendRequestWithBody generates requests for AddFriend with any type of body
+func NewAddFriendRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friends")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewClearFriendInviteTokenRequest generates requests for ClearFriendInviteToken
+func NewClearFriendInviteTokenRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friends/invite-token")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetFriendInviteTokenRequest generates requests for GetFriendInviteToken
+func NewGetFriendInviteTokenRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friends/invite-token")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateFriendInviteTokenRequest generates a request without the optional body.
+func NewCreateFriendInviteTokenRequest(server string) (*http.Request, error) {
+	req, err := NewCreateFriendInviteTokenRequestWithBody(server, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Del("Content-Type")
+	return req, nil
+}
+
+// NewCreateFriendInviteTokenRequestWithJSONBody calls the generic CreateFriendInviteToken builder with application/json body
+func NewCreateFriendInviteTokenRequestWithJSONBody(server string, body CreateFriendInviteTokenJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateFriendInviteTokenRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateFriendInviteTokenRequestWithBody generates requests for CreateFriendInviteToken with any type of body
+func NewCreateFriendInviteTokenRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friends/invite-token")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteFriendRequest generates requests for DeleteFriend
+func NewDeleteFriendRequest(server string, friendName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "friendName", friendName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friends/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetFriendRequest generates requests for GetFriend
+func NewGetFriendRequest(server string, friendName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "friendName", friendName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/friends/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewFindPublicKeysByIMEIRequest generates requests for FindPublicKeysByIMEI
 func NewFindPublicKeysByIMEIRequest(server string, tac string, serial string) (*http.Request, error) {
 	var err error
@@ -3663,6 +5271,91 @@ type ClientWithResponsesInterface interface {
 
 	// DownloadDeviceHistoryAudioWithResponse request
 	DownloadDeviceHistoryAudioWithResponse(ctx context.Context, workspaceId string, historyId string, reqEditors ...RequestEditorFn) (*DownloadDeviceHistoryAudioResponse, error)
+
+	// ListFriendGroupsWithResponse request
+	ListFriendGroupsWithResponse(ctx context.Context, params *ListFriendGroupsParams, reqEditors ...RequestEditorFn) (*ListFriendGroupsResponse, error)
+
+	// CreateFriendGroupWithBodyWithResponse request with any body
+	CreateFriendGroupWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFriendGroupResponse, error)
+
+	CreateFriendGroupWithResponse(ctx context.Context, body CreateFriendGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFriendGroupResponse, error)
+
+	// JoinFriendGroupWithBodyWithResponse request with any body
+	JoinFriendGroupWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*JoinFriendGroupResponse, error)
+
+	JoinFriendGroupWithResponse(ctx context.Context, body JoinFriendGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*JoinFriendGroupResponse, error)
+
+	// DeleteFriendGroupWithResponse request
+	DeleteFriendGroupWithResponse(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*DeleteFriendGroupResponse, error)
+
+	// GetFriendGroupWithResponse request
+	GetFriendGroupWithResponse(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*GetFriendGroupResponse, error)
+
+	// PutFriendGroupWithBodyWithResponse request with any body
+	PutFriendGroupWithBodyWithResponse(ctx context.Context, friendGroupName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutFriendGroupResponse, error)
+
+	PutFriendGroupWithResponse(ctx context.Context, friendGroupName string, body PutFriendGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*PutFriendGroupResponse, error)
+
+	// LeaveFriendGroupWithResponse request
+	LeaveFriendGroupWithResponse(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*LeaveFriendGroupResponse, error)
+
+	// ClearFriendGroupInviteTokenWithResponse request
+	ClearFriendGroupInviteTokenWithResponse(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*ClearFriendGroupInviteTokenResponse, error)
+
+	// GetFriendGroupInviteTokenWithResponse request
+	GetFriendGroupInviteTokenWithResponse(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*GetFriendGroupInviteTokenResponse, error)
+
+	// CreateFriendGroupInviteTokenWithResponse request without the optional body
+	CreateFriendGroupInviteTokenWithResponse(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*CreateFriendGroupInviteTokenResponse, error)
+
+	// CreateFriendGroupInviteTokenWithBodyWithResponse request with any body
+	CreateFriendGroupInviteTokenWithBodyWithResponse(ctx context.Context, friendGroupName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFriendGroupInviteTokenResponse, error)
+
+	CreateFriendGroupInviteTokenWithJSONBodyWithResponse(ctx context.Context, friendGroupName string, body CreateFriendGroupInviteTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFriendGroupInviteTokenResponse, error)
+
+	// ListFriendGroupMembersWithResponse request
+	ListFriendGroupMembersWithResponse(ctx context.Context, friendGroupName string, params *ListFriendGroupMembersParams, reqEditors ...RequestEditorFn) (*ListFriendGroupMembersResponse, error)
+
+	// AddFriendGroupMemberWithBodyWithResponse request with any body
+	AddFriendGroupMemberWithBodyWithResponse(ctx context.Context, friendGroupName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddFriendGroupMemberResponse, error)
+
+	AddFriendGroupMemberWithResponse(ctx context.Context, friendGroupName string, body AddFriendGroupMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*AddFriendGroupMemberResponse, error)
+
+	// DeleteFriendGroupMemberWithResponse request
+	DeleteFriendGroupMemberWithResponse(ctx context.Context, friendGroupName string, memberName string, reqEditors ...RequestEditorFn) (*DeleteFriendGroupMemberResponse, error)
+
+	// PutFriendGroupMemberWithBodyWithResponse request with any body
+	PutFriendGroupMemberWithBodyWithResponse(ctx context.Context, friendGroupName string, memberName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutFriendGroupMemberResponse, error)
+
+	PutFriendGroupMemberWithResponse(ctx context.Context, friendGroupName string, memberName string, body PutFriendGroupMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*PutFriendGroupMemberResponse, error)
+
+	// ListFriendsWithResponse request
+	ListFriendsWithResponse(ctx context.Context, params *ListFriendsParams, reqEditors ...RequestEditorFn) (*ListFriendsResponse, error)
+
+	// AddFriendWithBodyWithResponse request with any body
+	AddFriendWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddFriendResponse, error)
+
+	AddFriendWithResponse(ctx context.Context, body AddFriendJSONRequestBody, reqEditors ...RequestEditorFn) (*AddFriendResponse, error)
+
+	// ClearFriendInviteTokenWithResponse request
+	ClearFriendInviteTokenWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ClearFriendInviteTokenResponse, error)
+
+	// GetFriendInviteTokenWithResponse request
+	GetFriendInviteTokenWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetFriendInviteTokenResponse, error)
+
+	// CreateFriendInviteTokenWithResponse request without the optional body
+	CreateFriendInviteTokenWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateFriendInviteTokenResponse, error)
+
+	// CreateFriendInviteTokenWithBodyWithResponse request with any body
+	CreateFriendInviteTokenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFriendInviteTokenResponse, error)
+
+	CreateFriendInviteTokenWithJSONBodyWithResponse(ctx context.Context, body CreateFriendInviteTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFriendInviteTokenResponse, error)
+
+	// DeleteFriendWithResponse request
+	DeleteFriendWithResponse(ctx context.Context, friendName string, reqEditors ...RequestEditorFn) (*DeleteFriendResponse, error)
+
+	// GetFriendWithResponse request
+	GetFriendWithResponse(ctx context.Context, friendName string, reqEditors ...RequestEditorFn) (*GetFriendResponse, error)
 
 	// FindPublicKeysByIMEIWithResponse request
 	FindPublicKeysByIMEIWithResponse(ctx context.Context, tac string, serial string, reqEditors ...RequestEditorFn) (*FindPublicKeysByIMEIResponse, error)
@@ -5165,6 +6858,751 @@ func (r DownloadDeviceHistoryAudioResponse) ContentType() string {
 	return ""
 }
 
+type ListFriendGroupsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FriendGroupList
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListFriendGroupsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListFriendGroupsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListFriendGroupsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateFriendGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *FriendGroup
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateFriendGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateFriendGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateFriendGroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type JoinFriendGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FriendGroupJoinResult
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r JoinFriendGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r JoinFriendGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r JoinFriendGroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteFriendGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *FriendGroupForbidden
+	JSON404      *FriendGroupNotFound
+	JSON409      *FriendGroupConflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteFriendGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteFriendGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteFriendGroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetFriendGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FriendGroup
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *FriendGroupNotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetFriendGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetFriendGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetFriendGroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PutFriendGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FriendGroup
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *FriendGroupForbidden
+	JSON404      *FriendGroupNotFound
+	JSON409      *FriendGroupConflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r PutFriendGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutFriendGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutFriendGroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type LeaveFriendGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *FriendGroupNotFound
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r LeaveFriendGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LeaveFriendGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LeaveFriendGroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ClearFriendGroupInviteTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *FriendGroupForbidden
+	JSON404      *FriendGroupNotFound
+	JSON409      *FriendGroupConflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ClearFriendGroupInviteTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ClearFriendGroupInviteTokenResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ClearFriendGroupInviteTokenResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetFriendGroupInviteTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InviteToken
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *FriendGroupForbidden
+	JSON404      *externalRef0.ErrorResponse
+	JSON409      *FriendGroupConflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetFriendGroupInviteTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetFriendGroupInviteTokenResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetFriendGroupInviteTokenResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateFriendGroupInviteTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InviteToken
+	JSON400      *externalRef0.ErrorResponse
+	JSON401      *Unauthorized
+	JSON403      *FriendGroupForbidden
+	JSON404      *FriendGroupNotFound
+	JSON409      *FriendGroupConflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateFriendGroupInviteTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateFriendGroupInviteTokenResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateFriendGroupInviteTokenResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListFriendGroupMembersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FriendGroupMemberList
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *FriendGroupNotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListFriendGroupMembersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListFriendGroupMembersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListFriendGroupMembersResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AddFriendGroupMemberResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *FriendGroupMember
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *FriendGroupForbidden
+	JSON404      *FriendGroupNotFound
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r AddFriendGroupMemberResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AddFriendGroupMemberResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AddFriendGroupMemberResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteFriendGroupMemberResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *FriendGroupForbidden
+	JSON404      *FriendGroupMemberNotFound
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteFriendGroupMemberResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteFriendGroupMemberResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteFriendGroupMemberResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PutFriendGroupMemberResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FriendGroupMember
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *FriendGroupForbidden
+	JSON404      *FriendGroupMemberNotFound
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r PutFriendGroupMemberResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutFriendGroupMemberResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutFriendGroupMemberResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListFriendsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FriendList
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListFriendsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListFriendsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListFriendsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AddFriendResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Friend
+	JSON400      *externalRef0.ErrorResponse
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r AddFriendResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AddFriendResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AddFriendResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ClearFriendInviteTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ClearFriendInviteTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ClearFriendInviteTokenResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ClearFriendInviteTokenResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetFriendInviteTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InviteToken
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *externalRef0.ErrorResponse
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetFriendInviteTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetFriendInviteTokenResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetFriendInviteTokenResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateFriendInviteTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InviteToken
+	JSON400      *externalRef0.ErrorResponse
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateFriendInviteTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateFriendInviteTokenResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateFriendInviteTokenResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteFriendResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteFriendResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteFriendResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteFriendResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetFriendResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Friend
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *externalRef0.ErrorResponse
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetFriendResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetFriendResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetFriendResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type FindPublicKeysByIMEIResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -5812,6 +8250,277 @@ func (c *ClientWithResponses) DownloadDeviceHistoryAudioWithResponse(ctx context
 		return nil, err
 	}
 	return ParseDownloadDeviceHistoryAudioResponse(rsp)
+}
+
+// ListFriendGroupsWithResponse request returning *ListFriendGroupsResponse
+func (c *ClientWithResponses) ListFriendGroupsWithResponse(ctx context.Context, params *ListFriendGroupsParams, reqEditors ...RequestEditorFn) (*ListFriendGroupsResponse, error) {
+	rsp, err := c.ListFriendGroups(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListFriendGroupsResponse(rsp)
+}
+
+// CreateFriendGroupWithBodyWithResponse request with arbitrary body returning *CreateFriendGroupResponse
+func (c *ClientWithResponses) CreateFriendGroupWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFriendGroupResponse, error) {
+	rsp, err := c.CreateFriendGroupWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateFriendGroupResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateFriendGroupWithResponse(ctx context.Context, body CreateFriendGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFriendGroupResponse, error) {
+	rsp, err := c.CreateFriendGroup(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateFriendGroupResponse(rsp)
+}
+
+// JoinFriendGroupWithBodyWithResponse request with arbitrary body returning *JoinFriendGroupResponse
+func (c *ClientWithResponses) JoinFriendGroupWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*JoinFriendGroupResponse, error) {
+	rsp, err := c.JoinFriendGroupWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseJoinFriendGroupResponse(rsp)
+}
+
+func (c *ClientWithResponses) JoinFriendGroupWithResponse(ctx context.Context, body JoinFriendGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*JoinFriendGroupResponse, error) {
+	rsp, err := c.JoinFriendGroup(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseJoinFriendGroupResponse(rsp)
+}
+
+// DeleteFriendGroupWithResponse request returning *DeleteFriendGroupResponse
+func (c *ClientWithResponses) DeleteFriendGroupWithResponse(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*DeleteFriendGroupResponse, error) {
+	rsp, err := c.DeleteFriendGroup(ctx, friendGroupName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteFriendGroupResponse(rsp)
+}
+
+// GetFriendGroupWithResponse request returning *GetFriendGroupResponse
+func (c *ClientWithResponses) GetFriendGroupWithResponse(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*GetFriendGroupResponse, error) {
+	rsp, err := c.GetFriendGroup(ctx, friendGroupName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetFriendGroupResponse(rsp)
+}
+
+// PutFriendGroupWithBodyWithResponse request with arbitrary body returning *PutFriendGroupResponse
+func (c *ClientWithResponses) PutFriendGroupWithBodyWithResponse(ctx context.Context, friendGroupName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutFriendGroupResponse, error) {
+	rsp, err := c.PutFriendGroupWithBody(ctx, friendGroupName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutFriendGroupResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutFriendGroupWithResponse(ctx context.Context, friendGroupName string, body PutFriendGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*PutFriendGroupResponse, error) {
+	rsp, err := c.PutFriendGroup(ctx, friendGroupName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutFriendGroupResponse(rsp)
+}
+
+// LeaveFriendGroupWithResponse request returning *LeaveFriendGroupResponse
+func (c *ClientWithResponses) LeaveFriendGroupWithResponse(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*LeaveFriendGroupResponse, error) {
+	rsp, err := c.LeaveFriendGroup(ctx, friendGroupName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLeaveFriendGroupResponse(rsp)
+}
+
+// ClearFriendGroupInviteTokenWithResponse request returning *ClearFriendGroupInviteTokenResponse
+func (c *ClientWithResponses) ClearFriendGroupInviteTokenWithResponse(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*ClearFriendGroupInviteTokenResponse, error) {
+	rsp, err := c.ClearFriendGroupInviteToken(ctx, friendGroupName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseClearFriendGroupInviteTokenResponse(rsp)
+}
+
+// GetFriendGroupInviteTokenWithResponse request returning *GetFriendGroupInviteTokenResponse
+func (c *ClientWithResponses) GetFriendGroupInviteTokenWithResponse(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*GetFriendGroupInviteTokenResponse, error) {
+	rsp, err := c.GetFriendGroupInviteToken(ctx, friendGroupName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetFriendGroupInviteTokenResponse(rsp)
+}
+
+// CreateFriendGroupInviteTokenWithResponse request without the optional body returning *CreateFriendGroupInviteTokenResponse
+func (c *ClientWithResponses) CreateFriendGroupInviteTokenWithResponse(ctx context.Context, friendGroupName string, reqEditors ...RequestEditorFn) (*CreateFriendGroupInviteTokenResponse, error) {
+	rsp, err := c.CreateFriendGroupInviteToken(ctx, friendGroupName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateFriendGroupInviteTokenResponse(rsp)
+}
+
+// CreateFriendGroupInviteTokenWithBodyWithResponse request with arbitrary body returning *CreateFriendGroupInviteTokenResponse
+func (c *ClientWithResponses) CreateFriendGroupInviteTokenWithBodyWithResponse(ctx context.Context, friendGroupName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFriendGroupInviteTokenResponse, error) {
+	rsp, err := c.CreateFriendGroupInviteTokenWithBody(ctx, friendGroupName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateFriendGroupInviteTokenResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateFriendGroupInviteTokenWithJSONBodyWithResponse(ctx context.Context, friendGroupName string, body CreateFriendGroupInviteTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFriendGroupInviteTokenResponse, error) {
+	rsp, err := c.CreateFriendGroupInviteTokenWithJSONBody(ctx, friendGroupName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateFriendGroupInviteTokenResponse(rsp)
+}
+
+// ListFriendGroupMembersWithResponse request returning *ListFriendGroupMembersResponse
+func (c *ClientWithResponses) ListFriendGroupMembersWithResponse(ctx context.Context, friendGroupName string, params *ListFriendGroupMembersParams, reqEditors ...RequestEditorFn) (*ListFriendGroupMembersResponse, error) {
+	rsp, err := c.ListFriendGroupMembers(ctx, friendGroupName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListFriendGroupMembersResponse(rsp)
+}
+
+// AddFriendGroupMemberWithBodyWithResponse request with arbitrary body returning *AddFriendGroupMemberResponse
+func (c *ClientWithResponses) AddFriendGroupMemberWithBodyWithResponse(ctx context.Context, friendGroupName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddFriendGroupMemberResponse, error) {
+	rsp, err := c.AddFriendGroupMemberWithBody(ctx, friendGroupName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddFriendGroupMemberResponse(rsp)
+}
+
+func (c *ClientWithResponses) AddFriendGroupMemberWithResponse(ctx context.Context, friendGroupName string, body AddFriendGroupMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*AddFriendGroupMemberResponse, error) {
+	rsp, err := c.AddFriendGroupMember(ctx, friendGroupName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddFriendGroupMemberResponse(rsp)
+}
+
+// DeleteFriendGroupMemberWithResponse request returning *DeleteFriendGroupMemberResponse
+func (c *ClientWithResponses) DeleteFriendGroupMemberWithResponse(ctx context.Context, friendGroupName string, memberName string, reqEditors ...RequestEditorFn) (*DeleteFriendGroupMemberResponse, error) {
+	rsp, err := c.DeleteFriendGroupMember(ctx, friendGroupName, memberName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteFriendGroupMemberResponse(rsp)
+}
+
+// PutFriendGroupMemberWithBodyWithResponse request with arbitrary body returning *PutFriendGroupMemberResponse
+func (c *ClientWithResponses) PutFriendGroupMemberWithBodyWithResponse(ctx context.Context, friendGroupName string, memberName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutFriendGroupMemberResponse, error) {
+	rsp, err := c.PutFriendGroupMemberWithBody(ctx, friendGroupName, memberName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutFriendGroupMemberResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutFriendGroupMemberWithResponse(ctx context.Context, friendGroupName string, memberName string, body PutFriendGroupMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*PutFriendGroupMemberResponse, error) {
+	rsp, err := c.PutFriendGroupMember(ctx, friendGroupName, memberName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutFriendGroupMemberResponse(rsp)
+}
+
+// ListFriendsWithResponse request returning *ListFriendsResponse
+func (c *ClientWithResponses) ListFriendsWithResponse(ctx context.Context, params *ListFriendsParams, reqEditors ...RequestEditorFn) (*ListFriendsResponse, error) {
+	rsp, err := c.ListFriends(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListFriendsResponse(rsp)
+}
+
+// AddFriendWithBodyWithResponse request with arbitrary body returning *AddFriendResponse
+func (c *ClientWithResponses) AddFriendWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddFriendResponse, error) {
+	rsp, err := c.AddFriendWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddFriendResponse(rsp)
+}
+
+func (c *ClientWithResponses) AddFriendWithResponse(ctx context.Context, body AddFriendJSONRequestBody, reqEditors ...RequestEditorFn) (*AddFriendResponse, error) {
+	rsp, err := c.AddFriend(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddFriendResponse(rsp)
+}
+
+// ClearFriendInviteTokenWithResponse request returning *ClearFriendInviteTokenResponse
+func (c *ClientWithResponses) ClearFriendInviteTokenWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ClearFriendInviteTokenResponse, error) {
+	rsp, err := c.ClearFriendInviteToken(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseClearFriendInviteTokenResponse(rsp)
+}
+
+// GetFriendInviteTokenWithResponse request returning *GetFriendInviteTokenResponse
+func (c *ClientWithResponses) GetFriendInviteTokenWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetFriendInviteTokenResponse, error) {
+	rsp, err := c.GetFriendInviteToken(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetFriendInviteTokenResponse(rsp)
+}
+
+// CreateFriendInviteTokenWithResponse request without the optional body returning *CreateFriendInviteTokenResponse
+func (c *ClientWithResponses) CreateFriendInviteTokenWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateFriendInviteTokenResponse, error) {
+	rsp, err := c.CreateFriendInviteToken(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateFriendInviteTokenResponse(rsp)
+}
+
+// CreateFriendInviteTokenWithBodyWithResponse request with arbitrary body returning *CreateFriendInviteTokenResponse
+func (c *ClientWithResponses) CreateFriendInviteTokenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFriendInviteTokenResponse, error) {
+	rsp, err := c.CreateFriendInviteTokenWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateFriendInviteTokenResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateFriendInviteTokenWithJSONBodyWithResponse(ctx context.Context, body CreateFriendInviteTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFriendInviteTokenResponse, error) {
+	rsp, err := c.CreateFriendInviteTokenWithJSONBody(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateFriendInviteTokenResponse(rsp)
+}
+
+// DeleteFriendWithResponse request returning *DeleteFriendResponse
+func (c *ClientWithResponses) DeleteFriendWithResponse(ctx context.Context, friendName string, reqEditors ...RequestEditorFn) (*DeleteFriendResponse, error) {
+	rsp, err := c.DeleteFriend(ctx, friendName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteFriendResponse(rsp)
+}
+
+// GetFriendWithResponse request returning *GetFriendResponse
+func (c *ClientWithResponses) GetFriendWithResponse(ctx context.Context, friendName string, reqEditors ...RequestEditorFn) (*GetFriendResponse, error) {
+	rsp, err := c.GetFriend(ctx, friendName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetFriendResponse(rsp)
 }
 
 // FindPublicKeysByIMEIWithResponse request returning *FindPublicKeysByIMEIResponse
@@ -8722,6 +11431,1357 @@ func ParseDownloadDeviceHistoryAudioResponse(rsp *http.Response) (*DownloadDevic
 	return response, nil
 }
 
+// ParseListFriendGroupsResponse parses an HTTP response from a ListFriendGroupsWithResponse call
+func ParseListFriendGroupsResponse(rsp *http.Response) (*ListFriendGroupsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListFriendGroupsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FriendGroupList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateFriendGroupResponse parses an HTTP response from a CreateFriendGroupWithResponse call
+func ParseCreateFriendGroupResponse(rsp *http.Response) (*CreateFriendGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateFriendGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest FriendGroup
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseJoinFriendGroupResponse parses an HTTP response from a JoinFriendGroupWithResponse call
+func ParseJoinFriendGroupResponse(rsp *http.Response) (*JoinFriendGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &JoinFriendGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FriendGroupJoinResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteFriendGroupResponse parses an HTTP response from a DeleteFriendGroupWithResponse call
+func ParseDeleteFriendGroupResponse(rsp *http.Response) (*DeleteFriendGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteFriendGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest FriendGroupForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest FriendGroupNotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest FriendGroupConflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetFriendGroupResponse parses an HTTP response from a GetFriendGroupWithResponse call
+func ParseGetFriendGroupResponse(rsp *http.Response) (*GetFriendGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetFriendGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FriendGroup
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest FriendGroupNotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutFriendGroupResponse parses an HTTP response from a PutFriendGroupWithResponse call
+func ParsePutFriendGroupResponse(rsp *http.Response) (*PutFriendGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutFriendGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FriendGroup
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest FriendGroupForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest FriendGroupNotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest FriendGroupConflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseLeaveFriendGroupResponse parses an HTTP response from a LeaveFriendGroupWithResponse call
+func ParseLeaveFriendGroupResponse(rsp *http.Response) (*LeaveFriendGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LeaveFriendGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest FriendGroupNotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseClearFriendGroupInviteTokenResponse parses an HTTP response from a ClearFriendGroupInviteTokenWithResponse call
+func ParseClearFriendGroupInviteTokenResponse(rsp *http.Response) (*ClearFriendGroupInviteTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ClearFriendGroupInviteTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest FriendGroupForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest FriendGroupNotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest FriendGroupConflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetFriendGroupInviteTokenResponse parses an HTTP response from a GetFriendGroupInviteTokenWithResponse call
+func ParseGetFriendGroupInviteTokenResponse(rsp *http.Response) (*GetFriendGroupInviteTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetFriendGroupInviteTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InviteToken
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest FriendGroupForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest FriendGroupConflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateFriendGroupInviteTokenResponse parses an HTTP response from a CreateFriendGroupInviteTokenWithResponse call
+func ParseCreateFriendGroupInviteTokenResponse(rsp *http.Response) (*CreateFriendGroupInviteTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateFriendGroupInviteTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InviteToken
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest FriendGroupForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest FriendGroupNotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest FriendGroupConflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListFriendGroupMembersResponse parses an HTTP response from a ListFriendGroupMembersWithResponse call
+func ParseListFriendGroupMembersResponse(rsp *http.Response) (*ListFriendGroupMembersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListFriendGroupMembersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FriendGroupMemberList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest FriendGroupNotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAddFriendGroupMemberResponse parses an HTTP response from a AddFriendGroupMemberWithResponse call
+func ParseAddFriendGroupMemberResponse(rsp *http.Response) (*AddFriendGroupMemberResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AddFriendGroupMemberResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest FriendGroupMember
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest FriendGroupForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest FriendGroupNotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteFriendGroupMemberResponse parses an HTTP response from a DeleteFriendGroupMemberWithResponse call
+func ParseDeleteFriendGroupMemberResponse(rsp *http.Response) (*DeleteFriendGroupMemberResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteFriendGroupMemberResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest FriendGroupForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest FriendGroupMemberNotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutFriendGroupMemberResponse parses an HTTP response from a PutFriendGroupMemberWithResponse call
+func ParsePutFriendGroupMemberResponse(rsp *http.Response) (*PutFriendGroupMemberResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutFriendGroupMemberResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FriendGroupMember
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest FriendGroupForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest FriendGroupMemberNotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListFriendsResponse parses an HTTP response from a ListFriendsWithResponse call
+func ParseListFriendsResponse(rsp *http.Response) (*ListFriendsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListFriendsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FriendList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAddFriendResponse parses an HTTP response from a AddFriendWithResponse call
+func ParseAddFriendResponse(rsp *http.Response) (*AddFriendResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AddFriendResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Friend
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseClearFriendInviteTokenResponse parses an HTTP response from a ClearFriendInviteTokenWithResponse call
+func ParseClearFriendInviteTokenResponse(rsp *http.Response) (*ClearFriendInviteTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ClearFriendInviteTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetFriendInviteTokenResponse parses an HTTP response from a GetFriendInviteTokenWithResponse call
+func ParseGetFriendInviteTokenResponse(rsp *http.Response) (*GetFriendInviteTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetFriendInviteTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InviteToken
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateFriendInviteTokenResponse parses an HTTP response from a CreateFriendInviteTokenWithResponse call
+func ParseCreateFriendInviteTokenResponse(rsp *http.Response) (*CreateFriendInviteTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateFriendInviteTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InviteToken
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteFriendResponse parses an HTTP response from a DeleteFriendWithResponse call
+func ParseDeleteFriendResponse(rsp *http.Response) (*DeleteFriendResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteFriendResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetFriendResponse parses an HTTP response from a GetFriendWithResponse call
+func ParseGetFriendResponse(rsp *http.Response) (*GetFriendResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetFriendResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Friend
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseFindPublicKeysByIMEIResponse parses an HTTP response from a FindPublicKeysByIMEIWithResponse call
 func ParseFindPublicKeysByIMEIResponse(rsp *http.Response) (*FindPublicKeysByIMEIResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -9035,6 +13095,69 @@ type ServerInterface interface {
 	// Download stored Ogg audio from a Workspace owned by the authenticated device
 	// (GET /gizclaw/v1/device/workspaces/{workspaceId}/history/{historyId}/audio.ogg)
 	DownloadDeviceHistoryAudio(c *fiber.Ctx, workspaceId string, historyId string) error
+	// List Friend Groups the bound device belongs to
+	// (GET /gizclaw/v1/friend-groups)
+	ListFriendGroups(c *fiber.Ctx, params ListFriendGroupsParams) error
+	// Create a Friend Group owned by the bound device
+	// (POST /gizclaw/v1/friend-groups)
+	CreateFriendGroup(c *fiber.Ctx) error
+	// Join a Friend Group with its invite token
+	// (POST /gizclaw/v1/friend-groups/@join)
+	JoinFriendGroup(c *fiber.Ctx) error
+	// Dissolve a Friend Group
+	// (DELETE /gizclaw/v1/friend-groups/{friendGroupName})
+	DeleteFriendGroup(c *fiber.Ctx, friendGroupName string) error
+	// Get a Friend Group the bound device belongs to
+	// (GET /gizclaw/v1/friend-groups/{friendGroupName})
+	GetFriendGroup(c *fiber.Ctx, friendGroupName string) error
+	// Update a Friend Group's display name and description
+	// (PUT /gizclaw/v1/friend-groups/{friendGroupName})
+	PutFriendGroup(c *fiber.Ctx, friendGroupName string) error
+	// Leave a Friend Group
+	// (POST /gizclaw/v1/friend-groups/{friendGroupName}/@leave)
+	LeaveFriendGroup(c *fiber.Ctx, friendGroupName string) error
+	// Revoke a Friend Group's invite token
+	// (DELETE /gizclaw/v1/friend-groups/{friendGroupName}/invite-token)
+	ClearFriendGroupInviteToken(c *fiber.Ctx, friendGroupName string) error
+	// Read a Friend Group's active invite token
+	// (GET /gizclaw/v1/friend-groups/{friendGroupName}/invite-token)
+	GetFriendGroupInviteToken(c *fiber.Ctx, friendGroupName string) error
+	// Create or return a Friend Group's invite token
+	// (POST /gizclaw/v1/friend-groups/{friendGroupName}/invite-token)
+	CreateFriendGroupInviteToken(c *fiber.Ctx, friendGroupName string) error
+	// List a Friend Group's members
+	// (GET /gizclaw/v1/friend-groups/{friendGroupName}/members)
+	ListFriendGroupMembers(c *fiber.Ctx, friendGroupName string, params ListFriendGroupMembersParams) error
+	// Add a Peer to a Friend Group
+	// (POST /gizclaw/v1/friend-groups/{friendGroupName}/members)
+	AddFriendGroupMember(c *fiber.Ctx, friendGroupName string) error
+	// Remove a member from a Friend Group
+	// (DELETE /gizclaw/v1/friend-groups/{friendGroupName}/members/{memberName})
+	DeleteFriendGroupMember(c *fiber.Ctx, friendGroupName string, memberName string) error
+	// Change a Friend Group member's role
+	// (PUT /gizclaw/v1/friend-groups/{friendGroupName}/members/{memberName})
+	PutFriendGroupMember(c *fiber.Ctx, friendGroupName string, memberName string) error
+	// List Friends of the bound device
+	// (GET /gizclaw/v1/friends)
+	ListFriends(c *fiber.Ctx, params ListFriendsParams) error
+	// Befriend the Peer that owns an invite token
+	// (POST /gizclaw/v1/friends)
+	AddFriend(c *fiber.Ctx) error
+	// Revoke the bound device's Friend invite token
+	// (DELETE /gizclaw/v1/friends/invite-token)
+	ClearFriendInviteToken(c *fiber.Ctx) error
+	// Read the bound device's active Friend invite token
+	// (GET /gizclaw/v1/friends/invite-token)
+	GetFriendInviteToken(c *fiber.Ctx) error
+	// Create or return the bound device's Friend invite token
+	// (POST /gizclaw/v1/friends/invite-token)
+	CreateFriendInviteToken(c *fiber.Ctx) error
+	// End a Friend relationship of the bound device
+	// (DELETE /gizclaw/v1/friends/{friendName})
+	DeleteFriend(c *fiber.Ctx, friendName string) error
+	// Get one Friend of the bound device
+	// (GET /gizclaw/v1/friends/{friendName})
+	GetFriend(c *fiber.Ctx, friendName string) error
 	// Find all matching device public keys
 	// (GET /gizclaw/v1/peers/@findByImei/{tac}/{serial})
 	FindPublicKeysByIMEI(c *fiber.Ctx, tac string, serial string) error
@@ -10280,6 +14403,660 @@ func (siw *ServerInterfaceWrapper) DownloadDeviceHistoryAudio(c *fiber.Ctx) erro
 	return handler(c)
 }
 
+// ListFriendGroups operation middleware
+func (siw *ServerInterfaceWrapper) ListFriendGroups(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListFriendGroupsParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.ListFriendGroups(c, params)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// CreateFriendGroup operation middleware
+func (siw *ServerInterfaceWrapper) CreateFriendGroup(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.CreateFriendGroup(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// JoinFriendGroup operation middleware
+func (siw *ServerInterfaceWrapper) JoinFriendGroup(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.JoinFriendGroup(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// DeleteFriendGroup operation middleware
+func (siw *ServerInterfaceWrapper) DeleteFriendGroup(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "friendGroupName" -------------
+	var friendGroupName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "friendGroupName", c.Params("friendGroupName"), &friendGroupName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter friendGroupName: %w", err).Error())
+	}
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.DeleteFriendGroup(c, friendGroupName)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// GetFriendGroup operation middleware
+func (siw *ServerInterfaceWrapper) GetFriendGroup(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "friendGroupName" -------------
+	var friendGroupName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "friendGroupName", c.Params("friendGroupName"), &friendGroupName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter friendGroupName: %w", err).Error())
+	}
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.GetFriendGroup(c, friendGroupName)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// PutFriendGroup operation middleware
+func (siw *ServerInterfaceWrapper) PutFriendGroup(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "friendGroupName" -------------
+	var friendGroupName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "friendGroupName", c.Params("friendGroupName"), &friendGroupName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter friendGroupName: %w", err).Error())
+	}
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.PutFriendGroup(c, friendGroupName)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// LeaveFriendGroup operation middleware
+func (siw *ServerInterfaceWrapper) LeaveFriendGroup(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "friendGroupName" -------------
+	var friendGroupName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "friendGroupName", c.Params("friendGroupName"), &friendGroupName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter friendGroupName: %w", err).Error())
+	}
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.LeaveFriendGroup(c, friendGroupName)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// ClearFriendGroupInviteToken operation middleware
+func (siw *ServerInterfaceWrapper) ClearFriendGroupInviteToken(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "friendGroupName" -------------
+	var friendGroupName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "friendGroupName", c.Params("friendGroupName"), &friendGroupName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter friendGroupName: %w", err).Error())
+	}
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.ClearFriendGroupInviteToken(c, friendGroupName)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// GetFriendGroupInviteToken operation middleware
+func (siw *ServerInterfaceWrapper) GetFriendGroupInviteToken(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "friendGroupName" -------------
+	var friendGroupName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "friendGroupName", c.Params("friendGroupName"), &friendGroupName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter friendGroupName: %w", err).Error())
+	}
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.GetFriendGroupInviteToken(c, friendGroupName)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// CreateFriendGroupInviteToken operation middleware
+func (siw *ServerInterfaceWrapper) CreateFriendGroupInviteToken(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "friendGroupName" -------------
+	var friendGroupName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "friendGroupName", c.Params("friendGroupName"), &friendGroupName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter friendGroupName: %w", err).Error())
+	}
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.CreateFriendGroupInviteToken(c, friendGroupName)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// ListFriendGroupMembers operation middleware
+func (siw *ServerInterfaceWrapper) ListFriendGroupMembers(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "friendGroupName" -------------
+	var friendGroupName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "friendGroupName", c.Params("friendGroupName"), &friendGroupName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter friendGroupName: %w", err).Error())
+	}
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListFriendGroupMembersParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.ListFriendGroupMembers(c, friendGroupName, params)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// AddFriendGroupMember operation middleware
+func (siw *ServerInterfaceWrapper) AddFriendGroupMember(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "friendGroupName" -------------
+	var friendGroupName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "friendGroupName", c.Params("friendGroupName"), &friendGroupName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter friendGroupName: %w", err).Error())
+	}
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.AddFriendGroupMember(c, friendGroupName)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// DeleteFriendGroupMember operation middleware
+func (siw *ServerInterfaceWrapper) DeleteFriendGroupMember(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "friendGroupName" -------------
+	var friendGroupName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "friendGroupName", c.Params("friendGroupName"), &friendGroupName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter friendGroupName: %w", err).Error())
+	}
+
+	// ------------- Path parameter "memberName" -------------
+	var memberName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "memberName", c.Params("memberName"), &memberName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter memberName: %w", err).Error())
+	}
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.DeleteFriendGroupMember(c, friendGroupName, memberName)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// PutFriendGroupMember operation middleware
+func (siw *ServerInterfaceWrapper) PutFriendGroupMember(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "friendGroupName" -------------
+	var friendGroupName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "friendGroupName", c.Params("friendGroupName"), &friendGroupName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter friendGroupName: %w", err).Error())
+	}
+
+	// ------------- Path parameter "memberName" -------------
+	var memberName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "memberName", c.Params("memberName"), &memberName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter memberName: %w", err).Error())
+	}
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.PutFriendGroupMember(c, friendGroupName, memberName)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// ListFriends operation middleware
+func (siw *ServerInterfaceWrapper) ListFriends(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListFriendsParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.ListFriends(c, params)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// AddFriend operation middleware
+func (siw *ServerInterfaceWrapper) AddFriend(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.AddFriend(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// ClearFriendInviteToken operation middleware
+func (siw *ServerInterfaceWrapper) ClearFriendInviteToken(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.ClearFriendInviteToken(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// GetFriendInviteToken operation middleware
+func (siw *ServerInterfaceWrapper) GetFriendInviteToken(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.GetFriendInviteToken(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// CreateFriendInviteToken operation middleware
+func (siw *ServerInterfaceWrapper) CreateFriendInviteToken(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.CreateFriendInviteToken(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// DeleteFriend operation middleware
+func (siw *ServerInterfaceWrapper) DeleteFriend(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "friendName" -------------
+	var friendName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "friendName", c.Params("friendName"), &friendName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter friendName: %w", err).Error())
+	}
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.DeleteFriend(c, friendName)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// GetFriend operation middleware
+func (siw *ServerInterfaceWrapper) GetFriend(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "friendName" -------------
+	var friendName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "friendName", c.Params("friendName"), &friendName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter friendName: %w", err).Error())
+	}
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.GetFriend(c, friendName)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
 // FindPublicKeysByIMEI operation middleware
 func (siw *ServerInterfaceWrapper) FindPublicKeysByIMEI(c *fiber.Ctx) error {
 
@@ -10555,6 +15332,48 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device/workspaces/:workspaceId/history/:historyId/audio.ogg", wrapper.DownloadDeviceHistoryAudio)
 
+	router.Get(options.BaseURL+"/gizclaw/v1/friend-groups", wrapper.ListFriendGroups)
+
+	router.Post(options.BaseURL+"/gizclaw/v1/friend-groups", wrapper.CreateFriendGroup)
+
+	router.Post(options.BaseURL+"/gizclaw/v1/friend-groups/@join", wrapper.JoinFriendGroup)
+
+	router.Delete(options.BaseURL+"/gizclaw/v1/friend-groups/:friendGroupName", wrapper.DeleteFriendGroup)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/friend-groups/:friendGroupName", wrapper.GetFriendGroup)
+
+	router.Put(options.BaseURL+"/gizclaw/v1/friend-groups/:friendGroupName", wrapper.PutFriendGroup)
+
+	router.Post(options.BaseURL+"/gizclaw/v1/friend-groups/:friendGroupName/@leave", wrapper.LeaveFriendGroup)
+
+	router.Delete(options.BaseURL+"/gizclaw/v1/friend-groups/:friendGroupName/invite-token", wrapper.ClearFriendGroupInviteToken)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/friend-groups/:friendGroupName/invite-token", wrapper.GetFriendGroupInviteToken)
+
+	router.Post(options.BaseURL+"/gizclaw/v1/friend-groups/:friendGroupName/invite-token", wrapper.CreateFriendGroupInviteToken)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/friend-groups/:friendGroupName/members", wrapper.ListFriendGroupMembers)
+
+	router.Post(options.BaseURL+"/gizclaw/v1/friend-groups/:friendGroupName/members", wrapper.AddFriendGroupMember)
+
+	router.Delete(options.BaseURL+"/gizclaw/v1/friend-groups/:friendGroupName/members/:memberName", wrapper.DeleteFriendGroupMember)
+
+	router.Put(options.BaseURL+"/gizclaw/v1/friend-groups/:friendGroupName/members/:memberName", wrapper.PutFriendGroupMember)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/friends", wrapper.ListFriends)
+
+	router.Post(options.BaseURL+"/gizclaw/v1/friends", wrapper.AddFriend)
+
+	router.Delete(options.BaseURL+"/gizclaw/v1/friends/invite-token", wrapper.ClearFriendInviteToken)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/friends/invite-token", wrapper.GetFriendInviteToken)
+
+	router.Post(options.BaseURL+"/gizclaw/v1/friends/invite-token", wrapper.CreateFriendInviteToken)
+
+	router.Delete(options.BaseURL+"/gizclaw/v1/friends/:friendName", wrapper.DeleteFriend)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/friends/:friendName", wrapper.GetFriend)
+
 	router.Get(options.BaseURL+"/gizclaw/v1/peers/@findByImei/:tac/:serial", wrapper.FindPublicKeysByIMEI)
 
 	router.Get(options.BaseURL+"/gizclaw/v1/peers/@findBySn/:sn", wrapper.FindPublicKeysBySN)
@@ -10580,6 +15399,14 @@ type DeviceUnsupportedJSONResponse externalRef0.ErrorResponse
 type FirmwareNotFoundJSONResponse externalRef0.ErrorResponse
 
 type ForbiddenJSONResponse externalRef0.ErrorResponse
+
+type FriendGroupConflictJSONResponse externalRef0.ErrorResponse
+
+type FriendGroupForbiddenJSONResponse externalRef0.ErrorResponse
+
+type FriendGroupMemberNotFoundJSONResponse externalRef0.ErrorResponse
+
+type FriendGroupNotFoundJSONResponse externalRef0.ErrorResponse
 
 type InternalErrorJSONResponse externalRef0.ErrorResponse
 
@@ -13696,6 +18523,1497 @@ func (response DownloadDeviceHistoryAudio500JSONResponse) VisitDownloadDeviceHis
 	return ctx.JSON(&response)
 }
 
+type ListFriendGroupsRequestObject struct {
+	Params ListFriendGroupsParams
+}
+
+type ListFriendGroupsResponseObject interface {
+	VisitListFriendGroupsResponse(ctx *fiber.Ctx) error
+}
+
+type ListFriendGroups200JSONResponse FriendGroupList
+
+func (response ListFriendGroups200JSONResponse) VisitListFriendGroupsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListFriendGroups400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ListFriendGroups400JSONResponse) VisitListFriendGroupsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type ListFriendGroups401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListFriendGroups401JSONResponse) VisitListFriendGroupsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type ListFriendGroups403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListFriendGroups403JSONResponse) VisitListFriendGroupsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type ListFriendGroups409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ListFriendGroups409JSONResponse) VisitListFriendGroupsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type ListFriendGroups500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListFriendGroups500JSONResponse) VisitListFriendGroupsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriendGroupRequestObject struct {
+	Body *CreateFriendGroupJSONRequestBody
+}
+
+type CreateFriendGroupResponseObject interface {
+	VisitCreateFriendGroupResponse(ctx *fiber.Ctx) error
+}
+
+type CreateFriendGroup201JSONResponse FriendGroup
+
+func (response CreateFriendGroup201JSONResponse) VisitCreateFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(201)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriendGroup400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateFriendGroup400JSONResponse) VisitCreateFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriendGroup401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateFriendGroup401JSONResponse) VisitCreateFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriendGroup403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateFriendGroup403JSONResponse) VisitCreateFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriendGroup409JSONResponse externalRef0.ErrorResponse
+
+func (response CreateFriendGroup409JSONResponse) VisitCreateFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriendGroup500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateFriendGroup500JSONResponse) VisitCreateFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type JoinFriendGroupRequestObject struct {
+	Body *JoinFriendGroupJSONRequestBody
+}
+
+type JoinFriendGroupResponseObject interface {
+	VisitJoinFriendGroupResponse(ctx *fiber.Ctx) error
+}
+
+type JoinFriendGroup200JSONResponse FriendGroupJoinResult
+
+func (response JoinFriendGroup200JSONResponse) VisitJoinFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type JoinFriendGroup400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response JoinFriendGroup400JSONResponse) VisitJoinFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type JoinFriendGroup401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response JoinFriendGroup401JSONResponse) VisitJoinFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type JoinFriendGroup403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response JoinFriendGroup403JSONResponse) VisitJoinFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type JoinFriendGroup404JSONResponse externalRef0.ErrorResponse
+
+func (response JoinFriendGroup404JSONResponse) VisitJoinFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type JoinFriendGroup409JSONResponse externalRef0.ErrorResponse
+
+func (response JoinFriendGroup409JSONResponse) VisitJoinFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type JoinFriendGroup500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response JoinFriendGroup500JSONResponse) VisitJoinFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteFriendGroupRequestObject struct {
+	FriendGroupName string `json:"friendGroupName"`
+}
+
+type DeleteFriendGroupResponseObject interface {
+	VisitDeleteFriendGroupResponse(ctx *fiber.Ctx) error
+}
+
+type DeleteFriendGroup204Response struct {
+}
+
+func (response DeleteFriendGroup204Response) VisitDeleteFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Status(204)
+	return nil
+}
+
+type DeleteFriendGroup400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response DeleteFriendGroup400JSONResponse) VisitDeleteFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteFriendGroup401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteFriendGroup401JSONResponse) VisitDeleteFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteFriendGroup403JSONResponse struct {
+	FriendGroupForbiddenJSONResponse
+}
+
+func (response DeleteFriendGroup403JSONResponse) VisitDeleteFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteFriendGroup404JSONResponse struct {
+	FriendGroupNotFoundJSONResponse
+}
+
+func (response DeleteFriendGroup404JSONResponse) VisitDeleteFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteFriendGroup409JSONResponse struct {
+	FriendGroupConflictJSONResponse
+}
+
+func (response DeleteFriendGroup409JSONResponse) VisitDeleteFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteFriendGroup500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response DeleteFriendGroup500JSONResponse) VisitDeleteFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendGroupRequestObject struct {
+	FriendGroupName string `json:"friendGroupName"`
+}
+
+type GetFriendGroupResponseObject interface {
+	VisitGetFriendGroupResponse(ctx *fiber.Ctx) error
+}
+
+type GetFriendGroup200JSONResponse FriendGroup
+
+func (response GetFriendGroup200JSONResponse) VisitGetFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendGroup400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetFriendGroup400JSONResponse) VisitGetFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendGroup401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetFriendGroup401JSONResponse) VisitGetFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendGroup403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetFriendGroup403JSONResponse) VisitGetFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendGroup404JSONResponse struct {
+	FriendGroupNotFoundJSONResponse
+}
+
+func (response GetFriendGroup404JSONResponse) VisitGetFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendGroup409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetFriendGroup409JSONResponse) VisitGetFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendGroup500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetFriendGroup500JSONResponse) VisitGetFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type PutFriendGroupRequestObject struct {
+	FriendGroupName string `json:"friendGroupName"`
+	Body            *PutFriendGroupJSONRequestBody
+}
+
+type PutFriendGroupResponseObject interface {
+	VisitPutFriendGroupResponse(ctx *fiber.Ctx) error
+}
+
+type PutFriendGroup200JSONResponse FriendGroup
+
+func (response PutFriendGroup200JSONResponse) VisitPutFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type PutFriendGroup400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutFriendGroup400JSONResponse) VisitPutFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutFriendGroup401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutFriendGroup401JSONResponse) VisitPutFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type PutFriendGroup403JSONResponse struct {
+	FriendGroupForbiddenJSONResponse
+}
+
+func (response PutFriendGroup403JSONResponse) VisitPutFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type PutFriendGroup404JSONResponse struct {
+	FriendGroupNotFoundJSONResponse
+}
+
+func (response PutFriendGroup404JSONResponse) VisitPutFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type PutFriendGroup409JSONResponse struct {
+	FriendGroupConflictJSONResponse
+}
+
+func (response PutFriendGroup409JSONResponse) VisitPutFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type PutFriendGroup500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response PutFriendGroup500JSONResponse) VisitPutFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type LeaveFriendGroupRequestObject struct {
+	FriendGroupName string `json:"friendGroupName"`
+}
+
+type LeaveFriendGroupResponseObject interface {
+	VisitLeaveFriendGroupResponse(ctx *fiber.Ctx) error
+}
+
+type LeaveFriendGroup204Response struct {
+}
+
+func (response LeaveFriendGroup204Response) VisitLeaveFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Status(204)
+	return nil
+}
+
+type LeaveFriendGroup400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response LeaveFriendGroup400JSONResponse) VisitLeaveFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type LeaveFriendGroup401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response LeaveFriendGroup401JSONResponse) VisitLeaveFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type LeaveFriendGroup403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response LeaveFriendGroup403JSONResponse) VisitLeaveFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type LeaveFriendGroup404JSONResponse struct {
+	FriendGroupNotFoundJSONResponse
+}
+
+func (response LeaveFriendGroup404JSONResponse) VisitLeaveFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type LeaveFriendGroup409JSONResponse externalRef0.ErrorResponse
+
+func (response LeaveFriendGroup409JSONResponse) VisitLeaveFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type LeaveFriendGroup500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response LeaveFriendGroup500JSONResponse) VisitLeaveFriendGroupResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type ClearFriendGroupInviteTokenRequestObject struct {
+	FriendGroupName string `json:"friendGroupName"`
+}
+
+type ClearFriendGroupInviteTokenResponseObject interface {
+	VisitClearFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error
+}
+
+type ClearFriendGroupInviteToken204Response struct {
+}
+
+func (response ClearFriendGroupInviteToken204Response) VisitClearFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Status(204)
+	return nil
+}
+
+type ClearFriendGroupInviteToken400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ClearFriendGroupInviteToken400JSONResponse) VisitClearFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type ClearFriendGroupInviteToken401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ClearFriendGroupInviteToken401JSONResponse) VisitClearFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type ClearFriendGroupInviteToken403JSONResponse struct {
+	FriendGroupForbiddenJSONResponse
+}
+
+func (response ClearFriendGroupInviteToken403JSONResponse) VisitClearFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type ClearFriendGroupInviteToken404JSONResponse struct {
+	FriendGroupNotFoundJSONResponse
+}
+
+func (response ClearFriendGroupInviteToken404JSONResponse) VisitClearFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type ClearFriendGroupInviteToken409JSONResponse struct {
+	FriendGroupConflictJSONResponse
+}
+
+func (response ClearFriendGroupInviteToken409JSONResponse) VisitClearFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type ClearFriendGroupInviteToken500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ClearFriendGroupInviteToken500JSONResponse) VisitClearFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendGroupInviteTokenRequestObject struct {
+	FriendGroupName string `json:"friendGroupName"`
+}
+
+type GetFriendGroupInviteTokenResponseObject interface {
+	VisitGetFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error
+}
+
+type GetFriendGroupInviteToken200JSONResponse InviteToken
+
+func (response GetFriendGroupInviteToken200JSONResponse) VisitGetFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendGroupInviteToken400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetFriendGroupInviteToken400JSONResponse) VisitGetFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendGroupInviteToken401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetFriendGroupInviteToken401JSONResponse) VisitGetFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendGroupInviteToken403JSONResponse struct {
+	FriendGroupForbiddenJSONResponse
+}
+
+func (response GetFriendGroupInviteToken403JSONResponse) VisitGetFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendGroupInviteToken404JSONResponse externalRef0.ErrorResponse
+
+func (response GetFriendGroupInviteToken404JSONResponse) VisitGetFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendGroupInviteToken409JSONResponse struct {
+	FriendGroupConflictJSONResponse
+}
+
+func (response GetFriendGroupInviteToken409JSONResponse) VisitGetFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendGroupInviteToken500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetFriendGroupInviteToken500JSONResponse) VisitGetFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriendGroupInviteTokenRequestObject struct {
+	FriendGroupName string `json:"friendGroupName"`
+	Body            *CreateFriendGroupInviteTokenJSONRequestBody
+}
+
+type CreateFriendGroupInviteTokenResponseObject interface {
+	VisitCreateFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error
+}
+
+type CreateFriendGroupInviteToken200JSONResponse InviteToken
+
+func (response CreateFriendGroupInviteToken200JSONResponse) VisitCreateFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriendGroupInviteToken400JSONResponse externalRef0.ErrorResponse
+
+func (response CreateFriendGroupInviteToken400JSONResponse) VisitCreateFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriendGroupInviteToken401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateFriendGroupInviteToken401JSONResponse) VisitCreateFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriendGroupInviteToken403JSONResponse struct {
+	FriendGroupForbiddenJSONResponse
+}
+
+func (response CreateFriendGroupInviteToken403JSONResponse) VisitCreateFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriendGroupInviteToken404JSONResponse struct {
+	FriendGroupNotFoundJSONResponse
+}
+
+func (response CreateFriendGroupInviteToken404JSONResponse) VisitCreateFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriendGroupInviteToken409JSONResponse struct {
+	FriendGroupConflictJSONResponse
+}
+
+func (response CreateFriendGroupInviteToken409JSONResponse) VisitCreateFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriendGroupInviteToken500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateFriendGroupInviteToken500JSONResponse) VisitCreateFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type ListFriendGroupMembersRequestObject struct {
+	FriendGroupName string `json:"friendGroupName"`
+	Params          ListFriendGroupMembersParams
+}
+
+type ListFriendGroupMembersResponseObject interface {
+	VisitListFriendGroupMembersResponse(ctx *fiber.Ctx) error
+}
+
+type ListFriendGroupMembers200JSONResponse FriendGroupMemberList
+
+func (response ListFriendGroupMembers200JSONResponse) VisitListFriendGroupMembersResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListFriendGroupMembers400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ListFriendGroupMembers400JSONResponse) VisitListFriendGroupMembersResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type ListFriendGroupMembers401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListFriendGroupMembers401JSONResponse) VisitListFriendGroupMembersResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type ListFriendGroupMembers403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListFriendGroupMembers403JSONResponse) VisitListFriendGroupMembersResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type ListFriendGroupMembers404JSONResponse struct {
+	FriendGroupNotFoundJSONResponse
+}
+
+func (response ListFriendGroupMembers404JSONResponse) VisitListFriendGroupMembersResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type ListFriendGroupMembers409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ListFriendGroupMembers409JSONResponse) VisitListFriendGroupMembersResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type ListFriendGroupMembers500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListFriendGroupMembers500JSONResponse) VisitListFriendGroupMembersResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type AddFriendGroupMemberRequestObject struct {
+	FriendGroupName string `json:"friendGroupName"`
+	Body            *AddFriendGroupMemberJSONRequestBody
+}
+
+type AddFriendGroupMemberResponseObject interface {
+	VisitAddFriendGroupMemberResponse(ctx *fiber.Ctx) error
+}
+
+type AddFriendGroupMember201JSONResponse FriendGroupMember
+
+func (response AddFriendGroupMember201JSONResponse) VisitAddFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(201)
+
+	return ctx.JSON(&response)
+}
+
+type AddFriendGroupMember400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response AddFriendGroupMember400JSONResponse) VisitAddFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type AddFriendGroupMember401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response AddFriendGroupMember401JSONResponse) VisitAddFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type AddFriendGroupMember403JSONResponse struct {
+	FriendGroupForbiddenJSONResponse
+}
+
+func (response AddFriendGroupMember403JSONResponse) VisitAddFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type AddFriendGroupMember404JSONResponse struct {
+	FriendGroupNotFoundJSONResponse
+}
+
+func (response AddFriendGroupMember404JSONResponse) VisitAddFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type AddFriendGroupMember409JSONResponse externalRef0.ErrorResponse
+
+func (response AddFriendGroupMember409JSONResponse) VisitAddFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type AddFriendGroupMember500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response AddFriendGroupMember500JSONResponse) VisitAddFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteFriendGroupMemberRequestObject struct {
+	FriendGroupName string `json:"friendGroupName"`
+	MemberName      string `json:"memberName"`
+}
+
+type DeleteFriendGroupMemberResponseObject interface {
+	VisitDeleteFriendGroupMemberResponse(ctx *fiber.Ctx) error
+}
+
+type DeleteFriendGroupMember204Response struct {
+}
+
+func (response DeleteFriendGroupMember204Response) VisitDeleteFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Status(204)
+	return nil
+}
+
+type DeleteFriendGroupMember400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response DeleteFriendGroupMember400JSONResponse) VisitDeleteFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteFriendGroupMember401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteFriendGroupMember401JSONResponse) VisitDeleteFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteFriendGroupMember403JSONResponse struct {
+	FriendGroupForbiddenJSONResponse
+}
+
+func (response DeleteFriendGroupMember403JSONResponse) VisitDeleteFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteFriendGroupMember404JSONResponse struct {
+	FriendGroupMemberNotFoundJSONResponse
+}
+
+func (response DeleteFriendGroupMember404JSONResponse) VisitDeleteFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteFriendGroupMember409JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteFriendGroupMember409JSONResponse) VisitDeleteFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteFriendGroupMember500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response DeleteFriendGroupMember500JSONResponse) VisitDeleteFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type PutFriendGroupMemberRequestObject struct {
+	FriendGroupName string `json:"friendGroupName"`
+	MemberName      string `json:"memberName"`
+	Body            *PutFriendGroupMemberJSONRequestBody
+}
+
+type PutFriendGroupMemberResponseObject interface {
+	VisitPutFriendGroupMemberResponse(ctx *fiber.Ctx) error
+}
+
+type PutFriendGroupMember200JSONResponse FriendGroupMember
+
+func (response PutFriendGroupMember200JSONResponse) VisitPutFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type PutFriendGroupMember400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutFriendGroupMember400JSONResponse) VisitPutFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutFriendGroupMember401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutFriendGroupMember401JSONResponse) VisitPutFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type PutFriendGroupMember403JSONResponse struct {
+	FriendGroupForbiddenJSONResponse
+}
+
+func (response PutFriendGroupMember403JSONResponse) VisitPutFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type PutFriendGroupMember404JSONResponse struct {
+	FriendGroupMemberNotFoundJSONResponse
+}
+
+func (response PutFriendGroupMember404JSONResponse) VisitPutFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type PutFriendGroupMember409JSONResponse externalRef0.ErrorResponse
+
+func (response PutFriendGroupMember409JSONResponse) VisitPutFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type PutFriendGroupMember500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response PutFriendGroupMember500JSONResponse) VisitPutFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type ListFriendsRequestObject struct {
+	Params ListFriendsParams
+}
+
+type ListFriendsResponseObject interface {
+	VisitListFriendsResponse(ctx *fiber.Ctx) error
+}
+
+type ListFriends200JSONResponse FriendList
+
+func (response ListFriends200JSONResponse) VisitListFriendsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListFriends400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ListFriends400JSONResponse) VisitListFriendsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type ListFriends401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListFriends401JSONResponse) VisitListFriendsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type ListFriends403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListFriends403JSONResponse) VisitListFriendsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type ListFriends409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ListFriends409JSONResponse) VisitListFriendsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type ListFriends500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListFriends500JSONResponse) VisitListFriendsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type AddFriendRequestObject struct {
+	Body *AddFriendJSONRequestBody
+}
+
+type AddFriendResponseObject interface {
+	VisitAddFriendResponse(ctx *fiber.Ctx) error
+}
+
+type AddFriend201JSONResponse Friend
+
+func (response AddFriend201JSONResponse) VisitAddFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(201)
+
+	return ctx.JSON(&response)
+}
+
+type AddFriend400JSONResponse externalRef0.ErrorResponse
+
+func (response AddFriend400JSONResponse) VisitAddFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type AddFriend401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response AddFriend401JSONResponse) VisitAddFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type AddFriend403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response AddFriend403JSONResponse) VisitAddFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type AddFriend404JSONResponse externalRef0.ErrorResponse
+
+func (response AddFriend404JSONResponse) VisitAddFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type AddFriend409JSONResponse externalRef0.ErrorResponse
+
+func (response AddFriend409JSONResponse) VisitAddFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type AddFriend500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response AddFriend500JSONResponse) VisitAddFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type ClearFriendInviteTokenRequestObject struct {
+}
+
+type ClearFriendInviteTokenResponseObject interface {
+	VisitClearFriendInviteTokenResponse(ctx *fiber.Ctx) error
+}
+
+type ClearFriendInviteToken204Response struct {
+}
+
+func (response ClearFriendInviteToken204Response) VisitClearFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Status(204)
+	return nil
+}
+
+type ClearFriendInviteToken400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ClearFriendInviteToken400JSONResponse) VisitClearFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type ClearFriendInviteToken401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ClearFriendInviteToken401JSONResponse) VisitClearFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type ClearFriendInviteToken403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ClearFriendInviteToken403JSONResponse) VisitClearFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type ClearFriendInviteToken409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ClearFriendInviteToken409JSONResponse) VisitClearFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type ClearFriendInviteToken500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ClearFriendInviteToken500JSONResponse) VisitClearFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendInviteTokenRequestObject struct {
+}
+
+type GetFriendInviteTokenResponseObject interface {
+	VisitGetFriendInviteTokenResponse(ctx *fiber.Ctx) error
+}
+
+type GetFriendInviteToken200JSONResponse InviteToken
+
+func (response GetFriendInviteToken200JSONResponse) VisitGetFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendInviteToken400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetFriendInviteToken400JSONResponse) VisitGetFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendInviteToken401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetFriendInviteToken401JSONResponse) VisitGetFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendInviteToken403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetFriendInviteToken403JSONResponse) VisitGetFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendInviteToken404JSONResponse externalRef0.ErrorResponse
+
+func (response GetFriendInviteToken404JSONResponse) VisitGetFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendInviteToken409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetFriendInviteToken409JSONResponse) VisitGetFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendInviteToken500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetFriendInviteToken500JSONResponse) VisitGetFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriendInviteTokenRequestObject struct {
+	Body *CreateFriendInviteTokenJSONRequestBody
+}
+
+type CreateFriendInviteTokenResponseObject interface {
+	VisitCreateFriendInviteTokenResponse(ctx *fiber.Ctx) error
+}
+
+type CreateFriendInviteToken200JSONResponse InviteToken
+
+func (response CreateFriendInviteToken200JSONResponse) VisitCreateFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriendInviteToken400JSONResponse externalRef0.ErrorResponse
+
+func (response CreateFriendInviteToken400JSONResponse) VisitCreateFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriendInviteToken401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateFriendInviteToken401JSONResponse) VisitCreateFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriendInviteToken403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateFriendInviteToken403JSONResponse) VisitCreateFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriendInviteToken409JSONResponse struct{ ConflictJSONResponse }
+
+func (response CreateFriendInviteToken409JSONResponse) VisitCreateFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type CreateFriendInviteToken500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateFriendInviteToken500JSONResponse) VisitCreateFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteFriendRequestObject struct {
+	FriendName string `json:"friendName"`
+}
+
+type DeleteFriendResponseObject interface {
+	VisitDeleteFriendResponse(ctx *fiber.Ctx) error
+}
+
+type DeleteFriend204Response struct {
+}
+
+func (response DeleteFriend204Response) VisitDeleteFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Status(204)
+	return nil
+}
+
+type DeleteFriend400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response DeleteFriend400JSONResponse) VisitDeleteFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteFriend401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteFriend401JSONResponse) VisitDeleteFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteFriend403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteFriend403JSONResponse) VisitDeleteFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteFriend404JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteFriend404JSONResponse) VisitDeleteFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteFriend409JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteFriend409JSONResponse) VisitDeleteFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteFriend500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response DeleteFriend500JSONResponse) VisitDeleteFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriendRequestObject struct {
+	FriendName string `json:"friendName"`
+}
+
+type GetFriendResponseObject interface {
+	VisitGetFriendResponse(ctx *fiber.Ctx) error
+}
+
+type GetFriend200JSONResponse Friend
+
+func (response GetFriend200JSONResponse) VisitGetFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriend400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetFriend400JSONResponse) VisitGetFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriend401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetFriend401JSONResponse) VisitGetFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriend403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetFriend403JSONResponse) VisitGetFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriend404JSONResponse externalRef0.ErrorResponse
+
+func (response GetFriend404JSONResponse) VisitGetFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriend409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetFriend409JSONResponse) VisitGetFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type GetFriend500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetFriend500JSONResponse) VisitGetFriendResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
 type FindPublicKeysByIMEIRequestObject struct {
 	Tac    string `json:"tac"`
 	Serial string `json:"serial"`
@@ -14017,6 +20335,69 @@ type StrictServerInterface interface {
 	// Download stored Ogg audio from a Workspace owned by the authenticated device
 	// (GET /gizclaw/v1/device/workspaces/{workspaceId}/history/{historyId}/audio.ogg)
 	DownloadDeviceHistoryAudio(ctx context.Context, request DownloadDeviceHistoryAudioRequestObject) (DownloadDeviceHistoryAudioResponseObject, error)
+	// List Friend Groups the bound device belongs to
+	// (GET /gizclaw/v1/friend-groups)
+	ListFriendGroups(ctx context.Context, request ListFriendGroupsRequestObject) (ListFriendGroupsResponseObject, error)
+	// Create a Friend Group owned by the bound device
+	// (POST /gizclaw/v1/friend-groups)
+	CreateFriendGroup(ctx context.Context, request CreateFriendGroupRequestObject) (CreateFriendGroupResponseObject, error)
+	// Join a Friend Group with its invite token
+	// (POST /gizclaw/v1/friend-groups/@join)
+	JoinFriendGroup(ctx context.Context, request JoinFriendGroupRequestObject) (JoinFriendGroupResponseObject, error)
+	// Dissolve a Friend Group
+	// (DELETE /gizclaw/v1/friend-groups/{friendGroupName})
+	DeleteFriendGroup(ctx context.Context, request DeleteFriendGroupRequestObject) (DeleteFriendGroupResponseObject, error)
+	// Get a Friend Group the bound device belongs to
+	// (GET /gizclaw/v1/friend-groups/{friendGroupName})
+	GetFriendGroup(ctx context.Context, request GetFriendGroupRequestObject) (GetFriendGroupResponseObject, error)
+	// Update a Friend Group's display name and description
+	// (PUT /gizclaw/v1/friend-groups/{friendGroupName})
+	PutFriendGroup(ctx context.Context, request PutFriendGroupRequestObject) (PutFriendGroupResponseObject, error)
+	// Leave a Friend Group
+	// (POST /gizclaw/v1/friend-groups/{friendGroupName}/@leave)
+	LeaveFriendGroup(ctx context.Context, request LeaveFriendGroupRequestObject) (LeaveFriendGroupResponseObject, error)
+	// Revoke a Friend Group's invite token
+	// (DELETE /gizclaw/v1/friend-groups/{friendGroupName}/invite-token)
+	ClearFriendGroupInviteToken(ctx context.Context, request ClearFriendGroupInviteTokenRequestObject) (ClearFriendGroupInviteTokenResponseObject, error)
+	// Read a Friend Group's active invite token
+	// (GET /gizclaw/v1/friend-groups/{friendGroupName}/invite-token)
+	GetFriendGroupInviteToken(ctx context.Context, request GetFriendGroupInviteTokenRequestObject) (GetFriendGroupInviteTokenResponseObject, error)
+	// Create or return a Friend Group's invite token
+	// (POST /gizclaw/v1/friend-groups/{friendGroupName}/invite-token)
+	CreateFriendGroupInviteToken(ctx context.Context, request CreateFriendGroupInviteTokenRequestObject) (CreateFriendGroupInviteTokenResponseObject, error)
+	// List a Friend Group's members
+	// (GET /gizclaw/v1/friend-groups/{friendGroupName}/members)
+	ListFriendGroupMembers(ctx context.Context, request ListFriendGroupMembersRequestObject) (ListFriendGroupMembersResponseObject, error)
+	// Add a Peer to a Friend Group
+	// (POST /gizclaw/v1/friend-groups/{friendGroupName}/members)
+	AddFriendGroupMember(ctx context.Context, request AddFriendGroupMemberRequestObject) (AddFriendGroupMemberResponseObject, error)
+	// Remove a member from a Friend Group
+	// (DELETE /gizclaw/v1/friend-groups/{friendGroupName}/members/{memberName})
+	DeleteFriendGroupMember(ctx context.Context, request DeleteFriendGroupMemberRequestObject) (DeleteFriendGroupMemberResponseObject, error)
+	// Change a Friend Group member's role
+	// (PUT /gizclaw/v1/friend-groups/{friendGroupName}/members/{memberName})
+	PutFriendGroupMember(ctx context.Context, request PutFriendGroupMemberRequestObject) (PutFriendGroupMemberResponseObject, error)
+	// List Friends of the bound device
+	// (GET /gizclaw/v1/friends)
+	ListFriends(ctx context.Context, request ListFriendsRequestObject) (ListFriendsResponseObject, error)
+	// Befriend the Peer that owns an invite token
+	// (POST /gizclaw/v1/friends)
+	AddFriend(ctx context.Context, request AddFriendRequestObject) (AddFriendResponseObject, error)
+	// Revoke the bound device's Friend invite token
+	// (DELETE /gizclaw/v1/friends/invite-token)
+	ClearFriendInviteToken(ctx context.Context, request ClearFriendInviteTokenRequestObject) (ClearFriendInviteTokenResponseObject, error)
+	// Read the bound device's active Friend invite token
+	// (GET /gizclaw/v1/friends/invite-token)
+	GetFriendInviteToken(ctx context.Context, request GetFriendInviteTokenRequestObject) (GetFriendInviteTokenResponseObject, error)
+	// Create or return the bound device's Friend invite token
+	// (POST /gizclaw/v1/friends/invite-token)
+	CreateFriendInviteToken(ctx context.Context, request CreateFriendInviteTokenRequestObject) (CreateFriendInviteTokenResponseObject, error)
+	// End a Friend relationship of the bound device
+	// (DELETE /gizclaw/v1/friends/{friendName})
+	DeleteFriend(ctx context.Context, request DeleteFriendRequestObject) (DeleteFriendResponseObject, error)
+	// Get one Friend of the bound device
+	// (GET /gizclaw/v1/friends/{friendName})
+	GetFriend(ctx context.Context, request GetFriendRequestObject) (GetFriendResponseObject, error)
 	// Find all matching device public keys
 	// (GET /gizclaw/v1/peers/@findByImei/{tac}/{serial})
 	FindPublicKeysByIMEI(ctx context.Context, request FindPublicKeysByIMEIRequestObject) (FindPublicKeysByIMEIResponseObject, error)
@@ -15190,6 +21571,618 @@ func (sh *strictHandler) DownloadDeviceHistoryAudio(ctx *fiber.Ctx, workspaceId 
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(DownloadDeviceHistoryAudioResponseObject); ok {
 		if err := validResponse.VisitDownloadDeviceHistoryAudioResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListFriendGroups operation middleware
+func (sh *strictHandler) ListFriendGroups(ctx *fiber.Ctx, params ListFriendGroupsParams) error {
+	var request ListFriendGroupsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListFriendGroups(ctx.UserContext(), request.(ListFriendGroupsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListFriendGroups")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListFriendGroupsResponseObject); ok {
+		if err := validResponse.VisitListFriendGroupsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateFriendGroup operation middleware
+func (sh *strictHandler) CreateFriendGroup(ctx *fiber.Ctx) error {
+	var request CreateFriendGroupRequestObject
+
+	var body CreateFriendGroupJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateFriendGroup(ctx.UserContext(), request.(CreateFriendGroupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateFriendGroup")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(CreateFriendGroupResponseObject); ok {
+		if err := validResponse.VisitCreateFriendGroupResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// JoinFriendGroup operation middleware
+func (sh *strictHandler) JoinFriendGroup(ctx *fiber.Ctx) error {
+	var request JoinFriendGroupRequestObject
+
+	var body JoinFriendGroupJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.JoinFriendGroup(ctx.UserContext(), request.(JoinFriendGroupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "JoinFriendGroup")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(JoinFriendGroupResponseObject); ok {
+		if err := validResponse.VisitJoinFriendGroupResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteFriendGroup operation middleware
+func (sh *strictHandler) DeleteFriendGroup(ctx *fiber.Ctx, friendGroupName string) error {
+	var request DeleteFriendGroupRequestObject
+
+	request.FriendGroupName = friendGroupName
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteFriendGroup(ctx.UserContext(), request.(DeleteFriendGroupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteFriendGroup")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeleteFriendGroupResponseObject); ok {
+		if err := validResponse.VisitDeleteFriendGroupResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetFriendGroup operation middleware
+func (sh *strictHandler) GetFriendGroup(ctx *fiber.Ctx, friendGroupName string) error {
+	var request GetFriendGroupRequestObject
+
+	request.FriendGroupName = friendGroupName
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetFriendGroup(ctx.UserContext(), request.(GetFriendGroupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetFriendGroup")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetFriendGroupResponseObject); ok {
+		if err := validResponse.VisitGetFriendGroupResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PutFriendGroup operation middleware
+func (sh *strictHandler) PutFriendGroup(ctx *fiber.Ctx, friendGroupName string) error {
+	var request PutFriendGroupRequestObject
+
+	request.FriendGroupName = friendGroupName
+
+	var body PutFriendGroupJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.PutFriendGroup(ctx.UserContext(), request.(PutFriendGroupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutFriendGroup")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(PutFriendGroupResponseObject); ok {
+		if err := validResponse.VisitPutFriendGroupResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// LeaveFriendGroup operation middleware
+func (sh *strictHandler) LeaveFriendGroup(ctx *fiber.Ctx, friendGroupName string) error {
+	var request LeaveFriendGroupRequestObject
+
+	request.FriendGroupName = friendGroupName
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.LeaveFriendGroup(ctx.UserContext(), request.(LeaveFriendGroupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LeaveFriendGroup")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(LeaveFriendGroupResponseObject); ok {
+		if err := validResponse.VisitLeaveFriendGroupResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ClearFriendGroupInviteToken operation middleware
+func (sh *strictHandler) ClearFriendGroupInviteToken(ctx *fiber.Ctx, friendGroupName string) error {
+	var request ClearFriendGroupInviteTokenRequestObject
+
+	request.FriendGroupName = friendGroupName
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ClearFriendGroupInviteToken(ctx.UserContext(), request.(ClearFriendGroupInviteTokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ClearFriendGroupInviteToken")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ClearFriendGroupInviteTokenResponseObject); ok {
+		if err := validResponse.VisitClearFriendGroupInviteTokenResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetFriendGroupInviteToken operation middleware
+func (sh *strictHandler) GetFriendGroupInviteToken(ctx *fiber.Ctx, friendGroupName string) error {
+	var request GetFriendGroupInviteTokenRequestObject
+
+	request.FriendGroupName = friendGroupName
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetFriendGroupInviteToken(ctx.UserContext(), request.(GetFriendGroupInviteTokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetFriendGroupInviteToken")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetFriendGroupInviteTokenResponseObject); ok {
+		if err := validResponse.VisitGetFriendGroupInviteTokenResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateFriendGroupInviteToken operation middleware
+func (sh *strictHandler) CreateFriendGroupInviteToken(ctx *fiber.Ctx, friendGroupName string) error {
+	var request CreateFriendGroupInviteTokenRequestObject
+
+	request.FriendGroupName = friendGroupName
+
+	var body CreateFriendGroupInviteTokenJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateFriendGroupInviteToken(ctx.UserContext(), request.(CreateFriendGroupInviteTokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateFriendGroupInviteToken")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(CreateFriendGroupInviteTokenResponseObject); ok {
+		if err := validResponse.VisitCreateFriendGroupInviteTokenResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListFriendGroupMembers operation middleware
+func (sh *strictHandler) ListFriendGroupMembers(ctx *fiber.Ctx, friendGroupName string, params ListFriendGroupMembersParams) error {
+	var request ListFriendGroupMembersRequestObject
+
+	request.FriendGroupName = friendGroupName
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListFriendGroupMembers(ctx.UserContext(), request.(ListFriendGroupMembersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListFriendGroupMembers")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListFriendGroupMembersResponseObject); ok {
+		if err := validResponse.VisitListFriendGroupMembersResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// AddFriendGroupMember operation middleware
+func (sh *strictHandler) AddFriendGroupMember(ctx *fiber.Ctx, friendGroupName string) error {
+	var request AddFriendGroupMemberRequestObject
+
+	request.FriendGroupName = friendGroupName
+
+	var body AddFriendGroupMemberJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.AddFriendGroupMember(ctx.UserContext(), request.(AddFriendGroupMemberRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddFriendGroupMember")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(AddFriendGroupMemberResponseObject); ok {
+		if err := validResponse.VisitAddFriendGroupMemberResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteFriendGroupMember operation middleware
+func (sh *strictHandler) DeleteFriendGroupMember(ctx *fiber.Ctx, friendGroupName string, memberName string) error {
+	var request DeleteFriendGroupMemberRequestObject
+
+	request.FriendGroupName = friendGroupName
+	request.MemberName = memberName
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteFriendGroupMember(ctx.UserContext(), request.(DeleteFriendGroupMemberRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteFriendGroupMember")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeleteFriendGroupMemberResponseObject); ok {
+		if err := validResponse.VisitDeleteFriendGroupMemberResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PutFriendGroupMember operation middleware
+func (sh *strictHandler) PutFriendGroupMember(ctx *fiber.Ctx, friendGroupName string, memberName string) error {
+	var request PutFriendGroupMemberRequestObject
+
+	request.FriendGroupName = friendGroupName
+	request.MemberName = memberName
+
+	var body PutFriendGroupMemberJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.PutFriendGroupMember(ctx.UserContext(), request.(PutFriendGroupMemberRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutFriendGroupMember")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(PutFriendGroupMemberResponseObject); ok {
+		if err := validResponse.VisitPutFriendGroupMemberResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListFriends operation middleware
+func (sh *strictHandler) ListFriends(ctx *fiber.Ctx, params ListFriendsParams) error {
+	var request ListFriendsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListFriends(ctx.UserContext(), request.(ListFriendsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListFriends")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListFriendsResponseObject); ok {
+		if err := validResponse.VisitListFriendsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// AddFriend operation middleware
+func (sh *strictHandler) AddFriend(ctx *fiber.Ctx) error {
+	var request AddFriendRequestObject
+
+	var body AddFriendJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.AddFriend(ctx.UserContext(), request.(AddFriendRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddFriend")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(AddFriendResponseObject); ok {
+		if err := validResponse.VisitAddFriendResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ClearFriendInviteToken operation middleware
+func (sh *strictHandler) ClearFriendInviteToken(ctx *fiber.Ctx) error {
+	var request ClearFriendInviteTokenRequestObject
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ClearFriendInviteToken(ctx.UserContext(), request.(ClearFriendInviteTokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ClearFriendInviteToken")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ClearFriendInviteTokenResponseObject); ok {
+		if err := validResponse.VisitClearFriendInviteTokenResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetFriendInviteToken operation middleware
+func (sh *strictHandler) GetFriendInviteToken(ctx *fiber.Ctx) error {
+	var request GetFriendInviteTokenRequestObject
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetFriendInviteToken(ctx.UserContext(), request.(GetFriendInviteTokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetFriendInviteToken")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetFriendInviteTokenResponseObject); ok {
+		if err := validResponse.VisitGetFriendInviteTokenResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateFriendInviteToken operation middleware
+func (sh *strictHandler) CreateFriendInviteToken(ctx *fiber.Ctx) error {
+	var request CreateFriendInviteTokenRequestObject
+
+	var body CreateFriendInviteTokenJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateFriendInviteToken(ctx.UserContext(), request.(CreateFriendInviteTokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateFriendInviteToken")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(CreateFriendInviteTokenResponseObject); ok {
+		if err := validResponse.VisitCreateFriendInviteTokenResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteFriend operation middleware
+func (sh *strictHandler) DeleteFriend(ctx *fiber.Ctx, friendName string) error {
+	var request DeleteFriendRequestObject
+
+	request.FriendName = friendName
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteFriend(ctx.UserContext(), request.(DeleteFriendRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteFriend")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeleteFriendResponseObject); ok {
+		if err := validResponse.VisitDeleteFriendResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetFriend operation middleware
+func (sh *strictHandler) GetFriend(ctx *fiber.Ctx, friendName string) error {
+	var request GetFriendRequestObject
+
+	request.FriendName = friendName
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetFriend(ctx.UserContext(), request.(GetFriendRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetFriend")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetFriendResponseObject); ok {
+		if err := validResponse.VisitGetFriendResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

@@ -1275,6 +1275,284 @@ class ContactPutRequest {
       withoutNulls({'display_name': displayName, 'phone_number': phoneNumber});
 }
 
+/// Public profile of another Peer (`PeerProfileInfo`), taken from its device
+/// name and emoji.
+class PeerProfileInfo {
+  const PeerProfileInfo({this.displayName, this.emoji});
+
+  factory PeerProfileInfo.fromJson(Object? json) {
+    final object = asJsonObject(json, 'PeerProfileInfo');
+    return PeerProfileInfo(
+      displayName: readOptionalString(object, 'display_name'),
+      emoji: readOptionalString(object, 'emoji'),
+    );
+  }
+
+  final String? displayName;
+  final String? emoji;
+
+  JsonObject toJson() =>
+      withoutNulls({'display_name': displayName, 'emoji': emoji});
+}
+
+PeerProfileInfo? _readOptionalProfileInfo(JsonObject json) {
+  final info = readOptionalObject(json, 'info');
+  return info == null ? null : PeerProfileInfo.fromJson(info);
+}
+
+/// Friend or Friend Group invite token (`InviteToken`).
+class InviteToken {
+  const InviteToken({required this.inviteToken, required this.expiresAt});
+
+  factory InviteToken.fromJson(Object? json) {
+    final object = asJsonObject(json, 'InviteToken');
+    return InviteToken(
+      inviteToken: readString(object, 'invite_token'),
+      expiresAt: readDateTime(object, 'expires_at'),
+    );
+  }
+
+  /// Opaque invite code to share with the joining Peer.
+  final String inviteToken;
+  final DateTime expiresAt;
+
+  JsonObject toJson() => {
+    'invite_token': inviteToken,
+    'expires_at': encodeDateTime(expiresAt),
+  };
+}
+
+/// One Friend of the bound device (`Friend`).
+class Friend {
+  const Friend({
+    required this.name,
+    required this.peerPublicKey,
+    required this.workspaceName,
+    required this.createdAt,
+    required this.updatedAt,
+    this.info,
+  });
+
+  factory Friend.fromJson(Object? json) {
+    final object = asJsonObject(json, 'Friend');
+    return Friend(
+      name: readString(object, 'name'),
+      peerPublicKey: readString(object, 'peer_public_key'),
+      workspaceName: readString(object, 'workspace_name'),
+      createdAt: readDateTime(object, 'created_at'),
+      updatedAt: readDateTime(object, 'updated_at'),
+      info: _readOptionalProfileInfo(object),
+    );
+  }
+
+  /// Friend name, equal to [peerPublicKey]; use it in Friend routes.
+  final String name;
+  final String peerPublicKey;
+
+  /// Workspace the two Friends share.
+  final String workspaceName;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  /// The Friend's public profile; absent when the Friend's Peer is gone.
+  final PeerProfileInfo? info;
+
+  JsonObject toJson() => withoutNulls({
+    'name': name,
+    'peer_public_key': peerPublicKey,
+    'workspace_name': workspaceName,
+    'created_at': encodeDateTime(createdAt),
+    'updated_at': encodeDateTime(updatedAt),
+    'info': info?.toJson(),
+  });
+}
+
+/// One page of Friends (`FriendList`).
+class FriendList {
+  const FriendList({
+    required this.items,
+    required this.hasNext,
+    this.nextCursor,
+  });
+
+  factory FriendList.fromJson(Object? json) {
+    final object = asJsonObject(json, 'FriendList');
+    return FriendList(
+      items: readList(object, 'items', Friend.fromJson),
+      hasNext: readBool(object, 'has_next'),
+      nextCursor: readOptionalString(object, 'next_cursor'),
+    );
+  }
+
+  final List<Friend> items;
+  final bool hasNext;
+  final String? nextCursor;
+}
+
+/// Role of a Friend Group member (`FriendGroupRole`).
+enum FriendGroupRole {
+  owner('owner'),
+  admin('admin'),
+  member('member');
+
+  const FriendGroupRole(this.wireValue);
+
+  /// Value sent on the wire.
+  final String wireValue;
+
+  static FriendGroupRole _read(JsonObject json, String key) {
+    final value = readString(json, key);
+    for (final role in values) {
+      if (role.wireValue == value) {
+        return role;
+      }
+    }
+    throw FormatException('$key: unknown friend group role "$value"');
+  }
+}
+
+/// A Friend Group the bound device belongs to (`FriendGroup`).
+class FriendGroup {
+  const FriendGroup({
+    required this.name,
+    required this.myRole,
+    this.displayName,
+    this.description,
+    this.createdByPeerPublicKey,
+    this.workspaceName,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  factory FriendGroup.fromJson(Object? json) {
+    final object = asJsonObject(json, 'FriendGroup');
+    return FriendGroup(
+      name: readString(object, 'name'),
+      myRole: FriendGroupRole._read(object, 'my_role'),
+      displayName: readOptionalString(object, 'display_name'),
+      description: readOptionalString(object, 'description'),
+      createdByPeerPublicKey: readOptionalString(
+        object,
+        'created_by_peer_public_key',
+      ),
+      workspaceName: readOptionalString(object, 'workspace_name'),
+      createdAt: readOptionalDateTime(object, 'created_at'),
+      updatedAt: readOptionalDateTime(object, 'updated_at'),
+    );
+  }
+
+  /// The bound device's own immutable name for the Group; use it in Friend
+  /// Group routes.
+  final String name;
+
+  /// The bound device's role in the Group.
+  final FriendGroupRole myRole;
+  final String? displayName;
+  final String? description;
+
+  /// Owner public key.
+  final String? createdByPeerPublicKey;
+  final String? workspaceName;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+}
+
+/// One page of Friend Groups (`FriendGroupList`).
+class FriendGroupList {
+  const FriendGroupList({
+    required this.items,
+    required this.hasNext,
+    this.nextCursor,
+  });
+
+  factory FriendGroupList.fromJson(Object? json) {
+    final object = asJsonObject(json, 'FriendGroupList');
+    return FriendGroupList(
+      items: readList(object, 'items', FriendGroup.fromJson),
+      hasNext: readBool(object, 'has_next'),
+      nextCursor: readOptionalString(object, 'next_cursor'),
+    );
+  }
+
+  final List<FriendGroup> items;
+  final bool hasNext;
+  final String? nextCursor;
+}
+
+/// One member of a Friend Group (`FriendGroupMember`).
+class FriendGroupMember {
+  const FriendGroupMember({
+    required this.name,
+    required this.peerPublicKey,
+    required this.role,
+    this.createdAt,
+    this.updatedAt,
+    this.info,
+  });
+
+  factory FriendGroupMember.fromJson(Object? json) {
+    final object = asJsonObject(json, 'FriendGroupMember');
+    return FriendGroupMember(
+      name: readString(object, 'name'),
+      peerPublicKey: readString(object, 'peer_public_key'),
+      role: FriendGroupRole._read(object, 'role'),
+      createdAt: readOptionalDateTime(object, 'created_at'),
+      updatedAt: readOptionalDateTime(object, 'updated_at'),
+      info: _readOptionalProfileInfo(object),
+    );
+  }
+
+  /// Member name, equal to [peerPublicKey]; use it in member routes.
+  final String name;
+  final String peerPublicKey;
+  final FriendGroupRole role;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  /// The member's public profile; absent when the member's Peer is gone.
+  final PeerProfileInfo? info;
+}
+
+/// One page of Friend Group members (`FriendGroupMemberList`).
+class FriendGroupMemberList {
+  const FriendGroupMemberList({
+    required this.items,
+    required this.hasNext,
+    this.nextCursor,
+  });
+
+  factory FriendGroupMemberList.fromJson(Object? json) {
+    final object = asJsonObject(json, 'FriendGroupMemberList');
+    return FriendGroupMemberList(
+      items: readList(object, 'items', FriendGroupMember.fromJson),
+      hasNext: readBool(object, 'has_next'),
+      nextCursor: readOptionalString(object, 'next_cursor'),
+    );
+  }
+
+  final List<FriendGroupMember> items;
+  final bool hasNext;
+  final String? nextCursor;
+}
+
+/// Result of joining a Friend Group (`FriendGroupJoinResult`).
+class FriendGroupJoinResult {
+  const FriendGroupJoinResult({required this.group, required this.member});
+
+  factory FriendGroupJoinResult.fromJson(Object? json) {
+    final object = asJsonObject(json, 'FriendGroupJoinResult');
+    return FriendGroupJoinResult(
+      group: FriendGroup.fromJson(object['group']),
+      member: FriendGroupMember.fromJson(object['member']),
+    );
+  }
+
+  final FriendGroup group;
+
+  /// The bound device's own membership.
+  final FriendGroupMember member;
+}
+
 /// Error payload carried by every non-2xx response (`ErrorPayload`).
 class ErrorPayload {
   const ErrorPayload({

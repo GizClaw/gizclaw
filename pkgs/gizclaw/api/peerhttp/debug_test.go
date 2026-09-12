@@ -29,3 +29,24 @@ func TestDebugPublicKeyBearer(t *testing.T) {
 		}
 	}
 }
+
+func TestIsDebugDataPath(t *testing.T) {
+	for path, want := range map[string]bool{
+		"/gizclaw/v1/device":                     true,
+		"/gizclaw/v1/device/status":              true,
+		"/gizclaw/v1/contacts/alice":             true,
+		"/gizclaw/v1/friends":                    true,
+		"/gizclaw/v1/friends/invite-token":       true,
+		"/gizclaw/v1/friend-groups":              true,
+		"/gizclaw/v1/friend-groups/room/members": true,
+		"/gizclaw/v1/friend-groups/@join":        true,
+		"/gizclaw/v1/api-keys":                   false,
+		"/gizclaw/v1/friendsx":                   false,
+		"/gizclaw/v1/friend-groupsx":             false,
+		"/gizclaw/v1/peers/@findBySn/sn":         false,
+	} {
+		if got := IsDebugDataPath(path); got != want {
+			t.Fatalf("IsDebugDataPath(%q) = %v, want %v", path, got, want)
+		}
+	}
+}

@@ -73,6 +73,13 @@ func startTestServer(t *testing.T) *testServer {
 
 func startTestServerWithCipherMode(t *testing.T, cipherMode gizwebrtc.CipherMode) *testServer {
 	t.Helper()
+	return startConfiguredTestServer(t, cipherMode, nil)
+}
+
+// startConfiguredTestServer starts a test Server after configure, when set,
+// adjusts it before it listens.
+func startConfiguredTestServer(t *testing.T, cipherMode gizwebrtc.CipherMode, configure func(*gizclaw.Server)) *testServer {
+	t.Helper()
 
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {
@@ -83,6 +90,9 @@ func startTestServerWithCipherMode(t *testing.T, cipherMode gizwebrtc.CipherMode
 		LocalStatic: *keyPair,
 		PeerStore:   mustBadgerInMemory(t, nil),
 	})
+	if configure != nil {
+		configure(srv)
+	}
 	var signalingServer *httptest.Server
 	srv.PeerListenerFactories = []gizclaw.PeerListenerFactory{
 		func(opts gizclaw.PeerListenerOptions) (giznet.Listener, error) {

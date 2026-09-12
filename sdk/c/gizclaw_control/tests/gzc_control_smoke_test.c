@@ -772,6 +772,236 @@ static void test_device_workspaces(void) {
   check_str(call.error.code, "SYSTEM_WORKSPACE_DELETE_FORBIDDEN", "system workspace delete code");
 }
 
+static void test_friends(void) {
+  stub_t stub;
+  gzc_http_vtable_t http;
+  gzc_control_client_t client;
+  memset(&stub, 0, sizeof(stub));
+  init_client(&client, &stub, &http);
+  uint8_t scratch[512];
+  uint8_t response[1024];
+  gzc_control_call_t call;
+  check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "call init");
+
+  stub.status_code = 404;
+  stub.response_body = "{\"error\":{\"code\":\"INVITE_TOKEN_NOT_FOUND\",\"message\":\"none\"}}";
+  gzc_control_invite_token_t token;
+  check(gzc_control_get_friend_invite_token(&client, &call, &token) != GZC_OK, "missing invite token fails");
+  check(call.error.kind == GZC_CONTROL_ERROR_NOT_FOUND, "missing invite token is not found");
+  check_str(call.error.code, "INVITE_TOKEN_NOT_FOUND", "missing invite token code");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/friends/invite-token") == 0, "invite token url");
+
+  stub.status_code = 200;
+  stub.response_body = "{\"invite_token\":\"0123456789abcdef\",\"expires_at\":\"2026-09-19T01:02:03Z\"}";
+  check(gzc_control_create_friend_invite_token(&client, &call, NULL, &token) == GZC_OK, "create invite token");
+  check(stub.method == GZC_HTTP_METHOD_POST && strcmp(stub.body, "{}") == 0, "default invite token body");
+  gzc_control_invite_token_request_t ttl = {.has_ttl_seconds = true, .ttl_seconds = 604800};
+  check(gzc_control_create_friend_invite_token(&client, &call, &ttl, &token) == GZC_OK, "create ttl invite token");
+  check(strcmp(stub.body, "{\"ttl_seconds\":604800}") == 0, "ttl invite token body");
+  check_str(token.invite_token, "0123456789abcdef", "invite token value");
+  check_str(token.expires_at, "2026-09-19T01:02:03Z", "invite token expiry");
+
+  stub.status_code = 204;
+  stub.response_body = "";
+  check(gzc_control_clear_friend_invite_token(&client, &call) == GZC_OK, "clear invite token");
+  check(stub.method == GZC_HTTP_METHOD_DELETE, "clear invite token method");
+
+  const char *friend_json =
+      "{\"name\":\"7hwy\",\"peer_public_key\":\"7hwy\",\"workspace_name\":\"social-direct-1\","
+      "\"created_at\":\"2026-09-12T01:02:03Z\",\"updated_at\":\"2026-09-12T01:02:03Z\","
+      "\"info\":{\"display_name\":\"Kitchen\",\"emoji\":\"x\"}}";
+  stub.status_code = 201;
+  stub.response_body = friend_json;
+  gzc_control_friend_t friend_value;
+  check(
+      gzc_control_add_friend(&client, &call, gzc_str_from_cstr("0123"), &friend_value) == GZC_OK, "add friend");
+  check(strcmp(stub.body, "{\"invite_token\":\"0123\"}") == 0, "add friend body");
+  check_str(friend_value.workspace_name, "social-direct-1", "friend workspace");
+  check(friend_value.has_info, "friend has info");
+  check_str(friend_value.info.display_name, "Kitchen", "friend display name");
+  check(
+      gzc_control_add_friend(&client, &call, gzc_str_from_parts(NULL, 0), &friend_value) ==
+          GZC_ERR_INVALID_ARGUMENT,
+      "empty invite token is rejected");
+
+  stub.status_code = 409;
+  stub.response_body = "{\"error\":{\"code\":\"FRIEND_ALREADY_EXISTS\",\"message\":\"friends\"}}";
+  check(
+      gzc_control_add_friend(&client, &call, gzc_str_from_cstr("0123"), &friend_value) != GZC_OK,
+      "duplicate friend fails");
+  check(call.error.kind == GZC_CONTROL_ERROR_CONFLICT, "duplicate friend is a conflict");
+  check_str(call.error.code, "FRIEND_ALREADY_EXISTS", "duplicate friend code");
+
+  stub.status_code = 200;
+  stub.response_body =
+      "{\"items\":[{\"name\":\"7hwy\",\"peer_public_key\":\"7hwy\",\"workspace_name\":\"w\","
+      "\"created_at\":\"t\",\"updated_at\":\"t\"}],\"has_next\":true,\"next_cursor\":\"c1\"}";
+  gzc_control_page_t page = {.has_limit = true, .limit = 1};
+  gzc_control_friend_t friends[2];
+  size_t count = 0;
+  bool has_next = false;
+  gzc_str_t cursor;
+  check(
+      gzc_control_list_friends(&client, &call, &page, friends, 2, &count, &has_next, &cursor) == GZC_OK,
+      "list friends");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/friends?limit=1") == 0, "list friends url");
+  check(count == 1 && has_next && !friends[0].has_info, "friend page without info");
+  check_str(cursor, "c1", "friends cursor");
+
+  stub.response_body = friend_json;
+  check(gzc_control_get_friend(&client, &call, gzc_str_from_cstr("7hwy"), &friend_value) == GZC_OK, "get friend");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/friends/7hwy") == 0, "get friend url");
+  stub.response_body = "{\"name\":\"7hwy\"}";
+  check(
+      gzc_control_get_friend(&client, &call, gzc_str_from_cstr("7hwy"), &friend_value) != GZC_OK,
+      "friend without required fields fails");
+  check(call.error.kind == GZC_CONTROL_ERROR_MALFORMED_RESPONSE, "friend without fields is malformed");
+
+  stub.status_code = 204;
+  stub.response_body = "";
+  check(gzc_control_delete_friend(&client, &call, gzc_str_from_cstr("7hwy")) == GZC_OK, "delete friend");
+  check(stub.method == GZC_HTTP_METHOD_DELETE, "delete friend method");
+}
+
+static void test_friend_groups(void) {
+  stub_t stub;
+  gzc_http_vtable_t http;
+  gzc_control_client_t client;
+  memset(&stub, 0, sizeof(stub));
+  init_client(&client, &stub, &http);
+  uint8_t scratch[512];
+  uint8_t response[1024];
+  gzc_control_call_t call;
+  check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "call init");
+  const char *group_json =
+      "{\"name\":\"family room\",\"my_role\":\"owner\",\"display_name\":\"Family\","
+      "\"workspace_name\":\"social-group-1\"}";
+  const char *member_json =
+      "{\"name\":\"7hwy\",\"peer_public_key\":\"7hwy\",\"role\":\"member\",\"info\":{\"display_name\":\"Kitchen\"}}";
+  gzc_str_t name = gzc_str_from_cstr("family room");
+
+  stub.status_code = 201;
+  stub.response_body = group_json;
+  gzc_control_friend_group_request_t create = {
+      .name = gzc_str_from_cstr("family room"),
+      .display_name = gzc_str_from_cstr("Family"),
+  };
+  gzc_control_friend_group_t group;
+  check(gzc_control_create_friend_group(&client, &call, &create, &group) == GZC_OK, "create group");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/friend-groups") == 0, "create group url");
+  check(strcmp(stub.body, "{\"name\":\"family room\",\"display_name\":\"Family\"}") == 0, "create group body");
+  check_str(group.my_role, "owner", "group role");
+
+  stub.status_code = 200;
+  check(gzc_control_put_friend_group(&client, &call, name, &create, &group) == GZC_OK, "put group");
+  check(stub.method == GZC_HTTP_METHOD_PUT, "put group method");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/friend-groups/family%20room") == 0, "put group url");
+  check(strcmp(stub.body, "{\"display_name\":\"Family\"}") == 0, "put group body omits name");
+  check(gzc_control_get_friend_group(&client, &call, name, &group) == GZC_OK, "get group");
+  check_str(group.workspace_name, "social-group-1", "group workspace");
+
+  char join_body[256];
+  (void)snprintf(join_body, sizeof(join_body), "{\"group\":%s,\"member\":%s}", group_json, member_json);
+  stub.response_body = join_body;
+  gzc_control_friend_group_join_request_t join = {
+      .invite_token = gzc_str_from_cstr("abc"),
+      .name = gzc_str_from_cstr("family room"),
+  };
+  gzc_control_friend_group_member_t member;
+  check(gzc_control_join_friend_group(&client, &call, &join, &group, &member) == GZC_OK, "join group");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/friend-groups/@join") == 0, "join url");
+  check(strcmp(stub.body, "{\"invite_token\":\"abc\",\"name\":\"family room\"}") == 0, "join body");
+  check_str(member.role, "member", "joined member role");
+  check(member.has_info, "joined member info");
+  check_str(member.info.display_name, "Kitchen", "joined member name");
+  stub.response_body = "{\"group\":{\"name\":\"g\",\"my_role\":\"member\"}}";
+  check(gzc_control_join_friend_group(&client, &call, &join, &group, &member) != GZC_OK, "join without member fails");
+  check(call.error.kind == GZC_CONTROL_ERROR_MALFORMED_RESPONSE, "join without member is malformed");
+
+  stub.response_body = "{\"invite_token\":\"g1\",\"expires_at\":\"2026-09-12T02:00:00Z\"}";
+  gzc_control_invite_token_t token;
+  check(gzc_control_get_friend_group_invite_token(&client, &call, name, &token) == GZC_OK, "get group token");
+  check(
+      strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/friend-groups/family%20room/invite-token") == 0,
+      "group token url");
+  gzc_control_invite_token_request_t ttl = {.has_ttl_seconds = true, .ttl_seconds = 3600};
+  check(gzc_control_create_friend_group_invite_token(&client, &call, name, &ttl, &token) == GZC_OK, "create group token");
+  check(stub.method == GZC_HTTP_METHOD_POST && strcmp(stub.body, "{\"ttl_seconds\":3600}") == 0, "group token body");
+
+  stub.response_body = "{\"items\":["
+                       "{\"name\":\"a\",\"peer_public_key\":\"a\",\"role\":\"owner\"},"
+                       "{\"name\":\"7hwy\",\"peer_public_key\":\"7hwy\",\"role\":\"member\",\"info\":{\"display_name\":\"Kitchen\"}}"
+                       "],\"has_next\":false}";
+  gzc_control_friend_group_member_t members[2];
+  size_t count = 0;
+  bool has_next = true;
+  gzc_str_t cursor;
+  check(
+      gzc_control_list_friend_group_members(&client, &call, name, NULL, members, 2, &count, &has_next, &cursor) ==
+          GZC_OK,
+      "list members");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/friend-groups/family%20room/members") == 0, "members url");
+  check(count == 2 && !has_next && cursor.len == 0, "members page");
+  check(!members[0].has_info && members[1].has_info, "member info presence");
+  check(
+      gzc_control_list_friend_group_members(&client, &call, name, NULL, members, 1, &count, &has_next, &cursor) ==
+          GZC_ERR_BUFFER_TOO_SMALL,
+      "small member array reports overflow");
+
+  stub.status_code = 201;
+  stub.response_body = member_json;
+  gzc_control_friend_group_member_request_t add = {
+      .peer_public_key = gzc_str_from_cstr("7hwy"),
+      .member_name = gzc_str_from_cstr("kids"),
+      .role = gzc_str_from_cstr("member"),
+  };
+  check(gzc_control_add_friend_group_member(&client, &call, name, &add, &member) == GZC_OK, "add member");
+  check(
+      strcmp(stub.body, "{\"peer_public_key\":\"7hwy\",\"member_name\":\"kids\",\"role\":\"member\"}") == 0,
+      "add member body");
+  stub.status_code = 200;
+  check(
+      gzc_control_put_friend_group_member(
+          &client, &call, name, gzc_str_from_cstr("7hwy"), gzc_str_from_cstr("admin"), &member) == GZC_OK,
+      "put member");
+  check(
+      strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/friend-groups/family%20room/members/7hwy") == 0,
+      "put member url");
+  check(strcmp(stub.body, "{\"role\":\"admin\"}") == 0, "put member body");
+
+  stub.status_code = 204;
+  stub.response_body = "";
+  check(
+      gzc_control_delete_friend_group_member(&client, &call, name, gzc_str_from_cstr("7hwy")) == GZC_OK,
+      "delete member");
+  check(stub.method == GZC_HTTP_METHOD_DELETE, "delete member method");
+  check(
+      gzc_control_delete_friend_group_member(&client, &call, name, gzc_str_from_parts(NULL, 0)) ==
+          GZC_ERR_INVALID_ARGUMENT,
+      "empty member name is rejected");
+  check(gzc_control_clear_friend_group_invite_token(&client, &call, name) == GZC_OK, "clear group token");
+  check(
+      strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/friend-groups/family%20room/invite-token") == 0 &&
+          stub.method == GZC_HTTP_METHOD_DELETE,
+      "clear group token route");
+  check(gzc_control_delete_friend_group(&client, &call, name) == GZC_OK, "delete group");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/friend-groups/family%20room") == 0, "delete group url");
+
+  check(gzc_control_leave_friend_group(&client, &call, name) == GZC_OK, "leave group");
+  check(stub.method == GZC_HTTP_METHOD_POST && !stub.saw_content_type, "leave sends no body");
+  check(
+      strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/friend-groups/family%20room/@leave") == 0, "leave url");
+  stub.status_code = 409;
+  stub.response_body = "{\"error\":{\"code\":\"FRIEND_GROUP_OWNER_CANNOT_LEAVE\",\"message\":\"owner\"}}";
+  check(gzc_control_leave_friend_group(&client, &call, name) != GZC_OK, "owner leave fails");
+  check(call.error.kind == GZC_CONTROL_ERROR_CONFLICT, "owner leave is a conflict");
+  check_str(call.error.code, "FRIEND_GROUP_OWNER_CANNOT_LEAVE", "owner leave code");
+  stub.status_code = 403;
+  stub.response_body = "{\"error\":{\"code\":\"FRIEND_GROUP_PERMISSION_DENIED\",\"message\":\"owner\"}}";
+  check(gzc_control_delete_friend_group(&client, &call, name) != GZC_OK, "member dissolve fails");
+  check(call.error.kind == GZC_CONTROL_ERROR_FORBIDDEN, "member dissolve is forbidden");
+}
+
 static void test_device_wifi_scan_and_connect(void) {
   stub_t stub;
   gzc_http_vtable_t http;
@@ -956,6 +1186,8 @@ int main(void) {
   test_device_workspaces();
   test_device_wifi_scan_and_connect();
   test_device_info_raw_and_identifiers();
+  test_friends();
+  test_friend_groups();
   if (failures != 0) {
     (void)fprintf(stderr, "%d control SDK smoke checks failed\n", failures);
     return 1;

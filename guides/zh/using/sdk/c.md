@@ -45,6 +45,8 @@ if (gzc_control_get_device_status(&client, &call, &status) == GZC_OK && status.h
 
 Request 侧的字符串上限直接取自 contract：SSID 32 字节、sound 32 字节、display_name 80 字节，超限在发出请求前就返回 `GZC_ERR_INVALID_ARGUMENT`。
 
+好友与群组 route 对应 `gzc_control_*_friend*` 与 `gzc_control_*_friend_group*` 函数，覆盖邀请码（`gzc_control_invite_token_request_t` 的可选 `ttl_seconds`）、加好友、列表、退群、解散与成员管理。群角色以字符串（`owner`、`admin`、`member`）返回，`info` 以 `has_info` 标记是否存在。
+
 ### 错误分类
 
 失败调用把 `gzc_control_call_t.error` 填成 `gzc_control_error_t`。`kind` 的取值与判定规则与 `sdk/flutter/gizclaw_control`、`sdk/js/gizclaw-control` 完全一致：`DEVICE_*` 按响应体的 `error.code` 判定，其余按 HTTP status。

@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Peer HTTP API",
-    "description": "Peer bootstrap, device-bound API key, device, and contact endpoints.",
+    "description": "Peer bootstrap, device-bound API key, device, contact, friend, and friend group endpoints.",
     "version": "1.0.0"
   },
   "servers": [{"url": "/"}],
@@ -11,7 +11,9 @@
     {"name": "APIKeys", "description": "Device-bound API key management"},
     {"name": "Device", "description": "Read the device bound to the API key"},
     {"name": "DeviceControl", "description": "Control the device bound to the API key over Server-to-device RPC"},
-    {"name": "Contacts", "description": "Contacts owned by the device bound to the API key"}
+    {"name": "Contacts", "description": "Contacts owned by the device bound to the API key"},
+    {"name": "Friends", "description": "Friend relationships of the device bound to the API key"},
+    {"name": "FriendGroups", "description": "Friend Groups the device bound to the API key belongs to"}
   ],
   "paths": {
     "/gizclaw/v1/device/audioplayer": {
@@ -1556,6 +1558,428 @@
         }
       }
     },
+    "/gizclaw/v1/friends/invite-token": {
+      "get": {
+        "operationId": "getFriendInviteToken",
+        "summary": "Read the bound device's active Friend invite token",
+        "description": "Same data as server.friend.invite_token.get. Reads the shared Social store and never contacts the device.",
+        "tags": ["Friends"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "responses": {
+          "200": {"description": "Active invite token.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/InviteToken"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"description": "INVITE_TOKEN_NOT_FOUND when the device has no unexpired Friend invite token.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "post": {
+        "operationId": "createFriendInviteToken",
+        "summary": "Create or return the bound device's Friend invite token",
+        "description": "Without ttl_seconds this is server.friend.invite_token.create: an active token is returned unchanged and a new token lives 5 minutes. With ttl_seconds a new token lives that long, and an active token keeps its value while its expires_at is extended to now + ttl_seconds; it is never shortened. The body may be omitted.",
+        "tags": ["Friends"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "requestBody": {"required": false, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/InviteTokenCreateRequest"}}}},
+        "responses": {
+          "200": {"description": "Active invite token.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/InviteToken"}}}},
+          "400": {"description": "INVALID_REQUEST when ttl_seconds is outside 60..604800.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "delete": {
+        "operationId": "clearFriendInviteToken",
+        "summary": "Revoke the bound device's Friend invite token",
+        "description": "Same as server.friend.invite_token.clear. Idempotent: succeeds when no token exists.",
+        "tags": ["Friends"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "responses": {
+          "204": {"description": "Invite token revoked."},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/gizclaw/v1/friends": {
+      "get": {
+        "operationId": "listFriends",
+        "summary": "List Friends of the bound device",
+        "description": "Same relationships as server.friend.list, each with the Friend's public profile info. Never contacts the device.",
+        "tags": ["Friends"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "parameters": [
+          {"name": "cursor", "in": "query", "required": false, "description": "Opaque next_cursor returned by the previous page.", "schema": {"type": "string"}},
+          {"name": "limit", "in": "query", "required": false, "schema": {"type": "integer", "format": "int32", "minimum": 1, "maximum": 200, "default": 50}}
+        ],
+        "responses": {
+          "200": {"description": "Friends in stable order.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FriendList"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "post": {
+        "operationId": "addFriend",
+        "summary": "Befriend the Peer that owns an invite token",
+        "description": "Same as server.friend.add, except that an already active relationship is reported as FRIEND_ALREADY_EXISTS instead of being returned again. Creates both directions of the relationship and their shared Friend Workspace.",
+        "tags": ["Friends"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FriendAddRequest"}}}},
+        "responses": {
+          "201": {"description": "Created Friend relationship.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Friend"}}}},
+          "400": {"description": "INVALID_REQUEST when invite_token is empty; FRIEND_SELF_INVITE when the token belongs to the bound device.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"description": "INVITE_TOKEN_INVALID when the invite token does not exist or has expired.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+          "409": {"description": "FRIEND_ALREADY_EXISTS when the two Peers are already Friends; FRIEND_LIMIT_REACHED when either Peer already has 10 Friends; PEER_PENDING_DELETION or PEER_DELETED when the owner or the token's Peer is being retired or is gone.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/gizclaw/v1/friends/{friendName}": {
+      "parameters": [{"name": "friendName", "in": "path", "required": true, "description": "Friend name, which is the Friend's canonical public key.", "schema": {"type": "string", "minLength": 1}}],
+      "get": {
+        "operationId": "getFriend",
+        "summary": "Get one Friend of the bound device",
+        "description": "The relationship plus the Friend's public profile info (server.friend.info.get).",
+        "tags": ["Friends"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "responses": {
+          "200": {"description": "Friend.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Friend"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"description": "FRIEND_NOT_FOUND when the bound device has no such Friend.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "delete": {
+        "operationId": "deleteFriend",
+        "summary": "End a Friend relationship of the bound device",
+        "description": "Same as server.friend.delete: removes both directions and retires their Friend Workspace. Repeating a delete that already completed succeeds.",
+        "tags": ["Friends"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "responses": {
+          "204": {"description": "Friend relationship deleted."},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"description": "FRIEND_NOT_FOUND when the bound device has no such Friend.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+          "409": {"description": "PEER_PENDING_DELETION or PEER_DELETED when either Peer is being retired or is gone.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/gizclaw/v1/friend-groups": {
+      "get": {
+        "operationId": "listFriendGroups",
+        "summary": "List Friend Groups the bound device belongs to",
+        "description": "Same as server.friend_group.list. name is the device's own name for each Group and my_role its role.",
+        "tags": ["FriendGroups"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "parameters": [
+          {"name": "cursor", "in": "query", "required": false, "description": "Opaque next_cursor returned by the previous page.", "schema": {"type": "string"}},
+          {"name": "limit", "in": "query", "required": false, "schema": {"type": "integer", "format": "int32", "minimum": 1, "maximum": 200, "default": 50}}
+        ],
+        "responses": {
+          "200": {"description": "Friend Groups in stable order.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FriendGroupList"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "post": {
+        "operationId": "createFriendGroup",
+        "summary": "Create a Friend Group owned by the bound device",
+        "description": "Same as server.friend_group.create. The device becomes the owner.",
+        "tags": ["FriendGroups"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FriendGroupCreateRequest"}}}},
+        "responses": {
+          "201": {"description": "Created Friend Group.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FriendGroup"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"description": "FRIEND_GROUP_NAME_CONFLICT when the device already has a Group with this name; FRIEND_GROUP_LIMIT_REACHED when the device already belongs to 10 Groups; FRIEND_GROUP_CHANGED on a concurrent change (retry); PEER_PENDING_DELETION or PEER_DELETED when the owner is being retired.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/gizclaw/v1/friend-groups/@join": {
+      "post": {
+        "operationId": "joinFriendGroup",
+        "summary": "Join a Friend Group with its invite token",
+        "description": "Same as server.friend_group.join. name is the device's own name for the Group. Joining again with the same name returns the existing membership.",
+        "tags": ["FriendGroups"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FriendGroupJoinRequest"}}}},
+        "responses": {
+          "200": {"description": "Joined Friend Group and the device's membership.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FriendGroupJoinResult"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"description": "INVITE_TOKEN_INVALID when the invite token does not exist or has expired.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+          "409": {"description": "FRIEND_GROUP_NAME_CONFLICT when the device already uses name for another Group; FRIEND_GROUP_ALREADY_JOINED when the device is already a member under a different name; FRIEND_GROUP_FULL when the Group has 10 members; FRIEND_GROUP_LIMIT_REACHED when the device already belongs to 10 Groups; FRIEND_GROUP_CHANGED on a concurrent change (retry); FRIEND_GROUP_PENDING_DELETION when the Group is being deleted; PEER_PENDING_DELETION or PEER_DELETED when a Peer is being retired or is gone.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/gizclaw/v1/friend-groups/{friendGroupName}": {
+      "parameters": [{"name": "friendGroupName", "in": "path", "required": true, "description": "The bound device's own name for the Friend Group.", "schema": {"type": "string", "minLength": 1}}],
+      "get": {
+        "operationId": "getFriendGroup",
+        "summary": "Get a Friend Group the bound device belongs to",
+        "description": "Same as server.friend_group.get. Any member may read.",
+        "tags": ["FriendGroups"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "responses": {
+          "200": {"description": "Friend Group.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FriendGroup"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/FriendGroupNotFound"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "put": {
+        "operationId": "putFriendGroup",
+        "summary": "Update a Friend Group's display name and description",
+        "description": "Same as server.friend_group.put. Owner only.",
+        "tags": ["FriendGroups"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FriendGroupPutRequest"}}}},
+        "responses": {
+          "200": {"description": "Updated Friend Group.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FriendGroup"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/FriendGroupForbidden"},
+          "404": {"$ref": "#/components/responses/FriendGroupNotFound"},
+          "409": {"$ref": "#/components/responses/FriendGroupConflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "delete": {
+        "operationId": "deleteFriendGroup",
+        "summary": "Dissolve a Friend Group",
+        "description": "Same as server.friend_group.delete. Owner only: removes every membership and retires the Group Workspace.",
+        "tags": ["FriendGroups"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "responses": {
+          "204": {"description": "Friend Group deleted."},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/FriendGroupForbidden"},
+          "404": {"$ref": "#/components/responses/FriendGroupNotFound"},
+          "409": {"$ref": "#/components/responses/FriendGroupConflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/gizclaw/v1/friend-groups/{friendGroupName}/invite-token": {
+      "parameters": [{"name": "friendGroupName", "in": "path", "required": true, "description": "The bound device's own name for the Friend Group.", "schema": {"type": "string", "minLength": 1}}],
+      "get": {
+        "operationId": "getFriendGroupInviteToken",
+        "summary": "Read a Friend Group's active invite token",
+        "description": "Same as server.friend_group.invite_token.get. Owner only.",
+        "tags": ["FriendGroups"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "responses": {
+          "200": {"description": "Active invite token.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/InviteToken"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/FriendGroupForbidden"},
+          "404": {"description": "FRIEND_GROUP_NOT_FOUND when the device has no Group with this name; INVITE_TOKEN_NOT_FOUND when the Group has no unexpired invite token.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+          "409": {"$ref": "#/components/responses/FriendGroupConflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "post": {
+        "operationId": "createFriendGroupInviteToken",
+        "summary": "Create or return a Friend Group's invite token",
+        "description": "Owner only. Without ttl_seconds this is server.friend_group.invite_token.create: an active token is returned unchanged and a new token lives 5 minutes. With ttl_seconds a new token lives that long, and an active token keeps its value while its expires_at is extended to now + ttl_seconds; it is never shortened. The body may be omitted.",
+        "tags": ["FriendGroups"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "requestBody": {"required": false, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/InviteTokenCreateRequest"}}}},
+        "responses": {
+          "200": {"description": "Active invite token.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/InviteToken"}}}},
+          "400": {"description": "INVALID_REQUEST when ttl_seconds is outside 60..604800.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/FriendGroupForbidden"},
+          "404": {"$ref": "#/components/responses/FriendGroupNotFound"},
+          "409": {"$ref": "#/components/responses/FriendGroupConflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "delete": {
+        "operationId": "clearFriendGroupInviteToken",
+        "summary": "Revoke a Friend Group's invite token",
+        "description": "Same as server.friend_group.invite_token.clear. Owner only; idempotent when no token exists.",
+        "tags": ["FriendGroups"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "responses": {
+          "204": {"description": "Invite token revoked."},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/FriendGroupForbidden"},
+          "404": {"$ref": "#/components/responses/FriendGroupNotFound"},
+          "409": {"$ref": "#/components/responses/FriendGroupConflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/gizclaw/v1/friend-groups/{friendGroupName}/@leave": {
+      "parameters": [{"name": "friendGroupName", "in": "path", "required": true, "description": "The bound device's own name for the Friend Group.", "schema": {"type": "string", "minLength": 1}}],
+      "post": {
+        "operationId": "leaveFriendGroup",
+        "summary": "Leave a Friend Group",
+        "description": "Removes the bound device's own membership, like server.friend_group.members.delete for its own public key. Members and admins may leave; the owner must dissolve the Group instead.",
+        "tags": ["FriendGroups"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "responses": {
+          "204": {"description": "Left the Friend Group."},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/FriendGroupNotFound"},
+          "409": {"description": "FRIEND_GROUP_OWNER_CANNOT_LEAVE when the device owns the Group; FRIEND_GROUP_CHANGED on a concurrent change (retry); FRIEND_GROUP_PENDING_DELETION when the Group is being deleted; PEER_PENDING_DELETION or PEER_DELETED when a Peer is being retired or is gone.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/gizclaw/v1/friend-groups/{friendGroupName}/members": {
+      "parameters": [{"name": "friendGroupName", "in": "path", "required": true, "description": "The bound device's own name for the Friend Group.", "schema": {"type": "string", "minLength": 1}}],
+      "get": {
+        "operationId": "listFriendGroupMembers",
+        "summary": "List a Friend Group's members",
+        "description": "Same as server.friend_group.members.list, each member with its public profile info. Any member may read.",
+        "tags": ["FriendGroups"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "parameters": [
+          {"name": "cursor", "in": "query", "required": false, "description": "Opaque next_cursor returned by the previous page.", "schema": {"type": "string"}},
+          {"name": "limit", "in": "query", "required": false, "schema": {"type": "integer", "format": "int32", "minimum": 1, "maximum": 200, "default": 50}}
+        ],
+        "responses": {
+          "200": {"description": "Members in stable order.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FriendGroupMemberList"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/FriendGroupNotFound"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "post": {
+        "operationId": "addFriendGroupMember",
+        "summary": "Add a Peer to a Friend Group",
+        "description": "Same as server.friend_group.members.add. Owners and admins may add members; only the owner may add admins. member_name is the added Peer's own name for the Group.",
+        "tags": ["FriendGroups"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FriendGroupMemberAddRequest"}}}},
+        "responses": {
+          "201": {"description": "Added or updated member.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FriendGroupMember"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/FriendGroupForbidden"},
+          "404": {"$ref": "#/components/responses/FriendGroupNotFound"},
+          "409": {"description": "FRIEND_GROUP_NAME_CONFLICT when the added Peer already uses member_name for another Group; FRIEND_GROUP_ALREADY_JOINED when the Peer is a member under a different name; FRIEND_GROUP_OWNER_ROLE_IMMUTABLE when the Peer is the owner; FRIEND_GROUP_FULL; FRIEND_GROUP_LIMIT_REACHED; FRIEND_GROUP_CHANGED; FRIEND_GROUP_PENDING_DELETION; PEER_PENDING_DELETION or PEER_DELETED.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/gizclaw/v1/friend-groups/{friendGroupName}/members/{memberName}": {
+      "parameters": [
+        {"name": "friendGroupName", "in": "path", "required": true, "description": "The bound device's own name for the Friend Group.", "schema": {"type": "string", "minLength": 1}},
+        {"name": "memberName", "in": "path", "required": true, "description": "Member name, which is the member's canonical public key.", "schema": {"type": "string", "minLength": 1}}
+      ],
+      "put": {
+        "operationId": "putFriendGroupMember",
+        "summary": "Change a Friend Group member's role",
+        "description": "Same as server.friend_group.members.put. Owner only.",
+        "tags": ["FriendGroups"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FriendGroupMemberPutRequest"}}}},
+        "responses": {
+          "200": {"description": "Updated member.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FriendGroupMember"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/FriendGroupForbidden"},
+          "404": {"$ref": "#/components/responses/FriendGroupMemberNotFound"},
+          "409": {"description": "FRIEND_GROUP_OWNER_ROLE_IMMUTABLE when the member is the owner; FRIEND_GROUP_CHANGED; FRIEND_GROUP_PENDING_DELETION; PEER_PENDING_DELETION or PEER_DELETED.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "delete": {
+        "operationId": "deleteFriendGroupMember",
+        "summary": "Remove a member from a Friend Group",
+        "description": "Same as server.friend_group.members.delete. Owners and admins may remove members, only the owner may remove admins, and a member may remove itself.",
+        "tags": ["FriendGroups"],
+        "security": [
+          {"BearerAuth": []}
+        ],
+        "responses": {
+          "204": {"description": "Member removed."},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/FriendGroupForbidden"},
+          "404": {"$ref": "#/components/responses/FriendGroupMemberNotFound"},
+          "409": {"description": "FRIEND_GROUP_OWNER_CANNOT_BE_REMOVED when the member is the owner; FRIEND_GROUP_CHANGED; FRIEND_GROUP_PENDING_DELETION; PEER_PENDING_DELETION or PEER_DELETED.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
     "/gizclaw/v1/peers/@findBySn/{sn}": {
       "get": {
         "operationId": "findPublicKeysBySN",
@@ -1666,6 +2090,22 @@
       },
       "DeviceUnsupported": {
         "description": "The device does not implement this control method.",
+        "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+      },
+      "FriendGroupNotFound": {
+        "description": "FRIEND_GROUP_NOT_FOUND when the bound device has no Friend Group with this name. Group names are per member, so a non-member never resolves another member's name.",
+        "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+      },
+      "FriendGroupMemberNotFound": {
+        "description": "FRIEND_GROUP_NOT_FOUND when the bound device has no Friend Group with this name; FRIEND_GROUP_MEMBER_NOT_FOUND when the Peer is not a member.",
+        "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+      },
+      "FriendGroupForbidden": {
+        "description": "FRIEND_GROUP_PERMISSION_DENIED when the bound device's role in the Group does not permit the operation; API_KEY_OWNER_UNAVAILABLE or DEBUG_ACCESS_FORBIDDEN from bearer validation.",
+        "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+      },
+      "FriendGroupConflict": {
+        "description": "FRIEND_GROUP_CHANGED on a concurrent change (retry); FRIEND_GROUP_PENDING_DELETION when the Group is being deleted; PEER_PENDING_DELETION or PEER_DELETED when a Peer is being retired or is gone.",
         "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
       },
       "DeviceError": {
@@ -1960,6 +2400,147 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {"display_name": {"type": "string"}, "phone_number": {"type": "string"}}
+      },
+      "PeerProfileInfo": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Public profile of another Peer, taken from its device name and emoji. Omitted when the Peer no longer exists.",
+        "properties": {"display_name": {"type": "string"}, "emoji": {"type": "string"}}
+      },
+      "InviteToken": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["invite_token", "expires_at"],
+        "properties": {
+          "invite_token": {"type": "string", "description": "Opaque invite code to share with the joining Peer."},
+          "expires_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "InviteTokenCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ttl_seconds": {"type": "integer", "format": "int32", "minimum": 60, "maximum": 604800, "description": "Requested lifetime. Omit to keep the default 5 minute lifetime and to return an active token unchanged."}
+        }
+      },
+      "Friend": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "peer_public_key", "workspace_name", "created_at", "updated_at"],
+        "properties": {
+          "name": {"type": "string", "description": "Friend name, equal to peer_public_key."},
+          "peer_public_key": {"type": "string"},
+          "workspace_name": {"type": "string", "description": "Name of the Workspace the two Friends share."},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"},
+          "info": {"$ref": "#/components/schemas/PeerProfileInfo"}
+        }
+      },
+      "FriendList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items", "has_next"],
+        "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/Friend"}}, "has_next": {"type": "boolean"}, "next_cursor": {"type": "string"}}
+      },
+      "FriendAddRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["invite_token"],
+        "properties": {"invite_token": {"type": "string", "minLength": 1}}
+      },
+      "FriendGroupRole": {
+        "type": "string",
+        "enum": ["owner", "admin", "member"]
+      },
+      "FriendGroupMutableRole": {
+        "type": "string",
+        "enum": ["admin", "member"]
+      },
+      "FriendGroup": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "my_role"],
+        "properties": {
+          "name": {"type": "string", "description": "The bound device's own immutable name for the Group."},
+          "display_name": {"type": "string"},
+          "description": {"type": "string"},
+          "my_role": {"$ref": "#/components/schemas/FriendGroupRole"},
+          "created_by_peer_public_key": {"type": "string", "description": "Owner public key."},
+          "workspace_name": {"type": "string", "description": "Name of the Workspace the members share."},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "FriendGroupList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items", "has_next"],
+        "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/FriendGroup"}}, "has_next": {"type": "boolean"}, "next_cursor": {"type": "string"}}
+      },
+      "FriendGroupCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1, "description": "The device's own immutable name for the Group, without surrounding whitespace."},
+          "display_name": {"type": "string"},
+          "description": {"type": "string"}
+        }
+      },
+      "FriendGroupPutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {"display_name": {"type": "string"}, "description": {"type": "string"}}
+      },
+      "FriendGroupJoinRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["invite_token", "name"],
+        "properties": {
+          "invite_token": {"type": "string", "minLength": 1},
+          "name": {"type": "string", "minLength": 1, "description": "The device's own immutable name for the joined Group, without surrounding whitespace."}
+        }
+      },
+      "FriendGroupMember": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "peer_public_key", "role"],
+        "properties": {
+          "name": {"type": "string", "description": "Member name, equal to peer_public_key."},
+          "peer_public_key": {"type": "string"},
+          "role": {"$ref": "#/components/schemas/FriendGroupRole"},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"},
+          "info": {"$ref": "#/components/schemas/PeerProfileInfo"}
+        }
+      },
+      "FriendGroupMemberList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items", "has_next"],
+        "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/FriendGroupMember"}}, "has_next": {"type": "boolean"}, "next_cursor": {"type": "string"}}
+      },
+      "FriendGroupJoinResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["group", "member"],
+        "properties": {"group": {"$ref": "#/components/schemas/FriendGroup"}, "member": {"$ref": "#/components/schemas/FriendGroupMember"}}
+      },
+      "FriendGroupMemberAddRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["peer_public_key", "member_name", "role"],
+        "properties": {
+          "peer_public_key": {"type": "string", "minLength": 1},
+          "member_name": {"type": "string", "minLength": 1, "description": "The added Peer's own immutable name for the Group."},
+          "role": {"$ref": "#/components/schemas/FriendGroupMutableRole"}
+        }
+      },
+      "FriendGroupMemberPutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role"],
+        "properties": {"role": {"$ref": "#/components/schemas/FriendGroupMutableRole"}}
       },
       "GiznetWebRTCSignalingError": {
         "type": "object",

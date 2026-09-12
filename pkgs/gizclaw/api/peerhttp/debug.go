@@ -16,11 +16,16 @@ func IsIdentifierLookup(method, path string) bool {
 		strings.HasPrefix(path, "/gizclaw/v1/peers/@findByImei/")
 }
 
-// IsDebugDataPath identifies the device and contact surfaces accepting debug access.
-// Credentials and authentication management are outside this surface.
+// IsDebugDataPath identifies the device, contact, friend and friend group
+// surfaces accepting debug access. Credentials and authentication management
+// are outside this surface.
 func IsDebugDataPath(path string) bool {
-	return path == "/gizclaw/v1/device" || strings.HasPrefix(path, "/gizclaw/v1/device/") ||
-		path == "/gizclaw/v1/contacts" || strings.HasPrefix(path, "/gizclaw/v1/contacts/")
+	for _, root := range []string{"/gizclaw/v1/device", "/gizclaw/v1/contacts", "/gizclaw/v1/friends", "/gizclaw/v1/friend-groups"} {
+		if path == root || strings.HasPrefix(path, root+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 // DebugPublicKey parses a tagged public-key bearer without interpreting API keys.
