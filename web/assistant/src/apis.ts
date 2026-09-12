@@ -153,9 +153,18 @@ export const ASSISTANT_APIS: ApiDefinition[] = [
       value: z.string().trim().min(1),
       serial: z.string().trim().min(1).nullish(),
     }),
-    run: async (runtime, { kind, value, serial }) => ({
-      public_keys: await runtime.devices.find(kind, value, serial ?? undefined),
-    }),
+    run: async (runtime, { kind, value, serial }) => {
+      if (kind === "imei" && !serial) {
+        throw new ApiInputError("kind=imei 需要 serial");
+      }
+      return {
+        public_keys: await runtime.devices.find(
+          kind,
+          value,
+          serial ?? undefined,
+        ),
+      };
+    },
   }),
   define({
     tool: "get_device_status",

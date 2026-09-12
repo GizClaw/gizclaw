@@ -1283,6 +1283,8 @@ The standard GizClaw Docker runner owns a mandatory `go:openai` phase under `tes
 
 Successful runs write redacted monotonic timing evidence below ignored `tests/gizclaw-e2e/testdata/openai-compatibility/`. Artifacts contain only schema/version, target/case, bounded media sizes, numeric phase timings, and status; they must not contain credentials, IDs, prompts, transcripts, generated text, media, URLs, or provider errors. A tagged compile is diagnostic only and does not replace `bash tests/gizclaw-e2e/run_tests.sh`.
 
+`TestAssistantScenariosWithLiveModel` in the same phase reuses that harness's API key and `/openai/v1` to run `web/assistant/scripts/run-live-scenarios.ts` with `node --experimental-strip-types`: the Monitor diagnostic assistant's scenario set executes tools against `FakeRuntime` while every model call goes to the RuntimeProfile `llm` (`doubao-mini-chat`). Each scenario gets up to three attempts and is judged only on tool calls, the final route, and key facts in the reply; a scenario that fails all three fails the phase. A passing run prints only scenario names, attempts, and failed checks; the JSON report with generated replies and tool results is printed only on failure. The test needs the `web/assistant` dependencies installed by the root `npm ci`, which the runner's `preflight:npm-ci` phase provides.
+
 ## Monitor API giztest
 
 ```sh

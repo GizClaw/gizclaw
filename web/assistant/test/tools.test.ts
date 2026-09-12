@@ -282,6 +282,13 @@ test("node and device tools read their sources", async () => {
     await call("find_device", { kind: "imei", value: "35", serial: "1" }),
     { public_keys: [] },
   );
+  for (const serial of [undefined, null]) {
+    assert.equal(
+      (await call("find_device", { kind: "imei", value: "35", serial })).error
+        .code,
+      "invalid_arguments",
+    );
+  }
   assert.equal(
     (await call("get_device_status", { public_key: BALCONY })).runtime
       .debug_mode,

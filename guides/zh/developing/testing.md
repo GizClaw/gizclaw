@@ -659,6 +659,8 @@ steps:
 
 成功运行会在 ignored `tests/gizclaw-e2e/testdata/openai-compatibility/` 下写入脱敏 monotonic timing evidence。Artifact 只含 schema/version、target/case、受限 media size、数字 phase timing 与 status，不能包含 credential、ID、prompt、transcript、generated text、media、URL 或 provider error。仅做 tagged compile 只是诊断，不能代替 `bash tests/gizclaw-e2e/run_tests.sh`。
 
+同一 phase 的 `TestAssistantScenariosWithLiveModel` 复用该 harness 的 API Key 与 `/openai/v1`，用 `node --experimental-strip-types` 运行 `web/assistant/scripts/run-live-scenarios.ts`：Monitor 诊断助手的场景集在 `FakeRuntime` 上执行工具，每次模型调用都经 RuntimeProfile 的 `llm`（`doubao-mini-chat`）。每个场景最多尝试三次，只断言工具调用、最终路由和回复中的关键事实；任一场景三次都失败则该 phase 失败。成功时只输出场景名、尝试次数和失败的检查项，包含生成回复与工具结果的 JSON 报告只在失败时输出。该测试依赖根目录 `npm ci` 安装的 `web/assistant` 依赖，由 `run_tests.sh` 的 `preflight:npm-ci` 提供。
+
 ### Workflow 10 路和 20 路并发与打断
 
 固定入口选择十个明确的 `benchmark.*-10|-20.giztest.yaml` 文件。每个文件的

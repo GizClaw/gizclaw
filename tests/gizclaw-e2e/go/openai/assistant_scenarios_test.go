@@ -36,12 +36,15 @@ func TestAssistantScenariosWithLiveModel(t *testing.T) {
 		"GIZCLAW_ASSISTANT_MODEL=llm",
 		"GIZCLAW_ASSISTANT_REPORT="+report,
 	)
+	// The runner prints only scenario names, attempts and failed checks. The
+	// report holds generated replies and tool results, so it is logged only
+	// when a scenario failed.
 	output, err := cmd.CombinedOutput()
 	t.Logf("assistant scenarios:\n%s", output)
-	if data, readErr := os.ReadFile(report); readErr == nil {
-		t.Logf("assistant scenario report:\n%s", data)
-	}
 	if err != nil {
+		if data, readErr := os.ReadFile(report); readErr == nil {
+			t.Logf("assistant scenario report:\n%s", data)
+		}
 		t.Fatalf("assistant scenarios failed: %v", err)
 	}
 }
