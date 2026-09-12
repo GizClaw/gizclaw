@@ -1,7 +1,7 @@
 # User Story:
-# As a GizClaw Peer API consumer,
-# I want exercise the server.friend_group.members.list behavior through its real transport,
-# So that the generated RPC contract is verified end to end.
+# As a child with a GizClaw device,
+# I want my team's member list to show which members are online,
+# So that my device can draw a green dot next to each member from one server.friend_group.members.list call.
 version: gizclaw.test/v1alpha1
 name: server.friend-group.members.list
 clients:
@@ -10,6 +10,10 @@ clients:
     connection: webrtc
     access_point: "${endpoint}"
   bob:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+  carol:
     identity: ephemeral
     connection: webrtc
     access_point: "${endpoint}"
@@ -23,10 +27,6 @@ variables:
     type: string
     env: GIZCLAW_TEST_REGISTRATION_TOKEN
     secret: true
-  resource_name:
-    direction: input
-    type: string
-    generate: token
   group_name:
     direction: input
     type: string
@@ -34,79 +34,158 @@ variables:
   group_invite_token:
     direction: output
     type: string
-  bob_member_name:
+    secret: true
+  bob_group_name:
     direction: output
     type: string
-  bob_group_name:
+  carol_invite_token:
+    direction: output
+    type: string
+    secret: true
+  carol_name:
     direction: output
     type: string
 steps:
 - id: register_alice
   client: alice
-  rpc:
-    method: server.register
-    request:
-      token: "${registration_token}"
+  rpc: {method: server.register, request: {token: "${registration_token}"}}
 - id: register_bob
   client: bob
-  rpc:
-    method: server.register
-    request:
-      token: "${registration_token}"
+  rpc: {method: server.register, request: {token: "${registration_token}"}}
+- id: register_carol
+  client: carol
+  rpc: {method: server.register, request: {token: "${registration_token}"}}
 - id: create_group
   client: alice
   rpc:
     method: server.friend_group.create
-    request:
-      name: "${group_name}"
-      display_name: Giztest Group
+    request: {name: "${group_name}", display_name: Giztest Group}
 - id: create_group_invite
   client: alice
   rpc:
     method: server.friend_group.invite_token.create
-    request:
-      friend_group_name: "${group_name}"
+    request: {friend_group_name: "${group_name}"}
   capture:
-    group_invite_token: "/invite_token"
+    group_invite_token: /invite_token
+# The member returned by join carries no presence; only the list does.
 - id: join_bob
   client: bob
   rpc:
     method: server.friend_group.join
-    request:
-      name: "${group_name}"
-      invite_token: "${group_invite_token}"
+    request: {name: "${group_name}", invite_token: "${group_invite_token}"}
+  capture:
+    bob_group_name: /group/name
   expect:
     /member/online: {present: false}
     /member/last_seen_at: {present: false}
-  capture:
-    bob_member_name: "/member/name"
-    bob_group_name: "/group/name"
+# alice and bob are both connected, so every member is online with a
+# last_seen_at timestamp.
 - id: primary_rpc
   client: alice
   rpc:
     method: server.friend_group.members.list
-    request:
-      friend_group_name: "${group_name}"
+    request: {friend_group_name: "${group_name}"}
   expect:
     /items: {count: 2}
     /items/0/online: {equals: true}
     /items/0/last_seen_at: {pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"}
     /items/1/online: {equals: true}
     /items/1/last_seen_at: {pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"}
+- id: bob_lists_members
+  client: bob
+  rpc:
+    method: server.friend_group.members.list
+    request: {friend_group_name: "${bob_group_name}"}
+  expect:
+    /items: {count: 2}
+    /items/0/online: {equals: true}
+    /items/0/last_seen_at: {pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"}
+    /items/1/online: {equals: true}
+    /items/1/last_seen_at: {pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"}
+# Presence is only visible to members: carol cannot list the Group before
+# she is added.
+- id: carol_cannot_list_before_joining
+  client: carol
+  rpc:
+    method: server.friend_group.members.list
+    request: {friend_group_name: "${group_name}"}
+  expect_error:
+    code: 5 # NOT_FOUND
+- id: carol_invite
+  client: carol
+  rpc: {method: server.friend.invite_token.create, request: {}}
+  capture:
+    carol_invite_token: /invite_token
+- id: alice_befriends_carol
+  client: alice
+  rpc: {method: server.friend.add, request: {invite_token: "${carol_invite_token}"}}
+  capture:
+    carol_name: /name
+- id: alice_adds_carol
+  client: alice
+  rpc:
+    method: server.friend_group.members.add
+    request:
+      friend_group_name: "${group_name}"
+      peer_public_key: "${carol_name}"
+      member_name: carol-team
+      role: FRIEND_GROUP_MEMBER_MUTABLE_ROLE_MEMBER
+  expect:
+    /value/online: {present: false}
+    /value/last_seen_at: {present: false}
+- id: carol_lists_members
+  client: carol
+  rpc:
+    method: server.friend_group.members.list
+    request: {friend_group_name: carol-team}
+  expect:
+    /items: {count: 3}
+    /items/0/online: {equals: true}
+    /items/0/last_seen_at: {pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"}
+    /items/1/online: {equals: true}
+    /items/1/last_seen_at: {pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"}
+    /items/2/online: {equals: true}
+    /items/2/last_seen_at: {pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"}
+- id: alice_promotes_carol
+  client: alice
+  rpc:
+    method: server.friend_group.members.put
+    request:
+      friend_group_name: "${group_name}"
+      name: "${carol_name}"
+      role: FRIEND_GROUP_MEMBER_MUTABLE_ROLE_ADMIN
+  expect:
+    /value/online: {present: false}
+    /value/last_seen_at: {present: false}
+- id: alice_removes_carol
+  client: alice
+  rpc:
+    method: server.friend_group.members.delete
+    request: {friend_group_name: "${group_name}", name: "${carol_name}"}
+  expect:
+    /value/online: {present: false}
+    /value/last_seen_at: {present: false}
+- id: carol_cannot_list_after_removal
+  client: carol
+  rpc:
+    method: server.friend_group.members.list
+    request: {friend_group_name: carol-team}
+  expect_error:
+    code: 5 # NOT_FOUND
 finally:
 - id: cleanup_group
   client: alice
   rpc:
     method: server.friend_group.delete
-    request:
-      name: "${group_name}"
+    request: {name: "${group_name}"}
 - id: cleanup_alice
   client: alice
-  rpc:
-    method: server.peer.delete
-    request: {}
+  rpc: {method: server.peer.delete, request: {}}
 - id: cleanup_bob
   client: bob
-  rpc:
-    method: server.peer.delete
-    request: {}
+  rpc: {method: server.peer.delete, request: {}}
+- id: cleanup_carol
+  client: carol
+  rpc: {method: server.peer.delete, request: {}}
+report:
+  redact: [registration_token, group_invite_token, carol_invite_token]

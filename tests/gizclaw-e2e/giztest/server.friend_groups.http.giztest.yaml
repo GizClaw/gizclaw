@@ -112,6 +112,8 @@ steps:
     /group/name: {equals: "${group_name}"}
     /group/my_role: {equals: member}
     /member/role: {equals: member}
+    /member/online: {present: false}
+    /member/last_seen_at: {present: false}
 - id: list_members
   client: bob
   http:
@@ -175,6 +177,8 @@ steps:
   expect:
     /items: {count: 1}
     /items/0/role: {equals: owner}
+    /items/0/online: {equals: true}
+    /items/0/last_seen_at: {pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"}
 - id: dissolve_group
   client: alice
   http:
