@@ -1,10 +1,5 @@
-import { BUILTIN_KNOWLEDGE } from "../src/builtin-knowledge.ts";
-import {
-  createKnowledgeIndex,
-  type KnowledgeDocument,
-  type KnowledgeIndex,
-  type KnowledgePassage,
-} from "../src/knowledge.ts";
+import type { KnowledgePassage } from "../src/knowledge.ts";
+import { guidesIndex } from "./guides.ts";
 import type { ConsoleRoute } from "../src/routes.ts";
 import {
   SourceError,
@@ -60,8 +55,6 @@ export type World = {
   devices: WorldDevice[];
   /** The user's answer to an open_link confirmation; defaults to true. */
   acceptLinks?: boolean;
-  /** Imported documents searched with the built-in knowledge. */
-  knowledge?: KnowledgeDocument[];
 };
 
 export type SourceCall = { method: string; args: unknown[] };
@@ -76,15 +69,10 @@ export class FakeRuntime implements AssistantRuntime {
   readonly links: string[] = [];
   private route: ConsoleRoute;
   private readonly world: World;
-  private readonly index: KnowledgeIndex;
 
   constructor(world: World) {
     this.world = world;
     this.route = world.route;
-    this.index = createKnowledgeIndex([
-      ...BUILTIN_KNOWLEDGE,
-      ...(world.knowledge ?? []),
-    ]);
   }
 
   get currentRoute(): ConsoleRoute {
@@ -287,7 +275,7 @@ export class FakeRuntime implements AssistantRuntime {
       limit: number,
     ): Promise<KnowledgePassage[]> => {
       this.calls.push({ method: "knowledge.search", args: [query, limit] });
-      return this.index.search(query, limit);
+      return guidesIndex().search(query, limit);
     },
   };
 

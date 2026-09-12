@@ -47,7 +47,7 @@ checks that every runtime method is used by exactly one tool, and
 | `devices.workspaces`            | `listWorkspaces`                      | `list_device_workspaces`   |
 | `devices.history`               | `listWorkspaceHistory`                | `get_conversation_history` |
 | `logs.search`                   | `searchLogs`                          | `search_logs`              |
-| `knowledge.search`              | local knowledge index                 | `search_knowledge`         |
+| `knowledge.search`              | index of the bundled guides           | `search_knowledge`         |
 
 The view model is the page's structured state, never the DOM. Mutating device
 APIs (`reboot`, `setVolume`, `playSound`, `find`, Wi-Fi scan/connect/forget,
@@ -95,11 +95,13 @@ turn reports what was done as `compaction`.
 documents cut into sections by heading, at most 700 characters each. The
 tokenizer needs no dictionary: CJK runs become overlapping character pairs,
 other runs lowercase words, and identifiers joined by `_`, `.` or `-` also
-yield their parts. `BUILTIN_KNOWLEDGE` carries facts from the guides that the
-assistant needs most: debug mode, device control error codes, Monitor tokens,
-telemetry and logs, conversation Workspaces, and device API keys. The runtime
-decides which documents are searched; the console adds the ones the user
-imports.
+yield their parts. The knowledge base is the project's zh guides and nothing
+else: `guideDocuments` turns guide files keyed by their path under `guides/`
+into documents titled by their first heading and linked to
+`https://gizclaw.github.io/gizclaw/`, skipping the pages the site excludes.
+The console bundles the guides at build time; `testing/guides.ts` reads them
+from the repository for `FakeRuntime` and the tests, so scenarios search the
+same text the console ships.
 
 ## Safety
 
@@ -110,8 +112,6 @@ imports.
 - Conversation history reaches the model only through GizClaw `/openai/v1`,
   like every other tool result.
 - External links always pass through the user's confirmation.
-- Imported knowledge is untrusted like logs: it informs answers but its
-  instructions are not followed.
 
 ## Scenarios and validation
 

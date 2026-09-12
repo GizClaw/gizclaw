@@ -210,41 +210,22 @@ describe("assistant panel", () => {
     expect(screen.queryByText("新一点的对话")).toBeNull();
   });
 
-  it("imports knowledge the assistant can search", async () => {
-    const store = createAssistantStore(memoryRecords());
+  it("searches the bundled project guides", async () => {
     const model = new ScriptedModel([
       {
         call: [
-          { name: "search_knowledge", arguments: { query: "阳台音箱 信号弱" } },
+          { name: "search_knowledge", arguments: { query: "DEVICE_TIMEOUT" } },
         ],
       },
-      { reply: "按手册切换到 2.4G。" },
+      { reply: "设备 5 秒内没有响应。" },
     ]);
-    render(<Panel store={store} createModel={() => model} />);
-    fireEvent.click(await screen.findByLabelText("知识库"));
-    expect(screen.getByText("设备控制错误码")).toBeTruthy();
-    const file = new File(
-      ["# 阳台音箱排障\n\n## 信号弱\n阳台音箱信号弱时切换到 2.4G 网络。"],
-      "runbook.md",
-      { type: "text/markdown" },
-    );
-    fireEvent.change(screen.getByLabelText("选择知识库文档"), {
-      target: { files: [file] },
-    });
-    await screen.findByText("阳台音箱排障");
-    expect(await store.listKnowledge()).toMatchObject([
-      { title: "阳台音箱排障", source: "runbook.md" },
-    ]);
-
-    fireEvent.click(screen.getByLabelText("知识库"));
-    await ask("阳台音箱信号弱怎么办");
-    await screen.findByText("按手册切换到 2.4G。");
-    expect(screen.getByText("检索知识库")).toBeTruthy();
-    expect(JSON.stringify(model.requests[1].input)).toContain("runbook.md");
-
-    fireEvent.click(screen.getByLabelText("知识库"));
-    fireEvent.click(screen.getByLabelText("删除文档 阳台音箱排障"));
-    await waitFor(async () => expect(await store.listKnowledge()).toEqual([]));
+    render(<Panel createModel={() => model} />);
+    await ask("DEVICE_TIMEOUT 是什么意思？");
+    await screen.findByText("设备 5 秒内没有响应。");
+    expect(screen.getByText("查阅项目文档")).toBeTruthy();
+    const result = JSON.stringify(model.requests[1].input);
+    expect(result).toContain("504 DEVICE_TIMEOUT");
+    expect(result).toContain("https://gizclaw.github.io/gizclaw/zh/");
   });
 
   it("explains how to configure the assistant when the config has none", async () => {

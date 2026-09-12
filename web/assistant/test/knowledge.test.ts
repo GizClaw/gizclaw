@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { BUILTIN_KNOWLEDGE } from "../src/builtin-knowledge.ts";
+import { GUIDES_SITE, guideDocuments } from "../src/guides.ts";
 import {
   chunkDocument,
   createKnowledgeIndex,
   tokenize,
 } from "../src/knowledge.ts";
+import { guidesIndex, readGuides } from "../testing/guides.ts";
 
 test("tokenize pairs CJK characters and splits compound identifiers", () => {
   assert.deepEqual(tokenize("调试模式"), ["调试", "试模", "模式"]);
@@ -58,34 +59,66 @@ test("chunkDocument splits long sections", () => {
   assert.ok(passages.every((passage) => passage.text.length <= 700));
 });
 
-test("the built-in knowledge answers the questions the assistant meets", () => {
-  const index = createKnowledgeIndex(BUILTIN_KNOWLEDGE);
-  const top = (query: string) => index.search(query, 1)[0];
-  assert.equal(
-    top("DEBUG_ACCESS_FORBIDDEN 是什么意思")?.title,
-    "设备调试模式与访问权限",
+test("guide documents link to the published site and skip unpublished pages", () => {
+  const documents = guideDocuments({
+    "zh/developing/monitor.md": "# Monitor\n正文",
+    "zh/using/index.md": "---\nlayout: doc\n---\n# 使用\n正文",
+    "zh/reviewing/examples/issue-example.md": "# 示例",
+    "zh/notes.txt": "不是 Markdown",
+  });
+  assert.deepEqual(
+    documents.map(({ id, title, source, url, text }) => ({
+      id,
+      title,
+      source,
+      url,
+      text,
+    })),
+    [
+      {
+        id: "zh/developing/monitor.md",
+        title: "Monitor",
+        source: "guides/zh/developing/monitor.md",
+        url: `${GUIDES_SITE}zh/developing/monitor`,
+        text: "# Monitor\n正文",
+      },
+      {
+        id: "zh/using/index.md",
+        title: "使用",
+        source: "guides/zh/using/index.md",
+        url: `${GUIDES_SITE}zh/using/`,
+        text: "# 使用\n正文",
+      },
+    ],
   );
-  assert.equal(top("设备返回 DEVICE_TIMEOUT")?.title, "设备控制错误码");
-  assert.equal(
-    top("节点状态 503 MONITOR_DISABLED")?.title,
-    "节点监控与 Monitor Token",
-  );
-  assert.equal(top("network.rssi_dbm 这个字段")?.title, "Telemetry 与设备日志");
-  assert.deepEqual(index.search("   "), []);
 });
 
-test("imported documents are searched with the built-in ones", () => {
-  const index = createKnowledgeIndex([
-    ...BUILTIN_KNOWLEDGE,
-    {
-      id: "import/runbook",
-      title: "阳台音箱排障手册",
-      source: "runbook.md",
-      text: "# 信号弱\n阳台音箱在路由器 5G 覆盖边缘，先切换到 2.4G 网络。",
-    },
-  ]);
-  const [first] = index.search("阳台音箱 信号弱怎么办");
-  assert.equal(first.source, "runbook.md");
-  assert.equal(first.heading, "信号弱");
-  assert.ok(first.score > 0);
+test("the guides answer the questions the assistant meets", () => {
+  assert.ok(Object.keys(readGuides()).length > 50);
+  const sources = (query: string) =>
+    guidesIndex()
+      .search(query, 5)
+      .map((passage) => passage.source);
+  assert.ok(
+    sources("DEBUG_ACCESS_FORBIDDEN 调试模式").includes(
+      "guides/zh/developing/monitor.md",
+    ),
+  );
+  assert.ok(
+    sources("DEVICE_TIMEOUT 504").some((source) =>
+      /api-keys|public/.test(source),
+    ),
+  );
+  assert.ok(
+    sources("Monitor Token gizclaw_mk_").includes(
+      "guides/zh/developing/monitor.md",
+    ),
+  );
+  const [passage] = guidesIndex().search("DEVICE_TIMEOUT", 1);
+  assert.match(
+    passage.url ?? "",
+    /^https:\/\/gizclaw\.github\.io\/gizclaw\/zh\//,
+  );
+  assert.deepEqual(createKnowledgeIndex([]).search("任何问题"), []);
+  assert.deepEqual(guidesIndex().search("   "), []);
 });

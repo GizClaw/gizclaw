@@ -97,11 +97,12 @@ Pages publish structured snapshots with `usePageView`; the assistant never reads
 the DOM. The panel uses assistant-ui's external store runtime over the
 assistant session and renders each tool action as a collapsible card.
 
-`src/assistant/assistant-store.ts` keeps conversations and imported knowledge
-as encrypted records under the `console-assistant/` prefix of the local store,
+`src/assistant/assistant-store.ts` keeps conversations as encrypted records under the `console-assistant/` prefix of the local store,
 which logout clears. Each thread holds the panel's entries and the assistant
 history it resumes from; a thread index lists the latest 50. The panel opens
 the latest thread, saves after every turn, and keeps the conversation mounted
 behind the history and knowledge views so a running turn continues. A context
-compaction appears as a system note. The knowledge index is built from the
-built-in documents and the imported ones and rebuilt when they change.
+compaction appears as a system note. The knowledge base is the zh guides:
+`src/assistant/guides-content.ts` bundles them with `import.meta.glob` into
+their own chunk, and `src/assistant/guides.ts` loads and indexes that chunk on
+the first search.

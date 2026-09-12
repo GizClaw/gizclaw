@@ -1,8 +1,4 @@
-import {
-  BUILTIN_KNOWLEDGE,
-  createKnowledgeIndex,
-  SourceError,
-} from "@gizclaw/assistant";
+import { createKnowledgeIndex, SourceError } from "@gizclaw/assistant";
 import { GizClawControlError } from "@gizclaw/gizclaw-control";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -85,7 +81,7 @@ function setup(overrides: Partial<ConsoleRuntimeDeps> = {}) {
       confirm,
     } as unknown as ConsoleRuntimeDeps["window"],
     now: () => 10_000,
-    knowledge: () => createKnowledgeIndex(BUILTIN_KNOWLEDGE),
+    knowledge: async () => createKnowledgeIndex([]),
     ...overrides,
   };
   return {
@@ -103,7 +99,7 @@ beforeEach(() => {
 });
 
 describe("console runtime", () => {
-  it("searches the knowledge index the panel holds", async () => {
+  it("searches the guides index it is given", async () => {
     const index = createKnowledgeIndex([
       {
         id: "import/a",
@@ -112,7 +108,7 @@ describe("console runtime", () => {
         text: "# 信号\n阳台音箱信号弱时切换到 2.4G。",
       },
     ]);
-    const { runtime } = setup({ knowledge: () => index });
+    const { runtime } = setup({ knowledge: async () => index });
     const [passage] = await runtime.knowledge.search("阳台音箱信号", 3);
     expect(passage).toMatchObject({ title: "阳台排障", source: "a.md" });
   });

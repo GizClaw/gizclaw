@@ -15,7 +15,7 @@ export type AssistantRuntime = {
   knowledge: KnowledgeSource;
 };
 
-/** The knowledge base: built-in troubleshooting notes plus imported documents. */
+/** The knowledge base: the project guides. */
 export type KnowledgeSource = {
   search(query: string, limit: number): Promise<KnowledgePassage[]>;
 };

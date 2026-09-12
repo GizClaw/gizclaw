@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -18,24 +17,19 @@ import {
 } from "@assistant-ui/react";
 import {
   AssistantTurnError,
-  BUILTIN_KNOWLEDGE,
   createAssistant,
   createGizClawModel,
-  createKnowledgeIndex,
   type Compaction,
-  type KnowledgeDocument,
   type KnowledgeIndex,
   type Model,
 } from "@gizclaw/assistant";
 import {
   ArrowUp,
-  BookOpen,
   MessagesSquare,
   Settings,
   Square,
   SquarePen,
   Trash2,
-  Upload,
   X,
 } from "lucide-react";
 
@@ -45,8 +39,6 @@ import { assistantRecords } from "@/lib/store";
 
 import {
   createAssistantStore,
-  knowledgeDocument,
-  MAX_KNOWLEDGE_FILE_BYTES,
   threadTitle,
   type AssistantStore,
   type ChatEntry,
@@ -54,6 +46,7 @@ import {
   type ThreadSummary,
 } from "./assistant-store";
 import { createConsoleRuntime, type ConsoleStateDeps } from "./console-runtime";
+import { loadGuidesIndex } from "./guides";
 
 export type AssistantPanelProps = {
   /** From the console configuration; absent means the chat is not set up. */
@@ -65,11 +58,11 @@ export type AssistantPanelProps = {
   onOpenConfig(): void;
   /** Replaced in tests with a scripted model. */
   createModel?: (assistant: ConsoleAssistant, baseURL: string) => Model;
-  /** Conversations and imported knowledge; the encrypted browser store by default. */
+  /** Saved conversations; the encrypted browser store by default. */
   store?: AssistantStore;
 };
 
-type View = "chat" | "threads" | "knowledge";
+type View = "chat" | "threads";
 
 const defaultModel = (assistant: ConsoleAssistant, baseURL: string) =>
   createGizClawModel({
@@ -188,19 +181,10 @@ function Workspace({
   const [view, setView] = useState<View>("chat");
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [thread, setThread] = useState<StoredThread>();
-  const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [problem, setProblem] = useState<string>();
   // A turn still running when its thread is deleted saves on abort; those
   // saves are dropped so the thread stays deleted.
   const deleted = useRef(new Set<string>());
-
-  const index = useMemo(
-    () => createKnowledgeIndex([...BUILTIN_KNOWLEDGE, ...documents]),
-    [documents],
-  );
-  const indexRef = useRef(index);
-  indexRef.current = index;
-  const knowledge = useCallback(() => indexRef.current, []);
 
   const report = useCallback(
     (action: string) => (cause: unknown) =>
@@ -212,14 +196,10 @@ function Workspace({
     let active = true;
     (async () => {
       try {
-        const [list, imported] = await Promise.all([
-          store.listThreads(),
-          store.listKnowledge(),
-        ]);
+        const list = await store.listThreads();
         const latest = list[0] && (await store.loadThread(list[0].id));
         if (!active) return;
         setThreads(list);
-        setDocuments(imported);
         setThread(latest ?? newThread());
       } catch (cause) {
         if (!active) return;
@@ -282,15 +262,6 @@ function Workspace({
     }
   };
 
-  const updateKnowledge = async (next: KnowledgeDocument[]) => {
-    try {
-      await store.saveKnowledge(next);
-      setDocuments(next);
-    } catch (cause) {
-      report("保存知识库")(cause);
-    }
-  };
-
   const toggle = (target: View) =>
     setView((current) => (current === target ? "chat" : target));
 
@@ -319,16 +290,6 @@ function Workspace({
         >
           <SquarePen size={16} />
         </Button>
-        <Button
-          variant={view === "knowledge" ? "secondary" : "ghost"}
-          size="sm"
-          aria-label="知识库"
-          title="知识库"
-          aria-pressed={view === "knowledge"}
-          onClick={() => toggle("knowledge")}
-        >
-          <BookOpen size={16} />
-        </Button>
       </Header>
       {problem && (
         <p
@@ -354,16 +315,8 @@ function Workspace({
           onClear={clearAll}
         />
       )}
-      {view === "knowledge" && (
-        <KnowledgeView
-          documents={documents}
-          passages={index.size}
-          onChange={updateKnowledge}
-          onProblem={setProblem}
-        />
-      )}
       {/* The conversation stays mounted behind the other views so a running
-          turn is not stopped by looking at the history or the knowledge. */}
+          turn is not stopped by looking at the history. */}
       <div hidden={view !== "chat"} className="flex min-h-0 flex-1 flex-col">
         {thread ? (
           <Conversation
@@ -377,7 +330,7 @@ function Workspace({
             }
             contextTokens={assistant.contextTokens}
             runtimeDeps={runtimeDeps}
-            knowledge={knowledge}
+            knowledge={loadGuidesIndex}
             onSave={save}
           />
         ) : (
@@ -467,99 +420,6 @@ function ThreadList({
   );
 }
 
-function KnowledgeView({
-  documents,
-  passages,
-  onChange,
-  onProblem,
-}: {
-  documents: KnowledgeDocument[];
-  passages: number;
-  onChange(documents: KnowledgeDocument[]): void;
-  onProblem(problem: string): void;
-}) {
-  const input = useRef<HTMLInputElement>(null);
-
-  const importFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    let next = documents;
-    for (const file of Array.from(files)) {
-      if (file.size > MAX_KNOWLEDGE_FILE_BYTES) {
-        onProblem(`${file.name} 超过 512 KB，未导入`);
-        continue;
-      }
-      const document = knowledgeDocument(
-        file.name,
-        await file.text(),
-        crypto.randomUUID(),
-      );
-      // Importing a file with the same name replaces the earlier version.
-      next = [...next.filter((item) => item.source !== file.name), document];
-    }
-    if (next !== documents) onChange(next);
-    if (input.current) input.current.value = "";
-  };
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex flex-col gap-2 border-b p-3 text-xs text-muted-foreground">
-        <p>
-          诊断助手回答错误码、调试模式等问题时会先检索知识库。可以导入团队的排障手册（Markdown
-          或纯文本），文档加密保存在本浏览器，按标题切分后检索。
-        </p>
-        <div className="flex items-center justify-between">
-          <span>共 {passages} 个段落</span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => input.current?.click()}
-          >
-            <Upload size={14} />
-            导入文档
-          </Button>
-          <input
-            ref={input}
-            type="file"
-            accept=".md,.markdown,.txt,text/markdown,text/plain"
-            multiple
-            hidden
-            aria-label="选择知识库文档"
-            onChange={(event) => void importFiles(event.target.files)}
-          />
-        </div>
-      </div>
-      <ul aria-label="知识库文档" className="flex-1 overflow-y-auto p-2">
-        {documents.map((item) => (
-          <li key={item.id} className="flex items-center gap-1">
-            <div className="min-w-0 flex-1 px-2 py-1.5">
-              <span className="block truncate text-sm">{item.title}</span>
-              <span className="block text-xs text-muted-foreground">
-                {item.source}
-              </span>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label={`删除文档 ${item.title}`}
-              onClick={() =>
-                onChange(documents.filter((other) => other.id !== item.id))
-              }
-            >
-              <Trash2 size={14} />
-            </Button>
-          </li>
-        ))}
-        {BUILTIN_KNOWLEDGE.map((item) => (
-          <li key={item.id} className="px-2 py-1.5">
-            <span className="block truncate text-sm">{item.title}</span>
-            <span className="block text-xs text-muted-foreground">内置</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 function compactionNotice(compaction: Compaction): string {
   return compaction.summarizedTurns > 0
     ? `较早的 ${compaction.summarizedTurns} 轮对话已压缩成摘要，以控制上下文长度。`
@@ -578,7 +438,7 @@ function Conversation({
   createModel(): Model;
   contextTokens?: number;
   runtimeDeps: ConsoleStateDeps;
-  knowledge(): KnowledgeIndex;
+  knowledge(): Promise<KnowledgeIndex>;
   onSave(thread: StoredThread): void;
 }) {
   const [entries, setEntries] = useState<ChatEntry[]>(thread.entries);
@@ -787,7 +647,7 @@ const TOOL_LABELS: Record<string, string> = {
   list_device_workspaces: "读取对话 Workspace",
   get_conversation_history: "读取对话历史",
   search_logs: "查询设备日志",
-  search_knowledge: "检索知识库",
+  search_knowledge: "查阅项目文档",
 };
 
 /** One action the assistant took, collapsed to a line with its outcome. */

@@ -1,8 +1,4 @@
-import type {
-  ActionRecord,
-  AgentInputItem,
-  KnowledgeDocument,
-} from "@gizclaw/assistant";
+import type { ActionRecord, AgentInputItem } from "@gizclaw/assistant";
 
 /** One line of a conversation as the panel shows it. */
 export type ChatEntry = {
@@ -44,9 +40,6 @@ export type AssistantStore = {
   saveThread(thread: StoredThread): Promise<ThreadSummary[]>;
   deleteThread(id: string): Promise<ThreadSummary[]>;
   clearThreads(): Promise<void>;
-  /** Documents imported by the user; the built-in ones are not stored. */
-  listKnowledge(): Promise<KnowledgeDocument[]>;
-  saveKnowledge(documents: KnowledgeDocument[]): Promise<void>;
 };
 
 /** Older threads beyond this count are dropped when a thread is saved. */
@@ -99,9 +92,6 @@ export function createAssistantStore(records: RecordBackend): AssistantStore {
       }),
     // "thread" prefixes both the list and every thread record.
     clearThreads: () => change(() => records.removeAll("thread")),
-    listKnowledge: async () =>
-      (await records.read<KnowledgeDocument[]>("knowledge")) ?? [],
-    saveKnowledge: (documents) => records.save("knowledge", documents),
   };
 }
 
@@ -133,22 +123,4 @@ export function threadTitle(entries: ChatEntry[]): string {
   const line = first.replace(/\s+/g, " ").trim();
   if (line === "") return "新对话";
   return line.length > 30 ? `${line.slice(0, 30)}…` : line;
-}
-
-/** Imported files larger than this are rejected. */
-export const MAX_KNOWLEDGE_FILE_BYTES = 512 * 1024;
-
-/** Turns an imported Markdown or text file into a knowledge document. */
-export function knowledgeDocument(
-  name: string,
-  text: string,
-  id: string,
-): KnowledgeDocument {
-  const heading = /^#\s+(.+)$/m.exec(text)?.[1]?.trim();
-  return {
-    id: `import/${id}`,
-    title: heading || name.replace(/\.(md|markdown|txt)$/i, ""),
-    source: name,
-    text,
-  };
 }

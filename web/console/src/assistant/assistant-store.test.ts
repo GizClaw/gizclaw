@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   createAssistantStore,
-  knowledgeDocument,
   MAX_THREADS,
   memoryRecords,
   threadTitle,
@@ -44,28 +43,18 @@ describe("assistant store", () => {
     ]);
   });
 
-  it("clears threads but keeps imported knowledge", async () => {
+  it("clears every thread", async () => {
     const store = createAssistantStore(memoryRecords());
     await store.saveThread(thread(1));
-    const document = knowledgeDocument("手册.md", "# 排障手册\n内容", "x");
-    await store.saveKnowledge([document]);
     await store.clearThreads();
     expect(await store.listThreads()).toEqual([]);
     expect(await store.loadThread("t1")).toBeUndefined();
-    expect(await store.listKnowledge()).toEqual([document]);
   });
 
-  it("titles threads and documents", () => {
+  it("titles threads by their first question", () => {
     expect(threadTitle([])).toBe("新对话");
     expect(
       threadTitle([{ id: "1", role: "user", text: `  ${"很".repeat(40)}\n` }]),
     ).toBe(`${"很".repeat(30)}…`);
-    expect(knowledgeDocument("手册.md", "# 排障手册\n内容", "x")).toEqual({
-      id: "import/x",
-      title: "排障手册",
-      source: "手册.md",
-      text: "# 排障手册\n内容",
-    });
-    expect(knowledgeDocument("notes.txt", "没有标题", "y").title).toBe("notes");
   });
 });

@@ -2,8 +2,10 @@
 export type KnowledgeDocument = {
   id: string;
   title: string;
-  /** Where the document comes from, e.g. "内置" or an imported file name. */
+  /** Where the document comes from, e.g. its path in the repository. */
   source: string;
+  /** Where a reader can open the document. */
+  url?: string;
   text: string;
 };
 
@@ -12,6 +14,7 @@ export type KnowledgePassage = {
   documentId: string;
   title: string;
   source: string;
+  url?: string;
   /** The heading path of the section inside its document. */
   heading: string;
   text: string;
@@ -71,6 +74,7 @@ export function chunkDocument(
         documentId: document.id,
         title: document.title,
         source: document.source,
+        ...(document.url === undefined ? {} : { url: document.url }),
         heading: headings.filter(Boolean).join(" / "),
         text: piece,
       });
@@ -82,7 +86,8 @@ export function chunkDocument(
       flush();
       const level = heading[1].length;
       headings.length = level - 1;
-      headings[level - 1] = heading[2].trim();
+      // Guides decorate headings with components such as <Badge />.
+      headings[level - 1] = heading[2].replace(/<[^>]*>/g, "").trim();
       continue;
     }
     buffer.push(line);

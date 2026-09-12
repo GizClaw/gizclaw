@@ -269,7 +269,7 @@ export const ASSISTANT_APIS: ApiDefinition[] = [
     tool: "search_knowledge",
     uses: ["knowledge.search"],
     description:
-      "在排障知识库中搜索：错误码的含义、调试模式、Monitor Token、Telemetry 字段、API Key，以及运维导入的文档。回答涉及这些知识时先搜索，并引用结果里的文档标题。",
+      "在 GizClaw 项目文档（guides）中全文搜索：错误码的含义、调试模式、Monitor 与 Monitor Token、Telemetry 字段、API Key、配置项和各服务的行为。回答涉及这些知识时先搜索，引用结果里的文档标题，需要时给出 url 链接。",
     params: z.object({
       query: z
         .string()
@@ -284,6 +284,7 @@ export const ASSISTANT_APIS: ApiDefinition[] = [
           title: passage.title,
           heading: passage.heading,
           source: passage.source,
+          url: passage.url,
           text: passage.text,
         }),
       ),

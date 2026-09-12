@@ -13,7 +13,7 @@ export {
   type LogAggregate,
 } from "./logs.ts";
 export { ASSISTANT_INSTRUCTIONS } from "./instructions.ts";
-export { BUILTIN_KNOWLEDGE } from "./builtin-knowledge.ts";
+export { GUIDES_SITE, guideDocuments } from "./guides.ts";
 export {
   compactHistory,
   estimateTokens,

@@ -117,8 +117,8 @@ function clearRecord(name: string | IDBKeyRange): Promise<void> {
   });
 }
 
-// Assistant conversations and imported knowledge share one key prefix so a
-// logout can drop them together.
+// Assistant conversations share one key prefix so a logout can drop them
+// together.
 const ASSISTANT_PREFIX = "console-assistant/";
 
 /** Encrypted JSON records owned by the diagnostic assistant. */

@@ -254,14 +254,14 @@ everything but the latest 4 turns is summarized by the same model into one
 summary that later compactions build on. The panel shows a note before the turn
 where compaction happened.
 
-The assistant has a local knowledge base that the `search_knowledge` tool
-searches with BM25 full-text ranking: Chinese is split into adjacent character
+The assistant's knowledge base is this project's Chinese guides
+(`guides/zh/**/*.md`, without the `reviewing/examples` pages the site
+excludes). The console build bundles them into a separate chunk that is loaded
+and indexed on the assistant's first `search_knowledge` call. Search ranks
+sections split by heading with BM25: Chinese is split into adjacent character
 pairs, and identifiers such as `DEBUG_ACCESS_FORBIDDEN` match as a whole and by
-part. Built-in documents cover debug mode, device control error codes, Monitor
-tokens, telemetry and logs, conversation Workspaces, and device API keys.
-"Knowledge base" imports a team's Markdown or plain-text runbooks (up to 512 KB
-each; a file with the same name replaces the earlier version), which are split
-by heading and searched with the built-in documents. They are stored encrypted
-in the browser, can be deleted, and are cleared on logout. When explaining
-concepts such as error codes, the assistant searches the knowledge base first
-and names the document its answer comes from.
+part. Each result carries the document title, the section and its page on
+https://gizclaw.github.io/gizclaw/. When explaining concepts such as error
+codes, debug mode or configuration, the assistant searches the guides first,
+answers from them and links the page. The knowledge base changes with the code
+and cannot be imported or edited in the browser.

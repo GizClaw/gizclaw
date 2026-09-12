@@ -42,8 +42,8 @@ export type ConsoleRuntimeDeps = {
   signal(): AbortSignal;
   window: Pick<Window, "location" | "confirm" | "open">;
   now(): number;
-  /** The built-in and imported knowledge, rebuilt when documents change. */
-  knowledge(): KnowledgeIndex;
+  /** The project guides index, loaded on the first search. */
+  knowledge(): Promise<KnowledgeIndex>;
 };
 
 /** What the console hands the panel; the panel adds the rest per session. */
@@ -238,7 +238,8 @@ export function createConsoleRuntime(
       },
     },
     knowledge: {
-      search: async (query, limit) => deps.knowledge().search(query, limit),
+      search: async (query, limit) =>
+        (await deps.knowledge()).search(query, limit),
     },
   };
 }
