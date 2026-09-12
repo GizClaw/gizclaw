@@ -110,7 +110,7 @@ Workflow、Model 与 Voice 由当前 RuntimeProfile 投影为 Peer name catalog�
 | 55 | `server.friend_group.invite_token.create` | 为指定 Friend Group 创建或轮换邀请码。 |
 | 56 | `server.friend_group.invite_token.clear` | 清除指定 Friend Group 的邀请码。 |
 | 57 | `server.friend_group.join` | 使用邀请码和 joining Peer 选择的本地 name 加入 Friend Group。 |
-| 58 | `server.friend_group.members.list` | 分页列出指定 Friend Group 的成员。 |
+| 58 | `server.friend_group.members.list` | 分页列出指定 Friend Group 的成员，仅成员可读；每项携带 Server 本地 `online` 与可选 UTC `last_seen_at`。 |
 | 59 | `server.friend_group.members.add` | 向 Friend Group 添加成员并设置 member/admin role。 |
 | 60 | `server.friend_group.members.put` | 修改 Friend Group 成员的 member/admin role。 |
 | 61 | `server.friend_group.members.delete` | 从 Friend Group 删除成员。 |

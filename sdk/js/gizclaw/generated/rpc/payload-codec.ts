@@ -604,6 +604,8 @@ export type FriendGroupMemberObject = {
   "peer_public_key"?: string;
   "role"?: FriendGroupMemberRole;
   "updated_at"?: string;
+  "online"?: boolean;
+  "last_seen_at"?: string;
 };
 export type FriendGroupMemberPutRequest = {
   "friend_group_name": string;
@@ -3980,6 +3982,18 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "updated_at",
         "number": 6,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "online",
+        "number": 7,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "last_seen_at",
+        "number": 8,
         "optional": true,
         "type": "string"
       }

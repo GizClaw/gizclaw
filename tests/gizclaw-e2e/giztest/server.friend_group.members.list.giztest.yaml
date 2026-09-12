@@ -75,6 +75,9 @@ steps:
     request:
       name: "${group_name}"
       invite_token: "${group_invite_token}"
+  expect:
+    /member/online: {present: false}
+    /member/last_seen_at: {present: false}
   capture:
     bob_member_name: "/member/name"
     bob_group_name: "/group/name"
@@ -84,6 +87,12 @@ steps:
     method: server.friend_group.members.list
     request:
       friend_group_name: "${group_name}"
+  expect:
+    /items: {count: 2}
+    /items/0/online: {equals: true}
+    /items/0/last_seen_at: {pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"}
+    /items/1/online: {equals: true}
+    /items/1/last_seen_at: {pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"}
 finally:
 - id: cleanup_group
   client: alice

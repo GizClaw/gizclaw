@@ -400,8 +400,14 @@ type FriendGroupMember struct {
 	// Info Public profile of another Peer, taken from its device name and emoji. Omitted when the Peer no longer exists.
 	Info *PeerProfileInfo `json:"info,omitempty"`
 
+	// LastSeenAt Last observed activity of the member's device in UTC, as Runtime.last_seen_at reports it. Set only by the members list; absent when never observed or the read failed, and on add, put, delete and join responses.
+	LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
+
 	// Name Member name, equal to peer_public_key.
-	Name          string          `json:"name"`
+	Name string `json:"name"`
+
+	// Online Whether the member's device is connected to the answering Server, the same state as Runtime.online. Set only by the members list; absent on add, put, delete and join responses.
+	Online        *bool           `json:"online,omitempty"`
 	PeerPublicKey string          `json:"peer_public_key"`
 	Role          FriendGroupRole `json:"role"`
 	UpdatedAt     *time.Time      `json:"updated_at,omitempty"`

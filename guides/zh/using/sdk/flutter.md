@@ -56,6 +56,8 @@ client.close();
 - 好友：`getFriendInviteToken`、`createFriendInviteToken`（可选 `ttl`，1 分钟到 7 天）、`clearFriendInviteToken`、`addFriend`、`listFriends`、`getFriend`、`deleteFriend`。
 - 群组：`listFriendGroups`、`createFriendGroup`、`joinFriendGroup`、`getFriendGroup`、`putFriendGroup`、`deleteFriendGroup`（解散）、`leaveFriendGroup`、`getFriendGroupInviteToken`、`createFriendGroupInviteToken`、`clearFriendGroupInviteToken`、`listFriendGroupMembers`、`addFriendGroupMember`、`putFriendGroupMember`、`deleteFriendGroupMember`。`Friend` 与 `FriendGroupMember` 的 `info`（`PeerProfileInfo`）给出对方设备的名字与 emoji；群组以设备自己的群名寻址，角色为 `FriendGroupRole`。
 
+成员列表的每项带可选的 `online`（Server 本地连接状态）与 `last_seen_at`（RFC 3339 UTC；未知或读取失败时省略），add、put、join 返回的成员不带这两个字段。Dart 对应 `online`（`bool?`）与 `lastSeenAt`（`DateTime?`）。
+
 每个方法发送 `Authorization: Bearer <apiKey>`，返回 contract 对应的不可变 model；`202`/`204` route 返回 `Future<void>`。model 忽略未知 JSON 字段；开放式 schema（`PeerStatus`、`DeviceInfo`）额外提供 `raw` 保存完整解码对象。路径参数（`ssid`、`contactName`、`workspaceId`、`historyId`、`friendName`、`friendGroupName`、`memberName`）由 SDK 做 URL 编码。可选参数 `httpClient` 用于注入或复用 `http.Client`，`timeout` 默认 30 秒。
 
 ## 错误处理

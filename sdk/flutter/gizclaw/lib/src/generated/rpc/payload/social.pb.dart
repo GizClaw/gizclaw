@@ -2623,6 +2623,8 @@ class FriendGroupMemberObject extends $pb.GeneratedMessage {
     $core.String? peerPublicKey,
     $0.FriendGroupMemberRole? role,
     $core.String? updatedAt,
+    $core.bool? online,
+    $core.String? lastSeenAt,
   }) {
     final result = create();
     if (createdAt != null) result.createdAt = createdAt;
@@ -2631,6 +2633,8 @@ class FriendGroupMemberObject extends $pb.GeneratedMessage {
     if (peerPublicKey != null) result.peerPublicKey = peerPublicKey;
     if (role != null) result.role = role;
     if (updatedAt != null) result.updatedAt = updatedAt;
+    if (online != null) result.online = online;
+    if (lastSeenAt != null) result.lastSeenAt = lastSeenAt;
     return result;
   }
 
@@ -2654,6 +2658,8 @@ class FriendGroupMemberObject extends $pb.GeneratedMessage {
     ..aE<$0.FriendGroupMemberRole>(5, _omitFieldNames ? '' : 'role',
         enumValues: $0.FriendGroupMemberRole.values)
     ..aOS(6, _omitFieldNames ? '' : 'updatedAt')
+    ..aOB(7, _omitFieldNames ? '' : 'online')
+    ..aOS(8, _omitFieldNames ? '' : 'lastSeenAt')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2729,6 +2735,29 @@ class FriendGroupMemberObject extends $pb.GeneratedMessage {
   $core.bool hasUpdatedAt() => $_has(5);
   @$pb.TagNumber(6)
   void clearUpdatedAt() => $_clearField(6);
+
+  /// Member presence, set only by server.friend_group.members.list. online is
+  /// whether the member's device is connected to the answering Server, the
+  /// same state as Runtime.online.
+  @$pb.TagNumber(7)
+  $core.bool get online => $_getBF(6);
+  @$pb.TagNumber(7)
+  set online($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasOnline() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearOnline() => $_clearField(7);
+
+  /// Last observed activity of the member's device in the Runtime.last_seen_at
+  /// format. Absent when the Server has never observed the member.
+  @$pb.TagNumber(8)
+  $core.String get lastSeenAt => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set lastSeenAt($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasLastSeenAt() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearLastSeenAt() => $_clearField(8);
 }
 
 class FriendGroupMemberPutRequest extends $pb.GeneratedMessage {

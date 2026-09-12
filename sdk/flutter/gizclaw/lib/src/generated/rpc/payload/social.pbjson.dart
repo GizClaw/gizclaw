@@ -964,6 +964,16 @@ const FriendGroupMemberObject$json = {
       '10': 'updatedAt',
       '17': true
     },
+    {'1': 'online', '3': 7, '4': 1, '5': 8, '9': 5, '10': 'online', '17': true},
+    {
+      '1': 'last_seen_at',
+      '3': 8,
+      '4': 1,
+      '5': 9,
+      '9': 6,
+      '10': 'lastSeenAt',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_created_at'},
@@ -971,6 +981,8 @@ const FriendGroupMemberObject$json = {
     {'1': '_peer_public_key'},
     {'1': '_role'},
     {'1': '_updated_at'},
+    {'1': '_online'},
+    {'1': '_last_seen_at'},
   ],
 };
 
@@ -980,9 +992,11 @@ final $typed_data.Uint8List friendGroupMemberObjectDescriptor = $convert.base64D
     'RBdIgBARIvChFmcmllbmRfZ3JvdXBfbmFtZRgCIAEoCUgBUg9mcmllbmRHcm91cE5hbWWIAQES'
     'EgoEbmFtZRgDIAEoCVIEbmFtZRIrCg9wZWVyX3B1YmxpY19rZXkYBCABKAlIAlINcGVlclB1Ym'
     'xpY0tleYgBARI+CgRyb2xlGAUgASgOMiUuZ2l6Y2xhdy5ycGMudjEuRnJpZW5kR3JvdXBNZW1i'
-    'ZXJSb2xlSANSBHJvbGWIAQESIgoKdXBkYXRlZF9hdBgGIAEoCUgEUgl1cGRhdGVkQXSIAQFCDQ'
-    'oLX2NyZWF0ZWRfYXRCFAoSX2ZyaWVuZF9ncm91cF9uYW1lQhIKEF9wZWVyX3B1YmxpY19rZXlC'
-    'BwoFX3JvbGVCDQoLX3VwZGF0ZWRfYXQ=');
+    'ZXJSb2xlSANSBHJvbGWIAQESIgoKdXBkYXRlZF9hdBgGIAEoCUgEUgl1cGRhdGVkQXSIAQESGw'
+    'oGb25saW5lGAcgASgISAVSBm9ubGluZYgBARIlCgxsYXN0X3NlZW5fYXQYCCABKAlIBlIKbGFz'
+    'dFNlZW5BdIgBAUINCgtfY3JlYXRlZF9hdEIUChJfZnJpZW5kX2dyb3VwX25hbWVCEgoQX3BlZX'
+    'JfcHVibGljX2tleUIHCgVfcm9sZUINCgtfdXBkYXRlZF9hdEIJCgdfb25saW5lQg8KDV9sYXN0'
+    'X3NlZW5fYXQ=');
 
 @$core.Deprecated('Use friendGroupMemberPutRequestDescriptor instead')
 const FriendGroupMemberPutRequest$json = {

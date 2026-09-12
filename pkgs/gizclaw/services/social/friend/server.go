@@ -39,9 +39,7 @@ type ProfileService interface {
 // PresenceService reads a Peer's connection state as Runtime.online and
 // Runtime.last_seen_at report it. lastSeenAt is the zero time when the Server
 // has never observed the Peer.
-type PresenceService interface {
-	PeerPresence(ctx context.Context, peerPublicKey string) (online bool, lastSeenAt time.Time)
-}
+type PresenceService = socialutil.PresenceService
 
 // ErrSFUNotConfigured reports that the Server has no SFU URL, so no Friend
 // Workspace can be bound to an SFU Room.
@@ -655,14 +653,7 @@ func (s *Server) ListFriends(ctx context.Context, owner string, req rpcapi.Frien
 // name or emoji.
 func (s *Server) addFriendListDetails(ctx context.Context, item *rpcapi.FriendObject) {
 	peerPublicKey := socialutil.StringValue(item.PeerPublicKey)
-	if s.Presence != nil {
-		online, lastSeenAt := s.Presence.PeerPresence(ctx, peerPublicKey)
-		item.Online = &online
-		if !lastSeenAt.IsZero() {
-			lastSeenAt = lastSeenAt.UTC()
-			item.LastSeenAt = &lastSeenAt
-		}
-	}
+	item.Online, item.LastSeenAt = socialutil.PresenceFields(ctx, s.Presence, peerPublicKey)
 	if s.Profiles == nil {
 		return
 	}
