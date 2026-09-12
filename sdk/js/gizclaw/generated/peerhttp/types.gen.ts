@@ -235,6 +235,142 @@ export type ContactPutRequest = {
     phone_number?: string;
 };
 
+/**
+ * Public profile of another Peer, taken from its device name and emoji. Omitted when the Peer no longer exists.
+ */
+export type PeerProfileInfo = {
+    display_name?: string;
+    emoji?: string;
+};
+
+export type InviteToken = {
+    /**
+     * Opaque invite code to share with the joining Peer.
+     */
+    invite_token: string;
+    expires_at: string;
+};
+
+export type InviteTokenCreateRequest = {
+    /**
+     * Requested lifetime. Omit to keep the default 5 minute lifetime and to return an active token unchanged.
+     */
+    ttl_seconds?: number;
+};
+
+export type Friend = {
+    /**
+     * Friend name, equal to peer_public_key.
+     */
+    name: string;
+    peer_public_key: string;
+    /**
+     * Name of the Workspace the two Friends share.
+     */
+    workspace_name: string;
+    created_at: string;
+    updated_at: string;
+    info?: PeerProfileInfo;
+};
+
+export type FriendList = {
+    items: Array<Friend>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type FriendAddRequest = {
+    invite_token: string;
+};
+
+export type FriendGroupRole = 'owner' | 'admin' | 'member';
+
+export type FriendGroupMutableRole = 'admin' | 'member';
+
+export type FriendGroup = {
+    /**
+     * The bound device's own immutable name for the Group.
+     */
+    name: string;
+    display_name?: string;
+    description?: string;
+    my_role: FriendGroupRole;
+    /**
+     * Owner public key.
+     */
+    created_by_peer_public_key?: string;
+    /**
+     * Name of the Workspace the members share.
+     */
+    workspace_name?: string;
+    created_at?: string;
+    updated_at?: string;
+};
+
+export type FriendGroupList = {
+    items: Array<FriendGroup>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type FriendGroupCreateRequest = {
+    /**
+     * The device's own immutable name for the Group, without surrounding whitespace.
+     */
+    name: string;
+    display_name?: string;
+    description?: string;
+};
+
+export type FriendGroupPutRequest = {
+    display_name?: string;
+    description?: string;
+};
+
+export type FriendGroupJoinRequest = {
+    invite_token: string;
+    /**
+     * The device's own immutable name for the joined Group, without surrounding whitespace.
+     */
+    name: string;
+};
+
+export type FriendGroupMember = {
+    /**
+     * Member name, equal to peer_public_key.
+     */
+    name: string;
+    peer_public_key: string;
+    role: FriendGroupRole;
+    created_at?: string;
+    updated_at?: string;
+    info?: PeerProfileInfo;
+};
+
+export type FriendGroupMemberList = {
+    items: Array<FriendGroupMember>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type FriendGroupJoinResult = {
+    group: FriendGroup;
+    member: FriendGroupMember;
+};
+
+export type FriendGroupMemberAddRequest = {
+    peer_public_key: string;
+    /**
+     * The added Peer's own immutable name for the Group.
+     */
+    member_name: string;
+    role: FriendGroupMutableRole;
+};
+
+export type FriendGroupMemberPutRequest = {
+    role: FriendGroupMutableRole;
+};
+
 export type GiznetWebRtcSignalingError = {
     error: string;
 };
@@ -2770,6 +2906,1022 @@ export type PutContactResponses = {
 };
 
 export type PutContactResponse = PutContactResponses[keyof PutContactResponses];
+
+export type ClearFriendInviteTokenData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/friends/invite-token';
+};
+
+export type ClearFriendInviteTokenErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type ClearFriendInviteTokenError = ClearFriendInviteTokenErrors[keyof ClearFriendInviteTokenErrors];
+
+export type ClearFriendInviteTokenResponses = {
+    /**
+     * Invite token revoked.
+     */
+    204: void;
+};
+
+export type ClearFriendInviteTokenResponse = ClearFriendInviteTokenResponses[keyof ClearFriendInviteTokenResponses];
+
+export type GetFriendInviteTokenData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/friends/invite-token';
+};
+
+export type GetFriendInviteTokenErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * INVITE_TOKEN_NOT_FOUND when the device has no unexpired Friend invite token.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type GetFriendInviteTokenError = GetFriendInviteTokenErrors[keyof GetFriendInviteTokenErrors];
+
+export type GetFriendInviteTokenResponses = {
+    /**
+     * Active invite token.
+     */
+    200: InviteToken;
+};
+
+export type GetFriendInviteTokenResponse = GetFriendInviteTokenResponses[keyof GetFriendInviteTokenResponses];
+
+export type CreateFriendInviteTokenData = {
+    body?: InviteTokenCreateRequest;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/friends/invite-token';
+};
+
+export type CreateFriendInviteTokenErrors = {
+    /**
+     * INVALID_REQUEST when ttl_seconds is outside 60..604800.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type CreateFriendInviteTokenError = CreateFriendInviteTokenErrors[keyof CreateFriendInviteTokenErrors];
+
+export type CreateFriendInviteTokenResponses = {
+    /**
+     * Active invite token.
+     */
+    200: InviteToken;
+};
+
+export type CreateFriendInviteTokenResponse = CreateFriendInviteTokenResponses[keyof CreateFriendInviteTokenResponses];
+
+export type ListFriendsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Opaque next_cursor returned by the previous page.
+         */
+        cursor?: string;
+        limit?: number;
+    };
+    url: '/gizclaw/v1/friends';
+};
+
+export type ListFriendsErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type ListFriendsError = ListFriendsErrors[keyof ListFriendsErrors];
+
+export type ListFriendsResponses = {
+    /**
+     * Friends in stable order.
+     */
+    200: FriendList;
+};
+
+export type ListFriendsResponse = ListFriendsResponses[keyof ListFriendsResponses];
+
+export type AddFriendData = {
+    body: FriendAddRequest;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/friends';
+};
+
+export type AddFriendErrors = {
+    /**
+     * INVALID_REQUEST when invite_token is empty; FRIEND_SELF_INVITE when the token belongs to the bound device.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * INVITE_TOKEN_INVALID when the invite token does not exist or has expired.
+     */
+    404: ErrorResponse;
+    /**
+     * FRIEND_ALREADY_EXISTS when the two Peers are already Friends; FRIEND_LIMIT_REACHED when either Peer already has 10 Friends; PEER_PENDING_DELETION or PEER_DELETED when the owner or the token's Peer is being retired or is gone.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type AddFriendError = AddFriendErrors[keyof AddFriendErrors];
+
+export type AddFriendResponses = {
+    /**
+     * Created Friend relationship.
+     */
+    201: Friend;
+};
+
+export type AddFriendResponse = AddFriendResponses[keyof AddFriendResponses];
+
+export type DeleteFriendData = {
+    body?: never;
+    path: {
+        /**
+         * Friend name, which is the Friend's canonical public key.
+         */
+        friendName: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/friends/{friendName}';
+};
+
+export type DeleteFriendErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * FRIEND_NOT_FOUND when the bound device has no such Friend.
+     */
+    404: ErrorResponse;
+    /**
+     * PEER_PENDING_DELETION or PEER_DELETED when either Peer is being retired or is gone.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteFriendError = DeleteFriendErrors[keyof DeleteFriendErrors];
+
+export type DeleteFriendResponses = {
+    /**
+     * Friend relationship deleted.
+     */
+    204: void;
+};
+
+export type DeleteFriendResponse = DeleteFriendResponses[keyof DeleteFriendResponses];
+
+export type GetFriendData = {
+    body?: never;
+    path: {
+        /**
+         * Friend name, which is the Friend's canonical public key.
+         */
+        friendName: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/friends/{friendName}';
+};
+
+export type GetFriendErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * FRIEND_NOT_FOUND when the bound device has no such Friend.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type GetFriendError = GetFriendErrors[keyof GetFriendErrors];
+
+export type GetFriendResponses = {
+    /**
+     * Friend.
+     */
+    200: Friend;
+};
+
+export type GetFriendResponse = GetFriendResponses[keyof GetFriendResponses];
+
+export type ListFriendGroupsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Opaque next_cursor returned by the previous page.
+         */
+        cursor?: string;
+        limit?: number;
+    };
+    url: '/gizclaw/v1/friend-groups';
+};
+
+export type ListFriendGroupsErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type ListFriendGroupsError = ListFriendGroupsErrors[keyof ListFriendGroupsErrors];
+
+export type ListFriendGroupsResponses = {
+    /**
+     * Friend Groups in stable order.
+     */
+    200: FriendGroupList;
+};
+
+export type ListFriendGroupsResponse = ListFriendGroupsResponses[keyof ListFriendGroupsResponses];
+
+export type CreateFriendGroupData = {
+    body: FriendGroupCreateRequest;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/friend-groups';
+};
+
+export type CreateFriendGroupErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * FRIEND_GROUP_NAME_CONFLICT when the device already has a Group with this name; FRIEND_GROUP_LIMIT_REACHED when the device already belongs to 10 Groups; FRIEND_GROUP_CHANGED on a concurrent change (retry); PEER_PENDING_DELETION or PEER_DELETED when the owner is being retired.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type CreateFriendGroupError = CreateFriendGroupErrors[keyof CreateFriendGroupErrors];
+
+export type CreateFriendGroupResponses = {
+    /**
+     * Created Friend Group.
+     */
+    201: FriendGroup;
+};
+
+export type CreateFriendGroupResponse = CreateFriendGroupResponses[keyof CreateFriendGroupResponses];
+
+export type JoinFriendGroupData = {
+    body: FriendGroupJoinRequest;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/friend-groups/@join';
+};
+
+export type JoinFriendGroupErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * INVITE_TOKEN_INVALID when the invite token does not exist or has expired.
+     */
+    404: ErrorResponse;
+    /**
+     * FRIEND_GROUP_NAME_CONFLICT when the device already uses name for another Group; FRIEND_GROUP_ALREADY_JOINED when the device is already a member under a different name; FRIEND_GROUP_FULL when the Group has 10 members; FRIEND_GROUP_LIMIT_REACHED when the device already belongs to 10 Groups; FRIEND_GROUP_CHANGED on a concurrent change (retry); FRIEND_GROUP_PENDING_DELETION when the Group is being deleted; PEER_PENDING_DELETION or PEER_DELETED when a Peer is being retired or is gone.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type JoinFriendGroupError = JoinFriendGroupErrors[keyof JoinFriendGroupErrors];
+
+export type JoinFriendGroupResponses = {
+    /**
+     * Joined Friend Group and the device's membership.
+     */
+    200: FriendGroupJoinResult;
+};
+
+export type JoinFriendGroupResponse = JoinFriendGroupResponses[keyof JoinFriendGroupResponses];
+
+export type DeleteFriendGroupData = {
+    body?: never;
+    path: {
+        /**
+         * The bound device's own name for the Friend Group.
+         */
+        friendGroupName: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}';
+};
+
+export type DeleteFriendGroupErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * FRIEND_GROUP_PERMISSION_DENIED when the bound device's role in the Group does not permit the operation; API_KEY_OWNER_UNAVAILABLE or DEBUG_ACCESS_FORBIDDEN from bearer validation.
+     */
+    403: ErrorResponse;
+    /**
+     * FRIEND_GROUP_NOT_FOUND when the bound device has no Friend Group with this name. Group names are per member, so a non-member never resolves another member's name.
+     */
+    404: ErrorResponse;
+    /**
+     * FRIEND_GROUP_CHANGED on a concurrent change (retry); FRIEND_GROUP_PENDING_DELETION when the Group is being deleted; PEER_PENDING_DELETION or PEER_DELETED when a Peer is being retired or is gone.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteFriendGroupError = DeleteFriendGroupErrors[keyof DeleteFriendGroupErrors];
+
+export type DeleteFriendGroupResponses = {
+    /**
+     * Friend Group deleted.
+     */
+    204: void;
+};
+
+export type DeleteFriendGroupResponse = DeleteFriendGroupResponses[keyof DeleteFriendGroupResponses];
+
+export type GetFriendGroupData = {
+    body?: never;
+    path: {
+        /**
+         * The bound device's own name for the Friend Group.
+         */
+        friendGroupName: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}';
+};
+
+export type GetFriendGroupErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * FRIEND_GROUP_NOT_FOUND when the bound device has no Friend Group with this name. Group names are per member, so a non-member never resolves another member's name.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type GetFriendGroupError = GetFriendGroupErrors[keyof GetFriendGroupErrors];
+
+export type GetFriendGroupResponses = {
+    /**
+     * Friend Group.
+     */
+    200: FriendGroup;
+};
+
+export type GetFriendGroupResponse = GetFriendGroupResponses[keyof GetFriendGroupResponses];
+
+export type PutFriendGroupData = {
+    body: FriendGroupPutRequest;
+    path: {
+        /**
+         * The bound device's own name for the Friend Group.
+         */
+        friendGroupName: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}';
+};
+
+export type PutFriendGroupErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * FRIEND_GROUP_PERMISSION_DENIED when the bound device's role in the Group does not permit the operation; API_KEY_OWNER_UNAVAILABLE or DEBUG_ACCESS_FORBIDDEN from bearer validation.
+     */
+    403: ErrorResponse;
+    /**
+     * FRIEND_GROUP_NOT_FOUND when the bound device has no Friend Group with this name. Group names are per member, so a non-member never resolves another member's name.
+     */
+    404: ErrorResponse;
+    /**
+     * FRIEND_GROUP_CHANGED on a concurrent change (retry); FRIEND_GROUP_PENDING_DELETION when the Group is being deleted; PEER_PENDING_DELETION or PEER_DELETED when a Peer is being retired or is gone.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type PutFriendGroupError = PutFriendGroupErrors[keyof PutFriendGroupErrors];
+
+export type PutFriendGroupResponses = {
+    /**
+     * Updated Friend Group.
+     */
+    200: FriendGroup;
+};
+
+export type PutFriendGroupResponse = PutFriendGroupResponses[keyof PutFriendGroupResponses];
+
+export type ClearFriendGroupInviteTokenData = {
+    body?: never;
+    path: {
+        /**
+         * The bound device's own name for the Friend Group.
+         */
+        friendGroupName: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}/invite-token';
+};
+
+export type ClearFriendGroupInviteTokenErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * FRIEND_GROUP_PERMISSION_DENIED when the bound device's role in the Group does not permit the operation; API_KEY_OWNER_UNAVAILABLE or DEBUG_ACCESS_FORBIDDEN from bearer validation.
+     */
+    403: ErrorResponse;
+    /**
+     * FRIEND_GROUP_NOT_FOUND when the bound device has no Friend Group with this name. Group names are per member, so a non-member never resolves another member's name.
+     */
+    404: ErrorResponse;
+    /**
+     * FRIEND_GROUP_CHANGED on a concurrent change (retry); FRIEND_GROUP_PENDING_DELETION when the Group is being deleted; PEER_PENDING_DELETION or PEER_DELETED when a Peer is being retired or is gone.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type ClearFriendGroupInviteTokenError = ClearFriendGroupInviteTokenErrors[keyof ClearFriendGroupInviteTokenErrors];
+
+export type ClearFriendGroupInviteTokenResponses = {
+    /**
+     * Invite token revoked.
+     */
+    204: void;
+};
+
+export type ClearFriendGroupInviteTokenResponse = ClearFriendGroupInviteTokenResponses[keyof ClearFriendGroupInviteTokenResponses];
+
+export type GetFriendGroupInviteTokenData = {
+    body?: never;
+    path: {
+        /**
+         * The bound device's own name for the Friend Group.
+         */
+        friendGroupName: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}/invite-token';
+};
+
+export type GetFriendGroupInviteTokenErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * FRIEND_GROUP_PERMISSION_DENIED when the bound device's role in the Group does not permit the operation; API_KEY_OWNER_UNAVAILABLE or DEBUG_ACCESS_FORBIDDEN from bearer validation.
+     */
+    403: ErrorResponse;
+    /**
+     * FRIEND_GROUP_NOT_FOUND when the device has no Group with this name; INVITE_TOKEN_NOT_FOUND when the Group has no unexpired invite token.
+     */
+    404: ErrorResponse;
+    /**
+     * FRIEND_GROUP_CHANGED on a concurrent change (retry); FRIEND_GROUP_PENDING_DELETION when the Group is being deleted; PEER_PENDING_DELETION or PEER_DELETED when a Peer is being retired or is gone.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type GetFriendGroupInviteTokenError = GetFriendGroupInviteTokenErrors[keyof GetFriendGroupInviteTokenErrors];
+
+export type GetFriendGroupInviteTokenResponses = {
+    /**
+     * Active invite token.
+     */
+    200: InviteToken;
+};
+
+export type GetFriendGroupInviteTokenResponse = GetFriendGroupInviteTokenResponses[keyof GetFriendGroupInviteTokenResponses];
+
+export type CreateFriendGroupInviteTokenData = {
+    body?: InviteTokenCreateRequest;
+    path: {
+        /**
+         * The bound device's own name for the Friend Group.
+         */
+        friendGroupName: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}/invite-token';
+};
+
+export type CreateFriendGroupInviteTokenErrors = {
+    /**
+     * INVALID_REQUEST when ttl_seconds is outside 60..604800.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * FRIEND_GROUP_PERMISSION_DENIED when the bound device's role in the Group does not permit the operation; API_KEY_OWNER_UNAVAILABLE or DEBUG_ACCESS_FORBIDDEN from bearer validation.
+     */
+    403: ErrorResponse;
+    /**
+     * FRIEND_GROUP_NOT_FOUND when the bound device has no Friend Group with this name. Group names are per member, so a non-member never resolves another member's name.
+     */
+    404: ErrorResponse;
+    /**
+     * FRIEND_GROUP_CHANGED on a concurrent change (retry); FRIEND_GROUP_PENDING_DELETION when the Group is being deleted; PEER_PENDING_DELETION or PEER_DELETED when a Peer is being retired or is gone.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type CreateFriendGroupInviteTokenError = CreateFriendGroupInviteTokenErrors[keyof CreateFriendGroupInviteTokenErrors];
+
+export type CreateFriendGroupInviteTokenResponses = {
+    /**
+     * Active invite token.
+     */
+    200: InviteToken;
+};
+
+export type CreateFriendGroupInviteTokenResponse = CreateFriendGroupInviteTokenResponses[keyof CreateFriendGroupInviteTokenResponses];
+
+export type LeaveFriendGroupData = {
+    body?: never;
+    path: {
+        /**
+         * The bound device's own name for the Friend Group.
+         */
+        friendGroupName: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}/@leave';
+};
+
+export type LeaveFriendGroupErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * FRIEND_GROUP_NOT_FOUND when the bound device has no Friend Group with this name. Group names are per member, so a non-member never resolves another member's name.
+     */
+    404: ErrorResponse;
+    /**
+     * FRIEND_GROUP_OWNER_CANNOT_LEAVE when the device owns the Group; FRIEND_GROUP_CHANGED on a concurrent change (retry); FRIEND_GROUP_PENDING_DELETION when the Group is being deleted; PEER_PENDING_DELETION or PEER_DELETED when a Peer is being retired or is gone.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type LeaveFriendGroupError = LeaveFriendGroupErrors[keyof LeaveFriendGroupErrors];
+
+export type LeaveFriendGroupResponses = {
+    /**
+     * Left the Friend Group.
+     */
+    204: void;
+};
+
+export type LeaveFriendGroupResponse = LeaveFriendGroupResponses[keyof LeaveFriendGroupResponses];
+
+export type ListFriendGroupMembersData = {
+    body?: never;
+    path: {
+        /**
+         * The bound device's own name for the Friend Group.
+         */
+        friendGroupName: string;
+    };
+    query?: {
+        /**
+         * Opaque next_cursor returned by the previous page.
+         */
+        cursor?: string;
+        limit?: number;
+    };
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}/members';
+};
+
+export type ListFriendGroupMembersErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * FRIEND_GROUP_NOT_FOUND when the bound device has no Friend Group with this name. Group names are per member, so a non-member never resolves another member's name.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type ListFriendGroupMembersError = ListFriendGroupMembersErrors[keyof ListFriendGroupMembersErrors];
+
+export type ListFriendGroupMembersResponses = {
+    /**
+     * Members in stable order.
+     */
+    200: FriendGroupMemberList;
+};
+
+export type ListFriendGroupMembersResponse = ListFriendGroupMembersResponses[keyof ListFriendGroupMembersResponses];
+
+export type AddFriendGroupMemberData = {
+    body: FriendGroupMemberAddRequest;
+    path: {
+        /**
+         * The bound device's own name for the Friend Group.
+         */
+        friendGroupName: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}/members';
+};
+
+export type AddFriendGroupMemberErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * FRIEND_GROUP_PERMISSION_DENIED when the bound device's role in the Group does not permit the operation; API_KEY_OWNER_UNAVAILABLE or DEBUG_ACCESS_FORBIDDEN from bearer validation.
+     */
+    403: ErrorResponse;
+    /**
+     * FRIEND_GROUP_NOT_FOUND when the bound device has no Friend Group with this name. Group names are per member, so a non-member never resolves another member's name.
+     */
+    404: ErrorResponse;
+    /**
+     * FRIEND_GROUP_NAME_CONFLICT when the added Peer already uses member_name for another Group; FRIEND_GROUP_ALREADY_JOINED when the Peer is a member under a different name; FRIEND_GROUP_OWNER_ROLE_IMMUTABLE when the Peer is the owner; FRIEND_GROUP_FULL; FRIEND_GROUP_LIMIT_REACHED; FRIEND_GROUP_CHANGED; FRIEND_GROUP_PENDING_DELETION; PEER_PENDING_DELETION or PEER_DELETED.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type AddFriendGroupMemberError = AddFriendGroupMemberErrors[keyof AddFriendGroupMemberErrors];
+
+export type AddFriendGroupMemberResponses = {
+    /**
+     * Added or updated member.
+     */
+    201: FriendGroupMember;
+};
+
+export type AddFriendGroupMemberResponse = AddFriendGroupMemberResponses[keyof AddFriendGroupMemberResponses];
+
+export type DeleteFriendGroupMemberData = {
+    body?: never;
+    path: {
+        /**
+         * The bound device's own name for the Friend Group.
+         */
+        friendGroupName: string;
+        /**
+         * Member name, which is the member's canonical public key.
+         */
+        memberName: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}/members/{memberName}';
+};
+
+export type DeleteFriendGroupMemberErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * FRIEND_GROUP_PERMISSION_DENIED when the bound device's role in the Group does not permit the operation; API_KEY_OWNER_UNAVAILABLE or DEBUG_ACCESS_FORBIDDEN from bearer validation.
+     */
+    403: ErrorResponse;
+    /**
+     * FRIEND_GROUP_NOT_FOUND when the bound device has no Friend Group with this name; FRIEND_GROUP_MEMBER_NOT_FOUND when the Peer is not a member.
+     */
+    404: ErrorResponse;
+    /**
+     * FRIEND_GROUP_OWNER_CANNOT_BE_REMOVED when the member is the owner; FRIEND_GROUP_CHANGED; FRIEND_GROUP_PENDING_DELETION; PEER_PENDING_DELETION or PEER_DELETED.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteFriendGroupMemberError = DeleteFriendGroupMemberErrors[keyof DeleteFriendGroupMemberErrors];
+
+export type DeleteFriendGroupMemberResponses = {
+    /**
+     * Member removed.
+     */
+    204: void;
+};
+
+export type DeleteFriendGroupMemberResponse = DeleteFriendGroupMemberResponses[keyof DeleteFriendGroupMemberResponses];
+
+export type PutFriendGroupMemberData = {
+    body: FriendGroupMemberPutRequest;
+    path: {
+        /**
+         * The bound device's own name for the Friend Group.
+         */
+        friendGroupName: string;
+        /**
+         * Member name, which is the member's canonical public key.
+         */
+        memberName: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/friend-groups/{friendGroupName}/members/{memberName}';
+};
+
+export type PutFriendGroupMemberErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * FRIEND_GROUP_PERMISSION_DENIED when the bound device's role in the Group does not permit the operation; API_KEY_OWNER_UNAVAILABLE or DEBUG_ACCESS_FORBIDDEN from bearer validation.
+     */
+    403: ErrorResponse;
+    /**
+     * FRIEND_GROUP_NOT_FOUND when the bound device has no Friend Group with this name; FRIEND_GROUP_MEMBER_NOT_FOUND when the Peer is not a member.
+     */
+    404: ErrorResponse;
+    /**
+     * FRIEND_GROUP_OWNER_ROLE_IMMUTABLE when the member is the owner; FRIEND_GROUP_CHANGED; FRIEND_GROUP_PENDING_DELETION; PEER_PENDING_DELETION or PEER_DELETED.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type PutFriendGroupMemberError = PutFriendGroupMemberErrors[keyof PutFriendGroupMemberErrors];
+
+export type PutFriendGroupMemberResponses = {
+    /**
+     * Updated member.
+     */
+    200: FriendGroupMember;
+};
+
+export type PutFriendGroupMemberResponse = PutFriendGroupMemberResponses[keyof PutFriendGroupMemberResponses];
 
 export type FindPublicKeysBySnData = {
     body?: never;

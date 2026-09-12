@@ -1098,6 +1098,576 @@ int gzc_control_delete_contact(
   return delete_route(client, call, "/contacts", contact_name);
 }
 
+/* --- Friends and Friend Groups ----------------------------------------- */
+
+/* Appends a literal path suffix such as "/invite-token". */
+static void builder_path(gzc_control_builder_t *builder, const char *suffix) {
+  if (builder->rc == GZC_OK) {
+    builder->rc = gzc_buf_append_cstr(&builder->buf, builder->platform, suffix);
+  }
+}
+
+/* Starts `/friend-groups/{friendGroupName}`. */
+static void builder_friend_group(
+    gzc_control_builder_t *builder,
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name) {
+  builder_begin(builder, client, call, "/friend-groups");
+  builder_segment(builder, friend_group_name);
+}
+
+/* Sends the assembled request and validates the 2xx body as one object. */
+static int send_for_object(
+    gzc_control_builder_t *builder,
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_http_method_t method,
+    gzc_str_t url,
+    gzc_str_t body,
+    gzc_str_t *out_object) {
+  int rc = builder_send(builder, client, call, method, url, body);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  return decoded_object(call, out_object);
+}
+
+/* Appends the page query to a begun builder, sends GET, and decodes one
+ * `{items, has_next, next_cursor}` page. */
+static int list_page(
+    gzc_control_builder_t *builder,
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_page_t *page,
+    void *out_items,
+    size_t stride,
+    size_t cap,
+    size_t *out_count,
+    bool *out_has_next,
+    gzc_str_t *out_next_cursor,
+    gzc_control_decode_fn decode) {
+  if (page != NULL) {
+    builder_query_str(builder, "cursor", page->cursor);
+    if (page->has_limit) {
+      builder_query_i64(builder, "limit", page->limit);
+    }
+  }
+  gzc_str_t url = builder_url(builder);
+  gzc_str_t object;
+  int rc = send_for_object(builder, client, call, GZC_HTTP_METHOD_GET, url, gzc_str_from_parts(NULL, 0), &object);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  gzc_str_t items = gzc_str_from_parts(NULL, 0);
+  rc = gzc_control_opt_raw(object, "items", &items);
+  if (rc == GZC_OK) {
+    rc = gzc_control_decode_array(items, out_items, stride, cap, out_count, decode);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_bool(object, "has_next", out_has_next);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_str(object, "next_cursor", out_next_cursor);
+  }
+  return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
+}
+
+static int check_list_args(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const void *out_items,
+    size_t cap,
+    size_t *out_count,
+    bool *out_has_next,
+    gzc_str_t *out_next_cursor) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out_count == NULL || out_has_next == NULL || out_next_cursor == NULL ||
+      (out_items == NULL && cap != 0)) {
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  }
+  *out_count = 0;
+  *out_has_next = false;
+  *out_next_cursor = gzc_str_from_parts(NULL, 0);
+  return GZC_OK;
+}
+
+/* Sends one invite token request on a begun builder and decodes the token.
+ * A create sends the `InviteTokenCreateRequest` body; request may be NULL. */
+static int invite_token_route(
+    gzc_control_builder_t *builder,
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    bool create,
+    const gzc_control_invite_token_request_t *request,
+    gzc_control_invite_token_t *out_token) {
+  gzc_str_t url = builder_url(builder);
+  gzc_str_t body = gzc_str_from_parts(NULL, 0);
+  if (create) {
+    gzc_json_writer_t writer;
+    builder_body_begin(builder, &writer);
+    if (builder->rc == GZC_OK && request != NULL && request->has_ttl_seconds) {
+      builder->rc = gzc_json_field_i64(&writer, "ttl_seconds", request->ttl_seconds);
+    }
+    body = builder_body(builder, &writer);
+  }
+  gzc_str_t object;
+  int rc = send_for_object(
+      builder, client, call, create ? GZC_HTTP_METHOD_POST : GZC_HTTP_METHOD_GET, url, body, &object);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  rc = gzc_control_decode_invite_token(object, out_token);
+  return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
+}
+
+int gzc_control_get_friend_invite_token(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_control_invite_token_t *out_token) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out_token == NULL) {
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  }
+  gzc_control_builder_t builder;
+  builder_begin(&builder, client, call, "/friends/invite-token");
+  return invite_token_route(&builder, client, call, false, NULL, out_token);
+}
+
+int gzc_control_create_friend_invite_token(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_invite_token_request_t *request,
+    gzc_control_invite_token_t *out_token) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out_token == NULL) {
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  }
+  gzc_control_builder_t builder;
+  builder_begin(&builder, client, call, "/friends/invite-token");
+  return invite_token_route(&builder, client, call, true, request, out_token);
+}
+
+int gzc_control_clear_friend_invite_token(gzc_control_client_t *client, gzc_control_call_t *call) {
+  return delete_route(client, call, "/friends/invite-token", gzc_str_from_parts(NULL, 0));
+}
+
+int gzc_control_add_friend(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t invite_token,
+    gzc_control_friend_t *out_friend) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out_friend == NULL || gzc_control_str_empty(invite_token)) {
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  }
+  gzc_control_builder_t builder;
+  builder_begin(&builder, client, call, "/friends");
+  gzc_str_t url = builder_url(&builder);
+  gzc_json_writer_t writer;
+  builder_body_begin(&builder, &writer);
+  if (builder.rc == GZC_OK) {
+    builder.rc = gzc_json_field_str(&writer, "invite_token", invite_token);
+  }
+  gzc_str_t body = builder_body(&builder, &writer);
+  gzc_str_t object;
+  rc = send_for_object(&builder, client, call, GZC_HTTP_METHOD_POST, url, body, &object);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  rc = gzc_control_decode_friend(object, out_friend);
+  return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
+}
+
+int gzc_control_list_friends(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_page_t *page,
+    gzc_control_friend_t *out_items,
+    size_t cap,
+    size_t *out_count,
+    bool *out_has_next,
+    gzc_str_t *out_next_cursor) {
+  int rc = check_list_args(client, call, out_items, cap, out_count, out_has_next, out_next_cursor);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  gzc_control_builder_t builder;
+  builder_begin(&builder, client, call, "/friends");
+  return list_page(
+      &builder, client, call, page, out_items, sizeof(*out_items), cap, out_count, out_has_next,
+      out_next_cursor, gzc_control_decode_friend_item);
+}
+
+int gzc_control_get_friend(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_name,
+    gzc_control_friend_t *out_friend) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out_friend == NULL || gzc_control_str_empty(friend_name)) {
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  }
+  gzc_control_builder_t builder;
+  builder_begin(&builder, client, call, "/friends");
+  builder_segment(&builder, friend_name);
+  gzc_str_t url = builder_url(&builder);
+  gzc_str_t object;
+  rc = send_for_object(&builder, client, call, GZC_HTTP_METHOD_GET, url, gzc_str_from_parts(NULL, 0), &object);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  rc = gzc_control_decode_friend(object, out_friend);
+  return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
+}
+
+int gzc_control_delete_friend(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_name) {
+  if (gzc_control_str_empty(friend_name)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  return delete_route(client, call, "/friends", friend_name);
+}
+
+int gzc_control_list_friend_groups(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_page_t *page,
+    gzc_control_friend_group_t *out_items,
+    size_t cap,
+    size_t *out_count,
+    bool *out_has_next,
+    gzc_str_t *out_next_cursor) {
+  int rc = check_list_args(client, call, out_items, cap, out_count, out_has_next, out_next_cursor);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  gzc_control_builder_t builder;
+  builder_begin(&builder, client, call, "/friend-groups");
+  return list_page(
+      &builder, client, call, page, out_items, sizeof(*out_items), cap, out_count, out_has_next,
+      out_next_cursor, gzc_control_decode_friend_group_item);
+}
+
+/* Writes the optional Friend Group fields shared by create and put. */
+static void write_friend_group_fields(
+    gzc_control_builder_t *builder,
+    gzc_json_writer_t *writer,
+    const gzc_control_friend_group_request_t *request) {
+  if (builder->rc == GZC_OK && !gzc_control_str_empty(request->display_name)) {
+    builder->rc = gzc_json_field_str(writer, "display_name", request->display_name);
+  }
+  if (builder->rc == GZC_OK && !gzc_control_str_empty(request->description)) {
+    builder->rc = gzc_json_field_str(writer, "description", request->description);
+  }
+}
+
+/* Sends one Friend Group write on a begun builder and decodes the Group. */
+static int friend_group_write(
+    gzc_control_builder_t *builder,
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_http_method_t method,
+    const gzc_control_friend_group_request_t *request,
+    gzc_control_friend_group_t *out_group) {
+  gzc_str_t url = builder_url(builder);
+  gzc_json_writer_t writer;
+  builder_body_begin(builder, &writer);
+  if (builder->rc == GZC_OK && method == GZC_HTTP_METHOD_POST) {
+    builder->rc = gzc_json_field_str(&writer, "name", request->name);
+  }
+  write_friend_group_fields(builder, &writer, request);
+  gzc_str_t body = builder_body(builder, &writer);
+  gzc_str_t object;
+  int rc = send_for_object(builder, client, call, method, url, body, &object);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  rc = gzc_control_decode_friend_group(object, out_group);
+  return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
+}
+
+int gzc_control_create_friend_group(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_friend_group_request_t *request,
+    gzc_control_friend_group_t *out_group) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || request == NULL || out_group == NULL || gzc_control_str_empty(request->name)) {
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  }
+  gzc_control_builder_t builder;
+  builder_begin(&builder, client, call, "/friend-groups");
+  return friend_group_write(&builder, client, call, GZC_HTTP_METHOD_POST, request, out_group);
+}
+
+int gzc_control_join_friend_group(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_friend_group_join_request_t *request,
+    gzc_control_friend_group_t *out_group,
+    gzc_control_friend_group_member_t *out_member) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || request == NULL || out_group == NULL || out_member == NULL ||
+      gzc_control_str_empty(request->invite_token) || gzc_control_str_empty(request->name)) {
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  }
+  gzc_control_builder_t builder;
+  builder_begin(&builder, client, call, "/friend-groups/@join");
+  gzc_str_t url = builder_url(&builder);
+  gzc_json_writer_t writer;
+  builder_body_begin(&builder, &writer);
+  if (builder.rc == GZC_OK) {
+    builder.rc = gzc_json_field_str(&writer, "invite_token", request->invite_token);
+  }
+  if (builder.rc == GZC_OK) {
+    builder.rc = gzc_json_field_str(&writer, "name", request->name);
+  }
+  gzc_str_t body = builder_body(&builder, &writer);
+  gzc_str_t object;
+  rc = send_for_object(&builder, client, call, GZC_HTTP_METHOD_POST, url, body, &object);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  gzc_str_t group = gzc_str_from_parts(NULL, 0);
+  gzc_str_t member = gzc_str_from_parts(NULL, 0);
+  rc = gzc_control_opt_raw(object, "group", &group);
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_raw(object, "member", &member);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_decode_friend_group(group, out_group);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_decode_friend_group_member(member, out_member);
+  }
+  return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
+}
+
+int gzc_control_get_friend_group(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name,
+    gzc_control_friend_group_t *out_group) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out_group == NULL || gzc_control_str_empty(friend_group_name)) {
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  }
+  gzc_control_builder_t builder;
+  builder_friend_group(&builder, client, call, friend_group_name);
+  gzc_str_t url = builder_url(&builder);
+  gzc_str_t object;
+  rc = send_for_object(&builder, client, call, GZC_HTTP_METHOD_GET, url, gzc_str_from_parts(NULL, 0), &object);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  rc = gzc_control_decode_friend_group(object, out_group);
+  return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
+}
+
+int gzc_control_put_friend_group(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name,
+    const gzc_control_friend_group_request_t *request,
+    gzc_control_friend_group_t *out_group) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || request == NULL || out_group == NULL || gzc_control_str_empty(friend_group_name)) {
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  }
+  gzc_control_builder_t builder;
+  builder_friend_group(&builder, client, call, friend_group_name);
+  return friend_group_write(&builder, client, call, GZC_HTTP_METHOD_PUT, request, out_group);
+}
+
+int gzc_control_delete_friend_group(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name) {
+  if (gzc_control_str_empty(friend_group_name)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  return delete_route(client, call, "/friend-groups", friend_group_name);
+}
+
+/* Sends one bodyless request under `/friend-groups/{friendGroupName}`. */
+static int friend_group_empty_route(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_http_method_t method,
+    gzc_str_t friend_group_name,
+    const char *suffix,
+    gzc_str_t member_name) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || gzc_control_str_empty(friend_group_name)) {
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  }
+  gzc_control_builder_t builder;
+  builder_friend_group(&builder, client, call, friend_group_name);
+  builder_path(&builder, suffix);
+  if (!gzc_control_str_empty(member_name)) {
+    builder_segment(&builder, member_name);
+  }
+  gzc_str_t url = builder_url(&builder);
+  return builder_send(&builder, client, call, method, url, gzc_str_from_parts(NULL, 0));
+}
+
+int gzc_control_leave_friend_group(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name) {
+  return friend_group_empty_route(
+      client, call, GZC_HTTP_METHOD_POST, friend_group_name, "/@leave", gzc_str_from_parts(NULL, 0));
+}
+
+int gzc_control_get_friend_group_invite_token(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name,
+    gzc_control_invite_token_t *out_token) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out_token == NULL || gzc_control_str_empty(friend_group_name)) {
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  }
+  gzc_control_builder_t builder;
+  builder_friend_group(&builder, client, call, friend_group_name);
+  builder_path(&builder, "/invite-token");
+  return invite_token_route(&builder, client, call, false, NULL, out_token);
+}
+
+int gzc_control_create_friend_group_invite_token(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name,
+    const gzc_control_invite_token_request_t *request,
+    gzc_control_invite_token_t *out_token) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out_token == NULL || gzc_control_str_empty(friend_group_name)) {
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  }
+  gzc_control_builder_t builder;
+  builder_friend_group(&builder, client, call, friend_group_name);
+  builder_path(&builder, "/invite-token");
+  return invite_token_route(&builder, client, call, true, request, out_token);
+}
+
+int gzc_control_clear_friend_group_invite_token(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name) {
+  return friend_group_empty_route(
+      client, call, GZC_HTTP_METHOD_DELETE, friend_group_name, "/invite-token", gzc_str_from_parts(NULL, 0));
+}
+
+int gzc_control_list_friend_group_members(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name,
+    const gzc_control_page_t *page,
+    gzc_control_friend_group_member_t *out_items,
+    size_t cap,
+    size_t *out_count,
+    bool *out_has_next,
+    gzc_str_t *out_next_cursor) {
+  int rc = check_list_args(client, call, out_items, cap, out_count, out_has_next, out_next_cursor);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  if (gzc_control_str_empty(friend_group_name)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_control_builder_t builder;
+  builder_friend_group(&builder, client, call, friend_group_name);
+  builder_path(&builder, "/members");
+  return list_page(
+      &builder, client, call, page, out_items, sizeof(*out_items), cap, out_count, out_has_next,
+      out_next_cursor, gzc_control_decode_friend_group_member_item);
+}
+
+/* Sends one member write on a begun builder and decodes the member. */
+static int friend_group_member_write(
+    gzc_control_builder_t *builder,
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_http_method_t method,
+    const gzc_control_friend_group_member_request_t *request,
+    gzc_control_friend_group_member_t *out_member) {
+  gzc_str_t url = builder_url(builder);
+  gzc_json_writer_t writer;
+  builder_body_begin(builder, &writer);
+  if (builder->rc == GZC_OK && method == GZC_HTTP_METHOD_POST) {
+    builder->rc = gzc_json_field_str(&writer, "peer_public_key", request->peer_public_key);
+  }
+  if (builder->rc == GZC_OK && method == GZC_HTTP_METHOD_POST) {
+    builder->rc = gzc_json_field_str(&writer, "member_name", request->member_name);
+  }
+  if (builder->rc == GZC_OK) {
+    builder->rc = gzc_json_field_str(&writer, "role", request->role);
+  }
+  gzc_str_t body = builder_body(builder, &writer);
+  gzc_str_t object;
+  int rc = send_for_object(builder, client, call, method, url, body, &object);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  rc = gzc_control_decode_friend_group_member(object, out_member);
+  return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
+}
+
+int gzc_control_add_friend_group_member(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name,
+    const gzc_control_friend_group_member_request_t *request,
+    gzc_control_friend_group_member_t *out_member) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || request == NULL || out_member == NULL || gzc_control_str_empty(friend_group_name) ||
+      gzc_control_str_empty(request->peer_public_key) || gzc_control_str_empty(request->member_name) ||
+      gzc_control_str_empty(request->role)) {
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  }
+  gzc_control_builder_t builder;
+  builder_friend_group(&builder, client, call, friend_group_name);
+  builder_path(&builder, "/members");
+  return friend_group_member_write(&builder, client, call, GZC_HTTP_METHOD_POST, request, out_member);
+}
+
+int gzc_control_put_friend_group_member(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name,
+    gzc_str_t member_name,
+    gzc_str_t role,
+    gzc_control_friend_group_member_t *out_member) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out_member == NULL || gzc_control_str_empty(friend_group_name) ||
+      gzc_control_str_empty(member_name) || gzc_control_str_empty(role)) {
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  }
+  gzc_control_builder_t builder;
+  builder_friend_group(&builder, client, call, friend_group_name);
+  builder_path(&builder, "/members");
+  builder_segment(&builder, member_name);
+  gzc_control_friend_group_member_request_t request;
+  memset(&request, 0, sizeof(request));
+  request.role = role;
+  return friend_group_member_write(&builder, client, call, GZC_HTTP_METHOD_PUT, &request, out_member);
+}
+
+int gzc_control_delete_friend_group_member(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t friend_group_name,
+    gzc_str_t member_name) {
+  if (gzc_control_str_empty(member_name)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  return friend_group_empty_route(
+      client, call, GZC_HTTP_METHOD_DELETE, friend_group_name, "/members", member_name);
+}
+
 static int audioplayer_decode_response(gzc_control_call_t *call, gzc_control_audioplayer_status_t *out_status) {
   gzc_str_t object, status;
   int rc = decoded_object(call, &object);

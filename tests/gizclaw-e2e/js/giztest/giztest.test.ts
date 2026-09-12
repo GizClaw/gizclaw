@@ -305,6 +305,24 @@ test("loadDocuments loads the find, social ping and profile scenarios", async ()
   ]);
 });
 
+test("loadDocuments loads the friend and friend group HTTP scenarios", async () => {
+  const names = ["server.friend_groups.http", "server.friends.http"];
+  const { documents, skipped } = await loadDocuments(
+    names.map((name) => path.join(scenarioRoot, `${name}.giztest.yaml`)),
+  );
+  assert.deepEqual(skipped, []);
+  assert.deepEqual(
+    documents.map((document) => document.name),
+    names,
+  );
+  const operations = new Set(
+    documents.flatMap((document) =>
+      document.steps.map((step) => stepOperation(step)),
+    ),
+  );
+  assert.deepEqual([...operations].sort(), ["http", "rpc"]);
+});
+
 test("loadDocuments skips scenarios that use unsupported step kinds", async () => {
   const paths = await discover([scenarioRoot]);
   const { skipped } = await loadDocuments(paths);

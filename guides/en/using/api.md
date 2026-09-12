@@ -139,7 +139,7 @@ The Go SDK exposes common RPCs as typed methods on `gizcli.Client`. The supplied
 
 ## Device HTTP API
 
-An API key bound to one device (see [API keys](./api-keys)) can reach `/gizclaw/v1/device*` and `/gizclaw/v1/contacts*` without a Peer connection, through Direct Server HTTP (`serve-to-clients=true`) or Edge HTTPS. Send `Authorization: Bearer <api-key>` on every request; resources and commands always target the key's bound device and cannot name another Peer.
+An API key bound to one device (see [API keys](./api-keys)) can reach `/gizclaw/v1/device*` and `/gizclaw/v1/contacts*` without a Peer connection, through Direct Server HTTP (`serve-to-clients=true`) or Edge HTTPS. The same keys reach `/gizclaw/v1/friends*` and `/gizclaw/v1/friend-groups*`. Send `Authorization: Bearer <api-key>` on every request; resources and commands always target the key's bound device and cannot name another Peer.
 
 | Route | Purpose |
 | --- | --- |
@@ -158,6 +158,10 @@ An API key bound to one device (see [API keys](./api-keys)) can reach `/gizclaw/
 | `POST /gizclaw/v1/device/actions/firmware-update` | Notify the device to run one OTA |
 | `GET /gizclaw/v1/device/wifi`, `/wifi/saved`, `DELETE /wifi/saved/{ssid}` | Query Wi‑Fi status, list and forget saved networks |
 | `/gizclaw/v1/contacts`, `/contacts/{contactName}` | List/create/get/put/delete the device's contacts |
+| `/gizclaw/v1/friends/invite-token` | Read, create (optional `ttl_seconds`, up to 7 days), or revoke the device's friend invite code |
+| `/gizclaw/v1/friends`, `/friends/{friendName}` | Befriend with an invite code, list (with the other device's name and emoji), read, and delete friends |
+| `/gizclaw/v1/friend-groups`, `/friend-groups/@join`, `/friend-groups/{friendGroupName}` | List, create, join by invite code, read, update, and dissolve Friend Groups |
+| `/friend-groups/{friendGroupName}/@leave`, `/invite-token`, `/members`, `/members/{memberName}` | Leave, Group invite codes, list members (with name and emoji), and manage members |
 
 Read routes project data the Server already holds and never wake the device. Control routes execute live over a Server-to-device RPC: an offline device answers `409 DEVICE_OFFLINE`, no answer within 5 seconds gives `504 DEVICE_TIMEOUT`, and a device without the provider gives `501 DEVICE_UNSUPPORTED`. Poll `GET /device/status` for state changes. Wi‑Fi provisioning stays on the device-local BLE channel.
 
@@ -166,6 +170,8 @@ Read routes project data the Server already holds and never wake the device. Con
 `GET /device/runtime-profile` returns only the RuntimeProfile `name`, `revision`, and `collections[].workflows[].name`, with collections and workflows sorted by name. Each workflow name is the name the device uses with `server.workflow.*`, taken directly from the RuntimeProfile bindings without checking that the Workflow resource still exists, and `name`/`revision` equal `runtime_profile_name`/`runtime_profile_revision` in RPC responses. Covers, descriptions, and display names are not part of the response: callers key their own metadata by `<profile name>/<collection>` and `<profile name>/<workflow name>`, and decide display order themselves.
 
 `GET /device/workspaces` identifies Workflows by the same names: every Workspace carries `collection` and `workflow_name`, so `?collection=...&workflow_name=...` returns the saves of one game, and its `id` reads `/history`. The response never contains the Admin Workflow ID; when the Workflow is gone from the current RuntimeProfile, `workflow_name` is omitted and `available` is `false`. After `DELETE /device/workspaces/{workspaceId}` answers `202`, the save leaves the list at once and its history and state are cleaned up in the background; until then a same-named recreate on the device gets `ALREADY_EXISTS` and should be retried later. System Workspaces cannot be deleted (`409`), and another device's Workspace returns `404`.
+
+Friend and Friend Group routes only read and write the Server's social data, so they keep working while the device is offline or lost. When a parent sends an invite code to someone, pass `ttl_seconds`: the default 5 minute code is usually too short. An active code keeps its value and only gets a later expiry, so a code the device is showing stays valid. Groups are addressed by the device's own Group name; the owner cannot leave (`409 FRIEND_GROUP_OWNER_CANNOT_LEAVE`) and dissolves the Group instead, while a non-owner dissolving gets `403`. See [Public API](../developing/api/http/public#friend-and-friend-group-surface) for every error code.
 
 ```sh
 curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/volume" \

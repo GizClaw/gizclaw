@@ -1,0 +1,202 @@
+# User Story:
+# As a LiteLink parent holding a device API key,
+# I want to see a Friend Group's members, leave it, or dissolve it over Public HTTP,
+# So that the device's groups can be managed while it is away or offline.
+version: gizclaw.test/v1alpha1
+name: server.friend_groups.http
+clients:
+  alice:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+  bob:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  group_name:
+    direction: input
+    type: string
+    generate: token
+  alice_key:
+    direction: output
+    type: string
+    secret: true
+  bob_key:
+    direction: output
+    type: string
+    secret: true
+  invite_token:
+    direction: output
+    type: string
+steps:
+- id: register_alice
+  client: alice
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: register_bob
+  client: bob
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_alice_key
+  client: alice
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}-alice"
+  capture:
+    alice_key: /api_key
+- id: create_bob_key
+  client: bob
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}-bob"
+  capture:
+    bob_key: /api_key
+- id: create_group
+  client: alice
+  http:
+    method: POST
+    path: /gizclaw/v1/friend-groups
+    headers:
+      Authorization: "Bearer ${alice_key}"
+    body:
+      name: "${group_name}"
+      display_name: Giztest Group
+    status: 201
+  expect:
+    /name: {equals: "${group_name}"}
+    /my_role: {equals: owner}
+- id: create_invite_token
+  client: alice
+  http:
+    method: POST
+    path: /gizclaw/v1/friend-groups/${group_name}/invite-token
+    headers:
+      Authorization: "Bearer ${alice_key}"
+    body:
+      ttl_seconds: 3600
+    status: 200
+  capture:
+    invite_token: /invite_token
+- id: join_group
+  client: bob
+  http:
+    method: POST
+    path: /gizclaw/v1/friend-groups/@join
+    headers:
+      Authorization: "Bearer ${bob_key}"
+    body:
+      invite_token: "${invite_token}"
+      name: "${group_name}"
+    status: 200
+  expect:
+    /group/name: {equals: "${group_name}"}
+    /group/my_role: {equals: member}
+    /member/role: {equals: member}
+- id: list_members
+  client: bob
+  http:
+    method: GET
+    path: /gizclaw/v1/friend-groups/${group_name}/members
+    headers:
+      Authorization: "Bearer ${bob_key}"
+    status: 200
+  expect:
+    /items: {count: 2}
+- id: member_cannot_dissolve
+  client: bob
+  http:
+    method: DELETE
+    path: /gizclaw/v1/friend-groups/${group_name}
+    headers:
+      Authorization: "Bearer ${bob_key}"
+    status: 403
+  expect:
+    /error/code: {equals: FRIEND_GROUP_PERMISSION_DENIED}
+- id: owner_cannot_leave
+  client: alice
+  http:
+    method: POST
+    path: /gizclaw/v1/friend-groups/${group_name}/@leave
+    headers:
+      Authorization: "Bearer ${alice_key}"
+    status: 409
+  expect:
+    /error/code: {equals: FRIEND_GROUP_OWNER_CANNOT_LEAVE}
+- id: member_leaves
+  client: bob
+  http:
+    method: POST
+    path: /gizclaw/v1/friend-groups/${group_name}/@leave
+    headers:
+      Authorization: "Bearer ${bob_key}"
+    status: 204
+- id: left_group_is_gone
+  client: bob
+  http:
+    method: GET
+    path: /gizclaw/v1/friend-groups/${group_name}
+    headers:
+      Authorization: "Bearer ${bob_key}"
+    status: 404
+  expect:
+    /error/code: {equals: FRIEND_GROUP_NOT_FOUND}
+- id: owner_sees_one_member
+  client: alice
+  http:
+    method: GET
+    path: /gizclaw/v1/friend-groups/${group_name}/members
+    headers:
+      Authorization: "Bearer ${alice_key}"
+    status: 200
+  expect:
+    /items: {count: 1}
+    /items/0/role: {equals: owner}
+- id: dissolve_group
+  client: alice
+  http:
+    method: DELETE
+    path: /gizclaw/v1/friend-groups/${group_name}
+    headers:
+      Authorization: "Bearer ${alice_key}"
+    status: 204
+- id: dissolved_group_is_gone
+  client: alice
+  http:
+    method: GET
+    path: /gizclaw/v1/friend-groups/${group_name}
+    headers:
+      Authorization: "Bearer ${alice_key}"
+    status: 404
+  expect:
+    /error/code: {equals: FRIEND_GROUP_NOT_FOUND}
+finally:
+- id: cleanup_alice
+  client: alice
+  rpc:
+    method: server.peer.delete
+    request: {}
+- id: cleanup_bob
+  client: bob
+  rpc:
+    method: server.peer.delete
+    request: {}

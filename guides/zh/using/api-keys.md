@@ -8,7 +8,7 @@ GizClaw 使用长期有效、绑定设备的 API Key 访问公开的 GizClaw API
 
 ## 设备读取与控制
 
-Key 绑定的设备是所有 `/gizclaw/v1/device*` 与 `/gizclaw/v1/contacts*` 请求的固定目标（route 列表见 [API](./api#设备-http-api)）。读取设备状态和设置音量：
+Key 绑定的设备是所有 `/gizclaw/v1/device*`、`/gizclaw/v1/contacts*`、`/gizclaw/v1/friends*` 与 `/gizclaw/v1/friend-groups*` 请求的固定目标（route 列表见 [API](./api#设备-http-api)）。读取设备状态和设置音量：
 
 ```sh
 curl -sS "$GIZCLAW_URL/gizclaw/v1/device/status" \

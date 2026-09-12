@@ -51,6 +51,10 @@ Admin 好友列表保留跨 owner 的分页查询。当前好友行的定位信�
 
 Peer membership object 以 `friend_group_name` scope 内的 `name` 作为身份；Admin membership object 继续同时保留 canonical `id` 与 scoped `name`。Friend Group 成员上限固定为 10 人（含 owner），由 `socialutil.FriendGroupMemberLimit` 写死，不通过 RuntimeProfile 或配置调整。成员数已达上限时，`friend_group.join`、`members.add` RPC 返回 `RESOURCE_EXHAUSTED`（8），reason 为 `FRIEND_GROUP_FULL`；Admin HTTP 创建成员返回 `409 Conflict` 与错误码 `FRIEND_GROUP_FULL`。这些拒绝不消费 invite token。每次成员增删、角色或群组资料更新都会原子推进共享群组版本；人数检查和整组删除在提交时比较该版本及主记录，过期快照不能提交，调用方需重新读取后重试。每个 Peer 最多属于 10 个 Friend Group，自己创建、通过邀请加入和被他人添加的群合并计数；上限由 `socialutil.PeerFriendGroupLimit` 写死。创建群组、`friend_group.join`、`members.add` 及 Admin 创建成员在该 Peer 已满时返回 `RESOURCE_EXHAUSTED`（8）/ reason `FRIEND_GROUP_LIMIT_REACHED`，Admin HTTP 返回 `409 Conflict` 与错误码 `FRIEND_GROUP_LIMIT_REACHED`；创建群组在建 Workspace 前即拒绝。每次加入都原子推进该 Peer 的群组版本，提交时比较该版本，不同 Server 并发加入不会超过上限，过期时返回 `FRIEND_GROUP_CHANGED`。已有成员的角色变更不受影响。Friend Group 不拥有消息、History、音频 store、独立 TTL 或清理循环。
 
+`LeaveFriendGroup` 删除调用方自己的成员记录，与 `members.delete` 共用删除、通知与锁顺序：member 与 admin 都可以退出，owner 返回 `ErrFriendGroupOwnerCannotLeave`。`members.delete` 自身的权限不变，删除 admin（包括 admin 自己）仍要求 owner 角色。
+
+权限与冲突失败使用导出的 sentinel error，调用方用 `errors.Is` 分类：`ErrFriendGroupPermissionDenied`（角色不足）、`ErrFriendGroupNameExists`（本地群名已指向其他群）、`ErrFriendGroupMembershipNameImmutable`（以其他名字再次加入）、`ErrFriendGroupOwnerCannotBeRemoved`、`ErrFriendGroupOwnerCannotLeave`、`ErrFriendGroupOwnerRoleImmutable`、`ErrFriendGroupMemberNotFound`（目标不是成员，包装 `kv.ErrNotFound`）、`ErrInviteTokenUnavailable`、`ErrInvalidMemberRole` 与 `ErrFriendGroupPendingDeletion`。Peer RPC 的错误映射不因此改变；Peer HTTP 把它们映射为稳定错误码。好友侧 `AddFriendReportingExisting` 与 `AddFriend` 行为相同，只额外报告关系是否已存在，供 Peer HTTP 返回 `FRIEND_ALREADY_EXISTS`。
+
 relationship 提交与 Workspace retirement 分成两个可重试阶段：第一阶段失败时
 relationship 与 Workspace 都保持可用；第二阶段失败时保留 retirement intent，
 重试同一删除请求只补做相同 Workspace 的 `PendingDeletion`，不会恢复或重复删除
@@ -270,5 +274,7 @@ Friend 与 Friend Group 通过 Workspace ID 和系统生成的规范名称直接
 每个 Peer 的好友关系 ID、每个 Peer 的群组 ID、每个群组的成员公钥分别保存在独立 Set。关系和成员的完整记录继续独立保存，角色等字段可以扩展。创建、删除与角色更新通过原子 mutation 保持主记录、名称索引和 Set 一致。群成员 RPC 列表和 Peer 的好友／群组列表从相应集合读取，不执行任意前缀扫描；分页只加载当前页的详细记录。群组的 SFU 鉴权直接读取成员 Set，不逐个加载成员详情。这些集合按 Peer 或群组隔离，不构建全站大 Set。
 
 邀请令牌使用独立的摘要索引定位所属记录，再精确读取主记录并验证令牌和有效期。好友与群组的令牌分别位于各自存储域，查询不扫描其他令牌。令牌替换和显式清除原子更新主记录与索引；同一存储域内不同资源不能占用同一个令牌。过期读取只返回不可用，不执行清理写入；替换时移除旧索引，避免查询清理误删并发生成的新令牌。写入时以令牌有效期作为主记录与索引共同的 KV deadline，过期后由 KV backend（生产部署为 Redis TTL）物理删除，服务不运行额外的清理循环。
+
+邀请令牌默认有效期为 `socialutil.DefaultInviteTokenTTL`（5 分钟），设备 RPC 只使用这个默认值：已有有效令牌时原样返回，否则新建。`friend.Server.CreateFriendInviteTokenWithTTL` 与 `friendgroup.Server.CreateFriendGroupInviteTokenWithTTL` 额外接受调用方给出的有效期，范围由 `socialutil.MinInviteTokenTTL`（1 分钟）与 `socialutil.MaxInviteTokenTTL`（7 天）限定，越界返回 `socialutil.ErrInvalidInviteTokenTTL`。带有效期时新建令牌按该值过期；已有有效令牌保留原值，只把有效期延长到当前时间加请求值，从不缩短，KV deadline 随之更新。Peer HTTP 的 `ttl_seconds` 使用这条路径。
 
 Peer 的好友和群组分页另有按 owner 隔离的有序索引，保存转义后的关系／群组 ID。创建、加入、退出和删除在同一 mutation 中维护该索引。分页将游标和 `limit + 1` 下推存储，仅加载最多 `limit` 条详细记录；返回游标仍为原始 ID。遇到并发删除时允许当前页少于 limit，游标按已读取的索引位置前进，不回退全量集合读取。

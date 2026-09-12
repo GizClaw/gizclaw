@@ -8,7 +8,7 @@ An ordinary key can use public APIs, inspect itself with `GET /gizclaw/v1/api-ke
 
 ## Device reads and control
 
-The key's bound device is the fixed target of every `/gizclaw/v1/device*` and `/gizclaw/v1/contacts*` request (see [API](./api#device-http-api) for the route list). Read the device status and set the volume:
+The key's bound device is the fixed target of every `/gizclaw/v1/device*`, `/gizclaw/v1/contacts*`, `/gizclaw/v1/friends*`, and `/gizclaw/v1/friend-groups*` request (see [API](./api#device-http-api) for the route list). Read the device status and set the volume:
 
 ```sh
 curl -sS "$GIZCLAW_URL/gizclaw/v1/device/status" \

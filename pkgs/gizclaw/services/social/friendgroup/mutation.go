@@ -144,7 +144,7 @@ func (s *Server) createGroupWithOwner(ctx context.Context, id string, group rpca
 			return ErrGroupChanged
 		}
 		if _, err := store.Get(ctx, nameKey); err == nil {
-			return errors.New("social: friend group name already exists")
+			return ErrFriendGroupNameExists
 		} else if !errors.Is(err, kv.ErrNotFound) {
 			return err
 		}
@@ -188,7 +188,7 @@ func (s *Server) checkGroupCreate(ctx context.Context, id, owner, name string) e
 		return err
 	}
 	if _, err := store.Get(ctx, s.relationshipKey(prefixes[2], socialutil.GroupNameKey(owner, name))); err == nil {
-		return errors.New("social: friend group name already exists")
+		return ErrFriendGroupNameExists
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return err
 	}

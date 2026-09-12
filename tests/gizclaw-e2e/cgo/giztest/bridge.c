@@ -383,10 +383,14 @@ static void split_route(gzc_str_t path, gzt_route_t *out) {
       "/device/runtime",
       "/device/status",
       "/device/volume",
+      "/friends/invite-token",
+      "/friend-groups/@join",
       "/api-keys/self",
+      "/friend-groups",
       "/device/wifi",
       "/api-keys",
       "/contacts",
+      "/friends",
       "/device",
   };
   out->route = path;
@@ -461,6 +465,117 @@ static size_t decode_segment(gzc_str_t segment, char *out, size_t cap) {
     out[written++] = segment.data[i];
   }
   return written;
+}
+
+static bool str_is(gzc_str_t text, const char *other) {
+  size_t len = strlen(other);
+  return text.len == len && (len == 0 || memcmp(text.data, other, len) == 0);
+}
+
+/* Reads the optional `ttl_seconds` of an invite token create body. */
+static void read_invite_token_request(gzc_str_t body, gzc_control_invite_token_request_t *out) {
+  int64_t ttl = 0;
+  memset(out, 0, sizeof(*out));
+  if (body_i64(body, "ttl_seconds", &ttl)) {
+    out->has_ttl_seconds = true;
+    out->ttl_seconds = (int32_t)ttl;
+  }
+}
+
+/*
+ * Dispatches `/friend-groups/{friendGroupName}[/...]`. `tail` is the raw,
+ * still percent-encoded remainder after `/friend-groups/`. Returns
+ * GZC_ERR_UNSUPPORTED for a shape the controller SDK does not route.
+ */
+static int friend_group_request(
+    gzc_control_client_t *control,
+    gzc_control_call_t *call,
+    const char *method,
+    gzc_str_t tail,
+    gzc_str_t query,
+    gzc_str_t body) {
+  size_t slash = 0;
+  while (slash < tail.len && tail.data[slash] != '/') {
+    slash++;
+  }
+  char group_buf[256];
+  size_t group_len = decode_segment(gzc_str_from_parts(tail.data, slash), group_buf, sizeof(group_buf));
+  gzc_str_t group = gzc_str_from_parts(group_buf, group_len);
+  gzc_str_t rest = slash < tail.len ? gzc_str_from_parts(tail.data + slash + 1, tail.len - slash - 1)
+                                    : gzc_str_from_parts(NULL, 0);
+  char member_buf[256];
+  gzc_str_t member = gzc_str_from_parts(NULL, 0);
+  static const char members_prefix[] = "members/";
+  if (rest.len > sizeof(members_prefix) - 1 && memcmp(rest.data, members_prefix, sizeof(members_prefix) - 1) == 0) {
+    gzc_str_t raw = gzc_str_from_parts(
+        rest.data + sizeof(members_prefix) - 1, rest.len - (sizeof(members_prefix) - 1));
+    member = gzc_str_from_parts(member_buf, decode_segment(raw, member_buf, sizeof(member_buf)));
+    rest = gzc_str_from_cstr("members/*");
+  }
+  bool get = strcmp(method, "GET") == 0;
+  bool post = strcmp(method, "POST") == 0;
+  bool put = strcmp(method, "PUT") == 0;
+  bool del = strcmp(method, "DELETE") == 0;
+
+  gzc_control_friend_group_t friend_group;
+  gzc_control_friend_group_member_t members[16];
+  gzc_control_friend_group_member_t member_value;
+  gzc_control_invite_token_t token;
+  size_t count = 0;
+  bool has_next = false;
+  gzc_str_t text;
+  if (rest.len == 0 && get) {
+    return gzc_control_get_friend_group(control, call, group, &friend_group);
+  }
+  if (rest.len == 0 && put) {
+    gzc_control_friend_group_request_t request;
+    memset(&request, 0, sizeof(request));
+    (void)body_str(body, "display_name", &request.display_name);
+    (void)body_str(body, "description", &request.description);
+    return gzc_control_put_friend_group(control, call, group, &request, &friend_group);
+  }
+  if (rest.len == 0 && del) {
+    return gzc_control_delete_friend_group(control, call, group);
+  }
+  if (str_is(rest, "@leave") && post) {
+    return gzc_control_leave_friend_group(control, call, group);
+  }
+  if (str_is(rest, "invite-token")) {
+    gzc_control_invite_token_request_t request;
+    read_invite_token_request(body, &request);
+    if (get) {
+      return gzc_control_get_friend_group_invite_token(control, call, group, &token);
+    }
+    if (post) {
+      return gzc_control_create_friend_group_invite_token(control, call, group, &request, &token);
+    }
+    if (del) {
+      return gzc_control_clear_friend_group_invite_token(control, call, group);
+    }
+  }
+  if (str_is(rest, "members") && get) {
+    gzc_control_page_t page;
+    read_page(query, &page);
+    return gzc_control_list_friend_group_members(
+        control, call, group, &page, members, sizeof(members) / sizeof(members[0]), &count, &has_next, &text);
+  }
+  if (str_is(rest, "members") && post) {
+    gzc_control_friend_group_member_request_t request;
+    memset(&request, 0, sizeof(request));
+    (void)body_str(body, "peer_public_key", &request.peer_public_key);
+    (void)body_str(body, "member_name", &request.member_name);
+    (void)body_str(body, "role", &request.role);
+    return gzc_control_add_friend_group_member(control, call, group, &request, &member_value);
+  }
+  if (str_is(rest, "members/*") && put) {
+    gzc_str_t role = gzc_str_from_parts(NULL, 0);
+    (void)body_str(body, "role", &role);
+    return gzc_control_put_friend_group_member(control, call, group, member, role, &member_value);
+  }
+  if (str_is(rest, "members/*") && del) {
+    return gzc_control_delete_friend_group_member(control, call, group, member);
+  }
+  return GZC_ERR_UNSUPPORTED;
 }
 
 int gzt_control_request(
@@ -556,6 +671,10 @@ int gzt_control_request(
   gzc_control_wifi_status_t wifi;
   gzc_control_contact_t contact;
   gzc_control_api_key_t api_key_value;
+  gzc_control_invite_token_t invite_token;
+  gzc_control_friend_t friends[16];
+  gzc_control_friend_t friend_value;
+  gzc_control_friend_group_t friend_groups[16];
   gzc_str_t text;
   size_t count = 0;
   bool has_next = false;
@@ -760,6 +879,53 @@ int gzt_control_request(
     rc = gzc_control_put_contact(&control, &call, tail, &request, &contact);
   } else if (del && route_is(&route, "/contacts", true)) {
     rc = gzc_control_delete_contact(&control, &call, tail);
+  } else if (get && route_is(&route, "/friends/invite-token", false)) {
+    rc = gzc_control_get_friend_invite_token(&control, &call, &invite_token);
+  } else if (post && route_is(&route, "/friends/invite-token", false)) {
+    gzc_control_invite_token_request_t request;
+    read_invite_token_request(body, &request);
+    rc = gzc_control_create_friend_invite_token(&control, &call, &request, &invite_token);
+  } else if (del && route_is(&route, "/friends/invite-token", false)) {
+    rc = gzc_control_clear_friend_invite_token(&control, &call);
+  } else if (get && route_is(&route, "/friends", false)) {
+    gzc_control_page_t page;
+    read_page(query, &page);
+    rc = gzc_control_list_friends(
+        &control, &call, &page, friends, sizeof(friends) / sizeof(friends[0]), &count, &has_next, &text);
+  } else if (post && route_is(&route, "/friends", false)) {
+    gzc_str_t invite = gzc_str_from_parts(NULL, 0);
+    (void)body_str(body, "invite_token", &invite);
+    rc = gzc_control_add_friend(&control, &call, invite, &friend_value);
+  } else if (get && route_is(&route, "/friends", true)) {
+    rc = gzc_control_get_friend(&control, &call, tail, &friend_value);
+  } else if (del && route_is(&route, "/friends", true)) {
+    rc = gzc_control_delete_friend(&control, &call, tail);
+  } else if (get && route_is(&route, "/friend-groups", false)) {
+    gzc_control_page_t page;
+    read_page(query, &page);
+    rc = gzc_control_list_friend_groups(
+        &control, &call, &page, friend_groups, sizeof(friend_groups) / sizeof(friend_groups[0]), &count,
+        &has_next, &text);
+  } else if (post && route_is(&route, "/friend-groups", false)) {
+    gzc_control_friend_group_request_t request;
+    memset(&request, 0, sizeof(request));
+    (void)body_str(body, "name", &request.name);
+    (void)body_str(body, "display_name", &request.display_name);
+    (void)body_str(body, "description", &request.description);
+    rc = gzc_control_create_friend_group(&control, &call, &request, &friend_groups[0]);
+  } else if (post && route_is(&route, "/friend-groups/@join", false)) {
+    gzc_control_friend_group_join_request_t request;
+    gzc_control_friend_group_member_t member;
+    memset(&request, 0, sizeof(request));
+    (void)body_str(body, "invite_token", &request.invite_token);
+    (void)body_str(body, "name", &request.name);
+    rc = gzc_control_join_friend_group(&control, &call, &request, &friend_groups[0], &member);
+  } else if (route_is(&route, "/friend-groups", true)) {
+    rc = friend_group_request(&control, &call, method, route.tail, query, body);
+    if (rc == GZC_ERR_UNSUPPORTED && call.status_code == 0) {
+      set_error(errbuf, errbuf_len, "route is not part of the controller SDK contract");
+      return GZC_ERR_UNSUPPORTED;
+    }
   } else {
     set_error(errbuf, errbuf_len, "route is not part of the controller SDK contract");
     return GZC_ERR_UNSUPPORTED;
