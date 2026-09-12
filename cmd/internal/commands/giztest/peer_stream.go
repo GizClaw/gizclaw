@@ -576,7 +576,14 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	if session != nil {
 		session.streamID = streamID
 	}
-	if (inputSent || op.Mode == "realtime") && next == nil {
+	// A push-to-talk turn is answered only once its input is complete, so an
+	// assistant response already under way before then belongs to an earlier
+	// turn, such as an agent opening that this input interrupts. Such a
+	// response may end with an error-free EOS, so it is recognized by receipt
+	// time instead: the reader starts before the push and the responses it
+	// saw first are ignored. first_response keeps its response-only clock.
+	skipEarlierResponses := op.Mode == "push-to-talk" && !op.EmptyInput && !inputSent && !firstResponse
+	if (inputSent || op.Mode == "realtime" || skipEarlierResponses) && next == nil {
 		// Realtime output can arrive while input is still being paced. Start
 		// reading before the first input chunk so those arrival timestamps are
 		// not shifted to the end of input; a reader started afterwards drains
@@ -584,10 +591,10 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 		// to zero. first_response retains its separate response-only clock,
 		// which starts once the user's speech is on the wire.
 		//
-		// push-to-talk is deliberately excluded: it closes its turn with an
-		// end-of-stream rather than tail silence, and its response clock still
-		// starts once that input is complete, so reading ahead would only
-		// produce receipts older than the origin they are measured against.
+		// push-to-talk reads ahead only to recognize earlier responses: it
+		// closes its turn with an end-of-stream rather than tail silence, and
+		// its response clock still starts once that input is complete, so the
+		// receipts read ahead are never measured against that origin.
 		if session == nil {
 			next = readPeerStream(ctx, stream, arrivals)
 		} else {
@@ -599,6 +606,11 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	observedInterrupted := false
 	firstAssistantStreamID := ""
 	secondAssistantStreamID := ""
+	// inputCompletedAt is when the turn's final input chunk went on the wire.
+	// earlierResponses holds the stream IDs of responses first received before
+	// then; their chunks are not this turn's.
+	var inputCompletedAt time.Time
+	earlierResponses := make(map[string]bool)
 	var sendInterrupt func() error
 	var initialPush func(context.Context) error
 	switch op.Mode {
@@ -687,6 +699,11 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				if chunk.IsBeginOfStream() && onBOSSent != nil {
 					onBOSSent()
 					onBOSSent = nil
+				}
+				// A push-to-talk push is synchronous, so this stays on one
+				// goroutine.
+				if skipEarlierResponses && id == streamID && index+1 == len(chunks) {
+					inputCompletedAt = time.Now()
 				}
 				// speechChunks is only non-zero for realtime first_response,
 				// whose push is synchronous, so this stays on one goroutine.
@@ -811,8 +828,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	firstTranscriptObserved, firstTextObserved, firstAudioObserved := false, false, false
 	textEOS, audioEOS := false, false
 	responses := make(map[string]*peerStreamResponseProgress)
+	incompleteResponses := 0
 	counters := func() string {
-		return fmt.Sprintf("events=%d assistant_text=%d assistant_audio=%d assistant_eos=%d transcript_text=%d transcript_eos=%d other_eos=%d interrupt_sent=%t interrupt_observed=%t", events, assistantTextEvents, assistantAudioEvents, assistantEOS, transcriptTextEvents, transcriptEOS, otherEOS, interrupted, observedInterrupted)
+		return fmt.Sprintf("events=%d assistant_text=%d assistant_audio=%d assistant_eos=%d transcript_text=%d transcript_eos=%d other_eos=%d interrupt_sent=%t interrupt_observed=%t incomplete_responses=%d", events, assistantTextEvents, assistantAudioEvents, assistantEOS, transcriptTextEvents, transcriptEOS, otherEOS, interrupted, observedInterrupted, incompleteResponses)
 	}
 	baseEvidence := func() map[string]any {
 		evidence := map[string]any{"events": events, "first_transcript_ms": firstTranscriptMS, "last_event_ms": lastEventMS}
@@ -1071,6 +1089,14 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 					label = "assistant"
 				}
 			}
+			if skipEarlierResponses && label == "assistant" && actualStreamID != "" {
+				if !earlierResponses[actualStreamID] && responses[actualStreamID] == nil && result.receivedAt.Before(inputCompletedAt) {
+					earlierResponses[actualStreamID] = true
+				}
+				if earlierResponses[actualStreamID] {
+					continue
+				}
+			}
 			if op.AwaitRearm != "" && assistantTerminalHasError(result.chunk) {
 				return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream assistant terminal error after re-arm: code=%q message=%q", result.chunk.Ctrl.ErrorCode, result.chunk.Ctrl.Error)
 			}
@@ -1259,7 +1285,15 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 							continue
 						}
 						if (requireText && !response.textObserved) || (requireAudio && !response.audioObserved) {
-							return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream response %q completed without required assistant content (%s)", actualStreamID, counters())
+							// A normal interruption ends a response with an
+							// error-free EOS, so a response that ends without its
+							// required content was abandoned, for example when
+							// continued user speech barged in. The reply is a
+							// later response; if none arrives, the idle or step
+							// deadline fails the turn.
+							response.interrupted = true
+							incompleteResponses++
+							continue
 						}
 					}
 					textEOS, audioEOS = response.textEOS, response.audioEOS

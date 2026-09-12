@@ -1253,6 +1253,54 @@ func TestInvokePeerStreamInputSentRecordsAlreadyArrivedOutput(t *testing.T) {
 	}
 }
 
+// An agent opening that the push-to-talk input interrupts ends with an
+// error-free EOS and no audio. It was under way before the input completed, so
+// it is not the turn's response and must not fail the required content check.
+func TestInvokePeerStreamPushToTalkIgnoresResponseBeforeInputCompletes(t *testing.T) {
+	stream := newFakeRelayStream()
+	oggAudio, _ := testOggOpus(t)
+	for _, chunk := range []*genx.MessageChunk{
+		assistantText("opening", "opening line", false),
+		{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "opening", Label: "assistant", BeginOfStream: true}},
+	} {
+		stream.in <- chunk
+	}
+	go func() {
+		for {
+			select {
+			case chunk := <-stream.pushes:
+				if !chunk.IsEndOfStream() {
+					continue
+				}
+				for _, chunk := range []*genx.MessageChunk{
+					assistantBlob("opening", nil, true), assistantText("opening", "", true),
+					assistantText("reply", "reply line", false), assistantBlob("reply", []byte{1}, false),
+					assistantText("reply", "", true), assistantBlob("reply", nil, true),
+				} {
+					stream.in <- chunk
+				}
+				return
+			case <-stream.closed:
+				return
+			}
+		}
+	}()
+	// Pacing keeps the push loop busy long enough for the reader to receive
+	// the opening before the input EOS is on the wire.
+	step := giztest.Step{ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "push-to-talk", Pacing: "5ms"}}
+	result, err := invokePeerStream(t.Context(), nil, func() (peerStream, error) { return stream, nil }, step, oggAudio, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	object := result.assertion.(map[string]any)
+	if texts, _ := object["text"].([]string); strings.Join(texts, "") != "reply line" {
+		t.Fatalf("text = %#v, want only the reply", object["text"])
+	}
+	if object["audio_bytes"] != 1 || object["text_eos"] != true || object["audio_eos"] != true {
+		t.Fatalf("reply result = %#v", object)
+	}
+}
+
 func TestPeerStreamCompletionRequiresOneResponse(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
@@ -1271,6 +1319,17 @@ func TestPeerStreamCompletionRequiresOneResponse(t *testing.T) {
 		{name: "empty response", wantError: true, chunks: []*genx.MessageChunk{
 			{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "empty", Label: "assistant", BeginOfStream: true}},
 			assistantText("empty", "", true), assistantBlob("empty", nil, true),
+		}},
+		{name: "abandoned response with error-free EOS before the reply", chunks: []*genx.MessageChunk{
+			assistantBlob("abandoned", []byte{1}, false), assistantBlob("abandoned", nil, true),
+			{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "abandoned", Label: "assistant", BeginOfStream: true}},
+			assistantText("abandoned", "", true),
+			assistantText("reply", "answer", false), assistantBlob("reply", []byte{1}, false),
+			assistantText("reply", "", true), assistantBlob("reply", nil, true),
+		}},
+		{name: "only abandoned response", wantError: true, chunks: []*genx.MessageChunk{
+			assistantBlob("abandoned", []byte{1}, false), assistantBlob("abandoned", nil, true),
+			assistantText("abandoned", "", true),
 		}},
 		{name: "interrupted incomplete response", chunks: []*genx.MessageChunk{
 			assistantText("old", "partial", true),
