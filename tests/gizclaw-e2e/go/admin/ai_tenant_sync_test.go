@@ -47,12 +47,12 @@ func TestAdminAPISyncVolcTenantVoicesForWorkspaceUse(t *testing.T) {
 		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
 	})
 	for _, voiceID := range []string{
-		"zh_female_vv_mars_bigtts",
 		"zh_female_shaoergushi_mars_bigtts",
 		"zh_male_sunwukong_mars_bigtts",
-		"zh_male_tangseng_mars_bigtts",
-		"zh_male_zhubajie_mars_bigtts",
-		"ICL_zh_female_bingjiao3_tob",
+		"zh_female_vv_uranus_bigtts",
+		"zh_male_tangseng_uranus_bigtts",
+		"zh_male_zhubajie_uranus_bigtts",
+		"ICL_uranus_zh_female_bingjiaojiejie_tob",
 	} {
 		found := false
 		for _, item := range voices {
