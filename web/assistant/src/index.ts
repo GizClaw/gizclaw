@@ -1,6 +1,7 @@
 export {
   AssistantTurnError,
   createAssistant,
+  DEFAULT_CONTEXT_TOKENS,
   type Assistant,
   type AssistantOptions,
   type AssistantTurn,
@@ -12,6 +13,23 @@ export {
   type LogAggregate,
 } from "./logs.ts";
 export { ASSISTANT_INSTRUCTIONS } from "./instructions.ts";
+export { BUILTIN_KNOWLEDGE } from "./builtin-knowledge.ts";
+export {
+  compactHistory,
+  estimateTokens,
+  SUMMARY_PREFIX,
+  type Compaction,
+  type ContextOptions,
+} from "./context.ts";
+export {
+  chunkDocument,
+  createKnowledgeIndex,
+  tokenize,
+  type KnowledgeDocument,
+  type KnowledgeIndex,
+  type KnowledgePassage,
+} from "./knowledge.ts";
+export type { AgentInputItem } from "@openai/agents-core";
 export { createGizClawModel, type GizClawModelOptions } from "./model.ts";
 export type { Model } from "@openai/agents-core";
 export { formatRoute, parseRoute, type ConsoleRoute } from "./routes.ts";
@@ -25,6 +43,7 @@ export {
   type HistoryEntry,
   type HistoryPage,
   type HistoryRequest,
+  type KnowledgeSource,
   type FleetSource,
   type LogEntry,
   type LogSearchPage,

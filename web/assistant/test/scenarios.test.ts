@@ -120,3 +120,59 @@ test("an aborted turn rejects without further tool calls", async () => {
   );
   assert.equal(runtime.called("logs.search").length, 0);
 });
+
+test("a saved history restores the conversation", async () => {
+  const first = createAssistant({
+    runtime: new FakeRuntime(scenarios[0].world),
+    model: new ScriptedModel([{ reply: "第一轮" }]),
+  });
+  await first.send("你好");
+  const saved = first.history();
+
+  const model = new ScriptedModel([{ reply: "接着聊" }]);
+  const restored = createAssistant({
+    runtime: new FakeRuntime(scenarios[0].world),
+    model,
+    history: saved,
+  });
+  await restored.send("继续");
+  const input = model.requests[0].input;
+  assert.ok(Array.isArray(input));
+  assert.deepEqual(
+    input.map((item) => ("role" in item ? item.role : item.type)),
+    ["user", "assistant", "user"],
+  );
+  assert.equal(restored.history().length, 4);
+});
+
+test("a history over budget is summarized before the turn", async () => {
+  const model = new ScriptedModel([
+    ...Array.from({ length: 6 }, (_, index) => ({
+      reply: `回答 ${index} ${"很长的分析。".repeat(400)}`,
+    })),
+    { reply: "客厅音箱 ASR_TIMEOUT 频繁" },
+    { reply: "好的" },
+  ]);
+  const assistant = createAssistant({
+    runtime: new FakeRuntime(scenarios[0].world),
+    model,
+    contextTokens: 16_000,
+    keepTurns: 2,
+  });
+  for (let index = 0; index < 6; index++) {
+    assert.equal((await assistant.send(`问题 ${index}`)).compaction, undefined);
+  }
+  const turn = await assistant.send("最后一个问题");
+  assert.deepEqual(turn.compaction, { trimmedResults: 0, summarizedTurns: 4 });
+  // The summarizer saw the folded turns; the agent got summary + 2 turns.
+  const summaryRequest = model.requests.at(-2);
+  assert.match(String(summaryRequest?.systemInstructions), /压缩/);
+  assert.match(JSON.stringify(summaryRequest?.input), /用户：问题 0/);
+  assert.equal(summaryRequest?.tools.length, 0);
+  const input = model.requests.at(-1)?.input;
+  assert.ok(Array.isArray(input));
+  assert.deepEqual(
+    input.map((item) => ("role" in item ? item.role : item.type)),
+    ["system", "user", "assistant", "user", "assistant", "user"],
+  );
+});

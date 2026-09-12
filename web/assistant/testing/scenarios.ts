@@ -551,4 +551,25 @@ export const scenarios: Scenario[] = [
       replyIncludes: [["没听清", "听不清", "没有听清"]],
     },
   },
+  {
+    name: "error-code-knowledge",
+    description: "用户询问错误码的含义，助手应先查知识库再按知识库回答",
+    world: world({ route: { page: "overview" } }),
+    turns: ["控制设备的时候报 DEVICE_TIMEOUT，这是什么意思？"],
+    script: [
+      {
+        call: [
+          { name: "search_knowledge", arguments: { query: "DEVICE_TIMEOUT" } },
+        ],
+      },
+      {
+        reply:
+          "根据知识库《设备控制错误码》：DEVICE_TIMEOUT 表示普通控制请求在 5 秒内没有得到设备响应，接口返回 504，不会改变已存储的设备状态。可以先确认设备在线、网络稳定后再重试。",
+      },
+    ],
+    expect: {
+      tools: [{ name: "search_knowledge" }],
+      replyIncludes: [["5 秒", "5秒", "五秒"], "504"],
+    },
+  },
 ];

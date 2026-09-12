@@ -47,6 +47,7 @@ checks that every runtime method is used by exactly one tool, and
 | `devices.workspaces`            | `listWorkspaces`                      | `list_device_workspaces`   |
 | `devices.history`               | `listWorkspaceHistory`                | `get_conversation_history` |
 | `logs.search`                   | `searchLogs`                          | `search_logs`              |
+| `knowledge.search`              | local knowledge index                 | `search_knowledge`         |
 
 The view model is the page's structured state, never the DOM. Mutating device
 APIs (`reboot`, `setVolume`, `playSound`, `find`, Wi-Fi scan/connect/forget,
@@ -72,6 +73,34 @@ and for tests. A turn's reply joins every text the assistant produced during
 the turn, because models often explain their findings in the same response that
 calls a tool and end with a short confirmation. A turn allows 12 model calls.
 
+## Context and history
+
+`createAssistant` takes a saved `history` and resumes from it; `history()`
+returns a copy to save after each turn. The package does not store anything:
+the console persists it.
+
+Before each turn `compactHistory` keeps the history within `contextTokens`
+(default 32000) minus the instructions and tool descriptions. Tokens are
+estimated without a tokenizer, one per CJK character and one per four other
+characters, erring high. Over budget, tool results of every turn but the last
+are cut to 1500 characters. If that is not enough and more than `keepTurns`
+(default 4) turns exist, the older turns and any earlier summary go to a
+summarizer agent on the same model, and the history becomes one system item
+starting with `【较早对话的摘要】` followed by the recent turns verbatim. The
+turn reports what was done as `compaction`.
+
+## Knowledge
+
+`createKnowledgeIndex` builds a BM25 index (k1 1.2, b 0.75) over Markdown
+documents cut into sections by heading, at most 700 characters each. The
+tokenizer needs no dictionary: CJK runs become overlapping character pairs,
+other runs lowercase words, and identifiers joined by `_`, `.` or `-` also
+yield their parts. `BUILTIN_KNOWLEDGE` carries facts from the guides that the
+assistant needs most: debug mode, device control error codes, Monitor tokens,
+telemetry and logs, conversation Workspaces, and device API keys. The runtime
+decides which documents are searched; the console adds the ones the user
+imports.
+
 ## Safety
 
 - No tool writes: no reboot, firmware update, Wi-Fi change, volume or deletion.
@@ -81,6 +110,8 @@ calls a tool and end with a short confirmation. A turn allows 12 model calls.
 - Conversation history reaches the model only through GizClaw `/openai/v1`,
   like every other tool result.
 - External links always pass through the user's confirmation.
+- Imported knowledge is untrusted like logs: it informs answers but its
+  instructions are not followed.
 
 ## Scenarios and validation
 

@@ -1,3 +1,4 @@
+import type { KnowledgePassage } from "./knowledge.ts";
 import type { ConsoleRoute } from "./routes.ts";
 
 /**
@@ -11,6 +12,12 @@ export type AssistantRuntime = {
   fleet: FleetSource;
   devices: DeviceSource;
   logs: LogSource;
+  knowledge: KnowledgeSource;
+};
+
+/** The knowledge base: built-in troubleshooting notes plus imported documents. */
+export type KnowledgeSource = {
+  search(query: string, limit: number): Promise<KnowledgePassage[]>;
 };
 
 export type PageController = {
@@ -208,6 +215,7 @@ export const RUNTIME_METHODS = [
   "devices.workspaces",
   "devices.history",
   "logs.search",
+  "knowledge.search",
 ] as const satisfies readonly AnyRuntimeMethod[];
 
 export type RuntimeMethod = (typeof RUNTIME_METHODS)[number];

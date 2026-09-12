@@ -266,6 +266,30 @@ export const ASSISTANT_APIS: ApiDefinition[] = [
     },
   }),
   define({
+    tool: "search_knowledge",
+    uses: ["knowledge.search"],
+    description:
+      "在排障知识库中搜索：错误码的含义、调试模式、Monitor Token、Telemetry 字段、API Key，以及运维导入的文档。回答涉及这些知识时先搜索，并引用结果里的文档标题。",
+    params: z.object({
+      query: z
+        .string()
+        .trim()
+        .min(1)
+        .describe("要查的问题或关键词，例如错误码"),
+      limit: z.number().int().positive().max(10).nullish(),
+    }),
+    run: async (runtime, { query, limit }) => ({
+      passages: (await runtime.knowledge.search(query, limit ?? 5)).map(
+        (passage) => ({
+          title: passage.title,
+          heading: passage.heading,
+          source: passage.source,
+          text: passage.text,
+        }),
+      ),
+    }),
+  }),
+  define({
     tool: "search_logs",
     uses: ["logs.search"],
     description: `查询设备日志，返回按级别、操作、错误码、RPC 状态码和 HTTP 状态统计的汇总，以及最多 ${LOG_RECORD_LIMIT} 条精简记录。默认查询最近 24 小时。结果里的 navigate_to_logs 可以直接作为 navigate 的参数，把用户带到对应的日志页。`,
