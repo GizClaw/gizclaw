@@ -47,6 +47,8 @@ Request 侧的字符串上限直接取自 contract：SSID 32 字节、sound 32 �
 
 好友与群组 route 对应 `gzc_control_*_friend*` 与 `gzc_control_*_friend_group*` 函数，覆盖邀请码（`gzc_control_invite_token_request_t` 的可选 `ttl_seconds`）、加好友、列表、退群、解散与成员管理。群角色以字符串（`owner`、`admin`、`member`）返回，`info` 以 `has_info` 标记是否存在。
 
+成员列表的每项带可选的 `online`（Server 本地连接状态）与 `last_seen_at`（RFC 3339 UTC；未知或读取失败时省略），add、put、join 返回的成员不带这两个字段。C 使用 `has_online` + `online` 与 `last_seen_at`（`gzc_str_t`）。
+
 ### 错误分类
 
 失败调用把 `gzc_control_call_t.error` 填成 `gzc_control_error_t`。`kind` 的取值与判定规则与 `sdk/flutter/gizclaw_control`、`sdk/js/gizclaw-control` 完全一致：`DEVICE_*` 按响应体的 `error.code` 判定，其余按 HTTP status。

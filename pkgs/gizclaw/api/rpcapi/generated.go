@@ -1705,12 +1705,18 @@ type FriendGroupMemberMutableRole string
 
 // FriendGroupMemberObject defines model for FriendGroupMemberObject.
 type FriendGroupMemberObject struct {
-	CreatedAt       *time.Time             `json:"created_at,omitempty"`
-	FriendGroupName *string                `json:"friend_group_name,omitempty"`
-	Name            string                 `json:"name"`
-	PeerPublicKey   *string                `json:"peer_public_key,omitempty"`
-	Role            *FriendGroupMemberRole `json:"role,omitempty"`
-	UpdatedAt       *time.Time             `json:"updated_at,omitempty"`
+	CreatedAt       *time.Time `json:"created_at,omitempty"`
+	FriendGroupName *string    `json:"friend_group_name,omitempty"`
+
+	// LastSeenAt Last observed activity of the member's device, as Runtime.last_seen_at reports it. Set only by server.friend_group.members.list and absent when the Server has never observed the member.
+	LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
+	Name       string     `json:"name"`
+
+	// Online Whether the member's device is connected to the answering Server, the same state as Runtime.online. Set only by server.friend_group.members.list.
+	Online        *bool                  `json:"online,omitempty"`
+	PeerPublicKey *string                `json:"peer_public_key,omitempty"`
+	Role          *FriendGroupMemberRole `json:"role,omitempty"`
+	UpdatedAt     *time.Time             `json:"updated_at,omitempty"`
 }
 
 // FriendGroupMemberPutRequest defines model for FriendGroupMemberPutRequest.

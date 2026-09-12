@@ -91,6 +91,17 @@ Friend、Friend Group 与 Peer Store 通过共享 KV backend（multi-server 部�
 
 在线状态与好友呼叫一样是 Server 本地的：连接在另一台 Server 上的好友显示为不在线，`last_seen_at` 读取共享的 Peer Run 记录。资料或在线状态读取失败只会让对应字段缺省，不会让整页列表失败。
 
+## 群成员列表的在线状态
+
+`server.friend_group.members.list` 与 `GET /gizclaw/v1/friend-groups/{friendGroupName}/members` 携带成员在线状态。先完成名称解析与 `requireRead`，确认调用方已经是成员后，再为当前页补充状态。
+
+| 字段 | 来源 | 缺省 |
+| --- | --- | --- |
+| `online` | `Manager.PeerPresence`，与 `Runtime.online` 读取同一份 Server 本地连接状态 | 未配置 Presence 时省略 |
+| `last_seen_at` | 同上，使用 RFC 3339 UTC；离线时回落到持久化的 Peer Run 活动记录 | 从未观察到成员、最后活动读取失败或未配置 Presence 时省略 |
+
+好友和群成员列表共用 `socialutil.PresenceService` 与 `PresenceFields`。最后活动读取失败不会让整页失败。连接在其他 Server 上的成员显示为离线。Admin 成员列表与 add、put、delete、join 响应均不携带这两个字段。
+
 ## 好友呼叫与群集结
 
 `server.friend.ping` 呼叫一个好友的设备；`server.friend_group.ping` 集结一个 Friend Group，呼叫除自己外所有成员的设备，任何成员都可以集结。规则由 `friend.PingFriend` 与 `friendgroup.PingFriendGroup` 拥有，`peerresource` 只负责解码请求和映射错误。

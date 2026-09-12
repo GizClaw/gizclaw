@@ -199,6 +199,14 @@ typedef struct _gizclaw_rpc_v1_FriendGroupMemberObject {
     bool has_role;
     gizclaw_rpc_v1_FriendGroupMemberRole role;
     pb_callback_t updated_at;
+    /* Member presence, set only by server.friend_group.members.list. online is
+ whether the member's device is connected to the answering Server, the
+ same state as Runtime.online. */
+    bool has_online;
+    bool online;
+    /* Last observed activity of the member's device in the Runtime.last_seen_at
+ format. Absent when the Server has never observed the member. */
+    pb_callback_t last_seen_at;
 } gizclaw_rpc_v1_FriendGroupMemberObject;
 
 typedef struct _gizclaw_rpc_v1_FriendGroupMemberAddResponse {
@@ -498,7 +506,7 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendGroupMemberDeleteResponse_init_default {false, gizclaw_rpc_v1_FriendGroupMemberObject_init_default}
 #define gizclaw_rpc_v1_FriendGroupMemberListRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_FriendGroupMemberListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_FriendGroupMemberObject_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, _gizclaw_rpc_v1_FriendGroupMemberRole_MIN, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_FriendGroupMemberObject_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, _gizclaw_rpc_v1_FriendGroupMemberRole_MIN, {{NULL}, NULL}, false, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendGroupMemberPutRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_FriendGroupMemberMutableRole_MIN}
 #define gizclaw_rpc_v1_FriendGroupMemberPutResponse_init_default {false, gizclaw_rpc_v1_FriendGroupMemberObject_init_default}
 #define gizclaw_rpc_v1_FriendGroupObject_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, _gizclaw_rpc_v1_FriendGroupMemberRole_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -559,7 +567,7 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendGroupMemberDeleteResponse_init_zero {false, gizclaw_rpc_v1_FriendGroupMemberObject_init_zero}
 #define gizclaw_rpc_v1_FriendGroupMemberListRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_FriendGroupMemberListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_FriendGroupMemberObject_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, _gizclaw_rpc_v1_FriendGroupMemberRole_MIN, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_FriendGroupMemberObject_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, _gizclaw_rpc_v1_FriendGroupMemberRole_MIN, {{NULL}, NULL}, false, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FriendGroupMemberPutRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_FriendGroupMemberMutableRole_MIN}
 #define gizclaw_rpc_v1_FriendGroupMemberPutResponse_init_zero {false, gizclaw_rpc_v1_FriendGroupMemberObject_init_zero}
 #define gizclaw_rpc_v1_FriendGroupObject_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, _gizclaw_rpc_v1_FriendGroupMemberRole_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -648,6 +656,8 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendGroupMemberObject_peer_public_key_tag 4
 #define gizclaw_rpc_v1_FriendGroupMemberObject_role_tag 5
 #define gizclaw_rpc_v1_FriendGroupMemberObject_updated_at_tag 6
+#define gizclaw_rpc_v1_FriendGroupMemberObject_online_tag 7
+#define gizclaw_rpc_v1_FriendGroupMemberObject_last_seen_at_tag 8
 #define gizclaw_rpc_v1_FriendGroupMemberAddResponse_value_tag 1
 #define gizclaw_rpc_v1_FriendGroupMemberDeleteResponse_value_tag 1
 #define gizclaw_rpc_v1_FriendGroupMemberPutRequest_friend_group_name_tag 1
@@ -957,7 +967,9 @@ X(a, CALLBACK, OPTIONAL, STRING,   friend_group_name,   2) \
 X(a, CALLBACK, SINGULAR, STRING,   name,              3) \
 X(a, CALLBACK, OPTIONAL, STRING,   peer_public_key,   4) \
 X(a, STATIC,   OPTIONAL, UENUM,    role,              5) \
-X(a, CALLBACK, OPTIONAL, STRING,   updated_at,        6)
+X(a, CALLBACK, OPTIONAL, STRING,   updated_at,        6) \
+X(a, STATIC,   OPTIONAL, BOOL,     online,            7) \
+X(a, CALLBACK, OPTIONAL, STRING,   last_seen_at,      8)
 #define gizclaw_rpc_v1_FriendGroupMemberObject_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_FriendGroupMemberObject_DEFAULT NULL
 

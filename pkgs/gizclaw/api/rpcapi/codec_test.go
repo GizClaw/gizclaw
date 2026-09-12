@@ -196,7 +196,7 @@ func TestPeerIdentityMessagesUseCompactNameOnlyLayouts(t *testing.T) {
 	}{
 		{(&rpcpb.FirmwareGetResponse{}).ProtoReflect().Descriptor(), []protoreflect.Name{"channel", "description", "url", "sha256", "size", "version"}},
 		{(&rpcpb.FriendObject{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "name", "peer_public_key", "updated_at", "workspace_name", "online", "last_seen_at", "display_name", "emoji"}},
-		{(&rpcpb.FriendGroupMemberObject{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "friend_group_name", "name", "peer_public_key", "role", "updated_at"}},
+		{(&rpcpb.FriendGroupMemberObject{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "friend_group_name", "name", "peer_public_key", "role", "updated_at", "online", "last_seen_at"}},
 		{(&rpcpb.PeerRunHistoryEntry{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "gear_id", "name", "actor_name", "replay_available", "text", "type"}},
 		{(&rpcpb.PeerRunRecallHit{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "name", "metadata", "score", "snippet", "source_name", "source_type"}},
 		{(&rpcpb.ServerRegisterResponse{}).ProtoReflect().Descriptor(), []protoreflect.Name{"runtime_profile_name"}},
@@ -1507,5 +1507,40 @@ func TestDoubaoRealtimeWorkspaceParametersConversationRoundTrip(t *testing.T) {
 	if decoded.Conversation == nil || decoded.Conversation.Initiative == nil || *decoded.Conversation.Initiative != initiative ||
 		decoded.Conversation.AgentInitiativePolicy == nil || *decoded.Conversation.AgentInitiativePolicy != policy {
 		t.Fatalf("doubao realtime conversation round trip = %#v", decoded.Conversation)
+	}
+}
+
+func TestFriendGroupMemberListResponseCarriesPresence(t *testing.T) {
+	seen := time.Date(2026, 9, 12, 0, 30, 0, 0, time.UTC)
+	online, offline := true, false
+	var payload RPCPayload
+	if err := payload.FromFriendGroupMemberListResponse(FriendGroupMemberListResponse{Items: []FriendGroupMemberObject{
+		{Name: "online", Online: &online, LastSeenAt: &seen},
+		{Name: "never-seen", Online: &offline},
+		{Name: "added"},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	var wire rpcpb.FriendGroupMemberListResponse
+	if err := proto.Unmarshal(payload.payload, &wire); err != nil {
+		t.Fatal(err)
+	}
+	items := wire.GetItems()
+	if len(items) != 3 {
+		t.Fatalf("wire member list items = %+v", items)
+	}
+	if first := items[0]; !first.GetOnline() || first.GetLastSeenAt() != "2026-09-12T00:30:00Z" {
+		t.Fatalf("wire online member = %+v", first)
+	}
+	if second := items[1]; second.Online == nil || second.GetOnline() || second.LastSeenAt != nil {
+		t.Fatalf("wire never-seen member = %+v", second)
+	}
+	if third := items[2]; third.Online != nil || third.LastSeenAt != nil {
+		t.Fatalf("wire member without presence = %+v", third)
+	}
+	got, err := payload.AsFriendGroupMemberListResponse()
+	if err != nil || len(got.Items) != 3 || got.Items[0].LastSeenAt == nil || !got.Items[0].LastSeenAt.Equal(seen) ||
+		got.Items[1].Online == nil || *got.Items[1].Online || got.Items[2].Online != nil {
+		t.Fatalf("member list round trip = %+v, %v", got, err)
 	}
 }

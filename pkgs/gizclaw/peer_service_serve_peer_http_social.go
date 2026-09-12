@@ -197,6 +197,8 @@ func (s *peerHTTP) publicFriendGroupMember(ctx context.Context, item rpcapi.Frie
 		PeerPublicKey: socialutil.StringValue(item.PeerPublicKey),
 		CreatedAt:     item.CreatedAt,
 		UpdatedAt:     item.UpdatedAt,
+		Online:        item.Online,
+		LastSeenAt:    item.LastSeenAt,
 	}
 	if item.Role != nil {
 		out.Role = peerhttp.FriendGroupRole(*item.Role)

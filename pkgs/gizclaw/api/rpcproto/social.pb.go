@@ -2080,8 +2080,15 @@ type FriendGroupMemberObject struct {
 	PeerPublicKey   *string                `protobuf:"bytes,4,opt,name=peer_public_key,json=peerPublicKey,proto3,oneof" json:"peer_public_key,omitempty"`
 	Role            *FriendGroupMemberRole `protobuf:"varint,5,opt,name=role,proto3,enum=gizclaw.rpc.v1.FriendGroupMemberRole,oneof" json:"role,omitempty"`
 	UpdatedAt       *string                `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3,oneof" json:"updated_at,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Member presence, set only by server.friend_group.members.list. online is
+	// whether the member's device is connected to the answering Server, the
+	// same state as Runtime.online.
+	Online *bool `protobuf:"varint,7,opt,name=online,proto3,oneof" json:"online,omitempty"`
+	// Last observed activity of the member's device in the Runtime.last_seen_at
+	// format. Absent when the Server has never observed the member.
+	LastSeenAt    *string `protobuf:"bytes,8,opt,name=last_seen_at,json=lastSeenAt,proto3,oneof" json:"last_seen_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *FriendGroupMemberObject) Reset() {
@@ -2152,6 +2159,20 @@ func (x *FriendGroupMemberObject) GetRole() FriendGroupMemberRole {
 func (x *FriendGroupMemberObject) GetUpdatedAt() string {
 	if x != nil && x.UpdatedAt != nil {
 		return *x.UpdatedAt
+	}
+	return ""
+}
+
+func (x *FriendGroupMemberObject) GetOnline() bool {
+	if x != nil && x.Online != nil {
+		return *x.Online
+	}
+	return false
+}
+
+func (x *FriendGroupMemberObject) GetLastSeenAt() string {
+	if x != nil && x.LastSeenAt != nil {
+		return *x.LastSeenAt
 	}
 	return ""
 }
@@ -3399,7 +3420,7 @@ const file_payload_social_proto_rawDesc = "" +
 	"\x05items\x18\x02 \x03(\v2'.gizclaw.rpc.v1.FriendGroupMemberObjectR\x05items\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
 	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"\xe4\x02\n" +
+	"\f_next_cursor\"\xc4\x03\n" +
 	"\x17FriendGroupMemberObject\x12\"\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tH\x00R\tcreatedAt\x88\x01\x01\x12/\n" +
@@ -3408,12 +3429,17 @@ const file_payload_social_proto_rawDesc = "" +
 	"\x0fpeer_public_key\x18\x04 \x01(\tH\x02R\rpeerPublicKey\x88\x01\x01\x12>\n" +
 	"\x04role\x18\x05 \x01(\x0e2%.gizclaw.rpc.v1.FriendGroupMemberRoleH\x03R\x04role\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"updated_at\x18\x06 \x01(\tH\x04R\tupdatedAt\x88\x01\x01B\r\n" +
+	"updated_at\x18\x06 \x01(\tH\x04R\tupdatedAt\x88\x01\x01\x12\x1b\n" +
+	"\x06online\x18\a \x01(\bH\x05R\x06online\x88\x01\x01\x12%\n" +
+	"\flast_seen_at\x18\b \x01(\tH\x06R\n" +
+	"lastSeenAt\x88\x01\x01B\r\n" +
 	"\v_created_atB\x14\n" +
 	"\x12_friend_group_nameB\x12\n" +
 	"\x10_peer_public_keyB\a\n" +
 	"\x05_roleB\r\n" +
-	"\v_updated_at\"\x9f\x01\n" +
+	"\v_updated_atB\t\n" +
+	"\a_onlineB\x0f\n" +
+	"\r_last_seen_at\"\x9f\x01\n" +
 	"\x1bFriendGroupMemberPutRequest\x12*\n" +
 	"\x11friend_group_name\x18\x01 \x01(\tR\x0ffriendGroupName\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12@\n" +

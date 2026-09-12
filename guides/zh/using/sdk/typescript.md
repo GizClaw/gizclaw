@@ -49,6 +49,8 @@ client 按 route group 组织，方法名与 [Flutter SDK](./flutter) 的 `gizcl
 - `friends`：`getInviteToken`、`createInviteToken`（可选 `{ ttl_seconds }`）、`clearInviteToken`、`add`、`list`、`get`、`delete`。
 - `friendGroups`：`list`、`create`、`join`、`get`、`put`、`delete`（解散）、`leave`、`getInviteToken`、`createInviteToken`、`clearInviteToken`、`listMembers`、`addMember`、`putMember`、`deleteMember`。
 
+`listMembers` 的每项带可选的 `online`（Server 本地连接状态）与 `last_seen_at`（RFC 3339 UTC；未知或读取失败时省略），add、put、join 返回的成员不带这两个字段。
+
 request/response 类型直接来自 `@gizclaw/gizclaw/peerhttp` 的生成类型（`PeerStatus`、`DeviceControlStatus`、`Contact` 等），字段名与 wire format 相同。`204` route resolve 为 `void`。`control.client` 暴露已配置 bearer 与 `baseUrl` 的生成 client，可直接传给 `@gizclaw/gizclaw/peerhttp` 的其他函数。可选 `fetch` 参数用于注入自定义或测试用 fetch。
 
 ## 错误处理

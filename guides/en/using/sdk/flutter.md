@@ -57,6 +57,8 @@ server, which sends the credential in the clear.
 - Friends: `getFriendInviteToken`, `createFriendInviteToken` (optional `ttl`, 1 minute to 7 days), `clearFriendInviteToken`, `addFriend`, `listFriends`, `getFriend`, `deleteFriend`.
 - Friend Groups: `listFriendGroups`, `createFriendGroup`, `joinFriendGroup`, `getFriendGroup`, `putFriendGroup`, `deleteFriendGroup` (dissolve), `leaveFriendGroup`, `getFriendGroupInviteToken`, `createFriendGroupInviteToken`, `clearFriendGroupInviteToken`, `listFriendGroupMembers`, `addFriendGroupMember`, `putFriendGroupMember`, `deleteFriendGroupMember`. The `info` (`PeerProfileInfo`) of `Friend` and `FriendGroupMember` gives the other device's name and emoji; Groups are addressed by the device's own Group name, and roles are `FriendGroupRole`.
 
+Each members-list item carries optional `online` (Server-local connection state) and `last_seen_at` (RFC 3339 UTC; absent when unknown or the read failed); members returned by add, put and join omit both. Dart exposes `online` (`bool?`) and `lastSeenAt` (`DateTime?`).
+
 Every method sends `Authorization: Bearer <apiKey>` and returns the immutable model for the contract type; `202` and `204` routes return `Future<void>`. Models ignore unknown JSON keys, and the open-ended schemas (`PeerStatus`, `DeviceInfo`) also expose `raw` with the complete decoded object. Path parameters (`ssid`, `contactName`, `workspaceId`, `historyId`, `friendName`, `friendGroupName`, `memberName`) are URL-encoded by the SDK. The optional `httpClient` injects or shares an `http.Client`; `timeout` defaults to 30 seconds.
 
 ## Error handling

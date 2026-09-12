@@ -58,6 +58,9 @@ type Server struct {
 	// Server. A nil Pings disables rallies.
 	Profiles ProfileService
 	Pings    socialutil.PingDelivery
+	// Presence reports member device presence for server.friend_group.members.list;
+	// nil leaves online and last_seen_at out of every listed member.
+	Presence socialutil.PresenceService
 	// SFUURL is the SFU endpoint recorded in every new Friend Group SFU binding.
 	SFUURL string
 
@@ -1336,7 +1339,15 @@ func (s *Server) ListFriendGroupMembers(ctx context.Context, owner string, req r
 	if err := s.requireRead(ctx, owner, friendGroupID); err != nil {
 		return rpcapi.FriendGroupMemberListResponse{}, err
 	}
-	return s.listFriendGroupMembers(ctx, friendGroupID, socialutil.StringValue(req.Cursor), socialutil.IntValue(req.Limit))
+	page, err := s.listFriendGroupMembers(ctx, friendGroupID, socialutil.StringValue(req.Cursor), socialutil.IntValue(req.Limit))
+	if err != nil {
+		return rpcapi.FriendGroupMemberListResponse{}, err
+	}
+	for i := range page.Items {
+		item := &page.Items[i]
+		item.Online, item.LastSeenAt = socialutil.PresenceFields(ctx, s.Presence, socialutil.StringValue(item.PeerPublicKey))
+	}
+	return page, nil
 }
 
 func (s *Server) AdminListFriendGroupMembers(ctx context.Context, friendGroupID string, req rpcapi.FriendGroupMemberListRequest) (rpcapi.FriendGroupMemberListResponse, error) {

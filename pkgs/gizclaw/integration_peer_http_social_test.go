@@ -258,9 +258,28 @@ func TestIntegrationPeerHTTPFriendGroupsThroughGoSDK(t *testing.T) {
 			t.Fatalf("member without info = %s", members.Body)
 		}
 		names[member.PeerPublicKey] = *member.Info.DisplayName
+		// Every member has been seen. Bob's online value is not asserted: the
+		// Server drops his connection only once it observes the close.
+		if member.Online == nil || member.LastSeenAt == nil ||
+			(member.PeerPublicKey != bob.publicKey() && !*member.Online) {
+			t.Fatalf("member presence = %s", members.Body)
+		}
 	}
 	if len(names) != 3 || names[alice.publicKey()] != alice.name || names[bob.publicKey()] != bob.name || names[carol.publicKey()] != carol.name {
 		t.Fatalf("member names = %v", names)
+	}
+	// The device RPC carries the same presence.
+	rpcMembers, err := alice.client.ListFriendGroupMembers(ctx, "list-members", rpcapi.FriendGroupMemberListRequest{FriendGroupName: new("family")})
+	if err != nil {
+		t.Fatalf("ListFriendGroupMembers RPC: %v", err)
+	}
+	if len(rpcMembers.Items) != 3 {
+		t.Fatalf("RPC members = %+v", rpcMembers.Items)
+	}
+	for _, member := range rpcMembers.Items {
+		if member.Online == nil || member.LastSeenAt == nil || (member.Name != bob.publicKey() && !*member.Online) {
+			t.Fatalf("RPC member presence = %+v", member)
+		}
 	}
 	left, err := carolAPI.LeaveFriendGroupWithResponse(ctx, "home", bearer(bob.key))
 	if err != nil {

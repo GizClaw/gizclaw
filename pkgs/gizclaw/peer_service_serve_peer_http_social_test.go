@@ -258,8 +258,15 @@ func TestPublicSocialErrorCodes(t *testing.T) {
 	}
 }
 
+type socialHTTPPresenceStub struct{ seen time.Time }
+
+func (s socialHTTPPresenceStub) PeerPresence(context.Context, string) (bool, time.Time) {
+	return true, s.seen
+}
+
 func TestPeerHTTPFriendGroupRoles(t *testing.T) {
 	f := newSocialHTTPFixture(t)
+	f.public.FriendGroups.Presence = socialHTTPPresenceStub{f.clock()}
 	a, b, c, d := f.a, f.b, f.c, f.d
 
 	expect(t, f.as(t, a, http.MethodPost, "/friend-groups", `{"name":" room"}`), http.StatusBadRequest, "INVALID_REQUEST")
@@ -283,7 +290,7 @@ func TestPeerHTTPFriendGroupRoles(t *testing.T) {
 	response = join(b, "family")
 	expect(t, response, http.StatusOK, "")
 	joined := decodeJSON[peerhttp.FriendGroupJoinResult](t, response)
-	if joined.Group.Name != "family" || joined.Group.MyRole != peerhttp.FriendGroupRoleMember ||
+	if joined.Member.Online != nil || joined.Member.LastSeenAt != nil || joined.Group.Name != "family" || joined.Group.MyRole != peerhttp.FriendGroupRoleMember ||
 		joined.Member.PeerPublicKey != b.key.String() || joined.Member.Role != peerhttp.FriendGroupRoleMember ||
 		joined.Member.Info == nil || socialutil.StringValue(joined.Member.Info.DisplayName) != "bedroom-speaker" {
 		t.Fatalf("join result = %#v", joined)
@@ -303,7 +310,7 @@ func TestPeerHTTPFriendGroupRoles(t *testing.T) {
 	expect(t, f.as(t, b, http.MethodPut, memberPath("family", c), `{"role":"admin"}`), http.StatusForbidden, "FRIEND_GROUP_PERMISSION_DENIED")
 	expect(t, f.as(t, a, http.MethodPut, memberPath("room", c), `{"role":"owner"}`), http.StatusBadRequest, "")
 	promoted := decodeJSON[peerhttp.FriendGroupMember](t, f.as(t, a, http.MethodPut, memberPath("room", c), `{"role":"admin"}`))
-	if promoted.Role != peerhttp.FriendGroupRoleAdmin || promoted.Info == nil || socialutil.StringValue(promoted.Info.DisplayName) != "kids-watch" {
+	if promoted.Online != nil || promoted.LastSeenAt != nil || promoted.Role != peerhttp.FriendGroupRoleAdmin || promoted.Info == nil || socialutil.StringValue(promoted.Info.DisplayName) != "kids-watch" {
 		t.Fatalf("promoted member = %#v", promoted)
 	}
 	expect(t, f.as(t, a, http.MethodPut, memberPath("room", a), `{"role":"member"}`), http.StatusConflict, "FRIEND_GROUP_OWNER_ROLE_IMMUTABLE")
@@ -316,7 +323,7 @@ func TestPeerHTTPFriendGroupRoles(t *testing.T) {
 	}
 	roles := map[string]peerhttp.FriendGroupRole{}
 	for _, item := range members.Items {
-		if item.Info == nil || socialutil.StringValue(item.Info.DisplayName) == "" || item.Name != item.PeerPublicKey {
+		if item.Online == nil || !*item.Online || item.LastSeenAt == nil || !item.LastSeenAt.Equal(f.clock()) || item.Info == nil || socialutil.StringValue(item.Info.DisplayName) == "" || item.Name != item.PeerPublicKey {
 			t.Fatalf("member without info = %#v", item)
 		}
 		roles[item.PeerPublicKey] = item.Role
@@ -388,7 +395,7 @@ func TestPeerHTTPFriendGroupRoles(t *testing.T) {
 	expect(t, add(c, "kids", "admin"), http.StatusForbidden, "FRIEND_GROUP_PERMISSION_DENIED")
 	response = add(c, "kids", "member")
 	expect(t, response, http.StatusCreated, "")
-	if added := decodeJSON[peerhttp.FriendGroupMember](t, response); added.PeerPublicKey != b.key.String() || added.Role != peerhttp.FriendGroupRoleMember {
+	if added := decodeJSON[peerhttp.FriendGroupMember](t, response); added.Online != nil || added.LastSeenAt != nil || added.PeerPublicKey != b.key.String() || added.Role != peerhttp.FriendGroupRoleMember {
 		t.Fatalf("added member = %#v", added)
 	}
 

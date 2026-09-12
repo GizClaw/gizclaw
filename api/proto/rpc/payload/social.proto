@@ -204,6 +204,13 @@ message FriendGroupMemberObject {
   optional string peer_public_key = 4;
   optional FriendGroupMemberRole role = 5;
   optional string updated_at = 6;
+  // Member presence, set only by server.friend_group.members.list. online is
+  // whether the member's device is connected to the answering Server, the
+  // same state as Runtime.online.
+  optional bool online = 7;
+  // Last observed activity of the member's device in the Runtime.last_seen_at
+  // format. Absent when the Server has never observed the member.
+  optional string last_seen_at = 8;
 }
 
 message FriendGroupMemberPutRequest {
