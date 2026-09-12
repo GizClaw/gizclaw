@@ -162,6 +162,13 @@ func (s *clientSet) reconnect(ctx context.Context, name string, awaitMs int) err
 	s.mu.Lock()
 	s.clients[name], s.serve[name] = client, errCh
 	s.mu.Unlock()
+	// The dial completes once the access point accepts the transport; behind
+	// an Edge the Server only sees the connection after the Edge opens its
+	// tunnel session. The Server activates a connection before it answers RPC
+	// on it, so one round trip proves the replacement is the active Peer.
+	if _, err := client.Ping(ctx, "giztest.reconnect."+name); err != nil {
+		return fmt.Errorf("client %s reconnect ping: %w", name, err)
+	}
 	return nil
 }
 
