@@ -425,13 +425,18 @@ provider at connect time (`volume.set` echoes the requested `level`/`muted` into
 `response: {error_code: 3}` makes the provider answer a fixed canonical status code; undeclared methods stay
 `METHOD_NOT_FOUND`, which verifies `501 DEVICE_UNSUPPORTED`. A later `http` step triggers the
 Server-to-device RPC and the `client_rpc` step's `expect_calls` asserts the provider was invoked.
+`client.tool.invoke` takes `response: {name, result}` and mounts a Tool handler that returns `result`;
+`response: {name, unavailable: true}` mounts none, so the SDK answers `UNIMPLEMENTED` like a device
+without that Tool while `expect_calls` still counts the call.
 
 A `reconnect` step drops that client's Peer connection and dials a replacement
 on the same identity, reproducing how a device reaches the Server again after a
 reboot or a network switch. The Server ends such a transition exactly when a
 replacement connection arrives for the same owner; until then control routes
 answer `409 DEVICE_OFFLINE`. The optional `await_ms` bounds the redial and is
-capped at 60000. The scripted providers are reinstalled on the new connection
+capped at 60000. The step completes after one RPC round trip on the replacement,
+because behind an Edge the dial returns before the Edge's tunnel session reaches
+the Server. The scripted providers are reinstalled on the new connection
 and keep their call counts, so `expect_calls` asserts the total across both.
 A scenario installs one `response` per method, so the device reports the same
 values before and after; what a step after `reconnect` asserts is that a control
