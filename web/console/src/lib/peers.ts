@@ -338,6 +338,20 @@ const rangeSchema = z.object({
   ),
 });
 
+/** The device's current Wi-Fi link and saved networks; it must be online. */
+export async function loadWifi(
+  endpoint: string,
+  publicKey: string,
+  signal: AbortSignal,
+) {
+  const peer = client(endpoint, publicKey, signal);
+  const [status, saved] = await Promise.all([
+    peer.getWifi(),
+    peer.listSavedWifi(),
+  ]);
+  return { status, saved: saved.networks.map((network) => network.ssid) };
+}
+
 /** Server-side telemetry history: real stored samples, not a session buffer. */
 export async function loadTelemetryRange(
   endpoint: string,

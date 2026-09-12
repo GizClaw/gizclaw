@@ -81,3 +81,18 @@ status codes include an explanation, while unknown codes remain visible. Details
 retain the original message and fields alongside the summary. Compact log views
 search both summaries and raw field values, expose full summaries on hover, and
 use the same dark scrollbar as log search.
+
+## Diagnostic assistant
+
+A floating chat button opens the diagnostic assistant from `@gizclaw/assistant`.
+The panel is lazy loaded: the agent, the OpenAI client, and assistant-ui load on
+first open. The configuration's optional `assistant` block holds an existing
+device's API key, the model alias (default `llm`) and an optional node for
+`/openai/v1`; it is stored, exported and cleared with the rest of the
+configuration. Without it the panel explains how to add it.
+
+`src/assistant/console-runtime.ts` implements every `AssistantRuntime` method
+with the console's own state and clients, reading the latest state through refs.
+Pages publish structured snapshots with `usePageView`; the assistant never reads
+the DOM. The panel uses assistant-ui's external store runtime over the
+assistant session and renders each tool action as a collapsible card.

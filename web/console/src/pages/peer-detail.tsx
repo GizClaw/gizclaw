@@ -29,6 +29,7 @@ import { PeerLocation } from "@/components/peer-location";
 import type { PeerState } from "@/hooks/use-peers";
 import { peerLabel, type WatchedPeer } from "@/lib/peers";
 import { bytes, host, timestamp } from "@/lib/format";
+import { usePageView } from "@/assistant/page-view";
 
 export function PeerDetailPage({
   peer,
@@ -42,6 +43,17 @@ export function PeerDetailPage({
   const runtime = state?.snapshot?.runtime;
   const sample = state?.samples.at(-1);
   const [copied, setCopied] = useState(false);
+  const [tab, setTab] = useState("traffic");
+  usePageView({
+    page: "设备详情",
+    tab,
+    device: { public_key: peer.publicKey, label: peer.label },
+    status: state?.status ?? "loading",
+    error: state?.error,
+    runtime,
+    info: state?.snapshot?.info,
+    reported_status: state?.snapshot?.status,
+  });
   useEffect(() => {
     if (!copied) return;
     const timer = setTimeout(() => setCopied(false), 1500);
@@ -154,7 +166,7 @@ export function PeerDetailPage({
           icon={<BatteryMedium size={16} />}
         />
       </div>
-      <Tabs defaultValue="traffic">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="traffic">流量</TabsTrigger>
           <TabsTrigger value="chat">对话记录</TabsTrigger>

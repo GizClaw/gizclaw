@@ -55,6 +55,33 @@ describe("persistent log search", () => {
     ]);
     expect(screen.queryByText("节点进程日志")).toBeNull();
   });
+
+  it("opens the device named by the initial query", async () => {
+    render(
+      <LogsPage
+        peers={[
+          {
+            publicKey: "first-key",
+            label: "First",
+            endpoint: "https://a.example.com",
+            addedAt: 1,
+          },
+          {
+            publicKey: "SecondKey",
+            label: "Second",
+            endpoint: "https://b.example.com",
+            addedAt: 2,
+          },
+        ]}
+        initialQuery="peer_public_key:SecondKey error_code:ASR_TIMEOUT"
+      />,
+    );
+    await waitFor(() => expect(loadDeviceLogs).toHaveBeenCalled());
+    expect(loadDeviceLogs.mock.calls[0].slice(0, 2)).toEqual([
+      "https://b.example.com",
+      "SecondKey",
+    ]);
+  });
 });
 
 it("excludes records older than 24 hours from the selected window", async () => {

@@ -196,3 +196,40 @@ RuntimeProfile `llm` (Volc Ark `doubao-mini-chat`), asserting only tool calls,
 the final route, and key facts in the reply, giving each scenario three
 attempts to separate a small model's variance from behavior the assistant
 cannot reach.
+
+### Console chat entry
+
+The chat button in the bottom-right corner of the Monitor console opens the
+diagnostic assistant panel. The panel code (the agent, the model client, and
+`@assistant-ui/react`) loads on first open and stays out of the initial bundle.
+
+The assistant uses an existing device's API key. Add to the console
+configuration:
+
+```json
+"assistant": {
+  "apiKey": "gizclaw_sk_v1_...",
+  "model": "llm",
+  "endpoint": "https://edge.example.com"
+}
+```
+
+`apiKey` must be a device API key starting with `gizclaw_sk_v1_`; the assistant
+uses it over `/openai/v1` to call models from that device's RuntimeProfile.
+`model` is the RuntimeProfile model alias and defaults to `llm`. `endpoint` is
+optional and defaults to the device API endpoint: `deviceEndpoint` or the
+console's own origin. The key can also read and control the device it belongs
+to, so like Monitor tokens it is stored encrypted with the configuration in the
+browser, cleared on logout, and included in exports. Without `assistant` the
+panel only explains how to configure it and sends no request.
+
+Each turn runs `@gizclaw/assistant` with that key. The console implements
+`AssistantRuntime` with its hash router, `useFleet`, the watch list, and
+`lib/peers`: navigation changes `location.hash`, external links go through
+`window.confirm`, and navigating to a device page or device logs adds an
+unwatched device to the watch list. Each page publishes a structured snapshot
+with `usePageView` for the assistant to read; the DOM is never read. Control
+errors reach the assistant as codes such as `DEBUG_ACCESS_FORBIDDEN` or the
+network failure `NETWORK_ERROR`. The panel shows every reply with each tool
+action, can stop a running turn, and offers no editing or regeneration. When the
+log page's initial query names `peer_public_key:`, that device is the source.

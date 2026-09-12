@@ -12,6 +12,7 @@ export {
   type LogAggregate,
 } from "./logs.ts";
 export { createGizClawModel, type GizClawModelOptions } from "./model.ts";
+export type { Model } from "@openai/agents-core";
 export { formatRoute, parseRoute, type ConsoleRoute } from "./routes.ts";
 export {
   SourceError,

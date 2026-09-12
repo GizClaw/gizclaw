@@ -143,3 +143,31 @@ agent 包，设计细节见 `web/assistant/DESIGN.md`。它通过 `@openai/agent
 `tests/gizclaw-e2e/go/openai` 中的 `TestAssistantScenariosWithLiveModel` 用同一场景集和 Docker
 栈上 RuntimeProfile 的 `llm`（Volc Ark `doubao-mini-chat`）运行，只断言工具调用、最终路由和回复
 中的关键事实，每个场景最多尝试三次，以区分小模型的波动和助手做不到的行为。
+
+### 控制台聊天入口
+
+Monitor console 右下角的聊天按钮打开诊断助手面板；面板代码（agent、模型 client 与
+`@assistant-ui/react`）在第一次打开时按需加载，不进入首屏 bundle。
+
+助手使用一台已有设备的 API Key。在 console 配置中加入：
+
+```json
+"assistant": {
+  "apiKey": "gizclaw_sk_v1_...",
+  "model": "llm",
+  "endpoint": "https://edge.example.com"
+}
+```
+
+`apiKey` 必须是 `gizclaw_sk_v1_` 开头的设备 API Key，助手用它经 `/openai/v1` 调用该设备
+RuntimeProfile 中的模型；`model` 是 RuntimeProfile 的模型别名，默认 `llm`；`endpoint` 可选，
+缺省时与设备 API 相同，为 `deviceEndpoint` 或 console 所在 origin。这把 Key 同时能读取和
+控制它所属的设备，因此与 Monitor Token 一样随配置加密保存在浏览器、登出时清除，并随配置导出。
+没有 `assistant` 时面板只说明如何配置，不发起任何请求。
+
+每轮对话用该 Key 运行 `@gizclaw/assistant`。console 以现有的 hash 路由、`useFleet`、关注
+列表和 `lib/peers` 实现 `AssistantRuntime`：跳转直接改变 `location.hash`，打开外部链接先经
+`window.confirm`，跳到设备详情或设备日志时把尚未关注的设备加入关注列表；每个页面用
+`usePageView` 发布结构化快照供助手读取，不读取 DOM。控制端错误映射为错误码交给助手，例如
+`DEBUG_ACCESS_FORBIDDEN` 与网络错误 `NETWORK_ERROR`。面板逐轮显示回复与每个工具动作，运行中
+可以停止；不提供编辑与重新生成。日志页的初始查询带 `peer_public_key:` 时，以该设备为数据源。

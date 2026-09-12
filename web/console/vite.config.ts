@@ -11,5 +11,9 @@ export default defineConfig({
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
-  server: { port: 5174, proxy: { "/gizclaw": deviceProxy } },
+  // The assistant talks to the node's /openai/v1, same-origin in production.
+  server: {
+    port: 5174,
+    proxy: { "/gizclaw": deviceProxy, "/openai": deviceProxy },
+  },
 });

@@ -14,7 +14,12 @@ import { Select } from "@/components/ui/select";
 import { PageHeading } from "@/components/app-shell";
 import { LogStream } from "@/components/log-stream";
 import { LogRecordDetail } from "@/components/log-detail";
-import { matches, parseQuery, type LogRecord } from "@/lib/log-query";
+import {
+  matches,
+  parseQuery,
+  summarize,
+  type LogRecord,
+} from "@/lib/log-query";
 import {
   loadDeviceLogs,
   peerId,
@@ -23,6 +28,7 @@ import {
 } from "@/lib/peers";
 import { nodeErrorMessage } from "@/lib/api";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { usePageView } from "@/assistant/page-view";
 
 const LEVELS = ["ALL", "ERROR", "WARN", "INFO", "DEBUG"] as const;
 const WINDOWS = [
@@ -43,9 +49,20 @@ export function LogsPage({
   const [level, setLevel] = useState<string>("ALL");
   const [windowSeconds, setWindowSeconds] = useState(900);
   const [selected, setSelected] = useState<LogRecord | undefined>();
-  const [source, setSource] = useState(() =>
-    peers[0] ? peerId(peers[0]) : "",
-  );
+  // A query that names a device (from the peers page or the assistant) opens
+  // that device's logs; otherwise the first watched device is the source.
+  const [source, setSource] = useState(() => {
+    const wanted = parseQuery(initialQuery).clauses.find(
+      (clause) =>
+        !clause.negate &&
+        (clause.key === "peer_public_key" || clause.key === "peer"),
+    )?.value;
+    const named = wanted
+      ? peers.find((peer) => peer.publicKey.toLowerCase() === wanted)
+      : undefined;
+    const first = named ?? peers[0];
+    return first ? peerId(first) : "";
+  });
   const device = peers.find((peer) => peerId(peer) === source);
   const [deviceRecords, setDeviceRecords] = useState<LogRecord[]>([]);
   const [deviceError, setDeviceError] = useState("");
@@ -139,6 +156,24 @@ export function LogsPage({
 
   const errors = shown.filter((record) => record.level === "ERROR").length;
   const warnings = shown.filter((record) => record.level === "WARN").length;
+  usePageView({
+    page: "日志查询",
+    query: text,
+    level,
+    window_seconds: windowSeconds,
+    source_device: device?.publicKey,
+    loaded: all.length,
+    shown: shown.length,
+    errors,
+    warnings,
+    records: shown.slice(0, 50).map((record) => ({
+      time: record.time,
+      level: record.level,
+      summary: summarize(record),
+      message: record.message,
+      error: record.error,
+    })),
+  });
   const traced = selected?.fields?.request_id;
 
   return (
