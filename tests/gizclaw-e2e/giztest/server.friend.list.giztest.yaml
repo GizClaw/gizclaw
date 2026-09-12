@@ -1,14 +1,22 @@
 # User Story:
-# As a GizClaw Peer API consumer,
-# I want exercise the server.friend.list behavior through its real transport,
-# So that the generated RPC contract is verified end to end.
+# As a child with a GizClaw device,
+# I want my friend list to show which friends are online, with their names and emoji,
+# So that my device can draw a green dot and names from one server.friend.list call.
 version: gizclaw.test/v1alpha1
 name: server.friend.list
 clients:
-  peer:
+  alice:
     identity: ephemeral
     connection: webrtc
-    access_point: ${endpoint}
+    access_point: "${endpoint}"
+  bob:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+  carol:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
 variables:
   endpoint:
     direction: input
@@ -19,25 +27,102 @@ variables:
     type: string
     env: GIZCLAW_TEST_REGISTRATION_TOKEN
     secret: true
-  resource_name:
-    direction: input
+  bob_invite:
+    direction: output
     type: string
-    generate: token
+    secret: true
+  bob_name:
+    direction: output
+    type: string
+  alice_name:
+    direction: output
+    type: string
 steps:
-  - id: register_peer
-    client: peer
-    rpc:
-      method: server.register
-      request:
-        token: ${registration_token}
-  - id: primary_rpc
-    client: peer
-    rpc:
-      method: server.friend.list
-      request:
-        {}
+- id: register_alice
+  client: alice
+  rpc: {method: server.register, request: {token: "${registration_token}"}}
+- id: register_bob
+  client: bob
+  rpc: {method: server.register, request: {token: "${registration_token}"}}
+- id: register_carol
+  client: carol
+  rpc: {method: server.register, request: {token: "${registration_token}"}}
+- id: carol_has_no_friends
+  client: carol
+  rpc: {method: server.friend.list, request: {}}
+  expect:
+    /items: {count: 0}
+    /has_next: {equals: false}
+- id: alice_profile
+  client: alice
+  rpc: {method: server.info.put, request: {value: {name: Alice, emoji: "🦊"}}}
+- id: bob_invite
+  client: bob
+  rpc: {method: server.friend.invite_token.create, request: {}}
+  capture:
+    bob_invite: /invite_token
+- id: alice_adds_bob
+  client: alice
+  rpc: {method: server.friend.add, request: {invite_token: "${bob_invite}"}}
+  capture:
+    bob_name: /name
+# bob is connected but has not set a profile yet, so the item carries
+# presence and no display_name or emoji.
+- id: primary_rpc
+  client: alice
+  rpc: {method: server.friend.list, request: {}}
+  expect:
+    /items: {count: 1}
+    /items/0/name: {equals: "${bob_name}"}
+    /items/0/peer_public_key: {equals: "${bob_name}"}
+    /items/0/online: {equals: true}
+    /items/0/last_seen_at: {pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"}
+    /items/0/display_name: {present: false}
+    /items/0/emoji: {present: false}
+- id: bob_lists_alice
+  client: bob
+  rpc: {method: server.friend.list, request: {}}
+  capture:
+    alice_name: /items/0/name
+  expect:
+    /items: {count: 1}
+    /items/0/online: {equals: true}
+    /items/0/last_seen_at: {pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"}
+    /items/0/display_name: {equals: Alice}
+    /items/0/emoji: {equals: "🦊"}
+# The list reads the Friend's current profile, not a copy taken at add time.
+- id: bob_profile
+  client: bob
+  rpc: {method: server.info.put, request: {value: {name: Bob}}}
+- id: alice_lists_bob_after_profile
+  client: alice
+  rpc: {method: server.friend.list, request: {}}
+  expect:
+    /items: {count: 1}
+    /items/0/online: {equals: true}
+    /items/0/display_name: {equals: Bob}
+    /items/0/emoji: {present: false}
+# Presence is only visible to Friends: carol still sees no one, and the
+# public profile lookup carries no presence.
+- id: carol_still_has_no_friends
+  client: carol
+  rpc: {method: server.friend.list, request: {}}
+  expect:
+    /items: {count: 0}
+- id: carol_reads_public_profile
+  client: carol
+  rpc: {method: server.profile.get, request: {peer_public_keys: ["${alice_name}"]}}
+  expect:
+    /items: {count: 1}
+    /items/0/display_name: {equals: Alice}
+    /items/0/online: {present: false}
+    /items/0/last_seen_at: {present: false}
 finally:
-  - client: peer
-    rpc:
-      method: server.peer.delete
-      request: {}
+- client: alice
+  rpc: {method: server.peer.delete, request: {}}
+- client: bob
+  rpc: {method: server.peer.delete, request: {}}
+- client: carol
+  rpc: {method: server.peer.delete, request: {}}
+report:
+  redact: [registration_token, bob_invite]
