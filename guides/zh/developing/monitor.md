@@ -170,4 +170,5 @@ RuntimeProfile 中的模型；`model` 是 RuntimeProfile 的模型别名，默�
 `window.confirm`，跳到设备详情或设备日志时把尚未关注的设备加入关注列表；每个页面用
 `usePageView` 发布结构化快照供助手读取，不读取 DOM。控制端错误映射为错误码交给助手，例如
 `DEBUG_ACCESS_FORBIDDEN` 与网络错误 `NETWORK_ERROR`。面板逐轮显示回复与每个工具动作，运行中
-可以停止；不提供编辑与重新生成。日志页的初始查询带 `peer_public_key:` 时，以该设备为数据源。
+可以停止；不提供编辑与重新生成。对话历史只保存在面板和助手会话的内存中，不写入浏览器存储，`/openai/v1`
+的 Chat Completions 也不在服务端保存对话；"清空对话"会停止当前一轮并开始新会话，刷新页面同样清空。日志页的初始查询带 `peer_public_key:` 时，以该设备为数据源。

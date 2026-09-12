@@ -16,7 +16,7 @@ import {
   type ActionRecord,
   type Model,
 } from "@gizclaw/assistant";
-import { ArrowUp, Settings, Square, X } from "lucide-react";
+import { ArrowUp, RotateCcw, Settings, Square, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { ConsoleAssistant } from "@/lib/config";
@@ -55,6 +55,9 @@ const defaultModel = (assistant: ConsoleAssistant, baseURL: string) =>
 
 export default function AssistantPanel(props: AssistantPanelProps) {
   const endpoint = props.assistant?.endpoint ?? props.endpoint;
+  // History lives only in this panel and the assistant session; a new
+  // session remounts the conversation, which stops a running turn.
+  const [session, setSession] = useState(0);
   return (
     <section
       aria-label="诊断助手"
@@ -69,18 +72,31 @@ export default function AssistantPanel(props: AssistantPanelProps) {
               : "能跳转页面、读日志和设备数据来分析问题"}
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label="关闭诊断助手"
-          onClick={props.onClose}
-        >
-          <X size={16} />
-        </Button>
+        <div className="flex items-center gap-1">
+          {props.assistant && (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="清空对话"
+              title="清空对话"
+              onClick={() => setSession((current) => current + 1)}
+            >
+              <RotateCcw size={16} />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="关闭诊断助手"
+            onClick={props.onClose}
+          >
+            <X size={16} />
+          </Button>
+        </div>
       </header>
       {props.assistant ? (
         <Conversation
-          key={`${props.assistant.apiKey}|${props.assistant.model}|${endpoint}`}
+          key={`${props.assistant.apiKey}|${props.assistant.model}|${endpoint}|${session}`}
           createModel={() =>
             (props.createModel ?? defaultModel)(
               props.assistant!,

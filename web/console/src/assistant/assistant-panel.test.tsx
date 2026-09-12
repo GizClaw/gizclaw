@@ -123,6 +123,40 @@ describe("assistant panel", () => {
     );
   });
 
+  it("clears the conversation and starts a fresh session", async () => {
+    const models: InstanceType<typeof ScriptedModel>[] = [];
+    render(
+      <AssistantPanel
+        assistant={ASSISTANT}
+        runtimeDeps={deps}
+        endpoint="https://node.example.com"
+        onClose={() => {}}
+        onOpenConfig={() => {}}
+        createModel={() => {
+          const model = new ScriptedModel([
+            { reply: "第一个会话" },
+            { reply: "第二个会话" },
+          ]);
+          models.push(model);
+          return model;
+        }}
+      />,
+    );
+    await ask("你好");
+    await screen.findByText("第一个会话");
+
+    fireEvent.click(screen.getByLabelText("清空对话"));
+    await waitFor(() => expect(screen.queryByText("第一个会话")).toBeNull());
+    expect(screen.queryByText("你好")).toBeNull();
+
+    await ask("重新开始");
+    await screen.findByText("第一个会话");
+    // The new session's first request carries only the new message.
+    expect(models).toHaveLength(2);
+    const input = models[1].requests[0].input;
+    expect(Array.isArray(input) ? input.length : 1).toBe(1);
+  });
+
   it("explains how to configure the assistant when the config has none", async () => {
     const onOpenConfig = vi.fn();
     render(

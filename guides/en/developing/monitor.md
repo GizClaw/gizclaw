@@ -231,5 +231,9 @@ unwatched device to the watch list. Each page publishes a structured snapshot
 with `usePageView` for the assistant to read; the DOM is never read. Control
 errors reach the assistant as codes such as `DEBUG_ACCESS_FORBIDDEN` or the
 network failure `NETWORK_ERROR`. The panel shows every reply with each tool
-action, can stop a running turn, and offers no editing or regeneration. When the
+action, can stop a running turn, and offers no editing or regeneration.
+Conversation history lives only in the panel and the assistant session in
+memory; it is never written to browser storage, and `/openai/v1` Chat
+Completions keep no conversation on the server. "Clear conversation" stops the
+current turn and starts a new session, as does reloading the page. When the
 log page's initial query names `peer_public_key:`, that device is the source.

@@ -95,4 +95,5 @@ configuration. Without it the panel explains how to add it.
 with the console's own state and clients, reading the latest state through refs.
 Pages publish structured snapshots with `usePageView`; the assistant never reads
 the DOM. The panel uses assistant-ui's external store runtime over the
-assistant session and renders each tool action as a collapsible card.
+assistant session and renders each tool action as a collapsible card. History stays in memory only;
+clearing the conversation remounts it with a new session.
