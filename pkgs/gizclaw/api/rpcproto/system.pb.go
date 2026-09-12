@@ -463,7 +463,11 @@ type DeviceSettings struct {
 	ScreenBrightness *int64 `protobuf:"varint,3,opt,name=screen_brightness,json=screenBrightness,proto3,oneof" json:"screen_brightness,omitempty"`
 	// Indicator light level in [0, 100].
 	LedBrightness *int64 `protobuf:"varint,4,opt,name=led_brightness,json=ledBrightness,proto3,oneof" json:"led_brightness,omitempty"`
-	// UI language as a BCP 47 tag, e.g. "zh-CN" or "en-US".
+	// UI language as a well-formed BCP 47 tag of at most 35 bytes: a 2-8 letter
+	// primary subtag followed by hyphen-separated 1-8 character alphanumeric
+	// subtags, e.g. "zh-CN", "zh-Hant-TW" or "es-419". POSIX forms such as
+	// "zh_CN" are rejected; whether the device offers the language is its own
+	// decision.
 	Locale                 *string                `protobuf:"bytes,5,opt,name=locale,proto3,oneof" json:"locale,omitempty"`
 	DefaultInteractionMode *DeviceInteractionMode `protobuf:"varint,6,opt,name=default_interaction_mode,json=defaultInteractionMode,proto3,enum=gizclaw.rpc.v1.DeviceInteractionMode,oneof" json:"default_interaction_mode,omitempty"`
 	KeyFeedback            *DeviceKeyFeedback     `protobuf:"varint,7,opt,name=key_feedback,json=keyFeedback,proto3,enum=gizclaw.rpc.v1.DeviceKeyFeedback,oneof" json:"key_feedback,omitempty"`

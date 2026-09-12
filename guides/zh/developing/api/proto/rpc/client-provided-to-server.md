@@ -49,7 +49,7 @@ Go Client 的 provider dispatch 位于 `sdk/go/gizcli` 的 RPC Client implementa
 | `screen_off_timeout_ms` | `optional int64` | 无操作多久后熄屏；`0` 表示常亮。 |
 | `screen_brightness` | `optional int64` | 屏幕背光亮度，取值 0–100。 |
 | `led_brightness` | `optional int64` | 指示灯亮度，取值 0–100。 |
-| `locale` | `optional string` | 界面语言，BCP 47 标签，例如 `zh-CN`。 |
+| `locale` | `optional string` | 界面语言，格式正确的 BCP 47 标签，最多 35 字节：2–8 个字母的主子标签，后接用 `-` 分隔的 1–8 位字母数字子标签，例如 `zh-CN`、`zh-Hant-TW`、`es-419`；`zh_CN` 这类 POSIX 写法会被拒绝。 |
 | `default_interaction_mode` | `optional DeviceInteractionMode` | 默认交互模式：`push-to-talk` 或 `realtime`，与 `WorkspaceInputMode` 使用同一套取值。 |
 | `key_feedback` | `optional DeviceKeyFeedback` | 按键提示方式：`none`、`sound`、`vibrate`、`sound_and_vibrate`。 |
 

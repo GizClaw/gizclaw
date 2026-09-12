@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
@@ -405,6 +406,13 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 	}
 }
 
+// deviceSettingsLocalePattern checks BCP 47 well-formedness at the subtag level:
+// a 2-8 letter primary subtag followed by hyphen-separated 1-8 character
+// alphanumeric subtags, such as "zh-CN", "zh-Hant-TW" or "es-419". It rejects
+// POSIX forms like "zh_CN" and free text; whether the device offers that
+// language is still the device's decision.
+var deviceSettingsLocalePattern = regexp.MustCompile(`^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$`)
+
 // validDeviceSettingsPatch mirrors the DeviceSettings ranges documented in
 // api/proto/rpc/payload/system.proto. An unknown enum value is rejected, while
 // an absent member simply leaves that option unchanged.
@@ -416,7 +424,7 @@ func validDeviceSettingsPatch(patch rpcapi.DeviceSettings) bool {
 	if patch.ScreenOffTimeoutMs != nil && *patch.ScreenOffTimeoutMs < 0 {
 		return false
 	}
-	if patch.Locale != nil && (*patch.Locale == "" || len(*patch.Locale) > 35) {
+	if patch.Locale != nil && (len(*patch.Locale) > 35 || !deviceSettingsLocalePattern.MatchString(*patch.Locale)) {
 		return false
 	}
 	if patch.DefaultInteractionMode != nil && !patch.DefaultInteractionMode.Valid() {

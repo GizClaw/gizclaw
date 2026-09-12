@@ -2426,6 +2426,9 @@ function deviceControlDuration(value: unknown): number | undefined | null {
 }
 
 const DEVICE_INTERACTION_MODES = ["push-to-talk", "realtime"];
+// BCP 47 well-formedness at the subtag level: a 2-8 letter primary subtag and
+// hyphen-separated 1-8 character alphanumeric subtags, e.g. "zh-Hant-TW".
+const DEVICE_SETTINGS_LOCALE_PATTERN = /^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$/;
 const DEVICE_KEY_FEEDBACKS = ["none", "sound", "vibrate", "sound_and_vibrate"];
 
 // deviceSettingsPatchValid rejects a patch before the device applies any of it,
@@ -2452,8 +2455,8 @@ function deviceSettingsPatchValid(patch: DeviceSettings): boolean {
     percent(patch.led_brightness) &&
     (patch.locale === undefined ||
       (typeof patch.locale === "string" &&
-        patch.locale.length > 0 &&
-        patch.locale.length <= 35)) &&
+        patch.locale.length <= 35 &&
+        DEVICE_SETTINGS_LOCALE_PATTERN.test(patch.locale))) &&
     member(patch.default_interaction_mode, DEVICE_INTERACTION_MODES) &&
     member(patch.key_feedback, DEVICE_KEY_FEEDBACKS)
   );

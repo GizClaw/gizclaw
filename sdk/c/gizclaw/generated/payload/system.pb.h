@@ -58,7 +58,11 @@ typedef struct _gizclaw_rpc_v1_DeviceSettings {
     /* Indicator light level in [0, 100]. */
     bool has_led_brightness;
     int64_t led_brightness;
-    /* UI language as a BCP 47 tag, e.g. "zh-CN" or "en-US". */
+    /* UI language as a well-formed BCP 47 tag of at most 35 bytes: a 2-8 letter
+ primary subtag followed by hyphen-separated 1-8 character alphanumeric
+ subtags, e.g. "zh-CN", "zh-Hant-TW" or "es-419". POSIX forms such as
+ "zh_CN" are rejected; whether the device offers the language is its own
+ decision. */
     bool has_locale;
     char locale[36];
     bool has_default_interaction_mode;

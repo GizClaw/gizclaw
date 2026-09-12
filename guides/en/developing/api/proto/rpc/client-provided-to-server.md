@@ -50,7 +50,7 @@ serve devices with different hardware instead of adding an RPC method per option
 | `screen_off_timeout_ms` | `optional int64` | Idle time before the screen turns off; `0` keeps it always on. |
 | `screen_brightness` | `optional int64` | Screen backlight level in [0, 100]. |
 | `led_brightness` | `optional int64` | Indicator light level in [0, 100]. |
-| `locale` | `optional string` | UI language as a BCP 47 tag, such as `zh-CN`. |
+| `locale` | `optional string` | UI language as a well-formed BCP 47 tag of at most 35 bytes: a 2-8 letter primary subtag followed by hyphen-separated 1-8 character alphanumeric subtags, such as `zh-CN`, `zh-Hant-TW` or `es-419`. POSIX forms such as `zh_CN` are rejected. |
 | `default_interaction_mode` | `optional DeviceInteractionMode` | Default input mode, `push-to-talk` or `realtime`, sharing the `WorkspaceInputMode` vocabulary. |
 | `key_feedback` | `optional DeviceKeyFeedback` | Key press feedback: `none`, `sound`, `vibrate`, `sound_and_vibrate`. |
 

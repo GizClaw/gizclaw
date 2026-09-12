@@ -945,6 +945,8 @@ void deviceControlTests() {
         DeviceSettings(ledBrightness: Int64(-1)),
         DeviceSettings(screenOffTimeoutMs: Int64(-1)),
         DeviceSettings(locale: ''),
+      DeviceSettings(locale: 'not a locale'),
+      DeviceSettings(locale: 'zh_CN'),
         DeviceSettings(
           defaultInteractionMode:
               DeviceInteractionMode.DEVICE_INTERACTION_MODE_UNSPECIFIED,

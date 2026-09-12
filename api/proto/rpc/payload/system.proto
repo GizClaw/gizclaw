@@ -63,7 +63,11 @@ message DeviceSettings {
   optional int64 screen_brightness = 3;
   // Indicator light level in [0, 100].
   optional int64 led_brightness = 4;
-  // UI language as a BCP 47 tag, e.g. "zh-CN" or "en-US".
+  // UI language as a well-formed BCP 47 tag of at most 35 bytes: a 2-8 letter
+  // primary subtag followed by hyphen-separated 1-8 character alphanumeric
+  // subtags, e.g. "zh-CN", "zh-Hant-TW" or "es-419". POSIX forms such as
+  // "zh_CN" are rejected; whether the device offers the language is its own
+  // decision.
   optional string locale = 5;
   optional DeviceInteractionMode default_interaction_mode = 6;
   optional DeviceKeyFeedback key_feedback = 7;

@@ -670,7 +670,11 @@ class DeviceSettings extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearLedBrightness() => $_clearField(4);
 
-  /// UI language as a BCP 47 tag, e.g. "zh-CN" or "en-US".
+  /// UI language as a well-formed BCP 47 tag of at most 35 bytes: a 2-8 letter
+  /// primary subtag followed by hyphen-separated 1-8 character alphanumeric
+  /// subtags, e.g. "zh-CN", "zh-Hant-TW" or "es-419". POSIX forms such as
+  /// "zh_CN" are rejected; whether the device offers the language is its own
+  /// decision.
   @$pb.TagNumber(5)
   $core.String get locale => $_getSZ(4);
   @$pb.TagNumber(5)

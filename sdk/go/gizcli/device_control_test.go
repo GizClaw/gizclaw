@@ -314,9 +314,11 @@ func TestDeviceSettingsHandlersAndCapabilityList(t *testing.T) {
 	mode := rpcapi.DeviceInteractionModeRealtime
 	unknown := rpcapi.DeviceInteractionMode("telepathy")
 	for name, patch := range map[string]rpcapi.DeviceSettings{
-		"ok":           {ScreenBrightness: new(int64(0)), LedBrightness: new(int64(100)), Locale: new("zh-CN"), DefaultInteractionMode: &mode},
-		"empty patch":  {},
-		"zero timeout": {ScreenOffTimeoutMs: new(int64(0))},
+		"ok":                {ScreenBrightness: new(int64(0)), LedBrightness: new(int64(100)), Locale: new("zh-CN"), DefaultInteractionMode: &mode},
+		"empty patch":       {},
+		"zero timeout":      {ScreenOffTimeoutMs: new(int64(0))},
+		"script and region": {Locale: new("zh-Hant-TW")},
+		"numeric region":    {Locale: new("es-419")},
 	} {
 		if !validDeviceSettingsPatch(patch) {
 			t.Fatalf("validDeviceSettingsPatch(%s) = false, want true", name)
@@ -327,6 +329,8 @@ func TestDeviceSettingsHandlersAndCapabilityList(t *testing.T) {
 		"negative led":        {LedBrightness: new(int64(-1))},
 		"negative timeout":    {ScreenOffTimeoutMs: new(int64(-1))},
 		"empty locale":        {Locale: new("")},
+		"malformed locale":    {Locale: new("not a locale")},
+		"underscore locale":   {Locale: new("zh_CN")},
 		"unknown enum":        {DefaultInteractionMode: &unknown},
 	} {
 		if validDeviceSettingsPatch(patch) {

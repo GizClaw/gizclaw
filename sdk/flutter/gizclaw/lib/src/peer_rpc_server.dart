@@ -207,6 +207,12 @@ const _deviceControlMaxBytes = 32;
 // Mirrors the DeviceSettings.locale bound in api/proto/rpc/nanopb.options.
 const _deviceSettingsLocaleMaxBytes = 35;
 
+// BCP 47 well-formedness at the subtag level: a 2-8 letter primary subtag and
+// hyphen-separated 1-8 character alphanumeric subtags, e.g. "zh-Hant-TW".
+final _deviceSettingsLocalePattern = RegExp(
+  r'^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$',
+);
+
 void serveGizClawPeerRpcChannel(
   GizClawDataChannel channel, {
   GizClawPeerRpcHandlers? handlers,
@@ -1115,8 +1121,8 @@ bool _validDeviceSettingsPatch(payload.DeviceSettings patch) {
     return false;
   }
   if (patch.hasLocale() &&
-      (patch.locale.isEmpty ||
-          utf8.encode(patch.locale).length > _deviceSettingsLocaleMaxBytes)) {
+      (utf8.encode(patch.locale).length > _deviceSettingsLocaleMaxBytes ||
+          !_deviceSettingsLocalePattern.hasMatch(patch.locale))) {
     return false;
   }
   if (patch.hasDefaultInteractionMode() &&

@@ -4252,3 +4252,36 @@ test("inbound client.rpc.methods.get includes find and social ping when register
   assert.ok(methods.includes("client.device.find"), `${methods}`);
   assert.ok(methods.includes("client.social.ping"), `${methods}`);
 });
+
+test("inbound client.device.settings.set rejects a malformed locale", async () => {
+  let ran = false;
+  const handlers = {
+    deviceControl: {
+      setSettings: (patch: Record<string, unknown>) => {
+        ran = true;
+        return patch;
+      },
+    },
+  };
+  for (const locale of ["not a locale", "zh_CN", "-en", "en-"]) {
+    const response = await serveInboundClientRPC(
+      "client.device.settings.set",
+      { locale },
+      handlers,
+    );
+    assert.equal(
+      response.error?.code,
+      STATUS_CODE_INVALID_ARGUMENT,
+      `locale ${JSON.stringify(locale)}`,
+    );
+  }
+  assert.equal(ran, false);
+  for (const locale of ["zh-CN", "zh-Hant-TW", "es-419", "en"]) {
+    const response = await serveInboundClientRPC(
+      "client.device.settings.set",
+      { locale },
+      handlers,
+    );
+    assert.equal(response.error, undefined, `locale ${locale}`);
+  }
+});
