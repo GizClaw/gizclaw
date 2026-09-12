@@ -1,0 +1,87 @@
+# User Story:
+# As a device that does not provide a client Tool its Workspace declares,
+# I want the model's call to that Tool to fail cleanly as unavailable,
+# So that the reply still completes instead of ending with a stream error.
+version: gizclaw.test/v1alpha1
+name: client.tool.invoke.unavailable
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  prompt:
+    direction: input
+    type: string
+    value: You must call the giztest_echo tool exactly once with key current-peer.
+      After it returns or fails, answer only TOOL_DONE.
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_workspace
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${workspace_name}"
+      collection: assistants
+      workflow_name: flowcraft-chat-assistant
+      parameters:
+        flowcraft_workspace_parameters:
+          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+      toolkit:
+        tool_names:
+          value:
+          - giztest_echo
+- id: select_workspace
+  client: peer
+  rpc:
+    method: server.run.workspace.set
+    request:
+      workspace_name: "${workspace_name}"
+# The client installs no giztest_echo provider, so it answers the Server's
+# client.tool.invoke with UNIMPLEMENTED. The Server hands the model an
+# unavailable Tool result and the reply completes without a terminal error.
+- id: trigger_tool
+  client: peer
+  peer_stream:
+    mode: text
+    input: "${prompt}"
+  expect:
+    /text_eos:
+      equals: true
+finally:
+- id: cleanup_run
+  client: peer
+  rpc:
+    method: server.run.stop
+    request: {}
+- id: cleanup_workspace
+  client: peer
+  rpc:
+    method: server.workspace.delete
+    request:
+      name: "${workspace_name}"
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}
