@@ -57,6 +57,7 @@ API Key 的鉴权和管理契约见 [Peer HTTP · API Key](../../gizclaw/peer/se
 
 - `{friendName}` 与 `{memberName}` 是对方的 canonical public key（也是 `Friend.name` / `FriendGroupMember.name`）。`{friendGroupName}` 是调用方自己命名空间里的群名，非成员解析不到任何名字，因此非成员统一得到 `404 FRIEND_GROUP_NOT_FOUND`。路径与 body 中的名字带首尾空白时返回 `400 INVALID_REQUEST`，分页 `cursor`/`limit` 规则同 contacts（limit 1–200，cursor 为不透明值）。
 - `Friend` 与 `FriendGroupMember` 带 `info {display_name, emoji}`，来源与 `server.friend.info.get` 相同（`Profiles.GetSelfInfo`）；对方 Peer 已不存在或已删除时省略 `info`，其他读取失败返回 500。好友与群成员各有 10 个上限，列表逐项读取 profile。`FriendGroupMember` 不返回成员自己命名空间里的群名。
+- 成员列表（`GET .../members`）的每项带可选的 `online`（与 `Runtime.online` 相同的 Server 本地连接状态）与 `last_seen_at`（RFC 3339 UTC；Server 从未见过该成员或读取失败时省略），与 `server.friend_group.members.list` 相同；add、put、join 返回的成员对象不带这两个字段。
 - `ttl_seconds` 范围 60–604800（7 天），越界 `400 INVALID_REQUEST`，body 可省略。不带时与 RPC 完全一致：已有有效邀请码原样返回，否则新建 5 分钟的码。带时新建码按该 TTL 过期；已有有效码保持码值不变，只把 `expires_at` 延长到 `now + ttl_seconds`，绝不缩短，因此设备正在展示的码继续有效。设备 RPC 的默认 TTL 不变。
 - `POST /friends` 在关系已存在时返回 `409 FRIEND_ALREADY_EXISTS`，而 `server.friend.add` 继续幂等地返回已有关系。
 - `@leave` 删除调用方自己的成员记录。owner 得到 `409 FRIEND_GROUP_OWNER_CANNOT_LEAVE`，应改为解散；admin 也可以退出（`members.delete` 删除 admin 自己仍要求 owner 角色）。

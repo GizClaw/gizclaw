@@ -95,6 +95,17 @@ Every `FriendObject` in `server.friend.list` carries the Friend's presence and p
 
 Presence is Server-local, like pings: a Friend connected to a different Server is listed as not online, and `last_seen_at` reads the shared Peer Run record. A profile or presence read that fails only leaves that field out; it never fails the page.
 
+## Member list presence
+
+`server.friend_group.members.list` and `GET /gizclaw/v1/friend-groups/{friendGroupName}/members` include member presence. Name resolution and `requireRead` confirm the caller's membership before the page is decorated.
+
+| Field | Source | When absent |
+| --- | --- | --- |
+| `online` | `Manager.PeerPresence`, the same Server-local connection state as `Runtime.online` | Presence is not configured |
+| `last_seen_at` | The same, in RFC 3339 UTC; offline members fall back to persisted Peer Run activity | Never observed, last-seen read failed, or presence is not configured |
+
+Friend and Friend Group lists share `socialutil.PresenceService` and `PresenceFields`. A failed last-seen read never fails the page. Members connected to another Server are reported offline. Admin member lists and add, put, delete and join responses omit both fields.
+
 ## Ping and rally
 
 `server.friend.ping` rings one Friend's device; `server.friend_group.ping` rallies a Friend Group by ringing every other member's device. Any member may rally. `friend.PingFriend` and `friendgroup.PingFriendGroup` own the rules; `peerresource` only decodes the request and maps errors.

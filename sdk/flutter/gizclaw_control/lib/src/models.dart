@@ -1503,6 +1503,8 @@ class FriendGroupMember {
     this.createdAt,
     this.updatedAt,
     this.info,
+    this.online,
+    this.lastSeenAt,
   });
 
   factory FriendGroupMember.fromJson(Object? json) {
@@ -1514,6 +1516,8 @@ class FriendGroupMember {
       createdAt: readOptionalDateTime(object, 'created_at'),
       updatedAt: readOptionalDateTime(object, 'updated_at'),
       info: _readOptionalProfileInfo(object),
+      online: readOptionalBool(object, 'online'),
+      lastSeenAt: readOptionalDateTime(object, 'last_seen_at'),
     );
   }
 
@@ -1526,6 +1530,14 @@ class FriendGroupMember {
 
   /// The member's public profile; absent when the member's Peer is gone.
   final PeerProfileInfo? info;
+
+  /// Whether the member's device is connected to the answering Server, the
+  /// same state as Runtime.online. Set only by the members list.
+  final bool? online;
+
+  /// Last observed activity of the member's device; absent when the Server
+  /// has never observed it and on non-list responses.
+  final DateTime? lastSeenAt;
 }
 
 /// One page of Friend Group members (`FriendGroupMemberList`).

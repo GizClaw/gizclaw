@@ -6,13 +6,22 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import type { ConsoleAssistant } from "@/lib/config";
 
 import AssistantPanel, { type AssistantPanelProps } from "./assistant-panel";
 import { createAssistantStore, memoryRecords } from "./assistant-store";
 import type { ConsoleStateDeps } from "./console-runtime";
+import { loadGuidesIndex } from "./guides";
 
 const ASSISTANT: ConsoleAssistant = {
   apiKey: `gizclaw_sk_v1_${"a".repeat(43)}`,
@@ -72,6 +81,10 @@ globalThis.ResizeObserver ??= class {
 // Nor does it scroll, which a restored conversation triggers.
 Element.prototype.scrollTo ??= () => {};
 
+// Importing and indexing every bundled guide is the slowest step of a
+// search_knowledge call and can exceed findByText's 1s timeout on a busy CI
+// runner. Build the memoized index up front so the tests wait only on the UI.
+beforeAll(() => loadGuidesIndex(), 30_000);
 beforeEach(() => {
   window.location.hash = "";
 });

@@ -1730,3 +1730,77 @@ func TestCreateFriendGroupInviteTokenWithTTL(t *testing.T) {
 		t.Fatalf("join after extended lifetime error = %v, want ErrInviteTokenUnavailable", err)
 	}
 }
+
+type memberPresenceStub map[string]struct {
+	online     bool
+	lastSeenAt time.Time
+}
+
+func (s memberPresenceStub) PeerPresence(_ context.Context, key string) (bool, time.Time) {
+	value := s[key]
+	return value.online, value.lastSeenAt
+}
+
+func TestListFriendGroupMembersCarriesPresence(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer(t)
+	seen := time.Date(2026, 9, 12, 8, 30, 0, 0, time.FixedZone("UTC+8", 8*60*60))
+	s.Presence = memberPresenceStub{
+		"owner": {true, seen}, "offline": {false, seen.Add(-time.Hour)},
+		"never-seen": {}, "read-failed": {}, // A failed last-seen read returns zero time.
+	}
+	group, err := s.CreateFriendGroup(ctx, "owner", rpcapi.FriendGroupCreateRequest{Name: "room"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertAbsent := func(item rpcapi.FriendGroupMemberObject, err error) {
+		t.Helper()
+		if err != nil || item.Online != nil || item.LastSeenAt != nil {
+			t.Fatalf("undecorated member = %+v, %v", item, err)
+		}
+	}
+	for _, key := range []string{"offline", "never-seen", "read-failed"} {
+		item, err := s.AddFriendGroupMember(ctx, "owner", rpcapi.FriendGroupMemberAddRequest{FriendGroupName: group.Name, PeerPublicKey: key, MemberName: "room", Role: "member"})
+		assertAbsent(item, err)
+	}
+	req := rpcapi.FriendGroupMemberListRequest{FriendGroupName: new(group.Name)}
+	page, err := s.ListFriendGroupMembers(ctx, "owner", req)
+	if err != nil || len(page.Items) != 4 {
+		t.Fatalf("list = %+v, %v", page, err)
+	}
+	for _, item := range page.Items {
+		expected := s.Presence.(memberPresenceStub)[item.Name]
+		if item.Online == nil || *item.Online != expected.online {
+			t.Fatalf("online = %+v", item)
+		}
+		if expected.lastSeenAt.IsZero() {
+			if item.LastSeenAt != nil {
+				t.Fatalf("unknown last seen = %+v", item)
+			}
+		} else if item.LastSeenAt == nil || !item.LastSeenAt.Equal(expected.lastSeenAt) || item.LastSeenAt.Location() != time.UTC {
+			t.Fatalf("last seen = %+v", item)
+		}
+	}
+	if _, err := s.ListFriendGroupMembers(ctx, "outsider", req); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("non-member error = %v", err)
+	}
+	admin, err := s.AdminListFriendGroupMembers(ctx, mustGroupID(t, s, "owner", group.Name), req)
+	if err != nil || len(admin.Items) != 4 {
+		t.Fatalf("admin list = %+v, %v", admin, err)
+	}
+	for _, item := range admin.Items {
+		assertAbsent(item, nil)
+	}
+	item, err := s.PutFriendGroupMember(ctx, "owner", rpcapi.FriendGroupMemberPutRequest{FriendGroupName: group.Name, Name: "offline", Role: "admin"})
+	assertAbsent(item, err)
+	item, err = s.DeleteFriendGroupMember(ctx, "owner", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: group.Name, Name: "offline"})
+	assertAbsent(item, err)
+	s.Presence = nil
+	page, err = s.ListFriendGroupMembers(ctx, "owner", req)
+	if err != nil || len(page.Items) != 3 {
+		t.Fatalf("nil presence list = %+v, %v", page, err)
+	}
+	for _, item := range page.Items {
+		assertAbsent(item, nil)
+	}
+}

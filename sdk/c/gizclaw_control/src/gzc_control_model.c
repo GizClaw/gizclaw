@@ -808,6 +808,12 @@ int gzc_control_decode_friend_group_member(
   if (rc == GZC_OK) {
     rc = decode_peer_profile_info(object_json, &out->has_info, &out->info);
   }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_bool(object_json, "online", &out->online, &out->has_online);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_str(object_json, "last_seen_at", &out->last_seen_at);
+  }
   return rc;
 }
 

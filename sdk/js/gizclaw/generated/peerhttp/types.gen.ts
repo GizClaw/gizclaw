@@ -345,6 +345,14 @@ export type FriendGroupMember = {
     created_at?: string;
     updated_at?: string;
     info?: PeerProfileInfo;
+    /**
+     * Whether the member's device is connected to the answering Server, the same state as Runtime.online. Set only by the members list; absent on add, put, delete and join responses.
+     */
+    online?: boolean;
+    /**
+     * Last observed activity of the member's device in UTC, as Runtime.last_seen_at reports it. Set only by the members list; absent when never observed or the read failed, and on add, put, delete and join responses.
+     */
+    last_seen_at?: string;
 };
 
 export type FriendGroupMemberList = {

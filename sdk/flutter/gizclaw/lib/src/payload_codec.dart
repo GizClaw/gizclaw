@@ -680,7 +680,7 @@ const _explicitPresenceFields = <String, Set<int>>{
   'gizclaw.rpc.v1.FriendGroupListResponse': {3},
   'gizclaw.rpc.v1.FriendGroupMemberListRequest': {1, 2, 3},
   'gizclaw.rpc.v1.FriendGroupMemberListResponse': {3},
-  'gizclaw.rpc.v1.FriendGroupMemberObject': {1, 2, 4, 5, 6},
+  'gizclaw.rpc.v1.FriendGroupMemberObject': {1, 2, 4, 5, 6, 7, 8},
   'gizclaw.rpc.v1.FriendGroupObject': {1, 2, 3, 4, 5, 7, 8},
   'gizclaw.rpc.v1.FriendGroupPingResponse': {3},
   'gizclaw.rpc.v1.FriendGroupPutRequest': {1, 3},

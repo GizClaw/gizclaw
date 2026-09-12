@@ -27,7 +27,7 @@ done
 }
 [[ "$debian_version" == "${tag#v}" ]] || { echo "SemVer tag and Debian version differ" >&2; exit 2; }
 [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source commit" >&2; exit 2; }
-for command_name in dpkg-deb jq sha256sum unzip; do
+for command_name in dpkg-deb jq sha256sum tar unzip; do
   command -v "$command_name" >/dev/null 2>&1 || { echo "required command not found: $command_name" >&2; exit 2; }
 done
 
@@ -36,6 +36,8 @@ expected=(
   "gizclaw_${debian_version}_amd64.deb"
   "gizclaw_${debian_version}_arm64.deb"
   "gizclaw-c-sdk-${debian_version}.tar.gz"
+  "flutter-gizclaw-${debian_version}.tar.gz"
+  "flutter-gizclaw_control-${debian_version}.tar.gz"
   "terraform-provider-gizclaw_${debian_version}_darwin_amd64.zip"
   "terraform-provider-gizclaw_${debian_version}_darwin_arm64.zip"
   "terraform-provider-gizclaw_${debian_version}_linux_amd64.zip"
@@ -96,6 +98,20 @@ while IFS= read -r name; do
     extra="$(jq -cn --arg os "$os" --arg architecture "$architecture" --arg version "$debian_version" \
       --arg executable "$provider_executable" --arg source_commit "$source_commit" \
       '{os:$os,architecture:$architecture,provider:"gizclaw",version:$version,executable:$executable,source_commit:$source_commit}')"
+  elif [[ "$name" == "flutter-gizclaw-${debian_version}.tar.gz" || "$name" == "flutter-gizclaw_control-${debian_version}.tar.gz" ]]; then
+    kind=dart-package
+    package="${name#flutter-}"
+    package="${package%"-${debian_version}.tar.gz"}"
+    pubspec_identity="$(tar -xzOf "$artifact" pubspec.yaml | grep -E '^(name|version):')" || {
+      echo "Flutter SDK archive has no readable pubspec: $name" >&2
+      exit 1
+    }
+    [[ "$pubspec_identity" == "$(printf 'name: %s\nversion: %s' "$package" "$debian_version")" ]] || {
+      echo "Flutter SDK pubspec does not match release identity: $name" >&2
+      exit 1
+    }
+    extra="$(jq -cn --arg package "$package" --arg version "$debian_version" --arg source_commit "$source_commit" \
+      '{package:$package,version:$version,source_commit:$source_commit}')"
   elif [[ "$name" == "$c_sdk_archive" ]]; then
     kind=source
     extra="$(jq -cn --arg module gizclaw_c_sdk --arg version "$debian_version" --arg source_commit "$source_commit" \
@@ -127,7 +143,7 @@ jq -n \
   --arg source_commit "$source_commit" \
   --argjson assets "$assets_json" '
     {
-      schema_version: 4,
+      schema_version: 5,
       repository: "GizClaw/gizclaw",
       go_module: "github.com/GizClaw/gizclaw-go",
       release_channel: "stable",

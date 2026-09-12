@@ -2511,7 +2511,16 @@
           "role": {"$ref": "#/components/schemas/FriendGroupRole"},
           "created_at": {"type": "string", "format": "date-time"},
           "updated_at": {"type": "string", "format": "date-time"},
-          "info": {"$ref": "#/components/schemas/PeerProfileInfo"}
+          "info": {"$ref": "#/components/schemas/PeerProfileInfo"},
+          "online": {
+            "type": "boolean",
+            "description": "Whether the member's device is connected to the answering Server, the same state as Runtime.online. Set only by the members list; absent on add, put, delete and join responses."
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last observed activity of the member's device in UTC, as Runtime.last_seen_at reports it. Set only by the members list; absent when never observed or the read failed, and on add, put, delete and join responses."
+          }
         }
       },
       "FriendGroupMemberList": {

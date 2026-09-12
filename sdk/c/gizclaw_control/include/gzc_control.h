@@ -626,6 +626,10 @@ typedef struct {
   /* False when the member's Peer no longer exists. */
   bool has_info;
   gzc_control_peer_profile_info_t info;
+  /* Server-local presence, supplied only by the members list. */
+  bool has_online;
+  bool online;
+  gzc_str_t last_seen_at;
 } gzc_control_friend_group_member_t;
 
 /* Body of `POST /gizclaw/v1/friend-groups` (`FriendGroupCreateRequest`) and

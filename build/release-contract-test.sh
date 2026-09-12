@@ -4,7 +4,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-for command_name in dpkg-deb jq sha256sum unzip zip; do
+for command_name in dpkg-deb jq sha256sum tar unzip zip; do
   command -v "$command_name" >/dev/null 2>&1 || { echo "required command not found: $command_name" >&2; exit 2; }
 done
 
@@ -49,6 +49,9 @@ grep -Fq "build/find-release-by-tag.sh \"\$GH_REPO\" \"\$TAG\"" <<<"$semver_publ
 grep -Fq "repos/\$GH_REPO/releases/assets/\$asset_id" <<<"$semver_publisher"
 grep -Fq -- '- c-sdk' <<<"$semver_publisher"
 grep -Fq -- '- terraform-provider' <<<"$semver_publisher"
+grep -Fq -- '- flutter-sdk' <<<"$semver_publisher"
+grep -Fq 'tools/flutter-sdk/package_archive.sh' "$release_workflow"
+grep -Fq 'tools/flutter-sdk/consume_archives.sh' "$release_workflow"
 grep -Fq 'build/build-terraform-provider.sh' "$release_workflow"
 grep -Fq 'build/build-terraform-provider.sh' "$ci_workflow"
 grep -Fq 'pattern: "*"' <<<"$semver_publisher"
@@ -175,12 +178,24 @@ make_fixture_provider_zip() {
   (cd "$root" && zip -q -X "$output" "$entry")
 }
 
+make_fixture_dart_package() {
+  local package="$1" output="$2" package_version="${3:-$version}" root
+  root="$fixture_root/dart-$(basename "$output")-$RANDOM"
+  mkdir -p "$root/lib"
+  printf 'name: %s\ndescription: fixture\nversion: %s\n' "$package" "$package_version" >"$root/pubspec.yaml"
+  printf '%s\n' "// Flutter SDK fixture for $package" >"$root/lib/$package.dart"
+  rm -f "$output"
+  tar -C "$root" -czf "$output" pubspec.yaml lib
+}
+
 make_formal_payloads() {
   local directory="$1" c_sdk_archive platform
   mkdir -p "$directory"
   directory="$(cd "$directory" && pwd)"
   make_fixture_deb amd64 "$directory/gizclaw_${version}_amd64.deb"
   make_fixture_deb arm64 "$directory/gizclaw_${version}_arm64.deb"
+  make_fixture_dart_package gizclaw "$directory/flutter-gizclaw-${version}.tar.gz"
+  make_fixture_dart_package gizclaw_control "$directory/flutter-gizclaw_control-${version}.tar.gz"
   for platform in "${provider_platforms[@]}"; do
     make_fixture_provider_zip "$platform" "$directory/terraform-provider-gizclaw_${version}_${platform}.zip"
   done
@@ -295,7 +310,7 @@ mv "$formal_unstable/changed.json" "$formal_unstable/release-manifest.json"
 expect_failure "per-run manifest value" "$repo_root/build/check-release.sh" semver "$formal_unstable" "$tag" "$source_commit"
 
 jq -e --arg version "$version" --arg source_commit "$source_commit" '
-  .schema_version == 4 and
+  .schema_version == 5 and
   ([.assets[] | select(.kind == "terraform-provider")] | length == 4) and
   all(.assets[] | select(.kind == "terraform-provider");
     .provider == "gizclaw" and .version == $version and .source_commit == $source_commit and
@@ -348,6 +363,39 @@ printf '%s\n' extra >"$fixture_root/README"
 (cd "$fixture_root" && zip -q -X "$provider_extra_entry/terraform-provider-gizclaw_${version}_linux_amd64.zip" README)
 expect_failure "provider archive with an extra entry" "$repo_root/build/build-release-manifest.sh" \
   --asset-dir "$provider_extra_entry" --tag "$tag" --debian-version "$version" --source-commit "$source_commit"
+
+jq -e --arg version "$version" --arg source_commit "$source_commit" '
+  [.assets[] | select(.kind == "dart-package") | {name,package,version,source_commit}] == [
+    {name:("flutter-gizclaw-" + $version + ".tar.gz"),package:"gizclaw",version:$version,source_commit:$source_commit},
+    {name:("flutter-gizclaw_control-" + $version + ".tar.gz"),package:"gizclaw_control",version:$version,source_commit:$source_commit}
+  ]
+' "$payloads/release-manifest.json" >/dev/null
+
+formal_missing_dart="$fixture_root/formal-missing-dart-package"
+cp -a "$payloads" "$formal_missing_dart"
+rm "$formal_missing_dart/flutter-gizclaw_control-${version}.tar.gz"
+expect_failure "formal missing Flutter SDK archive" "$repo_root/build/check-release.sh" \
+  semver "$formal_missing_dart" "$tag" "$source_commit"
+
+dart_wrong_version="$fixture_root/dart-wrong-version"
+make_formal_payloads "$dart_wrong_version"
+make_fixture_dart_package gizclaw "$dart_wrong_version/flutter-gizclaw-${version}.tar.gz" 0.0.1
+expect_failure "Flutter SDK archive with another pubspec version" "$repo_root/build/build-release-manifest.sh" \
+  --asset-dir "$dart_wrong_version" --tag "$tag" --debian-version "$version" --source-commit "$source_commit"
+
+dart_swapped="$fixture_root/dart-swapped"
+make_formal_payloads "$dart_swapped"
+make_fixture_dart_package gizclaw "$dart_swapped/flutter-gizclaw_control-${version}.tar.gz"
+expect_failure "Flutter SDK archive with another package name" "$repo_root/build/build-release-manifest.sh" \
+  --asset-dir "$dart_swapped" --tag "$tag" --debian-version "$version" --source-commit "$source_commit"
+
+dart_tampered="$fixture_root/dart-tampered"
+make_formal_payloads "$dart_tampered"
+"$repo_root/build/build-release-manifest.sh" \
+  --asset-dir "$dart_tampered" --tag "$tag" --debian-version "$version" --source-commit "$source_commit" >/dev/null
+make_fixture_dart_package gizclaw "$dart_tampered/flutter-gizclaw-${version}.tar.gz" 0.0.1
+expect_failure "Flutter SDK archive replaced after manifest" "$repo_root/build/check-release.sh" \
+  semver "$dart_tampered" "$tag" "$source_commit"
 
 wrong_metadata="$fixture_root/wrong-metadata"
 make_formal_payloads "$wrong_metadata"

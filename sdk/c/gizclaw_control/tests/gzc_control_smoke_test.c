@@ -909,6 +909,7 @@ static void test_friend_groups(void) {
   };
   gzc_control_friend_group_member_t member;
   check(gzc_control_join_friend_group(&client, &call, &join, &group, &member) == GZC_OK, "join group");
+  check(!member.has_online && member.last_seen_at.len == 0, "join omits member presence");
   check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/friend-groups/@join") == 0, "join url");
   check(strcmp(stub.body, "{\"invite_token\":\"abc\",\"name\":\"family room\"}") == 0, "join body");
   check_str(member.role, "member", "joined member role");
@@ -929,8 +930,8 @@ static void test_friend_groups(void) {
   check(stub.method == GZC_HTTP_METHOD_POST && strcmp(stub.body, "{\"ttl_seconds\":3600}") == 0, "group token body");
 
   stub.response_body = "{\"items\":["
-                       "{\"name\":\"a\",\"peer_public_key\":\"a\",\"role\":\"owner\"},"
-                       "{\"name\":\"7hwy\",\"peer_public_key\":\"7hwy\",\"role\":\"member\",\"info\":{\"display_name\":\"Kitchen\"}}"
+                       "{\"name\":\"a\",\"peer_public_key\":\"a\",\"role\":\"owner\",\"online\":true,\"last_seen_at\":\"2026-09-12T00:30:00Z\"},"
+                       "{\"name\":\"7hwy\",\"peer_public_key\":\"7hwy\",\"role\":\"member\",\"online\":false,\"info\":{\"display_name\":\"Kitchen\"}}"
                        "],\"has_next\":false}";
   gzc_control_friend_group_member_t members[2];
   size_t count = 0;
@@ -943,6 +944,9 @@ static void test_friend_groups(void) {
   check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/friend-groups/family%20room/members") == 0, "members url");
   check(count == 2 && !has_next && cursor.len == 0, "members page");
   check(!members[0].has_info && members[1].has_info, "member info presence");
+  check(members[0].has_online && members[0].online, "online member presence");
+  check_str(members[0].last_seen_at, "2026-09-12T00:30:00Z", "member last seen");
+  check(members[1].has_online && !members[1].online && members[1].last_seen_at.len == 0, "offline member presence");
   check(
       gzc_control_list_friend_group_members(&client, &call, name, NULL, members, 1, &count, &has_next, &cursor) ==
           GZC_ERR_BUFFER_TOO_SMALL,
@@ -956,6 +960,7 @@ static void test_friend_groups(void) {
       .role = gzc_str_from_cstr("member"),
   };
   check(gzc_control_add_friend_group_member(&client, &call, name, &add, &member) == GZC_OK, "add member");
+  check(!member.has_online && member.last_seen_at.len == 0, "add omits member presence");
   check(
       strcmp(stub.body, "{\"peer_public_key\":\"7hwy\",\"member_name\":\"kids\",\"role\":\"member\"}") == 0,
       "add member body");
@@ -968,6 +973,7 @@ static void test_friend_groups(void) {
       strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/friend-groups/family%20room/members/7hwy") == 0,
       "put member url");
   check(strcmp(stub.body, "{\"role\":\"admin\"}") == 0, "put member body");
+  check(!member.has_online && member.last_seen_at.len == 0, "put omits member presence");
 
   stub.status_code = 204;
   stub.response_body = "";
