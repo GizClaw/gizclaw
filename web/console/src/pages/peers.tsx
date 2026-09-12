@@ -32,6 +32,7 @@ import {
 import { nodeErrorMessage } from "@/lib/api";
 import type { PeerState } from "@/hooks/use-peers";
 import { bytes, host, timestamp } from "@/lib/format";
+import { usePageView } from "@/assistant/page-view";
 
 export function PeersPage({
   config,
@@ -51,6 +52,19 @@ export function PeersPage({
   // The console is served from the access point, so device APIs live on this
   // page's own origin unless the configuration names another one.
   const endpoint = config.deviceEndpoint ?? window.location.origin;
+  usePageView({
+    page: "设备列表",
+    devices: peers.map((peer) => {
+      const state = states[peerId(peer)];
+      return {
+        public_key: peer.publicKey,
+        label: peer.label,
+        status: state?.status ?? "loading",
+        online: state?.snapshot?.runtime.online,
+        error: state?.error,
+      };
+    }),
+  });
   const add = (publicKey: string, label: string) =>
     onAdd({
       publicKey: normalizePublicKey(publicKey),

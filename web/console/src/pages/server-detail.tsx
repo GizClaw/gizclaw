@@ -23,6 +23,7 @@ import { StatusBadge } from "@/pages/overview";
 import type { ConsoleServer } from "@/lib/config";
 import type { ServerState } from "@/hooks/use-fleet";
 import { bytes, duration, host } from "@/lib/format";
+import { usePageView } from "@/assistant/page-view";
 
 export function ServerDetailPage({
   server,
@@ -36,6 +37,22 @@ export function ServerDetailPage({
   const snapshot = state?.snapshot;
   const sample = state?.samples.at(-1);
   const live = state?.status === "online";
+  usePageView({
+    page: "节点详情",
+    window_seconds: windowSeconds,
+    node: {
+      id: server.id,
+      name: server.name,
+      role: server.role,
+      region: server.region,
+    },
+    status: state?.status ?? "loading",
+    error: state?.error,
+    snapshot,
+    rates: sample
+      ? { rx_bytes_per_second: sample.rx, tx_bytes_per_second: sample.tx }
+      : undefined,
+  });
   return (
     <>
       <PageHeading

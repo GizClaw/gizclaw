@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import type { ModelRequest } from "@openai/agents-core";
+
 import { AssistantTurnError, createAssistant } from "../src/assistant.ts";
+import { estimateTokens } from "../src/context.ts";
 import { FakeRuntime } from "../testing/fake-runtime.ts";
 import { runScenario } from "../testing/run-scenario.ts";
 import { LIVING_ROOM, scenarios } from "../testing/scenarios.ts";
@@ -119,4 +122,126 @@ test("an aborted turn rejects without further tool calls", async () => {
     AssistantTurnError,
   );
   assert.equal(runtime.called("logs.search").length, 0);
+});
+
+test("a saved history restores the conversation", async () => {
+  const first = createAssistant({
+    runtime: new FakeRuntime(scenarios[0].world),
+    model: new ScriptedModel([{ reply: "第一轮" }]),
+  });
+  await first.send("你好");
+  const saved = first.history();
+
+  const model = new ScriptedModel([{ reply: "接着聊" }]);
+  const restored = createAssistant({
+    runtime: new FakeRuntime(scenarios[0].world),
+    model,
+    history: saved,
+  });
+  await restored.send("继续");
+  const input = model.requests[0].input;
+  assert.ok(Array.isArray(input));
+  assert.deepEqual(
+    input.map((item) => ("role" in item ? item.role : item.type)),
+    ["user", "assistant", "user"],
+  );
+  assert.equal(restored.history().length, 4);
+});
+
+test("a history over budget is summarized before the turn", async () => {
+  const model = new ScriptedModel([
+    ...Array.from({ length: 6 }, (_, index) => ({
+      reply: `回答 ${index} ${"很长的分析。".repeat(400)}`,
+    })),
+    { reply: "客厅音箱 ASR_TIMEOUT 频繁" },
+    { reply: "好的" },
+  ]);
+  const assistant = createAssistant({
+    runtime: new FakeRuntime(scenarios[0].world),
+    model,
+    contextTokens: 18_000,
+    keepTurns: 2,
+  });
+  for (let index = 0; index < 6; index++) {
+    assert.equal((await assistant.send(`问题 ${index}`)).compaction, undefined);
+  }
+  const turn = await assistant.send("最后一个问题");
+  assert.deepEqual(turn.compaction, { trimmedResults: 0, summarizedTurns: 4 });
+  // The summarizer saw the folded turns; the agent got summary + 2 turns.
+  const summaryRequest = model.requests.at(-2);
+  assert.match(String(summaryRequest?.systemInstructions), /压缩/);
+  assert.match(JSON.stringify(summaryRequest?.input), /用户：问题 0/);
+  assert.equal(summaryRequest?.tools.length, 0);
+  const input = model.requests.at(-1)?.input;
+  assert.ok(Array.isArray(input));
+  assert.deepEqual(
+    input.map((item) => ("role" in item ? item.role : item.type)),
+    ["system", "user", "assistant", "user", "assistant", "user"],
+  );
+});
+
+// What a model request costs by the assistant's own estimate: instructions,
+// tool declarations and input items.
+function requestTokens(request: ModelRequest): number {
+  return (
+    estimateTokens(request.systemInstructions ?? "") +
+    estimateTokens(
+      request.tools.map((tool) =>
+        tool.type === "function"
+          ? {
+              name: tool.name,
+              description: tool.description,
+              parameters: tool.parameters,
+            }
+          : tool,
+      ),
+    ) +
+    estimateTokens(request.input)
+  );
+}
+
+test("every request stays within the configured context budget", async () => {
+  const contextTokens = 8_000;
+  const model = new ScriptedModel([
+    ...Array.from({ length: 8 }, (_, index) => ({
+      reply: `回答 ${index} ${"分析".repeat(600)}`,
+    })),
+    { reply: "摘要".repeat(5_000) },
+    { reply: "好的" },
+  ]);
+  const assistant = createAssistant({
+    runtime: new FakeRuntime(scenarios[0].world),
+    model,
+    contextTokens,
+  });
+  let compacted = false;
+  for (let index = 0; index < 9 && !compacted; index++) {
+    compacted =
+      (await assistant.send(`问题 ${index}`)).compaction !== undefined;
+  }
+  assert.ok(compacted, "the history was compacted");
+  for (const request of model.requests) {
+    assert.ok(
+      requestTokens(request) <= contextTokens,
+      `request of ${requestTokens(request)} tokens`,
+    );
+  }
+});
+
+test("a message that cannot fit the budget is rejected before any request", async () => {
+  const model = new ScriptedModel([{ reply: "不会用到" }]);
+  const assistant = createAssistant({
+    runtime: new FakeRuntime(scenarios[0].world),
+    model,
+    contextTokens: 8_000,
+  });
+  await assert.rejects(
+    assistant.send("长".repeat(8_000)),
+    (error: unknown) =>
+      error instanceof AssistantTurnError &&
+      /contextTokens/.test(error.message),
+  );
+  assert.equal(model.requests.length, 0);
+  // The assistant is free for the next message.
+  assert.equal((await assistant.send("短一点")).reply, "不会用到");
 });

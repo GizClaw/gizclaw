@@ -47,6 +47,7 @@ checks that every runtime method is used by exactly one tool, and
 | `devices.workspaces`            | `listWorkspaces`                      | `list_device_workspaces`   |
 | `devices.history`               | `listWorkspaceHistory`                | `get_conversation_history` |
 | `logs.search`                   | `searchLogs`                          | `search_logs`              |
+| `knowledge.search`              | index of the bundled guides           | `search_knowledge`         |
 
 The view model is the page's structured state, never the DOM. Mutating device
 APIs (`reboot`, `setVolume`, `playSound`, `find`, Wi-Fi scan/connect/forget,
@@ -71,6 +72,44 @@ Every call is recorded as an `ActionRecord`, returned with each turn for the UI
 and for tests. A turn's reply joins every text the assistant produced during
 the turn, because models often explain their findings in the same response that
 calls a tool and end with a short confirmation. A turn allows 12 model calls.
+
+## Context and history
+
+`createAssistant` takes a saved `history` and resumes from it; `history()`
+returns a copy to save after each turn. The package does not store anything:
+the console persists it.
+
+Before each turn `compactHistory` keeps the history within `contextTokens`
+(default 32000) minus the instructions and the tool declarations as sent,
+parameter schemas included (about 4300 tokens); there is no floor, and a
+message that cannot fit beside them is rejected before any request. Tokens are
+estimated without a tokenizer, one per CJK character and one per four other
+characters, erring high. Over budget, tool results of every turn but the last
+are cut to 1500 characters, then those of the last turn. If that is not
+enough, up to a quarter of the budget, never more than the incoming message
+leaves, is reserved for a summary and the most recent
+turns that fit in the rest (at most `keepTurns`, default 4) are kept; the other
+turns and any earlier summary go to a summarizer agent on the same model. The
+history becomes one system item starting with `【较早对话的摘要】`, cut to its
+reserve, followed by the kept turns verbatim, so it fits beside the incoming
+message unless that message alone exceeds the budget. Without room for a
+summary the folded turns are dropped. The turn reports what was done as
+`compaction`. The summarizer's input is cut in the middle to the budget minus
+its own instructions, keeping the earlier summary and the latest turns.
+
+## Knowledge
+
+`createKnowledgeIndex` builds a BM25 index (k1 1.2, b 0.75) over Markdown
+documents cut into sections by heading, at most 700 characters each. The
+tokenizer needs no dictionary: CJK runs become overlapping character pairs,
+other runs lowercase words, and identifiers joined by `_`, `.` or `-` also
+yield their parts. The knowledge base is the project's zh guides and nothing
+else: `guideDocuments` turns guide files keyed by their path under `guides/`
+into documents titled by their first heading and linked to
+`https://gizclaw.github.io/gizclaw/`, skipping the pages the site excludes.
+The console bundles the guides at build time; `testing/guides.ts` reads them
+from the repository for `FakeRuntime` and the tests, so scenarios search the
+same text the console ships.
 
 ## Safety
 

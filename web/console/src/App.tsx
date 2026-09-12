@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { parseRoute as parseConsoleRoute } from "@gizclaw/assistant/routes";
 import { Pause, Play } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,9 @@ import { useWatchedPeers } from "@/hooks/use-peers";
 import { exportConfig, parseConfig, type ConsoleConfig } from "@/lib/config";
 import { clearAll, clearConfig, readConfig, saveConfig } from "@/lib/store";
 import { peerId } from "@/lib/peers";
+import { AssistantButton } from "@/assistant/assistant-button";
+import type { ConsoleStateDeps } from "@/assistant/console-runtime";
+import { PageViewProvider, type PageViewHolder } from "@/assistant/page-view";
 
 export type Route =
   | { page: "overview" }
@@ -24,15 +28,13 @@ export type Route =
   | { page: "peers" }
   | { page: "peer"; publicKey: string };
 
+// The route syntax lives in @gizclaw/assistant so the assistant navigates with
+// exactly the hashes this router reads.
 function parseRoute(hash: string): Route {
-  const server = /^#\/server\/(.+)$/.exec(hash);
-  if (server) return { page: "server", id: decodeURIComponent(server[1]) };
-  const logs = /^#\/logs(?:\?q=(.*))?$/.exec(hash);
-  if (logs) return { page: "logs", query: decodeURIComponent(logs[1] ?? "") };
-  if (hash === "#/peers") return { page: "peers" };
-  const peer = /^#\/peer\/(.+)$/.exec(hash);
-  if (peer) return { page: "peer", publicKey: decodeURIComponent(peer[1]) };
-  return { page: "overview" };
+  const route = parseConsoleRoute(hash);
+  return route.page === "logs"
+    ? { page: "logs", query: route.query ?? "" }
+    : route;
 }
 
 function useHashRoute(): Route {
@@ -80,6 +82,24 @@ export function App() {
   // HTTP requests to the device's owning Server.
   const watch = useWatchedPeers(15000, paused);
   const importPeers = watch.importPeers;
+
+  // The assistant reads the latest console state through refs at call time.
+  const latest = useRef({ config, fleet, watch });
+  latest.current = { config, fleet, watch };
+  const pageView = useRef<PageViewHolder>({ current: undefined }).current;
+  const assistantDeps = useMemo<ConsoleStateDeps>(
+    () => ({
+      config: () => latest.current.config!,
+      fleet: () => latest.current.fleet,
+      peers: () => latest.current.watch.peers,
+      peerStates: () => latest.current.watch.states,
+      watch: (peer) => latest.current.watch.add(peer),
+      view: pageView,
+      window,
+      now: Date.now,
+    }),
+    [pageView],
+  );
 
   const connect = useCallback(
     (next: ConsoleConfig, text: string, remember: boolean) => {
@@ -186,55 +206,63 @@ export function App() {
           </AlertDescription>
         </Alert>
       )}
+      <AssistantButton
+        assistant={config.assistant}
+        runtimeDeps={assistantDeps}
+        endpoint={config.deviceEndpoint ?? window.location.origin}
+        onOpenConfig={() => setConfigOpen(true)}
+      />
       <ConfigDialog
         open={configOpen}
         text={configText}
         onOpenChange={setConfigOpen}
         onApply={applyConfig}
       />
-      {route.page === "peer" ? (
-        activePeer ? (
-          <PeerDetailPage
-            peer={activePeer}
-            state={watch.states[peerId(activePeer)]}
+      <PageViewProvider holder={pageView}>
+        {route.page === "peer" ? (
+          activePeer ? (
+            <PeerDetailPage
+              peer={activePeer}
+              state={watch.states[peerId(activePeer)]}
+              windowSeconds={windowSeconds}
+            />
+          ) : (
+            <Alert>
+              <AlertTitle>找不到该设备</AlertTitle>
+              <AlertDescription>
+                关注列表里没有这个公钥，请先在设备监控页添加。
+              </AlertDescription>
+            </Alert>
+          )
+        ) : route.page === "peers" ? (
+          <PeersPage
+            config={config}
+            peers={watch.peers}
+            states={watch.states}
+            onAdd={watch.add}
+            onRemove={watch.remove}
+            storageError={watch.storageError}
+          />
+        ) : route.page === "logs" ? (
+          <LogsPage
+            key={route.query}
+            peers={watch.peers}
+            initialQuery={route.query}
+          />
+        ) : active ? (
+          <ServerDetailPage
+            server={active}
+            state={fleet[active.id]}
             windowSeconds={windowSeconds}
           />
         ) : (
-          <Alert>
-            <AlertTitle>找不到该设备</AlertTitle>
-            <AlertDescription>
-              关注列表里没有这个公钥，请先在设备监控页添加。
-            </AlertDescription>
-          </Alert>
-        )
-      ) : route.page === "peers" ? (
-        <PeersPage
-          config={config}
-          peers={watch.peers}
-          states={watch.states}
-          onAdd={watch.add}
-          onRemove={watch.remove}
-          storageError={watch.storageError}
-        />
-      ) : route.page === "logs" ? (
-        <LogsPage
-          key={route.query}
-          peers={watch.peers}
-          initialQuery={route.query}
-        />
-      ) : active ? (
-        <ServerDetailPage
-          server={active}
-          state={fleet[active.id]}
-          windowSeconds={windowSeconds}
-        />
-      ) : (
-        <OverviewPage
-          config={config}
-          fleet={fleet}
-          windowSeconds={windowSeconds}
-        />
-      )}
+          <OverviewPage
+            config={config}
+            fleet={fleet}
+            windowSeconds={windowSeconds}
+          />
+        )}
+      </PageViewProvider>
     </AppShell>
   );
 }

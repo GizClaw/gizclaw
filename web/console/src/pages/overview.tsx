@@ -28,6 +28,7 @@ import { PageHeading } from "@/components/app-shell";
 import type { ConsoleServer } from "@/lib/config";
 import type { FleetState } from "@/hooks/use-fleet";
 import { bytes, duration, host, type Sample } from "@/lib/format";
+import { usePageView } from "@/assistant/page-view";
 
 function aggregate(samples: Sample[][]): Sample[] {
   const buckets = new Map<number, Sample>();
@@ -74,6 +75,24 @@ export function OverviewPage({
     (total, { server }) => total + (latest(server.id)?.tx ?? 0),
     0,
   );
+  usePageView({
+    page: "集群总览",
+    window_seconds: windowSeconds,
+    online_nodes: online.length,
+    total_nodes: config.servers.length,
+    failing_nodes: failing.map(({ server }) => server.id),
+    connections,
+    rx_bytes_per_second: rx,
+    tx_bytes_per_second: tx,
+    nodes: states.map(({ server, state }) => ({
+      id: server.id,
+      name: server.name,
+      role: server.role,
+      status: state?.status ?? "loading",
+      connections: state?.snapshot?.transport.connections,
+      error: state?.error,
+    })),
+  });
 
   return (
     <>

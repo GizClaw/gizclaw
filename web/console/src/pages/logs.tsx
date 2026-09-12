@@ -14,7 +14,12 @@ import { Select } from "@/components/ui/select";
 import { PageHeading } from "@/components/app-shell";
 import { LogStream } from "@/components/log-stream";
 import { LogRecordDetail } from "@/components/log-detail";
-import { matches, parseQuery, type LogRecord } from "@/lib/log-query";
+import {
+  matches,
+  parseQuery,
+  summarize,
+  type LogRecord,
+} from "@/lib/log-query";
 import {
   loadDeviceLogs,
   peerId,
@@ -23,6 +28,7 @@ import {
 } from "@/lib/peers";
 import { nodeErrorMessage } from "@/lib/api";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { usePageView } from "@/assistant/page-view";
 
 const LEVELS = ["ALL", "ERROR", "WARN", "INFO", "DEBUG"] as const;
 const WINDOWS = [
@@ -43,9 +49,36 @@ export function LogsPage({
   const [level, setLevel] = useState<string>("ALL");
   const [windowSeconds, setWindowSeconds] = useState(900);
   const [selected, setSelected] = useState<LogRecord | undefined>();
-  const [source, setSource] = useState(() =>
-    peers[0] ? peerId(peers[0]) : "",
+  // A query that names a device (from the peers page or the assistant) opens
+  // that device's logs; otherwise the first watched device is the source.
+  // The source is derived on every render, so a named device that joins the
+  // watch list after the page opens is still picked up; a device the user
+  // picks explicitly wins while it stays watched.
+  const [chosen, setChosen] = useState<string>();
+  // Public keys are case-sensitive Base58 while parseQuery lowercases clause
+  // values, so the named key is read from the raw query and matched exactly,
+  // falling back to a case-insensitive match.
+  const wanted = useMemo(
+    () =>
+      initialQuery
+        .split(/\s+/)
+        .map((token) => /^(?:peer_public_key|peer):(.+)$/i.exec(token)?.[1])
+        .find((value) => value !== undefined),
+    [initialQuery],
   );
+  const named = wanted
+    ? (peers.find((peer) => peer.publicKey === wanted) ??
+      peers.find(
+        (peer) => peer.publicKey.toLowerCase() === wanted.toLowerCase(),
+      ))
+    : undefined;
+  const fallback = named ?? peers[0];
+  const source =
+    chosen !== undefined && peers.some((peer) => peerId(peer) === chosen)
+      ? chosen
+      : fallback
+        ? peerId(fallback)
+        : "";
   const device = peers.find((peer) => peerId(peer) === source);
   const [deviceRecords, setDeviceRecords] = useState<LogRecord[]>([]);
   const [deviceError, setDeviceError] = useState("");
@@ -139,6 +172,24 @@ export function LogsPage({
 
   const errors = shown.filter((record) => record.level === "ERROR").length;
   const warnings = shown.filter((record) => record.level === "WARN").length;
+  usePageView({
+    page: "日志查询",
+    query: text,
+    level,
+    window_seconds: windowSeconds,
+    source_device: device?.publicKey,
+    loaded: all.length,
+    shown: shown.length,
+    errors,
+    warnings,
+    records: shown.slice(0, 50).map((record) => ({
+      time: record.time,
+      level: record.level,
+      summary: summarize(record),
+      message: record.message,
+      error: record.error,
+    })),
+  });
   const traced = selected?.fields?.request_id;
 
   return (
@@ -180,7 +231,7 @@ export function LogsPage({
             <Select
               aria-label="数据源"
               value={source}
-              onChange={(event) => setSource(event.target.value)}
+              onChange={(event) => setChosen(event.target.value)}
             >
               <option value="">选择设备</option>
               {peers.map((peer) => (
