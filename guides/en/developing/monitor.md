@@ -160,3 +160,39 @@ stays open, then completes another request over the same connection. It does
 not rely on closing the parent connection to reclaim resources, and does not
 cover real public-network loss, a Hong Kong TURN deployment or long-running
 conditions.
+
+## Diagnostic assistant
+
+The diagnostic assistant lives in `web/assistant/` (private workspace
+`@gizclaw/assistant`), an agent package independent of React; see
+`web/assistant/DESIGN.md` for the design. It reaches a node's `/openai/v1`
+through the Chat Completions model of `@openai/agents-core` and
+`@openai/agents-openai`. Every tool runs in the browser; GizClaw only forwards
+tool declarations, calls, and results.
+
+Every way out of the assistant is injected through `AssistantRuntime`: `page`
+(navigation, opening links, the current route), `view` (a structured snapshot
+of what the current page shows), `fleet` (node status and in-memory traffic
+samples), `devices` (device lookup, status, latest and ranged telemetry,
+Wi-Fi, conversation Workspaces and history), and `logs` (log search).
+`src/apis.ts` is the tool catalog: each tool declares the runtime methods it
+calls, its description, zod parameters and implementation; tools are generated
+from it, and a test ensures every runtime method is used by exactly one tool.
+The tools are read-only; device writes such as reboot, volume, Wi-Fi scans and
+changes, and deletion have no runtime method. Log search aggregates by level,
+operation, error code, RPC status code, and HTTP status, and navigation to the
+log page builds the console query from a device key, error code, level and
+text. Source failures reach the model as error codes; for
+`DEBUG_ACCESS_FORBIDDEN` the assistant explains that read-only debug mode must
+be enabled on the device instead of claiming to have done it. Tool results,
+conversation history included, are treated as untrusted data.
+
+Validation has two layers. `npm test --workspace @gizclaw/assistant` runs the
+scenario set through the real Agents SDK runner with a `FakeRuntime` covering
+every source and a scripted model, proving tool wiring, argument validation,
+result handoff, and navigation. `TestAssistantScenariosWithLiveModel` in
+`tests/gizclaw-e2e/go/openai` runs the same scenarios against the Docker stack's
+RuntimeProfile `llm` (Volc Ark `doubao-mini-chat`), asserting only tool calls,
+the final route, and key facts in the reply, giving each scenario three
+attempts to separate a small model's variance from behavior the assistant
+cannot reach.

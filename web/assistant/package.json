@@ -1,0 +1,27 @@
+{
+  "name": "@gizclaw/assistant",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": "^22.13.0 || >=23.5.0"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./testing/index.ts"
+  },
+  "scripts": {
+    "test": "node --test --experimental-strip-types test/*.test.ts",
+    "live-scenarios": "node --experimental-strip-types scripts/run-live-scenarios.ts"
+  },
+  "dependencies": {
+    "@openai/agents-core": "0.18.0",
+    "@openai/agents-openai": "0.18.0",
+    "openai": "7.15.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.0",
+    "typescript": "6.0.3"
+  }
+}
