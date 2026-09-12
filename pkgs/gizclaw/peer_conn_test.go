@@ -846,9 +846,13 @@ func TestOpenAIHandlerRoundTripsClientToolCalls(t *testing.T) {
 			}}, nil
 		}),
 	})
-	// The shape @openai/agents sends in Chat Completions mode on its second turn.
+	// The shape @openai/agents sends in Chat Completions mode on its second
+	// turn. When the model spoke and called a tool in one response, the SDK
+	// echoes the rest of that response message inside the text part.
 	const history = `"messages":[{"role":"system","content":"diagnose"},{"role":"user","content":"which node is busy?"},` +
-		`{"role":"assistant","tool_calls":[{"id":"call_a","type":"function","function":{"name":"node_snapshot","arguments":"{\"node\":\"a\"}"}}]},` +
+		`{"role":"assistant","content":[{"type":"text","text":"checking a","refusal":null,"role":"assistant",` +
+		`"tool_calls":[{"function":{"arguments":"{\"node\":\"a\"}","name":"node_snapshot"},"id":"call_a","type":"function"}]}],` +
+		`"tool_calls":[{"id":"call_a","type":"function","function":{"name":"node_snapshot","arguments":"{\"node\":\"a\"}"}}]},` +
 		`{"role":"tool","tool_call_id":"call_a","content":"{\"connections\":3}"}],` +
 		`"tools":[{"type":"function","function":{"name":"node_snapshot","description":"Read one node.",` +
 		`"parameters":{"type":"object","properties":{"node":{"type":"string"}},"required":["node"],"additionalProperties":false},"strict":true}}]`

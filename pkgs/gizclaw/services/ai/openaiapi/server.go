@@ -471,7 +471,7 @@ func buildModelContext(body *chatCompletionRequest) (genx.ModelContext, bool, er
 		if err := rejectUnknownFields(message, "messages", allowed...); err != nil {
 			return nil, false, err
 		}
-		text, blobs, err := parseMessageContent(message["content"])
+		text, blobs, err := parseMessageContent(message["content"], role == "assistant")
 		if err != nil {
 			return nil, false, err
 		}
@@ -533,7 +533,11 @@ func thinkingParams(options *thinkingOptions) *genx.ThinkingParams {
 	return result
 }
 
-func parseMessageContent(value any) (string, []*genx.Blob, error) {
+// parseMessageContent reads text and audio parts. Assistant history text
+// parts may echo the rest of an earlier response message: @openai/agents
+// replays role, refusal, tool_calls and provider fields beside type and text.
+// Those echoes carry no instruction, so only type and text are read there.
+func parseMessageContent(value any, assistantHistory bool) (string, []*genx.Blob, error) {
 	switch typed := value.(type) {
 	case string:
 		return typed, nil, nil
@@ -547,8 +551,10 @@ func parseMessageContent(value any) (string, []*genx.Blob, error) {
 			}
 			switch part["type"] {
 			case "text":
-				if err := requireFields(part, "type", "text"); err != nil {
-					return "", nil, err
+				if !assistantHistory {
+					if err := requireFields(part, "type", "text"); err != nil {
+						return "", nil, err
+					}
 				}
 				if value, ok := part["text"].(string); ok {
 					text.WriteString(value)
