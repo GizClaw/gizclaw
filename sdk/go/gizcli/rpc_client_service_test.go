@@ -128,9 +128,21 @@ func TestRPCClientHandleToolInvoke(t *testing.T) {
 		t.Fatalf("tool result = %s, %v", result.DataJson, err)
 	}
 
-	resp, err = (&rpcClient{peer: &Client{}}).dispatch(context.Background(), &rpcapi.RPCRequest{Id: "invoke", Method: rpcapi.RPCMethodClientToolInvoke, Params: &params})
+	unavailable := &Client{}
+	var observed atomic.Int32
+	if err := unavailable.ObserveClientRPC(func(method rpcapi.RPCMethod) {
+		if method == rpcapi.RPCMethodClientToolInvoke {
+			observed.Add(1)
+		}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	resp, err = (&rpcClient{peer: unavailable}).dispatch(context.Background(), &rpcapi.RPCRequest{Id: "invoke", Method: rpcapi.RPCMethodClientToolInvoke, Params: &params})
 	if err != nil || resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeUnimplemented {
 		t.Fatalf("dispatch(no handler) = %#v, %v", resp, err)
+	}
+	if observed.Load() != 1 {
+		t.Fatalf("observed unavailable Tool calls = %d, want 1", observed.Load())
 	}
 }
 
