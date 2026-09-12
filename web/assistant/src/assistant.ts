@@ -7,9 +7,9 @@ import {
   type RunItem,
 } from "@openai/agents-core";
 
-import { ASSISTANT_APIS } from "./apis.ts";
 import {
   compactHistory,
+  cutMiddle,
   estimateTokens,
   type Compaction,
   type ContextOptions,
@@ -82,39 +82,50 @@ export function createAssistant(options: AssistantOptions): Assistant {
   // Traces would otherwise be exported to the OpenAI platform.
   setTracingDisabled(true);
   let actions: ActionRecord[] = [];
+  const tools = createTools({
+    runtime: options.runtime,
+    record: (action) => actions.push(action),
+    now: options.now ?? Date.now,
+  });
   const agent = new Agent({
     name: "GizClaw 诊断助手",
     instructions: ASSISTANT_INSTRUCTIONS,
     model: options.model,
-    tools: createTools({
-      runtime: options.runtime,
-      record: (action) => actions.push(action),
-      now: options.now ?? Date.now,
-    }),
+    tools,
   });
   const summarizer = new Agent({
     name: "对话摘要",
     instructions: SUMMARY_INSTRUCTIONS,
     model: options.model,
   });
-  // Instructions and tool declarations are sent with every turn; the rest of
-  // the budget belongs to the history.
+  // The instructions and tool declarations go with every turn; what is left
+  // of the budget belongs to the history and the new message.
+  const contextTokens = options.contextTokens ?? DEFAULT_CONTEXT_TOKENS;
   const overhead =
     estimateTokens(ASSISTANT_INSTRUCTIONS) +
-    estimateTokens(ASSISTANT_APIS.map((api) => api.description));
+    estimateTokens(
+      tools.map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters,
+      })),
+    );
   const context: ContextOptions = {
-    maxTokens: Math.max(
-      2_000,
-      (options.contextTokens ?? DEFAULT_CONTEXT_TOKENS) - overhead,
-    ),
+    maxTokens: contextTokens - overhead,
     keepTurns: options.keepTurns ?? 4,
     trimChars: 1_500,
   };
+  // The summarizer sees at most the budget minus its own instructions.
+  const transcriptTokens = contextTokens - estimateTokens(SUMMARY_INSTRUCTIONS);
   let history: AgentInputItem[] = [...(options.history ?? [])];
   let busy = false;
 
   const summarize = async (transcript: string, signal?: AbortSignal) => {
-    const result = await run(summarizer, transcript, { maxTurns: 1, signal });
+    const result = await run(
+      summarizer,
+      cutMiddle(transcript, transcriptTokens),
+      { maxTurns: 1, signal },
+    );
     return String(result.finalOutput ?? "");
   };
 
@@ -123,6 +134,14 @@ export function createAssistant(options: AssistantOptions): Assistant {
       if (busy) {
         throw new Error(
           "the assistant is still answering the previous message",
+        );
+      }
+      if (estimateTokens(message) > context.maxTokens) {
+        throw new AssistantTurnError(
+          new Error(
+            `这条消息加上助手的指令和工具声明（约 ${overhead} token）超出了上下文预算 ${contextTokens} token，请缩短消息或调大 contextTokens`,
+          ),
+          [],
         );
       }
       busy = true;

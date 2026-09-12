@@ -220,7 +220,8 @@ uses it over `/openai/v1` to call models from that device's RuntimeProfile.
 `model` is the RuntimeProfile model alias and defaults to `llm`. `endpoint` is
 optional and defaults to the device API endpoint: `deviceEndpoint` or the
 console's own origin. `contextTokens` is optional: the context budget sent to
-the model each turn (4000 to 1000000, default 32000), which should not exceed
+the model each turn (8000 to 1000000, default 32000), including about 4300
+tokens of instructions and tool declarations, which should not exceed
 the model's context window. The key can also read and control the device it belongs
 to, so like Monitor tokens it is stored encrypted with the configuration in the
 browser, cleared on logout, and included in exports. Without `assistant` the

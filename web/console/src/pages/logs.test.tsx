@@ -83,6 +83,38 @@ describe("persistent log search", () => {
     ]);
   });
 
+  it("matches the named public key exactly before ignoring case", async () => {
+    const peer = (publicKey: string, endpoint: string) => ({
+      publicKey,
+      label: publicKey,
+      endpoint,
+      addedAt: 1,
+    });
+    const peers = [
+      peer("AbcKey", "https://upper.example.com"),
+      peer("abckey", "https://lower.example.com"),
+    ];
+    const view = render(
+      <LogsPage peers={peers} initialQuery="peer_public_key:abckey" />,
+    );
+    await waitFor(() => expect(loadDeviceLogs).toHaveBeenCalled());
+    expect(loadDeviceLogs.mock.calls.at(-1)?.slice(0, 2)).toEqual([
+      "https://lower.example.com",
+      "abckey",
+    ]);
+    view.unmount();
+
+    loadDeviceLogs.mockClear();
+    render(
+      <LogsPage
+        peers={[peers[0]]}
+        initialQuery="-peer_public_key:x peer:ABCKEY"
+      />,
+    );
+    await waitFor(() => expect(loadDeviceLogs).toHaveBeenCalled());
+    expect(loadDeviceLogs.mock.calls.at(-1)?.[1]).toBe("AbcKey");
+  });
+
   it("opens the named device once the watch list catches up", async () => {
     const first = {
       publicKey: "first-key",

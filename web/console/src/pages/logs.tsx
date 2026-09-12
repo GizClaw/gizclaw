@@ -55,17 +55,22 @@ export function LogsPage({
   // watch list after the page opens is still picked up; a device the user
   // picks explicitly wins while it stays watched.
   const [chosen, setChosen] = useState<string>();
+  // Public keys are case-sensitive Base58 while parseQuery lowercases clause
+  // values, so the named key is read from the raw query and matched exactly,
+  // falling back to a case-insensitive match.
   const wanted = useMemo(
     () =>
-      parseQuery(initialQuery).clauses.find(
-        (clause) =>
-          !clause.negate &&
-          (clause.key === "peer_public_key" || clause.key === "peer"),
-      )?.value,
+      initialQuery
+        .split(/\s+/)
+        .map((token) => /^(?:peer_public_key|peer):(.+)$/i.exec(token)?.[1])
+        .find((value) => value !== undefined),
     [initialQuery],
   );
   const named = wanted
-    ? peers.find((peer) => peer.publicKey.toLowerCase() === wanted)
+    ? (peers.find((peer) => peer.publicKey === wanted) ??
+      peers.find(
+        (peer) => peer.publicKey.toLowerCase() === wanted.toLowerCase(),
+      ))
     : undefined;
   const fallback = named ?? peers[0];
   const source =

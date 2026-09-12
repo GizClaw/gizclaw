@@ -163,7 +163,7 @@ Monitor console 右下角的聊天按钮打开诊断助手面板；面板代码�
 `apiKey` 必须是 `gizclaw_sk_v1_` 开头的设备 API Key，助手用它经 `/openai/v1` 调用该设备
 RuntimeProfile 中的模型；`model` 是 RuntimeProfile 的模型别名，默认 `llm`；`endpoint` 可选，
 缺省时与设备 API 相同，为 `deviceEndpoint` 或 console 所在 origin；`contextTokens` 可选，是每轮
-发给模型的上下文预算（4000 到 1000000，默认 32000），应不超过该模型的上下文窗口。这把 Key 同时能读取和
+发给模型的上下文预算（8000 到 1000000，默认 32000），包括约 4300 token 的指令与工具声明，应不超过该模型的上下文窗口。这把 Key 同时能读取和
 控制它所属的设备，因此与 Monitor Token 一样随配置加密保存在浏览器、登出时清除，并随配置导出。
 没有 `assistant` 时面板只说明如何配置，不发起任何请求。
 

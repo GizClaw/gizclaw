@@ -80,7 +80,9 @@ returns a copy to save after each turn. The package does not store anything:
 the console persists it.
 
 Before each turn `compactHistory` keeps the history within `contextTokens`
-(default 32000) minus the instructions and tool descriptions. Tokens are
+(default 32000) minus the instructions and the tool declarations as sent,
+parameter schemas included (about 4300 tokens); there is no floor, and a
+message that cannot fit beside them is rejected before any request. Tokens are
 estimated without a tokenizer, one per CJK character and one per four other
 characters, erring high. Over budget, tool results of every turn but the last
 are cut to 1500 characters, then those of the last turn. If that is not
@@ -92,7 +94,8 @@ history becomes one system item starting with `【较早对话的摘要】`, cut
 reserve, followed by the kept turns verbatim, so it fits beside the incoming
 message unless that message alone exceeds the budget. Without room for a
 summary the folded turns are dropped. The turn reports what was done as
-`compaction`.
+`compaction`. The summarizer's input is cut in the middle to the budget minus
+its own instructions, keeping the earlier summary and the latest turns.
 
 ## Knowledge
 

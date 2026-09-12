@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import type { ModelRequest } from "@openai/agents-core";
+
 import { AssistantTurnError, createAssistant } from "../src/assistant.ts";
+import { estimateTokens } from "../src/context.ts";
 import { FakeRuntime } from "../testing/fake-runtime.ts";
 import { runScenario } from "../testing/run-scenario.ts";
 import { LIVING_ROOM, scenarios } from "../testing/scenarios.ts";
@@ -156,7 +159,7 @@ test("a history over budget is summarized before the turn", async () => {
   const assistant = createAssistant({
     runtime: new FakeRuntime(scenarios[0].world),
     model,
-    contextTokens: 16_000,
+    contextTokens: 18_000,
     keepTurns: 2,
   });
   for (let index = 0; index < 6; index++) {
@@ -175,4 +178,70 @@ test("a history over budget is summarized before the turn", async () => {
     input.map((item) => ("role" in item ? item.role : item.type)),
     ["system", "user", "assistant", "user", "assistant", "user"],
   );
+});
+
+// What a model request costs by the assistant's own estimate: instructions,
+// tool declarations and input items.
+function requestTokens(request: ModelRequest): number {
+  return (
+    estimateTokens(request.systemInstructions ?? "") +
+    estimateTokens(
+      request.tools.map((tool) =>
+        tool.type === "function"
+          ? {
+              name: tool.name,
+              description: tool.description,
+              parameters: tool.parameters,
+            }
+          : tool,
+      ),
+    ) +
+    estimateTokens(request.input)
+  );
+}
+
+test("every request stays within the configured context budget", async () => {
+  const contextTokens = 8_000;
+  const model = new ScriptedModel([
+    ...Array.from({ length: 8 }, (_, index) => ({
+      reply: `回答 ${index} ${"分析".repeat(600)}`,
+    })),
+    { reply: "摘要".repeat(5_000) },
+    { reply: "好的" },
+  ]);
+  const assistant = createAssistant({
+    runtime: new FakeRuntime(scenarios[0].world),
+    model,
+    contextTokens,
+  });
+  let compacted = false;
+  for (let index = 0; index < 9 && !compacted; index++) {
+    compacted =
+      (await assistant.send(`问题 ${index}`)).compaction !== undefined;
+  }
+  assert.ok(compacted, "the history was compacted");
+  for (const request of model.requests) {
+    assert.ok(
+      requestTokens(request) <= contextTokens,
+      `request of ${requestTokens(request)} tokens`,
+    );
+  }
+});
+
+test("a message that cannot fit the budget is rejected before any request", async () => {
+  const model = new ScriptedModel([{ reply: "不会用到" }]);
+  const assistant = createAssistant({
+    runtime: new FakeRuntime(scenarios[0].world),
+    model,
+    contextTokens: 8_000,
+  });
+  await assert.rejects(
+    assistant.send("长".repeat(8_000)),
+    (error: unknown) =>
+      error instanceof AssistantTurnError &&
+      /contextTokens/.test(error.message),
+  );
+  assert.equal(model.requests.length, 0);
+  // The assistant is free for the next message.
+  assert.equal((await assistant.send("短一点")).reply, "不会用到");
 });

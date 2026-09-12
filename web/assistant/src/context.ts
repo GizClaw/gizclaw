@@ -225,3 +225,20 @@ function renderTurn(turn: AgentInputItem[]): string {
     .filter(Boolean)
     .join("\n");
 }
+
+/**
+ * Cuts text to the token budget by dropping its middle: the beginning (such
+ * as an earlier summary) and the most recent part are kept.
+ */
+export function cutMiddle(text: string, tokens: number): string {
+  if (estimateTokens(text) <= tokens) return text;
+  const marker = "\n…（中间内容已省略）…\n";
+  let keep = text.length;
+  let cut = text;
+  while (keep > 0 && estimateTokens(cut) > tokens) {
+    keep = Math.floor(keep * 0.9);
+    const head = Math.floor(keep / 3);
+    cut = `${text.slice(0, head)}${marker}${text.slice(text.length - (keep - head))}`;
+  }
+  return keep > 0 ? cut : "";
+}

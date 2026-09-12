@@ -133,7 +133,7 @@ describe("assistant configuration", () => {
       { apiKey: `${apiKey.slice(0, -1)}=` },
       { apiKey, unknown: true },
       { apiKey, endpoint: "http://edge.example.com" },
-      { apiKey, contextTokens: 1_000 },
+      { apiKey, contextTokens: 7_999 },
       { apiKey, contextTokens: 12_000.5 },
     ]) {
       expect(() =>

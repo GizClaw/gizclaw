@@ -27,7 +27,9 @@ const assistantSchema = z
     apiKey: z.string().trim().min(1),
     model: z.string().trim().min(1).optional(),
     endpoint: z.string().trim().min(1).optional(),
-    contextTokens: z.number().int().min(4_000).max(1_000_000).optional(),
+    // The assistant's instructions and tool declarations alone take about
+    // 4,300 tokens of every request.
+    contextTokens: z.number().int().min(8_000).max(1_000_000).optional(),
   })
   .strict();
 
