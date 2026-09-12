@@ -4,6 +4,7 @@ import {
   SourceError,
   type AssistantRuntime,
   type ConsoleRoute,
+  type KnowledgeIndex,
   type NodeStatus,
 } from "@gizclaw/assistant";
 import { GizClawControlError } from "@gizclaw/gizclaw-control";
@@ -41,7 +42,12 @@ export type ConsoleRuntimeDeps = {
   signal(): AbortSignal;
   window: Pick<Window, "location" | "confirm" | "open">;
   now(): number;
+  /** The built-in and imported knowledge, rebuilt when documents change. */
+  knowledge(): KnowledgeIndex;
 };
+
+/** What the console hands the panel; the panel adds the rest per session. */
+export type ConsoleStateDeps = Omit<ConsoleRuntimeDeps, "signal" | "knowledge">;
 
 /**
  * Implements every assistant runtime method with the clients and state the
@@ -230,6 +236,9 @@ export function createConsoleRuntime(
         );
         return { items: page.items, nextCursor: page.end.next_cursor };
       },
+    },
+    knowledge: {
+      search: async (query, limit) => deps.knowledge().search(query, limit),
     },
   };
 }

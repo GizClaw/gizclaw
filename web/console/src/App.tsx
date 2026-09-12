@@ -18,7 +18,7 @@ import { exportConfig, parseConfig, type ConsoleConfig } from "@/lib/config";
 import { clearAll, clearConfig, readConfig, saveConfig } from "@/lib/store";
 import { peerId } from "@/lib/peers";
 import { AssistantButton } from "@/assistant/assistant-button";
-import type { ConsoleRuntimeDeps } from "@/assistant/console-runtime";
+import type { ConsoleStateDeps } from "@/assistant/console-runtime";
 import { PageViewProvider, type PageViewHolder } from "@/assistant/page-view";
 
 export type Route =
@@ -87,7 +87,7 @@ export function App() {
   const latest = useRef({ config, fleet, watch });
   latest.current = { config, fleet, watch };
   const pageView = useRef<PageViewHolder>({ current: undefined }).current;
-  const assistantDeps = useMemo<Omit<ConsoleRuntimeDeps, "signal">>(
+  const assistantDeps = useMemo<ConsoleStateDeps>(
     () => ({
       config: () => latest.current.config!,
       fleet: () => latest.current.fleet,

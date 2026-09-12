@@ -33,7 +33,7 @@ function database(): Promise<IDBDatabase> {
 
 async function record(
   mode: IDBTransactionMode,
-  name: string,
+  name: string | IDBKeyRange,
   value?: unknown,
 ): Promise<unknown> {
   const db = await database();
@@ -46,7 +46,8 @@ async function record(
           ? store.get(name)
           : value === undefined
             ? store.delete(name)
-            : store.put(value, name);
+            : // Only deletions take a key range.
+              store.put(value, name as string);
       let result: unknown;
       request.onsuccess = () => {
         result = request.result;
@@ -110,11 +111,34 @@ async function readRecord(name: string): Promise<string> {
   );
 }
 
-function clearRecord(name: string): Promise<void> {
+function clearRecord(name: string | IDBKeyRange): Promise<void> {
   return write(async () => {
     await record("readwrite", name);
   });
 }
+
+// Assistant conversations and imported knowledge share one key prefix so a
+// logout can drop them together.
+const ASSISTANT_PREFIX = "console-assistant/";
+
+/** Encrypted JSON records owned by the diagnostic assistant. */
+export const assistantRecords = {
+  async read<T>(name: string): Promise<T | undefined> {
+    const text = await readRecord(ASSISTANT_PREFIX + name);
+    return text === "" ? undefined : (JSON.parse(text) as T);
+  },
+  save: (name: string, value: unknown) =>
+    saveRecord(ASSISTANT_PREFIX + name, JSON.stringify(value)),
+  remove: (name: string) => clearRecord(ASSISTANT_PREFIX + name),
+  /** Removes every record whose name starts with prefix. */
+  removeAll: (prefix = "") =>
+    clearRecord(
+      IDBKeyRange.bound(
+        ASSISTANT_PREFIX + prefix,
+        `${ASSISTANT_PREFIX}${prefix}\uffff`,
+      ),
+    ),
+};
 
 export const saveConfig = (text: string) => saveRecord(CONFIG_RECORD, text);
 export const readConfig = () => readRecord(CONFIG_RECORD);
@@ -126,4 +150,5 @@ export const clearConfig = () => clearRecord(CONFIG_RECORD);
 export async function clearAll(): Promise<void> {
   await clearRecord(CONFIG_RECORD);
   await clearRecord(PEERS_RECORD);
+  await assistantRecords.removeAll();
 }

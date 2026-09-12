@@ -130,6 +130,8 @@ describe("assistant configuration", () => {
       { apiKey: "gizclaw_sk_v1_short" },
       { apiKey, unknown: true },
       { apiKey, endpoint: "http://edge.example.com" },
+      { apiKey, contextTokens: 1_000 },
+      { apiKey, contextTokens: 12_000.5 },
     ]) {
       expect(() =>
         parseConfig(JSON.stringify({ ...base, assistant })),
@@ -139,8 +141,12 @@ describe("assistant configuration", () => {
 
   it("round-trips through export", () => {
     const config = parseConfig(
-      JSON.stringify({ ...base, assistant: { apiKey, model: "chat" } }),
+      JSON.stringify({
+        ...base,
+        assistant: { apiKey, model: "chat", contextTokens: 128_000 },
+      }),
     );
+    expect(config.assistant?.contextTokens).toBe(128_000);
     expect(parseConfig(exportConfig(config, [])).assistant).toEqual(
       config.assistant,
     );

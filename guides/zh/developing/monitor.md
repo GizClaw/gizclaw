@@ -155,13 +155,15 @@ Monitor console 右下角的聊天按钮打开诊断助手面板；面板代码�
 "assistant": {
   "apiKey": "gizclaw_sk_v1_...",
   "model": "llm",
-  "endpoint": "https://edge.example.com"
+  "endpoint": "https://edge.example.com",
+  "contextTokens": 32000
 }
 ```
 
 `apiKey` 必须是 `gizclaw_sk_v1_` 开头的设备 API Key，助手用它经 `/openai/v1` 调用该设备
 RuntimeProfile 中的模型；`model` 是 RuntimeProfile 的模型别名，默认 `llm`；`endpoint` 可选，
-缺省时与设备 API 相同，为 `deviceEndpoint` 或 console 所在 origin。这把 Key 同时能读取和
+缺省时与设备 API 相同，为 `deviceEndpoint` 或 console 所在 origin；`contextTokens` 可选，是每轮
+发给模型的上下文预算（4000 到 1000000，默认 32000），应不超过该模型的上下文窗口。这把 Key 同时能读取和
 控制它所属的设备，因此与 Monitor Token 一样随配置加密保存在浏览器、登出时清除，并随配置导出。
 没有 `assistant` 时面板只说明如何配置，不发起任何请求。
 
@@ -170,5 +172,20 @@ RuntimeProfile 中的模型；`model` 是 RuntimeProfile 的模型别名，默�
 `window.confirm`，跳到设备详情或设备日志时把尚未关注的设备加入关注列表；每个页面用
 `usePageView` 发布结构化快照供助手读取，不读取 DOM。控制端错误映射为错误码交给助手，例如
 `DEBUG_ACCESS_FORBIDDEN` 与网络错误 `NETWORK_ERROR`。面板逐轮显示回复与每个工具动作，运行中
-可以停止；不提供编辑与重新生成。对话历史只保存在面板和助手会话的内存中，不写入浏览器存储，`/openai/v1`
-的 Chat Completions 也不在服务端保存对话；"清空对话"会停止当前一轮并开始新会话，刷新页面同样清空。日志页的初始查询带 `peer_public_key:` 时，以该设备为数据源。
+可以停止；不提供编辑与重新生成。日志页的初始查询带 `peer_public_key:` 时，以该设备为数据源。
+
+对话按会话保存：面板显示的消息和助手的上下文一起加密写入浏览器本地 IndexedDB，与配置用同一种
+不可导出的 AES-GCM 密钥，刷新后恢复最近的会话。"新对话"开始一个空会话，发出第一条消息后才保存；
+"历史对话"列出最近 50 个会话，可以切换、单独删除或清空全部，登出时一并清除。`/openai/v1` 的
+Chat Completions 不在服务端保存对话，每轮都由浏览器带上完整上下文。
+
+每轮发送前按 `contextTokens` 估算上下文（中日韩字符按 1 个 token、其它字符按 4 个字符 1 个
+token，估算偏大）。超出时先截短较早轮次中过长的工具结果，仍超出则把最近 4 轮以外的对话交给同一
+模型总结成一条摘要，之后的压缩在这条摘要上继续累积；面板在发生压缩的那一轮前显示一行提示。
+
+助手有一个本地知识库，`search_knowledge` 工具用 BM25 在其中全文检索，中文按相邻两字切分，
+`DEBUG_ACCESS_FORBIDDEN` 这类标识符同时按整体和各段匹配。内置文档覆盖调试模式、设备控制错误码、
+Monitor Token、Telemetry 与日志、对话 Workspace 与设备 API Key；"知识库"里可以导入团队的
+Markdown 或纯文本排障文档（单个不超过 512 KB，同名文件覆盖旧版本），按标题切分后与内置文档一起
+检索，文档加密保存在本浏览器，可以删除，登出时清除。解释错误码等概念时助手先检索知识库，并说明
+依据来自哪篇文档。

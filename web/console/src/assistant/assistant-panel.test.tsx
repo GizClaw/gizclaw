@@ -10,15 +10,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ConsoleAssistant } from "@/lib/config";
 
-import AssistantPanel from "./assistant-panel";
-import type { ConsoleRuntimeDeps } from "./console-runtime";
+import AssistantPanel, { type AssistantPanelProps } from "./assistant-panel";
+import { createAssistantStore, memoryRecords } from "./assistant-store";
+import type { ConsoleStateDeps } from "./console-runtime";
 
 const ASSISTANT: ConsoleAssistant = {
   apiKey: `gizclaw_sk_v1_${"a".repeat(40)}`,
   model: "llm",
 };
 
-const deps: Omit<ConsoleRuntimeDeps, "signal"> = {
+const deps: ConsoleStateDeps = {
   config: () => ({
     name: "test",
     peers: [],
@@ -68,11 +69,27 @@ globalThis.ResizeObserver ??= class {
   unobserve() {}
   disconnect() {}
 } as unknown as typeof ResizeObserver;
+// Nor does it scroll, which a restored conversation triggers.
+Element.prototype.scrollTo ??= () => {};
 
 beforeEach(() => {
   window.location.hash = "";
 });
 afterEach(cleanup);
+
+function Panel(props: Partial<AssistantPanelProps>) {
+  return (
+    <AssistantPanel
+      assistant={ASSISTANT}
+      runtimeDeps={deps}
+      endpoint="https://node.example.com"
+      onClose={() => {}}
+      onOpenConfig={() => {}}
+      store={createAssistantStore(memoryRecords())}
+      {...props}
+    />
+  );
+}
 
 async function ask(text: string) {
   const input = await screen.findByLabelText("向诊断助手提问");
@@ -97,14 +114,7 @@ describe("assistant panel", () => {
     ]);
     const createModel = vi.fn(() => model);
     render(
-      <AssistantPanel
-        assistant={ASSISTANT}
-        runtimeDeps={deps}
-        endpoint="https://node.example.com/"
-        onClose={() => {}}
-        onOpenConfig={() => {}}
-        createModel={createModel}
-      />,
+      <Panel endpoint="https://node.example.com/" createModel={createModel} />,
     );
     await ask("哪个节点最忙？");
 
@@ -123,38 +133,118 @@ describe("assistant panel", () => {
     );
   });
 
-  it("clears the conversation and starts a fresh session", async () => {
+  it("saves conversations, starts new ones and switches between them", async () => {
+    // Every session gets its own model, answering with its sequence number.
     const models: InstanceType<typeof ScriptedModel>[] = [];
-    render(
-      <AssistantPanel
-        assistant={ASSISTANT}
-        runtimeDeps={deps}
-        endpoint="https://node.example.com"
-        onClose={() => {}}
-        onOpenConfig={() => {}}
+    const store = createAssistantStore(memoryRecords());
+    const panel = (
+      <Panel
+        store={store}
         createModel={() => {
           const model = new ScriptedModel([
-            { reply: "第一个会话" },
-            { reply: "第二个会话" },
+            { reply: `会话 ${models.length + 1} 的回答` },
           ]);
           models.push(model);
           return model;
         }}
-      />,
+      />
     );
-    await ask("你好");
-    await screen.findByText("第一个会话");
+    const view = render(panel);
+    await ask("客厅音箱怎么了");
+    await screen.findByText("会话 1 的回答");
+    await waitFor(async () =>
+      expect(await store.listThreads()).toHaveLength(1),
+    );
 
-    fireEvent.click(screen.getByLabelText("清空对话"));
-    await waitFor(() => expect(screen.queryByText("第一个会话")).toBeNull());
-    expect(screen.queryByText("你好")).toBeNull();
+    fireEvent.click(screen.getByLabelText("新对话"));
+    await waitFor(() => expect(screen.queryByText("会话 1 的回答")).toBeNull());
+    await ask("另一个问题");
+    await screen.findByText("会话 2 的回答");
+    // The new conversation's first request carries only its own message.
+    expect(models[1].requests[0].input).toHaveLength(1);
+    await waitFor(async () =>
+      expect(await store.listThreads()).toHaveLength(2),
+    );
 
-    await ask("重新开始");
-    await screen.findByText("第一个会话");
-    // The new session's first request carries only the new message.
-    expect(models).toHaveLength(2);
-    const input = models[1].requests[0].input;
-    expect(Array.isArray(input) ? input.length : 1).toBe(1);
+    // Reopening the panel restores the latest conversation from the store.
+    view.unmount();
+    render(panel);
+    await screen.findByText("会话 2 的回答");
+
+    fireEvent.click(screen.getByLabelText("历史对话"));
+    fireEvent.click(await screen.findByText("客厅音箱怎么了"));
+    await screen.findByText("会话 1 的回答");
+    await ask("继续");
+    const last = models.length;
+    await screen.findByText(`会话 ${last} 的回答`);
+    // The restored session resumes the saved context.
+    const resumed = JSON.stringify(models[last - 1].requests[0].input);
+    expect(resumed).toContain("客厅音箱怎么了");
+    expect(resumed).toContain("会话 1 的回答");
+  });
+
+  it("deletes one conversation or clears them all", async () => {
+    const store = createAssistantStore(memoryRecords());
+    const now = Date.now();
+    for (const [index, title] of ["旧对话", "新一点的对话"].entries()) {
+      await store.saveThread({
+        id: `t${index}`,
+        title,
+        createdAt: now + index,
+        updatedAt: now + index,
+        entries: [{ id: `e${index}`, role: "user", text: title }],
+        history: [],
+      });
+    }
+    render(<Panel store={store} createModel={() => new ScriptedModel([])} />);
+    await screen.findByText("新一点的对话");
+    fireEvent.click(screen.getByLabelText("历史对话"));
+    fireEvent.click(await screen.findByLabelText("删除对话 旧对话"));
+    await waitFor(() => expect(screen.queryByText("旧对话")).toBeNull());
+    expect((await store.listThreads()).map((item) => item.id)).toEqual(["t1"]);
+
+    fireEvent.click(screen.getByText("清空全部对话"));
+    fireEvent.click(screen.getByText("确认清空全部对话"));
+    await waitFor(async () => expect(await store.listThreads()).toEqual([]));
+    expect(await store.loadThread("t1")).toBeUndefined();
+    expect(screen.queryByText("新一点的对话")).toBeNull();
+  });
+
+  it("imports knowledge the assistant can search", async () => {
+    const store = createAssistantStore(memoryRecords());
+    const model = new ScriptedModel([
+      {
+        call: [
+          { name: "search_knowledge", arguments: { query: "阳台音箱 信号弱" } },
+        ],
+      },
+      { reply: "按手册切换到 2.4G。" },
+    ]);
+    render(<Panel store={store} createModel={() => model} />);
+    fireEvent.click(await screen.findByLabelText("知识库"));
+    expect(screen.getByText("设备控制错误码")).toBeTruthy();
+    const file = new File(
+      ["# 阳台音箱排障\n\n## 信号弱\n阳台音箱信号弱时切换到 2.4G 网络。"],
+      "runbook.md",
+      { type: "text/markdown" },
+    );
+    fireEvent.change(screen.getByLabelText("选择知识库文档"), {
+      target: { files: [file] },
+    });
+    await screen.findByText("阳台音箱排障");
+    expect(await store.listKnowledge()).toMatchObject([
+      { title: "阳台音箱排障", source: "runbook.md" },
+    ]);
+
+    fireEvent.click(screen.getByLabelText("知识库"));
+    await ask("阳台音箱信号弱怎么办");
+    await screen.findByText("按手册切换到 2.4G。");
+    expect(screen.getByText("检索知识库")).toBeTruthy();
+    expect(JSON.stringify(model.requests[1].input)).toContain("runbook.md");
+
+    fireEvent.click(screen.getByLabelText("知识库"));
+    fireEvent.click(screen.getByLabelText("删除文档 阳台音箱排障"));
+    await waitFor(async () => expect(await store.listKnowledge()).toEqual([]));
   });
 
   it("explains how to configure the assistant when the config has none", async () => {
@@ -175,12 +265,7 @@ describe("assistant panel", () => {
 
   it("shows a failed turn with the actions it took", async () => {
     render(
-      <AssistantPanel
-        assistant={ASSISTANT}
-        runtimeDeps={deps}
-        endpoint="https://node.example.com"
-        onClose={() => {}}
-        onOpenConfig={() => {}}
+      <Panel
         createModel={() =>
           new ScriptedModel([{ call: [{ name: "list_nodes", arguments: {} }] }])
         }
@@ -189,5 +274,34 @@ describe("assistant panel", () => {
     await ask("看看节点");
     await waitFor(() => expect(screen.getByText(/助手出错/)).toBeTruthy());
     expect(screen.getByText("读取节点状态")).toBeTruthy();
+  });
+
+  it("keeps the conversation when the assistant configuration changes", async () => {
+    const store = createAssistantStore(memoryRecords());
+    const models: InstanceType<typeof ScriptedModel>[] = [];
+    const createModel = () => {
+      const model = new ScriptedModel([
+        { reply: `模型 ${models.length + 1} 的回答` },
+      ]);
+      models.push(model);
+      return model;
+    };
+    const view = render(<Panel store={store} createModel={createModel} />);
+    await ask("第一个问题");
+    await screen.findByText("模型 1 的回答");
+
+    view.rerender(
+      <Panel
+        store={store}
+        createModel={createModel}
+        assistant={{ ...ASSISTANT, model: "chat" }}
+      />,
+    );
+    await screen.findByText("模型 1 的回答");
+    await ask("第二个问题");
+    await screen.findByText("模型 2 的回答");
+    expect(JSON.stringify(models[1].requests[0].input)).toContain(
+      "模型 1 的回答",
+    );
   });
 });

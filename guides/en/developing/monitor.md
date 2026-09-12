@@ -210,7 +210,8 @@ configuration:
 "assistant": {
   "apiKey": "gizclaw_sk_v1_...",
   "model": "llm",
-  "endpoint": "https://edge.example.com"
+  "endpoint": "https://edge.example.com",
+  "contextTokens": 32000
 }
 ```
 
@@ -218,7 +219,9 @@ configuration:
 uses it over `/openai/v1` to call models from that device's RuntimeProfile.
 `model` is the RuntimeProfile model alias and defaults to `llm`. `endpoint` is
 optional and defaults to the device API endpoint: `deviceEndpoint` or the
-console's own origin. The key can also read and control the device it belongs
+console's own origin. `contextTokens` is optional: the context budget sent to
+the model each turn (4000 to 1000000, default 32000), which should not exceed
+the model's context window. The key can also read and control the device it belongs
 to, so like Monitor tokens it is stored encrypted with the configuration in the
 browser, cleared on logout, and included in exports. Without `assistant` the
 panel only explains how to configure it and sends no request.
@@ -231,9 +234,34 @@ unwatched device to the watch list. Each page publishes a structured snapshot
 with `usePageView` for the assistant to read; the DOM is never read. Control
 errors reach the assistant as codes such as `DEBUG_ACCESS_FORBIDDEN` or the
 network failure `NETWORK_ERROR`. The panel shows every reply with each tool
-action, can stop a running turn, and offers no editing or regeneration.
-Conversation history lives only in the panel and the assistant session in
-memory; it is never written to browser storage, and `/openai/v1` Chat
-Completions keep no conversation on the server. "Clear conversation" stops the
-current turn and starts a new session, as does reloading the page. When the
-log page's initial query names `peer_public_key:`, that device is the source.
+action, can stop a running turn, and offers no editing or regeneration. When
+the log page's initial query names `peer_public_key:`, that device is the
+source.
+
+Conversations are saved per thread: the messages the panel shows and the
+assistant's context are written together to the browser's IndexedDB,
+encrypted with the same kind of nonextractable AES-GCM key as the
+configuration, and the latest thread is restored after a reload. "New
+conversation" starts an empty thread that is saved with its first message.
+"Conversation history" lists the latest 50 threads to switch to, delete one by
+one, or clear all; logout clears them too. `/openai/v1` Chat Completions keep
+no conversation on the server; the browser sends the whole context each turn.
+
+Before each turn the context is estimated against `contextTokens` (one token
+per CJK character, one per four other characters, erring high). Over budget,
+long tool results of older turns are shortened first; if that is not enough,
+everything but the latest 4 turns is summarized by the same model into one
+summary that later compactions build on. The panel shows a note before the turn
+where compaction happened.
+
+The assistant has a local knowledge base that the `search_knowledge` tool
+searches with BM25 full-text ranking: Chinese is split into adjacent character
+pairs, and identifiers such as `DEBUG_ACCESS_FORBIDDEN` match as a whole and by
+part. Built-in documents cover debug mode, device control error codes, Monitor
+tokens, telemetry and logs, conversation Workspaces, and device API keys.
+"Knowledge base" imports a team's Markdown or plain-text runbooks (up to 512 KB
+each; a file with the same name replaces the earlier version), which are split
+by heading and searched with the built-in documents. They are stored encrypted
+in the browser, can be deleted, and are cleared on logout. When explaining
+concepts such as error codes, the assistant searches the knowledge base first
+and names the document its answer comes from.

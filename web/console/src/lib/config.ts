@@ -27,6 +27,7 @@ const assistantSchema = z
     apiKey: z.string().trim().min(1),
     model: z.string().trim().min(1).optional(),
     endpoint: z.string().trim().min(1).optional(),
+    contextTokens: z.number().int().min(4_000).max(1_000_000).optional(),
   })
   .strict();
 
@@ -75,6 +76,11 @@ export type ConsoleAssistant = {
   model: string;
   /** The node serving /openai/v1; defaults to the device endpoint. */
   endpoint?: string;
+  /**
+   * Token budget per turn, matching the model's context window; older turns
+   * are compacted beyond it. Defaults to the assistant package's budget.
+   */
+  contextTokens?: number;
 };
 
 export type ConsoleConfigPeer = {
@@ -193,6 +199,7 @@ export function parseConfig(text: string): ConsoleConfig {
         parsed.data.assistant.endpoint === undefined
           ? undefined
           : normalizeUrl(parsed.data.assistant.endpoint),
+      contextTokens: parsed.data.assistant.contextTokens,
     },
   };
 }
