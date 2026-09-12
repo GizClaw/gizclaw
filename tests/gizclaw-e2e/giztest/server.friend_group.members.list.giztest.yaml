@@ -131,8 +131,9 @@ steps:
       member_name: carol-team
       role: FRIEND_GROUP_MEMBER_MUTABLE_ROLE_MEMBER
   expect:
-    /value/online: {present: false}
-    /value/last_seen_at: {present: false}
+    /role: {equals: FRIEND_GROUP_MEMBER_ROLE_MEMBER}
+    /online: {present: false}
+    /last_seen_at: {present: false}
 - id: carol_lists_members
   client: carol
   rpc:
@@ -155,16 +156,18 @@ steps:
       name: "${carol_name}"
       role: FRIEND_GROUP_MEMBER_MUTABLE_ROLE_ADMIN
   expect:
-    /value/online: {present: false}
-    /value/last_seen_at: {present: false}
+    /role: {equals: FRIEND_GROUP_MEMBER_ROLE_ADMIN}
+    /online: {present: false}
+    /last_seen_at: {present: false}
 - id: alice_removes_carol
   client: alice
   rpc:
     method: server.friend_group.members.delete
     request: {friend_group_name: "${group_name}", name: "${carol_name}"}
   expect:
-    /value/online: {present: false}
-    /value/last_seen_at: {present: false}
+    /peer_public_key: {equals: "${carol_name}"}
+    /online: {present: false}
+    /last_seen_at: {present: false}
 - id: carol_cannot_list_after_removal
   client: carol
   rpc:
