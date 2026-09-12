@@ -349,6 +349,21 @@ void main() {
       ]);
     });
 
+    test('load the friend and friend group HTTP scenarios', () async {
+      final names = ['server.friend_groups.http', 'server.friends.http'];
+      final result = await loadDocuments([
+        for (final name in names) '$scenarioRoot/$name.giztest.yaml',
+      ]);
+      expect(result.skipped, isEmpty);
+      expect(result.documents.map((document) => document.name), names);
+      final httpSteps = [
+        for (final document in result.documents)
+          for (final step in document.steps)
+            if (step.http != null) step,
+      ];
+      expect(httpSteps, isNotEmpty);
+    });
+
     test('skip scenarios that use unsupported step kinds', () async {
       final result = await loadDocuments(await discover([scenarioRoot]));
       expect(result.skipped, isNotEmpty);

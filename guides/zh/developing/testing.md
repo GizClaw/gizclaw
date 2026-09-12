@@ -366,7 +366,7 @@ gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 \
   --output tests/gizclaw-e2e/testdata/giztest-report.json
 ```
 
-设备控制与 Contact 的 Public HTTP 契约由 `server.device.*` 与 `server.contacts.*` 场景覆盖，好友与群组由 `server.friends.http` 与 `server.friend_groups.http` 覆盖（两个设备各自持有 API Key，验证长有效期邀请码、重复加好友、非群主解散、群主退群与成员退群）。
+设备控制与 Contact 的 Public HTTP 契约由 `server.device.*` 与 `server.contacts.*` 场景覆盖，好友与群组由 `server.friends.http` 与 `server.friend_groups.http` 覆盖（两个设备各自持有 API Key，验证长有效期邀请码、重复加好友、非群主解散、群主退群与成员退群）。普通 `go test` 另有 `pkgs/gizclaw/integration_peer_http_social_test.go`：在进程内启动带 SFU endpoint 的 Server，设备经真实 WebRTC 连接完成 `server.register` 与 `server.api_key.create`，再用生成的 Go `peerhttp` client 调用好友与群组 route，并在设备断开后借另一台设备的连接、以离线设备的 API Key 管理它。
 `http` step 以当前 client 的 `access_point` 为 origin 发送一次 Public HTTP 请求（`method`、`path`、
 `headers`、JSON `body`、可选 `status`），响应 JSON 作为该 step 的值参与 `expect`、`capture` 与
 `save_as`；未声明 `status` 时 4xx/5xx 视为断言失败。API Key 由 `server.api_key.create` step
