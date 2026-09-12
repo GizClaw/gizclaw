@@ -3997,6 +3997,10 @@ class FriendObject extends $pb.GeneratedMessage {
     $core.String? peerPublicKey,
     $core.String? updatedAt,
     $core.String? workspaceName,
+    $core.bool? online,
+    $core.String? lastSeenAt,
+    $core.String? displayName,
+    $core.String? emoji,
   }) {
     final result = create();
     if (createdAt != null) result.createdAt = createdAt;
@@ -4004,6 +4008,10 @@ class FriendObject extends $pb.GeneratedMessage {
     if (peerPublicKey != null) result.peerPublicKey = peerPublicKey;
     if (updatedAt != null) result.updatedAt = updatedAt;
     if (workspaceName != null) result.workspaceName = workspaceName;
+    if (online != null) result.online = online;
+    if (lastSeenAt != null) result.lastSeenAt = lastSeenAt;
+    if (displayName != null) result.displayName = displayName;
+    if (emoji != null) result.emoji = emoji;
     return result;
   }
 
@@ -4025,6 +4033,10 @@ class FriendObject extends $pb.GeneratedMessage {
     ..aOS(3, _omitFieldNames ? '' : 'peerPublicKey')
     ..aOS(4, _omitFieldNames ? '' : 'updatedAt')
     ..aOS(5, _omitFieldNames ? '' : 'workspaceName')
+    ..aOB(6, _omitFieldNames ? '' : 'online')
+    ..aOS(7, _omitFieldNames ? '' : 'lastSeenAt')
+    ..aOS(8, _omitFieldNames ? '' : 'displayName')
+    ..aOS(9, _omitFieldNames ? '' : 'emoji')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4090,6 +4102,49 @@ class FriendObject extends $pb.GeneratedMessage {
   $core.bool hasWorkspaceName() => $_has(4);
   @$pb.TagNumber(5)
   void clearWorkspaceName() => $_clearField(5);
+
+  /// Friend presence and profile, set only by server.friend.list. online is
+  /// whether the Friend's device is connected to the answering Server, the
+  /// same state as Runtime.online.
+  @$pb.TagNumber(6)
+  $core.bool get online => $_getBF(5);
+  @$pb.TagNumber(6)
+  set online($core.bool value) => $_setBool(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasOnline() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearOnline() => $_clearField(6);
+
+  /// Last observed activity of the Friend's device in the Runtime.last_seen_at
+  /// format. Absent when the Server has never observed the Friend.
+  @$pb.TagNumber(7)
+  $core.String get lastSeenAt => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set lastSeenAt($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasLastSeenAt() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearLastSeenAt() => $_clearField(7);
+
+  /// The Friend's self-chosen display name and emoji from its profile. Absent
+  /// when the Friend has not set them.
+  @$pb.TagNumber(8)
+  $core.String get displayName => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set displayName($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasDisplayName() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearDisplayName() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get emoji => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set emoji($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasEmoji() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearEmoji() => $_clearField(9);
 }
 
 const $core.bool _omitFieldNames =
