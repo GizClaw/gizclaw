@@ -106,6 +106,35 @@ func TestAudioPlayerDocuments(t *testing.T) {
 	}
 }
 
+// The friend and friend group HTTP fixtures must pass the C runner's
+// validate, so every route they use is one the controller SDK dispatches.
+func TestFriendAndFriendGroupHTTPDocuments(t *testing.T) {
+	for _, name := range []string{
+		"server.friends.http.giztest.yaml",
+		"server.friend_groups.http.giztest.yaml",
+	} {
+		t.Run(name, func(t *testing.T) {
+			doc, err := giztest.LoadDocument(filepath.Join("../../giztest", name), driver{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			routes := 0
+			for _, step := range doc.Steps {
+				if step.HTTP == nil {
+					continue
+				}
+				routes++
+				if err := validateControlRoute(step); err != nil {
+					t.Fatalf("step %s: %v", step.ID, err)
+				}
+			}
+			if routes == 0 {
+				t.Fatal("document has no http steps")
+			}
+		})
+	}
+}
+
 // The find and social ping fixtures must pass the C runner's validate, reach
 // the controller route table, and have their client_rpc providers answer the
 // way each document scripts: an ack by default, the scripted status otherwise.

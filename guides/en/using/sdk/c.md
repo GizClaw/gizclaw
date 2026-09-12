@@ -45,6 +45,8 @@ Every `gzc_str_t` in a decoded model points into `response` and stays valid unti
 
 Request string caps come straight from the contract: SSID 32 bytes, sound 32 bytes, display_name 80 bytes. An oversized value returns `GZC_ERR_INVALID_ARGUMENT` before any transport call.
 
+Friend and Friend Group routes map to the `gzc_control_*_friend*` and `gzc_control_*_friend_group*` functions, covering invite tokens (optional `ttl_seconds` in `gzc_control_invite_token_request_t`), befriending, listing, leaving, dissolving, and member management. Group roles are returned as strings (`owner`, `admin`, `member`), and `has_info` marks whether `info` is present.
+
 ### Error classification
 
 A failed call fills `gzc_control_call_t.error` with a `gzc_control_error_t`. The `kind` values and the rules that pick them match `sdk/flutter/gizclaw_control` and `sdk/js/gizclaw-control` exactly: `DEVICE_*` is matched on the response body's `error.code`, everything else on the HTTP status.

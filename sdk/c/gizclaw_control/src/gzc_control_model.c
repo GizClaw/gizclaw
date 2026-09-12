@@ -672,6 +672,143 @@ int gzc_control_decode_contact_item(gzc_str_t object_json, void *out) {
   return gzc_control_decode_contact(object_json, (gzc_control_contact_t *)out);
 }
 
+/* Decodes the optional `info` object of a Friend or Friend Group member. */
+static int decode_peer_profile_info(
+    gzc_str_t object_json,
+    bool *out_has_info,
+    gzc_control_peer_profile_info_t *out_info) {
+  gzc_str_t nested = gzc_str_from_parts(NULL, 0);
+  int rc = gzc_control_opt_raw(object_json, "info", &nested);
+  if (rc != GZC_OK || gzc_control_str_empty(nested)) {
+    return rc;
+  }
+  rc = gzc_json_validate_object(nested);
+  if (rc == GZC_OK) {
+    *out_has_info = true;
+    rc = gzc_control_opt_str(nested, "display_name", &out_info->display_name);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_str(nested, "emoji", &out_info->emoji);
+  }
+  return rc;
+}
+
+int gzc_control_decode_invite_token(gzc_str_t object_json, gzc_control_invite_token_t *out) {
+  if (out == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out, 0, sizeof(*out));
+  int rc = gzc_json_validate_object(object_json);
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_str(object_json, "invite_token", &out->invite_token);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_str(object_json, "expires_at", &out->expires_at);
+  }
+  return rc;
+}
+
+int gzc_control_decode_friend(gzc_str_t object_json, gzc_control_friend_t *out) {
+  if (out == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out, 0, sizeof(*out));
+  int rc = gzc_json_validate_object(object_json);
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_str(object_json, "name", &out->name);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_str(object_json, "peer_public_key", &out->peer_public_key);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_str(object_json, "workspace_name", &out->workspace_name);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_str(object_json, "created_at", &out->created_at);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_str(object_json, "updated_at", &out->updated_at);
+  }
+  if (rc == GZC_OK) {
+    rc = decode_peer_profile_info(object_json, &out->has_info, &out->info);
+  }
+  return rc;
+}
+
+int gzc_control_decode_friend_item(gzc_str_t object_json, void *out) {
+  return gzc_control_decode_friend(object_json, (gzc_control_friend_t *)out);
+}
+
+int gzc_control_decode_friend_group(gzc_str_t object_json, gzc_control_friend_group_t *out) {
+  if (out == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out, 0, sizeof(*out));
+  int rc = gzc_json_validate_object(object_json);
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_str(object_json, "name", &out->name);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_str(object_json, "my_role", &out->my_role);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_str(object_json, "display_name", &out->display_name);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_str(object_json, "description", &out->description);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_str(object_json, "created_by_peer_public_key", &out->created_by_peer_public_key);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_str(object_json, "workspace_name", &out->workspace_name);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_str(object_json, "created_at", &out->created_at);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_str(object_json, "updated_at", &out->updated_at);
+  }
+  return rc;
+}
+
+int gzc_control_decode_friend_group_item(gzc_str_t object_json, void *out) {
+  return gzc_control_decode_friend_group(object_json, (gzc_control_friend_group_t *)out);
+}
+
+int gzc_control_decode_friend_group_member(
+    gzc_str_t object_json,
+    gzc_control_friend_group_member_t *out) {
+  if (out == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out, 0, sizeof(*out));
+  int rc = gzc_json_validate_object(object_json);
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_str(object_json, "name", &out->name);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_str(object_json, "peer_public_key", &out->peer_public_key);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_str(object_json, "role", &out->role);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_str(object_json, "created_at", &out->created_at);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_str(object_json, "updated_at", &out->updated_at);
+  }
+  if (rc == GZC_OK) {
+    rc = decode_peer_profile_info(object_json, &out->has_info, &out->info);
+  }
+  return rc;
+}
+
+int gzc_control_decode_friend_group_member_item(gzc_str_t object_json, void *out) {
+  return gzc_control_decode_friend_group_member(object_json, (gzc_control_friend_group_member_t *)out);
+}
+
 int gzc_control_decode_telemetry_value(gzc_str_t object_json, gzc_control_telemetry_value_t *out) {
   if (out == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;

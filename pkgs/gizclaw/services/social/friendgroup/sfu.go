@@ -205,7 +205,7 @@ func (s *Server) currentSFUBinding(ctx context.Context, binding workspaceBinding
 		return socialutil.SFUWorkspaceBinding{}, errors.New("social: FriendGroup Workspace binding is inconsistent")
 	}
 	if err := s.rejectDataPendingDeletion(ctx, binding.FriendGroupID); err != nil {
-		if errors.Is(err, errFriendGroupPendingDeletion) {
+		if errors.Is(err, ErrFriendGroupPendingDeletion) {
 			return socialutil.SFUWorkspaceBinding{}, sfu.ErrRevoked
 		}
 		return socialutil.SFUWorkspaceBinding{}, err

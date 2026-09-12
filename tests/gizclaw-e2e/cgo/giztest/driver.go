@@ -61,14 +61,23 @@ var controlRoutes = map[string][]string{
 		"/device/wifi", "/device/wifi/saved",
 		"/api-keys", "/api-keys/self", "/api-keys/*",
 		"/contacts", "/contacts/*",
+		"/friends", "/friends/invite-token", "/friends/*",
+		"/friend-groups", "/friend-groups/*", "/friend-groups/*/invite-token", "/friend-groups/*/members",
 	},
 	http.MethodPost: {
 		"/device/audioplayer/actions/play", "/device/audioplayer/actions/stop", "/device/audioplayer/playlist/append",
 		"/device/actions/play-sound", "/device/actions/reboot", "/device/actions/find", "/api-keys", "/contacts",
+		"/friends", "/friends/invite-token",
+		"/friend-groups", "/friend-groups/@join", "/friend-groups/*/invite-token", "/friend-groups/*/@leave", "/friend-groups/*/members",
 	},
-	http.MethodPut: {"/device/audioplayer/playlist", "/device/audioplayer/mode", "/device/volume", "/contacts/*"},
+	http.MethodPut: {
+		"/device/audioplayer/playlist", "/device/audioplayer/mode", "/device/volume", "/contacts/*",
+		"/friend-groups/*", "/friend-groups/*/members/*",
+	},
 	http.MethodDelete: {
 		"/device/wifi/saved/*", "/device/workspaces/*", "/api-keys/self", "/api-keys/*", "/contacts/*",
+		"/friends/invite-token", "/friends/*",
+		"/friend-groups/*", "/friend-groups/*/invite-token", "/friend-groups/*/members/*",
 	},
 }
 

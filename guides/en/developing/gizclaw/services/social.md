@@ -51,6 +51,10 @@ Each Friend Group lifecycle owns a system Workspace. Creation rollback may immed
 
 Peer membership objects use `name` as their identity within `friend_group_name`; Admin membership objects retain canonical `id` plus the scoped `name`. Membership changes, role changes and group updates atomically advance a shared group version. Capacity checks and retirement compare that version and the primary record before committing; a stale snapshot is rejected and must be reread before retrying. A Friend Group holds at most 10 members including the owner; the cap is fixed by `socialutil.FriendGroupMemberLimit` and is not configurable through RuntimeProfile or Server config. When the Group is full, the `friend_group.join` and `members.add` RPCs return `RESOURCE_EXHAUSTED` (8) with reason `FRIEND_GROUP_FULL`; Admin HTTP member creation returns `409 Conflict` with error code `FRIEND_GROUP_FULL`. Rejection does not consume the invite token. A Peer belongs to at most 10 Friend Groups, counting groups it created, joined by invite, or was added to; the cap is fixed by `socialutil.PeerFriendGroupLimit`. When that Peer is full, group creation, `friend_group.join`, `members.add`, and Admin member creation return `RESOURCE_EXHAUSTED` (8) with reason `FRIEND_GROUP_LIMIT_REACHED`, and Admin HTTP returns `409 Conflict` with error code `FRIEND_GROUP_LIMIT_REACHED`; group creation is rejected before its Workspace is created. Every admission atomically advances the Peer's group revision and the commit compares it, so concurrent admissions on different Servers cannot exceed the cap; a stale admission returns `FRIEND_GROUP_CHANGED`. Role changes for existing members are unaffected. Friend Group owns no messages, History, audio store, TTL, or cleanup loop.
 
+`LeaveFriendGroup` removes the caller's own membership and shares deletion, notification, and lock order with `members.delete`: members and admins may leave, and the owner gets `ErrFriendGroupOwnerCannotLeave`. `members.delete` keeps its own permissions, so removing an admin (including an admin removing itself) still requires the owner role.
+
+Permission and conflict failures use exported sentinel errors that callers classify with `errors.Is`: `ErrFriendGroupPermissionDenied` (insufficient role), `ErrFriendGroupNameExists` (the local Group name already points at another Group), `ErrFriendGroupMembershipNameImmutable` (joining again under another name), `ErrFriendGroupOwnerCannotBeRemoved`, `ErrFriendGroupOwnerCannotLeave`, `ErrFriendGroupOwnerRoleImmutable`, `ErrFriendGroupMemberNotFound` (the target is not a member; wraps `kv.ErrNotFound`), `ErrInviteTokenUnavailable`, `ErrInvalidMemberRole`, and `ErrFriendGroupPendingDeletion`. Peer RPC error mapping does not change; Peer HTTP maps them to stable error codes. On the friend side, `AddFriendReportingExisting` behaves like `AddFriend` and also reports whether the relationship already existed, so Peer HTTP can answer `FRIEND_ALREADY_EXISTS`.
+
 The relationship commit and Workspace retirement are two retryable phases. If
 phase one fails, both the relationship and Workspace remain usable. If phase
 two fails, the retirement intent remains; retrying the same deletion only
@@ -79,6 +83,18 @@ Servers share logical identity, never in-process objects:
 
 Any Server that may host a member's connection activates the same Workspace using only the shared Social KV and its local `sfu` driver; no call back to an owner Server is needed. On-demand creation of the local Workspace record is described in [Multi-Server materialization](#multi-server-materialization).
 
+## Friend list presence and profile
+
+Every `FriendObject` in `server.friend.list` carries the Friend's presence and profile next to the relationship fields, so a device can show an online marker and a name without calling `server.friend.info.get` per Friend. `friend.ListFriends` fills these fields, and they are visible only through the caller's own Friend list; the `FriendObject` returned by `server.friend.add` and `server.friend.delete` leaves them out.
+
+| Field | Source | When absent |
+| --- | --- | --- |
+| `online` | `Manager.PeerPresence`, the same connection state `PeerOnline` and `Runtime.online` read | Always present on a listed Friend |
+| `last_seen_at` | The same, in the `Runtime.last_seen_at` format: it advances with connection activity while online, and is the last activity recorded when the connection went down while offline | The Server has never observed the Friend |
+| `display_name`, `emoji` | The profile the Friend set through `server.info.put`, as `server.friend.info.get` returns it | The Friend has not set it |
+
+Presence is Server-local, like pings: a Friend connected to a different Server is listed as not online, and `last_seen_at` reads the shared Peer Run record. A profile or presence read that fails only leaves that field out; it never fails the page.
+
 ## Ping and rally
 
 `server.friend.ping` rings one Friend's device; `server.friend_group.ping` rallies a Friend Group by ringing every other member's device. Any member may rally. `friend.PingFriend` and `friendgroup.PingFriendGroup` own the rules; `peerresource` only decodes the request and maps errors.
@@ -91,7 +107,7 @@ Any Server that may host a member's connection activates the same Workspace usin
 
 The window is fixed at one minute (`socialutil.PingWindow`), not configurable, and lives in the shared Social KV with a store deadline: `friend-ping-windows/<relationID>` in the Friend store, shared by both directions of a pair, and `friend-group-ping-windows/<groupID>` in the Friend Group store, shared by all members. The backend (Redis TTL in production) deletes it when it closes, so no cleanup loop runs, and every Server enforces the same window.
 
-Online state and delivery are Server-local, like every other Server→device RPC. A target whose connection lives on a different Server is reported as not online, and pings are never queued for later delivery. The Server pushes only pings the caller may send, so devices do not recheck the relationship. Friend online status, profiles inside `server.friend.list`, and cross-Server delivery are not provided.
+Online state and delivery are Server-local, like every other Server→device RPC. A target whose connection lives on a different Server is reported as not online, and pings are never queued for later delivery. The Server pushes only pings the caller may send, so devices do not recheck the relationship. Cross-Server delivery is not provided.
 
 `server.profile.get` returns the public profile of 1–16 Peers by public key without any relationship check: only the `display_name` and `emoji` a Peer set through `server.info.put` (`peer.Server.GetPublicProfile`). A missing, deleted, or pending-deletion Peer comes back with only its key.
 
@@ -262,5 +278,7 @@ Friend and Friend Group resolve bindings through exact Workspace ID and generate
 Each Peer has separate Sets of Friend relation IDs and Group IDs, and each Group has its own member-public-key Set. Complete relationship and member records remain independent and extensible. Atomic mutations maintain records, name indexes, and Sets together. Member RPC lists and Peer Friend/Group lists read the corresponding collection and load page details without prefix scans. Group SFU authorization reads the member Set without loading every member record. Collections are scoped to a Peer or Group; no site-wide Set is introduced.
 
 Invitation tokens use a digest index to locate their owning record, followed by an exact read that verifies the token and expiry. Friend and group invitations occupy separate storage domains; lookup never scans other tokens. Replacement and explicit clearing update the record and index atomically, and distinct resources in one domain cannot claim the same token. Expired reads report unavailability without cleanup writes. Replacement removes the old index, preventing read-side cleanup from deleting a concurrently generated token. Writes use the token expiry as the shared KV deadline of the record and its index, so the KV backend (Redis TTL in production deployments) physically removes expired invitations without a service cleanup loop.
+
+Invite tokens live for `socialutil.DefaultInviteTokenTTL` (5 minutes) by default, and device RPCs only use that default: an active token is returned unchanged, otherwise a new one is created. `friend.Server.CreateFriendInviteTokenWithTTL` and `friendgroup.Server.CreateFriendGroupInviteTokenWithTTL` also accept a caller lifetime bounded by `socialutil.MinInviteTokenTTL` (1 minute) and `socialutil.MaxInviteTokenTTL` (7 days); out-of-range values return `socialutil.ErrInvalidInviteTokenTTL`. With a lifetime, a new token expires after it, and an active token keeps its value while its expiry is extended to now plus the requested lifetime, never shortened, and its KV deadline moves with it. Peer HTTP `ttl_seconds` uses this path.
 
 Peer Friend and Group pagination uses owner-scoped ordered indexes containing escaped relation or group IDs. Creation, join, leave, and deletion maintain these indexes in the same mutation. Queries push the cursor and `limit + 1` into storage and load at most `limit` records; response cursors remain raw IDs. Concurrent deletion may shorten a page; its cursor advances by the index position without falling back to full-set reads.

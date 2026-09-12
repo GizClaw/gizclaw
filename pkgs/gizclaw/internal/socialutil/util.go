@@ -21,10 +21,17 @@ const (
 	DefaultListLimit      = 50
 	MaxListLimit          = 200
 	DefaultInviteTokenTTL = 5 * time.Minute
+	// MinInviteTokenTTL and MaxInviteTokenTTL bound a caller-requested invite
+	// token lifetime. The default lifetime stays DefaultInviteTokenTTL.
+	MinInviteTokenTTL = time.Minute
+	MaxInviteTokenTTL = 7 * 24 * time.Hour
 )
 
 var (
 	ErrResourceAlreadyExists = errors.New("social: resource already exists")
+	// ErrInvalidInviteTokenTTL reports a requested invite token lifetime
+	// outside [MinInviteTokenTTL, MaxInviteTokenTTL].
+	ErrInvalidInviteTokenTTL = errors.New("social: invite token ttl is out of range")
 
 	ContactsRoot           = kv.Key{"contacts"}
 	ContactNamesRoot       = kv.Key{"contact-names"}
@@ -216,6 +223,15 @@ func CompareByCreatedAtDesc(aTime time.Time, aID string, bTime time.Time, bID st
 		return aID > bID
 	}
 	return aTime.After(bTime)
+}
+
+// ValidateInviteTokenTTL accepts a caller-requested invite token lifetime.
+// Zero selects DefaultInviteTokenTTL and is not validated here.
+func ValidateInviteTokenTTL(ttl time.Duration) error {
+	if ttl < MinInviteTokenTTL || ttl > MaxInviteTokenTTL {
+		return fmt.Errorf("%w: %s not in [%s, %s]", ErrInvalidInviteTokenTTL, ttl, MinInviteTokenTTL, MaxInviteTokenTTL)
+	}
+	return nil
 }
 
 func NewID() string {

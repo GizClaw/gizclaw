@@ -1,0 +1,217 @@
+# User Story:
+# As a LiteLink parent holding a device API key,
+# I want to befriend another device with a long-lived invite code and manage the friendship over Public HTTP,
+# So that friends can be added and removed while the device is away or offline.
+version: gizclaw.test/v1alpha1
+name: server.friends.http
+clients:
+  alice:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+  bob:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  alice_key:
+    direction: output
+    type: string
+    secret: true
+  bob_key:
+    direction: output
+    type: string
+    secret: true
+  invite_token:
+    direction: output
+    type: string
+  alice_name:
+    direction: output
+    type: string
+steps:
+- id: register_alice
+  client: alice
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: register_bob
+  client: bob
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_alice_key
+  client: alice
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}-alice"
+  capture:
+    alice_key: /api_key
+- id: create_bob_key
+  client: bob
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}-bob"
+  capture:
+    bob_key: /api_key
+- id: create_invite_token
+  client: alice
+  http:
+    method: POST
+    path: /gizclaw/v1/friends/invite-token
+    headers:
+      Authorization: "Bearer ${alice_key}"
+    body:
+      ttl_seconds: 86400
+    status: 200
+  capture:
+    invite_token: /invite_token
+  expect:
+    /invite_token: {non_empty: true}
+    /expires_at: {non_empty: true}
+- id: reject_long_ttl
+  client: alice
+  http:
+    method: POST
+    path: /gizclaw/v1/friends/invite-token
+    headers:
+      Authorization: "Bearer ${alice_key}"
+    body:
+      ttl_seconds: 604801
+    status: 400
+  expect:
+    /error/code: {equals: INVALID_REQUEST}
+- id: get_invite_token
+  client: alice
+  http:
+    method: GET
+    path: /gizclaw/v1/friends/invite-token
+    headers:
+      Authorization: "Bearer ${alice_key}"
+    status: 200
+  expect:
+    /invite_token: {equals: "${invite_token}"}
+- id: add_friend
+  client: bob
+  http:
+    method: POST
+    path: /gizclaw/v1/friends
+    headers:
+      Authorization: "Bearer ${bob_key}"
+    body:
+      invite_token: "${invite_token}"
+    status: 201
+  capture:
+    alice_name: /name
+  expect:
+    /name: {non_empty: true}
+    /workspace_name: {non_empty: true}
+- id: add_friend_again
+  client: bob
+  http:
+    method: POST
+    path: /gizclaw/v1/friends
+    headers:
+      Authorization: "Bearer ${bob_key}"
+    body:
+      invite_token: "${invite_token}"
+    status: 409
+  expect:
+    /error/code: {equals: FRIEND_ALREADY_EXISTS}
+- id: add_own_token
+  client: alice
+  http:
+    method: POST
+    path: /gizclaw/v1/friends
+    headers:
+      Authorization: "Bearer ${alice_key}"
+    body:
+      invite_token: "${invite_token}"
+    status: 400
+  expect:
+    /error/code: {equals: FRIEND_SELF_INVITE}
+- id: list_friends
+  client: alice
+  http:
+    method: GET
+    path: /gizclaw/v1/friends?limit=10
+    headers:
+      Authorization: "Bearer ${alice_key}"
+    status: 200
+  expect:
+    /items: {count: 1}
+    /items/0/name: {non_empty: true}
+    /has_next: {equals: false}
+- id: get_friend
+  client: bob
+  http:
+    method: GET
+    path: /gizclaw/v1/friends/${alice_name}
+    headers:
+      Authorization: "Bearer ${bob_key}"
+    status: 200
+  expect:
+    /name: {equals: "${alice_name}"}
+- id: clear_invite_token
+  client: alice
+  http:
+    method: DELETE
+    path: /gizclaw/v1/friends/invite-token
+    headers:
+      Authorization: "Bearer ${alice_key}"
+    status: 204
+- id: invite_token_cleared
+  client: alice
+  http:
+    method: GET
+    path: /gizclaw/v1/friends/invite-token
+    headers:
+      Authorization: "Bearer ${alice_key}"
+    status: 404
+  expect:
+    /error/code: {equals: INVITE_TOKEN_NOT_FOUND}
+- id: delete_friend
+  client: bob
+  http:
+    method: DELETE
+    path: /gizclaw/v1/friends/${alice_name}
+    headers:
+      Authorization: "Bearer ${bob_key}"
+    status: 204
+- id: friend_deleted
+  client: bob
+  http:
+    method: GET
+    path: /gizclaw/v1/friends/${alice_name}
+    headers:
+      Authorization: "Bearer ${bob_key}"
+    status: 404
+  expect:
+    /error/code: {equals: FRIEND_NOT_FOUND}
+finally:
+- id: cleanup_alice
+  client: alice
+  rpc:
+    method: server.peer.delete
+    request: {}
+- id: cleanup_bob
+  client: bob
+  rpc:
+    method: server.peer.delete
+    request: {}

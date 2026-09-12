@@ -116,7 +116,10 @@ func (s *PeerService) edgeOpenAIHTTPHandler(apiKeys *apikey.Server) http.Handler
 }
 
 func (s *PeerService) publicHTTPHandlerWithOptions(apiKeys *apikey.Server, opts publicHTTPOptions) http.Handler {
-	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	// Immutable copies path parameters and other context strings out of the
+	// reused request buffer: handlers pass them to services that keep them as
+	// store keys, lock keys and notification payloads after the response.
+	app := fiber.New(fiber.Config{DisableStartupMessage: true, Immutable: true})
 	app.Use(func(ctx *fiber.Ctx) error {
 		base := ctx.UserContext()
 		if base == nil {
@@ -274,6 +277,21 @@ var optionalJSONBodyPaths = map[string]struct{}{
 	"/gizclaw/v1/device/actions/reboot":          {},
 	"/gizclaw/v1/device/actions/firmware-update": {},
 	"/gizclaw/v1/device/wifi/scan":               {},
+	"/gizclaw/v1/friends/invite-token":           {},
+}
+
+// hasOptionalJSONBody reports whether path is a POST route whose request body
+// is optional, including /gizclaw/v1/friend-groups/{friendGroupName}/invite-token.
+func hasOptionalJSONBody(path string) bool {
+	if _, ok := optionalJSONBodyPaths[path]; ok {
+		return true
+	}
+	name, ok := strings.CutPrefix(path, "/gizclaw/v1/friend-groups/")
+	if !ok {
+		return false
+	}
+	name, ok = strings.CutSuffix(name, "/invite-token")
+	return ok && name != "" && !strings.Contains(name, "/")
 }
 
 // normalizeOptionalJSONBody lets routes with an optional JSON request body
@@ -283,7 +301,7 @@ func normalizeOptionalJSONBody(ctx *fiber.Ctx) {
 	if ctx.Method() != http.MethodPost || len(ctx.Body()) != 0 {
 		return
 	}
-	if _, ok := optionalJSONBodyPaths[ctx.Path()]; !ok {
+	if !hasOptionalJSONBody(ctx.Path()) {
 		return
 	}
 	ctx.Request().Header.SetContentType(fiber.MIMEApplicationJSON)

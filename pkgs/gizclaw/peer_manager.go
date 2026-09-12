@@ -717,18 +717,37 @@ func (m *Manager) Peer(publicKey giznet.PublicKey) (giznet.Conn, bool) {
 }
 
 func (m *Manager) PeerRuntime(ctx context.Context, publicKey giznet.PublicKey) apitypes.Runtime {
-	runtime := m.peerConnectionRuntime(publicKey)
+	runtime := m.peerPresenceRuntime(ctx, publicKey)
 	if m.PeerRun != nil {
 		if mode, err := m.PeerRun.GetDebugMode(ctx, publicKey); err == nil {
 			runtime.DebugMode = &mode
 		}
-		if runtime.LastSeenAt.IsZero() {
-			// An offline Peer keeps the last activity recorded when its
-			// connection went down, so operators can read how long it has
-			// been unreachable instead of a zero timestamp.
-			if seen, err := m.PeerRun.GetLastSeen(ctx, publicKey); err == nil {
-				runtime.LastSeenAt = seen
-			}
+	}
+	return runtime
+}
+
+// PeerPresence reports whether publicKey has an active connection on this
+// Server and its last observed activity: the Runtime.online and
+// Runtime.last_seen_at values, read from the same connection state as
+// PeerOnline. lastSeenAt is the zero time when the Server has never observed
+// the Peer.
+func (m *Manager) PeerPresence(ctx context.Context, publicKey string) (bool, time.Time) {
+	key, err := parseSocialPingPeer(publicKey)
+	if err != nil {
+		return false, time.Time{}
+	}
+	runtime := m.peerPresenceRuntime(ctx, key)
+	return runtime.Online, runtime.LastSeenAt
+}
+
+func (m *Manager) peerPresenceRuntime(ctx context.Context, publicKey giznet.PublicKey) apitypes.Runtime {
+	runtime := m.peerConnectionRuntime(publicKey)
+	if m.PeerRun != nil && runtime.LastSeenAt.IsZero() {
+		// An offline Peer keeps the last activity recorded when its
+		// connection went down, so callers can read how long it has been
+		// unreachable instead of a zero timestamp.
+		if seen, err := m.PeerRun.GetLastSeen(ctx, publicKey); err == nil {
+			runtime.LastSeenAt = seen
 		}
 	}
 	return runtime

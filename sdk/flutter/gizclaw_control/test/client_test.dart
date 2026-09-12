@@ -1038,6 +1038,254 @@ void main() {
     });
   });
 
+  group('friends', () {
+    const peerKey = '7hwyLuAApKGgUbVCd8xYnLEiugfniMFfAsZ7RH8cPYAM';
+    const friendJson = {
+      'name': peerKey,
+      'peer_public_key': peerKey,
+      'workspace_name': 'social-direct-1',
+      'created_at': '2026-09-12T01:02:03Z',
+      'updated_at': '2026-09-12T01:02:03Z',
+      'info': {'display_name': 'Kitchen', 'emoji': '🔊'},
+    };
+    const tokenJson = {
+      'invite_token': '0123456789abcdef',
+      'expires_at': '2026-09-19T01:02:03Z',
+    };
+
+    test(
+      'invite token routes send ttl_seconds and map a missing token',
+      () async {
+        final recorder = Recorder([
+          error(404, 'INVITE_TOKEN_NOT_FOUND'),
+          json(200, tokenJson),
+          json(200, tokenJson),
+          noContent(),
+        ]);
+        final client = clientWith(recorder);
+        final missing = await failure(client.getFriendInviteToken());
+        expect(missing.kind, GizClawControlErrorKind.notFound);
+        expect(missing.code, 'INVITE_TOKEN_NOT_FOUND');
+        await client.createFriendInviteToken();
+        final token = await client.createFriendInviteToken(
+          ttl: const Duration(days: 7),
+        );
+        await client.clearFriendInviteToken();
+        expect(token.inviteToken, '0123456789abcdef');
+        expect(token.expiresAt, DateTime.utc(2026, 9, 19, 1, 2, 3));
+        expect(recorder.requests[1].method, 'POST');
+        expect(jsonDecode(recorder.requests[1].body), <String, Object?>{});
+        expect(jsonDecode(recorder.requests[2].body), {'ttl_seconds': 604800});
+        expect(recorder.requests[3].method, 'DELETE');
+        expect(
+          recorder.requests[3].url.path,
+          '/gizclaw/v1/friends/invite-token',
+        );
+        expect(
+          () => client.createFriendInviteToken(
+            ttl: const Duration(milliseconds: 1500),
+          ),
+          throwsArgumentError,
+        );
+      },
+    );
+
+    test('addFriend, list, get, delete', () async {
+      final recorder = Recorder([
+        json(201, friendJson),
+        error(409, 'FRIEND_ALREADY_EXISTS'),
+        json(200, {
+          'items': [friendJson],
+          'has_next': true,
+          'next_cursor': 'c1',
+        }),
+        json(200, friendJson),
+        noContent(),
+      ]);
+      final client = clientWith(recorder);
+      final friend = await client.addFriend('0123');
+      final duplicate = await failure(client.addFriend('0123'));
+      final list = await client.listFriends(cursor: 'c0', limit: 10);
+      await client.getFriend(peerKey);
+      await client.deleteFriend(peerKey);
+
+      expect(jsonDecode(recorder.requests[0].body), {'invite_token': '0123'});
+      expect(friend.name, peerKey);
+      expect(friend.workspaceName, 'social-direct-1');
+      expect(friend.info?.displayName, 'Kitchen');
+      expect(friend.info?.emoji, '🔊');
+      expect(duplicate.kind, GizClawControlErrorKind.conflict);
+      expect(duplicate.code, 'FRIEND_ALREADY_EXISTS');
+      expect(list.hasNext, isTrue);
+      expect(list.nextCursor, 'c1');
+      expect(recorder.requests[2].url.queryParameters, {
+        'cursor': 'c0',
+        'limit': '10',
+      });
+      expect(recorder.requests[3].url.path, '/gizclaw/v1/friends/$peerKey');
+      expect(recorder.requests[4].method, 'DELETE');
+      expect(() => client.getFriend(''), throwsArgumentError);
+    });
+
+    test('a Friend without a Peer profile decodes without info', () async {
+      final recorder = Recorder([
+        json(200, {...friendJson}..remove('info')),
+      ]);
+      final friend = await clientWith(recorder).getFriend(peerKey);
+      expect(friend.info, isNull);
+    });
+  });
+
+  group('friend groups', () {
+    const peerKey = '7hwyLuAApKGgUbVCd8xYnLEiugfniMFfAsZ7RH8cPYAM';
+    const groupJson = {
+      'name': '家/1',
+      'my_role': 'owner',
+      'display_name': 'Family',
+      'workspace_name': 'social-group-1',
+    };
+    const memberJson = {
+      'name': peerKey,
+      'peer_public_key': peerKey,
+      'role': 'member',
+      'info': {'display_name': 'Kitchen'},
+    };
+    const encoded = '/gizclaw/v1/friend-groups/%E5%AE%B6%2F1';
+
+    test('group routes encode the Group name', () async {
+      final recorder = Recorder([
+        json(200, {
+          'items': [groupJson],
+          'has_next': false,
+        }),
+        json(201, groupJson),
+        json(200, {'group': groupJson, 'member': memberJson}),
+        json(200, groupJson),
+        json(200, groupJson),
+        noContent(),
+      ]);
+      final client = clientWith(recorder);
+      final list = await client.listFriendGroups(limit: 5);
+      await client.createFriendGroup(name: '家/1', displayName: 'Family');
+      final joined = await client.joinFriendGroup(
+        inviteToken: 'abc',
+        name: '家/1',
+      );
+      final group = await client.getFriendGroup('家/1');
+      await client.putFriendGroup('家/1', description: 'weekend');
+      await client.deleteFriendGroup('家/1');
+
+      expect(list.items.single.myRole, FriendGroupRole.owner);
+      expect(jsonDecode(recorder.requests[1].body), {
+        'name': '家/1',
+        'display_name': 'Family',
+      });
+      expect(recorder.requests[2].url.path, '/gizclaw/v1/friend-groups/@join');
+      expect(jsonDecode(recorder.requests[2].body), {
+        'invite_token': 'abc',
+        'name': '家/1',
+      });
+      expect(joined.member.role, FriendGroupRole.member);
+      expect(joined.member.info?.displayName, 'Kitchen');
+      expect(group.displayName, 'Family');
+      expect(recorder.requests[3].url.toString(), endsWith(encoded));
+      expect(recorder.requests[4].method, 'PUT');
+      expect(jsonDecode(recorder.requests[4].body), {'description': 'weekend'});
+      expect(recorder.requests[5].method, 'DELETE');
+      expect(recorder.requests[5].url.toString(), endsWith(encoded));
+    });
+
+    test('leave, invite token and member routes', () async {
+      final recorder = Recorder([
+        error(409, 'FRIEND_GROUP_OWNER_CANNOT_LEAVE'),
+        noContent(),
+        json(200, {'invite_token': 'g1', 'expires_at': '2026-09-12T02:00:00Z'}),
+        json(200, {'invite_token': 'g1', 'expires_at': '2026-09-12T02:00:00Z'}),
+        noContent(),
+        json(200, {
+          'items': [memberJson],
+          'has_next': false,
+        }),
+        json(201, memberJson),
+        json(200, {...memberJson, 'role': 'admin'}),
+        error(403, 'FRIEND_GROUP_PERMISSION_DENIED'),
+      ]);
+      final client = clientWith(recorder);
+      final ownerLeave = await failure(client.leaveFriendGroup('家/1'));
+      await client.leaveFriendGroup('家/1');
+      await client.getFriendGroupInviteToken('家/1');
+      await client.createFriendGroupInviteToken(
+        '家/1',
+        ttl: const Duration(hours: 1),
+      );
+      await client.clearFriendGroupInviteToken('家/1');
+      final members = await client.listFriendGroupMembers('家/1', limit: 2);
+      await client.addFriendGroupMember(
+        '家/1',
+        peerPublicKey: peerKey,
+        memberName: 'kids',
+      );
+      final promoted = await client.putFriendGroupMember(
+        '家/1',
+        peerKey,
+        FriendGroupRole.admin,
+      );
+      final denied = await failure(
+        client.deleteFriendGroupMember('家/1', peerKey),
+      );
+
+      expect(ownerLeave.kind, GizClawControlErrorKind.conflict);
+      expect(ownerLeave.code, 'FRIEND_GROUP_OWNER_CANNOT_LEAVE');
+      expect(recorder.requests[1].method, 'POST');
+      expect(recorder.requests[1].url.toString(), endsWith('$encoded/@leave'));
+      expect(
+        recorder.requests[2].url.toString(),
+        endsWith('$encoded/invite-token'),
+      );
+      expect(jsonDecode(recorder.requests[3].body), {'ttl_seconds': 3600});
+      expect(recorder.requests[4].method, 'DELETE');
+      expect(members.items.single.info?.displayName, 'Kitchen');
+      expect(recorder.requests[5].url.queryParameters, {'limit': '2'});
+      expect(jsonDecode(recorder.requests[6].body), {
+        'peer_public_key': peerKey,
+        'member_name': 'kids',
+        'role': 'member',
+      });
+      expect(promoted.role, FriendGroupRole.admin);
+      expect(
+        recorder.requests[7].url.toString(),
+        endsWith('$encoded/members/$peerKey'),
+      );
+      expect(jsonDecode(recorder.requests[7].body), {'role': 'admin'});
+      expect(denied.kind, GizClawControlErrorKind.forbidden);
+      expect(denied.code, 'FRIEND_GROUP_PERMISSION_DENIED');
+      expect(
+        () =>
+            client.putFriendGroupMember('家/1', peerKey, FriendGroupRole.owner),
+        throwsArgumentError,
+      );
+      expect(
+        () => client.deleteFriendGroupMember('家/1', ''),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects an unknown member role', () async {
+      final recorder = Recorder([
+        json(200, {
+          'items': [
+            {...memberJson, 'role': 'moderator'},
+          ],
+          'has_next': false,
+        }),
+      ]);
+      final exception = await failure(
+        clientWith(recorder).listFriendGroupMembers('家/1'),
+      );
+      expect(exception.kind, GizClawControlErrorKind.malformedResponse);
+    });
+  });
+
   group('error mapping', () {
     final cases = <(int, String, GizClawControlErrorKind)>[
       (401, 'UNAUTHORIZED', GizClawControlErrorKind.unauthorized),
