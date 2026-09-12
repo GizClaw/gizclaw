@@ -3,10 +3,10 @@
 syntax = "proto3";
 
 import "payload/audioplayer.proto";
+import "payload/enums.proto";
 
 package gizclaw.rpc.v1;
 
-import "google/protobuf/struct.proto";
 
 option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
 
@@ -46,6 +46,71 @@ message ClientDeviceSoundPlayRequest {
 }
 
 message ClientDeviceSoundPlayResponse {
+}
+
+// DeviceSettings is the device's own configuration, readable and writable by
+// the Server over reverse RPC. Every member is optional in both directions: on
+// a set request an absent member leaves that option unchanged, and on any
+// response an absent member means the device does not support that option.
+// That is what lets one message serve devices with different hardware without
+// a per-option RPC method.
+message DeviceSettings {
+  // Whether the cellular (4G) modem is powered and allowed to carry traffic.
+  optional bool cellular_enabled = 1;
+  // Idle time before the screen turns off; 0 keeps the screen always on.
+  optional int64 screen_off_timeout_ms = 2;
+  // Screen backlight level in [0, 100].
+  optional int64 screen_brightness = 3;
+  // Indicator light level in [0, 100].
+  optional int64 led_brightness = 4;
+  // UI language as a well-formed BCP 47 tag of at most 35 bytes: a 2-8 letter
+  // primary subtag followed by hyphen-separated 1-8 character alphanumeric
+  // subtags, e.g. "zh-CN", "zh-Hant-TW" or "es-419". POSIX forms such as
+  // "zh_CN" are rejected; whether the device offers the language is its own
+  // decision.
+  optional string locale = 5;
+  optional DeviceInteractionMode default_interaction_mode = 6;
+  optional DeviceKeyFeedback key_feedback = 7;
+}
+
+message ClientDeviceSettingsGetRequest {
+}
+
+message ClientDeviceSettingsGetResponse {
+  DeviceSettings value = 1;
+}
+
+// ClientDeviceSettingsSetRequest applies only the members it carries. The
+// response is the device's full settings after the change, so a caller sees
+// which options the device actually accepted.
+message ClientDeviceSettingsSetRequest {
+  DeviceSettings value = 1;
+}
+
+message ClientDeviceSettingsSetResponse {
+  DeviceSettings value = 1;
+}
+
+// ClientDeviceFactoryResetRequest erases device-local state. It is
+// irreversible on the device; the Server keeps its own peer records.
+message ClientDeviceFactoryResetRequest {
+  // Keep saved Wi-Fi networks and cellular configuration so the device can
+  // reconnect without being re-provisioned. Defaults to false.
+  optional bool keep_network = 1;
+}
+
+message ClientDeviceFactoryResetResponse {
+}
+
+message ClientRpcMethodsGetRequest {
+}
+
+// ClientRpcMethodsGetResponse lists the RPC method names the device
+// implements, so the Server can hide or reject a control it would only fail.
+// Names are the registry names from RpcMethod, e.g. "client.device.reboot".
+// Unknown names must be ignored rather than rejected.
+message ClientRpcMethodsGetResponse {
+  repeated string methods = 1;
 }
 
 // ClientDeviceFindRequest asks the device to play its built-in find-me sound.
@@ -172,7 +237,6 @@ message PeerStatus {
   optional PeerOtaStatus ota = 13;
   optional int64 battery_percent = 1;
   optional bool charging = 2;
-  google.protobuf.Struct details = 3;
   optional string firmware_sha256 = 12;
   optional AudioPlayerStatus audioplayer = 14;
   optional double gnss_accuracy_m = 4;
@@ -185,6 +249,37 @@ message PeerStatus {
   optional int64 volume = 11;
   optional string network_imei = 15;
   optional string network_imsi = 16;
+  // Per-field observation times for the telemetry-sourced members above.
+  optional PeerStatusTelemetryObservedAt telemetry_observed_at = 17;
+  // Feature the device reports it is currently using. Readers must preserve
+  // unknown future values.
+  optional string activity = 18;
+  optional string activity_detail = 19;
+  // Human-readable firmware release the device reports running, next to the
+  // exact-package firmware_sha256 digest.
+  optional string firmware_version = 20;
+
+  // 3 was google.protobuf.Struct details, an untyped map whose only content
+  // was the observation times now carried by telemetry_observed_at.
+  reserved 3;
+  reserved "details";
+}
+
+// PeerStatusTelemetryObservedAt records when the device observed the value now
+// stored in each sibling PeerStatus field, as an RFC 3339 timestamp. The
+// Server uses these to reject an out-of-order or replayed report without
+// overwriting a newer observation. A member is empty until first observed.
+message PeerStatusTelemetryObservedAt {
+  optional string battery_percent = 1;
+  optional string charging = 2;
+  optional string gnss_latitude = 3;
+  optional string gnss_longitude = 4;
+  optional string gnss_altitude_m = 5;
+  optional string gnss_accuracy_m = 6;
+  optional string network_imei = 7;
+  optional string network_imsi = 8;
+  optional string activity = 9;
+  optional string firmware_version = 10;
 }
 
 message PingRequest {

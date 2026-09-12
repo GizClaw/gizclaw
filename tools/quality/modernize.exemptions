@@ -481,20 +481,19 @@ pkgs/gizclaw/api/apitypes/generated.go:4832:45: interface{} can be replaced by a
 pkgs/gizclaw/api/apitypes/generated.go:4845:31: interface{} can be replaced by any
 pkgs/gizclaw/api/apitypes/generated.go:4852:25: interface{} can be replaced by any
 pkgs/gizclaw/api/apitypes/generated.go:4862:22: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:4908:29: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:5385:35: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:5488:26: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:5628:26: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:5635:21: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:5799:25: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:6589:51: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:7662:43: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:7851:48: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:8672:43: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:8913:65: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:9178:47: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:9279:43: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:9620:54: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:5409:35: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:5512:26: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:5652:26: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:5659:21: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:5823:25: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:6613:51: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:7686:43: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:7875:48: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:8696:43: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:8937:65: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:9202:47: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:9303:43: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:9644:54: interface{} can be replaced by any
 pkgs/gizclaw/api/eventproto/peer_event.pb.go:1307:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/peerhttp/generated.go:13225:6: backward loop over slice can be modernized using slices.Backward
 pkgs/gizclaw/api/peerhttp/generated.go:13245:6: backward loop over slice can be modernized using slices.Backward
@@ -735,13 +734,13 @@ pkgs/gizclaw/api/rpcapi/tool_generated.go:59:24: interface{} can be replaced by 
 pkgs/gizclaw/api/rpcproto/ai.pb.go:6301:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/rpcproto/audioplayer.pb.go:934:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/rpcproto/edge.pb.go:558:19: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/api/rpcproto/enums.pb.go:1610:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcproto/enums.pb.go:1730:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/rpcproto/firmware.pb.go:311:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/rpcproto/icon.pb.go:122:19: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/api/rpcproto/rpc.pb.go:1290:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcproto/rpc.pb.go:1310:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/rpcproto/social.pb.go:3694:19: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/api/rpcproto/system.pb.go:3783:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcproto/system.pb.go:4456:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/rpcproto/workspace.pb.go:4395:19: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/api/telemetry/peer_telemetry.pb.go:966:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/telemetry/peer_telemetry.pb.go:1052:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/monitor/api/generated.go:579:101: interface{} can be replaced by any
 pkgs/monitor/api/generated.go:579:87: interface{} can be replaced by any

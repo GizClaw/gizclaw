@@ -128,7 +128,7 @@ func TestApplyDeviceStatusRequiresStore(t *testing.T) {
 	}
 }
 
-func TestApplyDeviceStatusPreservesTelemetryDetailsAndReplacesLabels(t *testing.T) {
+func TestApplyDeviceStatusPreservesTelemetryObservedAtAndReplacesLabels(t *testing.T) {
 	store := &memoryStatusStore{}
 	sync := StatusSync{Store: store}
 	peer := giznet.PublicKey{4}
@@ -137,20 +137,22 @@ func TestApplyDeviceStatusPreservesTelemetryDetailsAndReplacesLabels(t *testing.
 		t.Fatal(err)
 	}
 	before := store.status[peer]
-	if _, ok := telemetryStatusFieldTime(before, telemetryStatusBatteryPercentAtKey); !ok {
+	if _, ok := telemetryStatusFieldTime(before, observedAtBatteryPercent); !ok {
 		t.Fatalf("telemetry field time missing before control write: %+v", before)
 	}
+	deviceClaimedAt := base.Add(72 * time.Hour)
 	got, err := sync.ApplyDeviceStatus(context.Background(), peer, apitypes.PeerStatus{
-		Volume: new(3), Labels: &map[string]string{"room": "a"}, Details: &map[string]any{"device_only": true},
+		Volume: new(3), Labels: &map[string]string{"room": "a"},
+		TelemetryObservedAt: &apitypes.PeerStatusTelemetryObservedAt{BatteryPercent: &deviceClaimedAt},
 	}, base.Add(time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if at, ok := telemetryStatusFieldTime(got, telemetryStatusBatteryPercentAtKey); !ok || !at.Equal(base) {
+	if at, ok := telemetryStatusFieldTime(got, observedAtBatteryPercent); !ok || !at.Equal(base) {
 		t.Fatalf("telemetry field time after control write = %v, %v", at, ok)
 	}
-	if _, leaked := (*got.Details)["device_only"]; leaked {
-		t.Fatal("device details must not overwrite stored details")
+	if at, ok := telemetryStatusFieldTime(got, observedAtBatteryPercent); !ok || at.Equal(deviceClaimedAt) {
+		t.Fatal("device-reported telemetry_observed_at must not overwrite the stored observation time")
 	}
 	got, err = sync.ApplyDeviceStatus(context.Background(), peer, apitypes.PeerStatus{Labels: &map[string]string{"room": "b"}}, base.Add(2*time.Second))
 	if err != nil {
@@ -225,7 +227,7 @@ func TestSyncTelemetryStatusNetworkIdentityOrdering(t *testing.T) {
 	if got.NetworkImei == nil || *got.NetworkImei != imei || got.NetworkImsi == nil || *got.NetworkImsi != imsi {
 		t.Fatalf("stored identity = %+v", got)
 	}
-	if at, ok := telemetryStatusFieldTime(got, telemetryStatusNetworkIMSIAtKey); !ok || !at.Equal(base) {
+	if at, ok := telemetryStatusFieldTime(got, observedAtNetworkIMSI); !ok || !at.Equal(base) {
 		t.Fatalf("network_imsi_at = %v, %v", at, ok)
 	}
 	if store.puts != 1 {
@@ -266,10 +268,10 @@ func TestSyncTelemetryStatusNetworkIdentityOrdering(t *testing.T) {
 	if *got.NetworkImei != imei || store.puts != 2 {
 		t.Fatalf("equal identity refresh: %+v puts=%d", got, store.puts)
 	}
-	if at, ok := telemetryStatusFieldTime(got, telemetryStatusNetworkIMEIAtKey); !ok || !at.Equal(later) {
+	if at, ok := telemetryStatusFieldTime(got, observedAtNetworkIMEI); !ok || !at.Equal(later) {
 		t.Fatalf("network_imei_at after refresh = %v, %v, want %v", at, ok, later)
 	}
-	if at, ok := telemetryStatusFieldTime(got, telemetryStatusNetworkIMSIAtKey); !ok || !at.Equal(base) {
+	if at, ok := telemetryStatusFieldTime(got, observedAtNetworkIMSI); !ok || !at.Equal(base) {
 		t.Fatalf("network_imsi_at must stay %v, got %v, %v", base, at, ok)
 	}
 	if !got.ReportedAt.Equal(later) {
@@ -307,5 +309,130 @@ func TestSyncTelemetryStatusNetworkIdentityOrdering(t *testing.T) {
 	got = store.status[peer]
 	if *got.NetworkImsi != swapped || *got.Volume != 9 {
 		t.Fatalf("control response = %+v", got)
+	}
+}
+
+// An activity observation replaces the stored activity and its detail together,
+// records its own observation time, and never lets a stale report win.
+func TestSyncTelemetryStatusAppliesActivityWithDetailAndOrdering(t *testing.T) {
+	store := &memoryStatusStore{}
+	sync := StatusSync{Store: store}
+	peer := giznet.PublicKey{9}
+	base := time.Date(2026, 9, 8, 4, 0, 0, 0, time.UTC)
+
+	chat := "chat"
+	detail := "Talking to the agent"
+	if err := sync.SyncTelemetryStatus(context.Background(), peer, StatusPatch{
+		ReportedAt: base, Activity: &chat, ActivityDetail: &detail, ActivityAt: base,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	got := store.status[peer]
+	if got.Activity == nil || *got.Activity != chat {
+		t.Fatalf("Activity = %#v, want %q", got.Activity, chat)
+	}
+	if got.ActivityDetail == nil || *got.ActivityDetail != detail {
+		t.Fatalf("ActivityDetail = %#v, want %q", got.ActivityDetail, detail)
+	}
+	if at, ok := telemetryStatusFieldTime(got, observedAtActivity); !ok || !at.Equal(base) {
+		t.Fatalf("activity observed at = %v, %v, want %s", at, ok, base)
+	}
+
+	// A newer activity with no detail clears the detail of the previous one.
+	idle := "idle"
+	later := base.Add(time.Minute)
+	if err := sync.SyncTelemetryStatus(context.Background(), peer, StatusPatch{
+		ReportedAt: later, Activity: &idle, ActivityAt: later,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	got = store.status[peer]
+	if got.Activity == nil || *got.Activity != idle {
+		t.Fatalf("Activity = %#v, want %q", got.Activity, idle)
+	}
+	if got.ActivityDetail != nil {
+		t.Fatalf("ActivityDetail = %#v, want cleared with the new activity", got.ActivityDetail)
+	}
+
+	// A report observed before the stored one never replaces it.
+	store.puts = 0
+	stale := "ota"
+	staleAt := base.Add(-time.Hour)
+	if err := sync.SyncTelemetryStatus(context.Background(), peer, StatusPatch{
+		ReportedAt: staleAt, Activity: &stale, ActivityAt: staleAt,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if got := store.status[peer]; got.Activity == nil || *got.Activity != idle {
+		t.Fatalf("stale activity overwrote the stored one: %#v", got.Activity)
+	}
+	if store.puts != 0 {
+		t.Fatalf("stale activity puts = %d, want 0", store.puts)
+	}
+
+	// Repeating the stored activity at the same time does not rewrite the store.
+	if err := sync.SyncTelemetryStatus(context.Background(), peer, StatusPatch{
+		ReportedAt: later, Activity: &idle, ActivityAt: later,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if store.puts != 0 {
+		t.Fatalf("unchanged activity puts = %d, want 0", store.puts)
+	}
+}
+
+// The firmware version is ordered per field like every other telemetry-sourced
+// member, so a late-arriving older report cannot roll the version backwards.
+func TestSyncTelemetryStatusOrdersFirmwareVersion(t *testing.T) {
+	store := &memoryStatusStore{}
+	sync := StatusSync{Store: store}
+	peer := giznet.PublicKey{10}
+	base := time.Date(2026, 9, 8, 5, 0, 0, 0, time.UTC)
+
+	newer := "1.4.2"
+	newerAt := base.Add(time.Hour)
+	if err := sync.SyncTelemetryStatus(context.Background(), peer, StatusPatch{
+		ReportedAt: newerAt, FirmwareVersion: &newer, FirmwareVersionAt: newerAt,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	older := "1.4.1"
+	if err := sync.SyncTelemetryStatus(context.Background(), peer, StatusPatch{
+		ReportedAt: base, FirmwareVersion: &older, FirmwareVersionAt: base,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	got := store.status[peer]
+	if got.FirmwareVersion == nil || *got.FirmwareVersion != newer {
+		t.Fatalf("FirmwareVersion = %#v, want preserved %q", got.FirmwareVersion, newer)
+	}
+	if at, ok := telemetryStatusFieldTime(got, observedAtFirmwareVer); !ok || !at.Equal(newerAt) {
+		t.Fatalf("firmware version observed at = %v, %v, want %s", at, ok, newerAt)
+	}
+}
+
+// The device supplies the activity on a control response too; an unparseable
+// value is dropped rather than stored, like the firmware digest.
+func TestApplyDeviceStatusValidatesReportedActivity(t *testing.T) {
+	store := &memoryStatusStore{}
+	sync := StatusSync{Store: store}
+	peer := giznet.PublicKey{11}
+	now := time.Date(2026, 9, 8, 6, 0, 0, 0, time.UTC)
+
+	bad := "Chat With Agent"
+	got, err := sync.ApplyDeviceStatus(context.Background(), peer, apitypes.PeerStatus{Activity: &bad}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Activity != nil {
+		t.Fatalf("Activity = %#v, want the out-of-contract value dropped", got.Activity)
+	}
+	good := "audioplayer"
+	got, err = sync.ApplyDeviceStatus(context.Background(), peer, apitypes.PeerStatus{Activity: &good}, now.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Activity == nil || *got.Activity != good {
+		t.Fatalf("Activity = %#v, want %q", got.Activity, good)
 	}
 }

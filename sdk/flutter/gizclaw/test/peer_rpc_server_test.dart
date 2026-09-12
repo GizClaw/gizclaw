@@ -879,4 +879,151 @@ void deviceControlTests() {
       expect(response.status.code, rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED);
     }
   });
+
+  test(
+    'serves device settings, factory reset and the capability list',
+    () async {
+      DeviceSettings? applied;
+      bool? keepNetwork;
+      final handlers = GizClawPeerRpcHandlers(
+        deviceInfo: () => device,
+        socialPing: (_) {},
+        deviceControl: GizClawDeviceControlHandlers(
+          find: (_) {},
+          getSettings: () => DeviceSettings(screenBrightness: Int64(30)),
+          setSettings: (patch) {
+            applied = patch;
+            return DeviceSettings(ledBrightness: Int64(10))
+              ..mergeFromMessage(patch);
+          },
+          factoryReset: (keep) => keepNetwork = keep,
+        ),
+      );
+
+      var response = await callDevice(
+        handlers,
+        id: 'settings-get',
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET,
+        methodName: 'client.device.settings.get',
+        request: ClientDeviceSettingsGetRequest(),
+      );
+      expect(response.hasStatus(), isFalse);
+      final got =
+          decodeRpcResponsePayload(
+                'client.device.settings.get',
+                response.payload,
+              )
+              as ClientDeviceSettingsGetResponse;
+      expect(got.value.screenBrightness, Int64(30));
+      // An option the device did not report stays absent, meaning unsupported.
+      expect(got.value.hasLedBrightness(), isFalse);
+
+      response = await callDevice(
+        handlers,
+        id: 'settings-set',
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET,
+        methodName: 'client.device.settings.set',
+        request: ClientDeviceSettingsSetRequest(
+          value: DeviceSettings(locale: 'zh-CN', cellularEnabled: false),
+        ),
+      );
+      expect(response.hasStatus(), isFalse);
+      expect(applied?.locale, 'zh-CN');
+      expect(applied?.hasCellularEnabled(), isTrue);
+      final set =
+          decodeRpcResponsePayload(
+                'client.device.settings.set',
+                response.payload,
+              )
+              as ClientDeviceSettingsSetResponse;
+      expect(set.value.ledBrightness, Int64(10));
+
+      // Out-of-range members are rejected before the handler sees any of them.
+      applied = null;
+      for (final bad in [
+        DeviceSettings(screenBrightness: Int64(101)),
+        DeviceSettings(ledBrightness: Int64(-1)),
+        DeviceSettings(screenOffTimeoutMs: Int64(-1)),
+        DeviceSettings(locale: ''),
+        DeviceSettings(locale: 'not a locale'),
+        DeviceSettings(locale: 'zh_CN'),
+        DeviceSettings(
+          defaultInteractionMode:
+              DeviceInteractionMode.DEVICE_INTERACTION_MODE_UNSPECIFIED,
+        ),
+      ]) {
+        response = await callDevice(
+          handlers,
+          id: 'settings-bad',
+          method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET,
+          methodName: 'client.device.settings.set',
+          request: ClientDeviceSettingsSetRequest(value: bad),
+        );
+        expect(
+          response.status.code,
+          rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
+          reason: '$bad',
+        );
+      }
+      expect(applied, isNull);
+
+      response = await callDevice(
+        handlers,
+        id: 'reset-default',
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET,
+        methodName: 'client.device.factory_reset',
+        request: ClientDeviceFactoryResetRequest(),
+      );
+      expect(response.hasStatus(), isFalse);
+      expect(keepNetwork, isFalse);
+      response = await callDevice(
+        handlers,
+        id: 'reset-keep',
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET,
+        methodName: 'client.device.factory_reset',
+        request: ClientDeviceFactoryResetRequest(keepNetwork: true),
+      );
+      expect(keepNetwork, isTrue);
+
+      response = await callDevice(
+        handlers,
+        id: 'methods',
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_RPC_METHODS_GET,
+        methodName: 'client.rpc.methods.get',
+        request: ClientRpcMethodsGetRequest(),
+      );
+      expect(response.hasStatus(), isFalse);
+      final methods =
+          (decodeRpcResponsePayload('client.rpc.methods.get', response.payload)
+                  as ClientRpcMethodsGetResponse)
+              .methods;
+      expect(methods, [
+        'client.info.get',
+        'client.identifiers.get',
+        'client.social.ping',
+        'client.device.find',
+        'client.device.settings.get',
+        'client.device.settings.set',
+        'client.device.factory_reset',
+        'client.rpc.methods.get',
+      ]);
+    },
+  );
+
+  test('answers the capability list without device control handlers', () async {
+    final response = await callDevice(
+      GizClawPeerRpcHandlers(deviceInfo: () => device),
+      id: 'methods-bare',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_RPC_METHODS_GET,
+      methodName: 'client.rpc.methods.get',
+      request: ClientRpcMethodsGetRequest(),
+    );
+    expect(response.hasStatus(), isFalse);
+    expect(
+      (decodeRpcResponsePayload('client.rpc.methods.get', response.payload)
+              as ClientRpcMethodsGetResponse)
+          .methods,
+      ['client.info.get', 'client.identifiers.get', 'client.rpc.methods.get'],
+    );
+  });
 }

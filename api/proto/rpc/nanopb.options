@@ -37,6 +37,21 @@ gizclaw.rpc.v1.ClientFirmwareUpdateRequest.sha256 max_size:65
 gizclaw.rpc.v1.PeerStatus.firmware_sha256 max_size:65
 gizclaw.rpc.v1.PeerStatus.network_imei max_size:16
 gizclaw.rpc.v1.PeerStatus.network_imsi max_size:16
+gizclaw.rpc.v1.PeerStatus.activity max_size:33
+gizclaw.rpc.v1.PeerStatus.firmware_version max_size:129
+gizclaw.rpc.v1.PeerStatus.activity_detail max_size:129
+gizclaw.rpc.v1.PeerStatusTelemetryObservedAt.battery_percent max_size:36
+gizclaw.rpc.v1.PeerStatusTelemetryObservedAt.charging max_size:36
+gizclaw.rpc.v1.PeerStatusTelemetryObservedAt.gnss_latitude max_size:36
+gizclaw.rpc.v1.PeerStatusTelemetryObservedAt.gnss_longitude max_size:36
+gizclaw.rpc.v1.PeerStatusTelemetryObservedAt.gnss_altitude_m max_size:36
+gizclaw.rpc.v1.PeerStatusTelemetryObservedAt.gnss_accuracy_m max_size:36
+gizclaw.rpc.v1.PeerStatusTelemetryObservedAt.network_imei max_size:36
+gizclaw.rpc.v1.PeerStatusTelemetryObservedAt.network_imsi max_size:36
+gizclaw.rpc.v1.PeerStatusTelemetryObservedAt.activity max_size:36
+gizclaw.rpc.v1.PeerStatusTelemetryObservedAt.firmware_version max_size:36
+gizclaw.rpc.v1.DeviceSettings.locale max_size:36
+gizclaw.rpc.v1.ClientRpcMethodsGetResponse.methods max_count:160 max_size:64
 gizclaw.rpc.v1.ServerRegisterRequest.token max_size:256
 gizclaw.rpc.v1.ServerRegisterResponse.runtime_profile_name max_size:256
 gizclaw.rpc.v1.APIKey.name max_size:27

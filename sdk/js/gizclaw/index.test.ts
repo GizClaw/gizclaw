@@ -4124,3 +4124,164 @@ test("app config requests and opaque values round-trip through protobuf", () => 
     getResponse,
   );
 });
+
+test("inbound client.device.settings.set applies a patch and rejects bad members", async () => {
+  let applied: Record<string, unknown> | undefined;
+  const settings = {
+    cellular_enabled: false,
+    screen_brightness: 40,
+    locale: "zh-CN",
+    default_interaction_mode: "push-to-talk" as const,
+    key_feedback: "sound_and_vibrate" as const,
+  };
+  const set = await serveInboundClientRPC(
+    "client.device.settings.set",
+    settings,
+    {
+      deviceControl: {
+        setSettings: (patch) => {
+          applied = patch;
+          return { ...patch, led_brightness: 10 };
+        },
+      },
+    },
+  );
+  assert.equal(set.error, undefined);
+  assert.deepEqual(applied, settings);
+  // The response is the device's full settings, so the caller sees the option
+  // it never asked about.
+  assert.equal(
+    (set.result as { led_brightness?: number } | undefined)?.led_brightness,
+    10,
+  );
+
+  // A member outside its range is rejected before the handler runs, so the
+  // device is never left half-configured.
+  let ran = false;
+  const bad = await serveInboundClientRPC(
+    "client.device.settings.set",
+    { screen_brightness: 140 },
+    {
+      deviceControl: {
+        setSettings: (patch) => {
+          ran = true;
+          return patch;
+        },
+      },
+    },
+  );
+  assert.equal(bad.error?.code, STATUS_CODE_INVALID_ARGUMENT);
+  assert.equal(ran, false);
+
+  // An unregistered handler answers METHOD_NOT_FOUND, which the server maps to
+  // 501 DEVICE_UNSUPPORTED.
+  const missing = await serveInboundClientRPC(
+    "client.device.settings.get",
+    {},
+    { deviceControl: {} },
+  );
+  assert.equal(missing.error?.code, STATUS_CODE_UNIMPLEMENTED);
+});
+
+test("inbound client.rpc.methods.get reports only the registered handlers", async () => {
+  const response = await serveInboundClientRPC(
+    "client.rpc.methods.get",
+    {},
+    {
+      deviceControl: {
+        reboot: () => {},
+        getSettings: () => ({ screen_brightness: 50 }),
+        factoryReset: () => {},
+      },
+    },
+  );
+  assert.equal(response.error, undefined);
+  const methods = (response.result as { methods: string[] }).methods;
+  assert.deepEqual(methods, [
+    "client.device.reboot",
+    "client.device.settings.get",
+    "client.device.factory_reset",
+    "client.rpc.methods.get",
+  ]);
+  // A device with no control handlers still answers, listing only the method
+  // that produced the answer.
+  const bare = await serveInboundClientRPC("client.rpc.methods.get", {}, {});
+  assert.deepEqual((bare.result as { methods: string[] }).methods, [
+    "client.rpc.methods.get",
+  ]);
+});
+
+test("inbound client.device.factory_reset defaults keep_network to false", async () => {
+  const seen: boolean[] = [];
+  const handlers = {
+    deviceControl: {
+      factoryReset: (keepNetwork: boolean) => {
+        seen.push(keepNetwork);
+      },
+    },
+  };
+  assert.equal(
+    (await serveInboundClientRPC("client.device.factory_reset", {}, handlers))
+      .error,
+    undefined,
+  );
+  assert.equal(
+    (
+      await serveInboundClientRPC(
+        "client.device.factory_reset",
+        { keep_network: true },
+        handlers,
+      )
+    ).error,
+    undefined,
+  );
+  assert.deepEqual(seen, [false, true]);
+});
+
+test("inbound client.rpc.methods.get includes find and social ping when registered", async () => {
+  const response = await serveInboundClientRPC(
+    "client.rpc.methods.get",
+    {},
+    {
+      deviceControl: { find: () => {} },
+      socialPing: () => {},
+    },
+  );
+  assert.equal(response.error, undefined);
+  const methods = (response.result as { methods: string[] }).methods;
+  assert.ok(methods.includes("client.device.find"), `${methods}`);
+  assert.ok(methods.includes("client.social.ping"), `${methods}`);
+});
+
+test("inbound client.device.settings.set rejects a malformed locale", async () => {
+  let ran = false;
+  const handlers = {
+    deviceControl: {
+      setSettings: (patch: Record<string, unknown>) => {
+        ran = true;
+        return patch;
+      },
+    },
+  };
+  for (const locale of ["not a locale", "zh_CN", "-en", "en-"]) {
+    const response = await serveInboundClientRPC(
+      "client.device.settings.set",
+      { locale },
+      handlers,
+    );
+    assert.equal(
+      response.error?.code,
+      STATUS_CODE_INVALID_ARGUMENT,
+      `locale ${JSON.stringify(locale)}`,
+    );
+  }
+  assert.equal(ran, false);
+  for (const locale of ["zh-CN", "zh-Hant-TW", "es-419", "en"]) {
+    const response = await serveInboundClientRPC(
+      "client.device.settings.set",
+      { locale },
+      handlers,
+    );
+    assert.equal(response.error, undefined, `locale ${locale}`);
+  }
+});

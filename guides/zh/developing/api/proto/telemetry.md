@@ -33,6 +33,34 @@ Telemetry Protobuf 拥有设备上报的 wire fields。Metrics store 拥有保�
 - Aggregation、retention 和 query filtering 属于 service/store，不属于 wire schema。
 - Schema 变化后重新生成 Go 与 JavaScript telemetry code，并验证真实 packet decode 和 service ingestion。
 
+## Activity 上报
+
+`Observation.activity`（field 16）使用 `ActivityObservation` 报告设备当前正在使用哪个功能，
+让运维直接看到设备在干什么，而不必从其他信号推断：
+
+| 字段 | 编号 | 类型 | 含义与校验 |
+| --- | --- | --- | --- |
+| `activity` | 1 | `string` | 稳定的机器可读功能 id，1–32 字节，匹配 `^[a-z0-9][a-z0-9_.-]{0,31}$`，例如 `idle`、`chat`、`audioplayer`、`ota`。 |
+| `detail` | 2 | `optional string` | 展示用的补充说明，最多 128 UTF‑8 字节。Server 从不解析，不得携带密钥或凭据。 |
+
+`activity` 不是指标：字符串随时间的变化没有可聚合的意义，需要回答的问题是"现在在干什么"，
+这正是状态快照表达的东西。因此它只进入 `PeerStatus.activity` 与 `PeerStatus.activity_detail`，
+不写入 metrics store，也不出现在 `PeerTelemetryField` 枚举或 label 中。
+
+`activity` 与 `detail` 作为一个整体合并：`detail` 描述的是与它一同到达的那个 activity，所以被接受的
+观测总是同时替换两者，未携带 `detail` 的观测会清除上一个 activity 遗留的说明。逐字段排序与
+battery、GNSS 相同，观测时间记录在 `telemetry_observed_at.activity`。
+
+`activity` 是设备自定义的开放取值：读取方必须原样保留未知值，并按 id 做本地化，不要解析字符串本身。
+不匹配模式的值按 `ErrInvalidFrame` 拒绝整个 frame；控制响应里携带的非法值则被丢弃而不是存储。
+
+## 固件版本上报
+
+`SystemObservation.firmware_version`（field 4）此前只做校验、不落库。现在它随观测时间进入
+`PeerStatus.firmware_version`，与逐包精确的 `firmware_sha256` 并列：digest 标识具体的包，
+版本号标识对外的 release。它同样只是状态而不是指标——把版本字符串写成 sample 会带来高基数 label
+风险，而它真正的用途是展示。逐字段排序保证迟到的旧上报不会把版本回滚。
+
 ## Network 上报
 
 `Observation.network`（field 12）使用 `NetworkObservation` 报告当前默认数据路由的信号与蜂窝身份：
@@ -53,8 +81,8 @@ SDK frame 解码与存储行为不变。
 
 身份字符串不是指标：它们不进入 metrics store、`PeerTelemetryField` 枚举或 Prometheus 风格的 label，
 而是随观测时间进入 owner-scoped 的 `PeerStatus.network_imei` / `PeerStatus.network_imsi`，并在
-`details.telemetry_status` 下记录 `network_imei_at_unix_ms` / `network_imsi_at_unix_ms`。逐字段排序
-与 battery、GNSS 相同：较旧的观测不会覆盖更新的已存值；与已存值相等的观测只刷新 `_at` 时间戳，不额外推进
+`PeerStatus.telemetry_observed_at` 下记录 `network_imei` / `network_imsi` 两个 RFC 3339 时间戳。逐字段排序
+与 battery、GNSS 相同：较旧的观测不会覆盖更新的已存值；与已存值相等的观测只刷新 `telemetry_observed_at` 时间戳，不额外推进
 `reported_at`；值与时间戳都未变化时不重写状态。telemetry 从不清除身份字段，设备丢失 SIM 后只是停止上报
 `imsi`；清除属于管理操作，不在 telemetry 范围内。
 

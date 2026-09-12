@@ -194,6 +194,24 @@ typedef enum _gizclaw_rpc_v1_WorkspaceInputMode {
     gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME = 2
 } gizclaw_rpc_v1_WorkspaceInputMode;
 
+/* DeviceInteractionMode is the device's default conversation input mode. It
+ mirrors WorkspaceInputMode so a device default and a workspace override use
+ the same vocabulary. Readers must preserve unknown future values. */
+typedef enum _gizclaw_rpc_v1_DeviceInteractionMode {
+    gizclaw_rpc_v1_DeviceInteractionMode_DEVICE_INTERACTION_MODE_UNSPECIFIED = 0,
+    gizclaw_rpc_v1_DeviceInteractionMode_DEVICE_INTERACTION_MODE_PUSH_TO_TALK = 1,
+    gizclaw_rpc_v1_DeviceInteractionMode_DEVICE_INTERACTION_MODE_REALTIME = 2
+} gizclaw_rpc_v1_DeviceInteractionMode;
+
+/* DeviceKeyFeedback is the feedback a device gives on a physical key press. */
+typedef enum _gizclaw_rpc_v1_DeviceKeyFeedback {
+    gizclaw_rpc_v1_DeviceKeyFeedback_DEVICE_KEY_FEEDBACK_UNSPECIFIED = 0,
+    gizclaw_rpc_v1_DeviceKeyFeedback_DEVICE_KEY_FEEDBACK_NONE = 1,
+    gizclaw_rpc_v1_DeviceKeyFeedback_DEVICE_KEY_FEEDBACK_SOUND = 2,
+    gizclaw_rpc_v1_DeviceKeyFeedback_DEVICE_KEY_FEEDBACK_VIBRATE = 3,
+    gizclaw_rpc_v1_DeviceKeyFeedback_DEVICE_KEY_FEEDBACK_SOUND_AND_VIBRATE = 4
+} gizclaw_rpc_v1_DeviceKeyFeedback;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -306,6 +324,14 @@ extern "C" {
 #define _gizclaw_rpc_v1_WorkspaceInputMode_MIN gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_UNSPECIFIED
 #define _gizclaw_rpc_v1_WorkspaceInputMode_MAX gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME
 #define _gizclaw_rpc_v1_WorkspaceInputMode_ARRAYSIZE ((gizclaw_rpc_v1_WorkspaceInputMode)(gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME+1))
+
+#define _gizclaw_rpc_v1_DeviceInteractionMode_MIN gizclaw_rpc_v1_DeviceInteractionMode_DEVICE_INTERACTION_MODE_UNSPECIFIED
+#define _gizclaw_rpc_v1_DeviceInteractionMode_MAX gizclaw_rpc_v1_DeviceInteractionMode_DEVICE_INTERACTION_MODE_REALTIME
+#define _gizclaw_rpc_v1_DeviceInteractionMode_ARRAYSIZE ((gizclaw_rpc_v1_DeviceInteractionMode)(gizclaw_rpc_v1_DeviceInteractionMode_DEVICE_INTERACTION_MODE_REALTIME+1))
+
+#define _gizclaw_rpc_v1_DeviceKeyFeedback_MIN gizclaw_rpc_v1_DeviceKeyFeedback_DEVICE_KEY_FEEDBACK_UNSPECIFIED
+#define _gizclaw_rpc_v1_DeviceKeyFeedback_MAX gizclaw_rpc_v1_DeviceKeyFeedback_DEVICE_KEY_FEEDBACK_SOUND_AND_VIBRATE
+#define _gizclaw_rpc_v1_DeviceKeyFeedback_ARRAYSIZE ((gizclaw_rpc_v1_DeviceKeyFeedback)(gizclaw_rpc_v1_DeviceKeyFeedback_DEVICE_KEY_FEEDBACK_SOUND_AND_VIBRATE+1))
 
 
 #ifdef __cplusplus

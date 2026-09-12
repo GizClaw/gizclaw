@@ -574,14 +574,40 @@ export type PeerStatus = {
     labels?: {
         [key: string]: string;
     };
-    details?: {
-        [key: string]: unknown;
-    };
+    /**
+     * Stable machine-readable id of the feature the device reports it is currently using, e.g. "chat", "audioplayer", "ota", "idle". Readers must preserve unknown future values and localize by id rather than parsing it.
+     */
+    activity?: string;
+    /**
+     * Optional device-supplied human-readable detail for the current activity, shown next to it. Never parsed by the Server.
+     */
+    activity_detail?: string;
+    telemetry_observed_at?: PeerStatusTelemetryObservedAt;
+    /**
+     * Human-readable firmware version the device reports it is running, e.g. "1.4.2". Reported over telemetry alongside the digest; the digest identifies the exact package, this names the release. Never parsed by the Server.
+     */
+    firmware_version?: string;
     /**
      * Lowercase SHA-256 digest of the .tar.zlib package the device is currently running, as reported by the device.
      */
     firmware_sha256?: string;
     ota?: PeerOtaStatus;
+};
+
+/**
+ * Per-field observation times for the telemetry-sourced members of PeerStatus. Each member records when the device observed the value now stored in the sibling PeerStatus field, which is what lets an out-of-order or replayed report be rejected without overwriting a newer observation. A member is absent until that field has been observed at least once.
+ */
+export type PeerStatusTelemetryObservedAt = {
+    battery_percent?: string;
+    charging?: string;
+    gnss_latitude?: string;
+    gnss_longitude?: string;
+    gnss_altitude_m?: string;
+    gnss_accuracy_m?: string;
+    network_imei?: string;
+    network_imsi?: string;
+    activity?: string;
+    firmware_version?: string;
 };
 
 /**

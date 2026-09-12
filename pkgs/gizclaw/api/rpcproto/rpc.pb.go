@@ -215,6 +215,10 @@ const (
 	RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY            RpcMethod = 117
 	RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP            RpcMethod = 118
 	RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET        RpcMethod = 119
+	RpcMethod_RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET                RpcMethod = 128
+	RpcMethod_RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET                RpcMethod = 129
+	RpcMethod_RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET               RpcMethod = 130
+	RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_GET                    RpcMethod = 131
 	RpcMethod_RPC_METHOD_SERVER_APP_CONFIG_LIST                    RpcMethod = 121
 	RpcMethod_RPC_METHOD_SERVER_APP_CONFIG_GET                     RpcMethod = 122
 	RpcMethod_RPC_METHOD_SERVER_FRIEND_PING                        RpcMethod = 123
@@ -325,6 +329,10 @@ var (
 		117: "RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY",
 		118: "RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP",
 		119: "RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET",
+		128: "RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET",
+		129: "RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET",
+		130: "RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET",
+		131: "RPC_METHOD_CLIENT_RPC_METHODS_GET",
 		121: "RPC_METHOD_SERVER_APP_CONFIG_LIST",
 		122: "RPC_METHOD_SERVER_APP_CONFIG_GET",
 		123: "RPC_METHOD_SERVER_FRIEND_PING",
@@ -432,6 +440,10 @@ var (
 		"RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY":            117,
 		"RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP":            118,
 		"RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET":        119,
+		"RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET":                128,
+		"RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET":                129,
+		"RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET":               130,
+		"RPC_METHOD_CLIENT_RPC_METHODS_GET":                    131,
 		"RPC_METHOD_SERVER_APP_CONFIG_LIST":                    121,
 		"RPC_METHOD_SERVER_APP_CONFIG_GET":                     122,
 		"RPC_METHOD_SERVER_FRIEND_PING":                        123,
@@ -1012,7 +1024,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x14STATUS_CODE_INTERNAL\x10\r\x12\x1b\n" +
 	"\x17STATUS_CODE_UNAVAILABLE\x10\x0e\x12\x19\n" +
 	"\x15STATUS_CODE_DATA_LOSS\x10\x0f\x12\x1f\n" +
-	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\x95f\n" +
+	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\xc8j\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -1209,7 +1221,15 @@ const file_rpc_proto_rawDesc = "" +
 	")RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP\x10v\x1am\xc2\xf3\x18i\n" +
 	"\x1eclient.device.audioplayer.stop\x12\"ClientDeviceAudioPlayerStopRequest\x1a#ClientDeviceAudioPlayerStopResponse\x12\xaa\x01\n" +
 	"-RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET\x10w\x1aw\xc2\xf3\x18s\n" +
-	"\"client.device.audioplayer.mode.set\x12%ClientDeviceAudioPlayerModeSetRequest\x1a&ClientDeviceAudioPlayerModeSetResponse\x12p\n" +
+	"\"client.device.audioplayer.mode.set\x12%ClientDeviceAudioPlayerModeSetRequest\x1a&ClientDeviceAudioPlayerModeSetResponse\x12\x8d\x01\n" +
+	"%RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET\x10\x80\x01\x1aa\xc2\xf3\x18]\n" +
+	"\x1aclient.device.settings.get\x12\x1eClientDeviceSettingsGetRequest\x1a\x1fClientDeviceSettingsGetResponse\x12\x8d\x01\n" +
+	"%RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET\x10\x81\x01\x1aa\xc2\xf3\x18]\n" +
+	"\x1aclient.device.settings.set\x12\x1eClientDeviceSettingsSetRequest\x1a\x1fClientDeviceSettingsSetResponse\x12\x91\x01\n" +
+	"&RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET\x10\x82\x01\x1ad\xc2\xf3\x18`\n" +
+	"\x1bclient.device.factory_reset\x12\x1fClientDeviceFactoryResetRequest\x1a ClientDeviceFactoryResetResponse\x12}\n" +
+	"!RPC_METHOD_CLIENT_RPC_METHODS_GET\x10\x83\x01\x1aU\xc2\xf3\x18Q\n" +
+	"\x16client.rpc.methods.get\x12\x1aClientRpcMethodsGetRequest\x1a\x1bClientRpcMethodsGetResponse\x12p\n" +
 	"!RPC_METHOD_SERVER_APP_CONFIG_LIST\x10y\x1aI\xc2\xf3\x18E\n" +
 	"\x16server.app_config.list\x12\x14AppConfigListRequest\x1a\x15AppConfigListResponse\x12l\n" +
 	" RPC_METHOD_SERVER_APP_CONFIG_GET\x10z\x1aF\xc2\xf3\x18B\n" +

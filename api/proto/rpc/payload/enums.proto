@@ -189,3 +189,21 @@ enum WorkspaceInputMode {
   WORKSPACE_INPUT_MODE_PUSH_TO_TALK = 1;
   WORKSPACE_INPUT_MODE_REALTIME = 2;
 }
+
+// DeviceInteractionMode is the device's default conversation input mode. It
+// mirrors WorkspaceInputMode so a device default and a workspace override use
+// the same vocabulary. Readers must preserve unknown future values.
+enum DeviceInteractionMode {
+  DEVICE_INTERACTION_MODE_UNSPECIFIED = 0;
+  DEVICE_INTERACTION_MODE_PUSH_TO_TALK = 1;
+  DEVICE_INTERACTION_MODE_REALTIME = 2;
+}
+
+// DeviceKeyFeedback is the feedback a device gives on a physical key press.
+enum DeviceKeyFeedback {
+  DEVICE_KEY_FEEDBACK_UNSPECIFIED = 0;
+  DEVICE_KEY_FEEDBACK_NONE = 1;
+  DEVICE_KEY_FEEDBACK_SOUND = 2;
+  DEVICE_KEY_FEEDBACK_VIBRATE = 3;
+  DEVICE_KEY_FEEDBACK_SOUND_AND_VIBRATE = 4;
+}

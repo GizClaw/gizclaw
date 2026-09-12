@@ -194,16 +194,15 @@ void main() {
     expect(
       camelToSnakeKeys(
         unwrapValueMessage(
-          PeerStatus(
-            details: Struct(
+          FlowcraftWorkflowSpec(
+            fields: Struct(
               fields: {'mode': Value(stringValue: 'idle')}.entries,
             ),
           ),
         ),
       ),
       {
-        'details': {'mode': 'idle'},
-        'labels': <String, Object?>{},
+        'fields': {'mode': 'idle'},
       },
     );
   });

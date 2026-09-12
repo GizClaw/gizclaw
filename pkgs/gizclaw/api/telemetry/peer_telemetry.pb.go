@@ -148,6 +148,7 @@ type Observation struct {
 	//	*Observation_System
 	//	*Observation_Ota
 	//	*Observation_Audioplayer
+	//	*Observation_Activity
 	Body          isObservation_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -251,6 +252,15 @@ func (x *Observation) GetAudioplayer() *AudioPlayerObservation {
 	return nil
 }
 
+func (x *Observation) GetActivity() *ActivityObservation {
+	if x != nil {
+		if x, ok := x.Body.(*Observation_Activity); ok {
+			return x.Activity
+		}
+	}
+	return nil
+}
+
 type isObservation_Body interface {
 	isObservation_Body()
 }
@@ -279,6 +289,10 @@ type Observation_Audioplayer struct {
 	Audioplayer *AudioPlayerObservation `protobuf:"bytes,15,opt,name=audioplayer,proto3,oneof"`
 }
 
+type Observation_Activity struct {
+	Activity *ActivityObservation `protobuf:"bytes,16,opt,name=activity,proto3,oneof"`
+}
+
 func (*Observation_Battery) isObservation_Body() {}
 
 func (*Observation_Gnss) isObservation_Body() {}
@@ -290,6 +304,8 @@ func (*Observation_System) isObservation_Body() {}
 func (*Observation_Ota) isObservation_Body() {}
 
 func (*Observation_Audioplayer) isObservation_Body() {}
+
+func (*Observation_Activity) isObservation_Body() {}
 
 type BatteryObservation struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -514,6 +530,67 @@ func (x *NetworkObservation) GetImsi() string {
 	return ""
 }
 
+// ActivityObservation is the device reporting which of its features is in use
+// right now, so an operator can see what a device is doing without inferring
+// it from other signals. It is a status projection only: it never becomes a
+// metric sample, because the useful question is "what is it doing now", not
+// "how did a string change over time".
+type ActivityObservation struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Stable machine-readable feature id, 1..32 bytes matching
+	// [a-z0-9][a-z0-9_.-]*, e.g. "idle", "chat", "audioplayer", "ota".
+	Activity string `protobuf:"bytes,1,opt,name=activity,proto3" json:"activity,omitempty"`
+	// Optional human-readable detail shown next to the activity, at most 128
+	// UTF-8 bytes. Never parsed by the Server. Must not carry secrets.
+	Detail        *string `protobuf:"bytes,2,opt,name=detail,proto3,oneof" json:"detail,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ActivityObservation) Reset() {
+	*x = ActivityObservation{}
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ActivityObservation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ActivityObservation) ProtoMessage() {}
+
+func (x *ActivityObservation) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ActivityObservation.ProtoReflect.Descriptor instead.
+func (*ActivityObservation) Descriptor() ([]byte, []int) {
+	return file_api_proto_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ActivityObservation) GetActivity() string {
+	if x != nil {
+		return x.Activity
+	}
+	return ""
+}
+
+func (x *ActivityObservation) GetDetail() string {
+	if x != nil && x.Detail != nil {
+		return *x.Detail
+	}
+	return ""
+}
+
 type SystemObservation struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	UptimeSeconds   *float64               `protobuf:"fixed64,1,opt,name=uptime_seconds,json=uptimeSeconds,proto3,oneof" json:"uptime_seconds,omitempty"`
@@ -528,7 +605,7 @@ type SystemObservation struct {
 
 func (x *SystemObservation) Reset() {
 	*x = SystemObservation{}
-	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[5]
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -540,7 +617,7 @@ func (x *SystemObservation) String() string {
 func (*SystemObservation) ProtoMessage() {}
 
 func (x *SystemObservation) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[5]
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -553,7 +630,7 @@ func (x *SystemObservation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SystemObservation.ProtoReflect.Descriptor instead.
 func (*SystemObservation) Descriptor() ([]byte, []int) {
-	return file_api_proto_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{5}
+	return file_api_proto_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *SystemObservation) GetUptimeSeconds() float64 {
@@ -618,7 +695,7 @@ type OtaObservation struct {
 
 func (x *OtaObservation) Reset() {
 	*x = OtaObservation{}
-	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[6]
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -630,7 +707,7 @@ func (x *OtaObservation) String() string {
 func (*OtaObservation) ProtoMessage() {}
 
 func (x *OtaObservation) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[6]
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -643,7 +720,7 @@ func (x *OtaObservation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OtaObservation.ProtoReflect.Descriptor instead.
 func (*OtaObservation) Descriptor() ([]byte, []int) {
-	return file_api_proto_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{6}
+	return file_api_proto_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *OtaObservation) GetState() OtaState {
@@ -707,7 +784,7 @@ type AudioPlayerObservation struct {
 
 func (x *AudioPlayerObservation) Reset() {
 	*x = AudioPlayerObservation{}
-	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[7]
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -719,7 +796,7 @@ func (x *AudioPlayerObservation) String() string {
 func (*AudioPlayerObservation) ProtoMessage() {}
 
 func (x *AudioPlayerObservation) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[7]
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -732,7 +809,7 @@ func (x *AudioPlayerObservation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AudioPlayerObservation.ProtoReflect.Descriptor instead.
 func (*AudioPlayerObservation) Descriptor() ([]byte, []int) {
-	return file_api_proto_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{7}
+	return file_api_proto_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *AudioPlayerObservation) GetState() string {
@@ -806,7 +883,7 @@ const file_api_proto_telemetry_peer_telemetry_proto_rawDesc = "" +
 	"\x0eTelemetryFrame\x12\x1a\n" +
 	"\bsequence\x18\x01 \x01(\rR\bsequence\x12-\n" +
 	"\x13observed_at_unix_ms\x18\x02 \x01(\x03R\x10observedAtUnixMs\x12E\n" +
-	"\fobservations\x18\x03 \x03(\v2!.gizclaw.telemetry.v1.ObservationR\fobservations\"\xde\x03\n" +
+	"\fobservations\x18\x03 \x03(\v2!.gizclaw.telemetry.v1.ObservationR\fobservations\"\xa7\x04\n" +
 	"\vObservation\x12/\n" +
 	"\x14observed_at_delta_ms\x18\x01 \x01(\x05R\x11observedAtDeltaMs\x12D\n" +
 	"\abattery\x18\n" +
@@ -815,7 +892,8 @@ const file_api_proto_telemetry_peer_telemetry_proto_rawDesc = "" +
 	"\anetwork\x18\f \x01(\v2(.gizclaw.telemetry.v1.NetworkObservationH\x00R\anetwork\x12A\n" +
 	"\x06system\x18\r \x01(\v2'.gizclaw.telemetry.v1.SystemObservationH\x00R\x06system\x128\n" +
 	"\x03ota\x18\x0e \x01(\v2$.gizclaw.telemetry.v1.OtaObservationH\x00R\x03ota\x12P\n" +
-	"\vaudioplayer\x18\x0f \x01(\v2,.gizclaw.telemetry.v1.AudioPlayerObservationH\x00R\vaudioplayerB\x06\n" +
+	"\vaudioplayer\x18\x0f \x01(\v2,.gizclaw.telemetry.v1.AudioPlayerObservationH\x00R\vaudioplayer\x12G\n" +
+	"\bactivity\x18\x10 \x01(\v2).gizclaw.telemetry.v1.ActivityObservationH\x00R\bactivityB\x06\n" +
 	"\x04body\"\xa0\x01\n" +
 	"\x12BatteryObservation\x12\x1d\n" +
 	"\apercent\x18\x01 \x01(\x01H\x00R\apercent\x88\x01\x01\x12\x1f\n" +
@@ -850,7 +928,11 @@ const file_api_proto_telemetry_peer_telemetry_proto_rawDesc = "" +
 	"\n" +
 	"_connectedB\a\n" +
 	"\x05_imeiB\a\n" +
-	"\x05_imsi\"\xa4\x03\n" +
+	"\x05_imsi\"Y\n" +
+	"\x13ActivityObservation\x12\x1a\n" +
+	"\bactivity\x18\x01 \x01(\tR\bactivity\x12\x1b\n" +
+	"\x06detail\x18\x02 \x01(\tH\x00R\x06detail\x88\x01\x01B\t\n" +
+	"\a_detail\"\xa4\x03\n" +
 	"\x11SystemObservation\x12*\n" +
 	"\x0euptime_seconds\x18\x01 \x01(\x01H\x00R\ruptimeSeconds\x88\x01\x01\x12/\n" +
 	"\x11free_memory_bytes\x18\x02 \x01(\x01H\x01R\x0ffreeMemoryBytes\x88\x01\x01\x12(\n" +
@@ -913,7 +995,7 @@ func file_api_proto_telemetry_peer_telemetry_proto_rawDescGZIP() []byte {
 }
 
 var file_api_proto_telemetry_peer_telemetry_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_api_proto_telemetry_peer_telemetry_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_api_proto_telemetry_peer_telemetry_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_api_proto_telemetry_peer_telemetry_proto_goTypes = []any{
 	(OtaState)(0),                  // 0: gizclaw.telemetry.v1.OtaState
 	(*TelemetryFrame)(nil),         // 1: gizclaw.telemetry.v1.TelemetryFrame
@@ -921,24 +1003,26 @@ var file_api_proto_telemetry_peer_telemetry_proto_goTypes = []any{
 	(*BatteryObservation)(nil),     // 3: gizclaw.telemetry.v1.BatteryObservation
 	(*GnssObservation)(nil),        // 4: gizclaw.telemetry.v1.GnssObservation
 	(*NetworkObservation)(nil),     // 5: gizclaw.telemetry.v1.NetworkObservation
-	(*SystemObservation)(nil),      // 6: gizclaw.telemetry.v1.SystemObservation
-	(*OtaObservation)(nil),         // 7: gizclaw.telemetry.v1.OtaObservation
-	(*AudioPlayerObservation)(nil), // 8: gizclaw.telemetry.v1.AudioPlayerObservation
+	(*ActivityObservation)(nil),    // 6: gizclaw.telemetry.v1.ActivityObservation
+	(*SystemObservation)(nil),      // 7: gizclaw.telemetry.v1.SystemObservation
+	(*OtaObservation)(nil),         // 8: gizclaw.telemetry.v1.OtaObservation
+	(*AudioPlayerObservation)(nil), // 9: gizclaw.telemetry.v1.AudioPlayerObservation
 }
 var file_api_proto_telemetry_peer_telemetry_proto_depIdxs = []int32{
 	2, // 0: gizclaw.telemetry.v1.TelemetryFrame.observations:type_name -> gizclaw.telemetry.v1.Observation
 	3, // 1: gizclaw.telemetry.v1.Observation.battery:type_name -> gizclaw.telemetry.v1.BatteryObservation
 	4, // 2: gizclaw.telemetry.v1.Observation.gnss:type_name -> gizclaw.telemetry.v1.GnssObservation
 	5, // 3: gizclaw.telemetry.v1.Observation.network:type_name -> gizclaw.telemetry.v1.NetworkObservation
-	6, // 4: gizclaw.telemetry.v1.Observation.system:type_name -> gizclaw.telemetry.v1.SystemObservation
-	7, // 5: gizclaw.telemetry.v1.Observation.ota:type_name -> gizclaw.telemetry.v1.OtaObservation
-	8, // 6: gizclaw.telemetry.v1.Observation.audioplayer:type_name -> gizclaw.telemetry.v1.AudioPlayerObservation
-	0, // 7: gizclaw.telemetry.v1.OtaObservation.state:type_name -> gizclaw.telemetry.v1.OtaState
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	7, // 4: gizclaw.telemetry.v1.Observation.system:type_name -> gizclaw.telemetry.v1.SystemObservation
+	8, // 5: gizclaw.telemetry.v1.Observation.ota:type_name -> gizclaw.telemetry.v1.OtaObservation
+	9, // 6: gizclaw.telemetry.v1.Observation.audioplayer:type_name -> gizclaw.telemetry.v1.AudioPlayerObservation
+	6, // 7: gizclaw.telemetry.v1.Observation.activity:type_name -> gizclaw.telemetry.v1.ActivityObservation
+	0, // 8: gizclaw.telemetry.v1.OtaObservation.state:type_name -> gizclaw.telemetry.v1.OtaState
+	9, // [9:9] is the sub-list for method output_type
+	9, // [9:9] is the sub-list for method input_type
+	9, // [9:9] is the sub-list for extension type_name
+	9, // [9:9] is the sub-list for extension extendee
+	0, // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_telemetry_peer_telemetry_proto_init() }
@@ -953,6 +1037,7 @@ func file_api_proto_telemetry_peer_telemetry_proto_init() {
 		(*Observation_System)(nil),
 		(*Observation_Ota)(nil),
 		(*Observation_Audioplayer)(nil),
+		(*Observation_Activity)(nil),
 	}
 	file_api_proto_telemetry_peer_telemetry_proto_msgTypes[2].OneofWrappers = []any{}
 	file_api_proto_telemetry_peer_telemetry_proto_msgTypes[3].OneofWrappers = []any{}
@@ -960,13 +1045,14 @@ func file_api_proto_telemetry_peer_telemetry_proto_init() {
 	file_api_proto_telemetry_peer_telemetry_proto_msgTypes[5].OneofWrappers = []any{}
 	file_api_proto_telemetry_peer_telemetry_proto_msgTypes[6].OneofWrappers = []any{}
 	file_api_proto_telemetry_peer_telemetry_proto_msgTypes[7].OneofWrappers = []any{}
+	file_api_proto_telemetry_peer_telemetry_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_telemetry_peer_telemetry_proto_rawDesc), len(file_api_proto_telemetry_peer_telemetry_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   8,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

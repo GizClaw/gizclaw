@@ -3,6 +3,8 @@ package gizcli
 import (
 	"context"
 	"errors"
+	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -283,6 +285,60 @@ func TestRPCClientFirmwareUpdateProvider(t *testing.T) {
 	}
 }
 
+// The settings patch is validated before any handler runs, and the capability
+// list is derived from the handlers that are actually installed.
+func TestDeviceSettingsHandlersAndCapabilityList(t *testing.T) {
+	handlers := DeviceControlHandlers{
+		Reboot: func(context.Context, *int64) error { return nil },
+		GetSettings: func(context.Context) (rpcapi.DeviceSettings, error) {
+			return rpcapi.DeviceSettings{ScreenBrightness: new(int64(30))}, nil
+		},
+		FactoryReset: func(context.Context, bool) error { return nil },
+	}
+	want := []string{
+		string(rpcapi.RPCMethodClientDeviceReboot),
+		string(rpcapi.RPCMethodClientDeviceSettingsGet),
+		string(rpcapi.RPCMethodClientDeviceFactoryReset),
+		string(rpcapi.RPCMethodClientRPCMethodsGet),
+	}
+	if got := handlers.supportedDeviceMethods(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("supportedDeviceMethods() = %#v, want %#v", got, want)
+	}
+	// A device with no handlers still answers, listing only the method that
+	// produced the answer.
+	var empty DeviceControlHandlers
+	if got := empty.supportedDeviceMethods(); !reflect.DeepEqual(got, []string{string(rpcapi.RPCMethodClientRPCMethodsGet)}) {
+		t.Fatalf("empty supportedDeviceMethods() = %#v", got)
+	}
+
+	mode := rpcapi.DeviceInteractionModeRealtime
+	unknown := rpcapi.DeviceInteractionMode("telepathy")
+	for name, patch := range map[string]rpcapi.DeviceSettings{
+		"ok":                {ScreenBrightness: new(int64(0)), LedBrightness: new(int64(100)), Locale: new("zh-CN"), DefaultInteractionMode: &mode},
+		"empty patch":       {},
+		"zero timeout":      {ScreenOffTimeoutMs: new(int64(0))},
+		"script and region": {Locale: new("zh-Hant-TW")},
+		"numeric region":    {Locale: new("es-419")},
+	} {
+		if !validDeviceSettingsPatch(patch) {
+			t.Fatalf("validDeviceSettingsPatch(%s) = false, want true", name)
+		}
+	}
+	for name, patch := range map[string]rpcapi.DeviceSettings{
+		"brightness over 100": {ScreenBrightness: new(int64(101))},
+		"negative led":        {LedBrightness: new(int64(-1))},
+		"negative timeout":    {ScreenOffTimeoutMs: new(int64(-1))},
+		"empty locale":        {Locale: new("")},
+		"malformed locale":    {Locale: new("not a locale")},
+		"underscore locale":   {Locale: new("zh_CN")},
+		"unknown enum":        {DefaultInteractionMode: &unknown},
+	} {
+		if validDeviceSettingsPatch(patch) {
+			t.Fatalf("validDeviceSettingsPatch(%s) = true, want false", name)
+		}
+	}
+}
+
 func TestRPCClientSocialPingHandler(t *testing.T) {
 	device := &Client{}
 	ping := func(p *rpcapi.RPCPayload) error {
@@ -311,5 +367,120 @@ func TestRPCClientSocialPingHandler(t *testing.T) {
 	}
 	if resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientSocialPing, ping); resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInternal {
 		t.Fatalf("failing handler = %#v", resp)
+	}
+}
+
+// The settings, factory-reset and capability methods are reached through the
+// real inbound dispatch, not only through their helpers: an unrouted method
+// answers UNIMPLEMENTED even when its handler is installed.
+func TestRPCClientDeviceSettingsDispatch(t *testing.T) {
+	device := &Client{}
+	var applied rpcapi.DeviceSettings
+	var resetKeepNetwork *bool
+	if err := device.HandleDeviceControl(DeviceControlHandlers{
+		Find: func(context.Context, *int64) error { return nil },
+		GetSettings: func(context.Context) (rpcapi.DeviceSettings, error) {
+			return rpcapi.DeviceSettings{ScreenBrightness: new(int64(30))}, nil
+		},
+		SetSettings: func(_ context.Context, patch rpcapi.DeviceSettings) (rpcapi.DeviceSettings, error) {
+			applied = patch
+			return patch, nil
+		},
+		FactoryReset: func(_ context.Context, keepNetwork bool) error {
+			resetKeepNetwork = &keepNetwork
+			return nil
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	get := deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceSettingsGet, nil)
+	if get.Error != nil {
+		t.Fatalf("settings.get = %#v", get.Error)
+	}
+	got, err := get.Result.AsClientDeviceSettingsGetResponse()
+	if err != nil || got.Value.ScreenBrightness == nil || *got.Value.ScreenBrightness != 30 {
+		t.Fatalf("settings.get value = %+v err=%v", got, err)
+	}
+
+	set := deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceSettingsSet, func(p *rpcapi.RPCPayload) error {
+		return p.FromClientDeviceSettingsSetRequest(rpcapi.ClientDeviceSettingsSetRequest{Value: rpcapi.DeviceSettings{LedBrightness: new(int64(40))}})
+	})
+	if set.Error != nil || applied.LedBrightness == nil || *applied.LedBrightness != 40 {
+		t.Fatalf("settings.set = %#v applied=%+v", set.Error, applied)
+	}
+	// An out-of-range member is rejected before the handler sees any of it.
+	applied = rpcapi.DeviceSettings{}
+	bad := deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceSettingsSet, func(p *rpcapi.RPCPayload) error {
+		return p.FromClientDeviceSettingsSetRequest(rpcapi.ClientDeviceSettingsSetRequest{Value: rpcapi.DeviceSettings{ScreenBrightness: new(int64(140))}})
+	})
+	if bad.Error == nil || bad.Error.Code != rpcapi.StatusCodeInvalidArgument || applied.ScreenBrightness != nil {
+		t.Fatalf("out-of-range settings.set = %#v applied=%+v", bad.Error, applied)
+	}
+
+	reset := deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceFactoryReset, func(p *rpcapi.RPCPayload) error {
+		return p.FromClientDeviceFactoryResetRequest(rpcapi.ClientDeviceFactoryResetRequest{KeepNetwork: new(true)})
+	})
+	if reset.Error != nil || resetKeepNetwork == nil || !*resetKeepNetwork {
+		t.Fatalf("factory_reset = %#v keepNetwork=%v", reset.Error, resetKeepNetwork)
+	}
+
+	if err := device.HandleSocialPing(func(context.Context, rpcapi.ClientSocialPingRequest) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	list := deviceControlDispatch(t, device, rpcapi.RPCMethodClientRPCMethodsGet, nil)
+	if list.Error != nil {
+		t.Fatalf("rpc.methods.get = %#v", list.Error)
+	}
+	methods, err := list.Result.AsClientRPCMethodsGetResponse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Every advertised method must itself be answered, not UNIMPLEMENTED.
+	for _, method := range methods.Methods {
+		if resp := deviceControlDispatch(t, device, rpcapi.RPCMethod(method), nil); resp.Error != nil && resp.Error.Code == rpcapi.StatusCodeUnimplemented {
+			t.Fatalf("advertised method %s answered UNIMPLEMENTED", method)
+		}
+	}
+	for _, want := range []rpcapi.RPCMethod{
+		rpcapi.RPCMethodClientInfoGet,
+		rpcapi.RPCMethodClientIdentifiersGet,
+		rpcapi.RPCMethodClientDeviceFind,
+		rpcapi.RPCMethodClientDeviceSettingsGet,
+		rpcapi.RPCMethodClientDeviceSettingsSet,
+		rpcapi.RPCMethodClientDeviceFactoryReset,
+		rpcapi.RPCMethodClientSocialPing,
+		rpcapi.RPCMethodClientRPCMethodsGet,
+	} {
+		if !slices.Contains(methods.Methods, string(want)) {
+			t.Fatalf("rpc.methods.get = %v, missing %s", methods.Methods, want)
+		}
+	}
+	for _, absent := range []rpcapi.RPCMethod{rpcapi.RPCMethodClientDeviceReboot, rpcapi.RPCMethodClientWifiScan} {
+		if slices.Contains(methods.Methods, string(absent)) {
+			t.Fatalf("rpc.methods.get = %v, advertises uninstalled %s", methods.Methods, absent)
+		}
+	}
+}
+
+// A device that installed no device control handlers still reports what it
+// implements: the methods the Client answers itself, and the capability method.
+func TestRPCClientCapabilityListWithoutDeviceHandlers(t *testing.T) {
+	device := &Client{}
+	resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientRPCMethodsGet, nil)
+	if resp.Error != nil {
+		t.Fatalf("rpc.methods.get without handlers = %#v", resp.Error)
+	}
+	got, err := resp.Result.AsClientRPCMethodsGetResponse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		string(rpcapi.RPCMethodClientInfoGet),
+		string(rpcapi.RPCMethodClientIdentifiersGet),
+		string(rpcapi.RPCMethodClientRPCMethodsGet),
+	}
+	if !reflect.DeepEqual(got.Methods, want) {
+		t.Fatalf("rpc.methods.get without handlers = %v, want %v", got.Methods, want)
 	}
 }

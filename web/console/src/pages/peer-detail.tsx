@@ -275,9 +275,6 @@ function statusRows(group: unknown, prefix = ""): [string, string][] {
   if (typeof group !== "object" || group === null) return [];
   const rows: [string, string][] = [];
   for (const [key, value] of Object.entries(group as Record<string, unknown>)) {
-    // `details` is an untyped open map; its current contents duplicate the
-    // observation times already shown by Telemetry, so it stays in raw JSON.
-    if (prefix === "" && key === "details") continue;
     const name = prefix === "" ? key : `${prefix}.${key}`;
     if (value !== null && typeof value === "object" && !Array.isArray(value)) {
       rows.push(...statusRows(value, name));
@@ -287,10 +284,13 @@ function statusRows(group: unknown, prefix = ""): [string, string][] {
       rows.push([name, "—"]);
       continue;
     }
+    // Every member of telemetry_observed_at is an observation time, named after
+    // the status field it describes rather than with an _at suffix.
     if (
       key.endsWith("_at_unix_ms") ||
       key.endsWith("_at") ||
-      key === "reported_at"
+      key === "reported_at" ||
+      prefix === "telemetry_observed_at"
     ) {
       const stamp =
         typeof value === "string" && /^\d+$/.test(value)

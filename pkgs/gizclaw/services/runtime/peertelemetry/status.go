@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"maps"
 	"regexp"
-	"strconv"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -29,16 +28,33 @@ type StatusSync struct {
 // schema in api/http/shared/peer_status.json.
 var firmwareSha256Pattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
+// observedAtSelector addresses one member of PeerStatus.telemetry_observed_at.
+// The per-field observation times are typed members rather than an untyped
+// map, so each field is reached through its own selector instead of a string
+// key that only the writer understood.
+type observedAtSelector func(*apitypes.PeerStatusTelemetryObservedAt) **time.Time
+
+var (
+	observedAtBatteryPercent observedAtSelector = func(o *apitypes.PeerStatusTelemetryObservedAt) **time.Time { return &o.BatteryPercent }
+	observedAtCharging       observedAtSelector = func(o *apitypes.PeerStatusTelemetryObservedAt) **time.Time { return &o.Charging }
+	observedAtGNSSLatitude   observedAtSelector = func(o *apitypes.PeerStatusTelemetryObservedAt) **time.Time { return &o.GnssLatitude }
+	observedAtGNSSLongitude  observedAtSelector = func(o *apitypes.PeerStatusTelemetryObservedAt) **time.Time { return &o.GnssLongitude }
+	observedAtGNSSAltitudeM  observedAtSelector = func(o *apitypes.PeerStatusTelemetryObservedAt) **time.Time { return &o.GnssAltitudeM }
+	observedAtGNSSAccuracyM  observedAtSelector = func(o *apitypes.PeerStatusTelemetryObservedAt) **time.Time { return &o.GnssAccuracyM }
+	observedAtNetworkIMEI    observedAtSelector = func(o *apitypes.PeerStatusTelemetryObservedAt) **time.Time { return &o.NetworkImei }
+	observedAtNetworkIMSI    observedAtSelector = func(o *apitypes.PeerStatusTelemetryObservedAt) **time.Time { return &o.NetworkImsi }
+	observedAtActivity       observedAtSelector = func(o *apitypes.PeerStatusTelemetryObservedAt) **time.Time { return &o.Activity }
+	observedAtFirmwareVer    observedAtSelector = func(o *apitypes.PeerStatusTelemetryObservedAt) **time.Time { return &o.FirmwareVersion }
+)
+
+// activityPattern, activityDetailMaxLen and firmwareVersionMaxLen mirror the
+// activity, activity_detail and firmware_version constraints of the PeerStatus
+// schema in api/http/shared/peer_status.json.
+var activityPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_.-]{0,31}$`)
+
 const (
-	telemetryStatusDetailsKey          = "telemetry_status"
-	telemetryStatusBatteryPercentAtKey = "battery_percent_at_unix_ms"
-	telemetryStatusChargingAtKey       = "charging_at_unix_ms"
-	telemetryStatusGNSSLatitudeAtKey   = "gnss_latitude_at_unix_ms"
-	telemetryStatusGNSSLongitudeAtKey  = "gnss_longitude_at_unix_ms"
-	telemetryStatusGNSSAltitudeMAtKey  = "gnss_altitude_m_at_unix_ms"
-	telemetryStatusGNSSAccuracyMAtKey  = "gnss_accuracy_m_at_unix_ms"
-	telemetryStatusNetworkIMEIAtKey    = "network_imei_at_unix_ms"
-	telemetryStatusNetworkIMSIAtKey    = "network_imsi_at_unix_ms"
+	activityDetailMaxLen  = 128
+	firmwareVersionMaxLen = 128
 )
 
 func (s StatusSync) SyncTelemetryStatus(ctx context.Context, peer giznet.PublicKey, patch StatusPatch) error {
@@ -104,6 +120,14 @@ func (s StatusSync) ApplyDeviceStatus(ctx context.Context, peer giznet.PublicKey
 	if reported.GnssAccuracyM != nil {
 		patch.GNSSAccuracyM = new(float64(*reported.GnssAccuracyM))
 	}
+	if reported.Activity != nil && activityPattern.MatchString(*reported.Activity) {
+		activity := *reported.Activity
+		patch.Activity = &activity
+		if reported.ActivityDetail != nil && len(*reported.ActivityDetail) <= activityDetailMaxLen {
+			detail := *reported.ActivityDetail
+			patch.ActivityDetail = &detail
+		}
+	}
 	if reported.Audioplayer != nil {
 		player := *reported.Audioplayer
 		if player.ObservedAtUnixMs == 0 {
@@ -137,6 +161,11 @@ func (s StatusSync) ApplyDeviceStatus(ctx context.Context, peer giznet.PublicKey
 		status.FirmwareSha256 = &value
 		changed = true
 	}
+	if reported.FirmwareVersion != nil && len(*reported.FirmwareVersion) <= firmwareVersionMaxLen {
+		value := *reported.FirmwareVersion
+		status.FirmwareVersion = &value
+		changed = true
+	}
 	if !changed {
 		return status, nil
 	}
@@ -158,58 +187,106 @@ func applyTelemetryStatusPatch(status *apitypes.PeerStatus, patch StatusPatch) b
 			changed = true
 		}
 	}
-	if patch.BatteryPercent != nil && shouldApplyTelemetryStatusField(*status, telemetryStatusBatteryPercentAtKey, status.BatteryPercent == nil, patch.BatteryPercentAt, patch.ReportedAt) {
+	if patch.BatteryPercent != nil && shouldApplyTelemetryStatusField(*status, observedAtBatteryPercent, status.BatteryPercent == nil, patch.BatteryPercentAt, patch.ReportedAt) {
 		value := *patch.BatteryPercent
 		status.BatteryPercent = &value
-		setTelemetryStatusFieldTime(status, telemetryStatusBatteryPercentAtKey, patch.BatteryPercentAt, patch.ReportedAt)
+		setTelemetryStatusFieldTime(status, observedAtBatteryPercent, patch.BatteryPercentAt, patch.ReportedAt)
 		changed = true
 	}
-	if patch.Charging != nil && shouldApplyTelemetryStatusField(*status, telemetryStatusChargingAtKey, status.Charging == nil, patch.ChargingAt, patch.ReportedAt) {
+	if patch.Charging != nil && shouldApplyTelemetryStatusField(*status, observedAtCharging, status.Charging == nil, patch.ChargingAt, patch.ReportedAt) {
 		value := *patch.Charging
 		status.Charging = &value
-		setTelemetryStatusFieldTime(status, telemetryStatusChargingAtKey, patch.ChargingAt, patch.ReportedAt)
+		setTelemetryStatusFieldTime(status, observedAtCharging, patch.ChargingAt, patch.ReportedAt)
 		changed = true
 	}
-	if patch.GNSSLatitude != nil && shouldApplyTelemetryStatusField(*status, telemetryStatusGNSSLatitudeAtKey, status.GnssLatitude == nil, patch.GNSSLatitudeAt, patch.ReportedAt) {
+	if patch.GNSSLatitude != nil && shouldApplyTelemetryStatusField(*status, observedAtGNSSLatitude, status.GnssLatitude == nil, patch.GNSSLatitudeAt, patch.ReportedAt) {
 		value := float32(*patch.GNSSLatitude)
 		status.GnssLatitude = &value
-		setTelemetryStatusFieldTime(status, telemetryStatusGNSSLatitudeAtKey, patch.GNSSLatitudeAt, patch.ReportedAt)
+		setTelemetryStatusFieldTime(status, observedAtGNSSLatitude, patch.GNSSLatitudeAt, patch.ReportedAt)
 		changed = true
 	}
-	if patch.GNSSLongitude != nil && shouldApplyTelemetryStatusField(*status, telemetryStatusGNSSLongitudeAtKey, status.GnssLongitude == nil, patch.GNSSLongitudeAt, patch.ReportedAt) {
+	if patch.GNSSLongitude != nil && shouldApplyTelemetryStatusField(*status, observedAtGNSSLongitude, status.GnssLongitude == nil, patch.GNSSLongitudeAt, patch.ReportedAt) {
 		value := float32(*patch.GNSSLongitude)
 		status.GnssLongitude = &value
-		setTelemetryStatusFieldTime(status, telemetryStatusGNSSLongitudeAtKey, patch.GNSSLongitudeAt, patch.ReportedAt)
+		setTelemetryStatusFieldTime(status, observedAtGNSSLongitude, patch.GNSSLongitudeAt, patch.ReportedAt)
 		changed = true
 	}
-	if patch.GNSSAltitudeM != nil && shouldApplyTelemetryStatusField(*status, telemetryStatusGNSSAltitudeMAtKey, status.GnssAltitudeM == nil, patch.GNSSAltitudeMAt, patch.ReportedAt) {
+	if patch.GNSSAltitudeM != nil && shouldApplyTelemetryStatusField(*status, observedAtGNSSAltitudeM, status.GnssAltitudeM == nil, patch.GNSSAltitudeMAt, patch.ReportedAt) {
 		value := float32(*patch.GNSSAltitudeM)
 		status.GnssAltitudeM = &value
-		setTelemetryStatusFieldTime(status, telemetryStatusGNSSAltitudeMAtKey, patch.GNSSAltitudeMAt, patch.ReportedAt)
+		setTelemetryStatusFieldTime(status, observedAtGNSSAltitudeM, patch.GNSSAltitudeMAt, patch.ReportedAt)
 		changed = true
 	}
-	if patch.GNSSAccuracyM != nil && shouldApplyTelemetryStatusField(*status, telemetryStatusGNSSAccuracyMAtKey, status.GnssAccuracyM == nil, patch.GNSSAccuracyMAt, patch.ReportedAt) {
+	if patch.GNSSAccuracyM != nil && shouldApplyTelemetryStatusField(*status, observedAtGNSSAccuracyM, status.GnssAccuracyM == nil, patch.GNSSAccuracyMAt, patch.ReportedAt) {
 		value := float32(*patch.GNSSAccuracyM)
 		status.GnssAccuracyM = &value
-		setTelemetryStatusFieldTime(status, telemetryStatusGNSSAccuracyMAtKey, patch.GNSSAccuracyMAt, patch.ReportedAt)
+		setTelemetryStatusFieldTime(status, observedAtGNSSAccuracyM, patch.GNSSAccuracyMAt, patch.ReportedAt)
 		changed = true
 	}
-	if applyTelemetryStatusIdentity(status, &status.NetworkImei, telemetryStatusNetworkIMEIAtKey, patch.NetworkIMEI, patch.NetworkIMEIAt, patch.ReportedAt) {
+	if applyTelemetryStatusString(status, &status.NetworkImei, observedAtNetworkIMEI, patch.NetworkIMEI, patch.NetworkIMEIAt, patch.ReportedAt) {
 		changed = true
 	}
-	if applyTelemetryStatusIdentity(status, &status.NetworkImsi, telemetryStatusNetworkIMSIAtKey, patch.NetworkIMSI, patch.NetworkIMSIAt, patch.ReportedAt) {
+	if applyTelemetryStatusString(status, &status.NetworkImsi, observedAtNetworkIMSI, patch.NetworkIMSI, patch.NetworkIMSIAt, patch.ReportedAt) {
+		changed = true
+	}
+	if applyTelemetryStatusString(status, &status.FirmwareVersion, observedAtFirmwareVer, patch.FirmwareVersion, patch.FirmwareVersionAt, patch.ReportedAt) {
+		changed = true
+	}
+	if applyTelemetryStatusActivity(status, patch) {
 		changed = true
 	}
 	return changed
 }
 
-// applyTelemetryStatusIdentity merges one cellular identity string with the
+// applyTelemetryStatusActivity merges the reported activity and its optional
+// detail as one unit: the detail describes the activity it arrived with, so an
+// accepted observation always replaces both, and an observation with no detail
+// clears a detail left over from the previous activity.
+func applyTelemetryStatusActivity(status *apitypes.PeerStatus, patch StatusPatch) bool {
+	if patch.Activity == nil {
+		return false
+	}
+	if !shouldApplyTelemetryStatusField(*status, observedAtActivity, status.Activity == nil, patch.ActivityAt, patch.ReportedAt) {
+		return false
+	}
+	at := patch.ActivityAt
+	if at.IsZero() {
+		at = patch.ReportedAt
+	}
+	changed := status.Activity == nil || *status.Activity != *patch.Activity ||
+		!equalOptionalString(status.ActivityDetail, patch.ActivityDetail)
+	if !changed && !at.IsZero() {
+		storedAt, ok := telemetryStatusFieldTime(*status, observedAtActivity)
+		changed = !ok || !storedAt.Equal(at.UTC().Truncate(time.Millisecond))
+	}
+	if !changed {
+		return false
+	}
+	activity := *patch.Activity
+	status.Activity = &activity
+	status.ActivityDetail = nil
+	if patch.ActivityDetail != nil {
+		detail := *patch.ActivityDetail
+		status.ActivityDetail = &detail
+	}
+	setTelemetryStatusFieldTime(status, observedAtActivity, patch.ActivityAt, patch.ReportedAt)
+	return true
+}
+
+func equalOptionalString(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
+}
+
+// applyTelemetryStatusString merges one device-reported string field with the
 // same per-field observation ordering as battery and GNSS. An observation that
 // repeats the stored value only refreshes the field timestamp; when neither the
 // value nor the timestamp moves, the status is reported unchanged so the store
 // is not rewritten.
-func applyTelemetryStatusIdentity(status *apitypes.PeerStatus, current **string, fieldKey string, value *string, fieldAt time.Time, fallback time.Time) bool {
-	if value == nil || !shouldApplyTelemetryStatusField(*status, fieldKey, *current == nil, fieldAt, fallback) {
+func applyTelemetryStatusString(status *apitypes.PeerStatus, current **string, sel observedAtSelector, value *string, fieldAt time.Time, fallback time.Time) bool {
+	if value == nil || !shouldApplyTelemetryStatusField(*status, sel, *current == nil, fieldAt, fallback) {
 		return false
 	}
 	at := fieldAt
@@ -218,7 +295,7 @@ func applyTelemetryStatusIdentity(status *apitypes.PeerStatus, current **string,
 	}
 	changed := *current == nil || **current != *value
 	if !changed && !at.IsZero() {
-		storedAt, ok := telemetryStatusFieldTime(*status, fieldKey)
+		storedAt, ok := telemetryStatusFieldTime(*status, sel)
 		changed = !ok || !storedAt.Equal(at.UTC().Truncate(time.Millisecond))
 	}
 	if !changed {
@@ -226,12 +303,12 @@ func applyTelemetryStatusIdentity(status *apitypes.PeerStatus, current **string,
 	}
 	next := *value
 	*current = &next
-	setTelemetryStatusFieldTime(status, fieldKey, fieldAt, fallback)
+	setTelemetryStatusFieldTime(status, sel, fieldAt, fallback)
 	return true
 }
 
-func shouldApplyTelemetryStatusField(status apitypes.PeerStatus, fieldKey string, currentMissing bool, fieldAt time.Time, fallback time.Time) bool {
-	currentAt, ok := telemetryStatusFieldTime(status, fieldKey)
+func shouldApplyTelemetryStatusField(status apitypes.PeerStatus, sel observedAtSelector, currentMissing bool, fieldAt time.Time, fallback time.Time) bool {
+	currentAt, ok := telemetryStatusFieldTime(status, sel)
 	if !ok {
 		if status.ReportedAt == nil || status.ReportedAt.IsZero() {
 			return true
@@ -250,43 +327,18 @@ func shouldApplyTelemetryStatusField(status apitypes.PeerStatus, fieldKey string
 	return true
 }
 
-func telemetryStatusFieldTime(status apitypes.PeerStatus, fieldKey string) (time.Time, bool) {
-	if status.Details == nil || *status.Details == nil {
+func telemetryStatusFieldTime(status apitypes.PeerStatus, sel observedAtSelector) (time.Time, bool) {
+	if status.TelemetryObservedAt == nil {
 		return time.Time{}, false
 	}
-	raw := (*status.Details)[telemetryStatusDetailsKey]
-	fields, ok := raw.(map[string]any)
-	if !ok {
+	at := *sel(status.TelemetryObservedAt)
+	if at == nil || at.IsZero() {
 		return time.Time{}, false
 	}
-	unixMS, ok := telemetryStatusUnixMS(fields[fieldKey])
-	if !ok || unixMS <= 0 {
-		return time.Time{}, false
-	}
-	return time.UnixMilli(unixMS).UTC(), true
+	return at.UTC(), true
 }
 
-func telemetryStatusUnixMS(value any) (int64, bool) {
-	switch v := value.(type) {
-	case int64:
-		return v, true
-	case int:
-		return int64(v), true
-	case int32:
-		return int64(v), true
-	case float64:
-		return int64(v), true
-	case float32:
-		return int64(v), true
-	case string:
-		parsed, err := strconv.ParseInt(v, 10, 64)
-		return parsed, err == nil
-	default:
-		return 0, false
-	}
-}
-
-func setTelemetryStatusFieldTime(status *apitypes.PeerStatus, fieldKey string, fieldAt time.Time, fallback time.Time) {
+func setTelemetryStatusFieldTime(status *apitypes.PeerStatus, sel observedAtSelector, fieldAt time.Time, fallback time.Time) {
 	if status == nil {
 		return
 	}
@@ -296,15 +348,14 @@ func setTelemetryStatusFieldTime(status *apitypes.PeerStatus, fieldKey string, f
 	if fieldAt.IsZero() {
 		return
 	}
-	details := map[string]any{}
-	if status.Details != nil && *status.Details != nil {
-		maps.Copy(details, *status.Details)
+	if status.TelemetryObservedAt == nil {
+		status.TelemetryObservedAt = &apitypes.PeerStatusTelemetryObservedAt{}
+	} else {
+		// Copy before mutating: the caller's status may share this pointer with
+		// a value the store handed out.
+		observed := *status.TelemetryObservedAt
+		status.TelemetryObservedAt = &observed
 	}
-	fields := map[string]any{}
-	if raw, ok := details[telemetryStatusDetailsKey].(map[string]any); ok {
-		maps.Copy(fields, raw)
-	}
-	fields[fieldKey] = fmt.Sprintf("%d", fieldAt.UTC().UnixMilli())
-	details[telemetryStatusDetailsKey] = fields
-	status.Details = &details
+	at := fieldAt.UTC().Truncate(time.Millisecond)
+	*sel(status.TelemetryObservedAt) = &at
 }

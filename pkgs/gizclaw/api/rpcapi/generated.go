@@ -178,6 +178,40 @@ func (e DoubaoRealtimeWorkspaceParametersAgentType) Valid() bool {
 	}
 }
 
+// Defines values for DeviceInteractionMode.
+const (
+	DeviceInteractionModePushToTalk DeviceInteractionMode = "push-to-talk"
+	DeviceInteractionModeRealtime   DeviceInteractionMode = "realtime"
+)
+
+// Valid indicates whether the value is a known member of the DeviceInteractionMode enum.
+func (e DeviceInteractionMode) Valid() bool {
+	switch e {
+	case DeviceInteractionModePushToTalk, DeviceInteractionModeRealtime:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeviceKeyFeedback.
+const (
+	DeviceKeyFeedbackNone            DeviceKeyFeedback = "none"
+	DeviceKeyFeedbackSound           DeviceKeyFeedback = "sound"
+	DeviceKeyFeedbackVibrate         DeviceKeyFeedback = "vibrate"
+	DeviceKeyFeedbackSoundAndVibrate DeviceKeyFeedback = "sound_and_vibrate"
+)
+
+// Valid indicates whether the value is a known member of the DeviceKeyFeedback enum.
+func (e DeviceKeyFeedback) Valid() bool {
+	switch e {
+	case DeviceKeyFeedbackNone, DeviceKeyFeedbackSound, DeviceKeyFeedbackVibrate, DeviceKeyFeedbackSoundAndVibrate:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FirmwareChannelName.
 const (
 	FirmwareChannelNameBeta    FirmwareChannelName = "beta"
@@ -550,6 +584,10 @@ const (
 	RPCMethodClientWifiStatusGet                 RPCMethod = "client.wifi.status.get"
 	RPCMethodClientWifiScan                      RPCMethod = "client.wifi.scan"
 	RPCMethodClientWifiConnect                   RPCMethod = "client.wifi.connect"
+	RPCMethodClientDeviceSettingsGet             RPCMethod = "client.device.settings.get"
+	RPCMethodClientDeviceSettingsSet             RPCMethod = "client.device.settings.set"
+	RPCMethodClientDeviceFactoryReset            RPCMethod = "client.device.factory_reset"
+	RPCMethodClientRPCMethodsGet                 RPCMethod = "client.rpc.methods.get"
 	RPCMethodServerContactCreate                 RPCMethod = "server.contact.create"
 	RPCMethodServerContactDelete                 RPCMethod = "server.contact.delete"
 	RPCMethodServerContactGet                    RPCMethod = "server.contact.get"
@@ -652,6 +690,14 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodClientSocialPing:
 		return true
 	case RPCMethodClientDeviceReboot:
+		return true
+	case RPCMethodClientDeviceSettingsGet:
+		return true
+	case RPCMethodClientDeviceSettingsSet:
+		return true
+	case RPCMethodClientDeviceFactoryReset:
+		return true
+	case RPCMethodClientRPCMethodsGet:
 		return true
 	case RPCMethodClientWifiStatusGet:
 		return true
@@ -1506,6 +1552,12 @@ type EinoWorkspaceParametersAgentType string
 // FirmwareChannelName defines model for FirmwareChannelName.
 type FirmwareChannelName string
 
+// DeviceInteractionMode defines model for DeviceInteractionMode.
+type DeviceInteractionMode string
+
+// DeviceKeyFeedback defines model for DeviceKeyFeedback.
+type DeviceKeyFeedback string
+
 // FirmwareGetRequest defines model for FirmwareGetRequest.
 type FirmwareGetRequest struct {
 	Channel FirmwareChannelName `json:"channel"`
@@ -2142,22 +2194,25 @@ type PeerRunWorkspaceState struct {
 
 // PeerStatus defines model for PeerStatus.
 type PeerStatus struct {
-	Ota            *rpcpb.PeerOtaStatus     `json:"ota,omitempty"`
-	Audioplayer    *rpcpb.AudioPlayerStatus `json:"audioplayer,omitempty"`
-	BatteryPercent *int                     `json:"battery_percent,omitempty"`
-	Charging       *bool                    `json:"charging,omitempty"`
-	Details        *map[string]any          `json:"details,omitempty"`
-	FirmwareSha256 *string                  `json:"firmware_sha256,omitempty"`
-	GnssAccuracyM  *float32                 `json:"gnss_accuracy_m,omitempty"`
-	GnssAltitudeM  *float32                 `json:"gnss_altitude_m,omitempty"`
-	GnssLatitude   *float32                 `json:"gnss_latitude,omitempty"`
-	GnssLongitude  *float32                 `json:"gnss_longitude,omitempty"`
-	Labels         *map[string]string       `json:"labels,omitempty"`
-	Muted          *bool                    `json:"muted,omitempty"`
-	NetworkImei    *string                  `json:"network_imei,omitempty"`
-	NetworkImsi    *string                  `json:"network_imsi,omitempty"`
-	ReportedAt     *time.Time               `json:"reported_at,omitempty"`
-	Volume         *int                     `json:"volume,omitempty"`
+	Ota                 *rpcpb.PeerOtaStatus                 `json:"ota,omitempty"`
+	Audioplayer         *rpcpb.AudioPlayerStatus             `json:"audioplayer,omitempty"`
+	BatteryPercent      *int                                 `json:"battery_percent,omitempty"`
+	Charging            *bool                                `json:"charging,omitempty"`
+	FirmwareSha256      *string                              `json:"firmware_sha256,omitempty"`
+	FirmwareVersion     *string                              `json:"firmware_version,omitempty"`
+	Activity            *string                              `json:"activity,omitempty"`
+	ActivityDetail      *string                              `json:"activity_detail,omitempty"`
+	TelemetryObservedAt *rpcpb.PeerStatusTelemetryObservedAt `json:"telemetry_observed_at,omitempty"`
+	GnssAccuracyM       *float32                             `json:"gnss_accuracy_m,omitempty"`
+	GnssAltitudeM       *float32                             `json:"gnss_altitude_m,omitempty"`
+	GnssLatitude        *float32                             `json:"gnss_latitude,omitempty"`
+	GnssLongitude       *float32                             `json:"gnss_longitude,omitempty"`
+	Labels              *map[string]string                   `json:"labels,omitempty"`
+	Muted               *bool                                `json:"muted,omitempty"`
+	NetworkImei         *string                              `json:"network_imei,omitempty"`
+	NetworkImsi         *string                              `json:"network_imsi,omitempty"`
+	ReportedAt          *time.Time                           `json:"reported_at,omitempty"`
+	Volume              *int                                 `json:"volume,omitempty"`
 }
 
 // PingRequest defines model for PingRequest.

@@ -79,7 +79,7 @@ func TestCSDKTelemetryPersistsForAdminQueries(t *testing.T) {
 
 	// The cellular identity is not a metric; it rides on the owner-scoped
 	// PeerStatus that server.status.get returns, with per-field observation
-	// timestamps under details.telemetry_status.
+	// timestamps under telemetry_observed_at.
 	var status rpcpb.ServerGetStatusResponse
 	statusDeadline := time.Now().Add(10 * time.Second)
 	for {
@@ -96,11 +96,9 @@ func TestCSDKTelemetryPersistsForAdminQueries(t *testing.T) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	telemetryStatus := status.GetValue().GetDetails().GetFields()["telemetry_status"].GetStructValue().GetFields()
-	for _, key := range []string{"network_imei_at_unix_ms", "network_imsi_at_unix_ms"} {
-		if _, ok := telemetryStatus[key]; !ok {
-			t.Fatalf("server.status.get details.telemetry_status missing %s: %v", key, telemetryStatus)
-		}
+	observed := status.GetValue().GetTelemetryObservedAt()
+	if observed.GetNetworkImei() == "" || observed.GetNetworkImsi() == "" {
+		t.Fatalf("server.status.get telemetry_observed_at missing the network identity times: %v", observed)
 	}
 }
 
