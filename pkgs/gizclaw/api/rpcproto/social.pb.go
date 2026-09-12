@@ -3145,6 +3145,17 @@ type FriendObject struct {
 	PeerPublicKey *string                `protobuf:"bytes,3,opt,name=peer_public_key,json=peerPublicKey,proto3,oneof" json:"peer_public_key,omitempty"`
 	UpdatedAt     *string                `protobuf:"bytes,4,opt,name=updated_at,json=updatedAt,proto3,oneof" json:"updated_at,omitempty"`
 	WorkspaceName *string                `protobuf:"bytes,5,opt,name=workspace_name,json=workspaceName,proto3,oneof" json:"workspace_name,omitempty"`
+	// Friend presence and profile, set only by server.friend.list. online is
+	// whether the Friend's device is connected to the answering Server, the
+	// same state as Runtime.online.
+	Online *bool `protobuf:"varint,6,opt,name=online,proto3,oneof" json:"online,omitempty"`
+	// Last observed activity of the Friend's device in the Runtime.last_seen_at
+	// format. Absent when the Server has never observed the Friend.
+	LastSeenAt *string `protobuf:"bytes,7,opt,name=last_seen_at,json=lastSeenAt,proto3,oneof" json:"last_seen_at,omitempty"`
+	// The Friend's self-chosen display name and emoji from its profile. Absent
+	// when the Friend has not set them.
+	DisplayName   *string `protobuf:"bytes,8,opt,name=display_name,json=displayName,proto3,oneof" json:"display_name,omitempty"`
+	Emoji         *string `protobuf:"bytes,9,opt,name=emoji,proto3,oneof" json:"emoji,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3210,6 +3221,34 @@ func (x *FriendObject) GetUpdatedAt() string {
 func (x *FriendObject) GetWorkspaceName() string {
 	if x != nil && x.WorkspaceName != nil {
 		return *x.WorkspaceName
+	}
+	return ""
+}
+
+func (x *FriendObject) GetOnline() bool {
+	if x != nil && x.Online != nil {
+		return *x.Online
+	}
+	return false
+}
+
+func (x *FriendObject) GetLastSeenAt() string {
+	if x != nil && x.LastSeenAt != nil {
+		return *x.LastSeenAt
+	}
+	return ""
+}
+
+func (x *FriendObject) GetDisplayName() string {
+	if x != nil && x.DisplayName != nil {
+		return *x.DisplayName
+	}
+	return ""
+}
+
+func (x *FriendObject) GetEmoji() string {
+	if x != nil && x.Emoji != nil {
+		return *x.Emoji
 	}
 	return ""
 }
@@ -3453,7 +3492,7 @@ const file_payload_social_proto_rawDesc = "" +
 	"\x11friend_group_name\x18\x03 \x01(\tH\x01R\x0ffriendGroupName\x88\x01\x01B\x14\n" +
 	"\x12_from_display_nameB\x14\n" +
 	"\x12_friend_group_name\"\x1a\n" +
-	"\x18ClientSocialPingResponse\"\x88\x02\n" +
+	"\x18ClientSocialPingResponse\"\xc6\x03\n" +
 	"\fFriendObject\x12\"\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tH\x00R\tcreatedAt\x88\x01\x01\x12\x12\n" +
@@ -3461,11 +3500,20 @@ const file_payload_social_proto_rawDesc = "" +
 	"\x0fpeer_public_key\x18\x03 \x01(\tH\x01R\rpeerPublicKey\x88\x01\x01\x12\"\n" +
 	"\n" +
 	"updated_at\x18\x04 \x01(\tH\x02R\tupdatedAt\x88\x01\x01\x12*\n" +
-	"\x0eworkspace_name\x18\x05 \x01(\tH\x03R\rworkspaceName\x88\x01\x01B\r\n" +
+	"\x0eworkspace_name\x18\x05 \x01(\tH\x03R\rworkspaceName\x88\x01\x01\x12\x1b\n" +
+	"\x06online\x18\x06 \x01(\bH\x04R\x06online\x88\x01\x01\x12%\n" +
+	"\flast_seen_at\x18\a \x01(\tH\x05R\n" +
+	"lastSeenAt\x88\x01\x01\x12&\n" +
+	"\fdisplay_name\x18\b \x01(\tH\x06R\vdisplayName\x88\x01\x01\x12\x19\n" +
+	"\x05emoji\x18\t \x01(\tH\aR\x05emoji\x88\x01\x01B\r\n" +
 	"\v_created_atB\x12\n" +
 	"\x10_peer_public_keyB\r\n" +
 	"\v_updated_atB\x11\n" +
-	"\x0f_workspace_name*\xa0\x01\n" +
+	"\x0f_workspace_nameB\t\n" +
+	"\a_onlineB\x0f\n" +
+	"\r_last_seen_atB\x0f\n" +
+	"\r_display_nameB\b\n" +
+	"\x06_emoji*\xa0\x01\n" +
 	"\x10SocialPingResult\x12\"\n" +
 	"\x1eSOCIAL_PING_RESULT_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cSOCIAL_PING_RESULT_DELIVERED\x10\x01\x12!\n" +

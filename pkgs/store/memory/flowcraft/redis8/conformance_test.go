@@ -12,6 +12,9 @@ import (
 	"github.com/GizClaw/flowcraft/memory/retrieval"
 	"github.com/GizClaw/flowcraft/memory/retrieval/contract"
 	"github.com/redis/go-redis/v9"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+	memoryflowcraft "github.com/GizClaw/gizclaw-go/pkgs/store/memory/flowcraft"
 )
 
 func redis8TestClient(t testing.TB) *redis.Client {
@@ -156,5 +159,59 @@ func TestScopeEnumeratorPreservesCrossAgentHardPartition(t *testing.T) {
 	}
 	if len(facts) != 2 || facts[0].ID != "agent-a-fact" || facts[1].ID != "agent-b-fact" {
 		t.Fatalf("List(canonical scope) = %#v, want facts from both agent metadata values", facts)
+	}
+}
+
+func TestMaintenanceStorePurgesRedis8Scope(t *testing.T) {
+	backend := freshBackend(t)
+	ctx := t.Context()
+	durable := memoryflowcraft.Config{
+		TemporalStore: backend.TemporalStore(), EvidenceStore: backend.EvidenceStore(),
+		AsyncQueue: backend.AsyncSemanticQueue(), SideEffectOutbox: backend.SideEffectOutbox(),
+		RetrievalIndex: backend.RetrievalIndex(),
+	}
+	writerConfig := durable
+	writerConfig.AsyncQueue = nil
+	writer, err := memoryflowcraft.New(ctx, writerConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = writer.Close() })
+	purged := memory.Scope{AppID: "workspace-a"}
+	kept := memory.Scope{AppID: "workspace-b"}
+	for _, scope := range []memory.Scope{purged, kept} {
+		if _, err := writer.Observe(ctx, memory.Observation{
+			Scope: scope, ID: "fact", Facts: []memory.FactCandidate{{Text: "GIZCLAWREDISPURGE fact"}},
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	maintenance, err := memoryflowcraft.NewMaintenance(ctx, durable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = maintenance.Close() })
+	if err := maintenance.PurgeScope(ctx, purged); err != nil {
+		t.Fatal(err)
+	}
+	if empty, err := maintenance.ScopeEmpty(ctx, purged); err != nil || !empty {
+		t.Fatalf("ScopeEmpty(purged) = %v, %v; want true", empty, err)
+	}
+	for _, test := range []struct {
+		scope memory.Scope
+		want  int
+	}{{purged, 0}, {kept, 1}} {
+		docs, err := backend.RetrievalIndex().List(ctx, recall.NamespaceFor(recall.Scope{RuntimeID: test.scope.AppID}), retrieval.ListRequest{PageSize: 10})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(docs.Items) != test.want {
+			t.Fatalf("retrieval docs for %+v = %d, want %d", test.scope, len(docs.Items), test.want)
+		}
+		result, err := writer.Recall(ctx, memory.Query{Scope: test.scope, Text: "GIZCLAWREDISPURGE", Limit: 10})
+		if err != nil || len(result.Matches) != test.want {
+			t.Fatalf("Recall(%+v) = %+v, %v; want %d matches", test.scope, result, err, test.want)
+		}
 	}
 }

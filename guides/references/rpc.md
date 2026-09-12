@@ -91,7 +91,7 @@ Workflow、Model 与 Voice 由当前 RuntimeProfile 投影为 Peer name catalog�
 | 44 | `server.friend.invite_token.create` | 为当前 Peer 创建或轮换好友邀请码。 |
 | 45 | `server.friend.invite_token.clear` | 清除当前 Peer 的好友邀请码。 |
 | 46 | `server.friend.add` | 使用另一个 Peer 的好友邀请码建立好友关系。 |
-| 47 | `server.friend.list` | 分页列出当前 Peer 的好友关系。 |
+| 47 | `server.friend.list` | 分页列出当前 Peer 的好友关系；每项附带好友的 `online`、`last_seen_at`（从未见过时省略）、`display_name` 与 `emoji`。 |
 | 48 | `server.friend.delete` | 删除一条好友关系及其关联资源。 |
 | 89 | `server.friend.info.get` | 读取指定好友对当前 Peer 可见的 name 和 emoji。 |
 | 123 | `server.friend.ping` | 呼叫指定好友：好友设备在线则推送 `client.social.ping`，返回 `delivered`；不在线立即返回 `not_online`；同一好友对每分钟一次，超出返回 `rate_limited` 与剩余秒数。 |

@@ -33,3 +33,11 @@ Unsupported options are rejected before mutation instead of being silently claim
 JSON, binary, and ordered SSE responses are owned and framed by the Shell. GenX streams are closed on completion, failure, cancellation, or downstream disconnect. No Realtime or Responses WebSocket backend is registered.
 
 The concrete Shell revision in `go.mod` and `go.sum` makes each build reproducible. Compatible updates advance through the normal weekly Go module Dependabot flow; GizClaw does not vendor, replace, or copy the upstream compatibility profile.
+
+## Chat tool calls
+
+Chat Completions supports caller-executed function tools. `tools` accepts only `type: "function"`, whose `function` may carry `name`, `description`, `parameters`, and `strict`; the name must match `^[A-Za-z0-9_-]{1,64}$` and be unique within the request. `parameters` reaches the provider as sent, without GenX structured-output normalization. `tool_choice` accepts only `"auto"` and `parallel_tool_calls` accepts only `true`; other values are rejected.
+
+An assistant message may carry `tool_calls` to replay an earlier turn, and a `role: "tool"` message returns a result through `tool_call_id` and text `content`. Text content parts of an assistant message are read for `type` and `text` only: after a response that both spoke and called a tool, `@openai/agents` replays that response's `role`, `refusal`, `tool_calls` and similar fields inside the part, and these echoes do not change the request. Content parts of user and other messages still reject unknown fields. GizClaw never executes these tools; it forwards declarations, calls, and results. When a request declares tools or replays tool state, the selected model must declare `support_tool_calls` in its provider_data, otherwise the request fails with `unsupported_option`. Gemini cannot enforce a schema, so a `strict: true` tool fails before generation.
+
+A tool call response uses `finish_reason: "tool_calls"`; a JSON response with calls only has `content: null`. SSE sends each call as one complete `delta.tool_calls` element with `index` numbered in order of appearance. `stream_options` is accepted only with `stream: true` and supports only `include_usage`; a usage chunk is sent only when the provider reported token usage.

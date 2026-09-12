@@ -112,10 +112,17 @@ The root Go module temporarily replaces `github.com/pion/sctp` and
 `github.com/pion/webrtc/v4` with pseudo-versions of the `gizclaw` integration
 branch of GizClaw/pion-sctp and GizClaw/pion-webrtc. Each fork keeps `main` as
 an upstream mirror and one `fix/*` branch per upstream pull request. The forks
-report completed stream resets, release DataChannel identifiers, and read each
-accepted stream's DCEP OPEN outside the SCTP accept loop with a 10-second
-deadline, so a lost or delayed OPEN cannot stop later DataChannels from being
-accepted. To move a pin, replace the module with `@gizclaw` and run
+report completed stream resets, release DataChannel identifiers, queue every
+incoming stream until the application accepts it instead of dropping new
+streams' DATA once 16 are waiting, and read each accepted stream's DCEP OPEN
+outside the SCTP accept loop with a 10-second deadline. A burst of new
+DataChannels therefore opens without waiting on SCTP retransmission, and a lost
+or delayed OPEN cannot stop later DataChannels from being accepted. The
+pion-webrtc fork also enables pion-sctp's `WithDiscardInboundAfterClose`, so data
+that keeps arriving for a closed DataChannel is discarded instead of holding the
+association's shared receive window, and a full receive window still accepts
+the DATA chunk that advances the cumulative TSN when no queued message is
+complete, so interleaved partial messages cannot deadlock the association. To move a pin, replace the module with `@gizclaw` and run
 `go mod tidy`, which records that branch head as a pseudo-version. Go does not
 propagate a dependency module's `replace` directives, so executables that
 consume GizClaw as a module must mirror both replacements until upstream
@@ -146,9 +153,15 @@ and the Server selects it only after the authenticated peer is an active
 `edge-node`. It matches the qualified burst of 64 transferring service streams
 times their 512 KiB per-DataChannel send budget and prevents interleaved partial
 messages from exhausting the receiver window before delivery. A connection
-also admits at most 2,048 remotely opened service DataChannels, matching the
-gateway's active-session ceiling per upstream association; excess channels are
-closed before delivery, so service labels cannot create unbounded queues.
+also admits at most `gizwebrtc.MaxInboundServiceStreams` (2,048) remotely
+opened service DataChannels, matching the gateway's active-session ceiling per
+upstream association; excess channels are closed before delivery, so service
+labels cannot create unbounded queues. Because the opener has already written
+its request when the Server closes an excess channel, the Edge keeps its
+forwarded requests and route RPCs on one control association to a quarter of
+that limit: the Server releases a stream's admission only after the stream
+reset reaches it, so it can briefly hold about two and a half times the Edge's
+in-flight streams when many requests finish together.
 The default client Dial owns one wildcard IPv4 UDP mux and socket per
 PeerConnection. All local-interface host candidates for that connection share
 one OS-unique source port, so NAT cannot collapse independently allocated

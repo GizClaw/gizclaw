@@ -1540,10 +1540,6 @@ func TestVolcCredentialAndResourceHelpers(t *testing.T) {
 	if !slices.Equal(resourceIDs, []string{"seed-tts-2.0", "seed-icl-2.0"}) {
 		t.Fatalf("volcResourceIDStrings() = %#v", resourceIDs)
 	}
-	resourceIDPtrs := volcResourceIDStringPtrs([]string{" seed-tts-2.0 ", "seed-tts-2.0", "seed-icl-2.0"})
-	if len(resourceIDPtrs) != 2 || *resourceIDPtrs[0] != "seed-tts-2.0" || *resourceIDPtrs[1] != "seed-icl-2.0" {
-		t.Fatalf("volcResourceIDStringPtrs() = %#v", resourceIDPtrs)
-	}
 	for _, tt := range []struct {
 		speakerID string
 		want      string
@@ -1716,6 +1712,48 @@ func TestVolcSpeakerClientForTenantValidation(t *testing.T) {
 	}
 	if client == nil {
 		t.Fatal("volcSpeakerClientForTenant() returned nil client")
+	}
+}
+
+func TestVolcSpeechSDKClientListSpeakersSendsIntegerLimit(t *testing.T) {
+	t.Parallel()
+
+	var request map[string]json.RawMessage
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("Action"); got != "ListSpeakers" {
+			t.Errorf("Action = %q, want ListSpeakers", got)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Errorf("decode request: %v", err)
+		}
+		_, _ = w.Write([]byte(`{"ResponseMetadata":{},"Result":{"Total":31,"Speakers":[{"VoiceType":"zh_female_vv_mars_bigtts","ResourceID":"seed-tts-1.0","Name":"vv"},{"VoiceType":"","ResourceID":"seed-tts-1.0"}]}}`))
+	}))
+	defer upstream.Close()
+
+	srv := newTestServer(t)
+	client, err := srv.volcSpeakerClientForTenant(context.Background(), apitypes.Credential{
+		Id:       "volc-main",
+		Provider: "volcengine",
+		Body:     testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
+	}, apitypes.VolcTenant{CredentialId: "volc-main", Id: "tenant-a", Region: new("cn-beijing"), Endpoint: new(upstream.URL)})
+	if err != nil {
+		t.Fatalf("volcSpeakerClientForTenant() error = %v", err)
+	}
+	page, err := client.ListSpeakersWithContext(context.Background(), []string{" seed-tts-1.0 ", "seed-tts-1.0"}, 2, 30)
+	if err != nil {
+		t.Fatalf("ListSpeakersWithContext() error = %v", err)
+	}
+	if got := string(request["Limit"]); got != "30" {
+		t.Fatalf("request Limit = %s, want JSON integer 30", got)
+	}
+	if got := string(request["Page"]); got != "2" {
+		t.Fatalf("request Page = %s, want 2", got)
+	}
+	if got := string(request["ResourceIDs"]); got != `["seed-tts-1.0"]` {
+		t.Fatalf("request ResourceIDs = %s", got)
+	}
+	if page.Total != 31 || len(page.Speakers) != 1 || page.Speakers[0].VoiceType != "zh_female_vv_mars_bigtts" || page.Speakers[0].ResourceID != "seed-tts-1.0" || page.Speakers[0].Name != "vv" {
+		t.Fatalf("ListSpeakersWithContext() = %#v", page)
 	}
 }
 

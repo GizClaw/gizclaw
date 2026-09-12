@@ -4,6 +4,7 @@ package memory
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -49,6 +50,68 @@ func SupportsDirectFactObservation(store Store) bool {
 	}
 	provider, ok := store.(DirectFactObserver)
 	return ok && provider.SupportsDirectFactObservation()
+}
+
+// ScopePurger is implemented by Stores that can irreversibly remove one scope.
+//
+// The purge set is exactly the set of Facts that Recall with the same Scope
+// can return, together with provider-owned records that could later
+// materialize into that set (pending extraction jobs, derived indexes, and
+// provenance markers). PurgeScope is idempotent. A provider whose native bulk
+// deletion cannot express that set for a Scope returns ErrUnsupported instead
+// of deleting more or less than the purge set.
+//
+// ScopeEmpty reports whether any Fact of the purge set remains. Providers
+// whose deletion or extraction completes asynchronously can report false
+// after a successful PurgeScope; callers that need a durable guarantee purge
+// and re-check until ScopeEmpty reports true.
+type ScopePurger interface {
+	PurgeScope(context.Context, Scope) error
+	ScopeEmpty(context.Context, Scope) (bool, error)
+}
+
+// PurgeScope irreversibly removes scope from store. It unwraps borrowed scope
+// views such as BindApp and applies their scope binding before delegating, and
+// returns ErrUnsupported when the underlying provider cannot purge a scope.
+func PurgeScope(ctx context.Context, store Store, scope Scope) error {
+	purger, scope, err := scopePurger(store, scope)
+	if err != nil {
+		return err
+	}
+	return purger.PurgeScope(ctx, scope)
+}
+
+// ScopeEmpty reports whether store still holds any Fact of scope's purge set.
+// It unwraps borrowed scope views the same way as PurgeScope.
+func ScopeEmpty(ctx context.Context, store Store, scope Scope) (bool, error) {
+	purger, scope, err := scopePurger(store, scope)
+	if err != nil {
+		return false, err
+	}
+	return purger.ScopeEmpty(ctx, scope)
+}
+
+func scopePurger(store Store, scope Scope) (ScopePurger, Scope, error) {
+	for {
+		if nilInterface(store) {
+			return nil, Scope{}, fmt.Errorf("%w: memory store is required", ErrInvalidInput)
+		}
+		view, ok := store.(interface{ appStoreView() *appStore })
+		if !ok {
+			break
+		}
+		bound := view.appStoreView()
+		var err error
+		if scope, err = bound.bindScope(scope); err != nil {
+			return nil, Scope{}, err
+		}
+		store = bound.store
+	}
+	purger, ok := store.(ScopePurger)
+	if !ok {
+		return nil, Scope{}, fmt.Errorf("%w: memory store cannot purge a scope", ErrUnsupported)
+	}
+	return purger, scope, nil
 }
 
 // OperationWaiter is implemented by stores whose Observe method can return a

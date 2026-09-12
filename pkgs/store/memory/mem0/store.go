@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"strings"
@@ -271,7 +272,7 @@ func (s *Store) findDirectObservation(ctx context.Context, scope scope, observat
 	if s.usesPlatformAPI() {
 		metadataFilter = map[string]any{"metadata": metadataFilter}
 	}
-	filters = map[string]any{"AND": []any{filters, metadataFilter}}
+	filters = s.combineScopeFilter(filters, []any{metadataFilter})
 	payload := map[string]any{"query": observationID, "top_k": 10, "filters": filters}
 	path := "/search"
 	method := http.MethodPost
@@ -462,6 +463,85 @@ func (s *Store) Delete(ctx context.Context, request memorystore.DeleteRequest) e
 	return s.client.do(ctx, http.MethodDelete, path, nil, nil)
 }
 
+// PurgeScope removes every memory of scope through the provider's bulk delete
+// by entity filter. Mem0 Platform deletes asynchronously; Volc can still
+// materialize memories from add jobs accepted before the purge. Callers verify
+// with ScopeEmpty and purge again while it reports false.
+func (s *Store) PurgeScope(ctx context.Context, input memorystore.Scope) error {
+	scope, err := normalizeEntityScope(input)
+	if err != nil {
+		return err
+	}
+	query, err := s.purgeQuery(scope)
+	if err != nil {
+		return err
+	}
+	path := "/v1/memories/?" + query.Encode()
+	if s.config.Flavor == SelfHosted {
+		path = "/memories?" + query.Encode()
+	}
+	return s.client.do(ctx, http.MethodDelete, path, nil, nil)
+}
+
+// ScopeEmpty lists scope with the same entity selection PurgeScope deletes and
+// reports whether no memory remains.
+func (s *Store) ScopeEmpty(ctx context.Context, input memorystore.Scope) (bool, error) {
+	scope, err := normalizeEntityScope(input)
+	if err != nil {
+		return false, err
+	}
+	if _, err := s.purgeQuery(scope); err != nil {
+		return false, err
+	}
+	var method, path string
+	var payload any
+	switch s.config.Flavor {
+	case SelfHosted:
+		method, path = http.MethodGet, "/memories?"+url.Values{"user_id": {encodeSelfHostedScope(scope)}}.Encode()
+	case VolcPlatform:
+		query := url.Values{}
+		for key, value := range s.entityFields(scope) {
+			query.Set(key, value)
+		}
+		method, path = http.MethodGet, "/v1/memories/?"+query.Encode()
+	default:
+		method, path = http.MethodPost, "/v3/memories/"
+		payload = map[string]any{"filters": s.mem0ScopeFilter(scope), "page": 1, "page_size": 1}
+	}
+	var response mem0Envelope
+	if err := s.client.do(ctx, method, path, payload, &response); err != nil {
+		return false, err
+	}
+	return len(response.entries()) == 0, nil
+}
+
+// purgeQuery selects exactly the memories Recall can return for scope.
+// Self-hosted Mem0 and Volc App-scoped writes carry the complete scope in one
+// reserved user_id. Volc bulk delete filters only user_id, agent_id, and
+// run_id, so a caller-selected UserID cannot be narrowed to one App and is
+// unsupported. Mem0 Platform treats "*" as a wildcard, which would widen the
+// purge beyond scope.
+func (s *Store) purgeQuery(scope scope) (url.Values, error) {
+	switch s.config.Flavor {
+	case SelfHosted:
+		return url.Values{"user_id": {encodeSelfHostedScope(scope)}}, nil
+	case VolcPlatform:
+		if scope.UserID != "" {
+			return nil, fmt.Errorf("%w: volc mem0 cannot purge a caller-selected user scope", errUnsupported)
+		}
+		return url.Values{"user_id": {volcScopeUserID(scope)}}, nil
+	default:
+		query := url.Values{}
+		for key, value := range platformEntityFields(scope) {
+			if value == "*" {
+				return nil, fmt.Errorf("%w: mem0 %s %q is a bulk-delete wildcard", errInvalidInput, key, value)
+			}
+			query.Set(key, value)
+		}
+		return query, nil
+	}
+}
+
 // Wait polls an asynchronous Mem0 Platform event or Volc job.
 func (s *Store) Wait(ctx context.Context, request memorystore.OperationRequest) (memorystore.ObserveResult, error) {
 	if err := validateOperationRequest(request); err != nil {
@@ -620,7 +700,7 @@ func volcScopeUserID(input scope) string {
 }
 
 func (s *Store) mem0Filters(scope scope, input []filter) (map[string]any, error) {
-	clauses := []any{s.mem0ScopeFilter(scope)}
+	clauses := make([]any, 0, len(input))
 	for _, filter := range input {
 		clause, err := s.mem0FilterClause(filter)
 		if err != nil {
@@ -628,10 +708,22 @@ func (s *Store) mem0Filters(scope scope, input []filter) (map[string]any, error)
 		}
 		clauses = append(clauses, clause)
 	}
-	if len(clauses) == 1 {
-		return clauses[0].(map[string]any), nil
+	return s.combineScopeFilter(s.mem0ScopeFilter(scope), clauses), nil
+}
+
+// combineScopeFilter ANDs clauses with the scope filter. Mem0 OSS requires
+// its entity field at the top level of filters, so self-hosted filters keep
+// the encoded user_id there and nest only the remaining clauses under AND.
+func (s *Store) combineScopeFilter(scopeFilter map[string]any, clauses []any) map[string]any {
+	if len(clauses) == 0 {
+		return scopeFilter
 	}
-	return map[string]any{"AND": clauses}, nil
+	if s.config.Flavor == SelfHosted {
+		combined := maps.Clone(scopeFilter)
+		combined["AND"] = clauses
+		return combined
+	}
+	return map[string]any{"AND": append([]any{scopeFilter}, clauses...)}
 }
 
 func (s *Store) mem0ScopeFilter(scope scope) map[string]any {

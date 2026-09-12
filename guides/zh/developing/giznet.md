@@ -101,8 +101,13 @@ SCTP 的 outgoing reset 在同一 association 上一次只发送一个待确认�
 根 Go module 暂时把 `github.com/pion/sctp` 和 `github.com/pion/webrtc/v4` replace 到
 GizClaw/pion-sctp 与 GizClaw/pion-webrtc 的 `gizclaw` 集成分支的 pseudo-version。两个 fork
 的 `main` 只镜像上游，每个上游 pull request 对应一个 `fix/*` 分支。fork 报告已完成的
-stream reset、释放 DataChannel ID，并在 SCTP accept loop 之外为每个已接受的 stream 读取
-DCEP OPEN，最长等待 10 秒，因此丢失或延迟的 OPEN 不会阻止后续 DataChannel 被接受。
+stream reset、释放 DataChannel ID，在应用接受之前把每条入站 stream 排队保存，不再在 16 条
+待接受 stream 之后丢弃新 stream 的 DATA，并在 SCTP accept loop 之外为每个已接受的 stream
+读取 DCEP OPEN，最长等待 10 秒。因此一批新 DataChannel 打开时无需等待 SCTP 重传，丢失或
+延迟的 OPEN 也不会阻止后续 DataChannel 被接受。pion-webrtc fork 还启用了 pion-sctp 的
+`WithDiscardInboundAfterClose`，已关闭的 DataChannel 继续收到的数据会被丢弃，不再占用
+association 共享的 receive window；receive window 已满且排队的消息都不完整时，仍会接收推进
+cumulative TSN 的 DATA chunk，interleaved partial messages 因此不会让 association 死锁。
 更新 pin 时把 module replace 到 `@gizclaw` 并运行 `go mod tidy`，它会把该分支当前 head
 记录为 pseudo-version。Go 不会向下游传播依赖 module 的 `replace`，因此把 GizClaw 作为
 module 使用的 executable 在上游 release 包含这些修复前，也必须复制这两条 replacement。
@@ -127,9 +132,13 @@ profile receive credit 限制在 256 MiB；额度释放前，后续 association 
 `max-upstreams` 上限内显式请求该窗口，Server 只在认证 peer 是 active `edge-node` 后选择
 该窗口。它与验收 burst 中 64 条正在传输
 的 service streams 各自 512 KiB 的 DataChannel send budget 一致，避免 interleaved partial
-messages 在交付前耗尽 receiver window。每条 connection 最多接收远端打开的 2,048 条
-service DataChannel，与 gateway 每条 upstream association 的 active-session 上限一致；
-超出上限的 channel 会在交付前关闭，service label 不能创建无界 queue。
+messages 在交付前耗尽 receiver window。每条 connection 最多接收远端打开的
+`gizwebrtc.MaxInboundServiceStreams`（2,048）条 service DataChannel，与 gateway 每条
+upstream association 的 active-session 上限一致；超出上限的 channel 会在交付前关闭，
+service label 不能创建无界 queue。Server 关闭超额 channel 时发起方已经写出请求，因此
+Edge 把单条控制面 association 上转发的请求和路由 RPC 限制在该上限的四分之一：Server 要等
+stream reset 到达后才释放该 stream 的准入名额，大量请求同时结束时，Server 会短暂持有约为
+Edge 在途 stream 两倍半的数量。
 默认客户端 Dial 为每条 PeerConnection 独占一个 wildcard IPv4 UDP mux 和 socket。同一
 connection 的所有本地网卡 host candidates 共用一个由 OS 保证唯一的 source port，避免
 NAT 把各网卡独立分配的相同端口折叠成同一个 remote tuple。这个 mux 不跨

@@ -510,6 +510,7 @@ func (s *Server) init() error {
 		Profiles:     peersServer,
 		NotifyPeer:   notifyPeer,
 		Pings:        manager,
+		Presence:     manager,
 		PeerAvailability: func(ctx context.Context, publicKey string) error {
 			key, err := parsePeerPublicKey(publicKey)
 			if err != nil {
@@ -559,6 +560,16 @@ func (s *Server) init() error {
 			Source:    workspacePendingDeletionSource,
 			Quiescer:  manager,
 			Flowcraft: flowcraftWorkspaceCleanup,
+			Memory: workspaceMemoryCleanup{
+				Resolver: agenthost.ServiceResolver{
+					Workspaces:             workspaceServer,
+					Workflows:              workflowServer,
+					MemoryLayouts:          memoryLayoutServer,
+					RuntimeProfileForOwner: manager.runtimeProfileForOwner,
+				},
+				Stores:     manager.MemoryStores,
+				ServerRoot: manager.MemoryRoot,
+			},
 		},
 	); err != nil {
 		return fmt.Errorf("gizclaw: register Workspace pending deletion: %w", err)

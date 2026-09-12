@@ -431,6 +431,8 @@ func (a *peerAudioRouteAggregator) cutoverOwned(chunk *genx.MessageChunk) (*even
 		a.retired[key] = struct{}{}
 	}
 	clear(a.active)
+	// A barge-in replacement is a normal interruption, which ends the old
+	// output with an error-free EOS like every other interrupted route.
 	event := &eventpb.PeerEvent{
 		Version: eventpb.Version,
 		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
@@ -439,10 +441,6 @@ func (a *peerAudioRouteAggregator) cutoverOwned(chunk *genx.MessageChunk) (*even
 			TimestampUnixMs: chunk.Ctrl.Timestamp,
 			Kind:            eventpb.StreamKind_STREAM_KIND_AUDIO,
 			Label:           a.epoch.label,
-			Error: &eventpb.EventError{
-				Code:    "STREAM_INTERRUPTED",
-				Message: "interrupted",
-			},
 		}},
 	}
 	owner := a.epoch.owner

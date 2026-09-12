@@ -42,6 +42,10 @@ type Request struct {
 	Binding         apitypes.RuntimeProfileMemoryBinding
 	ModelLoader     memoryflowcraft.ModelLoader
 	ServerRoot      string
+
+	// maintenance opens the binding for Workspace purge and verification:
+	// it loads no model and never rebuilds a derived index.
+	maintenance bool
 }
 
 type Result struct {
@@ -606,6 +610,19 @@ func mapBBHConfig(policy *apitypes.FlowcraftMemoryBBHPolicy) bbh.Config {
 		}
 	}
 	return config
+}
+
+// publishedProjectionSignature returns the policy signature of the derived
+// index published under dir, or "" when none is published.
+func publishedProjectionSignature(dir string) (string, error) {
+	current, err := os.ReadFile(filepath.Join(retrievalDirectory(dir), projectionManifestName))
+	if errors.Is(err, os.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("memory store: read derived-index manifest: %w", err)
+	}
+	return strings.TrimSpace(string(current)), nil
 }
 
 func writeProjectionManifest(path, signature string) error {

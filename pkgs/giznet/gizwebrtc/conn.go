@@ -631,7 +631,7 @@ func (c *Conn) reserveInboundServiceStream(dc *webrtc.DataChannel) (func(), bool
 	if c.inbound == nil {
 		c.inbound = make(map[*webrtc.DataChannel]struct{})
 	}
-	if len(c.inbound) >= maxInboundServiceStreams {
+	if len(c.inbound) >= MaxInboundServiceStreams {
 		c.serviceMu.Unlock()
 		return nil, false
 	}

@@ -2,6 +2,7 @@ package agenthost
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"net/url"
@@ -83,6 +84,64 @@ func (r ServiceResolver) ResolveMemoryByID(ctx context.Context, workspaceID stri
 	return r.resolveWorkspaceMemory(ctx, ws)
 }
 
+// ErrMemoryBindingNotFound reports that a retained Workspace has no
+// resolvable current Memory binding: the Workspace, its Workflow, the owner's
+// RuntimeProfile, the Workflow memory alias, or the MemoryLayout no longer
+// exists. Transient store or service failures never match it.
+var ErrMemoryBindingNotFound = errors.New("agenthost: memory binding not found")
+
+// bindingNotFoundError keeps the established resolver message while matching
+// ErrMemoryBindingNotFound.
+type bindingNotFoundError struct{ message string }
+
+func (e *bindingNotFoundError) Error() string { return e.message }
+
+func (e *bindingNotFoundError) Is(target error) bool { return target == ErrMemoryBindingNotFound }
+
+func bindingNotFound(format string, args ...any) error {
+	return &bindingNotFoundError{message: fmt.Sprintf(format, args...)}
+}
+
+// ResolveRetainedMemoryByID resolves the current Memory binding of a
+// retained Workspace, including one pending deletion. Only Workspace deletion
+// cleanup uses it; runtime and background product services must use
+// ResolveMemoryByID so a retiring Workspace never becomes runnable. The
+// binding comes from the retained Workspace row and the owner's current
+// RuntimeProfile; earlier bindings are not recorded.
+func (r ServiceResolver) ResolveRetainedMemoryByID(ctx context.Context, workspaceID string) (Spec, error) {
+	if r.Workspaces == nil {
+		return Spec{}, fmt.Errorf("agenthost: workspace service is required")
+	}
+	if r.Workflows == nil {
+		return Spec{}, fmt.Errorf("agenthost: workflow service is required")
+	}
+	if err := customid.ValidateResourceID(workspaceID); err != nil {
+		return Spec{}, fmt.Errorf("agenthost: invalid workspace id: %w", err)
+	}
+	ws, err := r.getWorkspaceByID(ctx, workspaceID)
+	if err != nil {
+		return Spec{}, err
+	}
+	workflowName, err := resolveWorkspaceWorkflowName(ctx, ws)
+	if err != nil {
+		return Spec{}, err
+	}
+	resolvedWorkflow, err := r.getWorkflow(ctx, workflowName)
+	if err != nil {
+		return Spec{}, err
+	}
+	// A Workflow without Memory never needs the owner's RuntimeProfile, so its
+	// cleanup cannot be blocked by an unavailable profile.
+	if resolvedWorkflow.Spec.Memory == nil {
+		return Spec{Workspace: ws, Workflow: resolvedWorkflow}, nil
+	}
+	spec, err := r.resolveWorkflowMemory(ctx, ws, resolvedWorkflow)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Spec{}, fmt.Errorf("%w: workspace %q owner has no RuntimeProfile: %w", ErrMemoryBindingNotFound, ws.Name, err)
+	}
+	return spec, err
+}
+
 func (r ServiceResolver) resolveWorkspaceMemory(ctx context.Context, ws apitypes.Workspace) (Spec, error) {
 	workflowName, err := resolveWorkspaceWorkflowName(ctx, ws)
 	if err != nil {
@@ -92,6 +151,10 @@ func (r ServiceResolver) resolveWorkspaceMemory(ctx context.Context, ws apitypes
 	if err != nil {
 		return Spec{}, err
 	}
+	return r.resolveWorkflowMemory(ctx, ws, resolvedWorkflow)
+}
+
+func (r ServiceResolver) resolveWorkflowMemory(ctx context.Context, ws apitypes.Workspace, resolvedWorkflow apitypes.Workflow) (Spec, error) {
 	if workflowIsSFU(resolvedWorkflow) {
 		return Spec{Workspace: ws, Workflow: resolvedWorkflow}, nil
 	}
@@ -257,14 +320,14 @@ func (r ServiceResolver) resolveMemory(ctx context.Context, workflow apitypes.Wo
 	}
 	profile, ok := ctx.Value(runtimeProfileContextKey{}).(apitypes.RuntimeProfile)
 	if !ok {
-		return "", nil, nil, fmt.Errorf("agenthost: workflow memory alias %q requires an owner RuntimeProfile", alias)
+		return "", nil, nil, bindingNotFound("agenthost: workflow memory alias %q requires an owner RuntimeProfile", alias)
 	}
 	if profile.Spec.Resources.Memories == nil {
-		return "", nil, nil, fmt.Errorf("agenthost: runtime memory alias %q not found", alias)
+		return "", nil, nil, bindingNotFound("agenthost: runtime memory alias %q not found", alias)
 	}
 	binding, ok := (*profile.Spec.Resources.Memories)[alias]
 	if !ok {
-		return "", nil, nil, fmt.Errorf("agenthost: runtime memory alias %q not found", alias)
+		return "", nil, nil, bindingNotFound("agenthost: runtime memory alias %q not found", alias)
 	}
 	if r.MemoryLayouts == nil {
 		return "", nil, nil, fmt.Errorf("agenthost: memory layout service is required")
@@ -278,7 +341,7 @@ func (r ServiceResolver) resolveMemory(ctx context.Context, workflow apitypes.Wo
 	case adminhttp.GetMemoryLayout200JSONResponse:
 		layout = apitypes.MemoryLayout(response)
 	case adminhttp.GetMemoryLayout404JSONResponse:
-		return "", nil, nil, fmt.Errorf("agenthost: memory layout %q not found", binding.LayoutId)
+		return "", nil, nil, bindingNotFound("agenthost: memory layout %q not found", binding.LayoutId)
 	case adminhttp.GetMemoryLayout500JSONResponse:
 		return "", nil, nil, fmt.Errorf("agenthost: get memory layout %q failed: %s", binding.LayoutId, response.Error.Message)
 	default:
@@ -425,7 +488,7 @@ func (r ServiceResolver) getWorkspaceByID(ctx context.Context, id string) (apity
 	case adminhttp.GetWorkspace200JSONResponse:
 		return apitypes.Workspace(response), nil
 	case adminhttp.GetWorkspace404JSONResponse:
-		return apitypes.Workspace{}, fmt.Errorf("agenthost: workspace %q not found", id)
+		return apitypes.Workspace{}, bindingNotFound("agenthost: workspace %q not found", id)
 	case adminhttp.GetWorkspace500JSONResponse:
 		return apitypes.Workspace{}, fmt.Errorf("agenthost: get workspace %q failed: %s", id, response.Error.Message)
 	default:
@@ -454,7 +517,7 @@ func (r ServiceResolver) getWorkflow(ctx context.Context, id string) (apitypes.W
 	case adminhttp.GetWorkflow200JSONResponse:
 		return apitypes.Workflow(response), nil
 	case adminhttp.GetWorkflow404JSONResponse:
-		return apitypes.Workflow{}, fmt.Errorf("agenthost: workflow %q not found", id)
+		return apitypes.Workflow{}, bindingNotFound("agenthost: workflow %q not found", id)
 	case adminhttp.GetWorkflow500JSONResponse:
 		return apitypes.Workflow{}, fmt.Errorf("agenthost: get workflow %q failed: %s", id, response.Error.Message)
 	default:

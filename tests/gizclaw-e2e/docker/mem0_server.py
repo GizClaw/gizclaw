@@ -13,7 +13,7 @@ import threading
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Query, Response
 from mem0 import Memory
 from dotenv import dotenv_values
 from pydantic import BaseModel, ConfigDict, Field
@@ -208,6 +208,41 @@ def search_memories(request: SearchRequest) -> dict[str, Any]:
                 top_k=request.top_k,
             )
         return {"results": _result_entries(result)}
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.get("/memories")
+def list_memories(
+    user_id: str | None = None,
+    agent_id: str | None = None,
+    run_id: str | None = None,
+    top_k: int = Query(default=100, ge=1, le=1000),
+) -> dict[str, Any]:
+    try:
+        routing = _routing_kwargs(
+            {"user_id": user_id, "agent_id": agent_id, "run_id": run_id}
+        )
+        with _memory_lock:
+            result = _get_memory().get_all(filters=routing, top_k=top_k)
+        return {"results": _result_entries(result)}
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.delete("/memories")
+def delete_memories(
+    user_id: str | None = None,
+    agent_id: str | None = None,
+    run_id: str | None = None,
+) -> dict[str, str]:
+    try:
+        routing = _routing_kwargs(
+            {"user_id": user_id, "agent_id": agent_id, "run_id": run_id}
+        )
+        with _memory_lock:
+            _get_memory().delete_all(**routing)
+        return {"message": "Memories deleted successfully!"}
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 

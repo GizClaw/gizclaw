@@ -50,6 +50,17 @@ Asynchronous `Observe` calls return an operation. Stores implementing `Operation
 
 `memory.BindApp(store, appID)` returns a borrowed Store view. It only fills or verifies `Scope.AppID`; it never generates, clears, concatenates, hashes, or rewrites caller-supplied `UserID`, `AgentID`, or `RunID`. A conflicting AppID returns `ErrInvalidInput`. The view does not own or close the underlying Store, and it exposes `OperationWaiter`, `AsyncOperationProcessor`, and `StatisticsProvider` only when the underlying Store provides the same capability.
 
+`ScopePurger` is the optional capability that irreversibly removes one scope. The purge set is exactly the Facts that `Recall` with the same `Scope` can return, plus provider-owned records that could later materialize into that set (pending extraction jobs, derived indexes, and provenance markers). `PurgeScope` is idempotent; when native bulk deletion cannot express that set exactly it returns `ErrUnsupported` instead of deleting more or less. `ScopeEmpty` reports whether any Fact of the purge set remains. Callers use `memory.PurgeScope` and `memory.ScopeEmpty`, which unwrap `BindApp` views and apply their AppID binding first, and return `ErrUnsupported` when the underlying Store lacks the capability.
+
+| Provider | Purge | Verification |
+| --- | --- | --- |
+| Flowcraft | `ForgetAll(ForgetHard)` removes the `(runtime_id, user_id)` hard partition's canonical facts, markers, every projection, evidence, and the partition's async semantic and side-effect jobs. `AgentID` is soft metadata inside a partition, so a scope that selects `AgentID` returns `ErrUnsupported` | the canonical temporal store holds no revision in the partition |
+| Mem0 Platform | `DELETE /v1/memories/` with the selected dimensions ANDed; a dimension whose value is `*` is a provider wildcard and returns `ErrInvalidInput` | `POST /v3/memories/` lists the same filter |
+| Mem0 self-hosted | `DELETE /memories?user_id=<complete scope encoding>` | `GET /memories` with the same `user_id` |
+| Volc | `DELETE /v1/memories/?user_id=<reserved scope user>`. Volc bulk delete accepts only `user_id`, `agent_id`, and `run_id` and cannot narrow a caller-selected `UserID` to one App, so such a scope returns `ErrUnsupported` | `GET /v1/memories/` with the dimensions used on write |
+
+Mem0 Platform deletes asynchronously, and a Volc `async_mode` add job can materialize after a purge. Callers that need a durable guarantee purge and verify repeatedly until `ScopeEmpty` reports true. Flowcraft `NewMaintenance` builds a Store for purge and verification over caller-owned persistent dependencies: it loads no model and accepts an async queue without an extraction model so the purge also cancels queued jobs; its `Observe` and `ProcessAsync` return `ErrUnsupported`.
+
 ## Provider construction
 
 Provider packages accept in-memory runtime dependencies only. They do not decode YAML, expand environment variables, open configuration files, or choose product identity.
@@ -166,6 +177,8 @@ spec:
 ```
 
 All streams for one Workspace share one Agent generation. Stable data visibility requires the same Workspace AppID, memory driver, and physical connection selected by the same RuntimeProfile memory binding. Changing extraction, recall, write, prompt, `top_k`, or mode does not change canonical data. When a Flowcraft derived-index policy changes, a staging index is rebuilt from canonical facts and published atomically; a failed rebuild never publishes a partial or mixed index. Changing driver or binding may select another physical source and does not migrate or delete data automatically. Switching back can access the original data if the original connection still retains it.
+
+Deleting a Workspace irreversibly purges its long-term memory in the current memory binding. After quiescing runtime, the Workspace deletion handler resolves the binding from the retained Workspace row, the Workflow `memory` alias, and the owner's current RuntimeProfile, calls `Registry.PurgeWorkspace` for `Scope{AppID: <Workspace ID>}`, and finalizes only after `Registry.WorkspaceMemoryEmpty` confirms nothing remains; residual memory returns retryable `memory_residual`, and the retry purges again. The purge opens the physical backend shared with runtime Stores in maintenance mode: it loads no model and rebuilds no derived index, so a purge does not depend on the owner's model catalog, and a stale local derived index keeps its published manifest for the next runtime Store to rebuild. When the Workspace, Workflow, owner RuntimeProfile, memory alias, or MemoryLayout no longer exists, there is no resolvable current binding and the handler has nothing to purge; transient resolver or provider failures stay retryable; a scope the provider cannot express stops as terminal `memory_cleanup_unsupported` for operator action. GizClaw does not record binding history, so data a Workspace wrote under an earlier driver, connection, or alias is not reached by this purge.
 
 ## Ownership and errors
 

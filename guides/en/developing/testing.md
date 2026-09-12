@@ -122,6 +122,59 @@ Never print or commit credential values. When an account is unavailable, record
 that provider as `SKIP` and retain the interoperability risk; a tagged compile
 without a live account is not passing live evidence.
 
+### Remote Memory scope purge
+
+The same tagged package contains `TestMemoryScopePurge`, which checks the
+Workspace deletion memory purge against a live Mem0-family provider. Select it
+with `GIZCLAW_MEMORY_PROVIDER`:
+
+| Provider | Required variables | Optional |
+| --- | --- | --- |
+| `volc-mem0` | `GIZCLAW_VOLC_MEM0_ENDPOINT`, `GIZCLAW_VOLC_MEM0_API_KEY` | |
+| `mem0-self-hosted` | `GIZCLAW_MEM0_SELF_HOSTED_URL` | `GIZCLAW_MEM0_SELF_HOSTED_API_KEY` |
+| `mem0-platform` | `GIZCLAW_MEM0_API_KEY` | `GIZCLAW_MEM0_ENDPOINT` (default `https://api.mem0.ai`) |
+
+```sh
+GIZCLAW_MEMORY_PROVIDER=volc-mem0 \
+GIZCLAW_VOLC_MEM0_ENDPOINT=https://... GIZCLAW_VOLC_MEM0_API_KEY=... \
+  go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
+```
+
+The Volc data-plane key selects the memory project, so use a key of a dedicated
+test project; no project ID or AccessKey is needed. The self-hosted lane targets
+the repository's Mem0 OSS service (`tests/gizclaw-e2e/docker/Dockerfile.mem0`,
+`mem0ai 2.0.3`), which serves the standard entity-scoped `GET /memories` and
+`DELETE /memories` routes and reads its model key from a mounted
+`tests/gizclaw-e2e/.env`:
+
+```sh
+docker build -f tests/gizclaw-e2e/docker/Dockerfile.mem0 -t gizclaw-mem0 .
+docker run -d --rm -p 127.0.0.1:18000:8000 \
+  -v "$PWD/tests/gizclaw-e2e/.env:/run/gizclaw-e2e.env:ro" gizclaw-mem0
+GIZCLAW_MEMORY_PROVIDER=mem0-self-hosted GIZCLAW_MEM0_SELF_HOSTED_URL=http://127.0.0.1:18000 \
+  go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
+```
+
+An unset provider skips the test; an unknown provider or a missing required
+variable fails before any request, and provider errors or timeouts fail rather
+than skip. Each run writes a direct Fact to two generated Workspace IDs and
+submits an extraction for the first, purges the first while an asynchronous job
+may still run, waits for the job to finish, and repeats purge and verification
+the way Workspace deletion retries `memory_residual`. It then fails if the first
+Workspace gains a late Fact during a settle interval or if the second Workspace
+lost its Fact. The generated `gizclaw-e2e-purge-<unix-nanos>-a`/`-b` Workspace IDs
+bound through `memory.BindApp` are the only scopes the test touches, and cleanup
+purges both until verification reports empty, also after a failure. The log
+records how many purge rounds verification needed.
+
+Flowcraft purge is covered without a provider account: the PostgreSQL job runs
+`TestPostgreSQLFlowcraftMemoryPurge`, which purges a `flowcraft_postgresql`
+binding's canonical facts, retrieval index, and queued extraction job through
+`memorystore.Registry` and keeps another Workspace's memory. The Redis 8 lane is
+`FLOWCRAFT_REDIS8_URL=redis://... go test ./pkgs/store/memory/flowcraft/redis8`,
+which needs Redis 8.4 or later.
+
+
 ## Credential-backed harness contract
 
 GizClaw, GenX, and Memory live suites each own one ignored `.env`,
@@ -372,13 +425,18 @@ provider at connect time (`volume.set` echoes the requested `level`/`muted` into
 `response: {error_code: 3}` makes the provider answer a fixed canonical status code; undeclared methods stay
 `METHOD_NOT_FOUND`, which verifies `501 DEVICE_UNSUPPORTED`. A later `http` step triggers the
 Server-to-device RPC and the `client_rpc` step's `expect_calls` asserts the provider was invoked.
+`client.tool.invoke` takes `response: {name, result}` and mounts a Tool handler that returns `result`;
+`response: {name, unavailable: true}` mounts none, so the SDK answers `UNIMPLEMENTED` like a device
+without that Tool while `expect_calls` still counts the call.
 
 A `reconnect` step drops that client's Peer connection and dials a replacement
 on the same identity, reproducing how a device reaches the Server again after a
 reboot or a network switch. The Server ends such a transition exactly when a
 replacement connection arrives for the same owner; until then control routes
 answer `409 DEVICE_OFFLINE`. The optional `await_ms` bounds the redial and is
-capped at 60000. The scripted providers are reinstalled on the new connection
+capped at 60000. The step completes after one RPC round trip on the replacement,
+because behind an Edge the dial returns before the Edge's tunnel session reaches
+the Server. The scripted providers are reinstalled on the new connection
 and keep their call counts, so `expect_calls` asserts the total across both.
 A scenario installs one `response` per method, so the device reports the same
 values before and after; what a step after `reconnect` asserts is that a control
@@ -1229,6 +1287,8 @@ git lfs fsck
 The standard GizClaw Docker runner owns a mandatory `go:openai` phase under `tests/gizclaw-e2e/go/openai`. It uses the pinned official OpenAI Go SDK over authenticated `ServicePeerOpenAI`, creates an isolated Peer-owned Conversation Workspace, completes three text turns, composes transcription to Response to speech, exercises background cancel and streamed-client abort followed by same-Conversation recovery, and registers Workspace cleanup before mutation.
 
 Successful runs write redacted monotonic timing evidence below ignored `tests/gizclaw-e2e/testdata/openai-compatibility/`. Artifacts contain only schema/version, target/case, bounded media sizes, numeric phase timings, and status; they must not contain credentials, IDs, prompts, transcripts, generated text, media, URLs, or provider errors. A tagged compile is diagnostic only and does not replace `bash tests/gizclaw-e2e/run_tests.sh`.
+
+`TestAssistantScenariosWithLiveModel` in the same phase reuses that harness's API key and `/openai/v1` to run `web/assistant/scripts/run-live-scenarios.ts` with `node --experimental-strip-types`: the Monitor diagnostic assistant's scenario set executes tools against `FakeRuntime` while every model call goes to the RuntimeProfile `llm` (`doubao-mini-chat`). Each scenario gets up to three attempts and is judged only on tool calls, the final route, and key facts in the reply; a scenario that fails all three fails the phase. A passing run prints only scenario names, attempts, and failed checks; the JSON report with generated replies and tool results is printed only on failure. The test needs the `web/assistant` dependencies installed by the root `npm ci`, which the runner's `preflight:npm-ci` phase provides.
 
 ## Monitor API giztest
 

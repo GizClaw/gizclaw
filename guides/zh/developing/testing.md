@@ -113,6 +113,54 @@ TOS 可另外使用 `GIZCLAW_TOS_SESSION_TOKEN`，OSS 可使用
 credential value。没有可用 account 时，应把对应 provider 明确记录为 `SKIP` 并保留
 interoperability risk；只完成 tagged compile 不能算 live pass。
 
+### Remote Memory scope purge
+
+同一个 tagged package 包含 `TestMemoryScopePurge`，用真实的 Mem0 系 provider 校验
+Workspace 删除时的 memory purge。通过 `GIZCLAW_MEMORY_PROVIDER` 选择：
+
+| Provider | 必填变量 | 可选变量 |
+| --- | --- | --- |
+| `volc-mem0` | `GIZCLAW_VOLC_MEM0_ENDPOINT`、`GIZCLAW_VOLC_MEM0_API_KEY` | |
+| `mem0-self-hosted` | `GIZCLAW_MEM0_SELF_HOSTED_URL` | `GIZCLAW_MEM0_SELF_HOSTED_API_KEY` |
+| `mem0-platform` | `GIZCLAW_MEM0_API_KEY` | `GIZCLAW_MEM0_ENDPOINT`（默认 `https://api.mem0.ai`） |
+
+```sh
+GIZCLAW_MEMORY_PROVIDER=volc-mem0 \
+GIZCLAW_VOLC_MEM0_ENDPOINT=https://... GIZCLAW_VOLC_MEM0_API_KEY=... \
+  go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
+```
+
+Volc data-plane key 决定 memory project，因此应使用专用测试 project 的 key，不需要
+project ID 或 AccessKey。Self-hosted lane 使用仓库的 Mem0 OSS 服务
+（`tests/gizclaw-e2e/docker/Dockerfile.mem0`，`mem0ai 2.0.3`），它提供标准的按 entity
+过滤的 `GET /memories` 与 `DELETE /memories`，并从挂载的 `tests/gizclaw-e2e/.env`
+读取模型 key：
+
+```sh
+docker build -f tests/gizclaw-e2e/docker/Dockerfile.mem0 -t gizclaw-mem0 .
+docker run -d --rm -p 127.0.0.1:18000:8000 \
+  -v "$PWD/tests/gizclaw-e2e/.env:/run/gizclaw-e2e.env:ro" gizclaw-mem0
+GIZCLAW_MEMORY_PROVIDER=mem0-self-hosted GIZCLAW_MEM0_SELF_HOSTED_URL=http://127.0.0.1:18000 \
+  go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
+```
+
+未设置 provider 时 skip；未知 provider 或缺少所选 provider 的必填变量会在发出任何请求前
+失败，provider 错误或超时一律失败，不会降级为 skip。每轮向两个生成的 Workspace ID
+各写入一条 direct Fact，并为第一个提交 extraction；在异步 job 可能仍在运行时 purge
+第一个 Workspace，等待 job 结束，再像 Workspace 删除重试 `memory_residual` 那样反复
+purge 与校验。之后如果第一个 Workspace 在静置期间又出现迟到的 Fact，或第二个
+Workspace 的 Fact 被删除，测试失败。测试只触及通过 `memory.BindApp` 绑定的
+`gizclaw-e2e-purge-<unix-nanos>-a`/`-b` 两个生成 Workspace ID；cleanup 即使在失败后
+也会 purge 两者直到校验为空。日志记录校验为空前用了几轮 purge。
+
+Flowcraft purge 不需要 provider 账号：PostgreSQL job 运行
+`TestPostgreSQLFlowcraftMemoryPurge`，通过 `memorystore.Registry` purge
+`flowcraft_postgresql` binding 的 canonical fact、retrieval index 与排队的 extraction job，
+并保留另一个 Workspace 的记忆。Redis 8 lane 为
+`FLOWCRAFT_REDIS8_URL=redis://... go test ./pkgs/store/memory/flowcraft/redis8`，需要
+Redis 8.4 或更高版本。
+
+
 ## Credential-backed harness 约束
 
 GizClaw、GenX 和 Memory 的 live suite 各自只拥有一个 ignored `.env`，
@@ -330,11 +378,15 @@ runner 在连接时把脚本给定的 `response` 安装为该 client 的设备 p
 `level`/`muted` 回填进响应），`response: {error_code: 3}` 让 provider 返回固定的 canonical status code；
 未声明的方法保持 `METHOD_NOT_FOUND`，用于验证 `501 DEVICE_UNSUPPORTED`。随后的 `http` step 触发
 Server→设备 RPC，`client_rpc` step 的 `expect_calls` 断言 provider 被调用。
+`client.tool.invoke` 使用 `response: {name, result}` 挂载返回 `result` 的 Tool handler；
+`response: {name, unavailable: true}` 不挂载 handler，SDK 像不提供该 Tool 的设备一样答
+`UNIMPLEMENTED`，`expect_calls` 仍然计数该调用。
 
 `reconnect` step 断开该 client 的 Peer 连接，并用同一身份拨一条新的，用来复现设备重启或
 换网后重新接入 Server 的时序——Server 正是以「同一 owner 出现替换连接」判定这类过渡结束，
 在此之前控制 route 一直答 `409 DEVICE_OFFLINE`。可选的 `await_ms` 限制重拨等待时间，
-上界 60000。脚本给定的 provider 会重新安装到新连接上，且沿用原有的调用计数，
+上界 60000。该 step 在新连接上完成一次 RPC 往返后才结束，因为经 Edge 接入时拨号返回早于
+Edge 的 tunnel session 到达 Server。脚本给定的 provider 会重新安装到新连接上，且沿用原有的调用计数，
 因此 `expect_calls` 断言的是两条连接上的总次数。一个场景为每个方法只安装一份
 `response`，所以断开前后设备上报的值相同；`reconnect` 之后要断言的是控制 route 从
 `409` 恢复为可应答，而不是同一方法返回了不同的值。
@@ -610,6 +662,8 @@ steps:
 标准 GizClaw Docker runner 包含必须执行的 `go:openai` phase，目录为 `tests/gizclaw-e2e/go/openai`。它使用 pinned 官方 OpenAI Go SDK 通过 authenticated `ServicePeerOpenAI` 创建隔离的 Peer-owned Conversation Workspace，完成三轮文本、组合 transcription 到 Response 再到 speech，并验证 background cancel、stream client abort 与同 Conversation 恢复；所有 mutation 前先注册 Workspace cleanup。
 
 成功运行会在 ignored `tests/gizclaw-e2e/testdata/openai-compatibility/` 下写入脱敏 monotonic timing evidence。Artifact 只含 schema/version、target/case、受限 media size、数字 phase timing 与 status，不能包含 credential、ID、prompt、transcript、generated text、media、URL 或 provider error。仅做 tagged compile 只是诊断，不能代替 `bash tests/gizclaw-e2e/run_tests.sh`。
+
+同一 phase 的 `TestAssistantScenariosWithLiveModel` 复用该 harness 的 API Key 与 `/openai/v1`，用 `node --experimental-strip-types` 运行 `web/assistant/scripts/run-live-scenarios.ts`：Monitor 诊断助手的场景集在 `FakeRuntime` 上执行工具，每次模型调用都经 RuntimeProfile 的 `llm`（`doubao-mini-chat`）。每个场景最多尝试三次，只断言工具调用、最终路由和回复中的关键事实；任一场景三次都失败则该 phase 失败。成功时只输出场景名、尝试次数和失败的检查项，包含生成回复与工具结果的 JSON 报告只在失败时输出。该测试依赖根目录 `npm ci` 安装的 `web/assistant` 依赖，由 `run_tests.sh` 的 `preflight:npm-ci` 提供。
 
 ### Workflow 10 路和 20 路并发与打断
 

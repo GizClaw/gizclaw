@@ -50,6 +50,17 @@ Flowcraft 要求非空 `AppID`，允许空 `UserID` 形成 runtime-global Memory
 
 `memory.BindApp(store, appID)` 返回一个借用的 Store view。它只填充或校验 `Scope.AppID`，不生成、清空、拼接、hash 或改写调用方的 `UserID`、`AgentID` 和 `RunID`。冲突 AppID 返回 `ErrInvalidInput`。View 不拥有也不关闭底层 Store，并且只有在底层实现 `OperationWaiter`、`AsyncOperationProcessor` 或 `StatisticsProvider` 时才暴露相同 capability。
 
+`ScopePurger` 是不可逆删除一个 scope 的可选 capability。Purge 集合精确等于使用同一 `Scope` 的 `Recall` 能返回的 Fact，再加上之后可能 materialize 进这个集合的 provider-owned 记录（待处理 extraction job、派生索引与 provenance marker）。`PurgeScope` 幂等；native bulk delete 无法精确表达该集合时返回 `ErrUnsupported`，不会多删或少删。`ScopeEmpty` 报告 purge 集合是否仍有 Fact。调用方通过 `memory.PurgeScope` 与 `memory.ScopeEmpty` 使用该能力，它们会穿过 `BindApp` view 并先应用 view 的 AppID 绑定；底层没有该能力时返回 `ErrUnsupported`。
+
+| Provider | Purge | 校验 |
+| --- | --- | --- |
+| Flowcraft | `ForgetAll(ForgetHard)` 删除 `(runtime_id, user_id)` hard partition 的 canonical fact、marker、所有 projection、evidence，以及该 partition 的 async semantic 与 side-effect job。`AgentID` 是 partition 内的 soft metadata，选择 `AgentID` 的 scope 返回 `ErrUnsupported` | canonical temporal store 中该 partition 不再有任何 revision |
+| Mem0 Platform | `DELETE /v1/memories/` 按已选择维度 AND 过滤；值为 `*` 的维度是 provider wildcard，返回 `ErrInvalidInput` | `POST /v3/memories/` 列出同一 filter |
+| Mem0 self-hosted | `DELETE /memories?user_id=<完整 scope 编码>` | `GET /memories` 使用同一 `user_id` |
+| Volc | `DELETE /v1/memories/?user_id=<保留 scope user>`。Volc bulk delete 只接受 `user_id`、`agent_id`、`run_id`，无法把调用方选择的 `UserID` 限定到一个 App，这类 scope 返回 `ErrUnsupported` | `GET /v1/memories/` 使用写入时的维度 |
+
+Mem0 Platform 异步删除；Volc 的 `async_mode` add job 可能在 purge 之后才 materialize。需要持久保证的调用方反复 purge 并校验，直到 `ScopeEmpty` 返回 true。Flowcraft 的 `NewMaintenance` 在调用方拥有的持久依赖上构造只用于 purge 与校验的 Store：它不加载 model，允许没有 extraction model 的 async queue，以便 purge 同时取消排队 job；其 `Observe` 与 `ProcessAsync` 返回 `ErrUnsupported`。
+
 ## Provider 构造
 
 Provider 包只接收内存中的 runtime dependency，不解析 YAML、不展开环境变量、不读取配置文件，也不决定产品身份。
@@ -166,6 +177,8 @@ spec:
 ```
 
 同一 Workspace 的所有 stream 共用一个 Agent generation。数据可见性的稳定边界是同一 Workspace AppID、同一 memory driver 和同一 RuntimeProfile memory binding 指向的物理 connection。修改 extraction、recall、write、prompt、`top_k` 或 mode 不改变 canonical data；Flowcraft 派生索引 policy 改变时，从 canonical facts 在 staging index 中重建，成功后原子发布，失败不会发布部分或混合索引。切换 driver 或 binding 可以切换物理数据源，不自动迁移或删除；切回仍存在的原 connection 后可以重新访问原数据。
+
+删除 Workspace 会不可逆地清除它在当前 memory binding 中的长期记忆。Workspace deletion handler 在 quiesce runtime 后，通过 retained Workspace row、Workflow `memory` alias 与 owner 当前 RuntimeProfile 解析 binding，调用 `Registry.PurgeWorkspace` 删除 `Scope{AppID: <Workspace ID>}`，只有 `Registry.WorkspaceMemoryEmpty` 确认为空后才 finalize；仍有残留时返回 retryable `memory_residual` 并在下次重试时再次 purge。该 purge 以 maintenance 模式打开与 runtime 共享的物理 backend：不加载 model，也不重建派生索引，因此 owner 的 model catalog 不可用时仍可 purge；本地派生索引 policy 过期时保留已发布的 manifest，由下一个 runtime Store 负责重建。Workspace、Workflow、owner RuntimeProfile、memory alias 或 MemoryLayout 已不存在时，没有可解析的当前 binding，handler 视为无需清除；resolver 或 provider 的临时失败保持 retryable；provider 无法表达的 scope 以 terminal `memory_cleanup_unsupported` 停止，交由运维处理。GizClaw 不记录 binding 历史，Workspace 在更早的 driver、connection 或 alias 下写入的数据不会被这次 purge 访问。
 
 ## Ownership 与错误
 

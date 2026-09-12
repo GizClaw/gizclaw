@@ -120,3 +120,26 @@ Unix 毫秒区间、最长 512 UTF-8 字节的文本、严格 `DEBUG|INFO|WARN|E
 测试在父 WebRTC 连接仍保持打开时检查入站计数、双向服务流总数和 HTTP 服务端连接数回到基线，并在
 异常请求后通过原连接再次完成请求。它不依靠关闭父连接回收资源，也不覆盖真实公网丢包、香港 TURN
 部署或长时间运行条件。
+
+## 诊断助手
+
+诊断助手位于 `web/assistant/`（private workspace `@gizclaw/assistant`），是与 React 无关的
+agent 包，设计细节见 `web/assistant/DESIGN.md`。它通过 `@openai/agents-core` 与
+`@openai/agents-openai` 的 Chat Completions 模型访问节点的 `/openai/v1`，工具全部在浏览器中
+执行，GizClaw 只转发工具声明、调用与结果。
+
+助手的所有出口都经 `AssistantRuntime` 注入：`page`（跳转、打开链接、当前路由）、`view`（当前
+页面显示内容的结构化快照）、`fleet`（节点状态与内存中的流量采样）、`devices`（设备查找、状态、
+最新与区间 telemetry、Wi-Fi、对话 Workspace 与对话历史）和 `logs`（日志查询）。`src/apis.ts`
+是工具声明表：每个工具声明它调用的 runtime 方法、说明、zod 参数和实现，工具由该表生成，测试保证
+每个 runtime 方法恰好被一个工具使用。工具只读，设备的重启、音量、Wi-Fi 扫描与修改、删除等写操作
+没有对应的 runtime 方法。日志查询按级别、操作、错误码、RPC 状态码与 HTTP 状态聚合，跳转日志页时
+由工具根据设备公钥、错误码、级别和关键词拼出控制台查询。出口失败以错误码交给模型，例如
+`DEBUG_ACCESS_FORBIDDEN` 时助手说明需要在设备端开启只读调试模式，而不声称已替用户完成。工具结果
+（包括对话历史）按不可信数据处理。
+
+验证分两层。`npm test --workspace @gizclaw/assistant` 用覆盖全部出口的 `FakeRuntime` 与脚本化
+模型，经真实 Agents SDK runner 跑完场景集，确认调用链路、参数校验、结果回传与跳转。
+`tests/gizclaw-e2e/go/openai` 中的 `TestAssistantScenariosWithLiveModel` 用同一场景集和 Docker
+栈上 RuntimeProfile 的 `llm`（Volc Ark `doubao-mini-chat`）运行，只断言工具调用、最终路由和回复
+中的关键事实，每个场景最多尝试三次，以区分小模型的波动和助手做不到的行为。

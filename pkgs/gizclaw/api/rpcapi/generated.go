@@ -1839,8 +1839,20 @@ type FriendListResponse struct {
 
 // FriendObject defines model for FriendObject.
 type FriendObject struct {
-	CreatedAt     *time.Time `json:"created_at,omitempty"`
-	Name          string     `json:"name"`
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// DisplayName The Friend's self-chosen display name. Set only by server.friend.list and absent when the Friend has not set one.
+	DisplayName *string `json:"display_name,omitempty"`
+
+	// Emoji The Friend's self-chosen emoji. Set only by server.friend.list and absent when the Friend has not set one.
+	Emoji *string `json:"emoji,omitempty"`
+
+	// LastSeenAt Last observed activity of the Friend's device, as Runtime.last_seen_at reports it. Set only by server.friend.list and absent when the Server has never observed the Friend.
+	LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
+	Name       string     `json:"name"`
+
+	// Online Whether the Friend's device is connected to the answering Server, the same state as Runtime.online. Set only by server.friend.list.
+	Online        *bool      `json:"online,omitempty"`
 	PeerPublicKey *string    `json:"peer_public_key,omitempty"`
 	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
 	WorkspaceName *string    `json:"workspace_name,omitempty"`

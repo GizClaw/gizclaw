@@ -140,6 +140,9 @@ func (s *Store) Wait(ctx context.Context, request memorystore.OperationRequest) 
 // ProcessAsync drains one queued semantic operation. It is distinct from Wait
 // so streaming callers can opt into background materialization explicitly.
 func (s *Store) ProcessAsync(ctx context.Context, request memorystore.OperationRequest) (memorystore.ObserveResult, error) {
+	if s.maintenance {
+		return memorystore.ObserveResult{}, fmt.Errorf("%w: flowcraft maintenance store cannot process extraction", errUnsupported)
+	}
 	s.mu.Lock()
 	if s.closing {
 		s.mu.Unlock()

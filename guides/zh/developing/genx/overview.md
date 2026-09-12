@@ -121,7 +121,7 @@ Composition layer 还可以在 `StreamCtrl` 上附加仅限进程内使用的 re
 
 ### Tool
 
-[`Tool`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#Tool) 是受限的工具类型集合。当前由 [`FuncTool`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#FuncTool) 和 `SearchWebTool` 实现。
+[`Tool`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#Tool) 是受限的工具类型集合。当前由 [`FuncTool`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#FuncTool) 和 `SearchWebTool` 实现。`FuncTool.Parameters` 保存调用方声明的 JSON Schema，Adapter 用它代替 `Argument` 并且不做自己的规范化；`Strict` 要求 provider 严格执行 schema，无法执行的 Adapter 会拒绝该 tool。
 
 `ToolInvoker` 是 Transformer 使用的双方法 runtime 边界。`ResolveTools` 返回当前可用函数的名称、说明和 JSON Schema；`InvokeTool` 只接收函数名与 raw JSON 参数并返回 raw JSON。RuntimeProfile 解析、权限、availability、参数校验和 Executor dispatch 都是注入实现的内部职责。
 

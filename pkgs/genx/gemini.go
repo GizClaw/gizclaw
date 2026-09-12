@@ -282,12 +282,22 @@ func (g *GeminiGenerator) convModelContext(mctx ModelContext) (*genai.GenerateCo
 	for t := range mctx.Tools() {
 		switch t := t.(type) {
 		case *FuncTool:
+			if t.Strict {
+				return nil, nil, fmt.Errorf("gemini: strict tool %q is unsupported", t.Name)
+			}
+			argument := t.Argument
+			if len(t.Parameters) > 0 {
+				argument = &jsonschema.Schema{}
+				if err := json.Unmarshal(t.Parameters, argument); err != nil {
+					return nil, nil, fmt.Errorf("gemini: decode tool %q parameters: %w", t.Name, err)
+				}
+			}
 			tools = append(tools, &genai.Tool{
 				FunctionDeclarations: []*genai.FunctionDeclaration{
 					{
 						Name:        t.Name,
 						Description: t.Description,
-						Parameters:  geminiConvSchema(t.Argument),
+						Parameters:  geminiConvSchema(argument),
 					},
 				},
 			})

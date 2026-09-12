@@ -1528,6 +1528,46 @@ func TestResolveGeneratorSupportsAdditionalTenantKinds(t *testing.T) {
 	}
 }
 
+func TestSupportsToolCallsReadsResolvedModelCapability(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		data apitypes.ModelProviderData
+		want bool
+	}{
+		{name: "declared", data: mustOpenAIModelProviderData(t, apitypes.OpenAITenantModelProviderData{SupportToolCalls: new(true)}), want: true},
+		{name: "disabled", data: mustOpenAIModelProviderData(t, apitypes.OpenAITenantModelProviderData{SupportToolCalls: new(false)})},
+		{name: "unset", data: mustOpenAIModelProviderData(t, apitypes.OpenAITenantModelProviderData{})},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			events := []string{}
+			svc := New(Service{
+				Peer:            newTestPeer(),
+				Models:          fakeModels{events: &events, providerData: tc.data},
+				Credentials:     fakeCredentials{events: &events},
+				ProviderTenants: fakeTenants{events: &events},
+			})
+			got, err := svc.SupportsToolCalls(context.Background(), "model/chat")
+			if err != nil || got != tc.want {
+				t.Fatalf("SupportsToolCalls() = %v, %v; want %v", got, err, tc.want)
+			}
+		})
+	}
+
+	volc := apitypes.Model{
+		Provider:     apitypes.ModelProvider{Kind: apitypes.ModelProviderKindVolcTenant},
+		ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{SupportToolCalls: new(true)}),
+	}
+	if got, err := modelSupportsToolCalls(volc); err != nil || !got {
+		t.Fatalf("modelSupportsToolCalls(volc) = %v, %v", got, err)
+	}
+	if _, err := modelSupportsToolCalls(apitypes.Model{Provider: apitypes.ModelProvider{Kind: "unknown-tenant"}}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("modelSupportsToolCalls(unknown) error = %v", err)
+	}
+	if _, err := (*Service)(nil).SupportsToolCalls(context.Background(), "model/chat"); !errors.Is(err, ErrNotConfigured) {
+		t.Fatalf("nil SupportsToolCalls() error = %v", err)
+	}
+}
+
 func TestResolveEmbeddingRequiresEmbeddingModel(t *testing.T) {
 	events := []string{}
 	svc := New(Service{
@@ -1837,6 +1877,7 @@ type fakeModels struct {
 	events       *[]string
 	modelKind    apitypes.ModelKind
 	providerKind string
+	providerData apitypes.ModelProviderData
 	listItems    []apitypes.Model
 }
 
@@ -1873,6 +1914,7 @@ func (f fakeModels) model(id string) apitypes.Model {
 			Kind: apitypes.ModelProviderKind(providerKind),
 			Id:   "main",
 		},
+		ProviderData: f.providerData,
 	}
 }
 

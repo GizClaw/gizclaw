@@ -196,6 +196,44 @@ func TestOpenAIConversionHelpers(t *testing.T) {
 	}
 }
 
+func TestOpenAIForwardsDeclaredToolsAndGroupsParallelCalls(t *testing.T) {
+	var mcb ModelContextBuilder
+	mcb.UserText("", "which node is busy?")
+	mcb.ModelText("", "checking")
+	for _, id := range []string{"call_a", "call_b"} {
+		mcb.AddMessage(&Message{Role: RoleModel, Payload: &ToolCall{ID: id, FuncCall: &FuncCall{Name: "lookup", Arguments: "{}"}}})
+	}
+	mcb.AddMessage(&Message{Role: RoleTool, Payload: &ToolResult{ID: "call_a", Result: "3"}})
+	mcb.AddMessage(&Message{Role: RoleTool, Payload: &ToolResult{ID: "call_b", Result: "9"}})
+	mcb.AddTool(&FuncTool{
+		Name: "lookup", Description: "Read one node.", Strict: true,
+		Parameters: json.RawMessage(`{"type":"object","properties":{"node":{"type":"string"}}}`),
+	})
+
+	params, err := (&OpenAIGenerator{Model: "gpt-test", SupportToolCalls: true}).chatCompletion(mcb.Build(), nil)
+	if err != nil {
+		t.Fatalf("chatCompletion() error = %v", err)
+	}
+	if len(params.Messages) != 4 {
+		t.Fatalf("messages = %d, want user, one assistant turn, two tool results", len(params.Messages))
+	}
+	assistant := params.Messages[1].OfAssistant
+	if assistant == nil || assistant.Content.OfString.Value != "checking" || len(assistant.ToolCalls) != 2 || assistant.ToolCalls[1].ID != "call_b" {
+		t.Fatalf("assistant = %#v", assistant)
+	}
+	function := params.Tools[0].Function
+	// A declared schema is forwarded as-is: optional fields stay optional.
+	if _, ok := function.Parameters["required"]; ok || !function.Strict.Value {
+		t.Fatalf("function = %#v", function)
+	}
+
+	var broken ModelContextBuilder
+	broken.AddMessage(&Message{Role: RoleModel, Payload: &ToolCall{ID: "call"}})
+	if _, err := (&OpenAIGenerator{}).chatCompletion(broken.Build(), nil); err == nil {
+		t.Fatal("expected error for a tool call without a function")
+	}
+}
+
 func TestOAIPullerStates(t *testing.T) {
 	ctx := (&ModelContextBuilder{}).Build()
 

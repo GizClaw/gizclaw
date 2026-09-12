@@ -14,6 +14,29 @@ func New(ctx context.Context, config Config) (*Store, error) {
 	if err := config.validate(); err != nil {
 		return nil, err
 	}
+	return construct(ctx, config, false)
+}
+
+// NewMaintenance constructs a Flowcraft Store for administrative scope purge
+// and verification over caller-owned persistent dependencies. It loads no
+// models, so every model field must be empty, and it accepts AsyncQueue
+// without an extraction model so PurgeScope also cancels and purges queued
+// extraction jobs. Observe and ProcessAsync return ErrUnsupported.
+func NewMaintenance(ctx context.Context, config Config) (*Store, error) {
+	config = config.normalized()
+	if config.Extraction.Model != "" || config.Embedding.Model != "" || config.Rerank.Model != "" {
+		return nil, fmt.Errorf("%w: flowcraft maintenance store loads no models", errInvalidInput)
+	}
+	queue := config.AsyncQueue
+	config.AsyncQueue = nil
+	if err := config.validate(); err != nil {
+		return nil, err
+	}
+	config.AsyncQueue = queue
+	return construct(ctx, config, true)
+}
+
+func construct(ctx context.Context, config Config, maintenance bool) (*Store, error) {
 	recallOptions := make([]recall.Option, 0, 10)
 	temporal := config.TemporalStore
 	if temporal == nil {
@@ -88,6 +111,7 @@ func New(ctx context.Context, config Config) (*Store, error) {
 		return nil, mapFlowcraftError("construct memory", err)
 	}
 	store := newStore(config, memory, temporal, queue)
+	store.maintenance = maintenance
 	if queue != nil {
 		queue.setStatusWriter(store.recordOperationStatus)
 	}
