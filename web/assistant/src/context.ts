@@ -109,30 +109,36 @@ export async function compactHistory(
     };
   }
 
-  // A quarter of the budget is reserved for the summary; the recent turns
-  // kept verbatim share the rest.
-  const summaryTokens = Math.max(1, Math.floor(options.maxTokens / 4));
+  // Up to a quarter of the budget, never more than what the incoming message
+  // leaves, is reserved for the summary; the recent turns kept verbatim share
+  // the rest.
+  const reserve = Math.max(
+    0,
+    Math.min(Math.floor(options.maxTokens / 4), budget),
+  );
   let keep = Math.min(options.keepTurns, trimmed.length);
-  while (
-    keep > 0 &&
-    size(trimmed.slice(-keep).flat()) > budget - summaryTokens
-  ) {
+  while (keep > 0 && size(trimmed.slice(-keep).flat()) > budget - reserve) {
     keep--;
   }
   const folded = trimmed.slice(0, trimmed.length - keep);
   const recent = keep > 0 ? trimmed.slice(-keep) : [];
+  const compaction = { trimmedResults, summarizedTurns: folded.length };
+  // Without room for even a short summary, the folded turns are dropped.
+  if (reserve - 1 < estimateTokens(summaryItem("…")) + SUMMARY_MIN_TOKENS) {
+    return { history: recent.flat(), compaction };
+  }
   const transcript = [
     summary ? contentText(summary) : "",
     ...folded.map(renderTurn),
   ]
     .filter(Boolean)
     .join("\n\n");
-  const text = cutToTokens(await summarize(transcript), summaryTokens);
-  return {
-    history: [summaryItem(text), ...recent.flat()],
-    compaction: { trimmedResults, summarizedTurns: folded.length },
-  };
+  const text = cutToTokens(await summarize(transcript), reserve);
+  return { history: [summaryItem(text), ...recent.flat()], compaction };
 }
+
+// The shortest summary worth asking the model for.
+const SUMMARY_MIN_TOKENS = 20;
 
 // Measured as the serialized summary item, whose prefix and JSON escaping
 // count too; one token is left for joining it with the kept turns.

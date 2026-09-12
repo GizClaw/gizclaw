@@ -149,3 +149,36 @@ test("recent turns that do not fit are folded into the summary too", async () =>
   assert.match(transcript, /长{500}/);
   assert.deepEqual(result.history, [summaryItem("用户问了两个长问题")]);
 });
+
+test("the summary shrinks to the room a long incoming message leaves", async () => {
+  const history = Array.from({ length: 6 }, (_, index) =>
+    turn(index + 1, 300),
+  ).flat();
+  const summarize = async () => "摘要".repeat(1_000);
+  // 400-token budget: 330 tokens of incoming leave less than a quarter.
+  const long = "问".repeat(330);
+  const tight = await compactHistory(history, long, options, summarize);
+  assert.ok(
+    estimateTokens(tight.history) + estimateTokens(long) <= options.maxTokens,
+    `${estimateTokens(tight.history)} tokens`,
+  );
+  assert.match(
+    (tight.history[0] as { content: string }).content,
+    new RegExp(`^${SUMMARY_PREFIX}`),
+  );
+
+  // With no room for a summary at all, the folded turns are dropped.
+  let asked = false;
+  const full = await compactHistory(
+    history,
+    "问".repeat(395),
+    options,
+    async () => {
+      asked = true;
+      return "摘要";
+    },
+  );
+  assert.deepEqual(full.history, []);
+  assert.equal(full.compaction?.summarizedTurns, 6);
+  assert.equal(asked, false);
+});
