@@ -43,6 +43,67 @@ type peerStreamResponseProgress struct {
 	interrupted                 bool
 }
 
+// peerStreamOutputRecord is one received text or audio chunk, kept so the
+// step result can be rebuilt without the responses a turn abandoned.
+type peerStreamOutputRecord struct {
+	label      string
+	streamID   string
+	chunk      *genx.MessageChunk
+	receivedAt time.Time
+	elapsed    time.Duration
+	audio      peerAudioClass
+}
+
+// peerStreamOutput is the text and audio a step reports.
+type peerStreamOutput struct {
+	texts            []string
+	audioBytes       int
+	assistantPackets [][]byte
+	pacing           peerAudioPacing
+	lead             peerAudioLead
+	firstTextMS      int64
+	firstAudioMS     int64
+}
+
+// rebuildPeerStreamOutput replays the received text and audio chunks, leaving
+// out the responses in skip, with the same accounting the receive loop uses.
+func rebuildPeerStreamOutput(records []peerStreamOutputRecord, skip map[string]bool, capture bool) (peerStreamOutput, error) {
+	var out peerStreamOutput
+	firstText, firstAudio := false, false
+	for _, record := range records {
+		if record.label == "assistant" && skip[record.streamID] {
+			continue
+		}
+		switch part := record.chunk.Part.(type) {
+		case genx.Text:
+			if !firstText && record.label == "assistant" && strings.TrimSpace(string(part)) != "" {
+				firstText = true
+				out.firstTextMS = record.elapsed.Milliseconds()
+			}
+			out.texts = append(out.texts, string(part))
+		case *genx.Blob:
+			if record.label == "assistant" && len(part.Data) > 0 {
+				if relayOpusMIME(part.MIMEType) {
+					packets, err := decodeOpusPackets(part.Data)
+					if err != nil {
+						return peerStreamOutput{}, fmt.Errorf("decode assistant audio: %w", err)
+					}
+					out.pacing.observe(record.receivedAt, packets)
+				}
+				if capture {
+					out.assistantPackets = append(out.assistantPackets, part.Data)
+				}
+				if !firstAudio && out.lead.observe(record.chunk, record.audio) {
+					firstAudio = true
+					out.firstAudioMS = record.elapsed.Milliseconds()
+				}
+			}
+			out.audioBytes += len(part.Data)
+		}
+	}
+	return out, nil
+}
+
 type peerStreamSession struct {
 	client   string
 	stream   peerStream
@@ -828,9 +889,12 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	firstTranscriptObserved, firstTextObserved, firstAudioObserved := false, false, false
 	textEOS, audioEOS := false, false
 	responses := make(map[string]*peerStreamResponseProgress)
-	incompleteResponses := 0
+	// abandonedResponses holds responses that ended without the required
+	// content; outputRecords lets finish report the turn without them.
+	abandonedResponses := make(map[string]bool)
+	var outputRecords []peerStreamOutputRecord
 	counters := func() string {
-		return fmt.Sprintf("events=%d assistant_text=%d assistant_audio=%d assistant_eos=%d transcript_text=%d transcript_eos=%d other_eos=%d interrupt_sent=%t interrupt_observed=%t incomplete_responses=%d", events, assistantTextEvents, assistantAudioEvents, assistantEOS, transcriptTextEvents, transcriptEOS, otherEOS, interrupted, observedInterrupted, incompleteResponses)
+		return fmt.Sprintf("events=%d assistant_text=%d assistant_audio=%d assistant_eos=%d transcript_text=%d transcript_eos=%d other_eos=%d interrupt_sent=%t interrupt_observed=%t incomplete_responses=%d", events, assistantTextEvents, assistantAudioEvents, assistantEOS, transcriptTextEvents, transcriptEOS, otherEOS, interrupted, observedInterrupted, len(abandonedResponses))
 	}
 	baseEvidence := func() map[string]any {
 		evidence := map[string]any{"events": events, "first_transcript_ms": firstTranscriptMS, "last_event_ms": lastEventMS}
@@ -876,6 +940,17 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 		}
 	}
 	finish := func() (operationResult, error) {
+		if len(abandonedResponses) > 0 {
+			// Report only the responses the turn kept: an abandoned partial
+			// response must not satisfy assertions meant for the reply.
+			kept, err := rebuildPeerStreamOutput(outputRecords, abandonedResponses, audioCaptureMaxBytes > 0)
+			if err != nil {
+				return operationResult{evidence: baseEvidence()}, err
+			}
+			texts, audioBytes, assistantPackets = kept.texts, kept.audioBytes, kept.assistantPackets
+			audioPacing, lead = kept.pacing, kept.lead
+			firstTextMS, firstAudioMS = kept.firstTextMS, kept.firstAudioMS
+		}
 		if observeAudio != nil && assistantObservationOpen {
 			assistantObservationOpen = false
 			if err := observeAudio(step.Client, "assistant", nil, true); err != nil {
@@ -1130,6 +1205,13 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 					secondAssistantStreamID = actualStreamID
 				}
 			}
+			switch result.chunk.Part.(type) {
+			case genx.Text, *genx.Blob:
+				outputRecords = append(outputRecords, peerStreamOutputRecord{
+					label: label, streamID: actualStreamID, chunk: result.chunk,
+					receivedAt: result.receivedAt, elapsed: eventElapsed, audio: result.audio,
+				})
+			}
 			switch part := result.chunk.Part.(type) {
 			case genx.Text:
 				if label == "assistant" && strings.TrimSpace(string(part)) != "" {
@@ -1292,7 +1374,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 							// later response; if none arrives, the idle or step
 							// deadline fails the turn.
 							response.interrupted = true
-							incompleteResponses++
+							abandonedResponses[actualStreamID] = true
 							continue
 						}
 					}

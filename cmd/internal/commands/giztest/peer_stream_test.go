@@ -1301,6 +1301,44 @@ func TestInvokePeerStreamPushToTalkIgnoresResponseBeforeInputCompletes(t *testin
 	}
 }
 
+// An abandoned response ends with an error-free EOS before the reply; its
+// text, audio and timings must not be reported as the turn's reply.
+func TestInvokePeerStreamReportsOnlyTheKeptResponse(t *testing.T) {
+	stream := newFakeRelayStream()
+	_, packets := testOggOpus(t)
+	for _, chunk := range []*genx.MessageChunk{
+		assistantText("abandoned", "partial", false),
+		assistantBlob("abandoned", nil, true),
+		assistantText("abandoned", "", true),
+		assistantText("reply", "answer", false),
+		assistantBlob("reply", packets[0], false),
+		assistantText("reply", "", true),
+		assistantBlob("reply", nil, true),
+	} {
+		stream.in <- chunk
+	}
+	close(stream.in)
+	result, err := invokePeerStream(t.Context(), nil, func() (peerStream, error) { return stream, nil }, giztest.Step{
+		ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "text"},
+	}, "hello", 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	object := result.assertion.(map[string]any)
+	if texts, _ := object["text"].([]string); strings.Join(texts, "") != "answer" {
+		t.Fatalf("text = %#v, want only the reply", object["text"])
+	}
+	if object["audio_bytes"] != len(packets[0]) {
+		t.Fatalf("audio_bytes = %v, want the reply's %d bytes", object["audio_bytes"], len(packets[0]))
+	}
+	if pacing, _ := object["audio_pacing"].(map[string]any); pacing == nil || pacing["packets"] != 1 {
+		t.Fatalf("audio_pacing = %#v, want the reply's packet only", object["audio_pacing"])
+	}
+	if _, ok := object["audio"].([]byte); !ok {
+		t.Fatalf("captured audio missing: %#v", object)
+	}
+}
+
 func TestPeerStreamCompletionRequiresOneResponse(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
