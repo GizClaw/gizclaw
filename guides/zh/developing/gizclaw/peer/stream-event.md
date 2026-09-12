@@ -40,4 +40,4 @@ Stream、不会恢复旧 route，也不会把 mandatory signal 降级为 best-ef
 
 Produced accounting 分类 GenX source chunk；delivered accounting 只分类 `Broadcast` 成功后的实际 `PeerEvent`，aggregate audio 还必须已经完成 mixer drain。Broadcast 失败、drain 失败或 abandon，以及被聚合器抑制的 audio boundary 都不会增加 delivered modality。空 label text/blob event 沿用 Peer client 的 assistant fallback；空 label control-only EOS 仍为 `other`。Terminal snapshot 只包含排序后的封闭 source part/label 与 Peer event type/kind/label class；payload 和 raw label 始终排除。
 
-Workspace 切换取消旧回复、或用户 BOS 打断 Agent 开场时，旧输出通过不带 error 的 EOS 结束。真实模型或音频处理失败仍携带错误 code 和 message；输入路由重载仍使用 `INPUT_ROUTE_RELOADED` 通知重新开始输入。
+Workspace 切换取消旧回复、用户 BOS 打断 Agent 开场、或同 label 的新 assistant BOS cutover 混音 epoch 时，旧输出都通过不带 error 的 EOS 结束。客户端通过新的 BOS 识别打断，而不是依赖旧 EOS。真实模型或音频处理失败仍携带错误 code 和 message；输入路由重载仍使用 `INPUT_ROUTE_RELOADED` 通知重新开始输入。

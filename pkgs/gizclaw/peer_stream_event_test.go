@@ -970,8 +970,8 @@ func TestPeerAudioRouteAggregatorCutsEpochOnlyOnMixerCutover(t *testing.T) {
 	}})
 	if cutover == nil || cutover.Type != eventpb.PeerEventType_PEER_EVENT_TYPE_EOS ||
 		cutover.StreamID() != "first" || cutover.StreamKindValue() != eventpb.StreamKind_STREAM_KIND_AUDIO ||
-		cutover.GetEos().GetError().GetMessage() != "interrupted" {
-		t.Fatalf("cutover event = %#v, want interrupted audio EOS for first", cutover)
+		cutover.GetEos().GetError() != nil {
+		t.Fatalf("cutover event = %#v, want error-free audio EOS for first", cutover)
 	}
 	secondBOS := peerOutputAudioBoundary(
 		eventpb.PeerEventType_PEER_EVENT_TYPE_BOS,
