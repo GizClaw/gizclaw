@@ -144,6 +144,18 @@ func TestRPCClientHandleToolInvoke(t *testing.T) {
 	if observed.Load() != 1 {
 		t.Fatalf("observed unavailable Tool calls = %d, want 1", observed.Load())
 	}
+
+	var oversized rpcapi.RPCPayload
+	if err := oversized.FromToolInvokeRequest(rpcapi.ToolInvokeRequest{InvokeName: "music_play", Args: map[string]any{"query": strings.Repeat("x", maxClientToolArgumentsBytes)}}); err != nil {
+		t.Fatal(err)
+	}
+	resp, err = (&rpcClient{peer: unavailable}).dispatch(context.Background(), &rpcapi.RPCRequest{Id: "invoke", Method: rpcapi.RPCMethodClientToolInvoke, Params: &oversized})
+	if err != nil || resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument {
+		t.Fatalf("dispatch(oversized arguments) = %#v, %v", resp, err)
+	}
+	if observed.Load() != 1 {
+		t.Fatalf("observed calls after invalid arguments = %d, want 1", observed.Load())
+	}
 }
 
 func TestClientHandleToolValidatesRegistration(t *testing.T) {

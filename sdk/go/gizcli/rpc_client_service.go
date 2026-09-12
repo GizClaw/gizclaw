@@ -141,7 +141,11 @@ func (c *rpcClient) handleInvokeTool(ctx context.Context, req *rpcapi.RPCRequest
 	if c.peer == nil || !clientToolNamePattern.MatchString(name) {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: "invalid Tool name"}.RPCResponse(), nil
 	}
-	// A call for a Tool this Client does not provide is still a valid
+	args, err := json.Marshal(params.Args)
+	if err != nil || len(args) > maxClientToolArgumentsBytes {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: "invalid Tool arguments"}.RPCResponse(), nil
+	}
+	// A valid call for a Tool this Client does not provide is still a
 	// dispatch, so it is observed before the UNIMPLEMENTED answer.
 	c.peer.observeClientRPC(req.Method)
 	c.peer.toolMu.RLock()
@@ -149,10 +153,6 @@ func (c *rpcClient) handleInvokeTool(ctx context.Context, req *rpcapi.RPCRequest
 	c.peer.toolMu.RUnlock()
 	if handler == nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "Tool unavailable"}.RPCResponse(), nil
-	}
-	args, err := json.Marshal(params.Args)
-	if err != nil || len(args) > maxClientToolArgumentsBytes {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: "invalid Tool arguments"}.RPCResponse(), nil
 	}
 	result, err := handler(ctx, json.RawMessage(args))
 	if err != nil {
