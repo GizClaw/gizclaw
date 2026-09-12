@@ -15,7 +15,7 @@ import { createAssistantStore, memoryRecords } from "./assistant-store";
 import type { ConsoleStateDeps } from "./console-runtime";
 
 const ASSISTANT: ConsoleAssistant = {
-  apiKey: `gizclaw_sk_v1_${"a".repeat(40)}`,
+  apiKey: `gizclaw_sk_v1_${"a".repeat(43)}`,
   model: "llm",
 };
 

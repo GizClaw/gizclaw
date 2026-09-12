@@ -56,9 +56,12 @@ export function summaryItem(text: string): AgentInputItem {
 }
 
 /**
- * Keeps the history within budget before a new message is added: first it
- * shortens tool results of older turns, then it folds everything but the most
- * recent turns into a rolling summary produced by summarize.
+ * Keeps the history within budget before a new message is added. It shortens
+ * tool results of older turns first, then of every turn; if that is not
+ * enough it keeps as many recent turns (up to keepTurns) as fit beside a
+ * summary and folds the rest into a rolling summary produced by summarize.
+ * The summary is cut to a quarter of the budget, so the result plus the
+ * incoming message fits unless the incoming message alone does not.
  */
 export async function compactHistory(
   history: AgentInputItem[],
@@ -66,59 +69,80 @@ export async function compactHistory(
   options: ContextOptions,
   summarize: (transcript: string) => Promise<string>,
 ): Promise<{ history: AgentInputItem[]; compaction?: Compaction }> {
-  const fits = (items: AgentInputItem[]) =>
-    estimateTokens(items) + estimateTokens(incoming) <= options.maxTokens;
-  if (fits(history)) return { history };
+  const size = (items: AgentInputItem[]) =>
+    items.length === 0 ? 0 : estimateTokens(items);
+  const budget = options.maxTokens - estimateTokens(incoming);
+  if (size(history) <= budget) return { history };
 
   const { summary, turns } = splitTurns(history);
+  const withSummary = (list: AgentInputItem[][]) => [
+    ...(summary ? [summary] : []),
+    ...list.flat(),
+  ];
   let trimmedResults = 0;
-  const trimTurns = (list: AgentInputItem[][]) =>
-    list.map((turn) =>
-      turn.map((item) => {
-        const trimmed = trimToolResult(item, options.trimChars);
-        if (trimmed !== item) trimmedResults++;
-        return trimmed;
-      }),
-    );
+  const trimTurn = (turn: AgentInputItem[]) =>
+    turn.map((item) => {
+      const trimmed = trimToolResult(item, options.trimChars);
+      if (trimmed !== item) trimmedResults++;
+      return trimmed;
+    });
 
-  const older = turns.slice(0, -1);
-  const last = turns.slice(-1);
-  const trimmed = [...trimTurns(older), ...last];
-  const afterTrim = [...(summary ? [summary] : []), ...trimmed.flat()];
-  if (fits(afterTrim)) {
+  // The latest turn keeps its full results while trimming older ones is enough.
+  const olderTrimmed = [
+    ...turns.slice(0, -1).map(trimTurn),
+    ...turns.slice(-1),
+  ];
+  if (size(withSummary(olderTrimmed)) <= budget) {
     return {
-      history: afterTrim,
+      history: withSummary(olderTrimmed),
+      compaction: { trimmedResults, summarizedTurns: 0 },
+    };
+  }
+  const trimmed = [
+    ...olderTrimmed.slice(0, -1),
+    ...olderTrimmed.slice(-1).map(trimTurn),
+  ];
+  if (size(withSummary(trimmed)) <= budget) {
+    return {
+      history: withSummary(trimmed),
       compaction: { trimmedResults, summarizedTurns: 0 },
     };
   }
 
-  if (trimmed.length <= options.keepTurns) {
-    // Only the kept turns remain; shorten their tool results too.
-    const recent = trimTurns(last);
-    const kept = [
-      ...(summary ? [summary] : []),
-      ...trimmed.slice(0, -1).flat(),
-      ...recent.flat(),
-    ];
-    return {
-      history: kept,
-      compaction: { trimmedResults, summarizedTurns: 0 },
-    };
+  // A quarter of the budget is reserved for the summary; the recent turns
+  // kept verbatim share the rest.
+  const summaryTokens = Math.max(1, Math.floor(options.maxTokens / 4));
+  let keep = Math.min(options.keepTurns, trimmed.length);
+  while (
+    keep > 0 &&
+    size(trimmed.slice(-keep).flat()) > budget - summaryTokens
+  ) {
+    keep--;
   }
-
-  const folded = trimmed.slice(0, -options.keepTurns);
-  const recent = trimmed.slice(-options.keepTurns);
+  const folded = trimmed.slice(0, trimmed.length - keep);
+  const recent = keep > 0 ? trimmed.slice(-keep) : [];
   const transcript = [
     summary ? contentText(summary) : "",
     ...folded.map(renderTurn),
   ]
     .filter(Boolean)
     .join("\n\n");
-  const text = await summarize(transcript);
+  const text = cutToTokens(await summarize(transcript), summaryTokens);
   return {
     history: [summaryItem(text), ...recent.flat()],
     compaction: { trimmedResults, summarizedTurns: folded.length },
   };
+}
+
+// Measured as the serialized summary item, whose prefix and JSON escaping
+// count too; one token is left for joining it with the kept turns.
+function cutToTokens(text: string, tokens: number): string {
+  const whole = text.trim();
+  let cut = whole;
+  while (cut !== "" && estimateTokens(summaryItem(`${cut}…`)) > tokens - 1) {
+    cut = cut.slice(0, Math.floor(cut.length * 0.9));
+  }
+  return cut === whole ? cut : `${cut}…`;
 }
 
 function isSummary(item: AgentInputItem): boolean {

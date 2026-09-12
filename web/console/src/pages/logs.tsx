@@ -51,18 +51,29 @@ export function LogsPage({
   const [selected, setSelected] = useState<LogRecord | undefined>();
   // A query that names a device (from the peers page or the assistant) opens
   // that device's logs; otherwise the first watched device is the source.
-  const [source, setSource] = useState(() => {
-    const wanted = parseQuery(initialQuery).clauses.find(
-      (clause) =>
-        !clause.negate &&
-        (clause.key === "peer_public_key" || clause.key === "peer"),
-    )?.value;
-    const named = wanted
-      ? peers.find((peer) => peer.publicKey.toLowerCase() === wanted)
-      : undefined;
-    const first = named ?? peers[0];
-    return first ? peerId(first) : "";
-  });
+  // The source is derived on every render, so a named device that joins the
+  // watch list after the page opens is still picked up; a device the user
+  // picks explicitly wins while it stays watched.
+  const [chosen, setChosen] = useState<string>();
+  const wanted = useMemo(
+    () =>
+      parseQuery(initialQuery).clauses.find(
+        (clause) =>
+          !clause.negate &&
+          (clause.key === "peer_public_key" || clause.key === "peer"),
+      )?.value,
+    [initialQuery],
+  );
+  const named = wanted
+    ? peers.find((peer) => peer.publicKey.toLowerCase() === wanted)
+    : undefined;
+  const fallback = named ?? peers[0];
+  const source =
+    chosen !== undefined && peers.some((peer) => peerId(peer) === chosen)
+      ? chosen
+      : fallback
+        ? peerId(fallback)
+        : "";
   const device = peers.find((peer) => peerId(peer) === source);
   const [deviceRecords, setDeviceRecords] = useState<LogRecord[]>([]);
   const [deviceError, setDeviceError] = useState("");
@@ -215,7 +226,7 @@ export function LogsPage({
             <Select
               aria-label="数据源"
               value={source}
-              onChange={(event) => setSource(event.target.value)}
+              onChange={(event) => setChosen(event.target.value)}
             >
               <option value="">选择设备</option>
               {peers.map((peer) => (

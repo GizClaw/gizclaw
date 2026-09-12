@@ -83,11 +83,14 @@ Before each turn `compactHistory` keeps the history within `contextTokens`
 (default 32000) minus the instructions and tool descriptions. Tokens are
 estimated without a tokenizer, one per CJK character and one per four other
 characters, erring high. Over budget, tool results of every turn but the last
-are cut to 1500 characters. If that is not enough and more than `keepTurns`
-(default 4) turns exist, the older turns and any earlier summary go to a
-summarizer agent on the same model, and the history becomes one system item
-starting with `【较早对话的摘要】` followed by the recent turns verbatim. The
-turn reports what was done as `compaction`.
+are cut to 1500 characters, then those of the last turn. If that is not
+enough, a quarter of the budget is reserved for a summary and the most recent
+turns that fit in the rest (at most `keepTurns`, default 4) are kept; the other
+turns and any earlier summary go to a summarizer agent on the same model. The
+history becomes one system item starting with `【较早对话的摘要】`, cut to its
+reserve, followed by the kept turns verbatim, so it fits beside the incoming
+message unless that message alone exceeds the budget. The turn reports what was
+done as `compaction`.
 
 ## Knowledge
 

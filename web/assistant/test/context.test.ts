@@ -112,3 +112,40 @@ test("older turns fold into a rolling summary, keeping the recent ones", async (
     ["问题 5", "问题 6"],
   );
 });
+
+test("the compacted history always fits beside the incoming message", async () => {
+  const incoming = "现在呢？";
+  for (const [label, turns, resultChars, summaryChars] of [
+    ["large recent turns", 6, 3_000, 50],
+    ["an unbounded summary", 6, 10, 20_000],
+    ["one huge turn", 1, 50_000, 20_000],
+  ] as const) {
+    const history = Array.from({ length: turns }, (_, index) =>
+      turn(index + 1, resultChars),
+    ).flat();
+    const result = await compactHistory(history, incoming, options, async () =>
+      "摘要".repeat(summaryChars),
+    );
+    assert.ok(
+      estimateTokens(result.history) + estimateTokens(incoming) <=
+        options.maxTokens,
+      `${label}: ${estimateTokens(result.history)} tokens`,
+    );
+    assert.ok(result.compaction, label);
+  }
+});
+
+test("recent turns that do not fit are folded into the summary too", async () => {
+  const history = [...turn(1, 10), ...turn(2, 10)];
+  // Long user messages make each kept turn exceed the budget on its own.
+  (history[0] as { content: string }).content = "长".repeat(500);
+  (history[4] as { content: string }).content = "长".repeat(500);
+  let transcript = "";
+  const result = await compactHistory(history, "q", options, async (text) => {
+    transcript = text;
+    return "用户问了两个长问题";
+  });
+  assert.equal(result.compaction?.summarizedTurns, 2);
+  assert.match(transcript, /长{500}/);
+  assert.deepEqual(result.history, [summaryItem("用户问了两个长问题")]);
+});

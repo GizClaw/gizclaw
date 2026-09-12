@@ -249,10 +249,12 @@ no conversation on the server; the browser sends the whole context each turn.
 
 Before each turn the context is estimated against `contextTokens` (one token
 per CJK character, one per four other characters, erring high). Over budget,
-long tool results of older turns are shortened first; if that is not enough,
-everything but the latest 4 turns is summarized by the same model into one
-summary that later compactions build on. The panel shows a note before the turn
-where compaction happened.
+long tool results of older turns are shortened first, then those of the latest
+turn. If that is not enough, the latest turns that fit (at most 4) are kept and
+everything else is summarized by the same model into one summary, at most a
+quarter of the budget, that later compactions build on. The compacted history
+plus the new message stays within the budget. The panel shows a note before the
+turn where compaction happened.
 
 The assistant's knowledge base is this project's Chinese guides
 (`guides/zh/**/*.md`, without the `reviewing/examples` pages the site

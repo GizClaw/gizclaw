@@ -118,8 +118,11 @@ function normalizeUrl(raw: string): string {
   return url.origin;
 }
 
+// The API key format of api/http/peer.json.
+const API_KEY = /^gizclaw_sk_v1_[A-Za-z0-9_-]{43}$/;
+
 function checkAPIKey(key: string): string {
-  if (!key.startsWith("gizclaw_sk_v1_") || key.length < 14 + 16) {
+  if (!API_KEY.test(key)) {
     throw new Error(
       "assistant.apiKey 必须是以 gizclaw_sk_v1_ 开头的设备 API Key",
     );

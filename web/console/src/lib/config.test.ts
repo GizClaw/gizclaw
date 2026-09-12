@@ -89,7 +89,7 @@ describe("console configuration", () => {
 });
 
 describe("assistant configuration", () => {
-  const apiKey = `gizclaw_sk_v1_${"k".repeat(32)}`;
+  const apiKey = `gizclaw_sk_v1_${"k-_9".repeat(10)}abc`;
   const base = {
     servers: [{ url: "https://a.example.com", monitorToken: token }],
   };
@@ -128,6 +128,9 @@ describe("assistant configuration", () => {
     for (const assistant of [
       { apiKey: token },
       { apiKey: "gizclaw_sk_v1_short" },
+      { apiKey: `${apiKey}x` },
+      { apiKey: apiKey.slice(0, -1) },
+      { apiKey: `${apiKey.slice(0, -1)}=` },
       { apiKey, unknown: true },
       { apiKey, endpoint: "http://edge.example.com" },
       { apiKey, contextTokens: 1_000 },
