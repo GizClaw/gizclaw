@@ -55,6 +55,108 @@ describe("persistent log search", () => {
     ]);
     expect(screen.queryByText("节点进程日志")).toBeNull();
   });
+
+  it("opens the device named by the initial query", async () => {
+    render(
+      <LogsPage
+        peers={[
+          {
+            publicKey: "first-key",
+            label: "First",
+            endpoint: "https://a.example.com",
+            addedAt: 1,
+          },
+          {
+            publicKey: "SecondKey",
+            label: "Second",
+            endpoint: "https://b.example.com",
+            addedAt: 2,
+          },
+        ]}
+        initialQuery="peer_public_key:SecondKey error_code:ASR_TIMEOUT"
+      />,
+    );
+    await waitFor(() => expect(loadDeviceLogs).toHaveBeenCalled());
+    expect(loadDeviceLogs.mock.calls[0].slice(0, 2)).toEqual([
+      "https://b.example.com",
+      "SecondKey",
+    ]);
+  });
+
+  it("matches the named public key exactly before ignoring case", async () => {
+    const peer = (publicKey: string, endpoint: string) => ({
+      publicKey,
+      label: publicKey,
+      endpoint,
+      addedAt: 1,
+    });
+    const peers = [
+      peer("AbcKey", "https://upper.example.com"),
+      peer("abckey", "https://lower.example.com"),
+    ];
+    const view = render(
+      <LogsPage peers={peers} initialQuery="peer_public_key:abckey" />,
+    );
+    await waitFor(() => expect(loadDeviceLogs).toHaveBeenCalled());
+    expect(loadDeviceLogs.mock.calls.at(-1)?.slice(0, 2)).toEqual([
+      "https://lower.example.com",
+      "abckey",
+    ]);
+    view.unmount();
+
+    loadDeviceLogs.mockClear();
+    render(
+      <LogsPage
+        peers={[peers[0]]}
+        initialQuery="-peer_public_key:x peer:ABCKEY"
+      />,
+    );
+    await waitFor(() => expect(loadDeviceLogs).toHaveBeenCalled());
+    expect(loadDeviceLogs.mock.calls.at(-1)?.[1]).toBe("AbcKey");
+  });
+
+  it("opens the named device once the watch list catches up", async () => {
+    const first = {
+      publicKey: "first-key",
+      label: "First",
+      endpoint: "https://a.example.com",
+      addedAt: 1,
+    };
+    const second = {
+      publicKey: "SecondKey",
+      label: "Second",
+      endpoint: "https://b.example.com",
+      addedAt: 2,
+    };
+    const query = "peer_public_key:SecondKey";
+    const view = render(<LogsPage peers={[]} initialQuery={query} />);
+    expect(loadDeviceLogs).not.toHaveBeenCalled();
+
+    // The assistant added the device to the watch list after navigating.
+    view.rerender(<LogsPage peers={[first, second]} initialQuery={query} />);
+    await waitFor(() =>
+      expect(loadDeviceLogs.mock.calls.at(-1)?.[1]).toBe("SecondKey"),
+    );
+    expect(
+      loadDeviceLogs.mock.calls.every((call) => call[1] === "SecondKey"),
+    ).toBe(true);
+
+    // A device the user picks stays selected as the list changes again.
+    fireEvent.change(screen.getByLabelText("数据源"), {
+      target: { value: "first-key" },
+    });
+    await waitFor(() =>
+      expect(loadDeviceLogs.mock.calls.at(-1)?.[1]).toBe("first-key"),
+    );
+    view.rerender(
+      <LogsPage
+        peers={[first, second, { ...second, publicKey: "third" }]}
+        initialQuery={query}
+      />,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(loadDeviceLogs.mock.calls.at(-1)?.[1]).toBe("first-key");
+  });
 });
 
 it("excludes records older than 24 hours from the selected window", async () => {

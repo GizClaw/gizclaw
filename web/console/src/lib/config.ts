@@ -22,11 +22,23 @@ const peerSchema = z
   })
   .strict();
 
+const assistantSchema = z
+  .object({
+    apiKey: z.string().trim().min(1),
+    model: z.string().trim().min(1).optional(),
+    endpoint: z.string().trim().min(1).optional(),
+    // The assistant's instructions and tool declarations alone take about
+    // 4,300 tokens of every request.
+    contextTokens: z.number().int().min(8_000).max(1_000_000).optional(),
+  })
+  .strict();
+
 const fileSchema = z
   .object({
     name: z.string().trim().min(1).optional(),
     deviceEndpoint: z.string().trim().min(1).optional(),
     peers: z.array(peerSchema).optional(),
+    assistant: assistantSchema.optional(),
     servers: z.union([
       z.array(serverSchema).min(1),
       z.record(z.string(), serverSchema),
@@ -53,6 +65,24 @@ export type ConsoleConfig = {
   deviceEndpoint?: string;
   /** Devices carried by the configuration, used to seed the watch list. */
   peers: ConsoleConfigPeer[];
+  /** The diagnostic assistant's model access; absent disables the chat. */
+  assistant?: ConsoleAssistant;
+};
+
+/**
+ * An existing device's API key. The assistant calls /openai/v1 with it and
+ * uses that device's RuntimeProfile models; the key also controls that device.
+ */
+export type ConsoleAssistant = {
+  apiKey: string;
+  model: string;
+  /** The node serving /openai/v1; defaults to the device endpoint. */
+  endpoint?: string;
+  /**
+   * Token budget per turn, matching the model's context window; older turns
+   * are compacted beyond it. Defaults to the assistant package's budget.
+   */
+  contextTokens?: number;
 };
 
 export type ConsoleConfigPeer = {
@@ -88,6 +118,18 @@ function normalizeUrl(raw: string): string {
     throw new Error(`${raw} 必须使用 HTTPS（localhost 可用 HTTP）`);
   }
   return url.origin;
+}
+
+// The API key format of api/http/peer.json.
+const API_KEY = /^gizclaw_sk_v1_[A-Za-z0-9_-]{43}$/;
+
+function checkAPIKey(key: string): string {
+  if (!API_KEY.test(key)) {
+    throw new Error(
+      "assistant.apiKey 必须是以 gizclaw_sk_v1_ 开头的设备 API Key",
+    );
+  }
+  return key;
 }
 
 function checkToken(token: string): string {
@@ -155,6 +197,15 @@ export function parseConfig(text: string): ConsoleConfig {
       parsed.data.deviceEndpoint === undefined
         ? undefined
         : normalizeUrl(parsed.data.deviceEndpoint),
+    assistant: parsed.data.assistant && {
+      apiKey: checkAPIKey(parsed.data.assistant.apiKey),
+      model: parsed.data.assistant.model ?? "llm",
+      endpoint:
+        parsed.data.assistant.endpoint === undefined
+          ? undefined
+          : normalizeUrl(parsed.data.assistant.endpoint),
+      contextTokens: parsed.data.assistant.contextTokens,
+    },
   };
 }
 
@@ -176,7 +227,11 @@ export const sampleConfig = `{
       "url": "https://edge1.example.com",
       "monitorToken": "gizclaw_mk_..."
     }
-  ]
+  ],
+  "assistant": {
+    "apiKey": "gizclaw_sk_v1_...",
+    "model": "llm"
+  }
 }`;
 
 /**
@@ -206,6 +261,7 @@ export function exportConfig(
         label: peer.label === "" ? undefined : peer.label,
         endpoint: peer.endpoint,
       })),
+      assistant: config.assistant,
     },
     null,
     2,

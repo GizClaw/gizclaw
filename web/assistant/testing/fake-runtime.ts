@@ -1,3 +1,5 @@
+import type { KnowledgePassage } from "../src/knowledge.ts";
+import { guidesIndex } from "./guides.ts";
 import type { ConsoleRoute } from "../src/routes.ts";
 import {
   SourceError,
@@ -264,6 +266,16 @@ export class FakeRuntime implements AssistantRuntime {
         )
         .sort((left, right) => right.time_ms - left.time_ms);
       return { items: structuredClone(items) };
+    },
+  };
+
+  readonly knowledge = {
+    search: async (
+      query: string,
+      limit: number,
+    ): Promise<KnowledgePassage[]> => {
+      this.calls.push({ method: "knowledge.search", args: [query, limit] });
+      return guidesIndex().search(query, limit);
     },
   };
 

@@ -81,3 +81,28 @@ status codes include an explanation, while unknown codes remain visible. Details
 retain the original message and fields alongside the summary. Compact log views
 search both summaries and raw field values, expose full summaries on hover, and
 use the same dark scrollbar as log search.
+
+## Diagnostic assistant
+
+A floating chat button opens the diagnostic assistant from `@gizclaw/assistant`.
+The panel is lazy loaded: the agent, the OpenAI client, and assistant-ui load on
+first open. The configuration's optional `assistant` block holds an existing
+device's API key, the model alias (default `llm`), an optional node for
+`/openai/v1` and an optional per-turn context budget; it is stored, exported and cleared with the rest of the
+configuration. Without it the panel explains how to add it.
+
+`src/assistant/console-runtime.ts` implements every `AssistantRuntime` method
+with the console's own state and clients, reading the latest state through refs.
+Pages publish structured snapshots with `usePageView`; the assistant never reads
+the DOM. The panel uses assistant-ui's external store runtime over the
+assistant session and renders each tool action as a collapsible card.
+
+`src/assistant/assistant-store.ts` keeps conversations as encrypted records under the `console-assistant/` prefix of the local store,
+which logout clears. Each thread holds the panel's entries and the assistant
+history it resumes from; a thread index lists the latest 50. The panel opens
+the latest thread, saves after every turn, and keeps the conversation mounted
+behind the history and knowledge views so a running turn continues. A context
+compaction appears as a system note. The knowledge base is the zh guides:
+`src/assistant/guides-content.ts` bundles them with `import.meta.glob` into
+their own chunk, and `src/assistant/guides.ts` loads and indexes that chunk on
+the first search.

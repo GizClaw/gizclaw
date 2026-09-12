@@ -266,6 +266,31 @@ export const ASSISTANT_APIS: ApiDefinition[] = [
     },
   }),
   define({
+    tool: "search_knowledge",
+    uses: ["knowledge.search"],
+    description:
+      "在 GizClaw 项目文档（guides）中全文搜索：错误码的含义、调试模式、Monitor 与 Monitor Token、Telemetry 字段、API Key、配置项和各服务的行为。回答涉及这些知识时先搜索，引用结果里的文档标题，需要时给出 url 链接。",
+    params: z.object({
+      query: z
+        .string()
+        .trim()
+        .min(1)
+        .describe("要查的问题或关键词，例如错误码"),
+      limit: z.number().int().positive().max(10).nullish(),
+    }),
+    run: async (runtime, { query, limit }) => ({
+      passages: (await runtime.knowledge.search(query, limit ?? 5)).map(
+        (passage) => ({
+          title: passage.title,
+          heading: passage.heading,
+          source: passage.source,
+          url: passage.url,
+          text: passage.text,
+        }),
+      ),
+    }),
+  }),
+  define({
     tool: "search_logs",
     uses: ["logs.search"],
     description: `查询设备日志，返回按级别、操作、错误码、RPC 状态码和 HTTP 状态统计的汇总，以及最多 ${LOG_RECORD_LIMIT} 条精简记录。默认查询最近 24 小时。结果里的 navigate_to_logs 可以直接作为 navigate 的参数，把用户带到对应的日志页。`,

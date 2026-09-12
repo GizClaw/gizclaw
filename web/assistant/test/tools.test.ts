@@ -69,6 +69,7 @@ test("tools are generated one per catalog entry with non-strict schemas", () => 
     "navigate",
     "open_link",
     "query_device_telemetry",
+    "search_knowledge",
     "search_logs",
   ]);
   for (const item of tools.values()) {

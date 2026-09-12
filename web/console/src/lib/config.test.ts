@@ -88,6 +88,74 @@ describe("console configuration", () => {
   });
 });
 
+describe("assistant configuration", () => {
+  const apiKey = `gizclaw_sk_v1_${"k-_9".repeat(10)}abc`;
+  const base = {
+    servers: [{ url: "https://a.example.com", monitorToken: token }],
+  };
+
+  it("is optional and defaults the model alias", () => {
+    expect(parseConfig(JSON.stringify(base)).assistant).toBeUndefined();
+    const config = parseConfig(
+      JSON.stringify({ ...base, assistant: { apiKey } }),
+    );
+    expect(config.assistant).toEqual({
+      apiKey,
+      model: "llm",
+      endpoint: undefined,
+    });
+  });
+
+  it("accepts a model alias and a separate /openai/v1 endpoint", () => {
+    const config = parseConfig(
+      JSON.stringify({
+        ...base,
+        assistant: {
+          apiKey,
+          model: "chat",
+          endpoint: "https://edge.example.com/",
+        },
+      }),
+    );
+    expect(config.assistant).toEqual({
+      apiKey,
+      model: "chat",
+      endpoint: "https://edge.example.com",
+    });
+  });
+
+  it("rejects anything but a device API key", () => {
+    for (const assistant of [
+      { apiKey: token },
+      { apiKey: "gizclaw_sk_v1_short" },
+      { apiKey: `${apiKey}x` },
+      { apiKey: apiKey.slice(0, -1) },
+      { apiKey: `${apiKey.slice(0, -1)}=` },
+      { apiKey, unknown: true },
+      { apiKey, endpoint: "http://edge.example.com" },
+      { apiKey, contextTokens: 7_999 },
+      { apiKey, contextTokens: 12_000.5 },
+    ]) {
+      expect(() =>
+        parseConfig(JSON.stringify({ ...base, assistant })),
+      ).toThrow();
+    }
+  });
+
+  it("round-trips through export", () => {
+    const config = parseConfig(
+      JSON.stringify({
+        ...base,
+        assistant: { apiKey, model: "chat", contextTokens: 128_000 },
+      }),
+    );
+    expect(config.assistant?.contextTokens).toBe(128_000);
+    expect(parseConfig(exportConfig(config, [])).assistant).toEqual(
+      config.assistant,
+    );
+  });
+});
+
 describe("measurement formatting", () => {
   it("derives rates from cumulative counters and resets after a restart", () => {
     expect(

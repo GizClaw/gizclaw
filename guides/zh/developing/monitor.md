@@ -143,3 +143,50 @@ agent 包，设计细节见 `web/assistant/DESIGN.md`。它通过 `@openai/agent
 `tests/gizclaw-e2e/go/openai` 中的 `TestAssistantScenariosWithLiveModel` 用同一场景集和 Docker
 栈上 RuntimeProfile 的 `llm`（Volc Ark `doubao-mini-chat`）运行，只断言工具调用、最终路由和回复
 中的关键事实，每个场景最多尝试三次，以区分小模型的波动和助手做不到的行为。
+
+### 控制台聊天入口
+
+Monitor console 右下角的聊天按钮打开诊断助手面板；面板代码（agent、模型 client 与
+`@assistant-ui/react`）在第一次打开时按需加载，不进入首屏 bundle。
+
+助手使用一台已有设备的 API Key。在 console 配置中加入：
+
+```json
+"assistant": {
+  "apiKey": "gizclaw_sk_v1_...",
+  "model": "llm",
+  "endpoint": "https://edge.example.com",
+  "contextTokens": 32000
+}
+```
+
+`apiKey` 必须是 `gizclaw_sk_v1_` 开头的设备 API Key，助手用它经 `/openai/v1` 调用该设备
+RuntimeProfile 中的模型；`model` 是 RuntimeProfile 的模型别名，默认 `llm`；`endpoint` 可选，
+缺省时与设备 API 相同，为 `deviceEndpoint` 或 console 所在 origin；`contextTokens` 可选，是每轮
+发给模型的上下文预算（8000 到 1000000，默认 32000），包括约 4300 token 的指令与工具声明，应不超过该模型的上下文窗口。这把 Key 同时能读取和
+控制它所属的设备，因此与 Monitor Token 一样随配置加密保存在浏览器、登出时清除，并随配置导出。
+没有 `assistant` 时面板只说明如何配置，不发起任何请求。
+
+每轮对话用该 Key 运行 `@gizclaw/assistant`。console 以现有的 hash 路由、`useFleet`、关注
+列表和 `lib/peers` 实现 `AssistantRuntime`：跳转直接改变 `location.hash`，打开外部链接先经
+`window.confirm`，跳到设备详情或设备日志时把尚未关注的设备加入关注列表；每个页面用
+`usePageView` 发布结构化快照供助手读取，不读取 DOM。控制端错误映射为错误码交给助手，例如
+`DEBUG_ACCESS_FORBIDDEN` 与网络错误 `NETWORK_ERROR`。面板逐轮显示回复与每个工具动作，运行中
+可以停止；不提供编辑与重新生成。日志页的初始查询带 `peer_public_key:` 时，以该设备为数据源。
+
+对话按会话保存：面板显示的消息和助手的上下文一起加密写入浏览器本地 IndexedDB，与配置用同一种
+不可导出的 AES-GCM 密钥，刷新后恢复最近的会话。"新对话"开始一个空会话，发出第一条消息后才保存；
+"历史对话"列出最近 50 个会话，可以切换、单独删除或清空全部，登出时一并清除。`/openai/v1` 的
+Chat Completions 不在服务端保存对话，每轮都由浏览器带上完整上下文。
+
+每轮发送前按 `contextTokens` 估算上下文（中日韩字符按 1 个 token、其它字符按 4 个字符 1 个
+token，估算偏大）。超出时先截短较早轮次中过长的工具结果，再截短最近一轮的；仍超出则保留放得下的
+最近几轮（最多 4 轮），其余对话交给同一模型总结成一条摘要，摘要最多占预算的四分之一，之后的压缩在
+这条摘要上继续累积。压缩后的历史加上新消息不超过预算；面板在发生压缩的那一轮前显示一行提示。
+
+助手的知识库就是本项目的中文 guides（`guides/zh/**/*.md`，不含站点排除的 `reviewing/examples`）。
+console 构建时把它们打包成单独的 chunk，助手第一次调用 `search_knowledge` 时才加载并建立索引；
+检索用 BM25 全文排序，文档按标题切分，中文按相邻两字切分，`DEBUG_ACCESS_FORBIDDEN` 这类标识符
+同时按整体和各段匹配。每条结果带文档标题、章节和它在 https://gizclaw.github.io/gizclaw/ 上的页面
+地址。解释错误码、调试模式、配置项等概念时助手先检索文档，按文档回答并附上链接。知识库随代码一起
+更新，不能在浏览器里导入或修改。

@@ -478,6 +478,32 @@ export const scenarios: Scenario[] = [
     },
   },
   {
+    name: "vague-issue-guidance",
+    description:
+      "用户只说客户设备有问题，助手应先查关注列表，再带用户到设备监控页并说明怎么操作",
+    world: world({
+      route: { page: "overview" },
+      view: { page: "集群总览", online_nodes: 3 },
+    }),
+    turns: ["客户说他的设备用不了，我该怎么排查？"],
+    script: [
+      { call: [{ name: "list_devices", arguments: {} }] },
+      { call: [{ name: "navigate", arguments: { page: "peers" } }] },
+      {
+        reply:
+          '关注列表里有客厅音箱、儿童房故事机、阳台音箱三台设备，还不能确定是哪一台。我已打开设备监控页：如果客户的设备不在"关注的设备"里，在"按 SN / IMEI 搜索"里填客户的 SN 查出公钥，再用"添加设备"加入关注。也可以直接把 SN 或 IMEI 告诉我，我来查它的状态和日志。',
+      },
+    ],
+    expect: {
+      tools: [{ name: "list_devices" }],
+      route: { page: "peers" },
+      replyIncludes: [
+        ["SN", "IMEI"],
+        ["设备监控", "按 SN / IMEI 搜索", "添加设备"],
+      ],
+    },
+  },
+  {
     name: "conversation-review",
     description: "用户说设备回答得奇怪，助手应读对话历史、结合日志找出原因",
     world: world({
@@ -523,6 +549,27 @@ export const scenarios: Scenario[] = [
         },
       ],
       replyIncludes: [["没听清", "听不清", "没有听清"]],
+    },
+  },
+  {
+    name: "error-code-knowledge",
+    description: "用户询问错误码的含义，助手应先查知识库再按知识库回答",
+    world: world({ route: { page: "overview" } }),
+    turns: ["控制设备的时候报 DEVICE_TIMEOUT，这是什么意思？"],
+    script: [
+      {
+        call: [
+          { name: "search_knowledge", arguments: { query: "DEVICE_TIMEOUT" } },
+        ],
+      },
+      {
+        reply:
+          "根据知识库《设备控制错误码》：DEVICE_TIMEOUT 表示普通控制请求在 5 秒内没有得到设备响应，接口返回 504，不会改变已存储的设备状态。可以先确认设备在线、网络稳定后再重试。",
+      },
+    ],
+    expect: {
+      tools: [{ name: "search_knowledge" }],
+      replyIncludes: [["5 秒", "5秒", "五秒"], "504"],
     },
   },
 ];
