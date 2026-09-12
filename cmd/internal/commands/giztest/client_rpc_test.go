@@ -98,3 +98,22 @@ func TestConfigureClientRPCInstallsFindAndSocialPing(t *testing.T) {
 		t.Fatal("an OK error_code was accepted")
 	}
 }
+
+// An unavailable Tool installs no handler, so the SDK answers UNIMPLEMENTED,
+// but it still registers the call counter expect_calls reads.
+func TestConfigureClientRPCUnavailableTool(t *testing.T) {
+	steps := []giztest.Step{{ID: "tool", Client: "peer", ClientRPC: &giztest.ClientRPCOperation{
+		Method: "client.tool.invoke", Response: map[string]any{"name": "giztest_echo", "unavailable": true},
+	}}}
+	counts := map[string]*inboundCounter{}
+	if err := configureClientRPC(&gizcli.Client{}, "peer", steps, mustVariables(t, nil), counts); err != nil {
+		t.Fatal(err)
+	}
+	if counts["peer:client.tool.invoke"] == nil {
+		t.Fatalf("no call counter for an unavailable Tool: %#v", counts)
+	}
+	steps[0].ClientRPC.Response = map[string]any{"name": "giztest_echo", "unavailable": true, "result": map[string]any{"ok": true}}
+	if err := configureClientRPC(&gizcli.Client{}, "peer", steps, mustVariables(t, nil), map[string]*inboundCounter{}); err == nil {
+		t.Fatal("an unavailable Tool with a result was accepted")
+	}
+}

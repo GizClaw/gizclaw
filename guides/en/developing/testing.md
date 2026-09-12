@@ -425,6 +425,9 @@ provider at connect time (`volume.set` echoes the requested `level`/`muted` into
 `response: {error_code: 3}` makes the provider answer a fixed canonical status code; undeclared methods stay
 `METHOD_NOT_FOUND`, which verifies `501 DEVICE_UNSUPPORTED`. A later `http` step triggers the
 Server-to-device RPC and the `client_rpc` step's `expect_calls` asserts the provider was invoked.
+`client.tool.invoke` takes `response: {name, result}` and mounts a Tool handler that returns `result`;
+`response: {name, unavailable: true}` mounts none, so the SDK answers `UNIMPLEMENTED` like a device
+without that Tool while `expect_calls` still counts the call.
 
 A `reconnect` step drops that client's Peer connection and dials a replacement
 on the same identity, reproducing how a device reaches the Server again after a

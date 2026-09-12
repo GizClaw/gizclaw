@@ -378,6 +378,9 @@ runner 在连接时把脚本给定的 `response` 安装为该 client 的设备 p
 `level`/`muted` 回填进响应），`response: {error_code: 3}` 让 provider 返回固定的 canonical status code；
 未声明的方法保持 `METHOD_NOT_FOUND`，用于验证 `501 DEVICE_UNSUPPORTED`。随后的 `http` step 触发
 Server→设备 RPC，`client_rpc` step 的 `expect_calls` 断言 provider 被调用。
+`client.tool.invoke` 使用 `response: {name, result}` 挂载返回 `result` 的 Tool handler；
+`response: {name, unavailable: true}` 不挂载 handler，SDK 像不提供该 Tool 的设备一样答
+`UNIMPLEMENTED`，`expect_calls` 仍然计数该调用。
 
 `reconnect` step 断开该 client 的 Peer 连接，并用同一身份拨一条新的，用来复现设备重启或
 换网后重新接入 Server 的时序——Server 正是以「同一 owner 出现替换连接」判定这类过渡结束，

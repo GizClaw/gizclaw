@@ -68,6 +68,16 @@ steps:
   expect:
     /text_eos:
       equals: true
+# The call reached the device even though it provides no handler.
+- id: unavailable_client_rpc
+  client: peer
+  timeout: 30s
+  client_rpc:
+    method: client.tool.invoke
+    response:
+      name: giztest_echo
+      unavailable: true
+    expect_calls: 1
 finally:
 - id: cleanup_run
   client: peer
