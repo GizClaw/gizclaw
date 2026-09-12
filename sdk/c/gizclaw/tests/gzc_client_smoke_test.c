@@ -5020,8 +5020,12 @@ int main(void) {
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_CONNECT,
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_FIND,
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_SOCIAL_PING,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_GET,
     };
-    static const int control_method_ids[] = {100, 101, 102, 103, 104, 105, 106, 108, 109, 126, 127};
+    static const int control_method_ids[] = {100, 101, 102, 103, 104, 105, 106, 108, 109, 126, 127, 128, 129, 130, 131};
     for (size_t i = 0; i < sizeof(control_methods) / sizeof(control_methods[0]); i++) {
       if (expect((int)control_methods[i] == control_method_ids[i],
                  "device control method id matches rpc.proto") != 0) {
