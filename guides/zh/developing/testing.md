@@ -385,7 +385,8 @@ Server→设备 RPC，`client_rpc` step 的 `expect_calls` 断言 provider 被�
 `reconnect` step 断开该 client 的 Peer 连接，并用同一身份拨一条新的，用来复现设备重启或
 换网后重新接入 Server 的时序——Server 正是以「同一 owner 出现替换连接」判定这类过渡结束，
 在此之前控制 route 一直答 `409 DEVICE_OFFLINE`。可选的 `await_ms` 限制重拨等待时间，
-上界 60000。脚本给定的 provider 会重新安装到新连接上，且沿用原有的调用计数，
+上界 60000。该 step 在新连接上完成一次 RPC 往返后才结束，因为经 Edge 接入时拨号返回早于
+Edge 的 tunnel session 到达 Server。脚本给定的 provider 会重新安装到新连接上，且沿用原有的调用计数，
 因此 `expect_calls` 断言的是两条连接上的总次数。一个场景为每个方法只安装一份
 `response`，所以断开前后设备上报的值相同；`reconnect` 之后要断言的是控制 route 从
 `409` 恢复为可应答，而不是同一方法返回了不同的值。
