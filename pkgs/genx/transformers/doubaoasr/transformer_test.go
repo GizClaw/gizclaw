@@ -5,10 +5,13 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"iter"
 	"slices"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -174,6 +177,30 @@ func (s *fakeDoubaoASRSession) Close() error {
 		return s.close()
 	}
 	return nil
+}
+
+// fakeDoubaoASROpener hands scripted provider sessions to the transformer
+// goroutine. Unexpected opens fail the transform instead of calling t.Fatalf
+// off the test goroutine.
+type fakeDoubaoASROpener struct {
+	sessions []*fakeDoubaoASRSession
+	opens    atomic.Int32
+}
+
+func newFakeDoubaoASROpener(sessions ...*fakeDoubaoASRSession) *fakeDoubaoASROpener {
+	return &fakeDoubaoASROpener{sessions: sessions}
+}
+
+func (o *fakeDoubaoASROpener) open(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
+	n := int(o.opens.Add(1))
+	if n > len(o.sessions) {
+		return nil, fmt.Errorf("opened unexpected provider session %d", n)
+	}
+	return o.sessions[n-1], nil
+}
+
+func (o *fakeDoubaoASROpener) openCount() int {
+	return int(o.opens.Load())
 }
 
 func TestTransformerBoundsSilentProviderFinalization(t *testing.T) {
@@ -389,16 +416,8 @@ func TestTransformerEmitInterimFinalizesEachExplicitAudioRoute(t *testing.T) {
 		EmitInterim:    true,
 		RealtimePacing: new(false),
 	})
-	sessions := []*fakeDoubaoASRSession{first, second}
-	openCalls := 0
-	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
-		if openCalls >= len(sessions) {
-			t.Fatalf("opened unexpected provider session %d", openCalls+1)
-		}
-		session := sessions[openCalls]
-		openCalls++
-		return session, nil
-	}
+	opener := newFakeDoubaoASROpener(first, second)
+	transformer.newSession = opener.open
 
 	input := newBufferStream(8)
 	output, err := transformer.Transform(context.Background(), input)
@@ -432,10 +451,10 @@ func TestTransformerEmitInterimFinalizesEachExplicitAudioRoute(t *testing.T) {
 	}
 	_ = collectTransformerChunks(t, output)
 
-	if openCalls != 2 {
-		t.Fatalf("provider session opens = %d, want 2", openCalls)
+	if opens := opener.openCount(); opens != 2 {
+		t.Fatalf("provider session opens = %d, want 2", opens)
 	}
-	for i, session := range sessions {
+	for i, session := range opener.sessions {
 		wantAudioSends := i + 1
 		if len(session.sends) != wantAudioSends+1 {
 			t.Fatalf("session %d SendAudio calls = %#v, want %d audio frames and one terminal marker", i, session.sends, wantAudioSends)
@@ -470,13 +489,8 @@ func TestTransformerEmitInterimInterruptsActiveRouteBeforeReplacement(t *testing
 	configure(first, "first interim", "first final")
 	configure(second, "second interim", "second final")
 	transformer := newTransformer(Config{Format: "pcm", EmitInterim: true, RealtimePacing: new(false)})
-	sessions := []*fakeDoubaoASRSession{first, second}
-	openCalls := 0
-	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
-		session := sessions[openCalls]
-		openCalls++
-		return session, nil
-	}
+	opener := newFakeDoubaoASROpener(first, second)
+	transformer.newSession = opener.open
 
 	input := newBufferStream(8)
 	output, err := transformer.Transform(context.Background(), input)
@@ -512,8 +526,8 @@ func TestTransformerEmitInterimInterruptsActiveRouteBeforeReplacement(t *testing
 		t.Fatalf("close input: %v", err)
 	}
 	chunks := collectTransformerChunks(t, output)
-	if openCalls != 2 {
-		t.Fatalf("provider session opens = %d, want 2", openCalls)
+	if opens := opener.openCount(); opens != 2 {
+		t.Fatalf("provider session opens = %d, want 2", opens)
 	}
 	foundSecondEOS := false
 	for _, chunk := range chunks {
@@ -553,16 +567,8 @@ func TestTransformerEmitInterimRoutesTranscriptsAcrossLocalStreams(t *testing.T)
 		EmitInterim:    true,
 		RealtimePacing: new(false),
 	})
-	sessions := []*fakeDoubaoASRSession{first, second}
-	openCalls := 0
-	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
-		if openCalls >= len(sessions) {
-			t.Fatalf("opened unexpected provider session %d", openCalls+1)
-		}
-		session := sessions[openCalls]
-		openCalls++
-		return session, nil
-	}
+	opener := newFakeDoubaoASROpener(first, second)
+	transformer.newSession = opener.open
 
 	input := newBufferStream(8)
 	output, err := transformer.Transform(context.Background(), input)
@@ -634,10 +640,10 @@ func TestTransformerEmitInterimRoutesTranscriptsAcrossLocalStreams(t *testing.T)
 	}
 	_ = collectTransformerChunks(t, output)
 
-	if openCalls != 2 {
-		t.Fatalf("provider session opens = %d, want 2", openCalls)
+	if opens := opener.openCount(); opens != 2 {
+		t.Fatalf("provider session opens = %d, want 2", opens)
 	}
-	for i, session := range sessions {
+	for i, session := range opener.sessions {
 		if len(session.sends) != 2 || session.sends[0].isLast || !session.sends[1].isLast || len(session.sends[1].data) != 0 {
 			t.Fatalf("provider session %d sends = %#v, want audio followed by an empty terminal marker", i, session.sends)
 		}
@@ -648,17 +654,26 @@ func TestTransformerEmitInterimReopensCompletedProviderSession(t *testing.T) {
 	first := newFakeDoubaoASRSession()
 	first.recvDone = make(chan struct{})
 	first.recvErr = &doubaospeech.Error{Code: doubaoASRPacketWaitTimeout, Message: "waiting next packet timeout"}
-	firstResultSent := false
+	// Hold the transform loop inside the first send until the test has read
+	// the segment-a transcript EOS, so the receiver has fully processed the
+	// result before the continuation is read. The provider session completes
+	// only after the continuation reaches it; completing it on the first frame
+	// would let the transformer reap it and open a replacement for segment-a.
+	firstTranscriptRead := make(chan struct{})
+	releaseFirstSend := sync.OnceFunc(func() { close(firstTranscriptRead) })
+	t.Cleanup(releaseFirstSend)
 	first.sendAudio = func(_ context.Context, data []byte, isLast bool) error {
 		first.sends = append(first.sends, fakeDoubaoASRSend{data: slices.Clone(data), isLast: isLast})
-		if len(data) > 0 && !firstResultSent {
-			firstResultSent = true
+		switch len(first.sends) {
+		case 1:
 			first.result <- &doubaospeech.ASRV2Result{
 				Text: "first segment",
 				Utterances: []doubaospeech.ASRV2Utterance{
 					{Text: "first segment", StartTime: 0, EndTime: 100, Definite: true},
 				},
 			}
+			<-firstTranscriptRead
+		case 2:
 			close(first.result)
 		}
 		return nil
@@ -669,20 +684,8 @@ func TestTransformerEmitInterimReopensCompletedProviderSession(t *testing.T) {
 		EmitInterim:    true,
 		RealtimePacing: new(false),
 	})
-	var sessions []*fakeDoubaoASRSession
-	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
-		var session *fakeDoubaoASRSession
-		switch len(sessions) {
-		case 0:
-			session = first
-		case 1:
-			session = second
-		default:
-			t.Fatalf("opened unexpected provider session %d", len(sessions)+1)
-		}
-		sessions = append(sessions, session)
-		return session, nil
-	}
+	opener := newFakeDoubaoASROpener(first, second)
+	transformer.newSession = opener.open
 
 	input := newBufferStream(8)
 	output, err := transformer.Transform(context.Background(), input)
@@ -707,7 +710,12 @@ func TestTransformerEmitInterimReopensCompletedProviderSession(t *testing.T) {
 			break
 		}
 	}
-	<-first.recvDone
+	releaseFirstSend()
+	select {
+	case <-first.recvDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("first provider session did not complete after both segment-a frames")
+	}
 
 	if err := input.Push(&genx.MessageChunk{
 		Part: &genx.Blob{MIMEType: "audio/pcm", Data: bytes.Repeat([]byte{2, 0}, 1600)},
@@ -720,8 +728,8 @@ func TestTransformerEmitInterimReopensCompletedProviderSession(t *testing.T) {
 	}
 	_ = collectTransformerChunks(t, output)
 
-	if len(sessions) != 2 {
-		t.Fatalf("provider session opens = %d, want 2", len(sessions))
+	if opens := opener.openCount(); opens != 2 {
+		t.Fatalf("provider session opens = %d, want 2", opens)
 	}
 	if len(first.sends) != 2 || first.sends[0].isLast || first.sends[1].isLast {
 		t.Fatalf("first provider sends = %#v, want two non-terminal audio frames", first.sends)
