@@ -83,6 +83,18 @@ Servers share logical identity, never in-process objects:
 
 Any Server that may host a member's connection activates the same Workspace using only the shared Social KV and its local `sfu` driver; no call back to an owner Server is needed. On-demand creation of the local Workspace record is described in [Multi-Server materialization](#multi-server-materialization).
 
+## Friend list presence and profile
+
+Every `FriendObject` in `server.friend.list` carries the Friend's presence and profile next to the relationship fields, so a device can show an online marker and a name without calling `server.friend.info.get` per Friend. `friend.ListFriends` fills these fields, and they are visible only through the caller's own Friend list; the `FriendObject` returned by `server.friend.add` and `server.friend.delete` leaves them out.
+
+| Field | Source | When absent |
+| --- | --- | --- |
+| `online` | `Manager.PeerPresence`, the same connection state `PeerOnline` and `Runtime.online` read | Always present on a listed Friend |
+| `last_seen_at` | The same, in the `Runtime.last_seen_at` format: it advances with connection activity while online, and is the last activity recorded when the connection went down while offline | The Server has never observed the Friend |
+| `display_name`, `emoji` | The profile the Friend set through `server.info.put`, as `server.friend.info.get` returns it | The Friend has not set it |
+
+Presence is Server-local, like pings: a Friend connected to a different Server is listed as not online, and `last_seen_at` reads the shared Peer Run record. A profile or presence read that fails only leaves that field out; it never fails the page.
+
 ## Ping and rally
 
 `server.friend.ping` rings one Friend's device; `server.friend_group.ping` rallies a Friend Group by ringing every other member's device. Any member may rally. `friend.PingFriend` and `friendgroup.PingFriendGroup` own the rules; `peerresource` only decodes the request and maps errors.
@@ -95,7 +107,7 @@ Any Server that may host a member's connection activates the same Workspace usin
 
 The window is fixed at one minute (`socialutil.PingWindow`), not configurable, and lives in the shared Social KV with a store deadline: `friend-ping-windows/<relationID>` in the Friend store, shared by both directions of a pair, and `friend-group-ping-windows/<groupID>` in the Friend Group store, shared by all members. The backend (Redis TTL in production) deletes it when it closes, so no cleanup loop runs, and every Server enforces the same window.
 
-Online state and delivery are Server-local, like every other Server→device RPC. A target whose connection lives on a different Server is reported as not online, and pings are never queued for later delivery. The Server pushes only pings the caller may send, so devices do not recheck the relationship. Friend online status, profiles inside `server.friend.list`, and cross-Server delivery are not provided.
+Online state and delivery are Server-local, like every other Server→device RPC. A target whose connection lives on a different Server is reported as not online, and pings are never queued for later delivery. The Server pushes only pings the caller may send, so devices do not recheck the relationship. Cross-Server delivery is not provided.
 
 `server.profile.get` returns the public profile of 1–16 Peers by public key without any relationship check: only the `display_name` and `emoji` a Peer set through `server.info.put` (`peer.Server.GetPublicProfile`). A missing, deleted, or pending-deletion Peer comes back with only its key.
 

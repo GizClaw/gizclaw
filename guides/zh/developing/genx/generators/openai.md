@@ -4,7 +4,7 @@ OpenAI Adapter 由根包的 `OpenAIGenerator` 实现，把 OpenAI-compatible Cha
 
 ## 转换边界
 
-- 将 `ModelContext` 的 prompts、messages、tools 和 model parameters 转为 OpenAI request。
+- 将 `ModelContext` 的 prompts、messages、tools 和 model parameters 转为 OpenAI request。紧随 model text 的多个 tool call 合并为同一条携带全部调用的 assistant message；tool 声明的 `Parameters` 与 `Strict` 原样发送。
 - 将 streaming text、binary content、tool call 和 finish reason 转为 `MessageChunk` 与 `State`。
 - `Invoke` 优先使用 JSON Schema structured output，也可使用 function tool call。
 - 将 token usage 转为统一的 `genx.Usage`。

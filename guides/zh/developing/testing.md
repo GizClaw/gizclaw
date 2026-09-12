@@ -378,11 +378,15 @@ runner 在连接时把脚本给定的 `response` 安装为该 client 的设备 p
 `level`/`muted` 回填进响应），`response: {error_code: 3}` 让 provider 返回固定的 canonical status code；
 未声明的方法保持 `METHOD_NOT_FOUND`，用于验证 `501 DEVICE_UNSUPPORTED`。随后的 `http` step 触发
 Server→设备 RPC，`client_rpc` step 的 `expect_calls` 断言 provider 被调用。
+`client.tool.invoke` 使用 `response: {name, result}` 挂载返回 `result` 的 Tool handler；
+`response: {name, unavailable: true}` 不挂载 handler，SDK 像不提供该 Tool 的设备一样答
+`UNIMPLEMENTED`，`expect_calls` 仍然计数该调用。
 
 `reconnect` step 断开该 client 的 Peer 连接，并用同一身份拨一条新的，用来复现设备重启或
 换网后重新接入 Server 的时序——Server 正是以「同一 owner 出现替换连接」判定这类过渡结束，
 在此之前控制 route 一直答 `409 DEVICE_OFFLINE`。可选的 `await_ms` 限制重拨等待时间，
-上界 60000。脚本给定的 provider 会重新安装到新连接上，且沿用原有的调用计数，
+上界 60000。该 step 在新连接上完成一次 RPC 往返后才结束，因为经 Edge 接入时拨号返回早于
+Edge 的 tunnel session 到达 Server。脚本给定的 provider 会重新安装到新连接上，且沿用原有的调用计数，
 因此 `expect_calls` 断言的是两条连接上的总次数。一个场景为每个方法只安装一份
 `response`，所以断开前后设备上报的值相同；`reconnect` 之后要断言的是控制 route 从
 `409` 恢复为可应答，而不是同一方法返回了不同的值。
@@ -658,6 +662,8 @@ steps:
 标准 GizClaw Docker runner 包含必须执行的 `go:openai` phase，目录为 `tests/gizclaw-e2e/go/openai`。它使用 pinned 官方 OpenAI Go SDK 通过 authenticated `ServicePeerOpenAI` 创建隔离的 Peer-owned Conversation Workspace，完成三轮文本、组合 transcription 到 Response 再到 speech，并验证 background cancel、stream client abort 与同 Conversation 恢复；所有 mutation 前先注册 Workspace cleanup。
 
 成功运行会在 ignored `tests/gizclaw-e2e/testdata/openai-compatibility/` 下写入脱敏 monotonic timing evidence。Artifact 只含 schema/version、target/case、受限 media size、数字 phase timing 与 status，不能包含 credential、ID、prompt、transcript、generated text、media、URL 或 provider error。仅做 tagged compile 只是诊断，不能代替 `bash tests/gizclaw-e2e/run_tests.sh`。
+
+同一 phase 的 `TestAssistantScenariosWithLiveModel` 复用该 harness 的 API Key 与 `/openai/v1`，用 `node --experimental-strip-types` 运行 `web/assistant/scripts/run-live-scenarios.ts`：Monitor 诊断助手的场景集在 `FakeRuntime` 上执行工具，每次模型调用都经 RuntimeProfile 的 `llm`（`doubao-mini-chat`）。每个场景最多尝试三次，只断言工具调用、最终路由和回复中的关键事实；任一场景三次都失败则该 phase 失败。成功时只输出场景名、尝试次数和失败的检查项，包含生成回复与工具结果的 JSON 报告只在失败时输出。该测试依赖根目录 `npm ci` 安装的 `web/assistant` 依赖，由 `run_tests.sh` 的 `preflight:npm-ci` 提供。
 
 ### Workflow 10 路和 20 路并发与打断
 

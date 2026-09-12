@@ -949,6 +949,23 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "online": {
+            "type": "boolean",
+            "description": "Whether the Friend's device is connected to the answering Server, the same state as Runtime.online. Set only by server.friend.list."
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last observed activity of the Friend's device, as Runtime.last_seen_at reports it. Set only by server.friend.list and absent when the Server has never observed the Friend."
+          },
+          "display_name": {
+            "type": "string",
+            "description": "The Friend's self-chosen display name. Set only by server.friend.list and absent when the Friend has not set one."
+          },
+          "emoji": {
+            "type": "string",
+            "description": "The Friend's self-chosen emoji. Set only by server.friend.list and absent when the Friend has not set one."
           }
         }
       },

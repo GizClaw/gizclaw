@@ -1506,12 +1506,36 @@ const FriendObject$json = {
       '10': 'workspaceName',
       '17': true
     },
+    {'1': 'online', '3': 6, '4': 1, '5': 8, '9': 4, '10': 'online', '17': true},
+    {
+      '1': 'last_seen_at',
+      '3': 7,
+      '4': 1,
+      '5': 9,
+      '9': 5,
+      '10': 'lastSeenAt',
+      '17': true
+    },
+    {
+      '1': 'display_name',
+      '3': 8,
+      '4': 1,
+      '5': 9,
+      '9': 6,
+      '10': 'displayName',
+      '17': true
+    },
+    {'1': 'emoji', '3': 9, '4': 1, '5': 9, '9': 7, '10': 'emoji', '17': true},
   ],
   '8': [
     {'1': '_created_at'},
     {'1': '_peer_public_key'},
     {'1': '_updated_at'},
     {'1': '_workspace_name'},
+    {'1': '_online'},
+    {'1': '_last_seen_at'},
+    {'1': '_display_name'},
+    {'1': '_emoji'},
   ],
 };
 
@@ -1520,5 +1544,9 @@ final $typed_data.Uint8List friendObjectDescriptor = $convert.base64Decode(
     'CgxGcmllbmRPYmplY3QSIgoKY3JlYXRlZF9hdBgBIAEoCUgAUgljcmVhdGVkQXSIAQESEgoEbm'
     'FtZRgCIAEoCVIEbmFtZRIrCg9wZWVyX3B1YmxpY19rZXkYAyABKAlIAVINcGVlclB1YmxpY0tl'
     'eYgBARIiCgp1cGRhdGVkX2F0GAQgASgJSAJSCXVwZGF0ZWRBdIgBARIqCg53b3Jrc3BhY2Vfbm'
-    'FtZRgFIAEoCUgDUg13b3Jrc3BhY2VOYW1liAEBQg0KC19jcmVhdGVkX2F0QhIKEF9wZWVyX3B1'
-    'YmxpY19rZXlCDQoLX3VwZGF0ZWRfYXRCEQoPX3dvcmtzcGFjZV9uYW1l');
+    'FtZRgFIAEoCUgDUg13b3Jrc3BhY2VOYW1liAEBEhsKBm9ubGluZRgGIAEoCEgEUgZvbmxpbmWI'
+    'AQESJQoMbGFzdF9zZWVuX2F0GAcgASgJSAVSCmxhc3RTZWVuQXSIAQESJgoMZGlzcGxheV9uYW'
+    '1lGAggASgJSAZSC2Rpc3BsYXlOYW1liAEBEhkKBWVtb2ppGAkgASgJSAdSBWVtb2ppiAEBQg0K'
+    'C19jcmVhdGVkX2F0QhIKEF9wZWVyX3B1YmxpY19rZXlCDQoLX3VwZGF0ZWRfYXRCEQoPX3dvcm'
+    'tzcGFjZV9uYW1lQgkKB19vbmxpbmVCDwoNX2xhc3Rfc2Vlbl9hdEIPCg1fZGlzcGxheV9uYW1l'
+    'QggKBl9lbW9qaQ==');

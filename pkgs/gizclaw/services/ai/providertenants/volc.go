@@ -316,20 +316,31 @@ type volcSpeechSDKClient struct {
 	universal *universal.Universal
 }
 
+// volcListSpeakersInput is the ListSpeakers request body. The SDK's
+// speechsaasprod.ListSpeakersInput types Limit as a string, which Volcengine
+// rejects with InvalidParameter; Limit must be a JSON integer.
+type volcListSpeakersInput struct {
+	Page        int32    `json:"Page,omitempty"`
+	Limit       int32    `json:"Limit,omitempty"`
+	ResourceIDs []string `json:"ResourceIDs,omitempty"`
+}
+
 func (c volcSpeechSDKClient) ListSpeakersWithContext(ctx context.Context, resourceIDs []string, pageNumber, pageSize int32) (*volcSpeakersPage, error) {
-	input := &speechsaasprod.ListSpeakersInput{}
-	if pageNumber > 0 {
-		input.Page = &pageNumber
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
-	if pageSize > 0 {
-		limit := fmt.Sprint(pageSize)
-		input.Limit = &limit
-	}
+	input := &volcListSpeakersInput{Page: max(pageNumber, 0), Limit: max(pageSize, 0)}
 	if len(resourceIDs) > 0 {
-		input.ResourceIDs = volcResourceIDStringPtrs(resourceIDs)
+		input.ResourceIDs = volcResourceIDStrings(resourceIDs)
 	}
-	out, err := c.speech.ListSpeakersWithContext(ctx, input)
-	if err != nil {
+	var out speechsaasprod.ListSpeakersOutput
+	if err := c.universal.DoCallWithType(universal.RequestUniversal{
+		ServiceName: "speech_saas_prod",
+		Action:      "ListSpeakers",
+		Version:     "2025-05-20",
+		HttpMethod:  universal.POST,
+		ContentType: universal.ApplicationJSON,
+	}, input, &out); err != nil {
 		return nil, err
 	}
 	page := &volcSpeakersPage{PageNumber: pageNumber, PageSize: pageSize}
@@ -779,15 +790,6 @@ func volcResourceIDStrings(resourceIDs []string) []string {
 	out := make([]string, 0, len(normalized))
 	for _, resourceID := range normalized {
 		out = append(out, string(resourceID))
-	}
-	return out
-}
-
-func volcResourceIDStringPtrs(resourceIDs []string) []*string {
-	strings := volcResourceIDStrings(resourceIDs)
-	out := make([]*string, 0, len(strings))
-	for _, value := range strings {
-		out = append(out, &value)
 	}
 	return out
 }

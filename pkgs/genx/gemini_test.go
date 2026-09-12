@@ -1,6 +1,7 @@
 package genx
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -160,6 +161,21 @@ func TestGeminiConvModelContextAndSchema(t *testing.T) {
 	badTools.AddTool(&SearchWebTool{})
 	if _, _, err := g.convModelContext(badTools.Build()); err == nil || !strings.Contains(err.Error(), "unexpected tool type") {
 		t.Fatalf("expected unexpected tool type error, got: %v", err)
+	}
+
+	var declared ModelContextBuilder
+	declared.UserText("u", "x")
+	declared.AddTool(&FuncTool{Name: "lookup", Parameters: json.RawMessage(`{"type":"object","properties":{"node":{"type":"string"}}}`)})
+	cfg, _, err = g.convModelContext(declared.Build())
+	if err != nil {
+		t.Fatalf("convModelContext(declared parameters) error = %v", err)
+	}
+	if parameters := cfg.Tools[0].FunctionDeclarations[0].Parameters; parameters == nil || parameters.Properties["node"] == nil {
+		t.Fatalf("declared parameters = %#v", parameters)
+	}
+	declared.Tools = []Tool{&FuncTool{Name: "lookup", Strict: true}}
+	if _, _, err := g.convModelContext(declared.Build()); err == nil || !strings.Contains(err.Error(), "strict tool") {
+		t.Fatalf("expected strict tool error, got: %v", err)
 	}
 
 	var badMsg ModelContextBuilder

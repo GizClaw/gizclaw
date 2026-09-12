@@ -243,13 +243,11 @@ func (g *OpenAIGenerator) chatCompletion(mctx ModelContext, mp *ModelParams) (op
 		for tool := range mctx.Tools() {
 			switch tool := tool.(type) {
 			case *FuncTool:
-				params.Tools = append(params.Tools, openai.ChatCompletionToolParam{
-					Function: openai.FunctionDefinitionParam{
-						Name:        tool.Name,
-						Description: param.NewOpt(tool.Description),
-						Parameters:  g.convSchemaForFunc(tool.Argument),
-					},
-				})
+				function, err := g.convFuncTool(tool)
+				if err != nil {
+					return openai.ChatCompletionNewParams{}, err
+				}
+				params.Tools = append(params.Tools, openai.ChatCompletionToolParam{Function: function})
 			default:
 				return openai.ChatCompletionNewParams{}, fmt.Errorf("unexpected tool type: %T", tool)
 			}
@@ -411,6 +409,18 @@ func (g *OpenAIGenerator) convModelContext(mctx ModelContext) ([]openai.ChatComp
 		out = append(out, g.convPrompt(p)...)
 	}
 	for msg := range mctx.Messages() {
+		if call, ok := msg.Payload.(*ToolCall); ok && len(out) > 0 {
+			// Chat Completions carries the text and every parallel call of one
+			// model turn in a single assistant message.
+			if last := out[len(out)-1].OfAssistant; last != nil && last.Name.Value == msg.Name {
+				toolCall, err := oaiToolCall(call)
+				if err != nil {
+					return nil, err
+				}
+				last.ToolCalls = append(last.ToolCalls, toolCall)
+				continue
+			}
+		}
 		param, err := g.convMessage(msg)
 		if err != nil {
 			return nil, err
@@ -418,6 +428,19 @@ func (g *OpenAIGenerator) convModelContext(mctx ModelContext) ([]openai.ChatComp
 		out = append(out, param)
 	}
 	return out, nil
+}
+
+func oaiToolCall(call *ToolCall) (openai.ChatCompletionMessageToolCallParam, error) {
+	if call.FuncCall == nil {
+		return openai.ChatCompletionMessageToolCallParam{}, fmt.Errorf("tool call %q has no function call", call.ID)
+	}
+	return openai.ChatCompletionMessageToolCallParam{
+		ID: call.ID,
+		Function: openai.ChatCompletionMessageToolCallFunctionParam{
+			Name:      call.FuncCall.Name,
+			Arguments: call.FuncCall.Arguments,
+		},
+	}, nil
 }
 
 func (g *OpenAIGenerator) convPrompt(p *Prompt) []openai.ChatCompletionMessageParamUnion {
@@ -479,17 +502,13 @@ func (g *OpenAIGenerator) convMessage(msg *Message) (openai.ChatCompletionMessag
 			return g.convModelMessage(msg)
 		}
 	case *ToolCall:
+		toolCall, err := oaiToolCall(t)
+		if err != nil {
+			return openai.ChatCompletionMessageParamUnion{}, err
+		}
 		mp := openai.ChatCompletionMessageParamUnion{
 			OfAssistant: &openai.ChatCompletionAssistantMessageParam{
-				ToolCalls: []openai.ChatCompletionMessageToolCallParam{
-					{
-						ID: t.ID,
-						Function: openai.ChatCompletionMessageToolCallFunctionParam{
-							Name:      t.FuncCall.Name,
-							Arguments: t.FuncCall.Arguments,
-						},
-					},
-				},
+				ToolCalls: []openai.ChatCompletionMessageToolCallParam{toolCall},
 			},
 		}
 		if msg.Name != "" {
@@ -604,6 +623,24 @@ func (g *OpenAIGenerator) convSchemaForOutput(s *jsonschema.Schema) any {
 		return nil
 	}
 	return (any)(g.patchSchema(s))
+}
+
+func (g *OpenAIGenerator) convFuncTool(tool *FuncTool) (openai.FunctionDefinitionParam, error) {
+	function := openai.FunctionDefinitionParam{
+		Name:        tool.Name,
+		Description: param.NewOpt(tool.Description),
+	}
+	if len(tool.Parameters) > 0 {
+		if err := json.Unmarshal(tool.Parameters, &function.Parameters); err != nil {
+			return openai.FunctionDefinitionParam{}, fmt.Errorf("decode tool %q parameters: %w", tool.Name, err)
+		}
+	} else {
+		function.Parameters = g.convSchemaForFunc(tool.Argument)
+	}
+	if tool.Strict {
+		function.Strict = param.NewOpt(true)
+	}
+	return function, nil
 }
 
 func (g *OpenAIGenerator) convSchemaForFunc(s *jsonschema.Schema) openai.FunctionParameters {

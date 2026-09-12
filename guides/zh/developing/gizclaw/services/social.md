@@ -79,6 +79,18 @@ Friend、Friend Group 与 Peer Store 通过共享 KV backend（multi-server 部�
 
 每台可能承载成员连接的 Server 都能只依赖共享 Social KV 和本地 `sfu` driver 激活同一个 Workspace，不需要回调某个 owner Server。本地 Workspace record 的按需 materialize 见[多 Server materialize](#多-server-materialize)。
 
+## 好友列表的在线状态与资料
+
+`server.friend.list` 的每个 `FriendObject` 在关系字段之外还携带好友的在线状态与资料，设备据此显示在线标记和名字，不必对每个好友再调用 `server.friend.info.get`。这些字段由 `friend.ListFriends` 填写，只通过调用方自己的好友列表可见；`server.friend.add`、`server.friend.delete` 返回的 `FriendObject` 不携带它们。
+
+| 字段 | 来源 | 缺省 |
+| --- | --- | --- |
+| `online` | `Manager.PeerPresence`，与 `PeerOnline`、`Runtime.online` 读取同一份连接状态 | 总是出现在列表项中 |
+| `last_seen_at` | 同上，格式与 `Runtime.last_seen_at` 相同：在线时随连接活动前进，离线时是连接断开时记录的最后活动 | Server 从未观察到该好友时省略 |
+| `display_name`、`emoji` | 好友通过 `server.info.put` 设置的资料，与 `server.friend.info.get` 相同 | 未设置时省略 |
+
+在线状态与好友呼叫一样是 Server 本地的：连接在另一台 Server 上的好友显示为不在线，`last_seen_at` 读取共享的 Peer Run 记录。资料或在线状态读取失败只会让对应字段缺省，不会让整页列表失败。
+
 ## 好友呼叫与群集结
 
 `server.friend.ping` 呼叫一个好友的设备；`server.friend_group.ping` 集结一个 Friend Group，呼叫除自己外所有成员的设备，任何成员都可以集结。规则由 `friend.PingFriend` 与 `friendgroup.PingFriendGroup` 拥有，`peerresource` 只负责解码请求和映射错误。
@@ -91,7 +103,7 @@ Friend、Friend Group 与 Peer Store 通过共享 KV backend（multi-server 部�
 
 窗口固定为一分钟（`socialutil.PingWindow`），不可配置，以 store deadline 保存在共享 Social KV：好友窗口是 Friend store 中的 `friend-ping-windows/<relationID>`，一对好友双向共享；群窗口是 Friend Group store 中的 `friend-group-ping-windows/<groupID>`，全体成员共享。窗口结束后由 KV backend（生产部署为 Redis TTL）删除，不运行清理循环，所有 Server 执行同一个窗口。
 
-在线状态与推送和其他 Server→设备 RPC 一样是 Server 本地的：连接在另一台 Server 上的目标被视为不在线，提醒也不会排队补发。Server 只推送调用方有权发出的提醒，设备无需再校验关系。当前不提供好友在线状态查询、在 `server.friend.list` 中内嵌资料，以及跨 Server 推送。
+在线状态与推送和其他 Server→设备 RPC 一样是 Server 本地的：连接在另一台 Server 上的目标被视为不在线，提醒也不会排队补发。Server 只推送调用方有权发出的提醒，设备无需再校验关系。当前不提供跨 Server 推送。
 
 `server.profile.get` 按 public key 批量（1–16 个）返回 Peer 的公开资料，不做任何关系校验：只包含该 Peer 通过 `server.info.put` 设置的 `display_name` 与 `emoji`（`peer.Server.GetPublicProfile`）。不存在、已删除或 pending deletion 的 Peer 只返回 key。
 

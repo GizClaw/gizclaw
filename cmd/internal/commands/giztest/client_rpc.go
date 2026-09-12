@@ -70,6 +70,15 @@ func configureClientRPC(client *gizcli.Client, clientName string, steps []giztes
 			if !ok || strings.TrimSpace(name) == "" {
 				return fmt.Errorf("step %s tool response requires name", step.ID)
 			}
+			// unavailable scripts a device that does not provide the Tool: no
+			// handler is installed, so the SDK answers UNIMPLEMENTED while the
+			// call is still counted for expect_calls.
+			if unavailable, _ := object["unavailable"].(bool); unavailable {
+				if _, hasResult := object["result"]; hasResult {
+					return fmt.Errorf("step %s unavailable tool response cannot set result", step.ID)
+				}
+				continue
+			}
 			payload, err := json.Marshal(object["result"])
 			if err != nil {
 				return err

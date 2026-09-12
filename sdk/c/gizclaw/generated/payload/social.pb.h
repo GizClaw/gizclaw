@@ -355,6 +355,18 @@ typedef struct _gizclaw_rpc_v1_FriendObject {
     pb_callback_t peer_public_key;
     pb_callback_t updated_at;
     pb_callback_t workspace_name;
+    /* Friend presence and profile, set only by server.friend.list. online is
+ whether the Friend's device is connected to the answering Server, the
+ same state as Runtime.online. */
+    bool has_online;
+    bool online;
+    /* Last observed activity of the Friend's device in the Runtime.last_seen_at
+ format. Absent when the Server has never observed the Friend. */
+    pb_callback_t last_seen_at;
+    /* The Friend's self-chosen display name and emoji from its profile. Absent
+ when the Friend has not set them. */
+    pb_callback_t display_name;
+    pb_callback_t emoji;
 } gizclaw_rpc_v1_FriendObject;
 
 typedef struct _gizclaw_rpc_v1_FriendAddResponse {
@@ -506,7 +518,7 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendGroupPingResponse_init_default {_gizclaw_rpc_v1_SocialPingResult_MIN, 0, false, 0}
 #define gizclaw_rpc_v1_ClientSocialPingRequest_init_default {"", false, "", false, ""}
 #define gizclaw_rpc_v1_ClientSocialPingResponse_init_default {0}
-#define gizclaw_rpc_v1_FriendObject_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_FriendObject_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ContactCreateRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ContactCreateResponse_init_zero {false, gizclaw_rpc_v1_ContactObject_init_zero}
 #define gizclaw_rpc_v1_ContactDeleteRequest_init_zero {{{NULL}, NULL}}
@@ -567,7 +579,7 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendGroupPingResponse_init_zero {_gizclaw_rpc_v1_SocialPingResult_MIN, 0, false, 0}
 #define gizclaw_rpc_v1_ClientSocialPingRequest_init_zero {"", false, "", false, ""}
 #define gizclaw_rpc_v1_ClientSocialPingResponse_init_zero {0}
-#define gizclaw_rpc_v1_FriendObject_init_zero    {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_FriendObject_init_zero    {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define gizclaw_rpc_v1_ContactCreateRequest_name_tag 1
@@ -684,6 +696,10 @@ extern "C" {
 #define gizclaw_rpc_v1_FriendObject_peer_public_key_tag 3
 #define gizclaw_rpc_v1_FriendObject_updated_at_tag 4
 #define gizclaw_rpc_v1_FriendObject_workspace_name_tag 5
+#define gizclaw_rpc_v1_FriendObject_online_tag   6
+#define gizclaw_rpc_v1_FriendObject_last_seen_at_tag 7
+#define gizclaw_rpc_v1_FriendObject_display_name_tag 8
+#define gizclaw_rpc_v1_FriendObject_emoji_tag    9
 #define gizclaw_rpc_v1_FriendAddResponse_value_tag 1
 #define gizclaw_rpc_v1_FriendDeleteResponse_value_tag 1
 
@@ -1070,7 +1086,11 @@ X(a, CALLBACK, OPTIONAL, STRING,   created_at,        1) \
 X(a, CALLBACK, SINGULAR, STRING,   name,              2) \
 X(a, CALLBACK, OPTIONAL, STRING,   peer_public_key,   3) \
 X(a, CALLBACK, OPTIONAL, STRING,   updated_at,        4) \
-X(a, CALLBACK, OPTIONAL, STRING,   workspace_name,    5)
+X(a, CALLBACK, OPTIONAL, STRING,   workspace_name,    5) \
+X(a, STATIC,   OPTIONAL, BOOL,     online,            6) \
+X(a, CALLBACK, OPTIONAL, STRING,   last_seen_at,      7) \
+X(a, CALLBACK, OPTIONAL, STRING,   display_name,      8) \
+X(a, CALLBACK, OPTIONAL, STRING,   emoji,             9)
 #define gizclaw_rpc_v1_FriendObject_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_FriendObject_DEFAULT NULL
 

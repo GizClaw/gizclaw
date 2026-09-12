@@ -19,7 +19,7 @@
 | `activePeer` | 保存单个 Peer 当前生效的 connection。 |
 | [`Manager.SetPeerUp`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.SetPeerUp) / [`SetPeerDown`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.SetPeerDown) / [`ForcePeerDown`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.ForcePeerDown) | 管理 connection 上线、条件下线和强制下线。 |
 | `allowService` / `allowActivePeerRole` | 根据 Peer role 判断 Giznet service 准入。 |
-| [`Manager.Peer`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.Peer) / [`PeerRuntime`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.PeerRuntime) | 查询在线 connection 或 runtime 快照。 |
+| [`Manager.Peer`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.Peer) / [`PeerRuntime`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.PeerRuntime) / `PeerPresence` | 查询在线 connection、runtime 快照，或供好友列表使用的 `online` 与 `last_seen_at`。 |
 | [`Manager.EnsurePeer`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.EnsurePeer) | 确保持久化 Peer resource 存在。 |
 | [`Manager.RefreshPeer`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.RefreshPeer) / `refreshPeer` | 通过 Peer RPC 拉取设备信息，并将变化写回 Peer resource。 |
 | `peerRPCConn` / `callPeerRPC` | 打开 Peer RPC stream 并执行 typed RPC call。 |
@@ -32,6 +32,6 @@ Connection activation 会先在 Manager 锁内为 public key 建立 reservation�
 
 Peer 连接发布后，Server 会执行一次有界的设备信息刷新；失败不会中断连接，Admin 仍可主动调用 refresh 重试。`client.info.get` 只反向刷新 `HardwareInfo`（`hardware_revision`、`manufacturer`、`model`）。`client.identifiers.get` 只反向刷新 `DeviceIdentifiers`（`sn`、`imeis`、`labels`）。SN 是 Client 声明的可选弱标识，必须是有效 UTF-8 且不超过 256 bytes；Client 应让它对同一台物理设备保持稳定并尽量唯一，但 Server 不把它当作唯一身份。同一 SN 可以关联多个 Peer，Admin SN 查询返回全部匹配记录。由 Server 持有的个人资料字段 `name` 与 `emoji` 通过 `server.info.put` 修改，不会被反向刷新覆盖。`name` 必须是有效 UTF-8 且不超过 256 bytes，`emoji` 必须是有效 UTF-8 且不超过 64 bytes。
 
-好友通过 `server.friend.info.get` 读取这些文本资料。该方法要求调用者作用域内已存在好友关系，并且不返回二进制头像数据。`server.profile.get` 则按 public key 向任意已注册 Peer 公开 `name`（投影为 `display_name`）与 `emoji`，一次最多 16 个，不要求关系；它只读这两个字段，硬件、标识、状态与在线信息不公开。
+好友通过 `server.friend.info.get` 或 `server.friend.list` 的列表项读取这些文本资料。该方法要求调用者作用域内已存在好友关系，并且不返回二进制头像数据。`server.profile.get` 则按 public key 向任意已注册 Peer 公开 `name`（投影为 `display_name`）与 `emoji`，一次最多 16 个，不要求关系；它只读这两个字段，硬件、标识、状态与在线信息不公开。
 
 设备自设调试权限与 SN/IMEI 多值查询见 [Public API](../../api/http/public)。

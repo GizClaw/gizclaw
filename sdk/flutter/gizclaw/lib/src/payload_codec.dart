@@ -666,7 +666,7 @@ const _explicitPresenceFields = <String, Set<int>>{
   'gizclaw.rpc.v1.FriendInviteTokenGetResponse': {1, 2},
   'gizclaw.rpc.v1.FriendListRequest': {1, 2},
   'gizclaw.rpc.v1.FriendListResponse': {3},
-  'gizclaw.rpc.v1.FriendObject': {1, 3, 4, 5},
+  'gizclaw.rpc.v1.FriendObject': {1, 3, 4, 5, 6, 7, 8, 9},
   'gizclaw.rpc.v1.FriendPingResponse': {3},
   'gizclaw.rpc.v1.GeminiTenantModelProviderData': {
     1,
