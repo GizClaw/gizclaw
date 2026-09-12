@@ -11,6 +11,7 @@ export {
   type CompactLogRecord,
   type LogAggregate,
 } from "./logs.ts";
+export { ASSISTANT_INSTRUCTIONS } from "./instructions.ts";
 export { createGizClawModel, type GizClawModelOptions } from "./model.ts";
 export type { Model } from "@openai/agents-core";
 export { formatRoute, parseRoute, type ConsoleRoute } from "./routes.ts";
