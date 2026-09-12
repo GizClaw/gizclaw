@@ -24,6 +24,8 @@ dependencies:
 
 `ref` may be a branch or a repository tag; pin a released app to a tag that contains the package. The package does not depend on Flutter and also works in Dart CLI and server code.
 
+Every `vX.Y.Z` GitHub Release also attaches `flutter-gizclaw-X.Y.Z.tar.gz` and `flutter-gizclaw_control-X.Y.Z.tar.gz`. They are pub hosted archives whose `pubspec.yaml` `version` equals the Release version, so a pub repository can serve them as ordinary hosted dependencies; see [Repository Releases](/en/developing/tooling#repository-releases) for the packaging and validation rules.
+
 ## Initialize and call
 
 ```dart

@@ -110,8 +110,9 @@ protected tag `vMAJOR.MINOR.PATCH` is pushed. A push to `main` does not build or
 publish a Release.
 
 Each Release contains exactly two Debian packages, four Terraform provider
-packages, one standalone C SDK source archive, its checksum sidecar,
-`release-manifest.json`, and `SHA256SUMS`, ten files in total; it does not
+packages, one standalone C SDK source archive, its checksum sidecar, two
+Flutter SDK hosted pub archives, `release-manifest.json`, and `SHA256SUMS`,
+twelve files in total; it does not
 publish raw Linux executables. The Debian packages use `<version>` from the tag
 in `gizclaw_<version>_{amd64,arm64}.deb`. The platform-neutral source payload is
 named `gizclaw-c-sdk-<version>.tar.gz`; its adjacent `.sha256` contains the
@@ -119,6 +120,22 @@ archive digest and canonical filename. The Terraform provider packages are named
 `terraform-provider-gizclaw_<version>_{darwin,linux}_{amd64,arm64}.zip`, and the
 provider version equals the Release version; see
 [Terraform Provider](/en/using/terraform) for installation and usage.
+
+The Flutter SDK archives are named `flutter-gizclaw-<version>.tar.gz` and
+`flutter-gizclaw_control-<version>.tar.gz` and use the pub hosted archive
+layout: the archive root is the package root and contains only `pubspec.yaml`,
+`LICENSE`, and the Git-tracked `lib/**/*.dart`.
+`tools/flutter-sdk/package_archive.sh` rewrites the `pubspec.yaml` `version` to
+the Release version, so every tag owns one immutable hosted package version; the
+`version` in the source tree is a development placeholder.
+`tools/flutter-sdk/verify_archive.sh` validates members, metadata, and pubspec
+identity. `tools/flutter-sdk/consume_archives.sh` serves both archives from a
+local static
+[Hosted Pub Repository v2](https://github.com/dart-lang/pub/blob/master/doc/repository-spec-v2.md)
+layout and has a Flutter consumer run `flutter pub get` and `flutter analyze`
+with them as ordinary hosted dependencies. Publishing them to the object-store
+pub repository belongs to Deploy and is outside this repository's Release
+contract; see [Flutter SDK](/en/using/sdk/flutter) for usage.
 
 For formal releases, the Git tag is the only source version. It is both the Go
 module version and GitHub Release tag; removing its leading `v` gives the Debian
@@ -160,10 +177,11 @@ build/check-release.sh semver ".tmp/$tag" "$tag" "$(git rev-list -n 1 "$tag")"
 `release-manifest.json` identifies the stable channel and binds every payload
 name, byte size, and SHA-256 to the full source commit. Native payloads also
 bind platform and architecture; the C SDK source entry binds module
-`gizclaw_c_sdk`, version, and source commit. Debian entries also bind package metadata and
+`gizclaw_c_sdk`, version, and source commit; `dart-package` entries bind the pub
+package name, version, and source commit. Debian entries also bind package metadata and
 `/usr/bin/gizclaw`; `terraform-provider` entries also bind provider `gizclaw`,
 the version, and the executable name inside the zip. A formal rerun accepts an
-existing published Release only when its metadata and all ten downloaded files
+existing published Release only when its metadata and all twelve downloaded files
 match byte-for-byte. An
 exact-tag draft left by an interrupted first upload must pass the same metadata,
 inventory, digest, and byte-for-byte checks before the workflow publishes that

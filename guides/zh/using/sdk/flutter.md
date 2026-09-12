@@ -24,6 +24,8 @@ dependencies:
 
 `ref` 可以是分支或仓库 tag；发布 App 时应固定到包含该 package 的 tag。package 不依赖 Flutter，也可用于 Dart CLI 与 server 端。
 
+每个 `vX.Y.Z` GitHub Release 还附带 `flutter-gizclaw-X.Y.Z.tar.gz` 与 `flutter-gizclaw_control-X.Y.Z.tar.gz`。它们是 pub hosted archive，`pubspec.yaml` 的 `version` 等于 Release 版本，供 pub 仓库以普通 hosted 依赖分发；打包与校验规则见[仓库发布](/zh/developing/tooling#仓库发布)。
+
 ## 初始化与调用
 
 ```dart

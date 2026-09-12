@@ -63,6 +63,10 @@ jobs:
           tools/c-sdk/package_source.sh
           tools/c-sdk/source_archive_test.sh
           tools/c-sdk/verify_source_archive.sh
+          tools/flutter-sdk/archive_test.sh
+          tools/flutter-sdk/consume_archives.sh
+          tools/flutter-sdk/package_archive.sh
+          tools/flutter-sdk/verify_archive.sh
 
       - name: Check workflow syntax and embedded shell
         run: |
@@ -89,6 +93,9 @@ jobs:
 
       - name: Test standalone C SDK source archive
         run: tools/c-sdk/source_archive_test.sh
+
+      - name: Test Flutter SDK hosted pub archives
+        run: tools/flutter-sdk/archive_test.sh
 
       - name: Build native validation executable
         env:
@@ -711,6 +718,26 @@ jobs:
       - name: Test control SDK
         working-directory: sdk/flutter/gizclaw_control
         run: dart test
+
+      - name: Install Flutter SDK archive validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y python3-yaml
+
+      - name: Install Flutter SDK archives as hosted pub dependencies
+        run: |
+          set -euo pipefail
+          archive_dir="${RUNNER_TEMP}/flutter-sdk"
+          mkdir -p "$archive_dir"
+          for package in gizclaw gizclaw_control; do
+            tools/flutter-sdk/package_archive.sh \
+              --package "$package" \
+              --version 0.0.0 \
+              --source-commit "$(git rev-parse HEAD)" \
+              --source-epoch "$(git show -s --format=%ct HEAD)" \
+              --output "$archive_dir/flutter-${package}-0.0.0.tar.gz"
+          done
+          tools/flutter-sdk/consume_archives.sh --asset-dir "$archive_dir" --version 0.0.0
 
       - name: Install giztest runner dependencies
         working-directory: tests/gizclaw-e2e/flutter/giztest
