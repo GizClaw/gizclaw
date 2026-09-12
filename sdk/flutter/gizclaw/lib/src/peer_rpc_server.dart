@@ -98,6 +98,9 @@ class GizClawDeviceControlHandlers {
     this.scanWifi,
     this.connectWifi,
     this.updateFirmware,
+    this.getSettings,
+    this.setSettings,
+    this.factoryReset,
   });
 
   final GizClawAudioPlayerHandlers? audioplayer;
@@ -126,6 +129,29 @@ class GizClawDeviceControlHandlers {
     String? sha256,
   )?
   updateFirmware;
+
+  /// Reports every option this device supports for
+  /// `client.device.settings.get`. An option the device has no hardware for
+  /// stays unset rather than carrying a placeholder, which is how a caller
+  /// tells "unsupported" from "off".
+  final FutureOr<payload.DeviceSettings> Function()? getSettings;
+
+  /// Applies only the members present in [patch] for
+  /// `client.device.settings.set` and returns the device's full settings
+  /// afterwards, so the caller sees what was accepted. An unsupported member is
+  /// ignored rather than rejected. An out-of-range member is rejected before
+  /// this handler runs.
+  final FutureOr<payload.DeviceSettings> Function(payload.DeviceSettings patch)?
+  setSettings;
+
+  /// Erases device-local state for `client.device.factory_reset`.
+  /// `keepNetwork` retains saved Wi-Fi and cellular configuration.
+  ///
+  /// Like [reboot], the handler must complete promptly and only then perform
+  /// the reset: the acknowledgement is sent from its return, so a handler that
+  /// tears down networking or blocks first leaves the caller without the
+  /// response the method promises. Schedule the reset and return.
+  final FutureOr<void> Function(bool keepNetwork)? factoryReset;
 }
 
 class GizClawPeerRpcHandlers {
@@ -172,8 +198,14 @@ const _deviceControlMethods = {
   'client.wifi.scan',
   'client.wifi.connect',
   'client.firmware.update',
+  'client.device.settings.get',
+  'client.device.settings.set',
+  'client.device.factory_reset',
 };
 const _deviceControlMaxBytes = 32;
+
+// Mirrors the DeviceSettings.locale bound in api/proto/rpc/nanopb.options.
+const _deviceSettingsLocaleMaxBytes = 35;
 
 void serveGizClawPeerRpcChannel(
   GizClawDataChannel channel, {
@@ -360,6 +392,10 @@ class _InboundPeerRpcChannel {
       case 'client.wifi.scan':
       case 'client.wifi.connect':
       case 'client.firmware.update':
+      case 'client.device.settings.get':
+      case 'client.device.settings.set':
+      case 'client.device.factory_reset':
+      case 'client.rpc.methods.get':
       case 'client.social.ping':
         return;
       default:
@@ -385,6 +421,7 @@ class _InboundPeerRpcChannel {
         'client.identifiers.get' => await _getClientIdentifiers(request),
         'client.tool.invoke' => await _invokeClientTool(request),
         'client.social.ping' => await _serveSocialPing(request),
+        'client.rpc.methods.get' => _serveRpcMethods(request),
         _ when _deviceControlMethods.contains(methodName) =>
           await _serveDeviceControl(request, methodName),
         _ => throw StateError('unsupported client method: $methodName'),
@@ -524,6 +561,52 @@ class _InboundPeerRpcChannel {
         'Tool handler failed',
       );
     }
+  }
+
+  /// Answers `client.rpc.methods.get` from the handlers actually installed, so
+  /// the list cannot drift from what this device accepts. `client.info.get`
+  /// and `client.identifiers.get` are always answered, the latter falling back
+  /// to [GizClawPeerRpcHandlers.deviceInfo].
+  rpc.RpcResponse _serveRpcMethods(rpc.RpcRequest request) {
+    final control = handlers?.deviceControl;
+    final player = control?.audioplayer;
+    final installed = <String, Object?>{
+      'client.social.ping': handlers?.socialPing,
+      'client.device.status.get': control?.status,
+      'client.device.volume.set': control?.setVolume,
+      'client.device.sound.play': control?.playSound,
+      'client.device.find': control?.find,
+      'client.device.reboot': control?.reboot,
+      'client.device.settings.get': control?.getSettings,
+      'client.device.settings.set': control?.setSettings,
+      'client.device.factory_reset': control?.factoryReset,
+      'client.firmware.update': control?.updateFirmware,
+      'client.wifi.status.get': control?.wifiStatus,
+      'client.wifi.saved.list': control?.savedWifi,
+      'client.wifi.saved.forget': control?.forgetWifi,
+      'client.wifi.scan': control?.scanWifi,
+      'client.wifi.connect': control?.connectWifi,
+      'client.device.audioplayer.get': player?.get,
+      'client.device.audioplayer.playlist.get': player?.playlistGet,
+      'client.device.audioplayer.playlist.set': player?.playlistSet,
+      'client.device.audioplayer.playlist.append': player?.playlistAppend,
+      'client.device.audioplayer.play': player?.play,
+      'client.device.audioplayer.stop': player?.stop,
+      'client.device.audioplayer.mode.set': player?.modeSet,
+    };
+    return _rpcPayloadResponse(
+      request.id,
+      'client.rpc.methods.get',
+      payload.ClientRpcMethodsGetResponse(
+        methods: [
+          'client.info.get',
+          'client.identifiers.get',
+          for (final entry in installed.entries)
+            if (entry.value != null) entry.key,
+          'client.rpc.methods.get',
+        ],
+      ),
+    );
   }
 
   Future<rpc.RpcResponse> _serveSocialPing(rpc.RpcRequest request) async {
@@ -724,6 +807,36 @@ class _InboundPeerRpcChannel {
           request.id,
           methodName,
           payload.ClientDeviceRebootResponse(),
+        );
+      case 'client.device.settings.get':
+        final handler = handlers?.getSettings;
+        if (handler == null) return unsupported();
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          payload.ClientDeviceSettingsGetResponse(value: await handler()),
+        );
+      case 'client.device.settings.set':
+        final handler = handlers?.setSettings;
+        if (handler == null) return unsupported();
+        final patch = (params as payload.ClientDeviceSettingsSetRequest).value;
+        // Reject the whole patch before applying any of it, so a bad member
+        // cannot leave the device half-configured.
+        if (!_validDeviceSettingsPatch(patch)) return invalid();
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          payload.ClientDeviceSettingsSetResponse(value: await handler(patch)),
+        );
+      case 'client.device.factory_reset':
+        final handler = handlers?.factoryReset;
+        if (handler == null) return unsupported();
+        final reset = params as payload.ClientDeviceFactoryResetRequest;
+        await handler(reset.hasKeepNetwork() && reset.keepNetwork);
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          payload.ClientDeviceFactoryResetResponse(),
         );
       case 'client.firmware.update':
         final handler = handlers?.updateFirmware;
@@ -954,6 +1067,7 @@ class _InboundPeerRpcChannel {
         methodName == 'client.identifiers.get' ||
         methodName == 'client.tool.invoke' ||
         methodName == 'client.social.ping' ||
+        methodName == 'client.rpc.methods.get' ||
         _deviceControlMethods.contains(methodName);
   }
 
@@ -985,4 +1099,35 @@ bool _validAudioPlayerItems(List<payload.AudioPlayerItem> items, bool append) {
     return utf8.encode(item.title).length <= 128 &&
         utf8.encode(item.sourceRef).length <= 128;
   });
+}
+
+/// Mirrors the DeviceSettings ranges in api/proto/rpc/payload/system.proto. An
+/// unset member leaves that option unchanged; an explicitly unspecified enum is
+/// rejected.
+bool _validDeviceSettingsPatch(payload.DeviceSettings patch) {
+  bool percent(bool present, fixnum.Int64 value) =>
+      !present || (value >= 0 && value <= 100);
+  if (!percent(patch.hasScreenBrightness(), patch.screenBrightness) ||
+      !percent(patch.hasLedBrightness(), patch.ledBrightness)) {
+    return false;
+  }
+  if (patch.hasScreenOffTimeoutMs() && patch.screenOffTimeoutMs < 0) {
+    return false;
+  }
+  if (patch.hasLocale() &&
+      (patch.locale.isEmpty ||
+          utf8.encode(patch.locale).length > _deviceSettingsLocaleMaxBytes)) {
+    return false;
+  }
+  if (patch.hasDefaultInteractionMode() &&
+      patch.defaultInteractionMode ==
+          payload.DeviceInteractionMode.DEVICE_INTERACTION_MODE_UNSPECIFIED) {
+    return false;
+  }
+  if (patch.hasKeyFeedback() &&
+      patch.keyFeedback ==
+          payload.DeviceKeyFeedback.DEVICE_KEY_FEEDBACK_UNSPECIFIED) {
+    return false;
+  }
+  return true;
 }

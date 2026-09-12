@@ -65,9 +65,11 @@ Provider 责任：
 - `rpc.methods.get` 返回设备实现的 method name 列表，调用方据此隐藏或跳过设备只会拒绝的控制项。名称使用
   registry 名（例如 `client.device.reboot`）；读取方必须忽略未知名称而不是拒绝整个响应。
 
-JavaScript SDK 通过 `GizClawDeviceControlHandlers` 的 `getSettings`、`setSettings`、`factoryReset` 安装
-provider，并直接从已注册的 handler 推导 `client.rpc.methods.get` 的返回值，因此这个列表不会与设备真正接受的
-方法脱节。
+Go SDK 通过 `gizcli.DeviceControlHandlers` 的 `GetSettings`、`SetSettings`、`FactoryReset`，JavaScript SDK 与
+Flutter SDK 通过 `GizClawDeviceControlHandlers` 的 `getSettings`、`setSettings`、`factoryReset` 安装 provider；
+C SDK 的 `inbound_is_client_method` 接受这四个方法并交给 `gzc_client_config_t.rpc_provider`。Go、JavaScript 与
+Flutter SDK 直接从已注册的 handler 推导 `client.rpc.methods.get` 的返回值，因此这个列表不会与设备真正接受的方法
+脱节；即使没有安装任何设备控制 handler，它也照常应答。
 
 ## 音乐播放器
 

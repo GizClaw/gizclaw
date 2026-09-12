@@ -71,9 +71,12 @@ Provider responsibilities:
   control the device would only reject. Names are registry names such as `client.device.reboot`, and a
   reader must ignore unknown names rather than rejecting the response.
 
-The JavaScript SDK installs providers through `getSettings`, `setSettings`, and `factoryReset` on
-`GizClawDeviceControlHandlers`, and derives the `client.rpc.methods.get` answer from the handlers the
-device actually registered, so that list cannot drift from what the device will accept.
+The Go SDK installs providers through `GetSettings`, `SetSettings`, and `FactoryReset` on
+`gizcli.DeviceControlHandlers`; the JavaScript and Flutter SDKs use `getSettings`, `setSettings`, and
+`factoryReset` on `GizClawDeviceControlHandlers`; the C SDK's `inbound_is_client_method` accepts all four
+methods and hands them to `gzc_client_config_t.rpc_provider`. The Go, JavaScript, and Flutter SDKs derive
+the `client.rpc.methods.get` answer from the handlers the device actually registered, so that list cannot
+drift from what the device will accept, and they answer it even with no device-control handlers installed.
 
 ## Music player
 
