@@ -1,0 +1,107 @@
+{
+  "voice_adapter": {
+    "default_voice": "story.default",
+    "node_voices": {
+      "fox": "story.fox",
+      "bird": "story.bird",
+      "owl": "story.owl",
+      "bear": "story.bear"
+    }
+  },
+  "graph": {
+    "name": "multi-role-voices",
+    "entry": "route",
+    "nodes": [
+      {
+        "id": "route",
+        "type": "passthrough"
+      },
+      {
+        "id": "fox",
+        "type": "llm",
+        "publish": true,
+        "config": {
+          "model": "fixture-llm"
+        }
+      },
+      {
+        "id": "bird",
+        "type": "llm",
+        "publish": true,
+        "config": {
+          "model": "fixture-llm"
+        }
+      },
+      {
+        "id": "owl",
+        "type": "llm",
+        "publish": true,
+        "config": {
+          "model": "fixture-llm"
+        }
+      },
+      {
+        "id": "bear",
+        "type": "llm",
+        "publish": true,
+        "config": {
+          "model": "fixture-llm"
+        }
+      },
+      {
+        "id": "default",
+        "type": "llm",
+        "publish": true,
+        "config": {
+          "model": "fixture-llm"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "route",
+        "to": "fox",
+        "condition": "input == \"fox\""
+      },
+      {
+        "from": "route",
+        "to": "bird",
+        "condition": "input == \"bird\""
+      },
+      {
+        "from": "route",
+        "to": "owl",
+        "condition": "input == \"owl\""
+      },
+      {
+        "from": "route",
+        "to": "bear",
+        "condition": "input == \"bear\""
+      },
+      {
+        "from": "route",
+        "to": "default"
+      },
+      {
+        "from": "fox",
+        "to": "__end__"
+      },
+      {
+        "from": "bird",
+        "to": "__end__"
+      },
+      {
+        "from": "owl",
+        "to": "__end__"
+      },
+      {
+        "from": "bear",
+        "to": "__end__"
+      },
+      {
+        "from": "default",
+        "to": "__end__"
+      }
+    ]
+  }
+}

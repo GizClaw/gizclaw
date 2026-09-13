@@ -30,3 +30,6 @@
 !eino-voices/
 !eino-voices/*.json
 !eino-voices/*.yaml
+!multi-role-voices/
+!multi-role-voices/*.json
+!multi-role-voices/*.yaml

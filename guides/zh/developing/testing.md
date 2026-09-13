@@ -1037,27 +1037,41 @@ git lfs fsck
 ```
 
 
-## Eino 多音色确定性 Giztest
+## 多角色音频确定性 Giztest
 
-`go test ./cmd/internal/commands/giztest -run '^TestEinoMultiVoiceGiztest$' -count=1`
-通过 Go Giztest runner 和 CLI `peer_stream` 接收逻辑执行
-`tests/gizclaw-e2e/testdata/eino-voices/multi-turn.giztest.yaml`。夹具保留同一个真实
-Eino Factory/AudioDock invocation，依次输入 fox、bird、unknown（回落 default）、fox。
-Provider 边界 fake 为三个 Voice 资源分别输出 300/500/700 Hz 的 Opus 音频；无需网络、
-凭据、LLM 或 Docker。Audioplayer Giztest CI job 在设备 RPC 场景及 Console 资源构建后明确运行此测试。
+```sh
+go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|FlowcraftMultiVoiceGiztest|MultiRole.*)$' -count=1
+```
 
-Go `peer_stream` 结果提供 `audio_integrity`：`sha256` 对按接收顺序拼接的原始音频
-payload 计算摘要；`streams`、`max_active`、`open`、`violations` 在 response 过滤前
-记录音频 BOS/EOS ownership。`max_active > 1` 表示重叠；重复 BOS、无 BOS 数据和
-EOS 后数据会增加 `violations`。它们通过普通 `expect` 断言，不增加文档 Schema 字段。
-摘要可证明确定性夹具的音频身份，不能识别任意真实 Provider 音色；摘要只进入断言值，
-不写入脱敏 report evidence。
+套件共享 `voice_fixture_test.go` 的 fake provider，保留真实 Eino/Flowcraft Factory、
+AudioDock、Go Giztest runner 和 CLI 接收逻辑。无需外部网络、凭据或 Docker。
+Audioplayer Giztest job 在 Console 资源构建后执行整个套件，复用已有音频测试环境。
 
-每轮要求恰好 40 个 20 ms 包，最大接收间隔不超过 150 ms，使用现有 500 ms 预缓冲
-模拟时无欠载、最低缓冲非负；同时要求音频摘要匹配预期 Voice、恰好一个结束的音频流且
-无生命周期违规。夹具还跨轮保留音频 ownership，检查总计四次 TTS 调用且同时最多一次。
-错误音色、900 ms 断流和重叠流注入必须失败。该 Provider 边界测试不替代真实 Provider
-音质、WebRTC/Server/Edge pacing 或设备播放验收。
+- `eino-voices/multi-turn.giztest.yaml` 保留四轮 state voice 回归；
+  `multi-role-voices/multi-turn.giztest.yaml` 在同一 invocation 执行 fox、bird、owl、bear、
+  unknown（default 回落）、bear、bear、fox 八轮。Flowcraft 的四个发布节点使用
+  `node_voices`，每轮使用不同的确定性音频摘要，连续同角色也能发现上一轮音频被复用。
+- 每轮 `audio_integrity/sha256` 验证包内容和顺序；`streams=1`、`max_active=1`、
+  `open=0`、`violations=0` 验证 BOS/EOS、无交错和无晚到数据。整个会话另保留 ownership，
+  并检查 TTS 调用次数及正常多轮中最多一个活跃调用。
+- `audio_pacing` 要求 40 个 20 ms 包、最大间隔 150 ms、500 ms 预缓冲下无欠载且最低
+  缓冲非负。两种 workflow 的 `long-reply.giztest.yaml` 使用超过 2 KB 的文本和 160 包
+  音频，fake TTS 以 15/25/20 ms 周期注入可重复抖动；900 ms stall 必须被拒绝。
+- `TestMultiRoleVoiceModesGiztest` 使用真实 Opus 输入包和 fake ASR，分别执行
+  push-to-talk（输入 EOS 后转写）与 realtime（输入流保持打开时输出最终转写）。
+  夹具只验证 provider 边界和模式 wiring，不评价真实 ASR/VAD。
+- `TestMultiRoleVoiceInterrupt` 对两个 workflow、两种模式均在收到 A 的第 8 包且 TTS
+  仍活跃时发送 B。验证 A 是合法前缀、以 interrupted EOS 结束，B 完整收到 40 包及
+  正确摘要，B 开始后没有 A 的残留数据，跨角色无 overlap。
+- 故障测试拒绝 wrong voice、interleave、stall 和截断未 EOS。截断由 AudioDock 的
+  `TTS ended without EOS` 终止错误拒绝。独立的 `TestMultiRoleVoiceAssertions` 用
+  原始包轨迹分别验证摘要、最大活跃流、未闭合流和晚到包断言，以及 150/151 ms 包间隔、
+  500/501 ms 缓冲边界，避免一种断言失败掩盖其他断言失效。
+
+快速输入与中途打断共用上述测试：新输入 BOS 取代旧回复是 AudioDock/Flowcraft 的
+barge-in 契约。测试正向断言 A 的合法前缀和中断 EOS、B 完整 40/40 包、B 开始后
+无 A 数据，以及 `max_active=1`，不另设重复场景。
+此 provider 边界套件不替代真实音色识别、Server/Edge/WebRTC pacing 或设备播放验收。
 
 ## Monitor API giztest
 
