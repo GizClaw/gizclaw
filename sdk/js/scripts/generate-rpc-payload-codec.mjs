@@ -1042,6 +1042,10 @@ function parsePayloadProto(proto) {
     const messageStart = /^\s*message\s+(\w+)\s*\{/.exec(line);
     if (messageStart != null) {
       currentMessage = { name: messageStart[1], fields: [] };
+      if (/\{\s*\}/.test(line)) {
+        messages[currentMessage.name] = { fields: [] };
+        currentMessage = null;
+      }
       continue;
     }
     if (currentMessage == null) {

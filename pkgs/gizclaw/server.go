@@ -21,6 +21,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/app"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/flowstate"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
@@ -549,6 +550,10 @@ func (s *Server) init() error {
 	if err := runtimeProfileServer.Initialize(context.Background()); err != nil {
 		return fmt.Errorf("initialize runtime profile database: %w", err)
 	}
+	appServer := &app.Server{DB: s.ToolDB}
+	if err := appServer.Initialize(context.Background()); err != nil {
+		return fmt.Errorf("initialize apps: %w", err)
+	}
 	toolServer := &toolkit.Server{DB: s.ToolDB}
 	if err := toolServer.Initialize(context.Background()); err != nil {
 		return fmt.Errorf("gizclaw: initialize toolkit: %w", err)
@@ -712,6 +717,7 @@ func (s *Server) init() error {
 	gameplayRuntime.PendingDeletionWake = pendingDeletionProcessor.Wake
 	pendingDeletionAdmin := pendingdeletion.NewAdmin(pendingDeletionRegistry, pendingDeletionProcessor.Wake)
 	s.pendingDeletionProcessor = pendingDeletionProcessor
+	manager.Apps = appServer
 	manager.Tools = toolServer
 	manager.ToolBuilder = &toolkit.Builder{Tools: toolServer}
 	agentResolver := agenthost.ServiceResolver{
@@ -773,6 +779,7 @@ func (s *Server) init() error {
 		FriendGroups:    friendGroupServer,
 		GameplayCatalog: gameplayCatalog,
 		Tools:           toolServer,
+		Apps:            appServer,
 		RuntimeProfiles: runtimeProfileServer,
 	})
 	runtimeProfileServer.ResolveResource = resourceManager.Get

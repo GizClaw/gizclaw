@@ -67,8 +67,6 @@ type Client struct {
 	packetSubscribers map[byte]map[chan []byte]struct{}
 	openPeerStream    func(int) (*PeerStream, error)
 
-	toolMu            sync.RWMutex
-	toolHandlers      map[string]ToolHandler
 	clientRPCMu       sync.RWMutex
 	clientRPCObserver func(rpcapi.RPCMethod)
 	deviceMu          sync.RWMutex

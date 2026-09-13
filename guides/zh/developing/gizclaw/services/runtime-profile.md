@@ -181,3 +181,6 @@ RegistrationToken 只通过可靠 Peer connection 上的 `server.register` 提�
 Firmware 仍是独立 Admin 资源，不进入 RuntimeProfile projection。RegistrationToken 可以独立绑定 Firmware ID，但不绑定 channel。Credential 与 ProviderTenant 只是真实 Model、Voice 在 Server 侧使用的依赖，不会暴露给设备。
 
 RuntimeProfile 使用 SQL `runtime_profiles`、`registration_tokens` 和 `runtime_profile_owners` 表。Profile ID、配置 revision、token、关联 Profile/Firmware ID、owner 和时间分别保存为列；资源、Workflow 和 Gameplay 配置保留 JSON。token 使用唯一索引，注册解析和 Owner Profile 解析通过关联查询完成；列表将 ID 游标和数量限制下推 SQL。Profile 与 token 更新、删除比较行版本和创建标识。Owner 绑定写入使用短事务；外部注册回调在 SQL 事务外执行，失败时按本次写入标识恢复旧绑定，避免覆盖后续更新。本进程的同 Owner 注册与快照发布保持串行，无关 Owner 可以继续注册。
+
+
+`spec.resources.apps` 使用 alias → `RuntimeProfileBinding{resource_id, i18n}`，引用必须指向已有 App。每个绑定暴露该 App 的全部方法；只有 runtime 与当前设备完全相等且包 SHA-256 已安装的方法进入模型工具集。详见 [App](./runtime/app)。

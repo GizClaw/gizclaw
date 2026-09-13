@@ -35,6 +35,7 @@
           "VolcTenant",
           "Voice",
           "Tool",
+          "App",
           "Workflow",
           "Workspace",
           "PetDef",
@@ -128,6 +129,7 @@
           {
             "$ref": "./tool.json#/components/schemas/ToolResource"
           },
+          {"$ref": "./app.json#/components/schemas/AppResource"},
           {
             "$ref": "./workflow.json#/components/schemas/WorkflowResource"
           },
@@ -175,6 +177,7 @@
             "VolcTenant": "./volc_tenant.json#/components/schemas/VolcTenantResource",
             "Voice": "./voice.json#/components/schemas/VoiceResource",
             "Tool": "./tool.json#/components/schemas/ToolResource",
+            "App": "./app.json#/components/schemas/AppResource",
             "Workflow": "./workflow.json#/components/schemas/WorkflowResource",
             "Workspace": "./workspace.json#/components/schemas/WorkspaceResource",
             "ResourceList": "./resource_list.json#/components/schemas/ResourceListResource",
@@ -245,6 +248,7 @@
           {
             "$ref": "./tool.json#/components/schemas/ToolResource"
           },
+          {"$ref": "./app.json#/components/schemas/AppResource"},
           {
             "$ref": "./workflow.json#/components/schemas/WorkflowResource"
           },
@@ -289,6 +293,7 @@
             "VolcTenant": "./volc_tenant.json#/components/schemas/VolcTenantResource",
             "Voice": "./voice.json#/components/schemas/VoiceResource",
             "Tool": "./tool.json#/components/schemas/ToolResource",
+            "App": "./app.json#/components/schemas/AppResource",
             "Workflow": "./workflow.json#/components/schemas/WorkflowResource",
             "Workspace": "./workspace.json#/components/schemas/WorkspaceResource",
             "PetDef": "./pet_def.json#/components/schemas/PetDefResource",
@@ -319,6 +324,7 @@
           {"$ref": "./volc_tenant.json#/components/schemas/VolcTenantResource"},
           {"$ref": "./voice.json#/components/schemas/VoiceResource"},
           {"$ref": "./tool.json#/components/schemas/ToolResource"},
+          {"$ref": "./app.json#/components/schemas/AppResource"},
           {"$ref": "./workflow.json#/components/schemas/WorkflowResource"},
           {"$ref": "./pet_def.json#/components/schemas/PetDefResource"},
           {"$ref": "./badge_def.json#/components/schemas/BadgeDefResource"},

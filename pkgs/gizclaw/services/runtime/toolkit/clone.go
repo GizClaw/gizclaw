@@ -16,11 +16,8 @@ func cloneTool(in Tool) Tool {
 	return out
 }
 
-func cloneHTTPRequest(in *HTTPRequest) *HTTPRequest {
-	if in == nil {
-		return nil
-	}
-	out := *in
+func cloneHTTPRequest(in HTTPRequest) HTTPRequest {
+	out := in
 	out.Headers = make(map[string]string, len(in.Headers))
 	maps.Copy(out.Headers, in.Headers)
 	out.Query = append([]HTTPArgumentBinding(nil), in.Query...)
@@ -35,7 +32,7 @@ func cloneHTTPRequest(in *HTTPRequest) *HTTPRequest {
 	out.Auth.Service = cloneStringPtr(in.Auth.Service)
 	out.Auth.Action = cloneStringPtr(in.Auth.Action)
 	out.Auth.Version = cloneStringPtr(in.Auth.Version)
-	return &out
+	return out
 }
 
 func cloneTools(in []Tool) []Tool {

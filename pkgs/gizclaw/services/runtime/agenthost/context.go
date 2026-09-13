@@ -14,15 +14,8 @@ import (
 type accessContextKey struct{}
 type toolExecutionContextKey struct{}
 
-// ClientToolInvoker invokes a Tool handler on the Peer that owns the current
-// AgentHost run. Implementations must not route by a caller supplied Peer ID.
-type ClientToolInvoker interface {
-	InvokeClientTool(context.Context, string, []byte) ([]byte, error)
-}
-
 type toolExecutionContext struct {
 	profileTools []string
-	client       ClientToolInvoker
 }
 
 type accessContext struct {
@@ -76,13 +69,12 @@ func resourceAccessFromContext(ctx context.Context) (accessContext, bool) {
 func WithToolExecution(
 	ctx context.Context,
 	bindings *map[string]apitypes.RuntimeProfileBinding,
-	client ClientToolInvoker,
 ) (context.Context, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	if bindings == nil {
-		return context.WithValue(ctx, toolExecutionContextKey{}, toolExecutionContext{client: client}), nil
+		return context.WithValue(ctx, toolExecutionContextKey{}, toolExecutionContext{}), nil
 	}
 	aliases := make([]string, 0, len(*bindings))
 	for alias := range *bindings {
@@ -108,7 +100,6 @@ func WithToolExecution(
 	sort.Strings(ids)
 	return context.WithValue(ctx, toolExecutionContextKey{}, toolExecutionContext{
 		profileTools: ids,
-		client:       client,
 	}), nil
 }
 

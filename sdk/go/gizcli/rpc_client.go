@@ -31,8 +31,6 @@ func (c *rpcClient) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpca
 		return c.handleGetClientInfo(ctx, req)
 	case rpcapi.RPCMethodClientIdentifiersGet:
 		return c.handleGetClientIdentifiers(ctx, req)
-	case rpcapi.RPCMethodClientToolInvoke:
-		return c.handleInvokeTool(ctx, req)
 	case rpcapi.RPCMethodClientDeviceAudioPlayerGet, rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistGet,
 		rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistSet, rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistAppend,
 		rpcapi.RPCMethodClientDeviceAudioPlayerPlay, rpcapi.RPCMethodClientDeviceAudioPlayerStop, rpcapi.RPCMethodClientDeviceAudioPlayerModeSet:

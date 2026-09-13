@@ -974,7 +974,6 @@ static bool inbound_is_client_method(gizclaw_rpc_v1_RpcMethod method) {
   switch (method) {
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_INFO_GET:
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_IDENTIFIERS_GET:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE:
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_GET:
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_GET:
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_SET:

@@ -155,6 +155,42 @@ export type BadgeListResponse = {
   "items": Badge[];
   "next_cursor"?: string;
 };
+export type ClientAppInstallRequest = {
+  "app_name": string;
+  "url": string;
+  "sha256": string;
+  "size": number;
+};
+export type ClientAppInstallResponse = Record<string, never>;
+export type ClientAppInvokeRequest = {
+  "app_name": string;
+  "method": string;
+  "args_json": string;
+};
+export type ClientAppInvokeResponse = {
+  "result_json": string;
+};
+export type ClientAppJobCancelRequest = {
+  "job_id": number;
+};
+export type ClientAppJobCancelResponse = Record<string, never>;
+export type ClientAppJobStartRequest = {
+  "app_name": string;
+  "method": string;
+  "args_json": string;
+};
+export type ClientAppJobStartResponse = {
+  "job_id": number;
+};
+export type ClientAppListRequest = Record<string, never>;
+export type ClientAppListResponse = {
+  "runtime": string;
+  "apps": InstalledApp[];
+};
+export type ClientAppUninstallRequest = {
+  "app_name": string;
+};
+export type ClientAppUninstallResponse = Record<string, never>;
 export type ClientDeviceAudioPlayerGetRequest = Record<string, never>;
 export type ClientDeviceAudioPlayerGetResponse = AudioPlayerStatus;
 export type ClientDeviceAudioPlayerModeSetRequest = {
@@ -714,6 +750,10 @@ export type Icon = {
   "pixa"?: string;
   "png"?: string;
 };
+export type InstalledApp = {
+  "app_name": string;
+  "sha256": string;
+};
 export type MiniMaxTenantModelProviderData = {
   "upstream_model": string;
   "api_mode": string;
@@ -1253,13 +1293,6 @@ export type ToolGetResponse = {
   "runtime_profile_name": string;
   "runtime_profile_revision": string;
 };
-export type ToolInvokeRequest = {
-  "args": Record<string, unknown>;
-  "invoke_name": string;
-};
-export type ToolInvokeResponse = {
-  "data_json": string;
-};
 export type ToolListRequest = {
   "cursor"?: string;
   "limit"?: number;
@@ -1457,6 +1490,12 @@ export type WorkspacePutResponse = Workspace;
 const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "all.ping": "PingRequest",
   "all.speed_test.run": "SpeedTestRequest",
+  "client.app.install": "ClientAppInstallRequest",
+  "client.app.invoke": "ClientAppInvokeRequest",
+  "client.app.job.cancel": "ClientAppJobCancelRequest",
+  "client.app.job.start": "ClientAppJobStartRequest",
+  "client.app.list": "ClientAppListRequest",
+  "client.app.uninstall": "ClientAppUninstallRequest",
   "client.device.audioplayer.get": "ClientDeviceAudioPlayerGetRequest",
   "client.device.audioplayer.mode.set": "ClientDeviceAudioPlayerModeSetRequest",
   "client.device.audioplayer.play": "ClientDeviceAudioPlayerPlayRequest",
@@ -1471,7 +1510,6 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.firmware.update": "ClientFirmwareUpdateRequest",
   "client.identifiers.get": "ClientGetIdentifiersRequest",
   "client.info.get": "ClientGetInfoRequest",
-  "client.tool.invoke": "ToolInvokeRequest",
   "client.wifi.connect": "ClientWifiConnectRequest",
   "client.wifi.saved.forget": "ClientWifiSavedForgetRequest",
   "client.wifi.saved.list": "ClientWifiSavedListRequest",
@@ -1574,6 +1612,12 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
 const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "all.ping": "PingResponse",
   "all.speed_test.run": "SpeedTestResponse",
+  "client.app.install": "ClientAppInstallResponse",
+  "client.app.invoke": "ClientAppInvokeResponse",
+  "client.app.job.cancel": "ClientAppJobCancelResponse",
+  "client.app.job.start": "ClientAppJobStartResponse",
+  "client.app.list": "ClientAppListResponse",
+  "client.app.uninstall": "ClientAppUninstallResponse",
   "client.device.audioplayer.get": "ClientDeviceAudioPlayerGetResponse",
   "client.device.audioplayer.mode.set": "ClientDeviceAudioPlayerModeSetResponse",
   "client.device.audioplayer.play": "ClientDeviceAudioPlayerPlayResponse",
@@ -1588,7 +1632,6 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.firmware.update": "ClientFirmwareUpdateResponse",
   "client.identifiers.get": "ClientGetIdentifiersResponse",
   "client.info.get": "ClientGetInfoResponse",
-  "client.tool.invoke": "ToolInvokeResponse",
   "client.wifi.connect": "ClientWifiConnectResponse",
   "client.wifi.saved.forget": "ClientWifiSavedForgetResponse",
   "client.wifi.saved.list": "ClientWifiSavedListResponse",
@@ -2132,6 +2175,131 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       }
     ]
+  },
+  "ClientAppInstallRequest": {
+    "fields": [
+      {
+        "name": "app_name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "url",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "sha256",
+        "number": 3,
+        "type": "string"
+      },
+      {
+        "name": "size",
+        "number": 4,
+        "type": "int64"
+      }
+    ]
+  },
+  "ClientAppInstallResponse": {
+    "fields": []
+  },
+  "ClientAppInvokeRequest": {
+    "fields": [
+      {
+        "name": "app_name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "method",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "args_json",
+        "number": 3,
+        "type": "string"
+      }
+    ]
+  },
+  "ClientAppInvokeResponse": {
+    "fields": [
+      {
+        "name": "result_json",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "ClientAppJobCancelRequest": {
+    "fields": [
+      {
+        "name": "job_id",
+        "number": 1,
+        "type": "uint32"
+      }
+    ]
+  },
+  "ClientAppJobCancelResponse": {
+    "fields": []
+  },
+  "ClientAppJobStartRequest": {
+    "fields": [
+      {
+        "name": "app_name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "method",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "args_json",
+        "number": 3,
+        "type": "string"
+      }
+    ]
+  },
+  "ClientAppJobStartResponse": {
+    "fields": [
+      {
+        "name": "job_id",
+        "number": 1,
+        "type": "uint32"
+      }
+    ]
+  },
+  "ClientAppListRequest": {
+    "fields": []
+  },
+  "ClientAppListResponse": {
+    "fields": [
+      {
+        "name": "runtime",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "apps",
+        "number": 2,
+        "repeated": true,
+        "type": "InstalledApp"
+      }
+    ]
+  },
+  "ClientAppUninstallRequest": {
+    "fields": [
+      {
+        "name": "app_name",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "ClientAppUninstallResponse": {
+    "fields": []
   },
   "ClientDeviceAudioPlayerGetRequest": {
     "fields": []
@@ -4671,6 +4839,20 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "png",
         "number": 2,
         "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "InstalledApp": {
+    "fields": [
+      {
+        "name": "app_name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "sha256",
+        "number": 2,
         "type": "string"
       }
     ]
@@ -7257,29 +7439,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "runtime_profile_revision",
         "number": 3,
-        "type": "string"
-      }
-    ]
-  },
-  "ToolInvokeRequest": {
-    "fields": [
-      {
-        "name": "args",
-        "number": 1,
-        "type": "google.protobuf.Struct"
-      },
-      {
-        "name": "invoke_name",
-        "number": 2,
-        "type": "string"
-      }
-    ]
-  },
-  "ToolInvokeResponse": {
-    "fields": [
-      {
-        "name": "data_json",
-        "number": 1,
         "type": "string"
       }
     ]

@@ -6,12 +6,13 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
-func testClientTool(name string) Tool {
+func testTool(name string) Tool {
 	return Tool{
 		ID:          name,
 		InvokeName:  name,
-		Type:        ToolTypeClientRPC,
-		Description: new("test client tool"),
+		Type:        ToolTypeHTTPRequest,
+		Description: new("test HTTP tool"),
+		HTTP:        testHTTPTool(name).HTTP,
 		Enabled:     true,
 		InputSchema: jsonschema.Schema{
 			Type:                 "object",
@@ -28,7 +29,7 @@ func testHTTPTool(name string) Tool {
 		Description: new("test HTTP tool"),
 		Enabled:     true,
 		InputSchema: jsonschema.Schema{Type: "object"},
-		HTTP: &HTTPRequest{
+		HTTP: HTTPRequest{
 			URL:              "https://example.com/weather",
 			Method:           "GET",
 			Auth:             HTTPAuth{Method: "none"},

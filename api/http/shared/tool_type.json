@@ -10,8 +10,7 @@
       "ToolType": {
         "type": "string",
         "enum": [
-          "http_request",
-          "client_rpc"
+          "http_request"
         ]
       }
     }

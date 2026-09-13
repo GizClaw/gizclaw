@@ -2,7 +2,6 @@ package giztestcmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
@@ -61,24 +60,6 @@ func configureClientRPC(client *gizcli.Client, clientName string, steps []giztes
 				}
 			}
 			client.Device.Identifiers = &identifiers
-		case "client.tool.invoke":
-			object, ok := response.(map[string]any)
-			if !ok {
-				return fmt.Errorf("step %s tool response must be an object", step.ID)
-			}
-			name, ok := object["name"].(string)
-			if !ok || strings.TrimSpace(name) == "" {
-				return fmt.Errorf("step %s tool response requires name", step.ID)
-			}
-			payload, err := json.Marshal(object["result"])
-			if err != nil {
-				return err
-			}
-			if err := client.HandleTool(name, func(context.Context, json.RawMessage) (json.RawMessage, error) {
-				return append(json.RawMessage(nil), payload...), nil
-			}); err != nil {
-				return err
-			}
 		case "client.device.status.get", "client.device.volume.set", "client.device.sound.play", "client.device.reboot",
 			"client.device.audioplayer.get", "client.device.audioplayer.playlist.get", "client.device.audioplayer.playlist.set", "client.device.audioplayer.playlist.append", "client.device.audioplayer.play", "client.device.audioplayer.stop", "client.device.audioplayer.mode.set",
 			"client.wifi.status.get", "client.wifi.saved.list", "client.wifi.saved.forget", "client.wifi.scan", "client.wifi.connect":

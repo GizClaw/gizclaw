@@ -11,7 +11,6 @@ type ToolType string
 
 const (
 	ToolTypeHTTPRequest ToolType = "http_request"
-	ToolTypeClientRPC   ToolType = "client_rpc"
 )
 
 // Tool is the persisted configuration for one caller-identified capability.
@@ -25,7 +24,7 @@ type Tool struct {
 	InputSchema jsonschema.Schema `json:"input_schema"`
 	Triggers    []ToolTrigger     `json:"triggers,omitempty"`
 	Metadata    json.RawMessage   `json:"metadata,omitempty"`
-	HTTP        *HTTPRequest      `json:"http,omitempty"`
+	HTTP        HTTPRequest       `json:"http"`
 	CreatedAt   time.Time         `json:"created_at"`
 	UpdatedAt   time.Time         `json:"updated_at"`
 }

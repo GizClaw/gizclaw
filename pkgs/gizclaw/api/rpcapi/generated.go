@@ -682,7 +682,7 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodClientFirmwareUpdate:
 		return true
-	case RPCMethodClientToolInvoke:
+	case RPCMethodClientAppList, RPCMethodClientAppInstall, RPCMethodClientAppUninstall, RPCMethodClientAppInvoke, RPCMethodClientAppJobStart, RPCMethodClientAppJobCancel:
 		return true
 	case RPCMethodServerBadgeDefPixaDownload:
 		return true

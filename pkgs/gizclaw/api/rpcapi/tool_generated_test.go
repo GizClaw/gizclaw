@@ -33,12 +33,4 @@ func TestSafeToolPayloadRoundTripAndMethodRegistry(t *testing.T) {
 		t.Fatalf("Tool round trip = %#v", got)
 	}
 
-	invoke := ToolInvokeResponse{DataJson: `{"ok":true}`}
-	if err := payload.FromToolInvokeResponse(invoke); err != nil {
-		t.Fatalf("FromToolInvokeResponse() error = %v", err)
-	}
-	decoded, err := payload.AsToolInvokeResponse()
-	if err != nil || string(decoded.DataJson) != `{"ok":true}` {
-		t.Fatalf("AsToolInvokeResponse() = %s, %v", decoded.DataJson, err)
-	}
 }

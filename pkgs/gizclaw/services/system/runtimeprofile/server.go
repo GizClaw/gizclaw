@@ -631,6 +631,7 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 		{name: "model", values: spec.Resources.Models},
 		{name: "voice", values: spec.Resources.Voices},
 		{name: "tool", values: spec.Resources.Tools},
+		{name: "app", values: spec.Resources.Apps},
 		{name: "pet definition", values: spec.Resources.PetDefs},
 		{name: "game definition", values: spec.Resources.GameDefs},
 		{name: "badge definition", values: spec.Resources.BadgeDefs},
@@ -988,6 +989,7 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 		values *map[string]apitypes.RuntimeProfileBinding
 	}{
 		{path: "resources.tools", kind: apitypes.ResourceKindTool, values: spec.Resources.Tools},
+		{path: "resources.apps", kind: apitypes.ResourceKindApp, values: spec.Resources.Apps},
 		{path: "resources.game_defs", kind: apitypes.ResourceKindGameDef, values: spec.Resources.GameDefs},
 	}
 	for _, group := range groups {

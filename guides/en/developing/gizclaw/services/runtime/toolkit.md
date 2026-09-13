@@ -10,17 +10,8 @@ RuntimeProfile bindings and Admin `ToolkitPolicy.tool_ids` store canonical IDs.
 Peer RPC projects each binding key as a scoped Tool `name`; Peer Toolkit policy
 and invocation use only that scoped name and never expose the canonical ID.
 
-Two Tool types are supported:
+Tools support only server-side `http_request`, with a required HTTP configuration declaring a fixed HTTPS GET or JSON POST operation. RFC 6901 pointers map arguments to query or body fields. Device execution uses [Apps](./app).
 
-- `http_request` declares one fixed HTTPS `GET` or JSON `POST` operation.
-  Arguments map from RFC 6901 pointers to query or body fields. The declaration
-  fixes status, response pointer, timeout, and response-size limits.
-- `client_rpc` invokes a handler mounted by canonical name in the current
-  connected Peer SDK. It contains no method, handler ID, Peer ID, endpoint, or
-  Credential configuration.
-
-There is no `source`, `builtin`, executor registry, duplicate Tool identity,
-`output_schema`, or provider ToolCall ID in the Resource contract.
 
 ## HTTP authentication and transport
 
@@ -35,8 +26,7 @@ Provider methods resolve one `volc` or `aliyun` Credential at invocation time.
 Volc Ark/Search use their fixed API-key fields; Volc OpenAPI and Alibaba Cloud
 OpenAPI V3 sign the final request. Alibaba Cloud Marketplace uses AppCode.
 `pkgs/giztools` contains only stateless execution helpers: the bounded HTTP
-request mapper/executor and the current-connection `client.tool.invoke` wire
-client. It does not resolve Resources, policy, RuntimeProfiles, select a Peer,
+request mapper/executor. It does not resolve Resources, policy, RuntimeProfiles, select a Peer,
 or implement `genx.ToolInvoker`.
 
 HTTP execution permits HTTPS only, disables redirects and environment proxies,
@@ -52,9 +42,7 @@ flowchart LR
     Profile --> Policy["Peer scoped Tool name"]
     Policy --> Invoker["Context-scoped AgentHost ToolInvoker"]
     Invoker --> HTTP["http_request via giztools"]
-    Invoker --> Client["client_rpc on current Peer connection"]
     HTTP --> Continue["Transformer or Graph continuation"]
-    Client --> Continue
 ```
 
 Disabled Tools are not advertised. Dangling or duplicate canonical-ID bindings
@@ -62,7 +50,7 @@ fail scope construction. Every invocation re-reads and reauthorizes the
 Resource, validates model arguments, and dispatches by `spec.type`; it does not
 fall back to another type, name, owner Profile, or online Peer.
 
-Client `timeout` and `unavailable` are bounded JSON Tool results submitted to
+App `timeout` and `unavailable` are bounded JSON Tool results submitted to
 the model continuation. Raw handler, transport, Peer, and Credential details
 are redacted. Tool calls and Tool results remain internal to the Transformer or
 Graph and are not public assistant stream control messages.

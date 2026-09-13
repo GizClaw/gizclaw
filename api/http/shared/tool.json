@@ -59,7 +59,8 @@
             "type": "string",
             "format": "date-time"
           }
-        }
+        },
+        "description": "Server-side HTTP Tool read model. Device execution uses App resources."
       }
     }
   }

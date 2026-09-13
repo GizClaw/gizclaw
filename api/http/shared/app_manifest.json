@@ -1,0 +1,74 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "App",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "AppManifest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "app_name": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,63}$"
+          },
+          "runtime": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_.-]{0,127}$"
+          },
+          "entry": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "methods": {
+            "type": "array",
+            "maxItems": 128,
+            "items": {
+              "$ref": "#/components/schemas/AppMethod"
+            }
+          }
+        },
+        "required": [
+          "app_name",
+          "runtime",
+          "entry",
+          "methods"
+        ]
+      },
+      "AppMethod": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,63}$"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "call",
+              "job"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "input_schema": {
+            "$ref": "./tool_json_schema.json#/components/schemas/ToolJSONSchema"
+          }
+        },
+        "required": [
+          "name",
+          "mode",
+          "description",
+          "input_schema"
+        ]
+      }
+    }
+  }
+}

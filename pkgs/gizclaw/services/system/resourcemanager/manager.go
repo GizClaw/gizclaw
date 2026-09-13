@@ -19,6 +19,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/app"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
@@ -44,6 +45,7 @@ type Services struct {
 	FriendGroups    *friendgroup.Server
 	GameplayCatalog gameplay.CatalogAdminService
 	Tools           *toolkit.Server
+	Apps            *app.Server
 	RuntimeProfiles *runtimeprofile.Server
 }
 
@@ -134,6 +136,8 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, id string
 			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromModel(item)
+	case apitypes.ResourceKindApp:
+		return m.getAppResource(ctx, id)
 	case apitypes.ResourceKindTool:
 		if m.services.Tools == nil {
 			return apitypes.Resource{}, missingService("tools")
@@ -541,6 +545,22 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindModel, targetID)
+	case string(apitypes.ResourceKindApp), "AppResource":
+		item, err := resource.AsAppResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_APP_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if m.services.Apps == nil {
+			return apitypes.Resource{}, missingService("apps")
+		}
+		value, err := m.services.Apps.Put(ctx, targetID, item.Spec, false)
+		if err != nil {
+			return apitypes.Resource{}, appServiceError(err)
+		}
+		return resourceFromApp(value)
 	case string(apitypes.ResourceKindTool), "ToolResource":
 		if m.services.Tools == nil {
 			return apitypes.Resource{}, missingService("tools")
@@ -843,6 +863,15 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, id str
 			return apitypes.Resource{}, notFound(kind, id)
 		}
 		return resourceFromModel(item)
+	case apitypes.ResourceKindApp:
+		if m.services.Apps == nil {
+			return apitypes.Resource{}, missingService("apps")
+		}
+		value, err := m.services.Apps.Delete(ctx, id)
+		if err != nil {
+			return apitypes.Resource{}, appServiceError(err)
+		}
+		return resourceFromApp(value)
 	case apitypes.ResourceKindTool:
 		if m.services.Tools == nil {
 			return apitypes.Resource{}, missingService("tools")
@@ -1110,6 +1139,8 @@ func (m *Manager) Apply(ctx context.Context, resource apitypes.Resource) (apityp
 		return m.applyOpenAITenant(ctx, resource)
 	case string(apitypes.ResourceKindModel), "ModelResource":
 		return m.applyModel(ctx, resource)
+	case string(apitypes.ResourceKindApp), "AppResource":
+		return m.applyApp(ctx, resource)
 	case string(apitypes.ResourceKindTool), "ToolResource":
 		return m.applyTool(ctx, resource)
 	case string(apitypes.ResourceKindPetDef), "PetDefResource":

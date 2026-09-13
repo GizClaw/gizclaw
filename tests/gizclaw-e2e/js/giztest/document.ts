@@ -38,7 +38,6 @@ export const ALL_OPERATIONS = [
 export const CLIENT_RPC_METHODS = [
   "client.info.get",
   "client.identifiers.get",
-  "client.tool.invoke",
   "client.device.status.get",
   "client.device.volume.set",
   "client.device.sound.play",
@@ -57,8 +56,7 @@ export const CLIENT_RPC_METHODS = [
   "client.wifi.connect",
 ] as const;
 
-// Methods this runner can install a provider for. `client.tool.invoke` needs
-// the tool-serving surface the JavaScript device SDK does not expose.
+// Methods this runner can install a provider for.
 export const SUPPORTED_CLIENT_RPC_METHODS = new Set<string>([
   "client.info.get",
   "client.identifiers.get",

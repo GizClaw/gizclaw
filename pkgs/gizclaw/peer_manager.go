@@ -26,6 +26,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/app"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
@@ -145,6 +146,7 @@ type Manager struct {
 	MemoryStores     *memorystore.Registry
 	SpeechLimits     SpeechLimits
 	Tools            *toolkit.Server
+	Apps             *app.Server
 	ToolBuilder      *toolkit.Builder
 	// SFU is the Server-level SFU connector configuration handed to the sfu
 	// Workflow driver. Credentials never leave the Server process.

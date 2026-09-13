@@ -46,6 +46,39 @@ func (e ASTTranslateWorkspaceParametersAgentType) Valid() bool {
 	}
 }
 
+// Defines values for AppMethodMode.
+const (
+	AppMethodModeCall AppMethodMode = "call"
+	AppMethodModeJob  AppMethodMode = "job"
+)
+
+// Valid indicates whether the value is a known member of the AppMethodMode enum.
+func (e AppMethodMode) Valid() bool {
+	switch e {
+	case AppMethodModeCall:
+		return true
+	case AppMethodModeJob:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AppResourceKind.
+const (
+	AppResourceKindApp AppResourceKind = "App"
+)
+
+// Valid indicates whether the value is a known member of the AppResourceKind enum.
+func (e AppResourceKind) Valid() bool {
+	switch e {
+	case AppResourceKindApp:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ApplyAction.
 const (
 	ApplyActionApplied   ApplyAction = "applied"
@@ -100,21 +133,6 @@ const (
 func (e BadgeDefResourceKind) Valid() bool {
 	switch e {
 	case BadgeDefResourceKindBadgeDef:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ClientRPCToolSpecType.
-const (
-	ClientRPCToolSpecTypeClientRpc ClientRPCToolSpecType = "client_rpc"
-)
-
-// Valid indicates whether the value is a known member of the ClientRPCToolSpecType enum.
-func (e ClientRPCToolSpecType) Valid() bool {
-	switch e {
-	case ClientRPCToolSpecTypeClientRpc:
 		return true
 	default:
 		return false
@@ -1597,21 +1615,6 @@ func (e GeminiTenantResourceKind) Valid() bool {
 	}
 }
 
-// Defines values for HTTPToolSpecType.
-const (
-	HTTPToolSpecTypeHttpRequest HTTPToolSpecType = "http_request"
-)
-
-// Valid indicates whether the value is a known member of the HTTPToolSpecType enum.
-func (e HTTPToolSpecType) Valid() bool {
-	switch e {
-	case HTTPToolSpecTypeHttpRequest:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for MemoryLayoutResourceKind.
 const (
 	MemoryLayoutResourceKindMemoryLayout MemoryLayoutResourceKind = "MemoryLayout"
@@ -2196,6 +2199,7 @@ func (e ResourceAPIVersion) Valid() bool {
 
 // Defines values for ResourceKind.
 const (
+	ResourceKindApp                    ResourceKind = "App"
 	ResourceKindBadgeDef               ResourceKind = "BadgeDef"
 	ResourceKindContact                ResourceKind = "Contact"
 	ResourceKindCredential             ResourceKind = "Credential"
@@ -2226,6 +2230,8 @@ const (
 // Valid indicates whether the value is a known member of the ResourceKind enum.
 func (e ResourceKind) Valid() bool {
 	switch e {
+	case ResourceKindApp:
+		return true
 	case ResourceKindBadgeDef:
 		return true
 	case ResourceKindContact:
@@ -2740,17 +2746,29 @@ func (e ToolResourceKind) Valid() bool {
 	}
 }
 
+// Defines values for ToolSpecType.
+const (
+	ToolSpecTypeHttpRequest ToolSpecType = "http_request"
+)
+
+// Valid indicates whether the value is a known member of the ToolSpecType enum.
+func (e ToolSpecType) Valid() bool {
+	switch e {
+	case ToolSpecTypeHttpRequest:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ToolType.
 const (
-	ToolTypeClientRpc   ToolType = "client_rpc"
 	ToolTypeHttpRequest ToolType = "http_request"
 )
 
 // Valid indicates whether the value is a known member of the ToolType enum.
 func (e ToolType) Valid() bool {
 	switch e {
-	case ToolTypeClientRpc:
-		return true
 	case ToolTypeHttpRequest:
 		return true
 	default:
@@ -3043,6 +3061,57 @@ type AliyunCredentialBody struct {
 	SecurityToken   *string `json:"security_token,omitempty"`
 }
 
+// App defines model for App.
+type App struct {
+	AppName   string          `json:"app_name"`
+	CreatedAt time.Time       `json:"created_at"`
+	Entry     string          `json:"entry"`
+	Id        string          `json:"id"`
+	Methods   []AppMethod     `json:"methods"`
+	Package   FirmwarePackage `json:"package"`
+	Runtime   string          `json:"runtime"`
+	Sha256    string          `json:"sha256"`
+	UpdatedAt time.Time       `json:"updated_at"`
+}
+
+// AppManifest defines model for AppManifest.
+type AppManifest struct {
+	AppName string      `json:"app_name"`
+	Entry   string      `json:"entry"`
+	Methods []AppMethod `json:"methods"`
+	Runtime string      `json:"runtime"`
+}
+
+// AppMethod defines model for AppMethod.
+type AppMethod struct {
+	Description string `json:"description"`
+
+	// InputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
+	InputSchema ToolJSONSchema `json:"input_schema"`
+	Mode        AppMethodMode  `json:"mode"`
+	Name        string         `json:"name"`
+}
+
+// AppMethodMode defines model for AppMethod.Mode.
+type AppMethodMode string
+
+// AppResource defines model for AppResource.
+type AppResource struct {
+	// ApiVersion API version for declarative GizClaw resources.
+	ApiVersion ResourceAPIVersion `json:"apiVersion"`
+	Kind       AppResourceKind    `json:"kind"`
+	Metadata   ResourceMetadata   `json:"metadata"`
+	Spec       AppSpec            `json:"spec"`
+}
+
+// AppResourceKind defines model for AppResource.Kind.
+type AppResourceKind string
+
+// AppSpec defines model for AppSpec.
+type AppSpec struct {
+	Package FirmwarePackage `json:"package"`
+}
+
 // ApplyAction Result of applying the resource.
 type ApplyAction string
 
@@ -3178,25 +3247,6 @@ type BadgeListResponse struct {
 	Items      []Badge `json:"items"`
 	NextCursor *string `json:"next_cursor,omitempty"`
 }
-
-// ClientRPCToolSpec defines model for ClientRPCToolSpec.
-type ClientRPCToolSpec struct {
-	Description *string `json:"description,omitempty"`
-	Enabled     *bool   `json:"enabled,omitempty"`
-
-	// InputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
-	InputSchema ToolJSONSchema `json:"input_schema"`
-
-	// InvokeName Immutable runtime execution name, independent from the Admin resource ID and RuntimeProfile alias.
-	InvokeName string                  `json:"invoke_name"`
-	Metadata   *map[string]interface{} `json:"metadata,omitempty"`
-	Triggers   *[]ToolTrigger          `json:"triggers,omitempty"`
-	Type       ClientRPCToolSpecType   `json:"type"`
-	Version    *string                 `json:"version,omitempty"`
-}
-
-// ClientRPCToolSpecType defines model for ClientRPCToolSpec.Type.
-type ClientRPCToolSpecType string
 
 // ConcreteResource A concrete resource carrying metadata.id. ResourceList is excluded.
 type ConcreteResource struct {
@@ -4694,26 +4744,6 @@ type GeminiTenantVoiceProviderData struct {
 	VoiceId *string                 `json:"voice_id,omitempty"`
 }
 
-// HTTPToolSpec defines model for HTTPToolSpec.
-type HTTPToolSpec struct {
-	Description *string         `json:"description,omitempty"`
-	Enabled     *bool           `json:"enabled,omitempty"`
-	Http        ToolHTTPRequest `json:"http"`
-
-	// InputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
-	InputSchema ToolJSONSchema `json:"input_schema"`
-
-	// InvokeName Immutable runtime execution name, independent from the Admin resource ID and RuntimeProfile alias.
-	InvokeName string                  `json:"invoke_name"`
-	Metadata   *map[string]interface{} `json:"metadata,omitempty"`
-	Triggers   *[]ToolTrigger          `json:"triggers,omitempty"`
-	Type       HTTPToolSpecType        `json:"type"`
-	Version    *string                 `json:"version,omitempty"`
-}
-
-// HTTPToolSpecType defines model for HTTPToolSpec.Type.
-type HTTPToolSpecType string
-
 // HardwareInfo defines model for HardwareInfo.
 type HardwareInfo struct {
 	HardwareRevision *string `json:"hardware_revision,omitempty"`
@@ -6004,6 +6034,7 @@ type RuntimeProfileResourceKind string
 
 // RuntimeProfileResources defines model for RuntimeProfileResources.
 type RuntimeProfileResources struct {
+	Apps      *map[string]RuntimeProfileBinding       `json:"apps,omitempty"`
 	BadgeDefs *map[string]RuntimeProfileBinding       `json:"badge_defs,omitempty"`
 	GameDefs  *map[string]RuntimeProfileBinding       `json:"game_defs,omitempty"`
 	Memories  *map[string]RuntimeProfileMemoryBinding `json:"memories,omitempty"`
@@ -6202,7 +6233,7 @@ type ServerLogStreamEnd struct {
 	NextCursor *string `json:"next_cursor,omitempty"`
 }
 
-// Tool defines model for Tool.
+// Tool Server-side HTTP Tool read model. Device execution uses App resources.
 type Tool struct {
 	CreatedAt   time.Time `json:"created_at"`
 	Description *string   `json:"description,omitempty"`
@@ -6335,18 +6366,31 @@ type ToolResource struct {
 
 	// Metadata metadata.id is the caller-supplied canonical Tool ID. spec.invoke_name is the distinct immutable runtime execution name.
 	Metadata ResourceMetadata `json:"metadata"`
-
-	// Spec Strict Tool declaration selected by type. metadata.id is the Admin identity and invoke_name is the immutable runtime execution identity.
-	Spec ToolSpec `json:"spec"`
+	Spec     ToolSpec         `json:"spec"`
 }
 
 // ToolResourceKind defines model for ToolResource.Kind.
 type ToolResourceKind string
 
-// ToolSpec Strict Tool declaration selected by type. metadata.id is the Admin identity and invoke_name is the immutable runtime execution identity.
+// ToolSpec defines model for ToolSpec.
 type ToolSpec struct {
-	union json.RawMessage
+	Description *string         `json:"description,omitempty"`
+	Enabled     *bool           `json:"enabled,omitempty"`
+	Http        ToolHTTPRequest `json:"http"`
+
+	// InputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
+	InputSchema ToolJSONSchema `json:"input_schema"`
+
+	// InvokeName Immutable runtime execution name, independent from the Admin resource ID and RuntimeProfile alias.
+	InvokeName string                  `json:"invoke_name"`
+	Metadata   *map[string]interface{} `json:"metadata,omitempty"`
+	Triggers   *[]ToolTrigger          `json:"triggers,omitempty"`
+	Type       ToolSpecType            `json:"type"`
+	Version    *string                 `json:"version,omitempty"`
 }
+
+// ToolSpecType defines model for ToolSpec.Type.
+type ToolSpecType string
 
 // ToolTrigger defines model for ToolTrigger.
 type ToolTrigger struct {
@@ -7166,6 +7210,34 @@ func (t *ConcreteResource) MergeToolResource(v ToolResource) error {
 	return err
 }
 
+// AsAppResource returns the union data inside the ConcreteResource as a AppResource
+func (t ConcreteResource) AsAppResource() (AppResource, error) {
+	var body AppResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromAppResource overwrites any union data inside the ConcreteResource as the provided AppResource
+func (t *ConcreteResource) FromAppResource(v AppResource) error {
+	v.Kind = "App"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeAppResource performs a merge with any union data inside the ConcreteResource, using the provided AppResource
+func (t *ConcreteResource) MergeAppResource(v AppResource) error {
+	v.Kind = "App"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsWorkflowResource returns the union data inside the ConcreteResource as a WorkflowResource
 func (t ConcreteResource) AsWorkflowResource() (WorkflowResource, error) {
 	var body WorkflowResource
@@ -7404,6 +7476,8 @@ func (t ConcreteResource) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
+	case "App":
+		return t.AsAppResource()
 	case "BadgeDef":
 		return t.AsBadgeDefResource()
 	case "Contact":
@@ -7873,6 +7947,32 @@ func (t *ConcreteResourceWritable) FromToolResource(v ToolResource) error {
 
 // MergeToolResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided ToolResource
 func (t *ConcreteResourceWritable) MergeToolResource(v ToolResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsAppResource returns the union data inside the ConcreteResourceWritable as a AppResource
+func (t ConcreteResourceWritable) AsAppResource() (AppResource, error) {
+	var body AppResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromAppResource overwrites any union data inside the ConcreteResourceWritable as the provided AppResource
+func (t *ConcreteResourceWritable) FromAppResource(v AppResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeAppResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided AppResource
+func (t *ConcreteResourceWritable) MergeAppResource(v AppResource) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -9389,6 +9489,34 @@ func (t *Resource) MergeToolResource(v ToolResource) error {
 	return err
 }
 
+// AsAppResource returns the union data inside the Resource as a AppResource
+func (t Resource) AsAppResource() (AppResource, error) {
+	var body AppResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromAppResource overwrites any union data inside the Resource as the provided AppResource
+func (t *Resource) FromAppResource(v AppResource) error {
+	v.Kind = "App"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeAppResource performs a merge with any union data inside the Resource, using the provided AppResource
+func (t *Resource) MergeAppResource(v AppResource) error {
+	v.Kind = "App"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsWorkflowResource returns the union data inside the Resource as a WorkflowResource
 func (t Resource) AsWorkflowResource() (WorkflowResource, error) {
 	var body WorkflowResource
@@ -9655,6 +9783,8 @@ func (t Resource) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
+	case "App":
+		return t.AsAppResource()
 	case "BadgeDef":
 		return t.AsBadgeDefResource()
 	case "Contact":
@@ -10194,95 +10324,6 @@ func (t ToolHTTPAuth) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ToolHTTPAuth) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsHTTPToolSpec returns the union data inside the ToolSpec as a HTTPToolSpec
-func (t ToolSpec) AsHTTPToolSpec() (HTTPToolSpec, error) {
-	var body HTTPToolSpec
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromHTTPToolSpec overwrites any union data inside the ToolSpec as the provided HTTPToolSpec
-func (t *ToolSpec) FromHTTPToolSpec(v HTTPToolSpec) error {
-	v.Type = "http_request"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeHTTPToolSpec performs a merge with any union data inside the ToolSpec, using the provided HTTPToolSpec
-func (t *ToolSpec) MergeHTTPToolSpec(v HTTPToolSpec) error {
-	v.Type = "http_request"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsClientRPCToolSpec returns the union data inside the ToolSpec as a ClientRPCToolSpec
-func (t ToolSpec) AsClientRPCToolSpec() (ClientRPCToolSpec, error) {
-	var body ClientRPCToolSpec
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromClientRPCToolSpec overwrites any union data inside the ToolSpec as the provided ClientRPCToolSpec
-func (t *ToolSpec) FromClientRPCToolSpec(v ClientRPCToolSpec) error {
-	v.Type = "client_rpc"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeClientRPCToolSpec performs a merge with any union data inside the ToolSpec, using the provided ClientRPCToolSpec
-func (t *ToolSpec) MergeClientRPCToolSpec(v ClientRPCToolSpec) error {
-	v.Type = "client_rpc"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t ToolSpec) Discriminator() (string, error) {
-	var discriminator struct {
-		Discriminator string `json:"type"`
-	}
-	err := json.Unmarshal(t.union, &discriminator)
-	return discriminator.Discriminator, err
-}
-
-func (t ToolSpec) ValueByDiscriminator() (interface{}, error) {
-	discriminator, err := t.Discriminator()
-	if err != nil {
-		return nil, err
-	}
-	switch discriminator {
-	case "client_rpc":
-		return t.AsClientRPCToolSpec()
-	case "http_request":
-		return t.AsHTTPToolSpec()
-	default:
-		return nil, errors.New("unknown discriminator value: " + discriminator)
-	}
-}
-
-func (t ToolSpec) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *ToolSpec) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

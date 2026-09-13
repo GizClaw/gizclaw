@@ -113,7 +113,6 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_GET = 79,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_TOOL_LIST = 80,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_TOOL_GET = 81,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE = 82,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PEER_LOOKUP = 83,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PEER_ASSIGN = 84,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_ROUTE_RESOLVE = 85,
@@ -147,7 +146,13 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_APPEND = 116,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY = 117,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP = 118,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET = 119
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET = 119,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_APP_LIST = 121,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_APP_INSTALL = 122,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_APP_UNINSTALL = 123,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_APP_INVOKE = 124,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_APP_JOB_START = 125,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_APP_JOB_CANCEL = 126
 } gizclaw_rpc_v1_RpcMethod;
 
 /* Struct definitions */
@@ -217,8 +222,8 @@ extern "C" {
 #define _gizclaw_rpc_v1_StatusCode_ARRAYSIZE ((gizclaw_rpc_v1_StatusCode)(gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNAUTHENTICATED+1))
 
 #define _gizclaw_rpc_v1_RpcMethod_MIN gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED
-#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD_WITH_OPTIONS
-#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD_WITH_OPTIONS+1))
+#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_APP_JOB_CANCEL
+#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_APP_JOB_CANCEL+1))
 
 
 

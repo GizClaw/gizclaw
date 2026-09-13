@@ -9,13 +9,7 @@ Admin identity。RuntimeProfile binding 与 Admin `ToolkitPolicy.tool_ids` 保�
 canonical ID。Peer RPC 把 binding key 投影为 scoped Tool `name`；Peer Toolkit
 policy 和调用只使用该 scoped name，不暴露 canonical ID。
 
-目前支持两种 Tool：
-
-- `http_request` 声明一个固定 HTTPS `GET` 或 JSON `POST` 操作。参数通过
-  RFC 6901 pointer 映射到 query 或 body field；status、response pointer、
-  timeout 与 response size 都由 Resource 固定。
-- `client_rpc` 调用当前已连接 Peer SDK 中按 canonical name 挂载的 handler。
-  该分支没有 method、handler ID、Peer ID、endpoint 或 Credential 配置。
+Tool 只支持服务器执行的 `http_request`：固定 HTTPS `GET` 或 JSON `POST` 操作。参数通过 RFC 6901 pointer 映射到 query 或 body；status、response pointer、timeout 与 response size 都由必填 HTTP 配置固定。设备执行使用 [App](./app)。
 
 Resource contract 中不存在 `source`、`builtin`、executor registry、第二套 Tool
 identity、`output_schema` 或 provider ToolCall ID。
@@ -32,8 +26,7 @@ secret。Admin read、RuntimeProfile projection、model definition、日志与�
 Provider auth 在每次调用时解析一个 `volc` 或 `aliyun` Credential。Volc
 Ark/Search 使用固定 API-key field；Volc OpenAPI 与阿里云 OpenAPI V3 对最终
 request 签名；阿里云市场使用 AppCode。`pkgs/giztools` 只包含无状态执行 helper：
-有界 HTTP request mapper/executor，以及针对当前 connection 的
-`client.tool.invoke` wire client；它不解析 Resource、policy、RuntimeProfile，
+有界 HTTP request mapper/executor；它不解析 Resource、policy、RuntimeProfile，
 不选择 Peer，也不实现 `genx.ToolInvoker`。
 
 HTTP 仅允许 HTTPS，关闭 redirect 与环境 proxy；每次连接都检查全部 DNS 结果，
@@ -49,9 +42,7 @@ flowchart LR
     Profile --> Policy["Peer scoped Tool name"]
     Policy --> Invoker["context-scoped AgentHost ToolInvoker"]
     Invoker --> HTTP["http_request 走 giztools"]
-    Invoker --> Client["client_rpc 走当前 Peer connection"]
     HTTP --> Continue["Transformer 或 Graph continuation"]
-    Client --> Continue
 ```
 
 Disabled Tool 不会被声明；dangling Resource 或同一 canonical ID 的重复 binding
@@ -59,9 +50,6 @@ Disabled Tool 不会被声明；dangling Resource 或同一 canonical ID 的重�
 arguments，再严格按 `spec.type` 分发；不会回退到另一类型、name、owner Profile
 或其他在线 Peer。
 
-Client 的 `timeout` 与 `unavailable` 会成为有界 JSON Tool result，交回模型继续
-执行；原始 handler、transport、Peer 与 Credential 信息会被隐藏。ToolCall 与
-ToolResult 始终是 Transformer/Graph 内部控制，不会作为 public assistant stream
-control message 发给 Peer。
+HTTP timeout 会作为 recoverable JSON Tool result 返回。App 调用的 timeout 与 unavailable 行为见 [App](./app)。ToolCall 与 ToolResult 保持在 Transformer/Graph 内部，不作为 public assistant stream control message 发送。
 
 Tool catalog 使用 `tools` SQL 业务表：canonical ID 为主键，`invoke_name` 有唯一约束，类型、启用状态、描述、版本与时间为独立列；输入 Schema、trigger、metadata 和 HTTP 配置分别保留为 JSON。Server 启动时初始化表并复用 SQL 连接池，按调用名获取工具只执行一次索引查询。目录枚举按 ID 分批查询，每批最多 256 条。更新使用行版本和创建实例标识进行条件写入；并发轮换密钥或删除后重建时，重读当前记录再处理省略的密钥，不恢复旧密钥。

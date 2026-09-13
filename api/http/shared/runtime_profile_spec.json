@@ -251,6 +251,10 @@
             "type": "object",
             "additionalProperties": { "$ref": "#/components/schemas/RuntimeProfileBinding" }
           },
+          "apps": {
+            "type": "object",
+            "additionalProperties": { "$ref": "#/components/schemas/RuntimeProfileBinding" }
+          },
           "tools": {
             "type": "object",
             "additionalProperties": { "$ref": "#/components/schemas/RuntimeProfileBinding" }

@@ -68,6 +68,7 @@ type PeerConn struct {
 	Service         *PeerService
 	ServerPublicKey giznet.PublicKey
 
+	appStatus               atomic.Pointer[peerAppStatus]
 	closeOnce               sync.Once
 	agentHost               *agenthost.Service
 	agentInput              peerAgentInput
@@ -214,6 +215,7 @@ func (h *PeerConn) serve() error {
 	g.Go(h.serveService)
 	g.Go(h.servePackets)
 	g.Go(h.serveRPC)
+	g.Go(h.reconcileApps)
 	g.Go(h.serveEdgeRPC)
 	g.Go(h.serveOpenAI)
 	g.Go(func() error {
@@ -492,7 +494,7 @@ func (h *PeerConn) initAgentHost() {
 		PeerRun:        manager.PeerRun,
 		PublicKey:      h.Conn.PublicKey(),
 		RuntimeProfile: h.currentRuntimeProfile,
-		ClientTools:    peerClientToolInvoker{conn: h.Conn},
+		Apps:           peerAppClient{conn: h.Conn, apps: manager.Apps, status: &h.appStatus},
 		ValidateWorkspaceSelection: func(ctx context.Context, name string) (string, error) {
 			canonicalName, rpcErr := resources.ValidateRunWorkspaceSelection(ctx, name)
 			if rpcErr != nil {

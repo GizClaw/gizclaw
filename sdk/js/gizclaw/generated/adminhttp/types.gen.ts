@@ -438,6 +438,13 @@ export type PublicKeyList = {
     public_keys: Array<string>;
 };
 
+export type AppResource = {
+    apiVersion: ResourceApiVersion;
+    kind: 'App';
+    metadata: ResourceMetadata;
+    spec: AppSpec;
+};
+
 export type BadgeDefResource = {
     apiVersion: ResourceApiVersion;
     kind: 'BadgeDef';
@@ -668,7 +675,7 @@ export type ApplyResult = {
 /**
  * A concrete ResourceList item accepted by Admin apply. Workspace and nested ResourceList are excluded.
  */
-export type ConcreteResourceWritable = CredentialResource | FirmwareResource | ContactResource | FriendResource | FriendGroupResource | FriendGroupInviteTokenResource | FriendGroupMemberResource | ModelResource | DashScopeTenantResource | DeepSeekTenantResource | GeminiTenantResource | MiniMaxTenantResource | OpenAiTenantResource | VolcTenantResource | VoiceResource | ToolResource | WorkflowResource | PetDefResource | BadgeDefResource | GameDefResource | MemoryLayoutResource | RuntimeProfileResource | RegistrationTokenResource;
+export type ConcreteResourceWritable = CredentialResource | FirmwareResource | ContactResource | FriendResource | FriendGroupResource | FriendGroupInviteTokenResource | FriendGroupMemberResource | ModelResource | DashScopeTenantResource | DeepSeekTenantResource | GeminiTenantResource | MiniMaxTenantResource | OpenAiTenantResource | VolcTenantResource | VoiceResource | ToolResource | AppResource | WorkflowResource | PetDefResource | BadgeDefResource | GameDefResource | MemoryLayoutResource | RuntimeProfileResource | RegistrationTokenResource;
 
 export type Resource = ({
     kind: 'Credential';
@@ -703,6 +710,8 @@ export type Resource = ({
 } & VoiceResource) | ({
     kind: 'Tool';
 } & ToolResource) | ({
+    kind: 'App';
+} & AppResource) | ({
     kind: 'Workflow';
 } & WorkflowResource) | ({
     kind: 'Workspace';
@@ -730,7 +739,7 @@ export type ResourceApiVersion = 'gizclaw.admin/v1alpha1';
 /**
  * Declarative GizClaw resource kind.
  */
-export type ResourceKind = 'Credential' | 'Firmware' | 'Contact' | 'Friend' | 'FriendGroup' | 'FriendGroupInviteToken' | 'FriendGroupMember' | 'Model' | 'DashScopeTenant' | 'DeepSeekTenant' | 'GeminiTenant' | 'MiniMaxTenant' | 'OpenAITenant' | 'VolcTenant' | 'Voice' | 'Tool' | 'Workflow' | 'Workspace' | 'PetDef' | 'BadgeDef' | 'GameDef' | 'MemoryLayout' | 'RuntimeProfile' | 'RegistrationToken' | 'ResourceList';
+export type ResourceKind = 'Credential' | 'Firmware' | 'Contact' | 'Friend' | 'FriendGroup' | 'FriendGroupInviteToken' | 'FriendGroupMember' | 'Model' | 'DashScopeTenant' | 'DeepSeekTenant' | 'GeminiTenant' | 'MiniMaxTenant' | 'OpenAITenant' | 'VolcTenant' | 'Voice' | 'Tool' | 'App' | 'Workflow' | 'Workspace' | 'PetDef' | 'BadgeDef' | 'GameDef' | 'MemoryLayout' | 'RuntimeProfile' | 'RegistrationToken' | 'ResourceList';
 
 export type ResourceMetadata = {
     /**
@@ -817,6 +826,10 @@ export type WorkspaceResource = {
     metadata: ResourceMetadata;
     spec: WorkspaceSpec;
     icon?: Icon;
+};
+
+export type AppSpec = {
+    package: FirmwarePackage;
 };
 
 export type Credential = {
@@ -1891,6 +1904,9 @@ export type RuntimeProfileResources = {
     voices?: {
         [key: string]: RuntimeProfileBinding;
     };
+    apps?: {
+        [key: string]: RuntimeProfileBinding;
+    };
     tools?: {
         [key: string]: RuntimeProfileBinding;
     };
@@ -2092,39 +2108,6 @@ export type ToolJsonSchema = {
     [key: string]: unknown;
 };
 
-export type ClientRpcToolSpec = {
-    /**
-     * Immutable runtime execution name, independent from the Admin resource ID and RuntimeProfile alias.
-     */
-    invoke_name: string;
-    type: 'client_rpc';
-    description?: string;
-    enabled?: boolean;
-    version?: string;
-    input_schema: ToolJsonSchema;
-    triggers?: Array<ToolTrigger>;
-    metadata?: {
-        [key: string]: unknown;
-    };
-};
-
-export type HttpToolSpec = {
-    /**
-     * Immutable runtime execution name, independent from the Admin resource ID and RuntimeProfile alias.
-     */
-    invoke_name: string;
-    type: 'http_request';
-    description?: string;
-    enabled?: boolean;
-    version?: string;
-    input_schema: ToolJsonSchema;
-    triggers?: Array<ToolTrigger>;
-    metadata?: {
-        [key: string]: unknown;
-    };
-    http: ToolHttpRequest;
-};
-
 export type ToolHttpArgumentBinding = {
     argument_pointer: string;
     target: string;
@@ -2208,14 +2191,22 @@ export type ToolHttpRequest = {
     max_response_bytes: number;
 };
 
-/**
- * Strict Tool declaration selected by type. metadata.id is the Admin identity and invoke_name is the immutable runtime execution identity.
- */
-export type ToolSpec = ({
+export type ToolSpec = {
+    /**
+     * Immutable runtime execution name, independent from the Admin resource ID and RuntimeProfile alias.
+     */
+    invoke_name: string;
     type: 'http_request';
-} & HttpToolSpec) | ({
-    type: 'client_rpc';
-} & ClientRpcToolSpec);
+    description?: string;
+    enabled?: boolean;
+    version?: string;
+    input_schema: ToolJsonSchema;
+    triggers?: Array<ToolTrigger>;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    http: ToolHttpRequest;
+};
 
 export type ToolTrigger = {
     name: string;
@@ -3308,7 +3299,7 @@ export type CredentialResourceWritable = {
 /**
  * A concrete ResourceList item accepted by Admin apply. Workspace and nested ResourceList are excluded.
  */
-export type ConcreteResourceWritableWritable = CredentialResourceWritable | FirmwareResource | ContactResource | FriendResource | FriendGroupResource | FriendGroupInviteTokenResource | FriendGroupMemberResource | ModelResource | DashScopeTenantResource | DeepSeekTenantResource | GeminiTenantResource | MiniMaxTenantResource | OpenAiTenantResource | VolcTenantResource | VoiceResource | ToolResourceWritable | WorkflowResource | PetDefResource | BadgeDefResource | GameDefResource | MemoryLayoutResource | RuntimeProfileResource | RegistrationTokenResource;
+export type ConcreteResourceWritableWritable = CredentialResourceWritable | FirmwareResource | ContactResource | FriendResource | FriendGroupResource | FriendGroupInviteTokenResource | FriendGroupMemberResource | ModelResource | DashScopeTenantResource | DeepSeekTenantResource | GeminiTenantResource | MiniMaxTenantResource | OpenAiTenantResource | VolcTenantResource | VoiceResource | ToolResourceWritable | AppResource | WorkflowResource | PetDefResource | BadgeDefResource | GameDefResource | MemoryLayoutResource | RuntimeProfileResource | RegistrationTokenResource;
 
 export type ResourceWritable = ({
     kind: 'Credential';
@@ -3343,6 +3334,8 @@ export type ResourceWritable = ({
 } & VoiceResource) | ({
     kind: 'Tool';
 } & ToolResourceWritable) | ({
+    kind: 'App';
+} & AppResource) | ({
     kind: 'Workflow';
 } & WorkflowResource) | ({
     kind: 'Workspace';
@@ -3403,23 +3396,6 @@ export type FriendGroupInviteTokenClearResponseWritable = {
     [key: string]: never;
 };
 
-export type HttpToolSpecWritable = {
-    /**
-     * Immutable runtime execution name, independent from the Admin resource ID and RuntimeProfile alias.
-     */
-    invoke_name: string;
-    type: 'http_request';
-    description?: string;
-    enabled?: boolean;
-    version?: string;
-    input_schema: ToolJsonSchema;
-    triggers?: Array<ToolTrigger>;
-    metadata?: {
-        [key: string]: unknown;
-    };
-    http: ToolHttpRequestWritable;
-};
-
 export type ToolHttpAuthWritable = ({
     method: 'none';
 } & ToolHttpAuthNone) | ({
@@ -3464,14 +3440,22 @@ export type ToolHttpRequestWritable = {
     max_response_bytes: number;
 };
 
-/**
- * Strict Tool declaration selected by type. metadata.id is the Admin identity and invoke_name is the immutable runtime execution identity.
- */
-export type ToolSpecWritable = ({
+export type ToolSpecWritable = {
+    /**
+     * Immutable runtime execution name, independent from the Admin resource ID and RuntimeProfile alias.
+     */
+    invoke_name: string;
     type: 'http_request';
-} & HttpToolSpecWritable) | ({
-    type: 'client_rpc';
-} & ClientRpcToolSpec);
+    description?: string;
+    enabled?: boolean;
+    version?: string;
+    input_schema: ToolJsonSchema;
+    triggers?: Array<ToolTrigger>;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    http: ToolHttpRequestWritable;
+};
 
 /**
  * Empty SFU Workflow payload. The Workspace binds the current Peer to the SFU Room declared by its Social resource; the Workflow itself carries no configuration.

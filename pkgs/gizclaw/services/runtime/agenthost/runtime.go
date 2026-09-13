@@ -85,10 +85,10 @@ func (f StreamConsumerFunc) ConsumeAgentOutput(ctx context.Context, stream genx.
 type WorkspaceSelectionValidatorFunc func(context.Context, string) (string, error)
 
 type Service struct {
+	Apps                       AppClient
 	Host                       genx.TransformerMux
 	PeerRun                    PeerRunStore
 	RuntimeProfile             func() *apitypes.RuntimeProfile
-	ClientTools                ClientToolInvoker
 	ValidateWorkspaceSelection WorkspaceSelectionValidatorFunc
 	AllowRestrictedReload      func(context.Context, string) bool
 	PublicKey                  giznet.PublicKey
@@ -201,7 +201,10 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	if profileSnapshot != nil {
 		baseCtx = withRuntimeProfile(baseCtx, *profileSnapshot)
 	}
-	baseCtx, err = WithToolExecution(baseCtx, profileTools(profileSnapshot), s.ClientTools)
+	baseCtx, err = WithToolExecution(baseCtx, profileTools(profileSnapshot))
+	if profileSnapshot != nil {
+		baseCtx = WithAppExecution(baseCtx, profileSnapshot.Spec.Resources.Apps, s.Apps)
+	}
 	if err != nil {
 		_ = input.CloseWithError(err)
 		return s.reloadFailure(ctx, workspaceName, err)

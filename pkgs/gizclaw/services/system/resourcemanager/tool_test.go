@@ -17,7 +17,8 @@ func TestToolResourceLifecycleUsesCallerID(t *testing.T) {
 		"kind":"Tool",
 		"metadata":{"id":"volume_set"},
 		"spec":{
-			"type":"client_rpc",
+			"type":"http_request",
+"http":{"url":"https://example.com","method":"GET","auth":{"method":"none"},"timeout":"1s","max_response_bytes":4096},
 			"invoke_name":"volume_set",
 			"description":"Set the current device volume",
 			"input_schema":{
@@ -44,8 +45,8 @@ func TestToolResourceLifecycleUsesCallerID(t *testing.T) {
 	if metadataID(t, typed.Metadata) != "volume_set" {
 		t.Fatalf("metadata.id = %q", metadataID(t, typed.Metadata))
 	}
-	if discriminator, err := typed.Spec.Discriminator(); err != nil || discriminator != "client_rpc" {
-		t.Fatalf("spec type = %q, %v", discriminator, err)
+	if typed.Spec.Type != "http_request" {
+		t.Fatalf("spec type = %q", typed.Spec.Type)
 	}
 	deleted, err := manager.Delete(t.Context(), apitypes.ResourceKindTool, id)
 	if err != nil {
@@ -117,7 +118,8 @@ func TestToolResourceIdentityConflictsReturnConflict(t *testing.T) {
 			"kind":"Tool",
 			"metadata":{"id":"`+id+`"},
 			"spec":{
-				"type":"client_rpc",
+				"type":"http_request",
+"http":{"url":"https://example.com","method":"GET","auth":{"method":"none"},"timeout":"1s","max_response_bytes":4096},
 				"invoke_name":"`+invokeName+`",
 				"input_schema":{"type":"object"}
 			}
@@ -144,10 +146,7 @@ func assertToolSecretRedacted(t *testing.T, manager *Manager, id string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	httpSpec, err := typed.Spec.AsHTTPToolSpec()
-	if err != nil {
-		t.Fatal(err)
-	}
+	httpSpec := typed.Spec
 	auth, err := httpSpec.Http.Auth.AsToolHTTPAuthBearer()
 	if err != nil {
 		t.Fatal(err)

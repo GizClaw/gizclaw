@@ -9,102 +9,30 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
+// FromSpec validates an HTTP Tool declaration.
 func FromSpec(id string, spec apitypes.ToolSpec) (Tool, error) {
-	discriminator, err := spec.Discriminator()
+	tool, err := commonToolFromAPI(id, spec.InvokeName, ToolType(spec.Type), spec.Description, spec.Enabled, spec.Version, spec.InputSchema, spec.Triggers, spec.Metadata)
 	if err != nil {
-		return Tool{}, fmt.Errorf("%w: decode type: %v", ErrInvalidTool, err)
+		return Tool{}, err
 	}
-	switch discriminator {
-	case string(ToolTypeClientRPC):
-		value, err := spec.AsClientRPCToolSpec()
-		if err != nil {
-			return Tool{}, fmt.Errorf("%w: decode client_rpc: %v", ErrInvalidTool, err)
-		}
-		tool, err := commonToolFromAPI(id, value.InvokeName, ToolTypeClientRPC, value.Description, value.Enabled, value.Version, value.InputSchema, value.Triggers, value.Metadata)
-		if err != nil {
-			return Tool{}, err
-		}
-		return normalizeToolDeclaration(tool)
-	case string(ToolTypeHTTPRequest):
-		value, err := spec.AsHTTPToolSpec()
-		if err != nil {
-			return Tool{}, fmt.Errorf("%w: decode http_request: %v", ErrInvalidTool, err)
-		}
-		tool, err := commonToolFromAPI(id, value.InvokeName, ToolTypeHTTPRequest, value.Description, value.Enabled, value.Version, value.InputSchema, value.Triggers, value.Metadata)
-		if err != nil {
-			return Tool{}, err
-		}
-		tool.HTTP, err = httpRequestFromAPI(value.Http)
-		if err != nil {
-			return Tool{}, err
-		}
-		return normalizeToolDeclaration(tool)
-	default:
-		return Tool{}, fmt.Errorf("%w: unsupported type %q", ErrInvalidTool, discriminator)
+	tool.HTTP, err = httpRequestFromAPI(spec.Http)
+	if err != nil {
+		return Tool{}, err
 	}
+	return normalizeToolDeclaration(tool)
 }
 
-func ToSpec(tool Tool) (apitypes.ToolSpec, error) {
-	tool, err := NormalizeTool(tool)
-	if err != nil {
-		return apitypes.ToolSpec{}, err
-	}
-	enabled := tool.Enabled
-	metadata, err := rawToMap(tool.Metadata)
-	if err != nil {
-		return apitypes.ToolSpec{}, err
-	}
-	triggers, err := triggersToAPI(tool.Triggers)
-	if err != nil {
-		return apitypes.ToolSpec{}, err
-	}
-	var spec apitypes.ToolSpec
-	switch tool.Type {
-	case ToolTypeClientRPC:
-		err = spec.FromClientRPCToolSpec(apitypes.ClientRPCToolSpec{
-			InvokeName:  tool.InvokeName,
-			Description: tool.Description,
-			Enabled:     &enabled,
-			InputSchema: tool.InputSchema,
-			Metadata:    metadata,
-			Triggers:    triggers,
-			Version:     tool.Version,
-		})
-	case ToolTypeHTTPRequest:
-		httpConfig, convertErr := httpRequestToAPI(*tool.HTTP, true)
-		if convertErr != nil {
-			return apitypes.ToolSpec{}, convertErr
-		}
-		err = spec.FromHTTPToolSpec(apitypes.HTTPToolSpec{
-			InvokeName:  tool.InvokeName,
-			Description: tool.Description,
-			Enabled:     &enabled,
-			Http:        httpConfig,
-			InputSchema: tool.InputSchema,
-			Metadata:    metadata,
-			Triggers:    triggers,
-			Version:     tool.Version,
-		})
-	default:
-		return apitypes.ToolSpec{}, fmt.Errorf("%w: unsupported type %q", ErrInvalidTool, tool.Type)
-	}
-	if err != nil {
-		return apitypes.ToolSpec{}, fmt.Errorf("toolkit: encode Tool spec: %w", err)
-	}
-	return spec, nil
-}
+// ToSpec returns the complete HTTP Tool declaration.
+func ToSpec(tool Tool) (apitypes.ToolSpec, error) { return toSpec(tool, true) }
 
 // ToRedactedSpec returns the Admin read representation without direct secrets.
-func ToRedactedSpec(tool Tool) (apitypes.ToolSpec, error) {
+func ToRedactedSpec(tool Tool) (apitypes.ToolSpec, error) { return toSpec(tool, false) }
+
+func toSpec(tool Tool, secrets bool) (apitypes.ToolSpec, error) {
 	tool, err := NormalizeTool(tool)
 	if err != nil {
 		return apitypes.ToolSpec{}, err
 	}
-	if tool.HTTP != nil {
-		tool.HTTP.Auth.BearerToken = nil
-		tool.HTTP.Auth.APIKey = nil
-	}
-	enabled := tool.Enabled
 	metadata, err := rawToMap(tool.Metadata)
 	if err != nil {
 		return apitypes.ToolSpec{}, err
@@ -113,38 +41,11 @@ func ToRedactedSpec(tool Tool) (apitypes.ToolSpec, error) {
 	if err != nil {
 		return apitypes.ToolSpec{}, err
 	}
-	var spec apitypes.ToolSpec
-	switch tool.Type {
-	case ToolTypeClientRPC:
-		err = spec.FromClientRPCToolSpec(apitypes.ClientRPCToolSpec{
-			InvokeName:  tool.InvokeName,
-			Description: tool.Description,
-			Enabled:     &enabled,
-			InputSchema: tool.InputSchema,
-			Metadata:    metadata,
-			Triggers:    triggers,
-			Version:     tool.Version,
-		})
-	case ToolTypeHTTPRequest:
-		httpConfig, convertErr := httpRequestToAPI(*tool.HTTP, false)
-		if convertErr != nil {
-			return apitypes.ToolSpec{}, convertErr
-		}
-		err = spec.FromHTTPToolSpec(apitypes.HTTPToolSpec{
-			InvokeName:  tool.InvokeName,
-			Description: tool.Description,
-			Enabled:     &enabled,
-			Http:        httpConfig,
-			InputSchema: tool.InputSchema,
-			Metadata:    metadata,
-			Triggers:    triggers,
-			Version:     tool.Version,
-		})
-	}
+	httpConfig, err := httpRequestToAPI(tool.HTTP, secrets)
 	if err != nil {
 		return apitypes.ToolSpec{}, err
 	}
-	return spec, nil
+	return apitypes.ToolSpec{Type: apitypes.ToolSpecTypeHttpRequest, InvokeName: tool.InvokeName, Description: tool.Description, Enabled: &tool.Enabled, Http: httpConfig, InputSchema: tool.InputSchema, Metadata: metadata, Triggers: triggers, Version: tool.Version}, nil
 }
 
 func commonToolFromAPI(
@@ -183,16 +84,16 @@ func commonToolFromAPI(
 	return tool, nil
 }
 
-func httpRequestFromAPI(in apitypes.ToolHTTPRequest) (*HTTPRequest, error) {
+func httpRequestFromAPI(in apitypes.ToolHTTPRequest) (HTTPRequest, error) {
 	timeout, err := time.ParseDuration(in.Timeout)
 	if err != nil {
-		return nil, fmt.Errorf("%w: http.timeout: %v", ErrInvalidTool, err)
+		return HTTPRequest{}, fmt.Errorf("%w: http.timeout: %v", ErrInvalidTool, err)
 	}
 	auth, err := httpAuthFromAPI(in.Auth)
 	if err != nil {
-		return nil, err
+		return HTTPRequest{}, err
 	}
-	out := &HTTPRequest{
+	out := HTTPRequest{
 		URL:                in.Url,
 		Method:             string(in.Method),
 		Auth:               auth,

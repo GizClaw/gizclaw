@@ -1,0 +1,24 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "App",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "AppSpec": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "package": {
+            "$ref": "./firmware_package.json#/components/schemas/FirmwarePackage"
+          }
+        },
+        "required": [
+          "package"
+        ]
+      }
+    }
+  }
+}

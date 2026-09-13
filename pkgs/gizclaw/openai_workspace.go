@@ -18,7 +18,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/giztools"
 )
 
 type openAIWorkspaceAdapter struct {
@@ -128,7 +127,7 @@ func (a openAIWorkspaceAdapter) ExecuteWorkspaceText(ctx context.Context, item a
 	}
 	host.Resolver = openAICanonicalResolver{resolver: resolver}
 	ctx = a.ownerContext(ctx)
-	ctx, err := agenthost.WithToolExecution(ctx, nil, unavailableOpenAIClientTools{})
+	ctx, err := agenthost.WithToolExecution(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -196,12 +195,6 @@ type openAICanonicalResolver struct{ resolver canonicalAgentResolver }
 
 func (r openAICanonicalResolver) Resolve(ctx context.Context, pattern string) (agenthost.Spec, error) {
 	return r.resolver.ResolveByID(ctx, strings.TrimSpace(pattern))
-}
-
-type unavailableOpenAIClientTools struct{}
-
-func (unavailableOpenAIClientTools) InvokeClientTool(context.Context, string, []byte) ([]byte, error) {
-	return nil, giztools.ErrClientToolUnavailable
 }
 
 type openAITextStream struct{ chunks []*genx.MessageChunk }

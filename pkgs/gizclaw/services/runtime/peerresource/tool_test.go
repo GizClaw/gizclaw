@@ -2,6 +2,7 @@ package peerresource
 
 import (
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
@@ -15,7 +16,8 @@ func TestProjectToolExposesPeerNameDistinctFromInvocationName(t *testing.T) {
 		apitypes.RuntimeProfileBinding{},
 		toolkit.Tool{
 			InvokeName:  "client_volume_set",
-			Type:        toolkit.ToolTypeClientRPC,
+			Type:        toolkit.ToolTypeHTTPRequest,
+			HTTP:        toolkit.HTTPRequest{URL: "https://example.com", Method: "GET", Auth: toolkit.HTTPAuth{Method: "none"}, Timeout: time.Second, MaxResponseBytes: 4096},
 			InputSchema: jsonschema.Schema{Type: "object"},
 		},
 	)

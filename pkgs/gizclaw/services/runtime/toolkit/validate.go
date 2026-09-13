@@ -56,20 +56,11 @@ func normalizeTool(tool Tool, requireDirectSecrets bool) (Tool, error) {
 	}
 	tool.Description = normalizedStringPtr(tool.Description)
 	tool.Version = normalizedStringPtr(tool.Version)
-	switch tool.Type {
-	case ToolTypeHTTPRequest:
-		if tool.HTTP == nil {
-			return Tool{}, fmt.Errorf("%w: http is required for type %q", ErrInvalidTool, tool.Type)
-		}
-		if err := normalizeHTTPRequest(tool.HTTP, requireDirectSecrets); err != nil {
-			return Tool{}, err
-		}
-	case ToolTypeClientRPC:
-		if tool.HTTP != nil {
-			return Tool{}, fmt.Errorf("%w: http is forbidden for type %q", ErrInvalidTool, tool.Type)
-		}
-	default:
+	if tool.Type != ToolTypeHTTPRequest {
 		return Tool{}, fmt.Errorf("%w: unsupported type %q", ErrInvalidTool, tool.Type)
+	}
+	if err := normalizeHTTPRequest(&tool.HTTP, requireDirectSecrets); err != nil {
+		return Tool{}, err
 	}
 	if err := validateInputSchema(tool.InputSchema.Type, tool.InputSchema.Types); err != nil {
 		return Tool{}, err

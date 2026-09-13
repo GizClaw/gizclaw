@@ -256,7 +256,7 @@ func TestFirmwareChannelRetiredValueIsUnknown(t *testing.T) {
 	}
 }
 
-func TestRPCMethodsIntentionallyReuseRetiredValuesWithoutCompatibilityReservations(t *testing.T) {
+func TestRPCMethodsReserveRemovedClientToolInvoke(t *testing.T) {
 	descriptor := rpcpb.RpcMethod_RPC_METHOD_UNSPECIFIED.Descriptor()
 	if method23 := descriptor.Values().ByNumber(23); method23 != nil {
 		t.Fatalf("retired method 23 is still registered as %s", method23.Name())
@@ -265,7 +265,7 @@ func TestRPCMethodsIntentionallyReuseRetiredValuesWithoutCompatibilityReservatio
 	if badgeDefinition == nil || badgeDefinition.Number() != 64 {
 		t.Fatalf("Badge definition method = %v, want tag 64", badgeDefinition)
 	}
-	if descriptor.ReservedRanges().Len() != 0 || descriptor.ReservedNames().Len() != 0 {
+	if descriptor.ReservedRanges().Len() != 1 || !descriptor.ReservedRanges().Has(82) || descriptor.ReservedNames().Len() != 0 {
 		t.Fatalf("RPC method compatibility reservations = ranges:%v names:%v", descriptor.ReservedRanges(), descriptor.ReservedNames())
 	}
 	if retired := descriptor.Values().ByNumber(95); retired != nil {

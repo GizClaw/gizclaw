@@ -143,7 +143,6 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 | ---: | --- | --- |
 | 80 | `server.tool.list` | 分页列出当前 RuntimeProfile 的 Tool names。 |
 | 81 | `server.tool.get` | 按 name 读取 RuntimeProfile Tool projection。 |
-| 82 | `client.tool.invoke` | Server 请求 Client 执行本地 Tool，并用 `call_id` 关联真实执行结果。 |
 
 ## API Key
 
@@ -206,3 +205,17 @@ ID `0` 是 unspecified，不能调用。调用方遇到未知 method 时应按 m
 ```
 
 `server.run.workspace.set` 仅负责选择（SFU 会立即激活）；`server.run.workspace.reload` 保持空请求，只重载当前选择。Workspace 配置仍可独立通过 `server.workspace.put` 和 `server.workspace.parameters.set` 更新。
+
+
+## Device Apps
+
+| ID | Method | Behavior |
+| --- | --- | --- |
+| 121 | `client.app.list` | Return one runtime profile ID and installed app_name/sha256 pairs. |
+| 122 | `client.app.install` | Download and verify url/sha256/size, then install or replace app_name. |
+| 123 | `client.app.uninstall` | Remove app_name. |
+| 124 | `client.app.invoke` | Run a call method to completion and return result_json. |
+| 125 | `client.app.job.start` | Start a job method and return job_id immediately. |
+| 126 | `client.app.job.cancel` | Cancel job_id. |
+
+Method ID 82 is reserved.

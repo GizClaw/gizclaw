@@ -16,8 +16,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giztools"
 )
 
-const clientToolTimeout = 10 * time.Second
-
 type toolCredentialResolver interface {
 	HTTPAuthorizer(context.Context, credential.HTTPAuthConfig) (giztools.HTTPAuthorizer, error)
 }
@@ -54,7 +52,14 @@ func (i *ToolkitInvoker) ResolveTools(ctx context.Context) ([]genx.ToolDefinitio
 			Argument:    &schema,
 		})
 	}
-	return definitions, nil
+	apps, _, err := i.resolveApps(ctx)
+	if errors.Is(err, ErrAppUnavailable) || errors.Is(err, context.DeadlineExceeded) {
+		return definitions, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return appendAppDefinitions(definitions, apps)
 }
 
 func (i *ToolkitInvoker) InvokeTool(
@@ -62,9 +67,34 @@ func (i *ToolkitInvoker) InvokeTool(
 	name string,
 	args json.RawMessage,
 ) (json.RawMessage, error) {
-	request, scope, err := i.requestForContext(ctx)
+	request, _, err := i.requestForContext(ctx)
 	if err != nil {
 		return nil, err
+	}
+	apps, client, appErr := i.resolveApps(ctx)
+	if appErr != nil && !errors.Is(appErr, ErrAppUnavailable) && !errors.Is(appErr, context.DeadlineExceeded) {
+		return nil, appErr
+	}
+	kit, err := i.Builder.Build(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	var definitions []genx.ToolDefinition
+	for _, tool := range kit.Tools {
+		definitions = append(definitions, genx.ToolDefinition{Name: tool.InvokeName})
+	}
+	if _, err := appendAppDefinitions(definitions, apps); err != nil {
+		return nil, err
+	}
+	for _, value := range apps {
+		for _, method := range value.Methods {
+			if name == value.AppName+"__"+method.Name {
+				return i.invokeApp(ctx, client, value, method, args)
+			}
+		}
+	}
+	if strings.Contains(name, "__") && errors.Is(appErr, context.DeadlineExceeded) {
+		return recoverableToolError("timeout", "tool execution timed out"), nil
 	}
 	tool, arguments, err := i.Builder.ResolveInvoke(ctx, toolkit.InvokeRequest{
 		Build: request,
@@ -77,14 +107,7 @@ func (i *ToolkitInvoker) InvokeTool(
 		}
 		return nil, fmt.Errorf("agenthost: authorize Tool invocation: %w", err)
 	}
-	switch tool.Type {
-	case toolkit.ToolTypeHTTPRequest:
-		return i.invokeHTTP(ctx, tool, arguments)
-	case toolkit.ToolTypeClientRPC:
-		return invokeClientTool(ctx, scope.client, tool.InvokeName, arguments, i.ClientTimeout)
-	default:
-		return nil, fmt.Errorf("agenthost: unsupported Tool type %q", tool.Type)
-	}
+	return i.invokeHTTP(ctx, tool, arguments)
 }
 
 func (i *ToolkitInvoker) requestForContext(ctx context.Context) (toolkit.BuildRequest, toolExecutionContext, error) {
@@ -108,14 +131,11 @@ func (i *ToolkitInvoker) invokeHTTP(
 	tool toolkit.Tool,
 	args json.RawMessage,
 ) (json.RawMessage, error) {
-	if tool.HTTP == nil {
-		return nil, fmt.Errorf("agenthost: Tool %q has no HTTP operation", tool.InvokeName)
-	}
 	authorizer, err := i.httpAuthorizer(ctx, tool.HTTP.Auth)
 	if err != nil {
 		return nil, fmt.Errorf("agenthost: Tool %q auth: %w", tool.InvokeName, err)
 	}
-	result, err := i.HTTP.Invoke(ctx, httpOperation(*tool.HTTP), args, authorizer)
+	result, err := i.HTTP.Invoke(ctx, httpOperation(tool.HTTP), args, authorizer)
 	if errors.Is(err, context.DeadlineExceeded) {
 		return recoverableToolError("timeout", "tool execution timed out"), nil
 	}
@@ -151,44 +171,6 @@ func (i *ToolkitInvoker) httpAuthorizer(
 	default:
 		return nil, fmt.Errorf("unsupported auth method %q", auth.Method)
 	}
-}
-
-func invokeClientTool(
-	ctx context.Context,
-	client ClientToolInvoker,
-	name string,
-	args json.RawMessage,
-	timeout time.Duration,
-) (json.RawMessage, error) {
-	if client == nil {
-		return recoverableToolError("unavailable", "client tool is unavailable"), nil
-	}
-	if timeout <= 0 {
-		timeout = clientToolTimeout
-	}
-	callCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	result, err := client.InvokeClientTool(callCtx, name, args)
-	if err != nil {
-		switch {
-		case errors.Is(err, context.DeadlineExceeded), errors.Is(callCtx.Err(), context.DeadlineExceeded):
-			return recoverableToolError("timeout", "tool execution timed out"), nil
-		case errors.Is(err, giztools.ErrClientToolUnavailable):
-			return recoverableToolError("unavailable", "client tool is unavailable"), nil
-		default:
-			return nil, fmt.Errorf("agenthost: invoke client Tool %q: %w", name, err)
-		}
-	}
-	if len(result) == 0 {
-		return json.RawMessage(`null`), nil
-	}
-	if len(result) > 64<<10 {
-		return nil, fmt.Errorf("agenthost: client Tool %q result exceeds 65536 bytes", name)
-	}
-	if !json.Valid(result) {
-		return nil, fmt.Errorf("agenthost: client Tool %q returned invalid JSON", name)
-	}
-	return json.RawMessage(append([]byte(nil), result...)), nil
 }
 
 func recoverableToolError(code, message string) json.RawMessage {

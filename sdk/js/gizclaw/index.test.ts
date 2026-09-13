@@ -892,12 +892,22 @@ test("peer HTTP SDK exposes device and contact operations", () => {
   }
 });
 
-test("RPC payload codec preserves Tool invocation JSON strings", () => {
-  const value = { data_json: `{"ok":true}` };
-  const payload = encodeRPCResponsePayload("client.tool.invoke", value);
+test("RPC payload codec supports empty App lifecycle messages", () => {
+  assert.deepEqual(
+    decodeRPCRequestPayload("client.app.list", encodeRPCRequestPayload("client.app.list", {})),
+    {},
+  );
+  for (const method of ["client.app.install", "client.app.uninstall", "client.app.job.cancel"]) {
+    assert.deepEqual(decodeRPCResponsePayload(method, encodeRPCResponsePayload(method, {})), {});
+  }
+});
+
+test("RPC payload codec preserves App invocation JSON strings", () => {
+  const value = { result_json: `{"ok":true}` };
+  const payload = encodeRPCResponsePayload("client.app.invoke", value);
 
   assert.deepEqual(
-    decodeRPCResponsePayload("client.tool.invoke", payload),
+    decodeRPCResponsePayload("client.app.invoke", payload),
     value,
   );
 });

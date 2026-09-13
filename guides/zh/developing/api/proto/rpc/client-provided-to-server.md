@@ -53,3 +53,6 @@ Go Client 的 provider dispatch 位于 `sdk/go/gizcli` 的 RPC Client implementa
 `play` 成功只表示接受请求。设备通过 telemetry 的 `audioplayer` observation（field 15）报告 `stopped`、`buffering`、`playing`、`ended` 或 `error`，包含当前索引、实际播放进度 `position_ms`、可选时长 `duration_ms`、循环模式、列表长度和版本。未知时长省略；毫秒整数不超过 JavaScript 安全整数上限。错误仅在 `error` 状态携带 `error_code`（128 bytes）和 `error_message`（512 bytes），不得包含 URL 凭据。设备应在状态切换时立即上报，并在播放中以适当间隔上报进度。
 
 Server 把状态写入现有 KV `PeerStatus.audioplayer` 快照，按观察时间拒绝旧状态覆盖新状态，不生成 Prometheus 播放器序列。RPC 状态响应也更新同一快照；未提供设备墙钟时使用服务器接收时间。应用读取 `/device/status` 查看快照，调用播放器 `get` 才联系在线设备。Go provider 位于 `DeviceControlHandlers.AudioPlayer`；JavaScript 和 Flutter 位于 `deviceControl.audioplayer`；C 使用已有 `rpc_provider` 和有界 nanopb 消息。Go、JavaScript、C 的 telemetry 接口均支持播放器 observation。
+
+
+App RPC 使用 ID 121–126：`client.app.list`、`client.app.install`、`client.app.uninstall`、`client.app.invoke`、`client.app.job.start`、`client.app.job.cancel`。ID 82 保留。请求与响应由 `payload/app.proto` 定义；运行规则见 [App](/zh/developing/gizclaw/services/runtime/app)。
