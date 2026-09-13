@@ -398,3 +398,47 @@ func TestWorkspaceRPCStaleToolkitDoesNotFailReadsOrMutations(t *testing.T) {
 		t.Fatalf("stored selection changed: %+v", stored.Toolkit)
 	}
 }
+
+func TestWorkspaceRPCDeleteProjectsStaleToolkit(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		selection []string
+		wantNames []string
+	}{
+		{name: "all stale", selection: []string{"echo-alias"}, wantNames: []string{}},
+		{name: "partially stale", selection: []string{"echo-alias", "other"}, wantNames: []string{"other-alias"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			server := newWorkspaceToolkitTestServer(t)
+			ctx := t.Context()
+			callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
+				Name: "delete-stale", Collection: "story-teller", WorkflowName: "journey",
+				Toolkit: rpcToolkitPolicy(test.selection...),
+			})
+			delete(*server.RuntimeProfile().Spec.Resources.Tools, "echo-alias")
+			if err := server.Tools.DeleteTool(ctx, "echo-id"); err != nil {
+				t.Fatal(err)
+			}
+			var payload rpcapi.RPCPayload
+			if err := payload.FromWorkspaceDeleteRequest(rpcapi.WorkspaceDeleteRequest{Name: "delete-stale"}); err != nil {
+				t.Fatal(err)
+			}
+			response := dispatchToolkitRPC(t, server, &rpcapi.RPCRequest{
+				Id: "delete-stale", Method: rpcapi.RPCMethodServerWorkspaceDelete, Params: &payload,
+			})
+			if response.Error != nil || response.Result == nil {
+				t.Fatalf("delete response = %+v", response)
+			}
+			deleted, err := response.Result.AsWorkspaceDeleteResponse()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if deleted.Name != "delete-stale" || deleted.Toolkit == nil || deleted.Toolkit.ToolNames == nil || !reflect.DeepEqual(*deleted.Toolkit.ToolNames, test.wantNames) {
+				t.Fatalf("delete projection = %+v, toolkit = %+v, want names %v", deleted, deleted.Toolkit, test.wantNames)
+			}
+			if page := callWorkspaceList(t, ctx, server, "story-teller"); len(page.Items) != 0 {
+				t.Fatalf("deleted Workspace remains listed: %+v", page.Items)
+			}
+		})
+	}
+}
