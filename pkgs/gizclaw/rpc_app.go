@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"maps"
 	"net"
+	"slices"
 	"sort"
 	"sync/atomic"
 	"time"
@@ -29,13 +30,14 @@ type peerAppClient struct {
 // peerAppStatus is immutable after publication. Only completed reconciliation
 // exposes methods; network and catalog operations never hold a state lock.
 type peerAppStatus struct {
-	runtime   string
-	installed map[string]string
-	ready     bool
+	runtime      string
+	capabilities []string
+	installed    map[string]string
+	ready        bool
 }
 
-func (h *PeerConn) publishAppStatus(runtime string, installed map[string]string, ready bool) {
-	h.appStatus.Store(&peerAppStatus{runtime: runtime, installed: maps.Clone(installed), ready: ready})
+func (h *PeerConn) publishAppStatus(runtime string, installed map[string]string, capabilities []string, ready bool) {
+	h.appStatus.Store(&peerAppStatus{runtime: runtime, installed: maps.Clone(installed), capabilities: slices.Clone(capabilities), ready: ready})
 }
 
 func appCall[T any](ctx context.Context, conn giznet.Conn, method rpcapi.RPCMethod, params rpcapi.RPCPayload, decode func(rpcapi.RPCPayload) (T, error)) (T, error) {
@@ -98,7 +100,7 @@ func (p peerAppClient) ResolveApps(ctx context.Context, ids []string) ([]apitype
 		if err != nil {
 			return nil, err
 		}
-		if value.Runtime == status.runtime && status.installed[value.AppName] == value.Sha256 {
+		if appMatchesPeer(value, status.runtime, status.capabilities) && status.installed[value.AppName] == value.Sha256 {
 			result = append(result, value)
 		}
 	}
@@ -149,7 +151,7 @@ func (h *PeerConn) reconcileApps() error {
 			installed[value.AppName] = value.Sha256
 		}
 	}
-	h.publishAppStatus(status.Runtime, installed, false)
+	h.publishAppStatus(status.Runtime, installed, status.Capabilities, false)
 	complete := true
 	var aliases []string
 	for alias := range *profile.Spec.Resources.Apps {
@@ -165,7 +167,7 @@ func (h *PeerConn) reconcileApps() error {
 		id := (*profile.Spec.Resources.Apps)[alias].ResourceId
 		ctx, cancel := context.WithTimeout(reconcileCtx, 10*time.Second)
 		value, err := client.apps.Get(ctx, id)
-		if err == nil && value.Runtime == status.Runtime && installed[value.AppName] != value.Sha256 {
+		if err == nil && appMatchesPeer(value, status.Runtime, status.Capabilities) && installed[value.AppName] != value.Sha256 {
 			var params rpcapi.RPCPayload
 			err = params.FromClientAppInstallRequest(&rpcpb.ClientAppInstallRequest{AppName: value.AppName, Url: value.Package.Url, Sha256: value.Sha256, Size: value.Package.Size})
 			if err == nil {
@@ -173,7 +175,7 @@ func (h *PeerConn) reconcileApps() error {
 			}
 			if err == nil {
 				installed[value.AppName] = value.Sha256
-				h.publishAppStatus(status.Runtime, installed, false)
+				h.publishAppStatus(status.Runtime, installed, status.Capabilities, false)
 			}
 		}
 		cancel()
@@ -183,7 +185,22 @@ func (h *PeerConn) reconcileApps() error {
 		}
 	}
 	if complete {
-		h.publishAppStatus(status.Runtime, installed, true)
+		h.publishAppStatus(status.Runtime, installed, status.Capabilities, true)
 	}
 	return nil
+}
+
+// appMatchesPeer uses exact runtime and capability identities.
+func appMatchesPeer(value apitypes.App, runtime string, capabilities []string) bool {
+	if value.Runtime != runtime {
+		return false
+	}
+	if value.Requires != nil {
+		for _, name := range *value.Requires {
+			if !slices.Contains(capabilities, name) {
+				return false
+			}
+		}
+	}
+	return true
 }

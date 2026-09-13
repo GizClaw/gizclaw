@@ -30,6 +30,15 @@
             "items": {
               "$ref": "#/components/schemas/AppMethod"
             }
+          },
+          "requires": {
+            "type": "array",
+            "uniqueItems": true,
+            "maxItems": 64,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
+            }
           }
         },
         "required": [

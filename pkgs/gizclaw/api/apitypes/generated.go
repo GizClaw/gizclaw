@@ -3069,6 +3069,7 @@ type App struct {
 	Id        string          `json:"id"`
 	Methods   []AppMethod     `json:"methods"`
 	Package   FirmwarePackage `json:"package"`
+	Requires  *[]string       `json:"requires,omitempty"`
 	Runtime   string          `json:"runtime"`
 	Sha256    string          `json:"sha256"`
 	UpdatedAt time.Time       `json:"updated_at"`
@@ -3076,10 +3077,11 @@ type App struct {
 
 // AppManifest defines model for AppManifest.
 type AppManifest struct {
-	AppName string      `json:"app_name"`
-	Entry   string      `json:"entry"`
-	Methods []AppMethod `json:"methods"`
-	Runtime string      `json:"runtime"`
+	AppName  string      `json:"app_name"`
+	Entry    string      `json:"entry"`
+	Methods  []AppMethod `json:"methods"`
+	Requires *[]string   `json:"requires,omitempty"`
+	Runtime  string      `json:"runtime"`
 }
 
 // AppMethod defines model for AppMethod.

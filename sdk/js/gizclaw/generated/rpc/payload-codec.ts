@@ -186,6 +186,7 @@ export type ClientAppListRequest = Record<string, never>;
 export type ClientAppListResponse = {
   "runtime": string;
   "apps": InstalledApp[];
+  "capabilities": string[];
 };
 export type ClientAppUninstallRequest = {
   "app_name": string;
@@ -2286,6 +2287,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 2,
         "repeated": true,
         "type": "InstalledApp"
+      },
+      {
+        "name": "capabilities",
+        "number": 3,
+        "repeated": true,
+        "type": "string"
       }
     ]
   },

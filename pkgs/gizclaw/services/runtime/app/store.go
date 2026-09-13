@@ -70,7 +70,7 @@ func (s *Server) Put(ctx context.Context, id string, spec apitypes.AppSpec, crea
 		return apitypes.App{}, fmt.Errorf("%w: app_name is immutable", ErrInvalid)
 	}
 	now := time.Now().UTC()
-	value := apitypes.App{Id: id, Package: spec.Package, AppName: manifest.AppName, Runtime: manifest.Runtime, Entry: manifest.Entry, Methods: manifest.Methods, Sha256: spec.Package.Sha256, CreatedAt: now, UpdatedAt: now}
+	value := apitypes.App{Id: id, Package: spec.Package, AppName: manifest.AppName, Runtime: manifest.Runtime, Entry: manifest.Entry, Methods: manifest.Methods, Requires: manifest.Requires, Sha256: spec.Package.Sha256, CreatedAt: now, UpdatedAt: now}
 	if exists {
 		value.CreatedAt = previous.CreatedAt
 	}

@@ -56,3 +56,5 @@ Server 把状态写入现有 KV `PeerStatus.audioplayer` 快照，按观察时�
 
 
 App RPC 使用 ID 121–126：`client.app.list`、`client.app.install`、`client.app.uninstall`、`client.app.invoke`、`client.app.job.start`、`client.app.job.cancel`。ID 82 保留。请求与响应由 `payload/app.proto` 定义；运行规则见 [App](/zh/developing/gizclaw/services/runtime/app)。
+
+`client.app.list` 返回唯一 runtime profile ID、已安装 App 摘要和宿主已注册的全部 `capabilities`。服务器按 runtime 精确相等及 manifest `requires` 子集匹配决定安装和模型可见性。

@@ -56,3 +56,5 @@ The Server stores `PeerStatus.audioplayer` in the existing KV snapshot, rejects 
 
 
 App RPC methods use IDs 121–126: `client.app.list`, `client.app.install`, `client.app.uninstall`, `client.app.invoke`, `client.app.job.start`, and `client.app.job.cancel`. ID 82 is reserved. Payloads are defined in `payload/app.proto`; see [Apps](/en/developing/gizclaw/services/runtime/app).
+
+`client.app.list` returns one runtime profile ID, installed App hashes, and all host-registered `capabilities`. Exact runtime equality and the manifest `requires` subset determine installation and model visibility.

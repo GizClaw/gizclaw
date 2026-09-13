@@ -1,6 +1,7 @@
 #include "gzc.h"
 #include "pb_decode.h"
 #include "pb_encode.h"
+#include "payload/app.pb.h"
 
 /* <ctype.h> is host-test only: the SDK sources must stay free of it. */
 #include <ctype.h>
@@ -1705,6 +1706,38 @@ static int test_json_ascii_classification(void) {
       gzc_json_validate_object(gzc_str_from_parts(
           high_string_json, sizeof(high_string_json))) == GZC_OK,
       "preserve high bytes inside a delimited JSON string");
+}
+
+static int test_app_capabilities(void) {
+  uint8_t buffer[gizclaw_rpc_v1_ClientAppListResponse_size];
+  gizclaw_rpc_v1_ClientAppListResponse value =
+      gizclaw_rpc_v1_ClientAppListResponse_init_zero;
+  gizclaw_rpc_v1_ClientAppListResponse decoded =
+      gizclaw_rpc_v1_ClientAppListResponse_init_zero;
+  strcpy(value.runtime, "runtime.lua.gizos");
+  value.capabilities_count = 64;
+  for (size_t i = 0; i < 64; ++i) {
+    (void)snprintf(value.capabilities[i], sizeof(value.capabilities[i]),
+                   "host.cap%zu", i);
+  }
+  pb_ostream_t output = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  if (expect(pb_encode(&output, gizclaw_rpc_v1_ClientAppListResponse_fields, &value),
+             "64 App capabilities encode") != 0) {
+    return 1;
+  }
+  pb_istream_t input = pb_istream_from_buffer(buffer, output.bytes_written);
+  if (expect(pb_decode(&input, gizclaw_rpc_v1_ClientAppListResponse_fields, &decoded) &&
+                 decoded.capabilities_count == 64 &&
+                 strcmp(decoded.capabilities[0], "host.cap0") == 0 &&
+                 strcmp(decoded.capabilities[63], "host.cap63") == 0 &&
+                 strcmp(decoded.runtime, value.runtime) == 0,
+             "App capabilities round trip") != 0) {
+    return 1;
+  }
+  value.capabilities_count = 65;
+  output = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  return expect(!pb_encode(&output, gizclaw_rpc_v1_ClientAppListResponse_fields, &value),
+                "App capability count overflow is rejected");
 }
 
 static int test_device_control_payload_bounds(void) {
@@ -4557,6 +4590,9 @@ int main(void) {
   }
   close_remote_rpc(&fake_webrtc, 0);
 
+  if (test_app_capabilities() != 0) {
+    return 1;
+  }
   if (test_device_control_payload_bounds() != 0) {
     return 1;
   }

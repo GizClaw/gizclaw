@@ -6,9 +6,12 @@ import (
 	"compress/zlib"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/toolkittest"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -132,5 +135,68 @@ func TestRejectSpecialEntriesAndFileCount(t *testing.T) {
 	}
 	if _, err := Parse(archive(t, files)); err == nil {
 		t.Fatal("file count limit not enforced")
+	}
+}
+
+func TestCapabilityRequirements(t *testing.T) {
+	many := make([]string, 65)
+	for i := range many {
+		many[i] = fmt.Sprintf("host.cap%d", i)
+	}
+	manyJSON, err := json.Marshal(many)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name, raw string
+		valid     bool
+	}{
+		{"empty", "[]", true},
+		{"namespaced", `["litelink.notify","host.audio_play","host.ui.display"]`, true},
+		{"duplicate", `["host.notify","host.notify"]`, false},
+		{"unnamespaced", `["notify"]`, false},
+		{"uppercase", `["Host.notify"]`, false},
+		{"empty segment", `["host..notify"]`, false},
+		{"hyphen", `["host.audio-play"]`, false},
+		{"null", "null", false},
+		{"null item", "[null]", false},
+		{"too many", string(manyJSON), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			files := validFiles()
+			files["app.json"] = bytes.Replace(files["app.json"], []byte(`"app_name"`), []byte(`"requires":`+tc.raw+`,"app_name"`), 1)
+			value, err := Parse(archive(t, files))
+			if (err == nil) != tc.valid {
+				t.Fatalf("Parse: %v", err)
+			}
+			if tc.valid && value.Requires == nil {
+				t.Fatal("requirements not retained")
+			}
+		})
+	}
+}
+
+func TestStoreRetainsCapabilityRequirements(t *testing.T) {
+	files := validFiles()
+	files["app.json"] = bytes.Replace(files["app.json"], []byte(`"app_name"`), []byte(`"requires":["litelink.notify"],"app_name"`), 1)
+	data := archive(t, files)
+	sum := sha256.Sum256(data)
+	transport := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(data) }))
+	defer transport.Close()
+	catalog := toolkittest.New(t)
+	server := &Server{DB: catalog.DB, HTTP: transport.Client()}
+	if err := server.Initialize(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	spec := apitypes.AppSpec{Package: apitypes.FirmwarePackage{Url: transport.URL, Sha256: hex.EncodeToString(sum[:]), Size: int64(len(data))}}
+	if _, err := server.Put(t.Context(), "clock", spec, true); err != nil {
+		t.Fatal(err)
+	}
+	value, err := server.Get(t.Context(), "clock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value.Requires == nil || !slices.Equal(*value.Requires, []string{"litelink.notify"}) {
+		t.Fatalf("stored requirements: %v", value.Requires)
 	}
 }

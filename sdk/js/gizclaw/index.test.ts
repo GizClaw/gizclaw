@@ -3814,3 +3814,15 @@ test("workspace reload options and parameter patches round-trip through protobuf
     patch,
   );
 });
+
+test("RPC App list preserves registered capabilities", () => {
+  const value = {
+    runtime: "runtime.lua.gizos",
+    apps: [{ app_name: "clock", sha256: "abc" }],
+    capabilities: ["litelink.notify", "host.audio"],
+  };
+  assert.deepEqual(
+    decodeRPCResponsePayload("client.app.list", encodeRPCResponsePayload("client.app.list", value)),
+    value,
+  );
+});

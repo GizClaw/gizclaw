@@ -29,6 +29,8 @@ const (
 var namePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]{0,63}$`)
 var runtimePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.-]{0,127}$`)
 
+var capabilityPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$`)
+
 func validPath(name string) bool {
 	if name == "" || strings.Contains(name, `\`) || (len(name) > 1 && name[1] == ':') {
 		return false
@@ -158,6 +160,9 @@ func Parse(data []byte) (apitypes.AppManifest, error) {
 			return manifest, fmt.Errorf("app: missing %s", key)
 		}
 	}
+	if bytes.Equal(required["requires"], []byte("null")) {
+		return manifest, fmt.Errorf("app: requires must be an array")
+	}
 	var rawMethods []map[string]json.RawMessage
 	if err := json.Unmarshal(required["methods"], &rawMethods); err != nil {
 		return manifest, err
@@ -185,6 +190,18 @@ func Parse(data []byte) (apitypes.AppManifest, error) {
 	}
 	if manifest.Methods == nil || len(manifest.Methods) > 128 {
 		return manifest, fmt.Errorf("app: invalid methods")
+	}
+	if manifest.Requires != nil {
+		if len(*manifest.Requires) > 64 {
+			return manifest, fmt.Errorf("app: too many required capabilities")
+		}
+		seen := map[string]bool{}
+		for _, name := range *manifest.Requires {
+			if !capabilityPattern.MatchString(name) || seen[name] {
+				return manifest, fmt.Errorf("app: invalid or duplicate required capability %q", name)
+			}
+			seen[name] = true
+		}
 	}
 	methods := map[string]bool{}
 	for _, method := range manifest.Methods {

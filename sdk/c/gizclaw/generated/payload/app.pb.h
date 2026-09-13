@@ -27,6 +27,11 @@ typedef struct _gizclaw_rpc_v1_ClientAppListResponse {
     char runtime[129];
     pb_size_t apps_count;
     gizclaw_rpc_v1_InstalledApp apps[32];
+    /* capabilities lists every capability name registered in the Client's Lua
+ host, frozen when the host starts. Apps whose manifest requires a missing
+ capability are neither installed nor exposed. */
+    pb_size_t capabilities_count;
+    char capabilities[64][65];
 } gizclaw_rpc_v1_ClientAppListResponse;
 
 /* ClientAppInstallRequest asks the Client to download, verify, and install
@@ -91,7 +96,7 @@ extern "C" {
 /* Initializer values for message structs */
 #define gizclaw_rpc_v1_InstalledApp_init_default {"", ""}
 #define gizclaw_rpc_v1_ClientAppListRequest_init_default {0}
-#define gizclaw_rpc_v1_ClientAppListResponse_init_default {"", 0, {gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default}}
+#define gizclaw_rpc_v1_ClientAppListResponse_init_default {"", 0, {gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default, gizclaw_rpc_v1_InstalledApp_init_default}, 0, {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""}}
 #define gizclaw_rpc_v1_ClientAppInstallRequest_init_default {"", "", "", 0}
 #define gizclaw_rpc_v1_ClientAppInstallResponse_init_default {0}
 #define gizclaw_rpc_v1_ClientAppUninstallRequest_init_default {""}
@@ -104,7 +109,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientAppJobCancelResponse_init_default {0}
 #define gizclaw_rpc_v1_InstalledApp_init_zero    {"", ""}
 #define gizclaw_rpc_v1_ClientAppListRequest_init_zero {0}
-#define gizclaw_rpc_v1_ClientAppListResponse_init_zero {"", 0, {gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero}}
+#define gizclaw_rpc_v1_ClientAppListResponse_init_zero {"", 0, {gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero, gizclaw_rpc_v1_InstalledApp_init_zero}, 0, {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""}}
 #define gizclaw_rpc_v1_ClientAppInstallRequest_init_zero {"", "", "", 0}
 #define gizclaw_rpc_v1_ClientAppInstallResponse_init_zero {0}
 #define gizclaw_rpc_v1_ClientAppUninstallRequest_init_zero {""}
@@ -121,6 +126,7 @@ extern "C" {
 #define gizclaw_rpc_v1_InstalledApp_sha256_tag   2
 #define gizclaw_rpc_v1_ClientAppListResponse_runtime_tag 1
 #define gizclaw_rpc_v1_ClientAppListResponse_apps_tag 2
+#define gizclaw_rpc_v1_ClientAppListResponse_capabilities_tag 3
 #define gizclaw_rpc_v1_ClientAppInstallRequest_app_name_tag 1
 #define gizclaw_rpc_v1_ClientAppInstallRequest_url_tag 2
 #define gizclaw_rpc_v1_ClientAppInstallRequest_sha256_tag 3
@@ -150,7 +156,8 @@ X(a, STATIC,   SINGULAR, STRING,   sha256,            2)
 
 #define gizclaw_rpc_v1_ClientAppListResponse_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, STRING,   runtime,           1) \
-X(a, STATIC,   REPEATED, MESSAGE,  apps,              2)
+X(a, STATIC,   REPEATED, MESSAGE,  apps,              2) \
+X(a, STATIC,   REPEATED, STRING,   capabilities,      3)
 #define gizclaw_rpc_v1_ClientAppListResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_ClientAppListResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_ClientAppListResponse_apps_MSGTYPE gizclaw_rpc_v1_InstalledApp
@@ -252,7 +259,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ClientAppJobCancelResponse_msg;
 #define gizclaw_rpc_v1_ClientAppJobStartRequest_size 4231
 #define gizclaw_rpc_v1_ClientAppJobStartResponse_size 6
 #define gizclaw_rpc_v1_ClientAppListRequest_size 0
-#define gizclaw_rpc_v1_ClientAppListResponse_size 4451
+#define gizclaw_rpc_v1_ClientAppListResponse_size 8675
 #define gizclaw_rpc_v1_ClientAppUninstallRequest_size 66
 #define gizclaw_rpc_v1_ClientAppUninstallResponse_size 0
 #define gizclaw_rpc_v1_InstalledApp_size         132
