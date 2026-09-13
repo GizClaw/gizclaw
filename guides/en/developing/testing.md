@@ -561,9 +561,10 @@ A continuous realtime-route regression can retain the same logical
 realtime step for the same client uses that `session` with
 `await_rearm: INPUT_ROUTE_RELOADED`. The latter first consumes the exact
 retryable user-audio EOS for the old route, sends a fresh BOS, and only then
-sends its declared audio input. A session can be created once and consumed
-once. Unknown, duplicate, already-consumed, cross-client, or cross-task
-sessions fail before input is sent.
+sends its declared audio input. The Go runner also lets later steps use the same
+`session` and `keep_open: true` without re-arm: it sends a new BOS immediately
+to start another turn while the previous response is pending. Consumed,
+cross-client, or cross-task sessions cannot be used for re-arm.
 
 From waiting for reload through completion of the replacement response, any assistant EOS error code or message fails the step, including `interrupted`; error-free EOS and the exact input-reload notification remain valid.
 
@@ -1378,3 +1379,22 @@ The Server gets a placeholder SFU URL so Friend and Friend Group resources can b
 `bash tests/gizclaw-e2e/run_audioplayer_tests.sh` starts an isolated real Server and Edge with SQLite runtime storage and no model/provider credentials. It runs the six `server.device.audioplayer.*` scenarios and always cleans up its containers and ephemeral identities; reports remain under the ignored `.testbench` directory. The dedicated CI job runs this same entrypoint.
 
 Scripted device providers test HTTP authorization, validation, reverse RPC, playlist contracts and snapshot projection; they do not download or play music. The five control scenarios are supported by Go, JavaScript, Flutter and C runners. The separate `telemetry` step sends a protobuf-JSON `frame` with the Go device SDK over the actual packet channel; other runners explicitly skip this operation. Packet acceptance is not persistence: the telemetry scenario polls `server.status.get`, then checks HTTP status for progress, errors, stale-observation protection and OTA coexistence. It does not add a Dart telemetry transport or claim hardware playback acceptance.
+
+## Local slow TTS regression
+
+`bash tests/gizclaw-e2e/run_slow_tts_tests.sh` runs a real Server, Edge and Go Peer
+on an internal Docker network with ephemeral identities and SQLite. It reads no
+provider credentials. A Go build overlay substitutes only the default peergenx
+provider builder; Workflow factories, AudioDock, AgentHost, WebRTC, first-response
+timing and the audio receiver use the revision under test. The ASR fixture emits
+a fixed transcript from input audio. TTS waits 12 seconds at startup, announces an empty
+audio BOS, waits 200 ms for synthesis, then emits 80 valid 20 ms Opus frames. Context cancellation bounds
+these delays.
+
+`slow-tts.*.giztest.yaml` covers Eino push-to-talk, Eino realtime and Flowcraft
+realtime. First-response steps retain the 2-second text deadline; a separate
+Peer with the same workflow checks text/audio EOS, nonempty audio, overlap and pacing. Realtime
+turns reuse the session to replace input during earlier TTS startup. CI runs this
+suite in the Audioplayer Giztest job. The standard provider-backed runner excludes
+these dedicated fixtures. Reports remain in `.testbench/slow-tts-*/reports/`; exit
+cleanup removes containers, the image and temporary runtime state.

@@ -1,0 +1,175 @@
+# User Story:
+# As a voice user,
+# I want text during slow TTS startup and complete, paced audio,
+# So that speech synthesis does not delay my next reply.
+version: gizclaw.test/v1alpha1
+name: slow-tts.eino.realtime
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+  audio_peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  tone:
+    direction: input
+    type: audio
+    env: LATENCY_TONE
+    media_type: audio/ogg
+    codec: opus
+    max_bytes: 262144
+  audio_workspace_name:
+    direction: input
+    type: string
+    generate: token
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: ${registration_token}
+- id: create_workspace
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: ${workspace_name}
+      collection: assistants
+      workflow_name: slow-tts-eino
+      parameters:
+        eino_workspace_parameters:
+          agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+          input: WORKSPACE_INPUT_MODE_REALTIME
+- id: select_workspace
+  client: peer
+  rpc:
+    method: server.run.workspace.set
+    request:
+      workspace_name: ${workspace_name}
+- id: audio_register_peer
+  client: audio_peer
+  rpc:
+    method: server.register
+    request:
+      token: ${registration_token}
+- id: audio_create_workspace
+  client: audio_peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: ${audio_workspace_name}
+      collection: assistants
+      workflow_name: slow-tts-eino
+      parameters:
+        eino_workspace_parameters:
+          agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+          input: WORKSPACE_INPUT_MODE_REALTIME
+- id: audio_select_workspace
+  client: audio_peer
+  rpc:
+    method: server.run.workspace.set
+    request:
+      workspace_name: ${audio_workspace_name}
+- id: prime
+  client: peer
+  timeout: 20s
+  peer_stream:
+    mode: realtime
+    input: ${tone}
+    pacing: 20ms
+    session: latency
+    keep_open: true
+    completion: first_response
+    require_audio: false
+    first_text_timeout: 2s
+  expect:
+    /first_text_ms:
+      maximum: 2000
+- id: replacement
+  client: peer
+  timeout: 20s
+  peer_stream:
+    mode: realtime
+    input: ${tone}
+    pacing: 20ms
+    session: latency
+    keep_open: true
+    completion: first_response
+    require_audio: false
+    first_text_timeout: 2s
+  expect:
+    /first_text_ms:
+      maximum: 2000
+- id: complete_audio
+  client: audio_peer
+  timeout: 20s
+  peer_stream:
+    mode: realtime
+    input: ${tone}
+    pacing: 20ms
+  expect:
+    /text_eos:
+      equals: true
+    /audio_eos:
+      equals: true
+    /audio_bytes:
+      minimum: 1
+    /audio_integrity/max_active:
+      equals: 1
+    /audio_integrity/open:
+      equals: 0
+    /audio_integrity/violations:
+      equals: 0
+    /audio_pacing/packets:
+      minimum: 80
+    /audio_pacing/mean_packet_ms:
+      equals: 20
+    /audio_pacing/max_interval_ms:
+      maximum: 150
+    /audio_pacing/underruns:
+      equals: 0
+finally:
+- client: peer
+  rpc:
+    method: server.run.stop
+    request: {}
+- client: peer
+  rpc:
+    method: server.workspace.delete
+    request:
+      name: ${workspace_name}
+- client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}
+- client: audio_peer
+  rpc:
+    method: server.run.stop
+    request: {}
+- client: audio_peer
+  rpc:
+    method: server.workspace.delete
+    request:
+      name: ${audio_workspace_name}
+- client: audio_peer
+  rpc:
+    method: server.peer.delete
+    request: {}
+timeout: 60s

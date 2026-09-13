@@ -525,10 +525,7 @@ func invokePeerStreamWithSessions(ctx context.Context, client *gizcli.Client, op
 	if op == nil || (!op.KeepOpen && op.AwaitRearm == "") {
 		return invokePeerStream(ctx, client, open, step, input, audioCaptureMaxBytes, observers...)
 	}
-	if op.KeepOpen && op.AwaitRearm == "" {
-		if _, exists := sessions.items[op.Session]; exists {
-			return operationResult{}, fmt.Errorf("peer_stream session %q is already open", op.Session)
-		}
+	if op.KeepOpen && op.AwaitRearm == "" && sessions.items[op.Session] == nil {
 		stream, err := open()
 		if err != nil {
 			return operationResult{}, err
@@ -556,9 +553,12 @@ func invokePeerStreamWithSessions(ctx context.Context, client *gizcli.Client, op
 			_ = session.Close()
 		}
 	}()
-	rearmEvidence, err := waitForPeerStreamRearm(ctx, op.Session, session, op.AwaitRearm)
-	if err != nil {
-		return operationResult{evidence: rearmEvidence}, err
+	rearmEvidence := map[string]any{"session_connection_reused": true}
+	if op.AwaitRearm != "" {
+		rearmEvidence, err = waitForPeerStreamRearm(ctx, op.Session, session, op.AwaitRearm)
+		if err != nil {
+			return operationResult{evidence: rearmEvidence}, err
+		}
 	}
 	replacementID, err := newStreamID()
 	if err != nil {

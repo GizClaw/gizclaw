@@ -33,3 +33,7 @@
 !multi-role-voices/
 !multi-role-voices/*.json
 !multi-role-voices/*.yaml
+!slow-tts/
+!slow-tts/*.go
+!slow-tts/*.py
+!slow-tts/*.json
