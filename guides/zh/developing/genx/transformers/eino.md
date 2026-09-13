@@ -204,6 +204,8 @@ Subgraph 只执行一次 nested Graph。名为 `text`、`messages`、`parts` 的
 
 `Outputs` 是唯一的 publication allow-list。每项指定一个 node 产生的 string 或 blob State field、route name 与 MIME type。Name 和 node-field source 必须唯一，并且恰好有一个 primary output。
 
+语音输入经 Audio Dock 排除带 `StreamCtrl.TextInterim` 的中间假设，只聚合定稿文本内容。普通文本和一轮内多个定稿段仍按原顺序追加；仅中间结果的 interrupted route 不启动 Graph，也不写 user History。
+
 每个已完成 text turn 都创建新的 output route 与 StreamID。每条 route 都有 BOS、data 和独立 EOS。Graph 仍在运行时 model text 可以增量到达。Non-primary route 按 name 稳定排序先结束；成功的 primary EOS 是最后一个边界。
 
 Output buffer 不依赖 downstream pull，最多增长到 `Limits.MaxOutputBytes`；超限会使全部 route 失败。新的 text BOS 会 interrupt 上一轮，取消其 Graph 与 child，丢弃尚未 pull 的 suffix，并且只保留下游已观察到的 assistant prefix。

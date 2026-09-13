@@ -30,6 +30,10 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client, Model: dupl
 
 每个 Doubao Transformer 都负责自己创建的 output route 或 MIME channel 的显式生命周期。ASR transcript 与 history audio、TTS audio、AST transcript/translation/history/audio，以及 Realtime transcript/assistant text/audio，都在第一段 data 之前或同时发出 BOS，并且只发出一个匹配的 EOS；空结果和错误终态也遵守同一约束。Transformer 没有创建的 input 或无关 route 继续透传，不替其他组件修补或关闭边界。
 
+### ASR 中间结果与定稿
+
+`EmitInterim=true` 时，中间文本是当前整句假设，用 `StreamCtrl.TextInterim=true` 标记；它不是文本增量。Definite utterance 与 final result 文本不带此标记。Audio Dock 保留客户端中间 transcript，只将定稿文本内容交给 Eino 或 Flowcraft。每个 definite utterance 的 text EOS 仍负责 realtime 断句；Push-to-Talk 的定稿段仍在原有 route 中顺序合并。History audio 使用独立 MIME channel，其 EOS 不表示 transcript 定稿。
+
 ### ASR 空识别
 
 豆包 ASR provider session 正常结束，但 final result text 和 definite utterance text 均不包含非空白内容时，`doubaoasr.Transformer` 将本次识别作为成功的空结果结束，不发送已识别 transcript text。现有 Stream route 所需的零内容 terminal chunk 仍是成功的内部边界，不表示用户产生了已识别文本。

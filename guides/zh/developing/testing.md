@@ -437,6 +437,8 @@ Giztest 共用该环境。远端目标可预先 provision 资源，再只提供
 bash tests/gizclaw-e2e/run_eino_first_response_tests.sh
 ```
 
+首响、并发和延迟测试使用的 `eino-concurrency-assistant`、`eino-latency-comparison`、`flowcraft-latency-comparison` 与 `flowcraft-voice-assistant` 测试 Workflow 均显式配置 `spec.toolkit: {tool_ids: []}`，因此这些 Workspace 不向模型提供工具。RuntimeProfile 中的 `giztest-echo` 仍保留，供 `client.tool.invoke*` 和 `eino-memory-assistant.tools` 验证工具调用。首响入口的 text、Push-to-Talk、Realtime 与两个 roundtrip 文档都通过同一 Workflow 策略隔离工具。
+
 Runner 只构建一个 CLI revision，启动一套隔离的 Server/Edge stack，然后把同样的十任务
 text-only、configured-ASR Push-to-Talk 与 Realtime 文档分别以 `--parallel 1` 和
 `--parallel 8` 经过 Server 与 Edge。带语音场景从 input 完成时开始计时：700 ms 内出现
@@ -485,9 +487,11 @@ Doubao、Eino、Flowcraft 的 `*-overlapping-input.giztest.yaml` 分别覆盖两
 `peer_stream.completion: first_response` 是面向部署探针的有界替代模式。
 `require_text` 和 `require_audio` 选择必须等待的模态，二者都默认为 true；每个必需模态必须
 声明对应的正数 Go duration `first_text_timeout` 或 `first_audio_timeout`，禁用的模态不声明
-对应 deadline，并且至少保留一个必需模态。deadline 只在完整 turn 输入推送完成后开始；
-runner 一旦观察到所有必需模态的第一段 assistant 内容（文本为非空片段，音频为第一个有声帧）就成功并关闭该逻辑 stream，
-不等待任何 EOS。缺少必需模态时分别以 `deadline=first_text_timeout` 或
+对应 deadline，并且至少保留一个必需模态。text 和 push-to-talk 在完整 turn 输入推送完成后开始计时；
+realtime 从最后一包真实语音发送完成时开始计时，后续尾静音不延后起点，也不增加 deadline 的宽限。
+realtime 在发送期间持续消费输出；所有必需模态的第一段 assistant 内容（文本为非空片段，音频为第一个有声帧）
+均在对应 deadline 内到达后，runner 等待完整输入发送成功，再成功关闭该逻辑 stream，不等待任何 EOS。
+计时起点之前到达的内容按零延迟记录。interrupt 的替换输入也在发送期间持续消费输出。缺少必需模态时分别以 `deadline=first_text_timeout` 或
 `deadline=first_audio_timeout` 失败。该模式不能与 `interrupt_after`、`terminal_label` 或
 `wait_for_history` 组合。
 `peer_stream.idle_timeout`（Go duration，可选）限制的是不活动时长而不是总时长：runner 在

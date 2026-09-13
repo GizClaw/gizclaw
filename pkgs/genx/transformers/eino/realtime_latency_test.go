@@ -50,7 +50,7 @@ func TestRealtimeFirstResponseLatency(t *testing.T) {
 						}
 						mark(&ingress)
 						// An interim transcript exists before endpointing, but is not a turn.
-						_ = out.Push(&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "transcript", BeginOfStream: true}})
+						_ = out.Push(&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "transcript", BeginOfStream: true, TextInterim: true}})
 						if !latencyWait(ctx, test.vad) {
 							return
 						}
@@ -59,7 +59,7 @@ func TestRealtimeFirstResponseLatency(t *testing.T) {
 							return
 						}
 						mark(&final)
-						_ = out.Push(&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "transcript", EndOfStream: true}})
+						_ = out.Push(&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "transcript", EndOfStream: true}})
 					}
 				}()
 				return out, nil

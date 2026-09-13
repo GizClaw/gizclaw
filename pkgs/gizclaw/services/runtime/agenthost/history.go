@@ -1103,7 +1103,7 @@ func (r *historyRecorder) observe(ctx context.Context, chunk *genx.MessageChunk,
 		if err := entry.observeChannel(mimeType, chunk.IsEndOfStream()); err != nil {
 			return err
 		}
-		if string(part) != "" {
+		if string(part) != "" && (chunk.Ctrl == nil || !chunk.Ctrl.TextInterim) {
 			entry.text.WriteString(string(part))
 		}
 	case *genx.Blob:

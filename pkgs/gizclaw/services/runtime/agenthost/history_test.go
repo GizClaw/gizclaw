@@ -839,7 +839,7 @@ func TestHistoryAgentPersistsOneEntryForAudioDockTranscript(t *testing.T) {
 			}
 			chunks := []*genx.MessageChunk{
 				&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: "transcript", BeginOfStream: true}},
-				&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: "transcript"}},
+				&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: "transcript", TextInterim: true}},
 				&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1, 2, 3}}, Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: genx.HistoryUserAudioLabel}},
 				&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: genx.HistoryUserAudioLabel, EndOfStream: true}},
 				&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: "transcript"}},
@@ -945,8 +945,8 @@ func TestHistoryAgentPersistsOneEntryForAudioDockTranscript(t *testing.T) {
 	if len(page.Entries) != 1 {
 		t.Fatalf("history entries = %+v, want one combined transcript and audio entry", page.Entries)
 	}
-	if page.Entries[0].Text == "" || len(page.Entries[0].Assets) != 1 {
-		t.Fatalf("history entry = %+v, want one non-empty transcript with audio", page.Entries[0])
+	if page.Entries[0].Text != "hello" || len(page.Entries[0].Assets) != 1 {
+		t.Fatalf("history entry = %+v, want one definite transcript with audio", page.Entries[0])
 	}
 	wantBoundary := transcriptBoundaryCounts{transcriptBOS: 1, transcriptText: 2, transcriptEOS: 1, historyData: 1, historyEOS: 1}
 	assertTranscriptBoundary(t, "ASR output", <-asrBoundary, wantBoundary)

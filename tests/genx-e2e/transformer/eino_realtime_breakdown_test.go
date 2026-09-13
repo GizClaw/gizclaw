@@ -440,35 +440,39 @@ func (b breakdownBuilder) BuildTransformer(ctx context.Context, cfg peergenx.Tra
 			}
 		},
 	)
-	// ASR emits full replacement hypotheses, then a definite replacement and EOS.
-	// A lone text followed by EOS has no observable partial: report n/a.
-	var candidate int64
-	count := 0
-	latest := ""
+	return breakdownTransformer{Transformer: tr, observe: observeBreakdownTranscript(b.stamps)}, nil
+}
+
+func observeBreakdownTranscript(stamps *breakdownStamps) func(*genx.MessageChunk) {
+	// History audio shares the transcript name and StreamID, but its EOS is
+	// not a text finalization boundary. Interim hypotheses are display-only.
+	var current strings.Builder
 	var segments []string
-	return breakdownTransformer{Transformer: tr, observe: func(c *genx.MessageChunk) {
+	return func(c *genx.MessageChunk) {
 		if c.Name != "transcript" {
 			return
 		}
-		if text, ok := c.Part.(genx.Text); ok && len(text) > 0 {
-			if count == 0 {
-				candidate = time.Since(b.stamps.origin).Nanoseconds()
-			}
-			count++
-			latest = string(text)
+		text, ok := c.Part.(genx.Text)
+		if !ok {
+			return
 		}
-		if c.IsEndOfStream() && c.Ctrl.Error == "" {
-			if count > 1 && b.stamps.definite.Load() == 0 {
-				b.stamps.partial.CompareAndSwap(0, candidate)
+		if c.Ctrl != nil && c.Ctrl.TextInterim {
+			if len(text) > 0 {
+				stamps.mark(&stamps.partial)
 			}
-			b.stamps.mark(&b.stamps.definite)
-			segments = append(segments, latest)
-			joined := strings.Join(segments, " ")
-			b.stamps.transcript.Store(&joined)
-			count = 0
-			latest = ""
+		} else {
+			current.WriteString(string(text))
 		}
-	}}, nil
+		if c.IsEndOfStream() {
+			if c.Ctrl.Error == "" && current.Len() > 0 {
+				stamps.mark(&stamps.definite)
+				segments = append(segments, current.String())
+				joined := strings.Join(segments, " ")
+				stamps.transcript.Store(&joined)
+			}
+			current.Reset()
+		}
+	}
 }
 
 // Catalog fixtures delegate runtime behavior to peergenx, not to substitute providers.
@@ -526,3 +530,34 @@ func breakdownResource(t *testing.T, relative string, dst any) {
 	}
 }
 func breakdownNormalize(s string) string { return strings.ToLower(strings.Join(strings.Fields(s), "")) }
+
+// This regression has no provider, credential, transport, or Docker dependency.
+func TestBreakdownTranscriptIgnoresHistoryAudioEOS(t *testing.T) {
+	stamps := &breakdownStamps{origin: time.Now()}
+	observe := observeBreakdownTranscript(stamps)
+	chunk := func(text string, interim, end bool) *genx.MessageChunk {
+		return &genx.MessageChunk{Name: "transcript", Part: genx.Text(text), Ctrl: &genx.StreamCtrl{StreamID: "speech", TextInterim: interim, EndOfStream: end}}
+	}
+	observe(chunk("G.", true, false))
+	observe(chunk("Gist audio input.", true, false))
+	observe(&genx.MessageChunk{Name: "transcript", Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "speech", Label: genx.HistoryUserAudioLabel, EndOfStream: true}})
+	if stamps.definite.Load() != 0 || stamps.transcript.Load() != nil {
+		t.Fatal("history audio EOS committed an interim transcript")
+	}
+	observe(chunk("Gist audio input.", false, false))
+	observe(chunk("", false, true))
+	if got := stamps.transcript.Load(); got == nil || *got != "Gist audio input." {
+		t.Fatalf("recognized = %v, want a single final transcript", got)
+	}
+	observe(chunk("Second?", true, false))
+	observe(chunk("Second.", false, true))
+	if got := stamps.transcript.Load(); got == nil || *got != "Gist audio input. Second." {
+		t.Fatalf("recognized = %v, want both final segments", got)
+	}
+	interrupted := chunk("unfinished", true, true)
+	interrupted.Ctrl.Error = "interrupted"
+	observe(interrupted)
+	if got := stamps.transcript.Load(); got == nil || *got != "Gist audio input. Second." {
+		t.Fatalf("interruption changed committed transcript: %v", got)
+	}
+}
