@@ -69,6 +69,35 @@ func validateVoiceAdapter(public apitypes.EinoWorkflowSpec) error {
 			return fmt.Errorf("default_voice: %w", err)
 		}
 	}
+	if selector := adapter.StateVoices; selector != nil {
+		found := false
+		for _, field := range public.Graph.State.Fields {
+			if field.Name == selector.Field && field.Type == apitypes.EinoStateFieldTypeString {
+				found = true
+			}
+		}
+		if !found {
+			return fmt.Errorf("state_voices.field: must reference a declared string state field")
+		}
+		if len(selector.Voices) == 0 {
+			return fmt.Errorf("state_voices.voices: mapping must not be empty")
+		}
+		for value, alias := range selector.Voices {
+			if err := runtimealias.Validate("state Voice alias", alias); err != nil {
+				return fmt.Errorf("state_voices.voices.%s: %w", value, err)
+			}
+		}
+		primaryText := false
+		for _, output := range public.Graph.Outputs {
+			mediaType, _, err := mime.ParseMediaType(output.MimeType)
+			if output.Primary != nil && *output.Primary && err == nil && strings.EqualFold(mediaType, "text/plain") {
+				primaryText = true
+			}
+		}
+		if !primaryText {
+			return fmt.Errorf("state_voices: primary output must be text/plain")
+		}
+	}
 	textOutputNodes := make(map[string]struct{}, len(public.Graph.Outputs))
 	for _, output := range public.Graph.Outputs {
 		mediaType, _, err := mime.ParseMediaType(strings.TrimSpace(output.MimeType))

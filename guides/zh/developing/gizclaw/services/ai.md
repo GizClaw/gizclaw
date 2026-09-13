@@ -80,9 +80,30 @@ Public `FlowcraftWorkflowSpec` 要求显式 `graph`，Graph 至少有一个 node
 
 `dashscope-realtime`、`doubao-realtime-duplex` 和 `eino` 都是持久化 Workflow 与 Workspace driver。对应 factory 解析 typed RuntimeProfile Model/Voice alias，并构造既有 GenX Transformer。DashScope 要求 DashScope realtime Model；Doubao Duplex 要求 Volc `realtime-duplex` Model；Eino 分别解析每个 `chat_model` node。
 
-Flowcraft 与 Eino 共用同一个 `VoiceAdapter` contract。非空的 `eino.voice_adapter.asr_model` 是 Eino 产品集成的 live-audio capability，并通过对应的 RuntimeProfile ASR Model alias 把音频输入转换为文本。省略该 alias 或配置空白值时，输入保持纯文本；即使 `default_voice` 或 `node_voices` 为已接受的文本 turn 配置了 TTS-only 输出，也不改变这一边界。这类 route 收到第一段非空、普通 user `audio/*` Blob 时，factory 会立即发送一个 non-retryable 的 assistant `text/plain` EOS：`ErrorCode` 为 `EINO_AUDIO_INPUT_UNSUPPORTED`，failure provenance 为 transform；随后丢弃该 route 直到 EOS，不把音频转发给 AudioDock、Eino Graph 或 Provider。固定错误只说明 Eino 音频输入需要 `voice_adapter.asr_model`，不包含输入 payload、alias、credential、StreamID 或 Provider 原始错误。其他 route 继续运行；空 audio/control chunk、非法 MIME、非音频 part 与 `history.user_audio` 保持既有行为。
+Flowcraft 使用 `VoiceAdapter`，Eino 使用专属 `EinoVoiceAdapter`；两者的 `asr_model`、`default_voice` 和 `node_voices` 含义一致。非空的 `eino.voice_adapter.asr_model` 是 Eino 产品集成的 live-audio capability，并通过对应的 RuntimeProfile ASR Model alias 把音频输入转换为文本。省略该 alias 或配置空白值时，输入保持纯文本；即使 `default_voice` 或 `node_voices` 为已接受的文本 turn 配置了 TTS-only 输出，也不改变这一边界。这类 route 收到第一段非空、普通 user `audio/*` Blob 时，factory 会立即发送一个 non-retryable 的 assistant `text/plain` EOS：`ErrorCode` 为 `EINO_AUDIO_INPUT_UNSUPPORTED`，failure provenance 为 transform；随后丢弃该 route 直到 EOS，不把音频转发给 AudioDock、Eino Graph 或 Provider。固定错误只说明 Eino 音频输入需要 `voice_adapter.asr_model`，不包含输入 payload、alias、credential、StreamID 或 Provider 原始错误。其他 route 继续运行；空 audio/control chunk、非法 MIME、非音频 part 与 `history.user_audio` 保持既有行为。
 
 配置后，`default_voice` 和 `node_voices` 通过 RuntimeProfile Voice alias 为声明为 `text/plain` 的 Graph output 合成语音。`node_voices` 以 Graph output 引用的 node ID 为 key，并优先于 `default_voice`。Eino Workspace `input` 接受 `push-to-talk` 或 `realtime`，默认值为 `push-to-talk`；realtime ASR 会输出 interim transcript。两种 live-audio 模式都以 `realtime_pacing=false` 解析 ASR Model：设备 frame 已按真实时间到达；只有使用相同 100 ms packet 的十次交替顺序 provider-backed 试验证明 EOS 到 definite transcript 的中位数至少降低 200 ms，才保留这项 mode-specific 设置。factory 在构造 Agent 前校验全部 alias，并用 AudioDock 组合 Eino Transformer，不把音频行为下沉到 provider-neutral Eino package。
+
+Eino 的 `voice_adapter.state_voices` 为单一 primary text output 按轮次选择 Voice。`field` 必须精确引用 Graph 中声明的 string state field，`voices` 是非空的「字段值 → RuntimeProfile Voice alias」映射。值按原样精确匹配，不去空白、不做前缀查找；所有映射 alias 都经过 Workflow 语法校验、RuntimeProfile 引用检查和 factory Voice 预解析。
+
+```yaml
+voice_adapter:
+  default_voice: story.narrator
+  node_voices:
+    answer: story.narrator
+  state_voices:
+    field: selected_speaker
+    voices:
+      narrator: story.narrator
+      tortoise: story.tortoise
+      bird: story.bird
+      rabbit: story.rabbit
+      fox: story.fox
+```
+
+在 primary 输出的首个非空白文本 chunk 发布前，factory 从本轮 state 快照选择 alias；AudioDock 在该 chunk 进入 TTS 前读取选择结果。同一输出流内固定选择，下一轮重新计算。未赋值或未映射时依次回落到该 output node 的 `node_voices`、`default_voice`，都未配置则仅输出文本。secondary output 仍只使用静态 node/default 配置。选人 script 必须位于 primary 输出节点的上游依赖链，每轮先写 `selected_speaker`；与输出并行或在输出后写入不能用于该轮选音色。首个 chunk 不等待模型整段回复，也不依赖轮末的 state 提交；单 primary、History、memory observe 和打断语义保持不变。最小示例见 `tests/gizclaw-e2e/testdata/resources/04-workflows/33-eino-multi-role.yaml`，输入角色英文名即可切换，其他文本使用旁白；使用前须在 RuntimeProfile 中绑定 `llm` 和五个 `story.*` Voice alias。
+
+`admin validate` 对 Eino Workflow（包括 ResourceList 中的项）同时执行 Schema 与 `einoconfig.Validate` 语义检查，可离线拒绝不存在的 selector field、非 string field、空映射或非法 alias；alias 是否绑定真实资源仍由 RuntimeProfile 与 factory 检查。
 
 首响延迟属于完整 RuntimeProfile 选择，不只属于 Eino driver。发布前必须让同一组 chat Model、ASR Model、Voice、tenant、endpoint 和 resource revision 同时通过 Server 与 Edge 验证。当选中的 Model 超出延迟上限时，GizClaw 不会静默重试、替换 Provider 或对多个 Provider 竞速。E2E 参考 profile 选择已通过低延迟验证的 `doubao-mini-chat` (`doubao-seed-2-0-mini-260428`)；变更 alias 或上游 revision 后必须重新运行首响验证矩阵。
 

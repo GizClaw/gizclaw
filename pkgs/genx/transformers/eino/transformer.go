@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"sort"
 	"strings"
 	"sync"
@@ -379,8 +380,10 @@ func (transformer *Transformer) claimInitiative(ctx context.Context) (bool, erro
 }
 
 type outputRoute struct {
-	definition OutputDefinition
-	response   *streamkit.Response
+	metadata      map[string]string
+	metadataReady bool
+	definition    OutputDefinition
+	response      *streamkit.Response
 }
 
 func (session *session) startTurn(user, inputID string, parts []any, previous <-chan struct{}, initiative ...bool) <-chan struct{} {
@@ -437,6 +440,7 @@ func newOutputRoutePart(mimeType string, data []byte) genx.Part {
 }
 
 type turnRun struct {
+	state    *runState
 	session  *session
 	user     string
 	parts    []any
@@ -481,6 +485,22 @@ func (run *turnRun) Emit(output OutputDefinition, value any) error {
 		size = len(typed)
 	default:
 		return fmt.Errorf("eino: output %q has unsupported value %T", output.Name, value)
+	}
+	if callback := run.session.transformer.config.OutputMetadata; callback != nil {
+		nonblank := size > 0
+		if text, ok := chunk.Part.(genx.Text); ok {
+			nonblank = strings.TrimSpace(string(text)) != ""
+		}
+		if nonblank && !route.metadataReady {
+			snapshot, err := run.state.snapshot()
+			if err != nil {
+				return err
+			}
+			route.metadata = maps.Clone(callback(output, snapshot))
+			route.metadataReady = true
+			run.routes[output.Name] = route
+		}
+		chunk.Metadata = maps.Clone(route.metadata)
 	}
 	if err := run.session.invocation.Emit(route.response, chunk); err != nil {
 		return err
@@ -634,6 +654,7 @@ func (run *turnRun) runGraph() (*runState, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
+	run.state = state
 	if err := recallMemory(run.ctx, config.Memory, state); err != nil {
 		return nil, "", err
 	}

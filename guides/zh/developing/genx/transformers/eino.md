@@ -22,7 +22,7 @@ transformer, err := eino.New(ctx, eino.Config{
 
 `New` 会校验并复制声明式配置，解析所有 component 与 named Lambda，构造 Eino 原生 node 和 routing，且只编译一次 root Graph 与各 nested Graph。构造过程不连接 provider、不启动常驻 worker，也不修改全局注册。
 
-`ComponentResolver`、`LambdaResolver`、解析后的 component、Lambda 和 Store 都归调用方所有，并且必须支持并发使用。`Config` 不接受预构造 Agent、Runnable、可变 `compose.Graph`、Graph factory、raw callback、credential、provider endpoint 或产品 Resource。
+`ComponentResolver`、`LambdaResolver`、解析后的 component、Lambda 和 Store 都归调用方所有，并且必须支持并发使用。`Config` 不接受预构造 Agent、Runnable、可变 `compose.Graph`、Graph factory、raw graph callback、credential、provider endpoint 或产品 Resource。
 
 `Agent.ContextID` 留空时，`New` 生成一个 Transformer 生命周期内稳定的 opaque identity。每个 turn 仍拥有独立的 invocation、run 和 output Stream identity。
 
@@ -241,3 +241,7 @@ Provider、Store、Script、component、cancellation、byte limit 和 optimistic
 Eino Transformer 只依赖 GenX `ToolInvoker` interface，不接收 RuntimeProfile、Toolkit policy、resource 或 Executor registry 细节。一个 root `Transform` invocation 的 nested Graph 共用 call-ID set 与 `MaxToolCalls` budget；provider call ID 留在 Eino 内部，并与 `InvokeTool` 返回的 raw JSON result 关联。零值采用 32，负数非法。独立 invocation 可以并发执行同一 invoker 并复用 provider call ID；解析、执行、非法 result JSON、cancellation、重复 ID 和额度耗尽错误只影响当前 invocation。
 
 Agent 主动开场时，ChatModel 会省略 Prompt 渲染出的无内容 user message，保留系统提示、历史以及多模态输入。
+
+## 输出适配元数据
+
+`Config.OutputMetadata` 可在每条 output route 的首个非空白 chunk 发布前，从分离的本轮 state 快照生成 `map[string]string`。回调须支持并发 turn；结果在该 route 内固定，通过 `MessageChunk.Metadata` 传给进程内 adapter，Clone 会复制 map，wire encoder 不得输出这些属性。空白前缀不触发快照。未配置时不复制 state、不增加输出等待。此钩子不改变 Graph 输出名称、primary、History 或 memory；产品层可以用它传递本轮 Voice alias，通用 Eino package 不解析 Voice 资源或执行 TTS。

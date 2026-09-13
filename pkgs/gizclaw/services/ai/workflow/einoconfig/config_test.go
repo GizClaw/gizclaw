@@ -40,7 +40,7 @@ func TestValidate(t *testing.T) {
 		spec := cloneSpec(t, valid)
 		asr, blank, voice := "speech.asr", "  ", "speech.voice"
 		nodes := map[string]string{"answer": voice}
-		spec.VoiceAdapter = &apitypes.VoiceAdapter{
+		spec.VoiceAdapter = &apitypes.EinoVoiceAdapter{
 			AsrModel:     &asr,
 			DefaultVoice: &voice,
 			NodeVoices:   &nodes,
@@ -48,7 +48,7 @@ func TestValidate(t *testing.T) {
 		if err := Validate(spec); err != nil {
 			t.Fatalf("Validate(voice adapter) error = %v", err)
 		}
-		for _, adapter := range []*apitypes.VoiceAdapter{
+		for _, adapter := range []*apitypes.EinoVoiceAdapter{
 			{},
 			{AsrModel: &blank},
 			{DefaultVoice: &voice},
@@ -67,16 +67,16 @@ func TestValidate(t *testing.T) {
 		}{
 			{name: "invalid alias", mutate: func(spec *apitypes.EinoWorkflowSpec) {
 				invalid := "INVALID ALIAS"
-				spec.VoiceAdapter = &apitypes.VoiceAdapter{AsrModel: &invalid}
+				spec.VoiceAdapter = &apitypes.EinoVoiceAdapter{AsrModel: &invalid}
 			}, wantErr: "asr_model"},
 			{name: "unknown node", mutate: func(spec *apitypes.EinoWorkflowSpec) {
 				mapped := map[string]string{"missing": voice}
-				spec.VoiceAdapter = &apitypes.VoiceAdapter{NodeVoices: &mapped}
+				spec.VoiceAdapter = &apitypes.EinoVoiceAdapter{NodeVoices: &mapped}
 			}, wantErr: "no text/plain graph output"},
 			{name: "non-text output", mutate: func(spec *apitypes.EinoWorkflowSpec) {
 				spec.Graph.Outputs[0].MimeType = "application/octet-stream"
 				mapped := map[string]string{"answer": voice}
-				spec.VoiceAdapter = &apitypes.VoiceAdapter{NodeVoices: &mapped}
+				spec.VoiceAdapter = &apitypes.EinoVoiceAdapter{NodeVoices: &mapped}
 			}, wantErr: "no text/plain graph output"},
 		}
 		for _, testCase := range tests {
@@ -85,6 +85,33 @@ func TestValidate(t *testing.T) {
 				testCase.mutate(&candidate)
 				if err := Validate(candidate); err == nil || !strings.Contains(err.Error(), testCase.wantErr) {
 					t.Fatalf("Validate() error = %v, want %q", err, testCase.wantErr)
+				}
+			})
+		}
+	})
+
+	t.Run("state voices", func(t *testing.T) {
+		for _, test := range []struct{ name, selector, want string }{
+			{"valid", `{"field":"answer","voices":{"narrator":"story.narrator"}}`, ""},
+			{"missing field", `{"field":"missing","voices":{"narrator":"story.narrator"}}`, "state_voices.field"},
+			{"empty mapping", `{"field":"answer","voices":{}}`, "mapping must not be empty"},
+			{"invalid alias", `{"field":"answer","voices":{"narrator":"INVALID"}}`, "state_voices.voices"},
+			{"blank alias", `{"field":"answer","voices":{"narrator":" "}}`, "state_voices.voices"},
+		} {
+			t.Run(test.name, func(t *testing.T) {
+				spec := cloneSpec(t, valid)
+				if err := json.Unmarshal([]byte(`{"state_voices":`+test.selector+`}`), &spec.VoiceAdapter); err != nil {
+					t.Fatal(err)
+				}
+				err := Validate(spec)
+				if test.want == "" && err != nil || test.want != "" && (err == nil || !strings.Contains(err.Error(), test.want)) {
+					t.Fatalf("Validate() = %v, want %q", err, test.want)
+				}
+				if test.want == "" {
+					spec.Graph.State.Fields[0].Type = apitypes.EinoStateFieldTypeObject
+					if err := Validate(spec); err == nil || !strings.Contains(err.Error(), "declared string") {
+						t.Fatalf("non-string selector: %v", err)
+					}
 				}
 			})
 		}
