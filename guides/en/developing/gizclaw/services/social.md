@@ -243,7 +243,7 @@ services:
     floor_idle: 300ms         # optional, default 300ms; releases the downlink floor without voiced packets
 ```
 
-Credentials are read from files at startup only and never enter the Social KV, Workspaces, Peer APIs, Events, logs, or generated SDKs; SFU is not selected per profile through RuntimeProfile, Workspace, or Admin API. Omitting the block disables SFU Workspaces on that Server.
+Like every Server config value, `url` and the credential file paths support [environment expansion](/en/developing/gizclaw/server/main#environment-expansion), so `url: ${GIZCLAW_SFU_URL}` selects the endpoint per deployment. Credentials are read from files at startup only and never enter the Social KV, Workspaces, Peer APIs, Events, logs, or generated SDKs; SFU is not selected per profile through RuntimeProfile, Workspace, or Admin API. Omitting the block disables SFU Workspaces on that Server.
 
 ### Limits
 
