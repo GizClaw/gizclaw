@@ -681,11 +681,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			return operationResult{}, fmt.Errorf("text peer_stream input must be string")
 		}
 		pushTextTurn := func(sendCtx context.Context, id string) error {
-			chunks := []*genx.MessageChunk{
-				{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: id, Label: "user", BeginOfStream: true}},
-				{Role: genx.RoleUser, Part: genx.Text(text), Ctrl: &genx.StreamCtrl{StreamID: id, Label: "user"}},
-				{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: id, Label: "user", EndOfStream: true}},
-			}
+			chunks := textInputChunks(op, id, text)
 			for _, chunk := range chunks {
 				if err := stream.Push(sendCtx, chunk); err != nil {
 					return err
@@ -754,6 +750,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 		pushTurn := func(sendCtx context.Context, id string) error {
 			chunks := audioInputChunks(op.Mode, id, mimeType, packets)
 			for index, chunk := range chunks {
+				if op.Label != "" {
+					chunk.Ctrl.Label = op.Label
+				}
 				if err := stream.Push(sendCtx, chunk); err != nil {
 					return err
 				}
@@ -1722,4 +1721,29 @@ func (s *peerStreamSession) prependOutput(results []nextPeerStreamResult) {
 			}
 		}
 	}()
+}
+
+// textInputChunks preserves the device wire format: a part-free BOS followed
+// by a single TEXT_DONE carrying the entire message, including zero timestamps.
+func textInputChunks(op *giztest.PeerStreamOperation, id, text string) []*genx.MessageChunk {
+	label := op.Label
+	if label == "" {
+		label = "user"
+	}
+	var timestamp int64
+	if op.Timestamp == "unix_ms" {
+		timestamp = time.Now().UnixMilli()
+	}
+	control := func() *genx.StreamCtrl {
+		return &genx.StreamCtrl{StreamID: id, Label: label, Timestamp: timestamp}
+	}
+	bos := &genx.MessageChunk{Role: genx.RoleUser, Ctrl: control()}
+	bos.Ctrl.BeginOfStream = true
+	done := &genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: control()}
+	done.Ctrl.EndOfStream = true
+	if op.TextDone {
+		done.Part = genx.Text(text)
+		return []*genx.MessageChunk{bos, done}
+	}
+	return []*genx.MessageChunk{bos, {Role: genx.RoleUser, Part: genx.Text(text), Ctrl: control()}, done}
 }

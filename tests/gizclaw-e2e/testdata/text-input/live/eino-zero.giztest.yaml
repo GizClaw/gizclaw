@@ -1,0 +1,128 @@
+# User Story:
+# As a device using the eino-concurrency-assistant Workflow in PUSH_TO_TALK mode,
+# I want a full TEXT_DONE to receive an audible reply both before and after speech,
+# So that text and microphone input share one conversation with zero timestamps.
+version: gizclaw.test/v1alpha1
+name: device-text-eino-zero
+timeout: 5m
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  input_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        collection: assistants
+        workflow_name: eino-concurrency-assistant
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  - id: text_before_speech
+    client: peer
+    timeout: 60s
+    peer_stream:
+      mode: text
+      text_done: true
+      timestamp: zero
+      label: demo-home
+      input: 请用一句话回应我，然后等我继续。
+      idle_timeout: 30s
+    expect:
+      /text:
+        non_empty: true
+      /first_audio_ms:
+        minimum: 1
+      /audio_bytes:
+        minimum: 1
+  - id: synthesize
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 你好，请回应我。
+        accepted_content_types: [audio/ogg]
+    save_as: input_audio
+  - id: speech_reply
+    client: peer
+    timeout: 60s
+    peer_stream:
+      mode: push-to-talk
+      input: ${input_audio}
+      label: demo-home
+      pacing: 20ms
+      idle_timeout: 30s
+    expect:
+      /first_audio_ms:
+        minimum: 1
+      /audio_bytes:
+        minimum: 1
+  - id: text_after_speech
+    client: peer
+    timeout: 60s
+    peer_stream:
+      mode: text
+      text_done: true
+      timestamp: zero
+      label: demo-home
+      input: 请用一句话回应我，然后等我继续。
+      idle_timeout: 30s
+    expect:
+      /text:
+        non_empty: true
+      /first_audio_ms:
+        minimum: 1
+      /audio_bytes:
+        minimum: 1
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

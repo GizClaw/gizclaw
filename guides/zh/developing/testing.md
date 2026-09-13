@@ -343,6 +343,24 @@ JavaScript 与 Flutter 省略该字段。
 
 ### Giztest 场景
 
+文字输入的 `peer_stream` 使用 `mode: text`。`text_done: true` 发送纯控制 BOS 与包含全文的 TEXT_DONE 两条事件；不设置时保留 BOS、TEXT_DELTA、空 TEXT_DONE 三条事件。`timestamp: zero` 是默认值，`timestamp: unix_ms` 给同轮两个事件使用当前 Unix 毫秒值。`label` 可为文字或音频输入指定相同的 route label，默认 `user`。
+
+`TestDeviceTextInputGiztest` 读取 `tests/gizclaw-e2e/testdata/text-input/` 中的 Giztest 文档，执行 Go runner 的真实 `peer_stream` operation、RealtimeStream 和三个 driver 的 Transformer。Doubao SDK 通过内存 HTTP/WebSocket 连接到本地 provider fixture；Eino 使用本地 typed Graph，Flowcraft 使用本地 Generator，外挂 TTS 输出可解码的非静音 Opus。此测试不需要凭据或本地端口，验证零/Unix 毫秒时间戳、PTT/Realtime、直接文字及语音后文字；它不替代真实 Server/WebRTC 或产品 Graph 的验收。
+
+```sh
+go test ./cmd/internal/commands/giztest -run '^TestDeviceText' -count=1
+go test -race ./pkgs/genx/transformers/doubaorealtime -count=1
+```
+
+同目录 `live/` 下的十份独立文档使用标准 E2E Workflow catalog，创建 Workspace，在首次文字回复、语音回复和后续文字回复中都检查文本、完整终态及非静音音频，然后清理资源。先按上面的 Docker E2E 步骤启动带凭据的环境，并设置其 `GIZCLAW_TEST_ENDPOINT`、`GIZCLAW_TEST_REGISTRATION_TOKEN`；以下入口默认跳过，显式选择后缺少环境变量或任一场景失败都会失败：
+
+```sh
+GIZCLAW_TEXT_INPUT_LIVE=1 go test ./cmd/internal/commands/giztest \
+  -run '^TestDeviceTextInputLive$' -count=1 -timeout=20m
+```
+
+也可以直接用 `gizclaw test run tests/gizclaw-e2e/testdata/text-input/live --parallel 1` 执行。Eino 和 Flowcraft 使用 E2E catalog 中的 Graph，不代表 H106 的所有小剧场或大冒险产品配置都已验收。
+
 AST 连续轮次回归由 `volc-ast-translate.push-to-talk-consecutive-turns.giztest.yaml`
 和 `volc-ast-translate.realtime-consecutive-turns.giztest.yaml` 覆盖。每个场景只合成一次
 中文音频，在同一个 Workspace 中连续进行三轮中文到法语翻译；每轮保留 30 秒

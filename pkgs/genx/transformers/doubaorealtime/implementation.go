@@ -1103,6 +1103,7 @@ func (t *Transformer) processSession(
 	var pttControl sync.Mutex
 	textResponses := &doubaoRealtimeTextResponses{}
 	var realtimeSpoken *doubaoRealtimeSpokenResponse
+	var realtimeSpokenEpoch uint64
 	streamIDs := runtime.streamIDs
 	audioInputs := runtime.audioInputs
 	// initiativeActive is set while the hidden opening query owns the
@@ -1232,7 +1233,8 @@ func (t *Transformer) processSession(
 			}
 			state = &current.spoken
 		default:
-			if realtimeSpoken == nil {
+			if realtimeSpoken == nil || realtimeSpokenEpoch != assistant.currentEpoch() {
+				realtimeSpokenEpoch = assistant.currentEpoch()
 				realtimeSpoken = &doubaoRealtimeSpokenResponse{}
 			}
 			state = realtimeSpoken
@@ -1839,7 +1841,9 @@ func (t *Transformer) processSession(
 		if chunk == nil {
 			continue
 		}
-		if t.mode == ModeText {
+		_, isText := chunk.Part.(genx.Text)
+		textBoundary := chunk.Part == nil && (chunk.IsBeginOfStream() || textInput.text.Len() > 0)
+		if t.mode == ModeText || isText || textBoundary {
 			chunk, err = textInput.push(chunk)
 			if err != nil {
 				return err
@@ -1985,6 +1989,29 @@ func (t *Transformer) processSession(
 					responseStreamID := streamIDs.endInputSegment()
 					assistant.setAccept(true)
 					assistant.markPending(responseStreamID, assistant.currentEpoch())
+				}
+				if t.mode == ModePushToTalk {
+					inputAudioEnded = true
+					if err := pushToTalk.end(); err != nil {
+						return err
+					}
+					if err := pttTurn.commitText(); err != nil {
+						return err
+					}
+					assistant.setAccept(true)
+					epoch := assistant.nextEpoch()
+					pttResponse := pttTurn.bindResponseFor(pttTurn.currentGeneration(), epoch, doubaoRealtimePTTResponseIdentity{})
+					if pttResponse == nil {
+						return fmt.Errorf("doubao realtime text response has no input route")
+					}
+					markAssistantPending(pttResponse.streamID, epoch)
+					pttResponses.add(pttResponse)
+				} else if t.mode == ModeRealtime {
+					responseStreamID := streamIDs.endInputSegment()
+					assistant.setAccept(true)
+					epoch := assistant.nextEpoch()
+					markAssistantPending(responseStreamID, epoch)
+					responseDeadline.start(epoch)
 				}
 				if err := session.SendText(ctx, string(p)); err != nil {
 					textResponses.cancel(response)

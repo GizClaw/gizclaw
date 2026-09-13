@@ -674,6 +674,7 @@ type doubaoRealtimePTTResponseIdentity struct {
 }
 
 type doubaoRealtimePTTResponses struct {
+	mu    sync.Mutex
 	items []*doubaoRealtimePTTResponse
 	// Binary audio carries no response IDs. Its owner follows TTSStarted,
 	// independently of older responses awaiting ChatEnded or TTSFinished.
@@ -1145,10 +1146,21 @@ func (q *doubaoRealtimePTTResponses) add(response *doubaoRealtimePTTResponse) {
 	if q == nil || response == nil {
 		return
 	}
+	q.mu.Lock()
 	q.items = append(q.items, response)
+	q.mu.Unlock()
 }
 
 func (q *doubaoRealtimePTTResponses) match(identity doubaoRealtimePTTResponseIdentity) *doubaoRealtimePTTResponse {
+	if q == nil {
+		return nil
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return q.matchLocked(identity)
+}
+
+func (q *doubaoRealtimePTTResponses) matchLocked(identity doubaoRealtimePTTResponseIdentity) *doubaoRealtimePTTResponse {
 	if q == nil || len(q.items) == 0 {
 		return nil
 	}
@@ -1176,22 +1188,26 @@ func (q *doubaoRealtimePTTResponses) match(identity doubaoRealtimePTTResponseIde
 }
 
 func (q *doubaoRealtimePTTResponses) startAudio(identity doubaoRealtimePTTResponseIdentity) *doubaoRealtimePTTResponse {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	q.audioResponse = nil
 	if !identity.empty() || len(q.items) == 1 {
-		q.audioResponse = q.match(identity)
+		q.audioResponse = q.matchLocked(identity)
 	}
 	q.audioBound = true
 	return q.audioResponse
 }
 
 func (q *doubaoRealtimePTTResponses) matchAudio(identity doubaoRealtimePTTResponseIdentity) *doubaoRealtimePTTResponse {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	var response *doubaoRealtimePTTResponse
 	if identity.empty() && q.audioBound {
 		response = q.audioResponse
 	} else if !identity.empty() || len(q.items) == 1 {
 		// A provider that sends audio without TTSStarted is unambiguous only
 		// when it supplies an ID or there is a single pending response.
-		response = q.match(identity)
+		response = q.matchLocked(identity)
 	}
 	if response == nil || response.ttsFinished {
 		return nil
@@ -1203,6 +1219,8 @@ func (q *doubaoRealtimePTTResponses) finish(response *doubaoRealtimePTTResponse)
 	if q == nil || response == nil || !response.done() {
 		return
 	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	for i, candidate := range q.items {
 		if candidate != response {
 			continue
@@ -1569,4 +1587,19 @@ func (s *doubaoRealtimeStreamIDs) inputForSegmentLocked() string {
 		segment = 1
 	}
 	return fmt.Sprintf("%s:rt:%d", base, segment)
+}
+
+// commitText opens the response gate for a submitted text turn. No ASR events
+// or transcript are synthesized: the input already contains the user's text.
+func (t *doubaoRealtimePTTTurn) commitText() error {
+	t.mu.Lock()
+	if !t.active || t.committed || t.assistantOut == nil {
+		t.mu.Unlock()
+		return fmt.Errorf("doubao realtime text requires an active uncommitted turn")
+	}
+	t.inputEnded = true
+	t.committed = true
+	output := t.assistantOut
+	t.mu.Unlock()
+	return output.Commit()
 }

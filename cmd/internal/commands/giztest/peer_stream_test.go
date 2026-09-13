@@ -1711,3 +1711,36 @@ func TestInvokePeerStreamFirstResponseTimingsStayNonNegative(t *testing.T) {
 		})
 	}
 }
+
+func TestTextInputChunksDeviceFormat(t *testing.T) {
+	for _, timestamp := range []string{"zero", "unix_ms"} {
+		t.Run(timestamp, func(t *testing.T) {
+			before := time.Now().UnixMilli()
+			chunks := textInputChunks(&giztest.PeerStreamOperation{TextDone: true, Timestamp: timestamp, Label: "demo-home"}, "demo-2", "完整文字")
+			if len(chunks) != 2 {
+				t.Fatalf("chunk count = %d", len(chunks))
+			}
+			bos, done := chunks[0], chunks[1]
+			if bos.Part != nil || !bos.IsBeginOfStream() || bos.IsEndOfStream() {
+				t.Fatalf("not a pure control BOS: %#v", bos)
+			}
+			if done.Part != genx.Text("完整文字") || !done.IsEndOfStream() || done.IsBeginOfStream() {
+				t.Fatalf("not full TEXT_DONE: %#v", done)
+			}
+			for _, chunk := range chunks {
+				if chunk.Ctrl.StreamID != "demo-2" || chunk.Ctrl.Label != "demo-home" {
+					t.Fatalf("route = %#v", chunk.Ctrl)
+				}
+				if timestamp == "zero" && chunk.Ctrl.Timestamp != 0 {
+					t.Fatal("zero timestamp normalized before sending")
+				}
+				if timestamp == "unix_ms" && (chunk.Ctrl.Timestamp < before || chunk.Ctrl.Timestamp > time.Now().UnixMilli()) {
+					t.Fatal("not a Unix millisecond timestamp")
+				}
+			}
+			if bos.Ctrl.Timestamp != done.Ctrl.Timestamp {
+				t.Fatal("turn timestamps differ")
+			}
+		})
+	}
+}

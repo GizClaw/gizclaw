@@ -778,3 +778,25 @@ func TestLoadDocumentGatesParallelStepsOnDriverSupport(t *testing.T) {
 		t.Fatalf("documents = %#v skipped = %#v err = %v", documents, skipped, err)
 	}
 }
+
+func TestPeerStreamTextWireOptions(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		op        PeerStreamOperation
+		wantError bool
+	}{
+		{name: "device", op: PeerStreamOperation{Mode: "text", Input: "hello", TextDone: true, Label: "demo-home", Timestamp: "zero"}},
+		{name: "clock control", op: PeerStreamOperation{Mode: "text", Input: "hello", TextDone: true, Timestamp: "unix_ms"}},
+		{name: "unknown clock", op: PeerStreamOperation{Mode: "text", Input: "hello", Timestamp: "seconds"}, wantError: true},
+		{name: "audio label", op: PeerStreamOperation{Mode: "push-to-talk", Input: "audio", Label: "demo-home"}},
+		{name: "audio done", op: PeerStreamOperation{Mode: "push-to-talk", Input: "audio", TextDone: true}, wantError: true},
+		{name: "listen label", op: PeerStreamOperation{Mode: "listen", Duration: "1s", Label: "demo-home"}, wantError: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validatePeerStreamStep(Step{ID: "wire", PeerStream: &tc.op}, false)
+			if (err != nil) != tc.wantError {
+				t.Fatalf("validation error = %v, want error %t", err, tc.wantError)
+			}
+		})
+	}
+}

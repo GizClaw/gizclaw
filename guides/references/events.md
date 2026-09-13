@@ -67,6 +67,7 @@ Server 根据认证连接和权威 relationship 计算，不能由 Client payloa
 
 `stream_id` 关联同一轮的 BOS、内容与 EOS。`TEXT_DONE` 已包含文本结束语义，不需要
 额外发送 EOS。音频的实时 packet 不在 Protobuf event 中：
+纯文字输入可发送不带 MIME/stream kind 的控制 BOS，再发送同一 `stream_id`、同一 label、携带全文的 `TEXT_DONE`。两条事件的 `timestamp_unix_ms` 可以为零：Server 的 RealtimeStream 会补充时间戳，不要求设备先同步 Unix 时钟。
 
 ```text
 Client → Server: BOS(kind=AUDIO, stream_id=audio-42)

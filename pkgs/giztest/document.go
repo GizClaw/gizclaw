@@ -144,6 +144,12 @@ type SpeechOperation struct {
 	Cache   string `json:"cache,omitempty" yaml:"cache,omitempty"`
 }
 type PeerStreamOperation struct {
+	// TextDone sends the complete text in TEXT_DONE after a control-only BOS.
+	TextDone bool `json:"text_done,omitempty" yaml:"text_done,omitempty"`
+	// Timestamp selects zero (default) or current Unix milliseconds for input.
+	Timestamp string `json:"timestamp,omitempty" yaml:"timestamp,omitempty"`
+	// Label overrides the input route label, which defaults to user.
+	Label string `json:"label,omitempty" yaml:"label,omitempty"`
 	// OverlapInput repeats the audio on the same PeerStream while the first
 	// assistant audio response is still open, and verifies both response endings.
 	OverlapInput bool   `json:"overlap_input,omitempty" yaml:"overlap_input,omitempty"`
@@ -635,6 +641,9 @@ func validateListenPeerStream(step Step) error {
 		set  bool
 	}{
 		{"input", op.Input != nil},
+		{"label", op.Label != ""},
+		{"text_done", op.TextDone},
+		{"timestamp", op.Timestamp != ""},
 		{"pacing", op.Pacing != ""},
 		{"interrupt_after", op.InterruptAfter != ""},
 		{"idle_timeout", op.IdleTimeout != ""},
@@ -950,7 +959,19 @@ func collectReferences(v any) []string {
 // document's finally block.
 func validatePeerStreamStep(step Step, finalizer bool) error {
 	op := step.PeerStream
+	if op.TextDone && op.Mode != "text" {
+		return fmt.Errorf("step %s text_done requires text mode", step.ID)
+	}
+	if op.Timestamp != "" && op.Timestamp != "zero" && op.Timestamp != "unix_ms" {
+		return fmt.Errorf("step %s unsupported input timestamp %q", step.ID, op.Timestamp)
+	}
+	if op.Mode != "text" && op.Timestamp != "" {
+		return fmt.Errorf("step %s input timestamp requires text mode", step.ID)
+	}
 	if op.OverlapInput {
+		if op.Label != "" {
+			return fmt.Errorf("step %s overlap_input does not support label", step.ID)
+		}
 		if (op.Mode != "push-to-talk" && op.Mode != "realtime") || op.EmptyInput || op.Input == nil {
 			return fmt.Errorf("step %s overlap_input requires nonempty audio input", step.ID)
 		}
