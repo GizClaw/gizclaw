@@ -22,7 +22,7 @@ transformer, err := eino.New(ctx, eino.Config{
 
 `New` validates and copies the declarative configuration, resolves every referenced component and named Lambda, constructs native Eino nodes and routing, compiles the root Graph and every nested Graph once, and returns an immutable Transformer. It does not connect to a provider, start a permanent worker, or mutate global registration.
 
-`ComponentResolver`, `LambdaResolver`, resolved components, and Stores remain caller-owned and must be safe for concurrent use. `Config` never accepts a preconstructed Agent, Runnable, mutable `compose.Graph`, Graph factory, raw callback, credential, provider endpoint, or product Resource.
+`ComponentResolver`, `LambdaResolver`, resolved components, and Stores remain caller-owned and must be safe for concurrent use. `Config` never accepts a preconstructed Agent, Runnable, mutable `compose.Graph`, Graph factory, raw graph callback, credential, provider endpoint, or product Resource.
 
 An empty `Agent.ContextID` creates one opaque identity during `New`. That identity is stable for the Transformer lifetime. Each turn still receives fresh invocation, run, and output Stream identities.
 
@@ -241,3 +241,7 @@ Runtime provider, Store, Script, component, cancellation, byte-limit, and optimi
 The Eino Transformer depends only on the GenX `ToolInvoker` interface and does not receive RuntimeProfile, Toolkit policy, resource, or executor-registry details. One root `Transform` invocation shares its call-ID set and `MaxToolCalls` budget across nested Graphs. Provider call IDs remain inside Eino and are associated with the raw JSON result returned by `InvokeTool`. Zero uses 32 and negative values are rejected. Independent invocations may execute the shared invoker concurrently and reuse provider call IDs; resolution, invocation, invalid-result JSON, cancellation, duplicate-ID, and exhaustion failures remain local to one invocation.
 
 For agent initiative, ChatModel omits content-free user messages rendered by Prompt while preserving system instructions, history, and multimodal input.
+
+## Output adapter metadata
+
+`Config.OutputMetadata` derives process-local `map[string]string` attributes from a detached turn state snapshot before each output route's first nonblank chunk. Snapshotting and the callback run outside the turn mutex. The callback must be pure and support concurrent calls: concurrent first chunks may prepare multiple candidates, and only the first published nonblank chunk fixes the selection, including an empty fallback. The route keeps its attributes fixed, and `MessageChunk.Metadata` carries them to in-process adapters; Clone copies the map and wire encoders must omit it. Leading whitespace does not trigger a snapshot. Without the callback, output does not copy state or wait for selection. This hook preserves Graph output names, primary ownership, History, and memory. Product adapters can use it to carry a selected Voice alias; the generic Eino package does not resolve Voice resources or perform TTS.

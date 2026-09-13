@@ -1,0 +1,71 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  id: eino-multi-role
+spec:
+  driver: eino
+  eino:
+    voice_adapter:
+      default_voice: story.narrator
+      state_voices:
+        field: selected_speaker
+        voices:
+          narrator: story.narrator
+          tortoise: story.tortoise
+          bird: story.bird
+          rabbit: story.rabbit
+          fox: story.fox
+    graph:
+      name: Eino Per-Turn Story Voices
+      compile:
+        node_trigger_mode: any_predecessor
+      state:
+        fields:
+        - {name: selected_speaker, type: string, merge: replace}
+        - {name: messages, type: messages, merge: replace}
+        - {name: answer, type: string, merge: replace}
+      nodes:
+      - id: select-speaker
+        type: script
+        inputs:
+          text: {from: input.text}
+        outputs:
+          speaker: selected_speaker
+        language: starlark
+        entrypoint: main
+        source: |
+          def main(input):
+            return {"speaker": input["text"]}
+        limits:
+          max_execution_steps: 1000
+          timeout: 100ms
+          max_input_bytes: 4096
+          max_output_bytes: 4096
+      - id: prompt
+        type: prompt
+        inputs:
+          speaker: {from: selected_speaker}
+          history: {from: input.messages}
+        outputs:
+          messages: messages
+        format: f_string
+        messages:
+        - role: system
+          template: "你在讲龟兔赛跑。本轮扮演 {speaker}，只说一句角色台词。"
+        - placeholder: history
+      - id: answer
+        type: chat_model
+        inputs:
+          messages: {from: messages}
+        outputs:
+          text: answer
+        model: llm
+        max_tokens: 128
+      edges:
+      - {from: start, to: select-speaker}
+      - {from: select-speaker, to: prompt}
+      - {from: prompt, to: answer}
+      - {from: answer, to: end}
+      branches: []
+      outputs:
+      - {node: answer, field: answer, name: assistant, mime_type: text/plain, primary: true}

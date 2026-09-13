@@ -1296,6 +1296,34 @@ Successful runs write redacted monotonic timing evidence below ignored `tests/gi
 
 `TestAssistantScenariosWithLiveModel` in the same phase reuses that harness's API key and `/openai/v1` to run `web/assistant/scripts/run-live-scenarios.ts` with `node --experimental-strip-types`: the Monitor diagnostic assistant's scenario set executes tools against `FakeRuntime` while every model call goes to the RuntimeProfile `llm` (`doubao-mini-chat`). Each scenario gets up to three attempts and is judged only on tool calls, the final route, and key facts in the reply; a scenario that fails all three fails the phase. A passing run prints only scenario names, attempts, and failed checks; the JSON report with generated replies and tool results is printed only on failure. The test needs the `web/assistant` dependencies installed by the root `npm ci`, which the runner's `preflight:npm-ci` phase provides.
 
+## Deterministic Eino multi-voice Giztest
+
+`go test ./cmd/internal/commands/giztest -run '^TestEinoMultiVoiceGiztest$' -count=1`
+executes `tests/gizclaw-e2e/testdata/eino-voices/multi-turn.giztest.yaml` through the
+Go Giztest runner and CLI `peer_stream` receiver. The fixture retains one real Eino
+Factory/AudioDock invocation across fox, bird, unknown (default), and fox turns.
+A provider-boundary fake emits distinct 300/500/700 Hz Opus tones for the three
+Voice resources; no network, credentials, LLM, or Docker is required. The
+Audioplayer Giztest CI job explicitly runs this test after its device RPC scenarios and Console asset build.
+
+Go `peer_stream` results expose `audio_integrity`: `sha256` hashes the concatenated
+raw audio payloads in arrival order; `streams`, `max_active`, `open`, and `violations`
+report audio BOS/EOS ownership before response filtering. Overlap is visible as
+`max_active > 1`; duplicate BOS, data without BOS, or data after EOS increment
+`violations`. These are evidence fields used with normal `expect` assertions,
+not new document schema fields. A digest proves fixture payload identity, not the
+identity of an arbitrary real provider voice. Digests remain in assertion values
+and are omitted from redacted report evidence.
+
+Every turn requires exactly 40 packets of 20 ms, a maximum arrival gap of 150 ms,
+zero underruns with the existing 500 ms prebuffer, and a nonnegative minimum
+buffer. It also requires the expected voice payload digest, exactly one completed
+audio stream, and no lifecycle violations. The fixture additionally tracks all
+turns without resetting audio ownership and checks four TTS calls with a maximum
+of one active call. Wrong-voice, 900 ms stall, and overlapping-stream injections
+must fail. This deterministic provider-boundary test does not qualify real
+provider quality, WebRTC/Server/Edge pacing, or device playback.
+
 ## Monitor API giztest
 
 ```sh

@@ -561,11 +561,11 @@ func raidsEinoValidationFixture(form, id, extension string) string {
   "spec":{"driver":"eino","eino":{"graph":{
     "name":"history",
     "compile":{"node_trigger_mode":"any_predecessor"},
-    "state":{"fields":[{"name":"messages","type":"messages","merge":"replace"}]},
-    "nodes":[{"id":"prompt","type":"prompt","inputs":{"history":{"from":"input.messages"}},"outputs":{"messages":"messages"},"format":"f_string","messages":[%s]}],
-    "edges":[{"from":"start","to":"prompt"},{"from":"prompt","to":"end"}],
+    "state":{"fields":[{"name":"messages","type":"messages","merge":"replace"},{"name":"answer","type":"string","merge":"replace"}]},
+    "nodes":[{"id":"prompt","type":"prompt","inputs":{"history":{"from":"input.messages"}},"outputs":{"messages":"messages"},"format":"f_string","messages":[%s]},{"id":"answer","type":"passthrough","inputs":{"value":{"from":"input.text"}},"outputs":{"value":"answer"}}],
+    "edges":[{"from":"start","to":"prompt"},{"from":"prompt","to":"answer"},{"from":"answer","to":"end"}],
     "branches":[],
-    "outputs":[{"node":"prompt","field":"messages","name":"assistant","mime_type":"application/json","primary":true}]
+    "outputs":[{"node":"answer","field":"answer","name":"assistant","mime_type":"text/plain","primary":true}]
   }}}
 }`, id, messageJSON)
 	}
@@ -586,6 +586,9 @@ spec:
         - name: messages
           type: messages
           merge: replace
+        - name: answer
+          type: string
+          merge: replace
       nodes:
       - id: prompt
         type: prompt
@@ -597,17 +600,25 @@ spec:
         format: f_string
         messages:
 %s
+      - id: answer
+        type: passthrough
+        inputs:
+          value: {from: input.text}
+        outputs:
+          value: answer
       edges:
       - from: start
         to: prompt
       - from: prompt
+        to: answer
+      - from: answer
         to: end
       branches: []
       outputs:
-      - node: prompt
-        field: messages
+      - node: answer
+        field: answer
         name: assistant
-        mime_type: application/json
+        mime_type: text/plain
         primary: true
 `, id, messageYAML)
 }
@@ -824,4 +835,46 @@ func resourceKindAndName(resource apitypes.Resource) (apitypes.ResourceKind, str
 		return "", "", err
 	}
 	return header.Kind, header.Metadata.Id, nil
+}
+
+func TestAdminValidateEinoStateVoices(t *testing.T) {
+	fixture, err := os.ReadFile("../../../../tests/gizclaw-e2e/testdata/resources/04-workflows/33-eino-multi-role.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepared, err := prepareResourceData("workflow.yaml", fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct{ name, from, to, want string }{
+		{"valid", "", "", ""},
+		{"missing field", `"field":"selected_speaker"`, `"field":"missing"`, "state_voices.field"},
+		{"invalid alias", `"story.fox"`, `"INVALID"`, "pattern"},
+	} {
+		for _, list := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/list=%v", test.name, list), func(t *testing.T) {
+				data := string(prepared)
+				if test.from != "" {
+					data = strings.ReplaceAll(data, test.from, test.to)
+				}
+				if list {
+					data = `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"ResourceList","spec":{"items":[` + data + `]}}`
+				}
+				cmd := NewCmd()
+				var stdout, stderr bytes.Buffer
+				cmd.SetOut(&stdout)
+				cmd.SetErr(&stderr)
+				cmd.SetIn(strings.NewReader(data))
+				cmd.SetArgs([]string{"validate", "-f", "-"})
+				err := cmd.Execute()
+				if test.want == "" {
+					if err != nil {
+						t.Fatal(err)
+					}
+				} else if err == nil || !strings.Contains(err.Error(), test.want) {
+					t.Fatalf("error = %v, want %s", err, test.want)
+				}
+			})
+		}
+	}
 }

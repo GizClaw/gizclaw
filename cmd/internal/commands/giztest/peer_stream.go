@@ -938,6 +938,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			defer firstAudioTimer.Stop()
 		}
 	}
+	var audioIntegrity peerAudioIntegrity
 	finish := func() (operationResult, error) {
 		if len(abandonedResponses) > 0 {
 			// Report only the responses the turn kept: an abandoned partial
@@ -957,6 +958,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 		}
 		object := map[string]any{"text": texts, "audio_bytes": audioBytes, "events": events, "text_eos": textEOS, "audio_eos": audioEOS, "interrupted": interrupted, "interrupt_observed": observedInterrupted, "first_transcript_ms": firstTranscriptMS, "first_text_ms": firstTextMS, "first_audio_ms": firstAudioMS, "text_eos_ms": textEOSMS, "audio_eos_ms": audioEOSMS}
+		object["audio_integrity"] = audioIntegrity.summary()
 		maps.Copy(object, lead.fields())
 		if inputSent {
 			object["input_sent"] = true
@@ -985,6 +987,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			object["history_name"] = historyName
 		}
 		evidence := baseEvidence()
+		integrityEvidence := audioIntegrity.summary()
+		delete(integrityEvidence, "sha256")
+		evidence["audio_integrity"] = integrityEvidence
 		evidence["audio_bytes"] = audioBytes
 		evidence["first_text_ms"] = firstTextMS
 		evidence["first_audio_ms"] = firstAudioMS
@@ -1162,6 +1167,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				case genx.Text, *genx.Blob:
 					label = "assistant"
 				}
+			}
+			if label == "assistant" {
+				audioIntegrity.observe(result.chunk)
 			}
 			if skipEarlierResponses && label == "assistant" && actualStreamID != "" {
 				if !earlierResponses[actualStreamID] && responses[actualStreamID] == nil && result.receivedAt.Before(inputCompletedAt) {
