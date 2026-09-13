@@ -41,7 +41,6 @@ const allOperations = [
 const clientRpcMethods = {
   'client.info.get',
   'client.identifiers.get',
-  'client.tool.invoke',
   'client.device.status.get',
   'client.device.volume.set',
   'client.device.sound.play',
@@ -60,8 +59,7 @@ const clientRpcMethods = {
   'client.wifi.connect',
 };
 
-/// Methods this runner can install a provider for. `client.tool.invoke` needs
-/// the tool-serving surface the Flutter device SDK exposes separately.
+/// Methods this runner can install a provider for.
 const supportedClientRpcMethods = {
   'client.info.get',
   'client.identifiers.get',

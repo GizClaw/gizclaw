@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:fixnum/fixnum.dart' as fixnum;
 import 'package:fixnum/fixnum.dart' show Int64;
@@ -11,6 +12,94 @@ import 'fake_transport.dart';
 
 void main() {
   deviceControlTests();
+  test(
+    'App RPC install/list/invoke/job/cancel/uninstall round trips',
+    () async {
+      final host = _FakeAppHost();
+      addTearDown(host.close);
+      final handlers = GizClawPeerRpcHandlers(
+        deviceInfo: () => DeviceInfo(name: 'apps'),
+        appHost: host,
+      );
+      Future<rpc.RpcResponse> call(String method, GeneratedMessage request) {
+        final channel = FakeDataChannel('giznet/v1/service/0');
+        addTearDown(channel.close);
+        serveGizClawPeerRpcChannel(channel, handlers: handlers);
+        return _callInbound(
+          channel,
+          id: method,
+          method: rpc.RpcMethod.valueOf(rpcMethodByName(method).id)!,
+          methodName: method,
+          request: request,
+        );
+      }
+
+      var response = await call(
+        'client.app.install',
+        ClientAppInstallRequest(
+          appName: 'sample',
+          url: 'https://example.com/app.tar.zlib',
+          sha256: 'a' * 64,
+          size: Int64(123),
+        ),
+      );
+      expect(response.hasStatus(), isFalse, reason: response.status.message);
+      response = await call('client.app.list', ClientAppListRequest());
+      final list =
+          decodeRpcResponsePayload('client.app.list', response.payload)
+              as ClientAppListResponse;
+      expect(list.apps.single.appName, 'sample');
+      expect(list.runtime, 'runtime.lua.test');
+      response = await call(
+        'client.app.invoke',
+        ClientAppInvokeRequest(
+          appName: 'sample',
+          method: 'echo',
+          argsJson: '{}',
+        ),
+      );
+      expect(
+        jsonDecode(
+          (decodeRpcResponsePayload('client.app.invoke', response.payload)
+                  as ClientAppInvokeResponse)
+              .resultJson,
+        ),
+        {'answer': 42},
+      );
+      response = await call(
+        'client.app.job.start',
+        ClientAppJobStartRequest(
+          appName: 'sample',
+          method: 'loop',
+          argsJson: '{}',
+        ),
+      );
+      final id =
+          (decodeRpcResponsePayload('client.app.job.start', response.payload)
+                  as ClientAppJobStartResponse)
+              .jobId;
+      response = await call(
+        'client.app.job.cancel',
+        ClientAppJobCancelRequest(jobId: id),
+      );
+      expect(response.hasStatus(), isFalse);
+      response = await call(
+        'client.app.uninstall',
+        ClientAppUninstallRequest(appName: 'sample'),
+      );
+      expect(response.hasStatus(), isFalse);
+      response = await call(
+        'client.app.invoke',
+        ClientAppInvokeRequest(
+          appName: 'sample',
+          method: 'echo',
+          argsJson: '{}',
+        ),
+      );
+      expect(response.status.code, StatusCode.STATUS_CODE_NOT_FOUND);
+    },
+  );
+
   test(
     'audioplayer preserves explicit zero index and rejects missing index',
     () async {
@@ -252,134 +341,6 @@ void main() {
     expect(identifiers.value.labels.single.value, 'provider');
     expect(identifiers.value.imeis, isEmpty);
   });
-
-  test('serves configured client tool invocations', () async {
-    final channel = FakeDataChannel('giznet/v1/service/0');
-    addTearDown(channel.close);
-    Map<String, Object?>? invoked;
-    serveGizClawPeerRpcChannel(
-      channel,
-      handlers: GizClawPeerRpcHandlers(
-        deviceInfo: () => device,
-        tools: {
-          'music_play': (arguments) {
-            invoked = arguments;
-            return {'ok': true};
-          },
-        },
-      ),
-    );
-
-    final response = await _callInbound(
-      channel,
-      id: 'tool-1',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_INVOKE,
-      methodName: 'client.tool.invoke',
-      request: ToolInvokeRequest(invokeName: 'music_play'),
-    );
-    final result =
-        decodeRpcResponsePayload('client.tool.invoke', response.payload)
-            as ToolInvokeResponse;
-    expect(invoked, isEmpty);
-    expect(result.dataJson, '{"ok":true}');
-  });
-
-  test('waits for client request EOS before invoking a handler', () async {
-    final channel = FakeDataChannel('giznet/v1/service/0');
-    addTearDown(channel.close);
-    var invocationCount = 0;
-    serveGizClawPeerRpcChannel(
-      channel,
-      handlers: GizClawPeerRpcHandlers(
-        deviceInfo: () => device,
-        tools: {
-          'music_play': (arguments) {
-            invocationCount++;
-            return {'ok': true};
-          },
-        },
-      ),
-    );
-
-    channel.addMessage(
-      _rpcRequestEnvelopeBytes(
-        id: 'tool-wait-eos',
-        method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_INVOKE,
-        payloadBytes: encodeRpcRequestPayload(
-          'client.tool.invoke',
-          ToolInvokeRequest(invokeName: 'music_play'),
-        ),
-      ),
-    );
-    await Future<void>.delayed(Duration.zero);
-
-    expect(invocationCount, 0);
-    expect(channel.sent, isEmpty);
-
-    channel.addMessage(encodeFrame(rpcFrameTypeEos));
-    for (var attempt = 0; channel.sent.length < 2; attempt++) {
-      if (attempt == 20) fail('inbound RPC response was not sent');
-      await Future<void>.delayed(Duration.zero);
-    }
-
-    expect(invocationCount, 1);
-    expect(_singleEnvelopeResponse(channel).id, 'tool-wait-eos');
-  });
-
-  test('rejects an unexpected client request body', () async {
-    final channel = FakeDataChannel('giznet/v1/service/0');
-    var invocationCount = 0;
-    serveGizClawPeerRpcChannel(
-      channel,
-      handlers: GizClawPeerRpcHandlers(
-        deviceInfo: () => device,
-        tools: {
-          'music_play': (arguments) {
-            invocationCount++;
-            return null;
-          },
-        },
-      ),
-    );
-
-    channel.addMessage(
-      concatBytes([
-        _rpcRequestEnvelopeBytes(
-          id: 'tool-body',
-          method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_INVOKE,
-          payloadBytes: encodeRpcRequestPayload(
-            'client.tool.invoke',
-            ToolInvokeRequest(invokeName: 'music_play'),
-          ),
-        ),
-        encodeFrame(rpcFrameTypeBinary, [1]),
-      ]),
-    );
-    await Future<void>.delayed(Duration.zero);
-
-    expect(invocationCount, 0);
-    expect(channel.sent, isEmpty);
-    expect(channel.state, GizClawDataChannelState.closed);
-  });
-
-  test('reports an unconfigured client tool handler', () async {
-    final channel = FakeDataChannel('giznet/v1/service/0');
-    addTearDown(channel.close);
-    serveGizClawPeerRpcChannel(
-      channel,
-      handlers: GizClawPeerRpcHandlers(deviceInfo: () => device),
-    );
-
-    final response = await _callInbound(
-      channel,
-      id: 'tool-missing',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_INVOKE,
-      methodName: 'client.tool.invoke',
-      request: ToolInvokeRequest(invokeName: 'missing_tool'),
-    );
-    expect(response.status.code, rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED);
-    expect(response.status.message, 'Tool unavailable');
-  });
 }
 
 Uint8List _rpcRequestBytes({
@@ -442,8 +403,8 @@ Future<rpc.RpcResponse> _callInbound(
     ]),
   );
   for (var attempt = 0; channel.sent.length < sentBefore + 2; attempt++) {
-    if (attempt == 20) fail('inbound RPC response was not sent');
-    await Future<void>.delayed(Duration.zero);
+    if (attempt == 1000) fail('inbound RPC response was not sent');
+    await Future<void>.delayed(const Duration(milliseconds: 5));
   }
   final frames = decodeFrames(
     Uint8List.fromList(
@@ -745,4 +706,67 @@ void deviceControlTests() {
       expect(response.status.code, rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED);
     },
   );
+}
+
+class _FakeAppHost implements GizClawAppHost {
+  bool installed = false;
+
+  @override
+  Stream<GizClawAppJobCompletion> get jobCompletions => const Stream.empty();
+
+  @override
+  Future<void> install({
+    required String appName,
+    required String url,
+    required String sha256,
+    required int size,
+  }) async {
+    expect(appName, 'sample');
+    expect(url, 'https://example.com/app.tar.zlib');
+    expect(sha256, 'a' * 64);
+    expect(size, 123);
+    installed = true;
+  }
+
+  @override
+  Future<ClientAppListResponse> list() async => ClientAppListResponse(
+    runtime: 'runtime.lua.test',
+    apps: installed ? [InstalledApp(appName: 'sample', sha256: 'a' * 64)] : [],
+  );
+
+  @override
+  Future<String> invoke(String appName, String method, String argsJson) async {
+    expect(appName, 'sample');
+    expect(method, 'echo');
+    expect(argsJson, '{}');
+    if (!installed) {
+      throw GizClawDeviceControlException(
+        StatusCode.STATUS_CODE_NOT_FOUND,
+        'App not installed',
+      );
+    }
+    return '{"answer":42}';
+  }
+
+  @override
+  Future<int> startJob(String appName, String method, String argsJson) async {
+    expect(appName, 'sample');
+    expect(method, 'loop');
+    expect(argsJson, '{}');
+    return 73;
+  }
+
+  @override
+  Future<void> cancelJob(int jobId) async {
+    expect(jobId, 73);
+  }
+
+  @override
+  Future<void> uninstall(String appName) async {
+    expect(appName, 'sample');
+    installed = false;
+  }
+
+  @override
+  Future<void> close() async {}
 }

@@ -8,6 +8,7 @@ import 'package:protobuf/protobuf.dart' show GeneratedMessage;
 import 'generated/rpc/rpc.pb.dart' as rpc;
 import 'generated/rpc/payload.pb.dart' as payload;
 import 'method_registry.dart';
+import 'app_host.dart';
 import 'payload_codec.dart';
 import 'rpc_frame.dart';
 import 'transport.dart';
@@ -18,8 +19,6 @@ const _rpcSpeedTestMaxContentLength = 1 << 30;
 typedef GizClawDeviceInfoProvider = FutureOr<payload.DeviceInfo> Function();
 typedef GizClawDeviceIdentifiersProvider =
     FutureOr<payload.DeviceIdentifiers> Function();
-typedef GizClawToolHandler =
-    FutureOr<Object?> Function(Map<String, Object?> arguments);
 
 /// Thrown by a device control handler to answer the Server with a specific
 /// RPC error code, for example `INVALID_PARAMS` for an unknown sound or
@@ -119,14 +118,14 @@ class GizClawDeviceControlHandlers {
 class GizClawPeerRpcHandlers {
   GizClawPeerRpcHandlers({
     required this.deviceInfo,
-    Map<String, GizClawToolHandler> tools = const {},
     this.deviceControl,
+    this.appHost,
     this.deviceIdentifiers,
-  }) : tools = Map.unmodifiable(tools);
+  });
 
   final GizClawDeviceInfoProvider deviceInfo;
-  final Map<String, GizClawToolHandler> tools;
   final GizClawDeviceControlHandlers? deviceControl;
+  final GizClawAppHost? appHost;
 
   /// Answers `client.identifiers.get`. When null the identifiers reported by
   /// [deviceInfo] are used, so a device that already reports them there needs
@@ -320,9 +319,14 @@ class _InboundPeerRpcChannel {
           ).catchError((_) => _close()),
         );
         return;
+      case 'client.app.list':
+      case 'client.app.install':
+      case 'client.app.uninstall':
+      case 'client.app.invoke':
+      case 'client.app.job.start':
+      case 'client.app.job.cancel':
       case 'client.info.get':
       case 'client.identifiers.get':
-      case 'client.tool.invoke':
       case 'client.device.audioplayer.get':
       case 'client.device.audioplayer.playlist.get':
       case 'client.device.audioplayer.playlist.set':
@@ -360,9 +364,12 @@ class _InboundPeerRpcChannel {
     late rpc.RpcResponse response;
     try {
       response = switch (methodName) {
+        _ when methodName.startsWith('client.app.') => await _serveApp(
+          request,
+          methodName,
+        ),
         'client.info.get' => await _getClientInfo(request),
         'client.identifiers.get' => await _getClientIdentifiers(request),
-        'client.tool.invoke' => await _invokeClientTool(request),
         _ when _deviceControlMethods.contains(methodName) =>
           await _serveDeviceControl(request, methodName),
         _ => throw StateError('unsupported client method: $methodName'),
@@ -440,68 +447,59 @@ class _InboundPeerRpcChannel {
     );
   }
 
-  Future<rpc.RpcResponse> _invokeClientTool(rpc.RpcRequest request) async {
-    if (!request.hasPayload()) {
-      return _rpcErrorResponse(
-        request.id,
-        rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
-        'invalid params',
-      );
-    }
-    late payload.ToolInvokeRequest params;
-    try {
-      params =
-          decodeRpcRequestPayload('client.tool.invoke', request.payload)
-              as payload.ToolInvokeRequest;
-    } catch (_) {
-      return _rpcErrorResponse(
-        request.id,
-        rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
-        'invalid params',
-      );
-    }
-    final name = params.invokeName.trim();
-    if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_-]{0,63}$').hasMatch(name)) {
-      return _rpcErrorResponse(
-        request.id,
-        rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
-        'invalid Tool name',
-      );
-    }
-    final handler = handlers?.tools[name];
-    if (handler == null) {
+  Future<rpc.RpcResponse> _serveApp(
+    rpc.RpcRequest request,
+    String method,
+  ) async {
+    final host = handlers?.appHost;
+    if (host == null) {
       return _rpcErrorResponse(
         request.id,
         rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED,
-        'Tool unavailable',
+        'App host unavailable',
       );
     }
-    try {
-      final rawArguments = params.hasArgs()
-          ? params.args.toProto3Json()
-          : <String, Object?>{};
-      if (rawArguments is! Map) {
-        throw const FormatException('Tool arguments must be an object');
-      }
-      final arguments = rawArguments.map(
-        (key, value) => MapEntry(key.toString(), value),
-      );
-      final encoded = jsonEncode(await handler(arguments));
-      if (utf8.encode(encoded).length > 64 * 1024) {
-        throw const FormatException('Tool result is too large');
-      }
-      return _rpcPayloadResponse(
-        request.id,
-        'client.tool.invoke',
-        payload.ToolInvokeResponse(dataJson: encoded),
-      );
-    } catch (_) {
-      return _rpcErrorResponse(
-        request.id,
-        rpc.StatusCode.STATUS_CODE_INTERNAL,
-        'Tool handler failed',
-      );
+    final invalid = _validateClientRequest(request, method);
+    if (invalid != null) return invalid;
+    final params = decodeRpcRequestPayload(method, request.payload);
+    late GeneratedMessage response;
+    switch (params) {
+      case payload.ClientAppListRequest():
+        response = await host.list();
+      case payload.ClientAppInstallRequest():
+        await host.install(
+          appName: params.appName,
+          url: params.url,
+          sha256: params.sha256,
+          size: params.size.toInt(),
+        );
+        response = payload.ClientAppInstallResponse();
+      case payload.ClientAppUninstallRequest():
+        await host.uninstall(params.appName);
+        response = payload.ClientAppUninstallResponse();
+      case payload.ClientAppInvokeRequest():
+        response = payload.ClientAppInvokeResponse(
+          resultJson: await host.invoke(
+            params.appName,
+            params.method,
+            params.argsJson,
+          ),
+        );
+      case payload.ClientAppJobStartRequest():
+        response = payload.ClientAppJobStartResponse(
+          jobId: await host.startJob(
+            params.appName,
+            params.method,
+            params.argsJson,
+          ),
+        );
+      case payload.ClientAppJobCancelRequest():
+        await host.cancelJob(params.jobId);
+        response = payload.ClientAppJobCancelResponse();
+      default:
+        throw StateError('Unknown App request');
     }
+    return _rpcPayloadResponse(request.id, method, response);
   }
 
   Future<rpc.RpcResponse> _serveDeviceControl(
@@ -874,9 +872,9 @@ class _InboundPeerRpcChannel {
   }
 
   bool _isClientMethod(String methodName) {
-    return methodName == 'client.info.get' ||
+    return methodName.startsWith('client.app.') ||
+        methodName == 'client.info.get' ||
         methodName == 'client.identifiers.get' ||
-        methodName == 'client.tool.invoke' ||
         _deviceControlMethods.contains(methodName);
   }
 
