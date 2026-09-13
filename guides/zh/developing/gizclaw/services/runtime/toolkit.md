@@ -8,7 +8,9 @@ canonical-ID policy 过滤。Admin Tool resource 使用 caller-supplied、immuta
 Admin identity。RuntimeProfile binding 与 Admin `ToolkitPolicy.tool_ids` 保存
 canonical ID。Peer RPC 把 binding key 投影为 scoped Tool `name`；Peer Toolkit
 policy 按 [Workspace 选择规则](./peerresource) 解析 scoped name 或已绑定工具的
-`invoke_name`，不暴露 canonical ID；执行调用使用 Tool 的 `invoke_name`。
+`invoke_name`，不暴露 canonical ID；执行调用使用 Tool 的 `invoke_name`。已存
+Workspace 选择在 binding 移除后仍保留调用名投影，但有效工具始终受当前 Peer
+Profile 限制。没有选择字段的策略统一按 nil 继承处理，显式空数组仍表示禁用。
 
 目前支持两种 Tool：
 

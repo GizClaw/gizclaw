@@ -52,6 +52,11 @@ func TestWorkspaceRPCToolkitResolution(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if test.name == "absent" || test.name == "absent_list" {
+				if ws.Toolkit != nil || projected.Toolkit != nil {
+					t.Fatalf("inherit must omit policy: stored=%+v projected=%+v", ws.Toolkit, projected.Toolkit)
+				}
+			}
 			if test.name == "empty" || test.name == "alias" || test.name == "invoke_name" {
 				wantIDs, wantNames := []string{}, []string{}
 				if test.name != "empty" {
@@ -170,8 +175,8 @@ func TestWorkspaceRPCToolkitPutAndWorkflowIntersection(t *testing.T) {
 		policy *rpcapi.ToolkitPolicy
 		want   []string
 	}{
-		{"subset", &rpcapi.ToolkitPolicy{ToolNames: new([]string{"echo-alias"})}, []string{}},
-		{"empty", &rpcapi.ToolkitPolicy{ToolNames: new([]string{})}, []string{}},
+		{"subset", rpcToolkitPolicy("echo-alias"), []string{}},
+		{"empty", rpcToolkitPolicy(), []string{}},
 		{"omit_keeps_empty", nil, []string{}},
 		{"inherit", &rpcapi.ToolkitPolicy{}, []string{"other"}},
 	} {
@@ -188,6 +193,16 @@ func TestWorkspaceRPCToolkitPutAndWorkflowIntersection(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if test.name == "inherit" {
+				projected, err := response.Result.AsWorkspacePutResponse()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if ws.Toolkit != nil || projected.Toolkit != nil {
+					t.Fatalf("put inherit stored=%+v projected=%+v", ws.Toolkit, projected.Toolkit)
+				}
+			}
+
 			resolver := agenthost.ServiceResolver{Workspaces: server.Workspaces, Workflows: server.Workflows, ToolBuilder: &toolkit.Builder{Tools: server.Tools}}
 			spec, err := resolver.ResolveByID(ctx, ws.Id)
 			if err != nil {
@@ -218,7 +233,7 @@ func TestWorkspaceRPCToolkitRejectsUnavailableNames(t *testing.T) {
 	for _, name := range []string{"unknown", "other", "echo-id", ""} {
 		t.Run(name, func(t *testing.T) {
 			var payload rpcapi.RPCPayload
-			if err := payload.FromWorkspaceCreateRequest(rpcapi.WorkspaceCreateBody{Name: "rejected", Collection: "story-teller", WorkflowName: "journey", Toolkit: &rpcapi.ToolkitPolicy{ToolNames: new([]string{name})}}); err != nil {
+			if err := payload.FromWorkspaceCreateRequest(rpcapi.WorkspaceCreateBody{Name: "rejected", Collection: "story-teller", WorkflowName: "journey", Toolkit: rpcToolkitPolicy(name)}); err != nil {
 				t.Fatal(err)
 			}
 			response := dispatchToolkitRPC(t, server, &rpcapi.RPCRequest{Id: "invalid", Method: rpcapi.RPCMethodServerWorkspaceCreate, Params: &payload})
@@ -233,5 +248,84 @@ func TestWorkspaceRPCToolkitRejectsUnavailableNames(t *testing.T) {
 				t.Fatal("invalid selection created workspace")
 			}
 		})
+	}
+}
+
+func rpcToolkitPolicy(names ...string) *rpcapi.ToolkitPolicy {
+	values := make([]string, len(names))
+	copy(values, names)
+	return &rpcapi.ToolkitPolicy{ToolNames: &values}
+}
+
+func TestWorkspaceToolkitProjectionAfterProfileChange(t *testing.T) {
+	server := newWorkspaceToolkitTestServer(t)
+	ctx := t.Context()
+	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{Name: "profile-change", Collection: "story-teller", WorkflowName: "journey", Toolkit: rpcToolkitPolicy("echo-alias", "other-alias")})
+	bindings := server.RuntimeProfile().Spec.Resources.Tools
+	for _, removed := range []string{"echo-alias", "other-alias"} {
+		delete(*bindings, removed)
+		var payload rpcapi.RPCPayload
+		if err := payload.FromWorkspaceGetRequest(rpcapi.WorkspaceGetRequest{Name: "profile-change"}); err != nil {
+			t.Fatal(err)
+		}
+		response := dispatchToolkitRPC(t, server, &rpcapi.RPCRequest{Id: "get", Method: rpcapi.RPCMethodServerWorkspaceGet, Params: &payload})
+		if response.Error != nil {
+			t.Fatal(response.Error)
+		}
+		got, err := response.Result.AsWorkspaceGetResponse()
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := []string{"giztest_echo", "other-alias"}
+		if removed == "other-alias" {
+			want[1] = "other"
+		}
+		if got.Value.Toolkit == nil || got.Value.Toolkit.ToolNames == nil || !reflect.DeepEqual(*got.Value.Toolkit.ToolNames, want) {
+			t.Fatalf("projection=%+v, want %v", got.Value.Toolkit, want)
+		}
+		ws, err := server.getWorkspaceByName(server.ownerContext(ctx), "profile-change")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(*ws.Toolkit.ToolIds, []string{"echo-id", "other-id"}) {
+			t.Fatalf("stored IDs changed: %+v", ws.Toolkit)
+		}
+		resolver := agenthost.ServiceResolver{Workspaces: server.Workspaces, Workflows: server.Workflows, ToolBuilder: &toolkit.Builder{Tools: server.Tools}}
+		spec, err := resolver.ResolveByID(ctx, ws.Id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		toolCtx, err := agenthost.WithToolExecution(ctx, bindings, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defs, err := spec.ToolInvoker.ResolveTools(toolCtx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(defs) != len(*bindings) {
+			t.Fatalf("effective tools=%v, bindings=%v", defs, *bindings)
+		}
+	}
+	// A fallback must not accidentally name a different Tool after alias rebinding.
+	(*bindings)["giztest_echo"] = apitypes.RuntimeProfileBinding{ResourceId: "other-id"}
+	collisionWorkspace, err := server.getWorkspaceByName(server.ownerContext(ctx), "profile-change")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.workspaceRPCProjection(ctx, collisionWorkspace, server.RuntimeProfile()); err == nil {
+		t.Fatal("ambiguous fallback projected successfully")
+	}
+	delete(*bindings, "giztest_echo")
+	// An unrepresentable selection must fail, never claim the stored list is [].
+	if err := server.Tools.DeleteTool(ctx, "echo-id"); err != nil {
+		t.Fatal(err)
+	}
+	ws, err := server.getWorkspaceByName(server.ownerContext(ctx), "profile-change")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.workspaceRPCProjection(ctx, ws, server.RuntimeProfile()); err == nil {
+		t.Fatal("missing Tool projected successfully")
 	}
 }

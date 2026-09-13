@@ -15,9 +15,11 @@ Workflow list 必须传明确的 Collection，并保持 `workflows.collections` 
 
 Peer 侧只有 Workspace 状态支持 create/put/delete。真实 Workflow、Model、Credential 和 Tool 统一由 Admin 修改。Workspace create 校验 `collection` 与 `workflow_name`，把 Collection 写成内部 label；list 按 Collection 精确筛选，并跳过已进入 pending deletion 的 Workspace，因此同一 Collection 中其余 Workspace 在异步删除完成前仍可列出。通用 labels 只是 Admin/storage 细节，不进入 Peer DTO。
 
-Workspace create/put 的 `toolkit.tool_names` 在当前 RuntimeProfile 中解析为内部 Tool ID：优先匹配 Tool binding alias；没有同名 alias 时，可以使用该 Profile 已绑定 Tool 的 `invoke_name`。未绑定或不存在的名称返回 `NOT_FOUND`，空名称或带首尾空白的名称返回 `INVALID_ARGUMENT`，且不写入 Workspace。响应始终投影为当前 Profile 的 alias，不暴露内部 ID。
+Workspace create/put 的 `toolkit.tool_names` 在当前 RuntimeProfile 中解析为内部 Tool ID：优先匹配 Tool binding alias；没有同名 alias 时，可以使用该 Profile 已绑定 Tool 的 `invoke_name`。未绑定或不存在的名称返回 `NOT_FOUND`，空名称或带首尾空白的名称返回 `INVALID_ARGUMENT`，且不写入 Workspace。响应优先投影为当前 Profile 的 alias；已存 ID 的 binding 被移除时，保留该 Tool 的 `invoke_name`，不把非空选择投影成 `[]`，也不暴露内部 ID。若 Tool 已删除、目录不可用，或回退调用名与另一个 Tool 的 alias 冲突，投影报错而不返回不完整列表。这个列表描述已存策略，不代表当前可执行集合：AgentHost 仍与当前连接的 Profile 取交集，失去 binding 的 Tool 不可调用；把其回退名称重新 put 也会被拒绝，直到恢复 binding 或调用方移除该项。
 
-创建时省略 `toolkit` 或 `tool_names` 表示继承产品默认集合；显式空列表表示不提供任何工具。Protobuf 用可选 `tool_names` message 包装 repeated `value`，空列表在 wire 上是存在的空 message；Go 和持久化 JSON 保留显式空数组，不能改为 `null`。put 省略 `toolkit` 保留原策略，提供空对象则恢复继承。Workspace 策略与 Workflow `spec.toolkit.tool_ids` 及当前连接的 RuntimeProfile 集合取交集，不能扩大工具权限。
+创建时省略 `toolkit` 或提供没有 `tool_names` 的空对象完全等价：内部存储 nil 策略，响应省略 `toolkit`，继承产品默认集合；显式空列表表示不提供任何工具。Protobuf 用可选 `tool_names` message 包装 repeated `value`，空列表在 wire 上是存在的空 message；Go 和持久化 JSON 保留显式空数组，不能改为 `null`。put 省略 `toolkit` 保留原策略，提供 `toolkit: {}` 则清除已有选择并恢复同一个 nil 继承状态。Workspace 策略与 Workflow `spec.toolkit.tool_ids` 及当前连接的 RuntimeProfile 集合取交集，不能扩大工具权限。
+
+`server.workspace.toolkit.roundtrip.giztest.yaml` 覆盖 create/get/put 的选择、空列表、继承及未知名称。`go test ./cmd/internal/server -run '^TestWorkspaceToolkitGiztest$' -count=1` 在临时 SQLite Server 上通过真实 WebRTC 执行该文档，不需要外部服务。`client.tool.workspace.empty/subset/inherit.giztest.yaml` 使用标准 Giztest RuntimeProfile 中的 `giztest_echo` 和 `giztest_other`，覆盖禁用、子集与默认工具调用。三个调用场景需要已 provision 的端点、registration token 和模型/Memory 服务；完成回复后的精确累计 client RPC 计数证明被排除工具没有到达设备。empty 场景先在继承策略的控制 Workspace 中调用一次，再确认禁用 Workspace 没有增加计数。
 
 `server.app_config.list` 与 `server.app_config.get` 投影 `spec.app_config`，是 catalog 之外唯一的 RuntimeProfile 下发面。list 对 key 排序后复用与 Workflow、Model、Voice、Tool 相同的 revision-bound cursor 分页，revision 变化时返回 `ABORTED`；get 返回原样 value，key 不存在返回 `NOT_FOUND`，空 key 返回 `INVALID_ARGUMENT`。value 对本层不透明，不解析也不校验格式。list 只返回 key，因为 64 个 4096 字节 value 无法放进一个 RPC frame。
 

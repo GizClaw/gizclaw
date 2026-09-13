@@ -50,6 +50,7 @@ spec:
       zhu-bajie: {resource_id: "volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts", i18n: {en: {display_name: Zhu Bajie}, zh-CN: {display_name: 猪八戒}}}
       monster: {resource_id: "volc-tenant:volc-main:zh_female_vv_uranus_bigtts", i18n: {en: {display_name: Monster}, zh-CN: {display_name: 妖怪}}}
     tools:
+      giztest-other: {resource_id: giztest-client-other, i18n: {en: {display_name: Giztest other tool}, zh-CN: {display_name: Giztest 另一工具}}}
       giztest-echo: {resource_id: giztest-client-echo, i18n: {en: {display_name: Giztest client echo}, zh-CN: {display_name: Giztest 客户端回显}}}
     memories:
       default-memory: {layout_id: default-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}

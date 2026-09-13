@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
+	"sort"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -15,13 +15,10 @@ import (
 // resolveWorkspaceToolkit translates Peer names at the adapter boundary. A
 // present empty list stays present so persistence cannot turn opt-out into inherit.
 func (s *Server) resolveWorkspaceToolkit(ctx context.Context, policy *rpcapi.ToolkitPolicy, profile *apitypes.RuntimeProfile) (*apitypes.ToolkitPolicy, error) {
-	if policy == nil {
+	if policy == nil || policy.ToolNames == nil {
 		return nil, nil
 	}
 	out := &apitypes.ToolkitPolicy{}
-	if policy.ToolNames == nil {
-		return out, nil
-	}
 	ids := make([]string, 0, len(*policy.ToolNames))
 	out.ToolIds = &ids
 	if len(*policy.ToolNames) == 0 {
@@ -62,25 +59,43 @@ func (s *Server) resolveWorkspaceToolkit(ctx context.Context, policy *rpcapi.Too
 	return toolkit.NormalizePolicy(out)
 }
 
-func projectWorkspaceToolkit(policy *apitypes.ToolkitPolicy, profile *apitypes.RuntimeProfile) *rpcapi.ToolkitPolicy {
-	if policy == nil {
-		return nil
+// projectWorkspaceToolkit preserves the stored selection even after profile
+// changes. A missing resource or ambiguous fallback cannot be represented safely.
+func (s *Server) projectWorkspaceToolkit(ctx context.Context, policy *apitypes.ToolkitPolicy, profile *apitypes.RuntimeProfile) (*rpcapi.ToolkitPolicy, error) {
+	if policy == nil || policy.ToolIds == nil {
+		return nil, nil
 	}
-	out := &rpcapi.ToolkitPolicy{}
-	if policy.ToolIds == nil {
-		return out
-	}
-	names := make([]string, 0, len(*policy.ToolIds))
+	bindings := map[string]apitypes.RuntimeProfileBinding{}
 	if profile != nil {
-		bindings := bindingMap(profile.Spec.Resources.Tools)
-		for _, alias := range sortedBindingAliases(bindings) {
-			if slices.Contains(*policy.ToolIds, bindings[alias].ResourceId) {
-				names = append(names, alias)
-			}
+		bindings = bindingMap(profile.Spec.Resources.Tools)
+	}
+	aliases := map[string]string{}
+	for _, alias := range sortedBindingAliases(bindings) {
+		id := bindings[alias].ResourceId
+		if _, exists := aliases[id]; !exists {
+			aliases[id] = alias
 		}
 	}
-	out.ToolNames = &names
-	return out
+	names := make([]string, 0, len(*policy.ToolIds))
+	for _, id := range *policy.ToolIds {
+		name, bound := aliases[id]
+		if !bound {
+			if s.Tools == nil {
+				return nil, errors.New("workspace toolkit selection cannot be projected")
+			}
+			tool, err := s.Tools.GetToolByID(ctx, id)
+			if err != nil {
+				return nil, errors.New("workspace toolkit selection cannot be projected")
+			}
+			name = tool.InvokeName
+			if binding, collision := bindings[name]; collision && binding.ResourceId != id {
+				return nil, errors.New("workspace toolkit selection cannot be projected")
+			}
+		}
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return &rpcapi.ToolkitPolicy{ToolNames: &names}, nil
 }
 
 func workspaceToolkitError(id string, err error) *rpcapi.RPCResponse {
