@@ -3,6 +3,7 @@ package genx
 import (
 	"context"
 	"fmt"
+	"maps"
 	"mime"
 	"slices"
 	"strings"
@@ -32,6 +33,8 @@ var (
 
 // MessageChunk represents a chunk in a genx Stream.
 type MessageChunk struct {
+	// Metadata carries process-local adapter attributes. Wire encoders must not expose it.
+	Metadata map[string]string `json:"-"`
 	Role     Role
 	Name     string
 	Part     Part
@@ -142,8 +145,9 @@ func NewTextEndOfStream() *MessageChunk {
 // Clone returns a deep copy of the MessageChunk.
 func (c *MessageChunk) Clone() *MessageChunk {
 	chk := &MessageChunk{
-		Role: c.Role,
-		Name: c.Name,
+		Metadata: maps.Clone(c.Metadata),
+		Role:     c.Role,
+		Name:     c.Name,
 	}
 	if c.Part != nil {
 		chk.Part = c.Part.clone()

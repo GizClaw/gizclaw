@@ -1037,6 +1037,28 @@ git lfs fsck
 ```
 
 
+## Eino 多音色确定性 Giztest
+
+`go test ./cmd/internal/commands/giztest -run '^TestEinoMultiVoiceGiztest$' -count=1`
+通过 Go Giztest runner 和 CLI `peer_stream` 接收逻辑执行
+`tests/gizclaw-e2e/testdata/eino-voices/multi-turn.giztest.yaml`。夹具保留同一个真实
+Eino Factory/AudioDock invocation，依次输入 fox、bird、unknown（回落 default）、fox。
+Provider 边界 fake 为三个 Voice 资源分别输出 300/500/700 Hz 的 Opus 音频；无需网络、
+凭据、LLM 或 Docker。Audioplayer Giztest CI job 在设备 RPC 场景及 Console 资源构建后明确运行此测试。
+
+Go `peer_stream` 结果提供 `audio_integrity`：`sha256` 对按接收顺序拼接的原始音频
+payload 计算摘要；`streams`、`max_active`、`open`、`violations` 在 response 过滤前
+记录音频 BOS/EOS ownership。`max_active > 1` 表示重叠；重复 BOS、无 BOS 数据和
+EOS 后数据会增加 `violations`。它们通过普通 `expect` 断言，不增加文档 Schema 字段。
+摘要可证明确定性夹具的音频身份，不能识别任意真实 Provider 音色；摘要只进入断言值，
+不写入脱敏 report evidence。
+
+每轮要求恰好 40 个 20 ms 包，最大接收间隔不超过 150 ms，使用现有 500 ms 预缓冲
+模拟时无欠载、最低缓冲非负；同时要求音频摘要匹配预期 Voice、恰好一个结束的音频流且
+无生命周期违规。夹具还跨轮保留音频 ownership，检查总计四次 TTS 调用且同时最多一次。
+错误音色、900 ms 断流和重叠流注入必须失败。该 Provider 边界测试不替代真实 Provider
+音质、WebRTC/Server/Edge pacing 或设备播放验收。
+
 ## Monitor API giztest
 
 ```sh

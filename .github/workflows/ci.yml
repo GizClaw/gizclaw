@@ -774,6 +774,8 @@ jobs:
           cache: npm
       - name: Run isolated device playback and telemetry scenarios
         run: bash tests/gizclaw-e2e/run_audioplayer_tests.sh
+      - name: Verify deterministic Eino multi-voice Giztest
+        run: go test ./cmd/internal/commands/giztest -run '^TestEinoMultiVoiceGiztest$' -count=1
 
   terraform-provider-e2e:
     name: Terraform Provider E2E

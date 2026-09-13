@@ -27,3 +27,6 @@
 !cmd-config-home/gizclaw/*/config.yaml
 !audio/
 !audio/*.ogg
+!eino-voices/
+!eino-voices/*.json
+!eino-voices/*.yaml

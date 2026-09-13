@@ -1,0 +1,150 @@
+# User Story:
+# As a user speaking with several Eino story characters in one conversation,
+# I want each turn to use its selected voice or the default without gaps or overlapping TTS,
+# So that role changes remain audible and continuous through the same session.
+version: gizclaw.test/v1alpha1
+name: eino.multi-voice.continuity
+timeout: 20s
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: http://fixture.invalid
+variables:
+  fox_digest:
+    direction: input
+    type: string
+    value: fixture-supplied
+  bird_digest:
+    direction: input
+    type: string
+    value: fixture-supplied
+  default_digest:
+    direction: input
+    type: string
+    value: fixture-supplied
+steps:
+  - id: turn_1_fox
+    client: peer
+    timeout: 5s
+    peer_stream:
+      mode: text
+      input: fox
+    expect:
+      /text_eos:
+        equals: true
+      /audio_eos:
+        equals: true
+      /audio_integrity/sha256:
+        equals: ${fox_digest}
+      /audio_integrity/streams:
+        equals: 1
+      /audio_integrity/max_active:
+        equals: 1
+      /audio_integrity/open:
+        equals: 0
+      /audio_integrity/violations:
+        equals: 0
+      /audio_pacing/packets:
+        equals: 40
+      /audio_pacing/mean_packet_ms:
+        equals: 20
+      /audio_pacing/max_interval_ms:
+        maximum: 150
+      /audio_pacing/underruns:
+        equals: 0
+      /audio_pacing/minimum_buffer_ms:
+        minimum: 0
+  - id: turn_2_bird
+    client: peer
+    timeout: 5s
+    peer_stream:
+      mode: text
+      input: bird
+    expect:
+      /text_eos:
+        equals: true
+      /audio_eos:
+        equals: true
+      /audio_integrity/sha256:
+        equals: ${bird_digest}
+      /audio_integrity/streams:
+        equals: 1
+      /audio_integrity/max_active:
+        equals: 1
+      /audio_integrity/open:
+        equals: 0
+      /audio_integrity/violations:
+        equals: 0
+      /audio_pacing/packets:
+        equals: 40
+      /audio_pacing/mean_packet_ms:
+        equals: 20
+      /audio_pacing/max_interval_ms:
+        maximum: 150
+      /audio_pacing/underruns:
+        equals: 0
+      /audio_pacing/minimum_buffer_ms:
+        minimum: 0
+  - id: turn_3_unknown
+    client: peer
+    timeout: 5s
+    peer_stream:
+      mode: text
+      input: unknown
+    expect:
+      /text_eos:
+        equals: true
+      /audio_eos:
+        equals: true
+      /audio_integrity/sha256:
+        equals: ${default_digest}
+      /audio_integrity/streams:
+        equals: 1
+      /audio_integrity/max_active:
+        equals: 1
+      /audio_integrity/open:
+        equals: 0
+      /audio_integrity/violations:
+        equals: 0
+      /audio_pacing/packets:
+        equals: 40
+      /audio_pacing/mean_packet_ms:
+        equals: 20
+      /audio_pacing/max_interval_ms:
+        maximum: 150
+      /audio_pacing/underruns:
+        equals: 0
+      /audio_pacing/minimum_buffer_ms:
+        minimum: 0
+  - id: turn_4_fox
+    client: peer
+    timeout: 5s
+    peer_stream:
+      mode: text
+      input: fox
+    expect:
+      /text_eos:
+        equals: true
+      /audio_eos:
+        equals: true
+      /audio_integrity/sha256:
+        equals: ${fox_digest}
+      /audio_integrity/streams:
+        equals: 1
+      /audio_integrity/max_active:
+        equals: 1
+      /audio_integrity/open:
+        equals: 0
+      /audio_integrity/violations:
+        equals: 0
+      /audio_pacing/packets:
+        equals: 40
+      /audio_pacing/mean_packet_ms:
+        equals: 20
+      /audio_pacing/max_interval_ms:
+        maximum: 150
+      /audio_pacing/underruns:
+        equals: 0
+      /audio_pacing/minimum_buffer_ms:
+        minimum: 0

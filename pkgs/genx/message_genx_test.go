@@ -190,3 +190,19 @@ func TestInspectHelpersAndUsageString(t *testing.T) {
 		t.Fatalf("unexpected role string values")
 	}
 }
+
+func TestMessageChunkMetadataIsDetachedAndProcessLocal(t *testing.T) {
+	source := &MessageChunk{Metadata: map[string]string{"private": "voice-selection"}}
+	clone := source.Clone()
+	clone.Metadata["private"] = "changed"
+	if source.Metadata["private"] != "voice-selection" {
+		t.Fatal("Clone shared metadata")
+	}
+	encoded, err := json.Marshal(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), "private") || strings.Contains(string(encoded), "voice-selection") {
+		t.Fatalf("metadata leaked: %s", encoded)
+	}
+}

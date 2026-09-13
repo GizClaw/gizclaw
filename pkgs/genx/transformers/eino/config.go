@@ -30,6 +30,14 @@ type Config struct {
 	ToolInvoker  genx.ToolInvoker
 	MaxToolCalls int
 	Limits       Limits
+
+	// OutputMetadata derives process-local attributes from a detached turn state
+	// snapshot before the first nonblank output chunk. Attributes remain fixed
+	// for that route. Concurrent first chunks may prepare multiple candidates;
+	// only the first published candidate is retained. The callback must be pure
+	// and safe for concurrent calls. It runs without the turn state mutex.
+	OutputMetadata func(OutputDefinition, map[string]any) map[string]string
+
 	// Initiative controls the optional empty-input Graph turn.
 	Initiative InitiativePolicy
 }

@@ -119,11 +119,11 @@ func TestFactoryRejectsLiveAudioWithoutASR(t *testing.T) {
 	blank, voice := "  ", "speech.voice"
 	for _, testCase := range []struct {
 		name         string
-		voiceAdapter *apitypes.VoiceAdapter
+		voiceAdapter *apitypes.EinoVoiceAdapter
 	}{
 		{name: "omitted voice adapter"},
-		{name: "blank ASR", voiceAdapter: &apitypes.VoiceAdapter{AsrModel: &blank}},
-		{name: "TTS only", voiceAdapter: &apitypes.VoiceAdapter{DefaultVoice: &voice}},
+		{name: "blank ASR", voiceAdapter: &apitypes.EinoVoiceAdapter{AsrModel: &blank}},
+		{name: "TTS only", voiceAdapter: &apitypes.EinoVoiceAdapter{DefaultVoice: &voice}},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
@@ -233,7 +233,7 @@ func TestWrapAudioSupportsASROnlyTTSOnlyAndVoiceSelection(t *testing.T) {
 	mux := einoTestMux(func(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) { return input, nil })
 	core := einoTestTransformer(func(_ context.Context, input genx.Stream) (genx.Stream, error) { return input, nil })
 	asr, fallback := "speech.asr", "speech.default"
-	for _, voice := range []apitypes.VoiceAdapter{
+	for _, voice := range []apitypes.EinoVoiceAdapter{
 		{AsrModel: &asr},
 		{DefaultVoice: &fallback},
 		{AsrModel: &asr, DefaultVoice: &fallback},
@@ -285,14 +285,14 @@ func TestEinoVoiceAdapterHasASR(t *testing.T) {
 	asr, blank, voice := "speech.asr", "  ", "speech.default"
 	for _, testCase := range []struct {
 		name  string
-		voice *apitypes.VoiceAdapter
+		voice *apitypes.EinoVoiceAdapter
 		want  bool
 	}{
 		{name: "omitted"},
-		{name: "empty", voice: &apitypes.VoiceAdapter{}},
-		{name: "blank", voice: &apitypes.VoiceAdapter{AsrModel: &blank}},
-		{name: "tts only", voice: &apitypes.VoiceAdapter{DefaultVoice: &voice}},
-		{name: "asr", voice: &apitypes.VoiceAdapter{AsrModel: &asr}, want: true},
+		{name: "empty", voice: &apitypes.EinoVoiceAdapter{}},
+		{name: "blank", voice: &apitypes.EinoVoiceAdapter{AsrModel: &blank}},
+		{name: "tts only", voice: &apitypes.EinoVoiceAdapter{DefaultVoice: &voice}},
+		{name: "asr", voice: &apitypes.EinoVoiceAdapter{AsrModel: &asr}, want: true},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
