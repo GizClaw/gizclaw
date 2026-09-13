@@ -1325,8 +1325,13 @@ whole suite after building Console assets, reusing its audio test environment.
   open) modes. This validates provider boundaries and mode wiring, not real ASR/VAD.
 - `TestMultiRoleVoiceInterrupt` sends B after receiving A's eighth packet while
   TTS remains active, for both workflows and input modes. It verifies A's valid
-  prefix and interrupted EOS, B's complete 40 packets and digest, no A data after
-  B starts, and no cross-role overlap.
+  audio prefix and B's complete 40 packets and digest, with no cross-role overlap.
+  Both text/plain and audio/opus routes are tracked by StreamID and MIME route:
+  A must have interrupted EOS on both routes before B is accepted, and B must
+  have normal EOS on both routes. Any A chunk after B starts, including empty
+  chunks and EOS, fails. `TestMultiRoleVoiceInterruptAssertions` independently
+  rejects missing A text interrupted EOS, late A text after B starts, and missing
+  B text EOS, alongside a complete dual-route positive case.
 - Fault tests reject wrong voice, interleave, stall and truncation without EOS.
   AudioDock rejects truncation with `TTS ended without EOS`. Independent
   `TestMultiRoleVoiceAssertions` cases feed raw packet traces to individual digest,
@@ -1336,8 +1341,8 @@ whole suite after building Console assets, reusing its audio test environment.
 
 Rapid input shares the interruption test above: a new input BOS superseding the
 previous reply is the AudioDock/Flowcraft barge-in contract. The test positively
-asserts a valid A prefix and interrupted EOS, all 40/40 B packets, no A data after
-B starts, and `max_active=1`, without a duplicate scenario. This provider-boundary
+asserts a valid A prefix and interrupted EOS on both routes, all 40/40 B packets
+and normal EOS on both routes, no A chunks after B starts, and `max_active=1`, without a duplicate scenario. This provider-boundary
 suite does not qualify real voice identity, Server/Edge/WebRTC pacing or device
 playback.
 

@@ -1061,16 +1061,20 @@ Audioplayer Giztest job 在 Console 资源构建后执行整个套件，复用�
   push-to-talk（输入 EOS 后转写）与 realtime（输入流保持打开时输出最终转写）。
   夹具只验证 provider 边界和模式 wiring，不评价真实 ASR/VAD。
 - `TestMultiRoleVoiceInterrupt` 对两个 workflow、两种模式均在收到 A 的第 8 包且 TTS
-  仍活跃时发送 B。验证 A 是合法前缀、以 interrupted EOS 结束，B 完整收到 40 包及
-  正确摘要，B 开始后没有 A 的残留数据，跨角色无 overlap。
+  仍活跃时发送 B。按 StreamID 和 MIME route 同时跟踪 text/plain 与 audio/opus：
+  接受 B 前要求 A 两条路由均以 interrupted EOS 结束，B 两条路由均须正常 EOS；
+  B 开始后收到 A 的任一类型 chunk（含空 chunk 和 EOS）即失败。另验证 A 音频合法前缀、
+  B 完整 40 包及正确摘要、跨角色无 overlap。
+  `TestMultiRoleVoiceInterruptAssertions` 独立拒绝 A text 缺中断 EOS、B 开始后晚到
+  A text、B text 未 EOS，并保留完整双路由生命周期的正例。
 - 故障测试拒绝 wrong voice、interleave、stall 和截断未 EOS。截断由 AudioDock 的
   `TTS ended without EOS` 终止错误拒绝。独立的 `TestMultiRoleVoiceAssertions` 用
   原始包轨迹分别验证摘要、最大活跃流、未闭合流和晚到包断言，以及 150/151 ms 包间隔、
   500/501 ms 缓冲边界，避免一种断言失败掩盖其他断言失效。
 
 快速输入与中途打断共用上述测试：新输入 BOS 取代旧回复是 AudioDock/Flowcraft 的
-barge-in 契约。测试正向断言 A 的合法前缀和中断 EOS、B 完整 40/40 包、B 开始后
-无 A 数据，以及 `max_active=1`，不另设重复场景。
+barge-in 契约。测试正向断言 A 的合法前缀和双路由中断 EOS、B 完整 40/40 包及
+双路由正常 EOS、B 开始后无 A chunk，以及 `max_active=1`，不另设重复场景。
 此 provider 边界套件不替代真实音色识别、Server/Edge/WebRTC pacing 或设备播放验收。
 
 ## Monitor API giztest

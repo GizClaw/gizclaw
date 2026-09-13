@@ -5,9 +5,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -70,52 +72,40 @@ func runVoiceInterrupt(t *testing.T, kind string, mode apitypes.WorkspaceInputMo
 	push("fox")
 	var all, first, second peerAudioIntegrity
 	var pacing peerAudioPacing
-	var firstID, secondID string
+	var lifecycle voiceInterruptLifecycle
 	firstPackets, secondPackets := 0, 0
-	interrupted, sent := false, false
+	sent := false
 	for {
 		chunk, err := output.Next()
 		if err != nil {
 			t.Fatalf("read response: %v; first=%d second=%d", err, firstPackets, secondPackets)
 		}
+		if err := lifecycle.observe(chunk); err != nil {
+			t.Fatal(err)
+		}
 		all.observe(chunk)
 		blob, audio := chunk.Part.(*genx.Blob)
 		if !audio || blob.MIMEType != "audio/opus" || chunk.Ctrl == nil {
+			if lifecycle.complete() {
+				break
+			}
 			continue
 		}
 		id := chunk.Ctrl.StreamID
-		if firstID == "" {
-			firstID = id
-		}
-		if id == firstID {
-			if secondID != "" && len(blob.Data) > 0 {
-				t.Fatal("old role audio arrived after new role BOS")
-			}
+		if id == lifecycle.firstID {
 			first.observe(chunk)
 			if len(blob.Data) > 0 {
 				firstPackets++
 			}
-			if chunk.IsEndOfStream() {
-				interrupted = chunk.Ctrl.Error == "interrupted"
-			}
 		} else {
-			if secondID == "" {
-				secondID = id
-			}
-			if id != secondID {
-				t.Fatalf("unexpected third audio stream %q", id)
-			}
 			second.observe(chunk)
 			if len(blob.Data) > 0 {
 				secondPackets++
 				pacing.observe(time.Now(), [][]byte{blob.Data})
 			}
-			if chunk.IsEndOfStream() {
-				if chunk.Ctrl.Error != "" {
-					t.Fatalf("role B ended with %q", chunk.Ctrl.Error)
-				}
-				break
-			}
+		}
+		if lifecycle.complete() {
+			break
 		}
 		// Synchronize to real downlink delivery, not a sleep that could race startup.
 		if firstPackets == 8 && !sent {
@@ -126,8 +116,8 @@ func runVoiceInterrupt(t *testing.T, kind string, mode apitypes.WorkspaceInputMo
 			push("bird")
 		}
 	}
-	if !sent || !interrupted || firstPackets < 8 || firstPackets >= len(packets["story.fox"]) {
-		t.Fatalf("not a mid-speech interruption: sent=%v interrupted=%v packets=%d", sent, interrupted, firstPackets)
+	if !sent || !lifecycle.complete() || firstPackets < 8 || firstPackets >= len(packets["story.fox"]) {
+		t.Fatalf("not a mid-speech interruption: sent=%v interrupted=%v packets=%d", sent, lifecycle.complete(), firstPackets)
 	}
 	if secondPackets != 40 || second.summary()["sha256"] != voicePacketDigest(packets["story.bird"]) {
 		t.Fatalf("role B lost or mixed packets: %v packets=%d", second.summary(), secondPackets)
@@ -153,4 +143,133 @@ func voicePacketDigest(packets [][]byte) string {
 		_, _ = h.Write(packet)
 	}
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+// voiceInterruptLifecycle tracks each reply by StreamID and each route by MIME type.
+type voiceInterruptLifecycle struct {
+	firstID, secondID string
+	started           [2]map[string]bool
+	ended             [2]map[string]bool
+}
+
+func (s *voiceInterruptLifecycle) complete() bool {
+	return s.ended[1]["text/plain"] && s.ended[1]["audio/opus"]
+}
+
+func (s *voiceInterruptLifecycle) observe(chunk *genx.MessageChunk) error {
+	if chunk.Ctrl == nil || chunk.Ctrl.Label != "assistant" {
+		return nil
+	}
+	route, _ := chunk.MIMEType()
+	if route != "text/plain" && route != "audio/opus" {
+		return nil
+	}
+	id := chunk.Ctrl.StreamID
+	if id == "" {
+		return fmt.Errorf("assistant %s has empty StreamID", route)
+	}
+	if s.firstID == "" {
+		s.firstID = id
+	}
+	turn := 0
+	if id == s.firstID {
+		if s.secondID != "" {
+			return fmt.Errorf("A %s chunk arrived after B started", route)
+		}
+	} else {
+		turn = 1
+		if !s.ended[0]["text/plain"] || !s.ended[0]["audio/opus"] {
+			return fmt.Errorf("B started before A text/plain and audio/opus interrupted EOS")
+		}
+		if s.secondID == "" {
+			s.secondID = id
+		}
+		if id != s.secondID {
+			return fmt.Errorf("unexpected third response %q", id)
+		}
+	}
+	if s.started[turn] == nil {
+		s.started[turn] = make(map[string]bool)
+		s.ended[turn] = make(map[string]bool)
+	}
+	if s.ended[turn][route] {
+		return fmt.Errorf("%s %s chunk after EOS", id, route)
+	}
+	if !s.started[turn][route] && !chunk.IsBeginOfStream() {
+		return fmt.Errorf("%s %s missing BOS", id, route)
+	}
+	if s.started[turn][route] && chunk.IsBeginOfStream() {
+		return fmt.Errorf("%s %s duplicate BOS", id, route)
+	}
+	s.started[turn][route] = true
+	if chunk.IsEndOfStream() {
+		want := ""
+		if turn == 0 {
+			want = "interrupted"
+		}
+		if chunk.Ctrl.Error != want {
+			return fmt.Errorf("%s %s EOS error=%q, want %q", id, route, chunk.Ctrl.Error, want)
+		}
+		s.ended[turn][route] = true
+	}
+	return nil
+}
+
+func TestMultiRoleVoiceInterruptAssertions(t *testing.T) {
+	for _, tc := range []struct {
+		name                                  string
+		omitATextEOS, lateAText, omitBTextEOS bool
+		want                                  string
+	}{
+		{name: "valid"},
+		{name: "missing A text interrupted EOS", omitATextEOS: true, want: "before A"},
+		{name: "late A text", lateAText: true, want: "after B started"},
+		{name: "missing B text EOS", omitBTextEOS: true, want: "incomplete B"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var chunks []*genx.MessageChunk
+			add := func(id, route string, bos, eos bool, failure string) {
+				var part genx.Part = genx.Text("")
+				if route == "audio/opus" {
+					part = &genx.Blob{MIMEType: route}
+				}
+				chunks = append(chunks, &genx.MessageChunk{Part: part, Ctrl: &genx.StreamCtrl{
+					StreamID: id, Label: "assistant", BeginOfStream: bos, EndOfStream: eos, Error: failure,
+				}})
+			}
+			for _, route := range []string{"text/plain", "audio/opus"} {
+				add("A", route, true, false, "")
+			}
+			if !tc.omitATextEOS {
+				add("A", "text/plain", false, true, "interrupted")
+			}
+			add("A", "audio/opus", false, true, "interrupted")
+			add("B", "text/plain", true, false, "")
+			if tc.lateAText {
+				add("A", "text/plain", false, false, "")
+			}
+			add("B", "audio/opus", true, false, "")
+			add("B", "audio/opus", false, true, "")
+			if !tc.omitBTextEOS {
+				add("B", "text/plain", false, true, "")
+			}
+			var state voiceInterruptLifecycle
+			var err error
+			for _, chunk := range chunks {
+				if err = state.observe(chunk); err != nil {
+					break
+				}
+			}
+			if err == nil && !state.complete() {
+				err = fmt.Errorf("incomplete B routes")
+			}
+			if tc.want == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error=%v, want %q", err, tc.want)
+			}
+		})
+	}
 }
