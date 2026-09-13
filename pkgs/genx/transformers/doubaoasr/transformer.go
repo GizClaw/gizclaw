@@ -1232,6 +1232,7 @@ func (t *Transformer) receiveResults(session doubaoASRSession, lastChunk *genx.M
 			Part: genx.Text(text),
 			Ctrl: streamCtrl(begin, false, ""),
 		}
+		outChunk.Ctrl.TextInterim = !definite
 		resultsCh <- outChunk
 		if definite {
 			transcriptDefinite = true

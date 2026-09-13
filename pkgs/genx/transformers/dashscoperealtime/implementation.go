@@ -34,6 +34,7 @@ import (
 type Transformer struct {
 	client       *dashscope.Client
 	realtime     dashScopeRealtimeOpener
+	retryWait    func(context.Context, time.Duration) error
 	model        string
 	voice        string
 	instructions string
@@ -621,32 +622,6 @@ func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.St
 	if err != nil {
 		return nil, err
 	}
-	// Connect to realtime service
-	session, err := t.realtime.Connect(ctx, &dashscope.RealtimeConfig{
-		Model: t.model,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("dashscope connect: %w", err)
-	}
-
-	// Wait for session.created event
-	var sessionCreated bool
-	for event, err := range session.Events() {
-		if err != nil {
-			session.Close()
-			return nil, fmt.Errorf("dashscope wait session: %w", err)
-		}
-		if event.Type == dashscope.EventTypeSessionCreated {
-			sessionCreated = true
-			break
-		}
-	}
-
-	if !sessionCreated {
-		session.Close()
-		return nil, fmt.Errorf("dashscope: session.created not received")
-	}
-
 	// Update session configuration
 	sessionConfig := &dashscope.SessionConfig{
 		Voice:                         t.voice,
@@ -670,9 +645,9 @@ func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.St
 		}
 	}
 
-	if err := session.UpdateSession(sessionConfig); err != nil {
-		session.Close()
-		return nil, fmt.Errorf("dashscope update session: %w", err)
+	session, err := t.connect(ctx, sessionConfig)
+	if err != nil {
+		return nil, err
 	}
 
 	// Create output stream

@@ -30,6 +30,10 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client, Model: dupl
 
 每个 Doubao Transformer 都负责自己创建的 output route 或 MIME channel 的显式生命周期。ASR transcript 与 history audio、TTS audio、AST transcript/translation/history/audio，以及 Realtime transcript/assistant text/audio，都在第一段 data 之前或同时发出 BOS，并且只发出一个匹配的 EOS；空结果和错误终态也遵守同一约束。Transformer 没有创建的 input 或无关 route 继续透传，不替其他组件修补或关闭边界。
 
+### ASR 中间结果与定稿
+
+`EmitInterim=true` 时，中间文本是当前整句假设，用 `StreamCtrl.TextInterim=true` 标记；它不是文本增量。Definite utterance 与 final result 文本不带此标记。Audio Dock 保留客户端中间 transcript，只将定稿文本内容交给 Eino 或 Flowcraft。每个 definite utterance 的 text EOS 仍负责 realtime 断句；Push-to-Talk 的定稿段仍在原有 route 中顺序合并。History audio 使用独立 MIME channel，其 EOS 不表示 transcript 定稿。
+
 ### ASR 空识别
 
 豆包 ASR provider session 正常结束，但 final result text 和 definite utterance text 均不包含非空白内容时，`doubaoasr.Transformer` 将本次识别作为成功的空结果结束，不发送已识别 transcript text。现有 Stream route 所需的零内容 terminal chunk 仍是成功的内部边界，不表示用户产生了已识别文本。
@@ -44,7 +48,7 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client, Model: dupl
 
 `doubaoasr.Config` 通过 `VADSegmentDuration`、`EndWindowSize` 和 `ForceToSpeechTime` 把 BigASR VAD 请求参数传给每个 SAUC session。这些字段使用 `*int`：`nil` 表示不发送并保留 provider 默认行为，非 `nil` 表示发送对应值，包括显式的零值。
 
-GizClaw 的 Volc ASR Builder 接受 `vad_segment_duration`、`end_window_size` 和 `force_to_speech_time`，同时兼容对应的 camelCase 名称。调用方没有提供任何断句参数时，Builder 使用 `end_window_size=800` 和 `force_to_speech_time=1000`，与 provider 的强制判停缺省一致；`force_to_speech_time` 的文档最小值为 `1`，`0` 并不是合法的“无下限”取值。只要调用方提供任意一个断句参数，Builder 就只发送显式提供的字段。
+GizClaw 的 Volc ASR Builder 接受 `vad_segment_duration`、`end_window_size` 和 `force_to_speech_time`，同时兼容对应的 camelCase 名称。调用方没有提供任何断句参数时，Builder 使用 `end_window_size=500` 和 `force_to_speech_time=1000`：实测 800 ms 静音窗口让实时模式从说完到首字常超过 2 s 首响门槛，500 ms 时稳定在约 1 s 且识别结果不变（`TestEinoRealtimeFirstResponseBreakdown`）；`force_to_speech_time` 的文档最小值为 `1`，`0` 并不是合法的“无下限”取值。只要调用方提供任意一个断句参数，Builder 就只发送显式提供的字段。
 
 ### Seed V2 空音频
 
@@ -113,7 +117,9 @@ Transformer 自己管理 provider call ID、顺序、重复 ID 拒绝和 invocat
 | Realtime | 连续发送 audio，由 provider VAD 划分用户 utterance；输入 EOS 只关闭本地 segment。 |
 | Text | 同一 StreamID 的文本片段在 EOS 合并提交，不接受 audio input。 |
 
-Text 模式将带 `StreamID` 的文本片段按一条用户消息累积，在 EOS 时调用一次 provider `SendText`；累计上限为 1 MiB，超限终止本次 Transform。新输入 ID 替换尚未提交的旧文本，重复 EOS 不会重复提交；输入 EOF 不提交缺少 EOS 的片段。带错误的 EOS 丢弃缓存并返回失败，不向 provider 提交文本。没有 `StreamID` 的 text chunk 直接作为一条完整消息提交。
+三种模式都将带 `StreamID` 的文本片段按一条用户消息累积，在 EOS 时调用一次 provider `SendText`；累计上限为 1 MiB，超限终止本次 Transform。新输入 ID 替换尚未提交的旧文本，重复 EOS 不会重复提交；输入 EOF 不提交缺少 EOS 的片段。带错误的 EOS 丢弃缓存并返回失败，不向 provider 提交文本。没有 `StreamID` 的 text chunk 直接作为一条完整消息提交。
+
+音频模式也接受纯文字轮次：可以先发送纯控制 BOS，再发送包含全文和 EOS 的 text chunk，或者在同一 StreamID 上分片后用 text EOS 提交。Push-to-Talk 在提交文字前完成本地输入边界、打开回复输出并绑定 response；不调用 `EndASR`，不等待 `ASREnded`，也不合成 ASR transcript。Realtime 在提交时绑定本轮 response StreamID、开启新的 response epoch 和回复期限，因此之前的语音或文字回复不会吞掉这一轮。正常回复完成后，同一 session 可继续接收语音或文字。
 
 `Config.Model` 是必填项，transformer 不会猜测默认 model。`Config.Instructions` 是初始音频对话的语义指令。GizClaw 将它原样交给 `doubao-speech-go`；SDK 在规范化 model 后，将其映射到 O20 的 `dialog.system_role` 或 SC20 的 `dialog.character_manifest`。精确的 `SystemRole`、`SpeakingStyle` 和 `CharacterManifest` 仍是独立高级字段，由 SDK 校验兼容性。Adapter 不会把语义指令复制到 `prompt.system`，也不会向 SC20 session 注入 O-only `BotName`。
 
@@ -212,3 +218,5 @@ go test ./pkgs/genx/... -count=1
 ```
 
 涉及真实 provider contract、SDK upgrade 或 event schema 变化时，还必须运行受凭据保护的 integration test；单元测试 fake 不能替代真实 session 的 cancel、Close/Recv 并发和 event ordering 验证。
+
+纯空白的文字轮次不调用 SendText；Push-to-Talk 在本地完成空轮次，后续文字或音频可继续使用同一 session。

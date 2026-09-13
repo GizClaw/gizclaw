@@ -1793,7 +1793,8 @@ func cloneToolkitPolicy(policy *apitypes.ToolkitPolicy) *apitypes.ToolkitPolicy 
 	}
 	cloned := *policy
 	if policy.ToolIds != nil {
-		ids := append([]string(nil), (*policy.ToolIds)...)
+		ids := make([]string, len(*policy.ToolIds))
+		copy(ids, *policy.ToolIds)
 		cloned.ToolIds = &ids
 	}
 	return &cloned

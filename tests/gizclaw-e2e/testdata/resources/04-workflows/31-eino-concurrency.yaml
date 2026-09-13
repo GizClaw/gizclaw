@@ -4,6 +4,7 @@ kind: Workflow
 metadata:
   id: eino-concurrency-assistant
 spec:
+  toolkit: {tool_ids: []}
   driver: eino
   eino:
     voice_adapter:

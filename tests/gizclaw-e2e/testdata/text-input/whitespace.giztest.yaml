@@ -1,0 +1,44 @@
+# User Story:
+# As a device using an audio Workspace,
+# I want to send whitespace only, observe silence, and send a normal turn,
+# So that the empty input produces no reply and does not block the next turn.
+version: gizclaw.test/v1alpha1
+name: device-text-whitespace
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: http://127.0.0.1
+variables: {}
+steps:
+  - id: turn_1
+    client: peer
+    timeout: 5s
+    peer_stream:
+      mode: text
+      text_done: true
+      timestamp: zero
+      input: " \t\n\u3000 "
+      label: demo-home
+      require_text: false
+      require_audio: false
+      idle_timeout: 200ms
+    expect:
+      /audio_bytes:
+        equals: 0
+  - id: turn_2
+    client: peer
+    timeout: 5s
+    peer_stream:
+      mode: text
+      text_done: true
+      timestamp: zero
+      input: "第二轮，请回答月亮。"
+      label: demo-home
+      require_audio: false
+      idle_timeout: 3s
+    expect:
+      /text:
+        non_empty: true
+      /text_eos:
+        equals: true

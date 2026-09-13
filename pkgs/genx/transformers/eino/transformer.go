@@ -385,6 +385,9 @@ type outputRoute struct {
 }
 
 func (session *session) startTurn(user, inputID string, parts []any, previous <-chan struct{}, initiative ...bool) <-chan struct{} {
+	if strings.TrimSpace(user) == "" && len(parts) == 0 && (len(initiative) == 0 || !initiative[0]) {
+		return previous
+	}
 	runCtx, cancel := context.WithCancelCause(session.invocation.Context())
 	run := &turnRun{
 		session: session, user: user, parts: parts, ctx: runCtx, cancel: cancel,

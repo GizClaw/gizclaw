@@ -17,7 +17,7 @@ dock, err := audiodock.New(audiodock.Config{
 })
 ```
 
-文本输入直接进入 Agent。音频输入以原有 StreamID 增量送入 ASR；ASR 完成的 transcript 作为一轮文本输入送入 Agent。Agent 的文本输出立即可 pull，同时把文本按原顺序送入 TTS。TTS 音频和文本共用 response StreamID，但各 MIME channel 独立发送 EOS。
+文本输入直接进入 Agent。音频输入以原有 StreamID 增量送入 ASR；ASR 完成的 transcript 作为一轮文本输入送入 Agent。`StreamCtrl.TextInterim` 标记整句替换的中间识别假设，只用于客户端 transcript 显示；Audio Dock 转交 Agent 时清空这类 chunk 的文本，保留其 StreamID、BOS/EOS 与错误边界。未标记的定稿文本仍按顺序追加，一轮内多个定稿段不做去重或整轮替换；只有中间结果就被打断时不提交 user turn。该标记为进程内属性，`Clone` 保留它，wire 编码不暴露它。Agent 的文本输出立即可 pull，同时已交付文本会复制给 TTS。TTS 音频和文本共用 response StreamID，但各 MIME channel 独立发送 EOS。
 
 文本内容与音频时序独立：选音色、TTS session 初始化和合成都不阻塞后续模型文本。带正文的 text EOS 会拆成立即可读的正文和延后的空文本 EOS；response epoch 仅在所有 sibling route 完成或取消后结束。每个 publisher 的 TTS 输入按原顺序排队，新 input BOS 会取消仍在选音色或启动中的旧 TTS，迟到的 provider stream 会被关闭，不向新一轮输出旧音频。这个边界同样适用于 realtime/duplex 输入；ASR 的 definite transcript 决定模型何时开始，Audio Dock 不额外等待外层音频 EOS 或播放节拍。
 

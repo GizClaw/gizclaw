@@ -1,0 +1,217 @@
+# User Story:
+# As a Peer API consumer,
+# I want Workspace toolkit selections to survive RPC and control execution,
+# So that inheritance, explicit restrictions, and unavailable tools remain distinct.
+version: gizclaw.test/v1alpha1
+name: server.workspace.toolkit.roundtrip
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  inherit_name:
+    direction: input
+    type: string
+    generate: token
+  empty_object_name:
+    direction: input
+    type: string
+    generate: token
+steps:
+- id: register
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_selected
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${workspace_name}"
+      collection: assistants
+      workflow_name: flowcraft-chat-assistant
+      toolkit:
+        tool_names:
+          value:
+          - giztest_echo
+  expect:
+    "/toolkit/tool_names/value":
+      equals:
+      - giztest-echo
+- id: get_selected
+  client: peer
+  rpc:
+    method: server.workspace.get
+    request:
+      name: "${workspace_name}"
+  expect:
+    "/value/toolkit/tool_names/value":
+      equals:
+      - giztest-echo
+- id: put_same_selection
+  client: peer
+  rpc:
+    method: server.workspace.put
+    request:
+      name: "${workspace_name}"
+      body:
+        toolkit:
+          tool_names:
+            value:
+            - giztest-echo
+  expect:
+    "/toolkit/tool_names/value":
+      equals:
+      - giztest-echo
+- id: disable_tools
+  client: peer
+  rpc:
+    method: server.workspace.put
+    request:
+      name: "${workspace_name}"
+      body:
+        toolkit:
+          tool_names:
+            value: []
+  expect:
+    "/toolkit/tool_names/value":
+      equals: []
+- id: get_disabled
+  client: peer
+  rpc:
+    method: server.workspace.get
+    request:
+      name: "${workspace_name}"
+  expect:
+    "/value/toolkit/tool_names/value":
+      equals: []
+- id: omit_keeps_disabled
+  client: peer
+  rpc:
+    method: server.workspace.put
+    request:
+      name: "${workspace_name}"
+      body: {}
+  expect:
+    "/toolkit/tool_names/value":
+      equals: []
+- id: clear_to_inherit
+  client: peer
+  rpc:
+    method: server.workspace.put
+    request:
+      name: "${workspace_name}"
+      body:
+        toolkit: {}
+  expect:
+    "/toolkit":
+      present: false
+- id: get_inherited
+  client: peer
+  rpc:
+    method: server.workspace.get
+    request:
+      name: "${workspace_name}"
+  expect:
+    "/value/toolkit":
+      present: false
+- id: create_absent
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${inherit_name}"
+      collection: assistants
+      workflow_name: flowcraft-chat-assistant
+  expect:
+    "/toolkit":
+      present: false
+- id: get_absent
+  client: peer
+  rpc:
+    method: server.workspace.get
+    request:
+      name: "${inherit_name}"
+  expect:
+    "/value/toolkit":
+      present: false
+- id: create_empty_object
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${empty_object_name}"
+      collection: assistants
+      workflow_name: flowcraft-chat-assistant
+      toolkit: {}
+  expect:
+    "/toolkit":
+      present: false
+- id: get_empty_object
+  client: peer
+  rpc:
+    method: server.workspace.get
+    request:
+      name: "${empty_object_name}"
+  expect:
+    "/value/toolkit":
+      present: false
+- id: unknown_tool
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${workspace_name}-unknown"
+      collection: assistants
+      workflow_name: flowcraft-chat-assistant
+      toolkit:
+        tool_names:
+          value:
+          - unknown-workspace-tool
+  expect_error:
+    code: 5
+finally:
+- id: stop
+  client: peer
+  rpc:
+    method: server.run.stop
+    request: {}
+- id: delete_workspace_name
+  client: peer
+  rpc:
+    method: server.workspace.delete
+    request:
+      name: "${workspace_name}"
+- id: delete_inherit_name
+  client: peer
+  rpc:
+    method: server.workspace.delete
+    request:
+      name: "${inherit_name}"
+- id: delete_empty_object_name
+  client: peer
+  rpc:
+    method: server.workspace.delete
+    request:
+      name: "${empty_object_name}"
+- id: delete_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

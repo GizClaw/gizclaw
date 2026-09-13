@@ -194,7 +194,7 @@ func TestSFUWorkspaceProjectionWithoutRuntimeProfile(t *testing.T) {
 		{"ordinary workflow", apitypes.Workspace{WorkflowId: "canonical-workflow"}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			projected, err := workspaceRPCProjection(tc.workspace, nil)
+			projected, err := (&Server{}).workspaceRPCProjection(t.Context(), tc.workspace, nil)
 			if err != nil {
 				t.Fatal(err)
 			}

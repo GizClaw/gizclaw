@@ -44,6 +44,11 @@ type MessageChunk struct {
 
 // StreamCtrl controls Stream routing and state.
 type StreamCtrl struct {
+	// TextInterim marks a replaceable recognition hypothesis, not a committed
+	// text delta. Audio Dock exposes it as transcript but excludes its text from
+	// Agent input. Lifecycle flags still apply. This attribute is process-local.
+	TextInterim bool `json:"-"`
+
 	// SourceStreamID retains the original route when an internal adapter remaps
 	// StreamID. It is process-local logging metadata, not response ownership.
 	SourceStreamID string `json:"-"`

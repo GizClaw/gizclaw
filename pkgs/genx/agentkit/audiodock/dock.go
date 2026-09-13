@@ -1233,6 +1233,14 @@ func (r *inputRouter) forwardASR() {
 			// Sending it through Agent lets non-text bypass return a second copy.
 			continue
 		}
+		if chunk.Ctrl != nil && chunk.Ctrl.TextInterim {
+			if _, ok := chunk.Part.(genx.Text); ok {
+				// Keep route identity and interruption boundaries even when the
+				// only text received so far is a replacement hypothesis.
+				chunk = chunk.Clone()
+				chunk.Part = genx.Text("")
+			}
+		}
 		if err := r.agentInput.Push(chunk); err != nil {
 			if r.ctx.Err() == nil && !errors.Is(err, io.ErrClosedPipe) {
 				r.fail(fmt.Errorf("audiodock: forward ASR output: %w", err))
