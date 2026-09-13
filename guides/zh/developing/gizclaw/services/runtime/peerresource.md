@@ -15,6 +15,10 @@ Workflow list 必须传明确的 Collection，并保持 `workflows.collections` 
 
 Peer 侧只有 Workspace 状态支持 create/put/delete。真实 Workflow、Model、Credential 和 Tool 统一由 Admin 修改。Workspace create 校验 `collection` 与 `workflow_name`，把 Collection 写成内部 label；list 按 Collection 精确筛选，并跳过已进入 pending deletion 的 Workspace，因此同一 Collection 中其余 Workspace 在异步删除完成前仍可列出。通用 labels 只是 Admin/storage 细节，不进入 Peer DTO。
 
+Workspace create/put 的 `toolkit.tool_names` 在当前 RuntimeProfile 中解析为内部 Tool ID：优先匹配 Tool binding alias；没有同名 alias 时，可以使用该 Profile 已绑定 Tool 的 `invoke_name`。未绑定或不存在的名称返回 `NOT_FOUND`，空名称或带首尾空白的名称返回 `INVALID_ARGUMENT`，且不写入 Workspace。响应始终投影为当前 Profile 的 alias，不暴露内部 ID。
+
+创建时省略 `toolkit` 或 `tool_names` 表示继承产品默认集合；显式空列表表示不提供任何工具。Protobuf 用可选 `tool_names` message 包装 repeated `value`，空列表在 wire 上是存在的空 message；Go 和持久化 JSON 保留显式空数组，不能改为 `null`。put 省略 `toolkit` 保留原策略，提供空对象则恢复继承。Workspace 策略与 Workflow `spec.toolkit.tool_ids` 及当前连接的 RuntimeProfile 集合取交集，不能扩大工具权限。
+
 `server.app_config.list` 与 `server.app_config.get` 投影 `spec.app_config`，是 catalog 之外唯一的 RuntimeProfile 下发面。list 对 key 排序后复用与 Workflow、Model、Voice、Tool 相同的 revision-bound cursor 分页，revision 变化时返回 `ABORTED`；get 返回原样 value，key 不存在返回 `NOT_FOUND`，空 key 返回 `INVALID_ARGUMENT`。value 对本层不透明，不解析也不校验格式。list 只返回 key，因为 64 个 4096 字节 value 无法放进一个 RPC frame。
 
 Firmware 不属于 RuntimeProfile name catalog。RegistrationToken 可以给 Peer 绑定一个 caller-defined canonical Firmware ID；`server.register` 不返回 Firmware identity，`server.firmware.get` 从内部 binding 解析 Firmware 但不暴露 ID。设备请求一个 channel，并得到 external HTTPS `.tar.zlib` URL、SHA-256 与 archive size。Peer RPC 不提供 Firmware list，也不传输 package bytes。

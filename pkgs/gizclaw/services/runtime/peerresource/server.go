@@ -78,12 +78,15 @@ type WorkspaceCreateResult struct {
 // CreateWorkspace resolves the immutable caller RuntimeProfile snapshot and
 // creates a caller-owned Workspace without using Admin HTTP DTOs.
 func (s *Server) CreateWorkspace(ctx context.Context, request WorkspaceCreateRequest) (WorkspaceCreateResult, error) {
+	return s.createWorkspace(ctx, request, s.currentRuntimeProfile())
+}
+
+func (s *Server) createWorkspace(ctx context.Context, request WorkspaceCreateRequest, profile *apitypes.RuntimeProfile) (WorkspaceCreateResult, error) {
 	if s == nil || s.Workspaces == nil {
 		return WorkspaceCreateResult{}, errors.New("workspace service not configured")
 	}
 	collection := strings.TrimSpace(request.Collection)
 	alias := strings.TrimSpace(request.WorkflowName)
-	profile := s.currentRuntimeProfile()
 	if profile == nil {
 		return WorkspaceCreateResult{}, errors.New("runtime profile not configured")
 	}
@@ -97,7 +100,7 @@ func (s *Server) CreateWorkspace(ctx context.Context, request WorkspaceCreateReq
 	}
 	projectionProfile := apitypes.RuntimeProfile{
 		Id: profile.Id, Revision: profile.Revision,
-		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
+		Spec: apitypes.RuntimeProfileSpec{Resources: profile.Spec.Resources, Workflows: apitypes.RuntimeProfileWorkflows{
 			Collections: apitypes.RuntimeProfileWorkflowCollections{
 				collection: {alias: {ResourceId: binding.ResourceId}},
 			},
@@ -494,13 +497,7 @@ func workspaceRPCProjection(item apitypes.Workspace, profile *apitypes.RuntimePr
 		}
 		out.Parameters = &parameters
 	}
-	if item.Toolkit != nil {
-		policy, err := convertType[rpcapi.ToolkitPolicy](*item.Toolkit)
-		if err != nil {
-			return rpcapi.Workspace{}, err
-		}
-		out.Toolkit = &policy
-	}
+	out.Toolkit = projectWorkspaceToolkit(item.Toolkit, profile)
 	if item.Icon != nil {
 		icon, err := convertType[rpcapi.Icon](*item.Icon)
 		if err != nil {
@@ -640,14 +637,15 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 	if err != nil {
 		return nil, true, err
 	}
-	toolkitPolicy, err := convertType[*apitypes.ToolkitPolicy](params.Toolkit)
+	profile := s.currentRuntimeProfile()
+	toolkitPolicy, err := s.resolveWorkspaceToolkit(ctx, params.Toolkit, profile)
 	if err != nil {
-		return nil, true, err
+		return workspaceToolkitError(req.Id, err), true, nil
 	}
-	created, err := s.CreateWorkspace(ctx, WorkspaceCreateRequest{
+	created, err := s.createWorkspace(ctx, WorkspaceCreateRequest{
 		Name: params.Name, Collection: collection, WorkflowName: alias,
 		Parameters: parameters, Toolkit: toolkitPolicy,
-	})
+	}, profile)
 	if err != nil {
 		if createErr, ok := errors.AsType[*workspace.PeerWorkspaceCreateError](err); ok {
 			switch createErr.Kind {
@@ -713,9 +711,9 @@ func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest)
 		body.Parameters = parameters
 	}
 	if params.Body.Toolkit != nil {
-		toolkitPolicy, err := convertType[*apitypes.ToolkitPolicy](params.Body.Toolkit)
+		toolkitPolicy, err := s.resolveWorkspaceToolkit(ctx, params.Body.Toolkit, profile)
 		if err != nil {
-			return nil, true, err
+			return workspaceToolkitError(req.Id, err), true, nil
 		}
 		body.Toolkit = toolkitPolicy
 	}
