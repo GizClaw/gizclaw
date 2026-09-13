@@ -333,9 +333,10 @@ run_js_rpc_tests() {
 # Cross-server SFU documents belong to run_multi_server_tests.sh; the deliberate
 # failure-cleanup document belongs to its dedicated negative-test phase.
 # Monitor scenarios need the dedicated runner's node token, retained assets
-# and script Workflow. Keep them out of unrelated provider/SDK environments.
+# and script Workflow. Slow TTS scenarios require the provider-only build
+# overlay. Keep both out of unrelated provider/SDK environments.
 standard_sdk_giztest_files() {
-	find "$script_dir/giztest" -type f -name '*.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'failure-cleanup.giztest.yaml' -print | sort
+	find "$script_dir/giztest" -type f -name '*.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'slow-tts.*' ! -name 'failure-cleanup.giztest.yaml' -print | sort
 }
 
 run_js_giztest() {
@@ -382,7 +383,7 @@ run_standard_giztest() {
 	local -a files=()
 	while IFS= read -r file; do files+=("$file"); done < <(
 		find "$giztest_dir" -maxdepth 1 -type f -name '*.giztest.yaml' \
-			! -name 'benchmark.*' ! -name 'review.*' ! -name 'failure-cleanup.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' -print | sort
+			! -name 'benchmark.*' ! -name 'review.*' ! -name 'failure-cleanup.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'slow-tts.*' -print | sort
 	)
 	files+=(
 		"$giztest_dir/benchmark.doubao-realtime-conversation.concurrency-1.giztest.yaml"
@@ -418,7 +419,7 @@ run_c_giztest() {
 	# failure, so it is excluded here the way run_standard_giztest excludes it.
 	while IFS= read -r file; do files+=("$file"); done < <(
 		find "$script_dir/giztest" -maxdepth 1 -type f -name '*.giztest.yaml' \
-			! -name 'failure-cleanup.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' -print | sort
+			! -name 'failure-cleanup.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'slow-tts.*' -print | sort
 	)
 	local -a validate_args=()
 	local file

@@ -1,0 +1,29 @@
+# User Story:
+# As a device using an audio Workspace,
+# I want to send Chinese, emoji and combining Unicode characters,
+# So that the complete UTF-8 message reaches the model.
+version: gizclaw.test/v1alpha1
+name: device-text-utf8
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: http://127.0.0.1
+variables: {}
+steps:
+  - id: turn_1
+    client: peer
+    timeout: 5s
+    peer_stream:
+      mode: text
+      text_done: true
+      timestamp: zero
+      input: "你好，世界！🐉🌈👨‍👩‍👧‍👦 café é"
+      label: demo-home
+      require_audio: false
+      idle_timeout: 3s
+    expect:
+      /text:
+        non_empty: true
+      /text_eos:
+        equals: true

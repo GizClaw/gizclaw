@@ -15,14 +15,32 @@ import (
 // timestamps, rather than processing times, prove that the second input's first audio packet
 // was sent before the first response's audio EOS.
 func invokeOverlappingPeerInput(ctx context.Context, stream peerStream, op *giztest.PeerStreamOperation, input any) (operationResult, error) {
-	audio, ok := input.([]byte)
-	if !ok {
-		return operationResult{}, fmt.Errorf("overlap_input requires Opus audio")
+	var packets [][]byte
+	var texts []string
+	if op.Mode == "text" {
+		values, ok := input.([]any)
+		if !ok || len(values) != 2 {
+			return operationResult{}, fmt.Errorf("text overlap_input requires two text messages")
+		}
+		for _, value := range values {
+			text, ok := value.(string)
+			if !ok || strings.TrimSpace(text) == "" {
+				return operationResult{}, fmt.Errorf("text overlap_input requires nonblank text")
+			}
+			texts = append(texts, text)
+		}
+	} else {
+		audio, ok := input.([]byte)
+		if !ok {
+			return operationResult{}, fmt.Errorf("overlap_input requires Opus audio")
+		}
+		var err error
+		packets, err = decodeOpusPackets(audio)
+		if err != nil {
+			return operationResult{}, err
+		}
 	}
-	packets, err := decodeOpusPackets(audio)
-	if err != nil {
-		return operationResult{}, err
-	}
+	var err error
 	if op.Mode == "realtime" {
 		packets, err = appendRealtimeTailSilence(packets, realtimeTailSilence)
 		if err != nil {
@@ -43,7 +61,13 @@ func invokeOverlappingPeerInput(ctx context.Context, stream peerStream, op *gizt
 			return operationResult{}, err
 		}
 	}
-	chunks := audioInputChunks(op.Mode, ids[0], "audio/opus", packets)
+	inputChunks := func(turn int) []*genx.MessageChunk {
+		if op.Mode == "text" {
+			return textInputChunks(op, ids[turn], texts[turn])
+		}
+		return audioInputChunks(op.Mode, ids[turn], "audio/opus", packets)
+	}
+	chunks := inputChunks(0)
 	started := time.Now()
 	var firstAudio, firstEnd, secondInput time.Time
 	var firstID, secondID string
@@ -82,7 +106,7 @@ func invokeOverlappingPeerInput(ctx context.Context, stream peerStream, op *gizt
 				return fail(fmt.Errorf("first response ended before second input could overlap"))
 			}
 			turn, cursor = 1, 0
-			chunks = audioInputChunks(op.Mode, ids[1], "audio/opus", packets)
+			chunks = inputChunks(1)
 			timer.Reset(0)
 			send = timer.C
 		}
@@ -103,10 +127,13 @@ func invokeOverlappingPeerInput(ctx context.Context, stream peerStream, op *gizt
 			return fail(fmt.Errorf("overlapping input: %w", context.Cause(ctx)))
 		case <-send:
 			chunk := chunks[cursor]
+			if op.Mode == "text" && turn == 1 && cursor == 0 {
+				secondInput = time.Now()
+			}
 			if err := stream.Push(ctx, chunk); err != nil {
 				return fail(fmt.Errorf("send overlapping input turn %d: %w", turn+1, err))
 			}
-			if turn == 1 && cursor == 1 {
+			if op.Mode != "text" && turn == 1 && cursor == 1 {
 				secondInput = time.Now()
 			}
 			cursor++
@@ -165,6 +192,12 @@ func invokeOverlappingPeerInput(ctx context.Context, stream peerStream, op *gizt
 					return fail(fmt.Errorf("unexpected interrupted response"))
 				}
 				response.interrupted, firstInterrupted = true, true
+			}
+			if id == firstID && secondID != "" && (hasText || hasAudio) {
+				return fail(fmt.Errorf("old response content interleaved with replacement"))
+			}
+			if id == secondID && (hasText || hasAudio) && (!responses[firstID].textEOS || !responses[firstID].audioEOS) {
+				return fail(fmt.Errorf("replacement started before old response ended"))
 			}
 			response.textObserved = response.textObserved || hasText
 			response.audioObserved = response.audioObserved || hasAudio

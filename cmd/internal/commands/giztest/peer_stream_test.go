@@ -1711,3 +1711,175 @@ func TestInvokePeerStreamFirstResponseTimingsStayNonNegative(t *testing.T) {
 		})
 	}
 }
+
+func TestInvokePeerStreamContinuesRetainedRealtimeSession(t *testing.T) {
+	stream := newFakeRelayStream()
+	sessions := newPeerStreamSessions()
+	t.Cleanup(func() { _ = sessions.Close() })
+	openCount := 0
+	open := func() (peerStream, error) {
+		openCount++
+		return stream, nil
+	}
+	requireAudio := false
+	firstStep := giztest.Step{ID: "first", Client: "peer", PeerStream: &giztest.PeerStreamOperation{
+		Mode: "realtime", Session: "microphone", KeepOpen: true,
+		Completion: "first_response", FirstTextTimeout: "1s", RequireAudio: &requireAudio,
+	}}
+	firstStreamID := make(chan string, 1)
+	go func() {
+		for i := range 202 {
+			chunk := <-stream.pushes
+			if i == 0 {
+				firstStreamID <- chunk.Ctrl.StreamID
+			}
+		}
+		stream.in <- assistantText("assistant-1", "ready", false)
+	}()
+	first, err := invokePeerStreamWithSessions(context.Background(), nil, open, sessions, firstStep, []byte{1}, 0)
+	if err != nil {
+		t.Fatalf("retain realtime session: %v", err)
+	}
+	oldID := <-firstStreamID
+	if first.evidence["session_retained"] != true || openCount != 1 {
+		t.Fatalf("first evidence=%#v open_count=%d", first.evidence, openCount)
+	}
+	secondStep := giztest.Step{ID: "second", Client: "peer", PeerStream: &giztest.PeerStreamOperation{
+		Mode: "realtime", Session: "microphone",
+		KeepOpen: true, Completion: "first_response", FirstTextTimeout: "1s", RequireAudio: &requireAudio,
+	}}
+	secondStreamID := make(chan string, 1)
+	go func() {
+		for i := range 202 {
+			chunk := <-stream.pushes
+			if i == 0 {
+				secondStreamID <- chunk.Ctrl.StreamID
+			}
+		}
+		stream.in <- assistantText("assistant-2", "ready again", false)
+	}()
+	second, err := invokePeerStreamWithSessions(context.Background(), nil, open, sessions, secondStep, []byte{1}, 0)
+	if err != nil {
+		t.Fatalf("re-arm retained realtime session: %v", err)
+	}
+	newID := <-secondStreamID
+	if newID == oldID || openCount != 1 || second.evidence["replacement_bos_sent"] != true || second.evidence["stream_id_changed"] != true || second.evidence["session_connection_reused"] != true || second.evidence["session_retained"] != true {
+		t.Fatalf("old_id=%q new_id=%q open_count=%d evidence=%#v", oldID, newID, openCount, second.evidence)
+	}
+	select {
+	case <-stream.closed:
+		t.Fatal("re-retained session closed after the second step")
+	default:
+	}
+}
+
+func TestTextInputChunksDeviceFormat(t *testing.T) {
+	for _, timestamp := range []string{"zero", "unix_ms"} {
+		t.Run(timestamp, func(t *testing.T) {
+			before := time.Now().UnixMilli()
+			chunks := textInputChunks(&giztest.PeerStreamOperation{TextDone: true, Timestamp: timestamp, Label: "demo-home"}, "demo-2", "完整文字")
+			if len(chunks) != 2 {
+				t.Fatalf("chunk count = %d", len(chunks))
+			}
+			bos, done := chunks[0], chunks[1]
+			if bos.Part != nil || !bos.IsBeginOfStream() || bos.IsEndOfStream() {
+				t.Fatalf("not a pure control BOS: %#v", bos)
+			}
+			if done.Part != genx.Text("完整文字") || !done.IsEndOfStream() || done.IsBeginOfStream() {
+				t.Fatalf("not full TEXT_DONE: %#v", done)
+			}
+			for _, chunk := range chunks {
+				if chunk.Ctrl.StreamID != "demo-2" || chunk.Ctrl.Label != "demo-home" {
+					t.Fatalf("route = %#v", chunk.Ctrl)
+				}
+				if timestamp == "zero" && chunk.Ctrl.Timestamp != 0 {
+					t.Fatal("zero timestamp normalized before sending")
+				}
+				if timestamp == "unix_ms" && (chunk.Ctrl.Timestamp < before || chunk.Ctrl.Timestamp > time.Now().UnixMilli()) {
+					t.Fatal("not a Unix millisecond timestamp")
+				}
+			}
+			if bos.Ctrl.Timestamp != done.Ctrl.Timestamp {
+				t.Fatal("turn timestamps differ")
+			}
+		})
+	}
+}
+
+// A full-duplex provider can reply after accepting EOS but before Push returns.
+// Hold that return until the reader has timestamped and queued the whole reply.
+func TestInvokePeerStreamPushToTalkReplyDuringEOSPush(t *testing.T) {
+	for _, retained := range []bool{false, true} {
+		t.Run(fmt.Sprintf("retained=%t", retained), func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+			defer cancel()
+			stream := &replyDuringEOSStream{
+				fakeRelayStream: newFakeRelayStream(),
+				openingRead:     make(chan struct{}), replyRead: make(chan struct{}),
+			}
+			defer stream.Close()
+			var session *peerStreamSession
+			if retained {
+				session = newPeerStreamSession("peer", stream)
+				defer session.Close()
+				session.startReader()
+			}
+			audio, _ := testOggOpus(t)
+			noAudio := false
+			step := giztest.Step{ID: "turn", PeerStream: &giztest.PeerStreamOperation{
+				Mode: "push-to-talk", Pacing: "0ms", IdleTimeout: "50ms", RequireAudio: &noAudio,
+			}}
+			result, err := invokePeerStreamOnStream(ctx, nil, nil, stream, session, "turn", step, audio, 0, nil)
+			if err != nil {
+				t.Fatalf("reply received during EOS push was lost: %v; %v", err, result.evidence)
+			}
+			object := result.assertion.(map[string]any)
+			if got := strings.Join(object["text"].([]string), ""); got != "answer" || object["text_eos"] != true {
+				t.Fatalf("want only the current complete reply: %#v", object)
+			}
+		})
+	}
+}
+
+type replyDuringEOSStream struct {
+	*fakeRelayStream
+	openingRead chan struct{}
+	replyRead   chan struct{}
+	reads       int // owned by the sole reader goroutine
+}
+
+func (s *replyDuringEOSStream) Next() (*genx.MessageChunk, error) {
+	// The previous Next has returned and readPeerStream has recorded its
+	// receipt by the time it asks for another chunk.
+	switch s.reads {
+	case 1:
+		close(s.openingRead)
+	case 4:
+		close(s.replyRead)
+	}
+	chunk, err := s.fakeRelayStream.Next()
+	s.reads++
+	return chunk, err
+}
+
+func (s *replyDuringEOSStream) Push(ctx context.Context, chunk *genx.MessageChunk) error {
+	var read <-chan struct{}
+	if chunk.IsBeginOfStream() {
+		s.in <- assistantText("opening", "old opening", false)
+		read = s.openingRead
+	}
+	if chunk.IsEndOfStream() {
+		s.in <- assistantText("opening", "", true)
+		s.in <- assistantText("reply", "answer", false)
+		s.in <- assistantText("reply", "", true)
+		read = s.replyRead
+	}
+	if read != nil {
+		select {
+		case <-read:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return nil
+}

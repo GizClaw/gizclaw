@@ -133,6 +133,7 @@ type dockRoute struct {
 	ttsRoutes   map[string]*dockTTSRoute
 	ttsPipes    map[string]*ttsPipe
 	ttsDone     sync.WaitGroup
+	endOnce     sync.Once
 	finish      sync.Once
 	closed      atomic.Bool
 
@@ -322,13 +323,6 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 	text, textChunk := chunk.Part.(genx.Text)
 	var pipe *ttsPipe
 	resolveTTS := textChunk && strings.TrimSpace(string(text)) != "" && r.dock.config.TTS != nil
-	if resolveTTS && chunk.IsEndOfStream() {
-		pipe, err = r.ttsPipe(ctx, route, chunk)
-		if err != nil {
-			r.finishRoute(route, err.Error())
-			return nil
-		}
-	}
 
 	route.ttsEmitMu.Lock()
 	if route.closed.Load() {
@@ -336,16 +330,28 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 		r.source.AbandonOutputObservation(chunk)
 		return nil
 	}
-	deferEOS := chunk.IsEndOfStream() && (route.hasTTSPipes() ||
+	deferEOS := chunk.IsEndOfStream() && (resolveTTS || route.hasTTSPipes() ||
 		(chunk.Ctrl != nil && (chunk.Ctrl.Error != "" || chunk.Ctrl.ErrorCode != "")))
 	if deferEOS {
 		route.mu.Lock()
 		route.deferredEOS = chunk
 		route.mu.Unlock()
-		route.ttsEmitMu.Unlock()
-	} else {
-		mimeType, trackedTerminal := route.trackPendingTerminal(chunk)
-		if err := r.invocation.EmitTracked(route.response, chunk, func(*genx.MessageChunk) {
+	}
+	// A terminal may carry the only text in a reply. Publish its content now;
+	// only the terminal boundary belongs behind sibling TTS completion.
+	emitted := chunk
+	if deferEOS && textChunk && text != "" {
+		emitted = chunk.Clone()
+		emitted.Ctrl.EndOfStream = false
+		emitted.Ctrl.ResponseEpochEnd = false
+		emitted.Ctrl.Error = ""
+		emitted.Ctrl.ErrorCode = ""
+		emitted.Ctrl.ErrorRetryable = false
+		emitted.Ctrl.FailureClass = ""
+	}
+	if !deferEOS || emitted != chunk {
+		mimeType, trackedTerminal := route.trackPendingTerminal(emitted)
+		if err := r.invocation.EmitTracked(route.response, emitted, func(*genx.MessageChunk) {
 			route.clearPendingTerminal(mimeType, trackedTerminal)
 			r.source.ObserveOutput(chunk)
 		}, func(*genx.MessageChunk) {
@@ -360,18 +366,14 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 			}
 			return err
 		}
-		route.ttsEmitMu.Unlock()
 	}
+	route.ttsEmitMu.Unlock()
 
-	if resolveTTS && !chunk.IsEndOfStream() {
-		pipe, err = r.ttsPipe(ctx, route, chunk)
-		if err != nil {
-			r.finishRoute(route, err.Error())
-			return nil
-		}
+	if resolveTTS {
+		pipe = r.ttsPipe(ctx, route, chunk)
 	}
 	if pipe != nil {
-		if err := pipe.input.Push(chunk); err != nil && !errors.Is(err, io.ErrClosedPipe) {
+		if err := pipe.input.Push(emitted); err != nil && !errors.Is(err, io.ErrClosedPipe) {
 			r.finishRoute(route, err.Error())
 			return nil
 		}
@@ -432,57 +434,72 @@ func (r *dockRun) route(chunk *genx.MessageChunk) (*dockRoute, error) {
 	return route, nil
 }
 
-func (r *dockRun) ttsPipe(ctx context.Context, route *dockRoute, chunk *genx.MessageChunk) (*ttsPipe, error) {
+// ttsPipe registers a cancellable pipe before resolving a voice or opening a
+// provider session. Its growable input keeps the model reader independent of
+// provider startup, synthesis and downstream audio cadence.
+func (r *dockRun) ttsPipe(ctx context.Context, route *dockRoute, chunk *genx.MessageChunk) *ttsPipe {
 	key := strings.TrimSpace(chunk.Name)
+	route.ttsEmitMu.Lock()
+	defer route.ttsEmitMu.Unlock()
+	if route.closed.Load() {
+		return nil
+	}
 	route.mu.Lock()
-	pipe, resolved := route.ttsPipes[key]
-	route.mu.Unlock()
-	if resolved {
-		return pipe, nil
+	defer route.mu.Unlock()
+	if pipe, resolved := route.ttsPipes[key]; resolved {
+		return pipe
 	}
-	pattern, err := resolveVoice(ctx, r.dock.config.ResolveVoice, chunk)
-	if err != nil {
-		return nil, err
-	}
-	if pattern == "" {
-		route.mu.Lock()
-		route.ttsPipes[key] = nil
-		route.mu.Unlock()
-		return nil, nil
-	}
-	return r.startTTS(route, key, chunk.Name, pattern)
-}
-
-func (r *dockRun) startTTS(route *dockRoute, key, name, pattern string) (*ttsPipe, error) {
-	ctx, cancel := context.WithCancel(r.invocation.Context())
-	input := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: initialOutputCapacity})
-	output, err := r.dock.config.TTS.Transform(ctx, pattern, input)
-	if err != nil {
-		cancel()
-		_ = input.CloseWithError(err)
-		return nil, fmt.Errorf("audiodock: start TTS pattern=%q: %w", pattern, err)
-	}
-	pipe := &ttsPipe{name: name, input: input, output: output, cancel: cancel}
-	route.mu.Lock()
-	if existing, ok := route.ttsPipes[key]; ok {
-		route.mu.Unlock()
-		cancel()
-		_ = errors.Join(input.Close(), output.Close())
-		return existing, nil
+	ctx, cancel := context.WithCancel(ctx)
+	pipe := &ttsPipe{
+		name:   chunk.Name,
+		input:  streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: initialOutputCapacity}),
+		cancel: cancel,
 	}
 	route.ttsPipes[key] = pipe
 	route.ttsDone.Add(1)
-	route.mu.Unlock()
 	r.tts.Add(1)
-	go r.forwardTTS(route, pipe)
-	return pipe, nil
+	go r.startTTS(ctx, route, pipe, chunk.Clone())
+	return pipe
 }
 
-func (r *dockRun) forwardTTS(route *dockRoute, pipe *ttsPipe) {
+func (r *dockRun) startTTS(ctx context.Context, route *dockRoute, pipe *ttsPipe, chunk *genx.MessageChunk) {
 	defer r.tts.Done()
 	defer route.ttsDone.Done()
 	defer pipe.cancel()
-	defer pipe.output.Close()
+	defer pipe.input.Close()
+	pattern, err := resolveVoice(ctx, r.dock.config.ResolveVoice, chunk)
+	if err == nil && pattern != "" && ctx.Err() == nil {
+		var output genx.Stream
+		output, err = r.dock.config.TTS.Transform(ctx, pattern, pipe.input)
+		if err == nil && output == nil {
+			err = fmt.Errorf("TTS returned a nil stream")
+		}
+		if output != nil {
+			defer output.Close()
+			// Publish the handle under the same lock used by abortTTS. If an
+			// interrupt won startup, close the late handle without emitting it.
+			route.mu.Lock()
+			active := !route.closed.Load() && ctx.Err() == nil
+			if active {
+				pipe.output = output
+			}
+			route.mu.Unlock()
+			if active && err == nil {
+				r.forwardTTS(route, pipe)
+				return
+			}
+		}
+		if err != nil {
+			err = fmt.Errorf("audiodock: start TTS pattern=%q: %w", pattern, err)
+		}
+	}
+	if err != nil && ctx.Err() == nil {
+		r.abortTTS(route, err)
+		r.finishRoute(route, err.Error())
+	}
+}
+
+func (r *dockRun) forwardTTS(route *dockRoute, pipe *ttsPipe) {
 	childRoutes := make(map[dockTTSChildRouteKey]*dockTTSRoute)
 	for {
 		chunk, err := pipe.output.Next()
@@ -633,38 +650,42 @@ func (r *dockRun) endTTS(route *dockRoute, sourceEOS *genx.MessageChunk) {
 	if route == nil {
 		return
 	}
-	route.mu.Lock()
-	pipes := make([]*ttsPipe, 0, len(route.ttsPipes))
-	for _, pipe := range route.ttsPipes {
-		if pipe != nil {
-			pipes = append(pipes, pipe)
+	route.endOnce.Do(func() {
+		route.mu.Lock()
+		pipes := make([]*ttsPipe, 0, len(route.ttsPipes))
+		for _, pipe := range route.ttsPipes {
+			if pipe != nil {
+				pipes = append(pipes, pipe)
+			}
 		}
-	}
-	route.mu.Unlock()
-	for _, pipe := range pipes {
-		end := &genx.MessageChunk{Role: sourceEOS.Role, Name: pipe.name, Part: genx.Text(""), Ctrl: cloneCtrl(sourceEOS.Ctrl)}
-		_ = pipe.input.Push(end)
-		_ = pipe.input.Close()
-	}
-	go func() {
-		done := make(chan struct{})
+		route.mu.Unlock()
+		for _, pipe := range pipes {
+			end := &genx.MessageChunk{Role: sourceEOS.Role, Name: pipe.name, Part: genx.Text(""), Ctrl: cloneCtrl(sourceEOS.Ctrl)}
+			end.Ctrl.BeginOfStream = false
+			end.Ctrl.StreamID = route.response.StreamID()
+			_ = pipe.input.Push(end)
+			_ = pipe.input.Close()
+		}
 		go func() {
-			route.ttsDone.Wait()
-			close(done)
+			done := make(chan struct{})
+			go func() {
+				route.ttsDone.Wait()
+				close(done)
+			}()
+			timer := time.NewTimer(r.dock.config.TTSCompletionTimeout)
+			defer timer.Stop()
+			select {
+			case <-done:
+				r.finishRoute(route, "")
+			case <-r.invocation.Context().Done():
+				r.abortTTS(route, r.invocation.Context().Err())
+			case <-timer.C:
+				err := fmt.Errorf("audiodock: TTS completion timeout after %s", r.dock.config.TTSCompletionTimeout)
+				r.abortTTS(route, err)
+				r.finishRoute(route, err.Error())
+			}
 		}()
-		timer := time.NewTimer(r.dock.config.TTSCompletionTimeout)
-		defer timer.Stop()
-		select {
-		case <-done:
-			r.finishRoute(route, "")
-		case <-r.invocation.Context().Done():
-			r.abortTTS(route, r.invocation.Context().Err())
-		case <-timer.C:
-			err := fmt.Errorf("audiodock: TTS completion timeout after %s", r.dock.config.TTSCompletionTimeout)
-			r.abortTTS(route, err)
-			r.finishRoute(route, err.Error())
-		}
-	}()
+	})
 }
 
 func (r *dockRun) finishRoute(route *dockRoute, errorText string) {
@@ -744,12 +765,23 @@ func (r *dockRun) emitDeferredEOS(route *dockRoute, errorText string) error {
 	}
 	route.mu.Lock()
 	source := route.deferredEOS
+	hasAudio := len(route.ttsRoutes) != 0
 	route.deferredEOS = nil
 	route.mu.Unlock()
 	if source == nil {
 		return nil
 	}
+	if errorText != "" && !hasAudio && source.Ctrl.Error == "" && source.Ctrl.ErrorCode == "" {
+		// No child declared a MIME route. FinishResponse owns the single
+		// generated error terminal for the still-open text channel.
+		r.source.AbandonOutputObservation(source)
+		return nil
+	}
 	emitted := source.Clone()
+	if text, ok := emitted.Part.(genx.Text); ok && text != "" {
+		emitted.Part = genx.Text("")
+		emitted.Ctrl.BeginOfStream = false
+	}
 	if emitted.Ctrl == nil {
 		emitted.Ctrl = &genx.StreamCtrl{}
 	}
@@ -776,16 +808,22 @@ func (r *dockRun) abortTTS(route *dockRoute, err error) {
 	}
 	route.mu.Lock()
 	pipes := make([]*ttsPipe, 0, len(route.ttsPipes))
+	var outputs []genx.Stream
 	for _, pipe := range route.ttsPipes {
 		if pipe != nil {
+			pipe.cancel()
 			pipes = append(pipes, pipe)
+			if pipe.output != nil {
+				outputs = append(outputs, pipe.output)
+			}
 		}
 	}
 	route.mu.Unlock()
 	for _, pipe := range pipes {
 		_ = pipe.input.CloseWithError(err)
-		_ = pipe.output.CloseWithError(err)
-		pipe.cancel()
+	}
+	for _, output := range outputs {
+		_ = output.CloseWithError(err)
 	}
 }
 
@@ -1194,6 +1232,14 @@ func (r *inputRouter) forwardASR() {
 			// The outer recorder consumes this sideband from transcript output.
 			// Sending it through Agent lets non-text bypass return a second copy.
 			continue
+		}
+		if chunk.Ctrl != nil && chunk.Ctrl.TextInterim {
+			if _, ok := chunk.Part.(genx.Text); ok {
+				// Keep route identity and interruption boundaries even when the
+				// only text received so far is a replacement hypothesis.
+				chunk = chunk.Clone()
+				chunk.Part = genx.Text("")
+			}
 		}
 		if err := r.agentInput.Push(chunk); err != nil {
 			if r.ctx.Err() == nil && !errors.Is(err, io.ErrClosedPipe) {

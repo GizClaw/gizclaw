@@ -4,6 +4,7 @@ kind: Workflow
 metadata:
   id: flowcraft-latency-comparison
 spec:
+  toolkit: {tool_ids: []}
   driver: flowcraft
   memory: default-memory
   flowcraft:

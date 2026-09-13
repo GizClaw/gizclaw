@@ -56,6 +56,7 @@ func main() {
 func run() error {
 	var (
 		rtpBOS            = flag.Bool("rtp-bos", false, "Seed local RTP BOS regression workflows")
+		slowTTS           = flag.Bool("slow-tts", false, "Seed local slow TTS regression workflows")
 		server            = flag.String("server", "", "Server endpoint, e.g. server-a:9820")
 		profileID         = flag.String("profile-id", "", "RuntimeProfile ID to upsert")
 		monitorWorkflowID = flag.String("monitor-workflow-id", "", "Optional model-free Flowcraft Workflow for Monitor history tests")
@@ -116,6 +117,9 @@ func run() error {
 
 	if *rtpBOS {
 		return seedRTPBOS(ctx, api, *profileID, *tokenID, *token)
+	}
+	if *slowTTS {
+		return seedSlowTTS(ctx, api, *profileID, *tokenID, *token)
 	}
 	provider, providerErr := providerCredentials()
 	if providerErr != nil {
