@@ -1,0 +1,88 @@
+{
+  "driver": "eino",
+  "eino": {
+    "voice_adapter": {
+      "asr_model": "asr",
+      "default_voice": "narrator"
+    },
+    "graph": {
+      "name": "multi-role-voices",
+      "compile": {
+        "node_trigger_mode": "any_predecessor"
+      },
+      "state": {
+        "fields": [
+          {
+            "name": "speaker",
+            "type": "string",
+            "merge": "replace"
+          },
+          {
+            "name": "answer",
+            "type": "string",
+            "merge": "replace"
+          }
+        ]
+      },
+      "nodes": [
+        {
+          "id": "select",
+          "type": "script",
+          "language": "starlark",
+          "entrypoint": "run",
+          "inputs": {
+            "text": {
+              "from": "input.text"
+            }
+          },
+          "outputs": {
+            "speaker": "speaker"
+          },
+          "source": "def run(input):\n  return {\"speaker\": input[\"text\"]}\n",
+          "limits": {
+            "timeout": "100ms",
+            "max_execution_steps": 1000,
+            "max_input_bytes": 4096,
+            "max_output_bytes": 4096
+          }
+        },
+        {
+          "id": "answer",
+          "type": "passthrough",
+          "inputs": {
+            "value": {
+              "from": "speaker"
+            }
+          },
+          "outputs": {
+            "value": "answer"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "from": "start",
+          "to": "select"
+        },
+        {
+          "from": "select",
+          "to": "answer"
+        },
+        {
+          "from": "answer",
+          "to": "end"
+        }
+      ],
+      "branches": [],
+      "outputs": [
+        {
+          "node": "answer",
+          "field": "answer",
+          "name": "assistant",
+          "mime_type": "text/plain",
+          "primary": true
+        }
+      ]
+    }
+  }
+}

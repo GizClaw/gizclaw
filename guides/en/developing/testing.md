@@ -1380,6 +1380,18 @@ The Server gets a placeholder SFU URL so Friend and Friend Group resources can b
 
 Scripted device providers test HTTP authorization, validation, reverse RPC, playlist contracts and snapshot projection; they do not download or play music. The five control scenarios are supported by Go, JavaScript, Flutter and C runners. The separate `telemetry` step sends a protobuf-JSON `frame` with the Go device SDK over the actual packet channel; other runners explicitly skip this operation. Packet acceptance is not persistence: the telemetry scenario polls `server.status.get`, then checks HTTP status for progress, errors, stale-observation protection and OTA coexistence. It does not add a Dart telemetry transport or claim hardware playback acceptance.
 
+### Initial RTP/BOS ordering regression
+
+`bash tests/gizclaw-e2e/run_rtp_bos_tests.sh` runs a real Server, Edge and Go
+Giztest receiver on an isolated local Docker internal network, using ephemeral
+identities and SQLite without provider credentials. The `testdata/rtp-bos/` build
+overlay supplies deterministic ASR/TTS with BOS attached to the first audio frame,
+and delays receiver audio BOS processing by 200 ms while RTP reading continues.
+The scenario checks complete audio, BOS/EOS, one active stream, zero integrity
+violations and packet pacing. The Audioplayer CI job runs the same entry point
+and uploads `.testbench/rtp-bos-*/reports/`. This is not a cloud model performance
+or physical device acceptance test.
+
 ## Local slow TTS regression
 
 `bash tests/gizclaw-e2e/run_slow_tts_tests.sh` runs a real Server, Edge and Go Peer

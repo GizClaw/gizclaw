@@ -18,3 +18,16 @@ Go SDK 是 client-facing boundary，不拥有 server domain behavior。API 和 R
 [contextconn API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/sdk/go/gizcli/contextconn) · [adminresource API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/sdk/go/gizcli/adminresource)
 
 [Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/sdk/go/gizcli)
+
+## 初始音频 BOS 与 RTP
+
+Peer Event Stream 和固定 Opus RTP 轨是独立通道，发送 BOS 成功不代表接收端已经处理
+BOS。`PeerStream` 在首次音频 BOS 绑定之前暂存 RTP payload，先向调用方输出 BOS，
+再按接收顺序输出带该 StreamID 和 label 的音频。文字事件不触发音频暂存释放。
+暂存上限为 64 包或 128 KiB；从收到首包起等待 BOS 最多 1 秒，超限或超时会终止
+流并返回错误，关闭时释放暂存。
+
+这一行为不改变 wire Schema、设备固件或其他语言 SDK，也不增加下行 ACK。RTP
+payload 没有逻辑 StreamID，无法据此区分上一 epoch 的迟到包和下一 epoch 的首包；
+因此暂存仅用于首次音频绑定，不会将 EOS 后的裸包重归属给下一 BOS。此类包仍由
+调用方的边界检查报告；现有 EOS drain 和音频完整性断言保持不变。
