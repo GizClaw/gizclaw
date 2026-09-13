@@ -1296,33 +1296,55 @@ Successful runs write redacted monotonic timing evidence below ignored `tests/gi
 
 `TestAssistantScenariosWithLiveModel` in the same phase reuses that harness's API key and `/openai/v1` to run `web/assistant/scripts/run-live-scenarios.ts` with `node --experimental-strip-types`: the Monitor diagnostic assistant's scenario set executes tools against `FakeRuntime` while every model call goes to the RuntimeProfile `llm` (`doubao-mini-chat`). Each scenario gets up to three attempts and is judged only on tool calls, the final route, and key facts in the reply; a scenario that fails all three fails the phase. A passing run prints only scenario names, attempts, and failed checks; the JSON report with generated replies and tool results is printed only on failure. The test needs the `web/assistant` dependencies installed by the root `npm ci`, which the runner's `preflight:npm-ci` phase provides.
 
-## Deterministic Eino multi-voice Giztest
+## Deterministic multi-role audio Giztest
 
-`go test ./cmd/internal/commands/giztest -run '^TestEinoMultiVoiceGiztest$' -count=1`
-executes `tests/gizclaw-e2e/testdata/eino-voices/multi-turn.giztest.yaml` through the
-Go Giztest runner and CLI `peer_stream` receiver. The fixture retains one real Eino
-Factory/AudioDock invocation across fox, bird, unknown (default), and fox turns.
-A provider-boundary fake emits distinct 300/500/700 Hz Opus tones for the three
-Voice resources; no network, credentials, LLM, or Docker is required. The
-Audioplayer Giztest CI job explicitly runs this test after its device RPC scenarios and Console asset build.
+```sh
+go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|FlowcraftMultiVoiceGiztest|MultiRole.*)$' -count=1
+```
 
-Go `peer_stream` results expose `audio_integrity`: `sha256` hashes the concatenated
-raw audio payloads in arrival order; `streams`, `max_active`, `open`, and `violations`
-report audio BOS/EOS ownership before response filtering. Overlap is visible as
-`max_active > 1`; duplicate BOS, data without BOS, or data after EOS increment
-`violations`. These are evidence fields used with normal `expect` assertions,
-not new document schema fields. A digest proves fixture payload identity, not the
-identity of an arbitrary real provider voice. Digests remain in assertion values
-and are omitted from redacted report evidence.
+The suite shares the fake provider in `voice_fixture_test.go` while retaining real
+Eino/Flowcraft factories, AudioDock, the Go Giztest runner and CLI receiver. No
+external network, credentials or Docker are required. Audioplayer Giztest runs the
+whole suite after building Console assets, reusing its audio test environment.
 
-Every turn requires exactly 40 packets of 20 ms, a maximum arrival gap of 150 ms,
-zero underruns with the existing 500 ms prebuffer, and a nonnegative minimum
-buffer. It also requires the expected voice payload digest, exactly one completed
-audio stream, and no lifecycle violations. The fixture additionally tracks all
-turns without resetting audio ownership and checks four TTS calls with a maximum
-of one active call. Wrong-voice, 900 ms stall, and overlapping-stream injections
-must fail. This deterministic provider-boundary test does not qualify real
-provider quality, WebRTC/Server/Edge pacing, or device playback.
+- `eino-voices/multi-turn.giztest.yaml` retains the four-turn state voice regression.
+  `multi-role-voices/multi-turn.giztest.yaml` runs fox, bird, owl, bear, unknown
+  (default fallback), bear, bear and fox in one invocation. Four Flowcraft publisher
+  nodes use `node_voices`. Distinct deterministic payloads for every turn detect
+  stale TTS audio even across consecutive turns with the same role.
+- Per-turn `audio_integrity/sha256` verifies payload and order; `streams=1`,
+  `max_active=1`, `open=0` and `violations=0` check BOS/EOS, interleaving and late
+  data. Session-wide ownership and TTS call counts also verify that ordinary
+  multi-turn synthesis has at most one active call.
+- `audio_pacing` requires 40 packets of 20 ms, a maximum interval of 150 ms, no
+  underruns with a 500 ms prebuffer and a nonnegative minimum buffer. Both
+  workflows have `long-reply.giztest.yaml` cases with over 2 KB of text and 160
+  packets. Fake TTS injects repeatable 15/25/20 ms jitter; a 900 ms stall must fail.
+- `TestMultiRoleVoiceModesGiztest` sends real Opus input to fake ASR in push-to-talk
+  (transcribe after input EOS) and realtime (final transcript while input remains
+  open) modes. This validates provider boundaries and mode wiring, not real ASR/VAD.
+- `TestMultiRoleVoiceInterrupt` sends B after receiving A's eighth packet while
+  TTS remains active, for both workflows and input modes. It verifies A's valid
+  audio prefix and B's complete 40 packets and digest, with no cross-role overlap.
+  Both text/plain and audio/opus routes are tracked by StreamID and MIME route:
+  A must have interrupted EOS on both routes before B is accepted, and B must
+  have normal EOS on both routes. Any A chunk after B starts, including empty
+  chunks and EOS, fails. `TestMultiRoleVoiceInterruptAssertions` independently
+  rejects missing A text interrupted EOS, late A text after B starts, and missing
+  B text EOS, alongside a complete dual-route positive case.
+- Fault tests reject wrong voice, interleave, stall and truncation without EOS.
+  AudioDock rejects truncation with `TTS ended without EOS`. Independent
+  `TestMultiRoleVoiceAssertions` cases feed raw packet traces to individual digest,
+  maximum-active, open-stream and late-packet expectations, plus the 150/151 ms
+  interval and 500/501 ms buffer boundaries. One failing expectation cannot mask
+  a broken sibling expectation.
+
+Rapid input shares the interruption test above: a new input BOS superseding the
+previous reply is the AudioDock/Flowcraft barge-in contract. The test positively
+asserts a valid A prefix and interrupted EOS on both routes, all 40/40 B packets
+and normal EOS on both routes, no A chunks after B starts, and `max_active=1`, without a duplicate scenario. This provider-boundary
+suite does not qualify real voice identity, Server/Edge/WebRTC pacing or device
+playback.
 
 ## Monitor API giztest
 
