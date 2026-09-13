@@ -487,8 +487,9 @@ func (b DefaultBuilder) buildVolcASR(cfg TransformerConfig) (genx.Transformer, e
 		// that closes an utterance, and force_to_speech_time is the minimum
 		// audio duration before that can happen. The provider documents a
 		// minimum of 1 for force_to_speech_time, so 0 is not a valid "no
-		// minimum" value.
-		endWindowSize = 800
+		// minimum" value. 500 ms of trailing silence keeps realtime replies
+		// inside the 2 s first-text gate; 800 ms pushed them past it.
+		endWindowSize = 500
 		forceToSpeechTime = 1000
 		hasEndWindowSize = true
 		hasForceToSpeechTime = true

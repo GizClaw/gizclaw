@@ -242,6 +242,28 @@ Eino Transformer 只依赖 GenX `ToolInvoker` interface，不接收 RuntimeProfi
 
 Agent 主动开场时，ChatModel 会省略 Prompt 渲染出的无内容 user message，保留系统提示、历史以及多模态输入。
 
+## 本地首响测量
+
+`go test ./pkgs/genx/transformers/eino -run '^TestRealtimeFirstResponseLatency$' -count=3 -v`
+以可控 ASR、ChatModel 和 TTS 替身，运行 server ingress `RealtimeStream.Push` →
+默认 80 ms 时间戳重排 → Audio Dock → Eino Prompt/ChatModel → Audio Dock 输出。
+音频 route 保持打开，由 ASR 的 definite text EOS 启动模型；模型首块之后暂停，验证
+首字和首音不依赖模型完成。测试分别报告重排、替身 endpoint/final、转交 Eino EOS、
+Graph 前准备与 Prompt、首 token、text 转交、TTS 启动、输入与首包耗时。
+
+此测试不连接 WebRTC、不测真实 Provider 或持久化 History Store。它使用与
+`eino-concurrency-assistant` 相同的 Prompt → ChatModel 图形；该 Workflow 不启用
+MemoryLayout/Recall，因此对应测量的 History Store 与 Recall 耗时为零。额外的
+`history_and_memory` 对照配置分别注入 40 ms History query 与 60 ms Recall，单独报告
+两个 Store 边界。配置 Memory 的图仍会在 Graph 前召回；不能为首响而跳过、截断
+或将它移到模型之后。
+
+本地结果不能代替 [Eino 首响验证](../../testing#eino-首响验证)。真实延迟排查应按
+同一 input StreamID 对齐 ASR 的 text `stream_end`、Eino input `stream_end` 和 Eino
+output `first_text`，再对齐 Audio Dock 的 `first_text`、`first_audio`；计时基准仍为
+客户端 `speechEndedAt`。Interim transcript 的 `first_text` 不代表 ASR 已定稿，
+也不能据此提前执行有副作用的对话轮次。
+
 ## 输出适配元数据
 
 `Config.OutputMetadata` 可在每条 output route 的首个非空白 chunk 发布前，从分离的本轮 state 快照生成 `map[string]string`。快照与回调都在 turn mutex 外执行；回调必须是支持并发调用的纯函数，并发首块可能准备多个候选，只有最先发布的非空白 chunk 固定候选。空映射回落同样固定。结果在该 route 内固定，通过 `MessageChunk.Metadata` 传给进程内 adapter，Clone 会复制 map，wire encoder 不得输出这些属性。空白前缀不触发快照。未配置时不复制 state、不增加输出等待。此钩子不改变 Graph 输出名称、primary、History 或 memory；产品层可以用它传递本轮 Voice alias，通用 Eino package 不解析 Voice 资源或执行 TTS。

@@ -28,6 +28,18 @@ transformer, err := dashscoperealtime.New(dashscoperealtime.Config{
 
 Provider session update 和 event name 留在 Adapter 内部；调用方只依赖 GenX Stream 与显式 update contract。
 
+## 初次建连
+
+`Transform` 在读取 input、创建 output Stream 前完成 WebSocket 建连、等待
+`session.created` 和首次 session update。此阶段的临时错误最多重试五次，退避依次为
+100、200、400、800、1600 ms；每次失败都会关闭已创建的 session，最终失败保留原始错误。
+等待和握手遵循调用方 context，取消会关闭尚在初始化的 session。
+
+可恢复错误仅包括 HTTP 503、429、`ServiceBusy`、握手连接重置、broken pipe、EOF
+与网络超时。鉴权、非法参数、其他 4xx 和未识别错误立即失败；结构化鉴权与参数错误
+优先于临时 HTTP status。初始化成功后不重连、不重放输入或已产出的内容，运行期错误
+仍然结束当前会话。该机制不适用于 Eino 首响 gate，也不改变其门槛或 Provider。
+
 ## 输出流关联
 
 同一响应的语音转写文本与音频共享 `StreamID`，分别按 MIME 类型维护 BOS、数据和 EOS。独立的模型文本响应使用另一个 `StreamID`，避免文本结束事件提前关闭语音转写流；打断会关闭该响应的两条流。
