@@ -4,6 +4,7 @@ kind: Workflow
 metadata:
   id: eino-latency-comparison
 spec:
+  toolkit: {tool_ids: []}
   driver: eino
   memory: default-memory
   eino:

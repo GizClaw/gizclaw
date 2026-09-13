@@ -17,7 +17,7 @@ dock, err := audiodock.New(audiodock.Config{
 })
 ```
 
-文本输入直接进入 Agent。音频输入以原有 StreamID 增量送入 ASR；ASR 完成的 transcript 作为一轮文本输入送入 Agent。Agent 的文本输出立即可 pull，同时已交付文本会复制给 TTS。TTS 音频和文本共用 response StreamID，但各 MIME channel 独立发送 EOS。
+文本输入直接进入 Agent。音频输入以原有 StreamID 增量送入 ASR；ASR 完成的 transcript 作为一轮文本输入送入 Agent。`StreamCtrl.TextInterim` 标记整句替换的中间识别假设，只用于客户端 transcript 显示；Audio Dock 转交 Agent 时清空这类 chunk 的文本，保留其 StreamID、BOS/EOS 与错误边界。未标记的定稿文本仍按顺序追加，一轮内多个定稿段不做去重或整轮替换；只有中间结果就被打断时不提交 user turn。该标记为进程内属性，`Clone` 保留它，wire 编码不暴露它。Agent 的文本输出立即可 pull，同时已交付文本会复制给 TTS。TTS 音频和文本共用 response StreamID，但各 MIME channel 独立发送 EOS。
 
 每个 child Transformer 仍然负责自己创建的 StreamID 或 MIME channel。Audio Dock 原样保留无关的透传 route，并按 child 原始的 `(StreamID, canonical MIME)` key 验证每个 child TTS lifecycle；data-before-BOS、duplicate BOS、EOS 后继续输出、missing EOS 或完全没有 MIME lifecycle 都是 route error。多个 publisher 为同一个最终 MIME channel 合成时，Audio Dock 把已验证的 child boundary 合并为一个最终 BOS 和一个最终 EOS；它只负责这个 remap 后的最终 route，不修补不合规的 child 生命周期。
 

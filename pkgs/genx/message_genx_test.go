@@ -206,3 +206,22 @@ func TestMessageChunkMetadataIsDetachedAndProcessLocal(t *testing.T) {
 		t.Fatalf("metadata leaked: %s", encoded)
 	}
 }
+
+func TestInterimTextControlCloneIsProcessLocal(t *testing.T) {
+	chunk := &MessageChunk{Part: Text("hypothesis"), Ctrl: &StreamCtrl{StreamID: "speech", TextInterim: true}}
+	clone := chunk.Clone()
+	if !clone.Ctrl.TextInterim {
+		t.Fatal("Clone lost interim status")
+	}
+	clone.Ctrl.TextInterim = false
+	if !chunk.Ctrl.TextInterim {
+		t.Fatal("Clone shares StreamCtrl")
+	}
+	encoded, err := json.Marshal(chunk.Ctrl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(encoded) != `{"stream_id":"speech"}` {
+		t.Fatalf("interim status leaked to wire: %s", encoded)
+	}
+}

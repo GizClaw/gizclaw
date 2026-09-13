@@ -4,6 +4,7 @@ kind: Workflow
 metadata:
   id: flowcraft-voice-assistant
 spec:
+  toolkit: {tool_ids: []}
   driver: flowcraft
   memory: voice-assistant-memory
   flowcraft:

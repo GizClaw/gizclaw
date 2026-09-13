@@ -27,6 +27,10 @@
 !cmd-config-home/gizclaw/*/config.yaml
 !audio/
 !audio/*.ogg
+!text-input/
+!text-input/*.giztest.yaml
+!text-input/live/
+!text-input/live/*.giztest.yaml
 !eino-voices/
 !eino-voices/*.json
 !eino-voices/*.yaml
