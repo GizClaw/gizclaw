@@ -718,3 +718,28 @@ func joinedText(chunks []*genx.MessageChunk) string {
 	}
 	return result.String()
 }
+
+func TestWhitespaceTurnDoesNotInvokeModel(t *testing.T) {
+	chat := &fakeChatModel{chunks: []*schema.Message{schema.AssistantMessage("reply", nil)}}
+	transformer, err := New(t.Context(), chatConfig(&componentMapResolver{chat: chat}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := newInputBuilder()
+	output, err := transformer.Transform(t.Context(), input.Stream())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer output.Close()
+	addTextTurn(t, input, " \t\n　 ")
+	addTextTurn(t, input, "next user turn")
+	if err := input.Done(genx.Usage{}); err != nil {
+		t.Fatal(err)
+	}
+	drain(t, output)
+	chat.mu.Lock()
+	defer chat.mu.Unlock()
+	if len(chat.inputs) != 1 {
+		t.Fatalf("model calls=%d, want only normal turn", len(chat.inputs))
+	}
+}

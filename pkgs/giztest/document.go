@@ -972,8 +972,20 @@ func validatePeerStreamStep(step Step, finalizer bool) error {
 		if op.Label != "" {
 			return fmt.Errorf("step %s overlap_input does not support label", step.ID)
 		}
-		if (op.Mode != "push-to-talk" && op.Mode != "realtime") || op.EmptyInput || op.Input == nil {
-			return fmt.Errorf("step %s overlap_input requires nonempty audio input", step.ID)
+		if (op.Mode != "push-to-talk" && op.Mode != "realtime" && op.Mode != "text") || op.EmptyInput || op.Input == nil {
+			return fmt.Errorf("step %s overlap_input requires audio or two text messages", step.ID)
+		}
+		if op.Mode == "text" {
+			values, ok := op.Input.([]any)
+			if !ok || len(values) != 2 {
+				return fmt.Errorf("step %s text overlap_input requires exactly two messages", step.ID)
+			}
+			for _, value := range values {
+				text, ok := value.(string)
+				if !ok || strings.TrimSpace(text) == "" {
+					return fmt.Errorf("step %s text overlap_input requires nonblank messages", step.ID)
+				}
+			}
 		}
 		if op.InterruptAfter != "" || op.Completion != "" || op.Session != "" || op.KeepOpen || op.AwaitRearm != "" || op.TerminalLabel != "" || op.RequireText != nil || op.RequireAudio != nil || op.FirstTextTimeout != "" || op.FirstAudioTimeout != "" || op.WaitForHistory || op.IdleTimeout != "" {
 			return fmt.Errorf("step %s overlap_input only supports mode, input and pacing; use step timeout", step.ID)
@@ -1090,7 +1102,9 @@ func validatePeerStreamStep(step Step, finalizer bool) error {
 	default:
 		return fmt.Errorf("step %s has unsupported peer_stream completion %q", step.ID, step.PeerStream.Completion)
 	}
-	if step.PeerStream.RequireText != nil && step.PeerStream.RequireAudio != nil && !*step.PeerStream.RequireText && !*step.PeerStream.RequireAudio {
+	text, isText := op.Input.(string)
+	quietText := op.Mode == "text" && isText && strings.TrimSpace(text) == "" && op.IdleTimeout != "" && (op.Completion == "" || op.Completion == "terminal")
+	if step.PeerStream.RequireText != nil && step.PeerStream.RequireAudio != nil && !*step.PeerStream.RequireText && !*step.PeerStream.RequireAudio && !quietText {
 		return fmt.Errorf("step %s peer_stream must require text, audio, or both", step.ID)
 	}
 	return nil

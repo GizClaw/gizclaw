@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
+
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -19,6 +21,7 @@ import (
 
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
 	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtime"
@@ -119,6 +122,10 @@ func (s *textRegressionStream) Next() (*genx.MessageChunk, error) {
 // ID, and length-prefixed JSON. This fixture never synthesizes ASREnded for text.
 func textRegressionProvider(t *testing.T) *httptest.Server {
 	t.Helper()
+	var providerAudio bytes.Buffer
+	if err := codecconv.OpusPacketsToOgg(&providerAudio, 16000, 1, [][]byte{testAudibleOpus(t)}); err != nil {
+		t.Fatal(err)
+	}
 	listener := &textPipeListener{connections: make(chan net.Conn), done: make(chan struct{})}
 	previous := websocket.DefaultDialer
 	dialer := *previous
@@ -149,6 +156,9 @@ func textRegressionProvider(t *testing.T) *httptest.Server {
 		turn := 0
 		send := func(event uint32, payload string) error {
 			data := []byte{0x11, 0x94, 0x10, 0}
+			if event == 352 {
+				data[1], data[2] = 0xb4, 0
+			}
 			data = binary.BigEndian.AppendUint32(data, event)
 			id := sessionID
 			if event == 50 {
@@ -160,11 +170,19 @@ func textRegressionProvider(t *testing.T) *httptest.Server {
 			data = append(data, payload...)
 			return conn.WriteMessage(websocket.BinaryMessage, data)
 		}
-		reply := func() error {
+		reply := func(text string) error {
 			turn++
-			payload := fmt.Sprintf(`{"text":"local assistant reply","question_id":"question-%d","reply_id":"reply-%d"}`, turn, turn)
-			for _, event := range []uint32{350, 550, 359, 559} {
-				if err := send(event, payload); err != nil {
+			payload := fmt.Sprintf(`{"text":%s,"question_id":"question-%d","reply_id":"reply-%d"}`, quotedText(text), turn, turn)
+			events := []uint32{350, 550, 352, 359, 559}
+			if strings.Contains(text, "第一段") {
+				events = events[:3]
+			}
+			for _, event := range events {
+				body := payload
+				if event == 352 {
+					body = providerAudio.String()
+				}
+				if err := send(event, body); err != nil {
 					return err
 				}
 			}
@@ -177,7 +195,7 @@ func textRegressionProvider(t *testing.T) *httptest.Server {
 			if err := send(459, fmt.Sprintf(`{"question_id":"question-%d"}`, turn+1)); err != nil {
 				return err
 			}
-			return reply()
+			return reply("spoken question")
 		}
 		for {
 			_, data, err := conn.ReadMessage()
@@ -206,7 +224,18 @@ func textRegressionProvider(t *testing.T) *httptest.Server {
 				sessionID = string(data[12 : 12+n])
 				err = send(150, `{"dialog_id":"local-dialog"}`)
 			case 501:
-				err = reply()
+				n := int(binary.BigEndian.Uint32(data[8:12]))
+				var payload struct {
+					Content string `json:"content"`
+				}
+				if err := json.Unmarshal(data[16+n:], &payload); err != nil {
+					t.Error(err)
+					return
+				}
+				if strings.TrimSpace(payload.Content) == "" {
+					payload.Content = "unexpected whitespace query"
+				}
+				err = reply(payload.Content)
 			case 200:
 				if realtime && !audioReplied {
 					audioReplied = true
@@ -305,10 +334,14 @@ func textRegressionTransformer(t *testing.T, ctx context.Context, workflow strin
 
 type textRegressionGenerator struct{}
 
-func (textRegressionGenerator) GenerateStream(_ context.Context, _ string, mc genx.ModelContext) (genx.Stream, error) {
+func (textRegressionGenerator) GenerateStream(ctx context.Context, _ string, mc genx.ModelContext) (genx.Stream, error) {
 	b := genx.NewStreamBuilder(mc, 8)
-	if err := b.Add(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("local adventure reply")}); err != nil {
+	if err := b.Add(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(textRegressionUserText(mc))}); err != nil {
 		return nil, err
+	}
+	if strings.Contains(textRegressionUserText(mc), "第一段") {
+		go func() { <-ctx.Done(); _ = b.Done(genx.Usage{}) }()
+		return b.Stream(), nil
 	}
 	if err := b.Done(genx.Usage{}); err != nil {
 		return nil, err
@@ -336,7 +369,7 @@ func (tts textRegressionTTS) Transform(ctx context.Context, _ string, input genx
 			if text, ok := chunk.Part.(genx.Text); ok && len(text) > 0 {
 				ctrl := *chunk.Ctrl
 				ctrl.BeginOfStream = true
-				ctrl.EndOfStream = true
+				ctrl.EndOfStream = !strings.Contains(string(text), "第一段")
 				_ = output.Push(ctx, &genx.MessageChunk{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus", Data: tts.audio}, Ctrl: &ctrl})
 			}
 		}
@@ -369,7 +402,7 @@ func TestDeviceTextInputLive(t *testing.T) {
 
 func TestDeviceTextInputDocuments(t *testing.T) {
 	files, err := filepath.Glob(filepath.Join("..", "..", "..", "..", "tests", "gizclaw-e2e", "testdata", "text-input", "live", "*.giztest.yaml"))
-	if err != nil || len(files) != 10 {
+	if err != nil || len(files) < 10 {
 		t.Fatalf("live fixtures: %d, %v", len(files), err)
 	}
 	for _, file := range files {
@@ -390,15 +423,225 @@ func (textStoryProvider) ResolveRetriever(context.Context, string) (retriever.Re
 	return nil, errors.New("unexpected retriever")
 }
 func (textStoryProvider) Generate(_ context.Context, input []*schema.Message, _ ...einomodel.Option) (*schema.Message, error) {
-	if len(input) != 2 || input[1].Role != schema.User || input[1].Content != "请回答这条文字消息" {
+	if len(input) != 2 || input[1].Role != schema.User || strings.TrimSpace(input[1].Content) == "" {
 		return nil, errors.New("story model did not receive the complete user input")
 	}
-	return schema.AssistantMessage("小剧场的旁白回应了你的选择。", nil), nil
+	return schema.AssistantMessage(input[1].Content, nil), nil
 }
 func (p textStoryProvider) Stream(ctx context.Context, input []*schema.Message, options ...einomodel.Option) (*schema.StreamReader[*schema.Message], error) {
 	message, err := p.Generate(ctx, input, options...)
 	if err != nil {
 		return nil, err
 	}
+	if strings.Contains(message.Content, "第一段") {
+		reader, writer := schema.Pipe[*schema.Message](1)
+		go func() { defer writer.Close(); writer.Send(message, nil); <-ctx.Done() }()
+		return reader, nil
+	}
 	return schema.StreamReaderFromArray([]*schema.Message{message}), nil
+}
+
+func quotedText(text string) string { b, _ := json.Marshal(text); return string(b) }
+
+func textRegressionUserText(mc genx.ModelContext) string {
+	var text string
+	for message := range mc.Messages() {
+		if message.Role == genx.RoleUser {
+			if contents, ok := message.Payload.(genx.Contents); ok {
+				for _, part := range contents {
+					if value, ok := part.(genx.Text); ok {
+						text = string(value)
+					}
+				}
+			}
+		}
+	}
+	return text
+}
+
+func TestDeviceTextSequences(t *testing.T) {
+	for _, workflow := range []string{"doubao-ptt", "doubao-realtime", "doubao-external-tts", "eino-story", "flowcraft-adventure"} {
+		for _, scenario := range []string{"consecutive", "opening", "resume", "utf8", "long", "alternating", "whitespace", "interrupt", "silence"} {
+			if scenario == "silence" && workflow != "doubao-realtime" {
+				continue
+			}
+			if (scenario == "opening" || scenario == "resume") && workflow != "eino-story" && workflow != "flowcraft-adventure" {
+				continue
+			}
+			t.Run(workflow+"/"+scenario, func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+				defer cancel()
+				tr := textRegressionTransformer(t, ctx, workflow)
+				if workflow == "eino-story" || workflow == "flowcraft-adventure" {
+					dock, err := audiodock.New(audiodock.Config{Agent: tr, ASR: textRegressionASR{}, TTS: textRegressionTTS{audio: testAudibleOpus(t)}, ResolveVoice: func(context.Context, audiodock.VoiceRequest) (string, error) { return "voice/local", nil }})
+					if err != nil {
+						t.Fatal(err)
+					}
+					tr = dock
+				}
+				input := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
+				defer input.Close()
+				output, err := tr.Transform(ctx, input)
+				if err != nil {
+					t.Fatal(err)
+				}
+				stream := &textRegressionStream{Stream: output, input: input, verifyRoute: strings.HasPrefix(workflow, "doubao") && workflow != "doubao-external-tts"}
+				defer stream.Close()
+				session := newPeerStreamSession("peer", stream)
+				defer session.Close()
+				if scenario != "interrupt" {
+					session.startReader()
+				}
+				doc, err := giztest.LoadDocument(filepath.Join("..", "..", "..", "..", "tests", "gizclaw-e2e", "testdata", "text-input", scenario+".giztest.yaml"), newDriver(false, nil))
+				if err != nil {
+					t.Fatal(err)
+				}
+				for i, step := range doc.Steps {
+					value := step.PeerStream.Input
+					if step.PeerStream.Mode == "listen" {
+						duration, err := time.ParseDuration(step.PeerStream.Duration)
+						if err != nil {
+							t.Fatal(err)
+						}
+						select {
+						case <-time.After(duration):
+						case result := <-session.next:
+							t.Fatalf("output during client silence: %#v", result)
+						case <-ctx.Done():
+							t.Fatal(ctx.Err())
+						}
+						continue
+					}
+					if step.PeerStream.OverlapInput {
+						stream.verifyRoute = false
+						result, err := invokePeerStreamOnStream(ctx, nil, nil, stream, nil, "", step, value, 0, nil)
+						if err != nil {
+							t.Fatalf("overlap: %v; %v", err, result.evidence)
+						}
+						for _, key := range []string{"input_overlap", "second_text_eos", "second_audio_eos"} {
+							if result.assertion.(map[string]any)[key] != true {
+								t.Fatalf("missing %s: %v", key, result.assertion)
+							}
+						}
+						continue
+					}
+					expected := value.(string)
+					if step.PeerStream.Mode == "push-to-talk" {
+						value, _ = testOggOpus(t)
+						expected = "spoken questionspoken question"
+						step.PeerStream.Pacing = "0ms"
+						if workflow == "doubao-realtime" {
+							step.PeerStream.Mode = "realtime"
+						}
+					}
+					if workflow == "doubao-external-tts" && strings.TrimSpace(expected) != "" {
+						yes := true
+						step.PeerStream.RequireAudio = &yes
+					}
+					result, err := invokePeerStreamOnStream(ctx, nil, nil, stream, session, fmt.Sprintf("turn-%d", i), step, value, 0, nil)
+					if err != nil {
+						t.Fatalf("%s: %v; %v", step.ID, err, result.evidence)
+					}
+					object := result.assertion.(map[string]any)
+					if strings.TrimSpace(expected) == "" {
+						continue
+					}
+					if object["text_eos"] != true {
+						t.Fatalf("%s missing text EOS: %v", step.ID, object)
+					}
+					texts := object["text"].([]string)
+					if strings.Join(texts, "") != expected {
+						t.Fatalf("%s reply mismatch: got %q want %q", step.ID, texts, expected)
+					}
+				}
+			})
+		}
+	}
+}
+
+type textRegressionASR struct{}
+
+func (textRegressionASR) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	output := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
+	go func() {
+		defer output.Close()
+		for {
+			chunk, err := input.Next()
+			if err != nil {
+				return
+			}
+			if chunk != nil && chunk.IsEndOfStream() {
+				ctrl := *chunk.Ctrl
+				ctrl.Label = "transcript"
+				ctrl.BeginOfStream = true
+				if err := output.Push(ctx, &genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("spoken question"), Ctrl: &ctrl}); err != nil {
+					return
+				}
+			}
+		}
+	}()
+	return output, nil
+}
+
+// Faults must fail for content/lifecycle violations, not merely time out.
+func TestDeviceTextQuietWindowRejectsReplies(t *testing.T) {
+	for _, fault := range []string{"text", "audio", "error"} {
+		t.Run(fault, func(t *testing.T) {
+			stream := newFakeRelayStream()
+			defer stream.Close()
+			no := false
+			step := giztest.Step{PeerStream: &giztest.PeerStreamOperation{Mode: "text", TextDone: true, Input: " \t\n", RequireText: &no, RequireAudio: &no, IdleTimeout: "20ms"}}
+			chunk := assistantText("unexpected", "reply", true)
+			if fault == "audio" {
+				chunk = assistantBlob("unexpected", testAudibleOpus(t), true)
+			}
+			if fault == "error" {
+				chunk = assistantText("unexpected", "", true)
+				chunk.Ctrl.Error = "provider failure"
+			}
+			stream.in <- chunk
+			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+			defer cancel()
+			_, err := invokePeerStreamOnStream(ctx, nil, nil, stream, nil, "blank", step, step.PeerStream.Input, 0, nil)
+			if err == nil || !strings.Contains(err.Error(), "whitespace") {
+				t.Fatalf("fault %s: %v", fault, err)
+			}
+		})
+	}
+}
+
+func TestDeviceTextOverlapRejectsInterleaving(t *testing.T) {
+	for _, fault := range []string{"early-end", "replacement-before-end", "late-old-content"} {
+		t.Run(fault, func(t *testing.T) {
+			stream := newFakeRelayStream()
+			defer stream.Close()
+			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+			defer cancel()
+			done := make(chan error, 1)
+			go func() {
+				_, err := invokeOverlappingPeerInput(ctx, stream, &giztest.PeerStreamOperation{Mode: "text", TextDone: true, Pacing: "0ms"}, []any{"first", "second"})
+				done <- err
+			}()
+			nextPush(t, stream)
+			nextPush(t, stream)
+			stream.in <- assistantText("first", "first", false)
+			stream.in <- assistantBlob("first", testAudibleOpus(t), fault == "early-end")
+			if fault != "early-end" {
+				nextPush(t, stream)
+				nextPush(t, stream)
+				if fault == "late-old-content" {
+					stream.in <- assistantText("first", "", true)
+					stream.in <- assistantBlob("first", nil, true)
+				}
+				stream.in <- assistantText("second", "second", false)
+				if fault == "late-old-content" {
+					stream.in <- assistantText("first", "stale", false)
+				}
+			}
+			err := <-done
+			if err == nil || errors.Is(err, context.DeadlineExceeded) {
+				t.Fatalf("fault %s escaped lifecycle check: %v", fault, err)
+			}
+		})
+	}
 }

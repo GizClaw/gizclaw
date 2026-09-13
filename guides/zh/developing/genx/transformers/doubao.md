@@ -214,3 +214,5 @@ go test ./pkgs/genx/... -count=1
 ```
 
 涉及真实 provider contract、SDK upgrade 或 event schema 变化时，还必须运行受凭据保护的 integration test；单元测试 fake 不能替代真实 session 的 cancel、Close/Recv 并发和 event ordering 验证。
+
+纯空白的文字轮次不调用 SendText；Push-to-Talk 在本地完成空轮次，后续文字或音频可继续使用同一 session。

@@ -1979,6 +1979,21 @@ func (t *Transformer) processSession(
 				}
 			}
 		case genx.Text:
+			// Whitespace is not a provider query. Complete the local PTT
+			// lifecycle without calling SendText or leaving a capturing turn.
+			// Zero-length text is a route boundary inside a turn, not input.
+			if len(p) > 0 && strings.TrimSpace(string(p)) == "" {
+				if t.mode == ModePushToTalk && chunk.IsEndOfStream() {
+					if err := pushToTalk.end(); err != nil {
+						return err
+					}
+					if err := completeAudiolessTurn(streamIDs.serviceInput(chunk)); err != nil {
+						return err
+					}
+					inputAudioEnded = true
+				}
+				continue
+			}
 			if len(p) > 0 {
 				var response *doubaoRealtimeTextResponse
 				if t.mode == ModeText {

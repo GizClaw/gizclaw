@@ -347,12 +347,27 @@ JavaScript 与 Flutter 省略该字段。
 
 `TestDeviceTextInputGiztest` 读取 `tests/gizclaw-e2e/testdata/text-input/` 中的 Giztest 文档，执行 Go runner 的真实 `peer_stream` operation、RealtimeStream 和三个 driver 的 Transformer。Doubao SDK 通过内存 HTTP/WebSocket 连接到本地 provider fixture；Eino 使用本地 typed Graph，Flowcraft 使用本地 Generator，外挂 TTS 输出可解码的非静音 Opus。此测试不需要凭据或本地端口，验证零/Unix 毫秒时间戳、PTT/Realtime、直接文字及语音后文字；它不替代真实 Server/WebRTC 或产品 Graph 的验收。
 
+`TestDeviceTextSequences` 对五种配置增加连续两轮、同连接文字打断、文字→语音→文字、
+空白后恢复、4002 字节中文和 UTF-8/emoji；Eino/Flowcraft 另测 `开始` 与有前序轮次的
+`继续上次的内容`，Realtime 另测客户端静默后文字。Provider 回显完整输入，使本地测试可
+精确检查轮次内容与重复回复；本地 Graph 不代替产品 Graph 的状态恢复验收。
+
+Go runner 的 `overlap_input: true` 在 `mode: text` 时要求 `input` 为两条非空文字组成的数组。
+第一轮可听音频到达、音频 EOS 尚未到达时，在同一连接发送第二轮 BOS 和文字；两轮都
+必须结束，第二轮必须有文字和音频，旧轮内容不得与新轮交错。它不使用 `interrupt_after`
+的关闭重开连接行为。该扩展由 Go runner 执行。
+
+空白文字可显式设置 `require_text: false`、`require_audio: false` 和正数 `idle_timeout`，
+观察无回复窗口；有效 assistant 文字、音频或 terminal error 均失败，窗口结束后才进入下一轮。
+这只适用于空白文字的 terminal completion，普通输入仍必须要求至少一种回复模态。
+Live 场景保留原有凭据开关；普通本地测试不会执行 live 场景。
+
 ```sh
 go test ./cmd/internal/commands/giztest -run '^TestDeviceText' -count=1
 go test -race ./pkgs/genx/transformers/doubaorealtime -count=1
 ```
 
-同目录 `live/` 下的十份独立文档使用标准 E2E Workflow catalog，创建 Workspace，在首次文字回复、语音回复和后续文字回复中都检查文本、完整终态及非静音音频，然后清理资源。先按上面的 Docker E2E 步骤启动带凭据的环境，并设置其 `GIZCLAW_TEST_ENDPOINT`、`GIZCLAW_TEST_REGISTRATION_TOKEN`；以下入口默认跳过，显式选择后缺少环境变量或任一场景失败都会失败：
+同目录 `live/` 下的独立文档使用标准 E2E Workflow catalog，创建 Workspace，在首次文字回复、语音回复和后续文字回复中都检查文本、完整终态及非静音音频，然后清理资源。先按上面的 Docker E2E 步骤启动带凭据的环境，并设置其 `GIZCLAW_TEST_ENDPOINT`、`GIZCLAW_TEST_REGISTRATION_TOKEN`；以下入口默认跳过，显式选择后缺少环境变量或任一场景失败都会失败：
 
 ```sh
 GIZCLAW_TEXT_INPUT_LIVE=1 go test ./cmd/internal/commands/giztest \

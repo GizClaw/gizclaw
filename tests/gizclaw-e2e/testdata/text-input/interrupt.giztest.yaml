@@ -1,0 +1,28 @@
+# User Story:
+# As a device using an audio Workspace,
+# I want to send a second text when the first reply has audible audio but no EOS,
+# So that the old reply ends before new reply content and the new reply completes.
+version: gizclaw.test/v1alpha1
+name: device-text-interrupt
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: http://127.0.0.1
+variables: {}
+steps:
+  - id: interrupt
+    client: peer
+    timeout: 10s
+    peer_stream:
+      mode: text
+      text_done: true
+      overlap_input: true
+      input: ["第一段：请长篇讲述森林故事。", "第二段：停止刚才的故事，介绍月亮。"]
+    expect:
+      /input_overlap:
+        equals: true
+      /second_text_eos:
+        equals: true
+      /second_audio_eos:
+        equals: true

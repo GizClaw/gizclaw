@@ -915,6 +915,10 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	}
 	// An empty push-to-talk turn has no response to wait for: it completes when
 	// both assistant routes close, and it must close them without content.
+	// A whitespace text probe explicitly disables both reply modalities and
+	// observes a bounded quiet window. It must still send the original bytes.
+	textInput, _ := input.(string)
+	quietText := op.Mode == "text" && strings.TrimSpace(textInput) == "" && !firstResponse && op.RequireText != nil && !*op.RequireText && op.RequireAudio != nil && !*op.RequireAudio && idleTimeout > 0
 	emptyTurn := op.EmptyInput
 	requireText := !emptyTurn && (op.RequireText == nil || *op.RequireText)
 	requireAudio := !emptyTurn && (op.RequireAudio == nil || *op.RequireAudio)
@@ -1112,6 +1116,12 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			textEOSMS, audioEOSMS = 0, 0
 			armIdle()
 		case <-idle:
+			if quietText {
+				if len(terminalErrors) != 0 {
+					return operationResult{}, fmt.Errorf("whitespace input terminal error: %s", strings.Join(terminalErrors, "; "))
+				}
+				return finish()
+			}
 			return operationResult{evidence: failedEvidence("idle_timeout")}, fmt.Errorf("peer_stream idle timeout exceeded after %s (deadline=idle_timeout last_event_ms=%d %s)", op.IdleTimeout, lastEventMS, counters())
 		case <-firstTextDeadline:
 			if arrivals.firstTextWithin(firstTextTimeout) {
@@ -1187,6 +1197,19 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				response = responses[actualStreamID]
 				responseInterrupted := result.chunk.Ctrl != nil && strings.EqualFold(strings.TrimSpace(result.chunk.Ctrl.Error), "interrupted")
 				hasContent := false
+				if quietText && label == "assistant" {
+					switch part := result.chunk.Part.(type) {
+					case genx.Text:
+						if strings.TrimSpace(string(part)) != "" {
+							return operationResult{}, fmt.Errorf("whitespace input produced assistant text")
+						}
+					case *genx.Blob:
+						if len(part.Data) > 0 {
+							return operationResult{}, fmt.Errorf("whitespace input produced assistant audio")
+						}
+					}
+					continue
+				}
 				switch part := result.chunk.Part.(type) {
 				case genx.Text:
 					hasContent = strings.TrimSpace(string(part)) != ""
