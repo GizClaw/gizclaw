@@ -55,6 +55,7 @@ func main() {
 
 func run() error {
 	var (
+		slowTTS           = flag.Bool("slow-tts", false, "Seed local slow TTS regression workflows")
 		server            = flag.String("server", "", "Server endpoint, e.g. server-a:9820")
 		profileID         = flag.String("profile-id", "", "RuntimeProfile ID to upsert")
 		monitorWorkflowID = flag.String("monitor-workflow-id", "", "Optional model-free Flowcraft Workflow for Monitor history tests")
@@ -113,6 +114,9 @@ func run() error {
 		return fmt.Errorf("admin client: %w", err)
 	}
 
+	if *slowTTS {
+		return seedSlowTTS(ctx, api, *profileID, *tokenID, *token)
+	}
 	provider, providerErr := providerCredentials()
 	if providerErr != nil {
 		fmt.Fprintln(os.Stderr, "multiserver-seed: provider aliases omitted:", providerErr)

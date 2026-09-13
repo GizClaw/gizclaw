@@ -17,7 +17,9 @@ dock, err := audiodock.New(audiodock.Config{
 })
 ```
 
-Text input enters the Agent directly. Audio input is streamed incrementally to ASR with its original StreamID; the completed transcript becomes one text turn for the Agent. Agent text is immediately pullable while delivered text is copied to TTS. Synthesized audio and text share the response StreamID, with independent EOS markers for each MIME channel.
+Text input enters the Agent directly. Audio input is streamed incrementally to ASR with its original StreamID; the completed transcript becomes one text turn for the Agent. Agent text is immediately pullable and is also queued for TTS in its original order. Synthesized audio and text share the response StreamID, with independent EOS markers for each MIME channel.
+
+Text content is independent of audio timing: voice resolution, TTS session startup, and synthesis do not block subsequent model text. A text EOS carrying content is split into immediately readable content and a deferred empty text EOS; the response epoch ends only after sibling routes finish or are cancelled. Each publisher queues TTS input in order. A new input BOS cancels old TTS work even during voice resolution or startup, and a late provider stream is closed without emitting old audio into the next turn. This boundary also applies to realtime/duplex input: the ASR definite transcript determines when the model starts, and Audio Dock adds no wait for the outer audio EOS or playback cadence.
 
 Every child Transformer remains responsible for the StreamID or MIME channels it creates. Audio Dock preserves unrelated pass-through routes and validates each child TTS lifecycle by the child's original `(StreamID, canonical MIME)` key. Data before BOS, duplicate BOS, output after EOS, a missing EOS, or a child stream with no MIME lifecycle is a route error. When multiple publishers synthesize the same final MIME channel, Audio Dock merges their validated child boundaries into one final BOS and one final EOS; it owns only that remapped final route and does not repair an invalid child lifecycle.
 

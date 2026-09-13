@@ -509,8 +509,9 @@ turn 输入推送完成后启动计时器，每收到一个 chunk（不区分 la
 `gizcli.PeerStream`。首个 `mode: realtime` 步骤同时设置 `session` 与
 `keep_open: true`；后续同 client 的 realtime 步骤使用同一 `session` 和
 `await_rearm: INPUT_ROUTE_RELOADED`。后者先消费旧 route 的精确 retryable user-audio
-EOS，再发送 fresh BOS，之后才发送声明的音频输入。一个 session 只能创建一次、消费一次；
-未知、重复、已消费、跨 client 或跨 task 的 session 都在发送输入前失败。
+EOS，再发送 fresh BOS，之后才发送声明的音频输入。Go runner 也支持后续步骤只设置
+同一 `session` 和 `keep_open: true`：立即发送新 BOS，在旧回复尚未完成时开始下一轮，
+不等待 route reload。已消费、跨 client 或跨 task 的 session 不能用于 re-arm。
 
 从等待重载到替换回复结束，任何 assistant EOS 的 error code 或 message 都使步骤失败，包括 `interrupted`；无错误 EOS 和精确的输入重载通知允许通过。
 
@@ -1146,3 +1147,19 @@ bash tests/gizclaw-e2e/run_monitor_tests.sh
 `bash tests/gizclaw-e2e/run_audioplayer_tests.sh` 启动隔离的真实 Server 和 Edge，以 SQLite 保存 runtime，不需要模型或 provider 凭据。入口执行六个 `server.device.audioplayer.*` 场景，退出时清理容器与临时身份；报告保留在 ignored `.testbench` 目录。独立 CI job 运行相同入口。
 
 脚本化设备 provider 验证 HTTP 授权、校验、反向 RPC、列表 contract 和快照投影，不下载或播放音乐。五个控制场景由 Go、JavaScript、Flutter、C runner 支持。独立 `telemetry` step 的 `frame` 使用 protobuf JSON，由 Go SDK 经真实 packet channel 发送；其他 runner 明确跳过此 operation。发送成功不表示落库：telemetry 场景轮询 `server.status.get`，再通过 HTTP status 验证进度、错误、旧报告保护和 OTA 共存。此处不新增 Dart telemetry transport，也不代表真机播放验收。
+
+## 本地慢 TTS 回归
+
+`bash tests/gizclaw-e2e/run_slow_tts_tests.sh` 在 internal Docker 网络中运行真实
+Server、Edge 和 Go Peer，使用临时身份和 SQLite，不读取 provider 凭据。
+Go build overlay 只替换 peergenx 的默认 provider builder；Workflow factory、
+AudioDock、AgentHost、WebRTC、首响应计时与音频接收器均使用被测源码。
+替身 ASR 从输入音频生成固定 transcript，TTS 启动等待 12 秒后声明空音频 BOS，
+合成等待 200 毫秒，
+再输出 80 个有效的 20 毫秒 Opus 音频帧。延迟受 context 取消约束。
+
+`slow-tts.*.giztest.yaml` 覆盖 Eino push-to-talk、Eino realtime 和 Flowcraft realtime。
+`first_response` 步骤保持 2 秒首文本期限；使用相同 Workflow 的独立 Peer 检查 text/audio EOS、非空音频、
+无重叠和播放节拍。Realtime 在保留的 session 中连续发起输入，覆盖旧 TTS 启动期间的换轮。
+此套件接在 CI 的 Audioplayer Giztest job；标准 provider-backed runner 排除这些专用夹具。
+报告保留在 `.testbench/slow-tts-*/reports/`，退出时清理容器、镜像和临时运行状态。

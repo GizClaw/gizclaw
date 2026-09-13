@@ -1712,6 +1712,67 @@ func TestInvokePeerStreamFirstResponseTimingsStayNonNegative(t *testing.T) {
 	}
 }
 
+func TestInvokePeerStreamContinuesRetainedRealtimeSession(t *testing.T) {
+	stream := newFakeRelayStream()
+	sessions := newPeerStreamSessions()
+	t.Cleanup(func() { _ = sessions.Close() })
+	openCount := 0
+	open := func() (peerStream, error) {
+		openCount++
+		return stream, nil
+	}
+	requireAudio := false
+	firstStep := giztest.Step{ID: "first", Client: "peer", PeerStream: &giztest.PeerStreamOperation{
+		Mode: "realtime", Session: "microphone", KeepOpen: true,
+		Completion: "first_response", FirstTextTimeout: "1s", RequireAudio: &requireAudio,
+	}}
+	firstStreamID := make(chan string, 1)
+	go func() {
+		for i := range 202 {
+			chunk := <-stream.pushes
+			if i == 0 {
+				firstStreamID <- chunk.Ctrl.StreamID
+			}
+		}
+		stream.in <- assistantText("assistant-1", "ready", false)
+	}()
+	first, err := invokePeerStreamWithSessions(context.Background(), nil, open, sessions, firstStep, []byte{1}, 0)
+	if err != nil {
+		t.Fatalf("retain realtime session: %v", err)
+	}
+	oldID := <-firstStreamID
+	if first.evidence["session_retained"] != true || openCount != 1 {
+		t.Fatalf("first evidence=%#v open_count=%d", first.evidence, openCount)
+	}
+	secondStep := giztest.Step{ID: "second", Client: "peer", PeerStream: &giztest.PeerStreamOperation{
+		Mode: "realtime", Session: "microphone",
+		KeepOpen: true, Completion: "first_response", FirstTextTimeout: "1s", RequireAudio: &requireAudio,
+	}}
+	secondStreamID := make(chan string, 1)
+	go func() {
+		for i := range 202 {
+			chunk := <-stream.pushes
+			if i == 0 {
+				secondStreamID <- chunk.Ctrl.StreamID
+			}
+		}
+		stream.in <- assistantText("assistant-2", "ready again", false)
+	}()
+	second, err := invokePeerStreamWithSessions(context.Background(), nil, open, sessions, secondStep, []byte{1}, 0)
+	if err != nil {
+		t.Fatalf("re-arm retained realtime session: %v", err)
+	}
+	newID := <-secondStreamID
+	if newID == oldID || openCount != 1 || second.evidence["replacement_bos_sent"] != true || second.evidence["stream_id_changed"] != true || second.evidence["session_connection_reused"] != true || second.evidence["session_retained"] != true {
+		t.Fatalf("old_id=%q new_id=%q open_count=%d evidence=%#v", oldID, newID, openCount, second.evidence)
+	}
+	select {
+	case <-stream.closed:
+		t.Fatal("re-retained session closed after the second step")
+	default:
+	}
+}
+
 func TestTextInputChunksDeviceFormat(t *testing.T) {
 	for _, timestamp := range []string{"zero", "unix_ms"} {
 		t.Run(timestamp, func(t *testing.T) {

@@ -774,6 +774,15 @@ jobs:
           cache: npm
       - name: Run isolated device playback and telemetry scenarios
         run: bash tests/gizclaw-e2e/run_audioplayer_tests.sh
+      - name: Verify slow TTS text delivery through local Server and Peer
+        run: bash tests/gizclaw-e2e/run_slow_tts_tests.sh
+      - name: Upload slow TTS regression evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: slow-tts-regression
+          path: tests/gizclaw-e2e/.testbench/slow-tts-*/reports/
+          include-hidden-files: true
       - name: Verify deterministic multi-role voice Giztests
         run: go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|FlowcraftMultiVoiceGiztest|MultiRole.*)$' -count=1
 
