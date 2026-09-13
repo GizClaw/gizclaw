@@ -18,6 +18,7 @@ import (
 	store "github.com/GizClaw/gizclaw-go/pkgs/store"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/goccy/go-yaml"
+	"github.com/goccy/go-yaml/ast"
 )
 
 type Config struct {
@@ -245,7 +246,7 @@ func (cfg *SFUConfig) connectorConfig() (sfu.Config, error) {
 }
 
 func readSecretFile(path, file string) (string, error) {
-	data, err := os.ReadFile(os.ExpandEnv(strings.TrimSpace(file)))
+	data, err := os.ReadFile(strings.TrimSpace(file))
 	if err != nil {
 		return "", fmt.Errorf("server: %s: %w", path, err)
 	}
@@ -360,48 +361,48 @@ type storageFileConfig struct {
 func (cfg storageFileConfig) runtimeConfig() (storage.Config, error) {
 	switch cfg.Kind {
 	case storage.KindBadger:
-		return storage.BadgerConfig{Dir: os.ExpandEnv(cfg.Dir)}, nil
+		return storage.BadgerConfig{Dir: cfg.Dir}, nil
 	case storage.KindMemory:
 		return storage.MemoryConfig{}, nil
 	case storage.KindFilesystemDir:
-		return storage.FilesystemDirConfig{Dir: os.ExpandEnv(cfg.Dir)}, nil
+		return storage.FilesystemDirConfig{Dir: cfg.Dir}, nil
 	case storage.KindSQLite:
-		return storage.SQLiteConfig{Dir: os.ExpandEnv(cfg.Dir), DSN: os.ExpandEnv(cfg.DSN)}, nil
+		return storage.SQLiteConfig{Dir: cfg.Dir, DSN: cfg.DSN}, nil
 	case storage.KindPostgreSQL:
-		return storage.PostgreSQLConfig{DSN: os.ExpandEnv(cfg.DSN)}, nil
+		return storage.PostgreSQLConfig{DSN: cfg.DSN}, nil
 	case storage.KindClickHouse:
-		return storage.ClickHouseConfig{DSN: os.ExpandEnv(cfg.DSN)}, nil
+		return storage.ClickHouseConfig{DSN: cfg.DSN}, nil
 	case storage.KindRedis:
-		return storage.RedisConfig{URL: os.ExpandEnv(cfg.URL), TLSCAFile: os.ExpandEnv(cfg.TLSCAFile)}, nil
+		return storage.RedisConfig{URL: cfg.URL, TLSCAFile: cfg.TLSCAFile}, nil
 	case storage.KindPrometheus:
 		return storage.PrometheusConfig{
-			RemoteWriteURL: os.ExpandEnv(cfg.RemoteWriteURL),
-			QueryURL:       os.ExpandEnv(cfg.QueryURL),
-			BearerToken:    os.ExpandEnv(cfg.BearerToken),
+			RemoteWriteURL: cfg.RemoteWriteURL,
+			QueryURL:       cfg.QueryURL,
+			BearerToken:    cfg.BearerToken,
 		}, nil
 	case storage.KindVolcTLS:
 		return storage.VolcTLSConfig{
-			Endpoint:        os.ExpandEnv(cfg.Endpoint),
-			Region:          os.ExpandEnv(cfg.Region),
-			AccessKeyID:     os.ExpandEnv(cfg.AccessKeyID),
-			AccessKeySecret: os.ExpandEnv(cfg.AccessKeySecret),
+			Endpoint:        cfg.Endpoint,
+			Region:          cfg.Region,
+			AccessKeyID:     cfg.AccessKeyID,
+			AccessKeySecret: cfg.AccessKeySecret,
 		}, nil
 	case storage.KindVolcTOS:
 		return storage.VolcTOSConfig{
-			Endpoint: os.ExpandEnv(cfg.Endpoint), Region: os.ExpandEnv(cfg.Region), Bucket: os.ExpandEnv(cfg.Bucket),
-			AccessKeyID: os.ExpandEnv(cfg.AccessKeyID), AccessKeySecret: os.ExpandEnv(cfg.AccessKeySecret),
-			SessionToken: os.ExpandEnv(cfg.SessionToken),
+			Endpoint: cfg.Endpoint, Region: cfg.Region, Bucket: cfg.Bucket,
+			AccessKeyID: cfg.AccessKeyID, AccessKeySecret: cfg.AccessKeySecret,
+			SessionToken: cfg.SessionToken,
 		}, nil
 	case storage.KindAliyunOSS:
 		return storage.AliyunOSSConfig{
-			Endpoint: os.ExpandEnv(cfg.Endpoint), Bucket: os.ExpandEnv(cfg.Bucket),
-			AccessKeyID: os.ExpandEnv(cfg.AccessKeyID), AccessKeySecret: os.ExpandEnv(cfg.AccessKeySecret),
-			SecurityToken: os.ExpandEnv(cfg.SecurityToken),
+			Endpoint: cfg.Endpoint, Bucket: cfg.Bucket,
+			AccessKeyID: cfg.AccessKeyID, AccessKeySecret: cfg.AccessKeySecret,
+			SecurityToken: cfg.SecurityToken,
 		}, nil
 	case storage.KindGCS:
-		return storage.GCSConfig{Bucket: os.ExpandEnv(cfg.Bucket), CredentialsFile: os.ExpandEnv(cfg.CredentialsFile)}, nil
+		return storage.GCSConfig{Bucket: cfg.Bucket, CredentialsFile: cfg.CredentialsFile}, nil
 	case storage.KindAzureBlob:
-		return storage.AzureBlobConfig{AccountURL: os.ExpandEnv(cfg.AccountURL), Container: os.ExpandEnv(cfg.Container)}, nil
+		return storage.AzureBlobConfig{AccountURL: cfg.AccountURL, Container: cfg.Container}, nil
 	default:
 		return nil, fmt.Errorf("server: unknown storage kind %q", cfg.Kind)
 	}
@@ -428,7 +429,7 @@ func (cfg storeFileConfig) runtimeConfig() (store.Config, error) {
 	}
 	return store.Config{
 		Kind: cfg.Kind, Storage: cfg.Storage, Prefix: cfg.Prefix,
-		Database: os.ExpandEnv(cfg.Database), Table: os.ExpandEnv(cfg.Table), TopicID: os.ExpandEnv(cfg.TopicID),
+		Database: cfg.Database, Table: cfg.Table, TopicID: cfg.TopicID,
 		TTL: ttl,
 	}, nil
 }
@@ -462,11 +463,15 @@ func LoadConfig(path string) (ConfigFile, error) {
 }
 
 func parseConfigData(data []byte) (ConfigFile, error) {
-	if err := validateConfigShape(data); err != nil {
+	document, err := parseExpandedConfig(data)
+	if err != nil {
+		return ConfigFile{}, err
+	}
+	if err := validateConfigShape(document); err != nil {
 		return ConfigFile{}, err
 	}
 	var topLevel map[string]any
-	if err := yaml.Unmarshal(data, &topLevel); err != nil {
+	if err := decodeConfigNode(document, &topLevel); err != nil {
 		return ConfigFile{}, err
 	}
 	if friendGroups, ok := topLevel["friend_groups"].(map[string]any); ok {
@@ -506,7 +511,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		PendingDeletion pendingDeletionFileConfig    `yaml:"pending_deletion"`
 		Profiling       ProfilingConfig              `yaml:"profiling"`
 	}
-	if err := yaml.UnmarshalWithOptions(data, &raw, yaml.DisallowUnknownField()); err != nil {
+	if err := decodeConfigNode(document, &raw, yaml.DisallowUnknownField()); err != nil {
 		return ConfigFile{}, err
 	}
 	adminPublicKey, err := resolveAdminPublicKey(raw.AdminPublicKey)
@@ -892,10 +897,6 @@ func prepareConfig(cfg Config) (Config, error) {
 	if len(cfg.HTTP.Listeners) == 0 {
 		return Config{}, fmt.Errorf("server: http.listeners is required")
 	}
-	for index := range cfg.HTTP.Listeners {
-		cfg.HTTP.Listeners[index].TLS.CertFile = os.ExpandEnv(cfg.HTTP.Listeners[index].TLS.CertFile)
-		cfg.HTTP.Listeners[index].TLS.KeyFile = os.ExpandEnv(cfg.HTTP.Listeners[index].TLS.KeyFile)
-	}
 	cfg.Speech = mergeSpeechConfig(cfg.Speech, defaults.Speech)
 	cfg.PendingDeletion = mergePendingDeletionConfig(cfg.PendingDeletion, defaults.PendingDeletion)
 	if cfg.Services != nil && cfg.Services.SystemLog != nil {
@@ -1234,9 +1235,9 @@ func parsePositiveConfigDuration(value string) (time.Duration, error) {
 	return duration, nil
 }
 
-func validateConfigShape(data []byte) error {
+func validateConfigShape(node ast.Node) error {
 	var document map[string]any
-	if err := yaml.Unmarshal(data, &document); err != nil {
+	if err := decodeConfigNode(node, &document); err != nil {
 		return err
 	}
 	if _, legacy := document["log"]; legacy {

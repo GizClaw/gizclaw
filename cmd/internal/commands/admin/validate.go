@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/einoconfig"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli/adminresource"
 	"github.com/goccy/go-yaml"
 	"github.com/spf13/cobra"
@@ -52,6 +53,9 @@ func newValidateCmd() *cobra.Command {
 			}
 			if _, err := resource.ValueByDiscriminator(); err != nil {
 				return fmt.Errorf("%s: validated resource kind could not be decoded", resourceInputName(file))
+			}
+			if err := validateEinoResource(resource); err != nil {
+				return fmt.Errorf("%s: %w", resourceInputName(file), err)
 			}
 			return writeResourceValidationSummary(cmd, resource)
 		},
@@ -121,4 +125,42 @@ func resourceInputName(path string) string {
 		return "<stdin>"
 	}
 	return path
+}
+
+func validateEinoResource(resource apitypes.Resource) error {
+	kind, _, err := resourceKindAndID(resource)
+	if err != nil {
+		return err
+	}
+	switch kind {
+	case apitypes.ResourceKindWorkflow:
+		workflow, err := resource.AsWorkflowResource()
+		if err != nil {
+			return err
+		}
+		if workflow.Spec.Eino != nil {
+			if err := einoconfig.Validate(*workflow.Spec.Eino); err != nil {
+				return fmt.Errorf("spec.eino: %w", err)
+			}
+		}
+	case apitypes.ResourceKindResourceList:
+		list, err := resource.AsResourceListResource()
+		if err != nil {
+			return err
+		}
+		for index, item := range list.Spec.Items {
+			data, err := json.Marshal(item)
+			if err != nil {
+				return err
+			}
+			var child apitypes.Resource
+			if err := json.Unmarshal(data, &child); err != nil {
+				return err
+			}
+			if err := validateEinoResource(child); err != nil {
+				return fmt.Errorf("items[%d]: %w", index, err)
+			}
+		}
+	}
+	return nil
 }

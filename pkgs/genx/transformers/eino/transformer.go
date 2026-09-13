@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"sort"
 	"strings"
 	"sync"
@@ -437,6 +438,7 @@ func newOutputRoutePart(mimeType string, data []byte) genx.Part {
 }
 
 type turnRun struct {
+	state    *runState
 	session  *session
 	user     string
 	parts    []any
@@ -450,6 +452,7 @@ type turnRun struct {
 	streamIDs map[string]struct{}
 
 	mu             sync.Mutex
+	metadata       map[string]map[string]string // presence freezes even a nil fallback
 	accepting      bool
 	interrupted    bool
 	terminal       bool
@@ -461,15 +464,6 @@ type turnRun struct {
 }
 
 func (run *turnRun) Emit(output OutputDefinition, value any) error {
-	run.mu.Lock()
-	defer run.mu.Unlock()
-	if !run.accepting {
-		return streamkit.ErrInactiveResponse
-	}
-	route, ok := run.routes[output.Name]
-	if !ok {
-		return fmt.Errorf("eino: output route %q is not active", output.Name)
-	}
 	chunk := &genx.MessageChunk{Role: genx.RoleModel, Name: output.Name}
 	var size int
 	switch typed := value.(type) {
@@ -481,6 +475,46 @@ func (run *turnRun) Emit(output OutputDefinition, value any) error {
 		size = len(typed)
 	default:
 		return fmt.Errorf("eino: output %q has unsupported value %T", output.Name, value)
+	}
+	callback := run.session.transformer.config.OutputMetadata
+	nonblank := size > 0
+	if text, ok := chunk.Part.(genx.Text); ok {
+		nonblank = strings.TrimSpace(string(text)) != ""
+	}
+	run.mu.Lock()
+	_, ready := run.metadata[output.Name]
+	accepting := run.accepting
+	run.mu.Unlock()
+	if !accepting {
+		return streamkit.ErrInactiveResponse
+	}
+	var metadata map[string]string
+	if callback != nil && nonblank && !ready {
+		snapshot, err := run.state.snapshot()
+		if err != nil {
+			return err
+		}
+		metadata = maps.Clone(callback(output, snapshot))
+	}
+	run.mu.Lock()
+	defer run.mu.Unlock()
+	if !run.accepting {
+		return streamkit.ErrInactiveResponse
+	}
+	route, ok := run.routes[output.Name]
+	if !ok {
+		return fmt.Errorf("eino: output route %q is not active", output.Name)
+	}
+	if callback != nil {
+		// Concurrent emitters may prepare candidates outside the lock. Only the
+		// first published nonblank chunk commits one; fallback is also final.
+		if _, ready := run.metadata[output.Name]; nonblank && !ready {
+			if run.metadata == nil {
+				run.metadata = make(map[string]map[string]string)
+			}
+			run.metadata[output.Name] = metadata
+		}
+		chunk.Metadata = maps.Clone(run.metadata[output.Name])
 	}
 	if err := run.session.invocation.Emit(route.response, chunk); err != nil {
 		return err
@@ -634,6 +668,7 @@ func (run *turnRun) runGraph() (*runState, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
+	run.state = state
 	if err := recallMemory(run.ctx, config.Memory, state); err != nil {
 		return nil, "", err
 	}

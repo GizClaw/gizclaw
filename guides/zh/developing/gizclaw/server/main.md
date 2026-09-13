@@ -12,13 +12,29 @@
 
 `public_key` 仍是 authoritative Server 的唯一身份。Edge 只改写 transport endpoint，不取得 Server 业务身份，也不改变 Server 的 `public_key`、版本或构建 commit。
 
+## 环境变量展开
+
+Server 在加载 `config.yaml` 时、shape 校验之前，对每个标量值展开一次环境变量，
+因此任何字段都可以来自部署环境，例如 `services.sfu` 下的 `url: ${GIZCLAW_SFU_URL}`，
+或 `identity` 下的 `private-key: ${GIZCLAW_SERVER_PRIVATE_KEY}`：
+
+- `$NAME` 与 `${NAME}` 遵循 `os.ExpandEnv`；未设置的变量展开为空字符串，必填字段随后由
+  原有校验拒绝，例如 `services.sfu.url must not be empty`。
+- `$$` 产生字面量 `$`，因此密码等值可以包含美元符号。展开结果中的 `$` 保持原样；例外是
+  `monitor.token` 与 `services.system_log`，它们的共享 package 为 Edge 还会展开自身字段。
+- mapping key、anchor 名称与 alias 不展开。
+- 展开后的值是字符串，数值字段接受数字文本。未加引号的引用展开为 `true` 或 `false`
+  时成为布尔值，因此 `enabled: ${GIZCLAW_PROFILING}` 可用；需要保留字符串时给引用加引号。
+- 在 flow 集合（`{...}` 或 `[...]`）中，YAML 要求给引用加引号，例如
+  `{store: "${GIZCLAW_STORE}"}`。
+
 ## HTTP listeners 与 TLS
 
 Server 的 `webrtc.listen` 定义 WebRTC transport tuple，并且必须等于
 `http.listeners[0].listen`。`http.listeners` 必填，也可以声明多个唯一的 TCP 地址；每个 listener
 都服务 `/server-info` 与 signaling。直接访问 Public API 和 OpenAI-compatible API 会始终被拒绝，
 因为业务 API 只能经 Edge 访问。listener 可通过同时提供 `tls.cert-file` 与 `tls.key-file` 启用
-TLS 1.2 及以上的 HTTPS。证书路径相对 workspace 解析并支持环境变量。空列表、重复地址、
+TLS 1.2 及以上的 HTTPS。证书路径在[环境变量展开](#环境变量展开)后相对 workspace 解析。空列表、重复地址、
 单边或无效证书会在服务流量前失败。
 
 已移除的顶层 `listen` 与 `endpoint` 字段会被拒绝；两个值都必须放在 `webrtc` 下。

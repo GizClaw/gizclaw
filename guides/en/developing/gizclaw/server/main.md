@@ -12,6 +12,28 @@ It can combine multiple fields, but single field resource, validation, storage a
 
 `public_key` remains the authoritative Server's only identity. An Edge rewrites only transport routing and does not change the Server's `public_key`, version, or build commit.
 
+## Environment expansion
+
+The Server expands environment references in every scalar value of
+`config.yaml` once, while loading the file and before shape
+validation, so any field can come from the deployment environment, for
+example `url: ${GIZCLAW_SFU_URL}` under `services.sfu` or
+`private-key: ${GIZCLAW_SERVER_PRIVATE_KEY}` under `identity`:
+
+- `$NAME` and `${NAME}` follow `os.ExpandEnv`; an unset variable expands to an
+  empty string, and the field's normal validation then rejects it when the
+  field is required, for example `services.sfu.url must not be empty`.
+- `$$` produces a literal `$`, so values such as passwords can contain dollar
+  signs. A `$` inside an expanded value is kept as is, except in
+  `monitor.token` and `services.system_log`, whose shared packages also expand
+  their own fields for Edge.
+- Mapping keys, anchor names, and aliases are not expanded.
+- An expanded value is a string, and numeric fields accept numeric text. An
+  unquoted reference that expands to `true` or `false` becomes a boolean, so
+  `enabled: ${GIZCLAW_PROFILING}` works; quote the reference to keep a string.
+- Inside flow collections (`{...}` or `[...]`) YAML requires quoting the
+  reference, for example `{store: "${GIZCLAW_STORE}"}`.
+
 ## HTTP listeners and TLS
 
 `webrtc.listen` defines the WebRTC transport tuple and must equal
@@ -20,7 +42,7 @@ unique TCP addresses. Every listener serves `/server-info` and signaling; direct
 Public API and OpenAI-compatible API requests are always denied because those
 business APIs are Edge-only. A listener may enable HTTPS with TLS 1.2 or newer by
 providing both `tls.cert-file` and `tls.key-file`. Certificate paths resolve
-relative to the workspace and support environment expansion. An empty list,
+relative to the workspace after [environment expansion](#environment-expansion). An empty list,
 duplicate address, partial pair, or invalid certificate fails before traffic is
 served.
 

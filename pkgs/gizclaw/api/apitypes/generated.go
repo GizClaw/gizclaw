@@ -3886,12 +3886,25 @@ type EinoTransformNodeOperation string
 // EinoTransformNodeType defines model for EinoTransformNode.Type.
 type EinoTransformNodeType string
 
+// EinoVoiceAdapter defines model for EinoVoiceAdapter.
+type EinoVoiceAdapter struct {
+	AsrModel     *string            `json:"asr_model,omitempty"`
+	DefaultVoice *string            `json:"default_voice,omitempty"`
+	NodeVoices   *map[string]string `json:"node_voices,omitempty"`
+
+	// StateVoices Select the primary text output voice once per turn before its first nonblank chunk. Missing or unmapped values fall back to node_voices, then default_voice. The string field must be set by an upstream node.
+	StateVoices *struct {
+		Field  string            `json:"field"`
+		Voices map[string]string `json:"voices"`
+	} `json:"state_voices,omitempty"`
+}
+
 // EinoWorkflowSpec defines model for EinoWorkflowSpec.
 type EinoWorkflowSpec struct {
 	Conversation *EinoConversation `json:"conversation,omitempty"`
 	Graph        EinoGraph         `json:"graph"`
 	Limits       *EinoLimits       `json:"limits,omitempty"`
-	VoiceAdapter *VoiceAdapter     `json:"voice_adapter,omitempty"`
+	VoiceAdapter *EinoVoiceAdapter `json:"voice_adapter,omitempty"`
 }
 
 // EinoWorkspaceParameters defines model for EinoWorkspaceParameters.

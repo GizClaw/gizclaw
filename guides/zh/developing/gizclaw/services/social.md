@@ -239,7 +239,7 @@ services:
     floor_idle: 300ms         # 可选，默认 300ms，下行 floor 无有声 packet 后释放
 ```
 
-credential 只通过文件在启动时读取，不进入 Social KV、Workspace、Peer API、Event、日志或生成 SDK；不在 RuntimeProfile、Workspace 或 Admin API 中按 profile 区分 SFU。省略整个 block 会禁用本 Server 的 SFU Workspace。
+与所有 Server 配置值一样，`url` 与 credential 文件路径支持[环境变量展开](/zh/developing/gizclaw/server/main#环境变量展开)，因此可以用 `url: ${GIZCLAW_SFU_URL}` 为每个部署选择 endpoint。credential 只通过文件在启动时读取，不进入 Social KV、Workspace、Peer API、Event、日志或生成 SDK；不在 RuntimeProfile、Workspace 或 Admin API 中按 profile 区分 SFU。省略整个 block 会禁用本 Server 的 SFU Workspace。
 
 ### 限制
 

@@ -74,10 +74,8 @@ func prepareWorkspaceConfig(workspace string) (Config, error) {
 
 func resolveWorkspaceHTTPConfig(root string, cfg HTTPConfig) HTTPConfig {
 	for index := range cfg.Listeners {
-		certFile := os.ExpandEnv(cfg.Listeners[index].TLS.CertFile)
-		keyFile := os.ExpandEnv(cfg.Listeners[index].TLS.KeyFile)
-		cfg.Listeners[index].TLS.CertFile = resolveWorkspaceDir(root, certFile)
-		cfg.Listeners[index].TLS.KeyFile = resolveWorkspaceDir(root, keyFile)
+		cfg.Listeners[index].TLS.CertFile = resolveWorkspaceDir(root, cfg.Listeners[index].TLS.CertFile)
+		cfg.Listeners[index].TLS.KeyFile = resolveWorkspaceDir(root, cfg.Listeners[index].TLS.KeyFile)
 	}
 	return cfg
 }
