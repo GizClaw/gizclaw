@@ -45,7 +45,72 @@ func Validate(public apitypes.EinoWorkflowSpec) error {
 	if public.Limits != nil && public.Limits.MaxOutputBytes != nil {
 		config.Limits.MaxOutputBytes = *public.Limits.MaxOutputBytes
 	}
+	if public.VoiceAdapter != nil && public.VoiceAdapter.StateVoices != nil {
+		if err := validateVoiceWriters(graph, public.VoiceAdapter.StateVoices.Field); err != nil {
+			return err
+		}
+	}
 	return genxeino.ValidateConfig(config)
+}
+
+// validateVoiceWriters requires an upstream write on every possible control-flow
+// path, including conditional routes. A parallel or later writer could race the
+// first output snapshot even when another writer dominates the primary.
+func validateVoiceWriters(graph genxeino.GraphDefinition, field string) error {
+	var primary string
+	for _, output := range graph.Outputs {
+		if output.Primary {
+			primary = output.Node
+		}
+	}
+	next := make(map[string][]string)
+	for _, edge := range graph.Edges {
+		next[edge.From] = append(next[edge.From], edge.To)
+	}
+	for _, branch := range graph.Branches {
+		next[branch.From] = append(next[branch.From], branch.Default)
+		for _, route := range branch.Routes {
+			next[branch.From] = append(next[branch.From], route.To)
+		}
+	}
+	reachable := func(from, to string, stop map[string]bool) bool {
+		seen := make(map[string]bool)
+		pending := []string{from}
+		for len(pending) > 0 {
+			node := pending[len(pending)-1]
+			pending = pending[:len(pending)-1]
+			if node == to {
+				return true
+			}
+			if seen[node] || stop[node] {
+				continue
+			}
+			seen[node] = true
+			pending = append(pending, next[node]...)
+		}
+		return false
+	}
+	writers := make(map[string]bool)
+	for _, node := range graph.Nodes {
+		for _, target := range node.Outputs {
+			if target != field || !reachable("start", node.ID, nil) {
+				continue
+			}
+			if node.ID == primary || !reachable(node.ID, primary, nil) || reachable(primary, node.ID, nil) {
+				return fmt.Errorf("voice_adapter.state_voices.field: writer %q must be strictly upstream of primary %q", node.ID, primary)
+			}
+			// An upstream edge alone is insufficient with any_predecessor:
+			// another predecessor can start primary while this writer is running.
+			if reachable("start", primary, map[string]bool{node.ID: true}) {
+				return fmt.Errorf("voice_adapter.state_voices.field: every path to primary %q must pass writer %q before output", primary, node.ID)
+			}
+			writers[node.ID] = true
+		}
+	}
+	if len(writers) == 0 {
+		return fmt.Errorf("voice_adapter.state_voices.field: every path to primary %q must pass an upstream writer of %q", primary, field)
+	}
+	return nil
 }
 
 func validateVoiceAdapter(public apitypes.EinoWorkflowSpec) error {

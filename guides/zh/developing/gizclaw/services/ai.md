@@ -101,7 +101,7 @@ voice_adapter:
       fox: story.fox
 ```
 
-在 primary 输出的首个非空白文本 chunk 发布前，factory 从本轮 state 快照选择 alias；AudioDock 在该 chunk 进入 TTS 前读取选择结果。同一输出流内固定选择，下一轮重新计算。未赋值或未映射时依次回落到该 output node 的 `node_voices`、`default_voice`，都未配置则仅输出文本。secondary output 仍只使用静态 node/default 配置。选人 script 必须位于 primary 输出节点的上游依赖链，每轮先写 `selected_speaker`；与输出并行或在输出后写入不能用于该轮选音色。首个 chunk 不等待模型整段回复，也不依赖轮末的 state 提交；单 primary、History、memory observe 和打断语义保持不变。最小示例见 `tests/gizclaw-e2e/testdata/resources/04-workflows/33-eino-multi-role.yaml`，输入角色英文名即可切换，其他文本使用旁白；使用前须在 RuntimeProfile 中绑定 `llm` 和五个 `story.*` Voice alias。
+在 primary 输出的首个非空白文本 chunk 发布前，factory 从本轮 state 快照选择 alias；AudioDock 在该 chunk 进入 TTS 前读取选择结果。同一输出流内固定选择，下一轮重新计算。未赋值或未映射时依次回落到该 output node 的 `node_voices`、`default_voice`，都未配置则仅输出文本。secondary output 仍只使用静态 node/default 配置。选人 script 必须位于 primary 输出节点的上游依赖链，每轮先写 `selected_speaker`；校验要求该字段的每个可达写入节点都位于每条从 start 到 primary 的路径上（含条件分支与 default 路由），并拒绝可达的并行、primary 自身或下游写入节点，避免首块快照与其他写入竞态。多个写入节点必须依次完成；即使最终汇入 primary，也不接受并行或不同分支分别写入，选人结果应由共同上游节点写回。首个 chunk 不等待模型整段回复，也不依赖轮末的 state 提交；单 primary、History、memory observe 和打断语义保持不变。最小示例见 `tests/gizclaw-e2e/testdata/resources/04-workflows/33-eino-multi-role.yaml`，输入角色英文名即可切换，其他文本使用旁白；使用前须在 RuntimeProfile 中绑定 `llm` 和五个 `story.*` Voice alias。
 
 `admin validate` 对 Eino Workflow（包括 ResourceList 中的项）同时执行 Schema 与 `einoconfig.Validate` 语义检查，可离线拒绝不存在的 selector field、非 string field、空映射或非法 alias；alias 是否绑定真实资源仍由 RuntimeProfile 与 factory 检查。
 

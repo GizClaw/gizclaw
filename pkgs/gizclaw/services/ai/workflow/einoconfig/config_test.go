@@ -92,7 +92,7 @@ func TestValidate(t *testing.T) {
 
 	t.Run("state voices", func(t *testing.T) {
 		for _, test := range []struct{ name, selector, want string }{
-			{"valid", `{"field":"answer","voices":{"narrator":"story.narrator"}}`, ""},
+			{"primary writer", `{"field":"answer","voices":{"narrator":"story.narrator"}}`, "strictly upstream"},
 			{"missing field", `{"field":"missing","voices":{"narrator":"story.narrator"}}`, "state_voices.field"},
 			{"empty mapping", `{"field":"answer","voices":{}}`, "mapping must not be empty"},
 			{"invalid alias", `{"field":"answer","voices":{"narrator":"INVALID"}}`, "state_voices.voices"},
@@ -107,7 +107,7 @@ func TestValidate(t *testing.T) {
 				if test.want == "" && err != nil || test.want != "" && (err == nil || !strings.Contains(err.Error(), test.want)) {
 					t.Fatalf("Validate() = %v, want %q", err, test.want)
 				}
-				if test.want == "" {
+				if test.name == "primary writer" {
 					spec.Graph.State.Fields[0].Type = apitypes.EinoStateFieldTypeObject
 					if err := Validate(spec); err == nil || !strings.Contains(err.Error(), "declared string") {
 						t.Fatalf("non-string selector: %v", err)
