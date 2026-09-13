@@ -74,8 +74,9 @@ func runEinoBreakdown(t *testing.T, concurrent bool) {
 	var spec apitypes.WorkflowSpec
 	breakdownResource(t, "04-workflows/31-eino-concurrency.yaml", &spec)
 	resources.credential.Id = "breakdown-credential"
+	speechAppID, speechAPIKey := firstEnv(doubaoAppIDEnv), firstEnv(doubaoAPIKeyEnv)
 	if err := resources.credential.Body.FromVolcCredentialBody(apitypes.VolcCredentialBody{
-		ArkApiKey: &arkKey, SpeechAppId: new(firstEnv(doubaoAppIDEnv)), SpeechApiKey: new(firstEnv(doubaoAPIKeyEnv)),
+		ArkApiKey: &arkKey, SpeechAppId: &speechAppID, SpeechApiKey: &speechAPIKey,
 	}); err != nil {
 		t.Fatal(err)
 	}
