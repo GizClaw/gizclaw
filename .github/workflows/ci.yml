@@ -182,6 +182,9 @@ jobs:
       - name: Check handwritten Go formatting
         run: go run ./tools/quality gofmt
 
+      - name: Check Go test file ownership
+        run: go run ./tools/quality testfiles
+
       - name: Check reviewed mutex scopes
         run: go run ./tools/quality mutexscope
 

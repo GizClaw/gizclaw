@@ -5,6 +5,27 @@ still run according to the changed scope. Suites that require a build tag,
 Docker, live providers, or human judgment must be started explicitly and must
 not be reported as passing when they were not run.
 
+## Go test file ownership
+
+Every `*_test.go` filename must directly identify an owning production source
+file in the same directory. For `xxx.go`, use either `xxx_test.go` or
+`xxx_<topic>_test.go`; for example, `dock_test.go` and `dock_latency_test.go`
+both belong to `dock.go`, while `latency_test.go` alone is invalid. Test
+helpers, fakes, and fixtures follow the production file they primarily support.
+Name a test that spans several source files after its main subject, or split it
+when no primary subject is clear.
+
+A pure test package has no non-test Go source and cannot satisfy this
+relationship. Every such file must be listed explicitly in
+`tools/quality/testfiles.exemptions`; directory patterns and silent exclusions
+are not accepted, and an exemption becomes stale as soon as production source
+is added to that package. Check all tracked test files, excluding generated-code
+directories, `vendor/`, and `third_party/`, with:
+
+```sh
+go run ./tools/quality testfiles
+```
+
 E2E entrypoints that build the GizClaw CLI install the locked Node workspaces
 and build the embedded console before Go compilation, including container builds.
 No manual asset or manifest copy is required; standalone build prerequisites are

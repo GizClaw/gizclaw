@@ -49,7 +49,7 @@ const (
 
 func main() {
 	if len(os.Args) < 2 {
-		fatal("usage: quality <gofmt|modernize|vet|files|mutexscope> [flags]")
+		fatal("usage: quality <gofmt|modernize|vet|files|mutexscope|testfiles> [flags]")
 	}
 
 	root, err := repositoryRoot()
@@ -102,6 +102,14 @@ func main() {
 		_ = flags.Parse(os.Args[2:])
 		if err := runMutexScope(root, *reviewed, *writeReviewed); err != nil {
 			fatal("mutexscope: %v", err)
+		}
+	case "testfiles":
+		flags := flag.NewFlagSet("testfiles", flag.ExitOnError)
+		exemptions := flags.String("exemptions", "tools/quality/testfiles.exemptions", "repository-relative pure-test-package exemptions")
+		writeExemptions := flags.Bool("write-exemptions", false, "replace pure-test-package exemptions after review")
+		_ = flags.Parse(os.Args[2:])
+		if err := runTestFiles(root, *exemptions, *writeExemptions); err != nil {
+			fatal("testfiles: %v", err)
 		}
 	default:
 		fatal("unknown command %q", os.Args[1])

@@ -3,6 +3,23 @@
 本页说明仓库级测试 harness。普通 Go 单元测试仍按改动范围运行；带 build tag、
 Docker、真实 provider 或人工判断的套件必须显式启动，不能把未运行记作通过。
 
+## Go 测试文件归属
+
+每个 `*_test.go` 文件名必须直接体现它所属的同目录生产源文件。对于 `xxx.go`，可使用
+`xxx_test.go`，也可使用 `xxx_<主题>_test.go`；例如 `dock_test.go` 和
+`dock_latency_test.go` 都属于 `dock.go`，但只有 `latency_test.go` 不合法。辅助代码、
+fake 和 fixture 的测试文件也按其主要服务的生产源文件命名；覆盖多个源文件时，按主要
+被测对象命名，必要时拆分。
+
+纯测试 package 没有任何非测试 Go 源文件，无法满足上述命名关系。此类文件必须逐项列入
+`tools/quality/testfiles.exemptions`，不得按目录或通配符静默忽略；package 一旦增加生产
+源文件，原豁免即失效。使用以下命令检查仓库内所有 Git 跟踪测试文件（生成代码目录、
+`vendor/` 和 `third_party/` 除外）：
+
+```sh
+go run ./tools/quality testfiles
+```
+
 构建 GizClaw CLI 的 E2E 入口会在 Go 编译前安装锁定的 Node workspace 并构建内嵌控制台，
 包括在 Docker 内编译的入口。产物与嵌入清单无需手动复制；独立编译命令的准备步骤见 [Monitor](monitor)。
 
