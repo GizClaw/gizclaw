@@ -654,8 +654,8 @@ String _chunk(
   }
   source.writeln(
     method == null
-        ? "require('_gizclaw_result')('null')"
-        : "local json = require('json'); require('_gizclaw_result')(json.encode(entry[${_quote(method)}](json.decode(${_quote(jsonEncode(args))}))))",
+        ? "return 'null'"
+        : "local json = require('json'); return json.encode((entry[${_quote(method)}](json.decode(${_quote(jsonEncode(args))}))))",
   );
   return source.toString();
 }

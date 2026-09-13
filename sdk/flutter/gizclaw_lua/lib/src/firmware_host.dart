@@ -62,6 +62,24 @@ external int _status(
   Pointer<Utf8> result,
   int size,
 );
+@Native<
+  Int Function(
+    Pointer<Void>,
+    Int,
+    Pointer<Utf8>,
+    Size,
+    Pointer<Size>,
+    Pointer<Int>,
+  )
+>(symbol: 'gcl_result', assetId: _asset)
+external int _result(
+  Pointer<Void> host,
+  int id,
+  Pointer<Utf8> buffer,
+  int capacity,
+  Pointer<Size> size,
+  Pointer<Int> hasResult,
+);
 @Native<Void Function(Pointer<Void>, Int)>(
   symbol: 'gcl_release',
   assetId: _asset,
@@ -266,10 +284,41 @@ class FirmwareHost {
       for (final run in _runs.values.toList()) {
         final state = _status(_pointer, run.id, result, output + 1);
         if (state >= 3 || state < 0) {
-          final text = result.toDartString();
+          var text = result.toDartString();
+          Object? resultError;
+          if (state == 3) {
+            try {
+              final size = a<Size>();
+              final present = a<Int>();
+              var rc = _result(_pointer, run.id, nullptr, 0, size, present);
+              if (rc != 0) throw StateError('Lua result size query: $rc');
+              if (size.value > output) {
+                throw StateError('Lua result exceeds output limit');
+              }
+              if (present.value == 0) {
+                text = 'null';
+              } else {
+                final bytes = a<Uint8>(size.value + 1).cast<Utf8>();
+                rc = _result(
+                  _pointer,
+                  run.id,
+                  bytes,
+                  size.value + 1,
+                  size,
+                  present,
+                );
+                if (rc != 0) throw StateError('Lua result copy: $rc');
+                text = bytes.toDartString(length: size.value);
+              }
+            } catch (error) {
+              resultError = error;
+            }
+          }
           _release(_pointer, run.id);
           _runs.remove(run.id);
-          if (state == 3) {
+          if (resultError != null) {
+            run.completer.completeError(resultError);
+          } else if (state == 3) {
             run.completer.complete(text);
           } else {
             run.completer.completeError(

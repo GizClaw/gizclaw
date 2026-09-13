@@ -1,10 +1,12 @@
 // Firmware host adapter. All Lua entry occurs on GizOS workers. Dart only
 // polls copied data; this library never calls Dart from a native thread.
 #include "host.h"
-#include "h2_desktop_platform.h"
+#include "os_posix.h"
 #include "h2_pal.h"
-#include "h2_posix_pal_core.h"
-#include "runtime/h2_lua_internal.h"
+#include "h2_lua_job.h"
+#include "h2_lua_capability.h"
+#include "h2_lua_event.h"
+#include "h2_runtime_input_button.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,15 +23,10 @@ typedef struct {
   bridge *owner;
   int index;
 } capability;
-typedef struct {
-  uint32_t id;
-  char *result;
-} result_slot;
 struct bridge {
   pthread_mutex_t lock;
   h2_runtime_t *runtime;
   h2_lua_host_t *host;
-  h2_posix_host_fs_t *fs;
   h2_pal_display_api_t display;
   h2_pal_fs_api_t confined_fs;
   h2_pal_audio_api_t audio;
@@ -49,8 +46,7 @@ struct bridge {
   int cap_count;
   bridge_event events[EVENT_MAX];
   size_t head, count;
-  result_slot results[JOB_MAX];
-  size_t output_limit;
+  uint32_t jobs[JOB_MAX];
 };
 static int display_open(void *u) {
   bridge *b = u;
@@ -215,40 +211,6 @@ static void cap_cancel(void *u, uint64_t id) {
   }
   pthread_mutex_unlock(&b->lock);
 }
-// Current GizOS exposes job state but not root return values. This module
-// writes only the calling job's slot, identified by firmware execution context.
-static int result_write(lua_State *L) {
-  bridge *b = lua_touserdata(L, lua_upvalueindex(1));
-  h2_lua_execution_context_t *c = *(h2_lua_execution_context_t **)lua_getextraspace(L);
-  size_t size;
-  const char *s = luaL_checklstring(L, 1, &size);
-  if (!c || !c->job || size > b->output_limit)
-    return luaL_error(L, "result limit exceeded");
-  char *copy = malloc(size + 1);
-  if (!copy)
-    return luaL_error(L, "result allocation failed");
-  memcpy(copy, s, size);
-  copy[size] = 0;
-  pthread_mutex_lock(&b->lock);
-  for (int n = 0; n < JOB_MAX; n++) {
-    if (b->results[n].id == c->job->id) {
-      free(b->results[n].result);
-      b->results[n].result = copy;
-      pthread_mutex_unlock(&b->lock);
-      return 0;
-    }
-  }
-  pthread_mutex_unlock(&b->lock);
-  free(copy);
-  return luaL_error(L, "unknown result job");
-}
-static int result_open(void *state, void *u) {
-  lua_State *L = state;
-  lua_pushlightuserdata(L, u);
-  lua_pushcclosure(L, result_write, 1);
-  return 1;
-}
-
 static const h2_audio_pcm_format_t audio_format = {.sample_rate_hz = 16000, .frame_samples_per_channel = 320, .channels = 1, .sample_format = H2_AUDIO_SAMPLE_S16LE};
 static int audio_info(void *u, h2_audio_info_t *i) {
   bridge *b = u;
@@ -369,36 +331,6 @@ size_t gcl_audio_read(bridge *b, uint8_t *p, size_t size) {
   pthread_mutex_unlock(&b->lock);
   return n;
 }
-static int fs_path(const char *path, char *out, size_t capacity) {
-  if (!path || !*path || *path == '/' || strstr(path, "..") || strchr(path, '\\'))
-    return H2_PAL_ERR_INVALID_ARG;
-  return snprintf(out, capacity, "/apps/%s", path) >= (int)capacity ? H2_PAL_ERR_INVALID_ARG : 0;
-}
-static int fs_open(void *u, const char *p, h2_pal_fs_open_mode_t mode, h2_pal_fs_file_t **out) {
-  bridge *b = u;
-  char path[2048];
-  int rc = fs_path(p, path, sizeof(path));
-  if (rc)
-    return rc;
-  if (mode != H2_PAL_FS_OPEN_READ)
-    return H2_PAL_ERR_UNSUPPORTED;
-  return h2_pal_fs_open(h2_posix_host_fs_api(b->fs), path, mode, out);
-}
-static int fs_read(void *u, h2_pal_fs_file_t *f, void *p, size_t n, size_t *out) {
-  bridge *b = u;
-  return h2_pal_fs_read(h2_posix_host_fs_api(b->fs), f, p, n, out);
-}
-static int fs_close(void *u, h2_pal_fs_file_t *f) {
-  bridge *b = u;
-  return h2_pal_fs_close(h2_posix_host_fs_api(b->fs), f);
-}
-static int fs_stat(void *u, const char *p, h2_pal_fs_stat_t *out) {
-  bridge *b = u;
-  char path[2048];
-  int rc = fs_path(p, path, sizeof(path));
-  return rc ? rc : h2_pal_fs_stat(h2_posix_host_fs_api(b->fs), path, out);
-}
-static const h2_pal_fs_vtable_t fs_vtable = {.open = fs_open, .read = fs_read, .close = fs_close, .stat = fs_stat};
 void gcl_destroy(bridge *b) {
   if (!b)
     return;
@@ -409,10 +341,7 @@ void gcl_destroy(bridge *b) {
   }
   if (b->runtime)
     h2_runtime_deinit(b->runtime);
-  if (b->fs)
-    h2_posix_host_fs_destroy(b->fs);
-  for (int n = 0; n < JOB_MAX; n++)
-    free(b->results[n].result);
+  gcl_fs_destroy(&b->confined_fs);
   free(b->pixels);
   free(b->presented);
   pthread_mutex_destroy(&b->lock);
@@ -429,17 +358,13 @@ bridge *gcl_create(const char *root, int width, int height, int buttons, int tou
   b->height = height;
   b->buttons = buttons;
   b->touch_enabled = touch;
-  b->output_limit = output;
   b->pixels = calloc((size_t)width * height, 2);
   b->presented = calloc((size_t)width * height, 2);
   if (!b->pixels || !b->presented)
     goto fail;
-  const char *targets[] = {"/apps"};
-  const char *sources[] = {root};
-  if (h2_posix_host_fs_create(sources, targets, 1, &b->fs))
+  if (gcl_fs_create(root, &b->confined_fs))
     goto fail;
   b->audio = (h2_pal_audio_api_t){b, &audio_vtable};
-  b->confined_fs = (h2_pal_fs_api_t){b, &fs_vtable};
   b->display = (h2_pal_display_api_t){b, &display_vtable};
   b->touch = (h2_pal_touch_api_t){b, &touch_vtable};
   b->periph = (h2_pal_periph_api_t){b, &periph_vtable};
@@ -449,13 +374,13 @@ bridge *gcl_create(const char *root, int width, int height, int buttons, int tou
       .target = "desktop",
       .chip = "host",
       .firmware_info = h2_pal_unsupported_firmware_info_api(),
-      .mem = h2_desktop_platform_default_allocator(),
-      .log = h2_desktop_platform_log_api(),
-      .time = h2_desktop_platform_time_api(),
+      .mem = &gcl_mem,
+      .log = &gcl_log,
+      .time = &gcl_time,
       .timer = h2_pal_unsupported_timer_api(),
-      .task = h2_desktop_platform_task_api(),
-      .queue = h2_desktop_platform_queue_api(),
-      .sync = h2_desktop_platform_sync_api(),
+      .task = &gcl_task,
+      .queue = &gcl_queue,
+      .sync = &gcl_sync,
       .fs = &b->confined_fs,
       .disk = h2_pal_unsupported_disk_api(),
       .pref = h2_pal_unsupported_pref_api(),
@@ -498,8 +423,6 @@ bridge *gcl_create(const char *root, int width, int height, int buttons, int tou
   h2_lua_host_config_t hc = {.runtime = b->runtime, .worker_count = 1, .max_jobs = jobs, .vm_memory_limit_bytes = memory, .source_limit_bytes = source, .output_limit_bytes = output, .execution_timeout_ms = timeout, .pending_capability_capacity = 32};
   if (h2_lua_host_create(&hc, &b->host))
     goto fail;
-  if (h2_lua_register_module(b->host, "_gizclaw_result", result_open, b))
-    goto fail;
   return b;
 fail:
   gcl_destroy(b);
@@ -520,7 +443,7 @@ int gcl_submit(bridge *b, const char *name, const char *source) {
   pthread_mutex_lock(&b->lock);
   int slot = -1;
   for (int n = 0; n < JOB_MAX; n++)
-    if (!b->results[n].id) {
+    if (!b->jobs[n]) {
       slot = n;
       break;
     }
@@ -529,9 +452,9 @@ int gcl_submit(bridge *b, const char *name, const char *source) {
     return -1;
   }
   uint32_t id = 0;
-  int rc = h2_lua_job_submit_text(b->host, name, (const uint8_t *)source, strlen(source), NULL, 0, &id);
+  int rc = h2_lua_job_submit_text(b->host, NULL, name, (const uint8_t *)source, strlen(source), NULL, 0, &id);
   if (!rc)
-    b->results[slot].id = id;
+    b->jobs[slot] = id;
   pthread_mutex_unlock(&b->lock);
   return rc ? rc : (int)id;
 }
@@ -544,23 +467,19 @@ int gcl_status(bridge *b, int id, char *out, size_t capacity) {
   if (rc)
     return rc;
   snprintf(out, capacity, "%s", s.message);
-  if (s.state == H2_LUA_JOB_SUCCEEDED) {
-    pthread_mutex_lock(&b->lock);
-    for (int n = 0; n < JOB_MAX; n++)
-      if (b->results[n].id == (unsigned)id)
-        snprintf(out, capacity, "%s", b->results[n].result ? b->results[n].result : "null");
-    pthread_mutex_unlock(&b->lock);
-  }
   return s.state;
+}
+int gcl_result(bridge *b, int id, char *out, size_t capacity, size_t *size, int *has_result) {
+  if (!b) return H2_PAL_ERR_INVALID_ARG;
+  return h2_lua_job_get_result(b->host, id, out, capacity, size, has_result);
 }
 void gcl_release(bridge *b, int id) {
   if (h2_lua_job_release(b->host, id))
     return;
   pthread_mutex_lock(&b->lock);
   for (int n = 0; n < JOB_MAX; n++)
-    if (b->results[n].id == (unsigned)id) {
-      free(b->results[n].result);
-      b->results[n] = (result_slot){0};
+    if (b->jobs[n] == (unsigned)id) {
+      b->jobs[n] = 0;
     }
   pthread_mutex_unlock(&b->lock);
 }
@@ -582,8 +501,8 @@ void gcl_pump(bridge *b) {
   h2_runtime_event_t e = {.payload = payload, .payload_capacity = sizeof(payload)};
   for (int i = 0; i < 128 && !h2_runtime_poll_event(b->runtime, &e); i++) {
     for (int n = 0; n < JOB_MAX; n++)
-      if (b->results[n].id)
-        h2_lua_dispatch_runtime_event(b->host, b->results[n].id, &e);
+      if (b->jobs[n])
+        h2_lua_dispatch_runtime_event(b->host, b->jobs[n], &e);
   }
 }
 int gcl_button(bridge *b, int id, int down) { return h2_runtime_button_push_edge(b->runtime, id, down ? H2_RUNTIME_BUTTON_EDGE_DOWN : H2_RUNTIME_BUTTON_EDGE_UP); }

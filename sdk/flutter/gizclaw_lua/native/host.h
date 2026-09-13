@@ -24,8 +24,11 @@ int gcl_register(bridge *host, const char *name);
 int gcl_start(bridge *host);
 // Positive job ID on success; negative PAL result on failure.
 int gcl_submit(bridge *host, const char *name, const char *source);
-// Copies terminal result/error into the caller-owned output buffer.
+// Copies status/error into the caller-owned output buffer.
 int gcl_status(bridge *host, int id, char *output, size_t capacity);
+// Public job result semantics: NULL/0 queries byte length, including embedded NUL.
+int gcl_result(bridge *host, int id, char *output, size_t capacity,
+               size_t *size, int *has_result);
 void gcl_release(bridge *host, int id);
 int gcl_cancel(bridge *host, int id);
 int gcl_poll(bridge *host, bridge_event *event);

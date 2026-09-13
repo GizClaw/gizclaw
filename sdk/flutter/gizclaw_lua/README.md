@@ -35,8 +35,8 @@ board.dispose();
 Register capabilities before `start()` or the first execution/installation.
 Registration is frozen after start, and duplicate names are rejected. There are
 at most 16 names, each namespaced and shorter than 48 ASCII characters, matching
-this GizOS Host's registry. `list()` reports the configured runtime ID and all
-registered names. An App's optional `requires` must be a subset of these names;
+this GizOS Host's registry. `list()` reports the configured runtime ID and names from the host-owned Dart
+registry used for registration; it does not enumerate the GizOS registry. An App's optional `requires` must be a subset of these names;
 installation and invocation reject missing requirements. Runtime matching is
 exact string equality. The runtime ID is a required constructor argument: this
 adapter must not advertise `runtime.lua.gizos` as a fully implemented profile.
@@ -72,10 +72,9 @@ the entry table and method functions, then JSON-encodes the method result.
 
 Every invocation/job uses `h2_lua_job_submit_text` and an isolated firmware VM.
 The Host owns one worker and a bounded set of live jobs (default 8, maximum 64).
-A private native `_gizclaw_result` module collects only the calling job's result,
-because the current firmware Host exposes status but has no public return-value
-accessor. This small adapter uses the firmware execution-context header and is
-compiled against the checkout on every native rebuild. It does not alter GizOS.
+The method wrapper returns its JSON-encoded value. On success the bridge uses
+`h2_lua_job_get_result()` to query its byte length and copy the complete result
+before releasing the job. It uses public Runtime/Lua/PAL headers only.
 `GizClawLuaVm` remains a separate synchronous, low-level Core API, without App
 hosting, timeouts, or board modules; use the App host for untrusted executions.
 
@@ -119,12 +118,15 @@ display/touch fail busy rather than sharing a job-owned lifecycle.
 
 ## PAL coverage and limits
 
-- Memory, Time, Task, Queue, Sync, Log: GizOS Desktop core providers.
-- Filesystem: GizOS POSIX host filesystem, mounted behind a read-only relative
-  path adapter. App packages are SHA-256/size verified, expanded with limits,
+- Memory, Time, Task, Queue, Sync, Log: package-owned POSIX/pthreads services
+  in `native/os_posix.c`. Queues are bounded, use monotonic timeouts, wake on
+  close, and drain retained items. Sync provides mutexes; semaphore/condition
+  operations are unsupported. Tasks honor minimum stack size and join ownership.
+- Filesystem: package-owned read-only relative path provider. Directory-fd
+  traversal with `openat` and `O_NOFOLLOW` rejects symlink escapes. App packages are SHA-256/size verified, expanded with limits,
   and reject unsafe paths, links, Lua bytecode and invalid UTF-8 Lua text.
-- Timer: the Desktop provider itself uses canonical unsupported Timer. Lua
-  sleep uses the firmware's monotonic deadline fallback, as on GizOS Desktop.
+- Timer: canonical unsupported Timer from the source package. Lua sleep uses
+  the firmware Host's monotonic deadline fallback; no timer thread is required.
 - Display, Button, Touch: real Flutter framebuffer/input bridge; no skin state
   is visible to Lua.
 - Audio: **test-only in-memory PCM source/sink**, enabled by board flags. Mono
@@ -145,35 +147,66 @@ retained, but this package adds no independent Lua asset-loading API.
 
 ## Native build and verification
 
+The only GizOS build input is `gizos-lua-runtime-src.tar.gz` or its extracted
+source directory. No GizOS checkout, Bazel metadata, separate Lua/yyjson download,
+precompiled runtime, or RPC regeneration is used.
+
 ```sh
 flutter pub get
-GIZOS_ROOT=/Users/idy/GizClaw/gizos ./tool/with_gizos.sh test --no-pub
+GIZOS_LUA_RUNTIME_SRC=/absolute/path/gizos-lua-runtime-src.tar.gz \
+  ./tool/with_gizos.sh test --no-pub
 dart format --set-exit-if-changed .
 flutter analyze --no-pub
 ```
 
-Flutter sanitizes hook environments; the wrapper records `GIZOS_ROOT` in ignored
-`.dart_tool/gizos-root`. Sources are read in place. No Bazel command or generated
-RPC update is needed. Builds download and SHA-256 verify Lua 5.5 at revision
-`a5522f06d2679b8f18534fd6a9968f7eb539dc31` and yyjson at the checkout's
-`MODULE.bazel` pin. Download/build caches stay under `.dart_tool`.
+Resolution prefers `GIZOS_LUA_RUNTIME_SRC` from the hook environment, then the
+same named hook user-define (a path), then the local setting forwarded by the
+wrapper. Flutter versions that sanitize hook environments need the wrapper;
+it records the absolute path in ignored `.dart_tool/gizos-lua-runtime-src`.
+Run it again to change that path; delete that setting to return to the pinned
+package. `GIZOS_ROOT` has no effect. A consuming project's hook user-define can
+also supply the path through its pubspec:
 
-Source lists are derived from the corresponding GizOS BUILD files:
+```yaml
+hooks:
+  user_defines:
+    gizclaw_lua:
+      GIZOS_LUA_RUNTIME_SRC: /absolute/path/gizos-lua-runtime-src.tar.gz
+```
 
-| Source target | Compiled content |
+Without a local override, `runtimePackagePin` in `hook/runtime_package.dart`
+provides the single `{url, sha256, size}` reference. It is empty until GizOS
+publishes a release; builds then fail with instructions to set
+`GIZOS_LUA_RUNTIME_SRC`. Downloads require both SHA-256 and size verification.
+Local tarballs are also checked against SHA-256/size when the pin is populated;
+extracted directories are explicit development overrides and are not digest
+pinned. Extraction rejects absolute/traversal paths, links, special files, and
+duplicate entries. Caches live under the hook output directory, keyed by archive
+SHA-256. Schema versions other than `1` and profiles other than
+`runtime.lua.gizos` fail before compilation. That source profile describes the
+lower runtime; the embedding host still declares its own supported runtime ID.
+
+`CBuilder` compiles exactly `manifest.json.sources`, once per source, using the
+common and corresponding `compilation_units` flags/defines and manifest include
+directories. Each group produces a private static archive; the final native
+asset links all groups plus the target's `per_os.link_flags`. CBuilder supplies
+the target architecture, sysroot, PIC and deployment version. Apple compilation
+suppresses unused command-line warnings caused by CBuilder's linker-only flag
+on static compile steps; manifest warning/error flags remain in effect.
+
+| Source owner | Compiled content |
 | --- | --- |
-| `third_party/lua.BUILD.bazel` | Upstream Lua C sources selected by GizOS |
-| `libs/lua:lua_core` | VM and text loader |
-| `libs/lua:lua_runtime` | Host, job scheduler, events, firmware modules, task names |
-| `libs/runtime:runtime` | Full `RUNTIME_SRCS`, including input/event/audio and task names |
-| `libs/pal:unsupported` | All canonical unsupported PAL implementations |
-| `libs/pal/providers/desktop/pal_core:core` | `h2_desktop_platform_core.cpp`, compiled as C++17 |
-| `libs/pal/providers/posix/pal_core:host_fs` | `h2_posix_host_fs.c` |
-| GizOS yyjson pin | `src/yyjson.c` |
-| This package | `native/host.c` |
+| Source package: Lua vendor | Selected patched Lua 5.5 C files in `external/...h2_vendor_lua/src/` |
+| Source package: yyjson vendor | `external/...h2_vendor_yyjson/src/src/yyjson.c` |
+| Source package: `libs/lua/src/core/` | Core VM and text loader |
+| Source package: `libs/lua/src/modules/`, `runtime/` | Modules, Host, jobs, events and task names |
+| Source package: `libs/runtime/src/` | Runtime sources selected by the manifest |
+| Source package: `libs/pal/src/unsupported/` | Canonical unsupported API implementations |
+| This package: `native/host.c` | Host bridge, display/button/touch/audio vtables |
+| This package: `native/os_posix.c` | Memory/log/time/task/queue/mutex and read-only filesystem |
 
-GizOS PAL/Runtime/Lua headers are included directly. Desktop simulators and
-network/production audio providers are not linked. Unexpected source-list or
-vendor layouts fail the hook. Tests cover async echo, missing requirements,
-RGB565 pixels, Runtime button events, pending-capability cancellation, PCM
-loopback, package safety, job limits/lifecycle, and default/custom slot skins.
+No PAL provider or C++ source from GizOS is linked. Native builds support
+macOS and Linux hosts; Linux is unverified. iOS, Android, Windows and Web are
+not supported by this hook. Tests cover source-package verification, async echo,
+missing requirements, RGB565 pixels, Runtime button events, pending-capability
+cancellation, PCM loopback, App package safety, job lifecycle and board skins.

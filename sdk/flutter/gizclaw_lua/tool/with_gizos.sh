@@ -1,10 +1,13 @@
 #!/bin/sh
-# Flutter sanitizes hook environments. Record the explicit checkout in ignored
-# package metadata, then run Flutter from the caller's directory. Example:
-# GIZOS_ROOT=/path/to/gizos ./tool/with_gizos.sh test
+# Flutter sanitizes hook environments; forward the explicit source package path
+# through ignored package metadata. Run from the desired Flutter project.
 set -eu
-: "${GIZOS_ROOT:?Set GIZOS_ROOT to your GizOS checkout}"
+: "${GIZOS_LUA_RUNTIME_SRC:?Set GIZOS_LUA_RUNTIME_SRC to a .tar.gz or extracted runtime source directory}"
 package_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+case "$GIZOS_LUA_RUNTIME_SRC" in
+  /*) runtime_src=$GIZOS_LUA_RUNTIME_SRC ;;
+  *) runtime_src=$PWD/$GIZOS_LUA_RUNTIME_SRC ;;
+esac
 mkdir -p "$package_dir/.dart_tool"
-printf '%s\n' "$GIZOS_ROOT" > "$package_dir/.dart_tool/gizos-root"
+printf '%s\n' "$runtime_src" > "$package_dir/.dart_tool/gizos-lua-runtime-src"
 exec flutter "$@"
