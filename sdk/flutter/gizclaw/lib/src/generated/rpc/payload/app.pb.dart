@@ -134,10 +134,12 @@ class ClientAppListResponse extends $pb.GeneratedMessage {
   factory ClientAppListResponse({
     $core.String? runtime,
     $core.Iterable<InstalledApp>? apps,
+    $core.Iterable<$core.String>? capabilities,
   }) {
     final result = ClientAppListResponse._();
     if (runtime != null) result.runtime = runtime;
     if (apps != null) result.apps.addAll(apps);
+    if (capabilities != null) result.capabilities.addAll(capabilities);
     return result;
   }
 
@@ -157,6 +159,7 @@ class ClientAppListResponse extends $pb.GeneratedMessage {
     ..aOS(1, _omitFieldNames ? '' : 'runtime')
     ..pPM<InstalledApp>(2, _omitFieldNames ? '' : 'apps',
         subBuilder: InstalledApp.$_createMessage)
+    ..pPS(3, _omitFieldNames ? '' : 'capabilities')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -196,6 +199,12 @@ class ClientAppListResponse extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(2)
   $pb.PbList<InstalledApp> get apps => $_getList(1);
+
+  /// capabilities lists every capability name registered in the Client's Lua
+  /// host, frozen when the host starts. Apps whose manifest requires a missing
+  /// capability are neither installed nor exposed.
+  @$pb.TagNumber(3)
+  $pb.PbList<$core.String> get capabilities => $_getList(2);
 }
 
 /// ClientAppInstallRequest asks the Client to download, verify, and install

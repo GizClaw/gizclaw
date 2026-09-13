@@ -117,8 +117,12 @@ type ClientAppListResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// runtime is the single opaque App runtime profile ID this Client provides,
 	// for example "runtime.lua.gizos".
-	Runtime       string          `protobuf:"bytes,1,opt,name=runtime,proto3" json:"runtime,omitempty"`
-	Apps          []*InstalledApp `protobuf:"bytes,2,rep,name=apps,proto3" json:"apps,omitempty"`
+	Runtime string          `protobuf:"bytes,1,opt,name=runtime,proto3" json:"runtime,omitempty"`
+	Apps    []*InstalledApp `protobuf:"bytes,2,rep,name=apps,proto3" json:"apps,omitempty"`
+	// capabilities lists every capability name registered in the Client's Lua
+	// host, frozen when the host starts. Apps whose manifest requires a missing
+	// capability are neither installed nor exposed.
+	Capabilities  []string `protobuf:"bytes,3,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -163,6 +167,13 @@ func (x *ClientAppListResponse) GetRuntime() string {
 func (x *ClientAppListResponse) GetApps() []*InstalledApp {
 	if x != nil {
 		return x.Apps
+	}
+	return nil
+}
+
+func (x *ClientAppListResponse) GetCapabilities() []string {
+	if x != nil {
+		return x.Capabilities
 	}
 	return nil
 }
@@ -654,10 +665,11 @@ const file_payload_app_proto_rawDesc = "" +
 	"\fInstalledApp\x12\x19\n" +
 	"\bapp_name\x18\x01 \x01(\tR\aappName\x12\x16\n" +
 	"\x06sha256\x18\x02 \x01(\tR\x06sha256\"\x16\n" +
-	"\x14ClientAppListRequest\"c\n" +
+	"\x14ClientAppListRequest\"\x87\x01\n" +
 	"\x15ClientAppListResponse\x12\x18\n" +
 	"\aruntime\x18\x01 \x01(\tR\aruntime\x120\n" +
-	"\x04apps\x18\x02 \x03(\v2\x1c.gizclaw.rpc.v1.InstalledAppR\x04apps\"r\n" +
+	"\x04apps\x18\x02 \x03(\v2\x1c.gizclaw.rpc.v1.InstalledAppR\x04apps\x12\"\n" +
+	"\fcapabilities\x18\x03 \x03(\tR\fcapabilities\"r\n" +
 	"\x17ClientAppInstallRequest\x12\x19\n" +
 	"\bapp_name\x18\x01 \x01(\tR\aappName\x12\x10\n" +
 	"\x03url\x18\x02 \x01(\tR\x03url\x12\x16\n" +

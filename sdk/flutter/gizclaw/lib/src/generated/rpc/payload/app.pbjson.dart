@@ -51,13 +51,15 @@ const ClientAppListResponse$json = {
       '6': '.gizclaw.rpc.v1.InstalledApp',
       '10': 'apps'
     },
+    {'1': 'capabilities', '3': 3, '4': 3, '5': 9, '10': 'capabilities'},
   ],
 };
 
 /// Descriptor for `ClientAppListResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List clientAppListResponseDescriptor = $convert.base64Decode(
     'ChVDbGllbnRBcHBMaXN0UmVzcG9uc2USGAoHcnVudGltZRgBIAEoCVIHcnVudGltZRIwCgRhcH'
-    'BzGAIgAygLMhwuZ2l6Y2xhdy5ycGMudjEuSW5zdGFsbGVkQXBwUgRhcHBz');
+    'BzGAIgAygLMhwuZ2l6Y2xhdy5ycGMudjEuSW5zdGFsbGVkQXBwUgRhcHBzEiIKDGNhcGFiaWxp'
+    'dGllcxgDIAMoCVIMY2FwYWJpbGl0aWVz');
 
 @$core.Deprecated('Use clientAppInstallRequestDescriptor instead')
 const ClientAppInstallRequest$json = {

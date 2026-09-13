@@ -96,6 +96,7 @@ gizclaw.rpc.v1.InstalledApp.app_name max_size:65
 gizclaw.rpc.v1.InstalledApp.sha256 max_size:65
 gizclaw.rpc.v1.ClientAppListResponse.runtime max_size:129
 gizclaw.rpc.v1.ClientAppListResponse.apps max_count:32
+gizclaw.rpc.v1.ClientAppListResponse.capabilities max_count:64 max_size:65
 gizclaw.rpc.v1.ClientAppInstallRequest.app_name max_size:65
 gizclaw.rpc.v1.ClientAppInstallRequest.url max_size:2049
 gizclaw.rpc.v1.ClientAppInstallRequest.sha256 max_size:65

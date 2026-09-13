@@ -20,6 +20,10 @@ message ClientAppListResponse {
   // for example "runtime.lua.gizos".
   string runtime = 1;
   repeated InstalledApp apps = 2;
+  // capabilities lists every capability name registered in the Client's Lua
+  // host, frozen when the host starts. Apps whose manifest requires a missing
+  // capability are neither installed nor exposed.
+  repeated string capabilities = 3;
 }
 
 // ClientAppInstallRequest asks the Client to download, verify, and install
