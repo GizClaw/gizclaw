@@ -244,4 +244,4 @@ Agent 主动开场时，ChatModel 会省略 Prompt 渲染出的无内容 user me
 
 ## 输出适配元数据
 
-`Config.OutputMetadata` 可在每条 output route 的首个非空白 chunk 发布前，从分离的本轮 state 快照生成 `map[string]string`。回调须支持并发 turn；结果在该 route 内固定，通过 `MessageChunk.Metadata` 传给进程内 adapter，Clone 会复制 map，wire encoder 不得输出这些属性。空白前缀不触发快照。未配置时不复制 state、不增加输出等待。此钩子不改变 Graph 输出名称、primary、History 或 memory；产品层可以用它传递本轮 Voice alias，通用 Eino package 不解析 Voice 资源或执行 TTS。
+`Config.OutputMetadata` 可在每条 output route 的首个非空白 chunk 发布前，从分离的本轮 state 快照生成 `map[string]string`。快照与回调都在 turn mutex 外执行；回调必须是支持并发调用的纯函数，并发首块可能准备多个候选，只有最先发布的非空白 chunk 固定候选。空映射回落同样固定。结果在该 route 内固定，通过 `MessageChunk.Metadata` 传给进程内 adapter，Clone 会复制 map，wire encoder 不得输出这些属性。空白前缀不触发快照。未配置时不复制 state、不增加输出等待。此钩子不改变 Graph 输出名称、primary、History 或 memory；产品层可以用它传递本轮 Voice alias，通用 Eino package 不解析 Voice 资源或执行 TTS。

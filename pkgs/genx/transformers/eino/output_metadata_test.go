@@ -2,12 +2,15 @@ package eino
 
 import (
 	"context"
-	"github.com/cloudwego/eino/components/model"
-	"github.com/cloudwego/eino/schema"
+	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/schema"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
@@ -145,4 +148,84 @@ func (m *metadataStreamingModel) Stream(ctx context.Context, _ []*schema.Message
 		writer.Send(schema.AssistantMessage(" world", nil), nil)
 	}()
 	return reader, nil
+}
+
+func TestOutputMetadataConcurrentCandidatesDoNotHoldTurnLock(t *testing.T) {
+	for _, fallback := range []bool{false, true} {
+		t.Run(fmt.Sprint("fallback=", fallback), func(t *testing.T) {
+			config := textConfig()
+			entered, release := make(chan struct{}), make(chan struct{})
+			var calls atomic.Int32
+			config.OutputMetadata = func(_ OutputDefinition, _ map[string]any) map[string]string {
+				if calls.Add(1) == 1 {
+					close(entered)
+					<-release
+					return map[string]string{"selected": "loser"}
+				}
+				if fallback {
+					return nil
+				}
+				return map[string]string{"selected": "winner"}
+			}
+			transformer, err := New(t.Context(), config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			session := newSession(t.Context(), transformer, textInput("unused"))
+			defer session.invocation.Output().Close()
+			state, err := newRunState(transformer.config.fields, graphInput{}, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			output := transformer.graph.primary
+			response, err := session.invocation.StartResponse(streamkit.ResponseConfig{Role: genx.RoleModel, Name: output.Name}, output.MIMEType)
+			if err != nil {
+				t.Fatal(err)
+			}
+			run := &turnRun{session: session, state: state, accepting: true, routes: map[string]outputRoute{output.Name: {definition: output, response: response}}}
+			first, second := make(chan error, 1), make(chan error, 1)
+			var once sync.Once
+			unblock := func() { once.Do(func() { close(release) }) }
+			defer unblock()
+			go func() { first <- run.Emit(output, "first") }()
+			select {
+			case <-entered:
+			case <-time.After(3 * time.Second):
+				t.Fatal("callback did not start")
+			}
+			// Another emitter and lifecycle state access must progress during callback.
+			go func() { second <- run.Emit(output, "second") }()
+			select {
+			case err := <-second:
+				if err != nil {
+					t.Fatal(err)
+				}
+			case <-time.After(3 * time.Second):
+				t.Fatal("metadata callback held turn lock")
+			}
+			unblock()
+			if err := <-first; err != nil {
+				t.Fatal(err)
+			}
+			want := "winner"
+			if fallback {
+				want = ""
+			}
+			for range 2 {
+				chunk, err := session.invocation.Output().Next()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if chunk.Metadata["selected"] != want {
+					t.Fatalf("metadata=%v want %q", chunk.Metadata, want)
+				}
+			}
+			if err := run.Emit(output, "third"); err != nil {
+				t.Fatal(err)
+			}
+			if calls.Load() != 2 {
+				t.Fatalf("frozen metadata recomputed: %d", calls.Load())
+			}
+		})
+	}
 }

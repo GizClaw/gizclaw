@@ -380,10 +380,8 @@ func (transformer *Transformer) claimInitiative(ctx context.Context) (bool, erro
 }
 
 type outputRoute struct {
-	metadata      map[string]string
-	metadataReady bool
-	definition    OutputDefinition
-	response      *streamkit.Response
+	definition OutputDefinition
+	response   *streamkit.Response
 }
 
 func (session *session) startTurn(user, inputID string, parts []any, previous <-chan struct{}, initiative ...bool) <-chan struct{} {
@@ -454,6 +452,7 @@ type turnRun struct {
 	streamIDs map[string]struct{}
 
 	mu             sync.Mutex
+	metadata       map[string]map[string]string // presence freezes even a nil fallback
 	accepting      bool
 	interrupted    bool
 	terminal       bool
@@ -465,15 +464,6 @@ type turnRun struct {
 }
 
 func (run *turnRun) Emit(output OutputDefinition, value any) error {
-	run.mu.Lock()
-	defer run.mu.Unlock()
-	if !run.accepting {
-		return streamkit.ErrInactiveResponse
-	}
-	route, ok := run.routes[output.Name]
-	if !ok {
-		return fmt.Errorf("eino: output route %q is not active", output.Name)
-	}
 	chunk := &genx.MessageChunk{Role: genx.RoleModel, Name: output.Name}
 	var size int
 	switch typed := value.(type) {
@@ -486,21 +476,45 @@ func (run *turnRun) Emit(output OutputDefinition, value any) error {
 	default:
 		return fmt.Errorf("eino: output %q has unsupported value %T", output.Name, value)
 	}
-	if callback := run.session.transformer.config.OutputMetadata; callback != nil {
-		nonblank := size > 0
-		if text, ok := chunk.Part.(genx.Text); ok {
-			nonblank = strings.TrimSpace(string(text)) != ""
+	callback := run.session.transformer.config.OutputMetadata
+	nonblank := size > 0
+	if text, ok := chunk.Part.(genx.Text); ok {
+		nonblank = strings.TrimSpace(string(text)) != ""
+	}
+	run.mu.Lock()
+	_, ready := run.metadata[output.Name]
+	accepting := run.accepting
+	run.mu.Unlock()
+	if !accepting {
+		return streamkit.ErrInactiveResponse
+	}
+	var metadata map[string]string
+	if callback != nil && nonblank && !ready {
+		snapshot, err := run.state.snapshot()
+		if err != nil {
+			return err
 		}
-		if nonblank && !route.metadataReady {
-			snapshot, err := run.state.snapshot()
-			if err != nil {
-				return err
+		metadata = maps.Clone(callback(output, snapshot))
+	}
+	run.mu.Lock()
+	defer run.mu.Unlock()
+	if !run.accepting {
+		return streamkit.ErrInactiveResponse
+	}
+	route, ok := run.routes[output.Name]
+	if !ok {
+		return fmt.Errorf("eino: output route %q is not active", output.Name)
+	}
+	if callback != nil {
+		// Concurrent emitters may prepare candidates outside the lock. Only the
+		// first published nonblank chunk commits one; fallback is also final.
+		if _, ready := run.metadata[output.Name]; nonblank && !ready {
+			if run.metadata == nil {
+				run.metadata = make(map[string]map[string]string)
 			}
-			route.metadata = maps.Clone(callback(output, snapshot))
-			route.metadataReady = true
-			run.routes[output.Name] = route
+			run.metadata[output.Name] = metadata
 		}
-		chunk.Metadata = maps.Clone(route.metadata)
+		chunk.Metadata = maps.Clone(run.metadata[output.Name])
 	}
 	if err := run.session.invocation.Emit(route.response, chunk); err != nil {
 		return err
