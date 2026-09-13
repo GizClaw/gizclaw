@@ -313,11 +313,12 @@ func TestWorkspaceToolkitProjectionAfterProfileChange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := server.workspaceRPCProjection(ctx, collisionWorkspace, server.RuntimeProfile()); err == nil {
-		t.Fatal("ambiguous fallback projected successfully")
+	projected := server.projectWorkspaceToolkit(ctx, collisionWorkspace.Toolkit, server.RuntimeProfile())
+	if !reflect.DeepEqual(*projected.ToolNames, []string{"giztest_echo"}) {
+		t.Fatalf("collision projection = %v", *projected.ToolNames)
 	}
 	delete(*bindings, "giztest_echo")
-	// An unrepresentable selection must fail, never claim the stored list is [].
+	// Missing entries are omitted without altering the stored policy.
 	if err := server.Tools.DeleteTool(ctx, "echo-id"); err != nil {
 		t.Fatal(err)
 	}
@@ -325,7 +326,75 @@ func TestWorkspaceToolkitProjectionAfterProfileChange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := server.workspaceRPCProjection(ctx, ws, server.RuntimeProfile()); err == nil {
-		t.Fatal("missing Tool projected successfully")
+	projected = server.projectWorkspaceToolkit(ctx, ws.Toolkit, server.RuntimeProfile())
+	if !reflect.DeepEqual(*projected.ToolNames, []string{"other"}) {
+		t.Fatalf("missing projection = %v", *projected.ToolNames)
+	}
+}
+
+func TestWorkspaceRPCStaleToolkitDoesNotFailReadsOrMutations(t *testing.T) {
+	server := newWorkspaceToolkitTestServer(t)
+	ctx := t.Context()
+	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{Name: "stale-workspace", Collection: "story-teller", WorkflowName: "journey", Toolkit: rpcToolkitPolicy("echo-alias")})
+	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{Name: "healthy-workspace", Collection: "story-teller", WorkflowName: "journey"})
+	delete(*server.RuntimeProfile().Spec.Resources.Tools, "echo-alias")
+	if err := server.Tools.DeleteTool(ctx, "echo-id"); err != nil {
+		t.Fatal(err)
+	}
+	page := callWorkspaceList(t, ctx, server, "story-teller")
+	if len(page.Items) != 2 {
+		t.Fatalf("list returned %d items", len(page.Items))
+	}
+	for _, item := range page.Items {
+		if item.Name == "stale-workspace" && (item.Toolkit == nil || item.Toolkit.ToolNames == nil || len(*item.Toolkit.ToolNames) != 0) {
+			t.Fatalf("stale projection = %+v", item.Toolkit)
+		}
+	}
+	var payload rpcapi.RPCPayload
+	var parameters rpcapi.WorkspaceParameters
+	putInput := rpcapi.WorkspaceInputModeRealtime
+	if err := parameters.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{AgentType: rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft, Input: &putInput}); err != nil {
+		t.Fatal(err)
+	}
+	if err := payload.FromWorkspacePutRequest(rpcapi.WorkspacePutRequest{Name: "stale-workspace", Body: rpcapi.WorkspacePutBody{Parameters: &parameters}}); err != nil {
+		t.Fatal(err)
+	}
+	response := dispatchToolkitRPC(t, server, &rpcapi.RPCRequest{Id: "put-stale", Method: rpcapi.RPCMethodServerWorkspacePut, Params: &payload})
+	if response.Error != nil {
+		t.Fatal(response.Error)
+	}
+	put, err := response.Result.AsWorkspacePutResponse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if put.Toolkit == nil || put.Toolkit.ToolNames == nil || len(*put.Toolkit.ToolNames) != 0 {
+		t.Fatalf("put projection = %+v", put.Toolkit)
+	}
+	putParams, err := put.Parameters.AsFlowcraftWorkspaceParameters()
+	if err != nil || putParams.Input == nil || *putParams.Input != putInput {
+		t.Fatalf("put input not updated: %+v %v", putParams, err)
+	}
+	input := rpcapi.WorkspaceInputModePushToTalk
+	response = callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{Name: "stale-workspace", Parameters: rpcapi.WorkspaceParametersPatch{Input: &input}})
+	if response.Error != nil {
+		t.Fatal(response.Error)
+	}
+	updated, err := response.Result.AsWorkspaceParametersSetResponse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Toolkit == nil || updated.Toolkit.ToolNames == nil || len(*updated.Toolkit.ToolNames) != 0 {
+		t.Fatalf("parameters projection = %+v", updated.Toolkit)
+	}
+	params, err := updated.Parameters.AsFlowcraftWorkspaceParameters()
+	if err != nil || params.Input == nil || *params.Input != input {
+		t.Fatalf("input not updated: %+v %v", params, err)
+	}
+	stored, err := server.getWorkspaceByName(server.ownerContext(ctx), "stale-workspace")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(*stored.Toolkit.ToolIds, []string{"echo-id"}) {
+		t.Fatalf("stored selection changed: %+v", stored.Toolkit)
 	}
 }

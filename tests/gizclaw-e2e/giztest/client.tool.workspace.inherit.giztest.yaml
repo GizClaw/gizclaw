@@ -51,28 +51,17 @@ steps:
     method: server.run.workspace.set
     request:
       workspace_name: "${workspace_name}"
-- id: default_echo
+- id: default_tools
   client: peer
   peer_stream:
     mode: text
-    input: Call giztest_echo exactly once with key current-peer if it is available.
-      After a successful call reply only with the marker from its result. If the tool is not available or
-      returns an error, reply only TOOL_UNAVAILABLE. Do not call any other tool.
+    input: Execute both giztest_echo and giztest_other exactly once each with key
+      "${workspace_name}". These are two different tools. Make fresh calls to both;
+      do not reuse previous results. After both calls succeed, reply with both
+      result markers. Do not call any other tool.
   expect:
     "/text":
-      contains: ECHO_OK
-    "/text_eos":
-      equals: true
-- id: default_other
-  client: peer
-  peer_stream:
-    mode: text
-    input: Call giztest_other exactly once with key current-peer if it is available.
-      After a successful call reply only with the marker from its result. If the tool is not available or
-      returns an error, reply only TOOL_UNAVAILABLE. Do not call any other tool.
-  expect:
-    "/text":
-      contains: OTHER_OK
+      contains_all: [ECHO_OK, OTHER_OK]
     "/text_eos":
       equals: true
 - id: echo_handler

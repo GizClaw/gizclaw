@@ -59,11 +59,11 @@ func (s *Server) resolveWorkspaceToolkit(ctx context.Context, policy *rpcapi.Too
 	return toolkit.NormalizePolicy(out)
 }
 
-// projectWorkspaceToolkit preserves the stored selection even after profile
-// changes. A missing resource or ambiguous fallback cannot be represented safely.
-func (s *Server) projectWorkspaceToolkit(ctx context.Context, policy *apitypes.ToolkitPolicy, profile *apitypes.RuntimeProfile) (*rpcapi.ToolkitPolicy, error) {
+// projectWorkspaceToolkit returns representable names without letting stale
+// toolkit data fail Workspace reads or responses after a successful mutation.
+func (s *Server) projectWorkspaceToolkit(ctx context.Context, policy *apitypes.ToolkitPolicy, profile *apitypes.RuntimeProfile) *rpcapi.ToolkitPolicy {
 	if policy == nil || policy.ToolIds == nil {
-		return nil, nil
+		return nil
 	}
 	bindings := map[string]apitypes.RuntimeProfileBinding{}
 	if profile != nil {
@@ -81,21 +81,21 @@ func (s *Server) projectWorkspaceToolkit(ctx context.Context, policy *apitypes.T
 		name, bound := aliases[id]
 		if !bound {
 			if s.Tools == nil {
-				return nil, errors.New("workspace toolkit selection cannot be projected")
+				continue
 			}
 			tool, err := s.Tools.GetToolByID(ctx, id)
 			if err != nil {
-				return nil, errors.New("workspace toolkit selection cannot be projected")
+				continue
 			}
 			name = tool.InvokeName
 			if binding, collision := bindings[name]; collision && binding.ResourceId != id {
-				return nil, errors.New("workspace toolkit selection cannot be projected")
+				continue
 			}
 		}
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	return &rpcapi.ToolkitPolicy{ToolNames: &names}, nil
+	return &rpcapi.ToolkitPolicy{ToolNames: &names}
 }
 
 func workspaceToolkitError(id string, err error) *rpcapi.RPCResponse {

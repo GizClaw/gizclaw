@@ -497,11 +497,7 @@ func (s *Server) workspaceRPCProjection(ctx context.Context, item apitypes.Works
 		}
 		out.Parameters = &parameters
 	}
-	policy, err := s.projectWorkspaceToolkit(ctx, item.Toolkit, profile)
-	if err != nil {
-		return rpcapi.Workspace{}, err
-	}
-	out.Toolkit = policy
+	out.Toolkit = s.projectWorkspaceToolkit(ctx, item.Toolkit, profile)
 	if item.Icon != nil {
 		icon, err := convertType[rpcapi.Icon](*item.Icon)
 		if err != nil {

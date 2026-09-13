@@ -88,6 +88,11 @@ steps:
     method: server.run.workspace.set
     request:
       workspace_name: "${workspace_name}"
+- id: activate_disabled_workspace
+  client: peer
+  rpc:
+    method: server.run.workspace.reload
+    request: {}
 - id: disabled_call
   client: peer
   peer_stream:
@@ -95,9 +100,9 @@ steps:
     input: Call giztest_echo exactly once with key current-peer if it is available.
       After a successful call reply only with the marker from its result. If the tool is not available or
       returns an error, reply only TOOL_UNAVAILABLE. Do not call any other tool.
+  # The model may phrase unavailability differently; the exact call count below
+  # proves that this turn cannot invoke the disabled tool.
   expect:
-    "/text":
-      contains: TOOL_UNAVAILABLE
     "/text_eos":
       equals: true
 - id: one_control_call_only

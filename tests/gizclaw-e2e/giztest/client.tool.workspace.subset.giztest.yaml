@@ -75,9 +75,8 @@ steps:
     input: Call giztest_other exactly once with key current-peer if it is available.
       After a successful call reply only with the marker from its result. If the tool is not available or
       returns an error, reply only TOOL_UNAVAILABLE. Do not call any other tool.
+  # Assert exclusion through the exact device-call count, not model wording.
   expect:
-    "/text":
-      contains: TOOL_UNAVAILABLE
     "/text_eos":
       equals: true
 - id: selected_handler
