@@ -21,7 +21,7 @@ func TestStatusErrorIsNeverCalledWithAnHTTPStatus(t *testing.T) {
 	}
 	for _, entry := range entries {
 		name := entry.Name()
-		if entry.IsDir() || !strings.HasSuffix(name, ".go") || name == "status_error_guard_test.go" {
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || name == "server_status_error_guard_test.go" {
 			continue
 		}
 		source, err := os.ReadFile(filepath.Clean(name))
