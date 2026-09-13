@@ -495,12 +495,6 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ToolGetRequest',
     responseType: 'ToolGetResponse',
   ),
-  'client.tool.invoke': RpcMethodDescriptor(
-    id: 82,
-    name: 'client.tool.invoke',
-    requestType: 'ToolInvokeRequest',
-    responseType: 'ToolInvokeResponse',
-  ),
   'server.peer.lookup': RpcMethodDescriptor(
     id: 83,
     name: 'server.peer.lookup',
@@ -705,6 +699,42 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ClientDeviceAudioPlayerModeSetRequest',
     responseType: 'ClientDeviceAudioPlayerModeSetResponse',
   ),
+  'client.app.list': RpcMethodDescriptor(
+    id: 121,
+    name: 'client.app.list',
+    requestType: 'ClientAppListRequest',
+    responseType: 'ClientAppListResponse',
+  ),
+  'client.app.install': RpcMethodDescriptor(
+    id: 122,
+    name: 'client.app.install',
+    requestType: 'ClientAppInstallRequest',
+    responseType: 'ClientAppInstallResponse',
+  ),
+  'client.app.uninstall': RpcMethodDescriptor(
+    id: 123,
+    name: 'client.app.uninstall',
+    requestType: 'ClientAppUninstallRequest',
+    responseType: 'ClientAppUninstallResponse',
+  ),
+  'client.app.invoke': RpcMethodDescriptor(
+    id: 124,
+    name: 'client.app.invoke',
+    requestType: 'ClientAppInvokeRequest',
+    responseType: 'ClientAppInvokeResponse',
+  ),
+  'client.app.job.start': RpcMethodDescriptor(
+    id: 125,
+    name: 'client.app.job.start',
+    requestType: 'ClientAppJobStartRequest',
+    responseType: 'ClientAppJobStartResponse',
+  ),
+  'client.app.job.cancel': RpcMethodDescriptor(
+    id: 126,
+    name: 'client.app.job.cancel',
+    requestType: 'ClientAppJobCancelRequest',
+    responseType: 'ClientAppJobCancelResponse',
+  ),
 };
 
 const rpcMethodNamesById = <int, String>{
@@ -788,7 +818,6 @@ const rpcMethodNamesById = <int, String>{
   79: 'server.reward_grant.get',
   80: 'server.tool.list',
   81: 'server.tool.get',
-  82: 'client.tool.invoke',
   83: 'server.peer.lookup',
   84: 'server.peer.assign',
   85: 'server.route.resolve',
@@ -823,6 +852,12 @@ const rpcMethodNamesById = <int, String>{
   117: 'client.device.audioplayer.play',
   118: 'client.device.audioplayer.stop',
   119: 'client.device.audioplayer.mode.set',
+  121: 'client.app.list',
+  122: 'client.app.install',
+  123: 'client.app.uninstall',
+  124: 'client.app.invoke',
+  125: 'client.app.job.start',
+  126: 'client.app.job.cancel',
 };
 
 RpcMethodDescriptor rpcMethodByName(String name) {

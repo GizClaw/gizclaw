@@ -5319,102 +5319,6 @@ func (x *ToolGetResponse) GetRuntimeProfileRevision() string {
 	return ""
 }
 
-type ToolInvokeRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Args          *structpb.Struct       `protobuf:"bytes,1,opt,name=args,proto3" json:"args,omitempty"`
-	InvokeName    string                 `protobuf:"bytes,2,opt,name=invoke_name,json=invokeName,proto3" json:"invoke_name,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ToolInvokeRequest) Reset() {
-	*x = ToolInvokeRequest{}
-	mi := &file_payload_ai_proto_msgTypes[69]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ToolInvokeRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ToolInvokeRequest) ProtoMessage() {}
-
-func (x *ToolInvokeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[69]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ToolInvokeRequest.ProtoReflect.Descriptor instead.
-func (*ToolInvokeRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{69}
-}
-
-func (x *ToolInvokeRequest) GetArgs() *structpb.Struct {
-	if x != nil {
-		return x.Args
-	}
-	return nil
-}
-
-func (x *ToolInvokeRequest) GetInvokeName() string {
-	if x != nil {
-		return x.InvokeName
-	}
-	return ""
-}
-
-type ToolInvokeResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	DataJson      string                 `protobuf:"bytes,1,opt,name=data_json,json=dataJson,proto3" json:"data_json,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ToolInvokeResponse) Reset() {
-	*x = ToolInvokeResponse{}
-	mi := &file_payload_ai_proto_msgTypes[70]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ToolInvokeResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ToolInvokeResponse) ProtoMessage() {}
-
-func (x *ToolInvokeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[70]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ToolInvokeResponse.ProtoReflect.Descriptor instead.
-func (*ToolInvokeResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{70}
-}
-
-func (x *ToolInvokeResponse) GetDataJson() string {
-	if x != nil {
-		return x.DataJson
-	}
-	return ""
-}
-
 var File_payload_ai_proto protoreflect.FileDescriptor
 
 const file_payload_ai_proto_rawDesc = "" +
@@ -6136,13 +6040,7 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x0fToolGetResponse\x12*\n" +
 	"\x05value\x18\x01 \x01(\v2\x14.gizclaw.rpc.v1.ToolR\x05value\x120\n" +
 	"\x14runtime_profile_name\x18\x02 \x01(\tR\x12runtimeProfileName\x128\n" +
-	"\x18runtime_profile_revision\x18\x03 \x01(\tR\x16runtimeProfileRevision\"a\n" +
-	"\x11ToolInvokeRequest\x12+\n" +
-	"\x04args\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x04args\x12\x1f\n" +
-	"\vinvoke_name\x18\x02 \x01(\tR\n" +
-	"invokeName\"1\n" +
-	"\x12ToolInvokeResponse\x12\x1b\n" +
-	"\tdata_json\x18\x01 \x01(\tR\bdataJson*\xa6\x02\n" +
+	"\x18runtime_profile_revision\x18\x03 \x01(\tR\x16runtimeProfileRevision*\xa6\x02\n" +
 	"\x11ModelProviderKind\x12#\n" +
 	"\x1fMODEL_PROVIDER_KIND_UNSPECIFIED\x10\x00\x12%\n" +
 	"!MODEL_PROVIDER_KIND_OPENAI_TENANT\x10\x01\x12%\n" +
@@ -6165,7 +6063,7 @@ func file_payload_ai_proto_rawDescGZIP() []byte {
 }
 
 var file_payload_ai_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_payload_ai_proto_msgTypes = make([]protoimpl.MessageInfo, 77)
+var file_payload_ai_proto_msgTypes = make([]protoimpl.MessageInfo, 75)
 var file_payload_ai_proto_goTypes = []any{
 	(ModelProviderKind)(0),                                // 0: gizclaw.rpc.v1.ModelProviderKind
 	(*ResourceI18NText)(nil),                              // 1: gizclaw.rpc.v1.ResourceI18nText
@@ -6237,90 +6135,88 @@ var file_payload_ai_proto_goTypes = []any{
 	(*ToolListResponse)(nil),                              // 67: gizclaw.rpc.v1.ToolListResponse
 	(*ToolGetRequest)(nil),                                // 68: gizclaw.rpc.v1.ToolGetRequest
 	(*ToolGetResponse)(nil),                               // 69: gizclaw.rpc.v1.ToolGetResponse
-	(*ToolInvokeRequest)(nil),                             // 70: gizclaw.rpc.v1.ToolInvokeRequest
-	(*ToolInvokeResponse)(nil),                            // 71: gizclaw.rpc.v1.ToolInvokeResponse
-	nil,                                                   // 72: gizclaw.rpc.v1.DoubaoRealtimeASRContext.CorrectWordsEntry
-	nil,                                                   // 73: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry
-	nil,                                                   // 74: gizclaw.rpc.v1.Model.I18nEntry
-	nil,                                                   // 75: gizclaw.rpc.v1.Voice.I18nEntry
-	nil,                                                   // 76: gizclaw.rpc.v1.Workflow.I18nEntry
-	nil,                                                   // 77: gizclaw.rpc.v1.Tool.I18nEntry
-	(ASTTranslateMode)(0),                                 // 78: gizclaw.rpc.v1.ASTTranslateMode
-	(ASTTranslateWorkspaceParametersAgentType)(0),         // 79: gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentType
-	(WorkspaceInputMode)(0),                               // 80: gizclaw.rpc.v1.WorkspaceInputMode
-	(DashScopeRealtimeWorkspaceParametersAgentType)(0),    // 81: gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParametersAgentType
-	(DoubaoRealtimeDuplexWorkspaceParametersAgentType)(0), // 82: gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParametersAgentType
-	(*structpb.Struct)(nil),                               // 83: google.protobuf.Struct
-	(EinoWorkspaceParametersAgentType)(0),                 // 84: gizclaw.rpc.v1.EinoWorkspaceParametersAgentType
-	(PetWorkspaceParametersAgentType)(0),                  // 85: gizclaw.rpc.v1.PetWorkspaceParametersAgentType
-	(DoubaoRealtimeAudioFormatType)(0),                    // 86: gizclaw.rpc.v1.DoubaoRealtimeAudioFormatType
-	(DoubaoRealtimeDialogExtraVolcWebsearchType)(0),       // 87: gizclaw.rpc.v1.DoubaoRealtimeDialogExtraVolcWebsearchType
-	(DoubaoRealtimeFunctionToolType)(0),                   // 88: gizclaw.rpc.v1.DoubaoRealtimeFunctionToolType
-	(DoubaoRealtimeWorkspaceParametersAgentType)(0),       // 89: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType
-	(ConversationParametersAgentInitiativePolicy)(0),      // 90: gizclaw.rpc.v1.ConversationParametersAgentInitiativePolicy
-	(ConversationParametersInitiative)(0),                 // 91: gizclaw.rpc.v1.ConversationParametersInitiative
-	(FlowcraftWorkspaceParametersAgentType)(0),            // 92: gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
-	(ReusableWorkflowDriver)(0),                           // 93: gizclaw.rpc.v1.ReusableWorkflowDriver
-	(ModelKind)(0),                                        // 94: gizclaw.rpc.v1.ModelKind
-	(WorkflowDriver)(0),                                   // 95: gizclaw.rpc.v1.WorkflowDriver
+	nil,                                                   // 70: gizclaw.rpc.v1.DoubaoRealtimeASRContext.CorrectWordsEntry
+	nil,                                                   // 71: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry
+	nil,                                                   // 72: gizclaw.rpc.v1.Model.I18nEntry
+	nil,                                                   // 73: gizclaw.rpc.v1.Voice.I18nEntry
+	nil,                                                   // 74: gizclaw.rpc.v1.Workflow.I18nEntry
+	nil,                                                   // 75: gizclaw.rpc.v1.Tool.I18nEntry
+	(ASTTranslateMode)(0),                                 // 76: gizclaw.rpc.v1.ASTTranslateMode
+	(ASTTranslateWorkspaceParametersAgentType)(0),         // 77: gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentType
+	(WorkspaceInputMode)(0),                               // 78: gizclaw.rpc.v1.WorkspaceInputMode
+	(DashScopeRealtimeWorkspaceParametersAgentType)(0),    // 79: gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParametersAgentType
+	(DoubaoRealtimeDuplexWorkspaceParametersAgentType)(0), // 80: gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParametersAgentType
+	(*structpb.Struct)(nil),                               // 81: google.protobuf.Struct
+	(EinoWorkspaceParametersAgentType)(0),                 // 82: gizclaw.rpc.v1.EinoWorkspaceParametersAgentType
+	(PetWorkspaceParametersAgentType)(0),                  // 83: gizclaw.rpc.v1.PetWorkspaceParametersAgentType
+	(DoubaoRealtimeAudioFormatType)(0),                    // 84: gizclaw.rpc.v1.DoubaoRealtimeAudioFormatType
+	(DoubaoRealtimeDialogExtraVolcWebsearchType)(0),       // 85: gizclaw.rpc.v1.DoubaoRealtimeDialogExtraVolcWebsearchType
+	(DoubaoRealtimeFunctionToolType)(0),                   // 86: gizclaw.rpc.v1.DoubaoRealtimeFunctionToolType
+	(DoubaoRealtimeWorkspaceParametersAgentType)(0),       // 87: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType
+	(ConversationParametersAgentInitiativePolicy)(0),      // 88: gizclaw.rpc.v1.ConversationParametersAgentInitiativePolicy
+	(ConversationParametersInitiative)(0),                 // 89: gizclaw.rpc.v1.ConversationParametersInitiative
+	(FlowcraftWorkspaceParametersAgentType)(0),            // 90: gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
+	(ReusableWorkflowDriver)(0),                           // 91: gizclaw.rpc.v1.ReusableWorkflowDriver
+	(ModelKind)(0),                                        // 92: gizclaw.rpc.v1.ModelKind
+	(WorkflowDriver)(0),                                   // 93: gizclaw.rpc.v1.WorkflowDriver
 }
 var file_payload_ai_proto_depIdxs = []int32{
 	9,  // 0: gizclaw.rpc.v1.ASTTranslateVoiceParameters.asttranslate_internal_speaker_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateInternalSpeakerParameters
 	8,  // 1: gizclaw.rpc.v1.ASTTranslateVoiceParameters.asttranslate_external_voice_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateExternalVoiceParameters
-	78, // 2: gizclaw.rpc.v1.ASTTranslateWorkflowSpec.mode:type_name -> gizclaw.rpc.v1.ASTTranslateMode
+	76, // 2: gizclaw.rpc.v1.ASTTranslateWorkflowSpec.mode:type_name -> gizclaw.rpc.v1.ASTTranslateMode
 	10, // 3: gizclaw.rpc.v1.ASTTranslateWorkflowSpec.voice:type_name -> gizclaw.rpc.v1.ASTTranslateVoiceParameters
-	79, // 4: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentType
-	80, // 5: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
-	78, // 6: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.mode:type_name -> gizclaw.rpc.v1.ASTTranslateMode
+	77, // 4: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentType
+	78, // 5: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
+	76, // 6: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.mode:type_name -> gizclaw.rpc.v1.ASTTranslateMode
 	10, // 7: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.voice:type_name -> gizclaw.rpc.v1.ASTTranslateVoiceParameters
-	81, // 8: gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParametersAgentType
-	82, // 9: gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParametersAgentType
-	83, // 10: gizclaw.rpc.v1.EinoWorkflowSpec.graph:type_name -> google.protobuf.Struct
-	83, // 11: gizclaw.rpc.v1.EinoWorkflowSpec.limits:type_name -> google.protobuf.Struct
-	83, // 12: gizclaw.rpc.v1.EinoWorkflowSpec.conversation:type_name -> google.protobuf.Struct
-	83, // 13: gizclaw.rpc.v1.EinoWorkflowSpec.voice_adapter:type_name -> google.protobuf.Struct
-	84, // 14: gizclaw.rpc.v1.EinoWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.EinoWorkspaceParametersAgentType
+	79, // 8: gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParametersAgentType
+	80, // 9: gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParametersAgentType
+	81, // 10: gizclaw.rpc.v1.EinoWorkflowSpec.graph:type_name -> google.protobuf.Struct
+	81, // 11: gizclaw.rpc.v1.EinoWorkflowSpec.limits:type_name -> google.protobuf.Struct
+	81, // 12: gizclaw.rpc.v1.EinoWorkflowSpec.conversation:type_name -> google.protobuf.Struct
+	81, // 13: gizclaw.rpc.v1.EinoWorkflowSpec.voice_adapter:type_name -> google.protobuf.Struct
+	82, // 14: gizclaw.rpc.v1.EinoWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.EinoWorkspaceParametersAgentType
 	38, // 15: gizclaw.rpc.v1.EinoWorkspaceParameters.conversation:type_name -> gizclaw.rpc.v1.ConversationParameters
-	80, // 16: gizclaw.rpc.v1.EinoWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
-	85, // 17: gizclaw.rpc.v1.PetWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.PetWorkspaceParametersAgentType
-	80, // 18: gizclaw.rpc.v1.PetWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
-	72, // 19: gizclaw.rpc.v1.DoubaoRealtimeASRContext.correct_words:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRContext.CorrectWordsEntry
+	78, // 16: gizclaw.rpc.v1.EinoWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
+	83, // 17: gizclaw.rpc.v1.PetWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.PetWorkspaceParametersAgentType
+	78, // 18: gizclaw.rpc.v1.PetWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
+	70, // 19: gizclaw.rpc.v1.DoubaoRealtimeASRContext.correct_words:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRContext.CorrectWordsEntry
 	24, // 20: gizclaw.rpc.v1.DoubaoRealtimeASRContext.hotwords:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRHotword
 	23, // 21: gizclaw.rpc.v1.DoubaoRealtimeASRExtension.extra:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRExtra
 	21, // 22: gizclaw.rpc.v1.DoubaoRealtimeASRExtra.context:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRContext
 	27, // 23: gizclaw.rpc.v1.DoubaoRealtimeAudio.input:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioInput
 	28, // 24: gizclaw.rpc.v1.DoubaoRealtimeAudio.output:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioOutput
-	86, // 25: gizclaw.rpc.v1.DoubaoRealtimeAudioFormat.type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioFormatType
+	84, // 25: gizclaw.rpc.v1.DoubaoRealtimeAudioFormat.type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioFormatType
 	26, // 26: gizclaw.rpc.v1.DoubaoRealtimeAudioInput.format:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioFormat
 	26, // 27: gizclaw.rpc.v1.DoubaoRealtimeAudioOutput.format:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioFormat
 	30, // 28: gizclaw.rpc.v1.DoubaoRealtimeDialogExtension.extra:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDialogExtra
-	87, // 29: gizclaw.rpc.v1.DoubaoRealtimeDialogExtra.volc_websearch_type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDialogExtraVolcWebsearchType
+	85, // 29: gizclaw.rpc.v1.DoubaoRealtimeDialogExtra.volc_websearch_type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDialogExtraVolcWebsearchType
 	22, // 30: gizclaw.rpc.v1.DoubaoRealtimeExtension.asr:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRExtension
 	29, // 31: gizclaw.rpc.v1.DoubaoRealtimeExtension.dialog:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDialogExtension
 	34, // 32: gizclaw.rpc.v1.DoubaoRealtimeExtension.tts:type_name -> gizclaw.rpc.v1.DoubaoRealtimeTTSExtension
 	33, // 33: gizclaw.rpc.v1.DoubaoRealtimeFunctionTool.parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
-	88, // 34: gizclaw.rpc.v1.DoubaoRealtimeFunctionTool.type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionToolType
+	86, // 34: gizclaw.rpc.v1.DoubaoRealtimeFunctionTool.type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionToolType
 	33, // 35: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.any_of:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
 	33, // 36: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.items:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
-	73, // 37: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.properties:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry
+	71, // 37: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.properties:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry
 	35, // 38: gizclaw.rpc.v1.DoubaoRealtimeTTSExtension.extra:type_name -> gizclaw.rpc.v1.DoubaoRealtimeTTSExtra
 	20, // 39: gizclaw.rpc.v1.DoubaoRealtimeTTSExtra.aigc_metadata:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAIGCMetadata
 	25, // 40: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec.audio:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudio
 	31, // 41: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec.extension:type_name -> gizclaw.rpc.v1.DoubaoRealtimeExtension
 	32, // 42: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec.tools:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionTool
-	89, // 43: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType
+	87, // 43: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType
 	25, // 44: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.audio:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudio
 	31, // 45: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.extension:type_name -> gizclaw.rpc.v1.DoubaoRealtimeExtension
-	80, // 46: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
+	78, // 46: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
 	32, // 47: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.tools:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionTool
 	38, // 48: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.conversation:type_name -> gizclaw.rpc.v1.ConversationParameters
-	90, // 49: gizclaw.rpc.v1.ConversationParameters.agent_initiative_policy:type_name -> gizclaw.rpc.v1.ConversationParametersAgentInitiativePolicy
-	91, // 50: gizclaw.rpc.v1.ConversationParameters.initiative:type_name -> gizclaw.rpc.v1.ConversationParametersInitiative
-	83, // 51: gizclaw.rpc.v1.FlowcraftWorkflowSpec.fields:type_name -> google.protobuf.Struct
-	92, // 52: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
+	88, // 49: gizclaw.rpc.v1.ConversationParameters.agent_initiative_policy:type_name -> gizclaw.rpc.v1.ConversationParametersAgentInitiativePolicy
+	89, // 50: gizclaw.rpc.v1.ConversationParameters.initiative:type_name -> gizclaw.rpc.v1.ConversationParametersInitiative
+	81, // 51: gizclaw.rpc.v1.FlowcraftWorkflowSpec.fields:type_name -> google.protobuf.Struct
+	90, // 52: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
 	38, // 53: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.conversation:type_name -> gizclaw.rpc.v1.ConversationParameters
-	80, // 54: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
-	93, // 55: gizclaw.rpc.v1.PetWorkflowSpec.driver:type_name -> gizclaw.rpc.v1.ReusableWorkflowDriver
+	78, // 54: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
+	91, // 55: gizclaw.rpc.v1.PetWorkflowSpec.driver:type_name -> gizclaw.rpc.v1.ReusableWorkflowDriver
 	64, // 56: gizclaw.rpc.v1.PetWorkflowSpec.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
 	39, // 57: gizclaw.rpc.v1.PetWorkflowSpec.flowcraft:type_name -> gizclaw.rpc.v1.FlowcraftWorkflowSpec
 	36, // 58: gizclaw.rpc.v1.PetWorkflowSpec.doubao_realtime:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec
@@ -6328,8 +6224,8 @@ var file_payload_ai_proto_depIdxs = []int32{
 	13, // 60: gizclaw.rpc.v1.PetWorkflowSpec.dashscope_realtime:type_name -> gizclaw.rpc.v1.DashScopeRealtimeWorkflowSpec
 	15, // 61: gizclaw.rpc.v1.PetWorkflowSpec.doubao_realtime_duplex:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkflowSpec
 	17, // 62: gizclaw.rpc.v1.PetWorkflowSpec.eino:type_name -> gizclaw.rpc.v1.EinoWorkflowSpec
-	74, // 63: gizclaw.rpc.v1.Model.i18n:type_name -> gizclaw.rpc.v1.Model.I18nEntry
-	94, // 64: gizclaw.rpc.v1.Model.kind:type_name -> gizclaw.rpc.v1.ModelKind
+	72, // 63: gizclaw.rpc.v1.Model.i18n:type_name -> gizclaw.rpc.v1.Model.I18nEntry
+	92, // 64: gizclaw.rpc.v1.Model.kind:type_name -> gizclaw.rpc.v1.ModelKind
 	43, // 65: gizclaw.rpc.v1.Model.openai_tenant:type_name -> gizclaw.rpc.v1.OpenAITenantModelProviderData
 	44, // 66: gizclaw.rpc.v1.Model.gemini_tenant:type_name -> gizclaw.rpc.v1.GeminiTenantModelProviderData
 	45, // 67: gizclaw.rpc.v1.Model.dashscope_tenant:type_name -> gizclaw.rpc.v1.DashScopeTenantModelProviderData
@@ -6339,29 +6235,28 @@ var file_payload_ai_proto_depIdxs = []int32{
 	0,  // 71: gizclaw.rpc.v1.Model.provider_kind:type_name -> gizclaw.rpc.v1.ModelProviderKind
 	42, // 72: gizclaw.rpc.v1.ModelGetResponse.value:type_name -> gizclaw.rpc.v1.Model
 	42, // 73: gizclaw.rpc.v1.ModelListResponse.items:type_name -> gizclaw.rpc.v1.Model
-	75, // 74: gizclaw.rpc.v1.Voice.i18n:type_name -> gizclaw.rpc.v1.Voice.I18nEntry
+	73, // 74: gizclaw.rpc.v1.Voice.i18n:type_name -> gizclaw.rpc.v1.Voice.I18nEntry
 	53, // 75: gizclaw.rpc.v1.VoiceGetResponse.value:type_name -> gizclaw.rpc.v1.Voice
 	53, // 76: gizclaw.rpc.v1.VoiceListResponse.items:type_name -> gizclaw.rpc.v1.Voice
-	76, // 77: gizclaw.rpc.v1.Workflow.i18n:type_name -> gizclaw.rpc.v1.Workflow.I18nEntry
-	95, // 78: gizclaw.rpc.v1.Workflow.driver:type_name -> gizclaw.rpc.v1.WorkflowDriver
+	74, // 77: gizclaw.rpc.v1.Workflow.i18n:type_name -> gizclaw.rpc.v1.Workflow.I18nEntry
+	93, // 78: gizclaw.rpc.v1.Workflow.driver:type_name -> gizclaw.rpc.v1.WorkflowDriver
 	58, // 79: gizclaw.rpc.v1.WorkflowGetResponse.value:type_name -> gizclaw.rpc.v1.Workflow
 	58, // 80: gizclaw.rpc.v1.WorkflowListResponse.items:type_name -> gizclaw.rpc.v1.Workflow
 	63, // 81: gizclaw.rpc.v1.ToolkitPolicy.tool_names:type_name -> gizclaw.rpc.v1.ToolkitPolicyToolNames
-	77, // 82: gizclaw.rpc.v1.Tool.i18n:type_name -> gizclaw.rpc.v1.Tool.I18nEntry
-	83, // 83: gizclaw.rpc.v1.Tool.input_schema:type_name -> google.protobuf.Struct
+	75, // 82: gizclaw.rpc.v1.Tool.i18n:type_name -> gizclaw.rpc.v1.Tool.I18nEntry
+	81, // 83: gizclaw.rpc.v1.Tool.input_schema:type_name -> google.protobuf.Struct
 	65, // 84: gizclaw.rpc.v1.ToolListResponse.items:type_name -> gizclaw.rpc.v1.Tool
 	65, // 85: gizclaw.rpc.v1.ToolGetResponse.value:type_name -> gizclaw.rpc.v1.Tool
-	83, // 86: gizclaw.rpc.v1.ToolInvokeRequest.args:type_name -> google.protobuf.Struct
-	33, // 87: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry.value:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
-	1,  // 88: gizclaw.rpc.v1.Model.I18nEntry.value:type_name -> gizclaw.rpc.v1.ResourceI18nText
-	1,  // 89: gizclaw.rpc.v1.Voice.I18nEntry.value:type_name -> gizclaw.rpc.v1.ResourceI18nText
-	1,  // 90: gizclaw.rpc.v1.Workflow.I18nEntry.value:type_name -> gizclaw.rpc.v1.ResourceI18nText
-	1,  // 91: gizclaw.rpc.v1.Tool.I18nEntry.value:type_name -> gizclaw.rpc.v1.ResourceI18nText
-	92, // [92:92] is the sub-list for method output_type
-	92, // [92:92] is the sub-list for method input_type
-	92, // [92:92] is the sub-list for extension type_name
-	92, // [92:92] is the sub-list for extension extendee
-	0,  // [0:92] is the sub-list for field type_name
+	33, // 86: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry.value:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
+	1,  // 87: gizclaw.rpc.v1.Model.I18nEntry.value:type_name -> gizclaw.rpc.v1.ResourceI18nText
+	1,  // 88: gizclaw.rpc.v1.Voice.I18nEntry.value:type_name -> gizclaw.rpc.v1.ResourceI18nText
+	1,  // 89: gizclaw.rpc.v1.Workflow.I18nEntry.value:type_name -> gizclaw.rpc.v1.ResourceI18nText
+	1,  // 90: gizclaw.rpc.v1.Tool.I18nEntry.value:type_name -> gizclaw.rpc.v1.ResourceI18nText
+	91, // [91:91] is the sub-list for method output_type
+	91, // [91:91] is the sub-list for method input_type
+	91, // [91:91] is the sub-list for extension type_name
+	91, // [91:91] is the sub-list for extension extendee
+	0,  // [0:91] is the sub-list for field type_name
 }
 
 func init() { file_payload_ai_proto_init() }
@@ -6434,7 +6329,7 @@ func file_payload_ai_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_ai_proto_rawDesc), len(file_payload_ai_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   77,
+			NumMessages:   75,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

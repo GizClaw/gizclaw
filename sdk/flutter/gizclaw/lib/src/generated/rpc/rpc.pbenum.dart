@@ -275,8 +275,6 @@ class RpcMethod extends $pb.ProtobufEnum {
       RpcMethod._(80, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_TOOL_LIST');
   static const RpcMethod RPC_METHOD_SERVER_TOOL_GET =
       RpcMethod._(81, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_TOOL_GET');
-  static const RpcMethod RPC_METHOD_CLIENT_TOOL_INVOKE =
-      RpcMethod._(82, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_TOOL_INVOKE');
   static const RpcMethod RPC_METHOD_SERVER_PEER_LOOKUP =
       RpcMethod._(83, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PEER_LOOKUP');
   static const RpcMethod RPC_METHOD_SERVER_PEER_ASSIGN =
@@ -363,6 +361,18 @@ class RpcMethod extends $pb.ProtobufEnum {
           _omitEnumNames
               ? ''
               : 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET');
+  static const RpcMethod RPC_METHOD_CLIENT_APP_LIST =
+      RpcMethod._(121, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_APP_LIST');
+  static const RpcMethod RPC_METHOD_CLIENT_APP_INSTALL =
+      RpcMethod._(122, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_APP_INSTALL');
+  static const RpcMethod RPC_METHOD_CLIENT_APP_UNINSTALL =
+      RpcMethod._(123, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_APP_UNINSTALL');
+  static const RpcMethod RPC_METHOD_CLIENT_APP_INVOKE =
+      RpcMethod._(124, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_APP_INVOKE');
+  static const RpcMethod RPC_METHOD_CLIENT_APP_JOB_START =
+      RpcMethod._(125, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_APP_JOB_START');
+  static const RpcMethod RPC_METHOD_CLIENT_APP_JOB_CANCEL = RpcMethod._(
+      126, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_APP_JOB_CANCEL');
 
   static const $core.List<RpcMethod> values = <RpcMethod>[
     RPC_METHOD_UNSPECIFIED,
@@ -446,7 +456,6 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_REWARD_GRANT_GET,
     RPC_METHOD_SERVER_TOOL_LIST,
     RPC_METHOD_SERVER_TOOL_GET,
-    RPC_METHOD_CLIENT_TOOL_INVOKE,
     RPC_METHOD_SERVER_PEER_LOOKUP,
     RPC_METHOD_SERVER_PEER_ASSIGN,
     RPC_METHOD_SERVER_ROUTE_RESOLVE,
@@ -481,10 +490,16 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY,
     RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP,
     RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET,
+    RPC_METHOD_CLIENT_APP_LIST,
+    RPC_METHOD_CLIENT_APP_INSTALL,
+    RPC_METHOD_CLIENT_APP_UNINSTALL,
+    RPC_METHOD_CLIENT_APP_INVOKE,
+    RPC_METHOD_CLIENT_APP_JOB_START,
+    RPC_METHOD_CLIENT_APP_JOB_CANCEL,
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 120);
+      $pb.ProtobufEnum.$_initByValueList(values, 126);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

@@ -164,7 +164,6 @@ enum RpcMethod {
   RPC_METHOD_SERVER_REWARD_GRANT_GET = 79 [(rpc_method) = { name: "server.reward_grant.get" request: "ServerRewardGrantGetRequest" response: "ServerRewardGrantGetResponse" }];
   RPC_METHOD_SERVER_TOOL_LIST = 80 [(rpc_method) = { name: "server.tool.list" request: "ToolListRequest" response: "ToolListResponse" }];
   RPC_METHOD_SERVER_TOOL_GET = 81 [(rpc_method) = { name: "server.tool.get" request: "ToolGetRequest" response: "ToolGetResponse" }];
-  RPC_METHOD_CLIENT_TOOL_INVOKE = 82 [(rpc_method) = { name: "client.tool.invoke" request: "ToolInvokeRequest" response: "ToolInvokeResponse" }];
   RPC_METHOD_SERVER_PEER_LOOKUP = 83 [(rpc_method) = { name: "server.peer.lookup" request: "ServerPeerLookupRequest" response: "ServerPeerLookupResponse" }];
   RPC_METHOD_SERVER_PEER_ASSIGN = 84 [(rpc_method) = { name: "server.peer.assign" request: "ServerPeerAssignRequest" response: "ServerPeerAssignResponse" }];
   RPC_METHOD_SERVER_ROUTE_RESOLVE = 85 [(rpc_method) = { name: "server.route.resolve" request: "ServerRouteResolveRequest" response: "ServerRouteResolveResponse" }];
@@ -199,4 +198,12 @@ enum RpcMethod {
   RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY = 117 [(rpc_method) = { name: "client.device.audioplayer.play" request: "ClientDeviceAudioPlayerPlayRequest" response: "ClientDeviceAudioPlayerPlayResponse" }];
   RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP = 118 [(rpc_method) = { name: "client.device.audioplayer.stop" request: "ClientDeviceAudioPlayerStopRequest" response: "ClientDeviceAudioPlayerStopResponse" }];
   RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET = 119 [(rpc_method) = { name: "client.device.audioplayer.mode.set" request: "ClientDeviceAudioPlayerModeSetRequest" response: "ClientDeviceAudioPlayerModeSetResponse" }];
+  RPC_METHOD_CLIENT_APP_LIST = 121 [(rpc_method) = { name: "client.app.list" request: "ClientAppListRequest" response: "ClientAppListResponse" }];
+  RPC_METHOD_CLIENT_APP_INSTALL = 122 [(rpc_method) = { name: "client.app.install" request: "ClientAppInstallRequest" response: "ClientAppInstallResponse" }];
+  RPC_METHOD_CLIENT_APP_UNINSTALL = 123 [(rpc_method) = { name: "client.app.uninstall" request: "ClientAppUninstallRequest" response: "ClientAppUninstallResponse" }];
+  RPC_METHOD_CLIENT_APP_INVOKE = 124 [(rpc_method) = { name: "client.app.invoke" request: "ClientAppInvokeRequest" response: "ClientAppInvokeResponse" }];
+  RPC_METHOD_CLIENT_APP_JOB_START = 125 [(rpc_method) = { name: "client.app.job.start" request: "ClientAppJobStartRequest" response: "ClientAppJobStartResponse" }];
+  RPC_METHOD_CLIENT_APP_JOB_CANCEL = 126 [(rpc_method) = { name: "client.app.job.cancel" request: "ClientAppJobCancelRequest" response: "ClientAppJobCancelResponse" }];
+  // 82 was client.tool.invoke; device-side execution moved to client.app.*.
+  reserved 82;
 }

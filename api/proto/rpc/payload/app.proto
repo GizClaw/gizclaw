@@ -1,0 +1,71 @@
+// Peer RPC device App payload protobuf schema.
+
+syntax = "proto3";
+
+package gizclaw.rpc.v1;
+
+option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
+
+// InstalledApp identifies one App package installed on the Client. sha256 is
+// the lowercase digest of the exact installed package archive.
+message InstalledApp {
+  string app_name = 1;
+  string sha256 = 2;
+}
+
+message ClientAppListRequest {}
+
+message ClientAppListResponse {
+  // runtime is the single opaque App runtime profile ID this Client provides,
+  // for example "runtime.lua.gizos".
+  string runtime = 1;
+  repeated InstalledApp apps = 2;
+}
+
+// ClientAppInstallRequest asks the Client to download, verify, and install
+// one App package archive. Installing an app_name that is already installed
+// replaces it.
+message ClientAppInstallRequest {
+  string app_name = 1;
+  string url = 2;
+  string sha256 = 3;
+  int64 size = 4;
+}
+
+message ClientAppInstallResponse {}
+
+message ClientAppUninstallRequest {
+  string app_name = 1;
+}
+
+message ClientAppUninstallResponse {}
+
+// ClientAppInvokeRequest runs one mode "call" App method to completion.
+// args_json is a JSON object; result_json is the JSON-encoded method result.
+message ClientAppInvokeRequest {
+  string app_name = 1;
+  string method = 2;
+  string args_json = 3;
+}
+
+message ClientAppInvokeResponse {
+  string result_json = 1;
+}
+
+// ClientAppJobStartRequest starts one mode "job" App method and returns
+// without waiting for it to finish.
+message ClientAppJobStartRequest {
+  string app_name = 1;
+  string method = 2;
+  string args_json = 3;
+}
+
+message ClientAppJobStartResponse {
+  uint32 job_id = 1;
+}
+
+message ClientAppJobCancelRequest {
+  uint32 job_id = 1;
+}
+
+message ClientAppJobCancelResponse {}

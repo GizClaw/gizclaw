@@ -198,7 +198,6 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_GET                   RpcMethod = 79
 	RpcMethod_RPC_METHOD_SERVER_TOOL_LIST                          RpcMethod = 80
 	RpcMethod_RPC_METHOD_SERVER_TOOL_GET                           RpcMethod = 81
-	RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE                        RpcMethod = 82
 	RpcMethod_RPC_METHOD_SERVER_PEER_LOOKUP                        RpcMethod = 83
 	RpcMethod_RPC_METHOD_SERVER_PEER_ASSIGN                        RpcMethod = 84
 	RpcMethod_RPC_METHOD_SERVER_ROUTE_RESOLVE                      RpcMethod = 85
@@ -233,6 +232,12 @@ const (
 	RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY            RpcMethod = 117
 	RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP            RpcMethod = 118
 	RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET        RpcMethod = 119
+	RpcMethod_RPC_METHOD_CLIENT_APP_LIST                           RpcMethod = 121
+	RpcMethod_RPC_METHOD_CLIENT_APP_INSTALL                        RpcMethod = 122
+	RpcMethod_RPC_METHOD_CLIENT_APP_UNINSTALL                      RpcMethod = 123
+	RpcMethod_RPC_METHOD_CLIENT_APP_INVOKE                         RpcMethod = 124
+	RpcMethod_RPC_METHOD_CLIENT_APP_JOB_START                      RpcMethod = 125
+	RpcMethod_RPC_METHOD_CLIENT_APP_JOB_CANCEL                     RpcMethod = 126
 )
 
 // Enum value maps for RpcMethod.
@@ -319,7 +324,6 @@ var (
 		79:  "RPC_METHOD_SERVER_REWARD_GRANT_GET",
 		80:  "RPC_METHOD_SERVER_TOOL_LIST",
 		81:  "RPC_METHOD_SERVER_TOOL_GET",
-		82:  "RPC_METHOD_CLIENT_TOOL_INVOKE",
 		83:  "RPC_METHOD_SERVER_PEER_LOOKUP",
 		84:  "RPC_METHOD_SERVER_PEER_ASSIGN",
 		85:  "RPC_METHOD_SERVER_ROUTE_RESOLVE",
@@ -354,6 +358,12 @@ var (
 		117: "RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY",
 		118: "RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP",
 		119: "RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET",
+		121: "RPC_METHOD_CLIENT_APP_LIST",
+		122: "RPC_METHOD_CLIENT_APP_INSTALL",
+		123: "RPC_METHOD_CLIENT_APP_UNINSTALL",
+		124: "RPC_METHOD_CLIENT_APP_INVOKE",
+		125: "RPC_METHOD_CLIENT_APP_JOB_START",
+		126: "RPC_METHOD_CLIENT_APP_JOB_CANCEL",
 	}
 	RpcMethod_value = map[string]int32{
 		"RPC_METHOD_UNSPECIFIED":                               0,
@@ -437,7 +447,6 @@ var (
 		"RPC_METHOD_SERVER_REWARD_GRANT_GET":                   79,
 		"RPC_METHOD_SERVER_TOOL_LIST":                          80,
 		"RPC_METHOD_SERVER_TOOL_GET":                           81,
-		"RPC_METHOD_CLIENT_TOOL_INVOKE":                        82,
 		"RPC_METHOD_SERVER_PEER_LOOKUP":                        83,
 		"RPC_METHOD_SERVER_PEER_ASSIGN":                        84,
 		"RPC_METHOD_SERVER_ROUTE_RESOLVE":                      85,
@@ -472,6 +481,12 @@ var (
 		"RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY":            117,
 		"RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP":            118,
 		"RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET":        119,
+		"RPC_METHOD_CLIENT_APP_LIST":                           121,
+		"RPC_METHOD_CLIENT_APP_INSTALL":                        122,
+		"RPC_METHOD_CLIENT_APP_UNINSTALL":                      123,
+		"RPC_METHOD_CLIENT_APP_INVOKE":                         124,
+		"RPC_METHOD_CLIENT_APP_JOB_START":                      125,
+		"RPC_METHOD_CLIENT_APP_JOB_CANCEL":                     126,
 	}
 )
 
@@ -1045,7 +1060,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x14STATUS_CODE_INTERNAL\x10\r\x12\x1b\n" +
 	"\x17STATUS_CODE_UNAVAILABLE\x10\x0e\x12\x19\n" +
 	"\x15STATUS_CODE_DATA_LOSS\x10\x0f\x12\x1f\n" +
-	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\x88q\n" +
+	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\xd2u\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -1208,9 +1223,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1bRPC_METHOD_SERVER_TOOL_LIST\x10P\x1a9\xc2\xf3\x185\n" +
 	"\x10server.tool.list\x12\x0fToolListRequest\x1a\x10ToolListResponse\x12V\n" +
 	"\x1aRPC_METHOD_SERVER_TOOL_GET\x10Q\x1a6\xc2\xf3\x182\n" +
-	"\x0fserver.tool.get\x12\x0eToolGetRequest\x1a\x0fToolGetResponse\x12b\n" +
-	"\x1dRPC_METHOD_CLIENT_TOOL_INVOKE\x10R\x1a?\xc2\xf3\x18;\n" +
-	"\x12client.tool.invoke\x12\x11ToolInvokeRequest\x1a\x12ToolInvokeResponse\x12n\n" +
+	"\x0fserver.tool.get\x12\x0eToolGetRequest\x1a\x0fToolGetResponse\x12n\n" +
 	"\x1dRPC_METHOD_SERVER_PEER_LOOKUP\x10S\x1aK\xc2\xf3\x18G\n" +
 	"\x12server.peer.lookup\x12\x17ServerPeerLookupRequest\x1a\x18ServerPeerLookupResponse\x12n\n" +
 	"\x1dRPC_METHOD_SERVER_PEER_ASSIGN\x10T\x1aK\xc2\xf3\x18G\n" +
@@ -1278,7 +1291,19 @@ const file_rpc_proto_rawDesc = "" +
 	")RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP\x10v\x1am\xc2\xf3\x18i\n" +
 	"\x1eclient.device.audioplayer.stop\x12\"ClientDeviceAudioPlayerStopRequest\x1a#ClientDeviceAudioPlayerStopResponse\x12\xaa\x01\n" +
 	"-RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET\x10w\x1aw\xc2\xf3\x18s\n" +
-	"\"client.device.audioplayer.mode.set\x12%ClientDeviceAudioPlayerModeSetRequest\x1a&ClientDeviceAudioPlayerModeSetResponse:d\n" +
+	"\"client.device.audioplayer.mode.set\x12%ClientDeviceAudioPlayerModeSetRequest\x1a&ClientDeviceAudioPlayerModeSetResponse\x12b\n" +
+	"\x1aRPC_METHOD_CLIENT_APP_LIST\x10y\x1aB\xc2\xf3\x18>\n" +
+	"\x0fclient.app.list\x12\x14ClientAppListRequest\x1a\x15ClientAppListResponse\x12n\n" +
+	"\x1dRPC_METHOD_CLIENT_APP_INSTALL\x10z\x1aK\xc2\xf3\x18G\n" +
+	"\x12client.app.install\x12\x17ClientAppInstallRequest\x1a\x18ClientAppInstallResponse\x12v\n" +
+	"\x1fRPC_METHOD_CLIENT_APP_UNINSTALL\x10{\x1aQ\xc2\xf3\x18M\n" +
+	"\x14client.app.uninstall\x12\x19ClientAppUninstallRequest\x1a\x1aClientAppUninstallResponse\x12j\n" +
+	"\x1cRPC_METHOD_CLIENT_APP_INVOKE\x10|\x1aH\xc2\xf3\x18D\n" +
+	"\x11client.app.invoke\x12\x16ClientAppInvokeRequest\x1a\x17ClientAppInvokeResponse\x12t\n" +
+	"\x1fRPC_METHOD_CLIENT_APP_JOB_START\x10}\x1aO\xc2\xf3\x18K\n" +
+	"\x14client.app.job.start\x12\x18ClientAppJobStartRequest\x1a\x19ClientAppJobStartResponse\x12x\n" +
+	" RPC_METHOD_CLIENT_APP_JOB_CANCEL\x10~\x1aR\xc2\xf3\x18N\n" +
+	"\x15client.app.job.cancel\x12\x19ClientAppJobCancelRequest\x1a\x1aClientAppJobCancelResponse\"\x04\bR\x10R:d\n" +
 	"\n" +
 	"rpc_method\x12!.google.protobuf.EnumValueOptions\x18\xb8\x8e\x03 \x01(\v2 .gizclaw.rpc.v1.RpcMethodOptionsR\trpcMethodB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 

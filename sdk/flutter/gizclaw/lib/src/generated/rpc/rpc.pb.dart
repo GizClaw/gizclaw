@@ -28,7 +28,7 @@ class RpcResponse extends $pb.GeneratedMessage {
     $core.List<$core.int>? payload,
     RpcStatus? status,
   }) {
-    final result = create();
+    final result = RpcResponse._();
     if (id != null) result.id = id;
     if (payload != null) result.payload = payload;
     if (status != null) result.status = status;
@@ -39,10 +39,10 @@ class RpcResponse extends $pb.GeneratedMessage {
 
   factory RpcResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      RpcResponse()..mergeFromBuffer(data, registry);
   factory RpcResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      RpcResponse()..mergeFromJson(json, registry);
 
   static const $core.Map<$core.int, RpcResponse_Body> _RpcResponse_BodyByTag = {
     2: RpcResponse_Body.payload,
@@ -52,13 +52,13 @@ class RpcResponse extends $pb.GeneratedMessage {
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'RpcResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: RpcResponse.$_createMessage)
     ..oo(0, [2, 3])
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..a<$core.List<$core.int>>(
         2, _omitFieldNames ? '' : 'payload', $pb.PbFieldType.OY)
     ..aOM<RpcStatus>(3, _omitFieldNames ? '' : 'status',
-        subBuilder: RpcStatus.create)
+        subBuilder: RpcStatus.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -72,12 +72,15 @@ class RpcResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RpcResponse() / RpcResponse.new instead')
   static RpcResponse create() => RpcResponse._();
+  static $pb.GeneratedMessage $_createMessage() => RpcResponse._();
   @$core.override
-  RpcResponse createEmptyInstance() => create();
+  RpcResponse createEmptyInstance() => RpcResponse._();
   @$core.pragma('dart2js:noInline')
-  static RpcResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<RpcResponse>(create);
+  static RpcResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RpcResponse>(
+          RpcResponse.$_createMessage);
   static RpcResponse? _defaultInstance;
 
   @$pb.TagNumber(2)
@@ -126,7 +129,7 @@ class RpcStreamFrame extends $pb.GeneratedMessage {
     RpcStatus? status,
     RpcStreamEnd? end,
   }) {
-    final result = create();
+    final result = RpcStreamFrame._();
     if (id != null) result.id = id;
     if (payload != null) result.payload = payload;
     if (status != null) result.status = status;
@@ -138,10 +141,10 @@ class RpcStreamFrame extends $pb.GeneratedMessage {
 
   factory RpcStreamFrame.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      RpcStreamFrame()..mergeFromBuffer(data, registry);
   factory RpcStreamFrame.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      RpcStreamFrame()..mergeFromJson(json, registry);
 
   static const $core.Map<$core.int, RpcStreamFrame_Body>
       _RpcStreamFrame_BodyByTag = {
@@ -153,15 +156,15 @@ class RpcStreamFrame extends $pb.GeneratedMessage {
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'RpcStreamFrame',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: RpcStreamFrame.$_createMessage)
     ..oo(0, [2, 3, 4])
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..a<$core.List<$core.int>>(
         2, _omitFieldNames ? '' : 'payload', $pb.PbFieldType.OY)
     ..aOM<RpcStatus>(3, _omitFieldNames ? '' : 'status',
-        subBuilder: RpcStatus.create)
+        subBuilder: RpcStatus.$_createMessage)
     ..aOM<RpcStreamEnd>(4, _omitFieldNames ? '' : 'end',
-        subBuilder: RpcStreamEnd.create)
+        subBuilder: RpcStreamEnd.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -175,12 +178,15 @@ class RpcStreamFrame extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RpcStreamFrame() / RpcStreamFrame.new instead')
   static RpcStreamFrame create() => RpcStreamFrame._();
+  static $pb.GeneratedMessage $_createMessage() => RpcStreamFrame._();
   @$core.override
-  RpcStreamFrame createEmptyInstance() => create();
+  RpcStreamFrame createEmptyInstance() => RpcStreamFrame._();
   @$core.pragma('dart2js:noInline')
-  static RpcStreamFrame getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<RpcStreamFrame>(create);
+  static RpcStreamFrame getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RpcStreamFrame>(
+          RpcStreamFrame.$_createMessage);
   static RpcStreamFrame? _defaultInstance;
 
   @$pb.TagNumber(2)
@@ -244,7 +250,7 @@ class RpcStatus extends $pb.GeneratedMessage {
     $core.String? message,
     ErrorInfo? info,
   }) {
-    final result = create();
+    final result = RpcStatus._();
     if (code != null) result.code = code;
     if (message != null) result.message = message;
     if (info != null) result.info = info;
@@ -255,20 +261,20 @@ class RpcStatus extends $pb.GeneratedMessage {
 
   factory RpcStatus.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      RpcStatus()..mergeFromBuffer(data, registry);
   factory RpcStatus.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      RpcStatus()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'RpcStatus',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: RpcStatus.$_createMessage)
     ..aE<StatusCode>(1, _omitFieldNames ? '' : 'code',
         enumValues: StatusCode.values)
     ..aOS(2, _omitFieldNames ? '' : 'message')
     ..aOM<ErrorInfo>(3, _omitFieldNames ? '' : 'info',
-        subBuilder: ErrorInfo.create)
+        subBuilder: ErrorInfo.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -281,12 +287,14 @@ class RpcStatus extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RpcStatus() / RpcStatus.new instead')
   static RpcStatus create() => RpcStatus._();
+  static $pb.GeneratedMessage $_createMessage() => RpcStatus._();
   @$core.override
-  RpcStatus createEmptyInstance() => create();
+  RpcStatus createEmptyInstance() => RpcStatus._();
   @$core.pragma('dart2js:noInline')
-  static RpcStatus getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RpcStatus>(create);
+  static RpcStatus getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RpcStatus>(RpcStatus.$_createMessage);
   static RpcStatus? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -328,7 +336,7 @@ class ErrorInfo extends $pb.GeneratedMessage {
     $core.String? reason,
     $core.String? domain,
   }) {
-    final result = create();
+    final result = ErrorInfo._();
     if (reason != null) result.reason = reason;
     if (domain != null) result.domain = domain;
     return result;
@@ -338,15 +346,15 @@ class ErrorInfo extends $pb.GeneratedMessage {
 
   factory ErrorInfo.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ErrorInfo()..mergeFromBuffer(data, registry);
   factory ErrorInfo.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ErrorInfo()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ErrorInfo',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: ErrorInfo.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'reason')
     ..aOS(2, _omitFieldNames ? '' : 'domain')
     ..hasRequiredFields = false;
@@ -361,12 +369,14 @@ class ErrorInfo extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ErrorInfo() / ErrorInfo.new instead')
   static ErrorInfo create() => ErrorInfo._();
+  static $pb.GeneratedMessage $_createMessage() => ErrorInfo._();
   @$core.override
-  ErrorInfo createEmptyInstance() => create();
+  ErrorInfo createEmptyInstance() => ErrorInfo._();
   @$core.pragma('dart2js:noInline')
-  static ErrorInfo getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ErrorInfo>(create);
+  static ErrorInfo getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ErrorInfo>(ErrorInfo.$_createMessage);
   static ErrorInfo? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -389,21 +399,21 @@ class ErrorInfo extends $pb.GeneratedMessage {
 }
 
 class RpcStreamEnd extends $pb.GeneratedMessage {
-  factory RpcStreamEnd() => create();
+  factory RpcStreamEnd() => RpcStreamEnd._();
 
   RpcStreamEnd._();
 
   factory RpcStreamEnd.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      RpcStreamEnd()..mergeFromBuffer(data, registry);
   factory RpcStreamEnd.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      RpcStreamEnd()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'RpcStreamEnd',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: RpcStreamEnd.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -417,12 +427,15 @@ class RpcStreamEnd extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RpcStreamEnd() / RpcStreamEnd.new instead')
   static RpcStreamEnd create() => RpcStreamEnd._();
+  static $pb.GeneratedMessage $_createMessage() => RpcStreamEnd._();
   @$core.override
-  RpcStreamEnd createEmptyInstance() => create();
+  RpcStreamEnd createEmptyInstance() => RpcStreamEnd._();
   @$core.pragma('dart2js:noInline')
-  static RpcStreamEnd getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<RpcStreamEnd>(create);
+  static RpcStreamEnd getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RpcStreamEnd>(
+          RpcStreamEnd.$_createMessage);
   static RpcStreamEnd? _defaultInstance;
 }
 
@@ -432,7 +445,7 @@ class RpcMethodOptions extends $pb.GeneratedMessage {
     $core.String? request,
     $core.String? response,
   }) {
-    final result = create();
+    final result = RpcMethodOptions._();
     if (name != null) result.name = name;
     if (request != null) result.request = request;
     if (response != null) result.response = response;
@@ -443,15 +456,15 @@ class RpcMethodOptions extends $pb.GeneratedMessage {
 
   factory RpcMethodOptions.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      RpcMethodOptions()..mergeFromBuffer(data, registry);
   factory RpcMethodOptions.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      RpcMethodOptions()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'RpcMethodOptions',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: RpcMethodOptions.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'name')
     ..aOS(2, _omitFieldNames ? '' : 'request')
     ..aOS(3, _omitFieldNames ? '' : 'response')
@@ -468,12 +481,15 @@ class RpcMethodOptions extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RpcMethodOptions() / RpcMethodOptions.new instead')
   static RpcMethodOptions create() => RpcMethodOptions._();
+  static $pb.GeneratedMessage $_createMessage() => RpcMethodOptions._();
   @$core.override
-  RpcMethodOptions createEmptyInstance() => create();
+  RpcMethodOptions createEmptyInstance() => RpcMethodOptions._();
   @$core.pragma('dart2js:noInline')
-  static RpcMethodOptions getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<RpcMethodOptions>(create);
+  static RpcMethodOptions getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RpcMethodOptions>(
+          RpcMethodOptions.$_createMessage);
   static RpcMethodOptions? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -510,7 +526,7 @@ class RpcRequest extends $pb.GeneratedMessage {
     RpcMethod? method,
     $core.List<$core.int>? payload,
   }) {
-    final result = create();
+    final result = RpcRequest._();
     if (id != null) result.id = id;
     if (method != null) result.method = method;
     if (payload != null) result.payload = payload;
@@ -521,15 +537,15 @@ class RpcRequest extends $pb.GeneratedMessage {
 
   factory RpcRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      RpcRequest()..mergeFromBuffer(data, registry);
   factory RpcRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      RpcRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'RpcRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: RpcRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..aE<RpcMethod>(2, _omitFieldNames ? '' : 'method',
         enumValues: RpcMethod.values)
@@ -547,12 +563,14 @@ class RpcRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RpcRequest() / RpcRequest.new instead')
   static RpcRequest create() => RpcRequest._();
+  static $pb.GeneratedMessage $_createMessage() => RpcRequest._();
   @$core.override
-  RpcRequest createEmptyInstance() => create();
+  RpcRequest createEmptyInstance() => RpcRequest._();
   @$core.pragma('dart2js:noInline')
   static RpcRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<RpcRequest>(create);
+      $pb.GeneratedMessage.$_defaultFor<RpcRequest>(RpcRequest.$_createMessage);
   static RpcRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -590,7 +608,7 @@ class Rpc {
       51000,
       $pb.PbFieldType.OM,
       defaultOrMaker: RpcMethodOptions.getDefault,
-      subBuilder: RpcMethodOptions.create);
+      subBuilder: RpcMethodOptions.$_createMessage);
   static void registerAllExtensions($pb.ExtensionRegistry registry) {
     registry.add(rpcMethod);
   }

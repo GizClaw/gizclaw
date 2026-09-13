@@ -28,7 +28,7 @@ class ResourceI18nText extends $pb.GeneratedMessage {
     $core.String? displayName,
     $core.String? description,
   }) {
-    final result = create();
+    final result = ResourceI18nText._();
     if (displayName != null) result.displayName = displayName;
     if (description != null) result.description = description;
     return result;
@@ -38,15 +38,15 @@ class ResourceI18nText extends $pb.GeneratedMessage {
 
   factory ResourceI18nText.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ResourceI18nText()..mergeFromBuffer(data, registry);
   factory ResourceI18nText.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ResourceI18nText()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ResourceI18nText',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: ResourceI18nText.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'displayName')
     ..aOS(2, _omitFieldNames ? '' : 'description')
     ..hasRequiredFields = false;
@@ -62,12 +62,15 @@ class ResourceI18nText extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ResourceI18nText() / ResourceI18nText.new instead')
   static ResourceI18nText create() => ResourceI18nText._();
+  static $pb.GeneratedMessage $_createMessage() => ResourceI18nText._();
   @$core.override
-  ResourceI18nText createEmptyInstance() => create();
+  ResourceI18nText createEmptyInstance() => ResourceI18nText._();
   @$core.pragma('dart2js:noInline')
-  static ResourceI18nText getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ResourceI18nText>(create);
+  static ResourceI18nText getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ResourceI18nText>(
+          ResourceI18nText.$_createMessage);
   static ResourceI18nText? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -95,7 +98,7 @@ class SpeechTranscribeRequest extends $pb.GeneratedMessage {
     $core.String? contentType,
     $core.String? language,
   }) {
-    final result = create();
+    final result = SpeechTranscribeRequest._();
     if (modelName != null) result.modelName = modelName;
     if (contentType != null) result.contentType = contentType;
     if (language != null) result.language = language;
@@ -106,15 +109,15 @@ class SpeechTranscribeRequest extends $pb.GeneratedMessage {
 
   factory SpeechTranscribeRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      SpeechTranscribeRequest()..mergeFromBuffer(data, registry);
   factory SpeechTranscribeRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      SpeechTranscribeRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'SpeechTranscribeRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: SpeechTranscribeRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'modelName')
     ..aOS(2, _omitFieldNames ? '' : 'contentType')
     ..aOS(3, _omitFieldNames ? '' : 'language')
@@ -132,12 +135,16 @@ class SpeechTranscribeRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use SpeechTranscribeRequest() / SpeechTranscribeRequest.new instead')
   static SpeechTranscribeRequest create() => SpeechTranscribeRequest._();
+  static $pb.GeneratedMessage $_createMessage() => SpeechTranscribeRequest._();
   @$core.override
-  SpeechTranscribeRequest createEmptyInstance() => create();
+  SpeechTranscribeRequest createEmptyInstance() => SpeechTranscribeRequest._();
   @$core.pragma('dart2js:noInline')
   static SpeechTranscribeRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<SpeechTranscribeRequest>(create);
+      $pb.GeneratedMessage.$_defaultFor<SpeechTranscribeRequest>(
+          SpeechTranscribeRequest.$_createMessage);
   static SpeechTranscribeRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -172,7 +179,7 @@ class SpeechTranscribeResponse extends $pb.GeneratedMessage {
   factory SpeechTranscribeResponse({
     $core.String? transcript,
   }) {
-    final result = create();
+    final result = SpeechTranscribeResponse._();
     if (transcript != null) result.transcript = transcript;
     return result;
   }
@@ -181,15 +188,15 @@ class SpeechTranscribeResponse extends $pb.GeneratedMessage {
 
   factory SpeechTranscribeResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      SpeechTranscribeResponse()..mergeFromBuffer(data, registry);
   factory SpeechTranscribeResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      SpeechTranscribeResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'SpeechTranscribeResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: SpeechTranscribeResponse.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'transcript')
     ..hasRequiredFields = false;
 
@@ -205,12 +212,17 @@ class SpeechTranscribeResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use SpeechTranscribeResponse() / SpeechTranscribeResponse.new instead')
   static SpeechTranscribeResponse create() => SpeechTranscribeResponse._();
+  static $pb.GeneratedMessage $_createMessage() => SpeechTranscribeResponse._();
   @$core.override
-  SpeechTranscribeResponse createEmptyInstance() => create();
+  SpeechTranscribeResponse createEmptyInstance() =>
+      SpeechTranscribeResponse._();
   @$core.pragma('dart2js:noInline')
   static SpeechTranscribeResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<SpeechTranscribeResponse>(create);
+      $pb.GeneratedMessage.$_defaultFor<SpeechTranscribeResponse>(
+          SpeechTranscribeResponse.$_createMessage);
   static SpeechTranscribeResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -232,7 +244,7 @@ class SpeechExtractRequest extends $pb.GeneratedMessage {
     $core.String? schemaJson,
     $core.String? instruction,
   }) {
-    final result = create();
+    final result = SpeechExtractRequest._();
     if (asrModelName != null) result.asrModelName = asrModelName;
     if (extractModelName != null) result.extractModelName = extractModelName;
     if (contentType != null) result.contentType = contentType;
@@ -246,15 +258,15 @@ class SpeechExtractRequest extends $pb.GeneratedMessage {
 
   factory SpeechExtractRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      SpeechExtractRequest()..mergeFromBuffer(data, registry);
   factory SpeechExtractRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      SpeechExtractRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'SpeechExtractRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: SpeechExtractRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'asrModelName')
     ..aOS(2, _omitFieldNames ? '' : 'extractModelName')
     ..aOS(3, _omitFieldNames ? '' : 'contentType')
@@ -274,12 +286,16 @@ class SpeechExtractRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use SpeechExtractRequest() / SpeechExtractRequest.new instead')
   static SpeechExtractRequest create() => SpeechExtractRequest._();
+  static $pb.GeneratedMessage $_createMessage() => SpeechExtractRequest._();
   @$core.override
-  SpeechExtractRequest createEmptyInstance() => create();
+  SpeechExtractRequest createEmptyInstance() => SpeechExtractRequest._();
   @$core.pragma('dart2js:noInline')
   static SpeechExtractRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<SpeechExtractRequest>(create);
+      $pb.GeneratedMessage.$_defaultFor<SpeechExtractRequest>(
+          SpeechExtractRequest.$_createMessage);
   static SpeechExtractRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -342,7 +358,7 @@ class SpeechExtractResponse extends $pb.GeneratedMessage {
     $core.String? transcript,
     $core.String? resultJson,
   }) {
-    final result = create();
+    final result = SpeechExtractResponse._();
     if (transcript != null) result.transcript = transcript;
     if (resultJson != null) result.resultJson = resultJson;
     return result;
@@ -352,15 +368,15 @@ class SpeechExtractResponse extends $pb.GeneratedMessage {
 
   factory SpeechExtractResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      SpeechExtractResponse()..mergeFromBuffer(data, registry);
   factory SpeechExtractResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      SpeechExtractResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'SpeechExtractResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: SpeechExtractResponse.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'transcript')
     ..aOS(2, _omitFieldNames ? '' : 'resultJson')
     ..hasRequiredFields = false;
@@ -377,12 +393,16 @@ class SpeechExtractResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use SpeechExtractResponse() / SpeechExtractResponse.new instead')
   static SpeechExtractResponse create() => SpeechExtractResponse._();
+  static $pb.GeneratedMessage $_createMessage() => SpeechExtractResponse._();
   @$core.override
-  SpeechExtractResponse createEmptyInstance() => create();
+  SpeechExtractResponse createEmptyInstance() => SpeechExtractResponse._();
   @$core.pragma('dart2js:noInline')
   static SpeechExtractResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<SpeechExtractResponse>(create);
+      $pb.GeneratedMessage.$_defaultFor<SpeechExtractResponse>(
+          SpeechExtractResponse.$_createMessage);
   static SpeechExtractResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -410,7 +430,7 @@ class SpeechSynthesizeRequest extends $pb.GeneratedMessage {
     $core.String? text,
     $core.Iterable<$core.String>? acceptedContentTypes,
   }) {
-    final result = create();
+    final result = SpeechSynthesizeRequest._();
     if (voiceName != null) result.voiceName = voiceName;
     if (text != null) result.text = text;
     if (acceptedContentTypes != null)
@@ -422,15 +442,15 @@ class SpeechSynthesizeRequest extends $pb.GeneratedMessage {
 
   factory SpeechSynthesizeRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      SpeechSynthesizeRequest()..mergeFromBuffer(data, registry);
   factory SpeechSynthesizeRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      SpeechSynthesizeRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'SpeechSynthesizeRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: SpeechSynthesizeRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'voiceName')
     ..aOS(2, _omitFieldNames ? '' : 'text')
     ..pPS(3, _omitFieldNames ? '' : 'acceptedContentTypes')
@@ -448,12 +468,16 @@ class SpeechSynthesizeRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use SpeechSynthesizeRequest() / SpeechSynthesizeRequest.new instead')
   static SpeechSynthesizeRequest create() => SpeechSynthesizeRequest._();
+  static $pb.GeneratedMessage $_createMessage() => SpeechSynthesizeRequest._();
   @$core.override
-  SpeechSynthesizeRequest createEmptyInstance() => create();
+  SpeechSynthesizeRequest createEmptyInstance() => SpeechSynthesizeRequest._();
   @$core.pragma('dart2js:noInline')
   static SpeechSynthesizeRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<SpeechSynthesizeRequest>(create);
+      $pb.GeneratedMessage.$_defaultFor<SpeechSynthesizeRequest>(
+          SpeechSynthesizeRequest.$_createMessage);
   static SpeechSynthesizeRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -484,7 +508,7 @@ class SpeechSynthesizeResponse extends $pb.GeneratedMessage {
     $core.int? sampleRateHz,
     $core.int? channels,
   }) {
-    final result = create();
+    final result = SpeechSynthesizeResponse._();
     if (contentType != null) result.contentType = contentType;
     if (sampleRateHz != null) result.sampleRateHz = sampleRateHz;
     if (channels != null) result.channels = channels;
@@ -495,15 +519,15 @@ class SpeechSynthesizeResponse extends $pb.GeneratedMessage {
 
   factory SpeechSynthesizeResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      SpeechSynthesizeResponse()..mergeFromBuffer(data, registry);
   factory SpeechSynthesizeResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      SpeechSynthesizeResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'SpeechSynthesizeResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: SpeechSynthesizeResponse.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'contentType')
     ..aI(2, _omitFieldNames ? '' : 'sampleRateHz')
     ..aI(3, _omitFieldNames ? '' : 'channels')
@@ -521,12 +545,17 @@ class SpeechSynthesizeResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use SpeechSynthesizeResponse() / SpeechSynthesizeResponse.new instead')
   static SpeechSynthesizeResponse create() => SpeechSynthesizeResponse._();
+  static $pb.GeneratedMessage $_createMessage() => SpeechSynthesizeResponse._();
   @$core.override
-  SpeechSynthesizeResponse createEmptyInstance() => create();
+  SpeechSynthesizeResponse createEmptyInstance() =>
+      SpeechSynthesizeResponse._();
   @$core.pragma('dart2js:noInline')
   static SpeechSynthesizeResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<SpeechSynthesizeResponse>(create);
+      $pb.GeneratedMessage.$_defaultFor<SpeechSynthesizeResponse>(
+          SpeechSynthesizeResponse.$_createMessage);
   static SpeechSynthesizeResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -561,7 +590,7 @@ class ASTTranslateExternalVoiceParameters extends $pb.GeneratedMessage {
   factory ASTTranslateExternalVoiceParameters({
     $core.String? ttsVoice,
   }) {
-    final result = create();
+    final result = ASTTranslateExternalVoiceParameters._();
     if (ttsVoice != null) result.ttsVoice = ttsVoice;
     return result;
   }
@@ -571,15 +600,15 @@ class ASTTranslateExternalVoiceParameters extends $pb.GeneratedMessage {
   factory ASTTranslateExternalVoiceParameters.fromBuffer(
           $core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ASTTranslateExternalVoiceParameters()..mergeFromBuffer(data, registry);
   factory ASTTranslateExternalVoiceParameters.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ASTTranslateExternalVoiceParameters()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ASTTranslateExternalVoiceParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: ASTTranslateExternalVoiceParameters.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'ttsVoice')
     ..hasRequiredFields = false;
 
@@ -596,14 +625,20 @@ class ASTTranslateExternalVoiceParameters extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ASTTranslateExternalVoiceParameters() / ASTTranslateExternalVoiceParameters.new instead')
   static ASTTranslateExternalVoiceParameters create() =>
       ASTTranslateExternalVoiceParameters._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      ASTTranslateExternalVoiceParameters._();
   @$core.override
-  ASTTranslateExternalVoiceParameters createEmptyInstance() => create();
+  ASTTranslateExternalVoiceParameters createEmptyInstance() =>
+      ASTTranslateExternalVoiceParameters._();
   @$core.pragma('dart2js:noInline')
   static ASTTranslateExternalVoiceParameters getDefault() =>
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<
-          ASTTranslateExternalVoiceParameters>(create);
+              ASTTranslateExternalVoiceParameters>(
+          ASTTranslateExternalVoiceParameters.$_createMessage);
   static ASTTranslateExternalVoiceParameters? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -623,7 +658,7 @@ class ASTTranslateInternalSpeakerParameters extends $pb.GeneratedMessage {
     $fixnum.Int64? speechRate,
     $core.String? ttsResourceId,
   }) {
-    final result = create();
+    final result = ASTTranslateInternalSpeakerParameters._();
     if (isCustomSpeaker != null) result.isCustomSpeaker = isCustomSpeaker;
     if (speakerId != null) result.speakerId = speakerId;
     if (speechRate != null) result.speechRate = speechRate;
@@ -636,15 +671,16 @@ class ASTTranslateInternalSpeakerParameters extends $pb.GeneratedMessage {
   factory ASTTranslateInternalSpeakerParameters.fromBuffer(
           $core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ASTTranslateInternalSpeakerParameters()..mergeFromBuffer(data, registry);
   factory ASTTranslateInternalSpeakerParameters.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ASTTranslateInternalSpeakerParameters()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ASTTranslateInternalSpeakerParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance:
+          ASTTranslateInternalSpeakerParameters.$_createMessage)
     ..aOB(1, _omitFieldNames ? '' : 'isCustomSpeaker')
     ..aOS(2, _omitFieldNames ? '' : 'speakerId')
     ..aInt64(3, _omitFieldNames ? '' : 'speechRate')
@@ -664,14 +700,20 @@ class ASTTranslateInternalSpeakerParameters extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ASTTranslateInternalSpeakerParameters() / ASTTranslateInternalSpeakerParameters.new instead')
   static ASTTranslateInternalSpeakerParameters create() =>
       ASTTranslateInternalSpeakerParameters._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      ASTTranslateInternalSpeakerParameters._();
   @$core.override
-  ASTTranslateInternalSpeakerParameters createEmptyInstance() => create();
+  ASTTranslateInternalSpeakerParameters createEmptyInstance() =>
+      ASTTranslateInternalSpeakerParameters._();
   @$core.pragma('dart2js:noInline')
   static ASTTranslateInternalSpeakerParameters getDefault() =>
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<
-          ASTTranslateInternalSpeakerParameters>(create);
+              ASTTranslateInternalSpeakerParameters>(
+          ASTTranslateInternalSpeakerParameters.$_createMessage);
   static ASTTranslateInternalSpeakerParameters? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -723,7 +765,7 @@ class ASTTranslateVoiceParameters extends $pb.GeneratedMessage {
         asttranslateInternalSpeakerParameters,
     ASTTranslateExternalVoiceParameters? asttranslateExternalVoiceParameters,
   }) {
-    final result = create();
+    final result = ASTTranslateVoiceParameters._();
     if (asttranslateInternalSpeakerParameters != null)
       result.asttranslateInternalSpeakerParameters =
           asttranslateInternalSpeakerParameters;
@@ -737,10 +779,10 @@ class ASTTranslateVoiceParameters extends $pb.GeneratedMessage {
 
   factory ASTTranslateVoiceParameters.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ASTTranslateVoiceParameters()..mergeFromBuffer(data, registry);
   factory ASTTranslateVoiceParameters.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ASTTranslateVoiceParameters()..mergeFromJson(json, registry);
 
   static const $core.Map<$core.int, ASTTranslateVoiceParameters_Value>
       _ASTTranslateVoiceParameters_ValueByTag = {
@@ -751,14 +793,14 @@ class ASTTranslateVoiceParameters extends $pb.GeneratedMessage {
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ASTTranslateVoiceParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: ASTTranslateVoiceParameters.$_createMessage)
     ..oo(0, [1, 2])
     ..aOM<ASTTranslateInternalSpeakerParameters>(
         1, _omitFieldNames ? '' : 'asttranslateInternalSpeakerParameters',
-        subBuilder: ASTTranslateInternalSpeakerParameters.create)
+        subBuilder: ASTTranslateInternalSpeakerParameters.$_createMessage)
     ..aOM<ASTTranslateExternalVoiceParameters>(
         2, _omitFieldNames ? '' : 'asttranslateExternalVoiceParameters',
-        subBuilder: ASTTranslateExternalVoiceParameters.create)
+        subBuilder: ASTTranslateExternalVoiceParameters.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -774,13 +816,19 @@ class ASTTranslateVoiceParameters extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ASTTranslateVoiceParameters() / ASTTranslateVoiceParameters.new instead')
   static ASTTranslateVoiceParameters create() =>
       ASTTranslateVoiceParameters._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      ASTTranslateVoiceParameters._();
   @$core.override
-  ASTTranslateVoiceParameters createEmptyInstance() => create();
+  ASTTranslateVoiceParameters createEmptyInstance() =>
+      ASTTranslateVoiceParameters._();
   @$core.pragma('dart2js:noInline')
   static ASTTranslateVoiceParameters getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ASTTranslateVoiceParameters>(create);
+      $pb.GeneratedMessage.$_defaultFor<ASTTranslateVoiceParameters>(
+          ASTTranslateVoiceParameters.$_createMessage);
   static ASTTranslateVoiceParameters? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -832,7 +880,7 @@ class ASTTranslateWorkflowSpec extends $pb.GeneratedMessage {
     ASTTranslateVoiceParameters? voice,
     $core.String? langPair,
   }) {
-    final result = create();
+    final result = ASTTranslateWorkflowSpec._();
     if (denoise != null) result.denoise = denoise;
     if (enableSourceLanguageDetect != null)
       result.enableSourceLanguageDetect = enableSourceLanguageDetect;
@@ -848,15 +896,15 @@ class ASTTranslateWorkflowSpec extends $pb.GeneratedMessage {
 
   factory ASTTranslateWorkflowSpec.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ASTTranslateWorkflowSpec()..mergeFromBuffer(data, registry);
   factory ASTTranslateWorkflowSpec.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ASTTranslateWorkflowSpec()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ASTTranslateWorkflowSpec',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: ASTTranslateWorkflowSpec.$_createMessage)
     ..aOB(1, _omitFieldNames ? '' : 'denoise')
     ..aOB(2, _omitFieldNames ? '' : 'enableSourceLanguageDetect')
     ..aE<$1.ASTTranslateMode>(3, _omitFieldNames ? '' : 'mode',
@@ -864,7 +912,7 @@ class ASTTranslateWorkflowSpec extends $pb.GeneratedMessage {
     ..aOS(4, _omitFieldNames ? '' : 'resourceId')
     ..aOS(5, _omitFieldNames ? '' : 'translationModel')
     ..aOM<ASTTranslateVoiceParameters>(6, _omitFieldNames ? '' : 'voice',
-        subBuilder: ASTTranslateVoiceParameters.create)
+        subBuilder: ASTTranslateVoiceParameters.$_createMessage)
     ..aOS(7, _omitFieldNames ? '' : 'langPair')
     ..hasRequiredFields = false;
 
@@ -880,12 +928,17 @@ class ASTTranslateWorkflowSpec extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ASTTranslateWorkflowSpec() / ASTTranslateWorkflowSpec.new instead')
   static ASTTranslateWorkflowSpec create() => ASTTranslateWorkflowSpec._();
+  static $pb.GeneratedMessage $_createMessage() => ASTTranslateWorkflowSpec._();
   @$core.override
-  ASTTranslateWorkflowSpec createEmptyInstance() => create();
+  ASTTranslateWorkflowSpec createEmptyInstance() =>
+      ASTTranslateWorkflowSpec._();
   @$core.pragma('dart2js:noInline')
   static ASTTranslateWorkflowSpec getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ASTTranslateWorkflowSpec>(create);
+      $pb.GeneratedMessage.$_defaultFor<ASTTranslateWorkflowSpec>(
+          ASTTranslateWorkflowSpec.$_createMessage);
   static ASTTranslateWorkflowSpec? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -966,7 +1019,7 @@ class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
     $core.String? translationModel,
     ASTTranslateVoiceParameters? voice,
   }) {
-    final result = create();
+    final result = ASTTranslateWorkspaceParameters._();
     if (agentType != null) result.agentType = agentType;
     if (denoise != null) result.denoise = denoise;
     if (e2e != null) result.e2e = e2e;
@@ -984,15 +1037,15 @@ class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
 
   factory ASTTranslateWorkspaceParameters.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ASTTranslateWorkspaceParameters()..mergeFromBuffer(data, registry);
   factory ASTTranslateWorkspaceParameters.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ASTTranslateWorkspaceParameters()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ASTTranslateWorkspaceParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: ASTTranslateWorkspaceParameters.$_createMessage)
     ..aE<$1.ASTTranslateWorkspaceParametersAgentType>(
         1, _omitFieldNames ? '' : 'agentType',
         enumValues: $1.ASTTranslateWorkspaceParametersAgentType.values)
@@ -1006,7 +1059,7 @@ class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
         enumValues: $1.ASTTranslateMode.values)
     ..aOS(8, _omitFieldNames ? '' : 'translationModel')
     ..aOM<ASTTranslateVoiceParameters>(9, _omitFieldNames ? '' : 'voice',
-        subBuilder: ASTTranslateVoiceParameters.create)
+        subBuilder: ASTTranslateVoiceParameters.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1022,14 +1075,19 @@ class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ASTTranslateWorkspaceParameters() / ASTTranslateWorkspaceParameters.new instead')
   static ASTTranslateWorkspaceParameters create() =>
       ASTTranslateWorkspaceParameters._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      ASTTranslateWorkspaceParameters._();
   @$core.override
-  ASTTranslateWorkspaceParameters createEmptyInstance() => create();
+  ASTTranslateWorkspaceParameters createEmptyInstance() =>
+      ASTTranslateWorkspaceParameters._();
   @$core.pragma('dart2js:noInline')
   static ASTTranslateWorkspaceParameters getDefault() => _defaultInstance ??=
       $pb.GeneratedMessage.$_defaultFor<ASTTranslateWorkspaceParameters>(
-          create);
+          ASTTranslateWorkspaceParameters.$_createMessage);
   static ASTTranslateWorkspaceParameters? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1131,7 +1189,7 @@ class DashScopeRealtimeWorkflowSpec extends $pb.GeneratedMessage {
     $core.String? vad,
     $core.String? voice,
   }) {
-    final result = create();
+    final result = DashScopeRealtimeWorkflowSpec._();
     if (asrModel != null) result.asrModel = asrModel;
     if (enableAsr != null) result.enableAsr = enableAsr;
     if (inputAudioFormat != null) result.inputAudioFormat = inputAudioFormat;
@@ -1150,15 +1208,15 @@ class DashScopeRealtimeWorkflowSpec extends $pb.GeneratedMessage {
 
   factory DashScopeRealtimeWorkflowSpec.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DashScopeRealtimeWorkflowSpec()..mergeFromBuffer(data, registry);
   factory DashScopeRealtimeWorkflowSpec.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DashScopeRealtimeWorkflowSpec()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DashScopeRealtimeWorkflowSpec',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DashScopeRealtimeWorkflowSpec.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'asrModel')
     ..aOB(2, _omitFieldNames ? '' : 'enableAsr')
     ..aOS(3, _omitFieldNames ? '' : 'inputAudioFormat')
@@ -1185,13 +1243,19 @@ class DashScopeRealtimeWorkflowSpec extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DashScopeRealtimeWorkflowSpec() / DashScopeRealtimeWorkflowSpec.new instead')
   static DashScopeRealtimeWorkflowSpec create() =>
       DashScopeRealtimeWorkflowSpec._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      DashScopeRealtimeWorkflowSpec._();
   @$core.override
-  DashScopeRealtimeWorkflowSpec createEmptyInstance() => create();
+  DashScopeRealtimeWorkflowSpec createEmptyInstance() =>
+      DashScopeRealtimeWorkflowSpec._();
   @$core.pragma('dart2js:noInline')
   static DashScopeRealtimeWorkflowSpec getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DashScopeRealtimeWorkflowSpec>(create);
+      $pb.GeneratedMessage.$_defaultFor<DashScopeRealtimeWorkflowSpec>(
+          DashScopeRealtimeWorkflowSpec.$_createMessage);
   static DashScopeRealtimeWorkflowSpec? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1304,7 +1368,7 @@ class DashScopeRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
     $core.String? vad,
     $core.String? voice,
   }) {
-    final result = create();
+    final result = DashScopeRealtimeWorkspaceParameters._();
     if (agentType != null) result.agentType = agentType;
     if (asrModel != null) result.asrModel = asrModel;
     if (e2e != null) result.e2e = e2e;
@@ -1326,15 +1390,15 @@ class DashScopeRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
   factory DashScopeRealtimeWorkspaceParameters.fromBuffer(
           $core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DashScopeRealtimeWorkspaceParameters()..mergeFromBuffer(data, registry);
   factory DashScopeRealtimeWorkspaceParameters.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DashScopeRealtimeWorkspaceParameters()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DashScopeRealtimeWorkspaceParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DashScopeRealtimeWorkspaceParameters.$_createMessage)
     ..aE<$1.DashScopeRealtimeWorkspaceParametersAgentType>(
         1, _omitFieldNames ? '' : 'agentType',
         enumValues: $1.DashScopeRealtimeWorkspaceParametersAgentType.values)
@@ -1366,14 +1430,20 @@ class DashScopeRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DashScopeRealtimeWorkspaceParameters() / DashScopeRealtimeWorkspaceParameters.new instead')
   static DashScopeRealtimeWorkspaceParameters create() =>
       DashScopeRealtimeWorkspaceParameters._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      DashScopeRealtimeWorkspaceParameters._();
   @$core.override
-  DashScopeRealtimeWorkspaceParameters createEmptyInstance() => create();
+  DashScopeRealtimeWorkspaceParameters createEmptyInstance() =>
+      DashScopeRealtimeWorkspaceParameters._();
   @$core.pragma('dart2js:noInline')
   static DashScopeRealtimeWorkspaceParameters getDefault() =>
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<
-          DashScopeRealtimeWorkspaceParameters>(create);
+              DashScopeRealtimeWorkspaceParameters>(
+          DashScopeRealtimeWorkspaceParameters.$_createMessage);
   static DashScopeRealtimeWorkspaceParameters? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1503,7 +1573,7 @@ class DoubaoRealtimeDuplexWorkflowSpec extends $pb.GeneratedMessage {
     $fixnum.Int64? sampleRate,
     $core.String? voice,
   }) {
-    final result = create();
+    final result = DoubaoRealtimeDuplexWorkflowSpec._();
     if (format != null) result.format = format;
     if (inputChannels != null) result.inputChannels = inputChannels;
     if (inputFormat != null) result.inputFormat = inputFormat;
@@ -1523,15 +1593,15 @@ class DoubaoRealtimeDuplexWorkflowSpec extends $pb.GeneratedMessage {
   factory DoubaoRealtimeDuplexWorkflowSpec.fromBuffer(
           $core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DoubaoRealtimeDuplexWorkflowSpec()..mergeFromBuffer(data, registry);
   factory DoubaoRealtimeDuplexWorkflowSpec.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DoubaoRealtimeDuplexWorkflowSpec()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DoubaoRealtimeDuplexWorkflowSpec',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DoubaoRealtimeDuplexWorkflowSpec.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'format')
     ..aInt64(2, _omitFieldNames ? '' : 'inputChannels')
     ..aOS(3, _omitFieldNames ? '' : 'inputFormat')
@@ -1558,14 +1628,19 @@ class DoubaoRealtimeDuplexWorkflowSpec extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DoubaoRealtimeDuplexWorkflowSpec() / DoubaoRealtimeDuplexWorkflowSpec.new instead')
   static DoubaoRealtimeDuplexWorkflowSpec create() =>
       DoubaoRealtimeDuplexWorkflowSpec._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      DoubaoRealtimeDuplexWorkflowSpec._();
   @$core.override
-  DoubaoRealtimeDuplexWorkflowSpec createEmptyInstance() => create();
+  DoubaoRealtimeDuplexWorkflowSpec createEmptyInstance() =>
+      DoubaoRealtimeDuplexWorkflowSpec._();
   @$core.pragma('dart2js:noInline')
   static DoubaoRealtimeDuplexWorkflowSpec getDefault() => _defaultInstance ??=
       $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeDuplexWorkflowSpec>(
-          create);
+          DoubaoRealtimeDuplexWorkflowSpec.$_createMessage);
   static DoubaoRealtimeDuplexWorkflowSpec? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1684,7 +1759,7 @@ class DoubaoRealtimeDuplexWorkspaceParameters extends $pb.GeneratedMessage {
     $fixnum.Int64? sampleRate,
     $core.String? voice,
   }) {
-    final result = create();
+    final result = DoubaoRealtimeDuplexWorkspaceParameters._();
     if (agentType != null) result.agentType = agentType;
     if (e2e != null) result.e2e = e2e;
     if (format != null) result.format = format;
@@ -1706,15 +1781,17 @@ class DoubaoRealtimeDuplexWorkspaceParameters extends $pb.GeneratedMessage {
   factory DoubaoRealtimeDuplexWorkspaceParameters.fromBuffer(
           $core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DoubaoRealtimeDuplexWorkspaceParameters()
+        ..mergeFromBuffer(data, registry);
   factory DoubaoRealtimeDuplexWorkspaceParameters.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DoubaoRealtimeDuplexWorkspaceParameters()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DoubaoRealtimeDuplexWorkspaceParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance:
+          DoubaoRealtimeDuplexWorkspaceParameters.$_createMessage)
     ..aE<$1.DoubaoRealtimeDuplexWorkspaceParametersAgentType>(
         1, _omitFieldNames ? '' : 'agentType',
         enumValues: $1.DoubaoRealtimeDuplexWorkspaceParametersAgentType.values)
@@ -1745,14 +1822,20 @@ class DoubaoRealtimeDuplexWorkspaceParameters extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DoubaoRealtimeDuplexWorkspaceParameters() / DoubaoRealtimeDuplexWorkspaceParameters.new instead')
   static DoubaoRealtimeDuplexWorkspaceParameters create() =>
       DoubaoRealtimeDuplexWorkspaceParameters._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      DoubaoRealtimeDuplexWorkspaceParameters._();
   @$core.override
-  DoubaoRealtimeDuplexWorkspaceParameters createEmptyInstance() => create();
+  DoubaoRealtimeDuplexWorkspaceParameters createEmptyInstance() =>
+      DoubaoRealtimeDuplexWorkspaceParameters._();
   @$core.pragma('dart2js:noInline')
   static DoubaoRealtimeDuplexWorkspaceParameters getDefault() =>
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<
-          DoubaoRealtimeDuplexWorkspaceParameters>(create);
+              DoubaoRealtimeDuplexWorkspaceParameters>(
+          DoubaoRealtimeDuplexWorkspaceParameters.$_createMessage);
   static DoubaoRealtimeDuplexWorkspaceParameters? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1882,7 +1965,7 @@ class EinoWorkflowSpec extends $pb.GeneratedMessage {
     $0.Struct? conversation,
     $0.Struct? voiceAdapter,
   }) {
-    final result = create();
+    final result = EinoWorkflowSpec._();
     if (graph != null) result.graph = graph;
     if (limits != null) result.limits = limits;
     if (conversation != null) result.conversation = conversation;
@@ -1894,23 +1977,23 @@ class EinoWorkflowSpec extends $pb.GeneratedMessage {
 
   factory EinoWorkflowSpec.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      EinoWorkflowSpec()..mergeFromBuffer(data, registry);
   factory EinoWorkflowSpec.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      EinoWorkflowSpec()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'EinoWorkflowSpec',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: EinoWorkflowSpec.$_createMessage)
     ..aOM<$0.Struct>(1, _omitFieldNames ? '' : 'graph',
-        subBuilder: $0.Struct.create)
+        subBuilder: $0.Struct.$_createMessage)
     ..aOM<$0.Struct>(2, _omitFieldNames ? '' : 'limits',
-        subBuilder: $0.Struct.create)
+        subBuilder: $0.Struct.$_createMessage)
     ..aOM<$0.Struct>(3, _omitFieldNames ? '' : 'conversation',
-        subBuilder: $0.Struct.create)
+        subBuilder: $0.Struct.$_createMessage)
     ..aOM<$0.Struct>(4, _omitFieldNames ? '' : 'voiceAdapter',
-        subBuilder: $0.Struct.create)
+        subBuilder: $0.Struct.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1924,12 +2007,15 @@ class EinoWorkflowSpec extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use EinoWorkflowSpec() / EinoWorkflowSpec.new instead')
   static EinoWorkflowSpec create() => EinoWorkflowSpec._();
+  static $pb.GeneratedMessage $_createMessage() => EinoWorkflowSpec._();
   @$core.override
-  EinoWorkflowSpec createEmptyInstance() => create();
+  EinoWorkflowSpec createEmptyInstance() => EinoWorkflowSpec._();
   @$core.pragma('dart2js:noInline')
-  static EinoWorkflowSpec getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<EinoWorkflowSpec>(create);
+  static EinoWorkflowSpec getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<EinoWorkflowSpec>(
+          EinoWorkflowSpec.$_createMessage);
   static EinoWorkflowSpec? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1984,7 +2070,7 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
     ConversationParameters? conversation,
     $1.WorkspaceInputMode? input,
   }) {
-    final result = create();
+    final result = EinoWorkspaceParameters._();
     if (agentType != null) result.agentType = agentType;
     if (e2e != null) result.e2e = e2e;
     if (conversation != null) result.conversation = conversation;
@@ -1996,21 +2082,21 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
 
   factory EinoWorkspaceParameters.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      EinoWorkspaceParameters()..mergeFromBuffer(data, registry);
   factory EinoWorkspaceParameters.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      EinoWorkspaceParameters()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'EinoWorkspaceParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: EinoWorkspaceParameters.$_createMessage)
     ..aE<$1.EinoWorkspaceParametersAgentType>(
         1, _omitFieldNames ? '' : 'agentType',
         enumValues: $1.EinoWorkspaceParametersAgentType.values)
     ..aOB(2, _omitFieldNames ? '' : 'e2e')
     ..aOM<ConversationParameters>(3, _omitFieldNames ? '' : 'conversation',
-        subBuilder: ConversationParameters.create)
+        subBuilder: ConversationParameters.$_createMessage)
     ..aE<$1.WorkspaceInputMode>(4, _omitFieldNames ? '' : 'input',
         enumValues: $1.WorkspaceInputMode.values)
     ..hasRequiredFields = false;
@@ -2027,12 +2113,16 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use EinoWorkspaceParameters() / EinoWorkspaceParameters.new instead')
   static EinoWorkspaceParameters create() => EinoWorkspaceParameters._();
+  static $pb.GeneratedMessage $_createMessage() => EinoWorkspaceParameters._();
   @$core.override
-  EinoWorkspaceParameters createEmptyInstance() => create();
+  EinoWorkspaceParameters createEmptyInstance() => EinoWorkspaceParameters._();
   @$core.pragma('dart2js:noInline')
   static EinoWorkspaceParameters getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<EinoWorkspaceParameters>(create);
+      $pb.GeneratedMessage.$_defaultFor<EinoWorkspaceParameters>(
+          EinoWorkspaceParameters.$_createMessage);
   static EinoWorkspaceParameters? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2080,7 +2170,7 @@ class PetWorkspaceParameters extends $pb.GeneratedMessage {
     $1.PetWorkspaceParametersAgentType? agentType,
     $1.WorkspaceInputMode? input,
   }) {
-    final result = create();
+    final result = PetWorkspaceParameters._();
     if (agentType != null) result.agentType = agentType;
     if (input != null) result.input = input;
     return result;
@@ -2090,15 +2180,15 @@ class PetWorkspaceParameters extends $pb.GeneratedMessage {
 
   factory PetWorkspaceParameters.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      PetWorkspaceParameters()..mergeFromBuffer(data, registry);
   factory PetWorkspaceParameters.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      PetWorkspaceParameters()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'PetWorkspaceParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: PetWorkspaceParameters.$_createMessage)
     ..aE<$1.PetWorkspaceParametersAgentType>(
         1, _omitFieldNames ? '' : 'agentType',
         enumValues: $1.PetWorkspaceParametersAgentType.values)
@@ -2118,12 +2208,16 @@ class PetWorkspaceParameters extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use PetWorkspaceParameters() / PetWorkspaceParameters.new instead')
   static PetWorkspaceParameters create() => PetWorkspaceParameters._();
+  static $pb.GeneratedMessage $_createMessage() => PetWorkspaceParameters._();
   @$core.override
-  PetWorkspaceParameters createEmptyInstance() => create();
+  PetWorkspaceParameters createEmptyInstance() => PetWorkspaceParameters._();
   @$core.pragma('dart2js:noInline')
   static PetWorkspaceParameters getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<PetWorkspaceParameters>(create);
+      $pb.GeneratedMessage.$_defaultFor<PetWorkspaceParameters>(
+          PetWorkspaceParameters.$_createMessage);
   static PetWorkspaceParameters? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2154,7 +2248,7 @@ class DoubaoRealtimeAIGCMetadata extends $pb.GeneratedMessage {
     $core.String? produceId,
     $core.String? propagateId,
   }) {
-    final result = create();
+    final result = DoubaoRealtimeAIGCMetadata._();
     if (contentProducer != null) result.contentProducer = contentProducer;
     if (contentPropagator != null) result.contentPropagator = contentPropagator;
     if (enable != null) result.enable = enable;
@@ -2167,15 +2261,15 @@ class DoubaoRealtimeAIGCMetadata extends $pb.GeneratedMessage {
 
   factory DoubaoRealtimeAIGCMetadata.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DoubaoRealtimeAIGCMetadata()..mergeFromBuffer(data, registry);
   factory DoubaoRealtimeAIGCMetadata.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DoubaoRealtimeAIGCMetadata()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DoubaoRealtimeAIGCMetadata',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DoubaoRealtimeAIGCMetadata.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'contentProducer')
     ..aOS(2, _omitFieldNames ? '' : 'contentPropagator')
     ..aOB(3, _omitFieldNames ? '' : 'enable')
@@ -2196,12 +2290,18 @@ class DoubaoRealtimeAIGCMetadata extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DoubaoRealtimeAIGCMetadata() / DoubaoRealtimeAIGCMetadata.new instead')
   static DoubaoRealtimeAIGCMetadata create() => DoubaoRealtimeAIGCMetadata._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      DoubaoRealtimeAIGCMetadata._();
   @$core.override
-  DoubaoRealtimeAIGCMetadata createEmptyInstance() => create();
+  DoubaoRealtimeAIGCMetadata createEmptyInstance() =>
+      DoubaoRealtimeAIGCMetadata._();
   @$core.pragma('dart2js:noInline')
   static DoubaoRealtimeAIGCMetadata getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeAIGCMetadata>(create);
+      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeAIGCMetadata>(
+          DoubaoRealtimeAIGCMetadata.$_createMessage);
   static DoubaoRealtimeAIGCMetadata? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2255,7 +2355,7 @@ class DoubaoRealtimeASRContext extends $pb.GeneratedMessage {
     $core.Iterable<$core.MapEntry<$core.String, $core.String>>? correctWords,
     $core.Iterable<DoubaoRealtimeASRHotword>? hotwords,
   }) {
-    final result = create();
+    final result = DoubaoRealtimeASRContext._();
     if (correctWords != null) result.correctWords.addEntries(correctWords);
     if (hotwords != null) result.hotwords.addAll(hotwords);
     return result;
@@ -2265,22 +2365,22 @@ class DoubaoRealtimeASRContext extends $pb.GeneratedMessage {
 
   factory DoubaoRealtimeASRContext.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DoubaoRealtimeASRContext()..mergeFromBuffer(data, registry);
   factory DoubaoRealtimeASRContext.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DoubaoRealtimeASRContext()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DoubaoRealtimeASRContext',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DoubaoRealtimeASRContext.$_createMessage)
     ..m<$core.String, $core.String>(1, _omitFieldNames ? '' : 'correctWords',
         entryClassName: 'DoubaoRealtimeASRContext.CorrectWordsEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.OS,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
     ..pPM<DoubaoRealtimeASRHotword>(2, _omitFieldNames ? '' : 'hotwords',
-        subBuilder: DoubaoRealtimeASRHotword.create)
+        subBuilder: DoubaoRealtimeASRHotword.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2295,12 +2395,17 @@ class DoubaoRealtimeASRContext extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DoubaoRealtimeASRContext() / DoubaoRealtimeASRContext.new instead')
   static DoubaoRealtimeASRContext create() => DoubaoRealtimeASRContext._();
+  static $pb.GeneratedMessage $_createMessage() => DoubaoRealtimeASRContext._();
   @$core.override
-  DoubaoRealtimeASRContext createEmptyInstance() => create();
+  DoubaoRealtimeASRContext createEmptyInstance() =>
+      DoubaoRealtimeASRContext._();
   @$core.pragma('dart2js:noInline')
   static DoubaoRealtimeASRContext getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeASRContext>(create);
+      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeASRContext>(
+          DoubaoRealtimeASRContext.$_createMessage);
   static DoubaoRealtimeASRContext? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2314,7 +2419,7 @@ class DoubaoRealtimeASRExtension extends $pb.GeneratedMessage {
   factory DoubaoRealtimeASRExtension({
     DoubaoRealtimeASRExtra? extra,
   }) {
-    final result = create();
+    final result = DoubaoRealtimeASRExtension._();
     if (extra != null) result.extra = extra;
     return result;
   }
@@ -2323,17 +2428,17 @@ class DoubaoRealtimeASRExtension extends $pb.GeneratedMessage {
 
   factory DoubaoRealtimeASRExtension.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DoubaoRealtimeASRExtension()..mergeFromBuffer(data, registry);
   factory DoubaoRealtimeASRExtension.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DoubaoRealtimeASRExtension()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DoubaoRealtimeASRExtension',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DoubaoRealtimeASRExtension.$_createMessage)
     ..aOM<DoubaoRealtimeASRExtra>(1, _omitFieldNames ? '' : 'extra',
-        subBuilder: DoubaoRealtimeASRExtra.create)
+        subBuilder: DoubaoRealtimeASRExtra.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2349,12 +2454,18 @@ class DoubaoRealtimeASRExtension extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DoubaoRealtimeASRExtension() / DoubaoRealtimeASRExtension.new instead')
   static DoubaoRealtimeASRExtension create() => DoubaoRealtimeASRExtension._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      DoubaoRealtimeASRExtension._();
   @$core.override
-  DoubaoRealtimeASRExtension createEmptyInstance() => create();
+  DoubaoRealtimeASRExtension createEmptyInstance() =>
+      DoubaoRealtimeASRExtension._();
   @$core.pragma('dart2js:noInline')
   static DoubaoRealtimeASRExtension getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeASRExtension>(create);
+      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeASRExtension>(
+          DoubaoRealtimeASRExtension.$_createMessage);
   static DoubaoRealtimeASRExtension? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2380,7 +2491,7 @@ class DoubaoRealtimeASRExtra extends $pb.GeneratedMessage {
     $core.String? regexCorrectTableId,
     $core.String? regexCorrectTableName,
   }) {
-    final result = create();
+    final result = DoubaoRealtimeASRExtra._();
     if (boostingTableId != null) result.boostingTableId = boostingTableId;
     if (boostingTableName != null) result.boostingTableName = boostingTableName;
     if (context != null) result.context = context;
@@ -2398,19 +2509,19 @@ class DoubaoRealtimeASRExtra extends $pb.GeneratedMessage {
 
   factory DoubaoRealtimeASRExtra.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DoubaoRealtimeASRExtra()..mergeFromBuffer(data, registry);
   factory DoubaoRealtimeASRExtra.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DoubaoRealtimeASRExtra()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DoubaoRealtimeASRExtra',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DoubaoRealtimeASRExtra.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'boostingTableId')
     ..aOS(2, _omitFieldNames ? '' : 'boostingTableName')
     ..aOM<DoubaoRealtimeASRContext>(3, _omitFieldNames ? '' : 'context',
-        subBuilder: DoubaoRealtimeASRContext.create)
+        subBuilder: DoubaoRealtimeASRContext.$_createMessage)
     ..aOB(4, _omitFieldNames ? '' : 'enableAsrTwopass')
     ..aOB(5, _omitFieldNames ? '' : 'enableCustomVad')
     ..aInt64(6, _omitFieldNames ? '' : 'endSmoothWindowMs')
@@ -2430,12 +2541,16 @@ class DoubaoRealtimeASRExtra extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DoubaoRealtimeASRExtra() / DoubaoRealtimeASRExtra.new instead')
   static DoubaoRealtimeASRExtra create() => DoubaoRealtimeASRExtra._();
+  static $pb.GeneratedMessage $_createMessage() => DoubaoRealtimeASRExtra._();
   @$core.override
-  DoubaoRealtimeASRExtra createEmptyInstance() => create();
+  DoubaoRealtimeASRExtra createEmptyInstance() => DoubaoRealtimeASRExtra._();
   @$core.pragma('dart2js:noInline')
   static DoubaoRealtimeASRExtra getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeASRExtra>(create);
+      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeASRExtra>(
+          DoubaoRealtimeASRExtra.$_createMessage);
   static DoubaoRealtimeASRExtra? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2517,7 +2632,7 @@ class DoubaoRealtimeASRHotword extends $pb.GeneratedMessage {
   factory DoubaoRealtimeASRHotword({
     $core.String? word,
   }) {
-    final result = create();
+    final result = DoubaoRealtimeASRHotword._();
     if (word != null) result.word = word;
     return result;
   }
@@ -2526,15 +2641,15 @@ class DoubaoRealtimeASRHotword extends $pb.GeneratedMessage {
 
   factory DoubaoRealtimeASRHotword.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DoubaoRealtimeASRHotword()..mergeFromBuffer(data, registry);
   factory DoubaoRealtimeASRHotword.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DoubaoRealtimeASRHotword()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DoubaoRealtimeASRHotword',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DoubaoRealtimeASRHotword.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'word')
     ..hasRequiredFields = false;
 
@@ -2550,12 +2665,17 @@ class DoubaoRealtimeASRHotword extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DoubaoRealtimeASRHotword() / DoubaoRealtimeASRHotword.new instead')
   static DoubaoRealtimeASRHotword create() => DoubaoRealtimeASRHotword._();
+  static $pb.GeneratedMessage $_createMessage() => DoubaoRealtimeASRHotword._();
   @$core.override
-  DoubaoRealtimeASRHotword createEmptyInstance() => create();
+  DoubaoRealtimeASRHotword createEmptyInstance() =>
+      DoubaoRealtimeASRHotword._();
   @$core.pragma('dart2js:noInline')
   static DoubaoRealtimeASRHotword getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeASRHotword>(create);
+      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeASRHotword>(
+          DoubaoRealtimeASRHotword.$_createMessage);
   static DoubaoRealtimeASRHotword? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2573,7 +2693,7 @@ class DoubaoRealtimeAudio extends $pb.GeneratedMessage {
     DoubaoRealtimeAudioInput? input,
     DoubaoRealtimeAudioOutput? output,
   }) {
-    final result = create();
+    final result = DoubaoRealtimeAudio._();
     if (input != null) result.input = input;
     if (output != null) result.output = output;
     return result;
@@ -2583,19 +2703,19 @@ class DoubaoRealtimeAudio extends $pb.GeneratedMessage {
 
   factory DoubaoRealtimeAudio.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DoubaoRealtimeAudio()..mergeFromBuffer(data, registry);
   factory DoubaoRealtimeAudio.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DoubaoRealtimeAudio()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DoubaoRealtimeAudio',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DoubaoRealtimeAudio.$_createMessage)
     ..aOM<DoubaoRealtimeAudioInput>(1, _omitFieldNames ? '' : 'input',
-        subBuilder: DoubaoRealtimeAudioInput.create)
+        subBuilder: DoubaoRealtimeAudioInput.$_createMessage)
     ..aOM<DoubaoRealtimeAudioOutput>(2, _omitFieldNames ? '' : 'output',
-        subBuilder: DoubaoRealtimeAudioOutput.create)
+        subBuilder: DoubaoRealtimeAudioOutput.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2609,12 +2729,16 @@ class DoubaoRealtimeAudio extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use DoubaoRealtimeAudio() / DoubaoRealtimeAudio.new instead')
   static DoubaoRealtimeAudio create() => DoubaoRealtimeAudio._();
+  static $pb.GeneratedMessage $_createMessage() => DoubaoRealtimeAudio._();
   @$core.override
-  DoubaoRealtimeAudio createEmptyInstance() => create();
+  DoubaoRealtimeAudio createEmptyInstance() => DoubaoRealtimeAudio._();
   @$core.pragma('dart2js:noInline')
   static DoubaoRealtimeAudio getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeAudio>(create);
+      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeAudio>(
+          DoubaoRealtimeAudio.$_createMessage);
   static DoubaoRealtimeAudio? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2645,7 +2769,7 @@ class DoubaoRealtimeAudioFormat extends $pb.GeneratedMessage {
     $fixnum.Int64? rate,
     $1.DoubaoRealtimeAudioFormatType? type,
   }) {
-    final result = create();
+    final result = DoubaoRealtimeAudioFormat._();
     if (rate != null) result.rate = rate;
     if (type != null) result.type = type;
     return result;
@@ -2655,15 +2779,15 @@ class DoubaoRealtimeAudioFormat extends $pb.GeneratedMessage {
 
   factory DoubaoRealtimeAudioFormat.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DoubaoRealtimeAudioFormat()..mergeFromBuffer(data, registry);
   factory DoubaoRealtimeAudioFormat.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DoubaoRealtimeAudioFormat()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DoubaoRealtimeAudioFormat',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DoubaoRealtimeAudioFormat.$_createMessage)
     ..aInt64(1, _omitFieldNames ? '' : 'rate')
     ..aE<$1.DoubaoRealtimeAudioFormatType>(2, _omitFieldNames ? '' : 'type',
         enumValues: $1.DoubaoRealtimeAudioFormatType.values)
@@ -2681,12 +2805,18 @@ class DoubaoRealtimeAudioFormat extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DoubaoRealtimeAudioFormat() / DoubaoRealtimeAudioFormat.new instead')
   static DoubaoRealtimeAudioFormat create() => DoubaoRealtimeAudioFormat._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      DoubaoRealtimeAudioFormat._();
   @$core.override
-  DoubaoRealtimeAudioFormat createEmptyInstance() => create();
+  DoubaoRealtimeAudioFormat createEmptyInstance() =>
+      DoubaoRealtimeAudioFormat._();
   @$core.pragma('dart2js:noInline')
   static DoubaoRealtimeAudioFormat getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeAudioFormat>(create);
+      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeAudioFormat>(
+          DoubaoRealtimeAudioFormat.$_createMessage);
   static DoubaoRealtimeAudioFormat? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2712,7 +2842,7 @@ class DoubaoRealtimeAudioInput extends $pb.GeneratedMessage {
   factory DoubaoRealtimeAudioInput({
     DoubaoRealtimeAudioFormat? format,
   }) {
-    final result = create();
+    final result = DoubaoRealtimeAudioInput._();
     if (format != null) result.format = format;
     return result;
   }
@@ -2721,17 +2851,17 @@ class DoubaoRealtimeAudioInput extends $pb.GeneratedMessage {
 
   factory DoubaoRealtimeAudioInput.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DoubaoRealtimeAudioInput()..mergeFromBuffer(data, registry);
   factory DoubaoRealtimeAudioInput.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DoubaoRealtimeAudioInput()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DoubaoRealtimeAudioInput',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DoubaoRealtimeAudioInput.$_createMessage)
     ..aOM<DoubaoRealtimeAudioFormat>(1, _omitFieldNames ? '' : 'format',
-        subBuilder: DoubaoRealtimeAudioFormat.create)
+        subBuilder: DoubaoRealtimeAudioFormat.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2746,12 +2876,17 @@ class DoubaoRealtimeAudioInput extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DoubaoRealtimeAudioInput() / DoubaoRealtimeAudioInput.new instead')
   static DoubaoRealtimeAudioInput create() => DoubaoRealtimeAudioInput._();
+  static $pb.GeneratedMessage $_createMessage() => DoubaoRealtimeAudioInput._();
   @$core.override
-  DoubaoRealtimeAudioInput createEmptyInstance() => create();
+  DoubaoRealtimeAudioInput createEmptyInstance() =>
+      DoubaoRealtimeAudioInput._();
   @$core.pragma('dart2js:noInline')
   static DoubaoRealtimeAudioInput getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeAudioInput>(create);
+      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeAudioInput>(
+          DoubaoRealtimeAudioInput.$_createMessage);
   static DoubaoRealtimeAudioInput? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2773,7 +2908,7 @@ class DoubaoRealtimeAudioOutput extends $pb.GeneratedMessage {
     $fixnum.Int64? speed,
     $core.String? voice,
   }) {
-    final result = create();
+    final result = DoubaoRealtimeAudioOutput._();
     if (format != null) result.format = format;
     if (loudness != null) result.loudness = loudness;
     if (speed != null) result.speed = speed;
@@ -2785,17 +2920,17 @@ class DoubaoRealtimeAudioOutput extends $pb.GeneratedMessage {
 
   factory DoubaoRealtimeAudioOutput.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DoubaoRealtimeAudioOutput()..mergeFromBuffer(data, registry);
   factory DoubaoRealtimeAudioOutput.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DoubaoRealtimeAudioOutput()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DoubaoRealtimeAudioOutput',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DoubaoRealtimeAudioOutput.$_createMessage)
     ..aOM<DoubaoRealtimeAudioFormat>(1, _omitFieldNames ? '' : 'format',
-        subBuilder: DoubaoRealtimeAudioFormat.create)
+        subBuilder: DoubaoRealtimeAudioFormat.$_createMessage)
     ..aInt64(2, _omitFieldNames ? '' : 'loudness')
     ..aInt64(3, _omitFieldNames ? '' : 'speed')
     ..aOS(4, _omitFieldNames ? '' : 'voice')
@@ -2813,12 +2948,18 @@ class DoubaoRealtimeAudioOutput extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DoubaoRealtimeAudioOutput() / DoubaoRealtimeAudioOutput.new instead')
   static DoubaoRealtimeAudioOutput create() => DoubaoRealtimeAudioOutput._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      DoubaoRealtimeAudioOutput._();
   @$core.override
-  DoubaoRealtimeAudioOutput createEmptyInstance() => create();
+  DoubaoRealtimeAudioOutput createEmptyInstance() =>
+      DoubaoRealtimeAudioOutput._();
   @$core.pragma('dart2js:noInline')
   static DoubaoRealtimeAudioOutput getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeAudioOutput>(create);
+      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeAudioOutput>(
+          DoubaoRealtimeAudioOutput.$_createMessage);
   static DoubaoRealtimeAudioOutput? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2864,7 +3005,7 @@ class DoubaoRealtimeDialogExtension extends $pb.GeneratedMessage {
   factory DoubaoRealtimeDialogExtension({
     DoubaoRealtimeDialogExtra? extra,
   }) {
-    final result = create();
+    final result = DoubaoRealtimeDialogExtension._();
     if (extra != null) result.extra = extra;
     return result;
   }
@@ -2873,17 +3014,17 @@ class DoubaoRealtimeDialogExtension extends $pb.GeneratedMessage {
 
   factory DoubaoRealtimeDialogExtension.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DoubaoRealtimeDialogExtension()..mergeFromBuffer(data, registry);
   factory DoubaoRealtimeDialogExtension.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DoubaoRealtimeDialogExtension()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DoubaoRealtimeDialogExtension',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DoubaoRealtimeDialogExtension.$_createMessage)
     ..aOM<DoubaoRealtimeDialogExtra>(1, _omitFieldNames ? '' : 'extra',
-        subBuilder: DoubaoRealtimeDialogExtra.create)
+        subBuilder: DoubaoRealtimeDialogExtra.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2899,13 +3040,19 @@ class DoubaoRealtimeDialogExtension extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DoubaoRealtimeDialogExtension() / DoubaoRealtimeDialogExtension.new instead')
   static DoubaoRealtimeDialogExtension create() =>
       DoubaoRealtimeDialogExtension._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      DoubaoRealtimeDialogExtension._();
   @$core.override
-  DoubaoRealtimeDialogExtension createEmptyInstance() => create();
+  DoubaoRealtimeDialogExtension createEmptyInstance() =>
+      DoubaoRealtimeDialogExtension._();
   @$core.pragma('dart2js:noInline')
   static DoubaoRealtimeDialogExtension getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeDialogExtension>(create);
+      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeDialogExtension>(
+          DoubaoRealtimeDialogExtension.$_createMessage);
   static DoubaoRealtimeDialogExtension? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2934,7 +3081,7 @@ class DoubaoRealtimeDialogExtra extends $pb.GeneratedMessage {
     $fixnum.Int64? volcWebsearchResultCount,
     $1.DoubaoRealtimeDialogExtraVolcWebsearchType? volcWebsearchType,
   }) {
-    final result = create();
+    final result = DoubaoRealtimeDialogExtra._();
     if (auditResponse != null) result.auditResponse = auditResponse;
     if (enableConversationTruncate != null)
       result.enableConversationTruncate = enableConversationTruncate;
@@ -2960,15 +3107,15 @@ class DoubaoRealtimeDialogExtra extends $pb.GeneratedMessage {
 
   factory DoubaoRealtimeDialogExtra.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DoubaoRealtimeDialogExtra()..mergeFromBuffer(data, registry);
   factory DoubaoRealtimeDialogExtra.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DoubaoRealtimeDialogExtra()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DoubaoRealtimeDialogExtra',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DoubaoRealtimeDialogExtra.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'auditResponse')
     ..aOB(2, _omitFieldNames ? '' : 'enableConversationTruncate')
     ..aOB(3, _omitFieldNames ? '' : 'enableLoudnessNorm')
@@ -2996,12 +3143,18 @@ class DoubaoRealtimeDialogExtra extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DoubaoRealtimeDialogExtra() / DoubaoRealtimeDialogExtra.new instead')
   static DoubaoRealtimeDialogExtra create() => DoubaoRealtimeDialogExtra._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      DoubaoRealtimeDialogExtra._();
   @$core.override
-  DoubaoRealtimeDialogExtra createEmptyInstance() => create();
+  DoubaoRealtimeDialogExtra createEmptyInstance() =>
+      DoubaoRealtimeDialogExtra._();
   @$core.pragma('dart2js:noInline')
   static DoubaoRealtimeDialogExtra getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeDialogExtra>(create);
+      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeDialogExtra>(
+          DoubaoRealtimeDialogExtra.$_createMessage);
   static DoubaoRealtimeDialogExtra? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -3112,7 +3265,7 @@ class DoubaoRealtimeExtension extends $pb.GeneratedMessage {
     DoubaoRealtimeDialogExtension? dialog,
     DoubaoRealtimeTTSExtension? tts,
   }) {
-    final result = create();
+    final result = DoubaoRealtimeExtension._();
     if (asr != null) result.asr = asr;
     if (dialog != null) result.dialog = dialog;
     if (tts != null) result.tts = tts;
@@ -3123,21 +3276,21 @@ class DoubaoRealtimeExtension extends $pb.GeneratedMessage {
 
   factory DoubaoRealtimeExtension.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DoubaoRealtimeExtension()..mergeFromBuffer(data, registry);
   factory DoubaoRealtimeExtension.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DoubaoRealtimeExtension()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DoubaoRealtimeExtension',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DoubaoRealtimeExtension.$_createMessage)
     ..aOM<DoubaoRealtimeASRExtension>(1, _omitFieldNames ? '' : 'asr',
-        subBuilder: DoubaoRealtimeASRExtension.create)
+        subBuilder: DoubaoRealtimeASRExtension.$_createMessage)
     ..aOM<DoubaoRealtimeDialogExtension>(2, _omitFieldNames ? '' : 'dialog',
-        subBuilder: DoubaoRealtimeDialogExtension.create)
+        subBuilder: DoubaoRealtimeDialogExtension.$_createMessage)
     ..aOM<DoubaoRealtimeTTSExtension>(3, _omitFieldNames ? '' : 'tts',
-        subBuilder: DoubaoRealtimeTTSExtension.create)
+        subBuilder: DoubaoRealtimeTTSExtension.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3152,12 +3305,16 @@ class DoubaoRealtimeExtension extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DoubaoRealtimeExtension() / DoubaoRealtimeExtension.new instead')
   static DoubaoRealtimeExtension create() => DoubaoRealtimeExtension._();
+  static $pb.GeneratedMessage $_createMessage() => DoubaoRealtimeExtension._();
   @$core.override
-  DoubaoRealtimeExtension createEmptyInstance() => create();
+  DoubaoRealtimeExtension createEmptyInstance() => DoubaoRealtimeExtension._();
   @$core.pragma('dart2js:noInline')
   static DoubaoRealtimeExtension getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeExtension>(create);
+      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeExtension>(
+          DoubaoRealtimeExtension.$_createMessage);
   static DoubaoRealtimeExtension? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -3202,7 +3359,7 @@ class DoubaoRealtimeFunctionTool extends $pb.GeneratedMessage {
     $core.bool? strict,
     $1.DoubaoRealtimeFunctionToolType? type,
   }) {
-    final result = create();
+    final result = DoubaoRealtimeFunctionTool._();
     if (description != null) result.description = description;
     if (name != null) result.name = name;
     if (parameters != null) result.parameters = parameters;
@@ -3215,19 +3372,19 @@ class DoubaoRealtimeFunctionTool extends $pb.GeneratedMessage {
 
   factory DoubaoRealtimeFunctionTool.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DoubaoRealtimeFunctionTool()..mergeFromBuffer(data, registry);
   factory DoubaoRealtimeFunctionTool.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DoubaoRealtimeFunctionTool()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DoubaoRealtimeFunctionTool',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DoubaoRealtimeFunctionTool.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'description')
     ..aOS(2, _omitFieldNames ? '' : 'name')
     ..aOM<DoubaoRealtimeJSONSchema>(3, _omitFieldNames ? '' : 'parameters',
-        subBuilder: DoubaoRealtimeJSONSchema.create)
+        subBuilder: DoubaoRealtimeJSONSchema.$_createMessage)
     ..aOB(4, _omitFieldNames ? '' : 'strict')
     ..aE<$1.DoubaoRealtimeFunctionToolType>(5, _omitFieldNames ? '' : 'type',
         enumValues: $1.DoubaoRealtimeFunctionToolType.values)
@@ -3246,12 +3403,18 @@ class DoubaoRealtimeFunctionTool extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DoubaoRealtimeFunctionTool() / DoubaoRealtimeFunctionTool.new instead')
   static DoubaoRealtimeFunctionTool create() => DoubaoRealtimeFunctionTool._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      DoubaoRealtimeFunctionTool._();
   @$core.override
-  DoubaoRealtimeFunctionTool createEmptyInstance() => create();
+  DoubaoRealtimeFunctionTool createEmptyInstance() =>
+      DoubaoRealtimeFunctionTool._();
   @$core.pragma('dart2js:noInline')
   static DoubaoRealtimeFunctionTool getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeFunctionTool>(create);
+      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeFunctionTool>(
+          DoubaoRealtimeFunctionTool.$_createMessage);
   static DoubaoRealtimeFunctionTool? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -3318,7 +3481,7 @@ class DoubaoRealtimeJSONSchema extends $pb.GeneratedMessage {
     $core.Iterable<$core.String>? required,
     $core.String? type,
   }) {
-    final result = create();
+    final result = DoubaoRealtimeJSONSchema._();
     if (additionalProperties != null)
       result.additionalProperties = additionalProperties;
     if (anyOf != null) result.anyOf.addAll(anyOf);
@@ -3339,22 +3502,22 @@ class DoubaoRealtimeJSONSchema extends $pb.GeneratedMessage {
 
   factory DoubaoRealtimeJSONSchema.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DoubaoRealtimeJSONSchema()..mergeFromBuffer(data, registry);
   factory DoubaoRealtimeJSONSchema.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DoubaoRealtimeJSONSchema()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DoubaoRealtimeJSONSchema',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DoubaoRealtimeJSONSchema.$_createMessage)
     ..aOB(1, _omitFieldNames ? '' : 'additionalProperties')
     ..pPM<DoubaoRealtimeJSONSchema>(2, _omitFieldNames ? '' : 'anyOf',
-        subBuilder: DoubaoRealtimeJSONSchema.create)
+        subBuilder: DoubaoRealtimeJSONSchema.$_createMessage)
     ..aOS(3, _omitFieldNames ? '' : 'description')
     ..pPS(4, _omitFieldNames ? '' : 'enum', protoName: 'enum_values')
     ..aOM<DoubaoRealtimeJSONSchema>(5, _omitFieldNames ? '' : 'items',
-        subBuilder: DoubaoRealtimeJSONSchema.create)
+        subBuilder: DoubaoRealtimeJSONSchema.$_createMessage)
     ..aInt64(6, _omitFieldNames ? '' : 'maxLength')
     ..aD(7, _omitFieldNames ? '' : 'maximum')
     ..aInt64(8, _omitFieldNames ? '' : 'minLength')
@@ -3364,7 +3527,7 @@ class DoubaoRealtimeJSONSchema extends $pb.GeneratedMessage {
         entryClassName: 'DoubaoRealtimeJSONSchema.PropertiesEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.OM,
-        valueCreator: DoubaoRealtimeJSONSchema.create,
+        valueCreator: DoubaoRealtimeJSONSchema.$_createMessage,
         valueDefaultOrMaker: DoubaoRealtimeJSONSchema.getDefault,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
     ..pPS(11, _omitFieldNames ? '' : 'required')
@@ -3383,12 +3546,17 @@ class DoubaoRealtimeJSONSchema extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DoubaoRealtimeJSONSchema() / DoubaoRealtimeJSONSchema.new instead')
   static DoubaoRealtimeJSONSchema create() => DoubaoRealtimeJSONSchema._();
+  static $pb.GeneratedMessage $_createMessage() => DoubaoRealtimeJSONSchema._();
   @$core.override
-  DoubaoRealtimeJSONSchema createEmptyInstance() => create();
+  DoubaoRealtimeJSONSchema createEmptyInstance() =>
+      DoubaoRealtimeJSONSchema._();
   @$core.pragma('dart2js:noInline')
   static DoubaoRealtimeJSONSchema getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeJSONSchema>(create);
+      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeJSONSchema>(
+          DoubaoRealtimeJSONSchema.$_createMessage);
   static DoubaoRealtimeJSONSchema? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -3483,7 +3651,7 @@ class DoubaoRealtimeTTSExtension extends $pb.GeneratedMessage {
   factory DoubaoRealtimeTTSExtension({
     DoubaoRealtimeTTSExtra? extra,
   }) {
-    final result = create();
+    final result = DoubaoRealtimeTTSExtension._();
     if (extra != null) result.extra = extra;
     return result;
   }
@@ -3492,17 +3660,17 @@ class DoubaoRealtimeTTSExtension extends $pb.GeneratedMessage {
 
   factory DoubaoRealtimeTTSExtension.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DoubaoRealtimeTTSExtension()..mergeFromBuffer(data, registry);
   factory DoubaoRealtimeTTSExtension.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DoubaoRealtimeTTSExtension()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DoubaoRealtimeTTSExtension',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DoubaoRealtimeTTSExtension.$_createMessage)
     ..aOM<DoubaoRealtimeTTSExtra>(1, _omitFieldNames ? '' : 'extra',
-        subBuilder: DoubaoRealtimeTTSExtra.create)
+        subBuilder: DoubaoRealtimeTTSExtra.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3518,12 +3686,18 @@ class DoubaoRealtimeTTSExtension extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DoubaoRealtimeTTSExtension() / DoubaoRealtimeTTSExtension.new instead')
   static DoubaoRealtimeTTSExtension create() => DoubaoRealtimeTTSExtension._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      DoubaoRealtimeTTSExtension._();
   @$core.override
-  DoubaoRealtimeTTSExtension createEmptyInstance() => create();
+  DoubaoRealtimeTTSExtension createEmptyInstance() =>
+      DoubaoRealtimeTTSExtension._();
   @$core.pragma('dart2js:noInline')
   static DoubaoRealtimeTTSExtension getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeTTSExtension>(create);
+      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeTTSExtension>(
+          DoubaoRealtimeTTSExtension.$_createMessage);
   static DoubaoRealtimeTTSExtension? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -3544,7 +3718,7 @@ class DoubaoRealtimeTTSExtra extends $pb.GeneratedMessage {
     $core.String? explicitDialect,
     $core.String? tts20Model,
   }) {
-    final result = create();
+    final result = DoubaoRealtimeTTSExtra._();
     if (aigcMetadata != null) result.aigcMetadata = aigcMetadata;
     if (explicitDialect != null) result.explicitDialect = explicitDialect;
     if (tts20Model != null) result.tts20Model = tts20Model;
@@ -3555,17 +3729,17 @@ class DoubaoRealtimeTTSExtra extends $pb.GeneratedMessage {
 
   factory DoubaoRealtimeTTSExtra.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DoubaoRealtimeTTSExtra()..mergeFromBuffer(data, registry);
   factory DoubaoRealtimeTTSExtra.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DoubaoRealtimeTTSExtra()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DoubaoRealtimeTTSExtra',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DoubaoRealtimeTTSExtra.$_createMessage)
     ..aOM<DoubaoRealtimeAIGCMetadata>(1, _omitFieldNames ? '' : 'aigcMetadata',
-        subBuilder: DoubaoRealtimeAIGCMetadata.create)
+        subBuilder: DoubaoRealtimeAIGCMetadata.$_createMessage)
     ..aOS(2, _omitFieldNames ? '' : 'explicitDialect')
     ..aOS(3, _omitFieldNames ? '' : 'tts20Model', protoName: 'tts_2_0_model')
     ..hasRequiredFields = false;
@@ -3582,12 +3756,16 @@ class DoubaoRealtimeTTSExtra extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DoubaoRealtimeTTSExtra() / DoubaoRealtimeTTSExtra.new instead')
   static DoubaoRealtimeTTSExtra create() => DoubaoRealtimeTTSExtra._();
+  static $pb.GeneratedMessage $_createMessage() => DoubaoRealtimeTTSExtra._();
   @$core.override
-  DoubaoRealtimeTTSExtra createEmptyInstance() => create();
+  DoubaoRealtimeTTSExtra createEmptyInstance() => DoubaoRealtimeTTSExtra._();
   @$core.pragma('dart2js:noInline')
   static DoubaoRealtimeTTSExtra getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeTTSExtra>(create);
+      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeTTSExtra>(
+          DoubaoRealtimeTTSExtra.$_createMessage);
   static DoubaoRealtimeTTSExtra? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -3629,7 +3807,7 @@ class DoubaoRealtimeWorkflowSpec extends $pb.GeneratedMessage {
     $core.Iterable<DoubaoRealtimeFunctionTool>? tools,
     $core.String? initiativeQuery,
   }) {
-    final result = create();
+    final result = DoubaoRealtimeWorkflowSpec._();
     if (audio != null) result.audio = audio;
     if (extension_2 != null) result.extension_2 = extension_2;
     if (instructions != null) result.instructions = instructions;
@@ -3643,23 +3821,23 @@ class DoubaoRealtimeWorkflowSpec extends $pb.GeneratedMessage {
 
   factory DoubaoRealtimeWorkflowSpec.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DoubaoRealtimeWorkflowSpec()..mergeFromBuffer(data, registry);
   factory DoubaoRealtimeWorkflowSpec.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DoubaoRealtimeWorkflowSpec()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DoubaoRealtimeWorkflowSpec',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DoubaoRealtimeWorkflowSpec.$_createMessage)
     ..aOM<DoubaoRealtimeAudio>(1, _omitFieldNames ? '' : 'audio',
-        subBuilder: DoubaoRealtimeAudio.create)
+        subBuilder: DoubaoRealtimeAudio.$_createMessage)
     ..aOM<DoubaoRealtimeExtension>(2, _omitFieldNames ? '' : 'extension',
-        subBuilder: DoubaoRealtimeExtension.create)
+        subBuilder: DoubaoRealtimeExtension.$_createMessage)
     ..aOS(3, _omitFieldNames ? '' : 'instructions')
     ..aOS(4, _omitFieldNames ? '' : 'model')
     ..pPM<DoubaoRealtimeFunctionTool>(5, _omitFieldNames ? '' : 'tools',
-        subBuilder: DoubaoRealtimeFunctionTool.create)
+        subBuilder: DoubaoRealtimeFunctionTool.$_createMessage)
     ..aOS(6, _omitFieldNames ? '' : 'initiativeQuery')
     ..hasRequiredFields = false;
 
@@ -3676,12 +3854,18 @@ class DoubaoRealtimeWorkflowSpec extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DoubaoRealtimeWorkflowSpec() / DoubaoRealtimeWorkflowSpec.new instead')
   static DoubaoRealtimeWorkflowSpec create() => DoubaoRealtimeWorkflowSpec._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      DoubaoRealtimeWorkflowSpec._();
   @$core.override
-  DoubaoRealtimeWorkflowSpec createEmptyInstance() => create();
+  DoubaoRealtimeWorkflowSpec createEmptyInstance() =>
+      DoubaoRealtimeWorkflowSpec._();
   @$core.pragma('dart2js:noInline')
   static DoubaoRealtimeWorkflowSpec getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeWorkflowSpec>(create);
+      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeWorkflowSpec>(
+          DoubaoRealtimeWorkflowSpec.$_createMessage);
   static DoubaoRealtimeWorkflowSpec? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -3749,7 +3933,7 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
     $core.Iterable<DoubaoRealtimeFunctionTool>? tools,
     ConversationParameters? conversation,
   }) {
-    final result = create();
+    final result = DoubaoRealtimeWorkspaceParameters._();
     if (agentType != null) result.agentType = agentType;
     if (audio != null) result.audio = audio;
     if (e2e != null) result.e2e = e2e;
@@ -3767,31 +3951,31 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
   factory DoubaoRealtimeWorkspaceParameters.fromBuffer(
           $core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DoubaoRealtimeWorkspaceParameters()..mergeFromBuffer(data, registry);
   factory DoubaoRealtimeWorkspaceParameters.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DoubaoRealtimeWorkspaceParameters()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DoubaoRealtimeWorkspaceParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DoubaoRealtimeWorkspaceParameters.$_createMessage)
     ..aE<$1.DoubaoRealtimeWorkspaceParametersAgentType>(
         1, _omitFieldNames ? '' : 'agentType',
         enumValues: $1.DoubaoRealtimeWorkspaceParametersAgentType.values)
     ..aOM<DoubaoRealtimeAudio>(2, _omitFieldNames ? '' : 'audio',
-        subBuilder: DoubaoRealtimeAudio.create)
+        subBuilder: DoubaoRealtimeAudio.$_createMessage)
     ..aOB(3, _omitFieldNames ? '' : 'e2e')
     ..aOM<DoubaoRealtimeExtension>(4, _omitFieldNames ? '' : 'extension',
-        subBuilder: DoubaoRealtimeExtension.create)
+        subBuilder: DoubaoRealtimeExtension.$_createMessage)
     ..aE<$1.WorkspaceInputMode>(5, _omitFieldNames ? '' : 'input',
         enumValues: $1.WorkspaceInputMode.values)
     ..aOS(6, _omitFieldNames ? '' : 'instructions')
     ..aOS(7, _omitFieldNames ? '' : 'model')
     ..pPM<DoubaoRealtimeFunctionTool>(8, _omitFieldNames ? '' : 'tools',
-        subBuilder: DoubaoRealtimeFunctionTool.create)
+        subBuilder: DoubaoRealtimeFunctionTool.$_createMessage)
     ..aOM<ConversationParameters>(9, _omitFieldNames ? '' : 'conversation',
-        subBuilder: ConversationParameters.create)
+        subBuilder: ConversationParameters.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3807,14 +3991,19 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DoubaoRealtimeWorkspaceParameters() / DoubaoRealtimeWorkspaceParameters.new instead')
   static DoubaoRealtimeWorkspaceParameters create() =>
       DoubaoRealtimeWorkspaceParameters._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      DoubaoRealtimeWorkspaceParameters._();
   @$core.override
-  DoubaoRealtimeWorkspaceParameters createEmptyInstance() => create();
+  DoubaoRealtimeWorkspaceParameters createEmptyInstance() =>
+      DoubaoRealtimeWorkspaceParameters._();
   @$core.pragma('dart2js:noInline')
   static DoubaoRealtimeWorkspaceParameters getDefault() => _defaultInstance ??=
       $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeWorkspaceParameters>(
-          create);
+          DoubaoRealtimeWorkspaceParameters.$_createMessage);
   static DoubaoRealtimeWorkspaceParameters? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -3905,7 +4094,7 @@ class ConversationParameters extends $pb.GeneratedMessage {
     $1.ConversationParametersAgentInitiativePolicy? agentInitiativePolicy,
     $1.ConversationParametersInitiative? initiative,
   }) {
-    final result = create();
+    final result = ConversationParameters._();
     if (agentInitiativePolicy != null)
       result.agentInitiativePolicy = agentInitiativePolicy;
     if (initiative != null) result.initiative = initiative;
@@ -3916,15 +4105,15 @@ class ConversationParameters extends $pb.GeneratedMessage {
 
   factory ConversationParameters.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ConversationParameters()..mergeFromBuffer(data, registry);
   factory ConversationParameters.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ConversationParameters()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ConversationParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: ConversationParameters.$_createMessage)
     ..aE<$1.ConversationParametersAgentInitiativePolicy>(
         1, _omitFieldNames ? '' : 'agentInitiativePolicy',
         enumValues: $1.ConversationParametersAgentInitiativePolicy.values)
@@ -3945,12 +4134,16 @@ class ConversationParameters extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ConversationParameters() / ConversationParameters.new instead')
   static ConversationParameters create() => ConversationParameters._();
+  static $pb.GeneratedMessage $_createMessage() => ConversationParameters._();
   @$core.override
-  ConversationParameters createEmptyInstance() => create();
+  ConversationParameters createEmptyInstance() => ConversationParameters._();
   @$core.pragma('dart2js:noInline')
   static ConversationParameters getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ConversationParameters>(create);
+      $pb.GeneratedMessage.$_defaultFor<ConversationParameters>(
+          ConversationParameters.$_createMessage);
   static ConversationParameters? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -3980,7 +4173,7 @@ class FlowcraftWorkflowSpec extends $pb.GeneratedMessage {
   factory FlowcraftWorkflowSpec({
     $0.Struct? fields,
   }) {
-    final result = create();
+    final result = FlowcraftWorkflowSpec._();
     if (fields != null) result.fields = fields;
     return result;
   }
@@ -3989,17 +4182,17 @@ class FlowcraftWorkflowSpec extends $pb.GeneratedMessage {
 
   factory FlowcraftWorkflowSpec.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      FlowcraftWorkflowSpec()..mergeFromBuffer(data, registry);
   factory FlowcraftWorkflowSpec.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      FlowcraftWorkflowSpec()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'FlowcraftWorkflowSpec',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: FlowcraftWorkflowSpec.$_createMessage)
     ..aOM<$0.Struct>(1, _omitFieldNames ? '' : 'fields',
-        subBuilder: $0.Struct.create)
+        subBuilder: $0.Struct.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4014,12 +4207,16 @@ class FlowcraftWorkflowSpec extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use FlowcraftWorkflowSpec() / FlowcraftWorkflowSpec.new instead')
   static FlowcraftWorkflowSpec create() => FlowcraftWorkflowSpec._();
+  static $pb.GeneratedMessage $_createMessage() => FlowcraftWorkflowSpec._();
   @$core.override
-  FlowcraftWorkflowSpec createEmptyInstance() => create();
+  FlowcraftWorkflowSpec createEmptyInstance() => FlowcraftWorkflowSpec._();
   @$core.pragma('dart2js:noInline')
   static FlowcraftWorkflowSpec getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<FlowcraftWorkflowSpec>(create);
+      $pb.GeneratedMessage.$_defaultFor<FlowcraftWorkflowSpec>(
+          FlowcraftWorkflowSpec.$_createMessage);
   static FlowcraftWorkflowSpec? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -4041,7 +4238,7 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
     $core.bool? e2e,
     $1.WorkspaceInputMode? input,
   }) {
-    final result = create();
+    final result = FlowcraftWorkspaceParameters._();
     if (agentType != null) result.agentType = agentType;
     if (conversation != null) result.conversation = conversation;
     if (e2e != null) result.e2e = e2e;
@@ -4053,20 +4250,20 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
 
   factory FlowcraftWorkspaceParameters.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      FlowcraftWorkspaceParameters()..mergeFromBuffer(data, registry);
   factory FlowcraftWorkspaceParameters.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      FlowcraftWorkspaceParameters()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'FlowcraftWorkspaceParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: FlowcraftWorkspaceParameters.$_createMessage)
     ..aE<$1.FlowcraftWorkspaceParametersAgentType>(
         1, _omitFieldNames ? '' : 'agentType',
         enumValues: $1.FlowcraftWorkspaceParametersAgentType.values)
     ..aOM<ConversationParameters>(2, _omitFieldNames ? '' : 'conversation',
-        subBuilder: ConversationParameters.create)
+        subBuilder: ConversationParameters.$_createMessage)
     ..aOB(3, _omitFieldNames ? '' : 'e2e')
     ..aE<$1.WorkspaceInputMode>(4, _omitFieldNames ? '' : 'input',
         enumValues: $1.WorkspaceInputMode.values)
@@ -4085,13 +4282,19 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use FlowcraftWorkspaceParameters() / FlowcraftWorkspaceParameters.new instead')
   static FlowcraftWorkspaceParameters create() =>
       FlowcraftWorkspaceParameters._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      FlowcraftWorkspaceParameters._();
   @$core.override
-  FlowcraftWorkspaceParameters createEmptyInstance() => create();
+  FlowcraftWorkspaceParameters createEmptyInstance() =>
+      FlowcraftWorkspaceParameters._();
   @$core.pragma('dart2js:noInline')
   static FlowcraftWorkspaceParameters getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<FlowcraftWorkspaceParameters>(create);
+      $pb.GeneratedMessage.$_defaultFor<FlowcraftWorkspaceParameters>(
+          FlowcraftWorkspaceParameters.$_createMessage);
   static FlowcraftWorkspaceParameters? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -4145,7 +4348,7 @@ class PetWorkflowSpec extends $pb.GeneratedMessage {
     DoubaoRealtimeDuplexWorkflowSpec? doubaoRealtimeDuplex,
     EinoWorkflowSpec? eino,
   }) {
-    final result = create();
+    final result = PetWorkflowSpec._();
     if (driver != null) result.driver = driver;
     if (toolkit != null) result.toolkit = toolkit;
     if (flowcraft != null) result.flowcraft = flowcraft;
@@ -4162,34 +4365,34 @@ class PetWorkflowSpec extends $pb.GeneratedMessage {
 
   factory PetWorkflowSpec.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      PetWorkflowSpec()..mergeFromBuffer(data, registry);
   factory PetWorkflowSpec.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      PetWorkflowSpec()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'PetWorkflowSpec',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: PetWorkflowSpec.$_createMessage)
     ..aE<$1.ReusableWorkflowDriver>(1, _omitFieldNames ? '' : 'driver',
         enumValues: $1.ReusableWorkflowDriver.values)
     ..aOM<ToolkitPolicy>(2, _omitFieldNames ? '' : 'toolkit',
-        subBuilder: ToolkitPolicy.create)
+        subBuilder: ToolkitPolicy.$_createMessage)
     ..aOM<FlowcraftWorkflowSpec>(3, _omitFieldNames ? '' : 'flowcraft',
-        subBuilder: FlowcraftWorkflowSpec.create)
+        subBuilder: FlowcraftWorkflowSpec.$_createMessage)
     ..aOM<DoubaoRealtimeWorkflowSpec>(
         4, _omitFieldNames ? '' : 'doubaoRealtime',
-        subBuilder: DoubaoRealtimeWorkflowSpec.create)
+        subBuilder: DoubaoRealtimeWorkflowSpec.$_createMessage)
     ..aOM<ASTTranslateWorkflowSpec>(5, _omitFieldNames ? '' : 'astTranslate',
-        subBuilder: ASTTranslateWorkflowSpec.create)
+        subBuilder: ASTTranslateWorkflowSpec.$_createMessage)
     ..aOM<DashScopeRealtimeWorkflowSpec>(
         7, _omitFieldNames ? '' : 'dashscopeRealtime',
-        subBuilder: DashScopeRealtimeWorkflowSpec.create)
+        subBuilder: DashScopeRealtimeWorkflowSpec.$_createMessage)
     ..aOM<DoubaoRealtimeDuplexWorkflowSpec>(
         8, _omitFieldNames ? '' : 'doubaoRealtimeDuplex',
-        subBuilder: DoubaoRealtimeDuplexWorkflowSpec.create)
+        subBuilder: DoubaoRealtimeDuplexWorkflowSpec.$_createMessage)
     ..aOM<EinoWorkflowSpec>(9, _omitFieldNames ? '' : 'eino',
-        subBuilder: EinoWorkflowSpec.create)
+        subBuilder: EinoWorkflowSpec.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4203,12 +4406,15 @@ class PetWorkflowSpec extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use PetWorkflowSpec() / PetWorkflowSpec.new instead')
   static PetWorkflowSpec create() => PetWorkflowSpec._();
+  static $pb.GeneratedMessage $_createMessage() => PetWorkflowSpec._();
   @$core.override
-  PetWorkflowSpec createEmptyInstance() => create();
+  PetWorkflowSpec createEmptyInstance() => PetWorkflowSpec._();
   @$core.pragma('dart2js:noInline')
-  static PetWorkflowSpec getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<PetWorkflowSpec>(create);
+  static PetWorkflowSpec getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<PetWorkflowSpec>(
+          PetWorkflowSpec.$_createMessage);
   static PetWorkflowSpec? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -4323,7 +4529,7 @@ class Model extends $pb.GeneratedMessage {
     DeepSeekTenantModelProviderData? deepseekTenant,
     ModelProviderKind? providerKind,
   }) {
-    final result = create();
+    final result = Model._();
     if (name != null) result.name = name;
     if (i18n != null) result.i18n.addEntries(i18n);
     if (kind != null) result.kind = kind;
@@ -4341,10 +4547,10 @@ class Model extends $pb.GeneratedMessage {
 
   factory Model.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      Model()..mergeFromBuffer(data, registry);
   factory Model.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      Model()..mergeFromJson(json, registry);
 
   static const $core.Map<$core.int, Model_ProviderData>
       _Model_ProviderDataByTag = {
@@ -4359,35 +4565,35 @@ class Model extends $pb.GeneratedMessage {
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'Model',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: Model.$_createMessage)
     ..oo(0, [4, 5, 6, 7, 8, 9])
     ..aOS(1, _omitFieldNames ? '' : 'name')
     ..m<$core.String, ResourceI18nText>(2, _omitFieldNames ? '' : 'i18n',
         entryClassName: 'Model.I18nEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.OM,
-        valueCreator: ResourceI18nText.create,
+        valueCreator: ResourceI18nText.$_createMessage,
         valueDefaultOrMaker: ResourceI18nText.getDefault,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
     ..aE<$1.ModelKind>(3, _omitFieldNames ? '' : 'kind',
         enumValues: $1.ModelKind.values)
     ..aOM<OpenAITenantModelProviderData>(
         4, _omitFieldNames ? '' : 'openaiTenant',
-        subBuilder: OpenAITenantModelProviderData.create)
+        subBuilder: OpenAITenantModelProviderData.$_createMessage)
     ..aOM<GeminiTenantModelProviderData>(
         5, _omitFieldNames ? '' : 'geminiTenant',
-        subBuilder: GeminiTenantModelProviderData.create)
+        subBuilder: GeminiTenantModelProviderData.$_createMessage)
     ..aOM<DashScopeTenantModelProviderData>(
         6, _omitFieldNames ? '' : 'dashscopeTenant',
-        subBuilder: DashScopeTenantModelProviderData.create)
+        subBuilder: DashScopeTenantModelProviderData.$_createMessage)
     ..aOM<VolcTenantModelProviderData>(7, _omitFieldNames ? '' : 'volcTenant',
-        subBuilder: VolcTenantModelProviderData.create)
+        subBuilder: VolcTenantModelProviderData.$_createMessage)
     ..aOM<MiniMaxTenantModelProviderData>(
         8, _omitFieldNames ? '' : 'minimaxTenant',
-        subBuilder: MiniMaxTenantModelProviderData.create)
+        subBuilder: MiniMaxTenantModelProviderData.$_createMessage)
     ..aOM<DeepSeekTenantModelProviderData>(
         9, _omitFieldNames ? '' : 'deepseekTenant',
-        subBuilder: DeepSeekTenantModelProviderData.create)
+        subBuilder: DeepSeekTenantModelProviderData.$_createMessage)
     ..aE<ModelProviderKind>(10, _omitFieldNames ? '' : 'providerKind',
         enumValues: ModelProviderKind.values)
     ..hasRequiredFields = false;
@@ -4402,12 +4608,14 @@ class Model extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Model() / Model.new instead')
   static Model create() => Model._();
+  static $pb.GeneratedMessage $_createMessage() => Model._();
   @$core.override
-  Model createEmptyInstance() => create();
+  Model createEmptyInstance() => Model._();
   @$core.pragma('dart2js:noInline')
-  static Model getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Model>(create);
+  static Model getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Model>(Model.$_createMessage);
   static Model? _defaultInstance;
 
   @$pb.TagNumber(4)
@@ -4540,7 +4748,7 @@ class OpenAITenantModelProviderData extends $pb.GeneratedMessage {
     $core.Iterable<$core.String>? thinkingLevels,
     $core.String? defaultThinkingLevel,
   }) {
-    final result = create();
+    final result = OpenAITenantModelProviderData._();
     if (upstreamModel != null) result.upstreamModel = upstreamModel;
     if (supportJsonOutput != null) result.supportJsonOutput = supportJsonOutput;
     if (supportToolCalls != null) result.supportToolCalls = supportToolCalls;
@@ -4562,15 +4770,15 @@ class OpenAITenantModelProviderData extends $pb.GeneratedMessage {
 
   factory OpenAITenantModelProviderData.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      OpenAITenantModelProviderData()..mergeFromBuffer(data, registry);
   factory OpenAITenantModelProviderData.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      OpenAITenantModelProviderData()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'OpenAITenantModelProviderData',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: OpenAITenantModelProviderData.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'upstreamModel')
     ..aOB(2, _omitFieldNames ? '' : 'supportJsonOutput')
     ..aOB(3, _omitFieldNames ? '' : 'supportToolCalls')
@@ -4597,13 +4805,19 @@ class OpenAITenantModelProviderData extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use OpenAITenantModelProviderData() / OpenAITenantModelProviderData.new instead')
   static OpenAITenantModelProviderData create() =>
       OpenAITenantModelProviderData._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      OpenAITenantModelProviderData._();
   @$core.override
-  OpenAITenantModelProviderData createEmptyInstance() => create();
+  OpenAITenantModelProviderData createEmptyInstance() =>
+      OpenAITenantModelProviderData._();
   @$core.pragma('dart2js:noInline')
   static OpenAITenantModelProviderData getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<OpenAITenantModelProviderData>(create);
+      $pb.GeneratedMessage.$_defaultFor<OpenAITenantModelProviderData>(
+          OpenAITenantModelProviderData.$_createMessage);
   static OpenAITenantModelProviderData? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -4714,7 +4928,7 @@ class GeminiTenantModelProviderData extends $pb.GeneratedMessage {
     $core.Iterable<$core.String>? thinkingLevels,
     $core.String? defaultThinkingLevel,
   }) {
-    final result = create();
+    final result = GeminiTenantModelProviderData._();
     if (upstreamModel != null) result.upstreamModel = upstreamModel;
     if (supportJsonOutput != null) result.supportJsonOutput = supportJsonOutput;
     if (supportToolCalls != null) result.supportToolCalls = supportToolCalls;
@@ -4736,15 +4950,15 @@ class GeminiTenantModelProviderData extends $pb.GeneratedMessage {
 
   factory GeminiTenantModelProviderData.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      GeminiTenantModelProviderData()..mergeFromBuffer(data, registry);
   factory GeminiTenantModelProviderData.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      GeminiTenantModelProviderData()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'GeminiTenantModelProviderData',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: GeminiTenantModelProviderData.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'upstreamModel')
     ..aOB(2, _omitFieldNames ? '' : 'supportJsonOutput')
     ..aOB(3, _omitFieldNames ? '' : 'supportToolCalls')
@@ -4771,13 +4985,19 @@ class GeminiTenantModelProviderData extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use GeminiTenantModelProviderData() / GeminiTenantModelProviderData.new instead')
   static GeminiTenantModelProviderData create() =>
       GeminiTenantModelProviderData._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      GeminiTenantModelProviderData._();
   @$core.override
-  GeminiTenantModelProviderData createEmptyInstance() => create();
+  GeminiTenantModelProviderData createEmptyInstance() =>
+      GeminiTenantModelProviderData._();
   @$core.pragma('dart2js:noInline')
   static GeminiTenantModelProviderData getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<GeminiTenantModelProviderData>(create);
+      $pb.GeneratedMessage.$_defaultFor<GeminiTenantModelProviderData>(
+          GeminiTenantModelProviderData.$_createMessage);
   static GeminiTenantModelProviderData? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -4889,7 +5109,7 @@ class DashScopeTenantModelProviderData extends $pb.GeneratedMessage {
     $core.Iterable<$core.String>? thinkingLevels,
     $core.String? defaultThinkingLevel,
   }) {
-    final result = create();
+    final result = DashScopeTenantModelProviderData._();
     if (upstreamModel != null) result.upstreamModel = upstreamModel;
     if (apiMode != null) result.apiMode = apiMode;
     if (supportJsonOutput != null) result.supportJsonOutput = supportJsonOutput;
@@ -4913,15 +5133,15 @@ class DashScopeTenantModelProviderData extends $pb.GeneratedMessage {
   factory DashScopeTenantModelProviderData.fromBuffer(
           $core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DashScopeTenantModelProviderData()..mergeFromBuffer(data, registry);
   factory DashScopeTenantModelProviderData.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DashScopeTenantModelProviderData()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DashScopeTenantModelProviderData',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DashScopeTenantModelProviderData.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'upstreamModel')
     ..aOS(2, _omitFieldNames ? '' : 'apiMode')
     ..aOB(3, _omitFieldNames ? '' : 'supportJsonOutput')
@@ -4949,14 +5169,19 @@ class DashScopeTenantModelProviderData extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DashScopeTenantModelProviderData() / DashScopeTenantModelProviderData.new instead')
   static DashScopeTenantModelProviderData create() =>
       DashScopeTenantModelProviderData._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      DashScopeTenantModelProviderData._();
   @$core.override
-  DashScopeTenantModelProviderData createEmptyInstance() => create();
+  DashScopeTenantModelProviderData createEmptyInstance() =>
+      DashScopeTenantModelProviderData._();
   @$core.pragma('dart2js:noInline')
   static DashScopeTenantModelProviderData getDefault() => _defaultInstance ??=
       $pb.GeneratedMessage.$_defaultFor<DashScopeTenantModelProviderData>(
-          create);
+          DashScopeTenantModelProviderData.$_createMessage);
   static DashScopeTenantModelProviderData? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -5078,7 +5303,7 @@ class VolcTenantModelProviderData extends $pb.GeneratedMessage {
     $core.Iterable<$core.String>? thinkingLevels,
     $core.String? defaultThinkingLevel,
   }) {
-    final result = create();
+    final result = VolcTenantModelProviderData._();
     if (upstreamModel != null) result.upstreamModel = upstreamModel;
     if (resourceId != null) result.resourceId = resourceId;
     if (apiMode != null) result.apiMode = apiMode;
@@ -5102,15 +5327,15 @@ class VolcTenantModelProviderData extends $pb.GeneratedMessage {
 
   factory VolcTenantModelProviderData.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      VolcTenantModelProviderData()..mergeFromBuffer(data, registry);
   factory VolcTenantModelProviderData.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      VolcTenantModelProviderData()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'VolcTenantModelProviderData',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: VolcTenantModelProviderData.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'upstreamModel')
     ..aOS(2, _omitFieldNames ? '' : 'resourceId')
     ..aOS(3, _omitFieldNames ? '' : 'apiMode')
@@ -5139,13 +5364,19 @@ class VolcTenantModelProviderData extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use VolcTenantModelProviderData() / VolcTenantModelProviderData.new instead')
   static VolcTenantModelProviderData create() =>
       VolcTenantModelProviderData._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      VolcTenantModelProviderData._();
   @$core.override
-  VolcTenantModelProviderData createEmptyInstance() => create();
+  VolcTenantModelProviderData createEmptyInstance() =>
+      VolcTenantModelProviderData._();
   @$core.pragma('dart2js:noInline')
   static VolcTenantModelProviderData getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<VolcTenantModelProviderData>(create);
+      $pb.GeneratedMessage.$_defaultFor<VolcTenantModelProviderData>(
+          VolcTenantModelProviderData.$_createMessage);
   static VolcTenantModelProviderData? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -5275,7 +5506,7 @@ class MiniMaxTenantModelProviderData extends $pb.GeneratedMessage {
     $core.Iterable<$core.String>? thinkingLevels,
     $core.String? defaultThinkingLevel,
   }) {
-    final result = create();
+    final result = MiniMaxTenantModelProviderData._();
     if (upstreamModel != null) result.upstreamModel = upstreamModel;
     if (apiMode != null) result.apiMode = apiMode;
     if (supportJsonOutput != null) result.supportJsonOutput = supportJsonOutput;
@@ -5298,15 +5529,15 @@ class MiniMaxTenantModelProviderData extends $pb.GeneratedMessage {
 
   factory MiniMaxTenantModelProviderData.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      MiniMaxTenantModelProviderData()..mergeFromBuffer(data, registry);
   factory MiniMaxTenantModelProviderData.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      MiniMaxTenantModelProviderData()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'MiniMaxTenantModelProviderData',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: MiniMaxTenantModelProviderData.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'upstreamModel')
     ..aOS(2, _omitFieldNames ? '' : 'apiMode')
     ..aOB(3, _omitFieldNames ? '' : 'supportJsonOutput')
@@ -5334,13 +5565,19 @@ class MiniMaxTenantModelProviderData extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use MiniMaxTenantModelProviderData() / MiniMaxTenantModelProviderData.new instead')
   static MiniMaxTenantModelProviderData create() =>
       MiniMaxTenantModelProviderData._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      MiniMaxTenantModelProviderData._();
   @$core.override
-  MiniMaxTenantModelProviderData createEmptyInstance() => create();
+  MiniMaxTenantModelProviderData createEmptyInstance() =>
+      MiniMaxTenantModelProviderData._();
   @$core.pragma('dart2js:noInline')
   static MiniMaxTenantModelProviderData getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<MiniMaxTenantModelProviderData>(create);
+      $pb.GeneratedMessage.$_defaultFor<MiniMaxTenantModelProviderData>(
+          MiniMaxTenantModelProviderData.$_createMessage);
   static MiniMaxTenantModelProviderData? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -5461,7 +5698,7 @@ class DeepSeekTenantModelProviderData extends $pb.GeneratedMessage {
     $core.Iterable<$core.String>? thinkingLevels,
     $core.String? defaultThinkingLevel,
   }) {
-    final result = create();
+    final result = DeepSeekTenantModelProviderData._();
     if (upstreamModel != null) result.upstreamModel = upstreamModel;
     if (apiMode != null) result.apiMode = apiMode;
     if (supportJsonOutput != null) result.supportJsonOutput = supportJsonOutput;
@@ -5484,15 +5721,15 @@ class DeepSeekTenantModelProviderData extends $pb.GeneratedMessage {
 
   factory DeepSeekTenantModelProviderData.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      DeepSeekTenantModelProviderData()..mergeFromBuffer(data, registry);
   factory DeepSeekTenantModelProviderData.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      DeepSeekTenantModelProviderData()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'DeepSeekTenantModelProviderData',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: DeepSeekTenantModelProviderData.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'upstreamModel')
     ..aOS(2, _omitFieldNames ? '' : 'apiMode')
     ..aOB(3, _omitFieldNames ? '' : 'supportJsonOutput')
@@ -5520,14 +5757,19 @@ class DeepSeekTenantModelProviderData extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DeepSeekTenantModelProviderData() / DeepSeekTenantModelProviderData.new instead')
   static DeepSeekTenantModelProviderData create() =>
       DeepSeekTenantModelProviderData._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      DeepSeekTenantModelProviderData._();
   @$core.override
-  DeepSeekTenantModelProviderData createEmptyInstance() => create();
+  DeepSeekTenantModelProviderData createEmptyInstance() =>
+      DeepSeekTenantModelProviderData._();
   @$core.pragma('dart2js:noInline')
   static DeepSeekTenantModelProviderData getDefault() => _defaultInstance ??=
       $pb.GeneratedMessage.$_defaultFor<DeepSeekTenantModelProviderData>(
-          create);
+          DeepSeekTenantModelProviderData.$_createMessage);
   static DeepSeekTenantModelProviderData? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -5637,7 +5879,7 @@ class ModelGetRequest extends $pb.GeneratedMessage {
   factory ModelGetRequest({
     $core.String? name,
   }) {
-    final result = create();
+    final result = ModelGetRequest._();
     if (name != null) result.name = name;
     return result;
   }
@@ -5646,15 +5888,15 @@ class ModelGetRequest extends $pb.GeneratedMessage {
 
   factory ModelGetRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ModelGetRequest()..mergeFromBuffer(data, registry);
   factory ModelGetRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ModelGetRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ModelGetRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: ModelGetRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'name')
     ..hasRequiredFields = false;
 
@@ -5669,12 +5911,15 @@ class ModelGetRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ModelGetRequest() / ModelGetRequest.new instead')
   static ModelGetRequest create() => ModelGetRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ModelGetRequest._();
   @$core.override
-  ModelGetRequest createEmptyInstance() => create();
+  ModelGetRequest createEmptyInstance() => ModelGetRequest._();
   @$core.pragma('dart2js:noInline')
-  static ModelGetRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ModelGetRequest>(create);
+  static ModelGetRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ModelGetRequest>(
+          ModelGetRequest.$_createMessage);
   static ModelGetRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -5693,7 +5938,7 @@ class ModelGetResponse extends $pb.GeneratedMessage {
     $core.String? runtimeProfileName,
     $core.String? runtimeProfileRevision,
   }) {
-    final result = create();
+    final result = ModelGetResponse._();
     if (value != null) result.value = value;
     if (runtimeProfileName != null)
       result.runtimeProfileName = runtimeProfileName;
@@ -5706,16 +5951,17 @@ class ModelGetResponse extends $pb.GeneratedMessage {
 
   factory ModelGetResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ModelGetResponse()..mergeFromBuffer(data, registry);
   factory ModelGetResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ModelGetResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ModelGetResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<Model>(1, _omitFieldNames ? '' : 'value', subBuilder: Model.create)
+      createEmptyInstance: ModelGetResponse.$_createMessage)
+    ..aOM<Model>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: Model.$_createMessage)
     ..aOS(2, _omitFieldNames ? '' : 'runtimeProfileName')
     ..aOS(3, _omitFieldNames ? '' : 'runtimeProfileRevision')
     ..hasRequiredFields = false;
@@ -5731,12 +5977,15 @@ class ModelGetResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ModelGetResponse() / ModelGetResponse.new instead')
   static ModelGetResponse create() => ModelGetResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ModelGetResponse._();
   @$core.override
-  ModelGetResponse createEmptyInstance() => create();
+  ModelGetResponse createEmptyInstance() => ModelGetResponse._();
   @$core.pragma('dart2js:noInline')
-  static ModelGetResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ModelGetResponse>(create);
+  static ModelGetResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ModelGetResponse>(
+          ModelGetResponse.$_createMessage);
   static ModelGetResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -5774,7 +6023,7 @@ class ModelListRequest extends $pb.GeneratedMessage {
     $core.String? cursor,
     $fixnum.Int64? limit,
   }) {
-    final result = create();
+    final result = ModelListRequest._();
     if (cursor != null) result.cursor = cursor;
     if (limit != null) result.limit = limit;
     return result;
@@ -5784,15 +6033,15 @@ class ModelListRequest extends $pb.GeneratedMessage {
 
   factory ModelListRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ModelListRequest()..mergeFromBuffer(data, registry);
   factory ModelListRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ModelListRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ModelListRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: ModelListRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'cursor')
     ..aInt64(2, _omitFieldNames ? '' : 'limit')
     ..hasRequiredFields = false;
@@ -5808,12 +6057,15 @@ class ModelListRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ModelListRequest() / ModelListRequest.new instead')
   static ModelListRequest create() => ModelListRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ModelListRequest._();
   @$core.override
-  ModelListRequest createEmptyInstance() => create();
+  ModelListRequest createEmptyInstance() => ModelListRequest._();
   @$core.pragma('dart2js:noInline')
-  static ModelListRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ModelListRequest>(create);
+  static ModelListRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ModelListRequest>(
+          ModelListRequest.$_createMessage);
   static ModelListRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -5843,7 +6095,7 @@ class ModelListResponse extends $pb.GeneratedMessage {
     $core.String? runtimeProfileName,
     $core.String? runtimeProfileRevision,
   }) {
-    final result = create();
+    final result = ModelListResponse._();
     if (hasNext != null) result.hasNext = hasNext;
     if (items != null) result.items.addAll(items);
     if (nextCursor != null) result.nextCursor = nextCursor;
@@ -5858,17 +6110,18 @@ class ModelListResponse extends $pb.GeneratedMessage {
 
   factory ModelListResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ModelListResponse()..mergeFromBuffer(data, registry);
   factory ModelListResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ModelListResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ModelListResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: ModelListResponse.$_createMessage)
     ..aOB(1, _omitFieldNames ? '' : 'hasNext')
-    ..pPM<Model>(2, _omitFieldNames ? '' : 'items', subBuilder: Model.create)
+    ..pPM<Model>(2, _omitFieldNames ? '' : 'items',
+        subBuilder: Model.$_createMessage)
     ..aOS(3, _omitFieldNames ? '' : 'nextCursor')
     ..aOS(4, _omitFieldNames ? '' : 'runtimeProfileName')
     ..aOS(5, _omitFieldNames ? '' : 'runtimeProfileRevision')
@@ -5885,12 +6138,15 @@ class ModelListResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ModelListResponse() / ModelListResponse.new instead')
   static ModelListResponse create() => ModelListResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ModelListResponse._();
   @$core.override
-  ModelListResponse createEmptyInstance() => create();
+  ModelListResponse createEmptyInstance() => ModelListResponse._();
   @$core.pragma('dart2js:noInline')
-  static ModelListResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ModelListResponse>(create);
+  static ModelListResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ModelListResponse>(
+          ModelListResponse.$_createMessage);
   static ModelListResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -5938,7 +6194,7 @@ class Voice extends $pb.GeneratedMessage {
     $core.String? name,
     $core.Iterable<$core.MapEntry<$core.String, ResourceI18nText>>? i18n,
   }) {
-    final result = create();
+    final result = Voice._();
     if (name != null) result.name = name;
     if (i18n != null) result.i18n.addEntries(i18n);
     return result;
@@ -5948,21 +6204,21 @@ class Voice extends $pb.GeneratedMessage {
 
   factory Voice.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      Voice()..mergeFromBuffer(data, registry);
   factory Voice.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      Voice()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'Voice',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: Voice.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'name')
     ..m<$core.String, ResourceI18nText>(2, _omitFieldNames ? '' : 'i18n',
         entryClassName: 'Voice.I18nEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.OM,
-        valueCreator: ResourceI18nText.create,
+        valueCreator: ResourceI18nText.$_createMessage,
         valueDefaultOrMaker: ResourceI18nText.getDefault,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
     ..hasRequiredFields = false;
@@ -5977,12 +6233,14 @@ class Voice extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Voice() / Voice.new instead')
   static Voice create() => Voice._();
+  static $pb.GeneratedMessage $_createMessage() => Voice._();
   @$core.override
-  Voice createEmptyInstance() => create();
+  Voice createEmptyInstance() => Voice._();
   @$core.pragma('dart2js:noInline')
-  static Voice getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Voice>(create);
+  static Voice getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Voice>(Voice.$_createMessage);
   static Voice? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -6002,7 +6260,7 @@ class VoiceGetRequest extends $pb.GeneratedMessage {
   factory VoiceGetRequest({
     $core.String? name,
   }) {
-    final result = create();
+    final result = VoiceGetRequest._();
     if (name != null) result.name = name;
     return result;
   }
@@ -6011,15 +6269,15 @@ class VoiceGetRequest extends $pb.GeneratedMessage {
 
   factory VoiceGetRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      VoiceGetRequest()..mergeFromBuffer(data, registry);
   factory VoiceGetRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      VoiceGetRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'VoiceGetRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: VoiceGetRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'name')
     ..hasRequiredFields = false;
 
@@ -6034,12 +6292,15 @@ class VoiceGetRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use VoiceGetRequest() / VoiceGetRequest.new instead')
   static VoiceGetRequest create() => VoiceGetRequest._();
+  static $pb.GeneratedMessage $_createMessage() => VoiceGetRequest._();
   @$core.override
-  VoiceGetRequest createEmptyInstance() => create();
+  VoiceGetRequest createEmptyInstance() => VoiceGetRequest._();
   @$core.pragma('dart2js:noInline')
-  static VoiceGetRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<VoiceGetRequest>(create);
+  static VoiceGetRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<VoiceGetRequest>(
+          VoiceGetRequest.$_createMessage);
   static VoiceGetRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -6058,7 +6319,7 @@ class VoiceGetResponse extends $pb.GeneratedMessage {
     $core.String? runtimeProfileName,
     $core.String? runtimeProfileRevision,
   }) {
-    final result = create();
+    final result = VoiceGetResponse._();
     if (value != null) result.value = value;
     if (runtimeProfileName != null)
       result.runtimeProfileName = runtimeProfileName;
@@ -6071,16 +6332,17 @@ class VoiceGetResponse extends $pb.GeneratedMessage {
 
   factory VoiceGetResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      VoiceGetResponse()..mergeFromBuffer(data, registry);
   factory VoiceGetResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      VoiceGetResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'VoiceGetResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<Voice>(1, _omitFieldNames ? '' : 'value', subBuilder: Voice.create)
+      createEmptyInstance: VoiceGetResponse.$_createMessage)
+    ..aOM<Voice>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: Voice.$_createMessage)
     ..aOS(2, _omitFieldNames ? '' : 'runtimeProfileName')
     ..aOS(3, _omitFieldNames ? '' : 'runtimeProfileRevision')
     ..hasRequiredFields = false;
@@ -6096,12 +6358,15 @@ class VoiceGetResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use VoiceGetResponse() / VoiceGetResponse.new instead')
   static VoiceGetResponse create() => VoiceGetResponse._();
+  static $pb.GeneratedMessage $_createMessage() => VoiceGetResponse._();
   @$core.override
-  VoiceGetResponse createEmptyInstance() => create();
+  VoiceGetResponse createEmptyInstance() => VoiceGetResponse._();
   @$core.pragma('dart2js:noInline')
-  static VoiceGetResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<VoiceGetResponse>(create);
+  static VoiceGetResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<VoiceGetResponse>(
+          VoiceGetResponse.$_createMessage);
   static VoiceGetResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -6139,7 +6404,7 @@ class VoiceListRequest extends $pb.GeneratedMessage {
     $core.String? cursor,
     $fixnum.Int64? limit,
   }) {
-    final result = create();
+    final result = VoiceListRequest._();
     if (cursor != null) result.cursor = cursor;
     if (limit != null) result.limit = limit;
     return result;
@@ -6149,15 +6414,15 @@ class VoiceListRequest extends $pb.GeneratedMessage {
 
   factory VoiceListRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      VoiceListRequest()..mergeFromBuffer(data, registry);
   factory VoiceListRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      VoiceListRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'VoiceListRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: VoiceListRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'cursor')
     ..aInt64(2, _omitFieldNames ? '' : 'limit')
     ..hasRequiredFields = false;
@@ -6173,12 +6438,15 @@ class VoiceListRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use VoiceListRequest() / VoiceListRequest.new instead')
   static VoiceListRequest create() => VoiceListRequest._();
+  static $pb.GeneratedMessage $_createMessage() => VoiceListRequest._();
   @$core.override
-  VoiceListRequest createEmptyInstance() => create();
+  VoiceListRequest createEmptyInstance() => VoiceListRequest._();
   @$core.pragma('dart2js:noInline')
-  static VoiceListRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<VoiceListRequest>(create);
+  static VoiceListRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<VoiceListRequest>(
+          VoiceListRequest.$_createMessage);
   static VoiceListRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -6208,7 +6476,7 @@ class VoiceListResponse extends $pb.GeneratedMessage {
     $core.String? runtimeProfileName,
     $core.String? runtimeProfileRevision,
   }) {
-    final result = create();
+    final result = VoiceListResponse._();
     if (hasNext != null) result.hasNext = hasNext;
     if (items != null) result.items.addAll(items);
     if (nextCursor != null) result.nextCursor = nextCursor;
@@ -6223,17 +6491,18 @@ class VoiceListResponse extends $pb.GeneratedMessage {
 
   factory VoiceListResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      VoiceListResponse()..mergeFromBuffer(data, registry);
   factory VoiceListResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      VoiceListResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'VoiceListResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: VoiceListResponse.$_createMessage)
     ..aOB(1, _omitFieldNames ? '' : 'hasNext')
-    ..pPM<Voice>(2, _omitFieldNames ? '' : 'items', subBuilder: Voice.create)
+    ..pPM<Voice>(2, _omitFieldNames ? '' : 'items',
+        subBuilder: Voice.$_createMessage)
     ..aOS(3, _omitFieldNames ? '' : 'nextCursor')
     ..aOS(4, _omitFieldNames ? '' : 'runtimeProfileName')
     ..aOS(5, _omitFieldNames ? '' : 'runtimeProfileRevision')
@@ -6250,12 +6519,15 @@ class VoiceListResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use VoiceListResponse() / VoiceListResponse.new instead')
   static VoiceListResponse create() => VoiceListResponse._();
+  static $pb.GeneratedMessage $_createMessage() => VoiceListResponse._();
   @$core.override
-  VoiceListResponse createEmptyInstance() => create();
+  VoiceListResponse createEmptyInstance() => VoiceListResponse._();
   @$core.pragma('dart2js:noInline')
-  static VoiceListResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<VoiceListResponse>(create);
+  static VoiceListResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<VoiceListResponse>(
+          VoiceListResponse.$_createMessage);
   static VoiceListResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -6306,7 +6578,7 @@ class Workflow extends $pb.GeneratedMessage {
     $1.WorkflowDriver? driver,
     $core.String? workspaceLangPair,
   }) {
-    final result = create();
+    final result = Workflow._();
     if (name != null) result.name = name;
     if (i18n != null) result.i18n.addEntries(i18n);
     if (collection != null) result.collection = collection;
@@ -6319,21 +6591,21 @@ class Workflow extends $pb.GeneratedMessage {
 
   factory Workflow.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      Workflow()..mergeFromBuffer(data, registry);
   factory Workflow.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      Workflow()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'Workflow',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: Workflow.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'name')
     ..m<$core.String, ResourceI18nText>(2, _omitFieldNames ? '' : 'i18n',
         entryClassName: 'Workflow.I18nEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.OM,
-        valueCreator: ResourceI18nText.create,
+        valueCreator: ResourceI18nText.$_createMessage,
         valueDefaultOrMaker: ResourceI18nText.getDefault,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
     ..aOS(3, _omitFieldNames ? '' : 'collection')
@@ -6352,12 +6624,14 @@ class Workflow extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Workflow() / Workflow.new instead')
   static Workflow create() => Workflow._();
+  static $pb.GeneratedMessage $_createMessage() => Workflow._();
   @$core.override
-  Workflow createEmptyInstance() => create();
+  Workflow createEmptyInstance() => Workflow._();
   @$core.pragma('dart2js:noInline')
-  static Workflow getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Workflow>(create);
+  static Workflow getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Workflow>(Workflow.$_createMessage);
   static Workflow? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -6404,7 +6678,7 @@ class WorkflowGetRequest extends $pb.GeneratedMessage {
   factory WorkflowGetRequest({
     $core.String? name,
   }) {
-    final result = create();
+    final result = WorkflowGetRequest._();
     if (name != null) result.name = name;
     return result;
   }
@@ -6413,15 +6687,15 @@ class WorkflowGetRequest extends $pb.GeneratedMessage {
 
   factory WorkflowGetRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      WorkflowGetRequest()..mergeFromBuffer(data, registry);
   factory WorkflowGetRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      WorkflowGetRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'WorkflowGetRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: WorkflowGetRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'name')
     ..hasRequiredFields = false;
 
@@ -6436,12 +6710,15 @@ class WorkflowGetRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use WorkflowGetRequest() / WorkflowGetRequest.new instead')
   static WorkflowGetRequest create() => WorkflowGetRequest._();
+  static $pb.GeneratedMessage $_createMessage() => WorkflowGetRequest._();
   @$core.override
-  WorkflowGetRequest createEmptyInstance() => create();
+  WorkflowGetRequest createEmptyInstance() => WorkflowGetRequest._();
   @$core.pragma('dart2js:noInline')
   static WorkflowGetRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WorkflowGetRequest>(create);
+      $pb.GeneratedMessage.$_defaultFor<WorkflowGetRequest>(
+          WorkflowGetRequest.$_createMessage);
   static WorkflowGetRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -6460,7 +6737,7 @@ class WorkflowGetResponse extends $pb.GeneratedMessage {
     $core.String? runtimeProfileName,
     $core.String? runtimeProfileRevision,
   }) {
-    final result = create();
+    final result = WorkflowGetResponse._();
     if (value != null) result.value = value;
     if (runtimeProfileName != null)
       result.runtimeProfileName = runtimeProfileName;
@@ -6473,17 +6750,17 @@ class WorkflowGetResponse extends $pb.GeneratedMessage {
 
   factory WorkflowGetResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      WorkflowGetResponse()..mergeFromBuffer(data, registry);
   factory WorkflowGetResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      WorkflowGetResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'WorkflowGetResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: WorkflowGetResponse.$_createMessage)
     ..aOM<Workflow>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: Workflow.create)
+        subBuilder: Workflow.$_createMessage)
     ..aOS(2, _omitFieldNames ? '' : 'runtimeProfileName')
     ..aOS(3, _omitFieldNames ? '' : 'runtimeProfileRevision')
     ..hasRequiredFields = false;
@@ -6499,12 +6776,16 @@ class WorkflowGetResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use WorkflowGetResponse() / WorkflowGetResponse.new instead')
   static WorkflowGetResponse create() => WorkflowGetResponse._();
+  static $pb.GeneratedMessage $_createMessage() => WorkflowGetResponse._();
   @$core.override
-  WorkflowGetResponse createEmptyInstance() => create();
+  WorkflowGetResponse createEmptyInstance() => WorkflowGetResponse._();
   @$core.pragma('dart2js:noInline')
   static WorkflowGetResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WorkflowGetResponse>(create);
+      $pb.GeneratedMessage.$_defaultFor<WorkflowGetResponse>(
+          WorkflowGetResponse.$_createMessage);
   static WorkflowGetResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -6543,7 +6824,7 @@ class WorkflowListRequest extends $pb.GeneratedMessage {
     $fixnum.Int64? limit,
     $core.String? collection,
   }) {
-    final result = create();
+    final result = WorkflowListRequest._();
     if (cursor != null) result.cursor = cursor;
     if (limit != null) result.limit = limit;
     if (collection != null) result.collection = collection;
@@ -6554,15 +6835,15 @@ class WorkflowListRequest extends $pb.GeneratedMessage {
 
   factory WorkflowListRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      WorkflowListRequest()..mergeFromBuffer(data, registry);
   factory WorkflowListRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      WorkflowListRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'WorkflowListRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: WorkflowListRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'cursor')
     ..aInt64(2, _omitFieldNames ? '' : 'limit')
     ..aOS(3, _omitFieldNames ? '' : 'collection')
@@ -6579,12 +6860,16 @@ class WorkflowListRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use WorkflowListRequest() / WorkflowListRequest.new instead')
   static WorkflowListRequest create() => WorkflowListRequest._();
+  static $pb.GeneratedMessage $_createMessage() => WorkflowListRequest._();
   @$core.override
-  WorkflowListRequest createEmptyInstance() => create();
+  WorkflowListRequest createEmptyInstance() => WorkflowListRequest._();
   @$core.pragma('dart2js:noInline')
   static WorkflowListRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WorkflowListRequest>(create);
+      $pb.GeneratedMessage.$_defaultFor<WorkflowListRequest>(
+          WorkflowListRequest.$_createMessage);
   static WorkflowListRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -6623,7 +6908,7 @@ class WorkflowListResponse extends $pb.GeneratedMessage {
     $core.String? runtimeProfileName,
     $core.String? runtimeProfileRevision,
   }) {
-    final result = create();
+    final result = WorkflowListResponse._();
     if (hasNext != null) result.hasNext = hasNext;
     if (items != null) result.items.addAll(items);
     if (nextCursor != null) result.nextCursor = nextCursor;
@@ -6638,18 +6923,18 @@ class WorkflowListResponse extends $pb.GeneratedMessage {
 
   factory WorkflowListResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      WorkflowListResponse()..mergeFromBuffer(data, registry);
   factory WorkflowListResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      WorkflowListResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'WorkflowListResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: WorkflowListResponse.$_createMessage)
     ..aOB(1, _omitFieldNames ? '' : 'hasNext')
     ..pPM<Workflow>(2, _omitFieldNames ? '' : 'items',
-        subBuilder: Workflow.create)
+        subBuilder: Workflow.$_createMessage)
     ..aOS(3, _omitFieldNames ? '' : 'nextCursor')
     ..aOS(4, _omitFieldNames ? '' : 'runtimeProfileName')
     ..aOS(5, _omitFieldNames ? '' : 'runtimeProfileRevision')
@@ -6666,12 +6951,16 @@ class WorkflowListResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use WorkflowListResponse() / WorkflowListResponse.new instead')
   static WorkflowListResponse create() => WorkflowListResponse._();
+  static $pb.GeneratedMessage $_createMessage() => WorkflowListResponse._();
   @$core.override
-  WorkflowListResponse createEmptyInstance() => create();
+  WorkflowListResponse createEmptyInstance() => WorkflowListResponse._();
   @$core.pragma('dart2js:noInline')
   static WorkflowListResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WorkflowListResponse>(create);
+      $pb.GeneratedMessage.$_defaultFor<WorkflowListResponse>(
+          WorkflowListResponse.$_createMessage);
   static WorkflowListResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -6718,7 +7007,7 @@ class ToolkitPolicyToolNames extends $pb.GeneratedMessage {
   factory ToolkitPolicyToolNames({
     $core.Iterable<$core.String>? value,
   }) {
-    final result = create();
+    final result = ToolkitPolicyToolNames._();
     if (value != null) result.value.addAll(value);
     return result;
   }
@@ -6727,15 +7016,15 @@ class ToolkitPolicyToolNames extends $pb.GeneratedMessage {
 
   factory ToolkitPolicyToolNames.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ToolkitPolicyToolNames()..mergeFromBuffer(data, registry);
   factory ToolkitPolicyToolNames.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ToolkitPolicyToolNames()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ToolkitPolicyToolNames',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: ToolkitPolicyToolNames.$_createMessage)
     ..pPS(1, _omitFieldNames ? '' : 'value')
     ..hasRequiredFields = false;
 
@@ -6751,12 +7040,16 @@ class ToolkitPolicyToolNames extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ToolkitPolicyToolNames() / ToolkitPolicyToolNames.new instead')
   static ToolkitPolicyToolNames create() => ToolkitPolicyToolNames._();
+  static $pb.GeneratedMessage $_createMessage() => ToolkitPolicyToolNames._();
   @$core.override
-  ToolkitPolicyToolNames createEmptyInstance() => create();
+  ToolkitPolicyToolNames createEmptyInstance() => ToolkitPolicyToolNames._();
   @$core.pragma('dart2js:noInline')
   static ToolkitPolicyToolNames getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ToolkitPolicyToolNames>(create);
+      $pb.GeneratedMessage.$_defaultFor<ToolkitPolicyToolNames>(
+          ToolkitPolicyToolNames.$_createMessage);
   static ToolkitPolicyToolNames? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -6767,7 +7060,7 @@ class ToolkitPolicy extends $pb.GeneratedMessage {
   factory ToolkitPolicy({
     ToolkitPolicyToolNames? toolNames,
   }) {
-    final result = create();
+    final result = ToolkitPolicy._();
     if (toolNames != null) result.toolNames = toolNames;
     return result;
   }
@@ -6776,17 +7069,17 @@ class ToolkitPolicy extends $pb.GeneratedMessage {
 
   factory ToolkitPolicy.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ToolkitPolicy()..mergeFromBuffer(data, registry);
   factory ToolkitPolicy.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ToolkitPolicy()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ToolkitPolicy',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: ToolkitPolicy.$_createMessage)
     ..aOM<ToolkitPolicyToolNames>(1, _omitFieldNames ? '' : 'toolNames',
-        subBuilder: ToolkitPolicyToolNames.create)
+        subBuilder: ToolkitPolicyToolNames.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -6800,12 +7093,15 @@ class ToolkitPolicy extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ToolkitPolicy() / ToolkitPolicy.new instead')
   static ToolkitPolicy create() => ToolkitPolicy._();
+  static $pb.GeneratedMessage $_createMessage() => ToolkitPolicy._();
   @$core.override
-  ToolkitPolicy createEmptyInstance() => create();
+  ToolkitPolicy createEmptyInstance() => ToolkitPolicy._();
   @$core.pragma('dart2js:noInline')
-  static ToolkitPolicy getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ToolkitPolicy>(create);
+  static ToolkitPolicy getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ToolkitPolicy>(
+          ToolkitPolicy.$_createMessage);
   static ToolkitPolicy? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -6827,7 +7123,7 @@ class Tool extends $pb.GeneratedMessage {
     $0.Struct? inputSchema,
     $core.String? invokeName,
   }) {
-    final result = create();
+    final result = Tool._();
     if (name != null) result.name = name;
     if (i18n != null) result.i18n.addEntries(i18n);
     if (inputSchema != null) result.inputSchema = inputSchema;
@@ -6839,25 +7135,25 @@ class Tool extends $pb.GeneratedMessage {
 
   factory Tool.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      Tool()..mergeFromBuffer(data, registry);
   factory Tool.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      Tool()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'Tool',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: Tool.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'name')
     ..m<$core.String, ResourceI18nText>(2, _omitFieldNames ? '' : 'i18n',
         entryClassName: 'Tool.I18nEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.OM,
-        valueCreator: ResourceI18nText.create,
+        valueCreator: ResourceI18nText.$_createMessage,
         valueDefaultOrMaker: ResourceI18nText.getDefault,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
     ..aOM<$0.Struct>(3, _omitFieldNames ? '' : 'inputSchema',
-        subBuilder: $0.Struct.create)
+        subBuilder: $0.Struct.$_createMessage)
     ..aOS(4, _omitFieldNames ? '' : 'invokeName')
     ..hasRequiredFields = false;
 
@@ -6871,12 +7167,14 @@ class Tool extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Tool() / Tool.new instead')
   static Tool create() => Tool._();
+  static $pb.GeneratedMessage $_createMessage() => Tool._();
   @$core.override
-  Tool createEmptyInstance() => create();
+  Tool createEmptyInstance() => Tool._();
   @$core.pragma('dart2js:noInline')
-  static Tool getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Tool>(create);
+  static Tool getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Tool>(Tool.$_createMessage);
   static Tool? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -6917,7 +7215,7 @@ class ToolListRequest extends $pb.GeneratedMessage {
     $core.String? cursor,
     $fixnum.Int64? limit,
   }) {
-    final result = create();
+    final result = ToolListRequest._();
     if (cursor != null) result.cursor = cursor;
     if (limit != null) result.limit = limit;
     return result;
@@ -6927,15 +7225,15 @@ class ToolListRequest extends $pb.GeneratedMessage {
 
   factory ToolListRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ToolListRequest()..mergeFromBuffer(data, registry);
   factory ToolListRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ToolListRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ToolListRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: ToolListRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'cursor')
     ..aInt64(2, _omitFieldNames ? '' : 'limit')
     ..hasRequiredFields = false;
@@ -6951,12 +7249,15 @@ class ToolListRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ToolListRequest() / ToolListRequest.new instead')
   static ToolListRequest create() => ToolListRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ToolListRequest._();
   @$core.override
-  ToolListRequest createEmptyInstance() => create();
+  ToolListRequest createEmptyInstance() => ToolListRequest._();
   @$core.pragma('dart2js:noInline')
-  static ToolListRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ToolListRequest>(create);
+  static ToolListRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ToolListRequest>(
+          ToolListRequest.$_createMessage);
   static ToolListRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -6986,7 +7287,7 @@ class ToolListResponse extends $pb.GeneratedMessage {
     $core.String? runtimeProfileName,
     $core.String? runtimeProfileRevision,
   }) {
-    final result = create();
+    final result = ToolListResponse._();
     if (items != null) result.items.addAll(items);
     if (hasNext != null) result.hasNext = hasNext;
     if (nextCursor != null) result.nextCursor = nextCursor;
@@ -7001,16 +7302,17 @@ class ToolListResponse extends $pb.GeneratedMessage {
 
   factory ToolListResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ToolListResponse()..mergeFromBuffer(data, registry);
   factory ToolListResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ToolListResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ToolListResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..pPM<Tool>(1, _omitFieldNames ? '' : 'items', subBuilder: Tool.create)
+      createEmptyInstance: ToolListResponse.$_createMessage)
+    ..pPM<Tool>(1, _omitFieldNames ? '' : 'items',
+        subBuilder: Tool.$_createMessage)
     ..aOB(2, _omitFieldNames ? '' : 'hasNext')
     ..aOS(3, _omitFieldNames ? '' : 'nextCursor')
     ..aOS(4, _omitFieldNames ? '' : 'runtimeProfileName')
@@ -7028,12 +7330,15 @@ class ToolListResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ToolListResponse() / ToolListResponse.new instead')
   static ToolListResponse create() => ToolListResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ToolListResponse._();
   @$core.override
-  ToolListResponse createEmptyInstance() => create();
+  ToolListResponse createEmptyInstance() => ToolListResponse._();
   @$core.pragma('dart2js:noInline')
-  static ToolListResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ToolListResponse>(create);
+  static ToolListResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ToolListResponse>(
+          ToolListResponse.$_createMessage);
   static ToolListResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -7080,7 +7385,7 @@ class ToolGetRequest extends $pb.GeneratedMessage {
   factory ToolGetRequest({
     $core.String? name,
   }) {
-    final result = create();
+    final result = ToolGetRequest._();
     if (name != null) result.name = name;
     return result;
   }
@@ -7089,15 +7394,15 @@ class ToolGetRequest extends $pb.GeneratedMessage {
 
   factory ToolGetRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ToolGetRequest()..mergeFromBuffer(data, registry);
   factory ToolGetRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ToolGetRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ToolGetRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
+      createEmptyInstance: ToolGetRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'name')
     ..hasRequiredFields = false;
 
@@ -7112,12 +7417,15 @@ class ToolGetRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ToolGetRequest() / ToolGetRequest.new instead')
   static ToolGetRequest create() => ToolGetRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ToolGetRequest._();
   @$core.override
-  ToolGetRequest createEmptyInstance() => create();
+  ToolGetRequest createEmptyInstance() => ToolGetRequest._();
   @$core.pragma('dart2js:noInline')
-  static ToolGetRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ToolGetRequest>(create);
+  static ToolGetRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ToolGetRequest>(
+          ToolGetRequest.$_createMessage);
   static ToolGetRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -7136,7 +7444,7 @@ class ToolGetResponse extends $pb.GeneratedMessage {
     $core.String? runtimeProfileName,
     $core.String? runtimeProfileRevision,
   }) {
-    final result = create();
+    final result = ToolGetResponse._();
     if (value != null) result.value = value;
     if (runtimeProfileName != null)
       result.runtimeProfileName = runtimeProfileName;
@@ -7149,16 +7457,17 @@ class ToolGetResponse extends $pb.GeneratedMessage {
 
   factory ToolGetResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ToolGetResponse()..mergeFromBuffer(data, registry);
   factory ToolGetResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ToolGetResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ToolGetResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<Tool>(1, _omitFieldNames ? '' : 'value', subBuilder: Tool.create)
+      createEmptyInstance: ToolGetResponse.$_createMessage)
+    ..aOM<Tool>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: Tool.$_createMessage)
     ..aOS(2, _omitFieldNames ? '' : 'runtimeProfileName')
     ..aOS(3, _omitFieldNames ? '' : 'runtimeProfileRevision')
     ..hasRequiredFields = false;
@@ -7174,12 +7483,15 @@ class ToolGetResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ToolGetResponse() / ToolGetResponse.new instead')
   static ToolGetResponse create() => ToolGetResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ToolGetResponse._();
   @$core.override
-  ToolGetResponse createEmptyInstance() => create();
+  ToolGetResponse createEmptyInstance() => ToolGetResponse._();
   @$core.pragma('dart2js:noInline')
-  static ToolGetResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ToolGetResponse>(create);
+  static ToolGetResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ToolGetResponse>(
+          ToolGetResponse.$_createMessage);
   static ToolGetResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -7210,129 +7522,6 @@ class ToolGetResponse extends $pb.GeneratedMessage {
   $core.bool hasRuntimeProfileRevision() => $_has(2);
   @$pb.TagNumber(3)
   void clearRuntimeProfileRevision() => $_clearField(3);
-}
-
-class ToolInvokeRequest extends $pb.GeneratedMessage {
-  factory ToolInvokeRequest({
-    $0.Struct? args,
-    $core.String? invokeName,
-  }) {
-    final result = create();
-    if (args != null) result.args = args;
-    if (invokeName != null) result.invokeName = invokeName;
-    return result;
-  }
-
-  ToolInvokeRequest._();
-
-  factory ToolInvokeRequest.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ToolInvokeRequest.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ToolInvokeRequest',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<$0.Struct>(1, _omitFieldNames ? '' : 'args',
-        subBuilder: $0.Struct.create)
-    ..aOS(2, _omitFieldNames ? '' : 'invokeName')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ToolInvokeRequest clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ToolInvokeRequest copyWith(void Function(ToolInvokeRequest) updates) =>
-      super.copyWith((message) => updates(message as ToolInvokeRequest))
-          as ToolInvokeRequest;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ToolInvokeRequest create() => ToolInvokeRequest._();
-  @$core.override
-  ToolInvokeRequest createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ToolInvokeRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ToolInvokeRequest>(create);
-  static ToolInvokeRequest? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $0.Struct get args => $_getN(0);
-  @$pb.TagNumber(1)
-  set args($0.Struct value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasArgs() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearArgs() => $_clearField(1);
-  @$pb.TagNumber(1)
-  $0.Struct ensureArgs() => $_ensure(0);
-
-  @$pb.TagNumber(2)
-  $core.String get invokeName => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set invokeName($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasInvokeName() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearInvokeName() => $_clearField(2);
-}
-
-class ToolInvokeResponse extends $pb.GeneratedMessage {
-  factory ToolInvokeResponse({
-    $core.String? dataJson,
-  }) {
-    final result = create();
-    if (dataJson != null) result.dataJson = dataJson;
-    return result;
-  }
-
-  ToolInvokeResponse._();
-
-  factory ToolInvokeResponse.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ToolInvokeResponse.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ToolInvokeResponse',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'dataJson')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ToolInvokeResponse clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ToolInvokeResponse copyWith(void Function(ToolInvokeResponse) updates) =>
-      super.copyWith((message) => updates(message as ToolInvokeResponse))
-          as ToolInvokeResponse;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ToolInvokeResponse create() => ToolInvokeResponse._();
-  @$core.override
-  ToolInvokeResponse createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ToolInvokeResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ToolInvokeResponse>(create);
-  static ToolInvokeResponse? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get dataJson => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set dataJson($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasDataJson() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearDataJson() => $_clearField(1);
 }
 
 const $core.bool _omitFieldNames =
