@@ -18,3 +18,20 @@ Two subpackages provide the pure Go surface shared by the CLI and the Terraform 
 [contextconn API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/sdk/go/gizcli/contextconn) · [adminresource API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/sdk/go/gizcli/adminresource)
 
 [Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/sdk/go/gizcli)
+
+## Initial audio BOS and RTP
+
+The Peer Event Stream and fixed Opus RTP track are independent channels. Sending
+BOS successfully does not mean that the receiver has processed it. `PeerStream`
+buffers RTP payloads before the first audio BOS, emits BOS to its caller first,
+then emits the buffered audio in arrival order with that StreamID and label.
+Text events do not release buffered audio. The buffer is limited to 64 packets
+or 128 KiB, with a one-second BOS deadline starting at the first packet. Overflow
+or timeout terminates the stream with an error; closing releases the buffer.
+
+This does not change the wire schema, device firmware, or other language SDKs,
+and adds no downlink ACK. RTP payloads have no logical StreamID, so a late packet
+from an earlier epoch cannot be distinguished from the next epoch's first packet.
+Buffering therefore applies only to the initial audio binding; packets after EOS
+are not reassigned to the next BOS and remain visible to caller boundary checks.
+Existing EOS draining and audio integrity assertions remain unchanged.

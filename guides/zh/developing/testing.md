@@ -1109,3 +1109,12 @@ bash tests/gizclaw-e2e/run_monitor_tests.sh
 `bash tests/gizclaw-e2e/run_audioplayer_tests.sh` 启动隔离的真实 Server 和 Edge，以 SQLite 保存 runtime，不需要模型或 provider 凭据。入口执行六个 `server.device.audioplayer.*` 场景，退出时清理容器与临时身份；报告保留在 ignored `.testbench` 目录。独立 CI job 运行相同入口。
 
 脚本化设备 provider 验证 HTTP 授权、校验、反向 RPC、列表 contract 和快照投影，不下载或播放音乐。五个控制场景由 Go、JavaScript、Flutter、C runner 支持。独立 `telemetry` step 的 `frame` 使用 protobuf JSON，由 Go SDK 经真实 packet channel 发送；其他 runner 明确跳过此 operation。发送成功不表示落库：telemetry 场景轮询 `server.status.get`，再通过 HTTP status 验证进度、错误、旧报告保护和 OTA 共存。此处不新增 Dart telemetry transport，也不代表真机播放验收。
+
+### 初始 RTP/BOS 竞争回归
+
+`bash tests/gizclaw-e2e/run_rtp_bos_tests.sh` 在本机隔离 Docker internal 网络运行
+真实 Server、Edge 和 Go Giztest 接收器，使用临时身份和 SQLite，不读取 provider
+凭据。`testdata/rtp-bos/` 的 build overlay 提供确定性 ASR/TTS，TTS 将 BOS 与首帧
+合并；接收端 overlay 将音频 BOS 处理延后 200 ms，RTP 读取继续运行。场景验证
+完整音频、BOS/EOS、单 active stream、零完整性违规和包间隔，CI Audioplayer job
+执行相同入口并上传 `.testbench/rtp-bos-*/reports/`。这不是云模型性能或真机验收。

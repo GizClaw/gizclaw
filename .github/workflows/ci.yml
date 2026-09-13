@@ -774,6 +774,15 @@ jobs:
           cache: npm
       - name: Run isolated device playback and telemetry scenarios
         run: bash tests/gizclaw-e2e/run_audioplayer_tests.sh
+      - name: Verify initial RTP before BOS binding
+        run: bash tests/gizclaw-e2e/run_rtp_bos_tests.sh
+      - name: Upload RTP BOS regression evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rtp-bos-evidence
+          path: tests/gizclaw-e2e/.testbench/rtp-bos-*/reports/
+          include-hidden-files: true
       - name: Verify deterministic multi-role voice Giztests
         run: go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|FlowcraftMultiVoiceGiztest|MultiRole.*)$' -count=1
 

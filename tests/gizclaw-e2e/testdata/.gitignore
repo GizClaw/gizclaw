@@ -33,3 +33,6 @@
 !multi-role-voices/
 !multi-role-voices/*.json
 !multi-role-voices/*.yaml
+
+!rtp-bos/
+!rtp-bos/*
