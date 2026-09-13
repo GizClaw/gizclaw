@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:math';
@@ -9,7 +8,8 @@ import 'dart:typed_data';
 import 'package:cryptography/cryptography.dart';
 import 'package:gizclaw/gizclaw.dart';
 
-import 'lua_vm.dart';
+import 'firmware_host.dart';
+import 'board.dart';
 
 final _name = RegExp(r'^[A-Za-z_][A-Za-z0-9_-]{0,63}$');
 final _runtime = RegExp(r'^[A-Za-z_][A-Za-z0-9_.-]{0,127}$');
@@ -29,31 +29,13 @@ bool _safePath(String path) =>
     !path.contains(':') &&
     path.split('/').every((p) => p.isNotEmpty && p != '.' && p != '..');
 
-/// Native Lua App host. The caller supplies its actual runtime profile ID;
-/// VM Core does not provide the GizOS display/audio or Runtime Host modules.
-///
-/// Native assets compile Lua 5.5 and the VM Core directly from a GizOS checkout.
-/// The build hook finds a sibling `gizos` checkout. To override it, run
-/// `GIZOS_ROOT=/path/to/gizos ./tool/with_gizos.sh test` from this package;
-/// the wrapper passes the path through Flutter's sanitized hook environment.
-/// The hook downloads and verifies the Lua tarball pinned in `hook/build.dart`,
-/// caching source/build artifacts under `.dart_tool`. No Bazel is invoked.
-/// macOS desktop is the validated platform; this host requires native FFI.
-///
-/// `require("folder.module")` resolves only packaged `folder/module.lua` files.
-/// `json.encode`, `json.decode`, `json.null`, and `json.array()` are available;
-/// JSON nesting is limited to 64 levels and decode input to 64 KiB. Arguments
-/// must be JSON objects; input_schema is metadata, not an argument validator.
-/// Empty unmarked Lua tables encode as objects. Jobs have no result RPC;
-/// completed jobs are removed and emitted on [jobCompletions], and cancellation
-/// waits for native cleanup.
-///
-/// One host exclusively owns [storageDirectory]. Call [close] before releasing
-/// it. Jobs run on isolates, have bounded execution, and cancel cooperatively.
+/// Device App execution on the GizOS firmware Lua Host.
+/// Supply an explicit runtime profile for the actual board/PAL surface.
 class GizClawLuaAppHost implements GizClawAppHost {
   GizClawLuaAppHost({
     required this.runtime,
     required this.storageDirectory,
+    GizClawLuaBoard? board,
     this.maxPackageBytes = 8 * 1024 * 1024,
     this.maxExpandedBytes = 32 * 1024 * 1024,
     this.maxFiles = 256,
@@ -62,7 +44,7 @@ class GizClawLuaAppHost implements GizClawAppHost {
     this.outputLimit = 64 * 1024,
     this.executionTimeout = const Duration(seconds: 30),
     this.maxExecutions = 8,
-  }) {
+  }) : board = board ?? GizClawLuaBoard(displayWidth: 240, displayHeight: 240) {
     if (!_runtime.hasMatch(runtime) ||
         maxPackageBytes <= 0 ||
         maxExpandedBytes <= 0 ||
@@ -71,11 +53,77 @@ class GizClawLuaAppHost implements GizClawAppHost {
         sourceLimit <= 0 ||
         outputLimit <= 0 ||
         maxExecutions <= 0 ||
+        maxExecutions > 64 ||
         executionTimeout.inMilliseconds <= 0 ||
         executionTimeout.inMilliseconds > 2147483647) {
       throw ArgumentError('Invalid App host configuration');
     }
   }
+  final GizClawLuaBoard board;
+  final _capabilities = <String, FirmwareCapability>{};
+  FirmwareHost? _firmware;
+  bool _started = false;
+  void registerCapability(
+    String name,
+    Future<String> Function(String input, String? options) call, {
+    void Function()? cancel,
+  }) {
+    if (_started || _closing || _closed) {
+      throw StateError('Capability registry is frozen');
+    }
+    if (!RegExp(
+          r'^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+$',
+        ).hasMatch(name) ||
+        name.length >= 48 ||
+        _capabilities.containsKey(name)) {
+      throw ArgumentError('Invalid or duplicate capability name');
+    }
+    if (_capabilities.length >= 16) {
+      throw StateError('Firmware supports at most 16 capabilities');
+    }
+    _capabilities[name] = FirmwareCapability(name, call, cancel);
+  }
+
+  Future<void> start() => _serial(() async {
+    _ensureStarted();
+  });
+  void _ensureStarted() {
+    if (_closed) throw StateError('App host closed');
+    if (_firmware != null) return;
+    if (board.running) throw StateError('Board already attached to a host');
+    storageDirectory.createSync(recursive: true);
+    _firmware = FirmwareHost(
+      root: storageDirectory.absolute.path,
+      width: board.displayWidth,
+      height: board.displayHeight,
+      buttons: board.buttons.length,
+      audioInput: board.audioInput,
+      audioOutput: board.audioOutput,
+      touch: board.touch,
+      memory: memoryLimit,
+      source: sourceLimit,
+      output: outputLimit,
+      timeout: executionTimeout.inMilliseconds,
+      jobs: maxExecutions,
+      capabilities: _capabilities.values.toList(),
+      onFrame: board.updateFramebuffer,
+    );
+    _started = true;
+    board.bind(_firmware!.button, _firmware!.touch);
+  }
+
+  /// Inject complete 320-sample mono S16LE frames into the bounded test source.
+  void pushAudioInput(Uint8List bytes) {
+    _ensureStarted();
+    _firmware!.pushAudio(bytes);
+  }
+
+  /// Drain captured PCM from the bounded test sink; this does not play sound.
+  Uint8List readAudioOutput() {
+    _ensureStarted();
+    return _firmware!.readAudio();
+  }
+
   final String runtime;
   final Directory storageDirectory;
   final int maxPackageBytes, maxExpandedBytes, maxFiles;
@@ -87,8 +135,10 @@ class GizClawLuaAppHost implements GizClawAppHost {
   /// Closing the host drains executions and closes this stream.
   @override
   Stream<GizClawAppJobCompletion> get jobCompletions => _jobCompletions.stream;
-  final _jobs = <int, _Run>{};
-  final _runs = <_Run>{};
+  final _garbage = <String>[];
+  Future<void>? _closeFuture;
+  final _jobs = <int, FirmwareRun>{};
+  final _runs = <FirmwareRun>{};
   var _nextJob = 1;
   var _closed = false;
   var _closing = false;
@@ -142,7 +192,11 @@ class GizClawLuaAppHost implements GizClawAppHost {
       );
     }
     apps.sort((a, b) => a.appName.compareTo(b.appName));
-    return ClientAppListResponse(runtime: runtime, apps: apps);
+    return ClientAppListResponse(
+      runtime: runtime,
+      apps: apps,
+      capabilities: _capabilities.keys,
+    );
   });
 
   @override
@@ -199,14 +253,12 @@ class GizClawLuaAppHost implements GizClawAppHost {
       _invalid('Package sha256 mismatch');
     }
     final files = await _unpackIsolate(compressed, maxExpandedBytes, maxFiles);
-    final manifest = _manifest(files, appName, runtime);
-    // Compile the entry contract before replacing a working installation.
-    final source = _chunk(files, manifest, null, null);
-    try {
-      await _execute(source);
-    } on GizClawDeviceControlException catch (error) {
-      _invalid('Invalid App entry: ${error.message}');
-    }
+    final manifest = _manifest(
+      files,
+      appName,
+      runtime,
+      _capabilities.keys.toSet(),
+    );
     await storageDirectory.create(recursive: true);
     final generation =
         'pkg-${List.generate(16, (_) => Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0')).join()}';
@@ -221,6 +273,14 @@ class GizClawLuaAppHost implements GizClawAppHost {
         await file.parent.create(recursive: true);
         await file.writeAsBytes(entry.value, flush: true);
       }
+      try {
+        await _execute(
+          _chunk(files, manifest, null, null),
+          name: '@$generation/content/__invoke.lua',
+        );
+      } on GizClawDeviceControlException catch (error) {
+        _invalid('Invalid App entry: ${error.message}');
+      }
       await File('${directory.path}/digest').writeAsString(sha256, flush: true);
       final index = await _index();
       final old = index[appName];
@@ -228,9 +288,7 @@ class GizClawLuaAppHost implements GizClawAppHost {
       await _saveIndex(index);
       committed = true;
       if (old != null) {
-        await Directory(
-          '${storageDirectory.path}/$old',
-        ).delete(recursive: true);
+        _garbage.add(old);
       }
     } finally {
       if (!committed && await directory.exists()) {
@@ -246,12 +304,10 @@ class GizClawLuaAppHost implements GizClawAppHost {
     final generation = index.remove(appName);
     if (generation == null) _missing('Unknown app');
     await _saveIndex(index);
-    await Directory(
-      '${storageDirectory.path}/$generation',
-    ).delete(recursive: true);
+    _garbage.add(generation);
   });
 
-  Future<String> _prepare(
+  Future<(String, String)> _prepare(
     String appName,
     String method,
     String argsJson,
@@ -283,24 +339,34 @@ class GizClawLuaAppHost implements GizClawAppHost {
             .readAsBytes();
       }
     }
-    final manifest = _manifest(files, appName, runtime);
+    final manifest = _manifest(
+      files,
+      appName,
+      runtime,
+      _capabilities.keys.toSet(),
+    );
     final methods = manifest['methods'] as List<Object?>;
     final matches = methods.whereType<Map<String, Object?>>().where(
       (m) => m['name'] == method,
     );
     if (matches.isEmpty) _missing('Unknown method');
     if (matches.single['mode'] != mode) _invalid('Wrong method mode');
-    return _chunk(files, manifest, method, args);
+    return (
+      _chunk(files, manifest, method, args),
+      '@$generation/content/__invoke.lua',
+    );
   });
 
   @override
-  Future<String> invoke(String appName, String method, String argsJson) async =>
-      _execute(await _prepare(appName, method, argsJson, 'call'));
+  Future<String> invoke(String appName, String method, String argsJson) async {
+    final prepared = await _prepare(appName, method, argsJson, 'call');
+    return _execute(prepared.$1, name: prepared.$2);
+  }
 
   @override
   Future<int> startJob(String appName, String method, String argsJson) async {
     final source = await _prepare(appName, method, argsJson, 'job');
-    final run = _start(source);
+    final run = _start(source.$1, name: source.$2);
     final id = _nextJob++;
     if (_nextJob > 0xffffffff) _nextJob = 1;
     _jobs[id] = run;
@@ -327,70 +393,75 @@ class GizClawLuaAppHost implements GizClawAppHost {
   Future<void> cancelJob(int jobId) async {
     final run = _jobs[jobId];
     if (run == null || run.completed) _missing('Unknown job');
-    cancelLuaControl(run.control);
+    _firmware?.cancel(run.id);
     try {
       await run.done;
-    } on GizClawDeviceControlException {
+    } catch (_) {
       /* Cancellation acknowledged. */
     }
   }
 
-  _Run _start(String source) {
-    if (_closed) throw StateError('App host closed');
+  FirmwareRun _start(String source, {required String name}) {
+    if (_closing || _closed) throw StateError('App host closed');
     if (_runs.length >= maxExecutions) {
       throw const GizClawDeviceControlException(
         StatusCode.STATUS_CODE_RESOURCE_EXHAUSTED,
         'Execution capacity reached',
       );
     }
-    final control = createLuaControl(executionTimeout.inMilliseconds);
-    if (control == nullptr) throw StateError('Cannot allocate Lua control');
-    final address = control.address;
-    final memory = memoryLimit, input = sourceLimit, output = outputLimit;
-    final run = _Run(control);
+    _ensureStarted();
+    final run = _firmware!.submit(name, source);
     _runs.add(run);
-    run.done = _runIsolate(source, address, memory, input, output)
-        .catchError(
-          (Object error) => throw GizClawDeviceControlException(
-            StatusCode.STATUS_CODE_INTERNAL,
-            error.toString(),
-          ),
-        )
-        .whenComplete(() {
-          run.completed = true;
+    unawaited(
+      run.done.then<void>(
+        (_) {
           _runs.remove(run);
-          freeLuaControl(control);
-        });
+        },
+        onError: (Object _, StackTrace _) {
+          _runs.remove(run);
+        },
+      ),
+    );
     return run;
   }
 
-  Future<String> _execute(String source) => _start(source).done;
+  Future<String> _execute(String source, {required String name}) async {
+    try {
+      return await _start(source, name: name).done;
+    } catch (error) {
+      throw GizClawDeviceControlException(
+        StatusCode.STATUS_CODE_INTERNAL,
+        error.toString(),
+      );
+    }
+  }
 
   @override
-  Future<void> close() async {
+  Future<void> close() => _closeFuture ??= _close();
+  Future<void> _close() async {
     _closing = true;
     await _tail;
     _closed = true;
     final active = _runs.toList();
     for (final run in active) {
-      cancelLuaControl(run.control);
+      _firmware?.cancel(run.id);
     }
     for (final run in active) {
       try {
         await run.done;
-      } on GizClawDeviceControlException {
+      } catch (_) {
         /* Drained. */
       }
     }
+    await _firmware?.close();
+    board.unbind();
+    for (final generation in _garbage) {
+      final dir = Directory('${storageDirectory.path}/$generation');
+      if (await dir.exists()) await dir.delete(recursive: true);
+    }
+    _garbage.clear();
     await _jobCompletions.close();
   }
-}
-
-class _Run {
-  _Run(this.control);
-  final Pointer<Void> control;
-  late Future<String> done;
-  bool completed = false;
 }
 
 class _BoundedSink extends ByteConversionSink {
@@ -495,6 +566,7 @@ Map<String, Object?> _manifest(
   Map<String, List<int>> files,
   String appName,
   String runtime,
+  Set<String> capabilities,
 ) {
   try {
     final bytes = files['app.json'];
@@ -504,7 +576,13 @@ Map<String, Object?> _manifest(
     final raw = jsonDecode(utf8.decode(bytes));
     if (raw is! Map<String, Object?> ||
         raw.keys.any(
-          (k) => !{'app_name', 'runtime', 'entry', 'methods'}.contains(k),
+          (k) => !{
+            'app_name',
+            'runtime',
+            'entry',
+            'methods',
+            'requires',
+          }.contains(k),
         ) ||
         raw['app_name'] != appName ||
         raw['runtime'] != runtime ||
@@ -514,6 +592,11 @@ Map<String, Object?> _manifest(
         !(raw['entry'] as String).endsWith('.lua') ||
         !files.containsKey(raw['entry'])) {
       _invalid('Invalid manifest or runtime mismatch');
+    }
+    final requires = raw['requires'] ?? <Object?>[];
+    if (requires is! List<Object?> ||
+        requires.any((c) => c is! String || !capabilities.contains(c))) {
+      _invalid('App requires a missing capability');
     }
     final methods = raw['methods'];
     if (methods is! List<Object?> || methods.length > 128) {
@@ -550,21 +633,8 @@ Map<String, Object?> _manifest(
   }
 }
 
-String _literal(Object? value, [int depth = 0]) {
-  if (depth > 64) _invalid('JSON nesting limit exceeded');
-  if (value == null) return 'json_null';
-  if (value is String) {
-    return '"${utf8.encode(value).map((b) => '\\${b.toString().padLeft(3, '0')}').join()}"';
-  }
-  if (value is num || value is bool) return '$value';
-  if (value is List<Object?>) {
-    return 'setmetatable({${value.map((v) => _literal(v, depth + 1)).join(',')}},array_mt)';
-  }
-  if (value is Map<String, Object?>) {
-    return '{${value.entries.map((e) => '[${_literal(e.key)}]=${_literal(e.value, depth + 1)}').join(',')}}';
-  }
-  _invalid('Unsupported JSON');
-}
+String _quote(String value) =>
+    '"${utf8.encode(value).map((b) => '\\${b.toString().padLeft(3, '0')}').join()}"';
 
 String _chunk(
   Map<String, List<int>> files,
@@ -572,193 +642,26 @@ String _chunk(
   String? method,
   Object? args,
 ) {
-  final source = StringBuffer(_encoder)..writeln(_decoder);
-  for (final file in files.entries.where((e) => e.key.endsWith('.lua'))) {
-    // Each file is a function body, compiled as text by the native VM. No Lua
-    // load/loadfile or filesystem searcher is exposed to application code.
-    source.writeln(
-      'modules[${_literal(file.key)}]=function(...)\n${utf8.decode(file.value)}\nend',
-    );
-  }
-  source.writeln('local entry = require_file(${_literal(manifest['entry'])})');
+  final source = StringBuffer(
+    'local entry = (function()\n${utf8.decode(files[manifest['entry']]!)}\nend)()\n',
+  );
   source.writeln('assert(type(entry)=="table", "entry must return a table")');
   for (final m
       in (manifest['methods'] as List).whereType<Map<String, Object?>>()) {
     source.writeln(
-      'assert(type(entry[${_literal(m['name'])}])=="function", "missing method")',
+      'assert(type(entry[${_quote(m['name'] as String)}])=="function", "missing method")',
     );
   }
   source.writeln(
     method == null
-        ? 'return "null"'
-        : 'return encode(entry[${_literal(method)}](${_literal(args)}),0,{})',
+        ? "require('_gizclaw_result')('null')"
+        : "local json = require('json'); require('_gizclaw_result')(json.encode(entry[${_quote(method)}](json.decode(${_quote(jsonEncode(args))}))))",
   );
   return source.toString();
 }
 
-const _encoder = r'''
-local json_null = {}; local array_mt = {}
-local function quote(s)
-  return '"' .. s:gsub('[%z\1-\31\\"]', function(c)
-    return string.format('\\u%04x', string.byte(c))
-  end) .. '"'
-end
-local function encode(v, depth, seen)
-  assert(depth <= 64, 'JSON nesting limit')
-  local t = type(v)
-  if v == json_null or t == 'nil' then return 'null' end
-  if t == 'boolean' then return tostring(v) end
-  if t == 'string' then return quote(v) end
-  if t == 'number' then
-    assert(v == v and v ~= math.huge and v ~= -math.huge, 'nonfinite JSON number')
-    return tostring(v)
-  end
-  assert(t == 'table' and not seen[v], 'unsupported or cyclic JSON value')
-  seen[v] = true
-  local count, array = 0, getmetatable(v) == array_mt
-  for k in pairs(v) do count = count + 1 end
-  if count > 0 then
-    array = true
-    for k in pairs(v) do if type(k) ~= 'number' or k < 1 or k > count or k % 1 ~= 0 then array = false end end
-  end
-  local out = {}
-  if array then
-    for i=1,count do out[i] = encode(v[i], depth+1, seen) end
-  else
-    for k,item in pairs(v) do
-      assert(type(k)=='string', 'JSON object keys must be strings')
-      out[#out+1] = quote(k)..':'..encode(item,depth+1,seen)
-    end
-  end
-  seen[v] = nil
-  return (array and '[' or '{') .. table.concat(out, ',') .. (array and ']' or '}')
-end
-local modules, loaded, loading = {}, {}, {}
-local function require_file(path)
-  assert(modules[path], 'unknown app module')
-  if loaded[path] ~= nil then return loaded[path] end
-  assert(not loading[path], 'circular require')
-  loading[path] = true
-  local value = modules[path](path)
-  if value == nil then value = true end
-  loaded[path], loading[path] = value, nil
-  return value
-end
-function require(name)
-  assert(type(name)=='string' and name:match('^[%a_][%w_.-]*$') and not name:find('..',1,true), 'invalid module name')
-  return require_file(name:gsub('%.','/')..'.lua')
-end
-json = { null = json_null, encode = function(v) return encode(v,0,{}) end }
-''';
-
 Future<Map<String, List<int>>> _unpackIsolate(
   List<int> bytes,
-  int limit,
-  int count,
-) => Isolate.run(() => _unpack(bytes, limit, count));
-Future<String> _runIsolate(
-  String source,
-  int address,
-  int memory,
-  int input,
-  int output,
-) => Isolate.run(() {
-  final vm = GizClawLuaVm(
-    memoryLimit: memory,
-    sourceLimit: input,
-    outputLimit: output,
-  );
-  try {
-    return executeLuaWithControl(vm, source, address);
-  } finally {
-    vm.close();
-  }
-});
-
-const _decoder = r'''
-local function decode(text)
-  assert(type(text) == 'string' and #text <= 65536, 'JSON input limit')
-  local pos = 1
-  local function ws() local _, last = text:find('^[ \t\r\n]*',pos); pos = (last or pos-1)+1 end
-  local function hex()
-    local s = text:sub(pos,pos+3)
-    assert(#s==4 and s:match('^%x%x%x%x$'), 'invalid unicode escape')
-    pos = pos + 4
-    return tonumber(s,16)
-  end
-  local function str()
-    assert(text:sub(pos,pos)=='"', 'expected JSON string')
-    pos = pos+1
-    local out = {}
-    while pos <= #text do
-      local c = text:sub(pos,pos); pos = pos+1
-      if c=='"' then return table.concat(out) end
-      if c=='\\' then
-        c = text:sub(pos,pos); pos = pos+1
-        local escapes = {['"']='"',['\\']='\\',['/']='/',b='\b',f='\f',n='\n',r='\r',t='\t'}
-        if c=='u' then
-          local code = hex()
-          if code >= 0xd800 and code <= 0xdbff then
-            assert(text:sub(pos,pos+1)=='\\u', 'missing low surrogate'); pos=pos+2
-            local low=hex(); assert(low>=0xdc00 and low<=0xdfff, 'invalid low surrogate')
-            code=0x10000+(code-0xd800)*1024+low-0xdc00
-          else assert(code<0xdc00 or code>0xdfff, 'unexpected low surrogate') end
-          out[#out+1]=utf8.char(code)
-        else assert(escapes[c], 'invalid escape'); out[#out+1]=escapes[c] end
-      else
-        assert(c:byte()>=32, 'unescaped control byte'); out[#out+1]=c
-      end
-    end
-    error('unterminated JSON string')
-  end
-  local parse
-  parse = function(depth)
-    assert(depth<=64, 'JSON nesting limit'); ws()
-    local c=text:sub(pos,pos)
-    if c=='"' then return str() end
-    if c=='{' or c=='[' then
-      local array=c=='['; local close=array and ']' or '}'
-      local value=array and setmetatable({},array_mt) or {}
-      pos=pos+1; ws()
-      if text:sub(pos,pos)==close then pos=pos+1; return value end
-      local index=1
-      while true do
-        ws(); local key=index
-        if not array then key=str(); ws(); assert(text:sub(pos,pos)==':','expected colon'); pos=pos+1 end
-        value[key]=parse(depth+1); index=index+1; ws()
-        c=text:sub(pos,pos); pos=pos+1
-        if c==close then return value end
-        assert(c==',','expected comma')
-      end
-    end
-    for token,value in pairs({['true']=true,['false']=false,['null']=json_null}) do
-      if text:sub(pos,pos+#token-1)==token then pos=pos+#token; return value end
-    end
-    local start=pos
-    if c=='-' then pos=pos+1 end
-    c=text:sub(pos,pos)
-    if c=='0' then pos=pos+1
-    else
-      assert(c:match('^[1-9]$'),'invalid JSON value')
-      repeat pos=pos+1 until not text:sub(pos,pos):match('^%d$')
-    end
-    if text:sub(pos,pos)=='.' then
-      pos=pos+1; assert(text:sub(pos,pos):match('^%d$'),'invalid fraction')
-      repeat pos=pos+1 until not text:sub(pos,pos):match('^%d$')
-    end
-    c=text:sub(pos,pos)
-    if c=='e' or c=='E' then
-      pos=pos+1; c=text:sub(pos,pos)
-      if c=='+' or c=='-' then pos=pos+1 end
-      assert(text:sub(pos,pos):match('^%d$'),'invalid exponent')
-      repeat pos=pos+1 until not text:sub(pos,pos):match('^%d$')
-    end
-    local number=tonumber(text:sub(start,pos-1))
-    assert(number and number~=math.huge and number~=-math.huge,'invalid number')
-    return number
-  end
-  local value=parse(0); ws(); assert(pos>#text,'trailing JSON data'); return value
-end
-json.decode = decode
-json.array = function() return setmetatable({},array_mt) end
-''';
+  int maxBytes,
+  int maxFiles,
+) => Isolate.run(() => _unpack(bytes, maxBytes, maxFiles));

@@ -7,6 +7,8 @@ environment:
   sdk: ^3.10.0
 
 dependencies:
+  flutter:
+    sdk: flutter
   gizclaw:
     path: ../gizclaw
   ffi: ^2.1.4

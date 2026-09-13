@@ -51,16 +51,6 @@ external int _execute(
   int size,
   Pointer<_Execution> execution,
 );
-@Native<Pointer<Void> Function(Int32)>(symbol: 'gizclaw_lua_control_create')
-external Pointer<Void> createLuaControl(int timeoutMs);
-@Native<Void Function(Pointer<Void>, Pointer<Void>)>(
-  symbol: 'gizclaw_lua_control_attach',
-)
-external void _attach(Pointer<Void> vm, Pointer<Void> control);
-@Native<Void Function(Pointer<Void>)>(symbol: 'gizclaw_lua_control_cancel')
-external void cancelLuaControl(Pointer<Void> control);
-@Native<Void Function(Pointer<Void>)>(symbol: 'gizclaw_lua_control_free')
-external void freeLuaControl(Pointer<Void> control);
 
 /// Isolated GizOS Lua VM Core. Close on its owning isolate after execution.
 class GizClawLuaVm {
@@ -89,11 +79,8 @@ class GizClawLuaVm {
   int get memoryUsed => _memory(_vm);
   String executeText(String source) => _executeText(source);
 
-  String _executeText(String source, {int? controlAddress}) {
+  String _executeText(String source) {
     if (_vm == nullptr) throw StateError('VM closed');
-    if (controlAddress != null) {
-      _attach(_vm, Pointer.fromAddress(controlAddress));
-    }
     return using((arena) {
       final bytes = utf8.encode(source);
       if (bytes.length > sourceLimit) {
@@ -130,7 +117,3 @@ class GizClawLuaVm {
     }
   }
 }
-
-// Internal adapter used only by the native App host on the VM-owning isolate.
-String executeLuaWithControl(GizClawLuaVm vm, String source, int address) =>
-    vm._executeText(source, controlAddress: address);
