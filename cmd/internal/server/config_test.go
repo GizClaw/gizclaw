@@ -572,13 +572,12 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 }
 
 func TestFileStoreConfigsConvertEveryFieldExplicitly(t *testing.T) {
-	t.Setenv("GIZCLAW_TEST_CONFIG_VALUE", "expanded")
 	tests := map[string]struct {
 		file storageFileConfig
 		want storage.Config
 	}{
 		"badger": {
-			file: storageFileConfig{Kind: storage.KindBadger, Dir: "${GIZCLAW_TEST_CONFIG_VALUE}/dir"},
+			file: storageFileConfig{Kind: storage.KindBadger, Dir: "expanded/dir"},
 			want: storage.BadgerConfig{Dir: "expanded/dir"},
 		},
 		"memory": {
@@ -586,25 +585,25 @@ func TestFileStoreConfigsConvertEveryFieldExplicitly(t *testing.T) {
 			want: storage.MemoryConfig{},
 		},
 		"filesystem.dir": {
-			file: storageFileConfig{Kind: storage.KindFilesystemDir, Dir: "${GIZCLAW_TEST_CONFIG_VALUE}/dir"},
+			file: storageFileConfig{Kind: storage.KindFilesystemDir, Dir: "expanded/dir"},
 			want: storage.FilesystemDirConfig{Dir: "expanded/dir"},
 		},
 		"sqlite": {
-			file: storageFileConfig{Kind: storage.KindSQLite, Dir: "${GIZCLAW_TEST_CONFIG_VALUE}/dir", DSN: "${GIZCLAW_TEST_CONFIG_VALUE}/dsn"},
+			file: storageFileConfig{Kind: storage.KindSQLite, Dir: "expanded/dir", DSN: "expanded/dsn"},
 			want: storage.SQLiteConfig{Dir: "expanded/dir", DSN: "expanded/dsn"},
 		},
 		"postgresql": {
-			file: storageFileConfig{Kind: storage.KindPostgreSQL, DSN: "${GIZCLAW_TEST_CONFIG_VALUE}/dsn"},
+			file: storageFileConfig{Kind: storage.KindPostgreSQL, DSN: "expanded/dsn"},
 			want: storage.PostgreSQLConfig{DSN: "expanded/dsn"},
 		},
 		"clickhouse": {
-			file: storageFileConfig{Kind: storage.KindClickHouse, DSN: "${GIZCLAW_TEST_CONFIG_VALUE}/dsn"},
+			file: storageFileConfig{Kind: storage.KindClickHouse, DSN: "expanded/dsn"},
 			want: storage.ClickHouseConfig{DSN: "expanded/dsn"},
 		},
 		"redis": {
 			file: storageFileConfig{
-				Kind: storage.KindRedis, URL: "rediss://${GIZCLAW_TEST_CONFIG_VALUE}:6379/0",
-				TLSCAFile: "/run/secrets/${GIZCLAW_TEST_CONFIG_VALUE}-redis-ca.pem",
+				Kind: storage.KindRedis, URL: "rediss://expanded:6379/0",
+				TLSCAFile: "/run/secrets/expanded-redis-ca.pem",
 			},
 			want: storage.RedisConfig{
 				URL: "rediss://expanded:6379/0", TLSCAFile: "/run/secrets/expanded-redis-ca.pem",
@@ -612,16 +611,16 @@ func TestFileStoreConfigsConvertEveryFieldExplicitly(t *testing.T) {
 		},
 		"prometheus": {
 			file: storageFileConfig{
-				Kind: storage.KindPrometheus, RemoteWriteURL: "${GIZCLAW_TEST_CONFIG_VALUE}/write",
-				QueryURL: "${GIZCLAW_TEST_CONFIG_VALUE}/query", BearerToken: "${GIZCLAW_TEST_CONFIG_VALUE}/token",
+				Kind: storage.KindPrometheus, RemoteWriteURL: "expanded/write",
+				QueryURL: "expanded/query", BearerToken: "expanded/token",
 			},
 			want: storage.PrometheusConfig{RemoteWriteURL: "expanded/write", QueryURL: "expanded/query", BearerToken: "expanded/token"},
 		},
 		"volc-tls": {
 			file: storageFileConfig{
-				Kind: storage.KindVolcTLS, Endpoint: "${GIZCLAW_TEST_CONFIG_VALUE}/endpoint",
-				Region: "${GIZCLAW_TEST_CONFIG_VALUE}/region", AccessKeyID: "${GIZCLAW_TEST_CONFIG_VALUE}/id",
-				AccessKeySecret: "${GIZCLAW_TEST_CONFIG_VALUE}/secret",
+				Kind: storage.KindVolcTLS, Endpoint: "expanded/endpoint",
+				Region: "expanded/region", AccessKeyID: "expanded/id",
+				AccessKeySecret: "expanded/secret",
 			},
 			want: storage.VolcTLSConfig{
 				Endpoint: "expanded/endpoint", Region: "expanded/region",
@@ -630,25 +629,25 @@ func TestFileStoreConfigsConvertEveryFieldExplicitly(t *testing.T) {
 		},
 		"volc-tos": {
 			file: storageFileConfig{
-				Kind: storage.KindVolcTOS, Endpoint: "${GIZCLAW_TEST_CONFIG_VALUE}/endpoint", Region: "${GIZCLAW_TEST_CONFIG_VALUE}/region",
-				Bucket: "${GIZCLAW_TEST_CONFIG_VALUE}/bucket", AccessKeyID: "${GIZCLAW_TEST_CONFIG_VALUE}/id",
-				AccessKeySecret: "${GIZCLAW_TEST_CONFIG_VALUE}/secret", SessionToken: "${GIZCLAW_TEST_CONFIG_VALUE}/token",
+				Kind: storage.KindVolcTOS, Endpoint: "expanded/endpoint", Region: "expanded/region",
+				Bucket: "expanded/bucket", AccessKeyID: "expanded/id",
+				AccessKeySecret: "expanded/secret", SessionToken: "expanded/token",
 			},
 			want: storage.VolcTOSConfig{Endpoint: "expanded/endpoint", Region: "expanded/region", Bucket: "expanded/bucket", AccessKeyID: "expanded/id", AccessKeySecret: "expanded/secret", SessionToken: "expanded/token"},
 		},
 		"aliyun-oss": {
 			file: storageFileConfig{
-				Kind: storage.KindAliyunOSS, Endpoint: "${GIZCLAW_TEST_CONFIG_VALUE}/endpoint", Bucket: "${GIZCLAW_TEST_CONFIG_VALUE}/bucket",
-				AccessKeyID: "${GIZCLAW_TEST_CONFIG_VALUE}/id", AccessKeySecret: "${GIZCLAW_TEST_CONFIG_VALUE}/secret", SecurityToken: "${GIZCLAW_TEST_CONFIG_VALUE}/token",
+				Kind: storage.KindAliyunOSS, Endpoint: "expanded/endpoint", Bucket: "expanded/bucket",
+				AccessKeyID: "expanded/id", AccessKeySecret: "expanded/secret", SecurityToken: "expanded/token",
 			},
 			want: storage.AliyunOSSConfig{Endpoint: "expanded/endpoint", Bucket: "expanded/bucket", AccessKeyID: "expanded/id", AccessKeySecret: "expanded/secret", SecurityToken: "expanded/token"},
 		},
 		"gcs": {
-			file: storageFileConfig{Kind: storage.KindGCS, Bucket: "${GIZCLAW_TEST_CONFIG_VALUE}/bucket", CredentialsFile: "${GIZCLAW_TEST_CONFIG_VALUE}/credentials.json"},
+			file: storageFileConfig{Kind: storage.KindGCS, Bucket: "expanded/bucket", CredentialsFile: "expanded/credentials.json"},
 			want: storage.GCSConfig{Bucket: "expanded/bucket", CredentialsFile: "expanded/credentials.json"},
 		},
 		"azure-blob": {
-			file: storageFileConfig{Kind: storage.KindAzureBlob, AccountURL: "https://${GIZCLAW_TEST_CONFIG_VALUE}.blob.core.windows.net", Container: "${GIZCLAW_TEST_CONFIG_VALUE}-container"},
+			file: storageFileConfig{Kind: storage.KindAzureBlob, AccountURL: "https://expanded.blob.core.windows.net", Container: "expanded-container"},
 			want: storage.AzureBlobConfig{AccountURL: "https://expanded.blob.core.windows.net", Container: "expanded-container"},
 		},
 	}
@@ -665,7 +664,7 @@ func TestFileStoreConfigsConvertEveryFieldExplicitly(t *testing.T) {
 	}
 	logical, err := (storeFileConfig{
 		Kind: stores.KindLogImmutable, Storage: "storage", Prefix: "prefix",
-		Database: "${GIZCLAW_TEST_CONFIG_VALUE}/database", Table: "${GIZCLAW_TEST_CONFIG_VALUE}/table", TopicID: "${GIZCLAW_TEST_CONFIG_VALUE}/topic", TTL: "2160h",
+		Database: "expanded/database", Table: "expanded/table", TopicID: "expanded/topic", TTL: "2160h",
 	}).runtimeConfig()
 	if err != nil {
 		t.Fatal(err)
