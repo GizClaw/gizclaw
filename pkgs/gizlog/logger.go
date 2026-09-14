@@ -32,9 +32,11 @@ func (installation *defaultLoggerInstallation) close() error {
 	installation.once.Do(func() {
 		defaultLoggerLease.Lock()
 		slog.SetDefault(installation.previous)
-		defaultLoggerLease.installed = false
 		defaultLoggerLease.Unlock()
 		installation.err = installation.cleanup()
+		defaultLoggerLease.Lock()
+		defaultLoggerLease.installed = false
+		defaultLoggerLease.Unlock()
 	})
 	return installation.err
 }
@@ -45,7 +47,8 @@ type StoreResolver interface {
 }
 
 // NewLogger builds the process logger. Store-backed handlers do not own or
-// close registry-owned stores.
+// close registry-owned stores. Store writes use one bounded worker; cleanup
+// drains it before the caller closes the registry.
 func NewLogger(cfg Config, registries ...StoreResolver) (*slog.Logger, func() error, error) {
 	if len(registries) > 1 {
 		return nil, nil, &StoreResolutionError{Reason: "multiple store registries are not supported"}
@@ -64,6 +67,13 @@ func NewLogger(cfg Config, registries ...StoreResolver) (*slog.Logger, func() er
 		fixed = append(fixed, slog.String("node_id", cfg.NodeID))
 		failureReporter = failureReporter.WithAttrs(fixed)
 	}
+	queue := newStoreQueue(failureReporter)
+	started := false
+	defer func() {
+		if !started {
+			queue.cancel()
+		}
+	}()
 	handlers := make([]slog.Handler, 0, len(cfg.Sinks))
 	for _, sink := range cfg.Sinks {
 		level, err := ParseLevel(sink.Level)
@@ -81,7 +91,7 @@ func NewLogger(cfg Config, registries ...StoreResolver) (*slog.Logger, func() er
 			if err != nil {
 				return nil, nil, &StoreResolutionError{Name: sink.Store, Err: err}
 			}
-			handler, err := logstore.NewSlogHandler(store, "system", "log", level)
+			handler, err := logstore.NewSlogHandler(queuedStoreAppender{queue: queue, store: store, name: sink.Store}, "system", "log", level)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -89,7 +99,12 @@ func NewLogger(cfg Config, registries ...StoreResolver) (*slog.Logger, func() er
 		}
 	}
 	logger := slog.New(newContextHandler(NewFanoutHandler(handlers...), fixed))
-	return logger, func() error { return nil }, nil
+	if len(cfg.Sinks) == 1 && cfg.Sinks[0].Kind == SinkStderr {
+		return logger, func() error { return nil }, nil
+	}
+	go queue.run()
+	started = true
+	return logger, queue.close, nil
 }
 
 // StoreResolutionError reports an invalid store sink without exposing store configuration.

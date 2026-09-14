@@ -52,8 +52,10 @@ type orderedLoggerTestStore struct {
 	order *[]string
 }
 
-func (s *orderedLoggerTestStore) Append(context.Context, []logstore.Record) ([]logstore.RecordKey, error) {
-	*s.order = append(*s.order, s.name)
+func (s *orderedLoggerTestStore) Append(_ context.Context, records []logstore.Record) ([]logstore.RecordKey, error) {
+	for range records {
+		*s.order = append(*s.order, s.name)
+	}
 	return []logstore.RecordKey{}, nil
 }
 func (*orderedLoggerTestStore) Query(context.Context, logstore.Query) (logstore.Page, error) {
@@ -115,6 +117,9 @@ func TestNewLoggerStoreSinkUsesFixedSystemScope(t *testing.T) {
 	}
 	logger.LogAttrs(context.Background(), slog.LevelInfo, "ignored")
 	logger.LogAttrs(context.Background(), slog.LevelWarn, "saved", slog.String("request.id", "1"), slog.Time("at", time.Unix(1, 0)))
+	if err := cleanup(); err != nil {
+		t.Fatal(err)
+	}
 	if len(store.records) != 1 || store.records[0].Stream != "system" || store.records[0].Kind != "log" || store.records[0].Attributes["request.id"] != "1" || store.records[0].Attributes["node_id"] != "server-a" || store.records[0].Attributes["source_file"] == "" || store.records[0].Attributes["source_line"] == "" {
 		t.Fatalf("records = %+v", store.records)
 	}
@@ -167,7 +172,7 @@ func TestNewLoggerFansOutToNamedStoresInConfiguredOrder(t *testing.T) {
 		"first":  {name: "first", order: &order},
 		"second": {name: "second", order: &order},
 	}}
-	logger, _, err := NewLogger(Config{Level: "info", Sinks: []SinkConfig{
+	logger, cleanup, err := NewLogger(Config{Level: "info", Sinks: []SinkConfig{
 		{Kind: SinkStore, Store: "first"},
 		{Kind: SinkStore, Store: "second", Level: "warn"},
 	}}, resolver)
@@ -176,6 +181,9 @@ func TestNewLoggerFansOutToNamedStoresInConfiguredOrder(t *testing.T) {
 	}
 	logger.Info("info")
 	logger.Warn("warn")
+	if err := cleanup(); err != nil {
+		t.Fatal(err)
+	}
 	want := []string{"first", "first", "second"}
 	if !slices.Equal(order, want) {
 		t.Fatalf("append order = %v, want %v", order, want)
