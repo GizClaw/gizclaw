@@ -2,8 +2,9 @@ package gizcli
 
 import (
 	"bytes"
-	"strings"
+	"fmt"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -60,30 +61,102 @@ func TestPeerStreamInitialBOSBufferLimits(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if err := s.pushMergedPacket([]byte{1}); err == nil {
-				t.Fatal("overflow accepted")
+			if err := s.pushMergedPacket([]byte{1}); err != nil {
+				t.Fatal(err)
+			}
+			if len(s.startupAudio) != 0 || s.startupBytes != 0 || !s.startupExpired {
+				t.Fatal("overflow did not discard the startup window")
+			}
+			if err := s.pushMergedPacket([]byte{2}); err != nil {
+				t.Fatal(err)
+			}
+			if len(s.startupAudio) != 0 || len(s.out) != 0 {
+				t.Fatal("expired window accepted orphan audio")
+			}
+			bos, err := peerStreamEventToChunk(bosEvent("recovered", "assistant", ""))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := s.pushMergedEvent(bos); err != nil {
+				t.Fatal(err)
+			}
+			if c := <-s.out; !c.IsBeginOfStream() {
+				t.Fatal("missing recovery BOS")
+			}
+			if err := s.pushMergedPacket([]byte{3}); err != nil {
+				t.Fatal(err)
+			}
+			if c := <-s.out; c.Ctrl.StreamID != "recovered" || !bytes.Equal(c.Part.(*genx.Blob).Data, []byte{3}) {
+				t.Fatal("overflow prevented recovery")
 			}
 		})
 	}
 }
 
+// Virtual time exercises the production deadline without scheduler sleeps.
 func TestPeerStreamInitialBOSTimeout(t *testing.T) {
-	packets := make(chan []byte, 1)
-	packets <- []byte{1}
-	s := &PeerStream{packets: packets, out: make(chan *genx.MessageChunk, 1), done: make(chan struct{})}
-	defer s.Close()
-	finished := make(chan struct{})
-	go func() { s.mergeOutput(); close(finished) }()
-	select {
-	case <-finished:
-		if !strings.Contains(s.closeErr().Error(), "initial audio BOS timeout") {
-			t.Fatal(s.closeErr())
-		}
-		if len(s.startupAudio) != 0 {
-			t.Fatal("retained startup audio")
-		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("missing BOS did not terminate stream")
+	for _, tc := range []struct{ interrupted, lateBOS bool }{
+		{false, false}, {false, true}, {true, false}, {true, true},
+	} {
+		t.Run(fmt.Sprintf("interrupted=%t/lateBOS=%t", tc.interrupted, tc.lateBOS), func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				packets := make(chan []byte)
+				events := make(chan peerStreamEventResult)
+				s := &PeerStream{packets: packets, eventResults: events, out: make(chan *genx.MessageChunk, 8), done: make(chan struct{})}
+				defer s.Close()
+				go s.mergeOutput()
+				if tc.interrupted {
+					// A reopened receiver can see the old EOS without its BOS.
+					eos, err := peerStreamEventToChunk(eosEvent("cancelled", "assistant", "", nil))
+					if err != nil {
+						t.Fatal(err)
+					}
+					events <- peerStreamEventResult{chunk: eos}
+					<-s.out
+				}
+				packets <- []byte{1}
+				synctest.Wait()
+				time.Sleep(2 * time.Second)
+				synctest.Wait()
+				select {
+				case <-s.done:
+					t.Fatalf("orphan packet terminated conversation: %v", s.closeErr())
+				default:
+				}
+				if len(s.startupAudio) != 0 || s.startupBytes != 0 || len(s.out) != 0 {
+					t.Fatal("expired audio retained or emitted")
+				}
+				packets <- []byte{3}
+				synctest.Wait()
+				if len(s.startupAudio) != 0 || len(s.out) != 0 {
+					t.Fatal("orphan restarted expired window")
+				}
+				if tc.lateBOS {
+					bos, err := peerStreamEventToChunk(bosEvent("new", "assistant", ""))
+					if err != nil {
+						t.Fatal(err)
+					}
+					events <- peerStreamEventResult{chunk: bos}
+					if c := <-s.out; !c.IsBeginOfStream() {
+						t.Fatal("missing BOS")
+					}
+					packets <- []byte{2}
+					c := <-s.out
+					if c.Ctrl.StreamID != "new" || !bytes.Equal(c.Part.(*genx.Blob).Data, []byte{2}) {
+						t.Fatalf("wrong route: %v", c)
+					}
+				} else {
+					text, err := peerStreamEventToChunk(textEvent("new", "assistant", "still alive"))
+					if err != nil {
+						t.Fatal(err)
+					}
+					events <- peerStreamEventResult{chunk: text}
+					if c := <-s.out; c != text {
+						t.Fatal("text stopped after timeout")
+					}
+				}
+			})
+		})
 	}
 }
 

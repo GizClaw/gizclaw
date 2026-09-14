@@ -24,8 +24,11 @@ Go SDK 是 client-facing boundary，不拥有 server domain behavior。API 和 R
 Peer Event Stream 和固定 Opus RTP 轨是独立通道，发送 BOS 成功不代表接收端已经处理
 BOS。`PeerStream` 在首次音频 BOS 绑定之前暂存 RTP payload，先向调用方输出 BOS，
 再按接收顺序输出带该 StreamID 和 label 的音频。文字事件不触发音频暂存释放。
-暂存上限为 64 包或 128 KiB；从收到首包起等待 BOS 最多 1 秒，超限或超时会终止
-流并返回错误，关闭时释放暂存。
+暂存上限为 64 包或 128 KiB；从收到首包起等待 BOS 最多 1 秒。超限或超时会
+释放暂存，并持续丢弃未绑定音频直到首次 BOS 到达，不终止 PeerStream，也不阻塞
+文字事件。BOS 到达后正常接收新音频，已丢弃的包不会重放；关闭时同样释放暂存。
+这可能丢失超过重排窗口的有效首音频，但不会让找不到 BOS 的孤立包终止整个对话。
+在同一连接重新打开 PeerStream 时，旧回复的迟到 RTP 也可能进入这个初始窗口。
 
 这一行为不改变 wire Schema、设备固件或其他语言 SDK，也不增加下行 ACK。RTP
 payload 没有逻辑 StreamID，无法据此区分上一 epoch 的迟到包和下一 epoch 的首包；

@@ -27,7 +27,13 @@ buffers RTP payloads before the first audio BOS, emits BOS to its caller first,
 then emits the buffered audio in arrival order with that StreamID and label.
 Text events do not release buffered audio. The buffer is limited to 64 packets
 or 128 KiB, with a one-second BOS deadline starting at the first packet. Overflow
-or timeout terminates the stream with an error; closing releases the buffer.
+or timeout releases the buffer and drops further unbound audio until the first
+BOS arrives, without terminating PeerStream or blocking text events. New audio
+is received normally after BOS; discarded packets are never replayed. Closing
+also releases the buffer. Valid initial audio beyond the reorder window may be
+lost, but an orphan packet with no matching BOS cannot terminate the conversation.
+Reopening PeerStream on the same connection can expose this initial window to
+late RTP from the previous response.
 
 This does not change the wire schema, device firmware, or other language SDKs,
 and adds no downlink ACK. RTP payloads have no logical StreamID, so a late packet
