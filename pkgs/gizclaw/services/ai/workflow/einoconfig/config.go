@@ -118,6 +118,9 @@ func validateVoiceAdapter(public apitypes.EinoWorkflowSpec) error {
 	if adapter == nil {
 		return nil
 	}
+	if err := apitypes.ValidateSpeakerVoices(adapter.SpeakerVoices); err != nil {
+		return err
+	}
 	asr := strings.TrimSpace(stringValue(adapter.AsrModel))
 	defaultVoice := strings.TrimSpace(stringValue(adapter.DefaultVoice))
 	var nodeVoices map[string]string

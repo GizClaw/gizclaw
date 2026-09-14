@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -873,6 +874,30 @@ func TestAdminValidateEinoStateVoices(t *testing.T) {
 					}
 				} else if err == nil || !strings.Contains(err.Error(), test.want) {
 					t.Fatalf("error = %v, want %s", err, test.want)
+				}
+			})
+		}
+	}
+}
+
+func TestAdminValidateSpeakerVoices(t *testing.T) {
+	for _, kind := range []string{"eino", "flowcraft"} {
+		spec, err := os.ReadFile("../../../../tests/gizclaw-e2e/testdata/speaker-segments/" + kind + ".json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, name := range []string{"狐", "", "【狐", "狐】", " "} {
+			t.Run(kind+"/"+name, func(t *testing.T) {
+				data := strings.ReplaceAll(string(spec), `"狐":`, fmt.Sprintf("%q:", name))
+				data = `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Workflow","metadata":{"id":"speaker-test"},"spec":` + data + `}`
+				cmd := NewCmd()
+				cmd.SetIn(strings.NewReader(data))
+				cmd.SetOut(io.Discard)
+				cmd.SetErr(io.Discard)
+				cmd.SetArgs([]string{"validate", "-f", "-"})
+				err := cmd.Execute()
+				if (err == nil) != (name == "狐") {
+					t.Fatalf("validation: %v", err)
 				}
 			})
 		}

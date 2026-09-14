@@ -109,6 +109,23 @@ voice_adapter:
 
 Eino Graph 也通过 typed `memory_recall` 与 `memory_observe` node 消费同一个 Workflow memory alias；不存在 Eino 专属的 Memory block 或 Server Config binding。`conversation.starts: agent` 支持主动开场，Workspace conversation parameters 可以选择 `on_reload` 或仅空 history 时一次开场；并发 stream 只允许一个成功 claim，失败可重试，用户输入可以沿既有 interruption 路径打断开场。产品层继续使用持久 History，但 Graph state 仍是 invocation-local。
 
+#### 同一回复内按说话人分段
+
+Eino 与 Flowcraft 的 `voice_adapter.speaker_voices` 将说话人名字映射到 RuntimeProfile Voice alias。名字必须非空白且不含 `【`、`】`，alias 遵循现有命名规则并须在 `resources.voices` 中存在。`admin validate` 离线检查名字与 alias 语法；RuntimeProfile 检查引用。
+
+```yaml
+voice_adapter:
+  default_voice: story.narrator
+  speaker_voices:
+    旁白: story.narrator
+    孙悟空: story.wukong
+    唐僧: story.tangseng
+```
+
+模型输出 `【旁白】山路很静。【孙悟空】师父小心！【唐僧】悟空莫急。` 时，设备文字不含这些已配置标记，音频依次使用三种音色。跨 chunk 的标记前缀暂存，普通文字立即转发，不等待 TTS。未知的 `【名字】` 与正文中的其它括号原样保留，并回落到该输出原有的 state/node/default 音色选择。开头没有标记时也使用原有选择。
+
+每段 TTS 输入按顺序送入；当前段输出期间允许下一段提前合成，音频按段串行合并为单个流。连续相同音色标记不启动额外会话，空段不产生音频。用户插话会取消当前段、预取段和排队段。未配置或配置为空时保留原有行为。预取可隐藏下一段的合成延迟；真实 provider 是否能连续播放仍取决于文本生成速度和合成吞吐。
+
 #### SFU 组合边界
 
 `sfu` 是 provider-neutral 的 SFU Workspace driver，LiveKit 是它的第一种 connector 实现（`workflow/agents/sfu`）。它只服务 Friend 与 Friend Group 的内置 `system-sfu` Workflow：payload 为空对象，Workspace `parameters` 固定为 null，不解析 RuntimeProfile alias，也不接入 History、Memory、Tool 或 ASR。资源模型、binding、激活与撤权流程由 [services/social](/zh/developing/gizclaw/services/social#sfu-workspace) 拥有。

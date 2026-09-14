@@ -44,3 +44,7 @@
 !slow-tts/*.go
 !slow-tts/*.py
 !slow-tts/*.json
+
+!speaker-segments/
+!speaker-segments/*.json
+!speaker-segments/*.giztest.yaml

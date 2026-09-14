@@ -28,6 +28,13 @@ func (latencyFixtureBuilder) BuildTransformer(_ context.Context, cfg Transformer
 	if cfg.Voice == nil {
 		return nil, errors.New("slow-tts fixture expected ASR or voice")
 	}
+	if os.Getenv("SPEAKER_SEGMENTS_FIXTURE") == "1" {
+		frequency := map[string]float64{"speaker-default": 300, "speaker-fox": 500, "speaker-bird": 700}[cfg.Voice.Id]
+		if frequency == 0 {
+			return nil, errors.New("unknown speaker fixture voice")
+		}
+		return latencyTTS{startup: 100 * time.Millisecond, synthesis: 100 * time.Millisecond, frequency: frequency}, nil
+	}
 	startup, err := time.ParseDuration(os.Getenv("LATENCY_TTS_STARTUP"))
 	if err != nil || startup < 3*time.Second {
 		return nil, errors.New("LATENCY_TTS_STARTUP must be at least 3s")
@@ -36,7 +43,7 @@ func (latencyFixtureBuilder) BuildTransformer(_ context.Context, cfg Transformer
 	if err != nil || synthesis < 0 {
 		return nil, errors.New("invalid LATENCY_TTS_SYNTHESIS")
 	}
-	return latencyTTS{startup: startup, synthesis: synthesis}, nil
+	return latencyTTS{startup: startup, synthesis: synthesis, frequency: 440}, nil
 }
 
 type latencyASR struct{ realtime bool }
@@ -74,7 +81,10 @@ func (a latencyASR) Transform(ctx context.Context, input genx.Stream) (genx.Stre
 	return out.Stream(), nil
 }
 
-type latencyTTS struct{ startup, synthesis time.Duration }
+type latencyTTS struct {
+	startup, synthesis time.Duration
+	frequency          float64
+}
 
 func latencyWait(ctx context.Context, d time.Duration) error {
 	timer := time.NewTimer(d)
@@ -131,7 +141,7 @@ func (t latencyTTS) Transform(ctx context.Context, input genx.Stream) (genx.Stre
 			}
 			pcm := make([]int16, 320)
 			for j := range pcm {
-				pcm[j] = int16(12000 * math.Sin(2*math.Pi*440*float64(i*320+j)/16000))
+				pcm[j] = int16(12000 * math.Sin(2*math.Pi*t.frequency*float64(i*320+j)/16000))
 			}
 			packet, err := enc.Encode(pcm, len(pcm))
 			if err != nil {

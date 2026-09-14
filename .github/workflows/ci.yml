@@ -792,8 +792,17 @@ jobs:
           name: slow-tts-regression
           path: tests/gizclaw-e2e/.testbench/slow-tts-*/reports/
           include-hidden-files: true
+      - name: Verify speaker segments through local Server and Peer
+        run: bash tests/gizclaw-e2e/run_speaker_segment_tests.sh
+      - name: Upload speaker segment evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: speaker-segment-regression
+          path: tests/gizclaw-e2e/.testbench/speaker-segments-*/reports/
+          include-hidden-files: true
       - name: Verify deterministic multi-role voice Giztests
-        run: go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|FlowcraftMultiVoiceGiztest|MultiRole.*)$' -count=1
+        run: go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|FlowcraftMultiVoiceGiztest|MultiRole.*|SpeakerSegmentsGiztest)$' -count=1
 
   terraform-provider-e2e:
     name: Terraform Provider E2E
