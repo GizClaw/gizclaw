@@ -58,6 +58,17 @@ steps:
       method: server.run.workspace.set
       request:
         workspace_name: ${workspace_name}
+  - id: synthesize_story_bird
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: story-bird
+        text: 我在河边看见了弯弯的月亮。
+        accepted_content_types: [audio/ogg]
+    expect:
+      /bytes:
+        minimum: 1000
   - id: speaker_story
     client: peer
     timeout: 90s
