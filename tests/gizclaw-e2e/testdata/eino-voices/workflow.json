@@ -1,21 +1,21 @@
 {
   "voice_adapter": {
     "default_voice": "story.default",
-    "state_voices": {"field": "speaker", "voices": {"fox": "story.fox", "bird": "story.bird"}}
+    "speaker_voices": {"fox": "story.fox", "bird": "story.bird"}
   },
   "graph": {
     "name": "multi-role-voices",
     "compile": {"node_trigger_mode": "any_predecessor"},
     "state": {"fields": [
-      {"name": "speaker", "type": "string", "merge": "replace"},
+      {"name": "line", "type": "string", "merge": "replace"},
       {"name": "answer", "type": "string", "merge": "replace"}
     ]},
     "nodes": [
       {"id": "select", "type": "script", "language": "starlark", "entrypoint": "run",
-        "inputs": {"text": {"from": "input.text"}}, "outputs": {"speaker": "speaker"},
-        "source": "def run(input):\n  return {\"speaker\": input[\"text\"]}\n",
+        "inputs": {"text": {"from": "input.text"}}, "outputs": {"line": "line"},
+        "source": "def run(input):\n  return {\"line\": \"【\" + input[\"text\"] + \"】\" + input[\"text\"]}\n",
         "limits": {"timeout": "100ms", "max_execution_steps": 1000, "max_input_bytes": 4096, "max_output_bytes": 4096}},
-      {"id": "answer", "type": "passthrough", "inputs": {"value": {"from": "speaker"}}, "outputs": {"value": "answer"}}
+      {"id": "answer", "type": "passthrough", "inputs": {"value": {"from": "line"}}, "outputs": {"value": "answer"}}
     ],
     "edges": [{"from": "start", "to": "select"}, {"from": "select", "to": "answer"}, {"from": "answer", "to": "end"}],
     "branches": [],

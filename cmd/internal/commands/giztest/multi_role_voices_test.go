@@ -70,7 +70,8 @@ func runVoiceGiztest(t *testing.T, kind, fixture, fault string, options ...voice
 			answer["type"] = "script"
 			answer["language"] = "starlark"
 			answer["entrypoint"] = "run"
-			answer["source"] = "def run(input):\n  return {\"value\": " + fmt.Sprintf("%q", provider.reply) + "}\n"
+			// Keep the selector's speaker marker so the long reply stays in that voice.
+			answer["source"] = "def run(input):\n  return {\"value\": input[\"value\"] + " + fmt.Sprintf("%q", provider.reply) + "}\n"
 			answer["limits"] = map[string]any{"timeout": "100ms", "max_execution_steps": 1000, "max_input_bytes": 4096, "max_output_bytes": 4096}
 			data, err = json.Marshal(workflow)
 			if err != nil {

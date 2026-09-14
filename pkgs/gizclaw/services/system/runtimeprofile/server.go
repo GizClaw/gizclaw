@@ -1151,13 +1151,6 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 					}
 				}
 			}
-			if voiceAdapter.StateVoices != nil {
-				for value, alias := range voiceAdapter.StateVoices.Voices {
-					if err := requireVoice("voice_adapter.state_voices.voices."+value, alias); err != nil {
-						return err
-					}
-				}
-			}
 		}
 		return nil
 	case apitypes.WorkflowDriverFlowcraft:

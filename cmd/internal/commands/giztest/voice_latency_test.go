@@ -35,6 +35,7 @@ func TestEinoRealtimeTextDuringTTSStartup(t *testing.T) {
 			if voice {
 				adapter["default_voice"] = "story.default"
 			}
+			// Without speaker_voices the fixture's speaker markers stay literal text.
 			spec["voice_adapter"] = adapter
 			configured, err := json.Marshal(spec)
 			if err != nil {
@@ -86,7 +87,7 @@ func TestEinoRealtimeTextDuringTTSStartup(t *testing.T) {
 				start := time.Now()
 				push("input-fox", "fox-packet")
 				first := <-replies
-				if first == nil || first.Part != genx.Text("fox") {
+				if first == nil || first.Part != genx.Text("【fox】fox") {
 					t.Fatalf("first=%#v", first)
 				}
 				firstDelay := time.Since(start)
@@ -96,7 +97,7 @@ func TestEinoRealtimeTextDuringTTSStartup(t *testing.T) {
 				replacement := time.Now()
 				push("input-bird", "bird-packet")
 				second := <-replies
-				if second == nil || second.Part != genx.Text("bird") {
+				if second == nil || second.Part != genx.Text("【bird】bird") {
 					t.Fatalf("replacement=%#v", second)
 				}
 				delay := time.Since(replacement)
