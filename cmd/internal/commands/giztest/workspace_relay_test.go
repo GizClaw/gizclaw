@@ -884,3 +884,47 @@ func TestRelayOpusMIME(t *testing.T) {
 		}
 	}
 }
+
+func TestWorkspaceRelayTurnAudioLimits(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		packets   int
+		packet    []byte
+		wantError string
+	}{
+		{name: "long narration", packets: 6000, packet: []byte{0xf8, 0xff, 0xfe}},
+		{name: "exact ten minutes", packets: 30000, packet: []byte{0xf8, 0xff, 0xfe}},
+		{name: "over ten minutes", packets: 30001, packet: []byte{0xf8, 0xff, 0xfe}, wantError: "audio duration limit"},
+		{name: "forty millisecond packets", packets: 15001, packet: []byte{0xf9, 0xff, 0xfe}, wantError: "audio duration limit"},
+		{name: "empty audio runaway", packets: 4097, wantError: "4096-event"},
+		{name: "oversized audio", packets: 1, packet: make([]byte, giztest.MaxRelayAudioBytes+1), wantError: "relay turn audio limit"},
+		{name: "malformed ogg", packets: 1, packet: []byte("OggS"), wantError: "decode relay audio failed"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			first, second := newFakeRelayStream(), newFakeRelayStream()
+			// Buffer the complete response so failure cannot strand a producer.
+			first.in = make(chan *genx.MessageChunk, tc.packets+1)
+			for range tc.packets {
+				first.in <- assistantBlob("narration", tc.packet, false)
+			}
+			first.in <- assistantBlob("narration", nil, true)
+			op := textRelayOperation(1)
+			op.TerminalMedia = "audio"
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			result, err := runWorkspaceRelay(ctx, op, first, second, "brief", 0)
+			if tc.wantError != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantError) {
+					t.Fatalf("error = %v, want %s", err, tc.wantError)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.evidence["completed_turns"] != 1 || result.evidence["events"] != tc.packets+1 {
+				t.Fatalf("relay evidence = %#v", result.evidence)
+			}
+		})
+	}
+}
