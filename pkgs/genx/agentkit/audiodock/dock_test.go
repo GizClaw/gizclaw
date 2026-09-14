@@ -1443,11 +1443,13 @@ func TestDockPublishesErrorEpochCompletionAfterTTSCleanup(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			ttsContext := make(chan context.Context, 1)
+			agentOutput := streamkit.NewOutput(streamkit.OutputConfig{})
+			defer agentOutput.Close()
+			if err := agentOutput.Push(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "provider", Label: "assistant"}}); err != nil {
+				t.Fatal(err)
+			}
 			dock, err := New(Config{
-				Agent: fixedAgentOutput(
-					&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "provider", Label: "assistant"}},
-					&genx.MessageChunk{Role: genx.RoleModel, Ctrl: &genx.StreamCtrl{StreamID: "provider", Label: "assistant", EndOfStream: true, Error: test.error, ErrorCode: test.code}},
-				),
+				Agent: transformerFunc(func(context.Context, genx.Stream) (genx.Stream, error) { return agentOutput, nil }),
 				TTS: muxFunc(func(ctx context.Context, _ string, _ genx.Stream) (genx.Stream, error) {
 					ttsContext <- ctx
 					output := streamkit.NewOutput(streamkit.OutputConfig{})
@@ -1474,6 +1476,12 @@ func TestDockPublishesErrorEpochCompletionAfterTTSCleanup(t *testing.T) {
 			case <-time.After(time.Second):
 				t.Fatal("TTS did not start")
 			}
+			// Trigger failure only after the sibling has actually started. Model
+			// consumption must not implicitly wait for asynchronous TTS startup.
+			if err := agentOutput.Push(&genx.MessageChunk{Role: genx.RoleModel, Ctrl: &genx.StreamCtrl{StreamID: "provider", Label: "assistant", EndOfStream: true, Error: test.error, ErrorCode: test.code}}); err != nil {
+				t.Fatal(err)
+			}
+			_ = agentOutput.Close()
 			chunks := readAll(t, output)
 			var terminal *genx.MessageChunk
 			for _, chunk := range chunks {
@@ -2067,24 +2075,13 @@ func TestDockConcurrentTransformsDoNotShareVoiceState(t *testing.T) {
 func TestDockResolvesVoicePerPublisherNode(t *testing.T) {
 	var mu sync.Mutex
 	var patterns []string
-	tts := muxFunc(func(_ context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
+	tts := muxFunc(func(ctx context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
 		mu.Lock()
 		patterns = append(patterns, pattern)
 		mu.Unlock()
-		output := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: 2})
-		go func() {
-			defer output.Close()
-			for {
-				chunk, err := input.Next()
-				if err != nil {
-					return
-				}
-				if chunk.IsEndOfStream() {
-					return
-				}
-			}
-		}()
-		return output, nil
+		return streamkit.NewTTSStream(ctx, input, streamkit.OutputConfig{}, "audio/opus", func(_ context.Context, text string, _ streamkit.TTSMeta, _ string, emit func([]byte) error) error {
+			return emit([]byte(text))
+		}), nil
 	})
 	dock, err := New(Config{
 		Agent: fixedAgentOutput(

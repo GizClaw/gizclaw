@@ -1,0 +1,103 @@
+# User Story:
+# As a device using an audio Workspace,
+# I want to send two different messages after each reply ends,
+# So that both replies belong to their own turns without duplicates.
+version: gizclaw.test/v1alpha1
+name: device-text-doubao-realtime-consecutive
+timeout: 5m
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  input_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        collection: assistants
+        workflow_name: doubao-realtime-conversation
+        parameters:
+          doubao_realtime_workspace_parameters:
+            agent_type: DOUBAO_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_DOUBAO_REALTIME
+            input: WORKSPACE_INPUT_MODE_REALTIME
+  - id: select
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  - id: turn_1
+    client: peer
+    timeout: 60s
+    peer_stream:
+      mode: text
+      text_done: true
+      timestamp: zero
+      input: "请只回答：苹果。"
+      label: demo-home
+      require_audio: true
+      idle_timeout: 30s
+    expect:
+      /text:
+        contains: 苹果
+      /text_eos:
+        equals: true
+  - id: turn_2
+    client: peer
+    timeout: 60s
+    peer_stream:
+      mode: text
+      text_done: true
+      timestamp: zero
+      input: "请只回答：月亮。"
+      label: demo-home
+      require_audio: true
+      idle_timeout: 30s
+    expect:
+      /text:
+        contains: 月亮
+      /text_eos:
+        equals: true
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

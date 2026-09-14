@@ -778,3 +778,49 @@ func TestLoadDocumentGatesParallelStepsOnDriverSupport(t *testing.T) {
 		t.Fatalf("documents = %#v skipped = %#v err = %v", documents, skipped, err)
 	}
 }
+
+func TestPeerStreamTextWireOptions(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		op        PeerStreamOperation
+		wantError bool
+	}{
+		{name: "device", op: PeerStreamOperation{Mode: "text", Input: "hello", TextDone: true, Label: "demo-home", Timestamp: "zero"}},
+		{name: "clock control", op: PeerStreamOperation{Mode: "text", Input: "hello", TextDone: true, Timestamp: "unix_ms"}},
+		{name: "unknown clock", op: PeerStreamOperation{Mode: "text", Input: "hello", Timestamp: "seconds"}, wantError: true},
+		{name: "audio label", op: PeerStreamOperation{Mode: "push-to-talk", Input: "audio", Label: "demo-home"}},
+		{name: "audio done", op: PeerStreamOperation{Mode: "push-to-talk", Input: "audio", TextDone: true}, wantError: true},
+		{name: "listen label", op: PeerStreamOperation{Mode: "listen", Duration: "1s", Label: "demo-home"}, wantError: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validatePeerStreamStep(Step{ID: "wire", PeerStream: &tc.op}, false)
+			if (err != nil) != tc.wantError {
+				t.Fatalf("validation error = %v, want error %t", err, tc.wantError)
+			}
+		})
+	}
+}
+
+func TestTextProbeValidation(t *testing.T) {
+	no := false
+	for _, tc := range []struct {
+		name  string
+		op    PeerStreamOperation
+		valid bool
+	}{
+		{"quiet", PeerStreamOperation{Mode: "text", Input: " \t\n", RequireText: &no, RequireAudio: &no, IdleTimeout: "10ms"}, true},
+		{"nonblank", PeerStreamOperation{Mode: "text", Input: "hello", RequireText: &no, RequireAudio: &no, IdleTimeout: "10ms"}, false},
+		{"unbounded", PeerStreamOperation{Mode: "text", Input: " ", RequireText: &no, RequireAudio: &no}, false},
+		{"two-texts", PeerStreamOperation{Mode: "text", TextDone: true, OverlapInput: true, Input: []any{"one", "two"}}, true},
+		{"one-text", PeerStreamOperation{Mode: "text", OverlapInput: true, Input: []any{"one"}}, false},
+		{"blank-text", PeerStreamOperation{Mode: "text", OverlapInput: true, Input: []any{"one", " "}}, false},
+		{"non-text", PeerStreamOperation{Mode: "text", OverlapInput: true, Input: []any{"one", 42}}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validatePeerStreamStep(Step{ID: "probe", PeerStream: &tc.op}, false)
+			if (err == nil) != tc.valid {
+				t.Fatalf("valid=%t err=%v", tc.valid, err)
+			}
+		})
+	}
+}

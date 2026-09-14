@@ -190,6 +190,9 @@ func validateFlowcraftVoiceAdapter(adapter *VoiceAdapter) error {
 	if adapter == nil {
 		return nil
 	}
+	if err := ValidateSpeakerVoices(adapter.SpeakerVoices); err != nil {
+		return err
+	}
 	aliases := make(map[string]string)
 	if adapter.AsrModel != nil {
 		aliases["asr_model"] = *adapter.AsrModel

@@ -1,0 +1,91 @@
+# User Story:
+# As a story listener,
+# I want sequential speaker voices within one reply,
+# So that dialogue remains continuous and markers stay hidden.
+version: gizclaw.test/v1alpha1
+name: speaker-segments.eino.realtime
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        collection: assistants
+        workflow_name: speaker-segments-eino
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_REALTIME
+  - id: select_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  - id: segments
+    client: peer
+    timeout: 20s
+    peer_stream:
+      mode: text
+      input: 开场【狐】狐狸说话【鸟】小鸟回答【狐】狐狸再说【路人】尾声
+    expect:
+      /text:
+        pattern: "^开场狐狸说话小鸟回答狐狸再说【路人】尾声$"
+      /text_eos:
+        equals: true
+      /audio_eos:
+        equals: true
+      /audio_integrity/streams:
+        equals: 1
+      /audio_integrity/max_active:
+        equals: 1
+      /audio_integrity/open:
+        equals: 0
+      /audio_integrity/violations:
+        equals: 0
+      /audio_pacing/packets:
+        minimum: 400
+        maximum: 480
+      /audio_pacing/underruns:
+        equals: 0
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}
+timeout: 60s

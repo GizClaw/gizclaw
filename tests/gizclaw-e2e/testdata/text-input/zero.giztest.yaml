@@ -1,0 +1,28 @@
+# User Story:
+# As a device on an audio Workspace,
+# I want to send a control BOS and full TEXT_DONE with zero timestamps,
+# So that the Agent replies without requiring an ASR turn.
+version: gizclaw.test/v1alpha1
+name: device-text-zero
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: http://127.0.0.1
+variables: {}
+steps:
+  - id: text_reply
+    client: peer
+    timeout: 3s
+    peer_stream:
+      mode: text
+      input: 请回答这条文字消息
+      text_done: true
+      timestamp: zero
+      label: demo-home
+      completion: first_response
+      first_text_timeout: 2s
+      require_audio: false
+    expect:
+      /text:
+        non_empty: true

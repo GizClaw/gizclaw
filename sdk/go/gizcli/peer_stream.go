@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
@@ -34,6 +35,12 @@ type PeerStream struct {
 
 	audioRouteMu sync.RWMutex
 	audioRoute   genx.StreamCtrl
+
+	// Only mergeOutput owns startup audio. RTP has no logical stream ID, so
+	// packets after a completed epoch must not be reassigned to a later BOS.
+	audioStarted bool
+	startupAudio []*genx.MessageChunk
+	startupBytes int
 }
 
 type peerAudioInputReady struct {
@@ -282,9 +289,24 @@ func isPeerResourceInvalidation(event *eventpb.PeerEvent) bool {
 
 func (s *PeerStream) mergeOutput() {
 	packets := s.packets
+	timer := time.NewTimer(time.Hour)
+	timer.Stop()
+	defer timer.Stop()
+	defer func() { s.startupAudio = nil; s.startupBytes = 0 }()
+	var startupDeadline <-chan time.Time
 	for {
+		if len(s.startupAudio) > 0 && startupDeadline == nil {
+			timer.Reset(time.Second)
+			startupDeadline = timer.C
+		} else if len(s.startupAudio) == 0 && startupDeadline != nil {
+			timer.Stop()
+			startupDeadline = nil
+		}
 		select {
 		case <-s.done:
+			return
+		case <-startupDeadline:
+			_ = s.CloseWithError(fmt.Errorf("gizclaw: initial audio BOS timeout"))
 			return
 		case result := <-s.eventResults:
 			if result.err != nil {
@@ -318,6 +340,17 @@ func (s *PeerStream) pushMergedEvent(chunk *genx.MessageChunk) error {
 	if err := s.pushOutput(chunk); err != nil {
 		return err
 	}
+	if peerStreamChunkIsOpusControl(chunk) && chunk.IsBeginOfStream() {
+		s.audioStarted = true
+		pending := s.startupAudio
+		s.startupAudio = nil
+		s.startupBytes = 0
+		for _, packet := range pending {
+			if err := s.pushOutput(s.bindOpusPacketRoute(packet)); err != nil {
+				return err
+			}
+		}
+	}
 	s.observeAudioRouteAfterOutput(chunk)
 	return nil
 }
@@ -343,7 +376,17 @@ func (s *PeerStream) pushMergedPacket(payload []byte) error {
 	if !ok {
 		return nil
 	}
-	return s.pushOutput(s.bindOpusPacketRoute(chunk))
+	routed := s.bindOpusPacketRoute(chunk)
+	if !s.audioStarted && routed == chunk {
+		// Bound both packet count and bytes before retaining untrusted payloads.
+		if len(s.startupAudio) >= 64 || len(payload) > 128*1024-s.startupBytes {
+			return fmt.Errorf("gizclaw: initial audio BOS buffer exceeded")
+		}
+		s.startupAudio = append(s.startupAudio, chunk)
+		s.startupBytes += len(payload)
+		return nil
+	}
+	return s.pushOutput(routed)
 }
 
 func (s *PeerStream) pushOutput(chunk *genx.MessageChunk) error {

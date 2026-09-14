@@ -1,0 +1,66 @@
+# User Story:
+# As a device using an audio Workspace,
+# I want to send text, then microphone audio, then text on the same conversation,
+# So that all three turns receive complete replies.
+version: gizclaw.test/v1alpha1
+name: device-text-alternating
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: http://127.0.0.1
+variables:
+  input_audio:
+    direction: input
+    env: GIZCLAW_TEXT_INPUT_AUDIO
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: turn_1
+    client: peer
+    timeout: 5s
+    peer_stream:
+      mode: text
+      text_done: true
+      timestamp: zero
+      input: "第一轮文字，请回应。"
+      label: demo-home
+      require_audio: false
+      idle_timeout: 3s
+    expect:
+      /text:
+        non_empty: true
+      /text_eos:
+        equals: true
+  - id: turn_2
+    client: peer
+    timeout: 5s
+    peer_stream:
+      mode: push-to-talk
+      input: "${input_audio}"
+      label: demo-home
+      require_audio: false
+      idle_timeout: 3s
+    expect:
+      /text:
+        non_empty: true
+      /text_eos:
+        equals: true
+  - id: turn_3
+    client: peer
+    timeout: 5s
+    peer_stream:
+      mode: text
+      text_done: true
+      timestamp: zero
+      input: "第三轮文字，请回应。"
+      label: demo-home
+      require_audio: false
+      idle_timeout: 3s
+    expect:
+      /text:
+        non_empty: true
+      /text_eos:
+        equals: true

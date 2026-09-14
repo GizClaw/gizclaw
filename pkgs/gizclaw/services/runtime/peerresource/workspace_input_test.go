@@ -114,7 +114,7 @@ func TestWorkspaceParametersSetRejectsEmptyPatch(t *testing.T) {
 
 func TestWorkspaceParametersSetInputKeepsParametersAndToolkit(t *testing.T) {
 	ctx := context.Background()
-	server := newWorkspaceInputTestServer(t, ctx)
+	server := newWorkspaceToolkitTestServer(t)
 
 	pushToTalk := rpcapi.WorkspaceInputModePushToTalk
 	initiative := rpcapi.ConversationParametersInitiativeAgent
@@ -126,7 +126,7 @@ func TestWorkspaceParametersSetInputKeepsParametersAndToolkit(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("build RPC parameters: %v", err)
 	}
-	toolNames := []string{"tool-a"}
+	toolNames := []string{"echo-alias"}
 	created := callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
 		Name: "journey-1", Collection: "story-teller", WorkflowName: "journey",
 		Parameters: &parameters,

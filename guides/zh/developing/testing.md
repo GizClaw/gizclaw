@@ -343,6 +343,39 @@ JavaScript 与 Flutter 省略该字段。
 
 ### Giztest 场景
 
+文字输入的 `peer_stream` 使用 `mode: text`。`text_done: true` 发送纯控制 BOS 与包含全文的 TEXT_DONE 两条事件；不设置时保留 BOS、TEXT_DELTA、空 TEXT_DONE 三条事件。`timestamp: zero` 是默认值，`timestamp: unix_ms` 给同轮两个事件使用当前 Unix 毫秒值。`label` 可为文字或音频输入指定相同的 route label，默认 `user`。
+
+`TestDeviceTextInputGiztest` 读取 `tests/gizclaw-e2e/testdata/text-input/` 中的 Giztest 文档，执行 Go runner 的真实 `peer_stream` operation、RealtimeStream 和三个 driver 的 Transformer。Doubao SDK 通过内存 HTTP/WebSocket 连接到本地 provider fixture；Eino 使用本地 typed Graph，Flowcraft 使用本地 Generator，外挂 TTS 输出可解码的非静音 Opus。此测试不需要凭据或本地端口，验证零/Unix 毫秒时间戳、PTT/Realtime、直接文字及语音后文字；它不替代真实 Server/WebRTC 或产品 Graph 的验收。
+
+`TestDeviceTextSequences` 对五种配置增加连续两轮、同连接文字打断、文字→语音→文字、
+空白后恢复、4002 字节中文和 UTF-8/emoji；Eino/Flowcraft 另测 `开始` 与有前序轮次的
+`继续上次的内容`，Realtime 另测客户端静默后文字。Provider 回显完整输入，使本地测试可
+精确检查轮次内容与重复回复；本地 Graph 不代替产品 Graph 的状态恢复验收。
+
+Go runner 的 `overlap_input: true` 在 `mode: text` 时要求 `input` 为两条非空文字组成的数组。
+第一轮可听音频到达、音频 EOS 尚未到达时，在同一连接发送第二轮 BOS 和文字；两轮都
+必须结束，第二轮必须有文字和音频，旧轮内容不得与新轮交错。它不使用 `interrupt_after`
+的关闭重开连接行为。该扩展由 Go runner 执行。
+
+空白文字可显式设置 `require_text: false`、`require_audio: false` 和正数 `idle_timeout`，
+观察无回复窗口；有效 assistant 文字、音频或 terminal error 均失败，窗口结束后才进入下一轮。
+这只适用于空白文字的 terminal completion，普通输入仍必须要求至少一种回复模态。
+Live 场景保留原有凭据开关；普通本地测试不会执行 live 场景。
+
+```sh
+go test ./cmd/internal/commands/giztest -run '^TestDeviceText' -count=1
+go test -race ./pkgs/genx/transformers/doubaorealtime -count=1
+```
+
+同目录 `live/` 下的独立文档使用标准 E2E Workflow catalog，创建 Workspace，在首次文字回复、语音回复和后续文字回复中都检查文本、完整终态及非静音音频，然后清理资源。先按上面的 Docker E2E 步骤启动带凭据的环境，并设置其 `GIZCLAW_TEST_ENDPOINT`、`GIZCLAW_TEST_REGISTRATION_TOKEN`；以下入口默认跳过，显式选择后缺少环境变量或任一场景失败都会失败：
+
+```sh
+GIZCLAW_TEXT_INPUT_LIVE=1 go test ./cmd/internal/commands/giztest \
+  -run '^TestDeviceTextInputLive$' -count=1 -timeout=20m
+```
+
+也可以直接用 `gizclaw test run tests/gizclaw-e2e/testdata/text-input/live --parallel 1` 执行。Eino 和 Flowcraft 使用 E2E catalog 中的 Graph，不代表 H106 的所有小剧场或大冒险产品配置都已验收。
+
 AST 连续轮次回归由 `volc-ast-translate.push-to-talk-consecutive-turns.giztest.yaml`
 和 `volc-ast-translate.realtime-consecutive-turns.giztest.yaml` 覆盖。每个场景只合成一次
 中文音频，在同一个 Workspace 中连续进行三轮中文到法语翻译；每轮保留 30 秒
@@ -404,6 +437,8 @@ Giztest 共用该环境。远端目标可预先 provision 资源，再只提供
 bash tests/gizclaw-e2e/run_eino_first_response_tests.sh
 ```
 
+首响、并发和延迟测试使用的 `eino-concurrency-assistant`、`eino-latency-comparison`、`flowcraft-latency-comparison` 与 `flowcraft-voice-assistant` 测试 Workflow 均显式配置 `spec.toolkit: {tool_ids: []}`，因此这些 Workspace 不向模型提供工具。RuntimeProfile 中的 `giztest-echo` 仍保留，供 `client.tool.invoke*` 和 `eino-memory-assistant.tools` 验证工具调用。首响入口的 text、Push-to-Talk、Realtime 与两个 roundtrip 文档都通过同一 Workflow 策略隔离工具。
+
 Runner 只构建一个 CLI revision，启动一套隔离的 Server/Edge stack，然后把同样的十任务
 text-only、configured-ASR Push-to-Talk 与 Realtime 文档分别以 `--parallel 1` 和
 `--parallel 8` 经过 Server 与 Edge。带语音场景从 input 完成时开始计时：700 ms 内出现
@@ -452,9 +487,11 @@ Doubao、Eino、Flowcraft 的 `*-overlapping-input.giztest.yaml` 分别覆盖两
 `peer_stream.completion: first_response` 是面向部署探针的有界替代模式。
 `require_text` 和 `require_audio` 选择必须等待的模态，二者都默认为 true；每个必需模态必须
 声明对应的正数 Go duration `first_text_timeout` 或 `first_audio_timeout`，禁用的模态不声明
-对应 deadline，并且至少保留一个必需模态。deadline 只在完整 turn 输入推送完成后开始；
-runner 一旦观察到所有必需模态的第一段 assistant 内容（文本为非空片段，音频为第一个有声帧）就成功并关闭该逻辑 stream，
-不等待任何 EOS。缺少必需模态时分别以 `deadline=first_text_timeout` 或
+对应 deadline，并且至少保留一个必需模态。text 和 push-to-talk 在完整 turn 输入推送完成后开始计时；
+realtime 从最后一包真实语音发送完成时开始计时，后续尾静音不延后起点，也不增加 deadline 的宽限。
+realtime 在发送期间持续消费输出；所有必需模态的第一段 assistant 内容（文本为非空片段，音频为第一个有声帧）
+均在对应 deadline 内到达后，runner 等待完整输入发送成功，再成功关闭该逻辑 stream，不等待任何 EOS。
+计时起点之前到达的内容按零延迟记录。interrupt 的替换输入也在发送期间持续消费输出。缺少必需模态时分别以 `deadline=first_text_timeout` 或
 `deadline=first_audio_timeout` 失败。该模式不能与 `interrupt_after`、`terminal_label` 或
 `wait_for_history` 组合。
 `peer_stream.idle_timeout`（Go duration，可选）限制的是不活动时长而不是总时长：runner 在
@@ -472,8 +509,9 @@ turn 输入推送完成后启动计时器，每收到一个 chunk（不区分 la
 `gizcli.PeerStream`。首个 `mode: realtime` 步骤同时设置 `session` 与
 `keep_open: true`；后续同 client 的 realtime 步骤使用同一 `session` 和
 `await_rearm: INPUT_ROUTE_RELOADED`。后者先消费旧 route 的精确 retryable user-audio
-EOS，再发送 fresh BOS，之后才发送声明的音频输入。一个 session 只能创建一次、消费一次；
-未知、重复、已消费、跨 client 或跨 task 的 session 都在发送输入前失败。
+EOS，再发送 fresh BOS，之后才发送声明的音频输入。Go runner 也支持后续步骤只设置
+同一 `session` 和 `keep_open: true`：立即发送新 BOS，在旧回复尚未完成时开始下一轮，
+不等待 route reload。已消费、跨 client 或跨 task 的 session 不能用于 re-arm。
 
 从等待重载到替换回复结束，任何 assistant EOS 的 error code 或 message 都使步骤失败，包括 `interrupted`；无错误 EOS 和精确的输入重载通知允许通过。
 
@@ -1037,27 +1075,45 @@ git lfs fsck
 ```
 
 
-## Eino 多音色确定性 Giztest
+## 多角色音频确定性 Giztest
 
-`go test ./cmd/internal/commands/giztest -run '^TestEinoMultiVoiceGiztest$' -count=1`
-通过 Go Giztest runner 和 CLI `peer_stream` 接收逻辑执行
-`tests/gizclaw-e2e/testdata/eino-voices/multi-turn.giztest.yaml`。夹具保留同一个真实
-Eino Factory/AudioDock invocation，依次输入 fox、bird、unknown（回落 default）、fox。
-Provider 边界 fake 为三个 Voice 资源分别输出 300/500/700 Hz 的 Opus 音频；无需网络、
-凭据、LLM 或 Docker。Audioplayer Giztest CI job 在设备 RPC 场景及 Console 资源构建后明确运行此测试。
+```sh
+go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|FlowcraftMultiVoiceGiztest|MultiRole.*)$' -count=1
+```
 
-Go `peer_stream` 结果提供 `audio_integrity`：`sha256` 对按接收顺序拼接的原始音频
-payload 计算摘要；`streams`、`max_active`、`open`、`violations` 在 response 过滤前
-记录音频 BOS/EOS ownership。`max_active > 1` 表示重叠；重复 BOS、无 BOS 数据和
-EOS 后数据会增加 `violations`。它们通过普通 `expect` 断言，不增加文档 Schema 字段。
-摘要可证明确定性夹具的音频身份，不能识别任意真实 Provider 音色；摘要只进入断言值，
-不写入脱敏 report evidence。
+套件共享 `voice_fixture_test.go` 的 fake provider，保留真实 Eino/Flowcraft Factory、
+AudioDock、Go Giztest runner 和 CLI 接收逻辑。无需外部网络、凭据或 Docker。
+Audioplayer Giztest job 在 Console 资源构建后执行整个套件，复用已有音频测试环境。
 
-每轮要求恰好 40 个 20 ms 包，最大接收间隔不超过 150 ms，使用现有 500 ms 预缓冲
-模拟时无欠载、最低缓冲非负；同时要求音频摘要匹配预期 Voice、恰好一个结束的音频流且
-无生命周期违规。夹具还跨轮保留音频 ownership，检查总计四次 TTS 调用且同时最多一次。
-错误音色、900 ms 断流和重叠流注入必须失败。该 Provider 边界测试不替代真实 Provider
-音质、WebRTC/Server/Edge pacing 或设备播放验收。
+- `eino-voices/multi-turn.giztest.yaml` 保留四轮 state voice 回归；
+  `multi-role-voices/multi-turn.giztest.yaml` 在同一 invocation 执行 fox、bird、owl、bear、
+  unknown（default 回落）、bear、bear、fox 八轮。Flowcraft 的四个发布节点使用
+  `node_voices`，每轮使用不同的确定性音频摘要，连续同角色也能发现上一轮音频被复用。
+- 每轮 `audio_integrity/sha256` 验证包内容和顺序；`streams=1`、`max_active=1`、
+  `open=0`、`violations=0` 验证 BOS/EOS、无交错和无晚到数据。整个会话另保留 ownership，
+  并检查 TTS 调用次数及正常多轮中最多一个活跃调用。
+- `audio_pacing` 要求 40 个 20 ms 包、最大间隔 150 ms、500 ms 预缓冲下无欠载且最低
+  缓冲非负。两种 workflow 的 `long-reply.giztest.yaml` 使用超过 2 KB 的文本和 160 包
+  音频，fake TTS 以 15/25/20 ms 周期注入可重复抖动；900 ms stall 必须被拒绝。
+- `TestMultiRoleVoiceModesGiztest` 使用真实 Opus 输入包和 fake ASR，分别执行
+  push-to-talk（输入 EOS 后转写）与 realtime（输入流保持打开时输出最终转写）。
+  夹具只验证 provider 边界和模式 wiring，不评价真实 ASR/VAD。
+- `TestMultiRoleVoiceInterrupt` 对两个 workflow、两种模式均在收到 A 的第 8 包且 TTS
+  仍活跃时发送 B。按 StreamID 和 MIME route 同时跟踪 text/plain 与 audio/opus：
+  接受 B 前要求 A 两条路由均以 interrupted EOS 结束，B 两条路由均须正常 EOS；
+  B 开始后收到 A 的任一类型 chunk（含空 chunk 和 EOS）即失败。另验证 A 音频合法前缀、
+  B 完整 40 包及正确摘要、跨角色无 overlap。
+  `TestMultiRoleVoiceInterruptAssertions` 独立拒绝 A text 缺中断 EOS、B 开始后晚到
+  A text、B text 未 EOS，并保留完整双路由生命周期的正例。
+- 故障测试拒绝 wrong voice、interleave、stall 和截断未 EOS。截断由 AudioDock 的
+  `TTS ended without EOS` 终止错误拒绝。独立的 `TestMultiRoleVoiceAssertions` 用
+  原始包轨迹分别验证摘要、最大活跃流、未闭合流和晚到包断言，以及 150/151 ms 包间隔、
+  500/501 ms 缓冲边界，避免一种断言失败掩盖其他断言失效。
+
+快速输入与中途打断共用上述测试：新输入 BOS 取代旧回复是 AudioDock/Flowcraft 的
+barge-in 契约。测试正向断言 A 的合法前缀和双路由中断 EOS、B 完整 40/40 包及
+双路由正常 EOS、B 开始后无 A chunk，以及 `max_active=1`，不另设重复场景。
+此 provider 边界套件不替代真实音色识别、Server/Edge/WebRTC pacing 或设备播放验收。
 
 ## Monitor API giztest
 
@@ -1091,3 +1147,37 @@ bash tests/gizclaw-e2e/run_monitor_tests.sh
 `bash tests/gizclaw-e2e/run_audioplayer_tests.sh` 启动隔离的真实 Server 和 Edge，以 SQLite 保存 runtime，不需要模型或 provider 凭据。入口执行六个 `server.device.audioplayer.*` 场景，退出时清理容器与临时身份；报告保留在 ignored `.testbench` 目录。独立 CI job 运行相同入口。
 
 脚本化设备 provider 验证 HTTP 授权、校验、反向 RPC、列表 contract 和快照投影，不下载或播放音乐。五个控制场景由 Go、JavaScript、Flutter、C runner 支持。独立 `telemetry` step 的 `frame` 使用 protobuf JSON，由 Go SDK 经真实 packet channel 发送；其他 runner 明确跳过此 operation。发送成功不表示落库：telemetry 场景轮询 `server.status.get`，再通过 HTTP status 验证进度、错误、旧报告保护和 OTA 共存。此处不新增 Dart telemetry transport，也不代表真机播放验收。
+
+### 初始 RTP/BOS 竞争回归
+
+`bash tests/gizclaw-e2e/run_rtp_bos_tests.sh` 在本机隔离 Docker internal 网络运行
+真实 Server、Edge 和 Go Giztest 接收器，使用临时身份和 SQLite，不读取 provider
+凭据。`testdata/rtp-bos/` 的 build overlay 提供确定性 ASR/TTS，TTS 将 BOS 与首帧
+合并；接收端 overlay 将音频 BOS 处理延后 200 ms，RTP 读取继续运行。场景验证
+完整音频、BOS/EOS、单 active stream、零完整性违规和包间隔，CI Audioplayer job
+执行相同入口并上传 `.testbench/rtp-bos-*/reports/`。这不是云模型性能或真机验收。
+
+## 本地慢 TTS 回归
+
+`bash tests/gizclaw-e2e/run_slow_tts_tests.sh` 在 internal Docker 网络中运行真实
+Server、Edge 和 Go Peer，使用临时身份和 SQLite，不读取 provider 凭据。
+Go build overlay 只替换 peergenx 的默认 provider builder；Workflow factory、
+AudioDock、AgentHost、WebRTC、首响应计时与音频接收器均使用被测源码。
+替身 ASR 从输入音频生成固定 transcript，TTS 启动等待 12 秒后声明空音频 BOS，
+合成等待 200 毫秒，
+再输出 80 个有效的 20 毫秒 Opus 音频帧。延迟受 context 取消约束。
+
+`slow-tts.*.giztest.yaml` 覆盖 Eino push-to-talk、Eino realtime 和 Flowcraft realtime。
+`first_response` 步骤保持 2 秒首文本期限；使用相同 Workflow 的独立 Peer 检查 text/audio EOS、非空音频、
+无重叠和播放节拍。Realtime 在保留的 session 中连续发起输入，覆盖旧 TTS 启动期间的换轮。
+此套件接在 CI 的 Audioplayer Giztest job；标准 provider-backed runner 排除这些专用夹具。
+报告保留在 `.testbench/slow-tts-*/reports/`，退出时清理容器、镜像和临时运行状态。
+
+### 说话人分段回归
+
+确定性测试使用可区分的 Opus 音色，验证单轮五段的完整音频摘要顺序、文字剥离、单流与 `audio_pacing.underruns=0`。Docker 入口在内部隔离网络启动本地 Server/Edge，使用仅测试构建的 provider overlay，分别运行 Eino 与 Flowcraft；无需凭据，结束后清理容器，报告保留于 `.testbench/speaker-segments-*/reports/`。CI 的 Audioplayer Giztest job 执行两条入口。
+
+```sh
+go test ./cmd/internal/commands/giztest -run '^TestSpeakerSegmentsGiztest$' -count=1
+bash tests/gizclaw-e2e/run_speaker_segment_tests.sh
+```

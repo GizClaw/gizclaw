@@ -584,8 +584,8 @@ func TestDefaultBuilderBuildsVolcASRTransformer(t *testing.T) {
 	if got := transformerStringField(t, tf, "resourceID"); got != "volc.bigasr.sauc.duration" {
 		t.Fatalf("ASR resourceID = %q, want volc.bigasr.sauc.duration", got)
 	}
-	if got := transformerNestedIntPointerField(t, tf, "endWindowSize"); got != 800 {
-		t.Fatalf("ASR endWindowSize = %d, want 800", got)
+	if got := transformerNestedIntPointerField(t, tf, "endWindowSize"); got != 500 {
+		t.Fatalf("ASR endWindowSize = %d, want 500", got)
 	}
 	if got := transformerNestedIntPointerField(t, tf, "forceToSpeechTime"); got != 1000 {
 		t.Fatalf("ASR forceToSpeechTime = %d, want 1000", got)

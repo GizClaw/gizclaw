@@ -1331,6 +1331,9 @@ func TestTransformerEmitInterimControlsNonDefiniteUtterances(t *testing.T) {
 						t.Fatalf("output[%d] text = %q, want %q", i, got, want.text)
 					}
 				}
+				if got, want := chunk.Ctrl.TextInterim, want.text == "partial text"; got != want {
+					t.Fatalf("output[%d] TextInterim = %t, want %t", i, got, want)
+				}
 				gotLabel := ""
 				if chunk.Ctrl != nil {
 					gotLabel = chunk.Ctrl.Label

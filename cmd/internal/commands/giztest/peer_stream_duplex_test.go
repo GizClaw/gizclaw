@@ -182,3 +182,162 @@ func TestPeerStreamInputSentDrainsBeyondReaderQueue(t *testing.T) {
 		})
 	}
 }
+
+// speechBoundaryProbe delays speech independently of the response and holds the
+// tail until the operation has consumed more output than its reader can buffer.
+type speechBoundaryProbe struct {
+	*fakeRelayStream
+	pushed      int
+	speechEnded chan time.Time
+	observed    <-chan struct{}
+}
+
+func (s *speechBoundaryProbe) Push(ctx context.Context, chunk *genx.MessageChunk) error {
+	s.pushed++
+	if s.pushed == 2 {
+		timer := time.NewTimer(150 * time.Millisecond)
+		defer timer.Stop()
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			return context.Cause(ctx)
+		}
+		s.speechEnded <- time.Now()
+	}
+	if s.pushed == 3 {
+		select {
+		case <-s.observed:
+		case <-ctx.Done():
+			return context.Cause(ctx)
+		}
+	}
+	return nil
+}
+
+func TestPeerStreamFirstResponseConsumesBeyondQueueDuringTail(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel()
+	observed := make(chan struct{})
+	s := &speechBoundaryProbe{fakeRelayStream: newFakeRelayStream(), speechEnded: make(chan time.Time, 1), observed: observed}
+	const packets = 200
+	go func() {
+		select {
+		case <-s.speechEnded:
+		case <-ctx.Done():
+			return
+		}
+		timer := time.NewTimer(40 * time.Millisecond)
+		defer timer.Stop()
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			return
+		}
+		for range packets {
+			select {
+			case s.in <- assistantBlob("reply", []byte{0xf8}, false):
+			case <-ctx.Done():
+				return
+			}
+		}
+		select {
+		case s.in <- assistantText("reply", "hello", false):
+		case <-ctx.Done():
+		}
+	}()
+	count := 0
+	disabled := false
+	result, err := invokePeerStream(ctx, nil, func() (peerStream, error) { return s, nil }, giztest.Step{
+		ID: "first", Client: "peer", PeerStream: &giztest.PeerStreamOperation{
+			Mode: "realtime", Completion: "first_response", FirstTextTimeout: "100ms", RequireAudio: &disabled,
+		},
+	}, []byte{0xf8}, 0, func(_ string, role string, _ []byte, end bool) error {
+		if role == "assistant" && !end {
+			count++
+			if count == packets {
+				close(observed)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != packets || result.evidence["events"] != packets+1 {
+		t.Fatalf("output counts: packets=%d evidence=%v", count, result.evidence)
+	}
+	if elapsed := result.evidence["first_text_ms"].(int64); elapsed < 30 || elapsed > 100 {
+		t.Fatalf("first_text_ms=%d, want speech-end-relative latency in [30,100]", elapsed)
+	}
+	if s.pushed != 202 {
+		t.Fatalf("sent %d chunks, want BOS, speech and full tail", s.pushed)
+	}
+}
+
+func TestPeerStreamInterruptConsumesOutputDuringReplacementPush(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel()
+	first := newFakeRelayStream()
+	observed := make(chan struct{})
+	replacement := &duplexOutputProbe{fakeRelayStream: newFakeRelayStream(), observed: observed}
+	const packets = 200
+	for _, s := range []*fakeRelayStream{first, replacement.fakeRelayStream} {
+		go func() {
+			for {
+				select {
+				case <-s.pushes:
+				case <-s.closed:
+					return
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+	}
+	first.in <- assistantText("first", "hello", false)
+	opened := 0
+	count := 0
+	result, err := invokePeerStream(ctx, nil, func() (peerStream, error) {
+		opened++
+		if opened == 1 {
+			return first, nil
+		}
+		go func() {
+			for range packets {
+				select {
+				case replacement.in <- assistantBlob("second", []byte{0xf8}, false):
+				case <-ctx.Done():
+					return
+				}
+			}
+			for _, chunk := range []*genx.MessageChunk{
+				assistantText("second", "replacement", false),
+				assistantText("second", "", true),
+				assistantBlob("second", nil, true),
+			} {
+				select {
+				case replacement.in <- chunk:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+		return replacement, nil
+	}, giztest.Step{ID: "interrupt", Client: "peer", PeerStream: &giztest.PeerStreamOperation{
+		Mode: "realtime", InterruptAfter: "1ms",
+	}}, []byte{0xf8}, 0, func(_ string, role string, _ []byte, end bool) error {
+		if role == "assistant" && !end {
+			count++
+			if count == packets {
+				close(observed)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != packets || result.assertion.(map[string]any)["interrupted"] != true {
+		t.Fatalf("replacement not consumed: packets=%d result=%v", count, result.assertion)
+	}
+}

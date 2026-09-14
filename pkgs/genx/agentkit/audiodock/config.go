@@ -3,6 +3,7 @@ package audiodock
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -35,6 +36,8 @@ type Config struct {
 	TTS genx.TransformerMux
 	// ResolveVoice selects a TTS pattern per output route.
 	ResolveVoice VoiceResolver
+	// SpeakerVoices maps recognized speaker names to TTS mux patterns.
+	SpeakerVoices map[string]string
 	// TTSCompletionTimeout bounds the time between the Agent's text EOS and
 	// completion of every TTS pipe for that response. Zero uses one minute.
 	TTSCompletionTimeout time.Duration
@@ -49,6 +52,12 @@ func normalizeConfig(config Config) (Config, error) {
 	}
 	if config.TTS != nil && config.ResolveVoice == nil {
 		return Config{}, fmt.Errorf("audiodock: TTS requires ResolveVoice")
+	}
+	config.SpeakerVoices = maps.Clone(config.SpeakerVoices)
+	for name, pattern := range config.SpeakerVoices {
+		if strings.TrimSpace(name) == "" || strings.ContainsAny(name, "【】") || strings.TrimSpace(pattern) == "" {
+			return Config{}, fmt.Errorf("audiodock: invalid speaker voice %q", name)
+		}
 	}
 	if config.TTSCompletionTimeout <= 0 {
 		config.TTSCompletionTimeout = defaultTTSCompletionTimeout

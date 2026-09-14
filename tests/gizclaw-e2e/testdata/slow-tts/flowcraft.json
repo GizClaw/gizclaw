@@ -1,0 +1,29 @@
+{
+  "driver": "flowcraft",
+  "flowcraft": {
+    "voice_adapter": {
+      "asr_model": "asr",
+      "default_voice": "narrator"
+    },
+    "graph": {
+      "name": "Slow TTS",
+      "entry": "echo",
+      "nodes": [
+        {
+          "id": "echo",
+          "type": "script",
+          "publish": true,
+          "config": {
+            "source": "host.emit(\"token\", {content: \"Latency fixture reply\"});"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "from": "echo",
+          "to": "__end__"
+        }
+      ]
+    }
+  }
+}

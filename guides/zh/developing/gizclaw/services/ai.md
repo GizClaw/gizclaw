@@ -70,7 +70,7 @@ Doubao Realtime factory 拥有产品层 precedence，不解释 provider model fa
 
 #### Flowcraft 组合边界
 
-Flowcraft workflow factory 把扁平的 `spec.flowcraft.graph`、`conversation`、`max_iterations` 和 `voice_adapter` 与 Workspace owner 的 RuntimeProfile alias、History、State、Memory 和 Audio Dock 组装成 Transformer。Workspace `input` 缺省为 `push-to-talk`：该模式由客户端 audio EOS 完成一轮；`realtime` 复用 ASR Transformer 的 definite-utterance transcript EOS，在外层音频输入保持打开时完成一轮。客户端显式 audio route EOS 会终结当前 ASR provider session，下一条 route 再打开新 session；没有 route EOS 的连续音频仍由 provider VAD 分段。Audio Dock 与 Flowcraft 保留并顺序组合 ASR text delta，不重新解释 provider 断句。`id` 与 `name` 不在 Flowcraft payload 中重复配置，分别由 Workspace 与 Workflow metadata 派生。
+Flowcraft workflow factory 把扁平的 `spec.flowcraft.graph`、`conversation`、`max_iterations` 和 `voice_adapter` 与 Workspace owner 的 RuntimeProfile alias、History、State、Memory 和 Audio Dock 组装成 Transformer。Workspace `input` 缺省为 `push-to-talk`：该模式由客户端 audio EOS 完成一轮；`realtime` 复用 ASR Transformer 的 definite-utterance transcript EOS，在外层音频输入保持打开时完成一轮。客户端显式 audio route EOS 会终结当前 ASR provider session，下一条 route 再打开新 session；没有 route EOS 的连续音频仍由 provider VAD 分段。Audio Dock 保留客户端中间 transcript，但不把 `StreamCtrl.TextInterim` 标记的假设文本交给 Agent；未标记的定稿 text delta 由 Flowcraft 按顺序组合，不重新解释 provider 断句。Workspace History 同样排除带此标记的文本内容，保留原有按 StreamID 合并 transcript/audio、结束和落库的生命周期。`id` 与 `name` 不在 Flowcraft payload 中重复配置，分别由 Workspace 与 Workflow metadata 派生。
 
 Public `FlowcraftWorkflowSpec` 要求显式 `graph`，Graph 至少有一个 node，且 `entry` 必须引用已定义 node。除 `llm`、inline `script` 与 `passthrough` 外，`memory_recall` 和 `memory_observe` node 负责 Memory 的消费与写入。LLM node model 与 `voice_adapter` 的 ASR、default voice、per-node voice 都保存完整 RuntimeProfile alias，使用总长 1–63 字节、由 `.` 分隔的 lowercase kebab-case segment 语法，并作为平面 opaque key 精确解析，不支持 prefix、segment 或 fallback lookup。Workflow 顶层 `memory` 是 RuntimeProfile memory alias；provider extraction、embedding、rerank、lane 与 write policy 属于其 `MemoryLayout`，不再嵌套在 Flowcraft payload。
 
@@ -108,6 +108,23 @@ voice_adapter:
 首响延迟属于完整 RuntimeProfile 选择，不只属于 Eino driver。发布前必须让同一组 chat Model、ASR Model、Voice、tenant、endpoint 和 resource revision 同时通过 Server 与 Edge 验证。当选中的 Model 超出延迟上限时，GizClaw 不会静默重试、替换 Provider 或对多个 Provider 竞速。E2E 参考 profile 选择已通过低延迟验证的 `doubao-mini-chat` (`doubao-seed-2-0-mini-260428`)；变更 alias 或上游 revision 后必须重新运行首响验证矩阵。
 
 Eino Graph 也通过 typed `memory_recall` 与 `memory_observe` node 消费同一个 Workflow memory alias；不存在 Eino 专属的 Memory block 或 Server Config binding。`conversation.starts: agent` 支持主动开场，Workspace conversation parameters 可以选择 `on_reload` 或仅空 history 时一次开场；并发 stream 只允许一个成功 claim，失败可重试，用户输入可以沿既有 interruption 路径打断开场。产品层继续使用持久 History，但 Graph state 仍是 invocation-local。
+
+#### 同一回复内按说话人分段
+
+Eino 与 Flowcraft 的 `voice_adapter.speaker_voices` 将说话人名字映射到 RuntimeProfile Voice alias。名字必须非空白且不含 `【`、`】`，alias 遵循现有命名规则并须在 `resources.voices` 中存在。`admin validate` 离线检查名字与 alias 语法；RuntimeProfile 检查引用。
+
+```yaml
+voice_adapter:
+  default_voice: story.narrator
+  speaker_voices:
+    旁白: story.narrator
+    孙悟空: story.wukong
+    唐僧: story.tangseng
+```
+
+模型输出 `【旁白】山路很静。【孙悟空】师父小心！【唐僧】悟空莫急。` 时，设备文字不含这些已配置标记，音频依次使用三种音色。跨 chunk 的标记前缀暂存，普通文字立即转发，不等待 TTS。未知的 `【名字】` 与正文中的其它括号原样保留，并回落到该输出原有的 state/node/default 音色选择。开头没有标记时也使用原有选择。
+
+每段 TTS 输入按顺序送入；当前段输出期间允许下一段提前合成，音频按段串行合并为单个流。连续相同音色标记不启动额外会话，空段不产生音频。用户插话会取消当前段、预取段和排队段。未配置或配置为空时保留原有行为。预取可隐藏下一段的合成延迟；真实 provider 是否能连续播放仍取决于文本生成速度和合成吞吐。
 
 #### SFU 组合边界
 

@@ -10,6 +10,7 @@
         "properties": {
           "asr_model": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$" },
           "default_voice": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$" },
+          "speaker_voices": {"type": "object", "description": "Map speaker names to Voice aliases. Names must be nonblank and contain neither 【 nor 】. Recognized streaming markers are stripped from device text.", "additionalProperties": {"type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$"}},
           "node_voices": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$" } }
         }
       }

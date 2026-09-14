@@ -525,10 +525,7 @@ func invokePeerStreamWithSessions(ctx context.Context, client *gizcli.Client, op
 	if op == nil || (!op.KeepOpen && op.AwaitRearm == "") {
 		return invokePeerStream(ctx, client, open, step, input, audioCaptureMaxBytes, observers...)
 	}
-	if op.KeepOpen && op.AwaitRearm == "" {
-		if _, exists := sessions.items[op.Session]; exists {
-			return operationResult{}, fmt.Errorf("peer_stream session %q is already open", op.Session)
-		}
+	if op.KeepOpen && op.AwaitRearm == "" && sessions.items[op.Session] == nil {
 		stream, err := open()
 		if err != nil {
 			return operationResult{}, err
@@ -556,9 +553,12 @@ func invokePeerStreamWithSessions(ctx context.Context, client *gizcli.Client, op
 			_ = session.Close()
 		}
 	}()
-	rearmEvidence, err := waitForPeerStreamRearm(ctx, op.Session, session, op.AwaitRearm)
-	if err != nil {
-		return operationResult{evidence: rearmEvidence}, err
+	rearmEvidence := map[string]any{"session_connection_reused": true}
+	if op.AwaitRearm != "" {
+		rearmEvidence, err = waitForPeerStreamRearm(ctx, op.Session, session, op.AwaitRearm)
+		if err != nil {
+			return operationResult{evidence: rearmEvidence}, err
+		}
 	}
 	replacementID, err := newStreamID()
 	if err != nil {
@@ -603,7 +603,13 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	inputPackets, pushedPackets := 0, 0
 	var inputDuration time.Duration
 	var responseStarted time.Time
-	var speechEndedAt time.Time
+	var speechEnded <-chan time.Time
+	var speechEndNotify chan time.Time
+	if firstResponse && op.Mode == "realtime" {
+		speechEndNotify = make(chan time.Time, 1)
+		speechEnded = speechEndNotify
+	}
+	var next <-chan nextPeerStreamResult
 	var arrivals *peerStreamFirstResponseArrivals
 	if firstResponse {
 		// The arrival recorder is installed before the first input chunk so it
@@ -612,7 +618,6 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 		// applied once the input push has determined it.
 		arrivals = &peerStreamFirstResponseArrivals{}
 	}
-	var next <-chan nextPeerStreamResult
 	if session != nil {
 		session.setArrivals(arrivals)
 		defer session.setArrivals(nil)
@@ -637,8 +642,8 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	if session != nil {
 		session.streamID = streamID
 	}
-	// A push-to-talk turn is answered only once its input is complete, so an
-	// assistant response already under way before then belongs to an earlier
+	// A push-to-talk turn can be answered as soon as its EOS is submitted, so an
+	// assistant response already under way before that belongs to an earlier
 	// turn, such as an agent opening that this input interrupts. Such a
 	// response may end with an error-free EOS, so it is recognized by receipt
 	// time instead: the reader starts before the push and the responses it
@@ -667,12 +672,12 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	observedInterrupted := false
 	firstAssistantStreamID := ""
 	secondAssistantStreamID := ""
-	// inputCompletedAt is when the turn's final input chunk went on the wire.
-	// earlierResponses holds the stream IDs of responses first received before
-	// then; their chunks are not this turn's.
-	var inputCompletedAt time.Time
+	// inputCommitStartedAt precedes the EOS write: its response can be read
+	// concurrently before Push returns. Responses first seen before this
+	// boundary remain excluded, including their later terminal chunks.
+	var inputCommitStartedAt time.Time
 	earlierResponses := make(map[string]bool)
-	var sendInterrupt func() error
+	var sendInterrupt func(context.Context) error
 	var initialPush func(context.Context) error
 	switch op.Mode {
 	case "text":
@@ -681,11 +686,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			return operationResult{}, fmt.Errorf("text peer_stream input must be string")
 		}
 		pushTextTurn := func(sendCtx context.Context, id string) error {
-			chunks := []*genx.MessageChunk{
-				{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: id, Label: "user", BeginOfStream: true}},
-				{Role: genx.RoleUser, Part: genx.Text(text), Ctrl: &genx.StreamCtrl{StreamID: id, Label: "user"}},
-				{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: id, Label: "user", EndOfStream: true}},
-			}
+			chunks := textInputChunks(op, id, text)
 			for _, chunk := range chunks {
 				if err := stream.Push(sendCtx, chunk); err != nil {
 					return err
@@ -700,13 +701,12 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 		if err := pushTextTurn(ctx, streamID); err != nil {
 			return operationResult{}, err
 		}
-		sendInterrupt = func() error {
+		sendInterrupt = func(sendCtx context.Context) error {
 			replacementID, err := newStreamID()
 			if err != nil {
 				return err
 			}
-			interrupted = true
-			return pushTextTurn(ctx, replacementID)
+			return pushTextTurn(sendCtx, replacementID)
 		}
 	case "push-to-talk", "realtime":
 		mimeType := "audio/opus"
@@ -754,6 +754,15 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 		pushTurn := func(sendCtx context.Context, id string) error {
 			chunks := audioInputChunks(op.Mode, id, mimeType, packets)
 			for index, chunk := range chunks {
+				if op.Label != "" {
+					chunk.Ctrl.Label = op.Label
+				}
+				// Publish the cutoff before the duplex write can release a reply.
+				// A failed Push still fails the operation; this is only the
+				// ownership cutoff, not the response latency clock origin.
+				if skipEarlierResponses && id == streamID && chunk.IsEndOfStream() {
+					inputCommitStartedAt = time.Now()
+				}
 				if err := stream.Push(sendCtx, chunk); err != nil {
 					return err
 				}
@@ -761,15 +770,11 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 					onBOSSent()
 					onBOSSent = nil
 				}
-				// A push-to-talk push is synchronous, so this stays on one
-				// goroutine.
-				if skipEarlierResponses && id == streamID && index+1 == len(chunks) {
-					inputCompletedAt = time.Now()
-				}
-				// speechChunks is only non-zero for realtime first_response,
-				// whose push is synchronous, so this stays on one goroutine.
+				// Publish the original speech boundary to the output consumer;
+				// tail silence must neither delay reading nor move its clock.
 				if speechChunks > 0 && index+1 == speechChunks {
-					speechEndedAt = time.Now()
+					speechEndedAt := time.Now()
+					speechEndNotify <- speechEndedAt
 				}
 				if pause > 0 {
 					timer := time.NewTimer(pause)
@@ -783,18 +788,17 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 			return nil
 		}
-		if op.Mode == "realtime" && !firstResponse {
+		if op.Mode == "realtime" {
 			initialPush = func(sendCtx context.Context) error { return pushTurn(sendCtx, streamID) }
 		} else if err := pushTurn(ctx, streamID); err != nil {
 			return operationResult{}, err
 		}
-		sendInterrupt = func() error {
+		sendInterrupt = func(sendCtx context.Context) error {
 			replacementID, err := newStreamID()
 			if err != nil {
 				return err
 			}
-			interrupted = true
-			if err := pushTurn(ctx, replacementID); err != nil {
+			if err := pushTurn(sendCtx, replacementID); err != nil {
 				return err
 			}
 			return nil
@@ -804,24 +808,33 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	}
 	var initialDone <-chan struct{}
 	var initialError error
-	if initialPush != nil {
+	var stopSend func()
+	defer func() {
+		if stopSend != nil {
+			stopSend()
+		}
+	}()
+	startPush := func(push func(context.Context) error) {
+		if stopSend != nil {
+			stopSend()
+		}
 		sendCtx, cancelSend := context.WithCancel(ctx)
 		done := make(chan struct{})
 		initialDone = done
 		go func() {
 			defer close(done)
-			initialError = initialPush(sendCtx)
+			initialError = push(sendCtx)
 		}()
-		defer func() {
+		stopSend = func() {
 			cancelSend()
 			<-done
-		}()
-	}
-	if firstResponse {
-		responseStarted = time.Now()
-		if !speechEndedAt.IsZero() {
-			responseStarted = speechEndedAt
 		}
+	}
+	if initialPush != nil {
+		startPush(initialPush)
+	}
+	if firstResponse && speechEnded == nil {
+		responseStarted = time.Now()
 		arrivals.setStarted(responseStarted)
 	}
 	if next == nil {
@@ -916,6 +929,10 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	}
 	// An empty push-to-talk turn has no response to wait for: it completes when
 	// both assistant routes close, and it must close them without content.
+	// A whitespace text probe explicitly disables both reply modalities and
+	// observes a bounded quiet window. It must still send the original bytes.
+	textInput, _ := input.(string)
+	quietText := op.Mode == "text" && strings.TrimSpace(textInput) == "" && !firstResponse && op.RequireText != nil && !*op.RequireText && op.RequireAudio != nil && !*op.RequireAudio && idleTimeout > 0
 	emptyTurn := op.EmptyInput
 	requireText := !emptyTurn && (op.RequireText == nil || *op.RequireText)
 	requireAudio := !emptyTurn && (op.RequireAudio == nil || *op.RequireAudio)
@@ -923,22 +940,33 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	var firstTextTimer, firstAudioTimer *time.Timer
 	var firstTextTimeout, firstAudioTimeout time.Duration
 	if firstResponse {
-		// The deadlines run on the same clock the reported timings use, so the
-		// realtime tail silence pushed after the user stopped speaking does not
-		// buy the response extra grace.
-		if requireText {
-			firstTextTimeout, _ = time.ParseDuration(op.FirstTextTimeout)
-			firstTextTimer = time.NewTimer(time.Until(responseStarted.Add(firstTextTimeout)))
+		firstTextTimeout, _ = time.ParseDuration(op.FirstTextTimeout)
+		firstAudioTimeout, _ = time.ParseDuration(op.FirstAudioTimeout)
+	}
+	armFirstResponse := func(origin time.Time) {
+		responseStarted = origin
+		arrivals.setStarted(origin)
+		if requireText && !firstTextObserved {
+			firstTextTimer = time.NewTimer(time.Until(origin.Add(firstTextTimeout)))
 			firstTextDeadline = firstTextTimer.C
-			defer firstTextTimer.Stop()
 		}
-		if requireAudio {
-			firstAudioTimeout, _ = time.ParseDuration(op.FirstAudioTimeout)
-			firstAudioTimer = time.NewTimer(time.Until(responseStarted.Add(firstAudioTimeout)))
+		if requireAudio && !firstAudioObserved {
+			firstAudioTimer = time.NewTimer(time.Until(origin.Add(firstAudioTimeout)))
 			firstAudioDeadline = firstAudioTimer.C
-			defer firstAudioTimer.Stop()
 		}
 	}
+	defer func() {
+		if firstTextTimer != nil {
+			firstTextTimer.Stop()
+		}
+		if firstAudioTimer != nil {
+			firstAudioTimer.Stop()
+		}
+	}()
+	if firstResponse && speechEnded == nil {
+		armFirstResponse(responseStarted)
+	}
+
 	var audioIntegrity peerAudioIntegrity
 	finish := func() (operationResult, error) {
 		if len(abandonedResponses) > 0 {
@@ -1075,6 +1103,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	responseComplete, interruptPending := false, false
 	for {
 		select {
+		case origin := <-speechEnded:
+			speechEnded = nil
+			armFirstResponse(origin)
 		case <-initialDone:
 			initialDone = nil
 			if initialError != nil {
@@ -1106,13 +1137,24 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 			stream = replacement
 			next = readPeerStream(ctx, stream, arrivals)
-			if err := sendInterrupt(); err != nil {
-				return operationResult{}, fmt.Errorf("send interrupting turn: %w", err)
-			}
+			interrupted = true
+			interruptPending = false
+			startPush(func(sendCtx context.Context) error {
+				if err := sendInterrupt(sendCtx); err != nil {
+					return fmt.Errorf("send interrupting turn: %w", err)
+				}
+				return nil
+			})
 			textEOS, audioEOS = false, false
 			textEOSMS, audioEOSMS = 0, 0
 			armIdle()
 		case <-idle:
+			if quietText {
+				if len(terminalErrors) != 0 {
+					return operationResult{}, fmt.Errorf("whitespace input terminal error: %s", strings.Join(terminalErrors, "; "))
+				}
+				return finish()
+			}
 			return operationResult{evidence: failedEvidence("idle_timeout")}, fmt.Errorf("peer_stream idle timeout exceeded after %s (deadline=idle_timeout last_event_ms=%d %s)", op.IdleTimeout, lastEventMS, counters())
 		case <-firstTextDeadline:
 			if arrivals.firstTextWithin(firstTextTimeout) {
@@ -1132,11 +1174,22 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 			eventElapsed := time.Since(started)
 			if firstResponse {
+				// Give a queued speech-end notification priority over this receipt.
+				// Receipts consumed before that boundary have zero latency.
+				select {
+				case origin := <-speechEnded:
+					speechEnded = nil
+					armFirstResponse(origin)
+				default:
+				}
 				// A realtime provider may answer before the user stops
 				// speaking, which puts the receipt ahead of the response clock
 				// origin. That is zero latency, not negative latency, so the
 				// reported timings stay monotonic.
-				eventElapsed = max(result.receivedAt.Sub(responseStarted), 0)
+				eventElapsed = 0
+				if !responseStarted.IsZero() {
+					eventElapsed = max(result.receivedAt.Sub(responseStarted), 0)
+				}
 			}
 			if result.err != nil {
 				if result.err == io.EOF {
@@ -1173,7 +1226,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				audioIntegrity.observe(result.chunk)
 			}
 			if skipEarlierResponses && label == "assistant" && actualStreamID != "" {
-				if !earlierResponses[actualStreamID] && responses[actualStreamID] == nil && result.receivedAt.Before(inputCompletedAt) {
+				if !earlierResponses[actualStreamID] && responses[actualStreamID] == nil && result.receivedAt.Before(inputCommitStartedAt) {
 					earlierResponses[actualStreamID] = true
 				}
 				if earlierResponses[actualStreamID] {
@@ -1188,6 +1241,19 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				response = responses[actualStreamID]
 				responseInterrupted := result.chunk.Ctrl != nil && strings.EqualFold(strings.TrimSpace(result.chunk.Ctrl.Error), "interrupted")
 				hasContent := false
+				if quietText && label == "assistant" {
+					switch part := result.chunk.Part.(type) {
+					case genx.Text:
+						if strings.TrimSpace(string(part)) != "" {
+							return operationResult{}, fmt.Errorf("whitespace input produced assistant text")
+						}
+					case *genx.Blob:
+						if len(part.Data) > 0 {
+							return operationResult{}, fmt.Errorf("whitespace input produced assistant audio")
+						}
+					}
+					continue
+				}
 				switch part := result.chunk.Part.(type) {
 				case genx.Text:
 					hasContent = strings.TrimSpace(string(part)) != ""
@@ -1309,6 +1375,10 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 					evidence := baseEvidence()
 					evidence["terminal_errors"] = len(terminalErrors)
 					return operationResult{evidence: evidence}, fmt.Errorf("peer_stream terminal error: %s", strings.Join(terminalErrors, "; "))
+				}
+				if initialDone != nil {
+					responseComplete = true
+					continue
 				}
 				return finish()
 			}
@@ -1730,4 +1800,29 @@ func (s *peerStreamSession) prependOutput(results []nextPeerStreamResult) {
 			}
 		}
 	}()
+}
+
+// textInputChunks preserves the device wire format: a part-free BOS followed
+// by a single TEXT_DONE carrying the entire message, including zero timestamps.
+func textInputChunks(op *giztest.PeerStreamOperation, id, text string) []*genx.MessageChunk {
+	label := op.Label
+	if label == "" {
+		label = "user"
+	}
+	var timestamp int64
+	if op.Timestamp == "unix_ms" {
+		timestamp = time.Now().UnixMilli()
+	}
+	control := func() *genx.StreamCtrl {
+		return &genx.StreamCtrl{StreamID: id, Label: label, Timestamp: timestamp}
+	}
+	bos := &genx.MessageChunk{Role: genx.RoleUser, Ctrl: control()}
+	bos.Ctrl.BeginOfStream = true
+	done := &genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: control()}
+	done.Ctrl.EndOfStream = true
+	if op.TextDone {
+		done.Part = genx.Text(text)
+		return []*genx.MessageChunk{bos, done}
+	}
+	return []*genx.MessageChunk{bos, {Role: genx.RoleUser, Part: genx.Text(text), Ctrl: control()}, done}
 }
