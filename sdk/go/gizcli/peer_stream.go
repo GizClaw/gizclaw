@@ -38,9 +38,10 @@ type PeerStream struct {
 
 	// Only mergeOutput owns startup audio. RTP has no logical stream ID, so
 	// packets after a completed epoch must not be reassigned to a later BOS.
-	audioStarted bool
-	startupAudio []*genx.MessageChunk
-	startupBytes int
+	audioStarted   bool
+	startupExpired bool
+	startupAudio   []*genx.MessageChunk
+	startupBytes   int
 }
 
 type peerAudioInputReady struct {
@@ -306,8 +307,8 @@ func (s *PeerStream) mergeOutput() {
 		case <-s.done:
 			return
 		case <-startupDeadline:
-			_ = s.CloseWithError(fmt.Errorf("gizclaw: initial audio BOS timeout"))
-			return
+			s.discardStartupAudio()
+			startupDeadline = nil
 		case result := <-s.eventResults:
 			if result.err != nil {
 				_ = s.CloseWithError(result.err)
@@ -378,15 +379,27 @@ func (s *PeerStream) pushMergedPacket(payload []byte) error {
 	}
 	routed := s.bindOpusPacketRoute(chunk)
 	if !s.audioStarted && routed == chunk {
+		if s.startupExpired {
+			return nil
+		}
 		// Bound both packet count and bytes before retaining untrusted payloads.
 		if len(s.startupAudio) >= 64 || len(payload) > 128*1024-s.startupBytes {
-			return fmt.Errorf("gizclaw: initial audio BOS buffer exceeded")
+			s.discardStartupAudio()
+			return nil
 		}
 		s.startupAudio = append(s.startupAudio, chunk)
 		s.startupBytes += len(payload)
 		return nil
 	}
 	return s.pushOutput(routed)
+}
+
+// Once the initial reorder window is exhausted, no unbound packet can safely
+// be attributed to a future BOS. Keep consuming events until a route is bound.
+func (s *PeerStream) discardStartupAudio() {
+	s.startupAudio = nil
+	s.startupBytes = 0
+	s.startupExpired = true
 }
 
 func (s *PeerStream) pushOutput(chunk *genx.MessageChunk) error {
