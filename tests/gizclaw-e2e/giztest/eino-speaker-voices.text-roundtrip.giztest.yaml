@@ -1,0 +1,128 @@
+# User Story:
+# As a story listener using the eino-speaker-voices Workflow,
+# I want one real LLM reply with speaker markers spoken by the configured real TTS voices,
+# So that narration and dialogue play in order without visible markers.
+version: gizclaw.test/v1alpha1
+name: eino-speaker-voices.text-roundtrip
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  script:
+    direction: input
+    type: string
+    value: 从前有一片安静的森林。【狐狸】我今天找到了一颗红苹果！【小鸟】我在河边看见了弯弯的月亮。【路人】真热闹啊。【旁白】它们约好明天一起去看日出。
+  assistant_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        collection: assistants
+        workflow_name: eino-speaker-voices
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  - id: synthesize_story_bird
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: story-bird
+        text: 我在河边看见了弯弯的月亮。
+        accepted_content_types: [audio/ogg]
+    expect:
+      /bytes:
+        minimum: 1000
+  - id: speaker_story
+    client: peer
+    timeout: 90s
+    peer_stream:
+      mode: text
+      input: ${script}
+      require_text: true
+      require_audio: true
+    expect:
+      /text:
+        contains_all: [森林, 红苹果, 月亮, 【路人】, 日出]
+        not_contains: [【旁白】, 【狐狸】, 【小鸟】]
+      /text_eos:
+        equals: true
+      /audio_eos:
+        equals: true
+      /audio_bytes:
+        minimum: 20000
+      /audio_integrity/streams:
+        equals: 1
+      /audio_integrity/max_active:
+        equals: 1
+      /audio_integrity/open:
+        equals: 0
+      /audio_integrity/violations:
+        equals: 0
+      # Prefetch keeps each voice switch inside the client playback buffer.
+      /audio_pacing/underruns:
+        equals: 0
+    capture:
+      assistant_audio: /audio
+  - id: transcribe_speaker_story
+    client: peer
+    timeout: 60s
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh
+      input: ${assistant_audio}
+    expect:
+      /transcript:
+        pattern: 森林.*苹果.*月亮.*日出
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}
