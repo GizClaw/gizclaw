@@ -42,6 +42,9 @@ func TestCompletionIdentitySurvivesProductionLogger(t *testing.T) {
 	outcome := NewOutcome(TransportHTTP, SurfacePeerHTTP, "getDevice")
 	outcome.SetPeer("completion-owner", "client")
 	Log(gizlog.WithPeerPublicKey(context.Background(), "edge-transport-peer"), outcome)
+	if err := closeLogger(); err != nil {
+		t.Fatal(err)
+	}
 	if len(store.records) != 1 {
 		t.Fatalf("records = %d, want 1", len(store.records))
 	}
