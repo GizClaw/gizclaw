@@ -80,30 +80,11 @@ All streams for one Workspace share one Agent instance. The factory constructs o
 
 `dashscope-realtime`, `doubao-realtime-duplex`, and `eino` are persisted Workflow and Workspace drivers. Their factories resolve typed RuntimeProfile Model and Voice aliases and construct the existing GenX Transformers. DashScope requires a DashScope realtime Model; Doubao Duplex requires a Volc `realtime-duplex` Model; Eino resolves each `chat_model` node independently.
 
-Flowcraft uses `VoiceAdapter`; Eino uses its own `EinoVoiceAdapter`, with the same `asr_model`, `default_voice`, and `node_voices` behavior. A non-empty `eino.voice_adapter.asr_model` is the Eino product integration's live-audio capability and converts audio input through that RuntimeProfile ASR Model alias. An omitted or blank alias keeps input text-only, including when `default_voice` or `node_voices` configures TTS-only output for accepted text turns. On the first non-empty ordinary user `audio/*` Blob for such a route, the factory emits one non-retryable assistant `text/plain` EOS with `EINO_AUDIO_INPUT_UNSUPPORTED` and transform failure provenance, then discards that route through its EOS without forwarding the audio to AudioDock, the Eino Graph, or a Provider. The fixed error states that Eino audio input requires `voice_adapter.asr_model` and contains no input payload, alias, credential, StreamID, or raw Provider error. Other routes continue; empty audio/control chunks, malformed MIME, non-audio parts, and `history.user_audio` keep their existing behavior.
+Flowcraft and Eino share the same `VoiceAdapter` contract. A non-empty `eino.voice_adapter.asr_model` is the Eino product integration's live-audio capability and converts audio input through that RuntimeProfile ASR Model alias. An omitted or blank alias keeps input text-only, including when `default_voice` or `node_voices` configures TTS-only output for accepted text turns. On the first non-empty ordinary user `audio/*` Blob for such a route, the factory emits one non-retryable assistant `text/plain` EOS with `EINO_AUDIO_INPUT_UNSUPPORTED` and transform failure provenance, then discards that route through its EOS without forwarding the audio to AudioDock, the Eino Graph, or a Provider. The fixed error states that Eino audio input requires `voice_adapter.asr_model` and contains no input payload, alias, credential, StreamID, or raw Provider error. Other routes continue; empty audio/control chunks, malformed MIME, non-audio parts, and `history.user_audio` keep their existing behavior.
 
 When configured, `default_voice` and `node_voices` synthesize declared `text/plain` Graph outputs through RuntimeProfile Voice aliases. `node_voices` is keyed by the Graph node ID referenced by an output and takes precedence over `default_voice`. Eino Workspace `input` accepts `push-to-talk` or `realtime` and defaults to `push-to-talk`; realtime ASR emits interim transcripts. Both live-audio modes resolve the ASR model with `realtime_pacing=false`: device frames already arrive at wall-clock cadence, and ten interleaved provider-backed trials with identical 100 ms packets must show at least a 200 ms median EOS-to-definite-transcript saving before this mode-specific setting is retained. The factory validates all aliases before constructing the Agent and composes the Eino Transformer with AudioDock, without moving audio behavior into the provider-neutral Eino package.
 
-Eino's optional `voice_adapter.state_voices` selects the single primary text output's Voice per turn. `field` must exactly name a declared string Graph state field; `voices` is a nonempty map from exact field values to RuntimeProfile Voice aliases. Values are not trimmed or prefix-matched. Workflow validation checks alias syntax, RuntimeProfile checks bindings, and the factory preflights all mapped Voices.
-
-```yaml
-voice_adapter:
-  default_voice: story.narrator
-  node_voices:
-    answer: story.narrator
-  state_voices:
-    field: selected_speaker
-    voices:
-      narrator: story.narrator
-      tortoise: story.tortoise
-      bird: story.bird
-      rabbit: story.rabbit
-      fox: story.fox
-```
-
-The factory selects the alias from a turn state snapshot before publishing the primary output's first nonblank text chunk. AudioDock reads that selection before sending text to TTS. Selection stays fixed for that output stream and is recomputed next turn. Missing or unmapped values fall back to the output's `node_voices`, then `default_voice`; without either fallback the output stays text-only. Secondary outputs retain static node/default selection. The speaker script must run upstream of the primary output node and write the field each turn: validation requires every reachable writer to dominate the primary on all start-to-primary paths, including conditional and default routes. Reachable parallel writers, writes by the primary itself, and downstream writers are rejected to prevent races with the first-chunk snapshot. Multiple writers must complete sequentially; parallel or alternative-branch writers are rejected even if they eventually join at primary. Write the selected role in a common upstream node. Selection does not wait for model completion or end-of-turn state commits, and retains single-primary, History, memory observe, and interruption behavior.
-
-`tests/gizclaw-e2e/testdata/resources/04-workflows/33-eino-multi-role.yaml` provides a minimal example: send an English role name to select it; other input uses the narrator. Bind `llm` and all five `story.*` Voice aliases in the RuntimeProfile before using it. `admin validate` runs both Schema and Eino semantic validation, including items inside ResourceList; resource availability is still checked by RuntimeProfile and the factory.
+`admin validate` runs both Schema and Eino semantic validation, including items inside ResourceList; resource availability is still checked by RuntimeProfile and the factory.
 
 First-response latency is a property of the complete RuntimeProfile selection, not only the Eino driver. A release must qualify the exact chat Model, ASR Model, Voice, tenant, endpoint, and resource revisions through both Server and Edge. GizClaw does not silently retry, substitute, or race Providers when a selected Model misses a latency target. The E2E reference profile selects `doubao-mini-chat` (`doubao-seed-2-0-mini-260428`) because that revision is the qualified low-latency chat fixture; changing the alias or upstream revision requires rerunning the first-response qualification matrix.
 
@@ -122,7 +103,7 @@ voice_adapter:
     唐僧: story.tangseng
 ```
 
-For `【旁白】山路很静。【孙悟空】师父小心！【唐僧】悟空莫急。`, device text omits configured markers and audio follows the three voices in order. Marker prefixes split across chunks are buffered; ordinary text is forwarded immediately without waiting for TTS. Unknown names and other brackets remain literal and restore the output's original state/node/default voice selection. Text before the first marker uses that selection too.
+For `【旁白】山路很静。【孙悟空】师父小心！【唐僧】悟空莫急。`, device text omits configured markers and audio follows the three voices in order. Marker prefixes split across chunks are buffered; ordinary text is forwarded immediately without waiting for TTS. Unknown names and other brackets remain literal and restore the output's original node/default voice selection. Text before the first marker uses that selection too.
 
 Segment inputs remain ordered. The next segment may synthesize while the current segment emits audio; output is serialized into one stream. Consecutive markers selecting the same voice reuse their session, and empty segments produce no audio. User interruption cancels current, prefetched and queued segments. An omitted or empty mapping preserves existing behavior. Prefetch hides synthesis latency when text generation and provider throughput allow continuous playback.
 

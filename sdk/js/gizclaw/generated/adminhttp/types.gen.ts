@@ -2468,34 +2468,11 @@ export type EinoTransformNode = EinoNodeBase & {
     max_output_bytes?: number;
 };
 
-export type EinoVoiceAdapter = {
-    asr_model?: string;
-    default_voice?: string;
-    /**
-     * Map speaker names to Voice aliases. Names must be nonblank and contain neither 【 nor 】. Recognized streaming markers are stripped from device text.
-     */
-    speaker_voices?: {
-        [key: string]: string;
-    };
-    node_voices?: {
-        [key: string]: string;
-    };
-    /**
-     * Select the primary text output voice once per turn before its first nonblank chunk. Missing or unmapped values fall back to node_voices, then default_voice. The string field must be set by an upstream node.
-     */
-    state_voices?: {
-        field: string;
-        voices: {
-            [key: string]: string;
-        };
-    };
-};
-
 export type EinoWorkflowSpec = {
     graph: EinoGraph;
     conversation?: EinoConversation;
     limits?: EinoLimits;
-    voice_adapter?: EinoVoiceAdapter;
+    voice_adapter?: VoiceAdapter;
 };
 
 export type FlowcraftConversation = {

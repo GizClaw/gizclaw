@@ -1085,7 +1085,8 @@ go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|Flowcr
 AudioDock、Go Giztest runner 和 CLI 接收逻辑。无需外部网络、凭据或 Docker。
 Audioplayer Giztest job 在 Console 资源构建后执行整个套件，复用已有音频测试环境。
 
-- `eino-voices/multi-turn.giztest.yaml` 保留四轮 state voice 回归；
+- `eino-voices/multi-turn.giztest.yaml` 执行四轮 Eino，Starlark selector 为每轮回复加上
+  `【speaker】` 标记，经 `speaker_voices` 选择音色；
   `multi-role-voices/multi-turn.giztest.yaml` 在同一 invocation 执行 fox、bird、owl、bear、
   unknown（default 回落）、bear、bear、fox 八轮。Flowcraft 的四个发布节点使用
   `node_voices`，每轮使用不同的确定性音频摘要，连续同角色也能发现上一轮音频被复用。

@@ -1308,7 +1308,8 @@ Eino/Flowcraft factories, AudioDock, the Go Giztest runner and CLI receiver. No
 external network, credentials or Docker are required. Audioplayer Giztest runs the
 whole suite after building Console assets, reusing its audio test environment.
 
-- `eino-voices/multi-turn.giztest.yaml` retains the four-turn state voice regression.
+- `eino-voices/multi-turn.giztest.yaml` runs four Eino turns whose Starlark selector
+  prefixes each reply with a `【speaker】` marker selected through `speaker_voices`.
   `multi-role-voices/multi-turn.giztest.yaml` runs fox, bird, owl, bear, unknown
   (default fallback), bear, bear and fox in one invocation. Four Flowcraft publisher
   nodes use `node_voices`. Distinct deterministic payloads for every turn detect
