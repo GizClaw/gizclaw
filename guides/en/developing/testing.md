@@ -1410,3 +1410,12 @@ turns reuse the session to replace input during earlier TTS startup. CI runs thi
 suite in the Audioplayer Giztest job. The standard provider-backed runner excludes
 these dedicated fixtures. Reports remain in `.testbench/slow-tts-*/reports/`; exit
 cleanup removes containers, the image and temporary runtime state.
+
+### Speaker segment regression
+
+Deterministic tests use distinguishable Opus voices to verify five ordered segments, exact audio digests, stripped text, a single stream and `audio_pacing.underruns=0`. The Docker runner starts local Server/Edge on an internal network with a test-only provider overlay and runs Eino and Flowcraft without credentials. Containers are cleaned up; reports remain under `.testbench/speaker-segments-*/reports/`. The Audioplayer Giztest CI job runs both gates.
+
+```sh
+go test ./cmd/internal/commands/giztest -run '^TestSpeakerSegmentsGiztest$' -count=1
+bash tests/gizclaw-e2e/run_speaker_segment_tests.sh
+```

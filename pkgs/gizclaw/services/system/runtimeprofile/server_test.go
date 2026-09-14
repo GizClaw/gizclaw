@@ -1403,3 +1403,25 @@ func runtimeProfileTestFlowcraftSpec(t *testing.T, modelAlias, voiceAlias string
 		VoiceAdapter: &apitypes.VoiceAdapter{DefaultVoice: &voiceAlias},
 	}
 }
+
+func TestSpeakerVoiceRuntimeReferences(t *testing.T) {
+	for _, driver := range []apitypes.WorkflowDriver{apitypes.WorkflowDriverEino, apitypes.WorkflowDriverFlowcraft} {
+		voices := map[string]string{"狐": "story.fox"}
+		spec := apitypes.WorkflowSpec{Driver: driver}
+		if driver == apitypes.WorkflowDriverEino {
+			spec.Eino = &apitypes.EinoWorkflowSpec{VoiceAdapter: &apitypes.EinoVoiceAdapter{SpeakerVoices: &voices}}
+		} else {
+			node := apitypes.FlowcraftNode{}
+			if err := json.Unmarshal([]byte(`{"id":"echo","type":"passthrough"}`), &node); err != nil {
+				t.Fatal(err)
+			}
+			spec.Flowcraft = &apitypes.FlowcraftWorkflowSpec{Graph: apitypes.FlowcraftGraph{Name: "test", Entry: "echo", Nodes: []apitypes.FlowcraftNode{node}}, VoiceAdapter: &apitypes.VoiceAdapter{SpeakerVoices: &voices}}
+		}
+		if err := validateWorkflowRuntimeAliases("workflow", spec, nil, nil); err == nil || !strings.Contains(err.Error(), "speaker_voices.狐") {
+			t.Fatalf("%s missing voice: %v", driver, err)
+		}
+		if err := validateWorkflowRuntimeAliases("workflow", spec, nil, map[string]apitypes.VoiceResource{"story.fox": {}}); err != nil {
+			t.Fatalf("%s valid voice: %v", driver, err)
+		}
+	}
+}

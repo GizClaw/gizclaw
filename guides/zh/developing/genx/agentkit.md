@@ -28,3 +28,5 @@ dock, err := audiodock.New(audiodock.Config{
 一个 Dock 可以并发处理多个 `Transform`。ASR session、Agent run、voice、TTS session、buffer、取消和错误都属于单次调用及其 StreamID；一个 route 失败不会终止其他调用。输出使用可增长内部队列，因此 producer 不依赖消费者及时 pull 才能继续读取 provider stream。
 
 关闭输出会取消对应的 ASR、Agent 和 TTS 工作。被打断的 route 删除未 pull 的后缀，并在下一轮 input transcript 可见前为已声明的 MIME channel 发送带错误的 EOS。如果 TTS 已 pending、但尚未声明 audio MIME channel，Audio Dock 只补充 response-level interrupted EOS，不伪造 audio MIME lifecycle。Agent text EOS 之后，TTS completion 最长等待一分钟。Audio Dock 不执行 ToolCall，也不拥有 provider 协议。
+
+`Config.SpeakerVoices` 将说话人名字映射为 TTS mux pattern，使用 response 内的增量解析器剥离已配置的 `【名字】`。当前段与下一预取段最多同时启动两个 provider 会话，后续段等待前段完成；所有输出仍按段串行并共享最终 MIME 生命周期。未配置时继续按 publisher 解析 `ResolveVoice`。

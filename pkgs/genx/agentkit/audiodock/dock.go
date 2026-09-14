@@ -139,6 +139,8 @@ type dockRoute struct {
 
 	deliveryMu      sync.Mutex
 	pendingTerminal map[string]*genx.MessageChunk
+	speakers        speakerParser
+	lastSegment     *ttsPipe
 }
 
 type dockTTSRoute struct {
@@ -152,10 +154,14 @@ type dockTTSChildRouteKey struct {
 }
 
 type ttsPipe struct {
-	name   string
-	input  *streamkit.Output
-	output genx.Stream
-	cancel context.CancelFunc
+	name          string
+	input         *streamkit.Output
+	output        genx.Stream
+	cancel        context.CancelFunc
+	pattern       string
+	previous      <-chan struct{}
+	prefetchAfter <-chan struct{}
+	done          chan struct{}
 }
 
 func (r *dockRun) execute() {
@@ -321,8 +327,25 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 		return err
 	}
 	text, textChunk := chunk.Part.(genx.Text)
+	var segments []speakerText
+	if len(r.dock.config.SpeakerVoices) != 0 && (textChunk || chunk.IsEndOfStream()) {
+		segments = route.speakers.feed(string(text), chunk.IsEndOfStream(), r.dock.config.SpeakerVoices)
+		var cleaned strings.Builder
+		for _, segment := range segments {
+			cleaned.WriteString(segment.text)
+		}
+		text = genx.Text(cleaned.String())
+		if textChunk || text != "" {
+			textChunk = true
+			chunk.Part = text
+		}
+	}
 	var pipe *ttsPipe
-	resolveTTS := textChunk && strings.TrimSpace(string(text)) != "" && r.dock.config.TTS != nil
+	hasSpeech := strings.TrimSpace(string(text)) != ""
+	if len(r.dock.config.SpeakerVoices) != 0 && text != "" && route.hasTTSPipes() {
+		hasSpeech = true
+	}
+	resolveTTS := textChunk && hasSpeech && r.dock.config.TTS != nil
 
 	route.ttsEmitMu.Lock()
 	if route.closed.Load() {
@@ -370,7 +393,29 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 	route.ttsEmitMu.Unlock()
 
 	if resolveTTS {
-		pipe = r.ttsPipe(ctx, route, chunk)
+		if len(r.dock.config.SpeakerVoices) == 0 {
+			pipe = r.ttsPipe(ctx, route, chunk, "", "")
+		} else {
+			for _, segment := range segments {
+				if segment.text == "" {
+					continue
+				}
+				child := emitted.Clone()
+				child.Part = genx.Text(segment.text)
+				child.Ctrl = cloneCtrl(emitted.Ctrl)
+				if child.Ctrl == nil {
+					child.Ctrl = &genx.StreamCtrl{}
+				}
+				child.Ctrl.BeginOfStream = false
+				child.Ctrl.EndOfStream = false
+				segmentPipe := r.ttsPipe(ctx, route, child, fmt.Sprintf("segment:%d", segment.segment), segment.pattern)
+				if segmentPipe != nil {
+					if err := segmentPipe.input.Push(child); err != nil && !errors.Is(err, io.ErrClosedPipe) {
+						return err
+					}
+				}
+			}
+		}
 	}
 	if pipe != nil {
 		if err := pipe.input.Push(emitted); err != nil && !errors.Is(err, io.ErrClosedPipe) {
@@ -437,8 +482,11 @@ func (r *dockRun) route(chunk *genx.MessageChunk) (*dockRoute, error) {
 // ttsPipe registers a cancellable pipe before resolving a voice or opening a
 // provider session. Its growable input keeps the model reader independent of
 // provider startup, synthesis and downstream audio cadence.
-func (r *dockRun) ttsPipe(ctx context.Context, route *dockRoute, chunk *genx.MessageChunk) *ttsPipe {
+func (r *dockRun) ttsPipe(ctx context.Context, route *dockRoute, chunk *genx.MessageChunk, segmentKey, pattern string) *ttsPipe {
 	key := strings.TrimSpace(chunk.Name)
+	if segmentKey != "" {
+		key = segmentKey
+	}
 	route.ttsEmitMu.Lock()
 	defer route.ttsEmitMu.Unlock()
 	if route.closed.Load() {
@@ -449,11 +497,29 @@ func (r *dockRun) ttsPipe(ctx context.Context, route *dockRoute, chunk *genx.Mes
 	if pipe, resolved := route.ttsPipes[key]; resolved {
 		return pipe
 	}
+	if segmentKey != "" && strings.TrimSpace(string(chunk.Part.(genx.Text))) == "" {
+		return nil
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	pipe := &ttsPipe{
 		name:   chunk.Name,
 		input:  streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: initialOutputCapacity}),
 		cancel: cancel,
+	}
+	if segmentKey != "" {
+		pipe.pattern = pattern
+		pipe.done = make(chan struct{})
+		if previous := route.lastSegment; previous != nil {
+			pipe.previous = previous.done
+			pipe.prefetchAfter = previous.previous
+			_ = previous.input.Push(&genx.MessageChunk{Role: chunk.Role, Name: previous.name, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: route.response.StreamID(), EndOfStream: true}})
+			_ = previous.input.Close()
+		}
+		route.lastSegment = pipe
+		begin := chunk.Clone()
+		begin.Part = genx.Text("")
+		begin.Ctrl = &genx.StreamCtrl{StreamID: route.response.StreamID(), BeginOfStream: true}
+		_ = pipe.input.Push(begin)
 	}
 	route.ttsPipes[key] = pipe
 	route.ttsDone.Add(1)
@@ -467,7 +533,24 @@ func (r *dockRun) startTTS(ctx context.Context, route *dockRoute, pipe *ttsPipe,
 	defer route.ttsDone.Done()
 	defer pipe.cancel()
 	defer pipe.input.Close()
-	pattern, err := resolveVoice(ctx, r.dock.config.ResolveVoice, chunk)
+	if pipe.done != nil {
+		defer close(pipe.done)
+	}
+	if pipe.prefetchAfter != nil {
+		select {
+		case <-pipe.prefetchAfter:
+		case <-ctx.Done():
+			return
+		}
+	}
+	if ctx.Err() != nil || route.closed.Load() {
+		return
+	}
+	pattern := pipe.pattern
+	var err error
+	if pattern == "" {
+		pattern, err = resolveVoice(ctx, r.dock.config.ResolveVoice, chunk)
+	}
 	if err == nil && pattern != "" && ctx.Err() == nil {
 		var output genx.Stream
 		output, err = r.dock.config.TTS.Transform(ctx, pattern, pipe.input)
@@ -485,6 +568,13 @@ func (r *dockRun) startTTS(ctx context.Context, route *dockRoute, pipe *ttsPipe,
 			}
 			route.mu.Unlock()
 			if active && err == nil {
+				if pipe.previous != nil {
+					select {
+					case <-pipe.previous:
+					case <-ctx.Done():
+						return
+					}
+				}
 				r.forwardTTS(route, pipe)
 				return
 			}

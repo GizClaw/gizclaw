@@ -200,6 +200,11 @@ func preflightVoiceAdapter(ctx context.Context, service *peergenx.Service, voice
 			aliases[strings.TrimSpace(alias)] = struct{}{}
 		}
 	}
+	if voice.SpeakerVoices != nil {
+		for _, alias := range *voice.SpeakerVoices {
+			aliases[alias] = struct{}{}
+		}
+	}
 	if voice.StateVoices != nil {
 		for _, alias := range voice.StateVoices.Voices {
 			aliases[alias] = struct{}{}
@@ -233,7 +238,13 @@ func wrapAudio(
 	if voice.NodeVoices != nil {
 		nodeVoices = maps.Clone(*voice.NodeVoices)
 	}
-	if defaultVoice != "" || len(nodeVoices) != 0 || voice.StateVoices != nil {
+	if voice.SpeakerVoices != nil {
+		config.SpeakerVoices = make(map[string]string, len(*voice.SpeakerVoices))
+		for name, alias := range *voice.SpeakerVoices {
+			config.SpeakerVoices[name] = "voice/" + alias
+		}
+	}
+	if defaultVoice != "" || len(nodeVoices) != 0 || len(config.SpeakerVoices) != 0 || voice.StateVoices != nil {
 		config.TTS = mux
 		config.ResolveVoice = einoVoiceResolver(defaultVoice, nodeVoices, einoOutputNodes(outputs))
 	}

@@ -1172,3 +1172,12 @@ AudioDock、AgentHost、WebRTC、首响应计时与音频接收器均使用被�
 无重叠和播放节拍。Realtime 在保留的 session 中连续发起输入，覆盖旧 TTS 启动期间的换轮。
 此套件接在 CI 的 Audioplayer Giztest job；标准 provider-backed runner 排除这些专用夹具。
 报告保留在 `.testbench/slow-tts-*/reports/`，退出时清理容器、镜像和临时运行状态。
+
+### 说话人分段回归
+
+确定性测试使用可区分的 Opus 音色，验证单轮五段的完整音频摘要顺序、文字剥离、单流与 `audio_pacing.underruns=0`。Docker 入口在内部隔离网络启动本地 Server/Edge，使用仅测试构建的 provider overlay，分别运行 Eino 与 Flowcraft；无需凭据，结束后清理容器，报告保留于 `.testbench/speaker-segments-*/reports/`。CI 的 Audioplayer Giztest job 执行两条入口。
+
+```sh
+go test ./cmd/internal/commands/giztest -run '^TestSpeakerSegmentsGiztest$' -count=1
+bash tests/gizclaw-e2e/run_speaker_segment_tests.sh
+```

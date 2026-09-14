@@ -365,7 +365,13 @@ func (f Factory) wrapAudio(core genx.Transformer, voice apitypes.VoiceAdapter, i
 	}
 	defaultVoice := stringValue(voice.DefaultVoice)
 	nodeVoices := maps.Clone(valueOrZero(voice.NodeVoices))
-	if defaultVoice != "" || len(nodeVoices) != 0 {
+	if voice.SpeakerVoices != nil {
+		config.SpeakerVoices = make(map[string]string, len(*voice.SpeakerVoices))
+		for name, alias := range *voice.SpeakerVoices {
+			config.SpeakerVoices[name] = "voice/" + alias
+		}
+	}
+	if defaultVoice != "" || len(nodeVoices) != 0 || len(config.SpeakerVoices) != 0 {
 		config.TTS = f.GenX.Transformer()
 		config.ResolveVoice = func(_ context.Context, request audiodock.VoiceRequest) (string, error) {
 			alias := strings.TrimSpace(nodeVoices[request.Name])

@@ -2471,6 +2471,12 @@ export type EinoTransformNode = EinoNodeBase & {
 export type EinoVoiceAdapter = {
     asr_model?: string;
     default_voice?: string;
+    /**
+     * Map speaker names to Voice aliases. Names must be nonblank and contain neither 【 nor 】. Recognized streaming markers are stripped from device text.
+     */
+    speaker_voices?: {
+        [key: string]: string;
+    };
     node_voices?: {
         [key: string]: string;
     };
@@ -2645,6 +2651,12 @@ export type SfuWorkflowSpec = {
 export type VoiceAdapter = {
     asr_model?: string;
     default_voice?: string;
+    /**
+     * Map speaker names to Voice aliases. Names must be nonblank and contain neither 【 nor 】. Recognized streaming markers are stripped from device text.
+     */
+    speaker_voices?: {
+        [key: string]: string;
+    };
     node_voices?: {
         [key: string]: string;
     };

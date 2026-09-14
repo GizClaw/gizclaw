@@ -109,6 +109,23 @@ First-response latency is a property of the complete RuntimeProfile selection, n
 
 Eino Graphs consume the same Workflow memory alias through typed `memory_recall` and `memory_observe` nodes. There is no Eino-specific Memory block or Server Config binding. `conversation.starts: agent` enables proactive opening. Workspace conversation parameters select `on_reload` or once when history is empty; concurrent streams permit only one successful claim, a failed opening is retryable, and user input interrupts through the existing interruption path. History remains persistent while Graph state remains invocation-local.
 
+#### Speaker segments within one response
+
+Eino and Flowcraft accept `voice_adapter.speaker_voices`, mapping exact speaker names to RuntimeProfile Voice aliases. Names must be nonblank and contain neither `【` nor `】`. Aliases follow existing naming rules and must exist in `resources.voices`. Offline `admin validate` checks syntax; RuntimeProfile checks references.
+
+```yaml
+voice_adapter:
+  default_voice: story.narrator
+  speaker_voices:
+    旁白: story.narrator
+    孙悟空: story.wukong
+    唐僧: story.tangseng
+```
+
+For `【旁白】山路很静。【孙悟空】师父小心！【唐僧】悟空莫急。`, device text omits configured markers and audio follows the three voices in order. Marker prefixes split across chunks are buffered; ordinary text is forwarded immediately without waiting for TTS. Unknown names and other brackets remain literal and restore the output's original state/node/default voice selection. Text before the first marker uses that selection too.
+
+Segment inputs remain ordered. The next segment may synthesize while the current segment emits audio; output is serialized into one stream. Consecutive markers selecting the same voice reuse their session, and empty segments produce no audio. User interruption cancels current, prefetched and queued segments. An omitted or empty mapping preserves existing behavior. Prefetch hides synthesis latency when text generation and provider throughput allow continuous playback.
+
 #### SFU composition boundary
 
 `sfu` is the provider-neutral SFU Workspace driver; LiveKit is its first connector implementation (`workflow/agents/sfu`). It serves only the built-in `system-sfu` Workflow of Friend and Friend Group: the payload is an empty object, Workspace `parameters` is always null, and the driver resolves no RuntimeProfile alias and attaches no History, Memory, Tool, or ASR. The resource model, binding, activation, and revocation flows are owned by [services/social](/en/developing/gizclaw/services/social#sfu-workspace).

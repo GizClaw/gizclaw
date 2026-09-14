@@ -1137,6 +1137,13 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 					return err
 				}
 			}
+			if voiceAdapter.SpeakerVoices != nil {
+				for name, alias := range *voiceAdapter.SpeakerVoices {
+					if err := requireVoice("voice_adapter.speaker_voices."+name, alias); err != nil {
+						return err
+					}
+				}
+			}
 			if voiceAdapter.NodeVoices != nil {
 				for nodeID, alias := range *voiceAdapter.NodeVoices {
 					if err := requireVoice("voice_adapter.node_voices."+nodeID, alias); err != nil {
@@ -1193,6 +1200,13 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 			if flowcraft.VoiceAdapter.DefaultVoice != nil {
 				if err := requireVoice("voice_adapter.default_voice", *flowcraft.VoiceAdapter.DefaultVoice); err != nil {
 					return err
+				}
+			}
+			if flowcraft.VoiceAdapter.SpeakerVoices != nil {
+				for name, alias := range *flowcraft.VoiceAdapter.SpeakerVoices {
+					if err := requireVoice("voice_adapter.speaker_voices."+name, alias); err != nil {
+						return err
+					}
 				}
 			}
 			if flowcraft.VoiceAdapter.NodeVoices != nil {

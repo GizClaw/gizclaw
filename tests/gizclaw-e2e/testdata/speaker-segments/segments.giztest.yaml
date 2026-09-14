@@ -1,0 +1,45 @@
+# User Story:
+# As a story listener,
+# I want ordered character voices within one response,
+# So that narration and dialogue play continuously without visible markers.
+version: gizclaw.test/v1alpha1
+name: speaker-segments.ordered
+timeout: 20s
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: http://fixture.invalid
+variables:
+  digest:
+    direction: input
+    type: string
+    value: fixture-supplied
+steps:
+  - id: story
+    client: peer
+    timeout: 15s
+    peer_stream:
+      mode: text
+      input: "开场【狐】狐狸说话【鸟】小鸟回答【狐】狐狸再说【路人】尾声"
+    expect:
+      /text:
+        pattern: "^开场狐狸说话小鸟回答狐狸再说【路人】尾声$"
+      /text_eos:
+        equals: true
+      /audio_eos:
+        equals: true
+      /audio_integrity/sha256:
+        equals: ${digest}
+      /audio_integrity/streams:
+        equals: 1
+      /audio_integrity/max_active:
+        equals: 1
+      /audio_integrity/open:
+        equals: 0
+      /audio_integrity/violations:
+        equals: 0
+      /audio_pacing/packets:
+        equals: 200
+      /audio_pacing/underruns:
+        equals: 0

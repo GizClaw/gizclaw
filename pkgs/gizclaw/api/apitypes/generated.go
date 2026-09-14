@@ -3892,6 +3892,9 @@ type EinoVoiceAdapter struct {
 	DefaultVoice *string            `json:"default_voice,omitempty"`
 	NodeVoices   *map[string]string `json:"node_voices,omitempty"`
 
+	// SpeakerVoices Map speaker names to Voice aliases. Names must be nonblank and contain neither 【 nor 】. Recognized streaming markers are stripped from device text.
+	SpeakerVoices *map[string]string `json:"speaker_voices,omitempty"`
+
 	// StateVoices Select the primary text output voice once per turn before its first nonblank chunk. Missing or unmapped values fall back to node_voices, then default_voice. The string field must be set by an upstream node.
 	StateVoices *struct {
 		Field  string            `json:"field"`
@@ -5681,6 +5684,9 @@ type VoiceAdapter struct {
 	AsrModel     *string            `json:"asr_model,omitempty"`
 	DefaultVoice *string            `json:"default_voice,omitempty"`
 	NodeVoices   *map[string]string `json:"node_voices,omitempty"`
+
+	// SpeakerVoices Map speaker names to Voice aliases. Names must be nonblank and contain neither 【 nor 】. Recognized streaming markers are stripped from device text.
+	SpeakerVoices *map[string]string `json:"speaker_voices,omitempty"`
 }
 
 // VoiceProvider defines model for VoiceProvider.
