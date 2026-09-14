@@ -1419,3 +1419,11 @@ Deterministic tests use distinguishable Opus voices to verify five ordered segme
 go test ./cmd/internal/commands/giztest -run '^TestSpeakerSegmentsGiztest$' -count=1
 bash tests/gizclaw-e2e/run_speaker_segment_tests.sh
 ```
+
+The standard provider-backed Giztest phase also runs `eino-speaker-voices.text-roundtrip` and `flowcraft-speaker-voices.text-roundtrip` with real credentials. The real LLM repeats a marked script, and Volc TTS speaks it with the `narrator`, `assistant-voice` and `story-bird` aliases. The scenarios assert that configured markers are stripped while unknown markers remain, that audio arrives as one stream with no violations and `audio_pacing.underruns=0`, and that ASR transcribes the segment content in order. Run them alone against a started Docker stack:
+
+```sh
+tests/gizclaw-e2e/testdata/bin/gizclaw test run \
+  tests/gizclaw-e2e/giztest/eino-speaker-voices.text-roundtrip.giztest.yaml \
+  tests/gizclaw-e2e/giztest/flowcraft-speaker-voices.text-roundtrip.giztest.yaml --parallel 2
+```

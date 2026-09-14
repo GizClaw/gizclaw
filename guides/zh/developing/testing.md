@@ -1181,3 +1181,11 @@ AudioDock、AgentHost、WebRTC、首响应计时与音频接收器均使用被�
 go test ./cmd/internal/commands/giztest -run '^TestSpeakerSegmentsGiztest$' -count=1
 bash tests/gizclaw-e2e/run_speaker_segment_tests.sh
 ```
+
+标准 provider-backed Giztest 阶段还使用真实凭据运行 `eino-speaker-voices.text-roundtrip` 与 `flowcraft-speaker-voices.text-roundtrip`：真实 LLM 复述带标记的剧本，Volc TTS 以 `narrator`、`assistant-voice`、`story-bird` 三个别名朗读。场景断言已配置标记被剥离、未知标记保留，音频为单流、无违规且 `audio_pacing.underruns=0`，并通过 ASR 确认各段内容按顺序播出。在已启动的 Docker 栈上可单独运行：
+
+```sh
+tests/gizclaw-e2e/testdata/bin/gizclaw test run \
+  tests/gizclaw-e2e/giztest/eino-speaker-voices.text-roundtrip.giztest.yaml \
+  tests/gizclaw-e2e/giztest/flowcraft-speaker-voices.text-roundtrip.giztest.yaml --parallel 2
+```
