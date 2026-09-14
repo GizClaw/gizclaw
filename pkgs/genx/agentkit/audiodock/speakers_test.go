@@ -3,6 +3,7 @@ package audiodock
 import (
 	"context"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -188,5 +189,69 @@ func TestSpeakerSegmentsInterruptCancelsPrefetch(t *testing.T) {
 		if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) > 0 {
 			t.Fatal("stale audio after interrupt")
 		}
+	}
+}
+
+func TestSpeakerSegmentsReuseSameVoiceSession(t *testing.T) {
+	for _, marker := range []string{"甲", "乙"} {
+		t.Run(marker, func(t *testing.T) {
+			agent := transformerFunc(func(context.Context, genx.Stream) (genx.Stream, error) {
+				return &sliceStream{chunks: []*genx.MessageChunk{
+					{Role: genx.RoleModel, Part: genx.Text("【甲】one "), Ctrl: &genx.StreamCtrl{StreamID: "reply", BeginOfStream: true}},
+					{Role: genx.RoleModel, Part: genx.Text("【" + marker), Ctrl: &genx.StreamCtrl{StreamID: "reply"}},
+					{Role: genx.RoleModel, Part: genx.Text("】two"), Ctrl: &genx.StreamCtrl{StreamID: "reply", EndOfStream: true}},
+				}}, nil
+			})
+			var calls atomic.Int32
+			tts := muxFunc(func(_ context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
+				calls.Add(1)
+				var spoken strings.Builder
+				for {
+					chunk, err := input.Next()
+					if chunk != nil {
+						if text, ok := chunk.Part.(genx.Text); ok {
+							spoken.WriteString(string(text))
+						}
+					}
+					if err != nil {
+						break
+					}
+				}
+				return &sliceStream{chunks: []*genx.MessageChunk{
+					{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte(pattern + ":" + spoken.String())}, Ctrl: &genx.StreamCtrl{StreamID: "tts", BeginOfStream: true, EndOfStream: true}},
+				}}, nil
+			})
+			dock, err := New(Config{Agent: agent, TTS: tts, ResolveVoice: fixedVoice("default"), SpeakerVoices: map[string]string{"甲": "shared", "乙": "shared"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			out, err := dock.Transform(t.Context(), emptyStream{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer out.Close()
+			var text, audio strings.Builder
+			bos, eos := 0, 0
+			for _, chunk := range readAll(t, out) {
+				if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
+					t.Fatalf("stream error: %s", chunk.Ctrl.Error)
+				}
+				switch part := chunk.Part.(type) {
+				case genx.Text:
+					text.WriteString(string(part))
+				case *genx.Blob:
+					audio.Write(part.Data)
+					if chunk.IsBeginOfStream() {
+						bos++
+					}
+					if chunk.IsEndOfStream() {
+						eos++
+					}
+				}
+			}
+			if calls.Load() != 1 || text.String() != "one two" || audio.String() != "shared:one two" || bos != 1 || eos != 1 {
+				t.Fatalf("mux calls=%d text=%q audio=%q BOS=%d EOS=%d", calls.Load(), text.String(), audio.String(), bos, eos)
+			}
+		})
 	}
 }
