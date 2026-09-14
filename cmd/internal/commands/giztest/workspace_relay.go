@@ -18,13 +18,14 @@ import (
 )
 
 // Fixed v1 relay safety limits; the schema deliberately exposes no tuning
-// fields. The event limit applies per completed turn — voice-enabled
-// Workspaces stream hundreds of Opus packets per response, so a whole-relay
-// event total would not survive real dialogues — while the byte limits bound
-// the whole relay.
+// fields. Each turn allows 4096 non-audio events and ten minutes of Opus
+// audio, measured with the packet RTP clock rather than packet count. Empty
+// audio chunks count as events. Limits include discarded/inactive streams;
+// the existing whole-relay text and audio byte limits also remain in force.
 const (
-	relayMaxTurnEvents = 4096
-	relayMaxTextBytes  = 1 << 20
+	relayMaxTurnEvents        = 4096
+	relayMaxTurnAudioDuration = 10 * time.Minute
+	relayMaxTextBytes         = 1 << 20
 )
 
 // relayStream is the PeerStream surface the relay drives. *gizcli.PeerStream
@@ -239,6 +240,8 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *giztest.WorkspaceRel
 	sides[active].turnStarted = time.Now()
 	sides[active].everActive = true
 	completed, totalEvents, turnEvents, totalTextBytes, totalAudioBytes := 0, 0, 0, 0, 0
+	var turnAudioDuration time.Duration
+	turnAudioBytes := 0
 	started := time.Now()
 	lastEventMS := int64(0)
 	idleTimeout, _ := time.ParseDuration(op.IdleTimeout)
@@ -323,9 +326,25 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *giztest.WorkspaceRel
 			return fail(side, "", "PeerStream returned an empty chunk")
 		}
 		totalEvents++
-		turnEvents++
-		if turnEvents > relayMaxTurnEvents {
-			return fail(side, "", "exceeded the fixed %d-event relay turn limit", relayMaxTurnEvents)
+		if blob, ok := chunk.Part.(*genx.Blob); ok && blob != nil && len(blob.Data) > 0 && relayOpusMIME(blob.MIMEType) {
+			// Check bytes before decoding, including audio later discarded.
+			if len(blob.Data) > giztest.MaxRelayAudioBytes-turnAudioBytes {
+				return fail(side, "", "exceeded the fixed %d-byte relay turn audio limit", giztest.MaxRelayAudioBytes)
+			}
+			turnAudioBytes += len(blob.Data)
+			packets, err := decodeOpusPackets(blob.Data)
+			if err != nil {
+				return fail(side, "", "decode relay audio failed: %v", err)
+			}
+			turnAudioDuration += opusPacketsDuration(packets)
+			if turnAudioDuration > relayMaxTurnAudioDuration {
+				return fail(side, "", "exceeded the fixed %s relay turn audio duration limit", relayMaxTurnAudioDuration)
+			}
+		} else {
+			turnEvents++
+			if turnEvents > relayMaxTurnEvents {
+				return fail(side, "", "exceeded the fixed %d-event relay turn limit (non-audio events)", relayMaxTurnEvents)
+			}
 		}
 		label := ""
 		interrupted := false
@@ -495,6 +514,8 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *giztest.WorkspaceRel
 		side.texts = append(side.texts, strings.Join(side.turnTexts, ""))
 		completed++
 		turnEvents = 0
+		turnAudioDuration = 0
+		turnAudioBytes = 0
 		side.turns++
 		if side.turnFirstMS >= 0 {
 			if op.Media == "text" {

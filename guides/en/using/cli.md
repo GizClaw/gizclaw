@@ -340,10 +340,13 @@ counts. `capture` may assign `/terminal/text` to a string output variable for
 either relay media or, for audio, `/terminal/audio` to an `audio/ogg` Opus
 output variable. Text observed during an audio relay is retained for assertions
 and capture but is not forwarded alongside audio as duplicate user input.
-Fixed v1 safety limits — 4,096 received events per completed turn, 1 MiB
-joined text, and 16 MiB audio per relay — fail the relay when exceeded and
-expose no tuning fields; the event limit is per turn because voice-enabled
-Workspaces stream hundreds of Opus packets per response. A self-start
+Fixed v1 safety limits allow 4,096 non-audio events per turn, including empty
+audio chunks. Nonempty Opus audio is bounded to ten minutes per turn using
+packet RTP clocks, with a 16 MiB per-turn byte guard before decoding. These
+per-turn limits include discarded and inactive-side input and reset after
+each completed turn; evidence still counts every event. The whole-relay
+limits of 1 MiB joined text and 16 MiB audio remain in force. Exceeding a
+limit fails the relay; no tuning fields are exposed. A self-start
 reply emitted by a Workspace before its first relay turn is consumed and
 discarded (its `interrupted` marker is benign); once a side has held a turn,
 any output on the relayed media (text for `media: text`, audio for

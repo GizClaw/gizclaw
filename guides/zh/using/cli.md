@@ -287,9 +287,11 @@ relay 结果暴露 `completed_turns`、`terminal.client`、终轮产生文本时
 `first_text_ms`/`text_runes`，audio 为 `first_audio_ms`/`audio_bytes`——外加事件与
 字节总数。两种 relay media 都可把 `/terminal/text` capture 到 string output；audio
 还可把 `/terminal/audio` capture 到 `audio/ogg` Opus output。audio relay 观察到的文本
-用于断言和 capture，但不会和音频一起重复转发为 user 输入。v1 固定安全上限——每完成一轮 4,096
-个接收事件、整个 relay 1 MiB 拼接文本与 16 MiB 音频——超限即失败且不暴露调节字段；
-事件上限按轮计数，因为带语音的 Workspace 每次响应会流出数百个 Opus 包。Workspace 在
+用于断言和 capture，但不会和音频一起重复转发为 user 输入。v1 每轮最多接收 4,096 个非音频
+事件（空音频 chunk 也计入）；非空 Opus 音频按包的 RTP 时钟累计，最多十分钟，并在解码前
+受每轮 16 MiB 字节上限保护。每轮上限也计入随后丢弃或来自 inactive 侧的输入，完成轮次后
+重置；evidence 仍统计全部事件。整个 relay 的 1 MiB 拼接文本与 16 MiB 音频上限保持有效。
+超限即失败且不暴露调节字段。Workspace 在
 自己第一个 relay 轮之前 self-start 的响应会被消费并丢弃（其 `interrupted` 标记视为
 良性）；一旦某侧持有过轮次，它在对侧 active 期间于 relay 媒体上（`media: text` 为文本、`media: audio` 为音频）
 的任何输出都会被视为串轮而使 relay 失败；语音 Workspace 的另一条通道（例如自己已完成
