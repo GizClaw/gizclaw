@@ -928,3 +928,63 @@ func TestWorkspaceRelayTurnAudioLimits(t *testing.T) {
 		})
 	}
 }
+
+func TestWorkspaceRelayResetsTurnAudioLimits(t *testing.T) {
+	// A one-frame 20 ms silence packet with 1024 bytes of Opus padding.
+	padded := append([]byte{0xfb, 0x41, 0xff, 0xff, 0xff, 0xff, 0x08, 0xff, 0xfe}, make([]byte, 1024)...)
+	for _, tc := range []struct {
+		name         string
+		packets      int
+		packet       []byte
+		discardFirst bool
+	}{
+		{name: "duration", packets: 16000, packet: []byte{0xf8, 0xff, 0xfe}},
+		// Discarded audio consumes the per-turn byte guard, but not the
+		// whole-relay byte limit. This isolates the per-turn reset.
+		{name: "bytes", packets: 9000, packet: padded, discardFirst: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			first, second := newFakeRelayStream(), newFakeRelayStream()
+			first.in = make(chan *genx.MessageChunk, tc.packets+1)
+			second.in = make(chan *genx.MessageChunk, tc.packets+1)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			type outcome struct {
+				result operationResult
+				err    error
+			}
+			done := make(chan outcome, 1)
+			go func() {
+				result, err := runWorkspaceRelay(ctx, textRelayOperation(2), first, second, "brief", 0)
+				done <- outcome{result, err}
+			}()
+			drainUserTurn(t, first)
+			for range tc.packets {
+				chunk := assistantBlob("first-audio", tc.packet, false)
+				if tc.discardFirst {
+					chunk.Ctrl.Error = "interrupted"
+				}
+				first.in <- chunk
+			}
+			first.in <- assistantText("first-text", "next", true)
+			// Receiving the forwarded EOS synchronizes the ownership handoff;
+			// the second response cannot be mistaken for a self-start reply.
+			drainUserTurn(t, second)
+			for range tc.packets {
+				second.in <- assistantBlob("second-audio", tc.packet, false)
+			}
+			second.in <- assistantText("second-text", "PASS", true)
+			got := <-done
+			if got.err != nil {
+				t.Fatal(got.err)
+			}
+			if got.result.evidence["completed_turns"] != 2 || got.result.evidence["events"] != 2*(tc.packets+1) {
+				t.Fatalf("relay evidence = %#v", got.result.evidence)
+			}
+			terminal := got.result.assertion.(map[string]any)["terminal"].(map[string]any)
+			if terminal["client"] != "candidate" || terminal["text"] != "PASS" {
+				t.Fatalf("terminal = %#v", terminal)
+			}
+		})
+	}
+}
