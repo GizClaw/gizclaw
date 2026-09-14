@@ -937,11 +937,13 @@ func TestWorkspaceRelayResetsTurnAudioLimits(t *testing.T) {
 		packets      int
 		packet       []byte
 		discardFirst bool
+		wantError    string
 	}{
 		{name: "duration", packets: 16000, packet: []byte{0xf8, 0xff, 0xfe}},
 		// Discarded audio consumes the per-turn byte guard, but not the
 		// whole-relay byte limit. This isolates the per-turn reset.
 		{name: "bytes", packets: 9000, packet: padded, discardFirst: true},
+		{name: "whole relay bytes", packets: 9000, packet: padded, wantError: "workspace_relay client candidate turn 2: exceeded the fixed 16777216-byte relay audio limit"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			first, second := newFakeRelayStream(), newFakeRelayStream()
@@ -975,6 +977,15 @@ func TestWorkspaceRelayResetsTurnAudioLimits(t *testing.T) {
 			}
 			second.in <- assistantText("second-text", "PASS", true)
 			got := <-done
+			if tc.wantError != "" {
+				if got.err == nil || got.err.Error() != tc.wantError {
+					t.Fatalf("error = %v, want %s", got.err, tc.wantError)
+				}
+				if got.result.evidence["completed_turns"] != 1 {
+					t.Fatalf("relay evidence = %#v", got.result.evidence)
+				}
+				return
+			}
 			if got.err != nil {
 				t.Fatal(got.err)
 			}
