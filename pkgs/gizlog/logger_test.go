@@ -53,10 +53,12 @@ type orderedLoggerTestStore struct {
 }
 
 func (s *orderedLoggerTestStore) Append(_ context.Context, records []logstore.Record) ([]logstore.RecordKey, error) {
-	for range records {
+	keys := make([]logstore.RecordKey, len(records))
+	for i, record := range records {
 		*s.order = append(*s.order, s.name)
+		keys[i] = record.Key()
 	}
-	return []logstore.RecordKey{}, nil
+	return keys, nil
 }
 func (*orderedLoggerTestStore) Query(context.Context, logstore.Query) (logstore.Page, error) {
 	return logstore.Page{}, nil

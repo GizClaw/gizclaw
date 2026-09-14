@@ -46,9 +46,10 @@ type StoreResolver interface {
 	Log(string) (logstore.ImmutableStore, error)
 }
 
-// NewLogger builds the process logger. Store-backed handlers do not own or
-// close registry-owned stores. Store writes use one bounded worker; cleanup
-// drains it before the caller closes the registry.
+// NewLogger builds an independent logger. Store-backed handlers borrow registry
+// stores. Each logger with Store sinks owns one bounded queue and worker shared
+// by those sinks; cleanup drains only that logger. Callers must clean up every
+// borrowing logger before closing the registry. Stderr-only loggers need no worker.
 func NewLogger(cfg Config, registries ...StoreResolver) (*slog.Logger, func() error, error) {
 	if len(registries) > 1 {
 		return nil, nil, &StoreResolutionError{Reason: "multiple store registries are not supported"}

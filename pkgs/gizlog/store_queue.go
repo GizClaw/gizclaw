@@ -100,7 +100,7 @@ func (q *storeQueue) run() {
 			}
 		}
 		ctx, cancel := context.WithTimeout(q.ctx, q.timeout)
-		_, err := job.store.Append(ctx, job.records)
+		remaining, err := appendStoreRecords(ctx, job.store, job.records)
 		cancel()
 		if err != nil {
 			q.err = errStoreQueueWrite
@@ -108,10 +108,44 @@ func (q *storeQueue) run() {
 			var pcs [1]uintptr
 			runtime.Callers(1, pcs[:])
 			failure := slog.NewRecord(time.Now(), slog.LevelError, "system log store sink failed", pcs[0])
-			failure.AddAttrs(slog.String("store", job.name), slog.Int("records", len(job.records)))
+			failure.AddAttrs(slog.String("store", job.name), slog.Int("records", len(remaining)))
 			_ = q.fallback.Handle(context.Background(), failure)
 		}
 	}
+}
+
+// appendStoreRecords retries only the unaccepted suffix under the batch's
+// original deadline. A provider error never exposes payloads to the fallback.
+func appendStoreRecords(ctx context.Context, store logstore.Appender, records []logstore.Record) ([]logstore.Record, error) {
+	for len(records) > 0 {
+		if err := ctx.Err(); err != nil {
+			return records, err
+		}
+		keys, err := store.Append(ctx, records)
+		if len(keys) > len(records) {
+			return records, errStoreQueueWrite
+		}
+		for i, key := range keys {
+			if key != records[i].Key() {
+				return records, errStoreQueueWrite
+			}
+		}
+		records = records[len(keys):]
+		if len(records) == 0 {
+			return nil, err
+		}
+		if err != nil || len(keys) == 0 {
+			// Bound retry pressure when the provider fails or makes no progress.
+			timer := time.NewTimer(10 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return records, ctx.Err()
+			case <-timer.C:
+			}
+		}
+	}
+	return nil, nil
 }
 
 func (q *storeQueue) close() error {
