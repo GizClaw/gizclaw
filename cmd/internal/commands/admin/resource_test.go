@@ -838,8 +838,8 @@ func resourceKindAndName(resource apitypes.Resource) (apitypes.ResourceKind, str
 	return header.Kind, header.Metadata.Id, nil
 }
 
-func TestAdminValidateEinoStateVoices(t *testing.T) {
-	fixture, err := os.ReadFile("../../../../tests/gizclaw-e2e/testdata/resources/04-workflows/33-eino-multi-role.yaml")
+func TestAdminValidateEinoWorkflowResource(t *testing.T) {
+	fixture, err := os.ReadFile("../../../../tests/gizclaw-e2e/testdata/resources/04-workflows/34-eino-speaker-voices.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -849,8 +849,8 @@ func TestAdminValidateEinoStateVoices(t *testing.T) {
 	}
 	for _, test := range []struct{ name, from, to, want string }{
 		{"valid", "", "", ""},
-		{"missing field", `"field":"selected_speaker"`, `"field":"missing"`, "state_voices.field"},
-		{"invalid alias", `"story.fox"`, `"INVALID"`, "pattern"},
+		{"invalid speaker", `"小鸟":`, `"【小鸟":`, "speaker_voices"},
+		{"invalid alias", `"story-bird"`, `"INVALID"`, "pattern"},
 	} {
 		for _, list := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/list=%v", test.name, list), func(t *testing.T) {

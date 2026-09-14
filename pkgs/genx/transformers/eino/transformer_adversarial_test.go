@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"io"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/buffer"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -118,6 +120,71 @@ func TestTurnRunEmitterAdversarialBoundaries(t *testing.T) {
 	run.interrupted = true
 	run.interrupt()
 	_ = session.invocation.Cancel(io.EOF)
+}
+
+// Emit holds run.mu across route lookup and invocation emission. Concurrent
+// emitters and an interruption must all return without waiting on each other.
+func TestTurnRunConcurrentEmitAndInterruptMakeProgress(t *testing.T) {
+	t.Parallel()
+	transformer, err := New(t.Context(), textConfig())
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	session := newSession(t.Context(), transformer, textInput("unused"))
+	defer func() { _ = session.invocation.Cancel(io.EOF) }()
+	runCtx, cancel := context.WithCancelCause(t.Context())
+	defer cancel(io.EOF)
+	output := transformer.graph.primary
+	response, err := session.invocation.StartResponse(streamkit.ResponseConfig{
+		Role: genx.RoleModel, Name: output.Name, Label: output.Name,
+	}, output.MIMEType)
+	if err != nil {
+		t.Fatalf("StartResponse() error = %v", err)
+	}
+	route := outputRoute{definition: output, response: response}
+	run := &turnRun{
+		session: session, ctx: runCtx, cancel: cancel,
+		routes: map[string]outputRoute{output.Name: route}, primary: route,
+		streamIDs: map[string]struct{}{response.StreamID(): {}},
+		changed:   make(chan struct{}, 1), accepting: true,
+	}
+
+	const emitters, emits = 8, 64
+	start := make(chan struct{})
+	errs := make(chan error, emitters*emits)
+	var wg sync.WaitGroup
+	for range emitters {
+		wg.Go(func() {
+			<-start
+			for range emits {
+				errs <- run.Emit(output, "x")
+			}
+		})
+	}
+	wg.Go(func() {
+		<-start
+		run.interrupt()
+	})
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	close(start)
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("concurrent Emit and interrupt did not make progress")
+	}
+	close(errs)
+	for err := range errs {
+		if err != nil && !errors.Is(err, streamkit.ErrInactiveResponse) {
+			t.Fatalf("Emit() error = %v", err)
+		}
+	}
+	if err := run.Emit(output, "late"); !errors.Is(err, streamkit.ErrInactiveResponse) {
+		t.Fatalf("Emit(after interrupt) error = %v", err)
+	}
 }
 
 func TestGraphBindingDiscoveryCoversEveryCompositeLocation(t *testing.T) {

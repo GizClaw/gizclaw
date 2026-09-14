@@ -266,8 +266,4 @@ output `first_text`，再对齐 Audio Dock 的 `first_text`、`first_audio`；�
 客户端 `speechEndedAt`。Interim transcript 的 `first_text` 不代表 ASR 已定稿，
 也不能据此提前执行有副作用的对话轮次。
 
-## 输出适配元数据
-
-`Config.OutputMetadata` 可在每条 output route 的首个非空白 chunk 发布前，从分离的本轮 state 快照生成 `map[string]string`。快照与回调都在 turn mutex 外执行；回调必须是支持并发调用的纯函数，并发首块可能准备多个候选，只有最先发布的非空白 chunk 固定候选。空映射回落同样固定。结果在该 route 内固定，通过 `MessageChunk.Metadata` 传给进程内 adapter，Clone 会复制 map，wire encoder 不得输出这些属性。空白前缀不触发快照。未配置时不复制 state、不增加输出等待。此钩子不改变 Graph 输出名称、primary、History 或 memory；产品层可以用它传递本轮 Voice alias，通用 Eino package 不解析 Voice 资源或执行 TTS。
-
 纯空白且不含附件的用户文字轮次不执行 Graph，也不写入模型对话；主动开场及带附件的输入仍按原有生命周期执行。

@@ -1085,7 +1085,8 @@ go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|Flowcr
 AudioDock、Go Giztest runner 和 CLI 接收逻辑。无需外部网络、凭据或 Docker。
 Audioplayer Giztest job 在 Console 资源构建后执行整个套件，复用已有音频测试环境。
 
-- `eino-voices/multi-turn.giztest.yaml` 保留四轮 state voice 回归；
+- `eino-voices/multi-turn.giztest.yaml` 执行四轮 Eino，Starlark selector 为每轮回复加上
+  `【speaker】` 标记，经 `speaker_voices` 选择音色；
   `multi-role-voices/multi-turn.giztest.yaml` 在同一 invocation 执行 fox、bird、owl、bear、
   unknown（default 回落）、bear、bear、fox 八轮。Flowcraft 的四个发布节点使用
   `node_voices`，每轮使用不同的确定性音频摘要，连续同角色也能发现上一轮音频被复用。
@@ -1180,4 +1181,12 @@ AudioDock、AgentHost、WebRTC、首响应计时与音频接收器均使用被�
 ```sh
 go test ./cmd/internal/commands/giztest -run '^TestSpeakerSegmentsGiztest$' -count=1
 bash tests/gizclaw-e2e/run_speaker_segment_tests.sh
+```
+
+标准 provider-backed Giztest 阶段还使用真实凭据运行 `eino-speaker-voices.text-roundtrip` 与 `flowcraft-speaker-voices.text-roundtrip`：真实 LLM 复述带标记的剧本，Volc TTS 以 `narrator`、`assistant-voice`、`story-bird` 三个别名朗读。场景断言已配置标记被剥离、未知标记保留，音频为单流、无违规且 `audio_pacing.underruns=0`，并通过 ASR 确认各段内容按顺序播出。在已启动的 Docker 栈上可单独运行：
+
+```sh
+tests/gizclaw-e2e/testdata/bin/gizclaw test run \
+  tests/gizclaw-e2e/giztest/eino-speaker-voices.text-roundtrip.giztest.yaml \
+  tests/gizclaw-e2e/giztest/flowcraft-speaker-voices.text-roundtrip.giztest.yaml --parallel 2
 ```

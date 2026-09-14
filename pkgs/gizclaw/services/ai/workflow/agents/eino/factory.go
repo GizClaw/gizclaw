@@ -92,7 +92,6 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 			Store: f.History, Scope: scope, Limit: 50,
 		},
 	}
-	config.OutputMetadata = einoOutputMetadata(public.VoiceAdapter)
 	config.Initiative = mapInitiative(public.Conversation, spec.Workspace.Parameters)
 	if public.Limits != nil && public.Limits.MaxOutputBytes != nil {
 		config.Limits.MaxOutputBytes = *public.Limits.MaxOutputBytes
@@ -181,7 +180,7 @@ func resolveEinoInputMode(parameters *apitypes.WorkspaceParameters) (apitypes.Wo
 	return *value.Input, nil
 }
 
-func preflightVoiceAdapter(ctx context.Context, service *peergenx.Service, voice apitypes.EinoVoiceAdapter, inputMode apitypes.WorkspaceInputMode) error {
+func preflightVoiceAdapter(ctx context.Context, service *peergenx.Service, voice apitypes.VoiceAdapter, inputMode apitypes.WorkspaceInputMode) error {
 	if alias := stringPointerValue(voice.AsrModel); alias != "" {
 		resolved, err := service.ResolveTransformer(ctx, einoASRPattern(alias, inputMode))
 		if err != nil {
@@ -205,11 +204,6 @@ func preflightVoiceAdapter(ctx context.Context, service *peergenx.Service, voice
 			aliases[alias] = struct{}{}
 		}
 	}
-	if voice.StateVoices != nil {
-		for _, alias := range voice.StateVoices.Voices {
-			aliases[alias] = struct{}{}
-		}
-	}
 	for alias := range aliases {
 		resolved, err := service.ResolveTransformer(ctx, einoVoicePattern(alias))
 		if err != nil {
@@ -225,7 +219,7 @@ func preflightVoiceAdapter(ctx context.Context, service *peergenx.Service, voice
 func wrapAudio(
 	mux genx.TransformerMux,
 	core genx.Transformer,
-	voice apitypes.EinoVoiceAdapter,
+	voice apitypes.VoiceAdapter,
 	outputs []apitypes.EinoOutput,
 	inputMode apitypes.WorkspaceInputMode,
 ) (genx.Transformer, error) {
@@ -244,7 +238,7 @@ func wrapAudio(
 			config.SpeakerVoices[name] = "voice/" + alias
 		}
 	}
-	if defaultVoice != "" || len(nodeVoices) != 0 || len(config.SpeakerVoices) != 0 || voice.StateVoices != nil {
+	if defaultVoice != "" || len(nodeVoices) != 0 || len(config.SpeakerVoices) != 0 {
 		config.TTS = mux
 		config.ResolveVoice = einoVoiceResolver(defaultVoice, nodeVoices, einoOutputNodes(outputs))
 	}
@@ -265,33 +259,10 @@ func einoVoiceResolver(defaultVoice string, nodeVoices, outputNodes map[string]s
 		if alias == "" {
 			alias = strings.TrimSpace(defaultVoice)
 		}
-		if request.Chunk != nil && request.Chunk.Metadata[einoVoiceMetadataKey] != "" {
-			alias = request.Chunk.Metadata[einoVoiceMetadataKey]
-		}
 		if alias == "" {
 			return "", nil
 		}
 		return einoVoicePattern(alias), nil
-	}
-}
-
-const einoVoiceMetadataKey = "eino.voice"
-
-func einoOutputMetadata(voice *apitypes.EinoVoiceAdapter) func(genxeino.OutputDefinition, map[string]any) map[string]string {
-	if voice == nil || voice.StateVoices == nil {
-		return nil
-	}
-	field := voice.StateVoices.Field
-	voices := maps.Clone(voice.StateVoices.Voices)
-	return func(output genxeino.OutputDefinition, state map[string]any) map[string]string {
-		if !output.Primary {
-			return nil
-		}
-		value, _ := state[field].(string)
-		if alias := voices[value]; alias != "" {
-			return map[string]string{einoVoiceMetadataKey: alias}
-		}
-		return nil
 	}
 }
 
@@ -314,7 +285,7 @@ func stringPointerValue(value *string) string {
 	return strings.TrimSpace(*value)
 }
 
-func einoVoiceAdapterHasASR(voice *apitypes.EinoVoiceAdapter) bool {
+func einoVoiceAdapterHasASR(voice *apitypes.VoiceAdapter) bool {
 	return voice != nil && stringPointerValue(voice.AsrModel) != ""
 }
 

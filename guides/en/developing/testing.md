@@ -1308,7 +1308,8 @@ Eino/Flowcraft factories, AudioDock, the Go Giztest runner and CLI receiver. No
 external network, credentials or Docker are required. Audioplayer Giztest runs the
 whole suite after building Console assets, reusing its audio test environment.
 
-- `eino-voices/multi-turn.giztest.yaml` retains the four-turn state voice regression.
+- `eino-voices/multi-turn.giztest.yaml` runs four Eino turns whose Starlark selector
+  prefixes each reply with a `【speaker】` marker selected through `speaker_voices`.
   `multi-role-voices/multi-turn.giztest.yaml` runs fox, bird, owl, bear, unknown
   (default fallback), bear, bear and fox in one invocation. Four Flowcraft publisher
   nodes use `node_voices`. Distinct deterministic payloads for every turn detect
@@ -1418,4 +1419,12 @@ Deterministic tests use distinguishable Opus voices to verify five ordered segme
 ```sh
 go test ./cmd/internal/commands/giztest -run '^TestSpeakerSegmentsGiztest$' -count=1
 bash tests/gizclaw-e2e/run_speaker_segment_tests.sh
+```
+
+The standard provider-backed Giztest phase also runs `eino-speaker-voices.text-roundtrip` and `flowcraft-speaker-voices.text-roundtrip` with real credentials. The real LLM repeats a marked script, and Volc TTS speaks it with the `narrator`, `assistant-voice` and `story-bird` aliases. The scenarios assert that configured markers are stripped while unknown markers remain, that audio arrives as one stream with no violations and `audio_pacing.underruns=0`, and that ASR transcribes the segment content in order. Run them alone against a started Docker stack:
+
+```sh
+tests/gizclaw-e2e/testdata/bin/gizclaw test run \
+  tests/gizclaw-e2e/giztest/eino-speaker-voices.text-roundtrip.giztest.yaml \
+  tests/gizclaw-e2e/giztest/flowcraft-speaker-voices.text-roundtrip.giztest.yaml --parallel 2
 ```
