@@ -32,6 +32,8 @@ spec:
         giztest-workflow-tester: {resource_id: giztest-workflow-tester, i18n: {en: {display_name: Giztest Workflow Tester}, zh-CN: {display_name: Giztest 测试驱动}}}
         eino-speaker-voices: {resource_id: eino-speaker-voices, i18n: {en: {display_name: Eino Speaker Voices}, zh-CN: {display_name: Eino 分段音色}}}
         flowcraft-speaker-voices: {resource_id: flowcraft-speaker-voices, i18n: {en: {display_name: Flowcraft Speaker Voices}, zh-CN: {display_name: Flowcraft 分段音色}}}
+        eino-mixed-provider-voices: {resource_id: eino-mixed-provider-voices, i18n: {en: {display_name: Eino Mixed Provider Voices}, zh-CN: {display_name: Eino 跨厂商音色}}}
+        flowcraft-mixed-provider-voices: {resource_id: flowcraft-mixed-provider-voices, i18n: {en: {display_name: Flowcraft Mixed Provider Voices}, zh-CN: {display_name: Flowcraft 跨厂商音色}}}
   resources:
     models:
       asr: {resource_id: volc-bigasr-sauc, i18n: {en: {display_name: Speech Recognition}, zh-CN: {display_name: 语音识别}}}
@@ -52,6 +54,7 @@ spec:
       zhu-bajie: {resource_id: "volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts", i18n: {en: {display_name: Zhu Bajie}, zh-CN: {display_name: 猪八戒}}}
       monster: {resource_id: "volc-tenant:volc-main:zh_female_vv_uranus_bigtts", i18n: {en: {display_name: Monster}, zh-CN: {display_name: 妖怪}}}
       story-bird: {resource_id: "volc-tenant:volc-main:zh_male_naiqimengwa_mars_bigtts", i18n: {en: {display_name: Story Bird}, zh-CN: {display_name: 故事小鸟}}}
+      minimax-boy: {resource_id: "minimax-tenant:minimax-cn:Chinese (Mandarin)_Pure-hearted_Boy", i18n: {en: {display_name: MiniMax Boy}, zh-CN: {display_name: MiniMax 邻家弟弟}}}
     tools:
       giztest-other: {resource_id: giztest-client-other, i18n: {en: {display_name: Giztest other tool}, zh-CN: {display_name: Giztest 另一工具}}}
       giztest-echo: {resource_id: giztest-client-echo, i18n: {en: {display_name: Giztest client echo}, zh-CN: {display_name: Giztest 客户端回显}}}

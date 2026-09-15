@@ -1142,7 +1142,7 @@ func TestDefaultBuilderBuildsVoiceTransformers(t *testing.T) {
 				},
 				Credential: apitypes.Credential{Id: "minimax-key", Body: testMiniMaxCredentialBody("sk-test")},
 			},
-			wantFormat:     defaultMiniMaxTTSAudioFormat,
+			wantFormat:     "ogg_opus",
 			wantSampleRate: defaultTTSAudioSampleRate,
 			wantModel:      "speech-2.6-hd",
 			wantBaseURL:    baseURL,
@@ -1163,10 +1163,32 @@ func TestDefaultBuilderBuildsVoiceTransformers(t *testing.T) {
 				},
 				Credential: apitypes.Credential{Id: "minimax-key", Body: testMiniMaxCredentialBody("sk-test")},
 			},
-			wantFormat:     defaultMiniMaxTTSAudioFormat,
+			wantFormat:     "ogg_opus",
 			wantSampleRate: defaultTTSAudioSampleRate,
 			wantModel:      "speech-2.6-turbo",
 			wantBaseURL:    defaultMiniMaxBaseURL,
+		},
+		{
+			name: "minimax segment voice overrides provider format",
+			cfg: TransformerConfig{
+				Voice: &apitypes.Voice{
+					Id: "minimax-voice",
+					ProviderData: mustMiniMaxVoiceProviderData(t, apitypes.MiniMaxTenantVoiceProviderData{
+						VoiceId: new("voice-id"),
+						Model:   new("speech-2.6-turbo"),
+						Format:  new("mp3"),
+					}),
+				},
+				Tenant: Tenant{
+					Kind:    "minimax-tenant",
+					MiniMax: &apitypes.MiniMaxTenant{Id: "main", CredentialId: "minimax-key"},
+				},
+				Credential: apitypes.Credential{Id: "minimax-key", Body: testMiniMaxCredentialBody("sk-test")},
+				Params:     map[string]any{"format": SegmentVoiceFormat},
+			},
+			wantFormat:     "ogg_opus",
+			wantSampleRate: defaultTTSAudioSampleRate,
+			wantModel:      "speech-2.6-turbo",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1199,6 +1221,23 @@ func TestDefaultBuilderBuildsVoiceTransformers(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestWithSegmentVoiceFormat(t *testing.T) {
+	for _, tc := range []struct{ pattern, want string }{
+		{pattern: "voice/story.fox", want: "voice/story.fox?format=ogg_opus"},
+		{pattern: " voice/story.fox?format=mp3 ", want: "voice/story.fox?format=ogg_opus"},
+		{pattern: "voice/story.fox?speed=1.2", want: "voice/story.fox?format=ogg_opus&speed=1.2"},
+		{pattern: "voice/story.fox?%zz", want: "voice/story.fox?%zz"},
+	} {
+		if got := WithSegmentVoiceFormat(tc.pattern); got != tc.want {
+			t.Errorf("WithSegmentVoiceFormat(%q) = %q, want %q", tc.pattern, got, tc.want)
+		}
+	}
+	base, params, err := splitPatternParams(WithSegmentVoiceFormat("voice/story.fox"))
+	if err != nil || base != "voice/story.fox" || params["format"] != SegmentVoiceFormat {
+		t.Fatalf("splitPatternParams() = %q, %v, %v", base, params, err)
 	}
 }
 

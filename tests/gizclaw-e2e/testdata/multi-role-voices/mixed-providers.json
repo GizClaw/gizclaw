@@ -1,0 +1,26 @@
+{
+  "voice_adapter": {
+    "default_voice": "story.default",
+    "speaker_voices": {"fox": "story.fox"}
+  },
+  "graph": {
+    "name": "mixed-provider-voices",
+    "entry": "narrate",
+    "nodes": [
+      {
+        "id": "narrate",
+        "type": "script",
+        "publish": true,
+        "config": {
+          "source": "host.emit(\"token\", {content: \"The narrator begins. 【fox】I am the fox.\"});"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "narrate",
+        "to": "__end__"
+      }
+    ]
+  }
+}

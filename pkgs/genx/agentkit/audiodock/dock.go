@@ -141,6 +141,10 @@ type dockRoute struct {
 	pendingTerminal map[string]*genx.MessageChunk
 	speakers        speakerParser
 	lastSegment     *ttsPipe
+	// segmentAudioMIME is the audio MIME type of the first speaker segment.
+	// Consumers decode one response route as one audio stream, so every later
+	// segment must use the same MIME type. It is guarded by mu.
+	segmentAudioMIME string
 }
 
 type dockTTSRoute struct {
@@ -618,6 +622,13 @@ func (r *dockRun) forwardTTS(route *dockRoute, pipe *ttsPipe) {
 			r.finishRoute(route, err.Error())
 			return
 		}
+		if pipe.done != nil {
+			if err := route.claimSegmentAudioMIME(mimeType); err != nil {
+				r.abortTTS(route, err)
+				r.finishRoute(route, err.Error())
+				return
+			}
+		}
 		childKey := dockTTSChildRouteKey{streamID: childStreamID, mimeType: mimeType}
 		state := childRoutes[childKey]
 		if state == nil {
@@ -794,6 +805,31 @@ func (r *dockRun) finishRoute(route *dockRoute, errorText string) {
 		route.closed.Store(true)
 		_ = r.invocation.FinishResponse(route.response, errorText)
 	})
+}
+
+// claimSegmentAudioMIME records the audio MIME type of a speaker segment's TTS
+// output and rejects a segment whose audio differs from earlier segments. A
+// consumer that decodes each (StreamID, MIME) pair as its own track would
+// otherwise mix the segments concurrently instead of playing them in order.
+func (r *dockRoute) claimSegmentAudioMIME(mimeType string) error {
+	if !isAudioMIME(mimeType) {
+		return nil
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.segmentAudioMIME == "" {
+		r.segmentAudioMIME = mimeType
+		return nil
+	}
+	if r.segmentAudioMIME != mimeType {
+		return fmt.Errorf("audiodock: speaker segment audio %q differs from response audio %q; configure every speaker Voice with the same output format", mimeType, r.segmentAudioMIME)
+	}
+	return nil
+}
+
+func isAudioMIME(mimeType string) bool {
+	mimeType = strings.ToLower(strings.TrimSpace(mimeType))
+	return strings.HasPrefix(mimeType, "audio/") || strings.HasPrefix(mimeType, "application/ogg")
 }
 
 func (r *dockRoute) hasTTSPipes() bool {

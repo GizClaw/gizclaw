@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"mime"
 	"sort"
 	"strconv"
@@ -355,11 +356,7 @@ func (a *historyAgent) forwardOutput(ctx context.Context, outputKey string, outp
 		}
 		chunk, err := input.Next()
 		if err != nil {
-			if flushErr := recorder.Flush(ctx); flushErr != nil {
-				a.clearOutput(outputKey, outputState)
-				_ = output.Abort(flushErr)
-				return
-			}
+			recorder.flushAll(ctx)
 			a.clearOutput(outputKey, outputState)
 			if IsStreamDone(err) {
 				_ = output.Done(genx.Usage{})
@@ -372,27 +369,19 @@ func (a *historyAgent) forwardOutput(ctx context.Context, outputKey string, outp
 			continue
 		}
 		if historyOutputOnlyChunk(chunk) {
-			if err := recorder.ObserveOutput(ctx, chunk); err != nil {
-				a.clearOutput(outputKey, outputState)
-				_ = output.Abort(err)
-				return
-			}
+			recorder.record(ctx, chunk)
 			continue
 		}
 		if outputState.observeForwardChunk(chunk) {
 			continue
 		}
-		if err := recorder.ObserveOutput(ctx, chunk); err != nil {
-			a.clearOutput(outputKey, outputState)
-			_ = output.Abort(err)
-			return
-		}
+		recorder.record(ctx, chunk)
 		forwarded := chunk.Clone()
 		outputState.addPendingObservation(forwarded, chunk)
 		outputState.observeProduction(forwarded)
 		if err := output.Add(forwarded); err != nil {
 			outputState.abandonPendingObservation(forwarded)
-			_ = recorder.Flush(ctx)
+			recorder.flushAll(ctx)
 			a.clearOutput(outputKey, outputState)
 			return
 		}
@@ -1011,18 +1000,28 @@ type historyPendingEntry struct {
 	streamID  string
 	label     string
 	channels  map[string]bool
-	audioMIME string
 	text      strings.Builder
-	audio     [][]byte
-	oggAudio  bytes.Buffer
-	mp3Audio  bytes.Buffer
-	pcmAudio  bytes.Buffer
-	pcmWriter *codecconv.PCMToOggOpusEncoder
-	pcmFormat pcm.Format
 	createdAt time.Time
+	// audio keeps the route's audio in arrival order. A route whose audio MIME
+	// type changes, such as a multi-voice reply that mixes TTS providers, gets
+	// one segment per MIME run; flush concatenates every segment's Opus packets
+	// into one Ogg/Opus asset.
+	audio []*historyAudioSegment
 	// interrupted marks a route that ended with an interruption terminal. An
 	// interrupted entry without committed text is dropped instead of stored.
 	interrupted bool
+	// failed marks an entry whose recording failed. It keeps tracking channels
+	// so the route can complete, but it is never stored.
+	failed bool
+}
+
+// historyAudioSegment holds one contiguous run of a single audio MIME type.
+type historyAudioSegment struct {
+	mimeType  string
+	packets   [][]byte
+	encoded   bytes.Buffer
+	pcmWriter *codecconv.PCMToOggOpusEncoder
+	pcmFormat pcm.Format
 }
 
 func newHistoryRecorder(history *workspace.HistoryStore, gearID string, notify func(workspace.HistoryEntry)) *historyRecorder {
@@ -1063,8 +1062,8 @@ func (r *historyRecorder) discard() {
 	}
 	r.mu.Unlock()
 	for _, entry := range entries {
-		if entry != nil && entry.pcmWriter != nil {
-			_ = entry.pcmWriter.Close()
+		if entry != nil {
+			entry.closeAudio()
 		}
 	}
 }
@@ -1079,12 +1078,34 @@ func (r *historyRecorder) flushMatching(ctx context.Context, keep func(*historyP
 		keys = append(keys, key)
 	}
 	r.mu.Unlock()
+	var errs error
 	for _, key := range keys {
-		if err := r.flush(ctx, key); err != nil {
-			return err
-		}
+		// One entry that cannot be stored must not keep the others pending.
+		errs = errors.Join(errs, r.flush(ctx, key))
 	}
-	return nil
+	return errs
+}
+
+// record observes chunk for History. History is a best-effort side effect of
+// the live output: a chunk that cannot be recorded, or an entry that cannot be
+// encoded or appended, drops only that History entry and is logged. It never
+// fails the output stream the device is consuming.
+func (r *historyRecorder) record(ctx context.Context, chunk *genx.MessageChunk) {
+	if err := r.ObserveOutput(ctx, chunk); err != nil {
+		logHistoryRecordError(ctx, "record output", err)
+	}
+}
+
+// flushAll stores every pending entry at the end of the output. Failures are
+// logged for the same reason as in record.
+func (r *historyRecorder) flushAll(ctx context.Context) {
+	if err := r.Flush(ctx); err != nil {
+		logHistoryRecordError(ctx, "flush output", err)
+	}
+}
+
+func logHistoryRecordError(ctx context.Context, operation string, err error) {
+	slog.WarnContext(ctx, "agenthost: workspace history entry dropped", "operation", operation, "error", err)
 }
 
 func (r *historyRecorder) observe(ctx context.Context, chunk *genx.MessageChunk, typ string, gearID string) error {
@@ -1129,41 +1150,15 @@ func (r *historyRecorder) observe(ctx context.Context, chunk *genx.MessageChunk,
 			recordChunk = historyGearTranscriptChunk(chunk)
 		}
 		entry = r.pendingEntry(recordChunk, typ, gearID)
-		if entry.audioMIME != "" && entry.audioMIME != mimeType {
-			return fmt.Errorf("agenthost: history route changed audio MIME type from %q to %q", entry.audioMIME, mimeType)
-		}
-		entry.audioMIME = mimeType
 		if err := entry.observeChannel(mimeType, chunk.IsEndOfStream()); err != nil {
 			return err
 		}
-		if len(part.Data) == 0 {
+		if len(part.Data) == 0 || entry.failed {
 			break
 		}
-		switch baseHistoryMIME(mimeType) {
-		case "audio/opus":
-			entry.audio = append(entry.audio, append([]byte(nil), part.Data...))
-		case "audio/ogg", "application/ogg":
-			_, _ = entry.oggAudio.Write(part.Data)
-		case "audio/mpeg", "audio/mp3", "audio/x-mpeg", "audio/x-mp3":
-			_, _ = entry.mp3Audio.Write(part.Data)
-		default:
-			format, ok := historyPCMFormat(mimeType)
-			if !ok {
-				break
-			}
-			if entry.pcmWriter == nil {
-				writer, err := codecconv.NewPCMToOggOpusEncoder(&entry.pcmAudio, format.SampleRate(), format.Channels(), opus.ApplicationVoIP)
-				if err != nil {
-					return err
-				}
-				entry.pcmWriter = writer
-				entry.pcmFormat = format
-			} else if entry.pcmFormat != format {
-				return fmt.Errorf("agenthost: history pcm stream changed format from %s to %s", entry.pcmFormat, format)
-			}
-			if _, err := entry.pcmWriter.Write(part.Data); err != nil {
-				return err
-			}
+		if err := entry.writeAudio(mimeType, part.Data); err != nil {
+			entry.failed = true
+			return err
 		}
 	}
 	if interrupted && entry != nil {
@@ -1249,10 +1244,106 @@ func (e *historyPendingEntry) observeChannel(mimeType string, eos bool) error {
 		e.channels = make(map[string]bool)
 	}
 	if done, ok := e.channels[mimeType]; ok && done && !eos {
+		if e.failed {
+			return nil
+		}
+		e.failed = true
 		return fmt.Errorf("agenthost: history MIME channel %q received data after EOS", mimeType)
 	}
 	e.channels[mimeType] = eos
 	return nil
+}
+
+// writeAudio appends data to the entry's current audio segment, starting a new
+// segment when the audio MIME type changes.
+func (e *historyPendingEntry) writeAudio(mimeType string, data []byte) error {
+	var segment *historyAudioSegment
+	if n := len(e.audio); n > 0 && e.audio[n-1].mimeType == mimeType {
+		segment = e.audio[n-1]
+	} else {
+		segment = &historyAudioSegment{mimeType: mimeType}
+		e.audio = append(e.audio, segment)
+	}
+	switch baseHistoryMIME(mimeType) {
+	case "audio/opus":
+		segment.packets = append(segment.packets, append([]byte(nil), data...))
+	case "audio/ogg", "application/ogg", "audio/mpeg", "audio/mp3", "audio/x-mpeg", "audio/x-mp3":
+		_, _ = segment.encoded.Write(data)
+	default:
+		format, ok := historyPCMFormat(mimeType)
+		if !ok {
+			return nil
+		}
+		if segment.pcmWriter == nil {
+			writer, err := codecconv.NewPCMToOggOpusEncoder(&segment.encoded, format.SampleRate(), format.Channels(), opus.ApplicationVoIP)
+			if err != nil {
+				return err
+			}
+			segment.pcmWriter = writer
+			segment.pcmFormat = format
+		}
+		if _, err := segment.pcmWriter.Write(data); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// opusPackets returns the segment's audio as Opus packets. Opus packets are
+// self-describing, so packets from segments with different source codecs and
+// sample rates can share one Ogg/Opus stream.
+func (s *historyAudioSegment) opusPackets() ([][]byte, error) {
+	switch baseHistoryMIME(s.mimeType) {
+	case "audio/opus":
+		return s.packets, nil
+	case "audio/ogg", "application/ogg":
+		return historyOpusFramesFromOgg(s.encoded.Bytes())
+	case "audio/mpeg", "audio/mp3", "audio/x-mpeg", "audio/x-mp3":
+		decoder := &mp3PCMDecoder{data: append([]byte(nil), s.encoded.Bytes()...)}
+		defer decoder.Close()
+		chunks, err := decoder.Finalize()
+		if err != nil {
+			return nil, fmt.Errorf("agenthost: decode history MP3: %w", err)
+		}
+		var encoded bytes.Buffer
+		var writer *codecconv.PCMToOggOpusEncoder
+		for _, chunk := range chunks {
+			format := chunk.Format()
+			if writer == nil {
+				writer, err = codecconv.NewPCMToOggOpusEncoder(&encoded, format.SampleRate(), format.Channels(), opus.ApplicationVoIP)
+				if err != nil {
+					return nil, err
+				}
+			}
+			if _, err := chunk.WriteTo(writer); err != nil {
+				_ = writer.Close()
+				return nil, err
+			}
+		}
+		if writer == nil {
+			return nil, nil
+		}
+		if err := writer.Close(); err != nil {
+			return nil, err
+		}
+		return historyOpusFramesFromOgg(encoded.Bytes())
+	default:
+		if s.pcmWriter == nil {
+			return nil, nil
+		}
+		if err := s.pcmWriter.Close(); err != nil {
+			return nil, err
+		}
+		return historyOpusFramesFromOgg(s.encoded.Bytes())
+	}
+}
+
+func (e *historyPendingEntry) closeAudio() {
+	for _, segment := range e.audio {
+		if segment.pcmWriter != nil {
+			_ = segment.pcmWriter.Close()
+		}
+	}
 }
 
 func (e *historyPendingEntry) channelsComplete() bool {
@@ -1307,8 +1398,7 @@ func (r *historyRecorder) pendingEntry(chunk *genx.MessageChunk, typ string, gea
 }
 
 func deferGearAudioEntry(entry *historyPendingEntry) bool {
-	return entry != nil && entry.typ == historyEntryTypeGear && strings.TrimSpace(entry.text.String()) == "" &&
-		(len(entry.audio) > 0 || entry.oggAudio.Len() > 0 || entry.mp3Audio.Len() > 0 || entry.pcmWriter != nil)
+	return entry != nil && entry.typ == historyEntryTypeGear && strings.TrimSpace(entry.text.String()) == "" && len(entry.audio) > 0
 }
 
 func (r *historyRecorder) flushRoute(ctx context.Context, streamID string) error {
@@ -1325,52 +1415,25 @@ func (r *historyRecorder) flush(ctx context.Context, key string) error {
 	if entry == nil {
 		return nil
 	}
-	if entry.interrupted && strings.TrimSpace(entry.text.String()) == "" {
-		if entry.pcmWriter != nil {
-			_ = entry.pcmWriter.Close()
-		}
+	if entry.failed || (entry.interrupted && strings.TrimSpace(entry.text.String()) == "") {
+		entry.closeAudio()
 		return nil
 	}
-	if entry.oggAudio.Len() > 0 {
-		frames, err := historyOpusFramesFromOgg(entry.oggAudio.Bytes())
+	var packets [][]byte
+	for i, segment := range entry.audio {
+		segmentPackets, err := segment.opusPackets()
 		if err != nil {
-			return err
-		}
-		entry.audio = append(entry.audio, frames...)
-	}
-	if entry.mp3Audio.Len() > 0 {
-		decoder := &mp3PCMDecoder{data: append([]byte(nil), entry.mp3Audio.Bytes()...)}
-		chunks, err := decoder.Finalize()
-		if err != nil {
-			return fmt.Errorf("agenthost: decode history MP3: %w", err)
-		}
-		defer decoder.Close()
-		for _, chunk := range chunks {
-			format := chunk.Format()
-			if entry.pcmWriter == nil {
-				writer, err := codecconv.NewPCMToOggOpusEncoder(&entry.pcmAudio, format.SampleRate(), format.Channels(), opus.ApplicationVoIP)
-				if err != nil {
-					return err
+			for _, rest := range entry.audio[i+1:] {
+				if rest.pcmWriter != nil {
+					_ = rest.pcmWriter.Close()
 				}
-				entry.pcmWriter = writer
-				entry.pcmFormat = format
-			} else if entry.pcmFormat != format {
-				return fmt.Errorf("agenthost: history MP3 changed PCM format from %s to %s", entry.pcmFormat, format)
 			}
-			if _, err := chunk.WriteTo(entry.pcmWriter); err != nil {
-				return err
-			}
-		}
-	}
-	var pcmAsset []byte
-	if entry.pcmWriter != nil {
-		if err := entry.pcmWriter.Close(); err != nil {
 			return err
 		}
-		pcmAsset = append([]byte(nil), entry.pcmAudio.Bytes()...)
+		packets = append(packets, segmentPackets...)
 	}
 	text := entry.text.String()
-	if strings.TrimSpace(text) == "" && len(entry.audio) == 0 && len(pcmAsset) == 0 {
+	if strings.TrimSpace(text) == "" && len(packets) == 0 {
 		return nil
 	}
 	req := workspace.AppendHistoryRequest{
@@ -1381,19 +1444,14 @@ func (r *historyRecorder) flush(ctx context.Context, key string) error {
 		Text:      text,
 		CreatedAt: entry.createdAt,
 	}
-	if len(entry.audio) > 0 {
-		audio, err := historyOggOpusAsset(entry.audio)
+	if len(packets) > 0 {
+		audio, err := historyOggOpusAsset(packets)
 		if err != nil {
 			return err
 		}
 		req.Asset = &workspace.AppendHistoryAsset{
 			MIMEType: "audio/ogg; codecs=opus",
 			Data:     audio,
-		}
-	} else if len(pcmAsset) > 0 {
-		req.Asset = &workspace.AppendHistoryAsset{
-			MIMEType: "audio/ogg; codecs=opus",
-			Data:     pcmAsset,
 		}
 	}
 	stored, err := r.history.Append(ctx, req)

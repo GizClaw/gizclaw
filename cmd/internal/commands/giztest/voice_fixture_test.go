@@ -1,19 +1,23 @@
 package giztestcmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"math"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/mp3"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -104,13 +108,27 @@ func (s *voiceFixtureStream) Next() (*genx.MessageChunk, error) {
 func (*voiceFixtureStream) Close() error { return nil }
 
 type voiceFixtureProvider struct {
-	turnPackets         []map[string][][]byte
-	packets             map[string][][]byte
+	turnPackets []map[string][][]byte
+	packets     map[string][][]byte
+	// formats selects each Voice's native encoded output like a provider
+	// default: "ogg_opus" (audio/ogg) or "mp3" (audio/mpeg). A pattern format
+	// parameter overrides it unless fault is "ignore-format". Voices without
+	// a format stream raw audio/opus packets.
+	formats             map[string]string
 	fault               string
 	delays              []time.Duration
 	reply               string
 	recognize           map[string]string
 	calls, active, peak atomic.Int32
+
+	mu               sync.Mutex
+	requestedFormats []string
+}
+
+func (p *voiceFixtureProvider) formatRequests() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return slices.Clone(p.requestedFormats)
 }
 
 func (p *voiceFixtureProvider) BuildGenerator(context.Context, peergenx.GeneratorConfig) (genx.Generator, error) {
@@ -131,13 +149,49 @@ func (p *voiceFixtureProvider) BuildTransformer(_ context.Context, c peergenx.Tr
 	if !ok {
 		return nil, fmt.Errorf("unexpected voice %q", voice)
 	}
-	return voiceFixtureTTS{provider: p, packets: packets, voice: voice}, nil
+	requested, _ := c.Params["format"].(string)
+	p.mu.Lock()
+	p.requestedFormats = append(p.requestedFormats, requested)
+	p.mu.Unlock()
+	format := p.formats[voice]
+	if format != "" && requested != "" && p.fault != "ignore-format" {
+		format = requested
+	}
+	return voiceFixtureTTS{provider: p, packets: packets, voice: voice, format: format}, nil
 }
 
 type voiceFixtureTTS struct {
 	voice    string
 	provider *voiceFixtureProvider
 	packets  [][]byte
+	format   string
+}
+
+// voiceFixtureEncoded returns the Voice's tone as one encoded provider
+// segment and its MIME type.
+func voiceFixtureEncoded(format string, packets [][]byte) (string, []byte, error) {
+	var out bytes.Buffer
+	switch format {
+	case "ogg_opus":
+		if err := codecconv.OpusPacketsToOgg(&out, 16000, 1, packets); err != nil {
+			return "", nil, err
+		}
+		return "audio/ogg", out.Bytes(), nil
+	case "mp3":
+		encoder, err := mp3.NewEncoder(&out, 16000, 1)
+		if err != nil {
+			return "", nil, err
+		}
+		if _, err := encoder.Write(make([]byte, 16000/50*2*len(packets))); err != nil {
+			return "", nil, err
+		}
+		if err := encoder.Close(); err != nil {
+			return "", nil, err
+		}
+		return "audio/mpeg", out.Bytes(), nil
+	default:
+		return "", nil, fmt.Errorf("unsupported fixture format %q", format)
+	}
 }
 
 func (f voiceFixtureTTS) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
@@ -159,11 +213,15 @@ func (f voiceFixtureTTS) Transform(ctx context.Context, input genx.Stream) (genx
 		defer f.provider.active.Add(-1)
 		defer input.Close()
 		var text strings.Builder
+		name := ""
 		for {
 			chunk, err := input.Next()
 			if chunk != nil {
 				if part, ok := chunk.Part.(genx.Text); ok {
 					text.WriteString(string(part))
+				}
+				if name == "" {
+					name = chunk.Name
 				}
 			}
 			if err == io.EOF {
@@ -179,6 +237,23 @@ func (f voiceFixtureTTS) Transform(ctx context.Context, input genx.Stream) (genx
 			return
 		}
 		id := genx.NewStreamID()
+		if f.format != "" {
+			mimeType, data, err := voiceFixtureEncoded(f.format, f.packets)
+			if err != nil {
+				_ = output.Stream().CloseWithError(err)
+				return
+			}
+			// Like real providers, keep the input name and deliver encoded
+			// audio in arbitrary byte chunks.
+			half := len(data) / 2
+			_ = output.Add(
+				&genx.MessageChunk{Role: genx.RoleModel, Name: name, Part: &genx.Blob{MIMEType: mimeType, Data: data[:half]}, Ctrl: &genx.StreamCtrl{StreamID: id, BeginOfStream: true}},
+				&genx.MessageChunk{Role: genx.RoleModel, Name: name, Part: &genx.Blob{MIMEType: mimeType, Data: data[half:]}, Ctrl: &genx.StreamCtrl{StreamID: id}},
+				&genx.MessageChunk{Role: genx.RoleModel, Name: name, Part: &genx.Blob{MIMEType: mimeType}, Ctrl: &genx.StreamCtrl{StreamID: id, EndOfStream: true}},
+			)
+			_ = output.Done(genx.Usage{})
+			return
+		}
 		otherID := genx.NewStreamID()
 		ticker := time.NewTicker(20 * time.Millisecond)
 		defer ticker.Stop()
@@ -266,13 +341,27 @@ func (voiceFixtureResources) GetMiniMaxTenant(context.Context, adminhttp.GetMini
 
 func newVoiceFixtureAgent(t *testing.T, kind string, data []byte, service *peergenx.Service, mode apitypes.WorkspaceInputMode) agenthost.Agent {
 	t.Helper()
+	agent, err := voiceFixtureFactory(kind, service).NewAgent(t.Context(), newVoiceFixtureSpec(t, kind, data, mode))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return agent
+}
+
+func voiceFixtureFactory(kind string, service *peergenx.Service) agenthost.Factory {
+	if kind == "flowcraft" {
+		return flowcraftagent.Factory{GenX: service}
+	}
+	return einoagent.Factory{GenX: service}
+}
+
+func newVoiceFixtureSpec(t *testing.T, kind string, data []byte, mode apitypes.WorkspaceInputMode) agenthost.Spec {
+	t.Helper()
 	var parameters apitypes.WorkspaceParameters
 	if err := json.Unmarshal([]byte(fmt.Sprintf(`{"agent_type":%q,"input":%q}`, kind, mode)), &parameters); err != nil {
 		t.Fatal(err)
 	}
-	spec := agenthost.Spec{Workspace: apitypes.Workspace{Id: "voice-fixture", Name: "voice-fixture", Parameters: &parameters}, Workflow: apitypes.Workflow{Id: "voices"}}
-	var agent agenthost.Agent
-	var err error
+	spec := agenthost.Spec{Workspace: apitypes.Workspace{Id: "voice-fixture", Name: "voice-fixture", Parameters: &parameters}, Workflow: apitypes.Workflow{Id: "voices"}, AgentType: kind}
 	switch kind {
 	case "eino":
 		var public apitypes.EinoWorkflowSpec
@@ -280,21 +369,16 @@ func newVoiceFixtureAgent(t *testing.T, kind string, data []byte, service *peerg
 			t.Fatal(err)
 		}
 		spec.Workflow.Spec = apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverEino, Eino: &public}
-		agent, err = (einoagent.Factory{GenX: service}).NewAgent(t.Context(), spec)
 	case "flowcraft":
 		var public apitypes.FlowcraftWorkflowSpec
 		if err := json.Unmarshal(data, &public); err != nil {
 			t.Fatal(err)
 		}
 		spec.Workflow.Spec = apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &public}
-		agent, err = (flowcraftagent.Factory{GenX: service}).NewAgent(t.Context(), spec)
 	default:
 		t.Fatalf("unknown workflow %q", kind)
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	return agent
+	return spec
 }
 
 // Graph nodes still select the publisher and voice; only language generation is fake.
