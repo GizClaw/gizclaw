@@ -24,6 +24,7 @@ const (
 // closed; readers wait on done first.
 type parallelChild struct {
 	step       Step
+	ctx        context.Context
 	done       chan struct{}
 	result     StepResult
 	err        error
@@ -108,7 +109,7 @@ The value is an object keyed by child id, so the step's capture and expect
 declarations address a child result by JSON pointer. One failing child fails
 the step, and every child's own outcome is returned as its own step report.
 */
-func runParallel(ctx context.Context, documentPath string, step Step, session Session, vars *Variables, tracker *parallelTracker, redactions []string) (map[string]any, []StepReport, map[string]any, error) {
+func runParallel(ctx context.Context, documentPath string, step Step, session Session, vars *Variables, tracker *parallelTracker, redactions []string, opts Options, cleanup bool) (map[string]any, []StepReport, map[string]any, error) {
 	if session == nil {
 		return nil, nil, nil, fmt.Errorf("step %s parallel requires a connected session", step.ID)
 	}
@@ -122,11 +123,10 @@ func runParallel(ctx context.Context, documentPath string, step Step, session Se
 	// Prepare resolves variables, which the task goroutine owns exclusively,
 	// so it must complete for every child before any child starts.
 	runs := make([]ParallelChild, 0, len(step.Parallel))
+	prepareErrors := make([]error, 0, len(step.Parallel))
 	for _, child := range step.Parallel {
-		run, err := parallel.PrepareParallel(StepRequest{DocumentPath: documentPath, Step: child, Vars: vars, Parent: &step})
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("step %s parallel child %s: %w", step.ID, child.ID, err)
-		}
+		run, err := parallel.PrepareParallel(StepRequest{DocumentPath: documentPath, Step: child, Vars: vars, Parent: &step, Cleanup: cleanup})
+		prepareErrors = append(prepareErrors, err)
 		runs = append(runs, run)
 	}
 
@@ -139,47 +139,62 @@ func runParallel(ctx context.Context, documentPath string, step Step, session Se
 	// instead of at the same instant.
 	start := make(chan struct{})
 	children := make([]*parallelChild, len(runs))
-	finished := make(chan struct{})
 	for i, run := range runs {
 		child := &parallelChild{step: step.Parallel[i], done: make(chan struct{})}
 		children[i] = child
+		child.ctx = childCtx
+		childCancel := func() {}
+		if child.step.Timeout != "" {
+			duration, _ := time.ParseDuration(child.step.Timeout)
+			child.ctx, childCancel = context.WithTimeout(childCtx, duration)
+		}
+		defer childCancel()
 		delay := childDelay(child.step)
 		go func() {
 			defer close(child.done)
 			<-start
+			if prepareErrors[i] != nil {
+				child.err = prepareErrors[i]
+				return
+			}
 			if delay > 0 {
 				timer := time.NewTimer(delay)
 				select {
 				case <-timer.C:
-				case <-childCtx.Done():
+				case <-child.ctx.Done():
 					timer.Stop()
-					child.err = context.Cause(childCtx)
+					child.err = context.Cause(child.ctx)
 					return
 				}
 			}
 			started := time.Now()
-			child.result, child.err = run.Run(childCtx)
+			child.result, child.err = run.Run(child.ctx)
 			child.durationMS = time.Since(started).Milliseconds()
 		}()
 	}
-	go func() {
-		defer close(finished)
-		for _, child := range children {
-			<-child.done
-		}
-	}()
 	close(start)
 
 	var unfinished []string
 	var deadline error
-	select {
-	case <-finished:
-	case <-childCtx.Done():
-		deadline = context.Cause(childCtx)
-		cancel()
-		unfinished = tracker.stopAll(children)
+	for i, child := range children {
+		select {
+		case <-child.done:
+		case <-child.ctx.Done():
+			if ctx.Err() != nil {
+				unfinished = append(unfinished, tracker.stopAll(children[i:])...)
+				deadline = context.Cause(ctx)
+			} else {
+				unfinished = append(unfinished, tracker.stopAll([]*parallelChild{child})...)
+			}
+		}
+		if deadline != nil {
+			break
+		}
 	}
-	value, reports, failures := parallelReports(children, tracker.cancelGrace, redactions)
+	if ctx.Err() != nil {
+		deadline = context.Cause(ctx)
+	}
+	value, reports, failures := parallelReports(children, tracker.cancelGrace, redactions, vars, opts)
 	evidence := map[string]any{"parallel": len(children), "children": childIDs(children)}
 	if len(unfinished) != 0 {
 		evidence["unfinished"] = unfinished
@@ -189,7 +204,7 @@ func runParallel(ctx context.Context, documentPath string, step Step, session Se
 
 // parallelReports turns the finished children into the step value and one
 // report per child. A child is read only after its done channel is closed.
-func parallelReports(children []*parallelChild, cancelGrace time.Duration, redactions []string) (map[string]any, []StepReport, []string) {
+func parallelReports(children []*parallelChild, cancelGrace time.Duration, redactions []string, vars *Variables, opts Options) (map[string]any, []StepReport, []string) {
 	value := make(map[string]any, len(children))
 	reports := make([]StepReport, 0, len(children))
 	var failures []string
@@ -199,9 +214,15 @@ func parallelReports(children []*parallelChild, cancelGrace time.Duration, redac
 		case <-child.done:
 			report.DurationMS = child.durationMS
 			report.Evidence = child.result.Evidence
-			if child.err != nil {
+			err := child.err
+			if child.step.PeerStream == nil || len(child.step.Expect) != 0 || child.step.ExpectError != nil {
 				report.Status = "failed"
-				report.Error = SafeError(child.err, redactions...)
+				report, err = completeStepReport(report, child.step, vars, child.result.Value, child.result.Saved, child.result.Evidence, err, time.Now(), opts, redactions)
+				report.DurationMS = child.durationMS
+			}
+			if err != nil {
+				report.Status = "failed"
+				report.Error = SafeError(err, redactions...)
 				failures = append(failures, fmt.Sprintf("%s: %s", child.step.ID, report.Error))
 			} else {
 				value[child.step.ID] = child.result.Value

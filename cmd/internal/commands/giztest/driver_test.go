@@ -191,7 +191,77 @@ func TestPrepareParallelUsesParentCaptureBound(t *testing.T) {
 		t.Fatalf("prepared invocation = %#v", run)
 	}
 	ping := giztest.Step{ID: "ping", Client: "peer", RPC: &giztest.RPCOperation{Method: "all.ping"}}
-	if _, err := parallel.PrepareParallel(giztest.StepRequest{Step: ping, Vars: vars, Parent: &parent}); err == nil {
-		t.Fatal("non peer_stream parallel child was prepared")
+	if _, err := parallel.PrepareParallel(giztest.StepRequest{Step: ping, Vars: vars, Parent: &parent}); err != nil {
+		t.Fatalf("rpc parallel child was not prepared: %v", err)
+	}
+}
+
+func TestRunParallelWorkspaceRelayAndRPC(t *testing.T) {
+	first, second := newFakeRelayStream(), newFakeRelayStream()
+	d := fakeClientDriver(first, second)
+	d.openRelayStreams = func() (relayStream, relayStream, error) { return first, second, nil }
+	doc := parallelListenDocument([]giztest.Step{{
+		ID: "mixed", Timeout: "2s",
+		Parallel: []giztest.Step{
+			{ID: "relay", Timeout: "1s", WorkspaceRelay: &giztest.WorkspaceRelayOperation{
+				FirstClient: "peer", SecondClient: "other", Input: "hello", Media: "text", MaxTurns: 2, TerminalClient: "other",
+			}, Expect: map[string]giztest.Expectation{"/terminal/text": {Equals: "answer"}}},
+			{ID: "rpc", Client: "third", RPC: &giztest.RPCOperation{Method: "all.ping", Request: map[string]any{}}},
+		},
+		Capture: map[string]string{"answer": "/relay/terminal/text"},
+	}})
+	doc.Variables["answer"] = giztest.VariableSpec{Direction: "output", Type: "string"}
+	doc.Clients["third"] = giztest.ClientSpec{}
+	d.connectClients = func(context.Context, map[string]giztest.ClientSpec, []giztest.Step, *giztest.Variables) (*clientSet, error) {
+		return &clientSet{clients: map[string]*gizcli.Client{"peer": {}, "other": {}, "third": {}}}, nil
+	}
+	// The disconnected RPC client fails while both fake relay streams complete.
+	go func() {
+		for range 3 {
+			<-first.pushes
+		}
+		first.in <- assistantText("first", "question", true)
+		for range 3 {
+			<-second.pushes
+		}
+		second.in <- assistantText("second", "answer", true)
+	}()
+	result := runSingleTask(t, doc, d)
+	if result.Status != "failed" || len(result.Steps) != 1 {
+		t.Fatalf("result = %#v", result)
+	}
+	children := result.Steps[0].Children
+	if len(children) != 2 || children[0].Operation != "workspace_relay" || children[0].Status != "passed" || len(children[0].Evidence) == 0 || children[1].Status != "failed" || !strings.Contains(children[1].Error, "disconnected") {
+		t.Fatalf("children = %#v", children)
+	}
+	for _, stream := range []*fakeRelayStream{first, second} {
+		select {
+		case <-stream.closed:
+		default:
+			t.Fatal("relay stream was not closed")
+		}
+	}
+}
+
+func TestDriverValidatesParallelRPCRequest(t *testing.T) {
+	doc, err := giztest.LoadDocument(writeTestDocument(t, strings.Replace(validDocument, "variables:", `  other:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:`, 1)+`  - id: pair
+    parallel:
+      - id: bad
+        client: peer
+        rpc:
+          method: all.ping
+          request: {unknown_field: true}
+      - id: good
+        client: other
+        rpc:
+          method: all.ping
+          request: {}
+`), newDriver(false, nil))
+	if err == nil || !strings.Contains(err.Error(), "unknown_field") {
+		t.Fatalf("doc = %#v, error = %v", doc, err)
 	}
 }

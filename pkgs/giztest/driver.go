@@ -29,7 +29,7 @@ type Driver interface {
 
 	// ValidateStep checks driver-specific details of one step without
 	// connecting, such as whether an RPC request matches its schema. It runs
-	// for both steps and finalizers.
+	// for steps, finalizers, and their parallel children.
 	ValidateStep(doc *Document, step Step) error
 
 	// Open connects the clients one task needs. A non-nil Session is returned
@@ -92,9 +92,9 @@ driver only splits one child into a prepare phase and a run phase.
 
 Prepare runs on the task goroutine while it still owns req.Vars exclusively:
 it resolves the child input, the parent's capture bounds, and the client, and
-fails fast when the driver cannot run this child concurrently. Run then drives
-the operation from the child goroutine without touching Variables, because the
-task goroutine keeps assigning them while the child runs. The cancellation of
+reports a child failure when the driver cannot prepare it. Other children still
+run. Run drives the operation from the child goroutine without touching Variables;
+the task goroutine applies assertions and captures after collecting outcomes. The cancellation of
 the context passed to Run is the only stop signal a child receives; a driver
 must release its stream promptly when it fires, or the runner reports the task
 as leaking that stream.

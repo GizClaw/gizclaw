@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"slices"
 	"strings"
@@ -185,8 +186,7 @@ func TestRunTaskRejectsParallelStepWithoutParallelSession(t *testing.T) {
 	}
 }
 
-// A prepare failure stops the step before any child starts, because prepare
-// is the phase that reads the task's Variables.
+// A prepare failure is reported without skipping prepared siblings.
 func TestRunTaskReportsParallelPrepareFailure(t *testing.T) {
 	var started atomic.Int64
 	driver := &stubDriver{prepareParallel: func(req StepRequest) (ParallelChild, error) {
@@ -205,8 +205,8 @@ func TestRunTaskReportsParallelPrepareFailure(t *testing.T) {
 	if result.Status != "failed" || len(result.Steps) != 1 || !strings.Contains(result.Steps[0].Error, "play audio") {
 		t.Fatalf("result = %#v", result)
 	}
-	if started.Load() != 0 {
-		t.Fatal("a child started even though a sibling failed to prepare")
+	if started.Load() != 1 {
+		t.Fatal("prepared sibling did not run")
 	}
 }
 
@@ -390,5 +390,122 @@ func TestRetryableOperationsAreNamedByTheSchema(t *testing.T) {
 		if slices.Contains([]string{"timeout", "assertion"}, kind) {
 			t.Fatalf("failure kind %q became retryable", kind)
 		}
+	}
+}
+
+func TestParallelChildTimeoutAndAssertionsKeepSiblingResults(t *testing.T) {
+	for _, mode := range []string{"timeout", "assertion"} {
+		t.Run(mode, func(t *testing.T) {
+			driver, _, peak := parallelResultDriver(50*time.Millisecond, map[string]StepResult{
+				"one": {Value: map[string]any{"ok": false}, Evidence: map[string]any{"source": "one"}},
+				"two": {Value: map[string]any{"ok": true}, Evidence: map[string]any{"source": "two"}},
+			}, nil)
+			children := []Step{
+				{ID: "one", Client: "peer", RPC: &RPCOperation{Method: "all.ping"}, Expect: map[string]Expectation{"/ok": {Equals: true}}},
+				{ID: "two", Client: "other", RPC: &RPCOperation{Method: "all.ping"}, Expect: map[string]Expectation{"/ok": {Equals: true}}},
+			}
+			if mode == "timeout" {
+				children[0].Timeout = "10ms"
+			}
+			result := runTask(context.Background(), task{doc: parallelDocument([]Step{{ID: "both", Parallel: children}})}, Options{Driver: driver, Out: io.Discard})
+			if result.Status != "failed" || peak.Load() != 2 {
+				t.Fatalf("result = %#v, peak = %d", result, peak.Load())
+			}
+			reports := result.Steps[0].Children
+			if len(reports) != 2 || reports[0].Status != "failed" || reports[1].Status != "passed" || reports[1].Evidence["source"] != "two" {
+				t.Fatalf("reports = %#v", reports)
+			}
+			if mode == "timeout" && !strings.Contains(reports[0].Error, "deadline exceeded") {
+				t.Fatalf("child timeout was not reported: %#v", reports[0])
+			}
+			if mode == "assertion" && reports[0].Evidence["source"] != "one" {
+				t.Fatalf("failed evidence = %#v", reports[0])
+			}
+		})
+	}
+}
+
+func TestParallelFinallyRunsAllChildrenAndLaterCleanup(t *testing.T) {
+	for _, preparationFailure := range []bool{false, true} {
+		t.Run(fmt.Sprint(preparationFailure), func(t *testing.T) {
+			var ran atomic.Int64
+			allStarted := make(chan struct{})
+			driver := &stubDriver{prepareParallel: func(req StepRequest) (ParallelChild, error) {
+				if !req.Cleanup {
+					t.Error("parallel finalizer did not mark cleanup request")
+				}
+				if preparationFailure && req.Step.ID == "bad" {
+					return nil, errors.New("prepare failed")
+				}
+				return parallelRun(func(ctx context.Context) (StepResult, error) {
+					if ran.Add(1) == 2 {
+						close(allStarted)
+					}
+					if !preparationFailure {
+						select {
+						case <-allStarted:
+						case <-ctx.Done():
+							return StepResult{}, context.Cause(ctx)
+						}
+					}
+					if req.Step.ID == "bad" {
+						return StepResult{Evidence: map[string]any{"attempted": true}}, errors.New("cleanup failed")
+					}
+					return StepResult{Evidence: map[string]any{"cleaned": true}}, nil
+				}), nil
+			}}
+			doc := parallelDocument(nil)
+			doc.Variables["marker"] = VariableSpec{Direction: "input", Type: "string", Value: "later"}
+			doc.Finally = []Step{
+				{ID: "cleanup", Timeout: "1s", Parallel: []Step{{ID: "bad", Client: "peer", RPC: &RPCOperation{}}, {ID: "good", Client: "other", RPC: &RPCOperation{}}}},
+				{ID: "later", Output: &OutputOperation{Variable: "marker"}},
+			}
+			var output bytes.Buffer
+			result := runTask(context.Background(), task{doc: doc}, Options{Driver: driver, Out: &output})
+			if result.Status != "failed" || len(result.Cleanup) != 2 || result.Cleanup[1].Status != "passed" || !strings.Contains(output.String(), "later") {
+				t.Fatalf("result = %#v", result)
+			}
+			children := result.Cleanup[0].Children
+			if len(children) != 2 || children[0].Status != "failed" || children[1].Status != "passed" {
+				t.Fatalf("children = %#v", children)
+			}
+			want := int64(2)
+			if preparationFailure {
+				want = 1
+			}
+			if ran.Load() != want {
+				t.Fatalf("ran %d children, want %d", ran.Load(), want)
+			}
+		})
+	}
+}
+
+func TestParallelFinallyRetainsClientsUntilChildrenExit(t *testing.T) {
+	release := make(chan struct{})
+	defer close(release)
+	driver := stuckParallelDriver(release)
+	doc := parallelDocument(nil)
+	doc.Finally = []Step{{ID: "cleanup", Timeout: "10ms", Parallel: []Step{
+		{ID: "one", Client: "peer", RPC: &RPCOperation{}},
+		{ID: "two", Client: "other", RPC: &RPCOperation{}},
+	}}}
+	result := runTask(context.Background(), task{doc: doc}, Options{Driver: driver, Out: io.Discard, parallelCancelGrace: 10 * time.Millisecond})
+	if result.Status != "failed" || driver.closed != 0 || !strings.Contains(result.Error, "skipped client teardown") {
+		t.Fatalf("result = %#v; client closes = %d", result, driver.closed)
+	}
+	if len(result.Cleanup) != 1 || len(result.Cleanup[0].Children) != 2 {
+		t.Fatalf("cleanup = %#v", result.Cleanup)
+	}
+}
+
+func TestParallelChildExpectedRPCError(t *testing.T) {
+	driver, _, _ := parallelResultDriver(0, nil, map[string]error{"one": stubFailure{code: 404, message: "gone"}})
+	doc := parallelDocument([]Step{{ID: "both", Parallel: []Step{
+		{ID: "one", Client: "peer", RPC: &RPCOperation{}, ExpectError: &ErrorExpectation{Code: 404, MessageContains: "gone"}},
+		{ID: "two", Client: "other", RPC: &RPCOperation{}},
+	}}})
+	result := runTask(context.Background(), task{doc: doc}, Options{Driver: driver, Out: io.Discard})
+	if result.Status != "passed" || result.Steps[0].Children[0].Evidence["rpc_error_code"] != int32(404) {
+		t.Fatalf("result = %#v", result)
 	}
 }

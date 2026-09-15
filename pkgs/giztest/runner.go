@@ -219,6 +219,10 @@ func runTask(parent context.Context, item task, opts Options) TaskReport {
 	}
 	var cleanupErr error
 	result.Cleanup, cleanupErr = runFinalizers(parent, item.doc.Path, item.doc.Finally, session, vars, item.barrier, opts, redactions)
+	if running := opts.parallel.join(); len(running) != 0 {
+		closeSession = false
+		cleanupErr = errors.Join(cleanupErr, fmt.Errorf("parallel cleanup children %s still own clients; skipped client teardown", strings.Join(running, ", ")))
+	}
 	if cleanupErr != nil {
 		if result.Error == "" {
 			result.Error = SafeError(cleanupErr, redactions...)
@@ -241,8 +245,9 @@ func runFinalizers(parent context.Context, documentPath string, steps []Step, se
 		stepResult, err := runStepStage(cleanupCtx, documentPath, step, session, vars, barrier, opts, redactions, true)
 		stepResult.Stage = "cleanup"
 		results = append(results, stepResult)
-		if err != nil && firstErr == nil {
-			firstErr = err
+		firstErr = errors.Join(firstErr, err)
+		if opts.parallel != nil && len(opts.parallel.unfinished) != 0 {
+			break // An unfinished child still owns clients used by later cleanup.
 		}
 	}
 	return results, firstErr
@@ -485,7 +490,7 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, session Se
 	case "parallel":
 		var children []StepReport
 		var childValues map[string]any
-		childValues, children, evidence, err = runParallel(stepCtx, documentPath, step, session, vars, opts.parallel, redactions)
+		childValues, children, evidence, err = runParallel(stepCtx, documentPath, step, session, vars, opts.parallel, redactions, opts, cleanup)
 		report.Children = children
 		if childValues != nil {
 			value = childValues

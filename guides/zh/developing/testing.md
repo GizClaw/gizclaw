@@ -623,33 +623,34 @@ SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而�
   因此 agent 主动开场（`conversation.initiative: CONVERSATION_PARAMETERS_INITIATIVE_AGENT`）
   的首字延迟也能与首音延迟一样被 gate。只有显式的 `transcript` label 计入 transcript，
   其余文本片段都计入 `first_text_ms`，与「任何 label 的 Opus blob 都算音频」一致。
-  listen 可以与同一 client 的发言 step 放在同一个 `parallel` step 中：两个
-  child 共享该 connection 唯一的 Peer Event Stream 订阅，发言方听不到自己的音频
-  （mix-minus-self），因此发送方断言 `audio_bytes` 等于 0。listen 不能设置 `input`、`pacing`、
+  listen 可以与另一个 client 的发言 step 放在同一个 `parallel` step 中；同组内每个
+  client 只能属于一个 child。listen 不能设置 `input`、`pacing`、
   `interrupt_after`、`idle_timeout`、`completion`、`terminal_label`、`require_text`、
   `require_audio`、`wait_for_history`、`session`、`keep_open` 或 `await_rearm`；PeerStream
   在时长结束前关闭、step/文档 timeout 到期或收到 terminal error 时步骤失败。
-- step 级 `parallel`：一个 `parallel` step 拥有一组 child step，把它们**同时**启动、
-  等全部结束后一起报告，因此“一个 client 说、另一个 client 同时听”不需要任何额外的
-  同步 step。child 只能是 `client` 加恰好一个 `peer_stream`（任意 mode），数量 2 到 16，
-  `id` 必填且在整个文档内唯一。child 不能声明 `parallel`、`barrier`、`retry`、`timeout`、
-  `save_as`、`capture`、`expect`、`expect_error`，也不能使用持久 peer_stream session：
-  child 可以声明 `delay`（正的 duration，最长一分钟），它会在整组释放后再等这么久才开始，而不是与兄弟 child 同时开始。这是把一个 child 的窗口放进另一个 child 活动区间内的唯一方式，抢麦场景需要它：发言方自己的话段是在第一个**有声帧**时才打开的，与整组同时开始的窗口会量到前导静音，而那段时间发言方还是普通听众。非 parallel child 的 step 声明 `delay` 会被拒绝，因为普通 step 本来就是顺序执行的，在那里加延迟只是用 sleep 掩盖缺失的等待。
-  断言属于 `parallel` step 自己。`parallel` step 保留 `id`、`timeout`、`capture`、
-  `expect`、`expect_error`、`retry`、`save_as`，不能声明 `client`，且不允许出现在
-  `finally` 中。
-  step 的 result 是一个以 child `id` 为键的对象，所以 `capture` 与 `expect` 用
-  `/<child_id>/...` 这样的 JSON pointer 定位某个 child 的结果；指向未声明 child 的 pointer
-  会被校验拒绝。runner 在 task goroutine 上先解析所有 child 的输入（`Variables` 不支持并发
-  访问），全部解析成功后才同时放行；任何一个 child 解析失败，整个 step 失败且没有 child 被
-  启动。
-  step 的 `timeout` 限制整组：超时后 runner 取消全部 child，最多再等 30s 让它们释放
-  PeerStream，并按 child 记录各自的结果。忽略取消的 child 会被记为 unfinished，此时它仍占用
-  task 的共享 client，task 到此结束并报告该情况，跳过 `finally` 步骤与 client 拆除。
-  任何一个 child 失败都会让 `parallel` step 失败，同时报告里的 `children` 数组保留每个
-  child 的 `status`、`duration_ms`、`error` 与 evidence。play 模式不支持 `parallel` step；
-  无法并发执行步骤的 driver 不声明 `parallel` 操作，这类文档在 `validate` 阶段就被拒绝或跳过，
-  而不是运行时失败。
+- step 级 `parallel` 并发运行 2–16 个 child，并等待各自结果。每个 child 的 `id` 在
+  整个文档内唯一，且恰好声明一个 `rpc`、`peer_stream` 或 `workspace_relay` 操作。
+  RPC 和 PeerStream 声明 `client`；relay 声明 `first_client` 与 `second_client`。
+  同组内每个 client 只能属于一个 child，relay 的两个 client 都参与冲突检查。
+  relay 的两个 client 必须已在前序步骤选择 workspace；前序 parallel 组中的
+  `server.run.workspace.set` RPC 也算作已选择。
+  child 可以声明自己的 `timeout`、`expect` 和 `expect_error`。child 断言直接定位自己的
+  结果，例如 relay 的 `/terminal/text`。`output` 保持顺序执行；禁止嵌套 `parallel`、
+  `barrier`、child `retry`、`save_as`、`capture` 和持久 PeerStream session。
+  child 可以声明 `delay`（正的 duration，最长一分钟），在整组释放后延迟启动；自己的
+  `timeout` 包含这段延迟。非 parallel child 不能声明 `delay`。
+  parallel step 不声明 `client`，保留 `timeout`、`capture`、`expect`、`expect_error`、
+  `retry` 和 `save_as`。整组结果以 child `id` 为键；父级 capture 和断言使用
+  `/<child_id>/...` JSON pointer。relay capture 仍只支持 terminal text/audio，并保留字节上限。
+  runner 先在 task goroutine 上准备所有输入，再放行 child。任何 child 的准备、执行或
+  断言失败都会让整组失败，但不会取消或跳过兄弟 child；各 child 的报告保留 `status`、
+  `duration_ms`、`error` 和操作 evidence。
+  child timeout 只取消自己；父 step 或文档 timeout 取消整组。取消后的等待有 30s 宽限上限。
+  忽略取消的 child 会被记录为 unfinished；仍占用 client 时不能继续清理或拆除 client。
+  `finally` 支持仅包含 RPC child 的 parallel 组，child 可有自己的 timeout 和断言。
+  一个 child 失败不会跳过其他已准备的清理 child；整组全部退出后，即使失败也继续执行
+  后续 finalizer。所有 finalizer 仍共享既有的 30s 清理预算。
+  play 模式不支持 parallel；未声明 `parallel` 能力的 driver 在校验时拒绝或跳过这些文档。
 - `peer_stream.empty_input: true` 只对 `push-to-talk` 有效：这一轮打开又关闭音频
   route，但不发送任何音频帧，对应设备按下后在采到第一帧之前就松开、或本地门控没有产出
   帧的情况。它与 `input` 互斥，也不能与 `require_text`、`require_audio`、

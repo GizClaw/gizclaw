@@ -1,6 +1,7 @@
 package giztest
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -685,8 +686,14 @@ func TestLoadDocumentValidatesInputSentCompletion(t *testing.T) {
 	}
 }
 
+var parallelValidationDocument = strings.Replace(validDocument, "variables:", `  other:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:`, 1)
+
 func TestLoadDocumentAcceptsParallelListenAndSpeak(t *testing.T) {
-	doc, err := LoadDocument(writeTestDocument(t, validDocument+`  - id: talk
+	doc, err := LoadDocument(writeTestDocument(t, parallelValidationDocument+`  - id: talk
     timeout: 30s
     parallel:
       - id: listen
@@ -695,7 +702,7 @@ func TestLoadDocumentAcceptsParallelListenAndSpeak(t *testing.T) {
           mode: listen
           duration: 3s
       - id: speak
-        client: peer
+        client: other
         peer_stream:
           mode: push-to-talk
           input: ${endpoint}
@@ -711,7 +718,7 @@ func TestLoadDocumentAcceptsParallelListenAndSpeak(t *testing.T) {
 	if talk.Operation() != "parallel" || operationNeedsClient(talk.Operation()) || len(talk.Parallel) != 2 {
 		t.Fatalf("parallel step = %#v", talk)
 	}
-	if talk.Parallel[0].PeerStream.Mode != "listen" || talk.Parallel[0].PeerStream.Duration != "3s" || talk.Parallel[1].Client != "peer" {
+	if talk.Parallel[0].PeerStream.Mode != "listen" || talk.Parallel[0].PeerStream.Duration != "3s" || talk.Parallel[1].Client != "other" {
 		t.Fatalf("parallel children = %#v", talk.Parallel)
 	}
 }
@@ -721,28 +728,32 @@ func TestLoadDocumentRejectsInvalidParallel(t *testing.T) {
 		return "  - id: talk\n" + extra + "    parallel:\n" + children
 	}
 	listen := func(id string) string {
-		return "      - id: " + id + "\n        client: peer\n        peer_stream:\n          mode: listen\n          duration: 3s\n"
+		client := "peer"
+		if id == "b" {
+			client = "other"
+		}
+		return "      - id: " + id + "\n        client: " + client + "\n        peer_stream:\n          mode: listen\n          duration: 3s\n"
 	}
 	for name, tc := range map[string]struct {
 		body string
 		want string
 	}{
-		"one child":            {body: group(listen("a"), ""), want: "schema validation"},
-		"client on parent":     {body: group(listen("a")+listen("b"), "    client: peer\n"), want: "takes its clients from its children"},
-		"duplicate child id":   {body: group(listen("a")+listen("a"), ""), want: `duplicate step id "a"`},
-		"child id collides":    {body: group(listen("ping")+listen("b"), ""), want: `duplicate step id "ping"`},
-		"child without id":     {body: group("      - client: peer\n        peer_stream:\n          mode: listen\n          duration: 3s\n"+listen("b"), ""), want: "schema validation"},
-		"child rpc":            {body: group("      - id: a\n        client: peer\n        rpc:\n          method: all.ping\n          request: {}\n"+listen("b"), ""), want: "schema validation"},
-		"child expect":         {body: group(listen("a")+"      - id: b\n        client: peer\n        expect:\n          /audio_bytes:\n            equals: 0\n        peer_stream:\n          mode: listen\n          duration: 3s\n", ""), want: "schema validation"},
-		"child unknown client": {body: group(listen("a")+"      - id: b\n        client: ghost\n        peer_stream:\n          mode: listen\n          duration: 3s\n", ""), want: `unknown client "ghost"`},
-		"child session":        {body: group(listen("a")+"      - id: b\n        client: peer\n        peer_stream:\n          mode: realtime\n          input: ${endpoint}\n          session: mic\n          keep_open: true\n", ""), want: "persistent peer_stream session"},
-		"child listen input":   {body: group(listen("a")+"      - id: b\n        client: peer\n        peer_stream:\n          mode: listen\n          duration: 3s\n          input: ${endpoint}\n", ""), want: "schema validation"},
-		"capture pointer":      {body: group(listen("a")+listen("b"), "") + "    capture:\n      server_time: /audio\n", want: "must address a parallel child by id"},
-		"expect pointer":       {body: group(listen("a")+listen("b"), "") + "    expect:\n      /ghost/audio_bytes:\n        equals: 0\n", want: "must address a parallel child by id"},
-		"in finally":           {body: "finally:\n  - id: late\n    parallel:\n" + listen("a") + listen("b"), want: "schema validation"},
+		"one child":             {body: group(listen("a"), ""), want: "schema validation"},
+		"client on parent":      {body: group(listen("a")+listen("b"), "    client: peer\n"), want: "takes its clients from its children"},
+		"duplicate child id":    {body: group(listen("a")+listen("a"), ""), want: `duplicate step id "a"`},
+		"child id collides":     {body: group(listen("ping")+listen("b"), ""), want: `duplicate step id "ping"`},
+		"child without id":      {body: group("      - client: peer\n        peer_stream:\n          mode: listen\n          duration: 3s\n"+listen("b"), ""), want: "schema validation"},
+		"child rpc conflict":    {body: group("      - id: a\n        client: peer\n        rpc:\n          method: all.ping\n          request: {}\n"+listen("a2"), ""), want: "shared by children"},
+		"child expect conflict": {body: group(listen("a")+"      - id: b\n        client: peer\n        expect:\n          /audio_bytes:\n            equals: 0\n        peer_stream:\n          mode: listen\n          duration: 3s\n", ""), want: "shared by children"},
+		"child unknown client":  {body: group(listen("a")+"      - id: b\n        client: ghost\n        peer_stream:\n          mode: listen\n          duration: 3s\n", ""), want: `unknown client "ghost"`},
+		"child session":         {body: group(listen("a")+"      - id: b\n        client: peer\n        peer_stream:\n          mode: realtime\n          input: ${endpoint}\n          session: mic\n          keep_open: true\n", ""), want: "persistent peer_stream session"},
+		"child listen input":    {body: group(listen("a")+"      - id: b\n        client: peer\n        peer_stream:\n          mode: listen\n          duration: 3s\n          input: ${endpoint}\n", ""), want: "schema validation"},
+		"capture pointer":       {body: group(listen("a")+listen("b"), "") + "    capture:\n      server_time: /audio\n", want: "must address a parallel child by id"},
+		"expect pointer":        {body: group(listen("a")+listen("b"), "") + "    expect:\n      /ghost/audio_bytes:\n        equals: 0\n", want: "must address a parallel child by id"},
+		"in finally":            {body: "finally:\n  - id: late\n    parallel:\n" + listen("a") + listen("b"), want: "schema validation"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, err := LoadDocument(writeTestDocument(t, validDocument+tc.body), nil)
+			_, err := LoadDocument(writeTestDocument(t, parallelValidationDocument+tc.body), nil)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("error = %v, want %q", err, tc.want)
 			}
@@ -754,7 +765,7 @@ func TestLoadDocumentRejectsInvalidParallel(t *testing.T) {
 // document with parallel steps is rejected by validate and skipped by
 // LoadSupportedDocuments instead of failing once a task is running.
 func TestLoadDocumentGatesParallelStepsOnDriverSupport(t *testing.T) {
-	path := writeTestDocument(t, validDocument+`  - id: talk
+	path := writeTestDocument(t, parallelValidationDocument+`  - id: talk
     parallel:
       - id: listen
         client: peer
@@ -762,7 +773,7 @@ func TestLoadDocumentGatesParallelStepsOnDriverSupport(t *testing.T) {
           mode: listen
           duration: 3s
       - id: listen_too
-        client: peer
+        client: other
         peer_stream:
           mode: listen
           duration: 3s
@@ -820,6 +831,76 @@ func TestTextProbeValidation(t *testing.T) {
 			err := validatePeerStreamStep(Step{ID: "probe", PeerStream: &tc.op}, false)
 			if (err == nil) != tc.valid {
 				t.Fatalf("valid=%t err=%v", tc.valid, err)
+			}
+		})
+	}
+}
+
+func TestLoadDocumentParallelOperations(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		change func(*Document)
+		want   string
+	}{
+		{name: "mixed relay rpc"},
+		{name: "multiple child operations", change: func(d *Document) {
+			d.Steps[1].Parallel[1].WorkspaceRelay = d.Steps[1].Parallel[0].WorkspaceRelay
+		}, want: "schema validation"},
+		{name: "relay with extra rpc", change: func(d *Document) {
+			d.Steps[1].Parallel[0].RPC = d.Steps[1].Parallel[1].RPC
+		}, want: "schema validation"},
+		{name: "relay first client conflict", change: func(d *Document) { d.Steps[1].Parallel[1].Client = "peer" }, want: "shared by children"},
+		{name: "relay second client conflict", change: func(d *Document) { d.Steps[1].Parallel[1].Client = "other" }, want: "shared by children"},
+		{name: "relay relay conflict", change: func(d *Document) {
+			child := d.Steps[1].Parallel[0]
+			child.ID = "another_relay"
+			d.Steps[1].Parallel[1] = child
+		}, want: "shared by children"},
+		{name: "missing selection", change: func(d *Document) { d.Steps = d.Steps[1:] }, want: "preceding server.run.workspace.set"},
+		{name: "bad timeout", change: func(d *Document) { d.Steps[1].Parallel[1].Timeout = "-1s" }, want: "invalid timeout"},
+		{name: "bad expectation", change: func(d *Document) { d.Steps[1].Parallel[1].Expect = map[string]Expectation{"/x": {Pattern: "["}} }, want: "pattern"},
+		{name: "unavailable input", change: func(d *Document) { d.Steps[1].Parallel[1].RPC.Request = map[string]any{"x": "${missing}"} }, want: "unavailable variable"},
+		{name: "nested parallel", change: func(d *Document) { d.Steps[1].Parallel[1] = Step{ID: "nested", Parallel: d.Steps[0].Parallel} }, want: "schema validation"},
+		{name: "output child", change: func(d *Document) {
+			d.Steps[1].Parallel[1] = Step{ID: "output", Output: &OutputOperation{Variable: "endpoint"}}
+		}, want: "schema validation"},
+		{name: "finally rpc", change: func(d *Document) {
+			d.Finally = []Step{d.Steps[0]}
+			d.Steps = d.Steps[:1]
+			d.Finally[0].ID = "cleanup"
+			d.Finally[0].Parallel = []Step{{ID: "stop_peer", Client: "peer", Timeout: "1s", RPC: &RPCOperation{Method: "server.run.stop", Request: map[string]any{}}}, {ID: "stop_other", Client: "other", RPC: &RPCOperation{Method: "server.run.stop", Request: map[string]any{}}}}
+		}},
+		{name: "finally relay", change: func(d *Document) { d.Finally = d.Steps[1:]; d.Steps = d.Steps[:1] }, want: "schema validation"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			doc, err := LoadDocument(writeTestDocument(t, parallelValidationDocument), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			doc.Clients["third"] = doc.Clients["peer"]
+			doc.Steps = []Step{
+				{ID: "select", Parallel: []Step{
+					{ID: "select_peer", Client: "peer", RPC: &RPCOperation{Method: "server.run.workspace.set", Request: map[string]any{}}},
+					{ID: "select_other", Client: "other", RPC: &RPCOperation{Method: "server.run.workspace.set", Request: map[string]any{}}},
+				}},
+				{ID: "mixed", Parallel: []Step{
+					{ID: "relay", Timeout: "20m", WorkspaceRelay: &WorkspaceRelayOperation{FirstClient: "peer", SecondClient: "other", Input: "hello", Media: "text", MaxTurns: 2, TerminalClient: "other"}, Expect: map[string]Expectation{"/terminal/text": {NonEmpty: new(true)}}},
+					{ID: "rpc", Client: "third", Timeout: "1s", RPC: &RPCOperation{Method: "all.ping", Request: map[string]any{}}, Expect: map[string]Expectation{"/server_time": {Present: new(true)}}},
+				}, Capture: map[string]string{"server_time": "/relay/terminal/text"}, Expect: map[string]Expectation{"/rpc/server_time": {Present: new(true)}}},
+			}
+			if tc.change != nil {
+				tc.change(doc)
+			}
+			data, err := json.Marshal(doc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = LoadDocument(writeTestDocument(t, strings.Split(validDocument, "version:")[0]+string(data)), nil)
+			if tc.want == "" && err != nil {
+				t.Fatal(err)
+			}
+			if tc.want != "" && (err == nil || !strings.Contains(err.Error(), tc.want)) {
+				t.Fatalf("error = %v, want %q", err, tc.want)
 			}
 		})
 	}

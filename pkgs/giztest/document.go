@@ -534,8 +534,15 @@ func (d *Document) validateSemantics() error {
 			return fmt.Errorf("step %s cannot declare delay; it only staggers a parallel child", step.ID)
 		}
 		if step.Parallel != nil {
-			if err := d.validateParallel(step, i >= len(d.Steps), ids); err != nil {
+			if err := d.validateParallel(step, i >= len(d.Steps), ids, workspaceSelected); err != nil {
 				return err
+			}
+			if i < len(d.Steps) {
+				for _, child := range step.Parallel {
+					if child.RPC != nil && child.RPC.Method == "server.run.workspace.set" {
+						workspaceSelected[child.Client] = true
+					}
+				}
 			}
 		}
 		if step.Client != "" {
@@ -616,7 +623,11 @@ func (d *Document) validateSemantics() error {
 // reject details only it can judge, such as an RPC request that does not
 // match its schema.
 func (d *Document) validateDriver(driver Driver) error {
-	for _, step := range append(append([]Step(nil), d.Steps...), d.Finally...) {
+	steps := append(append([]Step(nil), d.Steps...), d.Finally...)
+	for _, step := range steps {
+		steps = append(steps, step.Parallel...)
+	}
+	for _, step := range steps {
 		op := step.Operation()
 		if !operationSupported(driver, op) {
 			return fmt.Errorf("step %s operation %s is not supported by this runner", step.ID, op)
@@ -710,26 +721,11 @@ func retryableOperation(op string) bool {
 	}
 }
 
-// ParallelChildOperations are the operations a parallel child may declare. A
-// child is driven concurrently from a run phase the driver prepared ahead of
-// time, and peer_stream is the only operation that has one.
-var ParallelChildOperations = []string{"peer_stream"}
+// ParallelChildOperations are the operations a parallel child may declare.
+var ParallelChildOperations = []string{"rpc", "peer_stream", "workspace_relay"}
 
-/*
-validateParallel checks one parallel step and its children.
-
-The children are the whole point of the step: each is a plain step body, a
-client plus exactly one operation, that the runner starts at the same moment
-as its siblings. Everything that interprets the group's outcome — capture,
-expect, expect_error, save_as, retry, timeout — belongs to the parallel step
-itself, because the step's result is one object keyed by child id and the
-step's timeout bounds the whole group. ids carries the document's step ids so
-a child id can never collide with another step or child.
-*/
-func (d *Document) validateParallel(step Step, finalizer bool, ids map[string]bool) error {
-	if finalizer {
-		return fmt.Errorf("step %s parallel is not allowed in finally", step.ID)
-	}
+// validateParallel checks child IDs, exclusive client ownership, and group pointers.
+func (d *Document) validateParallel(step Step, finalizer bool, ids map[string]bool, selected map[string]bool) error {
 	if step.Client != "" {
 		return fmt.Errorf("step %s parallel takes its clients from its children", step.ID)
 	}
@@ -737,6 +733,7 @@ func (d *Document) validateParallel(step Step, finalizer bool, ids map[string]bo
 		return fmt.Errorf("step %s parallel requires between %d and %d children, got %d", step.ID, minParallelChildren, maxParallelChildren, len(step.Parallel))
 	}
 	children := make(map[string]bool, len(step.Parallel))
+	clients := make(map[string]string)
 	for _, child := range step.Parallel {
 		if child.ID == "" {
 			return fmt.Errorf("step %s parallel requires an id on every child", step.ID)
@@ -748,6 +745,24 @@ func (d *Document) validateParallel(step Step, finalizer bool, ids map[string]bo
 		ids[child.ID] = true
 		if err := d.validateParallelChild(step, child); err != nil {
 			return err
+		}
+		if finalizer && child.RPC == nil {
+			return fmt.Errorf("step %s parallel in finally supports only rpc children", step.ID)
+		}
+		names := []string{child.Client}
+		if child.WorkspaceRelay != nil {
+			captureChild := child
+			captureChild.Capture = ParallelChildCaptures(step, child.ID)
+			if err := d.validateWorkspaceRelay(captureChild, selected); err != nil {
+				return err
+			}
+			names = []string{child.WorkspaceRelay.FirstClient, child.WorkspaceRelay.SecondClient}
+		}
+		for _, name := range names {
+			if previous, ok := clients[name]; ok {
+				return fmt.Errorf("step %s parallel client %q is shared by children %s and %s", step.ID, name, previous, child.ID)
+			}
+			clients[name] = child.ID
 		}
 	}
 	for name, pointer := range step.Capture {
@@ -768,10 +783,10 @@ func (d *Document) validateParallelChild(step, child Step) error {
 	if !slices.Contains(ParallelChildOperations, op) {
 		return fmt.Errorf("step %s parallel child %s operation %q is not allowed; parallel children support %s", step.ID, child.ID, op, strings.Join(ParallelChildOperations, ", "))
 	}
-	if child.Client == "" {
+	if operationNeedsClient(op) && child.Client == "" {
 		return fmt.Errorf("step %s parallel child %s requires client", step.ID, child.ID)
 	}
-	if _, ok := d.Clients[child.Client]; !ok {
+	if _, ok := d.Clients[child.Client]; child.Client != "" && !ok {
 		return fmt.Errorf("step %s parallel child %s references unknown client %q", step.ID, child.ID, child.Client)
 	}
 	for _, field := range []struct {
@@ -781,11 +796,8 @@ func (d *Document) validateParallelChild(step, child Step) error {
 		{"parallel", child.Parallel != nil},
 		{"barrier", child.Barrier != nil},
 		{"retry", child.Retry != nil},
-		{"timeout", child.Timeout != ""},
 		{"save_as", child.SaveAs != ""},
 		{"capture", len(child.Capture) != 0},
-		{"expect", len(child.Expect) != 0},
-		{"expect_error", child.ExpectError != nil},
 	} {
 		if field.declared {
 			return fmt.Errorf("step %s parallel child %s cannot declare %s; it belongs to the parallel step", step.ID, child.ID, field.name)
@@ -796,6 +808,19 @@ func (d *Document) validateParallelChild(step, child Step) error {
 		if err != nil || delay <= 0 || delay > maxParallelChildDelay {
 			return fmt.Errorf("step %s parallel child %s has invalid delay %q; want a positive duration up to %s", step.ID, child.ID, child.Delay, maxParallelChildDelay)
 		}
+	}
+	if child.Timeout != "" {
+		if duration, err := time.ParseDuration(child.Timeout); err != nil || duration <= 0 {
+			return fmt.Errorf("step %s has invalid timeout %q", child.ID, child.Timeout)
+		}
+	}
+	for path, expectation := range child.Expect {
+		if err := expectation.validate(); err != nil {
+			return fmt.Errorf("step %s expect %s: %w", child.ID, path, err)
+		}
+	}
+	if child.PeerStream == nil {
+		return nil
 	}
 	if err := validatePeerStreamStep(child, false); err != nil {
 		return err

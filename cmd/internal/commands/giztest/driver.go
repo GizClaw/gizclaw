@@ -32,7 +32,7 @@ func newDriver(fullEvidence bool, observer audioObserver) *driver {
 }
 
 // Operations lists "parallel" because session implements
-// giztest.ParallelSession for peer_stream steps.
+// giztest.ParallelSession for independent client operations.
 func (d *driver) Operations() []string {
 	return []string{"telemetry", "rpc", "rpc_stream", "client_rpc", "http", "speech", "peer_stream", "reconnect", "workspace_relay", "parallel"}
 }
@@ -204,22 +204,39 @@ func (s *session) executePeerStream(ctx context.Context, req giztest.StepRequest
 	return result.stepResult(), err
 }
 
-// PrepareParallel implements giztest.ParallelSession for peer_stream steps.
-// Every variable read and the client lookup happen here, on the task
-// goroutine; the returned run phase only drives the PeerStream. The parallel
-// step owns the capture map, so the bound it declared for this child, such as
-// the /audio limit, applies from the start.
+// PrepareParallel resolves inputs and capture bounds before concurrent execution.
 func (s *session) PrepareParallel(req giztest.StepRequest) (giztest.ParallelChild, error) {
 	step := req.Step
-	if step.PeerStream == nil {
-		return nil, fmt.Errorf("parallel child %s requires peer_stream", step.ID)
-	}
 	if s.driver.audioObserver != nil {
 		return nil, fmt.Errorf("parallel children cannot play audio interactively")
 	}
 	captureStep := step
 	if req.Parent != nil {
 		captureStep = giztest.Step{ID: step.ID, Capture: giztest.ParallelChildCaptures(*req.Parent, step.ID)}
+	}
+	switch step.Operation() {
+	case "rpc":
+		client, err := s.clients.get(step.Client)
+		if err != nil {
+			return nil, err
+		}
+		params := step.RPC.Request
+		if params == nil {
+			params = map[string]any{}
+		}
+		params, err = req.Vars.Resolve(params)
+		if err != nil {
+			return nil, err
+		}
+		return operationInvocation(func(ctx context.Context) (giztest.StepResult, error) {
+			value, err := invokeUnary(ctx, client, step, params)
+			return giztest.StepResult{Value: value, Saved: value}, err
+		}), nil
+	case "workspace_relay":
+		return s.prepareWorkspaceRelay(step, captureStep, req.Vars)
+	case "peer_stream":
+	default:
+		return nil, fmt.Errorf("unsupported parallel child operation %q", step.Operation())
 	}
 	invocation, err := s.preparePeerStream(step, captureStep, req.Vars)
 	if err != nil {
@@ -283,35 +300,59 @@ func (p peerStreamInvocation) Run(ctx context.Context) (giztest.StepResult, erro
 	return result.stepResult(), err
 }
 
+// operationInvocation drives a prepared operation without accessing task variables.
+type operationInvocation func(context.Context) (giztest.StepResult, error)
+
+func (run operationInvocation) Run(ctx context.Context) (giztest.StepResult, error) {
+	return run(ctx)
+}
+
 func (s *session) executeWorkspaceRelay(ctx context.Context, req giztest.StepRequest) (giztest.StepResult, error) {
-	step := req.Step
-	vars := req.Vars
-	input, err := vars.Resolve(step.WorkspaceRelay.Input)
+	run, err := s.prepareWorkspaceRelay(req.Step, req.Step, req.Vars)
 	if err != nil {
 		return giztest.StepResult{}, err
+	}
+	return run.Run(ctx)
+}
+
+func (s *session) prepareWorkspaceRelay(step, captureStep giztest.Step, vars *giztest.Variables) (giztest.ParallelChild, error) {
+	input, err := vars.Resolve(step.WorkspaceRelay.Input)
+	if err != nil {
+		return nil, err
 	}
 	if spec, ok := vars.ReferencedSpec(step.WorkspaceRelay.Input); ok && step.WorkspaceRelay.Media == "audio" {
 		if spec.Type != "audio" || spec.Codec != "opus" || (spec.MediaType != "audio/ogg" && spec.MediaType != "audio/opus") {
-			return giztest.StepResult{}, fmt.Errorf("workspace_relay audio input must declare audio/ogg or audio/opus with opus codec")
+			return nil, fmt.Errorf("workspace_relay audio input must declare audio/ogg or audio/opus with opus codec")
 		}
 	}
-	audioCaptureMaxBytes, err := relayAudioCaptureMaxBytes(step, vars)
+	audioCaptureMaxBytes, err := relayAudioCaptureMaxBytes(captureStep, vars)
 	if err != nil {
-		return giztest.StepResult{}, err
+		return nil, err
 	}
-	if s.driver.openRelayStreams == nil {
-		result, err := invokeWorkspaceRelay(
-			ctx, s.clients, step, input, audioCaptureMaxBytes, s.driver.fullEvidence, s.driver.audioObserver)
+	// Snapshot the selected clients during preparation. Run only opens streams.
+	clients := &clientSet{clients: make(map[string]*gizcli.Client)}
+	for _, name := range []string{step.WorkspaceRelay.FirstClient, step.WorkspaceRelay.SecondClient} {
+		if s.driver.openRelayStreams != nil {
+			continue
+		}
+		client, err := s.clients.get(name)
+		if err != nil {
+			return nil, err
+		}
+		clients.clients[name] = client
+	}
+	return operationInvocation(func(ctx context.Context) (giztest.StepResult, error) {
+		if s.driver.openRelayStreams == nil {
+			result, err := invokeWorkspaceRelay(ctx, clients, step, input, audioCaptureMaxBytes, s.driver.fullEvidence, s.driver.audioObserver)
+			return result.stepResult(), err
+		}
+		first, second, err := s.driver.openRelayStreams()
+		if err != nil {
+			return giztest.StepResult{}, err
+		}
+		result, err := runWorkspaceRelayWithEvidence(ctx, step.WorkspaceRelay, first, second, input, audioCaptureMaxBytes, s.driver.fullEvidence, s.driver.audioObserver)
 		return result.stepResult(), err
-	}
-	first, second, err := s.driver.openRelayStreams()
-	if err != nil {
-		return giztest.StepResult{}, err
-	}
-	result, err := runWorkspaceRelayWithEvidence(
-		ctx, step.WorkspaceRelay, first, second, input, audioCaptureMaxBytes,
-		s.driver.fullEvidence, s.driver.audioObserver)
-	return result.stepResult(), err
+	}), nil
 }
 
 func (s *session) executeClientRPC(ctx context.Context, step giztest.Step) (giztest.StepResult, error) {

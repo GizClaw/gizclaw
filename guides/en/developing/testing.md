@@ -728,53 +728,46 @@ conventions:
   its first-text latency as well as its first-audio latency. Only an explicit
   `transcript` label counts as a transcript; every other text fragment counts
   toward `first_text_ms`, matching how any Opus blob counts as received audio.
-  A listen may sit in the same `parallel` step as the speaking client's own
-  turn: both children share that connection's single Peer Event Stream
-  subscription, and the speaker's own audio never comes back
-  (mix-minus-self), so the sender asserts `audio_bytes` equal to 0. Listen
+  A listen may run alongside another client's speaking turn in a `parallel`
+  step. Each client belongs to only one child in that group. Listen
   cannot set `input`, `pacing`, `interrupt_after`, `idle_timeout`,
   `completion`, `terminal_label`, `require_text`, `require_audio`,
   `wait_for_history`, `session`, `keep_open`, or `await_rearm`. The step fails
   when the PeerStream closes before the window ends, when the step or document
   timeout expires, or when a terminal error arrives.
-- Step-level `parallel`. A `parallel` step owns a list of child steps, starts
-  every one of them at the same moment, waits for all of them, and reports
-  them together, so "one client speaks while another listens" needs no
-  separate synchronization step. A child is a plain step body: `client` plus
-  exactly one `peer_stream` operation in any mode, between 2 and 16 of them,
-  each with an `id` that is required and unique across the whole document. A
-  child cannot declare `parallel`, `barrier`, `retry`, `timeout`, `save_as`,
-  `capture`, `expect`, or `expect_error`, and cannot use a persistent
-  peer_stream session: the assertions belong to the parallel step. A child may
-  declare `delay`, a positive duration up to one minute, and then starts that
-  long after the group is released instead of with it. That is the one way to
-  place a child's window inside another child's activity, which a contention
-  scenario needs: a speaker's own utterance opens on its first voiced frame,
-  so a window that starts with the group measures the leading silence, when
-  the speaker was still an ordinary listener. `delay` is rejected on any step
-  that is not a parallel child, because a plain step already runs in order and
-  a delay there would only be a sleep hiding a missing wait. The
-  parallel step itself keeps `id`, `timeout`, `capture`, `expect`,
-  `expect_error`, `retry`, and `save_as`, takes no `client`, and is not
-  allowed in `finally`.
-  The step's result is an object keyed by child `id`, so `capture` and
-  `expect` address one child's result with a `/<child_id>/...` JSON pointer; a
-  pointer that names no declared child is rejected by validation. The runner
-  resolves every child's inputs on the task goroutine first, because
-  `Variables` is not safe for concurrent use, and releases the children only
-  once all of them are prepared; when one child fails to prepare, the step
-  fails and no child starts.
-  The step's `timeout` bounds the whole group: on expiry the runner cancels
-  every child, waits up to 30s more for them to release their PeerStream, and
-  reports each child's own outcome. A child that ignores cancellation is
-  recorded as unfinished and still owns the task's shared clients, so the task
-  ends there and reports it: `finally` steps and client teardown are skipped
-  rather than run against a stream that is still in use.
-  One failing child fails the parallel step, and the report's `children` array
-  keeps every child's `status`, `duration_ms`, `error`, and evidence. Play
-  mode does not support parallel steps, and a driver that cannot run steps
-  concurrently does not list the `parallel` operation, so such a document is
-  rejected or skipped by `validate` instead of failing at run time.
+- Step-level `parallel` runs 2–16 children concurrently and waits for their
+  outcomes. Each child has a document-wide unique `id` and exactly one `rpc`,
+  `peer_stream`, or `workspace_relay` operation. RPC and PeerStream children
+  declare `client`; a relay declares `first_client` and `second_client`.
+  A client may appear in only one child of a group, counting both relay clients.
+  Relay clients must have selected their workspaces in preceding steps; a
+  preceding parallel group of `server.run.workspace.set` RPCs also qualifies.
+  Children may declare their own `timeout`, `expect`, and `expect_error`.
+  Child expectations address that child's result directly, such as
+  `/terminal/text` for a relay. `output` remains sequential. Nested `parallel`,
+  `barrier`, child `retry`, `save_as`, `capture`, and persistent PeerStream
+  sessions are forbidden.
+  A child may declare `delay`, a positive duration up to one minute, to stagger
+  its start after the group is released. Its `timeout` includes this delay.
+  `delay` is rejected outside parallel children.
+  The parallel step takes no `client` and retains `timeout`, `capture`, `expect`,
+  `expect_error`, `retry`, and `save_as`. Its result is keyed by child `id`;
+  parent captures and expectations use `/<child_id>/...` JSON pointers.
+  Relay captures retain their terminal text/audio restrictions and byte limits.
+  The runner prepares inputs on the task goroutine before releasing children.
+  Preparation, operation, or assertion failure in one child fails the group
+  without cancelling or skipping its siblings. Each child's report preserves
+  its `status`, `duration_ms`, `error`, and operation evidence.
+  A child timeout cancels that child; the parent step or document timeout
+  cancels the whole group. Cancellation waits are bounded by a 30s grace.
+  Children that ignore cancellation are reported as unfinished; subsequent
+  cleanup and client teardown cannot proceed while they still own clients.
+  `finally` allows parallel groups containing only RPC children, with their
+  own timeouts and assertions. All prepared cleanup children run even when a
+  sibling fails, and later finalizers still run after a settled group fails.
+  The existing 30s cleanup budget bounds all finalizers together.
+  Play mode does not support parallel steps. Drivers without the `parallel`
+  capability reject or skip these documents during validation.
 - `peer_stream.empty_input: true` is valid for `push-to-talk` only: the turn
   opens and closes its audio route without sending a frame, the way a device
   reports a press released before the first frame is captured or a local gate
