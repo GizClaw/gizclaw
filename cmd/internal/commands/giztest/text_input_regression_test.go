@@ -178,7 +178,13 @@ func textRegressionProvider(t *testing.T) *httptest.Server {
 				events = events[:3]
 			}
 			for _, event := range events {
+				if event == 550 && strings.HasPrefix(text, "audio-only:") {
+					continue
+				}
 				body := payload
+				if event == 350 && strings.HasPrefix(text, "audio-only:") {
+					body = fmt.Sprintf(`{"question_id":"question-%d","reply_id":"reply-%d"}`, turn, turn)
+				}
 				if event == 352 {
 					body = providerAudio.String()
 				}

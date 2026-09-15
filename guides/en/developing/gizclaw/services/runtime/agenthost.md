@@ -45,6 +45,8 @@ rather than only a timestamp; it is a bounded, disposable hint, not a durable
 high-water receipt, and dropping it does not change persisted History. The
 observer never invokes GenX. Imported and legacy History lacks this origin.
 
+Workspace History recognizes interruption by StreamID: when a typed MIME channel EOS or a control EOS without a Part has a `Ctrl.Error` starting with `interrupted` after trimming whitespace, every pending entry for that StreamID is marked interrupted. At persistence, an interrupted entry without non-whitespace committed text is discarded and its PCM encoder is closed; `Ctrl.TextInterim` text is never committed. Interrupted entries with committed text remain, and normally completed audio-only entries can still be stored.
+
 ## Current-Peer Tool scope
 
 Tool execution has a separate context from Workspace-owner Resource access. The

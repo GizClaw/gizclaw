@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -725,6 +726,97 @@ func TestHistoryRecorderControlEOSFinalizesRouteOnce(t *testing.T) {
 	}
 	if got["assistant"] != "hello" || got["status"] != "working" {
 		t.Fatalf("history items = %+v", resp.Items)
+	}
+}
+
+func TestHistoryRecorderDropsInterruptedEntryWithoutText(t *testing.T) {
+	audio := func(role genx.Role, name, label string, data ...byte) *genx.MessageChunk {
+		return &genx.MessageChunk{Role: role, Name: name, Part: &genx.Blob{MIMEType: "audio/opus", Data: data}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: label}}
+	}
+	text := func(role genx.Role, name, label, value string) *genx.MessageChunk {
+		return &genx.MessageChunk{Role: role, Name: name, Part: genx.Text(value), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: label}}
+	}
+	eos := func(chunk *genx.MessageChunk, errText string) *genx.MessageChunk {
+		chunk.Ctrl.EndOfStream = true
+		chunk.Ctrl.Error = errText
+		return chunk
+	}
+	for _, test := range []struct {
+		name     string
+		chunks   []*genx.MessageChunk
+		wantText []string
+	}{
+		{
+			name: "agent_audio_channels_interrupted",
+			chunks: []*genx.MessageChunk{
+				audio(genx.RoleModel, "assistant", "assistant", 1, 2, 3),
+				eos(text(genx.RoleModel, "assistant", "assistant", ""), "interrupted"),
+				eos(audio(genx.RoleModel, "assistant", "assistant"), "interrupted"),
+			},
+		},
+		{
+			name: "agent_audio_route_interrupted",
+			chunks: []*genx.MessageChunk{
+				audio(genx.RoleModel, "assistant", "assistant", 1, 2, 3),
+				{Ctrl: &genx.StreamCtrl{StreamID: "s1", EndOfStream: true, Error: "interrupted: finalize failed"}},
+			},
+		},
+		{
+			name: "gear_interim_only_transcript_interrupted",
+			chunks: []*genx.MessageChunk{
+				audio(genx.RoleUser, "transcript", genx.HistoryUserAudioLabel, 1, 2, 3),
+				eos(audio(genx.RoleUser, "transcript", genx.HistoryUserAudioLabel), ""),
+				func() *genx.MessageChunk {
+					chunk := text(genx.RoleUser, "transcript", "transcript", "hel")
+					chunk.Ctrl.TextInterim = true
+					return chunk
+				}(),
+				eos(text(genx.RoleUser, "transcript", "transcript", ""), "interrupted"),
+			},
+		},
+		{
+			name: "agent_partial_text_interrupted",
+			chunks: []*genx.MessageChunk{
+				text(genx.RoleModel, "assistant", "assistant", "hel"),
+				audio(genx.RoleModel, "assistant", "assistant", 1, 2, 3),
+				eos(text(genx.RoleModel, "assistant", "assistant", ""), "interrupted"),
+				eos(audio(genx.RoleModel, "assistant", "assistant"), "interrupted"),
+			},
+			wantText: []string{"hel"},
+		},
+		{
+			name: "agent_audio_without_text_completed",
+			chunks: []*genx.MessageChunk{
+				audio(genx.RoleModel, "assistant", "assistant", 1, 2, 3),
+				eos(audio(genx.RoleModel, "assistant", "assistant"), ""),
+			},
+			wantText: []string{""},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			history := newTestWorkspaceHistory(t, newTestObjectStore(t))
+			recorder := newHistoryRecorder(history, "gear-a", nil)
+			ctx := context.Background()
+			for _, chunk := range test.chunks {
+				if err := recorder.ObserveOutput(ctx, chunk); err != nil {
+					t.Fatalf("ObserveOutput() error = %v", err)
+				}
+			}
+			if err := recorder.Flush(ctx); err != nil {
+				t.Fatalf("Flush() error = %v", err)
+			}
+			resp, err := history.List(ctx, apitypes.PeerRunHistoryListRequest{})
+			if err != nil {
+				t.Fatalf("List() error = %v", err)
+			}
+			var got []string
+			for _, item := range resp.Items {
+				got = append(got, item.Text)
+			}
+			if !slices.Equal(got, test.wantText) {
+				t.Fatalf("history texts = %q, want %q", got, test.wantText)
+			}
+		})
 	}
 }
 
