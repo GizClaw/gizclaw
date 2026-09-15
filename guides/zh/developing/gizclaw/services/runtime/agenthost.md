@@ -44,6 +44,8 @@ entry identity，而不是仅收到时间戳；它只是有界且可丢弃的提
 high-water receipt，丢弃不会改变已持久化 History。observer 不执行 GenX 调用。
 导入或旧 History 没有该 origin。
 
+Workspace History 按 StreamID 识别中断：typed MIME channel EOS 或无 Part 的 control EOS 的 `Ctrl.Error` 去除首尾空白后以 `interrupted` 开头时，同一 StreamID 的所有待写入 entry 都标记为中断。落库时，中断且没有非空白定稿文本的 entry 被丢弃，并关闭其 PCM encoder；`Ctrl.TextInterim` 文本不计入定稿。已有定稿文本的中断 entry 仍保留，正常结束的纯音频 entry 仍可保存。
+
 ## 当前 Peer 的 Tool scope
 
 Workflow 使用 `sfu` driver 的 Workspace 是空的运行入口：`ServiceResolver` 只返回

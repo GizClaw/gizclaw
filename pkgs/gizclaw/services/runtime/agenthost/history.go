@@ -1020,6 +1020,9 @@ type historyPendingEntry struct {
 	pcmWriter *codecconv.PCMToOggOpusEncoder
 	pcmFormat pcm.Format
 	createdAt time.Time
+	// interrupted marks a route that ended with an interruption terminal. An
+	// interrupted entry without committed text is dropped instead of stored.
+	interrupted bool
 }
 
 func newHistoryRecorder(history *workspace.HistoryStore, gearID string, notify func(workspace.HistoryEntry)) *historyRecorder {
@@ -1087,6 +1090,10 @@ func (r *historyRecorder) flushMatching(ctx context.Context, keep func(*historyP
 func (r *historyRecorder) observe(ctx context.Context, chunk *genx.MessageChunk, typ string, gearID string) error {
 	if r == nil || r.history == nil || chunk == nil {
 		return nil
+	}
+	interrupted := historyInterruptedChunk(chunk)
+	if interrupted {
+		r.markInterrupted(historyChunkStreamID(chunk))
 	}
 	recordChunk := chunk
 	var (
@@ -1159,6 +1166,9 @@ func (r *historyRecorder) observe(ctx context.Context, chunk *genx.MessageChunk,
 			}
 		}
 	}
+	if interrupted && entry != nil {
+		entry.interrupted = true
+	}
 	if chunk.IsEndOfStream() {
 		if chunk.Part == nil {
 			return r.flushRoute(ctx, historyChunkStreamID(recordChunk))
@@ -1172,6 +1182,21 @@ func (r *historyRecorder) observe(ctx context.Context, chunk *genx.MessageChunk,
 		return r.flush(ctx, r.key(recordChunk, typ))
 	}
 	return nil
+}
+
+func historyInterruptedChunk(chunk *genx.MessageChunk) bool {
+	return chunk != nil && chunk.IsEndOfStream() && chunk.Ctrl != nil &&
+		strings.HasPrefix(strings.TrimSpace(chunk.Ctrl.Error), historyReplayInterrupted)
+}
+
+func (r *historyRecorder) markInterrupted(streamID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, entry := range r.pending {
+		if entry != nil && entry.streamID == streamID {
+			entry.interrupted = true
+		}
+	}
 }
 
 func historyAgentRouteChannelEOS(chunk *genx.MessageChunk, part any) bool {
@@ -1298,6 +1323,12 @@ func (r *historyRecorder) flush(ctx context.Context, key string) error {
 	delete(r.pending, key)
 	r.mu.Unlock()
 	if entry == nil {
+		return nil
+	}
+	if entry.interrupted && strings.TrimSpace(entry.text.String()) == "" {
+		if entry.pcmWriter != nil {
+			_ = entry.pcmWriter.Close()
+		}
 		return nil
 	}
 	if entry.oggAudio.Len() > 0 {
