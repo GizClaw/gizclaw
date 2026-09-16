@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"sort"
 	"strings"
@@ -292,12 +293,25 @@ func (s *Server) volcSpeakerClientForTenant(ctx context.Context, credential apit
 	if err != nil {
 		return nil, err
 	}
+	// The SDK assigns HTTPClient.Transport and rewrites Transport.Proxy during
+	// construction. Isolate both from other tenants and caller-owned clients.
+	httpClient := http.DefaultClient
+	if s != nil && s.HTTPClient != nil {
+		httpClient = s.HTTPClient
+	}
+	clientCopy := *httpClient
+	transport := clientCopy.Transport
+	if transport == nil {
+		transport = http.DefaultTransport
+	}
+	if standard, ok := transport.(*http.Transport); ok {
+		transport = standard.Clone()
+	}
+	clientCopy.Transport = transport
 	cfg := volcengine.NewConfig().
+		WithHTTPClient(&clientCopy).
 		WithCredentials(credentials.NewStaticCredentials(ak, sk, "")).
 		WithRegion(volcRegion(tenant))
-	if s != nil && s.HTTPClient != nil {
-		cfg.WithHTTPClient(s.HTTPClient)
-	}
 	if tenant.Endpoint != nil && strings.TrimSpace(*tenant.Endpoint) != "" {
 		cfg.WithEndpoint(strings.TrimSpace(*tenant.Endpoint))
 	}
