@@ -5,8 +5,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
+	"net/url"
 	"slices"
 	"strings"
 	"sync"
@@ -1712,6 +1715,94 @@ func TestVolcSpeakerClientForTenantValidation(t *testing.T) {
 	}
 	if client == nil {
 		t.Fatal("volcSpeakerClientForTenant() returned nil client")
+	}
+}
+
+func TestVolcSpeakerClientForTenantConcurrent(t *testing.T) {
+	t.Parallel()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"ResponseMetadata":{},"Result":{"Total":1,"Speakers":[{"VoiceType":"test-voice","ResourceID":"seed-tts-1.0"}]}}`))
+	}))
+	t.Cleanup(upstream.Close)
+	credential := apitypes.Credential{
+		Id:       "volc-main",
+		Provider: "volcengine",
+		Body:     testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "openapi_access_key_id": "ak", "openapi_access_key": "sk"}),
+	}
+	for _, mode := range []string{"default", "nil-transport", "standard-transport", "custom-transport"} {
+		t.Run(mode, func(t *testing.T) {
+			t.Parallel()
+			srv := &Server{}
+			original := http.DefaultClient
+			if mode != "default" {
+				jar, err := cookiejar.New(nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				original = &http.Client{
+					Timeout:       5 * time.Second,
+					Jar:           jar,
+					CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+				}
+				srv.HTTPClient = original
+			}
+			var standard *http.Transport
+			if mode == "standard-transport" || mode == "custom-transport" {
+				standard = http.DefaultTransport.(*http.Transport).Clone()
+				standard.MaxIdleConnsPerHost = 7
+				standard.Proxy = func(*http.Request) (*url.URL, error) { return nil, http.ErrUseLastResponse }
+				if mode == "custom-transport" {
+					standard.Proxy = nil
+					original.Transport = &struct{ http.RoundTripper }{standard}
+				} else {
+					original.Transport = standard
+				}
+				t.Cleanup(standard.CloseIdleConnections)
+			}
+			originalTransport := original.Transport
+			t.Run("tenants", func(t *testing.T) {
+				for i := range 16 {
+					t.Run(fmt.Sprintf("tenant-%d", i), func(t *testing.T) {
+						t.Parallel()
+						client, err := srv.volcSpeakerClientForTenant(t.Context(), credential, apitypes.VolcTenant{
+							Id: fmt.Sprintf("tenant-%d", i), CredentialId: "volc-main", Endpoint: new(upstream.URL),
+						})
+						if err != nil {
+							t.Fatal(err)
+						}
+						sdk := client.(volcSpeechSDKClient)
+						got := sdk.speech.Config.HTTPClient
+						t.Cleanup(got.CloseIdleConnections)
+						if got == original || got.Timeout != original.Timeout || got.Jar != original.Jar {
+							t.Fatal("SDK must own its HTTP client while preserving timeout and jar")
+						}
+						if original.CheckRedirect != nil && (got.CheckRedirect == nil || got.CheckRedirect(nil, nil) != http.ErrUseLastResponse) {
+							t.Fatal("redirect policy was not preserved")
+						}
+						if mode == "custom-transport" {
+							if got.Transport != originalTransport {
+								t.Fatal("custom RoundTripper was replaced")
+							}
+						} else if transport, ok := got.Transport.(*http.Transport); !ok || transport == originalTransport || transport == http.DefaultTransport || (standard != nil && transport.MaxIdleConnsPerHost != 7) {
+							t.Fatal("standard transport was not independently cloned with its settings")
+						}
+						page, err := client.ListSpeakersWithContext(t.Context(), nil, 1, 30)
+						if err != nil || page == nil || page.Total != 1 || len(page.Speakers) != 1 {
+							t.Fatalf("ListSpeakersWithContext() = %#v, %v", page, err)
+						}
+					})
+				}
+			})
+			if original.Transport != originalTransport {
+				t.Fatal("caller-owned HTTP client transport changed")
+			}
+			if mode == "standard-transport" {
+				if _, err := standard.Proxy(&http.Request{}); err != http.ErrUseLastResponse {
+					t.Fatal("caller-owned transport proxy changed")
+				}
+			}
+		})
 	}
 }
 
