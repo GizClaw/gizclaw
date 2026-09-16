@@ -636,25 +636,143 @@ func TestHistoryAgentWaitsForTextAfterAudioEOS(t *testing.T) {
 	}
 }
 
-func TestHistoryAgentRejectsMultipleAudioMIMEChannels(t *testing.T) {
+// A multi-voice reply can mix TTS providers on one route. History stores its
+// segments in arrival order as one Ogg/Opus asset and forwards every chunk.
+func TestHistoryAgentStoresMixedAudioMIMEReplyInOrder(t *testing.T) {
+	narration := [][]byte{{0xf8, 1}, {0xf8, 2}}
+	closing := [][]byte{{0xf8, 3}}
+	oggSegment := func(packets [][]byte) []byte {
+		var out bytes.Buffer
+		if err := codecconv.OpusPacketsToOgg(&out, 16000, 1, packets); err != nil {
+			t.Fatalf("OpusPacketsToOgg() error = %v", err)
+		}
+		return out.Bytes()
+	}
+	var character bytes.Buffer
+	encoder, err := mp3.NewEncoder(&character, 24000, 1)
+	if err != nil {
+		t.Fatalf("mp3.NewEncoder() error = %v", err)
+	}
+	if _, err := encoder.Write(make([]byte, 24000/10*2)); err != nil {
+		t.Fatalf("encoder.Write() error = %v", err)
+	}
+	if err := encoder.Close(); err != nil {
+		t.Fatalf("encoder.Close() error = %v", err)
+	}
+	route := func(part genx.Part, ctrl genx.StreamCtrl) *genx.MessageChunk {
+		ctrl.StreamID, ctrl.Label = "s1", "assistant"
+		return &genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: part, Ctrl: &ctrl}
+	}
+	chunks := []*genx.MessageChunk{
+		route(genx.Text("Once. Hi."), genx.StreamCtrl{}),
+		route(&genx.Blob{MIMEType: "audio/ogg", Data: oggSegment(narration)}, genx.StreamCtrl{BeginOfStream: true}),
+		route(&genx.Blob{MIMEType: "audio/mpeg", Data: character.Bytes()}, genx.StreamCtrl{BeginOfStream: true}),
+		route(&genx.Blob{MIMEType: "audio/ogg", Data: oggSegment(closing)}, genx.StreamCtrl{}),
+		route(genx.Text(""), genx.StreamCtrl{EndOfStream: true}),
+		route(&genx.Blob{MIMEType: "audio/mpeg"}, genx.StreamCtrl{EndOfStream: true}),
+		route(&genx.Blob{MIMEType: "audio/ogg"}, genx.StreamCtrl{EndOfStream: true}),
+	}
 	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
-	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(
-		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
-		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus"}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
-	)}, history)
+	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(chunks...)}, history)
 
 	out, err := agent.Transform(context.Background(), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
+	var terminals []string
+	forwarded := 0
 	for {
-		_, err = out.Next()
-		if err != nil {
+		chunk, err := out.Next()
+		if IsStreamDone(err) {
 			break
 		}
+		if err != nil {
+			t.Fatalf("Next() error = %v", err)
+		}
+		forwarded++
+		if chunk.IsEndOfStream() {
+			mimeType, _ := chunk.MIMEType()
+			terminals = append(terminals, mimeType+"="+chunk.Ctrl.Error)
+		}
 	}
-	if err == nil || !strings.Contains(err.Error(), "changed audio MIME type") {
-		t.Fatalf("Next() error = %v, want audio MIME change error", err)
+	if forwarded != len(chunks) || strings.Join(terminals, ",") != "text/plain=,audio/mpeg=,audio/ogg=" {
+		t.Fatalf("forwarded=%d terminals=%v, want every chunk and clean text/audio EOS", forwarded, terminals)
+	}
+
+	page, err := history.ListEntries(t.Context(), "", "", 10)
+	if err != nil {
+		t.Fatalf("ListEntries() error = %v", err)
+	}
+	if len(page.Entries) != 1 || page.Entries[0].Text != "Once. Hi." || len(page.Entries[0].Assets) != 1 {
+		t.Fatalf("history entries = %+v, want one entry with one asset", page.Entries)
+	}
+	reader, err := history.ReadAsset(t.Context(), page.Entries[0].Assets[0].Name)
+	if err != nil {
+		t.Fatalf("ReadAsset() error = %v", err)
+	}
+	defer reader.Close()
+	asset, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("ReadAll() error = %v", err)
+	}
+	packets, err := historyOpusFramesFromOgg(asset)
+	if err != nil {
+		t.Fatalf("historyOpusFramesFromOgg() error = %v", err)
+	}
+	if len(packets) <= len(narration)+len(closing) {
+		t.Fatalf("stored %d packets, want narration, MP3 character audio and closing", len(packets))
+	}
+	for i, packet := range narration {
+		if !bytes.Equal(packets[i], packet) {
+			t.Fatalf("packet %d = %x, want narration %x", i, packets[i], packet)
+		}
+	}
+	if last := packets[len(packets)-1]; !bytes.Equal(last, closing[0]) {
+		t.Fatalf("last packet = %x, want closing %x", last, closing[0])
+	}
+}
+
+// History is a side effect of the live output. An entry that cannot be
+// recorded is dropped without failing the stream or other entries.
+func TestHistoryAgentRecordingFailureKeepsOutput(t *testing.T) {
+	chunks := []*genx.MessageChunk{
+		{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/ogg", Data: []byte("not ogg")}, Ctrl: &genx.StreamCtrl{StreamID: "broken", Label: "assistant", BeginOfStream: true}},
+		{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/ogg"}, Ctrl: &genx.StreamCtrl{StreamID: "broken", Label: "assistant", EndOfStream: true}},
+		{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "late", Label: "assistant"}},
+		{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("late"), Ctrl: &genx.StreamCtrl{StreamID: "late", Label: "assistant"}},
+		{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "late", Label: "assistant", EndOfStream: true}},
+		{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{2}}, Ctrl: &genx.StreamCtrl{StreamID: "late", Label: "assistant"}},
+		{Role: genx.RoleModel, Name: "assistant", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "late", Label: "assistant", EndOfStream: true}},
+		{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("stored"), Ctrl: &genx.StreamCtrl{StreamID: "ok", Label: "assistant"}},
+		{Role: genx.RoleModel, Name: "assistant", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "ok", Label: "assistant", EndOfStream: true}},
+	}
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
+	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(chunks...)}, history)
+
+	out, err := agent.Transform(context.Background(), historyStreamFromChunks())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	forwarded := 0
+	for {
+		_, err := out.Next()
+		if IsStreamDone(err) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Next() error = %v, want History failures to leave the output intact", err)
+		}
+		forwarded++
+	}
+	if forwarded != len(chunks) {
+		t.Fatalf("forwarded %d chunks, want %d", forwarded, len(chunks))
+	}
+	page, err := history.ListEntries(t.Context(), "", "", 10)
+	if err != nil {
+		t.Fatalf("ListEntries() error = %v", err)
+	}
+	if len(page.Entries) != 1 || page.Entries[0].Text != "stored" {
+		t.Fatalf("history entries = %+v, want only the healthy entry", page.Entries)
 	}
 }
 

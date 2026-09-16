@@ -1,0 +1,146 @@
+# User Story:
+# As a story listener using the flowcraft-mixed-provider-voices Workflow,
+# I want one real LLM reply spoken by a Doubao narrator Voice and a MiniMax character Voice,
+# So that the mixed-provider reply plays as one audio stream and is saved to Workspace History.
+version: gizclaw.test/v1alpha1
+name: flowcraft-mixed-provider-voices.text-roundtrip
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  script:
+    direction: input
+    type: string
+    value: 从前有一片安静的森林，小溪从高高的松树旁边流过，温暖的阳光照在柔软的草地上。【弟弟】我今天找到了一颗红苹果！我要把它带回家，和哥哥姐姐一起分享，然后给大家讲一个有趣的故事。【旁白】他们约好明天一起去看日出，带上面包和清水，沿着山间的小路慢慢走到山顶。
+  assistant_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        collection: assistants
+        workflow_name: flowcraft-mixed-provider-voices
+        parameters:
+          flowcraft_workspace_parameters:
+            agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  # The MiniMax Voice has no format override; it must synthesize with the test account.
+  - id: synthesize_minimax_boy
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: minimax-boy
+        text: 我今天找到了一颗红苹果！
+        accepted_content_types: [audio/ogg]
+    expect:
+      /bytes:
+        minimum: 1000
+  - id: mixed_provider_story
+    client: peer
+    timeout: 90s
+    peer_stream:
+      mode: text
+      input: ${script}
+      require_text: true
+      require_audio: true
+      wait_for_history: true
+    expect:
+      /text:
+        contains_all: [森林, 红苹果, 日出]
+        not_contains: [【旁白】, 【弟弟】]
+      /text_eos:
+        equals: true
+      /audio_eos:
+        equals: true
+      /audio_bytes:
+        minimum: 20000
+      # Doubao and MiniMax segments share one audio/ogg stream.
+      /audio_integrity/streams:
+        equals: 1
+      /audio_integrity/max_active:
+        equals: 1
+      /audio_integrity/open:
+        equals: 0
+      /audio_integrity/violations:
+        equals: 0
+      /history_name:
+        non_empty: true
+    capture:
+      assistant_audio: /audio
+  - id: transcribe_mixed_provider_story
+    client: peer
+    timeout: 60s
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh
+      input: ${assistant_audio}
+    expect:
+      /transcript:
+        pattern: 森林.*苹果.*日出
+  - id: verify_history
+    client: peer
+    rpc:
+      method: server.run.workspace.history
+      request:
+        limit: 20
+        order: PEER_RUN_HISTORY_LIST_REQUEST_ORDER_DESC
+    expect:
+      /available:
+        equals: true
+      /items/0/type:
+        equals: PEER_RUN_HISTORY_ENTRY_TYPE_AGENT
+      /items/0/replay_available:
+        equals: true
+      /items/0/text:
+        contains_all: [森林, 红苹果, 日出]
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

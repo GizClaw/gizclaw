@@ -232,15 +232,19 @@ func wrapAudio(
 	if voice.NodeVoices != nil {
 		nodeVoices = maps.Clone(*voice.NodeVoices)
 	}
-	if voice.SpeakerVoices != nil {
+	voicePattern := einoVoicePattern
+	if voice.SpeakerVoices != nil && len(*voice.SpeakerVoices) != 0 {
+		// Speaker segments of one reply share one audio route, so every Voice
+		// that can speak in it is asked for the same streaming format.
+		voicePattern = func(alias string) string { return peergenx.WithSegmentVoiceFormat(einoVoicePattern(alias)) }
 		config.SpeakerVoices = make(map[string]string, len(*voice.SpeakerVoices))
 		for name, alias := range *voice.SpeakerVoices {
-			config.SpeakerVoices[name] = "voice/" + alias
+			config.SpeakerVoices[name] = voicePattern(alias)
 		}
 	}
 	if defaultVoice != "" || len(nodeVoices) != 0 || len(config.SpeakerVoices) != 0 {
 		config.TTS = mux
-		config.ResolveVoice = einoVoiceResolver(defaultVoice, nodeVoices, einoOutputNodes(outputs))
+		config.ResolveVoice = einoVoiceResolver(defaultVoice, nodeVoices, einoOutputNodes(outputs), voicePattern)
 	}
 	return audiodock.New(config)
 }
@@ -253,7 +257,7 @@ func einoOutputNodes(outputs []apitypes.EinoOutput) map[string]string {
 	return result
 }
 
-func einoVoiceResolver(defaultVoice string, nodeVoices, outputNodes map[string]string) audiodock.VoiceResolver {
+func einoVoiceResolver(defaultVoice string, nodeVoices, outputNodes map[string]string, voicePattern func(string) string) audiodock.VoiceResolver {
 	return func(_ context.Context, request audiodock.VoiceRequest) (string, error) {
 		alias := strings.TrimSpace(nodeVoices[outputNodes[strings.TrimSpace(request.Name)]])
 		if alias == "" {
@@ -262,7 +266,7 @@ func einoVoiceResolver(defaultVoice string, nodeVoices, outputNodes map[string]s
 		if alias == "" {
 			return "", nil
 		}
-		return einoVoicePattern(alias), nil
+		return voicePattern(alias), nil
 	}
 }
 

@@ -65,6 +65,12 @@ func TestSpeakerSegmentsGiztest(t *testing.T) {
 			if provider.calls.Load() != 5 {
 				t.Fatalf("TTS calls=%d", provider.calls.Load())
 			}
+			// Every Voice in a multi-voice reply is asked for one format.
+			for _, format := range provider.formatRequests() {
+				if format != peergenx.SegmentVoiceFormat {
+					t.Fatalf("TTS format requests=%q, want every Voice to request %s", provider.formatRequests(), peergenx.SegmentVoiceFormat)
+				}
+			}
 			t.Logf("five ordered segments; stripped text; single audio stream; underruns=0")
 		})
 	}

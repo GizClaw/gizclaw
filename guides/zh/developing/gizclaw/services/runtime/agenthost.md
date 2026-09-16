@@ -46,6 +46,8 @@ high-water receipt，丢弃不会改变已持久化 History。observer 不执行
 
 Workspace History 按 StreamID 识别中断：typed MIME channel EOS 或无 Part 的 control EOS 的 `Ctrl.Error` 去除首尾空白后以 `interrupted` 开头时，同一 StreamID 的所有待写入 entry 都标记为中断。落库时，中断且没有非空白定稿文本的 entry 被丢弃，并关闭其 PCM encoder；`Ctrl.TextInterim` 文本不计入定稿。已有定稿文本的中断 entry 仍保留，正常结束的纯音频 entry 仍可保存。
 
+一个 History entry 按到达顺序保存 route 的音频。route 内音频 MIME 发生变化时（例如多音色回复混用 Ogg/Opus 与 MP3 provider），每段连续的同 MIME 音频成为独立分段；落库时每段都转成 Opus packet（Ogg/Opus 解包、MP3 解码、PCM 编码），合并存为一个 `audio/ogg; codecs=opus` asset。History 记录是尽力而为的，从不让实时输出失败：无法记录的 chunk、无法编码的 entry 或 History append 失败只丢弃该 entry 并记录 `workspace history entry dropped` 警告，流继续送达设备，其他 entry 照常保存。
+
 ## 当前 Peer 的 Tool scope
 
 Workflow 使用 `sfu` driver 的 Workspace 是空的运行入口：`ServiceResolver` 只返回
@@ -89,7 +91,7 @@ Flowcraft 与 Eino 在已配置的 Memory Store 上只绑定 Workspace 这一层
 
 Agent 构造可以共享，但每个 connection attachment 都拥有独立 input、transformed output、consumer 与 cancellation，因此 Peer lifecycle correlation 留在这些 connection-scoped stream boundary 上，不进入共享 Agent object。GenX 通过 stream wrapper 与 terminal EOS 保留 owning boundary 写入的无 payload `FailureClass`（`provider` 或 `transform`）；首个有效 class 优先，cancellation、deadline 与 clean completion 不会被赋予 failure class。Reload failure 由有界的 `AGENT_RELOAD_FAILED` EOS 表示并映射为 `transform_error`；provider-classified output EOS 映射为 `provider_error`；未分类 failure 与 stream 未产生 EOS 就结束均映射为 `stream_error`；cancellation 与 deadline 继续分开。Lifecycle record 不增加 raw provider 或 transform error。
 
-Transformer 与 history replay 必须尽快把 provider output drain 到 growable stream buffer，不在该层按播放时钟等待。Raw Opus、Ogg/Opus、MP3 与 PCM audio 都先 decode/normalize，再进入 mixer 的 PCM stream；`PeerConn` 只在 mixer 出口每个 20ms pacing opportunity 读取一帧、编码 Opus 并写入 WebRTC。唯一例外是 passthrough Opus（`agenthost.OpusPassthroughMIME`）：`MixerOutput.Passthrough` 在任何解码之前认领这些 chunk，`PeerConn` 把 payload 原样写入 Device Opus Track，不进入 mixer 也不走 pacer；mixer 没有 track 时不会向 Device 写任何内容，所以 passthrough route 不会与 mixer 静音交织。普通 EOS 使用 `CloseWrite` 让已缓存 PCM 排空，error EOS 使用 `CloseWithError` 丢弃对应 track 和尚未消费的 stream backlog。
+Transformer 与 history replay 必须尽快把 provider output drain 到 growable stream buffer，不在该层按播放时钟等待。Raw Opus、Ogg/Opus、MP3 与 PCM audio 都先 decode/normalize，再进入 mixer 的 PCM stream；`PeerConn` 只在 mixer 出口每个 20ms pacing opportunity 读取一帧、编码 Opus 并写入 WebRTC。唯一例外是 passthrough Opus（`agenthost.OpusPassthroughMIME`）：`MixerOutput.Passthrough` 在任何解码之前认领这些 chunk，`PeerConn` 把 payload 原样写入 Device Opus Track，不进入 mixer 也不走 pacer；mixer 没有 track 时不会向 Device 写任何内容，所以 passthrough route 不会与 mixer 静音交织。普通 EOS 使用 `CloseWrite` 让已缓存 PCM 排空，error EOS 使用 `CloseWithError` 丢弃对应 track 和尚未消费的 stream backlog。每个 `(StreamID, MIME)` 是一条并发混音的独立 track，MP3 只在其 EOS 时解码，因此 producer 须让每条回复 route 只使用一种音频 MIME；AudioDock 对 speaker 分段强制这一点。
 
 mixer track 从创建起就是实时的：track 没有缓存音频时 mixer 会为它填充数字静音，pacer 又以快于实时的速度把静音送进设备缓冲，设备必须先播完才能听到回复。因此 `MixerOutput` 在 route 解码出**有声** PCM 之前不创建 track：只含 OpusHead 的 Ogg 页、仍在缓存的 MP3 body 等解码不出音频的 blob 不会打开 track；Provider TTS 在开口前带的低电平引入（采样绝对值低于 256，约 -42 dBFS）也在 route 开头被丢弃，只保留有声样本之前 60 ms 的 preroll，避免吞掉弱起音。每条 route 最多丢弃 2 s，更长的安静被视为有意内容，从那里开始照常播放；第一个有声样本之后的安静（句间停顿）不做处理。从未出现有声样本的 route 不创建 track。
 

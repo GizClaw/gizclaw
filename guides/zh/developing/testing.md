@@ -1078,7 +1078,7 @@ git lfs fsck
 ## 多角色音频确定性 Giztest
 
 ```sh
-go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|FlowcraftMultiVoiceGiztest|MultiRole.*)$' -count=1
+go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|MixedProviderSpeakerVoicesGiztest|FlowcraftMultiVoiceGiztest|MultiRole.*)$' -count=1
 ```
 
 套件共享 `voice_fixture_test.go` 的 fake provider，保留真实 Eino/Flowcraft Factory、
@@ -1093,6 +1093,11 @@ Audioplayer Giztest job 在 Console 资源构建后执行整个套件，复用�
 - 每轮 `audio_integrity/sha256` 验证包内容和顺序；`streams=1`、`max_active=1`、
   `open=0`、`violations=0` 验证 BOS/EOS、无交错和无晚到数据。整个会话另保留 ownership，
   并检查 TTS 调用次数及正常多轮中最多一个活跃调用。
+- `TestMixedProviderSpeakerVoicesGiztest` 运行 `eino-voices/mixed-providers` 与
+  `multi-role-voices/mixed-providers`（Flowcraft），经 AgentHost 并启用 Workspace History 执行一轮回复：旁白 Voice 原生返回 Ogg/Opus，`【fox】` Voice 原生返回 MP3。要求文字与音频
+  EOS、`streams=1`，且两段合为一个 `audio/ogg` 流的摘要正确；同时检查每个 Voice 都被请求
+  `format=ogg_opus`，History 保存回复文字并按顺序保存两段的 Opus packet。`ignore-format`
+  故障保留 MP3 输出，必须被 AudioDock 的音频 MIME 混用错误拒绝。
 - `audio_pacing` 要求 40 个 20 ms 包、最大间隔 150 ms、500 ms 预缓冲下无欠载且最低
   缓冲非负。两种 workflow 的 `long-reply.giztest.yaml` 使用超过 2 KB 的文本和 160 包
   音频，fake TTS 以 15/25/20 ms 周期注入可重复抖动；900 ms stall 必须被拒绝。
@@ -1189,4 +1194,12 @@ bash tests/gizclaw-e2e/run_speaker_segment_tests.sh
 tests/gizclaw-e2e/testdata/bin/gizclaw test run \
   tests/gizclaw-e2e/giztest/eino-speaker-voices.text-roundtrip.giztest.yaml \
   tests/gizclaw-e2e/giztest/flowcraft-speaker-voices.text-roundtrip.giztest.yaml --parallel 2
+```
+
+该阶段还运行 `eino-mixed-provider-voices.text-roundtrip` 与 `flowcraft-mixed-provider-voices.text-roundtrip`：旁白为 Volc `narrator` Voice，`【弟弟】` 为 MiniMax CN 系统音色 `minimax-boy`（`speech-2.6-turbo`，不覆盖 `provider_data.format`），因此同一回复混用了默认格式不同的两家 provider。场景检查 MiniMax Voice 能用测试账号合成，回复以文字与音频 EOS 结束且为单个音频流（`streams=1`、`max_active=1`、`open=0`、`violations=0`），ASR 按顺序听到各段，并且 Workspace History 将该回复保存为可回放 agent entry。History 查询显式使用倒序；Go runner 自动解包 protobuf 的 `value`，断言路径为 `/available`、`/items/0/type`、`/items/0/replay_available` 和 `/items/0/text`。三段剧本保留 20 KB 音频下限；转写用 `森林.*苹果.*日出` 检查内容顺序，容许 ASR 标点差异，不要求逐字一致。此场景不对真实 provider 的播放欠载设门槛。JS、C 与 Flutter runner 和单 provider 先例一样明确跳过这些音频文档。它们需要 `tests/gizclaw-e2e/.env` 中的 MiniMax CN 凭据；`minimax-cn` tenant 使用 `https://api.minimaxi.com`。在已启动的 Docker 栈上可单独运行：
+
+```sh
+tests/gizclaw-e2e/testdata/bin/gizclaw test run \
+  tests/gizclaw-e2e/giztest/eino-mixed-provider-voices.text-roundtrip.giztest.yaml \
+  tests/gizclaw-e2e/giztest/flowcraft-mixed-provider-voices.text-roundtrip.giztest.yaml --parallel 2
 ```

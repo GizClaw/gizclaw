@@ -107,6 +107,8 @@ voice_adapter:
 
 每段 TTS 输入按顺序送入；当前段输出期间允许下一段提前合成，音频按段串行合并为单个流。连续相同音色标记不启动额外会话，空段不产生音频。用户插话会取消当前段、预取段和排队段。未配置或配置为空时保留原有行为。预取可隐藏下一段的合成延迟；真实 provider 是否能连续播放仍取决于文本生成速度和合成吞吐。
 
+同一回复的所有段共用一条音频 route，而设备 mixer 把同一 route 上的每种音频 MIME 当作独立 track 解码，回复中途切换 MIME 会导致各段乱序播放。因此 `speaker_voices` 非空时，voice adapter 对回复中所有可能发声的 Voice（speaker、node 与 default Voice）都请求 `format=ogg_opus`（`peergenx.SegmentVoiceFormat`），覆盖各 Voice 的 `provider_data.format`。Volc 与 MiniMax Voice 都以 `audio/ogg` 流式输出该格式，旁白与角色来自不同 provider 时无需逐个 Voice 覆盖格式。workflow 回复中所有内置 Voice provider 的默认格式也是 `ogg_opus`：MiniMax 不提供 Opus 容器，因此请求 16 kHz 单声道 PCM 并在本地编码 Ogg/Opus。多音色回复之外，Voice 的 `provider_data.format` 仍然生效；语音合成 API 仍按调用方接受的媒体类型选择格式。如果某个 TTS provider 仍为后续段返回不同的音频 MIME，AudioDock 会以写明两种 MIME 的错误结束该回复的音频，而不是把它们混在一起。
+
 #### SFU 组合边界
 
 `sfu` 是 provider-neutral 的 SFU Workspace driver，LiveKit 是它的第一种 connector 实现（`workflow/agents/sfu`）。它只服务 Friend 与 Friend Group 的内置 `system-sfu` Workflow：payload 为空对象，Workspace `parameters` 固定为 null，不解析 RuntimeProfile alias，也不接入 History、Memory、Tool 或 ASR。资源模型、binding、激活与撤权流程由 [services/social](/zh/developing/gizclaw/services/social#sfu-workspace) 拥有。
