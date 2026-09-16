@@ -181,6 +181,10 @@ enum RpcMethod {
   RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY = 117 [(rpc_method) = { name: "client.device.audioplayer.play" request: "ClientDeviceAudioPlayerPlayRequest" response: "ClientDeviceAudioPlayerPlayResponse" }];
   RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP = 118 [(rpc_method) = { name: "client.device.audioplayer.stop" request: "ClientDeviceAudioPlayerStopRequest" response: "ClientDeviceAudioPlayerStopResponse" }];
   RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET = 119 [(rpc_method) = { name: "client.device.audioplayer.mode.set" request: "ClientDeviceAudioPlayerModeSetRequest" response: "ClientDeviceAudioPlayerModeSetResponse" }];
+  RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET = 128 [(rpc_method) = { name: "client.device.settings.get" request: "ClientDeviceSettingsGetRequest" response: "ClientDeviceSettingsGetResponse" }];
+  RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET = 129 [(rpc_method) = { name: "client.device.settings.set" request: "ClientDeviceSettingsSetRequest" response: "ClientDeviceSettingsSetResponse" }];
+  RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET = 130 [(rpc_method) = { name: "client.device.factory_reset" request: "ClientDeviceFactoryResetRequest" response: "ClientDeviceFactoryResetResponse" }];
+  RPC_METHOD_CLIENT_RPC_METHODS_GET = 131 [(rpc_method) = { name: "client.rpc.methods.get" request: "ClientRpcMethodsGetRequest" response: "ClientRpcMethodsGetResponse" }];
   RPC_METHOD_SERVER_APP_CONFIG_LIST = 121 [(rpc_method) = { name: "server.app_config.list" request: "AppConfigListRequest" response: "AppConfigListResponse" }];
   RPC_METHOD_SERVER_APP_CONFIG_GET = 122 [(rpc_method) = { name: "server.app_config.get" request: "AppConfigGetRequest" response: "AppConfigGetResponse" }];
   RPC_METHOD_SERVER_FRIEND_PING = 123 [(rpc_method) = { name: "server.friend.ping" request: "FriendPingRequest" response: "FriendPingResponse" }];

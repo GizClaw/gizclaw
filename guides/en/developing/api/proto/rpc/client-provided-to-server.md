@@ -35,6 +35,49 @@ Go Client's provider dispatch is located in the `sdk/go/gizcli` RPC Client imple
 
 The C SDK `inbound_is_client_method` accepts these device control methods and dispatches them to `gzc_client_config_t.rpc_provider`; a missing provider or an unhandled method answers `METHOD_NOT_FOUND`. The Go SDK installs providers with `gizcli.Client.HandleDeviceControl(gizcli.DeviceControlHandlers{...})`, where a handler returning `gizcli.ErrDeviceRejected` / `gizcli.ErrDeviceResourceNotFound` maps to `INVALID_PARAMS` / `NOT_FOUND` (the OTA provider is `UpdateFirmware`); the Flutter SDK installs them through `GizClawPeerRpcHandlers.deviceControl` (`GizClawDeviceControlHandlers`), where a handler throws `GizClawDeviceControlException` to choose the RPC error code. Both answer `METHOD_NOT_FOUND` for an uninstalled handler.
 
+## Device settings and capability discovery
+
+`client.device.settings.get` (128), `client.device.settings.set` (129),
+`client.device.factory_reset` (130), and `client.rpc.methods.get` (131) are implemented by the
+device `rpc_provider` as well, and read or change the device's own options.
+
+Every member of `DeviceSettings` is optional in both directions, which is what lets one message
+serve devices with different hardware instead of adding an RPC method per option:
+
+| Member | Type | Meaning |
+| --- | --- | --- |
+| `cellular_enabled` | `optional bool` | Whether the cellular (4G) modem is powered and allowed to carry traffic. |
+| `screen_off_timeout_ms` | `optional int64` | Idle time before the screen turns off; `0` keeps it always on. |
+| `screen_brightness` | `optional int64` | Screen backlight level in [0, 100]. |
+| `led_brightness` | `optional int64` | Indicator light level in [0, 100]. |
+| `locale` | `optional string` | UI language as a well-formed BCP 47 tag of at most 35 bytes: a 2-8 letter primary subtag followed by hyphen-separated 1-8 character alphanumeric subtags, such as `zh-CN`, `zh-Hant-TW` or `es-419`. POSIX forms such as `zh_CN` are rejected. |
+| `default_interaction_mode` | `optional DeviceInteractionMode` | Default input mode, `push-to-talk` or `realtime`, sharing the `WorkspaceInputMode` vocabulary. |
+| `key_feedback` | `optional DeviceKeyFeedback` | Key press feedback: `none`, `sound`, `vibrate`, `sound_and_vibrate`. |
+
+Provider responsibilities:
+
+- `settings.get` reports only the members this device really supports. An option with no matching
+  hardware stays absent rather than carrying a placeholder value, because absent versus present-and-off
+  is exactly how a caller tells "unsupported" from "turned off".
+- `settings.set` applies only the members present in the request and leaves the rest unchanged; the
+  response is the full `DeviceSettings` after the change, so the caller sees what was accepted. A member
+  the device does not support is ignored rather than rejected, so a newer Server can talk to an older
+  device. A member outside its range answers `INVALID_PARAMS` before any member is applied, so the
+  device is never left half-configured.
+- `factory_reset` erases device-local state and is irreversible on the device; `keep_network` retains
+  saved Wi-Fi and cellular configuration so the device can reconnect without being re-provisioned. The
+  Server's own peer records are unaffected. Like `reboot`, it must send its response first.
+- `rpc.methods.get` returns the method names the device implements, so a caller can hide or skip a
+  control the device would only reject. Names are registry names such as `client.device.reboot`, and a
+  reader must ignore unknown names rather than rejecting the response.
+
+The Go SDK installs providers through `GetSettings`, `SetSettings`, and `FactoryReset` on
+`gizcli.DeviceControlHandlers`; the JavaScript and Flutter SDKs use `getSettings`, `setSettings`, and
+`factoryReset` on `GizClawDeviceControlHandlers`; the C SDK's `inbound_is_client_method` accepts all four
+methods and hands them to `gzc_client_config_t.rpc_provider`. The Go, JavaScript, and Flutter SDKs derive
+the `client.rpc.methods.get` answer from the handlers the device actually registered, so that list cannot
+drift from what the device will accept, and they answer it even with no device-control handlers installed.
+
 ## Music player
 
 A device's single player provides seven `client.device.audioplayer.*` methods: `get` (113), `playlist.get` (114), `playlist.set` (115), `playlist.append` (116), `play` (117), `stop` (118), and `mode.set` (119). There is no `play_id`. The device's `playlist_revision` identifies a list version, not an append retry token.

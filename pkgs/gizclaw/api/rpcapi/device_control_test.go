@@ -1,6 +1,7 @@
 package rpcapi
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -202,5 +203,83 @@ func TestOTAStatusRPCRoundTrip(t *testing.T) {
 	got, err := payload.AsServerGetStatusResponse()
 	if err != nil || !proto.Equal(got.Ota, want) {
 		t.Fatalf("OTA status RPC: %+v, %v", got, err)
+	}
+}
+
+// The four device-configuration methods round-trip through the dynamic payload
+// codec, which is what proves their proto messages and registry names agree.
+func TestDeviceSettingsAndCapabilityPayloadRoundTrip(t *testing.T) {
+	mode := DeviceInteractionModePushToTalk
+	feedback := DeviceKeyFeedbackSoundAndVibrate
+	settings := DeviceSettings{
+		CellularEnabled:        new(true),
+		ScreenOffTimeoutMs:     new(int64(30000)),
+		ScreenBrightness:       new(int64(60)),
+		LedBrightness:          new(int64(20)),
+		Locale:                 new("zh-CN"),
+		DefaultInteractionMode: &mode,
+		KeyFeedback:            &feedback,
+	}
+
+	var setReq RPCPayload
+	if err := setReq.FromClientDeviceSettingsSetRequest(ClientDeviceSettingsSetRequest{Value: settings}); err != nil {
+		t.Fatalf("FromClientDeviceSettingsSetRequest() error = %v", err)
+	}
+	gotSet, err := setReq.AsClientDeviceSettingsSetRequest()
+	if err != nil {
+		t.Fatalf("AsClientDeviceSettingsSetRequest() error = %v", err)
+	}
+	if gotSet.Value.Locale == nil || *gotSet.Value.Locale != "zh-CN" {
+		t.Fatalf("Locale = %#v, want zh-CN", gotSet.Value.Locale)
+	}
+	if gotSet.Value.CellularEnabled == nil || !*gotSet.Value.CellularEnabled {
+		t.Fatalf("CellularEnabled = %#v, want true", gotSet.Value.CellularEnabled)
+	}
+	if gotSet.Value.DefaultInteractionMode == nil || *gotSet.Value.DefaultInteractionMode != mode {
+		t.Fatalf("DefaultInteractionMode = %#v, want %v", gotSet.Value.DefaultInteractionMode, mode)
+	}
+	if gotSet.Value.KeyFeedback == nil || *gotSet.Value.KeyFeedback != feedback {
+		t.Fatalf("KeyFeedback = %#v, want %v", gotSet.Value.KeyFeedback, feedback)
+	}
+
+	// An absent member stays absent, which is how a set request says "leave
+	// this option alone" and a response says "this device has no such option".
+	var getResp RPCPayload
+	if err := getResp.FromClientDeviceSettingsGetResponse(ClientDeviceSettingsGetResponse{
+		Value: DeviceSettings{ScreenBrightness: new(int64(10))},
+	}); err != nil {
+		t.Fatalf("FromClientDeviceSettingsGetResponse() error = %v", err)
+	}
+	gotGet, err := getResp.AsClientDeviceSettingsGetResponse()
+	if err != nil {
+		t.Fatalf("AsClientDeviceSettingsGetResponse() error = %v", err)
+	}
+	if gotGet.Value.Locale != nil || gotGet.Value.CellularEnabled != nil {
+		t.Fatalf("absent members decoded as present: %+v", gotGet.Value)
+	}
+
+	var reset RPCPayload
+	if err := reset.FromClientDeviceFactoryResetRequest(ClientDeviceFactoryResetRequest{KeepNetwork: new(true)}); err != nil {
+		t.Fatalf("FromClientDeviceFactoryResetRequest() error = %v", err)
+	}
+	gotReset, err := reset.AsClientDeviceFactoryResetRequest()
+	if err != nil {
+		t.Fatalf("AsClientDeviceFactoryResetRequest() error = %v", err)
+	}
+	if gotReset.KeepNetwork == nil || !*gotReset.KeepNetwork {
+		t.Fatalf("KeepNetwork = %#v, want true", gotReset.KeepNetwork)
+	}
+
+	var methods RPCPayload
+	want := []string{string(RPCMethodClientDeviceReboot), string(RPCMethodClientDeviceSettingsGet)}
+	if err := methods.FromClientRPCMethodsGetResponse(ClientRPCMethodsGetResponse{Methods: want}); err != nil {
+		t.Fatalf("FromClientRPCMethodsGetResponse() error = %v", err)
+	}
+	gotMethods, err := methods.AsClientRPCMethodsGetResponse()
+	if err != nil {
+		t.Fatalf("AsClientRPCMethodsGetResponse() error = %v", err)
+	}
+	if !reflect.DeepEqual(gotMethods.Methods, want) {
+		t.Fatalf("Methods = %#v, want %#v", gotMethods.Methods, want)
 	}
 }

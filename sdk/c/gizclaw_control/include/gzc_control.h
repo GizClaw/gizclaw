@@ -380,7 +380,9 @@ typedef struct {
  * Latest status reported by the device (shared `PeerStatus`).
  *
  * Every field is optional in the contract. `raw` is the complete response
- * object; `labels` and `details` are the raw JSON objects, empty when absent.
+ * object; `labels` is the raw JSON object, empty when absent. Fields this
+ * struct does not model, such as `telemetry_observed_at`, stay readable
+ * through `raw`.
  */
 typedef struct {
   gzc_str_t reported_at;
@@ -403,7 +405,12 @@ typedef struct {
   bool has_gnss_accuracy_m;
   double gnss_accuracy_m;
   gzc_str_t labels;
-  gzc_str_t details;
+  /* Feature the device reports it is currently using, with an optional
+   * human-readable detail. Preserve unknown activity values. */
+  gzc_str_t activity;
+  gzc_str_t activity_detail;
+  /* Human-readable firmware release, next to the exact-package digest. */
+  gzc_str_t firmware_version;
   gzc_str_t raw;
 } gzc_control_peer_status_t;
 

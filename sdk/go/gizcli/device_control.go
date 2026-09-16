@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
@@ -39,6 +40,66 @@ type DeviceControlHandlers struct {
 	// package digest the caller resolved, and the handler answers
 	// ErrDeviceRejected when it does not match the package the device resolves.
 	UpdateFirmware func(ctx context.Context, channel *rpcapi.FirmwareChannelName, sha256 *string) error
+	// GetSettings reports every option this device supports. An option the
+	// device has no hardware for stays absent rather than carrying a
+	// placeholder, which is how a caller tells "unsupported" from "off".
+	GetSettings func(context.Context) (rpcapi.DeviceSettings, error)
+	// SetSettings applies only the members present in the patch and answers
+	// with the device's full settings afterwards, so the caller sees what was
+	// accepted. An unsupported member is ignored rather than rejected.
+	SetSettings func(ctx context.Context, patch rpcapi.DeviceSettings) (rpcapi.DeviceSettings, error)
+	// FactoryReset erases device-local state. keepNetwork retains saved Wi-Fi
+	// and cellular configuration so the device can reconnect without being
+	// re-provisioned.
+	//
+	// Like Reboot, the handler must return promptly and only then perform the
+	// reset: the Server's acknowledgement is written from this handler's
+	// return, so a handler that erases connectivity or blocks before returning
+	// leaves the caller without the response the method promises. Schedule the
+	// reset on a timer or another goroutine and return nil.
+	FactoryReset func(ctx context.Context, keepNetwork bool) error
+}
+
+// supportedDeviceMethods lists the client.* methods these handlers answer. It
+// is derived from the installed handlers rather than a hand-kept list, so the
+// answer to client.rpc.methods.get cannot drift from what the device accepts.
+func (h *DeviceControlHandlers) supportedDeviceMethods() []string {
+	if h == nil {
+		return []string{string(rpcapi.RPCMethodClientRPCMethodsGet)}
+	}
+	installed := []struct {
+		method  rpcapi.RPCMethod
+		present bool
+	}{
+		{rpcapi.RPCMethodClientDeviceStatusGet, h.Status != nil},
+		{rpcapi.RPCMethodClientDeviceVolumeSet, h.SetVolume != nil},
+		{rpcapi.RPCMethodClientDeviceSoundPlay, h.PlaySound != nil},
+		{rpcapi.RPCMethodClientDeviceFind, h.Find != nil},
+		{rpcapi.RPCMethodClientDeviceReboot, h.Reboot != nil},
+		{rpcapi.RPCMethodClientDeviceSettingsGet, h.GetSettings != nil},
+		{rpcapi.RPCMethodClientDeviceSettingsSet, h.SetSettings != nil},
+		{rpcapi.RPCMethodClientDeviceFactoryReset, h.FactoryReset != nil},
+		{rpcapi.RPCMethodClientFirmwareUpdate, h.UpdateFirmware != nil},
+		{rpcapi.RPCMethodClientWifiStatusGet, h.WifiStatus != nil},
+		{rpcapi.RPCMethodClientWifiSavedList, h.SavedWifi != nil},
+		{rpcapi.RPCMethodClientWifiSavedForget, h.ForgetWifi != nil},
+		{rpcapi.RPCMethodClientWifiScan, h.ScanWifi != nil},
+		{rpcapi.RPCMethodClientWifiConnect, h.ConnectWifi != nil},
+		{rpcapi.RPCMethodClientDeviceAudioPlayerGet, h.AudioPlayer.Get != nil},
+		{rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistGet, h.AudioPlayer.PlaylistGet != nil},
+		{rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistSet, h.AudioPlayer.PlaylistSet != nil},
+		{rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistAppend, h.AudioPlayer.PlaylistAppend != nil},
+		{rpcapi.RPCMethodClientDeviceAudioPlayerPlay, h.AudioPlayer.Play != nil},
+		{rpcapi.RPCMethodClientDeviceAudioPlayerStop, h.AudioPlayer.Stop != nil},
+		{rpcapi.RPCMethodClientDeviceAudioPlayerModeSet, h.AudioPlayer.ModeSet != nil},
+	}
+	methods := make([]string, 0, len(installed)+1)
+	for _, entry := range installed {
+		if entry.present {
+			methods = append(methods, string(entry.method))
+		}
+	}
+	return append(methods, string(rpcapi.RPCMethodClientRPCMethodsGet))
 }
 
 // HandleDeviceControl installs the device control providers for this Client.
@@ -84,6 +145,21 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 		return nil, err
 	}
 	handlers := c.peer.deviceControlHandlers()
+	// A device with no device control handlers still implements the methods the
+	// Client answers itself, so the capability list is answered before the
+	// missing-handlers check rather than reported as unsupported.
+	if req.Method == rpcapi.RPCMethodClientRPCMethodsGet {
+		c.peer.observeClientRPC(req.Method)
+		// client.info.get and client.identifiers.get are answered by the Client
+		// itself, and client.social.ping only once a handler is installed; the
+		// device control methods come from the installed handlers.
+		methods := []string{string(rpcapi.RPCMethodClientInfoGet), string(rpcapi.RPCMethodClientIdentifiersGet)}
+		if c.peer.socialPingHandler() != nil {
+			methods = append(methods, string(rpcapi.RPCMethodClientSocialPing))
+		}
+		methods = append(methods, handlers.supportedDeviceMethods()...)
+		return newRPCResultResponse(req.Id, rpcapi.ClientRPCMethodsGetResponse{Methods: methods}, (*rpcapi.RPCPayload).FromClientRPCMethodsGetResponse)
+	}
 	if handlers == nil {
 		return deviceControlUnsupported(req.Id, req.Method), nil
 	}
@@ -168,6 +244,57 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 			return deviceControlError(req.Id, err), nil
 		}
 		return newRPCResultResponse(req.Id, rpcapi.ClientDeviceRebootResponse{}, (*rpcapi.RPCPayload).FromClientDeviceRebootResponse)
+	case rpcapi.RPCMethodClientDeviceSettingsGet:
+		if handlers.GetSettings == nil {
+			return deviceControlUnsupported(req.Id, req.Method), nil
+		}
+		c.peer.observeClientRPC(req.Method)
+		settings, err := handlers.GetSettings(ctx)
+		if err != nil {
+			return deviceControlError(req.Id, err), nil
+		}
+		return newRPCResultResponse(req.Id, rpcapi.ClientDeviceSettingsGetResponse{Value: settings}, (*rpcapi.RPCPayload).FromClientDeviceSettingsGetResponse)
+	case rpcapi.RPCMethodClientDeviceSettingsSet:
+		params := rpcapi.ClientDeviceSettingsSetRequest{}
+		if req.Params != nil {
+			decoded, err := req.Params.AsClientDeviceSettingsSetRequest()
+			if err != nil {
+				return rpcInvalidParams(req.Id), nil
+			}
+			params = decoded
+		}
+		if handlers.SetSettings == nil {
+			return deviceControlUnsupported(req.Id, req.Method), nil
+		}
+		// Reject the whole patch before applying any of it, so a bad member
+		// cannot leave the device half-configured.
+		if !validDeviceSettingsPatch(params.Value) {
+			return rpcInvalidParams(req.Id), nil
+		}
+		c.peer.observeClientRPC(req.Method)
+		settings, err := handlers.SetSettings(ctx, params.Value)
+		if err != nil {
+			return deviceControlError(req.Id, err), nil
+		}
+		return newRPCResultResponse(req.Id, rpcapi.ClientDeviceSettingsSetResponse{Value: settings}, (*rpcapi.RPCPayload).FromClientDeviceSettingsSetResponse)
+	case rpcapi.RPCMethodClientDeviceFactoryReset:
+		params := rpcapi.ClientDeviceFactoryResetRequest{}
+		if req.Params != nil {
+			decoded, err := req.Params.AsClientDeviceFactoryResetRequest()
+			if err != nil {
+				return rpcInvalidParams(req.Id), nil
+			}
+			params = decoded
+		}
+		if handlers.FactoryReset == nil {
+			return deviceControlUnsupported(req.Id, req.Method), nil
+		}
+		c.peer.observeClientRPC(req.Method)
+		keepNetwork := params.KeepNetwork != nil && *params.KeepNetwork
+		if err := handlers.FactoryReset(ctx, keepNetwork); err != nil {
+			return deviceControlError(req.Id, err), nil
+		}
+		return newRPCResultResponse(req.Id, rpcapi.ClientDeviceFactoryResetResponse{}, (*rpcapi.RPCPayload).FromClientDeviceFactoryResetResponse)
 	case rpcapi.RPCMethodClientFirmwareUpdate:
 		params := rpcapi.ClientFirmwareUpdateRequest{}
 		if req.Params != nil {
@@ -277,4 +404,34 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 	default:
 		return deviceControlUnsupported(req.Id, req.Method), nil
 	}
+}
+
+// deviceSettingsLocalePattern checks BCP 47 well-formedness at the subtag level:
+// a 2-8 letter primary subtag followed by hyphen-separated 1-8 character
+// alphanumeric subtags, such as "zh-CN", "zh-Hant-TW" or "es-419". It rejects
+// POSIX forms like "zh_CN" and free text; whether the device offers that
+// language is still the device's decision.
+var deviceSettingsLocalePattern = regexp.MustCompile(`^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$`)
+
+// validDeviceSettingsPatch mirrors the DeviceSettings ranges documented in
+// api/proto/rpc/payload/system.proto. An unknown enum value is rejected, while
+// an absent member simply leaves that option unchanged.
+func validDeviceSettingsPatch(patch rpcapi.DeviceSettings) bool {
+	percent := func(value *int64) bool { return value == nil || (*value >= 0 && *value <= 100) }
+	if !percent(patch.ScreenBrightness) || !percent(patch.LedBrightness) {
+		return false
+	}
+	if patch.ScreenOffTimeoutMs != nil && *patch.ScreenOffTimeoutMs < 0 {
+		return false
+	}
+	if patch.Locale != nil && (len(*patch.Locale) > 35 || !deviceSettingsLocalePattern.MatchString(*patch.Locale)) {
+		return false
+	}
+	if patch.DefaultInteractionMode != nil && !patch.DefaultInteractionMode.Valid() {
+		return false
+	}
+	if patch.KeyFeedback != nil && !patch.KeyFeedback.Valid() {
+		return false
+	}
+	return true
 }

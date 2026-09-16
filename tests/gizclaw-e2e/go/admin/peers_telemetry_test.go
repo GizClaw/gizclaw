@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	telemetrypb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
@@ -105,8 +105,8 @@ func TestPeerTelemetryAdminQueriesFromProtocolPath(t *testing.T) {
 	latestIMSI := peerTelemetryFixtureIMSI(11)
 	status := waitForPeerStatusNetworkIdentity(t, ctx, peer, peerTelemetryFixtureIMEI, latestIMSI)
 	latestAt := start.Add(11 * 2 * time.Minute)
-	requireTelemetryStatusFieldTime(t, status, "network_imei_at_unix_ms", latestAt)
-	requireTelemetryStatusFieldTime(t, status, "network_imsi_at_unix_ms", latestAt)
+	requireTelemetryStatusFieldTime(t, status, "network_imei", func(o *rpcpb.PeerStatusTelemetryObservedAt) *string { return o.NetworkImei }, latestAt)
+	requireTelemetryStatusFieldTime(t, status, "network_imsi", func(o *rpcpb.PeerStatusTelemetryObservedAt) *string { return o.NetworkImsi }, latestAt)
 
 	// An older observation never overwrites the newer stored identity, and a
 	// rejected frame (identity on a Wi-Fi route) leaves no partial write.
@@ -153,7 +153,7 @@ func TestPeerTelemetryAdminQueriesFromProtocolPath(t *testing.T) {
 	if status.NetworkImsi == nil || *status.NetworkImsi != latestIMSI || status.NetworkImei == nil || *status.NetworkImei != peerTelemetryFixtureIMEI {
 		t.Fatalf("stale or rejected frames changed the stored identity: imei set=%t imsi set=%t", status.NetworkImei != nil, status.NetworkImsi != nil)
 	}
-	requireTelemetryStatusFieldTime(t, status, "network_imsi_at_unix_ms", latestAt)
+	requireTelemetryStatusFieldTime(t, status, "network_imsi", func(o *rpcpb.PeerStatusTelemetryObservedAt) *string { return o.NetworkImsi }, latestAt)
 }
 
 const peerTelemetryFixtureIMEI = "490154203237518"
@@ -182,31 +182,21 @@ func waitForPeerStatusNetworkIdentity(t *testing.T, ctx context.Context, peer *g
 	}
 }
 
-func requireTelemetryStatusFieldTime(t *testing.T, status *rpcapi.ServerGetStatusResponse, key string, want time.Time) {
+func requireTelemetryStatusFieldTime(t *testing.T, status *rpcapi.ServerGetStatusResponse, field string, get func(*rpcpb.PeerStatusTelemetryObservedAt) *string, want time.Time) {
 	t.Helper()
-	if status.Details == nil {
-		t.Fatalf("status details missing for %s", key)
+	if status.TelemetryObservedAt == nil {
+		t.Fatalf("status telemetry_observed_at missing for %s", field)
 	}
-	fields, _ := (*status.Details)["telemetry_status"].(map[string]any)
-	raw, ok := fields[key]
-	if !ok {
-		t.Fatalf("details.telemetry_status missing %s: %v", key, fields)
+	at := get(status.TelemetryObservedAt)
+	if at == nil {
+		t.Fatalf("telemetry_observed_at.%s is absent: %+v", field, status.TelemetryObservedAt)
 	}
-	var unixMS int64
-	switch v := raw.(type) {
-	case string:
-		parsed, err := strconv.ParseInt(v, 10, 64)
-		if err != nil {
-			t.Fatalf("details.telemetry_status.%s = %q is not unix ms", key, v)
-		}
-		unixMS = parsed
-	case float64:
-		unixMS = int64(v)
-	default:
-		t.Fatalf("details.telemetry_status.%s = %#v", key, raw)
+	got, err := time.Parse(time.RFC3339Nano, *at)
+	if err != nil {
+		t.Fatalf("telemetry_observed_at.%s = %q is not RFC 3339: %v", field, *at, err)
 	}
-	if unixMS != want.UnixMilli() {
-		t.Fatalf("details.telemetry_status.%s = %d, want %d", key, unixMS, want.UnixMilli())
+	if !got.Equal(want) {
+		t.Fatalf("telemetry_observed_at.%s = %s, want %s", field, got, want)
 	}
 }
 

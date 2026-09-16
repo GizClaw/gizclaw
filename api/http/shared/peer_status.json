@@ -66,9 +66,23 @@
               "type": "string"
             }
           },
-          "details": {
-            "type": "object",
-            "additionalProperties": true
+          "activity": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_.-]{0,31}$",
+            "description": "Stable machine-readable id of the feature the device reports it is currently using, e.g. \"chat\", \"audioplayer\", \"ota\", \"idle\". Readers must preserve unknown future values and localize by id rather than parsing it."
+          },
+          "activity_detail": {
+            "type": "string",
+            "maxLength": 128,
+            "description": "Optional device-supplied human-readable detail for the current activity, shown next to it. Never parsed by the Server."
+          },
+          "telemetry_observed_at": {
+            "$ref": "#/components/schemas/PeerStatusTelemetryObservedAt"
+          },
+          "firmware_version": {
+            "type": "string",
+            "maxLength": 128,
+            "description": "Human-readable firmware version the device reports it is running, e.g. \"1.4.2\". Reported over telemetry alongside the digest; the digest identifies the exact package, this names the release. Never parsed by the Server."
           },
           "firmware_sha256": {
             "type": "string",
@@ -78,6 +92,23 @@
           "ota": {
             "$ref": "#/components/schemas/PeerOtaStatus"
           }
+        }
+      },
+      "PeerStatusTelemetryObservedAt": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Per-field observation times for the telemetry-sourced members of PeerStatus. Each member records when the device observed the value now stored in the sibling PeerStatus field, which is what lets an out-of-order or replayed report be rejected without overwriting a newer observation. A member is absent until that field has been observed at least once.",
+        "properties": {
+          "battery_percent": {"type": "string", "format": "date-time"},
+          "charging": {"type": "string", "format": "date-time"},
+          "gnss_latitude": {"type": "string", "format": "date-time"},
+          "gnss_longitude": {"type": "string", "format": "date-time"},
+          "gnss_altitude_m": {"type": "string", "format": "date-time"},
+          "gnss_accuracy_m": {"type": "string", "format": "date-time"},
+          "network_imei": {"type": "string", "format": "date-time"},
+          "network_imsi": {"type": "string", "format": "date-time"},
+          "activity": {"type": "string", "format": "date-time"},
+          "firmware_version": {"type": "string", "format": "date-time"}
         }
       },
       "PeerOtaStatus": {

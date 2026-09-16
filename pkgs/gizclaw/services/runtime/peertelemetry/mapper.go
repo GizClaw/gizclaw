@@ -31,25 +31,30 @@ const (
 )
 
 type StatusPatch struct {
-	OTA              []apitypes.PeerOtaStatus
-	AudioPlayer      *apitypes.AudioPlayerStatus
-	ReportedAt       time.Time
-	BatteryPercent   *int
-	BatteryPercentAt time.Time
-	Charging         *bool
-	ChargingAt       time.Time
-	GNSSLatitude     *float64
-	GNSSLatitudeAt   time.Time
-	GNSSLongitude    *float64
-	GNSSLongitudeAt  time.Time
-	GNSSAltitudeM    *float64
-	GNSSAltitudeMAt  time.Time
-	GNSSAccuracyM    *float64
-	GNSSAccuracyMAt  time.Time
-	NetworkIMEI      *string
-	NetworkIMEIAt    time.Time
-	NetworkIMSI      *string
-	NetworkIMSIAt    time.Time
+	OTA               []apitypes.PeerOtaStatus
+	AudioPlayer       *apitypes.AudioPlayerStatus
+	ReportedAt        time.Time
+	BatteryPercent    *int
+	BatteryPercentAt  time.Time
+	Charging          *bool
+	ChargingAt        time.Time
+	GNSSLatitude      *float64
+	GNSSLatitudeAt    time.Time
+	GNSSLongitude     *float64
+	GNSSLongitudeAt   time.Time
+	GNSSAltitudeM     *float64
+	GNSSAltitudeMAt   time.Time
+	GNSSAccuracyM     *float64
+	GNSSAccuracyMAt   time.Time
+	NetworkIMEI       *string
+	NetworkIMEIAt     time.Time
+	NetworkIMSI       *string
+	NetworkIMSIAt     time.Time
+	Activity          *string
+	ActivityDetail    *string
+	ActivityAt        time.Time
+	FirmwareVersion   *string
+	FirmwareVersionAt time.Time
 }
 
 func (p StatusPatch) Empty() bool {
@@ -60,7 +65,9 @@ func (p StatusPatch) Empty() bool {
 		p.GNSSAltitudeM == nil &&
 		p.GNSSAccuracyM == nil &&
 		p.NetworkIMEI == nil &&
-		p.NetworkIMSI == nil
+		p.NetworkIMSI == nil &&
+		p.Activity == nil &&
+		p.FirmwareVersion == nil
 }
 
 // networkIMEIPattern and networkIMSIPattern mirror the network_imei and
@@ -119,11 +126,18 @@ func MapFrame(peer giznet.PublicKey, frame *telemetrypb.TelemetryFrame, baseTime
 			samples = append(samples, next...)
 			mergeStatusPatch(&status, patch)
 		case *telemetrypb.Observation_System:
-			next, err := mapSystem(body.System, labels, ts)
+			next, patch, err := mapSystem(body.System, labels, ts)
 			if err != nil {
 				return nil, StatusPatch{}, err
 			}
 			samples = append(samples, next...)
+			mergeStatusPatch(&status, patch)
+		case *telemetrypb.Observation_Activity:
+			patch, err := mapActivity(body.Activity, ts)
+			if err != nil {
+				return nil, StatusPatch{}, err
+			}
+			mergeStatusPatch(&status, patch)
 		case *telemetrypb.Observation_Ota:
 			if err := validateOTA(body.Ota); err != nil {
 				return nil, StatusPatch{}, err
@@ -263,30 +277,65 @@ func mapNetwork(obs *telemetrypb.NetworkObservation, labels map[string]string, t
 	return samples, patch, nil
 }
 
-func mapSystem(obs *telemetrypb.SystemObservation, labels map[string]string, ts time.Time) ([]metrics.Sample, error) {
+// mapSystem projects the numeric system readings into samples and the reported
+// firmware version into the status patch. The version is a display string, not
+// a measurement, so it becomes status only and never a metric sample.
+func mapSystem(obs *telemetrypb.SystemObservation, labels map[string]string, ts time.Time) ([]metrics.Sample, StatusPatch, error) {
 	if obs == nil {
-		return nil, fmt.Errorf("%w: system observation is nil", ErrInvalidFrame)
+		return nil, StatusPatch{}, fmt.Errorf("%w: system observation is nil", ErrInvalidFrame)
 	}
 	samples := make([]metrics.Sample, 0, 3)
 	if obs.UptimeSeconds != nil {
 		if err := validateNonNegativeFinite("system uptime_seconds", *obs.UptimeSeconds); err != nil {
-			return nil, err
+			return nil, StatusPatch{}, err
 		}
 		samples = append(samples, sample(MetricSystemUptime, labels, ts, *obs.UptimeSeconds))
 	}
 	if obs.FreeMemoryBytes != nil {
 		if err := validateNonNegativeFinite("system free_memory_bytes", *obs.FreeMemoryBytes); err != nil {
-			return nil, err
+			return nil, StatusPatch{}, err
 		}
 		samples = append(samples, sample(MetricSystemFreeMemory, labels, ts, *obs.FreeMemoryBytes))
 	}
 	if obs.TemperatureC != nil {
 		if err := validateFinite("system temperature_c", *obs.TemperatureC); err != nil {
-			return nil, err
+			return nil, StatusPatch{}, err
 		}
 		samples = append(samples, sample(MetricSystemTemperature, labels, ts, *obs.TemperatureC))
 	}
-	return samples, nil
+	patch := StatusPatch{}
+	if obs.FirmwareVersion != nil {
+		version := *obs.FirmwareVersion
+		if version == "" || len(version) > firmwareVersionMaxLen {
+			return nil, StatusPatch{}, fmt.Errorf("%w: system firmware_version must be 1 to %d bytes", ErrInvalidFrame, firmwareVersionMaxLen)
+		}
+		patch.ReportedAt = ts
+		patch.FirmwareVersion = &version
+		patch.FirmwareVersionAt = ts
+	}
+	return samples, patch, nil
+}
+
+// mapActivity projects the device-reported current feature into the status
+// patch. It never becomes a metric sample: the question it answers is what the
+// device is doing now, which the status snapshot already expresses.
+func mapActivity(obs *telemetrypb.ActivityObservation, ts time.Time) (StatusPatch, error) {
+	if obs == nil {
+		return StatusPatch{}, fmt.Errorf("%w: activity observation is nil", ErrInvalidFrame)
+	}
+	activity := obs.GetActivity()
+	if !activityPattern.MatchString(activity) {
+		return StatusPatch{}, fmt.Errorf("%w: activity must be 1 to 32 bytes matching [a-z0-9][a-z0-9_.-]*", ErrInvalidFrame)
+	}
+	patch := StatusPatch{ReportedAt: ts, Activity: &activity, ActivityAt: ts}
+	if obs.Detail != nil {
+		if len(*obs.Detail) > activityDetailMaxLen {
+			return StatusPatch{}, fmt.Errorf("%w: activity detail must be at most %d bytes", ErrInvalidFrame, activityDetailMaxLen)
+		}
+		detail := *obs.Detail
+		patch.ActivityDetail = &detail
+	}
+	return patch, nil
 }
 
 func sample(name string, labels map[string]string, ts time.Time, value float64) metrics.Sample {
@@ -350,6 +399,15 @@ func mergeStatusPatch(dst *StatusPatch, src StatusPatch) {
 	if src.NetworkIMSI != nil && (dst.NetworkIMSI == nil || !src.NetworkIMSIAt.Before(dst.NetworkIMSIAt)) {
 		dst.NetworkIMSI = src.NetworkIMSI
 		dst.NetworkIMSIAt = src.NetworkIMSIAt
+	}
+	if src.Activity != nil && (dst.Activity == nil || !src.ActivityAt.Before(dst.ActivityAt)) {
+		dst.Activity = src.Activity
+		dst.ActivityDetail = src.ActivityDetail
+		dst.ActivityAt = src.ActivityAt
+	}
+	if src.FirmwareVersion != nil && (dst.FirmwareVersion == nil || !src.FirmwareVersionAt.Before(dst.FirmwareVersionAt)) {
+		dst.FirmwareVersion = src.FirmwareVersion
+		dst.FirmwareVersionAt = src.FirmwareVersionAt
 	}
 }
 

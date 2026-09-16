@@ -85,9 +85,8 @@ func TestServiceReportPacketAppendsMetricsAndSyncsFixedStatus(t *testing.T) {
 	metricsStore := &fakeMetricsStore{}
 	statusStore := &fakeStatusStore{
 		status: apitypes.PeerStatus{
-			Volume:  new(33),
-			Details: &map[string]any{"keep": "yes"},
-			Labels:  &map[string]string{"mode": "test"},
+			Volume: new(33),
+			Labels: &map[string]string{"mode": "test"},
 		},
 	}
 	service := &Service{
@@ -142,15 +141,17 @@ func TestServiceReportPacketAppendsMetricsAndSyncsFixedStatus(t *testing.T) {
 	if status.GnssAccuracyM == nil || *status.GnssAccuracyM != float32(2.25) {
 		t.Fatalf("GnssAccuracyM = %#v, want 2.25", status.GnssAccuracyM)
 	}
-	gnssAt := base.Add(10 * time.Millisecond)
-	if status.ReportedAt == nil || !status.ReportedAt.Equal(gnssAt) {
-		t.Fatalf("ReportedAt = %#v, want %s", status.ReportedAt, gnssAt)
+	// The system observation is the latest one that contributes to status, now
+	// that it carries the reported firmware version.
+	systemAt := base.Add(30 * time.Millisecond)
+	if status.ReportedAt == nil || !status.ReportedAt.Equal(systemAt) {
+		t.Fatalf("ReportedAt = %#v, want %s", status.ReportedAt, systemAt)
+	}
+	if status.FirmwareVersion == nil || *status.FirmwareVersion != firmware {
+		t.Fatalf("FirmwareVersion = %#v, want %q", status.FirmwareVersion, firmware)
 	}
 	if status.Volume == nil || *status.Volume != 33 {
 		t.Fatalf("Volume = %#v, want preserved 33", status.Volume)
-	}
-	if status.Details == nil || (*status.Details)["keep"] != "yes" {
-		t.Fatalf("Details = %#v, want preserved map", status.Details)
 	}
 	if status.Labels == nil || (*status.Labels)["mode"] != "test" {
 		t.Fatalf("Labels = %#v, want preserved map", status.Labels)
@@ -459,24 +460,33 @@ func TestServiceReportPropagatesStoreErrors(t *testing.T) {
 	}
 }
 
+// Reported strings are status, never metric samples: a firmware version is a
+// label-cardinality hazard as a sample and a display field as status.
 func TestMapFrameStringOnlyObservationsDoNotCreateSamples(t *testing.T) {
 	peer := testPublicKey(t)
 	firmware := "v1"
 	rat := "lte"
+	at := time.Unix(1, 0).UTC()
 	samples, patch, err := MapFrame(peer, &telemetrypb.TelemetryFrame{
 		Observations: []*telemetrypb.Observation{
 			{Body: &telemetrypb.Observation_Network{Network: &telemetrypb.NetworkObservation{Rat: &rat}}},
 			{Body: &telemetrypb.Observation_System{System: &telemetrypb.SystemObservation{FirmwareVersion: &firmware}}},
 		},
-	}, time.Unix(1, 0).UTC())
+	}, at)
 	if err != nil {
 		t.Fatalf("MapFrame() error = %v", err)
 	}
 	if len(samples) != 0 {
 		t.Fatalf("samples = %+v, want empty", samples)
 	}
-	if !patch.Empty() {
-		t.Fatalf("patch = %+v, want empty", patch)
+	if patch.FirmwareVersion == nil || *patch.FirmwareVersion != firmware {
+		t.Fatalf("patch.FirmwareVersion = %#v, want %q", patch.FirmwareVersion, firmware)
+	}
+	if !patch.FirmwareVersionAt.Equal(at) {
+		t.Fatalf("patch.FirmwareVersionAt = %s, want %s", patch.FirmwareVersionAt, at)
+	}
+	if patch.BatteryPercent != nil || patch.Charging != nil || patch.NetworkIMEI != nil {
+		t.Fatalf("patch carries unrelated fields: %+v", patch)
 	}
 }
 
@@ -546,15 +556,15 @@ func TestStatusSyncEdges(t *testing.T) {
 
 	store.puts = 0
 	currentCharging := false
-	currentDetails := telemetryStatusDetails(
-		telemetryStatusBatteryPercentAtKey, currentReportedAt,
-		telemetryStatusChargingAtKey, currentReportedAt,
+	currentObserved := telemetryObservedAt(
+		observedAtBatteryPercent, currentReportedAt,
+		observedAtCharging, currentReportedAt,
 	)
 	store.status = apitypes.PeerStatus{
-		ReportedAt:     &currentReportedAt,
-		BatteryPercent: &currentPercent,
-		Charging:       &currentCharging,
-		Details:        &currentDetails,
+		ReportedAt:          &currentReportedAt,
+		BatteryPercent:      &currentPercent,
+		Charging:            &currentCharging,
+		TelemetryObservedAt: &currentObserved,
 	}
 	newReportedAt := currentReportedAt.Add(time.Second)
 	if err := (StatusSync{Store: store}).SyncTelemetryStatus(context.Background(), peer, StatusPatch{
@@ -578,15 +588,15 @@ func TestStatusSyncEdges(t *testing.T) {
 	if store.status.ReportedAt == nil || !store.status.ReportedAt.Equal(newReportedAt) {
 		t.Fatalf("mixed field times ReportedAt = %#v, want %s", store.status.ReportedAt, newReportedAt)
 	}
-	details := telemetryStatusDetails(
-		telemetryStatusBatteryPercentAtKey, currentReportedAt,
-		telemetryStatusChargingAtKey, newReportedAt,
+	observed := telemetryObservedAt(
+		observedAtBatteryPercent, currentReportedAt,
+		observedAtCharging, newReportedAt,
 	)
 	store.status = apitypes.PeerStatus{
-		ReportedAt:     &newReportedAt,
-		BatteryPercent: new(80),
-		Charging:       new(true),
-		Details:        &details,
+		ReportedAt:          &newReportedAt,
+		BatteryPercent:      new(80),
+		Charging:            new(true),
+		TelemetryObservedAt: &observed,
 	}
 	percentRefreshAt := currentReportedAt.Add(500 * time.Millisecond)
 	if err := (StatusSync{Store: store}).SyncTelemetryStatus(context.Background(), peer, StatusPatch{
@@ -606,15 +616,15 @@ func TestStatusSyncEdges(t *testing.T) {
 	store.puts = 0
 	currentLatitude := float32(31.2)
 	currentLongitude := float32(121.4)
-	gnssDetails := telemetryStatusDetails(
-		telemetryStatusGNSSLatitudeAtKey, currentReportedAt,
-		telemetryStatusGNSSLongitudeAtKey, newReportedAt,
+	gnssObserved := telemetryObservedAt(
+		observedAtGNSSLatitude, currentReportedAt,
+		observedAtGNSSLongitude, newReportedAt,
 	)
 	store.status = apitypes.PeerStatus{
-		ReportedAt:    &newReportedAt,
-		GnssLatitude:  &currentLatitude,
-		GnssLongitude: &currentLongitude,
-		Details:       &gnssDetails,
+		ReportedAt:          &newReportedAt,
+		GnssLatitude:        &currentLatitude,
+		GnssLongitude:       &currentLongitude,
+		TelemetryObservedAt: &gnssObserved,
 	}
 	latitudeRefreshAt := currentReportedAt.Add(500 * time.Millisecond)
 	if err := (StatusSync{Store: store}).SyncTelemetryStatus(context.Background(), peer, StatusPatch{
@@ -740,14 +750,15 @@ func float64Ptr(v float64) *float64 {
 	return new(v)
 }
 
-func telemetryStatusDetails(items ...any) map[string]any {
-	fields := map[string]any{}
+func telemetryObservedAt(items ...any) apitypes.PeerStatusTelemetryObservedAt {
+	var observed apitypes.PeerStatusTelemetryObservedAt
 	for i := 0; i+1 < len(items); i += 2 {
-		key, _ := items[i].(string)
+		sel, _ := items[i].(observedAtSelector)
 		at, _ := items[i+1].(time.Time)
-		fields[key] = at.UTC().UnixMilli()
+		value := at.UTC().Truncate(time.Millisecond)
+		*sel(&observed) = &value
 	}
-	return map[string]any{telemetryStatusDetailsKey: fields}
+	return observed
 }
 
 func TestServiceReportPacketStoresNetworkIdentityWithoutSamples(t *testing.T) {
@@ -787,10 +798,10 @@ func TestServiceReportPacketStoresNetworkIdentityWithoutSamples(t *testing.T) {
 	if status.NetworkImei == nil || *status.NetworkImei != imei || status.NetworkImsi == nil || *status.NetworkImsi != imsi {
 		t.Fatalf("network identity = %#v / %#v", status.NetworkImei, status.NetworkImsi)
 	}
-	if got, ok := telemetryStatusFieldTime(status, telemetryStatusNetworkIMEIAtKey); !ok || !got.Equal(at) {
+	if got, ok := telemetryStatusFieldTime(status, observedAtNetworkIMEI); !ok || !got.Equal(at) {
 		t.Fatalf("network_imei_at = %v, %v, want %v", got, ok, at)
 	}
-	if got, ok := telemetryStatusFieldTime(status, telemetryStatusNetworkIMSIAtKey); !ok || !got.Equal(at) {
+	if got, ok := telemetryStatusFieldTime(status, observedAtNetworkIMSI); !ok || !got.Equal(at) {
 		t.Fatalf("network_imsi_at = %v, %v, want %v", got, ok, at)
 	}
 	if status.ReportedAt == nil || !status.ReportedAt.Equal(at) {
@@ -869,5 +880,54 @@ func TestMapFrameNetworkIdentityUsesLatestObservation(t *testing.T) {
 	}
 	if !patch.ReportedAt.Equal(base.Add(time.Second)) {
 		t.Fatalf("ReportedAt = %v", patch.ReportedAt)
+	}
+}
+
+// An activity observation projects into status only, and out-of-contract values
+// are rejected as an invalid frame rather than stored.
+func TestMapFrameActivityObservation(t *testing.T) {
+	peer := testPublicKey(t)
+	at := time.Unix(500, 0).UTC()
+	activity := "audioplayer"
+	detail := "Track 3"
+	samples, patch, err := MapFrame(peer, &telemetrypb.TelemetryFrame{
+		Observations: []*telemetrypb.Observation{{
+			Body: &telemetrypb.Observation_Activity{Activity: &telemetrypb.ActivityObservation{
+				Activity: activity,
+				Detail:   &detail,
+			}},
+		}},
+	}, at)
+	if err != nil {
+		t.Fatalf("MapFrame() error = %v", err)
+	}
+	if len(samples) != 0 {
+		t.Fatalf("samples = %+v, want empty", samples)
+	}
+	if patch.Activity == nil || *patch.Activity != activity {
+		t.Fatalf("patch.Activity = %#v, want %q", patch.Activity, activity)
+	}
+	if patch.ActivityDetail == nil || *patch.ActivityDetail != detail {
+		t.Fatalf("patch.ActivityDetail = %#v, want %q", patch.ActivityDetail, detail)
+	}
+	if !patch.ActivityAt.Equal(at) {
+		t.Fatalf("patch.ActivityAt = %s, want %s", patch.ActivityAt, at)
+	}
+
+	for name, obs := range map[string]*telemetrypb.ActivityObservation{
+		"empty":          {Activity: ""},
+		"uppercase":      {Activity: "AudioPlayer"},
+		"leading dash":   {Activity: "-chat"},
+		"too long":       {Activity: strings.Repeat("a", 33)},
+		"detail too big": {Activity: "chat", Detail: new(strings.Repeat("d", 129))},
+	} {
+		_, _, err := MapFrame(peer, &telemetrypb.TelemetryFrame{
+			Observations: []*telemetrypb.Observation{{
+				Body: &telemetrypb.Observation_Activity{Activity: obs},
+			}},
+		}, at)
+		if !errors.Is(err, ErrInvalidFrame) {
+			t.Fatalf("MapFrame(%s activity) error = %v, want %v", name, err, ErrInvalidFrame)
+		}
 	}
 }

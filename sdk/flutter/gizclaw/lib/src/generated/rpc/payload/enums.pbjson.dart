@@ -560,3 +560,38 @@ final $typed_data.Uint8List workspaceInputModeDescriptor = $convert.base64Decode
     'ChJXb3Jrc3BhY2VJbnB1dE1vZGUSJAogV09SS1NQQUNFX0lOUFVUX01PREVfVU5TUEVDSUZJRU'
     'QQABIlCiFXT1JLU1BBQ0VfSU5QVVRfTU9ERV9QVVNIX1RPX1RBTEsQARIhCh1XT1JLU1BBQ0Vf'
     'SU5QVVRfTU9ERV9SRUFMVElNRRAC');
+
+@$core.Deprecated('Use deviceInteractionModeDescriptor instead')
+const DeviceInteractionMode$json = {
+  '1': 'DeviceInteractionMode',
+  '2': [
+    {'1': 'DEVICE_INTERACTION_MODE_UNSPECIFIED', '2': 0},
+    {'1': 'DEVICE_INTERACTION_MODE_PUSH_TO_TALK', '2': 1},
+    {'1': 'DEVICE_INTERACTION_MODE_REALTIME', '2': 2},
+  ],
+};
+
+/// Descriptor for `DeviceInteractionMode`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List deviceInteractionModeDescriptor = $convert.base64Decode(
+    'ChVEZXZpY2VJbnRlcmFjdGlvbk1vZGUSJwojREVWSUNFX0lOVEVSQUNUSU9OX01PREVfVU5TUE'
+    'VDSUZJRUQQABIoCiRERVZJQ0VfSU5URVJBQ1RJT05fTU9ERV9QVVNIX1RPX1RBTEsQARIkCiBE'
+    'RVZJQ0VfSU5URVJBQ1RJT05fTU9ERV9SRUFMVElNRRAC');
+
+@$core.Deprecated('Use deviceKeyFeedbackDescriptor instead')
+const DeviceKeyFeedback$json = {
+  '1': 'DeviceKeyFeedback',
+  '2': [
+    {'1': 'DEVICE_KEY_FEEDBACK_UNSPECIFIED', '2': 0},
+    {'1': 'DEVICE_KEY_FEEDBACK_NONE', '2': 1},
+    {'1': 'DEVICE_KEY_FEEDBACK_SOUND', '2': 2},
+    {'1': 'DEVICE_KEY_FEEDBACK_VIBRATE', '2': 3},
+    {'1': 'DEVICE_KEY_FEEDBACK_SOUND_AND_VIBRATE', '2': 4},
+  ],
+};
+
+/// Descriptor for `DeviceKeyFeedback`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List deviceKeyFeedbackDescriptor = $convert.base64Decode(
+    'ChFEZXZpY2VLZXlGZWVkYmFjaxIjCh9ERVZJQ0VfS0VZX0ZFRURCQUNLX1VOU1BFQ0lGSUVEEA'
+    'ASHAoYREVWSUNFX0tFWV9GRUVEQkFDS19OT05FEAESHQoZREVWSUNFX0tFWV9GRUVEQkFDS19T'
+    'T1VORBACEh8KG0RFVklDRV9LRVlfRkVFREJBQ0tfVklCUkFURRADEikKJURFVklDRV9LRVlfRk'
+    'VFREJBQ0tfU09VTkRfQU5EX1ZJQlJBVEUQBA==');

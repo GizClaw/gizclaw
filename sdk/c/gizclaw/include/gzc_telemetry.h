@@ -16,7 +16,8 @@ typedef enum {
   GZC_TELEMETRY_OBSERVATION_GNSS = 2,
   GZC_TELEMETRY_OBSERVATION_NETWORK = 3,
   GZC_TELEMETRY_OBSERVATION_SYSTEM = 4,
-  GZC_TELEMETRY_OBSERVATION_AUDIOPLAYER = 5
+  GZC_TELEMETRY_OBSERVATION_AUDIOPLAYER = 5,
+  GZC_TELEMETRY_OBSERVATION_ACTIVITY = 6
 } gzc_telemetry_observation_kind_t;
 
 typedef struct {
@@ -88,6 +89,16 @@ typedef struct {
   gzc_str_t error_message;
 } gzc_telemetry_audioplayer_t;
 
+// Feature the device is using right now. activity is a stable machine-readable
+// id of 1 to 32 bytes matching [a-z0-9][a-z0-9_.-]*, such as "idle", "chat",
+// "audioplayer" or "ota"; detail is optional display text of at most 128 bytes
+// and must not carry secrets. Strings are borrowed for the encode/send call.
+typedef struct {
+  gzc_str_t activity;
+  bool has_detail;
+  gzc_str_t detail;
+} gzc_telemetry_activity_t;
+
 typedef struct {
   int32_t observed_at_delta_ms;
   gzc_telemetry_observation_kind_t kind;
@@ -96,6 +107,7 @@ typedef struct {
   gzc_telemetry_network_t network;
   gzc_telemetry_system_t system;
   gzc_telemetry_audioplayer_t audioplayer;
+  gzc_telemetry_activity_t activity;
 } gzc_telemetry_observation_t;
 
 typedef struct {

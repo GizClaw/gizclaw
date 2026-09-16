@@ -36,6 +36,33 @@ PB_BIND(gizclaw_rpc_v1_ClientDeviceSoundPlayRequest, gizclaw_rpc_v1_ClientDevice
 PB_BIND(gizclaw_rpc_v1_ClientDeviceSoundPlayResponse, gizclaw_rpc_v1_ClientDeviceSoundPlayResponse, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_DeviceSettings, gizclaw_rpc_v1_DeviceSettings, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientDeviceSettingsGetRequest, gizclaw_rpc_v1_ClientDeviceSettingsGetRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientDeviceSettingsGetResponse, gizclaw_rpc_v1_ClientDeviceSettingsGetResponse, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientDeviceSettingsSetRequest, gizclaw_rpc_v1_ClientDeviceSettingsSetRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientDeviceSettingsSetResponse, gizclaw_rpc_v1_ClientDeviceSettingsSetResponse, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientDeviceFactoryResetRequest, gizclaw_rpc_v1_ClientDeviceFactoryResetRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientDeviceFactoryResetResponse, gizclaw_rpc_v1_ClientDeviceFactoryResetResponse, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientRpcMethodsGetRequest, gizclaw_rpc_v1_ClientRpcMethodsGetRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientRpcMethodsGetResponse, gizclaw_rpc_v1_ClientRpcMethodsGetResponse, 4)
+
+
 PB_BIND(gizclaw_rpc_v1_ClientDeviceFindRequest, gizclaw_rpc_v1_ClientDeviceFindRequest, AUTO)
 
 
@@ -112,6 +139,9 @@ PB_BIND(gizclaw_rpc_v1_PeerStatus, gizclaw_rpc_v1_PeerStatus, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_PeerStatus_LabelsEntry, gizclaw_rpc_v1_PeerStatus_LabelsEntry, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_PeerStatusTelemetryObservedAt, gizclaw_rpc_v1_PeerStatusTelemetryObservedAt, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_PingRequest, gizclaw_rpc_v1_PingRequest, AUTO)
