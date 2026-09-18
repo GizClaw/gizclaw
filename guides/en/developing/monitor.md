@@ -62,6 +62,17 @@ audio player state, OTA reports) only keep their latest value in the device
 status. The console shows the first group under Telemetry with a trend chart
 per field, and the second group under device status fields.
 
+The device detail page also has a summary row: current activity (`activity`,
+`activity_detail`), firmware version, network signal (Wi-Fi or cellular,
+whichever was observed last), and the current Workspace
+(`Runtime.active_workspace_name`, with `pending_workspace_name` while a switch
+is in progress). The device configuration tab reads the device settings, the
+Tools exposed to the control app, and the capability list in parallel when it
+opens, and shows offline, unsupported or an error per section. It is read-only:
+factory reset, settings writes, Workspace switches and Tool invocation belong to
+the device owner's control app, and the device public key the console uses
+usually lacks those permissions.
+
 ## Build and validation
 
 ```sh

@@ -48,6 +48,12 @@ Telemetry 分两类：指标字段（`battery.*`、`network.rssi_dbm`、`network
 只保留最新值，进入设备状态。控制台把前者放在 Telemetry 页并逐字段提供趋势图，后者放在状态
 字段页。
 
+设备详情页顶部另有一行概览：当前活动（`activity`、`activity_detail`）、固件版本、网络信号（Wi‑Fi
+或蜂窝，取最近一次观测）与当前 Workspace（`Runtime.active_workspace_name`，切换中时显示
+`pending_workspace_name`）。“设备配置”页在打开时并行读取设备设置、开放给控制 App 的 Tool 与设备
+能力列表，每部分独立显示离线、不支持或错误。该页只读：恢复出厂、修改设置、切换 Workspace 与调用
+Tool 属于设备 owner 的控制 App，监控台使用的设备公钥通常没有这些权限。
+
 ## 构建与验证
 
 ```sh

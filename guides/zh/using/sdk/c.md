@@ -45,6 +45,8 @@ if (gzc_control_get_device_status(&client, &call, &status) == GZC_OK && status.h
 
 Request 侧的字符串上限直接取自 contract：SSID 32 字节、sound 32 字节、display_name 80 字节，超限在发出请求前就返回 `GZC_ERR_INVALID_ARGUMENT`。
 
+设备配置与控制 App 相关 route 对应 `gzc_control_get_device_settings`、`gzc_control_update_device_settings`（`gzc_control_device_settings_t`，枚举成员为 wire 字符串，未设置的成员不发送）、`gzc_control_factory_reset_device`、`gzc_control_list_device_rpc_methods`、`gzc_control_set_device_run_workspace` 与 `gzc_control_list_device_tools` / `gzc_control_invoke_device_tool`。Tool 的 `i18n` 与 `input_schema` 以原始 JSON 返回；`invoke` 的 `data_json` 在 wire 上是转义字符串，SDK 把反转义后的 JSON 写入该次调用的 `scratch`，`call.body` 保持原始响应不变。
+
 好友与群组 route 对应 `gzc_control_*_friend*` 与 `gzc_control_*_friend_group*` 函数，覆盖邀请码（`gzc_control_invite_token_request_t` 的可选 `ttl_seconds`）、加好友、列表、退群、解散与成员管理。群角色以字符串（`owner`、`admin`、`member`）返回，`info` 以 `has_info` 标记是否存在。
 
 成员列表的每项带可选的 `online`（Server 本地连接状态）与 `last_seen_at`（RFC 3339 UTC；未知或读取失败时省略），add、put、join 返回的成员不带这两个字段。C 使用 `has_online` + `online` 与 `last_seen_at`（`gzc_str_t`）。

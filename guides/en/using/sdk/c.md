@@ -45,6 +45,8 @@ Every `gzc_str_t` in a decoded model points into `response` and stays valid unti
 
 Request string caps come straight from the contract: SSID 32 bytes, sound 32 bytes, display_name 80 bytes. An oversized value returns `GZC_ERR_INVALID_ARGUMENT` before any transport call.
 
+Device settings and control-app routes map to `gzc_control_get_device_settings`, `gzc_control_update_device_settings` (`gzc_control_device_settings_t`; enum members are their wire strings and unset members are not sent), `gzc_control_factory_reset_device`, `gzc_control_list_device_rpc_methods`, `gzc_control_set_device_run_workspace`, and `gzc_control_list_device_tools` / `gzc_control_invoke_device_tool`. A Tool's `i18n` and `input_schema` come back as raw JSON. The invoke result's `data_json` is an escaped string on the wire; the SDK writes the unescaped JSON into that call's `scratch` and leaves `call.body` as the exact response.
+
 Friend and Friend Group routes map to the `gzc_control_*_friend*` and `gzc_control_*_friend_group*` functions, covering invite tokens (optional `ttl_seconds` in `gzc_control_invite_token_request_t`), befriending, listing, leaving, dissolving, and member management. Group roles are returned as strings (`owner`, `admin`, `member`), and `has_info` marks whether `info` is present.
 
 Each members-list item carries optional `online` (Server-local connection state) and `last_seen_at` (RFC 3339 UTC; absent when unknown or the read failed); members returned by add, put and join omit both. C uses `has_online` + `online` and `last_seen_at` (`gzc_str_t`).

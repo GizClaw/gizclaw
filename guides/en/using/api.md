@@ -144,8 +144,8 @@ An API key bound to one device (see [API keys](./api-keys)) can reach `/gizclaw/
 | Route | Purpose |
 | --- | --- |
 | `GET /gizclaw/v1/device` | Device name, emoji, hardware info, and identifiers |
-| `GET /gizclaw/v1/device/runtime` | Online state, last seen time, and traffic |
-| `GET /gizclaw/v1/device/status` | Latest reported battery, charging, volume, mute, and GNSS |
+| `GET /gizclaw/v1/device/runtime` | Online state, last seen time, traffic, and the running and pending Workspace |
+| `GET /gizclaw/v1/device/status` | Latest reported battery, charging, volume, mute, GNSS, current activity, firmware version, and Wi‑Fi / cellular signal |
 | `GET /gizclaw/v1/device/telemetry/{field}/latest`, `/telemetry`, `/telemetry/aggregate` | Sampled telemetry queries with Admin telemetry semantics |
 | `GET /gizclaw/v1/device/runtime-profile` | Name and revision of the device's RuntimeProfile, with the workflow names of each collection |
 | `GET /gizclaw/v1/device/workspaces`, `DELETE /device/workspaces/{workspaceId}` | List the device's Workspaces (such as game saves) by collection and workflow name, and delete one |
@@ -157,13 +157,18 @@ An API key bound to one device (see [API keys](./api-keys)) can reach `/gizclaw/
 | `GET /gizclaw/v1/device/firmware` | Every channel of the Firmware configuration bound to the device, with its package |
 | `POST /gizclaw/v1/device/actions/firmware-update` | Notify the device to run one OTA |
 | `GET /gizclaw/v1/device/wifi`, `/wifi/saved`, `DELETE /wifi/saved/{ssid}` | Query Wi‑Fi status, list and forget saved networks |
+| `GET`, `PATCH /gizclaw/v1/device/settings` | Read and change device settings (4G, screen timeout, brightness, language, interaction mode, key feedback, alert mode, auto sleep, NFC) |
+| `POST /gizclaw/v1/device/actions/factory-reset` | Factory reset (optional `keep_network`) |
+| `GET /gizclaw/v1/device/rpc-methods` | Control methods the device implements, to hide entries it does not support |
+| `PUT /gizclaw/v1/device/run/workspace` | Switch the Workspace the device runs |
+| `GET /gizclaw/v1/device/tools`, `POST /device/tools/{name}/actions/invoke` | List and invoke device Tools the RuntimeProfile exposes to the control app |
 | `/gizclaw/v1/contacts`, `/contacts/{contactName}` | List/create/get/put/delete the device's contacts |
 | `/gizclaw/v1/friends/invite-token` | Read, create (optional `ttl_seconds`, up to 7 days), or revoke the device's friend invite code |
 | `/gizclaw/v1/friends`, `/friends/{friendName}` | Befriend with an invite code, list (with the other device's name and emoji), read, and delete friends |
 | `/gizclaw/v1/friend-groups`, `/friend-groups/@join`, `/friend-groups/{friendGroupName}` | List, create, join by invite code, read, update, and dissolve Friend Groups |
 | `/friend-groups/{friendGroupName}/@leave`, `/invite-token`, `/members`, `/members/{memberName}` | Leave, Group invite codes, list members (with name and emoji), and manage members |
 
-Read routes project data the Server already holds and never wake the device. Control routes execute live over a Server-to-device RPC: an offline device answers `409 DEVICE_OFFLINE`, no answer within 5 seconds gives `504 DEVICE_TIMEOUT`, and a device without the provider gives `501 DEVICE_UNSUPPORTED`. Poll `GET /device/status` for state changes. Wi‑Fi provisioning stays on the device-local BLE channel.
+Read routes project data the Server already holds and never wake the device. Control routes execute live over a Server-to-device RPC: an offline device answers `409 DEVICE_OFFLINE`, no answer within 5 seconds gives `504 DEVICE_TIMEOUT`, and a device without the provider gives `501 DEVICE_UNSUPPORTED`. Poll `GET /device/status` for state changes. Settings, factory reset, Workspace switch and Tool rules are in [Public API](/en/developing/api/http/public#device-control-flow): a factory reset is irreversible, and a device that also deletes its own Peer invalidates every API key; product-specific configuration such as usage time is a Tool, not a setting. Wi‑Fi provisioning stays on the device-local BLE channel.
 
 `GET /device/firmware` returns the `stable`, `beta`, and `develop` channels at once, each with its `package` (`version`, `url`, `sha256`, `size`) (stored packages without a version omit `version` and remain available). The Server does not store the channel the device uses, so the caller picks one and names it in `POST /device/actions/firmware-update` via `channel`; omitting it leaves the choice to the device. To tell whether an update is needed, compare `firmware_sha256` from `GET /device/status` — the package the device reports running — with the target channel's `package.sha256`, and pass that same `sha256` in the request so the device refuses when it resolves a different package than the one shown. Firmware too old to implement the RPC answers `501 DEVICE_UNSUPPORTED`; hide the update entry point in that case instead of reporting a failed update.
 

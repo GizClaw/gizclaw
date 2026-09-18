@@ -36,8 +36,10 @@ HTTP proxy.
 
 `serveGiznetWebRTCRPC(pc, handlers)` answers the `client.*` RPCs a server
 initiates. `GizClawPeerRPCHandlers` covers `client.info.get`,
-`client.identifiers.get` and the seven `client.device.*` and `client.wifi.*`
-methods; an omitted handler answers `METHOD_NOT_FOUND`, which the server maps
+`client.identifiers.get`, the `client.device.*`, `client.wifi.*` and
+`client.firmware.update` device-control methods (including `getSettings`,
+`setSettings`, `factoryReset` and `setRunWorkspace`), and
+`client.rpc.methods.get`, derived from the registered handlers; an omitted handler answers `METHOD_NOT_FOUND`, which the server maps
 to `501 DEVICE_UNSUPPORTED`. A handler can throw `GizClawDeviceControlError` to
 answer one specific RPC error code. Handlers can also be passed through the
 `peerRPCHandlers` connect option so they are installed before signaling.

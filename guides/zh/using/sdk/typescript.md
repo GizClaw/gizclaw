@@ -44,7 +44,7 @@ console.log(status.volume, "->", applied.status.volume);
 client 按 route group 组织，方法名与 [Flutter SDK](./flutter) 的 `gizclaw_control` 一一对应：
 
 - `apiKeys`：`create`、`list`、`getSelf`、`revokeSelf`、`get`、`revoke`。
-- `device`：`get`、`getRuntime`、`getStatus`、`getTelemetryLatest`、`queryTelemetry`、`aggregateTelemetry`、`setVolume`、`playSound`、`find`、`reboot`、`getWifi`、`scanWifi`、`connectWifi`、`listSavedWifi`、`forgetSavedWifi`。
+- `device`：`get`、`getRuntime`、`getStatus`、`getTelemetryLatest`、`queryTelemetry`、`aggregateTelemetry`、`setVolume`、`playSound`、`find`、`reboot`、`getWifi`、`scanWifi`、`connectWifi`、`listSavedWifi`、`forgetSavedWifi`、`getSettings`、`updateSettings`、`factoryReset`、`listRpcMethods`、`setRunWorkspace`、`listTools`、`invokeTool`。
 - `contacts`：`list`、`create`、`get`、`put`、`delete`。
 - `friends`：`getInviteToken`、`createInviteToken`（可选 `{ ttl_seconds }`）、`clearInviteToken`、`add`、`list`、`get`、`delete`。
 - `friendGroups`：`list`、`create`、`join`、`get`、`put`、`delete`（解散）、`leave`、`getInviteToken`、`createInviteToken`、`clearInviteToken`、`listMembers`、`addMember`、`putMember`、`deleteMember`。
