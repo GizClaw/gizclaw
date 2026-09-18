@@ -305,9 +305,9 @@ export type GizClawDeviceControlHandlers = {
   // without the response the method promises. Schedule the reset with
   // setTimeout or an equivalent and return.
   factoryReset?: (keepNetwork: boolean) => Promise<void> | void;
-  // setRunWorkspace switches the Workspace the device runs. The request names
-  // exactly one target, already validated: workspace_name, or collection with
-  // workflow_name. The acknowledgement only means the device accepted it:
+  // setRunWorkspace switches the Workspace the device runs to
+  // request.workspace_name, already validated; the Server has resolved any
+  // workflow target to this one name. The acknowledgement only means the device accepted it:
   // settle promptly, then switch through
   // server.run.workspace.reload-with-options.
   setRunWorkspace?: (
@@ -2477,28 +2477,20 @@ function deviceSettingsPatchValid(patch: DeviceSettings): boolean {
 
 const RUN_WORKSPACE_TARGET_MAX_BYTES = 256;
 
-// validRunWorkspaceRequest accepts exactly one target: workspace_name, or
-// collection together with workflow_name.
+// validRunWorkspaceRequest accepts a non-empty workspace_name within the
+// nanopb bound.
 function validRunWorkspaceRequest(value: unknown): boolean {
   if (value == null || typeof value !== "object") {
     return false;
   }
   const request = value as ClientRunWorkspaceSetRequest;
-  const name = (field: unknown): boolean =>
-    typeof field === "string" &&
-    field.length > 0 &&
-    new TextEncoder().encode(field).length <= RUN_WORKSPACE_TARGET_MAX_BYTES;
-  if (request.kickoff !== undefined && typeof request.kickoff !== "boolean") {
-    return false;
-  }
-  if (request.workspace_name !== undefined) {
-    return (
-      name(request.workspace_name) &&
-      request.collection === undefined &&
-      request.workflow_name === undefined
-    );
-  }
-  return name(request.collection) && name(request.workflow_name);
+  return (
+    typeof request.workspace_name === "string" &&
+    request.workspace_name.length > 0 &&
+    new TextEncoder().encode(request.workspace_name).length <=
+      RUN_WORKSPACE_TARGET_MAX_BYTES &&
+    (request.kickoff === undefined || typeof request.kickoff === "boolean")
+  );
 }
 
 // supportedDeviceMethods lists the client.* methods this device answers, taken

@@ -572,7 +572,7 @@ const _explicitPresenceFields = <String, Set<int>>{
   'gizclaw.rpc.v1.ClientDeviceRebootRequest': {1},
   'gizclaw.rpc.v1.ClientDeviceSoundPlayRequest': {2},
   'gizclaw.rpc.v1.ClientFirmwareUpdateRequest': {1, 2},
-  'gizclaw.rpc.v1.ClientRunWorkspaceSetRequest': {1, 2, 3, 4},
+  'gizclaw.rpc.v1.ClientRunWorkspaceSetRequest': {2},
   'gizclaw.rpc.v1.ClientSocialPingRequest': {2, 3},
   'gizclaw.rpc.v1.ClientWifiConnectRequest': {2},
   'gizclaw.rpc.v1.ClientWifiScanRequest': {1},

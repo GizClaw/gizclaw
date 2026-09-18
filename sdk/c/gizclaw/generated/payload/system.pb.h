@@ -114,20 +114,14 @@ typedef struct _gizclaw_rpc_v1_ClientDeviceFactoryResetResponse {
     char dummy_field;
 } gizclaw_rpc_v1_ClientDeviceFactoryResetResponse;
 
-/* ClientRunWorkspaceSetRequest asks the device to switch its running Workspace.
- Exactly one target is set: workspace_name names an existing Workspace, or
- collection with workflow_name names a RuntimeProfile workflow the device
- runs in its Workspace for that workflow. The device answers once it has
- accepted the request, then switches through
- server.run.workspace.reload-with-options; the committed result is the
- Workspace the Server reports, not this response. */
+/* ClientRunWorkspaceSetRequest asks the device to switch its running Workspace
+ to workspace_name, an available Workspace the device's owner owns. The Server
+ resolves a control-app workflow target to this one name before calling, so
+ the device reloads it directly. The device answers once it has accepted the
+ request, then switches through server.run.workspace.reload-with-options; the
+ committed result is the Workspace the Server reports, not this response. */
 typedef struct _gizclaw_rpc_v1_ClientRunWorkspaceSetRequest {
-    bool has_workspace_name;
     char workspace_name[257];
-    bool has_collection;
-    char collection[257];
-    bool has_workflow_name;
-    char workflow_name[257];
     /* Let the agent speak first once the Workspace is ready. Defaults to false. */
     bool has_kickoff;
     bool kickoff;
@@ -613,7 +607,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientDeviceSettingsSetResponse_init_default {false, gizclaw_rpc_v1_DeviceSettings_init_default}
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetRequest_init_default {false, 0}
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetResponse_init_default {0}
-#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_init_default {false, "", false, "", false, "", false, 0}
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_init_default {"", false, 0}
 #define gizclaw_rpc_v1_ClientRunWorkspaceSetResponse_init_default {0}
 #define gizclaw_rpc_v1_ClientRpcMethodsGetRequest_init_default {0}
 #define gizclaw_rpc_v1_ClientRpcMethodsGetResponse_init_default {0, {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""}}
@@ -692,7 +686,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientDeviceSettingsSetResponse_init_zero {false, gizclaw_rpc_v1_DeviceSettings_init_zero}
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetRequest_init_zero {false, 0}
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetResponse_init_zero {0}
-#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_init_zero {false, "", false, "", false, "", false, 0}
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_init_zero {"", false, 0}
 #define gizclaw_rpc_v1_ClientRunWorkspaceSetResponse_init_zero {0}
 #define gizclaw_rpc_v1_ClientRpcMethodsGetRequest_init_zero {0}
 #define gizclaw_rpc_v1_ClientRpcMethodsGetResponse_init_zero {0, {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""}}
@@ -775,9 +769,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientDeviceSettingsSetResponse_value_tag 1
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetRequest_keep_network_tag 1
 #define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_workspace_name_tag 1
-#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_collection_tag 2
-#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_workflow_name_tag 3
-#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_kickoff_tag 4
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_kickoff_tag 2
 #define gizclaw_rpc_v1_ClientRpcMethodsGetResponse_methods_tag 1
 #define gizclaw_rpc_v1_ClientDeviceFindRequest_duration_ms_tag 1
 #define gizclaw_rpc_v1_ClientDeviceRebootRequest_delay_ms_tag 1
@@ -1023,10 +1015,8 @@ X(a, STATIC,   OPTIONAL, BOOL,     keep_network,      1)
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetResponse_DEFAULT NULL
 
 #define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, STRING,   workspace_name,    1) \
-X(a, STATIC,   OPTIONAL, STRING,   collection,        2) \
-X(a, STATIC,   OPTIONAL, STRING,   workflow_name,     3) \
-X(a, STATIC,   OPTIONAL, BOOL,     kickoff,           4)
+X(a, STATIC,   SINGULAR, STRING,   workspace_name,    1) \
+X(a, STATIC,   OPTIONAL, BOOL,     kickoff,           2)
 #define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_CALLBACK NULL
 #define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_DEFAULT NULL
 
@@ -1650,7 +1640,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 #define gizclaw_rpc_v1_ClientGetInfoRequest_size 0
 #define gizclaw_rpc_v1_ClientRpcMethodsGetRequest_size 0
 #define gizclaw_rpc_v1_ClientRpcMethodsGetResponse_size 10400
-#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_size 779
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_size 261
 #define gizclaw_rpc_v1_ClientRunWorkspaceSetResponse_size 0
 #define gizclaw_rpc_v1_ClientWifiConnectRequest_size 99
 #define gizclaw_rpc_v1_ClientWifiConnectResponse_size 0

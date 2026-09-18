@@ -835,20 +835,17 @@ func (*ClientDeviceFactoryResetResponse) Descriptor() ([]byte, []int) {
 	return file_payload_system_proto_rawDescGZIP(), []int{16}
 }
 
-// ClientRunWorkspaceSetRequest asks the device to switch its running Workspace.
-// Exactly one target is set: workspace_name names an existing Workspace, or
-// collection with workflow_name names a RuntimeProfile workflow the device
-// runs in its Workspace for that workflow. The device answers once it has
-// accepted the request, then switches through
-// server.run.workspace.reload-with-options; the committed result is the
-// Workspace the Server reports, not this response.
+// ClientRunWorkspaceSetRequest asks the device to switch its running Workspace
+// to workspace_name, an available Workspace the device's owner owns. The Server
+// resolves a control-app workflow target to this one name before calling, so
+// the device reloads it directly. The device answers once it has accepted the
+// request, then switches through server.run.workspace.reload-with-options; the
+// committed result is the Workspace the Server reports, not this response.
 type ClientRunWorkspaceSetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	WorkspaceName *string                `protobuf:"bytes,1,opt,name=workspace_name,json=workspaceName,proto3,oneof" json:"workspace_name,omitempty"`
-	Collection    *string                `protobuf:"bytes,2,opt,name=collection,proto3,oneof" json:"collection,omitempty"`
-	WorkflowName  *string                `protobuf:"bytes,3,opt,name=workflow_name,json=workflowName,proto3,oneof" json:"workflow_name,omitempty"`
+	WorkspaceName string                 `protobuf:"bytes,1,opt,name=workspace_name,json=workspaceName,proto3" json:"workspace_name,omitempty"`
 	// Let the agent speak first once the Workspace is ready. Defaults to false.
-	Kickoff       *bool `protobuf:"varint,4,opt,name=kickoff,proto3,oneof" json:"kickoff,omitempty"`
+	Kickoff       *bool `protobuf:"varint,2,opt,name=kickoff,proto3,oneof" json:"kickoff,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -884,22 +881,8 @@ func (*ClientRunWorkspaceSetRequest) Descriptor() ([]byte, []int) {
 }
 
 func (x *ClientRunWorkspaceSetRequest) GetWorkspaceName() string {
-	if x != nil && x.WorkspaceName != nil {
-		return *x.WorkspaceName
-	}
-	return ""
-}
-
-func (x *ClientRunWorkspaceSetRequest) GetCollection() string {
-	if x != nil && x.Collection != nil {
-		return *x.Collection
-	}
-	return ""
-}
-
-func (x *ClientRunWorkspaceSetRequest) GetWorkflowName() string {
-	if x != nil && x.WorkflowName != nil {
-		return *x.WorkflowName
+	if x != nil {
+		return x.WorkspaceName
 	}
 	return ""
 }
@@ -4226,17 +4209,10 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x1fClientDeviceFactoryResetRequest\x12&\n" +
 	"\fkeep_network\x18\x01 \x01(\bH\x00R\vkeepNetwork\x88\x01\x01B\x0f\n" +
 	"\r_keep_network\"\"\n" +
-	" ClientDeviceFactoryResetResponse\"\xf8\x01\n" +
-	"\x1cClientRunWorkspaceSetRequest\x12*\n" +
-	"\x0eworkspace_name\x18\x01 \x01(\tH\x00R\rworkspaceName\x88\x01\x01\x12#\n" +
-	"\n" +
-	"collection\x18\x02 \x01(\tH\x01R\n" +
-	"collection\x88\x01\x01\x12(\n" +
-	"\rworkflow_name\x18\x03 \x01(\tH\x02R\fworkflowName\x88\x01\x01\x12\x1d\n" +
-	"\akickoff\x18\x04 \x01(\bH\x03R\akickoff\x88\x01\x01B\x11\n" +
-	"\x0f_workspace_nameB\r\n" +
-	"\v_collectionB\x10\n" +
-	"\x0e_workflow_nameB\n" +
+	" ClientDeviceFactoryResetResponse\"p\n" +
+	"\x1cClientRunWorkspaceSetRequest\x12%\n" +
+	"\x0eworkspace_name\x18\x01 \x01(\tR\rworkspaceName\x12\x1d\n" +
+	"\akickoff\x18\x02 \x01(\bH\x00R\akickoff\x88\x01\x01B\n" +
 	"\n" +
 	"\b_kickoff\"\x1f\n" +
 	"\x1dClientRunWorkspaceSetResponse\"\x1c\n" +

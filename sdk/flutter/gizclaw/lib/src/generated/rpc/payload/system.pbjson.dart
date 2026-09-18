@@ -407,58 +407,28 @@ final $typed_data.Uint8List clientDeviceFactoryResetResponseDescriptor =
 const ClientRunWorkspaceSetRequest$json = {
   '1': 'ClientRunWorkspaceSetRequest',
   '2': [
-    {
-      '1': 'workspace_name',
-      '3': 1,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'workspaceName',
-      '17': true
-    },
-    {
-      '1': 'collection',
-      '3': 2,
-      '4': 1,
-      '5': 9,
-      '9': 1,
-      '10': 'collection',
-      '17': true
-    },
-    {
-      '1': 'workflow_name',
-      '3': 3,
-      '4': 1,
-      '5': 9,
-      '9': 2,
-      '10': 'workflowName',
-      '17': true
-    },
+    {'1': 'workspace_name', '3': 1, '4': 1, '5': 9, '10': 'workspaceName'},
     {
       '1': 'kickoff',
-      '3': 4,
+      '3': 2,
       '4': 1,
       '5': 8,
-      '9': 3,
+      '9': 0,
       '10': 'kickoff',
       '17': true
     },
   ],
   '8': [
-    {'1': '_workspace_name'},
-    {'1': '_collection'},
-    {'1': '_workflow_name'},
     {'1': '_kickoff'},
   ],
 };
 
 /// Descriptor for `ClientRunWorkspaceSetRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List clientRunWorkspaceSetRequestDescriptor = $convert.base64Decode(
-    'ChxDbGllbnRSdW5Xb3Jrc3BhY2VTZXRSZXF1ZXN0EioKDndvcmtzcGFjZV9uYW1lGAEgASgJSA'
-    'BSDXdvcmtzcGFjZU5hbWWIAQESIwoKY29sbGVjdGlvbhgCIAEoCUgBUgpjb2xsZWN0aW9uiAEB'
-    'EigKDXdvcmtmbG93X25hbWUYAyABKAlIAlIMd29ya2Zsb3dOYW1liAEBEh0KB2tpY2tvZmYYBC'
-    'ABKAhIA1IHa2lja29mZogBAUIRCg9fd29ya3NwYWNlX25hbWVCDQoLX2NvbGxlY3Rpb25CEAoO'
-    'X3dvcmtmbG93X25hbWVCCgoIX2tpY2tvZmY=');
+final $typed_data.Uint8List clientRunWorkspaceSetRequestDescriptor =
+    $convert.base64Decode(
+        'ChxDbGllbnRSdW5Xb3Jrc3BhY2VTZXRSZXF1ZXN0EiUKDndvcmtzcGFjZV9uYW1lGAEgASgJUg'
+        '13b3Jrc3BhY2VOYW1lEh0KB2tpY2tvZmYYAiABKAhIAFIHa2lja29mZogBAUIKCghfa2lja29m'
+        'Zg==');
 
 @$core.Deprecated('Use clientRunWorkspaceSetResponseDescriptor instead')
 const ClientRunWorkspaceSetResponse$json = {

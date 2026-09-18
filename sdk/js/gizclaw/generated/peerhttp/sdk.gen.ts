@@ -438,7 +438,7 @@ export const listDeviceRpcMethods = <ThrowOnError extends boolean = false>(optio
 /**
  * Switch the Workspace the bound device runs
  *
- * Forwards client.run.workspace.set to the online device. A 202 response means only that the device accepted the request; it then switches through server.run.workspace.reload-with-options. Read active_workspace_name and pending_workspace_name from GET /gizclaw/v1/device/runtime to observe the result.
+ * Resolves the target to one Workspace name and forwards client.run.workspace.set with it to the online device. workspace_name must be an available Workspace the caller owns. collection with workflow_name selects, among the caller's available Workspaces of that collection and workflow, the most recently active one, ties broken by ascending name. No match returns 404 WORKSPACE_NOT_FOUND without contacting the device; the control app cannot create a Workspace. A 202 response means only that the device accepted the request; it then switches through server.run.workspace.reload-with-options. Read active_workspace_name and pending_workspace_name from GET /gizclaw/v1/device/runtime to observe the result.
  */
 export const setDeviceRunWorkspace = <ThrowOnError extends boolean = false>(options: Options<SetDeviceRunWorkspaceData, ThrowOnError>): RequestResult<SetDeviceRunWorkspaceResponses, SetDeviceRunWorkspaceErrors, ThrowOnError> => (options.client ?? client).put<SetDeviceRunWorkspaceResponses, SetDeviceRunWorkspaceErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],

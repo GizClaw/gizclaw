@@ -6,9 +6,11 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/workspacetest"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -120,19 +122,56 @@ func TestDeviceRPCMethodsAndRunWorkspace(t *testing.T) {
 	if response.Code != http.StatusOK || strings.TrimSpace(response.Body.String()) != `{"methods":["client.run.workspace.set"]}` {
 		t.Fatalf("rpc methods status = %d body=%s", response.Code, response.Body.String())
 	}
-	if response := f.do(t, http.MethodPut, "/gizclaw/v1/device/run/workspace", `{"collection":"stories","workflow_name":"bedtime","kickoff":true}`); response.Code != http.StatusAccepted {
-		t.Fatalf("workspace set status = %d body=%s", response.Code, response.Body.String())
-	}
-	if len(sets) != 1 || sets[0].WorkflowName == nil || *sets[0].WorkflowName != "bedtime" || sets[0].Kickoff == nil || !*sets[0].Kickoff {
-		t.Fatalf("forwarded workspace sets = %+v", sets)
-	}
-	for _, body := range []string{`{}`, `{"workspace_name":"a","collection":"b","workflow_name":"c"}`, `{"collection":"stories"}`, `{"workspace_name":""}`} {
-		if response := f.do(t, http.MethodPut, "/gizclaw/v1/device/run/workspace", body); response.Code != http.StatusBadRequest {
-			t.Fatalf("workspace set %s status = %d body=%s", body, response.Code, response.Body.String())
+	created := seedDeviceWorkspaces(t, f)
+	// A second save of the same workflow, active more recently than aesop-save,
+	// is the one a workflow target resolves to.
+	workspacetest.Seed(t, f.workspaces, apitypes.Workspace{
+		Id: "ws-aesop-2", Name: "aesop-later", WorkflowId: "secret-workflow-aesop", OwnerPublicKey: new(f.owner.String()),
+		System: new(false), Labels: &map[string]string{"collection": "story-teller"},
+		CreatedAt: created, UpdatedAt: created, LastActiveAt: created.Add(3 * time.Hour),
+	})
+
+	for _, tc := range []struct {
+		body, want string
+		kickoff    bool
+	}{
+		{`{"workspace_name":"riddle-save"}`, "riddle-save", false},
+		{`{"collection":"story-teller","workflow_name":"story.aesop","kickoff":true}`, "aesop-later", true},
+	} {
+		sets = nil
+		if response := f.do(t, http.MethodPut, "/gizclaw/v1/device/run/workspace", tc.body); response.Code != http.StatusAccepted {
+			t.Fatalf("workspace set %s status = %d body=%s", tc.body, response.Code, response.Body.String())
+		}
+		if len(sets) != 1 || sets[0].WorkspaceName != tc.want || (sets[0].Kickoff != nil && *sets[0].Kickoff) != tc.kickoff {
+			t.Fatalf("workspace set %s forwarded %+v, want %s", tc.body, sets, tc.want)
 		}
 	}
-	if len(sets) != 1 {
-		t.Fatalf("invalid targets reached the device: %+v", sets)
+	sets = nil
+	for _, tc := range []struct {
+		body   string
+		status int
+	}{
+		{`{}`, http.StatusBadRequest},
+		{`{"workspace_name":"a","collection":"b","workflow_name":"c"}`, http.StatusBadRequest},
+		{`{"collection":"stories"}`, http.StatusBadRequest},
+		{`{"workspace_name":""}`, http.StatusBadRequest},
+		// Unknown, unavailable (dangling binding), system, and foreign
+		// Workspaces never reach the device.
+		{`{"workspace_name":"missing"}`, http.StatusNotFound},
+		{`{"workspace_name":"orphan-save"}`, http.StatusNotFound},
+		{`{"workspace_name":"pet"}`, http.StatusNotFound},
+		{`{"collection":"games","workflow_name":"story.aesop"}`, http.StatusNotFound},
+	} {
+		response := f.do(t, http.MethodPut, "/gizclaw/v1/device/run/workspace", tc.body)
+		if response.Code != tc.status {
+			t.Fatalf("workspace set %s status = %d body=%s", tc.body, response.Code, response.Body.String())
+		}
+		if tc.status == http.StatusNotFound && errorCode(t, response) != "WORKSPACE_NOT_FOUND" {
+			t.Fatalf("workspace set %s code = %s", tc.body, errorCode(t, response))
+		}
+	}
+	if len(sets) != 0 {
+		t.Fatalf("rejected targets reached the device: %+v", sets)
 	}
 }
 

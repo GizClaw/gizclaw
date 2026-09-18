@@ -321,7 +321,7 @@ type DeviceRunWorkspaceSetRequest struct {
 	// Kickoff Let the agent speak first once the Workspace is ready. Defaults to false.
 	Kickoff *bool `json:"kickoff,omitempty"`
 
-	// WorkflowName Workflow in collection; the device runs the Workspace it keeps for that workflow.
+	// WorkflowName Workflow in collection; the Server picks the caller's most recently active available Workspace of it.
 	WorkflowName *string `json:"workflow_name,omitempty"`
 
 	// WorkspaceName Existing Workspace to run.
@@ -717,6 +717,9 @@ type ToolNotFound = externalRef0.ErrorResponse
 
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = externalRef0.ErrorResponse
+
+// WorkspaceNotFound defines model for WorkspaceNotFound.
+type WorkspaceNotFound = externalRef0.ErrorResponse
 
 // bearerAuthContextKey is the context key for BearerAuth security scheme
 type bearerAuthContextKey string
@@ -7063,6 +7066,7 @@ type SetDeviceRunWorkspaceResponse struct {
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
+	JSON404      *WorkspaceNotFound
 	JSON409      *DeviceOffline
 	JSON500      *InternalError
 	JSON501      *DeviceUnsupported
@@ -11590,6 +11594,13 @@ func ParseSetDeviceRunWorkspaceResponse(rsp *http.Response) (*SetDeviceRunWorksp
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest WorkspaceNotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest DeviceOffline
@@ -17218,6 +17229,8 @@ type ToolNotFoundJSONResponse externalRef0.ErrorResponse
 
 type UnauthorizedJSONResponse externalRef0.ErrorResponse
 
+type WorkspaceNotFoundJSONResponse externalRef0.ErrorResponse
+
 type ListAPIKeysRequestObject struct {
 	Params ListAPIKeysParams
 }
@@ -19339,6 +19352,15 @@ type SetDeviceRunWorkspace403JSONResponse struct{ ForbiddenJSONResponse }
 func (response SetDeviceRunWorkspace403JSONResponse) VisitSetDeviceRunWorkspaceResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type SetDeviceRunWorkspace404JSONResponse struct{ WorkspaceNotFoundJSONResponse }
+
+func (response SetDeviceRunWorkspace404JSONResponse) VisitSetDeviceRunWorkspaceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }

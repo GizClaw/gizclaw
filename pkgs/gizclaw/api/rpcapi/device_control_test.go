@@ -289,30 +289,26 @@ func TestDeviceSettingsAndCapabilityPayloadRoundTrip(t *testing.T) {
 }
 
 func TestClientRunWorkspaceSetRequestValid(t *testing.T) {
-	long := strings.Repeat("w", 257)
 	for _, tc := range []struct {
 		name string
 		req  ClientRunWorkspaceSetRequest
 		want bool
 	}{
-		{"workspace", ClientRunWorkspaceSetRequest{WorkspaceName: new("chat")}, true},
-		{"workflow", ClientRunWorkspaceSetRequest{Collection: new("stories"), WorkflowName: new("bedtime"), Kickoff: new(true)}, true},
-		{"none", ClientRunWorkspaceSetRequest{}, false},
-		{"both", ClientRunWorkspaceSetRequest{WorkspaceName: new("chat"), WorkflowName: new("bedtime")}, false},
-		{"collection only", ClientRunWorkspaceSetRequest{Collection: new("stories")}, false},
-		{"empty name", ClientRunWorkspaceSetRequest{WorkspaceName: new("")}, false},
-		{"too long", ClientRunWorkspaceSetRequest{WorkspaceName: &long}, false},
+		{"named", ClientRunWorkspaceSetRequest{WorkspaceName: "chat"}, true},
+		{"kickoff", ClientRunWorkspaceSetRequest{WorkspaceName: "chat", Kickoff: new(true)}, true},
+		{"empty", ClientRunWorkspaceSetRequest{}, false},
+		{"too long", ClientRunWorkspaceSetRequest{WorkspaceName: strings.Repeat("w", 257)}, false},
 	} {
 		if got := tc.req.Valid(); got != tc.want {
 			t.Fatalf("%s: Valid() = %v, want %v", tc.name, got, tc.want)
 		}
 	}
 	var payload RPCPayload
-	if err := payload.FromClientRunWorkspaceSetRequest(ClientRunWorkspaceSetRequest{Collection: new("stories"), WorkflowName: new("bedtime"), Kickoff: new(true)}); err != nil {
+	if err := payload.FromClientRunWorkspaceSetRequest(ClientRunWorkspaceSetRequest{WorkspaceName: "bedtime", Kickoff: new(true)}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := payload.AsClientRunWorkspaceSetRequest()
-	if err != nil || got.WorkflowName == nil || *got.WorkflowName != "bedtime" || got.Kickoff == nil || !*got.Kickoff || got.WorkspaceName != nil {
+	if err != nil || got.WorkspaceName != "bedtime" || got.Kickoff == nil || !*got.Kickoff {
 		t.Fatalf("round trip = %+v, %v", got, err)
 	}
 }

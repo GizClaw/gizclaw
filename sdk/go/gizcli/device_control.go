@@ -57,10 +57,10 @@ type DeviceControlHandlers struct {
 	// leaves the caller without the response the method promises. Schedule the
 	// reset on a timer or another goroutine and return nil.
 	FactoryReset func(ctx context.Context, keepNetwork bool) error
-	// SetRunWorkspace switches the Workspace the device runs. The request names
-	// exactly one target, already validated: WorkspaceName, or Collection with
-	// WorkflowName. Kickoff is nil when the caller leaves it at its default of
-	// false.
+	// SetRunWorkspace switches the Workspace the device runs to
+	// request.WorkspaceName, already validated as non-empty; the Server has
+	// resolved any workflow target to this one name. Kickoff is nil when the
+	// caller leaves it at its default of false.
 	//
 	// The acknowledgement only means the device accepted the request. Return
 	// promptly, then switch through server.run.workspace.reload-with-options;

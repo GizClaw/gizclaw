@@ -54,8 +54,6 @@ gizclaw.rpc.v1.PeerStatusTelemetryObservedAt.wifi_rssi_dbm max_size:36
 gizclaw.rpc.v1.PeerStatusTelemetryObservedAt.cellular_rssi_dbm max_size:36
 gizclaw.rpc.v1.PeerStatusTelemetryObservedAt.cellular_signal_level max_size:36
 gizclaw.rpc.v1.ClientRunWorkspaceSetRequest.workspace_name max_size:257
-gizclaw.rpc.v1.ClientRunWorkspaceSetRequest.collection max_size:257
-gizclaw.rpc.v1.ClientRunWorkspaceSetRequest.workflow_name max_size:257
 gizclaw.rpc.v1.DeviceSettings.locale max_size:36
 gizclaw.rpc.v1.ClientRpcMethodsGetResponse.methods max_count:160 max_size:64
 gizclaw.rpc.v1.ServerRegisterRequest.token max_size:256

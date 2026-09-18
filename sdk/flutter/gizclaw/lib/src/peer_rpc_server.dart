@@ -154,9 +154,9 @@ class GizClawDeviceControlHandlers {
   /// response the method promises. Schedule the reset and return.
   final FutureOr<void> Function(bool keepNetwork)? factoryReset;
 
-  /// Switches the Workspace the device runs for `client.run.workspace.set`.
-  /// The request names exactly one target, already validated:
-  /// `workspaceName`, or `collection` with `workflowName`.
+  /// Switches the Workspace the device runs for `client.run.workspace.set` to
+  /// `request.workspaceName`, already validated; the Server has resolved any
+  /// workflow target to this one name.
   ///
   /// The acknowledgement only means the device accepted the request: complete
   /// promptly, then switch through `server.run.workspace.reload-with-options`.
@@ -1174,18 +1174,8 @@ bool _validDeviceSettingsPatch(payload.DeviceSettings patch) {
 // api/proto/rpc/nanopb.options.
 const _runWorkspaceTargetMaxBytes = 256;
 
-/// Accepts exactly one target: `workspaceName`, or `collection` together with
-/// `workflowName`.
+/// Accepts a non-empty `workspaceName` within the nanopb bound.
 bool _validRunWorkspaceRequest(payload.ClientRunWorkspaceSetRequest request) {
-  bool name(bool present, String value) =>
-      present &&
-      value.isNotEmpty &&
-      utf8.encode(value).length <= _runWorkspaceTargetMaxBytes;
-  if (request.hasWorkspaceName()) {
-    return name(true, request.workspaceName) &&
-        !request.hasCollection() &&
-        !request.hasWorkflowName();
-  }
-  return name(request.hasCollection(), request.collection) &&
-      name(request.hasWorkflowName(), request.workflowName);
+  return request.workspaceName.isNotEmpty &&
+      utf8.encode(request.workspaceName).length <= _runWorkspaceTargetMaxBytes;
 }

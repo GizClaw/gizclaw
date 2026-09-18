@@ -198,13 +198,33 @@ func (s *peerHTTP) SetDeviceRunWorkspace(ctx context.Context, request peerhttp.S
 	if request.Body == nil {
 		return setDeviceRunWorkspaceError(invalidDeviceRequest("request body is required")), nil
 	}
-	params := rpcapi.ClientRunWorkspaceSetRequest{
-		WorkspaceName: request.Body.WorkspaceName, Collection: request.Body.Collection,
-		WorkflowName: request.Body.WorkflowName, Kickoff: request.Body.Kickoff,
-	}
-	if !params.Valid() {
+	body := request.Body
+	valid := func(value *string) bool { return value != nil && *value != "" && len(*value) <= 256 }
+	byName := body.WorkspaceName != nil
+	if (byName && (!valid(body.WorkspaceName) || body.Collection != nil || body.WorkflowName != nil)) ||
+		(!byName && (!valid(body.Collection) || !valid(body.WorkflowName))) {
 		return setDeviceRunWorkspaceError(invalidDeviceRequest("set exactly one of workspace_name, or collection with workflow_name")), nil
 	}
+	reads, ok := s.deviceReads(owner)
+	if !ok {
+		return setDeviceRunWorkspaceError(internalDeviceControlError()), nil
+	}
+	var name, collection, workflowName string
+	if byName {
+		name = *body.WorkspaceName
+	} else {
+		collection, workflowName = *body.Collection, *body.WorkflowName
+	}
+	// The device reloads by name only, so a workflow target is resolved here
+	// to exactly one Workspace before the device is contacted.
+	resolved, err := reads.ResolveRunWorkspace(ctx, name, collection, workflowName)
+	if errors.Is(err, peerresource.ErrDeviceWorkspaceNotFound) {
+		return setDeviceRunWorkspaceError(&deviceControlError{Status: http.StatusNotFound, Code: "WORKSPACE_NOT_FOUND", Message: "no available Workspace matches the target"}), nil
+	}
+	if err != nil {
+		return setDeviceRunWorkspaceError(internalDeviceControlError()), nil
+	}
+	params := rpcapi.ClientRunWorkspaceSetRequest{WorkspaceName: resolved, Kickoff: body.Kickoff}
 	_, controlErr := callDeviceControl(ctx, s.DeviceControl, owner, deviceControlOptions{}, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcapi.ClientRunWorkspaceSetResponse, error) {
 		return client.SetRunWorkspace(ctx, conn, "client.run.workspace.set", params)
 	}, nil)
@@ -217,6 +237,8 @@ func (s *peerHTTP) SetDeviceRunWorkspace(ctx context.Context, request peerhttp.S
 func setDeviceRunWorkspaceError(e *deviceControlError) peerhttp.SetDeviceRunWorkspaceResponseObject {
 	body := e.response()
 	switch e.Status {
+	case http.StatusNotFound:
+		return peerhttp.SetDeviceRunWorkspace404JSONResponse{WorkspaceNotFoundJSONResponse: peerhttp.WorkspaceNotFoundJSONResponse(body)}
 	case http.StatusBadRequest:
 		return peerhttp.SetDeviceRunWorkspace400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(body)}
 	case http.StatusConflict:

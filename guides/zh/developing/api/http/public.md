@@ -127,7 +127,7 @@ PUT /gizclaw/v1/device/volume { level: 0..100, muted }
 
 `rpc-methods` 返回设备实现的 reverse RPC 名称，App 据此隐藏设备只会拒绝的控制项，未知名称应忽略；早于该方法的设备返回 `501 DEVICE_UNSUPPORTED`。
 
-`run/workspace` 请求设备切换正在运行的 Workspace：`workspace_name` 指定已有 Workspace，或用 `collection` + `workflow_name` 指定 RuntimeProfile 中的 workflow，两者恰好选一，否则 `400 INVALID_REQUEST`；`kickoff` 缺省为 false。`202` 只表示设备接受了请求，设备随后自行调用 `server.run.workspace.reload-with-options` 完成切换；结果通过 `GET /device/runtime` 的 `active_workspace_name` / `pending_workspace_name` 观察。
+`run/workspace` 请求设备切换正在运行的 Workspace：`workspace_name` 指定已有 Workspace，或用 `collection` + `workflow_name` 指定 RuntimeProfile 中的 workflow，两者恰好选一，否则 `400 INVALID_REQUEST`；`kickoff` 缺省为 false。`server.run.workspace.reload-with-options` 只接受 Workspace 名称，因此 Server 先把目标解析为唯一名称再转发：`workspace_name` 必须是调用方拥有且可用的 Workspace；workflow 目标在调用方该 collection 与 workflow 下可用的 Workspace 中选最近活跃的一个，同时间按名称升序。没有匹配时返回 `404 WORKSPACE_NOT_FOUND` 且不访问设备——控制 App 不能创建 Workspace。`202` 只表示设备接受了请求，设备随后自行调用 `server.run.workspace.reload-with-options` 完成切换；结果通过 `GET /device/runtime` 的 `active_workspace_name` / `pending_workspace_name` 观察。
 
 `tools` 让控制 App 调用设备 Tool。只有 RuntimeProfile 中 `resources.tools` 的 binding 设置了 `control_access`、且 Tool 为已启用的 `client_rpc` 类型时才对 App 可见；未设置时既不能列出也不能调用，只供 AI 与 Workflow runtime 使用。`control_access` 目前只有 `owner`（该 Peer 的任意 API Key），更严格的级别（如家长授权）以后加入同一枚举。列表只读 Server 配置，设备离线时也可用，未绑定 RuntimeProfile 时返回空列表。`invoke` 先按 Tool 的 `input_schema` 校验 `args`（省略即 `{}`），不通过返回 `400 INVALID_REQUEST` 且不访问设备；通过后转发 `client.tool.invoke`，把设备返回的 JSON 文本原样放在 `data_json`，不是合法 JSON 的应答按 `502 DEVICE_ERROR` 拒绝。
 

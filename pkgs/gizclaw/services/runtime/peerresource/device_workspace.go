@@ -150,3 +150,43 @@ func deviceWorkspaceProjection(item apitypes.Workspace, profile *apitypes.Runtim
 }
 
 var _ deviceWorkspaceService = (*workspace.Server)(nil)
+
+// ResolveRunWorkspace resolves a control-app Workspace switch target to the
+// one Workspace name the device reloads, because
+// server.run.workspace.reload-with-options takes a name only. Exactly one of
+// name, or collection with workflowName, is set.
+//
+// A name must be an available Workspace the caller owns. A workflow target
+// selects among the caller's available Workspaces of that collection and
+// workflow the most recently active one, ties broken by ascending name, so
+// several Workspaces of one workflow resolve deterministically. No match, or
+// no RuntimeProfile bound, is ErrDeviceWorkspaceNotFound; the control app
+// cannot create a Workspace, which stays the device's decision.
+func (r DeviceReads) ResolveRunWorkspace(ctx context.Context, name, collection, workflowName string) (string, error) {
+	filter := DeviceWorkspaceFilter{Collection: collection, WorkflowName: workflowName}
+	if name != "" {
+		filter = DeviceWorkspaceFilter{}
+	}
+	items, err := r.DeviceWorkspaces(ctx, filter)
+	if errors.Is(err, ErrDeviceRuntimeProfileNotBound) {
+		return "", ErrDeviceWorkspaceNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	var best *peerhttp.DeviceWorkspace
+	for i := range items {
+		item := &items[i]
+		if !item.Available || (name != "" && item.Name != name) {
+			continue
+		}
+		if best == nil || item.LastActiveAt.After(best.LastActiveAt) ||
+			(item.LastActiveAt.Equal(best.LastActiveAt) && item.Name < best.Name) {
+			best = item
+		}
+	}
+	if best == nil {
+		return "", ErrDeviceWorkspaceNotFound
+	}
+	return best.Name, nil
+}

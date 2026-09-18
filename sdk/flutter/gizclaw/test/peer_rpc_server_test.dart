@@ -1031,7 +1031,7 @@ void deviceControlTests() {
     );
   });
 
-  test('serves client.run.workspace.set for exactly one target', () async {
+  test('serves client.run.workspace.set for a named Workspace', () async {
     final seen = <ClientRunWorkspaceSetRequest>[];
     final handlers = GizClawPeerRpcHandlers(
       deviceInfo: () => device,
@@ -1043,16 +1043,13 @@ void deviceControlTests() {
       method: rpc.RpcMethod.RPC_METHOD_CLIENT_RUN_WORKSPACE_SET,
       methodName: 'client.run.workspace.set',
       request: ClientRunWorkspaceSetRequest(
-        collection: 'stories',
-        workflowName: 'bedtime',
+        workspaceName: 'bedtime',
         kickoff: true,
       ),
     );
     expect(response.hasStatus(), isFalse);
     for (final bad in [
       ClientRunWorkspaceSetRequest(),
-      ClientRunWorkspaceSetRequest(workspaceName: 'chat', collection: 's'),
-      ClientRunWorkspaceSetRequest(collection: 'stories'),
       ClientRunWorkspaceSetRequest(workspaceName: ''),
     ]) {
       response = await callDevice(
@@ -1069,7 +1066,7 @@ void deviceControlTests() {
       );
     }
     expect(seen, hasLength(1));
-    expect(seen.single.workflowName, 'bedtime');
+    expect(seen.single.workspaceName, 'bedtime');
     expect(seen.single.kickoff, isTrue);
   });
 }

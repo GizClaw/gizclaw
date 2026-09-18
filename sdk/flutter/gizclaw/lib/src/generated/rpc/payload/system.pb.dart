@@ -1075,24 +1075,19 @@ class ClientDeviceFactoryResetResponse extends $pb.GeneratedMessage {
   static ClientDeviceFactoryResetResponse? _defaultInstance;
 }
 
-/// ClientRunWorkspaceSetRequest asks the device to switch its running Workspace.
-/// Exactly one target is set: workspace_name names an existing Workspace, or
-/// collection with workflow_name names a RuntimeProfile workflow the device
-/// runs in its Workspace for that workflow. The device answers once it has
-/// accepted the request, then switches through
-/// server.run.workspace.reload-with-options; the committed result is the
-/// Workspace the Server reports, not this response.
+/// ClientRunWorkspaceSetRequest asks the device to switch its running Workspace
+/// to workspace_name, an available Workspace the device's owner owns. The Server
+/// resolves a control-app workflow target to this one name before calling, so
+/// the device reloads it directly. The device answers once it has accepted the
+/// request, then switches through server.run.workspace.reload-with-options; the
+/// committed result is the Workspace the Server reports, not this response.
 class ClientRunWorkspaceSetRequest extends $pb.GeneratedMessage {
   factory ClientRunWorkspaceSetRequest({
     $core.String? workspaceName,
-    $core.String? collection,
-    $core.String? workflowName,
     $core.bool? kickoff,
   }) {
     final result = create();
     if (workspaceName != null) result.workspaceName = workspaceName;
-    if (collection != null) result.collection = collection;
-    if (workflowName != null) result.workflowName = workflowName;
     if (kickoff != null) result.kickoff = kickoff;
     return result;
   }
@@ -1111,9 +1106,7 @@ class ClientRunWorkspaceSetRequest extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'workspaceName')
-    ..aOS(2, _omitFieldNames ? '' : 'collection')
-    ..aOS(3, _omitFieldNames ? '' : 'workflowName')
-    ..aOB(4, _omitFieldNames ? '' : 'kickoff')
+    ..aOB(2, _omitFieldNames ? '' : 'kickoff')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1147,33 +1140,15 @@ class ClientRunWorkspaceSetRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearWorkspaceName() => $_clearField(1);
 
-  @$pb.TagNumber(2)
-  $core.String get collection => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set collection($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasCollection() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearCollection() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.String get workflowName => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set workflowName($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasWorkflowName() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearWorkflowName() => $_clearField(3);
-
   /// Let the agent speak first once the Workspace is ready. Defaults to false.
-  @$pb.TagNumber(4)
-  $core.bool get kickoff => $_getBF(3);
-  @$pb.TagNumber(4)
-  set kickoff($core.bool value) => $_setBool(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasKickoff() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearKickoff() => $_clearField(4);
+  @$pb.TagNumber(2)
+  $core.bool get kickoff => $_getBF(1);
+  @$pb.TagNumber(2)
+  set kickoff($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasKickoff() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearKickoff() => $_clearField(2);
 }
 
 class ClientRunWorkspaceSetResponse extends $pb.GeneratedMessage {

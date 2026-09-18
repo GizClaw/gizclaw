@@ -1,7 +1,8 @@
 # User Story:
 # As a GizClaw API key holder,
 # I want to switch the Workspace my bound device runs through its real transport,
-# So that the request reaches client.run.workspace.set and the device switches on its own.
+# So that the Server resolves the target to one Workspace name, the request reaches
+# client.run.workspace.set, and the device switches on its own.
 version: gizclaw.test/v1alpha1
 name: server.device.run_workspace.set
 clients:
@@ -34,6 +35,18 @@ steps:
     method: server.register
     request:
       token: "${registration_token}"
+- id: create_workspace
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${resource_name}"
+      collection: assistants
+      workflow_name: flowcraft-chat-assistant
+      parameters:
+        flowcraft_workspace_parameters:
+          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
 - id: create_api_key
   client: peer
   rpc:
@@ -64,6 +77,19 @@ steps:
       workflow_name: flowcraft-chat-assistant
       kickoff: true
     status: 202
+- id: unknown_workspace
+  client: peer
+  http:
+    method: PUT
+    path: /gizclaw/v1/device/run/workspace
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      workspace_name: "${resource_name}-missing"
+    status: 404
+  expect:
+    /error/code:
+      equals: WORKSPACE_NOT_FOUND
 - id: two_targets
   client: peer
   http:
@@ -97,6 +123,12 @@ steps:
     method: client.run.workspace.set
     expect_calls: 2
 finally:
+- id: cleanup_workspace
+  client: peer
+  rpc:
+    method: server.workspace.delete
+    request:
+      name: "${resource_name}"
 - id: cleanup_peer
   client: peer
   rpc:

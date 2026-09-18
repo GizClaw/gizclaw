@@ -174,7 +174,7 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 | 129 | `client.device.settings.set` | 只应用请求中出现的成员，未出现的保持不变；响应返回应用后的完整 `DeviceSettings`，调用方据此得知设备实际接受了哪些项。 |
 | 130 | `client.device.factory_reset` | 设备清除本机状态并恢复出厂设置，设备侧不可撤销；可选 `keep_network` 保留已保存的 Wi‑Fi 与蜂窝配置，避免重新配网。Server 自身的 Peer 记录不受影响。 |
 | 131 | `client.rpc.methods.get` | 设备上报自己实现的 RPC method name 列表，调用方据此隐藏或跳过设备不支持的控制项。未知名称应忽略而不是拒绝。 |
-| 132 | `client.run.workspace.set` | 请设备切换正在运行的 Workspace：`workspace_name`，或 `collection` + `workflow_name`，恰好选一；可选 `kickoff`。设备先应答再通过 `server.run.workspace.reload-with-options` 完成切换，应答只表示接受请求。 |
+| 132 | `client.run.workspace.set` | 请设备切换到 `workspace_name` 指定的 Workspace，可选 `kickoff`；控制 App 的 workflow 目标由 Server 先解析为唯一名称。设备先应答再通过 `server.run.workspace.reload-with-options` 完成切换，应答只表示接受请求。 |
 
 ## 独立流式语音
 

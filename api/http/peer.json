@@ -1413,10 +1413,11 @@
         "summary": "Switch the Workspace the bound device runs",
         "tags": ["DeviceControl"],
         "security": [{"BearerAuth": []}],
-        "description": "Forwards client.run.workspace.set to the online device. A 202 response means only that the device accepted the request; it then switches through server.run.workspace.reload-with-options. Read active_workspace_name and pending_workspace_name from GET /gizclaw/v1/device/runtime to observe the result.",
+        "description": "Resolves the target to one Workspace name and forwards client.run.workspace.set with it to the online device. workspace_name must be an available Workspace the caller owns. collection with workflow_name selects, among the caller's available Workspaces of that collection and workflow, the most recently active one, ties broken by ascending name. No match returns 404 WORKSPACE_NOT_FOUND without contacting the device; the control app cannot create a Workspace. A 202 response means only that the device accepted the request; it then switches through server.run.workspace.reload-with-options. Read active_workspace_name and pending_workspace_name from GET /gizclaw/v1/device/runtime to observe the result.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceRunWorkspaceSetRequest"}}}},
         "responses": {
           "202": {"description": "The device accepted the request and started switching Workspaces."},
+          "404": {"$ref": "#/components/responses/WorkspaceNotFound"},
           "400": {"$ref": "#/components/responses/BadRequest"},
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
@@ -2230,6 +2231,10 @@
         "description": "The device did not answer within the control timeout.",
         "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
       },
+      "WorkspaceNotFound": {
+        "description": "WORKSPACE_NOT_FOUND when no available Workspace owned by the caller matches the target.",
+        "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+      },
       "ToolNotFound": {
         "description": "TOOL_NOT_FOUND when the bound RuntimeProfile does not expose this Tool to the control app.",
         "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
@@ -2540,7 +2545,7 @@
         "properties": {
           "workspace_name": {"type": "string", "minLength": 1, "maxLength": 256, "description": "Existing Workspace to run."},
           "collection": {"type": "string", "minLength": 1, "maxLength": 256, "description": "RuntimeProfile workflow collection; requires workflow_name."},
-          "workflow_name": {"type": "string", "minLength": 1, "maxLength": 256, "description": "Workflow in collection; the device runs the Workspace it keeps for that workflow."},
+          "workflow_name": {"type": "string", "minLength": 1, "maxLength": 256, "description": "Workflow in collection; the Server picks the caller's most recently active available Workspace of it."},
           "kickoff": {"type": "boolean", "description": "Let the agent speak first once the Workspace is ready. Defaults to false."}
         }
       },

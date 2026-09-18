@@ -219,9 +219,7 @@ export type ClientRpcMethodsGetResponse = {
   "methods": string[];
 };
 export type ClientRunWorkspaceSetRequest = {
-  "workspace_name"?: string;
-  "collection"?: string;
-  "workflow_name"?: string;
+  "workspace_name": string;
   "kickoff"?: boolean;
 };
 export type ClientRunWorkspaceSetResponse = Record<string, never>;
@@ -2273,24 +2271,11 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "workspace_name",
         "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "collection",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "workflow_name",
-        "number": 3,
-        "optional": true,
         "type": "string"
       },
       {
         "name": "kickoff",
-        "number": 4,
+        "number": 2,
         "optional": true,
         "type": "bool"
       }

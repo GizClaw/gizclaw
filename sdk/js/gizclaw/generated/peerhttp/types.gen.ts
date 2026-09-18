@@ -272,7 +272,7 @@ export type DeviceRunWorkspaceSetRequest = {
      */
     collection?: string;
     /**
-     * Workflow in collection; the device runs the Workspace it keeps for that workflow.
+     * Workflow in collection; the Server picks the caller's most recently active available Workspace of it.
      */
     workflow_name?: string;
     /**
@@ -2790,6 +2790,10 @@ export type SetDeviceRunWorkspaceErrors = {
      * The API key does not authorize this operation.
      */
     403: ErrorResponse;
+    /**
+     * WORKSPACE_NOT_FOUND when no available Workspace owned by the caller matches the target.
+     */
+    404: ErrorResponse;
     /**
      * The device has no active connection, or is rebooting and has not reconnected.
      */

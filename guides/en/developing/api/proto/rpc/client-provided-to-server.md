@@ -92,18 +92,19 @@ drift from what the device will accept, and they answer it even with no device-c
 
 `client.run.workspace.set` (132) is triggered by the control app through
 `PUT /gizclaw/v1/device/run/workspace` and asks the device to switch the Workspace it runs. The request
-names exactly one target: `workspace_name` for an existing Workspace, or `collection` with `workflow_name`
-for a RuntimeProfile workflow, in which case the device runs the Workspace it keeps for that workflow.
-The optional `kickoff` lets the agent speak first once the Workspace is ready and defaults to false. Each
-name is at most 256 bytes.
+carries only `workspace_name` (at most 256 bytes) and the optional `kickoff`, which lets the agent speak
+first once the Workspace is ready and defaults to false. The control app may target a `collection` with a
+`workflow_name`, but the Server resolves that to one Workspace name before calling (most recently active
+first, ties by ascending name; no match answers HTTP `404` without contacting the device), because
+`server.run.workspace.reload-with-options` takes a name only.
 
-The device checks the target, answers `ClientRunWorkspaceSetResponse` first, and then switches through
+The device checks the name, answers `ClientRunWorkspaceSetResponse` first, and then switches through
 `server.run.workspace.reload-with-options`; the answer only means the request was accepted, not that the
 switch finished. The committed Workspace is what the Server records, and the control app observes it
 through `active_workspace_name` / `pending_workspace_name` on `GET /gizclaw/v1/device/runtime`. An invalid
 target answers `INVALID_PARAMS`. The Go SDK uses `DeviceControlHandlers.SetRunWorkspace`; the JavaScript
-and Flutter SDKs use `setRunWorkspace`. The SDKs check the exactly-one-target rule before calling the
-handler.
+and Flutter SDKs use `setRunWorkspace`. The SDKs check that the name is non-empty and at most 256 bytes
+before calling the handler.
 
 ## Music player
 

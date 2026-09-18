@@ -82,15 +82,16 @@ Flutter SDK 直接从已注册的 handler 推导 `client.rpc.methods.get` 的返
 ## 远程切换 Workspace
 
 `client.run.workspace.set`（132）由控制 App 经 `PUT /gizclaw/v1/device/run/workspace` 触发，请设备切换正在运行的
-Workspace。请求恰好指定一个目标：`workspace_name` 指定已有 Workspace，或 `collection` + `workflow_name` 指定
-RuntimeProfile 中的 workflow，由设备运行它为该 workflow 保存的 Workspace；可选 `kickoff` 让 agent 在 Workspace
-就绪后先开口，缺省为 false。三个名称最多 256 字节。
+Workspace。请求只携带 `workspace_name`（最多 256 字节）与可选 `kickoff`（让 agent 在 Workspace 就绪后先开口，
+缺省为 false）。控制 App 可以用 `collection` + `workflow_name` 指定目标，但 Server 在调用前已把它解析为唯一的
+Workspace 名称（最近活跃者优先，同时间按名称升序；无匹配时 HTTP 返回 `404` 且不访问设备），因为
+`server.run.workspace.reload-with-options` 只接受名称。
 
-设备校验目标后先应答 `ClientRunWorkspaceSetResponse`，再自行调用 `server.run.workspace.reload-with-options`
+设备校验名称后先应答 `ClientRunWorkspaceSetResponse`，再自行调用 `server.run.workspace.reload-with-options`
 完成切换；应答只表示接受请求，不表示切换已完成。已提交的 Workspace 以 Server 记录为准，控制 App 通过
 `GET /gizclaw/v1/device/runtime` 的 `active_workspace_name` / `pending_workspace_name` 观察。目标不合法返回
 `INVALID_PARAMS`。Go SDK 使用 `DeviceControlHandlers.SetRunWorkspace`，JavaScript 与 Flutter SDK 使用
-`setRunWorkspace`；SDK 在调用 handler 前已校验"恰好一个目标"。
+`setRunWorkspace`；SDK 在调用 handler 前已校验名称非空且不超过 256 字节。
 
 ## 音乐播放器
 

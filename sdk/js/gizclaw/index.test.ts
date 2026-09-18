@@ -4286,7 +4286,7 @@ test("inbound client.device.settings.set rejects a malformed locale", async () =
   }
 });
 
-test("inbound client.run.workspace.set accepts exactly one target", async () => {
+test("inbound client.run.workspace.set requires a workspace name", async () => {
   const seen: unknown[] = [];
   const handlers = {
     deviceControl: {
@@ -4297,16 +4297,11 @@ test("inbound client.run.workspace.set accepts exactly one target", async () => 
   };
   const accepted = await serveInboundClientRPC(
     "client.run.workspace.set",
-    { collection: "stories", workflow_name: "bedtime", kickoff: true },
+    { workspace_name: "bedtime", kickoff: true },
     handlers,
   );
   assert.equal(accepted.error, undefined);
-  for (const params of [
-    {},
-    { workspace_name: "chat", workflow_name: "bedtime" },
-    { collection: "stories" },
-    { workspace_name: "" },
-  ]) {
+  for (const params of [{}, { workspace_name: "" }]) {
     const rejected = await serveInboundClientRPC(
       "client.run.workspace.set",
       params as never,
@@ -4314,9 +4309,7 @@ test("inbound client.run.workspace.set accepts exactly one target", async () => 
     );
     assert.equal(rejected.error?.code, STATUS_CODE_INVALID_ARGUMENT);
   }
-  assert.deepEqual(seen, [
-    { collection: "stories", workflow_name: "bedtime", kickoff: true },
-  ]);
+  assert.deepEqual(seen, [{ workspace_name: "bedtime", kickoff: true }]);
   const methods = await serveInboundClientRPC(
     "client.rpc.methods.get",
     {},

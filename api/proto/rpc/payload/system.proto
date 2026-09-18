@@ -107,19 +107,16 @@ message ClientDeviceFactoryResetRequest {
 message ClientDeviceFactoryResetResponse {
 }
 
-// ClientRunWorkspaceSetRequest asks the device to switch its running Workspace.
-// Exactly one target is set: workspace_name names an existing Workspace, or
-// collection with workflow_name names a RuntimeProfile workflow the device
-// runs in its Workspace for that workflow. The device answers once it has
-// accepted the request, then switches through
-// server.run.workspace.reload-with-options; the committed result is the
-// Workspace the Server reports, not this response.
+// ClientRunWorkspaceSetRequest asks the device to switch its running Workspace
+// to workspace_name, an available Workspace the device's owner owns. The Server
+// resolves a control-app workflow target to this one name before calling, so
+// the device reloads it directly. The device answers once it has accepted the
+// request, then switches through server.run.workspace.reload-with-options; the
+// committed result is the Workspace the Server reports, not this response.
 message ClientRunWorkspaceSetRequest {
-  optional string workspace_name = 1;
-  optional string collection = 2;
-  optional string workflow_name = 3;
+  string workspace_name = 1;
   // Let the agent speak first once the Workspace is ready. Defaults to false.
-  optional bool kickoff = 4;
+  optional bool kickoff = 2;
 }
 
 message ClientRunWorkspaceSetResponse {

@@ -434,32 +434,24 @@ type ClientDeviceFactoryResetRequest struct {
 type ClientDeviceFactoryResetResponse struct{}
 
 // ClientRunWorkspaceSetRequest asks the device to switch its running
-// Workspace. Exactly one target is set: WorkspaceName, or Collection together
-// with WorkflowName. The device answers once it has accepted the request and
-// then switches through server.run.workspace.reload-with-options, so the
-// response does not mean the switch has finished.
+// Workspace to WorkspaceName. The Server resolves a control-app workflow
+// target to this one name first. The device answers once it has accepted the
+// request and then switches through server.run.workspace.reload-with-options,
+// so the response does not mean the switch has finished.
 type ClientRunWorkspaceSetRequest struct {
-	WorkspaceName *string `json:"workspace_name,omitempty"`
-	Collection    *string `json:"collection,omitempty"`
-	WorkflowName  *string `json:"workflow_name,omitempty"`
-	Kickoff       *bool   `json:"kickoff,omitempty"`
+	WorkspaceName string `json:"workspace_name"`
+	Kickoff       *bool  `json:"kickoff,omitempty"`
 }
 
 // ClientRunWorkspaceSetResponse acknowledges a Workspace switch request.
 type ClientRunWorkspaceSetResponse struct{}
 
-// maxRunWorkspaceTargetLen bounds every ClientRunWorkspaceSetRequest name.
-const maxRunWorkspaceTargetLen = 256
+// maxRunWorkspaceNameLen bounds ClientRunWorkspaceSetRequest.WorkspaceName.
+const maxRunWorkspaceNameLen = 256
 
-// Valid reports whether the request names exactly one well-formed target.
+// Valid reports whether the request names a well-formed Workspace.
 func (r ClientRunWorkspaceSetRequest) Valid() bool {
-	name := func(value *string) bool {
-		return value != nil && *value != "" && len(*value) <= maxRunWorkspaceTargetLen
-	}
-	if r.WorkspaceName != nil {
-		return name(r.WorkspaceName) && r.Collection == nil && r.WorkflowName == nil
-	}
-	return name(r.Collection) && name(r.WorkflowName)
+	return r.WorkspaceName != "" && len(r.WorkspaceName) <= maxRunWorkspaceNameLen
 }
 
 // ClientRPCMethodsGetRequest asks the device which RPC methods it implements.
