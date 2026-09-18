@@ -458,4 +458,3 @@ func TestApplyDeviceStatusDropsOutOfContractFirmwareVersion(t *testing.T) {
 		}
 	}
 }
-
