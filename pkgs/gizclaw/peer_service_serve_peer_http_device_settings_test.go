@@ -130,6 +130,13 @@ func TestDeviceRPCMethodsAndRunWorkspace(t *testing.T) {
 		System: new(false), Labels: &map[string]string{"collection": "story-teller"},
 		CreatedAt: created, UpdatedAt: created, LastActiveAt: created.Add(3 * time.Hour),
 	})
+	// A system Workspace whose workflow resolves is available, and more recent
+	// than every save, yet is never a switch target by name or by workflow.
+	workspacetest.Seed(t, f.workspaces, apitypes.Workspace{
+		Id: "ws-system-aesop", Name: "system-aesop", WorkflowId: "secret-workflow-aesop", OwnerPublicKey: new(f.owner.String()),
+		System: new(true), Labels: &map[string]string{"collection": "story-teller"},
+		CreatedAt: created, UpdatedAt: created, LastActiveAt: created.Add(4 * time.Hour),
+	})
 
 	for _, tc := range []struct {
 		body, want string
@@ -160,6 +167,7 @@ func TestDeviceRPCMethodsAndRunWorkspace(t *testing.T) {
 		{`{"workspace_name":"missing"}`, http.StatusNotFound},
 		{`{"workspace_name":"orphan-save"}`, http.StatusNotFound},
 		{`{"workspace_name":"pet"}`, http.StatusNotFound},
+		{`{"workspace_name":"system-aesop"}`, http.StatusNotFound},
 		{`{"collection":"games","workflow_name":"story.aesop"}`, http.StatusNotFound},
 	} {
 		response := f.do(t, http.MethodPut, "/gizclaw/v1/device/run/workspace", tc.body)

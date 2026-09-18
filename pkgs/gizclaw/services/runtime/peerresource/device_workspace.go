@@ -156,7 +156,7 @@ var _ deviceWorkspaceService = (*workspace.Server)(nil)
 // server.run.workspace.reload-with-options takes a name only. Exactly one of
 // name, or collection with workflowName, is set.
 //
-// A name must be an available Workspace the caller owns. A workflow target
+// A name must be an available, non-system Workspace the caller owns. A workflow target
 // selects among the caller's available Workspaces of that collection and
 // workflow the most recently active one, ties broken by ascending name, so
 // several Workspaces of one workflow resolve deterministically. No match, or
@@ -177,7 +177,9 @@ func (r DeviceReads) ResolveRunWorkspace(ctx context.Context, name, collection, 
 	var best *peerhttp.DeviceWorkspace
 	for i := range items {
 		item := &items[i]
-		if !item.Available || (name != "" && item.Name != name) {
+		// A system Workspace, such as a Friend Group SFU room, is the Server's
+		// and never a switch target, even when it resolves as available.
+		if item.System || !item.Available || (name != "" && item.Name != name) {
 			continue
 		}
 		if best == nil || item.LastActiveAt.After(best.LastActiveAt) ||
