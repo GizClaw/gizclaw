@@ -1,4 +1,5 @@
 import {
+  GizClawControlError,
   createGizClawDiscoveryClient,
   createGizClawPeerMonitorClient,
   type PeerTelemetryField,
@@ -6,6 +7,7 @@ import {
 } from "@gizclaw/gizclaw-control";
 import { z } from "zod";
 import { isLocal } from "@/lib/config";
+import { nodeErrorMessage } from "@/lib/api";
 
 /**
  * A device the operator watches. The endpoint records which access point the
@@ -50,6 +52,9 @@ const runtimeSchema = z.looseObject({
   debug_mode: z.string().optional(),
   last_addr: z.string().optional(),
   last_seen_at: z.string(),
+  // Recorded by the Server, so both answer while the device is offline.
+  active_workspace_name: z.string().optional(),
+  pending_workspace_name: z.string().optional(),
 });
 const record = z.record(z.string(), z.unknown());
 
@@ -371,4 +376,185 @@ export async function loadTelemetryRange(
   // The Server downsamples to a derived step, so a long window over a short
   // recording legitimately collapses to a single point.
   return rangeSchema.parse(result);
+}
+
+/** Device-reported status members the detail page summarizes at a glance. */
+export type PeerGlance = {
+  activity?: string;
+  activityDetail?: string;
+  activityObservedAt?: string;
+  firmwareVersion?: string;
+  firmwareSha256?: string;
+  /** The more recently observed network route; Wi-Fi wins a tie. */
+  signal?:
+    | { kind: "wifi"; rssiDbm: number; observedAt?: string }
+    | {
+        kind: "cellular";
+        rssiDbm?: number;
+        level?: number;
+        observedAt?: string;
+      };
+};
+
+const glanceSchema = z.looseObject({
+  activity: z.string().optional().catch(undefined),
+  activity_detail: z.string().optional().catch(undefined),
+  firmware_version: z.string().optional().catch(undefined),
+  firmware_sha256: z.string().optional().catch(undefined),
+  wifi_rssi_dbm: z.number().finite().optional().catch(undefined),
+  cellular_rssi_dbm: z.number().finite().optional().catch(undefined),
+  cellular_signal_level: z.number().finite().optional().catch(undefined),
+  telemetry_observed_at: z
+    .record(z.string(), z.unknown())
+    .optional()
+    .catch(undefined),
+});
+
+/** Reads the at-a-glance members; malformed members read as absent. */
+export function peerGlance(status: Record<string, unknown>): PeerGlance {
+  const parsed = glanceSchema.safeParse(status);
+  if (!parsed.success) return {};
+  const value = parsed.data;
+  const observed = (field: string) => {
+    const at = value.telemetry_observed_at?.[field];
+    return typeof at === "string" && at !== "" ? at : undefined;
+  };
+  const glance: PeerGlance = {
+    activity: value.activity || undefined,
+    activityDetail: value.activity_detail || undefined,
+    activityObservedAt: observed("activity"),
+    firmwareVersion: value.firmware_version || undefined,
+    firmwareSha256: value.firmware_sha256 || undefined,
+  };
+  const wifi =
+    value.wifi_rssi_dbm === undefined
+      ? undefined
+      : {
+          kind: "wifi" as const,
+          rssiDbm: value.wifi_rssi_dbm,
+          observedAt: observed("wifi_rssi_dbm"),
+        };
+  const cellular =
+    value.cellular_rssi_dbm === undefined &&
+    value.cellular_signal_level === undefined
+      ? undefined
+      : {
+          kind: "cellular" as const,
+          rssiDbm: value.cellular_rssi_dbm,
+          level: value.cellular_signal_level,
+          observedAt: latest(
+            observed("cellular_rssi_dbm"),
+            observed("cellular_signal_level"),
+          ),
+        };
+  if (wifi && cellular) {
+    glance.signal =
+      latest(wifi.observedAt, cellular.observedAt) === wifi.observedAt
+        ? wifi
+        : cellular;
+  } else {
+    glance.signal = wifi ?? cellular;
+  }
+  return glance;
+}
+
+/** The later of two observation times; a missing or invalid time loses. */
+function latest(a: string | undefined, b: string | undefined) {
+  const time = (value: string | undefined) => {
+    const parsed = value === undefined ? NaN : Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : -Infinity;
+  };
+  return time(b) > time(a) ? b : (a ?? b);
+}
+
+/**
+ * One independently loaded device section. Offline and unsupported are
+ * expected states of a monitored device, not failures.
+ */
+export type DeviceSection<T> =
+  | { state: "ok"; data: T }
+  | { state: "offline" }
+  | { state: "unsupported" }
+  | { state: "error"; message: string };
+
+export function deviceSectionError(error: unknown): DeviceSection<never> {
+  if (error instanceof GizClawControlError) {
+    if (error.kind === "deviceOffline") return { state: "offline" };
+    if (error.kind === "deviceUnsupported") return { state: "unsupported" };
+    if (error.kind === "deviceTimeout") {
+      return {
+        state: "error",
+        message: `设备未在超时时间内响应 · ${nodeErrorMessage(error)}`,
+      };
+    }
+  }
+  return { state: "error", message: nodeErrorMessage(error) };
+}
+
+async function section<T>(
+  read: () => Promise<T>,
+  signal: AbortSignal,
+): Promise<DeviceSection<T>> {
+  try {
+    return { state: "ok", data: await read() };
+  } catch (error) {
+    // An aborted read belongs to a view that is gone; never report it.
+    if (signal.aborted) throw error;
+    return deviceSectionError(error);
+  }
+}
+
+const deviceToolList = z.object({
+  items: z.array(
+    z.looseObject({
+      name: z.string(),
+      control_access: z.string(),
+      i18n: z
+        .record(
+          z.string(),
+          z.looseObject({
+            display_name: z.string(),
+            description: z.string().optional(),
+          }),
+        )
+        .default({}),
+      input_schema: z.record(z.string(), z.unknown()).default({}),
+    }),
+  ),
+});
+export type DeviceTool = z.infer<typeof deviceToolList>["items"][number];
+
+export type DeviceConfig = {
+  settings: DeviceSection<Record<string, unknown>>;
+  rpcMethods: DeviceSection<string[]>;
+  tools: DeviceSection<DeviceTool[]>;
+};
+
+/**
+ * Device settings, the RPC methods its firmware implements and the Tools its
+ * RuntimeProfile exposes to the control app. The three reads run in parallel
+ * and fail independently, so an offline device still lists its Tools.
+ */
+export async function loadDeviceConfig(
+  endpoint: string,
+  publicKey: string,
+  signal: AbortSignal,
+): Promise<DeviceConfig> {
+  const peer = client(endpoint, publicKey, signal);
+  const [settings, rpcMethods, tools] = await Promise.all([
+    section(async () => record.parse(await peer.getSettings()), signal),
+    section(
+      async () =>
+        z
+          .object({ methods: z.array(z.string()) })
+          .parse(await peer.listRpcMethods())
+          .methods.toSorted(),
+      signal,
+    ),
+    section(
+      async () => deviceToolList.parse(await peer.listTools()).items,
+      signal,
+    ),
+  ]);
+  return { settings, rpcMethods, tools };
 }

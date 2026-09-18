@@ -4,9 +4,13 @@ import {
   ArrowUpRight,
   BatteryMedium,
   Copy,
+  Cpu,
+  Layers,
   ScrollText,
   ShieldCheck,
+  Signal,
   Wifi,
+  Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,8 +30,14 @@ import { PageHeading } from "@/components/app-shell";
 import { PeerChat } from "@/components/peer-chat";
 import { PeerTelemetry } from "@/components/peer-telemetry";
 import { PeerLocation } from "@/components/peer-location";
+import { PeerConfig } from "@/components/peer-config";
 import type { PeerState } from "@/hooks/use-peers";
-import { peerLabel, type WatchedPeer } from "@/lib/peers";
+import {
+  peerGlance,
+  peerLabel,
+  type PeerGlance,
+  type WatchedPeer,
+} from "@/lib/peers";
 import { bytes, host, timestamp } from "@/lib/format";
 import { usePageView } from "@/assistant/page-view";
 
@@ -42,6 +52,7 @@ export function PeerDetailPage({
 }) {
   const runtime = state?.snapshot?.runtime;
   const sample = state?.samples.at(-1);
+  const glance = peerGlance(state?.snapshot?.status ?? {});
   const [copied, setCopied] = useState(false);
   const [tab, setTab] = useState("traffic");
   usePageView({
@@ -166,12 +177,56 @@ export function PeerDetailPage({
           icon={<BatteryMedium size={16} />}
         />
       </div>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <MetricCard
+          label="当前活动"
+          value={glance.activity ? activityName(glance.activity) : "—"}
+          note={
+            glance.activityDetail ??
+            (glance.activity
+              ? observedNote(glance.activityObservedAt)
+              : "设备尚未上报")
+          }
+          icon={<Zap size={16} />}
+        />
+        <MetricCard
+          label="固件版本"
+          value={glance.firmwareVersion ?? "—"}
+          note={
+            glance.firmwareSha256
+              ? `SHA-256 ${glance.firmwareSha256.slice(0, 12)}…`
+              : glance.firmwareVersion
+                ? "设备上报的版本"
+                : "设备尚未上报"
+          }
+          icon={<Cpu size={16} />}
+        />
+        <MetricCard
+          label="网络信号"
+          value={signalValue(glance.signal)}
+          note={signalNote(glance.signal)}
+          icon={<Signal size={16} />}
+        />
+        <MetricCard
+          label="当前 Workspace"
+          value={runtime?.active_workspace_name ?? "—"}
+          note={
+            runtime?.pending_workspace_name
+              ? `切换中 → ${runtime.pending_workspace_name}`
+              : runtime?.active_workspace_name
+                ? "Server 记录的运行 Workspace"
+                : "尚未提交过 Workspace"
+          }
+          icon={<Layers size={16} />}
+        />
+      </div>
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="traffic">流量</TabsTrigger>
           <TabsTrigger value="chat">对话记录</TabsTrigger>
           <TabsTrigger value="telemetry">Telemetry</TabsTrigger>
           <TabsTrigger value="location">定位</TabsTrigger>
+          <TabsTrigger value="config">设备配置</TabsTrigger>
           <TabsTrigger value="state">状态字段</TabsTrigger>
         </TabsList>
         <TabsContent value="traffic">
@@ -202,6 +257,9 @@ export function PeerDetailPage({
         </TabsContent>
         <TabsContent value="location">
           <PeerLocation peer={peer} />
+        </TabsContent>
+        <TabsContent value="config">
+          <PeerConfig peer={peer} />
         </TabsContent>
         <TabsContent value="state">
           <Card>
@@ -265,6 +323,41 @@ export function PeerDetailPage({
       </Tabs>
     </>
   );
+}
+
+const ACTIVITIES: Record<string, string> = {
+  idle: "空闲",
+  chat: "对话",
+  audioplayer: "播放音频",
+  ota: "固件升级",
+};
+
+/** Activity ids are localized by id; unknown future ids stay verbatim. */
+function activityName(activity: string): string {
+  return ACTIVITIES[activity] ?? activity;
+}
+
+function observedNote(at: string | undefined) {
+  const text = timestamp(at);
+  return text === "—" ? "设备上报" : `上报于 ${text}`;
+}
+
+function signalValue(signal: PeerGlance["signal"]): string {
+  if (signal === undefined) return "—";
+  if (signal.kind === "wifi") return `${signal.rssiDbm} dBm`;
+  if (signal.rssiDbm !== undefined) return `${signal.rssiDbm} dBm`;
+  return `等级 ${signal.level}`;
+}
+
+function signalNote(signal: PeerGlance["signal"]): string {
+  if (signal === undefined) return "设备尚未上报";
+  if (signal.kind === "wifi")
+    return `Wi-Fi · ${observedNote(signal.observedAt)}`;
+  const level =
+    signal.rssiDbm !== undefined && signal.level !== undefined
+      ? ` · 等级 ${signal.level}`
+      : "";
+  return `蜂窝${level} · ${observedNote(signal.observedAt)}`;
 }
 
 /**
