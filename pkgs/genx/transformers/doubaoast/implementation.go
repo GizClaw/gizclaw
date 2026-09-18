@@ -400,8 +400,11 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 							return
 						}
 						timeoutErr := fmt.Errorf("%w after %s for stream %q", errDoubaoASTTranslateRealtimeCompletionTimeout, timeout, activeStreamID)
-						_ = output.CloseWithError(timeoutErr)
+						// Close input before output: closing output wakes the
+						// cancellation watcher, which would otherwise close
+						// input first with context.Canceled.
 						_ = input.CloseWithError(timeoutErr)
+						_ = output.CloseWithError(timeoutErr)
 						cancel(timeoutErr)
 						_ = active.Close()
 					}
