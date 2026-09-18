@@ -12,6 +12,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode"
 
 	"github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
@@ -1349,6 +1350,9 @@ type astTranslateTextState struct {
 	streamID string
 	active   bool
 	text     string
+	// sentenceEnded marks that a provider subtitle ended, so the next token
+	// starts a new sentence that may need a separating space.
+	sentenceEnded bool
 }
 
 func (s *astTranslateTextState) open(output astTranslateOutput) error {
@@ -1363,22 +1367,28 @@ func (s *astTranslateTextState) open(output astTranslateOutput) error {
 	})
 }
 
+// addToken forwards one provider subtitle token. Provider tokens are subword
+// pieces that carry their own word spacing (for example "Bon", "jour", " à"),
+// so tokens inside one subtitle are joined verbatim. Only the first token of a
+// new subtitle may need a separating space from the previous sentence.
 func (s *astTranslateTextState) addToken(output astTranslateOutput, text string) error {
-	text = strings.TrimSpace(text)
+	if s.text == "" {
+		text = strings.TrimLeftFunc(text, unicode.IsSpace)
+	}
 	if text == "" {
 		return nil
 	}
 	if err := s.open(output); err != nil {
 		return err
 	}
-	delta := text
-	if astTranslateNeedsSpace(s.text, delta) {
-		delta = " " + delta
+	if s.sentenceEnded && astTranslateNeedsSpace(s.text, text) {
+		text = " " + text
 	}
-	s.text += delta
+	s.sentenceEnded = false
+	s.text += text
 	return output.Push(&genx.MessageChunk{
 		Role: s.role,
-		Part: genx.Text(delta),
+		Part: genx.Text(text),
 		Ctrl: &genx.StreamCtrl{StreamID: s.streamID, Label: s.label},
 	})
 }
@@ -1391,6 +1401,7 @@ func (s *astTranslateTextState) addFinal(output astTranslateOutput, text string)
 	if err := s.open(output); err != nil {
 		return err
 	}
+	s.sentenceEnded = true
 	if realtimeNormalizeText(s.text) == realtimeNormalizeText(text) {
 		s.text = text
 		return nil
@@ -1434,6 +1445,7 @@ func (s *astTranslateTextState) close(output astTranslateOutput, errText string)
 	}
 	s.active = false
 	s.text = ""
+	s.sentenceEnded = false
 	return output.Push(&genx.MessageChunk{
 		Role: s.role,
 		Part: genx.Text(""),
