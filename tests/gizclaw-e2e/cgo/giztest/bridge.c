@@ -430,6 +430,7 @@ static void split_route(gzc_str_t path, gzt_route_t *out) {
       "/device/actions/reboot",
       "/device/actions/find",
       "/device/wifi/saved",
+      "/device/wifi/scan",
       "/device/telemetry",
       "/device/settings",
       "/device/runtime",
@@ -739,6 +740,7 @@ int gzt_control_request(
   gzc_str_t profile_workflows[128];
   gzc_control_device_workspace_t workspaces[64];
   gzc_control_wifi_status_t wifi;
+  gzc_control_wifi_scan_result_t wifi_networks[32];
   gzc_control_contact_t contact;
   gzc_control_api_key_t api_key_value;
   gzc_control_invite_token_t invite_token;
@@ -873,6 +875,22 @@ int gzt_control_request(
         sizeof(telemetry_buckets) / sizeof(telemetry_buckets[0]), &count);
   } else if (get && route_is(&route, "/device/wifi", false)) {
     rc = gzc_control_get_device_wifi(&control, &call, &wifi);
+  } else if (put && route_is(&route, "/device/wifi", false)) {
+    gzc_control_wifi_connect_request_t request;
+    memset(&request, 0, sizeof(request));
+    (void)body_str(body, "ssid", &request.ssid);
+    (void)body_str(body, "passphrase", &request.passphrase);
+    rc = gzc_control_connect_device_wifi(&control, &call, &request);
+  } else if (post && route_is(&route, "/device/wifi/scan", false)) {
+    gzc_control_wifi_scan_request_t request;
+    memset(&request, 0, sizeof(request));
+    int64_t timeout = 0;
+    if (body_i64(body, "timeout_ms", &timeout)) {
+      request.has_timeout_ms = true;
+      request.timeout_ms = (int32_t)timeout;
+    }
+    rc = gzc_control_scan_device_wifi(
+        &control, &call, &request, wifi_networks, sizeof(wifi_networks) / sizeof(wifi_networks[0]), &count);
   } else if (get && route_is(&route, "/device/wifi/saved", false)) {
     rc = gzc_control_list_device_saved_wifi(
         &control, &call, ssids, sizeof(ssids) / sizeof(ssids[0]), &count);
