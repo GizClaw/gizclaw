@@ -829,6 +829,22 @@ func TestTransformerKeepsProviderSubwordTokenSpacing(t *testing.T) {
 			want: "Hello, let's meet at 9 a.m. tomorrow.",
 		},
 		{
+			name: "word boundary with provider space",
+			sentences: [][]string{
+				{"Hello", " "},
+				{"world", "."},
+			},
+			want: "Hello world.",
+		},
+		{
+			name: "word boundary without provider space",
+			sentences: [][]string{
+				{"Okay"},
+				{"let", "'s", " go", "."},
+			},
+			want: "Okay let's go.",
+		},
+		{
 			name: "japanese",
 			sentences: [][]string{
 				{"こ", "ん", "に", "ち", "は", "、"},

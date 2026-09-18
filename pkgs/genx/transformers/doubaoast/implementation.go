@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
@@ -1353,6 +1354,9 @@ type astTranslateTextState struct {
 	// sentenceEnded marks that a provider subtitle ended, so the next token
 	// starts a new sentence that may need a separating space.
 	sentenceEnded bool
+	// emittedSpace reports whether the last emitted delta ended in whitespace;
+	// text may be replaced by a trimmed final and no longer shows it.
+	emittedSpace bool
 }
 
 func (s *astTranslateTextState) open(output astTranslateOutput) error {
@@ -1381,11 +1385,12 @@ func (s *astTranslateTextState) addToken(output astTranslateOutput, text string)
 	if err := s.open(output); err != nil {
 		return err
 	}
-	if s.sentenceEnded && astTranslateNeedsSpace(s.text, text) {
+	if s.sentenceEnded && !s.emittedSpace && astTranslateNeedsSpace(s.text, text) {
 		text = " " + text
 	}
 	s.sentenceEnded = false
 	s.text += text
+	s.emittedSpace = endsWithSpace(text)
 	return output.Push(&genx.MessageChunk{
 		Role: s.role,
 		Part: genx.Text(text),
@@ -1412,13 +1417,14 @@ func (s *astTranslateTextState) addFinal(output astTranslateOutput, text string)
 		return nil
 	}
 	if delta == text && s.text != "" {
-		if astTranslateNeedsSpace(s.text, delta) {
+		if !s.emittedSpace && astTranslateNeedsSpace(s.text, delta) {
 			delta = " " + delta
 		}
 		s.text += delta
 	} else {
 		s.text = text
 	}
+	s.emittedSpace = endsWithSpace(delta)
 	return output.Push(&genx.MessageChunk{
 		Role: s.role,
 		Part: genx.Text(delta),
@@ -1435,6 +1441,11 @@ func astTranslateNeedsSpace(previous, next string) bool {
 	return astTranslateASCIIWordByte(last) && astTranslateASCIIWordByte(first)
 }
 
+func endsWithSpace(text string) bool {
+	last, size := utf8.DecodeLastRuneInString(text)
+	return size > 0 && unicode.IsSpace(last)
+}
+
 func astTranslateASCIIWordByte(b byte) bool {
 	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
 }
@@ -1446,6 +1457,7 @@ func (s *astTranslateTextState) close(output astTranslateOutput, errText string)
 	s.active = false
 	s.text = ""
 	s.sentenceEnded = false
+	s.emittedSpace = false
 	return output.Push(&genx.MessageChunk{
 		Role: s.role,
 		Part: genx.Text(""),
