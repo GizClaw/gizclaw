@@ -481,6 +481,22 @@ function buildHandlers(
           if (failure != null) throw failure;
         };
         break;
+      case "client.tool.invoke": {
+        // Matches the Go runner: `{name, result}` installs a Tool that
+        // answers result as its JSON data.
+        const name = (scriptedObject as { name?: unknown }).name;
+        if (typeof name !== "string" || name.trim() === "") {
+          throw new Error(`step ${step.id} tool response requires name`);
+        }
+        const result = (scriptedObject as { result?: unknown }).result;
+        handlers.tools ??= {};
+        handlers.tools[name] = () => {
+          count(method);
+          if (failure != null) throw failure;
+          return result;
+        };
+        break;
+      }
       case "client.social.ping":
         handlers.socialPing = () => {
           count(method);

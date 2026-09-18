@@ -4353,3 +4353,53 @@ test("inbound client.device.settings.set checks the new members", async () => {
   );
   assert.equal(ok.error, undefined);
 });
+
+test("inbound client.tool.invoke runs the named Tool and returns JSON", async () => {
+  const seen: unknown[] = [];
+  const handlers = {
+    tools: {
+      set_usage_limit: (args: Record<string, unknown>) => {
+        seen.push(args);
+        return { ok: true, minutes: args.minutes };
+      },
+    },
+  };
+  const response = await serveInboundClientRPC(
+    "client.tool.invoke",
+    { invoke_name: "set_usage_limit", args: { minutes: 30 } },
+    handlers,
+  );
+  assert.equal(response.error, undefined);
+  assert.deepEqual(
+    JSON.parse((response.result as { data_json: string }).data_json),
+    { ok: true, minutes: 30 },
+  );
+  assert.deepEqual(seen, [{ minutes: 30 }]);
+
+  // An unknown Tool, including an Object prototype member, is unimplemented.
+  for (const name of ["missing", "constructor"]) {
+    const missing = await serveInboundClientRPC(
+      "client.tool.invoke",
+      { invoke_name: name, args: {} },
+      handlers,
+    );
+    assert.equal(missing.error?.code, STATUS_CODE_UNIMPLEMENTED);
+  }
+  const bad = await serveInboundClientRPC(
+    "client.tool.invoke",
+    { invoke_name: "not a name", args: {} },
+    handlers,
+  );
+  assert.equal(bad.error?.code, STATUS_CODE_INVALID_ARGUMENT);
+  // Tools are discovered through the Tool list, not the method list.
+  const methods = await serveInboundClientRPC(
+    "client.rpc.methods.get",
+    {},
+    handlers,
+  );
+  assert.ok(
+    !(methods.result as { methods: string[] }).methods.includes(
+      "client.tool.invoke",
+    ),
+  );
+});

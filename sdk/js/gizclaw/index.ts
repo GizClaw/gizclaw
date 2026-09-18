@@ -32,6 +32,7 @@ import {
   type ClientDeviceRebootRequest,
   type ClientDeviceSettingsSetRequest,
   type ClientRunWorkspaceSetRequest,
+  type ToolInvokeRequest,
   type DeviceSettings,
   type ClientDeviceSoundPlayRequest,
   type ClientDeviceVolumeSetRequest,
@@ -329,7 +330,22 @@ export type GizClawPeerRPCHandlers = {
   // push timeout, so alert the user without waiting on them, and leave the
   // handler unset on a device that cannot alert its user.
   socialPing?: (request: ClientSocialPingRequest) => Promise<void> | void;
+  // tools answers client.tool.invoke for the device's client_rpc Tools, keyed
+  // by the Tool's invoke name. The handler receives the arguments the Server
+  // already validated against the Tool's input_schema, and its result is
+  // returned to the caller as JSON (data_json). A name without a handler
+  // answers METHOD_NOT_FOUND. Tool availability is discovered through the Tool
+  // list, so tools are not advertised by client.rpc.methods.get.
+  tools?: Record<string, GizClawToolHandler>;
 };
+
+// GizClawToolHandler runs one client_rpc Tool and returns a JSON-serializable
+// result.
+export type GizClawToolHandler = (
+  args: Record<string, unknown>,
+) => Promise<unknown> | unknown;
+
+const TOOL_INVOKE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]{0,63}$/;
 
 // GizClawDeviceControlError makes a device control handler answer one specific
 // RPC error code instead of the default internal error.
@@ -2584,6 +2600,27 @@ async function answerClientRequest(
 
   try {
     switch (request.method) {
+      case "client.tool.invoke": {
+        const params = request.params as ToolInvokeRequest | undefined;
+        const name = params?.invoke_name?.trim() ?? "";
+        if (!TOOL_INVOKE_NAME_PATTERN.test(name)) {
+          return invalid();
+        }
+        const args = params?.args ?? {};
+        if (typeof args !== "object" || Array.isArray(args)) {
+          return invalid();
+        }
+        // Own keys only, so a Tool named after an Object prototype member
+        // is not answered by it.
+        const tools = handlers?.tools;
+        const handler =
+          tools != null && Object.hasOwn(tools, name) ? tools[name] : undefined;
+        if (handler == null) {
+          return unsupported();
+        }
+        const result = await handler(args as Record<string, unknown>);
+        return ok({ data_json: JSON.stringify(result ?? null) });
+      }
       case "client.info.get": {
         const handler = handlers?.deviceInfo;
         return handler == null ? unsupported() : ok(await handler());

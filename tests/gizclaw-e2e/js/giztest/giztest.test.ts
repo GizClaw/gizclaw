@@ -272,15 +272,8 @@ test("loadDocuments loads every device, contact and API key scenario", async () 
   );
   assert.ok(selected.length >= 20, `selected ${selected.length} scenarios`);
   const { documents, skipped } = await loadDocuments(selected);
-  // The JavaScript device SDK has no Tool handler surface to answer
-  // client.tool.invoke, so the Tool scenario is the only one declined.
-  assert.equal(skipped.length, 1, JSON.stringify(skipped));
-  assert.equal(
-    path.basename(skipped[0]!.path),
-    "server.device.tools.giztest.yaml",
-  );
-  assert.match(skipped[0]!.reason, /client\.tool\.invoke/u);
-  assert.equal(documents.length, selected.length - 1);
+  assert.deepEqual(skipped, []);
+  assert.equal(documents.length, selected.length);
 });
 
 test("loadDocuments loads the telemetry scenarios", async () => {
@@ -336,27 +329,19 @@ test("loadDocuments loads the find, social ping and profile scenarios", async ()
   ]);
 });
 
-test("loadDocuments loads the device settings, reset, methods and workspace scenarios", async () => {
+test("loadDocuments loads the device settings, reset, methods, workspace and tool scenarios", async () => {
   // loadDocuments orders documents by path.
   const names = [
     "server.device.factory_reset",
     "server.device.rpc_methods",
     "server.device.run_workspace.set",
     "server.device.settings",
+    "server.device.tools",
   ];
   const { documents, skipped } = await loadDocuments(
-    [...names, "server.device.tools"].map((name) =>
-      path.join(scenarioRoot, `${name}.giztest.yaml`),
-    ),
+    names.map((name) => path.join(scenarioRoot, `${name}.giztest.yaml`)),
   );
-  // client.tool.invoke needs a Tool handler surface the JavaScript device SDK
-  // does not have, so the Tool scenario is declined rather than run partially.
-  assert.equal(skipped.length, 1, JSON.stringify(skipped));
-  assert.equal(
-    path.basename(skipped[0]!.path),
-    "server.device.tools.giztest.yaml",
-  );
-  assert.match(skipped[0]!.reason, /client\.tool\.invoke/u);
+  assert.deepEqual(skipped, []);
   assert.deepEqual(
     documents.map((document) => document.name),
     names,
@@ -374,6 +359,7 @@ test("loadDocuments loads the device settings, reset, methods and workspace scen
     "client.run.workspace.set",
     "client.device.settings.get",
     "client.device.settings.set",
+    "client.tool.invoke",
   ]);
   const methods = new Set(
     documents.flatMap((document) =>
