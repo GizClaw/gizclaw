@@ -173,11 +173,10 @@ func TestASTTextAndAudioStateBranches(t *testing.T) {
 	if err := state.addToken(output, " "); err != nil {
 		t.Fatalf("blank addToken error = %v", err)
 	}
-	if err := state.addToken(output, "hello"); err != nil {
-		t.Fatalf("first addToken error = %v", err)
-	}
-	if err := state.addToken(output, "world"); err != nil {
-		t.Fatalf("second addToken error = %v", err)
+	for _, token := range []string{"hel", "lo", " world"} {
+		if err := state.addToken(output, token); err != nil {
+			t.Fatalf("addToken(%q) error = %v", token, err)
+		}
 	}
 	if state.text != "hello world" {
 		t.Fatalf("token text = %q", state.text)
@@ -191,12 +190,40 @@ func TestASTTextAndAudioStateBranches(t *testing.T) {
 	if err := state.addFinal(output, "new"); err != nil || state.text != "hello new" {
 		t.Fatalf("replacement addFinal = text %q, error %v", state.text, err)
 	}
+	if err := state.addToken(output, "next"); err != nil || state.text != "hello new next" {
+		t.Fatalf("token after addFinal = text %q, error %v", state.text, err)
+	}
 	if err := state.close(output, "done"); err != nil || state.active || state.text != "" {
 		t.Fatalf("active close = active %t text %q error %v", state.active, state.text, err)
 	}
 	if !astTranslateNeedsSpace("a", "b") || astTranslateNeedsSpace("a ", "b") ||
 		!astTranslateASCIIWordByte('9') || astTranslateASCIIWordByte('-') {
 		t.Fatal("ASCII spacing helpers returned unexpected values")
+	}
+
+	boundary := &astTranslateTextState{role: genx.RoleModel, label: "assistant", streamID: "boundary"}
+	boundaryOutput := &recordingASTTranslateOutput{}
+	for _, step := range []struct{ token, final string }{
+		{token: "Hello"}, {token: " "}, {final: "Hello "}, {token: "world"}, {token: "."}, {final: "world."},
+	} {
+		var err error
+		if step.final != "" {
+			err = boundary.addFinal(boundaryOutput, step.final)
+		} else {
+			err = boundary.addToken(boundaryOutput, step.token)
+		}
+		if err != nil {
+			t.Fatalf("boundary step %+v error = %v", step, err)
+		}
+	}
+	var streamed strings.Builder
+	for _, chunk := range boundaryOutput.snapshot() {
+		if text, ok := chunk.Part.(genx.Text); ok {
+			streamed.WriteString(string(text))
+		}
+	}
+	if streamed.String() != "Hello world." {
+		t.Fatalf("streamed boundary text = %q, want %q", streamed.String(), "Hello world.")
 	}
 
 	wantErr := errors.New("push failed")
