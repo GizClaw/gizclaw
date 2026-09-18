@@ -1,0 +1,31 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  id: flowcraft-mixed-provider-voices
+spec:
+  driver: flowcraft
+  flowcraft:
+    graph:
+      edges:
+      - from: answer
+        to: __end__
+      entry: answer
+      name: flowcraft-mixed-provider-voices
+      nodes:
+      - config:
+          max_tokens: 2048
+          model: llm
+          system_prompt: 你是配音剧本复读器。逐字输出用户给出的剧本，保留全部【】标记和标点，不增删、不改写、不解释。
+        id: answer
+        publish: true
+        type: llm
+    max_iterations: 4
+    conversation:
+      starts: peer
+    voice_adapter:
+      asr_model: asr
+      default_voice: narrator
+      speaker_voices:
+        旁白: narrator
+        弟弟: minimax-boy

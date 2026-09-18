@@ -1,0 +1,24 @@
+{
+  "voice_adapter": {
+    "default_voice": "story.default",
+    "speaker_voices": {"fox": "story.fox"}
+  },
+  "graph": {
+    "name": "mixed-provider-voices",
+    "compile": {"node_trigger_mode": "any_predecessor"},
+    "state": {"fields": [
+      {"name": "line", "type": "string", "merge": "replace"},
+      {"name": "answer", "type": "string", "merge": "replace"}
+    ]},
+    "nodes": [
+      {"id": "narrate", "type": "script", "language": "starlark", "entrypoint": "run",
+        "inputs": {"text": {"from": "input.text"}}, "outputs": {"line": "line"},
+        "source": "def run(input):\n  return {\"line\": \"The narrator begins. 【fox】\" + input[\"text\"]}\n",
+        "limits": {"timeout": "100ms", "max_execution_steps": 1000, "max_input_bytes": 4096, "max_output_bytes": 4096}},
+      {"id": "answer", "type": "passthrough", "inputs": {"value": {"from": "line"}}, "outputs": {"value": "answer"}}
+    ],
+    "edges": [{"from": "start", "to": "narrate"}, {"from": "narrate", "to": "answer"}, {"from": "answer", "to": "end"}],
+    "branches": [],
+    "outputs": [{"node": "answer", "field": "answer", "name": "assistant", "mime_type": "text/plain", "primary": true}]
+  }
+}

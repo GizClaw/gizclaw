@@ -365,10 +365,14 @@ func (f Factory) wrapAudio(core genx.Transformer, voice apitypes.VoiceAdapter, i
 	}
 	defaultVoice := stringValue(voice.DefaultVoice)
 	nodeVoices := maps.Clone(valueOrZero(voice.NodeVoices))
-	if voice.SpeakerVoices != nil {
+	pattern := voicePattern
+	if voice.SpeakerVoices != nil && len(*voice.SpeakerVoices) != 0 {
+		// Speaker segments of one reply share one audio route, so every Voice
+		// that can speak in it is asked for the same streaming format.
+		pattern = func(alias string) string { return peergenx.WithSegmentVoiceFormat(voicePattern(alias)) }
 		config.SpeakerVoices = make(map[string]string, len(*voice.SpeakerVoices))
 		for name, alias := range *voice.SpeakerVoices {
-			config.SpeakerVoices[name] = "voice/" + alias
+			config.SpeakerVoices[name] = pattern(alias)
 		}
 	}
 	if defaultVoice != "" || len(nodeVoices) != 0 || len(config.SpeakerVoices) != 0 {
@@ -381,7 +385,7 @@ func (f Factory) wrapAudio(core genx.Transformer, voice apitypes.VoiceAdapter, i
 			if alias == "" {
 				return "", nil
 			}
-			return voicePattern(alias), nil
+			return pattern(alias), nil
 		}
 	}
 	return audiodock.New(config)

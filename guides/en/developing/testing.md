@@ -1300,7 +1300,7 @@ Successful runs write redacted monotonic timing evidence below ignored `tests/gi
 ## Deterministic multi-role audio Giztest
 
 ```sh
-go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|FlowcraftMultiVoiceGiztest|MultiRole.*)$' -count=1
+go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|MixedProviderSpeakerVoicesGiztest|FlowcraftMultiVoiceGiztest|MultiRole.*)$' -count=1
 ```
 
 The suite shares the fake provider in `voice_fixture_test.go` while retaining real
@@ -1318,6 +1318,15 @@ whole suite after building Console assets, reusing its audio test environment.
   `max_active=1`, `open=0` and `violations=0` check BOS/EOS, interleaving and late
   data. Session-wide ownership and TTS call counts also verify that ordinary
   multi-turn synthesis has at most one active call.
+- `TestMixedProviderSpeakerVoicesGiztest` runs `eino-voices/mixed-providers` and
+  `multi-role-voices/mixed-providers` (Flowcraft): one reply whose narrator Voice
+  natively returns Ogg/Opus and whose `【fox】` Voice natively returns MP3,
+  through AgentHost with Workspace History. It requires text and audio EOS,
+  `streams=1` and the digest of both segments as one `audio/ogg` stream, checks
+  that every Voice was asked for `format=ogg_opus`, and that History stores the
+  reply text with both segments' Opus packets in order. The `ignore-format`
+  fault keeps the MP3 output and must fail with AudioDock's mixed audio MIME
+  error.
 - `audio_pacing` requires 40 packets of 20 ms, a maximum interval of 150 ms, no
   underruns with a 500 ms prebuffer and a nonnegative minimum buffer. Both
   workflows have `long-reply.giztest.yaml` cases with over 2 KB of text and 160
@@ -1427,4 +1436,12 @@ The standard provider-backed Giztest phase also runs `eino-speaker-voices.text-r
 tests/gizclaw-e2e/testdata/bin/gizclaw test run \
   tests/gizclaw-e2e/giztest/eino-speaker-voices.text-roundtrip.giztest.yaml \
   tests/gizclaw-e2e/giztest/flowcraft-speaker-voices.text-roundtrip.giztest.yaml --parallel 2
+```
+
+`eino-mixed-provider-voices.text-roundtrip` and `flowcraft-mixed-provider-voices.text-roundtrip` also run in that phase. The narrator is the Volc `narrator` Voice and the `【弟弟】` character is the MiniMax CN system Voice `minimax-boy` (`speech-2.6-turbo`, no `provider_data.format` override), so one reply mixes providers whose Voices default to different formats. The scenarios check that the MiniMax Voice synthesizes with the test account, that the reply ends with text and audio EOS as one audio stream (`streams=1`, `max_active=1`, `open=0`, `violations=0`), that ASR hears the segments in order, and that Workspace History stores the reply as a replayable agent entry. History requests explicitly use descending order; the Go runner unwraps the protobuf `value`, so assertions use `/available`, `/items/0/type`, `/items/0/replay_available`, and `/items/0/text`. The three-segment script retains a 20 KB audio minimum; transcription uses `森林.*苹果.*日出` to check content order while allowing ASR punctuation differences instead of requiring verbatim text. These scenarios do not impose a playback-underrun threshold on live providers. JS, C, and Flutter runners explicitly skip these audio documents, as they do the single-provider precedent. They need the MiniMax CN credential from `tests/gizclaw-e2e/.env`; the `minimax-cn` tenant uses `https://api.minimaxi.com`. Run them alone against a started Docker stack:
+
+```sh
+tests/gizclaw-e2e/testdata/bin/gizclaw test run \
+  tests/gizclaw-e2e/giztest/eino-mixed-provider-voices.text-roundtrip.giztest.yaml \
+  tests/gizclaw-e2e/giztest/flowcraft-mixed-provider-voices.text-roundtrip.giztest.yaml --parallel 2
 ```

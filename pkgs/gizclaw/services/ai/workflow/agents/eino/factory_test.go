@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -255,6 +256,7 @@ func TestWrapAudioSupportsASROnlyTTSOnlyAndVoiceSelection(t *testing.T) {
 			"narration": "narrate",
 			"silent":    "silent-node",
 		},
+		einoVoicePattern,
 	)
 	for _, testCase := range []struct {
 		name string
@@ -274,9 +276,74 @@ func TestWrapAudioSupportsASROnlyTTSOnlyAndVoiceSelection(t *testing.T) {
 		"",
 		map[string]string{"answer": "speech.assistant"},
 		map[string]string{"assistant": "answer"},
+		einoVoicePattern,
 	)
 	if got, err := withoutFallback(t.Context(), audiodock.VoiceRequest{Name: "other"}); err != nil || got != "" {
 		t.Fatalf("resolve unmapped Voice = %q, %v, want disabled", got, err)
+	}
+}
+
+func TestWrapAudioRequestsOneSegmentFormatFromSpeakerVoices(t *testing.T) {
+	t.Parallel()
+	var (
+		mu       sync.Mutex
+		patterns []string
+	)
+	mux := einoTestMux(func(_ context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
+		mu.Lock()
+		patterns = append(patterns, pattern)
+		mu.Unlock()
+		output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 4)
+		go func() {
+			defer input.Close()
+			for {
+				if _, err := input.Next(); err != nil {
+					break
+				}
+			}
+			_ = output.Add(
+				&genx.MessageChunk{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/ogg", Data: []byte("OggS")}, Ctrl: &genx.StreamCtrl{BeginOfStream: true}},
+				&genx.MessageChunk{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/ogg"}, Ctrl: &genx.StreamCtrl{EndOfStream: true}},
+			)
+			_ = output.Done(genx.Usage{})
+		}()
+		return output.Stream(), nil
+	})
+	core := einoTestTransformer(func(context.Context, genx.Stream) (genx.Stream, error) {
+		output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 4)
+		_ = output.Add(
+			&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("Once. 【fox】Hi."), Ctrl: &genx.StreamCtrl{StreamID: "reply"}},
+			&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "reply", EndOfStream: true}},
+		)
+		_ = output.Done(genx.Usage{})
+		return output.Stream(), nil
+	})
+	fallback := "story.default"
+	speakers := map[string]string{"fox": "story.fox"}
+	dock, err := wrapAudio(mux, core, apitypes.VoiceAdapter{DefaultVoice: &fallback, SpeakerVoices: &speakers}, nil, apitypes.WorkspaceInputModePushToTalk)
+	if err != nil {
+		t.Fatalf("wrapAudio() error = %v", err)
+	}
+	output, err := dock.Transform(t.Context(), genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 1).Stream())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	defer output.Close()
+	for {
+		if _, err := output.Next(); err != nil {
+			if !errors.Is(err, io.EOF) && !errors.Is(err, genx.ErrDone) {
+				t.Fatalf("Next() error = %v", err)
+			}
+			break
+		}
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	// The next segment's TTS starts while the previous one plays.
+	slices.Sort(patterns)
+	want := []string{"voice/story.default?format=ogg_opus", "voice/story.fox?format=ogg_opus"}
+	if strings.Join(patterns, ",") != strings.Join(want, ",") {
+		t.Fatalf("TTS patterns = %q, want %q", patterns, want)
 	}
 }
 

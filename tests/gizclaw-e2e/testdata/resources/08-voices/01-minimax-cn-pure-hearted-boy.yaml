@@ -1,0 +1,16 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Voice
+metadata:
+  id: "minimax-tenant:minimax-cn:Chinese (Mandarin)_Pure-hearted_Boy"
+spec:
+  description: MiniMax CN system Voice without a provider_data.format override
+  display_name: MiniMax Pure-hearted Boy
+  provider:
+    kind: minimax-tenant
+    id: minimax-cn
+  provider_data:
+    voice_id: "Chinese (Mandarin)_Pure-hearted_Boy"
+    voice_type: system
+    model: speech-2.6-turbo
+  source: manual

@@ -616,3 +616,24 @@ func parsePatternParamValue(key, value string) any {
 func isDenied(err error) bool {
 	return errors.Is(err, ErrDenied)
 }
+
+// SegmentVoiceFormat is the TTS output format requested from every Voice that
+// speaks in a multi-voice reply. Every built-in Voice provider supports it
+// natively and streams it as audio/ogg, so the segments of one reply share a
+// single audio MIME type regardless of each Voice's own format.
+const SegmentVoiceFormat = "ogg_opus"
+
+// WithSegmentVoiceFormat returns a Voice TransformerMux pattern that requests
+// SegmentVoiceFormat. The format parameter overrides any format already in the
+// pattern, the Voice's provider_data.format, and the provider default. A
+// pattern whose query cannot be parsed is returned unchanged so that
+// ResolveTransformer reports it.
+func WithSegmentVoiceFormat(pattern string) string {
+	base, rawQuery, _ := strings.Cut(strings.TrimSpace(pattern), "?")
+	values, err := url.ParseQuery(rawQuery)
+	if err != nil {
+		return pattern
+	}
+	values.Set("format", SegmentVoiceFormat)
+	return base + "?" + values.Encode()
+}

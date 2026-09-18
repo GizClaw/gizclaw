@@ -31,9 +31,12 @@ type DefaultBuilder struct {
 	HTTPClient *http.Client
 }
 
+// Every built-in Voice provider defaults to streaming Ogg/Opus ("audio/ogg"),
+// so workflow replies are decoded incrementally by device mixers and Voices
+// from different providers produce the same audio MIME type.
 const (
 	defaultVolcTTSAudioFormat    = "ogg_opus"
-	defaultMiniMaxTTSAudioFormat = "mp3"
+	defaultMiniMaxTTSAudioFormat = minimaxtts.FormatOggOpus
 	defaultTTSAudioSampleRate    = 16000
 	defaultMiniMaxBaseURL        = "https://api.minimax.io"
 	defaultDeepSeekBaseURL       = "https://api.deepseek.com"

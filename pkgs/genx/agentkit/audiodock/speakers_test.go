@@ -255,3 +255,66 @@ func TestSpeakerSegmentsReuseSameVoiceSession(t *testing.T) {
 		})
 	}
 }
+
+func TestSpeakerSegmentsRejectMixedAudioMIME(t *testing.T) {
+	agent := transformerFunc(func(context.Context, genx.Stream) (genx.Stream, error) {
+		return &sliceStream{chunks: []*genx.MessageChunk{
+			{Role: genx.RoleModel, Part: genx.Text("【甲】one【乙】two"), Ctrl: &genx.StreamCtrl{StreamID: "reply", BeginOfStream: true}},
+			{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "reply", EndOfStream: true}},
+		}}, nil
+	})
+	tts := muxFunc(func(_ context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
+		for {
+			if _, err := input.Next(); err != nil {
+				break
+			}
+		}
+		mimeType := "audio/ogg"
+		if pattern == "mp3" {
+			mimeType = "audio/mpeg"
+		}
+		return &sliceStream{chunks: []*genx.MessageChunk{
+			{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: mimeType, Data: []byte(pattern)}, Ctrl: &genx.StreamCtrl{StreamID: "tts", BeginOfStream: true}},
+			{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: mimeType}, Ctrl: &genx.StreamCtrl{StreamID: "tts", EndOfStream: true}},
+		}}, nil
+	})
+	dock, err := New(Config{Agent: agent, TTS: tts, ResolveVoice: fixedVoice("default"), SpeakerVoices: map[string]string{"甲": "ogg", "乙": "mp3"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := dock.Transform(t.Context(), emptyStream{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer out.Close()
+	var text strings.Builder
+	var audio []string
+	var terminals []string
+	for _, chunk := range readAll(t, out) {
+		switch part := chunk.Part.(type) {
+		case genx.Text:
+			text.WriteString(string(part))
+		case *genx.Blob:
+			if len(part.Data) > 0 {
+				audio = append(audio, part.MIMEType+":"+string(part.Data))
+			}
+		}
+		if chunk.IsEndOfStream() {
+			mimeType, _ := chunk.MIMEType()
+			terminals = append(terminals, mimeType+"="+chunk.Ctrl.Error)
+		}
+	}
+	if text.String() != "onetwo" || strings.Join(audio, ",") != "audio/ogg:ogg" {
+		t.Fatalf("text=%q audio=%v", text.String(), audio)
+	}
+	// Text and the first segment's audio route end with the error; the route
+	// control terminal follows them.
+	if len(terminals) < 2 || !strings.HasPrefix(terminals[0], "text/plain=") || !strings.HasPrefix(terminals[1], "audio/ogg=") {
+		t.Fatalf("terminals=%v, want text and audio EOS", terminals)
+	}
+	for _, terminal := range terminals {
+		if !strings.Contains(terminal, `speaker segment audio "audio/mpeg" differs from response audio "audio/ogg"`) {
+			t.Fatalf("terminal=%q, want mixed audio MIME error", terminal)
+		}
+	}
+}

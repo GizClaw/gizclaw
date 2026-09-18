@@ -1,0 +1,39 @@
+# User Story:
+# As a user listening to a Flowcraft story whose narrator and character Voices use different TTS providers,
+# I want one reply to play the narration and the character line as one ordered audio stream,
+# So that the turn completes and is saved to Workspace History.
+version: gizclaw.test/v1alpha1
+name: flowcraft.multi-voice.mixed-providers
+timeout: 20s
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: http://fixture.invalid
+variables:
+  digest:
+    direction: input
+    type: string
+    value: fixture-supplied
+steps:
+  - id: narrator_and_fox
+    client: peer
+    timeout: 5s
+    peer_stream:
+      mode: text
+      input: I am the fox.
+    expect:
+      /text_eos:
+        equals: true
+      /audio_eos:
+        equals: true
+      /audio_integrity/sha256:
+        equals: ${digest}
+      /audio_integrity/streams:
+        equals: 1
+      /audio_integrity/max_active:
+        equals: 1
+      /audio_integrity/open:
+        equals: 0
+      /audio_integrity/violations:
+        equals: 0

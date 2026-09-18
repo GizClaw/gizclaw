@@ -802,7 +802,7 @@ jobs:
           path: tests/gizclaw-e2e/.testbench/speaker-segments-*/reports/
           include-hidden-files: true
       - name: Verify deterministic multi-role voice Giztests
-        run: go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|FlowcraftMultiVoiceGiztest|MultiRole.*|SpeakerSegmentsGiztest)$' -count=1
+        run: go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|MixedProviderSpeakerVoicesGiztest|FlowcraftMultiVoiceGiztest|MultiRole.*|SpeakerSegmentsGiztest)$' -count=1
 
   terraform-provider-e2e:
     name: Terraform Provider E2E
