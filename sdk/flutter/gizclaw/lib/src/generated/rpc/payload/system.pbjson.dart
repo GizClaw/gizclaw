@@ -1263,10 +1263,6 @@ const PeerStatus$json = {
     {'1': '_cellular_rssi_dbm'},
     {'1': '_cellular_signal_level'},
   ],
-  '9': [
-    {'1': 3, '2': 4},
-  ],
-  '10': ['details'],
 };
 
 @$core.Deprecated('Use peerStatusDescriptor instead')
@@ -1307,8 +1303,7 @@ final $typed_data.Uint8List peerStatusDescriptor = $convert.base64Decode(
     'V0ZWRCDgoMX3JlcG9ydGVkX2F0QgkKB192b2x1bWVCDwoNX25ldHdvcmtfaW1laUIPCg1fbmV0'
     'd29ya19pbXNpQhgKFl90ZWxlbWV0cnlfb2JzZXJ2ZWRfYXRCCwoJX2FjdGl2aXR5QhIKEF9hY3'
     'Rpdml0eV9kZXRhaWxCEwoRX2Zpcm13YXJlX3ZlcnNpb25CEAoOX3dpZmlfcnNzaV9kYm1CFAoS'
-    'X2NlbGx1bGFyX3Jzc2lfZGJtQhgKFl9jZWxsdWxhcl9zaWduYWxfbGV2ZWxKBAgDEARSB2RldG'
-    'FpbHM=');
+    'X2NlbGx1bGFyX3Jzc2lfZGJtQhgKFl9jZWxsdWxhcl9zaWduYWxfbGV2ZWw=');
 
 @$core.Deprecated('Use peerStatusTelemetryObservedAtDescriptor instead')
 const PeerStatusTelemetryObservedAt$json = {

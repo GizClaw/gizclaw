@@ -288,11 +288,6 @@ message PeerStatus {
   optional double wifi_rssi_dbm = 21;
   optional double cellular_rssi_dbm = 22;
   optional double cellular_signal_level = 23;
-
-  // 3 was google.protobuf.Struct details, an untyped map whose only content
-  // was the observation times now carried by telemetry_observed_at.
-  reserved 3;
-  reserved "details";
 }
 
 // PeerStatusTelemetryObservedAt records when the device observed the value now

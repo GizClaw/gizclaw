@@ -2,6 +2,7 @@ package peertelemetry
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -436,3 +437,25 @@ func TestApplyDeviceStatusValidatesReportedActivity(t *testing.T) {
 		t.Fatalf("Activity = %#v, want %q", got.Activity, good)
 	}
 }
+
+// A device control response is untrusted: a firmware_version outside the
+// 1-128 byte contract is dropped and the stored version is kept.
+func TestApplyDeviceStatusDropsOutOfContractFirmwareVersion(t *testing.T) {
+	store := &memoryStatusStore{}
+	sync := StatusSync{Store: store}
+	peer := giznet.PublicKey{9}
+	now := time.Date(2026, 9, 18, 10, 0, 0, 0, time.UTC)
+	if _, err := sync.ApplyDeviceStatus(context.Background(), peer, apitypes.PeerStatus{FirmwareVersion: new("1.2.3")}, now); err != nil {
+		t.Fatal(err)
+	}
+	for name, version := range map[string]string{"empty": "", "oversized": strings.Repeat("v", 129)} {
+		got, err := sync.ApplyDeviceStatus(context.Background(), peer, apitypes.PeerStatus{FirmwareVersion: new(version), Volume: new(20)}, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.FirmwareVersion == nil || *got.FirmwareVersion != "1.2.3" {
+			t.Fatalf("%s: firmware_version = %v, want the stored 1.2.3", name, got.FirmwareVersion)
+		}
+	}
+}
+

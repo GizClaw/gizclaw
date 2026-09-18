@@ -164,7 +164,9 @@ func (s StatusSync) ApplyDeviceStatus(ctx context.Context, peer giznet.PublicKey
 		status.FirmwareSha256 = &value
 		changed = true
 	}
-	if reported.FirmwareVersion != nil && len(*reported.FirmwareVersion) <= firmwareVersionMaxLen {
+	// The version is untrusted the same way: one outside the 1-128 byte
+	// contract is dropped and the stored version is kept.
+	if reported.FirmwareVersion != nil && *reported.FirmwareVersion != "" && len(*reported.FirmwareVersion) <= firmwareVersionMaxLen {
 		value := *reported.FirmwareVersion
 		status.FirmwareVersion = &value
 		changed = true

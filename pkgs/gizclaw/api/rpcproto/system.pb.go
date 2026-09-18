@@ -4345,7 +4345,7 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x11_download_percentB\x11\n" +
 	"\x0f_target_versionB\r\n" +
 	"\v_error_codeB\x10\n" +
-	"\x0e_error_message\"\xde\v\n" +
+	"\x0e_error_message\"\xcf\v\n" +
 	"\n" +
 	"PeerStatus\x124\n" +
 	"\x03ota\x18\r \x01(\v2\x1d.gizclaw.rpc.v1.PeerOtaStatusH\x00R\x03ota\x88\x01\x01\x12,\n" +
@@ -4396,7 +4396,7 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x11_firmware_versionB\x10\n" +
 	"\x0e_wifi_rssi_dbmB\x14\n" +
 	"\x12_cellular_rssi_dbmB\x18\n" +
-	"\x16_cellular_signal_levelJ\x04\b\x03\x10\x04R\adetails\"\xc6\x06\n" +
+	"\x16_cellular_signal_level\"\xc6\x06\n" +
 	"\x1dPeerStatusTelemetryObservedAt\x12,\n" +
 	"\x0fbattery_percent\x18\x01 \x01(\tH\x00R\x0ebatteryPercent\x88\x01\x01\x12\x1f\n" +
 	"\bcharging\x18\x02 \x01(\tH\x01R\bcharging\x88\x01\x01\x12(\n" +
