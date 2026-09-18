@@ -275,4 +275,3 @@ func TestDeviceToolInvokeRejectsNonJSONDeviceResult(t *testing.T) {
 		t.Fatalf("invoke status = %d body=%s", response.Code, response.Body.String())
 	}
 }
-
