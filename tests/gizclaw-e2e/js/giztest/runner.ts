@@ -15,6 +15,7 @@ import {
   taskTimeoutMs,
 } from "./document.ts";
 import { ScenarioClient } from "./client.ts";
+import { telemetryFrameFromProtoJSON } from "./proto_json.ts";
 import { Variables } from "./variables.ts";
 
 const CLEANUP_BUDGET_MS = 30_000;
@@ -26,6 +27,17 @@ export type StepReport = {
   client?: string;
   status: "passed" | "failed";
   stage: string;
+  duration_ms: number;
+  error?: string;
+  evidence?: Record<string, unknown>;
+  attempts?: AttemptReport[];
+};
+
+// AttemptReport records one try of a retried step, as the Go runner does.
+export type AttemptReport = {
+  attempt: number;
+  status: "passed" | "failed";
+  failure_kind?: string;
   duration_ms: number;
   error?: string;
   evidence?: Record<string, unknown>;
@@ -133,6 +145,18 @@ async function runStep(
     return { evidence, value: result.body };
   }
 
+  if (step.telemetry != null) {
+    if (client == null) {
+      throw new Error(`step ${step.id} has no connected client`);
+    }
+    const frame = telemetryFrameFromProtoJSON(
+      variables.resolve(step.telemetry.frame),
+    );
+    await client.sendTelemetry(frame, signal);
+    const observations = frame.observations?.length ?? 0;
+    return { value: { observations, sent: true } };
+  }
+
   if (step.reconnect != null) {
     if (client == null) {
       throw new Error(`step ${step.id} has no connected client`);
@@ -191,7 +215,127 @@ async function runStep(
   throw new Error(`step ${step.id} declares no supported operation`);
 }
 
+// failureKind classifies a step failure the way the Go runner does, so a
+// retry policy's `on` list selects the same failures in every runner.
+export function failureKind(
+  failure: Error | undefined,
+  taskSignal: AbortSignal,
+): string {
+  if (failure == null) {
+    return "";
+  }
+  if (failure instanceof AssertionFailure) {
+    return "assertion";
+  }
+  if (taskSignal.aborted) {
+    return "cancelled";
+  }
+  const cause = failure.cause instanceof Error ? failure.cause : undefined;
+  if (failure.name === "TimeoutError" || cause?.name === "TimeoutError") {
+    return "timeout";
+  }
+  return "operation";
+}
+
+async function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) {
+    throw signal.reason;
+  }
+  await new Promise<void>((resolve, reject) => {
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+// runStepReport runs one step, retrying it under its retry policy. A failed
+// attempt's captures are discarded so the next attempt starts from the same
+// variables.
 async function runStepReport(
+  step: Step,
+  clients: Map<string, ScenarioClient>,
+  variables: Variables,
+  signal: AbortSignal,
+  redactions: string[],
+  stage: string,
+  out: NodeJS.WriteStream,
+): Promise<{ failure?: Error; report: StepReport }> {
+  const retry = step.retry;
+  if (retry == null) {
+    return runStepAttempt(
+      step,
+      clients,
+      variables,
+      signal,
+      redactions,
+      stage,
+      out,
+    );
+  }
+  const started = Date.now();
+  const retryOn = retry.on ?? ["timeout"];
+  const delay =
+    retry.delay == null || retry.delay === "" ? 0 : parseDuration(retry.delay);
+  const attempts: AttemptReport[] = [];
+  let result: { failure?: Error; report: StepReport } | undefined;
+  for (let attempt = 1; attempt <= retry.attempts; attempt++) {
+    const snapshot = variables.snapshot();
+    result = await runStepAttempt(
+      step,
+      clients,
+      variables,
+      signal,
+      redactions,
+      stage,
+      out,
+    );
+    const kind = failureKind(result.failure, signal);
+    attempts.push({
+      attempt,
+      duration_ms: result.report.duration_ms,
+      status: result.report.status,
+      ...(kind === "" ? {} : { failure_kind: kind }),
+      ...(result.report.error == null ? {} : { error: result.report.error }),
+      ...(result.report.evidence == null
+        ? {}
+        : { evidence: { ...result.report.evidence } }),
+    });
+    if (result.failure == null) {
+      break;
+    }
+    variables.restore(snapshot);
+    if (
+      attempt === retry.attempts ||
+      !retryOn.includes(kind) ||
+      signal.aborted
+    ) {
+      break;
+    }
+    if (delay > 0) {
+      try {
+        await sleep(delay, signal);
+      } catch (error) {
+        result = {
+          failure: error instanceof Error ? error : new Error(String(error)),
+          report: result.report,
+        };
+        break;
+      }
+    }
+  }
+  const report = { ...result!.report };
+  report.attempts = attempts;
+  report.duration_ms = Date.now() - started;
+  return { failure: result!.failure, report };
+}
+
+async function runStepAttempt(
   step: Step,
   clients: Map<string, ScenarioClient>,
   variables: Variables,

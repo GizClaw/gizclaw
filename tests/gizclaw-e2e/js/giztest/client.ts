@@ -8,8 +8,10 @@ import wrtc from "@roamhq/wrtc";
 import {
   connectGiznetWebRTCFromEndpoint,
   GizClawDeviceControlError,
+  sendGiznetWebRTCTelemetry,
   type GizClawDeviceStatus,
   type GizClawPeerRPCHandlers,
+  type TelemetryFrame,
 } from "@gizclaw/gizclaw";
 import { base58Encode } from "@gizclaw/gizclaw/signaling";
 import { createPeerRPCClient, type PeerRPCClient } from "@gizclaw/gizclaw/rpc";
@@ -230,6 +232,20 @@ export class ScenarioClient {
       { signal },
     );
     return responseToProtoJSON(method, response);
+  }
+
+  // sendTelemetry sends one frame on the Peer's packet data channel through
+  // the SDK, the way a device reports telemetry. Acceptance is not
+  // persistence: scenarios poll status separately.
+  async sendTelemetry(
+    frame: TelemetryFrame,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    await sendGiznetWebRTCTelemetry(
+      this.pc as unknown as RTCPeerConnection,
+      frame,
+      { signal },
+    );
   }
 
   // callHTTP sends one Public HTTP request through the control SDK so the

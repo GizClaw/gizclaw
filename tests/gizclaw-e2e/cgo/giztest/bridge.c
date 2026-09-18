@@ -283,6 +283,30 @@ int gzt_session_call_rpc(
   return GZC_OK;
 }
 
+int gzt_session_send_telemetry(
+    gzt_session_t *session, const gzc_telemetry_frame_t *frame, char *errbuf, unsigned long errbuf_len) {
+  if (session == NULL || frame == NULL) {
+    return fail(errbuf, errbuf_len, "send telemetry", GZC_ERR_INVALID_ARGUMENT);
+  }
+  int rc = gzc_client_send_telemetry(session->client, frame);
+  if (rc != GZC_OK) {
+    return fail(errbuf, errbuf_len, "send telemetry", rc);
+  }
+  return GZC_OK;
+}
+
+int gzt_session_send_ota_telemetry(
+    gzt_session_t *session, const gzc_telemetry_ota_frame_t *frame, char *errbuf, unsigned long errbuf_len) {
+  if (session == NULL || frame == NULL) {
+    return fail(errbuf, errbuf_len, "send ota telemetry", GZC_ERR_INVALID_ARGUMENT);
+  }
+  int rc = gzc_client_send_ota_telemetry(session->client, frame);
+  if (rc != GZC_OK) {
+    return fail(errbuf, errbuf_len, "send ota telemetry", rc);
+  }
+  return GZC_OK;
+}
+
 /* --- Controller SDK dispatch -------------------------------------------- */
 
 struct gzt_control {

@@ -18,6 +18,9 @@ import {
   parseDuration,
   stepOperation,
 } from "./document.ts";
+import { telemetryFrameFromProtoJSON } from "./proto_json.ts";
+import { AssertionFailure } from "./assert.ts";
+import { failureKind } from "./runner.ts";
 import { generateValue, Variables } from "./variables.ts";
 
 const scenarioRoot = path.resolve(import.meta.dirname, "../../giztest");
@@ -269,13 +272,39 @@ test("loadDocuments loads every device, contact and API key scenario", async () 
   );
   assert.ok(selected.length >= 20, `selected ${selected.length} scenarios`);
   const { documents, skipped } = await loadDocuments(selected);
+  // The JavaScript device SDK has no Tool handler surface to answer
+  // client.tool.invoke, so the Tool scenario is the only one declined.
   assert.equal(skipped.length, 1, JSON.stringify(skipped));
   assert.equal(
     path.basename(skipped[0]!.path),
-    "server.device.audioplayer.telemetry.giztest.yaml",
+    "server.device.tools.giztest.yaml",
   );
-  assert.match(skipped[0]!.reason, /telemetry/u);
+  assert.match(skipped[0]!.reason, /client\.tool\.invoke/u);
   assert.equal(documents.length, selected.length - 1);
+});
+
+test("loadDocuments loads the telemetry scenarios", async () => {
+  const names = [
+    "server.device.audioplayer.telemetry",
+    "server.device.telemetry.status",
+  ];
+  const { documents, skipped } = await loadDocuments(
+    names.map((name) => path.join(scenarioRoot, `${name}.giztest.yaml`)),
+  );
+  assert.deepEqual(skipped, []);
+  assert.deepEqual(
+    documents.map((document) => document.name),
+    names,
+  );
+  // Every frame the scenarios send must convert for the SDK.
+  for (const document of documents) {
+    for (const step of document.steps) {
+      if (step.telemetry != null) {
+        const frame = telemetryFrameFromProtoJSON(step.telemetry.frame);
+        assert.ok((frame.observations?.length ?? 0) > 0, step.id);
+      }
+    }
+  }
 });
 
 test("loadDocuments loads the find, social ping and profile scenarios", async () => {
@@ -307,19 +336,27 @@ test("loadDocuments loads the find, social ping and profile scenarios", async ()
   ]);
 });
 
-test("loadDocuments loads the device settings, reset, methods, workspace and tool scenarios", async () => {
+test("loadDocuments loads the device settings, reset, methods and workspace scenarios", async () => {
   // loadDocuments orders documents by path.
   const names = [
     "server.device.factory_reset",
     "server.device.rpc_methods",
     "server.device.run_workspace.set",
     "server.device.settings",
-    "server.device.tools",
   ];
   const { documents, skipped } = await loadDocuments(
-    names.map((name) => path.join(scenarioRoot, `${name}.giztest.yaml`)),
+    [...names, "server.device.tools"].map((name) =>
+      path.join(scenarioRoot, `${name}.giztest.yaml`),
+    ),
   );
-  assert.deepEqual(skipped, []);
+  // client.tool.invoke needs a Tool handler surface the JavaScript device SDK
+  // does not have, so the Tool scenario is declined rather than run partially.
+  assert.equal(skipped.length, 1, JSON.stringify(skipped));
+  assert.equal(
+    path.basename(skipped[0]!.path),
+    "server.device.tools.giztest.yaml",
+  );
+  assert.match(skipped[0]!.reason, /client\.tool\.invoke/u);
   assert.deepEqual(
     documents.map((document) => document.name),
     names,
@@ -346,6 +383,117 @@ test("loadDocuments loads the device settings, reset, methods, workspace and too
     ),
   );
   assert.ok(methods.has("PATCH"), [...methods].join(","));
+});
+
+// loadRetryDocument loads a one-step rpc document whose step carries retry, or a
+// finalizer carrying it when inFinally is set.
+async function loadRetryDocument(
+  retry: string,
+  options: { operation?: string; inFinally?: boolean } = {},
+): Promise<unknown> {
+  const directory = await mkdtemp(path.join(tmpdir(), "giztest-"));
+  try {
+    const file = path.join(directory, "retry.giztest.yaml");
+    const operation =
+      options.operation ?? "rpc: {method: server.status.get, request: {}}";
+    const step = [
+      "- id: poll",
+      "  client: peer",
+      `  ${operation}`,
+      `  retry: ${retry}`,
+    ];
+    await writeFile(
+      file,
+      [
+        "# User Story:",
+        "# As a Giztest author,",
+        "# I want retry policies validated like the Go runner,",
+        "# So that a telemetry scenario can poll status the same way everywhere.",
+        "version: gizclaw.test/v1alpha1",
+        "name: retry",
+        "clients:",
+        "  peer: {identity: ephemeral, connection: webrtc, access_point: 127.0.0.1:1}",
+        "steps:",
+        ...(options.inFinally
+          ? [
+              "- id: first",
+              "  client: peer",
+              "  rpc: {method: server.status.get, request: {}}",
+            ]
+          : step),
+        ...(options.inFinally ? ["finally:", ...step] : []),
+        "",
+      ].join("\n"),
+    );
+    return await loadDocument(file);
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+}
+
+test("loadDocument accepts a retry policy like the Go runner", async () => {
+  const document = (await loadRetryDocument(
+    "{attempts: 10, on: [assertion], delay: 200ms}",
+  )) as { steps: { retry?: unknown }[] };
+  assert.deepEqual(document.steps[0]?.retry, {
+    attempts: 10,
+    delay: "200ms",
+    on: ["assertion"],
+  });
+  await loadRetryDocument("{attempts: 2}");
+});
+
+test("loadDocument rejects retry policies the Go runner rejects", async () => {
+  for (const [retry, pattern] of [
+    ["{attempts: 1}", /attempts must be between/u],
+    ["{attempts: 11}", /attempts must be between/u],
+    ["{attempts: 2, on: []}", /must not be empty/u],
+    ["{attempts: 2, on: [operation]}", /unsupported failure kind/u],
+    ["{attempts: 2, on: [timeout, timeout]}", /must be unique/u],
+    ["{attempts: 2, delay: 0ms}", /invalid delay/u],
+    ["{attempts: 2, delay: 6m}", /invalid delay/u],
+  ] as const) {
+    await assert.rejects(loadRetryDocument(retry), pattern, retry);
+  }
+  await assert.rejects(
+    loadRetryDocument("{attempts: 2}", {
+      operation: "reconnect: {}",
+    }),
+    /does not support retry/u,
+  );
+  await assert.rejects(
+    loadRetryDocument("{attempts: 2}", { inFinally: true }),
+    /not allowed in finally/u,
+  );
+});
+
+test("failureKind classifies failures for retry like the Go runner", () => {
+  const live = new AbortController().signal;
+  assert.equal(failureKind(undefined, live), "");
+  assert.equal(failureKind(new AssertionFailure("x"), live), "assertion");
+  const timeout = new Error("timed out");
+  timeout.name = "TimeoutError";
+  assert.equal(failureKind(timeout, live), "timeout");
+  assert.equal(
+    failureKind(new Error("wrapped", { cause: timeout }), live),
+    "timeout",
+  );
+  assert.equal(failureKind(new Error("boom"), live), "operation");
+  const aborted = new AbortController();
+  aborted.abort();
+  assert.equal(failureKind(new Error("boom"), aborted.signal), "cancelled");
+});
+
+test("Variables restore discards a failed attempt's captures", () => {
+  const variables = new Variables({
+    captured: { direction: "output", type: "string" },
+  });
+  const snapshot = variables.snapshot();
+  variables.assign("captured", "first");
+  variables.restore(snapshot);
+  assert.equal(variables.get("captured")?.data, undefined);
+  variables.assign("captured", "second");
+  assert.equal(variables.get("captured")?.data, "second");
 });
 
 test("loadDocument skips a scripted client.rpc.methods.get step", async () => {

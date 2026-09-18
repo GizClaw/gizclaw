@@ -9,6 +9,8 @@
 #ifndef GIZCLAW_E2E_CGO_GIZTEST_BRIDGE_H
 #define GIZCLAW_E2E_CGO_GIZTEST_BRIDGE_H
 
+#include "gzc_telemetry.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -58,6 +60,20 @@ int gzt_session_call_rpc(
     unsigned long out_error_message_len,
     char *errbuf,
     unsigned long errbuf_len);
+
+/*
+ * Sends one telemetry frame through gzc_client_send_telemetry. Strings the
+ * frame borrows only need to outlive the call.
+ */
+int gzt_session_send_telemetry(
+    gzt_session_t *session, const gzc_telemetry_frame_t *frame, char *errbuf, unsigned long errbuf_len);
+
+/*
+ * Sends one OTA telemetry frame through gzc_client_send_ota_telemetry, the C
+ * SDK's only way to report an OTA observation.
+ */
+int gzt_session_send_ota_telemetry(
+    gzt_session_t *session, const gzc_telemetry_ota_frame_t *frame, char *errbuf, unsigned long errbuf_len);
 
 /*
  * Sends one `/gizclaw/v1` request through the controller SDK.

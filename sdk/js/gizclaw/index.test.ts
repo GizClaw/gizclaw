@@ -2761,6 +2761,19 @@ test("encodeTelemetryPacket carries cellular imei and imsi on network observatio
   );
 });
 
+test("encodeTelemetryPacket accepts activity observations", () => {
+  const packet = encodeTelemetryPacket({
+    observedAtUnixMs: 1000,
+    observations: [{ activity: { activity: "chat" } }],
+  });
+
+  assert.equal(packet[0], GIZCLAW_EVENT_STREAM_TELEMETRY);
+  assert.equal(
+    Buffer.from(packet.slice(1)).toString("hex"),
+    "10e8071a098201060a0463686174",
+  );
+});
+
 test("encodeTelemetryPacket stamps frames before send", () => {
   const originalNow = Date.now;
   Date.now = () => 1234;
