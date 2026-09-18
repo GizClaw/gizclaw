@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1529,6 +1530,7 @@ func TestDockErrorTerminalWinsTTSCancellationRace(t *testing.T) {
 	}
 	terminal := make(chan struct{})
 	var terminalOnce sync.Once
+	var sourceHookExpired atomic.Bool
 	dock.finishRouteHook = func(errorText string) {
 		if errorText != "" {
 			// Only the sibling finishes with an error text; the ErrorCode-only
@@ -1541,6 +1543,7 @@ func TestDockErrorTerminalWinsTTSCancellationRace(t *testing.T) {
 		select {
 		case <-terminal:
 		case <-time.After(deadlockTimeout):
+			sourceHookExpired.Store(true)
 		}
 	}
 	output, err := dock.Transform(t.Context(), emptyStream{})
@@ -1590,10 +1593,12 @@ func TestDockErrorTerminalWinsTTSCancellationRace(t *testing.T) {
 	if result.err != nil {
 		t.Fatalf("output.Next() error = %v", result.err)
 	}
-	select {
-	case <-ttsOutput.siblingFinishing:
-	default:
-		t.Fatal("sibling TTS pipe never reached finishRoute")
+	// Deadlines only release blocked goroutines; any expiry is a failure.
+	if ttsOutput.abortHoldExpired.Load() {
+		t.Fatal("source abort deadline expired before the sibling reached finishRoute")
+	}
+	if sourceHookExpired.Load() {
+		t.Fatal("source finishRoute deadline expired before a terminal was published")
 	}
 	var terminals []*genx.MessageChunk
 	for _, chunk := range result.chunks {
@@ -1618,6 +1623,7 @@ type abortRaceTTSStream struct {
 	siblingFinishing     chan struct{}
 	siblingFinishingOnce sync.Once
 	deadlockTimeout      time.Duration
+	abortHoldExpired     atomic.Bool
 	mu                   sync.Mutex
 	closeCalls           int
 	closeErr             error
@@ -1655,10 +1661,11 @@ func (s *abortRaceTTSStream) CloseWithError(err error) error {
 	s.mu.Unlock()
 	if first {
 		// The first close is the source terminal's abort. The deadline only
-		// reports a deadlock; the test fails if the sibling never arrives.
+		// releases a deadlock; the test fails when it expires.
 		select {
 		case <-s.siblingFinishing:
 		case <-time.After(s.deadlockTimeout):
+			s.abortHoldExpired.Store(true)
 		}
 	}
 	return nil
