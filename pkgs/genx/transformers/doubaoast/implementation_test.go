@@ -898,6 +898,75 @@ func TestTransformerRealtimeCompletionTimeoutClosesSilentSession(t *testing.T) {
 	}
 }
 
+// TestTransformerRealtimeCompletionTimeoutClosesInputBeforeOutput pins the
+// close order that keeps the timeout cause on the input. Closing output first
+// wakes the cancellation watcher, which can close input with context.Canceled.
+func TestTransformerRealtimeCompletionTimeoutClosesInputBeforeOutput(t *testing.T) {
+	input := &firstCloseRecordingStream{bufferStream: newBufferStream(4), closed: make(chan struct{})}
+	tr := newTransformer(doubaospeech.NewClient("app-id"),
+		withInputMode(InputModeRealtime),
+		withRealtimePacing(false),
+		withRealtimeCompletionTimeout(20*time.Millisecond),
+	)
+	fake := &fakeASTTranslateSession{closeCh: make(chan struct{})}
+	tr.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
+		return fake, nil
+	}
+	out, err := tr.transform(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	output, ok := out.(*bufferStream)
+	if !ok {
+		t.Fatalf("Transform() output = %T, want *bufferStream", out)
+	}
+	input.output = output
+	for _, chunk := range []*genx.MessageChunk{
+		genx.NewBeginOfStream("turn-silent"),
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0, 2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-silent"}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-silent", EndOfStream: true}},
+	} {
+		if err := input.Push(chunk); err != nil {
+			t.Fatalf("Push(%s): %v", chunk.Ctrl.StreamID, err)
+		}
+	}
+	select {
+	case <-input.closed:
+	case <-time.After(time.Second):
+		t.Fatal("input was not closed after the completion timeout")
+	}
+	if !errors.Is(input.firstErr, errDoubaoASTTranslateRealtimeCompletionTimeout) {
+		t.Fatalf("first input close error = %v, want completion timeout", input.firstErr)
+	}
+	if input.outputClosedFirst {
+		t.Fatal("output was closed before input; the cancellation watcher can replace the input's timeout cause")
+	}
+}
+
+// firstCloseRecordingStream records the first CloseWithError and whether the
+// transformer output was already closed at that point.
+type firstCloseRecordingStream struct {
+	*bufferStream
+	output            *bufferStream
+	once              sync.Once
+	closed            chan struct{}
+	firstErr          error
+	outputClosedFirst bool
+}
+
+func (s *firstCloseRecordingStream) CloseWithError(err error) error {
+	s.once.Do(func() {
+		s.firstErr = err
+		select {
+		case <-s.output.Done():
+			s.outputClosedFirst = true
+		default:
+		}
+		close(s.closed)
+	})
+	return s.bufferStream.CloseWithError(err)
+}
+
 func TestTransformerPushToTalkIgnoresRealtimeCompletionTimeout(t *testing.T) {
 	input := newBufferStream(4)
 	tr := newTransformer(doubaospeech.NewClient("app-id"),

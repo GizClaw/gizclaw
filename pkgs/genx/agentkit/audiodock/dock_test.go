@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1501,6 +1502,173 @@ func TestDockPublishesErrorEpochCompletionAfterTTSCleanup(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestDockErrorTerminalWinsTTSCancellationRace forces the sibling TTS pipe to
+// fail from the source-terminal abort and reach its competing finishRoute
+// before the source path proceeds. The published terminal must still carry
+// the source's ErrorCode-only failure, not the sibling's cancellation error.
+func TestDockErrorTerminalWinsTTSCancellationRace(t *testing.T) {
+	const deadlockTimeout = 5 * time.Second
+	ttsOutput := newAbortRaceTTSStream(deadlockTimeout)
+	agentOutput := streamkit.NewOutput(streamkit.OutputConfig{})
+	defer agentOutput.Close()
+	if err := agentOutput.Push(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "provider", Label: "assistant"}}); err != nil {
+		t.Fatal(err)
+	}
+	dock, err := New(Config{
+		Agent: transformerFunc(func(context.Context, genx.Stream) (genx.Stream, error) { return agentOutput, nil }),
+		TTS: muxFunc(func(context.Context, string, genx.Stream) (genx.Stream, error) {
+			return ttsOutput, nil
+		}),
+		ResolveVoice: func(context.Context, VoiceRequest) (string, error) {
+			return "voice/narrator", nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	terminal := make(chan struct{})
+	var terminalOnce sync.Once
+	var sourceHookExpired atomic.Bool
+	dock.finishRouteHook = func(errorText string) {
+		if errorText != "" {
+			// Only the sibling finishes with an error text; the ErrorCode-only
+			// source finishes with "". Release the source abort now.
+			ttsOutput.siblingFinishingOnce.Do(func() { close(ttsOutput.siblingFinishing) })
+			return
+		}
+		// Without the fix the source reaches finishRoute after the sibling;
+		// let the sibling publish first so the defect is observed every run.
+		select {
+		case <-terminal:
+		case <-time.After(deadlockTimeout):
+			sourceHookExpired.Store(true)
+		}
+	}
+	output, err := dock.Transform(t.Context(), emptyStream{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-ttsOutput.reading:
+	case <-time.After(deadlockTimeout):
+		t.Fatal("TTS output was not forwarded")
+	}
+	type readResult struct {
+		chunks []*genx.MessageChunk
+		err    error
+	}
+	read := make(chan readResult, 1)
+	go func() {
+		var chunks []*genx.MessageChunk
+		for {
+			chunk, err := output.Next()
+			if err != nil {
+				if errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone) {
+					err = nil
+				}
+				read <- readResult{chunks: chunks, err: err}
+				return
+			}
+			if chunk == nil {
+				continue
+			}
+			chunks = append(chunks, chunk)
+			if chunk.IsEndOfStream() {
+				terminalOnce.Do(func() { close(terminal) })
+			}
+		}
+	}()
+	if err := agentOutput.Push(&genx.MessageChunk{Role: genx.RoleModel, Ctrl: &genx.StreamCtrl{StreamID: "provider", Label: "assistant", EndOfStream: true, ErrorCode: "STREAM_INTERRUPTED"}}); err != nil {
+		t.Fatal(err)
+	}
+	_ = agentOutput.Close()
+	var result readResult
+	select {
+	case result = <-read:
+	case <-time.After(2 * deadlockTimeout):
+		t.Fatal("dock output did not finish")
+	}
+	if result.err != nil {
+		t.Fatalf("output.Next() error = %v", result.err)
+	}
+	// Deadlines only release blocked goroutines; any expiry is a failure.
+	if ttsOutput.abortHoldExpired.Load() {
+		t.Fatal("source abort deadline expired before the sibling reached finishRoute")
+	}
+	if sourceHookExpired.Load() {
+		t.Fatal("source finishRoute deadline expired before a terminal was published")
+	}
+	var terminals []*genx.MessageChunk
+	for _, chunk := range result.chunks {
+		if chunk.IsEndOfStream() {
+			terminals = append(terminals, chunk)
+		}
+	}
+	if len(terminals) != 1 {
+		t.Fatalf("terminal count = %d, want 1; chunks=%#v", len(terminals), result.chunks)
+	}
+	if ctrl := terminals[0].Ctrl; ctrl.Error != "" || ctrl.ErrorCode != "STREAM_INTERRUPTED" || !ctrl.ResponseEpochEnd {
+		t.Fatalf("terminal ctrl = %+v, want source ErrorCode-only epoch end", *ctrl)
+	}
+}
+
+// abortRaceTTSStream fails Next when the source terminal's abort closes it,
+// then holds that abort until the sibling forwarder has reached finishRoute.
+type abortRaceTTSStream struct {
+	reading              chan struct{}
+	readingOnce          sync.Once
+	closed               chan struct{}
+	siblingFinishing     chan struct{}
+	siblingFinishingOnce sync.Once
+	deadlockTimeout      time.Duration
+	abortHoldExpired     atomic.Bool
+	mu                   sync.Mutex
+	closeCalls           int
+	closeErr             error
+}
+
+func newAbortRaceTTSStream(deadlockTimeout time.Duration) *abortRaceTTSStream {
+	return &abortRaceTTSStream{
+		reading:          make(chan struct{}),
+		closed:           make(chan struct{}),
+		siblingFinishing: make(chan struct{}),
+		deadlockTimeout:  deadlockTimeout,
+	}
+}
+
+func (s *abortRaceTTSStream) Next() (*genx.MessageChunk, error) {
+	s.readingOnce.Do(func() { close(s.reading) })
+	<-s.closed
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return nil, s.closeErr
+}
+
+func (s *abortRaceTTSStream) Close() error {
+	return s.CloseWithError(io.ErrClosedPipe)
+}
+
+func (s *abortRaceTTSStream) CloseWithError(err error) error {
+	s.mu.Lock()
+	s.closeCalls++
+	first := s.closeCalls == 1
+	if first {
+		s.closeErr = err
+		close(s.closed)
+	}
+	s.mu.Unlock()
+	if first {
+		// The first close is the source terminal's abort. The deadline only
+		// releases a deadlock; the test fails when it expires.
+		select {
+		case <-s.siblingFinishing:
+		case <-time.After(s.deadlockTimeout):
+			s.abortHoldExpired.Store(true)
+		}
+	}
+	return nil
 }
 
 func TestDockMergesCompliantTTSLifecyclesByMIME(t *testing.T) {
