@@ -102,8 +102,6 @@ import type {
   DeviceRpcMethods,
   DeviceRunWorkspaceSetRequest,
   DeviceSettings,
-  DeviceTool,
-  DeviceToolI18nText,
   DeviceToolInvokeRequest,
   DeviceToolInvokeResponse,
   DeviceToolList,
