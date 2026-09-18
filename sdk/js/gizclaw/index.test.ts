@@ -4285,3 +4285,65 @@ test("inbound client.device.settings.set rejects a malformed locale", async () =
     assert.equal(response.error, undefined, `locale ${locale}`);
   }
 });
+
+test("inbound client.run.workspace.set accepts exactly one target", async () => {
+  const seen: unknown[] = [];
+  const handlers = {
+    deviceControl: {
+      setRunWorkspace: (request: unknown) => {
+        seen.push(request);
+      },
+    },
+  };
+  const accepted = await serveInboundClientRPC(
+    "client.run.workspace.set",
+    { collection: "stories", workflow_name: "bedtime", kickoff: true },
+    handlers,
+  );
+  assert.equal(accepted.error, undefined);
+  for (const params of [
+    {},
+    { workspace_name: "chat", workflow_name: "bedtime" },
+    { collection: "stories" },
+    { workspace_name: "" },
+  ]) {
+    const rejected = await serveInboundClientRPC(
+      "client.run.workspace.set",
+      params as never,
+      handlers,
+    );
+    assert.equal(rejected.error?.code, STATUS_CODE_INVALID_ARGUMENT);
+  }
+  assert.deepEqual(seen, [
+    { collection: "stories", workflow_name: "bedtime", kickoff: true },
+  ]);
+  const methods = await serveInboundClientRPC(
+    "client.rpc.methods.get",
+    {},
+    handlers,
+  );
+  assert.ok(
+    (methods.result as { methods: string[] }).methods.includes(
+      "client.run.workspace.set",
+    ),
+  );
+});
+
+test("inbound client.device.settings.set checks the new members", async () => {
+  // Wrong-typed and unknown enum values cannot be encoded on the wire, so the
+  // range check is what a device ever sees.
+  for (const patch of [{ auto_sleep_timeout_ms: -1 }]) {
+    const response = await serveInboundClientRPC(
+      "client.device.settings.set",
+      patch as never,
+      { deviceControl: { setSettings: (value) => value } },
+    );
+    assert.equal(response.error?.code, STATUS_CODE_INVALID_ARGUMENT);
+  }
+  const ok = await serveInboundClientRPC(
+    "client.device.settings.set",
+    { alert_mode: "vibrate", auto_sleep_timeout_ms: 0, nfc_enabled: false },
+    { deviceControl: { setSettings: (value) => value } },
+  );
+  assert.equal(ok.error, undefined);
+});

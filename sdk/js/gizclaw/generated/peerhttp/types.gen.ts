@@ -199,6 +199,136 @@ export type DeviceWifiScanResponse = {
     networks: Array<DeviceWifiScanResult>;
 };
 
+/**
+ * Device-owned configuration. Every member is optional: on PATCH an absent member leaves that option unchanged; in a response an absent member means the device does not support that option. Product-specific configuration, such as usage time limits, is exposed as a device Tool instead. Speech rate belongs to the Workspace parameters, not to the device.
+ */
+export type DeviceSettings = {
+    /**
+     * Whether the cellular modem is enabled.
+     */
+    cellular_enabled?: boolean;
+    /**
+     * Idle time before the screen turns off; 0 keeps it on.
+     */
+    screen_off_timeout_ms?: number;
+    /**
+     * Screen brightness percent.
+     */
+    screen_brightness?: number;
+    /**
+     * Indicator light brightness percent.
+     */
+    led_brightness?: number;
+    /**
+     * BCP 47 language tag such as zh-CN.
+     */
+    locale?: string;
+    /**
+     * Interaction mode the device starts in.
+     */
+    default_interaction_mode?: 'push-to-talk' | 'realtime';
+    /**
+     * Feedback on a key press.
+     */
+    key_feedback?: 'none' | 'sound' | 'vibrate' | 'sound_and_vibrate';
+    /**
+     * How the device alerts the user to an incoming event such as a call or a notification.
+     */
+    alert_mode?: 'silent' | 'vibrate' | 'ring';
+    /**
+     * Idle time before the device sleeps; 0 disables automatic sleep.
+     */
+    auto_sleep_timeout_ms?: number;
+    /**
+     * Whether the NFC reader is powered.
+     */
+    nfc_enabled?: boolean;
+};
+
+export type DeviceFactoryResetRequest = {
+    /**
+     * Keep saved Wi-Fi and cellular configuration. Defaults to false.
+     */
+    keep_network?: boolean;
+};
+
+export type DeviceRpcMethods = {
+    /**
+     * Registry method names such as client.device.settings.get. Unknown names must be ignored.
+     */
+    methods: Array<string>;
+};
+
+/**
+ * Exactly one target: workspace_name, or collection together with workflow_name naming a workflow of the bound RuntimeProfile.
+ */
+export type DeviceRunWorkspaceSetRequest = {
+    /**
+     * Existing Workspace to run.
+     */
+    workspace_name?: string;
+    /**
+     * RuntimeProfile workflow collection; requires workflow_name.
+     */
+    collection?: string;
+    /**
+     * Workflow in collection; the device runs the Workspace it keeps for that workflow.
+     */
+    workflow_name?: string;
+    /**
+     * Let the agent speak first once the Workspace is ready. Defaults to false.
+     */
+    kickoff?: boolean;
+};
+
+export type DeviceToolI18nText = {
+    display_name: string;
+    description?: string;
+};
+
+export type DeviceTool = {
+    /**
+     * Tool name within the bound RuntimeProfile; the path parameter of the invoke route.
+     */
+    name: string;
+    /**
+     * Authorization the Tool's binding requires.
+     */
+    control_access: 'owner';
+    /**
+     * Display text keyed by locale.
+     */
+    i18n: {
+        [key: string]: DeviceToolI18nText;
+    };
+    /**
+     * JSON Schema the invoke args must satisfy.
+     */
+    input_schema: {
+        [key: string]: unknown;
+    };
+};
+
+export type DeviceToolList = {
+    items: Array<DeviceTool>;
+};
+
+export type DeviceToolInvokeRequest = {
+    /**
+     * Tool arguments; must satisfy the Tool's input_schema. Omitted means an empty object.
+     */
+    args?: {
+        [key: string]: unknown;
+    };
+};
+
+export type DeviceToolInvokeResponse = {
+    /**
+     * The result the device returned, as JSON text.
+     */
+    data_json: string;
+};
+
 export type DeviceWifiConnectRequest = {
     ssid: string;
     passphrase?: string;
@@ -588,6 +718,18 @@ export type PeerStatus = {
      */
     firmware_version?: string;
     /**
+     * Wi-Fi RSSI in dBm from the latest network telemetry observation whose rat is wifi.
+     */
+    wifi_rssi_dbm?: number;
+    /**
+     * Cellular RSSI in dBm from the latest network telemetry observation whose rat names a route other than wifi. An observation without rat updates only the metric.
+     */
+    cellular_rssi_dbm?: number;
+    /**
+     * Device-defined cellular signal level from the latest network telemetry observation whose rat names a route other than wifi. An observation without rat updates only the metric.
+     */
+    cellular_signal_level?: number;
+    /**
      * Lowercase SHA-256 digest of the .tar.zlib package the device is currently running, as reported by the device.
      */
     firmware_sha256?: string;
@@ -608,6 +750,9 @@ export type PeerStatusTelemetryObservedAt = {
     network_imsi?: string;
     activity?: string;
     firmware_version?: string;
+    wifi_rssi_dbm?: string;
+    cellular_rssi_dbm?: string;
+    cellular_signal_level?: string;
 };
 
 /**
@@ -676,6 +821,14 @@ export type Runtime = {
      * Device-owned debug access mode: off (default), readonly, or fullcontrol. Stored by the authoritative Server and set through authenticated server.runtime.put.
      */
     debug_mode?: string;
+    /**
+     * Workspace the device is running, as last committed through server.run.workspace.reload-with-options. The Server records it, so it answers while the device is offline. Omitted until a Workspace has been committed.
+     */
+    active_workspace_name?: string;
+    /**
+     * Workspace selected for the device that it has not committed yet, for example while a switch requested through PUT /gizclaw/v1/device/run/workspace is in progress. Omitted when no switch is pending.
+     */
+    pending_workspace_name?: string;
 };
 
 export type FirmwareChannelName = 'stable' | 'beta' | 'develop';
@@ -2404,6 +2557,368 @@ export type UpdateDeviceFirmwareResponses = {
 };
 
 export type UpdateDeviceFirmwareResponse = UpdateDeviceFirmwareResponses[keyof UpdateDeviceFirmwareResponses];
+
+export type GetDeviceSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/settings';
+};
+
+export type GetDeviceSettingsErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type GetDeviceSettingsError = GetDeviceSettingsErrors[keyof GetDeviceSettingsErrors];
+
+export type GetDeviceSettingsResponses = {
+    /**
+     * Every setting the device supports.
+     */
+    200: DeviceSettings;
+};
+
+export type GetDeviceSettingsResponse = GetDeviceSettingsResponses[keyof GetDeviceSettingsResponses];
+
+export type UpdateDeviceSettingsData = {
+    body: DeviceSettings;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/settings';
+};
+
+export type UpdateDeviceSettingsErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type UpdateDeviceSettingsError = UpdateDeviceSettingsErrors[keyof UpdateDeviceSettingsErrors];
+
+export type UpdateDeviceSettingsResponses = {
+    /**
+     * Every setting the device supports, after the change.
+     */
+    200: DeviceSettings;
+};
+
+export type UpdateDeviceSettingsResponse = UpdateDeviceSettingsResponses[keyof UpdateDeviceSettingsResponses];
+
+export type FactoryResetDeviceData = {
+    body?: DeviceFactoryResetRequest;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/actions/factory-reset';
+};
+
+export type FactoryResetDeviceErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type FactoryResetDeviceError = FactoryResetDeviceErrors[keyof FactoryResetDeviceErrors];
+
+export type FactoryResetDeviceResponses = {
+    /**
+     * The device accepted the factory reset request.
+     */
+    204: void;
+};
+
+export type FactoryResetDeviceResponse = FactoryResetDeviceResponses[keyof FactoryResetDeviceResponses];
+
+export type ListDeviceRpcMethodsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/rpc-methods';
+};
+
+export type ListDeviceRpcMethodsErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type ListDeviceRpcMethodsError = ListDeviceRpcMethodsErrors[keyof ListDeviceRpcMethodsErrors];
+
+export type ListDeviceRpcMethodsResponses = {
+    /**
+     * Registry names of the methods the device implements.
+     */
+    200: DeviceRpcMethods;
+};
+
+export type ListDeviceRpcMethodsResponse = ListDeviceRpcMethodsResponses[keyof ListDeviceRpcMethodsResponses];
+
+export type SetDeviceRunWorkspaceData = {
+    body: DeviceRunWorkspaceSetRequest;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/run/workspace';
+};
+
+export type SetDeviceRunWorkspaceErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type SetDeviceRunWorkspaceError = SetDeviceRunWorkspaceErrors[keyof SetDeviceRunWorkspaceErrors];
+
+export type SetDeviceRunWorkspaceResponses = {
+    /**
+     * The device accepted the request and started switching Workspaces.
+     */
+    202: unknown;
+};
+
+export type ListDeviceToolsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/tools';
+};
+
+export type ListDeviceToolsErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type ListDeviceToolsError = ListDeviceToolsErrors[keyof ListDeviceToolsErrors];
+
+export type ListDeviceToolsResponses = {
+    /**
+     * Tools the control app may invoke.
+     */
+    200: DeviceToolList;
+};
+
+export type ListDeviceToolsResponse = ListDeviceToolsResponses[keyof ListDeviceToolsResponses];
+
+export type InvokeDeviceToolData = {
+    body?: DeviceToolInvokeRequest;
+    path: {
+        /**
+         * Tool name as listed by GET /gizclaw/v1/device/tools.
+         */
+        name: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/device/tools/{name}/actions/invoke';
+};
+
+export type InvokeDeviceToolErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * TOOL_NOT_FOUND when the bound RuntimeProfile does not expose this Tool to the control app.
+     */
+    404: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type InvokeDeviceToolError = InvokeDeviceToolErrors[keyof InvokeDeviceToolErrors];
+
+export type InvokeDeviceToolResponses = {
+    /**
+     * The result the device returned.
+     */
+    200: DeviceToolInvokeResponse;
+};
+
+export type InvokeDeviceToolResponse = InvokeDeviceToolResponses[keyof InvokeDeviceToolResponses];
 
 export type GetDeviceWifiData = {
     body?: never;

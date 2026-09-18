@@ -29,6 +29,7 @@ export type ConversationParametersAgentInitiativePolicy = "" | "on_reload" | "on
 export type ConversationParametersInitiative = "" | "agent" | "peer" | "unspecified" | number;
 export type DashScopeRealtimeWorkspaceParametersAgentType = "" | "dashscope-realtime" | "unspecified" | number;
 export type DashScopeTenantModelProviderDataApiMode = "" | "chat_completions" | "realtime" | "unspecified" | number;
+export type DeviceAlertMode = "" | "ring" | "silent" | "unspecified" | "vibrate" | number;
 export type DeviceInteractionMode = "" | "push-to-talk" | "realtime" | "unspecified" | number;
 export type DeviceKeyFeedback = "" | "none" | "sound" | "sound_and_vibrate" | "unspecified" | "vibrate" | number;
 export type DoubaoRealtimeAudioFormatType = "" | "ogg_opus" | "pcm" | "pcm_s16le" | "speech_opus" | "unspecified" | number;
@@ -217,6 +218,13 @@ export type ClientRpcMethodsGetRequest = Record<string, never>;
 export type ClientRpcMethodsGetResponse = {
   "methods": string[];
 };
+export type ClientRunWorkspaceSetRequest = {
+  "workspace_name"?: string;
+  "collection"?: string;
+  "workflow_name"?: string;
+  "kickoff"?: boolean;
+};
+export type ClientRunWorkspaceSetResponse = Record<string, never>;
 export type ClientSocialPingRequest = {
   "from_peer_public_key": string;
   "from_display_name"?: string;
@@ -363,6 +371,9 @@ export type DeviceSettings = {
   "locale"?: string;
   "default_interaction_mode"?: DeviceInteractionMode;
   "key_feedback"?: DeviceKeyFeedback;
+  "alert_mode"?: DeviceAlertMode;
+  "auto_sleep_timeout_ms"?: number;
+  "nfc_enabled"?: boolean;
 };
 export type DoubaoRealtimeAIGCMetadata = {
   "content_producer"?: string;
@@ -926,6 +937,9 @@ export type PeerStatus = {
   "activity"?: string;
   "activity_detail"?: string;
   "firmware_version"?: string;
+  "wifi_rssi_dbm"?: number;
+  "cellular_rssi_dbm"?: number;
+  "cellular_signal_level"?: number;
 };
 export type PeerStatusTelemetryObservedAt = {
   "battery_percent"?: string;
@@ -938,6 +952,9 @@ export type PeerStatusTelemetryObservedAt = {
   "network_imsi"?: string;
   "activity"?: string;
   "firmware_version"?: string;
+  "wifi_rssi_dbm"?: string;
+  "cellular_rssi_dbm"?: string;
+  "cellular_signal_level"?: string;
 };
 export type PingRequest = {
   "client_send_time": number;
@@ -967,6 +984,8 @@ export type Runtime = {
   "online": boolean;
   "rx_bytes"?: number;
   "tx_bytes"?: number;
+  "active_workspace_name"?: string;
+  "pending_workspace_name"?: string;
 };
 export type ServerAPIKeyResolveRequest = {
   "api_key": string;
@@ -1328,6 +1347,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.identifiers.get": "ClientGetIdentifiersRequest",
   "client.info.get": "ClientGetInfoRequest",
   "client.rpc.methods.get": "ClientRpcMethodsGetRequest",
+  "client.run.workspace.set": "ClientRunWorkspaceSetRequest",
   "client.social.ping": "ClientSocialPingRequest",
   "client.tool.invoke": "ToolInvokeRequest",
   "client.wifi.connect": "ClientWifiConnectRequest",
@@ -1438,6 +1458,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.identifiers.get": "ClientGetIdentifiersResponse",
   "client.info.get": "ClientGetInfoResponse",
   "client.rpc.methods.get": "ClientRpcMethodsGetResponse",
+  "client.run.workspace.set": "ClientRunWorkspaceSetResponse",
   "client.social.ping": "ClientSocialPingResponse",
   "client.tool.invoke": "ToolInvokeResponse",
   "client.wifi.connect": "ClientWifiConnectResponse",
@@ -2247,6 +2268,37 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "ClientRunWorkspaceSetRequest": {
+    "fields": [
+      {
+        "name": "workspace_name",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "collection",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "workflow_name",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "kickoff",
+        "number": 4,
+        "optional": true,
+        "type": "bool"
+      }
+    ]
+  },
+  "ClientRunWorkspaceSetResponse": {
+    "fields": []
+  },
   "ClientSocialPingRequest": {
     "fields": [
       {
@@ -2939,6 +2991,24 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 7,
         "optional": true,
         "type": "DeviceKeyFeedback"
+      },
+      {
+        "name": "alert_mode",
+        "number": 8,
+        "optional": true,
+        "type": "DeviceAlertMode"
+      },
+      {
+        "name": "auto_sleep_timeout_ms",
+        "number": 9,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "nfc_enabled",
+        "number": 10,
+        "optional": true,
+        "type": "bool"
       }
     ]
   },
@@ -5518,6 +5588,24 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 20,
         "optional": true,
         "type": "string"
+      },
+      {
+        "name": "wifi_rssi_dbm",
+        "number": 21,
+        "optional": true,
+        "type": "double"
+      },
+      {
+        "name": "cellular_rssi_dbm",
+        "number": 22,
+        "optional": true,
+        "type": "double"
+      },
+      {
+        "name": "cellular_signal_level",
+        "number": 23,
+        "optional": true,
+        "type": "double"
       }
     ]
   },
@@ -5580,6 +5668,24 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "firmware_version",
         "number": 10,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "wifi_rssi_dbm",
+        "number": 11,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "cellular_rssi_dbm",
+        "number": 12,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "cellular_signal_level",
+        "number": 13,
         "optional": true,
         "type": "string"
       }
@@ -5694,6 +5800,18 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 5,
         "optional": true,
         "type": "uint64"
+      },
+      {
+        "name": "active_workspace_name",
+        "number": 7,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "pending_workspace_name",
+        "number": 8,
+        "optional": true,
+        "type": "string"
       }
     ]
   },
@@ -7292,6 +7410,20 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "0": "",
       "1": "chat_completions",
       "2": "realtime"
+    }
+  },
+  "DeviceAlertMode": {
+    "byName": {
+      "ring": 3,
+      "silent": 1,
+      "unspecified": 0,
+      "vibrate": 2
+    },
+    "byNumber": {
+      "0": "",
+      "1": "silent",
+      "2": "vibrate",
+      "3": "ring"
     }
   },
   "DeviceInteractionMode": {

@@ -1409,6 +1409,14 @@ export type Runtime = {
      * Device-owned debug access mode: off (default), readonly, or fullcontrol. Stored by the authoritative Server and set through authenticated server.runtime.put.
      */
     debug_mode?: string;
+    /**
+     * Workspace the device is running, as last committed through server.run.workspace.reload-with-options. The Server records it, so it answers while the device is offline. Omitted until a Workspace has been committed.
+     */
+    active_workspace_name?: string;
+    /**
+     * Workspace selected for the device that it has not committed yet, for example while a switch requested through PUT /gizclaw/v1/device/run/workspace is in progress. Omitted when no switch is pending.
+     */
+    pending_workspace_name?: string;
 };
 
 export type RuntimeProfile = {
@@ -1434,6 +1442,10 @@ export type RuntimeProfileBinding = {
     i18n: {
         [key: string]: RuntimeProfileI18nText;
     };
+    /**
+     * Only valid under resources.tools. Exposes this Tool to the device owner's control app through GET /gizclaw/v1/device/tools and POST /gizclaw/v1/device/tools/{name}/actions/invoke; owner means any API key of the Peer that owns the device. When omitted the control app can neither list nor invoke the Tool, which stays reachable only by AI and Workflow runtimes. Only enabled client_rpc Tools are ever exposed. Stricter levels, such as a guardian authorization, are added to this enum later.
+     */
+    control_access?: 'owner';
 };
 
 export type RuntimeProfileFlowcraftBbhConnection = {

@@ -31,6 +31,7 @@ import {
   type ClientDeviceFindRequest,
   type ClientDeviceRebootRequest,
   type ClientDeviceSettingsSetRequest,
+  type ClientRunWorkspaceSetRequest,
   type DeviceSettings,
   type ClientDeviceSoundPlayRequest,
   type ClientDeviceVolumeSetRequest,
@@ -304,6 +305,14 @@ export type GizClawDeviceControlHandlers = {
   // without the response the method promises. Schedule the reset with
   // setTimeout or an equivalent and return.
   factoryReset?: (keepNetwork: boolean) => Promise<void> | void;
+  // setRunWorkspace switches the Workspace the device runs. The request names
+  // exactly one target, already validated: workspace_name, or collection with
+  // workflow_name. The acknowledgement only means the device accepted it:
+  // settle promptly, then switch through
+  // server.run.workspace.reload-with-options.
+  setRunWorkspace?: (
+    request: ClientRunWorkspaceSetRequest,
+  ) => Promise<void> | void;
 };
 
 // GizClawPeerRPCHandlers answers the client.* RPCs a GizClaw server initiates.
@@ -2430,6 +2439,7 @@ const DEVICE_INTERACTION_MODES = ["push-to-talk", "realtime"];
 // hyphen-separated 1-8 character alphanumeric subtags, e.g. "zh-Hant-TW".
 const DEVICE_SETTINGS_LOCALE_PATTERN = /^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$/;
 const DEVICE_KEY_FEEDBACKS = ["none", "sound", "vibrate", "sound_and_vibrate"];
+const DEVICE_ALERT_MODES = ["silent", "vibrate", "ring"];
 
 // deviceSettingsPatchValid rejects a patch before the device applies any of it,
 // so a bad member cannot leave the device half-configured. Unknown members are
@@ -2458,8 +2468,37 @@ function deviceSettingsPatchValid(patch: DeviceSettings): boolean {
         patch.locale.length <= 35 &&
         DEVICE_SETTINGS_LOCALE_PATTERN.test(patch.locale))) &&
     member(patch.default_interaction_mode, DEVICE_INTERACTION_MODES) &&
-    member(patch.key_feedback, DEVICE_KEY_FEEDBACKS)
+    member(patch.key_feedback, DEVICE_KEY_FEEDBACKS) &&
+    member(patch.alert_mode, DEVICE_ALERT_MODES) &&
+    duration(patch.auto_sleep_timeout_ms) &&
+    (patch.nfc_enabled === undefined || typeof patch.nfc_enabled === "boolean")
   );
+}
+
+const RUN_WORKSPACE_TARGET_MAX_BYTES = 256;
+
+// validRunWorkspaceRequest accepts exactly one target: workspace_name, or
+// collection together with workflow_name.
+function validRunWorkspaceRequest(value: unknown): boolean {
+  if (value == null || typeof value !== "object") {
+    return false;
+  }
+  const request = value as ClientRunWorkspaceSetRequest;
+  const name = (field: unknown): boolean =>
+    typeof field === "string" &&
+    field.length > 0 &&
+    new TextEncoder().encode(field).length <= RUN_WORKSPACE_TARGET_MAX_BYTES;
+  if (request.kickoff !== undefined && typeof request.kickoff !== "boolean") {
+    return false;
+  }
+  if (request.workspace_name !== undefined) {
+    return (
+      name(request.workspace_name) &&
+      request.collection === undefined &&
+      request.workflow_name === undefined
+    );
+  }
+  return name(request.collection) && name(request.workflow_name);
 }
 
 // supportedDeviceMethods lists the client.* methods this device answers, taken
@@ -2482,6 +2521,7 @@ function supportedDeviceMethods(
     ["client.device.settings.get", control?.getSettings],
     ["client.device.settings.set", control?.setSettings],
     ["client.device.factory_reset", control?.factoryReset],
+    ["client.run.workspace.set", control?.setRunWorkspace],
     ["client.firmware.update", control?.updateFirmware],
     ["client.wifi.status.get", control?.wifiStatus],
     ["client.wifi.saved.list", control?.savedWifi],
@@ -2720,6 +2760,17 @@ async function answerClientRequest(
         const params = request.params as
           ClientDeviceFactoryResetRequest | undefined;
         await handler(params?.keep_network === true);
+        return ok({});
+      }
+      case "client.run.workspace.set": {
+        const handler = control?.setRunWorkspace;
+        if (handler == null) {
+          return unsupported();
+        }
+        if (!validRunWorkspaceRequest(request.params)) {
+          return invalid();
+        }
+        await handler(request.params as ClientRunWorkspaceSetRequest);
         return ok({});
       }
       case "client.rpc.methods.get": {
