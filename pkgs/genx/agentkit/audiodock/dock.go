@@ -25,6 +25,10 @@ var _ genx.Transformer = (*Dock)(nil)
 // Transform call owns independent streams, cancellation, routes, and buffers.
 type Dock struct {
 	config Config
+
+	// finishRouteHook, when set by tests, observes every finishRoute attempt
+	// before it contends for ttsEmitMu.
+	finishRouteHook func(errorText string)
 }
 
 // New validates Config without opening provider sessions.
@@ -797,6 +801,9 @@ func (r *dockRun) endTTS(route *dockRoute, sourceEOS *genx.MessageChunk) {
 func (r *dockRun) finishRoute(route *dockRoute, errorText string) {
 	if route == nil {
 		return
+	}
+	if hook := r.dock.finishRouteHook; hook != nil {
+		hook(errorText)
 	}
 	route.ttsEmitMu.Lock()
 	defer route.ttsEmitMu.Unlock()

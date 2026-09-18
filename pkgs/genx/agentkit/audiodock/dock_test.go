@@ -1504,11 +1504,12 @@ func TestDockPublishesErrorEpochCompletionAfterTTSCleanup(t *testing.T) {
 }
 
 // TestDockErrorTerminalWinsTTSCancellationRace forces the sibling TTS pipe to
-// fail from the source-terminal abort and attempt to finish the route before
-// the source path proceeds. The published terminal must still carry the
-// source's ErrorCode-only failure, not the sibling's cancellation error.
+// fail from the source-terminal abort and reach its competing finishRoute
+// before the source path proceeds. The published terminal must still carry
+// the source's ErrorCode-only failure, not the sibling's cancellation error.
 func TestDockErrorTerminalWinsTTSCancellationRace(t *testing.T) {
-	ttsOutput := newAbortRaceTTSStream()
+	const deadlockTimeout = 5 * time.Second
+	ttsOutput := newAbortRaceTTSStream(deadlockTimeout)
 	agentOutput := streamkit.NewOutput(streamkit.OutputConfig{})
 	defer agentOutput.Close()
 	if err := agentOutput.Push(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "provider", Label: "assistant"}}); err != nil {
@@ -1526,13 +1527,29 @@ func TestDockErrorTerminalWinsTTSCancellationRace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	terminal := make(chan struct{})
+	var terminalOnce sync.Once
+	dock.finishRouteHook = func(errorText string) {
+		if errorText != "" {
+			// Only the sibling finishes with an error text; the ErrorCode-only
+			// source finishes with "". Release the source abort now.
+			ttsOutput.siblingFinishingOnce.Do(func() { close(ttsOutput.siblingFinishing) })
+			return
+		}
+		// Without the fix the source reaches finishRoute after the sibling;
+		// let the sibling publish first so the defect is observed every run.
+		select {
+		case <-terminal:
+		case <-time.After(deadlockTimeout):
+		}
+	}
 	output, err := dock.Transform(t.Context(), emptyStream{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	select {
 	case <-ttsOutput.reading:
-	case <-time.After(time.Second):
+	case <-time.After(deadlockTimeout):
 		t.Fatal("TTS output was not forwarded")
 	}
 	type readResult struct {
@@ -1556,7 +1573,7 @@ func TestDockErrorTerminalWinsTTSCancellationRace(t *testing.T) {
 			}
 			chunks = append(chunks, chunk)
 			if chunk.IsEndOfStream() {
-				ttsOutput.terminalSeen.Do(func() { close(ttsOutput.terminal) })
+				terminalOnce.Do(func() { close(terminal) })
 			}
 		}
 	}()
@@ -1567,16 +1584,16 @@ func TestDockErrorTerminalWinsTTSCancellationRace(t *testing.T) {
 	var result readResult
 	select {
 	case result = <-read:
-	case <-time.After(5 * time.Second):
+	case <-time.After(2 * deadlockTimeout):
 		t.Fatal("dock output did not finish")
 	}
 	if result.err != nil {
 		t.Fatalf("output.Next() error = %v", result.err)
 	}
 	select {
-	case <-ttsOutput.siblingAborted:
+	case <-ttsOutput.siblingFinishing:
 	default:
-		t.Fatal("sibling TTS pipe did not fail from the abort")
+		t.Fatal("sibling TTS pipe never reached finishRoute")
 	}
 	var terminals []*genx.MessageChunk
 	for _, chunk := range result.chunks {
@@ -1592,27 +1609,26 @@ func TestDockErrorTerminalWinsTTSCancellationRace(t *testing.T) {
 	}
 }
 
-// abortRaceTTSStream holds the first CloseWithError, issued by the source
-// terminal's abort, until the sibling forwarder has failed and re-aborted and
-// has then either published a terminal or been held back from doing so.
+// abortRaceTTSStream fails Next when the source terminal's abort closes it,
+// then holds that abort until the sibling forwarder has reached finishRoute.
 type abortRaceTTSStream struct {
-	reading        chan struct{}
-	readingOnce    sync.Once
-	closed         chan struct{}
-	siblingAborted chan struct{}
-	terminal       chan struct{}
-	terminalSeen   sync.Once
-	mu             sync.Mutex
-	closeCalls     int
-	closeErr       error
+	reading              chan struct{}
+	readingOnce          sync.Once
+	closed               chan struct{}
+	siblingFinishing     chan struct{}
+	siblingFinishingOnce sync.Once
+	deadlockTimeout      time.Duration
+	mu                   sync.Mutex
+	closeCalls           int
+	closeErr             error
 }
 
-func newAbortRaceTTSStream() *abortRaceTTSStream {
+func newAbortRaceTTSStream(deadlockTimeout time.Duration) *abortRaceTTSStream {
 	return &abortRaceTTSStream{
-		reading:        make(chan struct{}),
-		closed:         make(chan struct{}),
-		siblingAborted: make(chan struct{}),
-		terminal:       make(chan struct{}),
+		reading:          make(chan struct{}),
+		closed:           make(chan struct{}),
+		siblingFinishing: make(chan struct{}),
+		deadlockTimeout:  deadlockTimeout,
 	}
 }
 
@@ -1631,28 +1647,19 @@ func (s *abortRaceTTSStream) Close() error {
 func (s *abortRaceTTSStream) CloseWithError(err error) error {
 	s.mu.Lock()
 	s.closeCalls++
-	call := s.closeCalls
-	if call == 1 {
+	first := s.closeCalls == 1
+	if first {
 		s.closeErr = err
 		close(s.closed)
 	}
 	s.mu.Unlock()
-	switch call {
-	case 1:
-		// The sibling's own abortTTS immediately precedes its finishRoute.
+	if first {
+		// The first close is the source terminal's abort. The deadline only
+		// reports a deadlock; the test fails if the sibling never arrives.
 		select {
-		case <-s.siblingAborted:
-		case <-time.After(time.Second):
-			return nil
+		case <-s.siblingFinishing:
+		case <-time.After(s.deadlockTimeout):
 		}
-		// Without the fix the sibling now publishes its terminal. With the
-		// fix it blocks on ttsEmitMu, so give it a bounded chance to race.
-		select {
-		case <-s.terminal:
-		case <-time.After(100 * time.Millisecond):
-		}
-	case 2:
-		close(s.siblingAborted)
 	}
 	return nil
 }
