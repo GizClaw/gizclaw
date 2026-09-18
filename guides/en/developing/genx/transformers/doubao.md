@@ -63,6 +63,8 @@ Provider, protocol, context-cancellation, normalizer, and downstream emission er
 
 For Push-to-Talk, input audio EOS commits the unpublished chunks once in their original order. A provider failure recorded before that commit discards the entire unpublished turn and returns the provider error without exposing retained data or control chunks. The commit gate is scoped to the input StreamID and provider session epoch so late events from an interrupted session cannot affect a reused StreamID.
 
+Provider transcript and translation subtitle tokens are subword pieces that carry their own spacing (for example `"Bon"`, `"jour"`, `" à"`). Tokens inside one subtitle are joined unchanged, and only whitespace at the start of a text is dropped. The first token of a new subtitle gets one separating space only when it and the previous sentence meet at ASCII letters or digits.
+
 An AST receive error terminates the output stream with the original error without waiting for another input chunk or audio EOS. If the receive stream ends before `SessionFinished`, including a normal WebSocket close, the adapter returns an incomplete-session error wrapping `io.ErrUnexpectedEOF`. Cancelling the caller context or closing the output stream closes the provider session, releasing the event receiver and input reader.
 
 Unpublished assistant TTS output is limited to two minutes of normalized Opus packet duration per turn. Exceeding the limit discards the unpublished turn and emits one error EOS for that StreamID without closing the shared transformer output; input and history audio do not count toward this limit.

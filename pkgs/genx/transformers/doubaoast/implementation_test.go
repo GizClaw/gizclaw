@@ -795,6 +795,125 @@ func TestTransformerPushToTalkS2TCommitsAtEOS(t *testing.T) {
 	}
 }
 
+// TestTransformerKeepsProviderSubwordTokenSpacing replays translation subtitle
+// tokens recorded from the provider. Tokens are subword pieces that carry their
+// own spacing, so the assistant text must join them without adding or dropping
+// spaces; otherwise TTS reads "H ola" as a spelled letter.
+func TestTransformerKeepsProviderSubwordTokenSpacing(t *testing.T) {
+	cases := []struct {
+		name      string
+		sentences [][]string
+		want      string
+	}{
+		{
+			name: "french",
+			sentences: [][]string{
+				{"Bon", "jour", ",", " "},
+				{"n", "ous", " nous", " rencontr", "er", "ons", " dem", "ain", " à", " ", "9", " heures", " devant", " l", "'école", ".", " "},
+			},
+			want: "Bonjour, nous nous rencontrerons demain à 9 heures devant l'école.",
+		},
+		{
+			name: "spanish",
+			sentences: [][]string{
+				{"H", "ola", ",", " nos", " v", "emos", " mañana", " en", " la", " pu", "erta", " de", " la", " escuela", ".", " "},
+			},
+			want: "Hola, nos vemos mañana en la puerta de la escuela.",
+		},
+		{
+			name: "english",
+			sentences: [][]string{
+				{"Hello", ",", " "},
+				{"let", "'s", " meet", " at", " ", "9", " a", ".m", ".", " tomorrow", ".", " "},
+			},
+			want: "Hello, let's meet at 9 a.m. tomorrow.",
+		},
+		{
+			name: "word boundary with provider space",
+			sentences: [][]string{
+				{"Hello", " "},
+				{"world", "."},
+			},
+			want: "Hello world.",
+		},
+		{
+			name: "word boundary without provider space",
+			sentences: [][]string{
+				{"Okay"},
+				{"let", "'s", " go", "."},
+			},
+			want: "Okay let's go.",
+		},
+		{
+			name: "japanese",
+			sentences: [][]string{
+				{"こ", "ん", "に", "ち", "は", "、"},
+				{"今日", "は", "天", "気", "が", "良", "い", "で", "す", "。"},
+			},
+			want: "こんにちは、今日は天気が良いです。",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			events := []*doubaospeech.ASTTranslateEvent{
+				{Type: doubaospeech.ASTEventSourceSubtitleStart},
+				{Type: doubaospeech.ASTEventSourceSubtitleResponse, Text: "你好"},
+				{Type: doubaospeech.ASTEventSourceSubtitleEnd, Text: "你好"},
+			}
+			for _, tokens := range tc.sentences {
+				events = append(events, &doubaospeech.ASTTranslateEvent{Type: doubaospeech.ASTEventTranslationSubtitleStart})
+				final := ""
+				for _, token := range tokens {
+					final += token
+					events = append(events, &doubaospeech.ASTTranslateEvent{Type: doubaospeech.ASTEventTranslationSubtitleResponse, Text: token})
+				}
+				events = append(events, &doubaospeech.ASTTranslateEvent{Type: doubaospeech.ASTEventTranslationSubtitleEnd, Text: final})
+			}
+			events = append(events, &doubaospeech.ASTTranslateEvent{Type: doubaospeech.ASTEventSessionFinished})
+
+			providerDone := make(chan struct{})
+			input := newBufferStream(4)
+			tr := newTransformer(doubaospeech.NewClient("app-id"), withInputMode(InputModePushToTalk))
+			fake := &fakeASTTranslateSession{doneCh: providerDone, events: events}
+			tr.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
+				return fake, nil
+			}
+			out, err := tr.transform(context.Background(), input)
+			if err != nil {
+				t.Fatalf("Transform() error = %v", err)
+			}
+			if err := input.Push(genx.NewBeginOfStream("turn")); err != nil {
+				t.Fatalf("Push(BOS): %v", err)
+			}
+			if err := input.Push(&genx.MessageChunk{
+				Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0, 2, 0}},
+				Ctrl: &genx.StreamCtrl{StreamID: "turn"},
+			}); err != nil {
+				t.Fatalf("Push(audio): %v", err)
+			}
+			select {
+			case <-providerDone:
+			case <-time.After(2 * time.Second):
+				t.Fatal("timed out waiting for provider events")
+			}
+			if err := input.Push(&genx.MessageChunk{
+				Part: &genx.Blob{MIMEType: "audio/pcm"},
+				Ctrl: &genx.StreamCtrl{StreamID: "turn", EndOfStream: true},
+			}); err != nil {
+				t.Fatalf("Push(EOS): %v", err)
+			}
+			if err := input.Close(); err != nil {
+				t.Fatalf("Close(input): %v", err)
+			}
+			chunks := readAllASTTranslateChunks(t, out)
+			got := collectASTTranslateText(chunks, genx.RoleModel, doubaoASTTranslateAssistantLabel, "turn")
+			if strings.TrimSpace(got) != tc.want {
+				t.Fatalf("assistant text = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestTransformerRealtimeStillPublishesBeforeEOS(t *testing.T) {
 	providerDone := make(chan struct{})
 	input := newBufferStream(4)
@@ -896,6 +1015,75 @@ func TestTransformerRealtimeCompletionTimeoutClosesSilentSession(t *testing.T) {
 	if err := input.Push(genx.NewBeginOfStream("turn-after-timeout")); !errors.Is(err, errDoubaoASTTranslateRealtimeCompletionTimeout) {
 		t.Fatalf("Push() after timeout error = %v", err)
 	}
+}
+
+// TestTransformerRealtimeCompletionTimeoutClosesInputBeforeOutput pins the
+// close order that keeps the timeout cause on the input. Closing output first
+// wakes the cancellation watcher, which can close input with context.Canceled.
+func TestTransformerRealtimeCompletionTimeoutClosesInputBeforeOutput(t *testing.T) {
+	input := &firstCloseRecordingStream{bufferStream: newBufferStream(4), closed: make(chan struct{})}
+	tr := newTransformer(doubaospeech.NewClient("app-id"),
+		withInputMode(InputModeRealtime),
+		withRealtimePacing(false),
+		withRealtimeCompletionTimeout(20*time.Millisecond),
+	)
+	fake := &fakeASTTranslateSession{closeCh: make(chan struct{})}
+	tr.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
+		return fake, nil
+	}
+	out, err := tr.transform(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	output, ok := out.(*bufferStream)
+	if !ok {
+		t.Fatalf("Transform() output = %T, want *bufferStream", out)
+	}
+	input.output = output
+	for _, chunk := range []*genx.MessageChunk{
+		genx.NewBeginOfStream("turn-silent"),
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0, 2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-silent"}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-silent", EndOfStream: true}},
+	} {
+		if err := input.Push(chunk); err != nil {
+			t.Fatalf("Push(%s): %v", chunk.Ctrl.StreamID, err)
+		}
+	}
+	select {
+	case <-input.closed:
+	case <-time.After(time.Second):
+		t.Fatal("input was not closed after the completion timeout")
+	}
+	if !errors.Is(input.firstErr, errDoubaoASTTranslateRealtimeCompletionTimeout) {
+		t.Fatalf("first input close error = %v, want completion timeout", input.firstErr)
+	}
+	if input.outputClosedFirst {
+		t.Fatal("output was closed before input; the cancellation watcher can replace the input's timeout cause")
+	}
+}
+
+// firstCloseRecordingStream records the first CloseWithError and whether the
+// transformer output was already closed at that point.
+type firstCloseRecordingStream struct {
+	*bufferStream
+	output            *bufferStream
+	once              sync.Once
+	closed            chan struct{}
+	firstErr          error
+	outputClosedFirst bool
+}
+
+func (s *firstCloseRecordingStream) CloseWithError(err error) error {
+	s.once.Do(func() {
+		s.firstErr = err
+		select {
+		case <-s.output.Done():
+			s.outputClosedFirst = true
+		default:
+		}
+		close(s.closed)
+	})
+	return s.bufferStream.CloseWithError(err)
 }
 
 func TestTransformerPushToTalkIgnoresRealtimeCompletionTimeout(t *testing.T) {

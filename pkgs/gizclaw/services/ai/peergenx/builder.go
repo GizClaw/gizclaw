@@ -1064,11 +1064,12 @@ func (b DefaultBuilder) buildMiniMaxTTS(cfg TransformerConfig) (genx.Transformer
 		return nil, err
 	}
 	transformerConfig := minimaxtts.Config{
-		Client:     client,
-		VoiceID:    voiceID,
-		Model:      model,
-		Format:     defaultMiniMaxTTSAudioFormat,
-		SampleRate: defaultTTSAudioSampleRate,
+		Client:        client,
+		VoiceID:       voiceID,
+		Model:         model,
+		Format:        defaultMiniMaxTTSAudioFormat,
+		SampleRate:    defaultTTSAudioSampleRate,
+		LanguageBoost: minimaxtts.LanguageBoost(mapString(cfg.Params, "language")),
 	}
 	if format := firstString(providerData.Format); format != "" {
 		transformerConfig.Format = format
