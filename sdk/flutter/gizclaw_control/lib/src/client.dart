@@ -594,6 +594,110 @@ class GizClawControlClient {
     );
   }
 
+  /// `GET /gizclaw/v1/device/settings`.
+  ///
+  /// A null member means the device does not support that option.
+  Future<DeviceSettings> getDeviceSettings() {
+    return _json(
+      'GET',
+      '/device/settings',
+      DeviceSettings.fromJson,
+      operation: 'getDeviceSettings',
+    );
+  }
+
+  /// `PATCH /gizclaw/v1/device/settings`.
+  ///
+  /// Changes only the non-null members of [patch]. A value outside its range
+  /// rejects the whole patch before any member is applied. Returns every
+  /// setting after the change.
+  Future<DeviceSettings> updateDeviceSettings(DeviceSettings patch) {
+    return _json(
+      'PATCH',
+      '/device/settings',
+      DeviceSettings.fromJson,
+      body: patch.toJson(),
+      operation: 'updateDeviceSettings',
+    );
+  }
+
+  /// `POST /gizclaw/v1/device/actions/factory-reset`.
+  ///
+  /// Irreversible on the device. It acknowledges before erasing its state;
+  /// later control calls fail with [GizClawControlErrorKind.deviceOffline]
+  /// until it reconnects. [keepNetwork] retains saved Wi-Fi and cellular
+  /// configuration. A device that deletes its Peer while resetting also
+  /// invalidates every API key of that Peer, including this client's.
+  Future<void> factoryResetDevice({bool? keepNetwork}) {
+    return _noContent(
+      'POST',
+      '/device/actions/factory-reset',
+      body: withoutNulls({'keep_network': keepNetwork}),
+      operation: 'factoryResetDevice',
+    );
+  }
+
+  /// `GET /gizclaw/v1/device/rpc-methods`.
+  ///
+  /// Registry names of the reverse RPCs the device implements. Hide controls
+  /// the device would only fail, and ignore names this SDK does not know.
+  Future<List<String>> listDeviceRpcMethods() {
+    return _json('GET', '/device/rpc-methods', (json) {
+      final object = asJsonObject(json, 'DeviceRpcMethods');
+      return readList(object, 'methods', (item) {
+        if (item is! String) {
+          throw const FormatException('methods: expected strings');
+        }
+        return item;
+      });
+    }, operation: 'listDeviceRpcMethods');
+  }
+
+  /// `PUT /gizclaw/v1/device/run/workspace`.
+  ///
+  /// A successful return means the device accepted the switch, not that it
+  /// finished. Read [DeviceRuntime.activeWorkspaceName] from
+  /// [getDeviceRuntime] to observe it.
+  Future<void> setDeviceRunWorkspace(DeviceRunWorkspaceRequest request) {
+    return _noContent(
+      'PUT',
+      '/device/run/workspace',
+      body: request.toJson(),
+      operation: 'setDeviceRunWorkspace',
+    );
+  }
+
+  /// `GET /gizclaw/v1/device/tools`.
+  ///
+  /// Tools the bound RuntimeProfile exposes to the control app. Answers while
+  /// the device is offline.
+  Future<DeviceToolList> listDeviceTools() {
+    return _json(
+      'GET',
+      '/device/tools',
+      DeviceToolList.fromJson,
+      operation: 'listDeviceTools',
+    );
+  }
+
+  /// `POST /gizclaw/v1/device/tools/{name}/actions/invoke`.
+  ///
+  /// [args] must satisfy the Tool's [DeviceTool.inputSchema]. Returns the
+  /// device's result as JSON text. A Tool [listDeviceTools] does not list
+  /// fails with [GizClawControlErrorKind.notFound].
+  Future<String> invokeDeviceTool(String name, {Map<String, Object?>? args}) {
+    return _json(
+      'POST',
+      '/device/tools/${_segment(name, 'name')}/actions/invoke',
+      (json) => readString(
+        asJsonObject(json, 'DeviceToolInvokeResponse'),
+        'data_json',
+      ),
+      body: withoutNulls({'args': args}),
+      operation: 'invokeDeviceTool',
+    );
+  }
+
   // Contacts.
 
   /// `GET /gizclaw/v1/contacts`.

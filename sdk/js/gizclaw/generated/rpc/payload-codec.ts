@@ -29,6 +29,9 @@ export type ConversationParametersAgentInitiativePolicy = "" | "on_reload" | "on
 export type ConversationParametersInitiative = "" | "agent" | "peer" | "unspecified" | number;
 export type DashScopeRealtimeWorkspaceParametersAgentType = "" | "dashscope-realtime" | "unspecified" | number;
 export type DashScopeTenantModelProviderDataApiMode = "" | "chat_completions" | "realtime" | "unspecified" | number;
+export type DeviceAlertMode = "" | "ring" | "silent" | "unspecified" | "vibrate" | number;
+export type DeviceInteractionMode = "" | "push-to-talk" | "realtime" | "unspecified" | number;
+export type DeviceKeyFeedback = "" | "none" | "sound" | "sound_and_vibrate" | "unspecified" | "vibrate" | number;
 export type DoubaoRealtimeAudioFormatType = "" | "ogg_opus" | "pcm" | "pcm_s16le" | "speech_opus" | "unspecified" | number;
 export type DoubaoRealtimeDialogExtraVolcWebsearchType = "" | "unspecified" | "web" | "web_agent" | "web_summary" | number;
 export type DoubaoRealtimeDuplexWorkspaceParametersAgentType = "" | "doubao-realtime-duplex" | "unspecified" | number;
@@ -175,6 +178,10 @@ export type ClientDeviceAudioPlayerPlaylistSetRequest = {
 export type ClientDeviceAudioPlayerPlaylistSetResponse = AudioPlayerStatus;
 export type ClientDeviceAudioPlayerStopRequest = Record<string, never>;
 export type ClientDeviceAudioPlayerStopResponse = AudioPlayerStatus;
+export type ClientDeviceFactoryResetRequest = {
+  "keep_network"?: boolean;
+};
+export type ClientDeviceFactoryResetResponse = Record<string, never>;
 export type ClientDeviceFindRequest = {
   "duration_ms"?: number;
 };
@@ -183,6 +190,10 @@ export type ClientDeviceRebootRequest = {
   "delay_ms"?: number;
 };
 export type ClientDeviceRebootResponse = Record<string, never>;
+export type ClientDeviceSettingsGetRequest = Record<string, never>;
+export type ClientDeviceSettingsGetResponse = DeviceSettings;
+export type ClientDeviceSettingsSetRequest = DeviceSettings;
+export type ClientDeviceSettingsSetResponse = DeviceSettings;
 export type ClientDeviceSoundPlayRequest = {
   "sound": string;
   "duration_ms"?: number;
@@ -204,6 +215,15 @@ export type ClientGetIdentifiersRequest = Record<string, never>;
 export type ClientGetIdentifiersResponse = DeviceIdentifiers;
 export type ClientGetInfoRequest = Record<string, never>;
 export type ClientGetInfoResponse = HardwareInfo;
+export type ClientRpcMethodsGetRequest = Record<string, never>;
+export type ClientRpcMethodsGetResponse = {
+  "methods": string[];
+};
+export type ClientRunWorkspaceSetRequest = {
+  "workspace_name": string;
+  "kickoff"?: boolean;
+};
+export type ClientRunWorkspaceSetResponse = Record<string, never>;
 export type ClientSocialPingRequest = {
   "from_peer_public_key": string;
   "from_display_name"?: string;
@@ -342,6 +362,18 @@ export type DeviceInfo = {
 export type DeviceProfile = {
   "name"?: string;
   "emoji"?: string;
+};
+export type DeviceSettings = {
+  "cellular_enabled"?: boolean;
+  "screen_off_timeout_ms"?: number;
+  "screen_brightness"?: number;
+  "led_brightness"?: number;
+  "locale"?: string;
+  "default_interaction_mode"?: DeviceInteractionMode;
+  "key_feedback"?: DeviceKeyFeedback;
+  "alert_mode"?: DeviceAlertMode;
+  "auto_sleep_timeout_ms"?: number;
+  "nfc_enabled"?: boolean;
 };
 export type DoubaoRealtimeAIGCMetadata = {
   "content_producer"?: string;
@@ -893,7 +925,6 @@ export type PeerStatus = {
   "ota"?: PeerOtaStatus;
   "battery_percent"?: number;
   "charging"?: boolean;
-  "details": Record<string, unknown>;
   "firmware_sha256"?: string;
   "audioplayer"?: AudioPlayerStatus;
   "gnss_accuracy_m"?: number;
@@ -906,6 +937,28 @@ export type PeerStatus = {
   "volume"?: number;
   "network_imei"?: string;
   "network_imsi"?: string;
+  "telemetry_observed_at"?: PeerStatusTelemetryObservedAt;
+  "activity"?: string;
+  "activity_detail"?: string;
+  "firmware_version"?: string;
+  "wifi_rssi_dbm"?: number;
+  "cellular_rssi_dbm"?: number;
+  "cellular_signal_level"?: number;
+};
+export type PeerStatusTelemetryObservedAt = {
+  "battery_percent"?: string;
+  "charging"?: string;
+  "gnss_latitude"?: string;
+  "gnss_longitude"?: string;
+  "gnss_altitude_m"?: string;
+  "gnss_accuracy_m"?: string;
+  "network_imei"?: string;
+  "network_imsi"?: string;
+  "activity"?: string;
+  "firmware_version"?: string;
+  "wifi_rssi_dbm"?: string;
+  "cellular_rssi_dbm"?: string;
+  "cellular_signal_level"?: string;
 };
 export type PingRequest = {
   "client_send_time": number;
@@ -935,6 +988,8 @@ export type Runtime = {
   "online": boolean;
   "rx_bytes"?: number;
   "tx_bytes"?: number;
+  "active_workspace_name"?: string;
+  "pending_workspace_name"?: string;
 };
 export type ServerAPIKeyResolveRequest = {
   "api_key": string;
@@ -1285,14 +1340,19 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.device.audioplayer.playlist.get": "ClientDeviceAudioPlayerPlaylistGetRequest",
   "client.device.audioplayer.playlist.set": "ClientDeviceAudioPlayerPlaylistSetRequest",
   "client.device.audioplayer.stop": "ClientDeviceAudioPlayerStopRequest",
+  "client.device.factory_reset": "ClientDeviceFactoryResetRequest",
   "client.device.find": "ClientDeviceFindRequest",
   "client.device.reboot": "ClientDeviceRebootRequest",
+  "client.device.settings.get": "ClientDeviceSettingsGetRequest",
+  "client.device.settings.set": "ClientDeviceSettingsSetRequest",
   "client.device.sound.play": "ClientDeviceSoundPlayRequest",
   "client.device.status.get": "ClientDeviceStatusGetRequest",
   "client.device.volume.set": "ClientDeviceVolumeSetRequest",
   "client.firmware.update": "ClientFirmwareUpdateRequest",
   "client.identifiers.get": "ClientGetIdentifiersRequest",
   "client.info.get": "ClientGetInfoRequest",
+  "client.rpc.methods.get": "ClientRpcMethodsGetRequest",
+  "client.run.workspace.set": "ClientRunWorkspaceSetRequest",
   "client.social.ping": "ClientSocialPingRequest",
   "client.tool.invoke": "ToolInvokeRequest",
   "client.wifi.connect": "ClientWifiConnectRequest",
@@ -1391,14 +1451,19 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.device.audioplayer.playlist.get": "ClientDeviceAudioPlayerPlaylistGetResponse",
   "client.device.audioplayer.playlist.set": "ClientDeviceAudioPlayerPlaylistSetResponse",
   "client.device.audioplayer.stop": "ClientDeviceAudioPlayerStopResponse",
+  "client.device.factory_reset": "ClientDeviceFactoryResetResponse",
   "client.device.find": "ClientDeviceFindResponse",
   "client.device.reboot": "ClientDeviceRebootResponse",
+  "client.device.settings.get": "ClientDeviceSettingsGetResponse",
+  "client.device.settings.set": "ClientDeviceSettingsSetResponse",
   "client.device.sound.play": "ClientDeviceSoundPlayResponse",
   "client.device.status.get": "ClientDeviceStatusGetResponse",
   "client.device.volume.set": "ClientDeviceVolumeSetResponse",
   "client.firmware.update": "ClientFirmwareUpdateResponse",
   "client.identifiers.get": "ClientGetIdentifiersResponse",
   "client.info.get": "ClientGetInfoResponse",
+  "client.rpc.methods.get": "ClientRpcMethodsGetResponse",
+  "client.run.workspace.set": "ClientRunWorkspaceSetResponse",
   "client.social.ping": "ClientSocialPingResponse",
   "client.tool.invoke": "ToolInvokeResponse",
   "client.wifi.connect": "ClientWifiConnectResponse",
@@ -2036,6 +2101,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "ClientDeviceFactoryResetRequest": {
+    "fields": [
+      {
+        "name": "keep_network",
+        "number": 1,
+        "optional": true,
+        "type": "bool"
+      }
+    ]
+  },
+  "ClientDeviceFactoryResetResponse": {
+    "fields": []
+  },
   "ClientDeviceFindRequest": {
     "fields": [
       {
@@ -2061,6 +2139,36 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   },
   "ClientDeviceRebootResponse": {
     "fields": []
+  },
+  "ClientDeviceSettingsGetRequest": {
+    "fields": []
+  },
+  "ClientDeviceSettingsGetResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "DeviceSettings"
+      }
+    ]
+  },
+  "ClientDeviceSettingsSetRequest": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "DeviceSettings"
+      }
+    ]
+  },
+  "ClientDeviceSettingsSetResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "DeviceSettings"
+      }
+    ]
   },
   "ClientDeviceSoundPlayRequest": {
     "fields": [
@@ -2157,6 +2265,37 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "HardwareInfo"
       }
     ]
+  },
+  "ClientRpcMethodsGetRequest": {
+    "fields": []
+  },
+  "ClientRpcMethodsGetResponse": {
+    "fields": [
+      {
+        "name": "methods",
+        "number": 1,
+        "repeated": true,
+        "type": "string"
+      }
+    ]
+  },
+  "ClientRunWorkspaceSetRequest": {
+    "fields": [
+      {
+        "name": "workspace_name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "kickoff",
+        "number": 2,
+        "optional": true,
+        "type": "bool"
+      }
+    ]
+  },
+  "ClientRunWorkspaceSetResponse": {
+    "fields": []
   },
   "ClientSocialPingRequest": {
     "fields": [
@@ -2810,6 +2949,70 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 2,
         "optional": true,
         "type": "string"
+      }
+    ]
+  },
+  "DeviceSettings": {
+    "fields": [
+      {
+        "name": "cellular_enabled",
+        "number": 1,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "screen_off_timeout_ms",
+        "number": 2,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "screen_brightness",
+        "number": 3,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "led_brightness",
+        "number": 4,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "locale",
+        "number": 5,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "default_interaction_mode",
+        "number": 6,
+        "optional": true,
+        "type": "DeviceInteractionMode"
+      },
+      {
+        "name": "key_feedback",
+        "number": 7,
+        "optional": true,
+        "type": "DeviceKeyFeedback"
+      },
+      {
+        "name": "alert_mode",
+        "number": 8,
+        "optional": true,
+        "type": "DeviceAlertMode"
+      },
+      {
+        "name": "auto_sleep_timeout_ms",
+        "number": 9,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "nfc_enabled",
+        "number": 10,
+        "optional": true,
+        "type": "bool"
       }
     ]
   },
@@ -5319,11 +5522,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "bool"
       },
       {
-        "name": "details",
-        "number": 3,
-        "type": "google.protobuf.Struct"
-      },
-      {
         "name": "firmware_sha256",
         "number": 12,
         "optional": true,
@@ -5392,6 +5590,130 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "network_imsi",
         "number": 16,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "telemetry_observed_at",
+        "number": 17,
+        "optional": true,
+        "type": "PeerStatusTelemetryObservedAt"
+      },
+      {
+        "name": "activity",
+        "number": 18,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "activity_detail",
+        "number": 19,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "firmware_version",
+        "number": 20,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "wifi_rssi_dbm",
+        "number": 21,
+        "optional": true,
+        "type": "double"
+      },
+      {
+        "name": "cellular_rssi_dbm",
+        "number": 22,
+        "optional": true,
+        "type": "double"
+      },
+      {
+        "name": "cellular_signal_level",
+        "number": 23,
+        "optional": true,
+        "type": "double"
+      }
+    ]
+  },
+  "PeerStatusTelemetryObservedAt": {
+    "fields": [
+      {
+        "name": "battery_percent",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "charging",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "gnss_latitude",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "gnss_longitude",
+        "number": 4,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "gnss_altitude_m",
+        "number": 5,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "gnss_accuracy_m",
+        "number": 6,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "network_imei",
+        "number": 7,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "network_imsi",
+        "number": 8,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "activity",
+        "number": 9,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "firmware_version",
+        "number": 10,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "wifi_rssi_dbm",
+        "number": 11,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "cellular_rssi_dbm",
+        "number": 12,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "cellular_signal_level",
+        "number": 13,
         "optional": true,
         "type": "string"
       }
@@ -5506,6 +5828,18 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 5,
         "optional": true,
         "type": "uint64"
+      },
+      {
+        "name": "active_workspace_name",
+        "number": 7,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "pending_workspace_name",
+        "number": 8,
+        "optional": true,
+        "type": "string"
       }
     ]
   },
@@ -7110,6 +7444,48 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "0": "",
       "1": "chat_completions",
       "2": "realtime"
+    }
+  },
+  "DeviceAlertMode": {
+    "byName": {
+      "ring": 3,
+      "silent": 1,
+      "unspecified": 0,
+      "vibrate": 2
+    },
+    "byNumber": {
+      "0": "",
+      "1": "silent",
+      "2": "vibrate",
+      "3": "ring"
+    }
+  },
+  "DeviceInteractionMode": {
+    "byName": {
+      "push-to-talk": 1,
+      "realtime": 2,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "push-to-talk",
+      "2": "realtime"
+    }
+  },
+  "DeviceKeyFeedback": {
+    "byName": {
+      "none": 1,
+      "sound": 2,
+      "sound_and_vibrate": 4,
+      "unspecified": 0,
+      "vibrate": 3
+    },
+    "byNumber": {
+      "0": "",
+      "1": "none",
+      "2": "sound",
+      "3": "vibrate",
+      "4": "sound_and_vibrate"
     }
   },
   "DoubaoRealtimeAudioFormatType": {

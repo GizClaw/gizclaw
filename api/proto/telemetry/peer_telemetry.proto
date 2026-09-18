@@ -20,6 +20,7 @@ message Observation {
     SystemObservation system = 13;
     OtaObservation ota = 14;
     AudioPlayerObservation audioplayer = 15;
+    ActivityObservation activity = 16;
   }
 }
 
@@ -47,6 +48,20 @@ message NetworkObservation {
   // Identity of the SIM serving the default packet-data route: 6 to 15 ASCII
   // digits. Cellular routes only; unset when no SIM is readable.
   optional string imsi = 7;
+}
+
+// ActivityObservation is the device reporting which of its features is in use
+// right now, so an operator can see what a device is doing without inferring
+// it from other signals. It is a status projection only: it never becomes a
+// metric sample, because the useful question is "what is it doing now", not
+// "how did a string change over time".
+message ActivityObservation {
+  // Stable machine-readable feature id, 1..32 bytes matching
+  // [a-z0-9][a-z0-9_.-]*, e.g. "idle", "chat", "audioplayer", "ota".
+  string activity = 1;
+  // Optional human-readable detail shown next to the activity, at most 128
+  // UTF-8 bytes. Never parsed by the Server. Must not carry secrets.
+  optional string detail = 2;
 }
 
 message SystemObservation {

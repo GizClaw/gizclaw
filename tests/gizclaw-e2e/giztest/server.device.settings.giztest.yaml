@@ -1,0 +1,157 @@
+# User Story:
+# As a GizClaw API key holder,
+# I want to read and patch my bound device's own settings through its real transport,
+# So that the settings page reaches client.device.settings.get and .set and shows what the device accepted.
+version: gizclaw.test/v1alpha1
+name: server.device.settings
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+- id: get_settings
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/settings
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  expect:
+    /cellular_enabled:
+      equals: true
+    /screen_brightness:
+      equals: 60
+    /locale:
+      equals: zh-CN
+    /nfc_enabled:
+      present: false
+- id: patch_settings
+  client: peer
+  http:
+    method: PATCH
+    path: /gizclaw/v1/device/settings
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      screen_brightness: 80
+      locale: en-US
+      alert_mode: vibrate
+      key_feedback: sound_and_vibrate
+      default_interaction_mode: push-to-talk
+      auto_sleep_timeout_ms: 0
+      nfc_enabled: false
+    status: 200
+  expect:
+    /cellular_enabled:
+      equals: true
+    /screen_brightness:
+      equals: 80
+    /locale:
+      equals: en-US
+    /alert_mode:
+      equals: vibrate
+    /key_feedback:
+      equals: sound_and_vibrate
+    /default_interaction_mode:
+      equals: push-to-talk
+    /auto_sleep_timeout_ms:
+      equals: 0
+    /nfc_enabled:
+      equals: false
+- id: patch_out_of_range
+  client: peer
+  http:
+    method: PATCH
+    path: /gizclaw/v1/device/settings
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      screen_brightness: 101
+    status: 400
+  expect:
+    /error/code:
+      equals: INVALID_REQUEST
+- id: patch_unknown_alert_mode
+  client: peer
+  http:
+    method: PATCH
+    path: /gizclaw/v1/device/settings
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      alert_mode: loud
+    status: 400
+  expect:
+    /error/code:
+      equals: INVALID_REQUEST
+- id: patch_negative_auto_sleep
+  client: peer
+  http:
+    method: PATCH
+    path: /gizclaw/v1/device/settings
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      auto_sleep_timeout_ms: -1
+    status: 400
+  expect:
+    /error/code:
+      equals: INVALID_REQUEST
+- id: provider_settings_get
+  client: peer
+  client_rpc:
+    method: client.device.settings.get
+    response:
+      cellular_enabled: true
+      screen_brightness: 60
+      locale: zh-CN
+    expect_calls: 1
+- id: provider_settings_set
+  client: peer
+  client_rpc:
+    method: client.device.settings.set
+    response:
+      cellular_enabled: true
+      screen_brightness: 60
+      locale: zh-CN
+    expect_calls: 1
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

@@ -292,6 +292,11 @@ typedef struct {
   int64_t rx_bytes;
   bool has_tx_bytes;
   int64_t tx_bytes;
+  /* Workspace the device runs, and one a switch has selected but the device
+   * has not committed yet. Empty when absent. Both come from the Server's
+   * record, so they answer while the device is offline. */
+  gzc_str_t active_workspace_name;
+  gzc_str_t pending_workspace_name;
 } gzc_control_device_runtime_t;
 
 /*
@@ -380,7 +385,9 @@ typedef struct {
  * Latest status reported by the device (shared `PeerStatus`).
  *
  * Every field is optional in the contract. `raw` is the complete response
- * object; `labels` and `details` are the raw JSON objects, empty when absent.
+ * object; `labels` is the raw JSON object, empty when absent. Fields this
+ * struct does not model, such as `telemetry_observed_at`, stay readable
+ * through `raw`.
  */
 typedef struct {
   gzc_str_t reported_at;
@@ -403,7 +410,19 @@ typedef struct {
   bool has_gnss_accuracy_m;
   double gnss_accuracy_m;
   gzc_str_t labels;
-  gzc_str_t details;
+  /* Feature the device reports it is currently using, with an optional
+   * human-readable detail. Preserve unknown activity values. */
+  gzc_str_t activity;
+  gzc_str_t activity_detail;
+  /* Human-readable firmware release, next to the exact-package digest. */
+  gzc_str_t firmware_version;
+  /* Latest signal per route from network telemetry. */
+  bool has_wifi_rssi_dbm;
+  double wifi_rssi_dbm;
+  bool has_cellular_rssi_dbm;
+  double cellular_rssi_dbm;
+  bool has_cellular_signal_level;
+  double cellular_signal_level;
   gzc_str_t raw;
 } gzc_control_peer_status_t;
 
@@ -496,6 +515,62 @@ typedef struct {
   bool has_delay_ms;
   int32_t delay_ms;
 } gzc_control_reboot_request_t;
+
+/*
+ * Device-owned settings (`DeviceSettings`).
+ *
+ * Every member is optional. In a response an absent member means the device
+ * does not support that option; in gzc_control_update_device_settings() an
+ * absent member leaves it unchanged. Enum members are their wire strings:
+ * default_interaction_mode is "push-to-talk" or "realtime"; key_feedback is
+ * "none", "sound", "vibrate" or "sound_and_vibrate"; alert_mode is "silent",
+ * "vibrate" or "ring". Empty strings are absent.
+ */
+typedef struct {
+  bool has_cellular_enabled;
+  bool cellular_enabled;
+  bool has_screen_off_timeout_ms;
+  int64_t screen_off_timeout_ms;
+  bool has_screen_brightness;
+  int64_t screen_brightness;
+  bool has_led_brightness;
+  int64_t led_brightness;
+  gzc_str_t locale;
+  gzc_str_t default_interaction_mode;
+  gzc_str_t key_feedback;
+  gzc_str_t alert_mode;
+  bool has_auto_sleep_timeout_ms;
+  int64_t auto_sleep_timeout_ms;
+  bool has_nfc_enabled;
+  bool nfc_enabled;
+} gzc_control_device_settings_t;
+
+/* Body of `POST /gizclaw/v1/device/actions/factory-reset`
+ * (`DeviceFactoryResetRequest`). */
+typedef struct {
+  bool has_keep_network;
+  bool keep_network;
+} gzc_control_factory_reset_request_t;
+
+/* Body of `PUT /gizclaw/v1/device/run/workspace`
+ * (`DeviceRunWorkspaceSetRequest`). Set exactly one target: workspace_name, or
+ * collection with workflow_name. */
+typedef struct {
+  gzc_str_t workspace_name;
+  gzc_str_t collection;
+  gzc_str_t workflow_name;
+  bool has_kickoff;
+  bool kickoff;
+} gzc_control_run_workspace_request_t;
+
+/* One Tool the control app may invoke on the device (`DeviceTool`). i18n and
+ * input_schema are the raw JSON objects, borrowed from the response. */
+typedef struct {
+  gzc_str_t name;
+  gzc_str_t control_access;
+  gzc_str_t i18n;
+  gzc_str_t input_schema;
+} gzc_control_device_tool_t;
 
 /* Current Wi-Fi status of the device (`DeviceWifiStatus`). */
 typedef struct {
@@ -862,6 +937,84 @@ int gzc_control_reboot_device(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
     const gzc_control_reboot_request_t *request);
+
+/* `GET /gizclaw/v1/device/settings`. */
+int gzc_control_get_device_settings(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_control_device_settings_t *out_settings);
+
+/*
+ * `PATCH /gizclaw/v1/device/settings`.
+ *
+ * Sends only the members present in patch. A value outside its range rejects
+ * the whole patch before any member is applied. out_settings receives every
+ * setting after the change and may be NULL.
+ */
+int gzc_control_update_device_settings(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_device_settings_t *patch,
+    gzc_control_device_settings_t *out_settings);
+
+/*
+ * `POST /gizclaw/v1/device/actions/factory-reset`.
+ *
+ * Irreversible on the device. It acknowledges before erasing its state; later
+ * control calls fail with GZC_CONTROL_ERROR_DEVICE_OFFLINE until it
+ * reconnects. A device that deletes its Peer while resetting also invalidates
+ * every API key of that Peer, including the one this client uses. request
+ * may be NULL.
+ */
+int gzc_control_factory_reset_device(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_factory_reset_request_t *request);
+
+/* `GET /gizclaw/v1/device/rpc-methods`. Decodes up to cap method names.
+ * Ignore names this SDK does not know. */
+int gzc_control_list_device_rpc_methods(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t *out_methods,
+    size_t cap,
+    size_t *out_count);
+
+/*
+ * `PUT /gizclaw/v1/device/run/workspace`.
+ *
+ * Success means the device accepted the request, not that the switch
+ * finished; read gzc_control_get_device_runtime() to observe it.
+ */
+int gzc_control_set_device_run_workspace(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_run_workspace_request_t *request);
+
+/* `GET /gizclaw/v1/device/tools`. Decodes up to cap Tools. Answers while the
+ * device is offline. */
+int gzc_control_list_device_tools(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_control_device_tool_t *out_tools,
+    size_t cap,
+    size_t *out_count);
+
+/*
+ * `POST /gizclaw/v1/device/tools/{name}/actions/invoke`.
+ *
+ * args_json is one JSON object satisfying the Tool's input_schema, or empty
+ * for `{}`. out_data_json receives the device's result as unescaped JSON text
+ * written into the call's scratch region, valid until the next call on it;
+ * call->body keeps the exact response. A result longer than scratch_cap fails
+ * with GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL.
+ */
+int gzc_control_invoke_device_tool(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    gzc_str_t name,
+    gzc_str_t args_json,
+    gzc_str_t *out_data_json);
 
 /* `GET /gizclaw/v1/device/wifi`. */
 int gzc_control_get_device_wifi(

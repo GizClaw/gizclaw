@@ -27,8 +27,13 @@ import {
   type SpeechTranscribeRequest,
   type SpeechTranscribeResponse,
   type SpeedTestRequest,
+  type ClientDeviceFactoryResetRequest,
   type ClientDeviceFindRequest,
   type ClientDeviceRebootRequest,
+  type ClientDeviceSettingsSetRequest,
+  type ClientRunWorkspaceSetRequest,
+  type ToolInvokeRequest,
+  type DeviceSettings,
   type ClientDeviceSoundPlayRequest,
   type ClientDeviceVolumeSetRequest,
   type ClientFirmwareUpdateRequest,
@@ -205,10 +210,10 @@ export type PreparedGiznetWebRTCOffer = {
 
 // GizClawDeviceStatus is the PeerStatus shape a device handler reports. The
 // generated PeerStatus type describes a decoded response, where protobuf maps
-// are always present; a device supplies them only when it has labels or
-// details to report.
-export type GizClawDeviceStatus = Omit<PeerStatus, "details" | "labels"> &
-  Partial<Pick<PeerStatus, "details" | "labels">>;
+// are always present; a device supplies them only when it has labels to
+// report.
+export type GizClawDeviceStatus = Omit<PeerStatus, "labels"> &
+  Partial<Pick<PeerStatus, "labels">>;
 
 /** Device-owned playlist and player. Append must be atomic and preserve playback. */
 export type GizClawAudioPlayerHandlers = {
@@ -282,6 +287,33 @@ export type GizClawDeviceControlHandlers = {
   ) => Promise<GizClawDeviceStatus> | GizClawDeviceStatus;
   status?: () => Promise<GizClawDeviceStatus> | GizClawDeviceStatus;
   wifiStatus?: () => Promise<WifiStatus> | WifiStatus;
+  // getSettings reports every option this device supports. An option the
+  // device has no hardware for stays absent rather than being reported with a
+  // placeholder value, which is how a caller tells "off" from "not supported".
+  getSettings?: () => Promise<DeviceSettings> | DeviceSettings;
+  // setSettings applies only the options present in the patch and answers with
+  // the device's full settings afterwards, so the caller sees what was
+  // accepted. An option the device does not support is ignored, not an error.
+  setSettings?: (
+    patch: DeviceSettings,
+  ) => Promise<DeviceSettings> | DeviceSettings;
+  // factoryReset erases device-local state. keepNetwork retains saved Wi-Fi and
+  // cellular configuration so the device can reconnect without provisioning.
+  //
+  // Like reboot, the handler must settle promptly and only then perform the
+  // reset: the acknowledgement is sent from this handler's return, so a handler
+  // that tears down networking or blocks before settling leaves the caller
+  // without the response the method promises. Schedule the reset with
+  // setTimeout or an equivalent and return.
+  factoryReset?: (keepNetwork: boolean) => Promise<void> | void;
+  // setRunWorkspace switches the Workspace the device runs to
+  // request.workspace_name, already validated; the Server has resolved any
+  // workflow target to this one name. The acknowledgement only means the device accepted it:
+  // settle promptly, then switch through
+  // server.run.workspace.reload-with-options.
+  setRunWorkspace?: (
+    request: ClientRunWorkspaceSetRequest,
+  ) => Promise<void> | void;
 };
 
 // GizClawPeerRPCHandlers answers the client.* RPCs a GizClaw server initiates.
@@ -298,7 +330,22 @@ export type GizClawPeerRPCHandlers = {
   // push timeout, so alert the user without waiting on them, and leave the
   // handler unset on a device that cannot alert its user.
   socialPing?: (request: ClientSocialPingRequest) => Promise<void> | void;
+  // tools answers client.tool.invoke for the device's client_rpc Tools, keyed
+  // by the Tool's invoke name. The handler receives the arguments the Server
+  // already validated against the Tool's input_schema, and its result is
+  // returned to the caller as JSON (data_json). A name without a handler
+  // answers METHOD_NOT_FOUND. Tool availability is discovered through the Tool
+  // list, so tools are not advertised by client.rpc.methods.get.
+  tools?: Record<string, GizClawToolHandler>;
 };
+
+// GizClawToolHandler runs one client_rpc Tool and returns a JSON-serializable
+// result.
+export type GizClawToolHandler = (
+  args: Record<string, unknown>,
+) => Promise<unknown> | unknown;
+
+const TOOL_INVOKE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]{0,63}$/;
 
 // GizClawDeviceControlError makes a device control handler answer one specific
 // RPC error code instead of the default internal error.
@@ -2403,6 +2450,107 @@ function deviceControlDuration(value: unknown): number | undefined | null {
   return value;
 }
 
+const DEVICE_INTERACTION_MODES = ["push-to-talk", "realtime"];
+// BCP 47 well-formedness at the subtag level: a 2-8 letter primary subtag and
+// hyphen-separated 1-8 character alphanumeric subtags, e.g. "zh-Hant-TW".
+const DEVICE_SETTINGS_LOCALE_PATTERN = /^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$/;
+const DEVICE_KEY_FEEDBACKS = ["none", "sound", "vibrate", "sound_and_vibrate"];
+const DEVICE_ALERT_MODES = ["silent", "vibrate", "ring"];
+
+// deviceSettingsPatchValid rejects a patch before the device applies any of it,
+// so a bad member cannot leave the device half-configured. Unknown members are
+// ignored rather than rejected, so a newer server can talk to an older device.
+function deviceSettingsPatchValid(patch: DeviceSettings): boolean {
+  const percent = (value: unknown): boolean =>
+    value === undefined ||
+    (typeof value === "number" &&
+      Number.isInteger(value) &&
+      value >= 0 &&
+      value <= 100);
+  const duration = (value: unknown): boolean =>
+    value === undefined ||
+    (typeof value === "number" && Number.isInteger(value) && value >= 0);
+  const member = (value: unknown, allowed: string[]): boolean =>
+    value === undefined ||
+    (typeof value === "string" && allowed.includes(value));
+  return (
+    (patch.cellular_enabled === undefined ||
+      typeof patch.cellular_enabled === "boolean") &&
+    duration(patch.screen_off_timeout_ms) &&
+    percent(patch.screen_brightness) &&
+    percent(patch.led_brightness) &&
+    (patch.locale === undefined ||
+      (typeof patch.locale === "string" &&
+        patch.locale.length <= 35 &&
+        DEVICE_SETTINGS_LOCALE_PATTERN.test(patch.locale))) &&
+    member(patch.default_interaction_mode, DEVICE_INTERACTION_MODES) &&
+    member(patch.key_feedback, DEVICE_KEY_FEEDBACKS) &&
+    member(patch.alert_mode, DEVICE_ALERT_MODES) &&
+    duration(patch.auto_sleep_timeout_ms) &&
+    (patch.nfc_enabled === undefined || typeof patch.nfc_enabled === "boolean")
+  );
+}
+
+const RUN_WORKSPACE_TARGET_MAX_BYTES = 256;
+
+// validRunWorkspaceRequest accepts a non-empty workspace_name within the
+// nanopb bound.
+function validRunWorkspaceRequest(value: unknown): boolean {
+  if (value == null || typeof value !== "object") {
+    return false;
+  }
+  const request = value as ClientRunWorkspaceSetRequest;
+  return (
+    typeof request.workspace_name === "string" &&
+    request.workspace_name.length > 0 &&
+    new TextEncoder().encode(request.workspace_name).length <=
+      RUN_WORKSPACE_TARGET_MAX_BYTES &&
+    (request.kickoff === undefined || typeof request.kickoff === "boolean")
+  );
+}
+
+// supportedDeviceMethods lists the client.* methods this device answers, taken
+// from the handlers it registered. client.rpc.methods.get is always present
+// because answering it is what produced this list.
+function supportedDeviceMethods(
+  handlers: GizClawPeerRPCHandlers | undefined,
+): string[] {
+  const control = handlers?.deviceControl;
+  const player = control?.audioplayer;
+  const present: [string, unknown][] = [
+    ["client.info.get", handlers?.deviceInfo],
+    ["client.identifiers.get", handlers?.deviceIdentifiers],
+    ["client.social.ping", handlers?.socialPing],
+    ["client.device.status.get", control?.status],
+    ["client.device.volume.set", control?.setVolume],
+    ["client.device.sound.play", control?.playSound],
+    ["client.device.reboot", control?.reboot],
+    ["client.device.find", control?.find],
+    ["client.device.settings.get", control?.getSettings],
+    ["client.device.settings.set", control?.setSettings],
+    ["client.device.factory_reset", control?.factoryReset],
+    ["client.run.workspace.set", control?.setRunWorkspace],
+    ["client.firmware.update", control?.updateFirmware],
+    ["client.wifi.status.get", control?.wifiStatus],
+    ["client.wifi.saved.list", control?.savedWifi],
+    ["client.wifi.saved.forget", control?.forgetWifi],
+    ["client.wifi.scan", control?.scanWifi],
+    ["client.wifi.connect", control?.connectWifi],
+    ["client.device.audioplayer.get", player?.get],
+    ["client.device.audioplayer.playlist.get", player?.playlistGet],
+    ["client.device.audioplayer.playlist.set", player?.playlistSet],
+    ["client.device.audioplayer.playlist.append", player?.playlistAppend],
+    ["client.device.audioplayer.play", player?.play],
+    ["client.device.audioplayer.stop", player?.stop],
+    ["client.device.audioplayer.mode.set", player?.modeSet],
+  ];
+  const methods = present
+    .filter(([, handler]) => handler != null)
+    .map(([method]) => method);
+  methods.push("client.rpc.methods.get");
+  return methods;
+}
+
 // validSocialPingParams checks an inbound client.social.ping request. The
 // sender key is required; the display name and the group name are optional,
 // and an absent optional field stays absent rather than becoming "".
@@ -2452,6 +2600,27 @@ async function answerClientRequest(
 
   try {
     switch (request.method) {
+      case "client.tool.invoke": {
+        const params = request.params as ToolInvokeRequest | undefined;
+        const name = params?.invoke_name?.trim() ?? "";
+        if (!TOOL_INVOKE_NAME_PATTERN.test(name)) {
+          return invalid();
+        }
+        const args = params?.args ?? {};
+        if (typeof args !== "object" || Array.isArray(args)) {
+          return invalid();
+        }
+        // Own keys only, so a Tool named after an Object prototype member
+        // is not answered by it.
+        const tools = handlers?.tools;
+        const handler =
+          tools != null && Object.hasOwn(tools, name) ? tools[name] : undefined;
+        if (handler == null) {
+          return unsupported();
+        }
+        const result = await handler(args as Record<string, unknown>);
+        return ok({ data_json: JSON.stringify(result ?? null) });
+      }
       case "client.info.get": {
         const handler = handlers?.deviceInfo;
         return handler == null ? unsupported() : ok(await handler());
@@ -2593,6 +2762,51 @@ async function answerClientRequest(
         }
         await handler(delayMs);
         return ok({});
+      }
+      case "client.device.settings.get": {
+        const handler = control?.getSettings;
+        if (handler == null) {
+          return unsupported();
+        }
+        return ok(await handler());
+      }
+      case "client.device.settings.set": {
+        const handler = control?.setSettings;
+        if (handler == null) {
+          return unsupported();
+        }
+        const patch = (request.params ?? {}) as ClientDeviceSettingsSetRequest;
+        if (!deviceSettingsPatchValid(patch)) {
+          return invalid();
+        }
+        return ok(await handler(patch));
+      }
+      case "client.device.factory_reset": {
+        const handler = control?.factoryReset;
+        if (handler == null) {
+          return unsupported();
+        }
+        const params = request.params as
+          ClientDeviceFactoryResetRequest | undefined;
+        await handler(params?.keep_network === true);
+        return ok({});
+      }
+      case "client.run.workspace.set": {
+        const handler = control?.setRunWorkspace;
+        if (handler == null) {
+          return unsupported();
+        }
+        if (!validRunWorkspaceRequest(request.params)) {
+          return invalid();
+        }
+        await handler(request.params as ClientRunWorkspaceSetRequest);
+        return ok({});
+      }
+      case "client.rpc.methods.get": {
+        // Derived from the handlers this device actually registered rather
+        // than from a hand-kept list, so the answer cannot drift from what the
+        // device will really accept.
+        return ok({ methods: supportedDeviceMethods(handlers) });
       }
       case "client.firmware.update": {
         const handler = control?.updateFirmware;

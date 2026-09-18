@@ -10,9 +10,11 @@ import {
   isMessage,
   toBinary,
   toJson,
+  type DescField,
   type DescMessage,
 } from "@bufbuild/protobuf";
 import { FileDescriptorSetSchema } from "@bufbuild/protobuf/wkt";
+import type { TelemetryFrame } from "@gizclaw/gizclaw";
 import {
   decodeRPCRequestPayload,
   encodeRPCResponsePayload,
@@ -97,4 +99,88 @@ export function responseToProtoJSON(method: string, input: unknown): unknown {
   )
     return value.value;
   return value;
+}
+
+const telemetryRegistry = createFileRegistry(
+  fromBinary(
+    FileDescriptorSetSchema,
+    readFileSync(
+      new URL("../../testdata/telemetry-descriptors.pb", import.meta.url),
+    ),
+  ),
+);
+
+export function telemetryFrameSchema(): DescMessage {
+  const schema = telemetryRegistry.getMessage(
+    "gizclaw.telemetry.v1.TelemetryFrame",
+  );
+  if (schema == null) throw new Error("telemetry descriptor set is missing");
+  return schema;
+}
+
+// telemetryFrameFromProtoJSON reads a telemetry step's Protobuf JSON frame
+// with the same strict parsing as the Go runner and reshapes it into the JS
+// SDK's TelemetryFrame: camelCase members, the oneof body as its own member,
+// 64-bit integers as numbers and enums as their numbers.
+export function telemetryFrameFromProtoJSON(input: unknown): TelemetryFrame {
+  const schema = telemetryFrameSchema();
+  const message = fromJsonString(schema, JSON.stringify(input ?? {}));
+  const frame = sdkMessage(schema, message) as TelemetryFrame;
+  const observations = frame.observations ?? [];
+  if (observations.length === 0) {
+    throw new Error("telemetry requires observations");
+  }
+  for (const observation of observations) {
+    if (Object.keys(observation).every((key) => key === "observedAtDeltaMs")) {
+      throw new Error("telemetry requires observation bodies");
+    }
+  }
+  return frame;
+}
+
+function sdkMessage(
+  schema: DescMessage,
+  message: unknown,
+): Record<string, unknown> {
+  const source = message as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const member of schema.members) {
+    if (member.kind === "oneof") {
+      const selected = source[member.localName] as
+        { case?: string; value?: unknown } | undefined;
+      const field = member.fields.find(
+        (candidate) => candidate.localName === selected?.case,
+      );
+      if (field != null) {
+        out[field.localName] = sdkValue(field, selected?.value);
+      }
+      continue;
+    }
+    const value = source[member.localName];
+    if (value !== undefined) {
+      out[member.localName] = sdkValue(member, value);
+    }
+  }
+  return out;
+}
+
+function sdkValue(field: DescField, value: unknown): unknown {
+  switch (field.fieldKind) {
+    case "message":
+      return sdkMessage(field.message, value);
+    case "list":
+      return (value as unknown[]).map((item) =>
+        field.listKind === "message"
+          ? sdkMessage(field.message, item)
+          : sdkScalar(item),
+      );
+    case "map":
+      throw new Error(`telemetry map field ${field.name} is unsupported`);
+    default:
+      return sdkScalar(value);
+  }
+}
+
+function sdkScalar(value: unknown): unknown {
+  return typeof value === "bigint" ? Number(value) : value;
 }

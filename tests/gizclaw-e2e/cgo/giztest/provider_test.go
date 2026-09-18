@@ -263,3 +263,141 @@ func TestSocialResponsesRenderProtoJSON(t *testing.T) {
 		t.Fatalf("unknown profile = %#v", unknown)
 	}
 }
+
+// The settings, factory reset, RPC methods, Workspace switch and Tool fixtures
+// must pass the C runner's validate and reach the controller route table.
+func TestDeviceSettingsAndControlDocuments(t *testing.T) {
+	for _, name := range []string{
+		"server.device.settings.giztest.yaml",
+		"server.device.factory_reset.giztest.yaml",
+		"server.device.rpc_methods.giztest.yaml",
+		"server.device.run_workspace.set.giztest.yaml",
+		"server.device.tools.giztest.yaml",
+	} {
+		t.Run(name, func(t *testing.T) {
+			doc, err := giztest.LoadDocument(filepath.Join("../../giztest", name), driver{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, step := range doc.Steps {
+				if step.HTTP != nil {
+					if err := validateControlRoute(step); err != nil {
+						t.Fatalf("step %s: %v", step.ID, err)
+					}
+				}
+			}
+		})
+	}
+	for _, route := range []struct{ method, path string }{
+		{"PATCH", "/gizclaw/v1/device/settings"},
+		{"POST", "/gizclaw/v1/device/tools/lamp/actions/invoke"},
+	} {
+		step := giztest.Step{HTTP: &giztest.HTTPOperation{Method: route.method, Path: route.path}}
+		if err := validateControlRoute(step); err != nil {
+			t.Fatalf("%s %s: %v", route.method, route.path, err)
+		}
+	}
+	for _, route := range []struct{ method, path string }{
+		{"PATCH", "/gizclaw/v1/device/volume"},
+		{"POST", "/gizclaw/v1/device/tools/lamp"},
+	} {
+		step := giztest.Step{HTTP: &giztest.HTTPOperation{Method: route.method, Path: route.path}}
+		if err := validateControlRoute(step); err == nil {
+			t.Fatalf("%s %s was accepted", route.method, route.path)
+		}
+	}
+}
+
+// client.device.settings.set answers the scripted settings with the patch's
+// members overlaid; absent patch members leave the scripted ones unchanged.
+func TestSettingsSetOverlaysPatch(t *testing.T) {
+	provider := newClientRPCProvider()
+	if err := provider.install("client.device.settings.set", map[string]any{
+		"cellular_enabled": true, "screen_brightness": 60, "locale": "zh-CN",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	info, err := lookupMethod("client.device.settings.set")
+	if err != nil {
+		t.Fatal(err)
+	}
+	request, err := proto.Marshal(&rpcpb.ClientDeviceSettingsSetRequest{Value: &rpcpb.DeviceSettings{
+		ScreenBrightness: new(int64(80)), NfcEnabled: new(false),
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, code, _, err := provider.answer(info.id, request)
+	if err != nil || code != 0 {
+		t.Fatalf("answer code=%d err=%v", code, err)
+	}
+	settings, err := decodePayload(info.response, payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings["screen_brightness"] != "80" || settings["locale"] != "zh-CN" || settings["cellular_enabled"] != true ||
+		settings["nfc_enabled"] != false {
+		t.Fatalf("patched settings = %#v", settings)
+	}
+	if _, present := settings["led_brightness"]; present {
+		t.Fatalf("unsupported member became present: %#v", settings)
+	}
+	// An empty patch changes nothing.
+	payload, _, _, err = provider.answer(info.id, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings, err = decodePayload(info.response, payload); err != nil || settings["screen_brightness"] != "60" {
+		t.Fatalf("empty patch settings = %#v, %v", settings, err)
+	}
+}
+
+// client.rpc.methods.get lists the scripted providers whether or not a step
+// scripts it, counts the calls when one does, and takes no scripted response.
+func TestRPCMethodsListsScriptedProviders(t *testing.T) {
+	info, err := lookupMethod(rpcMethodsGet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := newClientRPCProvider()
+	for _, method := range []string{"client.run.workspace.set", "client.device.factory_reset", "client.device.settings.get"} {
+		if err := provider.install(method, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	payload, code, _, err := provider.answer(info.id, nil)
+	if err != nil || code != 0 {
+		t.Fatalf("unscripted answer code=%d err=%v", code, err)
+	}
+	decoded, err := decodePayload(info.response, payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []any{"client.device.factory_reset", "client.device.settings.get", "client.run.workspace.set", rpcMethodsGet}
+	if got, _ := decoded["methods"].([]any); !slices.Equal(got, want) {
+		t.Fatalf("methods = %#v, want %#v", decoded["methods"], want)
+	}
+	if err := provider.install(rpcMethodsGet, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, _, err := provider.answer(info.id, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := provider.callCount(rpcMethodsGet); got != 1 {
+		t.Fatalf("%s call count = %d, want 1", rpcMethodsGet, got)
+	}
+	if err := provider.install(rpcMethodsGet, map[string]any{"methods": []any{}}); err == nil {
+		t.Fatal("a scripted client.rpc.methods.get answer was accepted")
+	}
+	// Factory reset and the Workspace switch acknowledge by default.
+	for _, method := range []string{"client.device.factory_reset", "client.run.workspace.set"} {
+		method, err := lookupMethod(method)
+		if err != nil {
+			t.Fatal(err)
+		}
+		payload, code, _, err := provider.answer(method.id, nil)
+		if err != nil || code != 0 || len(payload) != 0 {
+			t.Fatalf("ack code=%d payload=%x err=%v", code, payload, err)
+		}
+	}
+}

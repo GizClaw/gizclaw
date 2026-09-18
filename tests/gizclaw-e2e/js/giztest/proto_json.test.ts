@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { requestFromProtoJSON, responseToProtoJSON } from "./proto_json.ts";
+import { equals, fromBinary, fromJsonString } from "@bufbuild/protobuf";
+import { encodeTelemetryPacket } from "@gizclaw/gizclaw";
+import {
+  requestFromProtoJSON,
+  responseToProtoJSON,
+  telemetryFrameFromProtoJSON,
+  telemetryFrameSchema,
+} from "./proto_json.ts";
 
 test("scenario Protobuf JSON converts workspace oneofs and enums for the SDK", () => {
   const request = requestFromProtoJSON("server.workspace.create", {
@@ -97,5 +104,69 @@ test("profile lookups convert keys and public profiles", () => {
         { peer_public_key: "dave-key" },
       ],
     },
+  );
+});
+
+test("telemetry Protobuf JSON survives the SDK's telemetry encoder", () => {
+  const input = {
+    sequence: 7,
+    observed_at_unix_ms: "1800000000000",
+    observations: [
+      { activity: { activity: "chat", detail: "bedtime story" } },
+      { system: { firmware_version: "" } },
+      { network: { rat: "lte", rssi_dbm: -90, signal_level: 3 } },
+      { battery: { percent: 61 }, observed_at_delta_ms: -2000 },
+      { gnss: { latitude: 1.5, longitude: -2.5, accuracy_m: 4 } },
+      {
+        audioplayer: {
+          state: "error",
+          repeat: "all",
+          playlist_length: 1,
+          playlist_revision: 1,
+          current_index: 0,
+          position_ms: "12000",
+          error_code: "FETCH_FAILED",
+        },
+      },
+      {
+        ota: {
+          state: "OTA_STATE_DOWNLOADING",
+          update_id: "attempt-1",
+          download_percent: 50,
+        },
+      },
+    ],
+  };
+  const frame = telemetryFrameFromProtoJSON(input);
+  assert.equal(frame.observedAtUnixMs, 1800000000000);
+  assert.deepEqual(frame.observations?.[1], {
+    observedAtDeltaMs: 0,
+    system: { firmwareVersion: "" },
+  });
+  assert.equal(frame.observations?.[6]?.ota?.state, 2);
+  const schema = telemetryFrameSchema();
+  const packet = encodeTelemetryPacket(frame);
+  assert.ok(
+    equals(
+      schema,
+      fromBinary(schema, packet.slice(1)),
+      fromJsonString(schema, JSON.stringify(input)),
+    ),
+  );
+});
+
+test("telemetry Protobuf JSON rejects empty frames and unknown members", () => {
+  assert.throws(
+    () => telemetryFrameFromProtoJSON({ observations: [] }),
+    /requires observations/u,
+  );
+  assert.throws(
+    () => telemetryFrameFromProtoJSON({ observations: [{}] }),
+    /requires observation bodies/u,
+  );
+  assert.throws(() =>
+    telemetryFrameFromProtoJSON({
+      observations: [{ battery: { precent: 1 } }],
+    }),
   );
 });

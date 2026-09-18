@@ -26,19 +26,24 @@ import {
   createContact,
   createPeerHTTPClient,
   deleteContact,
+  factoryResetDevice,
   findDevice,
   forgetDeviceSavedWifi,
   getApiKey,
   getContact,
   getDevice,
   getDeviceRuntime,
+  getDeviceSettings,
   getDeviceStatus,
   getDeviceTelemetryLatest,
   getDeviceWifi,
   getSelfApiKey,
   listApiKeys,
   listContacts,
+  invokeDeviceTool,
+  listDeviceRpcMethods,
   listDeviceSavedWifi,
+  listDeviceTools,
   playDeviceSound,
   putContact,
   queryDeviceTelemetry,
@@ -46,7 +51,9 @@ import {
   revokeApiKey,
   revokeSelfApiKey,
   scanDeviceWifi,
+  setDeviceRunWorkspace,
   setDeviceVolume,
+  updateDeviceSettings,
   addFriend,
   addFriendGroupMember,
   clearFriendGroupInviteToken,
@@ -91,6 +98,13 @@ import type {
   ContactList,
   ContactPutRequest,
   DeviceControlStatus,
+  DeviceFactoryResetRequest,
+  DeviceRpcMethods,
+  DeviceRunWorkspaceSetRequest,
+  DeviceSettings,
+  DeviceToolInvokeRequest,
+  DeviceToolInvokeResponse,
+  DeviceToolList,
   DeviceFindRequest,
   DeviceInfo,
   DevicePlaySoundRequest,
@@ -152,6 +166,15 @@ export type {
   ContactList,
   ContactPutRequest,
   DeviceControlStatus,
+  DeviceFactoryResetRequest,
+  DeviceRpcMethods,
+  DeviceRunWorkspaceSetRequest,
+  DeviceSettings,
+  DeviceTool,
+  DeviceToolI18nText,
+  DeviceToolInvokeRequest,
+  DeviceToolInvokeResponse,
+  DeviceToolList,
   DeviceFindRequest,
   DeviceInfo,
   DevicePlaySoundRequest,
@@ -205,7 +228,7 @@ export type GizClawControlErrorKind =
   | "unauthorized"
   /** `403`: the API key does not authorize this operation. */
   | "forbidden"
-  /** `404`: the key, contact, friend, friend group, invite token, or saved Wi-Fi network does not exist. */
+  /** `404`: the key, contact, friend, friend group, invite token, saved Wi-Fi network, or control-app Tool does not exist. */
   | "notFound"
   /** `409 DEVICE_OFFLINE`: no active device connection, or rebooting. */
   | "deviceOffline"
@@ -478,6 +501,59 @@ export interface GizClawControlDevice {
   listSavedWifi(): Promise<DeviceWifiSavedList>;
   /** `DELETE /gizclaw/v1/device/wifi/saved/{ssid}`. */
   forgetSavedWifi(ssid: string): Promise<void>;
+  /**
+   * `GET /gizclaw/v1/device/settings`.
+   *
+   * An absent member means the device does not support that option.
+   */
+  getSettings(): Promise<DeviceSettings>;
+  /**
+   * `PATCH /gizclaw/v1/device/settings`.
+   *
+   * Changes only the members present. A value outside its range rejects the
+   * whole patch before any member is applied. Resolves with every setting
+   * after the change.
+   */
+  updateSettings(patch: DeviceSettings): Promise<DeviceSettings>;
+  /**
+   * `POST /gizclaw/v1/device/actions/factory-reset`.
+   *
+   * Irreversible on the device. It acknowledges before erasing its state and
+   * then goes offline. A device that deletes its Peer while resetting also
+   * invalidates every API key of that Peer, including this client's.
+   */
+  factoryReset(body?: DeviceFactoryResetRequest): Promise<void>;
+  /**
+   * `GET /gizclaw/v1/device/rpc-methods`.
+   *
+   * Hide controls the device would only fail. Ignore unknown method names.
+   */
+  listRpcMethods(): Promise<DeviceRpcMethods>;
+  /**
+   * `PUT /gizclaw/v1/device/run/workspace`.
+   *
+   * Resolving means the device accepted the switch, not that it finished;
+   * read `active_workspace_name` from {@link GizClawControlDevice.getRuntime}
+   * to observe it.
+   */
+  setRunWorkspace(body: DeviceRunWorkspaceSetRequest): Promise<void>;
+  /**
+   * `GET /gizclaw/v1/device/tools`.
+   *
+   * Tools the RuntimeProfile exposes to the control app. Answers while the
+   * device is offline.
+   */
+  listTools(): Promise<DeviceToolList>;
+  /**
+   * `POST /gizclaw/v1/device/tools/{name}/actions/invoke`.
+   *
+   * `args` must satisfy the Tool's `input_schema`. Resolves with the device's
+   * result as JSON text in `data_json`.
+   */
+  invokeTool(
+    name: string,
+    body?: DeviceToolInvokeRequest,
+  ): Promise<DeviceToolInvokeResponse>;
 }
 
 export interface GizClawControlContacts {
@@ -780,6 +856,34 @@ export function createGizClawControlClient(
           forgetDeviceSavedWifi({
             ...common,
             path: { ssid: requireSegment("ssid", ssid) },
+          }),
+        ),
+      getSettings: () => unwrap("getDeviceSettings", getDeviceSettings(common)),
+      updateSettings: (body) =>
+        unwrap(
+          "updateDeviceSettings",
+          updateDeviceSettings({ ...common, body }),
+        ),
+      factoryReset: (body = {}) =>
+        unwrapEmpty(
+          "factoryResetDevice",
+          factoryResetDevice({ ...common, body }),
+        ),
+      listRpcMethods: () =>
+        unwrap("listDeviceRpcMethods", listDeviceRpcMethods(common)),
+      setRunWorkspace: (body) =>
+        unwrapEmpty(
+          "setDeviceRunWorkspace",
+          setDeviceRunWorkspace({ ...common, body }),
+        ),
+      listTools: () => unwrap("listDeviceTools", listDeviceTools(common)),
+      invokeTool: async (name, body = {}) =>
+        unwrap(
+          "invokeDeviceTool",
+          invokeDeviceTool({
+            ...common,
+            path: { name: requireSegment("name", name) },
+            body,
           }),
         ),
     },

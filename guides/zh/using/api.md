@@ -143,8 +143,8 @@ Go SDK 把常用 RPC 暴露为 `gizcli.Client` 的 typed 方法。传入的 requ
 | Route | 作用 |
 | --- | --- |
 | `GET /gizclaw/v1/device` | 设备 name、emoji、硬件信息与标识 |
-| `GET /gizclaw/v1/device/runtime` | 在线状态、最后在线时间与流量 |
-| `GET /gizclaw/v1/device/status` | 最近一次上报的电量、充电、音量、静音与 GNSS |
+| `GET /gizclaw/v1/device/runtime` | 在线状态、最后在线时间、流量，以及当前运行与切换中的 Workspace |
+| `GET /gizclaw/v1/device/status` | 最近一次上报的电量、充电、音量、静音、GNSS、当前活动、固件版本与 Wi‑Fi / 蜂窝信号 |
 | `GET /gizclaw/v1/device/telemetry/{field}/latest`、`/telemetry`、`/telemetry/aggregate` | 与 Admin telemetry 相同语义的采样查询 |
 | `GET /gizclaw/v1/device/runtime-profile` | 设备绑定的 RuntimeProfile name、revision，以及各 collection 的 workflow name |
 | `GET /gizclaw/v1/device/workspaces`，`DELETE /device/workspaces/{workspaceId}` | 按 collection 与 workflow name 列出设备的 Workspace（如游戏存档），删除其中一个 |
@@ -156,13 +156,18 @@ Go SDK 把常用 RPC 暴露为 `gizcli.Client` 的 typed 方法。传入的 requ
 | `GET /gizclaw/v1/device/firmware` | 设备绑定的 Firmware 配置的全部 channel 与各自的包 |
 | `POST /gizclaw/v1/device/actions/firmware-update` | 通知设备执行一次 OTA |
 | `GET /gizclaw/v1/device/wifi`、`/wifi/saved`，`DELETE /wifi/saved/{ssid}` | 查询 Wi‑Fi 状态、列出与清理已保存网络 |
+| `GET`、`PATCH /gizclaw/v1/device/settings` | 读取与修改设备配置（4G、熄屏、亮度、语言、交互模式、按键提示、提醒方式、自动休眠、NFC） |
+| `POST /gizclaw/v1/device/actions/factory-reset` | 恢复出厂设置（可选 `keep_network`） |
+| `GET /gizclaw/v1/device/rpc-methods` | 设备实现的控制方法，用来隐藏设备不支持的入口 |
+| `PUT /gizclaw/v1/device/run/workspace` | 远程切换设备正在运行的 Workspace |
+| `GET /gizclaw/v1/device/tools`，`POST /device/tools/{name}/actions/invoke` | 列出并调用 RuntimeProfile 开放给控制 App 的设备 Tool |
 | `/gizclaw/v1/contacts`、`/contacts/{contactName}` | 设备联系人的 list/create/get/put/delete |
 | `/gizclaw/v1/friends/invite-token` | 读取、生成（可选 `ttl_seconds`，最长 7 天）或作废设备的好友邀请码 |
 | `/gizclaw/v1/friends`、`/friends/{friendName}` | 用邀请码加好友、列出（带对方名字与 emoji）、查看、删除好友 |
 | `/gizclaw/v1/friend-groups`、`/friend-groups/@join`、`/friend-groups/{friendGroupName}` | 列出、创建、用邀请码加入、查看、修改、解散群组 |
 | `/friend-groups/{friendGroupName}/@leave`、`/invite-token`、`/members`、`/members/{memberName}` | 退群、群邀请码、查看成员（带名字与 emoji）与成员管理 |
 
-读取 route 只投影 Server 已有数据，不会唤醒设备；控制 route 经 Server→设备 RPC 实时执行，设备离线返回 `409 DEVICE_OFFLINE`，5 秒无响应返回 `504 DEVICE_TIMEOUT`，设备未实现返回 `501 DEVICE_UNSUPPORTED`。状态变化通过轮询 `GET /device/status` 获取。Wi‑Fi 配网仍由设备本地 BLE 完成。
+读取 route 只投影 Server 已有数据，不会唤醒设备；控制 route 经 Server→设备 RPC 实时执行，设备离线返回 `409 DEVICE_OFFLINE`，5 秒无响应返回 `504 DEVICE_TIMEOUT`，设备未实现返回 `501 DEVICE_UNSUPPORTED`。状态变化通过轮询 `GET /device/status` 获取。设置、恢复出厂、Workspace 切换与 Tool 调用的规则见 [Public API](/zh/developing/api/http/public#设备控制流程)：恢复出厂不可撤销，设备若同时删除自己的 Peer，全部 API Key 随之失效；产品专属配置（如使用时长）作为 Tool 调用，不在设置里。Wi‑Fi 配网仍由设备本地 BLE 完成。
 
 `GET /device/firmware` 一次返回 `stable`、`beta`、`develop` 三个 channel 及各自的 `package`（`version`、`url`、`sha256`、`size`）（已有包没有版本时省略 `version`，其余信息仍正常返回）；Server 不保存设备当前使用的 channel，选哪个由调用方决定，`POST /device/actions/firmware-update` 用 `channel` 指定，省略时设备沿用自身的 channel。要判断是否需要升级，把 `GET /device/status` 的 `firmware_sha256`（设备上报的当前运行包）与目标 channel 的 `package.sha256` 比较；请求里带上同一个 `sha256`，设备解析出不同的包时会拒绝，避免升到与界面显示不同的版本。设备固件太旧、未实现该 RPC 时返回 `501 DEVICE_UNSUPPORTED`，应据此隐藏升级入口，而不是提示升级失败。
 

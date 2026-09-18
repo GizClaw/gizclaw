@@ -8,8 +8,10 @@ import wrtc from "@roamhq/wrtc";
 import {
   connectGiznetWebRTCFromEndpoint,
   GizClawDeviceControlError,
+  sendGiznetWebRTCTelemetry,
   type GizClawDeviceStatus,
   type GizClawPeerRPCHandlers,
+  type TelemetryFrame,
 } from "@gizclaw/gizclaw";
 import { base58Encode } from "@gizclaw/gizclaw/signaling";
 import { createPeerRPCClient, type PeerRPCClient } from "@gizclaw/gizclaw/rpc";
@@ -21,6 +23,16 @@ import {
 import type { ClientSpec, Step } from "./document.ts";
 import type { Variables } from "./variables.ts";
 import { requestFromProtoJSON, responseToProtoJSON } from "./proto_json.ts";
+
+// DeviceSettings is the settings value the device SDK's handlers exchange; the
+// SDK does not export the type by name.
+type DeviceSettings = Awaited<
+  ReturnType<
+    NonNullable<
+      NonNullable<GizClawPeerRPCHandlers["deviceControl"]>["getSettings"]
+    >
+  >
+>;
 
 const CONNECT_TIMEOUT_MS = 30_000;
 const RPC_TIMEOUT_MS = 30_000;
@@ -222,11 +234,25 @@ export class ScenarioClient {
     return responseToProtoJSON(method, response);
   }
 
+  // sendTelemetry sends one frame on the Peer's packet data channel through
+  // the SDK, the way a device reports telemetry. Acceptance is not
+  // persistence: scenarios poll status separately.
+  async sendTelemetry(
+    frame: TelemetryFrame,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    await sendGiznetWebRTCTelemetry(
+      this.pc as unknown as RTCPeerConnection,
+      frame,
+      { signal },
+    );
+  }
+
   // callHTTP sends one Public HTTP request through the control SDK so the
   // request building, bearer injection and response decoding under test are
   // the ones a controller app would use.
   async callHTTP(
-    method: "GET" | "POST" | "PUT" | "DELETE",
+    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
     pathWithQuery: string,
     headers: Record<string, string>,
     body: unknown,
@@ -455,6 +481,22 @@ function buildHandlers(
           if (failure != null) throw failure;
         };
         break;
+      case "client.tool.invoke": {
+        // Matches the Go runner: `{name, result}` installs a Tool that
+        // answers result as its JSON data.
+        const name = (scriptedObject as { name?: unknown }).name;
+        if (typeof name !== "string" || name.trim() === "") {
+          throw new Error(`step ${step.id} tool response requires name`);
+        }
+        const result = (scriptedObject as { result?: unknown }).result;
+        handlers.tools ??= {};
+        handlers.tools[name] = () => {
+          count(method);
+          if (failure != null) throw failure;
+          return result;
+        };
+        break;
+      }
       case "client.social.ping":
         handlers.socialPing = () => {
           count(method);
@@ -463,6 +505,41 @@ function buildHandlers(
         break;
       case "client.device.reboot":
         control.reboot = () => {
+          count(method);
+          if (failure != null) throw failure;
+        };
+        break;
+      case "client.device.settings.get":
+        control.getSettings = () => {
+          count(method);
+          if (failure != null) throw failure;
+          return scriptedObject as DeviceSettings;
+        };
+        break;
+      case "client.device.settings.set":
+        // The scripted settings are the device's state before the patch; the
+        // answer overlays the members the patch carries, so an HTTP round trip
+        // observes what it asked for next to what it left unchanged.
+        control.setSettings = (patch) => {
+          count(method);
+          if (failure != null) throw failure;
+          const present = Object.entries(patch).filter(
+            ([, value]) => value !== undefined,
+          );
+          return {
+            ...scriptedObject,
+            ...Object.fromEntries(present),
+          } as DeviceSettings;
+        };
+        break;
+      case "client.device.factory_reset":
+        control.factoryReset = () => {
+          count(method);
+          if (failure != null) throw failure;
+        };
+        break;
+      case "client.run.workspace.set":
+        control.setRunWorkspace = () => {
           count(method);
           if (failure != null) throw failure;
         };

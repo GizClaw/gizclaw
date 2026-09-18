@@ -1,0 +1,121 @@
+# User Story:
+# As a GizClaw API key holder,
+# I want to list and invoke the Tools my device's RuntimeProfile exposes to the control app,
+# So that only control_access Tools are visible, args are checked against input_schema,
+# and an invocation reaches client.tool.invoke on the device and returns its result.
+version: gizclaw.test/v1alpha1
+name: server.device.tools
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+- id: list_tools
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/tools
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  expect:
+    /items:
+      count: 1
+    /items/0/name:
+      equals: giztest-echo
+    /items/0/control_access:
+      equals: owner
+    /items/0/i18n/zh-CN/display_name:
+      equals: Giztest 客户端回显
+    /items/0/input_schema/required/0:
+      equals: key
+- id: invoke_exposed_tool
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/device/tools/giztest-echo/actions/invoke
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      args:
+        key: current-peer
+    status: 200
+  expect:
+    /data_json:
+      pattern: '"ok":\s*true'
+- id: invoke_with_invalid_args
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/device/tools/giztest-echo/actions/invoke
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      args:
+        unexpected: 1
+    status: 400
+  expect:
+    /error/code:
+      equals: INVALID_REQUEST
+- id: invoke_unexposed_tool
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/device/tools/giztest-other/actions/invoke
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      args:
+        key: current-peer
+    status: 404
+  expect:
+    /error/code:
+      equals: TOOL_NOT_FOUND
+- id: provider_tool
+  client: peer
+  client_rpc:
+    method: client.tool.invoke
+    response:
+      name: giztest_echo
+      result:
+        ok: true
+    expect_calls: 1
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

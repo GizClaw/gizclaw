@@ -14,7 +14,7 @@ export function MetricCard({
   icon?: ReactNode;
 }) {
   return (
-    <Card className="gap-3">
+    <Card className="min-w-0 gap-3">
       <CardHeader>
         <CardTitle className="text-[11px] font-normal text-muted-foreground">
           {label}
@@ -22,10 +22,15 @@ export function MetricCard({
         {icon && <span className="text-muted-foreground/70">{icon}</span>}
       </CardHeader>
       <CardContent className="flex flex-col gap-1.5">
-        <strong className="text-[25px] font-medium tracking-tight tabular-nums">
+        <strong
+          className="truncate text-[25px] font-medium tracking-tight tabular-nums"
+          title={value}
+        >
           {value}
         </strong>
-        <small className="text-[10px] text-muted-foreground">{note}</small>
+        <small className="text-[10px] break-words text-muted-foreground">
+          {note}
+        </small>
       </CardContent>
     </Card>
   );

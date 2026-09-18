@@ -33,6 +33,42 @@ Telemetry Protobuf owns the wire fields reported by the device. Metrics store ha
 - Aggregation, retention and query filtering belong to service/store and not to wire schema.
 - Regenerate Go and JavaScript telemetry code after Schema changes, and verify the real packet decode and service ingestion.
 
+## Activity reporting
+
+`Observation.activity` (field 16) carries an `ActivityObservation` describing which
+feature the device is using right now, so an operator can see what a device is doing
+without inferring it from other signals:
+
+| Field | Number | Type | Meaning and validation |
+| --- | --- | --- | --- |
+| `activity` | 1 | `string` | Stable machine-readable feature id, 1 to 32 bytes matching `^[a-z0-9][a-z0-9_.-]{0,31}$`, such as `idle`, `chat`, `audioplayer` or `ota`. |
+| `detail` | 2 | `optional string` | Human-readable detail for display, at most 128 UTF-8 bytes. Never parsed by the Server; must not carry secrets or credentials. |
+
+`activity` is not a metric. How a string changed over time does not aggregate into
+anything useful; the question worth answering is what the device is doing now, which is
+exactly what the status snapshot expresses. It therefore lands only in
+`PeerStatus.activity` and `PeerStatus.activity_detail`, never in the metrics store, the
+`PeerTelemetryField` enum, or a label.
+
+`activity` and `detail` merge as one unit: the detail describes the activity it arrived
+with, so an accepted observation always replaces both, and an observation with no detail
+clears a detail left over from the previous activity. Per-field ordering follows battery
+and GNSS, with the observation time recorded in `telemetry_observed_at.activity`.
+
+`activity` is an open, device-defined vocabulary: readers must preserve unknown values
+and localize by id rather than parsing the string. A value that does not match the
+pattern rejects the whole frame as `ErrInvalidFrame`; an invalid value on a control
+response is dropped rather than stored.
+
+## Firmware version reporting
+
+`SystemObservation.firmware_version` (field 4) was previously validated and discarded.
+It now merges with its observation time into `PeerStatus.firmware_version`, alongside the
+package-exact `firmware_sha256`: the digest identifies the exact package, the version
+names the release. Like the activity it is status and not a metric, because a version
+string as a sample is a label-cardinality hazard while its real use is display. Per-field
+ordering keeps a late-arriving older report from rolling the version backwards. Only a value of 1 to 128 bytes becomes status; an empty or oversized value is dropped without rejecting the frame, because older devices have always sent this field unchecked.
+
 ## Network reporting
 
 `Observation.network` (field 12) carries `NetworkObservation`, describing signal strength and the cellular identity of the current default packet-data route:
@@ -41,11 +77,19 @@ Telemetry Protobuf owns the wire fields reported by the device. Metrics store ha
 | --- | --- | --- | --- |
 | `rssi_dbm` | 1 | `optional double` | Received signal strength in dBm; must be finite. Stored as the `network.rssi_dbm` metric. |
 | `signal_level` | 2 | `optional double` | Device-defined signal level; must be finite. Stored as the `network.signal_level` metric. |
-| `rat` | 3 | `optional string` | Radio access technology such as `lte`, `nr` or `wifi`. Used for validation only; not persisted. |
+| `rat` | 3 | `optional string` | Radio access technology such as `lte`, `nr` or `wifi`. Selects which route's status the signal updates; not persisted itself. |
 | `operator` | 4 | `optional string` | Operator name. Used for validation only; not persisted. |
 | `connected` | 5 | `optional bool` | Whether the route is connected. Stored as the `network.connected` metric. |
 | `imei` | 6 | `optional string` | Modem hardware IMEI: exactly 15 ASCII digits (`^[0-9]{15}$`). Devices without a modem leave it unset. |
 | `imsi` | 7 | `optional string` | IMSI of the SIM serving the default packet-data route: 6 to 15 ASCII digits (`^[0-9]{6,15}$`). Unset when no SIM is readable. |
+
+The signal is also projected into status so an app can show it directly. With `rat`
+`wifi`, `rssi_dbm` becomes `PeerStatus.wifi_rssi_dbm`; any other non-empty `rat` sets
+`PeerStatus.cellular_rssi_dbm` and `PeerStatus.cellular_signal_level` from `rssi_dbm`
+and `signal_level`. Ordering is per field like GNSS, with same-named timestamps under
+`telemetry_observed_at`, and a route change leaves the other route's last value in
+place. An observation without `rat` names no route, so it updates the metrics only,
+which keeps older devices' reports behaving as before.
 
 `imei` and `imsi` are only meaningful on a cellular route. A frame whose `rat` is
 `wifi` (case-insensitive) with either field set is rejected as `ErrInvalidFrame`, as is
@@ -56,10 +100,11 @@ existed, decode and store exactly as before.
 The identity strings are not metrics. They never enter the metrics store, the
 `PeerTelemetryField` enum, or Prometheus-style labels. Instead they are merged with
 their observation time into the owner-scoped `PeerStatus.network_imei` /
-`PeerStatus.network_imsi`, recording `network_imei_at_unix_ms` /
-`network_imsi_at_unix_ms` under `details.telemetry_status`. Per-field ordering follows
+`PeerStatus.network_imsi`, recording `network_imei` / `network_imsi` as RFC 3339
+timestamps under `PeerStatus.telemetry_observed_at`. Per-field ordering follows
 battery and GNSS: an older observation never overwrites a newer stored value; an
-observation equal to the stored value only refreshes its `_at` timestamp and does not
+observation equal to the stored value only refreshes its `telemetry_observed_at`
+entry and does not
 bump `reported_at` beyond the existing rule; when neither the value nor the timestamp
 changes, the status is not rewritten. Telemetry never clears the identity: a device that
 loses its SIM simply stops sending `imsi`. Clearing is an admin operation outside

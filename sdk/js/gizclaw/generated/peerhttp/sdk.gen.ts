@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.ts';
 import { client } from './client.gen.ts';
-import type { AddFriendData, AddFriendErrors, AddFriendGroupMemberData, AddFriendGroupMemberErrors, AddFriendGroupMemberResponses, AddFriendResponses, AggregateDeviceTelemetryData, AggregateDeviceTelemetryErrors, AggregateDeviceTelemetryResponses, AppendDeviceAudioPlayerPlaylistData, AppendDeviceAudioPlayerPlaylistErrors, AppendDeviceAudioPlayerPlaylistResponses, ClearFriendGroupInviteTokenData, ClearFriendGroupInviteTokenErrors, ClearFriendGroupInviteTokenResponses, ClearFriendInviteTokenData, ClearFriendInviteTokenErrors, ClearFriendInviteTokenResponses, ConnectDeviceWifiData, ConnectDeviceWifiErrors, ConnectDeviceWifiResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateFriendGroupData, CreateFriendGroupErrors, CreateFriendGroupInviteTokenData, CreateFriendGroupInviteTokenErrors, CreateFriendGroupInviteTokenResponses, CreateFriendGroupResponses, CreateFriendInviteTokenData, CreateFriendInviteTokenErrors, CreateFriendInviteTokenResponses, CreateGiznetWebRtcOfferData, CreateGiznetWebRtcOfferErrors, CreateGiznetWebRtcOfferResponses, DeleteContactData, DeleteContactErrors, DeleteContactResponses, DeleteDeviceWorkspaceData, DeleteDeviceWorkspaceErrors, DeleteDeviceWorkspaceResponses, DeleteFriendData, DeleteFriendErrors, DeleteFriendGroupData, DeleteFriendGroupErrors, DeleteFriendGroupMemberData, DeleteFriendGroupMemberErrors, DeleteFriendGroupMemberResponses, DeleteFriendGroupResponses, DeleteFriendResponses, DownloadDeviceHistoryAudioData, DownloadDeviceHistoryAudioErrors, DownloadDeviceHistoryAudioResponses, FindDeviceData, FindDeviceErrors, FindDeviceResponses, FindPublicKeysByImeiData, FindPublicKeysByImeiErrors, FindPublicKeysByImeiResponses, FindPublicKeysBySnData, FindPublicKeysBySnErrors, FindPublicKeysBySnResponses, ForgetDeviceSavedWifiData, ForgetDeviceSavedWifiErrors, ForgetDeviceSavedWifiResponses, GetApiKeyData, GetApiKeyErrors, GetApiKeyResponses, GetContactData, GetContactErrors, GetContactResponses, GetDeviceAudioPlayerData, GetDeviceAudioPlayerErrors, GetDeviceAudioPlayerPlaylistData, GetDeviceAudioPlayerPlaylistErrors, GetDeviceAudioPlayerPlaylistResponses, GetDeviceAudioPlayerResponses, GetDeviceData, GetDeviceErrors, GetDeviceFirmwareData, GetDeviceFirmwareErrors, GetDeviceFirmwareResponses, GetDeviceResponses, GetDeviceRuntimeData, GetDeviceRuntimeErrors, GetDeviceRuntimeProfileData, GetDeviceRuntimeProfileErrors, GetDeviceRuntimeProfileResponses, GetDeviceRuntimeResponses, GetDeviceStatusData, GetDeviceStatusErrors, GetDeviceStatusResponses, GetDeviceTelemetryLatestData, GetDeviceTelemetryLatestErrors, GetDeviceTelemetryLatestResponses, GetDeviceWifiData, GetDeviceWifiErrors, GetDeviceWifiResponses, GetFriendData, GetFriendErrors, GetFriendGroupData, GetFriendGroupErrors, GetFriendGroupInviteTokenData, GetFriendGroupInviteTokenErrors, GetFriendGroupInviteTokenResponses, GetFriendGroupResponses, GetFriendInviteTokenData, GetFriendInviteTokenErrors, GetFriendInviteTokenResponses, GetFriendResponses, GetSelfApiKeyData, GetSelfApiKeyErrors, GetSelfApiKeyResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, JoinFriendGroupData, JoinFriendGroupErrors, JoinFriendGroupResponses, LeaveFriendGroupData, LeaveFriendGroupErrors, LeaveFriendGroupResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListContactsData, ListContactsErrors, ListContactsResponses, ListDeviceSavedWifiData, ListDeviceSavedWifiErrors, ListDeviceSavedWifiResponses, ListDeviceWorkspaceHistoryData, ListDeviceWorkspaceHistoryErrors, ListDeviceWorkspaceHistoryResponses, ListDeviceWorkspacesData, ListDeviceWorkspacesErrors, ListDeviceWorkspacesResponses, ListFriendGroupMembersData, ListFriendGroupMembersErrors, ListFriendGroupMembersResponses, ListFriendGroupsData, ListFriendGroupsErrors, ListFriendGroupsResponses, ListFriendsData, ListFriendsErrors, ListFriendsResponses, PlayDeviceAudioPlayerData, PlayDeviceAudioPlayerErrors, PlayDeviceAudioPlayerResponses, PlayDeviceSoundData, PlayDeviceSoundErrors, PlayDeviceSoundResponses, PutContactData, PutContactErrors, PutContactResponses, PutFriendGroupData, PutFriendGroupErrors, PutFriendGroupMemberData, PutFriendGroupMemberErrors, PutFriendGroupMemberResponses, PutFriendGroupResponses, QueryDeviceTelemetryData, QueryDeviceTelemetryErrors, QueryDeviceTelemetryResponses, RebootDeviceData, RebootDeviceErrors, RebootDeviceResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSelfApiKeyData, RevokeSelfApiKeyErrors, RevokeSelfApiKeyResponses, ScanDeviceWifiData, ScanDeviceWifiErrors, ScanDeviceWifiResponses, SearchDeviceLogsData, SearchDeviceLogsErrors, SearchDeviceLogsResponses, SetDeviceAudioPlayerModeData, SetDeviceAudioPlayerModeErrors, SetDeviceAudioPlayerModeResponses, SetDeviceAudioPlayerPlaylistData, SetDeviceAudioPlayerPlaylistErrors, SetDeviceAudioPlayerPlaylistResponses, SetDeviceVolumeData, SetDeviceVolumeErrors, SetDeviceVolumeResponses, StopDeviceAudioPlayerData, StopDeviceAudioPlayerErrors, StopDeviceAudioPlayerResponses, UpdateDeviceFirmwareData, UpdateDeviceFirmwareErrors, UpdateDeviceFirmwareResponses } from './types.gen.ts';
+import type { AddFriendData, AddFriendErrors, AddFriendGroupMemberData, AddFriendGroupMemberErrors, AddFriendGroupMemberResponses, AddFriendResponses, AggregateDeviceTelemetryData, AggregateDeviceTelemetryErrors, AggregateDeviceTelemetryResponses, AppendDeviceAudioPlayerPlaylistData, AppendDeviceAudioPlayerPlaylistErrors, AppendDeviceAudioPlayerPlaylistResponses, ClearFriendGroupInviteTokenData, ClearFriendGroupInviteTokenErrors, ClearFriendGroupInviteTokenResponses, ClearFriendInviteTokenData, ClearFriendInviteTokenErrors, ClearFriendInviteTokenResponses, ConnectDeviceWifiData, ConnectDeviceWifiErrors, ConnectDeviceWifiResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateFriendGroupData, CreateFriendGroupErrors, CreateFriendGroupInviteTokenData, CreateFriendGroupInviteTokenErrors, CreateFriendGroupInviteTokenResponses, CreateFriendGroupResponses, CreateFriendInviteTokenData, CreateFriendInviteTokenErrors, CreateFriendInviteTokenResponses, CreateGiznetWebRtcOfferData, CreateGiznetWebRtcOfferErrors, CreateGiznetWebRtcOfferResponses, DeleteContactData, DeleteContactErrors, DeleteContactResponses, DeleteDeviceWorkspaceData, DeleteDeviceWorkspaceErrors, DeleteDeviceWorkspaceResponses, DeleteFriendData, DeleteFriendErrors, DeleteFriendGroupData, DeleteFriendGroupErrors, DeleteFriendGroupMemberData, DeleteFriendGroupMemberErrors, DeleteFriendGroupMemberResponses, DeleteFriendGroupResponses, DeleteFriendResponses, DownloadDeviceHistoryAudioData, DownloadDeviceHistoryAudioErrors, DownloadDeviceHistoryAudioResponses, FactoryResetDeviceData, FactoryResetDeviceErrors, FactoryResetDeviceResponses, FindDeviceData, FindDeviceErrors, FindDeviceResponses, FindPublicKeysByImeiData, FindPublicKeysByImeiErrors, FindPublicKeysByImeiResponses, FindPublicKeysBySnData, FindPublicKeysBySnErrors, FindPublicKeysBySnResponses, ForgetDeviceSavedWifiData, ForgetDeviceSavedWifiErrors, ForgetDeviceSavedWifiResponses, GetApiKeyData, GetApiKeyErrors, GetApiKeyResponses, GetContactData, GetContactErrors, GetContactResponses, GetDeviceAudioPlayerData, GetDeviceAudioPlayerErrors, GetDeviceAudioPlayerPlaylistData, GetDeviceAudioPlayerPlaylistErrors, GetDeviceAudioPlayerPlaylistResponses, GetDeviceAudioPlayerResponses, GetDeviceData, GetDeviceErrors, GetDeviceFirmwareData, GetDeviceFirmwareErrors, GetDeviceFirmwareResponses, GetDeviceResponses, GetDeviceRuntimeData, GetDeviceRuntimeErrors, GetDeviceRuntimeProfileData, GetDeviceRuntimeProfileErrors, GetDeviceRuntimeProfileResponses, GetDeviceRuntimeResponses, GetDeviceSettingsData, GetDeviceSettingsErrors, GetDeviceSettingsResponses, GetDeviceStatusData, GetDeviceStatusErrors, GetDeviceStatusResponses, GetDeviceTelemetryLatestData, GetDeviceTelemetryLatestErrors, GetDeviceTelemetryLatestResponses, GetDeviceWifiData, GetDeviceWifiErrors, GetDeviceWifiResponses, GetFriendData, GetFriendErrors, GetFriendGroupData, GetFriendGroupErrors, GetFriendGroupInviteTokenData, GetFriendGroupInviteTokenErrors, GetFriendGroupInviteTokenResponses, GetFriendGroupResponses, GetFriendInviteTokenData, GetFriendInviteTokenErrors, GetFriendInviteTokenResponses, GetFriendResponses, GetSelfApiKeyData, GetSelfApiKeyErrors, GetSelfApiKeyResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, InvokeDeviceToolData, InvokeDeviceToolErrors, InvokeDeviceToolResponses, JoinFriendGroupData, JoinFriendGroupErrors, JoinFriendGroupResponses, LeaveFriendGroupData, LeaveFriendGroupErrors, LeaveFriendGroupResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListContactsData, ListContactsErrors, ListContactsResponses, ListDeviceRpcMethodsData, ListDeviceRpcMethodsErrors, ListDeviceRpcMethodsResponses, ListDeviceSavedWifiData, ListDeviceSavedWifiErrors, ListDeviceSavedWifiResponses, ListDeviceToolsData, ListDeviceToolsErrors, ListDeviceToolsResponses, ListDeviceWorkspaceHistoryData, ListDeviceWorkspaceHistoryErrors, ListDeviceWorkspaceHistoryResponses, ListDeviceWorkspacesData, ListDeviceWorkspacesErrors, ListDeviceWorkspacesResponses, ListFriendGroupMembersData, ListFriendGroupMembersErrors, ListFriendGroupMembersResponses, ListFriendGroupsData, ListFriendGroupsErrors, ListFriendGroupsResponses, ListFriendsData, ListFriendsErrors, ListFriendsResponses, PlayDeviceAudioPlayerData, PlayDeviceAudioPlayerErrors, PlayDeviceAudioPlayerResponses, PlayDeviceSoundData, PlayDeviceSoundErrors, PlayDeviceSoundResponses, PutContactData, PutContactErrors, PutContactResponses, PutFriendGroupData, PutFriendGroupErrors, PutFriendGroupMemberData, PutFriendGroupMemberErrors, PutFriendGroupMemberResponses, PutFriendGroupResponses, QueryDeviceTelemetryData, QueryDeviceTelemetryErrors, QueryDeviceTelemetryResponses, RebootDeviceData, RebootDeviceErrors, RebootDeviceResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSelfApiKeyData, RevokeSelfApiKeyErrors, RevokeSelfApiKeyResponses, ScanDeviceWifiData, ScanDeviceWifiErrors, ScanDeviceWifiResponses, SearchDeviceLogsData, SearchDeviceLogsErrors, SearchDeviceLogsResponses, SetDeviceAudioPlayerModeData, SetDeviceAudioPlayerModeErrors, SetDeviceAudioPlayerModeResponses, SetDeviceAudioPlayerPlaylistData, SetDeviceAudioPlayerPlaylistErrors, SetDeviceAudioPlayerPlaylistResponses, SetDeviceRunWorkspaceData, SetDeviceRunWorkspaceErrors, SetDeviceRunWorkspaceResponses, SetDeviceVolumeData, SetDeviceVolumeErrors, SetDeviceVolumeResponses, StopDeviceAudioPlayerData, StopDeviceAudioPlayerErrors, StopDeviceAudioPlayerResponses, UpdateDeviceFirmwareData, UpdateDeviceFirmwareErrors, UpdateDeviceFirmwareResponses, UpdateDeviceSettingsData, UpdateDeviceSettingsErrors, UpdateDeviceSettingsResponses } from './types.gen.ts';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -380,6 +380,99 @@ export const updateDeviceFirmware = <ThrowOnError extends boolean = false>(optio
     headers: {
         'Content-Type': 'application/json',
         ...options?.headers
+    }
+});
+
+/**
+ * Get the settings of the bound device
+ *
+ * Forwards client.device.settings.get to the online device. A member the device has no hardware for is omitted, which is how a caller tells an unsupported option from one that is off.
+ */
+export const getDeviceSettings = <ThrowOnError extends boolean = false>(options?: Options<GetDeviceSettingsData, ThrowOnError>): RequestResult<GetDeviceSettingsResponses, GetDeviceSettingsErrors, ThrowOnError> => (options?.client ?? client).get<GetDeviceSettingsResponses, GetDeviceSettingsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/settings',
+    ...options
+});
+
+/**
+ * Change some settings of the bound device
+ *
+ * Forwards client.device.settings.set to the online device. Only the members present are changed. A member outside its range, or an unknown enum value, rejects the whole request before any member is applied, so the device is never left half-configured; the device answers DEVICE_REJECTED for a value it refuses. A member the device does not support is ignored. The response carries every setting after the change, so the caller sees what was accepted.
+ */
+export const updateDeviceSettings = <ThrowOnError extends boolean = false>(options: Options<UpdateDeviceSettingsData, ThrowOnError>): RequestResult<UpdateDeviceSettingsResponses, UpdateDeviceSettingsErrors, ThrowOnError> => (options.client ?? client).patch<UpdateDeviceSettingsResponses, UpdateDeviceSettingsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/settings',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Factory reset the bound device
+ *
+ * Forwards client.device.factory_reset to the online device. The device acknowledges before it erases its local state; later control commands answer DEVICE_OFFLINE until it reconnects. keep_network retains saved Wi-Fi and cellular configuration so the device can reconnect without being re-provisioned. The reset is irreversible on the device. The Server keeps its own records, but a device that deletes its Peer as part of the reset also invalidates every API key of that Peer, including the one used for this call.
+ */
+export const factoryResetDevice = <ThrowOnError extends boolean = false>(options?: Options<FactoryResetDeviceData, ThrowOnError>): RequestResult<FactoryResetDeviceResponses, FactoryResetDeviceErrors, ThrowOnError> => (options?.client ?? client).post<FactoryResetDeviceResponses, FactoryResetDeviceErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/actions/factory-reset',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers
+    }
+});
+
+/**
+ * List the reverse RPC methods the bound device implements
+ *
+ * Forwards client.rpc.methods.get to the online device. A control app uses the answer to hide controls the device would only fail. Unknown method names must be ignored. A device predating this method answers 501 DEVICE_UNSUPPORTED.
+ */
+export const listDeviceRpcMethods = <ThrowOnError extends boolean = false>(options?: Options<ListDeviceRpcMethodsData, ThrowOnError>): RequestResult<ListDeviceRpcMethodsResponses, ListDeviceRpcMethodsErrors, ThrowOnError> => (options?.client ?? client).get<ListDeviceRpcMethodsResponses, ListDeviceRpcMethodsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/rpc-methods',
+    ...options
+});
+
+/**
+ * Switch the Workspace the bound device runs
+ *
+ * Resolves the target to one Workspace name and forwards client.run.workspace.set with it to the online device. workspace_name must be an available Workspace the caller owns. collection with workflow_name selects, among the caller's available Workspaces of that collection and workflow, the most recently active one, ties broken by ascending name. No match returns 404 WORKSPACE_NOT_FOUND without contacting the device; the control app cannot create a Workspace. A 202 response means only that the device accepted the request; it then switches through server.run.workspace.reload-with-options. Read active_workspace_name and pending_workspace_name from GET /gizclaw/v1/device/runtime to observe the result.
+ */
+export const setDeviceRunWorkspace = <ThrowOnError extends boolean = false>(options: Options<SetDeviceRunWorkspaceData, ThrowOnError>): RequestResult<SetDeviceRunWorkspaceResponses, SetDeviceRunWorkspaceErrors, ThrowOnError> => (options.client ?? client).put<SetDeviceRunWorkspaceResponses, SetDeviceRunWorkspaceErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/run/workspace',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List the Tools the control app may invoke on the bound device
+ *
+ * Lists the Tools of the RuntimeProfile bound to the device whose binding sets control_access, sorted by name. Only enabled client_rpc Tools are listed, and a device with no RuntimeProfile bound lists none. The list reads Server configuration only, so it answers while the device is offline.
+ */
+export const listDeviceTools = <ThrowOnError extends boolean = false>(options?: Options<ListDeviceToolsData, ThrowOnError>): RequestResult<ListDeviceToolsResponses, ListDeviceToolsErrors, ThrowOnError> => (options?.client ?? client).get<ListDeviceToolsResponses, ListDeviceToolsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/tools',
+    ...options
+});
+
+/**
+ * Invoke a Tool on the bound device
+ *
+ * Validates args against the Tool's input_schema and forwards client.tool.invoke to the online device. A Tool that GET /gizclaw/v1/device/tools does not list answers 404 TOOL_NOT_FOUND, so a Tool without control_access can be neither discovered nor invoked. Args that do not match input_schema answer 400 INVALID_REQUEST without reaching the device.
+ */
+export const invokeDeviceTool = <ThrowOnError extends boolean = false>(options: Options<InvokeDeviceToolData, ThrowOnError>): RequestResult<InvokeDeviceToolResponses, InvokeDeviceToolErrors, ThrowOnError> => (options.client ?? client).post<InvokeDeviceToolResponses, InvokeDeviceToolErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/tools/{name}/actions/invoke',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
     }
 });
 

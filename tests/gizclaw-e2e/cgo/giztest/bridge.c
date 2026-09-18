@@ -28,6 +28,11 @@ struct gzt_session {
   gzc_webrtc_media_vtable_t media;
   gzc_client_t *client;
   unsigned long long provider_handle;
+  /* The C SDK answers client.tool.invoke only through registered Tool
+   * handlers, never rpc_provider, so a scripted Tool is registered by name
+   * and forwarded to the same Go provider. */
+  char tool_name[65];
+  gzc_tool_handler_t tool_handler;
 };
 
 static int fail(char *errbuf, unsigned long errbuf_len, const char *message, int rc) {
@@ -87,10 +92,21 @@ static int provider(
   return rc;
 }
 
+/* Answers the one scripted Tool through the Go provider. */
+static int tool_handler(
+    void *userdata,
+    gzc_str_t request_payload,
+    gzc_rpc_provider_respond_fn respond,
+    void *respond_userdata) {
+  return provider(
+      userdata, gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE, request_payload, respond, respond_userdata);
+}
+
 int gzt_session_open(
     const char *endpoint,
     const char *private_key,
     unsigned long long provider_handle,
+    const char *tool_name,
     gzt_session_t **out_session,
     char *errbuf,
     unsigned long errbuf_len) {
@@ -128,6 +144,14 @@ int gzt_session_open(
   if (provider_handle != 0) {
     config.rpc_provider = provider;
     config.rpc_provider_userdata = session;
+    if (tool_name != NULL && tool_name[0] != 0) {
+      (void)snprintf(session->tool_name, sizeof(session->tool_name), "%s", tool_name);
+      session->tool_handler.name = gzc_str_from_cstr(session->tool_name);
+      session->tool_handler.handler = tool_handler;
+      session->tool_handler.userdata = session;
+      config.tool_handlers = &session->tool_handler;
+      config.tool_handler_count = 1;
+    }
   }
 
   rc = gzc_client_create(&config, &session->client);
@@ -259,6 +283,30 @@ int gzt_session_call_rpc(
   return GZC_OK;
 }
 
+int gzt_session_send_telemetry(
+    gzt_session_t *session, const gzc_telemetry_frame_t *frame, char *errbuf, unsigned long errbuf_len) {
+  if (session == NULL || frame == NULL) {
+    return fail(errbuf, errbuf_len, "send telemetry", GZC_ERR_INVALID_ARGUMENT);
+  }
+  int rc = gzc_client_send_telemetry(session->client, frame);
+  if (rc != GZC_OK) {
+    return fail(errbuf, errbuf_len, "send telemetry", rc);
+  }
+  return GZC_OK;
+}
+
+int gzt_session_send_ota_telemetry(
+    gzt_session_t *session, const gzc_telemetry_ota_frame_t *frame, char *errbuf, unsigned long errbuf_len) {
+  if (session == NULL || frame == NULL) {
+    return fail(errbuf, errbuf_len, "send ota telemetry", GZC_ERR_INVALID_ARGUMENT);
+  }
+  int rc = gzc_client_send_ota_telemetry(session->client, frame);
+  if (rc != GZC_OK) {
+    return fail(errbuf, errbuf_len, "send ota telemetry", rc);
+  }
+  return GZC_OK;
+}
+
 /* --- Controller SDK dispatch -------------------------------------------- */
 
 struct gzt_control {
@@ -373,16 +421,22 @@ static void split_route(gzc_str_t path, gzt_route_t *out) {
       "/device/audioplayer/mode",
       "/device/audioplayer",
       "/device/telemetry/aggregate",
+      "/device/actions/factory-reset",
       "/device/actions/play-sound",
       "/device/runtime-profile",
+      "/device/run/workspace",
+      "/device/rpc-methods",
       "/device/workspaces",
       "/device/actions/reboot",
       "/device/actions/find",
       "/device/wifi/saved",
+      "/device/wifi/scan",
       "/device/telemetry",
+      "/device/settings",
       "/device/runtime",
       "/device/status",
       "/device/volume",
+      "/device/tools",
       "/friends/invite-token",
       "/friend-groups/@join",
       "/api-keys/self",
@@ -470,6 +524,22 @@ static size_t decode_segment(gzc_str_t segment, char *out, size_t cap) {
 static bool str_is(gzc_str_t text, const char *other) {
   size_t len = strlen(other);
   return text.len == len && (len == 0 || memcmp(text.data, other, len) == 0);
+}
+
+/* Reads the members a `PATCH /device/settings` body carries; absent members
+ * stay absent so the Server forwards only what the step sent. */
+static void read_device_settings(gzc_str_t body, gzc_control_device_settings_t *out) {
+  memset(out, 0, sizeof(*out));
+  out->has_cellular_enabled = body_bool(body, "cellular_enabled", &out->cellular_enabled);
+  out->has_screen_off_timeout_ms = body_i64(body, "screen_off_timeout_ms", &out->screen_off_timeout_ms);
+  out->has_screen_brightness = body_i64(body, "screen_brightness", &out->screen_brightness);
+  out->has_led_brightness = body_i64(body, "led_brightness", &out->led_brightness);
+  (void)body_str(body, "locale", &out->locale);
+  (void)body_str(body, "default_interaction_mode", &out->default_interaction_mode);
+  (void)body_str(body, "key_feedback", &out->key_feedback);
+  (void)body_str(body, "alert_mode", &out->alert_mode);
+  out->has_auto_sleep_timeout_ms = body_i64(body, "auto_sleep_timeout_ms", &out->auto_sleep_timeout_ms);
+  out->has_nfc_enabled = body_bool(body, "nfc_enabled", &out->nfc_enabled);
 }
 
 /* Reads the optional `ttl_seconds` of an invite token create body. */
@@ -648,6 +718,7 @@ int gzt_control_request(
   bool get = strcmp(method, "GET") == 0;
   bool post = strcmp(method, "POST") == 0;
   bool put = strcmp(method, "PUT") == 0;
+  bool patch = strcmp(method, "PATCH") == 0;
   bool del = strcmp(method, "DELETE") == 0;
 
   /* Throwaway decode targets: the runner asserts on the raw body, while the
@@ -669,12 +740,16 @@ int gzt_control_request(
   gzc_str_t profile_workflows[128];
   gzc_control_device_workspace_t workspaces[64];
   gzc_control_wifi_status_t wifi;
+  gzc_control_wifi_scan_result_t wifi_networks[32];
   gzc_control_contact_t contact;
   gzc_control_api_key_t api_key_value;
   gzc_control_invite_token_t invite_token;
   gzc_control_friend_t friends[16];
   gzc_control_friend_t friend_value;
   gzc_control_friend_group_t friend_groups[16];
+  gzc_control_device_settings_t settings;
+  gzc_str_t rpc_methods[64];
+  gzc_control_device_tool_t tools[32];
   gzc_str_t text;
   size_t count = 0;
   bool has_next = false;
@@ -800,6 +875,22 @@ int gzt_control_request(
         sizeof(telemetry_buckets) / sizeof(telemetry_buckets[0]), &count);
   } else if (get && route_is(&route, "/device/wifi", false)) {
     rc = gzc_control_get_device_wifi(&control, &call, &wifi);
+  } else if (put && route_is(&route, "/device/wifi", false)) {
+    gzc_control_wifi_connect_request_t request;
+    memset(&request, 0, sizeof(request));
+    (void)body_str(body, "ssid", &request.ssid);
+    (void)body_str(body, "passphrase", &request.passphrase);
+    rc = gzc_control_connect_device_wifi(&control, &call, &request);
+  } else if (post && route_is(&route, "/device/wifi/scan", false)) {
+    gzc_control_wifi_scan_request_t request;
+    memset(&request, 0, sizeof(request));
+    int64_t timeout = 0;
+    if (body_i64(body, "timeout_ms", &timeout)) {
+      request.has_timeout_ms = true;
+      request.timeout_ms = (int32_t)timeout;
+    }
+    rc = gzc_control_scan_device_wifi(
+        &control, &call, &request, wifi_networks, sizeof(wifi_networks) / sizeof(wifi_networks[0]), &count);
   } else if (get && route_is(&route, "/device/wifi/saved", false)) {
     rc = gzc_control_list_device_saved_wifi(
         &control, &call, ssids, sizeof(ssids) / sizeof(ssids[0]), &count);
@@ -837,6 +928,41 @@ int gzt_control_request(
       request.delay_ms = (int32_t)delay;
     }
     rc = gzc_control_reboot_device(&control, &call, &request);
+  } else if (get && route_is(&route, "/device/settings", false)) {
+    rc = gzc_control_get_device_settings(&control, &call, &settings);
+  } else if (patch && route_is(&route, "/device/settings", false)) {
+    gzc_control_device_settings_t request;
+    read_device_settings(body, &request);
+    rc = gzc_control_update_device_settings(&control, &call, &request, &settings);
+  } else if (post && route_is(&route, "/device/actions/factory-reset", false)) {
+    gzc_control_factory_reset_request_t request;
+    memset(&request, 0, sizeof(request));
+    request.has_keep_network = body_bool(body, "keep_network", &request.keep_network);
+    rc = gzc_control_factory_reset_device(&control, &call, &request);
+  } else if (get && route_is(&route, "/device/rpc-methods", false)) {
+    rc = gzc_control_list_device_rpc_methods(
+        &control, &call, rpc_methods, sizeof(rpc_methods) / sizeof(rpc_methods[0]), &count);
+  } else if (put && route_is(&route, "/device/run/workspace", false)) {
+    gzc_control_run_workspace_request_t request;
+    memset(&request, 0, sizeof(request));
+    (void)body_str(body, "workspace_name", &request.workspace_name);
+    (void)body_str(body, "collection", &request.collection);
+    (void)body_str(body, "workflow_name", &request.workflow_name);
+    request.has_kickoff = body_bool(body, "kickoff", &request.kickoff);
+    rc = gzc_control_set_device_run_workspace(&control, &call, &request);
+  } else if (get && route_is(&route, "/device/tools", false)) {
+    rc = gzc_control_list_device_tools(&control, &call, tools, sizeof(tools) / sizeof(tools[0]), &count);
+  } else if (post && route_is(&route, "/device/tools", true) &&
+             route.tail.len > 15 &&
+             memcmp(route.tail.data + route.tail.len - 15, "/actions/invoke", 15) == 0) {
+    char name_buf[256];
+    size_t name_len = decode_segment(
+        gzc_str_from_parts(route.tail.data, route.tail.len - 15), name_buf, sizeof(name_buf));
+    gzc_str_t args = gzc_str_from_parts(NULL, 0);
+    if (body.len > 0 && gzc_json_find_field(body, "args", &args) != GZC_OK) {
+      args = gzc_str_from_parts(NULL, 0);
+    }
+    rc = gzc_control_invoke_device_tool(&control, &call, gzc_str_from_parts(name_buf, name_len), args, &text);
   } else if (get && route_is(&route, "/api-keys", false)) {
     gzc_control_page_t page;
     read_page(query, &page);

@@ -20,7 +20,7 @@ API Key 的鉴权和管理契约见 [Peer HTTP · API Key](../../gizclaw/peer/se
 读路径直接投影 authoritative service，不向设备发送 RPC：
 
 - `GET /device` 返回 `DeviceInfo`（name、emoji、`HardwareInfo`、`DeviceIdentifiers`），与 `server.info.get` 同源。
-- `GET /device/runtime` 返回 `Runtime`（online、last seen、address、RX/TX），读取不刷新在线状态。
+- `GET /device/runtime` 返回 `Runtime`（online、last seen、address、RX/TX），读取不刷新在线状态。`active_workspace_name` 是设备通过 `server.run.workspace.reload-with-options` 最近一次提交的 Workspace，`pending_workspace_name` 是已选中但设备尚未提交的 Workspace（例如 `PUT /device/run/workspace` 切换进行中）；两者读自 Server 的 `peer_runs` 记录，设备离线时同样可读，未设置时省略。
 - `GET /device/status` 返回最近一次 authoritative `PeerStatus` snapshot；不提供 `fresh` 参数，`client.device.status.get` 只用于控制响应回写。
 - `GET /device/telemetry/{field}/latest`、`/device/telemetry`、`/device/telemetry/aggregate` 保留 Admin telemetry 的字段枚举、采样时间、查询边界、排序与 aggregate 语义，只把 Peer 固定为 owner。
 - `GET /device/firmware` 返回 owner 绑定的 Firmware 配置的全部 channel（`stable`、`beta`、`develop`），每个 channel 携带可选的 `description` 与 `package`（`version`、`url`、`sha256`、`size`）（已有包没有版本时省略 `version`，其余信息仍正常返回），与 `server.firmware.get` 同源。Channel 选择归调用方：Server 不保存设备当前使用的 channel，本 route 一次返回全部 channel，由调用方自行选择。未绑定 `firmware_id` 或绑定的配置已不存在返回 `404 FIRMWARE_NOT_FOUND`；某个 channel 未配置包时该 slot 省略 `package`，不报错。
@@ -113,6 +113,23 @@ PUT /gizclaw/v1/device/volume { level: 0..100, muted }
 | `DELETE /device/wifi/saved/{ssid}` | `client.wifi.saved.forget` | `204`；未知 ssid → `404 WIFI_NETWORK_NOT_FOUND` |
 | `POST /device/wifi/scan` `{ timeout_ms? }` | `client.wifi.scan` | `200 { networks }` |
 | `PUT /device/wifi` `{ ssid, passphrase? }` | `client.wifi.connect` | `202` |
+| `GET /device/settings` | `client.device.settings.get` | `200 DeviceSettings` |
+| `PATCH /device/settings` `DeviceSettings` | `client.device.settings.set` | `200 DeviceSettings` |
+| `POST /device/actions/factory-reset` `{ keep_network? }` | `client.device.factory_reset` | `204` |
+| `GET /device/rpc-methods` | `client.rpc.methods.get` | `200 { methods }` |
+| `PUT /device/run/workspace` `{ workspace_name \| collection + workflow_name, kickoff? }` | `client.run.workspace.set` | `202` |
+| `GET /device/tools` | 不访问设备 | `200 { items }` |
+| `POST /device/tools/{name}/actions/invoke` `{ args? }` | `client.tool.invoke` | `200 { data_json }`；未开放的 Tool → `404 TOOL_NOT_FOUND` |
+
+`settings` 读写设备自身配置（成员含义见 [Client Provided to Server](../proto/rpc/client-provided-to-server#设备配置与能力发现)）：`GET` 中缺省的成员表示设备不支持该项；`PATCH` 只转发出现的成员，任一成员越界（亮度不在 0–100、时长为负、`locale` 不是 BCP 47、未知枚举值）时整包 `400 INVALID_REQUEST`，不会到达设备。响应是设备应用后的完整配置。产品专属配置（如使用时长、功能限制）不放进 `DeviceSettings`，而是作为下文的设备 Tool 调用；语速属于 Workspace 参数（`WorkspaceParametersPatch`），不是设备配置。
+
+`factory-reset` 让设备清除本机状态，设备侧不可撤销；设备先应答再执行，此后控制 route 返回 `409 DEVICE_OFFLINE` 直到设备重连。`keep_network` 保留已保存的 Wi‑Fi 与蜂窝配置。Server 自身的记录不受影响；但若设备在重置流程中删除自己的 Peer，该 Peer 的全部 API Key（包括发起本次调用的那个）随之失效，控制 App 需要重新绑定。
+
+`rpc-methods` 返回设备实现的 reverse RPC 名称，App 据此隐藏设备只会拒绝的控制项，未知名称应忽略；早于该方法的设备返回 `501 DEVICE_UNSUPPORTED`。
+
+`run/workspace` 请求设备切换正在运行的 Workspace：`workspace_name` 指定已有 Workspace，或用 `collection` + `workflow_name` 指定 RuntimeProfile 中的 workflow，两者恰好选一，否则 `400 INVALID_REQUEST`；`kickoff` 缺省为 false。`server.run.workspace.reload-with-options` 只接受 Workspace 名称，因此 Server 先把目标解析为唯一名称再转发：`workspace_name` 必须是调用方拥有且可用的 Workspace；workflow 目标在调用方该 collection 与 workflow 下可用的 Workspace 中选最近活跃的一个，同时间按名称升序。没有匹配时返回 `404 WORKSPACE_NOT_FOUND` 且不访问设备——控制 App 不能创建 Workspace。`202` 只表示设备接受了请求，设备随后自行调用 `server.run.workspace.reload-with-options` 完成切换；结果通过 `GET /device/runtime` 的 `active_workspace_name` / `pending_workspace_name` 观察。
+
+`tools` 让控制 App 调用设备 Tool。只有 RuntimeProfile 中 `resources.tools` 的 binding 设置了 `control_access`、且 Tool 为已启用的 `client_rpc` 类型时才对 App 可见；未设置时既不能列出也不能调用，只供 AI 与 Workflow runtime 使用。`control_access` 目前只有 `owner`（该 Peer 的任意 API Key），更严格的级别（如家长授权）以后加入同一枚举。列表只读 Server 配置，设备离线时也可用，未绑定 RuntimeProfile 时返回空列表。`invoke` 先按 Tool 的 `input_schema` 校验 `args`（省略即 `{}`），不通过返回 `400 INVALID_REQUEST` 且不访问设备；通过后转发 `client.tool.invoke`，把设备返回的 JSON 文本原样放在 `data_json`，不是合法 JSON 的应答按 `502 DEVICE_ERROR` 拒绝。
 
 `firmware-update` 通知设备执行一次 OTA，设备应答后自行下载、校验、写入并重启。`channel` 取自 `GET /device/firmware` 返回的 channel，省略时设备沿用自身的 channel；`sha256` 是调用方看到的目标包摘要，Server 只校验它是 64 位小写 hex，是否与设备解析出的包一致由设备判断，不一致时设备返回 `INVALID_PARAMS`，映射为 `400 DEVICE_REJECTED`。设备当前运行的包由 `PeerStatus.firmware_sha256` 上报，调用方与目标 channel 的 `package.sha256` 比较即可判断是否需要升级。
 
@@ -120,7 +137,7 @@ PUT /gizclaw/v1/device/volume { level: 0..100, muted }
 
 `sound` 是设备自定义字符串，Server 只检查非空且不超过 32 UTF‑8 bytes，由设备 provider 校验取值；`ssid` 同样限制 32 bytes。扫描 `timeout_ms` 缺省为 8000，并夹取到 1000–15000；它不复用其他控制 route 的 5 秒超时。加入开放网络时省略 `passphrase`，PSK 长度为 8–63 bytes。`202` 只表示设备接受凭据：设备先应答 RPC 再切网，随后必然掉线；掉线期间控制 route 返回 `409 DEVICE_OFFLINE`，客户端在设备重连后轮询 `GET /device/wifi`，以 `ssid` 是否变为目标网络判断成功或回退。密码只经过转发路径，不持久化、不记录日志、不回显。扫描结果由设备提供，Server 在返回前重新校验：最多 32 条，`ssid` 非空且不超过 32 bytes，`bssid` 不超过 17 bytes，`security` 不超过 5 bytes，越界的应答整体按 `502 DEVICE_ERROR` 拒绝而不回显越界值。
 
-设备返回 `INVALID_PARAMS` 映射 `400 DEVICE_REJECTED`，`METHOD_NOT_FOUND`（设备未实现 provider）映射 `501 DEVICE_UNSUPPORTED`，其余 RPC 错误映射脱敏的 `502 DEVICE_ERROR`；响应体只携带稳定 `code` 与脱敏 `message`。同一 owner 的并发控制命令按到达顺序串行转发，不合并、不重放；`reboot`、`firmware.update` 或 `wifi.connect` 得到设备确认后，同一连接上的后续控制命令返回 `409 DEVICE_OFFLINE`，直到设备以新连接重连。控制命令不改变 PeerRun、Workspace 或 Agent 状态。
+设备返回 `INVALID_PARAMS` 映射 `400 DEVICE_REJECTED`，`METHOD_NOT_FOUND`（设备未实现 provider）映射 `501 DEVICE_UNSUPPORTED`，其余 RPC 错误映射脱敏的 `502 DEVICE_ERROR`；响应体只携带稳定 `code` 与脱敏 `message`。同一 owner 的并发控制命令按到达顺序串行转发，不合并、不重放；`reboot`、`firmware.update` 或 `wifi.connect` 得到设备确认后，同一连接上的后续控制命令返回 `409 DEVICE_OFFLINE`，直到设备以新连接重连。Server 转发控制命令时自身不改变 PeerRun、Workspace 或 Agent 状态；`run/workspace` 也只是请求设备，由设备通过自己的 RPC 完成切换。
 
 `/server-info` 在连接前返回 authoritative Server 的 `public_key`、软件 `version`、`build_commit` 与 transport 能力。Server identity 仍只由密码学 `public_key` 表达。经过 Edge 时这些构建字段保持 authoritative Server 的值，Edge transport 选择只由 `transport` 说明。
 

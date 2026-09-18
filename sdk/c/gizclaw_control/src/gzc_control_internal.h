@@ -94,6 +94,7 @@ int gzc_control_decode_device_info(gzc_str_t object_json, gzc_control_device_inf
 int gzc_control_decode_device_runtime(gzc_str_t object_json, gzc_control_device_runtime_t *out);
 int gzc_control_decode_peer_status(gzc_str_t object_json, gzc_control_peer_status_t *out);
 int gzc_control_decode_wifi_status(gzc_str_t object_json, gzc_control_wifi_status_t *out);
+int gzc_control_decode_device_settings(gzc_str_t object_json, gzc_control_device_settings_t *out);
 int gzc_control_decode_wifi_scan_result(
     gzc_str_t object_json,
     gzc_control_wifi_scan_result_t *out);
@@ -139,5 +140,7 @@ int gzc_control_decode_saved_wifi_item(gzc_str_t object_json, void *out);
 int gzc_control_decode_wifi_scan_result_item(gzc_str_t object_json, void *out);
 int gzc_control_decode_runtime_profile_collection_item(gzc_str_t object_json, void *out);
 int gzc_control_decode_device_workspace_item(gzc_str_t object_json, void *out);
+int gzc_control_decode_string_item(gzc_str_t raw_json, void *out);
+int gzc_control_decode_device_tool_item(gzc_str_t object_json, void *out);
 
 #endif

@@ -2761,6 +2761,19 @@ test("encodeTelemetryPacket carries cellular imei and imsi on network observatio
   );
 });
 
+test("encodeTelemetryPacket accepts activity observations", () => {
+  const packet = encodeTelemetryPacket({
+    observedAtUnixMs: 1000,
+    observations: [{ activity: { activity: "chat" } }],
+  });
+
+  assert.equal(packet[0], GIZCLAW_EVENT_STREAM_TELEMETRY);
+  assert.equal(
+    Buffer.from(packet.slice(1)).toString("hex"),
+    "10e8071a098201060a0463686174",
+  );
+});
+
 test("encodeTelemetryPacket stamps frames before send", () => {
   const originalNow = Date.now;
   Date.now = () => 1234;
@@ -4122,5 +4135,271 @@ test("app config requests and opaque values round-trip through protobuf", () => 
       encodeRPCResponsePayload("server.app_config.get", getResponse),
     ),
     getResponse,
+  );
+});
+
+test("inbound client.device.settings.set applies a patch and rejects bad members", async () => {
+  let applied: Record<string, unknown> | undefined;
+  const settings = {
+    cellular_enabled: false,
+    screen_brightness: 40,
+    locale: "zh-CN",
+    default_interaction_mode: "push-to-talk" as const,
+    key_feedback: "sound_and_vibrate" as const,
+  };
+  const set = await serveInboundClientRPC(
+    "client.device.settings.set",
+    settings,
+    {
+      deviceControl: {
+        setSettings: (patch) => {
+          applied = patch;
+          return { ...patch, led_brightness: 10 };
+        },
+      },
+    },
+  );
+  assert.equal(set.error, undefined);
+  assert.deepEqual(applied, settings);
+  // The response is the device's full settings, so the caller sees the option
+  // it never asked about.
+  assert.equal(
+    (set.result as { led_brightness?: number } | undefined)?.led_brightness,
+    10,
+  );
+
+  // A member outside its range is rejected before the handler runs, so the
+  // device is never left half-configured.
+  let ran = false;
+  const bad = await serveInboundClientRPC(
+    "client.device.settings.set",
+    { screen_brightness: 140 },
+    {
+      deviceControl: {
+        setSettings: (patch) => {
+          ran = true;
+          return patch;
+        },
+      },
+    },
+  );
+  assert.equal(bad.error?.code, STATUS_CODE_INVALID_ARGUMENT);
+  assert.equal(ran, false);
+
+  // An unregistered handler answers METHOD_NOT_FOUND, which the server maps to
+  // 501 DEVICE_UNSUPPORTED.
+  const missing = await serveInboundClientRPC(
+    "client.device.settings.get",
+    {},
+    { deviceControl: {} },
+  );
+  assert.equal(missing.error?.code, STATUS_CODE_UNIMPLEMENTED);
+});
+
+test("inbound client.rpc.methods.get reports only the registered handlers", async () => {
+  const response = await serveInboundClientRPC(
+    "client.rpc.methods.get",
+    {},
+    {
+      deviceControl: {
+        reboot: () => {},
+        getSettings: () => ({ screen_brightness: 50 }),
+        factoryReset: () => {},
+      },
+    },
+  );
+  assert.equal(response.error, undefined);
+  const methods = (response.result as { methods: string[] }).methods;
+  assert.deepEqual(methods, [
+    "client.device.reboot",
+    "client.device.settings.get",
+    "client.device.factory_reset",
+    "client.rpc.methods.get",
+  ]);
+  // A device with no control handlers still answers, listing only the method
+  // that produced the answer.
+  const bare = await serveInboundClientRPC("client.rpc.methods.get", {}, {});
+  assert.deepEqual((bare.result as { methods: string[] }).methods, [
+    "client.rpc.methods.get",
+  ]);
+});
+
+test("inbound client.device.factory_reset defaults keep_network to false", async () => {
+  const seen: boolean[] = [];
+  const handlers = {
+    deviceControl: {
+      factoryReset: (keepNetwork: boolean) => {
+        seen.push(keepNetwork);
+      },
+    },
+  };
+  assert.equal(
+    (await serveInboundClientRPC("client.device.factory_reset", {}, handlers))
+      .error,
+    undefined,
+  );
+  assert.equal(
+    (
+      await serveInboundClientRPC(
+        "client.device.factory_reset",
+        { keep_network: true },
+        handlers,
+      )
+    ).error,
+    undefined,
+  );
+  assert.deepEqual(seen, [false, true]);
+});
+
+test("inbound client.rpc.methods.get includes find and social ping when registered", async () => {
+  const response = await serveInboundClientRPC(
+    "client.rpc.methods.get",
+    {},
+    {
+      deviceControl: { find: () => {} },
+      socialPing: () => {},
+    },
+  );
+  assert.equal(response.error, undefined);
+  const methods = (response.result as { methods: string[] }).methods;
+  assert.ok(methods.includes("client.device.find"), `${methods}`);
+  assert.ok(methods.includes("client.social.ping"), `${methods}`);
+});
+
+test("inbound client.device.settings.set rejects a malformed locale", async () => {
+  let ran = false;
+  const handlers = {
+    deviceControl: {
+      setSettings: (patch: Record<string, unknown>) => {
+        ran = true;
+        return patch;
+      },
+    },
+  };
+  for (const locale of ["not a locale", "zh_CN", "-en", "en-"]) {
+    const response = await serveInboundClientRPC(
+      "client.device.settings.set",
+      { locale },
+      handlers,
+    );
+    assert.equal(
+      response.error?.code,
+      STATUS_CODE_INVALID_ARGUMENT,
+      `locale ${JSON.stringify(locale)}`,
+    );
+  }
+  assert.equal(ran, false);
+  for (const locale of ["zh-CN", "zh-Hant-TW", "es-419", "en"]) {
+    const response = await serveInboundClientRPC(
+      "client.device.settings.set",
+      { locale },
+      handlers,
+    );
+    assert.equal(response.error, undefined, `locale ${locale}`);
+  }
+});
+
+test("inbound client.run.workspace.set requires a workspace name", async () => {
+  const seen: unknown[] = [];
+  const handlers = {
+    deviceControl: {
+      setRunWorkspace: (request: unknown) => {
+        seen.push(request);
+      },
+    },
+  };
+  const accepted = await serveInboundClientRPC(
+    "client.run.workspace.set",
+    { workspace_name: "bedtime", kickoff: true },
+    handlers,
+  );
+  assert.equal(accepted.error, undefined);
+  for (const params of [{}, { workspace_name: "" }]) {
+    const rejected = await serveInboundClientRPC(
+      "client.run.workspace.set",
+      params as never,
+      handlers,
+    );
+    assert.equal(rejected.error?.code, STATUS_CODE_INVALID_ARGUMENT);
+  }
+  assert.deepEqual(seen, [{ workspace_name: "bedtime", kickoff: true }]);
+  const methods = await serveInboundClientRPC(
+    "client.rpc.methods.get",
+    {},
+    handlers,
+  );
+  assert.ok(
+    (methods.result as { methods: string[] }).methods.includes(
+      "client.run.workspace.set",
+    ),
+  );
+});
+
+test("inbound client.device.settings.set checks the new members", async () => {
+  // Wrong-typed and unknown enum values cannot be encoded on the wire, so the
+  // range check is what a device ever sees.
+  for (const patch of [{ auto_sleep_timeout_ms: -1 }]) {
+    const response = await serveInboundClientRPC(
+      "client.device.settings.set",
+      patch as never,
+      { deviceControl: { setSettings: (value) => value } },
+    );
+    assert.equal(response.error?.code, STATUS_CODE_INVALID_ARGUMENT);
+  }
+  const ok = await serveInboundClientRPC(
+    "client.device.settings.set",
+    { alert_mode: "vibrate", auto_sleep_timeout_ms: 0, nfc_enabled: false },
+    { deviceControl: { setSettings: (value) => value } },
+  );
+  assert.equal(ok.error, undefined);
+});
+
+test("inbound client.tool.invoke runs the named Tool and returns JSON", async () => {
+  const seen: unknown[] = [];
+  const handlers = {
+    tools: {
+      set_usage_limit: (args: Record<string, unknown>) => {
+        seen.push(args);
+        return { ok: true, minutes: args.minutes };
+      },
+    },
+  };
+  const response = await serveInboundClientRPC(
+    "client.tool.invoke",
+    { invoke_name: "set_usage_limit", args: { minutes: 30 } },
+    handlers,
+  );
+  assert.equal(response.error, undefined);
+  assert.deepEqual(
+    JSON.parse((response.result as { data_json: string }).data_json),
+    { ok: true, minutes: 30 },
+  );
+  assert.deepEqual(seen, [{ minutes: 30 }]);
+
+  // An unknown Tool, including an Object prototype member, is unimplemented.
+  for (const name of ["missing", "constructor"]) {
+    const missing = await serveInboundClientRPC(
+      "client.tool.invoke",
+      { invoke_name: name, args: {} },
+      handlers,
+    );
+    assert.equal(missing.error?.code, STATUS_CODE_UNIMPLEMENTED);
+  }
+  const bad = await serveInboundClientRPC(
+    "client.tool.invoke",
+    { invoke_name: "not a name", args: {} },
+    handlers,
+  );
+  assert.equal(bad.error?.code, STATUS_CODE_INVALID_ARGUMENT);
+  // Tools are discovered through the Tool list, not the method list.
+  const methods = await serveInboundClientRPC(
+    "client.rpc.methods.get",
+    {},
+    handlers,
+  );
+  assert.ok(
+    !(methods.result as { methods: string[] }).methods.includes(
+      "client.tool.invoke",
+    ),
   );
 });

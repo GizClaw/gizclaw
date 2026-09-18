@@ -32,8 +32,10 @@ transceiver；调用方注入 identity、crypto、fetch 等 runtime-specific pri
 按 GizClaw RPC method 映射 HTTP request，并不是任意 HTTP proxy。
 
 `serveGiznetWebRTCRPC(pc, handlers)` 应答 Server 发起的 `client.*` RPC。
-`GizClawPeerRPCHandlers` 覆盖 `client.info.get`、`client.identifiers.get` 以及七个
-`client.device.*` / `client.wifi.*` 方法；未提供的 handler 应答 `METHOD_NOT_FOUND`，
+`GizClawPeerRPCHandlers` 覆盖 `client.info.get`、`client.identifiers.get`、
+`client.device.*` / `client.wifi.*` / `client.firmware.update` 设备控制方法（含 `getSettings`、`setSettings`、
+`factoryReset`、`setRunWorkspace`）由已注册 handler 推导的 `client.rpc.methods.get`，以及 `tools`：按 invoke name 注册的
+`client_rpc` Tool handler，返回值作为 JSON（`data_json`）回给调用方；未提供的 handler 应答 `METHOD_NOT_FOUND`，
 Server 据此返回 `501 DEVICE_UNSUPPORTED`。handler 抛出 `GizClawDeviceControlError`
 可指定具体 RPC error code。handlers 也可通过 connect option `peerRPCHandlers` 传入，
 在 signaling 之前安装。

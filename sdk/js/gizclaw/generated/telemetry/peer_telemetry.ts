@@ -22,12 +22,13 @@ export type ObservationBase = {
 };
 
 export type Observation =
-  | (ObservationBase & { battery: BatteryObservation; gnss?: never; network?: never; system?: never; ota?: never; audioplayer?: never })
-  | (ObservationBase & { battery?: never; gnss: GnssObservation; network?: never; system?: never; ota?: never; audioplayer?: never })
-  | (ObservationBase & { battery?: never; gnss?: never; network: NetworkObservation; system?: never; ota?: never; audioplayer?: never })
-  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system: SystemObservation; ota?: never; audioplayer?: never })
-  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system?: never; ota: OtaObservation; audioplayer?: never })
-  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system?: never; ota?: never; audioplayer: AudioPlayerObservation });
+  | (ObservationBase & { battery: BatteryObservation; gnss?: never; network?: never; system?: never; ota?: never; audioplayer?: never; activity?: never })
+  | (ObservationBase & { battery?: never; gnss: GnssObservation; network?: never; system?: never; ota?: never; audioplayer?: never; activity?: never })
+  | (ObservationBase & { battery?: never; gnss?: never; network: NetworkObservation; system?: never; ota?: never; audioplayer?: never; activity?: never })
+  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system: SystemObservation; ota?: never; audioplayer?: never; activity?: never })
+  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system?: never; ota: OtaObservation; audioplayer?: never; activity?: never })
+  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system?: never; ota?: never; audioplayer: AudioPlayerObservation; activity?: never })
+  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system?: never; ota?: never; audioplayer?: never; activity: ActivityObservation });
 
 export type BatteryObservation = {
   percent?: number;
@@ -50,6 +51,11 @@ export type NetworkObservation = {
   connected?: boolean;
   imei?: string;
   imsi?: string;
+};
+
+export type ActivityObservation = {
+  activity: string;
+  detail?: string;
 };
 
 export type SystemObservation = {
@@ -101,7 +107,7 @@ function encodeObservation(message: Observation): Uint8Array {
   if (message.observedAtDeltaMs != null) {
     writer.int32(1, message.observedAtDeltaMs);
   }
-  const bodyCount = Number(message.battery != null) + Number(message.gnss != null) + Number(message.network != null) + Number(message.system != null) + Number(message.ota != null) + Number(message.audioplayer != null);
+  const bodyCount = Number(message.battery != null) + Number(message.gnss != null) + Number(message.network != null) + Number(message.system != null) + Number(message.ota != null) + Number(message.audioplayer != null) + Number(message.activity != null);
   if (bodyCount !== 1) {
     throw new Error(`telemetry observation must have exactly one body, got ${bodyCount}`);
   }
@@ -122,6 +128,9 @@ function encodeObservation(message: Observation): Uint8Array {
   }
   if (message.audioplayer != null) {
     writer.message(15, encodeAudioPlayerObservation(message.audioplayer));
+  }
+  if (message.activity != null) {
+    writer.message(16, encodeActivityObservation(message.activity));
   }
   return writer.finish();
 }
@@ -175,6 +184,15 @@ function encodeNetworkObservation(message: NetworkObservation): Uint8Array {
   }
   if (message.imsi != null) {
     writer.string(7, message.imsi);
+  }
+  return writer.finish();
+}
+
+function encodeActivityObservation(message: ActivityObservation): Uint8Array {
+  const writer = new ProtoWriter();
+  writer.string(1, message.activity);
+  if (message.detail != null) {
+    writer.string(2, message.detail);
   }
   return writer.finish();
 }

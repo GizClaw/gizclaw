@@ -178,6 +178,57 @@ func (e DoubaoRealtimeWorkspaceParametersAgentType) Valid() bool {
 	}
 }
 
+// Defines values for DeviceAlertMode.
+const (
+	DeviceAlertModeSilent  DeviceAlertMode = "silent"
+	DeviceAlertModeVibrate DeviceAlertMode = "vibrate"
+	DeviceAlertModeRing    DeviceAlertMode = "ring"
+)
+
+// Valid indicates whether the value is a known member of the DeviceAlertMode enum.
+func (e DeviceAlertMode) Valid() bool {
+	switch e {
+	case DeviceAlertModeSilent, DeviceAlertModeVibrate, DeviceAlertModeRing:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeviceInteractionMode.
+const (
+	DeviceInteractionModePushToTalk DeviceInteractionMode = "push-to-talk"
+	DeviceInteractionModeRealtime   DeviceInteractionMode = "realtime"
+)
+
+// Valid indicates whether the value is a known member of the DeviceInteractionMode enum.
+func (e DeviceInteractionMode) Valid() bool {
+	switch e {
+	case DeviceInteractionModePushToTalk, DeviceInteractionModeRealtime:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeviceKeyFeedback.
+const (
+	DeviceKeyFeedbackNone            DeviceKeyFeedback = "none"
+	DeviceKeyFeedbackSound           DeviceKeyFeedback = "sound"
+	DeviceKeyFeedbackVibrate         DeviceKeyFeedback = "vibrate"
+	DeviceKeyFeedbackSoundAndVibrate DeviceKeyFeedback = "sound_and_vibrate"
+)
+
+// Valid indicates whether the value is a known member of the DeviceKeyFeedback enum.
+func (e DeviceKeyFeedback) Valid() bool {
+	switch e {
+	case DeviceKeyFeedbackNone, DeviceKeyFeedbackSound, DeviceKeyFeedbackVibrate, DeviceKeyFeedbackSoundAndVibrate:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FirmwareChannelName.
 const (
 	FirmwareChannelNameBeta    FirmwareChannelName = "beta"
@@ -550,6 +601,11 @@ const (
 	RPCMethodClientWifiStatusGet                 RPCMethod = "client.wifi.status.get"
 	RPCMethodClientWifiScan                      RPCMethod = "client.wifi.scan"
 	RPCMethodClientWifiConnect                   RPCMethod = "client.wifi.connect"
+	RPCMethodClientDeviceSettingsGet             RPCMethod = "client.device.settings.get"
+	RPCMethodClientDeviceSettingsSet             RPCMethod = "client.device.settings.set"
+	RPCMethodClientDeviceFactoryReset            RPCMethod = "client.device.factory_reset"
+	RPCMethodClientRPCMethodsGet                 RPCMethod = "client.rpc.methods.get"
+	RPCMethodClientRunWorkspaceSet               RPCMethod = "client.run.workspace.set"
 	RPCMethodServerContactCreate                 RPCMethod = "server.contact.create"
 	RPCMethodServerContactDelete                 RPCMethod = "server.contact.delete"
 	RPCMethodServerContactGet                    RPCMethod = "server.contact.get"
@@ -652,6 +708,16 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodClientSocialPing:
 		return true
 	case RPCMethodClientDeviceReboot:
+		return true
+	case RPCMethodClientDeviceSettingsGet:
+		return true
+	case RPCMethodClientDeviceSettingsSet:
+		return true
+	case RPCMethodClientDeviceFactoryReset:
+		return true
+	case RPCMethodClientRPCMethodsGet:
+		return true
+	case RPCMethodClientRunWorkspaceSet:
 		return true
 	case RPCMethodClientWifiStatusGet:
 		return true
@@ -1511,6 +1577,15 @@ type EinoWorkspaceParametersAgentType string
 // FirmwareChannelName defines model for FirmwareChannelName.
 type FirmwareChannelName string
 
+// DeviceAlertMode defines model for DeviceAlertMode.
+type DeviceAlertMode string
+
+// DeviceInteractionMode defines model for DeviceInteractionMode.
+type DeviceInteractionMode string
+
+// DeviceKeyFeedback defines model for DeviceKeyFeedback.
+type DeviceKeyFeedback string
+
 // FirmwareGetRequest defines model for FirmwareGetRequest.
 type FirmwareGetRequest struct {
 	Channel FirmwareChannelName `json:"channel"`
@@ -2148,22 +2223,28 @@ type PeerRunWorkspaceState struct {
 
 // PeerStatus defines model for PeerStatus.
 type PeerStatus struct {
-	Ota            *rpcpb.PeerOtaStatus     `json:"ota,omitempty"`
-	Audioplayer    *rpcpb.AudioPlayerStatus `json:"audioplayer,omitempty"`
-	BatteryPercent *int                     `json:"battery_percent,omitempty"`
-	Charging       *bool                    `json:"charging,omitempty"`
-	Details        *map[string]any          `json:"details,omitempty"`
-	FirmwareSha256 *string                  `json:"firmware_sha256,omitempty"`
-	GnssAccuracyM  *float32                 `json:"gnss_accuracy_m,omitempty"`
-	GnssAltitudeM  *float32                 `json:"gnss_altitude_m,omitempty"`
-	GnssLatitude   *float32                 `json:"gnss_latitude,omitempty"`
-	GnssLongitude  *float32                 `json:"gnss_longitude,omitempty"`
-	Labels         *map[string]string       `json:"labels,omitempty"`
-	Muted          *bool                    `json:"muted,omitempty"`
-	NetworkImei    *string                  `json:"network_imei,omitempty"`
-	NetworkImsi    *string                  `json:"network_imsi,omitempty"`
-	ReportedAt     *time.Time               `json:"reported_at,omitempty"`
-	Volume         *int                     `json:"volume,omitempty"`
+	Ota                 *rpcpb.PeerOtaStatus                 `json:"ota,omitempty"`
+	Audioplayer         *rpcpb.AudioPlayerStatus             `json:"audioplayer,omitempty"`
+	BatteryPercent      *int                                 `json:"battery_percent,omitempty"`
+	Charging            *bool                                `json:"charging,omitempty"`
+	FirmwareSha256      *string                              `json:"firmware_sha256,omitempty"`
+	FirmwareVersion     *string                              `json:"firmware_version,omitempty"`
+	Activity            *string                              `json:"activity,omitempty"`
+	ActivityDetail      *string                              `json:"activity_detail,omitempty"`
+	TelemetryObservedAt *rpcpb.PeerStatusTelemetryObservedAt `json:"telemetry_observed_at,omitempty"`
+	GnssAccuracyM       *float32                             `json:"gnss_accuracy_m,omitempty"`
+	GnssAltitudeM       *float32                             `json:"gnss_altitude_m,omitempty"`
+	GnssLatitude        *float32                             `json:"gnss_latitude,omitempty"`
+	GnssLongitude       *float32                             `json:"gnss_longitude,omitempty"`
+	Labels              *map[string]string                   `json:"labels,omitempty"`
+	Muted               *bool                                `json:"muted,omitempty"`
+	NetworkImei         *string                              `json:"network_imei,omitempty"`
+	NetworkImsi         *string                              `json:"network_imsi,omitempty"`
+	ReportedAt          *time.Time                           `json:"reported_at,omitempty"`
+	Volume              *int                                 `json:"volume,omitempty"`
+	WifiRssiDbm         *float64                             `json:"wifi_rssi_dbm,omitempty"`
+	CellularRssiDbm     *float64                             `json:"cellular_rssi_dbm,omitempty"`
+	CellularSignalLevel *float64                             `json:"cellular_signal_level,omitempty"`
 }
 
 // PingRequest defines model for PingRequest.
@@ -2218,12 +2299,14 @@ type RPCVersion int
 
 // Runtime defines model for Runtime.
 type Runtime struct {
-	DebugMode  *string   `json:"debug_mode,omitempty"`
-	LastAddr   *string   `json:"last_addr,omitempty"`
-	LastSeenAt time.Time `json:"last_seen_at"`
-	Online     bool      `json:"online"`
-	RxBytes    *uint64   `json:"rx_bytes,omitempty"`
-	TxBytes    *uint64   `json:"tx_bytes,omitempty"`
+	ActiveWorkspaceName  *string   `json:"active_workspace_name,omitempty"`
+	DebugMode            *string   `json:"debug_mode,omitempty"`
+	LastAddr             *string   `json:"last_addr,omitempty"`
+	LastSeenAt           time.Time `json:"last_seen_at"`
+	Online               bool      `json:"online"`
+	PendingWorkspaceName *string   `json:"pending_workspace_name,omitempty"`
+	RxBytes              *uint64   `json:"rx_bytes,omitempty"`
+	TxBytes              *uint64   `json:"tx_bytes,omitempty"`
 }
 
 // ServerGetInfoRequest defines model for ServerGetInfoRequest.
