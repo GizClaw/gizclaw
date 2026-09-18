@@ -1503,6 +1503,160 @@ func TestDockPublishesErrorEpochCompletionAfterTTSCleanup(t *testing.T) {
 	}
 }
 
+// TestDockErrorTerminalWinsTTSCancellationRace forces the sibling TTS pipe to
+// fail from the source-terminal abort and attempt to finish the route before
+// the source path proceeds. The published terminal must still carry the
+// source's ErrorCode-only failure, not the sibling's cancellation error.
+func TestDockErrorTerminalWinsTTSCancellationRace(t *testing.T) {
+	ttsOutput := newAbortRaceTTSStream()
+	agentOutput := streamkit.NewOutput(streamkit.OutputConfig{})
+	defer agentOutput.Close()
+	if err := agentOutput.Push(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "provider", Label: "assistant"}}); err != nil {
+		t.Fatal(err)
+	}
+	dock, err := New(Config{
+		Agent: transformerFunc(func(context.Context, genx.Stream) (genx.Stream, error) { return agentOutput, nil }),
+		TTS: muxFunc(func(context.Context, string, genx.Stream) (genx.Stream, error) {
+			return ttsOutput, nil
+		}),
+		ResolveVoice: func(context.Context, VoiceRequest) (string, error) {
+			return "voice/narrator", nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, err := dock.Transform(t.Context(), emptyStream{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-ttsOutput.reading:
+	case <-time.After(time.Second):
+		t.Fatal("TTS output was not forwarded")
+	}
+	type readResult struct {
+		chunks []*genx.MessageChunk
+		err    error
+	}
+	read := make(chan readResult, 1)
+	go func() {
+		var chunks []*genx.MessageChunk
+		for {
+			chunk, err := output.Next()
+			if err != nil {
+				if errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone) {
+					err = nil
+				}
+				read <- readResult{chunks: chunks, err: err}
+				return
+			}
+			if chunk == nil {
+				continue
+			}
+			chunks = append(chunks, chunk)
+			if chunk.IsEndOfStream() {
+				ttsOutput.terminalSeen.Do(func() { close(ttsOutput.terminal) })
+			}
+		}
+	}()
+	if err := agentOutput.Push(&genx.MessageChunk{Role: genx.RoleModel, Ctrl: &genx.StreamCtrl{StreamID: "provider", Label: "assistant", EndOfStream: true, ErrorCode: "STREAM_INTERRUPTED"}}); err != nil {
+		t.Fatal(err)
+	}
+	_ = agentOutput.Close()
+	var result readResult
+	select {
+	case result = <-read:
+	case <-time.After(5 * time.Second):
+		t.Fatal("dock output did not finish")
+	}
+	if result.err != nil {
+		t.Fatalf("output.Next() error = %v", result.err)
+	}
+	select {
+	case <-ttsOutput.siblingAborted:
+	default:
+		t.Fatal("sibling TTS pipe did not fail from the abort")
+	}
+	var terminals []*genx.MessageChunk
+	for _, chunk := range result.chunks {
+		if chunk.IsEndOfStream() {
+			terminals = append(terminals, chunk)
+		}
+	}
+	if len(terminals) != 1 {
+		t.Fatalf("terminal count = %d, want 1; chunks=%#v", len(terminals), result.chunks)
+	}
+	if ctrl := terminals[0].Ctrl; ctrl.Error != "" || ctrl.ErrorCode != "STREAM_INTERRUPTED" || !ctrl.ResponseEpochEnd {
+		t.Fatalf("terminal ctrl = %+v, want source ErrorCode-only epoch end", *ctrl)
+	}
+}
+
+// abortRaceTTSStream holds the first CloseWithError, issued by the source
+// terminal's abort, until the sibling forwarder has failed and re-aborted and
+// has then either published a terminal or been held back from doing so.
+type abortRaceTTSStream struct {
+	reading        chan struct{}
+	readingOnce    sync.Once
+	closed         chan struct{}
+	siblingAborted chan struct{}
+	terminal       chan struct{}
+	terminalSeen   sync.Once
+	mu             sync.Mutex
+	closeCalls     int
+	closeErr       error
+}
+
+func newAbortRaceTTSStream() *abortRaceTTSStream {
+	return &abortRaceTTSStream{
+		reading:        make(chan struct{}),
+		closed:         make(chan struct{}),
+		siblingAborted: make(chan struct{}),
+		terminal:       make(chan struct{}),
+	}
+}
+
+func (s *abortRaceTTSStream) Next() (*genx.MessageChunk, error) {
+	s.readingOnce.Do(func() { close(s.reading) })
+	<-s.closed
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return nil, s.closeErr
+}
+
+func (s *abortRaceTTSStream) Close() error {
+	return s.CloseWithError(io.ErrClosedPipe)
+}
+
+func (s *abortRaceTTSStream) CloseWithError(err error) error {
+	s.mu.Lock()
+	s.closeCalls++
+	call := s.closeCalls
+	if call == 1 {
+		s.closeErr = err
+		close(s.closed)
+	}
+	s.mu.Unlock()
+	switch call {
+	case 1:
+		// The sibling's own abortTTS immediately precedes its finishRoute.
+		select {
+		case <-s.siblingAborted:
+		case <-time.After(time.Second):
+			return nil
+		}
+		// Without the fix the sibling now publishes its terminal. With the
+		// fix it blocks on ttsEmitMu, so give it a bounded chance to race.
+		select {
+		case <-s.terminal:
+		case <-time.After(100 * time.Millisecond):
+		}
+	case 2:
+		close(s.siblingAborted)
+	}
+	return nil
+}
+
 func TestDockMergesCompliantTTSLifecyclesByMIME(t *testing.T) {
 	dock, err := New(Config{
 		Agent: fixedAgentOutput(
