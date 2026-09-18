@@ -435,8 +435,13 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 		if cleanupError == "" {
 			cleanupError = chunk.Ctrl.ErrorCode
 		}
+		// Hold ttsEmitMu across abort and finish. A sibling TTS pipe that fails
+		// only because of this abort would otherwise race to finish the route
+		// with its secondary cancellation error instead of the source error.
+		route.ttsEmitMu.Lock()
 		r.abortTTS(route, errors.New(cleanupError))
-		r.finishRoute(route, chunk.Ctrl.Error)
+		r.finishRouteLocked(route, chunk.Ctrl.Error)
+		route.ttsEmitMu.Unlock()
 		return nil
 	}
 	if route.hasTTSPipes() {
@@ -795,6 +800,11 @@ func (r *dockRun) finishRoute(route *dockRoute, errorText string) {
 	}
 	route.ttsEmitMu.Lock()
 	defer route.ttsEmitMu.Unlock()
+	r.finishRouteLocked(route, errorText)
+}
+
+// finishRouteLocked is finishRoute for callers that already hold ttsEmitMu.
+func (r *dockRun) finishRouteLocked(route *dockRoute, errorText string) {
 	route.finish.Do(func() {
 		if err := r.emitDeferredEOS(route, errorText); err != nil && errorText == "" {
 			errorText = err.Error()
