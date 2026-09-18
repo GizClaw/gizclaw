@@ -1445,3 +1445,12 @@ tests/gizclaw-e2e/testdata/bin/gizclaw test run \
   tests/gizclaw-e2e/giztest/eino-mixed-provider-voices.text-roundtrip.giztest.yaml \
   tests/gizclaw-e2e/giztest/flowcraft-mixed-provider-voices.text-roundtrip.giztest.yaml --parallel 2
 ```
+
+Three speech-rate scenarios also run in that phase. `server.run.workspace.reload` carries the RPC contract: it sends `tts_speech_rate_percent: 80` with `reload-with-options` and confirms the stored parameter with `server.workspace.get`, so the JS, C, and Flutter runners exercise that encoding too. `flowcraft-voice-assistant.tts-speech-rate` covers storage, out-of-range rejection (`INVALID_ARGUMENT`), and a real reply spoken at the rate; `dashscope-realtime-conversation.tts-speech-rate` covers a provider without a native rate still speaking through the transformer time-stretch.
+
+`eino-mixed-provider-voices.tts-speech-rate` proves the rate takes effect: two Workspaces bound to `eino-mixed-provider-voices` read the same script, the reply at the Workflow rate asserts 700..1400 audio packets (20 ms each, about 14..28 seconds), and the Workspace set to 60% asserts at least 1600 packets (about 32 seconds). Measured runs produce about 1116..1122 and 1836..1892 packets, leaving more than 20% margin on both bounds. Both the Volc narrator and the MiniMax character segment slow down. JS, C, and Flutter runners skip this scenario as well:
+
+```sh
+tests/gizclaw-e2e/testdata/bin/gizclaw test run \
+  tests/gizclaw-e2e/giztest/eino-mixed-provider-voices.tts-speech-rate.giztest.yaml
+```
