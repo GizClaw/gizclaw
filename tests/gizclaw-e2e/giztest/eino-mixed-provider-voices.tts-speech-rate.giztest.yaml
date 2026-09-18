@@ -1,0 +1,148 @@
+# User Story:
+# As a device whose user slowed AI replies down,
+# I want the same script spoken by a Workspace with tts_speech_rate_percent 60,
+# So that the reply audio really lasts longer than the same reply at the Workflow default rate.
+version: gizclaw.test/v1alpha1
+name: eino-mixed-provider-voices.tts-speech-rate
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  default_workspace:
+    direction: input
+    type: string
+    generate: token
+  slow_workspace:
+    direction: input
+    type: string
+    generate: token
+  script:
+    direction: input
+    type: string
+    value: 从前有一片安静的森林，小溪从高高的松树旁边流过，温暖的阳光照在柔软的草地上。【弟弟】我今天找到了一颗红苹果！我要把它带回家，和哥哥姐姐一起分享，然后给大家讲一个有趣的故事。【旁白】他们约好明天一起去看日出，带上面包和清水，沿着山间的小路慢慢走到山顶。
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_default_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${default_workspace}
+        collection: assistants
+        workflow_name: eino-mixed-provider-voices
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: create_slow_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${slow_workspace}
+        collection: assistants
+        workflow_name: eino-mixed-provider-voices
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select_default_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${default_workspace}
+  # Both Workspaces read the same script, so the reply audio length is
+  # comparable: about 22s at the Workflow rate and about 37s at 60%.
+  - id: story_at_default_rate
+    client: peer
+    timeout: 120s
+    peer_stream:
+      mode: text
+      input: ${script}
+      require_text: true
+      require_audio: true
+    expect:
+      /text:
+        contains_all: [森林, 红苹果, 日出]
+      /audio_eos:
+        equals: true
+      /audio_pacing/mean_packet_ms:
+        equals: 20
+      /audio_pacing/packets:
+        minimum: 700
+        maximum: 1400
+  - id: reload_slow_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.reload-with-options
+      request:
+        workspace_name: ${slow_workspace}
+        parameters:
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+          tts_speech_rate_percent: 60
+    expect:
+      /workspace_name:
+        equals: ${slow_workspace}
+  - id: verify_stored_rate
+    client: peer
+    rpc:
+      method: server.workspace.get
+      request:
+        name: ${slow_workspace}
+    expect:
+      /value/parameters/eino_workspace_parameters/tts_speech_rate_percent:
+        equals: 60
+  - id: story_at_slow_rate
+    client: peer
+    timeout: 120s
+    peer_stream:
+      mode: text
+      input: ${script}
+      require_text: true
+      require_audio: true
+    expect:
+      /text:
+        contains_all: [森林, 红苹果, 日出]
+      /audio_eos:
+        equals: true
+      /audio_pacing/mean_packet_ms:
+        equals: 20
+      # Both the Volc narrator and the MiniMax character segment slow down.
+      /audio_pacing/packets:
+        minimum: 1600
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${default_workspace}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${slow_workspace}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

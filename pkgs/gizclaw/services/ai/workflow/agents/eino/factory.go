@@ -73,6 +73,10 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if err != nil {
 		return nil, err
 	}
+	speechRatePercent, err := apitypes.WorkspaceTTSSpeechRatePercent(spec.Workspace.Parameters)
+	if err != nil {
+		return nil, fmt.Errorf("eino: %w", err)
+	}
 	if public.VoiceAdapter != nil {
 		if err := preflightVoiceAdapter(ctx, service, *public.VoiceAdapter, inputMode); err != nil {
 			return nil, err
@@ -143,7 +147,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	}
 	var composed genx.Transformer = transformer
 	if public.VoiceAdapter != nil {
-		composed, err = wrapAudio(service.Transformer(), transformer, *public.VoiceAdapter, public.Graph.Outputs, inputMode)
+		composed, err = wrapAudio(service.Transformer(), transformer, *public.VoiceAdapter, public.Graph.Outputs, inputMode, speechRatePercent)
 		if err != nil {
 			return nil, errors.Join(err, transformer.Close(), closeMemory(memoryCloser))
 		}
@@ -222,6 +226,7 @@ func wrapAudio(
 	voice apitypes.VoiceAdapter,
 	outputs []apitypes.EinoOutput,
 	inputMode apitypes.WorkspaceInputMode,
+	speechRatePercent *int,
 ) (genx.Transformer, error) {
 	config := audiodock.Config{Agent: core}
 	if alias := stringPointerValue(voice.AsrModel); alias != "" {
@@ -232,11 +237,11 @@ func wrapAudio(
 	if voice.NodeVoices != nil {
 		nodeVoices = maps.Clone(*voice.NodeVoices)
 	}
-	voicePattern := einoVoicePattern
-	if voice.SpeakerVoices != nil && len(*voice.SpeakerVoices) != 0 {
-		// Speaker segments of one reply share one audio route, so every Voice
-		// that can speak in it is asked for the same streaming format.
-		voicePattern = func(alias string) string { return peergenx.WithSegmentVoiceFormat(einoVoicePattern(alias)) }
+	// Speaker segments of one reply share one audio route, so every Voice
+	// that can speak in it is asked for the same streaming format.
+	segmentFormat := voice.SpeakerVoices != nil && len(*voice.SpeakerVoices) != 0
+	voicePattern := einoVoicePatternFor(segmentFormat, speechRatePercent)
+	if segmentFormat {
 		config.SpeakerVoices = make(map[string]string, len(*voice.SpeakerVoices))
 		for name, alias := range *voice.SpeakerVoices {
 			config.SpeakerVoices[name] = voicePattern(alias)
@@ -281,6 +286,19 @@ func einoASRPattern(alias string, inputMode apitypes.WorkspaceInputMode) string 
 }
 
 func einoVoicePattern(alias string) string { return "voice/" + strings.TrimSpace(alias) }
+
+// einoVoicePatternFor returns the Voice pattern builder shared by default,
+// node and per-turn speaker voices, so every Voice speaks at the Workspace
+// speech rate.
+func einoVoicePatternFor(segmentFormat bool, speechRatePercent *int) func(string) string {
+	return func(alias string) string {
+		pattern := einoVoicePattern(alias)
+		if segmentFormat {
+			pattern = peergenx.WithSegmentVoiceFormat(pattern)
+		}
+		return peergenx.WithSpeechRatePercent(pattern, speechRatePercent)
+	}
+}
 
 func stringPointerValue(value *string) string {
 	if value == nil {

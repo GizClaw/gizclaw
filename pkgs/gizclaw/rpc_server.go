@@ -921,6 +921,31 @@ func (s *rpcServer) handleStopRun(ctx context.Context, req *rpcapi.RPCRequest) (
 	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerStopRunResponse)
 }
 
+// activeWorkspaceSpeechRate returns the tts_speech_rate_percent of the
+// caller's active Workspace. Without an active, resolvable Workspace or rate,
+// say keeps the Voice default.
+func (s *rpcServer) activeWorkspaceSpeechRate(ctx context.Context) (*int, error) {
+	if s.peerRun == nil {
+		return nil, nil
+	}
+	agent, err := s.peerRun.GetRunAgent(ctx, s.callerPublicKey)
+	if err != nil {
+		return nil, err
+	}
+	if agent.Active == nil || strings.TrimSpace(agent.Active.WorkspaceName) == "" {
+		return nil, nil
+	}
+	resolver, ok := s.serverResources.(rpcRunWorkspaceSelectionResolver)
+	if !ok {
+		return nil, nil
+	}
+	workspace, status := resolver.ResolveRunWorkspaceSelection(ctx, agent.Active.WorkspaceName)
+	if status != nil {
+		return nil, nil
+	}
+	return apitypes.WorkspaceTTSSpeechRatePercent(workspace.Parameters)
+}
+
 func (s *rpcServer) handleServerRunSay(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 	if req.Params == nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: "missing params"}.RPCResponse(), nil
@@ -932,9 +957,14 @@ func (s *rpcServer) handleServerRunSay(ctx context.Context, req *rpcapi.RPCReque
 	if s.serverGenX == nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peergenx service not configured"}.RPCResponse(), nil
 	}
+	speechRatePercent, err := s.activeWorkspaceSpeechRate(ctx)
+	if err != nil {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: err.Error()}.RPCResponse(), nil
+	}
 	resp, err := s.serverGenX.Say(ctx, peergenx.SayRequest{
-		Text:       params.Text,
-		VoiceAlias: strings.TrimSpace(params.VoiceName),
+		Text:              params.Text,
+		VoiceAlias:        strings.TrimSpace(params.VoiceName),
+		SpeechRatePercent: speechRatePercent,
 	})
 	if err != nil {
 		switch {

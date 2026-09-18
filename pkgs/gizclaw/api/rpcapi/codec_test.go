@@ -98,6 +98,7 @@ func TestWorkspaceParametersSetRoundTrip(t *testing.T) {
 			Conversation: &ConversationParameters{
 				Initiative: &initiative, AgentInitiativePolicy: &policy,
 			},
+			TtsSpeechRatePercent: new(70),
 		},
 	}
 	var payload RPCPayload
@@ -1488,6 +1489,7 @@ func TestDoubaoRealtimeWorkspaceParametersConversationRoundTrip(t *testing.T) {
 		Conversation: &ConversationParameters{
 			Initiative: &initiative, AgentInitiativePolicy: &policy,
 		},
+		TtsSpeechRatePercent: new(150),
 	}); err != nil {
 		t.Fatalf("FromDoubaoRealtimeWorkspaceParameters() error = %v", err)
 	}
@@ -1507,6 +1509,9 @@ func TestDoubaoRealtimeWorkspaceParametersConversationRoundTrip(t *testing.T) {
 	if decoded.Conversation == nil || decoded.Conversation.Initiative == nil || *decoded.Conversation.Initiative != initiative ||
 		decoded.Conversation.AgentInitiativePolicy == nil || *decoded.Conversation.AgentInitiativePolicy != policy {
 		t.Fatalf("doubao realtime conversation round trip = %#v", decoded.Conversation)
+	}
+	if decoded.TtsSpeechRatePercent == nil || *decoded.TtsSpeechRatePercent != 150 {
+		t.Fatalf("doubao realtime tts_speech_rate_percent round trip = %v", decoded.TtsSpeechRatePercent)
 	}
 }
 

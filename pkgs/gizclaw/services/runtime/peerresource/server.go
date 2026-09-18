@@ -787,6 +787,10 @@ func (s *Server) handleWorkspaceParametersSet(ctx context.Context, req *rpcapi.R
 		}
 		patch.Conversation = &value
 	}
+	if params.Parameters.TtsSpeechRatePercent != nil {
+		value := *params.Parameters.TtsSpeechRatePercent
+		patch.TTSSpeechRatePercent = &value
+	}
 	updated, err := parameters.SetPeerWorkspaceParameters(ownerCtx, patch)
 	if err != nil {
 		if parametersErr, ok := errors.AsType[*workspace.PeerWorkspaceParametersSetError](err); ok {

@@ -25,6 +25,10 @@ type Config struct {
 	TurnDetection     *dashscope.TurnDetection
 	InputAudioFormat  string
 	OutputAudioFormat string
+	// SpeechRatePercent is the speaking rate in percent of normal (50..200).
+	// DashScope has no native rate, so the transformer time-stretches its PCM16
+	// audio output. Zero and 100 leave the audio unchanged.
+	SpeechRatePercent int
 	// ToolInvoker resolves and executes function tools for each Transform call.
 	// Provider call identifiers remain private to the Transformer.
 	ToolInvoker genx.ToolInvoker
@@ -44,6 +48,12 @@ func New(config Config) (*Transformer, error) {
 	}
 	if config.MaxToolCalls < 0 {
 		return nil, fmt.Errorf("dashscope realtime: MaxToolCalls cannot be negative")
+	}
+	if config.SpeechRatePercent != 0 && (config.SpeechRatePercent < minSpeechRatePercent || config.SpeechRatePercent > maxSpeechRatePercent) {
+		return nil, fmt.Errorf("dashscope realtime: SpeechRatePercent must be between %d and %d", minSpeechRatePercent, maxSpeechRatePercent)
+	}
+	if speechRateStretches(config.SpeechRatePercent) && !outputFormatStretchable(config.OutputAudioFormat) {
+		return nil, fmt.Errorf("dashscope realtime: SpeechRatePercent requires pcm16 output, got %q", config.OutputAudioFormat)
 	}
 	if config.ToolInvoker != nil {
 		if !dashScopeModelSupportsFunctionCalling(config.Model) {
@@ -104,6 +114,9 @@ func New(config Config) (*Transformer, error) {
 	}
 	if config.MaxToolCalls != 0 {
 		opts = append(opts, withMaxToolCalls(config.MaxToolCalls))
+	}
+	if speechRateStretches(config.SpeechRatePercent) {
+		opts = append(opts, withSpeechRatePercent(config.SpeechRatePercent))
 	}
 	return newTransformer(config.Client, opts...), nil
 }

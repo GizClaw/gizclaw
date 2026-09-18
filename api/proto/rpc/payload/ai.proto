@@ -88,6 +88,7 @@ message ASTTranslateWorkspaceParameters {
   optional ASTTranslateMode mode = 7;
   optional string translation_model = 8;
   optional ASTTranslateVoiceParameters voice = 9;
+  optional int32 tts_speech_rate_percent = 10;
 }
 
 message DashScopeRealtimeWorkflowSpec {
@@ -118,6 +119,7 @@ message DashScopeRealtimeWorkspaceParameters {
   optional float temperature = 11;
   optional string vad = 12;
   optional string voice = 13;
+  optional int32 tts_speech_rate_percent = 14;
 }
 
 message DoubaoRealtimeDuplexWorkflowSpec {
@@ -148,6 +150,7 @@ message DoubaoRealtimeDuplexWorkspaceParameters {
   optional int64 output_speed = 11;
   optional int64 sample_rate = 12;
   optional string voice = 13;
+  optional int32 tts_speech_rate_percent = 14;
 }
 
 message EinoWorkflowSpec {
@@ -162,6 +165,7 @@ message EinoWorkspaceParameters {
   optional bool e2e = 2;
   optional ConversationParameters conversation = 3;
   optional WorkspaceInputMode input = 4;
+  optional int32 tts_speech_rate_percent = 5;
 }
 
 message DoubaoRealtimeAIGCMetadata {
@@ -298,6 +302,7 @@ message DoubaoRealtimeWorkspaceParameters {
   optional string model = 7;
   repeated DoubaoRealtimeFunctionTool tools = 8;
   optional ConversationParameters conversation = 9;
+  optional int32 tts_speech_rate_percent = 10;
 }
 
 message ConversationParameters {
@@ -314,6 +319,7 @@ message FlowcraftWorkspaceParameters {
   optional ConversationParameters conversation = 2;
   optional bool e2e = 3;
   optional WorkspaceInputMode input = 4;
+  optional int32 tts_speech_rate_percent = 5;
 }
 
 message Model {

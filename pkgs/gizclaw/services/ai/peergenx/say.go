@@ -11,6 +11,9 @@ import (
 type SayRequest struct {
 	Text       string
 	VoiceAlias string
+	// SpeechRatePercent is the speaking rate in percent of normal; nil keeps
+	// the Voice default.
+	SpeechRatePercent *int
 }
 
 type SayResponse struct {
@@ -47,7 +50,7 @@ func (s *Service) Say(ctx context.Context, request SayRequest) (SayResponse, err
 
 func (r SayRequest) transformerPattern() (string, error) {
 	if voiceAlias := strings.TrimSpace(r.VoiceAlias); voiceAlias != "" {
-		return "voice/" + voiceAlias, nil
+		return WithSpeechRatePercent("voice/"+voiceAlias, r.SpeechRatePercent), nil
 	}
 	return "", fmt.Errorf("%w: voice_alias is required", ErrInvalid)
 }

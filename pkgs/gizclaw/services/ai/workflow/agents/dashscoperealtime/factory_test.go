@@ -60,3 +60,30 @@ func TestResolvePatternRequiresModel(t *testing.T) {
 		t.Fatal("resolvePattern() error = nil")
 	}
 }
+
+func TestResolvePatternCarriesWorkspaceSpeechRate(t *testing.T) {
+	params := &apitypes.WorkspaceParameters{}
+	if err := params.FromDashScopeRealtimeWorkspaceParameters(apitypes.DashScopeRealtimeWorkspaceParameters{
+		AgentType:            apitypes.DashScopeRealtimeWorkspaceParametersAgentTypeDashscopeRealtime,
+		TtsSpeechRatePercent: new(80),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	pattern, err := resolvePattern(agenthost.Spec{
+		Workflow: apitypes.Workflow{Spec: apitypes.WorkflowSpec{
+			Driver:            apitypes.WorkflowDriverDashscopeRealtime,
+			DashscopeRealtime: &apitypes.DashScopeRealtimeWorkflowSpec{Model: "omni"},
+		}},
+		Workspace: apitypes.Workspace{Parameters: params},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := url.Parse(pattern)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := parsed.Query().Get("speech_rate_percent"); got != "80" {
+		t.Fatalf("speech_rate_percent = %q, pattern %q", got, pattern)
+	}
+}

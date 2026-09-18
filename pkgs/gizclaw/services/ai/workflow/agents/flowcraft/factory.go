@@ -109,6 +109,10 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 			return nil, err
 		}
 	}
+	speechRatePercent, err := apitypes.WorkspaceTTSSpeechRatePercent(spec.Workspace.Parameters)
+	if err != nil {
+		return nil, fmt.Errorf("flowcraft: %w", err)
+	}
 	memoryCloser := spec.MemoryCloser
 	if spec.MemoryBinding != nil || spec.MemoryLayout != nil {
 		if spec.MemoryBinding == nil || spec.MemoryLayout == nil {
@@ -141,10 +145,10 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if f.Memory != nil && f.MemoryKind == string(apitypes.RuntimeProfileMemoryDriverFlowcraft) && spec.MemoryLayout != nil {
 		f.MemoryLaneRecall = flowcraftLaneRecall(spec.MemoryLayout.Spec.Flowcraft.Lanes)
 	}
-	return f.newAgent(ctx, owner, workspaceID, spec.Workflow.Id, public, spec.ToolInvoker, spec.BoardInputs, initiativePolicy, inputMode, checkpoint, memoryCloser)
+	return f.newAgent(ctx, owner, workspaceID, spec.Workflow.Id, public, spec.ToolInvoker, spec.BoardInputs, initiativePolicy, inputMode, speechRatePercent, checkpoint, memoryCloser)
 }
 
-func (f Factory) newAgent(ctx context.Context, owner, workspaceID, workflowName string, public apitypes.FlowcraftWorkflowSpec, toolInvoker genx.ToolInvoker, inputs InputProvider, initiativePolicy string, inputMode apitypes.WorkspaceInputMode, checkpoint genxflowcraft.StateStore, memoryCloser io.Closer) (agenthost.Agent, error) {
+func (f Factory) newAgent(ctx context.Context, owner, workspaceID, workflowName string, public apitypes.FlowcraftWorkflowSpec, toolInvoker genx.ToolInvoker, inputs InputProvider, initiativePolicy string, inputMode apitypes.WorkspaceInputMode, speechRatePercent *int, checkpoint genxflowcraft.StateStore, memoryCloser io.Closer) (agenthost.Agent, error) {
 	if f.GenX == nil {
 		return nil, fmt.Errorf("flowcraft: peergenx service is required")
 	}
@@ -195,7 +199,7 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceID, workflowName 
 	owned = append(owned, core)
 	var transformer genx.Transformer = core
 	if public.VoiceAdapter != nil {
-		transformer, err = f.wrapAudio(core, *public.VoiceAdapter, inputMode)
+		transformer, err = f.wrapAudio(core, *public.VoiceAdapter, inputMode, speechRatePercent)
 		if err != nil {
 			return nil, errors.Join(err, closeAll(owned))
 		}
@@ -358,18 +362,20 @@ func llmNodeConfig(source apitypes.FlowcraftLLMNodeConfig) map[string]any {
 	return result
 }
 
-func (f Factory) wrapAudio(core genx.Transformer, voice apitypes.VoiceAdapter, inputMode apitypes.WorkspaceInputMode) (genx.Transformer, error) {
+// wrapAudio composes ASR and TTS around core. Every Voice pattern carries the
+// Workspace speech rate so default, node and speaker voices speak alike.
+func (f Factory) wrapAudio(core genx.Transformer, voice apitypes.VoiceAdapter, inputMode apitypes.WorkspaceInputMode, speechRatePercent *int) (genx.Transformer, error) {
 	config := audiodock.Config{Agent: core}
 	if alias := stringValue(voice.AsrModel); alias != "" {
 		config.ASR = patternTransformer{mux: f.GenX.Transformer(), pattern: flowcraftASRPattern(alias, inputMode)}
 	}
 	defaultVoice := stringValue(voice.DefaultVoice)
 	nodeVoices := maps.Clone(valueOrZero(voice.NodeVoices))
-	pattern := voicePattern
-	if voice.SpeakerVoices != nil && len(*voice.SpeakerVoices) != 0 {
-		// Speaker segments of one reply share one audio route, so every Voice
-		// that can speak in it is asked for the same streaming format.
-		pattern = func(alias string) string { return peergenx.WithSegmentVoiceFormat(voicePattern(alias)) }
+	// Speaker segments of one reply share one audio route, so every Voice
+	// that can speak in it is asked for the same streaming format.
+	segmentFormat := voice.SpeakerVoices != nil && len(*voice.SpeakerVoices) != 0
+	pattern := flowcraftVoicePattern(segmentFormat, speechRatePercent)
+	if segmentFormat {
 		config.SpeakerVoices = make(map[string]string, len(*voice.SpeakerVoices))
 		for name, alias := range *voice.SpeakerVoices {
 			config.SpeakerVoices[name] = pattern(alias)
@@ -389,6 +395,18 @@ func (f Factory) wrapAudio(core genx.Transformer, voice apitypes.VoiceAdapter, i
 		}
 	}
 	return audiodock.New(config)
+}
+
+// flowcraftVoicePattern returns the Voice pattern builder shared by default,
+// node and speaker voices.
+func flowcraftVoicePattern(segmentFormat bool, speechRatePercent *int) func(string) string {
+	return func(alias string) string {
+		pattern := voicePattern(alias)
+		if segmentFormat {
+			pattern = peergenx.WithSegmentVoiceFormat(pattern)
+		}
+		return peergenx.WithSpeechRatePercent(pattern, speechRatePercent)
+	}
 }
 
 func resolveFlowcraftInputMode(input *apitypes.WorkspaceInputMode) (apitypes.WorkspaceInputMode, error) {

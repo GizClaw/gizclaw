@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -228,7 +229,8 @@ func ratioToRate(r float64) int {
 	if r == 0 {
 		return 0
 	}
-	return int((r - 1.0) * 100)
+	// Round so ratios such as 1.15 map to 15 rather than a truncated 14.
+	return int(math.Round((r - 1.0) * 100))
 }
 
 func (t *SeedV2) mimeType() string {

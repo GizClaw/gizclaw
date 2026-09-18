@@ -1140,8 +1140,9 @@ type ASTTranslateWorkspaceParameters struct {
 	LangPair *string           `json:"lang_pair,omitempty"`
 	Mode     *ASTTranslateMode `json:"mode,omitempty"`
 
-	TranslationModel *string                      `json:"translation_model,omitempty"`
-	Voice            *ASTTranslateVoiceParameters `json:"voice,omitempty"`
+	TranslationModel     *string                      `json:"translation_model,omitempty"`
+	Voice                *ASTTranslateVoiceParameters `json:"voice,omitempty"`
+	TtsSpeechRatePercent *int                         `json:"tts_speech_rate_percent,omitempty"`
 }
 
 // ASTTranslateWorkspaceParametersAgentType defines model for ASTTranslateWorkspaceParameters.AgentType.
@@ -1482,8 +1483,9 @@ type DoubaoRealtimeWorkspaceParameters struct {
 	Instructions *string                  `json:"instructions,omitempty"`
 
 	// Model GizClaw Model resource name. Defaults to Workflow.spec.doubao_realtime.model.
-	Model *string                       `json:"model,omitempty"`
-	Tools *[]DoubaoRealtimeFunctionTool `json:"tools,omitempty"`
+	Model                *string                       `json:"model,omitempty"`
+	Tools                *[]DoubaoRealtimeFunctionTool `json:"tools,omitempty"`
+	TtsSpeechRatePercent *int                          `json:"tts_speech_rate_percent,omitempty"`
 }
 
 // DoubaoRealtimeWorkspaceParametersAgentType defines model for DoubaoRealtimeWorkspaceParameters.AgentType.
@@ -1504,19 +1506,20 @@ type DashScopeRealtimeWorkflowSpec struct {
 }
 
 type DashScopeRealtimeWorkspaceParameters struct {
-	AgentType         DashScopeRealtimeWorkspaceParametersAgentType `json:"agent_type"`
-	AsrModel          *string                                       `json:"asr_model,omitempty"`
-	E2e               *bool                                         `json:"e2e,omitempty"`
-	EnableAsr         *bool                                         `json:"enable_asr,omitempty"`
-	InputAudioFormat  *string                                       `json:"input_audio_format,omitempty"`
-	Instructions      *string                                       `json:"instructions,omitempty"`
-	MaxOutputTokens   *int                                          `json:"max_output_tokens,omitempty"`
-	Modalities        *[]string                                     `json:"modalities,omitempty"`
-	Model             *string                                       `json:"model,omitempty"`
-	OutputAudioFormat *string                                       `json:"output_audio_format,omitempty"`
-	Temperature       *float32                                      `json:"temperature,omitempty"`
-	Vad               *string                                       `json:"vad,omitempty"`
-	Voice             *string                                       `json:"voice,omitempty"`
+	AgentType            DashScopeRealtimeWorkspaceParametersAgentType `json:"agent_type"`
+	AsrModel             *string                                       `json:"asr_model,omitempty"`
+	E2e                  *bool                                         `json:"e2e,omitempty"`
+	EnableAsr            *bool                                         `json:"enable_asr,omitempty"`
+	InputAudioFormat     *string                                       `json:"input_audio_format,omitempty"`
+	Instructions         *string                                       `json:"instructions,omitempty"`
+	MaxOutputTokens      *int                                          `json:"max_output_tokens,omitempty"`
+	Modalities           *[]string                                     `json:"modalities,omitempty"`
+	Model                *string                                       `json:"model,omitempty"`
+	OutputAudioFormat    *string                                       `json:"output_audio_format,omitempty"`
+	Temperature          *float32                                      `json:"temperature,omitempty"`
+	Vad                  *string                                       `json:"vad,omitempty"`
+	Voice                *string                                       `json:"voice,omitempty"`
+	TtsSpeechRatePercent *int                                          `json:"tts_speech_rate_percent,omitempty"`
 }
 
 type DashScopeRealtimeWorkspaceParametersAgentType string
@@ -1536,19 +1539,20 @@ type DoubaoRealtimeDuplexWorkflowSpec struct {
 }
 
 type DoubaoRealtimeDuplexWorkspaceParameters struct {
-	AgentType       DoubaoRealtimeDuplexWorkspaceParametersAgentType `json:"agent_type"`
-	E2e             *bool                                            `json:"e2e,omitempty"`
-	Format          *string                                          `json:"format,omitempty"`
-	InputChannels   *int                                             `json:"input_channels,omitempty"`
-	InputFormat     *string                                          `json:"input_format,omitempty"`
-	InputSampleRate *int                                             `json:"input_sample_rate,omitempty"`
-	InputTranscode  *bool                                            `json:"input_transcode,omitempty"`
-	Instructions    *string                                          `json:"instructions,omitempty"`
-	Model           *string                                          `json:"model,omitempty"`
-	OutputLoudness  *int                                             `json:"output_loudness,omitempty"`
-	OutputSpeed     *int                                             `json:"output_speed,omitempty"`
-	SampleRate      *int                                             `json:"sample_rate,omitempty"`
-	Voice           *string                                          `json:"voice,omitempty"`
+	AgentType            DoubaoRealtimeDuplexWorkspaceParametersAgentType `json:"agent_type"`
+	E2e                  *bool                                            `json:"e2e,omitempty"`
+	Format               *string                                          `json:"format,omitempty"`
+	InputChannels        *int                                             `json:"input_channels,omitempty"`
+	InputFormat          *string                                          `json:"input_format,omitempty"`
+	InputSampleRate      *int                                             `json:"input_sample_rate,omitempty"`
+	InputTranscode       *bool                                            `json:"input_transcode,omitempty"`
+	Instructions         *string                                          `json:"instructions,omitempty"`
+	Model                *string                                          `json:"model,omitempty"`
+	OutputLoudness       *int                                             `json:"output_loudness,omitempty"`
+	OutputSpeed          *int                                             `json:"output_speed,omitempty"`
+	SampleRate           *int                                             `json:"sample_rate,omitempty"`
+	Voice                *string                                          `json:"voice,omitempty"`
+	TtsSpeechRatePercent *int                                             `json:"tts_speech_rate_percent,omitempty"`
 }
 
 type DoubaoRealtimeDuplexWorkspaceParametersAgentType string
@@ -1561,10 +1565,11 @@ type EinoWorkflowSpec struct {
 }
 
 type EinoWorkspaceParameters struct {
-	AgentType    EinoWorkspaceParametersAgentType `json:"agent_type"`
-	Conversation *ConversationParameters          `json:"conversation,omitempty"`
-	E2e          *bool                            `json:"e2e,omitempty"`
-	Input        *WorkspaceInputMode              `json:"input,omitempty"`
+	AgentType            EinoWorkspaceParametersAgentType `json:"agent_type"`
+	Conversation         *ConversationParameters          `json:"conversation,omitempty"`
+	E2e                  *bool                            `json:"e2e,omitempty"`
+	Input                *WorkspaceInputMode              `json:"input,omitempty"`
+	TtsSpeechRatePercent *int                             `json:"tts_speech_rate_percent,omitempty"`
 }
 
 type EinoWorkspaceParametersAgentType string
@@ -1620,8 +1625,9 @@ type FlowcraftWorkspaceParameters struct {
 	Conversation *ConversationParameters               `json:"conversation,omitempty"`
 
 	// E2e Marks seed resources used by the local e2e harness.
-	E2e   *bool               `json:"e2e,omitempty"`
-	Input *WorkspaceInputMode `json:"input,omitempty"`
+	E2e                  *bool               `json:"e2e,omitempty"`
+	Input                *WorkspaceInputMode `json:"input,omitempty"`
+	TtsSpeechRatePercent *int                `json:"tts_speech_rate_percent,omitempty"`
 }
 
 // FlowcraftWorkspaceParametersAgentType defines model for FlowcraftWorkspaceParameters.AgentType.
@@ -2710,8 +2716,9 @@ type WorkspaceInputMode string
 
 // WorkspaceParametersPatch contains driver-neutral Workspace parameter updates.
 type WorkspaceParametersPatch struct {
-	Conversation *ConversationParameters `json:"conversation,omitempty"`
-	Input        *WorkspaceInputMode     `json:"input,omitempty"`
+	Conversation         *ConversationParameters `json:"conversation,omitempty"`
+	Input                *WorkspaceInputMode     `json:"input,omitempty"`
+	TtsSpeechRatePercent *int                    `json:"tts_speech_rate_percent,omitempty"`
 }
 
 // WorkspaceParametersSetRequest updates supported parameters without exposing agent_type.

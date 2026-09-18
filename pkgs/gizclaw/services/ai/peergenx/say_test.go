@@ -100,3 +100,21 @@ func (o *recordingAudioOutput) ConsumeAgentOutput(_ context.Context, output genx
 		}
 	}
 }
+
+func TestSayCarriesSpeechRateToVoicePattern(t *testing.T) {
+	events := []string{}
+	svc := New(Service{
+		Peer:            newTestPeer(),
+		Voices:          fakeVoices{events: &events},
+		Credentials:     fakeCredentials{events: &events},
+		ProviderTenants: fakeTenants{events: &events},
+		Builder:         fakeBuilder{events: &events},
+		AudioOutput:     &recordingAudioOutput{},
+	})
+	if _, err := svc.Say(context.Background(), SayRequest{Text: "hello", VoiceAlias: "cancan", SpeechRatePercent: new(70)}); err != nil {
+		t.Fatalf("Say() error = %v", err)
+	}
+	if last := events[len(events)-1]; last != "call:transformer:voice/cancan?speech_rate_percent=70" {
+		t.Fatalf("transformer call = %q, want speech rate pattern", last)
+	}
+}

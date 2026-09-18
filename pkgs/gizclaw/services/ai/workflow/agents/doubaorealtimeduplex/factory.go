@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 )
@@ -95,6 +96,13 @@ func resolvePattern(spec agenthost.Spec) (string, error) {
 	}
 	if model == "" {
 		return "", fmt.Errorf("doubaorealtimeduplex: model is required")
+	}
+	rate, err := apitypes.WorkspaceTTSSpeechRatePercent(spec.Workspace.Parameters)
+	if err != nil {
+		return "", fmt.Errorf("doubaorealtimeduplex: %w", err)
+	}
+	if rate != nil {
+		values.Set(peergenx.SpeechRatePercentParam, strconv.Itoa(*rate))
 	}
 	pattern := "model/" + model
 	if query := values.Encode(); query != "" {

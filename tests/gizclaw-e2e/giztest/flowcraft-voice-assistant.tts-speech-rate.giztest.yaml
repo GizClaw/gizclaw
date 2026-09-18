@@ -1,0 +1,119 @@
+# User Story:
+# As a device that lets its user slow down AI replies,
+# I want to send tts_speech_rate_percent with server.run.workspace.reload-with-options,
+# So that the Workspace stores the rate, rejects out-of-range values and still speaks its reply.
+version: gizclaw.test/v1alpha1
+name: flowcraft-voice-assistant.tts-speech-rate
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  input_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        collection: assistants
+        workflow_name: flowcraft-voice-assistant
+        parameters:
+          flowcraft_workspace_parameters:
+            agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: reload_with_slow_rate
+    client: peer
+    rpc:
+      method: server.run.workspace.reload-with-options
+      request:
+        workspace_name: ${workspace_name}
+        parameters:
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+          tts_speech_rate_percent: 60
+    expect:
+      /workspace_name:
+        equals: ${workspace_name}
+  - id: verify_stored_rate
+    client: peer
+    rpc:
+      method: server.workspace.get
+      request:
+        name: ${workspace_name}
+    expect:
+      /value/parameters/flowcraft_workspace_parameters/tts_speech_rate_percent:
+        equals: 60
+      /value/parameters/flowcraft_workspace_parameters/input:
+        equals: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: reject_out_of_range_rate
+    client: peer
+    rpc:
+      method: server.run.workspace.reload-with-options
+      request:
+        workspace_name: ${workspace_name}
+        parameters:
+          tts_speech_rate_percent: 30
+    expect_error:
+      code: 3 # INVALID_ARGUMENT: tts_speech_rate_percent must be between 50 and 200
+      message_contains: tts_speech_rate_percent
+  - id: synthesize_input
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: Giztest audio input
+        accepted_content_types: [audio/ogg]
+    save_as: input_audio
+  - id: slow_reply
+    client: peer
+    timeout: 90s
+    peer_stream:
+      mode: push-to-talk
+      input: ${input_audio}
+      pacing: 20ms
+    expect:
+      /events:
+        non_empty: true
+      /audio_bytes:
+        minimum: 1000
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

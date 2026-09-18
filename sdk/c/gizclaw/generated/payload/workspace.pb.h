@@ -430,6 +430,9 @@ typedef struct _gizclaw_rpc_v1_WorkspaceParametersPatch {
     gizclaw_rpc_v1_WorkspaceInputMode input;
     bool has_conversation;
     gizclaw_rpc_v1_ConversationParameters conversation;
+    /* Synthesized speech rate in percent of normal (50..200); absent keeps the Workflow default. */
+    bool has_tts_speech_rate_percent;
+    int32_t tts_speech_rate_percent;
 } gizclaw_rpc_v1_WorkspaceParametersPatch;
 
 /* Reloads the selected Workspace, optionally selecting another Workspace and
@@ -524,7 +527,7 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceParameters_init_default {0, {gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_default}}
 #define gizclaw_rpc_v1_WorkspacePutRequest_init_default {false, gizclaw_rpc_v1_WorkspacePutBody_init_default, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspacePutResponse_init_default {false, gizclaw_rpc_v1_Workspace_init_default}
-#define gizclaw_rpc_v1_WorkspaceParametersPatch_init_default {false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_ConversationParameters_init_default}
+#define gizclaw_rpc_v1_WorkspaceParametersPatch_init_default {false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_ConversationParameters_init_default, false, 0}
 #define gizclaw_rpc_v1_WorkspaceParametersSetRequest_init_default {"", false, gizclaw_rpc_v1_WorkspaceParametersPatch_init_default}
 #define gizclaw_rpc_v1_WorkspaceParametersSetResponse_init_default {false, gizclaw_rpc_v1_Workspace_init_default}
 #define gizclaw_rpc_v1_AgentSelection_init_zero  {{{NULL}, NULL}}
@@ -593,7 +596,7 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceParameters_init_zero {0, {gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_zero}}
 #define gizclaw_rpc_v1_WorkspacePutRequest_init_zero {false, gizclaw_rpc_v1_WorkspacePutBody_init_zero, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspacePutResponse_init_zero {false, gizclaw_rpc_v1_Workspace_init_zero}
-#define gizclaw_rpc_v1_WorkspaceParametersPatch_init_zero {false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_ConversationParameters_init_zero}
+#define gizclaw_rpc_v1_WorkspaceParametersPatch_init_zero {false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_ConversationParameters_init_zero, false, 0}
 #define gizclaw_rpc_v1_WorkspaceParametersSetRequest_init_zero {"", false, gizclaw_rpc_v1_WorkspaceParametersPatch_init_zero}
 #define gizclaw_rpc_v1_WorkspaceParametersSetResponse_init_zero {false, gizclaw_rpc_v1_Workspace_init_zero}
 
@@ -752,6 +755,7 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspacePutResponse_value_tag 1
 #define gizclaw_rpc_v1_WorkspaceParametersPatch_input_tag 1
 #define gizclaw_rpc_v1_WorkspaceParametersPatch_conversation_tag 2
+#define gizclaw_rpc_v1_WorkspaceParametersPatch_tts_speech_rate_percent_tag 3
 #define gizclaw_rpc_v1_ServerReloadRunWorkspaceWithOptionsRequest_workspace_name_tag 1
 #define gizclaw_rpc_v1_ServerReloadRunWorkspaceWithOptionsRequest_parameters_tag 2
 #define gizclaw_rpc_v1_WorkspaceParametersSetRequest_name_tag 1
@@ -1237,7 +1241,8 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 
 #define gizclaw_rpc_v1_WorkspaceParametersPatch_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, UENUM,    input,             1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  conversation,      2)
+X(a, STATIC,   OPTIONAL, MESSAGE,  conversation,      2) \
+X(a, STATIC,   OPTIONAL, INT32,    tts_speech_rate_percent,   3)
 #define gizclaw_rpc_v1_WorkspaceParametersPatch_CALLBACK NULL
 #define gizclaw_rpc_v1_WorkspaceParametersPatch_DEFAULT NULL
 #define gizclaw_rpc_v1_WorkspaceParametersPatch_conversation_MSGTYPE gizclaw_rpc_v1_ConversationParameters
@@ -1398,7 +1403,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspaceParametersSetResponse_msg;
 
 /* Maximum encoded size of messages (where known) */
 #if defined(gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size) && defined(gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_size)
-union gizclaw_rpc_v1_WorkspaceParameters_value_size_union {char f2[(6 + gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size)]; char f3[(6 + gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size)]; char f5[(6 + gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_size)]; char f6[(6 + gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_size)]; char f0[14];};
+union gizclaw_rpc_v1_WorkspaceParameters_value_size_union {char f2[(6 + gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size)]; char f3[(6 + gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size)]; char f5[(6 + gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_size)]; char f6[(6 + gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_size)]; char f0[25];};
 #endif
 /* gizclaw_rpc_v1_AgentSelection_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PeerRunAgent_size depends on runtime parameters */
@@ -1451,7 +1456,7 @@ union gizclaw_rpc_v1_WorkspaceParameters_value_size_union {char f2[(6 + gizclaw_
 /* gizclaw_rpc_v1_WorkspacePutRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkspacePutResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkspaceParametersSetResponse_size depends on runtime parameters */
-#define GIZCLAW_RPC_V1_PAYLOAD_WORKSPACE_PB_H_MAX_SIZE gizclaw_rpc_v1_WorkspaceIconDownloadResponse_size
+#define GIZCLAW_RPC_V1_PAYLOAD_WORKSPACE_PB_H_MAX_SIZE gizclaw_rpc_v1_ServerReloadRunWorkspaceWithOptionsRequest_size
 #define gizclaw_rpc_v1_PeerRunMemoryStatsRequest_size 0
 #define gizclaw_rpc_v1_ServerGetRunAgentRequest_size 0
 #define gizclaw_rpc_v1_ServerGetRunStatusRequest_size 0
@@ -1460,13 +1465,13 @@ union gizclaw_rpc_v1_WorkspaceParameters_value_size_union {char f2[(6 + gizclaw_
 #define gizclaw_rpc_v1_ServerGetRuntimeRequest_size 0
 #define gizclaw_rpc_v1_ServerReloadRunRequest_size 0
 #define gizclaw_rpc_v1_ServerReloadRunWorkspaceRequest_size 0
-#define gizclaw_rpc_v1_ServerReloadRunWorkspaceWithOptionsRequest_size 268
+#define gizclaw_rpc_v1_ServerReloadRunWorkspaceWithOptionsRequest_size 279
 #define gizclaw_rpc_v1_ServerRunSayResponse_size 2
 #define gizclaw_rpc_v1_ServerStopRunRequest_size 0
 #define gizclaw_rpc_v1_WorkspaceIconDownloadRequest_size 260
 #define gizclaw_rpc_v1_WorkspaceIconDownloadResponse_size 271
-#define gizclaw_rpc_v1_WorkspaceParametersPatch_size 8
-#define gizclaw_rpc_v1_WorkspaceParametersSetRequest_size 268
+#define gizclaw_rpc_v1_WorkspaceParametersPatch_size 19
+#define gizclaw_rpc_v1_WorkspaceParametersSetRequest_size 279
 #if defined(gizclaw_rpc_v1_Runtime_size)
 #define gizclaw_rpc_v1_ServerGetRuntimeResponse_size (6 + gizclaw_rpc_v1_Runtime_size)
 #endif

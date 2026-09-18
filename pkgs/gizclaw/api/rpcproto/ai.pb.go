@@ -796,6 +796,7 @@ type ASTTranslateWorkspaceParameters struct {
 	Mode                       *ASTTranslateMode                        `protobuf:"varint,7,opt,name=mode,proto3,enum=gizclaw.rpc.v1.ASTTranslateMode,oneof" json:"mode,omitempty"`
 	TranslationModel           *string                                  `protobuf:"bytes,8,opt,name=translation_model,json=translationModel,proto3,oneof" json:"translation_model,omitempty"`
 	Voice                      *ASTTranslateVoiceParameters             `protobuf:"bytes,9,opt,name=voice,proto3,oneof" json:"voice,omitempty"`
+	TtsSpeechRatePercent       *int32                                   `protobuf:"varint,10,opt,name=tts_speech_rate_percent,json=ttsSpeechRatePercent,proto3,oneof" json:"tts_speech_rate_percent,omitempty"`
 	unknownFields              protoimpl.UnknownFields
 	sizeCache                  protoimpl.SizeCache
 }
@@ -891,6 +892,13 @@ func (x *ASTTranslateWorkspaceParameters) GetVoice() *ASTTranslateVoiceParameter
 		return x.Voice
 	}
 	return nil
+}
+
+func (x *ASTTranslateWorkspaceParameters) GetTtsSpeechRatePercent() int32 {
+	if x != nil && x.TtsSpeechRatePercent != nil {
+		return *x.TtsSpeechRatePercent
+	}
+	return 0
 }
 
 type DashScopeRealtimeWorkflowSpec struct {
@@ -1018,22 +1026,23 @@ func (x *DashScopeRealtimeWorkflowSpec) GetVoice() string {
 }
 
 type DashScopeRealtimeWorkspaceParameters struct {
-	state             protoimpl.MessageState                        `protogen:"open.v1"`
-	AgentType         DashScopeRealtimeWorkspaceParametersAgentType `protobuf:"varint,1,opt,name=agent_type,json=agentType,proto3,enum=gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParametersAgentType" json:"agent_type,omitempty"`
-	AsrModel          *string                                       `protobuf:"bytes,2,opt,name=asr_model,json=asrModel,proto3,oneof" json:"asr_model,omitempty"`
-	E2E               *bool                                         `protobuf:"varint,3,opt,name=e2e,proto3,oneof" json:"e2e,omitempty"`
-	EnableAsr         *bool                                         `protobuf:"varint,4,opt,name=enable_asr,json=enableAsr,proto3,oneof" json:"enable_asr,omitempty"`
-	InputAudioFormat  *string                                       `protobuf:"bytes,5,opt,name=input_audio_format,json=inputAudioFormat,proto3,oneof" json:"input_audio_format,omitempty"`
-	Instructions      *string                                       `protobuf:"bytes,6,opt,name=instructions,proto3,oneof" json:"instructions,omitempty"`
-	MaxOutputTokens   *int64                                        `protobuf:"varint,7,opt,name=max_output_tokens,json=maxOutputTokens,proto3,oneof" json:"max_output_tokens,omitempty"`
-	Modalities        []string                                      `protobuf:"bytes,8,rep,name=modalities,proto3" json:"modalities,omitempty"`
-	Model             *string                                       `protobuf:"bytes,9,opt,name=model,proto3,oneof" json:"model,omitempty"`
-	OutputAudioFormat *string                                       `protobuf:"bytes,10,opt,name=output_audio_format,json=outputAudioFormat,proto3,oneof" json:"output_audio_format,omitempty"`
-	Temperature       *float32                                      `protobuf:"fixed32,11,opt,name=temperature,proto3,oneof" json:"temperature,omitempty"`
-	Vad               *string                                       `protobuf:"bytes,12,opt,name=vad,proto3,oneof" json:"vad,omitempty"`
-	Voice             *string                                       `protobuf:"bytes,13,opt,name=voice,proto3,oneof" json:"voice,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	state                protoimpl.MessageState                        `protogen:"open.v1"`
+	AgentType            DashScopeRealtimeWorkspaceParametersAgentType `protobuf:"varint,1,opt,name=agent_type,json=agentType,proto3,enum=gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParametersAgentType" json:"agent_type,omitempty"`
+	AsrModel             *string                                       `protobuf:"bytes,2,opt,name=asr_model,json=asrModel,proto3,oneof" json:"asr_model,omitempty"`
+	E2E                  *bool                                         `protobuf:"varint,3,opt,name=e2e,proto3,oneof" json:"e2e,omitempty"`
+	EnableAsr            *bool                                         `protobuf:"varint,4,opt,name=enable_asr,json=enableAsr,proto3,oneof" json:"enable_asr,omitempty"`
+	InputAudioFormat     *string                                       `protobuf:"bytes,5,opt,name=input_audio_format,json=inputAudioFormat,proto3,oneof" json:"input_audio_format,omitempty"`
+	Instructions         *string                                       `protobuf:"bytes,6,opt,name=instructions,proto3,oneof" json:"instructions,omitempty"`
+	MaxOutputTokens      *int64                                        `protobuf:"varint,7,opt,name=max_output_tokens,json=maxOutputTokens,proto3,oneof" json:"max_output_tokens,omitempty"`
+	Modalities           []string                                      `protobuf:"bytes,8,rep,name=modalities,proto3" json:"modalities,omitempty"`
+	Model                *string                                       `protobuf:"bytes,9,opt,name=model,proto3,oneof" json:"model,omitempty"`
+	OutputAudioFormat    *string                                       `protobuf:"bytes,10,opt,name=output_audio_format,json=outputAudioFormat,proto3,oneof" json:"output_audio_format,omitempty"`
+	Temperature          *float32                                      `protobuf:"fixed32,11,opt,name=temperature,proto3,oneof" json:"temperature,omitempty"`
+	Vad                  *string                                       `protobuf:"bytes,12,opt,name=vad,proto3,oneof" json:"vad,omitempty"`
+	Voice                *string                                       `protobuf:"bytes,13,opt,name=voice,proto3,oneof" json:"voice,omitempty"`
+	TtsSpeechRatePercent *int32                                        `protobuf:"varint,14,opt,name=tts_speech_rate_percent,json=ttsSpeechRatePercent,proto3,oneof" json:"tts_speech_rate_percent,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *DashScopeRealtimeWorkspaceParameters) Reset() {
@@ -1155,6 +1164,13 @@ func (x *DashScopeRealtimeWorkspaceParameters) GetVoice() string {
 		return *x.Voice
 	}
 	return ""
+}
+
+func (x *DashScopeRealtimeWorkspaceParameters) GetTtsSpeechRatePercent() int32 {
+	if x != nil && x.TtsSpeechRatePercent != nil {
+		return *x.TtsSpeechRatePercent
+	}
+	return 0
 }
 
 type DoubaoRealtimeDuplexWorkflowSpec struct {
@@ -1282,22 +1298,23 @@ func (x *DoubaoRealtimeDuplexWorkflowSpec) GetVoice() string {
 }
 
 type DoubaoRealtimeDuplexWorkspaceParameters struct {
-	state           protoimpl.MessageState                           `protogen:"open.v1"`
-	AgentType       DoubaoRealtimeDuplexWorkspaceParametersAgentType `protobuf:"varint,1,opt,name=agent_type,json=agentType,proto3,enum=gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParametersAgentType" json:"agent_type,omitempty"`
-	E2E             *bool                                            `protobuf:"varint,2,opt,name=e2e,proto3,oneof" json:"e2e,omitempty"`
-	Format          *string                                          `protobuf:"bytes,3,opt,name=format,proto3,oneof" json:"format,omitempty"`
-	InputChannels   *int64                                           `protobuf:"varint,4,opt,name=input_channels,json=inputChannels,proto3,oneof" json:"input_channels,omitempty"`
-	InputFormat     *string                                          `protobuf:"bytes,5,opt,name=input_format,json=inputFormat,proto3,oneof" json:"input_format,omitempty"`
-	InputSampleRate *int64                                           `protobuf:"varint,6,opt,name=input_sample_rate,json=inputSampleRate,proto3,oneof" json:"input_sample_rate,omitempty"`
-	InputTranscode  *bool                                            `protobuf:"varint,7,opt,name=input_transcode,json=inputTranscode,proto3,oneof" json:"input_transcode,omitempty"`
-	Instructions    *string                                          `protobuf:"bytes,8,opt,name=instructions,proto3,oneof" json:"instructions,omitempty"`
-	Model           *string                                          `protobuf:"bytes,9,opt,name=model,proto3,oneof" json:"model,omitempty"`
-	OutputLoudness  *int64                                           `protobuf:"varint,10,opt,name=output_loudness,json=outputLoudness,proto3,oneof" json:"output_loudness,omitempty"`
-	OutputSpeed     *int64                                           `protobuf:"varint,11,opt,name=output_speed,json=outputSpeed,proto3,oneof" json:"output_speed,omitempty"`
-	SampleRate      *int64                                           `protobuf:"varint,12,opt,name=sample_rate,json=sampleRate,proto3,oneof" json:"sample_rate,omitempty"`
-	Voice           *string                                          `protobuf:"bytes,13,opt,name=voice,proto3,oneof" json:"voice,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state                protoimpl.MessageState                           `protogen:"open.v1"`
+	AgentType            DoubaoRealtimeDuplexWorkspaceParametersAgentType `protobuf:"varint,1,opt,name=agent_type,json=agentType,proto3,enum=gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParametersAgentType" json:"agent_type,omitempty"`
+	E2E                  *bool                                            `protobuf:"varint,2,opt,name=e2e,proto3,oneof" json:"e2e,omitempty"`
+	Format               *string                                          `protobuf:"bytes,3,opt,name=format,proto3,oneof" json:"format,omitempty"`
+	InputChannels        *int64                                           `protobuf:"varint,4,opt,name=input_channels,json=inputChannels,proto3,oneof" json:"input_channels,omitempty"`
+	InputFormat          *string                                          `protobuf:"bytes,5,opt,name=input_format,json=inputFormat,proto3,oneof" json:"input_format,omitempty"`
+	InputSampleRate      *int64                                           `protobuf:"varint,6,opt,name=input_sample_rate,json=inputSampleRate,proto3,oneof" json:"input_sample_rate,omitempty"`
+	InputTranscode       *bool                                            `protobuf:"varint,7,opt,name=input_transcode,json=inputTranscode,proto3,oneof" json:"input_transcode,omitempty"`
+	Instructions         *string                                          `protobuf:"bytes,8,opt,name=instructions,proto3,oneof" json:"instructions,omitempty"`
+	Model                *string                                          `protobuf:"bytes,9,opt,name=model,proto3,oneof" json:"model,omitempty"`
+	OutputLoudness       *int64                                           `protobuf:"varint,10,opt,name=output_loudness,json=outputLoudness,proto3,oneof" json:"output_loudness,omitempty"`
+	OutputSpeed          *int64                                           `protobuf:"varint,11,opt,name=output_speed,json=outputSpeed,proto3,oneof" json:"output_speed,omitempty"`
+	SampleRate           *int64                                           `protobuf:"varint,12,opt,name=sample_rate,json=sampleRate,proto3,oneof" json:"sample_rate,omitempty"`
+	Voice                *string                                          `protobuf:"bytes,13,opt,name=voice,proto3,oneof" json:"voice,omitempty"`
+	TtsSpeechRatePercent *int32                                           `protobuf:"varint,14,opt,name=tts_speech_rate_percent,json=ttsSpeechRatePercent,proto3,oneof" json:"tts_speech_rate_percent,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *DoubaoRealtimeDuplexWorkspaceParameters) Reset() {
@@ -1421,6 +1438,13 @@ func (x *DoubaoRealtimeDuplexWorkspaceParameters) GetVoice() string {
 	return ""
 }
 
+func (x *DoubaoRealtimeDuplexWorkspaceParameters) GetTtsSpeechRatePercent() int32 {
+	if x != nil && x.TtsSpeechRatePercent != nil {
+		return *x.TtsSpeechRatePercent
+	}
+	return 0
+}
+
 type EinoWorkflowSpec struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Graph         *structpb.Struct       `protobuf:"bytes,1,opt,name=graph,proto3" json:"graph,omitempty"`
@@ -1490,13 +1514,14 @@ func (x *EinoWorkflowSpec) GetVoiceAdapter() *structpb.Struct {
 }
 
 type EinoWorkspaceParameters struct {
-	state         protoimpl.MessageState           `protogen:"open.v1"`
-	AgentType     EinoWorkspaceParametersAgentType `protobuf:"varint,1,opt,name=agent_type,json=agentType,proto3,enum=gizclaw.rpc.v1.EinoWorkspaceParametersAgentType" json:"agent_type,omitempty"`
-	E2E           *bool                            `protobuf:"varint,2,opt,name=e2e,proto3,oneof" json:"e2e,omitempty"`
-	Conversation  *ConversationParameters          `protobuf:"bytes,3,opt,name=conversation,proto3,oneof" json:"conversation,omitempty"`
-	Input         *WorkspaceInputMode              `protobuf:"varint,4,opt,name=input,proto3,enum=gizclaw.rpc.v1.WorkspaceInputMode,oneof" json:"input,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                protoimpl.MessageState           `protogen:"open.v1"`
+	AgentType            EinoWorkspaceParametersAgentType `protobuf:"varint,1,opt,name=agent_type,json=agentType,proto3,enum=gizclaw.rpc.v1.EinoWorkspaceParametersAgentType" json:"agent_type,omitempty"`
+	E2E                  *bool                            `protobuf:"varint,2,opt,name=e2e,proto3,oneof" json:"e2e,omitempty"`
+	Conversation         *ConversationParameters          `protobuf:"bytes,3,opt,name=conversation,proto3,oneof" json:"conversation,omitempty"`
+	Input                *WorkspaceInputMode              `protobuf:"varint,4,opt,name=input,proto3,enum=gizclaw.rpc.v1.WorkspaceInputMode,oneof" json:"input,omitempty"`
+	TtsSpeechRatePercent *int32                           `protobuf:"varint,5,opt,name=tts_speech_rate_percent,json=ttsSpeechRatePercent,proto3,oneof" json:"tts_speech_rate_percent,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *EinoWorkspaceParameters) Reset() {
@@ -1555,6 +1580,13 @@ func (x *EinoWorkspaceParameters) GetInput() WorkspaceInputMode {
 		return *x.Input
 	}
 	return WorkspaceInputMode_WORKSPACE_INPUT_MODE_UNSPECIFIED
+}
+
+func (x *EinoWorkspaceParameters) GetTtsSpeechRatePercent() int32 {
+	if x != nil && x.TtsSpeechRatePercent != nil {
+		return *x.TtsSpeechRatePercent
+	}
+	return 0
 }
 
 type DoubaoRealtimeAIGCMetadata struct {
@@ -2766,18 +2798,19 @@ func (x *DoubaoRealtimeWorkflowSpec) GetTts() *DoubaoRealtimeTTS {
 }
 
 type DoubaoRealtimeWorkspaceParameters struct {
-	state         protoimpl.MessageState                     `protogen:"open.v1"`
-	AgentType     DoubaoRealtimeWorkspaceParametersAgentType `protobuf:"varint,1,opt,name=agent_type,json=agentType,proto3,enum=gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType" json:"agent_type,omitempty"`
-	Audio         *DoubaoRealtimeAudio                       `protobuf:"bytes,2,opt,name=audio,proto3,oneof" json:"audio,omitempty"`
-	E2E           *bool                                      `protobuf:"varint,3,opt,name=e2e,proto3,oneof" json:"e2e,omitempty"`
-	Extension     *DoubaoRealtimeExtension                   `protobuf:"bytes,4,opt,name=extension,proto3,oneof" json:"extension,omitempty"`
-	Input         *WorkspaceInputMode                        `protobuf:"varint,5,opt,name=input,proto3,enum=gizclaw.rpc.v1.WorkspaceInputMode,oneof" json:"input,omitempty"`
-	Instructions  *string                                    `protobuf:"bytes,6,opt,name=instructions,proto3,oneof" json:"instructions,omitempty"`
-	Model         *string                                    `protobuf:"bytes,7,opt,name=model,proto3,oneof" json:"model,omitempty"`
-	Tools         []*DoubaoRealtimeFunctionTool              `protobuf:"bytes,8,rep,name=tools,proto3" json:"tools,omitempty"`
-	Conversation  *ConversationParameters                    `protobuf:"bytes,9,opt,name=conversation,proto3,oneof" json:"conversation,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                protoimpl.MessageState                     `protogen:"open.v1"`
+	AgentType            DoubaoRealtimeWorkspaceParametersAgentType `protobuf:"varint,1,opt,name=agent_type,json=agentType,proto3,enum=gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType" json:"agent_type,omitempty"`
+	Audio                *DoubaoRealtimeAudio                       `protobuf:"bytes,2,opt,name=audio,proto3,oneof" json:"audio,omitempty"`
+	E2E                  *bool                                      `protobuf:"varint,3,opt,name=e2e,proto3,oneof" json:"e2e,omitempty"`
+	Extension            *DoubaoRealtimeExtension                   `protobuf:"bytes,4,opt,name=extension,proto3,oneof" json:"extension,omitempty"`
+	Input                *WorkspaceInputMode                        `protobuf:"varint,5,opt,name=input,proto3,enum=gizclaw.rpc.v1.WorkspaceInputMode,oneof" json:"input,omitempty"`
+	Instructions         *string                                    `protobuf:"bytes,6,opt,name=instructions,proto3,oneof" json:"instructions,omitempty"`
+	Model                *string                                    `protobuf:"bytes,7,opt,name=model,proto3,oneof" json:"model,omitempty"`
+	Tools                []*DoubaoRealtimeFunctionTool              `protobuf:"bytes,8,rep,name=tools,proto3" json:"tools,omitempty"`
+	Conversation         *ConversationParameters                    `protobuf:"bytes,9,opt,name=conversation,proto3,oneof" json:"conversation,omitempty"`
+	TtsSpeechRatePercent *int32                                     `protobuf:"varint,10,opt,name=tts_speech_rate_percent,json=ttsSpeechRatePercent,proto3,oneof" json:"tts_speech_rate_percent,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *DoubaoRealtimeWorkspaceParameters) Reset() {
@@ -2871,6 +2904,13 @@ func (x *DoubaoRealtimeWorkspaceParameters) GetConversation() *ConversationParam
 		return x.Conversation
 	}
 	return nil
+}
+
+func (x *DoubaoRealtimeWorkspaceParameters) GetTtsSpeechRatePercent() int32 {
+	if x != nil && x.TtsSpeechRatePercent != nil {
+		return *x.TtsSpeechRatePercent
+	}
+	return 0
 }
 
 type ConversationParameters struct {
@@ -2970,13 +3010,14 @@ func (x *FlowcraftWorkflowSpec) GetFields() *structpb.Struct {
 }
 
 type FlowcraftWorkspaceParameters struct {
-	state         protoimpl.MessageState                `protogen:"open.v1"`
-	AgentType     FlowcraftWorkspaceParametersAgentType `protobuf:"varint,1,opt,name=agent_type,json=agentType,proto3,enum=gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType" json:"agent_type,omitempty"`
-	Conversation  *ConversationParameters               `protobuf:"bytes,2,opt,name=conversation,proto3,oneof" json:"conversation,omitempty"`
-	E2E           *bool                                 `protobuf:"varint,3,opt,name=e2e,proto3,oneof" json:"e2e,omitempty"`
-	Input         *WorkspaceInputMode                   `protobuf:"varint,4,opt,name=input,proto3,enum=gizclaw.rpc.v1.WorkspaceInputMode,oneof" json:"input,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                protoimpl.MessageState                `protogen:"open.v1"`
+	AgentType            FlowcraftWorkspaceParametersAgentType `protobuf:"varint,1,opt,name=agent_type,json=agentType,proto3,enum=gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType" json:"agent_type,omitempty"`
+	Conversation         *ConversationParameters               `protobuf:"bytes,2,opt,name=conversation,proto3,oneof" json:"conversation,omitempty"`
+	E2E                  *bool                                 `protobuf:"varint,3,opt,name=e2e,proto3,oneof" json:"e2e,omitempty"`
+	Input                *WorkspaceInputMode                   `protobuf:"varint,4,opt,name=input,proto3,enum=gizclaw.rpc.v1.WorkspaceInputMode,oneof" json:"input,omitempty"`
+	TtsSpeechRatePercent *int32                                `protobuf:"varint,5,opt,name=tts_speech_rate_percent,json=ttsSpeechRatePercent,proto3,oneof" json:"tts_speech_rate_percent,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *FlowcraftWorkspaceParameters) Reset() {
@@ -3035,6 +3076,13 @@ func (x *FlowcraftWorkspaceParameters) GetInput() WorkspaceInputMode {
 		return *x.Input
 	}
 	return WorkspaceInputMode_WORKSPACE_INPUT_MODE_UNSPECIFIED
+}
+
+func (x *FlowcraftWorkspaceParameters) GetTtsSpeechRatePercent() int32 {
+	if x != nil && x.TtsSpeechRatePercent != nil {
+		return *x.TtsSpeechRatePercent
+	}
+	return 0
 }
 
 type Model struct {
@@ -5393,7 +5441,7 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\f_resource_idB\b\n" +
 	"\x06_voiceB\f\n" +
 	"\n" +
-	"_lang_pair\"\x85\x05\n" +
+	"_lang_pair\"\xdd\x05\n" +
 	"\x1fASTTranslateWorkspaceParameters\x12W\n" +
 	"\n" +
 	"agent_type\x18\x01 \x01(\x0e28.gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentTypeR\tagentType\x12\x1d\n" +
@@ -5404,7 +5452,9 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\tlang_pair\x18\x06 \x01(\tH\x04R\blangPair\x88\x01\x01\x129\n" +
 	"\x04mode\x18\a \x01(\x0e2 .gizclaw.rpc.v1.ASTTranslateModeH\x05R\x04mode\x88\x01\x01\x120\n" +
 	"\x11translation_model\x18\b \x01(\tH\x06R\x10translationModel\x88\x01\x01\x12F\n" +
-	"\x05voice\x18\t \x01(\v2+.gizclaw.rpc.v1.ASTTranslateVoiceParametersH\aR\x05voice\x88\x01\x01B\n" +
+	"\x05voice\x18\t \x01(\v2+.gizclaw.rpc.v1.ASTTranslateVoiceParametersH\aR\x05voice\x88\x01\x01\x12:\n" +
+	"\x17tts_speech_rate_percent\x18\n" +
+	" \x01(\x05H\bR\x14ttsSpeechRatePercent\x88\x01\x01B\n" +
 	"\n" +
 	"\b_denoiseB\x06\n" +
 	"\x04_e2eB \n" +
@@ -5414,7 +5464,8 @@ const file_payload_ai_proto_rawDesc = "" +
 	"_lang_pairB\a\n" +
 	"\x05_modeB\x14\n" +
 	"\x12_translation_modelB\b\n" +
-	"\x06_voice\"\xcb\x04\n" +
+	"\x06_voiceB\x1a\n" +
+	"\x18_tts_speech_rate_percent\"\xcb\x04\n" +
 	"\x1dDashScopeRealtimeWorkflowSpec\x12 \n" +
 	"\tasr_model\x18\x01 \x01(\tH\x00R\basrModel\x88\x01\x01\x12\"\n" +
 	"\n" +
@@ -5440,7 +5491,7 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x14_output_audio_formatB\x0e\n" +
 	"\f_temperatureB\x06\n" +
 	"\x04_vadB\b\n" +
-	"\x06_voice\"\xde\x05\n" +
+	"\x06_voice\"\xb6\x06\n" +
 	"$DashScopeRealtimeWorkspaceParameters\x12\\\n" +
 	"\n" +
 	"agent_type\x18\x01 \x01(\x0e2=.gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParametersAgentTypeR\tagentType\x12 \n" +
@@ -5460,7 +5511,8 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\vtemperature\x18\v \x01(\x02H\bR\vtemperature\x88\x01\x01\x12\x15\n" +
 	"\x03vad\x18\f \x01(\tH\tR\x03vad\x88\x01\x01\x12\x19\n" +
 	"\x05voice\x18\r \x01(\tH\n" +
-	"R\x05voice\x88\x01\x01B\f\n" +
+	"R\x05voice\x88\x01\x01\x12:\n" +
+	"\x17tts_speech_rate_percent\x18\x0e \x01(\x05H\vR\x14ttsSpeechRatePercent\x88\x01\x01B\f\n" +
 	"\n" +
 	"_asr_modelB\x06\n" +
 	"\x04_e2eB\r\n" +
@@ -5472,7 +5524,8 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x14_output_audio_formatB\x0e\n" +
 	"\f_temperatureB\x06\n" +
 	"\x04_vadB\b\n" +
-	"\x06_voice\"\xf1\x04\n" +
+	"\x06_voiceB\x1a\n" +
+	"\x18_tts_speech_rate_percent\"\xf1\x04\n" +
 	" DoubaoRealtimeDuplexWorkflowSpec\x12\x1b\n" +
 	"\x06format\x18\x01 \x01(\tH\x00R\x06format\x88\x01\x01\x12*\n" +
 	"\x0einput_channels\x18\x02 \x01(\x03H\x01R\rinputChannels\x88\x01\x01\x12&\n" +
@@ -5496,7 +5549,7 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x10_output_loudnessB\x0f\n" +
 	"\r_output_speedB\x0e\n" +
 	"\f_sample_rateB\b\n" +
-	"\x06_voice\"\x87\x06\n" +
+	"\x06_voice\"\xdf\x06\n" +
 	"'DoubaoRealtimeDuplexWorkspaceParameters\x12_\n" +
 	"\n" +
 	"agent_type\x18\x01 \x01(\x0e2@.gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParametersAgentTypeR\tagentType\x12\x15\n" +
@@ -5514,7 +5567,8 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\vsample_rate\x18\f \x01(\x03H\n" +
 	"R\n" +
 	"sampleRate\x88\x01\x01\x12\x19\n" +
-	"\x05voice\x18\r \x01(\tH\vR\x05voice\x88\x01\x01B\x06\n" +
+	"\x05voice\x18\r \x01(\tH\vR\x05voice\x88\x01\x01\x12:\n" +
+	"\x17tts_speech_rate_percent\x18\x0e \x01(\x05H\fR\x14ttsSpeechRatePercent\x88\x01\x01B\x06\n" +
 	"\x04_e2eB\t\n" +
 	"\a_formatB\x11\n" +
 	"\x0f_input_channelsB\x0f\n" +
@@ -5526,7 +5580,8 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x10_output_loudnessB\x0f\n" +
 	"\r_output_speedB\x0e\n" +
 	"\f_sample_rateB\b\n" +
-	"\x06_voice\"\xaa\x02\n" +
+	"\x06_voiceB\x1a\n" +
+	"\x18_tts_speech_rate_percent\"\xaa\x02\n" +
 	"\x10EinoWorkflowSpec\x12-\n" +
 	"\x05graph\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x05graph\x124\n" +
 	"\x06limits\x18\x02 \x01(\v2\x17.google.protobuf.StructH\x00R\x06limits\x88\x01\x01\x12@\n" +
@@ -5534,16 +5589,18 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\rvoice_adapter\x18\x04 \x01(\v2\x17.google.protobuf.StructH\x02R\fvoiceAdapter\x88\x01\x01B\t\n" +
 	"\a_limitsB\x0f\n" +
 	"\r_conversationB\x10\n" +
-	"\x0e_voice_adapter\"\xb4\x02\n" +
+	"\x0e_voice_adapter\"\x8c\x03\n" +
 	"\x17EinoWorkspaceParameters\x12O\n" +
 	"\n" +
 	"agent_type\x18\x01 \x01(\x0e20.gizclaw.rpc.v1.EinoWorkspaceParametersAgentTypeR\tagentType\x12\x15\n" +
 	"\x03e2e\x18\x02 \x01(\bH\x00R\x03e2e\x88\x01\x01\x12O\n" +
 	"\fconversation\x18\x03 \x01(\v2&.gizclaw.rpc.v1.ConversationParametersH\x01R\fconversation\x88\x01\x01\x12=\n" +
-	"\x05input\x18\x04 \x01(\x0e2\".gizclaw.rpc.v1.WorkspaceInputModeH\x02R\x05input\x88\x01\x01B\x06\n" +
+	"\x05input\x18\x04 \x01(\x0e2\".gizclaw.rpc.v1.WorkspaceInputModeH\x02R\x05input\x88\x01\x01\x12:\n" +
+	"\x17tts_speech_rate_percent\x18\x05 \x01(\x05H\x03R\x14ttsSpeechRatePercent\x88\x01\x01B\x06\n" +
 	"\x04_e2eB\x0f\n" +
 	"\r_conversationB\b\n" +
-	"\x06_input\"\xc0\x02\n" +
+	"\x06_inputB\x1a\n" +
+	"\x18_tts_speech_rate_percent\"\xc0\x02\n" +
 	"\x1aDoubaoRealtimeAIGCMetadata\x12.\n" +
 	"\x10content_producer\x18\x01 \x01(\tH\x00R\x0fcontentProducer\x88\x01\x01\x122\n" +
 	"\x12content_propagator\x18\x02 \x01(\tH\x01R\x11contentPropagator\x88\x01\x01\x12\x1b\n" +
@@ -5704,7 +5761,7 @@ const file_payload_ai_proto_rawDesc = "" +
 	"_extensionB\x0f\n" +
 	"\r_instructionsB\x13\n" +
 	"\x11_initiative_queryB\x06\n" +
-	"\x04_tts\"\x8d\x05\n" +
+	"\x04_tts\"\xe5\x05\n" +
 	"!DoubaoRealtimeWorkspaceParameters\x12Y\n" +
 	"\n" +
 	"agent_type\x18\x01 \x01(\x0e2:.gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentTypeR\tagentType\x12>\n" +
@@ -5715,7 +5772,9 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\finstructions\x18\x06 \x01(\tH\x04R\finstructions\x88\x01\x01\x12\x19\n" +
 	"\x05model\x18\a \x01(\tH\x05R\x05model\x88\x01\x01\x12@\n" +
 	"\x05tools\x18\b \x03(\v2*.gizclaw.rpc.v1.DoubaoRealtimeFunctionToolR\x05tools\x12O\n" +
-	"\fconversation\x18\t \x01(\v2&.gizclaw.rpc.v1.ConversationParametersH\x06R\fconversation\x88\x01\x01B\b\n" +
+	"\fconversation\x18\t \x01(\v2&.gizclaw.rpc.v1.ConversationParametersH\x06R\fconversation\x88\x01\x01\x12:\n" +
+	"\x17tts_speech_rate_percent\x18\n" +
+	" \x01(\x05H\aR\x14ttsSpeechRatePercent\x88\x01\x01B\b\n" +
 	"\x06_audioB\x06\n" +
 	"\x04_e2eB\f\n" +
 	"\n" +
@@ -5723,7 +5782,8 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x06_inputB\x0f\n" +
 	"\r_instructionsB\b\n" +
 	"\x06_modelB\x0f\n" +
-	"\r_conversation\"\x94\x02\n" +
+	"\r_conversationB\x1a\n" +
+	"\x18_tts_speech_rate_percent\"\x94\x02\n" +
 	"\x16ConversationParameters\x12x\n" +
 	"\x17agent_initiative_policy\x18\x01 \x01(\x0e2;.gizclaw.rpc.v1.ConversationParametersAgentInitiativePolicyH\x00R\x15agentInitiativePolicy\x88\x01\x01\x12U\n" +
 	"\n" +
@@ -5732,16 +5792,18 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x18_agent_initiative_policyB\r\n" +
 	"\v_initiative\"H\n" +
 	"\x15FlowcraftWorkflowSpec\x12/\n" +
-	"\x06fields\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06fields\"\xbe\x02\n" +
+	"\x06fields\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06fields\"\x96\x03\n" +
 	"\x1cFlowcraftWorkspaceParameters\x12T\n" +
 	"\n" +
 	"agent_type\x18\x01 \x01(\x0e25.gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentTypeR\tagentType\x12O\n" +
 	"\fconversation\x18\x02 \x01(\v2&.gizclaw.rpc.v1.ConversationParametersH\x00R\fconversation\x88\x01\x01\x12\x15\n" +
 	"\x03e2e\x18\x03 \x01(\bH\x01R\x03e2e\x88\x01\x01\x12=\n" +
-	"\x05input\x18\x04 \x01(\x0e2\".gizclaw.rpc.v1.WorkspaceInputModeH\x02R\x05input\x88\x01\x01B\x0f\n" +
+	"\x05input\x18\x04 \x01(\x0e2\".gizclaw.rpc.v1.WorkspaceInputModeH\x02R\x05input\x88\x01\x01\x12:\n" +
+	"\x17tts_speech_rate_percent\x18\x05 \x01(\x05H\x03R\x14ttsSpeechRatePercent\x88\x01\x01B\x0f\n" +
 	"\r_conversationB\x06\n" +
 	"\x04_e2eB\b\n" +
-	"\x06_input\"\xc3\x06\n" +
+	"\x06_inputB\x1a\n" +
+	"\x18_tts_speech_rate_percent\"\xc3\x06\n" +
 	"\x05Model\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x123\n" +
 	"\x04i18n\x18\x02 \x03(\v2\x1f.gizclaw.rpc.v1.Model.I18nEntryR\x04i18n\x12-\n" +

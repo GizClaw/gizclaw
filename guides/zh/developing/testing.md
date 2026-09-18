@@ -1203,3 +1203,12 @@ tests/gizclaw-e2e/testdata/bin/gizclaw test run \
   tests/gizclaw-e2e/giztest/eino-mixed-provider-voices.text-roundtrip.giztest.yaml \
   tests/gizclaw-e2e/giztest/flowcraft-mixed-provider-voices.text-roundtrip.giztest.yaml --parallel 2
 ```
+
+该阶段还运行三个语速场景。`server.run.workspace.reload.tts-speech-rate` 之外的 RPC 契约由 `server.run.workspace.reload` 覆盖：它在 `reload-with-options` 中带上 `tts_speech_rate_percent: 80`，再用 `server.workspace.get` 确认参数已保存，因此 JS、C 与 Flutter runner 也会执行这段编解码。`flowcraft-voice-assistant.tts-speech-rate` 覆盖存储、越界拒绝（`INVALID_ARGUMENT`）和带语速的真实回复；`dashscope-realtime-conversation.tts-speech-rate` 覆盖没有原生语速的 provider 由 transformer 做时间伸缩后仍能出声。
+
+`eino-mixed-provider-voices.tts-speech-rate` 验证语速真的生效：两个同样绑定 `eino-mixed-provider-voices` 的 Workspace 读同一段脚本，默认语速的回复断言音频包数在 700..1400（每包 20 ms，约 14..28 秒），设为 60% 的 Workspace 断言至少 1600 包（约 32 秒）。实测默认约 1116..1122 包、60% 约 1836..1892 包，阈值两侧都留了 20% 以上余量。Volc 旁白与 MiniMax 角色音色都会变慢。该场景同样被 JS、C 与 Flutter runner 跳过：
+
+```sh
+tests/gizclaw-e2e/testdata/bin/gizclaw test run \
+  tests/gizclaw-e2e/giztest/eino-mixed-provider-voices.tts-speech-rate.giztest.yaml
+```
