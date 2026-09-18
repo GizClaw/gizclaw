@@ -96,7 +96,16 @@ func configureClientRPC(client *gizcli.Client, clientName string, steps []giztes
 			if err := client.HandleSocialPing(func(context.Context, rpcapi.ClientSocialPingRequest) error { return scripted }); err != nil {
 				return err
 			}
+		case "client.rpc.methods.get":
+			// The SDK answers client.rpc.methods.get itself from the providers
+			// installed here, so a step only counts the Server's calls. A
+			// scripted answer could never be honored, so the document is
+			// rejected rather than silently ignoring it.
+			if step.ClientRPC.Response != nil {
+				return fmt.Errorf("step %s: client.rpc.methods.get is answered from the installed providers and takes no response", step.ID)
+			}
 		case "client.device.status.get", "client.device.volume.set", "client.device.sound.play", "client.device.find", "client.device.reboot",
+			"client.device.settings.get", "client.device.settings.set", "client.device.factory_reset", "client.run.workspace.set",
 			"client.device.audioplayer.get", "client.device.audioplayer.playlist.get", "client.device.audioplayer.playlist.set", "client.device.audioplayer.playlist.append", "client.device.audioplayer.play", "client.device.audioplayer.stop", "client.device.audioplayer.mode.set",
 			"client.wifi.status.get", "client.wifi.saved.list", "client.wifi.saved.forget", "client.wifi.scan", "client.wifi.connect":
 			if err := installDeviceControl(&device, step.ClientRPC.Method, response); err != nil {
@@ -208,6 +217,16 @@ func installDeviceControl(handlers *gizcli.DeviceControlHandlers, method string,
 			handlers.Find = func(ctx context.Context, _ *int64) error { return fail(ctx) }
 		case "client.device.reboot":
 			handlers.Reboot = func(ctx context.Context, _ *int64) error { return fail(ctx) }
+		case "client.device.settings.get":
+			handlers.GetSettings = func(ctx context.Context) (rpcapi.DeviceSettings, error) { return rpcapi.DeviceSettings{}, fail(ctx) }
+		case "client.device.settings.set":
+			handlers.SetSettings = func(ctx context.Context, _ rpcapi.DeviceSettings) (rpcapi.DeviceSettings, error) {
+				return rpcapi.DeviceSettings{}, fail(ctx)
+			}
+		case "client.device.factory_reset":
+			handlers.FactoryReset = func(ctx context.Context, _ bool) error { return fail(ctx) }
+		case "client.run.workspace.set":
+			handlers.SetRunWorkspace = func(ctx context.Context, _ rpcapi.ClientRunWorkspaceSetRequest) error { return fail(ctx) }
 		case "client.wifi.status.get":
 			handlers.WifiStatus = func(ctx context.Context) (rpcapi.WifiStatus, error) { return rpcapi.WifiStatus{}, fail(ctx) }
 		case "client.wifi.saved.list":
@@ -252,6 +271,31 @@ func installDeviceControl(handlers *gizcli.DeviceControlHandlers, method string,
 		handlers.Find = func(context.Context, *int64) error { return nil }
 	case "client.device.reboot":
 		handlers.Reboot = func(context.Context, *int64) error { return nil }
+	case "client.device.settings.get":
+		var settings rpcapi.DeviceSettings
+		if response != nil {
+			if err := decodeRequest(response, &settings); err != nil {
+				return err
+			}
+		}
+		handlers.GetSettings = func(context.Context) (rpcapi.DeviceSettings, error) { return settings, nil }
+	case "client.device.settings.set":
+		// The scripted settings are the device's state before the patch; the
+		// answer overlays the members the patch carries, so an HTTP round trip
+		// observes what it asked for next to what it left unchanged.
+		var settings rpcapi.DeviceSettings
+		if response != nil {
+			if err := decodeRequest(response, &settings); err != nil {
+				return err
+			}
+		}
+		handlers.SetSettings = func(_ context.Context, patch rpcapi.DeviceSettings) (rpcapi.DeviceSettings, error) {
+			return overlayDeviceSettings(settings, patch)
+		}
+	case "client.device.factory_reset":
+		handlers.FactoryReset = func(context.Context, bool) error { return nil }
+	case "client.run.workspace.set":
+		handlers.SetRunWorkspace = func(context.Context, rpcapi.ClientRunWorkspaceSetRequest) error { return nil }
 	case "client.wifi.status.get":
 		var status rpcapi.WifiStatus
 		if response != nil {
@@ -297,6 +341,27 @@ func installDeviceControl(handlers *gizcli.DeviceControlHandlers, method string,
 		handlers.ConnectWifi = func(context.Context, string, *string) error { return nil }
 	}
 	return nil
+}
+
+// overlayDeviceSettings applies the members present in patch over base. Both
+// sides go through their JSON form, where an absent member is omitted, so only
+// the members the caller sent replace the scripted ones.
+func overlayDeviceSettings(base, patch rpcapi.DeviceSettings) (rpcapi.DeviceSettings, error) {
+	merged := map[string]any{}
+	for _, part := range []rpcapi.DeviceSettings{base, patch} {
+		encoded, err := json.Marshal(part)
+		if err != nil {
+			return rpcapi.DeviceSettings{}, err
+		}
+		if err := json.Unmarshal(encoded, &merged); err != nil {
+			return rpcapi.DeviceSettings{}, err
+		}
+	}
+	var out rpcapi.DeviceSettings
+	if err := decodeRequest(merged, &out); err != nil {
+		return rpcapi.DeviceSettings{}, err
+	}
+	return out, nil
 }
 
 // maxScriptedDelayMs bounds a scripted device delay across every runner. It is

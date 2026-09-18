@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
@@ -303,6 +305,77 @@ test("loadDocuments loads the find, social ping and profile scenarios", async ()
     "client.social.ping",
     "client.social.ping",
   ]);
+});
+
+test("loadDocuments loads the device settings, reset, methods, workspace and tool scenarios", async () => {
+  // loadDocuments orders documents by path.
+  const names = [
+    "server.device.factory_reset",
+    "server.device.rpc_methods",
+    "server.device.run_workspace.set",
+    "server.device.settings",
+    "server.device.tools",
+  ];
+  const { documents, skipped } = await loadDocuments(
+    names.map((name) => path.join(scenarioRoot, `${name}.giztest.yaml`)),
+  );
+  assert.deepEqual(skipped, []);
+  assert.deepEqual(
+    documents.map((document) => document.name),
+    names,
+  );
+  const providers = documents.flatMap((document) =>
+    document.steps.flatMap((step) =>
+      step.client_rpc == null ? [] : [step.client_rpc.method],
+    ),
+  );
+  assert.deepEqual(providers, [
+    "client.device.factory_reset",
+    "client.device.settings.get",
+    "client.device.settings.get",
+    "client.device.find",
+    "client.run.workspace.set",
+    "client.device.settings.get",
+    "client.device.settings.set",
+  ]);
+  const methods = new Set(
+    documents.flatMap((document) =>
+      document.steps.flatMap((step) =>
+        step.http == null ? [] : [step.http.method],
+      ),
+    ),
+  );
+  assert.ok(methods.has("PATCH"), [...methods].join(","));
+});
+
+test("loadDocument skips a scripted client.rpc.methods.get step", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "giztest-"));
+  try {
+    const file = path.join(directory, "methods.giztest.yaml");
+    await writeFile(
+      file,
+      [
+        "# User Story:",
+        "# As a Giztest author,",
+        "# I want a scripted client.rpc.methods.get step reported,",
+        "# So that this runner does not wait on calls it cannot count.",
+        "version: gizclaw.test/v1alpha1",
+        "name: methods",
+        "clients:",
+        "  peer: {identity: ephemeral, connection: webrtc, access_point: 127.0.0.1:1}",
+        "steps:",
+        "- id: methods",
+        "  client: peer",
+        "  client_rpc: {method: client.rpc.methods.get}",
+        "",
+      ].join("\n"),
+    );
+    const { documents, skipped } = await loadDocuments([file]);
+    assert.deepEqual(documents, []);
+    assert.match(skipped[0]!.reason, /client\.rpc\.methods\.get/u);
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
 });
 
 test("loadDocuments loads the friend and friend group HTTP scenarios", async () => {

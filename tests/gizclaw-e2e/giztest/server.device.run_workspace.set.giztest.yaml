@@ -1,0 +1,104 @@
+# User Story:
+# As a GizClaw API key holder,
+# I want to switch the Workspace my bound device runs through its real transport,
+# So that the request reaches client.run.workspace.set and the device switches on its own.
+version: gizclaw.test/v1alpha1
+name: server.device.run_workspace.set
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+- id: switch_by_workspace_name
+  client: peer
+  http:
+    method: PUT
+    path: /gizclaw/v1/device/run/workspace
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      workspace_name: "${resource_name}"
+    status: 202
+- id: switch_by_workflow
+  client: peer
+  http:
+    method: PUT
+    path: /gizclaw/v1/device/run/workspace
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      collection: assistants
+      workflow_name: flowcraft-chat-assistant
+      kickoff: true
+    status: 202
+- id: two_targets
+  client: peer
+  http:
+    method: PUT
+    path: /gizclaw/v1/device/run/workspace
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      workspace_name: "${resource_name}"
+      collection: assistants
+      workflow_name: flowcraft-chat-assistant
+    status: 400
+  expect:
+    /error/code:
+      equals: INVALID_REQUEST
+- id: no_target
+  client: peer
+  http:
+    method: PUT
+    path: /gizclaw/v1/device/run/workspace
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {}
+    status: 400
+  expect:
+    /error/code:
+      equals: INVALID_REQUEST
+- id: provider_run_workspace
+  client: peer
+  client_rpc:
+    method: client.run.workspace.set
+    expect_calls: 2
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

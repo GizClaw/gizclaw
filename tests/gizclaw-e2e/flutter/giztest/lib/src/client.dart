@@ -707,6 +707,43 @@ _Handlers _buildHandlers(
             if (failure != null) throw failure;
           },
         );
+      case 'client.device.settings.get':
+        control = _copyControl(
+          control,
+          getSettings: () {
+            count(method);
+            if (failure != null) throw failure;
+            return _deviceSettings(object);
+          },
+        );
+      case 'client.device.settings.set':
+        // The scripted settings are the device's state before the patch; the
+        // answer overlays the members the patch carries, so an HTTP round trip
+        // observes what it asked for next to what it left unchanged.
+        control = _copyControl(
+          control,
+          setSettings: (patch) {
+            count(method);
+            if (failure != null) throw failure;
+            return _deviceSettings(object)..mergeFromMessage(patch);
+          },
+        );
+      case 'client.device.factory_reset':
+        control = _copyControl(
+          control,
+          factoryReset: (_) {
+            count(method);
+            if (failure != null) throw failure;
+          },
+        );
+      case 'client.run.workspace.set':
+        control = _copyControl(
+          control,
+          setRunWorkspace: (_) {
+            count(method);
+            if (failure != null) throw failure;
+          },
+        );
       case 'client.wifi.status.get':
         control = _copyControl(
           control,
@@ -829,6 +866,10 @@ _Handlers _buildHandlers(
   );
 }
 
+DeviceSettings _deviceSettings(Map<String, Object?> json) =>
+    DeviceSettings()
+      ..mergeFromProto3Json(snakeToCamelKeys(json), ignoreUnknownFields: true);
+
 PeerStatus _peerStatus(Map<String, Object?> json) =>
     PeerStatus()
       ..mergeFromProto3Json(snakeToCamelKeys(json), ignoreUnknownFields: true);
@@ -846,18 +887,27 @@ GizClawDeviceControlHandlers _copyControl(
   void Function(String ssid)? forgetWifi,
   List<WifiScanResult> Function(int? timeoutMs)? scanWifi,
   void Function(String ssid, String? passphrase)? connectWifi,
+  DeviceSettings Function()? getSettings,
+  DeviceSettings Function(DeviceSettings patch)? setSettings,
+  void Function(bool keepNetwork)? factoryReset,
+  void Function(ClientRunWorkspaceSetRequest request)? setRunWorkspace,
 }) {
   return GizClawDeviceControlHandlers(
     audioplayer: audioplayer ?? base.audioplayer,
     connectWifi: connectWifi ?? base.connectWifi,
+    factoryReset: factoryReset ?? base.factoryReset,
     find: find ?? base.find,
     forgetWifi: forgetWifi ?? base.forgetWifi,
+    getSettings: getSettings ?? base.getSettings,
     playSound: playSound ?? base.playSound,
     reboot: reboot ?? base.reboot,
     savedWifi: savedWifi ?? base.savedWifi,
     scanWifi: scanWifi ?? base.scanWifi,
+    setRunWorkspace: setRunWorkspace ?? base.setRunWorkspace,
+    setSettings: setSettings ?? base.setSettings,
     setVolume: setVolume ?? base.setVolume,
     status: status ?? base.status,
+    updateFirmware: base.updateFirmware,
     wifiStatus: wifiStatus ?? base.wifiStatus,
   );
 }

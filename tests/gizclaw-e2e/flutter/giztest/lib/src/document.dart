@@ -47,6 +47,11 @@ const clientRpcMethods = {
   'client.device.sound.play',
   'client.device.find',
   'client.device.reboot',
+  'client.device.settings.get',
+  'client.device.settings.set',
+  'client.device.factory_reset',
+  'client.rpc.methods.get',
+  'client.run.workspace.set',
   'client.social.ping',
   'client.device.audioplayer.get',
   'client.device.audioplayer.playlist.get',
@@ -63,7 +68,9 @@ const clientRpcMethods = {
 };
 
 /// Methods this runner can install a provider for. `client.tool.invoke` needs
-/// the tool-serving surface the Flutter device SDK exposes separately.
+/// the tool-serving surface the Flutter device SDK exposes separately, and
+/// `client.rpc.methods.get` is answered by the SDK itself with no hook that
+/// would let this runner count the Server's calls.
 const supportedClientRpcMethods = {
   'client.info.get',
   'client.identifiers.get',
@@ -72,6 +79,10 @@ const supportedClientRpcMethods = {
   'client.device.sound.play',
   'client.device.find',
   'client.device.reboot',
+  'client.device.settings.get',
+  'client.device.settings.set',
+  'client.device.factory_reset',
+  'client.run.workspace.set',
   'client.social.ping',
   'client.device.audioplayer.get',
   'client.device.audioplayer.playlist.get',

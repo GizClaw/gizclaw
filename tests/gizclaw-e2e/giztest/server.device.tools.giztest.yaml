@@ -1,0 +1,75 @@
+# User Story:
+# As a GizClaw API key holder,
+# I want to list and invoke the Tools my control app may run on my bound device,
+# So that a Tool the RuntimeProfile does not expose to the control app can be neither listed nor invoked.
+version: gizclaw.test/v1alpha1
+name: server.device.tools
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+- id: list_tools
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/tools
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  expect:
+    /items:
+      present: true
+- id: invoke_unexposed_tool
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/device/tools/giztest_echo/actions/invoke
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      args:
+        key: current-peer
+    status: 404
+  expect:
+    /error/code:
+      equals: TOOL_NOT_FOUND
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

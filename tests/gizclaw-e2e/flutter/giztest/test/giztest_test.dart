@@ -349,6 +349,70 @@ void main() {
       ]);
     });
 
+    test(
+      'load the settings, reset, methods, workspace and tool scenarios',
+      () async {
+        final names = [
+          'server.device.factory_reset',
+          'server.device.rpc_methods',
+          'server.device.run_workspace.set',
+          'server.device.settings',
+          'server.device.tools',
+        ];
+        final result = await loadDocuments([
+          for (final name in names) '$scenarioRoot/$name.giztest.yaml',
+        ]);
+        expect(result.skipped, isEmpty);
+        expect(result.documents.map((document) => document.name), names);
+        final clientRpc = [
+          for (final document in result.documents)
+            for (final step in document.steps)
+              if (step.clientRpc != null) step.clientRpc!['method'],
+        ];
+        expect(clientRpc, [
+          'client.device.factory_reset',
+          'client.device.settings.get',
+          'client.device.settings.get',
+          'client.device.find',
+          'client.run.workspace.set',
+          'client.device.settings.get',
+          'client.device.settings.set',
+        ]);
+        final httpMethods = {
+          for (final document in result.documents)
+            for (final step in document.steps)
+              if (step.http != null) step.http!['method'],
+        };
+        expect(httpMethods, contains('PATCH'));
+      },
+    );
+
+    test('report a scripted client.rpc.methods.get step as unsupported', () {
+      const text = '''# User Story:
+# As a Giztest author,
+# I want a scripted client.rpc.methods.get step reported,
+# So that this runner does not wait on calls it cannot count.
+version: gizclaw.test/v1alpha1
+name: methods
+clients:
+  peer: {identity: ephemeral, connection: webrtc, access_point: 127.0.0.1:1}
+steps:
+- id: methods
+  client: peer
+  client_rpc: {method: client.rpc.methods.get}
+''';
+      expect(
+        () => parseDocument('methods.giztest.yaml', text),
+        throwsA(
+          isA<UnsupportedStepException>().having(
+            (error) => error.operation,
+            'operation',
+            'client_rpc:client.rpc.methods.get',
+          ),
+        ),
+      );
+    });
+
     test('load the friend and friend group HTTP scenarios', () async {
       final names = ['server.friend_groups.http', 'server.friends.http'];
       final result = await loadDocuments([

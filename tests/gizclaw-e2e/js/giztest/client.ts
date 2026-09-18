@@ -22,6 +22,16 @@ import type { ClientSpec, Step } from "./document.ts";
 import type { Variables } from "./variables.ts";
 import { requestFromProtoJSON, responseToProtoJSON } from "./proto_json.ts";
 
+// DeviceSettings is the settings value the device SDK's handlers exchange; the
+// SDK does not export the type by name.
+type DeviceSettings = Awaited<
+  ReturnType<
+    NonNullable<
+      NonNullable<GizClawPeerRPCHandlers["deviceControl"]>["getSettings"]
+    >
+  >
+>;
+
 const CONNECT_TIMEOUT_MS = 30_000;
 const RPC_TIMEOUT_MS = 30_000;
 
@@ -226,7 +236,7 @@ export class ScenarioClient {
   // request building, bearer injection and response decoding under test are
   // the ones a controller app would use.
   async callHTTP(
-    method: "GET" | "POST" | "PUT" | "DELETE",
+    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
     pathWithQuery: string,
     headers: Record<string, string>,
     body: unknown,
@@ -463,6 +473,41 @@ function buildHandlers(
         break;
       case "client.device.reboot":
         control.reboot = () => {
+          count(method);
+          if (failure != null) throw failure;
+        };
+        break;
+      case "client.device.settings.get":
+        control.getSettings = () => {
+          count(method);
+          if (failure != null) throw failure;
+          return scriptedObject as DeviceSettings;
+        };
+        break;
+      case "client.device.settings.set":
+        // The scripted settings are the device's state before the patch; the
+        // answer overlays the members the patch carries, so an HTTP round trip
+        // observes what it asked for next to what it left unchanged.
+        control.setSettings = (patch) => {
+          count(method);
+          if (failure != null) throw failure;
+          const present = Object.entries(patch).filter(
+            ([, value]) => value !== undefined,
+          );
+          return {
+            ...scriptedObject,
+            ...Object.fromEntries(present),
+          } as DeviceSettings;
+        };
+        break;
+      case "client.device.factory_reset":
+        control.factoryReset = () => {
+          count(method);
+          if (failure != null) throw failure;
+        };
+        break;
+      case "client.run.workspace.set":
+        control.setRunWorkspace = () => {
           count(method);
           if (failure != null) throw failure;
         };

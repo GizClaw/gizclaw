@@ -44,6 +44,11 @@ export const CLIENT_RPC_METHODS = [
   "client.device.sound.play",
   "client.device.find",
   "client.device.reboot",
+  "client.device.settings.get",
+  "client.device.settings.set",
+  "client.device.factory_reset",
+  "client.rpc.methods.get",
+  "client.run.workspace.set",
   "client.social.ping",
   "client.device.audioplayer.get",
   "client.device.audioplayer.playlist.get",
@@ -60,7 +65,9 @@ export const CLIENT_RPC_METHODS = [
 ] as const;
 
 // Methods this runner can install a provider for. `client.tool.invoke` needs
-// the tool-serving surface the JavaScript device SDK does not expose.
+// the tool-serving surface the JavaScript device SDK does not expose, and
+// `client.rpc.methods.get` is answered by the SDK itself with no hook that
+// would let this runner count the Server's calls.
 export const SUPPORTED_CLIENT_RPC_METHODS = new Set<string>([
   "client.info.get",
   "client.identifiers.get",
@@ -69,6 +76,10 @@ export const SUPPORTED_CLIENT_RPC_METHODS = new Set<string>([
   "client.device.sound.play",
   "client.device.find",
   "client.device.reboot",
+  "client.device.settings.get",
+  "client.device.settings.set",
+  "client.device.factory_reset",
+  "client.run.workspace.set",
   "client.social.ping",
   "client.device.audioplayer.get",
   "client.device.audioplayer.playlist.get",
@@ -130,7 +141,7 @@ export type Step = {
   rpc?: { method: string; request: unknown };
   client_rpc?: { method: string; response?: unknown; expect_calls?: number };
   http?: {
-    method: "GET" | "POST" | "PUT" | "DELETE";
+    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
     path: string;
     headers?: Record<string, string>;
     body?: unknown;

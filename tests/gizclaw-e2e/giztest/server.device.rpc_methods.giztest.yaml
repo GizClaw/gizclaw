@@ -1,0 +1,108 @@
+# User Story:
+# As a GizClaw API key holder,
+# I want to ask my bound device which RPC methods it implements through its real transport,
+# So that a control app can hide the controls this device would only fail.
+version: gizclaw.test/v1alpha1
+name: server.device.rpc_methods
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+- id: list_rpc_methods
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/rpc-methods
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  expect:
+    /methods:
+      contains_all:
+      - client.device.settings.get
+      - client.device.find
+      - client.rpc.methods.get
+      not_contains:
+      - client.device.factory_reset
+      - client.run.workspace.set
+- id: get_settings
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/settings
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+- id: find_device
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/device/actions/find
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {}
+    status: 204
+- id: unsupported_factory_reset
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/device/actions/factory-reset
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {}
+    status: 501
+  expect:
+    /error/code:
+      equals: DEVICE_UNSUPPORTED
+- id: provider_settings_get
+  client: peer
+  client_rpc:
+    method: client.device.settings.get
+    response:
+      locale: zh-CN
+    expect_calls: 1
+- id: provider_find
+  client: peer
+  client_rpc:
+    method: client.device.find
+    expect_calls: 1
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}
