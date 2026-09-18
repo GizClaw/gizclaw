@@ -71,6 +71,11 @@ message DeviceSettings {
   optional string locale = 5;
   optional DeviceInteractionMode default_interaction_mode = 6;
   optional DeviceKeyFeedback key_feedback = 7;
+  optional DeviceAlertMode alert_mode = 8;
+  // Idle time before the device sleeps; 0 disables automatic sleep.
+  optional int64 auto_sleep_timeout_ms = 9;
+  // Whether the NFC reader is powered.
+  optional bool nfc_enabled = 10;
 }
 
 message ClientDeviceSettingsGetRequest {
@@ -100,6 +105,24 @@ message ClientDeviceFactoryResetRequest {
 }
 
 message ClientDeviceFactoryResetResponse {
+}
+
+// ClientRunWorkspaceSetRequest asks the device to switch its running Workspace.
+// Exactly one target is set: workspace_name names an existing Workspace, or
+// collection with workflow_name names a RuntimeProfile workflow the device
+// runs in its Workspace for that workflow. The device answers once it has
+// accepted the request, then switches through
+// server.run.workspace.reload-with-options; the committed result is the
+// Workspace the Server reports, not this response.
+message ClientRunWorkspaceSetRequest {
+  optional string workspace_name = 1;
+  optional string collection = 2;
+  optional string workflow_name = 3;
+  // Let the agent speak first once the Workspace is ready. Defaults to false.
+  optional bool kickoff = 4;
+}
+
+message ClientRunWorkspaceSetResponse {
 }
 
 message ClientRpcMethodsGetRequest {
@@ -258,6 +281,13 @@ message PeerStatus {
   // Human-readable firmware release the device reports running, next to the
   // exact-package firmware_sha256 digest.
   optional string firmware_version = 20;
+  // Latest signal per route, from network telemetry: an observation whose rat
+  // is wifi sets the Wi-Fi RSSI, any other rat sets the cellular RSSI and the
+  // device-defined cellular signal level. One without rat names no route and
+  // stays a metric only.
+  optional double wifi_rssi_dbm = 21;
+  optional double cellular_rssi_dbm = 22;
+  optional double cellular_signal_level = 23;
 
   // 3 was google.protobuf.Struct details, an untyped map whose only content
   // was the observation times now carried by telemetry_observed_at.
@@ -280,6 +310,9 @@ message PeerStatusTelemetryObservedAt {
   optional string network_imsi = 8;
   optional string activity = 9;
   optional string firmware_version = 10;
+  optional string wifi_rssi_dbm = 11;
+  optional string cellular_rssi_dbm = 12;
+  optional string cellular_signal_level = 13;
 }
 
 message PingRequest {
@@ -372,6 +405,8 @@ message Runtime {
   bool online = 3;
   optional uint64 rx_bytes = 4;
   optional uint64 tx_bytes = 5;
+  optional string active_workspace_name = 7;
+  optional string pending_workspace_name = 8;
 }
 
 message ServerGetInfoRequest {

@@ -207,3 +207,12 @@ enum DeviceKeyFeedback {
   DEVICE_KEY_FEEDBACK_VIBRATE = 3;
   DEVICE_KEY_FEEDBACK_SOUND_AND_VIBRATE = 4;
 }
+
+// DeviceAlertMode is how a device alerts the user to an incoming event such as a
+// call or a notification. Readers must preserve unknown future values.
+enum DeviceAlertMode {
+  DEVICE_ALERT_MODE_UNSPECIFIED = 0;
+  DEVICE_ALERT_MODE_SILENT = 1;
+  DEVICE_ALERT_MODE_VIBRATE = 2;
+  DEVICE_ALERT_MODE_RING = 3;
+}

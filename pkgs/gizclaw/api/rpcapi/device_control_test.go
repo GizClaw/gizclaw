@@ -2,6 +2,7 @@ package rpcapi
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,9 +14,12 @@ func TestDeviceControlMethodRegistry(t *testing.T) {
 	want := map[RPCMethod]int32{
 		RPCMethodClientDeviceStatusGet: 100, RPCMethodClientDeviceVolumeSet: 101, RPCMethodClientDeviceSoundPlay: 102,
 		RPCMethodClientDeviceReboot: 103, RPCMethodClientWifiStatusGet: 104, RPCMethodClientWifiSavedList: 105,
-		RPCMethodClientWifiSavedForget: 106,
-		RPCMethodClientWifiScan:        108,
-		RPCMethodClientWifiConnect:     109,
+		RPCMethodClientWifiSavedForget:   106,
+		RPCMethodClientWifiScan:          108,
+		RPCMethodClientWifiConnect:       109,
+		RPCMethodClientDeviceSettingsGet: 128, RPCMethodClientDeviceSettingsSet: 129,
+		RPCMethodClientDeviceFactoryReset: 130, RPCMethodClientRPCMethodsGet: 131,
+		RPCMethodClientRunWorkspaceSet: 132,
 	}
 	for method, id := range want {
 		if !method.Valid() {
@@ -281,5 +285,62 @@ func TestDeviceSettingsAndCapabilityPayloadRoundTrip(t *testing.T) {
 	}
 	if !reflect.DeepEqual(gotMethods.Methods, want) {
 		t.Fatalf("Methods = %#v, want %#v", gotMethods.Methods, want)
+	}
+}
+
+func TestClientRunWorkspaceSetRequestValid(t *testing.T) {
+	long := strings.Repeat("w", 257)
+	for _, tc := range []struct {
+		name string
+		req  ClientRunWorkspaceSetRequest
+		want bool
+	}{
+		{"workspace", ClientRunWorkspaceSetRequest{WorkspaceName: new("chat")}, true},
+		{"workflow", ClientRunWorkspaceSetRequest{Collection: new("stories"), WorkflowName: new("bedtime"), Kickoff: new(true)}, true},
+		{"none", ClientRunWorkspaceSetRequest{}, false},
+		{"both", ClientRunWorkspaceSetRequest{WorkspaceName: new("chat"), WorkflowName: new("bedtime")}, false},
+		{"collection only", ClientRunWorkspaceSetRequest{Collection: new("stories")}, false},
+		{"empty name", ClientRunWorkspaceSetRequest{WorkspaceName: new("")}, false},
+		{"too long", ClientRunWorkspaceSetRequest{WorkspaceName: &long}, false},
+	} {
+		if got := tc.req.Valid(); got != tc.want {
+			t.Fatalf("%s: Valid() = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+	var payload RPCPayload
+	if err := payload.FromClientRunWorkspaceSetRequest(ClientRunWorkspaceSetRequest{Collection: new("stories"), WorkflowName: new("bedtime"), Kickoff: new(true)}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := payload.AsClientRunWorkspaceSetRequest()
+	if err != nil || got.WorkflowName == nil || *got.WorkflowName != "bedtime" || got.Kickoff == nil || !*got.Kickoff || got.WorkspaceName != nil {
+		t.Fatalf("round trip = %+v, %v", got, err)
+	}
+}
+
+func TestDeviceSettingsValidAndNewMembersRoundTrip(t *testing.T) {
+	alert := DeviceAlertModeVibrate
+	settings := DeviceSettings{AlertMode: &alert, AutoSleepTimeoutMs: new(int64(0)), NfcEnabled: new(false)}
+	if !settings.Valid() {
+		t.Fatal("valid settings rejected")
+	}
+	var payload RPCPayload
+	if err := payload.FromClientDeviceSettingsSetRequest(ClientDeviceSettingsSetRequest{Value: settings}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := payload.AsClientDeviceSettingsSetRequest()
+	if err != nil || got.Value.AlertMode == nil || *got.Value.AlertMode != alert || got.Value.NfcEnabled == nil || *got.Value.NfcEnabled ||
+		got.Value.AutoSleepTimeoutMs == nil || *got.Value.AutoSleepTimeoutMs != 0 {
+		t.Fatalf("round trip = %+v, %v", got.Value, err)
+	}
+	unknown := DeviceAlertMode("loud")
+	for name, bad := range map[string]DeviceSettings{
+		"alert":      {AlertMode: &unknown},
+		"sleep":      {AutoSleepTimeoutMs: new(int64(-1))},
+		"brightness": {ScreenBrightness: new(int64(101))},
+		"locale":     {Locale: new("zh_CN")},
+	} {
+		if bad.Valid() {
+			t.Fatalf("%s: invalid settings accepted", name)
+		}
 	}
 }

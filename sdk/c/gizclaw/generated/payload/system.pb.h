@@ -69,6 +69,14 @@ typedef struct _gizclaw_rpc_v1_DeviceSettings {
     gizclaw_rpc_v1_DeviceInteractionMode default_interaction_mode;
     bool has_key_feedback;
     gizclaw_rpc_v1_DeviceKeyFeedback key_feedback;
+    bool has_alert_mode;
+    gizclaw_rpc_v1_DeviceAlertMode alert_mode;
+    /* Idle time before the device sleeps; 0 disables automatic sleep. */
+    bool has_auto_sleep_timeout_ms;
+    int64_t auto_sleep_timeout_ms;
+    /* Whether the NFC reader is powered. */
+    bool has_nfc_enabled;
+    bool nfc_enabled;
 } gizclaw_rpc_v1_DeviceSettings;
 
 typedef struct _gizclaw_rpc_v1_ClientDeviceSettingsGetRequest {
@@ -105,6 +113,29 @@ typedef struct _gizclaw_rpc_v1_ClientDeviceFactoryResetRequest {
 typedef struct _gizclaw_rpc_v1_ClientDeviceFactoryResetResponse {
     char dummy_field;
 } gizclaw_rpc_v1_ClientDeviceFactoryResetResponse;
+
+/* ClientRunWorkspaceSetRequest asks the device to switch its running Workspace.
+ Exactly one target is set: workspace_name names an existing Workspace, or
+ collection with workflow_name names a RuntimeProfile workflow the device
+ runs in its Workspace for that workflow. The device answers once it has
+ accepted the request, then switches through
+ server.run.workspace.reload-with-options; the committed result is the
+ Workspace the Server reports, not this response. */
+typedef struct _gizclaw_rpc_v1_ClientRunWorkspaceSetRequest {
+    bool has_workspace_name;
+    char workspace_name[257];
+    bool has_collection;
+    char collection[257];
+    bool has_workflow_name;
+    char workflow_name[257];
+    /* Let the agent speak first once the Workspace is ready. Defaults to false. */
+    bool has_kickoff;
+    bool kickoff;
+} gizclaw_rpc_v1_ClientRunWorkspaceSetRequest;
+
+typedef struct _gizclaw_rpc_v1_ClientRunWorkspaceSetResponse {
+    char dummy_field;
+} gizclaw_rpc_v1_ClientRunWorkspaceSetResponse;
 
 typedef struct _gizclaw_rpc_v1_ClientRpcMethodsGetRequest {
     char dummy_field;
@@ -306,6 +337,12 @@ typedef struct _gizclaw_rpc_v1_PeerStatusTelemetryObservedAt {
     char activity[36];
     bool has_firmware_version;
     char firmware_version[36];
+    bool has_wifi_rssi_dbm;
+    char wifi_rssi_dbm[36];
+    bool has_cellular_rssi_dbm;
+    char cellular_rssi_dbm[36];
+    bool has_cellular_signal_level;
+    char cellular_signal_level[36];
 } gizclaw_rpc_v1_PeerStatusTelemetryObservedAt;
 
 typedef struct _gizclaw_rpc_v1_PeerStatus {
@@ -350,6 +387,16 @@ typedef struct _gizclaw_rpc_v1_PeerStatus {
  exact-package firmware_sha256 digest. */
     bool has_firmware_version;
     char firmware_version[129];
+    /* Latest signal per route, from network telemetry: an observation whose rat
+ is wifi sets the Wi-Fi RSSI, any other rat sets the cellular RSSI and the
+ device-defined cellular signal level. One without rat names no route and
+ stays a metric only. */
+    bool has_wifi_rssi_dbm;
+    double wifi_rssi_dbm;
+    bool has_cellular_rssi_dbm;
+    double cellular_rssi_dbm;
+    bool has_cellular_signal_level;
+    double cellular_signal_level;
 } gizclaw_rpc_v1_PeerStatus;
 
 typedef struct _gizclaw_rpc_v1_ClientDeviceStatusGetResponse {
@@ -467,6 +514,8 @@ typedef struct _gizclaw_rpc_v1_Runtime {
     bool has_tx_bytes;
     uint64_t tx_bytes;
     pb_callback_t debug_mode;
+    pb_callback_t active_workspace_name;
+    pb_callback_t pending_workspace_name;
 } gizclaw_rpc_v1_Runtime;
 
 typedef struct _gizclaw_rpc_v1_ServerGetInfoRequest {
@@ -557,13 +606,15 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientDeviceVolumeSetResponse_init_default {false, gizclaw_rpc_v1_PeerStatus_init_default}
 #define gizclaw_rpc_v1_ClientDeviceSoundPlayRequest_init_default {"", false, 0}
 #define gizclaw_rpc_v1_ClientDeviceSoundPlayResponse_init_default {0}
-#define gizclaw_rpc_v1_DeviceSettings_init_default {false, 0, false, 0, false, 0, false, 0, false, "", false, _gizclaw_rpc_v1_DeviceInteractionMode_MIN, false, _gizclaw_rpc_v1_DeviceKeyFeedback_MIN}
+#define gizclaw_rpc_v1_DeviceSettings_init_default {false, 0, false, 0, false, 0, false, 0, false, "", false, _gizclaw_rpc_v1_DeviceInteractionMode_MIN, false, _gizclaw_rpc_v1_DeviceKeyFeedback_MIN, false, _gizclaw_rpc_v1_DeviceAlertMode_MIN, false, 0, false, 0}
 #define gizclaw_rpc_v1_ClientDeviceSettingsGetRequest_init_default {0}
 #define gizclaw_rpc_v1_ClientDeviceSettingsGetResponse_init_default {false, gizclaw_rpc_v1_DeviceSettings_init_default}
 #define gizclaw_rpc_v1_ClientDeviceSettingsSetRequest_init_default {false, gizclaw_rpc_v1_DeviceSettings_init_default}
 #define gizclaw_rpc_v1_ClientDeviceSettingsSetResponse_init_default {false, gizclaw_rpc_v1_DeviceSettings_init_default}
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetRequest_init_default {false, 0}
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetResponse_init_default {0}
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_init_default {false, "", false, "", false, "", false, 0}
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetResponse_init_default {0}
 #define gizclaw_rpc_v1_ClientRpcMethodsGetRequest_init_default {0}
 #define gizclaw_rpc_v1_ClientRpcMethodsGetResponse_init_default {0, {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""}}
 #define gizclaw_rpc_v1_ClientDeviceFindRequest_init_default {false, 0}
@@ -590,9 +641,9 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerIMEI_init_default     {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerLabel_init_default    {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerOtaStatus_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PeerStatus_init_default   {false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, "", false, gizclaw_rpc_v1_PeerOtaStatus_init_default, false, gizclaw_rpc_v1_AudioPlayerStatus_init_default, false, "", false, "", false, gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_init_default, false, "", false, "", false, ""}
+#define gizclaw_rpc_v1_PeerStatus_init_default   {false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, "", false, gizclaw_rpc_v1_PeerOtaStatus_init_default, false, gizclaw_rpc_v1_AudioPlayerStatus_init_default, false, "", false, "", false, gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_init_default, false, "", false, "", false, "", false, 0, false, 0, false, 0}
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_init_default {false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, ""}
+#define gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_init_default {false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, ""}
 #define gizclaw_rpc_v1_PingRequest_init_default  {0}
 #define gizclaw_rpc_v1_PingResponse_init_default {0}
 #define gizclaw_rpc_v1_ServerRegisterRequest_init_default {""}
@@ -610,7 +661,7 @@ extern "C" {
 #define gizclaw_rpc_v1_APIKeyRevokeResponse_init_default {0}
 #define gizclaw_rpc_v1_ServerPeerDeleteRequest_init_default {0}
 #define gizclaw_rpc_v1_ServerPeerDeleteResponse_init_default {0}
-#define gizclaw_rpc_v1_Runtime_init_default      {{{NULL}, NULL}, {{NULL}, NULL}, 0, false, 0, false, 0, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Runtime_init_default      {{{NULL}, NULL}, {{NULL}, NULL}, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ServerGetInfoRequest_init_default {0}
 #define gizclaw_rpc_v1_ServerGetInfoResponse_init_default {false, gizclaw_rpc_v1_DeviceInfo_init_default}
 #define gizclaw_rpc_v1_ServerGetStatusRequest_init_default {0}
@@ -634,13 +685,15 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientDeviceVolumeSetResponse_init_zero {false, gizclaw_rpc_v1_PeerStatus_init_zero}
 #define gizclaw_rpc_v1_ClientDeviceSoundPlayRequest_init_zero {"", false, 0}
 #define gizclaw_rpc_v1_ClientDeviceSoundPlayResponse_init_zero {0}
-#define gizclaw_rpc_v1_DeviceSettings_init_zero  {false, 0, false, 0, false, 0, false, 0, false, "", false, _gizclaw_rpc_v1_DeviceInteractionMode_MIN, false, _gizclaw_rpc_v1_DeviceKeyFeedback_MIN}
+#define gizclaw_rpc_v1_DeviceSettings_init_zero  {false, 0, false, 0, false, 0, false, 0, false, "", false, _gizclaw_rpc_v1_DeviceInteractionMode_MIN, false, _gizclaw_rpc_v1_DeviceKeyFeedback_MIN, false, _gizclaw_rpc_v1_DeviceAlertMode_MIN, false, 0, false, 0}
 #define gizclaw_rpc_v1_ClientDeviceSettingsGetRequest_init_zero {0}
 #define gizclaw_rpc_v1_ClientDeviceSettingsGetResponse_init_zero {false, gizclaw_rpc_v1_DeviceSettings_init_zero}
 #define gizclaw_rpc_v1_ClientDeviceSettingsSetRequest_init_zero {false, gizclaw_rpc_v1_DeviceSettings_init_zero}
 #define gizclaw_rpc_v1_ClientDeviceSettingsSetResponse_init_zero {false, gizclaw_rpc_v1_DeviceSettings_init_zero}
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetRequest_init_zero {false, 0}
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetResponse_init_zero {0}
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_init_zero {false, "", false, "", false, "", false, 0}
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetResponse_init_zero {0}
 #define gizclaw_rpc_v1_ClientRpcMethodsGetRequest_init_zero {0}
 #define gizclaw_rpc_v1_ClientRpcMethodsGetResponse_init_zero {0, {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""}}
 #define gizclaw_rpc_v1_ClientDeviceFindRequest_init_zero {false, 0}
@@ -667,9 +720,9 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerIMEI_init_zero        {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerLabel_init_zero       {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerOtaStatus_init_zero   {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PeerStatus_init_zero      {false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, "", false, gizclaw_rpc_v1_PeerOtaStatus_init_zero, false, gizclaw_rpc_v1_AudioPlayerStatus_init_zero, false, "", false, "", false, gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_init_zero, false, "", false, "", false, ""}
+#define gizclaw_rpc_v1_PeerStatus_init_zero      {false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, "", false, gizclaw_rpc_v1_PeerOtaStatus_init_zero, false, gizclaw_rpc_v1_AudioPlayerStatus_init_zero, false, "", false, "", false, gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_init_zero, false, "", false, "", false, "", false, 0, false, 0, false, 0}
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_init_zero {false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, ""}
+#define gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_init_zero {false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, ""}
 #define gizclaw_rpc_v1_PingRequest_init_zero     {0}
 #define gizclaw_rpc_v1_PingResponse_init_zero    {0}
 #define gizclaw_rpc_v1_ServerRegisterRequest_init_zero {""}
@@ -687,7 +740,7 @@ extern "C" {
 #define gizclaw_rpc_v1_APIKeyRevokeResponse_init_zero {0}
 #define gizclaw_rpc_v1_ServerPeerDeleteRequest_init_zero {0}
 #define gizclaw_rpc_v1_ServerPeerDeleteResponse_init_zero {0}
-#define gizclaw_rpc_v1_Runtime_init_zero         {{{NULL}, NULL}, {{NULL}, NULL}, 0, false, 0, false, 0, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Runtime_init_zero         {{{NULL}, NULL}, {{NULL}, NULL}, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ServerGetInfoRequest_init_zero {0}
 #define gizclaw_rpc_v1_ServerGetInfoResponse_init_zero {false, gizclaw_rpc_v1_DeviceInfo_init_zero}
 #define gizclaw_rpc_v1_ServerGetStatusRequest_init_zero {0}
@@ -714,10 +767,17 @@ extern "C" {
 #define gizclaw_rpc_v1_DeviceSettings_locale_tag 5
 #define gizclaw_rpc_v1_DeviceSettings_default_interaction_mode_tag 6
 #define gizclaw_rpc_v1_DeviceSettings_key_feedback_tag 7
+#define gizclaw_rpc_v1_DeviceSettings_alert_mode_tag 8
+#define gizclaw_rpc_v1_DeviceSettings_auto_sleep_timeout_ms_tag 9
+#define gizclaw_rpc_v1_DeviceSettings_nfc_enabled_tag 10
 #define gizclaw_rpc_v1_ClientDeviceSettingsGetResponse_value_tag 1
 #define gizclaw_rpc_v1_ClientDeviceSettingsSetRequest_value_tag 1
 #define gizclaw_rpc_v1_ClientDeviceSettingsSetResponse_value_tag 1
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetRequest_keep_network_tag 1
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_workspace_name_tag 1
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_collection_tag 2
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_workflow_name_tag 3
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_kickoff_tag 4
 #define gizclaw_rpc_v1_ClientRpcMethodsGetResponse_methods_tag 1
 #define gizclaw_rpc_v1_ClientDeviceFindRequest_duration_ms_tag 1
 #define gizclaw_rpc_v1_ClientDeviceRebootRequest_delay_ms_tag 1
@@ -777,6 +837,9 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_network_imsi_tag 8
 #define gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_activity_tag 9
 #define gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_firmware_version_tag 10
+#define gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_wifi_rssi_dbm_tag 11
+#define gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_cellular_rssi_dbm_tag 12
+#define gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_cellular_signal_level_tag 13
 #define gizclaw_rpc_v1_PeerStatus_battery_percent_tag 1
 #define gizclaw_rpc_v1_PeerStatus_charging_tag   2
 #define gizclaw_rpc_v1_PeerStatus_gnss_accuracy_m_tag 4
@@ -796,6 +859,9 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerStatus_activity_tag   18
 #define gizclaw_rpc_v1_PeerStatus_activity_detail_tag 19
 #define gizclaw_rpc_v1_PeerStatus_firmware_version_tag 20
+#define gizclaw_rpc_v1_PeerStatus_wifi_rssi_dbm_tag 21
+#define gizclaw_rpc_v1_PeerStatus_cellular_rssi_dbm_tag 22
+#define gizclaw_rpc_v1_PeerStatus_cellular_signal_level_tag 23
 #define gizclaw_rpc_v1_ClientDeviceStatusGetResponse_value_tag 1
 #define gizclaw_rpc_v1_ClientDeviceVolumeSetResponse_value_tag 1
 #define gizclaw_rpc_v1_PingRequest_client_send_time_tag 1
@@ -834,6 +900,8 @@ extern "C" {
 #define gizclaw_rpc_v1_Runtime_rx_bytes_tag      4
 #define gizclaw_rpc_v1_Runtime_tx_bytes_tag      5
 #define gizclaw_rpc_v1_Runtime_debug_mode_tag    6
+#define gizclaw_rpc_v1_Runtime_active_workspace_name_tag 7
+#define gizclaw_rpc_v1_Runtime_pending_workspace_name_tag 8
 #define gizclaw_rpc_v1_ServerGetInfoResponse_value_tag 1
 #define gizclaw_rpc_v1_ServerGetStatusResponse_value_tag 1
 #define gizclaw_rpc_v1_ServerPutInfoRequest_value_tag 1
@@ -914,7 +982,10 @@ X(a, STATIC,   OPTIONAL, INT64,    screen_brightness,   3) \
 X(a, STATIC,   OPTIONAL, INT64,    led_brightness,    4) \
 X(a, STATIC,   OPTIONAL, STRING,   locale,            5) \
 X(a, STATIC,   OPTIONAL, UENUM,    default_interaction_mode,   6) \
-X(a, STATIC,   OPTIONAL, UENUM,    key_feedback,      7)
+X(a, STATIC,   OPTIONAL, UENUM,    key_feedback,      7) \
+X(a, STATIC,   OPTIONAL, UENUM,    alert_mode,        8) \
+X(a, STATIC,   OPTIONAL, INT64,    auto_sleep_timeout_ms,   9) \
+X(a, STATIC,   OPTIONAL, BOOL,     nfc_enabled,      10)
 #define gizclaw_rpc_v1_DeviceSettings_CALLBACK NULL
 #define gizclaw_rpc_v1_DeviceSettings_DEFAULT NULL
 
@@ -950,6 +1021,19 @@ X(a, STATIC,   OPTIONAL, BOOL,     keep_network,      1)
 
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetResponse_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, STRING,   workspace_name,    1) \
+X(a, STATIC,   OPTIONAL, STRING,   collection,        2) \
+X(a, STATIC,   OPTIONAL, STRING,   workflow_name,     3) \
+X(a, STATIC,   OPTIONAL, BOOL,     kickoff,           4)
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetResponse_FIELDLIST(X, a) \
+
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetResponse_DEFAULT NULL
 
 #define gizclaw_rpc_v1_ClientRpcMethodsGetRequest_FIELDLIST(X, a) \
 
@@ -1133,7 +1217,10 @@ X(a, STATIC,   OPTIONAL, STRING,   network_imsi,     16) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  telemetry_observed_at,  17) \
 X(a, STATIC,   OPTIONAL, STRING,   activity,         18) \
 X(a, STATIC,   OPTIONAL, STRING,   activity_detail,  19) \
-X(a, STATIC,   OPTIONAL, STRING,   firmware_version,  20)
+X(a, STATIC,   OPTIONAL, STRING,   firmware_version,  20) \
+X(a, STATIC,   OPTIONAL, DOUBLE,   wifi_rssi_dbm,    21) \
+X(a, STATIC,   OPTIONAL, DOUBLE,   cellular_rssi_dbm,  22) \
+X(a, STATIC,   OPTIONAL, DOUBLE,   cellular_signal_level,  23)
 #define gizclaw_rpc_v1_PeerStatus_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PeerStatus_DEFAULT NULL
 #define gizclaw_rpc_v1_PeerStatus_labels_MSGTYPE gizclaw_rpc_v1_PeerStatus_LabelsEntry
@@ -1157,7 +1244,10 @@ X(a, STATIC,   OPTIONAL, STRING,   gnss_accuracy_m,   6) \
 X(a, STATIC,   OPTIONAL, STRING,   network_imei,      7) \
 X(a, STATIC,   OPTIONAL, STRING,   network_imsi,      8) \
 X(a, STATIC,   OPTIONAL, STRING,   activity,          9) \
-X(a, STATIC,   OPTIONAL, STRING,   firmware_version,  10)
+X(a, STATIC,   OPTIONAL, STRING,   firmware_version,  10) \
+X(a, STATIC,   OPTIONAL, STRING,   wifi_rssi_dbm,    11) \
+X(a, STATIC,   OPTIONAL, STRING,   cellular_rssi_dbm,  12) \
+X(a, STATIC,   OPTIONAL, STRING,   cellular_signal_level,  13)
 #define gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_CALLBACK NULL
 #define gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_DEFAULT NULL
 
@@ -1270,7 +1360,9 @@ X(a, CALLBACK, SINGULAR, STRING,   last_seen_at,      2) \
 X(a, STATIC,   SINGULAR, BOOL,     online,            3) \
 X(a, STATIC,   OPTIONAL, UINT64,   rx_bytes,          4) \
 X(a, STATIC,   OPTIONAL, UINT64,   tx_bytes,          5) \
-X(a, CALLBACK, OPTIONAL, STRING,   debug_mode,        6)
+X(a, CALLBACK, OPTIONAL, STRING,   debug_mode,        6) \
+X(a, CALLBACK, OPTIONAL, STRING,   active_workspace_name,   7) \
+X(a, CALLBACK, OPTIONAL, STRING,   pending_workspace_name,   8)
 #define gizclaw_rpc_v1_Runtime_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Runtime_DEFAULT NULL
 
@@ -1365,6 +1457,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ClientDeviceSettingsSetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientDeviceSettingsSetResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientDeviceFactoryResetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientDeviceFactoryResetResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ClientRunWorkspaceSetResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientRpcMethodsGetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientRpcMethodsGetResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientDeviceFindRequest_msg;
@@ -1444,6 +1538,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 #define gizclaw_rpc_v1_ClientDeviceSettingsSetResponse_fields &gizclaw_rpc_v1_ClientDeviceSettingsSetResponse_msg
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetRequest_fields &gizclaw_rpc_v1_ClientDeviceFactoryResetRequest_msg
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetResponse_fields &gizclaw_rpc_v1_ClientDeviceFactoryResetResponse_msg
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_fields &gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_msg
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetResponse_fields &gizclaw_rpc_v1_ClientRunWorkspaceSetResponse_msg
 #define gizclaw_rpc_v1_ClientRpcMethodsGetRequest_fields &gizclaw_rpc_v1_ClientRpcMethodsGetRequest_msg
 #define gizclaw_rpc_v1_ClientRpcMethodsGetResponse_fields &gizclaw_rpc_v1_ClientRpcMethodsGetResponse_msg
 #define gizclaw_rpc_v1_ClientDeviceFindRequest_fields &gizclaw_rpc_v1_ClientDeviceFindRequest_msg
@@ -1543,9 +1639,9 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 #define gizclaw_rpc_v1_ClientDeviceRebootRequest_size 11
 #define gizclaw_rpc_v1_ClientDeviceRebootResponse_size 0
 #define gizclaw_rpc_v1_ClientDeviceSettingsGetRequest_size 0
-#define gizclaw_rpc_v1_ClientDeviceSettingsGetResponse_size 78
-#define gizclaw_rpc_v1_ClientDeviceSettingsSetRequest_size 78
-#define gizclaw_rpc_v1_ClientDeviceSettingsSetResponse_size 78
+#define gizclaw_rpc_v1_ClientDeviceSettingsGetResponse_size 93
+#define gizclaw_rpc_v1_ClientDeviceSettingsSetRequest_size 93
+#define gizclaw_rpc_v1_ClientDeviceSettingsSetResponse_size 93
 #define gizclaw_rpc_v1_ClientDeviceSoundPlayRequest_size 45
 #define gizclaw_rpc_v1_ClientDeviceSoundPlayResponse_size 0
 #define gizclaw_rpc_v1_ClientDeviceStatusGetRequest_size 0
@@ -1554,6 +1650,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 #define gizclaw_rpc_v1_ClientGetInfoRequest_size 0
 #define gizclaw_rpc_v1_ClientRpcMethodsGetRequest_size 0
 #define gizclaw_rpc_v1_ClientRpcMethodsGetResponse_size 10400
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_size 779
+#define gizclaw_rpc_v1_ClientRunWorkspaceSetResponse_size 0
 #define gizclaw_rpc_v1_ClientWifiConnectRequest_size 99
 #define gizclaw_rpc_v1_ClientWifiConnectResponse_size 0
 #define gizclaw_rpc_v1_ClientWifiSavedForgetRequest_size 34
@@ -1565,8 +1663,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 #define gizclaw_rpc_v1_ClientWifiStatusGetRequest_size 0
 #define gizclaw_rpc_v1_ClientWifiStatusGetResponse_size 115
 #define gizclaw_rpc_v1_DeviceProfile_size        325
-#define gizclaw_rpc_v1_DeviceSettings_size       76
-#define gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_size 370
+#define gizclaw_rpc_v1_DeviceSettings_size       91
+#define gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_size 481
 #define gizclaw_rpc_v1_PingRequest_size          11
 #define gizclaw_rpc_v1_PingResponse_size         11
 #define gizclaw_rpc_v1_ProfileGetRequest_size    1056

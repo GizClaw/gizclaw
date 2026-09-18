@@ -1,5 +1,7 @@
 package rpcapi
 
+import "regexp"
+
 // ClientDeviceStatusGetRequest asks the device for its current PeerStatus.
 type ClientDeviceStatusGetRequest struct{}
 
@@ -364,6 +366,43 @@ type DeviceSettings struct {
 	Locale                 *string                `json:"locale,omitempty"`
 	DefaultInteractionMode *DeviceInteractionMode `json:"default_interaction_mode,omitempty"`
 	KeyFeedback            *DeviceKeyFeedback     `json:"key_feedback,omitempty"`
+	AlertMode              *DeviceAlertMode       `json:"alert_mode,omitempty"`
+	AutoSleepTimeoutMs     *int64                 `json:"auto_sleep_timeout_ms,omitempty"`
+	NfcEnabled             *bool                  `json:"nfc_enabled,omitempty"`
+}
+
+// deviceSettingsLocalePattern checks BCP 47 well-formedness at the subtag
+// level: a 2-8 letter primary subtag followed by hyphen-separated 1-8
+// character alphanumeric subtags, such as "zh-CN", "zh-Hant-TW" or "es-419".
+// It rejects POSIX forms like "zh_CN" and free text; whether the device offers
+// that language is still the device's decision.
+var deviceSettingsLocalePattern = regexp.MustCompile(`^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$`)
+
+// maxDeviceSettingsLocaleLen matches the nanopb bound on DeviceSettings.locale.
+const maxDeviceSettingsLocaleLen = 35
+
+// Valid reports whether every present member is within the range documented in
+// api/proto/rpc/payload/system.proto. An absent member is always valid, and a
+// single invalid member makes the whole value invalid, so a set request is
+// rejected before any member is applied.
+func (s DeviceSettings) Valid() bool {
+	percent := func(value *int64) bool { return value == nil || (*value >= 0 && *value <= 100) }
+	nonNegative := func(value *int64) bool { return value == nil || *value >= 0 }
+	switch {
+	case !percent(s.ScreenBrightness), !percent(s.LedBrightness):
+		return false
+	case !nonNegative(s.ScreenOffTimeoutMs), !nonNegative(s.AutoSleepTimeoutMs):
+		return false
+	case s.Locale != nil && (len(*s.Locale) > maxDeviceSettingsLocaleLen || !deviceSettingsLocalePattern.MatchString(*s.Locale)):
+		return false
+	case s.DefaultInteractionMode != nil && !s.DefaultInteractionMode.Valid():
+		return false
+	case s.KeyFeedback != nil && !s.KeyFeedback.Valid():
+		return false
+	case s.AlertMode != nil && !s.AlertMode.Valid():
+		return false
+	}
+	return true
 }
 
 // ClientDeviceSettingsGetRequest asks the device for its current settings.
@@ -393,6 +432,35 @@ type ClientDeviceFactoryResetRequest struct {
 
 // ClientDeviceFactoryResetResponse acknowledges a factory reset request.
 type ClientDeviceFactoryResetResponse struct{}
+
+// ClientRunWorkspaceSetRequest asks the device to switch its running
+// Workspace. Exactly one target is set: WorkspaceName, or Collection together
+// with WorkflowName. The device answers once it has accepted the request and
+// then switches through server.run.workspace.reload-with-options, so the
+// response does not mean the switch has finished.
+type ClientRunWorkspaceSetRequest struct {
+	WorkspaceName *string `json:"workspace_name,omitempty"`
+	Collection    *string `json:"collection,omitempty"`
+	WorkflowName  *string `json:"workflow_name,omitempty"`
+	Kickoff       *bool   `json:"kickoff,omitempty"`
+}
+
+// ClientRunWorkspaceSetResponse acknowledges a Workspace switch request.
+type ClientRunWorkspaceSetResponse struct{}
+
+// maxRunWorkspaceTargetLen bounds every ClientRunWorkspaceSetRequest name.
+const maxRunWorkspaceTargetLen = 256
+
+// Valid reports whether the request names exactly one well-formed target.
+func (r ClientRunWorkspaceSetRequest) Valid() bool {
+	name := func(value *string) bool {
+		return value != nil && *value != "" && len(*value) <= maxRunWorkspaceTargetLen
+	}
+	if r.WorkspaceName != nil {
+		return name(r.WorkspaceName) && r.Collection == nil && r.WorkflowName == nil
+	}
+	return name(r.Collection) && name(r.WorkflowName)
+}
 
 // ClientRPCMethodsGetRequest asks the device which RPC methods it implements.
 type ClientRPCMethodsGetRequest struct{}
@@ -498,4 +566,28 @@ func (t RPCPayload) AsClientRPCMethodsGetResponse() (ClientRPCMethodsGetResponse
 // FromClientRPCMethodsGetResponse encodes the ClientRPCMethodsGetResponse into the RPCPayload.
 func (t *RPCPayload) FromClientRPCMethodsGetResponse(v ClientRPCMethodsGetResponse) error {
 	return t.encode("ClientRpcMethodsGetResponse", v)
+}
+
+// AsClientRunWorkspaceSetRequest decodes the RPCPayload as a ClientRunWorkspaceSetRequest.
+func (t RPCPayload) AsClientRunWorkspaceSetRequest() (ClientRunWorkspaceSetRequest, error) {
+	var body ClientRunWorkspaceSetRequest
+	err := t.decode("ClientRunWorkspaceSetRequest", &body)
+	return body, err
+}
+
+// FromClientRunWorkspaceSetRequest encodes the ClientRunWorkspaceSetRequest into the RPCPayload.
+func (t *RPCPayload) FromClientRunWorkspaceSetRequest(v ClientRunWorkspaceSetRequest) error {
+	return t.encode("ClientRunWorkspaceSetRequest", v)
+}
+
+// AsClientRunWorkspaceSetResponse decodes the RPCPayload as a ClientRunWorkspaceSetResponse.
+func (t RPCPayload) AsClientRunWorkspaceSetResponse() (ClientRunWorkspaceSetResponse, error) {
+	var body ClientRunWorkspaceSetResponse
+	err := t.decode("ClientRunWorkspaceSetResponse", &body)
+	return body, err
+}
+
+// FromClientRunWorkspaceSetResponse encodes the ClientRunWorkspaceSetResponse into the RPCPayload.
+func (t *RPCPayload) FromClientRunWorkspaceSetResponse(v ClientRunWorkspaceSetResponse) error {
+	return t.encode("ClientRunWorkspaceSetResponse", v)
 }

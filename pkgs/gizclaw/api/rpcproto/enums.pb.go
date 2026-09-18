@@ -1520,6 +1520,60 @@ func (DeviceKeyFeedback) EnumDescriptor() ([]byte, []int) {
 	return file_payload_enums_proto_rawDescGZIP(), []int{28}
 }
 
+// DeviceAlertMode is how a device alerts the user to an incoming event such as a
+// call or a notification. Readers must preserve unknown future values.
+type DeviceAlertMode int32
+
+const (
+	DeviceAlertMode_DEVICE_ALERT_MODE_UNSPECIFIED DeviceAlertMode = 0
+	DeviceAlertMode_DEVICE_ALERT_MODE_SILENT      DeviceAlertMode = 1
+	DeviceAlertMode_DEVICE_ALERT_MODE_VIBRATE     DeviceAlertMode = 2
+	DeviceAlertMode_DEVICE_ALERT_MODE_RING        DeviceAlertMode = 3
+)
+
+// Enum value maps for DeviceAlertMode.
+var (
+	DeviceAlertMode_name = map[int32]string{
+		0: "DEVICE_ALERT_MODE_UNSPECIFIED",
+		1: "DEVICE_ALERT_MODE_SILENT",
+		2: "DEVICE_ALERT_MODE_VIBRATE",
+		3: "DEVICE_ALERT_MODE_RING",
+	}
+	DeviceAlertMode_value = map[string]int32{
+		"DEVICE_ALERT_MODE_UNSPECIFIED": 0,
+		"DEVICE_ALERT_MODE_SILENT":      1,
+		"DEVICE_ALERT_MODE_VIBRATE":     2,
+		"DEVICE_ALERT_MODE_RING":        3,
+	}
+)
+
+func (x DeviceAlertMode) Enum() *DeviceAlertMode {
+	p := new(DeviceAlertMode)
+	*p = x
+	return p
+}
+
+func (x DeviceAlertMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (DeviceAlertMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_payload_enums_proto_enumTypes[29].Descriptor()
+}
+
+func (DeviceAlertMode) Type() protoreflect.EnumType {
+	return &file_payload_enums_proto_enumTypes[29]
+}
+
+func (x DeviceAlertMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use DeviceAlertMode.Descriptor instead.
+func (DeviceAlertMode) EnumDescriptor() ([]byte, []int) {
+	return file_payload_enums_proto_rawDescGZIP(), []int{29}
+}
+
 var File_payload_enums_proto protoreflect.FileDescriptor
 
 const file_payload_enums_proto_rawDesc = "" +
@@ -1665,7 +1719,12 @@ const file_payload_enums_proto_rawDesc = "" +
 	"\x18DEVICE_KEY_FEEDBACK_NONE\x10\x01\x12\x1d\n" +
 	"\x19DEVICE_KEY_FEEDBACK_SOUND\x10\x02\x12\x1f\n" +
 	"\x1bDEVICE_KEY_FEEDBACK_VIBRATE\x10\x03\x12)\n" +
-	"%DEVICE_KEY_FEEDBACK_SOUND_AND_VIBRATE\x10\x04B?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
+	"%DEVICE_KEY_FEEDBACK_SOUND_AND_VIBRATE\x10\x04*\x8d\x01\n" +
+	"\x0fDeviceAlertMode\x12!\n" +
+	"\x1dDEVICE_ALERT_MODE_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18DEVICE_ALERT_MODE_SILENT\x10\x01\x12\x1d\n" +
+	"\x19DEVICE_ALERT_MODE_VIBRATE\x10\x02\x12\x1a\n" +
+	"\x16DEVICE_ALERT_MODE_RING\x10\x03B?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 
 var (
 	file_payload_enums_proto_rawDescOnce sync.Once
@@ -1679,7 +1738,7 @@ func file_payload_enums_proto_rawDescGZIP() []byte {
 	return file_payload_enums_proto_rawDescData
 }
 
-var file_payload_enums_proto_enumTypes = make([]protoimpl.EnumInfo, 29)
+var file_payload_enums_proto_enumTypes = make([]protoimpl.EnumInfo, 30)
 var file_payload_enums_proto_goTypes = []any{
 	(IconFormat)(0),       // 0: gizclaw.rpc.v1.IconFormat
 	(ASTTranslateMode)(0), // 1: gizclaw.rpc.v1.ASTTranslateMode
@@ -1710,6 +1769,7 @@ var file_payload_enums_proto_goTypes = []any{
 	(WorkspaceInputMode)(0),                               // 26: gizclaw.rpc.v1.WorkspaceInputMode
 	(DeviceInteractionMode)(0),                            // 27: gizclaw.rpc.v1.DeviceInteractionMode
 	(DeviceKeyFeedback)(0),                                // 28: gizclaw.rpc.v1.DeviceKeyFeedback
+	(DeviceAlertMode)(0),                                  // 29: gizclaw.rpc.v1.DeviceAlertMode
 }
 var file_payload_enums_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -1729,7 +1789,7 @@ func file_payload_enums_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_enums_proto_rawDesc), len(file_payload_enums_proto_rawDesc)),
-			NumEnums:      29,
+			NumEnums:      30,
 			NumMessages:   0,
 			NumExtensions: 0,
 			NumServices:   0,

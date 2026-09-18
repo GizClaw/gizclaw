@@ -25,6 +25,10 @@ type deviceInfoService interface {
 	GetSelfRuntime(context.Context, giznet.PublicKey) apitypes.Runtime
 }
 
+type deviceRunAgentService interface {
+	GetRunAgent(context.Context, giznet.PublicKey) (apitypes.PeerRunAgent, error)
+}
+
 type deviceStatusService interface {
 	GetStatus(context.Context, giznet.PublicKey) (apitypes.PeerStatus, error)
 }
@@ -53,6 +57,8 @@ type DeviceReads struct {
 	Profiles   ownerProfileResolver
 	Telemetry  *peertelemetry.AdminService
 	Workspaces deviceWorkspaceService
+	RunAgents  deviceRunAgentService
+	Tools      deviceToolService
 }
 
 // DeviceInfo returns the caller's authoritative device identity.
@@ -64,12 +70,28 @@ func (r DeviceReads) DeviceInfo(ctx context.Context) (apitypes.DeviceInfo, error
 }
 
 // DeviceRuntime returns the caller's online runtime projection without
-// touching the device or its last-seen state.
+// touching the device or its last-seen state. The active and pending Workspace
+// come from the Server's own run record, so they answer while the device is
+// offline.
 func (r DeviceReads) DeviceRuntime(ctx context.Context) (apitypes.Runtime, error) {
 	if r.Info == nil {
 		return apitypes.Runtime{}, ErrDeviceServiceNotConfigured
 	}
-	return r.Info.GetSelfRuntime(ctx, r.Caller), nil
+	runtime := r.Info.GetSelfRuntime(ctx, r.Caller)
+	if r.RunAgents == nil {
+		return runtime, nil
+	}
+	agent, err := r.RunAgents.GetRunAgent(ctx, r.Caller)
+	if err != nil {
+		return apitypes.Runtime{}, err
+	}
+	if agent.Active != nil && agent.Active.WorkspaceName != "" {
+		runtime.ActiveWorkspaceName = &agent.Active.WorkspaceName
+	}
+	if agent.Pending != nil && agent.Pending.WorkspaceName != "" {
+		runtime.PendingWorkspaceName = &agent.Pending.WorkspaceName
+	}
+	return runtime, nil
 }
 
 // DeviceStatus returns the latest stored PeerStatus snapshot of the caller.

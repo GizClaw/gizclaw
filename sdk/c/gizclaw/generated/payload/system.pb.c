@@ -57,6 +57,12 @@ PB_BIND(gizclaw_rpc_v1_ClientDeviceFactoryResetRequest, gizclaw_rpc_v1_ClientDev
 PB_BIND(gizclaw_rpc_v1_ClientDeviceFactoryResetResponse, gizclaw_rpc_v1_ClientDeviceFactoryResetResponse, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_ClientRunWorkspaceSetRequest, gizclaw_rpc_v1_ClientRunWorkspaceSetRequest, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientRunWorkspaceSetResponse, gizclaw_rpc_v1_ClientRunWorkspaceSetResponse, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_ClientRpcMethodsGetRequest, gizclaw_rpc_v1_ClientRpcMethodsGetRequest, AUTO)
 
 

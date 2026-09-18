@@ -212,6 +212,15 @@ typedef enum _gizclaw_rpc_v1_DeviceKeyFeedback {
     gizclaw_rpc_v1_DeviceKeyFeedback_DEVICE_KEY_FEEDBACK_SOUND_AND_VIBRATE = 4
 } gizclaw_rpc_v1_DeviceKeyFeedback;
 
+/* DeviceAlertMode is how a device alerts the user to an incoming event such as a
+ call or a notification. Readers must preserve unknown future values. */
+typedef enum _gizclaw_rpc_v1_DeviceAlertMode {
+    gizclaw_rpc_v1_DeviceAlertMode_DEVICE_ALERT_MODE_UNSPECIFIED = 0,
+    gizclaw_rpc_v1_DeviceAlertMode_DEVICE_ALERT_MODE_SILENT = 1,
+    gizclaw_rpc_v1_DeviceAlertMode_DEVICE_ALERT_MODE_VIBRATE = 2,
+    gizclaw_rpc_v1_DeviceAlertMode_DEVICE_ALERT_MODE_RING = 3
+} gizclaw_rpc_v1_DeviceAlertMode;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -332,6 +341,10 @@ extern "C" {
 #define _gizclaw_rpc_v1_DeviceKeyFeedback_MIN gizclaw_rpc_v1_DeviceKeyFeedback_DEVICE_KEY_FEEDBACK_UNSPECIFIED
 #define _gizclaw_rpc_v1_DeviceKeyFeedback_MAX gizclaw_rpc_v1_DeviceKeyFeedback_DEVICE_KEY_FEEDBACK_SOUND_AND_VIBRATE
 #define _gizclaw_rpc_v1_DeviceKeyFeedback_ARRAYSIZE ((gizclaw_rpc_v1_DeviceKeyFeedback)(gizclaw_rpc_v1_DeviceKeyFeedback_DEVICE_KEY_FEEDBACK_SOUND_AND_VIBRATE+1))
+
+#define _gizclaw_rpc_v1_DeviceAlertMode_MIN gizclaw_rpc_v1_DeviceAlertMode_DEVICE_ALERT_MODE_UNSPECIFIED
+#define _gizclaw_rpc_v1_DeviceAlertMode_MAX gizclaw_rpc_v1_DeviceAlertMode_DEVICE_ALERT_MODE_RING
+#define _gizclaw_rpc_v1_DeviceAlertMode_ARRAYSIZE ((gizclaw_rpc_v1_DeviceAlertMode)(gizclaw_rpc_v1_DeviceAlertMode_DEVICE_ALERT_MODE_RING+1))
 
 
 #ifdef __cplusplus

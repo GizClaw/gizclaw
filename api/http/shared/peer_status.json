@@ -84,6 +84,21 @@
             "maxLength": 128,
             "description": "Human-readable firmware version the device reports it is running, e.g. \"1.4.2\". Reported over telemetry alongside the digest; the digest identifies the exact package, this names the release. Never parsed by the Server."
           },
+          "wifi_rssi_dbm": {
+            "type": "number",
+            "format": "double",
+            "description": "Wi-Fi RSSI in dBm from the latest network telemetry observation whose rat is wifi."
+          },
+          "cellular_rssi_dbm": {
+            "type": "number",
+            "format": "double",
+            "description": "Cellular RSSI in dBm from the latest network telemetry observation whose rat names a route other than wifi. An observation without rat updates only the metric."
+          },
+          "cellular_signal_level": {
+            "type": "number",
+            "format": "double",
+            "description": "Device-defined cellular signal level from the latest network telemetry observation whose rat names a route other than wifi. An observation without rat updates only the metric."
+          },
           "firmware_sha256": {
             "type": "string",
             "pattern": "^[0-9a-f]{64}$",
@@ -108,7 +123,10 @@
           "network_imei": {"type": "string", "format": "date-time"},
           "network_imsi": {"type": "string", "format": "date-time"},
           "activity": {"type": "string", "format": "date-time"},
-          "firmware_version": {"type": "string", "format": "date-time"}
+          "firmware_version": {"type": "string", "format": "date-time"},
+          "wifi_rssi_dbm": {"type": "string", "format": "date-time"},
+          "cellular_rssi_dbm": {"type": "string", "format": "date-time"},
+          "cellular_signal_level": {"type": "string", "format": "date-time"}
         }
       },
       "PeerOtaStatus": {

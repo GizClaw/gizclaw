@@ -960,3 +960,60 @@ func TestMapFrameIgnoresOutOfContractFirmwareVersion(t *testing.T) {
 		}
 	}
 }
+
+// Network signal reaches status under the route the observation names; one
+// without rat names no route and stays a metric only.
+func TestMapFrameProjectsNetworkSignalByRoute(t *testing.T) {
+	peer := testPublicKey(t)
+	at := time.Unix(800, 0).UTC()
+	network := func(rat *string, rssi, level float64) *telemetrypb.Observation {
+		return &telemetrypb.Observation{Body: &telemetrypb.Observation_Network{Network: &telemetrypb.NetworkObservation{Rat: rat, RssiDbm: &rssi, SignalLevel: &level}}}
+	}
+	wifi, lte := "wifi", "lte"
+	_, patch, err := MapFrame(peer, &telemetrypb.TelemetryFrame{Observations: []*telemetrypb.Observation{network(&wifi, -55, 3)}}, at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if patch.WifiRSSIDbm == nil || *patch.WifiRSSIDbm != -55 || patch.CellularRSSIDbm != nil || patch.CellularSignalLevel != nil {
+		t.Fatalf("wifi patch = %+v", patch)
+	}
+	_, patch, err = MapFrame(peer, &telemetrypb.TelemetryFrame{Observations: []*telemetrypb.Observation{network(&lte, -90, 2)}}, at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if patch.CellularRSSIDbm == nil || *patch.CellularRSSIDbm != -90 || patch.CellularSignalLevel == nil || *patch.CellularSignalLevel != 2 || patch.WifiRSSIDbm != nil {
+		t.Fatalf("cellular patch = %+v", patch)
+	}
+	samples, patch, err := MapFrame(peer, &telemetrypb.TelemetryFrame{Observations: []*telemetrypb.Observation{network(nil, -70, 1)}}, at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !patch.Empty() || len(samples) != 2 {
+		t.Fatalf("no-rat patch = %+v samples = %d, want metrics only", patch, len(samples))
+	}
+}
+
+func TestStatusSyncKeepsNewerNetworkSignal(t *testing.T) {
+	peer := testPublicKey(t)
+	store := &fakeStatusStore{}
+	sync := StatusSync{Store: store}
+	newer, older := time.Unix(300, 0).UTC(), time.Unix(200, 0).UTC()
+	if err := sync.SyncTelemetryStatus(context.Background(), peer, StatusPatch{ReportedAt: newer, WifiRSSIDbm: new(-50.0), WifiRSSIDbmAt: newer}); err != nil {
+		t.Fatal(err)
+	}
+	if err := sync.SyncTelemetryStatus(context.Background(), peer, StatusPatch{
+		ReportedAt: older, WifiRSSIDbm: new(-80.0), WifiRSSIDbmAt: older,
+		CellularRSSIDbm: new(-95.0), CellularRSSIDbmAt: older,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if store.status.WifiRssiDbm == nil || *store.status.WifiRssiDbm != -50 {
+		t.Fatalf("wifi rssi = %v, want the newer -50", store.status.WifiRssiDbm)
+	}
+	if store.status.CellularRssiDbm == nil || *store.status.CellularRssiDbm != -95 {
+		t.Fatalf("cellular rssi = %v, want -95 (first value for the field)", store.status.CellularRssiDbm)
+	}
+	if store.status.TelemetryObservedAt == nil || store.status.TelemetryObservedAt.WifiRssiDbm == nil || !store.status.TelemetryObservedAt.WifiRssiDbm.Equal(newer) {
+		t.Fatalf("observed_at = %+v", store.status.TelemetryObservedAt)
+	}
+}

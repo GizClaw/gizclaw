@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
@@ -58,6 +57,15 @@ type DeviceControlHandlers struct {
 	// leaves the caller without the response the method promises. Schedule the
 	// reset on a timer or another goroutine and return nil.
 	FactoryReset func(ctx context.Context, keepNetwork bool) error
+	// SetRunWorkspace switches the Workspace the device runs. The request names
+	// exactly one target, already validated: WorkspaceName, or Collection with
+	// WorkflowName. Kickoff is nil when the caller leaves it at its default of
+	// false.
+	//
+	// The acknowledgement only means the device accepted the request. Return
+	// promptly, then switch through server.run.workspace.reload-with-options;
+	// the Server reports the committed Workspace, not this answer.
+	SetRunWorkspace func(ctx context.Context, request rpcapi.ClientRunWorkspaceSetRequest) error
 }
 
 // supportedDeviceMethods lists the client.* methods these handlers answer. It
@@ -79,6 +87,7 @@ func (h *DeviceControlHandlers) supportedDeviceMethods() []string {
 		{rpcapi.RPCMethodClientDeviceSettingsGet, h.GetSettings != nil},
 		{rpcapi.RPCMethodClientDeviceSettingsSet, h.SetSettings != nil},
 		{rpcapi.RPCMethodClientDeviceFactoryReset, h.FactoryReset != nil},
+		{rpcapi.RPCMethodClientRunWorkspaceSet, h.SetRunWorkspace != nil},
 		{rpcapi.RPCMethodClientFirmwareUpdate, h.UpdateFirmware != nil},
 		{rpcapi.RPCMethodClientWifiStatusGet, h.WifiStatus != nil},
 		{rpcapi.RPCMethodClientWifiSavedList, h.SavedWifi != nil},
@@ -295,6 +304,22 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 			return deviceControlError(req.Id, err), nil
 		}
 		return newRPCResultResponse(req.Id, rpcapi.ClientDeviceFactoryResetResponse{}, (*rpcapi.RPCPayload).FromClientDeviceFactoryResetResponse)
+	case rpcapi.RPCMethodClientRunWorkspaceSet:
+		if req.Params == nil {
+			return rpcInvalidParams(req.Id), nil
+		}
+		params, err := req.Params.AsClientRunWorkspaceSetRequest()
+		if err != nil || !params.Valid() {
+			return rpcInvalidParams(req.Id), nil
+		}
+		if handlers.SetRunWorkspace == nil {
+			return deviceControlUnsupported(req.Id, req.Method), nil
+		}
+		c.peer.observeClientRPC(req.Method)
+		if err := handlers.SetRunWorkspace(ctx, params); err != nil {
+			return deviceControlError(req.Id, err), nil
+		}
+		return newRPCResultResponse(req.Id, rpcapi.ClientRunWorkspaceSetResponse{}, (*rpcapi.RPCPayload).FromClientRunWorkspaceSetResponse)
 	case rpcapi.RPCMethodClientFirmwareUpdate:
 		params := rpcapi.ClientFirmwareUpdateRequest{}
 		if req.Params != nil {
@@ -406,32 +431,8 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 	}
 }
 
-// deviceSettingsLocalePattern checks BCP 47 well-formedness at the subtag level:
-// a 2-8 letter primary subtag followed by hyphen-separated 1-8 character
-// alphanumeric subtags, such as "zh-CN", "zh-Hant-TW" or "es-419". It rejects
-// POSIX forms like "zh_CN" and free text; whether the device offers that
-// language is still the device's decision.
-var deviceSettingsLocalePattern = regexp.MustCompile(`^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$`)
-
-// validDeviceSettingsPatch mirrors the DeviceSettings ranges documented in
-// api/proto/rpc/payload/system.proto. An unknown enum value is rejected, while
-// an absent member simply leaves that option unchanged.
+// validDeviceSettingsPatch rejects the whole patch when any present member is
+// outside its range, so the device is never left half-configured.
 func validDeviceSettingsPatch(patch rpcapi.DeviceSettings) bool {
-	percent := func(value *int64) bool { return value == nil || (*value >= 0 && *value <= 100) }
-	if !percent(patch.ScreenBrightness) || !percent(patch.LedBrightness) {
-		return false
-	}
-	if patch.ScreenOffTimeoutMs != nil && *patch.ScreenOffTimeoutMs < 0 {
-		return false
-	}
-	if patch.Locale != nil && (len(*patch.Locale) > 35 || !deviceSettingsLocalePattern.MatchString(*patch.Locale)) {
-		return false
-	}
-	if patch.DefaultInteractionMode != nil && !patch.DefaultInteractionMode.Valid() {
-		return false
-	}
-	if patch.KeyFeedback != nil && !patch.KeyFeedback.Valid() {
-		return false
-	}
-	return true
+	return patch.Valid()
 }

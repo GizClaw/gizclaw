@@ -178,6 +178,23 @@ func (e DoubaoRealtimeWorkspaceParametersAgentType) Valid() bool {
 	}
 }
 
+// Defines values for DeviceAlertMode.
+const (
+	DeviceAlertModeSilent  DeviceAlertMode = "silent"
+	DeviceAlertModeVibrate DeviceAlertMode = "vibrate"
+	DeviceAlertModeRing    DeviceAlertMode = "ring"
+)
+
+// Valid indicates whether the value is a known member of the DeviceAlertMode enum.
+func (e DeviceAlertMode) Valid() bool {
+	switch e {
+	case DeviceAlertModeSilent, DeviceAlertModeVibrate, DeviceAlertModeRing:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DeviceInteractionMode.
 const (
 	DeviceInteractionModePushToTalk DeviceInteractionMode = "push-to-talk"
@@ -588,6 +605,7 @@ const (
 	RPCMethodClientDeviceSettingsSet             RPCMethod = "client.device.settings.set"
 	RPCMethodClientDeviceFactoryReset            RPCMethod = "client.device.factory_reset"
 	RPCMethodClientRPCMethodsGet                 RPCMethod = "client.rpc.methods.get"
+	RPCMethodClientRunWorkspaceSet               RPCMethod = "client.run.workspace.set"
 	RPCMethodServerContactCreate                 RPCMethod = "server.contact.create"
 	RPCMethodServerContactDelete                 RPCMethod = "server.contact.delete"
 	RPCMethodServerContactGet                    RPCMethod = "server.contact.get"
@@ -698,6 +716,8 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodClientDeviceFactoryReset:
 		return true
 	case RPCMethodClientRPCMethodsGet:
+		return true
+	case RPCMethodClientRunWorkspaceSet:
 		return true
 	case RPCMethodClientWifiStatusGet:
 		return true
@@ -1552,6 +1572,9 @@ type EinoWorkspaceParametersAgentType string
 // FirmwareChannelName defines model for FirmwareChannelName.
 type FirmwareChannelName string
 
+// DeviceAlertMode defines model for DeviceAlertMode.
+type DeviceAlertMode string
+
 // DeviceInteractionMode defines model for DeviceInteractionMode.
 type DeviceInteractionMode string
 
@@ -2213,6 +2236,9 @@ type PeerStatus struct {
 	NetworkImsi         *string                              `json:"network_imsi,omitempty"`
 	ReportedAt          *time.Time                           `json:"reported_at,omitempty"`
 	Volume              *int                                 `json:"volume,omitempty"`
+	WifiRssiDbm         *float64                             `json:"wifi_rssi_dbm,omitempty"`
+	CellularRssiDbm     *float64                             `json:"cellular_rssi_dbm,omitempty"`
+	CellularSignalLevel *float64                             `json:"cellular_signal_level,omitempty"`
 }
 
 // PingRequest defines model for PingRequest.
@@ -2267,12 +2293,14 @@ type RPCVersion int
 
 // Runtime defines model for Runtime.
 type Runtime struct {
-	DebugMode  *string   `json:"debug_mode,omitempty"`
-	LastAddr   *string   `json:"last_addr,omitempty"`
-	LastSeenAt time.Time `json:"last_seen_at"`
-	Online     bool      `json:"online"`
-	RxBytes    *uint64   `json:"rx_bytes,omitempty"`
-	TxBytes    *uint64   `json:"tx_bytes,omitempty"`
+	ActiveWorkspaceName  *string   `json:"active_workspace_name,omitempty"`
+	DebugMode            *string   `json:"debug_mode,omitempty"`
+	LastAddr             *string   `json:"last_addr,omitempty"`
+	LastSeenAt           time.Time `json:"last_seen_at"`
+	Online               bool      `json:"online"`
+	PendingWorkspaceName *string   `json:"pending_workspace_name,omitempty"`
+	RxBytes              *uint64   `json:"rx_bytes,omitempty"`
+	TxBytes              *uint64   `json:"tx_bytes,omitempty"`
 }
 
 // ServerGetInfoRequest defines model for ServerGetInfoRequest.

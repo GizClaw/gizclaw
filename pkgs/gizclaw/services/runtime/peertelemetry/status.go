@@ -45,6 +45,9 @@ var (
 	observedAtNetworkIMSI    observedAtSelector = func(o *apitypes.PeerStatusTelemetryObservedAt) **time.Time { return &o.NetworkImsi }
 	observedAtActivity       observedAtSelector = func(o *apitypes.PeerStatusTelemetryObservedAt) **time.Time { return &o.Activity }
 	observedAtFirmwareVer    observedAtSelector = func(o *apitypes.PeerStatusTelemetryObservedAt) **time.Time { return &o.FirmwareVersion }
+	observedAtWifiRSSI       observedAtSelector = func(o *apitypes.PeerStatusTelemetryObservedAt) **time.Time { return &o.WifiRssiDbm }
+	observedAtCellularRSSI   observedAtSelector = func(o *apitypes.PeerStatusTelemetryObservedAt) **time.Time { return &o.CellularRssiDbm }
+	observedAtCellularLevel  observedAtSelector = func(o *apitypes.PeerStatusTelemetryObservedAt) **time.Time { return &o.CellularSignalLevel }
 )
 
 // activityPattern, activityDetailMaxLen and firmwareVersionMaxLen mirror the
@@ -235,7 +238,29 @@ func applyTelemetryStatusPatch(status *apitypes.PeerStatus, patch StatusPatch) b
 	if applyTelemetryStatusActivity(status, patch) {
 		changed = true
 	}
+	if applyTelemetryStatusNumber(status, &status.WifiRssiDbm, observedAtWifiRSSI, patch.WifiRSSIDbm, patch.WifiRSSIDbmAt, patch.ReportedAt) {
+		changed = true
+	}
+	if applyTelemetryStatusNumber(status, &status.CellularRssiDbm, observedAtCellularRSSI, patch.CellularRSSIDbm, patch.CellularRSSIDbmAt, patch.ReportedAt) {
+		changed = true
+	}
+	if applyTelemetryStatusNumber(status, &status.CellularSignalLevel, observedAtCellularLevel, patch.CellularSignalLevel, patch.CellularSignalLevelAt, patch.ReportedAt) {
+		changed = true
+	}
 	return changed
+}
+
+// applyTelemetryStatusNumber merges one numeric signal reading under the same
+// per-field observation ordering as GNSS, so a late-arriving older reading
+// cannot overwrite a newer one.
+func applyTelemetryStatusNumber(status *apitypes.PeerStatus, current **float64, sel observedAtSelector, value *float64, fieldAt time.Time, fallback time.Time) bool {
+	if value == nil || !shouldApplyTelemetryStatusField(*status, sel, *current == nil, fieldAt, fallback) {
+		return false
+	}
+	next := *value
+	*current = &next
+	setTelemetryStatusFieldTime(status, sel, fieldAt, fallback)
+	return true
 }
 
 // applyTelemetryStatusActivity merges the reported activity and its optional

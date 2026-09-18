@@ -29,6 +29,11 @@
             "additionalProperties": {
               "$ref": "#/components/schemas/RuntimeProfileI18nText"
             }
+          },
+          "control_access": {
+            "type": "string",
+            "enum": ["owner"],
+            "description": "Only valid under resources.tools. Exposes this Tool to the device owner's control app through GET /gizclaw/v1/device/tools and POST /gizclaw/v1/device/tools/{name}/actions/invoke; owner means any API key of the Peer that owns the device. When omitted the control app can neither list nor invoke the Tool, which stays reachable only by AI and Workflow runtimes. Only enabled client_rpc Tools are ever exposed. Stricter levels, such as a guardian authorization, are added to this enum later."
           }
         }
       },

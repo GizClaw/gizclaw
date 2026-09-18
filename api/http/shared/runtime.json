@@ -37,6 +37,14 @@
           "debug_mode": {
             "type": "string",
             "description": "Device-owned debug access mode: off (default), readonly, or fullcontrol. Stored by the authoritative Server and set through authenticated server.runtime.put."
+          },
+          "active_workspace_name": {
+            "type": "string",
+            "description": "Workspace the device is running, as last committed through server.run.workspace.reload-with-options. The Server records it, so it answers while the device is offline. Omitted until a Workspace has been committed."
+          },
+          "pending_workspace_name": {
+            "type": "string",
+            "description": "Workspace selected for the device that it has not committed yet, for example while a switch requested through PUT /gizclaw/v1/device/run/workspace is in progress. Omitted when no switch is pending."
           }
         }
       }

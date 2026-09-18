@@ -55,6 +55,15 @@ type StatusPatch struct {
 	ActivityAt        time.Time
 	FirmwareVersion   *string
 	FirmwareVersionAt time.Time
+	// Signal of the reported route. The observation's own time orders every
+	// member, like GNSS; a route change leaves the other route's last value
+	// in place rather than clearing it.
+	WifiRSSIDbm           *float64
+	WifiRSSIDbmAt         time.Time
+	CellularRSSIDbm       *float64
+	CellularRSSIDbmAt     time.Time
+	CellularSignalLevel   *float64
+	CellularSignalLevelAt time.Time
 }
 
 func (p StatusPatch) Empty() bool {
@@ -67,7 +76,10 @@ func (p StatusPatch) Empty() bool {
 		p.NetworkIMEI == nil &&
 		p.NetworkIMSI == nil &&
 		p.Activity == nil &&
-		p.FirmwareVersion == nil
+		p.FirmwareVersion == nil &&
+		p.WifiRSSIDbm == nil &&
+		p.CellularRSSIDbm == nil &&
+		p.CellularSignalLevel == nil
 }
 
 // networkIMEIPattern and networkIMSIPattern mirror the network_imei and
@@ -250,7 +262,7 @@ func mapNetwork(obs *telemetrypb.NetworkObservation, labels map[string]string, t
 	if obs.Connected != nil {
 		samples = append(samples, sample(MetricNetworkConnected, labels, ts, boolValue(*obs.Connected)))
 	}
-	patch := StatusPatch{}
+	patch := networkSignalPatch(obs, ts)
 	if obs.Imei == nil && obs.Imsi == nil {
 		return samples, patch, nil
 	}
@@ -275,6 +287,33 @@ func mapNetwork(obs *telemetrypb.NetworkObservation, labels map[string]string, t
 		patch.NetworkIMSIAt = ts
 	}
 	return samples, patch, nil
+}
+
+// networkSignalPatch projects the reported signal into the status of the route
+// it describes. An observation with no rat names no route, so its signal stays
+// a metric sample only; a Wi-Fi route carries no signal level in status because
+// levels are defined for cellular only. Values were already checked finite.
+func networkSignalPatch(obs *telemetrypb.NetworkObservation, ts time.Time) StatusPatch {
+	patch := StatusPatch{}
+	if obs.Rat == nil || strings.TrimSpace(*obs.Rat) == "" {
+		return patch
+	}
+	if strings.EqualFold(*obs.Rat, networkRATWifi) {
+		if obs.RssiDbm != nil {
+			value := *obs.RssiDbm
+			patch.WifiRSSIDbm, patch.WifiRSSIDbmAt, patch.ReportedAt = &value, ts, ts
+		}
+		return patch
+	}
+	if obs.RssiDbm != nil {
+		value := *obs.RssiDbm
+		patch.CellularRSSIDbm, patch.CellularRSSIDbmAt, patch.ReportedAt = &value, ts, ts
+	}
+	if obs.SignalLevel != nil {
+		value := *obs.SignalLevel
+		patch.CellularSignalLevel, patch.CellularSignalLevelAt, patch.ReportedAt = &value, ts, ts
+	}
+	return patch
 }
 
 // mapSystem projects the numeric system readings into samples and the reported
@@ -408,6 +447,18 @@ func mergeStatusPatch(dst *StatusPatch, src StatusPatch) {
 	if src.FirmwareVersion != nil && (dst.FirmwareVersion == nil || !src.FirmwareVersionAt.Before(dst.FirmwareVersionAt)) {
 		dst.FirmwareVersion = src.FirmwareVersion
 		dst.FirmwareVersionAt = src.FirmwareVersionAt
+	}
+	if src.WifiRSSIDbm != nil && (dst.WifiRSSIDbm == nil || !src.WifiRSSIDbmAt.Before(dst.WifiRSSIDbmAt)) {
+		dst.WifiRSSIDbm = src.WifiRSSIDbm
+		dst.WifiRSSIDbmAt = src.WifiRSSIDbmAt
+	}
+	if src.CellularRSSIDbm != nil && (dst.CellularRSSIDbm == nil || !src.CellularRSSIDbmAt.Before(dst.CellularRSSIDbmAt)) {
+		dst.CellularRSSIDbm = src.CellularRSSIDbm
+		dst.CellularRSSIDbmAt = src.CellularRSSIDbmAt
+	}
+	if src.CellularSignalLevel != nil && (dst.CellularSignalLevel == nil || !src.CellularSignalLevelAt.Before(dst.CellularSignalLevelAt)) {
+		dst.CellularSignalLevel = src.CellularSignalLevel
+		dst.CellularSignalLevelAt = src.CellularSignalLevelAt
 	}
 }
 
