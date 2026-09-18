@@ -101,6 +101,7 @@ class GizClawDeviceControlHandlers {
     this.getSettings,
     this.setSettings,
     this.factoryReset,
+    this.setRunWorkspace,
   });
 
   final GizClawAudioPlayerHandlers? audioplayer;
@@ -152,6 +153,15 @@ class GizClawDeviceControlHandlers {
   /// tears down networking or blocks first leaves the caller without the
   /// response the method promises. Schedule the reset and return.
   final FutureOr<void> Function(bool keepNetwork)? factoryReset;
+
+  /// Switches the Workspace the device runs for `client.run.workspace.set`.
+  /// The request names exactly one target, already validated:
+  /// `workspaceName`, or `collection` with `workflowName`.
+  ///
+  /// The acknowledgement only means the device accepted the request: complete
+  /// promptly, then switch through `server.run.workspace.reload-with-options`.
+  final FutureOr<void> Function(payload.ClientRunWorkspaceSetRequest request)?
+  setRunWorkspace;
 }
 
 class GizClawPeerRpcHandlers {
@@ -201,6 +211,7 @@ const _deviceControlMethods = {
   'client.device.settings.get',
   'client.device.settings.set',
   'client.device.factory_reset',
+  'client.run.workspace.set',
 };
 const _deviceControlMaxBytes = 32;
 
@@ -401,6 +412,7 @@ class _InboundPeerRpcChannel {
       case 'client.device.settings.get':
       case 'client.device.settings.set':
       case 'client.device.factory_reset':
+      case 'client.run.workspace.set':
       case 'client.rpc.methods.get':
       case 'client.social.ping':
         return;
@@ -586,6 +598,7 @@ class _InboundPeerRpcChannel {
       'client.device.settings.get': control?.getSettings,
       'client.device.settings.set': control?.setSettings,
       'client.device.factory_reset': control?.factoryReset,
+      'client.run.workspace.set': control?.setRunWorkspace,
       'client.firmware.update': control?.updateFirmware,
       'client.wifi.status.get': control?.wifiStatus,
       'client.wifi.saved.list': control?.savedWifi,
@@ -843,6 +856,17 @@ class _InboundPeerRpcChannel {
           request.id,
           methodName,
           payload.ClientDeviceFactoryResetResponse(),
+        );
+      case 'client.run.workspace.set':
+        final handler = handlers?.setRunWorkspace;
+        if (handler == null) return unsupported();
+        final target = params as payload.ClientRunWorkspaceSetRequest;
+        if (!_validRunWorkspaceRequest(target)) return invalid();
+        await handler(target);
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          payload.ClientRunWorkspaceSetResponse(),
         );
       case 'client.firmware.update':
         final handler = handlers?.updateFirmware;
@@ -1135,5 +1159,33 @@ bool _validDeviceSettingsPatch(payload.DeviceSettings patch) {
           payload.DeviceKeyFeedback.DEVICE_KEY_FEEDBACK_UNSPECIFIED) {
     return false;
   }
+  if (patch.hasAlertMode() &&
+      patch.alertMode ==
+          payload.DeviceAlertMode.DEVICE_ALERT_MODE_UNSPECIFIED) {
+    return false;
+  }
+  if (patch.hasAutoSleepTimeoutMs() && patch.autoSleepTimeoutMs < 0) {
+    return false;
+  }
   return true;
+}
+
+// Mirrors the ClientRunWorkspaceSetRequest name bound in
+// api/proto/rpc/nanopb.options.
+const _runWorkspaceTargetMaxBytes = 256;
+
+/// Accepts exactly one target: `workspaceName`, or `collection` together with
+/// `workflowName`.
+bool _validRunWorkspaceRequest(payload.ClientRunWorkspaceSetRequest request) {
+  bool name(bool present, String value) =>
+      present &&
+      value.isNotEmpty &&
+      utf8.encode(value).length <= _runWorkspaceTargetMaxBytes;
+  if (request.hasWorkspaceName()) {
+    return name(true, request.workspaceName) &&
+        !request.hasCollection() &&
+        !request.hasWorkflowName();
+  }
+  return name(request.hasCollection(), request.collection) &&
+      name(request.hasWorkflowName(), request.workflowName);
 }

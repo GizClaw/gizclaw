@@ -251,6 +251,8 @@ class DeviceRuntime {
     this.lastAddr,
     this.rxBytes,
     this.txBytes,
+    this.activeWorkspaceName,
+    this.pendingWorkspaceName,
   });
 
   factory DeviceRuntime.fromJson(Object? json) {
@@ -261,6 +263,11 @@ class DeviceRuntime {
       lastAddr: readOptionalString(object, 'last_addr'),
       rxBytes: readOptionalInt(object, 'rx_bytes'),
       txBytes: readOptionalInt(object, 'tx_bytes'),
+      activeWorkspaceName: readOptionalString(object, 'active_workspace_name'),
+      pendingWorkspaceName: readOptionalString(
+        object,
+        'pending_workspace_name',
+      ),
     );
   }
 
@@ -270,12 +277,21 @@ class DeviceRuntime {
   final int? rxBytes;
   final int? txBytes;
 
+  /// Workspace the device runs, as the Server recorded it; answers while the
+  /// device is offline.
+  final String? activeWorkspaceName;
+
+  /// Workspace a switch selected that the device has not committed yet.
+  final String? pendingWorkspaceName;
+
   JsonObject toJson() => withoutNulls({
     'online': online,
     'last_seen_at': encodeDateTime(lastSeenAt),
     'last_addr': lastAddr,
     'rx_bytes': rxBytes,
     'tx_bytes': txBytes,
+    'active_workspace_name': activeWorkspaceName,
+    'pending_workspace_name': pendingWorkspaceName,
   });
 }
 
@@ -300,6 +316,9 @@ class PeerStatus {
     this.firmwareVersion,
     this.activity,
     this.activityDetail,
+    this.wifiRssiDbm,
+    this.cellularRssiDbm,
+    this.cellularSignalLevel,
     this.labels = const {},
     this.raw = const {},
   });
@@ -323,6 +342,9 @@ class PeerStatus {
       firmwareVersion: readOptionalString(object, 'firmware_version'),
       activity: readOptionalString(object, 'activity'),
       activityDetail: readOptionalString(object, 'activity_detail'),
+      wifiRssiDbm: readOptionalDouble(object, 'wifi_rssi_dbm'),
+      cellularRssiDbm: readOptionalDouble(object, 'cellular_rssi_dbm'),
+      cellularSignalLevel: readOptionalDouble(object, 'cellular_signal_level'),
       labels: Map.unmodifiable(readStringMap(object, 'labels')),
       raw: Map.unmodifiable(object),
     );
@@ -354,6 +376,11 @@ class PeerStatus {
   /// human-readable [activityDetail]. Preserve unknown activity values.
   final String? activity;
   final String? activityDetail;
+
+  /// Latest signal per route from network telemetry.
+  final double? wifiRssiDbm;
+  final double? cellularRssiDbm;
+  final double? cellularSignalLevel;
   final Map<String, String> labels;
 
   /// Complete decoded response object, including unmodeled keys.
@@ -375,6 +402,9 @@ class PeerStatus {
     'firmware_version': firmwareVersion,
     'activity': activity,
     'activity_detail': activityDetail,
+    'wifi_rssi_dbm': wifiRssiDbm,
+    'cellular_rssi_dbm': cellularRssiDbm,
+    'cellular_signal_level': cellularSignalLevel,
     'labels': labels.isEmpty ? null : labels,
   });
 }
@@ -677,6 +707,212 @@ class DeviceRebootRequest {
   final int? delayMs;
 
   JsonObject toJson() => withoutNulls({'delay_ms': delayMs});
+}
+
+/// Device-owned settings (`DeviceSettings`).
+///
+/// Every member is optional. In a response a null member means the device
+/// does not support that option; in [GizClawControlClient.updateDeviceSettings]
+/// a null member leaves it unchanged. Enum members carry their wire strings so
+/// a value added later keeps decoding: [defaultInteractionMode] is
+/// `push-to-talk` or `realtime`; [keyFeedback] is `none`, `sound`, `vibrate`
+/// or `sound_and_vibrate`; [alertMode] is `silent`, `vibrate` or `ring`.
+///
+/// Product-specific configuration such as usage limits is a device Tool, see
+/// [GizClawControlClient.listDeviceTools]. Speech rate belongs to the
+/// Workspace parameters, not to the device.
+class DeviceSettings {
+  const DeviceSettings({
+    this.cellularEnabled,
+    this.screenOffTimeoutMs,
+    this.screenBrightness,
+    this.ledBrightness,
+    this.locale,
+    this.defaultInteractionMode,
+    this.keyFeedback,
+    this.alertMode,
+    this.autoSleepTimeoutMs,
+    this.nfcEnabled,
+  });
+
+  factory DeviceSettings.fromJson(Object? json) {
+    final object = asJsonObject(json, 'DeviceSettings');
+    return DeviceSettings(
+      cellularEnabled: readOptionalBool(object, 'cellular_enabled'),
+      screenOffTimeoutMs: readOptionalInt(object, 'screen_off_timeout_ms'),
+      screenBrightness: readOptionalInt(object, 'screen_brightness'),
+      ledBrightness: readOptionalInt(object, 'led_brightness'),
+      locale: readOptionalString(object, 'locale'),
+      defaultInteractionMode: readOptionalString(
+        object,
+        'default_interaction_mode',
+      ),
+      keyFeedback: readOptionalString(object, 'key_feedback'),
+      alertMode: readOptionalString(object, 'alert_mode'),
+      autoSleepTimeoutMs: readOptionalInt(object, 'auto_sleep_timeout_ms'),
+      nfcEnabled: readOptionalBool(object, 'nfc_enabled'),
+    );
+  }
+
+  final bool? cellularEnabled;
+
+  /// Idle time before the screen turns off; 0 keeps it on.
+  final int? screenOffTimeoutMs;
+
+  /// Percent, 0 to 100.
+  final int? screenBrightness;
+
+  /// Percent, 0 to 100.
+  final int? ledBrightness;
+
+  /// BCP 47 language tag such as `zh-CN`.
+  final String? locale;
+  final String? defaultInteractionMode;
+  final String? keyFeedback;
+  final String? alertMode;
+
+  /// Idle time before the device sleeps; 0 disables automatic sleep.
+  final int? autoSleepTimeoutMs;
+  final bool? nfcEnabled;
+
+  JsonObject toJson() => withoutNulls({
+    'cellular_enabled': cellularEnabled,
+    'screen_off_timeout_ms': screenOffTimeoutMs,
+    'screen_brightness': screenBrightness,
+    'led_brightness': ledBrightness,
+    'locale': locale,
+    'default_interaction_mode': defaultInteractionMode,
+    'key_feedback': keyFeedback,
+    'alert_mode': alertMode,
+    'auto_sleep_timeout_ms': autoSleepTimeoutMs,
+    'nfc_enabled': nfcEnabled,
+  });
+}
+
+/// Body of `PUT /gizclaw/v1/device/run/workspace`
+/// (`DeviceRunWorkspaceSetRequest`).
+///
+/// Names exactly one target: [DeviceRunWorkspaceRequest.workspace], or
+/// [DeviceRunWorkspaceRequest.workflow].
+class DeviceRunWorkspaceRequest {
+  const DeviceRunWorkspaceRequest._({
+    this.workspaceName,
+    this.collection,
+    this.workflowName,
+    this.kickoff,
+  });
+
+  /// Runs the existing Workspace [workspaceName].
+  const DeviceRunWorkspaceRequest.workspace(
+    String workspaceName, {
+    bool? kickoff,
+  }) : this._(workspaceName: workspaceName, kickoff: kickoff);
+
+  /// Runs the RuntimeProfile workflow [workflowName] of [collection].
+  const DeviceRunWorkspaceRequest.workflow(
+    String collection,
+    String workflowName, {
+    bool? kickoff,
+  }) : this._(
+         collection: collection,
+         workflowName: workflowName,
+         kickoff: kickoff,
+       );
+
+  final String? workspaceName;
+  final String? collection;
+  final String? workflowName;
+
+  /// Let the agent speak first once the Workspace is ready; false when null.
+  final bool? kickoff;
+
+  JsonObject toJson() => withoutNulls({
+    'workspace_name': workspaceName,
+    'collection': collection,
+    'workflow_name': workflowName,
+    'kickoff': kickoff,
+  });
+}
+
+/// Display text of a [DeviceTool] in one locale (`DeviceToolI18nText`).
+class DeviceToolI18nText {
+  const DeviceToolI18nText({required this.displayName, this.description});
+
+  factory DeviceToolI18nText.fromJson(Object? json) {
+    final object = asJsonObject(json, 'DeviceToolI18nText');
+    return DeviceToolI18nText(
+      displayName: readString(object, 'display_name'),
+      description: readOptionalString(object, 'description'),
+    );
+  }
+
+  final String displayName;
+  final String? description;
+
+  JsonObject toJson() =>
+      withoutNulls({'display_name': displayName, 'description': description});
+}
+
+/// One Tool the control app may invoke on the device (`DeviceTool`).
+class DeviceTool {
+  const DeviceTool({
+    required this.name,
+    required this.controlAccess,
+    this.i18n = const {},
+    this.inputSchema = const {},
+  });
+
+  factory DeviceTool.fromJson(Object? json) {
+    final object = asJsonObject(json, 'DeviceTool');
+    final i18n = readOptionalObject(object, 'i18n') ?? const {};
+    return DeviceTool(
+      name: readString(object, 'name'),
+      controlAccess: readString(object, 'control_access'),
+      i18n: Map.unmodifiable(
+        i18n.map(
+          (locale, text) => MapEntry(locale, DeviceToolI18nText.fromJson(text)),
+        ),
+      ),
+      inputSchema: Map.unmodifiable(
+        readOptionalObject(object, 'input_schema') ?? const {},
+      ),
+    );
+  }
+
+  /// Path parameter of [GizClawControlClient.invokeDeviceTool].
+  final String name;
+
+  /// Authorization the Tool's binding requires, such as `owner`.
+  final String controlAccess;
+  final Map<String, DeviceToolI18nText> i18n;
+
+  /// JSON Schema the invoke arguments must satisfy.
+  final Map<String, Object?> inputSchema;
+
+  JsonObject toJson() => {
+    'name': name,
+    'control_access': controlAccess,
+    'i18n': i18n.map((locale, text) => MapEntry(locale, text.toJson())),
+    'input_schema': inputSchema,
+  };
+}
+
+/// Response of `GET /gizclaw/v1/device/tools` (`DeviceToolList`).
+class DeviceToolList {
+  const DeviceToolList({required this.items});
+
+  factory DeviceToolList.fromJson(Object? json) {
+    final object = asJsonObject(json, 'DeviceToolList');
+    return DeviceToolList(
+      items: readList(object, 'items', DeviceTool.fromJson),
+    );
+  }
+
+  final List<DeviceTool> items;
+
+  JsonObject toJson() => {
+    'items': items.map((item) => item.toJson()).toList(growable: false),
+  };
 }
 
 /// Firmware channel name (`FirmwareChannelName`).

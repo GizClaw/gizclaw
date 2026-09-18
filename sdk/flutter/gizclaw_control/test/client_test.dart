@@ -1525,4 +1525,106 @@ void main() {
       expect(PeerTelemetryField.values, contains('system.temperature_c'));
     });
   });
+
+  group('device settings, Workspace switch and Tools', () {
+    test('settings round trip and patch only present members', () async {
+      final recorder = Recorder([
+        json(200, {'screen_brightness': 40, 'alert_mode': 'ring'}),
+        json(200, {'screen_brightness': 40, 'alert_mode': 'silent'}),
+      ]);
+      final client = clientWith(recorder);
+      final settings = await client.getDeviceSettings();
+      expect(settings.alertMode, 'ring');
+      expect(settings.nfcEnabled, isNull);
+      final updated = await client.updateDeviceSettings(
+        const DeviceSettings(alertMode: 'silent', autoSleepTimeoutMs: 0),
+      );
+      expect(updated.alertMode, 'silent');
+      expect(recorder.requests[1].method, 'PATCH');
+      expect(jsonDecode(recorder.requests[1].body), {
+        'alert_mode': 'silent',
+        'auto_sleep_timeout_ms': 0,
+      });
+    });
+
+    test('factory reset, capability list and Workspace switch', () async {
+      final recorder = Recorder([
+        noContent(),
+        json(200, {
+          'methods': ['client.run.workspace.set'],
+        }),
+        accepted(),
+      ]);
+      final client = clientWith(recorder);
+      await client.factoryResetDevice(keepNetwork: true);
+      expect(await client.listDeviceRpcMethods(), ['client.run.workspace.set']);
+      await client.setDeviceRunWorkspace(
+        const DeviceRunWorkspaceRequest.workflow(
+          'stories',
+          'bedtime',
+          kickoff: true,
+        ),
+      );
+      expect(
+        recorder.requests[0].url.path,
+        '/gizclaw/v1/device/actions/factory-reset',
+      );
+      expect(jsonDecode(recorder.requests[0].body), {'keep_network': true});
+      expect(recorder.requests[2].method, 'PUT');
+      expect(recorder.requests[2].url.path, '/gizclaw/v1/device/run/workspace');
+      expect(jsonDecode(recorder.requests[2].body), {
+        'collection': 'stories',
+        'workflow_name': 'bedtime',
+        'kickoff': true,
+      });
+    });
+
+    test('runtime carries the active and pending Workspace', () {
+      final runtime = DeviceRuntime.fromJson({
+        'online': true,
+        'last_seen_at': '2026-09-18T00:00:00Z',
+        'active_workspace_name': 'chat',
+        'pending_workspace_name': 'bedtime',
+      });
+      expect(runtime.activeWorkspaceName, 'chat');
+      expect(runtime.pendingWorkspaceName, 'bedtime');
+    });
+
+    test('list and invoke control-app Tools', () async {
+      final recorder = Recorder([
+        json(200, {
+          'items': [
+            {
+              'name': 'usage limit',
+              'control_access': 'owner',
+              'i18n': {
+                'en': {'display_name': 'Usage limit'},
+              },
+              'input_schema': {'type': 'object'},
+            },
+          ],
+        }),
+        json(200, {'data_json': '{"ok":true}'}),
+        error(404, 'TOOL_NOT_FOUND', message: 'tool not found'),
+      ]);
+      final client = clientWith(recorder);
+      final tools = await client.listDeviceTools();
+      expect(tools.items.single.i18n['en']?.displayName, 'Usage limit');
+      expect(tools.items.single.inputSchema['type'], 'object');
+      final data = await client.invokeDeviceTool(
+        'usage limit',
+        args: {'minutes': 30},
+      );
+      expect(jsonDecode(data), {'ok': true});
+      expect(
+        recorder.requests[1].url.path,
+        '/gizclaw/v1/device/tools/usage%20limit/actions/invoke',
+      );
+      expect(jsonDecode(recorder.requests[1].body), {
+        'args': {'minutes': 30},
+      });
+      final exception = await failure(client.invokeDeviceTool('hidden'));
+      expect(exception.kind, GizClawControlErrorKind.notFound);
+    });
+  });
 }

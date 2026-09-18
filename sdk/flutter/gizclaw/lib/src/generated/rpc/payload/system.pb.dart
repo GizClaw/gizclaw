@@ -572,6 +572,9 @@ class DeviceSettings extends $pb.GeneratedMessage {
     $core.String? locale,
     $1.DeviceInteractionMode? defaultInteractionMode,
     $1.DeviceKeyFeedback? keyFeedback,
+    $1.DeviceAlertMode? alertMode,
+    $fixnum.Int64? autoSleepTimeoutMs,
+    $core.bool? nfcEnabled,
   }) {
     final result = create();
     if (cellularEnabled != null) result.cellularEnabled = cellularEnabled;
@@ -583,6 +586,10 @@ class DeviceSettings extends $pb.GeneratedMessage {
     if (defaultInteractionMode != null)
       result.defaultInteractionMode = defaultInteractionMode;
     if (keyFeedback != null) result.keyFeedback = keyFeedback;
+    if (alertMode != null) result.alertMode = alertMode;
+    if (autoSleepTimeoutMs != null)
+      result.autoSleepTimeoutMs = autoSleepTimeoutMs;
+    if (nfcEnabled != null) result.nfcEnabled = nfcEnabled;
     return result;
   }
 
@@ -609,6 +616,10 @@ class DeviceSettings extends $pb.GeneratedMessage {
         enumValues: $1.DeviceInteractionMode.values)
     ..aE<$1.DeviceKeyFeedback>(7, _omitFieldNames ? '' : 'keyFeedback',
         enumValues: $1.DeviceKeyFeedback.values)
+    ..aE<$1.DeviceAlertMode>(8, _omitFieldNames ? '' : 'alertMode',
+        enumValues: $1.DeviceAlertMode.values)
+    ..aInt64(9, _omitFieldNames ? '' : 'autoSleepTimeoutMs')
+    ..aOB(10, _omitFieldNames ? '' : 'nfcEnabled')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -702,6 +713,35 @@ class DeviceSettings extends $pb.GeneratedMessage {
   $core.bool hasKeyFeedback() => $_has(6);
   @$pb.TagNumber(7)
   void clearKeyFeedback() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $1.DeviceAlertMode get alertMode => $_getN(7);
+  @$pb.TagNumber(8)
+  set alertMode($1.DeviceAlertMode value) => $_setField(8, value);
+  @$pb.TagNumber(8)
+  $core.bool hasAlertMode() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearAlertMode() => $_clearField(8);
+
+  /// Idle time before the device sleeps; 0 disables automatic sleep.
+  @$pb.TagNumber(9)
+  $fixnum.Int64 get autoSleepTimeoutMs => $_getI64(8);
+  @$pb.TagNumber(9)
+  set autoSleepTimeoutMs($fixnum.Int64 value) => $_setInt64(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasAutoSleepTimeoutMs() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearAutoSleepTimeoutMs() => $_clearField(9);
+
+  /// Whether the NFC reader is powered.
+  @$pb.TagNumber(10)
+  $core.bool get nfcEnabled => $_getBF(9);
+  @$pb.TagNumber(10)
+  set nfcEnabled($core.bool value) => $_setBool(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasNfcEnabled() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearNfcEnabled() => $_clearField(10);
 }
 
 class ClientDeviceSettingsGetRequest extends $pb.GeneratedMessage {
@@ -1033,6 +1073,148 @@ class ClientDeviceFactoryResetResponse extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<ClientDeviceFactoryResetResponse>(
           create);
   static ClientDeviceFactoryResetResponse? _defaultInstance;
+}
+
+/// ClientRunWorkspaceSetRequest asks the device to switch its running Workspace.
+/// Exactly one target is set: workspace_name names an existing Workspace, or
+/// collection with workflow_name names a RuntimeProfile workflow the device
+/// runs in its Workspace for that workflow. The device answers once it has
+/// accepted the request, then switches through
+/// server.run.workspace.reload-with-options; the committed result is the
+/// Workspace the Server reports, not this response.
+class ClientRunWorkspaceSetRequest extends $pb.GeneratedMessage {
+  factory ClientRunWorkspaceSetRequest({
+    $core.String? workspaceName,
+    $core.String? collection,
+    $core.String? workflowName,
+    $core.bool? kickoff,
+  }) {
+    final result = create();
+    if (workspaceName != null) result.workspaceName = workspaceName;
+    if (collection != null) result.collection = collection;
+    if (workflowName != null) result.workflowName = workflowName;
+    if (kickoff != null) result.kickoff = kickoff;
+    return result;
+  }
+
+  ClientRunWorkspaceSetRequest._();
+
+  factory ClientRunWorkspaceSetRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientRunWorkspaceSetRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientRunWorkspaceSetRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'workspaceName')
+    ..aOS(2, _omitFieldNames ? '' : 'collection')
+    ..aOS(3, _omitFieldNames ? '' : 'workflowName')
+    ..aOB(4, _omitFieldNames ? '' : 'kickoff')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientRunWorkspaceSetRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientRunWorkspaceSetRequest copyWith(
+          void Function(ClientRunWorkspaceSetRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientRunWorkspaceSetRequest))
+          as ClientRunWorkspaceSetRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientRunWorkspaceSetRequest create() =>
+      ClientRunWorkspaceSetRequest._();
+  @$core.override
+  ClientRunWorkspaceSetRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientRunWorkspaceSetRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientRunWorkspaceSetRequest>(create);
+  static ClientRunWorkspaceSetRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get workspaceName => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set workspaceName($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasWorkspaceName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearWorkspaceName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get collection => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set collection($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCollection() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCollection() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get workflowName => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set workflowName($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasWorkflowName() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearWorkflowName() => $_clearField(3);
+
+  /// Let the agent speak first once the Workspace is ready. Defaults to false.
+  @$pb.TagNumber(4)
+  $core.bool get kickoff => $_getBF(3);
+  @$pb.TagNumber(4)
+  set kickoff($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasKickoff() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearKickoff() => $_clearField(4);
+}
+
+class ClientRunWorkspaceSetResponse extends $pb.GeneratedMessage {
+  factory ClientRunWorkspaceSetResponse() => create();
+
+  ClientRunWorkspaceSetResponse._();
+
+  factory ClientRunWorkspaceSetResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientRunWorkspaceSetResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientRunWorkspaceSetResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientRunWorkspaceSetResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientRunWorkspaceSetResponse copyWith(
+          void Function(ClientRunWorkspaceSetResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientRunWorkspaceSetResponse))
+          as ClientRunWorkspaceSetResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientRunWorkspaceSetResponse create() =>
+      ClientRunWorkspaceSetResponse._();
+  @$core.override
+  ClientRunWorkspaceSetResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientRunWorkspaceSetResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientRunWorkspaceSetResponse>(create);
+  static ClientRunWorkspaceSetResponse? _defaultInstance;
 }
 
 class ClientRpcMethodsGetRequest extends $pb.GeneratedMessage {
@@ -2677,6 +2859,9 @@ class PeerStatus extends $pb.GeneratedMessage {
     $core.String? activity,
     $core.String? activityDetail,
     $core.String? firmwareVersion,
+    $core.double? wifiRssiDbm,
+    $core.double? cellularRssiDbm,
+    $core.double? cellularSignalLevel,
   }) {
     final result = create();
     if (batteryPercent != null) result.batteryPercent = batteryPercent;
@@ -2699,6 +2884,10 @@ class PeerStatus extends $pb.GeneratedMessage {
     if (activity != null) result.activity = activity;
     if (activityDetail != null) result.activityDetail = activityDetail;
     if (firmwareVersion != null) result.firmwareVersion = firmwareVersion;
+    if (wifiRssiDbm != null) result.wifiRssiDbm = wifiRssiDbm;
+    if (cellularRssiDbm != null) result.cellularRssiDbm = cellularRssiDbm;
+    if (cellularSignalLevel != null)
+      result.cellularSignalLevel = cellularSignalLevel;
     return result;
   }
 
@@ -2742,6 +2931,9 @@ class PeerStatus extends $pb.GeneratedMessage {
     ..aOS(18, _omitFieldNames ? '' : 'activity')
     ..aOS(19, _omitFieldNames ? '' : 'activityDetail')
     ..aOS(20, _omitFieldNames ? '' : 'firmwareVersion')
+    ..aD(21, _omitFieldNames ? '' : 'wifiRssiDbm')
+    ..aD(22, _omitFieldNames ? '' : 'cellularRssiDbm')
+    ..aD(23, _omitFieldNames ? '' : 'cellularSignalLevel')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2938,6 +3130,37 @@ class PeerStatus extends $pb.GeneratedMessage {
   $core.bool hasFirmwareVersion() => $_has(18);
   @$pb.TagNumber(20)
   void clearFirmwareVersion() => $_clearField(20);
+
+  /// Latest signal per route, from network telemetry: an observation whose rat
+  /// is wifi sets the Wi-Fi RSSI, any other rat sets the cellular RSSI and the
+  /// device-defined cellular signal level. One without rat names no route and
+  /// stays a metric only.
+  @$pb.TagNumber(21)
+  $core.double get wifiRssiDbm => $_getN(19);
+  @$pb.TagNumber(21)
+  set wifiRssiDbm($core.double value) => $_setDouble(19, value);
+  @$pb.TagNumber(21)
+  $core.bool hasWifiRssiDbm() => $_has(19);
+  @$pb.TagNumber(21)
+  void clearWifiRssiDbm() => $_clearField(21);
+
+  @$pb.TagNumber(22)
+  $core.double get cellularRssiDbm => $_getN(20);
+  @$pb.TagNumber(22)
+  set cellularRssiDbm($core.double value) => $_setDouble(20, value);
+  @$pb.TagNumber(22)
+  $core.bool hasCellularRssiDbm() => $_has(20);
+  @$pb.TagNumber(22)
+  void clearCellularRssiDbm() => $_clearField(22);
+
+  @$pb.TagNumber(23)
+  $core.double get cellularSignalLevel => $_getN(21);
+  @$pb.TagNumber(23)
+  set cellularSignalLevel($core.double value) => $_setDouble(21, value);
+  @$pb.TagNumber(23)
+  $core.bool hasCellularSignalLevel() => $_has(21);
+  @$pb.TagNumber(23)
+  void clearCellularSignalLevel() => $_clearField(23);
 }
 
 /// PeerStatusTelemetryObservedAt records when the device observed the value now
@@ -2956,6 +3179,9 @@ class PeerStatusTelemetryObservedAt extends $pb.GeneratedMessage {
     $core.String? networkImsi,
     $core.String? activity,
     $core.String? firmwareVersion,
+    $core.String? wifiRssiDbm,
+    $core.String? cellularRssiDbm,
+    $core.String? cellularSignalLevel,
   }) {
     final result = create();
     if (batteryPercent != null) result.batteryPercent = batteryPercent;
@@ -2968,6 +3194,10 @@ class PeerStatusTelemetryObservedAt extends $pb.GeneratedMessage {
     if (networkImsi != null) result.networkImsi = networkImsi;
     if (activity != null) result.activity = activity;
     if (firmwareVersion != null) result.firmwareVersion = firmwareVersion;
+    if (wifiRssiDbm != null) result.wifiRssiDbm = wifiRssiDbm;
+    if (cellularRssiDbm != null) result.cellularRssiDbm = cellularRssiDbm;
+    if (cellularSignalLevel != null)
+      result.cellularSignalLevel = cellularSignalLevel;
     return result;
   }
 
@@ -2994,6 +3224,9 @@ class PeerStatusTelemetryObservedAt extends $pb.GeneratedMessage {
     ..aOS(8, _omitFieldNames ? '' : 'networkImsi')
     ..aOS(9, _omitFieldNames ? '' : 'activity')
     ..aOS(10, _omitFieldNames ? '' : 'firmwareVersion')
+    ..aOS(11, _omitFieldNames ? '' : 'wifiRssiDbm')
+    ..aOS(12, _omitFieldNames ? '' : 'cellularRssiDbm')
+    ..aOS(13, _omitFieldNames ? '' : 'cellularSignalLevel')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3107,6 +3340,33 @@ class PeerStatusTelemetryObservedAt extends $pb.GeneratedMessage {
   $core.bool hasFirmwareVersion() => $_has(9);
   @$pb.TagNumber(10)
   void clearFirmwareVersion() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.String get wifiRssiDbm => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set wifiRssiDbm($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasWifiRssiDbm() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearWifiRssiDbm() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.String get cellularRssiDbm => $_getSZ(11);
+  @$pb.TagNumber(12)
+  set cellularRssiDbm($core.String value) => $_setString(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasCellularRssiDbm() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearCellularRssiDbm() => $_clearField(12);
+
+  @$pb.TagNumber(13)
+  $core.String get cellularSignalLevel => $_getSZ(12);
+  @$pb.TagNumber(13)
+  set cellularSignalLevel($core.String value) => $_setString(12, value);
+  @$pb.TagNumber(13)
+  $core.bool hasCellularSignalLevel() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearCellularSignalLevel() => $_clearField(13);
 }
 
 class PingRequest extends $pb.GeneratedMessage {
@@ -4181,6 +4441,8 @@ class Runtime extends $pb.GeneratedMessage {
     $fixnum.Int64? rxBytes,
     $fixnum.Int64? txBytes,
     $core.String? debugMode,
+    $core.String? activeWorkspaceName,
+    $core.String? pendingWorkspaceName,
   }) {
     final result = create();
     if (lastAddr != null) result.lastAddr = lastAddr;
@@ -4189,6 +4451,10 @@ class Runtime extends $pb.GeneratedMessage {
     if (rxBytes != null) result.rxBytes = rxBytes;
     if (txBytes != null) result.txBytes = txBytes;
     if (debugMode != null) result.debugMode = debugMode;
+    if (activeWorkspaceName != null)
+      result.activeWorkspaceName = activeWorkspaceName;
+    if (pendingWorkspaceName != null)
+      result.pendingWorkspaceName = pendingWorkspaceName;
     return result;
   }
 
@@ -4213,6 +4479,8 @@ class Runtime extends $pb.GeneratedMessage {
     ..a<$fixnum.Int64>(5, _omitFieldNames ? '' : 'txBytes', $pb.PbFieldType.OU6,
         defaultOrMaker: $fixnum.Int64.ZERO)
     ..aOS(6, _omitFieldNames ? '' : 'debugMode')
+    ..aOS(7, _omitFieldNames ? '' : 'activeWorkspaceName')
+    ..aOS(8, _omitFieldNames ? '' : 'pendingWorkspaceName')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4286,6 +4554,24 @@ class Runtime extends $pb.GeneratedMessage {
   $core.bool hasDebugMode() => $_has(5);
   @$pb.TagNumber(6)
   void clearDebugMode() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get activeWorkspaceName => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set activeWorkspaceName($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasActiveWorkspaceName() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearActiveWorkspaceName() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get pendingWorkspaceName => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set pendingWorkspaceName($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasPendingWorkspaceName() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearPendingWorkspaceName() => $_clearField(8);
 }
 
 class ServerGetInfoRequest extends $pb.GeneratedMessage {

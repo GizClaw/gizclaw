@@ -595,3 +595,20 @@ final $typed_data.Uint8List deviceKeyFeedbackDescriptor = $convert.base64Decode(
     'ASHAoYREVWSUNFX0tFWV9GRUVEQkFDS19OT05FEAESHQoZREVWSUNFX0tFWV9GRUVEQkFDS19T'
     'T1VORBACEh8KG0RFVklDRV9LRVlfRkVFREJBQ0tfVklCUkFURRADEikKJURFVklDRV9LRVlfRk'
     'VFREJBQ0tfU09VTkRfQU5EX1ZJQlJBVEUQBA==');
+
+@$core.Deprecated('Use deviceAlertModeDescriptor instead')
+const DeviceAlertMode$json = {
+  '1': 'DeviceAlertMode',
+  '2': [
+    {'1': 'DEVICE_ALERT_MODE_UNSPECIFIED', '2': 0},
+    {'1': 'DEVICE_ALERT_MODE_SILENT', '2': 1},
+    {'1': 'DEVICE_ALERT_MODE_VIBRATE', '2': 2},
+    {'1': 'DEVICE_ALERT_MODE_RING', '2': 3},
+  ],
+};
+
+/// Descriptor for `DeviceAlertMode`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List deviceAlertModeDescriptor = $convert.base64Decode(
+    'Cg9EZXZpY2VBbGVydE1vZGUSIQodREVWSUNFX0FMRVJUX01PREVfVU5TUEVDSUZJRUQQABIcCh'
+    'hERVZJQ0VfQUxFUlRfTU9ERV9TSUxFTlQQARIdChlERVZJQ0VfQUxFUlRfTU9ERV9WSUJSQVRF'
+    'EAISGgoWREVWSUNFX0FMRVJUX01PREVfUklORxAD');

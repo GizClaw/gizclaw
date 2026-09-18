@@ -951,6 +951,10 @@ void deviceControlTests() {
           defaultInteractionMode:
               DeviceInteractionMode.DEVICE_INTERACTION_MODE_UNSPECIFIED,
         ),
+        DeviceSettings(
+          alertMode: DeviceAlertMode.DEVICE_ALERT_MODE_UNSPECIFIED,
+        ),
+        DeviceSettings(autoSleepTimeoutMs: Int64(-1)),
       ]) {
         response = await callDevice(
           handlers,
@@ -1025,5 +1029,47 @@ void deviceControlTests() {
           .methods,
       ['client.info.get', 'client.identifiers.get', 'client.rpc.methods.get'],
     );
+  });
+
+  test('serves client.run.workspace.set for exactly one target', () async {
+    final seen = <ClientRunWorkspaceSetRequest>[];
+    final handlers = GizClawPeerRpcHandlers(
+      deviceInfo: () => device,
+      deviceControl: GizClawDeviceControlHandlers(setRunWorkspace: seen.add),
+    );
+    var response = await callDevice(
+      handlers,
+      id: 'run-workflow',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_RUN_WORKSPACE_SET,
+      methodName: 'client.run.workspace.set',
+      request: ClientRunWorkspaceSetRequest(
+        collection: 'stories',
+        workflowName: 'bedtime',
+        kickoff: true,
+      ),
+    );
+    expect(response.hasStatus(), isFalse);
+    for (final bad in [
+      ClientRunWorkspaceSetRequest(),
+      ClientRunWorkspaceSetRequest(workspaceName: 'chat', collection: 's'),
+      ClientRunWorkspaceSetRequest(collection: 'stories'),
+      ClientRunWorkspaceSetRequest(workspaceName: ''),
+    ]) {
+      response = await callDevice(
+        handlers,
+        id: 'run-bad',
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_RUN_WORKSPACE_SET,
+        methodName: 'client.run.workspace.set',
+        request: bad,
+      );
+      expect(
+        response.status.code,
+        rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
+        reason: '$bad',
+      );
+    }
+    expect(seen, hasLength(1));
+    expect(seen.single.workflowName, 'bedtime');
+    expect(seen.single.kickoff, isTrue);
   });
 }

@@ -621,6 +621,12 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ClientRpcMethodsGetRequest',
     responseType: 'ClientRpcMethodsGetResponse',
   ),
+  'client.run.workspace.set': RpcMethodDescriptor(
+    id: 132,
+    name: 'client.run.workspace.set',
+    requestType: 'ClientRunWorkspaceSetRequest',
+    responseType: 'ClientRunWorkspaceSetResponse',
+  ),
   'server.app_config.list': RpcMethodDescriptor(
     id: 121,
     name: 'server.app_config.list',
@@ -767,6 +773,7 @@ const rpcMethodNamesById = <int, String>{
   129: 'client.device.settings.set',
   130: 'client.device.factory_reset',
   131: 'client.rpc.methods.get',
+  132: 'client.run.workspace.set',
   121: 'server.app_config.list',
   122: 'server.app_config.get',
   123: 'server.friend.ping',

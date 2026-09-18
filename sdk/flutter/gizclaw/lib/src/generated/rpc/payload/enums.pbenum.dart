@@ -989,5 +989,33 @@ class DeviceKeyFeedback extends $pb.ProtobufEnum {
   const DeviceKeyFeedback._(super.value, super.name);
 }
 
+/// DeviceAlertMode is how a device alerts the user to an incoming event such as a
+/// call or a notification. Readers must preserve unknown future values.
+class DeviceAlertMode extends $pb.ProtobufEnum {
+  static const DeviceAlertMode DEVICE_ALERT_MODE_UNSPECIFIED =
+      DeviceAlertMode._(
+          0, _omitEnumNames ? '' : 'DEVICE_ALERT_MODE_UNSPECIFIED');
+  static const DeviceAlertMode DEVICE_ALERT_MODE_SILENT =
+      DeviceAlertMode._(1, _omitEnumNames ? '' : 'DEVICE_ALERT_MODE_SILENT');
+  static const DeviceAlertMode DEVICE_ALERT_MODE_VIBRATE =
+      DeviceAlertMode._(2, _omitEnumNames ? '' : 'DEVICE_ALERT_MODE_VIBRATE');
+  static const DeviceAlertMode DEVICE_ALERT_MODE_RING =
+      DeviceAlertMode._(3, _omitEnumNames ? '' : 'DEVICE_ALERT_MODE_RING');
+
+  static const $core.List<DeviceAlertMode> values = <DeviceAlertMode>[
+    DEVICE_ALERT_MODE_UNSPECIFIED,
+    DEVICE_ALERT_MODE_SILENT,
+    DEVICE_ALERT_MODE_VIBRATE,
+    DEVICE_ALERT_MODE_RING,
+  ];
+
+  static final $core.List<DeviceAlertMode?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 3);
+  static DeviceAlertMode? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const DeviceAlertMode._(super.value, super.name);
+}
+
 const $core.bool _omitEnumNames =
     $core.bool.fromEnvironment('protobuf.omit_enum_names');
