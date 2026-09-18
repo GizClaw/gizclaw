@@ -757,3 +757,85 @@ test("audioplayer routes preserve playlist order and explicit zero index", async
   assert.deepEqual(JSON.parse(h.seen[3]!.body), { items });
   assert.deepEqual(JSON.parse(h.seen[4]!.body), { index: 0 });
 });
+
+test("device settings, reset, capabilities and Workspace switch", async () => {
+  const h = harness([
+    json(200, { screen_brightness: 40, alert_mode: "ring" }),
+    json(200, { screen_brightness: 40, alert_mode: "silent" }),
+    noContent(),
+    json(200, { methods: ["client.run.workspace.set"] }),
+    accepted(),
+  ]);
+  const settings = await h.client.device.getSettings();
+  assert.equal(settings.alert_mode, "ring");
+  const updated = await h.client.device.updateSettings({
+    alert_mode: "silent",
+    nfc_enabled: false,
+  });
+  assert.equal(updated.alert_mode, "silent");
+  await h.client.device.factoryReset({ keep_network: true });
+  const methods = await h.client.device.listRpcMethods();
+  await h.client.device.setRunWorkspace({
+    collection: "stories",
+    workflow_name: "bedtime",
+    kickoff: true,
+  });
+
+  assert.equal(h.seen[0]!.url.pathname, "/gizclaw/v1/device/settings");
+  assert.equal(h.seen[1]!.method, "PATCH");
+  assert.deepEqual(JSON.parse(h.seen[1]!.body), {
+    alert_mode: "silent",
+    nfc_enabled: false,
+  });
+  assert.equal(
+    h.seen[2]!.url.pathname,
+    "/gizclaw/v1/device/actions/factory-reset",
+  );
+  assert.deepEqual(JSON.parse(h.seen[2]!.body), { keep_network: true });
+  assert.deepEqual(methods.methods, ["client.run.workspace.set"]);
+  assert.equal(h.seen[4]!.method, "PUT");
+  assert.equal(h.seen[4]!.url.pathname, "/gizclaw/v1/device/run/workspace");
+  assert.deepEqual(JSON.parse(h.seen[4]!.body), {
+    collection: "stories",
+    workflow_name: "bedtime",
+    kickoff: true,
+  });
+});
+
+test("device tools: list and invoke", async () => {
+  const h = harness([
+    json(200, {
+      items: [
+        {
+          name: "usage limit",
+          control_access: "owner",
+          i18n: { en: { display_name: "Usage limit" } },
+          input_schema: { type: "object" },
+        },
+      ],
+    }),
+    json(200, { data_json: '{"ok":true}' }),
+    errorResponse(404, "TOOL_NOT_FOUND", "tool not found"),
+  ]);
+  const tools = await h.client.device.listTools();
+  assert.equal(tools.items[0]!.control_access, "owner");
+  const result = await h.client.device.invokeTool("usage limit", {
+    args: { minutes: 30 },
+  });
+  assert.equal(JSON.parse(result.data_json).ok, true);
+  assert.equal(h.seen[0]!.url.pathname, "/gizclaw/v1/device/tools");
+  assert.equal(
+    h.seen[1]!.url.pathname,
+    "/gizclaw/v1/device/tools/usage%20limit/actions/invoke",
+  );
+  assert.deepEqual(JSON.parse(h.seen[1]!.body), { args: { minutes: 30 } });
+  await assert.rejects(
+    h.client.device.invokeTool("hidden"),
+    (error: unknown) => {
+      assert.ok(error instanceof GizClawControlError);
+      assert.equal(error.kind, "notFound");
+      return true;
+    },
+  );
+  await assert.rejects(h.client.device.invokeTool(""), TypeError);
+});

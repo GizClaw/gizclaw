@@ -176,3 +176,75 @@ func (c *rpcClient) ConnectWifi(ctx context.Context, conn net.Conn, id string, r
 	}
 	return result, nil
 }
+
+func (c *rpcClient) GetDeviceSettings(ctx context.Context, conn net.Conn, id string) (*rpcapi.ClientDeviceSettingsGetResponse, error) {
+	params, err := newRPCRequestParams(rpcapi.ClientDeviceSettingsGetRequest{}, (*rpcapi.RPCPayload).FromClientDeviceSettingsGetRequest)
+	if err != nil {
+		return nil, err
+	}
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientDeviceSettingsGet, params), rpcapi.RPCPayload.AsClientDeviceSettingsGetResponse)
+	if err != nil {
+		return nil, wrapRPCResultError("device settings get", err)
+	}
+	return result, nil
+}
+
+func (c *rpcClient) SetDeviceSettings(ctx context.Context, conn net.Conn, id string, request rpcapi.ClientDeviceSettingsSetRequest) (*rpcapi.ClientDeviceSettingsSetResponse, error) {
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromClientDeviceSettingsSetRequest)
+	if err != nil {
+		return nil, err
+	}
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientDeviceSettingsSet, params), rpcapi.RPCPayload.AsClientDeviceSettingsSetResponse)
+	if err != nil {
+		return nil, wrapRPCResultError("device settings set", err)
+	}
+	return result, nil
+}
+
+func (c *rpcClient) FactoryResetDevice(ctx context.Context, conn net.Conn, id string, request rpcapi.ClientDeviceFactoryResetRequest) (*rpcapi.ClientDeviceFactoryResetResponse, error) {
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromClientDeviceFactoryResetRequest)
+	if err != nil {
+		return nil, err
+	}
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientDeviceFactoryReset, params), rpcapi.RPCPayload.AsClientDeviceFactoryResetResponse)
+	if err != nil {
+		return nil, wrapRPCResultError("device factory reset", err)
+	}
+	return result, nil
+}
+
+func (c *rpcClient) GetRPCMethods(ctx context.Context, conn net.Conn, id string) (*rpcapi.ClientRPCMethodsGetResponse, error) {
+	params, err := newRPCRequestParams(rpcapi.ClientRPCMethodsGetRequest{}, (*rpcapi.RPCPayload).FromClientRPCMethodsGetRequest)
+	if err != nil {
+		return nil, err
+	}
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientRPCMethodsGet, params), rpcapi.RPCPayload.AsClientRPCMethodsGetResponse)
+	if err != nil {
+		return nil, wrapRPCResultError("rpc methods get", err)
+	}
+	return result, nil
+}
+
+func (c *rpcClient) SetRunWorkspace(ctx context.Context, conn net.Conn, id string, request rpcapi.ClientRunWorkspaceSetRequest) (*rpcapi.ClientRunWorkspaceSetResponse, error) {
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromClientRunWorkspaceSetRequest)
+	if err != nil {
+		return nil, err
+	}
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientRunWorkspaceSet, params), rpcapi.RPCPayload.AsClientRunWorkspaceSetResponse)
+	if err != nil {
+		return nil, wrapRPCResultError("run workspace set", err)
+	}
+	return result, nil
+}
+
+func (c *rpcClient) InvokeTool(ctx context.Context, conn net.Conn, id string, request rpcapi.ToolInvokeRequest) (*rpcapi.ToolInvokeResponse, error) {
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromToolInvokeRequest)
+	if err != nil {
+		return nil, err
+	}
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientToolInvoke, params), rpcapi.RPCPayload.AsToolInvokeResponse)
+	if err != nil {
+		return nil, wrapRPCResultError("tool invoke", err)
+	}
+	return result, nil
+}

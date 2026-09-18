@@ -1,5 +1,7 @@
 package rpcapi
 
+import "regexp"
+
 // ClientDeviceStatusGetRequest asks the device for its current PeerStatus.
 type ClientDeviceStatusGetRequest struct{}
 
@@ -349,4 +351,235 @@ func (t RPCPayload) AsClientWifiConnectResponse() (ClientWifiConnectResponse, er
 // FromClientWifiConnectResponse encodes the ClientWifiConnectResponse into the RPCPayload.
 func (t *RPCPayload) FromClientWifiConnectResponse(v ClientWifiConnectResponse) error {
 	return t.encode("ClientWifiConnectResponse", v)
+}
+
+// DeviceSettings is the device's own configuration. Every member is optional
+// in both directions: on a set request an absent member leaves that option
+// unchanged, and in any response an absent member means the device does not
+// support that option, which is what lets one message serve devices with
+// different hardware without a method per option.
+type DeviceSettings struct {
+	CellularEnabled        *bool                  `json:"cellular_enabled,omitempty"`
+	ScreenOffTimeoutMs     *int64                 `json:"screen_off_timeout_ms,omitempty"`
+	ScreenBrightness       *int64                 `json:"screen_brightness,omitempty"`
+	LedBrightness          *int64                 `json:"led_brightness,omitempty"`
+	Locale                 *string                `json:"locale,omitempty"`
+	DefaultInteractionMode *DeviceInteractionMode `json:"default_interaction_mode,omitempty"`
+	KeyFeedback            *DeviceKeyFeedback     `json:"key_feedback,omitempty"`
+	AlertMode              *DeviceAlertMode       `json:"alert_mode,omitempty"`
+	AutoSleepTimeoutMs     *int64                 `json:"auto_sleep_timeout_ms,omitempty"`
+	NfcEnabled             *bool                  `json:"nfc_enabled,omitempty"`
+}
+
+// deviceSettingsLocalePattern checks BCP 47 well-formedness at the subtag
+// level: a 2-8 letter primary subtag followed by hyphen-separated 1-8
+// character alphanumeric subtags, such as "zh-CN", "zh-Hant-TW" or "es-419".
+// It rejects POSIX forms like "zh_CN" and free text; whether the device offers
+// that language is still the device's decision.
+var deviceSettingsLocalePattern = regexp.MustCompile(`^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$`)
+
+// maxDeviceSettingsLocaleLen matches the nanopb bound on DeviceSettings.locale.
+const maxDeviceSettingsLocaleLen = 35
+
+// Valid reports whether every present member is within the range documented in
+// api/proto/rpc/payload/system.proto. An absent member is always valid, and a
+// single invalid member makes the whole value invalid, so a set request is
+// rejected before any member is applied.
+func (s DeviceSettings) Valid() bool {
+	percent := func(value *int64) bool { return value == nil || (*value >= 0 && *value <= 100) }
+	nonNegative := func(value *int64) bool { return value == nil || *value >= 0 }
+	switch {
+	case !percent(s.ScreenBrightness), !percent(s.LedBrightness):
+		return false
+	case !nonNegative(s.ScreenOffTimeoutMs), !nonNegative(s.AutoSleepTimeoutMs):
+		return false
+	case s.Locale != nil && (len(*s.Locale) > maxDeviceSettingsLocaleLen || !deviceSettingsLocalePattern.MatchString(*s.Locale)):
+		return false
+	case s.DefaultInteractionMode != nil && !s.DefaultInteractionMode.Valid():
+		return false
+	case s.KeyFeedback != nil && !s.KeyFeedback.Valid():
+		return false
+	case s.AlertMode != nil && !s.AlertMode.Valid():
+		return false
+	}
+	return true
+}
+
+// ClientDeviceSettingsGetRequest asks the device for its current settings.
+type ClientDeviceSettingsGetRequest struct{}
+
+// ClientDeviceSettingsGetResponse carries the device's current settings.
+type ClientDeviceSettingsGetResponse struct {
+	Value DeviceSettings `json:"value"`
+}
+
+// ClientDeviceSettingsSetRequest applies only the members it carries.
+type ClientDeviceSettingsSetRequest struct {
+	Value DeviceSettings `json:"value"`
+}
+
+// ClientDeviceSettingsSetResponse carries the device's full settings after the
+// change, so a caller sees which options the device actually accepted.
+type ClientDeviceSettingsSetResponse struct {
+	Value DeviceSettings `json:"value"`
+}
+
+// ClientDeviceFactoryResetRequest asks the device to erase its local state.
+// It is irreversible on the device; the Server keeps its own peer records.
+type ClientDeviceFactoryResetRequest struct {
+	KeepNetwork *bool `json:"keep_network,omitempty"`
+}
+
+// ClientDeviceFactoryResetResponse acknowledges a factory reset request.
+type ClientDeviceFactoryResetResponse struct{}
+
+// ClientRunWorkspaceSetRequest asks the device to switch its running
+// Workspace to WorkspaceName. The Server resolves a control-app workflow
+// target to this one name first. The device answers once it has accepted the
+// request and then switches through server.run.workspace.reload-with-options,
+// so the response does not mean the switch has finished.
+type ClientRunWorkspaceSetRequest struct {
+	WorkspaceName string `json:"workspace_name"`
+	Kickoff       *bool  `json:"kickoff,omitempty"`
+}
+
+// ClientRunWorkspaceSetResponse acknowledges a Workspace switch request.
+type ClientRunWorkspaceSetResponse struct{}
+
+// maxRunWorkspaceNameLen bounds ClientRunWorkspaceSetRequest.WorkspaceName.
+const maxRunWorkspaceNameLen = 256
+
+// Valid reports whether the request names a well-formed Workspace.
+func (r ClientRunWorkspaceSetRequest) Valid() bool {
+	return r.WorkspaceName != "" && len(r.WorkspaceName) <= maxRunWorkspaceNameLen
+}
+
+// ClientRPCMethodsGetRequest asks the device which RPC methods it implements.
+type ClientRPCMethodsGetRequest struct{}
+
+// ClientRPCMethodsGetResponse lists the registry method names the device
+// implements, so a caller can hide or skip a control the device would only
+// fail. Unknown names must be ignored rather than rejected.
+type ClientRPCMethodsGetResponse struct {
+	Methods []string `json:"methods"`
+}
+
+// AsClientDeviceSettingsGetRequest decodes the RPCPayload as a ClientDeviceSettingsGetRequest.
+func (t RPCPayload) AsClientDeviceSettingsGetRequest() (ClientDeviceSettingsGetRequest, error) {
+	var body ClientDeviceSettingsGetRequest
+	err := t.decode("ClientDeviceSettingsGetRequest", &body)
+	return body, err
+}
+
+// FromClientDeviceSettingsGetRequest encodes the ClientDeviceSettingsGetRequest into the RPCPayload.
+func (t *RPCPayload) FromClientDeviceSettingsGetRequest(v ClientDeviceSettingsGetRequest) error {
+	return t.encode("ClientDeviceSettingsGetRequest", v)
+}
+
+// AsClientDeviceSettingsGetResponse decodes the RPCPayload as a ClientDeviceSettingsGetResponse.
+func (t RPCPayload) AsClientDeviceSettingsGetResponse() (ClientDeviceSettingsGetResponse, error) {
+	var body ClientDeviceSettingsGetResponse
+	err := t.decode("ClientDeviceSettingsGetResponse", &body)
+	return body, err
+}
+
+// FromClientDeviceSettingsGetResponse encodes the ClientDeviceSettingsGetResponse into the RPCPayload.
+func (t *RPCPayload) FromClientDeviceSettingsGetResponse(v ClientDeviceSettingsGetResponse) error {
+	return t.encode("ClientDeviceSettingsGetResponse", v)
+}
+
+// AsClientDeviceSettingsSetRequest decodes the RPCPayload as a ClientDeviceSettingsSetRequest.
+func (t RPCPayload) AsClientDeviceSettingsSetRequest() (ClientDeviceSettingsSetRequest, error) {
+	var body ClientDeviceSettingsSetRequest
+	err := t.decode("ClientDeviceSettingsSetRequest", &body)
+	return body, err
+}
+
+// FromClientDeviceSettingsSetRequest encodes the ClientDeviceSettingsSetRequest into the RPCPayload.
+func (t *RPCPayload) FromClientDeviceSettingsSetRequest(v ClientDeviceSettingsSetRequest) error {
+	return t.encode("ClientDeviceSettingsSetRequest", v)
+}
+
+// AsClientDeviceSettingsSetResponse decodes the RPCPayload as a ClientDeviceSettingsSetResponse.
+func (t RPCPayload) AsClientDeviceSettingsSetResponse() (ClientDeviceSettingsSetResponse, error) {
+	var body ClientDeviceSettingsSetResponse
+	err := t.decode("ClientDeviceSettingsSetResponse", &body)
+	return body, err
+}
+
+// FromClientDeviceSettingsSetResponse encodes the ClientDeviceSettingsSetResponse into the RPCPayload.
+func (t *RPCPayload) FromClientDeviceSettingsSetResponse(v ClientDeviceSettingsSetResponse) error {
+	return t.encode("ClientDeviceSettingsSetResponse", v)
+}
+
+// AsClientDeviceFactoryResetRequest decodes the RPCPayload as a ClientDeviceFactoryResetRequest.
+func (t RPCPayload) AsClientDeviceFactoryResetRequest() (ClientDeviceFactoryResetRequest, error) {
+	var body ClientDeviceFactoryResetRequest
+	err := t.decode("ClientDeviceFactoryResetRequest", &body)
+	return body, err
+}
+
+// FromClientDeviceFactoryResetRequest encodes the ClientDeviceFactoryResetRequest into the RPCPayload.
+func (t *RPCPayload) FromClientDeviceFactoryResetRequest(v ClientDeviceFactoryResetRequest) error {
+	return t.encode("ClientDeviceFactoryResetRequest", v)
+}
+
+// AsClientDeviceFactoryResetResponse decodes the RPCPayload as a ClientDeviceFactoryResetResponse.
+func (t RPCPayload) AsClientDeviceFactoryResetResponse() (ClientDeviceFactoryResetResponse, error) {
+	var body ClientDeviceFactoryResetResponse
+	err := t.decode("ClientDeviceFactoryResetResponse", &body)
+	return body, err
+}
+
+// FromClientDeviceFactoryResetResponse encodes the ClientDeviceFactoryResetResponse into the RPCPayload.
+func (t *RPCPayload) FromClientDeviceFactoryResetResponse(v ClientDeviceFactoryResetResponse) error {
+	return t.encode("ClientDeviceFactoryResetResponse", v)
+}
+
+// AsClientRPCMethodsGetRequest decodes the RPCPayload as a ClientRPCMethodsGetRequest.
+func (t RPCPayload) AsClientRPCMethodsGetRequest() (ClientRPCMethodsGetRequest, error) {
+	var body ClientRPCMethodsGetRequest
+	err := t.decode("ClientRpcMethodsGetRequest", &body)
+	return body, err
+}
+
+// FromClientRPCMethodsGetRequest encodes the ClientRPCMethodsGetRequest into the RPCPayload.
+func (t *RPCPayload) FromClientRPCMethodsGetRequest(v ClientRPCMethodsGetRequest) error {
+	return t.encode("ClientRpcMethodsGetRequest", v)
+}
+
+// AsClientRPCMethodsGetResponse decodes the RPCPayload as a ClientRPCMethodsGetResponse.
+func (t RPCPayload) AsClientRPCMethodsGetResponse() (ClientRPCMethodsGetResponse, error) {
+	var body ClientRPCMethodsGetResponse
+	err := t.decode("ClientRpcMethodsGetResponse", &body)
+	return body, err
+}
+
+// FromClientRPCMethodsGetResponse encodes the ClientRPCMethodsGetResponse into the RPCPayload.
+func (t *RPCPayload) FromClientRPCMethodsGetResponse(v ClientRPCMethodsGetResponse) error {
+	return t.encode("ClientRpcMethodsGetResponse", v)
+}
+
+// AsClientRunWorkspaceSetRequest decodes the RPCPayload as a ClientRunWorkspaceSetRequest.
+func (t RPCPayload) AsClientRunWorkspaceSetRequest() (ClientRunWorkspaceSetRequest, error) {
+	var body ClientRunWorkspaceSetRequest
+	err := t.decode("ClientRunWorkspaceSetRequest", &body)
+	return body, err
+}
+
+// FromClientRunWorkspaceSetRequest encodes the ClientRunWorkspaceSetRequest into the RPCPayload.
+func (t *RPCPayload) FromClientRunWorkspaceSetRequest(v ClientRunWorkspaceSetRequest) error {
+	return t.encode("ClientRunWorkspaceSetRequest", v)
+}
+
+// AsClientRunWorkspaceSetResponse decodes the RPCPayload as a ClientRunWorkspaceSetResponse.
+func (t RPCPayload) AsClientRunWorkspaceSetResponse() (ClientRunWorkspaceSetResponse, error) {
+	var body ClientRunWorkspaceSetResponse
+	err := t.decode("ClientRunWorkspaceSetResponse", &body)
+	return body, err
+}
+
+// FromClientRunWorkspaceSetResponse encodes the ClientRunWorkspaceSetResponse into the RPCPayload.
+func (t *RPCPayload) FromClientRunWorkspaceSetResponse(v ClientRunWorkspaceSetResponse) error {
+	return t.encode("ClientRunWorkspaceSetResponse", v)
 }

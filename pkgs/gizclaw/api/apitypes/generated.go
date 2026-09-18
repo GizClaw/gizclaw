@@ -2287,6 +2287,21 @@ func (e ReusableWorkflowDriver) Valid() bool {
 	}
 }
 
+// Defines values for RuntimeProfileBindingControlAccess.
+const (
+	RuntimeProfileBindingControlAccessOwner RuntimeProfileBindingControlAccess = "owner"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeProfileBindingControlAccess enum.
+func (e RuntimeProfileBindingControlAccess) Valid() bool {
+	switch e {
+	case RuntimeProfileBindingControlAccessOwner:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RuntimeProfileFlowcraftBBHConnectionType.
 const (
 	RuntimeProfileFlowcraftBBHConnectionTypeFlowcraftBbh RuntimeProfileFlowcraftBBHConnectionType = "flowcraft_bbh"
@@ -4902,19 +4917,32 @@ type PeerRunWorkspaceState struct {
 
 // PeerStatus defines model for PeerStatus.
 type PeerStatus struct {
-	Audioplayer    *AudioPlayerStatus      `json:"audioplayer,omitempty"`
-	BatteryPercent *int                    `json:"battery_percent,omitempty"`
-	Charging       *bool                   `json:"charging,omitempty"`
-	Details        *map[string]interface{} `json:"details,omitempty"`
+	// Activity Stable machine-readable id of the feature the device reports it is currently using, e.g. "chat", "audioplayer", "ota", "idle". Readers must preserve unknown future values and localize by id rather than parsing it.
+	Activity *string `json:"activity,omitempty"`
+
+	// ActivityDetail Optional device-supplied human-readable detail for the current activity, shown next to it. Never parsed by the Server.
+	ActivityDetail *string            `json:"activity_detail,omitempty"`
+	Audioplayer    *AudioPlayerStatus `json:"audioplayer,omitempty"`
+	BatteryPercent *int               `json:"battery_percent,omitempty"`
+
+	// CellularRssiDbm Cellular RSSI in dBm from the latest network telemetry observation whose rat names a route other than wifi. An observation without rat updates only the metric.
+	CellularRssiDbm *float64 `json:"cellular_rssi_dbm,omitempty"`
+
+	// CellularSignalLevel Device-defined cellular signal level from the latest network telemetry observation whose rat names a route other than wifi. An observation without rat updates only the metric.
+	CellularSignalLevel *float64 `json:"cellular_signal_level,omitempty"`
+	Charging            *bool    `json:"charging,omitempty"`
 
 	// FirmwareSha256 Lowercase SHA-256 digest of the .tar.zlib package the device is currently running, as reported by the device.
-	FirmwareSha256 *string            `json:"firmware_sha256,omitempty"`
-	GnssAccuracyM  *float32           `json:"gnss_accuracy_m,omitempty"`
-	GnssAltitudeM  *float32           `json:"gnss_altitude_m,omitempty"`
-	GnssLatitude   *float32           `json:"gnss_latitude,omitempty"`
-	GnssLongitude  *float32           `json:"gnss_longitude,omitempty"`
-	Labels         *map[string]string `json:"labels,omitempty"`
-	Muted          *bool              `json:"muted,omitempty"`
+	FirmwareSha256 *string `json:"firmware_sha256,omitempty"`
+
+	// FirmwareVersion Human-readable firmware version the device reports it is running, e.g. "1.4.2". Reported over telemetry alongside the digest; the digest identifies the exact package, this names the release. Never parsed by the Server.
+	FirmwareVersion *string            `json:"firmware_version,omitempty"`
+	GnssAccuracyM   *float32           `json:"gnss_accuracy_m,omitempty"`
+	GnssAltitudeM   *float32           `json:"gnss_altitude_m,omitempty"`
+	GnssLatitude    *float32           `json:"gnss_latitude,omitempty"`
+	GnssLongitude   *float32           `json:"gnss_longitude,omitempty"`
+	Labels          *map[string]string `json:"labels,omitempty"`
+	Muted           *bool              `json:"muted,omitempty"`
 
 	// NetworkImei Modem hardware IMEI from the latest cellular network telemetry observation: exactly 15 ASCII digits. Owner-scoped; never logged.
 	NetworkImei *string `json:"network_imei,omitempty"`
@@ -4925,7 +4953,30 @@ type PeerStatus struct {
 	// Ota Latest device-reported OTA attempt snapshot, retained across disconnects.
 	Ota        *PeerOtaStatus `json:"ota,omitempty"`
 	ReportedAt *time.Time     `json:"reported_at,omitempty"`
-	Volume     *int           `json:"volume,omitempty"`
+
+	// TelemetryObservedAt Per-field observation times for the telemetry-sourced members of PeerStatus. Each member records when the device observed the value now stored in the sibling PeerStatus field, which is what lets an out-of-order or replayed report be rejected without overwriting a newer observation. A member is absent until that field has been observed at least once.
+	TelemetryObservedAt *PeerStatusTelemetryObservedAt `json:"telemetry_observed_at,omitempty"`
+	Volume              *int                           `json:"volume,omitempty"`
+
+	// WifiRssiDbm Wi-Fi RSSI in dBm from the latest network telemetry observation whose rat is wifi.
+	WifiRssiDbm *float64 `json:"wifi_rssi_dbm,omitempty"`
+}
+
+// PeerStatusTelemetryObservedAt Per-field observation times for the telemetry-sourced members of PeerStatus. Each member records when the device observed the value now stored in the sibling PeerStatus field, which is what lets an out-of-order or replayed report be rejected without overwriting a newer observation. A member is absent until that field has been observed at least once.
+type PeerStatusTelemetryObservedAt struct {
+	Activity            *time.Time `json:"activity,omitempty"`
+	BatteryPercent      *time.Time `json:"battery_percent,omitempty"`
+	CellularRssiDbm     *time.Time `json:"cellular_rssi_dbm,omitempty"`
+	CellularSignalLevel *time.Time `json:"cellular_signal_level,omitempty"`
+	Charging            *time.Time `json:"charging,omitempty"`
+	FirmwareVersion     *time.Time `json:"firmware_version,omitempty"`
+	GnssAccuracyM       *time.Time `json:"gnss_accuracy_m,omitempty"`
+	GnssAltitudeM       *time.Time `json:"gnss_altitude_m,omitempty"`
+	GnssLatitude        *time.Time `json:"gnss_latitude,omitempty"`
+	GnssLongitude       *time.Time `json:"gnss_longitude,omitempty"`
+	NetworkImei         *time.Time `json:"network_imei,omitempty"`
+	NetworkImsi         *time.Time `json:"network_imsi,omitempty"`
+	WifiRssiDbm         *time.Time `json:"wifi_rssi_dbm,omitempty"`
 }
 
 // PeerTelemetryAggregate Bucket aggregate mode for peer telemetry range data.
@@ -5229,6 +5280,9 @@ type ReusableWorkflowSpecObject struct {
 
 // Runtime defines model for Runtime.
 type Runtime struct {
+	// ActiveWorkspaceName Workspace the device is running, as last committed through server.run.workspace.reload-with-options. The Server records it, so it answers while the device is offline. Omitted until a Workspace has been committed.
+	ActiveWorkspaceName *string `json:"active_workspace_name,omitempty"`
+
 	// DebugMode Device-owned debug access mode: off (default), readonly, or fullcontrol. Stored by the authoritative Server and set through authenticated server.runtime.put.
 	DebugMode *string `json:"debug_mode,omitempty"`
 	LastAddr  *string `json:"last_addr,omitempty"`
@@ -5236,8 +5290,11 @@ type Runtime struct {
 	// LastSeenAt Last observed activity on the Peer connection. While the Peer is online this advances with packet and service-stream traffic; while it is offline this is the activity recorded when the connection went down. It is the zero time only when the Server has never observed the Peer.
 	LastSeenAt time.Time `json:"last_seen_at"`
 	Online     bool      `json:"online"`
-	RxBytes    *uint64   `json:"rx_bytes,omitempty"`
-	TxBytes    *uint64   `json:"tx_bytes,omitempty"`
+
+	// PendingWorkspaceName Workspace selected for the device that it has not committed yet, for example while a switch requested through PUT /gizclaw/v1/device/run/workspace is in progress. Omitted when no switch is pending.
+	PendingWorkspaceName *string `json:"pending_workspace_name,omitempty"`
+	RxBytes              *uint64 `json:"rx_bytes,omitempty"`
+	TxBytes              *uint64 `json:"tx_bytes,omitempty"`
 }
 
 // RuntimeProfile defines model for RuntimeProfile.
@@ -5256,9 +5313,14 @@ type RuntimeProfileAppConfig map[string]string
 
 // RuntimeProfileBinding defines model for RuntimeProfileBinding.
 type RuntimeProfileBinding struct {
-	I18n       map[string]RuntimeProfileI18nText `json:"i18n"`
-	ResourceId string                            `json:"resource_id"`
+	// ControlAccess Only valid under resources.tools. Exposes this Tool to the device owner's control app through GET /gizclaw/v1/device/tools and POST /gizclaw/v1/device/tools/{name}/actions/invoke; owner means any API key of the Peer that owns the device. When omitted the control app can neither list nor invoke the Tool, which stays reachable only by AI and Workflow runtimes. Only enabled client_rpc Tools are ever exposed. Stricter levels, such as a guardian authorization, are added to this enum later.
+	ControlAccess *RuntimeProfileBindingControlAccess `json:"control_access,omitempty"`
+	I18n          map[string]RuntimeProfileI18nText   `json:"i18n"`
+	ResourceId    string                              `json:"resource_id"`
 }
+
+// RuntimeProfileBindingControlAccess Only valid under resources.tools. Exposes this Tool to the device owner's control app through GET /gizclaw/v1/device/tools and POST /gizclaw/v1/device/tools/{name}/actions/invoke; owner means any API key of the Peer that owns the device. When omitted the control app can neither list nor invoke the Tool, which stays reachable only by AI and Workflow runtimes. Only enabled client_rpc Tools are ever exposed. Stricter levels, such as a guardian authorization, are added to this enum later.
+type RuntimeProfileBindingControlAccess string
 
 // RuntimeProfileFlowcraftBBHConnection defines model for RuntimeProfileFlowcraftBBHConnection.
 type RuntimeProfileFlowcraftBBHConnection struct {

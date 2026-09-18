@@ -117,3 +117,74 @@ func TestConfigureClientRPCUnavailableTool(t *testing.T) {
 		t.Fatal("an unavailable Tool with a result was accepted")
 	}
 }
+
+func TestInstallDeviceControlScriptsSettingsResetAndWorkspace(t *testing.T) {
+	ctx := t.Context()
+	var handlers gizcli.DeviceControlHandlers
+	base := map[string]any{"cellular_enabled": true, "screen_brightness": 60, "locale": "zh-CN"}
+	for _, method := range []string{"client.device.settings.get", "client.device.settings.set"} {
+		if err := installDeviceControl(&handlers, method, base); err != nil {
+			t.Fatalf("%s: %v", method, err)
+		}
+	}
+	for _, method := range []string{"client.device.factory_reset", "client.run.workspace.set"} {
+		if err := installDeviceControl(&handlers, method, nil); err != nil {
+			t.Fatalf("%s: %v", method, err)
+		}
+	}
+	settings, err := handlers.GetSettings(ctx)
+	if err != nil || settings.ScreenBrightness == nil || *settings.ScreenBrightness != 60 || settings.NfcEnabled != nil {
+		t.Fatalf("scripted settings = %+v, %v", settings, err)
+	}
+	brightness, nfc := int64(80), false
+	updated, err := handlers.SetSettings(ctx, rpcapi.DeviceSettings{ScreenBrightness: &brightness, NfcEnabled: &nfc})
+	if err != nil || *updated.ScreenBrightness != 80 || *updated.Locale != "zh-CN" || !*updated.CellularEnabled ||
+		updated.NfcEnabled == nil || *updated.NfcEnabled || updated.LedBrightness != nil {
+		t.Fatalf("patched settings = %+v, %v", updated, err)
+	}
+	if handlers.FactoryReset(ctx, true) != nil || handlers.SetRunWorkspace(ctx, rpcapi.ClientRunWorkspaceSetRequest{}) != nil {
+		t.Fatal("default factory reset and workspace providers must acknowledge")
+	}
+	if err := installDeviceControl(&handlers, "client.device.settings.get", map[string]any{"screen_brightness": "bright"}); err == nil {
+		t.Fatal("malformed scripted settings accepted")
+	}
+
+	var rpcErr rpcapi.Error
+	for _, method := range []string{"client.device.settings.get", "client.device.settings.set", "client.device.factory_reset", "client.run.workspace.set"} {
+		if err := installDeviceControl(&handlers, method, map[string]any{"error_code": 3}); err != nil {
+			t.Fatalf("%s: %v", method, err)
+		}
+	}
+	_, getErr := handlers.GetSettings(ctx)
+	_, setErr := handlers.SetSettings(ctx, rpcapi.DeviceSettings{})
+	for name, err := range map[string]error{
+		"settings.get":  getErr,
+		"settings.set":  setErr,
+		"factory_reset": handlers.FactoryReset(ctx, false),
+		"workspace.set": handlers.SetRunWorkspace(ctx, rpcapi.ClientRunWorkspaceSetRequest{}),
+	} {
+		if !errors.As(err, &rpcErr) || rpcErr.Code != rpcapi.StatusCodeInvalidArgument {
+			t.Fatalf("scripted %s error = %v", name, err)
+		}
+	}
+}
+
+// client.rpc.methods.get is answered by the SDK from the installed providers:
+// a step only counts the calls, and a scripted answer is rejected.
+func TestConfigureClientRPCCountsRPCMethods(t *testing.T) {
+	counts := map[string]*inboundCounter{}
+	steps := []giztest.Step{
+		{ID: "methods", Client: "bob", ClientRPC: &giztest.ClientRPCOperation{Method: "client.rpc.methods.get"}},
+		{ID: "settings", Client: "bob", ClientRPC: &giztest.ClientRPCOperation{Method: "client.device.settings.get"}},
+	}
+	if err := configureClientRPC(&gizcli.Client{}, "bob", steps, mustVariables(t, nil), counts); err != nil {
+		t.Fatal(err)
+	}
+	if counts["bob:client.rpc.methods.get"] == nil || counts["bob:client.device.settings.get"] == nil {
+		t.Fatalf("call counters = %#v", counts)
+	}
+	scripted := []giztest.Step{{ID: "methods", Client: "bob", ClientRPC: &giztest.ClientRPCOperation{Method: "client.rpc.methods.get", Response: map[string]any{"methods": []any{"client.info.get"}}}}}
+	if err := configureClientRPC(&gizcli.Client{}, "bob", scripted, mustVariables(t, nil), map[string]*inboundCounter{}); err == nil {
+		t.Fatal("a scripted client.rpc.methods.get answer was accepted")
+	}
+}

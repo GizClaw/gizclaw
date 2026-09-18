@@ -163,12 +163,16 @@ steps:
 	}
 	for name, mutated := range map[string]string{
 		"relative path":      strings.Replace(doc, "path: /gizclaw/v1/device/status", "path: gizclaw/v1/device/status", 1),
-		"unknown method":     strings.Replace(doc, "method: GET", "method: PATCH", 1),
+		"unknown method":     strings.Replace(doc, "method: GET", "method: TRACE", 1),
 		"unknown client rpc": strings.Replace(doc, "method: client.device.volume.set", "method: client.device.unknown", 1),
 	} {
 		if _, err := load(mutated); err == nil {
 			t.Fatalf("%s accepted", name)
 		}
+	}
+	// PATCH /device/settings needs the method in the http step contract.
+	if _, err := load(strings.Replace(doc, "method: GET", "method: PATCH", 1)); err != nil {
+		t.Fatalf("PATCH http step rejected: %v", err)
 	}
 }
 

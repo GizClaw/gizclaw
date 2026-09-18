@@ -2,8 +2,9 @@
 // `gizclaw.test/v1alpha1` contract this runner executes.
 //
 // `api/giztest` and the Go runner own the complete schema. This runner
-// executes the `rpc`, `client_rpc`, `http` and `output` step kinds and rejects
-// every other kind at validation time instead of skipping it silently.
+// executes the `rpc`, `client_rpc`, `http`, `output`, `reconnect` and
+// `telemetry` step kinds and rejects every other kind at validation time
+// instead of skipping it silently.
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { parse as parseYAML } from "yaml";
@@ -18,6 +19,7 @@ export const SUPPORTED_OPERATIONS = [
   "http",
   "output",
   "reconnect",
+  "telemetry",
 ] as const;
 
 export const ALL_OPERATIONS = [
@@ -44,6 +46,11 @@ export const CLIENT_RPC_METHODS = [
   "client.device.sound.play",
   "client.device.find",
   "client.device.reboot",
+  "client.device.settings.get",
+  "client.device.settings.set",
+  "client.device.factory_reset",
+  "client.rpc.methods.get",
+  "client.run.workspace.set",
   "client.social.ping",
   "client.device.audioplayer.get",
   "client.device.audioplayer.playlist.get",
@@ -59,16 +66,24 @@ export const CLIENT_RPC_METHODS = [
   "client.wifi.connect",
 ] as const;
 
-// Methods this runner can install a provider for. `client.tool.invoke` needs
-// the tool-serving surface the JavaScript device SDK does not expose.
+// Methods this runner can install a provider for. `client.rpc.methods.get` is
+// answered by the SDK itself with no hook that would let this runner count the
+// Server's calls. `client.tool.invoke` is supported for a scripted
+// `{name, result}` Tool; `unavailable: true` is not, because the SDK answers an
+// absent Tool without a hook to count the call.
 export const SUPPORTED_CLIENT_RPC_METHODS = new Set<string>([
   "client.info.get",
+  "client.tool.invoke",
   "client.identifiers.get",
   "client.device.status.get",
   "client.device.volume.set",
   "client.device.sound.play",
   "client.device.find",
   "client.device.reboot",
+  "client.device.settings.get",
+  "client.device.settings.set",
+  "client.device.factory_reset",
+  "client.run.workspace.set",
   "client.social.ping",
   "client.device.audioplayer.get",
   "client.device.audioplayer.playlist.get",
@@ -130,7 +145,7 @@ export type Step = {
   rpc?: { method: string; request: unknown };
   client_rpc?: { method: string; response?: unknown; expect_calls?: number };
   http?: {
-    method: "GET" | "POST" | "PUT" | "DELETE";
+    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
     path: string;
     headers?: Record<string, string>;
     body?: unknown;
@@ -138,7 +153,22 @@ export type Step = {
   };
   output?: { variable: string };
   reconnect?: { await_ms?: number };
+  retry?: RetrySpec;
 };
+
+// RetrySpec re-runs a step whose failure kind is listed in `on` (default
+// `timeout`). A telemetry scenario uses it to poll status until the Server
+// has applied an asynchronous frame.
+export type RetrySpec = {
+  attempts: number;
+  on?: string[];
+  delay?: string;
+};
+
+export const MAX_RETRY_ATTEMPTS = 10;
+export const MAX_RETRY_DELAY_MS = 5 * 60 * 1000;
+// Of the kinds this runner executes, only rpc may retry, as in the Go runner.
+const RETRYABLE_OPERATIONS = new Set<string>(["rpc"]);
 
 export type GiztestDocument = {
   path: string;
@@ -305,6 +335,59 @@ function validateVariables(
   }
 }
 
+// validateRetry mirrors the Go runner's retry rules.
+function validateRetry(
+  documentPath: string,
+  step: Step,
+  operation: Operation,
+): void {
+  const retry = step.retry!;
+  if (
+    !Number.isInteger(retry.attempts) ||
+    retry.attempts < 2 ||
+    retry.attempts > MAX_RETRY_ATTEMPTS
+  ) {
+    fail(
+      documentPath,
+      `step ${step.id} retry attempts must be between 2 and ${MAX_RETRY_ATTEMPTS}`,
+    );
+  }
+  if (!RETRYABLE_OPERATIONS.has(operation)) {
+    fail(
+      documentPath,
+      `step ${step.id} operation ${operation} does not support retry`,
+    );
+  }
+  if (retry.on != null) {
+    if (retry.on.length === 0) {
+      fail(documentPath, `step ${step.id} retry on must not be empty`);
+    }
+    if (retry.on.some((kind) => kind !== "timeout" && kind !== "assertion")) {
+      fail(
+        documentPath,
+        `step ${step.id} retry contains unsupported failure kind`,
+      );
+    }
+    if (new Set(retry.on).size !== retry.on.length) {
+      fail(documentPath, `step ${step.id} retry failure kinds must be unique`);
+    }
+  }
+  if (retry.delay != null && retry.delay !== "") {
+    let delay = 0;
+    try {
+      delay = parseDuration(retry.delay);
+    } catch {
+      delay = 0;
+    }
+    if (delay <= 0 || delay > MAX_RETRY_DELAY_MS) {
+      fail(
+        documentPath,
+        `step ${step.id} retry has invalid delay ${JSON.stringify(retry.delay)}`,
+      );
+    }
+  }
+}
+
 function validateStep(
   documentPath: string,
   step: Step,
@@ -344,6 +427,14 @@ function validateStep(
     if (!SUPPORTED_CLIENT_RPC_METHODS.has(method)) {
       throw new UnsupportedStepError(documentPath, `client_rpc:${method}`);
     }
+    const response = step.client_rpc.response as
+      { unavailable?: unknown } | undefined;
+    if (method === "client.tool.invoke" && response?.unavailable === true) {
+      throw new UnsupportedStepError(
+        documentPath,
+        `client_rpc:${method}:unavailable`,
+      );
+    }
     const calls = step.client_rpc.expect_calls;
     if (
       calls != null &&
@@ -351,6 +442,9 @@ function validateStep(
     ) {
       fail(documentPath, `step ${step.id} expect_calls must be 1..1024`);
     }
+  }
+  if (step.retry != null) {
+    validateRetry(documentPath, step, operation);
   }
   if (step.http != null && !step.http.path.startsWith("/")) {
     fail(documentPath, `step ${step.id} http path must be absolute`);
@@ -444,6 +538,9 @@ export function validateDocument(document: GiztestDocument): void {
   for (const step of document.finally) {
     if (step.client_rpc != null) {
       fail(documentPath, `finally step ${step.id} cannot install a client RPC`);
+    }
+    if (step.retry != null) {
+      fail(documentPath, `step ${step.id} retry is not allowed in finally`);
     }
     validateStep(
       documentPath,

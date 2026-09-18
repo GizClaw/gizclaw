@@ -107,6 +107,19 @@ export class Variables {
     return found.sort((left, right) => right.length - left.length);
   }
 
+  // snapshot and restore let a retried step discard the captures of a failed
+  // attempt. Entries are replaced, never mutated, so a shallow copy suffices.
+  snapshot(): Map<string, Entry> {
+    return new Map(this.entries);
+  }
+
+  restore(snapshot: Map<string, Entry>): void {
+    this.entries.clear();
+    for (const [name, entry] of snapshot) {
+      this.entries.set(name, entry);
+    }
+  }
+
   get(name: string): Entry | undefined {
     return this.entries.get(name);
   }

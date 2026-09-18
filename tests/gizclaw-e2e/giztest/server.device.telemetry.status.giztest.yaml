@@ -1,0 +1,149 @@
+# User Story:
+# As a GizClaw API key holder,
+# I want the device's telemetry to show up as typed status,
+# So that the control app reads activity, firmware version and signal without calling the device,
+# and a report from an older device with an out-of-contract firmware version is not rejected.
+version: gizclaw.test/v1alpha1
+name: server.device.telemetry.status
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+- id: report_wifi
+  client: peer
+  telemetry:
+    frame:
+      observed_at_unix_ms: "1800000000000"
+      observations:
+      - activity:
+          activity: chat
+          detail: bedtime story
+      - system:
+          firmware_version: 1.4.2
+      - network:
+          rat: wifi
+          rssi_dbm: -55
+- id: wait_wifi_status
+  client: peer
+  rpc:
+    method: server.status.get
+    request: {}
+  retry:
+    attempts: 10
+    on:
+    - assertion
+    delay: 200ms
+  expect:
+    /activity:
+      equals: chat
+- id: await_wifi_status
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/status
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  expect:
+    /activity:
+      equals: chat
+    /activity_detail:
+      equals: bedtime story
+    /firmware_version:
+      equals: 1.4.2
+    /wifi_rssi_dbm:
+      equals: -55
+    /telemetry_observed_at/activity:
+      present: true
+    /telemetry_observed_at/firmware_version:
+      present: true
+    /telemetry_observed_at/wifi_rssi_dbm:
+      present: true
+- id: report_cellular_and_old_firmware
+  client: peer
+  telemetry:
+    frame:
+      observed_at_unix_ms: "1800000001000"
+      observations:
+      - activity:
+          activity: idle
+      - system:
+          firmware_version: ""
+      - network:
+          rat: lte
+          rssi_dbm: -90
+          signal_level: 3
+- id: wait_cellular_status
+  client: peer
+  rpc:
+    method: server.status.get
+    request: {}
+  retry:
+    attempts: 10
+    on:
+    - assertion
+    delay: 200ms
+  expect:
+    /activity:
+      equals: idle
+- id: await_cellular_status
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/status
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  expect:
+    /activity:
+      equals: idle
+    /activity_detail:
+      present: false
+    /firmware_version:
+      equals: 1.4.2
+    /cellular_rssi_dbm:
+      equals: -90
+    /cellular_signal_level:
+      equals: 3
+    /wifi_rssi_dbm:
+      equals: -55
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

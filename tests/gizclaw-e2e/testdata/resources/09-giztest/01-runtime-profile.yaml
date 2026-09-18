@@ -57,7 +57,7 @@ spec:
       minimax-boy: {resource_id: "minimax-tenant:minimax-cn:Chinese (Mandarin)_Pure-hearted_Boy", i18n: {en: {display_name: MiniMax Boy}, zh-CN: {display_name: MiniMax 邻家弟弟}}}
     tools:
       giztest-other: {resource_id: giztest-client-other, i18n: {en: {display_name: Giztest other tool}, zh-CN: {display_name: Giztest 另一工具}}}
-      giztest-echo: {resource_id: giztest-client-echo, i18n: {en: {display_name: Giztest client echo}, zh-CN: {display_name: Giztest 客户端回显}}}
+      giztest-echo: {resource_id: giztest-client-echo, control_access: owner, i18n: {en: {display_name: Giztest client echo}, zh-CN: {display_name: Giztest 客户端回显}}}
     memories:
       default-memory: {layout_id: default-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
       voice-assistant-memory: {layout_id: voice-assistant-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}

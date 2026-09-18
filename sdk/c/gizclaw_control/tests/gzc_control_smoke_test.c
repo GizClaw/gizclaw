@@ -1173,6 +1173,96 @@ static void test_audioplayer(void) {
   check(gzc_control_get_device_audioplayer(&client, &call, &status) == GZC_ERR_JSON, "reject malformed audio status");
 }
 
+/* Settings, factory reset, the capability list, the Workspace switch and the
+ * control-app Tools: request shape on the wire and decode of the answers. */
+static void test_device_settings_workspace_and_tools(void) {
+  stub_t stub;
+  gzc_http_vtable_t http;
+  gzc_control_client_t client;
+  memset(&stub, 0, sizeof(stub));
+  stub.status_code = 200;
+  init_client(&client, &stub, &http);
+
+  uint8_t scratch[1024];
+  uint8_t response[1024];
+  gzc_control_call_t call;
+  check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "call init");
+
+  stub.response_body = "{\"screen_brightness\":40,\"alert_mode\":\"ring\",\"nfc_enabled\":true}";
+  gzc_control_device_settings_t settings;
+  check(gzc_control_get_device_settings(&client, &call, &settings) == GZC_OK, "get settings");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/settings") == 0, "settings path");
+  check(stub.method == GZC_HTTP_METHOD_GET, "settings method");
+  check(settings.has_screen_brightness && settings.screen_brightness == 40, "settings brightness");
+  check_str(settings.alert_mode, "ring", "settings alert mode");
+  check(settings.has_nfc_enabled && settings.nfc_enabled, "settings nfc");
+  check(!settings.has_cellular_enabled && !settings.has_auto_sleep_timeout_ms, "absent settings stay absent");
+
+  gzc_control_device_settings_t patch;
+  memset(&patch, 0, sizeof(patch));
+  patch.alert_mode = gzc_str_from_cstr("silent");
+  patch.has_auto_sleep_timeout_ms = true;
+  patch.auto_sleep_timeout_ms = 0;
+  check(gzc_control_update_device_settings(&client, &call, &patch, &settings) == GZC_OK, "patch settings");
+  check(stub.method == GZC_HTTP_METHOD_PATCH, "patch method");
+  check(strcmp(stub.body, "{\"alert_mode\":\"silent\",\"auto_sleep_timeout_ms\":0}") == 0, "patch sends only present members");
+
+  stub.status_code = 204;
+  stub.response_body = "";
+  gzc_control_factory_reset_request_t reset;
+  memset(&reset, 0, sizeof(reset));
+  reset.has_keep_network = true;
+  reset.keep_network = true;
+  check(gzc_control_factory_reset_device(&client, &call, &reset) == GZC_OK, "factory reset");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/actions/factory-reset") == 0, "factory reset path");
+  check(strcmp(stub.body, "{\"keep_network\":true}") == 0, "factory reset body");
+
+  stub.status_code = 200;
+  stub.response_body = "{\"methods\":[\"client.device.settings.get\",\"client.run.workspace.set\"]}";
+  gzc_str_t methods[4];
+  size_t count = 0;
+  check(gzc_control_list_device_rpc_methods(&client, &call, methods, 4, &count) == GZC_OK, "rpc methods");
+  check(count == 2, "rpc method count");
+  check_str(methods[1], "client.run.workspace.set", "rpc method name");
+
+  stub.status_code = 202;
+  stub.response_body = "";
+  gzc_control_run_workspace_request_t run;
+  memset(&run, 0, sizeof(run));
+  run.collection = gzc_str_from_cstr("stories");
+  run.workflow_name = gzc_str_from_cstr("bedtime");
+  run.has_kickoff = true;
+  run.kickoff = true;
+  check(gzc_control_set_device_run_workspace(&client, &call, &run) == GZC_OK, "run workspace");
+  check(stub.method == GZC_HTTP_METHOD_PUT, "run workspace method");
+  check(strcmp(stub.body, "{\"collection\":\"stories\",\"workflow_name\":\"bedtime\",\"kickoff\":true}") == 0, "run workspace body");
+
+  stub.status_code = 200;
+  stub.response_body =
+      "{\"items\":[{\"name\":\"usage_limit\",\"control_access\":\"owner\",\"i18n\":{\"en\":{\"display_name\":\"Usage\"}},"
+      "\"input_schema\":{\"type\":\"object\"}}]}";
+  gzc_control_device_tool_t tools[2];
+  check(gzc_control_list_device_tools(&client, &call, tools, 2, &count) == GZC_OK, "list tools");
+  check(count == 1, "tool count");
+  check_str(tools[0].name, "usage_limit", "tool name");
+  check_str(tools[0].control_access, "owner", "tool control access");
+  check_str(tools[0].input_schema, "{\"type\":\"object\"}", "tool input schema");
+
+  stub.response_body = "{\"data_json\":\"{\\\"ok\\\":true}\"}";
+  gzc_str_t data;
+  check(
+      gzc_control_invoke_device_tool(&client, &call, gzc_str_from_cstr("usage limit"), gzc_str_from_cstr("{\"minutes\":30}"), &data) == GZC_OK,
+      "invoke tool");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/tools/usage%20limit/actions/invoke") == 0, "invoke path");
+  check(strcmp(stub.body, "{\"args\":{\"minutes\":30}}") == 0, "invoke body");
+  check_str(data, "{\"ok\":true}", "invoke data is unescaped");
+  check_str(call.body, "{\"data_json\":\"{\\\"ok\\\":true}\"}", "invoke leaves the response body intact");
+  check(
+      gzc_control_invoke_device_tool(&client, &call, gzc_str_from_cstr("usage_limit"), gzc_str_from_cstr("[1]"), &data) ==
+          GZC_ERR_INVALID_ARGUMENT,
+      "invoke args must be an object");
+}
+
 int main(void) {
   test_audioplayer();
   test_client_init_rejects_bad_config();
@@ -1194,6 +1284,7 @@ int main(void) {
   test_device_info_raw_and_identifiers();
   test_friends();
   test_friend_groups();
+  test_device_settings_workspace_and_tools();
   if (failures != 0) {
     (void)fprintf(stderr, "%d control SDK smoke checks failed\n", failures);
     return 1;

@@ -226,6 +226,48 @@ static int telemetry_encode_network(const gzc_telemetry_network_t *network, cons
   return GZC_OK;
 }
 
+// Mirrors the activity pattern of the PeerStatus schema in
+// api/http/shared/peer_status.json: 1 to 32 bytes, first byte [a-z0-9], the
+// rest [a-z0-9_.-].
+static bool telemetry_activity_is_valid(gzc_str_t activity) {
+  if (activity.data == NULL || activity.len == 0 || activity.len > 32) {
+    return false;
+  }
+  for (size_t i = 0; i < activity.len; i++) {
+    char c = activity.data[i];
+    bool lower = c >= 'a' && c <= 'z';
+    bool digit = c >= '0' && c <= '9';
+    if (lower || digit) {
+      continue;
+    }
+    if (i > 0 && (c == '_' || c == '.' || c == '-')) {
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+
+static int telemetry_encode_activity(const gzc_telemetry_activity_t *activity, const gzc_platform_t *platform, gzc_buf_t *out) {
+  if (!telemetry_activity_is_valid(activity->activity)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  if (activity->has_detail && activity->detail.len > 128) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  int rc = telemetry_append_string(out, platform, 1, activity->activity);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  if (activity->has_detail) {
+    rc = telemetry_append_string(out, platform, 2, activity->detail);
+    if (rc != GZC_OK) {
+      return rc;
+    }
+  }
+  return GZC_OK;
+}
+
 static int telemetry_encode_system(const gzc_telemetry_system_t *system, const gzc_platform_t *platform, gzc_buf_t *out) {
   if (system->has_uptime_seconds) {
     int rc = telemetry_append_double(out, platform, 1, system->uptime_seconds);
@@ -327,6 +369,10 @@ static int telemetry_encode_observation(const gzc_telemetry_observation_t *obser
   case GZC_TELEMETRY_OBSERVATION_SYSTEM:
     body_field = 13;
     rc = telemetry_encode_system(&observation->system, platform, &body);
+    break;
+  case GZC_TELEMETRY_OBSERVATION_ACTIVITY:
+    body_field = 16;
+    rc = telemetry_encode_activity(&observation->activity, platform, &body);
     break;
   default:
     rc = GZC_ERR_INVALID_ARGUMENT;

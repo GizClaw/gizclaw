@@ -22,13 +22,17 @@ import (
 // device Peer and answers server-initiated client.* RPCs, and
 // sdk/c/gizclaw_control serves every `http` step against `/gizclaw/v1`.
 //
+// Telemetry steps go through the C SDK's typed telemetry calls.
+//
 // It deliberately supports fewer operations than the Go runner. Streaming,
 // speech, and Workspace relay steps have no C client, so they are absent from
 // Operations() and validate rejects a document that uses them instead of
 // skipping the step.
 type driver struct{}
 
-func (driver) Operations() []string { return []string{"rpc", "client_rpc", "http", "reconnect"} }
+func (driver) Operations() []string {
+	return []string{"rpc", "client_rpc", "http", "reconnect", "telemetry"}
+}
 
 func (driver) ValidateStep(doc *giztest.Document, step giztest.Step) error {
 	switch step.Operation() {
@@ -57,6 +61,7 @@ is up.
 var controlRoutes = map[string][]string{
 	http.MethodGet: {
 		"/device", "/device/runtime", "/device/runtime-profile", "/device/workspaces", "/device/status", "/device/audioplayer", "/device/audioplayer/playlist",
+		"/device/settings", "/device/rpc-methods", "/device/tools",
 		"/device/telemetry", "/device/telemetry/*/latest", "/device/telemetry/aggregate",
 		"/device/wifi", "/device/wifi/saved",
 		"/api-keys", "/api-keys/self", "/api-keys/*",
@@ -66,14 +71,16 @@ var controlRoutes = map[string][]string{
 	},
 	http.MethodPost: {
 		"/device/audioplayer/actions/play", "/device/audioplayer/actions/stop", "/device/audioplayer/playlist/append",
-		"/device/actions/play-sound", "/device/actions/reboot", "/device/actions/find", "/api-keys", "/contacts",
+		"/device/actions/play-sound", "/device/actions/reboot", "/device/actions/find", "/device/actions/factory-reset",
+		"/device/tools/*/actions/invoke", "/device/wifi/scan", "/api-keys", "/contacts",
 		"/friends", "/friends/invite-token",
 		"/friend-groups", "/friend-groups/@join", "/friend-groups/*/invite-token", "/friend-groups/*/@leave", "/friend-groups/*/members",
 	},
 	http.MethodPut: {
-		"/device/audioplayer/playlist", "/device/audioplayer/mode", "/device/volume", "/contacts/*",
+		"/device/audioplayer/playlist", "/device/audioplayer/mode", "/device/volume", "/device/run/workspace", "/device/wifi", "/contacts/*",
 		"/friend-groups/*", "/friend-groups/*/members/*",
 	},
+	http.MethodPatch: {"/device/settings"},
 	http.MethodDelete: {
 		"/device/wifi/saved/*", "/device/workspaces/*", "/api-keys/self", "/api-keys/*", "/contacts/*",
 		"/friends/invite-token", "/friends/*",
@@ -227,6 +234,8 @@ func (s *session) Execute(ctx context.Context, req giztest.StepRequest) (giztest
 		return s.executeClientRPC(ctx, client, req)
 	case "http":
 		return s.executeHTTP(ctx, client, req)
+	case "telemetry":
+		return s.executeTelemetry(ctx, client, req)
 	case "reconnect":
 		bounded, cancel := reconnectContext(ctx, req.Step)
 		defer cancel()
@@ -266,6 +275,27 @@ func (s *session) executeRPC(ctx context.Context, client *deviceClient, req gizt
 		return giztest.StepResult{}, err
 	}
 	return giztest.StepResult{Value: decoded, Saved: decoded}, nil
+}
+
+// executeTelemetry sends the step's TelemetryFrame from the device client. As
+// in the Go runner, acceptance is not persistence: documents poll status.
+func (s *session) executeTelemetry(ctx context.Context, client *deviceClient, req giztest.StepRequest) (giztest.StepResult, error) {
+	input, err := req.Vars.Resolve(req.Step.Telemetry.Frame)
+	if err != nil {
+		return giztest.StepResult{}, err
+	}
+	frame, err := decodeTelemetryFrame(input)
+	if err != nil {
+		return giztest.StepResult{}, err
+	}
+	var sendErr error
+	if err := client.submit(ctx, func(s *cSession) { sendErr = s.SendTelemetry(frame) }); err != nil {
+		return giztest.StepResult{}, err
+	}
+	if sendErr != nil {
+		return giztest.StepResult{}, sendErr
+	}
+	return giztest.StepResult{Value: map[string]any{"sent": true, "observations": len(frame.Observations)}}, nil
 }
 
 // executeClientRPC waits for the Server to invoke the scripted provider the

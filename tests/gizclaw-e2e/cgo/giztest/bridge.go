@@ -57,11 +57,16 @@ func openSession(endpoint, privateKey string, provider *clientRPCProvider) (*cSe
 
 	session := &cSession{}
 	var providerHandle C.ulonglong
+	var cTool *C.char
 	if provider != nil {
 		session.provider = cgo.NewHandle(provider)
 		providerHandle = C.ulonglong(session.provider)
+		if name := provider.toolName(); name != "" {
+			cTool = C.CString(name)
+			defer C.free(unsafe.Pointer(cTool))
+		}
 	}
-	rc := C.gzt_session_open(cEndpoint, cKey, providerHandle, &session.handle, errbuf, errorBufferSize)
+	rc := C.gzt_session_open(cEndpoint, cKey, providerHandle, cTool, &session.handle, errbuf, errorBufferSize)
 	if rc != 0 {
 		if session.provider != 0 {
 			session.provider.Delete()

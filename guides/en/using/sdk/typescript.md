@@ -45,7 +45,7 @@ server, which sends the credential in the clear.
 The client is organized by route group, with method names that mirror the `gizclaw_control` package in the [Flutter SDK](./flutter):
 
 - `apiKeys`: `create`, `list`, `getSelf`, `revokeSelf`, `get`, `revoke`.
-- `device`: `get`, `getRuntime`, `getStatus`, `getTelemetryLatest`, `queryTelemetry`, `aggregateTelemetry`, `setVolume`, `playSound`, `find`, `reboot`, `getWifi`, `scanWifi`, `connectWifi`, `listSavedWifi`, `forgetSavedWifi`.
+- `device`: `get`, `getRuntime`, `getStatus`, `getTelemetryLatest`, `queryTelemetry`, `aggregateTelemetry`, `setVolume`, `playSound`, `find`, `reboot`, `getWifi`, `scanWifi`, `connectWifi`, `listSavedWifi`, `forgetSavedWifi`, `getSettings`, `updateSettings`, `factoryReset`, `listRpcMethods`, `setRunWorkspace`, `listTools`, `invokeTool`.
 - `contacts`: `list`, `create`, `get`, `put`, `delete`.
 - `friends`: `getInviteToken`, `createInviteToken` (optional `{ ttl_seconds }`), `clearInviteToken`, `add`, `list`, `get`, `delete`.
 - `friendGroups`: `list`, `create`, `join`, `get`, `put`, `delete` (dissolve), `leave`, `getInviteToken`, `createInviteToken`, `clearInviteToken`, `listMembers`, `addMember`, `putMember`, `deleteMember`.

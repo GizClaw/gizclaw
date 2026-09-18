@@ -115,6 +115,13 @@ func validateInputSchema(single string, many []string) error {
 	return fmt.Errorf("%w: input_schema type must be object", ErrInvalidTool)
 }
 
+// ValidateToolArgs checks that args is one JSON object satisfying the Tool's
+// input_schema; empty args count as an empty object. Failures wrap
+// ErrInvalidTool.
+func ValidateToolArgs(tool Tool, args json.RawMessage) error {
+	return validateToolArgs(tool, args)
+}
+
 func validateToolArgs(tool Tool, args json.RawMessage) error {
 	args = normalizeToolArgs(args)
 	var value any
