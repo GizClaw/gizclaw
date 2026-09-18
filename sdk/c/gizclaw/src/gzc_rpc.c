@@ -998,6 +998,7 @@ static bool inbound_is_client_method(gizclaw_rpc_v1_RpcMethod method) {
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET:
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET:
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_GET:
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RUN_WORKSPACE_SET:
     return true;
   default:
     return false;
