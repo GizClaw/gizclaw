@@ -61,6 +61,9 @@ type Transformer struct {
 	format     string
 	sampleRate int
 	bitrate    int
+	// languageBoost is the MiniMax language_boost value; empty lets MiniMax
+	// infer the language from the text.
+	languageBoost string
 
 	// oggSerial hands each encoded Ogg segment a distinct logical bitstream
 	// serial so concatenated segments form a valid chained Ogg stream.
@@ -82,6 +85,9 @@ type Config struct {
 	Format     string
 	SampleRate int
 	BitRate    int
+	// LanguageBoost is a MiniMax language_boost value such as "Japanese".
+	// Use LanguageBoost to derive it from a language code.
+	LanguageBoost string
 }
 
 // New creates a configured MiniMax Transformer without opening a provider
@@ -112,7 +118,54 @@ func newTransformer(config Config) *Transformer {
 		format:     normalizeFormat(config.Format),
 		sampleRate: positiveDefault(config.SampleRate, 32000),
 		bitrate:    positiveDefault(config.BitRate, 128000),
+
+		languageBoost: strings.TrimSpace(config.LanguageBoost),
 	}
+}
+
+// languageBoosts maps ISO 639-1 language codes to MiniMax language_boost
+// values.
+var languageBoosts = map[string]string{
+	"ar":  "Arabic",
+	"cs":  "Czech",
+	"de":  "German",
+	"el":  "Greek",
+	"en":  "English",
+	"es":  "Spanish",
+	"fi":  "Finnish",
+	"fr":  "French",
+	"hi":  "Hindi",
+	"id":  "Indonesian",
+	"it":  "Italian",
+	"ja":  "Japanese",
+	"ko":  "Korean",
+	"nl":  "Dutch",
+	"pl":  "Polish",
+	"pt":  "Portuguese",
+	"ro":  "Romanian",
+	"ru":  "Russian",
+	"th":  "Thai",
+	"tr":  "Turkish",
+	"uk":  "Ukrainian",
+	"vi":  "Vietnamese",
+	"yue": "Chinese,Yue",
+	"zh":  "Chinese",
+}
+
+// LanguageBoost returns the MiniMax language_boost value for a language code
+// such as "ja", "fr" or "es-MX". The legacy code "jp" is accepted for
+// Japanese. It returns "" for an empty or unsupported code so the caller
+// leaves language detection to MiniMax.
+func LanguageBoost(language string) string {
+	language = strings.ToLower(strings.TrimSpace(language))
+	if boost, ok := languageBoosts[language]; ok {
+		return boost
+	}
+	base, _, _ := strings.Cut(strings.ReplaceAll(language, "_", "-"), "-")
+	if base == "jp" {
+		base = "ja"
+	}
+	return languageBoosts[base]
 }
 
 func normalizeFormat(format string) string {
@@ -142,6 +195,7 @@ func (t *Transformer) synthesize(ctx context.Context, text string, _ streamkit.T
 		"minimax tts: synthesize",
 		slog.String("model", t.model),
 		slog.String("voice_id", t.voiceID),
+		slog.String("language_boost", t.languageBoost),
 	)
 	speed := t.speed
 	vol := t.vol
@@ -162,13 +216,14 @@ func (t *Transformer) synthesize(ctx context.Context, text string, _ streamkit.T
 	}
 
 	stream, err := t.client.Speech.OpenWebSocket(ctx, minimax.SpeechWebSocketRequest{
-		Model:   t.model,
-		Text:    text,
-		VoiceID: t.voiceID,
-		Speed:   &speed,
-		Vol:     &vol,
-		Pitch:   &pitch,
-		Emotion: t.emotion,
+		Model:         t.model,
+		Text:          text,
+		VoiceID:       t.voiceID,
+		Speed:         &speed,
+		Vol:           &vol,
+		Pitch:         &pitch,
+		Emotion:       t.emotion,
+		LanguageBoost: t.languageBoost,
 		AudioSetting: &minimax.SpeechAudioSetting{
 			Format:     providerFormat,
 			SampleRate: &sampleRate,
