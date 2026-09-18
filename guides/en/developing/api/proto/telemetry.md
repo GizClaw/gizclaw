@@ -67,7 +67,7 @@ It now merges with its observation time into `PeerStatus.firmware_version`, alon
 package-exact `firmware_sha256`: the digest identifies the exact package, the version
 names the release. Like the activity it is status and not a metric, because a version
 string as a sample is a label-cardinality hazard while its real use is display. Per-field
-ordering keeps a late-arriving older report from rolling the version backwards.
+ordering keeps a late-arriving older report from rolling the version backwards. Only a value of 1 to 128 bytes becomes status; an empty or oversized value is dropped without rejecting the frame, because older devices have always sent this field unchecked.
 
 ## Network reporting
 

@@ -59,7 +59,7 @@ battery、GNSS 相同，观测时间记录在 `telemetry_observed_at.activity`�
 `SystemObservation.firmware_version`（field 4）此前只做校验、不落库。现在它随观测时间进入
 `PeerStatus.firmware_version`，与逐包精确的 `firmware_sha256` 并列：digest 标识具体的包，
 版本号标识对外的 release。它同样只是状态而不是指标——把版本字符串写成 sample 会带来高基数 label
-风险，而它真正的用途是展示。逐字段排序保证迟到的旧上报不会把版本回滚。
+风险，而它真正的用途是展示。逐字段排序保证迟到的旧上报不会把版本回滚。只有 1–128 字节的值会进入状态；空字符串或超长的值会被丢弃，但不会拒绝整帧，因为旧设备一直未经校验地发送这个字段。
 
 ## Network 上报
 

@@ -304,11 +304,11 @@ func mapSystem(obs *telemetrypb.SystemObservation, labels map[string]string, ts 
 		samples = append(samples, sample(MetricSystemTemperature, labels, ts, *obs.TemperatureC))
 	}
 	patch := StatusPatch{}
-	if obs.FirmwareVersion != nil {
+	// Devices built before firmware_version became status sent it unchecked and
+	// the Server ignored it, so an empty or oversized value is dropped rather
+	// than rejecting the frame and losing every other observation in it.
+	if obs.FirmwareVersion != nil && *obs.FirmwareVersion != "" && len(*obs.FirmwareVersion) <= firmwareVersionMaxLen {
 		version := *obs.FirmwareVersion
-		if version == "" || len(version) > firmwareVersionMaxLen {
-			return nil, StatusPatch{}, fmt.Errorf("%w: system firmware_version must be 1 to %d bytes", ErrInvalidFrame, firmwareVersionMaxLen)
-		}
 		patch.ReportedAt = ts
 		patch.FirmwareVersion = &version
 		patch.FirmwareVersionAt = ts

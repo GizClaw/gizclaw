@@ -931,3 +931,32 @@ func TestMapFrameActivityObservation(t *testing.T) {
 		}
 	}
 }
+
+// Devices built before firmware_version was projected into status may send it
+// empty or oversized, which the Server used to ignore. Such a value must not
+// cost the device the rest of its frame.
+func TestMapFrameIgnoresOutOfContractFirmwareVersion(t *testing.T) {
+	peer := testPublicKey(t)
+	at := time.Unix(700, 0).UTC()
+	percent := 55.0
+	for name, version := range map[string]string{
+		"empty":     "",
+		"oversized": strings.Repeat("v", 129),
+	} {
+		samples, patch, err := MapFrame(peer, &telemetrypb.TelemetryFrame{
+			Observations: []*telemetrypb.Observation{
+				{Body: &telemetrypb.Observation_Battery{Battery: &telemetrypb.BatteryObservation{Percent: &percent}}},
+				{Body: &telemetrypb.Observation_System{System: &telemetrypb.SystemObservation{FirmwareVersion: &version}}},
+			},
+		}, at)
+		if err != nil {
+			t.Fatalf("MapFrame(%s firmware_version) error = %v, want the frame accepted", name, err)
+		}
+		if patch.FirmwareVersion != nil {
+			t.Fatalf("MapFrame(%s firmware_version) stored %q, want it dropped", name, *patch.FirmwareVersion)
+		}
+		if patch.BatteryPercent == nil || *patch.BatteryPercent != 55 || len(samples) == 0 {
+			t.Fatalf("MapFrame(%s firmware_version) lost the battery observation: patch=%+v samples=%d", name, patch, len(samples))
+		}
+	}
+}
