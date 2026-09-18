@@ -77,11 +77,19 @@ ordering keeps a late-arriving older report from rolling the version backwards. 
 | --- | --- | --- | --- |
 | `rssi_dbm` | 1 | `optional double` | Received signal strength in dBm; must be finite. Stored as the `network.rssi_dbm` metric. |
 | `signal_level` | 2 | `optional double` | Device-defined signal level; must be finite. Stored as the `network.signal_level` metric. |
-| `rat` | 3 | `optional string` | Radio access technology such as `lte`, `nr` or `wifi`. Used for validation only; not persisted. |
+| `rat` | 3 | `optional string` | Radio access technology such as `lte`, `nr` or `wifi`. Selects which route's status the signal updates; not persisted itself. |
 | `operator` | 4 | `optional string` | Operator name. Used for validation only; not persisted. |
 | `connected` | 5 | `optional bool` | Whether the route is connected. Stored as the `network.connected` metric. |
 | `imei` | 6 | `optional string` | Modem hardware IMEI: exactly 15 ASCII digits (`^[0-9]{15}$`). Devices without a modem leave it unset. |
 | `imsi` | 7 | `optional string` | IMSI of the SIM serving the default packet-data route: 6 to 15 ASCII digits (`^[0-9]{6,15}$`). Unset when no SIM is readable. |
+
+The signal is also projected into status so an app can show it directly. With `rat`
+`wifi`, `rssi_dbm` becomes `PeerStatus.wifi_rssi_dbm`; any other non-empty `rat` sets
+`PeerStatus.cellular_rssi_dbm` and `PeerStatus.cellular_signal_level` from `rssi_dbm`
+and `signal_level`. Ordering is per field like GNSS, with same-named timestamps under
+`telemetry_observed_at`, and a route change leaves the other route's last value in
+place. An observation without `rat` names no route, so it updates the metrics only,
+which keeps older devices' reports behaving as before.
 
 `imei` and `imsi` are only meaningful on a cellular route. A frame whose `rat` is
 `wifi` (case-insensitive) with either field set is rejected as `ErrInvalidFrame`, as is

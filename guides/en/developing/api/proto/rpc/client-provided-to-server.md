@@ -53,6 +53,14 @@ serve devices with different hardware instead of adding an RPC method per option
 | `locale` | `optional string` | UI language as a well-formed BCP 47 tag of at most 35 bytes: a 2-8 letter primary subtag followed by hyphen-separated 1-8 character alphanumeric subtags, such as `zh-CN`, `zh-Hant-TW` or `es-419`. POSIX forms such as `zh_CN` are rejected. |
 | `default_interaction_mode` | `optional DeviceInteractionMode` | Default input mode, `push-to-talk` or `realtime`, sharing the `WorkspaceInputMode` vocabulary. |
 | `key_feedback` | `optional DeviceKeyFeedback` | Key press feedback: `none`, `sound`, `vibrate`, `sound_and_vibrate`. |
+| `alert_mode` | `optional DeviceAlertMode` | How the device alerts the user to an incoming call or notification: `silent`, `vibrate`, `ring`. |
+| `auto_sleep_timeout_ms` | `optional int64` | Idle time before the device sleeps; `0` disables automatic sleep. |
+| `nfc_enabled` | `optional bool` | Whether the NFC reader is powered. |
+
+Product-specific configuration, such as usage time or feature limits, is not part of `DeviceSettings`:
+the device implements it as a `client_rpc` Tool whose RuntimeProfile binding sets `control_access`, and the
+control app calls it through `client.tool.invoke` (82). Speech rate is not a device setting either; it is a
+Workspace parameter in `WorkspaceParametersPatch`, delivered separately.
 
 Provider responsibilities:
 
@@ -66,17 +74,36 @@ Provider responsibilities:
   device is never left half-configured.
 - `factory_reset` erases device-local state and is irreversible on the device; `keep_network` retains
   saved Wi-Fi and cellular configuration so the device can reconnect without being re-provisioned. The
-  Server's own peer records are unaffected. Like `reboot`, it must send its response first.
+  Server's own peer records are unaffected. Like `reboot`, it must send its response first. A device
+  that deletes its own Peer during the reset also invalidates every API key of that Peer, so the control
+  app must pair again.
 - `rpc.methods.get` returns the method names the device implements, so a caller can hide or skip a
   control the device would only reject. Names are registry names such as `client.device.reboot`, and a
   reader must ignore unknown names rather than rejecting the response.
 
 The Go SDK installs providers through `GetSettings`, `SetSettings`, and `FactoryReset` on
 `gizcli.DeviceControlHandlers`; the JavaScript and Flutter SDKs use `getSettings`, `setSettings`, and
-`factoryReset` on `GizClawDeviceControlHandlers`; the C SDK's `inbound_is_client_method` accepts all four
+`factoryReset` on `GizClawDeviceControlHandlers`; the C SDK's `inbound_is_client_method` accepts these
 methods and hands them to `gzc_client_config_t.rpc_provider`. The Go, JavaScript, and Flutter SDKs derive
 the `client.rpc.methods.get` answer from the handlers the device actually registered, so that list cannot
 drift from what the device will accept, and they answer it even with no device-control handlers installed.
+
+## Remote Workspace switch
+
+`client.run.workspace.set` (132) is triggered by the control app through
+`PUT /gizclaw/v1/device/run/workspace` and asks the device to switch the Workspace it runs. The request
+names exactly one target: `workspace_name` for an existing Workspace, or `collection` with `workflow_name`
+for a RuntimeProfile workflow, in which case the device runs the Workspace it keeps for that workflow.
+The optional `kickoff` lets the agent speak first once the Workspace is ready and defaults to false. Each
+name is at most 256 bytes.
+
+The device checks the target, answers `ClientRunWorkspaceSetResponse` first, and then switches through
+`server.run.workspace.reload-with-options`; the answer only means the request was accepted, not that the
+switch finished. The committed Workspace is what the Server records, and the control app observes it
+through `active_workspace_name` / `pending_workspace_name` on `GET /gizclaw/v1/device/runtime`. An invalid
+target answers `INVALID_PARAMS`. The Go SDK uses `DeviceControlHandlers.SetRunWorkspace`; the JavaScript
+and Flutter SDKs use `setRunWorkspace`. The SDKs check the exactly-one-target rule before calling the
+handler.
 
 ## Music player
 

@@ -52,6 +52,13 @@ Go Client 的 provider dispatch 位于 `sdk/go/gizcli` 的 RPC Client implementa
 | `locale` | `optional string` | 界面语言，格式正确的 BCP 47 标签，最多 35 字节：2–8 个字母的主子标签，后接用 `-` 分隔的 1–8 位字母数字子标签，例如 `zh-CN`、`zh-Hant-TW`、`es-419`；`zh_CN` 这类 POSIX 写法会被拒绝。 |
 | `default_interaction_mode` | `optional DeviceInteractionMode` | 默认交互模式：`push-to-talk` 或 `realtime`，与 `WorkspaceInputMode` 使用同一套取值。 |
 | `key_feedback` | `optional DeviceKeyFeedback` | 按键提示方式：`none`、`sound`、`vibrate`、`sound_and_vibrate`。 |
+| `alert_mode` | `optional DeviceAlertMode` | 来电、通知等事件的提醒方式：`silent`、`vibrate`、`ring`。 |
+| `auto_sleep_timeout_ms` | `optional int64` | 无操作多久后设备休眠；`0` 表示不自动休眠。 |
+| `nfc_enabled` | `optional bool` | NFC 读卡器是否供电。 |
+
+产品专属配置（如使用时长、功能限制）不进入 `DeviceSettings`：它们由设备实现为 `client_rpc` Tool，并在
+RuntimeProfile binding 上设置 `control_access`，控制 App 通过 `client.tool.invoke`（82）调用。语速也不是设备
+配置，它属于 Workspace 参数 `WorkspaceParametersPatch`，另行提供。
 
 Provider 责任：
 
@@ -62,14 +69,28 @@ Provider 责任：
   成员应在应用任何一项之前返回 `INVALID_PARAMS`，避免设备停在配置了一半的状态。
 - `factory_reset` 清除设备本机状态，设备侧不可撤销；可选 `keep_network` 保留已保存的 Wi‑Fi 与蜂窝配置，
   使设备无需重新配网即可回连。Server 自身的 Peer 记录不受影响。与 `reboot` 一样必须先发出响应再执行。
+  若设备在重置流程中自行删除 Peer，该 Peer 的全部 API Key 随之失效，控制 App 需要重新绑定。
 - `rpc.methods.get` 返回设备实现的 method name 列表，调用方据此隐藏或跳过设备只会拒绝的控制项。名称使用
   registry 名（例如 `client.device.reboot`）；读取方必须忽略未知名称而不是拒绝整个响应。
 
 Go SDK 通过 `gizcli.DeviceControlHandlers` 的 `GetSettings`、`SetSettings`、`FactoryReset`，JavaScript SDK 与
 Flutter SDK 通过 `GizClawDeviceControlHandlers` 的 `getSettings`、`setSettings`、`factoryReset` 安装 provider；
-C SDK 的 `inbound_is_client_method` 接受这四个方法并交给 `gzc_client_config_t.rpc_provider`。Go、JavaScript 与
+C SDK 的 `inbound_is_client_method` 接受这些方法并交给 `gzc_client_config_t.rpc_provider`。Go、JavaScript 与
 Flutter SDK 直接从已注册的 handler 推导 `client.rpc.methods.get` 的返回值，因此这个列表不会与设备真正接受的方法
 脱节；即使没有安装任何设备控制 handler，它也照常应答。
+
+## 远程切换 Workspace
+
+`client.run.workspace.set`（132）由控制 App 经 `PUT /gizclaw/v1/device/run/workspace` 触发，请设备切换正在运行的
+Workspace。请求恰好指定一个目标：`workspace_name` 指定已有 Workspace，或 `collection` + `workflow_name` 指定
+RuntimeProfile 中的 workflow，由设备运行它为该 workflow 保存的 Workspace；可选 `kickoff` 让 agent 在 Workspace
+就绪后先开口，缺省为 false。三个名称最多 256 字节。
+
+设备校验目标后先应答 `ClientRunWorkspaceSetResponse`，再自行调用 `server.run.workspace.reload-with-options`
+完成切换；应答只表示接受请求，不表示切换已完成。已提交的 Workspace 以 Server 记录为准，控制 App 通过
+`GET /gizclaw/v1/device/runtime` 的 `active_workspace_name` / `pending_workspace_name` 观察。目标不合法返回
+`INVALID_PARAMS`。Go SDK 使用 `DeviceControlHandlers.SetRunWorkspace`，JavaScript 与 Flutter SDK 使用
+`setRunWorkspace`；SDK 在调用 handler 前已校验"恰好一个目标"。
 
 ## 音乐播放器
 

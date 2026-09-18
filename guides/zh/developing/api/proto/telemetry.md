@@ -69,7 +69,7 @@ battery、GNSS 相同，观测时间记录在 `telemetry_observed_at.activity`�
 | --- | --- | --- | --- |
 | `rssi_dbm` | 1 | `optional double` | 接收信号强度，单位 dBm，必须有限；写入 `network.rssi_dbm` 指标。 |
 | `signal_level` | 2 | `optional double` | 设备定义的信号等级，必须有限；写入 `network.signal_level` 指标。 |
-| `rat` | 3 | `optional string` | 无线接入技术，例如 `lte`、`nr`、`wifi`；只用于校验，不落库。 |
+| `rat` | 3 | `optional string` | 无线接入技术，例如 `lte`、`nr`、`wifi`；决定信号写入哪条路由的状态，本身不落库。 |
 | `operator` | 4 | `optional string` | 运营商名称；只用于校验，不落库。 |
 | `connected` | 5 | `optional bool` | 路由是否已连接；写入 `network.connected` 指标。 |
 | `imei` | 6 | `optional string` | 调制解调器硬件 IMEI，必须恰好 15 个 ASCII 数字（`^[0-9]{15}$`）。没有调制解调器的设备不设置。 |
@@ -86,8 +86,13 @@ SDK frame 解码与存储行为不变。
 `reported_at`；值与时间戳都未变化时不重写状态。telemetry 从不清除身份字段，设备丢失 SIM 后只是停止上报
 `imsi`；清除属于管理操作，不在 telemetry 范围内。
 
+信号同时投影进状态，供 App 直接显示当前信号：`rat` 为 `wifi` 时 `rssi_dbm` 写入 `PeerStatus.wifi_rssi_dbm`；
+其他非空 `rat` 把 `rssi_dbm` 与 `signal_level` 写入 `PeerStatus.cellular_rssi_dbm` / `PeerStatus.cellular_signal_level`。
+逐字段排序同 GNSS，并在 `telemetry_observed_at` 下记录同名时间戳；切换路由不清除另一条路由的最后值。未携带
+`rat` 的观测不指明路由，只写入指标，不改状态，因此旧设备的上报行为不变。
+
 `PeerStatus` 已由 Peer RPC `server.status.get`、`GET /gizclaw/v1/device/status` 等既有状态接口返回，
-两个新字段随之暴露，不新增 endpoint。Side-control 与 monitor 投影把它们当作不透明字符串。
+这些新字段随之暴露，不新增 endpoint。Side-control 与 monitor 投影把它们当作不透明字符串。
 
 隐私范围：IMEI 与 IMSI 与 GNSS 一样是 owner-scoped 状态，不得出现在 Server、Edge 或 SDK 的日志、trace
 或错误信息中，校验错误只报告字段名。设备只为当前承载流量的 SIM 上报 `imsi`，不得上报已移除 SIM 的缓存值。
