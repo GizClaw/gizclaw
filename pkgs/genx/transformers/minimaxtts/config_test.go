@@ -59,6 +59,69 @@ func TestConfigValidationDefaultsAndPointerCopies(t *testing.T) {
 	}
 }
 
+func TestLanguageBoostMapsTargetLanguageCodes(t *testing.T) {
+	tests := map[string]string{
+		"ar":    "Arabic",
+		"cs":    "Czech",
+		"de":    "German",
+		"el":    "Greek",
+		"en":    "English",
+		"es":    "Spanish",
+		"fi":    "Finnish",
+		"fr":    "French",
+		"hi":    "Hindi",
+		"id":    "Indonesian",
+		"it":    "Italian",
+		"ja":    "Japanese",
+		"jp":    "Japanese",
+		"ko":    "Korean",
+		"nl":    "Dutch",
+		"pl":    "Polish",
+		"pt":    "Portuguese",
+		"ro":    "Romanian",
+		"ru":    "Russian",
+		"th":    "Thai",
+		"tr":    "Turkish",
+		"uk":    "Ukrainian",
+		"vi":    "Vietnamese",
+		"yue":   "Chinese,Yue",
+		"zh":    "Chinese",
+		" JP ":  "Japanese",
+		"ja-JP": "Japanese",
+		"es_MX": "Spanish",
+		"zh-CN": "Chinese",
+		"":      "",
+		"zhen":  "",
+		"xx":    "",
+	}
+	for language, want := range tests {
+		if got := LanguageBoost(language); got != want {
+			t.Errorf("LanguageBoost(%q) = %q, want %q", language, got, want)
+		}
+	}
+}
+
+func TestSynthesizeOmitsLanguageBoostByDefault(t *testing.T) {
+	requestBody := make(chan map[string]any, 1)
+	server := newMiniMaxTTSTestServer(t, requestBody)
+	defer server.Close()
+
+	client, err := minimax.NewClient(minimax.Config{BaseURL: server.URL, APIKey: "test", HTTPClient: server.Client()})
+	if err != nil {
+		t.Fatalf("minimax.NewClient() error = %v", err)
+	}
+	transformer, err := New(Config{Client: client, VoiceID: "voice", Model: "speech-model"})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	if err := transformer.synthesize(context.Background(), "hello", streamkit.TTSMeta{}, "audio/mpeg", func([]byte) error { return nil }); err != nil {
+		t.Fatalf("synthesize() error = %v", err)
+	}
+	if body := <-requestBody; body["language_boost"] != nil {
+		t.Fatalf("language_boost = %#v, want omitted", body["language_boost"])
+	}
+}
+
 func TestMIMEAndDefaultHelperBranches(t *testing.T) {
 	tests := []struct {
 		format string
@@ -108,6 +171,8 @@ func TestSynthesizeMapsTypedConfigToProviderRequest(t *testing.T) {
 		Format:     "pcm",
 		SampleRate: 16000,
 		BitRate:    64000,
+
+		LanguageBoost: " Japanese ",
 	})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
@@ -136,8 +201,11 @@ func TestSynthesizeMapsTypedConfigToProviderRequest(t *testing.T) {
 	if body["model"] != "speech-model" || body["text"] != "hello" {
 		t.Fatalf("request identity = %#v", body)
 	}
+	if body["language_boost"] != "Japanese" {
+		t.Fatalf("language_boost = %#v, want Japanese", body["language_boost"])
+	}
 	logOutput := logs.String()
-	for _, want := range []string{`"msg":"minimax tts: synthesize"`, `"model":"speech-model"`, `"voice_id":"voice"`} {
+	for _, want := range []string{`"msg":"minimax tts: synthesize"`, `"model":"speech-model"`, `"voice_id":"voice"`, `"language_boost":"Japanese"`} {
 		if !strings.Contains(logOutput, want) {
 			t.Fatalf("structured log %q does not contain %q", logOutput, want)
 		}

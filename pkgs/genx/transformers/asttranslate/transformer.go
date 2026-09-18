@@ -73,7 +73,7 @@ func New(config Config) (genx.Transformer, error) {
 		Transformer: externalVoiceTransformer{
 			Transformer: config.Transformer,
 			ASTPattern:  pattern,
-			TTSPattern:  voicePattern(voice),
+			TTSPattern:  externalVoicePattern(voice, params),
 		},
 		keepActiveAfterTextEOS: true,
 	}, nil
@@ -882,6 +882,19 @@ func forwardASTTranslateTTS(ctx context.Context, ttsOutput genx.Stream, output *
 
 func isStreamDone(err error) bool {
 	return errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone)
+}
+
+// externalVoicePattern selects the external Voice and passes the translation
+// target language as the TTS "language" parameter, so the Voice speaks the
+// translated text as that language. Auto-detected pairs have no single target
+// language and leave it to the Voice.
+func externalVoicePattern(voice string, params map[string]any) string {
+	pattern := voicePattern(voice)
+	if enabled, _ := params["enable_source_language_detect"].(bool); enabled {
+		return pattern
+	}
+	target, _ := paramString(params["target_language"])
+	return appendPatternParams(pattern, map[string]any{"language": target})
 }
 
 func voicePattern(voice string) string {

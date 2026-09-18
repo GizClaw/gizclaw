@@ -75,7 +75,7 @@ func TestNewBuildsAliasPatternAndExternalVoiceMode(t *testing.T) {
 	}
 	voice, ok := external.Transformer.(externalVoiceTransformer)
 	if !ok || voice.TTSPattern != "voice/voice-a" {
-		t.Fatalf("external voice = %#v", external.Transformer)
+		t.Fatalf("auto-detect external voice = %#v, want no TTS language", external.Transformer)
 	}
 	for _, notWant := range []string{"speaker_id=", "mode=s2s"} {
 		if strings.Contains(voice.ASTPattern, notWant) {
@@ -85,6 +85,38 @@ func TestNewBuildsAliasPatternAndExternalVoiceMode(t *testing.T) {
 	for _, want := range []string{"mode=s2t", "source_language=zhen", "target_language=zhen", "enable_source_language_detect=true"} {
 		if !strings.Contains(voice.ASTPattern, want) {
 			t.Fatalf("external AST pattern = %q, missing %q", voice.ASTPattern, want)
+		}
+	}
+}
+
+func TestNewPassesTargetLanguageToExternalVoice(t *testing.T) {
+	tests := []struct {
+		pair  string
+		voice string
+		want  string
+	}{
+		{pair: "zh/ja", voice: "ast-translate-zh-ja.translator", want: "voice/ast-translate-zh-ja.translator?language=ja"},
+		{pair: "zh/jp", voice: "voice-a", want: "voice/voice-a?language=ja"},
+		{pair: "zh/fr", voice: "voice-a", want: "voice/voice-a?language=fr"},
+		{pair: "zh/es", voice: "voice-a", want: "voice/voice-a?language=es"},
+		{pair: "ja/zh", voice: "voices/voice-a", want: "voices/voice-a?language=zh"},
+	}
+	for _, test := range tests {
+		transformer, err := New(Config{
+			Transformer:   &scriptedTransformer{},
+			Model:         "runtime-ast",
+			Params:        map[string]any{"lang_pair": test.pair, "mode": "s2s", "speech_rate": 10},
+			ExternalVoice: test.voice,
+		})
+		if err != nil {
+			t.Fatalf("New(%s) error = %v", test.pair, err)
+		}
+		voice, ok := transformer.(interruptibleTransformer).Transformer.(externalVoiceTransformer)
+		if !ok || voice.TTSPattern != test.want {
+			t.Fatalf("New(%s) TTS pattern = %#v, want %q", test.pair, transformer, test.want)
+		}
+		if strings.Contains(voice.ASTPattern, "speech_rate") || !strings.Contains(voice.ASTPattern, "target_language=") {
+			t.Fatalf("New(%s) AST pattern = %q", test.pair, voice.ASTPattern)
 		}
 	}
 }
