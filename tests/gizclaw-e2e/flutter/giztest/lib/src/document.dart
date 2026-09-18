@@ -67,12 +67,14 @@ const clientRpcMethods = {
   'client.wifi.connect',
 };
 
-/// Methods this runner can install a provider for. `client.tool.invoke` needs
-/// the tool-serving surface the Flutter device SDK exposes separately, and
-/// `client.rpc.methods.get` is answered by the SDK itself with no hook that
-/// would let this runner count the Server's calls.
+/// Methods this runner can install a provider for. `client.rpc.methods.get`
+/// is answered by the SDK itself with no hook that would let this runner count
+/// the Server's calls. `client.tool.invoke` is supported for a scripted
+/// `{name, result}` Tool; `unavailable: true` is not, because the SDK answers
+/// an absent Tool without a hook to count the call.
 const supportedClientRpcMethods = {
   'client.info.get',
+  'client.tool.invoke',
   'client.identifiers.get',
   'client.device.status.get',
   'client.device.volume.set',
@@ -415,6 +417,12 @@ void _validateStep(
     }
     if (!supportedClientRpcMethods.contains(method)) {
       throw UnsupportedStepException('client_rpc:$method');
+    }
+    final response = clientRpc['response'];
+    if (method == 'client.tool.invoke' &&
+        response is Map &&
+        response['unavailable'] == true) {
+      throw UnsupportedStepException('client_rpc:$method:unavailable');
     }
     final calls = clientRpc['expect_calls'] as int?;
     if (calls != null && (calls < 1 || calls > 1024)) {

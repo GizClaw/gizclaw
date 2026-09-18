@@ -314,13 +314,18 @@ void main() {
           .toList();
       expect(selected.length, greaterThanOrEqualTo(20));
       final result = await loadDocuments(selected);
-      expect(result.skipped.length, 1);
+      // The Flutter device SDK has no telemetry sending surface, so the two
+      // telemetry scenarios are the only ones this runner reports.
       expect(
-        result.skipped.keys.single,
-        endsWith('server.device.audioplayer.telemetry.giztest.yaml'),
+        result.skipped.keys.map((path) => path.split('/').last).toList()
+          ..sort(),
+        [
+          'server.device.audioplayer.telemetry.giztest.yaml',
+          'server.device.telemetry.status.giztest.yaml',
+        ],
       );
-      expect(result.skipped.values.single, contains('telemetry'));
-      expect(result.documents.length, selected.length - 1);
+      expect(result.skipped.values, everyElement(contains('telemetry')));
+      expect(result.documents.length, selected.length - 2);
     });
 
     test('load the find, social ping and profile scenarios', () async {
@@ -377,6 +382,7 @@ void main() {
           'client.run.workspace.set',
           'client.device.settings.get',
           'client.device.settings.set',
+          'client.tool.invoke',
         ]);
         final httpMethods = {
           for (final document in result.documents)

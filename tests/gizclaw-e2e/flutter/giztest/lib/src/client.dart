@@ -515,6 +515,7 @@ _Handlers _buildHandlers(
   Map<String, Object?>? identifiers;
   var control = const GizClawDeviceControlHandlers();
   GizClawSocialPingHandler? socialPing;
+  final tools = <String, GizClawToolHandler>{};
 
   for (final step in steps) {
     final clientRpc = step.clientRpc;
@@ -528,6 +529,19 @@ _Handlers _buildHandlers(
     inbound[method] = 0;
 
     switch (method) {
+      case 'client.tool.invoke':
+        // Matches the Go runner: `{name, result}` installs a Tool that
+        // answers result as its JSON data.
+        final name = object['name'];
+        if (name is! String || name.trim().isEmpty) {
+          throw StateError('step ${step.id} tool response requires name');
+        }
+        final result = object['result'];
+        tools[name] = (_) {
+          count(method);
+          if (failure != null) throw failure;
+          return result;
+        };
       case 'client.info.get':
         deviceInfo = object;
       case 'client.identifiers.get':
@@ -861,6 +875,7 @@ _Handlers _buildHandlers(
             },
       deviceControl: control,
       socialPing: socialPing,
+      tools: tools,
     ),
     inbound,
   );
