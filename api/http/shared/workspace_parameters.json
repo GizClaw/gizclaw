@@ -90,6 +90,12 @@
           "conversation": {
             "$ref": "#/components/schemas/ConversationParameters"
           },
+          "tts_speech_rate_percent": {
+            "type": "integer",
+            "minimum": 50,
+            "maximum": 200,
+            "description": "Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default."
+          },
           "e2e": {
             "type": "boolean",
             "description": "Marks seed resources used by the local e2e harness."
@@ -142,6 +148,12 @@
           "extension": {
             "$ref": "./workflows/doubao_realtime.json#/components/schemas/DoubaoRealtimeExtension"
           },
+          "tts_speech_rate_percent": {
+            "type": "integer",
+            "minimum": 50,
+            "maximum": 200,
+            "description": "Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default."
+          },
           "e2e": {
             "type": "boolean",
             "description": "Marks seed resources used by the local e2e harness."
@@ -190,6 +202,12 @@
               "asr_model": { "type": "string", "minLength": 1 },
               "input_audio_format": { "type": "string", "enum": ["pcm16", "mp3", "wav"] },
               "output_audio_format": { "type": "string", "enum": ["pcm16", "mp3", "wav"] },
+              "tts_speech_rate_percent": {
+                "type": "integer",
+                "minimum": 50,
+                "maximum": 200,
+                "description": "Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default."
+              },
               "e2e": { "type": "boolean" }
         }
       },
@@ -210,6 +228,12 @@
               "input_transcode": { "type": "boolean" },
               "output_speed": { "type": "integer", "minimum": -50, "maximum": 100 },
               "output_loudness": { "type": "integer", "minimum": -50, "maximum": 100 },
+              "tts_speech_rate_percent": {
+                "type": "integer",
+                "minimum": 50,
+                "maximum": 200,
+                "description": "Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default."
+              },
               "e2e": { "type": "boolean" }
         }
       },
@@ -224,6 +248,12 @@
           },
           "input": {
             "$ref": "#/components/schemas/WorkspaceInputMode"
+          },
+          "tts_speech_rate_percent": {
+            "type": "integer",
+            "minimum": 50,
+            "maximum": 200,
+            "description": "Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default."
           },
           "e2e": { "type": "boolean" }
         }
@@ -262,6 +292,12 @@
           },
           "denoise": {
             "type": "boolean"
+          },
+          "tts_speech_rate_percent": {
+            "type": "integer",
+            "minimum": 50,
+            "maximum": 200,
+            "description": "Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default."
           },
           "e2e": {
             "type": "boolean",

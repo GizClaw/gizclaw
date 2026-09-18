@@ -936,6 +936,37 @@ func TestASTTranslateOggOpusFrameDecoder(t *testing.T) {
 	}
 }
 
+func TestNewRoutesSpeechRateToTheSynthesizer(t *testing.T) {
+	transformer, err := New(Config{
+		Transformer:       &scriptedTransformer{},
+		Model:             "runtime-ast",
+		Params:            map[string]any{"lang_pair": "zh/en", "mode": "s2s", "speaker_id": "speaker-a", "speech_rate": 10},
+		SpeechRatePercent: 70,
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	native := transformer.(interruptibleTransformer).Transformer.(patternTransformer)
+	if !strings.Contains(native.Pattern, "speech_rate_percent=70") {
+		t.Fatalf("native AST pattern = %q, want speech_rate_percent", native.Pattern)
+	}
+
+	transformer, err = New(Config{
+		Transformer:       &scriptedTransformer{},
+		Model:             "runtime-ast",
+		Params:            map[string]any{"lang_pair": "zh/en"},
+		ExternalVoice:     "voice-a",
+		SpeechRatePercent: 70,
+	})
+	if err != nil {
+		t.Fatalf("New() external voice error = %v", err)
+	}
+	voice := transformer.(interruptibleTransformer).Transformer.(externalVoiceTransformer)
+	if voice.TTSPattern != "voice/voice-a?speech_rate_percent=70" || strings.Contains(voice.ASTPattern, "speech_rate") {
+		t.Fatalf("external voice patterns = AST %q, TTS %q", voice.ASTPattern, voice.TTSPattern)
+	}
+}
+
 func TestNewErrors(t *testing.T) {
 	if _, err := New(Config{}); err == nil {
 		t.Fatalf("New() without transformer succeeded, want error")

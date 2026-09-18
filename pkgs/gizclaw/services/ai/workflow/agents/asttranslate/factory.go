@@ -62,6 +62,7 @@ func resolveConfig(spec agenthost.Spec) (genxast.Config, error) {
 	model := strings.TrimSpace(workflowSpec.TranslationModel)
 	params := workflowParams(*workflowSpec)
 	externalVoice := astTranslateTTSVoice(params)
+	speechRatePercent := 0
 	if spec.Workspace.Parameters != nil {
 		typed, err := spec.Workspace.Parameters.AsASTTranslateWorkspaceParameters()
 		if err != nil {
@@ -70,11 +71,19 @@ func resolveConfig(spec agenthost.Spec) (genxast.Config, error) {
 		model = firstNonEmpty(ptrString(typed.TranslationModel), model)
 		params = mergeWorkspaceParams(params, typed)
 		externalVoice = firstNonEmpty(astTranslateWorkspaceTTSVoice(typed), externalVoice)
+		rate, err := spec.Workspace.Parameters.TTSSpeechRatePercent()
+		if err != nil {
+			return genxast.Config{}, fmt.Errorf("asttranslate: %w", err)
+		}
+		if rate != nil {
+			speechRatePercent = *rate
+		}
 	}
 	return genxast.Config{
-		Model:         model,
-		Params:        params,
-		ExternalVoice: externalVoice,
+		Model:             model,
+		Params:            params,
+		ExternalVoice:     externalVoice,
+		SpeechRatePercent: speechRatePercent,
 	}, nil
 }
 

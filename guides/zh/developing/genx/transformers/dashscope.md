@@ -44,6 +44,10 @@ Provider session update 和 event name 留在 Adapter 内部；调用方只依�
 
 同一响应的语音转写文本与音频共享 `StreamID`，分别按 MIME 类型维护 BOS、数据和 EOS。独立的模型文本响应使用另一个 `StreamID`，避免文本结束事件提前关闭语音转写流；打断会关闭该响应的两条流。
 
+## 语速
+
+DashScope realtime 没有原生语速参数。`Config.SpeechRatePercent`（50..200，0 或 100 表示不变）由 GizClaw 从 Workspace `tts_speech_rate_percent` 传入，Transformer 用 [timestretch](../../audio/timestretch) 对每个回复的 PCM16 音频做保持音高的时间伸缩：音频到达即输出已确定的部分，`response.audio.done` 时 flush 余量后再发送 EOS；新回复的音频会丢弃被打断回复的残留状态。伸缩只支持 `pcm16` 输出（24 kHz 单声道），非默认语速与 `mp3`、`wav` 输出组合时 `New` 返回错误。
+
 ## Function-tool 续跑
 
 `ToolInvoker` 非空时，每次 `Transform` 都会在打开 provider session 前解析当次可用工具的名称、说明和 JSON Schema。DashScope function call 按 provider 顺序通过 `InvokeTool(name, arguments)` 执行；每个 raw JSON result 使用原 provider call ID 提交，再通过 `response.create` 继续同一段会话。ToolCall 和 ToolResult control data 始终留在内部，不进入公开 GenX Stream。

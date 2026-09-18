@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
@@ -635,3 +636,44 @@ func (s *fakeTTSStream) Next() (*genx.MessageChunk, error) {
 func (s *fakeTTSStream) Close() error { return s.input.Close() }
 
 func (s *fakeTTSStream) CloseWithError(err error) error { return s.input.CloseWithError(err) }
+
+func TestFactoryCarriesWorkspaceSpeechRateToRealtimeModel(t *testing.T) {
+	speed := 20
+	workflow := testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{
+		Model: "doubao-dialog",
+		Audio: &apitypes.DoubaoRealtimeAudio{
+			Output: apitypes.DoubaoRealtimeAudioOutput{
+				Format: apitypes.DoubaoRealtimeAudioFormat{Type: apitypes.DoubaoRealtimeAudioFormatType("ogg_opus"), Rate: 24000},
+				Speed:  &speed,
+			},
+		},
+	})
+	params := testDoubaoRealtimeWorkspaceParameters(t, apitypes.DoubaoRealtimeWorkspaceParameters{TtsSpeechRatePercent: new(70)})
+	agent, err := (Factory{Transformer: recordingTransformer{}}).NewAgent(context.Background(), agenthost.Spec{
+		Workspace: apitypes.Workspace{Id: "workspace-dialog-id", Name: "demo", Parameters: params},
+		Workflow:  workflow,
+	})
+	if err != nil {
+		t.Fatalf("NewAgent() error = %v", err)
+	}
+	query := patternQuery(t, transformPattern(t, agent))
+	// peergenx lets speech_rate_percent override the static output_speed.
+	if got := query.Get("speech_rate_percent"); got != "70" {
+		t.Fatalf("speech_rate_percent = %q, want 70", got)
+	}
+}
+
+func TestRealtimeVoiceResolverCarriesSpeechRate(t *testing.T) {
+	for _, tt := range []struct {
+		rate *int
+		want string
+	}{
+		{want: "voice/narrator"},
+		{rate: new(60), want: "voice/narrator?speech_rate_percent=60"},
+	} {
+		got, err := realtimeVoiceResolver("narrator", tt.rate)(context.Background(), audiodock.VoiceRequest{})
+		if err != nil || got != tt.want {
+			t.Fatalf("realtimeVoiceResolver(%v) = %q, %v; want %q", tt.rate, got, err, tt.want)
+		}
+	}
+}

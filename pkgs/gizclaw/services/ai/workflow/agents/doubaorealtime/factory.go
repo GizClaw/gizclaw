@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 )
 
@@ -38,6 +39,10 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if err != nil {
 		return nil, err
 	}
+	rate, err := apitypes.WorkspaceTTSSpeechRatePercent(spec.Workspace.Parameters)
+	if err != nil {
+		return nil, fmt.Errorf("doubaorealtime: %w", err)
+	}
 	core := patternTransformer{Transformer: transformer, Pattern: pattern}
 	if ttsVoice == "" {
 		return agenthost.NewTransformerAgent(core), nil
@@ -53,7 +58,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	dock, err := audiodock.New(audiodock.Config{
 		Agent:        core,
 		TTS:          transformer,
-		ResolveVoice: realtimeVoiceResolver(ttsVoice),
+		ResolveVoice: realtimeVoiceResolver(ttsVoice, rate),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("doubaorealtime: compose tts: %w", err)
@@ -68,8 +73,8 @@ func workspaceOwner(workspace apitypes.Workspace) string {
 	return strings.TrimSpace(*workspace.OwnerPublicKey)
 }
 
-func realtimeVoiceResolver(alias string) audiodock.VoiceResolver {
-	pattern := "voice/" + alias
+func realtimeVoiceResolver(alias string, speechRatePercent *int) audiodock.VoiceResolver {
+	pattern := peergenx.WithSpeechRatePercent("voice/"+alias, speechRatePercent)
 	return func(context.Context, audiodock.VoiceRequest) (string, error) {
 		return pattern, nil
 	}
@@ -153,6 +158,15 @@ func resolveRealtimeModelPattern(ctx context.Context, spec agenthost.Spec) (stri
 	params["dialog_id"] = dialogID
 	if ttsVoice != "" {
 		params["output"] = "text"
+	} else {
+		// The model speaks itself; with tts.voice the Voice pattern carries it.
+		rate, err := apitypes.WorkspaceTTSSpeechRatePercent(spec.Workspace.Parameters)
+		if err != nil {
+			return "", "", fmt.Errorf("doubaorealtime: %w", err)
+		}
+		if rate != nil {
+			params[peergenx.SpeechRatePercentParam] = *rate
+		}
 	}
 	if model == "" {
 		return "", "", fmt.Errorf("doubaorealtime: model is required")

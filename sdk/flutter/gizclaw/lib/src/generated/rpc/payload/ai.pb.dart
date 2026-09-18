@@ -965,6 +965,7 @@ class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
     $1.ASTTranslateMode? mode,
     $core.String? translationModel,
     ASTTranslateVoiceParameters? voice,
+    $core.int? ttsSpeechRatePercent,
   }) {
     final result = create();
     if (agentType != null) result.agentType = agentType;
@@ -977,6 +978,8 @@ class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
     if (mode != null) result.mode = mode;
     if (translationModel != null) result.translationModel = translationModel;
     if (voice != null) result.voice = voice;
+    if (ttsSpeechRatePercent != null)
+      result.ttsSpeechRatePercent = ttsSpeechRatePercent;
     return result;
   }
 
@@ -1007,6 +1010,7 @@ class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
     ..aOS(8, _omitFieldNames ? '' : 'translationModel')
     ..aOM<ASTTranslateVoiceParameters>(9, _omitFieldNames ? '' : 'voice',
         subBuilder: ASTTranslateVoiceParameters.create)
+    ..aI(10, _omitFieldNames ? '' : 'ttsSpeechRatePercent')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1115,6 +1119,15 @@ class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
   void clearVoice() => $_clearField(9);
   @$pb.TagNumber(9)
   ASTTranslateVoiceParameters ensureVoice() => $_ensure(8);
+
+  @$pb.TagNumber(10)
+  $core.int get ttsSpeechRatePercent => $_getIZ(9);
+  @$pb.TagNumber(10)
+  set ttsSpeechRatePercent($core.int value) => $_setSignedInt32(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasTtsSpeechRatePercent() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearTtsSpeechRatePercent() => $_clearField(10);
 }
 
 class DashScopeRealtimeWorkflowSpec extends $pb.GeneratedMessage {
@@ -1303,6 +1316,7 @@ class DashScopeRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
     $core.double? temperature,
     $core.String? vad,
     $core.String? voice,
+    $core.int? ttsSpeechRatePercent,
   }) {
     final result = create();
     if (agentType != null) result.agentType = agentType;
@@ -1318,6 +1332,8 @@ class DashScopeRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
     if (temperature != null) result.temperature = temperature;
     if (vad != null) result.vad = vad;
     if (voice != null) result.voice = voice;
+    if (ttsSpeechRatePercent != null)
+      result.ttsSpeechRatePercent = ttsSpeechRatePercent;
     return result;
   }
 
@@ -1351,6 +1367,7 @@ class DashScopeRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
         fieldType: $pb.PbFieldType.OF)
     ..aOS(12, _omitFieldNames ? '' : 'vad')
     ..aOS(13, _omitFieldNames ? '' : 'voice')
+    ..aI(14, _omitFieldNames ? '' : 'ttsSpeechRatePercent')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1487,6 +1504,15 @@ class DashScopeRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
   $core.bool hasVoice() => $_has(12);
   @$pb.TagNumber(13)
   void clearVoice() => $_clearField(13);
+
+  @$pb.TagNumber(14)
+  $core.int get ttsSpeechRatePercent => $_getIZ(13);
+  @$pb.TagNumber(14)
+  set ttsSpeechRatePercent($core.int value) => $_setSignedInt32(13, value);
+  @$pb.TagNumber(14)
+  $core.bool hasTtsSpeechRatePercent() => $_has(13);
+  @$pb.TagNumber(14)
+  void clearTtsSpeechRatePercent() => $_clearField(14);
 }
 
 class DoubaoRealtimeDuplexWorkflowSpec extends $pb.GeneratedMessage {
@@ -1683,6 +1709,7 @@ class DoubaoRealtimeDuplexWorkspaceParameters extends $pb.GeneratedMessage {
     $fixnum.Int64? outputSpeed,
     $fixnum.Int64? sampleRate,
     $core.String? voice,
+    $core.int? ttsSpeechRatePercent,
   }) {
     final result = create();
     if (agentType != null) result.agentType = agentType;
@@ -1698,6 +1725,8 @@ class DoubaoRealtimeDuplexWorkspaceParameters extends $pb.GeneratedMessage {
     if (outputSpeed != null) result.outputSpeed = outputSpeed;
     if (sampleRate != null) result.sampleRate = sampleRate;
     if (voice != null) result.voice = voice;
+    if (ttsSpeechRatePercent != null)
+      result.ttsSpeechRatePercent = ttsSpeechRatePercent;
     return result;
   }
 
@@ -1730,6 +1759,7 @@ class DoubaoRealtimeDuplexWorkspaceParameters extends $pb.GeneratedMessage {
     ..aInt64(11, _omitFieldNames ? '' : 'outputSpeed')
     ..aInt64(12, _omitFieldNames ? '' : 'sampleRate')
     ..aOS(13, _omitFieldNames ? '' : 'voice')
+    ..aI(14, _omitFieldNames ? '' : 'ttsSpeechRatePercent')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1873,6 +1903,15 @@ class DoubaoRealtimeDuplexWorkspaceParameters extends $pb.GeneratedMessage {
   $core.bool hasVoice() => $_has(12);
   @$pb.TagNumber(13)
   void clearVoice() => $_clearField(13);
+
+  @$pb.TagNumber(14)
+  $core.int get ttsSpeechRatePercent => $_getIZ(13);
+  @$pb.TagNumber(14)
+  set ttsSpeechRatePercent($core.int value) => $_setSignedInt32(13, value);
+  @$pb.TagNumber(14)
+  $core.bool hasTtsSpeechRatePercent() => $_has(13);
+  @$pb.TagNumber(14)
+  void clearTtsSpeechRatePercent() => $_clearField(14);
 }
 
 class EinoWorkflowSpec extends $pb.GeneratedMessage {
@@ -1983,12 +2022,15 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
     $core.bool? e2e,
     ConversationParameters? conversation,
     $1.WorkspaceInputMode? input,
+    $core.int? ttsSpeechRatePercent,
   }) {
     final result = create();
     if (agentType != null) result.agentType = agentType;
     if (e2e != null) result.e2e = e2e;
     if (conversation != null) result.conversation = conversation;
     if (input != null) result.input = input;
+    if (ttsSpeechRatePercent != null)
+      result.ttsSpeechRatePercent = ttsSpeechRatePercent;
     return result;
   }
 
@@ -2013,6 +2055,7 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
         subBuilder: ConversationParameters.create)
     ..aE<$1.WorkspaceInputMode>(4, _omitFieldNames ? '' : 'input',
         enumValues: $1.WorkspaceInputMode.values)
+    ..aI(5, _omitFieldNames ? '' : 'ttsSpeechRatePercent')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2073,6 +2116,15 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
   $core.bool hasInput() => $_has(3);
   @$pb.TagNumber(4)
   void clearInput() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get ttsSpeechRatePercent => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set ttsSpeechRatePercent($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasTtsSpeechRatePercent() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearTtsSpeechRatePercent() => $_clearField(5);
 }
 
 class DoubaoRealtimeAIGCMetadata extends $pb.GeneratedMessage {
@@ -3746,6 +3798,7 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
     $core.String? model,
     $core.Iterable<DoubaoRealtimeFunctionTool>? tools,
     ConversationParameters? conversation,
+    $core.int? ttsSpeechRatePercent,
   }) {
     final result = create();
     if (agentType != null) result.agentType = agentType;
@@ -3757,6 +3810,8 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
     if (model != null) result.model = model;
     if (tools != null) result.tools.addAll(tools);
     if (conversation != null) result.conversation = conversation;
+    if (ttsSpeechRatePercent != null)
+      result.ttsSpeechRatePercent = ttsSpeechRatePercent;
     return result;
   }
 
@@ -3790,6 +3845,7 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
         subBuilder: DoubaoRealtimeFunctionTool.create)
     ..aOM<ConversationParameters>(9, _omitFieldNames ? '' : 'conversation',
         subBuilder: ConversationParameters.create)
+    ..aI(10, _omitFieldNames ? '' : 'ttsSpeechRatePercent')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3896,6 +3952,15 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
   void clearConversation() => $_clearField(9);
   @$pb.TagNumber(9)
   ConversationParameters ensureConversation() => $_ensure(8);
+
+  @$pb.TagNumber(10)
+  $core.int get ttsSpeechRatePercent => $_getIZ(9);
+  @$pb.TagNumber(10)
+  set ttsSpeechRatePercent($core.int value) => $_setSignedInt32(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasTtsSpeechRatePercent() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearTtsSpeechRatePercent() => $_clearField(10);
 }
 
 class ConversationParameters extends $pb.GeneratedMessage {
@@ -4038,12 +4103,15 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
     ConversationParameters? conversation,
     $core.bool? e2e,
     $1.WorkspaceInputMode? input,
+    $core.int? ttsSpeechRatePercent,
   }) {
     final result = create();
     if (agentType != null) result.agentType = agentType;
     if (conversation != null) result.conversation = conversation;
     if (e2e != null) result.e2e = e2e;
     if (input != null) result.input = input;
+    if (ttsSpeechRatePercent != null)
+      result.ttsSpeechRatePercent = ttsSpeechRatePercent;
     return result;
   }
 
@@ -4068,6 +4136,7 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
     ..aOB(3, _omitFieldNames ? '' : 'e2e')
     ..aE<$1.WorkspaceInputMode>(4, _omitFieldNames ? '' : 'input',
         enumValues: $1.WorkspaceInputMode.values)
+    ..aI(5, _omitFieldNames ? '' : 'ttsSpeechRatePercent')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4130,6 +4199,15 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
   $core.bool hasInput() => $_has(3);
   @$pb.TagNumber(4)
   void clearInput() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get ttsSpeechRatePercent => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set ttsSpeechRatePercent($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasTtsSpeechRatePercent() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearTtsSpeechRatePercent() => $_clearField(5);
 }
 
 enum Model_ProviderData {

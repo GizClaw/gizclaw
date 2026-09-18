@@ -51,6 +51,7 @@ type Transformer struct {
 	outputAudioFormat             string // pcm16, mp3, wav
 	toolInvoker                   genx.ToolInvoker
 	maxToolCalls                  int
+	speechRatePercent             int
 }
 
 type dashScopeRealtimeOpener interface {
@@ -517,6 +518,19 @@ func newTransformer(client *dashscope.Client, opts ...option) *Transformer {
 	return t
 }
 
+// emitAudio forwards one model audio chunk; empty audio is not emitted.
+func (t *Transformer) emitAudio(routes *dashScopeOutputRoutes, streamID string, audio []byte) error {
+	if len(audio) == 0 {
+		return nil
+	}
+	mimeType := t.getOutputAudioMIMEType()
+	return routes.emit(genx.RoleModel, streamID, mimeType, &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: mimeType, Data: audio},
+		Ctrl: &genx.StreamCtrl{StreamID: streamID},
+	})
+}
+
 // getOutputAudioMIMEType returns the MIME type based on the configured output format.
 func (t *Transformer) getOutputAudioMIMEType() string {
 	switch t.outputAudioFormat {
@@ -691,6 +705,8 @@ func (t *Transformer) processLoop(
 	// the user transcript's text/plain EOS.
 	streamIDs := &dashScopeStreamIDs{}
 	routes := newDashScopeOutputRoutes(output)
+	// Only the event goroutine below touches the speech rate state.
+	speechRate := newDashScopeSpeechRate(t.speechRatePercent)
 
 	// Start goroutine to receive events
 	eventsDone := make(chan struct{})
@@ -780,23 +796,26 @@ func (t *Transformer) processLoop(
 
 			case dashscope.EventTypeResponseAudioDelta:
 				responseStreamID := streamIDs.response(dashScopeResponseID(event))
-				// Audio response
-				if len(event.Audio) > 0 {
-					outChunk := &genx.MessageChunk{
-						Role: genx.RoleModel,
-						Part: &genx.Blob{
-							MIMEType: t.getOutputAudioMIMEType(),
-							Data:     event.Audio,
-						},
-						Ctrl: &genx.StreamCtrl{StreamID: responseStreamID},
-					}
-					if err := routes.emit(genx.RoleModel, responseStreamID, t.getOutputAudioMIMEType(), outChunk); err != nil {
+				audio := event.Audio
+				if speechRate != nil && len(audio) > 0 {
+					stretched, err := speechRate.audio(responseStreamID, audio)
+					if err != nil {
+						fail(err)
 						return
 					}
+					audio = stretched
+				}
+				if err := t.emitAudio(routes, responseStreamID, audio); err != nil {
+					return
 				}
 
 			case dashscope.EventTypeResponseAudioDone:
 				responseStreamID := streamIDs.response(dashScopeResponseID(event))
+				if speechRate != nil {
+					if err := t.emitAudio(routes, responseStreamID, speechRate.flush(responseStreamID)); err != nil {
+						return
+					}
+				}
 				if err := routes.finish(genx.RoleModel, responseStreamID, t.getOutputAudioMIMEType(), ""); err != nil {
 					return
 				}

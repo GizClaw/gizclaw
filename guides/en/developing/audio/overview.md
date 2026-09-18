@@ -15,6 +15,7 @@ pkgs/audio/
 ├── portaudio/       # Native capture and playback
 ├── resampler/       # Sample-rate and channel conversion
 ├── songs/           # Song definitions and PCM rendering
+├── timestretch/     # Pitch-preserving PCM16 time-stretch
 └── voiceprint/      # Speaker embedding and identity detection
 ```
 
@@ -25,6 +26,7 @@ flowchart LR
     Device["Audio device"] <--> PortAudio["portaudio"]
     PortAudio <--> PCM["pcm"]
     PCM --> Resampler["resampler"]
+    PCM --> TimeStretch["timestretch"]
     PCM --> CodecConv["codecconv"]
     CodecConv --> Ogg["codec/ogg"]
     CodecConv --> Opus["codec/opus"]
@@ -36,7 +38,7 @@ flowchart LR
 ## Package Navigation
 
 - Codec: [mp3](./codec-mp3), [ogg](./codec-ogg), [opus](./codec-opus)
-- Conversion and PCM: [codecconv](./codecconv), [pcm](./pcm), [resampler](./resampler)
+- Conversion and PCM: [codecconv](./codecconv), [pcm](./pcm), [resampler](./resampler), [timestretch](./timestretch)
 - Device and product materials: [portaudio](./portaudio), [songs](./songs)
 - Identification: [voiceprint](./voiceprint)
 

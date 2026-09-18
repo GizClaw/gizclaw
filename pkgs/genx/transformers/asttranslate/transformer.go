@@ -31,15 +31,22 @@ const observedInputQueueCapacity = 256
 
 var errProviderOutputEndedWhileInputActive = errors.New("asttranslate: provider output completed while input remained active")
 
+// speechRatePercentParam is the transformer pattern parameter the GizClaw
+// transformer builders map to each provider's native speaking rate.
+const speechRatePercentParam = "speech_rate_percent"
+
 // Config configures an AST Translate Transformer. Model is a RuntimeProfile
 // model alias; Params contain provider-supported AST parameters such as
 // lang_pair, mode, input, and the internal-speaker fields. ExternalVoice asks
 // AudioDock to synthesize translated text using the supplied voice pattern.
+// SpeechRatePercent, when non-zero, sets the speaking rate of whichever of the
+// two synthesizes the translated speech.
 type Config struct {
-	Transformer   genx.TransformerMux
-	Model         string
-	Params        map[string]any
-	ExternalVoice string
+	Transformer       genx.TransformerMux
+	Model             string
+	Params            map[string]any
+	ExternalVoice     string
+	SpeechRatePercent int
 }
 
 // New creates a reusable AST Translate Transformer. It accepts text or audio
@@ -61,6 +68,8 @@ func New(config Config) (genx.Transformer, error) {
 		delete(params, "is_custom_speaker")
 		delete(params, "tts_resource_id")
 		delete(params, "speech_rate")
+	} else if config.SpeechRatePercent != 0 {
+		params[speechRatePercentParam] = config.SpeechRatePercent
 	}
 	if err := normalizeLanguagePair(params, true); err != nil {
 		return nil, err
@@ -69,11 +78,15 @@ func New(config Config) (genx.Transformer, error) {
 	if voice == "" {
 		return interruptibleTransformer{Transformer: patternTransformer{Transformer: config.Transformer, Pattern: pattern}}, nil
 	}
+	ttsPattern := voicePattern(voice)
+	if config.SpeechRatePercent != 0 {
+		ttsPattern = appendPatternParams(ttsPattern, map[string]any{speechRatePercentParam: config.SpeechRatePercent})
+	}
 	return interruptibleTransformer{
 		Transformer: externalVoiceTransformer{
 			Transformer: config.Transformer,
 			ASTPattern:  pattern,
-			TTSPattern:  voicePattern(voice),
+			TTSPattern:  ttsPattern,
 		},
 		keepActiveAfterTextEOS: true,
 	}, nil

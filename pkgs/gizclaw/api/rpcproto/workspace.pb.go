@@ -3697,11 +3697,13 @@ func (x *WorkspacePutResponse) GetValue() *Workspace {
 }
 
 type WorkspaceParametersPatch struct {
-	state         protoimpl.MessageState  `protogen:"open.v1"`
-	Input         *WorkspaceInputMode     `protobuf:"varint,1,opt,name=input,proto3,enum=gizclaw.rpc.v1.WorkspaceInputMode,oneof" json:"input,omitempty"`
-	Conversation  *ConversationParameters `protobuf:"bytes,2,opt,name=conversation,proto3,oneof" json:"conversation,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state        protoimpl.MessageState  `protogen:"open.v1"`
+	Input        *WorkspaceInputMode     `protobuf:"varint,1,opt,name=input,proto3,enum=gizclaw.rpc.v1.WorkspaceInputMode,oneof" json:"input,omitempty"`
+	Conversation *ConversationParameters `protobuf:"bytes,2,opt,name=conversation,proto3,oneof" json:"conversation,omitempty"`
+	// Synthesized speech rate in percent of normal (50..200); absent keeps the Workflow default.
+	TtsSpeechRatePercent *int32 `protobuf:"varint,3,opt,name=tts_speech_rate_percent,json=ttsSpeechRatePercent,proto3,oneof" json:"tts_speech_rate_percent,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *WorkspaceParametersPatch) Reset() {
@@ -3746,6 +3748,13 @@ func (x *WorkspaceParametersPatch) GetConversation() *ConversationParameters {
 		return x.Conversation
 	}
 	return nil
+}
+
+func (x *WorkspaceParametersPatch) GetTtsSpeechRatePercent() int32 {
+	if x != nil && x.TtsSpeechRatePercent != nil {
+		return *x.TtsSpeechRatePercent
+	}
+	return 0
 }
 
 type WorkspaceParametersSetRequest struct {
@@ -4169,12 +4178,14 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x04body\x18\x01 \x01(\v2 .gizclaw.rpc.v1.WorkspacePutBodyR\x04body\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"G\n" +
 	"\x14WorkspacePutResponse\x12/\n" +
-	"\x05value\x18\x01 \x01(\v2\x19.gizclaw.rpc.v1.WorkspaceR\x05value\"\xc5\x01\n" +
+	"\x05value\x18\x01 \x01(\v2\x19.gizclaw.rpc.v1.WorkspaceR\x05value\"\x9d\x02\n" +
 	"\x18WorkspaceParametersPatch\x12=\n" +
 	"\x05input\x18\x01 \x01(\x0e2\".gizclaw.rpc.v1.WorkspaceInputModeH\x00R\x05input\x88\x01\x01\x12O\n" +
-	"\fconversation\x18\x02 \x01(\v2&.gizclaw.rpc.v1.ConversationParametersH\x01R\fconversation\x88\x01\x01B\b\n" +
+	"\fconversation\x18\x02 \x01(\v2&.gizclaw.rpc.v1.ConversationParametersH\x01R\fconversation\x88\x01\x01\x12:\n" +
+	"\x17tts_speech_rate_percent\x18\x03 \x01(\x05H\x02R\x14ttsSpeechRatePercent\x88\x01\x01B\b\n" +
 	"\x06_inputB\x0f\n" +
-	"\r_conversation\"}\n" +
+	"\r_conversationB\x1a\n" +
+	"\x18_tts_speech_rate_percent\"}\n" +
 	"\x1dWorkspaceParametersSetRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12H\n" +
 	"\n" +

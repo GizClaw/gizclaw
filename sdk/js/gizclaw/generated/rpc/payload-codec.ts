@@ -109,6 +109,7 @@ export type ASTTranslateWorkspaceParameters = {
   "mode"?: ASTTranslateMode;
   "translation_model"?: string;
   "voice"?: ASTTranslateVoiceParameters;
+  "tts_speech_rate_percent"?: number;
 };
 export type AgentSelection = {
   "workspace_name": string;
@@ -297,6 +298,7 @@ export type DashScopeRealtimeWorkspaceParameters = {
   "temperature"?: number;
   "vad"?: string;
   "voice"?: string;
+  "tts_speech_rate_percent"?: number;
 };
 export type DashScopeTenantModelProviderData = {
   "upstream_model"?: string;
@@ -428,6 +430,7 @@ export type DoubaoRealtimeDuplexWorkspaceParameters = {
   "output_speed"?: number;
   "sample_rate"?: number;
   "voice"?: string;
+  "tts_speech_rate_percent"?: number;
 };
 export type DoubaoRealtimeExtension = {
   "asr"?: DoubaoRealtimeASRExtension;
@@ -485,6 +488,7 @@ export type DoubaoRealtimeWorkspaceParameters = {
   "model"?: string;
   "tools": DoubaoRealtimeFunctionTool[];
   "conversation"?: ConversationParameters;
+  "tts_speech_rate_percent"?: number;
 };
 export type EinoWorkflowSpec = {
   "graph": Record<string, unknown>;
@@ -497,6 +501,7 @@ export type EinoWorkspaceParameters = {
   "e2e"?: boolean;
   "conversation"?: ConversationParameters;
   "input"?: WorkspaceInputMode;
+  "tts_speech_rate_percent"?: number;
 };
 export type FirmwareGetRequest = {
   "channel": FirmwareChannelName;
@@ -517,6 +522,7 @@ export type FlowcraftWorkspaceParameters = {
   "conversation"?: ConversationParameters;
   "e2e"?: boolean;
   "input"?: WorkspaceInputMode;
+  "tts_speech_rate_percent"?: number;
 };
 export type FriendAddRequest = {
   "invite_token": string;
@@ -1252,6 +1258,7 @@ export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeW
 export type WorkspaceParametersPatch = {
   "input"?: WorkspaceInputMode;
   "conversation"?: ConversationParameters;
+  "tts_speech_rate_percent"?: number;
 };
 export type WorkspaceParametersSetRequest = {
   "name": string;
@@ -1824,6 +1831,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 9,
         "optional": true,
         "type": "ASTTranslateVoiceParameters"
+      },
+      {
+        "name": "tts_speech_rate_percent",
+        "number": 10,
+        "optional": true,
+        "type": "int32"
       }
     ]
   },
@@ -2573,6 +2586,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 13,
         "optional": true,
         "type": "string"
+      },
+      {
+        "name": "tts_speech_rate_percent",
+        "number": 14,
+        "optional": true,
+        "type": "int32"
       }
     ]
   },
@@ -3208,6 +3227,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 13,
         "optional": true,
         "type": "string"
+      },
+      {
+        "name": "tts_speech_rate_percent",
+        "number": 14,
+        "optional": true,
+        "type": "int32"
       }
     ]
   },
@@ -3484,6 +3509,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 9,
         "optional": true,
         "type": "ConversationParameters"
+      },
+      {
+        "name": "tts_speech_rate_percent",
+        "number": 10,
+        "optional": true,
+        "type": "int32"
       }
     ]
   },
@@ -3538,6 +3569,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 4,
         "optional": true,
         "type": "WorkspaceInputMode"
+      },
+      {
+        "name": "tts_speech_rate_percent",
+        "number": 5,
+        "optional": true,
+        "type": "int32"
       }
     ]
   },
@@ -3619,6 +3656,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 4,
         "optional": true,
         "type": "WorkspaceInputMode"
+      },
+      {
+        "name": "tts_speech_rate_percent",
+        "number": 5,
+        "optional": true,
+        "type": "int32"
       }
     ]
   },
@@ -6928,6 +6971,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 2,
         "optional": true,
         "type": "ConversationParameters"
+      },
+      {
+        "name": "tts_speech_rate_percent",
+        "number": 3,
+        "optional": true,
+        "type": "int32"
       }
     ]
   },

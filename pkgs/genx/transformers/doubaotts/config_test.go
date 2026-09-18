@@ -101,7 +101,8 @@ func TestDoubaoTTSMIMEAndHelperBranches(t *testing.T) {
 			t.Errorf("ICL V2 format %q MIME = %q, want %q", test.format, got, test.want)
 		}
 	}
-	if ratioToRate(0) != 0 || ratioToRate(1) != 0 || ratioToRate(1.25) != 25 || ratioToRate(0.5) != -50 {
+	if ratioToRate(0) != 0 || ratioToRate(1) != 0 || ratioToRate(1.25) != 25 || ratioToRate(0.5) != -50 ||
+		ratioToRate(1.15) != 15 || ratioToRate(0.7) != -30 || ratioToRate(0.57) != -43 {
 		t.Fatal("ratioToRate() boundaries are incorrect")
 	}
 	if firstString(" value ", "fallback") != "value" || firstString(" ", "fallback") != "fallback" ||

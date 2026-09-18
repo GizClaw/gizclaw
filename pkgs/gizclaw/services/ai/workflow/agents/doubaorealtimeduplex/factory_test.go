@@ -60,3 +60,32 @@ func TestResolvePatternRequiresModel(t *testing.T) {
 		t.Fatal("resolvePattern() error = nil")
 	}
 }
+
+func TestResolvePatternCarriesWorkspaceSpeechRate(t *testing.T) {
+	workflowSpeed := 20
+	params := &apitypes.WorkspaceParameters{}
+	if err := params.FromDoubaoRealtimeDuplexWorkspaceParameters(apitypes.DoubaoRealtimeDuplexWorkspaceParameters{
+		AgentType:            apitypes.DoubaoRealtimeDuplexWorkspaceParametersAgentTypeDoubaoRealtimeDuplex,
+		TtsSpeechRatePercent: new(60),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	pattern, err := resolvePattern(agenthost.Spec{
+		Workflow: apitypes.Workflow{Spec: apitypes.WorkflowSpec{
+			Driver:               apitypes.WorkflowDriverDoubaoRealtimeDuplex,
+			DoubaoRealtimeDuplex: &apitypes.DoubaoRealtimeDuplexWorkflowSpec{Model: "workflow-model", OutputSpeed: &workflowSpeed},
+		}},
+		Workspace: apitypes.Workspace{Parameters: params},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := url.Parse(pattern)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// peergenx lets speech_rate_percent override the static output_speed.
+	if got := parsed.Query().Get("speech_rate_percent"); got != "60" {
+		t.Fatalf("speech_rate_percent = %q, pattern %q", got, pattern)
+	}
+}

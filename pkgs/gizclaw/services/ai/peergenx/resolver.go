@@ -601,7 +601,7 @@ func parsePatternParamValue(key, value string) any {
 		"sampleRate", "rate", "input_sample_rate", "input_channels",
 		"output_speed", "output_loudness", "speech_rate", "speed",
 		"loudness_rate", "loudness", "vad_window_ms", "channels",
-		"channel", "bits":
+		"channel", "bits", SpeechRatePercentParam:
 		if intValue, err := strconv.Atoi(text); err == nil {
 			return intValue
 		}
@@ -622,6 +622,26 @@ func isDenied(err error) bool {
 // natively and streams it as audio/ogg, so the segments of one reply share a
 // single audio MIME type regardless of each Voice's own format.
 const SegmentVoiceFormat = "ogg_opus"
+
+// SpeechRatePercentParam is the transformer pattern parameter carrying a
+// Workspace tts_speech_rate_percent. Builders map it to each provider's native
+// rate, or the transformer time-stretches its own audio when there is none.
+const SpeechRatePercentParam = "speech_rate_percent"
+
+// WithSpeechRatePercent sets the speech rate parameter on a transformer
+// pattern. A nil rate returns the pattern unchanged.
+func WithSpeechRatePercent(pattern string, percent *int) string {
+	if percent == nil {
+		return pattern
+	}
+	base, rawQuery, _ := strings.Cut(strings.TrimSpace(pattern), "?")
+	values, err := url.ParseQuery(rawQuery)
+	if err != nil {
+		return pattern
+	}
+	values.Set(SpeechRatePercentParam, strconv.Itoa(*percent))
+	return base + "?" + values.Encode()
+}
 
 // WithSegmentVoiceFormat returns a Voice TransformerMux pattern that requests
 // SegmentVoiceFormat. The format parameter overrides any format already in the

@@ -706,3 +706,20 @@ func (c *countingCloser) count() int {
 	defer c.mu.Unlock()
 	return c.calls
 }
+
+func TestFlowcraftVoicePatternCarriesSpeechRate(t *testing.T) {
+	for _, tt := range []struct {
+		segment bool
+		rate    *int
+		want    string
+	}{
+		{want: "voice/narrator"},
+		{rate: new(70), want: "voice/narrator?speech_rate_percent=70"},
+		{segment: true, want: "voice/narrator?format=ogg_opus"},
+		{segment: true, rate: new(150), want: "voice/narrator?format=ogg_opus&speech_rate_percent=150"},
+	} {
+		if got := flowcraftVoicePattern(tt.segment, tt.rate)("narrator"); got != tt.want {
+			t.Fatalf("flowcraftVoicePattern(%v, %v) = %q, want %q", tt.segment, tt.rate, got, tt.want)
+		}
+	}
+}

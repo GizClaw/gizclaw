@@ -493,6 +493,15 @@ const ASTTranslateWorkspaceParameters$json = {
       '10': 'voice',
       '17': true
     },
+    {
+      '1': 'tts_speech_rate_percent',
+      '3': 10,
+      '4': 1,
+      '5': 5,
+      '9': 8,
+      '10': 'ttsSpeechRatePercent',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_denoise'},
@@ -503,6 +512,7 @@ const ASTTranslateWorkspaceParameters$json = {
     {'1': '_mode'},
     {'1': '_translation_model'},
     {'1': '_voice'},
+    {'1': '_tts_speech_rate_percent'},
   ],
 };
 
@@ -517,9 +527,11 @@ final $typed_data.Uint8List aSTTranslateWorkspaceParametersDescriptor = $convert
     'CGxhbmdQYWlyiAEBEjkKBG1vZGUYByABKA4yIC5naXpjbGF3LnJwYy52MS5BU1RUcmFuc2xhdG'
     'VNb2RlSAVSBG1vZGWIAQESMAoRdHJhbnNsYXRpb25fbW9kZWwYCCABKAlIBlIQdHJhbnNsYXRp'
     'b25Nb2RlbIgBARJGCgV2b2ljZRgJIAEoCzIrLmdpemNsYXcucnBjLnYxLkFTVFRyYW5zbGF0ZV'
-    'ZvaWNlUGFyYW1ldGVyc0gHUgV2b2ljZYgBAUIKCghfZGVub2lzZUIGCgRfZTJlQiAKHl9lbmFi'
-    'bGVfc291cmNlX2xhbmd1YWdlX2RldGVjdEIICgZfaW5wdXRCDAoKX2xhbmdfcGFpckIHCgVfbW'
-    '9kZUIUChJfdHJhbnNsYXRpb25fbW9kZWxCCAoGX3ZvaWNl');
+    'ZvaWNlUGFyYW1ldGVyc0gHUgV2b2ljZYgBARI6Chd0dHNfc3BlZWNoX3JhdGVfcGVyY2VudBgK'
+    'IAEoBUgIUhR0dHNTcGVlY2hSYXRlUGVyY2VudIgBAUIKCghfZGVub2lzZUIGCgRfZTJlQiAKHl'
+    '9lbmFibGVfc291cmNlX2xhbmd1YWdlX2RldGVjdEIICgZfaW5wdXRCDAoKX2xhbmdfcGFpckIH'
+    'CgVfbW9kZUIUChJfdHJhbnNsYXRpb25fbW9kZWxCCAoGX3ZvaWNlQhoKGF90dHNfc3BlZWNoX3'
+    'JhdGVfcGVyY2VudA==');
 
 @$core.Deprecated('Use dashScopeRealtimeWorkflowSpecDescriptor instead')
 const DashScopeRealtimeWorkflowSpec$json = {
@@ -700,6 +712,15 @@ const DashScopeRealtimeWorkspaceParameters$json = {
     },
     {'1': 'vad', '3': 12, '4': 1, '5': 9, '9': 9, '10': 'vad', '17': true},
     {'1': 'voice', '3': 13, '4': 1, '5': 9, '9': 10, '10': 'voice', '17': true},
+    {
+      '1': 'tts_speech_rate_percent',
+      '3': 14,
+      '4': 1,
+      '5': 5,
+      '9': 11,
+      '10': 'ttsSpeechRatePercent',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_asr_model'},
@@ -713,6 +734,7 @@ const DashScopeRealtimeWorkspaceParameters$json = {
     {'1': '_temperature'},
     {'1': '_vad'},
     {'1': '_voice'},
+    {'1': '_tts_speech_rate_percent'},
   ],
 };
 
@@ -728,10 +750,11 @@ final $typed_data.Uint8List dashScopeRealtimeWorkspaceParametersDescriptor = $co
     '1vZGFsaXRpZXMSGQoFbW9kZWwYCSABKAlIBlIFbW9kZWyIAQESMwoTb3V0cHV0X2F1ZGlvX2Zv'
     'cm1hdBgKIAEoCUgHUhFvdXRwdXRBdWRpb0Zvcm1hdIgBARIlCgt0ZW1wZXJhdHVyZRgLIAEoAk'
     'gIUgt0ZW1wZXJhdHVyZYgBARIVCgN2YWQYDCABKAlICVIDdmFkiAEBEhkKBXZvaWNlGA0gASgJ'
-    'SApSBXZvaWNliAEBQgwKCl9hc3JfbW9kZWxCBgoEX2UyZUINCgtfZW5hYmxlX2FzckIVChNfaW'
-    '5wdXRfYXVkaW9fZm9ybWF0Qg8KDV9pbnN0cnVjdGlvbnNCFAoSX21heF9vdXRwdXRfdG9rZW5z'
-    'QggKBl9tb2RlbEIWChRfb3V0cHV0X2F1ZGlvX2Zvcm1hdEIOCgxfdGVtcGVyYXR1cmVCBgoEX3'
-    'ZhZEIICgZfdm9pY2U=');
+    'SApSBXZvaWNliAEBEjoKF3R0c19zcGVlY2hfcmF0ZV9wZXJjZW50GA4gASgFSAtSFHR0c1NwZW'
+    'VjaFJhdGVQZXJjZW50iAEBQgwKCl9hc3JfbW9kZWxCBgoEX2UyZUINCgtfZW5hYmxlX2FzckIV'
+    'ChNfaW5wdXRfYXVkaW9fZm9ybWF0Qg8KDV9pbnN0cnVjdGlvbnNCFAoSX21heF9vdXRwdXRfdG'
+    '9rZW5zQggKBl9tb2RlbEIWChRfb3V0cHV0X2F1ZGlvX2Zvcm1hdEIOCgxfdGVtcGVyYXR1cmVC'
+    'BgoEX3ZhZEIICgZfdm9pY2VCGgoYX3R0c19zcGVlY2hfcmF0ZV9wZXJjZW50');
 
 @$core.Deprecated('Use doubaoRealtimeDuplexWorkflowSpecDescriptor instead')
 const DoubaoRealtimeDuplexWorkflowSpec$json = {
@@ -931,6 +954,15 @@ const DoubaoRealtimeDuplexWorkspaceParameters$json = {
       '17': true
     },
     {'1': 'voice', '3': 13, '4': 1, '5': 9, '9': 11, '10': 'voice', '17': true},
+    {
+      '1': 'tts_speech_rate_percent',
+      '3': 14,
+      '4': 1,
+      '5': 5,
+      '9': 12,
+      '10': 'ttsSpeechRatePercent',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_e2e'},
@@ -945,6 +977,7 @@ const DoubaoRealtimeDuplexWorkspaceParameters$json = {
     {'1': '_output_speed'},
     {'1': '_sample_rate'},
     {'1': '_voice'},
+    {'1': '_tts_speech_rate_percent'},
   ],
 };
 
@@ -960,10 +993,12 @@ final $typed_data.Uint8List doubaoRealtimeDuplexWorkspaceParametersDescriptor = 
     'EoCUgGUgxpbnN0cnVjdGlvbnOIAQESGQoFbW9kZWwYCSABKAlIB1IFbW9kZWyIAQESLAoPb3V0'
     'cHV0X2xvdWRuZXNzGAogASgDSAhSDm91dHB1dExvdWRuZXNziAEBEiYKDG91dHB1dF9zcGVlZB'
     'gLIAEoA0gJUgtvdXRwdXRTcGVlZIgBARIkCgtzYW1wbGVfcmF0ZRgMIAEoA0gKUgpzYW1wbGVS'
-    'YXRliAEBEhkKBXZvaWNlGA0gASgJSAtSBXZvaWNliAEBQgYKBF9lMmVCCQoHX2Zvcm1hdEIRCg'
-    '9faW5wdXRfY2hhbm5lbHNCDwoNX2lucHV0X2Zvcm1hdEIUChJfaW5wdXRfc2FtcGxlX3JhdGVC'
-    'EgoQX2lucHV0X3RyYW5zY29kZUIPCg1faW5zdHJ1Y3Rpb25zQggKBl9tb2RlbEISChBfb3V0cH'
-    'V0X2xvdWRuZXNzQg8KDV9vdXRwdXRfc3BlZWRCDgoMX3NhbXBsZV9yYXRlQggKBl92b2ljZQ==');
+    'YXRliAEBEhkKBXZvaWNlGA0gASgJSAtSBXZvaWNliAEBEjoKF3R0c19zcGVlY2hfcmF0ZV9wZX'
+    'JjZW50GA4gASgFSAxSFHR0c1NwZWVjaFJhdGVQZXJjZW50iAEBQgYKBF9lMmVCCQoHX2Zvcm1h'
+    'dEIRCg9faW5wdXRfY2hhbm5lbHNCDwoNX2lucHV0X2Zvcm1hdEIUChJfaW5wdXRfc2FtcGxlX3'
+    'JhdGVCEgoQX2lucHV0X3RyYW5zY29kZUIPCg1faW5zdHJ1Y3Rpb25zQggKBl9tb2RlbEISChBf'
+    'b3V0cHV0X2xvdWRuZXNzQg8KDV9vdXRwdXRfc3BlZWRCDgoMX3NhbXBsZV9yYXRlQggKBl92b2'
+    'ljZUIaChhfdHRzX3NwZWVjaF9yYXRlX3BlcmNlbnQ=');
 
 @$core.Deprecated('Use einoWorkflowSpecDescriptor instead')
 const EinoWorkflowSpec$json = {
@@ -1057,11 +1092,21 @@ const EinoWorkspaceParameters$json = {
       '10': 'input',
       '17': true
     },
+    {
+      '1': 'tts_speech_rate_percent',
+      '3': 5,
+      '4': 1,
+      '5': 5,
+      '9': 3,
+      '10': 'ttsSpeechRatePercent',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_e2e'},
     {'1': '_conversation'},
     {'1': '_input'},
+    {'1': '_tts_speech_rate_percent'},
   ],
 };
 
@@ -1071,8 +1116,10 @@ final $typed_data.Uint8List einoWorkspaceParametersDescriptor = $convert.base64D
     '5ycGMudjEuRWlub1dvcmtzcGFjZVBhcmFtZXRlcnNBZ2VudFR5cGVSCWFnZW50VHlwZRIVCgNl'
     'MmUYAiABKAhIAFIDZTJliAEBEk8KDGNvbnZlcnNhdGlvbhgDIAEoCzImLmdpemNsYXcucnBjLn'
     'YxLkNvbnZlcnNhdGlvblBhcmFtZXRlcnNIAVIMY29udmVyc2F0aW9uiAEBEj0KBWlucHV0GAQg'
-    'ASgOMiIuZ2l6Y2xhdy5ycGMudjEuV29ya3NwYWNlSW5wdXRNb2RlSAJSBWlucHV0iAEBQgYKBF'
-    '9lMmVCDwoNX2NvbnZlcnNhdGlvbkIICgZfaW5wdXQ=');
+    'ASgOMiIuZ2l6Y2xhdy5ycGMudjEuV29ya3NwYWNlSW5wdXRNb2RlSAJSBWlucHV0iAEBEjoKF3'
+    'R0c19zcGVlY2hfcmF0ZV9wZXJjZW50GAUgASgFSANSFHR0c1NwZWVjaFJhdGVQZXJjZW50iAEB'
+    'QgYKBF9lMmVCDwoNX2NvbnZlcnNhdGlvbkIICgZfaW5wdXRCGgoYX3R0c19zcGVlY2hfcmF0ZV'
+    '9wZXJjZW50');
 
 @$core.Deprecated('Use doubaoRealtimeAIGCMetadataDescriptor instead')
 const DoubaoRealtimeAIGCMetadata$json = {
@@ -2073,6 +2120,15 @@ const DoubaoRealtimeWorkspaceParameters$json = {
       '10': 'conversation',
       '17': true
     },
+    {
+      '1': 'tts_speech_rate_percent',
+      '3': 10,
+      '4': 1,
+      '5': 5,
+      '9': 7,
+      '10': 'ttsSpeechRatePercent',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_audio'},
@@ -2082,6 +2138,7 @@ const DoubaoRealtimeWorkspaceParameters$json = {
     {'1': '_instructions'},
     {'1': '_model'},
     {'1': '_conversation'},
+    {'1': '_tts_speech_rate_percent'},
   ],
 };
 
@@ -2097,8 +2154,10 @@ final $typed_data.Uint8List doubaoRealtimeWorkspaceParametersDescriptor = $conve
     '5ziAEBEhkKBW1vZGVsGAcgASgJSAVSBW1vZGVsiAEBEkAKBXRvb2xzGAggAygLMiouZ2l6Y2xh'
     'dy5ycGMudjEuRG91YmFvUmVhbHRpbWVGdW5jdGlvblRvb2xSBXRvb2xzEk8KDGNvbnZlcnNhdG'
     'lvbhgJIAEoCzImLmdpemNsYXcucnBjLnYxLkNvbnZlcnNhdGlvblBhcmFtZXRlcnNIBlIMY29u'
-    'dmVyc2F0aW9uiAEBQggKBl9hdWRpb0IGCgRfZTJlQgwKCl9leHRlbnNpb25CCAoGX2lucHV0Qg'
-    '8KDV9pbnN0cnVjdGlvbnNCCAoGX21vZGVsQg8KDV9jb252ZXJzYXRpb24=');
+    'dmVyc2F0aW9uiAEBEjoKF3R0c19zcGVlY2hfcmF0ZV9wZXJjZW50GAogASgFSAdSFHR0c1NwZW'
+    'VjaFJhdGVQZXJjZW50iAEBQggKBl9hdWRpb0IGCgRfZTJlQgwKCl9leHRlbnNpb25CCAoGX2lu'
+    'cHV0Qg8KDV9pbnN0cnVjdGlvbnNCCAoGX21vZGVsQg8KDV9jb252ZXJzYXRpb25CGgoYX3R0c1'
+    '9zcGVlY2hfcmF0ZV9wZXJjZW50');
 
 @$core.Deprecated('Use conversationParametersDescriptor instead')
 const ConversationParameters$json = {
@@ -2192,11 +2251,21 @@ const FlowcraftWorkspaceParameters$json = {
       '10': 'input',
       '17': true
     },
+    {
+      '1': 'tts_speech_rate_percent',
+      '3': 5,
+      '4': 1,
+      '5': 5,
+      '9': 3,
+      '10': 'ttsSpeechRatePercent',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_conversation'},
     {'1': '_e2e'},
     {'1': '_input'},
+    {'1': '_tts_speech_rate_percent'},
   ],
 };
 
@@ -2207,7 +2276,9 @@ final $typed_data.Uint8List flowcraftWorkspaceParametersDescriptor = $convert.ba
     'dFR5cGUSTwoMY29udmVyc2F0aW9uGAIgASgLMiYuZ2l6Y2xhdy5ycGMudjEuQ29udmVyc2F0aW'
     '9uUGFyYW1ldGVyc0gAUgxjb252ZXJzYXRpb26IAQESFQoDZTJlGAMgASgISAFSA2UyZYgBARI9'
     'CgVpbnB1dBgEIAEoDjIiLmdpemNsYXcucnBjLnYxLldvcmtzcGFjZUlucHV0TW9kZUgCUgVpbn'
-    'B1dIgBAUIPCg1fY29udmVyc2F0aW9uQgYKBF9lMmVCCAoGX2lucHV0');
+    'B1dIgBARI6Chd0dHNfc3BlZWNoX3JhdGVfcGVyY2VudBgFIAEoBUgDUhR0dHNTcGVlY2hSYXRl'
+    'UGVyY2VudIgBAUIPCg1fY29udmVyc2F0aW9uQgYKBF9lMmVCCAoGX2lucHV0QhoKGF90dHNfc3'
+    'BlZWNoX3JhdGVfcGVyY2VudA==');
 
 @$core.Deprecated('Use modelDescriptor instead')
 const Model$json = {

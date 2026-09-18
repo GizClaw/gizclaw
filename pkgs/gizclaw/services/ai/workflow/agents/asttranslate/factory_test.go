@@ -152,3 +152,23 @@ func astWorkflow(model string, voice *apitypes.ASTTranslateVoiceParameters) apit
 
 //go:fix inline
 func stringPtr(value string) *string { return new(value) }
+
+func TestResolveConfigCarriesWorkspaceSpeechRate(t *testing.T) {
+	var workspaceParams apitypes.WorkspaceParameters
+	if err := workspaceParams.FromASTTranslateWorkspaceParameters(apitypes.ASTTranslateWorkspaceParameters{
+		AgentType:            apitypes.ASTTranslateWorkspaceParametersAgentTypeAstTranslate,
+		TtsSpeechRatePercent: new(70),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	config, err := resolveConfig(agenthost.Spec{
+		Workspace: apitypes.Workspace{Name: "demo", Parameters: &workspaceParams},
+		Workflow:  astWorkflow("ast-model", nil),
+	})
+	if err != nil {
+		t.Fatalf("resolveConfig() error = %v", err)
+	}
+	if config.SpeechRatePercent != 70 {
+		t.Fatalf("SpeechRatePercent = %d, want 70", config.SpeechRatePercent)
+	}
+}

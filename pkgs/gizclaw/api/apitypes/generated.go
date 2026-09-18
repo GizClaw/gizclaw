@@ -2874,10 +2874,13 @@ type ASTTranslateWorkspaceParameters struct {
 	Input                      *WorkspaceInputMode `json:"input,omitempty"`
 
 	// LangPair AST language pair, for example zh/en or en/zh. Use auto for automatic Chinese/English mode.
-	LangPair         *string                      `json:"lang_pair,omitempty"`
-	Mode             *ASTTranslateMode            `json:"mode,omitempty"`
-	TranslationModel *string                      `json:"translation_model,omitempty"`
-	Voice            *ASTTranslateVoiceParameters `json:"voice,omitempty"`
+	LangPair         *string           `json:"lang_pair,omitempty"`
+	Mode             *ASTTranslateMode `json:"mode,omitempty"`
+	TranslationModel *string           `json:"translation_model,omitempty"`
+
+	// TtsSpeechRatePercent Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
+	TtsSpeechRatePercent *int                         `json:"tts_speech_rate_percent,omitempty"`
+	Voice                *ASTTranslateVoiceParameters `json:"voice,omitempty"`
 }
 
 // ASTTranslateWorkspaceParametersAgentType defines model for ASTTranslateWorkspaceParameters.AgentType.
@@ -3162,8 +3165,11 @@ type DashScopeRealtimeWorkspaceParameters struct {
 	Model             *string                                                `json:"model,omitempty"`
 	OutputAudioFormat *DashScopeRealtimeWorkspaceParametersOutputAudioFormat `json:"output_audio_format,omitempty"`
 	Temperature       *float32                                               `json:"temperature,omitempty"`
-	Vad               *DashScopeRealtimeWorkspaceParametersVad               `json:"vad,omitempty"`
-	Voice             *string                                                `json:"voice,omitempty"`
+
+	// TtsSpeechRatePercent Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
+	TtsSpeechRatePercent *int                                     `json:"tts_speech_rate_percent,omitempty"`
+	Vad                  *DashScopeRealtimeWorkspaceParametersVad `json:"vad,omitempty"`
+	Voice                *string                                  `json:"voice,omitempty"`
 }
 
 // DashScopeRealtimeWorkspaceParametersAgentType defines model for DashScopeRealtimeWorkspaceParameters.AgentType.
@@ -3461,7 +3467,10 @@ type DoubaoRealtimeDuplexWorkspaceParameters struct {
 	OutputLoudness  *int                                                `json:"output_loudness,omitempty"`
 	OutputSpeed     *int                                                `json:"output_speed,omitempty"`
 	SampleRate      *DoubaoRealtimeDuplexWorkspaceParametersSampleRate  `json:"sample_rate,omitempty"`
-	Voice           *string                                             `json:"voice,omitempty"`
+
+	// TtsSpeechRatePercent Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
+	TtsSpeechRatePercent *int    `json:"tts_speech_rate_percent,omitempty"`
+	Voice                *string `json:"voice,omitempty"`
 }
 
 // DoubaoRealtimeDuplexWorkspaceParametersAgentType defines model for DoubaoRealtimeDuplexWorkspaceParameters.AgentType.
@@ -3561,6 +3570,9 @@ type DoubaoRealtimeWorkspaceParameters struct {
 	// Model RuntimeProfile Model alias. Defaults to Workflow.spec.doubao_realtime.model.
 	Model *string                       `json:"model,omitempty"`
 	Tools *[]DoubaoRealtimeFunctionTool `json:"tools,omitempty"`
+
+	// TtsSpeechRatePercent Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
+	TtsSpeechRatePercent *int `json:"tts_speech_rate_percent,omitempty"`
 }
 
 // DoubaoRealtimeWorkspaceParametersAgentType defines model for DoubaoRealtimeWorkspaceParameters.AgentType.
@@ -3900,6 +3912,9 @@ type EinoWorkspaceParameters struct {
 	Conversation *ConversationParameters          `json:"conversation,omitempty"`
 	E2e          *bool                            `json:"e2e,omitempty"`
 	Input        *WorkspaceInputMode              `json:"input,omitempty"`
+
+	// TtsSpeechRatePercent Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
+	TtsSpeechRatePercent *int `json:"tts_speech_rate_percent,omitempty"`
 }
 
 // EinoWorkspaceParametersAgentType defines model for EinoWorkspaceParameters.AgentType.
@@ -4267,6 +4282,9 @@ type FlowcraftWorkspaceParameters struct {
 	// E2e Marks seed resources used by the local e2e harness.
 	E2e   *bool               `json:"e2e,omitempty"`
 	Input *WorkspaceInputMode `json:"input,omitempty"`
+
+	// TtsSpeechRatePercent Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
+	TtsSpeechRatePercent *int `json:"tts_speech_rate_percent,omitempty"`
 }
 
 // FlowcraftWorkspaceParametersAgentType defines model for FlowcraftWorkspaceParameters.AgentType.

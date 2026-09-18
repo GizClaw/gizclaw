@@ -50,6 +50,16 @@ steps:
       workspace_name: "${resource_name}"
       parameters:
         input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+        tts_speech_rate_percent: 80
+- id: verify_parameters
+  client: peer
+  rpc:
+    method: server.workspace.get
+    request:
+      name: "${resource_name}"
+  expect:
+    "/value/parameters/flowcraft_workspace_parameters/tts_speech_rate_percent":
+      equals: 80
 - id: reload_current
   client: peer
   rpc:

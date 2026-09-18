@@ -239,7 +239,7 @@ func TestWrapAudioSupportsASROnlyTTSOnlyAndVoiceSelection(t *testing.T) {
 		{DefaultVoice: &fallback},
 		{AsrModel: &asr, DefaultVoice: &fallback},
 	} {
-		if _, err := wrapAudio(mux, core, voice, nil, apitypes.WorkspaceInputModePushToTalk); err != nil {
+		if _, err := wrapAudio(mux, core, voice, nil, apitypes.WorkspaceInputModePushToTalk, nil); err != nil {
 			t.Fatalf("wrapAudio(%#v) error = %v", voice, err)
 		}
 	}
@@ -320,7 +320,7 @@ func TestWrapAudioRequestsOneSegmentFormatFromSpeakerVoices(t *testing.T) {
 	})
 	fallback := "story.default"
 	speakers := map[string]string{"fox": "story.fox"}
-	dock, err := wrapAudio(mux, core, apitypes.VoiceAdapter{DefaultVoice: &fallback, SpeakerVoices: &speakers}, nil, apitypes.WorkspaceInputModePushToTalk)
+	dock, err := wrapAudio(mux, core, apitypes.VoiceAdapter{DefaultVoice: &fallback, SpeakerVoices: &speakers}, nil, apitypes.WorkspaceInputModePushToTalk, nil)
 	if err != nil {
 		t.Fatalf("wrapAudio() error = %v", err)
 	}
@@ -932,4 +932,21 @@ func (*einoMemoryStore) Update(context.Context, memory.UpdateRequest) (memory.Fa
 
 func (*einoMemoryStore) Delete(context.Context, memory.DeleteRequest) error {
 	return errors.New("unexpected Delete")
+}
+
+func TestEinoVoicePatternCarriesSpeechRate(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		segment bool
+		rate    *int
+		want    string
+	}{
+		{want: "voice/story.default"},
+		{rate: new(60), want: "voice/story.default?speech_rate_percent=60"},
+		{segment: true, rate: new(60), want: "voice/story.default?format=ogg_opus&speech_rate_percent=60"},
+	} {
+		if got := einoVoicePatternFor(tt.segment, tt.rate)("story.default"); got != tt.want {
+			t.Fatalf("einoVoicePatternFor(%v, %v) = %q, want %q", tt.segment, tt.rate, got, tt.want)
+		}
+	}
 }

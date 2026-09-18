@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -113,7 +114,7 @@ func TestWorkspaceParametersWithPatchDerivesEino(t *testing.T) {
 	updated, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverEino, &realtime, &apitypes.ConversationParameters{
 		Initiative:            &agent,
 		AgentInitiativePolicy: &policy,
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("workspaceParametersWithPatch() error = %v", err)
 	}
@@ -138,7 +139,7 @@ func TestWorkspaceParametersWithPatchDerivesDoubaoRealtime(t *testing.T) {
 	updated, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverDoubaoRealtime, &pushToTalk, &apitypes.ConversationParameters{
 		Initiative:            &agent,
 		AgentInitiativePolicy: &policy,
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("workspaceParametersWithPatch() error = %v", err)
 	}
@@ -163,7 +164,7 @@ func TestWorkspaceParametersWithPatchDerivesDoubaoRealtime(t *testing.T) {
 		t.Fatal(err)
 	}
 	peer := apitypes.ConversationParametersInitiativePeer
-	updated, err = workspaceParametersWithPatch(existing, apitypes.WorkflowDriverDoubaoRealtime, nil, &apitypes.ConversationParameters{Initiative: &peer})
+	updated, err = workspaceParametersWithPatch(existing, apitypes.WorkflowDriverDoubaoRealtime, nil, &apitypes.ConversationParameters{Initiative: &peer}, nil)
 	if err != nil {
 		t.Fatalf("workspaceParametersWithPatch(existing) error = %v", err)
 	}
@@ -187,7 +188,7 @@ func TestWorkspaceParametersPatchSupportsEveryDriver(t *testing.T) {
 		t.Run(string(driver), func(t *testing.T) {
 			realtime := apitypes.WorkspaceInputModeRealtime
 			conversation := &apitypes.ConversationParameters{Initiative: new(apitypes.ConversationParametersInitiativeAgent)}
-			updated, err := workspaceParametersWithPatch(nil, driver, &realtime, conversation)
+			updated, err := workspaceParametersWithPatch(nil, driver, &realtime, conversation, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -206,5 +207,108 @@ func TestWorkspaceParametersPatchSupportsEveryDriver(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestSetPeerWorkspaceParametersStoresTTSSpeechRate(t *testing.T) {
+	srv := newTestServer(t)
+	seedFlowcraftWorkflow(t, srv, "workflow-1", "model-1")
+	seedModel(t, srv, "model-1", apitypes.ModelKindLlm)
+	ctx := ownership.WithOwner(t.Context(), "peer-owner")
+	pushToTalk := apitypes.WorkspaceInputModePushToTalk
+	created, err := srv.CreatePeerWorkspace(ctx, PeerWorkspaceCreateRequest{
+		Name: "workspace-1", WorkflowID: "workflow-1",
+		Parameters: flowcraftInputParameters(t, apitypes.FlowcraftWorkspaceParameters{
+			AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+			Input:     &pushToTalk,
+		}),
+	})
+	if err != nil {
+		t.Fatalf("CreatePeerWorkspace() error = %v", err)
+	}
+
+	updated, err := srv.SetPeerWorkspaceParameters(ctx, PeerWorkspaceParametersSetRequest{ID: created.Id, TTSSpeechRatePercent: new(70)})
+	if err != nil {
+		t.Fatalf("SetPeerWorkspaceParameters(rate only) error = %v", err)
+	}
+	parameters, err := updated.Parameters.AsFlowcraftWorkspaceParameters()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parameters.TtsSpeechRatePercent == nil || *parameters.TtsSpeechRatePercent != 70 || parameters.Input == nil || *parameters.Input != pushToTalk {
+		t.Fatalf("rate-only patch = %+v", parameters)
+	}
+
+	realtime := apitypes.WorkspaceInputModeRealtime
+	updated, err = srv.SetPeerWorkspaceParameters(ctx, PeerWorkspaceParametersSetRequest{ID: created.Id, Input: &realtime})
+	if err != nil {
+		t.Fatalf("SetPeerWorkspaceParameters(input only) error = %v", err)
+	}
+	parameters, err = updated.Parameters.AsFlowcraftWorkspaceParameters()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parameters.TtsSpeechRatePercent == nil || *parameters.TtsSpeechRatePercent != 70 {
+		t.Fatalf("input-only patch lost rate: %+v", parameters)
+	}
+
+	var patchErr *PeerWorkspaceParametersSetError
+	for _, value := range []int{49, 201} {
+		if _, err := srv.SetPeerWorkspaceParameters(ctx, PeerWorkspaceParametersSetRequest{ID: created.Id, TTSSpeechRatePercent: new(value)}); !errors.As(err, &patchErr) || patchErr.Kind != PeerWorkspaceParametersSetInvalid {
+			t.Fatalf("SetPeerWorkspaceParameters(%d) error = %#v, want invalid", value, err)
+		}
+	}
+}
+
+func TestCreatePeerWorkspaceRejectsOutOfRangeTTSSpeechRate(t *testing.T) {
+	srv := newTestServer(t)
+	seedFlowcraftWorkflow(t, srv, "workflow-1", "model-1")
+	seedModel(t, srv, "model-1", apitypes.ModelKindLlm)
+	ctx := ownership.WithOwner(t.Context(), "peer-owner")
+	_, err := srv.CreatePeerWorkspace(ctx, PeerWorkspaceCreateRequest{
+		Name: "workspace-1", WorkflowID: "workflow-1",
+		Parameters: flowcraftInputParameters(t, apitypes.FlowcraftWorkspaceParameters{
+			AgentType:            apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+			TtsSpeechRatePercent: new(300),
+		}),
+	})
+	if err == nil {
+		t.Fatal("CreatePeerWorkspace(rate 300) error = nil")
+	}
+}
+
+func TestWorkspaceParametersPatchStoresTTSSpeechRateForVoiceDrivers(t *testing.T) {
+	for _, driver := range []apitypes.WorkflowDriver{
+		apitypes.WorkflowDriverAstTranslate, apitypes.WorkflowDriverDoubaoRealtime,
+		apitypes.WorkflowDriverEino, apitypes.WorkflowDriverFlowcraft,
+		apitypes.WorkflowDriverDashscopeRealtime, apitypes.WorkflowDriverDoubaoRealtimeDuplex,
+	} {
+		t.Run(string(driver), func(t *testing.T) {
+			updated, err := workspaceParametersWithPatch(nil, driver, nil, nil, new(150))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if updated == nil {
+				t.Fatal("rate patch stored nothing")
+			}
+			discriminator, err := updated.Discriminator()
+			if err != nil || discriminator != string(driver) {
+				t.Fatalf("discriminator = %q, %v", discriminator, err)
+			}
+			rate, err := updated.TTSSpeechRatePercent()
+			if err != nil || rate == nil || *rate != 150 {
+				t.Fatalf("rate = %v, %v", rate, err)
+			}
+		})
+	}
+}
+
+func TestWorkspaceParametersPatchIgnoresTTSSpeechRateForSFU(t *testing.T) {
+	updated, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverSfu, nil, nil, new(70))
+	if err != nil {
+		t.Fatalf("workspaceParametersWithPatch(sfu) error = %v", err)
+	}
+	if updated != nil {
+		t.Fatalf("sfu parameters = %+v, want unchanged nil", updated)
 	}
 }

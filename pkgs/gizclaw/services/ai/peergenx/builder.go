@@ -244,6 +244,12 @@ func (b DefaultBuilder) buildDashScopeRealtime(cfg TransformerConfig) (genx.Tran
 	}
 	config.InputAudioFormat = mapString(data, "input_audio_format")
 	config.OutputAudioFormat = mapString(data, "output_audio_format")
+	if value, ok, err := speechRatePercent(data); err != nil {
+		return nil, err
+	} else if ok {
+		// DashScope has no native rate; the transformer time-stretches its audio.
+		config.SpeechRatePercent = value
+	}
 	return dashscoperealtime.New(config)
 }
 
@@ -306,6 +312,12 @@ func (b DefaultBuilder) buildVolcRealtimeDuplex(cfg TransformerConfig) (genx.Tra
 	}
 	if value, ok := mapInt(data, "output_speed"); ok {
 		config.OutputSpeed = &value
+	}
+	if value, ok, err := speechRatePercent(data); err != nil {
+		return nil, err
+	} else if ok {
+		speed := doubaoSpeechRate(value)
+		config.OutputSpeed = &speed
 	}
 	if value, ok := mapInt(data, "output_loudness"); ok {
 		config.OutputLoudness = &value
@@ -596,6 +608,12 @@ func (b DefaultBuilder) buildVolcRealtime(cfg TransformerConfig) (genx.Transform
 	if value, ok := mapInt(data, "output_speed", "speech_rate", "speed"); ok {
 		config.SpeechRate = &value
 	}
+	if value, ok, err := speechRatePercent(data); err != nil {
+		return nil, err
+	} else if ok {
+		rate := doubaoSpeechRate(value)
+		config.SpeechRate = &rate
+	}
 	if value, ok := mapInt(data, "output_loudness", "loudness_rate", "loudness"); ok {
 		config.LoudnessRate = &value
 	}
@@ -861,6 +879,11 @@ func (b DefaultBuilder) buildVolcASTTranslate(cfg TransformerConfig) (genx.Trans
 	if value, ok := mapInt(data, "speech_rate"); ok {
 		config.SpeechRate = value
 	}
+	if value, ok, err := speechRatePercent(data); err != nil {
+		return nil, err
+	} else if ok {
+		config.SpeechRate = doubaoSpeechRate(value)
+	}
 	if value, ok := mapBool(data, "enable_source_language_detect", "source_language_detect"); ok {
 		config.SourceLanguageDetect = value
 	}
@@ -995,6 +1018,11 @@ func (b DefaultBuilder) buildVolcTTS(cfg TransformerConfig) (genx.Transformer, e
 	if format := mapString(cfg.Params, "format"); format != "" {
 		transformerConfig.Format = format
 	}
+	if value, ok, err := speechRatePercent(cfg.Params); err != nil {
+		return nil, err
+	} else if ok {
+		transformerConfig.SpeedRatio = float64(value) / 100
+	}
 	client := doubaospeech.NewClient(appID, doubaospeech.WithAPIKey(apiKey))
 	transformerConfig.Client = client
 	return doubaotts.NewSeedV2(transformerConfig)
@@ -1051,6 +1079,12 @@ func (b DefaultBuilder) buildMiniMaxTTS(cfg TransformerConfig) (genx.Transformer
 	if format := mapString(cfg.Params, "format"); format != "" {
 		transformerConfig.Format = format
 	}
+	if value, ok, err := speechRatePercent(cfg.Params); err != nil {
+		return nil, err
+	} else if ok {
+		speed := float64(value) / 100
+		transformerConfig.Speed = &speed
+	}
 	return minimaxtts.New(transformerConfig)
 }
 
@@ -1097,6 +1131,27 @@ func mapString(values map[string]any, keys ...string) string {
 		}
 	}
 	return ""
+}
+
+// speechRatePercent reads the Workspace tts_speech_rate_percent carried by the
+// speech_rate_percent pattern parameter. It overrides provider-specific rates.
+func speechRatePercent(values map[string]any) (int, bool, error) {
+	raw, present := values[SpeechRatePercentParam]
+	if !present {
+		return 0, false, nil
+	}
+	value, ok := mapInt(values, SpeechRatePercentParam)
+	if !ok || value < apitypes.TTSSpeechRatePercentMin || value > apitypes.TTSSpeechRatePercentMax {
+		return 0, false, fmt.Errorf("%w: %s %v must be an integer between %d and %d",
+			ErrInvalid, SpeechRatePercentParam, raw, apitypes.TTSSpeechRatePercentMin, apitypes.TTSSpeechRatePercentMax)
+	}
+	return value, true, nil
+}
+
+// doubaoSpeechRate converts a percentage to Doubao's -50..100 speech rate
+// offset, where 0 is the normal rate.
+func doubaoSpeechRate(percent int) int {
+	return percent - apitypes.TTSSpeechRatePercentNormal
 }
 
 func mapInt(values map[string]any, keys ...string) (int, bool) {

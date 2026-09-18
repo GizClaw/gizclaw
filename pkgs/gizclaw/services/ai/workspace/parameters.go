@@ -13,9 +13,10 @@ import (
 // PeerWorkspaceParametersSetRequest contains driver-neutral Workspace parameter updates.
 // Nil fields are preserved from the stored parameters.
 type PeerWorkspaceParametersSetRequest struct {
-	ID           string
-	Input        *apitypes.WorkspaceInputMode
-	Conversation *apitypes.ConversationParameters
+	ID                   string
+	Input                *apitypes.WorkspaceInputMode
+	Conversation         *apitypes.ConversationParameters
+	TTSSpeechRatePercent *int
 }
 
 // PeerWorkspaceParametersSetErrorKind classifies errors for transport adapters.
@@ -66,7 +67,7 @@ func (s *Server) SetPeerWorkspaceParameters(ctx context.Context, request PeerWor
 		if err != nil {
 			return adminhttp.WorkspaceUpsert{}, err
 		}
-		parameters, err := workspaceParametersWithPatch(previous.Parameters, workflow.Spec.Driver, request.Input, request.Conversation)
+		parameters, err := workspaceParametersWithPatch(previous.Parameters, workflow.Spec.Driver, request.Input, request.Conversation, request.TTSSpeechRatePercent)
 		if err != nil {
 			return adminhttp.WorkspaceUpsert{}, err
 		}
@@ -103,11 +104,14 @@ func (s *Server) SetPeerWorkspaceParameters(ctx context.Context, request PeerWor
 }
 
 func validateWorkspaceParametersPatch(request PeerWorkspaceParametersSetRequest) error {
-	if request.Input == nil && request.Conversation == nil {
+	if request.Input == nil && request.Conversation == nil && request.TTSSpeechRatePercent == nil {
 		return errors.New("workspace: at least one parameter is required")
 	}
 	if request.Input != nil && !request.Input.Valid() {
 		return fmt.Errorf("workspace: unsupported input mode %q", *request.Input)
+	}
+	if err := apitypes.ValidateTTSSpeechRatePercent(request.TTSSpeechRatePercent); err != nil {
+		return fmt.Errorf("workspace: %w", err)
 	}
 	if request.Conversation == nil {
 		return nil
@@ -125,17 +129,21 @@ func validateWorkspaceParametersPatch(request PeerWorkspaceParametersSetRequest)
 	return nil
 }
 
+// workspaceParametersWithPatch projects stored Workspace parameters with the
+// patch applied. A Workspace that inherits its parameters keeps inheriting
+// every other field: only the agent_type discriminator required by the Workflow
+// driver and the patched fields are written. Fields a driver does not support
+// are ignored, and a patch with no supported field preserves the original
+// parameters without an update.
 func workspaceParametersWithPatch(
 	parameters *apitypes.WorkspaceParameters,
 	driver apitypes.WorkflowDriver,
 	input *apitypes.WorkspaceInputMode,
 	conversation *apitypes.ConversationParameters,
+	ttsSpeechRatePercent *int,
 ) (*apitypes.WorkspaceParameters, error) {
-	if conversation == nil {
-		if input == nil {
-			return nil, invalidWorkspaceReference("workspace: at least one parameter is required")
-		}
-		return workspaceParametersWithInput(parameters, driver, *input)
+	if input == nil && conversation == nil && ttsSpeechRatePercent == nil {
+		return nil, invalidWorkspaceReference("workspace: at least one parameter is required")
 	}
 	variant := string(driver)
 	if parameters != nil {
@@ -147,6 +155,7 @@ func workspaceParametersWithPatch(
 			return nil, invalidWorkspaceReference("workspace: parameters agent_type is %q, want %q", discriminator, variant)
 		}
 	}
+	rate := cloneInt(ttsSpeechRatePercent)
 	updated := &apitypes.WorkspaceParameters{}
 	switch driver {
 	case apitypes.WorkflowDriverEino:
@@ -154,39 +163,89 @@ func workspaceParametersWithPatch(
 		if err := decodeWorkspaceParametersVariant(parameters, &value, apitypes.WorkspaceParameters.AsEinoWorkspaceParameters); err != nil {
 			return nil, err
 		}
-		value.Conversation = mergeConversationParameters(value.Conversation, conversation)
-		if input != nil {
-			value.Input = input
-		}
+		patchInput(&value.Input, input)
+		patchConversation(&value.Conversation, conversation)
+		patchRate(&value.TtsSpeechRatePercent, rate)
 		return updated, updated.FromEinoWorkspaceParameters(value)
 	case apitypes.WorkflowDriverFlowcraft:
 		value := apitypes.FlowcraftWorkspaceParameters{AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft}
 		if err := decodeWorkspaceParametersVariant(parameters, &value, apitypes.WorkspaceParameters.AsFlowcraftWorkspaceParameters); err != nil {
 			return nil, err
 		}
-		value.Conversation = mergeConversationParameters(value.Conversation, conversation)
-		if input != nil {
-			value.Input = input
-		}
+		patchInput(&value.Input, input)
+		patchConversation(&value.Conversation, conversation)
+		patchRate(&value.TtsSpeechRatePercent, rate)
 		return updated, updated.FromFlowcraftWorkspaceParameters(value)
 	case apitypes.WorkflowDriverDoubaoRealtime:
 		value := apitypes.DoubaoRealtimeWorkspaceParameters{AgentType: apitypes.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime}
 		if err := decodeWorkspaceParametersVariant(parameters, &value, apitypes.WorkspaceParameters.AsDoubaoRealtimeWorkspaceParameters); err != nil {
 			return nil, err
 		}
-		value.Conversation = mergeConversationParameters(value.Conversation, conversation)
-		if input != nil {
-			value.Input = input
-		}
+		patchInput(&value.Input, input)
+		patchConversation(&value.Conversation, conversation)
+		patchRate(&value.TtsSpeechRatePercent, rate)
 		return updated, updated.FromDoubaoRealtimeWorkspaceParameters(value)
 	case apitypes.WorkflowDriverAstTranslate:
-		if input != nil {
-			return workspaceParametersWithInput(parameters, driver, *input)
+		if input == nil && rate == nil {
+			return parameters, nil
 		}
-		return parameters, nil
+		value := apitypes.ASTTranslateWorkspaceParameters{AgentType: apitypes.ASTTranslateWorkspaceParametersAgentTypeAstTranslate}
+		if err := decodeWorkspaceParametersVariant(parameters, &value, apitypes.WorkspaceParameters.AsASTTranslateWorkspaceParameters); err != nil {
+			return nil, err
+		}
+		patchInput(&value.Input, input)
+		patchRate(&value.TtsSpeechRatePercent, rate)
+		return updated, updated.FromASTTranslateWorkspaceParameters(value)
+	case apitypes.WorkflowDriverDashscopeRealtime:
+		if rate == nil {
+			return parameters, nil
+		}
+		value := apitypes.DashScopeRealtimeWorkspaceParameters{AgentType: apitypes.DashScopeRealtimeWorkspaceParametersAgentTypeDashscopeRealtime}
+		if err := decodeWorkspaceParametersVariant(parameters, &value, apitypes.WorkspaceParameters.AsDashScopeRealtimeWorkspaceParameters); err != nil {
+			return nil, err
+		}
+		value.TtsSpeechRatePercent = rate
+		return updated, updated.FromDashScopeRealtimeWorkspaceParameters(value)
+	case apitypes.WorkflowDriverDoubaoRealtimeDuplex:
+		if rate == nil {
+			return parameters, nil
+		}
+		value := apitypes.DoubaoRealtimeDuplexWorkspaceParameters{AgentType: apitypes.DoubaoRealtimeDuplexWorkspaceParametersAgentTypeDoubaoRealtimeDuplex}
+		if err := decodeWorkspaceParametersVariant(parameters, &value, apitypes.WorkspaceParameters.AsDoubaoRealtimeDuplexWorkspaceParameters); err != nil {
+			return nil, err
+		}
+		value.TtsSpeechRatePercent = rate
+		return updated, updated.FromDoubaoRealtimeDuplexWorkspaceParameters(value)
 	default:
 		return parameters, nil
 	}
+}
+
+func patchInput(target **apitypes.WorkspaceInputMode, input *apitypes.WorkspaceInputMode) {
+	if input != nil {
+		value := *input
+		*target = &value
+	}
+}
+
+func patchConversation(target **apitypes.ConversationParameters, conversation *apitypes.ConversationParameters) {
+	if conversation != nil {
+		*target = mergeConversationParameters(*target, conversation)
+	}
+}
+
+func patchRate(target **int, rate *int) {
+	if rate != nil {
+		*target = rate
+	}
+}
+
+func cloneInt(value *int) *int {
+	if value == nil {
+		return nil
+	}
+	clone := *value
+	return &clone
 }
 
 func mergeConversationParameters(current, patch *apitypes.ConversationParameters) *apitypes.ConversationParameters {

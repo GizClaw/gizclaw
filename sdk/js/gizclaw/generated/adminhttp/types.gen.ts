@@ -2700,6 +2700,10 @@ export type AstTranslateWorkspaceParameters = {
     enable_source_language_detect?: boolean;
     denoise?: boolean;
     /**
+     * Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
+     */
+    tts_speech_rate_percent?: number;
+    /**
      * Marks seed resources used by the local e2e harness.
      */
     e2e?: boolean;
@@ -2729,6 +2733,10 @@ export type DashScopeRealtimeWorkspaceParameters = {
     asr_model?: string;
     input_audio_format?: 'pcm16' | 'mp3' | 'wav';
     output_audio_format?: 'pcm16' | 'mp3' | 'wav';
+    /**
+     * Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
+     */
+    tts_speech_rate_percent?: number;
     e2e?: boolean;
 };
 
@@ -2745,6 +2753,10 @@ export type DoubaoRealtimeDuplexWorkspaceParameters = {
     input_transcode?: boolean;
     output_speed?: number;
     output_loudness?: number;
+    /**
+     * Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
+     */
+    tts_speech_rate_percent?: number;
     e2e?: boolean;
 };
 
@@ -2761,6 +2773,10 @@ export type DoubaoRealtimeWorkspaceParameters = {
     tools?: Array<DoubaoRealtimeFunctionTool>;
     extension?: DoubaoRealtimeExtension;
     /**
+     * Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
+     */
+    tts_speech_rate_percent?: number;
+    /**
      * Marks seed resources used by the local e2e harness.
      */
     e2e?: boolean;
@@ -2770,6 +2786,10 @@ export type EinoWorkspaceParameters = {
     agent_type: 'eino';
     conversation?: ConversationParameters;
     input?: WorkspaceInputMode;
+    /**
+     * Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
+     */
+    tts_speech_rate_percent?: number;
     e2e?: boolean;
 };
 
@@ -2777,6 +2797,10 @@ export type FlowcraftWorkspaceParameters = {
     agent_type: 'flowcraft';
     input?: WorkspaceInputMode;
     conversation?: ConversationParameters;
+    /**
+     * Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
+     */
+    tts_speech_rate_percent?: number;
     /**
      * Marks seed resources used by the local e2e harness.
      */

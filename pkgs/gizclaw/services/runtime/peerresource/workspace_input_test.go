@@ -276,6 +276,18 @@ func TestWorkspaceParametersSetInputIgnoresSharedSFUParameters(t *testing.T) {
 	if err != nil || updated.Parameters != nil {
 		t.Fatalf("SFU parameters changed: %+v, %v", updated.Parameters, err)
 	}
+	// Devices send the same speech rate to every Workspace; SFU accepts a
+	// rate-only patch as a no-op.
+	rateOnly := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
+		Name: sharedName, Parameters: rpcapi.WorkspaceParametersPatch{TtsSpeechRatePercent: new(70)},
+	})
+	if rateOnly.Error != nil {
+		t.Fatalf("shared SFU speech rate update: %+v", rateOnly.Error)
+	}
+	updated, err = rateOnly.Result.AsWorkspaceParametersSetResponse()
+	if err != nil || updated.Parameters != nil {
+		t.Fatalf("SFU parameters changed by speech rate: %+v, %v", updated.Parameters, err)
+	}
 	// Revocation must still reject the same request, including a no-op.
 	if _, err := friends.DeleteFriend(ctx, other.String(), rpcapi.FriendDeleteRequest{Name: relation.Name}); err != nil {
 		t.Fatal(err)
@@ -333,5 +345,38 @@ func TestWorkspaceParametersSetInputIgnoresUnsupportedSystemUpdate(t *testing.T)
 	updated, err := response.Result.AsWorkspaceParametersSetResponse()
 	if err != nil || updated.Parameters != nil {
 		t.Fatalf("system parameters changed: %+v, %v", updated.Parameters, err)
+	}
+}
+
+func TestWorkspaceParametersSetStoresTTSSpeechRate(t *testing.T) {
+	ctx := context.Background()
+	server := newWorkspaceInputTestServer(t, ctx)
+	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
+		Name: "journey-rate", Collection: "story-teller", WorkflowName: "journey",
+	})
+
+	response := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
+		Name: "journey-rate", Parameters: rpcapi.WorkspaceParametersPatch{TtsSpeechRatePercent: new(70)},
+	})
+	if response.Error != nil || response.Result == nil {
+		t.Fatalf("workspace parameters set response = %#v", response)
+	}
+	updated, err := response.Result.AsWorkspaceParametersSetResponse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	flowcraft, err := updated.Parameters.AsFlowcraftWorkspaceParameters()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if flowcraft.TtsSpeechRatePercent == nil || *flowcraft.TtsSpeechRatePercent != 70 {
+		t.Fatalf("tts_speech_rate_percent = %v, want 70", flowcraft.TtsSpeechRatePercent)
+	}
+
+	rejected := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
+		Name: "journey-rate", Parameters: rpcapi.WorkspaceParametersPatch{TtsSpeechRatePercent: new(30)},
+	})
+	if rejected.Error == nil || rejected.Error.Code != rpcapi.StatusCodeInvalidArgument {
+		t.Fatalf("out-of-range response = %#v, want INVALID_ARGUMENT", rejected)
 	}
 }

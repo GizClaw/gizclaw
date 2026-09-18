@@ -1894,10 +1894,20 @@ const WorkspaceParametersPatch$json = {
       '10': 'conversation',
       '17': true
     },
+    {
+      '1': 'tts_speech_rate_percent',
+      '3': 3,
+      '4': 1,
+      '5': 5,
+      '9': 2,
+      '10': 'ttsSpeechRatePercent',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_input'},
     {'1': '_conversation'},
+    {'1': '_tts_speech_rate_percent'},
   ],
 };
 
@@ -1906,7 +1916,9 @@ final $typed_data.Uint8List workspaceParametersPatchDescriptor = $convert.base64
     'ChhXb3Jrc3BhY2VQYXJhbWV0ZXJzUGF0Y2gSPQoFaW5wdXQYASABKA4yIi5naXpjbGF3LnJwYy'
     '52MS5Xb3Jrc3BhY2VJbnB1dE1vZGVIAFIFaW5wdXSIAQESTwoMY29udmVyc2F0aW9uGAIgASgL'
     'MiYuZ2l6Y2xhdy5ycGMudjEuQ29udmVyc2F0aW9uUGFyYW1ldGVyc0gBUgxjb252ZXJzYXRpb2'
-    '6IAQFCCAoGX2lucHV0Qg8KDV9jb252ZXJzYXRpb24=');
+    '6IAQESOgoXdHRzX3NwZWVjaF9yYXRlX3BlcmNlbnQYAyABKAVIAlIUdHRzU3BlZWNoUmF0ZVBl'
+    'cmNlbnSIAQFCCAoGX2lucHV0Qg8KDV9jb252ZXJzYXRpb25CGgoYX3R0c19zcGVlY2hfcmF0ZV'
+    '9wZXJjZW50');
 
 @$core.Deprecated('Use workspaceParametersSetRequestDescriptor instead')
 const WorkspaceParametersSetRequest$json = {

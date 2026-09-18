@@ -32,6 +32,10 @@ Provider session update and event name remain inside the Adapter; the caller onl
 
 Spoken transcripts and audio for the same response share a `StreamID`, with independent BOS, data, and EOS lifecycles per MIME type. Standalone model text uses a separate `StreamID` so its completion cannot close the spoken transcript early. Interruption closes both streams for the response.
 
+## Speech rate
+
+DashScope realtime has no native speaking-rate parameter. `Config.SpeechRatePercent` (50..200; 0 or 100 leaves audio unchanged) comes from the Workspace `tts_speech_rate_percent`, and the Transformer time-stretches each reply's PCM16 audio with [timestretch](../../audio/timestretch) while preserving pitch: final audio is emitted as it arrives, the remainder is flushed on `response.audio.done` before EOS, and audio of a new reply discards the state of an interrupted one. Stretching supports `pcm16` output (24 kHz mono) only; `New` rejects a non-default rate combined with `mp3` or `wav` output.
+
 ## Function-tool continuation
 
 When `ToolInvoker` is non-nil, each `Transform` resolves the current tool names, descriptions, and JSON Schemas before opening its provider session. DashScope function calls execute in provider order through `InvokeTool(name, arguments)`. Each raw JSON result is submitted with the original provider call ID, then `response.create` continues the same conversation. ToolCall and ToolResult control data remain internal and never enter the public GenX Stream.

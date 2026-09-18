@@ -4955,10 +4955,13 @@ class WorkspaceParametersPatch extends $pb.GeneratedMessage {
   factory WorkspaceParametersPatch({
     $4.WorkspaceInputMode? input,
     $2.ConversationParameters? conversation,
+    $core.int? ttsSpeechRatePercent,
   }) {
     final result = create();
     if (input != null) result.input = input;
     if (conversation != null) result.conversation = conversation;
+    if (ttsSpeechRatePercent != null)
+      result.ttsSpeechRatePercent = ttsSpeechRatePercent;
     return result;
   }
 
@@ -4979,6 +4982,7 @@ class WorkspaceParametersPatch extends $pb.GeneratedMessage {
         enumValues: $4.WorkspaceInputMode.values)
     ..aOM<$2.ConversationParameters>(2, _omitFieldNames ? '' : 'conversation',
         subBuilder: $2.ConversationParameters.create)
+    ..aI(3, _omitFieldNames ? '' : 'ttsSpeechRatePercent')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -5020,6 +5024,16 @@ class WorkspaceParametersPatch extends $pb.GeneratedMessage {
   void clearConversation() => $_clearField(2);
   @$pb.TagNumber(2)
   $2.ConversationParameters ensureConversation() => $_ensure(1);
+
+  /// Synthesized speech rate in percent of normal (50..200); absent keeps the Workflow default.
+  @$pb.TagNumber(3)
+  $core.int get ttsSpeechRatePercent => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set ttsSpeechRatePercent($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTtsSpeechRatePercent() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTtsSpeechRatePercent() => $_clearField(3);
 }
 
 class WorkspaceParametersSetRequest extends $pb.GeneratedMessage {
