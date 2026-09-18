@@ -201,6 +201,31 @@ func TestASTTextAndAudioStateBranches(t *testing.T) {
 		t.Fatal("ASCII spacing helpers returned unexpected values")
 	}
 
+	boundary := &astTranslateTextState{role: genx.RoleModel, label: "assistant", streamID: "boundary"}
+	boundaryOutput := &recordingASTTranslateOutput{}
+	for _, step := range []struct{ token, final string }{
+		{token: "Hello"}, {token: " "}, {final: "Hello "}, {token: "world"}, {token: "."}, {final: "world."},
+	} {
+		var err error
+		if step.final != "" {
+			err = boundary.addFinal(boundaryOutput, step.final)
+		} else {
+			err = boundary.addToken(boundaryOutput, step.token)
+		}
+		if err != nil {
+			t.Fatalf("boundary step %+v error = %v", step, err)
+		}
+	}
+	var streamed strings.Builder
+	for _, chunk := range boundaryOutput.snapshot() {
+		if text, ok := chunk.Part.(genx.Text); ok {
+			streamed.WriteString(string(text))
+		}
+	}
+	if streamed.String() != "Hello world." {
+		t.Fatalf("streamed boundary text = %q, want %q", streamed.String(), "Hello world.")
+	}
+
 	wantErr := errors.New("push failed")
 	failing := astTranslateErrorOutput{err: wantErr}
 	if err := (&astTranslateTextState{}).addToken(failing, "text"); !errors.Is(err, wantErr) {

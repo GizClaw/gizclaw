@@ -1354,9 +1354,11 @@ type astTranslateTextState struct {
 	// sentenceEnded marks that a provider subtitle ended, so the next token
 	// starts a new sentence that may need a separating space.
 	sentenceEnded bool
-	// emittedSpace reports whether the last emitted delta ended in whitespace;
-	// text may be replaced by a trimmed final and no longer shows it.
-	emittedSpace bool
+	// streamEndsWithSpace reports whether the text already pushed downstream
+	// ends in whitespace. It follows emitted deltas only: addFinal may store a
+	// trimmed final in text without emitting anything, and the downstream
+	// stream still ends with the provider's whitespace token.
+	streamEndsWithSpace bool
 }
 
 func (s *astTranslateTextState) open(output astTranslateOutput) error {
@@ -1385,12 +1387,12 @@ func (s *astTranslateTextState) addToken(output astTranslateOutput, text string)
 	if err := s.open(output); err != nil {
 		return err
 	}
-	if s.sentenceEnded && !s.emittedSpace && astTranslateNeedsSpace(s.text, text) {
+	if s.sentenceEnded && !s.streamEndsWithSpace && astTranslateNeedsSpace(s.text, text) {
 		text = " " + text
 	}
 	s.sentenceEnded = false
 	s.text += text
-	s.emittedSpace = endsWithSpace(text)
+	s.streamEndsWithSpace = endsWithSpace(text)
 	return output.Push(&genx.MessageChunk{
 		Role: s.role,
 		Part: genx.Text(text),
@@ -1408,6 +1410,8 @@ func (s *astTranslateTextState) addFinal(output astTranslateOutput, text string)
 	}
 	s.sentenceEnded = true
 	if realtimeNormalizeText(s.text) == realtimeNormalizeText(text) {
+		// Nothing is emitted, so streamEndsWithSpace keeps describing the
+		// downstream stream rather than the trimmed final.
 		s.text = text
 		return nil
 	}
@@ -1417,14 +1421,14 @@ func (s *astTranslateTextState) addFinal(output astTranslateOutput, text string)
 		return nil
 	}
 	if delta == text && s.text != "" {
-		if !s.emittedSpace && astTranslateNeedsSpace(s.text, delta) {
+		if !s.streamEndsWithSpace && astTranslateNeedsSpace(s.text, delta) {
 			delta = " " + delta
 		}
 		s.text += delta
 	} else {
 		s.text = text
 	}
-	s.emittedSpace = endsWithSpace(delta)
+	s.streamEndsWithSpace = endsWithSpace(delta)
 	return output.Push(&genx.MessageChunk{
 		Role: s.role,
 		Part: genx.Text(delta),
@@ -1457,7 +1461,7 @@ func (s *astTranslateTextState) close(output astTranslateOutput, errText string)
 	s.active = false
 	s.text = ""
 	s.sentenceEnded = false
-	s.emittedSpace = false
+	s.streamEndsWithSpace = false
 	return output.Push(&genx.MessageChunk{
 		Role: s.role,
 		Part: genx.Text(""),
