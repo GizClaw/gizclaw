@@ -2009,16 +2009,17 @@ static int read_hex4(const char *p, uint32_t *out) {
 }
 
 /*
- * Decodes the JSON string token raw (quotes included) in place and reports the
- * unescaped bytes. The unescaped form is never longer than the token, so it
- * fits where the token was; raw must point into the caller's writable
- * response buffer.
+ * Decodes the JSON string token raw (quotes included) into dst and reports the
+ * unescaped bytes. The unescaped form is never longer than the token minus its
+ * quotes, so dst needs at most raw.len - 2 bytes.
  */
-static int unescape_string_in_place(gzc_str_t raw, gzc_str_t *out) {
+static int unescape_string(gzc_str_t raw, char *dst, size_t dst_cap, gzc_str_t *out) {
   if (raw.len < 2 || raw.data[0] != '"' || raw.data[raw.len - 1] != '"') {
     return GZC_ERR_JSON;
   }
-  char *dst = (char *)raw.data;
+  if (dst_cap < raw.len - 2) {
+    return GZC_ERR_BUFFER_TOO_SMALL;
+  }
   size_t w = 0;
   for (size_t r = 1; r + 1 < raw.len; r++) {
     char c = raw.data[r];
@@ -2089,7 +2090,7 @@ static int unescape_string_in_place(gzc_str_t raw, gzc_str_t *out) {
       return GZC_ERR_JSON;
     }
   }
-  *out = gzc_str_from_parts(raw.data, w);
+  *out = gzc_str_from_parts(dst, w);
   return GZC_OK;
 }
 
@@ -2128,7 +2129,9 @@ int gzc_control_invoke_device_tool(
     return rc;
   }
   /* data_json is JSON text carried in a JSON string, so it is escaped on the
-   * wire; the shared string parser keeps escaped strings as unsupported. */
+   * wire and the shared string parser keeps escaped strings as unsupported.
+   * It is unescaped into the scratch region, which the sent request no longer
+   * needs, so call->body stays the exact response for any later reader. */
   gzc_str_t raw = gzc_str_from_parts(NULL, 0);
   bool present = false;
   rc = gzc_control_field(object, "data_json", &raw, &present);
@@ -2136,7 +2139,7 @@ int gzc_control_invoke_device_tool(
     rc = GZC_ERR_JSON;
   }
   if (rc == GZC_OK) {
-    rc = unescape_string_in_place(raw, out_data_json);
+    rc = unescape_string(raw, (char *)call->scratch, call->scratch_cap, out_data_json);
   }
   return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
 }

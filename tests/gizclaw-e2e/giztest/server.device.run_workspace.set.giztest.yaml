@@ -77,6 +77,23 @@ steps:
       workflow_name: flowcraft-chat-assistant
       kickoff: true
     status: 202
+- id: select_workspace
+  client: peer
+  rpc:
+    method: server.run.workspace.set
+    request:
+      workspace_name: "${resource_name}"
+- id: runtime_reports_workspace
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/runtime
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  expect:
+    /pending_workspace_name:
+      equals: "${resource_name}"
 - id: unknown_workspace
   client: peer
   http:
@@ -123,6 +140,11 @@ steps:
     method: client.run.workspace.set
     expect_calls: 2
 finally:
+- id: cleanup_run
+  client: peer
+  rpc:
+    method: server.run.stop
+    request: {}
 - id: cleanup_workspace
   client: peer
   rpc:

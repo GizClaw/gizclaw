@@ -1256,6 +1256,7 @@ static void test_device_settings_workspace_and_tools(void) {
   check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/tools/usage%20limit/actions/invoke") == 0, "invoke path");
   check(strcmp(stub.body, "{\"args\":{\"minutes\":30}}") == 0, "invoke body");
   check_str(data, "{\"ok\":true}", "invoke data is unescaped");
+  check_str(call.body, "{\"data_json\":\"{\\\"ok\\\":true}\"}", "invoke leaves the response body intact");
   check(
       gzc_control_invoke_device_tool(&client, &call, gzc_str_from_cstr("usage_limit"), gzc_str_from_cstr("[1]"), &data) ==
           GZC_ERR_INVALID_ARGUMENT,

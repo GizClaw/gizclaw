@@ -69,6 +69,11 @@ steps:
     body:
       screen_brightness: 80
       locale: en-US
+      alert_mode: vibrate
+      key_feedback: sound_and_vibrate
+      default_interaction_mode: push-to-talk
+      auto_sleep_timeout_ms: 0
+      nfc_enabled: false
     status: 200
   expect:
     /cellular_enabled:
@@ -77,8 +82,16 @@ steps:
       equals: 80
     /locale:
       equals: en-US
+    /alert_mode:
+      equals: vibrate
+    /key_feedback:
+      equals: sound_and_vibrate
+    /default_interaction_mode:
+      equals: push-to-talk
+    /auto_sleep_timeout_ms:
+      equals: 0
     /nfc_enabled:
-      present: false
+      equals: false
 - id: patch_out_of_range
   client: peer
   http:
@@ -88,6 +101,32 @@ steps:
       Authorization: "Bearer ${api_key}"
     body:
       screen_brightness: 101
+    status: 400
+  expect:
+    /error/code:
+      equals: INVALID_REQUEST
+- id: patch_unknown_alert_mode
+  client: peer
+  http:
+    method: PATCH
+    path: /gizclaw/v1/device/settings
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      alert_mode: loud
+    status: 400
+  expect:
+    /error/code:
+      equals: INVALID_REQUEST
+- id: patch_negative_auto_sleep
+  client: peer
+  http:
+    method: PATCH
+    path: /gizclaw/v1/device/settings
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      auto_sleep_timeout_ms: -1
     status: 400
   expect:
     /error/code:

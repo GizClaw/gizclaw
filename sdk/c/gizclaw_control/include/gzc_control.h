@@ -1004,8 +1004,10 @@ int gzc_control_list_device_tools(
  * `POST /gizclaw/v1/device/tools/{name}/actions/invoke`.
  *
  * args_json is one JSON object satisfying the Tool's input_schema, or empty
- * for `{}`. out_data_json receives the device's result as JSON text, borrowed
- * from the response.
+ * for `{}`. out_data_json receives the device's result as unescaped JSON text
+ * written into the call's scratch region, valid until the next call on it;
+ * call->body keeps the exact response. A result longer than scratch_cap fails
+ * with GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL.
  */
 int gzc_control_invoke_device_tool(
     gzc_control_client_t *client,

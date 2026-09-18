@@ -28,6 +28,11 @@ struct gzt_session {
   gzc_webrtc_media_vtable_t media;
   gzc_client_t *client;
   unsigned long long provider_handle;
+  /* The C SDK answers client.tool.invoke only through registered Tool
+   * handlers, never rpc_provider, so a scripted Tool is registered by name
+   * and forwarded to the same Go provider. */
+  char tool_name[65];
+  gzc_tool_handler_t tool_handler;
 };
 
 static int fail(char *errbuf, unsigned long errbuf_len, const char *message, int rc) {
@@ -87,10 +92,21 @@ static int provider(
   return rc;
 }
 
+/* Answers the one scripted Tool through the Go provider. */
+static int tool_handler(
+    void *userdata,
+    gzc_str_t request_payload,
+    gzc_rpc_provider_respond_fn respond,
+    void *respond_userdata) {
+  return provider(
+      userdata, gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE, request_payload, respond, respond_userdata);
+}
+
 int gzt_session_open(
     const char *endpoint,
     const char *private_key,
     unsigned long long provider_handle,
+    const char *tool_name,
     gzt_session_t **out_session,
     char *errbuf,
     unsigned long errbuf_len) {
@@ -128,6 +144,14 @@ int gzt_session_open(
   if (provider_handle != 0) {
     config.rpc_provider = provider;
     config.rpc_provider_userdata = session;
+    if (tool_name != NULL && tool_name[0] != 0) {
+      (void)snprintf(session->tool_name, sizeof(session->tool_name), "%s", tool_name);
+      session->tool_handler.name = gzc_str_from_cstr(session->tool_name);
+      session->tool_handler.handler = tool_handler;
+      session->tool_handler.userdata = session;
+      config.tool_handlers = &session->tool_handler;
+      config.tool_handler_count = 1;
+    }
   }
 
   rc = gzc_client_create(&config, &session->client);
