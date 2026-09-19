@@ -127,7 +127,8 @@ for state in unstaged staged untracked; do
 done
 expect_failure "build failure cleanup" package_input_fixture
 grep -Fq 'exit 19' "$fixture_root/failure.stdout"
-[[ ! -e "$fixture_root/failed-build.tgz" && -z "$(ls -A "$fixture_root/stages")" ]] || {
+# npm may create its own node-compile-cache under TMPDIR; check owned staging.
+[[ ! -e "$fixture_root/failed-build.tgz" && -z "$(find "$fixture_root/stages" -name 'gizclaw-js-sdk-package.*' -print)" ]] || {
   echo "failed packaging left output or staging files" >&2
   exit 1
 }
