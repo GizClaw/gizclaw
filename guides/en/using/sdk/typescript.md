@@ -1,6 +1,6 @@
 # TypeScript SDK <Badge type="warning" text="WIP" />
 
-GizClaw ships two npm packages, split by role, both published to GitHub Packages:
+GizClaw ships two npm packages, split by role, both distributed as `v*` GitHub Release assets:
 
 | Package | Directory | Role | Transport |
 | --- | --- | --- | --- |
@@ -11,17 +11,22 @@ GizClaw ships two npm packages, split by role, both published to GitHub Packages
 
 ## Install `@gizclaw/gizclaw-control`
 
-Point the `@gizclaw` scope at GitHub Packages in the project `.npmrc`, then install:
-
-```ini
-@gizclaw:registry=https://npm.pkg.github.com
-```
+From a selected [GitHub Release](https://github.com/GizClaw/gizclaw/releases), download
+`npm-gizclaw-<version>.tgz`, `npm-gizclaw-control-<version>.tgz`,
+`release-manifest.json`, and `SHA256SUMS`. Verify the package name, version, byte size,
+SHA-256, and source commit against the manifest and the corresponding digests in
+`SHA256SUMS`, then install both local tarballs in the consuming project:
 
 ```sh
-npm install @gizclaw/gizclaw-control
+# Set VERSION to the downloaded Release version, without the tag's leading v.
+npm install "./npm-gizclaw-${VERSION}.tgz" "./npm-gizclaw-control-${VERSION}.tgz"
 ```
 
-The package depends on the `peerhttp` entry of `@gizclaw/gizclaw` for the generated Public HTTP client, which installs alongside it. The runtime needs `fetch`, `Request`, `Response`, and `URL`: Node `^22.13.0 || >=23.5.0` or a modern browser.
+Both package versions equal the Release tag without `v`. The control package reuses
+the generated Public HTTP client through `@gizclaw/gizclaw/peerhttp` and depends on
+that exact gizclaw version. Passing both tarballs lets npm satisfy this dependency
+locally. For the device SDK alone, install only `./npm-gizclaw-${VERSION}.tgz`.
+The runtime needs `fetch`, `Request`, `Response`, and `URL`: Node `^22.13.0 || >=23.5.0` or a modern browser.
 
 ## Initialize and call
 

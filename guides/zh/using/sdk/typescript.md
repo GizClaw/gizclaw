@@ -1,6 +1,6 @@
 # TypeScript SDK <Badge type="warning" text="WIP" />
 
-GizClaw 提供两个 npm package，按角色划分，都发布到 GitHub Packages：
+GizClaw 提供两个 npm package，按角色划分，都作为 `v*` GitHub Release 资产分发：
 
 | Package | 目录 | 角色 | 传输 |
 | --- | --- | --- | --- |
@@ -11,17 +11,20 @@ GizClaw 提供两个 npm package，按角色划分，都发布到 GitHub Package
 
 ## 安装 `@gizclaw/gizclaw-control`
 
-在项目 `.npmrc` 中把 `@gizclaw` scope 指向 GitHub Packages，然后安装：
-
-```ini
-@gizclaw:registry=https://npm.pkg.github.com
-```
+从选定的 [GitHub Release](https://github.com/GizClaw/gizclaw/releases) 下载同一版本的
+`npm-gizclaw-<version>.tgz`、`npm-gizclaw-control-<version>.tgz`、
+`release-manifest.json` 与 `SHA256SUMS`。按 manifest 核对包名、版本、字节数、SHA-256
+和 source commit，并核对 `SHA256SUMS` 中对应文件的摘要后，在使用方项目中安装两个本地包：
 
 ```sh
-npm install @gizclaw/gizclaw-control
+# VERSION 设为已下载的 Release 版本，去掉 tag 开头的 v。
+npm install "./npm-gizclaw-${VERSION}.tgz" "./npm-gizclaw-control-${VERSION}.tgz"
 ```
 
-package 依赖 `@gizclaw/gizclaw` 的 `peerhttp` 入口复用生成的 Public HTTP client，会一并安装。运行时需要 `fetch`、`Request`、`Response` 与 `URL`：Node `^22.13.0 || >=23.5.0` 或现代浏览器。
+两个包的版本都等于 Release tag 去掉 `v` 后的版本。control 包通过
+`@gizclaw/gizclaw/peerhttp` 复用生成的 Public HTTP client，并精确依赖同一版本的 gizclaw；
+同时传入两个 tarball，npm 即可从本地满足这项依赖。只使用设备端 SDK 时安装
+`./npm-gizclaw-${VERSION}.tgz` 即可。运行时需要 `fetch`、`Request`、`Response` 与 `URL`：Node `^22.13.0 || >=23.5.0` 或现代浏览器。
 
 ## 初始化与调用
 

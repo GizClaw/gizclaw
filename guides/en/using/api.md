@@ -13,19 +13,13 @@ Use the Admin API for Server resources that span peers. Use Peer RPC to read or 
 
 Before calling either interface, persist the caller's own keypair and obtain the Server access point and public key. The access point is an `http://` or `https://` base URL such as `https://ap.gizclaw.com`; a bare `host:port` still resolves to `http`. The examples below assume that the SDK has already connected: a dialed `*gizcli.Client` in Go, or an `RTCPeerConnection` established by `connectGiznetWebRTCFromEndpoint` in TypeScript. WebRTC media does not reuse the access point authority, because a TLS access point can terminate on a port that carries no ICE: the SDK takes the ICE UDP address from the `endpoint` field of `/server-info`. Never log or commit private keys, login assertions, or session credentials.
 
-The TypeScript SDK is published to GitHub Packages as `@gizclaw/gizclaw`. Add
-the following entries to the consuming project's `.npmrc`, provide a GitHub
-token with `read:packages` as `GITHUB_PACKAGES_TOKEN`, and install an explicit
-version with `npm install @gizclaw/gizclaw@0.7.2`:
-
-```ini
-@gizclaw:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}
-```
-
-A commit on `main` publishes only when it changes publishable SDK content and
-increases the stable SemVer in `sdk/js/gizclaw/package.json`; an existing
-version is never replaced.
+Install the TypeScript SDK `@gizclaw/gizclaw` from the
+`npm-gizclaw-<version>.tgz` asset of a `v*` GitHub Release. Its package version
+equals the tag without `v`. Verify `release-manifest.json` and `SHA256SUMS`, then
+run `npm install "./npm-gizclaw-${VERSION}.tgz"` in the consuming project, with
+`VERSION` set to the downloaded version. Controller clients also need the same
+version of `npm-gizclaw-control-<version>.tgz`; see
+[TypeScript SDK](./sdk/typescript) for the full steps.
 
 ## Admin API
 
