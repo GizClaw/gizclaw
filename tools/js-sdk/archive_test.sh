@@ -34,6 +34,19 @@ for package in gizclaw gizclaw-control; do
   package_archive "$package" "$archive_one"
   package_archive "$package" "$archive_two"
   cmp "$archive_one" "$archive_two"
+  npm pack --dry-run --ignore-scripts --json --workspace "@gizclaw/$package" >"$fixture_root/pack.json"
+  python3 - "$archive_one" "$fixture_root/pack.json" <<'PYTHON'
+import json
+import tarfile
+import sys
+
+with open(sys.argv[2]) as report:
+    expected = {"package/" + item["path"] for item in json.load(report)[0]["files"]}
+with tarfile.open(sys.argv[1], "r:gz") as archive:
+    actual = {member.name for member in archive.getmembers() if member.isreg()}
+if actual != expected:
+    raise SystemExit("Release tarball file set differs from npm pack")
+PYTHON
   "$repo_root/tools/js-sdk/verify_npm_tarball.sh" --archive "$archive_one" --package "$package" --version "$version"
   expect_failure "$package archive for another package" "$repo_root/tools/js-sdk/verify_npm_tarball.sh" \
     --archive "$archive_one" --package "$([[ "$package" == gizclaw ]] && echo gizclaw-control || echo gizclaw)" \
@@ -65,6 +78,59 @@ expect_failure "negative source epoch" "$repo_root/tools/js-sdk/package_npm_tarb
 expect_failure "missing argument" "$repo_root/tools/js-sdk/package_npm_tarball.sh" --package
 [[ ! -e "$fixture_root/invalid.tgz" ]] || { echo "failed packaging left an output" >&2; exit 1; }
 "$repo_root/tools/js-sdk/consume_tarballs.sh" --asset-dir "$fixture_root" --version "$version"
+
+# A separate tiny repository exercises provenance guards and cleanup without
+# mutating the caller's worktree or needing another dependency installation.
+input_repo="$fixture_root/input-repo"
+mkdir -p "$input_repo/tools/js-sdk" "$input_repo/sdk/js/scripts" "$input_repo/sdk/js/gizclaw" "$fixture_root/stages"
+cp "$repo_root/tools/js-sdk/package_npm_tarball.sh" "$input_repo/tools/js-sdk/"
+cp "$repo_root/sdk/js/scripts/check-package-release.mjs" "$input_repo/sdk/js/scripts/"
+node --input-type=module - "$repo_root" "$input_repo" <<'JS'
+import { writeFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+const [source, root] = process.argv.slice(2);
+const { DEVELOPMENT_VERSION } = await import(pathToFileURL(`${source}/sdk/js/scripts/check-package-release.mjs`));
+writeFileSync(`${root}/package.json`, JSON.stringify({ private: true, workspaces: ["sdk/js/gizclaw"] }));
+writeFileSync(`${root}/sdk/js/gizclaw/package.json`, JSON.stringify({
+  name: "@gizclaw/gizclaw", version: DEVELOPMENT_VERSION, scripts: { build: "exit 19" },
+}));
+writeFileSync(`${root}/package-lock.json`, JSON.stringify({ packages: {
+  "sdk/js/gizclaw": { version: DEVELOPMENT_VERSION },
+} }));
+JS
+(
+  cd "$input_repo"
+  git init -q
+  git add .
+  git -c user.name='SDK Contract Test' -c user.email=test@example.com -c commit.gpgsign=false commit -qm 'test: define packaging inputs'
+)
+input_commit="$(git -C "$input_repo" rev-parse HEAD)"
+input_epoch="$(git -C "$input_repo" show -s --format=%ct HEAD)"
+package_input_fixture() {
+  TMPDIR="$fixture_root/stages" "$input_repo/tools/js-sdk/package_npm_tarball.sh" \
+    --package gizclaw --version "$version" --source-commit "$input_commit" \
+    --source-epoch "$input_epoch" --output "$fixture_root/failed-build.tgz"
+}
+for state in unstaged staged untracked; do
+  if [[ "$state" == untracked ]]; then
+    touch "$input_repo/sdk/js/gizclaw/untracked.ts"
+  else
+    printf '\n' >>"$input_repo/sdk/js/gizclaw/package.json"
+    if [[ "$state" == staged ]]; then
+      git -C "$input_repo" add sdk/js/gizclaw/package.json
+    fi
+  fi
+  expect_failure "$state owned input" package_input_fixture
+  grep -Fq "inputs have $state" "$fixture_root/failure.stderr"
+  git -C "$input_repo" restore --source=HEAD --staged --worktree sdk/js/gizclaw/package.json
+  rm -f "$input_repo/sdk/js/gizclaw/untracked.ts"
+done
+expect_failure "build failure cleanup" package_input_fixture
+grep -Fq 'exit 19' "$fixture_root/failure.stdout"
+[[ ! -e "$fixture_root/failed-build.tgz" && -z "$(ls -A "$fixture_root/stages")" ]] || {
+  echo "failed packaging left output or staging files" >&2
+  exit 1
+}
 
 rewrite_archive() {
   local mode="$1" destination="$2"

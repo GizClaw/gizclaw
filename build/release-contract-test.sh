@@ -444,6 +444,19 @@ make_fixture_npm_package gizclaw "$npm_tampered/npm-gizclaw-${version}.tgz" 0.0.
 expect_failure "npm archive replaced after manifest" "$repo_root/build/check-release.sh" \
   semver "$npm_tampered" "$tag" "$source_commit"
 
+# Update outer digests after tampering so archive identity is the failing check.
+npm_digest="$(sha256sum "$npm_tampered/npm-gizclaw-${version}.tgz" | awk '{print $1}')"
+npm_size="$(wc -c <"$npm_tampered/npm-gizclaw-${version}.tgz" | tr -d ' ')"
+jq --arg name "npm-gizclaw-${version}.tgz" --arg digest "$npm_digest" --argjson size "$npm_size" \
+  '(.assets[] | select(.name == $name)) |= (.sha256 = $digest | .size = $size)' \
+  "$payloads/release-manifest.json" >"$npm_tampered/release-manifest.json"
+while read -r _ name; do
+  printf '%s  %s\n' "$(sha256sum "$npm_tampered/$name" | awk '{print $1}')" "$name"
+done <"$payloads/SHA256SUMS" >"$npm_tampered/SHA256SUMS"
+expect_failure "npm manifest inside archive mismatches Release" "$repo_root/build/check-release.sh" \
+  semver "$npm_tampered" "$tag" "$source_commit"
+grep -Fq 'npm package manifest does not match release identity' "$fixture_root/failure.stderr"
+
 for mutation in '.schema_version = 5' '.schema_version = 7' \
   '(.assets[] | select(.kind == "npm-package") | .package) = "gizclaw"' \
   '(.assets[] | select(.kind == "npm-package") | .version) = "0.0.1"' \
