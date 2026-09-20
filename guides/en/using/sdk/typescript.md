@@ -98,5 +98,7 @@ the lower-level `prepareEncryptedGiznetWebRTCOffer(identity, offerSDP, credentia
 Up to 4096 bytes are sealed inside the encrypted envelope. Omission or an empty array preserves
 bare SDP. For Server registration-token admission, callers can supply
 `new TextEncoder().encode(registrationToken)`. The SDK does not interpret it; callers must still
-invoke `server.register` after connecting. See [Security Policy](../../developing/gizclaw/server/security-policy)
+invoke `server.register` after connecting. Oversized credentials are rejected before fetching
+server-info or creating an offer, and close the PeerConnection supplied for this attempt.
+See [Security Policy](../../developing/gizclaw/server/security-policy)
 for operator settings and legacy-device behavior.

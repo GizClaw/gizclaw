@@ -51,6 +51,7 @@ import {
 } from "./generated/rpc/payload-codec.ts";
 import {
   base58Decode,
+  GIZNET_MAX_CREDENTIAL_BYTES,
   prepareEncryptedGiznetWebRTCOffer,
 } from "./signaling.ts";
 import { encodeTelemetryPacket, type TelemetryFrame } from "./telemetry.ts";
@@ -1394,6 +1395,10 @@ export async function connectGiznetWebRTC(
 export async function connectGiznetWebRTCFromEndpoint(
   options: ConnectGiznetWebRTCFromEndpointOptions,
 ): Promise<RTCPeerConnection> {
+  if ((options.credential?.byteLength ?? 0) > GIZNET_MAX_CREDENTIAL_BYTES) {
+    options.pc.close();
+    throw new Error("invalid admission credential length");
+  }
   const serverInfo = await fetchGiznetServerInfo(options);
   const transport = serverInfo.transport;
   const signalingPath = normalizeServerInfoSignalingPath(

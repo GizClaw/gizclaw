@@ -95,4 +95,5 @@ try {
 4096 bytes，仅放在加密信封内；省略或空数组继续发送裸 SDP。若 Server 启用了
 registration-token policy，调用方可用 `new TextEncoder().encode(registrationToken)`
 提供凭证。SDK 不解释其内容，握手通过后仍需按原流程调用 `server.register`。
+超过上限的凭证在请求 server-info 或创建 offer 之前被拒绝，并关闭此次连接使用的 PeerConnection。
 此设置及旧设备的影响见 [Security Policy](../../developing/gizclaw/server/security-policy)。
