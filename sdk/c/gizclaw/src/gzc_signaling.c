@@ -178,6 +178,22 @@ int gzc_signaling_build_offer_request(
     gzc_str_t offer_sdp,
     gzc_signaling_exchange_t *exchange,
     gzc_http_request_t *out_request) {
+  return gzc_signaling_build_offer_request_with_credential(
+      config, offer_sdp, NULL, 0, exchange, out_request);
+}
+
+int gzc_signaling_build_offer_request_with_credential(
+    const gzc_signaling_config_t *config,
+    gzc_str_t offer_sdp,
+    const uint8_t *credential,
+    size_t credential_len,
+    gzc_signaling_exchange_t *exchange,
+    gzc_http_request_t *out_request) {
+  if (credential_len > GZC_SIGNALING_MAX_CREDENTIAL_BYTES ||
+      (credential == NULL && credential_len != 0u) ||
+      (credential_len != 0u && config != NULL && config->cipher_mode == GZC_CIPHER_PLAINTEXT)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
   if (config == NULL || config->platform == NULL || config->crypto == NULL || exchange == NULL ||
       out_request == NULL || config->signaling_url.data == NULL || offer_sdp.data == NULL ||
       config->crypto->keypair_from_private == NULL || config->crypto->dh == NULL || config->crypto->hkdf_sha256 == NULL ||
@@ -229,6 +245,30 @@ int gzc_signaling_build_offer_request(
     return rc;
   }
 
+  gzc_buf_t envelope;
+  gzc_buf_init(&envelope);
+  const uint8_t *plaintext = (const uint8_t *)offer_sdp.data;
+  size_t plaintext_len = offer_sdp.len;
+  if (credential_len != 0u) {
+    if (offer_sdp.len >= SIZE_MAX - 7u - credential_len) {
+      return GZC_ERR_INVALID_ARGUMENT;
+    }
+    const uint8_t header[] = {0x47, 0x5a, 0x4f, 0x46, 1,
+                              (uint8_t)(credential_len >> 8), (uint8_t)credential_len};
+    rc = gzc_buf_append(&envelope, config->platform, header, sizeof(header));
+    if (rc == GZC_OK) {
+      rc = gzc_buf_append(&envelope, config->platform, credential, credential_len);
+    }
+    if (rc == GZC_OK) {
+      rc = gzc_buf_append(&envelope, config->platform, offer_sdp.data, offer_sdp.len);
+    }
+    if (rc != GZC_OK) {
+      gzc_buf_free(&envelope, config->platform);
+      return rc;
+    }
+    plaintext = envelope.data;
+    plaintext_len = envelope.len;
+  }
   gzc_buf_t aad;
   gzc_buf_init(&aad);
   rc = build_aad(config->platform, exchange->public_key_text, exchange->timestamp, exchange->nonce_text, false, &aad);
@@ -240,12 +280,13 @@ int gzc_signaling_build_offer_request(
         sizeof(request_key),
         request_nonce,
         sizeof(request_nonce),
-        (const uint8_t *)offer_sdp.data,
-        offer_sdp.len,
+        plaintext,
+        plaintext_len,
         aad.data,
         aad.len,
         &exchange->body);
   }
+  gzc_buf_free(&envelope, config->platform);
   gzc_buf_free(&aad, config->platform);
   if (rc != GZC_OK) {
     return rc;

@@ -9,7 +9,7 @@ See the [API Reference](/api/) for exact endpoints, parameters, requests, and re
 
 `/webrtc/v1/offer` Occurs before the Peer connection is established, HTTP signaling must be preserved. The Peer capability after establishing a connection can use reliable HTTP-over-service-stream or Peer RPC; when choosing a transport, avoid maintaining two sets of contracts for the same capability.
 
-The Offer is authenticated by the signed signaling contract itself and does not depend on an API key. Public API can reuse real shared types such as `ErrorResponse`, `DeviceInfo` and `Runtime`, but does not reference Admin Resources.
+The offer uses ECDH/AEAD to prove key possession and protect SDP and an optional credential, independently of API keys. Ciphertext authentication is not operator admission. [Giznet](../../giznet#signaling-admission-credentials) defines the compatible envelope and [Security Policy](../../gizclaw/server/security-policy) defines optional registration-token admission. Public API can reuse real shared types such as `ErrorResponse`, `DeviceInfo` and `Runtime`, but does not reference Admin Resources.
 
 See [Peer HTTP · API keys](../../gizclaw/peer/service/api-keys) for the authentication and management contract. First-time provisioning stays on the device-local BLE channel; once the device is online, an API key can scan or change Wi-Fi through `/gizclaw/v1/device*`.
 

@@ -126,6 +126,7 @@ typedef struct {
   const char *expected_post_url;
   int get_count;
   int post_count;
+  bool expect_admission;
 } fake_http_t;
 
 typedef struct {
@@ -1523,6 +1524,8 @@ static bool complete_log_reports(
          log->records[0].result_status == status;
 }
 
+static int expect(bool ok, const char *message);
+
 static int test_http_request(void *userdata, const gzc_http_request_t *request, gzc_http_response_t *out_response) {
   fake_http_t *fake = (fake_http_t *)userdata;
   if (request == NULL || out_response == NULL) {
@@ -1541,6 +1544,13 @@ static int test_http_request(void *userdata, const gzc_http_request_t *request, 
     return gzc_buf_append_cstr(&out_response->body, fake->platform, body);
   }
   fake->post_count++;
+  if (fake->expect_admission) {
+    fake->expect_admission = false;
+    const uint8_t prefix[] = {0x47, 0x5a, 0x4f, 0x46, 1, 0, 3, 0, 255, 1};
+    if (expect(request->body_len > sizeof(prefix) && memcmp(request->body, prefix, sizeof(prefix)) == 0,
+               "connect seals the client-owned credential copy") != 0)
+      return GZC_ERR_SIGNALING;
+  }
   const char *expected_post_url = fake->expected_post_url == NULL
                                       ? "http://example.invalid:9820/custom/offer"
                                       : fake->expected_post_url;
@@ -2443,6 +2453,54 @@ static int test_firmware_version(void) {
   return pb_decode(&input, gizclaw_rpc_v1_FirmwareGetResponse_fields, &decoded) ? 1 : 0;
 }
 
+static int test_admission_signaling(const gzc_platform_t *platform, const gzc_platform_crypto_t *crypto) {
+  gzc_signaling_config_t cfg = {0};
+  cfg.platform = platform;
+  cfg.crypto = crypto;
+  cfg.signaling_url = gzc_str_from_cstr("https://example.invalid/webrtc/v1/offer");
+  memset(cfg.private_key.bytes, 1, sizeof(cfg.private_key.bytes));
+  memset(cfg.remote_public_key.bytes, 2, sizeof(cfg.remote_public_key.bytes));
+  const uint8_t credential[] = {0, 255, 1};
+  const uint8_t expected[] = {0x47, 0x5a, 0x4f, 0x46, 1, 0, 3, 0, 255, 1, 'v', '=', '0', '\r', '\n'};
+  gzc_signaling_exchange_t exchange;
+  gzc_http_request_t request;
+  gzc_signaling_exchange_init(&exchange);
+  int rc = gzc_signaling_build_offer_request_with_credential(&cfg, gzc_str_from_cstr("v=0\r\n"), credential, sizeof(credential), &exchange, &request);
+  if (expect(rc == GZC_OK && request.body_len == sizeof(expected) &&
+                 memcmp(request.body, expected, sizeof(expected)) == 0 &&
+                 request.header_count == GZC_SIGNALING_HEADER_COUNT,
+             "AEAD input matches shared admission vector with unchanged headers") != 0)
+    return 1;
+  gzc_signaling_exchange_free(&exchange, platform);
+  rc = gzc_signaling_build_offer_request(&cfg, gzc_str_from_cstr("v=0\r\n"), &exchange, &request);
+  if (expect(rc == GZC_OK && request.body_len == 5u && memcmp(request.body, "v=0\r\n", 5u) == 0,
+             "old builder preserves bare SDP") != 0)
+    return 1;
+  gzc_signaling_exchange_free(&exchange, platform);
+  uint8_t maximum[GZC_SIGNALING_MAX_CREDENTIAL_BYTES] = {0};
+  rc = gzc_signaling_build_offer_request_with_credential(&cfg, gzc_str_from_cstr("v=0"), maximum, sizeof(maximum), &exchange, &request);
+  if (expect(rc == GZC_OK && request.body_len == 7u + sizeof(maximum) + 3u && request.body[5] == 16 && request.body[6] == 0,
+             "maximum admission credential") != 0)
+    return 1;
+  gzc_signaling_exchange_free(&exchange, platform);
+  if (expect(gzc_signaling_build_offer_request_with_credential(&cfg, gzc_str_from_cstr("v=0"), maximum, sizeof(maximum) + 1, &exchange, &request) == GZC_ERR_INVALID_ARGUMENT,
+             "oversized admission rejected") != 0 ||
+      expect(gzc_signaling_build_offer_request_with_credential(&cfg, gzc_str_from_cstr("v=0"), NULL, 1, &exchange, &request) == GZC_ERR_INVALID_ARGUMENT,
+             "NULL nonempty admission rejected") != 0)
+    return 1;
+  cfg.cipher_mode = GZC_CIPHER_PLAINTEXT;
+  if (expect(gzc_signaling_build_offer_request_with_credential(&cfg, gzc_str_from_cstr("v=0"), credential, sizeof(credential), &exchange, &request) == GZC_ERR_INVALID_ARGUMENT,
+             "plaintext admission rejected") != 0)
+    return 1;
+  cfg.cipher_mode = GZC_CIPHER_CHACHA20_POLY1305;
+  fail_next_realloc = true;
+  rc = gzc_signaling_build_offer_request_with_credential(&cfg, gzc_str_from_cstr("v=0"), credential, sizeof(credential), &exchange, &request);
+  if (expect(rc == GZC_ERR_NO_MEMORY && !fail_next_realloc, "envelope allocation failure propagates") != 0)
+    return 1;
+  gzc_signaling_exchange_free(&exchange, platform);
+  return 0;
+}
+
 int main(void) {
   if (test_firmware_version() != 0) {
     return 1;
@@ -2505,6 +2563,8 @@ int main(void) {
   crypto.hkdf_sha256 = test_hkdf_sha256;
   crypto.aead_seal = test_aead_copy;
   crypto.aead_open = test_aead_copy;
+  if (test_admission_signaling(platform, &crypto) != 0)
+    return 1;
 
   gzc_webrtc_vtable_t webrtc;
   memset(&webrtc, 0, sizeof(webrtc));
@@ -2712,10 +2772,33 @@ int main(void) {
              "Tool handlers require a non-empty registration array") != 0) {
     return 1;
   }
-  rc = gzc_client_create(&config, &client);
+  gzc_client_config_t admission_config = config;
+  admission_config.cipher_mode = GZC_CIPHER_CHACHA20_POLY1305;
+  rc = gzc_client_create(&admission_config, &client);
   if (expect(rc == GZC_OK, "client create") != 0) {
     return 1;
   }
+  const uint8_t admission[] = {0, 255, 1};
+  if (expect(gzc_client_set_admission_credential(client, admission, sizeof(admission)) == GZC_OK,
+             "client admission setter copies bytes") != 0)
+    return 1;
+  fail_next_realloc = true;
+  if (expect(gzc_client_set_admission_credential(client, admission, sizeof(admission)) == GZC_ERR_NO_MEMORY && !fail_next_realloc,
+             "failed setter preserves previous credential") != 0)
+    return 1;
+  if (expect(gzc_client_set_admission_credential(client, NULL, 1) == GZC_ERR_INVALID_ARGUMENT,
+             "setter rejects invalid pointer") != 0 ||
+      expect(gzc_client_set_admission_credential(client, admission, 4097) == GZC_ERR_INVALID_ARGUMENT,
+             "setter bounds credential") != 0 ||
+      expect(gzc_client_set_admission_credential(client, NULL, 0) == GZC_OK,
+             "setter clears credential") != 0)
+    return 1;
+  uint8_t copied_admission[] = {0, 255, 1};
+  if (expect(gzc_client_set_admission_credential(client, copied_admission, sizeof(copied_admission)) == GZC_OK,
+             "setter accepts replacement") != 0)
+    return 1;
+  copied_admission[1] = 0;
+  fake_http.expect_admission = true;
   rc = gzc_client_set_opus_rx_capacity(client, 0u);
   if (expect(rc == GZC_ERR_INVALID_ARGUMENT,
              "reject an empty Opus receive ring") != 0) {
@@ -2816,6 +2899,9 @@ int main(void) {
   if (expect(rc == GZC_OK, "client connect") != 0) {
     return 1;
   }
+  if (expect(gzc_client_set_admission_credential(client, NULL, 0) == GZC_ERR_INVALID_ARGUMENT,
+             "connected client rejects credential change") != 0)
+    return 1;
   if (expect(fake_http.get_count == 1, "server-info get called once") != 0) {
     return 1;
   }

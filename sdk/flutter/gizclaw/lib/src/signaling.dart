@@ -160,12 +160,35 @@ class GiznetServerInfo {
   }
 }
 
+/// Maximum opaque credential bytes carried inside the encrypted offer.
+const giznetMaxCredentialBytes = 4096;
+
+/// Seals SDP and optional opaque [credential] without exposing it in headers.
+/// Empty credentials retain the legacy bare-SDP format.
 Future<PreparedGiznetWebRtcOffer> prepareEncryptedGiznetWebRtcOffer(
   GiznetSignalingIdentity identity,
   String offerSdp, {
+  Uint8List? credential,
   List<int>? nonceBytes,
   int? timestamp,
 }) async {
+  if ((credential?.length ?? 0) > giznetMaxCredentialBytes) {
+    throw ArgumentError('invalid admission credential length');
+  }
+  final sdp = utf8.encode(offerSdp);
+  final plaintext = credential == null || credential.isEmpty
+      ? sdp
+      : <int>[
+          0x47,
+          0x5a,
+          0x4f,
+          0x46,
+          1,
+          credential.length >> 8,
+          credential.length & 0xff,
+          ...credential,
+          ...sdp,
+        ];
   final clientPrivateKey = _expectKeyBytes(
     identity.clientPrivateKey,
     'client private key',
@@ -194,7 +217,7 @@ Future<PreparedGiznetWebRtcOffer> prepareEncryptedGiznetWebRtcOffer(
   final requestAad = signalingAad(clientPublicKey, timestampValue, nonce);
   final cipher = Chacha20.poly1305Aead();
   final encrypted = await cipher.encrypt(
-    utf8.encode(offerSdp),
+    plaintext,
     secretKey: SecretKey(keys.requestKey),
     nonce: keys.requestNonce,
     aad: requestAad,

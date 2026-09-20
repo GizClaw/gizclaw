@@ -31,6 +31,7 @@ import {
   createAdminAPIFetch,
   batteryTelemetry,
   connectGiznetWebRTC,
+  connectGiznetWebRTCFromEndpoint,
   createWebRTCFetch,
   decodeFrames,
   encodeTelemetryPacket,
@@ -4402,4 +4403,31 @@ test("inbound client.tool.invoke runs the named Tool and returns JSON", async ()
       "client.tool.invoke",
     ),
   );
+});
+
+test("endpoint connection forwards optional admission credentials", async () => {
+  const pc = new FakePeerConnection();
+  let requests = 0;
+  await assert.rejects(
+    connectGiznetWebRTCFromEndpoint({
+      pc: pc as unknown as RTCPeerConnection,
+      endpoint: "https://example.invalid",
+      clientPrivateKey: new Uint8Array(32).fill(1),
+      credential: new Uint8Array(4097),
+      fetch: async () => {
+        requests += 1;
+        return new Response(
+          JSON.stringify({
+            protocol: "gizclaw-webrtc",
+            public_key: base58Encode(
+              x25519.getPublicKey(new Uint8Array(32).fill(2)),
+            ),
+          }),
+        );
+      },
+    }),
+    /invalid admission credential length/,
+  );
+  assert.equal(requests, 1);
+  assert.equal(pc.closeCalls, 1);
 });

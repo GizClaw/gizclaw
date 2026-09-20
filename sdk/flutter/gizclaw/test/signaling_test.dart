@@ -7,6 +7,7 @@ import 'package:test/test.dart';
 
 void main() {
   transportTests();
+  admissionTests();
   test('validates server-info payloads', () {
     final publicKey = base58Encode(List<int>.filled(32, 7));
     final info = GiznetServerInfo.fromJson({
@@ -255,5 +256,84 @@ void transportTests() {
         throwsFormatException,
       );
     });
+  });
+}
+
+void admissionTests() {
+  test('encrypted admission wire vector and legacy SDP', () async {
+    final serverKey = await X25519().newKeyPairFromSeed(
+      List<int>.filled(32, 2),
+    );
+    final serverPublicKey = await serverKey.extractPublicKey();
+    final identity = GiznetSignalingIdentity(
+      clientPrivateKey: List<int>.filled(32, 1),
+      serverPublicKey: serverPublicKey.bytes,
+    );
+    for (final credential in <Uint8List?>[
+      null,
+      Uint8List(0),
+      Uint8List.fromList([0, 255, 1]),
+      Uint8List(4096),
+    ]) {
+      final prepared = await prepareEncryptedGiznetWebRtcOffer(
+        identity,
+        'v=0\r\n',
+        credential: credential,
+      );
+      final shared = await X25519().sharedSecretKey(
+        keyPair: serverKey,
+        remotePublicKey: SimplePublicKey(
+          base58Decode(prepared.clientPublicKey),
+          type: KeyPairType.x25519,
+        ),
+      );
+      final salt = [
+        ...base64UrlDecodeNoPadding(prepared.nonce),
+        ...utf8.encode(prepared.timestamp.toString()),
+      ];
+      final key = await Hkdf(hmac: Hmac.sha256(), outputLength: 32).deriveKey(
+        secretKey: shared,
+        nonce: salt,
+        info: utf8.encode('giznet/gizwebrtc/http-signaling/v1 c2s'),
+      );
+      final nonce = await Hkdf(hmac: Hmac.sha256(), outputLength: 12).deriveKey(
+        secretKey: shared,
+        nonce: salt,
+        info: utf8.encode('giznet/gizwebrtc/http-signaling/v1 c2s nonce'),
+      );
+      final cipher = Chacha20.poly1305Aead();
+      final plain = await cipher.decrypt(
+        SecretBox(
+          prepared.body.sublist(0, prepared.body.length - 16),
+          nonce: nonce.bytes,
+          mac: Mac(prepared.body.sublist(prepared.body.length - 16)),
+        ),
+        secretKey: key,
+        aad: signalingAad(
+          base58Decode(prepared.clientPublicKey),
+          prepared.timestamp,
+          prepared.nonce,
+        ),
+      );
+      if (credential == null || credential.isEmpty) {
+        expect(utf8.decode(plain), 'v=0\r\n');
+      } else if (credential.length == 3) {
+        expect(
+          plain.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join(),
+          '475a4f4601000300ff01763d300d0a',
+        );
+      } else {
+        expect(plain.sublist(0, 7), [0x47, 0x5a, 0x4f, 0x46, 1, 16, 0]);
+        expect(plain.sublist(7, 4103), credential);
+      }
+    }
+    await expectLater(
+      prepareEncryptedGiznetWebRtcOffer(
+        identity,
+        'v=0',
+        credential: Uint8List(4097),
+      ),
+      throwsArgumentError,
+    );
   });
 }

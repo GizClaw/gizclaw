@@ -253,3 +253,27 @@ flowchart TB
 - 只对单个 GizClaw 业务 surface 有意义的授权规则。
 
 这些内容分别属于 `pkgs/gizclaw`、`pkgs/gizedge`、`cmd/internal/server` 或对应客户端目录。
+
+## Signaling 准入凭证
+
+`DialConfig.Credential` 是可选的不透明 bytes，最多 4096 bytes。giznet 只负责搬运，
+不解释业务凭证。无凭证时发送原始 SDP；有凭证时，AEAD 密封的明文为：
+
+| 字段 | 长度 | 编码 |
+| --- | --- | --- |
+| 魔数 | 4 bytes | ASCII `GZOF` |
+| 版本 | 1 byte | `1` |
+| credential 长度 | 2 bytes | unsigned big-endian |
+| credential | 0–4096 bytes | 不透明原始 bytes |
+| SDP | 剩余 bytes | UTF-8 |
+
+解密后没有魔数的整包按裸 SDP 处理，等价于空凭证。见魔数但版本未知、头部/凭证截断
+或凭证超限时返回 HTTP 400 `invalid_credential`，不回退为裸 SDP。现有 256 KiB
+请求体上限不变。Answer 仍为密封的裸 SDP，HTTP headers、AAD 与密钥派生不变。
+非空凭证不允许使用 `CipherModePlaintext`；它必须在 AEAD 内部，不放入 header、URL 或日志。
+
+`SecurityPolicy.AllowPeer(context.Context, PeerAdmission)` 接收真实 HTTP request context、
+认证公钥与凭证。凭证 slice 仅在调用期间借用，不得保留。policy 在创建 PeerConnection
+之前执行；拒绝返回 HTTP 403 `peer_forbidden`。giznet 不将凭证附到 Conn，也不执行持久化。
+ECDH/AEAD 证明对方持有其声明 key 的私钥；运营方授权由注入 policy 决定。nil policy
+默认放行。Go 自定义 policy 实现须使用新的带 context/PeerAdmission 签名。

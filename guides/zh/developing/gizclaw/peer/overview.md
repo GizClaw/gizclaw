@@ -51,3 +51,11 @@ Peer Mixer 以 20 ms Opus frame 产生下行音频。`PeerConn` 先取得并编�
 注入 pacing tick，以确定性
 验证一 tick 一包；真实时钟测试和 Giztest E2E 另外验证写入延迟不会累计以及接收侧间隔、
 漂移和缓冲盈余。
+
+## 握手准入与注册
+
+可选 [Server 准入 policy](../server/security-policy) 在 WebRTC connection 建立前检查
+握手中的凭证。该检查不创建 Peer、不绑定 RuntimeProfile，也不把 credential 保存到
+Conn。连接被接受后的 Peer activation 继续拥有持久记录创建；`server.register` 继续
+拥有 RuntimeProfile owner 与 firmware 绑定。空凭证仍兼容裸 SDP 客户端，是否放行由
+运营方选定 policy 决定。

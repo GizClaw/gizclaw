@@ -1554,7 +1554,7 @@ type edgeTestSecurityPolicy struct {
 	allowService func(giznet.PublicKey, uint64) bool
 }
 
-func (p edgeTestSecurityPolicy) AllowPeer(giznet.PublicKey) bool {
+func (p edgeTestSecurityPolicy) AllowPeer(context.Context, giznet.PeerAdmission) bool {
 	return true
 }
 

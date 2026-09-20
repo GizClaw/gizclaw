@@ -18,7 +18,7 @@ import (
 
 type allowAllPolicy struct{}
 
-func (allowAllPolicy) AllowPeer(giznet.PublicKey) bool { return true }
+func (allowAllPolicy) AllowPeer(context.Context, giznet.PeerAdmission) bool { return true }
 func (allowAllPolicy) AllowService(giznet.PublicKey, uint64) bool {
 	return true
 }

@@ -13,6 +13,7 @@ extern "C" {
 #define GZC_SIGNALING_NONCE_SIZE 16
 #define GZC_SIGNALING_AEAD_NONCE_SIZE 12
 #define GZC_SIGNALING_HEADER_COUNT 4
+#define GZC_SIGNALING_MAX_CREDENTIAL_BYTES 4096u
 
 typedef struct {
   const gzc_platform_t *platform;
@@ -41,6 +42,15 @@ void gzc_signaling_exchange_free(gzc_signaling_exchange_t *exchange, const gzc_p
 int gzc_signaling_build_offer_request(
     const gzc_signaling_config_t *config,
     gzc_str_t offer_sdp,
+    gzc_signaling_exchange_t *exchange,
+    gzc_http_request_t *out_request);
+/* credential is borrowed only during this call. NULL is valid only at length 0.
+ * Empty credentials use legacy bare SDP; nonempty credentials require AEAD. */
+int gzc_signaling_build_offer_request_with_credential(
+    const gzc_signaling_config_t *config,
+    gzc_str_t offer_sdp,
+    const uint8_t *credential,
+    size_t credential_len,
     gzc_signaling_exchange_t *exchange,
     gzc_http_request_t *out_request);
 int gzc_signaling_parse_answer_response(

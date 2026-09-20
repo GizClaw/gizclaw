@@ -24,7 +24,7 @@ var errPayloadMismatch = errors.New("payload mismatch")
 
 type allowAllPolicy struct{}
 
-func (allowAllPolicy) AllowPeer(giznet.PublicKey) bool {
+func (allowAllPolicy) AllowPeer(context.Context, giznet.PeerAdmission) bool {
 	return true
 }
 

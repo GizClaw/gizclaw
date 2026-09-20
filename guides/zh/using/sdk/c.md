@@ -122,3 +122,17 @@ URL、module version、`strip_prefix` 与 integrity 必须来自同一个不可�
 Firmware 使用 `gizclaw_core`，并链接 PAL 拥有的现有 `gzc_default_platform()` 实现。该实现返回带 allocator、clock、entropy 与 logging callback 的 firmware `gzc_platform_t`；firmware 仍负责 HTTP、crypto 和 WebRTC vtable。Desktop consumer 可以依赖 `gizclaw`，继续使用现有 nullable-platform fallback。
 
 源码包不拥有 firmware toolchain、最终链接、image packaging、烧录、credential 或 provider 配置。Consumer 不能 patch 解压后的 SDK 或另取一份 nanopb；需要 portability 修复时应升级到包含修复的 GizClaw Release。
+
+## 设备握手准入
+
+连接前在 client owner 线程调用 `gzc_client_set_admission_credential(client, bytes, len)`。
+SDK 拷贝最多 4096 bytes，在下次 connect 的 AEAD 内发送；caller buffer 随后可释放。
+`NULL, 0` 清除凭证，已连接或已关闭的 client 不接受修改。client 在替换或 destroy 时
+释放自己的副本；设置失败保留旧值。既有公开 struct 布局和 connect 签名不变。
+
+低层 `gzc_signaling_build_offer_request_with_credential(config, offer_sdp, bytes, len,
+exchange, request)` 仅在调用期间借用 bytes。原 builder 始终发送空凭证的裸 SDP。
+非零长度搭配 NULL、超过 4096 bytes 或明文 cipher 均返回 `GZC_ERR_INVALID_ARGUMENT`；
+分配失败返回 `GZC_ERR_NO_MEMORY`。SDK 不解释 bytes；启用 registration-token policy
+时 caller 可传 token 的 UTF-8 bytes，连接后仍调用 `server.register`。详见
+[Security Policy](../../developing/gizclaw/server/security-policy)。

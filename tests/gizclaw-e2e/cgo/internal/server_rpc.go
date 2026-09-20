@@ -20,7 +20,7 @@ import (
 
 type allowServerRPCPolicy struct{}
 
-func (allowServerRPCPolicy) AllowPeer(giznet.PublicKey) bool { return true }
+func (allowServerRPCPolicy) AllowPeer(context.Context, giznet.PeerAdmission) bool { return true }
 func (allowServerRPCPolicy) AllowService(giznet.PublicKey, uint64) bool {
 	return true
 }

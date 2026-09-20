@@ -3,6 +3,9 @@ import { x25519 } from "@noble/curves/ed25519.js";
 import { hkdf } from "@noble/hashes/hkdf.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 
+/** Maximum opaque credential bytes inside an encrypted offer. */
+export const GIZNET_MAX_CREDENTIAL_BYTES = 4096;
+
 const signalingPath = "/webrtc/v1/offer";
 const base58Alphabet =
   "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -27,7 +30,28 @@ export type PreparedGiznetWebRTCOffer = {
 export async function prepareEncryptedGiznetWebRTCOffer(
   identity: GiznetSignalingIdentity,
   offerSDP: string,
+  credential?: Uint8Array,
 ): Promise<PreparedGiznetWebRTCOffer> {
+  const sdp = new TextEncoder().encode(offerSDP);
+  if ((credential?.byteLength ?? 0) > GIZNET_MAX_CREDENTIAL_BYTES) {
+    throw new Error("invalid admission credential length");
+  }
+  let plaintext: Uint8Array = sdp;
+  if (credential != null && credential.byteLength > 0) {
+    plaintext = concatBytes([
+      new Uint8Array([
+        0x47,
+        0x5a,
+        0x4f,
+        0x46,
+        1,
+        credential.byteLength >> 8,
+        credential.byteLength & 0xff,
+      ]),
+      credential,
+      sdp,
+    ]);
+  }
   const clientPrivateKey = expectKeyBytes(
     identity.clientPrivateKey,
     "client private key",
@@ -55,7 +79,7 @@ export async function prepareEncryptedGiznetWebRTCOffer(
     keys.requestKey,
     keys.requestNonce,
     requestAAD,
-  ).encrypt(new TextEncoder().encode(offerSDP));
+  ).encrypt(plaintext);
 
   return {
     body: new Blob([arrayBufferFromBytes(body)]),

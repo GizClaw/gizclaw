@@ -73,6 +73,7 @@ struct gzc_client {
   gzc_service_channel_t *event_channel;
   gzc_event_stream_t *event_handle;
   gzc_public_key_t server_public_key;
+  gzc_buf_t admission_credential;
   gzc_buf_t local_sdp;
   gzc_buf_t packet_rx;
   gzc_opus_rx_slot_t *opus_rx;
@@ -1533,6 +1534,26 @@ int gzc_client_set_peer_add_ice_server(gzc_client_t *client, gzc_peer_add_ice_se
   return GZC_OK;
 }
 
+int gzc_client_set_admission_credential(
+    gzc_client_t *client, const uint8_t *credential, size_t credential_len) {
+  if (client == NULL || client->closed || client->peer != NULL ||
+      credential_len > GZC_SIGNALING_MAX_CREDENTIAL_BYTES ||
+      (credential == NULL && credential_len != 0u) ||
+      (credential_len != 0u && client->config.cipher_mode == GZC_CIPHER_PLAINTEXT)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_buf_t replacement;
+  gzc_buf_init(&replacement);
+  int rc = credential_len == 0u ? GZC_OK : gzc_buf_append(&replacement, client->config.platform, credential, credential_len);
+  if (rc != GZC_OK) {
+    gzc_buf_free(&replacement, client->config.platform);
+    return rc;
+  }
+  gzc_buf_free(&client->admission_credential, client->config.platform);
+  client->admission_credential = replacement;
+  return GZC_OK;
+}
+
 int gzc_client_set_opus_rx_capacity(
     gzc_client_t *client,
     size_t capacity) {
@@ -1663,9 +1684,11 @@ int gzc_client_connect(gzc_client_t *client) {
   gzc_signaling_exchange_t exchange;
   memset(&exchange, 0, sizeof(exchange));
   gzc_http_request_t request;
-  rc = gzc_signaling_build_offer_request(
+  rc = gzc_signaling_build_offer_request_with_credential(
       &signaling,
       gzc_str_from_parts((const char *)client->local_sdp.data, client->local_sdp.len),
+      client->admission_credential.data,
+      client->admission_credential.len,
       &exchange,
       &request);
   if (rc != GZC_OK) {
@@ -1952,6 +1975,7 @@ void gzc_client_destroy(gzc_client_t *client) {
   }
   const gzc_platform_t *platform = client->config.platform == NULL ? gzc_default_platform() : client->config.platform;
   (void)gzc_client_close(client);
+  gzc_buf_free(&client->admission_credential, platform);
   gzc_buf_free(&client->local_sdp, platform);
   gzc_buf_free(&client->packet_rx, platform);
   if (client->opus_rx != NULL) {

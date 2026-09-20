@@ -95,3 +95,37 @@ func TestServerSecurityPolicyDeniesAdminServiceForUnknownPeer(t *testing.T) {
 		t.Fatal("unknown peer should not allow admin service")
 	}
 }
+
+type admissionForwardingPolicy struct {
+	ctx       context.Context
+	admission giznet.PeerAdmission
+	result    bool
+}
+
+func (p *admissionForwardingPolicy) AllowPeer(ctx context.Context, admission giznet.PeerAdmission) bool {
+	p.ctx, p.admission = ctx, admission
+	return p.result
+}
+func (*admissionForwardingPolicy) AllowService(giznet.PublicKey, uint64) bool { return false }
+
+func TestServerSecurityPolicyForwardsAdmission(t *testing.T) {
+	admission := giznet.PeerAdmission{PublicKey: giznet.PublicKey{1}, Credential: []byte("opaque")}
+	if (*ServerSecurityPolicy)(nil).AllowPeer(t.Context(), admission) {
+		t.Fatal("nil Server admitted")
+	}
+	s := &Server{}
+	policy := (*ServerSecurityPolicy)(s)
+	if !policy.AllowPeer(t.Context(), admission) {
+		t.Fatal("default admission changed")
+	}
+	injected := &admissionForwardingPolicy{}
+	s.SecurityPolicy = injected
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	for _, want := range []bool{false, true} {
+		injected.result = want
+		if policy.AllowPeer(ctx, admission) != want || injected.ctx != ctx || injected.admission.PublicKey != admission.PublicKey || string(injected.admission.Credential) != "opaque" {
+			t.Fatal("admission was not delegated intact")
+		}
+	}
+}

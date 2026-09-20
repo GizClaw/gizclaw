@@ -160,7 +160,7 @@ export const getServerInfo = <ThrowOnError extends boolean = false>(options?: Op
 /**
  * Create a WebRTC answer for an encrypted browser offer
  *
- * Public WebRTC signaling endpoint for browser clients. The request body is an encrypted SDP offer and the 200 response body is the encrypted SDP answer.
+ * Public WebRTC signaling endpoint. The AEAD plaintext is either legacy bare SDP (empty credential), or ASCII GZOF, version byte 1, uint16 big-endian credential length, opaque credential bytes (at most 4096), then SDP bytes. A recognized magic with an invalid version, truncated envelope or oversized credential returns 400 invalid_credential. Credentials are never sent in HTTP headers. Admission policy rejection returns 403 peer_forbidden. ECDH/AEAD proves key possession, not admission authorization. The 200 response remains the encrypted bare SDP answer.
  */
 export const createGiznetWebRtcOffer = <ThrowOnError extends boolean = false>(options: Options<CreateGiznetWebRtcOfferData, ThrowOnError>): RequestResult<CreateGiznetWebRtcOfferResponses, CreateGiznetWebRtcOfferErrors, ThrowOnError> => (options.client ?? client).post<CreateGiznetWebRtcOfferResponses, CreateGiznetWebRtcOfferErrors, ThrowOnError>({
     bodySerializer: null,

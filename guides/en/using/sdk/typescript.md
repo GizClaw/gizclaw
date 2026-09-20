@@ -7,7 +7,7 @@ GizClaw ships two npm packages, split by role, both distributed as `v*` GitHub R
 | `@gizclaw/gizclaw` | `sdk/js/gizclaw` | Device side: run a browser or Node process as a GizClaw device/Peer, plus Admin HTTP, RPC, signaling, and Telemetry | encrypted `/webrtc/v1/offer` signaling and WebRTC DataChannels |
 | `@gizclaw/gizclaw-control` | `sdk/js/gizclaw-control` | Controller side: read and control the bound device with an [API key](../api-keys) | HTTPS `/gizclaw/v1/*` |
 
-`@gizclaw/gizclaw` covers the same side as the C SDK in `sdk/c/gizclaw`. Device-side client initialization, runtime requirements, and RPC calls are not documented yet; this page covers `@gizclaw/gizclaw-control`.
+`@gizclaw/gizclaw` covers the same side as the C SDK in `sdk/c/gizclaw`. Device-side client initialization, runtime requirements, and RPC calls are not documented yet; this page covers `@gizclaw/gizclaw-control` and device handshake admission credentials.
 
 ## Install `@gizclaw/gizclaw-control`
 
@@ -90,3 +90,13 @@ try {
   }
 }
 ```
+
+## Device handshake admission
+
+`connectGiznetWebRTCFromEndpoint({ ..., credential })` accepts an optional `Uint8Array`;
+the lower-level `prepareEncryptedGiznetWebRTCOffer(identity, offerSDP, credential)` does too.
+Up to 4096 bytes are sealed inside the encrypted envelope. Omission or an empty array preserves
+bare SDP. For Server registration-token admission, callers can supply
+`new TextEncoder().encode(registrationToken)`. The SDK does not interpret it; callers must still
+invoke `server.register` after connecting. See [Security Policy](../../developing/gizclaw/server/security-policy)
+for operator settings and legacy-device behavior.

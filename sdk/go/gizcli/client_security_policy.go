@@ -1,10 +1,14 @@
 package gizcli
 
-import "github.com/GizClaw/gizclaw-go/pkgs/giznet"
+import (
+	"context"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+)
 
 type clientSecurityPolicy struct{}
 
-func (clientSecurityPolicy) AllowPeer(giznet.PublicKey) bool {
+func (clientSecurityPolicy) AllowPeer(context.Context, giznet.PeerAdmission) bool {
 	return true
 }
 

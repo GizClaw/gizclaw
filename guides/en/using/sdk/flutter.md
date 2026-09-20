@@ -7,7 +7,7 @@ GizClaw ships two Dart packages, split by role:
 | `gizclaw` | `sdk/flutter/gizclaw` | Device side: run a Flutter app as a GizClaw device/Peer | encrypted `/webrtc/v1/offer` signaling and WebRTC DataChannels | Flutter, `flutter_webrtc`, `protobuf` |
 | `gizclaw_control` | `sdk/flutter/gizclaw_control` | Controller side: read and control the bound device with an [API key](../api-keys) | HTTPS `/gizclaw/v1/*` | Pure Dart, `http` only |
 
-`gizclaw` covers the same side as the C SDK in `sdk/c/gizclaw`. `gizclaw_control` targets phone controller apps such as LiteLink, where each device card stores one API key. Device-side client initialization, platform permissions, and RPC calls are not documented yet; this page covers `gizclaw_control`.
+`gizclaw` covers the same side as the C SDK in `sdk/c/gizclaw`. `gizclaw_control` targets phone controller apps such as LiteLink, where each device card stores one API key. Device-side client initialization, platform permissions, and RPC calls are not documented yet; this page covers `gizclaw_control` and device handshake admission credentials.
 
 ## Install `gizclaw_control`
 
@@ -94,3 +94,13 @@ try {
   }
 }
 ```
+
+## Device handshake admission
+
+`prepareEncryptedGiznetWebRtcOffer(identity, offerSdp, credential: bytes)` accepts an optional
+`Uint8List` up to 4096 bytes, sent only inside AEAD. Omission or empty bytes preserves bare SDP.
+Pass it from `connectFlutterGiznetWebRtc`'s `prepareOffer` callback. For registration-token
+admission use `Uint8List.fromList(utf8.encode(registrationToken))`, then still call
+`client.register(registrationToken)` after connecting. The SDK treats credentials as opaque;
+oversized input throws `ArgumentError`. See [Security Policy](../../developing/gizclaw/server/security-policy)
+for operator settings and legacy-device compatibility.

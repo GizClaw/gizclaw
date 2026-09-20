@@ -145,7 +145,7 @@ sequenceDiagram
     participant S as Peer Service
     participant D as Domain or Agent Runtime
 
-    P->>E: Signed WebRTC offer
+    P->>E: Encrypted WebRTC offer
     E->>G: Verify signaling and establish connection
     G->>S: Accept Peer connection and service streams
     S->>S: Resolve identity, role and service authorization

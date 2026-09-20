@@ -18,8 +18,8 @@ import (
 
 type allowRPCPolicy struct{}
 
-func (allowRPCPolicy) AllowPeer(giznet.PublicKey) bool            { return true }
-func (allowRPCPolicy) AllowService(giznet.PublicKey, uint64) bool { return true }
+func (allowRPCPolicy) AllowPeer(context.Context, giznet.PeerAdmission) bool { return true }
+func (allowRPCPolicy) AllowService(giznet.PublicKey, uint64) bool           { return true }
 
 // Server is a self-contained WebRTC endpoint for server-initiated SDK RPC
 // interoperability tests.

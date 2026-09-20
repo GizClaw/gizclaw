@@ -45,7 +45,7 @@ func (s storeWithoutAtomicCompare) CreateIfAbsent(
 	return kv.CreateIfAbsent(ctx, s.Store, guard, entries)
 }
 
-func (p testGiznetSecurityPolicy) AllowPeer(giznet.PublicKey) bool {
+func (p testGiznetSecurityPolicy) AllowPeer(context.Context, giznet.PeerAdmission) bool {
 	return true
 }
 

@@ -105,16 +105,23 @@ func (l *Listener) handleOffer(w http.ResponseWriter, r *http.Request) {
 		writeSignalingError(w, http.StatusBadRequest, "invalid_crypto")
 		return
 	}
-	offerSDP, err := reqAEAD.Open(nil, reqNonce, body, requestAAD(clientPK, ts, nonce))
+	plaintext, err := reqAEAD.Open(nil, reqNonce, body, requestAAD(clientPK, ts, nonce))
 	if err != nil {
 		writeSignalingError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	offerSDP, credential, err := decodeOfferEnvelope(plaintext)
+	if err != nil || (len(credential) != 0 && l.cfg.CipherMode == CipherModePlaintext) {
+		writeSignalingError(w, http.StatusBadRequest, "invalid_credential")
 		return
 	}
 	if err := validateOfferSDP(string(offerSDP)); err != nil {
 		writeSignalingError(w, http.StatusBadRequest, signalingSDPErrorCode(err))
 		return
 	}
-	if l.cfg.SecurityPolicy != nil && !l.cfg.SecurityPolicy.AllowPeer(clientPK) {
+	if l.cfg.SecurityPolicy != nil && !l.cfg.SecurityPolicy.AllowPeer(r.Context(), giznet.PeerAdmission{
+		PublicKey: clientPK, Credential: credential,
+	}) {
 		writeSignalingError(w, http.StatusForbidden, "peer_forbidden")
 		return
 	}

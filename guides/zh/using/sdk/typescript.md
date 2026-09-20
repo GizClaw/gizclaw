@@ -7,7 +7,7 @@ GizClaw 提供两个 npm package，按角色划分，都作为 `v*` GitHub Relea
 | `@gizclaw/gizclaw` | `sdk/js/gizclaw` | 设备端：让 Browser/Node 作为 GizClaw 设备/Peer 接入，含 Admin HTTP、RPC、signaling 与 Telemetry | encrypted `/webrtc/v1/offer` signaling 与 WebRTC DataChannel |
 | `@gizclaw/gizclaw-control` | `sdk/js/gizclaw-control` | 控制端：用 [API Key](../api-keys) 读取并控制绑定的设备 | HTTPS `/gizclaw/v1/*` |
 
-`@gizclaw/gizclaw` 与 C SDK 的 `sdk/c/gizclaw` 对应同一侧能力。设备端 client 初始化、运行时要求与 RPC 调用的说明仍待补充；本页当前只覆盖 `@gizclaw/gizclaw-control`。
+`@gizclaw/gizclaw` 与 C SDK 的 `sdk/c/gizclaw` 对应同一侧能力。设备端 client 初始化、运行时要求与 RPC 调用的说明仍待补充；本页覆盖 `@gizclaw/gizclaw-control` 与设备端握手准入凭证。
 
 ## 安装 `@gizclaw/gizclaw-control`
 
@@ -87,3 +87,12 @@ try {
   }
 }
 ```
+
+## 设备握手准入
+
+`connectGiznetWebRTCFromEndpoint({ ..., credential })` 接收可选 `Uint8Array`；低层
+`prepareEncryptedGiznetWebRTCOffer(identity, offerSDP, credential)` 同样支持。最多
+4096 bytes，仅放在加密信封内；省略或空数组继续发送裸 SDP。若 Server 启用了
+registration-token policy，调用方可用 `new TextEncoder().encode(registrationToken)`
+提供凭证。SDK 不解释其内容，握手通过后仍需按原流程调用 `server.register`。
+此设置及旧设备的影响见 [Security Policy](../../developing/gizclaw/server/security-policy)。

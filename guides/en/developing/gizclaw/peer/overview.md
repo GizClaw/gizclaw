@@ -57,3 +57,11 @@ cannot form a burst. Tests can inject pacing
 ticks into `PeerConn` for deterministic one-tick-per-packet coverage. A real
 clock test and Giztest E2E additionally verify that write latency is not
 accumulated and measure receiver-side intervals, drift, and buffer surplus.
+
+## Handshake admission and registration
+
+An optional [Server admission policy](../server/security-policy) checks credentials before the
+WebRTC connection is created. This check creates no Peer, binds no RuntimeProfile, and retains
+no credential in Conn. Peer activation after acceptance still owns persistent record creation;
+`server.register` still owns RuntimeProfile owner and firmware binding. Empty credentials remain
+compatible with bare-SDP clients; the selected operator policy decides whether they are admitted.

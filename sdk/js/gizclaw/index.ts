@@ -412,6 +412,8 @@ export type ConnectGiznetWebRTCFromEndpointOptions = Omit<
   "prepareOffer" | "sendOffer"
 > & {
   baseUrl?: string;
+  /** Opaque admission bytes, sealed inside the offer; at most 4096 bytes. */
+  credential?: Uint8Array;
   clientPrivateKey: Uint8Array;
   clientPublicKey?: Uint8Array | string;
   endpoint?: string;
@@ -1411,6 +1413,7 @@ export async function connectGiznetWebRTCFromEndpoint(
           serverPublicKey: transport?.public_key ?? serverInfo.public_key,
         },
         offerSDP,
+        options.credential,
       );
       return {
         ...prepared,

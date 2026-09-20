@@ -293,3 +293,31 @@ Should not be placed in `pkgs/giznet`:
 - Authorization rules that only make sense for a single GizClaw business surface.
 
 These contents belong to `pkgs/gizclaw`, `pkgs/gizedge`, `cmd/internal/server` or the corresponding client directory.
+
+## Signaling admission credentials
+
+`DialConfig.Credential` carries optional opaque bytes, limited to 4096 bytes. Giznet transports
+these bytes without assigning application meaning. Empty credentials retain bare SDP; nonempty
+credentials use this plaintext inside the existing AEAD envelope:
+
+| Field | Size | Encoding |
+| --- | --- | --- |
+| Magic | 4 bytes | ASCII `GZOF` |
+| Version | 1 byte | `1` |
+| Credential length | 2 bytes | Unsigned big-endian |
+| Credential | 0–4096 bytes | Opaque raw bytes |
+| SDP | Remaining bytes | UTF-8 |
+
+Plaintext without the magic is interpreted entirely as legacy SDP with an empty credential.
+Recognized magic with an unknown version, truncated header/credential, or oversized credential
+returns HTTP 400 `invalid_credential`, without falling back to SDP. The existing 256 KiB body
+limit remains. Answers remain encrypted bare SDP; headers, AAD, and key derivation are unchanged.
+Nonempty credentials are rejected in `CipherModePlaintext`; they must stay inside AEAD and
+must never be put in headers, URLs, or logs.
+
+`SecurityPolicy.AllowPeer(context.Context, PeerAdmission)` receives the actual HTTP request
+context, authenticated public key, and credential before PeerConnection creation. The slice is
+borrowed only for the call and must not be retained. Rejection returns HTTP 403 `peer_forbidden`.
+Giznet does not attach credentials to Conn or persist state. ECDH/AEAD proves possession of the
+claimed private key; the injected policy decides admission. A nil policy admits by default.
+Custom Go policies must implement the context/PeerAdmission signature.

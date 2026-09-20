@@ -2,6 +2,7 @@ package gizwebrtc
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"errors"
 	"net/http"
@@ -175,7 +176,7 @@ const minimalRecvOnlySignalingSDP = "v=0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\na
 
 type denyAllPolicy struct{}
 
-func (denyAllPolicy) AllowPeer(giznet.PublicKey) bool {
+func (denyAllPolicy) AllowPeer(context.Context, giznet.PeerAdmission) bool {
 	return false
 }
 

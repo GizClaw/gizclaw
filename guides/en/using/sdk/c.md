@@ -122,3 +122,18 @@ The module exports:
 Firmware uses `gizclaw_core` and links its PAL-owned implementation of the existing `gzc_default_platform()` function. That implementation returns the firmware `gzc_platform_t` with allocator, clock, entropy, and logging callbacks; the firmware also supplies its HTTP, crypto, and WebRTC vtables. Desktop consumers can depend on `gizclaw` for the existing nullable-platform fallback.
 
 The archive does not own a firmware toolchain, final link, image packaging, flashing, credentials, or provider configuration. Consumers must not patch the extracted SDK or fetch another nanopb copy; upgrade to a release containing the required source fix instead.
+
+## Device handshake admission
+
+Call `gzc_client_set_admission_credential(client, bytes, len)` on the client owner thread before
+connect. The SDK copies up to 4096 bytes and seals them with the next offer; the caller may then
+release its buffer. `NULL, 0` clears the credential. Connected or closed clients reject changes.
+The copy is freed on replacement or destroy; a failed setter preserves the previous value.
+Existing public struct layouts and connect signatures are unchanged.
+
+The lower-level `gzc_signaling_build_offer_request_with_credential(config, offer_sdp, bytes, len,
+exchange, request)` borrows bytes only during the call. The original builder always sends bare
+SDP with an empty credential. NULL with nonzero length, more than 4096 bytes, or plaintext cipher
+returns `GZC_ERR_INVALID_ARGUMENT`; allocation failure returns `GZC_ERR_NO_MEMORY`. Credentials
+are opaque to the SDK. For registration-token admission pass the token's UTF-8 bytes, then still
+invoke `server.register` after connecting. See [Security Policy](../../developing/gizclaw/server/security-policy).

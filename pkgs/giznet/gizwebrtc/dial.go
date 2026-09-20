@@ -39,6 +39,10 @@ type DialConfig struct {
 	ICETransportPolicy webrtc.ICETransportPolicy
 	CipherMode         CipherMode
 	SecurityPolicy     giznet.SecurityPolicy
+	// Credential is optional opaque admission data (at most MaxCredentialBytes).
+	// Dial borrows it until return and seals it with the offer; it is never sent
+	// in headers or retained in the connection. Plaintext mode rejects it.
+	Credential []byte
 	// SCTPReceiveBufferSize overrides Pion's default association receive
 	// window. Gateway upstream callers use GatewaySCTPReceiveBufferSize; public
 	// client associations leave this at zero.
@@ -478,6 +482,13 @@ func peerConnectionStateDetails(pc *webrtc.PeerConnection) string {
 }
 
 func postOffer(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, offerSDP string, cfg DialConfig) (string, error) {
+	if len(cfg.Credential) != 0 && cfg.CipherMode == CipherModePlaintext {
+		return "", errInvalidCredential
+	}
+	plaintext, err := encodeOfferEnvelope(offerSDP, cfg.Credential)
+	if err != nil {
+		return "", err
+	}
 	if cfg.SignalingURL == "" {
 		return "", fmt.Errorf("gizwebrtc: empty signaling URL")
 	}
@@ -491,7 +502,7 @@ func postOffer(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicK
 	if err != nil {
 		return "", err
 	}
-	body := reqAEAD.Seal(nil, reqNonce, []byte(offerSDP), requestAAD(key.Public, ts, nonce))
+	body := reqAEAD.Seal(nil, reqNonce, plaintext, requestAAD(key.Public, ts, nonce))
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cfg.SignalingURL, bytes.NewReader(body))
 	if err != nil {
 		return "", err

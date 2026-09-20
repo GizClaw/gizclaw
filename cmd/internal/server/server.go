@@ -187,11 +187,12 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		SynthesisMaxOutputBytes:       cfg.Speech.Synthesis.MaxOutputBytes,
 		SynthesisRequestTimeout:       synthesisTimeout,
 	}
-	if !cfg.AdminPublicKey.IsZero() {
-		gizServer.SecurityPolicy = adminPublicKeySecurityPolicy{
-			PublicKey: cfg.AdminPublicKey,
-		}
+	policy := serverSecurityPolicy{admin: adminPublicKeySecurityPolicy{PublicKey: cfg.AdminPublicKey}}
+	if cfg.PeerAdmission == "registration-token" {
+		policy.admission = gizclaw.NewRegistrationTokenSecurityPolicy(gizServer)
 	}
+	gizServer.SecurityPolicy = policy
+
 	if gizServer.MetricsStore != nil {
 		metricsShutdown, err = gizmetrics.InstallStore(gizServer.MetricsStore)
 		if err != nil {
@@ -456,12 +457,24 @@ type adminPublicKeySecurityPolicy struct {
 	PublicKey giznet.PublicKey
 }
 
-func (p adminPublicKeySecurityPolicy) AllowPeer(giznet.PublicKey) bool {
-	return true
+// serverSecurityPolicy composes independent admission and service decisions.
+type serverSecurityPolicy struct {
+	admission interface {
+		AllowPeer(context.Context, giznet.PeerAdmission) bool
+	}
+	admin adminPublicKeySecurityPolicy
+}
+
+func (p serverSecurityPolicy) AllowPeer(ctx context.Context, admission giznet.PeerAdmission) bool {
+	return p.admission == nil || p.admission.AllowPeer(ctx, admission)
+}
+
+func (p serverSecurityPolicy) AllowService(publicKey giznet.PublicKey, service uint64) bool {
+	return p.admin.AllowService(publicKey, service)
 }
 
 func (p adminPublicKeySecurityPolicy) AllowService(publicKey giznet.PublicKey, service uint64) bool {
-	return service == gizclaw.ServiceAdminHTTP && publicKey == p.PublicKey
+	return !p.PublicKey.IsZero() && service == gizclaw.ServiceAdminHTTP && publicKey == p.PublicKey
 }
 
 func newStoreRegistry(cfg Config) (*stores.Stores, *storage.Storage, error) {
