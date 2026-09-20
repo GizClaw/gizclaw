@@ -38,6 +38,8 @@ expected=(
   "gizclaw-c-sdk-${debian_version}.tar.gz"
   "flutter-gizclaw-${debian_version}.tar.gz"
   "flutter-gizclaw_control-${debian_version}.tar.gz"
+  "npm-gizclaw-${debian_version}.tgz"
+  "npm-gizclaw-control-${debian_version}.tgz"
   "terraform-provider-gizclaw_${debian_version}_darwin_amd64.zip"
   "terraform-provider-gizclaw_${debian_version}_darwin_arm64.zip"
   "terraform-provider-gizclaw_${debian_version}_linux_amd64.zip"
@@ -112,6 +114,18 @@ while IFS= read -r name; do
     }
     extra="$(jq -cn --arg package "$package" --arg version "$debian_version" --arg source_commit "$source_commit" \
       '{package:$package,version:$version,source_commit:$source_commit}')"
+  elif [[ "$name" == "npm-gizclaw-${debian_version}.tgz" || "$name" == "npm-gizclaw-control-${debian_version}.tgz" ]]; then
+    kind=npm-package
+    package="${name#npm-}"
+    package="@gizclaw/${package%"-${debian_version}.tgz"}"
+    tar -xzOf "$artifact" package/package.json | jq -e --arg package "$package" --arg version "$debian_version" '
+      .name == $package and .version == $version
+    ' >/dev/null || {
+      echo "npm package manifest does not match release identity: $name" >&2
+      exit 1
+    }
+    extra="$(jq -cn --arg package "$package" --arg version "$debian_version" --arg source_commit "$source_commit" \
+      '{package:$package,version:$version,source_commit:$source_commit}')"
   elif [[ "$name" == "$c_sdk_archive" ]]; then
     kind=source
     extra="$(jq -cn --arg module gizclaw_c_sdk --arg version "$debian_version" --arg source_commit "$source_commit" \
@@ -143,7 +157,7 @@ jq -n \
   --arg source_commit "$source_commit" \
   --argjson assets "$assets_json" '
     {
-      schema_version: 5,
+      schema_version: 6,
       repository: "GizClaw/gizclaw",
       go_module: "github.com/GizClaw/gizclaw-go",
       release_channel: "stable",

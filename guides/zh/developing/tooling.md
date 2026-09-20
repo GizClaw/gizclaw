@@ -104,8 +104,8 @@ commit/describe。Native package 是否可用仍以对应 package 的 build/runt
 prerelease Release。push `main` 不会构建或发布 Release。
 
 每个 Release 严格包含两个 Debian package、四个 Terraform provider 包、一个独立 C SDK
-源码包及其 checksum sidecar、两个 Flutter SDK hosted pub 包、`release-manifest.json` 和
-`SHA256SUMS`，共十二个文件，不发布
+源码包及其 checksum sidecar、两个 Flutter SDK hosted pub 包、两个 npm SDK 包、`release-manifest.json` 和
+`SHA256SUMS`，共十四个文件，不发布
 Linux raw executable。Debian package 的 `gizclaw_<version>_{amd64,arm64}.deb` 从 tag 取得
 `<version>`。平台无关的源码 payload 命名为 `gizclaw-c-sdk-<version>.tar.gz`，相邻的
 `.sha256` 保存该源码包的 digest 与规范文件名。Terraform provider 包命名为
@@ -124,8 +124,15 @@ package 根，只包含 `pubspec.yaml`、`LICENSE` 与 Git 跟踪的 `lib/**/*.d
 `flutter analyze`。把它们发布到对象存储的 pub 仓库属于 Deploy，不在本仓库 Release contract 内；
 使用方式见 [Flutter SDK](/zh/using/sdk/flutter)。
 
+npm SDK 资产命名为 `npm-gizclaw-<version>.tgz` 与
+`npm-gizclaw-control-<version>.tgz`，是根为 `package/` 的 npm tarball，包名分别为
+`@gizclaw/gizclaw` 与 `@gizclaw/gizclaw-control`。版本从 tag 注入；打包、可复现性与
+消费校验见 [TypeScript SDK](./sdk/typescript#发布契约)。Release 是这些包的唯一出货口；
+Deploy 从选定的已发布 Release 校验摘要后负责下游托管。本仓库的安装入口为
+[Release tarball](/zh/using/sdk/typescript)。
+
 对于正式 Release，Git tag 是唯一 source version：它同时是 Go module version 与
-GitHub Release tag；仅在生成 Debian version 时移除开头的 `v`。正式 tag 必须是
+GitHub Release tag；Debian、Terraform provider、C、Flutter 和 npm 包版本移除开头的 `v`。正式 tag 必须是
 stable canonical SemVer，不允许数字前导零、prerelease 或 build metadata。
 Annotated 与 lightweight tag 都 peel 到完整 source commit，且该 commit 必须已能
 从当前受保护的 `main` head 到达。
@@ -160,14 +167,33 @@ build/check-release.sh semver ".tmp/$tag" "$tag" "$(git rev-list -n 1 "$tag")"
 `release-manifest.json` 标识 stable channel，并将每个 payload 的名称、字节数和 SHA-256
 绑定到完整 source commit。Native payload 另外绑定平台和架构；C SDK source entry 绑定
 module `gizclaw_c_sdk`、版本与 source commit；`dart-package` entry 绑定 pub package 名称、
-版本与 source commit；Debian entry 还绑定 package metadata
+版本与 source commit；`npm-package` entry 绑定完整 scoped npm 包名、版本与 source commit；Debian entry 还绑定 package metadata
 与 `/usr/bin/gizclaw`；`terraform-provider` entry 还绑定 provider `gizclaw`、版本与 zip 内的
 可执行文件名。Formal rerun 只有在现有 published Release 的 metadata 与
-全部十二个下载文件逐字节一致时才是 idempotent success。首次上传失败留下的 exact-tag
+全部十四个下载文件逐字节一致时才是 idempotent success。首次上传失败留下的 exact-tag
 draft 也必须通过相同的 metadata、inventory、digest 与逐字节校验，workflow 才会发布
 同一个 draft。Partial、tag moved、重复 exact-tag Release 或任何 mismatch 都会 fail
 closed；workflow 从不删除、替换或覆盖已发布的 SemVer Release。下游 Homebrew 与 APT
 channel 各自负责签名、托管、保留策略和 live installation acceptance。
+
+`release-manifest.json` 使用 `schema_version: 6`，`assets` 必须包含 11 个 payload，
+按名称以 `LC_ALL=C` 排序。加上 C SDK `.sha256` sidecar、manifest 与 `SHA256SUMS`，
+Release 文件总数为 14。消费者必须显式校验 schema 6 和完整资产集合；不同 schema 的资产集合
+不可混用。npm entry 只有以下字段：
+
+| 字段 | 类型与约束 |
+| --- | --- |
+| `name` | 字符串，`npm-gizclaw-<version>.tgz` 或 `npm-gizclaw-control-<version>.tgz` |
+| `kind` | 固定字符串 `npm-package` |
+| `size` | 正整数，tgz 的字节数 |
+| `sha256` | 64 位小写十六进制，整个 tgz 的 SHA-256 |
+| `package` | `@gizclaw/gizclaw` 或 `@gizclaw/gizclaw-control`，必须与文件名对应 |
+| `version` | tag 去掉 `v` 后的 canonical `MAJOR.MINOR.PATCH` |
+| `source_commit` | 40 位小写 Git SHA，与顶层 source commit 相同 |
+
+构建与校验 manifest 时从 tarball 的 `package/package.json` 读取 `name` 和 `version`
+交叉校验。npm entry 不含 `os`、`architecture`、`module`、`installed_path`、`provider`
+或 `executable`。
 
 ## Mutex scope inventory
 

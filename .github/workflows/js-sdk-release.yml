@@ -1,10 +1,14 @@
-name: JavaScript SDK Release
+name: JavaScript SDK Verification
 
 on:
   pull_request:
     paths:
       - ".github/workflows/js-sdk-release.yml"
+      - ".github/workflows/release.yml"
+      - "package.json"
       - "package-lock.json"
+      - "web/console/package.json"
+      - "tools/js-sdk/**"
       - "sdk/js/gizclaw/**"
       - "sdk/js/gizclaw-control/**"
       - "sdk/js/scripts/check-package-release.mjs"
@@ -15,7 +19,11 @@ on:
       - main
     paths:
       - ".github/workflows/js-sdk-release.yml"
+      - ".github/workflows/release.yml"
+      - "package.json"
       - "package-lock.json"
+      - "web/console/package.json"
+      - "tools/js-sdk/**"
       - "sdk/js/gizclaw/**"
       - "sdk/js/gizclaw-control/**"
       - "sdk/js/scripts/check-package-release.mjs"
@@ -33,16 +41,10 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-    outputs:
-      publish: ${{ steps.contract.outputs.publish }}
-      version: ${{ steps.contract.outputs.version }}
-      publish_control: ${{ steps.contract_control.outputs.publish }}
-      version_control: ${{ steps.contract_control.outputs.version }}
     steps:
-      - name: Check out exact source and history
+      - name: Check out exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Set up Node.js
@@ -54,25 +56,10 @@ jobs:
       - name: Install workspace dependencies
         run: npm ci
 
-      - name: Verify @gizclaw/gizclaw version and release ownership
-        id: contract
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: >-
-          node sdk/js/scripts/check-package-release.mjs
-          --base "$BASE_SHA"
-          --package sdk/js/gizclaw
-          --github-output "$GITHUB_OUTPUT"
-
-      - name: Verify @gizclaw/gizclaw-control version and release ownership
-        id: contract_control
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: >-
-          node sdk/js/scripts/check-package-release.mjs
-          --base "$BASE_SHA"
-          --package sdk/js/gizclaw-control
-          --github-output "$GITHUB_OUTPUT"
+      - name: Verify development package identities
+        run: |
+          node sdk/js/scripts/check-package-release.mjs --package sdk/js/gizclaw
+          node sdk/js/scripts/check-package-release.mjs --package sdk/js/gizclaw-control
 
       - name: Test JavaScript SDK release contract
         run: node --test sdk/js/scripts/check-package-release.test.mjs
@@ -82,95 +69,5 @@ jobs:
           npm test --workspace @gizclaw/gizclaw
           npm test --workspace @gizclaw/gizclaw-control
 
-      - name: Build and inspect publishable @gizclaw/gizclaw package
-        env:
-          EXPECTED_VERSION: ${{ steps.contract.outputs.version }}
-        run: |
-          npm pack --dry-run --json --workspace @gizclaw/gizclaw >"${RUNNER_TEMP}/pack.json"
-          jq -e --arg version "$EXPECTED_VERSION" '
-            length == 1 and
-            .[0].name == "@gizclaw/gizclaw" and
-            .[0].version == $version and
-            ([.[0].files[].path] | index("package.json") != null) and
-            ([.[0].files[].path] | index("dist/index.js") != null) and
-            ([.[0].files[].path] | index("dist/index.d.ts") != null) and
-            ([.[0].files[].path] | index("dist/events.js") != null) and
-            ([.[0].files[].path] | index("dist/events.d.ts") != null)
-          ' "${RUNNER_TEMP}/pack.json" >/dev/null
-
-      - name: Build and inspect publishable @gizclaw/gizclaw-control package
-        env:
-          EXPECTED_VERSION: ${{ steps.contract_control.outputs.version }}
-        run: |
-          npm pack --dry-run --json --workspace @gizclaw/gizclaw-control >"${RUNNER_TEMP}/pack-control.json"
-          jq -e --arg version "$EXPECTED_VERSION" '
-            length == 1 and
-            .[0].name == "@gizclaw/gizclaw-control" and
-            .[0].version == $version and
-            ([.[0].files[].path] | index("package.json") != null) and
-            ([.[0].files[].path] | index("dist/index.js") != null) and
-            ([.[0].files[].path] | index("dist/index.d.ts") != null)
-          ' "${RUNNER_TEMP}/pack-control.json" >/dev/null
-
-  publish:
-    name: Publish JavaScript SDK Packages
-    if: >-
-      github.event_name == 'push' &&
-      (needs.verify.outputs.publish == 'true' || needs.verify.outputs.publish_control == 'true')
-    needs: verify
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Check out exact source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: 26
-          cache: npm
-          registry-url: https://npm.pkg.github.com
-
-      - name: Install workspace dependencies
-        env:
-          NODE_AUTH_TOKEN: ${{ github.token }}
-        run: npm ci
-
-      - name: Reject an existing immutable @gizclaw/gizclaw version
-        if: needs.verify.outputs.publish == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.verify.outputs.version }}
-        run: |
-          if gh api --paginate /orgs/GizClaw/packages/npm/gizclaw/versions \
-            --jq '.[].name' | grep -Fx "$VERSION"; then
-            echo "@gizclaw/gizclaw@$VERSION already exists" >&2
-            exit 1
-          fi
-
-      - name: Reject an existing immutable @gizclaw/gizclaw-control version
-        if: needs.verify.outputs.publish_control == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.verify.outputs.version_control }}
-        run: |
-          if gh api --paginate /orgs/GizClaw/packages/npm/gizclaw-control/versions \
-            --jq '.[].name' 2>/dev/null | grep -Fx "$VERSION"; then
-            echo "@gizclaw/gizclaw-control@$VERSION already exists" >&2
-            exit 1
-          fi
-
-      - name: Publish immutable @gizclaw/gizclaw package
-        if: needs.verify.outputs.publish == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ github.token }}
-        run: npm publish --workspace @gizclaw/gizclaw
-
-      - name: Publish immutable @gizclaw/gizclaw-control package
-        if: needs.verify.outputs.publish_control == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ github.token }}
-        run: npm publish --workspace @gizclaw/gizclaw-control
+      - name: Test deterministic npm tarballs
+        run: tools/js-sdk/archive_test.sh

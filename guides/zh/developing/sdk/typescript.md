@@ -60,13 +60,32 @@ npm run quality:format
 
 ## 发布契约
 
-两个 package 都由 `.github/workflows/js-sdk-release.yml` 发布到 GitHub Packages。`sdk/js/scripts/check-package-release.mjs --package sdk/js/<name>` 对每个 package 分别验证：
+两个 package 只通过 `.github/workflows/release.yml` 的 `js-sdk` job 在 canonical
+`vMAJOR.MINOR.PATCH` tag 发布时出货。`.github/workflows/js-sdk-release.yml` 在 PR 与
+push `main` 时仅验证开发期 manifest、运行 SDK 测试和 tarball 契约测试。
 
-- 发布路径（package 目录内除 `package.json` 版本、`*.test.ts`、`tsconfig.json` 以外的文件，以及 `scripts/prepare-published-sdk.mjs`）有变化时，版本必须高于 base commit；
-- 没有发布路径变化时，版本不能改变；
-- `package-lock.json` 中的 workspace 版本必须与 manifest 一致。
+`sdk/js/scripts/check-package-release.mjs` 中的 `DEVELOPMENT_VERSION` 是开发占位版本的
+单一事实源，值为 `0.0.0`。默认模式检查选定 package 的包名、占位版本及
+`package-lock.json` 对应 workspace 版本，并拒绝指向旧 npm 托管服务的发布配置。
+源码中的 control → gizclaw 与 console → control 依赖用 `"*"` 匹配本地 workspace。
+SDK 内容变化不需要手工递增 package 版本。
 
-修改 `@gizclaw/gizclaw` 的公开 surface（例如新增 export）需要提升它的版本；只改 `gizclaw-control` 不会触发 `@gizclaw/gizclaw` 发布。`prepare-published-sdk.mjs <package>` 在 `tsc` 之后复制生成的 Protobuf JavaScript（如存在）并把 `.d.ts` 里的 `.ts` import 改写为 `.js`。
+`tools/js-sdk/package_npm_tarball.sh` 校验 HEAD、source commit、source epoch 与干净的
+owned paths，构建 `dist`，再使用 `npm pack` 选择文件。它只在临时 manifest 中注入
+Release 版本，将 control 的 `dependencies["@gizclaw/gizclaw"]` 改为精确相同版本，并移除
+`publishConfig`。`check-package-release.mjs --package sdk/js/<name> --release-version <version> --manifest <path>` 检查注入后的身份和精确内部依赖，不要求 tarball 携带 workspace
+lockfile。打包与 tarball 校验都复用此模式。
+
+最终 tarball 保留 npm 的条目集合，根为 `package/`；条目按路径排序，USTAR 格式，
+uid/gid 为 0、uname/gname 为 root，文件 0644、目录 0755，tar 与 gzip 的 mtime
+统一为 source epoch。`verify_npm_tarball.sh` 检查结构、归一化元数据与所有公开入口的
+JS/类型声明；`consume_tarballs.sh` 在临时项目中安装两个本地 tgz 并 import 全部入口；
+`archive_test.sh` 连打两次并用 `cmp` 检查字节一致，同时覆盖错误资产的拒绝路径。
+
+`prepare-published-sdk.mjs <package>` 在 `tsc` 之后复制生成的 Protobuf JavaScript
+（如存在）并把 `.d.ts` 里的 `.ts` import 改写为 `.js`。资产命名、manifest schema 与
+下游分发边界见[仓库发布](../tooling#仓库发布)；安装方式见
+[TypeScript SDK](/zh/using/sdk/typescript)。
 
 ## Monitor 客户端
 

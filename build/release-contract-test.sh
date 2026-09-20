@@ -49,6 +49,9 @@ grep -Fq "build/find-release-by-tag.sh \"\$GH_REPO\" \"\$TAG\"" <<<"$semver_publ
 grep -Fq "repos/\$GH_REPO/releases/assets/\$asset_id" <<<"$semver_publisher"
 grep -Fq -- '- c-sdk' <<<"$semver_publisher"
 grep -Fq -- '- terraform-provider' <<<"$semver_publisher"
+grep -Fq -- '- js-sdk' <<<"$semver_publisher"
+grep -Fq 'tools/js-sdk/package_npm_tarball.sh' "$release_workflow"
+grep -Fq 'tools/js-sdk/consume_tarballs.sh' "$release_workflow"
 grep -Fq -- '- flutter-sdk' <<<"$semver_publisher"
 grep -Fq 'tools/flutter-sdk/package_archive.sh' "$release_workflow"
 grep -Fq 'tools/flutter-sdk/consume_archives.sh' "$release_workflow"
@@ -188,6 +191,16 @@ make_fixture_dart_package() {
   tar -C "$root" -czf "$output" pubspec.yaml lib
 }
 
+make_fixture_npm_package() {
+  local package="$1" output="$2" package_version="${3:-$version}" root
+  root="$fixture_root/npm-$(basename "$output")-$RANDOM"
+  mkdir -p "$root/package"
+  jq -n --arg name "@gizclaw/$package" --arg version "$package_version" \
+    '{name:$name,version:$version}' >"$root/package/package.json"
+  rm -f "$output"
+  tar -C "$root" -czf "$output" package/package.json
+}
+
 make_formal_payloads() {
   local directory="$1" c_sdk_archive platform
   mkdir -p "$directory"
@@ -196,6 +209,8 @@ make_formal_payloads() {
   make_fixture_deb arm64 "$directory/gizclaw_${version}_arm64.deb"
   make_fixture_dart_package gizclaw "$directory/flutter-gizclaw-${version}.tar.gz"
   make_fixture_dart_package gizclaw_control "$directory/flutter-gizclaw_control-${version}.tar.gz"
+  make_fixture_npm_package gizclaw "$directory/npm-gizclaw-${version}.tgz"
+  make_fixture_npm_package gizclaw-control "$directory/npm-gizclaw-control-${version}.tgz"
   for platform in "${provider_platforms[@]}"; do
     make_fixture_provider_zip "$platform" "$directory/terraform-provider-gizclaw_${version}_${platform}.zip"
   done
@@ -310,7 +325,7 @@ mv "$formal_unstable/changed.json" "$formal_unstable/release-manifest.json"
 expect_failure "per-run manifest value" "$repo_root/build/check-release.sh" semver "$formal_unstable" "$tag" "$source_commit"
 
 jq -e --arg version "$version" --arg source_commit "$source_commit" '
-  .schema_version == 5 and
+  .schema_version == 6 and
   ([.assets[] | select(.kind == "terraform-provider")] | length == 4) and
   all(.assets[] | select(.kind == "terraform-provider");
     .provider == "gizclaw" and .version == $version and .source_commit == $source_commit and
@@ -396,6 +411,63 @@ make_formal_payloads "$dart_tampered"
 make_fixture_dart_package gizclaw "$dart_tampered/flutter-gizclaw-${version}.tar.gz" 0.0.1
 expect_failure "Flutter SDK archive replaced after manifest" "$repo_root/build/check-release.sh" \
   semver "$dart_tampered" "$tag" "$source_commit"
+
+jq -e --arg version "$version" --arg source_commit "$source_commit" '
+  .schema_version == 6 and (.assets | length == 11) and
+  [.assets[] | select(.kind == "npm-package") | {name,package,version,source_commit}] == [
+    {name:("npm-gizclaw-" + $version + ".tgz"),package:"@gizclaw/gizclaw",version:$version,source_commit:$source_commit},
+    {name:("npm-gizclaw-control-" + $version + ".tgz"),package:"@gizclaw/gizclaw-control",version:$version,source_commit:$source_commit}
+  ]
+' "$payloads/release-manifest.json" >/dev/null
+jq -e '.assets | length == 14' "$published_json" >/dev/null
+
+npm_missing="$fixture_root/npm-missing"
+cp -a "$payloads" "$npm_missing"
+rm "$npm_missing/npm-gizclaw-control-${version}.tgz"
+expect_failure "missing npm package" "$repo_root/build/check-release.sh" semver "$npm_missing" "$tag" "$source_commit"
+
+for npm_case in version name; do
+  npm_invalid="$fixture_root/npm-invalid-$npm_case"
+  make_formal_payloads "$npm_invalid"
+  if [[ "$npm_case" == version ]]; then
+    make_fixture_npm_package gizclaw "$npm_invalid/npm-gizclaw-${version}.tgz" 0.0.1
+  else
+    make_fixture_npm_package gizclaw-control "$npm_invalid/npm-gizclaw-${version}.tgz"
+  fi
+  expect_failure "npm $npm_case mismatch" "$repo_root/build/build-release-manifest.sh" \
+    --asset-dir "$npm_invalid" --tag "$tag" --debian-version "$version" --source-commit "$source_commit"
+done
+
+npm_tampered="$fixture_root/npm-tampered"
+cp -a "$payloads" "$npm_tampered"
+make_fixture_npm_package gizclaw "$npm_tampered/npm-gizclaw-${version}.tgz" 0.0.1
+expect_failure "npm archive replaced after manifest" "$repo_root/build/check-release.sh" \
+  semver "$npm_tampered" "$tag" "$source_commit"
+
+# Update outer digests after tampering so archive identity is the failing check.
+npm_digest="$(sha256sum "$npm_tampered/npm-gizclaw-${version}.tgz" | awk '{print $1}')"
+npm_size="$(wc -c <"$npm_tampered/npm-gizclaw-${version}.tgz" | tr -d ' ')"
+jq --arg name "npm-gizclaw-${version}.tgz" --arg digest "$npm_digest" --argjson size "$npm_size" \
+  '(.assets[] | select(.name == $name)) |= (.sha256 = $digest | .size = $size)' \
+  "$payloads/release-manifest.json" >"$npm_tampered/release-manifest.json"
+while read -r _ name; do
+  printf '%s  %s\n' "$(sha256sum "$npm_tampered/$name" | awk '{print $1}')" "$name"
+done <"$payloads/SHA256SUMS" >"$npm_tampered/SHA256SUMS"
+expect_failure "npm manifest inside archive mismatches Release" "$repo_root/build/check-release.sh" \
+  semver "$npm_tampered" "$tag" "$source_commit"
+grep -Fq 'npm package manifest does not match release identity' "$fixture_root/failure.stderr"
+
+for mutation in '.schema_version = 5' '.schema_version = 7' \
+  '(.assets[] | select(.kind == "npm-package") | .package) = "gizclaw"' \
+  '(.assets[] | select(.kind == "npm-package") | .version) = "0.0.1"' \
+  '(.assets[] | select(.kind == "npm-package") | .source_commit) = "2222222222222222222222222222222222222222"' \
+  '(.assets[] | select(.kind == "npm-package") | .os) = "linux"'; do
+  npm_manifest="$fixture_root/npm-manifest-$RANDOM"
+  cp -a "$payloads" "$npm_manifest"
+  jq "$mutation" "$payloads/release-manifest.json" >"$npm_manifest/release-manifest.json"
+  expect_failure "npm manifest contract: $mutation" "$repo_root/build/check-release.sh" \
+    semver "$npm_manifest" "$tag" "$source_commit"
+done
 
 wrong_metadata="$fixture_root/wrong-metadata"
 make_formal_payloads "$wrong_metadata"

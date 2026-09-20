@@ -111,8 +111,8 @@ publish a Release.
 
 Each Release contains exactly two Debian packages, four Terraform provider
 packages, one standalone C SDK source archive, its checksum sidecar, two
-Flutter SDK hosted pub archives, `release-manifest.json`, and `SHA256SUMS`,
-twelve files in total; it does not
+Flutter SDK hosted pub archives, two npm SDK packages, `release-manifest.json`, and `SHA256SUMS`,
+fourteen files in total; it does not
 publish raw Linux executables. The Debian packages use `<version>` from the tag
 in `gizclaw_<version>_{amd64,arm64}.deb`. The platform-neutral source payload is
 named `gizclaw-c-sdk-<version>.tar.gz`; its adjacent `.sha256` contains the
@@ -137,9 +137,18 @@ with them as ordinary hosted dependencies. Publishing them to the object-store
 pub repository belongs to Deploy and is outside this repository's Release
 contract; see [Flutter SDK](/en/using/sdk/flutter) for usage.
 
+The npm SDK assets are `npm-gizclaw-<version>.tgz` and
+`npm-gizclaw-control-<version>.tgz`, with a `package/` root and package names
+`@gizclaw/gizclaw` and `@gizclaw/gizclaw-control`. Their versions are injected from
+the tag; see [TypeScript SDK](./sdk/typescript#release-contract) for packaging,
+reproducibility, and consumer checks. Releases are their sole distribution output.
+Deploy verifies digests from a selected published Release before downstream
+hosting. This repository's installation entry is the
+[Release tarball](/en/using/sdk/typescript).
+
 For formal releases, the Git tag is the only source version. It is both the Go
-module version and GitHub Release tag; removing its leading `v` gives the Debian
-package version. Formal tags must be stable canonical SemVer, without leading
+module version and GitHub Release tag; removing its leading `v` gives the Debian,
+Terraform provider, C, Flutter, and npm package versions. Formal tags must be stable canonical SemVer, without leading
 zeroes, prerelease identifiers, or build metadata. Both annotated and
 lightweight tags resolve to their full peeled commit, and that commit must
 already be reachable from the current protected `main` head.
@@ -178,10 +187,11 @@ build/check-release.sh semver ".tmp/$tag" "$tag" "$(git rev-list -n 1 "$tag")"
 name, byte size, and SHA-256 to the full source commit. Native payloads also
 bind platform and architecture; the C SDK source entry binds module
 `gizclaw_c_sdk`, version, and source commit; `dart-package` entries bind the pub
-package name, version, and source commit. Debian entries also bind package metadata and
+package name, version, and source commit; `npm-package` entries bind the full scoped
+npm package name, version, and source commit. Debian entries also bind package metadata and
 `/usr/bin/gizclaw`; `terraform-provider` entries also bind provider `gizclaw`,
 the version, and the executable name inside the zip. A formal rerun accepts an
-existing published Release only when its metadata and all twelve downloaded files
+existing published Release only when its metadata and all fourteen downloaded files
 match byte-for-byte. An
 exact-tag draft left by an interrupted first upload must pass the same metadata,
 inventory, digest, and byte-for-byte checks before the workflow publishes that
@@ -189,6 +199,26 @@ same draft. Partial, moved, duplicate exact-tag, or mismatched Releases fail
 closed. The workflow never deletes, replaces, or overwrites a published SemVer
 Release. Downstream Homebrew and APT channels independently own their signing,
 hosting, retention, and live installation acceptance.
+
+`release-manifest.json` uses `schema_version: 6`. Its `assets` contains exactly
+11 payloads sorted by name with `LC_ALL=C`. The C SDK `.sha256` sidecar, manifest,
+and `SHA256SUMS` bring the Release inventory to 14 files. Consumers must explicitly
+validate schema 6 and the complete asset set; asset sets from different schemas
+cannot be mixed. Each npm entry has only these fields:
+
+| Field | Type and constraint |
+| --- | --- |
+| `name` | String: `npm-gizclaw-<version>.tgz` or `npm-gizclaw-control-<version>.tgz` |
+| `kind` | Constant string `npm-package` |
+| `size` | Positive integer: tgz size in bytes |
+| `sha256` | 64 lowercase hex digits: SHA-256 of the entire tgz |
+| `package` | `@gizclaw/gizclaw` or `@gizclaw/gizclaw-control`, matching the filename |
+| `version` | Canonical `MAJOR.MINOR.PATCH` from the tag without `v` |
+| `source_commit` | 40 lowercase hex digits: Git SHA matching the top-level source commit |
+
+Manifest generation and validation cross-check `name` and `version` read from
+`package/package.json` inside each tarball. npm entries have no `os`, `architecture`,
+`module`, `installed_path`, `provider`, or `executable` fields.
 
 ## Mutex scope inventory
 

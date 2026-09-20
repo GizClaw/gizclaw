@@ -58,6 +58,8 @@ release_expected="$(printf '%s\n' \
   "gizclaw-c-sdk-${version}.tar.gz.sha256" \
   "gizclaw_${version}_amd64.deb" \
   "gizclaw_${version}_arm64.deb" \
+  "npm-gizclaw-${version}.tgz" \
+  "npm-gizclaw-control-${version}.tgz" \
   release-manifest.json \
   "terraform-provider-gizclaw_${version}_darwin_amd64.zip" \
   "terraform-provider-gizclaw_${version}_darwin_arm64.zip" \
@@ -70,7 +72,7 @@ jq -e \
   --arg tag "$tag" \
   --arg version "$version" --arg source_commit "$source_commit" '
   keys == ["assets","debian_version","go_module","go_module_version","release_channel","repository","schema_version","source_commit","tag","workflow"] and
-  .schema_version == 5 and
+  .schema_version == 6 and
   .repository == "GizClaw/gizclaw" and
   .go_module == "github.com/GizClaw/gizclaw-go" and
   .release_channel == "stable" and
@@ -78,15 +80,17 @@ jq -e \
   .go_module_version == $tag and
   .debian_version == $version and
   .source_commit == $source_commit and .workflow == ".github/workflows/release.yml" and
-  (.assets | length == 9) and
+  (.assets | length == 11) and
   ([.assets[].name] == ([.assets[].name] | sort)) and
-  ([.assets[].name] | unique | length == 9) and
+  ([.assets[].name] | unique | length == 11) and
   ([.assets[] | {name,kind,os,architecture}] == [
     {name:("flutter-gizclaw-" + $version + ".tar.gz"),kind:"dart-package",os:null,architecture:null},
     {name:("flutter-gizclaw_control-" + $version + ".tar.gz"),kind:"dart-package",os:null,architecture:null},
     {name:("gizclaw-c-sdk-" + $version + ".tar.gz"),kind:"source",os:null,architecture:null},
     {name:("gizclaw_" + $version + "_amd64.deb"),kind:"deb",os:"linux",architecture:"amd64"},
     {name:("gizclaw_" + $version + "_arm64.deb"),kind:"deb",os:"linux",architecture:"arm64"},
+    {name:("npm-gizclaw-" + $version + ".tgz"),kind:"npm-package",os:null,architecture:null},
+    {name:("npm-gizclaw-control-" + $version + ".tgz"),kind:"npm-package",os:null,architecture:null},
     {name:("terraform-provider-gizclaw_" + $version + "_darwin_amd64.zip"),kind:"terraform-provider",os:"darwin",architecture:"amd64"},
     {name:("terraform-provider-gizclaw_" + $version + "_darwin_arm64.zip"),kind:"terraform-provider",os:"darwin",architecture:"arm64"},
     {name:("terraform-provider-gizclaw_" + $version + "_linux_amd64.zip"),kind:"terraform-provider",os:"linux",architecture:"amd64"},
@@ -95,7 +99,7 @@ jq -e \
   all(.assets[];
     (keys | all(. == "architecture" or . == "executable" or . == "installed_path" or . == "kind" or . == "module" or . == "name" or . == "os" or . == "package" or . == "provider" or . == "sha256" or . == "size" or . == "source_commit" or . == "version")) and
     (.name | type == "string" and length > 0) and
-    (.kind == "deb" or .kind == "source" or .kind == "terraform-provider" or .kind == "dart-package") and
+    (.kind == "deb" or .kind == "source" or .kind == "terraform-provider" or .kind == "dart-package" or .kind == "npm-package") and
     (.size | type == "number" and . > 0 and floor == .) and
     (.sha256 | test("^[0-9a-f]{64}$")) and
     (if .kind == "deb" then
@@ -106,6 +110,11 @@ jq -e \
       .provider == "gizclaw" and .version == $version and
       .executable == ("terraform-provider-gizclaw_v" + $version) and .source_commit == $source_commit and
       ((has("module") or has("package") or has("installed_path")) | not)
+     elif .kind == "npm-package" then
+      .name == ("npm-" + (.package | ltrimstr("@gizclaw/")) + "-" + $version + ".tgz") and
+      (.package == "@gizclaw/gizclaw" or .package == "@gizclaw/gizclaw-control") and
+      .version == $version and .source_commit == $source_commit and
+      ((has("os") or has("architecture") or has("module") or has("installed_path") or has("provider") or has("executable")) | not)
      elif .kind == "dart-package" then
       .name == ("flutter-" + .package + "-" + $version + ".tar.gz") and
       (.package == "gizclaw" or .package == "gizclaw_control") and
@@ -124,6 +133,7 @@ expected_payloads="$(
     printf '%s\n' \
       "flutter-gizclaw-${version}.tar.gz" "flutter-gizclaw_control-${version}.tar.gz" \
       "gizclaw-c-sdk-${version}.tar.gz" \
+      "npm-gizclaw-${version}.tgz" "npm-gizclaw-control-${version}.tgz" \
       "gizclaw_${version}_amd64.deb" "gizclaw_${version}_arm64.deb"
     for platform in "${provider_platforms[@]}"; do
       printf '%s\n' "terraform-provider-gizclaw_${version}_${platform}.zip"
@@ -180,6 +190,17 @@ for dart_package in gizclaw gizclaw_control; do
   }
 done
 
+# Cross-check npm identity from the actual package manifest, not its filename.
+for npm_package in gizclaw gizclaw-control; do
+  archive="$asset_dir/npm-${npm_package}-${version}.tgz"
+  tar -xzOf "$archive" package/package.json | jq -e --arg package "@gizclaw/$npm_package" --arg version "$version" '
+    .name == $package and .version == $version
+  ' >/dev/null || {
+    echo "npm package manifest does not match release identity: $(basename "$archive")" >&2
+    exit 1
+  }
+done
+
 # Each provider archive holds exactly one executable in Terraform's
 # terraform-provider-<type>_v<version> form, built for the named platform.
 provider_executable="terraform-provider-gizclaw_v${version}"
@@ -231,8 +252,8 @@ if [[ "$requested_mode" == draft || "$requested_mode" == published ]]; then
       .target_commitish == $source_commit and
       .draft == $expected_draft and
       .prerelease == false and
-      (.assets | length == 12) and
-      ([.assets[].name] | unique | length == 12) and
+      (.assets | length == 14) and
+      ([.assets[].name] | unique | length == 14) and
       all(.assets[];
         (keys | all(. == "name" or . == "size")) and
         (.name | type == "string" and length > 0) and

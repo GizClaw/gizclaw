@@ -66,13 +66,40 @@ The `pretest` and `prebuild` scripts of `gizclaw-control` build `@gizclaw/gizcla
 
 ## Release contract
 
-Both packages are published to GitHub Packages by `.github/workflows/js-sdk-release.yml`. `sdk/js/scripts/check-package-release.mjs --package sdk/js/<name>` verifies each package separately:
+Both packages ship only through the `js-sdk` job in `.github/workflows/release.yml`
+when a canonical `vMAJOR.MINOR.PATCH` tag is released.
+`.github/workflows/js-sdk-release.yml` only verifies development manifests and runs
+SDK and tarball contract tests on pull requests and pushes to `main`.
 
-- when release paths change (files inside the package directory other than the `package.json` version, `*.test.ts`, and `tsconfig.json`, plus `scripts/prepare-published-sdk.mjs`), the version must be higher than at the base commit;
-- when no release path changes, the version must not change;
-- the workspace version in `package-lock.json` must match the manifest.
+`DEVELOPMENT_VERSION` in `sdk/js/scripts/check-package-release.mjs` is the single
+source of truth for the development placeholder, `0.0.0`. Default mode checks the
+selected package name, placeholder version, and matching workspace version in
+`package-lock.json`, and rejects publication configuration targeting the retired
+npm hosting service. Source dependencies from control to gizclaw and console to
+control use `"*"` to resolve local workspaces. SDK changes require no manual package
+version bump.
 
-Changing the public surface of `@gizclaw/gizclaw` (for example adding an export) requires bumping its version; a change limited to `gizclaw-control` does not trigger an `@gizclaw/gizclaw` release. `prepare-published-sdk.mjs <package>` runs after `tsc`, copies generated Protobuf JavaScript when the package has it, and rewrites `.ts` imports in `.d.ts` files to `.js`.
+`tools/js-sdk/package_npm_tarball.sh` checks HEAD, source commit, source epoch,
+and clean owned paths, builds `dist`, and lets `npm pack` select the files. It
+injects the Release version into a temporary manifest, rewrites control's
+`dependencies["@gizclaw/gizclaw"]` to that exact version, and removes `publishConfig`.
+`check-package-release.mjs --package sdk/js/<name> --release-version <version> --manifest <path>` checks the injected identity and exact internal dependency
+without requiring a workspace lockfile in the tarball. Packaging and archive
+verification both reuse this mode.
+
+The final tarball retains npm's entry set under `package/`, sorted by path in
+USTAR format, with uid/gid 0, uname/gname root, file mode 0644, directory mode 0755,
+and tar/gzip mtimes equal to the source epoch. `verify_npm_tarball.sh` checks the
+structure, normalized metadata, and JS/type declarations for every public entry.
+`consume_tarballs.sh` installs both local tgz files in a temporary project and
+imports every entry. `archive_test.sh` builds twice, compares bytes with `cmp`,
+and tests rejection of invalid archives.
+
+`prepare-published-sdk.mjs <package>` runs after `tsc`, copies generated Protobuf
+JavaScript when present, and rewrites `.ts` imports in `.d.ts` files to `.js`.
+See [Repository Releases](../tooling#repository-releases) for asset names, manifest
+schema, and downstream distribution ownership, and
+[TypeScript SDK](/en/using/sdk/typescript) for installation.
 
 ## Monitor clients
 

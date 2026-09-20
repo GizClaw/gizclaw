@@ -255,6 +255,59 @@ jobs:
           path: .tmp/release/flutter-*.tar.gz
           if-no-files-found: error
 
+  js-sdk:
+    name: JavaScript SDK Release Assets
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Check out selected source commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.prepare.outputs.source_commit }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 26
+          cache: npm
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Build and verify npm tarballs
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+          SOURCE_EPOCH: ${{ needs.prepare.outputs.source_epoch }}
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp/release
+          for package in gizclaw gizclaw-control; do
+            archive=".tmp/release/npm-${package}-${VERSION}.tgz"
+            tools/js-sdk/package_npm_tarball.sh \
+              --package "$package" \
+              --version "$VERSION" \
+              --source-commit "$SOURCE_COMMIT" \
+              --source-epoch "$SOURCE_EPOCH" \
+              --output "$archive"
+            tools/js-sdk/verify_npm_tarball.sh \
+              --archive "$archive" \
+              --package "$package" \
+              --version "$VERSION" \
+              --source-epoch "$SOURCE_EPOCH"
+          done
+          tools/js-sdk/consume_tarballs.sh --asset-dir .tmp/release --version "$VERSION"
+
+      - name: Upload JavaScript SDK release assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: js-sdk
+          path: .tmp/release/npm-*.tgz
+          if-no-files-found: error
+
   terraform-provider:
     name: Terraform Provider Release Assets
     needs: prepare
@@ -300,6 +353,7 @@ jobs:
       - linux
       - c-sdk
       - flutter-sdk
+      - js-sdk
       - terraform-provider
     runs-on: ubuntu-24.04
     timeout-minutes: 20
