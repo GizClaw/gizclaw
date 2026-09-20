@@ -60,18 +60,6 @@ for (const [label, additions, args, pattern] of [
     ["--release-version", "0.18.17"],
     /version must equal 0\.18\.17/u,
   ],
-  [
-    "registry",
-    { publishConfig: { registry: "https://npm.pkg.github.com" } },
-    [],
-    /must not target/u,
-  ],
-  [
-    "registry URL variant",
-    { publishConfig: { registry: "https://NPM.PKG.GITHUB.COM/" } },
-    [],
-    /must not target/u,
-  ],
   ["unknown package", {}, ["--package", "sdk/js/other"], /usage|must select/u],
   ["removed base argument", {}, ["--base", "1".repeat(40)], /usage/u],
   ["unknown option", {}, ["--unknown", "value"], /usage/u],
@@ -99,6 +87,36 @@ for (const [label, additions, args, pattern] of [
       assert.match(result.stderr, pattern);
     });
   });
+}
+
+for (const packageDirectory of ["gizclaw", "gizclaw-control"]) {
+  for (const releaseVersion of [undefined, "0.18.17"]) {
+    for (const publishConfig of [
+      undefined,
+      {},
+      { registry: "https://registry.npmjs.org" },
+      { registry: "https://NPM.PKG.GITHUB.COM/" },
+      { registry: 1 },
+    ]) {
+      test(`rejects ${packageDirectory} ${releaseVersion ?? "development"} registry ${JSON.stringify(publishConfig)}`, async () => {
+        await withPackage(
+          packageDirectory,
+          {
+            version: releaseVersion ?? DEVELOPMENT_VERSION,
+            publishConfig,
+            dependencies: { "@gizclaw/gizclaw": releaseVersion },
+          },
+          async ({ run }) => {
+            const result = run(
+              ...(releaseVersion ? ["--release-version", releaseVersion] : []),
+            );
+            assert.notEqual(result.status, 0);
+            assert.match(result.stderr, /must publish to GitHub Packages/u);
+          },
+        );
+      });
+    }
+  }
 }
 
 for (const lockedVersion of ["0.32.1", undefined]) {
@@ -145,6 +163,7 @@ async function withPackage(packageDirectory, additions, callback) {
       JSON.stringify({
         name: `@gizclaw/${packageDirectory}`,
         version: DEVELOPMENT_VERSION,
+        publishConfig: { registry: "https://npm.pkg.github.com" },
         ...additions,
       }),
     );

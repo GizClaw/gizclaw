@@ -13,12 +13,19 @@ GizClaw 为管理端和 Peer 提供两套主要接口：Admin API 用于管理�
 
 调用前需要持久化调用方自己的 keypair，并知道 Server 接入点与 Server public key。接入点是 `http://` 或 `https://` 基础 URL，例如 `https://ap.gizclaw.com`；裸 `host:port` 仍然可用，并按 `http` 解析。以下示例假定 SDK 已经建立连接：Go 中是已完成 `Dial` 的 `*gizcli.Client`，TypeScript 中是已由 `connectGiznetWebRTCFromEndpoint` 建立的 `RTCPeerConnection`。WebRTC 媒体不会复用接入点的 authority，因为 TLS 接入点所在端口可能不承载 ICE：SDK 从 `/server-info` 的 `endpoint` 字段获取 ICE UDP 地址。私钥、登录 assertion 和会话凭据不得写入日志或提交到仓库。
 
-TypeScript SDK `@gizclaw/gizclaw` 从 `v*` GitHub Release 的
-`npm-gizclaw-<version>.tgz` 资产安装，包版本等于 tag 去掉 `v` 后的版本。
-下载后先核对 `release-manifest.json` 与 `SHA256SUMS`，再在使用方项目执行
-`npm install "./npm-gizclaw-${VERSION}.tgz"`（`VERSION` 为已下载版本）。
-控制端还需同版本的 `npm-gizclaw-control-<version>.tgz`；完整步骤见
-[TypeScript SDK](./sdk/typescript)。
+TypeScript SDK `@gizclaw/gizclaw` 当前从 GitHub Packages 安装。在使用方项目的
+`.npmrc` 中加入以下配置，并用 `GITHUB_PACKAGES_TOKEN` 提供具有 `read:packages`
+权限的 GitHub token：
+
+```ini
+@gizclaw:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}
+```
+
+执行 `npm install "@gizclaw/gizclaw@${VERSION}"` 安装所选 Release 版本；新包版本等于
+tag 去掉 `v` 后的版本，push `main` 仅验证。`v*` Release 同时提供与 GitHub Packages
+逐字节相同的 `npm-gizclaw-<version>.tgz` 和 `npm-gizclaw-control-<version>.tgz`，
+可按 manifest 与 `SHA256SUMS` 校验后本地安装；完整步骤见 [TypeScript SDK](./sdk/typescript)。
 
 ## Admin API
 

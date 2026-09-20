@@ -141,10 +141,10 @@ The npm SDK assets are `npm-gizclaw-<version>.tgz` and
 `npm-gizclaw-control-<version>.tgz`, with a `package/` root and package names
 `@gizclaw/gizclaw` and `@gizclaw/gizclaw-control`. Their versions are injected from
 the tag; see [TypeScript SDK](./sdk/typescript#release-contract) for packaging,
-reproducibility, and consumer checks. Releases are their sole distribution output.
-Deploy verifies digests from a selected published Release before downstream
-hosting. This repository's installation entry is the
-[Release tarball](/en/using/sdk/typescript).
+reproducibility, and consumer checks. The `js-sdk` job in `release.yml` publishes
+the same tgz files to GitHub Packages in dependency order, then `publish-semver`
+uploads them to the Release. [GitHub Packages](/en/using/sdk/typescript) remains
+the current installation method; Releases also carry byte-identical npm tarballs.
 
 For formal releases, the Git tag is the only source version. It is both the Go
 module version and GitHub Release tag; removing its leading `v` gives the Debian,

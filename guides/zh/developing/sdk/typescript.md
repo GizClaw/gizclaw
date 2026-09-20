@@ -63,17 +63,27 @@ npm run quality:format
 两个 package 只通过 `.github/workflows/release.yml` 的 `js-sdk` job 在 canonical
 `vMAJOR.MINOR.PATCH` tag 发布时出货。`.github/workflows/js-sdk-release.yml` 在 PR 与
 push `main` 时仅验证开发期 manifest、运行 SDK 测试和 tarball 契约测试。
+`js-sdk` job 把同一份 tgz 上传为 Release 构建资产，并通过 `npm publish <tgz>`
+依次发布到 GitHub Packages：先 `@gizclaw/gizclaw`，再 `@gizclaw/gizclaw-control`。
+发布前分别查询两个包的已有版本，任一版本已存在或查询失败都会终止；不覆盖已发布版本。
+该 job 使用 `packages: write` 和 `github.token` 作为 `NODE_AUTH_TOKEN`。
+`publish-semver` 依赖该 job 成功，再把这些 tgz 上传到正式 Release。
+仓库 Actions variable `JS_SDK_NPM_DIST_TAG` 必须显式指定两个包使用的 npm dist-tag，
+未设置会在发布前失败。设为 `latest` 会更新默认安装版本；设为其他 tag（例如 `release`）
+会保留原 `latest`，使用方可按该 tag 或精确版本安装。npm 对已有更高版本的包拒绝隐式
+使用 `latest`，因此 workflow 始终通过 `--tag` 传入已选策略。
 
 `sdk/js/scripts/check-package-release.mjs` 中的 `DEVELOPMENT_VERSION` 是开发占位版本的
 单一事实源，值为 `0.0.0`。默认模式检查选定 package 的包名、占位版本及
-`package-lock.json` 对应 workspace 版本，并拒绝指向旧 npm 托管服务的发布配置。
+`package-lock.json` 对应 workspace 版本，并要求 `publishConfig.registry` 严格等于
+`https://npm.pkg.github.com`。
 源码中的 control → gizclaw 与 console → control 依赖用 `"*"` 匹配本地 workspace。
 SDK 内容变化不需要手工递增 package 版本。
 
 `tools/js-sdk/package_npm_tarball.sh` 校验 HEAD、source commit、source epoch 与干净的
 owned paths，构建 `dist`，再使用 `npm pack` 选择文件。它只在临时 manifest 中注入
-Release 版本，将 control 的 `dependencies["@gizclaw/gizclaw"]` 改为精确相同版本，并移除
-`publishConfig`。`check-package-release.mjs --package sdk/js/<name> --release-version <version> --manifest <path>` 检查注入后的身份和精确内部依赖，不要求 tarball 携带 workspace
+Release 版本，将 control 的 `dependencies["@gizclaw/gizclaw"]` 改为精确相同版本，并保留
+指向 GitHub Packages 的 `publishConfig`。`check-package-release.mjs --package sdk/js/<name> --release-version <version> --manifest <path>` 检查注入后的身份和精确内部依赖，不要求 tarball 携带 workspace
 lockfile。打包与 tarball 校验都复用此模式。
 
 最终 tarball 保留 npm 的条目集合，根为 `package/`；条目按路径排序，USTAR 格式，

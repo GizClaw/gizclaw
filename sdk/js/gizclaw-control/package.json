@@ -6,6 +6,9 @@
     "type": "git",
     "url": "git+https://github.com/GizClaw/gizclaw.git"
   },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "type": "module",
   "engines": {
     "node": "^22.13.0 || >=23.5.0"

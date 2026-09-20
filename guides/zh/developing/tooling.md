@@ -127,9 +127,10 @@ package 根，只包含 `pubspec.yaml`、`LICENSE` 与 Git 跟踪的 `lib/**/*.d
 npm SDK 资产命名为 `npm-gizclaw-<version>.tgz` 与
 `npm-gizclaw-control-<version>.tgz`，是根为 `package/` 的 npm tarball，包名分别为
 `@gizclaw/gizclaw` 与 `@gizclaw/gizclaw-control`。版本从 tag 注入；打包、可复现性与
-消费校验见 [TypeScript SDK](./sdk/typescript#发布契约)。Release 是这些包的唯一出货口；
-Deploy 从选定的已发布 Release 校验摘要后负责下游托管。本仓库的安装入口为
-[Release tarball](/zh/using/sdk/typescript)。
+消费校验见 [TypeScript SDK](./sdk/typescript#发布契约)。同一份 tgz 由 `release.yml`
+的 `js-sdk` job 先后发布到 GitHub Packages，随后由 `publish-semver` 上传到 Release。
+当前安装方式仍是 [GitHub Packages](/zh/using/sdk/typescript)，Release 同时提供逐字节相同的
+npm tarball 资产。
 
 对于正式 Release，Git tag 是唯一 source version：它同时是 Go module version 与
 GitHub Release tag；Debian、Terraform provider、C、Flutter 和 npm 包版本移除开头的 `v`。正式 tag 必须是
