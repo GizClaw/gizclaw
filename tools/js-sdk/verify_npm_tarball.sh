@@ -78,6 +78,8 @@ for name in required:
     if not files.get(name):
         raise SystemExit(f"missing or empty required file: {name}")
 manifest = json.loads(files["package/package.json"])
+if "publishConfig" in manifest:
+    raise SystemExit("archive must not contain publishConfig")
 exports = manifest.get("exports")
 if not isinstance(exports, dict) or "." not in exports:
     raise SystemExit("missing package exports")

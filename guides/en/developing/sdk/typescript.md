@@ -70,33 +70,19 @@ Both packages ship only through the `js-sdk` job in `.github/workflows/release.y
 when a canonical `vMAJOR.MINOR.PATCH` tag is released.
 `.github/workflows/js-sdk-release.yml` only verifies development manifests and runs
 SDK and tarball contract tests on pull requests and pushes to `main`.
-The `js-sdk` job uploads the same tgz files as Release build artifacts and publishes
-them to GitHub Packages using `npm publish <tgz>`, first `@gizclaw/gizclaw`, then
-`@gizclaw/gizclaw-control`. Both existing-version checks run before publication;
-an existing version or a failed lookup stops the job without overwriting a version.
-The job uses `packages: write` and `github.token` as `NODE_AUTH_TOKEN`.
-`publish-semver` requires this job to succeed before uploading these tgz files to
-the formal Release.
-The repository Actions variable `JS_SDK_NPM_DIST_TAG` must explicitly select the
-npm dist-tag for both packages; an unset value fails before publication.
-`latest` updates the default installation version. Another tag, such as `release`,
-leaves the existing `latest` unchanged; consumers can select that tag or an exact
-version. npm rejects an implicit `latest` when a higher version already exists,
-so the workflow always passes the selected policy through `--tag`.
 
 `DEVELOPMENT_VERSION` in `sdk/js/scripts/check-package-release.mjs` is the single
 source of truth for the development placeholder, `0.0.0`. Default mode checks the
 selected package name, placeholder version, and matching workspace version in
-`package-lock.json`, and requires `publishConfig.registry` to equal
-`https://npm.pkg.github.com` exactly. Source dependencies from control to gizclaw and console to
+`package-lock.json`, and rejects publication configuration targeting the retired
+npm hosting service. Source dependencies from control to gizclaw and console to
 control use `"*"` to resolve local workspaces. SDK changes require no manual package
 version bump.
 
 `tools/js-sdk/package_npm_tarball.sh` checks HEAD, source commit, source epoch,
 and clean owned paths, builds `dist`, and lets `npm pack` select the files. It
 injects the Release version into a temporary manifest, rewrites control's
-`dependencies["@gizclaw/gizclaw"]` to that exact version, and retains `publishConfig`
-pointing at GitHub Packages.
+`dependencies["@gizclaw/gizclaw"]` to that exact version, and removes `publishConfig`.
 `check-package-release.mjs --package sdk/js/<name> --release-version <version> --manifest <path>` checks the injected identity and exact internal dependency
 without requiring a workspace lockfile in the tarball. Packaging and archive
 verification both reuse this mode.

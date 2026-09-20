@@ -1,6 +1,6 @@
 # TypeScript SDK <Badge type="warning" text="WIP" />
 
-GizClaw ships two npm packages, split by role, both published to GitHub Packages; `v*` GitHub Releases also provide npm tarballs with the same contents:
+GizClaw ships two npm packages, split by role, both distributed as `v*` GitHub Release assets:
 
 | Package | Directory | Role | Transport |
 | --- | --- | --- | --- |
@@ -11,26 +11,7 @@ GizClaw ships two npm packages, split by role, both published to GitHub Packages
 
 ## Install `@gizclaw/gizclaw-control`
 
-Install from GitHub Packages. Add this configuration to the consuming project's
-`.npmrc` and provide a GitHub token with `read:packages` through
-`GITHUB_PACKAGES_TOKEN`:
-
-```ini
-@gizclaw:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}
-```
-
-```sh
-# Set VERSION to the selected Release tag without its leading v.
-npm install "@gizclaw/gizclaw-control@${VERSION}"
-# For the device SDK alone:
-npm install "@gizclaw/gizclaw@${VERSION}"
-```
-
-Control depends on the exact same version of gizclaw, which npm installs
-automatically. New versions publish on `v*` tags; pushes to `main` only verify.
-
-The same tgz files are also available as Release assets. From a selected [GitHub Release](https://github.com/GizClaw/gizclaw/releases), download
+From a selected [GitHub Release](https://github.com/GizClaw/gizclaw/releases), download
 `npm-gizclaw-<version>.tgz`, `npm-gizclaw-control-<version>.tgz`,
 `release-manifest.json`, and `SHA256SUMS`. Verify the package name, version, byte size,
 SHA-256, and source commit against the manifest and the corresponding digests in

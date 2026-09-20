@@ -76,6 +76,7 @@ if pathlib.PurePosixPath(filename).name != filename:
 with tarfile.open(root / filename, "r:gz") as archive:
     manifest = json.load(archive.extractfile("package/package.json"))
 manifest["version"] = version
+manifest.pop("publishConfig", None)
 if package == "gizclaw-control":
     manifest["dependencies"]["@gizclaw/gizclaw"] = version
 (root / "package.json").write_text(json.dumps(manifest, indent=2) + "\n")

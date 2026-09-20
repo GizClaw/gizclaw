@@ -93,7 +93,6 @@ const { DEVELOPMENT_VERSION } = await import(pathToFileURL(`${source}/sdk/js/scr
 writeFileSync(`${root}/package.json`, JSON.stringify({ private: true, workspaces: ["sdk/js/gizclaw"] }));
 writeFileSync(`${root}/sdk/js/gizclaw/package.json`, JSON.stringify({
   name: "@gizclaw/gizclaw", version: DEVELOPMENT_VERSION, scripts: { build: "exit 19" },
-  publishConfig: { registry: "https://npm.pkg.github.com" },
 }));
 writeFileSync(`${root}/package-lock.json`, JSON.stringify({ packages: {
   "sdk/js/gizclaw": { version: DEVELOPMENT_VERSION },

@@ -1,6 +1,6 @@
 # TypeScript SDK <Badge type="warning" text="WIP" />
 
-GizClaw 提供两个 npm package，按角色划分，都发布到 GitHub Packages；`v*` GitHub Release 同时提供相同内容的 npm tarball 资产：
+GizClaw 提供两个 npm package，按角色划分，都作为 `v*` GitHub Release 资产分发：
 
 | Package | 目录 | 角色 | 传输 |
 | --- | --- | --- | --- |
@@ -11,25 +11,7 @@ GizClaw 提供两个 npm package，按角色划分，都发布到 GitHub Package
 
 ## 安装 `@gizclaw/gizclaw-control`
 
-当前从 GitHub Packages 安装。在使用方项目的 `.npmrc` 中加入以下配置，并通过
-`GITHUB_PACKAGES_TOKEN` 提供具有 `read:packages` 权限的 GitHub token：
-
-```ini
-@gizclaw:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}
-```
-
-```sh
-# VERSION 设为所选 Release tag 去掉开头 v 后的版本。
-npm install "@gizclaw/gizclaw-control@${VERSION}"
-# 只使用设备端 SDK：
-npm install "@gizclaw/gizclaw@${VERSION}"
-```
-
-control 精确依赖同版本的 gizclaw，npm 会自动安装该依赖。新版本由 `v*` tag 发布，
-push `main` 仅运行验证。
-
-同一份 tgz 也作为 Release 资产提供，可从选定的 [GitHub Release](https://github.com/GizClaw/gizclaw/releases) 下载同一版本的
+从选定的 [GitHub Release](https://github.com/GizClaw/gizclaw/releases) 下载同一版本的
 `npm-gizclaw-<version>.tgz`、`npm-gizclaw-control-<version>.tgz`、
 `release-manifest.json` 与 `SHA256SUMS`。按 manifest 核对包名、版本、字节数、SHA-256
 和 source commit，并核对 `SHA256SUMS` 中对应文件的摘要后，在使用方项目中安装两个本地包：

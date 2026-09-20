@@ -54,8 +54,13 @@ function main() {
       `JavaScript SDK version must equal ${expectedVersion}, got ${manifest.version}`,
     );
   }
-  if (manifest.publishConfig?.registry !== "https://npm.pkg.github.com") {
-    throw new Error("JavaScript SDK must publish to GitHub Packages");
+  const registry = manifest.publishConfig?.registry;
+  if (registry != null) {
+    if (typeof registry !== "string")
+      throw new Error("publishConfig.registry must be a URL");
+    if (new URL(registry).hostname.toLowerCase() === "npm.pkg.github.com") {
+      throw new Error("JavaScript SDK must not target GitHub Packages");
+    }
   }
 
   if (releaseVersion == null) {
