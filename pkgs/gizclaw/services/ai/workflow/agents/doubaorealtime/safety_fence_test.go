@@ -9,7 +9,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 )
 
-func TestSafetyFencePrecedesWorkspaceInstructions(t *testing.T) {
+func TestSafetyFenceLeavesWorkspaceInstructionsUnchanged(t *testing.T) {
 	for _, override := range []string{"device prompt", ""} {
 		parameters := &apitypes.WorkspaceParameters{}
 		if err := parameters.FromDoubaoRealtimeWorkspaceParameters(apitypes.DoubaoRealtimeWorkspaceParameters{AgentType: apitypes.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime, Instructions: &override}); err != nil {
@@ -28,9 +28,9 @@ func TestSafetyFencePrecedesWorkspaceInstructions(t *testing.T) {
 		if override == "" {
 			effective = "workflow prompt"
 		}
-		// The fence travels as its own pattern parameter: peergenx puts it in
-		// front of whatever instructions the provider receives, and the
-		// Workflow or Workspace text stays readable on its own.
+		// The fence travels as its own pattern parameter. peergenx substitutes
+		// it only at explicit placeholders; the Workflow or Workspace
+		// instructions remain unchanged here.
 		if got := parsed.Query().Get("instructions"); got != effective {
 			t.Fatalf("instructions = %q; want %q", got, effective)
 		}

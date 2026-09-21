@@ -9,7 +9,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 )
 
-func TestSafetyFencePrecedesWorkspaceInstructions(t *testing.T) {
+func TestSafetyFenceLeavesWorkspaceInstructionsUnchanged(t *testing.T) {
 	for _, override := range []string{"device prompt", ""} {
 		parameters := &apitypes.WorkspaceParameters{}
 		if err := parameters.FromDoubaoRealtimeDuplexWorkspaceParameters(apitypes.DoubaoRealtimeDuplexWorkspaceParameters{AgentType: apitypes.DoubaoRealtimeDuplexWorkspaceParametersAgentTypeDoubaoRealtimeDuplex, Instructions: &override}); err != nil {
