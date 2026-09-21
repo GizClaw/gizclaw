@@ -51,8 +51,9 @@ handshake remains outside the Server admission setting.
 
 Admin block persists the status and detaches this Server's current connection,
 Edge transports, and activation reservation under same-key record coordination.
-Outside locks, cleanup marks the old generation retiring in memory and closes
-its transports. Existing streams close with their connection. A new connection
+Detachment sets the old generation's atomic retiring flag under the Manager
+lock without callbacks or I/O. Outside locks, cleanup clears cached registration
+and closes its transports. Existing streams close with their connection. A new connection
 must pass activation before serving work, even if its Event transport is already
 open. Late activation cannot publish a detached reservation. Admin approve
 restores active status and permits a fresh connection.

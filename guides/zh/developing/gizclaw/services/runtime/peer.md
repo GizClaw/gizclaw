@@ -28,7 +28,8 @@ Edge bootstrap 对已是 active Edge 的记录不重复写入。多个 Server �
 `blocked` 是可由 Admin approve 恢复为 active 的持久状态。`EnsureConnectedPeer` 与
 `EnsureConnectedPeerGuarded` 对已有 blocked 记录（包括并发创建获胜的记录）返回
 `ErrPeerBlocked`；不把它当作不存在，也不重建记录。Admin block 提交成功后先摘除
-本地所有连接 generation，再在锁外以内存标记退役旧 generation 并关闭 transport。
+本地所有连接 generation，在 Manager 锁内设置旧 generation 的原子 retiring 标记，
+再在锁外执行回调并关闭 transport。
 block 不会给远端或离线 Peer 新增本地运行目录记录，也不依赖该目录可用。
 持久化失败不踢下线。`EnsureAvailable` 保留删除围栏语义，
 使 Admin 仍可读取、修改和解封 blocked 记录。连接与 service 执行边界见

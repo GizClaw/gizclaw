@@ -45,8 +45,9 @@ PeerRoutes assignment 或 LocalRuns。该规则同样适用于 registration-toke
 Edge 转发到本 Server 的 logical Peer；Edge 自身的握手仍不受 Server 的准入开关约束。
 
 Admin block 会持久化状态，在同一 public key 的记录协调内摘除本 Server 当前持有的
-connection、Edge transport 和正在激活的 reservation，再在锁外将旧 generation
-标记为 retiring 并关闭 transport。已有 stream 随连接关闭；新的 connection 即使
+connection、Edge transport 和正在激活的 reservation；摘除时在 Manager 锁内直接
+设置旧 generation 的原子 retiring 标记，不执行回调或 I/O，再在锁外清理注册缓存
+并关闭 transport。已有 stream 随连接关闭；新的 connection 即使
 已经打开 Event transport，也必须通过 activation 才能开始服务。迟到的 activation
 不能发布已摘除的 reservation。Admin approve 恢复 active 后可重新连接。
 

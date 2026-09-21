@@ -972,7 +972,7 @@ func TestManagerBlockDetachesBeforeCloseAndApproveCanReconnect(t *testing.T) {
 		t.Fatal(err)
 	}
 	host := &PeerConn{Conn: old}
-	if !manager.RegisterPeerRetirer(key, old, func() { host.retiring.Store(true) }) {
+	if !manager.RegisterPeerRetirer(key, old, &host.retiring, func() { host.retiring.Store(true) }) {
 		t.Fatal("could not register the active generation retirer")
 	}
 	blocked := make(chan error, 1)

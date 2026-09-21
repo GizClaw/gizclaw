@@ -8,6 +8,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -59,6 +60,7 @@ type activePeer struct {
 	events         *peerStreamEventBroker
 	deleting       bool
 	retire         func()
+	retiring       *atomic.Bool
 }
 
 func (m *Manager) activateEdgeTransport(ctx context.Context, conn giznet.Conn) error {
@@ -209,8 +211,10 @@ func (m *Manager) QuiescePeer(_ context.Context, publicKey giznet.PublicKey) err
 	return nil
 }
 
-func (m *Manager) RegisterPeerRetirer(publicKey giznet.PublicKey, conn giznet.Conn, retire func()) bool {
-	if m == nil || conn == nil || retire == nil {
+// RegisterPeerRetirer binds a generation's memory-only retirement flag and
+// deferred cleanup. Detachment sets the flag without invoking the callback.
+func (m *Manager) RegisterPeerRetirer(publicKey giznet.PublicKey, conn giznet.Conn, retiring *atomic.Bool, retire func()) bool {
+	if m == nil || conn == nil || retiring == nil || retire == nil {
 		return false
 	}
 	m.mu.Lock()
@@ -220,6 +224,7 @@ func (m *Manager) RegisterPeerRetirer(publicKey giznet.PublicKey, conn giznet.Co
 		return false
 	}
 	state.retire = retire
+	state.retiring = retiring
 	return true
 }
 
@@ -693,7 +698,8 @@ func (m *Manager) SetPeerDown(publicKey giznet.PublicKey, conn giznet.Conn) {
 // reservation for an identity. The caller must invoke the returned cleanup
 // after releasing its record lock. It closes only captured transports, so a
 // later approved generation is unaffected and no permanent fence is retained.
-// Cleanup first retires the old generation in memory, then closes transports.
+// Detachment marks the old generation retiring atomically with removal.
+// Cleanup invokes callbacks and closes transports outside locks.
 func (m *Manager) DetachPeerConnections(publicKey giznet.PublicKey) func() {
 	m.mu.Lock()
 	state := m.peers[publicKey]
@@ -701,6 +707,9 @@ func (m *Manager) DetachPeerConnections(publicKey giznet.PublicKey) func() {
 	var retire func()
 	if state != nil {
 		retire = state.retire
+		if state.retiring != nil {
+			state.retiring.Store(true)
+		}
 		if state.conn != nil {
 			connections[state.conn] = struct{}{}
 		}
