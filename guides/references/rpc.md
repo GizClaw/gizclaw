@@ -215,3 +215,14 @@ ID `0` 是 unspecified，不能调用。调用方遇到未知 method 时应按 m
 `server.run.workspace.set` 仅负责选择（SFU 会立即激活）；`server.run.workspace.reload` 保持空请求，只重载当前选择。Workspace 配置仍可独立通过 `server.workspace.put` 和 `server.workspace.parameters.set` 更新。
 
 `safety_fence_level` 的 JSON 值为 `off | general | child`，Protobuf JSON 使用 `SAFETY_FENCE_LEVEL_OFF/GENERAL/CHILD`，显式 UNSPECIFIED 非法。完整解析、注入与 reload 失败语义见 [RuntimeProfile 安全围栏](/zh/developing/gizclaw/services/runtime-profile#workspace-安全围栏)。
+
+C nanopb 调用方通过 `has_safety_fence_level` 区分省略与显式档位，例如设置 general：
+
+```c
+gizclaw_rpc_v1_WorkspaceParametersPatch parameters =
+    gizclaw_rpc_v1_WorkspaceParametersPatch_init_zero;
+parameters.has_safety_fence_level = true;
+parameters.safety_fence_level = gizclaw_rpc_v1_SafetyFenceLevel_SAFETY_FENCE_LEVEL_GENERAL;
+```
+
+设置 off 也需要将 `has_safety_fence_level` 置为 true；保持 false 则保留服务端已存值。字段描述由生成头文件中的 `WorkspaceParametersPatch_FIELDLIST` 提供，配套 `workspace.pb.c` 的 `PB_BIND` 在编译时引用它，因此新增字段不一定改变 `.pb.c` 的文件内容。修改 Proto 后仍须重新生成并校验完整 C 生成目录。
