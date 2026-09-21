@@ -24,9 +24,9 @@ func TestSafetyFenceLeavesWorkspaceInstructionsUnchanged(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		// The fence travels as its own pattern parameter: peergenx puts it in
-		// front of whatever instructions the provider receives, and the
-		// Workspace override stays readable exactly as the device sent it.
+		// The fence travels as its own pattern parameter. peergenx substitutes
+		// it only at explicit placeholders; the Workspace override remains
+		// exactly as the device sent it here.
 		if got := parsed.Query().Get("instructions"); got != override {
 			t.Fatalf("instructions = %q; want %q", got, override)
 		}
