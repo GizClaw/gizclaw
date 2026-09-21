@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
@@ -782,17 +781,11 @@ func (r *dockRun) endTTS(route *dockRoute, sourceEOS *genx.MessageChunk) {
 				route.ttsDone.Wait()
 				close(done)
 			}()
-			timer := time.NewTimer(r.dock.config.TTSCompletionTimeout)
-			defer timer.Stop()
 			select {
 			case <-done:
 				r.finishRoute(route, "")
 			case <-r.invocation.Context().Done():
 				r.abortTTS(route, r.invocation.Context().Err())
-			case <-timer.C:
-				err := fmt.Errorf("audiodock: TTS completion timeout after %s", r.dock.config.TTSCompletionTimeout)
-				r.abortTTS(route, err)
-				r.finishRoute(route, err.Error())
 			}
 		}()
 	})

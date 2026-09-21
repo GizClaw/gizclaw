@@ -112,44 +112,55 @@ func TestDockTextLatencyIndependentOfTTS(t *testing.T) {
 	}
 }
 
-// The completion timeout covers startup too. Even a provider that returns its
-// stream after cancellation must have that handle closed without emitting audio.
-func TestDockClosesLateTTSStartupAfterTimeout(t *testing.T) {
+// A provider returning after explicit cancellation must have its handle closed
+// without emitting audio, even when startup itself ignores the context.
+func TestDockClosesLateTTSStartupAfterCancel(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		late := streamkit.NewOutput(streamkit.OutputConfig{})
 		startupContexts := make(chan context.Context, 1)
+		release := make(chan struct{})
 		dock, err := New(Config{
-			Agent:                fixedAgentOutput(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "model", BeginOfStream: true, EndOfStream: true}}),
-			ResolveVoice:         fixedVoice("voice"),
-			TTSCompletionTimeout: time.Second,
+			Agent:        fixedAgentOutput(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "model", BeginOfStream: true, EndOfStream: true}}),
+			ResolveVoice: fixedVoice("voice"),
 			TTS: muxFunc(func(ctx context.Context, _ string, _ genx.Stream) (genx.Stream, error) {
 				startupContexts <- ctx
-				time.Sleep(3 * time.Second)
+				<-release
 				return late, nil
 			}),
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		start := time.Now()
-		output, err := dock.Transform(t.Context(), emptyStream{})
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		output, err := dock.Transform(ctx, emptyStream{})
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer output.Close()
 		first, err := output.Next()
-		if err != nil || first.Part != genx.Text("hello") || time.Since(start) != 0 {
-			t.Fatalf("first=%#v error=%v delay=%v", first, err, time.Since(start))
+		if err != nil || first.Part != genx.Text("hello") {
+			t.Fatalf("first=%#v error=%v", first, err)
 		}
-		terminal, err := output.Next()
-		if err != nil || !terminal.IsEndOfStream() || terminal.Ctrl.Error == "" || !terminal.Ctrl.ResponseEpochEnd || time.Since(start) != time.Second {
-			t.Fatalf("terminal=%#v error=%v delay=%v", terminal, err, time.Since(start))
+		startupContext := <-startupContexts
+		cancel()
+		synctest.Wait()
+		if startupContext.Err() != context.Canceled {
+			t.Fatal("startup was not cancelled")
 		}
-		if startupContext := <-startupContexts; startupContext.Err() == nil {
-			t.Fatal("startup was not cancelled before error terminal")
-		}
-		if c, err := output.Next(); !errors.Is(err, io.EOF) {
-			t.Fatalf("late startup emitted output: %#v %v", c, err)
+		close(release)
+		synctest.Wait()
+		for {
+			chunk, err := output.Next()
+			if err != nil {
+				if !errors.Is(err, io.EOF) && !errors.Is(err, context.Canceled) {
+					t.Fatal(err)
+				}
+				break
+			}
+			if _, ok := chunk.Part.(*genx.Blob); ok {
+				t.Fatalf("late startup emitted audio: %#v", chunk)
+			}
 		}
 		if err := late.Push(&genx.MessageChunk{}); !errors.Is(err, io.ErrClosedPipe) {
 			t.Fatalf("late provider handle was not closed: %v", err)
