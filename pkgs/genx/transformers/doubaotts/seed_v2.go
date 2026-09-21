@@ -187,9 +187,9 @@ func seedV2SegmentFailure(ctx context.Context, meta streamkit.TTSMeta, err error
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		return err
-	}
+	// A provider-local deadline (including http.Client.Timeout) can wrap a
+	// context error while this invocation is still live. Only ctx.Err() above
+	// means the caller canceled the remaining segments.
 	attrs := []any{"stream_id", meta.StreamID, "segment_index", meta.SegmentIndex, "error", err}
 	if apiErr, ok := doubaospeech.AsError(err); ok {
 		attrs = append(attrs, "code", apiErr.Code, "message", apiErr.Message,
