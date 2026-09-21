@@ -139,7 +139,7 @@ func (t *SeedV2) synthesize(ctx context.Context, text string, meta streamkit.TTS
 	}
 	for chunk, err := range t.client.TTSV2.Stream(ctx, req) {
 		if err != nil {
-			return seedV2SegmentFailure(ctx, meta, err)
+			return seedV2SegmentFailure(ctx, meta, err, nil)
 		}
 		lastChunk = chunk
 
@@ -178,12 +178,12 @@ func (t *SeedV2) synthesize(ctx context.Context, text string, meta streamkit.TTS
 		return err
 	}
 	if emittedBytes == 0 {
-		return seedV2SegmentFailure(ctx, meta, seedV2EmptyAudioError(lastChunk))
+		return seedV2SegmentFailure(ctx, meta, seedV2EmptyAudioError(lastChunk), lastChunk)
 	}
 	return nil
 }
 
-func seedV2SegmentFailure(ctx context.Context, meta streamkit.TTSMeta, err error) error {
+func seedV2SegmentFailure(ctx context.Context, meta streamkit.TTSMeta, err error, chunk *doubaospeech.TTSV2Chunk) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -194,6 +194,9 @@ func seedV2SegmentFailure(ctx context.Context, meta streamkit.TTSMeta, err error
 	if apiErr, ok := doubaospeech.AsError(err); ok {
 		attrs = append(attrs, "code", apiErr.Code, "message", apiErr.Message,
 			"request_id", apiErr.ReqID, "trace_id", apiErr.TraceID, "log_id", apiErr.LogID)
+	} else if chunk != nil {
+		attrs = append(attrs, "code", chunk.Code, "message", chunk.Message,
+			"request_id", chunk.ReqID, "trace_id", chunk.TraceID, "log_id", chunk.LogID)
 	}
 	slog.ErrorContext(ctx, "doubao tts: segment failed", attrs...)
 	return &streamkit.TTSSegmentError{Err: err}

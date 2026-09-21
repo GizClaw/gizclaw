@@ -14,6 +14,7 @@ import (
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 )
 
 func TestSeedV2RejectsSuccessfulStreamWithoutAudio(t *testing.T) {
@@ -35,7 +36,9 @@ func TestSeedV2RejectsSuccessfulStreamWithoutAudio(t *testing.T) {
 	}
 
 	emittedBytes := 0
-	err = transformer.synthesize(t.Context(), "readable text", streamkit.TTSMeta{}, transformer.mimeType(), func(audio []byte) error {
+	logs := installPeerLogStore(t)
+	ctx := gizlog.WithPeerPublicKey(t.Context(), "peer-test")
+	err = transformer.synthesize(ctx, "readable text", streamkit.TTSMeta{StreamID: "reply", SegmentIndex: 1}, transformer.mimeType(), func(audio []byte) error {
 		emittedBytes += len(audio)
 		return nil
 	})
@@ -48,6 +51,19 @@ func TestSeedV2RejectsSuccessfulStreamWithoutAudio(t *testing.T) {
 	}
 	if emittedBytes != 0 {
 		t.Fatalf("synthesize() emitted %d bytes, want 0", emittedBytes)
+	}
+	record := logs.waitFor(t, "doubao tts: segment failed")
+	if record.Severity != "ERROR" {
+		t.Errorf("severity = %q, want ERROR", record.Severity)
+	}
+	for key, want := range map[string]string{
+		"stream_id": "reply", "segment_index": "1", "peer_public_key": "peer-test",
+		"error": wantError, "code": "20000000", "message": "ok",
+		"request_id": "req-final-only", "trace_id": "trace-final-only", "log_id": "log-final-only",
+	} {
+		if record.Attributes[key] != want {
+			t.Errorf("log %s = %q, want %q", key, record.Attributes[key], want)
+		}
 	}
 }
 
