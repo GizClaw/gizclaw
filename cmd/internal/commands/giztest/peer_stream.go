@@ -721,6 +721,13 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				return operationResult{}, err
 			}
 			packets = decoded
+			if op.TrimTrailingSilence {
+				trimmed, err := trimTrailingSilentOpusPackets(packets)
+				if err != nil {
+					return operationResult{}, fmt.Errorf("trim trailing silence: %w", err)
+				}
+				packets = trimmed
+			}
 		}
 		var err error
 		inputPackets, inputDuration = len(packets), opusPacketsDuration(packets)

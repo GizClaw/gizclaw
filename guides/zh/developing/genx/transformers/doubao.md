@@ -67,6 +67,8 @@ Provider、protocol、context cancellation、normalizer 和下游 emit error 保
 
 Push-to-Talk 的输入音频 EOS 按原始顺序一次性提交未发布 chunks。Provider failure 如果在提交前被记录，会丢弃整个未发布 turn 并返回 provider error，不暴露任何 retained data 或 control chunks。Commit gate 同时绑定输入 StreamID 与 provider session epoch，因此被打断 session 的迟到事件不能影响复用同一 StreamID 的新 session。
 
+客户端用音频 EOS 关闭音频 route 时，无论哪种模式，Adapter 都会在 `Finish` 之前发送 500 ms 静音；这段静音一次性发出、不按实时节奏发送，也不计入 history audio。在 zh/en 以外的方向上，provider 会丢掉结尾没有停顿的最后一句，而设备在最后一个字说完时就松开按键正是这种情况。Push-to-Talk turn 如果被 provider 正常结束却没有任何译文，仍会正常关闭空的 assistant 文本 route（S2S 模式下还有音频 route），让这一轮结束而不是一直等待输出。GizClaw 的 model builder 把未设置的 Workspace `input` 解析为 Push-to-Talk，而不是 Transformer 的 realtime 缺省值。
+
 Provider 的 transcript 与 translation subtitle token 是自带空格的子词片段（如 `"Bon"`、`"jour"`、`" à"`），同一条 subtitle 内的 token 按原样拼接，只丢弃文本开头的空白；新 subtitle 的第一个 token 与上一句都以 ASCII 字母或数字相接时才补一个空格。
 
 AST 接收循环发生错误时，会直接结束输出流并保留原始错误，不等待下一段输入或音频 EOS。如果接收流在 `SessionFinished` 之前结束，即使 WebSocket 使用正常关闭码，也会返回包装 `io.ErrUnexpectedEOF` 的会话未完成错误。调用方取消 context 或关闭输出流时，Adapter 会关闭 provider session，释放正在等待事件的接收循环和输入读取。

@@ -612,6 +612,43 @@ func TestLoadDocumentValidatesEmptyInputTurn(t *testing.T) {
 	}
 }
 
+func TestLoadDocumentValidatesTrimTrailingSilence(t *testing.T) {
+	turn := func(mode, extra string) string {
+		return validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: " + mode + "\n" + extra
+	}
+	doc, err := LoadDocument(writeTestDocument(t, turn("push-to-talk", "      input: audio\n      trim_trailing_silence: true\n")), nil)
+	if err != nil {
+		t.Fatalf("trim_trailing_silence turn rejected: %v", err)
+	}
+	if op := doc.Steps[len(doc.Steps)-1].PeerStream; !op.TrimTrailingSilence {
+		t.Fatalf("peer_stream operation = %#v", op)
+	}
+	for name, body := range map[string]string{
+		"realtime mode": turn("realtime", "      input: audio\n      trim_trailing_silence: true\n"),
+		"text mode":     turn("text", "      input: audio\n      trim_trailing_silence: true\n"),
+		"empty_input":   turn("push-to-talk", "      empty_input: true\n      trim_trailing_silence: true\n"),
+		"overlap_input": turn("push-to-talk", "      input: audio\n      overlap_input: true\n      trim_trailing_silence: true\n"),
+		"false":         turn("push-to-talk", "      input: audio\n      trim_trailing_silence: false\n"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := LoadDocument(writeTestDocument(t, body), nil); err == nil || !strings.Contains(err.Error(), "schema validation") {
+				t.Fatalf("error = %v, want schema validation", err)
+			}
+		})
+	}
+	for name, op := range map[string]PeerStreamOperation{
+		"realtime mode": {Mode: "realtime", Input: "audio", TrimTrailingSilence: true},
+		"empty_input":   {Mode: "push-to-talk", EmptyInput: true, TrimTrailingSilence: true},
+		"overlap_input": {Mode: "push-to-talk", Input: "audio", OverlapInput: true, TrimTrailingSilence: true},
+	} {
+		t.Run("runner "+name, func(t *testing.T) {
+			if err := validatePeerStreamStep(Step{ID: "turn", PeerStream: &op}, false); err == nil || !strings.Contains(err.Error(), "trim_trailing_silence") {
+				t.Fatalf("error = %v, want trim_trailing_silence rejection", err)
+			}
+		})
+	}
+}
+
 func TestValidatePeerStreamStepRejectsEmptyInputCombinations(t *testing.T) {
 	step := func(op PeerStreamOperation) Step {
 		op.EmptyInput = true

@@ -656,6 +656,11 @@ SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而�
   `interrupt_after` 或 `completion: first_response` 组合。默认的 terminal completion
   要求这一轮的 assistant 文本与音频 route 都正常关闭且不带任何内容，assistant 出现文本
   或音频即判失败；只想确认输入已经送出时改用 `completion: input_sent`。
+- `peer_stream.trim_trailing_silence: true` 只对带音频 `input` 的 `push-to-talk` 有效：
+  发送这一轮之前，runner 丢掉最后一个有声包（解码峰值约 -30 dBFS 及以上）之后的所有 Opus
+  包，让 EOS 紧跟最后一个字，对应设备在最后一个字说完时就松开按键的情况。否则合成音频的
+  结尾会带着衰减尾音和静音，而设备从不发送这些。它不能与 `empty_input` 或 `overlap_input`
+  组合；输入里没有有声包时该 step 失败。
 - `peer_stream.completion: input_sent` 只对 `push-to-talk` 与 `realtime` 有效：输入推送完成
   （push-to-talk 还包括 EOS）即完成，不等待自己的文本或音频下发，也没有 terminal label。它
   不能与 `first_text_timeout`、`first_audio_timeout`、`wait_for_history`、`require_text`、
