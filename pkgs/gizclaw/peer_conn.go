@@ -1417,17 +1417,20 @@ func (h *PeerConn) writeOpusPacket(packet []byte) error {
 }
 
 // peerConnAudioPacer keeps the device roughly peerConnPacingBufferTarget of
-// audio ahead of its playback clock. surplus is carried as state rather than
-// derived from a fixed origin: deriving it charged every idle wall-clock gap
-// between turns as a deficit the bounded per-packet recovery could never work
-// off, so from the second turn onward the pacer ran permanently at the minimum
-// period and delivered audio far ahead of real time.
+// audio ahead of its playback clock. surplus is the lead built into the absolute
+// schedule, not a measurement of the receiver's buffer. An overdue deadline is
+// retained so late timers and writes do not permanently shift the audio timeline.
 type peerConnAudioPacer struct {
 	next    time.Time
 	surplus time.Duration
 }
 
-func (p *peerConnAudioPacer) waitDuration(now time.Time) time.Duration {
+func (p *peerConnAudioPacer) waitDuration(now time.Time, idle time.Duration) time.Duration {
+	if idle > peerConnPacingBufferTarget {
+		// No tracks existed long enough to drain the target buffer. Start a
+		// new timeline instead of recovering silence between replies.
+		*p = peerConnAudioPacer{}
+	}
 	if p.next.IsZero() {
 		p.next = now
 		return 0
@@ -1436,21 +1439,11 @@ func (p *peerConnAudioPacer) waitDuration(now time.Time) time.Duration {
 	if deficit := peerConnPacingBufferTarget - p.surplus; deficit > 0 {
 		period -= min(deficit, peerConnPacingMaxRecoveryPerPkt)
 	}
-	// One frame of audio leaves in period of wall clock, so the client gains
-	// exactly the difference.
+	// Build the target lead gradually, then advance on the media clock even
+	// when processing or timer wakeups are late.
 	p.surplus += peerConnOpusFrameDuration - period
 	p.next = p.next.Add(period)
-	delay := p.next.Sub(now)
-	if delay < 0 {
-		// Send only the current overdue packet immediately. Rebase instead of
-		// bursting; later packets replenish the target at the bounded rate above.
-		// The client drained while this packet was overdue, but never past
-		// empty, so an idle gap between turns leaves nothing to work off.
-		p.surplus = max(0, p.surplus-now.Sub(p.next))
-		p.next = now
-		return 0
-	}
-	return delay
+	return max(0, p.next.Sub(now))
 }
 
 func (h *PeerConn) audioPacingWaiter() (func() bool, func()) {
@@ -1465,8 +1458,18 @@ func (h *PeerConn) audioPacingWaiter() (func() bool, func()) {
 		<-timer.C
 	}
 	pacer := peerConnAudioPacer{}
+	var previousIdle time.Duration
+	if h != nil && h.mixer != nil {
+		previousIdle = h.mixer.IdleDuration()
+	}
 	return func() bool {
-		delay := pacer.waitDuration(time.Now())
+		var idle time.Duration
+		if h != nil && h.mixer != nil {
+			totalIdle := h.mixer.IdleDuration()
+			idle = totalIdle - previousIdle
+			previousIdle = totalIdle
+		}
+		delay := pacer.waitDuration(time.Now(), idle)
 		if delay > 0 {
 			timer.Reset(delay)
 			<-timer.C

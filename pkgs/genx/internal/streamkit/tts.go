@@ -35,10 +35,11 @@ const (
 
 // TTSMeta is immutable input-route metadata supplied to a TTS synthesizer.
 type TTSMeta struct {
-	Role     genx.Role
-	Name     string
-	Label    string
-	StreamID string
+	Role         genx.Role
+	Name         string
+	Label        string
+	StreamID     string
+	SegmentIndex int // one-based within the input route
 }
 
 type ttsStreamState struct {
@@ -65,13 +66,15 @@ func (s *ttsStreamState) cancelPending() {
 // sentence had been generated. At most ttsLookahead+1 syntheses are in flight,
 // the one emitting and the ones synthesized ahead of it.
 type ttsSegmentEmitter struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-	slots  chan struct{}
-	queue  chan *ttsSegmentJob
-	done   chan struct{}
-	failed chan struct{}
-	err    error
+	ctx        context.Context
+	cancel     context.CancelFunc
+	slots      chan struct{}
+	queue      chan *ttsSegmentJob
+	done       chan struct{}
+	failed     chan struct{}
+	err        error
+	segmentErr error
+	emitted    bool
 }
 
 func newTTSSegmentEmitter(ctx context.Context, emit func([]byte) error) *ttsSegmentEmitter {
@@ -94,10 +97,23 @@ func (e *ttsSegmentEmitter) run(emit func([]byte) error) {
 		if e.err != nil || e.ctx.Err() != nil {
 			job.cancel()
 			<-job.done
-		} else if emitErr, synthErr := job.drain(emit); emitErr != nil {
+		} else if emitErr, synthErr := job.drain(func(data []byte) error {
+			err := emit(data)
+			if err == nil && len(data) > 0 {
+				e.emitted = true
+			}
+			return err
+		}); emitErr != nil {
 			e.fail(emitErr)
 		} else if synthErr != nil {
-			e.fail(genx.ClassifyFailure(synthErr, genx.FailureClassProvider))
+			var segmentErr *TTSSegmentError
+			if e.ctx.Err() == nil && errors.As(synthErr, &segmentErr) {
+				if e.segmentErr == nil {
+					e.segmentErr = genx.ClassifyFailure(synthErr, genx.FailureClassProvider)
+				}
+			} else {
+				e.fail(genx.ClassifyFailure(synthErr, genx.FailureClassProvider))
+			}
 		}
 		<-e.slots
 	}
@@ -137,6 +153,9 @@ func (e *ttsSegmentEmitter) finish() error {
 	close(e.queue)
 	<-e.done
 	e.cancel()
+	if e.err == nil && !e.emitted {
+		return e.segmentErr
+	}
 	return e.err
 }
 
@@ -252,6 +271,17 @@ func (j *ttsSegmentJob) drain(emit func([]byte) error) (error, error) {
 	return emitErr, <-j.done
 }
 
+// TTSSegmentError marks a provider failure confined to one text segment.
+// The provider must log it before returning. The pipeline keeps already emitted
+// audio and continues later segments. If the entire route emits no audio, it
+// ends with the first such error. Cancellation and emit errors must not use it.
+type TTSSegmentError struct {
+	Err error
+}
+
+func (e *TTSSegmentError) Error() string { return e.Err.Error() }
+func (e *TTSSegmentError) Unwrap() error { return e.Err }
+
 // TTSSynthesizer streams one text segment to a provider. emit accepts already
 // normalized container bytes and attaches canonical route metadata.
 type TTSSynthesizer func(context.Context, string, TTSMeta, string, func([]byte) error) error
@@ -314,6 +344,7 @@ func runTTS(invocation *Invocation, input genx.Stream, mimeType string, synthesi
 			if !hasReadableTTSSpokenText(segment) {
 				continue
 			}
+			state.meta.SegmentIndex++
 			debugTTSSegment(ctx, state.meta, segment, all)
 			if state.emitter == nil {
 				response := state.response

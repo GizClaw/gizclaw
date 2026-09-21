@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 )
@@ -87,6 +88,8 @@ type Mixer struct {
 
 	silenceGap     time.Duration
 	runningSilence time.Duration
+	idleDuration   atomic.Int64
+	idleStarted    time.Time // guarded by mu
 
 	trackNotify chan struct{}
 	writeNotify chan struct{}
@@ -121,6 +124,14 @@ func NewMixer(output Format, opts ...MixerOption) *Mixer {
 // Output returns the output format of the mixer.
 func (mx *Mixer) Output() Format {
 	return mx.output
+}
+
+// IdleDuration reports the cumulative time Read has spent waiting without any
+// tracks. It excludes silence produced by an existing track and is updated when
+// a track is created or Read exits. A paced consumer can use differences between
+// reads to distinguish idle time from delayed processing of an active stream.
+func (mx *Mixer) IdleDuration() time.Duration {
+	return time.Duration(mx.idleDuration.Load())
 }
 
 // TrackOption is an option for configuring a Track.
@@ -169,6 +180,7 @@ func (mx *Mixer) CreateTrack(opts ...TrackOption) (Track, *TrackCtrl, error) {
 		done:  make(chan struct{}),
 	}
 	mx.head = tc
+	mx.finishIdleLocked()
 	for _, opt := range opts {
 		opt.apply(tc)
 	}
@@ -365,6 +377,7 @@ func (mx *Mixer) readFull(p []byte) error {
 func (mx *Mixer) headTrackLocked() (head *TrackCtrl, silence bool, err error) {
 	for {
 		if mx.closeErr != nil {
+			mx.finishIdleLocked()
 			return nil, false, mx.closeErr
 		}
 
@@ -373,10 +386,12 @@ func (mx *Mixer) headTrackLocked() (head *TrackCtrl, silence bool, err error) {
 		}
 
 		if mx.closeWrite {
+			mx.finishIdleLocked()
 			return nil, false, io.EOF
 		}
 
 		if mx.autoClose {
+			mx.finishIdleLocked()
 			mx.closeWriteLocked()
 			return nil, false, io.EOF
 		}
@@ -385,12 +400,22 @@ func (mx *Mixer) headTrackLocked() (head *TrackCtrl, silence bool, err error) {
 			return nil, true, nil
 		}
 
+		if mx.idleStarted.IsZero() {
+			mx.idleStarted = time.Now()
+		}
 		mx.mu.Unlock()
 		select {
 		case <-mx.trackNotify:
 		case <-mx.done:
 		}
 		mx.mu.Lock()
+	}
+}
+
+func (mx *Mixer) finishIdleLocked() {
+	if !mx.idleStarted.IsZero() {
+		mx.idleDuration.Add(int64(time.Since(mx.idleStarted)))
+		mx.idleStarted = time.Time{}
 	}
 }
 

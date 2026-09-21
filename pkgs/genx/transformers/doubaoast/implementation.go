@@ -28,6 +28,12 @@ const (
 	doubaoASTTranslateAssistantLabel            = "assistant"
 	doubaoASTTranslatePTTOutputLimit            = 2 * time.Minute
 	doubaoASTTranslateRealtimeCompletionTimeout = 45 * time.Second
+	// doubaoASTTranslateTrailingSilence is appended when the client ends its
+	// audio route, before Finish. Outside zh/en, the provider drops the final
+	// sentence of audio that ends without a pause, which is how a device ends
+	// a turn when the key is released as the last word ends, in either input
+	// mode; 200 ms already recovers the sentence.
+	doubaoASTTranslateTrailingSilence = 500 * time.Millisecond
 
 	doubaoASTTranslateSourceSampleRate = 16000
 	doubaoASTTranslateSourceChannels   = 1
@@ -633,6 +639,9 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		}
 		if chunk.IsEndOfStream() {
 			if blob, ok := chunk.Part.(*genx.Blob); ok && isAudioMIME(blob.MIMEType) {
+				if session != nil {
+					t.sendTrailingSilence(ctx, session)
+				}
 				if sessionGate != nil {
 					if err := sessionGate.Commit(); err != nil {
 						if errors.Is(err, errDoubaoASTTranslatePTTOutputLimit) {
@@ -787,6 +796,21 @@ func (t *Transformer) prepareAudioBlob(blob *genx.Blob, rawOpusDecoder **opus.De
 
 func (t *Transformer) audioChunkSize() int {
 	return doubaoASTTranslateSourceSampleRate * doubaoASTTranslateSourceChannels * (doubaoASTTranslateSourceBits / 8) / 10
+}
+
+// sendTrailingSilence gives the provider the pause that ends the last sentence
+// of an audio route the client closed. It is sent at once, not paced: the
+// provider segments on the audio it receives, not on arrival time, so pacing
+// would only delay the reply. It is not user speech, so it stays out of the
+// history audio. A send failure stops the padding only: a session that already
+// ended reports its terminal state through Finish and the event stream.
+func (t *Transformer) sendTrailingSilence(ctx context.Context, session doubaoASTTranslateSession) {
+	silence := make([]byte, doubaoASTTranslateSourceSampleRate*doubaoASTTranslateSourceChannels*(doubaoASTTranslateSourceBits/8)*int(doubaoASTTranslateTrailingSilence/time.Millisecond)/1000)
+	for audio := range splitDoubaoASRAudio(silence, t.audioChunkSize()) {
+		if session.SendAudio(ctx, audio) != nil {
+			return
+		}
+	}
 }
 
 type astTranslateOutput interface {
@@ -1108,6 +1132,7 @@ func (t *Transformer) forwardEvents(
 	translation := astTranslateTextState{role: genx.RoleModel, label: doubaoASTTranslateAssistantLabel, streamID: streamID}
 	audio := astTranslateAudioState{streamID: streamID, mimeType: "audio/opus", decoder: newASTOggOpusFrameDecoder()}
 	segment := 0
+	translated := false
 	segmentByProvider := t.inputMode != InputModePushToTalk
 	ensureSegment := func() string {
 		if segment == 0 {
@@ -1188,6 +1213,7 @@ func (t *Transformer) forwardEvents(
 				}
 			}
 		case doubaospeech.ASTEventTranslationSubtitleStart:
+			translated = true
 			ensureSegment()
 			if err := translation.open(output); err != nil {
 				return failPTTGate(err)
@@ -1208,6 +1234,7 @@ func (t *Transformer) forwardEvents(
 				}
 			}
 		case doubaospeech.ASTEventTTSSentenceStart:
+			translated = true
 			ensureSegment()
 			if err := audio.open(output); err != nil {
 				return failPTTGate(err)
@@ -1237,6 +1264,14 @@ func (t *Transformer) forwardEvents(
 				if err := historyAudio.emitSegment(output, ensureSegment(), 0, 0); err != nil {
 					return failPTTGate(err)
 				}
+				if !translated {
+					// A push-to-talk turn the provider finished without any
+					// translation still ends: its routes close empty instead
+					// of leaving the turn open until the caller gives up.
+					if err := t.closeEmptyTranslation(output, &translation, &audio); err != nil {
+						return failPTTGate(err)
+					}
+				}
 			}
 			return nil
 		case doubaospeech.ASTEventSessionCanceled, doubaospeech.ASTEventSessionFailed:
@@ -1248,6 +1283,24 @@ func (t *Transformer) forwardEvents(
 		}
 	}
 	return fmt.Errorf("doubao ast translate session closed before SessionFinished: %w", io.ErrUnexpectedEOF)
+}
+
+// closeEmptyTranslation opens and normally closes the assistant routes a turn
+// would have carried: text always, and audio when the provider synthesizes it.
+func (t *Transformer) closeEmptyTranslation(output astTranslateOutput, translation *astTranslateTextState, audio *astTranslateAudioState) error {
+	if err := translation.open(output); err != nil {
+		return err
+	}
+	if err := translation.close(output, ""); err != nil {
+		return err
+	}
+	if t.mode != doubaospeech.ASTTranslateModeS2S {
+		return nil
+	}
+	if err := audio.open(output); err != nil {
+		return err
+	}
+	return audio.close(output, "")
 }
 
 func astTranslateSegmentStreamID(base string, segment int) string {

@@ -30,3 +30,7 @@ dock, err := audiodock.New(audiodock.Config{
 关闭输出会取消对应的 ASR、Agent 和 TTS 工作。被打断的 route 删除未 pull 的后缀，并在下一轮 input transcript 可见前为已声明的 MIME channel 发送带错误的 EOS。如果 TTS 已 pending、但尚未声明 audio MIME channel，Audio Dock 只补充 response-level interrupted EOS，不伪造 audio MIME lifecycle。Agent text EOS 之后，TTS completion 最长等待一分钟。Audio Dock 不执行 ToolCall，也不拥有 provider 协议。
 
 `Config.SpeakerVoices` 将说话人名字映射为 TTS mux pattern，使用 response 内的增量解析器剥离已配置的 `【名字】`。当前段与下一预取段最多同时启动两个 provider 会话，后续段等待前段完成；所有输出仍按段串行并共享最终 MIME 生命周期，因此所有段必须输出同一种音频 MIME：首段的音频 MIME 固定为该 response 的音频 MIME，后续段若不同，会以错误结束该 response 的音频与文字，而不是再开一条音频 MIME channel。调用方应为各段选择输出格式一致的 TTS pattern。未配置时继续按 publisher 解析 `ResolveVoice`。
+
+Seed V2 的可继续分段失败在 child TTS 内处理，Audio Dock 继续合并同一条 audio route，
+不为失败句子创建额外 EOS，也不重播音频。整条回复无音频的 provider 失败仍沿用既有
+error EOS；已经投递的回复文字保留。具体策略见 [Seed V2 分段失败](./transformers/doubao#seed-v2-分段失败)。

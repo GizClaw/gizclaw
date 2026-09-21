@@ -784,6 +784,14 @@ conventions:
   turn's assistant text and audio routes to close normally and carry no
   content; any assistant text or audio fails the step. Use
   `completion: input_sent` when only the delivery of the input matters.
+- `peer_stream.trim_trailing_silence: true` is valid for `push-to-talk` with
+  audio `input` only: before the turn is sent, the runner drops every Opus
+  packet after the last voiced one (decoded peak of about -30 dBFS or more),
+  so the EOS follows the last word the way a device ends a turn when the key
+  is released as the word ends. Synthesized input otherwise ends with a
+  decaying tail and silence that a device never sends. It cannot be combined
+  with `empty_input` or `overlap_input`, and input without a voiced packet
+  fails the step.
 - `peer_stream.completion: input_sent` is valid for `push-to-talk` and
   `realtime`: the step completes once the input is fully pushed (including the
   EOS for push-to-talk) without waiting for its own text or audio output and
@@ -1102,6 +1110,20 @@ Provider-backed transformer coverage uses one complete credential inventory:
 cp tests/genx-e2e/.env.example tests/genx-e2e/.env
 bash tests/genx-e2e/run_tests.sh
 ```
+
+For focused live-provider validation of the Seed V2 SDK or adapter, use the fixed entrypoint:
+
+```sh
+bash tests/genx-e2e/run_seed_v2_tests.sh
+```
+
+Run it on a trusted development host or protected runner with Doubao Speech access and the
+same complete credential inventory. It runs normal Seed V2 synthesis and repeated interruption
+with `-race -count=1`, checking real audio BOS/data/EOS, replacement-route ordering after two
+interruptions, and clean completion of the final turn. Credential, provider, network, timeout,
+and race errors fail the command; arguments and environment variables cannot change test
+selection. Deterministic truncation, empty audio, and structured error fields remain covered
+by the `doubaotts` fake-server regressions.
 
 The MiniMax API key must be paired with the voice base URL for the same region;
 the runner does not substitute a default region when

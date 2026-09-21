@@ -656,6 +656,11 @@ SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而�
   `interrupt_after` 或 `completion: first_response` 组合。默认的 terminal completion
   要求这一轮的 assistant 文本与音频 route 都正常关闭且不带任何内容，assistant 出现文本
   或音频即判失败；只想确认输入已经送出时改用 `completion: input_sent`。
+- `peer_stream.trim_trailing_silence: true` 只对带音频 `input` 的 `push-to-talk` 有效：
+  发送这一轮之前，runner 丢掉最后一个有声包（解码峰值约 -30 dBFS 及以上）之后的所有 Opus
+  包，让 EOS 紧跟最后一个字，对应设备在最后一个字说完时就松开按键的情况。否则合成音频的
+  结尾会带着衰减尾音和静音，而设备从不发送这些。它不能与 `empty_input` 或 `overlap_input`
+  组合；输入里没有有声包时该 step 失败。
 - `peer_stream.completion: input_sent` 只对 `push-to-talk` 与 `realtime` 有效：输入推送完成
   （push-to-talk 还包括 EOS）即完成，不等待自己的文本或音频下发，也没有 terminal label。它
   不能与 `first_text_timeout`、`first_audio_timeout`、`wait_for_history`、`require_text`、
@@ -920,6 +925,18 @@ Provider-backed transformer coverage 使用一份完整 credential inventory：
 cp tests/genx-e2e/.env.example tests/genx-e2e/.env
 bash tests/genx-e2e/run_tests.sh
 ```
+
+Seed V2 SDK 或 Adapter 的定向真实 provider 验证使用固定入口：
+
+```sh
+bash tests/genx-e2e/run_seed_v2_tests.sh
+```
+
+该入口在可访问 Doubao Speech 的受信任开发机或受保护 runner 上运行，仍要求上述完整
+credential inventory。它固定以 `-race -count=1` 运行正常 Seed V2 合成和连续中断测试，
+验证真实音频 BOS/data/EOS、两次中断后的替换 route 顺序和最后一轮正常关闭。凭据、
+provider、网络、timeout 或 race 错误均使命令失败；测试选择不能通过参数或环境变量改变。
+确定性截断、空音频和结构化错误字段继续由 `doubaotts` 的 fake-server 回归覆盖。
 
 MiniMax 的 API key 必须与同一区域的 voice base URL 成对配置；runner 不会用默认区域
 替代缺失的 `GIZCLAW_GENX_E2E_MINIMAX_BASE_URL`。

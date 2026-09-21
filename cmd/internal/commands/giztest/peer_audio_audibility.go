@@ -1,6 +1,7 @@
 package giztestcmd
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -112,6 +113,39 @@ func (a *peerAudioAudibility) Close() {
 		_ = decoder.Close()
 		delete(a.decoders, streamID)
 	}
+}
+
+// peerInputSpeechPeak is the decoded sample peak, about -30 dBFS, that marks a
+// voiced input frame. Trimming keeps nothing after the last such frame, so the
+// decay a synthesized sentence ends with is cut the way a device cuts it when
+// the key is released as the last word ends. The audibility threshold would
+// keep that decay, and a provider that detects the end of speech treats even
+// 40 ms of it as a pause.
+const peerInputSpeechPeak = 1024
+
+// trimTrailingSilentOpusPackets drops the packets after the last voiced one.
+// Opus decoding carries state, so every packet is decoded in order. Input
+// without a voiced packet is rejected: trimming it would leave nothing to send.
+func trimTrailingSilentOpusPackets(packets [][]byte) ([][]byte, error) {
+	decoder, err := opus.NewDecoder(peerAudioDecodeRate, 1)
+	if err != nil {
+		return nil, fmt.Errorf("create Opus decoder: %w", err)
+	}
+	defer func() { _ = decoder.Close() }()
+	last := -1
+	for index, packet := range packets {
+		peak, ok := peerAudioPacketPeak(decoder, packet)
+		if !ok {
+			return nil, fmt.Errorf("decode Opus input packet %d", index)
+		}
+		if peak >= peerInputSpeechPeak {
+			last = index
+		}
+	}
+	if last < 0 {
+		return nil, fmt.Errorf("Opus input has no voiced packet to keep")
+	}
+	return packets[:last+1], nil
 }
 
 // peerAudioPacketPeak decodes packet and returns its peak sample magnitude.
