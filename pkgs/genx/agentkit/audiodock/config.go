@@ -5,12 +5,9 @@ import (
 	"fmt"
 	"maps"
 	"strings"
-	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
-
-const defaultTTSCompletionTimeout = time.Minute
 
 // VoiceRequest describes one model output route presented to VoiceResolver.
 // Chunk is a defensive copy of the first text-bearing chunk for the route.
@@ -38,9 +35,6 @@ type Config struct {
 	ResolveVoice VoiceResolver
 	// SpeakerVoices maps recognized speaker names to TTS mux patterns.
 	SpeakerVoices map[string]string
-	// TTSCompletionTimeout bounds the time between the Agent's text EOS and
-	// completion of every TTS pipe for that response. Zero uses one minute.
-	TTSCompletionTimeout time.Duration
 }
 
 func normalizeConfig(config Config) (Config, error) {
@@ -58,9 +52,6 @@ func normalizeConfig(config Config) (Config, error) {
 		if strings.TrimSpace(name) == "" || strings.ContainsAny(name, "【】") || strings.TrimSpace(pattern) == "" {
 			return Config{}, fmt.Errorf("audiodock: invalid speaker voice %q", name)
 		}
-	}
-	if config.TTSCompletionTimeout <= 0 {
-		config.TTSCompletionTimeout = defaultTTSCompletionTimeout
 	}
 	return config, nil
 }

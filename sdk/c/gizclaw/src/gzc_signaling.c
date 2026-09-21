@@ -1,5 +1,7 @@
 #include "gzc_signaling.h"
 
+#include <pb_encode.h>
+
 #include <stdio.h>
 #include <string.h>
 
@@ -173,11 +175,59 @@ void gzc_signaling_exchange_free(gzc_signaling_exchange_t *exchange, const gzc_p
   memset(exchange, 0, sizeof(*exchange));
 }
 
+int gzc_signaling_encode_admission_credential(
+    const giznet_v1_AdmissionCredential *credential,
+    uint8_t *out, size_t out_cap, size_t *out_len) {
+  if (out_len == NULL || (out == NULL && out_cap != 0u)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  *out_len = 0;
+  if (credential == NULL) {
+    return GZC_OK;
+  }
+  size_t encoded_size = 0;
+  if (!pb_get_encoded_size(&encoded_size, giznet_v1_AdmissionCredential_fields, credential) ||
+      encoded_size == 0u || encoded_size > GZC_SIGNALING_MAX_CREDENTIAL_BYTES) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  if (out == NULL) {
+    *out_len = encoded_size;
+    return GZC_OK;
+  }
+  if (encoded_size > out_cap) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  pb_ostream_t stream = pb_ostream_from_buffer(out, out_cap);
+  if (!pb_encode(&stream, giznet_v1_AdmissionCredential_fields, credential)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  *out_len = stream.bytes_written;
+  return GZC_OK;
+}
+
 int gzc_signaling_build_offer_request(
     const gzc_signaling_config_t *config,
     gzc_str_t offer_sdp,
     gzc_signaling_exchange_t *exchange,
     gzc_http_request_t *out_request) {
+  return gzc_signaling_build_offer_request_with_credential(
+      config, offer_sdp, NULL, exchange, out_request);
+}
+
+int gzc_signaling_build_offer_request_with_credential(
+    const gzc_signaling_config_t *config,
+    gzc_str_t offer_sdp,
+    const giznet_v1_AdmissionCredential *credential,
+    gzc_signaling_exchange_t *exchange,
+    gzc_http_request_t *out_request) {
+  if (offer_sdp.len > GZC_SIGNALING_MAX_OFFER_SDP_BYTES) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  size_t credential_len = 0;
+  if (gzc_signaling_encode_admission_credential(credential, NULL, 0, &credential_len) != GZC_OK ||
+      (credential != NULL && config != NULL && config->cipher_mode == GZC_CIPHER_PLAINTEXT)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
   if (config == NULL || config->platform == NULL || config->crypto == NULL || exchange == NULL ||
       out_request == NULL || config->signaling_url.data == NULL || offer_sdp.data == NULL ||
       config->crypto->keypair_from_private == NULL || config->crypto->dh == NULL || config->crypto->hkdf_sha256 == NULL ||
@@ -229,6 +279,39 @@ int gzc_signaling_build_offer_request(
     return rc;
   }
 
+  gzc_buf_t envelope;
+  gzc_buf_init(&envelope);
+  const uint8_t *plaintext = (const uint8_t *)offer_sdp.data;
+  size_t plaintext_len = offer_sdp.len;
+  if (credential_len != 0u) {
+    if (offer_sdp.len >= SIZE_MAX - 7u - credential_len) {
+      return GZC_ERR_INVALID_ARGUMENT;
+    }
+    const uint8_t header[] = {0x47, 0x5a, 0x4f, 0x46, 1,
+                              (uint8_t)(credential_len >> 8), (uint8_t)credential_len};
+    rc = gzc_buf_append(&envelope, config->platform, header, sizeof(header));
+    if (rc == GZC_OK) {
+      rc = gzc_buf_reserve(&envelope, config->platform, envelope.len + credential_len + 1u);
+    }
+    if (rc == GZC_OK) {
+      size_t written = 0;
+      rc = gzc_signaling_encode_admission_credential(
+          credential, envelope.data + envelope.len, credential_len, &written);
+      if (rc == GZC_OK) {
+        envelope.len += written;
+        envelope.data[envelope.len] = 0;
+      }
+    }
+    if (rc == GZC_OK) {
+      rc = gzc_buf_append(&envelope, config->platform, offer_sdp.data, offer_sdp.len);
+    }
+    if (rc != GZC_OK) {
+      gzc_buf_free(&envelope, config->platform);
+      return rc;
+    }
+    plaintext = envelope.data;
+    plaintext_len = envelope.len;
+  }
   gzc_buf_t aad;
   gzc_buf_init(&aad);
   rc = build_aad(config->platform, exchange->public_key_text, exchange->timestamp, exchange->nonce_text, false, &aad);
@@ -240,12 +323,13 @@ int gzc_signaling_build_offer_request(
         sizeof(request_key),
         request_nonce,
         sizeof(request_nonce),
-        (const uint8_t *)offer_sdp.data,
-        offer_sdp.len,
+        plaintext,
+        plaintext_len,
         aad.data,
         aad.len,
         &exchange->body);
   }
+  gzc_buf_free(&envelope, config->platform);
   gzc_buf_free(&aad, config->platform);
   if (rc != GZC_OK) {
     return rc;

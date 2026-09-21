@@ -893,13 +893,14 @@ func (b DefaultBuilder) buildVolcASTTranslate(cfg TransformerConfig) (genx.Trans
 	if value, ok := mapBool(data, "realtime_pacing", "realtimePacing"); ok {
 		config.RealtimePacing = &value
 	}
-	if value := mapString(data, "input", "input_mode"); value != "" {
-		inputMode, err := doubaoASTTranslateInputMode(value)
-		if err != nil {
-			return nil, err
-		}
-		config.InputMode = inputMode
+	// An unset input is push-to-talk, as for every other Workspace input, not
+	// the Transformer's realtime default: a turn closed by its audio EOS must
+	// get push-to-talk completion.
+	inputMode, err := doubaoASTTranslateInputMode(mapString(data, "input", "input_mode"))
+	if err != nil {
+		return nil, err
 	}
+	config.InputMode = inputMode
 	client := doubaospeech.NewClient(appID, clientOpts...)
 	config.Client = client
 	return doubaoast.New(config)

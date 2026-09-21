@@ -25,7 +25,7 @@ type rpcPeerService interface {
 	GetSelfInfo(context.Context, giznet.PublicKey) (apitypes.DeviceInfo, error)
 	PutSelfInfo(context.Context, giznet.PublicKey, apitypes.DeviceInfo) (apitypes.DeviceInfo, error)
 	GetSelfRuntime(context.Context, giznet.PublicKey) apitypes.Runtime
-	BindFirmware(context.Context, giznet.PublicKey, string) (apitypes.Peer, error)
+	LoadPeer(context.Context, giznet.PublicKey) (apitypes.Peer, error)
 	DeleteSelf(context.Context, giznet.PublicKey) error
 }
 
@@ -221,27 +221,20 @@ func (s *rpcServer) handleRegister(ctx context.Context, req *rpcapi.RPCRequest) 
 	if registration.FirmwareID != nil && s.peer == nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer service not configured"}.RPCResponse(), nil
 	}
-	var firmwareBindingErr error
-	err = s.registrations.BindOwnerProfileAndCommit(ctx, s.callerPublicKey.String(), registration.RuntimeProfile.Id, func() error {
-		if registration.FirmwareID != nil {
-			_, firmwareBindingErr = s.peer.BindFirmware(ctx, s.callerPublicKey, *registration.FirmwareID)
-			if firmwareBindingErr != nil {
-				return firmwareBindingErr
-			}
+	if registration.FirmwareID != nil {
+		if _, err := s.peer.LoadPeer(ctx, s.callerPublicKey); err != nil {
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "registration failed"}.RPCResponse(), nil
 		}
-		if s.onRegistration != nil {
-			s.onRegistration(registration)
-		}
-		return nil
-	})
+	}
+	registration, err = s.registrations.RegisterOwner(ctx, s.callerPublicKey.String(), params.Token, s.onRegistration)
 	if err != nil {
-		message := "device RuntimeProfile owner binding failed"
-		if firmwareBindingErr != nil {
-			message = "device firmware binding failed"
+		if errors.Is(err, runtimeprofile.ErrRegistrationDenied) || errors.Is(err, sql.ErrNoRows) {
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodePermissionDenied, Message: "registration token does not permit a new activation"}.RPCResponse(), nil
 		}
-		slog.WarnContext(ctx, message, "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "error", err)
+		slog.WarnContext(ctx, "device registration transaction failed", "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "error", err)
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "registration failed"}.RPCResponse(), nil
 	}
+
 	slog.InfoContext(ctx, "device registration accepted", "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "registration_token", registration.TokenID, "runtime_profile", registration.RuntimeProfile.Id)
 	response := rpcapi.ServerRegisterResponse{RuntimeProfileName: registration.RuntimeProfile.Id}
 	return newRPCResultResponse(req.Id, response, (*rpcapi.RPCPayload).FromServerRegisterResponse)

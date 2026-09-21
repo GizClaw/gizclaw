@@ -332,7 +332,7 @@ func TestWebRTCListenConfigKeepsDefaultPolicyWithSTUNOnlyICEServers(t *testing.T
 
 type testSecurityPolicy struct{}
 
-func (testSecurityPolicy) AllowPeer(giznet.PublicKey) bool {
+func (testSecurityPolicy) AllowPeer(context.Context, giznet.PeerAdmission) bool {
 	return true
 }
 

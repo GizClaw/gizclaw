@@ -51,10 +51,30 @@ import {
 } from "./generated/rpc/payload-codec.ts";
 import {
   base58Decode,
+  encodeAdmissionCredential,
+  type AdmissionCredential,
   prepareEncryptedGiznetWebRTCOffer,
 } from "./signaling.ts";
 import { encodeTelemetryPacket, type TelemetryFrame } from "./telemetry.ts";
 export * from "./telemetry.ts";
+export type { AdmissionCredential } from "./signaling.ts";
+
+/** Namespaced type owned by the GizClaw registration-token policy. */
+export const REGISTRATION_TOKEN_CREDENTIAL_TYPE =
+  "gizclaw.com/registration_token";
+
+/** Constructs a credential, rejecting values exceeding 512 UTF-8 bytes. */
+export function registrationTokenCredential(
+  value: string,
+): AdmissionCredential {
+  const credential = {
+    version: 1,
+    type: REGISTRATION_TOKEN_CREDENTIAL_TYPE,
+    value,
+  };
+  encodeAdmissionCredential(credential);
+  return credential;
+}
 
 export const WEBRTC_RPC_DATA_CHANNEL_LABEL = "rpc";
 export const WEBRTC_EVENT_DATA_CHANNEL_LABEL = "event";
@@ -412,6 +432,8 @@ export type ConnectGiznetWebRTCFromEndpointOptions = Omit<
   "prepareOffer" | "sendOffer"
 > & {
   baseUrl?: string;
+  /** Structured admission credential, sealed inside the offer; at most 4096 encoded bytes. */
+  credential?: AdmissionCredential;
   clientPrivateKey: Uint8Array;
   clientPublicKey?: Uint8Array | string;
   endpoint?: string;
@@ -1392,6 +1414,12 @@ export async function connectGiznetWebRTC(
 export async function connectGiznetWebRTCFromEndpoint(
   options: ConnectGiznetWebRTCFromEndpointOptions,
 ): Promise<RTCPeerConnection> {
+  try {
+    encodeAdmissionCredential(options.credential);
+  } catch (error) {
+    options.pc.close();
+    throw error;
+  }
   const serverInfo = await fetchGiznetServerInfo(options);
   const transport = serverInfo.transport;
   const signalingPath = normalizeServerInfoSignalingPath(
@@ -1411,6 +1439,7 @@ export async function connectGiznetWebRTCFromEndpoint(
           serverPublicKey: transport?.public_key ?? serverInfo.public_key,
         },
         offerSDP,
+        options.credential,
       );
       return {
         ...prepared,

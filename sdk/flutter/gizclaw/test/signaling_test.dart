@@ -2,11 +2,12 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
-import 'package:gizclaw/src/signaling.dart';
+import 'package:gizclaw/gizclaw.dart';
 import 'package:test/test.dart';
 
 void main() {
   transportTests();
+  admissionTests();
   test('validates server-info payloads', () {
     final publicKey = base58Encode(List<int>.filled(32, 7));
     final info = GiznetServerInfo.fromJson({
@@ -255,5 +256,145 @@ void transportTests() {
         throwsFormatException,
       );
     });
+  });
+}
+
+void admissionTests() {
+  test('encrypted admission wire vector and legacy SDP', () async {
+    final serverKey = await X25519().newKeyPairFromSeed(
+      List<int>.filled(32, 2),
+    );
+    final serverPublicKey = await serverKey.extractPublicKey();
+    final identity = GiznetSignalingIdentity(
+      clientPrivateKey: List<int>.filled(32, 1),
+      serverPublicKey: serverPublicKey.bytes,
+    );
+    for (final credential in <AdmissionCredential?>[
+      null,
+      registrationTokenCredential('token'),
+      AdmissionCredential(version: 1, type: 'x', value: 'x' * 512),
+    ]) {
+      final prepared = await prepareEncryptedGiznetWebRtcOffer(
+        identity,
+        'v=0\r\n',
+        credential: credential,
+      );
+      final shared = await X25519().sharedSecretKey(
+        keyPair: serverKey,
+        remotePublicKey: SimplePublicKey(
+          base58Decode(prepared.clientPublicKey),
+          type: KeyPairType.x25519,
+        ),
+      );
+      final salt = [
+        ...base64UrlDecodeNoPadding(prepared.nonce),
+        ...utf8.encode(prepared.timestamp.toString()),
+      ];
+      final key = await Hkdf(hmac: Hmac.sha256(), outputLength: 32).deriveKey(
+        secretKey: shared,
+        nonce: salt,
+        info: utf8.encode('giznet/gizwebrtc/http-signaling/v1 c2s'),
+      );
+      final nonce = await Hkdf(hmac: Hmac.sha256(), outputLength: 12).deriveKey(
+        secretKey: shared,
+        nonce: salt,
+        info: utf8.encode('giznet/gizwebrtc/http-signaling/v1 c2s nonce'),
+      );
+      final cipher = Chacha20.poly1305Aead();
+      final plain = await cipher.decrypt(
+        SecretBox(
+          prepared.body.sublist(0, prepared.body.length - 16),
+          nonce: nonce.bytes,
+          mac: Mac(prepared.body.sublist(prepared.body.length - 16)),
+        ),
+        secretKey: key,
+        aad: signalingAad(
+          base58Decode(prepared.clientPublicKey),
+          prepared.timestamp,
+          prepared.nonce,
+        ),
+      );
+      if (credential == null) {
+        expect(utf8.decode(plain), 'v=0\r\n');
+      } else if (credential.value == 'token') {
+        expect(
+          plain.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join(),
+          '475a4f460100290801121e67697a636c61772e636f6d2f726567697374726174696f6e5f746f6b656e1a05746f6b656e763d300d0a',
+        );
+      } else {
+        expect(plain.sublist(0, 7), [0x47, 0x5a, 0x4f, 0x46, 1, 2, 8]);
+        expect(plain.sublist(7, 527), encodeAdmissionCredential(credential));
+      }
+    }
+    await expectLater(
+      prepareEncryptedGiznetWebRtcOffer(
+        identity,
+        'v=0',
+        credential: AdmissionCredential(
+          version: 1,
+          type: 'example.com/test',
+          value: 'x' * 513,
+        ),
+      ),
+      throwsArgumentError,
+    );
+  });
+  test('generated credential encodings match Go, JS and nanopb', () {
+    final vectors = [
+      (
+        registrationTokenCredential('token'),
+        '0801121e67697a636c61772e636f6d2f726567697374726174696f6e5f746f6b656e1a05746f6b656e',
+      ),
+      (
+        AdmissionCredential(version: 2, type: 'custom', value: '令牌'),
+        '08021206637573746f6d1a06e4bba4e7898c',
+      ),
+      (AdmissionCredential(version: 0, type: 'x', value: ''), '120178'),
+    ];
+    for (final (credential, hex) in vectors) {
+      expect(
+        encodeAdmissionCredential(
+          credential,
+        )!.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join(),
+        hex,
+      );
+    }
+    for (final credential in [
+      AdmissionCredential(),
+      AdmissionCredential(version: 0, type: '', value: ''),
+      AdmissionCredential(version: 1, type: 'x', value: 'x' * 513),
+      AdmissionCredential(version: 1, type: 'x' * 129),
+      AdmissionCredential(version: 1, type: '令' * 43),
+    ]) {
+      expect(() => encodeAdmissionCredential(credential), throwsArgumentError);
+    }
+  });
+  test('registration token helper validates UTF-8 bytes at construction', () {
+    for (final value in ['x' * 512, 'é' * 256]) {
+      expect(registrationTokenCredential(value).value, value);
+      expect(
+        () => registrationTokenCredential('${value}x'),
+        throwsArgumentError,
+      );
+    }
+  });
+
+  test('oversized SDP is rejected before envelope allocation', () async {
+    final identity = GiznetSignalingIdentity(
+      clientPrivateKey: Uint8List.fromList(List.filled(32, 1)),
+      serverPublicKey: Uint8List.fromList(List.filled(32, 2)),
+    );
+    for (final credential in [null, registrationTokenCredential('token')]) {
+      for (final sdp in ['x' * (giznetMaxOfferSdpBytes + 1), 'é' * 129013]) {
+        await expectLater(
+          prepareEncryptedGiznetWebRtcOffer(
+            identity,
+            sdp,
+            credential: credential,
+          ),
+          throwsArgumentError,
+        );
+      }
+    }
   });
 }

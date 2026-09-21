@@ -73,6 +73,7 @@ struct gzc_client {
   gzc_service_channel_t *event_channel;
   gzc_event_stream_t *event_handle;
   gzc_public_key_t server_public_key;
+  gzc_buf_t admission_credential;
   gzc_buf_t local_sdp;
   gzc_buf_t packet_rx;
   gzc_opus_rx_slot_t *opus_rx;
@@ -1533,6 +1534,49 @@ int gzc_client_set_peer_add_ice_server(gzc_client_t *client, gzc_peer_add_ice_se
   return GZC_OK;
 }
 
+int gzc_registration_token_credential(gzc_str_t token, giznet_v1_AdmissionCredential *out) {
+  if (out == NULL || (token.data == NULL && token.len != 0u) ||
+      token.len >= sizeof(out->value) ||
+      (token.len != 0u && memchr(token.data, '\0', token.len) != NULL)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  giznet_v1_AdmissionCredential credential = giznet_v1_AdmissionCredential_init_zero;
+  credential.version = 1;
+  strcpy(credential.type, GZC_REGISTRATION_TOKEN_CREDENTIAL_TYPE);
+  if (token.len != 0u) {
+    memcpy(credential.value, token.data, token.len);
+  }
+  size_t encoded_len = 0;
+  int rc = gzc_signaling_encode_admission_credential(&credential, NULL, 0, &encoded_len);
+  if (rc == GZC_OK) {
+    *out = credential;
+  }
+  return rc;
+}
+
+int gzc_client_set_admission_credential(
+    gzc_client_t *client, const giznet_v1_AdmissionCredential *credential) {
+  if (client == NULL || client->closed || client->peer != NULL ||
+      (credential != NULL && client->config.cipher_mode == GZC_CIPHER_PLAINTEXT)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  size_t encoded_len = 0;
+  int rc = gzc_signaling_encode_admission_credential(credential, NULL, 0, &encoded_len);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  gzc_buf_t replacement;
+  gzc_buf_init(&replacement);
+  rc = credential == NULL ? GZC_OK : gzc_buf_append(&replacement, client->config.platform, credential, sizeof(*credential));
+  if (rc != GZC_OK) {
+    gzc_buf_free(&replacement, client->config.platform);
+    return rc;
+  }
+  gzc_buf_free(&client->admission_credential, client->config.platform);
+  client->admission_credential = replacement;
+  return GZC_OK;
+}
+
 int gzc_client_set_opus_rx_capacity(
     gzc_client_t *client,
     size_t capacity) {
@@ -1663,9 +1707,10 @@ int gzc_client_connect(gzc_client_t *client) {
   gzc_signaling_exchange_t exchange;
   memset(&exchange, 0, sizeof(exchange));
   gzc_http_request_t request;
-  rc = gzc_signaling_build_offer_request(
+  rc = gzc_signaling_build_offer_request_with_credential(
       &signaling,
       gzc_str_from_parts((const char *)client->local_sdp.data, client->local_sdp.len),
+      (const giznet_v1_AdmissionCredential *)client->admission_credential.data,
       &exchange,
       &request);
   if (rc != GZC_OK) {
@@ -1952,6 +1997,7 @@ void gzc_client_destroy(gzc_client_t *client) {
   }
   const gzc_platform_t *platform = client->config.platform == NULL ? gzc_default_platform() : client->config.platform;
   (void)gzc_client_close(client);
+  gzc_buf_free(&client->admission_credential, platform);
   gzc_buf_free(&client->local_sdp, platform);
   gzc_buf_free(&client->packet_rx, platform);
   if (client->opus_rx != NULL) {

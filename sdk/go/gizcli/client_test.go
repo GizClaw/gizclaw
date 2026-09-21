@@ -450,7 +450,7 @@ func TestClientPingFailureIncludesPreCloseDataChannelDiagnostics(t *testing.T) {
 }
 
 func TestClientSecurityPolicyAllowsExpectedPeerAndService(t *testing.T) {
-	if !(clientSecurityPolicy{}).AllowPeer(giznet.PublicKey{}) {
+	if !(clientSecurityPolicy{}).AllowPeer(t.Context(), giznet.PeerAdmission{}) {
 		t.Fatal("AllowPeer() = false, want true")
 	}
 	if !(clientSecurityPolicy{}).AllowService(giznet.PublicKey{}, ServicePeerRPC) {

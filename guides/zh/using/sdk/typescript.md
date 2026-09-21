@@ -7,7 +7,7 @@ GizClaw 提供两个 npm package，按角色划分，都作为 `v*` GitHub Relea
 | `@gizclaw/gizclaw` | `sdk/js/gizclaw` | 设备端：让 Browser/Node 作为 GizClaw 设备/Peer 接入，含 Admin HTTP、RPC、signaling 与 Telemetry | encrypted `/webrtc/v1/offer` signaling 与 WebRTC DataChannel |
 | `@gizclaw/gizclaw-control` | `sdk/js/gizclaw-control` | 控制端：用 [API Key](../api-keys) 读取并控制绑定的设备 | HTTPS `/gizclaw/v1/*` |
 
-`@gizclaw/gizclaw` 与 C SDK 的 `sdk/c/gizclaw` 对应同一侧能力。设备端 client 初始化、运行时要求与 RPC 调用的说明仍待补充；本页当前只覆盖 `@gizclaw/gizclaw-control`。
+`@gizclaw/gizclaw` 与 C SDK 的 `sdk/c/gizclaw` 对应同一侧能力。设备端 client 初始化、运行时要求与 RPC 调用的说明仍待补充；本页覆盖 `@gizclaw/gizclaw-control` 与设备端握手准入凭证。
 
 ## 安装 `@gizclaw/gizclaw-control`
 
@@ -87,3 +87,19 @@ try {
   }
 }
 ```
+
+## 设备握手准入
+
+`connectGiznetWebRTCFromEndpoint({ ..., credential })` 与低层
+`prepareEncryptedGiznetWebRTCOffer(identity, offerSDP, credential)` 接收
+`AdmissionCredential` 对象：`{ version, type, value }`。SDK 使用生成的 protobuf-es codec
+编码后放入 AEAD 信封；giznet transport 不解释字段含义。省略 credential 保留裸 SDP。
+字段与总编码长度上限见 [Giznet](../../developing/giznet#signaling-准入凭证)。
+
+GizClaw package 导出 `registrationTokenCredential(registrationToken)`，生成
+`{ version: 1, type: "gizclaw.com/registration_token", value: registrationToken }`；可直接作为
+connection options 的 `credential`。握手通过后仍需调用 `server.register` 完成产品绑定。
+超限或空编码结构在请求 server-info 或创建 offer 之前被拒绝，并关闭此次 PeerConnection。
+运营方配置见 [Security Policy](../../developing/gizclaw/server/security-policy)。
+
+内置 type 由导出常量 `REGISTRATION_TOKEN_CREDENTIAL_TYPE` 定义，helper 引用该常量。value 最多 512 个 UTF-8 字节；超限在 helper 构造时返回错误或抛出异常。自定义 policy 应使用自己的域名前缀，内置类型保留 `gizclaw.com/` 前缀。

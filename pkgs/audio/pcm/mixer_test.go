@@ -9,6 +9,7 @@ import (
 	"math"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -62,6 +63,56 @@ func TestMixerReadEmptyBuffer(t *testing.T) {
 	if n != 0 {
 		t.Fatalf("Read(nil) n=%d, want 0", n)
 	}
+}
+
+func TestMixerIdleDurationSeparatesNoTracksFromActiveSilence(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		mx := NewMixer(L16Mono16K)
+		defer mx.Close()
+		read := func() <-chan error {
+			done := make(chan error, 1)
+			go func() {
+				_, err := L16Mono16K.ReadChunk(mx, 20*time.Millisecond)
+				done <- err
+			}()
+			return done
+		}
+		done := read()
+		synctest.Wait()
+		time.Sleep(time.Second)
+		_, ctrl, err := mx.CreateTrack()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := <-done; err != nil {
+			t.Fatal(err)
+		}
+		if got := mx.IdleDuration(); got != time.Second {
+			t.Fatalf("no-track idle = %s, want 1s", got)
+		}
+		time.Sleep(time.Second)
+		if err := <-read(); err != nil {
+			t.Fatal(err)
+		}
+		if got := mx.IdleDuration(); got != time.Second {
+			t.Fatalf("active silence changed idle duration to %s", got)
+		}
+		if err := ctrl.CloseWrite(); err != nil {
+			t.Fatal(err)
+		}
+		done = read()
+		synctest.Wait()
+		time.Sleep(2 * time.Second)
+		if _, _, err := mx.CreateTrack(); err != nil {
+			t.Fatal(err)
+		}
+		if err := <-done; err != nil {
+			t.Fatal(err)
+		}
+		if got := mx.IdleDuration(); got != 3*time.Second {
+			t.Fatalf("cumulative no-track idle = %s, want 3s", got)
+		}
+	})
 }
 
 func TestMixerReadOddBufferReturnsAlignedLength(t *testing.T) {

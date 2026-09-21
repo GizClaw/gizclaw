@@ -50,3 +50,5 @@ shared/ ← resources/ ← shared.json ← admin.json
 ```
 
 Resource-specific Spec and Resource are placed in the same file; the Admin API should not load the entire Resource graph indirectly through `shared.json`.
+
+RegistrationToken create/put accepts enabled (default true), nullable expires_at and max_activations; responses include activation_count. Edits restrict new activations while retaining device bindings. See [RuntimeProfile and registration](../../gizclaw/services/runtime-profile#registrationtoken) for transactions, migration, and idempotence.

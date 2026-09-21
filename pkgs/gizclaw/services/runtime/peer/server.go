@@ -61,6 +61,8 @@ type Server struct {
 	ICEServers      []gizwebrtc.ICEServer
 	PeerManager     PeerManager
 	IconLocks       iconasset.Locker
+	// RegistrationFirmware projects the SQL registration binding over legacy Peer data.
+	RegistrationFirmware func(context.Context, string) (*string, error)
 }
 
 type PeerAdminService interface {

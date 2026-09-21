@@ -146,7 +146,7 @@ gateway:
 
 type allowAllEdgeGatewayPolicy struct{}
 
-func (allowAllEdgeGatewayPolicy) AllowPeer(giznet.PublicKey) bool { return true }
+func (allowAllEdgeGatewayPolicy) AllowPeer(context.Context, giznet.PeerAdmission) bool { return true }
 func (allowAllEdgeGatewayPolicy) AllowService(giznet.PublicKey, uint64) bool {
 	return true
 }

@@ -7,7 +7,7 @@ GizClaw ships two npm packages, split by role, both distributed as `v*` GitHub R
 | `@gizclaw/gizclaw` | `sdk/js/gizclaw` | Device side: run a browser or Node process as a GizClaw device/Peer, plus Admin HTTP, RPC, signaling, and Telemetry | encrypted `/webrtc/v1/offer` signaling and WebRTC DataChannels |
 | `@gizclaw/gizclaw-control` | `sdk/js/gizclaw-control` | Controller side: read and control the bound device with an [API key](../api-keys) | HTTPS `/gizclaw/v1/*` |
 
-`@gizclaw/gizclaw` covers the same side as the C SDK in `sdk/c/gizclaw`. Device-side client initialization, runtime requirements, and RPC calls are not documented yet; this page covers `@gizclaw/gizclaw-control`.
+`@gizclaw/gizclaw` covers the same side as the C SDK in `sdk/c/gizclaw`. Device-side client initialization, runtime requirements, and RPC calls are not documented yet; this page covers `@gizclaw/gizclaw-control` and device handshake admission credentials.
 
 ## Install `@gizclaw/gizclaw-control`
 
@@ -90,3 +90,21 @@ try {
   }
 }
 ```
+
+## Device handshake admission
+
+`connectGiznetWebRTCFromEndpoint({ ..., credential })` and
+`prepareEncryptedGiznetWebRTCOffer(identity, offerSDP, credential)` accept an
+`AdmissionCredential` object with `{ version, type, value }`. The SDK uses the generated
+protobuf-es codec and seals the result inside AEAD; Giznet does not interpret the fields.
+Omission preserves bare SDP. Field and encoded-size limits are defined by
+[Giznet](../../developing/giznet#signaling-admission-credentials).
+
+The GizClaw package exports `registrationTokenCredential(registrationToken)`, returning
+`{ version: 1, type: "gizclaw.com/registration_token", value: registrationToken }` for the connection options.
+Callers must still invoke `server.register` after connecting to bind product resources.
+Oversized or empty-encoding structures are rejected before discovery or offer creation,
+closing the supplied PeerConnection. Operator settings are described in
+[Security Policy](../../developing/gizclaw/server/security-policy).
+
+The exported `REGISTRATION_TOKEN_CREDENTIAL_TYPE` constant defines the built-in type and is used by the helper. Values are limited to 512 UTF-8 bytes; construction returns an error or throws for larger input. Custom policies should use their own domain prefix; built-in types reserve `gizclaw.com/`.

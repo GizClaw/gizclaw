@@ -80,8 +80,13 @@ func TestTransformerStreamsTranslationAndAudio(t *testing.T) {
 
 	chunks := readAllASTTranslateChunks(t, out)
 	sentAudio := fake.sentAudioSnapshot()
-	if len(sentAudio) != 1 || len(sentAudio[0]) == 0 || bytes.Equal(sentAudio[0], sourcePacket) {
-		t.Fatalf("sentAudio = %v", sentAudio)
+	if len(sentAudio) < 2 || len(sentAudio[0]) == 0 || bytes.Equal(sentAudio[0], sourcePacket) {
+		t.Fatalf("sentAudio = %d chunks, want decoded speech then trailing silence", len(sentAudio))
+	}
+	for _, chunk := range sentAudio[1:] {
+		if len(bytes.Trim(chunk, "\x00")) != 0 {
+			t.Fatalf("audio after the speech is not the trailing silence")
+		}
 	}
 	if _, finished := fake.state(); !finished {
 		t.Fatalf("session was not finished")
@@ -792,6 +797,160 @@ func TestTransformerPushToTalkS2TCommitsAtEOS(t *testing.T) {
 		if blob, ok := chunk.Part.(*genx.Blob); ok && baseAudioMIME(blob.MIMEType) == "audio/opus" && chunk.Role == genx.RoleModel {
 			t.Fatalf("unexpected S2T assistant audio: %#v", chunk)
 		}
+	}
+}
+
+// TestTransformerPadsTrailingSilenceBeforeFinish covers an audio route whose
+// audio ends as the last word ends. The provider drops that sentence unless a
+// pause follows it, so the route EOS sends silence ahead of Finish in either
+// input mode.
+func TestTransformerPadsTrailingSilenceBeforeFinish(t *testing.T) {
+	for _, mode := range []InputMode{InputModePushToTalk, InputModeRealtime} {
+		t.Run(string(mode), func(t *testing.T) {
+			testTransformerPadsTrailingSilenceBeforeFinish(t, mode)
+		})
+	}
+}
+
+func testTransformerPadsTrailingSilenceBeforeFinish(t *testing.T, mode InputMode) {
+	input := newBufferStream(4)
+	tr := newTransformer(doubaospeech.NewClient("app-id"), withInputMode(mode))
+	fake := &fakeASTTranslateSession{
+		beforeRecv: make(chan struct{}),
+		events:     []*doubaospeech.ASTTranslateEvent{{Type: doubaospeech.ASTEventSessionFinished}},
+	}
+	tr.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
+		return fake, nil
+	}
+	out, err := tr.transform(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	speech := []byte{1, 0, 2, 0}
+	for _, chunk := range []*genx.MessageChunk{
+		genx.NewBeginOfStream("turn"),
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: speech}, Ctrl: &genx.StreamCtrl{StreamID: "turn"}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn", EndOfStream: true}},
+	} {
+		if err := input.Push(chunk); err != nil {
+			t.Fatalf("Push(): %v", err)
+		}
+	}
+	close(fake.beforeRecv)
+	if err := input.Close(); err != nil {
+		t.Fatalf("Close(input): %v", err)
+	}
+	readAllASTTranslateChunks(t, out)
+
+	fake.mu.Lock()
+	sent := append([][]byte(nil), fake.sentAudio...)
+	sentAtFinish, finished := fake.sentAtFinish, fake.finished
+	fake.mu.Unlock()
+	if !finished {
+		t.Fatal("session was not finished")
+	}
+	if len(sent) < 2 || !bytes.Equal(sent[0], speech) {
+		t.Fatalf("sent audio = %d chunks, want speech then silence", len(sent))
+	}
+	if sentAtFinish != len(sent) {
+		t.Fatalf("sent %d chunks before Finish, %d in total; silence must precede Finish", sentAtFinish, len(sent))
+	}
+	silence := 0
+	for _, chunk := range sent[1:] {
+		for _, b := range chunk {
+			if b != 0 {
+				t.Fatalf("trailing chunk is not silence: %v", chunk)
+			}
+		}
+		silence += len(chunk)
+	}
+	want := doubaoASTTranslateSourceSampleRate * (doubaoASTTranslateSourceBits / 8) * int(doubaoASTTranslateTrailingSilence/time.Millisecond) / 1000
+	if silence != want {
+		t.Fatalf("trailing silence = %d bytes, want %d", silence, want)
+	}
+}
+
+// TestTransformerPushToTalkEmptyProviderResultClosesRoutes covers a turn the
+// provider finishes without a subtitle. The assistant routes still close
+// normally, so the turn ends instead of waiting for output that never comes.
+func TestTransformerPushToTalkEmptyProviderResultClosesRoutes(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		mode      doubaospeech.ASTTranslateMode
+		wantAudio bool
+	}{
+		{name: "s2t", mode: doubaospeech.ASTTranslateModeS2T},
+		{name: "s2s", mode: doubaospeech.ASTTranslateModeS2S, wantAudio: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			input := newBufferStream(4)
+			tr := newTransformer(doubaospeech.NewClient("app-id"), withInputMode(InputModePushToTalk), withMode(tc.mode))
+			fake := &fakeASTTranslateSession{
+				beforeRecv: make(chan struct{}),
+				events:     []*doubaospeech.ASTTranslateEvent{{Type: doubaospeech.ASTEventUsageResponse}, {Type: doubaospeech.ASTEventSessionFinished}},
+			}
+			tr.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
+				return fake, nil
+			}
+			out, err := tr.transform(context.Background(), input)
+			if err != nil {
+				t.Fatalf("Transform() error = %v", err)
+			}
+			for _, chunk := range []*genx.MessageChunk{
+				genx.NewBeginOfStream("turn"),
+				{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn"}},
+				{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn", EndOfStream: true}},
+			} {
+				if err := input.Push(chunk); err != nil {
+					t.Fatalf("Push(): %v", err)
+				}
+			}
+			close(fake.beforeRecv)
+			if err := input.Close(); err != nil {
+				t.Fatalf("Close(input): %v", err)
+			}
+			chunks := readAllASTTranslateChunks(t, out)
+
+			routes := map[string][2]int{}
+			for _, chunk := range chunks {
+				if chunk.Role != genx.RoleModel || chunk.Ctrl == nil || chunk.Ctrl.Label != doubaoASTTranslateAssistantLabel {
+					continue
+				}
+				kind := "text"
+				switch part := chunk.Part.(type) {
+				case genx.Text:
+					if part != "" {
+						t.Fatalf("empty turn carried assistant text %q", part)
+					}
+				case *genx.Blob:
+					kind = "audio"
+					if len(part.Data) != 0 {
+						t.Fatal("empty turn carried assistant audio")
+					}
+				}
+				if chunk.Ctrl.Error != "" {
+					t.Fatalf("%s route ended with error %q", kind, chunk.Ctrl.Error)
+				}
+				count := routes[kind]
+				if chunk.IsBeginOfStream() {
+					count[0]++
+				}
+				if chunk.IsEndOfStream() {
+					count[1]++
+				}
+				routes[kind] = count
+			}
+			if routes["text"] != [2]int{1, 1} {
+				t.Fatalf("assistant text BOS/EOS = %v, want one each", routes["text"])
+			}
+			wantAudio := [2]int{}
+			if tc.wantAudio {
+				wantAudio = [2]int{1, 1}
+			}
+			if routes["audio"] != wantAudio {
+				t.Fatalf("assistant audio BOS/EOS = %v, want %v", routes["audio"], wantAudio)
+			}
+		})
 	}
 }
 
@@ -1545,6 +1704,7 @@ type fakeASTTranslateSession struct {
 
 	mu                  sync.Mutex
 	sentAudio           [][]byte
+	sentAtFinish        int
 	finished            bool
 	closed              bool
 	sentAudioNotifyOnce sync.Once
@@ -1566,6 +1726,7 @@ func (s *fakeASTTranslateSession) SendAudio(_ context.Context, audio []byte) err
 
 func (s *fakeASTTranslateSession) Finish(context.Context) error {
 	s.mu.Lock()
+	s.sentAtFinish = len(s.sentAudio)
 	s.finished = true
 	s.mu.Unlock()
 	return nil

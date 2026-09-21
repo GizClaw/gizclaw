@@ -381,7 +381,20 @@ func (s *Server) getByPublicKeyText(ctx context.Context, store kv.Store, publicK
 	if err != nil {
 		return apitypes.Peer{}, fmt.Errorf("peer: decode %s: %w", publicKeyText, err)
 	}
-	return peer, nil
+	return s.projectRegistrationFirmware(ctx, peer)
+}
+
+func (s *Server) projectRegistrationFirmware(ctx context.Context, item apitypes.Peer) (apitypes.Peer, error) {
+	if s.RegistrationFirmware != nil {
+		firmware, err := s.RegistrationFirmware(ctx, item.PublicKey)
+		if err != nil {
+			return apitypes.Peer{}, err
+		}
+		if firmware != nil {
+			item.FirmwareId = firmware
+		}
+	}
+	return item, nil
 }
 
 func decodePeer(data []byte) (apitypes.Peer, error) {
@@ -546,6 +559,10 @@ func (s *Server) listAdminPage(ctx context.Context, cursor string, limit int) ([
 			}
 			if record.PublicKey != key {
 				return errors.New("peer: local directory registration identity mismatch")
+			}
+			record, err = s.projectRegistrationFirmware(workerCtx, record)
+			if err != nil {
+				return err
 			}
 			items[i] = toAdminRegistrationResult(record)
 			return nil

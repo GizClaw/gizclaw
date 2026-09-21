@@ -50,11 +50,34 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client, Model: dupl
 
 GizClaw 的 Volc ASR Builder 接受 `vad_segment_duration`、`end_window_size` 和 `force_to_speech_time`，同时兼容对应的 camelCase 名称。调用方没有提供任何断句参数时，Builder 使用 `end_window_size=500` 和 `force_to_speech_time=1000`：实测 800 ms 静音窗口让实时模式从说完到首字常超过 2 s 首响门槛，500 ms 时稳定在约 1 s 且识别结果不变（`TestEinoRealtimeFirstResponseBreakdown`）；`force_to_speech_time` 的文档最小值为 `1`，`0` 并不是合法的“无下限”取值。只要调用方提供任意一个断句参数，Builder 就只发送显式提供的字段。
 
-### Seed V2 空音频
+### Seed V2 分段失败
 
-`doubaotts.SeedV2` 只有在非空、可朗读的 segment 至少发出一个规范化音频字节后，才把 provider 的成功终态视为合成成功。Provider 只返回成功 final frame，或任何其他成功 stream 最终发出零个规范化音频字节时，对应 audio route 必须以 `doubaotts: seed v2 completed without audio` 错误结束，不能发送成功 audio EOS。
+`doubaotts.SeedV2` 每个可朗读 segment 只请求一次上游，不重试、不切换 Voice、不合成替代内容。
+规范化后的音频仍在收到时增量输出；不会等待整段成功，不增加缓存或完成等待。某段 provider
+失败（包括截断和成功终态却没有规范化音频）时，该段结束，后续段继续按原顺序合成和输出。
+失败前已经发出的音频保留，不回滚、不重播。
 
-Provider、protocol、context cancellation、normalizer 和下游 emit error 保持原有错误 identity。Adapter 不重试请求、不切换已配置 Voice，也不合成替代内容；shared TTS 与 Audio Dock 通过现有 route lifecycle 继续传播该 terminal error。
+每次 segment 失败使用调用 context 记录一条 ERROR `doubao tts: segment failed`，包含
+`stream_id`、从 1 开始的 `segment_index` 和 `error`。SDK 结构化错误还记录 `code`、
+`message`、`request_id`、`trace_id`、`log_id`，分别来自 `doubaospeech.Error` 的对应字段。
+这条运维日志不复制合成文本、音频或请求凭据；上游错误与关联 ID 不得包含秘密。
+
+只要该 audio route 已产生音频（包括失败段已经发出的部分音频），所有段处理完后发送一次
+成功 audio EOS。若所有可朗读段均失败且总音频为空，则发送空 audio BOS 和携带第一段失败
+原因的 error EOS，外层 Stream 随后返回同一 provider cause。成功终态却无音频的原因保持
+`doubaotts: seed v2 completed without audio`。经 Audio Dock/Peer 后，客户端保留已送达的
+回复文字，文字、音频和 response epoch 的既有 EOS 均携带 `STREAM_ERROR`、
+`Retryable=false`，且没有音频数据；不把
+全空失败伪装成成功。所有段都失败但已经发出部分音频时仍保留这些音频，按上述部分回复完成。
+
+SDK 默认的 HTTP TTS 流没有整个请求的固定超时，等待 headers 和读取音频都由调用 context
+控制，不添加兜底或空闲计时器。SDK 的 `WithTimeout` 和自定义 HTTP client 仍尊重调用方
+显式选择的超时；GizClaw 的默认 Builder 不设置这些选项。非流式 HTTP 请求的 SDK 默认值不变。
+
+调用 context 的 cancellation、deadline、输入错误和下游 emit error 继续使用原有终止与清理
+路径。是否取消后续段以 `ctx.Err()` 为准：调用 context 仍有效时，上游或 HTTP client 局部的
+deadline/cancel 错误即使包装了 `context.DeadlineExceeded` 或 `context.Canceled`，也记录为
+可继续的 provider segment failure。其他 TTS Adapter 的失败策略不变。
 
 ## AST Translate 输入模式
 
@@ -66,6 +89,8 @@ Provider、protocol、context cancellation、normalizer 和下游 emit error 保
 | Push-to-Talk | 输入期间持续消费 provider 事件，但规范化后的 transcript、translation、history 和 TTS chunks 在匹配的输入音频 EOS 前保持未发布。 |
 
 Push-to-Talk 的输入音频 EOS 按原始顺序一次性提交未发布 chunks。Provider failure 如果在提交前被记录，会丢弃整个未发布 turn 并返回 provider error，不暴露任何 retained data 或 control chunks。Commit gate 同时绑定输入 StreamID 与 provider session epoch，因此被打断 session 的迟到事件不能影响复用同一 StreamID 的新 session。
+
+客户端用音频 EOS 关闭音频 route 时，无论哪种模式，Adapter 都会在 `Finish` 之前发送 500 ms 静音；这段静音一次性发出、不按实时节奏发送，也不计入 history audio。在 zh/en 以外的方向上，provider 会丢掉结尾没有停顿的最后一句，而设备在最后一个字说完时就松开按键正是这种情况。Push-to-Talk turn 如果被 provider 正常结束却没有任何译文，仍会正常关闭空的 assistant 文本 route（S2S 模式下还有音频 route），让这一轮结束而不是一直等待输出。GizClaw 的 model builder 把未设置的 Workspace `input` 解析为 Push-to-Talk，而不是 Transformer 的 realtime 缺省值。
 
 Provider 的 transcript 与 translation subtitle token 是自带空格的子词片段（如 `"Bon"`、`"jour"`、`" à"`），同一条 subtitle 内的 token 按原样拼接，只丢弃文本开头的空白；新 subtitle 的第一个 token 与上一句都以 ASCII 字母或数字相接时才补一个空格。
 

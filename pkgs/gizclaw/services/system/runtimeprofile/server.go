@@ -446,14 +446,18 @@ func (s *Server) PutRegistrationToken(ctx context.Context, request adminhttp.Put
 	}
 	now := s.now()
 	item.CreatedAt, item.UpdatedAt = previous.CreatedAt, now
-	if _, _, err := updateRegistrationTokenSQL(ctx, store, item, version); err != nil {
+	updated, _, err := updateRegistrationTokenSQL(ctx, store, item, version)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return adminhttp.PutRegistrationToken409JSONResponse(conflict("registration token changed concurrently")), nil
+		}
 		if profileUniqueViolation(err) {
 			return adminhttp.PutRegistrationToken409JSONResponse(conflict("token is already used")), nil
 		}
 		return adminhttp.PutRegistrationToken500JSONResponse(internalError(err)), nil
 	}
 
-	return adminhttp.PutRegistrationToken200JSONResponse(item), nil
+	return adminhttp.PutRegistrationToken200JSONResponse(updated), nil
 }
 
 func cloneString(value *string) *string {
@@ -534,6 +538,9 @@ func normalizeRegistrationToken(in adminhttp.RegistrationTokenUpsert, expectedID
 		return apitypes.RegistrationToken{}, fmt.Errorf("id %q must match path id %q", id, expectedID)
 	}
 	token := strings.TrimSpace(in.Token)
+	if len(in.Token) > giznet.MaxAdmissionCredentialValueBytes {
+		return apitypes.RegistrationToken{}, errors.New("token must not exceed 512 UTF-8 bytes")
+	}
 	if token == "" {
 		return apitypes.RegistrationToken{}, errors.New("token is required")
 	}
@@ -549,7 +556,12 @@ func normalizeRegistrationToken(in adminhttp.RegistrationTokenUpsert, expectedID
 		}
 		firmwareID = &value
 	}
+	if in.MaxActivations != nil && *in.MaxActivations < 0 {
+		return apitypes.RegistrationToken{}, errors.New("max_activations must be non-negative")
+	}
+	enabled := in.Enabled == nil || *in.Enabled
 	return apitypes.RegistrationToken{
+		Enabled: enabled, ExpiresAt: in.ExpiresAt, MaxActivations: in.MaxActivations,
 		Id:               id,
 		Token:            token,
 		RuntimeProfileId: profileID,

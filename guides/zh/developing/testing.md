@@ -6,6 +6,22 @@ Docker、真实 provider 或人工判断的套件必须显式启动，不能把�
 构建 GizClaw CLI 的 E2E 入口会在 Go 编译前安装锁定的 Node workspace 并构建内嵌控制台，
 包括在 Docker 内编译的入口。产物与嵌入清单无需手动复制；独立编译命令的准备步骤见 [Monitor](monitor)。
 
+## RegistrationToken 准入与生命周期
+
+```sh
+bash tests/gizclaw-e2e/run_admission_tests.sh
+```
+
+这个固定 lane 在临时 SQLite 状态上启动真实 Server，设置 `peer-admission: registration-token`，预置可连接的 Admin Peer 后通过 Admin HTTP 建立测试资源。它不需要 AI 凭据或 Docker，必须安装 Go、Node、protoc 与 Flutter，缺失任何 runner 都失败。Linux 需要图形会话、`libpulse-dev` 和运行中的 PulseAudio 音频设备，供 Flutter WebRTC 初始化。CI 启动 PulseAudio null sink，并将其 monitor 设为默认音源，再用 `xvfb-run -a` 运行同一脚本。
+
+Go、JavaScript、Flutter 和 C Giztest runner 都在初次握手中把 `registration_token` 编成 SDK 的结构化凭证，并在连接后调用 `server.register`；`reconnect` 复用公钥且不带握手凭证。测试文档可用 `clients.<name>.admission_credential: {version, type, value}` 显式替换握手凭证，value 支持变量解析，registration_token 的注册 RPC 语义不变。
+
+`tests/gizclaw-e2e/testdata/admission/` 的成功文档验证新设备注册、重复注册只计一次、限额用完后无凭证重连和再次幂等注册。其他文档以及 disabled、expired、exhausted 资源用于预期拒绝场景：runner 必须失败，且服务端必须实际返回一次 `403 peer_forbidden`。启动失败、未发送请求或 skipped 文档都不能通过。独立 Go SDK 测试位于 `tests/gizclaw-e2e/go/admission/`，giznet 的 WebRTC 测试还验证通用自定义 type/version，不让业务常量进入 transport。
+
+CI 的 Admission SDK E2E job 运行完整 lane；普通 Go 测试也运行 Go Giztest 场景。PostgreSQL Integration 运行 `TestPostgreSQLRegistrationTokenLifecycle`，包含老库迁移、编辑限制、幂等与两条独立连接争最后一个名额。SQLite 运行相同生命周期用例和独立连接并发测试。
+
+标准 Docker 栈可通过 `GIZCLAW_E2E_PEER_ADMISSION=registration-token` 选择该开关，默认仍为 open。它只约束 Server 直接 signaling，不覆盖 Edge 终止的客户端握手；Admin identity 也必须已经登记或携带有效凭证。注册准入 lane 使用直接 Server 连接和预置 Admin Peer，避免混淆这两个边界。完整 provider-backed `run_tests.sh` 仍需统一 `.env` 中的外部服务凭据。
+
 ## RuntimeProfile 配置持久化回归
 
 `go test ./cmd/internal/server -run '^TestRuntimeProfileAppConfigGiztest$' -count=1`
@@ -656,6 +672,11 @@ SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而�
   `interrupt_after` 或 `completion: first_response` 组合。默认的 terminal completion
   要求这一轮的 assistant 文本与音频 route 都正常关闭且不带任何内容，assistant 出现文本
   或音频即判失败；只想确认输入已经送出时改用 `completion: input_sent`。
+- `peer_stream.trim_trailing_silence: true` 只对带音频 `input` 的 `push-to-talk` 有效：
+  发送这一轮之前，runner 丢掉最后一个有声包（解码峰值约 -30 dBFS 及以上）之后的所有 Opus
+  包，让 EOS 紧跟最后一个字，对应设备在最后一个字说完时就松开按键的情况。否则合成音频的
+  结尾会带着衰减尾音和静音，而设备从不发送这些。它不能与 `empty_input` 或 `overlap_input`
+  组合；输入里没有有声包时该 step 失败。
 - `peer_stream.completion: input_sent` 只对 `push-to-talk` 与 `realtime` 有效：输入推送完成
   （push-to-talk 还包括 EOS）即完成，不等待自己的文本或音频下发，也没有 terminal label。它
   不能与 `first_text_timeout`、`first_audio_timeout`、`wait_for_history`、`require_text`、
@@ -920,6 +941,18 @@ Provider-backed transformer coverage 使用一份完整 credential inventory：
 cp tests/genx-e2e/.env.example tests/genx-e2e/.env
 bash tests/genx-e2e/run_tests.sh
 ```
+
+Seed V2 SDK 或 Adapter 的定向真实 provider 验证使用固定入口：
+
+```sh
+bash tests/genx-e2e/run_seed_v2_tests.sh
+```
+
+该入口在可访问 Doubao Speech 的受信任开发机或受保护 runner 上运行，仍要求上述完整
+credential inventory。它固定以 `-race -count=1` 运行正常 Seed V2 合成和连续中断测试，
+验证真实音频 BOS/data/EOS、两次中断后的替换 route 顺序和最后一轮正常关闭。凭据、
+provider、网络、timeout 或 race 错误均使命令失败；测试选择不能通过参数或环境变量改变。
+确定性截断、空音频和结构化错误字段继续由 `doubaotts` 的 fake-server 回归覆盖。
 
 MiniMax 的 API key 必须与同一区域的 voice base URL 成对配置；runner 不会用默认区域
 替代缺失的 `GIZCLAW_GENX_E2E_MINIMAX_BASE_URL`。

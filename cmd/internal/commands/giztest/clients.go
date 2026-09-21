@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznetpb"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
@@ -55,11 +56,39 @@ func connectClients(ctx context.Context, specs map[string]giztest.ClientSpec, st
 		if err != nil {
 			return set, err
 		}
+		var token string
+		var credential *giznetpb.AdmissionCredential
+		if spec.RegistrationToken != "" {
+			value, err := vars.Resolve(spec.RegistrationToken)
+			if err != nil {
+				return set, err
+			}
+			var ok bool
+			token, ok = value.(string)
+			if !ok {
+				return set, fmt.Errorf("client %s registration_token must resolve to string", name)
+			}
+			credential, err = gizcli.RegistrationTokenCredential(token)
+			if err != nil {
+				return set, err
+			}
+		}
+		if spec.AdmissionCredential != nil {
+			value, err := vars.Resolve(spec.AdmissionCredential.Value)
+			if err != nil {
+				return set, err
+			}
+			text, ok := value.(string)
+			if !ok {
+				return set, fmt.Errorf("client %s admission value must resolve to string", name)
+			}
+			credential = &giznetpb.AdmissionCredential{Version: spec.AdmissionCredential.Version, Type: spec.AdmissionCredential.Type, Value: text}
+		}
 		// dial brings up one connection on this identity. A reconnect calls it
 		// again so the Server sees the same device on a replacement Peer.
 		dial := func(ctx context.Context) (*gizcli.Client, <-chan error, error) {
 			client := &gizcli.Client{KeyPair: key, DialTransport: func(key *giznet.KeyPair, _ giznet.PublicKey, _ string, policy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error) {
-				return gizwebrtc.Dial(ctx, key, info.TransportPublicKey, gizwebrtc.DialConfig{SignalingURL: info.SignalingURL, ICEServers: info.ICEServers, SecurityPolicy: policy})
+				return gizwebrtc.Dial(ctx, key, info.TransportPublicKey, gizwebrtc.DialConfig{SignalingURL: info.SignalingURL, ICEServers: info.ICEServers, SecurityPolicy: policy, Credential: credential})
 			}}
 			if err := configureClientRPC(client, name, steps, vars, set.inbound); err != nil {
 				return nil, nil, err
@@ -78,15 +107,8 @@ func connectClients(ctx context.Context, specs map[string]giztest.ClientSpec, st
 			return set, err
 		}
 		set.clients[name], set.serve[name] = client, errCh
-		if spec.RegistrationToken != "" {
-			tokenValue, err := vars.Resolve(spec.RegistrationToken)
-			if err != nil {
-				return set, err
-			}
-			token, ok := tokenValue.(string)
-			if !ok {
-				return set, fmt.Errorf("client %s registration_token must resolve to string", name)
-			}
+		credential = nil // Credential-free reconnects prove the known-Peer admission tier.
+		if token != "" {
 			if _, err := client.Register(ctx, "giztest.register."+name, token); err != nil {
 				return set, fmt.Errorf("client %s register: %w", name, err)
 			}

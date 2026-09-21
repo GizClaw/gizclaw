@@ -2017,60 +2017,6 @@ func TestDockClosesStartedTTSAudioWhenProviderStreamFails(t *testing.T) {
 	}
 }
 
-func TestDockBoundsTTSCompletionAfterTextEOS(t *testing.T) {
-	dock, err := New(Config{
-		Agent: fixedAgentOutput(
-			&genx.MessageChunk{Role: genx.RoleModel, Name: "answer", Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "one"}},
-			&genx.MessageChunk{Role: genx.RoleModel, Name: "answer", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "one", EndOfStream: true}},
-		),
-		TTS: muxFunc(func(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
-			output := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: 2})
-			go func() {
-				first, nextErr := input.Next()
-				if nextErr != nil || first == nil {
-					return
-				}
-				_ = output.Push(&genx.MessageChunk{
-					Role: genx.RoleModel,
-					Part: &genx.Blob{MIMEType: "audio/opus"},
-					Ctrl: &genx.StreamCtrl{BeginOfStream: true},
-				})
-				_ = output.Push(&genx.MessageChunk{
-					Role: genx.RoleModel,
-					Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte("partial")},
-				})
-				<-ctx.Done()
-			}()
-			return output, nil
-		}),
-		ResolveVoice:         fixedVoice("voice/narrator"),
-		TTSCompletionTimeout: 20 * time.Millisecond,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	output, err := dock.Transform(t.Context(), emptyStream{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	chunks := readAll(t, output)
-	var textEOS, audioEOS bool
-	for _, chunk := range chunks {
-		if chunk.Ctrl == nil || !chunk.IsEndOfStream() || !strings.Contains(chunk.Ctrl.Error, "TTS completion timeout") {
-			continue
-		}
-		switch chunk.Part.(type) {
-		case genx.Text:
-			textEOS = true
-		case *genx.Blob:
-			audioEOS = true
-		}
-	}
-	if !textEOS || !audioEOS {
-		t.Fatalf("timeout EOS text/audio = %t/%t; chunks=%#v", textEOS, audioEOS, chunks)
-	}
-}
-
 func TestDockPreservesTTSTerminalEOSError(t *testing.T) {
 	want := errors.New("tts synthesis failed")
 	dock, err := New(Config{

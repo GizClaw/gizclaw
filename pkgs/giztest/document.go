@@ -11,6 +11,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznetpb"
 	"github.com/goccy/go-yaml"
 )
 
@@ -46,10 +47,11 @@ type ReportSpec struct {
 }
 
 type ClientSpec struct {
-	Identity          string `json:"identity" yaml:"identity"`
-	Connection        string `json:"connection" yaml:"connection"`
-	AccessPoint       string `json:"access_point" yaml:"access_point"`
-	RegistrationToken string `json:"registration_token,omitempty" yaml:"registration_token,omitempty"`
+	AdmissionCredential *giznetpb.AdmissionCredential `json:"admission_credential,omitempty" yaml:"admission_credential,omitempty"`
+	Identity            string                        `json:"identity" yaml:"identity"`
+	Connection          string                        `json:"connection" yaml:"connection"`
+	AccessPoint         string                        `json:"access_point" yaml:"access_point"`
+	RegistrationToken   string                        `json:"registration_token,omitempty" yaml:"registration_token,omitempty"`
 }
 
 type VariableSpec struct {
@@ -175,6 +177,12 @@ type PeerStreamOperation struct {
 	Session           string `json:"session,omitempty" yaml:"session,omitempty"`
 	KeepOpen          bool   `json:"keep_open,omitempty" yaml:"keep_open,omitempty"`
 	AwaitRearm        string `json:"await_rearm,omitempty" yaml:"await_rearm,omitempty"`
+
+	// TrimTrailingSilence drops the silent Opus packets that end the input
+	// audio before a push-to-talk turn is sent, so the EOS follows the last
+	// spoken frame the way a device releases its key right after speech.
+	// Synthesized input otherwise ends with silence a device never sends.
+	TrimTrailingSilence bool `json:"trim_trailing_silence,omitempty" yaml:"trim_trailing_silence,omitempty"`
 }
 type OutputOperation struct {
 	Variable string `json:"variable" yaml:"variable"`
@@ -1041,6 +1049,17 @@ func validatePeerStreamStep(step Step, finalizer bool) error {
 		}
 	} else if step.PeerStream.Input == nil && step.PeerStream.Mode != "listen" {
 		return fmt.Errorf("step %s peer_stream requires input", step.ID)
+	}
+	if step.PeerStream.TrimTrailingSilence {
+		if step.PeerStream.Mode != "push-to-talk" {
+			return fmt.Errorf("step %s peer_stream trim_trailing_silence requires push-to-talk mode", step.ID)
+		}
+		if step.PeerStream.EmptyInput || step.PeerStream.Input == nil {
+			return fmt.Errorf("step %s peer_stream trim_trailing_silence requires audio input", step.ID)
+		}
+		if step.PeerStream.OverlapInput {
+			return fmt.Errorf("step %s peer_stream trim_trailing_silence cannot use overlap_input", step.ID)
+		}
 	}
 	if step.PeerStream.Pacing != "" {
 		if duration, err := time.ParseDuration(step.PeerStream.Pacing); err != nil || duration < 0 {

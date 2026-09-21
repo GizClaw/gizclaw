@@ -115,6 +115,7 @@ export type ClientSpec = {
   connection: "webrtc";
   access_point: string;
   registration_token?: string;
+  admission_credential?: { version: number; type: string; value: string };
 };
 
 export type Expectation = {

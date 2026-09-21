@@ -42,12 +42,20 @@ WebRTC、DataChannel 与 service stream multiplexing 属于 `pkgs/giznet`；Peer
 
 Peer Mixer 以 20 ms Opus frame 产生下行音频。`PeerConn` 先取得并编码 frame，再按绝对 deadline 发送，
 而不是在每次编码或网络写入完成后再等待一个完整 frame 周期，因此编码和 `Conn.Write`
-耗时不会逐包累积到到包间隔。首包立即发送；估算的接收端盈余低于 500 ms 目标时，每个后续
-间隔最多追回 5 ms，因此发送间隔始终在 15 到 20 ms 之间；达到目标后回到 20 ms 媒体周期。
-这个有界闭环既会建立并维持播放余量，也不会让长回复的播放延迟持续增长。
+耗时不会逐包累积到到包间隔。首包立即发送；以每个间隔最多缩短 5 ms 的方式建立 500 ms
+目标提前量，之后 deadline 按 20 ms 媒体周期推进。
 
-错过 deadline 时，pacer 只允许当前包立即发送，并从当前时间重建 deadline；后续包每包最多
-追回 5 ms，直到重新达到 500 ms 目标，因此不会把逾期包连续突发发送。测试可为 `PeerConn`
-注入 pacing tick，以确定性
-验证一 tick 一包；真实时钟测试和 Giztest E2E 另外验证写入延迟不会累计以及接收侧间隔、
-漂移和缓冲盈余。
+活动音频错过 deadline 后保留原来的绝对时间线，已经逾期的 frame 不再额外等待；每次循环
+仍然只读取、编码并写入一个 frame，不丢弃 PCM。恢复调度后可以连续发送多个逾期 frame，
+直到追上绝对 deadline；追上后恢复正常周期，不会持续超前于 500 ms 目标。只有 mixer 明确
+无 track 等待超过 500 ms 时才重置时间线；已有 track 的静音、编码、写入和调度延迟不触发重置。
+测试可注入 pacing tick 验证一 tick 一包；确定性时钟测试覆盖持续迟到、缓冲耗尽后的追赶和
+两轮对话之间的空闲，真实时钟测试与 Giztest E2E 验证写入延迟、接收侧间隔、漂移和缓冲盈余。
+
+## 握手准入与注册
+
+可选 [Server 准入 policy](../server/security-policy) 在 WebRTC connection 建立前检查
+握手中的凭证。该检查不创建 Peer、不绑定 RuntimeProfile，也不把 credential 保存到
+Conn。连接被接受后的 Peer activation 继续拥有持久记录创建；`server.register` 继续
+拥有 RuntimeProfile owner 与 firmware 绑定。空凭证仍兼容裸 SDP 客户端，是否放行由
+运营方选定 policy 决定。

@@ -164,6 +164,9 @@ State schema 版本为 1。版本 0 的 state 使用 `name` 表示资源 ID，pr
 `gizclaw_resource` 的 Terraform state 保存 `spec`，其中可能包含展开前的 secret 占位符或明文
 secret。State backend 需要按 secret 存储管理。
 
+
+RegistrationToken 的 `spec` 可设置 `enabled`、`expires_at` 与 `max_activations`。Provider 把省略或 null 的 enabled 与 Server 默认 true 视为一致，把省略与 null 的限制视为一致；带外禁用或调整限制仍产生 drift。到期时间使用 Server 返回的规范 RFC3339 表达。激活数量由 Admin RegistrationToken 响应中的 `activation_count` 查看，不写入 Terraform spec；详见 [设备注册](/zh/developing/gizclaw/services/runtime-profile#registrationtoken)。
+
 ## `gizclaw_catalog`
 
 `gizclaw_catalog` 把分层的本地 manifest 目录解析为产品定义选中的 Admin Resource。它只读取本地

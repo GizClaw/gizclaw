@@ -992,7 +992,7 @@ func (w *gatewayStatusWriter) Write(data []byte) (int, error) {
 
 type gatewayClientSecurityPolicy struct{}
 
-func (gatewayClientSecurityPolicy) AllowPeer(giznet.PublicKey) bool {
+func (gatewayClientSecurityPolicy) AllowPeer(context.Context, giznet.PeerAdmission) bool {
 	return true
 }
 

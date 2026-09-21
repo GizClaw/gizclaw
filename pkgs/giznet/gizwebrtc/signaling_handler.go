@@ -14,8 +14,6 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-const signalingBodyLimit = 256 * 1024
-
 type signalingTiming struct {
 	peerConnection time.Duration
 	setRemote      time.Duration
@@ -95,7 +93,7 @@ func (l *Listener) handleOffer(w http.ResponseWriter, r *http.Request) {
 		writeSignalingError(w, http.StatusConflict, "replayed_nonce")
 		return
 	}
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, signalingBodyLimit))
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxSignalingBodyBytes))
 	if err != nil {
 		writeSignalingError(w, http.StatusBadRequest, "body_too_large")
 		return
@@ -105,16 +103,23 @@ func (l *Listener) handleOffer(w http.ResponseWriter, r *http.Request) {
 		writeSignalingError(w, http.StatusBadRequest, "invalid_crypto")
 		return
 	}
-	offerSDP, err := reqAEAD.Open(nil, reqNonce, body, requestAAD(clientPK, ts, nonce))
+	plaintext, err := reqAEAD.Open(nil, reqNonce, body, requestAAD(clientPK, ts, nonce))
 	if err != nil {
 		writeSignalingError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	offerSDP, credential, err := decodeOfferEnvelope(plaintext)
+	if err != nil || (credential != nil && l.cfg.CipherMode == CipherModePlaintext) {
+		writeSignalingError(w, http.StatusBadRequest, "invalid_credential")
 		return
 	}
 	if err := validateOfferSDP(string(offerSDP)); err != nil {
 		writeSignalingError(w, http.StatusBadRequest, signalingSDPErrorCode(err))
 		return
 	}
-	if l.cfg.SecurityPolicy != nil && !l.cfg.SecurityPolicy.AllowPeer(clientPK) {
+	if l.cfg.SecurityPolicy != nil && !l.cfg.SecurityPolicy.AllowPeer(r.Context(), giznet.PeerAdmission{
+		PublicKey: clientPK, Credential: credential,
+	}) {
 		writeSignalingError(w, http.StatusForbidden, "peer_forbidden")
 		return
 	}

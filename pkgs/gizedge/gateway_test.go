@@ -60,7 +60,7 @@ func (gatewayHandshakeTimeoutError) Error() string   { return "handshake timeout
 func (gatewayHandshakeTimeoutError) Timeout() bool   { return true }
 func (gatewayHandshakeTimeoutError) Temporary() bool { return true }
 
-func (gatewayAllowAllPolicy) AllowPeer(giznet.PublicKey) bool { return true }
+func (gatewayAllowAllPolicy) AllowPeer(context.Context, giznet.PeerAdmission) bool { return true }
 func (gatewayAllowAllPolicy) AllowService(giznet.PublicKey, uint64) bool {
 	return true
 }

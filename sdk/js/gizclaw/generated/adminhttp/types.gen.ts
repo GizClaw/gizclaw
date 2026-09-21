@@ -392,12 +392,27 @@ export type RegistrationTokenList = {
 
 export type RegistrationTokenUpsert = {
     id: string;
+    /**
+     * Registration token, at most 512 UTF-8 bytes. The Server enforces the byte limit in addition to this character bound.
+     */
     token: string;
     runtime_profile_id: string;
     /**
      * Optional caller-defined Firmware ID. The device selects its own channel.
      */
     firmware_id?: string;
+    /**
+     * Whether this token permits new device activations. Defaults to true.
+     */
+    enabled?: boolean;
+    /**
+     * Exclusive expiration time. Null or omitted means no expiration.
+     */
+    expires_at?: string | null;
+    /**
+     * Maximum distinct public keys activated by this token. Null or omitted means unlimited; lowering below the current count prevents new activations.
+     */
+    max_activations?: number | null;
 };
 
 export type PublicKeyList = {
@@ -580,12 +595,27 @@ export type RegistrationTokenResource = {
     kind: 'RegistrationToken';
     metadata: ResourceMetadata;
     spec: {
+        /**
+         * Registration token, at most 512 UTF-8 bytes. The Server enforces the byte limit in addition to this character bound.
+         */
         token: string;
         runtime_profile_id: string;
         /**
          * Optional caller-defined Firmware ID. The device selects its own channel.
          */
         firmware_id?: string;
+        /**
+         * Whether this token permits new device activations. Defaults to true.
+         */
+        enabled?: boolean;
+        /**
+         * Exclusive expiration time. Null or omitted means no expiration.
+         */
+        expires_at?: string | null;
+        /**
+         * Maximum distinct public keys activated by this token. Null or omitted means unlimited; lowering below the current count prevents new activations.
+         */
+        max_activations?: number | null;
     };
 };
 
@@ -1381,6 +1411,9 @@ export type Registration = {
 
 export type RegistrationToken = {
     id: string;
+    /**
+     * Registration token, at most 512 UTF-8 bytes. The Server enforces the byte limit in addition to this character bound.
+     */
     token: string;
     runtime_profile_id: string;
     /**
@@ -1389,6 +1422,22 @@ export type RegistrationToken = {
     firmware_id?: string;
     created_at: string;
     updated_at: string;
+    /**
+     * Whether this token permits new device activations. Defaults to true.
+     */
+    enabled: boolean;
+    /**
+     * Exclusive expiration time. Null or omitted means no expiration.
+     */
+    expires_at?: string | null;
+    /**
+     * Maximum distinct public keys activated by this token. Null or omitted means unlimited; lowering below the current count prevents new activations.
+     */
+    max_activations?: number | null;
+    /**
+     * Current number of distinct public keys successfully activated by this token.
+     */
+    activation_count: number;
 };
 
 export type RegistrationTombstone = {

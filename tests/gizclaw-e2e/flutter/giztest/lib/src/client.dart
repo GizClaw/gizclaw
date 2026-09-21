@@ -292,6 +292,21 @@ class ScenarioClient {
     final httpClient = http.Client();
     try {
       final handlers = _buildHandlers(name, steps, variables);
+      final rawToken = spec.registrationToken;
+      final token = rawToken == null || rawToken.isEmpty
+          ? null
+          : variables.resolveString(rawToken, 'registration_token');
+      final explicit = spec.admissionCredential;
+      final credential = explicit == null
+          ? (token == null ? null : registrationTokenCredential(token))
+          : AdmissionCredential(
+              version: explicit['version'] as int,
+              type: explicit['type'] as String,
+              value: variables.resolveString(
+                explicit['value'] as String,
+                'admission_credential.value',
+              ),
+            );
       var publicKey = '';
       final peerConnection = await _dial(
         httpClient,
@@ -299,6 +314,7 @@ class ScenarioClient {
         handlers.handlers,
         privateKey,
         (value) => publicKey = value,
+        credential: credential,
       );
       final client = GizClawClient(
         FlutterWebRtcDataChannelFactory(peerConnection),
@@ -314,11 +330,8 @@ class ScenarioClient {
         privateKey,
         handlers.handlers,
       );
-      final token = spec.registrationToken;
       if (token != null && token.isNotEmpty) {
-        await client.register(
-          variables.resolveString(token, 'registration_token'),
-        );
+        await client.register(token);
       }
       return scenario;
     } finally {
@@ -377,6 +390,7 @@ class ScenarioClient {
     List<int> privateKey,
     void Function(String) onPublicKey, {
     Duration? timeout,
+    AdmissionCredential? credential,
   }) async {
     final connectTimeout = timeout ?? _connectTimeout;
     final infoResponse = await httpClient
@@ -403,6 +417,7 @@ class ScenarioClient {
         final offer = await prepareEncryptedGiznetWebRtcOffer(
           identity,
           offerSdp,
+          credential: credential,
         );
         onPublicKey(offer.clientPublicKey);
         return offer;

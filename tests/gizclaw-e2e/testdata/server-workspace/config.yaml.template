@@ -1,3 +1,4 @@
+peer-admission: ${GIZCLAW_E2E_PEER_ADMISSION}
 identity:
   private-key: 287thuEga1hbBYjM7sxrY3eMoPAqpB3nJ81S8CEuNHKu
 webrtc:

@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package giznet.v1;
+
+option go_package = "github.com/GizClaw/gizclaw-go/pkgs/giznet/giznetpb";
+
+// AdmissionCredential is carried inside an encrypted GZOF offer. The encoded
+// message must fit in 4096 bytes. Only the admission policy interprets fields;
+// Giznet does not assign business meaning to version, type or value.
+message AdmissionCredential {
+  // Current credential version is 1; independent of the GZOF envelope version.
+  uint32 version = 1;
+  // Policy-defined credential kind, at most 128 UTF-8 bytes.
+  string type = 2;
+  // Opaque policy input, at most 512 UTF-8 bytes (also subject to encoded limit).
+  string value = 3;
+}

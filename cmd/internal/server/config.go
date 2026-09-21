@@ -22,6 +22,8 @@ import (
 )
 
 type Config struct {
+	// PeerAdmission selects open (default) or registration-token admission.
+	PeerAdmission   string
 	Monitor         monitor.Config
 	WorkspaceRoot   string `yaml:"-"`
 	KeyPair         *giznet.KeyPair
@@ -435,6 +437,7 @@ func (cfg storeFileConfig) runtimeConfig() (store.Config, error) {
 }
 
 type ConfigFile struct {
+	PeerAdmission   string                       `yaml:"peer-admission"`
 	Monitor         monitor.Config               `yaml:"monitor"`
 	Identity        IdentityConfig               `yaml:"identity"`
 	WebRTC          *WebRTCConfig                `yaml:"webrtc"`
@@ -495,6 +498,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		return ConfigFile{}, fmt.Errorf("server: system_tasks is not supported; configure Pet model aliases in the RuntimeProfile")
 	}
 	var raw struct {
+		PeerAdmission   string                       `yaml:"peer-admission"`
 		Monitor         monitor.Config               `yaml:"monitor"`
 		Identity        *IdentityConfig              `yaml:"identity"`
 		WebRTC          *WebRTCConfig                `yaml:"webrtc"`
@@ -512,6 +516,9 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		Profiling       ProfilingConfig              `yaml:"profiling"`
 	}
 	if err := decodeConfigNode(document, &raw, yaml.DisallowUnknownField()); err != nil {
+		return ConfigFile{}, err
+	}
+	if err := validatePeerAdmission(raw.PeerAdmission); err != nil {
 		return ConfigFile{}, err
 	}
 	adminPublicKey, err := resolveAdminPublicKey(raw.AdminPublicKey)
@@ -546,6 +553,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		return ConfigFile{}, err
 	}
 	cfg := ConfigFile{
+		PeerAdmission:   raw.PeerAdmission,
 		Monitor:         raw.Monitor,
 		Identity:        identity,
 		WebRTC:          raw.WebRTC,
@@ -739,6 +747,9 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	if len(cfg.EdgeNodes) == 0 {
 		cfg.EdgeNodes = fileCfg.EdgeNodes
 	}
+	if cfg.PeerAdmission == "" {
+		cfg.PeerAdmission = fileCfg.PeerAdmission
+	}
 	if cfg.AdminPublicKey.IsZero() {
 		cfg.AdminPublicKey = fileCfg.AdminPublicKey
 	}
@@ -923,6 +934,9 @@ func prepareConfig(cfg Config) (Config, error) {
 }
 
 func (cfg Config) validate() error {
+	if err := validatePeerAdmission(cfg.PeerAdmission); err != nil {
+		return err
+	}
 	if err := validateHostPort("webrtc.listen", cfg.WebRTC.Listen); err != nil {
 		return err
 	}
@@ -1609,4 +1623,13 @@ func validateHostPort(field, value string) error {
 		return fmt.Errorf("server: %s port is empty", field)
 	}
 	return nil
+}
+
+func validatePeerAdmission(value string) error {
+	switch value {
+	case "", "open", "registration-token":
+		return nil
+	default:
+		return fmt.Errorf("server: peer-admission must be open or registration-token")
+	}
 }
