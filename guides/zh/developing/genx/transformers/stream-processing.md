@@ -7,10 +7,10 @@ Stream Processing 保存 provider-neutral 的 Transformer 组合与生命周期�
 | Owner | 职责 |
 | --- | --- |
 | `transformers.Mux` | 选择一个 `genx.Transformer`，不建立能力类别专用 registry。 |
-| `transformers/internal/streamkit` | Per-Transform output queue、pull observation、StreamID/MIME route 终态、interrupt、cancel 和共享 TTS segmentation。 |
+| `pkgs/genx/internal/streamkit` | Per-Transform output queue、pull observation、StreamID/MIME route 终态、interrupt、cancel 和共享 TTS segmentation。 |
 | `transformers/audiostream.Normalizer` | 根据音频 MIME 对 byte stream 做可拼接处理，输入输出保持相同 codec 和 MIME；当前 MP3 handler 跨 chunk 去除 ID3v1 和 ID3v2 metadata。 |
 
-StreamKit 是 `transformers` subtree 的内部实现，不提供 public construction surface，也不依赖 provider、agent、model、Tool、Workspace、Workflow、RPC 或设备类型。
+StreamKit 是 `genx` subtree 的内部实现，不提供 public construction surface，也不依赖 provider、agent、model、Tool、Workspace、Workflow、RPC 或设备类型。
 
 ## Stream lifecycle
 
@@ -32,6 +32,14 @@ provider 请求，串行 pipeline 会在每个 segment 边界留下一整个首�
 在途 segment 都会被取消。下发由每条 stream 独立的有序 emitter 负责，与文本读取并行：
 segment 的音频一产出就发出，不等下一个 segment 被切出，否则每条回复的首音都要多等模型
 生成完第二句话。
+
+共享 emitter 默认在 synthesis failure 时终止。Provider 可用内部 `TTSSegmentError` 明确标记
+已记录的单段失败：emitter 保留该段已经发出的音频，继续后续段，并在所有段完成后结束 route。
+如果整条 route 没有产生音频，则以第一条单段失败结束，而不是发送成功的空 EOS。该标记
+不用于 cancellation 或输出失败；这两种情况仍取消在途 segment。分段 metadata 的
+`SegmentIndex` 在每个输入 route 内从 1 递增，只计算实际提交的可朗读段。Seed V2 的具体
+日志和客户端终态见 [Doubao Speech Adapter](./doubao#seed-v2-分段失败)。既有单段预取、
+音频队列上限和增量发出时机保持不变。
 
 Interrupt 或 cancel 删除了 downstream 尚未 pull 的显式 TTS BOS 时，StreamKit 会把这个由 producer 声明的边界保留为空 BOS，再发送 error EOS；它不恢复已丢弃的音频 data，也不会替从未发送 BOS 的 producer 创建边界。
 

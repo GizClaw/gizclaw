@@ -921,6 +921,18 @@ cp tests/genx-e2e/.env.example tests/genx-e2e/.env
 bash tests/genx-e2e/run_tests.sh
 ```
 
+Seed V2 SDK 或 Adapter 的定向真实 provider 验证使用固定入口：
+
+```sh
+bash tests/genx-e2e/run_seed_v2_tests.sh
+```
+
+该入口在可访问 Doubao Speech 的受信任开发机或受保护 runner 上运行，仍要求上述完整
+credential inventory。它固定以 `-race -count=1` 运行正常 Seed V2 合成和连续中断测试，
+验证真实音频 BOS/data/EOS、两次中断后的替换 route 顺序和最后一轮正常关闭。凭据、
+provider、网络、timeout 或 race 错误均使命令失败；测试选择不能通过参数或环境变量改变。
+确定性截断、空音频和结构化错误字段继续由 `doubaotts` 的 fake-server 回归覆盖。
+
 MiniMax 的 API key 必须与同一区域的 voice base URL 成对配置；runner 不会用默认区域
 替代缺失的 `GIZCLAW_GENX_E2E_MINIMAX_BASE_URL`。
 

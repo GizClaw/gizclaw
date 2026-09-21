@@ -1103,6 +1103,20 @@ cp tests/genx-e2e/.env.example tests/genx-e2e/.env
 bash tests/genx-e2e/run_tests.sh
 ```
 
+For focused live-provider validation of the Seed V2 SDK or adapter, use the fixed entrypoint:
+
+```sh
+bash tests/genx-e2e/run_seed_v2_tests.sh
+```
+
+Run it on a trusted development host or protected runner with Doubao Speech access and the
+same complete credential inventory. It runs normal Seed V2 synthesis and repeated interruption
+with `-race -count=1`, checking real audio BOS/data/EOS, replacement-route ordering after two
+interruptions, and clean completion of the final turn. Credential, provider, network, timeout,
+and race errors fail the command; arguments and environment variables cannot change test
+selection. Deterministic truncation, empty audio, and structured error fields remain covered
+by the `doubaotts` fake-server regressions.
+
 The MiniMax API key must be paired with the voice base URL for the same region;
 the runner does not substitute a default region when
 `GIZCLAW_GENX_E2E_MINIMAX_BASE_URL` is missing.

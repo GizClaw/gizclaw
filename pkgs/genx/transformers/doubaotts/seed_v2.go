@@ -35,11 +35,10 @@ var errSeedV2EmptyAudio = errors.New("doubaotts: seed v2 completed without audio
 //   - When receiving a text/plain EoS marker, finish synthesis, emit audio chunks, then emit audio/* EoS
 //   - Non-text chunks are passed through unchanged
 //
-// Stream termination: a synthesize error (including a provider stream that ends
-// before delivering audio) is returned from the synthesizer, so the shared TTS
-// pipeline closes the route with that error EoS and then terminates the output
-// stream with the same cause rather than a clean end. The runtime therefore
-// distinguishes a provider fault from an unexpected output completion.
+// Provider failures are logged per segment without retrying or discarding audio
+// already emitted. Later segments continue streaming. A route that emits no
+// audio ends with its first provider error; cancellation and output errors
+// remain terminal.
 type SeedV2 struct {
 	client      *doubaospeech.Client
 	speaker     string
@@ -140,7 +139,7 @@ func (t *SeedV2) synthesize(ctx context.Context, text string, meta streamkit.TTS
 	}
 	for chunk, err := range t.client.TTSV2.Stream(ctx, req) {
 		if err != nil {
-			return err
+			return seedV2SegmentFailure(ctx, meta, err, nil)
 		}
 		lastChunk = chunk
 
@@ -179,9 +178,28 @@ func (t *SeedV2) synthesize(ctx context.Context, text string, meta streamkit.TTS
 		return err
 	}
 	if emittedBytes == 0 {
-		return seedV2EmptyAudioError(lastChunk)
+		return seedV2SegmentFailure(ctx, meta, seedV2EmptyAudioError(lastChunk), lastChunk)
 	}
 	return nil
+}
+
+func seedV2SegmentFailure(ctx context.Context, meta streamkit.TTSMeta, err error, chunk *doubaospeech.TTSV2Chunk) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return err
+	}
+	attrs := []any{"stream_id", meta.StreamID, "segment_index", meta.SegmentIndex, "error", err}
+	if apiErr, ok := doubaospeech.AsError(err); ok {
+		attrs = append(attrs, "code", apiErr.Code, "message", apiErr.Message,
+			"request_id", apiErr.ReqID, "trace_id", apiErr.TraceID, "log_id", apiErr.LogID)
+	} else if chunk != nil {
+		attrs = append(attrs, "code", chunk.Code, "message", chunk.Message,
+			"request_id", chunk.ReqID, "trace_id", chunk.TraceID, "log_id", chunk.LogID)
+	}
+	slog.ErrorContext(ctx, "doubao tts: segment failed", attrs...)
+	return &streamkit.TTSSegmentError{Err: err}
 }
 
 func seedV2EmptyAudioError(chunk *doubaospeech.TTSV2Chunk) error {
