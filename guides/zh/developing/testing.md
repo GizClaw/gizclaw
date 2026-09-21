@@ -9,8 +9,8 @@ Docker、真实 provider 或人工判断的套件必须显式启动，不能把�
 ## Peer 封禁的真实 WebRTC 回归
 
 `go test ./cmd/internal/server -run '^TestPeerBlockedSDKWebRTC$' -count=1 -v`
-使用临时 SQLite 状态、真实 Server、Go SDK WebRTC 与 Admin HTTP 验证在线设备
-被 block 后断开、blocked 公钥重连失败、approve 后重新连接并成功 ping。
+使用临时 SQLite 状态、真实 Server、Go SDK WebRTC 与 Admin HTTP 验证设备持续
+打开 RPC stream 时与 block 并发，block 后断开、blocked 公钥重连失败、approve 后重新连接并成功 ping。
 测试同时覆盖省略 `peer-admission` 的默认 open 模式与 registration-token 模式；
 后者还要求握手返回 `peer_forbidden`。该测试没有 build tag，随普通 Go CI 运行，
 无需 AI provider、外部凭据或 Docker。

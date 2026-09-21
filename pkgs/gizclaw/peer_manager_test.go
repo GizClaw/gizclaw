@@ -971,6 +971,10 @@ func TestManagerBlockDetachesBeforeCloseAndApproveCanReconnect(t *testing.T) {
 	if _, err := manager.activatePeer(t.Context(), old); err != nil {
 		t.Fatal(err)
 	}
+	host := &PeerConn{Conn: old}
+	if !manager.RegisterPeerRetirer(key, old, func() { host.retiring.Store(true) }) {
+		t.Fatal("could not register the active generation retirer")
+	}
 	blocked := make(chan error, 1)
 	go func() {
 		response, err := peers.BlockPeer(t.Context(), adminhttp.BlockPeerRequestObject{PublicKey: key.String()})
@@ -987,8 +991,13 @@ func TestManagerBlockDetachesBeforeCloseAndApproveCanReconnect(t *testing.T) {
 	if _, ok := manager.Peer(key); ok {
 		t.Fatal("blocked Peer still indexed")
 	}
-	if manager.allowService(t.Context(), key, ServicePeerRPC) {
-		t.Fatal("blocked Peer opened service during close")
+	if !host.isRetiring() {
+		t.Fatal("detached generation was not retired before transport close")
+	}
+	// A concurrently opened ordinary service can pass label authorization,
+	// but a new connection must still fail activation before it serves work.
+	if !manager.allowService(t.Context(), key, ServicePeerRPC) {
+		t.Fatal("ordinary service authorization unexpectedly depends on durable status")
 	}
 	if _, err := manager.activatePeer(t.Context(), &testGiznetConn{publicKey: key}); !errors.Is(err, peer.ErrPeerBlocked) {
 		t.Fatalf("blocked reconnect = %v", err)
@@ -1073,7 +1082,7 @@ func (s blockMutationFailureStore) ApplyMutation(context.Context, kv.Mutation) (
 
 func TestManagerBlockDisconnectFollowsDurableCommit(t *testing.T) {
 	for _, failCommit := range []bool{true, false} {
-		t.Run(map[bool]string{true: "commit fails", false: "directory fails after commit"}[failCommit], func(t *testing.T) {
+		t.Run(map[bool]string{true: "commit fails", false: "unavailable local directory does not affect block"}[failCommit], func(t *testing.T) {
 			key := giznet.PublicKey{88}
 			peers := &peer.Server{Store: kv.NewMemory(nil)}
 			manager := NewManager(peers)
@@ -1091,8 +1100,8 @@ func TestManagerBlockDisconnectFollowsDurableCommit(t *testing.T) {
 				}
 			}
 			response, err := peers.BlockPeer(t.Context(), adminhttp.BlockPeerRequestObject{PublicKey: key.String()})
-			if _, success := response.(adminhttp.BlockPeer200JSONResponse); err != nil || success {
-				t.Fatalf("block failure = %T, %v", response, err)
+			if _, success := response.(adminhttp.BlockPeer200JSONResponse); err != nil || success == failCommit {
+				t.Fatalf("block response = %T, %v, commit failure = %v", response, err, failCommit)
 			}
 			closed := false
 			select {
@@ -1115,5 +1124,23 @@ func TestManagerBlockDisconnectFollowsDurableCommit(t *testing.T) {
 				t.Fatalf("status after failure = %s", record.Status)
 			}
 		})
+	}
+}
+
+func TestManagerBlockRemotePeerDoesNotCreateLocalRun(t *testing.T) {
+	key := giznet.PublicKey{89}
+	peers := &peer.Server{Store: kv.NewMemory(nil)}
+	if _, err := peers.SavePeer(t.Context(), apitypes.Peer{PublicKey: key.String(), Role: apitypes.PeerRoleClient, Status: apitypes.PeerRegistrationStatusActive}); err != nil {
+		t.Fatal(err)
+	}
+	peers.LocalRuns = peerruntest.New(t)
+	peers.PeerManager = NewManager(peers)
+	response, err := peers.BlockPeer(t.Context(), adminhttp.BlockPeerRequestObject{PublicKey: key.String()})
+	if _, success := response.(adminhttp.BlockPeer200JSONResponse); err != nil || !success {
+		t.Fatalf("block = %T, %v", response, err)
+	}
+	keys, _, err := peers.LocalRuns.ListPeerPublicKeys(t.Context(), "", 100)
+	if err != nil || len(keys) != 0 {
+		t.Fatalf("blocking remote Peer changed local directory: %v, %v", keys, err)
 	}
 }

@@ -28,7 +28,7 @@
 
 Connection activation 会先在 Manager 锁内为 public key 建立 reservation，再在不持有全局锁的情况下检查 durable Peer availability，并且只在 reservation 仍属于当前 connection 时发布它。blocked 状态、pending marker 或 permanent tombstone 会使 activation 失败；等待 self-delete 的 reconnect 不会复用旧记录或创建新 generation。尚未发布 connection 的 reservation 处于离线状态。replacement 正在执行 durable ensure 时，原 generation 继续可用；强制下线会清除原 generation，但不会丢弃 replacement reservation；新 connection 只有发布完成后才会启动 transport service loop。connection-scoped self-delete 会先发布 deleting 状态，再提交 durable marker；提交后 Manager quiesce 该 identity，replacement activation、registration 与 Server 主动 Peer RPC 都持续被 durable fence 拒绝，其他 Peer 保持可用。
 
-Admin block 持久化 `blocked` 后，`DetachPeerConnections` 在同一 public key 的记录协调内摘除当前 connection、Edge transport 和正在激活的 reservation，再释放记录锁与 Manager 锁并关闭捕获的 transport。迟到的 activation 不能重新发布已摘除的 reservation。这个操作不留下永久 fence；Admin approve 回到 active 后可立即建立新连接，旧连接的关闭不会影响新 generation。`ForcePeerDown` 保留原有仅清理在线索引、保留 replacement reservation 的用途，不承担封禁断开。激活拒绝发生在 PeerRoutes assignment 与 LocalRuns 写入前。新 service stream 的有界状态检查见 [Security Policy](../server/security-policy)。
+Admin block 持久化 `blocked` 后，`DetachPeerConnections` 在同一 public key 的记录协调内摘除当前 connection、Edge transport 和正在激活的 reservation，再释放记录锁与 Manager 锁，将旧 generation 标记为 retiring 并关闭捕获的 transport。迟到的 activation 不能重新发布已摘除的 reservation。这个操作不留下永久 fence；Admin approve 回到 active 后可立即建立新连接，旧连接的关闭不会影响新 generation。`ForcePeerDown` 保留原有仅清理在线索引、保留 replacement reservation 的用途，不承担封禁断开。激活拒绝发生在 PeerRoutes assignment 与 LocalRuns 写入前。普通 Peer service 授权保持零存储 I/O；封禁执行与原有角色授权的边界见 [Security Policy](../server/security-policy)。
 
 ## 设备元数据归属
 

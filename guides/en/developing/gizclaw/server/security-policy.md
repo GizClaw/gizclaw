@@ -49,21 +49,27 @@ PeerRoutes assignments or LocalRuns. This also applies to registration-token
 mode and logical Peers forwarded through Edge to this Server. Edge's own
 handshake remains outside the Server admission setting.
 
-Admin block persists the status and disconnects this Server's current Peer
-connections, including an activating replacement. Admin approve restores active
-status and permits reconnect. Existing streams close with their connection.
-Between the committed block and transport close, new RPC, HTTP, OpenAI, Event,
-Admin, and Edge service streams reread durable status. Additional host-policy
-grants cannot override blocked denial.
+Admin block persists the status and detaches this Server's current connection,
+Edge transports, and activation reservation under same-key record coordination.
+Outside locks, cleanup marks the old generation retiring in memory and closes
+its transports. Existing streams close with their connection. A new connection
+must pass activation before serving work, even if its Event transport is already
+open. Late activation cannot publish a detached reservation. Admin approve
+restores active status and permits a fresh connection.
 
-DataChannel callbacks have no request context, so Manager limits each status
-lookup to 250 ms. Storage errors, timeout, and cancellation deny access; successful
-results are not cached across a block. Unknown normal Peers may still open the
-mandatory Event stream before activation. Role services still require an active
-role or a host grant. Queries hold no Manager lock and start no background
-goroutine. This adds a read per new service and rejects new streams during store
-failure, instead of retaining stale authorization. Existing streams are not
-queried per message.
+Authorization for ordinary `ServicePeerRPC`, `ServicePeerHTTP`,
+`ServicePeerOpenAI`, and `EventStreamAgent` services performs no storage reads and
+adds no deadline. Event transport precedes activation, so an allowed service
+label does not mean the Peer is active or permitted to execute business work.
+Activation and connection revocation on block enforce blocked status; the old
+generation's retiring flag is memory-only. Slow shared storage therefore does
+not turn each ordinary service open into a transport denial.
+
+Admin/Edge role services retain their existing `allowActivePeerRole` lookup and
+host-policy fallback. Role queries preserve the caller's context, including
+`context.Background()` in DataChannel callbacks, without a fixed timeout.
+Manager role grants still require active status and a matching role. A host
+Admin grant cannot bypass the activation check for blocked status.
 
 ## Built-in registration-token policy
 
@@ -96,7 +102,7 @@ cover only memory bookkeeping. Storage operations are read-only; cache and count
 in-memory. Exhausted budgets or capacity can temporarily deny valid new tokens too; callers
 should back off and retry after recovery. Known Peers reconnecting without credentials do not
 consume the token budget. Multiple processes have independent limits. Default `open` admission
-performs none of these handshake token queries or limits, but still enforces the activation and service checks above.
+performs none of these handshake token queries or limits, but still enforces activation and connection revocation on block as described above.
 
 After an administrator reenables, extends, or raises a token limit, a previous failure remains cached for at most one second; the global failure budget still recovers on its existing 60-second window. Known Peers reconnecting without credentials are unaffected by later token restrictions. These changes prevent new activations without revoking existing devices; presenting a restricted token still fails handshake preflight. See [RuntimeProfile and registration](../services/runtime-profile#registrationtoken) for activation and editing semantics.
 

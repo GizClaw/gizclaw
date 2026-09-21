@@ -2,6 +2,7 @@ package gizclaw
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"testing"
@@ -138,8 +139,8 @@ func TestEdgeTunnelRemoteServiceUsesLogicalClientIdentity(t *testing.T) {
 	if _, err := manager.Peers.SavePeer(t.Context(), apitypes.Peer{PublicKey: client.Public.String(), Role: apitypes.PeerRoleClient, Status: apitypes.PeerRegistrationStatusBlocked}); err != nil {
 		t.Fatal(err)
 	}
-	if manager.allowService(t.Context(), client.Public, ServicePeerRPC) {
-		t.Fatal("blocked logical client opened peer RPC service")
+	if _, err := manager.activatePeer(t.Context(), &testGiznetConn{publicKey: client.Public}); !errors.Is(err, peer.ErrPeerBlocked) {
+		t.Fatalf("blocked logical client activation = %v", err)
 	}
 	if !manager.allowService(t.Context(), giznet.PublicKey{92}, ServicePeerRPC) {
 		t.Fatal("blocking one logical client denied an unrelated identity")

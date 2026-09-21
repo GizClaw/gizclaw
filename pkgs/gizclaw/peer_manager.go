@@ -265,52 +265,30 @@ func (m *Manager) releaseTelemetryStatusLock(publicKey giznet.PublicKey) {
 	}
 }
 
-// Service callbacks have no request deadline. Bound their shared-store reads
-// and fail closed instead of caching successful authorization across a block.
-const peerServiceLookupTimeout = 250 * time.Millisecond
-
 func (m *Manager) allowService(ctx context.Context, publicKey giznet.PublicKey, service uint64) bool {
-	return m.allowServiceWithPolicy(ctx, publicKey, service, nil)
-}
-
-func (m *Manager) allowServiceWithPolicy(ctx context.Context, publicKey giznet.PublicKey, service uint64, fallback giznet.SecurityPolicy) bool {
-	if m == nil || m.Peers == nil {
-		return false
-	}
-	ctx, cancel := context.WithTimeout(ctx, peerServiceLookupTimeout)
-	defer cancel()
-	record, err := m.Peers.LoadPeer(ctx, publicKey)
-	if err != nil && !errors.Is(err, peer.ErrPeerNotFound) {
-		return false
-	}
-	if ctx.Err() != nil || record.Status == apitypes.PeerRegistrationStatusBlocked {
-		return false
-	}
-	// Unknown identities need the mandatory Event stream before activation
-	// creates their record. Role services still require an active record.
 	switch service {
 	case ServicePeerRPC, ServicePeerHTTP, ServicePeerOpenAI, EventStreamAgent:
+		// Event transport precedes activation. Keep ordinary service admission
+		// free of storage I/O; activation rejects blocked identities and Admin
+		// block detaches and closes every current connection/reservation.
 		return true
-	case ServiceAdminHTTP:
-		if record.Status == apitypes.PeerRegistrationStatusActive && record.Role == apitypes.PeerRoleAdmin {
-			return true
-		}
-	case ServiceEdgeHTTP, ServiceEdgeRPC:
-		if record.Status == apitypes.PeerRegistrationStatusActive && record.Role == apitypes.PeerRoleEdgeNode {
-			return true
-		}
 	}
-	return fallback != nil && fallback.AllowService(publicKey, service)
+	switch service {
+	case ServiceAdminHTTP:
+		return m.allowActivePeerRole(ctx, publicKey, apitypes.PeerRoleAdmin)
+	case ServiceEdgeHTTP, ServiceEdgeRPC:
+		return m.allowActivePeerRole(ctx, publicKey, apitypes.PeerRoleEdgeNode)
+	default:
+		return false
+	}
 }
 
 func (m *Manager) allowActivePeerRole(ctx context.Context, publicKey giznet.PublicKey, role apitypes.PeerRole) bool {
 	if m == nil || m.Peers == nil {
 		return false
 	}
-	ctx, cancel := context.WithTimeout(ctx, peerServiceLookupTimeout)
-	defer cancel()
 	peer, err := m.Peers.LoadPeer(ctx, publicKey)
-	if err != nil || ctx.Err() != nil {
+	if err != nil {
 		return false
 	}
 	return peer.Status == apitypes.PeerRegistrationStatusActive && peer.Role == role
@@ -715,11 +693,14 @@ func (m *Manager) SetPeerDown(publicKey giznet.PublicKey, conn giznet.Conn) {
 // reservation for an identity. The caller must invoke the returned cleanup
 // after releasing its record lock. It closes only captured transports, so a
 // later approved generation is unaffected and no permanent fence is retained.
+// Cleanup first retires the old generation in memory, then closes transports.
 func (m *Manager) DetachPeerConnections(publicKey giznet.PublicKey) func() {
 	m.mu.Lock()
 	state := m.peers[publicKey]
 	connections := make(map[giznet.Conn]struct{})
+	var retire func()
 	if state != nil {
+		retire = state.retire
 		if state.conn != nil {
 			connections[state.conn] = struct{}{}
 		}
@@ -733,6 +714,9 @@ func (m *Manager) DetachPeerConnections(publicKey giznet.PublicKey) func() {
 	}
 	m.mu.Unlock()
 	return func() {
+		if retire != nil {
+			retire()
+		}
 		for conn := range connections {
 			_ = conn.Close()
 			m.recordPeerLastSeen(publicKey, conn)

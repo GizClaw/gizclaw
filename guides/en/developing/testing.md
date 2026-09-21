@@ -14,8 +14,8 @@ documented in [Monitor](monitor).
 
 `go test ./cmd/internal/server -run '^TestPeerBlockedSDKWebRTC$' -count=1 -v`
 uses temporary SQLite state, a real Server, Go SDK WebRTC, and Admin HTTP to
-verify online block disconnection, blocked-key reconnect rejection, and
-successful reconnect/ping after approve. It covers omitted `peer-admission`
+verify concurrent RPC stream opening and online block disconnection, blocked-key
+reconnect rejection, and successful reconnect/ping after approve. It covers omitted `peer-admission`
 (default open) and registration-token mode; the latter also requires handshake
 `peer_forbidden`. It has no build tag and runs in normal Go CI without an AI
 provider, external credentials, or Docker.

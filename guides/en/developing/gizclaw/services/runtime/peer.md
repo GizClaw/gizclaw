@@ -29,9 +29,10 @@ Edge bootstrap avoids rewriting an already active Edge. When Servers initialize 
 `EnsureConnectedPeer` and `EnsureConnectedPeerGuarded` return `ErrPeerBlocked`
 for existing blocked records, including a concurrent create winner. They do not
 interpret them as missing or recreate them. After Admin block commits, all local
-connection generations are detached and their transports are closed outside
-locks, even if subsequent local-directory persistence fails. A failed durable
-write does not disconnect a healthy Peer. `EnsureAvailable` retains deletion-fence
+connection generations are detached; cleanup retires the old generation in
+memory and closes its transports outside locks. Blocking does not create a local
+runtime-directory entry for a remote/offline Peer and does not depend on that
+directory being available. A failed durable write does not disconnect a healthy Peer. `EnsureAvailable` retains deletion-fence
 semantics so Admin can still read, edit, and approve blocked records. Connection
 and service enforcement belong to [Management](../../peer/manager) and
 [Security Policy](../../server/security-policy).

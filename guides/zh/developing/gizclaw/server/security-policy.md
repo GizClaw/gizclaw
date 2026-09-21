@@ -44,17 +44,22 @@ logical tunnel 不再进入这里，不受这个 Server 开关保护。部署边
 PeerRoutes assignment 或 LocalRuns。该规则同样适用于 registration-token 模式以及
 Edge 转发到本 Server 的 logical Peer；Edge 自身的握手仍不受 Server 的准入开关约束。
 
-Admin block 会持久化状态并断开本 Server 当前持有的该 Peer 连接，包括正在激活的
-replacement；Admin approve 恢复 active 后可重连。已有 stream 随连接关闭。
-在 block 已提交、transport 尚未关闭的窗口，新 service stream 会再次读取持久状态，
-覆盖 RPC、HTTP、OpenAI、Event、Admin 和 Edge service，宿主 policy 的额外授权
-不能覆盖 blocked 拒绝。
+Admin block 会持久化状态，在同一 public key 的记录协调内摘除本 Server 当前持有的
+connection、Edge transport 和正在激活的 reservation，再在锁外将旧 generation
+标记为 retiring 并关闭 transport。已有 stream 随连接关闭；新的 connection 即使
+已经打开 Event transport，也必须通过 activation 才能开始服务。迟到的 activation
+不能发布已摘除的 reservation。Admin approve 恢复 active 后可重新连接。
 
-DataChannel 回调没有请求 ctx，Manager 为每次状态查询设定 250 ms 上限；存储错误、
-超时或取消均拒绝，不缓存成功结果，以免保留旧授权。正常的未知 Peer 仍可打开
-activation 前必需的 Event stream；role service 继续要求 active role 或宿主授权。
-查询不持有 Manager 锁、不启动额外后台 goroutine。相比永久缓存，这会增加每次
-新 service 的读取开销，并在存储故障时拒绝新 stream；已有 stream 不做逐消息查询。
+普通 `ServicePeerRPC`、`ServicePeerHTTP`、`ServicePeerOpenAI` 和
+`EventStreamAgent` 的 service 授权不读取存储，不增加 deadline。Event transport
+先于 activation 建立，所以 service label 被允许不代表 Peer 已激活或可以执行业务。
+blocked 强制由 activation 与 block 时的连接撤销共同完成，旧连接的 retiring 标记
+仅使用内存。共享存储变慢不会通过每次普通 service 打开传播成 transport 拒绝。
+
+Admin/Edge role service 保留原有的 `allowActivePeerRole` 查询及宿主 policy 回退。
+角色查询沿用调用方 context，DataChannel 回调沿用 `context.Background()`，不添加
+固定超时；Manager 角色授权仍要求 active 状态及匹配 role。宿主 Admin grant 不会
+让连接绕过 activation 的 blocked 检查。
 
 ## 内置 registration-token policy
 
@@ -81,7 +86,7 @@ activation 前必需的 Event stream；role service 继续要求 active role 或
 查询继承请求取消/deadline，并额外限制为 2 秒；锁内只有内存记账。所有判定都是只读
 存储查询，缓存和计数只存在内存中。预算或并发额度耗尽时，合法新 token 也会被暂时
 拒绝；调用方应退避重试，窗口到期后恢复。空凭证的已知 Peer 重连不占 token 查询预算。
-多进程部署的预算各自独立。默认 `open` 不执行这些握手 token 查询与限制，但仍执行上面的 activation 与 service 状态检查。
+多进程部署的预算各自独立。默认 `open` 不执行这些握手 token 查询与限制，但仍执行上面的 activation 检查与 block 时的连接撤销。
 
 管理员重新启用、延期或调高上限后，先前失败最多在负缓存中保留 1 秒；全局失败预算仍按原有 60 秒窗口恢复。已知 Peer 不带凭证重连不受 token 禁用、过期或降低限额影响。这些修改只阻止新的激活，不吊销已有设备；已有设备主动携带受限 token 时仍会被握手预检拒绝。激活定义与 admin 编辑见 [RuntimeProfile 与设备注册](../services/runtime-profile#registrationtoken)。
 

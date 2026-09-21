@@ -318,9 +318,9 @@ func (s *Server) block(ctx context.Context, publicKey giznet.PublicKey) (apitype
 	if disconnect != nil {
 		disconnect()
 	}
-	// A directory failure after the durable commit must not leave the Peer
-	// online. No record reread is needed to return the committed snapshot.
-	return item, s.rememberPeer(ctx, item)
+	// Blocking does not establish local runtime ownership. Return the
+	// committed snapshot without creating a local directory entry.
+	return item, nil
 }
 
 func (s *Server) delete(ctx context.Context, publicKey giznet.PublicKey, reason pendingdeletion.Reason) (apitypes.Peer, error) {

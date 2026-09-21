@@ -2,8 +2,6 @@ package gizclaw
 
 import (
 	"context"
-	"errors"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"testing"
 	"time"
 
@@ -12,6 +10,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznetpb"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func testServerSecurityPolicy(peers *peer.Server) *ServerSecurityPolicy {
@@ -134,52 +133,81 @@ func TestServerSecurityPolicyForwardsAdmission(t *testing.T) {
 	}
 }
 
-func TestServerSecurityPolicyBlockedCannotUseHostFallback(t *testing.T) {
-	key := giznet.PublicKey{73}
-	peers := &peer.Server{Store: kv.NewMemory(nil)}
-	if _, err := peers.SavePeer(t.Context(), apitypes.Peer{PublicKey: key.String(), Role: apitypes.PeerRoleAdmin, Status: apitypes.PeerRegistrationStatusBlocked}); err != nil {
-		t.Fatal(err)
-	}
-	calls := 0
-	policy := (*ServerSecurityPolicy)(&Server{manager: NewManager(peers), SecurityPolicy: testGiznetSecurityPolicy{
-		allowService: func(giznet.PublicKey, uint64) bool { calls++; return true },
-	}})
-	for _, service := range []uint64{ServicePeerRPC, ServicePeerHTTP, ServicePeerOpenAI, EventStreamAgent, ServiceAdminHTTP, ServiceEdgeHTTP, ServiceEdgeRPC, 0xff} {
-		if policy.AllowService(key, service) {
-			t.Fatalf("blocked Peer opened service %x", service)
+// Even a store whose next read is indefinitely blocked must not affect
+// ordinary service authorization, including logical Edge service admission.
+func TestOrdinaryPeerServicesDoNotReadSlowStore(t *testing.T) {
+	store := &blockingGetStore{Store: kv.NewMemory(nil), entered: make(chan struct{}), release: make(chan struct{})}
+	defer close(store.release)
+	manager := NewManager(&peer.Server{Store: store})
+	policy := (*ServerSecurityPolicy)(&Server{manager: manager})
+	done := make(chan bool, 1)
+	go func() {
+		for _, service := range []uint64{ServicePeerRPC, ServicePeerHTTP, ServicePeerOpenAI, EventStreamAgent} {
+			if !policy.AllowService(giznet.PublicKey{73}, service) || !manager.allowService(t.Context(), giznet.PublicKey{74}, service) {
+				done <- false
+				return
+			}
 		}
+		done <- true
+	}()
+	select {
+	case allowed := <-done:
+		if !allowed {
+			t.Fatal("slow store denied ordinary Peer service")
+		}
+	case <-store.entered:
+		t.Fatal("ordinary Peer service attempted a storage read")
+	case <-time.After(time.Second):
+		t.Fatal("ordinary Peer service did not make progress")
 	}
-	if calls != 0 {
-		t.Fatal("blocked denial reached host fallback")
+	select {
+	case <-store.entered:
+		t.Fatal("ordinary service queried storage")
+	default:
 	}
 }
 
-type deadlinePeerStore struct{ kv.Store }
-
-func (s deadlinePeerStore) Get(ctx context.Context, _ kv.Key) ([]byte, error) {
-	<-ctx.Done()
-	return nil, ctx.Err()
+type serviceContextStore struct {
+	kv.Store
+	readContext context.Context
 }
 
-func TestServerSecurityPolicyLookupFailsClosedAndIsBounded(t *testing.T) {
-	for _, store := range []kv.Store{
-		&failingGetStore{err: errors.New("store unavailable")},
-		deadlinePeerStore{},
+func (s *serviceContextStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
+	s.readContext = ctx
+	return s.Store.Get(ctx, key)
+}
+
+func TestRoleServicesPreserveLookupContextAndBlockedDenial(t *testing.T) {
+	for _, test := range []struct {
+		service uint64
+		role    apitypes.PeerRole
+	}{
+		{ServiceAdminHTTP, apitypes.PeerRoleAdmin},
+		{ServiceEdgeHTTP, apitypes.PeerRoleEdgeNode},
+		{ServiceEdgeRPC, apitypes.PeerRoleEdgeNode},
 	} {
-		policy := (*ServerSecurityPolicy)(&Server{manager: NewManager(&peer.Server{Store: store}), SecurityPolicy: testGiznetSecurityPolicy{
-			allowService: func(giznet.PublicKey, uint64) bool { t.Error("failed lookup reached fallback"); return true },
-		}})
-		start := time.Now()
-		if policy.AllowService(giznet.PublicKey{74}, ServicePeerRPC) {
-			t.Fatal("failed lookup allowed service")
+		key := giznet.PublicKey{75}
+		base := kv.NewMemory(nil)
+		peers := &peer.Server{Store: base}
+		manager := NewManager(peers)
+		for _, status := range []apitypes.PeerRegistrationStatus{apitypes.PeerRegistrationStatusActive, apitypes.PeerRegistrationStatusBlocked} {
+			peers.Store = base
+			if _, err := peers.SavePeer(t.Context(), apitypes.Peer{PublicKey: key.String(), Role: test.role, Status: status}); err != nil {
+				t.Fatal(err)
+			}
+			store := &serviceContextStore{Store: base}
+			peers.Store = store
+			ctx := context.Background()
+			allowed := manager.allowService(ctx, key, test.service)
+			if allowed != (status == apitypes.PeerRegistrationStatusActive) {
+				t.Fatalf("role service %x with status %s: allowed=%v", test.service, status, allowed)
+			}
+			if store.readContext != ctx {
+				t.Fatal("role service replaced its original lookup context")
+			}
+			if _, hasDeadline := store.readContext.Deadline(); hasDeadline {
+				t.Fatal("role service added a deadline")
+			}
 		}
-		if elapsed := time.Since(start); elapsed > time.Second {
-			t.Fatalf("service lookup exceeded bound: %s", elapsed)
-		}
-	}
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	if NewManager(&peer.Server{Store: kv.NewMemory(nil)}).allowService(ctx, giznet.PublicKey{75}, EventStreamAgent) {
-		t.Fatal("cancelled service lookup allowed bootstrap")
 	}
 }

@@ -106,6 +106,29 @@ func TestPeerBlockedSDKWebRTC(t *testing.T) {
 			connect(admin)
 			device := newClient(deviceKey)
 			deviceDone := connect(device)
+			// Continuously open real RPC service streams while Admin block races
+			// with the connected device; transport closure must stop this work.
+			firstStream := make(chan error, 1)
+			streamsDone := make(chan struct{})
+			go func() {
+				defer close(streamsDone)
+				_, err := device.Ping(ctx, "stream-before-block")
+				firstStream <- err
+				for err == nil {
+					_, err = device.Ping(ctx, "stream-racing-block")
+				}
+			}()
+			t.Cleanup(func() {
+				_ = device.Close()
+				select {
+				case <-streamsDone:
+				case <-time.After(5 * time.Second):
+					t.Error("concurrent RPC worker did not stop")
+				}
+			})
+			if err := <-firstStream; err != nil {
+				t.Fatal(err)
+			}
 			blocked, err := adminapi.BlockPeer(ctx, admin, deviceKey.Public.String())
 			if err != nil || blocked.Status != apitypes.PeerRegistrationStatusBlocked {
 				t.Fatalf("Admin block = %+v, %v", blocked, err)
@@ -119,6 +142,11 @@ func TestPeerBlockedSDKWebRTC(t *testing.T) {
 			}
 			if _, online := srv.Manager().Peer(deviceKey.Public); online {
 				t.Fatal("blocked device remains online")
+			}
+			select {
+			case <-streamsDone:
+			case <-time.After(5 * time.Second):
+				t.Fatal("blocked device continued opening RPC streams")
 			}
 			attempt := newClient(deviceKey)
 			err = attempt.Dial(srv.PublicKey(), httpServer.URL)

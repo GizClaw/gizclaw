@@ -39,5 +39,8 @@ func (p *ServerSecurityPolicy) AllowService(publicKey giznet.PublicKey, service 
 		return false
 	}
 	s := (*Server)(p)
-	return s.manager.allowServiceWithPolicy(context.Background(), publicKey, service, s.SecurityPolicy)
+	if m := s.manager; m != nil && m.allowService(context.Background(), publicKey, service) {
+		return true
+	}
+	return s.SecurityPolicy != nil && s.SecurityPolicy.AllowService(publicKey, service)
 }
