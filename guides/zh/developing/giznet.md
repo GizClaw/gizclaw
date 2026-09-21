@@ -253,3 +253,39 @@ flowchart TB
 - 只对单个 GizClaw 业务 surface 有意义的授权规则。
 
 这些内容分别属于 `pkgs/gizclaw`、`pkgs/gizedge`、`cmd/internal/server` 或对应客户端目录。
+
+## Signaling 准入凭证
+
+`DialConfig.Credential` 接收可选的 `*giznetpb.AdmissionCredential`，定义位于
+`api/proto/giznet/admission.proto`，生成代码属于 `pkgs/giznet/giznetpb`。消息包含
+`uint32 version = 1`、`string type = 2` 和 `string value = 3` 三个显式字段。
+当前凭证版本为 1；它与 GZOF 信封版本独立。giznet 只解码结构，不解释 version、type
+或 opaque value 的业务含义，具体类型与允许的版本由注入 policy 决定。
+
+`type` 最多 128 UTF-8 bytes，`value` 最多 512 UTF-8 bytes；整个 protobuf 编码仍须
+不超过 4096 bytes；该传输上限独立于字符串上限。各 SDK
+在发送前检查这些上限。省略 credential 时发送裸 SDP；传入编码后为空的结构报错，
+不会隐式变成无凭证。有凭证时，AEAD 密封明文为：
+
+| 字段 | 长度 | 编码 |
+| --- | --- | --- |
+| 魔数 | 4 bytes | ASCII `GZOF` |
+| 信封版本 | 1 byte | `1` |
+| credential 长度 | 2 bytes | unsigned big-endian |
+| credential | 0–4096 bytes | `giznet.v1.AdmissionCredential` protobuf |
+| SDP | 剩余 bytes | UTF-8 |
+
+解密后没有魔数的整包按裸 SDP 处理，等价于空凭证；信封中的零长度 credential
+也表示无凭证。见魔数但信封版本未知、头部/凭证截断、长度超限、protobuf 解码失败
+或字符串字段超限时，返回 HTTP 400 `invalid_credential`，不会调用 policy 或回退裸 SDP。
+现有 256 KiB 请求体上限不变。Answer 仍为密封裸 SDP，HTTP headers、AAD 与密钥派生不变。
+非空凭证不允许使用 `CipherModePlaintext`，也不放入 header、URL 或日志。
+
+`SecurityPolicy.AllowPeer(context.Context, PeerAdmission)` 在创建 PeerConnection 之前
+接收真实 HTTP request context、认证公钥，以及已解码的 `Credential`；无凭证时该字段
+为 nil。消息只在调用期间只读借用，不得保留。policy 拒绝返回 HTTP 403 `peer_forbidden`。
+giznet 不将凭证附到 Conn，也不执行持久化。ECDH/AEAD 证明公钥持有权，运营方授权
+由 policy 决定；nil policy 默认放行。GizClaw 的 registration-token 语义见
+[Security Policy](./gizclaw/server/security-policy)，SDK helper 不属于 giznet。
+
+SDP 编码前最多允许 258025 个 UTF-8 字节，为 256 KiB signaling HTTP body 预留 4096 字节 credential、7 字节信封和 16 字节 AEAD tag；Go/JS/Dart/C 在分配信封前拒绝超限 SDP。

@@ -1,10 +1,13 @@
 package giznet
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 type allowAllSecurityPolicy struct{}
 
-func (allowAllSecurityPolicy) AllowPeer(PublicKey) bool {
+func (allowAllSecurityPolicy) AllowPeer(context.Context, PeerAdmission) bool {
 	return true
 }
 

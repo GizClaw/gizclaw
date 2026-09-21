@@ -18,5 +18,5 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   lints: ^6.0.0
-  protoc_plugin: ^25.0.0
+  protoc_plugin: 25.0.0
   test: ^1.26.3

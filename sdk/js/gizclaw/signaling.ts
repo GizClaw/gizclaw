@@ -1,7 +1,27 @@
+import { create, toBinary } from "@bufbuild/protobuf";
+import {
+  AdmissionCredentialSchema,
+  type AdmissionCredential as AdmissionCredentialMessage,
+} from "./generated/giznet/admission_pb.js";
+
 import { chacha20poly1305 } from "@noble/ciphers/chacha.js";
 import { x25519 } from "@noble/curves/ed25519.js";
 import { hkdf } from "@noble/hashes/hkdf.js";
 import { sha256 } from "@noble/hashes/sha2.js";
+
+/** Structured Giznet credential; only the receiving policy interprets fields. */
+export type AdmissionCredential = Pick<
+  AdmissionCredentialMessage,
+  "version" | "type" | "value"
+>;
+
+/** Maximum encoded protobuf credential bytes inside an encrypted offer. */
+export const GIZNET_MAX_CREDENTIAL_BYTES = 4096;
+/** Maximum UTF-8 bytes in the opaque credential value. */
+export const GIZNET_MAX_CREDENTIAL_VALUE_BYTES = 512;
+/** Leaves room within the 256 KiB signaling body for credentials and AEAD. */
+export const GIZNET_MAX_OFFER_SDP_BYTES =
+  256 * 1024 - GIZNET_MAX_CREDENTIAL_BYTES - 7 - 16;
 
 const signalingPath = "/webrtc/v1/offer";
 const base58Alphabet =
@@ -27,7 +47,30 @@ export type PreparedGiznetWebRTCOffer = {
 export async function prepareEncryptedGiznetWebRTCOffer(
   identity: GiznetSignalingIdentity,
   offerSDP: string,
+  credential?: AdmissionCredential,
 ): Promise<PreparedGiznetWebRTCOffer> {
+  if (offerSDP.length > GIZNET_MAX_OFFER_SDP_BYTES)
+    throw new Error("offer SDP exceeds signaling limit");
+  const sdp = new TextEncoder().encode(offerSDP);
+  if (sdp.byteLength > GIZNET_MAX_OFFER_SDP_BYTES)
+    throw new Error("offer SDP exceeds signaling limit");
+  const encoded = encodeAdmissionCredential(credential);
+  let plaintext: Uint8Array = sdp;
+  if (encoded != null) {
+    plaintext = concatBytes([
+      new Uint8Array([
+        0x47,
+        0x5a,
+        0x4f,
+        0x46,
+        1,
+        encoded.byteLength >> 8,
+        encoded.byteLength & 0xff,
+      ]),
+      encoded,
+      sdp,
+    ]);
+  }
   const clientPrivateKey = expectKeyBytes(
     identity.clientPrivateKey,
     "client private key",
@@ -55,7 +98,7 @@ export async function prepareEncryptedGiznetWebRTCOffer(
     keys.requestKey,
     keys.requestNonce,
     requestAAD,
-  ).encrypt(new TextEncoder().encode(offerSDP));
+  ).encrypt(plaintext);
 
   return {
     body: new Blob([arrayBufferFromBytes(body)]),
@@ -73,6 +116,28 @@ export async function prepareEncryptedGiznetWebRTCOffer(
     },
     timestamp,
   };
+}
+
+/** Encodes and bounds a credential before discovery, ICE or signaling I/O. */
+export function encodeAdmissionCredential(
+  credential?: AdmissionCredential,
+): Uint8Array | undefined {
+  if (credential == null) return undefined;
+  const utf8 = new TextEncoder();
+  if (
+    utf8.encode(credential.type).length > 128 ||
+    utf8.encode(credential.value).length > GIZNET_MAX_CREDENTIAL_VALUE_BYTES
+  ) {
+    throw new Error("invalid admission credential length");
+  }
+  const encoded = toBinary(
+    AdmissionCredentialSchema,
+    create(AdmissionCredentialSchema, credential),
+  );
+  if (encoded.length === 0 || encoded.length > GIZNET_MAX_CREDENTIAL_BYTES) {
+    throw new Error("invalid admission credential length");
+  }
+  return encoded;
 }
 
 function deriveSignalingKeys(

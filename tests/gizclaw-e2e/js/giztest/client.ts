@@ -7,6 +7,7 @@ import { x25519 } from "@noble/curves/ed25519.js";
 import wrtc from "@roamhq/wrtc";
 import {
   connectGiznetWebRTCFromEndpoint,
+  registrationTokenCredential,
   GizClawDeviceControlError,
   sendGiznetWebRTCTelemetry,
   type GizClawDeviceStatus,
@@ -178,9 +179,29 @@ export class ScenarioClient {
     );
     const inbound = new Map<string, number>();
     const handlers = buildHandlers(name, steps, variables, inbound);
+    const token =
+      spec.registration_token == null || spec.registration_token === ""
+        ? undefined
+        : variables.resolveString(
+            spec.registration_token,
+            "registration_token",
+          );
+    const credential =
+      spec.admission_credential == null
+        ? token == null
+          ? undefined
+          : registrationTokenCredential(token)
+        : {
+            ...spec.admission_credential,
+            value: variables.resolveString(
+              spec.admission_credential.value,
+              "admission_credential.value",
+            ),
+          };
     const pc = new wrtc.RTCPeerConnection();
     try {
       await connectGiznetWebRTCFromEndpoint({
+        credential,
         clientPrivateKey: privateKey,
         endpoint,
         pc: pc as unknown as RTCPeerConnection,
@@ -210,11 +231,7 @@ export class ScenarioClient {
       privateKey,
       handlers,
     );
-    if (spec.registration_token != null && spec.registration_token !== "") {
-      const token = variables.resolveString(
-        spec.registration_token,
-        "registration_token",
-      );
+    if (token != null && token !== "") {
       await rpc.call("server.register", { token });
     }
     return client;

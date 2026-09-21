@@ -29,6 +29,9 @@ typedef struct gzt_control gzt_control_t;
 int gzt_session_open(
     const char *endpoint,
     const char *private_key,
+    unsigned int credential_version,
+    const char *credential_type,
+    const char *credential_value,
     unsigned long long provider_handle,
     const char *tool_name,
     gzt_session_t **out_session,

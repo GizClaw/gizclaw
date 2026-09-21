@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 
+import 'generated/giznet/admission.pb.dart';
 import 'transport.dart';
 
 const _base58Alphabet =
@@ -160,12 +161,67 @@ class GiznetServerInfo {
   }
 }
 
+/// Maximum encoded protobuf credential bytes carried inside the encrypted offer.
+const giznetMaxCredentialBytes = 4096;
+
+/// Maximum UTF-8 bytes in the opaque credential value.
+const giznetMaxCredentialValueBytes = 512;
+
+/// Leaves room within the 256 KiB signaling body for credentials and AEAD.
+const giznetMaxOfferSdpBytes = 256 * 1024 - giznetMaxCredentialBytes - 7 - 16;
+
+/// Encodes and bounds a credential before transport I/O. Only policy interprets it.
+Uint8List? encodeAdmissionCredential(AdmissionCredential? credential) {
+  if (credential == null) return null;
+  if (credential.version < 0 ||
+      credential.version > 0xffffffff ||
+      utf8.encode(credential.type).length > 128 ||
+      utf8.encode(credential.value).length > giznetMaxCredentialValueBytes) {
+    throw ArgumentError('invalid admission credential');
+  }
+  // Dart retains explicit scalar presence; omit proto3 defaults consistently
+  // with Go, protobuf-es and nanopb, without mutating the caller's message.
+  final normalized = credential.deepCopy();
+  if (normalized.version == 0) normalized.clearVersion();
+  if (normalized.type.isEmpty) normalized.clearType();
+  if (normalized.value.isEmpty) normalized.clearValue();
+  final encoded = normalized.writeToBuffer();
+  if (encoded.isEmpty || encoded.length > giznetMaxCredentialBytes) {
+    throw ArgumentError('invalid admission credential length');
+  }
+  return encoded;
+}
+
+/// Seals SDP and optional structured [credential] without exposing it in headers.
+/// A null credential retains the legacy bare-SDP format.
 Future<PreparedGiznetWebRtcOffer> prepareEncryptedGiznetWebRtcOffer(
   GiznetSignalingIdentity identity,
   String offerSdp, {
+  AdmissionCredential? credential,
   List<int>? nonceBytes,
   int? timestamp,
 }) async {
+  final encoded = encodeAdmissionCredential(credential);
+  if (offerSdp.length > giznetMaxOfferSdpBytes) {
+    throw ArgumentError("offer SDP exceeds signaling limit");
+  }
+  final sdp = utf8.encode(offerSdp);
+  if (sdp.length > giznetMaxOfferSdpBytes) {
+    throw ArgumentError("offer SDP exceeds signaling limit");
+  }
+  final plaintext = encoded == null
+      ? sdp
+      : <int>[
+          0x47,
+          0x5a,
+          0x4f,
+          0x46,
+          1,
+          encoded.length >> 8,
+          encoded.length & 0xff,
+          ...encoded,
+          ...sdp,
+        ];
   final clientPrivateKey = _expectKeyBytes(
     identity.clientPrivateKey,
     'client private key',
@@ -194,7 +250,7 @@ Future<PreparedGiznetWebRtcOffer> prepareEncryptedGiznetWebRtcOffer(
   final requestAad = signalingAad(clientPublicKey, timestampValue, nonce);
   final cipher = Chacha20.poly1305Aead();
   final encrypted = await cipher.encrypt(
-    utf8.encode(offerSdp),
+    plaintext,
     secretKey: SecretKey(keys.requestKey),
     nonce: keys.requestNonce,
     aad: requestAad,

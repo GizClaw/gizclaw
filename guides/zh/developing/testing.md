@@ -6,6 +6,22 @@ Docker、真实 provider 或人工判断的套件必须显式启动，不能把�
 构建 GizClaw CLI 的 E2E 入口会在 Go 编译前安装锁定的 Node workspace 并构建内嵌控制台，
 包括在 Docker 内编译的入口。产物与嵌入清单无需手动复制；独立编译命令的准备步骤见 [Monitor](monitor)。
 
+## RegistrationToken 准入与生命周期
+
+```sh
+bash tests/gizclaw-e2e/run_admission_tests.sh
+```
+
+这个固定 lane 在临时 SQLite 状态上启动真实 Server，设置 `peer-admission: registration-token`，预置可连接的 Admin Peer 后通过 Admin HTTP 建立测试资源。它不需要 AI 凭据或 Docker，必须安装 Go、Node、protoc 与 Flutter，缺失任何 runner 都失败。Linux 需要图形会话、`libpulse-dev` 和运行中的 PulseAudio 音频设备，供 Flutter WebRTC 初始化。CI 启动 PulseAudio null sink，并将其 monitor 设为默认音源，再用 `xvfb-run -a` 运行同一脚本。
+
+Go、JavaScript、Flutter 和 C Giztest runner 都在初次握手中把 `registration_token` 编成 SDK 的结构化凭证，并在连接后调用 `server.register`；`reconnect` 复用公钥且不带握手凭证。测试文档可用 `clients.<name>.admission_credential: {version, type, value}` 显式替换握手凭证，value 支持变量解析，registration_token 的注册 RPC 语义不变。
+
+`tests/gizclaw-e2e/testdata/admission/` 的成功文档验证新设备注册、重复注册只计一次、限额用完后无凭证重连和再次幂等注册。其他文档以及 disabled、expired、exhausted 资源用于预期拒绝场景：runner 必须失败，且服务端必须实际返回一次 `403 peer_forbidden`。启动失败、未发送请求或 skipped 文档都不能通过。独立 Go SDK 测试位于 `tests/gizclaw-e2e/go/admission/`，giznet 的 WebRTC 测试还验证通用自定义 type/version，不让业务常量进入 transport。
+
+CI 的 Admission SDK E2E job 运行完整 lane；普通 Go 测试也运行 Go Giztest 场景。PostgreSQL Integration 运行 `TestPostgreSQLRegistrationTokenLifecycle`，包含老库迁移、编辑限制、幂等与两条独立连接争最后一个名额。SQLite 运行相同生命周期用例和独立连接并发测试。
+
+标准 Docker 栈可通过 `GIZCLAW_E2E_PEER_ADMISSION=registration-token` 选择该开关，默认仍为 open。它只约束 Server 直接 signaling，不覆盖 Edge 终止的客户端握手；Admin identity 也必须已经登记或携带有效凭证。注册准入 lane 使用直接 Server 连接和预置 Admin Peer，避免混淆这两个边界。完整 provider-backed `run_tests.sh` 仍需统一 `.env` 中的外部服务凭据。
+
 ## RuntimeProfile 配置持久化回归
 
 `go test ./cmd/internal/server -run '^TestRuntimeProfileAppConfigGiztest$' -count=1`

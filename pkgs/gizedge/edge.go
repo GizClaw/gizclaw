@@ -951,7 +951,7 @@ func isEdgePeerHTTPPath(path string) bool {
 
 type edgeSecurityPolicy struct{}
 
-func (edgeSecurityPolicy) AllowPeer(giznet.PublicKey) bool {
+func (edgeSecurityPolicy) AllowPeer(context.Context, giznet.PeerAdmission) bool {
 	return true
 }
 

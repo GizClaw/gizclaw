@@ -29,7 +29,7 @@ func (m *Manager) applyRegistrationToken(ctx context.Context, resource apitypes.
 		}
 		return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindRegistrationToken, createdID), nil
 	}
-	if registrationTokenMatches(previous, item.Spec.Token, item.Spec.RuntimeProfileId, item.Spec.FirmwareId) {
+	if registrationTokenMatches(previous, item) {
 		return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindRegistrationToken, id), nil
 	}
 	_, err = m.putRegistrationToken(ctx, transportID, item)
@@ -68,6 +68,7 @@ func (m *Manager) putRegistrationToken(ctx context.Context, id string, item apit
 		Token:            item.Spec.Token,
 		RuntimeProfileId: item.Spec.RuntimeProfileId,
 		FirmwareId:       item.Spec.FirmwareId,
+		Enabled:          item.Spec.Enabled, ExpiresAt: item.Spec.ExpiresAt, MaxActivations: item.Spec.MaxActivations,
 	}
 	response, err := m.services.RuntimeProfiles.PutRegistrationToken(ctx, adminhttp.PutRegistrationTokenRequestObject{Id: id, Body: &body})
 	if err != nil {
@@ -88,7 +89,7 @@ func (m *Manager) putRegistrationToken(ctx context.Context, id string, item apit
 }
 
 func (m *Manager) createRegistrationToken(ctx context.Context, item apitypes.RegistrationTokenResource) (string, error) {
-	body := adminhttp.RegistrationTokenUpsert{Id: item.Metadata.Id, Token: item.Spec.Token, RuntimeProfileId: item.Spec.RuntimeProfileId, FirmwareId: item.Spec.FirmwareId}
+	body := adminhttp.RegistrationTokenUpsert{Id: item.Metadata.Id, Token: item.Spec.Token, RuntimeProfileId: item.Spec.RuntimeProfileId, FirmwareId: item.Spec.FirmwareId, Enabled: item.Spec.Enabled, ExpiresAt: item.Spec.ExpiresAt, MaxActivations: item.Spec.MaxActivations}
 	response, err := m.services.RuntimeProfiles.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &body})
 	if err != nil {
 		return "", err
@@ -136,10 +137,31 @@ func resourceFromRegistrationToken(item apitypes.RegistrationToken) (apitypes.Re
 	resource.Spec.Token = item.Token
 	resource.Spec.RuntimeProfileId = item.RuntimeProfileId
 	resource.Spec.FirmwareId = item.FirmwareId
+	resource.Spec.Enabled = new(item.Enabled)
+	resource.Spec.ExpiresAt = item.ExpiresAt
+	resource.Spec.MaxActivations = item.MaxActivations
 	return marshalResource(resource)
 }
 
-func registrationTokenMatches(item apitypes.RegistrationToken, token, runtimeProfileID string, firmwareID *string) bool {
+func registrationTokenMatches(item apitypes.RegistrationToken, desired apitypes.RegistrationTokenResource) bool {
+	token, runtimeProfileID, firmwareID := desired.Spec.Token, desired.Spec.RuntimeProfileId, desired.Spec.FirmwareId
+	if item.Enabled != (desired.Spec.Enabled == nil || *desired.Spec.Enabled) {
+		return false
+	}
+	if item.ExpiresAt == nil || desired.Spec.ExpiresAt == nil {
+		if item.ExpiresAt != nil || desired.Spec.ExpiresAt != nil {
+			return false
+		}
+	} else if !item.ExpiresAt.Equal(*desired.Spec.ExpiresAt) {
+		return false
+	}
+	if item.MaxActivations == nil || desired.Spec.MaxActivations == nil {
+		if item.MaxActivations != nil || desired.Spec.MaxActivations != nil {
+			return false
+		}
+	} else if *item.MaxActivations != *desired.Spec.MaxActivations {
+		return false
+	}
 	if item.Token != strings.TrimSpace(token) || item.RuntimeProfileId != runtimeProfileID {
 		return false
 	}

@@ -10,12 +10,28 @@
     "schemas": {
       "RegistrationToken": {
         "type": "object",
-        "required": ["id", "token", "runtime_profile_id", "created_at", "updated_at"],
+        "required": [
+          "id",
+          "token",
+          "runtime_profile_id",
+          "created_at",
+          "updated_at",
+          "enabled",
+          "activation_count"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": { "type": "string" },
-          "token": { "type": "string" },
-          "runtime_profile_id": { "type": "string" },
+          "id": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string",
+            "maxLength": 512,
+            "description": "Registration token, at most 512 UTF-8 bytes. The Server enforces the byte limit in addition to this character bound."
+          },
+          "runtime_profile_id": {
+            "type": "string"
+          },
           "firmware_id": {
             "type": "string",
             "description": "Optional caller-defined Firmware ID. The device selects its own channel."
@@ -27,6 +43,30 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether this token permits new device activations. Defaults to true."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Exclusive expiration time. Null or omitted means no expiration."
+          },
+          "max_activations": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "nullable": true,
+            "description": "Maximum distinct public keys activated by this token. Null or omitted means unlimited; lowering below the current count prevents new activations."
+          },
+          "activation_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Current number of distinct public keys successfully activated by this token."
           }
         }
       }

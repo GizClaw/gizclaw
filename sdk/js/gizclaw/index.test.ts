@@ -1,7 +1,11 @@
+import { registrationTokenCredential } from "./index.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { chacha20poly1305 } from "@noble/ciphers/chacha.js";
 import { x25519 } from "@noble/curves/ed25519.js";
+import { hkdf } from "@noble/hashes/hkdf.js";
+import { sha256 } from "@noble/hashes/sha2.js";
 
 import {
   GIZCLAW_SERVICE_ADMIN_HTTP,
@@ -31,6 +35,7 @@ import {
   createAdminAPIFetch,
   batteryTelemetry,
   connectGiznetWebRTC,
+  connectGiznetWebRTCFromEndpoint,
   createWebRTCFetch,
   decodeFrames,
   encodeTelemetryPacket,
@@ -4402,4 +4407,90 @@ test("inbound client.tool.invoke runs the named Tool and returns JSON", async ()
       "client.tool.invoke",
     ),
   );
+});
+
+test("endpoint connection rejects oversized admission credentials before discovery", async () => {
+  const pc = new FakePeerConnection();
+  let requests = 0;
+  await assert.rejects(
+    connectGiznetWebRTCFromEndpoint({
+      pc: pc as unknown as RTCPeerConnection,
+      endpoint: "https://example.invalid",
+      clientPrivateKey: new Uint8Array(32).fill(1),
+      credential: {
+        version: 1,
+        type: "example.com/test",
+        value: "x".repeat(513),
+      },
+      fetch: async () => {
+        requests += 1;
+        return new Response(
+          JSON.stringify({
+            protocol: "gizclaw-webrtc",
+            public_key: base58Encode(
+              x25519.getPublicKey(new Uint8Array(32).fill(2)),
+            ),
+          }),
+        );
+      },
+    }),
+    /invalid admission credential length/,
+  );
+  assert.equal(requests, 0);
+  assert.equal(pc.closeCalls, 1);
+  assert.equal(pc.localDescription, null);
+  assert.equal(pc.channels.length, 0);
+});
+
+test("endpoint connection seals optional admission credentials in the offer", async () => {
+  const pc = new FakePeerConnection();
+  const serverKey = new Uint8Array(32).fill(2);
+  let requests = 0;
+  await assert.rejects(
+    connectGiznetWebRTCFromEndpoint({
+      pc: pc as unknown as RTCPeerConnection,
+      endpoint: "https://example.invalid",
+      clientPrivateKey: new Uint8Array(32).fill(1),
+      credential: registrationTokenCredential("token"),
+      fetch: async (input, init) => {
+        requests += 1;
+        const request = new Request(input, init);
+        if (request.method === "GET") {
+          return Response.json({
+            protocol: "gizclaw-webrtc",
+            public_key: base58Encode(x25519.getPublicKey(serverKey)),
+          });
+        }
+        const publicKey = request.headers.get("X-Giznet-Public-Key")!;
+        const timestamp = request.headers.get("X-Giznet-Timestamp")!;
+        const nonceText = request.headers.get("X-Giznet-Nonce")!;
+        const shared = x25519.getSharedSecret(
+          serverKey,
+          base58Decode(publicKey),
+        );
+        const salt = Buffer.concat([
+          Buffer.from(nonceText, "base64url"),
+          Buffer.from(timestamp),
+        ]);
+        const derive = (info: string, length: number) =>
+          hkdf(sha256, shared, salt, new TextEncoder().encode(info), length);
+        const aad = new TextEncoder().encode(
+          `POST\n/webrtc/v1/offer\n${publicKey}\n${timestamp}\n${nonceText}`,
+        );
+        const plaintext = chacha20poly1305(
+          derive("giznet/gizwebrtc/http-signaling/v1 c2s", 32),
+          derive("giznet/gizwebrtc/http-signaling/v1 c2s nonce", 12),
+          aad,
+        ).decrypt(new Uint8Array(await request.arrayBuffer()));
+        assert.equal(
+          Buffer.from(plaintext).toString("hex"),
+          "475a4f460100290801121e67697a636c61772e636f6d2f726567697374726174696f6e5f746f6b656e1a05746f6b656e763d30",
+        );
+        throw new Error("offer verified");
+      },
+    }),
+    /offer verified/,
+  );
+  assert.equal(requests, 2);
+  assert.equal(pc.closeCalls, 1);
 });

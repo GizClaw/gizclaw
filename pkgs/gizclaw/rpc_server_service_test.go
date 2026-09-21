@@ -703,7 +703,7 @@ func (s *fakeRPCPeerService) DeleteSelf(_ context.Context, publicKey giznet.Publ
 	return s.deleteSelfError
 }
 
-func (s *fakeRPCPeerService) BindFirmware(context.Context, giznet.PublicKey, string) (apitypes.Peer, error) {
+func (s *fakeRPCPeerService) LoadPeer(context.Context, giznet.PublicKey) (apitypes.Peer, error) {
 	return apitypes.Peer{}, nil
 }
 

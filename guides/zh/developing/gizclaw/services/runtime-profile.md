@@ -106,7 +106,7 @@ RuntimeProfile 在创建和更新时校验完整依赖图，再发布新的 revi
 
 ## RegistrationToken
 
-`RegistrationToken` 是普通的 Admin binding 资源。它自己的 `metadata.id` 由调用方提供；必填的 `spec.token` 通过 `runtime_profile_id` 绑定一个 RuntimeProfile canonical ID，也可以通过 `firmware_id` 独立绑定一个 Firmware ID。Admin create、put、get、list、delete、apply 和 show 使用同一份可读状态。Server 持久化完整状态并维护 SHA-256 lookup index；修改 token 时会原子替换 index，重复 apply 相同 ID 和配置则返回 unchanged。
+`RegistrationToken` 是普通的 Admin binding 资源。它自己的 `metadata.id` 由调用方提供；必填的 `spec.token` 通过 `runtime_profile_id` 绑定一个 RuntimeProfile canonical ID，也可以通过 `firmware_id` 独立绑定一个 Firmware ID。Admin create、put、get、list、delete、apply 和 show 使用同一份可读状态。Server 持久化完整状态并维护 token 唯一索引；修改 token 时会原子更新索引，重复 apply 相同 ID 和配置则返回 unchanged。
 
 RuntimeProfile 与 RegistrationToken 的部署 ownership 相互独立。Raids 提供可复用基础资源及
 公开的 `RuntimeProfile/default`、`RegistrationToken/default-runtime` 契约。Desktop 为本地
@@ -116,7 +116,30 @@ token 绑定到任意一个。
 
 `server.register` 把连接关联到 RuntimeProfile，内部持久化 canonical RuntimeProfile ID 与可选 Firmware ID。`runtime_profile_name` wire 字段原样携带 canonical RuntimeProfile ID，因为 RuntimeProfile 没有独立的 Peer name；这是正常的 Peer name 投影规则，不是兼容字段。Registration 不返回 Firmware identity；Server 只通过内部 `firmware_id` binding 解析 Firmware，`server.firmware.get` 仅返回所选 channel 的配置。Owner-bound Workspace 即使在 owner 离线时，也会通过持久化的 canonical RuntimeProfile ID 解析当前 revision；owner 后续成功注册可替换该选择。RegistrationToken 和 Peer 都不保存 Firmware channel；stable、beta 或 develop 由设备自行选择。更新或切换 RuntimeProfile 只改变后续操作使用的环境，不重写 Workspace context 或已经保存的内部 binding。
 
-RegistrationToken 只通过可靠 Peer connection 上的 `server.register` 提交。注册成功或失败日志不包含提交的 token 值；Public HTTP 不接受 RegistrationToken。
+RegistrationToken 通过可靠 Peer connection 上的 `server.register` 完成注册。启用 [registration-token 准入 policy](../server/security-policy) 时，也可在 WebRTC offer 的 AEAD 内部携带相同 token，供只读准入检查；这不绑定 owner、firmware 或 runtime，token 不会沿 Conn 传递。其他 Public HTTP endpoint 不接受 RegistrationToken。注册和握手日志均不包含提交的 token 值。
+
+### 生命周期与激活
+
+Admin create/put 与声明式 `spec` 支持 `enabled`（省略为 true）、`expires_at`（RFC3339 时间，省略或 null 为永不过期）和 `max_activations`（非负整数，省略或 null 为不限次数）。过期时间是排他的：到达该时刻即不再接受新激活。上限为 0 表示不接受新激活。Admin get/list/create/put/delete 响应的 `activation_count` 返回当前激活数量。
+
+一次激活是一个新公钥第一次用该 token 成功执行 `server.register`。SQL `registration_token_activations` 以 `(token_id, peer_public_key)` 为唯一键，保存第一次激活的 `activated_at`；计数来自行数。相同 token 与公钥重复注册不新增记录，即使管理员后来禁用、缩短有效期或降低上限，已有激活仍可幂等注册。token 被删除或值被替换后，旧值不再有效；删除 token 同时删除它的激活记录，保留已有 owner/firmware 绑定。
+
+`server.register` 是权威写入点：事务先取得 token 写锁，再判断 enabled、到期时间、数量和是否已激活，插入激活记录，同时写入 `runtime_profile_owners` 的 RuntimeProfile 与 firmware 绑定。SQLite 与 PostgreSQL 都在读之前取得写锁；两个新设备争最后一个名额时只能成功一个。拒绝返回 `PermissionDenied`，SQL 失败回滚整个事务。只有提交成功后才发布连接内快照。Peer 的 firmware 读取优先使用这份 SQL 绑定，尚无 SQL firmware 的老设备继续读取既有 Peer 数据。
+
+管理员可延长或缩短有效期、调高或调低上限，包括调到低于已激活数；这些操作沿用 incarnation / row_version 乐观并发，冲突返回 409。省略或 null 会清除可空限制，省略 enabled 恢复 true。禁用、过期与降低上限只阻止新激活，不吊销已有设备；已知且可用的 Peer 不带凭证重连仍成功。握手只读预检不预留名额，预检后被其他设备抢完额度时，register 仍会拒绝且不产生半绑定。管理员恢复 token 后负缓存最多保留 1 秒，独立的失败预算仍可能阻止该窗口内的查询。
+
+旧数据库初始化会分别用 PostgreSQL 的 `ADD COLUMN IF NOT EXISTS` 与 SQLite 的列检查/`ADD COLUMN` 补齐新列。已有 token 默认启用、永不过期、不限次数；迁移不推测历史 token 激活归属，已有 owner/firmware 绑定和无凭证重连保持可用。
+
+```yaml
+spec:
+  token: device-enrollment
+  runtime_profile_id: default
+  enabled: true
+  expires_at: "2035-01-01T00:00:00Z"
+  max_activations: 100
+```
+
+CLI 的 `admin registration-tokens create/put -f` 接受对应 JSON 字段；Terraform 的 `gizclaw_resource` 使用同一 spec，省略默认值不会造成持续 plan 差异。`web/console` 是监控控制台，没有 RegistrationToken 管理页面。
 
 ## Peer surface 与 ownership
 
@@ -128,4 +151,6 @@ RegistrationToken 只通过可靠 Peer connection 上的 `server.register` 提�
 
 Firmware 仍是独立 Admin 资源，不进入 RuntimeProfile projection。RegistrationToken 可以独立绑定 Firmware ID，但不绑定 channel。Credential 与 ProviderTenant 只是真实 Model、Voice 在 Server 侧使用的依赖，不会暴露给设备。
 
-RuntimeProfile 使用 SQL `runtime_profiles`、`registration_tokens` 和 `runtime_profile_owners` 表。Profile ID、配置 revision、token、关联 Profile/Firmware ID、owner 和时间分别保存为列；资源与 Workflow 配置保留 JSON。启动时还会删除旧版本在 `runtime_profiles` 上建立的、已废弃的 `NOT NULL` 列，使原地升级的数据库收敛到当前 schema，而不是让每次省略这些列的写入失败。token 使用唯一索引，注册解析和 Owner Profile 解析通过关联查询完成；列表将 ID 游标和数量限制下推 SQL。Profile 与 token 更新、删除比较行版本和创建标识。Owner 绑定写入使用短事务；外部注册回调在 SQL 事务外执行，失败时按本次写入标识恢复旧绑定，避免覆盖后续更新。本进程的同 Owner 注册与快照发布保持串行，无关 Owner 可以继续注册。
+RuntimeProfile 使用 SQL `runtime_profiles`、`registration_tokens`、`registration_token_activations` 和 `runtime_profile_owners` 表。资源配置保留 JSON，身份、版本、限制和绑定分别保存为列。列表把游标与数量限制下推 SQL，Profile 与 token 更新/删除比较 incarnation 和 row_version。注册的事务与快照发布按同一 owner 串行，无关 owner 可并行；token 写锁保证跨进程限额一致。
+
+Admin 创建和更新 registration token 时，原始输入必须不超过 512 个 UTF-8 字节（不是 512 个字符），与 admission value 上限一致；超限返回 400，不能写入数据库。

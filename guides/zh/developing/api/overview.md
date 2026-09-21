@@ -18,6 +18,9 @@ api/
 │   ├── shared/                 # 跨 surface 或跨领域 DTO
 │   └── resources/              # Resource、专属 Spec 与 Resource 聚合定义
 └── proto/
+    ├── giznet/
+    │   ├── admission.proto     # Giznet admission credential
+    │   └── nanopb.options      # bounded C strings
     ├── rpc/
     │   ├── rpc.proto           # request、response、error、stream 与 method registry
     │   ├── nanopb.options      # C/nanopb 生成配置

@@ -11,6 +11,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznetpb"
 	"github.com/goccy/go-yaml"
 )
 
@@ -46,10 +47,11 @@ type ReportSpec struct {
 }
 
 type ClientSpec struct {
-	Identity          string `json:"identity" yaml:"identity"`
-	Connection        string `json:"connection" yaml:"connection"`
-	AccessPoint       string `json:"access_point" yaml:"access_point"`
-	RegistrationToken string `json:"registration_token,omitempty" yaml:"registration_token,omitempty"`
+	AdmissionCredential *giznetpb.AdmissionCredential `json:"admission_credential,omitempty" yaml:"admission_credential,omitempty"`
+	Identity            string                        `json:"identity" yaml:"identity"`
+	Connection          string                        `json:"connection" yaml:"connection"`
+	AccessPoint         string                        `json:"access_point" yaml:"access_point"`
+	RegistrationToken   string                        `json:"registration_token,omitempty" yaml:"registration_token,omitempty"`
 }
 
 type VariableSpec struct {

@@ -685,3 +685,13 @@ remain `success/completed`, `canceled/context_canceled`, and
 
 The Server receives the same tunnel session identifier in its accepted
 `SessionDeclaration`; that identifier is the supported cross-process query key.
+
+## Server handshake admission boundary
+
+Server `peer-admission: registration-token` checks only WebRTC handshakes reaching that Server.
+Available, non-blocked Edge keys configured in `edge-nodes` already have records at startup,
+so upstream Dial needs no credential. Edge terminates client signaling using Giznet's compatible
+envelope parser; its current gateway policy does not interpret credentials or forward them into
+logical tunnels. The Server setting does not repeat handshake admission for those logical clients
+and must not be treated as a registration requirement for all Edge ingress. Product registration
+and resource authorization remain with the authoritative Server.

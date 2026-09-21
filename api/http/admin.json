@@ -9880,7 +9880,9 @@
             "pattern": "^(?:[^\\s.]|[^\\s.][\\s\\S]*[^\\s]|\\.[^\\s.](?:[\\s\\S]*[^\\s])?|\\.\\.[\\s\\S]*[^\\s])$"
           },
           "token": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 512,
+            "description": "Registration token, at most 512 UTF-8 bytes. The Server enforces the byte limit in addition to this character bound."
           },
           "runtime_profile_id": {
             "type": "string"
@@ -9888,6 +9890,24 @@
           "firmware_id": {
             "type": "string",
             "description": "Optional caller-defined Firmware ID. The device selects its own channel."
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether this token permits new device activations. Defaults to true."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Exclusive expiration time. Null or omitted means no expiration."
+          },
+          "max_activations": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "nullable": true,
+            "description": "Maximum distinct public keys activated by this token. Null or omitted means unlimited; lowering below the current count prevents new activations."
           }
         }
       },

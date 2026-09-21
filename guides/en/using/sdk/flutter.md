@@ -7,7 +7,7 @@ GizClaw ships two Dart packages, split by role:
 | `gizclaw` | `sdk/flutter/gizclaw` | Device side: run a Flutter app as a GizClaw device/Peer | encrypted `/webrtc/v1/offer` signaling and WebRTC DataChannels | Flutter, `flutter_webrtc`, `protobuf` |
 | `gizclaw_control` | `sdk/flutter/gizclaw_control` | Controller side: read and control the bound device with an [API key](../api-keys) | HTTPS `/gizclaw/v1/*` | Pure Dart, `http` only |
 
-`gizclaw` covers the same side as the C SDK in `sdk/c/gizclaw`. `gizclaw_control` targets phone controller apps such as LiteLink, where each device card stores one API key. Device-side client initialization, platform permissions, and RPC calls are not documented yet; this page covers `gizclaw_control`.
+`gizclaw` covers the same side as the C SDK in `sdk/c/gizclaw`. `gizclaw_control` targets phone controller apps such as LiteLink, where each device card stores one API key. Device-side client initialization, platform permissions, and RPC calls are not documented yet; this page covers `gizclaw_control` and device handshake admission credentials.
 
 ## Install `gizclaw_control`
 
@@ -94,3 +94,20 @@ try {
   }
 }
 ```
+
+## Device handshake admission
+
+`prepareEncryptedGiznetWebRtcOffer(identity, offerSdp, credential: credential)` accepts the
+optional generated `AdmissionCredential(version: ..., type: ..., value: ...)` type. Both this
+type and `registrationTokenCredential(registrationToken)` are exported from
+`package:gizclaw/gizclaw.dart`. The helper sets version 1, type `'gizclaw.com/registration_token'`, and the
+original token value. GizClaw owns the business type; transport only protobuf-encodes and seals it.
+
+Omission or null preserves bare SDP. Pass the structure from `connectFlutterGiznetWebRtc`'s
+`prepareOffer` callback and still call `client.register(registrationToken)` after connecting.
+Oversized or empty-encoding structures throw `ArgumentError`. Explicit Dart defaults are cleared
+on a copy to match Go/JS/C bytes, leaving the caller's message unchanged. See
+[Giznet](../../developing/giznet#signaling-admission-credentials) for field and encoding limits and
+[Security Policy](../../developing/gizclaw/server/security-policy) for operator settings.
+
+The exported `registrationTokenCredentialType` constant defines the built-in type and is used by the helper. Values are limited to 512 UTF-8 bytes; construction returns an error or throws for larger input. Custom policies should use their own domain prefix; built-in types reserve `gizclaw.com/`.

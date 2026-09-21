@@ -560,3 +560,12 @@ Public `/server-info` 以及只有 API key、未建立 logical Peer session 的 
 - 该 package 不在 Server 之间路由 Workspace、History 或 Social execution。Friend 与 Friend Group 的跨 Server 语音由 GizClaw Server 通过共享 Social KV 与 SFU Room 完成，Edge 不参与。
 
 因此，新增能力时要先判断它是当前 Edge ingress 的职责，还是 server mesh control plane 的未来工作；不能因为能力与公网入口有关就直接写进 `pkgs/gizedge`。
+
+## Server 握手准入边界
+
+Server 的 `peer-admission: registration-token` 只检查到该 Server 的 WebRTC handshake。
+配置在 `edge-nodes` 中且未 blocked/删除的 Edge 公钥已在启动时建立记录，上游 Dial
+无需 credential。Edge 自己终止客户端 signaling，使用 Giznet 的兼容封装解析器；其
+当前 gateway policy 不解释 credential，也不把它传入 logical tunnel。Server 端的
+此开关不会对这些 logical clients 重新执行握手准入，不能把它当作整个 Edge ingress
+的注册要求。产品注册与资源权限仍由 authoritative Server 处理。

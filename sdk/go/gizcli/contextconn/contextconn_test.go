@@ -22,7 +22,7 @@ import (
 
 type allowAllSecurityPolicy struct{}
 
-func (allowAllSecurityPolicy) AllowPeer(giznet.PublicKey) bool {
+func (allowAllSecurityPolicy) AllowPeer(context.Context, giznet.PeerAdmission) bool {
 	return true
 }
 

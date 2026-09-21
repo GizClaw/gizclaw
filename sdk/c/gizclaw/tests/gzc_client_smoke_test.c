@@ -126,6 +126,7 @@ typedef struct {
   const char *expected_post_url;
   int get_count;
   int post_count;
+  bool expect_admission;
 } fake_http_t;
 
 typedef struct {
@@ -1523,6 +1524,8 @@ static bool complete_log_reports(
          log->records[0].result_status == status;
 }
 
+static int expect(bool ok, const char *message);
+
 static int test_http_request(void *userdata, const gzc_http_request_t *request, gzc_http_response_t *out_response) {
   fake_http_t *fake = (fake_http_t *)userdata;
   if (request == NULL || out_response == NULL) {
@@ -1541,6 +1544,13 @@ static int test_http_request(void *userdata, const gzc_http_request_t *request, 
     return gzc_buf_append_cstr(&out_response->body, fake->platform, body);
   }
   fake->post_count++;
+  if (fake->expect_admission) {
+    fake->expect_admission = false;
+    const uint8_t prefix[] = {0x47, 0x5a, 0x4f, 0x46, 0x01, 0x00, 0x29, 0x08, 0x01, 0x12, 0x1e, 0x67, 0x69, 0x7a, 0x63, 0x6c, 0x61, 0x77, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x1a, 0x05, 0x74, 0x6f, 0x6b, 0x65, 0x6e};
+    if (expect(request->body_len > sizeof(prefix) && memcmp(request->body, prefix, sizeof(prefix)) == 0,
+               "connect seals the client-owned credential copy") != 0)
+      return GZC_ERR_SIGNALING;
+  }
   const char *expected_post_url = fake->expected_post_url == NULL
                                       ? "http://example.invalid:9820/custom/offer"
                                       : fake->expected_post_url;
@@ -2443,6 +2453,119 @@ static int test_firmware_version(void) {
   return pb_decode(&input, gizclaw_rpc_v1_FirmwareGetResponse_fields, &decoded) ? 1 : 0;
 }
 
+static int test_admission_signaling(const gzc_platform_t *platform, const gzc_platform_crypto_t *crypto) {
+  gzc_signaling_config_t cfg = {0};
+  cfg.platform = platform;
+  cfg.crypto = crypto;
+  cfg.signaling_url = gzc_str_from_cstr("https://example.invalid/webrtc/v1/offer");
+  memset(cfg.private_key.bytes, 1, sizeof(cfg.private_key.bytes));
+  memset(cfg.remote_public_key.bytes, 2, sizeof(cfg.remote_public_key.bytes));
+  giznet_v1_AdmissionCredential credential = giznet_v1_AdmissionCredential_init_zero;
+  if (expect(gzc_registration_token_credential(gzc_str_from_cstr("token"), &credential) == GZC_OK,
+             "registration-token helper constructs structured credential") != 0)
+    return 1;
+  if (expect(sizeof(credential) <= 652, "bounded MCU credential struct") != 0)
+    return 1;
+  char boundary_token[513];
+  memset(boundary_token, 'x', sizeof(boundary_token));
+  if (expect(gzc_registration_token_credential(gzc_str_from_parts(boundary_token, 512), &credential) == GZC_OK,
+             "512-byte token helper accepted") != 0 ||
+      expect(gzc_registration_token_credential(gzc_str_from_parts(boundary_token, 513), &credential) == GZC_ERR_INVALID_ARGUMENT,
+             "513-byte token helper rejected") != 0)
+    return 1;
+  if (gzc_registration_token_credential(gzc_str_from_cstr("token"), &credential) != GZC_OK)
+    return 1;
+  size_t size = 0;
+  uint8_t small[1];
+  if (expect(gzc_signaling_encode_admission_credential(&credential, NULL, 0, &size) == GZC_OK && size == 41,
+             "credential sizing uses no temporary encoding buffer") != 0 ||
+      expect(gzc_signaling_encode_admission_credential(&credential, small, sizeof(small), &size) == GZC_ERR_INVALID_ARGUMENT && size == 0,
+             "credential encoder rejects a short output buffer") != 0)
+    return 1;
+  const uint8_t expected[] = {0x47, 0x5a, 0x4f, 0x46, 0x01, 0x00, 0x29, 0x08, 0x01, 0x12, 0x1e, 0x67, 0x69, 0x7a, 0x63, 0x6c, 0x61, 0x77, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x1a, 0x05, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x76, 0x3d, 0x30, 0x0d, 0x0a};
+  gzc_signaling_exchange_t exchange;
+  gzc_http_request_t request;
+  gzc_signaling_exchange_init(&exchange);
+  if (expect(gzc_signaling_build_offer_request_with_credential(&cfg,
+                                                               gzc_str_from_parts("x", GZC_SIGNALING_MAX_OFFER_SDP_BYTES + 1u), &credential, &exchange, &request) == GZC_ERR_INVALID_ARGUMENT,
+             "oversized SDP rejected before reading or allocating") != 0)
+    return 1;
+  int rc = gzc_signaling_build_offer_request_with_credential(&cfg, gzc_str_from_cstr("v=0\r\n"), &credential, &exchange, &request);
+  if (expect(rc == GZC_OK && request.body_len == sizeof(expected) &&
+                 memcmp(request.body, expected, sizeof(expected)) == 0 &&
+                 request.header_count == GZC_SIGNALING_HEADER_COUNT,
+             "AEAD input matches shared admission vector with unchanged headers") != 0)
+    return 1;
+  gzc_signaling_exchange_free(&exchange, platform);
+  rc = gzc_signaling_build_offer_request(&cfg, gzc_str_from_cstr("v=0\r\n"), &exchange, &request);
+  if (expect(rc == GZC_OK && request.body_len == 5u && memcmp(request.body, "v=0\r\n", 5u) == 0,
+             "old builder preserves bare SDP") != 0)
+    return 1;
+  gzc_signaling_exchange_free(&exchange, platform);
+  giznet_v1_AdmissionCredential maximum = giznet_v1_AdmissionCredential_init_zero;
+  maximum.version = 1;
+  strcpy(maximum.type, "x");
+  memset(maximum.value, 'x', 512);
+  rc = gzc_signaling_build_offer_request_with_credential(&cfg, gzc_str_from_cstr("v=0"), &maximum, &exchange, &request);
+  if (expect(rc == GZC_OK && request.body_len == 7u + 520u + 3u && request.body[5] == 2 && request.body[6] == 8,
+             "512 value bytes accepted") != 0)
+    return 1;
+  gzc_signaling_exchange_free(&exchange, platform);
+  maximum.value[512] = 'x';
+  if (expect(gzc_signaling_build_offer_request_with_credential(&cfg, gzc_str_from_cstr("v=0"), &maximum, &exchange, &request) == GZC_ERR_INVALID_ARGUMENT,
+             "513 value bytes rejected") != 0)
+    return 1;
+  memset(maximum.type, 'x', sizeof(maximum.type));
+  if (expect(gzc_signaling_build_offer_request_with_credential(&cfg, gzc_str_from_cstr("v=0"), &maximum, &exchange, &request) == GZC_ERR_INVALID_ARGUMENT,
+             "unterminated type rejected") != 0)
+    return 1;
+  maximum = (giznet_v1_AdmissionCredential)giznet_v1_AdmissionCredential_init_zero;
+  if (expect(gzc_signaling_build_offer_request_with_credential(&cfg, gzc_str_from_cstr("v=0"), &maximum, &exchange, &request) == GZC_ERR_INVALID_ARGUMENT,
+             "empty message cannot become absent credential") != 0)
+    return 1;
+  cfg.cipher_mode = GZC_CIPHER_PLAINTEXT;
+  if (expect(gzc_signaling_build_offer_request_with_credential(&cfg, gzc_str_from_cstr("v=0"), &credential, &exchange, &request) == GZC_ERR_INVALID_ARGUMENT,
+             "plaintext admission rejected") != 0)
+    return 1;
+  cfg.cipher_mode = GZC_CIPHER_CHACHA20_POLY1305;
+  fail_next_realloc = true;
+  rc = gzc_signaling_build_offer_request_with_credential(&cfg, gzc_str_from_cstr("v=0"), &credential, &exchange, &request);
+  if (expect(rc == GZC_ERR_NO_MEMORY && !fail_next_realloc, "envelope allocation failure propagates") != 0)
+    return 1;
+  gzc_signaling_exchange_free(&exchange, platform);
+
+  // The same default-field and UTF-8 protobuf vectors as Go, JS and Dart.
+  const uint8_t utf8_expected[] = {0x08, 0x02, 0x12, 0x06, 0x63, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x1a, 0x06, 0xe4, 0xbb, 0xa4, 0xe7, 0x89, 0x8c};
+  uint8_t encoded[64];
+  size_t encoded_len = 0;
+  credential.version = 2;
+  strcpy(credential.type, "custom");
+  strcpy(credential.value, "令牌");
+  if (expect(gzc_signaling_encode_admission_credential(&credential, encoded, sizeof(encoded), &encoded_len) == GZC_OK &&
+                 encoded_len == sizeof(utf8_expected) && memcmp(encoded, utf8_expected, encoded_len) == 0,
+             "UTF-8 protobuf vector") != 0)
+    return 1;
+  giznet_v1_AdmissionCredential decoded = giznet_v1_AdmissionCredential_init_zero;
+  pb_istream_t input = pb_istream_from_buffer(encoded, encoded_len);
+  if (expect(pb_decode(&input, giznet_v1_AdmissionCredential_fields, &decoded) && decoded.version == 2 &&
+                 strcmp(decoded.type, "custom") == 0 && strcmp(decoded.value, "令牌") == 0,
+             "nanopb decodes structured fields") != 0)
+    return 1;
+  credential = (giznet_v1_AdmissionCredential)giznet_v1_AdmissionCredential_init_zero;
+  strcpy(credential.type, "x");
+  const uint8_t default_expected[] = {0x12, 0x01, 0x78};
+  if (expect(gzc_signaling_encode_admission_credential(&credential, encoded, sizeof(encoded), &encoded_len) == GZC_OK &&
+                 encoded_len == sizeof(default_expected) && memcmp(encoded, default_expected, encoded_len) == 0,
+             "default scalar fields are omitted") != 0)
+    return 1;
+  if (expect(gzc_registration_token_credential(gzc_str_from_cstr("token"), NULL) == GZC_ERR_INVALID_ARGUMENT &&
+                 gzc_registration_token_credential(gzc_str_from_parts(NULL, 1), &credential) == GZC_ERR_INVALID_ARGUMENT &&
+                 gzc_registration_token_credential(gzc_str_from_parts("a\0b", 3), &credential) == GZC_ERR_INVALID_ARGUMENT,
+             "helper validates output and token pointers and embedded NUL") != 0)
+    return 1;
+  return 0;
+}
+
 int main(void) {
   if (test_firmware_version() != 0) {
     return 1;
@@ -2505,6 +2628,8 @@ int main(void) {
   crypto.hkdf_sha256 = test_hkdf_sha256;
   crypto.aead_seal = test_aead_copy;
   crypto.aead_open = test_aead_copy;
+  if (test_admission_signaling(platform, &crypto) != 0)
+    return 1;
 
   gzc_webrtc_vtable_t webrtc;
   memset(&webrtc, 0, sizeof(webrtc));
@@ -2712,10 +2837,37 @@ int main(void) {
              "Tool handlers require a non-empty registration array") != 0) {
     return 1;
   }
-  rc = gzc_client_create(&config, &client);
+  gzc_client_config_t admission_config = config;
+  admission_config.cipher_mode = GZC_CIPHER_CHACHA20_POLY1305;
+  rc = gzc_client_create(&admission_config, &client);
   if (expect(rc == GZC_OK, "client create") != 0) {
     return 1;
   }
+  giznet_v1_AdmissionCredential admission = giznet_v1_AdmissionCredential_init_zero;
+  if (gzc_registration_token_credential(gzc_str_from_cstr("token"), &admission) != GZC_OK)
+    return 1;
+  if (expect(gzc_client_set_admission_credential(client, &admission) == GZC_OK,
+             "client admission setter copies fields") != 0)
+    return 1;
+  fail_next_realloc = true;
+  if (expect(gzc_client_set_admission_credential(client, &admission) == GZC_ERR_NO_MEMORY && !fail_next_realloc,
+             "failed setter preserves previous credential") != 0)
+    return 1;
+  giznet_v1_AdmissionCredential invalid_admission = giznet_v1_AdmissionCredential_init_zero;
+  memset(invalid_admission.value, 'x', sizeof(invalid_admission.value));
+  if (expect(gzc_client_set_admission_credential(NULL, &admission) == GZC_ERR_INVALID_ARGUMENT,
+             "setter rejects invalid client") != 0 ||
+      expect(gzc_client_set_admission_credential(client, &invalid_admission) == GZC_ERR_INVALID_ARGUMENT,
+             "setter bounds credential strings") != 0 ||
+      expect(gzc_client_set_admission_credential(client, NULL) == GZC_OK,
+             "setter clears credential") != 0)
+    return 1;
+  giznet_v1_AdmissionCredential copied_admission = admission;
+  if (expect(gzc_client_set_admission_credential(client, &copied_admission) == GZC_OK,
+             "setter accepts replacement") != 0)
+    return 1;
+  copied_admission.value[1] = 'x';
+  fake_http.expect_admission = true;
   rc = gzc_client_set_opus_rx_capacity(client, 0u);
   if (expect(rc == GZC_ERR_INVALID_ARGUMENT,
              "reject an empty Opus receive ring") != 0) {
@@ -2816,6 +2968,9 @@ int main(void) {
   if (expect(rc == GZC_OK, "client connect") != 0) {
     return 1;
   }
+  if (expect(gzc_client_set_admission_credential(client, NULL) == GZC_ERR_INVALID_ARGUMENT,
+             "connected client rejects credential change") != 0)
+    return 1;
   if (expect(fake_http.get_count == 1, "server-info get called once") != 0) {
     return 1;
   }

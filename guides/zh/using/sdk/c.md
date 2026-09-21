@@ -122,3 +122,25 @@ URL、module version、`strip_prefix` 与 integrity 必须来自同一个不可�
 Firmware 使用 `gizclaw_core`，并链接 PAL 拥有的现有 `gzc_default_platform()` 实现。该实现返回带 allocator、clock、entropy 与 logging callback 的 firmware `gzc_platform_t`；firmware 仍负责 HTTP、crypto 和 WebRTC vtable。Desktop consumer 可以依赖 `gizclaw`，继续使用现有 nullable-platform fallback。
 
 源码包不拥有 firmware toolchain、最终链接、image packaging、烧录、credential 或 provider 配置。Consumer 不能 patch 解压后的 SDK 或另取一份 nanopb；需要 portability 修复时应升级到包含修复的 GizClaw Release。
+
+## 设备握手准入
+
+连接前在 client owner 线程调用 `gzc_client_set_admission_credential(client, &credential)`，
+其中 `credential` 是生成的 `giznet_v1_AdmissionCredential`，含 version、type、value。
+SDK 校验 protobuf 编码上限后复制结构，下次 connect 时编码并在 AEAD 内发送；调用方
+随后可释放自己的结构。传 `NULL` 清除，已连接或已关闭 client 不接受修改；替换或
+销毁时释放副本，设置失败保留旧值。既有 public struct 布局和 connect 签名不变。
+
+`gzc_registration_token_credential(gzc_str_from_cstr(registrationToken), &credential)`
+构造 GizClaw version 1、type `gizclaw.com/registration_token` 凭证，超限、非法 pointer 或嵌入 NUL
+返回 `GZC_ERR_INVALID_ARGUMENT`，失败不修改输出。生成的字符串数组要求有界、以 NUL
+结尾的 UTF-8；type 最多 128 bytes，value 最多 512 bytes，整体 protobuf 编码最多
+4096 bytes，独立于字段上限。helper 的业务常量不属于 signaling 层。
+
+低层 `gzc_signaling_build_offer_request_with_credential(config, offer_sdp, &credential,
+exchange, request)` 只在调用内借用结构；`gzc_signaling_encode_admission_credential`
+可独立编码。旧 builder 保留裸 SDP。超限、未终止字符串、空编码结构或明文 cipher
+返回 `GZC_ERR_INVALID_ARGUMENT`，分配失败返回 `GZC_ERR_NO_MEMORY`。连接后仍需
+`server.register` 完成绑定，见 [Security Policy](../../developing/gizclaw/server/security-policy)。
+
+内置 type 由导出常量 `GZC_REGISTRATION_TOKEN_CREDENTIAL_TYPE` 定义，helper 引用该常量。value 最多 512 个 UTF-8 字节；超限在 helper 构造时返回错误或抛出异常。自定义 policy 应使用自己的域名前缀，内置类型保留 `gizclaw.com/` 前缀。

@@ -11,8 +11,13 @@ type ServerSecurityPolicy Server
 
 var _ giznet.SecurityPolicy = (*ServerSecurityPolicy)(nil)
 
-func (p *ServerSecurityPolicy) AllowPeer(giznet.PublicKey) bool {
-	return p != nil
+// AllowPeer delegates admission to the host policy, defaulting to open admission.
+func (p *ServerSecurityPolicy) AllowPeer(ctx context.Context, admission giznet.PeerAdmission) bool {
+	if p == nil {
+		return false
+	}
+	s := (*Server)(p)
+	return s.SecurityPolicy == nil || s.SecurityPolicy.AllowPeer(ctx, admission)
 }
 
 // AllowGatewaySCTP identifies bounded Edge-to-Server upstream associations.

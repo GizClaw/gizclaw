@@ -49,8 +49,13 @@ export GIZCLAW_E2E_SERVER_ENDPOINT="$container_server_endpoint"
 export GIZCLAW_E2E_TURN_ENDPOINT="$container_turn_endpoint"
 export GIZCLAW_E2E_TURN_USERNAME="$container_turn_username"
 export GIZCLAW_E2E_TURN_CREDENTIAL="$container_turn_credential"
+export GIZCLAW_E2E_PEER_ADMISSION="${GIZCLAW_E2E_PEER_ADMISSION:-open}"
+case "$GIZCLAW_E2E_PEER_ADMISSION" in
+  open | registration-token) ;;
+  *) echo "GIZCLAW_E2E_PEER_ADMISSION must be open or registration-token" >&2; exit 2 ;;
+esac
 # shellcheck disable=SC2016 # envsubst needs literal variable names.
-envsubst '${GIZCLAW_E2E_SERVER_ENDPOINT} ${GIZCLAW_E2E_TURN_ENDPOINT} ${GIZCLAW_E2E_TURN_USERNAME} ${GIZCLAW_E2E_TURN_CREDENTIAL}' \
+envsubst '${GIZCLAW_E2E_PEER_ADMISSION} ${GIZCLAW_E2E_SERVER_ENDPOINT} ${GIZCLAW_E2E_TURN_ENDPOINT} ${GIZCLAW_E2E_TURN_USERNAME} ${GIZCLAW_E2E_TURN_CREDENTIAL}' \
   < "$repo_root/tests/gizclaw-e2e/testdata/server-workspace/config.yaml.template" \
   > "$workspace_dir/config.yaml"
 perl -0pi -e 's/^services:\n/services:\n  sfu:\n    url: ws:\/\/livekit:7880\n    api_key_file: \/tmp\/gizclaw-e2e-sfu\/api_key\n    api_secret_file: \/tmp\/gizclaw-e2e-sfu\/api_secret\n/m' "$workspace_dir/config.yaml"

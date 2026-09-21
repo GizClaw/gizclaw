@@ -535,8 +535,8 @@ func TestAdminPublicKeySecurityPolicy(t *testing.T) {
 	other := testPublicKey(2)
 	policy := adminPublicKeySecurityPolicy{PublicKey: allowed}
 
-	if !policy.AllowPeer(other) {
-		t.Fatal("AllowPeer should allow peer transport before service selection")
+	if !(serverSecurityPolicy{admin: policy}).AllowPeer(t.Context(), giznet.PeerAdmission{PublicKey: other}) {
+		t.Fatal("open admission should remain independent of admin service authorization")
 	}
 	if !policy.AllowService(allowed, gizclaw.ServiceAdminHTTP) {
 		t.Fatal("AllowService should allow configured admin public key for admin service")
@@ -1687,5 +1687,50 @@ func TestParseConfigPreservesMonitorToken(t *testing.T) {
 	}
 	if cfg.Monitor.Token != token {
 		t.Fatalf("monitor token = %q, want %q", cfg.Monitor.Token, token)
+	}
+}
+
+func TestPeerAdmissionConfigurationAndAdminIndependence(t *testing.T) {
+	for _, selection := range []string{"", "open", "registration-token"} {
+		for _, admin := range []giznet.PublicKey{{}, testPublicKey(7)} {
+			t.Run(selection+"/"+admin.String(), func(t *testing.T) {
+				raw, err := parseConfigData([]byte("peer-admission: " + selection + "\n"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				cfg := validLayeredConfig(t.TempDir())
+				cfg.PeerAdmission = raw.PeerAdmission
+				cfg.AdminPublicKey = admin
+				srv, err := New(cfg)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer srv.Close()
+				// Admission is constructed even before services initialize. A selected
+				// registration policy must fail closed here; open remains compatible.
+				for _, key := range []giznet.PublicKey{testPublicKey(8), admin} {
+					got := srv.SecurityPolicy.AllowPeer(t.Context(), giznet.PeerAdmission{PublicKey: key})
+					if got != (selection != "registration-token") {
+						t.Fatalf("admission=%v selection=%q", got, selection)
+					}
+				}
+				if got := srv.SecurityPolicy.AllowService(admin, gizclaw.ServiceAdminHTTP); got != !admin.IsZero() {
+					t.Fatal("admin service authorization coupled to admission")
+				}
+				if srv.SecurityPolicy.AllowService(testPublicKey(8), gizclaw.ServiceAdminHTTP) {
+					t.Fatal("unknown admin admitted")
+				}
+			})
+		}
+	}
+	for _, selection := range []string{"typo", "registration_token", "' open '"} {
+		if _, err := parseConfigData([]byte("peer-admission: " + selection + "\n")); err == nil {
+			t.Fatalf("invalid selection %q accepted", selection)
+		}
+	}
+	cfg := validLayeredConfig(t.TempDir())
+	cfg.PeerAdmission = "typo"
+	if _, err := New(cfg); err == nil {
+		t.Fatal("programmatic invalid selection accepted")
 	}
 }

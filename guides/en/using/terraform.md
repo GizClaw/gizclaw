@@ -176,6 +176,9 @@ upgrades it to `resource_id` automatically.
 The Terraform state of `gizclaw_resource` stores `spec`, which can contain secret placeholders
 or plaintext secrets. Manage the state backend as secret storage.
 
+
+RegistrationToken `spec` accepts `enabled`, `expires_at`, and `max_activations`. The provider treats omitted/null enabled as the Server default true, and omitted/null limits as equivalent. Administrative restrictions still produce drift. Use the Server's canonical RFC3339 expiration representation. Inspect `activation_count` in Admin RegistrationToken responses; it is not a Terraform spec input. See [device registration](/en/developing/gizclaw/services/runtime-profile#registrationtoken).
+
 ## `gizclaw_catalog`
 
 `gizclaw_catalog` resolves layered local manifest directories into the Admin Resources that

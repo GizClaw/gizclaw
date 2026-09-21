@@ -9,7 +9,7 @@ Go 生成输出：`pkgs/gizclaw/api/peerhttp`
 
 `/webrtc/v1/offer` 发生在 Peer connection 建立之前，必须保留 HTTP signaling。建立连接后的 Peer 能力可以使用 reliable HTTP-over-service-stream 或 Peer RPC；选择 transport 时应避免为相同能力维护两套 contract。
 
-Offer 的身份认证由签名 signaling contract 自身完成，不依赖 API Key。Public API 可以复用 `ErrorResponse`、`DeviceInfo` 和 `Runtime` 等真正 shared 类型，但不引用 Admin Resources。
+Offer 使用 ECDH/AEAD 验证公钥持有者并保护 SDP 和可选的 `AdmissionCredential` protobuf 凭证，不依赖 API Key。密文认证不等于运营方准入；[Giznet](../../giznet#signaling-准入凭证) 定义兼容信封，[Security Policy](../../gizclaw/server/security-policy) 定义可选的 registration-token 判定。Public API 可以复用 `ErrorResponse`、`DeviceInfo` 和 `Runtime` 等真正 shared 类型，但不引用 Admin Resources。
 
 API Key 的鉴权和管理契约见 [Peer HTTP · API Key](../../gizclaw/peer/service/api-keys)。设备首次入网仍由本地 BLE 通道负责；设备在线后可经 API Key 和 `/gizclaw/v1/device*` 扫描或更换 Wi‑Fi。
 

@@ -16,7 +16,7 @@ type testSecurityPolicy struct {
 	allowService func(giznet.PublicKey, uint64) bool
 }
 
-func (p testSecurityPolicy) AllowPeer(giznet.PublicKey) bool {
+func (p testSecurityPolicy) AllowPeer(context.Context, giznet.PeerAdmission) bool {
 	return true
 }
 

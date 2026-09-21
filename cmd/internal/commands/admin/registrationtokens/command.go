@@ -16,7 +16,7 @@ import (
 
 func NewCmd() *cobra.Command {
 	var ctxName string
-	cmd := &cobra.Command{Use: "registration-tokens", Short: "Manage RegistrationTokens"}
+	cmd := &cobra.Command{Use: "registration-tokens", Short: "Manage RegistrationTokens", Long: "Manage RegistrationTokens. JSON create/put accepts enabled (default true), nullable expires_at (RFC3339) and nullable max_activations. Get/list returns activation_count."}
 	cmd.PersistentFlags().StringVar(&ctxName, "context", "", "context name (default: current)")
 	cmd.AddCommand(
 		newListCmd(&ctxName),

@@ -15,8 +15,8 @@ import (
 
 type allowAllWebRTCPolicy struct{}
 
-func (allowAllWebRTCPolicy) AllowPeer(giznet.PublicKey) bool            { return true }
-func (allowAllWebRTCPolicy) AllowService(giznet.PublicKey, uint64) bool { return true }
+func (allowAllWebRTCPolicy) AllowPeer(context.Context, giznet.PeerAdmission) bool { return true }
+func (allowAllWebRTCPolicy) AllowService(giznet.PublicKey, uint64) bool           { return true }
 
 type tunnelPair struct {
 	edge, server   *Conn

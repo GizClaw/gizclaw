@@ -7,7 +7,7 @@ GizClaw 提供两个 Dart package，按角色划分：
 | `gizclaw` | `sdk/flutter/gizclaw` | 设备端：让 Flutter App 作为 GizClaw 设备/Peer 接入 | encrypted `/webrtc/v1/offer` signaling 与 WebRTC DataChannel | Flutter、`flutter_webrtc`、`protobuf` |
 | `gizclaw_control` | `sdk/flutter/gizclaw_control` | 控制端：用 [API Key](../api-keys) 读取并控制绑定的设备 | HTTPS `/gizclaw/v1/*` | 纯 Dart，仅 `http` |
 
-`gizclaw` 与 C SDK 的 `sdk/c/gizclaw` 对应同一侧能力；`gizclaw_control` 面向 LiteLink 这类手机控制 App，每张设备卡片保存一个 API Key。设备端 client 初始化、平台权限与 RPC 调用的说明仍待补充；本页当前只覆盖 `gizclaw_control`。
+`gizclaw` 与 C SDK 的 `sdk/c/gizclaw` 对应同一侧能力；`gizclaw_control` 面向 LiteLink 这类手机控制 App，每张设备卡片保存一个 API Key。设备端 client 初始化、平台权限与 RPC 调用的说明仍待补充；本页覆盖 `gizclaw_control` 与设备端握手准入凭证。
 
 ## 安装 `gizclaw_control`
 
@@ -93,3 +93,19 @@ try {
   }
 }
 ```
+
+## 设备握手准入
+
+`prepareEncryptedGiznetWebRtcOffer(identity, offerSdp, credential: credential)` 接收可选
+生成类型 `AdmissionCredential(version: ..., type: ..., value: ...)`。该类型与
+`registrationTokenCredential(registrationToken)` helper 均从 `package:gizclaw/gizclaw.dart`
+导出。helper 设置 `version: 1`、`type: 'gizclaw.com/registration_token'` 和原始 token value；
+具体业务类型留在 GizClaw 层，transport 只执行 protobuf 编码并在 AEAD 内密封。
+
+省略或传 null 保留裸 SDP。在 `connectFlutterGiznetWebRtc` 的 `prepareOffer` callback
+中传入结构即可，连接后仍需 `client.register(registrationToken)`。超限或空编码结构
+抛出 `ArgumentError`；Dart 显式默认字段在副本中清除，使编码与 Go/JS/C 一致，原消息不变。
+字段与编码上限见 [Giznet](../../developing/giznet#signaling-准入凭证)，运营方开关见
+[Security Policy](../../developing/gizclaw/server/security-policy)。
+
+内置 type 由导出常量 `registrationTokenCredentialType` 定义，helper 引用该常量。value 最多 512 个 UTF-8 字节；超限在 helper 构造时返回错误或抛出异常。自定义 policy 应使用自己的域名前缀，内置类型保留 `gizclaw.com/` 前缀。

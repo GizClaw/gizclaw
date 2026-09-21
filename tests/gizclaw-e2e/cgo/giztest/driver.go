@@ -15,7 +15,9 @@ import (
 
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznetpb"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
+	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
 // driver runs Giztest steps with the two C SDKs: sdk/c/gizclaw dials the
@@ -163,11 +165,37 @@ func (driver) Open(ctx context.Context, doc *giztest.Document, vars *giztest.Var
 		if err != nil {
 			return s, fmt.Errorf("client %s access_point: %w", name, err)
 		}
-		client, err := newDeviceClient(ctx, name, endpoint, doc.Steps)
+		spec := doc.Clients[name]
+		var token string
+		var credential *giznetpb.AdmissionCredential
+		if spec.RegistrationToken != "" {
+			token, err = resolveString(vars, spec.RegistrationToken)
+			if err != nil {
+				return s, err
+			}
+			credential, err = gizcli.RegistrationTokenCredential(token)
+			if err != nil {
+				return s, err
+			}
+		}
+		if spec.AdmissionCredential != nil {
+			value, err := resolveString(vars, spec.AdmissionCredential.Value)
+			if err != nil {
+				return s, err
+			}
+			credential = &giznetpb.AdmissionCredential{Version: spec.AdmissionCredential.Version, Type: spec.AdmissionCredential.Type, Value: value}
+		}
+		client, err := newDeviceClient(ctx, name, endpoint, doc.Steps, credential)
 		if err != nil {
 			return s, fmt.Errorf("client %s: %w", name, err)
 		}
 		s.clients[name] = client
+		if token != "" {
+			_, err := s.executeRPC(ctx, client, giztest.StepRequest{Step: giztest.Step{RPC: &giztest.RPCOperation{Method: "server.register", Request: map[string]any{"token": token}}}, Vars: vars})
+			if err != nil {
+				return s, err
+			}
+		}
 	}
 	control, err := openControl()
 	if err != nil {
@@ -428,7 +456,7 @@ func (c *deviceClient) channels() (chan func(*cSession), chan struct{}, chan str
 	return c.commands, c.stopped, c.closeOne
 }
 
-func newDeviceClient(ctx context.Context, name, endpoint string, steps []giztest.Step) (*deviceClient, error) {
+func newDeviceClient(ctx context.Context, name, endpoint string, steps []giztest.Step, credential *giznetpb.AdmissionCredential) (*deviceClient, error) {
 	key, err := giznet.GenerateKeyPair()
 	if err != nil {
 		return nil, err
@@ -458,7 +486,7 @@ func newDeviceClient(ctx context.Context, name, endpoint string, steps []giztest
 		closeOne:    make(chan struct{}),
 	}
 	ready := make(chan error, 1)
-	go client.run(client.commands, client.stopped, client.closeOne, ready)
+	go client.run(client.commands, client.stopped, client.closeOne, ready, credential)
 	select {
 	case err := <-ready:
 		if err != nil {
@@ -474,12 +502,12 @@ func newDeviceClient(ctx context.Context, name, endpoint string, steps []giztest
 // run owns the C session for its whole life: it dials, then alternates
 // between running queued commands and polling the transport so inbound
 // server-initiated RPCs are answered while the runner waits elsewhere.
-func (c *deviceClient) run(commands chan func(*cSession), stopped, closeOne chan struct{}, ready chan<- error) {
+func (c *deviceClient) run(commands chan func(*cSession), stopped, closeOne chan struct{}, ready chan<- error, credential *giznetpb.AdmissionCredential) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	defer close(stopped)
 
-	cSession, err := openSession(c.endpoint, c.privateKey, c.provider)
+	cSession, err := openSession(c.endpoint, c.privateKey, c.provider, credential)
 	ready <- err
 	if err != nil {
 		return
@@ -513,7 +541,7 @@ func (c *deviceClient) reconnect(ctx context.Context) error {
 	c.mu.Lock()
 	c.commands, c.stopped, c.closeOne = commands, stopped, closeOne
 	c.mu.Unlock()
-	go c.run(commands, stopped, closeOne, ready)
+	go c.run(commands, stopped, closeOne, ready, nil)
 	select {
 	case err := <-ready:
 		return err

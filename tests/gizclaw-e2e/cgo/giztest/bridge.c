@@ -105,6 +105,9 @@ static int tool_handler(
 int gzt_session_open(
     const char *endpoint,
     const char *private_key,
+    unsigned int credential_version,
+    const char *credential_type,
+    const char *credential_value,
     unsigned long long provider_handle,
     const char *tool_name,
     gzt_session_t **out_session,
@@ -160,6 +163,22 @@ int gzt_session_open(
   }
   if (rc == GZC_OK) {
     rc = gzc_client_set_peer_add_ice_server(session->client, gzc_cgo_backend_peer_add_ice_server);
+  }
+  if (rc == GZC_OK && credential_type != NULL) {
+    giznet_v1_AdmissionCredential credential = giznet_v1_AdmissionCredential_init_zero;
+    if (credential_value == NULL || strlen(credential_type) >= sizeof(credential.type) ||
+        strlen(credential_value) >= sizeof(credential.value)) {
+      rc = GZC_ERR_INVALID_ARGUMENT;
+    } else if (credential_version == 1 && strcmp(credential_type, GZC_REGISTRATION_TOKEN_CREDENTIAL_TYPE) == 0) {
+      rc = gzc_registration_token_credential(gzc_str_from_cstr(credential_value), &credential);
+    } else {
+      credential.version = credential_version;
+      memcpy(credential.type, credential_type, strlen(credential_type) + 1);
+      memcpy(credential.value, credential_value, strlen(credential_value) + 1);
+    }
+    if (rc == GZC_OK) {
+      rc = gzc_client_set_admission_credential(session->client, &credential);
+    }
   }
   if (rc == GZC_OK) {
     rc = gzc_client_connect(session->client);

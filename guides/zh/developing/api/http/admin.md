@@ -50,3 +50,5 @@ shared/ ← resources/ ← shared.json ← admin.json
 ```
 
 Resource 专属 Spec 与 Resource 放在同一文件；Admin API 不应通过 `shared.json` 间接加载整个 Resource graph。
+
+RegistrationToken create/put 接受 enabled（默认 true）、可空 expires_at 与 max_activations，响应返回 activation_count。修改只限制新激活，保留已有设备绑定；具体事务、迁移和幂等语义见 [RuntimeProfile 与设备注册](../../gizclaw/services/runtime-profile#registrationtoken)。

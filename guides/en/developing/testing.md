@@ -10,6 +10,22 @@ and build the embedded console before Go compilation, including container builds
 No manual asset or manifest copy is required; standalone build prerequisites are
 documented in [Monitor](monitor).
 
+## RegistrationToken admission and lifecycle
+
+```sh
+bash tests/gizclaw-e2e/run_admission_tests.sh
+```
+
+This fixed lane starts a real Server over temporary SQLite state with `peer-admission: registration-token`, provisions an administrative Peer, and creates resources through Admin HTTP. It needs no AI credentials or Docker. Go, Node, protoc, and Flutter are required; a missing runner fails. Linux requires a graphical session, `libpulse-dev`, and a running PulseAudio device for Flutter WebRTC initialization. CI starts a PulseAudio null sink, makes its monitor the default source, and runs the same script under `xvfb-run -a`.
+
+The Go, JavaScript, Flutter, and C Giztest runners encode `registration_token` as an SDK credential during initial signaling and call `server.register` after connecting. Reconnect reuses the public key without a handshake credential. Documents can override signaling with `clients.<name>.admission_credential: {version, type, value}`; value supports variables and registration_token retains its registration RPC meaning.
+
+The successful document under `tests/gizclaw-e2e/testdata/admission/` covers new registration, idempotent repeats, credential-free reconnect after exhausting capacity, and repeated registration. Negative documents and disabled/expired/exhausted resources require both runner failure and exactly one real Server `403 peer_forbidden` response. Startup failures, missing requests, and skipped documents do not pass. A standalone Go SDK case lives in `tests/gizclaw-e2e/go/admission/`; giznet WebRTC e2e additionally checks custom generic type/version values.
+
+The Admission SDK E2E CI job runs the complete lane. Ordinary Go tests run the Go Giztest scenarios. PostgreSQL Integration runs `TestPostgreSQLRegistrationTokenLifecycle`, covering old-schema migration, editable limits, idempotence, and independent connections racing for the last slot. SQLite runs equivalent lifecycle and independent-connection concurrency tests.
+
+The standard Docker stack accepts `GIZCLAW_E2E_PEER_ADMISSION=registration-token`; its default remains open. This governs direct Server signaling, not client handshakes terminated by Edge. Admin identities also need a preexisting Peer or valid credential. The admission lane uses direct Server connections and a provisioned Admin Peer. The full provider-backed `run_tests.sh` still requires the external service credentials in its unified `.env`.
+
 ## RuntimeProfile configuration persistence regression
 
 `go test ./cmd/internal/server -run '^TestRuntimeProfileAppConfigGiztest$' -count=1`

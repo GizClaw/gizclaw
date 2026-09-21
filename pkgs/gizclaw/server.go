@@ -629,6 +629,7 @@ func (s *Server) init() error {
 	manager.Workflows = workflowServer
 	manager.Firmwares = firmwareServer
 	manager.RuntimeProfiles = runtimeProfileServer
+	peersServer.RegistrationFirmware = runtimeProfileServer.ResolveOwnerFirmware
 	manager.Models = modelServer
 	manager.Credentials = credentialServer
 	manager.Voices = voiceServer

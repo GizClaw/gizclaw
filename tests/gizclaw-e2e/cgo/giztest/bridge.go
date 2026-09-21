@@ -10,8 +10,10 @@ import "C"
 import (
 	"fmt"
 	"runtime/cgo"
+	"strings"
 	"unsafe"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznetpb"
 	_ "github.com/GizClaw/gizclaw-go/sdk/c/gizclaw/cgobackend"
 )
 
@@ -47,7 +49,7 @@ func bridgeFailure(operation string, rc C.int, buf *C.char) error {
 
 // openSession dials one device Peer. provider answers server-initiated
 // client.* methods and may be nil when the document installs none.
-func openSession(endpoint, privateKey string, provider *clientRPCProvider) (*cSession, error) {
+func openSession(endpoint, privateKey string, provider *clientRPCProvider, credential *giznetpb.AdmissionCredential) (*cSession, error) {
 	cEndpoint := C.CString(endpoint)
 	defer C.free(unsafe.Pointer(cEndpoint))
 	cKey := C.CString(privateKey)
@@ -66,7 +68,21 @@ func openSession(endpoint, privateKey string, provider *clientRPCProvider) (*cSe
 			defer C.free(unsafe.Pointer(cTool))
 		}
 	}
-	rc := C.gzt_session_open(cEndpoint, cKey, providerHandle, cTool, &session.handle, errbuf, errorBufferSize)
+	var credentialType, credentialValue *C.char
+	var credentialVersion C.uint
+	if credential != nil {
+		if strings.ContainsRune(credential.Type, 0) || strings.ContainsRune(credential.Value, 0) {
+			if session.provider != 0 {
+				session.provider.Delete()
+			}
+			return nil, fmt.Errorf("C credential strings cannot contain NUL")
+		}
+		credentialType, credentialValue = C.CString(credential.Type), C.CString(credential.Value)
+		defer C.free(unsafe.Pointer(credentialType))
+		defer C.free(unsafe.Pointer(credentialValue))
+		credentialVersion = C.uint(credential.Version)
+	}
+	rc := C.gzt_session_open(cEndpoint, cKey, credentialVersion, credentialType, credentialValue, providerHandle, cTool, &session.handle, errbuf, errorBufferSize)
 	if rc != 0 {
 		if session.provider != 0 {
 			session.provider.Delete()
