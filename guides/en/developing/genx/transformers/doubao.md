@@ -46,11 +46,17 @@ For PCM input, ASR aggregates small live frames within the current provider sess
 
 GizClaw's Volc ASR Builder accepts `vad_segment_duration`, `end_window_size`, and `force_to_speech_time`, together with their camelCase aliases. When the caller provides no endpointing parameter, the Builder uses `end_window_size=500` and `force_to_speech_time=1000`: measured with `TestEinoRealtimeFirstResponseBreakdown`, an 800 ms silence window often pushed realtime speech-end-to-first-text past the 2 s first-response gate, while 500 ms keeps it near 1 s with unchanged transcripts; `force_to_speech_time` has a documented minimum of `1`, so `0` is not a valid "no minimum" value. When the caller provides any endpointing parameter, the Builder sends only the explicitly provided fields.
 
-### Seed V2 empty audio
+### Seed V2 segment failures
 
-`doubaotts.SeedV2` treats a successful provider terminal as successful synthesis only after a non-empty readable segment has emitted at least one normalized audio byte. A successful final-only provider stream, or any otherwise successful stream that emits zero normalized audio bytes, terminates the affected audio route with `doubaotts: seed v2 completed without audio` instead of a successful audio EOS.
+`doubaotts.SeedV2` requests each readable segment once, without retrying, switching voices, or synthesizing replacement content. A provider failure, including truncation or completion without normalized audio, ends that segment and lets later segments continue in order. Already emitted audio is retained without replay or rollback.
 
-Provider, protocol, context-cancellation, normalizer, and downstream emission errors keep their original error identity. The adapter does not retry the request, switch the configured Voice, or synthesize replacement content. Shared TTS and Audio Dock propagate the resulting terminal error through their existing route lifecycle.
+Each segment failure logs one ERROR `doubao tts: segment failed` with `stream_id`, one-based `segment_index`, and `error`. Structured SDK errors additionally provide `code`, `message`, `request_id`, `trace_id`, and `log_id`. The operational log does not copy synthesis text, audio, or credentials.
+
+If the route emitted any audio, including a failed segment's partial audio, it completes with successful audio EOS after all segments are processed. If every segment fails and no audio is emitted, the route returns its first provider cause after attempting all segments. Empty successful provider output uses `doubaotts: seed v2 completed without audio`. Audio Dock and Peer preserve delivered reply text and propagate the existing error EOS boundaries for a wholly empty failure.
+
+The SDK's default HTTP TTS stream has no whole-request timeout. The caller context controls both waiting for headers and reading audio, with no fallback or inactivity timer. Explicit `WithTimeout` or a custom HTTP client still honors the caller's timeout choice; GizClaw's default builder supplies neither. Non-streaming SDK HTTP defaults are unchanged.
+
+Caller cancellation/deadline, input errors, and downstream emission failures remain terminal. `ctx.Err()` determines whether the remaining segments are canceled: with a live caller context, a provider/client-local error wrapping `context.DeadlineExceeded` or `context.Canceled` is logged as a continuable provider segment failure. Other TTS adapters retain their own failure policies.
 
 ## AST Translate input modes
 
