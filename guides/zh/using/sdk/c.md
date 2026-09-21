@@ -123,6 +123,59 @@ Firmware 使用 `gizclaw_core`，并链接 PAL 拥有的现有 `gzc_default_plat
 
 源码包不拥有 firmware toolchain、最终链接、image packaging、烧录、credential 或 provider 配置。Consumer 不能 patch 解压后的 SDK 或另取一份 nanopb；需要 portability 修复时应升级到包含修复的 GizClaw Release。
 
+## 手写源文件清单与 v0.20.0 升级
+
+从 v0.19.x 升级到 v0.20.0 的设备侧工程，必须把
+`generated/giznet/admission.pb.c` 加入编译源文件清单。`gzc_client.c` 和
+signaling 编码器无条件引用其生成描述符，即使使用默认 `open` 准入、未设置
+credential，也需要链接这个文件。Release 的 Bazel target 递归包含
+`generated/**/*.c`，会自动纳入；自有 Makefile/CMake 的手写清单需要同步。
+
+完整设备库输入以源码包的 `BUILD.bazel` 为准（仓库源为
+`sdk/c/gizclaw/packaging/BUILD.bazel.in`）：
+
+| 输入 | 源码包根目录下的路径 | 仓库中的路径 |
+| --- | --- | --- |
+| Portable SDK | `src/*.c`，排除 `src/gzc_platform.c` | `sdk/c/gizclaw/src/` |
+| 全部生成的 C 文件 | 递归 `generated/**/*.c` | `sdk/c/gizclaw/generated/` |
+| 固定版本 nanopb runtime | `third_party/nanopb/pb_common.c`、`pb_decode.c`、`pb_encode.c` | `third_party/nanopb/upstream/` 中的同名文件 |
+| 默认 platform，可选 | `src/gzc_platform.c` | `sdk/c/gizclaw/src/gzc_platform.c` |
+
+生成目录包含 admission、RPC、所有 payload、events 和 Google protobuf 辅助文件；
+不要只选 `rpc.pb.c`，也不要只按 `.pb.c` 后缀挑选未来的生成输出。
+Telemetry 实现在 portable SDK 的 `src/gzc_telemetry.c` 中。
+在已校验并解压的 Release 源码包根目录执行以下命令，输出完整的 portable
+SDK、生成文件和 nanopb 编译清单：
+
+```sh
+python3 - <<'PY'
+from pathlib import Path
+sources = sorted(p for p in Path("src").glob("*.c") if p.name != "gzc_platform.c")
+sources += sorted(Path("generated").rglob("*.c"))
+sources += [Path("third_party/nanopb") / name
+            for name in ("pb_common.c", "pb_decode.c", "pb_encode.c")]
+for source in sources:
+    if not source.is_file():
+        raise SystemExit(f"missing source: {source}")
+    print(source.as_posix())
+PY
+```
+
+以 C11 编译以上文件，include 路径加入源码包根目录下的 `include`、
+`generated`、`third_party/nanopb`；直接使用仓库时对应
+`sdk/c/gizclaw/include`、`sdk/c/gizclaw/generated`、
+`third_party/nanopb/upstream`。保留生成文件的子目录结构，让
+`giznet/admission.pb.h`、`payload/*.pb.h` 等 include 可以解析；不需要逐个添加
+生成子目录。`src` 中的私有头文件也必须随源文件保留。
+
+Desktop 构建再加入 `src/gzc_platform.c`；firmware 构建链接自己的
+`gzc_default_platform()` 实现，两种实现只选一种。HTTP、crypto、WebRTC 的
+platform vtable 仍由集成方提供。不要将 `tests/` 或仓库 `cgobackend/` 加入
+portable 设备库，也不要混用其他版本的 nanopb runtime。
+控制侧 `gizclaw_control` 继续使用独立的 `control/src/*.c` 与
+`control/include`、`control/src`，复用设备库的 public/generated include 路径；
+它不因这次设备握手升级而需要编译整套设备 SDK。
+
 ## 设备握手准入
 
 连接前在 client owner 线程调用 `gzc_client_set_admission_credential(client, &credential)`，

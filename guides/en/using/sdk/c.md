@@ -123,6 +123,63 @@ Firmware uses `gizclaw_core` and links its PAL-owned implementation of the exist
 
 The archive does not own a firmware toolchain, final link, image packaging, flashing, credentials, or provider configuration. Consumers must not patch the extracted SDK or fetch another nanopb copy; upgrade to a release containing the required source fix instead.
 
+## Manual source lists and the v0.20.0 upgrade
+
+Device integrations upgrading from v0.19.x to v0.20.0 must add
+`generated/giznet/admission.pb.c` to their compiled source list. `gzc_client.c` and
+the signaling encoder reference its generated descriptor unconditionally, even
+with default `open` admission and no configured credential. Release Bazel targets
+include `generated/**/*.c` recursively and pick it up automatically; handwritten
+Makefile/CMake lists must be updated.
+
+The complete device-library inputs follow the archive's `BUILD.bazel` (owned by
+`sdk/c/gizclaw/packaging/BUILD.bazel.in` in the repository):
+
+| Input | Path relative to the archive root | Repository path |
+| --- | --- | --- |
+| Portable SDK | `src/*.c`, excluding `src/gzc_platform.c` | `sdk/c/gizclaw/src/` |
+| Every generated C file | Recursive `generated/**/*.c` | `sdk/c/gizclaw/generated/` |
+| Pinned nanopb runtime | `third_party/nanopb/pb_common.c`, `pb_decode.c`, `pb_encode.c` | The same filenames under `third_party/nanopb/upstream/` |
+| Optional default platform | `src/gzc_platform.c` | `sdk/c/gizclaw/src/gzc_platform.c` |
+
+Generated inputs include admission, RPC, every payload, events, and Google
+protobuf helpers. Do not select only `rpc.pb.c` or restrict future generated
+outputs to the `.pb.c` suffix. Telemetry is implemented in the portable SDK's
+`src/gzc_telemetry.c`. Run this command from a verified, extracted Release archive
+root to print the complete portable SDK, generated, and nanopb source list:
+
+```sh
+python3 - <<'PY'
+from pathlib import Path
+sources = sorted(p for p in Path("src").glob("*.c") if p.name != "gzc_platform.c")
+sources += sorted(Path("generated").rglob("*.c"))
+sources += [Path("third_party/nanopb") / name
+            for name in ("pb_common.c", "pb_decode.c", "pb_encode.c")]
+for source in sources:
+    if not source.is_file():
+        raise SystemExit(f"missing source: {source}")
+    print(source.as_posix())
+PY
+```
+
+Compile these files as C11 with `include`, `generated`, and `third_party/nanopb`
+as include directories relative to the archive root. The repository equivalents
+are `sdk/c/gizclaw/include`, `sdk/c/gizclaw/generated`, and
+`third_party/nanopb/upstream`. Preserve generated subdirectories so includes such
+as `giznet/admission.pb.h` and `payload/*.pb.h` resolve; adding every generated
+subdirectory separately is unnecessary. Keep private headers beside their sources
+in `src` too.
+
+Desktop builds additionally compile `src/gzc_platform.c`; firmware builds link
+their own `gzc_default_platform()` implementation. Choose exactly one platform
+implementation. Integrators still supply HTTP, crypto, and WebRTC platform
+vtables. Exclude `tests/` and the repository's `cgobackend/` from the portable
+device library, and do not mix in a different nanopb runtime version.
+The controller package `gizclaw_control` retains its independent `control/src/*.c`
+inputs and `control/include`, `control/src` directories, reusing device-library
+public/generated include directories. This device handshake upgrade does not
+require control-only consumers to compile the full device SDK.
+
 ## Device handshake admission
 
 Call `gzc_client_set_admission_credential(client, &credential)` on the owner thread before
