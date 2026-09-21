@@ -917,3 +917,203 @@ func TestManagerPublishesLocalDirectoryAfterHomeAssignment(t *testing.T) {
 		t.Fatalf("home admission directory = %v, %v, %v", keys, more, err)
 	}
 }
+
+func TestManagerBlockedActivationHasNoRouteOrLocalRunSideEffects(t *testing.T) {
+	key := giznet.PublicKey{83}
+	peers := &peer.Server{Store: kv.NewMemory(nil)}
+	if _, err := peers.SavePeer(t.Context(), apitypes.Peer{PublicKey: key.String(), Role: apitypes.PeerRoleClient, Status: apitypes.PeerRegistrationStatusBlocked}); err != nil {
+		t.Fatal(err)
+	}
+	peers.LocalRuns = peerruntest.New(t)
+	manager := NewManager(peers)
+	manager.PeerRoutes = &peerroute.Server{Store: kv.NewMemory(nil), Peers: peers, ServerPublicKey: giznet.PublicKey{84}, ServerEndpoint: "server:9820"}
+	if _, err := manager.activatePeer(t.Context(), &testGiznetConn{publicKey: key}); !errors.Is(err, peer.ErrPeerBlocked) {
+		t.Fatalf("activation error = %v", err)
+	}
+	if _, ok := manager.Peer(key); ok {
+		t.Fatal("blocked Peer became online")
+	}
+	if _, err := manager.PeerRoutes.Lookup(t.Context(), key); !errors.Is(err, peerroute.ErrAssignmentNotFound) {
+		t.Fatalf("blocked route lookup = %v", err)
+	}
+	keys, _, err := peers.LocalRuns.ListPeerPublicKeys(t.Context(), "", 10)
+	if err != nil || len(keys) != 0 {
+		t.Fatalf("blocked local directory = %v, %v", keys, err)
+	}
+	var rows int
+	if err := peers.LocalRuns.DB.QueryRowContext(t.Context(), "SELECT count(*) FROM peer_runs").Scan(&rows); err != nil || rows != 0 {
+		t.Fatalf("blocked local rows = %d, %v", rows, err)
+	}
+}
+
+type blockCloseConn struct {
+	*testGiznetConn
+	closed  chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func (c *blockCloseConn) Close() error {
+	c.once.Do(func() { close(c.closed) })
+	if c.release != nil {
+		<-c.release
+	}
+	return nil
+}
+
+func TestManagerBlockDetachesBeforeCloseAndApproveCanReconnect(t *testing.T) {
+	key := giznet.PublicKey{85}
+	peers := &peer.Server{Store: kv.NewMemory(nil)}
+	manager := NewManager(peers)
+	peers.PeerManager = manager
+	old := &blockCloseConn{testGiznetConn: &testGiznetConn{publicKey: key}, closed: make(chan struct{}), release: make(chan struct{})}
+	defer close(old.release)
+	if _, err := manager.activatePeer(t.Context(), old); err != nil {
+		t.Fatal(err)
+	}
+	blocked := make(chan error, 1)
+	go func() {
+		response, err := peers.BlockPeer(t.Context(), adminhttp.BlockPeerRequestObject{PublicKey: key.String()})
+		if _, ok := response.(adminhttp.BlockPeer200JSONResponse); err == nil && !ok {
+			err = errors.New("unexpected block response")
+		}
+		blocked <- err
+	}()
+	select {
+	case <-old.closed:
+	case <-time.After(time.Second):
+		t.Fatal("block did not close connection")
+	}
+	if _, ok := manager.Peer(key); ok {
+		t.Fatal("blocked Peer still indexed")
+	}
+	if manager.allowService(t.Context(), key, ServicePeerRPC) {
+		t.Fatal("blocked Peer opened service during close")
+	}
+	if _, err := manager.activatePeer(t.Context(), &testGiznetConn{publicKey: key}); !errors.Is(err, peer.ErrPeerBlocked) {
+		t.Fatalf("blocked reconnect = %v", err)
+	}
+	// The old Close is still blocked: neither a different key nor an Admin
+	// approve on this key may wait for transport I/O under a state/record lock.
+	progress := make(chan error, 1)
+	fresh := &testGiznetConn{publicKey: key}
+	go func() {
+		if _, err := manager.activatePeer(t.Context(), &testGiznetConn{publicKey: giznet.PublicKey{86}}); err != nil {
+			progress <- err
+			return
+		}
+		response, err := peers.ApprovePeer(t.Context(), adminhttp.ApprovePeerRequestObject{PublicKey: key.String(), Body: &adminhttp.ApprovePeerJSONRequestBody{Role: apitypes.PeerRoleClient}})
+		if _, ok := response.(adminhttp.ApprovePeer200JSONResponse); err == nil && !ok {
+			err = errors.New("unexpected approve response")
+		}
+		if err == nil {
+			_, err = manager.activatePeer(t.Context(), fresh)
+		}
+		progress <- err
+	}()
+	select {
+	case err := <-progress:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("transport Close blocked activation/approve")
+	}
+	if got, ok := manager.Peer(key); !ok || got != fresh {
+		t.Fatal("approved connection not online")
+	}
+	// Cleanup releases the blocked close, then checks the original operation.
+	t.Cleanup(func() {
+		if err := <-blocked; err != nil {
+			t.Error(err)
+		}
+	})
+}
+
+func TestManagerDetachInvalidatesReplacementAndClosesAllEdgeTransports(t *testing.T) {
+	key := giznet.PublicKey{87}
+	base := kv.NewMemory(nil)
+	peers := &peer.Server{Store: base}
+	manager := NewManager(peers)
+	if _, err := peers.EnsureConnectedPeer(t.Context(), key); err != nil {
+		t.Fatal(err)
+	}
+	old := &blockCloseConn{testGiznetConn: &testGiznetConn{publicKey: key}, closed: make(chan struct{})}
+	edge := &blockCloseConn{testGiznetConn: &testGiznetConn{publicKey: key}, closed: make(chan struct{})}
+	fresh := &blockCloseConn{testGiznetConn: &testGiznetConn{publicKey: key}, closed: make(chan struct{})}
+	manager.SetPeerUp(key, old)
+	manager.peers[key].edgeTransports = map[giznet.Conn]struct{}{old: {}, edge: {}}
+	store := &blockingGetStore{Store: base, entered: make(chan struct{}), release: make(chan struct{})}
+	peers.Store = store
+	done := make(chan error, 1)
+	go func() { _, err := manager.activatePeer(t.Context(), fresh); done <- err }()
+	<-store.entered
+	manager.DetachPeerConnections(key)()
+	close(store.release)
+	if err := <-done; !errors.Is(err, ErrPeerConnNotActive) {
+		t.Fatalf("detached activation = %v", err)
+	}
+	for _, conn := range []*blockCloseConn{old, edge, fresh} {
+		select {
+		case <-conn.closed:
+		default:
+			t.Fatal("captured transport not closed")
+		}
+	}
+	if _, ok := manager.Peer(key); ok {
+		t.Fatal("detached activation was published")
+	}
+}
+
+type blockMutationFailureStore struct{ kv.Store }
+
+func (s blockMutationFailureStore) ApplyMutation(context.Context, kv.Mutation) (bool, error) {
+	return false, errors.New("injected block persistence failure")
+}
+
+func TestManagerBlockDisconnectFollowsDurableCommit(t *testing.T) {
+	for _, failCommit := range []bool{true, false} {
+		t.Run(map[bool]string{true: "commit fails", false: "directory fails after commit"}[failCommit], func(t *testing.T) {
+			key := giznet.PublicKey{88}
+			peers := &peer.Server{Store: kv.NewMemory(nil)}
+			manager := NewManager(peers)
+			peers.PeerManager = manager
+			conn := &blockCloseConn{testGiznetConn: &testGiznetConn{publicKey: key}, closed: make(chan struct{})}
+			if _, err := manager.activatePeer(t.Context(), conn); err != nil {
+				t.Fatal(err)
+			}
+			if failCommit {
+				peers.Store = blockMutationFailureStore{Store: peers.Store}
+			} else {
+				peers.LocalRuns = peerruntest.New(t)
+				if err := peers.LocalRuns.DB.Close(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			response, err := peers.BlockPeer(t.Context(), adminhttp.BlockPeerRequestObject{PublicKey: key.String()})
+			if _, success := response.(adminhttp.BlockPeer200JSONResponse); err != nil || success {
+				t.Fatalf("block failure = %T, %v", response, err)
+			}
+			closed := false
+			select {
+			case <-conn.closed:
+				closed = true
+			default:
+			}
+			if closed == failCommit {
+				t.Fatalf("connection closed = %v, commit failure = %v", closed, failCommit)
+			}
+			_, online := manager.Peer(key)
+			if online != failCommit {
+				t.Fatalf("online = %v, commit failure = %v", online, failCommit)
+			}
+			record, err := peers.LoadPeer(t.Context(), key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if (record.Status == apitypes.PeerRegistrationStatusBlocked) == failCommit {
+				t.Fatalf("status after failure = %s", record.Status)
+			}
+		})
+	}
+}

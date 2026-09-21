@@ -2,7 +2,10 @@ package gizclaw
 
 import (
 	"context"
+	"errors"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 
@@ -38,8 +41,8 @@ func TestServerSecurityPolicyRequiresAdminRoleForAdminService(t *testing.T) {
 	}
 }
 
-func TestServerSecurityPolicyAllowsPublicServicesWithoutPeerLookup(t *testing.T) {
-	policy := (*ServerSecurityPolicy)(&Server{manager: &Manager{}})
+func TestServerSecurityPolicyAllowsUnknownPeerBootstrapServices(t *testing.T) {
+	policy := testServerSecurityPolicy(&peer.Server{Store: kv.NewMemory(nil)})
 	if !policy.AllowService(giznet.PublicKey{}, ServicePeerRPC) {
 		t.Fatal("policy should allow rpc service")
 	}
@@ -128,5 +131,55 @@ func TestServerSecurityPolicyForwardsAdmission(t *testing.T) {
 		if policy.AllowPeer(ctx, admission) != want || injected.ctx != ctx || injected.admission.PublicKey != admission.PublicKey || injected.admission.Credential != admission.Credential {
 			t.Fatal("admission was not delegated intact")
 		}
+	}
+}
+
+func TestServerSecurityPolicyBlockedCannotUseHostFallback(t *testing.T) {
+	key := giznet.PublicKey{73}
+	peers := &peer.Server{Store: kv.NewMemory(nil)}
+	if _, err := peers.SavePeer(t.Context(), apitypes.Peer{PublicKey: key.String(), Role: apitypes.PeerRoleAdmin, Status: apitypes.PeerRegistrationStatusBlocked}); err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	policy := (*ServerSecurityPolicy)(&Server{manager: NewManager(peers), SecurityPolicy: testGiznetSecurityPolicy{
+		allowService: func(giznet.PublicKey, uint64) bool { calls++; return true },
+	}})
+	for _, service := range []uint64{ServicePeerRPC, ServicePeerHTTP, ServicePeerOpenAI, EventStreamAgent, ServiceAdminHTTP, ServiceEdgeHTTP, ServiceEdgeRPC, 0xff} {
+		if policy.AllowService(key, service) {
+			t.Fatalf("blocked Peer opened service %x", service)
+		}
+	}
+	if calls != 0 {
+		t.Fatal("blocked denial reached host fallback")
+	}
+}
+
+type deadlinePeerStore struct{ kv.Store }
+
+func (s deadlinePeerStore) Get(ctx context.Context, _ kv.Key) ([]byte, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func TestServerSecurityPolicyLookupFailsClosedAndIsBounded(t *testing.T) {
+	for _, store := range []kv.Store{
+		&failingGetStore{err: errors.New("store unavailable")},
+		deadlinePeerStore{},
+	} {
+		policy := (*ServerSecurityPolicy)(&Server{manager: NewManager(&peer.Server{Store: store}), SecurityPolicy: testGiznetSecurityPolicy{
+			allowService: func(giznet.PublicKey, uint64) bool { t.Error("failed lookup reached fallback"); return true },
+		}})
+		start := time.Now()
+		if policy.AllowService(giznet.PublicKey{74}, ServicePeerRPC) {
+			t.Fatal("failed lookup allowed service")
+		}
+		if elapsed := time.Since(start); elapsed > time.Second {
+			t.Fatalf("service lookup exceeded bound: %s", elapsed)
+		}
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if NewManager(&peer.Server{Store: kv.NewMemory(nil)}).allowService(ctx, giznet.PublicKey{75}, EventStreamAgent) {
+		t.Fatal("cancelled service lookup allowed bootstrap")
 	}
 }

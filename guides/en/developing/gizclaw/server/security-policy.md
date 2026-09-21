@@ -40,6 +40,31 @@ This setting governs only this Server's WebRTC signaling. Edge terminates client
 itself; subsequent logical tunnels do not enter this policy and are not protected by the Server
 setting. See [Gizedge](../../gizedge) for that deployment boundary.
 
+## Blocked enforcement in every admission mode
+
+`open` omits handshake credential preflight; it does not disable Peer blocking.
+Peer activation returns `ErrPeerBlocked` for an existing blocked record and closes
+the connection without creating/replacing the Peer record or writing new
+PeerRoutes assignments or LocalRuns. This also applies to registration-token
+mode and logical Peers forwarded through Edge to this Server. Edge's own
+handshake remains outside the Server admission setting.
+
+Admin block persists the status and disconnects this Server's current Peer
+connections, including an activating replacement. Admin approve restores active
+status and permits reconnect. Existing streams close with their connection.
+Between the committed block and transport close, new RPC, HTTP, OpenAI, Event,
+Admin, and Edge service streams reread durable status. Additional host-policy
+grants cannot override blocked denial.
+
+DataChannel callbacks have no request context, so Manager limits each status
+lookup to 250 ms. Storage errors, timeout, and cancellation deny access; successful
+results are not cached across a block. Unknown normal Peers may still open the
+mandatory Event stream before activation. Role services still require an active
+role or a host grant. Queries hold no Manager lock and start no background
+goroutine. This adds a read per new service and rejects new streams during store
+failure, instead of retaining stale authorization. Existing streams are not
+queried per message.
+
 ## Built-in registration-token policy
 
 - An empty credential requires an existing Peer with `Status != blocked`, and `EnsureAvailable`
@@ -71,7 +96,7 @@ cover only memory bookkeeping. Storage operations are read-only; cache and count
 in-memory. Exhausted budgets or capacity can temporarily deny valid new tokens too; callers
 should back off and retry after recovery. Known Peers reconnecting without credentials do not
 consume the token budget. Multiple processes have independent limits. Default `open` admission
-performs none of these queries or limits.
+performs none of these handshake token queries or limits, but still enforces the activation and service checks above.
 
 After an administrator reenables, extends, or raises a token limit, a previous failure remains cached for at most one second; the global failure budget still recovers on its existing 60-second window. Known Peers reconnecting without credentials are unaffected by later token restrictions. These changes prevent new activations without revoking existing devices; presenting a restricted token still fails handshake preflight. See [RuntimeProfile and registration](../services/runtime-profile#registrationtoken) for activation and editing semantics.
 

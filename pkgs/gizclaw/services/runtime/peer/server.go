@@ -30,6 +30,8 @@ var (
 	ErrInvalidInfo         = errors.New("peer: invalid device info")
 	ErrPeerPendingDeletion = errors.New("peer: deletion pending")
 	ErrPeerDeleted         = errors.New("peer: deleted")
+	// ErrPeerBlocked rejects connection activation until an Admin approves the Peer.
+	ErrPeerBlocked = errors.New("peer: blocked")
 	// ErrPeerConcurrentUpdate requires the caller to read the current record
 	// before retrying an update rejected by another Server's write.
 	ErrPeerConcurrentUpdate = errors.New("peer: record changed concurrently")

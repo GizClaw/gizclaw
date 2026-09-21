@@ -8,9 +8,11 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giztunnel"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestAcceptedPeerStreamLifecycleIsAlwaysConstructedForAuditContent(t *testing.T) {
@@ -122,7 +124,7 @@ func TestEdgeTunnelRemoteServiceUsesLogicalClientIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manager := &Manager{}
+	manager := NewManager(&peer.Server{Store: kv.NewMemory(nil)})
 	if manager.allowService(context.Background(), client.Public, ServiceEdgeHTTP) {
 		t.Fatal("unregistered logical client unexpectedly authorized for edge service")
 	}
@@ -131,6 +133,16 @@ func TestEdgeTunnelRemoteServiceUsesLogicalClientIdentity(t *testing.T) {
 	}
 	if manager.allowActivePeerRole(context.Background(), client.Public, apitypes.PeerRoleEdgeNode) {
 		t.Fatal("unregistered logical client unexpectedly has edge role")
+	}
+
+	if _, err := manager.Peers.SavePeer(t.Context(), apitypes.Peer{PublicKey: client.Public.String(), Role: apitypes.PeerRoleClient, Status: apitypes.PeerRegistrationStatusBlocked}); err != nil {
+		t.Fatal(err)
+	}
+	if manager.allowService(t.Context(), client.Public, ServicePeerRPC) {
+		t.Fatal("blocked logical client opened peer RPC service")
+	}
+	if !manager.allowService(t.Context(), giznet.PublicKey{92}, ServicePeerRPC) {
+		t.Fatal("blocking one logical client denied an unrelated identity")
 	}
 }
 

@@ -1,6 +1,7 @@
 package peer
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"strings"
@@ -148,4 +149,50 @@ func (s *bootstrapConflictStore) ApplyMutation(ctx context.Context, mutation kv.
 		before()
 	}
 	return s.Store.ApplyMutation(ctx, mutation)
+}
+
+func TestEnsureConnectedPeerRejectsBlockedAndPreservesRecord(t *testing.T) {
+	s := &Server{Store: kv.NewMemory(nil)}
+	key := giznet.PublicKey{81}
+	if _, err := s.EnsureConnectedPeer(t.Context(), key); err != nil {
+		t.Fatal(err)
+	}
+	_, err := s.block(t.Context(), key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := s.Store.Get(t.Context(), peerKey(key.String()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if _, err := s.EnsureConnectedPeer(t.Context(), key); !errors.Is(err, ErrPeerBlocked) {
+			t.Fatalf("blocked activation error = %v", err)
+		}
+	}
+	after, err := s.Store.Get(t.Context(), peerKey(key.String()))
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatalf("blocked durable record changed: %v", err)
+	}
+	if _, err := s.approve(t.Context(), key, apitypes.PeerRoleClient); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.EnsureConnectedPeer(t.Context(), key); err != nil {
+		t.Fatalf("approved activation: %v", err)
+	}
+}
+
+func TestEnsureConnectedPeerRejectsConcurrentBlockedCreate(t *testing.T) {
+	base := kv.NewMemory(nil)
+	other := &Server{Store: base}
+	key := giznet.PublicKey{82}
+	store := &bootstrapConflictStore{Store: base, before: func() {
+		if _, err := other.SavePeer(t.Context(), apitypes.Peer{PublicKey: key.String(), Role: apitypes.PeerRoleClient, Status: apitypes.PeerRegistrationStatusBlocked}); err != nil {
+			t.Fatal(err)
+		}
+	}}
+	s := &Server{Store: store}
+	if _, err := s.EnsureConnectedPeer(t.Context(), key); !errors.Is(err, ErrPeerBlocked) {
+		t.Fatalf("concurrent blocked create: %v", err)
+	}
 }
