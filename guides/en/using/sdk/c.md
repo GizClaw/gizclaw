@@ -133,10 +133,10 @@ connected or closed clients reject changes. Replacement and destroy free the cop
 setter preserves the old value. Existing public struct layouts and connect signatures remain.
 
 `gzc_registration_token_credential(gzc_str_from_cstr(registrationToken), &credential)` constructs
-GizClaw version 1 and type `registration_token`. Oversized input, invalid pointers, or embedded
+GizClaw version 1 and type `gizclaw.com/registration_token`. Oversized input, invalid pointers, or embedded
 NUL return `GZC_ERR_INVALID_ARGUMENT` without changing the output. Generated string arrays require
-bounded, NUL-terminated UTF-8: type allows 128 bytes and value 4096 bytes. The complete protobuf
-encoding must fit in 4096 bytes, so overhead further limits value. This business helper is outside
+bounded, NUL-terminated UTF-8: type allows 128 bytes and value 512 bytes. The complete protobuf
+encoding must fit in 4096 bytes independently of the field limits. This business helper is outside
 signaling.
 
 `gzc_signaling_build_offer_request_with_credential(config, offer_sdp, &credential, exchange,
@@ -145,3 +145,5 @@ supports independent encoding. The old builder preserves bare SDP. Excessive len
 unterminated strings, empty encodings, or plaintext cipher return `GZC_ERR_INVALID_ARGUMENT`;
 allocation failure returns `GZC_ERR_NO_MEMORY`. Call `server.register` after connecting to bind
 resources; see [Security Policy](../../developing/gizclaw/server/security-policy).
+
+The exported `GZC_REGISTRATION_TOKEN_CREDENTIAL_TYPE` constant defines the built-in type and is used by the helper. Values are limited to 512 UTF-8 bytes; construction returns an error or throws for larger input. Custom policies should use their own domain prefix; built-in types reserve `gizclaw.com/`.

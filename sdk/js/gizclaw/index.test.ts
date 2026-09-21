@@ -4417,7 +4417,11 @@ test("endpoint connection rejects oversized admission credentials before discove
       pc: pc as unknown as RTCPeerConnection,
       endpoint: "https://example.invalid",
       clientPrivateKey: new Uint8Array(32).fill(1),
-      credential: registrationTokenCredential("x".repeat(4097)),
+      credential: {
+        version: 1,
+        type: "example.com/test",
+        value: "x".repeat(513),
+      },
       fetch: async () => {
         requests += 1;
         return new Response(
@@ -4480,7 +4484,7 @@ test("endpoint connection seals optional admission credentials in the offer", as
         ).decrypt(new Uint8Array(await request.arrayBuffer()));
         assert.equal(
           Buffer.from(plaintext).toString("hex"),
-          "475a4f4601001d08011212726567697374726174696f6e5f746f6b656e1a05746f6b656e763d30",
+          "475a4f460100290801121e67697a636c61772e636f6d2f726567697374726174696f6e5f746f6b656e1a05746f6b656e763d30",
         );
         throw new Error("offer verified");
       },

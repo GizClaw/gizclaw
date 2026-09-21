@@ -296,6 +296,17 @@ class ScenarioClient {
       final token = rawToken == null || rawToken.isEmpty
           ? null
           : variables.resolveString(rawToken, 'registration_token');
+      final explicit = spec.admissionCredential;
+      final credential = explicit == null
+          ? (token == null ? null : registrationTokenCredential(token))
+          : AdmissionCredential(
+              version: explicit['version'] as int,
+              type: explicit['type'] as String,
+              value: variables.resolveString(
+                explicit['value'] as String,
+                'admission_credential.value',
+              ),
+            );
       var publicKey = '';
       final peerConnection = await _dial(
         httpClient,
@@ -303,7 +314,7 @@ class ScenarioClient {
         handlers.handlers,
         privateKey,
         (value) => publicKey = value,
-        credential: token == null ? null : registrationTokenCredential(token),
+        credential: credential,
       );
       final client = GizClawClient(
         FlutterWebRtcDataChannelFactory(peerConnection),

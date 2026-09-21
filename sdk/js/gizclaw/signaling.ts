@@ -17,6 +17,11 @@ export type AdmissionCredential = Pick<
 
 /** Maximum encoded protobuf credential bytes inside an encrypted offer. */
 export const GIZNET_MAX_CREDENTIAL_BYTES = 4096;
+/** Maximum UTF-8 bytes in the opaque credential value. */
+export const GIZNET_MAX_CREDENTIAL_VALUE_BYTES = 512;
+/** Leaves room within the 256 KiB signaling body for credentials and AEAD. */
+export const GIZNET_MAX_OFFER_SDP_BYTES =
+  256 * 1024 - GIZNET_MAX_CREDENTIAL_BYTES - 7 - 16;
 
 const signalingPath = "/webrtc/v1/offer";
 const base58Alphabet =
@@ -44,7 +49,11 @@ export async function prepareEncryptedGiznetWebRTCOffer(
   offerSDP: string,
   credential?: AdmissionCredential,
 ): Promise<PreparedGiznetWebRTCOffer> {
+  if (offerSDP.length > GIZNET_MAX_OFFER_SDP_BYTES)
+    throw new Error("offer SDP exceeds signaling limit");
   const sdp = new TextEncoder().encode(offerSDP);
+  if (sdp.byteLength > GIZNET_MAX_OFFER_SDP_BYTES)
+    throw new Error("offer SDP exceeds signaling limit");
   const encoded = encodeAdmissionCredential(credential);
   let plaintext: Uint8Array = sdp;
   if (encoded != null) {
@@ -117,7 +126,7 @@ export function encodeAdmissionCredential(
   const utf8 = new TextEncoder();
   if (
     utf8.encode(credential.type).length > 128 ||
-    utf8.encode(credential.value).length > GIZNET_MAX_CREDENTIAL_BYTES
+    utf8.encode(credential.value).length > GIZNET_MAX_CREDENTIAL_VALUE_BYTES
   ) {
     throw new Error("invalid admission credential length");
   }

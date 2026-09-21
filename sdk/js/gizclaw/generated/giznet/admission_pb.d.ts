@@ -34,7 +34,7 @@ export declare type AdmissionCredential =
     type: string;
 
     /**
-     * Opaque policy input, at most 4096 UTF-8 bytes (also subject to encoded limit).
+     * Opaque policy input, at most 512 UTF-8 bytes (also subject to encoded limit).
      *
      * @generated from field: string value = 3;
      */

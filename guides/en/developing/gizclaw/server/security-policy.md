@@ -44,15 +44,17 @@ setting. See [Gizedge](../../gizedge) for that deployment boundary.
 
 - An empty credential requires an existing Peer with `Status != blocked`, and `EnsureAvailable`
   excludes pending deletion and permanent tombstones. Storage errors deny admission.
-- A nonempty structured credential must have `version == 1 && type == "registration_token"`.
+- A nonempty structured credential must have `version == 1 && type == "gizclaw.com/registration_token"`.
   Unknown versions or types are rejected before any Peer/token storage access or lookup-budget
-  reservation. Only the trimmed `value` is passed to `ResolveRegistration` as a RegistrationToken
-  and must resolve successfully. Known blocked, deleting, or tombstoned identities cannot bypass those
+  reservation. Only the trimmed `value` is passed to `PreflightRegistration` as a RegistrationToken.
+  It must be enabled, unexpired, below its activation limit, and resolve its Profile/Firmware successfully. Known blocked, deleting, or tombstoned identities cannot bypass those
   checks with a token. A known key with an invalid credential is also denied, without falling
   back to the empty-credential path.
 
 The predicate creates no Peer, binds no RuntimeProfile owner or firmware, and activates no
-runtime. `server.register` still resolves the reusable token again and performs binding.
+runtime. `server.register` rechecks limits, records activation, and binds the owner and firmware
+in one SQL transaction. Only one new device can claim the last slot; the loser receives
+`PermissionDenied` without a partial binding.
 Handshake acceptance grants no AI resource access; an unregistered connection still has no
 RuntimeProfile. Errors and logs never include tokens.
 
@@ -60,7 +62,7 @@ Before any nonempty-credential lookup, each Server policy instance enforces a sh
 at most 64 failures per 60-second window and 8 simultaneous lookups, reserving possible failures
 before I/O. These limits span public keys, so rotating keys or tokens cannot bypass them.
 Concurrent duplicate tokens are denied. Failed tokens are indexed by SHA-256 of
-`type + "\0" + strings.TrimSpace(value)`, with a 30-second negative TTL and a 1024-entry cap. Raw tokens and
+`type + "\0" + strings.TrimSpace(value)`, with a one-second negative TTL and a 1024-entry cap. Raw tokens and
 successful results are never cached. Bounded eviction does not reset the failure budget;
 expired entries are removed at the next lookup.
 
@@ -70,3 +72,7 @@ in-memory. Exhausted budgets or capacity can temporarily deny valid new tokens t
 should back off and retry after recovery. Known Peers reconnecting without credentials do not
 consume the token budget. Multiple processes have independent limits. Default `open` admission
 performs none of these queries or limits.
+
+After an administrator reenables, extends, or raises a token limit, a previous failure remains cached for at most one second; the global failure budget still recovers on its existing 60-second window. Known Peers reconnecting without credentials are unaffected by later token restrictions. These changes prevent new activations without revoking existing devices; presenting a restricted token still fails handshake preflight. See [RuntimeProfile and registration](../services/runtime-profile#registrationtoken) for activation and editing semantics.
+
+Built-in credential types use the `gizclaw.com/` domain prefix; custom policies should use their own domain prefix to avoid collisions. The bare `registration_token` type is rejected. A value is limited to 512 UTF-8 bytes, checked by client construction helpers and encoders and after server decoding. The independent GZOF encoded-message limit remains 4096 bytes.

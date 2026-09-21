@@ -262,8 +262,8 @@ flowchart TB
 当前凭证版本为 1；它与 GZOF 信封版本独立。giznet 只解码结构，不解释 version、type
 或 opaque value 的业务含义，具体类型与允许的版本由注入 policy 决定。
 
-`type` 最多 128 UTF-8 bytes，`value` 最多 4096 UTF-8 bytes；整个 protobuf 编码仍须
-不超过 4096 bytes，因此 value 的可用长度还取决于其他字段和编码开销。各 SDK
+`type` 最多 128 UTF-8 bytes，`value` 最多 512 UTF-8 bytes；整个 protobuf 编码仍须
+不超过 4096 bytes；该传输上限独立于字符串上限。各 SDK
 在发送前检查这些上限。省略 credential 时发送裸 SDP；传入编码后为空的结构报错，
 不会隐式变成无凭证。有凭证时，AEAD 密封明文为：
 
@@ -287,3 +287,5 @@ flowchart TB
 giznet 不将凭证附到 Conn，也不执行持久化。ECDH/AEAD 证明公钥持有权，运营方授权
 由 policy 决定；nil policy 默认放行。GizClaw 的 registration-token 语义见
 [Security Policy](./gizclaw/server/security-policy)，SDK helper 不属于 giznet。
+
+SDP 编码前最多允许 258025 个 UTF-8 字节，为 256 KiB signaling HTTP body 预留 4096 字节 credential、7 字节信封和 16 字节 AEAD tag；Go/JS/Dart/C 在分配信封前拒绝超限 SDP。

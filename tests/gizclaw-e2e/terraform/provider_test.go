@@ -52,7 +52,7 @@ func TestTerraformProviderAppliesCatalogSelection(t *testing.T) {
 			t.Fatalf("Workflow/tf-echo does not carry the override graph:\n%s", workflow)
 		}
 		token := showResource(t, h, "RegistrationToken/tf-device")
-		for _, want := range []string{`"runtime_profile_id":"tf-device"`, `"firmware_id":"tf-devkit"`} {
+		for _, want := range []string{`"runtime_profile_id":"tf-device"`, `"firmware_id":"tf-devkit"`, `"enabled":true`, `"expires_at":"2099-01-01T00:00:00Z"`, `"max_activations":100`} {
 			if !strings.Contains(string(token), want) {
 				t.Fatalf("RegistrationToken/tf-device missing %s:\n%s", want, token)
 			}
@@ -81,10 +81,20 @@ func TestTerraformProviderAppliesCatalogSelection(t *testing.T) {
 	if !t.Run("catalog edits update the Server", func(t *testing.T) {
 		modelPath := filepath.Join(catalogs, "overrides", "models", "chat.yaml")
 		replaceInFile(t, modelPath, "Terraform override chat", "Terraform edited chat")
+		tokenPath := filepath.Join(product, "registration-tokens", "device.yaml")
+		replaceInFile(t, tokenPath, "enabled: true", "enabled: false")
+		replaceInFile(t, tokenPath, "2099-01-01", "2098-01-01")
+		replaceInFile(t, tokenPath, "max_activations: 100", "max_activations: 1")
 		tf.requirePlanExitCode(t, 2)
 		tf.mustRun(t, "apply", "-input=false", "-no-color", "-auto-approve")
 		if got := specString(t, showResource(t, h, "Model/tf-chat"), "display_name"); got != "Terraform edited chat" {
 			t.Fatalf("Model/tf-chat display_name = %q after edit", got)
+		}
+		token := showResource(t, h, "RegistrationToken/tf-device")
+		for _, want := range []string{`"enabled":false`, `"expires_at":"2098-01-01T00:00:00Z"`, `"max_activations":1`} {
+			if !strings.Contains(string(token), want) {
+				t.Fatalf("RegistrationToken/tf-device missing edited %s:\n%s", want, token)
+			}
 		}
 		tf.requirePlanExitCode(t, 0)
 	}) {

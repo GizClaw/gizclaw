@@ -1,0 +1,24 @@
+# User Story:
+# As a device SDK consumer,
+# I want structured admission credentials enforced during WebRTC setup,
+# So that registration limits protect new activations and preserve reconnects.
+# This document must fail during admission; the admission lane checks the Server denial.
+version: gizclaw.test/v1alpha1
+name: admission.missing
+timeout: 30s
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+steps:
+- id: read_profile
+  client: peer
+  rpc:
+    method: server.app_config.get
+    request: {key: admission.marker}
+  expect:
+    /value: {equals: accepted}

@@ -302,9 +302,8 @@ fields are `uint32 version = 1`, `string type = 2`, and `string value = 3`. The 
 version is 1, independent of the GZOF envelope version. Giznet decodes the structure without
 interpreting version, type, or the opaque value; the injected policy owns their meaning.
 
-`type` is limited to 128 UTF-8 bytes and `value` to 4096 UTF-8 bytes. The complete protobuf
-encoding must also fit in 4096 bytes, so the usable value length depends on other fields and
-encoding overhead. Each SDK checks these bounds before sending. An omitted credential sends
+`type` is limited to 128 UTF-8 bytes and `value` to 512 UTF-8 bytes. The complete protobuf
+encoding must also fit in 4096 bytes independently of these field limits. Each SDK checks these bounds before sending. An omitted credential sends
 bare SDP; a supplied structure with an empty encoding is rejected instead of becoming absent.
 With a credential, the plaintext inside AEAD is:
 
@@ -330,3 +329,5 @@ retained. Policy rejection returns HTTP 403 `peer_forbidden`. Giznet neither att
 to Conn nor persists state. AEAD proves key possession; the policy decides admission, with a
 nil policy admitting by default. GizClaw registration-token semantics belong to
 [Security Policy](./gizclaw/server/security-policy); its SDK helpers are outside Giznet.
+
+Before envelope allocation, Go/JS/Dart/C reject SDP exceeding 258025 UTF-8 bytes. This reserves 4096 credential bytes, a 7-byte envelope and a 16-byte AEAD tag within the 256 KiB signaling HTTP body limit.

@@ -97,7 +97,9 @@ try {
 字段与总编码长度上限见 [Giznet](../../developing/giznet#signaling-准入凭证)。
 
 GizClaw package 导出 `registrationTokenCredential(registrationToken)`，生成
-`{ version: 1, type: "registration_token", value: registrationToken }`；可直接作为
+`{ version: 1, type: "gizclaw.com/registration_token", value: registrationToken }`；可直接作为
 connection options 的 `credential`。握手通过后仍需调用 `server.register` 完成产品绑定。
 超限或空编码结构在请求 server-info 或创建 offer 之前被拒绝，并关闭此次 PeerConnection。
 运营方配置见 [Security Policy](../../developing/gizclaw/server/security-policy)。
+
+内置 type 由导出常量 `REGISTRATION_TOKEN_CREDENTIAL_TYPE` 定义，helper 引用该常量。value 最多 512 个 UTF-8 字节；超限在 helper 构造时返回错误或抛出异常。自定义 policy 应使用自己的域名前缀，内置类型保留 `gizclaw.com/` 前缀。

@@ -16,14 +16,14 @@ import (
 )
 
 // RegistrationTokenCredentialType identifies the built-in GizClaw admission credential.
-const RegistrationTokenCredentialType = "registration_token"
+const RegistrationTokenCredentialType = "gizclaw.com/registration_token"
 
 const (
 	admissionFailureLimit  = 64
 	admissionInFlightLimit = 8
 	admissionCacheLimit    = 1024
 	admissionFailureWindow = time.Minute
-	admissionNegativeTTL   = 30 * time.Second
+	admissionNegativeTTL   = time.Second
 	admissionLookupTimeout = 2 * time.Second
 )
 
@@ -62,7 +62,7 @@ func (p *RegistrationTokenSecurityPolicy) AllowPeer(ctx context.Context, admissi
 	credential := admission.Credential
 	// Reject unsupported credentials before any Peer or token store access.
 	if credential != nil && (credential.Version != 1 || credential.Type != RegistrationTokenCredentialType ||
-		len(credential.Value) > gizwebrtc.MaxCredentialBytes || proto.Size(credential) > gizwebrtc.MaxCredentialBytes) {
+		len(credential.Value) > giznet.MaxAdmissionCredentialValueBytes || proto.Size(credential) > gizwebrtc.MaxCredentialBytes) {
 		return false
 	}
 	m := p.server.manager
@@ -89,7 +89,7 @@ func (p *RegistrationTokenSecurityPolicy) AllowPeer(ctx context.Context, admissi
 	if !available || m.RuntimeProfiles == nil {
 		return false
 	}
-	_, err := m.RuntimeProfiles.ResolveRegistration(ctx, token)
+	err := m.RuntimeProfiles.PreflightRegistration(ctx, token)
 	cacheFailure = err != nil
 	allowed = err == nil && ctx.Err() == nil
 	return allowed

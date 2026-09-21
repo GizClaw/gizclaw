@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
@@ -43,6 +44,66 @@ func newAdmissionTestPolicy(t *testing.T) (*RegistrationTokenSecurityPolicy, *ad
 	server := &Server{manager: NewManager(&peer.Server{Store: store})}
 	server.manager.RuntimeProfiles = registrations
 	return NewRegistrationTokenSecurityPolicy(server), store, token
+}
+
+func TestAdmissionTokenLifecycleAndCacheRecovery(t *testing.T) {
+	for _, restriction := range []string{"disabled", "expired", "exhausted"} {
+		t.Run(restriction, func(t *testing.T) {
+			p, _, token := newAdmissionTestPolicy(t)
+			now := time.Now()
+			p.now = func() time.Time { return now }
+			profiles := p.server.manager.RuntimeProfiles
+			profiles.Now = func() time.Time { return now }
+			registration, err := profiles.ResolveRegistration(t.Context(), token)
+			if err != nil {
+				t.Fatal(err)
+			}
+			known := giznet.PublicKey{90}
+			if _, err := profiles.RegisterOwner(t.Context(), known.String(), token, nil); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := p.server.manager.Peers.EnsureConnectedPeer(t.Context(), known); err != nil {
+				t.Fatal(err)
+			}
+			body := adminhttp.RegistrationTokenUpsert{Id: registration.TokenID, Token: token, RuntimeProfileId: registration.RuntimeProfile.Id}
+			switch restriction {
+			case "disabled":
+				body.Enabled = new(false)
+			case "expired":
+				body.ExpiresAt = new(now)
+			case "exhausted":
+				body.MaxActivations = new(int64(1))
+			}
+			put := func() {
+				t.Helper()
+				response, err := profiles.PutRegistrationToken(t.Context(), adminhttp.PutRegistrationTokenRequestObject{Id: body.Id, Body: &body})
+				if _, ok := response.(adminhttp.PutRegistrationToken200JSONResponse); err != nil || !ok {
+					t.Fatalf("put: %T %v", response, err)
+				}
+			}
+			put()
+			admission := giznet.PeerAdmission{PublicKey: giznet.PublicKey{91}, Credential: testRegistrationCredential(token)}
+			if p.AllowPeer(t.Context(), admission) {
+				t.Fatal("restricted token admitted unknown Peer")
+			}
+			if !p.AllowPeer(t.Context(), giznet.PeerAdmission{PublicKey: known}) {
+				t.Fatal("token restriction revoked credential-free reconnect")
+			}
+			body.Enabled, body.ExpiresAt, body.MaxActivations = new(true), new(now.Add(time.Hour)), new(int64(2))
+			put()
+			if p.AllowPeer(t.Context(), admission) {
+				t.Fatal("negative TTL was not preserved")
+			}
+			now = now.Add(admissionNegativeTTL)
+			if !p.AllowPeer(t.Context(), admission) {
+				t.Fatal("admin recovery not visible after negative TTL")
+			}
+			var count int
+			if err := profiles.DB.GetContext(t.Context(), &count, "SELECT COUNT(*) FROM registration_token_activations"); err != nil || count != 1 {
+				t.Fatalf("preflight consumed activation: %d %v", count, err)
+			}
+		})
+	}
 }
 
 func TestRegistrationTokenAdmissionIsReadOnly(t *testing.T) {
@@ -334,7 +395,9 @@ func TestAdmissionUnsupportedCredentialDoesNotReadStorage(t *testing.T) {
 		{Version: 0, Type: RegistrationTokenCredentialType, Value: token},
 		{Version: 2, Type: RegistrationTokenCredentialType, Value: token},
 		{Version: 1, Type: "unknown", Value: token},
-		{Version: 1, Type: " registration_token ", Value: token},
+		{Version: 1, Type: " " + RegistrationTokenCredentialType + " ", Value: token},
+		{Version: 1, Type: "registration_token", Value: token},
+		{Version: 1, Type: RegistrationTokenCredentialType, Value: strings.Repeat("x", 513)},
 		{},
 	} {
 		if p.AllowPeer(t.Context(), giznet.PeerAdmission{PublicKey: giznet.PublicKey{1}, Credential: credential}) {

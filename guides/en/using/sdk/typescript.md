@@ -101,8 +101,10 @@ Omission preserves bare SDP. Field and encoded-size limits are defined by
 [Giznet](../../developing/giznet#signaling-admission-credentials).
 
 The GizClaw package exports `registrationTokenCredential(registrationToken)`, returning
-`{ version: 1, type: "registration_token", value: registrationToken }` for the connection options.
+`{ version: 1, type: "gizclaw.com/registration_token", value: registrationToken }` for the connection options.
 Callers must still invoke `server.register` after connecting to bind product resources.
 Oversized or empty-encoding structures are rejected before discovery or offer creation,
 closing the supplied PeerConnection. Operator settings are described in
 [Security Policy](../../developing/gizclaw/server/security-policy).
+
+The exported `REGISTRATION_TOKEN_CREDENTIAL_TYPE` constant defines the built-in type and is used by the helper. Values are limited to 512 UTF-8 bytes; construction returns an error or throws for larger input. Custom policies should use their own domain prefix; built-in types reserve `gizclaw.com/`.

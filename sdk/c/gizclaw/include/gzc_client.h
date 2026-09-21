@@ -117,10 +117,13 @@ int gzc_client_discard_opus_rx(gzc_client_t *client);
 int gzc_client_set_webrtc_media(
     gzc_client_t *client,
     const gzc_webrtc_media_vtable_t *media);
-/* Constructs a GizClaw registration-token credential; rejects an oversized
+#define GZC_REGISTRATION_TOKEN_CREDENTIAL_TYPE "gizclaw.com/registration_token"
+
+/* Constructs a GizClaw registration-token credential (value <=512 UTF-8 bytes); rejects an oversized
  * token or embedded NUL. out is only written on success. */
 int gzc_registration_token_credential(gzc_str_t token, giznet_v1_AdmissionCredential *out);
-/* Copies a structured credential after checking the encoded 4096-byte limit.
+/* Copies a structured credential after checking the 128-byte type, 512-byte
+ * value and encoded 4096-byte limits.
  * Call before connect on the client owner thread; NULL clears the credential.
  * The client owns the copy until replacement or destroy. Existing structs and
  * connect signatures retain their ABI. Non-NULL credentials require AEAD. */

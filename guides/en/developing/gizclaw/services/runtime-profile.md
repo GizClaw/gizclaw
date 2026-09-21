@@ -106,7 +106,7 @@ RuntimeProfile create and update validate the complete dependency graph before p
 
 ## RegistrationToken
 
-A `RegistrationToken` is an ordinary Admin-managed binding resource with caller-supplied `metadata.id`. Its required `spec.token` uses `runtime_profile_id` to select one canonical RuntimeProfile ID and may independently use `firmware_id` to bind one Firmware ID. Admin create, put, get, list, delete, apply, and show all use the same readable state. The Server persists that complete state and maintains a SHA-256 lookup index; changing the token atomically replaces the index, and applying the same ID and configuration is unchanged.
+A `RegistrationToken` is an ordinary Admin-managed binding resource with caller-supplied `metadata.id`. Its required `spec.token` uses `runtime_profile_id` to select one canonical RuntimeProfile ID and may independently use `firmware_id` to bind one Firmware ID. Admin create, put, get, list, delete, apply, and show all use the same readable state. The Server persists that complete state and maintains a unique token index; changing the token atomically updates the index, and applying the same ID and configuration is unchanged.
 
 RuntimeProfile and RegistrationToken have independent deployment ownership. Raids provides reusable
 base resources plus the public `RuntimeProfile/default` and
@@ -119,6 +119,29 @@ product-specific profiles and bind explicit tokens to either.
 
 RegistrationToken performs registration through `server.register` on a reliable Peer connection. With the [registration-token admission policy](../server/security-policy), the same token can also be sealed inside a WebRTC offer for a read-only admission check. That check binds no owner, firmware, or runtime, and does not pass the token through Conn. Other Public HTTP endpoints do not accept RegistrationToken. Neither handshake nor registration logs include submitted tokens.
 
+### Lifecycle and activation
+
+Admin create/put and declarative `spec` accept `enabled` (defaults to true), `expires_at` (RFC3339 timestamp; null or omitted means no expiration), and `max_activations` (nonnegative integer; null or omitted means unlimited). Expiration is exclusive; zero capacity prevents new activations. Admin get/list/create/put/delete responses include the current `activation_count`.
+
+An activation is a new public key's first successful `server.register` with that token. SQL `registration_token_activations` has a unique `(token_id, peer_public_key)` key and records the first `activated_at`; its row count is the activation count. Repeating the same token/public-key registration is idempotent, including after the administrator disables, expires, or restricts the token. Deleting a token or replacing its value makes the old value invalid. Deletion removes its activation records but retains existing owner/firmware bindings.
+
+`server.register` is authoritative. A transaction acquires the token write lock before reading, checks enabled/expiration/capacity and previous activation, inserts the activation, and writes the RuntimeProfile and firmware binding in `runtime_profile_owners`. Both SQLite and PostgreSQL acquire the write lock before snapshot reads. Exactly one new device can claim the last slot. Rejection returns `PermissionDenied`; SQL failure rolls back the whole transaction. Connection snapshots publish only after commit. Peer firmware reads prefer this SQL binding, falling back to existing Peer data when no SQL firmware binding exists.
+
+Administrators may extend or shorten expiration and raise or lower capacity, including below current usage. Edits preserve incarnation / row_version optimistic concurrency and return 409 on conflict. Null or omission clears nullable limits; omitted enabled resets to true. Restrictions prevent new activations without revoking devices: available known Peers can reconnect without credentials. Handshake preflight is read-only and reserves no slot; a device that loses capacity before register receives a rejection without a partial binding. Administrative recovery becomes visible after at most one second of negative caching; the independent failure budget can still deny queries within its window.
+
+Initialization adds columns to old databases with PostgreSQL `ADD COLUMN IF NOT EXISTS` or SQLite column inspection followed by `ADD COLUMN`. Existing tokens remain enabled, unexpired, and unlimited. Migration does not infer historical token activation ownership; existing bindings and credential-free reconnects remain available.
+
+```yaml
+spec:
+  token: device-enrollment
+  runtime_profile_id: default
+  enabled: true
+  expires_at: "2035-01-01T00:00:00Z"
+  max_activations: 100
+```
+
+CLI `admin registration-tokens create/put -f` accepts the corresponding JSON fields. Terraform `gizclaw_resource` uses the same spec and preserves omitted defaults without perpetual plan drift. `web/console` is a monitoring console and has no RegistrationToken management page.
+
 ## Peer surface and ownership
 
 - Workflow, Model, Voice, and Tool list/get return safe scoped-name projections only. An AST Workflow projection includes its Workspace language-pair default so a client never infers behavior from a dynamic name. Projections do not expose canonical IDs, providers, tenants, credentials, owners, or execution routing.
@@ -129,4 +152,6 @@ RegistrationToken performs registration through `server.register` on a reliable 
 
 Firmware remains an independent Admin resource and is not part of the RuntimeProfile projection. A RegistrationToken may bind its Firmware ID independently of the RuntimeProfile, without binding a channel. Credentials and ProviderTenants remain Server-only dependencies of canonical Model and Voice resources.
 
-RuntimeProfile uses the SQL `runtime_profiles`, `registration_tokens`, and `runtime_profile_owners` tables. Profile ID, configuration revision, token, referenced Profile/Firmware IDs, owner, and timestamps have separate columns; resource and Workflow configuration remain JSON. Startup also drops superseded `runtime_profiles` columns that an earlier release created as `NOT NULL`, so a database upgraded in place converges on the current schema instead of rejecting every write that omits them. A unique index enforces token uniqueness. Registration and owner-profile resolution use joins, and lists apply ID cursors and limits in SQL. Profile and token updates/deletes compare row version and creation identity. Owner binding writes use short transactions. External registration callbacks run outside SQL transactions; failure restores the previous binding only when the write identity still matches, protecting later updates. Registrations and snapshot publication for one owner remain serialized within the process while unrelated owners can proceed.
+RuntimeProfile uses SQL `runtime_profiles`, `registration_tokens`, `registration_token_activations`, and `runtime_profile_owners`. Resource configuration remains JSON; identities, versions, limits, and bindings use separate columns. Lists push cursors and limits into SQL. Profile/token updates and deletes compare incarnation and row_version. Registration and snapshot publication serialize by owner within each process, while token write locks enforce capacity across processes.
+
+Admin creation and updates require registration-token input to fit within 512 UTF-8 bytes, rather than 512 characters, matching the admission value limit. Oversized input returns 400 before persistence.

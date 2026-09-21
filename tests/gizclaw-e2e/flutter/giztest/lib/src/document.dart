@@ -158,12 +158,14 @@ class ClientSpec {
     required this.connection,
     required this.accessPoint,
     this.registrationToken,
+    this.admissionCredential,
   });
 
   final String identity;
   final String connection;
   final String accessPoint;
   final String? registrationToken;
+  final Map<String, Object?>? admissionCredential;
 }
 
 class Step {
@@ -543,6 +545,8 @@ GiztestDocument parseDocument(String path, String text) {
       connection: spec['connection'] as String? ?? '',
       identity: spec['identity'] as String? ?? '',
       registrationToken: spec['registration_token'] as String?,
+      admissionCredential:
+          spec['admission_credential'] as Map<String, Object?>?,
     );
   }
   final variables = <String, VariableSpec>{};

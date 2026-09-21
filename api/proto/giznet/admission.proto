@@ -12,6 +12,6 @@ message AdmissionCredential {
   uint32 version = 1;
   // Policy-defined credential kind, at most 128 UTF-8 bytes.
   string type = 2;
-  // Opaque policy input, at most 4096 UTF-8 bytes (also subject to encoded limit).
+  // Opaque policy input, at most 512 UTF-8 bytes (also subject to encoded limit).
   string value = 3;
 }

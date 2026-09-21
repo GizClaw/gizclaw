@@ -14,6 +14,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznetpb"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -23,7 +24,7 @@ func TestOfferEnvelope(t *testing.T) {
 		credential *giznetpb.AdmissionCredential
 		hex        string
 	}{
-		{&giznetpb.AdmissionCredential{Version: 1, Type: "registration_token", Value: "token"}, "08011212726567697374726174696f6e5f746f6b656e1a05746f6b656e"},
+		{&giznetpb.AdmissionCredential{Version: 1, Type: "gizclaw.com/registration_token", Value: "token"}, "0801121e67697a636c61772e636f6d2f726567697374726174696f6e5f746f6b656e1a05746f6b656e"},
 		{&giznetpb.AdmissionCredential{Version: 2, Type: "custom", Value: "令牌"}, "08021206637573746f6d1a06e4bba4e7898c"},
 		{&giznetpb.AdmissionCredential{Type: "x"}, "120178"},
 	} {
@@ -39,7 +40,7 @@ func TestOfferEnvelope(t *testing.T) {
 			t.Fatalf("incorrect decoded fields: %v", err)
 		}
 	}
-	for _, credential := range []*giznetpb.AdmissionCredential{nil, {Version: 1, Type: "x", Value: strings.Repeat("x", 4088)}} {
+	for _, credential := range []*giznetpb.AdmissionCredential{nil, {Version: 1, Type: "x", Value: strings.Repeat("x", 512)}} {
 		encoded, err := encodeOfferEnvelope("v=0\r\n", credential)
 		if err != nil {
 			t.Fatal(err)
@@ -47,8 +48,8 @@ func TestOfferEnvelope(t *testing.T) {
 		if credential == nil && string(encoded) != "v=0\r\n" {
 			t.Fatal("absent credential changed legacy SDP")
 		}
-		if credential != nil && len(encoded) != 7+4096+5 {
-			t.Fatal("maximum encoded boundary changed")
+		if credential != nil && len(encoded) != 7+520+5 {
+			t.Fatal("value byte boundary changed")
 		}
 		_, got, err := decodeOfferEnvelope(encoded)
 		if err != nil || !proto.Equal(got, credential) {
@@ -56,7 +57,7 @@ func TestOfferEnvelope(t *testing.T) {
 		}
 	}
 	for _, credential := range []*giznetpb.AdmissionCredential{
-		{}, {Version: 1, Type: "x", Value: strings.Repeat("x", 4089)},
+		{}, {Version: 1, Type: "x", Value: strings.Repeat("x", 513)},
 		{Version: 1, Type: strings.Repeat("x", 129)}, {Version: 1, Value: string([]byte{255})},
 	} {
 		if _, err := encodeOfferEnvelope("v=0", credential); err == nil {
@@ -83,6 +84,7 @@ func invalidAdmissionEnvelopes() [][]byte {
 		[]byte("GZOF\x01\x00\x03\x1a\x02xv=0"),                                    // truncated string
 		[]byte("GZOF\x01\x00\x03\x1a\x01\xffv=0"),                                 // invalid UTF-8
 		[]byte("GZOF\x01\x00\x84\x12\x81\x01" + strings.Repeat("x", 129) + "v=0"), // type bound
+		[]byte("GZOF\x01\x02\x04\x1a\x81\x04" + strings.Repeat("x", 513) + "v=0"), // value bound
 	}
 }
 
@@ -124,7 +126,7 @@ func TestSignalingAdmissionReceivesRequestContext(t *testing.T) {
 		listener.SignalingHandler().ServeHTTP(rec, req)
 		assertSignalingStatus(t, rec, http.StatusBadRequest, "invalid_credential")
 	}
-	req = newSealedOfferRequest(t, server, client, CipherModeChaChaPoly, time.Now(), fixedNonce(30), plaintext)
+	req = newSealedOfferRequest(t, server, client, CipherModeChaChaPoly, time.Now(), fixedNonce(200), plaintext)
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
 		t.Fatal(err)
@@ -196,7 +198,7 @@ func TestDialRejectsInvalidCredentialBeforeSignaling(t *testing.T) {
 	}))
 	defer server.Close()
 	for _, credential := range []*giznetpb.AdmissionCredential{
-		{}, {Version: 1, Type: "x", Value: strings.Repeat("x", 4089)},
+		{}, {Version: 1, Type: "x", Value: strings.Repeat("x", 513)},
 		{Version: 1, Type: strings.Repeat("x", 129)},
 	} {
 		timings := 0
@@ -211,6 +213,44 @@ func TestDialRejectsInvalidCredentialBeforeSignaling(t *testing.T) {
 		})
 		if err != errInvalidCredential || local != nil || conn != nil || timings != 1 {
 			t.Fatalf("invalid credential result: local=%v conn=%v err=%v timings=%d", local, conn, err, timings)
+		}
+	}
+}
+
+func TestOfferEnvelopePreservesIndependentEncodedLimit(t *testing.T) {
+	credential := &giznetpb.AdmissionCredential{Version: 1, Type: "example.com/test", Value: strings.Repeat("é", 256)}
+	// Future protobuf fields can fill the larger transport budget independently
+	// of today's fixed string limits.
+	for _, extra := range []int{0, 1} {
+		credential.ProtoReflect().SetUnknown(nil)
+		padding := MaxCredentialBytes - proto.Size(credential) - 3 + extra
+		credential.ProtoReflect().SetUnknown(protowire.AppendBytes(protowire.AppendTag(nil, 4, protowire.BytesType), make([]byte, padding)))
+		wire, err := proto.Marshal(credential)
+		if err != nil || len(wire) != MaxCredentialBytes+extra {
+			t.Fatalf("wire limit fixture: %d %v", len(wire), err)
+		}
+		_, err = encodeOfferEnvelope("v=0", credential)
+		if (err != nil) != (extra != 0) {
+			t.Fatalf("encoding %d bytes: %v", len(wire), err)
+		}
+		envelope := append([]byte{'G', 'Z', 'O', 'F', 1, byte(len(wire) >> 8), byte(len(wire))}, wire...)
+		_, got, err := decodeOfferEnvelope(append(envelope, []byte("v=0")...))
+		if (err != nil) != (extra != 0) {
+			t.Fatalf("decoding %d bytes: %v", len(wire), err)
+		}
+		if extra == 0 && !proto.Equal(got, credential) {
+			t.Fatal("4096-byte envelope changed credential")
+		}
+	}
+}
+
+func TestOfferEnvelopeBoundsSDPBeforeAllocation(t *testing.T) {
+	for _, credential := range []*giznetpb.AdmissionCredential{nil, {Version: 1}} {
+		if _, err := encodeOfferEnvelope(strings.Repeat("x", MaxOfferSDPBytes), credential); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := encodeOfferEnvelope(strings.Repeat("x", MaxOfferSDPBytes+1), credential); err == nil {
+			t.Fatal("oversized SDP accepted")
 		}
 	}
 }

@@ -1,8 +1,8 @@
 #ifndef GZC_SIGNALING_H
 #define GZC_SIGNALING_H
 
-#include "gzc_keys.h"
 #include "giznet/admission.pb.h"
+#include "gzc_keys.h"
 #include "platform/gzc_platform_crypto.h"
 #include "platform/gzc_platform_http.h"
 
@@ -15,6 +15,8 @@ extern "C" {
 #define GZC_SIGNALING_AEAD_NONCE_SIZE 12
 #define GZC_SIGNALING_HEADER_COUNT 4
 #define GZC_SIGNALING_MAX_CREDENTIAL_BYTES 4096u
+/* Reserve credential, envelope and AEAD overhead within a 256 KiB HTTP body. */
+#define GZC_SIGNALING_MAX_OFFER_SDP_BYTES (256u * 1024u - GZC_SIGNALING_MAX_CREDENTIAL_BYTES - 7u - 16u)
 
 typedef struct {
   const gzc_platform_t *platform;
@@ -45,7 +47,8 @@ int gzc_signaling_build_offer_request(
     gzc_str_t offer_sdp,
     gzc_signaling_exchange_t *exchange,
     gzc_http_request_t *out_request);
-/* Encode a structured credential, including the 4096-byte wire bound.
+/* Encode a structured credential (type <=128, value <=512 UTF-8 bytes),
+ * including the independent 4096-byte wire bound.
  * String fields must be NUL-terminated UTF-8 within their generated arrays.
  * A NULL credential sets out_len to zero. Pass out=NULL, out_cap=0 to validate
  * and query the encoded size without allocating a buffer. */

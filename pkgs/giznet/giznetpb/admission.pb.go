@@ -30,7 +30,7 @@ type AdmissionCredential struct {
 	Version uint32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
 	// Policy-defined credential kind, at most 128 UTF-8 bytes.
 	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
-	// Opaque policy input, at most 4096 UTF-8 bytes (also subject to encoded limit).
+	// Opaque policy input, at most 512 UTF-8 bytes (also subject to encoded limit).
 	Value         string `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

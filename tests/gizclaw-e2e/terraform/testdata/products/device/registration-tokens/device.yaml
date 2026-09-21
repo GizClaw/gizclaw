@@ -5,3 +5,6 @@ spec:
   token: tf-device-token
   runtime_profile_id: tf-device
   firmware_id: tf-devkit
+  enabled: true
+  expires_at: "2099-01-01T00:00:00Z"
+  max_activations: 100

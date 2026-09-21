@@ -5104,14 +5104,27 @@ type Registration struct {
 
 // RegistrationToken defines model for RegistrationToken.
 type RegistrationToken struct {
-	CreatedAt time.Time `json:"created_at"`
+	// ActivationCount Current number of distinct public keys successfully activated by this token.
+	ActivationCount int64     `json:"activation_count"`
+	CreatedAt       time.Time `json:"created_at"`
+
+	// Enabled Whether this token permits new device activations. Defaults to true.
+	Enabled bool `json:"enabled"`
+
+	// ExpiresAt Exclusive expiration time. Null or omitted means no expiration.
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 
 	// FirmwareId Optional caller-defined Firmware ID. The device selects its own channel.
-	FirmwareId       *string   `json:"firmware_id,omitempty"`
-	Id               string    `json:"id"`
-	RuntimeProfileId string    `json:"runtime_profile_id"`
-	Token            string    `json:"token"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	FirmwareId *string `json:"firmware_id,omitempty"`
+	Id         string  `json:"id"`
+
+	// MaxActivations Maximum distinct public keys activated by this token. Null or omitted means unlimited; lowering below the current count prevents new activations.
+	MaxActivations   *int64 `json:"max_activations,omitempty"`
+	RuntimeProfileId string `json:"runtime_profile_id"`
+
+	// Token Registration token, at most 512 UTF-8 bytes. The Server enforces the byte limit in addition to this character bound.
+	Token     string    `json:"token"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // RegistrationTokenResource defines model for RegistrationTokenResource.
@@ -5121,10 +5134,21 @@ type RegistrationTokenResource struct {
 	Kind       RegistrationTokenResourceKind `json:"kind"`
 	Metadata   ResourceMetadata              `json:"metadata"`
 	Spec       struct {
+		// Enabled Whether this token permits new device activations. Defaults to true.
+		Enabled *bool `json:"enabled,omitempty"`
+
+		// ExpiresAt Exclusive expiration time. Null or omitted means no expiration.
+		ExpiresAt *time.Time `json:"expires_at,omitempty"`
+
 		// FirmwareId Optional caller-defined Firmware ID. The device selects its own channel.
-		FirmwareId       *string `json:"firmware_id,omitempty"`
-		RuntimeProfileId string  `json:"runtime_profile_id"`
-		Token            string  `json:"token"`
+		FirmwareId *string `json:"firmware_id,omitempty"`
+
+		// MaxActivations Maximum distinct public keys activated by this token. Null or omitted means unlimited; lowering below the current count prevents new activations.
+		MaxActivations   *int64 `json:"max_activations,omitempty"`
+		RuntimeProfileId string `json:"runtime_profile_id"`
+
+		// Token Registration token, at most 512 UTF-8 bytes. The Server enforces the byte limit in addition to this character bound.
+		Token string `json:"token"`
 	} `json:"spec"`
 }
 

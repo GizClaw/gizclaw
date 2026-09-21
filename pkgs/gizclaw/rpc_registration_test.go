@@ -2,6 +2,7 @@ package gizclaw
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"strings"
 	"sync"
@@ -18,6 +19,41 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
+
+func TestRPCRegistrationRechecksCapacityAfterAdmission(t *testing.T) {
+	registrations, token := registrationServerAndToken(t, "limited")
+	response, err := registrations.PutRegistrationToken(t.Context(), adminhttp.PutRegistrationTokenRequestObject{
+		Id: "token-limited", Body: &adminhttp.RegistrationTokenUpsert{
+			Id: "token-limited", Token: token, RuntimeProfileId: "limited", MaxActivations: new(int64(1)),
+		},
+	})
+	if _, ok := response.(adminhttp.PutRegistrationToken200JSONResponse); err != nil || !ok {
+		t.Fatalf("set limit: %T, %v", response, err)
+	}
+	// Both connections passed admission before either registered.
+	for range 2 {
+		if err := registrations.PreflightRegistration(t.Context(), token); err != nil {
+			t.Fatal(err)
+		}
+	}
+	first := &rpcServer{registrations: registrations, callerPublicKey: giznet.PublicKey{1}}
+	registerRPC(t, first, token)
+	second := &rpcServer{registrations: registrations, callerPublicKey: giznet.PublicKey{2},
+		onRegistration: func(runtimeprofile.Registration) { t.Error("denial published a snapshot") },
+	}
+	rejected, err := second.dispatch(t.Context(), registrationRequest(token))
+	if err != nil || rejected.Error == nil || rejected.Error.Code != rpcapi.StatusCodePermissionDenied {
+		t.Fatalf("exhausted registration: %#v, %v", rejected, err)
+	}
+	if _, err := registrations.ResolveOwnerProfile(t.Context(), second.callerPublicKey.String()); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("denial left an owner binding: %v", err)
+	}
+	registerRPC(t, first, token)
+	var count int
+	if err := registrations.DB.GetContext(t.Context(), &count, "SELECT COUNT(*) FROM registration_token_activations"); err != nil || count != 1 {
+		t.Fatalf("activation count = %d, %v", count, err)
+	}
+}
 
 func TestRPCRegistrationReplacesSnapshotAndRejectedTokenPreservesIt(t *testing.T) {
 	t.Parallel()
@@ -199,7 +235,7 @@ func TestRPCRegistrationPersistsAndReturnsFirmwareReleaseLine(t *testing.T) {
 		t.Fatalf("CreateRegistrationToken() = %#v", tokenResponse)
 	}
 	publicKey := giznet.PublicKey{9}
-	peers := &peer.Server{Store: kv.NewMemory(nil)}
+	peers := &peer.Server{Store: kv.NewMemory(nil), RegistrationFirmware: registrations.ResolveOwnerFirmware}
 	if _, err := peers.EnsureConnectedPeer(ctx, publicKey); err != nil {
 		t.Fatal(err)
 	}
@@ -289,7 +325,7 @@ func TestRPCRegistrationOwnerProfileBindingFailurePreservesFirmware(t *testing.T
 	}
 	created := tokenResponse.(adminhttp.CreateRegistrationToken200JSONResponse)
 
-	peers := &peer.Server{Store: kv.NewMemory(nil)}
+	peers := &peer.Server{Store: kv.NewMemory(nil), RegistrationFirmware: registrations.ResolveOwnerFirmware}
 	if _, err := peers.EnsureConnectedPeer(ctx, publicKey); err != nil {
 		t.Fatal(err)
 	}
@@ -319,6 +355,13 @@ func TestRPCRegistrationOwnerProfileBindingFailurePreservesFirmware(t *testing.T
 	if err != nil || bound.Id != "previous-profile" {
 		t.Fatalf("failed owner binding replaced owner profile: %#v, %v", bound, err)
 	}
+	var activations int
+	if err := registrations.DB.GetContext(ctx, &activations, "SELECT COUNT(*) FROM registration_token_activations"); err != nil || activations != 0 {
+		t.Fatalf("failed binding consumed activation: %d %v", activations, err)
+	}
+	if firmware, err := registrations.ResolveOwnerFirmware(ctx, publicKey.String()); err != nil || firmware != nil {
+		t.Fatalf("failed transaction published firmware: %v %v", firmware, err)
+	}
 }
 
 type rejectingFirmwarePeer struct{}
@@ -335,7 +378,7 @@ func (rejectingFirmwarePeer) GetSelfRuntime(context.Context, giznet.PublicKey) a
 	return apitypes.Runtime{}
 }
 
-func (rejectingFirmwarePeer) BindFirmware(context.Context, giznet.PublicKey, string) (apitypes.Peer, error) {
+func (rejectingFirmwarePeer) LoadPeer(context.Context, giznet.PublicKey) (apitypes.Peer, error) {
 	return apitypes.Peer{}, errors.New("store unavailable")
 }
 

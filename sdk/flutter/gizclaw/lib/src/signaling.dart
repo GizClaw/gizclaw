@@ -164,13 +164,19 @@ class GiznetServerInfo {
 /// Maximum encoded protobuf credential bytes carried inside the encrypted offer.
 const giznetMaxCredentialBytes = 4096;
 
+/// Maximum UTF-8 bytes in the opaque credential value.
+const giznetMaxCredentialValueBytes = 512;
+
+/// Leaves room within the 256 KiB signaling body for credentials and AEAD.
+const giznetMaxOfferSdpBytes = 256 * 1024 - giznetMaxCredentialBytes - 7 - 16;
+
 /// Encodes and bounds a credential before transport I/O. Only policy interprets it.
 Uint8List? encodeAdmissionCredential(AdmissionCredential? credential) {
   if (credential == null) return null;
   if (credential.version < 0 ||
       credential.version > 0xffffffff ||
       utf8.encode(credential.type).length > 128 ||
-      utf8.encode(credential.value).length > giznetMaxCredentialBytes) {
+      utf8.encode(credential.value).length > giznetMaxCredentialValueBytes) {
     throw ArgumentError('invalid admission credential');
   }
   // Dart retains explicit scalar presence; omit proto3 defaults consistently
@@ -196,7 +202,13 @@ Future<PreparedGiznetWebRtcOffer> prepareEncryptedGiznetWebRtcOffer(
   int? timestamp,
 }) async {
   final encoded = encodeAdmissionCredential(credential);
+  if (offerSdp.length > giznetMaxOfferSdpBytes) {
+    throw ArgumentError("offer SDP exceeds signaling limit");
+  }
   final sdp = utf8.encode(offerSdp);
+  if (sdp.length > giznetMaxOfferSdpBytes) {
+    throw ArgumentError("offer SDP exceeds signaling limit");
+  }
   final plaintext = encoded == null
       ? sdp
       : <int>[

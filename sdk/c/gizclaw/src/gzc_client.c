@@ -1542,7 +1542,7 @@ int gzc_registration_token_credential(gzc_str_t token, giznet_v1_AdmissionCreden
   }
   giznet_v1_AdmissionCredential credential = giznet_v1_AdmissionCredential_init_zero;
   credential.version = 1;
-  strcpy(credential.type, "registration_token");
+  strcpy(credential.type, GZC_REGISTRATION_TOKEN_CREDENTIAL_TYPE);
   if (token.len != 0u) {
     memcpy(credential.value, token.data, token.len);
   }

@@ -132,13 +132,15 @@ SDK 校验 protobuf 编码上限后复制结构，下次 connect 时编码并在
 销毁时释放副本，设置失败保留旧值。既有 public struct 布局和 connect 签名不变。
 
 `gzc_registration_token_credential(gzc_str_from_cstr(registrationToken), &credential)`
-构造 GizClaw version 1、type `registration_token` 凭证，超限、非法 pointer 或嵌入 NUL
+构造 GizClaw version 1、type `gizclaw.com/registration_token` 凭证，超限、非法 pointer 或嵌入 NUL
 返回 `GZC_ERR_INVALID_ARGUMENT`，失败不修改输出。生成的字符串数组要求有界、以 NUL
-结尾的 UTF-8；type 最多 128 bytes，value 最多 4096 bytes，整体 protobuf 编码最多
-4096 bytes，所以 value 还受编码开销约束。helper 的业务常量不属于 signaling 层。
+结尾的 UTF-8；type 最多 128 bytes，value 最多 512 bytes，整体 protobuf 编码最多
+4096 bytes，独立于字段上限。helper 的业务常量不属于 signaling 层。
 
 低层 `gzc_signaling_build_offer_request_with_credential(config, offer_sdp, &credential,
 exchange, request)` 只在调用内借用结构；`gzc_signaling_encode_admission_credential`
 可独立编码。旧 builder 保留裸 SDP。超限、未终止字符串、空编码结构或明文 cipher
 返回 `GZC_ERR_INVALID_ARGUMENT`，分配失败返回 `GZC_ERR_NO_MEMORY`。连接后仍需
 `server.register` 完成绑定，见 [Security Policy](../../developing/gizclaw/server/security-policy)。
+
+内置 type 由导出常量 `GZC_REGISTRATION_TOKEN_CREDENTIAL_TYPE` 定义，helper 引用该常量。value 最多 512 个 UTF-8 字节；超限在 helper 构造时返回错误或抛出异常。自定义 policy 应使用自己的域名前缀，内置类型保留 `gizclaw.com/` 前缀。

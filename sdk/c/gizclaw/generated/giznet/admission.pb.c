@@ -6,7 +6,7 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
-PB_BIND(giznet_v1_AdmissionCredential, giznet_v1_AdmissionCredential, 4)
+PB_BIND(giznet_v1_AdmissionCredential, giznet_v1_AdmissionCredential, 2)
 
 
 

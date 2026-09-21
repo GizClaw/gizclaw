@@ -18,8 +18,8 @@ typedef struct _giznet_v1_AdmissionCredential {
     uint32_t version;
     /* Policy-defined credential kind, at most 128 UTF-8 bytes. */
     char type[129];
-    /* Opaque policy input, at most 4096 UTF-8 bytes (also subject to encoded limit). */
-    char value[4097];
+    /* Opaque policy input, at most 512 UTF-8 bytes (also subject to encoded limit). */
+    char value[513];
 } giznet_v1_AdmissionCredential;
 
 
@@ -51,7 +51,7 @@ extern const pb_msgdesc_t giznet_v1_AdmissionCredential_msg;
 
 /* Maximum encoded size of messages (where known) */
 #define GIZNET_V1_ADMISSION_PB_H_MAX_SIZE        giznet_v1_AdmissionCredential_size
-#define giznet_v1_AdmissionCredential_size       4236
+#define giznet_v1_AdmissionCredential_size       652
 
 #ifdef __cplusplus
 } /* extern "C" */

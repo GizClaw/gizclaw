@@ -100,7 +100,7 @@ try {
 `prepareEncryptedGiznetWebRtcOffer(identity, offerSdp, credential: credential)` accepts the
 optional generated `AdmissionCredential(version: ..., type: ..., value: ...)` type. Both this
 type and `registrationTokenCredential(registrationToken)` are exported from
-`package:gizclaw/gizclaw.dart`. The helper sets version 1, type `'registration_token'`, and the
+`package:gizclaw/gizclaw.dart`. The helper sets version 1, type `'gizclaw.com/registration_token'`, and the
 original token value. GizClaw owns the business type; transport only protobuf-encodes and seals it.
 
 Omission or null preserves bare SDP. Pass the structure from `connectFlutterGiznetWebRtc`'s
@@ -109,3 +109,5 @@ Oversized or empty-encoding structures throw `ArgumentError`. Explicit Dart defa
 on a copy to match Go/JS/C bytes, leaving the caller's message unchanged. See
 [Giznet](../../developing/giznet#signaling-admission-credentials) for field and encoding limits and
 [Security Policy](../../developing/gizclaw/server/security-policy) for operator settings.
+
+The exported `registrationTokenCredentialType` constant defines the built-in type and is used by the helper. Values are limited to 512 UTF-8 bytes; construction returns an error or throws for larger input. Custom policies should use their own domain prefix; built-in types reserve `gizclaw.com/`.

@@ -59,11 +59,21 @@ import { encodeTelemetryPacket, type TelemetryFrame } from "./telemetry.ts";
 export * from "./telemetry.ts";
 export type { AdmissionCredential } from "./signaling.ts";
 
-/** Constructs a credential for the GizClaw registration-token policy. */
+/** Namespaced type owned by the GizClaw registration-token policy. */
+export const REGISTRATION_TOKEN_CREDENTIAL_TYPE =
+  "gizclaw.com/registration_token";
+
+/** Constructs a credential, rejecting values exceeding 512 UTF-8 bytes. */
 export function registrationTokenCredential(
   value: string,
 ): AdmissionCredential {
-  return { version: 1, type: "registration_token", value };
+  const credential = {
+    version: 1,
+    type: REGISTRATION_TOKEN_CREDENTIAL_TYPE,
+    value,
+  };
+  encodeAdmissionCredential(credential);
+  return credential;
 }
 
 export const WEBRTC_RPC_DATA_CHANNEL_LABEL = "rpc";

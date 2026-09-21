@@ -393,12 +393,12 @@ func observedSubsetOfConfigured(kind string, fieldPath []string, configured, obs
 			observedEntry, ok := observedValue[key]
 			childPath := append(fieldPath, key)
 			if !ok {
-				if observedFieldMayBeOmitted(kind, childPath) {
+				if observedFieldMayBeOmitted(kind, childPath) || registrationTokenDefault(kind, childPath, configuredEntry) {
 					continue
 				}
 				return false
 			}
-			if configuredEntry == nil && toolObservedDefault(kind, childPath, observedEntry) {
+			if configuredEntry == nil && (toolObservedDefault(kind, childPath, observedEntry) || registrationTokenDefault(kind, childPath, observedEntry)) {
 				continue
 			}
 			if !observedSubsetOfConfigured(
@@ -412,7 +412,7 @@ func observedSubsetOfConfigured(kind string, fieldPath []string, configured, obs
 		}
 		for key, observedEntry := range observedValue {
 			if _, configured := configuredValue[key]; !configured &&
-				!toolObservedDefault(kind, append(fieldPath, key), observedEntry) {
+				!toolObservedDefault(kind, append(fieldPath, key), observedEntry) && !registrationTokenDefault(kind, append(fieldPath, key), observedEntry) {
 				return false
 			}
 		}

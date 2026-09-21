@@ -6,6 +6,8 @@
 
 `gizwebrtc.DialConfig.Credential` 直接接收 `*giznetpb.AdmissionCredential`。调用方可设置
 `Version`、`Type`、`Value`；GizClaw 的 `gizcli.RegistrationTokenCredential(token)` helper
-构造 version 1、type `registration_token` 的结构。SDK 执行 protobuf 编码，无凭证使用 nil。
+构造 version 1、type `gizclaw.com/registration_token` 的结构。SDK 执行 protobuf 编码，无凭证使用 nil。
 编码和边界见 [Giznet](../../developing/giznet#signaling-准入凭证)。握手不绑定资源，连接后
 仍需 `server.register`；准入条件见 [Security Policy](../../developing/gizclaw/server/security-policy)。
+
+`RegistrationTokenCredential` 返回 `(credential, error)`；先处理错误，再把结构传给 Dial。`gizcli.RegistrationTokenCredentialType` 是内置 type 的导出常量。512 UTF-8 字节的 value 可用，513 字节在 helper 构造时失败。

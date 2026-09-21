@@ -28,11 +28,12 @@ func initializeProfileSQL(ctx context.Context, db *sqlx.DB) error {
 	}
 	defer tx.Rollback()
 	for _, query := range []string{
-		`CREATE TABLE IF NOT EXISTS runtime_profile_owners(owner_public_key TEXT PRIMARY KEY, runtime_profile_id TEXT,binding_id TEXT NOT NULL)`,
+		`CREATE TABLE IF NOT EXISTS runtime_profile_owners(owner_public_key TEXT PRIMARY KEY, runtime_profile_id TEXT,binding_id TEXT NOT NULL,firmware_id TEXT)`,
 		`CREATE INDEX IF NOT EXISTS runtime_profile_owners_profile ON runtime_profile_owners(runtime_profile_id,owner_public_key)`,
 
 		`CREATE TABLE IF NOT EXISTS runtime_profiles(id TEXT PRIMARY KEY CHECK(length(id)>0),revision TEXT NOT NULL,resources_json TEXT NOT NULL,workflows_json TEXT NOT NULL,app_config_json TEXT NOT NULL DEFAULT 'null',created_at TEXT NOT NULL,updated_at TEXT NOT NULL,incarnation TEXT NOT NULL,row_version BIGINT NOT NULL)`,
 		`CREATE TABLE IF NOT EXISTS registration_tokens(id TEXT PRIMARY KEY CHECK(length(id)>0),token TEXT NOT NULL,runtime_profile_id TEXT NOT NULL,firmware_id TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,incarnation TEXT NOT NULL,row_version BIGINT NOT NULL)`,
+		`CREATE TABLE IF NOT EXISTS registration_token_activations(token_id TEXT NOT NULL,peer_public_key TEXT NOT NULL,activated_at TEXT NOT NULL,PRIMARY KEY(token_id,peer_public_key))`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS registration_tokens_token ON registration_tokens(token)`,
 		`CREATE INDEX IF NOT EXISTS registration_tokens_profile ON registration_tokens(runtime_profile_id,id)`,
 		`CREATE INDEX IF NOT EXISTS registration_tokens_firmware ON registration_tokens(firmware_id,id)`,
@@ -40,6 +41,9 @@ func initializeProfileSQL(ctx context.Context, db *sqlx.DB) error {
 		if _, err := tx.ExecContext(ctx, query); err != nil {
 			return err
 		}
+	}
+	if err := ensureRegistrationLifecycleColumns(ctx, tx); err != nil {
+		return err
 	}
 	if err := ensureProfileAppConfigColumn(ctx, tx); err != nil {
 		return err
@@ -219,17 +223,27 @@ func listRuntimeProfileSQL(ctx context.Context, db *sqlx.DB, cursor string, limi
 	return items, false, nil, rows.Err()
 }
 
-const registrationTokenColumns = "id,token,runtime_profile_id,firmware_id,created_at,updated_at,incarnation,row_version"
+const registrationTokenColumns = "id,token,runtime_profile_id,firmware_id,enabled,expires_at,max_activations,created_at,updated_at,incarnation,row_version"
+
+const registrationTokenProjection = registrationTokenColumns + ",(SELECT COUNT(*) FROM registration_token_activations a WHERE a.token_id=registration_tokens.id)"
 
 func encodeRegistrationTokenSQL(item apitypes.RegistrationToken) ([]any, error) {
-	return []any{item.Id, item.Token, item.RuntimeProfileId, item.FirmwareId, item.CreatedAt.UTC().Format(time.RFC3339Nano), item.UpdatedAt.UTC().Format(time.RFC3339Nano)}, nil
+	return []any{item.Id, item.Token, item.RuntimeProfileId, item.FirmwareId, item.Enabled, registrationExpiryText(item.ExpiresAt), item.MaxActivations, item.CreatedAt.UTC().Format(time.RFC3339Nano), item.UpdatedAt.UTC().Format(time.RFC3339Nano)}, nil
 }
 func scanRegistrationTokenSQL(row profileScanner) (apitypes.RegistrationToken, profileRowVersion, error) {
 	var item apitypes.RegistrationToken
 	var version profileRowVersion
 	var created, updated string
-	if err := row.Scan(&item.Id, &item.Token, &item.RuntimeProfileId, &item.FirmwareId, &created, &updated, &version.incarnation, &version.revision); err != nil {
+	var expires *string
+	if err := row.Scan(&item.Id, &item.Token, &item.RuntimeProfileId, &item.FirmwareId, &item.Enabled, &expires, &item.MaxActivations, &created, &updated, &version.incarnation, &version.revision, &item.ActivationCount); err != nil {
 		return item, version, err
+	}
+	if expires != nil {
+		value, err := time.Parse(time.RFC3339Nano, *expires)
+		if err != nil {
+			return item, version, err
+		}
+		item.ExpiresAt = &value
 	}
 	var err error
 	item.CreatedAt, err = time.Parse(time.RFC3339Nano, created)
@@ -256,7 +270,7 @@ func insertRegistrationTokenSQL(ctx context.Context, db *sqlx.DB, item apitypes.
 	return count == 1, err
 }
 func getRegistrationTokenSQL(ctx context.Context, db *sqlx.DB, id string) (apitypes.RegistrationToken, profileRowVersion, error) {
-	return scanRegistrationTokenSQL(db.QueryRowContext(ctx, db.Rebind("SELECT "+registrationTokenColumns+" FROM registration_tokens WHERE id=?"), id))
+	return scanRegistrationTokenSQL(db.QueryRowContext(ctx, db.Rebind("SELECT "+registrationTokenProjection+" FROM registration_tokens WHERE id=?"), id))
 }
 func updateRegistrationTokenSQL(ctx context.Context, db *sqlx.DB, item apitypes.RegistrationToken, version profileRowVersion) (apitypes.RegistrationToken, profileRowVersion, error) {
 	values, err := encodeRegistrationTokenSQL(item)
@@ -264,16 +278,29 @@ func updateRegistrationTokenSQL(ctx context.Context, db *sqlx.DB, item apitypes.
 		return item, version, err
 	}
 	values = append(values[1:len(values)-2], values[len(values)-1], item.Id, version.incarnation, version.revision)
-	return scanRegistrationTokenSQL(db.QueryRowContext(ctx, db.Rebind("UPDATE registration_tokens SET token=?,runtime_profile_id=?,firmware_id=?,updated_at=?,row_version=row_version+1 WHERE id=? AND incarnation=? AND row_version=? RETURNING "+registrationTokenColumns), values...))
+	return scanRegistrationTokenSQL(db.QueryRowContext(ctx, db.Rebind("UPDATE registration_tokens SET token=?,runtime_profile_id=?,firmware_id=?,enabled=?,expires_at=?,max_activations=?,updated_at=?,row_version=row_version+1 WHERE id=? AND incarnation=? AND row_version=? RETURNING "+registrationTokenProjection), values...))
 }
 func deleteRegistrationTokenSQL(ctx context.Context, db *sqlx.DB, id string, version profileRowVersion) (apitypes.RegistrationToken, profileRowVersion, error) {
-	return scanRegistrationTokenSQL(db.QueryRowContext(ctx, db.Rebind("DELETE FROM registration_tokens WHERE id=? AND incarnation=? AND row_version=? RETURNING "+registrationTokenColumns), id, version.incarnation, version.revision))
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return apitypes.RegistrationToken{}, version, err
+	}
+	defer tx.Rollback()
+	item, next, err := scanRegistrationTokenSQL(tx.QueryRowContext(ctx, tx.Rebind("DELETE FROM registration_tokens WHERE id=? AND incarnation=? AND row_version=? RETURNING "+registrationTokenProjection), id, version.incarnation, version.revision))
+	if err != nil {
+		return item, next, err
+	}
+	if _, err := tx.ExecContext(ctx, tx.Rebind("DELETE FROM registration_token_activations WHERE token_id=?"), id); err != nil {
+		return item, next, err
+	}
+	return item, next, tx.Commit()
 }
+
 func listRegistrationTokenSQL(ctx context.Context, db *sqlx.DB, cursor string, limit int) ([]apitypes.RegistrationToken, bool, *string, error) {
 	if limit <= 0 {
 		return nil, false, nil, fmt.Errorf("profile page limit must be positive")
 	}
-	rows, err := db.QueryContext(ctx, db.Rebind("SELECT "+registrationTokenColumns+" FROM registration_tokens WHERE id>? ORDER BY id LIMIT ?"), cursor, limit+1)
+	rows, err := db.QueryContext(ctx, db.Rebind("SELECT "+registrationTokenProjection+" FROM registration_tokens WHERE id>? ORDER BY id LIMIT ?"), cursor, limit+1)
 	if err != nil {
 		return nil, false, nil, err
 	}

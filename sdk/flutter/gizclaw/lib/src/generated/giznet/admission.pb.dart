@@ -25,7 +25,7 @@ class AdmissionCredential extends $pb.GeneratedMessage {
     $core.String? type,
     $core.String? value,
   }) {
-    final result = AdmissionCredential._();
+    final result = create();
     if (version != null) result.version = version;
     if (type != null) result.type = type;
     if (value != null) result.value = value;
@@ -36,15 +36,15 @@ class AdmissionCredential extends $pb.GeneratedMessage {
 
   factory AdmissionCredential.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      AdmissionCredential()..mergeFromBuffer(data, registry);
+      create()..mergeFromBuffer(data, registry);
   factory AdmissionCredential.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      AdmissionCredential()..mergeFromJson(json, registry);
+      create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'AdmissionCredential',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'giznet.v1'),
-      createEmptyInstance: AdmissionCredential.$_createMessage)
+      createEmptyInstance: create)
     ..aI(1, _omitFieldNames ? '' : 'version', fieldType: $pb.PbFieldType.OU3)
     ..aOS(2, _omitFieldNames ? '' : 'type')
     ..aOS(3, _omitFieldNames ? '' : 'value')
@@ -61,16 +61,12 @@ class AdmissionCredential extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  @$core
-      .Deprecated('Use AdmissionCredential() / AdmissionCredential.new instead')
   static AdmissionCredential create() => AdmissionCredential._();
-  static $pb.GeneratedMessage $_createMessage() => AdmissionCredential._();
   @$core.override
-  AdmissionCredential createEmptyInstance() => AdmissionCredential._();
+  AdmissionCredential createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
   static AdmissionCredential getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<AdmissionCredential>(
-          AdmissionCredential.$_createMessage);
+      $pb.GeneratedMessage.$_defaultFor<AdmissionCredential>(create);
   static AdmissionCredential? _defaultInstance;
 
   /// Current credential version is 1; independent of the GZOF envelope version.
@@ -93,7 +89,7 @@ class AdmissionCredential extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearType() => $_clearField(2);
 
-  /// Opaque policy input, at most 4096 UTF-8 bytes (also subject to encoded limit).
+  /// Opaque policy input, at most 512 UTF-8 bytes (also subject to encoded limit).
   @$pb.TagNumber(3)
   $core.String get value => $_getSZ(2);
   @$pb.TagNumber(3)

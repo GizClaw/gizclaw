@@ -1546,7 +1546,7 @@ static int test_http_request(void *userdata, const gzc_http_request_t *request, 
   fake->post_count++;
   if (fake->expect_admission) {
     fake->expect_admission = false;
-    const uint8_t prefix[] = {0x47, 0x5a, 0x4f, 0x46, 0x01, 0x00, 0x1d, 0x08, 0x01, 0x12, 0x12, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x1a, 0x05, 0x74, 0x6f, 0x6b, 0x65, 0x6e};
+    const uint8_t prefix[] = {0x47, 0x5a, 0x4f, 0x46, 0x01, 0x00, 0x29, 0x08, 0x01, 0x12, 0x1e, 0x67, 0x69, 0x7a, 0x63, 0x6c, 0x61, 0x77, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x1a, 0x05, 0x74, 0x6f, 0x6b, 0x65, 0x6e};
     if (expect(request->body_len > sizeof(prefix) && memcmp(request->body, prefix, sizeof(prefix)) == 0,
                "connect seals the client-owned credential copy") != 0)
       return GZC_ERR_SIGNALING;
@@ -2464,17 +2464,32 @@ static int test_admission_signaling(const gzc_platform_t *platform, const gzc_pl
   if (expect(gzc_registration_token_credential(gzc_str_from_cstr("token"), &credential) == GZC_OK,
              "registration-token helper constructs structured credential") != 0)
     return 1;
+  if (expect(sizeof(credential) <= 652, "bounded MCU credential struct") != 0)
+    return 1;
+  char boundary_token[513];
+  memset(boundary_token, 'x', sizeof(boundary_token));
+  if (expect(gzc_registration_token_credential(gzc_str_from_parts(boundary_token, 512), &credential) == GZC_OK,
+             "512-byte token helper accepted") != 0 ||
+      expect(gzc_registration_token_credential(gzc_str_from_parts(boundary_token, 513), &credential) == GZC_ERR_INVALID_ARGUMENT,
+             "513-byte token helper rejected") != 0)
+    return 1;
+  if (gzc_registration_token_credential(gzc_str_from_cstr("token"), &credential) != GZC_OK)
+    return 1;
   size_t size = 0;
   uint8_t small[1];
-  if (expect(gzc_signaling_encode_admission_credential(&credential, NULL, 0, &size) == GZC_OK && size == 29,
+  if (expect(gzc_signaling_encode_admission_credential(&credential, NULL, 0, &size) == GZC_OK && size == 41,
              "credential sizing uses no temporary encoding buffer") != 0 ||
       expect(gzc_signaling_encode_admission_credential(&credential, small, sizeof(small), &size) == GZC_ERR_INVALID_ARGUMENT && size == 0,
              "credential encoder rejects a short output buffer") != 0)
     return 1;
-  const uint8_t expected[] = {0x47, 0x5a, 0x4f, 0x46, 0x01, 0x00, 0x1d, 0x08, 0x01, 0x12, 0x12, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x1a, 0x05, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x76, 0x3d, 0x30, 0x0d, 0x0a};
+  const uint8_t expected[] = {0x47, 0x5a, 0x4f, 0x46, 0x01, 0x00, 0x29, 0x08, 0x01, 0x12, 0x1e, 0x67, 0x69, 0x7a, 0x63, 0x6c, 0x61, 0x77, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x1a, 0x05, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x76, 0x3d, 0x30, 0x0d, 0x0a};
   gzc_signaling_exchange_t exchange;
   gzc_http_request_t request;
   gzc_signaling_exchange_init(&exchange);
+  if (expect(gzc_signaling_build_offer_request_with_credential(&cfg,
+                                                               gzc_str_from_parts("x", GZC_SIGNALING_MAX_OFFER_SDP_BYTES + 1u), &credential, &exchange, &request) == GZC_ERR_INVALID_ARGUMENT,
+             "oversized SDP rejected before reading or allocating") != 0)
+    return 1;
   int rc = gzc_signaling_build_offer_request_with_credential(&cfg, gzc_str_from_cstr("v=0\r\n"), &credential, &exchange, &request);
   if (expect(rc == GZC_OK && request.body_len == sizeof(expected) &&
                  memcmp(request.body, expected, sizeof(expected)) == 0 &&
@@ -2490,15 +2505,15 @@ static int test_admission_signaling(const gzc_platform_t *platform, const gzc_pl
   giznet_v1_AdmissionCredential maximum = giznet_v1_AdmissionCredential_init_zero;
   maximum.version = 1;
   strcpy(maximum.type, "x");
-  memset(maximum.value, 'x', 4088);
+  memset(maximum.value, 'x', 512);
   rc = gzc_signaling_build_offer_request_with_credential(&cfg, gzc_str_from_cstr("v=0"), &maximum, &exchange, &request);
-  if (expect(rc == GZC_OK && request.body_len == 7u + 4096u + 3u && request.body[5] == 16 && request.body[6] == 0,
-             "maximum encoded admission credential") != 0)
+  if (expect(rc == GZC_OK && request.body_len == 7u + 520u + 3u && request.body[5] == 2 && request.body[6] == 8,
+             "512 value bytes accepted") != 0)
     return 1;
   gzc_signaling_exchange_free(&exchange, platform);
-  maximum.value[4088] = 'x';
+  maximum.value[512] = 'x';
   if (expect(gzc_signaling_build_offer_request_with_credential(&cfg, gzc_str_from_cstr("v=0"), &maximum, &exchange, &request) == GZC_ERR_INVALID_ARGUMENT,
-             "4097 encoded bytes rejected") != 0)
+             "513 value bytes rejected") != 0)
     return 1;
   memset(maximum.type, 'x', sizeof(maximum.type));
   if (expect(gzc_signaling_build_offer_request_with_credential(&cfg, gzc_str_from_cstr("v=0"), &maximum, &exchange, &request) == GZC_ERR_INVALID_ARGUMENT,
@@ -2527,25 +2542,25 @@ static int test_admission_signaling(const gzc_platform_t *platform, const gzc_pl
   strcpy(credential.type, "custom");
   strcpy(credential.value, "令牌");
   if (expect(gzc_signaling_encode_admission_credential(&credential, encoded, sizeof(encoded), &encoded_len) == GZC_OK &&
-             encoded_len == sizeof(utf8_expected) && memcmp(encoded, utf8_expected, encoded_len) == 0,
+                 encoded_len == sizeof(utf8_expected) && memcmp(encoded, utf8_expected, encoded_len) == 0,
              "UTF-8 protobuf vector") != 0)
     return 1;
   giznet_v1_AdmissionCredential decoded = giznet_v1_AdmissionCredential_init_zero;
   pb_istream_t input = pb_istream_from_buffer(encoded, encoded_len);
   if (expect(pb_decode(&input, giznet_v1_AdmissionCredential_fields, &decoded) && decoded.version == 2 &&
-             strcmp(decoded.type, "custom") == 0 && strcmp(decoded.value, "令牌") == 0,
+                 strcmp(decoded.type, "custom") == 0 && strcmp(decoded.value, "令牌") == 0,
              "nanopb decodes structured fields") != 0)
     return 1;
   credential = (giznet_v1_AdmissionCredential)giznet_v1_AdmissionCredential_init_zero;
   strcpy(credential.type, "x");
   const uint8_t default_expected[] = {0x12, 0x01, 0x78};
   if (expect(gzc_signaling_encode_admission_credential(&credential, encoded, sizeof(encoded), &encoded_len) == GZC_OK &&
-             encoded_len == sizeof(default_expected) && memcmp(encoded, default_expected, encoded_len) == 0,
+                 encoded_len == sizeof(default_expected) && memcmp(encoded, default_expected, encoded_len) == 0,
              "default scalar fields are omitted") != 0)
     return 1;
   if (expect(gzc_registration_token_credential(gzc_str_from_cstr("token"), NULL) == GZC_ERR_INVALID_ARGUMENT &&
-             gzc_registration_token_credential(gzc_str_from_parts(NULL, 1), &credential) == GZC_ERR_INVALID_ARGUMENT &&
-             gzc_registration_token_credential(gzc_str_from_parts("a\0b", 3), &credential) == GZC_ERR_INVALID_ARGUMENT,
+                 gzc_registration_token_credential(gzc_str_from_parts(NULL, 1), &credential) == GZC_ERR_INVALID_ARGUMENT &&
+                 gzc_registration_token_credential(gzc_str_from_parts("a\0b", 3), &credential) == GZC_ERR_INVALID_ARGUMENT,
              "helper validates output and token pointers and embedded NUL") != 0)
     return 1;
   return 0;
@@ -2829,7 +2844,8 @@ int main(void) {
     return 1;
   }
   giznet_v1_AdmissionCredential admission = giznet_v1_AdmissionCredential_init_zero;
-  if (gzc_registration_token_credential(gzc_str_from_cstr("token"), &admission) != GZC_OK) return 1;
+  if (gzc_registration_token_credential(gzc_str_from_cstr("token"), &admission) != GZC_OK)
+    return 1;
   if (expect(gzc_client_set_admission_credential(client, &admission) == GZC_OK,
              "client admission setter copies fields") != 0)
     return 1;

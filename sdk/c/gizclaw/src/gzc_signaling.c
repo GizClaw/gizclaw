@@ -220,6 +220,9 @@ int gzc_signaling_build_offer_request_with_credential(
     const giznet_v1_AdmissionCredential *credential,
     gzc_signaling_exchange_t *exchange,
     gzc_http_request_t *out_request) {
+  if (offer_sdp.len > GZC_SIGNALING_MAX_OFFER_SDP_BYTES) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
   size_t credential_len = 0;
   if (gzc_signaling_encode_admission_credential(credential, NULL, 0, &credential_len) != GZC_OK ||
       (credential != NULL && config != NULL && config->cipher_mode == GZC_CIPHER_PLAINTEXT)) {

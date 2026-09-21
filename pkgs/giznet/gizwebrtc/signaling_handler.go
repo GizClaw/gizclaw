@@ -14,8 +14,6 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-const signalingBodyLimit = 256 * 1024
-
 type signalingTiming struct {
 	peerConnection time.Duration
 	setRemote      time.Duration
@@ -95,7 +93,7 @@ func (l *Listener) handleOffer(w http.ResponseWriter, r *http.Request) {
 		writeSignalingError(w, http.StatusConflict, "replayed_nonce")
 		return
 	}
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, signalingBodyLimit))
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxSignalingBodyBytes))
 	if err != nil {
 		writeSignalingError(w, http.StatusBadRequest, "body_too_large")
 		return

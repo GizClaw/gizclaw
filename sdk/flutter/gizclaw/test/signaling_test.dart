@@ -272,7 +272,7 @@ void admissionTests() {
     for (final credential in <AdmissionCredential?>[
       null,
       registrationTokenCredential('token'),
-      AdmissionCredential(version: 1, type: 'x', value: 'x' * 4088),
+      AdmissionCredential(version: 1, type: 'x', value: 'x' * 512),
     ]) {
       final prepared = await prepareEncryptedGiznetWebRtcOffer(
         identity,
@@ -319,18 +319,22 @@ void admissionTests() {
       } else if (credential.value == 'token') {
         expect(
           plain.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join(),
-          '475a4f4601001d08011212726567697374726174696f6e5f746f6b656e1a05746f6b656e763d300d0a',
+          '475a4f460100290801121e67697a636c61772e636f6d2f726567697374726174696f6e5f746f6b656e1a05746f6b656e763d300d0a',
         );
       } else {
-        expect(plain.sublist(0, 7), [0x47, 0x5a, 0x4f, 0x46, 1, 16, 0]);
-        expect(plain.sublist(7, 4103), encodeAdmissionCredential(credential));
+        expect(plain.sublist(0, 7), [0x47, 0x5a, 0x4f, 0x46, 1, 2, 8]);
+        expect(plain.sublist(7, 527), encodeAdmissionCredential(credential));
       }
     }
     await expectLater(
       prepareEncryptedGiznetWebRtcOffer(
         identity,
         'v=0',
-        credential: registrationTokenCredential('x' * 4097),
+        credential: AdmissionCredential(
+          version: 1,
+          type: 'example.com/test',
+          value: 'x' * 513,
+        ),
       ),
       throwsArgumentError,
     );
@@ -339,7 +343,7 @@ void admissionTests() {
     final vectors = [
       (
         registrationTokenCredential('token'),
-        '08011212726567697374726174696f6e5f746f6b656e1a05746f6b656e',
+        '0801121e67697a636c61772e636f6d2f726567697374726174696f6e5f746f6b656e1a05746f6b656e',
       ),
       (
         AdmissionCredential(version: 2, type: 'custom', value: '令牌'),
@@ -358,11 +362,39 @@ void admissionTests() {
     for (final credential in [
       AdmissionCredential(),
       AdmissionCredential(version: 0, type: '', value: ''),
-      AdmissionCredential(version: 1, type: 'x', value: 'x' * 4089),
+      AdmissionCredential(version: 1, type: 'x', value: 'x' * 513),
       AdmissionCredential(version: 1, type: 'x' * 129),
       AdmissionCredential(version: 1, type: '令' * 43),
     ]) {
       expect(() => encodeAdmissionCredential(credential), throwsArgumentError);
+    }
+  });
+  test('registration token helper validates UTF-8 bytes at construction', () {
+    for (final value in ['x' * 512, 'é' * 256]) {
+      expect(registrationTokenCredential(value).value, value);
+      expect(
+        () => registrationTokenCredential('${value}x'),
+        throwsArgumentError,
+      );
+    }
+  });
+
+  test('oversized SDP is rejected before envelope allocation', () async {
+    final identity = GiznetSignalingIdentity(
+      clientPrivateKey: Uint8List.fromList(List.filled(32, 1)),
+      serverPublicKey: Uint8List.fromList(List.filled(32, 2)),
+    );
+    for (final credential in [null, registrationTokenCredential('token')]) {
+      for (final sdp in ['x' * (giznetMaxOfferSdpBytes + 1), 'é' * 129013]) {
+        await expectLater(
+          prepareEncryptedGiznetWebRtcOffer(
+            identity,
+            sdp,
+            credential: credential,
+          ),
+          throwsArgumentError,
+        );
+      }
     }
   });
 }

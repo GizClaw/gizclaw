@@ -16,7 +16,7 @@
     "report": {"type": "object", "additionalProperties": false, "properties": {"redact": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}}}
   },
   "$defs": {
-    "client": {"type": "object", "additionalProperties": false, "required": ["identity", "connection", "access_point"], "properties": {"identity": {"const": "ephemeral"}, "connection": {"const": "webrtc"}, "access_point": {"type": "string", "minLength": 1}, "registration_token": {"type": "string"}}},
+    "client": {"type": "object", "additionalProperties": false, "required": ["identity", "connection", "access_point"], "properties": {"identity": {"const": "ephemeral"}, "connection": {"const": "webrtc"}, "access_point": {"type": "string", "minLength": 1}, "registration_token": {"type": "string"}, "admission_credential": {"type": "object", "additionalProperties": false, "required": ["version", "type", "value"], "properties": {"version": {"type": "integer", "minimum": 0, "maximum": 4294967295}, "type": {"type": "string"}, "value": {"type": "string"}}}}},
     "variable": {
       "type": "object", "additionalProperties": false, "required": ["direction", "type"],
       "properties": {"direction": {"enum": ["input", "output"]}, "type": {"enum": ["string", "integer", "number", "boolean", "object", "audio", "binary"]}, "value": {}, "env": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"}, "generate": {"enum": ["uuid", "token", "string"]}, "secret": {"type": "boolean"}, "max_bytes": {"type": "integer", "minimum": 1, "maximum": 16777216}, "media_type": {"type": "string"}, "codec": {"type": "string"}},
