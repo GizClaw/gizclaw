@@ -105,7 +105,7 @@ func TestWorkspaceReloadWithOptions(t *testing.T) {
 			if test.reloadFailure {
 				runtime.reloadError = errors.New("attach failed")
 			}
-			options := rpcapi.ServerReloadRunWorkspaceWithOptionsRequest{WorkspaceName: new("target"), Parameters: &rpcapi.WorkspaceParametersPatch{Input: new(rpcapi.WorkspaceInputModeRealtime)}}
+			options := rpcapi.ServerReloadRunWorkspaceWithOptionsRequest{WorkspaceName: new("target"), Parameters: &rpcapi.WorkspaceParametersPatch{Input: new(rpcapi.WorkspaceInputModeRealtime), SafetyFenceLevel: new(apitypes.SafetyFenceLevelChild)}}
 			if test.currentOnly {
 				options.WorkspaceName = nil
 			}
@@ -140,6 +140,9 @@ func TestWorkspaceReloadWithOptions(t *testing.T) {
 				t.Fatalf("updated %q instead of current workspace", resources.patch.Name)
 			}
 			if !test.wantError {
+				if !test.noParameters && (resources.patch.Parameters.SafetyFenceLevel == nil || *resources.patch.Parameters.SafetyFenceLevel != apitypes.SafetyFenceLevelChild) {
+					t.Fatal("reload dropped safety fence level")
+				}
 				state, err := response.Result.AsServerReloadRunWorkspaceWithOptionsResponse()
 				if err != nil || state.RuntimeState != rpcapi.PeerRunStatusStateRunning {
 					t.Fatalf("reload status: %+v, %v", state, err)

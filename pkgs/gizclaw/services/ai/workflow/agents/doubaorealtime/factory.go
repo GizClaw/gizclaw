@@ -155,6 +155,9 @@ func resolveRealtimeModelPattern(ctx context.Context, spec agenthost.Spec) (stri
 	if params == nil {
 		params = make(map[string]any)
 	}
+	if spec.SafetyFencePrompt != "" {
+		params[peergenx.SafetyFenceParam] = spec.SafetyFencePrompt
+	}
 	params["dialog_id"] = dialogID
 	if ttsVoice != "" {
 		params["output"] = "text"

@@ -50,6 +50,7 @@ export type PeerRunHistoryEntryType = "" | "agent" | "gear" | "unspecified" | nu
 export type PeerRunHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type PeerRunStatusState = "" | "error" | "running" | "starting" | "stopped" | "stopping" | "unspecified" | number;
 export type ReusableWorkflowDriver = "" | "ast-translate" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "unspecified" | number;
+export type SafetyFenceLevel = "" | "child" | "general" | "off" | "unspecified" | number;
 export type SocialPingResult = "" | "delivered" | "not_online" | "rate_limited" | "unspecified" | number;
 export type VolcTenantModelProviderDataApiMode = "" | "asr" | "chat_completions" | "embedding" | "realtime" | "realtime_duplex" | "translation" | "tts" | "unspecified" | number;
 export type WorkflowDriver = "" | "ast-translate" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "sfu" | "unspecified" | number;
@@ -113,6 +114,7 @@ export type ASTTranslateWorkspaceParameters = {
   "translation_model"?: string;
   "voice"?: ASTTranslateVoiceParameters;
   "tts_speech_rate_percent"?: number;
+  "safety_fence_level"?: SafetyFenceLevel;
 };
 export type AgentSelection = {
   "workspace_name": string;
@@ -319,6 +321,7 @@ export type DashScopeRealtimeWorkspaceParameters = {
   "vad"?: string;
   "voice"?: string;
   "tts_speech_rate_percent"?: number;
+  "safety_fence_level"?: SafetyFenceLevel;
 };
 export type DashScopeTenantModelProviderData = {
   "upstream_model"?: string;
@@ -463,6 +466,7 @@ export type DoubaoRealtimeDuplexWorkspaceParameters = {
   "sample_rate"?: number;
   "voice"?: string;
   "tts_speech_rate_percent"?: number;
+  "safety_fence_level"?: SafetyFenceLevel;
 };
 export type DoubaoRealtimeExtension = {
   "asr"?: DoubaoRealtimeASRExtension;
@@ -521,6 +525,7 @@ export type DoubaoRealtimeWorkspaceParameters = {
   "tools": DoubaoRealtimeFunctionTool[];
   "conversation"?: ConversationParameters;
   "tts_speech_rate_percent"?: number;
+  "safety_fence_level"?: SafetyFenceLevel;
 };
 export type EinoWorkflowSpec = {
   "graph": Record<string, unknown>;
@@ -534,6 +539,7 @@ export type EinoWorkspaceParameters = {
   "conversation"?: ConversationParameters;
   "input"?: WorkspaceInputMode;
   "tts_speech_rate_percent"?: number;
+  "safety_fence_level"?: SafetyFenceLevel;
 };
 export type FirmwareGetRequest = {
   "channel": FirmwareChannelName;
@@ -555,6 +561,7 @@ export type FlowcraftWorkspaceParameters = {
   "e2e"?: boolean;
   "input"?: WorkspaceInputMode;
   "tts_speech_rate_percent"?: number;
+  "safety_fence_level"?: SafetyFenceLevel;
 };
 export type FriendAddRequest = {
   "invite_token": string;
@@ -1314,6 +1321,7 @@ export type WorkspaceParametersPatch = {
   "input"?: WorkspaceInputMode;
   "conversation"?: ConversationParameters;
   "tts_speech_rate_percent"?: number;
+  "safety_fence_level"?: SafetyFenceLevel;
 };
 export type WorkspaceParametersSetRequest = {
   "name": string;
@@ -1902,6 +1910,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 10,
         "optional": true,
         "type": "int32"
+      },
+      {
+        "name": "safety_fence_level",
+        "number": 11,
+        "optional": true,
+        "type": "SafetyFenceLevel"
       }
     ]
   },
@@ -2731,6 +2745,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 14,
         "optional": true,
         "type": "int32"
+      },
+      {
+        "name": "safety_fence_level",
+        "number": 15,
+        "optional": true,
+        "type": "SafetyFenceLevel"
       }
     ]
   },
@@ -3436,6 +3456,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 14,
         "optional": true,
         "type": "int32"
+      },
+      {
+        "name": "safety_fence_level",
+        "number": 15,
+        "optional": true,
+        "type": "SafetyFenceLevel"
       }
     ]
   },
@@ -3718,6 +3744,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 10,
         "optional": true,
         "type": "int32"
+      },
+      {
+        "name": "safety_fence_level",
+        "number": 11,
+        "optional": true,
+        "type": "SafetyFenceLevel"
       }
     ]
   },
@@ -3778,6 +3810,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 5,
         "optional": true,
         "type": "int32"
+      },
+      {
+        "name": "safety_fence_level",
+        "number": 6,
+        "optional": true,
+        "type": "SafetyFenceLevel"
       }
     ]
   },
@@ -3865,6 +3903,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 5,
         "optional": true,
         "type": "int32"
+      },
+      {
+        "name": "safety_fence_level",
+        "number": 6,
+        "optional": true,
+        "type": "SafetyFenceLevel"
       }
     ]
   },
@@ -7311,6 +7355,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 3,
         "optional": true,
         "type": "int32"
+      },
+      {
+        "name": "safety_fence_level",
+        "number": 4,
+        "optional": true,
+        "type": "SafetyFenceLevel"
       }
     ]
   },
@@ -7738,6 +7788,20 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "5": "dashscope-realtime",
       "6": "doubao-realtime-duplex",
       "7": "eino"
+    }
+  },
+  "SafetyFenceLevel": {
+    "byName": {
+      "child": 3,
+      "general": 2,
+      "off": 1,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "off",
+      "2": "general",
+      "3": "child"
     }
   },
   "SocialPingResult": {

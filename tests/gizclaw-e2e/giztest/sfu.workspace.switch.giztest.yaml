@@ -126,6 +126,36 @@ steps:
     expect:
       /items: {count: 1}
       /items/0/workspace_name: {equals: "${friend_workspace}"}
+  - id: sfu_fence_off_noop
+    client: alice
+    rpc:
+      method: server.workspace.parameters.set
+      request:
+        name: ${friend_workspace}
+        parameters:
+          safety_fence_level: SAFETY_FENCE_LEVEL_OFF
+    expect:
+      /parameters: {present: false}
+  - id: sfu_fence_general_noop
+    client: alice
+    rpc:
+      method: server.workspace.parameters.set
+      request:
+        name: ${friend_workspace}
+        parameters:
+          safety_fence_level: SAFETY_FENCE_LEVEL_GENERAL
+    expect:
+      /parameters: {present: false}
+  - id: sfu_fence_child_noop
+    client: alice
+    rpc:
+      method: server.workspace.parameters.set
+      request:
+        name: ${friend_workspace}
+        parameters:
+          safety_fence_level: SAFETY_FENCE_LEVEL_CHILD
+    expect:
+      /parameters: {present: false}
   # Group Y: alice owns, carol joins from Server B.
   - id: alice_create_group
     client: alice

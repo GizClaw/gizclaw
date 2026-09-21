@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 )
 
@@ -1143,6 +1144,7 @@ type ASTTranslateWorkspaceParameters struct {
 	TranslationModel     *string                      `json:"translation_model,omitempty"`
 	Voice                *ASTTranslateVoiceParameters `json:"voice,omitempty"`
 	TtsSpeechRatePercent *int                         `json:"tts_speech_rate_percent,omitempty"`
+	SafetyFenceLevel     *apitypes.SafetyFenceLevel   `json:"safety_fence_level,omitempty"`
 }
 
 // ASTTranslateWorkspaceParametersAgentType defines model for ASTTranslateWorkspaceParameters.AgentType.
@@ -1486,6 +1488,7 @@ type DoubaoRealtimeWorkspaceParameters struct {
 	Model                *string                       `json:"model,omitempty"`
 	Tools                *[]DoubaoRealtimeFunctionTool `json:"tools,omitempty"`
 	TtsSpeechRatePercent *int                          `json:"tts_speech_rate_percent,omitempty"`
+	SafetyFenceLevel     *apitypes.SafetyFenceLevel    `json:"safety_fence_level,omitempty"`
 }
 
 // DoubaoRealtimeWorkspaceParametersAgentType defines model for DoubaoRealtimeWorkspaceParameters.AgentType.
@@ -1520,6 +1523,7 @@ type DashScopeRealtimeWorkspaceParameters struct {
 	Vad                  *string                                       `json:"vad,omitempty"`
 	Voice                *string                                       `json:"voice,omitempty"`
 	TtsSpeechRatePercent *int                                          `json:"tts_speech_rate_percent,omitempty"`
+	SafetyFenceLevel     *apitypes.SafetyFenceLevel                    `json:"safety_fence_level,omitempty"`
 }
 
 type DashScopeRealtimeWorkspaceParametersAgentType string
@@ -1553,6 +1557,7 @@ type DoubaoRealtimeDuplexWorkspaceParameters struct {
 	SampleRate           *int                                             `json:"sample_rate,omitempty"`
 	Voice                *string                                          `json:"voice,omitempty"`
 	TtsSpeechRatePercent *int                                             `json:"tts_speech_rate_percent,omitempty"`
+	SafetyFenceLevel     *apitypes.SafetyFenceLevel                       `json:"safety_fence_level,omitempty"`
 }
 
 type DoubaoRealtimeDuplexWorkspaceParametersAgentType string
@@ -1570,6 +1575,7 @@ type EinoWorkspaceParameters struct {
 	E2e                  *bool                            `json:"e2e,omitempty"`
 	Input                *WorkspaceInputMode              `json:"input,omitempty"`
 	TtsSpeechRatePercent *int                             `json:"tts_speech_rate_percent,omitempty"`
+	SafetyFenceLevel     *apitypes.SafetyFenceLevel       `json:"safety_fence_level,omitempty"`
 }
 
 type EinoWorkspaceParametersAgentType string
@@ -1625,9 +1631,10 @@ type FlowcraftWorkspaceParameters struct {
 	Conversation *ConversationParameters               `json:"conversation,omitempty"`
 
 	// E2e Marks seed resources used by the local e2e harness.
-	E2e                  *bool               `json:"e2e,omitempty"`
-	Input                *WorkspaceInputMode `json:"input,omitempty"`
-	TtsSpeechRatePercent *int                `json:"tts_speech_rate_percent,omitempty"`
+	E2e                  *bool                      `json:"e2e,omitempty"`
+	Input                *WorkspaceInputMode        `json:"input,omitempty"`
+	TtsSpeechRatePercent *int                       `json:"tts_speech_rate_percent,omitempty"`
+	SafetyFenceLevel     *apitypes.SafetyFenceLevel `json:"safety_fence_level,omitempty"`
 }
 
 // FlowcraftWorkspaceParametersAgentType defines model for FlowcraftWorkspaceParameters.AgentType.
@@ -2716,9 +2723,10 @@ type WorkspaceInputMode string
 
 // WorkspaceParametersPatch contains driver-neutral Workspace parameter updates.
 type WorkspaceParametersPatch struct {
-	Conversation         *ConversationParameters `json:"conversation,omitempty"`
-	Input                *WorkspaceInputMode     `json:"input,omitempty"`
-	TtsSpeechRatePercent *int                    `json:"tts_speech_rate_percent,omitempty"`
+	Conversation         *ConversationParameters    `json:"conversation,omitempty"`
+	Input                *WorkspaceInputMode        `json:"input,omitempty"`
+	TtsSpeechRatePercent *int                       `json:"tts_speech_rate_percent,omitempty"`
+	SafetyFenceLevel     *apitypes.SafetyFenceLevel `json:"safety_fence_level,omitempty"`
 }
 
 // WorkspaceParametersSetRequest updates supported parameters without exposing agent_type.

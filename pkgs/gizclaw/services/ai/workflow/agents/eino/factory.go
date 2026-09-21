@@ -92,6 +92,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		Graph:       graph,
 		Components:  componentResolver{service: service},
 		ToolInvoker: spec.ToolInvoker,
+		SafetyFence: spec.SafetyFencePrompt,
 		History: &genxeino.HistoryConfig{
 			Store: f.History, Scope: scope, Limit: 50,
 		},

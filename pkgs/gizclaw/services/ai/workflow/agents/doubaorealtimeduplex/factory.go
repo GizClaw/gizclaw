@@ -104,6 +104,9 @@ func resolvePattern(spec agenthost.Spec) (string, error) {
 	if rate != nil {
 		values.Set(peergenx.SpeechRatePercentParam, strconv.Itoa(*rate))
 	}
+	if spec.SafetyFencePrompt != "" {
+		values.Set(peergenx.SafetyFenceParam, spec.SafetyFencePrompt)
+	}
 	pattern := "model/" + model
 	if query := values.Encode(); query != "" {
 		pattern += "?" + query

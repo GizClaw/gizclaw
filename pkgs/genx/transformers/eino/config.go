@@ -32,6 +32,11 @@ type Config struct {
 	Limits       Limits
 	// Initiative controls the optional empty-input Graph turn.
 	Initiative InitiativePolicy
+	// SafetyFence is host-selected safety prompt text exposed to every run,
+	// including child Graphs, through the input.safety_fence binding. The
+	// transformer never places it anywhere itself: a Graph that does not bind
+	// it is unaffected. Empty binds as an empty string.
+	SafetyFence string
 }
 
 // InitiativePolicy controls when an Agent may run without Peer input.
@@ -954,7 +959,7 @@ func sameStringKeys(actual map[string]string, expected []string) bool {
 func bindingStateType(binding Binding, fields map[string]StateType) (StateType, error) {
 	source := strings.TrimSpace(binding.From)
 	switch source {
-	case "input.text", "memory.recalled":
+	case "input.text", "input.safety_fence", "memory.recalled":
 		return StateString, nil
 	case "input.messages", "history.messages":
 		return StateMessages, nil
@@ -1262,7 +1267,7 @@ func normalizeMemoryScope(scope memory.Scope) memory.Scope {
 func validateBinding(binding Binding, fields map[string]StateType) error {
 	source := strings.TrimSpace(binding.From)
 	switch source {
-	case "input.text", "input.messages", "input.parts", "history.messages", "memory.recalled":
+	case "input.text", "input.messages", "input.parts", "input.safety_fence", "history.messages", "memory.recalled":
 		return nil
 	}
 	if _, ok := fields[source]; !ok {

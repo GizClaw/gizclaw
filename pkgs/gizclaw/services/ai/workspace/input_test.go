@@ -133,10 +133,10 @@ func TestSetPeerWorkspaceParametersRejectsInvalidRequests(t *testing.T) {
 
 func TestWorkspaceParametersWithInputIgnoresDriversWithoutInput(t *testing.T) {
 	realtime := apitypes.WorkspaceInputModeRealtime
-	if _, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverDashscopeRealtime, &realtime, nil, nil); err != nil {
+	if _, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverDashscopeRealtime, &realtime, nil, nil, nil); err != nil {
 		t.Fatal("workspaceParametersWithPatch(dashscope-realtime) unexpected error")
 	}
-	if _, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverDoubaoRealtimeDuplex, &realtime, nil, nil); err != nil {
+	if _, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverDoubaoRealtimeDuplex, &realtime, nil, nil, nil); err != nil {
 		t.Fatal("workspaceParametersWithPatch(doubao-realtime-duplex) unexpected error")
 	}
 }

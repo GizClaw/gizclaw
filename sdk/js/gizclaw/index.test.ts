@@ -4403,3 +4403,28 @@ test("inbound client.tool.invoke runs the named Tool and returns JSON", async ()
     ),
   );
 });
+
+for (const level of [undefined, "off", "general", "child"]) {
+  test(`safety fence ${level} preserves presence through protobuf`, () => {
+    const parameters =
+      level === undefined
+        ? { input: "realtime" }
+        : { input: "realtime", safety_fence_level: level };
+    for (const method of [
+      "server.run.workspace.reload-with-options",
+      "server.workspace.parameters.set",
+    ]) {
+      const request =
+        method === "server.workspace.parameters.set"
+          ? { name: "fenced-workspace", parameters }
+          : { workspace_name: "fenced-workspace", parameters };
+      assert.deepEqual(
+        decodeRPCRequestPayload(
+          method,
+          encodeRPCRequestPayload(method, request),
+        ),
+        request,
+      );
+    }
+  });
+}

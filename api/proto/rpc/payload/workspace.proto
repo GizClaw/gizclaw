@@ -373,6 +373,7 @@ message WorkspaceParametersPatch {
   optional ConversationParameters conversation = 2;
   // Synthesized speech rate in percent of normal (50..200); absent keeps the Workflow default.
   optional int32 tts_speech_rate_percent = 3;
+  optional SafetyFenceLevel safety_fence_level = 4;
 }
 
 message WorkspaceParametersSetRequest {

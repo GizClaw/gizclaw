@@ -145,10 +145,10 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if f.Memory != nil && f.MemoryKind == string(apitypes.RuntimeProfileMemoryDriverFlowcraft) && spec.MemoryLayout != nil {
 		f.MemoryLaneRecall = flowcraftLaneRecall(spec.MemoryLayout.Spec.Flowcraft.Lanes)
 	}
-	return f.newAgent(ctx, owner, workspaceID, spec.Workflow.Id, public, spec.ToolInvoker, spec.BoardInputs, initiativePolicy, inputMode, speechRatePercent, checkpoint, memoryCloser)
+	return f.newAgent(ctx, owner, workspaceID, spec.Workflow.Id, public, spec.ToolInvoker, spec.BoardInputs, initiativePolicy, inputMode, speechRatePercent, spec.SafetyFencePrompt, checkpoint, memoryCloser)
 }
 
-func (f Factory) newAgent(ctx context.Context, owner, workspaceID, workflowName string, public apitypes.FlowcraftWorkflowSpec, toolInvoker genx.ToolInvoker, inputs InputProvider, initiativePolicy string, inputMode apitypes.WorkspaceInputMode, speechRatePercent *int, checkpoint genxflowcraft.StateStore, memoryCloser io.Closer) (agenthost.Agent, error) {
+func (f Factory) newAgent(ctx context.Context, owner, workspaceID, workflowName string, public apitypes.FlowcraftWorkflowSpec, toolInvoker genx.ToolInvoker, inputs InputProvider, initiativePolicy string, inputMode apitypes.WorkspaceInputMode, speechRatePercent *int, safetyFencePrompt string, checkpoint genxflowcraft.StateStore, memoryCloser io.Closer) (agenthost.Agent, error) {
 	if f.GenX == nil {
 		return nil, fmt.Errorf("flowcraft: peergenx service is required")
 	}
@@ -175,7 +175,7 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceID, workflowName 
 		ID: agentID, Name: strings.TrimSpace(workflowName), Graph: graph,
 		MaxIterations: intValue(public.MaxIterations), PublishNodes: publishNodes,
 		Models: f.GenX.Generator(), History: f.History, HistoryScope: scope, ContextID: scope,
-		BoardInputs: genxflowcraftBoardInputs(inputs), ToolInvoker: toolInvoker,
+		BoardInputs: genxflowcraftBoardInputs(inputs, safetyFencePrompt), ToolInvoker: toolInvoker,
 	}
 	config.Initiative = mapInitiative(public.Conversation, initiativePolicy)
 	config.State = checkpoint
@@ -589,11 +589,26 @@ func closeAll(closers []io.Closer) error {
 	return err
 }
 
-func genxflowcraftBoardInputs(provider InputProvider) func(context.Context) (map[string]any, error) {
-	if provider == nil {
-		return nil
+// SafetyFenceBoardVariable is the Board variable holding the Workspace safety
+// fence prompt. GizClaw only publishes it; a Graph applies the fence by
+// referencing ${board.safety_fence} where it wants it, and is unaffected
+// otherwise. It is empty when no fence is selected.
+const SafetyFenceBoardVariable = "safety_fence"
+
+func genxflowcraftBoardInputs(provider InputProvider, safetyFence string) func(context.Context) (map[string]any, error) {
+	return func(ctx context.Context) (map[string]any, error) {
+		values := map[string]any{}
+		if provider != nil {
+			provided, err := provider(ctx)
+			if err != nil {
+				return nil, err
+			}
+			maps.Copy(values, provided)
+		}
+		// Set last so a product input cannot replace the RuntimeProfile fence.
+		values[SafetyFenceBoardVariable] = safetyFence
+		return values, nil
 	}
-	return func(ctx context.Context) (map[string]any, error) { return provider(ctx) }
 }
 
 // WorkspaceAgentScope is the stable owner/canonical-Workspace-ID/Agent

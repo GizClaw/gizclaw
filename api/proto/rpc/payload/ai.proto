@@ -9,6 +9,14 @@ import "payload/enums.proto";
 
 option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
 
+// Fixed strictness levels; prompt text belongs to the RuntimeProfile.
+enum SafetyFenceLevel {
+  SAFETY_FENCE_LEVEL_UNSPECIFIED = 0;
+  SAFETY_FENCE_LEVEL_OFF = 1;
+  SAFETY_FENCE_LEVEL_GENERAL = 2;
+  SAFETY_FENCE_LEVEL_CHILD = 3;
+}
+
 message ResourceI18nText {
   string display_name = 1;
   optional string description = 2;
@@ -89,6 +97,7 @@ message ASTTranslateWorkspaceParameters {
   optional string translation_model = 8;
   optional ASTTranslateVoiceParameters voice = 9;
   optional int32 tts_speech_rate_percent = 10;
+  optional SafetyFenceLevel safety_fence_level = 11;
 }
 
 message DashScopeRealtimeWorkflowSpec {
@@ -120,6 +129,7 @@ message DashScopeRealtimeWorkspaceParameters {
   optional string vad = 12;
   optional string voice = 13;
   optional int32 tts_speech_rate_percent = 14;
+  optional SafetyFenceLevel safety_fence_level = 15;
 }
 
 message DoubaoRealtimeDuplexWorkflowSpec {
@@ -151,6 +161,7 @@ message DoubaoRealtimeDuplexWorkspaceParameters {
   optional int64 sample_rate = 12;
   optional string voice = 13;
   optional int32 tts_speech_rate_percent = 14;
+  optional SafetyFenceLevel safety_fence_level = 15;
 }
 
 message EinoWorkflowSpec {
@@ -166,6 +177,7 @@ message EinoWorkspaceParameters {
   optional ConversationParameters conversation = 3;
   optional WorkspaceInputMode input = 4;
   optional int32 tts_speech_rate_percent = 5;
+  optional SafetyFenceLevel safety_fence_level = 6;
 }
 
 message DoubaoRealtimeAIGCMetadata {
@@ -303,6 +315,7 @@ message DoubaoRealtimeWorkspaceParameters {
   repeated DoubaoRealtimeFunctionTool tools = 8;
   optional ConversationParameters conversation = 9;
   optional int32 tts_speech_rate_percent = 10;
+  optional SafetyFenceLevel safety_fence_level = 11;
 }
 
 message ConversationParameters {
@@ -320,6 +333,7 @@ message FlowcraftWorkspaceParameters {
   optional bool e2e = 3;
   optional WorkspaceInputMode input = 4;
   optional int32 tts_speech_rate_percent = 5;
+  optional SafetyFenceLevel safety_fence_level = 6;
 }
 
 message Model {

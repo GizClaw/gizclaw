@@ -237,6 +237,8 @@ PB_BIND(gizclaw_rpc_v1_ToolInvokeResponse, gizclaw_rpc_v1_ToolInvokeResponse, 4)
 
 
 
+
+
 #ifndef PB_CONVERT_DOUBLE_FLOAT
 /* On some platforms (such as AVR), double is really float.
  * To be able to encode/decode double on these platforms, you need.

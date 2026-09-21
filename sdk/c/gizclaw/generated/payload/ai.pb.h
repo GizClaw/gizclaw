@@ -12,6 +12,14 @@
 #endif
 
 /* Enum definitions */
+/* Fixed strictness levels; prompt text belongs to the RuntimeProfile. */
+typedef enum _gizclaw_rpc_v1_SafetyFenceLevel {
+    gizclaw_rpc_v1_SafetyFenceLevel_SAFETY_FENCE_LEVEL_UNSPECIFIED = 0,
+    gizclaw_rpc_v1_SafetyFenceLevel_SAFETY_FENCE_LEVEL_OFF = 1,
+    gizclaw_rpc_v1_SafetyFenceLevel_SAFETY_FENCE_LEVEL_GENERAL = 2,
+    gizclaw_rpc_v1_SafetyFenceLevel_SAFETY_FENCE_LEVEL_CHILD = 3
+} gizclaw_rpc_v1_SafetyFenceLevel;
+
 typedef enum _gizclaw_rpc_v1_ModelProviderKind {
     gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_UNSPECIFIED = 0,
     gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_OPENAI_TENANT = 1,
@@ -123,6 +131,8 @@ typedef struct _gizclaw_rpc_v1_ASTTranslateWorkspaceParameters {
     gizclaw_rpc_v1_ASTTranslateVoiceParameters voice;
     bool has_tts_speech_rate_percent;
     int32_t tts_speech_rate_percent;
+    bool has_safety_fence_level;
+    gizclaw_rpc_v1_SafetyFenceLevel safety_fence_level;
 } gizclaw_rpc_v1_ASTTranslateWorkspaceParameters;
 
 typedef struct _gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec {
@@ -162,6 +172,8 @@ typedef struct _gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters {
     pb_callback_t voice;
     bool has_tts_speech_rate_percent;
     int32_t tts_speech_rate_percent;
+    bool has_safety_fence_level;
+    gizclaw_rpc_v1_SafetyFenceLevel safety_fence_level;
 } gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters;
 
 typedef struct _gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec {
@@ -207,6 +219,8 @@ typedef struct _gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters {
     pb_callback_t voice;
     bool has_tts_speech_rate_percent;
     int32_t tts_speech_rate_percent;
+    bool has_safety_fence_level;
+    gizclaw_rpc_v1_SafetyFenceLevel safety_fence_level;
 } gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters;
 
 typedef struct _gizclaw_rpc_v1_EinoWorkflowSpec {
@@ -403,6 +417,8 @@ typedef struct _gizclaw_rpc_v1_EinoWorkspaceParameters {
     gizclaw_rpc_v1_WorkspaceInputMode input;
     bool has_tts_speech_rate_percent;
     int32_t tts_speech_rate_percent;
+    bool has_safety_fence_level;
+    gizclaw_rpc_v1_SafetyFenceLevel safety_fence_level;
 } gizclaw_rpc_v1_EinoWorkspaceParameters;
 
 typedef struct _gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters {
@@ -422,6 +438,8 @@ typedef struct _gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters {
     gizclaw_rpc_v1_ConversationParameters conversation;
     bool has_tts_speech_rate_percent;
     int32_t tts_speech_rate_percent;
+    bool has_safety_fence_level;
+    gizclaw_rpc_v1_SafetyFenceLevel safety_fence_level;
 } gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters;
 
 typedef struct _gizclaw_rpc_v1_FlowcraftWorkflowSpec {
@@ -439,6 +457,8 @@ typedef struct _gizclaw_rpc_v1_FlowcraftWorkspaceParameters {
     gizclaw_rpc_v1_WorkspaceInputMode input;
     bool has_tts_speech_rate_percent;
     int32_t tts_speech_rate_percent;
+    bool has_safety_fence_level;
+    gizclaw_rpc_v1_SafetyFenceLevel safety_fence_level;
 } gizclaw_rpc_v1_FlowcraftWorkspaceParameters;
 
 typedef struct _gizclaw_rpc_v1_Model_I18nEntry {
@@ -753,6 +773,10 @@ extern "C" {
 #endif
 
 /* Helper constants for enums */
+#define _gizclaw_rpc_v1_SafetyFenceLevel_MIN gizclaw_rpc_v1_SafetyFenceLevel_SAFETY_FENCE_LEVEL_UNSPECIFIED
+#define _gizclaw_rpc_v1_SafetyFenceLevel_MAX gizclaw_rpc_v1_SafetyFenceLevel_SAFETY_FENCE_LEVEL_CHILD
+#define _gizclaw_rpc_v1_SafetyFenceLevel_ARRAYSIZE ((gizclaw_rpc_v1_SafetyFenceLevel)(gizclaw_rpc_v1_SafetyFenceLevel_SAFETY_FENCE_LEVEL_CHILD+1))
+
 #define _gizclaw_rpc_v1_ModelProviderKind_MIN gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_UNSPECIFIED
 #define _gizclaw_rpc_v1_ModelProviderKind_MAX gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_DEEPSEEK_TENANT
 #define _gizclaw_rpc_v1_ModelProviderKind_ARRAYSIZE ((gizclaw_rpc_v1_ModelProviderKind)(gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_DEEPSEEK_TENANT+1))
@@ -772,16 +796,20 @@ extern "C" {
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_ASTTranslateWorkspaceParametersAgentType
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_mode_ENUMTYPE gizclaw_rpc_v1_ASTTranslateMode
+#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_safety_fence_level_ENUMTYPE gizclaw_rpc_v1_SafetyFenceLevel
 
 
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParametersAgentType
+#define gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_safety_fence_level_ENUMTYPE gizclaw_rpc_v1_SafetyFenceLevel
 
 
 #define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParametersAgentType
+#define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_safety_fence_level_ENUMTYPE gizclaw_rpc_v1_SafetyFenceLevel
 
 
 #define gizclaw_rpc_v1_EinoWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_EinoWorkspaceParametersAgentType
 #define gizclaw_rpc_v1_EinoWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
+#define gizclaw_rpc_v1_EinoWorkspaceParameters_safety_fence_level_ENUMTYPE gizclaw_rpc_v1_SafetyFenceLevel
 
 
 
@@ -808,6 +836,7 @@ extern "C" {
 
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParametersAgentType
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
+#define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_safety_fence_level_ENUMTYPE gizclaw_rpc_v1_SafetyFenceLevel
 
 #define gizclaw_rpc_v1_ConversationParameters_agent_initiative_policy_ENUMTYPE gizclaw_rpc_v1_ConversationParametersAgentInitiativePolicy
 #define gizclaw_rpc_v1_ConversationParameters_initiative_ENUMTYPE gizclaw_rpc_v1_ConversationParametersInitiative
@@ -815,6 +844,7 @@ extern "C" {
 
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_FlowcraftWorkspaceParametersAgentType
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
+#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_safety_fence_level_ENUMTYPE gizclaw_rpc_v1_SafetyFenceLevel
 
 #define gizclaw_rpc_v1_Model_kind_ENUMTYPE gizclaw_rpc_v1_ModelKind
 #define gizclaw_rpc_v1_Model_provider_kind_ENUMTYPE gizclaw_rpc_v1_ModelProviderKind
@@ -866,13 +896,13 @@ extern "C" {
 #define gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_init_default {false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_default {0, {gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_init_default}}
 #define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_default {false, 0, false, 0, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_default, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_init_default {_gizclaw_rpc_v1_ASTTranslateWorkspaceParametersAgentType_MIN, false, 0, false, 0, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, {{NULL}, NULL}, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_default, false, 0}
+#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_init_default {_gizclaw_rpc_v1_ASTTranslateWorkspaceParametersAgentType_MIN, false, 0, false, 0, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, {{NULL}, NULL}, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_default, false, 0, false, _gizclaw_rpc_v1_SafetyFenceLevel_MIN}
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_init_default {{{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_init_default {_gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParametersAgentType_MIN, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0}
+#define gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_init_default {_gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParametersAgentType_MIN, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, _gizclaw_rpc_v1_SafetyFenceLevel_MIN}
 #define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec_init_default {{{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_init_default {_gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParametersAgentType_MIN, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0}
+#define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_init_default {_gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParametersAgentType_MIN, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, false, _gizclaw_rpc_v1_SafetyFenceLevel_MIN}
 #define gizclaw_rpc_v1_EinoWorkflowSpec_init_default {false, google_protobuf_Struct_init_default, false, google_protobuf_Struct_init_default, false, google_protobuf_Struct_init_default, false, google_protobuf_Struct_init_default}
-#define gizclaw_rpc_v1_EinoWorkspaceParameters_init_default {_gizclaw_rpc_v1_EinoWorkspaceParametersAgentType_MIN, false, 0, false, gizclaw_rpc_v1_ConversationParameters_init_default, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, 0}
+#define gizclaw_rpc_v1_EinoWorkspaceParameters_init_default {_gizclaw_rpc_v1_EinoWorkspaceParametersAgentType_MIN, false, 0, false, gizclaw_rpc_v1_ConversationParameters_init_default, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, 0, false, _gizclaw_rpc_v1_SafetyFenceLevel_MIN}
 #define gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeASRContext_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeASRContext_CorrectWordsEntry_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
@@ -893,10 +923,10 @@ extern "C" {
 #define gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_init_default {false, gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeTTS_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_default {false, gizclaw_rpc_v1_DoubaoRealtimeAudio_init_default, false, gizclaw_rpc_v1_DoubaoRealtimeExtension_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_DoubaoRealtimeTTS_init_default}
-#define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_init_default {_gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_DoubaoRealtimeAudio_init_default, false, 0, false, gizclaw_rpc_v1_DoubaoRealtimeExtension_init_default, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ConversationParameters_init_default, false, 0}
+#define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_init_default {_gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_DoubaoRealtimeAudio_init_default, false, 0, false, gizclaw_rpc_v1_DoubaoRealtimeExtension_init_default, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ConversationParameters_init_default, false, 0, false, _gizclaw_rpc_v1_SafetyFenceLevel_MIN}
 #define gizclaw_rpc_v1_ConversationParameters_init_default {false, _gizclaw_rpc_v1_ConversationParametersAgentInitiativePolicy_MIN, false, _gizclaw_rpc_v1_ConversationParametersInitiative_MIN}
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_default {false, google_protobuf_Struct_init_default}
-#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_default {_gizclaw_rpc_v1_FlowcraftWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_ConversationParameters_init_default, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, 0}
+#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_default {_gizclaw_rpc_v1_FlowcraftWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_ConversationParameters_init_default, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, 0, false, _gizclaw_rpc_v1_SafetyFenceLevel_MIN}
 #define gizclaw_rpc_v1_Model_init_default        {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, 0, {gizclaw_rpc_v1_OpenAITenantModelProviderData_init_default}, _gizclaw_rpc_v1_ModelProviderKind_MIN}
 #define gizclaw_rpc_v1_Model_I18nEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_ResourceI18nText_init_default}
 #define gizclaw_rpc_v1_OpenAITenantModelProviderData_init_default {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -942,13 +972,13 @@ extern "C" {
 #define gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_init_zero {false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_zero {0, {gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_init_zero}}
 #define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_zero {false, 0, false, 0, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_zero, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_init_zero {_gizclaw_rpc_v1_ASTTranslateWorkspaceParametersAgentType_MIN, false, 0, false, 0, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, {{NULL}, NULL}, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_zero, false, 0}
+#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_init_zero {_gizclaw_rpc_v1_ASTTranslateWorkspaceParametersAgentType_MIN, false, 0, false, 0, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, {{NULL}, NULL}, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_zero, false, 0, false, _gizclaw_rpc_v1_SafetyFenceLevel_MIN}
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_init_zero {{{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_init_zero {_gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParametersAgentType_MIN, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0}
+#define gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_init_zero {_gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParametersAgentType_MIN, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, _gizclaw_rpc_v1_SafetyFenceLevel_MIN}
 #define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec_init_zero {{{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_init_zero {_gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParametersAgentType_MIN, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0}
+#define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_init_zero {_gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParametersAgentType_MIN, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, false, _gizclaw_rpc_v1_SafetyFenceLevel_MIN}
 #define gizclaw_rpc_v1_EinoWorkflowSpec_init_zero {false, google_protobuf_Struct_init_zero, false, google_protobuf_Struct_init_zero, false, google_protobuf_Struct_init_zero, false, google_protobuf_Struct_init_zero}
-#define gizclaw_rpc_v1_EinoWorkspaceParameters_init_zero {_gizclaw_rpc_v1_EinoWorkspaceParametersAgentType_MIN, false, 0, false, gizclaw_rpc_v1_ConversationParameters_init_zero, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, 0}
+#define gizclaw_rpc_v1_EinoWorkspaceParameters_init_zero {_gizclaw_rpc_v1_EinoWorkspaceParametersAgentType_MIN, false, 0, false, gizclaw_rpc_v1_ConversationParameters_init_zero, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, 0, false, _gizclaw_rpc_v1_SafetyFenceLevel_MIN}
 #define gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeASRContext_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeASRContext_CorrectWordsEntry_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
@@ -969,10 +999,10 @@ extern "C" {
 #define gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_init_zero {false, gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeTTS_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_zero {false, gizclaw_rpc_v1_DoubaoRealtimeAudio_init_zero, false, gizclaw_rpc_v1_DoubaoRealtimeExtension_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_DoubaoRealtimeTTS_init_zero}
-#define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_init_zero {_gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_DoubaoRealtimeAudio_init_zero, false, 0, false, gizclaw_rpc_v1_DoubaoRealtimeExtension_init_zero, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ConversationParameters_init_zero, false, 0}
+#define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_init_zero {_gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_DoubaoRealtimeAudio_init_zero, false, 0, false, gizclaw_rpc_v1_DoubaoRealtimeExtension_init_zero, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ConversationParameters_init_zero, false, 0, false, _gizclaw_rpc_v1_SafetyFenceLevel_MIN}
 #define gizclaw_rpc_v1_ConversationParameters_init_zero {false, _gizclaw_rpc_v1_ConversationParametersAgentInitiativePolicy_MIN, false, _gizclaw_rpc_v1_ConversationParametersInitiative_MIN}
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_zero {false, google_protobuf_Struct_init_zero}
-#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_zero {_gizclaw_rpc_v1_FlowcraftWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_ConversationParameters_init_zero, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, 0}
+#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_zero {_gizclaw_rpc_v1_FlowcraftWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_ConversationParameters_init_zero, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, 0, false, _gizclaw_rpc_v1_SafetyFenceLevel_MIN}
 #define gizclaw_rpc_v1_Model_init_zero           {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, 0, {gizclaw_rpc_v1_OpenAITenantModelProviderData_init_zero}, _gizclaw_rpc_v1_ModelProviderKind_MIN}
 #define gizclaw_rpc_v1_Model_I18nEntry_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_ResourceI18nText_init_zero}
 #define gizclaw_rpc_v1_OpenAITenantModelProviderData_init_zero {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -1053,6 +1083,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_translation_model_tag 8
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_voice_tag 9
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_tts_speech_rate_percent_tag 10
+#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_safety_fence_level_tag 11
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_asr_model_tag 1
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_enable_asr_tag 2
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_input_audio_format_tag 3
@@ -1078,6 +1109,7 @@ extern "C" {
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_vad_tag 12
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_voice_tag 13
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_tts_speech_rate_percent_tag 14
+#define gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_safety_fence_level_tag 15
 #define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec_format_tag 1
 #define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec_input_channels_tag 2
 #define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec_input_format_tag 3
@@ -1103,6 +1135,7 @@ extern "C" {
 #define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_sample_rate_tag 12
 #define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_voice_tag 13
 #define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_tts_speech_rate_percent_tag 14
+#define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_safety_fence_level_tag 15
 #define gizclaw_rpc_v1_EinoWorkflowSpec_graph_tag 1
 #define gizclaw_rpc_v1_EinoWorkflowSpec_limits_tag 2
 #define gizclaw_rpc_v1_EinoWorkflowSpec_conversation_tag 3
@@ -1188,6 +1221,7 @@ extern "C" {
 #define gizclaw_rpc_v1_EinoWorkspaceParameters_conversation_tag 3
 #define gizclaw_rpc_v1_EinoWorkspaceParameters_input_tag 4
 #define gizclaw_rpc_v1_EinoWorkspaceParameters_tts_speech_rate_percent_tag 5
+#define gizclaw_rpc_v1_EinoWorkspaceParameters_safety_fence_level_tag 6
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_agent_type_tag 1
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_audio_tag 2
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_e2e_tag 3
@@ -1198,12 +1232,14 @@ extern "C" {
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_tools_tag 8
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_conversation_tag 9
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_tts_speech_rate_percent_tag 10
+#define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_safety_fence_level_tag 11
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_fields_tag 1
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_agent_type_tag 1
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_conversation_tag 2
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_e2e_tag 3
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_input_tag 4
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_tts_speech_rate_percent_tag 5
+#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_safety_fence_level_tag 6
 #define gizclaw_rpc_v1_Model_I18nEntry_key_tag   1
 #define gizclaw_rpc_v1_Model_I18nEntry_value_tag 2
 #define gizclaw_rpc_v1_OpenAITenantModelProviderData_upstream_model_tag 1
@@ -1447,7 +1483,8 @@ X(a, CALLBACK, OPTIONAL, STRING,   lang_pair,         6) \
 X(a, STATIC,   OPTIONAL, UENUM,    mode,              7) \
 X(a, CALLBACK, OPTIONAL, STRING,   translation_model,   8) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  voice,             9) \
-X(a, STATIC,   OPTIONAL, INT32,    tts_speech_rate_percent,  10)
+X(a, STATIC,   OPTIONAL, INT32,    tts_speech_rate_percent,  10) \
+X(a, STATIC,   OPTIONAL, UENUM,    safety_fence_level,  11)
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_DEFAULT NULL
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_voice_MSGTYPE gizclaw_rpc_v1_ASTTranslateVoiceParameters
@@ -1481,7 +1518,8 @@ X(a, CALLBACK, OPTIONAL, STRING,   output_audio_format,  10) \
 X(a, STATIC,   OPTIONAL, FLOAT,    temperature,      11) \
 X(a, CALLBACK, OPTIONAL, STRING,   vad,              12) \
 X(a, CALLBACK, OPTIONAL, STRING,   voice,            13) \
-X(a, STATIC,   OPTIONAL, INT32,    tts_speech_rate_percent,  14)
+X(a, STATIC,   OPTIONAL, INT32,    tts_speech_rate_percent,  14) \
+X(a, STATIC,   OPTIONAL, UENUM,    safety_fence_level,  15)
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_DEFAULT NULL
 
@@ -1514,7 +1552,8 @@ X(a, STATIC,   OPTIONAL, INT64,    output_loudness,  10) \
 X(a, STATIC,   OPTIONAL, INT64,    output_speed,     11) \
 X(a, STATIC,   OPTIONAL, INT64,    sample_rate,      12) \
 X(a, CALLBACK, OPTIONAL, STRING,   voice,            13) \
-X(a, STATIC,   OPTIONAL, INT32,    tts_speech_rate_percent,  14)
+X(a, STATIC,   OPTIONAL, INT32,    tts_speech_rate_percent,  14) \
+X(a, STATIC,   OPTIONAL, UENUM,    safety_fence_level,  15)
 #define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_DEFAULT NULL
 
@@ -1535,7 +1574,8 @@ X(a, STATIC,   SINGULAR, UENUM,    agent_type,        1) \
 X(a, STATIC,   OPTIONAL, BOOL,     e2e,               2) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  conversation,      3) \
 X(a, STATIC,   OPTIONAL, UENUM,    input,             4) \
-X(a, STATIC,   OPTIONAL, INT32,    tts_speech_rate_percent,   5)
+X(a, STATIC,   OPTIONAL, INT32,    tts_speech_rate_percent,   5) \
+X(a, STATIC,   OPTIONAL, UENUM,    safety_fence_level,   6)
 #define gizclaw_rpc_v1_EinoWorkspaceParameters_CALLBACK NULL
 #define gizclaw_rpc_v1_EinoWorkspaceParameters_DEFAULT NULL
 #define gizclaw_rpc_v1_EinoWorkspaceParameters_conversation_MSGTYPE gizclaw_rpc_v1_ConversationParameters
@@ -1727,7 +1767,8 @@ X(a, CALLBACK, OPTIONAL, STRING,   instructions,      6) \
 X(a, CALLBACK, OPTIONAL, STRING,   model,             7) \
 X(a, CALLBACK, REPEATED, MESSAGE,  tools,             8) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  conversation,      9) \
-X(a, STATIC,   OPTIONAL, INT32,    tts_speech_rate_percent,  10)
+X(a, STATIC,   OPTIONAL, INT32,    tts_speech_rate_percent,  10) \
+X(a, STATIC,   OPTIONAL, UENUM,    safety_fence_level,  11)
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_DEFAULT NULL
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_audio_MSGTYPE gizclaw_rpc_v1_DoubaoRealtimeAudio
@@ -1752,7 +1793,8 @@ X(a, STATIC,   SINGULAR, UENUM,    agent_type,        1) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  conversation,      2) \
 X(a, STATIC,   OPTIONAL, BOOL,     e2e,               3) \
 X(a, STATIC,   OPTIONAL, UENUM,    input,             4) \
-X(a, STATIC,   OPTIONAL, INT32,    tts_speech_rate_percent,   5)
+X(a, STATIC,   OPTIONAL, INT32,    tts_speech_rate_percent,   5) \
+X(a, STATIC,   OPTIONAL, UENUM,    safety_fence_level,   6)
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_CALLBACK NULL
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_DEFAULT NULL
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_conversation_MSGTYPE gizclaw_rpc_v1_ConversationParameters
@@ -2289,8 +2331,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 #define gizclaw_rpc_v1_ConversationParameters_size 4
 #define gizclaw_rpc_v1_DoubaoRealtimeAudioFormat_size 13
 #define gizclaw_rpc_v1_DoubaoRealtimeAudioInput_size 15
-#define gizclaw_rpc_v1_EinoWorkspaceParameters_size 23
-#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_size 23
+#define gizclaw_rpc_v1_EinoWorkspaceParameters_size 25
+#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_size 25
 #define gizclaw_rpc_v1_SpeechExtractRequest_size 20782
 #define gizclaw_rpc_v1_SpeechExtractResponse_size 24583
 #define gizclaw_rpc_v1_SpeechSynthesizeRequest_size 5212

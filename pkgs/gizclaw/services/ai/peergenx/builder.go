@@ -218,7 +218,7 @@ func (b DefaultBuilder) buildDashScopeRealtime(cfg TransformerConfig) (genx.Tran
 		Client:       dashscope.NewClient(apiKey, clientOptions...),
 		Model:        firstString(providerData.UpstreamModel),
 		Voice:        mapString(data, "voice", "output_voice"),
-		Instructions: mapString(data, "instructions"),
+		Instructions: fencedInstructions(data),
 		ToolInvoker:  cfg.ToolInvoker,
 		VAD:          mapString(data, "vad"),
 		ASRModel:     mapString(data, "asr_model"),
@@ -290,7 +290,7 @@ func (b DefaultBuilder) buildVolcRealtimeDuplex(cfg TransformerConfig) (genx.Tra
 		Client:       doubaospeech.NewClient(appID, clientOptions...),
 		Model:        firstString(providerData.UpstreamModel),
 		Speaker:      mapString(data, "voice", "output_voice", "speaker"),
-		Instructions: mapString(data, "instructions"),
+		Instructions: fencedInstructions(data),
 		ToolInvoker:  cfg.ToolInvoker,
 		Format:       mapString(data, "format"),
 		InputFormat:  mapString(data, "input_format"),
@@ -566,7 +566,7 @@ func (b DefaultBuilder) buildVolcRealtime(cfg TransformerConfig) (genx.Transform
 
 	client := doubaospeech.NewClient(appID, clientOpts...)
 	config := doubaorealtime.Config{Client: client, Model: modelName, Mode: mode}
-	if value := mapString(data, "instructions"); value != "" {
+	if value := fencedInstructions(data); value != "" {
 		config.Instructions = value
 	}
 	if value := mapString(data, "system_role"); value != "" {

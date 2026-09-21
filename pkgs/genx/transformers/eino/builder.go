@@ -773,7 +773,7 @@ func childRunner(node NodeDefinition, child *compiledGraph) func(context.Context
 		if err != nil {
 			return nil, nil, err
 		}
-		childState, err := newRunState(child.fields, graphInputFromNodeInputs(inputs, parent.input.ObservationID), inputs, &captureEmitter{})
+		childState, err := newRunState(child.fields, graphInputFromNodeInputs(inputs, parent.input, parent.input.ObservationID), inputs, &captureEmitter{})
 		if err != nil {
 			return nil, nil, err
 		}
@@ -786,8 +786,10 @@ func childRunner(node NodeDefinition, child *compiledGraph) func(context.Context
 	}
 }
 
-func graphInputFromNodeInputs(inputs map[string]any, observationID string) graphInput {
-	result := graphInput{ObservationID: observationID}
+// graphInputFromNodeInputs builds a child Graph input. The safety fence is a
+// run-wide host value rather than node data, so children inherit it.
+func graphInputFromNodeInputs(inputs map[string]any, parent graphInput, observationID string) graphInput {
+	result := graphInput{ObservationID: observationID, SafetyFence: parent.SafetyFence}
 	if text, ok := inputs["text"].(string); ok {
 		result.Text = text
 	}

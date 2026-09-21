@@ -1,0 +1,73 @@
+# User Story:
+# As a GizClaw Peer API consumer,
+# I want exercise the server.run.workspace.reload behavior through its real transport,
+# So that the generated RPC contract is verified end to end.
+# Fixture: token binds a Profile with assistants/flowcraft-chat-assistant and no child fence.
+version: gizclaw.test/v1alpha1
+name: server.workspace.safety-fence.missing-profile
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_FENCE_MISSING_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_workspace
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${resource_name}"
+      collection: assistants
+      workflow_name: flowcraft-chat-assistant
+      parameters:
+        flowcraft_workspace_parameters:
+          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+- id: missing_fence_reload
+  client: peer
+  rpc:
+    method: server.run.workspace.reload-with-options
+    request:
+      workspace_name: "${resource_name}"
+      parameters:
+        safety_fence_level: SAFETY_FENCE_LEVEL_CHILD
+  expect_error:
+    code: 3
+    message_contains: "has no safety_fences.child"
+finally:
+- id: cleanup_run
+  client: peer
+  rpc:
+    method: server.run.stop
+    request: {}
+- id: cleanup_workspace
+  client: peer
+  rpc:
+    method: server.workspace.delete
+    request:
+      name: "${resource_name}"
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

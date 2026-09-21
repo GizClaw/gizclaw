@@ -17,6 +17,7 @@ type PeerWorkspaceParametersSetRequest struct {
 	Input                *apitypes.WorkspaceInputMode
 	Conversation         *apitypes.ConversationParameters
 	TTSSpeechRatePercent *int
+	SafetyFenceLevel     *apitypes.SafetyFenceLevel
 }
 
 // PeerWorkspaceParametersSetErrorKind classifies errors for transport adapters.
@@ -67,7 +68,7 @@ func (s *Server) SetPeerWorkspaceParameters(ctx context.Context, request PeerWor
 		if err != nil {
 			return adminhttp.WorkspaceUpsert{}, err
 		}
-		parameters, err := workspaceParametersWithPatch(previous.Parameters, workflow.Spec.Driver, request.Input, request.Conversation, request.TTSSpeechRatePercent)
+		parameters, err := workspaceParametersWithPatch(previous.Parameters, workflow.Spec.Driver, request.Input, request.Conversation, request.TTSSpeechRatePercent, request.SafetyFenceLevel)
 		if err != nil {
 			return adminhttp.WorkspaceUpsert{}, err
 		}
@@ -104,13 +105,16 @@ func (s *Server) SetPeerWorkspaceParameters(ctx context.Context, request PeerWor
 }
 
 func validateWorkspaceParametersPatch(request PeerWorkspaceParametersSetRequest) error {
-	if request.Input == nil && request.Conversation == nil && request.TTSSpeechRatePercent == nil {
+	if request.Input == nil && request.Conversation == nil && request.TTSSpeechRatePercent == nil && request.SafetyFenceLevel == nil {
 		return errors.New("workspace: at least one parameter is required")
 	}
 	if request.Input != nil && !request.Input.Valid() {
 		return fmt.Errorf("workspace: unsupported input mode %q", *request.Input)
 	}
 	if err := apitypes.ValidateTTSSpeechRatePercent(request.TTSSpeechRatePercent); err != nil {
+		return fmt.Errorf("workspace: %w", err)
+	}
+	if err := apitypes.ValidateSafetyFenceLevel(request.SafetyFenceLevel); err != nil {
 		return fmt.Errorf("workspace: %w", err)
 	}
 	if request.Conversation == nil {
@@ -141,8 +145,9 @@ func workspaceParametersWithPatch(
 	input *apitypes.WorkspaceInputMode,
 	conversation *apitypes.ConversationParameters,
 	ttsSpeechRatePercent *int,
+	safetyFenceLevel *apitypes.SafetyFenceLevel,
 ) (*apitypes.WorkspaceParameters, error) {
-	if input == nil && conversation == nil && ttsSpeechRatePercent == nil {
+	if input == nil && conversation == nil && ttsSpeechRatePercent == nil && safetyFenceLevel == nil {
 		return nil, invalidWorkspaceReference("workspace: at least one parameter is required")
 	}
 	variant := string(driver)
@@ -166,6 +171,9 @@ func workspaceParametersWithPatch(
 		patchInput(&value.Input, input)
 		patchConversation(&value.Conversation, conversation)
 		patchRate(&value.TtsSpeechRatePercent, rate)
+		if safetyFenceLevel != nil {
+			value.SafetyFenceLevel = new(*safetyFenceLevel)
+		}
 		return updated, updated.FromEinoWorkspaceParameters(value)
 	case apitypes.WorkflowDriverFlowcraft:
 		value := apitypes.FlowcraftWorkspaceParameters{AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft}
@@ -175,6 +183,9 @@ func workspaceParametersWithPatch(
 		patchInput(&value.Input, input)
 		patchConversation(&value.Conversation, conversation)
 		patchRate(&value.TtsSpeechRatePercent, rate)
+		if safetyFenceLevel != nil {
+			value.SafetyFenceLevel = new(*safetyFenceLevel)
+		}
 		return updated, updated.FromFlowcraftWorkspaceParameters(value)
 	case apitypes.WorkflowDriverDoubaoRealtime:
 		value := apitypes.DoubaoRealtimeWorkspaceParameters{AgentType: apitypes.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime}
@@ -184,9 +195,12 @@ func workspaceParametersWithPatch(
 		patchInput(&value.Input, input)
 		patchConversation(&value.Conversation, conversation)
 		patchRate(&value.TtsSpeechRatePercent, rate)
+		if safetyFenceLevel != nil {
+			value.SafetyFenceLevel = new(*safetyFenceLevel)
+		}
 		return updated, updated.FromDoubaoRealtimeWorkspaceParameters(value)
 	case apitypes.WorkflowDriverAstTranslate:
-		if input == nil && rate == nil {
+		if input == nil && rate == nil && safetyFenceLevel == nil {
 			return parameters, nil
 		}
 		value := apitypes.ASTTranslateWorkspaceParameters{AgentType: apitypes.ASTTranslateWorkspaceParametersAgentTypeAstTranslate}
@@ -195,26 +209,35 @@ func workspaceParametersWithPatch(
 		}
 		patchInput(&value.Input, input)
 		patchRate(&value.TtsSpeechRatePercent, rate)
+		if safetyFenceLevel != nil {
+			value.SafetyFenceLevel = new(*safetyFenceLevel)
+		}
 		return updated, updated.FromASTTranslateWorkspaceParameters(value)
 	case apitypes.WorkflowDriverDashscopeRealtime:
-		if rate == nil {
+		if rate == nil && safetyFenceLevel == nil {
 			return parameters, nil
 		}
 		value := apitypes.DashScopeRealtimeWorkspaceParameters{AgentType: apitypes.DashScopeRealtimeWorkspaceParametersAgentTypeDashscopeRealtime}
 		if err := decodeWorkspaceParametersVariant(parameters, &value, apitypes.WorkspaceParameters.AsDashScopeRealtimeWorkspaceParameters); err != nil {
 			return nil, err
 		}
-		value.TtsSpeechRatePercent = rate
+		patchRate(&value.TtsSpeechRatePercent, rate)
+		if safetyFenceLevel != nil {
+			value.SafetyFenceLevel = new(*safetyFenceLevel)
+		}
 		return updated, updated.FromDashScopeRealtimeWorkspaceParameters(value)
 	case apitypes.WorkflowDriverDoubaoRealtimeDuplex:
-		if rate == nil {
+		if rate == nil && safetyFenceLevel == nil {
 			return parameters, nil
 		}
 		value := apitypes.DoubaoRealtimeDuplexWorkspaceParameters{AgentType: apitypes.DoubaoRealtimeDuplexWorkspaceParametersAgentTypeDoubaoRealtimeDuplex}
 		if err := decodeWorkspaceParametersVariant(parameters, &value, apitypes.WorkspaceParameters.AsDoubaoRealtimeDuplexWorkspaceParameters); err != nil {
 			return nil, err
 		}
-		value.TtsSpeechRatePercent = rate
+		patchRate(&value.TtsSpeechRatePercent, rate)
+		if safetyFenceLevel != nil {
+			value.SafetyFenceLevel = new(*safetyFenceLevel)
+		}
 		return updated, updated.FromDoubaoRealtimeDuplexWorkspaceParameters(value)
 	default:
 		return parameters, nil

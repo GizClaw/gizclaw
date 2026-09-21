@@ -107,7 +107,7 @@ func compileRace(
 					index:          index, started: started,
 				}
 				observationID := fmt.Sprintf("%s:race:%s", parent.input.ObservationID, node.Race.Branches[index].ID)
-				childState, childErr := newRunState(graph.fields, graphInputFromNodeInputs(inputs, observationID), inputs, capture)
+				childState, childErr := newRunState(graph.fields, graphInputFromNodeInputs(inputs, parent.input, observationID), inputs, capture)
 				if childErr == nil {
 					childErr = graph.execute(branchCtx, childState)
 				}

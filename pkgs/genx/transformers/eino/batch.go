@@ -48,7 +48,7 @@ func compileBatch(
 				inputs := map[string]any{"item": item}
 				capture := &captureEmitter{values: make(map[string]any)}
 				observationID := fmt.Sprintf("%s:batch:%d", parent.input.ObservationID, index)
-				child, childErr := newRunState(graph.fields, graphInputFromNodeInputs(inputs, observationID), inputs, capture)
+				child, childErr := newRunState(graph.fields, graphInputFromNodeInputs(inputs, parent.input, observationID), inputs, capture)
 				if childErr == nil {
 					childErr = graph.execute(batchCtx, child)
 				}

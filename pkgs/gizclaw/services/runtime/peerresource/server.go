@@ -791,6 +791,7 @@ func (s *Server) handleWorkspaceParametersSet(ctx context.Context, req *rpcapi.R
 		value := *params.Parameters.TtsSpeechRatePercent
 		patch.TTSSpeechRatePercent = &value
 	}
+	patch.SafetyFenceLevel = params.Parameters.SafetyFenceLevel
 	updated, err := parameters.SetPeerWorkspaceParameters(ownerCtx, patch)
 	if err != nil {
 		if parametersErr, ok := errors.AsType[*workspace.PeerWorkspaceParametersSetError](err); ok {

@@ -42,6 +42,11 @@
           }
         }
       },
+      "SafetyFenceLevel": {
+        "type": "string",
+        "enum": ["off", "general", "child"],
+        "description": "Safety strictness: off injects nothing; general restricts NSFW content; child adds age-appropriate constraints. GizClaw supplies no prompt text. The selected RuntimeProfile prompt is complete; child does not inherit general."
+      },
       "WorkspaceInputMode": {
         "type": "string",
         "enum": [
@@ -90,6 +95,7 @@
           "conversation": {
             "$ref": "#/components/schemas/ConversationParameters"
           },
+          "safety_fence_level": { "$ref": "#/components/schemas/SafetyFenceLevel" },
           "tts_speech_rate_percent": {
             "type": "integer",
             "minimum": 50,
@@ -148,6 +154,7 @@
           "extension": {
             "$ref": "./workflows/doubao_realtime.json#/components/schemas/DoubaoRealtimeExtension"
           },
+          "safety_fence_level": { "$ref": "#/components/schemas/SafetyFenceLevel" },
           "tts_speech_rate_percent": {
             "type": "integer",
             "minimum": 50,
@@ -202,6 +209,7 @@
               "asr_model": { "type": "string", "minLength": 1 },
               "input_audio_format": { "type": "string", "enum": ["pcm16", "mp3", "wav"] },
               "output_audio_format": { "type": "string", "enum": ["pcm16", "mp3", "wav"] },
+              "safety_fence_level": { "$ref": "#/components/schemas/SafetyFenceLevel" },
               "tts_speech_rate_percent": {
                 "type": "integer",
                 "minimum": 50,
@@ -228,6 +236,7 @@
               "input_transcode": { "type": "boolean" },
               "output_speed": { "type": "integer", "minimum": -50, "maximum": 100 },
               "output_loudness": { "type": "integer", "minimum": -50, "maximum": 100 },
+              "safety_fence_level": { "$ref": "#/components/schemas/SafetyFenceLevel" },
               "tts_speech_rate_percent": {
                 "type": "integer",
                 "minimum": 50,
@@ -249,6 +258,7 @@
           "input": {
             "$ref": "#/components/schemas/WorkspaceInputMode"
           },
+          "safety_fence_level": { "$ref": "#/components/schemas/SafetyFenceLevel" },
           "tts_speech_rate_percent": {
             "type": "integer",
             "minimum": 50,
@@ -293,6 +303,7 @@
           "denoise": {
             "type": "boolean"
           },
+          "safety_fence_level": { "$ref": "#/components/schemas/SafetyFenceLevel" },
           "tts_speech_rate_percent": {
             "type": "integer",
             "minimum": 50,

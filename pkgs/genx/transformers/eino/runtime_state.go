@@ -22,6 +22,7 @@ type graphInput struct {
 	Parts         []any
 	History       []*schema.Message
 	Memory        string
+	SafetyFence   string
 }
 
 type outputEmitter interface {
@@ -129,6 +130,8 @@ func (state *runState) binding(binding Binding) (any, error) {
 		return cloneMessages(state.input.History), nil
 	case "memory.recalled":
 		return state.input.Memory, nil
+	case "input.safety_fence":
+		return state.input.SafetyFence, nil
 	}
 	value, ok := state.values[source]
 	if !ok {

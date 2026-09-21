@@ -1,0 +1,164 @@
+# User Story:
+# As a GizClaw Peer API consumer,
+# I want persist each safety fence level and reject invalid wire enum values,
+# So that the generated RPC contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.workspace.safety-fence.roundtrip
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_workspace
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${resource_name}"
+      collection: assistants
+      workflow_name: flowcraft-chat-assistant
+      parameters:
+        flowcraft_workspace_parameters:
+          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+- id: set_general
+  client: peer
+  rpc:
+    method: server.workspace.parameters.set
+    request:
+      name: "${resource_name}"
+      parameters:
+        safety_fence_level: SAFETY_FENCE_LEVEL_GENERAL
+  expect:
+    /parameters/flowcraft_workspace_parameters/safety_fence_level:
+      equals: SAFETY_FENCE_LEVEL_GENERAL
+- id: get_general
+  client: peer
+  rpc:
+    method: server.workspace.get
+    request:
+      name: "${resource_name}"
+  expect:
+    /value/parameters/flowcraft_workspace_parameters/safety_fence_level:
+      equals: SAFETY_FENCE_LEVEL_GENERAL
+- id: set_child
+  client: peer
+  rpc:
+    method: server.workspace.parameters.set
+    request:
+      name: "${resource_name}"
+      parameters:
+        safety_fence_level: SAFETY_FENCE_LEVEL_CHILD
+  expect:
+    /parameters/flowcraft_workspace_parameters/safety_fence_level:
+      equals: SAFETY_FENCE_LEVEL_CHILD
+- id: get_child
+  client: peer
+  rpc:
+    method: server.workspace.get
+    request:
+      name: "${resource_name}"
+  expect:
+    /value/parameters/flowcraft_workspace_parameters/safety_fence_level:
+      equals: SAFETY_FENCE_LEVEL_CHILD
+- id: set_off
+  client: peer
+  rpc:
+    method: server.workspace.parameters.set
+    request:
+      name: "${resource_name}"
+      parameters:
+        safety_fence_level: SAFETY_FENCE_LEVEL_OFF
+  expect:
+    /parameters/flowcraft_workspace_parameters/safety_fence_level:
+      equals: SAFETY_FENCE_LEVEL_OFF
+- id: get_off
+  client: peer
+  rpc:
+    method: server.workspace.get
+    request:
+      name: "${resource_name}"
+  expect:
+    /value/parameters/flowcraft_workspace_parameters/safety_fence_level:
+      equals: SAFETY_FENCE_LEVEL_OFF
+- id: invalid_patch
+  client: peer
+  rpc:
+    method: server.workspace.parameters.set
+    request:
+      name: "${resource_name}"
+      parameters:
+        safety_fence_level: 99
+  expect_error:
+    code: 3
+- id: invalid_reload
+  client: peer
+  rpc:
+    method: server.run.workspace.reload-with-options
+    request:
+      workspace_name: "${resource_name}"
+      parameters:
+        safety_fence_level: 99
+  expect_error:
+    code: 3
+- id: invalid_create
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${resource_name}-invalid"
+      collection: assistants
+      workflow_name: flowcraft-chat-assistant
+      parameters:
+        flowcraft_workspace_parameters:
+          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          safety_fence_level: 99
+  expect_error:
+    code: 3
+- id: reload_off
+  client: peer
+  rpc:
+    method: server.run.workspace.reload-with-options
+    request:
+      workspace_name: "${resource_name}"
+      parameters:
+        input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+        safety_fence_level: SAFETY_FENCE_LEVEL_OFF
+finally:
+- id: cleanup_run
+  client: peer
+  rpc:
+    method: server.run.stop
+    request: {}
+- id: cleanup_workspace
+  client: peer
+  rpc:
+    method: server.workspace.delete
+    request:
+      name: "${resource_name}"
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}
