@@ -187,3 +187,49 @@ func TestListenPeerStreamReportsLeadingSilence(t *testing.T) {
 		t.Fatalf("silent listen result = %#v, want no first audio and 40ms leading silence", object)
 	}
 }
+
+// A device ends a push-to-talk turn as the last word ends, so the trimmed
+// input keeps the speech and drops both the quiet decay and the silence that
+// synthesized audio ends with. One encoder produces the whole input, as it
+// does for a real recording, because Opus decoding carries state.
+func TestTrimTrailingSilentOpusPacketsKeepsSpeechOnly(t *testing.T) {
+	encoder, err := opus.NewEncoder(16000, 1, opus.ApplicationAudio)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer encoder.Close()
+	frame := func(sample func(int) int16) []int16 {
+		samples := make([]int16, 320)
+		for i := range samples {
+			samples[i] = sample(i)
+		}
+		return samples
+	}
+	silence := frame(func(int) int16 { return 0 })
+	speech := frame(func(i int) int16 {
+		if i%32 >= 16 {
+			return -8000
+		}
+		return 8000
+	})
+	decay := frame(func(i int) int16 { return int16((i*37)%121 - 60) })
+	frames := [][]int16{silence, speech, speech, speech, decay, decay, decay, decay, silence, silence, silence, silence}
+	packets := make([][]byte, len(frames))
+	for i, samples := range frames {
+		if packets[i], err = encoder.Encode(samples, len(samples)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	trimmed, err := trimTrailingSilentOpusPackets(packets)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The packet after the last speech frame still decodes the encoder's
+	// overlap with that frame, so it is voiced too; nothing after it is.
+	if len(trimmed) < 4 || len(trimmed) > 5 {
+		t.Fatalf("trimmed to %d packets, want the speech kept and the decay and silence dropped", len(trimmed))
+	}
+	if _, err := trimTrailingSilentOpusPackets(packets[8:]); err == nil {
+		t.Fatal("accepted input without a voiced packet")
+	}
+}

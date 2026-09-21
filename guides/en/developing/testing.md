@@ -784,6 +784,14 @@ conventions:
   turn's assistant text and audio routes to close normally and carry no
   content; any assistant text or audio fails the step. Use
   `completion: input_sent` when only the delivery of the input matters.
+- `peer_stream.trim_trailing_silence: true` is valid for `push-to-talk` with
+  audio `input` only: before the turn is sent, the runner drops every Opus
+  packet after the last voiced one (decoded peak of about -30 dBFS or more),
+  so the EOS follows the last word the way a device ends a turn when the key
+  is released as the word ends. Synthesized input otherwise ends with a
+  decaying tail and silence that a device never sends. It cannot be combined
+  with `empty_input` or `overlap_input`, and input without a voiced packet
+  fails the step.
 - `peer_stream.completion: input_sent` is valid for `push-to-talk` and
   `realtime`: the step completes once the input is fully pushed (including the
   EOS for push-to-talk) without waiting for its own text or audio output and
