@@ -70,8 +70,14 @@ GizClaw 的 Volc ASR Builder 接受 `vad_segment_duration`、`end_window_size` �
 `Retryable=false`，且没有音频数据；不把
 全空失败伪装成成功。所有段都失败但已经发出部分音频时仍保留这些音频，按上述部分回复完成。
 
-Context cancellation、deadline、输入错误和下游 emit error 继续使用原有终止与清理路径，
-不会当作可跳过的 provider segment failure。其他 TTS Adapter 的失败策略不变。
+SDK 默认的 HTTP TTS 流没有整个请求的固定超时，等待 headers 和读取音频都由调用 context
+控制，不添加兜底或空闲计时器。SDK 的 `WithTimeout` 和自定义 HTTP client 仍尊重调用方
+显式选择的超时；GizClaw 的默认 Builder 不设置这些选项。非流式 HTTP 请求的 SDK 默认值不变。
+
+调用 context 的 cancellation、deadline、输入错误和下游 emit error 继续使用原有终止与清理
+路径。是否取消后续段以 `ctx.Err()` 为准：调用 context 仍有效时，上游或 HTTP client 局部的
+deadline/cancel 错误即使包装了 `context.DeadlineExceeded` 或 `context.Canceled`，也记录为
+可继续的 provider segment failure。其他 TTS Adapter 的失败策略不变。
 
 ## AST Translate 输入模式
 
