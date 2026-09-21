@@ -12,7 +12,7 @@ Docker、真实 provider 或人工判断的套件必须显式启动，不能把�
 bash tests/gizclaw-e2e/run_admission_tests.sh
 ```
 
-这个固定 lane 在临时 SQLite 状态上启动真实 Server，设置 `peer-admission: registration-token`，预置可连接的 Admin Peer 后通过 Admin HTTP 建立测试资源。它不需要 AI 凭据或 Docker，必须安装 Go、Node、protoc 与 Flutter，缺失任何 runner 都失败。Linux 需要图形会话；CI 用 `xvfb-run -a` 运行同一脚本。
+这个固定 lane 在临时 SQLite 状态上启动真实 Server，设置 `peer-admission: registration-token`，预置可连接的 Admin Peer 后通过 Admin HTTP 建立测试资源。它不需要 AI 凭据或 Docker，必须安装 Go、Node、protoc 与 Flutter，缺失任何 runner 都失败。Linux 需要图形会话、`libpulse-dev` 和运行中的 PulseAudio 音频设备，供 Flutter WebRTC 初始化。CI 启动 PulseAudio null sink，并将其 monitor 设为默认音源，再用 `xvfb-run -a` 运行同一脚本。
 
 Go、JavaScript、Flutter 和 C Giztest runner 都在初次握手中把 `registration_token` 编成 SDK 的结构化凭证，并在连接后调用 `server.register`；`reconnect` 复用公钥且不带握手凭证。测试文档可用 `clients.<name>.admission_credential: {version, type, value}` 显式替换握手凭证，value 支持变量解析，registration_token 的注册 RPC 语义不变。
 

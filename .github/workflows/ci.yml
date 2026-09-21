@@ -787,7 +787,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
             clang cmake ninja-build pkg-config libgtk-3-dev libayatana-appindicator3-dev \
-            protobuf-compiler libprotobuf-dev xvfb xauth
+            protobuf-compiler libprotobuf-dev libpulse-dev pulseaudio pulseaudio-utils xvfb xauth
+      - name: Start virtual audio device for Flutter WebRTC
+        run: |
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=gizclaw_admission
+          pactl set-default-sink gizclaw_admission
+          pactl set-default-source gizclaw_admission.monitor
       - name: Run registration-token admission across all SDKs
         run: xvfb-run -a bash tests/gizclaw-e2e/run_admission_tests.sh
 

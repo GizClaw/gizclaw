@@ -16,7 +16,7 @@ documented in [Monitor](monitor).
 bash tests/gizclaw-e2e/run_admission_tests.sh
 ```
 
-This fixed lane starts a real Server over temporary SQLite state with `peer-admission: registration-token`, provisions an administrative Peer, and creates resources through Admin HTTP. It needs no AI credentials or Docker. Go, Node, protoc, and Flutter are required; a missing runner fails. Linux requires a graphical session; CI runs the same script under `xvfb-run -a`.
+This fixed lane starts a real Server over temporary SQLite state with `peer-admission: registration-token`, provisions an administrative Peer, and creates resources through Admin HTTP. It needs no AI credentials or Docker. Go, Node, protoc, and Flutter are required; a missing runner fails. Linux requires a graphical session, `libpulse-dev`, and a running PulseAudio device for Flutter WebRTC initialization. CI starts a PulseAudio null sink, makes its monitor the default source, and runs the same script under `xvfb-run -a`.
 
 The Go, JavaScript, Flutter, and C Giztest runners encode `registration_token` as an SDK credential during initial signaling and call `server.register` after connecting. Reconnect reuses the public key without a handshake credential. Documents can override signaling with `clients.<name>.admission_credential: {version, type, value}`; value supports variables and registration_token retains its registration RPC meaning.
 
