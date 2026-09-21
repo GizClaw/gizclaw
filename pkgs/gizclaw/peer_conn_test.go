@@ -1014,12 +1014,12 @@ func TestPeerConnAudioPacerBuildsAndRecoversTargetSurplus(t *testing.T) {
 	var pacer peerConnAudioPacer
 	now := time.Unix(1, 0)
 	started := now
-	if delay := pacer.waitDuration(now); delay != 0 {
+	if delay := pacer.waitDuration(now, 0); delay != 0 {
 		t.Fatalf("first packet delay = %s, want immediate", delay)
 	}
 	recoveryIntervals := int(peerConnPacingBufferTarget / peerConnPacingMaxRecoveryPerPkt)
 	for packet := 2; packet <= recoveryIntervals+1; packet++ {
-		delay := pacer.waitDuration(now)
+		delay := pacer.waitDuration(now, 0)
 		if delay != peerConnPacingMinimumPeriod {
 			t.Fatalf("packet %d delay = %s, want %s", packet, delay, peerConnPacingMinimumPeriod)
 		}
@@ -1028,7 +1028,7 @@ func TestPeerConnAudioPacerBuildsAndRecoversTargetSurplus(t *testing.T) {
 	if surplus := time.Duration(recoveryIntervals)*peerConnOpusFrameDuration - now.Sub(started); surplus != peerConnPacingBufferTarget {
 		t.Fatalf("initial surplus = %s, want %s", surplus, peerConnPacingBufferTarget)
 	}
-	if delay := pacer.waitDuration(now); delay != peerConnPacingSteadyPeriod {
+	if delay := pacer.waitDuration(now, 0); delay != peerConnPacingSteadyPeriod {
 		t.Fatalf("steady delay = %s, want %s", delay, peerConnPacingSteadyPeriod)
 	} else {
 		now = now.Add(delay)
@@ -1036,29 +1036,33 @@ func TestPeerConnAudioPacerBuildsAndRecoversTargetSurplus(t *testing.T) {
 
 	stallInterval := 5*peerConnOpusFrameDuration + 5*time.Millisecond
 	now = now.Add(stallInterval)
-	if delay := pacer.waitDuration(now); delay != 0 {
-		t.Fatalf("late packet delay = %s, want immediate rebase", delay)
+	if delay := pacer.waitDuration(now, 0); delay != 0 {
+		t.Fatalf("late packet delay = %s, want immediate", delay)
 	}
-	recoveryAfterStall := int((stallInterval - peerConnOpusFrameDuration) / peerConnPacingMaxRecoveryPerPkt)
-	for packet := range recoveryAfterStall {
-		delay := pacer.waitDuration(now)
-		if delay != peerConnPacingMinimumPeriod {
-			t.Fatalf("recovery packet %d delay = %s, want %s", packet+1, delay, peerConnPacingMinimumPeriod)
+	// Four more deadlines are already overdue. Recover them without moving
+	// the schedule, then wait only for the next future deadline.
+	for packet := range 4 {
+		if delay := pacer.waitDuration(now, 0); delay != 0 {
+			t.Fatalf("overdue packet %d delay = %s, want immediate", packet, delay)
 		}
+	}
+	if delay := pacer.waitDuration(now, 0); delay != 15*time.Millisecond {
+		t.Fatalf("catch-up delay = %s, want 15ms", delay)
+	} else {
 		now = now.Add(delay)
 	}
-	if delay := pacer.waitDuration(now); delay != peerConnPacingSteadyPeriod {
+	if delay := pacer.waitDuration(now, 0); delay != peerConnPacingSteadyPeriod {
 		t.Fatalf("recovered delay = %s, want steady %s", delay, peerConnPacingSteadyPeriod)
 	} else {
 		now = now.Add(delay)
 	}
 
 	now = now.Add(peerConnOpusFrameDuration + time.Millisecond)
-	if delay := pacer.waitDuration(now); delay != 0 {
-		t.Fatalf("small late packet delay = %s, want immediate rebase", delay)
+	if delay := pacer.waitDuration(now, 0); delay != 0 {
+		t.Fatalf("small late packet delay = %s, want immediate", delay)
 	}
 	wantPartialRecovery := peerConnPacingSteadyPeriod - time.Millisecond
-	if delay := pacer.waitDuration(now); delay != wantPartialRecovery {
+	if delay := pacer.waitDuration(now, 0); delay != wantPartialRecovery {
 		t.Fatalf("partial recovery delay = %s, want %s", delay, wantPartialRecovery)
 	}
 }
@@ -1072,7 +1076,7 @@ func TestPeerConnAudioPacerMaintainsTargetAcrossRepeatedStalls(t *testing.T) {
 		if packet > 0 && packet%25 == 0 {
 			now = now.Add(peerConnPacingSteadyPeriod + time.Millisecond)
 		}
-		now = now.Add(pacer.waitDuration(now))
+		now = now.Add(pacer.waitDuration(now, 0))
 		targetSpan := time.Duration(packet) * peerConnOpusFrameDuration
 		surplus := targetSpan - now.Sub(started)
 		if surplus > peerConnPacingBufferTarget {
@@ -1082,6 +1086,37 @@ func TestPeerConnAudioPacerMaintainsTargetAcrossRepeatedStalls(t *testing.T) {
 	targetSpan := time.Duration(packetCount-1) * peerConnOpusFrameDuration
 	if surplus := targetSpan - now.Sub(started); surplus != peerConnPacingBufferTarget {
 		t.Fatalf("final surplus = %s, want recovered %s", surplus, peerConnPacingBufferTarget)
+	}
+}
+
+func TestPeerConnAudioPacerRecoversDebtAfterBufferExhaustion(t *testing.T) {
+	for _, stall := range []time.Duration{120 * time.Millisecond, time.Second} {
+		t.Run(stall.String(), func(t *testing.T) {
+			var pacer peerConnAudioPacer
+			now := time.Unix(1, 0)
+			started := now
+			for packet := range 3000 {
+				if packet >= 200 && packet < 240 && packet%2 == 0 {
+					now = now.Add(stall)
+				}
+				delay := pacer.waitDuration(now, 0)
+				if delay < 0 || delay > peerConnPacingSteadyPeriod {
+					t.Fatalf("packet %d delay = %s", packet, delay)
+				}
+				now = now.Add(delay)
+				surplus := time.Duration(packet)*peerConnOpusFrameDuration - now.Sub(started)
+				if surplus > peerConnPacingBufferTarget {
+					t.Fatalf("packet %d surplus = %s exceeds target", packet, surplus)
+				}
+				if packet == 239 && surplus >= 0 {
+					t.Fatalf("stall workload did not exhaust the buffer: %s", surplus)
+				}
+			}
+			surplus := 2999*peerConnOpusFrameDuration - now.Sub(started)
+			if surplus != peerConnPacingBufferTarget {
+				t.Fatalf("final surplus = %s, want %s", surplus, peerConnPacingBufferTarget)
+			}
+		})
 	}
 }
 
@@ -1096,7 +1131,7 @@ func TestPeerConnAudioPacerDoesNotChargeIdleTimeBetweenTurns(t *testing.T) {
 	playTurn := func(packets int) time.Duration {
 		started := now
 		for range packets {
-			now = now.Add(pacer.waitDuration(now))
+			now = now.Add(pacer.waitDuration(now, 0))
 		}
 		return time.Duration(packets-1)*peerConnOpusFrameDuration - now.Sub(started)
 	}
@@ -1106,8 +1141,8 @@ func TestPeerConnAudioPacerDoesNotChargeIdleTimeBetweenTurns(t *testing.T) {
 	}
 	// The peer speaks and the agent thinks; no audio is mixed meanwhile.
 	now = now.Add(8 * time.Second)
-	if delay := pacer.waitDuration(now); delay != 0 {
-		t.Fatalf("first packet after idle delay = %s, want immediate rebase", delay)
+	if delay := pacer.waitDuration(now, 8*time.Second); delay != 0 {
+		t.Fatalf("first packet after idle delay = %s, want immediate", delay)
 	}
 	surplus := playTurn(600)
 	if surplus > peerConnPacingBufferTarget {
