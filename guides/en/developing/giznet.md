@@ -296,28 +296,37 @@ These contents belong to `pkgs/gizclaw`, `pkgs/gizedge`, `cmd/internal/server` o
 
 ## Signaling admission credentials
 
-`DialConfig.Credential` carries optional opaque bytes, limited to 4096 bytes. Giznet transports
-these bytes without assigning application meaning. Empty credentials retain bare SDP; nonempty
-credentials use this plaintext inside the existing AEAD envelope:
+`DialConfig.Credential` accepts an optional `*giznetpb.AdmissionCredential`, defined in
+`api/proto/giznet/admission.proto` and generated into `pkgs/giznet/giznetpb`. Its three explicit
+fields are `uint32 version = 1`, `string type = 2`, and `string value = 3`. The current credential
+version is 1, independent of the GZOF envelope version. Giznet decodes the structure without
+interpreting version, type, or the opaque value; the injected policy owns their meaning.
+
+`type` is limited to 128 UTF-8 bytes and `value` to 4096 UTF-8 bytes. The complete protobuf
+encoding must also fit in 4096 bytes, so the usable value length depends on other fields and
+encoding overhead. Each SDK checks these bounds before sending. An omitted credential sends
+bare SDP; a supplied structure with an empty encoding is rejected instead of becoming absent.
+With a credential, the plaintext inside AEAD is:
 
 | Field | Size | Encoding |
 | --- | --- | --- |
 | Magic | 4 bytes | ASCII `GZOF` |
-| Version | 1 byte | `1` |
+| Envelope version | 1 byte | `1` |
 | Credential length | 2 bytes | Unsigned big-endian |
-| Credential | 0–4096 bytes | Opaque raw bytes |
+| Credential | 0–4096 bytes | `giznet.v1.AdmissionCredential` protobuf |
 | SDP | Remaining bytes | UTF-8 |
 
-Plaintext without the magic is interpreted entirely as legacy SDP with an empty credential.
-Recognized magic with an unknown version, truncated header/credential, or oversized credential
-returns HTTP 400 `invalid_credential`, without falling back to SDP. The existing 256 KiB body
+Plaintext without the magic remains legacy SDP with no credential; a zero-length credential
+inside GZOF is also absent. Recognized magic with an unknown envelope version, truncation,
+oversized encoding, protobuf decoding failure, or excessive string length returns HTTP 400
+`invalid_credential` before policy evaluation, without falling back to SDP. The 256 KiB body
 limit remains. Answers remain encrypted bare SDP; headers, AAD, and key derivation are unchanged.
-Nonempty credentials are rejected in `CipherModePlaintext`; they must stay inside AEAD and
-must never be put in headers, URLs, or logs.
+Nonempty credentials cannot use `CipherModePlaintext` or appear in headers, URLs, or logs.
 
 `SecurityPolicy.AllowPeer(context.Context, PeerAdmission)` receives the actual HTTP request
-context, authenticated public key, and credential before PeerConnection creation. The slice is
-borrowed only for the call and must not be retained. Rejection returns HTTP 403 `peer_forbidden`.
-Giznet does not attach credentials to Conn or persist state. ECDH/AEAD proves possession of the
-claimed private key; the injected policy decides admission. A nil policy admits by default.
-Custom Go policies must implement the context/PeerAdmission signature.
+context, authenticated public key, and decoded `Credential` before PeerConnection creation.
+The field is nil when absent. The message is borrowed read-only for the call and must not be
+retained. Policy rejection returns HTTP 403 `peer_forbidden`. Giznet neither attaches credentials
+to Conn nor persists state. AEAD proves key possession; the policy decides admission, with a
+nil policy admitting by default. GizClaw registration-token semantics belong to
+[Security Policy](./gizclaw/server/security-policy); its SDK helpers are outside Giznet.

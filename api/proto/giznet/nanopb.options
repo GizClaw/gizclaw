@@ -1,0 +1,2 @@
+giznet.v1.AdmissionCredential.type max_length:128
+giznet.v1.AdmissionCredential.value max_length:4096

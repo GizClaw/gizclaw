@@ -90,10 +90,14 @@ try {
 
 ## 设备握手准入
 
-`connectGiznetWebRTCFromEndpoint({ ..., credential })` 接收可选 `Uint8Array`；低层
-`prepareEncryptedGiznetWebRTCOffer(identity, offerSDP, credential)` 同样支持。最多
-4096 bytes，仅放在加密信封内；省略或空数组继续发送裸 SDP。若 Server 启用了
-registration-token policy，调用方可用 `new TextEncoder().encode(registrationToken)`
-提供凭证。SDK 不解释其内容，握手通过后仍需按原流程调用 `server.register`。
-超过上限的凭证在请求 server-info 或创建 offer 之前被拒绝，并关闭此次连接使用的 PeerConnection。
-此设置及旧设备的影响见 [Security Policy](../../developing/gizclaw/server/security-policy)。
+`connectGiznetWebRTCFromEndpoint({ ..., credential })` 与低层
+`prepareEncryptedGiznetWebRTCOffer(identity, offerSDP, credential)` 接收
+`AdmissionCredential` 对象：`{ version, type, value }`。SDK 使用生成的 protobuf-es codec
+编码后放入 AEAD 信封；giznet transport 不解释字段含义。省略 credential 保留裸 SDP。
+字段与总编码长度上限见 [Giznet](../../developing/giznet#signaling-准入凭证)。
+
+GizClaw package 导出 `registrationTokenCredential(registrationToken)`，生成
+`{ version: 1, type: "registration_token", value: registrationToken }`；可直接作为
+connection options 的 `credential`。握手通过后仍需调用 `server.register` 完成产品绑定。
+超限或空编码结构在请求 server-info 或创建 offer 之前被拒绝，并关闭此次 PeerConnection。
+运营方配置见 [Security Policy](../../developing/gizclaw/server/security-policy)。

@@ -8,6 +8,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznetpb"
 )
 
 func testServerSecurityPolicy(peers *peer.Server) *ServerSecurityPolicy {
@@ -109,7 +110,7 @@ func (p *admissionForwardingPolicy) AllowPeer(ctx context.Context, admission giz
 func (*admissionForwardingPolicy) AllowService(giznet.PublicKey, uint64) bool { return false }
 
 func TestServerSecurityPolicyForwardsAdmission(t *testing.T) {
-	admission := giznet.PeerAdmission{PublicKey: giznet.PublicKey{1}, Credential: []byte("opaque")}
+	admission := giznet.PeerAdmission{PublicKey: giznet.PublicKey{1}, Credential: &giznetpb.AdmissionCredential{Version: 1, Type: "custom", Value: "opaque"}}
 	if (*ServerSecurityPolicy)(nil).AllowPeer(t.Context(), admission) {
 		t.Fatal("nil Server admitted")
 	}
@@ -124,7 +125,7 @@ func TestServerSecurityPolicyForwardsAdmission(t *testing.T) {
 	defer cancel()
 	for _, want := range []bool{false, true} {
 		injected.result = want
-		if policy.AllowPeer(ctx, admission) != want || injected.ctx != ctx || injected.admission.PublicKey != admission.PublicKey || string(injected.admission.Credential) != "opaque" {
+		if policy.AllowPeer(ctx, admission) != want || injected.ctx != ctx || injected.admission.PublicKey != admission.PublicKey || injected.admission.Credential != admission.Credential {
 			t.Fatal("admission was not delegated intact")
 		}
 	}

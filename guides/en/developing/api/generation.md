@@ -6,11 +6,14 @@ API changes must start from the source schema of the root `api/`. Direct modific
 
 | Source | Main Output | Commands |
 | --- | --- | --- |
+| `api/proto/giznet/admission.proto` | Go Giznet protobuf | `go generate ./pkgs/giznet/giznetpb` |
+| `api/proto/giznet/admission.proto` | JavaScript protobuf-es | `npm --prefix sdk/js/gizclaw run generate:admission` |
+| `api/proto/giznet/admission.proto` | Dart protobuf | `cd sdk/flutter/gizclaw && dart run tool/generate_admission.dart` |
 | HTTP OpenAPI + shared schemas | Go HTTP server/client/models | `go generate ./pkgs/gizclaw/api/adminhttp ./pkgs/gizclaw/api/apitypes ./pkgs/gizclaw/api/peerhttp` |
 | `api/proto/rpc/**/*.proto` | Go Protobuf | `go generate ./pkgs/gizclaw/api/rpcproto` |
 | RPC descriptors/wrappers | Manually maintained `rpcapi` committed surface | `go test ./pkgs/gizclaw/api/rpcapi` (currently `go generate` only performs this verification and will not regenerate the file) |
-| HTTP + RPC schemas | JavaScript SDK | `npm --prefix sdk/js run gen:sdk` |
-| RPC Protobuf | C nanopb SDK | `go generate ./sdk/c/gizclaw` |
+| HTTP + RPC + Giznet schemas | JavaScript SDK | `npm --prefix sdk/js run gen:sdk` |
+| RPC + Events + Giznet Protobuf | C nanopb SDK | `go generate ./sdk/c/gizclaw` |
 | Telemetry Protobuf | Go/JavaScript telemetry | `go generate ./pkgs/gizclaw/api/telemetry` and `npm --prefix sdk/js run gen:telemetry` |
 
 The standalone C SDK release archive copies the committed nanopb output after this generation check. Packaging does not run a second generator or treat the archive as another protocol source. The archive also copies the nanopb runtime at the exact submodule gitlink of the selected GizClaw commit.
@@ -18,7 +21,7 @@ The standalone C SDK release archive copies the committed nanopb output after th
 The full Go API is available:
 
 ```sh
-go generate ./pkgs/gizclaw/api/...
+go generate ./pkgs/gizclaw/api/... ./pkgs/giznet/giznetpb
 ```
 
 The `api` Go package embeds the complete repository-owned `api/http` and `api/proto` source trees. Runtime contract consumers, including offline Resource validation, read those original definitions from the embedded filesystem instead of committing another resolved schema copy. `pkgs/gizclaw/api/apitypes/types_resolved.json` remains an ignored intermediate used only to generate `apitypes/generated.go`. Refresh the generated Go output with `go generate ./pkgs/gizclaw/api/apitypes`; a clean generation followed by `git diff --exit-code -- pkgs/gizclaw/api/apitypes/generated.go` verifies freshness.
@@ -59,3 +62,5 @@ If a large number of irrelevant diffs appear after building, check tool version,
 - The repository's handwritten code and the repository's own generator directly use the package to which the type belongs, and do not add cross-package alias that are only used for renaming or re-export.
 
 Monitor OpenAPI (`api/http/monitor.json`) generates the strict Go server/client/models in `pkgs/monitor/api/generated.go` through `go generate ./pkgs/monitor/api`. The configuration lives in `pkgs/monitor/api/codegen_config.yaml`. `npm --prefix sdk/js run gen:sdk` uses `sdk/js/openapi-ts.config.ts` to generate the console client in `sdk/js/gizclaw-control/generated/monitor/`. These committed outputs belong to the Monitor surface and are consumed by `pkgs/monitor/monitor.go` and `web/console/src/lib/api.ts`; the `@gizclaw/gizclaw-control` package exports the Node Monitor client. Peer monitor methods reuse the generated Peer HTTP contract through the control SDK.
+
+Giznet credentials use `protoc-gen-go`, `@bufbuild/protobuf` / `protoc-gen-es`, Dart `protobuf` / `protoc_plugin`, and nanopb 0.4.9.1 pinned at `third_party/nanopb/upstream`. `nanopb.options` bounds strings; transport separately enforces the 4096-byte encoded limit. Commit all generated output with its source schema.

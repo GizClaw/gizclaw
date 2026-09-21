@@ -93,12 +93,16 @@ try {
 
 ## Device handshake admission
 
-`connectGiznetWebRTCFromEndpoint({ ..., credential })` accepts an optional `Uint8Array`;
-the lower-level `prepareEncryptedGiznetWebRTCOffer(identity, offerSDP, credential)` does too.
-Up to 4096 bytes are sealed inside the encrypted envelope. Omission or an empty array preserves
-bare SDP. For Server registration-token admission, callers can supply
-`new TextEncoder().encode(registrationToken)`. The SDK does not interpret it; callers must still
-invoke `server.register` after connecting. Oversized credentials are rejected before fetching
-server-info or creating an offer, and close the PeerConnection supplied for this attempt.
-See [Security Policy](../../developing/gizclaw/server/security-policy)
-for operator settings and legacy-device behavior.
+`connectGiznetWebRTCFromEndpoint({ ..., credential })` and
+`prepareEncryptedGiznetWebRTCOffer(identity, offerSDP, credential)` accept an
+`AdmissionCredential` object with `{ version, type, value }`. The SDK uses the generated
+protobuf-es codec and seals the result inside AEAD; Giznet does not interpret the fields.
+Omission preserves bare SDP. Field and encoded-size limits are defined by
+[Giznet](../../developing/giznet#signaling-admission-credentials).
+
+The GizClaw package exports `registrationTokenCredential(registrationToken)`, returning
+`{ version: 1, type: "registration_token", value: registrationToken }` for the connection options.
+Callers must still invoke `server.register` after connecting to bind product resources.
+Oversized or empty-encoding structures are rejected before discovery or offer creation,
+closing the supplied PeerConnection. Operator settings are described in
+[Security Policy](../../developing/gizclaw/server/security-policy).

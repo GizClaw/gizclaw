@@ -18,6 +18,9 @@ api/
 │   ├── shared/                 # cross-surface or cross-domain DTOs
 │   └── resources/              # Resource, owned Spec, and Resource aggregation definitions
 └── proto/
+    ├── giznet/
+    │   ├── admission.proto     # Giznet admission credential
+    │   └── nanopb.options      # bounded C strings
     ├── rpc/
     │   ├── rpc.proto           # request, response, error, stream, and method registry
     │   ├── nanopb.options      # C/nanopb generation configuration

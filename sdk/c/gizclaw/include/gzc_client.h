@@ -117,12 +117,15 @@ int gzc_client_discard_opus_rx(gzc_client_t *client);
 int gzc_client_set_webrtc_media(
     gzc_client_t *client,
     const gzc_webrtc_media_vtable_t *media);
-/* Copies at most GZC_SIGNALING_MAX_CREDENTIAL_BYTES for subsequent connect.
- * Call before connect on the client owner thread; NULL/0 clears the credential.
+/* Constructs a GizClaw registration-token credential; rejects an oversized
+ * token or embedded NUL. out is only written on success. */
+int gzc_registration_token_credential(gzc_str_t token, giznet_v1_AdmissionCredential *out);
+/* Copies a structured credential after checking the encoded 4096-byte limit.
+ * Call before connect on the client owner thread; NULL clears the credential.
  * The client owns the copy until replacement or destroy. Existing structs and
- * connect signatures retain their ABI. Nonempty credentials require AEAD. */
+ * connect signatures retain their ABI. Non-NULL credentials require AEAD. */
 int gzc_client_set_admission_credential(
-    gzc_client_t *client, const uint8_t *credential, size_t credential_len);
+    gzc_client_t *client, const giznet_v1_AdmissionCredential *credential);
 int gzc_client_connect(gzc_client_t *client);
 /*
  * Drives queued WebRTC callbacks and inbound RPC work on the caller's thread.

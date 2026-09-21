@@ -6,9 +6,12 @@ import { hkdf } from "@noble/hashes/hkdf.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import {
   base58Decode,
+  encodeAdmissionCredential,
   prepareEncryptedGiznetWebRTCOffer,
   GIZNET_MAX_CREDENTIAL_BYTES,
 } from "./signaling.ts";
+
+import { registrationTokenCredential } from "./index.ts";
 
 const clientPrivateKey = new Uint8Array(32).fill(1);
 const serverPrivateKey = new Uint8Array(32).fill(2);
@@ -20,9 +23,8 @@ const identity = {
 test("encrypted offer carries the shared admission vector and keeps legacy SDP", async () => {
   for (const credential of [
     undefined,
-    new Uint8Array(),
-    new Uint8Array([0, 255, 1]),
-    new Uint8Array(GIZNET_MAX_CREDENTIAL_BYTES).fill(9),
+    registrationTokenCredential("token"),
+    { version: 1, type: "x", value: "x".repeat(4088) },
   ]) {
     const prepared = await prepareEncryptedGiznetWebRTCOffer(
       identity,
@@ -56,19 +58,22 @@ test("encrypted offer carries the shared admission vector and keeps legacy SDP",
     );
     const encrypted = new Uint8Array(await prepared.body.arrayBuffer());
     const plain = chacha20poly1305(key, nonce, aad).decrypt(encrypted);
-    if ((credential?.length ?? 0) === 0) {
+    if (credential == null) {
       assert.equal(new TextDecoder().decode(plain), "v=0\r\n");
-    } else if (credential?.length === 3) {
+    } else if (credential.value === "token") {
       assert.equal(
         Buffer.from(plain).toString("hex"),
-        "475a4f4601000300ff01763d300d0a",
+        "475a4f4601001d08011212726567697374726174696f6e5f746f6b656e1a05746f6b656e763d300d0a",
       );
     } else {
       assert.equal(
         new DataView(plain.buffer, plain.byteOffset).getUint16(5),
         GIZNET_MAX_CREDENTIAL_BYTES,
       );
-      assert.deepEqual(plain.slice(7, -5), credential);
+      assert.deepEqual(
+        plain.slice(7, -5),
+        encodeAdmissionCredential(credential),
+      );
     }
     encrypted[8] ^= 1;
     assert.throws(() => chacha20poly1305(key, nonce, aad).decrypt(encrypted));
@@ -80,8 +85,38 @@ test("oversized credential is rejected without including its contents", async ()
     prepareEncryptedGiznetWebRTCOffer(
       identity,
       "v=0",
-      new Uint8Array(GIZNET_MAX_CREDENTIAL_BYTES + 1),
+      registrationTokenCredential("x".repeat(GIZNET_MAX_CREDENTIAL_BYTES + 1)),
     ),
     /invalid admission credential length/,
   );
+});
+
+test("generated credential encodings match Go, Dart and nanopb", () => {
+  for (const [credential, hex] of [
+    [
+      registrationTokenCredential("token"),
+      "08011212726567697374726174696f6e5f746f6b656e1a05746f6b656e",
+    ],
+    [
+      { version: 2, type: "custom", value: "令牌" },
+      "08021206637573746f6d1a06e4bba4e7898c",
+    ],
+    [{ version: 0, type: "x", value: "" }, "120178"],
+  ] as const) {
+    assert.equal(
+      Buffer.from(encodeAdmissionCredential(credential)!).toString("hex"),
+      hex,
+    );
+  }
+  for (const credential of [
+    { version: 0, type: "", value: "" },
+    { version: 1, type: "x", value: "x".repeat(4089) },
+    { version: 1, type: "x".repeat(129), value: "" },
+    { version: 1, type: "令".repeat(43), value: "" },
+  ]) {
+    assert.throws(
+      () => encodeAdmissionCredential(credential),
+      /invalid admission credential length/,
+    );
+  }
 });

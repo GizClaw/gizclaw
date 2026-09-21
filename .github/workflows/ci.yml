@@ -332,6 +332,7 @@ jobs:
           sdk/c/gizclaw/src/*.c
           sdk/c/gizclaw/generated/*.pb.c
           sdk/c/gizclaw/generated/events/*.pb.c
+          sdk/c/gizclaw/generated/giznet/*.pb.c
           sdk/c/gizclaw/generated/google/protobuf/*.pb.c
           sdk/c/gizclaw/generated/payload/*.pb.c
           third_party/nanopb/upstream/pb_common.c
@@ -354,6 +355,7 @@ jobs:
           sdk/c/gizclaw/src/*.c
           sdk/c/gizclaw/generated/*.pb.c
           sdk/c/gizclaw/generated/events/*.pb.c
+          sdk/c/gizclaw/generated/giznet/*.pb.c
           sdk/c/gizclaw/generated/google/protobuf/*.pb.c
           sdk/c/gizclaw/generated/payload/*.pb.c
           third_party/nanopb/upstream/pb_common.c

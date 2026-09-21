@@ -97,10 +97,15 @@ try {
 
 ## Device handshake admission
 
-`prepareEncryptedGiznetWebRtcOffer(identity, offerSdp, credential: bytes)` accepts an optional
-`Uint8List` up to 4096 bytes, sent only inside AEAD. Omission or empty bytes preserves bare SDP.
-Pass it from `connectFlutterGiznetWebRtc`'s `prepareOffer` callback. For registration-token
-admission use `Uint8List.fromList(utf8.encode(registrationToken))`, then still call
-`client.register(registrationToken)` after connecting. The SDK treats credentials as opaque;
-oversized input throws `ArgumentError`. See [Security Policy](../../developing/gizclaw/server/security-policy)
-for operator settings and legacy-device compatibility.
+`prepareEncryptedGiznetWebRtcOffer(identity, offerSdp, credential: credential)` accepts the
+optional generated `AdmissionCredential(version: ..., type: ..., value: ...)` type. Both this
+type and `registrationTokenCredential(registrationToken)` are exported from
+`package:gizclaw/gizclaw.dart`. The helper sets version 1, type `'registration_token'`, and the
+original token value. GizClaw owns the business type; transport only protobuf-encodes and seals it.
+
+Omission or null preserves bare SDP. Pass the structure from `connectFlutterGiznetWebRtc`'s
+`prepareOffer` callback and still call `client.register(registrationToken)` after connecting.
+Oversized or empty-encoding structures throw `ArgumentError`. Explicit Dart defaults are cleared
+on a copy to match Go/JS/C bytes, leaving the caller's message unchanged. See
+[Giznet](../../developing/giznet#signaling-admission-credentials) for field and encoding limits and
+[Security Policy](../../developing/gizclaw/server/security-policy) for operator settings.

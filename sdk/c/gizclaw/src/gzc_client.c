@@ -1534,17 +1534,40 @@ int gzc_client_set_peer_add_ice_server(gzc_client_t *client, gzc_peer_add_ice_se
   return GZC_OK;
 }
 
-int gzc_client_set_admission_credential(
-    gzc_client_t *client, const uint8_t *credential, size_t credential_len) {
-  if (client == NULL || client->closed || client->peer != NULL ||
-      credential_len > GZC_SIGNALING_MAX_CREDENTIAL_BYTES ||
-      (credential == NULL && credential_len != 0u) ||
-      (credential_len != 0u && client->config.cipher_mode == GZC_CIPHER_PLAINTEXT)) {
+int gzc_registration_token_credential(gzc_str_t token, giznet_v1_AdmissionCredential *out) {
+  if (out == NULL || (token.data == NULL && token.len != 0u) ||
+      token.len >= sizeof(out->value) ||
+      (token.len != 0u && memchr(token.data, '\0', token.len) != NULL)) {
     return GZC_ERR_INVALID_ARGUMENT;
+  }
+  giznet_v1_AdmissionCredential credential = giznet_v1_AdmissionCredential_init_zero;
+  credential.version = 1;
+  strcpy(credential.type, "registration_token");
+  if (token.len != 0u) {
+    memcpy(credential.value, token.data, token.len);
+  }
+  size_t encoded_len = 0;
+  int rc = gzc_signaling_encode_admission_credential(&credential, NULL, 0, &encoded_len);
+  if (rc == GZC_OK) {
+    *out = credential;
+  }
+  return rc;
+}
+
+int gzc_client_set_admission_credential(
+    gzc_client_t *client, const giznet_v1_AdmissionCredential *credential) {
+  if (client == NULL || client->closed || client->peer != NULL ||
+      (credential != NULL && client->config.cipher_mode == GZC_CIPHER_PLAINTEXT)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  size_t encoded_len = 0;
+  int rc = gzc_signaling_encode_admission_credential(credential, NULL, 0, &encoded_len);
+  if (rc != GZC_OK) {
+    return rc;
   }
   gzc_buf_t replacement;
   gzc_buf_init(&replacement);
-  int rc = credential_len == 0u ? GZC_OK : gzc_buf_append(&replacement, client->config.platform, credential, credential_len);
+  rc = credential == NULL ? GZC_OK : gzc_buf_append(&replacement, client->config.platform, credential, sizeof(*credential));
   if (rc != GZC_OK) {
     gzc_buf_free(&replacement, client->config.platform);
     return rc;
@@ -1687,8 +1710,7 @@ int gzc_client_connect(gzc_client_t *client) {
   rc = gzc_signaling_build_offer_request_with_credential(
       &signaling,
       gzc_str_from_parts((const char *)client->local_sdp.data, client->local_sdp.len),
-      client->admission_credential.data,
-      client->admission_credential.len,
+      (const giznet_v1_AdmissionCredential *)client->admission_credential.data,
       &exchange,
       &request);
   if (rc != GZC_OK) {

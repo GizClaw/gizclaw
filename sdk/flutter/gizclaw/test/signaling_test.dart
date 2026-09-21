@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
-import 'package:gizclaw/src/signaling.dart';
+import 'package:gizclaw/gizclaw.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -269,11 +269,10 @@ void admissionTests() {
       clientPrivateKey: List<int>.filled(32, 1),
       serverPublicKey: serverPublicKey.bytes,
     );
-    for (final credential in <Uint8List?>[
+    for (final credential in <AdmissionCredential?>[
       null,
-      Uint8List(0),
-      Uint8List.fromList([0, 255, 1]),
-      Uint8List(4096),
+      registrationTokenCredential('token'),
+      AdmissionCredential(version: 1, type: 'x', value: 'x' * 4088),
     ]) {
       final prepared = await prepareEncryptedGiznetWebRtcOffer(
         identity,
@@ -315,25 +314,55 @@ void admissionTests() {
           prepared.nonce,
         ),
       );
-      if (credential == null || credential.isEmpty) {
+      if (credential == null) {
         expect(utf8.decode(plain), 'v=0\r\n');
-      } else if (credential.length == 3) {
+      } else if (credential.value == 'token') {
         expect(
           plain.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join(),
-          '475a4f4601000300ff01763d300d0a',
+          '475a4f4601001d08011212726567697374726174696f6e5f746f6b656e1a05746f6b656e763d300d0a',
         );
       } else {
         expect(plain.sublist(0, 7), [0x47, 0x5a, 0x4f, 0x46, 1, 16, 0]);
-        expect(plain.sublist(7, 4103), credential);
+        expect(plain.sublist(7, 4103), encodeAdmissionCredential(credential));
       }
     }
     await expectLater(
       prepareEncryptedGiznetWebRtcOffer(
         identity,
         'v=0',
-        credential: Uint8List(4097),
+        credential: registrationTokenCredential('x' * 4097),
       ),
       throwsArgumentError,
     );
+  });
+  test('generated credential encodings match Go, JS and nanopb', () {
+    final vectors = [
+      (
+        registrationTokenCredential('token'),
+        '08011212726567697374726174696f6e5f746f6b656e1a05746f6b656e',
+      ),
+      (
+        AdmissionCredential(version: 2, type: 'custom', value: '令牌'),
+        '08021206637573746f6d1a06e4bba4e7898c',
+      ),
+      (AdmissionCredential(version: 0, type: 'x', value: ''), '120178'),
+    ];
+    for (final (credential, hex) in vectors) {
+      expect(
+        encodeAdmissionCredential(
+          credential,
+        )!.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join(),
+        hex,
+      );
+    }
+    for (final credential in [
+      AdmissionCredential(),
+      AdmissionCredential(version: 0, type: '', value: ''),
+      AdmissionCredential(version: 1, type: 'x', value: 'x' * 4089),
+      AdmissionCredential(version: 1, type: 'x' * 129),
+      AdmissionCredential(version: 1, type: '令' * 43),
+    ]) {
+      expect(() => encodeAdmissionCredential(credential), throwsArgumentError);
+    }
   });
 }

@@ -1,3 +1,4 @@
+import { registrationTokenCredential } from "./index.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
@@ -4416,7 +4417,7 @@ test("endpoint connection rejects oversized admission credentials before discove
       pc: pc as unknown as RTCPeerConnection,
       endpoint: "https://example.invalid",
       clientPrivateKey: new Uint8Array(32).fill(1),
-      credential: new Uint8Array(4097),
+      credential: registrationTokenCredential("x".repeat(4097)),
       fetch: async () => {
         requests += 1;
         return new Response(
@@ -4446,7 +4447,7 @@ test("endpoint connection seals optional admission credentials in the offer", as
       pc: pc as unknown as RTCPeerConnection,
       endpoint: "https://example.invalid",
       clientPrivateKey: new Uint8Array(32).fill(1),
-      credential: new Uint8Array([0, 255, 1]),
+      credential: registrationTokenCredential("token"),
       fetch: async (input, init) => {
         requests += 1;
         const request = new Request(input, init);
@@ -4477,11 +4478,9 @@ test("endpoint connection seals optional admission credentials in the offer", as
           derive("giznet/gizwebrtc/http-signaling/v1 c2s nonce", 12),
           aad,
         ).decrypt(new Uint8Array(await request.arrayBuffer()));
-        assert.deepEqual(
-          plaintext,
-          new Uint8Array([
-            0x47, 0x5a, 0x4f, 0x46, 1, 0, 3, 0, 255, 1, 118, 61, 48,
-          ]),
+        assert.equal(
+          Buffer.from(plaintext).toString("hex"),
+          "475a4f4601001d08011212726567697374726174696f6e5f746f6b656e1a05746f6b656e763d30",
         );
         throw new Error("offer verified");
       },

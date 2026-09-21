@@ -1,13 +1,17 @@
 package giznet
 
-import "context"
+import (
+	"context"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznetpb"
+)
 
 // PeerAdmission contains the authenticated transport identity and an optional
-// opaque credential. Credential is borrowed for the duration of AllowPeer;
-// policies must not retain it. The transport assigns no meaning to its bytes.
+// structured credential. Credential is nil when absent and borrowed read-only
+// for AllowPeer; policies must not retain it. Only policies interpret its fields.
 type PeerAdmission struct {
 	PublicKey  PublicKey
-	Credential []byte
+	Credential *giznetpb.AdmissionCredential
 }
 
 // SecurityPolicy controls connection admission and service authorization.

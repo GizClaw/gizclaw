@@ -1,9 +1,21 @@
+import { create, toBinary } from "@bufbuild/protobuf";
+import {
+  AdmissionCredentialSchema,
+  type AdmissionCredential as AdmissionCredentialMessage,
+} from "./generated/giznet/admission_pb.js";
+
 import { chacha20poly1305 } from "@noble/ciphers/chacha.js";
 import { x25519 } from "@noble/curves/ed25519.js";
 import { hkdf } from "@noble/hashes/hkdf.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 
-/** Maximum opaque credential bytes inside an encrypted offer. */
+/** Structured Giznet credential; only the receiving policy interprets fields. */
+export type AdmissionCredential = Pick<
+  AdmissionCredentialMessage,
+  "version" | "type" | "value"
+>;
+
+/** Maximum encoded protobuf credential bytes inside an encrypted offer. */
 export const GIZNET_MAX_CREDENTIAL_BYTES = 4096;
 
 const signalingPath = "/webrtc/v1/offer";
@@ -30,14 +42,12 @@ export type PreparedGiznetWebRTCOffer = {
 export async function prepareEncryptedGiznetWebRTCOffer(
   identity: GiznetSignalingIdentity,
   offerSDP: string,
-  credential?: Uint8Array,
+  credential?: AdmissionCredential,
 ): Promise<PreparedGiznetWebRTCOffer> {
   const sdp = new TextEncoder().encode(offerSDP);
-  if ((credential?.byteLength ?? 0) > GIZNET_MAX_CREDENTIAL_BYTES) {
-    throw new Error("invalid admission credential length");
-  }
+  const encoded = encodeAdmissionCredential(credential);
   let plaintext: Uint8Array = sdp;
-  if (credential != null && credential.byteLength > 0) {
+  if (encoded != null) {
     plaintext = concatBytes([
       new Uint8Array([
         0x47,
@@ -45,10 +55,10 @@ export async function prepareEncryptedGiznetWebRTCOffer(
         0x4f,
         0x46,
         1,
-        credential.byteLength >> 8,
-        credential.byteLength & 0xff,
+        encoded.byteLength >> 8,
+        encoded.byteLength & 0xff,
       ]),
-      credential,
+      encoded,
       sdp,
     ]);
   }
@@ -97,6 +107,28 @@ export async function prepareEncryptedGiznetWebRTCOffer(
     },
     timestamp,
   };
+}
+
+/** Encodes and bounds a credential before discovery, ICE or signaling I/O. */
+export function encodeAdmissionCredential(
+  credential?: AdmissionCredential,
+): Uint8Array | undefined {
+  if (credential == null) return undefined;
+  const utf8 = new TextEncoder();
+  if (
+    utf8.encode(credential.type).length > 128 ||
+    utf8.encode(credential.value).length > GIZNET_MAX_CREDENTIAL_BYTES
+  ) {
+    throw new Error("invalid admission credential length");
+  }
+  const encoded = toBinary(
+    AdmissionCredentialSchema,
+    create(AdmissionCredentialSchema, credential),
+  );
+  if (encoded.length === 0 || encoded.length > GIZNET_MAX_CREDENTIAL_BYTES) {
+    throw new Error("invalid admission credential length");
+  }
+  return encoded;
 }
 
 function deriveSignalingKeys(

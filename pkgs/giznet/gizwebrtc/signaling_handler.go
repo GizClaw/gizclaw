@@ -111,7 +111,7 @@ func (l *Listener) handleOffer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	offerSDP, credential, err := decodeOfferEnvelope(plaintext)
-	if err != nil || (len(credential) != 0 && l.cfg.CipherMode == CipherModePlaintext) {
+	if err != nil || (credential != nil && l.cfg.CipherMode == CipherModePlaintext) {
 		writeSignalingError(w, http.StatusBadRequest, "invalid_credential")
 		return
 	}

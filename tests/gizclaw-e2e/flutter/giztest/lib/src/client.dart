@@ -4,7 +4,6 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'dart:io';
 import 'dart:math';
 
@@ -304,9 +303,7 @@ class ScenarioClient {
         handlers.handlers,
         privateKey,
         (value) => publicKey = value,
-        credential: token == null
-            ? null
-            : Uint8List.fromList(utf8.encode(token)),
+        credential: token == null ? null : registrationTokenCredential(token),
       );
       final client = GizClawClient(
         FlutterWebRtcDataChannelFactory(peerConnection),
@@ -382,7 +379,7 @@ class ScenarioClient {
     List<int> privateKey,
     void Function(String) onPublicKey, {
     Duration? timeout,
-    Uint8List? credential,
+    AdmissionCredential? credential,
   }) async {
     final connectTimeout = timeout ?? _connectTimeout;
     final infoResponse = await httpClient

@@ -44,8 +44,10 @@ setting. See [Gizedge](../../gizedge) for that deployment boundary.
 
 - An empty credential requires an existing Peer with `Status != blocked`, and `EnsureAvailable`
   excludes pending deletion and permanent tombstones. Storage errors deny admission.
-- A nonempty credential is passed to `ResolveRegistration` as a RegistrationToken and must
-  resolve successfully. Known blocked, deleting, or tombstoned identities cannot bypass those
+- A nonempty structured credential must have `version == 1 && type == "registration_token"`.
+  Unknown versions or types are rejected before any Peer/token storage access or lookup-budget
+  reservation. Only the trimmed `value` is passed to `ResolveRegistration` as a RegistrationToken
+  and must resolve successfully. Known blocked, deleting, or tombstoned identities cannot bypass those
   checks with a token. A known key with an invalid credential is also denied, without falling
   back to the empty-credential path.
 
@@ -57,8 +59,8 @@ RuntimeProfile. Errors and logs never include tokens.
 Before any nonempty-credential lookup, each Server policy instance enforces a shared budget:
 at most 64 failures per 60-second window and 8 simultaneous lookups, reserving possible failures
 before I/O. These limits span public keys, so rotating keys or tokens cannot bypass them.
-Concurrent duplicate tokens are denied. Failed tokens are indexed by SHA-256 of the same trimmed
-input used by the resolver, with a 30-second negative TTL and a 1024-entry cap. Raw tokens and
+Concurrent duplicate tokens are denied. Failed tokens are indexed by SHA-256 of
+`type + "\0" + strings.TrimSpace(value)`, with a 30-second negative TTL and a 1024-entry cap. Raw tokens and
 successful results are never cached. Bounded eviction does not reset the failure budget;
 expired entries are removed at the next lookup.
 

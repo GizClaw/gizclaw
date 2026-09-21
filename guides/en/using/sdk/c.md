@@ -125,15 +125,23 @@ The archive does not own a firmware toolchain, final link, image packaging, flas
 
 ## Device handshake admission
 
-Call `gzc_client_set_admission_credential(client, bytes, len)` on the client owner thread before
-connect. The SDK copies up to 4096 bytes and seals them with the next offer; the caller may then
-release its buffer. `NULL, 0` clears the credential. Connected or closed clients reject changes.
-The copy is freed on replacement or destroy; a failed setter preserves the previous value.
-Existing public struct layouts and connect signatures are unchanged.
+Call `gzc_client_set_admission_credential(client, &credential)` on the owner thread before
+connect, using the generated `giznet_v1_AdmissionCredential` with version, type, and value fields.
+The SDK validates its encoded size and copies the structure, then protobuf-encodes and seals it
+inside AEAD during connect. The caller may release its structure afterwards. `NULL` clears it;
+connected or closed clients reject changes. Replacement and destroy free the copy, and a failed
+setter preserves the old value. Existing public struct layouts and connect signatures remain.
 
-The lower-level `gzc_signaling_build_offer_request_with_credential(config, offer_sdp, bytes, len,
-exchange, request)` borrows bytes only during the call. The original builder always sends bare
-SDP with an empty credential. NULL with nonzero length, more than 4096 bytes, or plaintext cipher
-returns `GZC_ERR_INVALID_ARGUMENT`; allocation failure returns `GZC_ERR_NO_MEMORY`. Credentials
-are opaque to the SDK. For registration-token admission pass the token's UTF-8 bytes, then still
-invoke `server.register` after connecting. See [Security Policy](../../developing/gizclaw/server/security-policy).
+`gzc_registration_token_credential(gzc_str_from_cstr(registrationToken), &credential)` constructs
+GizClaw version 1 and type `registration_token`. Oversized input, invalid pointers, or embedded
+NUL return `GZC_ERR_INVALID_ARGUMENT` without changing the output. Generated string arrays require
+bounded, NUL-terminated UTF-8: type allows 128 bytes and value 4096 bytes. The complete protobuf
+encoding must fit in 4096 bytes, so overhead further limits value. This business helper is outside
+signaling.
+
+`gzc_signaling_build_offer_request_with_credential(config, offer_sdp, &credential, exchange,
+request)` borrows the structure for the call; `gzc_signaling_encode_admission_credential` also
+supports independent encoding. The old builder preserves bare SDP. Excessive lengths,
+unterminated strings, empty encodings, or plaintext cipher return `GZC_ERR_INVALID_ARGUMENT`;
+allocation failure returns `GZC_ERR_NO_MEMORY`. Call `server.register` after connecting to bind
+resources; see [Security Policy](../../developing/gizclaw/server/security-policy).

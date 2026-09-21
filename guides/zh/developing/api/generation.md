@@ -6,11 +6,14 @@ API 变更必须从根 `api/` 的 source schema 开始。禁止直接修改由�
 
 | Source | 主要输出 | 命令 |
 | --- | --- | --- |
+| `api/proto/giznet/admission.proto` | Go Giznet protobuf | `go generate ./pkgs/giznet/giznetpb` |
+| `api/proto/giznet/admission.proto` | JavaScript protobuf-es | `npm --prefix sdk/js/gizclaw run generate:admission` |
+| `api/proto/giznet/admission.proto` | Dart protobuf | `cd sdk/flutter/gizclaw && dart run tool/generate_admission.dart` |
 | HTTP OpenAPI + shared schemas | Go HTTP server/client/models | `go generate ./pkgs/gizclaw/api/adminhttp ./pkgs/gizclaw/api/apitypes ./pkgs/gizclaw/api/peerhttp` |
 | `api/proto/rpc/**/*.proto` | Go Protobuf | `go generate ./pkgs/gizclaw/api/rpcproto` |
 | RPC descriptors/wrappers | 手工维护的 `rpcapi` committed surface | `go test ./pkgs/gizclaw/api/rpcapi`（当前 `go generate` 也只执行该验证，不会重新生成文件） |
-| HTTP + RPC schemas | JavaScript SDK | `npm --prefix sdk/js run gen:sdk` |
-| RPC Protobuf | C nanopb SDK | `go generate ./sdk/c/gizclaw` |
+| HTTP + RPC + Giznet schemas | JavaScript SDK | `npm --prefix sdk/js run gen:sdk` |
+| RPC + Events + Giznet Protobuf | C nanopb SDK | `go generate ./sdk/c/gizclaw` |
 | Telemetry Protobuf | Go/JavaScript telemetry | `go generate ./pkgs/gizclaw/api/telemetry` 与 `npm --prefix sdk/js run gen:telemetry` |
 
 独立 C SDK Release 源码包会在完成该生成检查后复制已提交的 nanopb output。打包过程不会运行第二套 generator，也不会把源码包作为另一份协议来源；源码包同时复制所选 GizClaw commit 的 submodule gitlink 指向的精确 nanopb runtime。
@@ -18,7 +21,7 @@ API 变更必须从根 `api/` 的 source schema 开始。禁止直接修改由�
 全量 Go API 可以使用：
 
 ```sh
-go generate ./pkgs/gizclaw/api/...
+go generate ./pkgs/gizclaw/api/... ./pkgs/giznet/giznetpb
 ```
 
 `api` Go package 会嵌入仓库拥有的完整 `api/http` 与 `api/proto` source tree。离线 Resource 校验等运行时 contract consumer 直接从 embedded filesystem 读取这些原始定义，不再提交另一份 resolved schema 副本。`pkgs/gizclaw/api/apitypes/types_resolved.json` 继续作为仅用于生成 `apitypes/generated.go` 的 ignored intermediate。使用 `go generate ./pkgs/gizclaw/api/apitypes` 刷新 Go 生成结果；生成后执行 `git diff --exit-code -- pkgs/gizclaw/api/apitypes/generated.go` 可以确认结果保持新鲜。
@@ -59,3 +62,5 @@ RPC/C surface 变化时增加 C generation/build tests；管理资源变化时�
 - 仓库手写代码和仓库自有 generator 直接使用类型所属 package，不新增仅用于重命名或 re-export 的跨 package alias。
 
 Monitor OpenAPI（`api/http/monitor.json`）通过 `go generate ./pkgs/monitor/api` 生成 `pkgs/monitor/api/generated.go` 中的 strict Go server/client/models，配置位于 `pkgs/monitor/api/codegen_config.yaml`。`npm --prefix sdk/js run gen:sdk` 依据 `sdk/js/openapi-ts.config.ts` 生成 `sdk/js/gizclaw-control/generated/monitor/` 中的控制台 client。这些已提交输出归 Monitor surface 所有，由 `pkgs/monitor/monitor.go` 和 `web/console/src/lib/api.ts` 使用，通过 `@gizclaw/gizclaw-control` 导出 Node Monitor client；Peer Monitor 方法在 control SDK 中复用生成的 Peer HTTP 契约。
+
+Giznet 凭证使用 `protoc-gen-go`、`@bufbuild/protobuf` / `protoc-gen-es`、Dart `protobuf` / `protoc_plugin` 和固定于 `third_party/nanopb/upstream` 的 nanopb 0.4.9.1。`nanopb.options` 设置字符串上限，编码后的 4096-byte 总长度由 transport 单独校验。生成物与 source schema 同时提交。

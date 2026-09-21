@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 
+import 'generated/giznet/admission.pb.dart';
 import 'transport.dart';
 
 const _base58Alphabet =
@@ -160,23 +161,43 @@ class GiznetServerInfo {
   }
 }
 
-/// Maximum opaque credential bytes carried inside the encrypted offer.
+/// Maximum encoded protobuf credential bytes carried inside the encrypted offer.
 const giznetMaxCredentialBytes = 4096;
 
-/// Seals SDP and optional opaque [credential] without exposing it in headers.
-/// Empty credentials retain the legacy bare-SDP format.
+/// Encodes and bounds a credential before transport I/O. Only policy interprets it.
+Uint8List? encodeAdmissionCredential(AdmissionCredential? credential) {
+  if (credential == null) return null;
+  if (credential.version < 0 ||
+      credential.version > 0xffffffff ||
+      utf8.encode(credential.type).length > 128 ||
+      utf8.encode(credential.value).length > giznetMaxCredentialBytes) {
+    throw ArgumentError('invalid admission credential');
+  }
+  // Dart retains explicit scalar presence; omit proto3 defaults consistently
+  // with Go, protobuf-es and nanopb, without mutating the caller's message.
+  final normalized = credential.deepCopy();
+  if (normalized.version == 0) normalized.clearVersion();
+  if (normalized.type.isEmpty) normalized.clearType();
+  if (normalized.value.isEmpty) normalized.clearValue();
+  final encoded = normalized.writeToBuffer();
+  if (encoded.isEmpty || encoded.length > giznetMaxCredentialBytes) {
+    throw ArgumentError('invalid admission credential length');
+  }
+  return encoded;
+}
+
+/// Seals SDP and optional structured [credential] without exposing it in headers.
+/// A null credential retains the legacy bare-SDP format.
 Future<PreparedGiznetWebRtcOffer> prepareEncryptedGiznetWebRtcOffer(
   GiznetSignalingIdentity identity,
   String offerSdp, {
-  Uint8List? credential,
+  AdmissionCredential? credential,
   List<int>? nonceBytes,
   int? timestamp,
 }) async {
-  if ((credential?.length ?? 0) > giznetMaxCredentialBytes) {
-    throw ArgumentError('invalid admission credential length');
-  }
+  final encoded = encodeAdmissionCredential(credential);
   final sdp = utf8.encode(offerSdp);
-  final plaintext = credential == null || credential.isEmpty
+  final plaintext = encoded == null
       ? sdp
       : <int>[
           0x47,
@@ -184,9 +205,9 @@ Future<PreparedGiznetWebRtcOffer> prepareEncryptedGiznetWebRtcOffer(
           0x4f,
           0x46,
           1,
-          credential.length >> 8,
-          credential.length & 0xff,
-          ...credential,
+          encoded.length >> 8,
+          encoded.length & 0xff,
+          ...encoded,
           ...sdp,
         ];
   final clientPrivateKey = _expectKeyBytes(

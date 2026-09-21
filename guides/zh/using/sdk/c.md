@@ -125,14 +125,20 @@ Firmware 使用 `gizclaw_core`，并链接 PAL 拥有的现有 `gzc_default_plat
 
 ## 设备握手准入
 
-连接前在 client owner 线程调用 `gzc_client_set_admission_credential(client, bytes, len)`。
-SDK 拷贝最多 4096 bytes，在下次 connect 的 AEAD 内发送；caller buffer 随后可释放。
-`NULL, 0` 清除凭证，已连接或已关闭的 client 不接受修改。client 在替换或 destroy 时
-释放自己的副本；设置失败保留旧值。既有公开 struct 布局和 connect 签名不变。
+连接前在 client owner 线程调用 `gzc_client_set_admission_credential(client, &credential)`，
+其中 `credential` 是生成的 `giznet_v1_AdmissionCredential`，含 version、type、value。
+SDK 校验 protobuf 编码上限后复制结构，下次 connect 时编码并在 AEAD 内发送；调用方
+随后可释放自己的结构。传 `NULL` 清除，已连接或已关闭 client 不接受修改；替换或
+销毁时释放副本，设置失败保留旧值。既有 public struct 布局和 connect 签名不变。
 
-低层 `gzc_signaling_build_offer_request_with_credential(config, offer_sdp, bytes, len,
-exchange, request)` 仅在调用期间借用 bytes。原 builder 始终发送空凭证的裸 SDP。
-非零长度搭配 NULL、超过 4096 bytes 或明文 cipher 均返回 `GZC_ERR_INVALID_ARGUMENT`；
-分配失败返回 `GZC_ERR_NO_MEMORY`。SDK 不解释 bytes；启用 registration-token policy
-时 caller 可传 token 的 UTF-8 bytes，连接后仍调用 `server.register`。详见
-[Security Policy](../../developing/gizclaw/server/security-policy)。
+`gzc_registration_token_credential(gzc_str_from_cstr(registrationToken), &credential)`
+构造 GizClaw version 1、type `registration_token` 凭证，超限、非法 pointer 或嵌入 NUL
+返回 `GZC_ERR_INVALID_ARGUMENT`，失败不修改输出。生成的字符串数组要求有界、以 NUL
+结尾的 UTF-8；type 最多 128 bytes，value 最多 4096 bytes，整体 protobuf 编码最多
+4096 bytes，所以 value 还受编码开销约束。helper 的业务常量不属于 signaling 层。
+
+低层 `gzc_signaling_build_offer_request_with_credential(config, offer_sdp, &credential,
+exchange, request)` 只在调用内借用结构；`gzc_signaling_encode_admission_credential`
+可独立编码。旧 builder 保留裸 SDP。超限、未终止字符串、空编码结构或明文 cipher
+返回 `GZC_ERR_INVALID_ARGUMENT`，分配失败返回 `GZC_ERR_NO_MEMORY`。连接后仍需
+`server.register` 完成绑定，见 [Security Policy](../../developing/gizclaw/server/security-policy)。

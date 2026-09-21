@@ -41,7 +41,9 @@ logical tunnel 不再进入这里，不受这个 Server 开关保护。部署边
 
 - 空凭证要求已存在 Peer 且 `Status != blocked`，并通过 `EnsureAvailable` 排除 pending
   deletion 和永久 tombstone。存储错误拒绝。
-- 非空凭证按 RegistrationToken 交给 `ResolveRegistration`；解析成功才放行。已知
+- 非空结构化凭证必须满足 `version == 1 && type == "registration_token"`；未知 version
+  或 type 直接拒绝，不查询 Peer 或 token 存储，也不占查询预算。只有 `value` 去除首尾空白后
+  作为 RegistrationToken 交给 `ResolveRegistration`，解析成功才放行。已知
   blocked、pending deletion 或 tombstone 不会因为携带 token 而绕过检查。已知公钥
   携带无效凭证同样拒绝，不回退空凭证路径。
 
@@ -52,7 +54,7 @@ logical tunnel 不再进入这里，不受这个 Server 开关保护。部署边
 非空凭证查询前使用每个 Server policy 实例共享的失败预算：每 60 秒窗口最多 64 次
 失败，最多 8 个同时在途查询，在途请求预占失败名额。这个限制跨公钥生效，随机换 key
 或 token 不能绕过。相同 token 的同时查询直接拒绝；失败 token 按与解析器一致的
-trim 后 SHA-256 摘要做 30 秒负缓存，上限 1024 项，不存原始 token，不缓存成功。
+`type + "\0" + strings.TrimSpace(value)` 的 SHA-256 摘要做 30 秒负缓存，上限 1024 项，不存原始 token，不缓存成功。
 缓存满时有界淘汰，失败预算不受淘汰影响；过期项在下一次查询时清理。
 
 查询继承请求取消/deadline，并额外限制为 2 秒；锁内只有内存记账。所有判定都是只读

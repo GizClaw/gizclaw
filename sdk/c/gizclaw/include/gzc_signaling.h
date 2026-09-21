@@ -2,6 +2,7 @@
 #define GZC_SIGNALING_H
 
 #include "gzc_keys.h"
+#include "giznet/admission.pb.h"
 #include "platform/gzc_platform_crypto.h"
 #include "platform/gzc_platform_http.h"
 
@@ -44,13 +45,19 @@ int gzc_signaling_build_offer_request(
     gzc_str_t offer_sdp,
     gzc_signaling_exchange_t *exchange,
     gzc_http_request_t *out_request);
-/* credential is borrowed only during this call. NULL is valid only at length 0.
- * Empty credentials use legacy bare SDP; nonempty credentials require AEAD. */
+/* Encode a structured credential, including the 4096-byte wire bound.
+ * String fields must be NUL-terminated UTF-8 within their generated arrays.
+ * A NULL credential sets out_len to zero. Pass out=NULL, out_cap=0 to validate
+ * and query the encoded size without allocating a buffer. */
+int gzc_signaling_encode_admission_credential(
+    const giznet_v1_AdmissionCredential *credential,
+    uint8_t *out, size_t out_cap, size_t *out_len);
+/* credential is borrowed only during this call. NULL uses legacy bare SDP;
+ * a non-NULL credential requires AEAD and a nonempty protobuf encoding. */
 int gzc_signaling_build_offer_request_with_credential(
     const gzc_signaling_config_t *config,
     gzc_str_t offer_sdp,
-    const uint8_t *credential,
-    size_t credential_len,
+    const giznet_v1_AdmissionCredential *credential,
     gzc_signaling_exchange_t *exchange,
     gzc_http_request_t *out_request);
 int gzc_signaling_parse_answer_response(

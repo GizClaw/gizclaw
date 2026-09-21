@@ -12,7 +12,11 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"google.golang.org/protobuf/proto"
 )
+
+// RegistrationTokenCredentialType identifies the built-in GizClaw admission credential.
+const RegistrationTokenCredentialType = "registration_token"
 
 const (
 	admissionFailureLimit  = 64
@@ -52,8 +56,13 @@ func NewRegistrationTokenSecurityPolicy(server *Server) *RegistrationTokenSecuri
 // AllowPeer checks admission using read-only services and the request context.
 // It does not retain the credential or propagate it into the accepted connection.
 func (p *RegistrationTokenSecurityPolicy) AllowPeer(ctx context.Context, admission giznet.PeerAdmission) bool {
-	if p == nil || p.server == nil || ctx.Err() != nil || admission.PublicKey.IsZero() ||
-		len(admission.Credential) > gizwebrtc.MaxCredentialBytes {
+	if p == nil || p.server == nil || ctx.Err() != nil || admission.PublicKey.IsZero() {
+		return false
+	}
+	credential := admission.Credential
+	// Reject unsupported credentials before any Peer or token store access.
+	if credential != nil && (credential.Version != 1 || credential.Type != RegistrationTokenCredentialType ||
+		len(credential.Value) > gizwebrtc.MaxCredentialBytes || proto.Size(credential) > gizwebrtc.MaxCredentialBytes) {
 		return false
 	}
 	m := p.server.manager
@@ -62,14 +71,15 @@ func (p *RegistrationTokenSecurityPolicy) AllowPeer(ctx context.Context, admissi
 	}
 	ctx, cancel := context.WithTimeout(ctx, admissionLookupTimeout)
 	defer cancel()
-	if len(admission.Credential) == 0 {
+	if credential == nil {
 		known, allowed := admissionPeerState(ctx, m.Peers, admission.PublicKey)
 		return known && allowed && ctx.Err() == nil
 	}
 	// ResolveRegistration trims whitespace too. Hash its canonical input so
-	// changing keys or padding cannot evade the negative cache.
-	token := strings.TrimSpace(string(admission.Credential))
-	digest := sha256.Sum256([]byte(token))
+	// changing keys or padding cannot evade the negative cache. Include the exact
+	// accepted type and a separator so the key identifies the (type, value) pair.
+	token := strings.TrimSpace(credential.Value)
+	digest := sha256.Sum256([]byte(credential.Type + "\x00" + token))
 	if !p.beginLookup(digest) {
 		return false
 	}

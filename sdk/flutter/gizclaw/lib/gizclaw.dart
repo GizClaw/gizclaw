@@ -16,3 +16,6 @@ export 'src/service_http.dart';
 export 'src/signaling.dart';
 export 'src/transport.dart';
 export 'src/webrtc_transport.dart';
+
+export 'src/admission.dart';
+export 'src/generated/giznet/admission.pb.dart' show AdmissionCredential;

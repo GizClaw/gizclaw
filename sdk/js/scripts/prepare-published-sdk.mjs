@@ -17,13 +17,18 @@ if (!/^[a-z][a-z0-9-]*$/u.test(packageName)) {
 }
 const packageRoot = new URL(`../${packageName}/`, import.meta.url);
 const distRoot = new URL("dist/", packageRoot);
-const eventSource = new URL("generated/events/", packageRoot);
-const eventOutput = new URL("generated/events/", distRoot);
-
-if (await exists(eventSource)) {
-  await mkdir(eventOutput, { recursive: true });
-  for (const name of ["peer_event_pb.js", "peer_event_pb.d.ts"]) {
-    await cp(new URL(name, eventSource), new URL(name, eventOutput));
+for (const [directory, base] of [
+  ["events", "peer_event"],
+  ["giznet", "admission"],
+]) {
+  const source = new URL(`generated/${directory}/`, packageRoot);
+  const output = new URL(`generated/${directory}/`, distRoot);
+  if (await exists(source)) {
+    await mkdir(output, { recursive: true });
+    for (const suffix of ["js", "d.ts"]) {
+      const name = `${base}_pb.${suffix}`;
+      await cp(new URL(name, source), new URL(name, output));
+    }
   }
 }
 await rewriteDeclarationImports(distRoot);

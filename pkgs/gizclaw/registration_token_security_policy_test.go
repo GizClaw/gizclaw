@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznetpb"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -49,15 +50,15 @@ func TestRegistrationTokenAdmissionIsReadOnly(t *testing.T) {
 	unknown := giznet.PublicKey{1}
 	for _, tc := range []struct {
 		name       string
-		credential []byte
+		credential *giznetpb.AdmissionCredential
 		want       bool
 	}{
 		{"unknown without credential", nil, false},
-		{"valid token", []byte(token), true},
-		{"reusable token", []byte(token), true},
-		{"invalid token", []byte("invalid"), false},
-		{"whitespace is nonempty credential", []byte("  "), false},
-		{"oversized", make([]byte, 4097), false},
+		{"valid token", testRegistrationCredential(token), true},
+		{"reusable token", testRegistrationCredential(token), true},
+		{"invalid token", testRegistrationCredential("invalid"), false},
+		{"whitespace is nonempty credential", testRegistrationCredential("  "), false},
+		{"oversized", testRegistrationCredential(strings.Repeat("x", 4097)), false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := p.AllowPeer(t.Context(), giznet.PeerAdmission{PublicKey: unknown, Credential: tc.credential}); got != tc.want {
@@ -79,12 +80,12 @@ func TestRegistrationTokenAdmissionIsReadOnly(t *testing.T) {
 		if _, err := p.server.manager.Peers.SavePeer(t.Context(), record); err != nil {
 			t.Fatal(err)
 		}
-		for _, credential := range [][]byte{nil, []byte(token)} {
+		for _, credential := range []*giznetpb.AdmissionCredential{nil, testRegistrationCredential(token)} {
 			if got := p.AllowPeer(t.Context(), giznet.PeerAdmission{PublicKey: key, Credential: credential}); got != (status != apitypes.PeerRegistrationStatusBlocked) {
-				t.Fatalf("status %q, credential=%t: %v", status, len(credential) > 0, got)
+				t.Fatalf("status %q, credential=%t: %v", status, credential != nil, got)
 			}
 		}
-		if p.AllowPeer(t.Context(), giznet.PeerAdmission{PublicKey: key, Credential: []byte("invalid-known")}) {
+		if p.AllowPeer(t.Context(), giznet.PeerAdmission{PublicKey: key, Credential: testRegistrationCredential("invalid-known")}) {
 			t.Fatal("known key bypassed invalid credential")
 		}
 	}
@@ -103,7 +104,7 @@ func TestRegistrationTokenAdmissionIsReadOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, key := range []giznet.PublicKey{deleted, deleting} {
-		for _, credential := range [][]byte{nil, []byte(token)} {
+		for _, credential := range []*giznetpb.AdmissionCredential{nil, testRegistrationCredential(token)} {
 			if p.AllowPeer(t.Context(), giznet.PeerAdmission{PublicKey: key, Credential: credential}) {
 				t.Fatal("deleted/deleting Peer admitted")
 			}
@@ -117,11 +118,14 @@ func TestAdmissionNegativeCacheAndGlobalFailureBudget(t *testing.T) {
 	p.now = func() time.Time { return now }
 	deny := func(key byte, token string) {
 		t.Helper()
-		if p.AllowPeer(t.Context(), giznet.PeerAdmission{PublicKey: giznet.PublicKey{key}, Credential: []byte(token)}) {
+		if p.AllowPeer(t.Context(), giznet.PeerAdmission{PublicKey: giznet.PublicKey{key}, Credential: testRegistrationCredential(token)}) {
 			t.Fatal("invalid token admitted")
 		}
 	}
 	deny(1, "bad")
+	if _, ok := p.negative[sha256.Sum256([]byte(RegistrationTokenCredentialType+"\x00bad"))]; !ok {
+		t.Fatal("negative cache does not key the canonical type/value pair")
+	}
 	reads := store.reads.Load()
 	deny(2, "  bad\n")
 	if store.reads.Load() != reads {
@@ -142,7 +146,7 @@ func TestAdmissionNegativeCacheAndGlobalFailureBudget(t *testing.T) {
 		t.Fatal("failure limit performed storage I/O")
 	}
 	now = now.Add(admissionFailureWindow)
-	if !p.AllowPeer(t.Context(), giznet.PeerAdmission{PublicKey: giznet.PublicKey{102}, Credential: []byte(token)}) {
+	if !p.AllowPeer(t.Context(), giznet.PeerAdmission{PublicKey: giznet.PublicKey{102}, Credential: testRegistrationCredential(token)}) {
 		t.Fatal("failure budget did not recover")
 	}
 	if len(p.negative) != 0 {
@@ -163,7 +167,7 @@ func TestAdmissionConcurrentLookupsAreBoundedAndCancelable(t *testing.T) {
 	done := make(chan bool, admissionInFlightLimit)
 	for i := range admissionInFlightLimit {
 		go func() {
-			done <- p.AllowPeer(ctx, giznet.PeerAdmission{PublicKey: giznet.PublicKey{byte(i + 1)}, Credential: fmt.Appendf(nil, "token-%d", i)})
+			done <- p.AllowPeer(ctx, giznet.PeerAdmission{PublicKey: giznet.PublicKey{byte(i + 1)}, Credential: testRegistrationCredential(fmt.Sprintf("token-%d", i))})
 		}()
 	}
 	for range admissionInFlightLimit {
@@ -174,7 +178,7 @@ func TestAdmissionConcurrentLookupsAreBoundedAndCancelable(t *testing.T) {
 		}
 	}
 	for _, token := range []string{"token-0", "new-token"} {
-		if p.AllowPeer(t.Context(), giznet.PeerAdmission{PublicKey: giznet.PublicKey{99}, Credential: []byte(token)}) {
+		if p.AllowPeer(t.Context(), giznet.PeerAdmission{PublicKey: giznet.PublicKey{99}, Credential: testRegistrationCredential(token)}) {
 			t.Fatal("excess lookup admitted")
 		}
 	}
@@ -223,11 +227,11 @@ func TestAdmissionFailsClosedOnContextAndStoreErrors(t *testing.T) {
 	p, store, token := newAdmissionTestPolicy(t)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if p.AllowPeer(ctx, giznet.PeerAdmission{PublicKey: giznet.PublicKey{1}, Credential: []byte(token)}) || store.reads.Load() != 0 {
+	if p.AllowPeer(ctx, giznet.PeerAdmission{PublicKey: giznet.PublicKey{1}, Credential: testRegistrationCredential(token)}) || store.reads.Load() != 0 {
 		t.Fatal("canceled admission touched store")
 	}
 	store.beforeRead = func(context.Context) error { return errors.New("storage unavailable") }
-	for _, credential := range [][]byte{nil, []byte(token)} {
+	for _, credential := range []*giznetpb.AdmissionCredential{nil, testRegistrationCredential(token)} {
 		if p.AllowPeer(t.Context(), giznet.PeerAdmission{PublicKey: giznet.PublicKey{1}, Credential: credential}) {
 			t.Fatal("store failure admitted")
 		}
@@ -280,10 +284,10 @@ func TestRegistrationTokenSignalingAdmission(t *testing.T) {
 			defer httpServer.Close()
 			cfg := gizwebrtc.DialConfig{SignalingURL: httpServer.URL + gizwebrtc.SignalingPath}
 			if tc.valid {
-				cfg.Credential = []byte(token)
+				cfg.Credential = testRegistrationCredential(token)
 			}
 			if tc.invalid {
-				cfg.Credential = []byte("invalid-token")
+				cfg.Credential = testRegistrationCredential("invalid-token")
 			}
 			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 			defer cancel()
@@ -307,5 +311,43 @@ func TestRegistrationTokenSignalingAdmission(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func testRegistrationCredential(value string) *giznetpb.AdmissionCredential {
+	return &giznetpb.AdmissionCredential{Version: 1, Type: RegistrationTokenCredentialType, Value: value}
+}
+
+func TestAdmissionUnsupportedCredentialDoesNotReadStorage(t *testing.T) {
+	p, store, token := newAdmissionTestPolicy(t)
+	// The valid token would be admitted if version/type checks were bypassed.
+	// Reserve the catalog's sole SQL connection. Any attempted SQL lookup would
+	// wait for it and increment WaitCount, even if admission ultimately denied.
+	db := p.server.manager.RuntimeProfiles.DB
+	conn, err := db.Conn(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	waits := db.Stats().WaitCount
+	for _, credential := range []*giznetpb.AdmissionCredential{
+		{Version: 0, Type: RegistrationTokenCredentialType, Value: token},
+		{Version: 2, Type: RegistrationTokenCredentialType, Value: token},
+		{Version: 1, Type: "unknown", Value: token},
+		{Version: 1, Type: " registration_token ", Value: token},
+		{},
+	} {
+		if p.AllowPeer(t.Context(), giznet.PeerAdmission{PublicKey: giznet.PublicKey{1}, Credential: credential}) {
+			t.Fatal("unsupported credential admitted")
+		}
+	}
+	if store.reads.Load() != 0 || db.Stats().WaitCount != waits {
+		t.Fatal("unsupported credential accessed storage")
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if !p.AllowPeer(t.Context(), giznet.PeerAdmission{PublicKey: giznet.PublicKey{1}, Credential: testRegistrationCredential(" " + token + "\n")}) {
+		t.Fatal("valid normalized token rejected")
 	}
 }

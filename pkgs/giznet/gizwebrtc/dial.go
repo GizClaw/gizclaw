@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznetpb"
 	"github.com/pion/webrtc/v4"
 )
 
@@ -39,10 +40,10 @@ type DialConfig struct {
 	ICETransportPolicy webrtc.ICETransportPolicy
 	CipherMode         CipherMode
 	SecurityPolicy     giznet.SecurityPolicy
-	// Credential is optional opaque admission data (at most MaxCredentialBytes).
+	// Credential is optional structured admission data (at most MaxCredentialBytes encoded).
 	// Dial borrows it until return and seals it with the offer; it is never sent
 	// in headers or retained in the connection. Plaintext mode rejects it.
-	Credential []byte
+	Credential *giznetpb.AdmissionCredential
 	// SCTPReceiveBufferSize overrides Pion's default association receive
 	// window. Gateway upstream callers use GatewaySCTPReceiveBufferSize; public
 	// client associations leave this at zero.
@@ -178,6 +179,14 @@ func dialWithAttempts(
 			callback(combined)
 		}
 		finalErr = fmt.Errorf("gizwebrtc: nil key pair")
+		return nil, nil, finalErr
+	}
+	if _, err := encodeOfferEnvelope("", cfg.Credential); err != nil || (cfg.Credential != nil && cfg.CipherMode == CipherModePlaintext) {
+		combined.Total = time.Since(started)
+		if callback != nil {
+			callback(combined)
+		}
+		finalErr = errInvalidCredential
 		return nil, nil, finalErr
 	}
 	maxAttempts := dialMaxAttempts
@@ -482,7 +491,7 @@ func peerConnectionStateDetails(pc *webrtc.PeerConnection) string {
 }
 
 func postOffer(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, offerSDP string, cfg DialConfig) (string, error) {
-	if len(cfg.Credential) != 0 && cfg.CipherMode == CipherModePlaintext {
+	if cfg.Credential != nil && cfg.CipherMode == CipherModePlaintext {
 		return "", errInvalidCredential
 	}
 	plaintext, err := encodeOfferEnvelope(offerSDP, cfg.Credential)

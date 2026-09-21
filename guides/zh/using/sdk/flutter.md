@@ -96,9 +96,14 @@ try {
 
 ## 设备握手准入
 
-`prepareEncryptedGiznetWebRtcOffer(identity, offerSdp, credential: bytes)` 接收可选
-`Uint8List`，最多 4096 bytes。它只在 AEAD 内部发送；省略或空 bytes 继续发送裸 SDP。
-在 `connectFlutterGiznetWebRtc` 的 `prepareOffer` callback 中传入即可。registration-token
-policy 调用方使用 `Uint8List.fromList(utf8.encode(registrationToken))`，连接后仍需调用
-`client.register(registrationToken)`。SDK 不解释 credential，超限抛 `ArgumentError`。
-运营方开关与旧设备兼容性见 [Security Policy](../../developing/gizclaw/server/security-policy)。
+`prepareEncryptedGiznetWebRtcOffer(identity, offerSdp, credential: credential)` 接收可选
+生成类型 `AdmissionCredential(version: ..., type: ..., value: ...)`。该类型与
+`registrationTokenCredential(registrationToken)` helper 均从 `package:gizclaw/gizclaw.dart`
+导出。helper 设置 `version: 1`、`type: 'registration_token'` 和原始 token value；
+具体业务类型留在 GizClaw 层，transport 只执行 protobuf 编码并在 AEAD 内密封。
+
+省略或传 null 保留裸 SDP。在 `connectFlutterGiznetWebRtc` 的 `prepareOffer` callback
+中传入结构即可，连接后仍需 `client.register(registrationToken)`。超限或空编码结构
+抛出 `ArgumentError`；Dart 显式默认字段在副本中清除，使编码与 Go/JS/C 一致，原消息不变。
+字段与编码上限见 [Giznet](../../developing/giznet#signaling-准入凭证)，运营方开关见
+[Security Policy](../../developing/gizclaw/server/security-policy)。

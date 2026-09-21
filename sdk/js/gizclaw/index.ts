@@ -51,11 +51,20 @@ import {
 } from "./generated/rpc/payload-codec.ts";
 import {
   base58Decode,
-  GIZNET_MAX_CREDENTIAL_BYTES,
+  encodeAdmissionCredential,
+  type AdmissionCredential,
   prepareEncryptedGiznetWebRTCOffer,
 } from "./signaling.ts";
 import { encodeTelemetryPacket, type TelemetryFrame } from "./telemetry.ts";
 export * from "./telemetry.ts";
+export type { AdmissionCredential } from "./signaling.ts";
+
+/** Constructs a credential for the GizClaw registration-token policy. */
+export function registrationTokenCredential(
+  value: string,
+): AdmissionCredential {
+  return { version: 1, type: "registration_token", value };
+}
 
 export const WEBRTC_RPC_DATA_CHANNEL_LABEL = "rpc";
 export const WEBRTC_EVENT_DATA_CHANNEL_LABEL = "event";
@@ -413,8 +422,8 @@ export type ConnectGiznetWebRTCFromEndpointOptions = Omit<
   "prepareOffer" | "sendOffer"
 > & {
   baseUrl?: string;
-  /** Opaque admission bytes, sealed inside the offer; at most 4096 bytes. */
-  credential?: Uint8Array;
+  /** Structured admission credential, sealed inside the offer; at most 4096 encoded bytes. */
+  credential?: AdmissionCredential;
   clientPrivateKey: Uint8Array;
   clientPublicKey?: Uint8Array | string;
   endpoint?: string;
@@ -1395,9 +1404,11 @@ export async function connectGiznetWebRTC(
 export async function connectGiznetWebRTCFromEndpoint(
   options: ConnectGiznetWebRTCFromEndpointOptions,
 ): Promise<RTCPeerConnection> {
-  if ((options.credential?.byteLength ?? 0) > GIZNET_MAX_CREDENTIAL_BYTES) {
+  try {
+    encodeAdmissionCredential(options.credential);
+  } catch (error) {
     options.pc.close();
-    throw new Error("invalid admission credential length");
+    throw error;
   }
   const serverInfo = await fetchGiznetServerInfo(options);
   const transport = serverInfo.transport;
