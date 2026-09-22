@@ -786,7 +786,17 @@ func TestAudioOutputTracksOpenMP3TrackWhenFinalized(t *testing.T) {
 	if !tracks.hasPending() {
 		t.Fatal("finalized MP3 track is not pending drain")
 	}
-	requireFirstMixerFrameAudible(t, creator.mixer)
+	// MP3 decoding retains encoder padding. A duration-preserving resampler
+	// must not discard that padding to make the first 20 ms frame audible.
+	// The track is already open with decoded data; verify audible content in
+	// its first 60 ms, including the codec's leading samples.
+	frame := make([]byte, pcm.L16Mono16K.BytesInDuration(60*time.Millisecond))
+	if _, err := creator.mixer.Read(frame); err != nil {
+		t.Fatalf("mixer.Read() error = %v", err)
+	}
+	if bytes.Count(frame, []byte{0}) == len(frame) {
+		t.Fatal("first 60 ms of finalized MP3 contains no audible samples")
+	}
 }
 
 func TestAudioOutputTracksRouteWithoutDecodedAudioOpensNoTrack(t *testing.T) {
