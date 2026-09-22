@@ -1,13 +1,67 @@
 package peer
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
+
+func TestRegistrationProjectionFailureDoesNotCommitProfile(t *testing.T) {
+	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	key := giznet.PublicKey{73}
+	if _, err := server.EnsureConnectedPeer(t.Context(), key); err != nil {
+		t.Fatal(err)
+	}
+	before, err := server.Store.Get(t.Context(), peerKey(key.String()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	projectionErr := errors.New("registration lookup failed")
+	server.RegistrationFirmware = func(context.Context, string) (*string, error) {
+		return nil, projectionErr
+	}
+	if _, err := server.PutSelfInfo(t.Context(), key, apitypes.DeviceInfo{Name: new("Alice")}); !errors.Is(err, projectionErr) {
+		t.Fatalf("profile update error = %v, want %v", err, projectionErr)
+	}
+	after, err := server.Store.Get(t.Context(), peerKey(key.String()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatal("profile was committed despite registration lookup failure")
+	}
+}
+
+func TestRegistrationProjectionIsNotRetriedAfterCommit(t *testing.T) {
+	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	key := giznet.PublicKey{74}
+	if _, err := server.EnsureConnectedPeer(t.Context(), key); err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	server.RegistrationFirmware = func(context.Context, string) (*string, error) {
+		calls++
+		if calls > 1 {
+			return nil, errors.New("registration lookup failed after commit")
+		}
+		return new("registered-firmware"), nil
+	}
+	updated, err := server.putInfo(t.Context(), key, apitypes.DeviceInfo{Name: new("Alice")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatalf("registration lookup calls = %d, want 1", calls)
+	}
+	if updated.Device.Name == nil || *updated.Device.Name != "Alice" || updated.FirmwareId == nil || *updated.FirmwareId != "registered-firmware" {
+		t.Fatalf("committed profile or projection missing: %#v", updated)
+	}
+}
 
 func TestRegistrationFirmwareDoesNotConflictWithPeerUpdates(t *testing.T) {
 	for _, projected := range []bool{false, true} {

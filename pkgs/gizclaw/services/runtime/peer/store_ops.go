@@ -533,13 +533,17 @@ func (s *Server) putRecord(ctx context.Context, peer apitypes.Peer) (apitypes.Pe
 		}
 	}
 	peer.UpdatedAt = time.Now()
+	projected, projectionErr := s.projectRegistrationFirmware(ctx, peer)
+	if projectionErr != nil {
+		return apitypes.Peer{}, projectionErr
+	}
 	if err := s.writePeerLocked(ctx, peer, optionalPeer(old, err)); err != nil {
 		return apitypes.Peer{}, err
 	}
 	if err := s.rememberPeer(ctx, peer); err != nil {
 		return apitypes.Peer{}, err
 	}
-	return s.get(ctx, publicKey)
+	return projected, nil
 }
 
 // EnsureAvailable rejects marker-time and permanent-tombstone activation.
