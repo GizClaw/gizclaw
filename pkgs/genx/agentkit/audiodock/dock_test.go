@@ -236,6 +236,19 @@ func TestInputRouterRetainsBOSBeforeEventActivation(t *testing.T) {
 	router.CloseWithError(context.Canceled)
 }
 
+func TestInputRouterTranscriptOutputIsNilWithoutASR(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	router, err := newInputRouter(ctx, &sliceStream{}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer router.CloseWithError(context.Canceled)
+	if output := router.TranscriptOutput(); output != nil {
+		t.Fatalf("TranscriptOutput() = %#v, want nil interface without ASR", output)
+	}
+}
+
 func TestDockAllowsNewResponseBeforeRealtimeInputEOS(t *testing.T) {
 	input := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: 2})
 	agent := transformerFunc(func(_ context.Context, source genx.Stream) (genx.Stream, error) {
