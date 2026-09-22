@@ -116,11 +116,11 @@ func TestPeerConnectionStateIsTerminal(t *testing.T) {
 }
 
 func TestPeerConnectionTerminalCauseMarksOnlyFailures(t *testing.T) {
-	failed := peerConnectionTerminalCause(nil, webrtc.PeerConnectionStateFailed)
+	failed := (*Conn)(nil).peerConnectionTerminalCause(webrtc.PeerConnectionStateFailed)
 	if !errors.Is(failed, giznet.ErrConnFailed) {
 		t.Fatalf("failed cause = %v, want connection-failed sentinel", failed)
 	}
-	closed := peerConnectionTerminalCause(nil, webrtc.PeerConnectionStateClosed)
+	closed := (*Conn)(nil).peerConnectionTerminalCause(webrtc.PeerConnectionStateClosed)
 	if errors.Is(closed, giznet.ErrConnFailed) {
 		t.Fatalf("closed cause = %v, must not contain connection-failed sentinel", closed)
 	}

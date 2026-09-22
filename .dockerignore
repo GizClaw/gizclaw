@@ -12,6 +12,9 @@ apps/**/build
 apps/**/ios/Pods
 sdk/flutter/**/.dart_tool
 sdk/flutter/**/build
+tests/gizclaw-e2e/flutter/**/.dart_tool
+tests/gizclaw-e2e/flutter/**/build
+tests/gizclaw-e2e/flutter/**/macos/Pods
 
 .tmp
 openteam

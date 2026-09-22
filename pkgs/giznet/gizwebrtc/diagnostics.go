@@ -63,7 +63,7 @@ func (c *Conn) Diagnostics() ConnDiagnostics {
 		diagnostics.SCTPBytesSent = stats.BytesSent
 		diagnostics.SCTPBytesReceived = stats.BytesReceived
 	}
-	if observation := selectedICEObservation(c.pc); observation != nil {
+	if observation := c.selectedICEObservation(); observation != nil {
 		diagnostics.ICECounters = observation.CountersSupported
 		diagnostics.ICEPacketsSent = observation.PacketsSent
 		diagnostics.ICEPacketsReceived = observation.PacketsReceived

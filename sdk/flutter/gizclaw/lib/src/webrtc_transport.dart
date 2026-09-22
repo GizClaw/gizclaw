@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 
 import 'peer_rpc_server.dart';
@@ -18,6 +19,22 @@ const _dataChannelStatePollDelay = Duration(milliseconds: 250);
 
 final _servedPeerConnections = Expando<_ServedPeerConnection>();
 final _peerEventSessions = Expando<WorkspaceEventSession>();
+final _peerConnectionCloses = Expando<Future<void>>();
+final _channelPeers = Expando<rtc.RTCPeerConnection>();
+
+/// Closes an SDK Peer once, including when a mandatory channel already closed it.
+/// Use this for caller cleanup as well as reconnect: the Linux plugin removes
+/// the native Peer on its first close and rejects subsequent close calls.
+Future<void> closeFlutterGiznetWebRtc(rtc.RTCPeerConnection peerConnection) {
+  final existing = _peerConnectionCloses[peerConnection];
+  if (existing != null) return existing;
+  final done = Completer<void>();
+  _peerConnectionCloses[peerConnection] = done.future;
+  Future<void>.sync(
+    peerConnection.close,
+  ).then(done.complete, onError: done.completeError);
+  return done.future;
+}
 
 class _ServedPeerConnection {
   _ServedPeerConnection(this.handler, this.handlers);
@@ -36,6 +53,13 @@ class FlutterWebRtcDataChannelFactory implements GizClawDataChannelFactory {
     String label, {
     GizClawDataChannelOptions options = const GizClawDataChannelOptions(),
   }) async {
+    if (_peerConnectionCloses[peerConnection] != null ||
+        peerConnection.connectionState ==
+            rtc.RTCPeerConnectionState.RTCPeerConnectionStateClosed ||
+        peerConnection.connectionState ==
+            rtc.RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
+      throw StateError('WebRTC peer connection closed');
+    }
     final init = rtc.RTCDataChannelInit()
       ..id = -1
       ..ordered = options.ordered
@@ -45,6 +69,7 @@ class FlutterWebRtcDataChannelFactory implements GizClawDataChannelFactory {
       init.maxRetransmits = maxRetransmits;
     }
     final channel = await peerConnection.createDataChannel(label, init);
+    _channelPeers[channel] = peerConnection;
     try {
       await _waitForDataChannelOpen(channel);
     } catch (_) {
@@ -70,6 +95,7 @@ void serveFlutterGiznetWebRtcRpc(
   final previous = peerConnection.onDataChannel;
   late final _ServedPeerConnection state;
   void handler(rtc.RTCDataChannel channel) {
+    _channelPeers[channel] = peerConnection;
     if (channel.label == giznetWebRtcPacketDataChannelLabel ||
         channel.label == giznetWebRtcEventDataChannelLabel) {
       unawaited(channel.close());
@@ -169,6 +195,7 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
       giznetWebRtcEventDataChannelLabel,
       eventInit,
     );
+    _channelPeers[eventDataChannel] = pc;
     final init = rtc.RTCRtpTransceiverInit(
       direction: rtc.TransceiverDirection.SendRecv,
       streams: localAudioStream == null ? null : [localAudioStream],
@@ -203,7 +230,7 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
     void closeFailedPeerConnection() {
       if (mandatoryTransportFailed) return;
       mandatoryTransportFailed = true;
-      unawaited(pc.close());
+      unawaited(closeFlutterGiznetWebRtc(pc));
     }
 
     stopPeerConnectionLogging?.call();
@@ -292,6 +319,7 @@ class FlutterWebRtcDataChannel implements GizClawDataChannel {
   final _messages = StreamController<Uint8List>.broadcast();
   final _states = StreamController<GizClawDataChannelState>.broadcast();
   Future<void> _sendTail = Future<void>.value();
+  Future<void>? _closeFuture;
   Completer<void>? _lowWaterWaiter;
   bool _writeBackpressured = false;
 
@@ -311,10 +339,28 @@ class FlutterWebRtcDataChannel implements GizClawDataChannel {
   Stream<GizClawDataChannelState> get states => _states.stream;
 
   @override
-  Future<void> close() async {
-    _state = GizClawDataChannelState.closing;
+  Future<void> close() => _closeFuture ??= _close();
+
+  Future<void> _close() async {
+    final remotelyClosed = _state == GizClawDataChannelState.closed;
+    if (!remotelyClosed) _state = GizClawDataChannelState.closing;
     _failLowWaterWaiter();
-    await _channel.close();
+    try {
+      // Still release the plugin's Dart subscriptions. On Linux the native
+      // Peer/channel may already have been removed after the closed event.
+      await _channel.close();
+    } on PlatformException catch (error) {
+      final peer = _channelPeers[_channel];
+      final peerClosing = peer != null && _peerConnectionCloses[peer] != null;
+      if (!(remotelyClosed ||
+              _state == GizClawDataChannelState.closed ||
+              peerClosing) ||
+          error.code != 'dataChannelCloseFailed' ||
+          (error.message != 'dataChannelClose() peerConnection is null' &&
+              error.message != 'dataChannelClose() data_channel is null')) {
+        rethrow;
+      }
+    }
   }
 
   @override
@@ -599,7 +645,7 @@ Future<void> _waitForDataChannelOpen(rtc.RTCDataChannel channel) {
 
 Future<void> _disposePeerConnection(rtc.RTCPeerConnection pc) async {
   try {
-    await pc.close();
+    await closeFlutterGiznetWebRtc(pc);
   } catch (_) {}
   try {
     await pc.dispose();

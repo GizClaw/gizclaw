@@ -3,14 +3,9 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
-	"maps"
-	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -22,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
+	"github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/admissiontest"
 )
 
 func TestAdmissionGiztestGo(t *testing.T) {
@@ -53,21 +49,7 @@ func runAdmissionGiztests(t *testing.T, run func(context.Context, string, string
 	if err != nil {
 		t.Fatal(err)
 	}
-	var denied atomic.Int64
-	httpServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != gizwebrtc.SignalingPath {
-			srv.ServeHTTP(w, r)
-			return
-		}
-		recorder := httptest.NewRecorder()
-		srv.ServeHTTP(recorder, r)
-		if recorder.Code == http.StatusForbidden && bytes.Contains(recorder.Body.Bytes(), []byte("peer_forbidden")) {
-			denied.Add(1)
-		}
-		maps.Copy(w.Header(), recorder.Header())
-		w.WriteHeader(recorder.Code)
-		_, _ = w.Write(recorder.Body.Bytes())
-	}))
+	httpServer := httptest.NewServer(srv)
 	t.Cleanup(httpServer.Close)
 	srv.PublicEndpoint = strings.TrimPrefix(httpServer.URL, "http://")
 	srv.PeerListenerFactories = []gizclaw.PeerListenerFactory{func(opts gizclaw.PeerListenerOptions) (giznet.Listener, error) {
@@ -107,78 +89,50 @@ func runAdmissionGiztests(t *testing.T, run func(context.Context, string, string
 		t.Fatal(err)
 	}
 	go func() { _ = admin.Serve() }()
-	if _, err := adminapi.CreateRuntimeProfile(ctx, admin, adminhttp.RuntimeProfileUpsert{Id: "admission", Spec: apitypes.RuntimeProfileSpec{AppConfig: new(apitypes.RuntimeProfileAppConfig{"admission.marker": "accepted"})}}); err != nil {
-		t.Fatal(err)
-	}
-	for _, body := range []adminhttp.RegistrationTokenUpsert{
-		{Id: "sdk", Token: "admission-sdk", RuntimeProfileId: "admission"},
-		{Id: "one-slot", Token: "admission-one-slot", RuntimeProfileId: "admission", MaxActivations: new(int64(1))},
-		{Id: "disabled", Token: "admission-disabled", RuntimeProfileId: "admission", Enabled: new(false)},
-		{Id: "expired", Token: "admission-expired", RuntimeProfileId: "admission", ExpiresAt: new(time.Now().Add(-time.Hour))},
-	} {
-		if _, err := adminapi.CreateRegistrationToken(ctx, admin, body); err != nil {
-			t.Fatal(err)
-		}
-	}
-	t.Setenv("GIZCLAW_TEST_ENDPOINT", httpServer.URL)
+
 	root, err := filepath.Abs(filepath.Join("..", "..", "..", "tests", "gizclaw-e2e", "testdata", "admission"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, test := range []struct {
-		name, file, token string
-		accepted          bool
-	}{
-		{"valid and credential-free reconnect", "valid", "admission-one-slot", true},
-		{"missing", "missing", "admission-one-slot", false},
-		{"wrong", "wrong", "admission-one-slot", false},
-		{"unknown type", "unknown-type", "admission-one-slot", false},
-		{"legacy unnamespaced type", "legacy-type", "admission-one-slot", false},
-		{"unknown version", "unknown-version", "admission-one-slot", false},
-		{"disabled", "valid", "admission-disabled", false},
-		{"expired", "valid", "admission-expired", false},
-		{"exhausted new device", "valid", "admission-one-slot", false},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			t.Setenv("GIZCLAW_TEST_REGISTRATION_TOKEN", test.token)
-			reportPath := filepath.Join(t.TempDir(), "report.json")
-			before := denied.Load()
-			output, runErr := run(ctx, filepath.Join(root, test.file+".giztest.yaml"), reportPath)
-			if test.accepted {
-				if runErr != nil {
-					t.Fatalf("runner: %v\n%s", runErr, output)
-				}
-			} else if runErr == nil || denied.Load() != before+1 {
-				t.Fatalf("expected exactly one Server admission denial: err=%v denials=%d\n%s", runErr, denied.Load()-before, output)
-			}
-			data, err := os.ReadFile(reportPath)
+	admissiontest.Run(t, admissiontest.Host{
+		Endpoint: httpServer.URL, Documents: root, Run: run,
+		PublicTransport: admin.HTTPClient(gizcli.ServicePeerHTTP).Transport,
+		CreateProfile: func(ctx context.Context, body adminhttp.RuntimeProfileUpsert) error {
+			_, err := adminapi.CreateRuntimeProfile(ctx, admin, body)
+			return err
+		},
+		CreateToken: func(ctx context.Context, body adminhttp.RegistrationTokenUpsert) error {
+			_, err := adminapi.CreateRegistrationToken(ctx, admin, body)
+			return err
+		},
+		GetToken: func(ctx context.Context, id string) (apitypes.RegistrationToken, error) {
+			return adminapi.GetRegistrationToken(ctx, admin, id)
+		},
+		Block: func(ctx context.Context, key string) error { _, err := adminapi.BlockPeer(ctx, admin, key); return err },
+		Approve: func(ctx context.Context, key string) error {
+			_, err := adminapi.ApprovePeer(ctx, admin, key, apitypes.PeerRoleClient)
+			return err
+		},
+		GetPeer: func(ctx context.Context, key string) (apitypes.Registration, error) {
+			result, err := adminapi.GetPeer(ctx, admin, key)
 			if err != nil {
-				t.Fatal(err)
+				return apitypes.Registration{}, err
 			}
-			var report struct {
-				Status string `json:"status"`
-				Tasks  []struct {
-					Status string `json:"status"`
-				} `json:"tasks"`
-			}
-			if err := json.Unmarshal(data, &report); err != nil {
-				t.Fatal(err)
-			}
-			want := "failed"
-			if test.accepted {
-				want = "passed"
-			}
-			if report.Status != want || len(report.Tasks) != 1 || report.Tasks[0].Status != want {
-				t.Fatalf("unexpected report: %s", data)
-			}
-		})
-	}
+			return result.AsExternalRef0Registration()
+		},
+		Runtime: func(ctx context.Context, key string) (apitypes.Runtime, error) {
+			return adminapi.GetPeerRuntime(ctx, admin, key)
+		},
+	})
 	if after != nil {
+		if _, err := adminapi.CreateRuntimeProfile(ctx, admin, adminhttp.RuntimeProfileUpsert{Id: "sdk", Spec: apitypes.RuntimeProfileSpec{AppConfig: new(apitypes.RuntimeProfileAppConfig{"admission.marker": "accepted"})}}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := adminapi.CreateRegistrationToken(ctx, admin, adminhttp.RegistrationTokenUpsert{Id: "sdk", Token: "admission-sdk", RuntimeProfileId: "sdk"}); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("GIZCLAW_TEST_ENDPOINT", httpServer.URL)
 		t.Setenv("GIZCLAW_TEST_REGISTRATION_TOKEN", "admission-sdk")
 		after(ctx)
-	}
-	item, err := adminapi.GetRegistrationToken(ctx, admin, "one-slot")
-	if err != nil || item.ActivationCount != 1 {
-		t.Fatalf("activation count = %d, %v", item.ActivationCount, err)
 	}
 }

@@ -34,7 +34,89 @@ The successful document under `tests/gizclaw-e2e/testdata/admission/` covers new
 
 The Admission SDK E2E CI job runs the complete lane. Ordinary Go tests run the Go Giztest scenarios. PostgreSQL Integration runs `TestPostgreSQLRegistrationTokenLifecycle`, covering old-schema migration, editable limits, idempotence, and independent connections racing for the last slot. SQLite runs equivalent lifecycle and independent-connection concurrency tests.
 
-The standard Docker stack accepts `GIZCLAW_E2E_PEER_ADMISSION=registration-token`; its default remains open. This governs direct Server signaling, not client handshakes terminated by Edge. Admin identities also need a preexisting Peer or valid credential. The admission lane uses direct Server connections and a provisioned Admin Peer. The full provider-backed `run_tests.sh` still requires the external service credentials in its unified `.env`.
+### Docker admission and blocking
+
+```sh
+bash tests/gizclaw-e2e/run_admission_docker_tests.sh
+```
+
+This fixed lane enables `peer-admission: registration-token` in an isolated Compose
+project. `docker/docker-compose.admission.yaml` runs Server and two Edges using the
+standard Server template, without TURN, Redis, LiveKit or provider services. It
+neither reads nor mounts the provider `.env`, and omits SFU configuration and
+provider resource initialization. No model calls or AI credentials are needed.
+The lane uses the advertised Server TCP ICE listener; relay behavior is outside
+its acceptance scope. The standard `run_tests.sh` keeps its original Compose file,
+credential preflight, resource initialization and default `open` behavior.
+Admission sets `PREBUILD_CLI=1` to compile the CLI once during image construction;
+all three services reuse the existing prebuilt entrypoint. This keeps cold builds
+outside readiness checks on small CI runners. Standard images still build at
+startup by default. Failures print the tail of all three service logs before
+project-scoped cleanup.
+
+The entrypoint registers the configured Admin identity through Edge, then uses the
+direct-Server admin CLI context. This is the existing Edge logical-connection boundary,
+not an admission exemption for the Admin key; every tested device connects directly
+to Server. CLI JSON commands create a RuntimeProfile and independent valid, disabled,
+expired and single-activation tokens per runner, and check activation counts. CLI
+administration exercises the deployed management surface without Terraform state;
+the tests never write directly to a database.
+
+Docker and in-process lanes share the `testdata/admission/` documents and the
+`admissiontest` Go driver. It forwards real HTTP/signaling responses. Negative cases
+require both a failed runner report and exactly one Server `403 peer_forbidden`;
+unrelated connection failures and skipped documents cannot pass. The block document
+first completes registration, RPC, API-key creation and a real HTTP self lookup.
+Before releasing that response, the driver issues Admin block and checks that the
+online Peer becomes blocked/offline. A disconnect document calls RPC on the old
+connection and requires an explicit connection-closed error; timeouts cannot pass.
+The Flutter SDK propagates mandatory event-session closure before native cleanup
+and shares one Peer close operation with caller cleanup. The runner uses the SDK
+close helper for cleanup/reconnect; Linux native execution verifies this ordering. The rejection case requires
+`peer_forbidden` on reconnect with the same public key. The recovery case approves the blocked Peer
+and verifies credential-free reconnect and app-config RPC with that same key.
+Orchestration follows real requests without adding DSL operations, fixed sleeps or
+an overall fallback deadline. Existing Go/C ICE establishment retries remain valid;
+reconnect offers are counted relative to the block checkpoint, while forbidden
+handshakes still require exactly one refusal.
+
+Local execution requires Docker and all tools needed by the in-process lane. The
+Admission Docker E2E CI job uses Xvfb and a PulseAudio null sink without provider
+secrets. The entrypoint always creates its own `GIZCLAW_E2E_DOCKER_PROJECT` and env
+file. On success, failure or interruption, `setup/docker-compose-down.sh` removes
+only that project's containers, networks, volumes and runtime state.
+
+For manual stack startup, use
+`bash tests/gizclaw-e2e/setup/docker-compose-up.sh --admission`. This starts the stack
+without provider fixtures; the lane above owns Admin bootstrap and full acceptance.
+The ordinary stack also accepts `GIZCLAW_E2E_PEER_ADMISSION=registration-token`, but
+requires Admin provisioning. This switch governs Server signaling only and does
+not protect client handshakes terminated at Edge.
+
+The base-image builders in `setup/docker-compose-up.sh` and `setup/build-linux-cgo.sh`
+share `setup/docker-base.sh`. Unset source overrides preserve `Dockerfile.cn.base`'s
+CN defaults and existing CN image tag. Overrides use a separate `custom-base` tag
+and always evaluate the Docker build, so a cached CN image cannot hide changed
+sources; Docker layer caching still applies. `GIZCLAW_E2E_DOCKER_BASE_IMAGE` can
+select an explicit output tag. CI supplies the official sources below; APT selects
+`APT_MIRROR` on amd64 and `APT_PORTS_MIRROR` on arm64:
+
+```sh
+GIZCLAW_E2E_DOCKER_BASE_FROM=ubuntu:24.04 \
+GIZCLAW_E2E_APT_MIRROR=http://archive.ubuntu.com/ubuntu \
+GIZCLAW_E2E_APT_PORTS_MIRROR=http://ports.ubuntu.com/ubuntu-ports \
+GIZCLAW_E2E_GO_MIRROR=https://go.dev/dl \
+GIZCLAW_E2E_NODE_MIRROR=https://nodejs.org/dist \
+GIZCLAW_E2E_GOPROXY=https://proxy.golang.org,direct \
+GIZCLAW_E2E_GOSUMDB=sum.golang.org \
+GIZCLAW_E2E_NPM_REGISTRY=https://registry.npmjs.org \
+  bash tests/gizclaw-e2e/run_admission_docker_tests.sh
+```
+
+The admission Compose file can also be parsed and torn down without any provider
+variables or generated runtime env file. The lane selects that file before setup,
+and setup persists its runtime state before building images, so build failures
+retain project-scoped cleanup.
 
 ## RuntimeProfile configuration persistence regression
 

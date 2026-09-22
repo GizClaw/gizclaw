@@ -276,6 +276,8 @@ class ScenarioClient {
 
   final _controlClients = <String, control.GizClawControlClient>{};
 
+  Future<void> _closeConnection() => closeFlutterGiznetWebRtc(_peerConnection);
+
   /// Brings up one ephemeral device peer with every `client.*` provider the
   /// document's steps script for it installed before signaling starts.
   static Future<ScenarioClient> connect(
@@ -348,7 +350,7 @@ class ScenarioClient {
   Future<void> reconnect({Duration? await_}) async {
     final deadline = await_ ?? _connectTimeout;
     final elapsed = Stopwatch()..start();
-    await _peerConnection.close();
+    await _closeConnection();
     final httpClient = http.Client();
     try {
       final peerConnection = await _dial(
@@ -374,7 +376,7 @@ class ScenarioClient {
         }
         await callRpc('all.ping', <String, Object?>{}).timeout(remaining);
       } catch (_) {
-        await peerConnection.close();
+        await closeFlutterGiznetWebRtc(peerConnection);
         rethrow;
       }
     } finally {
@@ -505,7 +507,7 @@ class ScenarioClient {
     for (final control in _controlClients.values) {
       control.close();
     }
-    await _peerConnection.close();
+    await _closeConnection();
   }
 }
 

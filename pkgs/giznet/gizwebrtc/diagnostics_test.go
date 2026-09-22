@@ -1,6 +1,48 @@
 package gizwebrtc
 
-import "testing"
+import (
+	"errors"
+	"testing"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/pion/webrtc/v4"
+)
+
+func TestConnDiagnosticsDuringRemoteClose(t *testing.T) {
+	client, server := nativeChannelTestPair(t)
+	if got := client.Diagnostics(); !got.ICECounters {
+		t.Fatalf("connected Peer has no selected ICE counters: %+v", got)
+	}
+	started := make(chan struct{})
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		close(started)
+		for {
+			_ = client.Diagnostics()
+			_ = client.peerConnectionStateDetails()
+			_ = client.peerConnectionCloseError(webrtc.PeerConnectionStateFailed)
+			select {
+			case <-stop:
+				return
+			default:
+			}
+		}
+	}()
+	<-started
+	closeErr := server.Close()
+	<-client.closeCh
+	clientCloseErr := client.Close()
+	close(stop)
+	<-done
+	if closeErr != nil || clientCloseErr != nil {
+		t.Fatalf("close errors: server=%v client=%v", closeErr, clientCloseErr)
+	}
+	if _, err := client.Dial(1234); !errors.Is(err, giznet.ErrConnClosed) {
+		t.Fatalf("Dial after remote close = %v, want connection closed", err)
+	}
+}
 
 func TestConnDiagnosticsString(t *testing.T) {
 	diagnostics := ConnDiagnostics{

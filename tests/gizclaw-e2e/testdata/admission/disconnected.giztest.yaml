@@ -1,0 +1,47 @@
+# User Story:
+# As a Server administrator,
+# I want blocking to disconnect an online device and approval to permit reconnect,
+# So that deployed SDK connections obey the persisted Peer status.
+# The outer admission driver holds the real API-key HTTP response while it
+# blocks this Peer. The driver requires a connection-closed RPC failure,
+# rather than accepting a timeout or an arbitrary failed operation.
+version: gizclaw.test/v1alpha1
+name: admission.disconnected
+timeout: 30s
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+    registration_token: "${registration_token}"
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+  api_key: {direction: output, type: string, secret: true}
+steps:
+- id: read_profile
+  client: peer
+  rpc:
+    method: server.app_config.get
+    request: {key: admission.marker}
+  expect:
+    /value: {equals: accepted}
+- id: create_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request: {display_name: admission-block}
+  capture:
+    api_key: /api_key
+- id: online_checkpoint
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/api-keys/self
+    headers: {Authorization: "Bearer ${api_key}"}
+    status: 200
+- id: connection_after_block
+  client: peer
+  rpc:
+    method: all.ping
+    request: {client_send_time: 0}

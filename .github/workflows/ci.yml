@@ -797,6 +797,58 @@ jobs:
       - name: Run registration-token admission across all SDKs
         run: xvfb-run -a bash tests/gizclaw-e2e/run_admission_tests.sh
 
+  admission-docker-e2e:
+    name: Admission Docker E2E
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    env:
+      GIZCLAW_E2E_DOCKER_BASE_FROM: ubuntu:24.04
+      GIZCLAW_E2E_APT_MIRROR: http://archive.ubuntu.com/ubuntu
+      GIZCLAW_E2E_APT_PORTS_MIRROR: http://ports.ubuntu.com/ubuntu-ports
+      GIZCLAW_E2E_GO_MIRROR: https://go.dev/dl
+      GIZCLAW_E2E_NODE_MIRROR: https://nodejs.org/dist
+      GIZCLAW_E2E_GOPROXY: https://proxy.golang.org,direct
+      GIZCLAW_E2E_GOSUMDB: sum.golang.org
+      GIZCLAW_E2E_NPM_REGISTRY: https://registry.npmjs.org
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          lfs: true
+      - name: Ensure Git LFS assets are available
+        run: git lfs pull
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: "3.38.1"
+          channel: stable
+          cache: true
+      - name: Install native WebRTC runner tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            clang cmake ninja-build pkg-config libgtk-3-dev libayatana-appindicator3-dev \
+            protobuf-compiler libprotobuf-dev libpulse-dev pulseaudio pulseaudio-utils xvfb xauth
+      - name: Start virtual audio device for Flutter WebRTC
+        run: |
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=gizclaw_admission_docker
+          pactl set-default-sink gizclaw_admission_docker
+          pactl set-default-source gizclaw_admission_docker.monitor
+      - name: Run Docker admission and Peer blocking across all SDKs
+        run: xvfb-run -a bash tests/gizclaw-e2e/run_admission_docker_tests.sh
+
   audioplayer-giztest:
     name: Audioplayer Giztest
     runs-on: ubuntu-24.04

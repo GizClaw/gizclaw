@@ -29,7 +29,71 @@ Go、JavaScript、Flutter 和 C Giztest runner 都在初次握手中把 `registr
 
 CI 的 Admission SDK E2E job 运行完整 lane；普通 Go 测试也运行 Go Giztest 场景。PostgreSQL Integration 运行 `TestPostgreSQLRegistrationTokenLifecycle`，包含老库迁移、编辑限制、幂等与两条独立连接争最后一个名额。SQLite 运行相同生命周期用例和独立连接并发测试。
 
-标准 Docker 栈可通过 `GIZCLAW_E2E_PEER_ADMISSION=registration-token` 选择该开关，默认仍为 open。它只约束 Server 直接 signaling，不覆盖 Edge 终止的客户端握手；Admin identity 也必须已经登记或携带有效凭证。注册准入 lane 使用直接 Server 连接和预置 Admin Peer，避免混淆这两个边界。完整 provider-backed `run_tests.sh` 仍需统一 `.env` 中的外部服务凭据。
+### Docker 准入与封禁
+
+```sh
+bash tests/gizclaw-e2e/run_admission_docker_tests.sh
+```
+
+这条固定 lane 在独立 Compose project 中启用 `peer-admission: registration-token`。
+`docker/docker-compose.admission.yaml` 使用标准 Server 模板，只运行 Server 与两个 Edge，
+不启动 TURN、Redis、LiveKit 或 provider 服务。它不读取或挂载 provider `.env`，
+省略 SFU 配置和 provider 资源初始化；无需模型调用或 AI 凭据。
+此 lane 使用 Server 公布的 TCP ICE 入口，不验收 relay。标准 `run_tests.sh` 保留
+原有 Compose 文件、凭据 preflight、资源初始化与默认 `open` 行为。
+准入镜像通过 `PREBUILD_CLI=1` 在构建时编译一次 CLI，三个服务复用现有 prebuilt 入口，
+避免低配 CI runner 在就绪检查期间分别冷编译；标准镜像默认仍在启动时构建。
+失败时先输出三个服务的末尾日志，再按项目拆栈。
+
+入口先通过 Edge 登记配置的 Admin identity，再切回直连 Server 的 admin CLI context。
+这是 Edge logical connection 的现有部署边界，不是 Admin key 的准入豁免；所有被测设备
+都直连 Server。CLI JSON 命令创建 RuntimeProfile 及各 runner 独立的有效、禁用、过期和
+单次激活 token，并检查 activation count。选择 CLI 是为了同时验证部署管理面，且无需
+Terraform state；测试不会直接写数据库。
+
+Docker 与进程内 lane 共用 `testdata/admission/` 文档和 `admissiontest` Go 驱动。
+驱动转发真实 HTTP/signaling 响应；负例同时要求 runner 的失败报告和恰好一次 Server
+`403 peer_forbidden`，任意连接失败或 skipped 都不算通过。封禁文档先完成注册、RPC、
+API key 创建和真实 HTTP self 查询；驱动在返回该响应前通过 Admin block 检查在线 Peer
+变为 blocked/offline。断开文档在旧连接上再次调用 RPC，要求明确的连接关闭错误，超时不算通过。
+Flutter SDK 在 native 清理前传播必需 event session 的终止，并与调用方共享一次 Peer
+关闭操作。runner 清理与重连使用 SDK close helper；Linux 原生实跑验证该事件顺序。
+拒绝用例要求同一公钥 reconnect 得到 `peer_forbidden`；恢复用例在 block 后 approve，再验证同一公钥无凭据重连及 app-config RPC。编排使用实际请求信号，
+不扩展 DSL，也不增加固定等待或整体兜底 deadline。Go/C 现有 ICE 建连重试仍被支持；
+重连请求按封禁 checkpoint 前后统计，被禁握手仍要求恰好一次明确拒绝。
+
+本地需要 Docker 和进程内 lane 的全部 runner 工具。CI 的 Admission Docker E2E job
+同样使用 Xvfb 与 PulseAudio null sink，不使用 provider secrets。入口总是创建自己的
+`GIZCLAW_E2E_DOCKER_PROJECT` 和环境文件，成功、失败或中断时通过
+`setup/docker-compose-down.sh` 按项目删除容器、网络、volume 和 runtime 状态。
+
+手动启动可使用 `bash tests/gizclaw-e2e/setup/docker-compose-up.sh --admission`；
+它只启动无 provider 资源的栈，Admin bootstrap 与完整验收由上述 lane 负责。
+普通栈仍可用 `GIZCLAW_E2E_PEER_ADMISSION=registration-token` 选择准入模式，但需自行
+登记 Admin，且该开关只约束 Server signaling，不保护 Edge 终止的客户端握手。
+
+`setup/docker-compose-up.sh` 与 `setup/build-linux-cgo.sh` 通过 `setup/docker-base.sh`
+共用基础镜像构建参数。不设置源覆盖变量时保留 `Dockerfile.cn.base` 的 CN 默认值和
+原有 CN 镜像 tag。设置覆盖变量时使用独立的 `custom-base` tag，并始终执行 Docker build，
+避免已有 CN 镜像掩盖源变化；仍可命中 Docker layer cache。
+`GIZCLAW_E2E_DOCKER_BASE_IMAGE` 可指定输出 tag。CI 使用以下官方源，APT 根据架构
+选择 amd64 的 `APT_MIRROR` 或 arm64 的 `APT_PORTS_MIRROR`：
+
+```sh
+GIZCLAW_E2E_DOCKER_BASE_FROM=ubuntu:24.04 \
+GIZCLAW_E2E_APT_MIRROR=http://archive.ubuntu.com/ubuntu \
+GIZCLAW_E2E_APT_PORTS_MIRROR=http://ports.ubuntu.com/ubuntu-ports \
+GIZCLAW_E2E_GO_MIRROR=https://go.dev/dl \
+GIZCLAW_E2E_NODE_MIRROR=https://nodejs.org/dist \
+GIZCLAW_E2E_GOPROXY=https://proxy.golang.org,direct \
+GIZCLAW_E2E_GOSUMDB=sum.golang.org \
+GIZCLAW_E2E_NPM_REGISTRY=https://registry.npmjs.org \
+  bash tests/gizclaw-e2e/run_admission_docker_tests.sh
+```
+
+准入 Compose 文件在缺少所有 provider 变量和 runtime env 文件时仍能解析和拆栈。
+lane 在 setup 前选定该文件，setup 在镜像构建前保存 runtime 状态，构建失败时也能
+按项目完成清理。
 
 ## RuntimeProfile 配置持久化回归
 

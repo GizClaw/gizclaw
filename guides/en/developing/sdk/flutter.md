@@ -35,6 +35,15 @@ implementations. Generated Protobuf and method-registry files are committed, so
 ordinary app builds do not require `protoc`; regeneration uses the package's
 `protoc_plugin` development dependency.
 
+`closeFlutterGiznetWebRtc(peerConnection)` owns idempotent Peer cleanup. Mandatory
+channel shutdown and caller cleanup share one close future; a closing Peer rejects
+new RPC channels before invoking the native plugin. DataChannel cleanup still
+releases the plugin's Dart subscriptions. The adapter treats Linux's known
+`dataChannelCloseFailed` missing-Peer/channel result as already closed only after
+observing channel closure or starting cleanup of its owning Peer; unrelated errors
+remain errors. Event-session EOS/channel-done notifications reach subscribers
+before native cleanup finishes. No disconnect timer is added.
+
 ```sh
 cd sdk/flutter/gizclaw
 flutter pub get
