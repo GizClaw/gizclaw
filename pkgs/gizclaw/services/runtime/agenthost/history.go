@@ -1455,13 +1455,11 @@ func (r *historyRecorder) flush(ctx context.Context, key string) error {
 		}
 	}
 	stored, err := r.history.Append(ctx, req)
-	if err != nil {
-		return err
-	}
-	if r.notify != nil {
+	if stored.ID != "" && r.notify != nil {
+		// A stored entry stays visible even when recording activity failed.
 		r.notify(stored)
 	}
-	return nil
+	return err
 }
 
 func historyAudioReplayChunks(role genx.Role, name, streamID, label, mimeType string, data []byte) ([]*genx.MessageChunk, error) {

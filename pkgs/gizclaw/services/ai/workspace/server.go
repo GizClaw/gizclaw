@@ -938,7 +938,11 @@ func (s *Server) GetWorkspaceRuntimeByID(ctx context.Context, id string) (Runtim
 	if s == nil || s.RuntimeStore == nil {
 		return Runtime{}, nil
 	}
-	return s.RuntimeStore.GetWorkspaceRuntime(ctx, id)
+	store, err := s.store()
+	if err != nil {
+		return Runtime{}, err
+	}
+	return s.workspaceRuntime(ctx, store, id)
 }
 
 func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error) {

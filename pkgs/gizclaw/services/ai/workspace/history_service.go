@@ -15,15 +15,12 @@ import (
 
 func (s *Server) AppendWorkspaceHistory(ctx context.Context, workspaceName string, req AppendHistoryRequest) (HistoryEntry, error) {
 	workspaceName = strings.TrimSpace(workspaceName)
-	metadataStore, history, err := s.historyStoreWithMetadata(ctx, workspaceName)
+	history, err := s.historyStore(ctx, workspaceName)
 	if err != nil {
 		return HistoryEntry{}, err
 	}
 	entry, err := history.Append(ctx, req)
 	if err != nil {
-		return HistoryEntry{}, err
-	}
-	if err := bumpWorkspaceLastActive(ctx, metadataStore, workspaceName, entry.CreatedAt); err != nil {
 		return HistoryEntry{}, err
 	}
 	return entry, nil
@@ -50,15 +47,15 @@ func (s *Server) AppendWorkspaceHistoryByID(ctx context.Context, workspaceID str
 	if s.RuntimeStore == nil {
 		return HistoryEntry{}, fmt.Errorf("workspace: runtime store is required")
 	}
-	runtime, err := s.RuntimeStore.GetWorkspaceRuntime(ctx, item.Id)
+	runtime, err := s.workspaceRuntime(ctx, store, item.Id)
 	if err != nil {
 		return HistoryEntry{}, err
+	}
+	if runtime.History == nil {
+		return HistoryEntry{}, fmt.Errorf("workspace: history store is required")
 	}
 	entry, err := runtime.History.Append(ctx, req)
 	if err != nil {
-		return HistoryEntry{}, err
-	}
-	if err := bumpWorkspaceLastActive(ctx, store, item.Name, entry.CreatedAt); err != nil {
 		return HistoryEntry{}, err
 	}
 	return entry, nil
@@ -239,43 +236,38 @@ func (s *Server) ReadWorkspaceHistoryAudioByID(ctx context.Context, workspaceNam
 }
 
 func (s *Server) historyStore(ctx context.Context, workspaceName string) (*HistoryStore, error) {
-	_, history, err := s.historyStoreWithMetadata(ctx, workspaceName)
-	return history, err
-}
-
-func (s *Server) historyStoreWithMetadata(ctx context.Context, workspaceName string) (*sqlx.DB, *HistoryStore, error) {
 	if s == nil {
-		return nil, nil, fmt.Errorf("workspace: nil server")
+		return nil, fmt.Errorf("workspace: nil server")
 	}
 	workspaceName = strings.TrimSpace(workspaceName)
 	if workspaceName == "" {
-		return nil, nil, fmt.Errorf("workspace: name is required")
+		return nil, fmt.Errorf("workspace: name is required")
 	}
 	store, err := s.store()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	workspace, err := getWorkspace(ctx, store, workspaceName)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if err := s.ensureWorkspaceAvailable(ctx, workspace.Id); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if err := s.ensureWorkspaceOwnerAvailable(ctx, workspace); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if s.RuntimeStore == nil {
-		return nil, nil, fmt.Errorf("workspace: runtime store is required")
+		return nil, fmt.Errorf("workspace: runtime store is required")
 	}
-	rt, err := s.RuntimeStore.GetWorkspaceRuntime(ctx, workspace.Id)
+	rt, err := s.workspaceRuntime(ctx, store, workspace.Id)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if rt.History == nil {
-		return nil, nil, fmt.Errorf("workspace: history store is required")
+		return nil, fmt.Errorf("workspace: history store is required")
 	}
-	return store, rt.History, nil
+	return rt.History, nil
 }
 
 func (s *Server) historyStoreByID(ctx context.Context, workspaceID string) (*HistoryStore, error) {
@@ -312,7 +304,7 @@ func (s *Server) historyStoreByIDWithFence(ctx context.Context, workspaceID stri
 	if s.RuntimeStore == nil {
 		return nil, fmt.Errorf("workspace: runtime store is required")
 	}
-	rt, err := s.RuntimeStore.GetWorkspaceRuntime(ctx, workspace.Id)
+	rt, err := s.workspaceRuntime(ctx, store, workspace.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -322,15 +314,19 @@ func (s *Server) historyStoreByIDWithFence(ctx context.Context, workspaceID stri
 	return rt.History, nil
 }
 
-func bumpWorkspaceLastActive(ctx context.Context, db *sqlx.DB, name string, active time.Time) error {
-	if active.IsZero() {
-		active = time.Now().UTC()
+// workspaceRuntime returns runtime state whose History appends advance the
+// Workspace last_active_at, so every writer shares one activity choke point.
+func (s *Server) workspaceRuntime(ctx context.Context, db *sqlx.DB, workspaceID string) (Runtime, error) {
+	rt, err := s.RuntimeStore.GetWorkspaceRuntime(ctx, workspaceID)
+	if err != nil || rt.History == nil {
+		return rt, err
 	}
-	item, err := getWorkspace(ctx, db, name)
-	if err != nil {
-		return err
+	history := *rt.History
+	history.RecordActivity = func(ctx context.Context, entry HistoryEntry) error {
+		return bumpSQLWorkspaceActivity(ctx, db, workspaceID, entry.CreatedAt)
 	}
-	return bumpSQLWorkspaceActivity(ctx, db, item.Id, active)
+	rt.History = &history
+	return rt, nil
 }
 
 // SearchWorkspaceHistoryByID queries persisted history without selecting a runtime.

@@ -347,3 +347,33 @@ func TestHistorySearchJumpsToTimeAndPagesBothWays(t *testing.T) {
 		t.Fatalf("empty range page=%+v", empty)
 	}
 }
+
+func TestHistoryStoreAppendReportsActivityAfterDurableWrite(t *testing.T) {
+	ctx := context.Background()
+	store := newTestHistoryStore(t, newTestObjectStore(t), "workspace-a")
+	var reported []HistoryEntry
+	store.RecordActivity = func(_ context.Context, entry HistoryEntry) error {
+		reported = append(reported, entry)
+		return nil
+	}
+	entry, err := store.Append(ctx, AppendHistoryRequest{Type: "agent", Name: "assistant", Text: "hello"})
+	if err != nil {
+		t.Fatalf("Append() error = %v", err)
+	}
+	if len(reported) != 1 || reported[0].ID != entry.ID || !reported[0].CreatedAt.Equal(entry.CreatedAt) {
+		t.Fatalf("reported activity = %+v, want %+v", reported, entry)
+	}
+
+	activityErr := errors.New("activity unavailable")
+	store.RecordActivity = func(context.Context, HistoryEntry) error { return activityErr }
+	stored, err := store.Append(ctx, AppendHistoryRequest{Type: "agent", Name: "assistant", Text: "again"})
+	if !errors.Is(err, activityErr) {
+		t.Fatalf("Append() error = %v, want %v", err, activityErr)
+	}
+	if stored.ID == "" {
+		t.Fatal("Append() dropped the stored entry when recording activity failed")
+	}
+	if _, err := store.Get(ctx, stored.ID); err != nil {
+		t.Fatalf("Get(stored) error = %v", err)
+	}
+}

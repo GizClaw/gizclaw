@@ -1,0 +1,140 @@
+# User Story:
+# As a controller app showing a device's game saves,
+# I want a real device conversation to advance the save's last_active_at on Public HTTP,
+# So that "last played" shows the latest conversation instead of the save's creation time.
+version: gizclaw.test/v1alpha1
+name: flowcraft-voice-assistant.workspace-last-active
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+  created_at:
+    direction: output
+    type: string
+  updated_at:
+    direction: output
+    type: string
+  initial_last_active_at:
+    direction: output
+    type: string
+  input_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_workspace
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${workspace_name}"
+      collection: assistants
+      workflow_name: flowcraft-voice-assistant
+      parameters:
+        flowcraft_workspace_parameters:
+          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${workspace_name}"
+  capture:
+    api_key: /api_key
+- id: list_before_conversation
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/workspaces?collection=assistants&workflow_name=flowcraft-voice-assistant
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  capture:
+    created_at: /0/created_at
+    updated_at: /0/updated_at
+    initial_last_active_at: /0/last_active_at
+  expect:
+    "": {count: 1}
+    /0/name: {equals: "${workspace_name}"}
+    /0/last_active_at: {non_empty: true}
+- id: select_workspace
+  client: peer
+  rpc:
+    method: server.run.workspace.set
+    request:
+      workspace_name: "${workspace_name}"
+- id: synthesize_input
+  client: peer
+  speech:
+    method: server.speech.synthesize
+    request:
+      voice_name: narrator
+      text: Giztest audio input
+      accepted_content_types:
+      - audio/ogg
+  save_as: input_audio
+- id: exercise_workflow
+  client: peer
+  peer_stream:
+    mode: push-to-talk
+    input: "${input_audio}"
+    pacing: 20ms
+    wait_for_history: true
+  expect:
+    /history_name: {non_empty: true}
+- id: list_after_conversation
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/workspaces?collection=assistants&workflow_name=flowcraft-voice-assistant
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  expect:
+    "": {count: 1}
+    /0/name: {equals: "${workspace_name}"}
+    /0/last_active_at: {non_empty: true, not_contains: "${initial_last_active_at}"}
+    /0/created_at: {equals: "${created_at}"}
+    /0/updated_at: {equals: "${updated_at}"}
+finally:
+- client: peer
+  rpc:
+    method: server.run.stop
+    request: {}
+- client: peer
+  rpc:
+    method: server.workspace.delete
+    request:
+      name: "${workspace_name}"
+- client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}
