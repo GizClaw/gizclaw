@@ -263,6 +263,9 @@ func (x *ClientDeviceStatusGetResponse) GetValue() *PeerStatus {
 	return nil
 }
 
+// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
+//
+// Deprecated: Marked as deprecated in payload/system.proto.
 type ClientDeviceVolumeSetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Level         int64                  `protobuf:"varint,1,opt,name=level,proto3" json:"level,omitempty"`
@@ -315,6 +318,9 @@ func (x *ClientDeviceVolumeSetRequest) GetMuted() bool {
 	return false
 }
 
+// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
+//
+// Deprecated: Marked as deprecated in payload/system.proto.
 type ClientDeviceVolumeSetResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Value         *PeerStatus            `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
@@ -580,6 +586,9 @@ func (x *DeviceSettings) GetNfcEnabled() bool {
 	return false
 }
 
+// Deprecated: Use client.mhs.v0.read with RuntimeProfile manifest keys.
+//
+// Deprecated: Marked as deprecated in payload/system.proto.
 type ClientDeviceSettingsGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -616,6 +625,9 @@ func (*ClientDeviceSettingsGetRequest) Descriptor() ([]byte, []int) {
 	return file_payload_system_proto_rawDescGZIP(), []int{11}
 }
 
+// Deprecated: Use client.mhs.v0.read with RuntimeProfile manifest keys.
+//
+// Deprecated: Marked as deprecated in payload/system.proto.
 type ClientDeviceSettingsGetResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Value         *DeviceSettings        `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
@@ -663,6 +675,9 @@ func (x *ClientDeviceSettingsGetResponse) GetValue() *DeviceSettings {
 // ClientDeviceSettingsSetRequest applies only the members it carries. The
 // response is the device's full settings after the change, so a caller sees
 // which options the device actually accepted.
+// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
+//
+// Deprecated: Marked as deprecated in payload/system.proto.
 type ClientDeviceSettingsSetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Value         *DeviceSettings        `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
@@ -707,6 +722,9 @@ func (x *ClientDeviceSettingsSetRequest) GetValue() *DeviceSettings {
 	return nil
 }
 
+// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
+//
+// Deprecated: Marked as deprecated in payload/system.proto.
 type ClientDeviceSettingsSetResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Value         *DeviceSettings        `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
@@ -4163,12 +4181,12 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x05value\x18\x01 \x01(\v2\x1c.gizclaw.rpc.v1.HardwareInfoR\x05value\"\x1e\n" +
 	"\x1cClientDeviceStatusGetRequest\"Q\n" +
 	"\x1dClientDeviceStatusGetResponse\x120\n" +
-	"\x05value\x18\x01 \x01(\v2\x1a.gizclaw.rpc.v1.PeerStatusR\x05value\"J\n" +
+	"\x05value\x18\x01 \x01(\v2\x1a.gizclaw.rpc.v1.PeerStatusR\x05value\"N\n" +
 	"\x1cClientDeviceVolumeSetRequest\x12\x14\n" +
 	"\x05level\x18\x01 \x01(\x03R\x05level\x12\x14\n" +
-	"\x05muted\x18\x02 \x01(\bR\x05muted\"Q\n" +
+	"\x05muted\x18\x02 \x01(\bR\x05muted:\x02\x18\x01\"U\n" +
 	"\x1dClientDeviceVolumeSetResponse\x120\n" +
-	"\x05value\x18\x01 \x01(\v2\x1a.gizclaw.rpc.v1.PeerStatusR\x05value\"j\n" +
+	"\x05value\x18\x01 \x01(\v2\x1a.gizclaw.rpc.v1.PeerStatusR\x05value:\x02\x18\x01\"j\n" +
 	"\x1cClientDeviceSoundPlayRequest\x12\x14\n" +
 	"\x05sound\x18\x01 \x01(\tR\x05sound\x12$\n" +
 	"\vduration_ms\x18\x02 \x01(\x03H\x00R\n" +
@@ -4198,14 +4216,14 @@ const file_payload_system_proto_rawDesc = "" +
 	"\r_key_feedbackB\r\n" +
 	"\v_alert_modeB\x18\n" +
 	"\x16_auto_sleep_timeout_msB\x0e\n" +
-	"\f_nfc_enabled\" \n" +
-	"\x1eClientDeviceSettingsGetRequest\"W\n" +
+	"\f_nfc_enabled\"$\n" +
+	"\x1eClientDeviceSettingsGetRequest:\x02\x18\x01\"[\n" +
 	"\x1fClientDeviceSettingsGetResponse\x124\n" +
-	"\x05value\x18\x01 \x01(\v2\x1e.gizclaw.rpc.v1.DeviceSettingsR\x05value\"V\n" +
+	"\x05value\x18\x01 \x01(\v2\x1e.gizclaw.rpc.v1.DeviceSettingsR\x05value:\x02\x18\x01\"Z\n" +
 	"\x1eClientDeviceSettingsSetRequest\x124\n" +
-	"\x05value\x18\x01 \x01(\v2\x1e.gizclaw.rpc.v1.DeviceSettingsR\x05value\"W\n" +
+	"\x05value\x18\x01 \x01(\v2\x1e.gizclaw.rpc.v1.DeviceSettingsR\x05value:\x02\x18\x01\"[\n" +
 	"\x1fClientDeviceSettingsSetResponse\x124\n" +
-	"\x05value\x18\x01 \x01(\v2\x1e.gizclaw.rpc.v1.DeviceSettingsR\x05value\"Z\n" +
+	"\x05value\x18\x01 \x01(\v2\x1e.gizclaw.rpc.v1.DeviceSettingsR\x05value:\x02\x18\x01\"Z\n" +
 	"\x1fClientDeviceFactoryResetRequest\x12&\n" +
 	"\fkeep_network\x18\x01 \x01(\bH\x00R\vkeepNetwork\x88\x01\x01B\x0f\n" +
 	"\r_keep_network\"\"\n" +

@@ -456,6 +456,7 @@ class GizClawControlClient {
   /// `PUT /gizclaw/v1/device/volume`.
   ///
   /// Returns the `PeerStatus` the device reported after applying the volume.
+  @Deprecated('Use writeMhsStates with keys from getMhsManifest.')
   Future<DeviceControlStatus> setDeviceVolume({
     required int level,
     required bool muted,
@@ -635,6 +636,7 @@ class GizClawControlClient {
   /// `GET /gizclaw/v1/device/settings`.
   ///
   /// A null member means the device does not support that option.
+  @Deprecated('Use readMhsStates with keys from getMhsManifest.')
   Future<DeviceSettings> getDeviceSettings() {
     return _json(
       'GET',
@@ -649,6 +651,7 @@ class GizClawControlClient {
   /// Changes only the non-null members of [patch]. A value outside its range
   /// rejects the whole patch before any member is applied. Returns every
   /// setting after the change.
+  @Deprecated('Use writeMhsStates with keys from getMhsManifest.')
   Future<DeviceSettings> updateDeviceSettings(DeviceSettings patch) {
     return _json(
       'PATCH',

@@ -956,13 +956,19 @@ GizClawDeviceControlHandlers _copyControl(
     factoryReset: factoryReset ?? base.factoryReset,
     find: find ?? base.find,
     forgetWifi: forgetWifi ?? base.forgetWifi,
+    // Keep the legacy RPC bridge covered for older devices and apps.
+    // ignore: deprecated_member_use
     getSettings: getSettings ?? base.getSettings,
     playSound: playSound ?? base.playSound,
     reboot: reboot ?? base.reboot,
     savedWifi: savedWifi ?? base.savedWifi,
     scanWifi: scanWifi ?? base.scanWifi,
     setRunWorkspace: setRunWorkspace ?? base.setRunWorkspace,
+    // Keep the legacy RPC bridge covered for older devices and apps.
+    // ignore: deprecated_member_use
     setSettings: setSettings ?? base.setSettings,
+    // Keep the legacy RPC bridge covered for older devices and apps.
+    // ignore: deprecated_member_use
     setVolume: setVolume ?? base.setVolume,
     status: status ?? base.status,
     updateFirmware: base.updateFirmware,

@@ -37,6 +37,7 @@ final client = GizClawControlClient(
 );
 
 final status = await client.getDeviceStatus();
+// 旧设备兼容示例；此方法已弃用，新集成使用 MHS v0。
 final applied = await client.setDeviceVolume(level: 35, muted: false);
 print('${status.volume} -> ${applied.status.volume}');
 
@@ -123,3 +124,11 @@ try {
 设备端在 `GizClawDeviceControlHandlers` 安装 `readMhsStates`/`writeMhsStates`，使用生成的 `ClientMhsV0*` 与 `MhsValue`。控制端调用 `getMhsManifest()`、`readMhsStates(List<MhsStateRef>)`、`writeMhsStates(List<MhsStateValue>)`；`MhsStateValue.value` 是普通 bool/int/double/String，返回写入后的实际值。`MhsState` 的 type/access/min/max/step/enumValues/unit 用于渲染控件。
 
 这是 GizClaw 自有的 MHS-inspired 预标准 v0，不声称官方兼容。manifest 离线可读，每次读写最多 32 个唯一 key；写入必须整批验证且驱动执行安全限制。完整错误与边界见 [Public API](/zh/developing/api/http/public) 和 [provider contract](/zh/developing/api/proto/rpc/client-provided-to-server)。
+
+## 已弃用的硬件状态接口
+
+`client.device.volume.set`（101）、`client.device.settings.get`（128）和 `client.device.settings.set`（129）已弃用，分别改用 `client.mhs.v0.write`、`client.mhs.v0.read` 和 `client.mhs.v0.write`。旧入口继续兼容；[迁移表](/zh/developing/api/overview#mhs-v0-migration) 列出产品 manifest 的推荐 key。仅在固件和控制 App 均完成迁移后移除，本次不设日期。
+
+设备端：`GizClawDeviceControlHandlers.setVolume`、`getSettings`、`setSettings` → `writeMhsStates`、`readMhsStates`、`writeMhsStates`.
+
+控制端：`GizClawControlClient.setDeviceVolume`、`getDeviceSettings`、`updateDeviceSettings` → `writeMhsStates`、`readMhsStates`、`writeMhsStates`.

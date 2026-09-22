@@ -313,6 +313,7 @@ export type GizClawDeviceControlHandlers = {
   scanWifi?: (
     timeoutMs?: number,
   ) => Promise<WifiScanResult[]> | WifiScanResult[];
+  /** @deprecated Use writeMhsStates with RuntimeProfile manifest keys. */
   setVolume?: (
     level: number,
     muted: boolean,
@@ -322,10 +323,12 @@ export type GizClawDeviceControlHandlers = {
   // getSettings reports every option this device supports. An option the
   // device has no hardware for stays absent rather than being reported with a
   // placeholder value, which is how a caller tells "off" from "not supported".
+  /** @deprecated Use readMhsStates with RuntimeProfile manifest keys. */
   getSettings?: () => Promise<DeviceSettings> | DeviceSettings;
   // setSettings applies only the options present in the patch and answers with
   // the device's full settings afterwards, so the caller sees what was
   // accepted. An option the device does not support is ignored, not an error.
+  /** @deprecated Use writeMhsStates with RuntimeProfile manifest keys. */
   setSettings?: (
     patch: DeviceSettings,
   ) => Promise<DeviceSettings> | DeviceSettings;

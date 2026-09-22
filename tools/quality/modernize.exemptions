@@ -770,9 +770,9 @@ pkgs/gizclaw/api/rpcproto/enums.pb.go:1790:19: reflect.TypeOf call can be simpli
 pkgs/gizclaw/api/rpcproto/firmware.pb.go:311:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/rpcproto/icon.pb.go:122:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/rpcproto/mhs.pb.go:519:19: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/api/rpcproto/rpc.pb.go:1325:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcproto/rpc.pb.go:1334:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/rpcproto/social.pb.go:3694:19: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/api/rpcproto/system.pb.go:4681:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcproto/system.pb.go:4699:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/rpcproto/workspace.pb.go:4418:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/telemetry/peer_telemetry.pb.go:1052:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/giznet/giznetpb/admission.pb.go:132:19: reflect.TypeOf call can be simplified using TypeFor

@@ -192,9 +192,13 @@ export type ClientDeviceRebootRequest = {
   "delay_ms"?: number;
 };
 export type ClientDeviceRebootResponse = Record<string, never>;
+/** @deprecated Use client.mhs.v0.read with RuntimeProfile manifest keys. */
 export type ClientDeviceSettingsGetRequest = Record<string, never>;
+/** @deprecated Use client.mhs.v0.read with RuntimeProfile manifest keys. */
 export type ClientDeviceSettingsGetResponse = DeviceSettings;
+/** @deprecated Use client.mhs.v0.write with RuntimeProfile manifest keys. */
 export type ClientDeviceSettingsSetRequest = DeviceSettings;
+/** @deprecated Use client.mhs.v0.write with RuntimeProfile manifest keys. */
 export type ClientDeviceSettingsSetResponse = DeviceSettings;
 export type ClientDeviceSoundPlayRequest = {
   "sound": string;
@@ -203,10 +207,12 @@ export type ClientDeviceSoundPlayRequest = {
 export type ClientDeviceSoundPlayResponse = Record<string, never>;
 export type ClientDeviceStatusGetRequest = Record<string, never>;
 export type ClientDeviceStatusGetResponse = PeerStatus;
+/** @deprecated Use client.mhs.v0.write with RuntimeProfile manifest keys. */
 export type ClientDeviceVolumeSetRequest = {
   "level": number;
   "muted": boolean;
 };
+/** @deprecated Use client.mhs.v0.write with RuntimeProfile manifest keys. */
 export type ClientDeviceVolumeSetResponse = PeerStatus;
 export type ClientFirmwareUpdateRequest = {
   "channel"?: FirmwareChannelName;

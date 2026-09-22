@@ -88,6 +88,7 @@ class GizClawDeviceControlHandlers {
   const GizClawDeviceControlHandlers({
     this.audioplayer,
     this.status,
+    @Deprecated('Use writeMhsStates with RuntimeProfile manifest keys.')
     this.setVolume,
     this.playSound,
     this.find,
@@ -98,7 +99,9 @@ class GizClawDeviceControlHandlers {
     this.scanWifi,
     this.connectWifi,
     this.updateFirmware,
+    @Deprecated('Use readMhsStates with RuntimeProfile manifest keys.')
     this.getSettings,
+    @Deprecated('Use writeMhsStates with RuntimeProfile manifest keys.')
     this.setSettings,
     this.factoryReset,
     this.setRunWorkspace,
@@ -121,6 +124,7 @@ class GizClawDeviceControlHandlers {
 
   final GizClawAudioPlayerHandlers? audioplayer;
   final FutureOr<payload.PeerStatus> Function()? status;
+  @Deprecated('Use writeMhsStates with RuntimeProfile manifest keys.')
   final FutureOr<payload.PeerStatus> Function(int level, bool muted)? setVolume;
   final FutureOr<void> Function(String sound, int? durationMs)? playSound;
 
@@ -150,6 +154,7 @@ class GizClawDeviceControlHandlers {
   /// `client.device.settings.get`. An option the device has no hardware for
   /// stays unset rather than carrying a placeholder, which is how a caller
   /// tells "unsupported" from "off".
+  @Deprecated('Use readMhsStates with RuntimeProfile manifest keys.')
   final FutureOr<payload.DeviceSettings> Function()? getSettings;
 
   /// Applies only the members present in [patch] for
@@ -157,6 +162,7 @@ class GizClawDeviceControlHandlers {
   /// afterwards, so the caller sees what was accepted. An unsupported member is
   /// ignored rather than rejected. An out-of-range member is rejected before
   /// this handler runs.
+  @Deprecated('Use writeMhsStates with RuntimeProfile manifest keys.')
   final FutureOr<payload.DeviceSettings> Function(payload.DeviceSettings patch)?
   setSettings;
 

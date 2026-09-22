@@ -21,6 +21,8 @@ Go Client's provider dispatch is located in the `sdk/go/gizcli` RPC Client imple
 
 ## Device control providers
 
+`client.device.volume.set` (101), `client.device.settings.get` (128) and `client.device.settings.set` (129) are deprecated in favor of `client.mhs.v0.write`, `client.mhs.v0.read` and `client.mhs.v0.write`, respectively. Legacy entry points remain compatible. The [migration table](/en/developing/api/overview#mhs-v0-migration) lists recommended product manifest keys. Removal waits for both firmware and control apps to migrate; no date is set.
+
 `client.device.status.get` (100), `client.device.volume.set` (101), `client.device.sound.play` (102), `client.device.find` (126), `client.device.reboot` (103), `client.wifi.status.get` (104), `client.wifi.saved.list` (105), `client.wifi.saved.forget` (106), `client.wifi.scan` (108), `client.wifi.connect` (109), and `client.firmware.update` (111) are implemented by the device `rpc_provider`; the Server calls them while serving Public HTTP `/gizclaw/v1/device*` control requests. Controls use a 5-second timeout except scan, which uses the requested 1–15 second bound. Provider responsibilities:
 
 - `volume.set` applies an absolute `level` (0–100) and `muted` and returns the complete post-change `PeerStatus`; `status.get` returns the current `PeerStatus`. Repeating a call with equal input yields the same result.
@@ -134,7 +136,7 @@ The C SDK `inbound_is_client_method` accepts `client.device.find` and `client.so
 
 ## MHS v0 providers
 
-`client.mhs.v0.read` (133) and `client.mhs.v0.write` (134) are defined by `payload/mhs.proto`. This is GizClaw's own MHS-inspired pre-standard v0, with no official MHS compatibility claim. It only reads/writes states; existing settings, volume, sound, find, Wi-Fi and audioplayer methods are unchanged.
+`client.mhs.v0.read` (133) and `client.mhs.v0.write` (134) are defined by `payload/mhs.proto`. This is GizClaw's own MHS-inspired pre-standard v0, with no official MHS compatibility claim. It only reads/writes states. Legacy settings/volume are deprecated but remain compatible; sound, find, Wi-Fi, audioplayer and other methods are not deprecated.
 
 `MhsValue` sets exactly one of bool_value, int_value, double_value or string_value. False, zero and empty string retain presence; enums use string_value. Keys contain at most 64 ASCII bytes, strings at most 256 UTF-8 bytes without NUL. Nanopb allocates 65/257 bytes including termination. Every request/response contains 1–32 states. Integers are JSON-safe and doubles finite.
 

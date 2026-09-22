@@ -29,8 +29,11 @@ type DeviceControlHandlers struct {
 	WriteMhsStates func(context.Context, *rpcpb.ClientMhsV0WriteRequest) (*rpcpb.ClientMhsV0WriteResponse, error)
 	AudioPlayer    AudioPlayerHandlers
 	Status         func(context.Context) (rpcapi.PeerStatus, error)
-	SetVolume      func(ctx context.Context, level int64, muted bool) (rpcapi.PeerStatus, error)
-	PlaySound      func(ctx context.Context, sound string, durationMs *int64) error
+	// SetVolume handles the legacy absolute volume control.
+	//
+	// Deprecated: Use WriteMhsStates with RuntimeProfile manifest keys.
+	SetVolume func(ctx context.Context, level int64, muted bool) (rpcapi.PeerStatus, error)
+	PlaySound func(ctx context.Context, sound string, durationMs *int64) error
 	// Find rings the device's built-in find-me sound. durationMs is nil when
 	// the caller leaves the ring time to the device.
 	Find        func(ctx context.Context, durationMs *int64) error
@@ -48,10 +51,14 @@ type DeviceControlHandlers struct {
 	// GetSettings reports every option this device supports. An option the
 	// device has no hardware for stays absent rather than carrying a
 	// placeholder, which is how a caller tells "unsupported" from "off".
+	//
+	// Deprecated: Use ReadMhsStates with RuntimeProfile manifest keys.
 	GetSettings func(context.Context) (rpcapi.DeviceSettings, error)
 	// SetSettings applies only the members present in the patch and answers
 	// with the device's full settings afterwards, so the caller sees what was
 	// accepted. An unsupported member is ignored rather than rejected.
+	//
+	// Deprecated: Use WriteMhsStates with RuntimeProfile manifest keys.
 	SetSettings func(ctx context.Context, patch rpcapi.DeviceSettings) (rpcapi.DeviceSettings, error)
 	// FactoryReset erases device-local state. keepNetwork retains saved Wi-Fi
 	// and cellular configuration so the device can reconnect without being

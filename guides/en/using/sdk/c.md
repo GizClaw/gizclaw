@@ -236,3 +236,11 @@ The exported `GZC_REGISTRATION_TOKEN_CREDENTIAL_TYPE` constant defines the built
 `gzc_rpc.h` exposes `payload/mhs.pb.h`. Handle `RPC_METHOD_CLIENT_MHS_V0_READ/WRITE` (133/134) in `rpc_provider` with generated `ClientMhsV0*` nanopb codecs. The provider answers `client.rpc.methods.get` with only implemented methods; absent handlers return `GZC_ERR_UNSUPPORTED`. Response bytes are borrowed during the respond callback and must remain valid until it returns.
 
 This is GizClaw's MHS-inspired pre-standard v0, with no official compatibility claim. Manifests work offline; reads/writes allow at most 32 unique keys. Drivers validate the whole batch and enforce safety limits. See [Public API](/en/developing/api/http/public) and the [provider contract](/en/developing/api/proto/rpc/client-provided-to-server).
+
+## Deprecated hardware-state interfaces
+
+`client.device.volume.set` (101), `client.device.settings.get` (128) and `client.device.settings.set` (129) are deprecated in favor of `client.mhs.v0.write`, `client.mhs.v0.read` and `client.mhs.v0.write`, respectively. Legacy entry points remain compatible. The [migration table](/en/developing/api/overview#mhs-v0-migration) lists recommended product manifest keys. Removal waits for both firmware and control apps to migrate; no date is set.
+
+Device providers: `rpc_provider`: `client.device.volume.set`, `client.device.settings.get/set` → `client.mhs.v0.read/write`.
+
+Controllers: `gzc_control_set_device_volume`, `gzc_control_get_device_settings`, `gzc_control_update_device_settings` → `gzc_control_write_mhs_v0_states`, `gzc_control_read_mhs_v0_states`, `gzc_control_write_mhs_v0_states`.

@@ -352,7 +352,9 @@ export const getDeviceRuntimeProfile = <ThrowOnError extends boolean = false>(op
 /**
  * Set the absolute volume and mute state of the bound device
  *
- * Forwards client.device.volume.set to the online device and stores the PeerStatus it reports. Equal inputs are idempotent.
+ * Forwards client.device.volume.set to the online device and stores the PeerStatus it reports. Equal inputs are idempotent. Deprecated: Use PATCH /gizclaw/v1/device/mhs/v0/states with keys from GET /gizclaw/v1/device/mhs/v0/manifest instead.
+ *
+ * @deprecated
  */
 export const setDeviceVolume = <ThrowOnError extends boolean = false>(options: Options<SetDeviceVolumeData, ThrowOnError>): RequestResult<SetDeviceVolumeResponses, SetDeviceVolumeErrors, ThrowOnError> => (options.client ?? client).put<SetDeviceVolumeResponses, SetDeviceVolumeErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
@@ -427,7 +429,9 @@ export const updateDeviceFirmware = <ThrowOnError extends boolean = false>(optio
 /**
  * Get the settings of the bound device
  *
- * Forwards client.device.settings.get to the online device. A member the device has no hardware for is omitted, which is how a caller tells an unsupported option from one that is off.
+ * Forwards client.device.settings.get to the online device. A member the device has no hardware for is omitted, which is how a caller tells an unsupported option from one that is off. Deprecated: Use POST /gizclaw/v1/device/mhs/v0/read with keys from GET /gizclaw/v1/device/mhs/v0/manifest instead.
+ *
+ * @deprecated
  */
 export const getDeviceSettings = <ThrowOnError extends boolean = false>(options?: Options<GetDeviceSettingsData, ThrowOnError>): RequestResult<GetDeviceSettingsResponses, GetDeviceSettingsErrors, ThrowOnError> => (options?.client ?? client).get<GetDeviceSettingsResponses, GetDeviceSettingsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
@@ -438,7 +442,9 @@ export const getDeviceSettings = <ThrowOnError extends boolean = false>(options?
 /**
  * Change some settings of the bound device
  *
- * Forwards client.device.settings.set to the online device. Only the members present are changed. A member outside its range, or an unknown enum value, rejects the whole request before any member is applied, so the device is never left half-configured; the device answers DEVICE_REJECTED for a value it refuses. A member the device does not support is ignored. The response carries every setting after the change, so the caller sees what was accepted.
+ * Forwards client.device.settings.set to the online device. Only the members present are changed. A member outside its range, or an unknown enum value, rejects the whole request before any member is applied, so the device is never left half-configured; the device answers DEVICE_REJECTED for a value it refuses. A member the device does not support is ignored. The response carries every setting after the change, so the caller sees what was accepted. Deprecated: Use PATCH /gizclaw/v1/device/mhs/v0/states with keys from GET /gizclaw/v1/device/mhs/v0/manifest instead.
+ *
+ * @deprecated
  */
 export const updateDeviceSettings = <ThrowOnError extends boolean = false>(options: Options<UpdateDeviceSettingsData, ThrowOnError>): RequestResult<UpdateDeviceSettingsResponses, UpdateDeviceSettingsErrors, ThrowOnError> => (options.client ?? client).patch<UpdateDeviceSettingsResponses, UpdateDeviceSettingsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],

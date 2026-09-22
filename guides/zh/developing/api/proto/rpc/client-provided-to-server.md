@@ -19,6 +19,8 @@ Client provider 只能返回该 Client 拥有或可执行的数据。Server reso
 
 ## 设备控制 provider
 
+`client.device.volume.set`（101）、`client.device.settings.get`（128）和 `client.device.settings.set`（129）已弃用，分别改用 `client.mhs.v0.write`、`client.mhs.v0.read` 和 `client.mhs.v0.write`。旧入口继续兼容；[迁移表](/zh/developing/api/overview#mhs-v0-migration) 列出产品 manifest 的推荐 key。仅在固件和控制 App 均完成迁移后移除，本次不设日期。
+
 `client.device.status.get`（100）、`client.device.volume.set`（101）、`client.device.sound.play`（102）、`client.device.find`（126）、`client.device.reboot`（103）、`client.wifi.status.get`（104）、`client.wifi.saved.list`（105）、`client.wifi.saved.forget`（106）、`client.wifi.scan`（108）、`client.wifi.connect`（109）与 `client.firmware.update`（111）由设备 `rpc_provider` 实现；Server 在处理 Public HTTP `/gizclaw/v1/device*` 控制请求时调用它们。除扫描使用请求中 1–15 秒的上界外，控制超时为 5 秒。Provider 责任：
 
 - `volume.set` 设置绝对 `level`（0–100）与 `muted`，并在响应中返回应用后的完整 `PeerStatus`；`status.get` 返回当前 `PeerStatus`。相同输入重复调用结果相同。
@@ -121,7 +123,7 @@ C SDK 的 `inbound_is_client_method` 接受 `client.device.find` 与 `client.soc
 
 ## MHS v0 provider
 
-`client.mhs.v0.read`（133）和 `client.mhs.v0.write`（134）的 source 为 `payload/mhs.proto`。这是 GizClaw 自有的 MHS-inspired 预标准 v0，不声明官方 MHS 兼容。只有状态读写，现有 settings、volume、sound、find、Wi-Fi、audioplayer 等方法保持原样。
+`client.mhs.v0.read`（133）和 `client.mhs.v0.write`（134）的 source 为 `payload/mhs.proto`。这是 GizClaw 自有的 MHS-inspired 预标准 v0，不声明官方 MHS 兼容。只有状态读写；旧 settings/volume 已弃用但仍兼容，sound、find、Wi-Fi、audioplayer 等其他方法不弃用。
 
 `MhsValue` 必须设置恰好一个 oneof：bool_value、int_value、double_value 或 string_value；false、0 和空字符串也必须保留 presence，enum 使用 string_value。key 最多 64 ASCII bytes，字符串最多 256 UTF-8 bytes 且无 NUL；nanopb 分别分配 65/257 字节（含结尾 NUL）。请求和响应每批最多 32 个状态，至少 1 个。整数为 JSON-safe 范围，double 必须有限。
 

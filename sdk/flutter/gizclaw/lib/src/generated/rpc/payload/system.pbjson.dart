@@ -111,13 +111,14 @@ const ClientDeviceVolumeSetRequest$json = {
     {'1': 'level', '3': 1, '4': 1, '5': 3, '10': 'level'},
     {'1': 'muted', '3': 2, '4': 1, '5': 8, '10': 'muted'},
   ],
+  '7': {'3': true},
 };
 
 /// Descriptor for `ClientDeviceVolumeSetRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List clientDeviceVolumeSetRequestDescriptor =
     $convert.base64Decode(
         'ChxDbGllbnREZXZpY2VWb2x1bWVTZXRSZXF1ZXN0EhQKBWxldmVsGAEgASgDUgVsZXZlbBIUCg'
-        'VtdXRlZBgCIAEoCFIFbXV0ZWQ=');
+        'VtdXRlZBgCIAEoCFIFbXV0ZWQ6AhgB');
 
 @$core.Deprecated('Use clientDeviceVolumeSetResponseDescriptor instead')
 const ClientDeviceVolumeSetResponse$json = {
@@ -132,13 +133,14 @@ const ClientDeviceVolumeSetResponse$json = {
       '10': 'value'
     },
   ],
+  '7': {'3': true},
 };
 
 /// Descriptor for `ClientDeviceVolumeSetResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List clientDeviceVolumeSetResponseDescriptor =
     $convert.base64Decode(
         'Ch1DbGllbnREZXZpY2VWb2x1bWVTZXRSZXNwb25zZRIwCgV2YWx1ZRgBIAEoCzIaLmdpemNsYX'
-        'cucnBjLnYxLlBlZXJTdGF0dXNSBXZhbHVl');
+        'cucnBjLnYxLlBlZXJTdGF0dXNSBXZhbHVlOgIYAQ==');
 
 @$core.Deprecated('Use clientDeviceSoundPlayRequestDescriptor instead')
 const ClientDeviceSoundPlayRequest$json = {
@@ -300,11 +302,12 @@ final $typed_data.Uint8List deviceSettingsDescriptor = $convert.base64Decode(
 @$core.Deprecated('Use clientDeviceSettingsGetRequestDescriptor instead')
 const ClientDeviceSettingsGetRequest$json = {
   '1': 'ClientDeviceSettingsGetRequest',
+  '7': {'3': true},
 };
 
 /// Descriptor for `ClientDeviceSettingsGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List clientDeviceSettingsGetRequestDescriptor =
-    $convert.base64Decode('Ch5DbGllbnREZXZpY2VTZXR0aW5nc0dldFJlcXVlc3Q=');
+    $convert.base64Decode('Ch5DbGllbnREZXZpY2VTZXR0aW5nc0dldFJlcXVlc3Q6AhgB');
 
 @$core.Deprecated('Use clientDeviceSettingsGetResponseDescriptor instead')
 const ClientDeviceSettingsGetResponse$json = {
@@ -319,13 +322,14 @@ const ClientDeviceSettingsGetResponse$json = {
       '10': 'value'
     },
   ],
+  '7': {'3': true},
 };
 
 /// Descriptor for `ClientDeviceSettingsGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List clientDeviceSettingsGetResponseDescriptor =
     $convert.base64Decode(
         'Ch9DbGllbnREZXZpY2VTZXR0aW5nc0dldFJlc3BvbnNlEjQKBXZhbHVlGAEgASgLMh4uZ2l6Y2'
-        'xhdy5ycGMudjEuRGV2aWNlU2V0dGluZ3NSBXZhbHVl');
+        'xhdy5ycGMudjEuRGV2aWNlU2V0dGluZ3NSBXZhbHVlOgIYAQ==');
 
 @$core.Deprecated('Use clientDeviceSettingsSetRequestDescriptor instead')
 const ClientDeviceSettingsSetRequest$json = {
@@ -340,13 +344,14 @@ const ClientDeviceSettingsSetRequest$json = {
       '10': 'value'
     },
   ],
+  '7': {'3': true},
 };
 
 /// Descriptor for `ClientDeviceSettingsSetRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List clientDeviceSettingsSetRequestDescriptor =
     $convert.base64Decode(
         'Ch5DbGllbnREZXZpY2VTZXR0aW5nc1NldFJlcXVlc3QSNAoFdmFsdWUYASABKAsyHi5naXpjbG'
-        'F3LnJwYy52MS5EZXZpY2VTZXR0aW5nc1IFdmFsdWU=');
+        'F3LnJwYy52MS5EZXZpY2VTZXR0aW5nc1IFdmFsdWU6AhgB');
 
 @$core.Deprecated('Use clientDeviceSettingsSetResponseDescriptor instead')
 const ClientDeviceSettingsSetResponse$json = {
@@ -361,13 +366,14 @@ const ClientDeviceSettingsSetResponse$json = {
       '10': 'value'
     },
   ],
+  '7': {'3': true},
 };
 
 /// Descriptor for `ClientDeviceSettingsSetResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List clientDeviceSettingsSetResponseDescriptor =
     $convert.base64Decode(
         'Ch9DbGllbnREZXZpY2VTZXR0aW5nc1NldFJlc3BvbnNlEjQKBXZhbHVlGAEgASgLMh4uZ2l6Y2'
-        'xhdy5ycGMudjEuRGV2aWNlU2V0dGluZ3NSBXZhbHVl');
+        'xhdy5ycGMudjEuRGV2aWNlU2V0dGluZ3NSBXZhbHVlOgIYAQ==');
 
 @$core.Deprecated('Use clientDeviceFactoryResetRequestDescriptor instead')
 const ClientDeviceFactoryResetRequest$json = {

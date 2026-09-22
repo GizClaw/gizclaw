@@ -18,3 +18,9 @@ Admission conditions belong to [Security Policy](../../developing/gizclaw/server
 Install `DeviceControlHandlers.ReadMhsStates` and `WriteMhsStates` with `gizcli.Client.HandleDeviceControl`; signatures use original `rpcpb.ClientMhsV0*` messages. Return `ErrDeviceResourceNotFound` for absent hardware or `rpcapi.Error{Code: rpcapi.StatusCodeFailedPrecondition}` when current conditions prohibit a write.
 
 This is GizClaw's MHS-inspired pre-standard v0, with no official compatibility claim. Manifests work offline; reads/writes allow at most 32 unique keys. Drivers validate the whole batch and enforce safety limits. See [Public API](/en/developing/api/http/public) and the [provider contract](/en/developing/api/proto/rpc/client-provided-to-server).
+
+## Deprecated hardware-state interfaces
+
+`client.device.volume.set` (101), `client.device.settings.get` (128) and `client.device.settings.set` (129) are deprecated in favor of `client.mhs.v0.write`, `client.mhs.v0.read` and `client.mhs.v0.write`, respectively. Legacy entry points remain compatible. The [migration table](/en/developing/api/overview#mhs-v0-migration) lists recommended product manifest keys. Removal waits for both firmware and control apps to migrate; no date is set.
+
+Device providers: `DeviceControlHandlers.SetVolume`, `GetSettings`, `SetSettings` → `WriteMhsStates`, `ReadMhsStates`, `WriteMhsStates`.

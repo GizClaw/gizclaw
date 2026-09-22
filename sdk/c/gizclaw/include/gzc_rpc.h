@@ -14,6 +14,13 @@
 #include "payload/workspace.pb.h"
 #include "rpc.pb.h"
 
+/*
+ * Deprecated: client.device.volume.set (101), client.device.settings.get (128)
+ * and client.device.settings.set (129). Providers should implement
+ * client.mhs.v0.read (133) / client.mhs.v0.write (134) with RuntimeProfile
+ * manifest keys. Legacy method IDs and payload codecs remain supported.
+ */
+
 #ifdef __cplusplus
 extern "C" {
 #endif

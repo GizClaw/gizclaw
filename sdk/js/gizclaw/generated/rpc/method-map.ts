@@ -325,6 +325,7 @@ export type RPCMethodMap = {
     request: ClientDeviceStatusGetRequest;
     response: ClientDeviceStatusGetResponse;
   };
+  /** @deprecated Use client.mhs.v0.write with RuntimeProfile manifest keys. */
   "client.device.volume.set": {
     request: ClientDeviceVolumeSetRequest;
     response: ClientDeviceVolumeSetResponse;
@@ -393,10 +394,12 @@ export type RPCMethodMap = {
     request: ClientDeviceAudioPlayerModeSetRequest;
     response: ClientDeviceAudioPlayerModeSetResponse;
   };
+  /** @deprecated Use client.mhs.v0.read with RuntimeProfile manifest keys. */
   "client.device.settings.get": {
     request: ClientDeviceSettingsGetRequest;
     response: ClientDeviceSettingsGetResponse;
   };
+  /** @deprecated Use client.mhs.v0.write with RuntimeProfile manifest keys. */
   "client.device.settings.set": {
     request: ClientDeviceSettingsSetRequest;
     response: ClientDeviceSettingsSetResponse;
@@ -534,6 +537,7 @@ export const RPC_METHODS = {
   "server.api_key.revoke": "server.api_key.revoke",
   "server.api_key.resolve": "server.api_key.resolve",
   "client.device.status.get": "client.device.status.get",
+  /** @deprecated Use client.mhs.v0.write with RuntimeProfile manifest keys. */
   "client.device.volume.set": "client.device.volume.set",
   "client.device.sound.play": "client.device.sound.play",
   "client.device.reboot": "client.device.reboot",
@@ -551,7 +555,9 @@ export const RPC_METHODS = {
   "client.device.audioplayer.play": "client.device.audioplayer.play",
   "client.device.audioplayer.stop": "client.device.audioplayer.stop",
   "client.device.audioplayer.mode.set": "client.device.audioplayer.mode.set",
+  /** @deprecated Use client.mhs.v0.read with RuntimeProfile manifest keys. */
   "client.device.settings.get": "client.device.settings.get",
+  /** @deprecated Use client.mhs.v0.write with RuntimeProfile manifest keys. */
   "client.device.settings.set": "client.device.settings.set",
   "client.device.factory_reset": "client.device.factory_reset",
   "client.rpc.methods.get": "client.rpc.methods.get",
@@ -648,6 +654,7 @@ export const RPC_METHOD_IDS = {
   "server.api_key.revoke": 98,
   "server.api_key.resolve": 99,
   "client.device.status.get": 100,
+  /** @deprecated Use client.mhs.v0.write with RuntimeProfile manifest keys. */
   "client.device.volume.set": 101,
   "client.device.sound.play": 102,
   "client.device.reboot": 103,
@@ -665,7 +672,9 @@ export const RPC_METHOD_IDS = {
   "client.device.audioplayer.play": 117,
   "client.device.audioplayer.stop": 118,
   "client.device.audioplayer.mode.set": 119,
+  /** @deprecated Use client.mhs.v0.read with RuntimeProfile manifest keys. */
   "client.device.settings.get": 128,
+  /** @deprecated Use client.mhs.v0.write with RuntimeProfile manifest keys. */
   "client.device.settings.set": 129,
   "client.device.factory_reset": 130,
   "client.rpc.methods.get": 131,

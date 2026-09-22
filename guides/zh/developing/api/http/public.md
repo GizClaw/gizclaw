@@ -90,6 +90,8 @@ API Key 的鉴权和管理契约见 [Peer HTTP · API Key](../../gizclaw/peer/se
 
 ## 设备控制流程
 
+`PUT /gizclaw/v1/device/volume`、`GET /gizclaw/v1/device/settings` 和 `PATCH /gizclaw/v1/device/settings` 已弃用。写入改用 `PATCH /gizclaw/v1/device/mhs/v0/states`，读取改用 `POST /gizclaw/v1/device/mhs/v0/read`，key 先从 `GET /gizclaw/v1/device/mhs/v0/manifest` 获取。旧接口行为不变；[迁移表与退役条件](/zh/developing/api/overview#mhs-v0-migration) 说明推荐 key。只有固件和控制 App 均迁移后才移除，目前没有移除日期。
+
 控制 route 由 Server 转发为 Server→设备 RPC（见 [Client Provided to Server](../proto/rpc/client-provided-to-server)）：
 
 ```text
@@ -103,7 +105,7 @@ PUT /gizclaw/v1/device/volume { level: 0..100, muted }
 
 | Route | RPC | 成功响应 |
 | --- | --- | --- |
-| `PUT /device/volume` | `client.device.volume.set` | `200 { status }` |
+| `PUT /device/volume`（已弃用） | `client.device.volume.set` | `200 { status }` |
 | `POST /device/actions/play-sound` `{ sound, duration_ms? }` | `client.device.sound.play` | `204` |
 | `POST /device/actions/find` `{ duration_ms? }` | `client.device.find` | `204` |
 | `POST /device/actions/reboot` `{ delay_ms? }` | `client.device.reboot` | `204` |
@@ -113,8 +115,8 @@ PUT /gizclaw/v1/device/volume { level: 0..100, muted }
 | `DELETE /device/wifi/saved/{ssid}` | `client.wifi.saved.forget` | `204`；未知 ssid → `404 WIFI_NETWORK_NOT_FOUND` |
 | `POST /device/wifi/scan` `{ timeout_ms? }` | `client.wifi.scan` | `200 { networks }` |
 | `PUT /device/wifi` `{ ssid, passphrase? }` | `client.wifi.connect` | `202` |
-| `GET /device/settings` | `client.device.settings.get` | `200 DeviceSettings` |
-| `PATCH /device/settings` `DeviceSettings` | `client.device.settings.set` | `200 DeviceSettings` |
+| `GET /device/settings`（已弃用） | `client.device.settings.get` | `200 DeviceSettings` |
+| `PATCH /device/settings`（已弃用） `DeviceSettings` | `client.device.settings.set` | `200 DeviceSettings` |
 | `POST /device/actions/factory-reset` `{ keep_network? }` | `client.device.factory_reset` | `204` |
 | `GET /device/rpc-methods` | `client.rpc.methods.get` | `200 { methods }` |
 | `PUT /device/run/workspace` `{ workspace_name \| collection + workflow_name, kickoff? }` | `client.run.workspace.set` | `202` |

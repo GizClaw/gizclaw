@@ -1019,7 +1019,8 @@ int gzc_control_aggregate_device_telemetry(
 /* --- Device control ----------------------------------------------------- */
 
 /* `PUT /gizclaw/v1/device/volume`. out_status is the `PeerStatus` the device
- * reported after applying the volume. */
+ * reported after applying the volume.
+ * Deprecated: Use gzc_control_write_mhs_v0_states with manifest keys. */
 int gzc_control_set_device_volume(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
@@ -1054,7 +1055,8 @@ int gzc_control_reboot_device(
     gzc_control_call_t *call,
     const gzc_control_reboot_request_t *request);
 
-/* `GET /gizclaw/v1/device/settings`. */
+/* `GET /gizclaw/v1/device/settings`.
+ * Deprecated: Use gzc_control_read_mhs_v0_states with manifest keys. */
 int gzc_control_get_device_settings(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
@@ -1066,6 +1068,7 @@ int gzc_control_get_device_settings(
  * Sends only the members present in patch. A value outside its range rejects
  * the whole patch before any member is applied. out_settings receives every
  * setting after the change and may be NULL.
+ * Deprecated: Use gzc_control_write_mhs_v0_states with manifest keys.
  */
 int gzc_control_update_device_settings(
     gzc_control_client_t *client,

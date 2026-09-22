@@ -113,6 +113,7 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_REVOKE = 98,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_RESOLVE = 99,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_STATUS_GET = 100,
+    /* Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys. */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_VOLUME_SET = 101,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY = 102,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_REBOOT = 103,
@@ -130,7 +131,9 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY = 117,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP = 118,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET = 119,
+    /* Deprecated: Use client.mhs.v0.read with RuntimeProfile manifest keys. */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET = 128,
+    /* Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys. */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET = 129,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET = 130,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_GET = 131,

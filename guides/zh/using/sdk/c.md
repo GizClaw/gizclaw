@@ -229,3 +229,11 @@ exchange, request)` 只在调用内借用结构；`gzc_signaling_encode_admissio
 `gzc_rpc.h` 导出 `payload/mhs.pb.h`。在 `rpc_provider` 中处理 `RPC_METHOD_CLIENT_MHS_V0_READ/WRITE`（133/134），使用生成的 `ClientMhsV0*` nanopb 编解码。provider 自行回答 `client.rpc.methods.get`，仅列出真实安装的方法；缺少 handler 返回 `GZC_ERR_UNSUPPORTED`。响应 bytes 在 respond callback 内借用，必须在返回前有效。
 
 这是 GizClaw 自有的 MHS-inspired 预标准 v0，不声称官方兼容。manifest 离线可读，每次读写最多 32 个唯一 key；写入必须整批验证且驱动执行安全限制。完整错误与边界见 [Public API](/zh/developing/api/http/public) 和 [provider contract](/zh/developing/api/proto/rpc/client-provided-to-server)。
+
+## 已弃用的硬件状态接口
+
+`client.device.volume.set`（101）、`client.device.settings.get`（128）和 `client.device.settings.set`（129）已弃用，分别改用 `client.mhs.v0.write`、`client.mhs.v0.read` 和 `client.mhs.v0.write`。旧入口继续兼容；[迁移表](/zh/developing/api/overview#mhs-v0-migration) 列出产品 manifest 的推荐 key。仅在固件和控制 App 均完成迁移后移除，本次不设日期。
+
+设备端：`rpc_provider`: `client.device.volume.set`、`client.device.settings.get/set` → `client.mhs.v0.read/write`.
+
+控制端：`gzc_control_set_device_volume`、`gzc_control_get_device_settings`、`gzc_control_update_device_settings` → `gzc_control_write_mhs_v0_states`、`gzc_control_read_mhs_v0_states`、`gzc_control_write_mhs_v0_states`.

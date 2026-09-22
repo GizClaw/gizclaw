@@ -274,6 +274,9 @@ class RpcMethod extends $pb.ProtobufEnum {
       99, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_API_KEY_RESOLVE');
   static const RpcMethod RPC_METHOD_CLIENT_DEVICE_STATUS_GET = RpcMethod._(
       100, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_STATUS_GET');
+
+  /// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
+  @$core.Deprecated('This enum value is deprecated')
   static const RpcMethod RPC_METHOD_CLIENT_DEVICE_VOLUME_SET = RpcMethod._(
       101, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_VOLUME_SET');
   static const RpcMethod RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY = RpcMethod._(
@@ -326,8 +329,14 @@ class RpcMethod extends $pb.ProtobufEnum {
           _omitEnumNames
               ? ''
               : 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET');
+
+  /// Deprecated: Use client.mhs.v0.read with RuntimeProfile manifest keys.
+  @$core.Deprecated('This enum value is deprecated')
   static const RpcMethod RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET = RpcMethod._(
       128, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET');
+
+  /// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
+  @$core.Deprecated('This enum value is deprecated')
   static const RpcMethod RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET = RpcMethod._(
       129, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET');
   static const RpcMethod RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET = RpcMethod._(

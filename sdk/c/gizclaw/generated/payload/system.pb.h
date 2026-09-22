@@ -24,6 +24,7 @@ typedef struct _gizclaw_rpc_v1_ClientDeviceStatusGetRequest {
     char dummy_field;
 } gizclaw_rpc_v1_ClientDeviceStatusGetRequest;
 
+/* Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys. */
 typedef struct _gizclaw_rpc_v1_ClientDeviceVolumeSetRequest {
     int64_t level;
     bool muted;
@@ -79,10 +80,12 @@ typedef struct _gizclaw_rpc_v1_DeviceSettings {
     bool nfc_enabled;
 } gizclaw_rpc_v1_DeviceSettings;
 
+/* Deprecated: Use client.mhs.v0.read with RuntimeProfile manifest keys. */
 typedef struct _gizclaw_rpc_v1_ClientDeviceSettingsGetRequest {
     char dummy_field;
 } gizclaw_rpc_v1_ClientDeviceSettingsGetRequest;
 
+/* Deprecated: Use client.mhs.v0.read with RuntimeProfile manifest keys. */
 typedef struct _gizclaw_rpc_v1_ClientDeviceSettingsGetResponse {
     bool has_value;
     gizclaw_rpc_v1_DeviceSettings value;
@@ -90,12 +93,14 @@ typedef struct _gizclaw_rpc_v1_ClientDeviceSettingsGetResponse {
 
 /* ClientDeviceSettingsSetRequest applies only the members it carries. The
  response is the device's full settings after the change, so a caller sees
- which options the device actually accepted. */
+ which options the device actually accepted.
+ Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys. */
 typedef struct _gizclaw_rpc_v1_ClientDeviceSettingsSetRequest {
     bool has_value;
     gizclaw_rpc_v1_DeviceSettings value;
 } gizclaw_rpc_v1_ClientDeviceSettingsSetRequest;
 
+/* Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys. */
 typedef struct _gizclaw_rpc_v1_ClientDeviceSettingsSetResponse {
     bool has_value;
     gizclaw_rpc_v1_DeviceSettings value;
@@ -398,6 +403,7 @@ typedef struct _gizclaw_rpc_v1_ClientDeviceStatusGetResponse {
     gizclaw_rpc_v1_PeerStatus value;
 } gizclaw_rpc_v1_ClientDeviceStatusGetResponse;
 
+/* Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys. */
 typedef struct _gizclaw_rpc_v1_ClientDeviceVolumeSetResponse {
     bool has_value;
     gizclaw_rpc_v1_PeerStatus value;

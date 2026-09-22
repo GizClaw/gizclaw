@@ -477,7 +477,10 @@ export interface GizClawControlDevice {
     bucket_ms: number;
     aggregate: PeerTelemetryAggregate;
   }): Promise<PeerTelemetryAggregateResponse>;
-  /** `PUT /gizclaw/v1/device/volume`. */
+  /**
+   * `PUT /gizclaw/v1/device/volume`.
+   * @deprecated Use writeMhsStates with keys from getMhsManifest.
+   */
   setVolume(body: DeviceVolumeSetRequest): Promise<DeviceControlStatus>;
   /** `POST /gizclaw/v1/device/actions/play-sound`. */
   playSound(body: DevicePlaySoundRequest): Promise<void>;
@@ -511,6 +514,7 @@ export interface GizClawControlDevice {
    * `GET /gizclaw/v1/device/settings`.
    *
    * An absent member means the device does not support that option.
+   * @deprecated Use readMhsStates with keys from getMhsManifest.
    */
   getSettings(): Promise<DeviceSettings>;
   /** RuntimeProfile-owned MHS-inspired v0 manifest; available while offline. */
@@ -524,6 +528,7 @@ export interface GizClawControlDevice {
    * Changes only the members present. A value outside its range rejects the
    * whole patch before any member is applied. Resolves with every setting
    * after the change.
+   * @deprecated Use writeMhsStates with keys from getMhsManifest.
    */
   updateSettings(patch: DeviceSettings): Promise<DeviceSettings>;
   /**

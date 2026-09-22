@@ -1403,7 +1403,8 @@
         "security": [
           {"BearerAuth": []}
         ],
-        "description": "Forwards client.device.volume.set to the online device and stores the PeerStatus it reports. Equal inputs are idempotent.",
+        "description": "Forwards client.device.volume.set to the online device and stores the PeerStatus it reports. Equal inputs are idempotent. Deprecated: Use PATCH /gizclaw/v1/device/mhs/v0/states with keys from GET /gizclaw/v1/device/mhs/v0/manifest instead.",
+        "deprecated": true,
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceVolumeSetRequest"}}}},
         "responses": {
           "200": {
@@ -1517,7 +1518,8 @@
         "summary": "Get the settings of the bound device",
         "tags": ["DeviceControl"],
         "security": [{"BearerAuth": []}],
-        "description": "Forwards client.device.settings.get to the online device. A member the device has no hardware for is omitted, which is how a caller tells an unsupported option from one that is off.",
+        "description": "Forwards client.device.settings.get to the online device. A member the device has no hardware for is omitted, which is how a caller tells an unsupported option from one that is off. Deprecated: Use POST /gizclaw/v1/device/mhs/v0/read with keys from GET /gizclaw/v1/device/mhs/v0/manifest instead.",
+        "deprecated": true,
         "responses": {
           "200": {"description": "Every setting the device supports.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceSettings"}}}},
           "400": {"$ref": "#/components/responses/BadRequest"},
@@ -1535,7 +1537,8 @@
         "summary": "Change some settings of the bound device",
         "tags": ["DeviceControl"],
         "security": [{"BearerAuth": []}],
-        "description": "Forwards client.device.settings.set to the online device. Only the members present are changed. A member outside its range, or an unknown enum value, rejects the whole request before any member is applied, so the device is never left half-configured; the device answers DEVICE_REJECTED for a value it refuses. A member the device does not support is ignored. The response carries every setting after the change, so the caller sees what was accepted.",
+        "description": "Forwards client.device.settings.set to the online device. Only the members present are changed. A member outside its range, or an unknown enum value, rejects the whole request before any member is applied, so the device is never left half-configured; the device answers DEVICE_REJECTED for a value it refuses. A member the device does not support is ignored. The response carries every setting after the change, so the caller sees what was accepted. Deprecated: Use PATCH /gizclaw/v1/device/mhs/v0/states with keys from GET /gizclaw/v1/device/mhs/v0/manifest instead.",
+        "deprecated": true,
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceSettings"}}}},
         "responses": {
           "200": {"description": "Every setting the device supports, after the change.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceSettings"}}}},

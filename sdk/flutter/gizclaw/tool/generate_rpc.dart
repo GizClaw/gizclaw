@@ -163,7 +163,7 @@ String _repoRoot() {
 List<_Method> _parseRpcMethods(String proto) {
   final methods = <_Method>[];
   final pattern = RegExp(
-    r'^\s*RPC_METHOD_[A-Z0-9_]+\s*=\s*(\d+)\s*\[\(rpc_method\)\s*=\s*\{\s*name:\s*"([^"]+)"\s+request:\s*"(\w+)"\s+response:\s*"(\w+)"\s*\}\s*\]\s*;',
+    r'^\s*RPC_METHOD_[A-Z0-9_]+\s*=\s*(\d+)\s*\[\(rpc_method\)\s*=\s*\{\s*name:\s*"([^"]+)"\s+request:\s*"(\w+)"\s+response:\s*"(\w+)"\s*\}\s*(?:,\s*deprecated\s*=\s*(true|false)\s*)?\]\s*;',
     multiLine: true,
   );
   for (final match in pattern.allMatches(proto)) {

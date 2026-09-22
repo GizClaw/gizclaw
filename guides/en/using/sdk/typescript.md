@@ -39,6 +39,7 @@ const control = createGizClawControlClient({
 });
 
 const status = await control.device.getStatus();
+// Legacy-device compatibility example; deprecated. New integrations use MHS v0.
 const applied = await control.device.setVolume({ level: 35, muted: false });
 console.log(status.volume, "->", applied.status.volume);
 ```
@@ -114,3 +115,11 @@ The exported `REGISTRATION_TOKEN_CREDENTIAL_TYPE` constant defines the built-in 
 Devices install `readMhsStates`/`writeMhsStates` on `deviceControl`; RPC values use `{bool_value:false}`, `{int_value:0}`, `{double_value:0}` or `{string_value:""}`. Controllers use `control.device.getMhsManifest()`, `readMhsStates({states:[{device_id,state}]})` and `writeMhsStates({states:[{device_id,state,value}]})`, with plain JSON values and generated Peer HTTP types.
 
 This is GizClaw's MHS-inspired pre-standard v0, with no official compatibility claim. Manifests work offline; reads/writes allow at most 32 unique keys. Drivers validate the whole batch and enforce safety limits. See [Public API](/en/developing/api/http/public) and the [provider contract](/en/developing/api/proto/rpc/client-provided-to-server).
+
+## Deprecated hardware-state interfaces
+
+`client.device.volume.set` (101), `client.device.settings.get` (128) and `client.device.settings.set` (129) are deprecated in favor of `client.mhs.v0.write`, `client.mhs.v0.read` and `client.mhs.v0.write`, respectively. Legacy entry points remain compatible. The [migration table](/en/developing/api/overview#mhs-v0-migration) lists recommended product manifest keys. Removal waits for both firmware and control apps to migrate; no date is set.
+
+Device providers: `deviceControl.setVolume`, `getSettings`, `setSettings` → `writeMhsStates`, `readMhsStates`, `writeMhsStates`.
+
+Controllers: `control.device.setVolume`, `getSettings`, `updateSettings` → `writeMhsStates`, `readMhsStates`, `writeMhsStates`.

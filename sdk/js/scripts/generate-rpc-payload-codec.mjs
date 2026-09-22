@@ -987,7 +987,7 @@ function parseRPCMethods(proto) {
   const methods = [];
   for (const line of lines) {
     const entry =
-      /^\s*RPC_METHOD_[A-Z0-9_]+\s*=\s*(\d+)\s*\[\(rpc_method\)\s*=\s*\{\s*name:\s*"([^"]+)"\s+request:\s*"(\w+)"\s+response:\s*"(\w+)"\s*\}\s*\]\s*;/.exec(
+      /^\s*RPC_METHOD_[A-Z0-9_]+\s*=\s*(\d+)\s*\[\(rpc_method\)\s*=\s*\{\s*name:\s*"([^"]+)"\s+request:\s*"(\w+)"\s+response:\s*"(\w+)"\s*\}\s*(?:,\s*deprecated\s*=\s*(true|false)\s*)?\]\s*;/.exec(
         line,
       );
     if (entry == null) {
@@ -1015,11 +1015,12 @@ function parsePayloadProto(proto) {
   const lines = proto.split(/\r?\n/);
   const messages = {};
   const enums = {};
+  const deprecations = {};
   let currentMessage = null;
   let currentEnum = null;
   let currentOneof = null;
 
-  for (const line of lines) {
+  for (const [index, line] of lines.entries()) {
     const enumStart = /^\s*enum\s+(\w+)\s*\{/.exec(line);
     if (enumStart != null) {
       currentEnum = { name: enumStart[1], values: [] };
@@ -1043,10 +1044,19 @@ function parsePayloadProto(proto) {
 
     const messageStart = /^\s*message\s+(\w+)\s*\{/.exec(line);
     if (messageStart != null) {
-      currentMessage = { name: messageStart[1], fields: [] };
+      currentMessage = {
+        name: messageStart[1],
+        fields: [],
+        comment: lines[index - 1]?.trim().replace(/^\/\/ Deprecated:\s*/, ""),
+      };
       continue;
     }
     if (currentMessage == null) {
+      continue;
+    }
+    if (/^\s*option deprecated = true;/.test(line)) {
+      deprecations[currentMessage.name] =
+        currentMessage.comment || "Deprecated message.";
       continue;
     }
     const oneofStart = /^\s*oneof\s+(\w+)\s*\{/.exec(line);
@@ -1068,7 +1078,7 @@ function parsePayloadProto(proto) {
       currentMessage.fields.push(field);
     }
   }
-  return { messages, enums };
+  return { messages, enums, deprecations };
 }
 
 function parseField(line, oneofGroup, messageName) {
@@ -1119,6 +1129,9 @@ function emitPayloadTypes(parsed) {
     );
   }
   for (const name of Object.keys(parsed.messages).sort()) {
+    if (parsed.deprecations[name] != null) {
+      out.push(`/** @deprecated ${parsed.deprecations[name]} */`);
+    }
     out.push(`export type ${name} = ${messageTypeExpression(name, parsed)};`);
   }
   return out.join("\n");
