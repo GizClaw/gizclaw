@@ -71,6 +71,20 @@ steps:
     expect:
       /error/code:
         equals: INVALID_REQUEST
+  - id: malformed_arguments_object
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: device.find
+        args: not-an-object
+      status: 400
+    expect:
+      /error/code:
+        equals: INVALID_REQUEST
   - id: unavailable_factory_reset
     client: peer
     http:
