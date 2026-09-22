@@ -88,16 +88,13 @@ class GizClawControlClient {
   }
 
   /// `POST /gizclaw/v1/device/tool/v0/invoke`.
-  Future<AudioPlayerResponse> getAudioPlayer() => _tool(
-      'audioplayer.get',
-      _audioPlayerResult,
-    operation: 'getAudioPlayer',
-  );
+  Future<AudioPlayerResponse> getAudioPlayer() =>
+      _tool('audioplayer.get', _audioPlayerResult, operation: 'getAudioPlayer');
 
   /// `POST /gizclaw/v1/device/tool/v0/invoke`.
   Future<AudioPlayerPlaylist> getAudioPlayerPlaylist() => _tool(
-      'audioplayer.playlist.get',
-      AudioPlayerPlaylist.fromJson,
+    'audioplayer.playlist.get',
+    AudioPlayerPlaylist.fromJson,
     operation: 'getAudioPlayerPlaylist',
   );
 
@@ -105,8 +102,8 @@ class GizClawControlClient {
   Future<AudioPlayerResponse> setAudioPlayerPlaylist(
     List<AudioPlayerItem> items,
   ) => _tool(
-      'audioplayer.playlist.set',
-      _audioPlayerResult,
+    'audioplayer.playlist.set',
+    _audioPlayerResult,
     operation: 'setAudioPlayerPlaylist',
     body: {'items': items.map((item) => item.toJson()).toList()},
   );
@@ -115,31 +112,31 @@ class GizClawControlClient {
   Future<AudioPlayerResponse> appendAudioPlayerPlaylist(
     List<AudioPlayerItem> items,
   ) => _tool(
-      'audioplayer.playlist.append',
-      _audioPlayerResult,
+    'audioplayer.playlist.append',
+    _audioPlayerResult,
     operation: 'appendAudioPlayerPlaylist',
     body: {'items': items.map((item) => item.toJson()).toList()},
   );
 
   /// `POST /gizclaw/v1/device/tool/v0/invoke`.
   Future<AudioPlayerResponse> playAudioPlayer(int index) => _tool(
-      'audioplayer.play',
-      _audioPlayerResult,
+    'audioplayer.play',
+    _audioPlayerResult,
     operation: 'playAudioPlayer',
     body: {'index': index},
   );
 
   /// `POST /gizclaw/v1/device/tool/v0/invoke`.
   Future<AudioPlayerResponse> stopAudioPlayer() => _tool(
-      'audioplayer.stop',
-      _audioPlayerResult,
+    'audioplayer.stop',
+    _audioPlayerResult,
     operation: 'stopAudioPlayer',
   );
 
   /// `POST /gizclaw/v1/device/tool/v0/invoke`.
   Future<AudioPlayerResponse> setAudioPlayerMode(String repeat) => _tool(
-      'audioplayer.mode.set',
-      _audioPlayerResult,
+    'audioplayer.mode.set',
+    _audioPlayerResult,
     operation: 'setAudioPlayerMode',
     body: {'repeat': repeat},
   );
@@ -446,9 +443,6 @@ class GizClawControlClient {
 
   // Device control.
 
-  /// `PUT /gizclaw/v1/device/volume`.
-  ///
-
   /// `POST /gizclaw/v1/device/tool/v0/invoke`.
   Future<void> playDeviceSound({required String sound, int? durationMs}) {
     return _tool<void>(
@@ -518,7 +512,6 @@ class GizClawControlClient {
     );
   }
 
-
   /// `POST /gizclaw/v1/device/tool/v0/invoke`.
   Future<DeviceWifiScanResponse> scanDeviceWifi([
     DeviceWifiScanRequest request = const DeviceWifiScanRequest(),
@@ -555,10 +548,13 @@ class GizClawControlClient {
 
   /// `POST /gizclaw/v1/device/tool/v0/invoke`.
   Future<void> forgetDeviceSavedWifi(String ssid) {
+    if (ssid.isEmpty) {
+      throw ArgumentError.value(ssid, 'ssid', 'must not be empty');
+    }
     return _tool<void>(
       'wifi.saved.forget',
       (_) {},
-      body: {'ssid': _segment(ssid, 'ssid')},
+      body: {'ssid': ssid},
       operation: 'forgetDeviceSavedWifi',
     );
   }
@@ -601,14 +597,6 @@ class GizClawControlClient {
     ).map(MhsStateValue.fromJson),
   );
 
-  /// `GET /gizclaw/v1/device/settings`.
-  ///
-
-  /// `PATCH /gizclaw/v1/device/settings`.
-  ///
-  /// Changes only the non-null members of [patch]. A value outside its range
-  /// rejects the whole patch before any member is applied. Returns every
-
   /// `POST /gizclaw/v1/device/tool/v0/invoke`.
   ///
   /// Irreversible on the device. It acknowledges before erasing its state;
@@ -625,10 +613,6 @@ class GizClawControlClient {
     );
   }
 
-  /// `GET /gizclaw/v1/device/rpc-methods`.
-  ///
-  /// Registry names of the reverse RPCs the device implements. Hide controls
-
   /// `POST /gizclaw/v1/device/tool/v0/invoke`.
   ///
   /// A successful return means the device accepted the switch, not that it
@@ -644,20 +628,66 @@ class GizClawControlClient {
   }
 
   /// Predefined procedures the online device actually implements.
-  Future<List<String>> listDeviceTools() => _json('GET', '/device/tool/v0/tools', (json) {
-    return readList(asJsonObject(json, 'ClientToolV0ListResponse'), 'tools', (value) {
-      if (value is! String) throw const FormatException('tool name must be a string');
-      return value;
-    });
-  }, operation: 'listDeviceTools');
+  Future<List<String>> listDeviceTools() =>
+      _json('GET', '/device/tool/v0/tools', (json) {
+        return readList(
+          asJsonObject(json, 'ClientToolV0ListResponse'),
+          'tools',
+          (value) {
+            if (value is! String) {
+              throw const FormatException('tool name must be a string');
+            }
+            return value;
+          },
+        );
+      }, operation: 'listDeviceTools');
 
-  Future<HardwareInfo> getDeviceHardware() => _tool('info.get', (json) => HardwareInfo.fromJson(asJsonObject(json, 'info')['value']), operation: 'getDeviceHardware');
-  Future<DeviceIdentifiers> getDeviceIdentifiers() => _tool('identifiers.get', (json) => DeviceIdentifiers.fromJson(asJsonObject(json, 'identifiers')['value']), operation: 'getDeviceIdentifiers');
-  Future<PeerStatus> readDeviceStatus() => _tool('device.status.get', (json) => PeerStatus.fromJson(asJsonObject(json, 'status')['value']), operation: 'readDeviceStatus');
-  Future<void> pingDevice({required String fromPeerPublicKey, String? fromDisplayName, String? friendGroupName}) => _tool<void>('social.ping', (_) {}, body: withoutNulls({'from_peer_public_key': fromPeerPublicKey, 'from_display_name': fromDisplayName, 'friend_group_name': friendGroupName}), operation: 'pingDevice');
+  Future<HardwareInfo> getDeviceHardware() =>
+      _tool('info.get', HardwareInfo.fromJson, operation: 'getDeviceHardware');
+  Future<DeviceIdentifiers> getDeviceIdentifiers() => _tool(
+    'identifiers.get',
+    DeviceIdentifiers.fromJson,
+    operation: 'getDeviceIdentifiers',
+  );
+  Future<PeerStatus> readDeviceStatus() => _tool(
+    'device.status.get',
+    PeerStatus.fromJson,
+    operation: 'readDeviceStatus',
+  );
+  Future<void> pingDevice({
+    required String fromPeerPublicKey,
+    String? fromDisplayName,
+    String? friendGroupName,
+  }) => _tool<void>(
+    'social.ping',
+    (_) {},
+    body: withoutNulls({
+      'from_peer_public_key': fromPeerPublicKey,
+      'from_display_name': fromDisplayName,
+      'friend_group_name': friendGroupName,
+    }),
+    operation: 'pingDevice',
+  );
 
-  Future<T> _tool<T>(String tool, T Function(Object?) decode, {JsonObject body = const {}, required String operation}) => _json('POST', '/device/tool/v0/invoke', (json) => decode(asJsonObject(asJsonObject(json, 'ClientToolV0InvokeResponse')['result'], 'tool result')), body: {'tool': tool, 'args': body}, operation: operation);
-  static AudioPlayerResponse _audioPlayerResult(Object? json) => AudioPlayerResponse(status: AudioPlayerStatus.fromJson(asJsonObject(json, 'tool result')['value']));
+  Future<T> _tool<T>(
+    String tool,
+    T Function(Object?) decode, {
+    JsonObject body = const {},
+    required String operation,
+  }) => _json(
+    'POST',
+    '/device/tool/v0/invoke',
+    (json) => decode(
+      asJsonObject(
+        asJsonObject(json, 'ClientToolV0InvokeResponse')['result'],
+        'tool result',
+      ),
+    ),
+    body: {'tool': tool, 'args': body},
+    operation: operation,
+  );
+  static AudioPlayerResponse _audioPlayerResult(Object? json) =>
+      AudioPlayerResponse(status: AudioPlayerStatus.fromJson(json));
 
   // Contacts.
 

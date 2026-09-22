@@ -8,29 +8,30 @@ GizClaw 使用长期有效、绑定设备的 API Key 访问公开的 GizClaw API
 
 ## 设备读取与控制
 
-Key 绑定的设备是所有 `/gizclaw/v1/device*`、`/gizclaw/v1/contacts*`、`/gizclaw/v1/friends*` 与 `/gizclaw/v1/friend-groups*` 请求的固定目标（route 列表见 [API](./api#设备-http-api)）。读取设备状态和设置音量：
+Key 绑定的设备是所有 `/gizclaw/v1/device*`、`/gizclaw/v1/contacts*`、`/gizclaw/v1/friends*` 与 `/gizclaw/v1/friend-groups*` 请求的固定目标（route 列表见 [API](./api#设备-http-api)）。读取设备状态和写入硬件状态：
 
 ```sh
 curl -sS "$GIZCLAW_URL/gizclaw/v1/device/status" \
   -H "Authorization: Bearer $GIZCLAW_API_KEY"
 
-curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/volume" \
+curl -sS -X PATCH "$GIZCLAW_URL/gizclaw/v1/device/mhs/v0/states" \
   -H "Authorization: Bearer $GIZCLAW_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"level":35,"muted":false}'
+  -d '{"states":[{"device_id":"speaker.main","state":"volume","value":35}]}'
 
-curl -sS -X POST "$GIZCLAW_URL/gizclaw/v1/device/wifi/scan" \
+curl -sS -X POST "$GIZCLAW_URL/gizclaw/v1/device/tool/v0/invoke" \
   -H "Authorization: Bearer $GIZCLAW_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"timeout_ms":8000}'
+  -d '{"tool":"wifi.scan","args":{"timeout_ms":8000}}'
 
-curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/wifi" \
+curl -sS -X POST "$GIZCLAW_URL/gizclaw/v1/device/tool/v0/invoke" \
   -H "Authorization: Bearer $GIZCLAW_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"ssid":"Office","passphrase":"correct-horse"}'
+  -d '{"tool":"wifi.connect","args":{"ssid":"Office","passphrase":"correct-horse"}}'
+
 ```
 
-`PUT /device/volume` 成功返回 `200 { "status": PeerStatus }`，其中的 `volume`、`muted` 与随后 `GET /device/status` 读到的一致；`play-sound`、`find`、`reboot` 与 `DELETE /wifi/saved/{ssid}` 成功返回 `204`。Wi-Fi 扫描同步返回网络列表；`timeout_ms` 缺省 8000 并夹取到 1000–15000。加入网络返回 `202`，只表示设备已接受凭据并开始切换；设备随后掉线，控制 route 返回 `409 DEVICE_OFFLINE`。设备重连后轮询 `GET /device/wifi`：`ssid` 为目标网络表示成功，仍为旧网络表示加入失败并已回退。服务端不保存、记录或回显密码。
+有效的 MHS 写入返回实际状态。`tool/v0` 调用返回类型化的 `result`；`wifi.scan` 返回附近网络，`wifi.connect` 在切换网络前确认接收。展示控制入口前读取 manifest 和设备已安装的工具列表。Server 不保存、记录或回显 Wi-Fi 密码。
 
 设备不在线时控制 route 返回 `409 DEVICE_OFFLINE`，普通控制在 5 秒内无响应、扫描在其请求上界内无响应返回 `504 DEVICE_TIMEOUT`，两者都不会改变已存储的 status；`reboot` 得到确认后，设备重连前的控制请求同样返回 `409`。设备拒绝参数返回 `400 DEVICE_REJECTED`，设备固件未实现对应能力返回 `501 DEVICE_UNSUPPORTED`。Key 被撤销或设备 Peer 被删除后，所有设备与 Contact 请求立即失败。
 

@@ -46,6 +46,11 @@ func (driver) ValidateStep(doc *giztest.Document, step giztest.Step) error {
 		if _, err := lookupMethod(step.ClientRPC.Method); err != nil {
 			return err
 		}
+		if step.ClientRPC.Tool != "" {
+			if _, err := lookupProvider(step.ClientRPC.Tool); err != nil {
+				return err
+			}
+		}
 	case "http":
 		return validateControlRoute(step)
 	}
@@ -62,30 +67,26 @@ is up.
 */
 var controlRoutes = map[string][]string{
 	http.MethodGet: {
-		"/device", "/device/runtime", "/device/runtime-profile", "/device/workspaces", "/device/status", "/device/audioplayer", "/device/audioplayer/playlist",
-		"/device/mhs/v0/manifest", "/device/settings", "/device/rpc-methods", "/device/tools",
+		"/device", "/device/runtime", "/device/runtime-profile", "/device/workspaces", "/device/status",
+		"/device/mhs/v0/manifest", "/device/tool/v0/tools",
 		"/device/telemetry", "/device/telemetry/*/latest", "/device/telemetry/aggregate",
-		"/device/wifi", "/device/wifi/saved",
 		"/api-keys", "/api-keys/self", "/api-keys/*",
 		"/contacts", "/contacts/*",
 		"/friends", "/friends/invite-token", "/friends/*",
 		"/friend-groups", "/friend-groups/*", "/friend-groups/*/invite-token", "/friend-groups/*/members",
 	},
 	http.MethodPost: {
-		"/device/mhs/v0/read",
-		"/device/audioplayer/actions/play", "/device/audioplayer/actions/stop", "/device/audioplayer/playlist/append",
-		"/device/actions/play-sound", "/device/actions/reboot", "/device/actions/find", "/device/actions/factory-reset",
-		"/device/tools/*/actions/invoke", "/device/wifi/scan", "/api-keys", "/contacts",
+		"/device/mhs/v0/read", "/device/tool/v0/invoke", "/api-keys", "/contacts",
 		"/friends", "/friends/invite-token",
 		"/friend-groups", "/friend-groups/@join", "/friend-groups/*/invite-token", "/friend-groups/*/@leave", "/friend-groups/*/members",
 	},
 	http.MethodPut: {
-		"/device/audioplayer/playlist", "/device/audioplayer/mode", "/device/volume", "/device/run/workspace", "/device/wifi", "/contacts/*",
+		"/contacts/*",
 		"/friend-groups/*", "/friend-groups/*/members/*",
 	},
-	http.MethodPatch: {"/device/settings", "/device/mhs/v0/states"},
+	http.MethodPatch: {"/device/mhs/v0/states"},
 	http.MethodDelete: {
-		"/device/wifi/saved/*", "/device/workspaces/*", "/api-keys/self", "/api-keys/*", "/contacts/*",
+		"/device/workspaces/*", "/api-keys/self", "/api-keys/*", "/contacts/*",
 		"/friends/invite-token", "/friends/*",
 		"/friend-groups/*", "/friend-groups/*/invite-token", "/friend-groups/*/members/*",
 	},

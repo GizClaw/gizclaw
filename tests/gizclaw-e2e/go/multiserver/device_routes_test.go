@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
@@ -41,17 +40,13 @@ func TestDeviceRoutesFollowTheKeyOwnerHome(t *testing.T) {
 	device := connectAndServe(t, peer, serverA, serverA.PublicKey, "device-routes-home")
 	defer device.Close()
 	registerSocialPeer(t, ctx, device, serverA, "GIZCLAW_TEST_REGISTRATION_TOKEN_A")
-	var volume int64 = 50
-	var muted bool
+	var finds int
+	volume, muted, battery := 35, true, 88
 	if err := device.HandleDeviceControl(gizcli.DeviceControlHandlers{
-		SetVolume: func(_ context.Context, level int64, isMuted bool) (rpcapi.PeerStatus, error) {
-			volume, muted = level, isMuted
-			value := int(level)
-			return rpcapi.PeerStatus{Volume: &value, Muted: &isMuted, BatteryPercent: new(88)}, nil
+		Status: func(context.Context) (rpcapi.PeerStatus, error) {
+			return rpcapi.PeerStatus{Volume: &volume, Muted: &muted, BatteryPercent: &battery}, nil
 		},
-		WifiStatus: func(context.Context) (rpcapi.WifiStatus, error) {
-			return rpcapi.WifiStatus{Connected: true, Ssid: new("home")}, nil
-		},
+		Find: func(context.Context, *int64) error { finds++; return nil },
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -85,26 +80,23 @@ func TestDeviceRoutesFollowTheKeyOwnerHome(t *testing.T) {
 			if !runtime.Online {
 				t.Fatalf("runtime through %s = %+v, want online", name, runtime)
 			}
-			var control peerhttp.DeviceControlStatus
-			deviceRouteJSON(t, base, apiKey, http.MethodPut, "/gizclaw/v1/device/volume", `{"level":35,"muted":true}`, http.StatusOK, &control)
-			if control.Status.Volume == nil || *control.Status.Volume != 35 || control.Status.Muted == nil || !*control.Status.Muted {
-				t.Fatalf("volume control through %s = %+v", name, control.Status)
+			var control map[string]any
+			deviceRouteJSON(t, base, apiKey, http.MethodPost, "/gizclaw/v1/device/tool/v0/invoke", `{"tool":"device.status.get","args":{}}`, http.StatusOK, &control)
+			result, ok := control["result"].(map[string]any)
+			if !ok || result["volume"] != float64(35) {
+				t.Fatalf("live status through %s = %+v", name, control)
 			}
-			if volume != 35 || !muted {
-				t.Fatalf("device state after control through %s = volume %d muted %v", name, volume, muted)
+			deviceRouteJSON(t, base, apiKey, http.MethodPost, "/gizclaw/v1/device/tool/v0/invoke", `{"tool":"device.find","args":{}}`, http.StatusOK, &control)
+			if finds == 0 {
+				t.Fatalf("find did not reach device through %s", name)
 			}
 			var status apitypes.PeerStatus
 			deviceRouteJSON(t, base, apiKey, http.MethodGet, "/gizclaw/v1/device/status", "", http.StatusOK, &status)
 			if status.Volume == nil || *status.Volume != 35 {
 				t.Fatalf("status through %s = %+v", name, status)
 			}
-			var wifi peerhttp.DeviceWifiStatus
-			deviceRouteJSON(t, base, apiKey, http.MethodGet, "/gizclaw/v1/device/wifi", "", http.StatusOK, &wifi)
-			if !wifi.Connected || wifi.Ssid == nil || *wifi.Ssid != "home" {
-				t.Fatalf("wifi through %s = %+v", name, wifi)
-			}
 			var rejected apitypes.ErrorResponse
-			deviceRouteJSON(t, base, apiKey, http.MethodPost, "/gizclaw/v1/device/actions/play-sound", `{"sound":"chime"}`, http.StatusNotImplemented, &rejected)
+			deviceRouteJSON(t, base, apiKey, http.MethodPost, "/gizclaw/v1/device/tool/v0/invoke", `{"tool":"sound.play","args":{"sound":"chime"}}`, http.StatusNotImplemented, &rejected)
 			if rejected.Error.Code != "DEVICE_UNSUPPORTED" {
 				t.Fatalf("unimplemented provider through %s = %+v", name, rejected)
 			}
@@ -117,8 +109,8 @@ func TestDeviceRoutesFollowTheKeyOwnerHome(t *testing.T) {
 	beforeB := sqlDatabaseSnapshot(t, stateB)
 	assertPeerRunAbsent(t, stateB, peer.Public)
 	assertSnapshotEqual(t, "Server B state after Edge-routed device requests", beforeB, sqlDatabaseSnapshot(t, stateB))
-	if volume != 35 || !muted {
-		t.Fatalf("Edge-routed requests left the device inconsistent: volume = %d muted = %v", volume, muted)
+	if finds != len(homeBases) {
+		t.Fatalf("find calls = %d, want %d", finds, len(homeBases))
 	}
 	if serverB.PublicKey.Equal(serverA.PublicKey) {
 		t.Fatal("the two Servers use the same identity")
@@ -132,7 +124,7 @@ func TestDeviceRoutesFollowTheKeyOwnerHome(t *testing.T) {
 	var offline apitypes.ErrorResponse
 	deadline := time.Now().Add(15 * time.Second)
 	for {
-		response := deviceRouteRequest(t, homeBases["edge-a"], apiKey, http.MethodGet, "/gizclaw/v1/device/wifi", "")
+		response := deviceRouteRequest(t, homeBases["edge-a"], apiKey, http.MethodPost, "/gizclaw/v1/device/tool/v0/invoke", `{"tool":"device.find","args":{}}`)
 		body, _ := io.ReadAll(response.Body)
 		_ = response.Body.Close()
 		if response.StatusCode == http.StatusConflict {

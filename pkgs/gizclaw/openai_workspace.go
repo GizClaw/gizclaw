@@ -197,7 +197,6 @@ func (r openAICanonicalResolver) Resolve(ctx context.Context, pattern string) (a
 	return r.resolver.ResolveByID(ctx, strings.TrimSpace(pattern))
 }
 
-
 type openAITextStream struct{ chunks []*genx.MessageChunk }
 
 func (s *openAITextStream) Next() (*genx.MessageChunk, error) {

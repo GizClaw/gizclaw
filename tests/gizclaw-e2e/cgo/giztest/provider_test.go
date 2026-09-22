@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"google.golang.org/protobuf/proto"
@@ -94,7 +95,7 @@ func TestAudioPlayerDocuments(t *testing.T) {
 						continue
 					}
 				}
-				info, err := lookupMethod(step.ClientRPC.Method)
+				info, err := lookupProvider(step.ClientRPC.Tool)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -155,15 +156,27 @@ func TestFindAndSocialPingDocuments(t *testing.T) {
 				if step.ClientRPC == nil {
 					continue
 				}
-				info, err := lookupMethod(step.ClientRPC.Method)
+				name := step.ClientRPC.Method
+				if step.ClientRPC.Tool != "" {
+					name = step.ClientRPC.Tool
+				}
+				info, err := lookupProvider(name)
 				if err != nil {
 					t.Fatal(err)
 				}
 				provider := newClientRPCProvider()
-				if err := provider.install(step.ClientRPC.Method, step.ClientRPC.Response); err != nil {
+				if err := provider.install(name, step.ClientRPC.Response); err != nil {
 					t.Fatal(err)
 				}
-				payload, code, _, err := provider.answer(info.id, nil)
+				method, tool := info.id, rpcpb.ClientTool(0)
+				if step.ClientRPC.Tool != "" {
+					method = rpcpb.RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE
+					tool, err = rpcapi.ClientToolByName(name)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+				payload, code, _, err := provider.answer(method, tool, nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -175,10 +188,10 @@ func TestFindAndSocialPingDocuments(t *testing.T) {
 				}
 				if code != wantCode || len(payload) != 0 {
 					t.Fatalf("%s answered code=%d payload=%x, want code=%d and an empty ack",
-						step.ClientRPC.Method, code, payload, wantCode)
+						name, code, payload, wantCode)
 				}
-				if got := provider.callCount(step.ClientRPC.Method); got != 1 {
-					t.Fatalf("%s call count = %d, want 1", step.ClientRPC.Method, got)
+				if got := provider.callCount(name); got != 0 {
+					t.Fatalf("%s direct answer unexpectedly incremented call count = %d", name, got)
 				}
 			}
 		})
@@ -189,17 +202,17 @@ func TestFindAndSocialPingDocuments(t *testing.T) {
 // turns into not_online for a ping and 501 DEVICE_UNSUPPORTED for find.
 func TestUninstalledClientMethodsAreUnimplemented(t *testing.T) {
 	provider := newClientRPCProvider()
-	for _, method := range []string{"client.device.find", "client.social.ping"} {
-		info, err := lookupMethod(method)
+	for _, name := range []string{"device.find", "social.ping"} {
+		tool, err := rpcapi.ClientToolByName(name)
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, code, _, err := provider.answer(info.id, nil)
+		_, code, _, err := provider.answer(rpcpb.RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE, tool, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if code != int32(rpcpb.StatusCode_STATUS_CODE_UNIMPLEMENTED) {
-			t.Fatalf("%s code = %d, want UNIMPLEMENTED", method, code)
+			t.Fatalf("%s code = %d, want UNIMPLEMENTED", name, code)
 		}
 	}
 }
@@ -274,7 +287,6 @@ func TestDeviceSettingsAndControlDocuments(t *testing.T) {
 		"server.device.factory_reset.giztest.yaml",
 		"server.device.rpc_methods.giztest.yaml",
 		"server.device.run_workspace.set.giztest.yaml",
-		"server.device.tools.giztest.yaml",
 	} {
 		t.Run(name, func(t *testing.T) {
 			doc, err := giztest.LoadDocument(filepath.Join("../../giztest", name), driver{})
@@ -291,8 +303,9 @@ func TestDeviceSettingsAndControlDocuments(t *testing.T) {
 		})
 	}
 	for _, route := range []struct{ method, path string }{
-		{"PATCH", "/gizclaw/v1/device/settings"},
-		{"POST", "/gizclaw/v1/device/tools/lamp/actions/invoke"},
+		{"PATCH", "/gizclaw/v1/device/mhs/v0/states"},
+		{"POST", "/gizclaw/v1/device/tool/v0/invoke"},
+		{"GET", "/gizclaw/v1/device/tool/v0/tools"},
 	} {
 		step := giztest.Step{HTTP: &giztest.HTTPOperation{Method: route.method, Path: route.path}}
 		if err := validateControlRoute(step); err != nil {
@@ -301,7 +314,7 @@ func TestDeviceSettingsAndControlDocuments(t *testing.T) {
 	}
 	for _, route := range []struct{ method, path string }{
 		{"PATCH", "/gizclaw/v1/device/volume"},
-		{"POST", "/gizclaw/v1/device/tools/lamp"},
+		{"POST", "/gizclaw/v1/device/tools/lamp/actions/invoke"},
 	} {
 		step := giztest.Step{HTTP: &giztest.HTTPOperation{Method: route.method, Path: route.path}}
 		if err := validateControlRoute(step); err == nil {
@@ -310,96 +323,68 @@ func TestDeviceSettingsAndControlDocuments(t *testing.T) {
 	}
 }
 
-// client.device.settings.set answers the scripted settings with the patch's
-// members overlaid; absent patch members leave the scripted ones unchanged.
-func TestSettingsSetOverlaysPatch(t *testing.T) {
+// MHS writes return typed states, including explicit zero values, through the
+// same provider path used by the C harness.
+func TestMhsWriteReturnsTypedState(t *testing.T) {
 	provider := newClientRPCProvider()
-	if err := provider.install("client.device.settings.set", map[string]any{
-		"cellular_enabled": true, "screen_brightness": 60, "locale": "zh-CN",
-	}); err != nil {
+	state := map[string]any{"states": []any{map[string]any{"device_id": "display.main", "state": "brightness", "value": map[string]any{"int_value": 0}}}}
+	if err := provider.install("client.mhs.v0.write", state); err != nil {
 		t.Fatal(err)
 	}
-	info, err := lookupMethod("client.device.settings.set")
+	info, err := lookupMethod("client.mhs.v0.write")
 	if err != nil {
 		t.Fatal(err)
 	}
-	request, err := proto.Marshal(&rpcpb.ClientDeviceSettingsSetRequest{Value: &rpcpb.DeviceSettings{
-		ScreenBrightness: new(int64(80)), NfcEnabled: new(false),
-	}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	payload, code, _, err := provider.answer(info.id, request)
+	payload, code, _, err := provider.answer(info.id, 0, nil)
 	if err != nil || code != 0 {
-		t.Fatalf("answer code=%d err=%v", code, err)
+		t.Fatalf("write code=%d err=%v", code, err)
 	}
-	settings, err := decodePayload(info.response, payload)
-	if err != nil {
+	response := new(rpcpb.ClientMhsV0WriteResponse)
+	if err := proto.Unmarshal(payload, response); err != nil {
 		t.Fatal(err)
 	}
-	if settings["screen_brightness"] != "80" || settings["locale"] != "zh-CN" || settings["cellular_enabled"] != true ||
-		settings["nfc_enabled"] != false {
-		t.Fatalf("patched settings = %#v", settings)
-	}
-	if _, present := settings["led_brightness"]; present {
-		t.Fatalf("unsupported member became present: %#v", settings)
-	}
-	// An empty patch changes nothing.
-	payload, _, _, err = provider.answer(info.id, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if settings, err = decodePayload(info.response, payload); err != nil || settings["screen_brightness"] != "60" {
-		t.Fatalf("empty patch settings = %#v, %v", settings, err)
+	if len(response.States) != 1 || response.States[0].Value.GetIntValue() != 0 || response.States[0].Value.Value == nil {
+		t.Fatalf("states = %v", response.States)
 	}
 }
 
-// client.rpc.methods.get lists the scripted providers whether or not a step
-// scripts it, counts the calls when one does, and takes no scripted response.
-func TestRPCMethodsListsScriptedProviders(t *testing.T) {
-	info, err := lookupMethod(rpcMethodsGet)
-	if err != nil {
-		t.Fatal(err)
-	}
+// Discovery masks distinguish protocol families from installed procedures.
+func TestRPCMethodsAndToolsListInstalledProviders(t *testing.T) {
 	provider := newClientRPCProvider()
-	for _, method := range []string{"client.run.workspace.set", "client.device.factory_reset", "client.device.settings.get"} {
-		if err := provider.install(method, nil); err != nil {
+	for _, name := range []string{"device.factory_reset", "run.workspace.set", "client.mhs.v0.read"} {
+		if err := provider.install(name, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
-	payload, code, _, err := provider.answer(info.id, nil)
-	if err != nil || code != 0 {
-		t.Fatalf("unscripted answer code=%d err=%v", code, err)
-	}
-	decoded, err := decodePayload(info.response, payload)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []any{"client.device.factory_reset", "client.device.settings.get", "client.run.workspace.set", rpcMethodsGet}
-	if got, _ := decoded["methods"].([]any); !slices.Equal(got, want) {
-		t.Fatalf("methods = %#v, want %#v", decoded["methods"], want)
-	}
-	if err := provider.install(rpcMethodsGet, nil); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, _, err := provider.answer(info.id, nil); err != nil {
-		t.Fatal(err)
-	}
-	if got := provider.callCount(rpcMethodsGet); got != 1 {
-		t.Fatalf("%s call count = %d, want 1", rpcMethodsGet, got)
-	}
-	if err := provider.install(rpcMethodsGet, map[string]any{"methods": []any{}}); err == nil {
-		t.Fatal("a scripted client.rpc.methods.get answer was accepted")
-	}
-	// Factory reset and the Workspace switch acknowledge by default.
-	for _, method := range []string{"client.device.factory_reset", "client.run.workspace.set"} {
-		method, err := lookupMethod(method)
+	tools, mhs := provider.installedMasks()
+	for _, name := range []string{"info.get", "identifiers.get", "device.factory_reset", "run.workspace.set"} {
+		tool, err := rpcapi.ClientToolByName(name)
 		if err != nil {
 			t.Fatal(err)
 		}
-		payload, code, _, err := provider.answer(method.id, nil)
+		if tools&(1<<uint32(tool)) == 0 {
+			t.Fatalf("missing installed tool %s: %b", name, tools)
+		}
+	}
+	if mhs != 1 {
+		t.Fatalf("MHS mask = %b, want read only", mhs)
+	}
+	for _, method := range []string{rpcMethodsList, toolList} {
+		if err := provider.install(method, nil); err != nil {
+			t.Fatal(err)
+		}
+		if err := provider.install(method, map[string]any{}); err == nil {
+			t.Fatalf("scripted discovery response accepted for %s", method)
+		}
+	}
+	for _, name := range []string{"device.factory_reset", "run.workspace.set"} {
+		tool, err := rpcapi.ClientToolByName(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		payload, code, _, err := provider.answer(rpcpb.RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE, tool, nil)
 		if err != nil || code != 0 || len(payload) != 0 {
-			t.Fatalf("ack code=%d payload=%x err=%v", code, payload, err)
+			t.Fatalf("%s ack code=%d payload=%x err=%v", name, code, payload, err)
 		}
 	}
 }

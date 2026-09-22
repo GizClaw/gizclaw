@@ -67,7 +67,7 @@ Optional Workflow aliases live under `workflows.collections.<collection>.<alias>
 
 The maps under `resources` bind environment aliases to canonical Admin resource IDs. Model aliases name semantic roles such as `chat`, `extraction`, `embedding`, `asr`, `realtime`, and `translation`; they do not contain provider or canonical Model names. Model and Voice aliases are independent environment variables, not Workflow members. Workflow specs and Workspace parameters store symbolic aliases, so each Workspace reload resolves the latest active binding. The same binary can therefore use production or debug RuntimeProfiles without rebuilding.
 
-A `resources.tools` binding may also set `control_access` to expose that Tool to the device owner's control app (`GET /gizclaw/v1/device/tools` and `POST /gizclaw/v1/device/tools/{name}/actions/invoke`; see [Public API](/en/developing/api/http/public#device-control-flow)). The only value today is `owner`, meaning any API key of the Peer; stricter levels will be added to the same enum. Without it the Tool stays reachable only by AI and Workflow runtimes, and the control app can neither see nor invoke it; only enabled `client_rpc` Tools are ever exposed. Setting `control_access` on a Model, Voice or Workflow binding rejects the whole write.
+`resources.tools` binds Admin HTTP Tools for AI and Workflow runtimes. Device procedures use the predefined `tool/v0` registry and are independent of this catalog.
 
 Every RuntimeProfile alias is 1-63 bytes of dot-separated lowercase kebab-case segments. Undotted names such as `asr` and `extract` identify shared capabilities; names such as `journey.model`, `journey.narrator`, and `story.journey-center-earth` provide independently bindable consumer slots. Each complete name remains one opaque key in a flat map. The Server preserves it exactly and performs no segment lookup, prefix matching, wildcard matching, or fallback from `journey.narrator` to `narrator`. Dotted and hyphenated forms such as `journey.narrator` and `journey-narrator` are distinct aliases. Empty segments, underscores, and leading or trailing hyphens within a segment are invalid.
 
@@ -178,7 +178,7 @@ A fence is a system prompt sent to the model. Its effectiveness depends on the s
 
 ## MHS v0 hardware manifest
 
-`spec.mhs.v0` belongs to the RuntimeProfile and is not reported by devices. `mhs/v0` is GizClaw's own MHS-inspired pre-standard protocol, with no claim of compatibility with the official Model Hardware Standard. A future official-compatible version would use `v1`. v0 supports only state reads and writes: no procedures/invoke, notifications, slots or streams. Existing device RPCs remain supported.
+`spec.mhs.v0` belongs to the RuntimeProfile and is not reported by devices. `mhs/v0` is GizClaw's own MHS-inspired pre-standard protocol, with no claim of compatibility with the official Model Hardware Standard. A future official-compatible version would use `v1`. `mhs/v0` supports only state reads and writes; predefined device procedures use `tool/v0`. Neither family adds notifications, slots or streams.
 
 ```yaml
 spec:

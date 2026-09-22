@@ -343,18 +343,45 @@ const rangeSchema = z.object({
   ),
 });
 
-/** The device's current Wi-Fi link and saved networks; it must be online. */
+/** Wi-Fi states declared by the bound profile and saved networks. */
 export async function loadWifi(
   endpoint: string,
   publicKey: string,
   signal: AbortSignal,
 ) {
   const peer = client(endpoint, publicKey, signal);
-  const [status, saved] = await Promise.all([
-    peer.getWifi(),
+  const [manifest, saved] = await Promise.all([
+    peer.getMhsManifest(),
     peer.listSavedWifi(),
   ]);
-  return { status, saved: saved.networks.map((network) => network.ssid) };
+  const states = manifest.devices
+    .filter((device) => device.kind === "wifi")
+    .flatMap((device) =>
+      device.states
+        .filter(
+          (state) => state.access === "read" || state.access === "read_write",
+        )
+        .map((state) => ({ device_id: device.id, state: state.name })),
+    );
+  const readings =
+    states.length > 0 ? await peer.readMhsStates({ states }) : { states: [] };
+  const value = (name: string) =>
+    readings.states.find((state) => state.state === name)?.value;
+  const connected = value("connected");
+  const ssid = value("ssid");
+  const rssi = value("rssi-dbm");
+  const ip = value("ip");
+  const bssid = value("bssid");
+  return {
+    status: {
+      connected: connected === true,
+      ...(typeof ssid === "string" ? { ssid } : {}),
+      ...(typeof rssi === "number" ? { rssi_dbm: rssi } : {}),
+      ...(typeof ip === "string" ? { ip } : {}),
+      ...(typeof bssid === "string" ? { bssid } : {}),
+    },
+    saved: saved.networks.map((network) => network.ssid),
+  };
 }
 
 /** Server-side telemetry history: real stored samples, not a session buffer. */
@@ -504,57 +531,45 @@ async function section<T>(
   }
 }
 
-const deviceToolList = z.object({
-  items: z.array(
-    z.looseObject({
-      name: z.string(),
-      control_access: z.string(),
-      i18n: z
-        .record(
-          z.string(),
-          z.looseObject({
-            display_name: z.string(),
-            description: z.string().optional(),
-          }),
-        )
-        .default({}),
-      input_schema: z.record(z.string(), z.unknown()).default({}),
+const manifestSchema = z.object({
+  devices: z.array(
+    z.object({
+      id: z.string(),
+      kind: z.string(),
+      description: z.string().optional(),
+      states: z.array(
+        z.object({ name: z.string(), type: z.string(), access: z.string() }),
+      ),
     }),
   ),
 });
-export type DeviceTool = z.infer<typeof deviceToolList>["items"][number];
+export type DeviceManifest = z.infer<typeof manifestSchema>;
 
 export type DeviceConfig = {
-  settings: DeviceSection<Record<string, unknown>>;
-  rpcMethods: DeviceSection<string[]>;
-  tools: DeviceSection<DeviceTool[]>;
+  manifest: DeviceSection<DeviceManifest>;
+  tools: DeviceSection<string[]>;
 };
 
-/**
- * Device settings, the RPC methods its firmware implements and the Tools its
- * RuntimeProfile exposes to the control app. The three reads run in parallel
- * and fail independently, so an offline device still lists its Tools.
- */
+/** Manifest state and installed procedures are read independently. */
 export async function loadDeviceConfig(
   endpoint: string,
   publicKey: string,
   signal: AbortSignal,
 ): Promise<DeviceConfig> {
   const peer = client(endpoint, publicKey, signal);
-  const [settings, rpcMethods, tools] = await Promise.all([
-    section(async () => record.parse(await peer.getSettings()), signal),
+  const [manifest, tools] = await Promise.all([
+    section(
+      async () => manifestSchema.parse(await peer.getMhsManifest()),
+      signal,
+    ),
     section(
       async () =>
         z
-          .object({ methods: z.array(z.string()) })
-          .parse(await peer.listRpcMethods())
-          .methods.toSorted(),
-      signal,
-    ),
-    section(
-      async () => deviceToolList.parse(await peer.listTools()).items,
+          .object({ tools: z.array(z.string()) })
+          .parse(await peer.listTools())
+          .tools.toSorted(),
       signal,
     ),
   ]);
-  return { settings, rpcMethods, tools };
+  return { manifest, tools };
 }

@@ -195,7 +195,7 @@ func TestPeerHTTPFriendsLifecycle(t *testing.T) {
 	}
 
 	// None of the devices is connected; a device control route confirms it.
-	expect(t, f.as(t, f.a, http.MethodPost, "/device/actions/find", ""), http.StatusConflict, "DEVICE_OFFLINE")
+	expect(t, f.as(t, f.a, http.MethodPost, "/device/tool/v0/invoke", `{"tool":"device.find","args":{}}`), http.StatusConflict, "DEVICE_OFFLINE")
 }
 
 func TestPeerHTTPFriendInviteTokenExpiry(t *testing.T) {

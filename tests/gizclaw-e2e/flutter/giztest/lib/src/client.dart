@@ -4,7 +4,6 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;

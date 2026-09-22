@@ -1,0 +1,99 @@
+# User Story:
+# As a control client,
+# I want discover only the procedures installed by my device,
+# So that malformed and unavailable calls have clear results.
+version: gizclaw.test/v1alpha1
+name: client.tool.v0.contract
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: list_installed_tools
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/tool/v0/tools
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /tools:
+        equals:
+          - info.get
+          - identifiers.get
+          - device.find
+  - id: malformed_find_args
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: device.find
+        args:
+          duration_ms: -1
+      status: 400
+    expect:
+      /error/code:
+        equals: INVALID_REQUEST
+  - id: unavailable_factory_reset
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: device.factory_reset
+        args: {}
+      status: 501
+    expect:
+      /error/code:
+        equals: DEVICE_UNSUPPORTED
+  - id: provider_find_not_called
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: device.find
+      expect_calls: 0
+finally:
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

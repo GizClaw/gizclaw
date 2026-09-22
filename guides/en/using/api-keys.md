@@ -8,35 +8,36 @@ An ordinary key can use public APIs, inspect itself with `GET /gizclaw/v1/api-ke
 
 ## Device reads and control
 
-The key's bound device is the fixed target of every `/gizclaw/v1/device*`, `/gizclaw/v1/contacts*`, `/gizclaw/v1/friends*`, and `/gizclaw/v1/friend-groups*` request (see [API](./api#device-http-api) for the route list). Read the device status and set the volume:
+The key's bound device is the fixed target of every `/gizclaw/v1/device*`, `/gizclaw/v1/contacts*`, `/gizclaw/v1/friends*`, and `/gizclaw/v1/friend-groups*` request (see [API](./api#device-http-api) for the route list). Read the device status and write a hardware state::
 
 ```sh
 curl -sS "$GIZCLAW_URL/gizclaw/v1/device/status" \
   -H "Authorization: Bearer $GIZCLAW_API_KEY"
 
-curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/volume" \
+curl -sS -X PATCH "$GIZCLAW_URL/gizclaw/v1/device/mhs/v0/states" \
   -H "Authorization: Bearer $GIZCLAW_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"level":35,"muted":false}'
+  -d '{"states":[{"device_id":"speaker.main","state":"volume","value":35}]}'
 
-curl -sS -X POST "$GIZCLAW_URL/gizclaw/v1/device/wifi/scan" \
+curl -sS -X POST "$GIZCLAW_URL/gizclaw/v1/device/tool/v0/invoke" \
   -H "Authorization: Bearer $GIZCLAW_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"timeout_ms":8000}'
+  -d '{"tool":"wifi.scan","args":{"timeout_ms":8000}}'
 
-curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/wifi" \
+curl -sS -X POST "$GIZCLAW_URL/gizclaw/v1/device/tool/v0/invoke" \
   -H "Authorization: Bearer $GIZCLAW_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"ssid":"Office","passphrase":"correct-horse"}'
+  -d '{"tool":"wifi.connect","args":{"ssid":"Office","passphrase":"correct-horse"}}'
+
 ```
 
-A successful `PUT /device/volume` answers `200 { "status": PeerStatus }` whose `volume` and `muted` match the next `GET /device/status`; `play-sound`, `find`, `reboot`, and `DELETE /wifi/saved/{ssid}` answer `204`. A Wi-Fi scan synchronously returns nearby networks; `timeout_ms` defaults to 8000 and is clamped to 1000–15000. Connecting answers `202`, which only means the device accepted the credentials and started switching. The device then goes offline and control routes answer `409 DEVICE_OFFLINE`. After reconnect, poll `GET /device/wifi`: the target `ssid` means success, while the old one means the device failed and fell back. The Server never stores, logs, or echoes the passphrase.
+A valid MHS write returns the applied states. `tool/v0` invokes return a typed `result`; `wifi.scan` returns nearby networks and `wifi.connect` acknowledges the request before switching networks. Check the manifest and installed tool list before showing controls. The Server never stores, logs or echoes the Wi-Fi passphrase.
 
 When the device is offline, control routes answer `409 DEVICE_OFFLINE`; normal controls that do not answer within 5 seconds and scans that exceed their requested bound answer `504 DEVICE_TIMEOUT`; neither changes the stored status. After a `reboot` is acknowledged, control requests answer `409` until the device reconnects. A device that rejects the parameters answers `400 DEVICE_REJECTED`, and firmware without the capability answers `501 DEVICE_UNSUPPORTED`. Once the key is revoked or the device Peer is deleted, every device and contact request fails immediately.
 
 ## SDKs
 
-The controller-side SDKs wrap the same routes and error contract: `gizclaw_control` for Dart ([Flutter SDK](./sdk/flutter)) and `@gizclaw/gizclaw-control` on npm ([TypeScript SDK](./sdk/typescript)). Read the device status and set the volume:
+The controller-side SDKs wrap the same routes and error contract: `gizclaw_control` for Dart ([Flutter SDK](./sdk/flutter)) and `@gizclaw/gizclaw-control` on npm ([TypeScript SDK](./sdk/typescript)). Read the device status and write a hardware state::
 
 ```dart
 import 'package:gizclaw_control/gizclaw_control.dart';

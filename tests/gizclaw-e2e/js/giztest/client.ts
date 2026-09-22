@@ -26,10 +26,6 @@ import type { ClientSpec, Step } from "./document.ts";
 import type { Variables } from "./variables.ts";
 import { requestFromProtoJSON, responseToProtoJSON } from "./proto_json.ts";
 
-// DeviceSettings is the settings value the device SDK's handlers exchange; the
-// SDK does not export the type by name.
-
-
 type MhsReadResponse = Awaited<
   ReturnType<
     NonNullable<
@@ -391,7 +387,8 @@ function buildHandlers(
   const count = (method: string): void => {
     inbound.set(method, (inbound.get(method) ?? 0) + 1);
   };
-  handlers.observe = (method, tool) => count(tool == null ? method : CLIENT_TOOL_NAMES[tool]);
+  handlers.observe = (method, tool) =>
+    count(tool == null ? method : CLIENT_TOOL_NAMES[tool]);
   handlers.deviceIdentifiers = () => ({});
   let deviceInfo: Record<string, unknown> = {};
   handlers.deviceInfo = () => {
@@ -409,7 +406,8 @@ function buildHandlers(
     inbound.set(method, 0);
 
     if (scriptedObject.unavailable === true) {
-      if (Object.hasOwn(scriptedObject, "result")) throw new Error("unavailable tool response cannot set result");
+      if (Object.hasOwn(scriptedObject, "result"))
+        throw new Error("unavailable tool response cannot set result");
       continue;
     }
     switch (method) {
@@ -418,21 +416,21 @@ function buildHandlers(
         if (scripted != null) throw new Error(`${method} takes no response`);
         break;
       case "firmware.update":
-        control.updateFirmware = () => { if (failure != null) throw failure; };
+        control.updateFirmware = () => {
+          if (failure != null) throw failure;
+        };
         break;
       case "info.get":
         deviceInfo = scriptedObject;
         break;
       case "identifiers.get":
         handlers.deviceIdentifiers = () => {
-
           return scriptedObject as never;
         };
         break;
       case "audioplayer.get":
         control.audioplayer ??= {};
         control.audioplayer.get = () => {
-
           if (failure != null) throw failure;
           return scriptedObject as never;
         };
@@ -440,7 +438,6 @@ function buildHandlers(
       case "audioplayer.playlist.get":
         control.audioplayer ??= {};
         control.audioplayer.playlistGet = () => {
-
           if (failure != null) throw failure;
           return scriptedObject as never;
         };
@@ -448,7 +445,6 @@ function buildHandlers(
       case "audioplayer.playlist.set":
         control.audioplayer ??= {};
         control.audioplayer.playlistSet = () => {
-
           if (failure != null) throw failure;
           return scriptedObject as never;
         };
@@ -456,7 +452,6 @@ function buildHandlers(
       case "audioplayer.playlist.append":
         control.audioplayer ??= {};
         control.audioplayer.playlistAppend = () => {
-
           if (failure != null) throw failure;
           return scriptedObject as never;
         };
@@ -464,7 +459,6 @@ function buildHandlers(
       case "audioplayer.play":
         control.audioplayer ??= {};
         control.audioplayer.play = () => {
-
           if (failure != null) throw failure;
           return scriptedObject as never;
         };
@@ -472,7 +466,6 @@ function buildHandlers(
       case "audioplayer.stop":
         control.audioplayer ??= {};
         control.audioplayer.stop = () => {
-
           if (failure != null) throw failure;
           return scriptedObject as never;
         };
@@ -480,71 +473,60 @@ function buildHandlers(
       case "audioplayer.mode.set":
         control.audioplayer ??= {};
         control.audioplayer.modeSet = () => {
-
           if (failure != null) throw failure;
           return scriptedObject as never;
         };
         break;
       case "device.status.get":
         control.status = () => {
-
           if (failure != null) throw failure;
           return scriptedObject as GizClawDeviceStatus;
         };
         break;
       case "sound.play":
         control.playSound = () => {
-
           if (failure != null) throw failure;
         };
         break;
       case "device.find":
         control.find = () => {
-
           if (failure != null) throw failure;
         };
         break;
       case "social.ping":
         handlers.socialPing = () => {
-
           if (failure != null) throw failure;
         };
         break;
       case "device.reboot":
         control.reboot = () => {
-
           if (failure != null) throw failure;
         };
         break;
       case "device.factory_reset":
         control.factoryReset = () => {
-
           if (failure != null) throw failure;
         };
         break;
       case "client.mhs.v0.read":
         control.readMhsStates = () => {
-
           if (failure != null) throw failure;
           return scriptedObject as MhsReadResponse;
         };
         break;
       case "client.mhs.v0.write":
         control.writeMhsStates = () => {
-
           if (failure != null) throw failure;
           return scriptedObject as MhsWriteResponse;
         };
         break;
       case "run.workspace.set":
         control.setRunWorkspace = () => {
-
           if (failure != null) throw failure;
         };
         break;
       case "wifi.saved.list":
         control.savedWifi = () => {
-
           if (failure != null) throw failure;
           const networks = scriptedObject["networks"];
           return Array.isArray(networks)
@@ -554,13 +536,11 @@ function buildHandlers(
         break;
       case "wifi.saved.forget":
         control.forgetWifi = () => {
-
           if (failure != null) throw failure;
         };
         break;
       case "wifi.scan":
         control.scanWifi = async () => {
-
           if (failure != null) throw failure;
           const delayMs = scriptedDelayMs(scriptedObject);
           if (delayMs > 0) {
@@ -572,7 +552,6 @@ function buildHandlers(
         break;
       case "wifi.connect":
         control.connectWifi = () => {
-
           if (failure != null) throw failure;
         };
         break;

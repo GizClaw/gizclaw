@@ -380,7 +380,10 @@ export interface GizClawControlApiKeys {
 }
 
 export type AudioPlayerResponse = { status: AudioPlayerStatus };
-export type AudioPlayerPlaylist = { items: import("@gizclaw/gizclaw/peerhttp").AudioPlayerItem[]; playlist_revision: number };
+export type AudioPlayerPlaylist = {
+  items: import("@gizclaw/gizclaw/peerhttp").AudioPlayerItem[];
+  playlist_revision: number;
+};
 
 export interface GizClawControlDevice {
   getAudioPlayer(): Promise<AudioPlayerResponse>;
@@ -663,7 +666,8 @@ export function createGizClawControlClient(
     throwOnError: false as const,
   };
 
-  const callTool = (body: ClientToolV0InvokeRequest) => unwrap("invokeClientTool", invokeClientTool({...common, body}));
+  const callTool = (body: ClientToolV0InvokeRequest) =>
+    unwrap("invokeClientTool", invokeClientTool({ ...common, body }));
 
   return {
     client,
@@ -734,13 +738,50 @@ export function createGizClawControlClient(
       },
       get: () => unwrap("getDevice", getDevice(common)),
       getRuntime: () => unwrap("getDeviceRuntime", getDeviceRuntime(common)),
-      getAudioPlayer: async () => ({status: decodeClientToolResult(CLIENT_TOOL_IDS["audioplayer.get"], (await callTool({tool: "audioplayer.get", args: {}})).result)}),
-      getAudioPlayerPlaylist: async () => (decodeClientToolResult(CLIENT_TOOL_IDS["audioplayer.playlist.get"], (await callTool({tool: "audioplayer.playlist.get", args: {}})).result)),
-      setAudioPlayerPlaylist: async (body) => ({status: decodeClientToolResult(CLIENT_TOOL_IDS["audioplayer.playlist.set"], (await callTool({tool: "audioplayer.playlist.set", args: body})).result)}),
-      appendAudioPlayerPlaylist: async (body) => ({status: decodeClientToolResult(CLIENT_TOOL_IDS["audioplayer.playlist.append"], (await callTool({tool: "audioplayer.playlist.append", args: body})).result)}),
-      playAudioPlayer: async (body) => ({status: decodeClientToolResult(CLIENT_TOOL_IDS["audioplayer.play"], (await callTool({tool: "audioplayer.play", args: body})).result)}),
-      stopAudioPlayer: async () => ({status: decodeClientToolResult(CLIENT_TOOL_IDS["audioplayer.stop"], (await callTool({tool: "audioplayer.stop", args: {}})).result)}),
-      setAudioPlayerMode: async (body) => ({status: decodeClientToolResult(CLIENT_TOOL_IDS["audioplayer.mode.set"], (await callTool({tool: "audioplayer.mode.set", args: body})).result)}),
+      getAudioPlayer: async () => ({
+        status: decodeClientToolResult(
+          CLIENT_TOOL_IDS["audioplayer.get"],
+          (await callTool({ tool: "audioplayer.get", args: {} })).result,
+        ),
+      }),
+      getAudioPlayerPlaylist: async () =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["audioplayer.playlist.get"],
+          (await callTool({ tool: "audioplayer.playlist.get", args: {} }))
+            .result,
+        ),
+      setAudioPlayerPlaylist: async (body) => ({
+        status: decodeClientToolResult(
+          CLIENT_TOOL_IDS["audioplayer.playlist.set"],
+          (await callTool({ tool: "audioplayer.playlist.set", args: body }))
+            .result,
+        ),
+      }),
+      appendAudioPlayerPlaylist: async (body) => ({
+        status: decodeClientToolResult(
+          CLIENT_TOOL_IDS["audioplayer.playlist.append"],
+          (await callTool({ tool: "audioplayer.playlist.append", args: body }))
+            .result,
+        ),
+      }),
+      playAudioPlayer: async (body) => ({
+        status: decodeClientToolResult(
+          CLIENT_TOOL_IDS["audioplayer.play"],
+          (await callTool({ tool: "audioplayer.play", args: body })).result,
+        ),
+      }),
+      stopAudioPlayer: async () => ({
+        status: decodeClientToolResult(
+          CLIENT_TOOL_IDS["audioplayer.stop"],
+          (await callTool({ tool: "audioplayer.stop", args: {} })).result,
+        ),
+      }),
+      setAudioPlayerMode: async (body) => ({
+        status: decodeClientToolResult(
+          CLIENT_TOOL_IDS["audioplayer.mode.set"],
+          (await callTool({ tool: "audioplayer.mode.set", args: body })).result,
+        ),
+      }),
       getStatus: () => unwrap("getDeviceStatus", getDeviceStatus(common)),
       getTelemetryLatest: (field) =>
         unwrap(
@@ -760,23 +801,64 @@ export function createGizClawControlClient(
           "aggregateDeviceTelemetry",
           aggregateDeviceTelemetry({ ...common, query }),
         ),
-      playSound: async (body) => { await callTool({tool: "sound.play", args: body}); },
-      find: async (body = {}) => { await callTool({tool: "device.find", args: body}); },
-      reboot: async (body = {}) => { await callTool({tool: "device.reboot", args: body}); },
-      scanWifi: async (body = {}) => decodeClientToolResult(CLIENT_TOOL_IDS["wifi.scan"], (await callTool({tool: "wifi.scan", args: body})).result),
-      connectWifi: async (body) => { await callTool({tool: "wifi.connect", args: body}); },
-      listSavedWifi: async () => decodeClientToolResult(CLIENT_TOOL_IDS["wifi.saved.list"], (await callTool({tool: "wifi.saved.list", args: {}})).result),
-      forgetSavedWifi: async (ssid) => { await callTool({tool: "wifi.saved.forget", args: {ssid: requireSegment("ssid", ssid)}}); },
-      factoryReset: async (body = {}) => { await callTool({tool: "device.factory_reset", args: body}); },
-      setRunWorkspace: async (body) => { await callTool({tool: "run.workspace.set", args: body}); },
-      getHardware: async () => decodeClientToolResult(CLIENT_TOOL_IDS["info.get"], (await callTool({tool: "info.get", args: {}})).result),
-      getIdentifiers: async () => decodeClientToolResult(CLIENT_TOOL_IDS["identifiers.get"], (await callTool({tool: "identifiers.get", args: {}})).result),
-      readStatus: async () => decodeClientToolResult(CLIENT_TOOL_IDS["device.status.get"], (await callTool({tool: "device.status.get", args: {}})).result),
-      updateFirmware: async (body = {}) => { await callTool({tool: "firmware.update", args: body}); },
-      ping: async (body) => { await callTool({tool: "social.ping", args: body}); },
+      playSound: async (body) => {
+        await callTool({ tool: "sound.play", args: body });
+      },
+      find: async (body = {}) => {
+        await callTool({ tool: "device.find", args: body });
+      },
+      reboot: async (body = {}) => {
+        await callTool({ tool: "device.reboot", args: body });
+      },
+      scanWifi: async (body = {}) =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["wifi.scan"],
+          (await callTool({ tool: "wifi.scan", args: body })).result,
+        ),
+      connectWifi: async (body) => {
+        await callTool({ tool: "wifi.connect", args: body });
+      },
+      listSavedWifi: async () =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["wifi.saved.list"],
+          (await callTool({ tool: "wifi.saved.list", args: {} })).result,
+        ),
+      forgetSavedWifi: async (ssid) => {
+        if (ssid === "") throw new TypeError("ssid must not be empty");
+        await callTool({ tool: "wifi.saved.forget", args: { ssid } });
+      },
+      factoryReset: async (body = {}) => {
+        await callTool({ tool: "device.factory_reset", args: body });
+      },
+      setRunWorkspace: async (body) => {
+        await callTool({ tool: "run.workspace.set", args: body });
+      },
+      getHardware: async () =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["info.get"],
+          (await callTool({ tool: "info.get", args: {} })).result,
+        ),
+      getIdentifiers: async () =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["identifiers.get"],
+          (await callTool({ tool: "identifiers.get", args: {} })).result,
+        ),
+      readStatus: async () =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["device.status.get"],
+          (await callTool({ tool: "device.status.get", args: {} })).result,
+        ),
+      updateFirmware: async (body = {}) => {
+        await callTool({ tool: "firmware.update", args: body });
+      },
+      ping: async (body) => {
+        await callTool({ tool: "social.ping", args: body });
+      },
       getMhsManifest: () => unwrap("getMhsManifest", getMhsManifest(common)),
-      readMhsStates: (body) => unwrap("readMhsStates", readMhsStates({...common, body})),
-      writeMhsStates: (body) => unwrap("writeMhsStates", writeMhsStates({...common, body})),
+      readMhsStates: (body) =>
+        unwrap("readMhsStates", readMhsStates({ ...common, body })),
+      writeMhsStates: (body) =>
+        unwrap("writeMhsStates", writeMhsStates({ ...common, body })),
       listTools: () => unwrap("listClientTools", listClientTools(common)),
     },
     contacts: {

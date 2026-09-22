@@ -71,11 +71,7 @@ func TestDeviceControlStatusRoundTripWritesSnapshot(t *testing.T) {
 		if response.Code != http.StatusOK {
 			t.Fatalf("status %d %s", response.Code, response.Body)
 		}
-		result := decodeJSON[struct {
-			Result struct {
-				Value apitypes.PeerStatus `json:"value"`
-			} `json:"result"`
-		}](t, response).Result.Value
+		result := decodeToolResult[apitypes.PeerStatus](t, response)
 		if result.Volume == nil || *result.Volume != 35 || result.Muted == nil || !*result.Muted || result.BatteryPercent == nil || *result.BatteryPercent != 58 || result.ReportedAt == nil || !result.ReportedAt.Equal(reportedAt) {
 			t.Fatalf("status %+v", result)
 		}

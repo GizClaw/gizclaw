@@ -14,7 +14,7 @@ var (
 	// which the Server maps to 400 DEVICE_REJECTED.
 	ErrDeviceRejected = errors.New("gizclaw: device rejected the request")
 	// ErrDeviceResourceNotFound makes a device control handler answer
-	// NOT_FOUND, used by client.wifi.saved.forget for an unknown ssid.
+	// NOT_FOUND, used by wifi.saved.forget for an unknown ssid.
 	ErrDeviceResourceNotFound = errors.New("gizclaw: device resource not found")
 )
 
@@ -192,7 +192,6 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 		return deviceControlUnsupported(req.Id, req.Method), nil
 	}
 }
-
 
 func (c *rpcClient) handleDeviceTool(ctx context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 	if err := ctx.Err(); err != nil {

@@ -259,7 +259,17 @@ test("loadDocument parses a real device control scenario", async () => {
   // that makes the server call the device.
   assert.deepEqual(
     document.steps.map((step) => stepOperation(step)),
-    ["rpc", "rpc", "http", "http", "rpc", "http", "client_rpc"],
+    [
+      "rpc",
+      "rpc",
+      "http",
+      "http",
+      "http",
+      "rpc",
+      "http",
+      "client_rpc",
+      "client_rpc",
+    ],
   );
   assert.equal(document.finally.length, 1);
   assert.equal(document.finally[0]?.id, "cleanup_peer");
@@ -322,21 +332,20 @@ test("loadDocuments loads the find, social ping and profile scenarios", async ()
     ),
   );
   assert.deepEqual(providers, [
-    "client.device.find",
-    "client.device.find",
-    "client.social.ping",
-    "client.social.ping",
+    "client.tool.v0.invoke",
+    "client.tool.v0.invoke",
+    "client.tool.v0.invoke",
+    "client.tool.v0.invoke",
   ]);
 });
 
-test("loadDocuments loads the device settings, reset, methods, workspace and tool scenarios", async () => {
+test("loadDocuments loads the device settings, reset, methods and workspace scenarios", async () => {
   // loadDocuments orders documents by path.
   const names = [
     "server.device.factory_reset",
     "server.device.rpc_methods",
     "server.device.run_workspace.set",
     "server.device.settings",
-    "server.device.tools",
   ];
   const { documents, skipped } = await loadDocuments(
     names.map((name) => path.join(scenarioRoot, `${name}.giztest.yaml`)),
@@ -352,14 +361,13 @@ test("loadDocuments loads the device settings, reset, methods, workspace and too
     ),
   );
   assert.deepEqual(providers, [
-    "client.device.factory_reset",
-    "client.device.settings.get",
-    "client.device.settings.get",
-    "client.device.find",
-    "client.run.workspace.set",
-    "client.device.settings.get",
-    "client.device.settings.set",
-    "client.tool.invoke",
+    "client.tool.v0.invoke",
+    "client.mhs.v0.read",
+    "client.mhs.v0.read",
+    "client.tool.v0.invoke",
+    "client.tool.v0.invoke",
+    "client.mhs.v0.read",
+    "client.mhs.v0.write",
   ]);
   const methods = new Set(
     documents.flatMap((document) =>
@@ -482,7 +490,7 @@ test("Variables restore discards a failed attempt's captures", () => {
   assert.equal(variables.get("captured")?.data, "second");
 });
 
-test("loadDocument skips a scripted client.rpc.methods.get step", async () => {
+test("loadDocument rejects a removed client RPC", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "giztest-"));
   try {
     const file = path.join(directory, "methods.giztest.yaml");
@@ -491,7 +499,7 @@ test("loadDocument skips a scripted client.rpc.methods.get step", async () => {
       [
         "# User Story:",
         "# As a Giztest author,",
-        "# I want a scripted client.rpc.methods.get step reported,",
+        "# I want a removed client RPC rejected,",
         "# So that this runner does not wait on calls it cannot count.",
         "version: gizclaw.test/v1alpha1",
         "name: methods",
@@ -504,9 +512,10 @@ test("loadDocument skips a scripted client.rpc.methods.get step", async () => {
         "",
       ].join("\n"),
     );
-    const { documents, skipped } = await loadDocuments([file]);
-    assert.deepEqual(documents, []);
-    assert.match(skipped[0]!.reason, /client\.rpc\.methods\.get/u);
+    await assert.rejects(
+      loadDocuments([file]),
+      /unknown client RPC client\.rpc\.methods\.get/u,
+    );
   } finally {
     await rm(directory, { force: true, recursive: true });
   }

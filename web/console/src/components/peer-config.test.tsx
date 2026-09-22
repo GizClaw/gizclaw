@@ -23,66 +23,28 @@ const peer = {
 afterEach(cleanup);
 
 describe("device config tab", () => {
-  beforeEach(() => {
-    loadDeviceConfig.mockReset();
-  });
+  beforeEach(() => loadDeviceConfig.mockReset());
 
-  it("labels settings and marks absent members unsupported", async () => {
+  it("shows manifest states and only installed procedures", async () => {
     loadDeviceConfig.mockResolvedValue({
-      settings: {
+      manifest: {
         state: "ok",
         data: {
-          screen_brightness: 60,
-          screen_off_timeout_ms: 0,
-          key_feedback: "sound_and_vibrate",
-          nfc_enabled: false,
+          devices: [
+            {
+              id: "speaker",
+              kind: "audio",
+              states: [{ name: "volume", type: "int", access: "read_write" }],
+            },
+          ],
         },
       },
-      rpcMethods: { state: "ok", data: ["client.device.settings.get"] },
-      tools: {
-        state: "ok",
-        data: [
-          {
-            name: "usage_limit",
-            control_access: "owner",
-            i18n: {
-              en: { display_name: "Usage limit" },
-              "zh-CN": { display_name: "使用时长", description: "每日上限" },
-            },
-            input_schema: {
-              type: "object",
-              required: ["minutes"],
-              properties: {
-                minutes: { type: "integer" },
-                enabled: { type: "boolean" },
-              },
-            },
-          },
-          {
-            name: "night_mode",
-            control_access: "owner",
-            i18n: { en: { display_name: "Night mode" } },
-            input_schema: {},
-          },
-        ],
-      },
+      tools: { state: "ok", data: ["device.find", "sound.play"] },
     });
     render(<PeerConfig peer={peer} />);
-    await screen.findByText("60%");
-    expect(screen.getByText("常亮")).toBeTruthy();
-    expect(screen.getByText("声音和振动")).toBeTruthy();
-    expect(screen.getByText("关闭")).toBeTruthy();
-    // Six of the ten contract members are absent.
-    expect(screen.getAllByText("不支持")).toHaveLength(6);
-    expect(screen.getByText("使用时长")).toBeTruthy();
-    expect(screen.getByText("每日上限")).toBeTruthy();
-    expect(
-      screen.getByText("参数 minutes: integer, enabled?: boolean"),
-    ).toBeTruthy();
-    expect(screen.getByText("Night mode")).toBeTruthy();
-    expect(screen.getByText("参数 无参数")).toBeTruthy();
-    expect(screen.getAllByText("权限 owner")).toHaveLength(2);
-    expect(screen.getByText("client.device.settings.get")).toBeTruthy();
+    await screen.findByText("device.find");
+    expect(screen.getByText("volume: int · read_write")).toBeTruthy();
+    expect(screen.getByText("sound.play")).toBeTruthy();
     expect(
       screen.queryByRole("button", { name: /恢复出厂|调用|保存/ }),
     ).toBeNull();
@@ -90,21 +52,18 @@ describe("device config tab", () => {
 
   it("shows each failed section on its own", async () => {
     loadDeviceConfig.mockResolvedValue({
-      settings: { state: "offline" },
-      rpcMethods: { state: "unsupported" },
+      manifest: { state: "offline" },
       tools: { state: "error", message: "403 · forbidden" },
     });
     render(<PeerConfig peer={peer} />);
     await screen.findByText("设备离线");
-    expect(screen.getByText("设备不支持")).toBeTruthy();
     expect(screen.getByText("读取失败")).toBeTruthy();
     expect(screen.getByText("403 · forbidden")).toBeTruthy();
   });
 
   it("reads again on refresh", async () => {
     loadDeviceConfig.mockResolvedValue({
-      settings: { state: "ok", data: {} },
-      rpcMethods: { state: "ok", data: [] },
+      manifest: { state: "ok", data: { devices: [] } },
       tools: { state: "ok", data: [] },
     });
     render(<PeerConfig peer={peer} />);

@@ -731,8 +731,8 @@ func TestPeerHTTPClientDeviceAndContactOperations(t *testing.T) {
 	type call struct{ method, path, body string }
 	var calls []call
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
-		calls = append(calls, call{method: r.Method, path: r.URL.RequestURI(), body: string(body)})
+		rawBody, _ := io.ReadAll(r.Body)
+		calls = append(calls, call{method: r.Method, path: r.URL.RequestURI(), body: string(rawBody)})
 		if r.Header.Get("Authorization") != "Bearer gizclaw_sk_v1_test" {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
@@ -748,7 +748,7 @@ func TestPeerHTTPClientDeviceAndContactOperations(t *testing.T) {
 				Tool string         `json:"tool"`
 				Args map[string]any `json:"args"`
 			}
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			if err := json.Unmarshal(rawBody, &body); err != nil {
 				t.Error(err)
 			}
 			switch body.Tool {
@@ -834,10 +834,10 @@ func TestPeerHTTPClientDeviceAndContactOperations(t *testing.T) {
 
 	want := []call{
 		{http.MethodGet, "/gizclaw/v1/device/status", ""},
-		{http.MethodPut, "/gizclaw/v1/device/volume", `{"level":35,"muted":true}`},
-		{http.MethodPost, "/gizclaw/v1/device/actions/play-sound", `{"sound":"chime"}`},
-		{http.MethodGet, "/gizclaw/v1/device/wifi/saved", ""},
-		{http.MethodDelete, "/gizclaw/v1/device/wifi/saved/home", ""},
+		{http.MethodPatch, "/gizclaw/v1/device/mhs/v0/states", `{"states":[{"device_id":"speaker.main","state":"volume","value":35},{"device_id":"speaker.main","state":"muted","value":true}]}`},
+		{http.MethodPost, "/gizclaw/v1/device/tool/v0/invoke", `{"tool":"sound.play","args":{"sound":"chime"}}`},
+		{http.MethodPost, "/gizclaw/v1/device/tool/v0/invoke", `{"tool":"wifi.saved.list","args":{}}`},
+		{http.MethodPost, "/gizclaw/v1/device/tool/v0/invoke", `{"tool":"wifi.saved.forget","args":{"ssid":"home"}}`},
 		{http.MethodPost, "/gizclaw/v1/contacts", `{"display_name":"Mom","name":"mom"}`},
 		{http.MethodGet, "/gizclaw/v1/contacts?limit=10", ""},
 		{http.MethodDelete, "/gizclaw/v1/contacts/mom", ""},

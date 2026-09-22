@@ -363,12 +363,12 @@ void main() {
       final recorder = Recorder([
         json(200, apiKeyJson),
         noContent(),
-        json(200, {'connected': false}),
+        json(200, {'tools': []}),
       ]);
       final client = clientWith(recorder);
       await client.getSelfApiKey();
       await client.revokeSelfApiKey();
-      await client.getDeviceWifi();
+      await client.listDeviceTools();
       expect(recorder.requests, hasLength(3));
       for (final request in recorder.requests) {
         expect(request.headers['Authorization'], 'Bearer $apiKey');
@@ -659,67 +659,96 @@ void main() {
   });
 
   group('device control', () {
-    test('setDeviceVolume puts the body and returns the status', () async {
+    test('writeMhsStates patches typed hardware state', () async {
       final recorder = Recorder([
         json(200, {
-          'status': {'volume': 35, 'muted': false},
+          'states': [
+            {'device_id': 'speaker.main', 'state': 'volume', 'value': 35},
+          ],
         }),
       ]);
-      final result = await clientWith(
-        recorder,
-      ).setDeviceVolume(level: 35, muted: false);
-      expect(recorder.single.method, 'PUT');
-      expect(recorder.single.url.path, '/gizclaw/v1/device/volume');
-      expect(jsonDecode(recorder.single.body), {'level': 35, 'muted': false});
-      expect(result.status.volume, 35);
-      expect(result.status.muted, isFalse);
+      final result = await clientWith(recorder).writeMhsStates([
+        MhsStateValue(deviceId: 'speaker.main', state: 'volume', value: 35),
+      ]);
+      expect(recorder.single.method, 'PATCH');
+      expect(recorder.single.url.path, '/gizclaw/v1/device/mhs/v0/states');
+      expect(jsonDecode(recorder.single.body), {
+        'states': [
+          {'device_id': 'speaker.main', 'state': 'volume', 'value': 35},
+        ],
+      });
+      expect(result.single.value, 35);
     });
 
-    test('playDeviceSound posts and accepts 204', () async {
-      final recorder = Recorder([noContent()]);
+    test('playDeviceSound invokes tool/v0 with duration', () async {
+      final recorder = Recorder([
+        json(200, {'result': {}}),
+      ]);
       await clientWith(
         recorder,
       ).playDeviceSound(sound: 'chime', durationMs: 500);
       expect(recorder.single.method, 'POST');
-      expect(recorder.single.url.path, '/gizclaw/v1/device/actions/play-sound');
+      expect(recorder.single.url.path, '/gizclaw/v1/device/tool/v0/invoke');
       expect(jsonDecode(recorder.single.body), {
-        'sound': 'chime',
-        'duration_ms': 500,
+        'tool': 'sound.play',
+        'args': {'sound': 'chime', 'duration_ms': 500},
       });
     });
 
     test('playDeviceSound omits duration when unset', () async {
-      final recorder = Recorder([noContent()]);
+      final recorder = Recorder([
+        json(200, {'result': {}}),
+      ]);
       await clientWith(recorder).playDeviceSound(sound: 'chime');
-      expect(jsonDecode(recorder.single.body), {'sound': 'chime'});
+      expect(jsonDecode(recorder.single.body), {
+        'tool': 'sound.play',
+        'args': {'sound': 'chime'},
+      });
     });
 
-    test('findDevice posts and accepts 204', () async {
-      final recorder = Recorder([noContent()]);
+    test('findDevice invokes tool/v0 with duration', () async {
+      final recorder = Recorder([
+        json(200, {'result': {}}),
+      ]);
       await clientWith(recorder).findDevice(durationMs: 8000);
-      expect(recorder.single.method, 'POST');
-      expect(recorder.single.url.path, '/gizclaw/v1/device/actions/find');
-      expect(jsonDecode(recorder.single.body), {'duration_ms': 8000});
+      expect(recorder.single.url.path, '/gizclaw/v1/device/tool/v0/invoke');
+      expect(jsonDecode(recorder.single.body), {
+        'tool': 'device.find',
+        'args': {'duration_ms': 8000},
+      });
     });
 
-    test('findDevice posts an empty object by default', () async {
-      final recorder = Recorder([noContent()]);
+    test('findDevice sends empty args by default', () async {
+      final recorder = Recorder([
+        json(200, {'result': {}}),
+      ]);
       await clientWith(recorder).findDevice();
-      expect(jsonDecode(recorder.single.body), <String, Object?>{});
+      expect(jsonDecode(recorder.single.body), {
+        'tool': 'device.find',
+        'args': {},
+      });
     });
 
-    test('rebootDevice posts an empty object by default', () async {
-      final recorder = Recorder([noContent(), noContent()]);
+    test('rebootDevice preserves empty and delayed arguments', () async {
+      final recorder = Recorder([
+        json(200, {'result': {}}),
+        json(200, {'result': {}}),
+      ]);
       final client = clientWith(recorder);
       await client.rebootDevice();
       await client.rebootDevice(delayMs: 3000);
-      expect(recorder.requests[0].method, 'POST');
       expect(
         recorder.requests[0].url.path,
-        '/gizclaw/v1/device/actions/reboot',
+        '/gizclaw/v1/device/tool/v0/invoke',
       );
-      expect(jsonDecode(recorder.requests[0].body), <String, Object?>{});
-      expect(jsonDecode(recorder.requests[1].body), {'delay_ms': 3000});
+      expect(jsonDecode(recorder.requests[0].body), {
+        'tool': 'device.reboot',
+        'args': {},
+      });
+      expect(jsonDecode(recorder.requests[1].body), {
+        'tool': 'device.reboot',
+        'args': {'delay_ms': 3000},
+      });
     });
 
     test('getDeviceFirmware decodes every channel', () async {
@@ -855,27 +884,35 @@ void main() {
       },
     );
 
-    test('updateDeviceFirmware posts an empty object by default', () async {
-      final recorder = Recorder([noContent(), noContent()]);
-      final client = clientWith(recorder);
-      await client.updateDeviceFirmware();
-      await client.updateDeviceFirmware(
-        channel: FirmwareChannelName.beta,
-        sha256:
-            'b1c2d3e4f5061728394a5b6c7d8e9f0ab1c2d3e4f5061728394a5b6c7d8e9f0a',
-      );
-      expect(recorder.requests[0].method, 'POST');
-      expect(
-        recorder.requests[0].url.path,
-        '/gizclaw/v1/device/actions/firmware-update',
-      );
-      expect(jsonDecode(recorder.requests[0].body), <String, Object?>{});
-      expect(jsonDecode(recorder.requests[1].body), {
-        'channel': 'beta',
-        'sha256':
-            'b1c2d3e4f5061728394a5b6c7d8e9f0ab1c2d3e4f5061728394a5b6c7d8e9f0a',
-      });
-    });
+    test(
+      'updateDeviceFirmware preserves empty and explicit arguments',
+      () async {
+        final recorder = Recorder([
+          json(200, {'result': {}}),
+          json(200, {'result': {}}),
+        ]);
+        final client = clientWith(recorder);
+        await client.updateDeviceFirmware();
+        const digest =
+            'b1c2d3e4f5061728394a5b6c7d8e9f0ab1c2d3e4f5061728394a5b6c7d8e9f0a';
+        await client.updateDeviceFirmware(
+          channel: FirmwareChannelName.beta,
+          sha256: digest,
+        );
+        expect(
+          recorder.requests[0].url.path,
+          '/gizclaw/v1/device/tool/v0/invoke',
+        );
+        expect(jsonDecode(recorder.requests[0].body), {
+          'tool': 'firmware.update',
+          'args': {},
+        });
+        expect(jsonDecode(recorder.requests[1].body), {
+          'tool': 'firmware.update',
+          'args': {'channel': 'beta', 'sha256': digest},
+        });
+      },
+    );
 
     test(
       'updateDeviceFirmware maps old firmware to deviceUnsupported',
@@ -888,90 +925,113 @@ void main() {
       },
     );
 
-    test('wifi reads', () async {
+    test('MHS Wi-Fi state and saved networks', () async {
       final recorder = Recorder([
         json(200, {
-          'connected': true,
-          'ssid': 'Home',
-          'rssi_dbm': -50,
-          'ip': '192.0.2.10',
-          'bssid': 'aa:bb:cc:dd:ee:ff',
+          'states': [
+            {'device_id': 'wifi.main', 'state': 'connected', 'value': true},
+          ],
         }),
         json(200, {
-          'networks': [
-            {'ssid': 'Home'},
-            {'ssid': 'Office'},
-          ],
+          'result': {
+            'networks': [
+              {'ssid': 'Home'},
+              {'ssid': 'Office'},
+            ],
+          },
         }),
       ]);
       final client = clientWith(recorder);
-      final status = await client.getDeviceWifi();
+      final states = await client.readMhsStates([
+        const MhsStateRef(deviceId: 'wifi.main', state: 'connected'),
+      ]);
       final saved = await client.listDeviceSavedWifi();
-      expect(recorder.requests[0].url.path, '/gizclaw/v1/device/wifi');
-      expect(recorder.requests[1].url.path, '/gizclaw/v1/device/wifi/saved');
-      expect(status.connected, isTrue);
-      expect(status.rssiDbm, -50);
+      expect(recorder.requests[0].url.path, '/gizclaw/v1/device/mhs/v0/read');
+      expect(
+        recorder.requests[1].url.path,
+        '/gizclaw/v1/device/tool/v0/invoke',
+      );
+      expect(states.single.value, isTrue);
       expect(saved.networks.map((n) => n.ssid), ['Home', 'Office']);
     });
 
-    test('scanDeviceWifi posts timeout and decodes networks', () async {
+    test('scanDeviceWifi invokes tool/v0 and decodes networks', () async {
       final recorder = Recorder([
         json(200, {
-          'networks': [
-            {
-              'ssid': 'Office',
-              'bssid': 'aa:bb:cc:dd:ee:ff',
-              'rssi_dbm': -42,
-              'frequency_mhz': 5180,
-              'security': 'wpa3',
-            },
-          ],
+          'result': {
+            'networks': [
+              {
+                'ssid': 'Office',
+                'bssid': 'aa:bb:cc:dd:ee:ff',
+                'rssi_dbm': -42,
+                'frequency_mhz': 5180,
+                'security': 'wpa3',
+              },
+            ],
+          },
         }),
       ]);
       final result = await clientWith(
         recorder,
       ).scanDeviceWifi(const DeviceWifiScanRequest(timeoutMs: 8000));
-      expect(recorder.single.method, 'POST');
-      expect(recorder.single.url.path, '/gizclaw/v1/device/wifi/scan');
-      expect(jsonDecode(recorder.single.body), {'timeout_ms': 8000});
+      expect(recorder.single.url.path, '/gizclaw/v1/device/tool/v0/invoke');
+      expect(jsonDecode(recorder.single.body), {
+        'tool': 'wifi.scan',
+        'args': {'timeout_ms': 8000},
+      });
       expect(result.networks.single.ssid, 'Office');
       expect(result.networks.single.rssiDbm, -42);
       expect(result.networks.single.frequencyMhz, 5180);
-      expect(result.networks.single.security, 'wpa3');
     });
 
-    test('connectDeviceWifi puts credentials and accepts 202', () async {
-      final recorder = Recorder([accepted(), accepted()]);
-      final client = clientWith(recorder);
-      await client.connectDeviceWifi(
-        const DeviceWifiConnectRequest(
-          ssid: 'Office',
-          passphrase: 'correct-horse',
-        ),
-      );
-      await client.connectDeviceWifi(
-        const DeviceWifiConnectRequest(ssid: 'Open Network'),
-      );
-      expect(recorder.requests[0].method, 'PUT');
-      expect(recorder.requests[0].url.path, '/gizclaw/v1/device/wifi');
-      expect(jsonDecode(recorder.requests[0].body), {
-        'ssid': 'Office',
-        'passphrase': 'correct-horse',
-      });
-      expect(jsonDecode(recorder.requests[1].body), {'ssid': 'Open Network'});
-    });
+    test(
+      'connectDeviceWifi invokes tool/v0 with optional passphrase',
+      () async {
+        final recorder = Recorder([
+          json(200, {'result': {}}),
+          json(200, {'result': {}}),
+        ]);
+        final client = clientWith(recorder);
+        await client.connectDeviceWifi(
+          const DeviceWifiConnectRequest(
+            ssid: 'Office',
+            passphrase: 'correct-horse',
+          ),
+        );
+        await client.connectDeviceWifi(
+          const DeviceWifiConnectRequest(ssid: 'Open Network'),
+        );
+        expect(recorder.requests[0].method, 'POST');
+        expect(
+          recorder.requests[0].url.path,
+          '/gizclaw/v1/device/tool/v0/invoke',
+        );
+        expect(jsonDecode(recorder.requests[0].body), {
+          'tool': 'wifi.connect',
+          'args': {'ssid': 'Office', 'passphrase': 'correct-horse'},
+        });
+        expect(jsonDecode(recorder.requests[1].body), {
+          'tool': 'wifi.connect',
+          'args': {'ssid': 'Open Network'},
+        });
+      },
+    );
 
-    test('forgetDeviceSavedWifi percent-encodes the SSID', () async {
-      final recorder = Recorder([noContent()]);
-      await clientWith(recorder).forgetDeviceSavedWifi('Café Wi-Fi/5G #2');
-      expect(recorder.single.method, 'DELETE');
-      expect(
-        recorder.single.url.toString(),
-        'https://ap.gizclaw.com/gizclaw/v1/device/wifi/saved/'
-        'Caf%C3%A9%20Wi-Fi%2F5G%20%232',
-      );
-      expect(recorder.single.url.pathSegments.last, 'Café Wi-Fi/5G #2');
-    });
+    test(
+      'forgetDeviceSavedWifi preserves a Unicode SSID in tool args',
+      () async {
+        final recorder = Recorder([
+          json(200, {'result': {}}),
+        ]);
+        await clientWith(recorder).forgetDeviceSavedWifi('Café Wi-Fi/5G #2');
+        expect(recorder.single.method, 'POST');
+        expect(recorder.single.url.path, '/gizclaw/v1/device/tool/v0/invoke');
+        expect(jsonDecode(recorder.single.body), {
+          'tool': 'wifi.saved.forget',
+          'args': {'ssid': 'Café Wi-Fi/5G #2'},
+        });
+      },
+    );
 
     test('rejects an empty path parameter before sending', () {
       final recorder = Recorder([]);
@@ -1315,7 +1375,9 @@ void main() {
           error(status, code, message: 'm', headers: {'x-request-id': 'req-1'}),
         ]);
         final exception = await failure(
-          clientWith(recorder).setDeviceVolume(level: 1, muted: false),
+          clientWith(recorder).writeMhsStates([
+            MhsStateValue(deviceId: 'speaker.main', state: 'volume', value: 1),
+          ]),
         );
         expect(exception.kind, kind);
         expect(exception.statusCode, status);
@@ -1501,8 +1563,17 @@ void main() {
       expect(key.toJson(), apiKeyJson);
       final contact = Contact.fromJson({...contactJson, 'extra': 1});
       expect(contact.toJson(), contactJson);
-      final wifi = DeviceWifiStatus.fromJson({'connected': false, 'x': 1});
-      expect(wifi.toJson(), {'connected': false});
+      final state = MhsStateValue.fromJson({
+        'device_id': 'wifi.main',
+        'state': 'connected',
+        'value': false,
+        'x': 1,
+      });
+      expect(state.toJson(), {
+        'device_id': 'wifi.main',
+        'state': 'connected',
+        'value': false,
+      });
     });
 
     test('PeerStatus with no fields decodes to nulls', () {
@@ -1530,37 +1601,45 @@ void main() {
   });
 
   group('device settings, Workspace switch and Tools', () {
-    test('settings round trip and patch only present members', () async {
+    test('MHS state round trip preserves zero and false', () async {
       final recorder = Recorder([
-        json(200, {'screen_brightness': 40, 'alert_mode': 'ring'}),
-        json(200, {'screen_brightness': 40, 'alert_mode': 'silent'}),
+        json(200, {
+          'states': [
+            {'device_id': 'display.main', 'state': 'brightness', 'value': 0},
+          ],
+        }),
+        json(200, {
+          'states': [
+            {'device_id': 'display.main', 'state': 'enabled', 'value': false},
+          ],
+        }),
       ]);
       final client = clientWith(recorder);
-      final settings = await client.getDeviceSettings();
-      expect(settings.alertMode, 'ring');
-      expect(settings.nfcEnabled, isNull);
-      final updated = await client.updateDeviceSettings(
-        const DeviceSettings(alertMode: 'silent', autoSleepTimeoutMs: 0),
-      );
-      expect(updated.alertMode, 'silent');
+      final read = await client.readMhsStates([
+        const MhsStateRef(deviceId: 'display.main', state: 'brightness'),
+      ]);
+      final written = await client.writeMhsStates([
+        MhsStateValue(deviceId: 'display.main', state: 'enabled', value: false),
+      ]);
+      expect(read.single.value, 0);
+      expect(written.single.value, false);
       expect(recorder.requests[1].method, 'PATCH');
-      expect(jsonDecode(recorder.requests[1].body), {
-        'alert_mode': 'silent',
-        'auto_sleep_timeout_ms': 0,
-      });
     });
 
-    test('factory reset, capability list and Workspace switch', () async {
+    test('factory reset, tool list and Workspace switch', () async {
       final recorder = Recorder([
-        noContent(),
+        json(200, {'result': {}}),
         json(200, {
-          'methods': ['client.run.workspace.set'],
+          'tools': ['device.factory_reset', 'run.workspace.set'],
         }),
-        accepted(),
+        json(200, {'result': {}}),
       ]);
       final client = clientWith(recorder);
       await client.factoryResetDevice(keepNetwork: true);
-      expect(await client.listDeviceRpcMethods(), ['client.run.workspace.set']);
+      expect(await client.listDeviceTools(), [
+        'device.factory_reset',
+        'run.workspace.set',
+      ]);
       await client.setDeviceRunWorkspace(
         const DeviceRunWorkspaceRequest.workflow(
           'stories',
@@ -1570,15 +1649,21 @@ void main() {
       );
       expect(
         recorder.requests[0].url.path,
-        '/gizclaw/v1/device/actions/factory-reset',
+        '/gizclaw/v1/device/tool/v0/invoke',
       );
-      expect(jsonDecode(recorder.requests[0].body), {'keep_network': true});
-      expect(recorder.requests[2].method, 'PUT');
-      expect(recorder.requests[2].url.path, '/gizclaw/v1/device/run/workspace');
+      expect(jsonDecode(recorder.requests[0].body), {
+        'tool': 'device.factory_reset',
+        'args': {'keep_network': true},
+      });
+      expect(recorder.requests[1].url.path, '/gizclaw/v1/device/tool/v0/tools');
+      expect(recorder.requests[2].method, 'POST');
       expect(jsonDecode(recorder.requests[2].body), {
-        'collection': 'stories',
-        'workflow_name': 'bedtime',
-        'kickoff': true,
+        'tool': 'run.workspace.set',
+        'args': {
+          'collection': 'stories',
+          'workflow_name': 'bedtime',
+          'kickoff': true,
+        },
       });
     });
 
@@ -1593,41 +1678,30 @@ void main() {
       expect(runtime.pendingWorkspaceName, 'bedtime');
     });
 
-    test('list and invoke control-app Tools', () async {
-      final recorder = Recorder([
-        json(200, {
-          'items': [
-            {
-              'name': 'usage limit',
-              'control_access': 'owner',
-              'i18n': {
-                'en': {'display_name': 'Usage limit'},
-              },
-              'input_schema': {'type': 'object'},
-            },
-          ],
-        }),
-        json(200, {'data_json': '{"ok":true}'}),
-        error(404, 'TOOL_NOT_FOUND', message: 'tool not found'),
-      ]);
-      final client = clientWith(recorder);
-      final tools = await client.listDeviceTools();
-      expect(tools.items.single.i18n['en']?.displayName, 'Usage limit');
-      expect(tools.items.single.inputSchema['type'], 'object');
-      final data = await client.invokeDeviceTool(
-        'usage limit',
-        args: {'minutes': 30},
-      );
-      expect(jsonDecode(data), {'ok': true});
-      expect(
-        recorder.requests[1].url.path,
-        '/gizclaw/v1/device/tools/usage%20limit/actions/invoke',
-      );
-      expect(jsonDecode(recorder.requests[1].body), {
-        'args': {'minutes': 30},
-      });
-      final exception = await failure(client.invokeDeviceTool('hidden'));
-      expect(exception.kind, GizClawControlErrorKind.notFound);
-    });
+    test(
+      'lists only installed predefined tools and invokes a typed one',
+      () async {
+        final recorder = Recorder([
+          json(200, {
+            'tools': ['device.find'],
+          }),
+          json(200, {'result': {}}),
+          error(501, 'DEVICE_UNSUPPORTED', message: 'tool unavailable'),
+        ]);
+        final client = clientWith(recorder);
+        expect(await client.listDeviceTools(), ['device.find']);
+        await client.findDevice(durationMs: 8000);
+        expect(
+          recorder.requests[1].url.path,
+          '/gizclaw/v1/device/tool/v0/invoke',
+        );
+        expect(jsonDecode(recorder.requests[1].body), {
+          'tool': 'device.find',
+          'args': {'duration_ms': 8000},
+        });
+        final exception = await failure(client.playDeviceSound(sound: 'chime'));
+        expect(exception.kind, GizClawControlErrorKind.deviceUnsupported);
+      },
+    );
   });
 }

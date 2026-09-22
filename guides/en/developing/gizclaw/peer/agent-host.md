@@ -26,21 +26,12 @@ streams in the same Workspace share one concurrency-safe Agent. The final
 release closes that generation, and reload reconstructs it from the new
 Workflow and RuntimeProfile snapshot.
 
-The Peer connection also attaches an independent current-Peer Tool execution
-scope to every run. That scope contains only the Peer RuntimeProfile Tool
-binding snapshot and the exact accepted connection used for `client_rpc`.
-Workspace-owner Resource access cannot overwrite it. The shared Agent receives
-one `genx.ToolInvoker`; every Transform resolves Tools from its own context, so
-concurrent Peers never share Tool definitions, handlers, arguments, results, or
-connections even though they share the Agent.
+Each run resolves the current Peer RuntimeProfile Tool binding snapshot. The shared Agent receives one `genx.ToolInvoker`; every Transform resolves Tools from its own context, so concurrent Peers do not share Tool definitions, arguments or results even when they share the Agent.
 
 Flowcraft, Eino, DashScope Realtime, and Doubao Realtime Duplex factories inject
 the same interface into their existing Transformer configuration. Provider
-ToolCall IDs and continuation stay inside the Transformer. AgentHost dispatches
-only canonical Resource names to `http_request` or the current connection's
-`client.tool.invoke`, and no Tool control traffic is projected into the public
-assistant stream.
+ToolCall IDs and continuation stay inside the Transformer. AgentHost dispatches canonical Resource names to `http_request`; Tool control traffic stays inside the Transformer.
 
-OpenAI Responses use a request-scoped direct Workspace attachment through the same canonical Resolver and shared Runtime Registry. It does not read or update the PeerRun selection. Server-side tools keep normal Workflow policy; connection-scoped client tools fail closed because an OpenAI request has no stable client-tool transport contract. A bounded History observer returns the exact persisted assistant entry used by the Response projection.
+OpenAI Responses use a request-scoped direct Workspace attachment through the same canonical Resolver and shared Runtime Registry. It does not read or update the PeerRun selection. Server-side HTTP Tools keep normal Workflow policy. A bounded History observer returns the exact persisted assistant entry used by the Response projection.
 
 When an assistant route ends with a provider or runtime error EOS, the Peer output adapter forwards the original EOS unchanged and emits one structured Server error record with Peer, active Workspace, stream, error-code, and retryability correlation. The expected `interrupted` replacement EOS is a control event and is not logged as a failure. Logging does not fail the long-lived output consumer, add another EOS, or prevent a later turn or Workspace reload.

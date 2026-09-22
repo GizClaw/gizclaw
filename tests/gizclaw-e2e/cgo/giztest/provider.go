@@ -39,7 +39,7 @@ type clientRPCProvider struct {
 }
 
 func newClientRPCProvider() *clientRPCProvider {
-	return &clientRPCProvider{responses: map[string]any{"info.get":map[string]any{},"identifiers.get":map[string]any{}}, calls: map[string]*atomic.Int64{}}
+	return &clientRPCProvider{responses: map[string]any{"info.get": map[string]any{}, "identifiers.get": map[string]any{}}, calls: map[string]*atomic.Int64{}}
 }
 
 // install scripts one method's response. A response carrying `error_code`

@@ -26,13 +26,19 @@ const OPTIONAL_REPEATED_FIELDS = new Set([
 
 const OPTIONAL_MAP_FIELDS = new Set(["DoubaoRealtimeASRContext.correct_words"]);
 
-const methods = parseRegistry(readFileSync(peerProtoURL, "utf8"), "RPC_METHOD", "rpc_method");
+const methods = parseRegistry(
+  readFileSync(peerProtoURL, "utf8"),
+  "RPC_METHOD",
+  "rpc_method",
+);
 const payloadProtoText = readdirSync(payloadProtoDirURL)
   .filter((name) => name.endsWith(".proto"))
   .sort()
   .map((name) => readFileSync(new URL(name, payloadProtoDirURL), "utf8"))
   .join("\n");
-const parsed = parsePayloadProto(readFileSync(peerProtoURL, "utf8") + "\n" + payloadProtoText);
+const parsed = parsePayloadProto(
+  readFileSync(peerProtoURL, "utf8") + "\n" + payloadProtoText,
+);
 const tools = parseRegistry(payloadProtoText, "CLIENT_TOOL", "client_tool");
 
 if (methods.length === 0) {
@@ -77,8 +83,8 @@ ${payloadTypes}
 
 const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = ${stableJSON(requestPayloadMessages)};
 const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = ${stableJSON(responsePayloadMessages)};
-const TOOL_REQUEST_MESSAGES: Record<string, string> = ${stableJSON(Object.fromEntries(tools.map(item => [item.id, item.request])))};
-const TOOL_RESPONSE_MESSAGES: Record<string, string> = ${stableJSON(Object.fromEntries(tools.map(item => [item.id, item.response])))};
+const TOOL_REQUEST_MESSAGES: Record<string, string> = ${stableJSON(Object.fromEntries(tools.map((item) => [item.id, item.request])))};
+const TOOL_RESPONSE_MESSAGES: Record<string, string> = ${stableJSON(Object.fromEntries(tools.map((item) => [item.id, item.response])))};
 const MESSAGE_DESCS: Record<string, MessageDesc> = ${stableJSON(parsed.messages)};
 const ENUM_DESCS: Record<string, EnumDesc> = ${stableJSON(parsed.enums)};
 
@@ -1015,7 +1021,8 @@ function parsePayloadProto(proto) {
         currentEnum = null;
         continue;
       }
-      const value = /^\s*([A-Z][A-Z0-9_]*)\s*=\s*(-?\d+)\s*(?:\[.*\])?\s*;/.exec(line);
+      const value =
+        /^\s*([A-Z][A-Z0-9_]*)\s*=\s*(-?\d+)\s*(?:\[.*\])?\s*;/.exec(line);
       if (value != null) {
         currentEnum.values.push({ name: value[1], number: Number(value[2]) });
       }

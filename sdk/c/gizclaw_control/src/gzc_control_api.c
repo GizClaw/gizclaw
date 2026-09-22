@@ -1649,13 +1649,8 @@ int gzc_control_delete_friend_group_member(
 }
 
 static int audioplayer_decode_response(gzc_control_call_t *call, gzc_control_audioplayer_status_t *out_status) {
-  gzc_str_t object, status;
-  int rc = decoded_tool_result(call, &object);
-  bool present = false;
-  if (rc == GZC_OK)
-    rc = gzc_control_field(object, "value", &status, &present);
-  if (rc == GZC_OK && !present)
-    rc = GZC_ERR_JSON;
+  gzc_str_t status;
+  int rc = decoded_tool_result(call, &status);
   if (rc == GZC_OK)
     rc = gzc_control_decode_audioplayer_status(status, out_status);
   return rc == GZC_OK ? rc : decode_failed(call, rc);
@@ -2005,12 +2000,8 @@ static int read_tool_value(gzc_control_client_t *client, gzc_control_call_t *cal
   int rc = builder_send(&builder, client, call, GZC_HTTP_METHOD_POST, url, gzc_str_from_parts(NULL, 0));
   if (rc != GZC_OK)
     return rc;
-  gzc_str_t result;
-  rc = decoded_tool_result(call, &result);
-  bool present = false;
-  if (rc == GZC_OK)
-    rc = gzc_control_field(result, "value", value, &present);
-  if (rc == GZC_OK && (!present || gzc_json_validate_object(*value) != GZC_OK))
+  rc = decoded_tool_result(call, value);
+  if (rc == GZC_OK && gzc_json_validate_object(*value) != GZC_OK)
     rc = GZC_ERR_JSON;
   return rc == GZC_OK ? rc : decode_failed(call, rc);
 }

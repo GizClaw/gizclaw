@@ -2649,15 +2649,12 @@ func (e ToolResourceKind) Valid() bool {
 
 // Defines values for ToolType.
 const (
-	ToolTypeClientRpc   ToolType = "client_rpc"
 	ToolTypeHttpRequest ToolType = "http_request"
 )
 
 // Valid indicates whether the value is a known member of the ToolType enum.
 func (e ToolType) Valid() bool {
 	switch e {
-	case ToolTypeClientRpc:
-		return true
 	case ToolTypeHttpRequest:
 		return true
 	default:

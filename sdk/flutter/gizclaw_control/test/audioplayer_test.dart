@@ -28,15 +28,20 @@ void main() {
         apiKey: 'test-key',
         httpClient: MockClient((request) async {
           requests.add(request);
-          final Object body =
-              request.method == 'GET' && request.url.path.endsWith('/playlist')
+          final tool = request.url.path.endsWith('/device/status')
+              ? ''
+              : (jsonDecode(request.body) as Map<String, dynamic>)['tool']
+                    as String;
+          final Object body = tool == 'audioplayer.playlist.get'
               ? {
-                  'items': [item.toJson()],
-                  'playlist_revision': 3,
+                  'result': {
+                    'items': [item.toJson()],
+                    'playlist_revision': 3,
+                  },
                 }
-              : request.url.path.endsWith('/device/status')
+              : tool.isEmpty
               ? {'audioplayer': status}
-              : {'status': status};
+              : {'result': status};
           return http.Response(jsonEncode(body), 200);
         }),
       );
@@ -52,23 +57,26 @@ void main() {
       await client.setAudioPlayerMode('all');
       expect((await client.getDeviceStatus()).audioplayer!.positionMs, 0);
       expect(requests.map((request) => request.method).toList(), [
-        'GET',
-        'GET',
-        'PUT',
         'POST',
         'POST',
         'POST',
-        'PUT',
+        'POST',
+        'POST',
+        'POST',
+        'POST',
         'GET',
       ]);
       expect(jsonDecode(requests[2].body), {
-        'items': [item.toJson()],
+        'tool': 'audioplayer.playlist.set',
+        'args': {
+          'items': [item.toJson()],
+        },
       });
-      expect(jsonDecode(requests[4].body), {'index': 0});
-      expect(
-        requests[3].url.path,
-        '/gizclaw/v1/device/audioplayer/playlist/append',
-      );
+      expect(jsonDecode(requests[4].body), {
+        'tool': 'audioplayer.play',
+        'args': {'index': 0},
+      });
+      expect(requests[3].url.path, '/gizclaw/v1/device/tool/v0/invoke');
       expect(
         requests.every(
           (request) => request.headers['authorization'] == 'Bearer test-key',

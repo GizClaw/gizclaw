@@ -729,16 +729,16 @@ func TestServerServeHTTPDeviceExtensionOnDirectAndEdge(t *testing.T) {
 			if response.Code != http.StatusOK {
 				t.Fatalf("GET contacts status = %d body=%s", response.Code, response.Body.String())
 			}
-			response = do(http.MethodPut, "/gizclaw/v1/device/volume", `{"level":10,"muted":false}`, true)
+			response = do(http.MethodPost, "/gizclaw/v1/device/tool/v0/invoke", `{"tool":"device.find","args":{}}`, true)
 			if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "DEVICE_OFFLINE") {
-				t.Fatalf("PUT volume offline status = %d body=%s", response.Code, response.Body.String())
+				t.Fatalf("invoke tool offline status = %d body=%s", response.Code, response.Body.String())
 			}
-			preflight := httptest.NewRequest(http.MethodOptions, "/gizclaw/v1/device/volume", nil)
+			preflight := httptest.NewRequest(http.MethodOptions, "/gizclaw/v1/device/tool/v0/invoke", nil)
 			preflight.Header.Set("Origin", "https://app.example.com")
-			preflight.Header.Set("Access-Control-Request-Method", http.MethodPut)
+			preflight.Header.Set("Access-Control-Request-Method", http.MethodPost)
 			recorder := httptest.NewRecorder()
 			handler.ServeHTTP(recorder, preflight)
-			if recorder.Code != http.StatusNoContent || !strings.Contains(recorder.Header().Get("Access-Control-Allow-Methods"), "PUT") {
+			if recorder.Code != http.StatusNoContent || !strings.Contains(recorder.Header().Get("Access-Control-Allow-Methods"), "POST") {
 				t.Fatalf("preflight = %d methods=%q", recorder.Code, recorder.Header().Get("Access-Control-Allow-Methods"))
 			}
 			for _, path := range []string{"/login", "/me", "/side-control/sessions", "/gizclaw/v1/device/status?fresh=true&peer=x"} {

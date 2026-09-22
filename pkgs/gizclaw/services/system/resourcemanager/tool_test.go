@@ -17,7 +17,7 @@ func TestToolResourceLifecycleUsesCallerID(t *testing.T) {
 		"kind":"Tool",
 		"metadata":{"id":"volume_set"},
 		"spec":{
-			"type":"client_rpc",
+			"type":"http_request",
 			"invoke_name":"volume_set",
 			"description":"Set the current device volume",
 			"input_schema":{
@@ -25,7 +25,8 @@ func TestToolResourceLifecycleUsesCallerID(t *testing.T) {
 				"required":["level"],
 				"properties":{"level":{"type":"integer","minimum":0,"maximum":10}},
 				"additionalProperties":false
-			}
+			},
+			"http":{"url":"https://example.com/volume","method":"POST","auth":{"method":"none"},"timeout":"3s","max_response_bytes":1024}
 		}
 	}`)
 	created, err := manager.Apply(t.Context(), resource)
@@ -44,7 +45,7 @@ func TestToolResourceLifecycleUsesCallerID(t *testing.T) {
 	if metadataID(t, typed.Metadata) != "volume_set" {
 		t.Fatalf("metadata.id = %q", metadataID(t, typed.Metadata))
 	}
-	if discriminator, err := typed.Spec.Discriminator(); err != nil || discriminator != "client_rpc" {
+	if discriminator, err := typed.Spec.Discriminator(); err != nil || discriminator != "http_request" {
 		t.Fatalf("spec type = %q, %v", discriminator, err)
 	}
 	deleted, err := manager.Delete(t.Context(), apitypes.ResourceKindTool, id)
@@ -117,9 +118,10 @@ func TestToolResourceIdentityConflictsReturnConflict(t *testing.T) {
 			"kind":"Tool",
 			"metadata":{"id":"`+id+`"},
 			"spec":{
-				"type":"client_rpc",
+				"type":"http_request",
 				"invoke_name":"`+invokeName+`",
-				"input_schema":{"type":"object"}
+				"input_schema":{"type":"object"},
+				"http":{"url":"https://example.com/tool","method":"POST","auth":{"method":"none"},"timeout":"3s","max_response_bytes":1024}
 			}
 		}`)
 	}

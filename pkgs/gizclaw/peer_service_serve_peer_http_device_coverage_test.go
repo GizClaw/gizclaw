@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
@@ -30,13 +31,10 @@ var deviceExtensionRoutes = []struct{ method, path, body string }{
 	{http.MethodGet, "/gizclaw/v1/device/runtime-profile", ""},
 	{http.MethodGet, "/gizclaw/v1/device/workspaces", ""},
 	{http.MethodDelete, "/gizclaw/v1/device/workspaces/x", ""},
-	{http.MethodPut, "/gizclaw/v1/device/volume", `{"level":1,"muted":false}`},
-	{http.MethodPost, "/gizclaw/v1/device/actions/play-sound", `{"sound":"chime"}`},
-	{http.MethodPost, "/gizclaw/v1/device/actions/reboot", ""},
-	{http.MethodPost, "/gizclaw/v1/device/actions/firmware-update", ""},
-	{http.MethodGet, "/gizclaw/v1/device/wifi", ""},
-	{http.MethodGet, "/gizclaw/v1/device/wifi/saved", ""},
-	{http.MethodDelete, "/gizclaw/v1/device/wifi/saved/home", ""},
+	{http.MethodPost, "/gizclaw/v1/device/mhs/v0/read", `{"states":[{"device_id":"speaker.main","state":"volume"}]}`},
+	{http.MethodPatch, "/gizclaw/v1/device/mhs/v0/states", `{"states":[{"device_id":"speaker.main","state":"volume","value":{"int_value":1}}]}`},
+	{http.MethodGet, "/gizclaw/v1/device/tool/v0/tools", ""},
+	{http.MethodPost, "/gizclaw/v1/device/tool/v0/invoke", `{"tool":"sound.play","args":{"sound":"chime"}}`},
 	{http.MethodGet, "/gizclaw/v1/contacts", ""},
 	{http.MethodPost, "/gizclaw/v1/contacts", `{"name":"x","display_name":"X"}`},
 	{http.MethodGet, "/gizclaw/v1/contacts/x", ""},
@@ -139,16 +137,17 @@ func TestDeviceExtensionFailsAfterKeyRevokeAndOwnerRetirement(t *testing.T) {
 func TestDeviceControlUTF8Bounds(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 	var lastSound, lastSSID string
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-		switch req.Method {
-		case rpcapi.RPCMethodClientDeviceSoundPlay:
+	var device *fakeDeviceConn
+	device = newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		switch tool {
+		case rpcpb.ClientTool_CLIENT_TOOL_SOUND_PLAY:
 			params, err := req.Params.AsClientDeviceSoundPlayRequest()
 			if err != nil {
 				return nil, err
 			}
 			lastSound = params.Sound
 			return newRPCResultResponse(req.Id, rpcapi.ClientDeviceSoundPlayResponse{}, (*rpcapi.RPCPayload).FromClientDeviceSoundPlayResponse)
-		case rpcapi.RPCMethodClientWifiSavedForget:
+		case rpcpb.ClientTool_CLIENT_TOOL_WIFI_SAVED_FORGET:
 			params, err := req.Params.AsClientWifiSavedForgetRequest()
 			if err != nil {
 				return nil, err
@@ -163,36 +162,35 @@ func TestDeviceControlUTF8Bounds(t *testing.T) {
 
 	exact := strings.Repeat("a", 29) + "中" // 29 + 3 = 32 bytes
 	over := strings.Repeat("a", 30) + "中"  // 33 bytes, 31 runes
-	if response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/play-sound", `{"sound":"`+exact+`"}`); response.Code != http.StatusNoContent {
+	if response := f.invoke(t, "sound.play", `{"sound":"`+exact+`"}`); response.Code != http.StatusOK {
 		t.Fatalf("32-byte multibyte sound status = %d body=%s", response.Code, response.Body.String())
 	}
 	if lastSound != exact {
 		t.Fatalf("device received sound %q", lastSound)
 	}
-	if response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/play-sound", `{"sound":"`+over+`"}`); response.Code != http.StatusBadRequest {
+	if response := f.invoke(t, "sound.play", `{"sound":"`+over+`"}`); response.Code != http.StatusBadRequest {
 		t.Fatalf("33-byte multibyte sound status = %d", response.Code)
 	}
-	// JSON decoding already normalizes invalid bytes in a body; the raw path
-	// parameter is the only way invalid UTF-8 reaches the handler.
-	if response := f.do(t, http.MethodDelete, "/gizclaw/v1/device/wifi/saved/%FF%FE", ""); response.Code != http.StatusBadRequest {
+	// Invalid UTF-8 in JSON must be rejected before an RPC is dispatched.
+	if response := f.do(t, http.MethodPost, "/gizclaw/v1/device/tool/v0/invoke", "{\"tool\":\"wifi.saved.forget\",\"args\":{\"ssid\":\"\xff\xfe\"}}"); response.Code != http.StatusBadRequest {
 		t.Fatalf("invalid UTF-8 ssid status = %d body=%s", response.Code, response.Body.String())
 	}
 
-	if response := f.do(t, http.MethodDelete, "/gizclaw/v1/device/wifi/saved/"+exact, ""); response.Code != http.StatusNoContent {
+	if response := f.invoke(t, "wifi.saved.forget", `{"ssid":"`+exact+`"}`); response.Code != http.StatusOK {
 		t.Fatalf("32-byte multibyte ssid status = %d body=%s", response.Code, response.Body.String())
 	}
 	if lastSSID != exact {
 		t.Fatalf("device received ssid %q", lastSSID)
 	}
-	if response := f.do(t, http.MethodDelete, "/gizclaw/v1/device/wifi/saved/"+over, ""); response.Code != http.StatusBadRequest {
+	if response := f.invoke(t, "wifi.saved.forget", `{"ssid":"`+over+`"}`); response.Code != http.StatusBadRequest {
 		t.Fatalf("33-byte multibyte ssid status = %d", response.Code)
 	}
-	// Percent-encoded spaces round-trip and surrounding whitespace is trimmed.
-	if response := f.do(t, http.MethodDelete, "/gizclaw/v1/device/wifi/saved/%20home%20net%20", ""); response.Code != http.StatusNoContent {
-		t.Fatalf("encoded ssid status = %d body=%s", response.Code, response.Body.String())
+	// The tool carries the exact SSID, including spaces; JSON has no path decoding.
+	if response := f.invoke(t, "wifi.saved.forget", `{"ssid":" home net "}`); response.Code != http.StatusOK {
+		t.Fatalf("spaced ssid status = %d body=%s", response.Code, response.Body.String())
 	}
-	if lastSSID != "home net" {
-		t.Fatalf("device received trimmed ssid %q", lastSSID)
+	if lastSSID != " home net " {
+		t.Fatalf("device received ssid %q", lastSSID)
 	}
 	if device.calls.Load() != 3 {
 		t.Fatalf("device calls = %d; rejected inputs must not reach the device", device.calls.Load())
@@ -205,15 +203,13 @@ func TestDeviceControlWriteBackRacesWithTelemetry(t *testing.T) {
 	var clock atomicTime
 	clock.set(base)
 	f.control.now = clock.now
-	var volume atomicInt
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-		params, err := req.Params.AsClientDeviceVolumeSetRequest()
-		if err != nil {
-			return nil, err
+	var device *fakeDeviceConn
+	device = newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		if tool != rpcpb.ClientTool_CLIENT_TOOL_DEVICE_STATUS_GET {
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented}.RPCResponse(), nil
 		}
-		level := int(params.Level)
-		volume.set(level)
-		return deviceStatusResult(req.Id, rpcapi.PeerStatus{Volume: &level, Muted: &params.Muted})
+		level := int(device.calls.Load())
+		return deviceStatusResult(req.Id, rpcapi.PeerStatus{Volume: &level})
 	})
 	f.manager.SetPeerUp(f.owner, device)
 	telemetry := peerConnTelemetryStatusSync{
@@ -227,10 +223,8 @@ func TestDeviceControlWriteBackRacesWithTelemetry(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := range rounds {
-			level := 10 + i
-			body := `{"level":` + strings.TrimSpace(itoa(int64(level))) + `,"muted":false}`
-			if response := f.do(t, http.MethodPut, "/gizclaw/v1/device/volume", body); response.Code != http.StatusOK {
-				t.Errorf("PUT volume %d status = %d body=%s", level, response.Code, response.Body.String())
+			if response := f.invoke(t, "device.status.get", `{}`); response.Code != http.StatusOK {
+				t.Errorf("status read %d status = %d body=%s", i, response.Code, response.Body.String())
 				return
 			}
 		}
@@ -255,7 +249,7 @@ func TestDeviceControlWriteBackRacesWithTelemetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Control owns volume, telemetry owns battery; neither write may clobber the other.
-	if stored.Volume == nil || *stored.Volume != 10+rounds-1 || stored.BatteryPercent == nil || *stored.BatteryPercent != 50+rounds-1 {
+	if stored.Volume == nil || *stored.Volume != rounds || stored.BatteryPercent == nil || *stored.BatteryPercent != 50+rounds-1 {
 		t.Fatalf("stored status after concurrent writes = %+v", stored)
 	}
 	if stored.ReportedAt == nil || stored.ReportedAt.Before(base.Add(rounds*time.Second)) {
@@ -267,20 +261,24 @@ func TestDeviceControlStatusWriteBackUsesServerClockWithoutDeviceTime(t *testing
 	f := newDeviceHTTPFixture(t)
 	fixed := time.Date(2026, 9, 3, 9, 15, 0, 0, time.UTC)
 	f.control.now = func() time.Time { return fixed }
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+	var device *fakeDeviceConn
+	device = newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		if tool != rpcpb.ClientTool_CLIENT_TOOL_DEVICE_STATUS_GET {
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented}.RPCResponse(), nil
+		}
 		return deviceStatusResult(req.Id, rpcapi.PeerStatus{Volume: new(7)})
 	})
 	f.manager.SetPeerUp(f.owner, device)
-	response := f.do(t, http.MethodPut, "/gizclaw/v1/device/volume", `{"level":7,"muted":false}`)
+	response := f.invoke(t, "device.status.get", `{}`)
 	if response.Code != http.StatusOK {
-		t.Fatalf("PUT volume status = %d body=%s", response.Code, response.Body.String())
+		t.Fatalf("status read = %d body=%s", response.Code, response.Body.String())
 	}
-	result := decodeJSON[peerhttp.DeviceControlStatus](t, response)
-	if result.Status.ReportedAt == nil || !result.Status.ReportedAt.Equal(fixed) {
-		t.Fatalf("reported_at = %v, want server clock %v", result.Status.ReportedAt, fixed)
+	stored, err := f.manager.PeerRun.GetStatus(context.Background(), f.owner)
+	if err != nil || stored.ReportedAt == nil || !stored.ReportedAt.Equal(fixed) {
+		t.Fatalf("reported_at = %v, want server clock %v; err=%v", stored.ReportedAt, fixed, err)
 	}
-	if result.Status.Muted != nil {
-		t.Fatalf("muted = %v, want absent when the device omits it", *result.Status.Muted)
+	if stored.Muted != nil {
+		t.Fatalf("muted = %v, want absent when the device omits it", *stored.Muted)
 	}
 }
 
@@ -296,7 +294,7 @@ func TestDeviceControlHalfDeadDeviceTimesOut(t *testing.T) {
 	})
 	f.manager.SetPeerUp(f.owner, device)
 	started := time.Now()
-	response := f.do(t, http.MethodGet, "/gizclaw/v1/device/wifi", "")
+	response := f.invoke(t, "device.status.get", `{}`)
 	if response.Code != http.StatusGatewayTimeout || errorCode(t, response) != deviceTimeoutCode {
 		t.Fatalf("half-dead device status = %d body=%s", response.Code, response.Body.String())
 	}
@@ -304,40 +302,34 @@ func TestDeviceControlHalfDeadDeviceTimesOut(t *testing.T) {
 		t.Fatalf("timeout took %v", elapsed)
 	}
 	// The owner lock is released after the timeout: the next command is not stuck.
-	if response := f.do(t, http.MethodGet, "/gizclaw/v1/device/wifi", ""); response.Code != http.StatusGatewayTimeout {
+	if response := f.invoke(t, "device.status.get", `{}`); response.Code != http.StatusGatewayTimeout {
 		t.Fatalf("second command status = %d", response.Code)
 	}
 }
 
 func TestDeviceControlEmptySavedListAndRebootBody(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-		switch req.Method {
-		case rpcapi.RPCMethodClientWifiSavedList:
+	device := newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		switch tool {
+		case rpcpb.ClientTool_CLIENT_TOOL_WIFI_SAVED_LIST:
 			return newRPCResultResponse(req.Id, rpcapi.ClientWifiSavedListResponse{}, (*rpcapi.RPCPayload).FromClientWifiSavedListResponse)
-		case rpcapi.RPCMethodClientWifiStatusGet:
-			return newRPCResultResponse(req.Id, rpcapi.ClientWifiStatusGetResponse{}, (*rpcapi.RPCPayload).FromClientWifiStatusGetResponse)
 		default:
 			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented}.RPCResponse(), nil
 		}
 	})
 	f.manager.SetPeerUp(f.owner, device)
-	response := f.do(t, http.MethodGet, "/gizclaw/v1/device/wifi/saved", "")
-	if response.Code != http.StatusOK || strings.TrimSpace(response.Body.String()) != `{"networks":[]}` {
+	response := f.invoke(t, "wifi.saved.list", `{}`)
+	if response.Code != http.StatusOK || len(decodeToolResult[peerhttp.DeviceWifiSavedList](t, response).Networks) != 0 {
 		t.Fatalf("empty saved list = %d %s", response.Code, response.Body.String())
 	}
-	response = f.do(t, http.MethodGet, "/gizclaw/v1/device/wifi", "")
-	if response.Code != http.StatusOK || strings.TrimSpace(response.Body.String()) != `{"connected":false}` {
-		t.Fatalf("disconnected wifi status = %d %s", response.Code, response.Body.String())
-	}
 	// A malformed reboot body is rejected before any RPC.
-	if response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/reboot", `{"delay_ms":"soon"}`); response.Code != http.StatusBadRequest {
+	if response := f.invoke(t, "device.reboot", `{"delay_ms":"soon"}`); response.Code != http.StatusBadRequest {
 		t.Fatalf("malformed reboot body status = %d", response.Code)
 	}
-	if response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/reboot", `{"delay_ms":-1}`); response.Code != http.StatusBadRequest {
+	if response := f.invoke(t, "device.reboot", `{"delay_ms":-1}`); response.Code != http.StatusBadRequest {
 		t.Fatalf("negative delay status = %d", response.Code)
 	}
-	if device.calls.Load() != 2 {
+	if device.calls.Load() != 1 {
 		t.Fatalf("device calls = %d", device.calls.Load())
 	}
 }
@@ -407,14 +399,14 @@ func TestDeviceHTTPTelemetryIgnoresPeerSelectors(t *testing.T) {
 	}
 }
 
-func TestDeviceControlPreflightAllowsPut(t *testing.T) {
+func TestDeviceControlPreflightAllowsToolInvoke(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
-	request := httptest.NewRequest(http.MethodOptions, "/gizclaw/v1/device/volume", nil)
+	request := httptest.NewRequest(http.MethodOptions, "/gizclaw/v1/device/tool/v0/invoke", nil)
 	request.Header.Set("Origin", "https://app.example.com")
-	request.Header.Set("Access-Control-Request-Method", http.MethodPut)
+	request.Header.Set("Access-Control-Request-Method", http.MethodPost)
 	response := httptest.NewRecorder()
 	f.handler.ServeHTTP(response, request)
-	if response.Code != http.StatusNoContent || !strings.Contains(response.Header().Get("Access-Control-Allow-Methods"), "PUT") {
+	if response.Code != http.StatusNoContent || !strings.Contains(response.Header().Get("Access-Control-Allow-Methods"), "POST") {
 		t.Fatalf("preflight = %d methods=%q", response.Code, response.Header().Get("Access-Control-Allow-Methods"))
 	}
 }
@@ -426,13 +418,6 @@ type atomicTime struct {
 
 func (a *atomicTime) set(t time.Time) { a.mu.Lock(); a.t = t; a.mu.Unlock() }
 func (a *atomicTime) now() time.Time  { a.mu.Lock(); defer a.mu.Unlock(); return a.t }
-
-type atomicInt struct {
-	mu sync.Mutex
-	v  int
-}
-
-func (a *atomicInt) set(v int) { a.mu.Lock(); a.v = v; a.mu.Unlock() }
 
 // gatedStatusStore blocks the first PutStatus until released so tests can
 // interleave a second control command with an in-flight write-back.
@@ -461,21 +446,21 @@ func TestDeviceControlWriteBackStaysInsideCommandSerialization(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 	gate := &gatedStatusStore{inner: f.manager.PeerRun, entered: make(chan struct{}), release: make(chan struct{})}
 	f.control.status = gate
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-		params, err := req.Params.AsClientDeviceVolumeSetRequest()
-		if err != nil {
-			return nil, err
+	var device *fakeDeviceConn
+	device = newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		if tool != rpcpb.ClientTool_CLIENT_TOOL_DEVICE_STATUS_GET {
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented}.RPCResponse(), nil
 		}
-		level := int(params.Level)
-		return deviceStatusResult(req.Id, rpcapi.PeerStatus{Volume: &level, Muted: &params.Muted})
+		level := int(device.calls.Load())
+		return deviceStatusResult(req.Id, rpcapi.PeerStatus{Volume: &level})
 	})
 	f.manager.SetPeerUp(f.owner, device)
 
 	first := make(chan *httptest.ResponseRecorder, 1)
-	go func() { first <- f.do(t, http.MethodPut, "/gizclaw/v1/device/volume", `{"level":10,"muted":false}`) }()
+	go func() { first <- f.invoke(t, "device.status.get", `{}`) }()
 	<-gate.entered // the first command has answered and is writing back
 	second := make(chan *httptest.ResponseRecorder, 1)
-	go func() { second <- f.do(t, http.MethodPut, "/gizclaw/v1/device/volume", `{"level":20,"muted":true}`) }()
+	go func() { second <- f.invoke(t, "device.status.get", `{}`) }()
 	select {
 	case response := <-second:
 		t.Fatalf("second command completed during the first write-back: %d %s", response.Code, response.Body.String())
@@ -485,14 +470,14 @@ func TestDeviceControlWriteBackStaysInsideCommandSerialization(t *testing.T) {
 		t.Fatalf("device calls = %d; the second command must wait for the first write-back", device.calls.Load())
 	}
 	close(gate.release)
-	if response := <-first; response.Code != http.StatusOK || *decodeJSON[peerhttp.DeviceControlStatus](t, response).Status.Volume != 10 {
+	if response := <-first; response.Code != http.StatusOK || *decodeToolResult[apitypes.PeerStatus](t, response).Volume != 1 {
 		t.Fatalf("first command = %d %s", response.Code, response.Body.String())
 	}
-	if response := <-second; response.Code != http.StatusOK || *decodeJSON[peerhttp.DeviceControlStatus](t, response).Status.Volume != 20 {
+	if response := <-second; response.Code != http.StatusOK || *decodeToolResult[apitypes.PeerStatus](t, response).Volume != 2 {
 		t.Fatalf("second command = %d %s", response.Code, response.Body.String())
 	}
 	stored, err := f.manager.PeerRun.GetStatus(context.Background(), f.owner)
-	if err != nil || stored.Volume == nil || *stored.Volume != 20 || stored.Muted == nil || !*stored.Muted {
+	if err != nil || stored.Volume == nil || *stored.Volume != 2 {
 		t.Fatalf("stored status = %+v, %v; the later command must win", stored, err)
 	}
 }

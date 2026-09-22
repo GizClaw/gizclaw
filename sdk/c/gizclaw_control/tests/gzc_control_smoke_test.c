@@ -1150,7 +1150,7 @@ static void test_audioplayer(void) {
   gzc_http_vtable_t http;
   gzc_control_client_t client;
   stub.status_code = 200;
-  stub.response_body = "{\"result\":{\"value\":{\"state\":\"buffering\",\"current_index\":0,\"position_ms\":0,\"repeat\":\"all\",\"playlist_length\":1,\"playlist_revision\":2,\"observed_at_unix_ms\":1700000000000}}}";
+  stub.response_body = "{\"result\":{\"state\":\"buffering\",\"current_index\":0,\"position_ms\":0,\"repeat\":\"all\",\"playlist_length\":1,\"playlist_revision\":2,\"observed_at_unix_ms\":1700000000000}}";
   init_client(&client, &stub, &http);
   uint8_t scratch[2048], response[2048];
   gzc_control_call_t call;
@@ -1172,7 +1172,7 @@ static void test_audioplayer(void) {
   int64_t revision;
   check(gzc_control_get_device_audioplayer_playlist(&client, &call, &item, 1, &count, &revision) == GZC_OK, "audio get list");
   check(count == 1 && revision == 2, "audio list metadata");
-  stub.response_body = "{\"result\":{\"value\":{}}}";
+  stub.response_body = "{\"result\":{}}";
   check(gzc_control_get_device_audioplayer(&client, &call, &status) == GZC_ERR_JSON, "reject malformed audio status");
 }
 
@@ -1521,16 +1521,16 @@ static void test_additional_typed_tools(void) {
   gzc_control_call_t call;
   check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "typed tools init");
   stub.status_code = 200;
-  stub.response_body = "{\"result\":{\"value\":{\"model\":\"speaker\",\"manufacturer\":\"maker\",\"hardware_revision\":\"2\"}}}";
+  stub.response_body = "{\"result\":{\"model\":\"speaker\",\"manufacturer\":\"maker\",\"hardware_revision\":\"2\"}}";
   gzc_control_hardware_info_t hardware;
   check(gzc_control_get_device_hardware(&client, &call, &hardware) == GZC_OK, "hardware tool");
   check_str(hardware.model, "speaker", "hardware model");
   check(strcmp(stub.body, "{\"tool\":\"info.get\",\"args\":{}}") == 0, "info empty args");
-  stub.response_body = "{\"result\":{\"value\":{\"sn\":\"sn-1\",\"imeis\":[],\"labels\":[]}}}";
+  stub.response_body = "{\"result\":{\"sn\":\"sn-1\",\"imeis\":[],\"labels\":[]}}";
   gzc_control_device_identifiers_t identifiers;
   check(gzc_control_get_device_identifiers(&client, &call, &identifiers) == GZC_OK, "identifiers tool");
   check_str(identifiers.sn, "sn-1", "device serial");
-  stub.response_body = "{\"result\":{\"value\":{\"volume\":20}}}";
+  stub.response_body = "{\"result\":{\"volume\":20}}";
   gzc_control_peer_status_t status;
   check(gzc_control_read_device_status(&client, &call, &status) == GZC_OK && status.has_volume && status.volume == 20, "live status tool");
   stub.response_body = "{\"result\":{}}";

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"slices"
 	"testing"
 
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
@@ -14,7 +13,7 @@ func TestMhsProviderValuesAndDiscovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, code, _, err := provider.answer(info.id, nil)
+	_, code, _, err := provider.answer(info.id, 0, nil)
 	if err != nil || code != int32(rpcpb.StatusCode_STATUS_CODE_UNIMPLEMENTED) {
 		t.Fatalf("uninstalled code=%d err=%v", code, err)
 	}
@@ -25,7 +24,7 @@ func TestMhsProviderValuesAndDiscovery(t *testing.T) {
 	if err := provider.install("client.mhs.v0.read", response); err != nil {
 		t.Fatal(err)
 	}
-	data, code, _, err := provider.answer(info.id, nil)
+	data, code, _, err := provider.answer(info.id, 0, nil)
 	if err != nil || code != 0 {
 		t.Fatalf("read code=%d err=%v", code, err)
 	}
@@ -36,20 +35,9 @@ func TestMhsProviderValuesAndDiscovery(t *testing.T) {
 	if len(read.States) != 2 || read.States[0].Value.Value == nil || read.States[0].Value.GetBoolValue() || read.States[1].Value.GetIntValue() != 40 {
 		t.Fatalf("read=%v", read)
 	}
-	methodsInfo, err := lookupMethod(rpcMethodsGet)
-	if err != nil {
-		t.Fatal(err)
-	}
-	data, code, _, err = provider.answer(methodsInfo.id, nil)
-	if err != nil || code != 0 {
-		t.Fatalf("discovery code=%d err=%v", code, err)
-	}
-	methods := new(rpcpb.ClientRpcMethodsGetResponse)
-	if err := proto.Unmarshal(data, methods); err != nil {
-		t.Fatal(err)
-	}
-	if !slices.Contains(methods.Methods, "client.mhs.v0.read") || slices.Contains(methods.Methods, "client.mhs.v0.write") {
-		t.Fatalf("methods=%v", methods.Methods)
+	_, mhs := provider.installedMasks()
+	if mhs != 1 {
+		t.Fatalf("MHS discovery mask = %b, want read only", mhs)
 	}
 	if err := provider.install("client.mhs.v0.write", response); err != nil {
 		t.Fatal(err)
@@ -58,12 +46,16 @@ func TestMhsProviderValuesAndDiscovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, code, _, err = provider.answer(writeInfo.id, nil)
+	data, code, _, err = provider.answer(writeInfo.id, 0, nil)
 	written := new(rpcpb.ClientMhsV0WriteResponse)
 	if err != nil || code != 0 {
 		t.Fatalf("write code=%d err=%v", code, err)
 	}
 	if err := proto.Unmarshal(data, written); err != nil || len(written.States) != 2 || written.States[1].Value.GetIntValue() != 40 {
 		t.Fatalf("write=%v err=%v", written, err)
+	}
+	_, mhs = provider.installedMasks()
+	if mhs != 3 {
+		t.Fatalf("MHS discovery mask = %b, want read and write", mhs)
 	}
 }

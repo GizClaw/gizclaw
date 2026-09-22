@@ -493,16 +493,8 @@ gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 \
 `headers`、JSON `body`、可选 `status`），响应 JSON 作为该 step 的值参与 `expect`、`capture` 与
 `save_as`；未声明 `status` 时 4xx/5xx 视为断言失败。API Key 由 `server.api_key.create` step
 `capture: {api_key: /api_key}` 得到，并以 `Authorization: "Bearer ${api_key}"` header 传入。
-`client_rpc` 可声明 `client.device.status.get`、`client.device.volume.set`、`client.device.sound.play`、
-`client.device.find`、`client.device.reboot`、`client.social.ping`、`client.wifi.status.get`、`client.wifi.saved.list`、`client.wifi.saved.forget`、
-`client.wifi.scan` 与 `client.wifi.connect`：
-runner 在连接时把脚本给定的 `response` 安装为该 client 的设备 provider（`volume.set` 会把请求的
-`level`/`muted` 回填进响应），`response: {error_code: 3}` 让 provider 返回固定的 canonical status code；
-未声明的方法保持 `METHOD_NOT_FOUND`，用于验证 `501 DEVICE_UNSUPPORTED`。随后的 `http` step 触发
-Server→设备 RPC，`client_rpc` step 的 `expect_calls` 断言 provider 被调用。
-`client.tool.invoke` 使用 `response: {name, result}` 挂载返回 `result` 的 Tool handler；
-`response: {name, unavailable: true}` 不挂载 handler，SDK 像不提供该 Tool 的设备一样答
-`UNIMPLEMENTED`，`expect_calls` 仍然计数该调用。
+`client_rpc` step 使用 `client.mhs.v0.read/write`、`client.tool.v0.invoke/list` 或 `client.rpc.methods.list`。invoke step 的 `tool` 选择预定义 `ClientTool` payload。runner 在设备连接时安装脚本中的 provider 响应；`response: {error_code: 3}` 返回指定的 canonical 错误。未安装的工具应答 `UNIMPLEMENTED`，`expect_calls` 用于证明后续 HTTP 调用是否到达 provider；Server 侧验证失败的场景应断言零次调用。
+
 
 `reconnect` step 断开该 client 的 Peer 连接，并用同一身份拨一条新的，用来复现设备重启或
 换网后重新接入 Server 的时序——Server 正是以「同一 owner 出现替换连接」判定这类过渡结束，
@@ -526,7 +518,7 @@ Giztest 共用该环境。远端目标可预先 provision 资源，再只提供
 bash tests/gizclaw-e2e/run_eino_first_response_tests.sh
 ```
 
-首响、并发和延迟测试使用的 `eino-concurrency-assistant`、`eino-latency-comparison`、`flowcraft-latency-comparison` 与 `flowcraft-voice-assistant` 测试 Workflow 均显式配置 `spec.toolkit: {tool_ids: []}`，因此这些 Workspace 不向模型提供工具。RuntimeProfile 中的 `giztest-echo` 仍保留，供 `client.tool.invoke*` 和 `eino-memory-assistant.tools` 验证工具调用。首响入口的 text、Push-to-Talk、Realtime 与两个 roundtrip 文档都通过同一 Workflow 策略隔离工具。
+首响、并发和延迟测试使用的 `eino-concurrency-assistant`、`eino-latency-comparison`、`flowcraft-latency-comparison` 与 `flowcraft-voice-assistant` 测试 Workflow 均显式配置 `spec.toolkit: {tool_ids: []}`，因此这些 Workspace 不向模型提供工具。设备过程测试通过 `client.tool.v0.invoke` 和 `client.tool.v0.list` 验证预定义工具；产品自定义设备工具不属于 v0。首响入口的 text、Push-to-Talk、Realtime 与两个 roundtrip 文档都通过同一 Workflow 策略隔离工具。
 
 Runner 只构建一个 CLI revision，启动一套隔离的 Server/Edge stack，然后把同样的十任务
 text-only、configured-ASR Push-to-Talk 与 Realtime 文档分别以 `--parallel 1` 和

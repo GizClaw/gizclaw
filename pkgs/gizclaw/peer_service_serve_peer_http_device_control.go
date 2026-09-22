@@ -29,7 +29,7 @@ const (
 	minWifiPassphraseBytes = 8
 	maxWifiPassphraseBytes = 63
 
-	// Bounds a device may not exceed in a client.wifi.scan answer. They match
+	// Bounds a device may not exceed in a wifi.scan tool answer. They match
 	// api/proto/rpc/nanopb.options, which only constrains the C SDK; a device
 	// built on any other SDK can answer with more, so the Server enforces them
 	// again before the values reach the Public HTTP contract.
@@ -47,7 +47,7 @@ const (
 )
 
 // deviceController forwards Public HTTP control commands to the API key
-// owner's active device connection as client.device.* / client.wifi.* RPCs.
+// owner's active device connection through MHS and predefined tool RPCs.
 //
 // Commands for one owner are serialized in arrival order and never merged or
 // replayed. After a device acknowledges a reboot, later commands answer

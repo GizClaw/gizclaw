@@ -13,8 +13,7 @@ func TestBenchmarkAndFirstResponseGiztestDocuments(t *testing.T) {
 		"benchmark.flowcraft-*.giztest.yaml",
 		"eino-concurrency-assistant.*.giztest.yaml",
 		"flowcraft-voice-assistant.workspace-reload-initiative.giztest.yaml",
-		"client.tool.invoke*.giztest.yaml",
-		"eino-memory-assistant.tools.giztest.yaml",
+		"server.device.find*.giztest.yaml",
 	} {
 		paths, err := filepath.Glob(filepath.Join("../../../../tests/gizclaw-e2e/giztest", pattern))
 		if err != nil || len(paths) == 0 {

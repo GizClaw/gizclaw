@@ -23,7 +23,10 @@ extern int gztGoProvider(
     size_t out_error_message_cap);
 
 extern void gztGoObserve(unsigned long long handle, int method, int tool);
-struct gzt_tool_context { struct gzt_session *session; int tool; };
+struct gzt_tool_context {
+  struct gzt_session *session;
+  int tool;
+};
 struct gzt_session {
   gzc_cgo_backend_t backend;
   gzc_http_vtable_t http;
@@ -95,13 +98,17 @@ static int provider(
 
 static int tool_handler(void *userdata, gzc_str_t request_payload, gzc_rpc_provider_respond_fn respond, void *respond_userdata) {
   struct gzt_tool_context *context = (struct gzt_tool_context *)userdata;
-  void *payload = NULL; size_t payload_len = 0; int code = 0; char message[256] = {0};
+  void *payload = NULL;
+  size_t payload_len = 0;
+  int code = 0;
+  char message[256] = {0};
   int rc = gztGoProvider(context->session->provider_handle, gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE, context->tool, (void *)request_payload.data, request_payload.len, &payload, &payload_len, &code, message, sizeof(message));
   if (rc == GZC_OK) {
     gzc_rpc_provider_response_t result = {.payload = payload, .payload_len = payload_len, .has_error = code != 0, .error_code = code, .error_message = gzc_str_from_cstr(message)};
     rc = respond(respond_userdata, &result);
   }
-  free(payload); return rc;
+  free(payload);
+  return rc;
 }
 static void observer(void *userdata, int method, gizclaw_rpc_v1_ClientTool tool) {
   gzt_session_t *session = (gzt_session_t *)userdata;
@@ -159,7 +166,8 @@ int gzt_session_open(
     config.rpc_observer_userdata = session;
     config.tool_handlers = session->tool_handlers;
     for (unsigned int i = 1; i <= 21u; i++) {
-      if ((tool_mask & (1u << i)) == 0u) continue;
+      if ((tool_mask & (1u << i)) == 0u)
+        continue;
       size_t index = config.tool_handler_count++;
       session->tool_contexts[index].session = session;
       session->tool_contexts[index].tool = (int)i;
@@ -544,9 +552,6 @@ static bool str_is(gzc_str_t text, const char *other) {
   return text.len == len && (len == 0 || memcmp(text.data, other, len) == 0);
 }
 
-/* Reads the members a `PATCH /device/settings` body carries; absent members
- * stay absent so the Server forwards only what the step sent. */
-
 static void read_invite_token_request(gzc_str_t body, gzc_control_invite_token_request_t *out) {
   int64_t ttl = 0;
   memset(out, 0, sizeof(*out));
@@ -771,7 +776,8 @@ int gzt_control_request(
   gzc_str_t tool = {0};
   if (invoke) {
     gzc_str_t args = {0};
-    if (!body_str(body, "tool", &tool) || gzc_json_find_field(body, "args", &args) != GZC_OK) return GZC_ERR_INVALID_ARGUMENT;
+    if (!body_str(body, "tool", &tool) || gzc_json_find_field(body, "args", &args) != GZC_OK)
+      return GZC_ERR_INVALID_ARGUMENT;
     body = args;
   }
 
@@ -821,7 +827,7 @@ int gzt_control_request(
     rc = player_items(body, player_list, 64, &count);
     if (rc == GZC_OK) {
       rc = str_is(tool, "audioplayer.playlist.set") ? gzc_control_set_device_audioplayer_playlist(&control, &call, player_list, count, &player)
-               : gzc_control_append_device_audioplayer_playlist(&control, &call, player_list, count, &player);
+                                                    : gzc_control_append_device_audioplayer_playlist(&control, &call, player_list, count, &player);
     }
   } else if (invoke && str_is(tool, "audioplayer.play")) {
     int64_t index = 0;

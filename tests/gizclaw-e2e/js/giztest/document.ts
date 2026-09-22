@@ -38,7 +38,13 @@ export const ALL_OPERATIONS = [
   "workspace_relay",
 ] as const;
 
-export const CLIENT_RPC_METHODS = ["client.mhs.v0.read", "client.mhs.v0.write", "client.tool.v0.invoke", "client.tool.v0.list", "client.rpc.methods.list"] as const;
+export const CLIENT_RPC_METHODS = [
+  "client.mhs.v0.read",
+  "client.mhs.v0.write",
+  "client.tool.v0.invoke",
+  "client.tool.v0.list",
+  "client.rpc.methods.list",
+] as const;
 export const SUPPORTED_CLIENT_RPC_METHODS = new Set<string>(CLIENT_RPC_METHODS);
 
 export type Operation = (typeof ALL_OPERATIONS)[number];
@@ -86,7 +92,12 @@ export type Step = {
   expect?: Record<string, Expectation>;
   expect_error?: { code: number; message_contains?: string };
   rpc?: { method: string; request: unknown };
-  client_rpc?: { method: string; tool?: string; response?: unknown; expect_calls?: number };
+  client_rpc?: {
+    method: string;
+    tool?: string;
+    response?: unknown;
+    expect_calls?: number;
+  };
   http?: {
     method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
     path: string;
@@ -371,7 +382,12 @@ function validateStep(
       throw new UnsupportedStepError(documentPath, `client_rpc:${method}`);
     }
     const tool = step.client_rpc.tool;
-    if (method === "client.tool.v0.invoke" ? typeof tool !== "string" || !Object.hasOwn(CLIENT_TOOL_IDS, tool) : tool != null) fail(documentPath, `step ${step.id} invalid tool selector`);
+    if (
+      method === "client.tool.v0.invoke"
+        ? typeof tool !== "string" || !Object.hasOwn(CLIENT_TOOL_IDS, tool)
+        : tool != null
+    )
+      fail(documentPath, `step ${step.id} invalid tool selector`);
     const calls = step.client_rpc.expect_calls;
     if (
       calls != null &&

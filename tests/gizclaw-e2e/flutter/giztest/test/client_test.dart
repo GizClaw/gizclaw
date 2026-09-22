@@ -28,9 +28,10 @@ void main() {
     );
   });
 
-  test('scenario requests encode find, social ping and profile methods', () {
+  test('tool registry encodes find, while scenarios encode server methods', () {
     expect(
-      scenarioRequest('client.device.find', {'duration_ms': 8000}),
+      newPayloadMessage(clientToolByName('device.find').requestType)
+        ..mergeFromProto3Json({'durationMs': 8000}),
       isA<ClientDeviceFindRequest>(),
     );
     expect(

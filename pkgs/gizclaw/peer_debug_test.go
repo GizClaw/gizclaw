@@ -20,11 +20,11 @@ func TestDeviceDebugAccessModes(t *testing.T) {
 	}{
 		{"off", "GET", "/device", "", 403},
 		{"readonly", "GET", "/device", "", 200},
-		{"readonly", "POST", "/device/actions/reboot", "{}", 403},
+		{"readonly", "POST", "/device/tool/v0/invoke", `{"tool":"device.reboot","args":{}}`, 403},
 		{"readonly", "POST", "/contacts", `{"name":"debug-contact","phone":"123"}`, 403},
 		{"fullcontrol", "GET", "/device", "", 200},
 		{"fullcontrol", "POST", "/contacts", `{"name":"debug-contact","display_name":"Debug"}`, 201},
-		{"fullcontrol", "POST", "/device/actions/reboot", "{}", 409},
+		{"fullcontrol", "POST", "/device/tool/v0/invoke", `{"tool":"device.reboot","args":{}}`, 409},
 		{"fullcontrol", "GET", "/api-keys", "", 401},
 		{"fullcontrol", "POST", "/api-keys", `{"display_name":"escape"}`, 401},
 		{"off", "GET", "/device", "", 403},

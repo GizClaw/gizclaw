@@ -19,8 +19,6 @@ Install `DeviceControlHandlers.ReadMhsStates` and `WriteMhsStates` with `gizcli.
 
 This is GizClaw's MHS-inspired pre-standard v0, with no official compatibility claim. Manifests work offline; reads/writes allow at most 32 unique keys. Drivers validate the whole batch and enforce safety limits. See [Public API](/en/developing/api/http/public) and the [provider contract](/en/developing/api/proto/rpc/client-provided-to-server).
 
-## Deprecated hardware-state interfaces
+## tool/v0 procedures
 
-`client.device.volume.set` (101), `client.device.settings.get` (128) and `client.device.settings.set` (129) are deprecated in favor of `client.mhs.v0.write`, `client.mhs.v0.read` and `client.mhs.v0.write`, respectively. Legacy entry points remain compatible. The [migration table](/en/developing/api/overview#mhs-v0-migration) lists recommended product manifest keys. Removal waits for both firmware and control apps to migrate; no date is set.
-
-Device providers: `DeviceControlHandlers.SetVolume`, `GetSettings`, `SetSettings` → `WriteMhsStates`, `ReadMhsStates`, `WriteMhsStates`.
+Device providers install handlers for the predefined `ClientTool` values they implement. `client.tool.v0.list` reports that installed subset; typed control calls use the single `client.tool.v0.invoke` RPC. Hardware state uses the bound RuntimeProfile MHS v0 manifest and its read/write calls.

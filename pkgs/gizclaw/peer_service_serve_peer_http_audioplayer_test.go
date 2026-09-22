@@ -124,9 +124,7 @@ func TestAudioPlayerHTTPRoundTrip(t *testing.T) {
 					t.Fatalf("playlist=%+v", list)
 				}
 			} else {
-				player := decodeToolResult[struct {
-					Value apitypes.AudioPlayerStatus `json:"value"`
-				}](t, response).Value
+				player := decodeToolResult[apitypes.AudioPlayerStatus](t, response)
 				if player.State != "playing" || player.PositionMs != 1200 || player.CurrentIndex == nil || *player.CurrentIndex != 0 {
 					t.Fatalf("status=%+v", player)
 				}

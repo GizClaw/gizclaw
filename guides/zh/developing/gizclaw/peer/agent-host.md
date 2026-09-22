@@ -24,19 +24,12 @@ Runtime Registry 只以 Workspace 为 live Agent identity。同一 Workspace 的
 stream 共用一个可并发 Agent；最后一个引用释放后关闭 generation，reload 后按新
 Workflow 与 RuntimeProfile snapshot 构造。
 
-Peer connection 还会为每次 run 附加一套独立的 current-Peer Tool execution
-scope，其中只包含该 Peer 的 RuntimeProfile Tool binding snapshot，以及执行
-`client_rpc` 的准确 accepted connection。Workspace-owner Resource access 不能覆盖
-它。共享 Agent 只接收一个 `genx.ToolInvoker`；每次 Transform 都从自己的 context
-解析 Tool，因此多个并发 Peer 即使共享 Agent，也不会共享 Tool definition、
-handler、argument、result 或 connection。
+每次 run 都解析当前 Peer 的 RuntimeProfile Tool binding snapshot。共享 Agent 只接收一个 `genx.ToolInvoker`；每次 Transform 都从自己的 context 解析 Tool，因此多个并发 Peer 即使共享 Agent，也不会共享 Tool definition、argument 或 result。
 
 Flowcraft、Eino、DashScope Realtime 与豆包 Realtime Duplex factory 都把同一个
 接口注入已有 Transformer config。Provider ToolCall ID 与 continuation 始终留在
-Transformer 内部；AgentHost 只按 canonical Resource name 分发到 `http_request`
-或当前 connection 的 `client.tool.invoke`，不会把 Tool control traffic 投影到
-public assistant stream。
+Transformer 内部；AgentHost 只按 canonical Resource name 分发到 `http_request`；Tool control traffic 留在 Transformer 内部。
 
-OpenAI Responses 通过相同 canonical Resolver 与共享 Runtime Registry 建立 request-scoped direct Workspace attachment，不读取或修改 PeerRun selection。Server-side tool 继续遵守 Workflow policy；由于 OpenAI request 没有稳定的 client-tool transport contract，connection-scoped client tool 会 fail closed。受限 History observer 返回 Response projection 使用的准确已持久化 assistant entry。
+OpenAI Responses 通过相同 canonical Resolver 与共享 Runtime Registry 建立 request-scoped direct Workspace attachment，不读取或修改 PeerRun selection。Server-side HTTP Tool 继续遵守 Workflow policy。受限 History observer 返回 Response projection 使用的准确已持久化 assistant entry。
 
 当 assistant route 以 provider 或 runtime error EOS 结束时，Peer output adapter 会原样转发该 EOS，并输出一条带 Peer、当前 Workspace、stream、error code 与 retryable 关联字段的结构化 Server error 日志。预期的 `interrupted` turn replacement EOS 是控制事件，不作为故障记录。日志副作用不会让长期 output consumer 失败、追加第二个 EOS，也不会阻止后续 turn 或 Workspace reload。

@@ -9,4 +9,3 @@ func invalidDeviceRequest(message string) *deviceControlError {
 func internalDeviceControlError() *deviceControlError {
 	return &deviceControlError{Status: http.StatusInternalServerError, Code: publicHTTPInternalErrorCode, Message: http.StatusText(http.StatusInternalServerError)}
 }
-

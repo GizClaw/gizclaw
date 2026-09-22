@@ -21,7 +21,7 @@ Read routes project the authoritative services and never send an RPC to the devi
 
 - `GET /device` returns `DeviceInfo` (name, emoji, `HardwareInfo`, `DeviceIdentifiers`), the same source as `server.info.get`.
 - `GET /device/runtime` returns `Runtime` (online, last seen, address, RX/TX) without refreshing online state. `active_workspace_name` is the Workspace the device last committed through `server.run.workspace.reload-with-options`, and `pending_workspace_name` is one selected but not yet committed, for example while a `PUT /device/run/workspace` switch is in progress. Both come from the Server's `peer_runs` record, so they answer while the device is offline, and are omitted when unset.
-- `GET /device/status` returns the latest authoritative `PeerStatus` snapshot. There is no `fresh` parameter; `client.device.status.get` exists only for control-response write-back.
+- `GET /device/status` returns the latest authoritative `PeerStatus` snapshot. There is no `fresh` parameter; the `device.status.get` tool performs a live query and writes back its response.
 - `GET /device/telemetry/{field}/latest`, `/device/telemetry`, and `/device/telemetry/aggregate` keep the Admin telemetry field enum, observation times, query limits, ordering, and aggregate semantics and pin the Peer to the owner.
 - `GET /device/firmware` returns every channel (`stable`, `beta`, `develop`) of the Firmware configuration bound to the owner, each with an optional `description` and `package` (`version`, `url`, `sha256`, `size`) (stored packages without a version omit `version` and remain available), the same source as `server.firmware.get`. Channel selection belongs to the caller: the Server does not store the channel the device uses, so this route returns every channel at once and the caller picks one. An unbound `firmware_id`, or a binding whose configuration is gone, answers `404 FIRMWARE_NOT_FOUND`; a channel with no configured package simply omits `package` instead of failing.
 - `GET /device/runtime-profile` returns the `name` and `revision` of the RuntimeProfile currently bound to the owner, plus `collections[].workflows[].name`, projected directly from `workflows.collections` with collections and workflows sorted by name. `name`/`revision` share their source with `runtime_profile_name`/`runtime_profile_revision` in Peer RPC responses, and each workflow name is the alias `server.workflow.*` uses. `resource_id`, i18n, driver, models, voices, memory, pet definitions, and `app_config` are never returned, and the read does not check whether the Workflow resource behind a binding still exists. A binding that disappears after authentication also answers `403 API_KEY_OWNER_UNAVAILABLE`.
@@ -90,58 +90,25 @@ Error codes:
 
 ## Device control flow
 
-`PUT /gizclaw/v1/device/volume`, `GET /gizclaw/v1/device/settings` and `PATCH /gizclaw/v1/device/settings` are deprecated. Use `PATCH /gizclaw/v1/device/mhs/v0/states` for writes and `POST /gizclaw/v1/device/mhs/v0/read` for reads, discovering keys via `GET /gizclaw/v1/device/mhs/v0/manifest`. Legacy behavior is unchanged. See the [migration table and retirement conditions](/en/developing/api/overview#mhs-v0-migration) for recommended keys. Removal waits for firmware and control apps to migrate, with no removal date set.
+The Server offers an API-key owner-scoped state family and a procedure family. All paths below use the `/gizclaw/v1` prefix. `GET /device/status` reads a stored snapshot; live calls require the owner's online device. The Server validates the entire typed request before opening an RPC stream and serializes commands per owner. See [device providers](../proto/rpc/client-provided-to-server) and the [RPC reference](/references/rpc).
 
-Control routes are forwarded as Server-to-device RPCs (see [Client Provided to Server](../proto/rpc/client-provided-to-server)):
-
-```text
-PUT /gizclaw/v1/device/volume { level: 0..100, muted }
-  → resolve the API key owner
-  → find the owner's active connection; none → 409 DEVICE_OFFLINE
-  → client.device.volume.set, 5s timeout → 504 DEVICE_TIMEOUT
-  → device reports PeerStatus → stored as the owner's PeerStatus (reported_at from the device)
-  → 200 { status: PeerStatus }
-```
-
-| Route | RPC | Success |
+| Route | Device RPC | Result |
 | --- | --- | --- |
-| `PUT /device/volume` (deprecated) | `client.device.volume.set` | `200 { status }` |
-| `POST /device/actions/play-sound` `{ sound, duration_ms? }` | `client.device.sound.play` | `204` |
-| `POST /device/actions/find` `{ duration_ms? }` | `client.device.find` | `204` |
-| `POST /device/actions/reboot` `{ delay_ms? }` | `client.device.reboot` | `204` |
-| `POST /device/actions/firmware-update` `{ channel?, sha256? }` | `client.firmware.update` | `204` |
-| `GET /device/wifi` | `client.wifi.status.get` | `200 DeviceWifiStatus` |
-| `GET /device/wifi/saved` | `client.wifi.saved.list` | `200 DeviceWifiSavedList` |
-| `DELETE /device/wifi/saved/{ssid}` | `client.wifi.saved.forget` | `204`; unknown ssid → `404 WIFI_NETWORK_NOT_FOUND` |
-| `POST /device/wifi/scan` `{ timeout_ms? }` | `client.wifi.scan` | `200 { networks }` |
-| `PUT /device/wifi` `{ ssid, passphrase? }` | `client.wifi.connect` | `202` |
-| `GET /device/settings` (deprecated) | `client.device.settings.get` | `200 DeviceSettings` |
-| `PATCH /device/settings` (deprecated) `DeviceSettings` | `client.device.settings.set` | `200 DeviceSettings` |
-| `POST /device/actions/factory-reset` `{ keep_network? }` | `client.device.factory_reset` | `204` |
-| `GET /device/rpc-methods` | `client.rpc.methods.get` | `200 { methods }` |
-| `PUT /device/run/workspace` `{ workspace_name \| collection + workflow_name, kickoff? }` | `client.run.workspace.set` | `202` |
-| `GET /device/tools` | none; the device is not contacted | `200 { items }` |
-| `POST /device/tools/{name}/actions/invoke` `{ args? }` | `client.tool.invoke` | `200 { data_json }`; an unexposed Tool → `404 TOOL_NOT_FOUND` |
+| `GET /device/mhs/v0/manifest` | none | Bound RuntimeProfile hardware manifest, also available offline |
+| `POST /device/mhs/v0/read` | `client.mhs.v0.read` | Requested hardware states |
+| `PATCH /device/mhs/v0/states` | `client.mhs.v0.write` | Actual values applied to the whole batch |
+| `GET /device/tool/v0/tools` | `client.tool.v0.list` | Names of the device's installed predefined tools |
+| `POST /device/tool/v0/invoke` | `client.tool.v0.invoke` | `{ "result": ... }` for one predefined tool |
 
-`settings` reads and changes the device's own configuration (members are described in [Client Provided to Server](../proto/rpc/client-provided-to-server#device-settings-and-capability-discovery)). A member absent from `GET` is one the device does not support. `PATCH` forwards only the members present, and any member out of range (brightness outside 0–100, a negative duration, a `locale` that is not BCP 47, an unknown enum value) rejects the whole body as `400 INVALID_REQUEST` before it reaches the device. The response is the device's full configuration after the change. Product-specific configuration, such as usage time or feature limits, is not part of `DeviceSettings`; it is invoked as a device Tool, below. Speech rate is a Workspace parameter (`WorkspaceParametersPatch`), not a device setting.
+The invoke body is `{ "tool": "device.find", "args": { "duration_ms": 8000 } }`. OpenAPI uses `oneOf` and a discriminator on `tool`, so each operation retains its typed argument schema. Available names include `device.status.get`, `sound.play`, `device.find`, `device.reboot`, `device.factory_reset`, Wi-Fi procedures, `firmware.update`, seven `audioplayer.*` procedures and `run.workspace.set`. `tool/v0` has a closed, GizClaw-defined enum. The RuntimeProfile Tool catalog is separate and supports Server-side HTTP tools; product-defined device-local Agent invocation is unavailable in v0.
 
-`factory-reset` makes the device erase its local state, irreversibly on the device. The device acknowledges first and then resets, so control routes answer `409 DEVICE_OFFLINE` until it reconnects. `keep_network` retains saved Wi-Fi and cellular configuration. The Server keeps its own records, but a device that deletes its own Peer during the reset also invalidates every API key of that Peer, including the one that made this call, and the control app must pair again.
+Validation remains on the Server. Invalid tool arguments, a sound or SSID over 32 UTF-8 bytes, an invalid Wi-Fi passphrase, playlist overflow, a malformed firmware digest, or a bad MHS write answer `400 INVALID_REQUEST` without an RPC. MHS state keys must be declared by the bound manifest, and writes require `read_write`. An absent Workspace target answers `404 WORKSPACE_NOT_FOUND` before reaching the device. The device independently validates its own safety limits.
 
-`rpc-methods` returns the reverse RPC names the device implements, so an app can hide controls the device would only reject; unknown names must be ignored. A device that predates the method answers `501 DEVICE_UNSUPPORTED`.
+Offline maps to `409 DEVICE_OFFLINE`, an uninstalled tool or MHS handler to `501 DEVICE_UNSUPPORTED`, timeout to `504 DEVICE_TIMEOUT`, device `INVALID_PARAMS` to `400 DEVICE_REJECTED`, and other device failures to redacted `502 DEVICE_ERROR`. A missing saved Wi-Fi network maps to `404 WIFI_NETWORK_NOT_FOUND`. An acknowledged reboot, Wi-Fi connect, factory reset or firmware update may disconnect the device; subsequent commands on the same connection answer offline until it reconnects. A successful invoke only means the procedure was accepted when its own contract calls for asynchronous work.
 
-`run/workspace` asks the device to switch the Workspace it runs: `workspace_name` names an existing Workspace, or `collection` with `workflow_name` names a RuntimeProfile workflow. Exactly one target is allowed, otherwise `400 INVALID_REQUEST`; `kickoff` defaults to false. `server.run.workspace.reload-with-options` takes a Workspace name only, so the Server resolves the target to one name before forwarding: `workspace_name` must be an available Workspace the caller owns, and a workflow target selects, among the caller's available Workspaces of that collection and workflow, the most recently active one, ties broken by ascending name. No match answers `404 WORKSPACE_NOT_FOUND` without contacting the device; the control app cannot create a Workspace. `202` only means the device accepted the request; the device then switches through `server.run.workspace.reload-with-options`, and the result is observed through `active_workspace_name` / `pending_workspace_name` on `GET /device/runtime`.
+`run.workspace.set` accepts either `workspace_name` or `collection` plus `workflow_name` in `args`, with optional `kickoff`. The Server resolves a workflow target to one available Workspace before dispatch; the device later switches through `server.run.workspace.reload-with-options`. Observe the committed state through `GET /device/runtime`. A factory reset is irreversible on the device; `keep_network` can preserve saved Wi-Fi and cellular configuration. `firmware.update` accepts optional `channel` and lowercase 64-character `sha256`; the device confirms the digest against its resolved package before OTA.
 
-`tools` lets the control app call device Tools. A Tool is visible to the app only when its `resources.tools` binding in the RuntimeProfile sets `control_access` and the Tool is an enabled `client_rpc` Tool; without the marker it can be neither listed nor invoked and stays reachable only by AI and Workflow runtimes. `control_access` currently has only `owner` (any API key of the Peer); stricter levels, such as a guardian authorization, will be added to the same enum. The list reads Server configuration only, so it answers while the device is offline, and is empty when no RuntimeProfile is bound. `invoke` first checks `args` (omitted means `{}`) against the Tool's `input_schema` and answers `400 INVALID_REQUEST` without contacting the device when they do not match; otherwise it forwards `client.tool.invoke` and returns the device's JSON text unchanged as `data_json`. A device answer that is not valid JSON is rejected as `502 DEVICE_ERROR`.
-
-`firmware-update` notifies the device to run one OTA; the device acknowledges first and then downloads, verifies, writes, and restarts on its own. `channel` names a channel from `GET /device/firmware` and defaults to the channel the device already uses. `sha256` is the digest the caller saw: the Server only checks that it is a 64-character lowercase hex string, and the device decides whether it matches the package it resolves, answering `INVALID_PARAMS` (mapped to `400 DEVICE_REJECTED`) when it does not. The package the device currently runs is reported as `PeerStatus.firmware_sha256`, so a caller compares it with the target channel's `package.sha256` to tell whether an update is needed.
-
-`find` is "find my device": the device plays its own built-in find-me sound with a rising volume ramp, with no audio URL, catalog track, or `sound` value involved. The body is optional; `duration_ms` must be non-negative, and the device picks the ring time when it is omitted. An app's find-my-device action calls `find` rather than borrowing `play-sound` to play a track.
-
-`sound` is a device-defined string: the Server only checks that it is non-empty and at most 32 UTF‑8 bytes, and the device provider validates the value; `ssid` has the same 32-byte bound. Wi-Fi scan defaults `timeout_ms` to 8000 and clamps it to 1000–15000 instead of using the normal 5-second control timeout. Omit `passphrase` for an open network; a PSK is 8–63 bytes. A `202` connect response only means the device accepted the credentials: it answers RPC before switching, then necessarily goes offline. Control routes answer `409 DEVICE_OFFLINE` during the outage. After reconnect, clients poll `GET /device/wifi` and compare `ssid` with the target to distinguish success from fallback. The passphrase is only forwarded and is never persisted, logged, or echoed. Scan results come from the device, so the Server revalidates them before answering: at most 32 entries, a non-empty `ssid` of at most 32 bytes, a `bssid` of at most 17, and a `security` of at most 5. An answer outside those bounds is rejected whole as `502 DEVICE_ERROR` without echoing the offending value.
-
-A device `INVALID_PARAMS` maps to `400 DEVICE_REJECTED`, `METHOD_NOT_FOUND` (no provider implemented) maps to `501 DEVICE_UNSUPPORTED`, and every other RPC error maps to a redacted `502 DEVICE_ERROR`; bodies carry only a stable `code` and a redacted `message`. Concurrent control commands for one owner are forwarded serially in arrival order and are never merged or replayed. After a device acknowledges `reboot`, `firmware.update`, or `wifi.connect`, later control commands on that same connection answer `409 DEVICE_OFFLINE` until the device reconnects. Forwarding a control command never changes PeerRun, Workspace, or Agent state on the Server; `run/workspace` only asks the device, which switches through its own RPC.
-
-Before connection, `/server-info` reports the authoritative Server's `public_key`, software `version`, `build_commit`, and transport capabilities. Server identity remains the cryptographic `public_key`. Through an Edge, the build fields remain those of the authoritative Server, while the `transport` object alone selects the Edge route.
+Before connection, `/server-info` reports the authoritative Server's `public_key`, software `version`, `build_commit`, and transport capabilities. Through an Edge, build fields remain those of the authoritative Server while the `transport` object selects the Edge route.
 
 ## Device debug access and anonymous lookup
 
@@ -173,28 +140,10 @@ current records. Updates and deletes affect only that public key. Admin lookup i
 
 ## Music playback
 
-These paths use the `/gizclaw/v1` prefix and existing device authorization. Set/append accept `{ "items": [...] }`, play accepts `{ "index": 0 }`, and mode accepts `{ "repeat": "all" }`. Success returns HTTP 200 with `{ "status": ... }`, except playlist.get returns `{ "items": [...], "playlist_revision": 1 }`. Existing device control errors apply; append is never retried automatically. To play one URL, set a one-item list and play index 0. See [player providers](../proto/rpc/client-provided-to-server#music-player) for the contract.
-
-| HTTP | RPC |
-| --- | --- |
-| `GET /device/audioplayer` | `client.device.audioplayer.get` |
-| `GET /device/audioplayer/playlist` | `client.device.audioplayer.playlist.get` |
-| `PUT /device/audioplayer/playlist` | `client.device.audioplayer.playlist.set` |
-| `POST /device/audioplayer/playlist/append` | `client.device.audioplayer.playlist.append` |
-| `POST /device/audioplayer/actions/play` | `client.device.audioplayer.play` |
-| `POST /device/audioplayer/actions/stop` | `client.device.audioplayer.stop` |
-| `PUT /device/audioplayer/mode` | `client.device.audioplayer.mode.set` |
+All seven player procedures use `POST /gizclaw/v1/device/tool/v0/invoke` with tool names `audioplayer.get`, `audioplayer.playlist.get`, `audioplayer.playlist.set`, `audioplayer.playlist.append`, `audioplayer.play`, `audioplayer.stop`, and `audioplayer.mode.set`. The `args` object keeps each procedure's typed fields: set/append accept `items`, play requires a zero-based `index`, and mode accepts `repeat`. The player holds at most 32 items. Set atomically replaces the list; append preserves order and duplicates and is never retried automatically. Playback status is observed through telemetry and `GET /device/status`. See [player providers](../proto/rpc/client-provided-to-server#music-player).
 
 ## MHS v0 hardware states
 
-These API-key owner-scoped routes expose GizClaw's own MHS-inspired pre-standard v0, with no official MHS compatibility claim. The manifest contract belongs to [RuntimeProfile](/en/developing/gizclaw/services/runtime-profile#mhs-v0-hardware-manifest).
+These owner-scoped routes expose GizClaw's MHS-inspired v0 state protocol. The manifest contract belongs to [RuntimeProfile](/en/developing/gizclaw/services/runtime-profile#mhs-v0-hardware-manifest). `GET /gizclaw/v1/device/mhs/v0/manifest` is available offline. Read accepts `{ "states": [{ "device_id": "speaker.main", "state": "volume" }] }`; write adds a plain JSON `value` and returns the actual applied values.
 
-| Route | Result |
-| --- | --- |
-| `GET /gizclaw/v1/device/mhs/v0/manifest` | Bound Profile's `{devices:[...]}`, available offline; empty when unconfigured |
-| `POST /gizclaw/v1/device/mhs/v0/read` | Accepts `{states:[{device_id,state}]}`; returns `{states:[{device_id,state,value}]}` |
-| `PATCH /gizclaw/v1/device/mhs/v0/states` | Accepts and returns `{states:[{device_id,state,value}]}` with actual applied values |
-
-HTTP values are plain JSON booleans, integers, numbers or strings; enums use strings. Batches contain 1–32 unique keys. The Server validates every key, write access, type, integer precision, bounds, decimal step grid, enum member and string byte limit before forwarding. Rejection is `400 INVALID_REQUEST` without contacting the device. The response is checked against the same bound manifest snapshot: exactly the requested keys once each, each value of the manifest type and, for enums, listed in enum_values. Malformed device responses become `502 DEVICE_ERROR`. min/max/step bound writes only: reported values reflect real hardware state and pass through even when out of range or off the step grid.
-
-Reads/writes reuse the 5-second, owner-serialized device-control path: offline is `409 DEVICE_OFFLINE`, absent handlers `501 DEVICE_UNSUPPORTED`, timeout `504 DEVICE_TIMEOUT`, and device INVALID_ARGUMENT/OUT_OF_RANGE `400 DEVICE_REJECTED`. A hardware revision missing an advertised key returns NOT_FOUND, mapped to `404 MHS_STATE_NOT_FOUND`. FAILED_PRECONDITION and other device failures become redacted `502 DEVICE_ERROR`. Drivers validate the whole batch before modifying anything, enforce their own safety limits, and may clamp/round. A timeout does not establish whether a write took effect; callers should read back the state.
+Batches contain 1–32 unique keys. The Server validates keys, access, type, integer precision, bounds, decimal step grid, enum membership and string byte limits before forwarding. It checks responses against the same manifest snapshot. A malformed device answer becomes `502 DEVICE_ERROR`; a revision missing a declared key returns `404 MHS_STATE_NOT_FOUND`. A write timeout does not prove whether it took effect, so callers should read back.

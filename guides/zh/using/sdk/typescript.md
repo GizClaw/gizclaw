@@ -37,9 +37,8 @@ const control = createGizClawControlClient({
 });
 
 const status = await control.device.getStatus();
-// 旧设备兼容示例；此方法已弃用，新集成使用 MHS v0。
-const applied = await control.device.setVolume({ level: 35, muted: false });
-console.log(status.volume, "->", applied.status.volume);
+const tools = await control.device.listTools();
+console.log(status.volume, tools.tools);
 ```
 
 每个请求都携带 API Key，因此 `baseUrl` 必须是 `https`。只有本地测试部署才用
@@ -111,10 +110,6 @@ connection options 的 `credential`。握手通过后仍需调用 `server.regist
 
 这是 GizClaw 自有的 MHS-inspired 预标准 v0，不声称官方兼容。manifest 离线可读，每次读写最多 32 个唯一 key；写入必须整批验证且驱动执行安全限制。完整错误与边界见 [Public API](/zh/developing/api/http/public) 和 [provider contract](/zh/developing/api/proto/rpc/client-provided-to-server)。
 
-## 已弃用的硬件状态接口
+## tool/v0 过程
 
-`client.device.volume.set`（101）、`client.device.settings.get`（128）和 `client.device.settings.set`（129）已弃用，分别改用 `client.mhs.v0.write`、`client.mhs.v0.read` 和 `client.mhs.v0.write`。旧入口继续兼容；[迁移表](/zh/developing/api/overview#mhs-v0-migration) 列出产品 manifest 的推荐 key。仅在固件和控制 App 均完成迁移后移除，本次不设日期。
-
-设备端：`deviceControl.setVolume`、`getSettings`、`setSettings` → `writeMhsStates`、`readMhsStates`、`writeMhsStates`.
-
-控制端：`control.device.setVolume`、`getSettings`、`updateSettings` → `writeMhsStates`、`readMhsStates`、`writeMhsStates`.
+设备端只为实际支持的预定义 `ClientTool` 安装 handler；`client.tool.v0.list` 仅返回已安装的子集。控制端的类型化调用统一使用 `client.tool.v0.invoke` RPC。硬件状态由已绑定 RuntimeProfile 的 MHS v0 manifest 声明，并通过 MHS 读写接口访问。

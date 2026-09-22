@@ -217,7 +217,7 @@ func TestRPCClientDeviceControlUnsupportedAndFailures(t *testing.T) {
 	if resp := deviceControlDispatch(t, device, rpcpb.ClientTool_CLIENT_TOOL_WIFI_SAVED_FORGET, nil); resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("forget without params = %#v", resp)
 	}
-	if resp, err := (&rpcClient{}).dispatch(context.Background(), &rpcapi.RPCRequest{Id: "x", Method: rpcapi.RPCMethodClientToolV0Invoke}); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInternal {
+	if resp, err := (&rpcClient{}).dispatch(context.Background(), &rpcapi.RPCRequest{Id: "x", Method: rpcapi.RPCMethodClientToolV0Invoke}); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeUnimplemented {
 		t.Fatalf("dispatch without peer = %#v, %v", resp, err)
 	}
 }

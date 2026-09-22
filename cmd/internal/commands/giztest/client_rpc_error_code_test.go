@@ -75,7 +75,7 @@ func TestDeviceControlErrorResponseRejectsMalformedCode(t *testing.T) {
 // with the validation message.
 func TestInstallDeviceControlRejectsMalformedCode(t *testing.T) {
 	var handlers gizcli.DeviceControlHandlers
-	if err := installDeviceControl(&handlers, "client.wifi.saved.forget", map[string]any{"error_code": "404"}); err == nil {
+	if err := installDeviceControl(&handlers, "wifi.saved.forget", map[string]any{"error_code": "404"}); err == nil {
 		t.Fatal("installDeviceControl accepted a malformed error_code")
 	}
 	if handlers.ForgetWifi != nil {
@@ -85,14 +85,14 @@ func TestInstallDeviceControlRejectsMalformedCode(t *testing.T) {
 
 func TestInstallDeviceControlWifiScanAndConnectErrors(t *testing.T) {
 	var handlers gizcli.DeviceControlHandlers
-	for _, method := range []string{"client.wifi.scan", "client.wifi.connect"} {
+	for _, method := range []string{"wifi.scan", "wifi.connect"} {
 		if err := installDeviceControl(&handlers, method, map[string]any{"error_code": 3, "error_message": "rejected"}); err != nil {
 			t.Fatalf("install %s: %v", method, err)
 		}
 	}
 	_, scanErr := handlers.ScanWifi(t.Context(), new(int64(8000)))
 	connectErr := handlers.ConnectWifi(t.Context(), "home", new("correct-horse"))
-	for method, err := range map[string]error{"client.wifi.scan": scanErr, "client.wifi.connect": connectErr} {
+	for method, err := range map[string]error{"wifi.scan": scanErr, "wifi.connect": connectErr} {
 		var rpcErr rpcapi.Error
 		if !errors.As(err, &rpcErr) || rpcErr.Code != rpcapi.StatusCodeInvalidArgument || rpcErr.Message != "rejected" {
 			t.Fatalf("%s error = %#v", method, err)

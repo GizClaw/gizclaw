@@ -1,145 +1,50 @@
 # Client Provided to Server
 
-This set of capabilities is implemented by Client/Device and called by Server on Peer connection. Server uses it to read the device's own information or request the device to perform local capabilities.
-
-The [RPC API Reference](/references/rpc) is the single list of exact method IDs, names, and purposes. This page only explains the `client.*` provider direction and ownership.
-
-## Calling relationship
+A device provides a small RPC base plus two versioned families: MHS v0 for hardware state and tool/v0 for procedures. The [RPC reference](/references/rpc) lists every method and every predefined `ClientTool` value. These calls run over the online Peer connection; `GET /gizclaw/v1/device/status` reads a Server snapshot and does not call the device.
 
 ```mermaid
 sequenceDiagram
+    participant Control as Control app
     participant Server
-    participant Client
-    Server->>Client: client.* request
-    Client->>Client: Read device state or invoke local tool
-    Client-->>Server: typed response / RPC error
+    participant Device
+    Control->>Server: authenticated Peer HTTP request
+    Server->>Server: validate schema, ownership and arguments
+    Server->>Device: client.mhs.v0.* or client.tool.v0.*
+    Device-->>Server: typed result or RPC error
+    Server-->>Control: result or mapped HTTP error
 ```
 
-A Client provider can only return data that is owned or executable by the Client. Server resource-access decisions, cross-peer lookup, and persistence management cannot be implemented as `client.*`.
+## Protocol discovery
 
-Go Client's provider dispatch is located in the `sdk/go/gizcli` RPC Client implementation. A C Client registers the same provider direction through `gzc_client_config_t.rpc_provider`; the callback supplies borrowed Protobuf response bytes or a stable RPC error before returning. The server side calls these methods through the online Peer connection.
+`client.rpc.methods.list` (137) returns `RpcMethod` numbers, including only the MHS operations installed by the device. It identifies protocol families and versions; it does not enumerate procedures. `client.tool.v0.list` (136) returns only the `ClientTool` values whose handlers the device has installed. A caller ignores unknown future enum values. The list excludes `CLIENT_TOOL_UNSPECIFIED`.
 
-## Device control providers
+`client.tool.v0.invoke` (135) carries one `ClientTool` enum value and protobuf `payload` encoded as the request message declared on that enum value in `payload/tool.proto`. Its response carries the declared response message. Empty messages use an empty payload. An uninstalled tool returns `UNIMPLEMENTED`; a malformed payload returns `INVALID_PARAMS`. Device errors travel in the RPC envelope.
 
-`client.device.volume.set` (101), `client.device.settings.get` (128) and `client.device.settings.set` (129) are deprecated in favor of `client.mhs.v0.write`, `client.mhs.v0.read` and `client.mhs.v0.write`, respectively. Legacy entry points remain compatible. The [migration table](/en/developing/api/overview#mhs-v0-migration) lists recommended product manifest keys. Removal waits for both firmware and control apps to migrate; no date is set.
+## MHS v0 states
 
-`client.device.status.get` (100), `client.device.volume.set` (101), `client.device.sound.play` (102), `client.device.find` (126), `client.device.reboot` (103), `client.wifi.status.get` (104), `client.wifi.saved.list` (105), `client.wifi.saved.forget` (106), `client.wifi.scan` (108), `client.wifi.connect` (109), and `client.firmware.update` (111) are implemented by the device `rpc_provider`; the Server calls them while serving Public HTTP `/gizclaw/v1/device*` control requests. Controls use a 5-second timeout except scan, which uses the requested 1–15 second bound. Provider responsibilities:
+The bound RuntimeProfile's `spec.mhs.v0` manifest defines product-owned `(device_id, state)` keys, types, limits and access. `client.mhs.v0.read` (133) reads requested keys; `client.mhs.v0.write` (134) writes keys declared `read_write` and returns the actual applied values. The Server checks the manifest and the complete batch before contacting the device. The device validates the entire batch and its own safety limits before applying anything. An unknown or unimplemented key returns `NOT_FOUND`; a failed precondition or invalid value rejects the batch.
 
-- `volume.set` applies an absolute `level` (0–100) and `muted` and returns the complete post-change `PeerStatus`; `status.get` returns the current `PeerStatus`. Repeating a call with equal input yields the same result.
-- `sound.play` takes a device-defined `sound` string (at most 32 UTF‑8 bytes) that the device validates; unknown values answer `INVALID_PARAMS`. `duration_ms` is optional.
-- `find` rings the device so a user can locate it: the device plays its own built-in local find-me sound with a rising volume ramp and does not fetch any URL or catalog track. `duration_ms` is optional and non-negative; when it is absent the device picks the ring time. The device acknowledges once ringing has started, and a repeated call restarts the ring.
-- `reboot` must send its response before rebooting; `delay_ms` is optional.
-- `firmware.update` must send its response before running the OTA. `channel` names the channel to install and defaults to the channel the device already uses; `sha256` is the digest the caller saw, and the device answers `INVALID_PARAMS` when it does not match the package the device resolves. The device downloads, verifies, writes, and restarts on its own, and answers success outright when it already runs the target package. It reports the package it currently runs as `PeerStatus.firmware_sha256`, which `status.get` and `volume.set` responses write back to the Server.
-- `wifi.status.get` returns `WifiStatus { connected, ssid, rssi_dbm, ip, bssid }`; `wifi.saved.list` returns the saved network `ssid`s; `wifi.saved.forget` answers `NOT_FOUND` for an unknown `ssid`, including a network that was already forgotten. `ssid` is at most 32 UTF‑8 bytes and nanopb bounds the field.
-- `wifi.scan` returns `WifiScanResult` entries within `timeout_ms`, sorted by descending `rssi_dbm` and deduplicated by SSID to the strongest entry. `security` is a lowercase device-reported identifier that the Server does not enumerate.
-- `wifi.connect` accepts an open network or an 8–63 byte PSK. The device must return `ClientWifiConnectResponse` before disconnecting and switching networks, and fall back to the old network on failure. It must never persist or log the passphrase or include it in errors.
-- A device returns only results it can execute itself: invalid parameters answer `INVALID_PARAMS`, unimplemented methods answer `METHOD_NOT_FOUND`, and other failures answer `INTERNAL_ERROR` with a short message. The Server maps these to `400 DEVICE_REJECTED`, `501 DEVICE_UNSUPPORTED`, and a redacted `502 DEVICE_ERROR`.
+`MhsValue` sets exactly one of `bool_value`, `int_value`, `double_value`, or `string_value`. False, zero and empty string retain presence. Enum values use semantic strings in `string_value`. Requests and responses contain 1–32 states. Keys are at most 64 ASCII bytes and strings at most 256 UTF-8 bytes without NUL. Integers are JSON safe and doubles finite. A timed-out write should be followed by a read to confirm state.
 
-The C SDK `inbound_is_client_method` accepts these device control methods and dispatches them to `gzc_client_config_t.rpc_provider`; a missing provider or an unhandled method answers `METHOD_NOT_FOUND`. The Go SDK installs providers with `gizcli.Client.HandleDeviceControl(gizcli.DeviceControlHandlers{...})`, where a handler returning `gizcli.ErrDeviceRejected` / `gizcli.ErrDeviceResourceNotFound` maps to `INVALID_PARAMS` / `NOT_FOUND` (the OTA provider is `UpdateFirmware`); the Flutter SDK installs them through `GizClawPeerRpcHandlers.deviceControl` (`GizClawDeviceControlHandlers`), where a handler throws `GizClawDeviceControlException` to choose the RPC error code. Both answer `METHOD_NOT_FOUND` for an uninstalled handler.
+Volume, brightness, locale, alert mode, Wi-Fi connection status, and other product hardware states belong in manifest keys. The manifest declares keys; it does not automatically install device handlers.
 
-## Device settings and capability discovery
+## tool/v0 procedures
 
-`client.device.settings.get` (128), `client.device.settings.set` (129),
-`client.device.factory_reset` (130), and `client.rpc.methods.get` (131) are implemented by the
-device `rpc_provider` as well, and read or change the device's own options.
+The 21 predefined tools are `info.get`, `identifiers.get`, `device.status.get`, `device.reboot`, `device.factory_reset`, `device.find`, `sound.play`, `wifi.scan`, `wifi.connect`, `wifi.saved.list`, `wifi.saved.forget`, `firmware.update`, seven `audioplayer.*` tools, `run.workspace.set`, and `social.ping`. Their exact enum numbers and request/response messages are in [the RPC reference](/references/rpc#clienttool-v0). Devices advertise the installed subset through `client.tool.v0.list`. Product-defined device-local tools are not callable by the Agent in tool/v0.
 
-Every member of `DeviceSettings` is optional in both directions, which is what lets one message
-serve devices with different hardware instead of adding an RPC method per option:
-
-| Member | Type | Meaning |
-| --- | --- | --- |
-| `cellular_enabled` | `optional bool` | Whether the cellular (4G) modem is powered and allowed to carry traffic. |
-| `screen_off_timeout_ms` | `optional int64` | Idle time before the screen turns off; `0` keeps it always on. |
-| `screen_brightness` | `optional int64` | Screen backlight level in [0, 100]. |
-| `led_brightness` | `optional int64` | Indicator light level in [0, 100]. |
-| `locale` | `optional string` | UI language as a well-formed BCP 47 tag of at most 35 bytes: a 2-8 letter primary subtag followed by hyphen-separated 1-8 character alphanumeric subtags, such as `zh-CN`, `zh-Hant-TW` or `es-419`. POSIX forms such as `zh_CN` are rejected. |
-| `default_interaction_mode` | `optional DeviceInteractionMode` | Default input mode, `push-to-talk` or `realtime`, sharing the `WorkspaceInputMode` vocabulary. |
-| `key_feedback` | `optional DeviceKeyFeedback` | Key press feedback: `none`, `sound`, `vibrate`, `sound_and_vibrate`. |
-| `alert_mode` | `optional DeviceAlertMode` | How the device alerts the user to an incoming call or notification: `silent`, `vibrate`, `ring`. |
-| `auto_sleep_timeout_ms` | `optional int64` | Idle time before the device sleeps; `0` disables automatic sleep. |
-| `nfc_enabled` | `optional bool` | Whether the NFC reader is powered. |
-
-Product-specific configuration, such as usage time or feature limits, is not part of `DeviceSettings`:
-the device implements it as a `client_rpc` Tool whose RuntimeProfile binding sets `control_access`, and the
-control app calls it through `client.tool.invoke` (82). Speech rate is not a device setting either; it is a
-Workspace parameter in `WorkspaceParametersPatch`, delivered separately.
-
-Provider responsibilities:
-
-- `settings.get` reports only the members this device really supports. An option with no matching
-  hardware stays absent rather than carrying a placeholder value, because absent versus present-and-off
-  is exactly how a caller tells "unsupported" from "turned off".
-- `settings.set` applies only the members present in the request and leaves the rest unchanged; the
-  response is the full `DeviceSettings` after the change, so the caller sees what was accepted. A member
-  the device does not support is ignored rather than rejected, so a newer Server can talk to an older
-  device. A member outside its range answers `INVALID_PARAMS` before any member is applied, so the
-  device is never left half-configured.
-- `factory_reset` erases device-local state and is irreversible on the device; `keep_network` retains
-  saved Wi-Fi and cellular configuration so the device can reconnect without being re-provisioned. The
-  Server's own peer records are unaffected. Like `reboot`, it must send its response first. A device
-  that deletes its own Peer during the reset also invalidates every API key of that Peer, so the control
-  app must pair again.
-- `rpc.methods.get` returns the method names the device implements, so a caller can hide or skip a
-  control the device would only reject. Names are registry names such as `client.device.reboot`, and a
-  reader must ignore unknown names rather than rejecting the response.
-
-The Go SDK installs providers through `GetSettings`, `SetSettings`, and `FactoryReset` on
-`gizcli.DeviceControlHandlers`; the JavaScript and Flutter SDKs use `getSettings`, `setSettings`, and
-`factoryReset` on `GizClawDeviceControlHandlers`; the C SDK's `inbound_is_client_method` accepts these
-methods and hands them to `gzc_client_config_t.rpc_provider`. The Go, JavaScript, and Flutter SDKs derive
-the `client.rpc.methods.get` answer from the handlers the device actually registered, so that list cannot
-drift from what the device will accept, and they answer it even with no device-control handlers installed.
-
-## Remote Workspace switch
-
-`client.run.workspace.set` (132) is triggered by the control app through
-`PUT /gizclaw/v1/device/run/workspace` and asks the device to switch the Workspace it runs. The request
-carries only `workspace_name` (at most 256 bytes) and the optional `kickoff`, which lets the agent speak
-first once the Workspace is ready and defaults to false. The control app may target a `collection` with a
-`workflow_name`, but the Server resolves that to one Workspace name before calling (most recently active
-first, ties by ascending name; no match answers HTTP `404` without contacting the device), because
-`server.run.workspace.reload-with-options` takes a name only.
-
-The device checks the name, answers `ClientRunWorkspaceSetResponse` first, and then switches through
-`server.run.workspace.reload-with-options`; the answer only means the request was accepted, not that the
-switch finished. The committed Workspace is what the Server records, and the control app observes it
-through `active_workspace_name` / `pending_workspace_name` on `GET /gizclaw/v1/device/runtime`. An invalid
-target answers `INVALID_PARAMS`. The Go SDK uses `DeviceControlHandlers.SetRunWorkspace`; the JavaScript
-and Flutter SDKs use `setRunWorkspace`. The SDKs check that the name is non-empty and at most 256 bytes
-before calling the handler.
+- `device.status.get` returns live `PeerStatus` and refreshes the Server snapshot. Device identity and telemetry fields outside the MHS manifest remain in this status.
+- `sound.play` accepts a device-defined sound name of at most 32 UTF-8 bytes and optional non-negative duration. `device.find` rings the built-in find-me sound with an optional duration. `device.reboot` acknowledges before rebooting. `device.factory_reset` acknowledges before erasing local state; `keep_network` can preserve Wi-Fi and cellular settings. A device that also deletes its Peer invalidates its API keys.
+- `wifi.scan` uses a bounded 1–15 second timeout and returns at most 32 access points. `wifi.connect` accepts an SSID of at most 32 UTF-8 bytes and an optional 8–63 byte passphrase, acknowledges before switching networks, and must not log or echo the passphrase. `wifi.saved.list` reports saved SSIDs; `wifi.saved.forget` returns `NOT_FOUND` for an absent SSID.
+- `firmware.update` accepts optional channel and SHA-256 digest, acknowledges before OTA, and rejects a digest that differs from the package resolved by the device. The device reports its running digest in `PeerStatus.firmware_sha256`.
+- `run.workspace.set` receives a resolved `workspace_name` and optional `kickoff`. The Server resolves collection and workflow targets before calling the device. The device acknowledges, then switches through `server.run.workspace.reload-with-options`; the acknowledgement does not mean the Workspace is ready.
+- `social.ping` delivers a Friend or Friend Group notification with sender public key and optional display and group names. The device acknowledges promptly; the Server treats timeout or a missing handler as not delivered and does not retry.
 
 ## Music player
 
-A device's single player provides seven `client.device.audioplayer.*` methods: `get` (113), `playlist.get` (114), `playlist.set` (115), `playlist.append` (116), `play` (117), `stop` (118), and `mode.set` (119). There is no `play_id`. The device's `playlist_revision` identifies a list version, not an append retry token.
+One device player exposes seven `audioplayer.*` tools: `get`, `playlist.get`, `playlist.set`, `playlist.append`, `play`, `stop`, and `mode.set`. The playlist holds at most 32 items. `playlist.set` validates and atomically replaces the list, stopping playback; `playlist.append` preserves ordering and duplicates and never retries automatically. `play` requires a zero-based index and acknowledges acceptance; playback state and progress arrive through audioplayer telemetry. `stop` is idempotent, and `mode.set` selects `off`, `one`, or `all`. A list item has an HTTPS audio URL without credentials or fragments and optional title and source reference. The Server does not download audio. `playlist_revision` changes on list mutation, and `playlist.get` reads the device after reconnect.
 
-| Method | Device behavior |
-| --- | --- |
-| `get` | Return the complete player status |
-| `playlist.get` | Read the actual device playlist and revision |
-| `playlist.set` | Validate, atomically replace, and stop; an empty list clears; failure preserves playback and the old list |
-| `playlist.append` | Atomically append in order, allowing duplicates, without interrupting or starting playback |
-| `play` | Require a zero-based `index`; start the selected track from its beginning, replacing current playback |
-| `stop` | Stop idempotently while retaining the list and repeat mode |
-| `mode.set` | `off` stops after the list, `one` repeats the track, `all` repeats the list; do not interrupt the current track |
+## Provider and error contract
 
-A playlist contains at most 32 items. Each item has an HTTPS audio `url` without credentials or fragments (at most 1024 UTF-8 bytes), plus optional `title` and opaque `source_ref` (128 bytes each). The Server neither resolves the catalog nor downloads audio. The device downloads, decodes, plays, validates the complete request and reserves capacity before changing the list. Download or format failures appear in player status. List mutations increment `playlist_revision`; playback and mode changes do not. Persistence is device-owned; read `playlist.get` after reconnecting to discover the actual list.
+Go providers install handlers on `gizcli.DeviceControlHandlers` or per `ClientTool`; JavaScript, Flutter and C install the corresponding typed handlers. Each SDK derives discovery from installed handlers. The C provider decodes the invoke bytes through nanopb callbacks, keeping payload storage bounded by its caller buffer.
 
-A successful `play` only acknowledges acceptance. Devices report telemetry `audioplayer` observations (field 15) for `stopped`, `buffering`, `playing`, `ended`, and `error`, with the current index, actual playout `position_ms`, optional `duration_ms`, repeat mode, list length, and revision. Omit unknown duration. Millisecond integers must fit JavaScript's safe integer range. Only the error state carries `error_code` (128 bytes) and `error_message` (512 bytes); diagnostics must not contain URL credentials. Report transitions promptly and progress periodically while playing.
-
-The Server stores `PeerStatus.audioplayer` in the existing KV snapshot, rejects older observations overwriting newer ones, and creates no player metric series in Prometheus. RPC status responses update the same snapshot; an omitted device wall clock uses server receipt time. Read `/device/status` for the snapshot; player `get` contacts the online device. Go providers use `DeviceControlHandlers.AudioPlayer`; JavaScript and Flutter use `deviceControl.audioplayer`; C uses the existing `rpc_provider` and bounded nanopb messages. Go, JavaScript, and C telemetry interfaces support the player observation.
-
-## Social ping
-
-`client.social.ping` (127) tells the device that a Friend pinged it (`server.friend.ping`) or a Friend Group member rallied the group (`server.friend_group.ping`). The request carries `from_peer_public_key`, the sender's optional self-chosen `from_display_name`, and, for a rally only, `friend_group_name`, which is the receiving device's own local name for the group so it matches that device's `server.friend_group.list`. The device alerts the user and acknowledges promptly with an empty `ClientSocialPingResponse`: the Server waits at most 3 seconds and counts a timeout, `METHOD_NOT_FOUND`, or any other error as not delivered, without retrying. The Server never pushes a ping the caller is not entitled to send; the device does not need to recheck the relationship.
-
-The C SDK `inbound_is_client_method` accepts `client.device.find` and `client.social.ping` and dispatches them to `rpc_provider`, with bounded nanopb messages (`from_display_name` 256 bytes, `friend_group_name` 255 bytes). The Go SDK exposes `DeviceControlHandlers.Find` and `gizcli.Client.HandleSocialPing`; JavaScript uses `deviceControl.find` and the top-level `socialPing` handler; Flutter uses `GizClawDeviceControlHandlers.find` and `GizClawPeerRpcHandlers.socialPing`. Every SDK answers `METHOD_NOT_FOUND` when the handler is unset, and `INVALID_PARAMS` for a negative `duration_ms` or an empty `from_peer_public_key`. For find-my-device, the control SDKs expose `device.find` (JavaScript), `findDevice` (Flutter), and `gzc_control_find_device` (C).
-
-## MHS v0 providers
-
-`client.mhs.v0.read` (133) and `client.mhs.v0.write` (134) are defined by `payload/mhs.proto`. This is GizClaw's own MHS-inspired pre-standard v0, with no official MHS compatibility claim. It only reads/writes states. Legacy settings/volume are deprecated but remain compatible; sound, find, Wi-Fi, audioplayer and other methods are not deprecated.
-
-`MhsValue` sets exactly one of bool_value, int_value, double_value or string_value. False, zero and empty string retain presence; enums use string_value. Keys contain at most 64 ASCII bytes, strings at most 256 UTF-8 bytes without NUL. Nanopb allocates 65/257 bytes including termination. Every request/response contains 1–32 states. Integers are JSON-safe and doubles finite.
-
-Read returns current values for every requested key. Write is all-or-nothing from the caller's view: validate the whole batch and all preconditions before changing anything, otherwise return INVALID_ARGUMENT, NOT_FOUND or FAILED_PRECONDITION. Drivers enforce safety limits and return actual values after clamping/rounding. A Profile may describe multiple hardware revisions; an unimplemented key returns NOT_FOUND. Responses contain exactly the requested keys once each.
-
-Go installs `DeviceControlHandlers.ReadMhsStates/WriteMhsStates` using original `rpcpb` messages. JS and Flutter use `GizClawDeviceControlHandlers.readMhsStates/writeMhsStates`. Their `client.rpc.methods.get` derives support from installed handlers. JS values retain explicit fields such as `{int_value: 0}` and `{double_value: 0}`; control HTTP values remain plain JSON. C dispatches bounded nanopb messages through `gzc_client_config_t.rpc_provider`; its provider capability response must list only implemented methods.
+The Server validates typed Peer HTTP arguments before opening an RPC stream. Offline maps to `409 DEVICE_OFFLINE`; an uninstalled tool to `501 DEVICE_UNSUPPORTED`; timeout to `504 DEVICE_TIMEOUT`; device `INVALID_PARAMS` to `400 DEVICE_REJECTED`; other device errors to a redacted `502 DEVICE_ERROR`. A missing saved SSID uses the route's not-found mapping. Device handlers must not leak credentials in status or errors.

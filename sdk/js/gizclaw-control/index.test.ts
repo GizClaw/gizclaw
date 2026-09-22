@@ -141,11 +141,11 @@ test("sends the bearer header on every request", async () => {
   const h = harness([
     json(200, apiKeyJson),
     noContent(),
-    json(200, { connected: false }),
+    json(200, { tools: [] }),
   ]);
   await h.client.apiKeys.getSelf();
   await h.client.apiKeys.revokeSelf();
-  await h.client.device.getWifi();
+  await h.client.device.listTools();
   assert.equal(h.seen.length, 3);
   for (const request of h.seen) {
     assert.equal(request.headers.get("authorization"), `Bearer ${apiKey}`);
@@ -301,62 +301,60 @@ test("device reads: get, status, telemetry", async () => {
   });
 });
 
-test("device control: volume, sound, reboot, wifi", async () => {
+test("device control: MHS state and typed procedures", async () => {
   const h = harness([
-    json(200, { status: { volume: 35, muted: false } }),
-    noContent(),
-    noContent(),
-    noContent(),
-    json(200, { connected: true, ssid: "Home", rssi_dbm: -50 }),
-    json(200, { networks: [{ ssid: "Home" }] }),
-    noContent(),
+    json(200, {
+      states: [{ device_id: "speaker.main", state: "volume", value: 35 }],
+    }),
+    json(200, { result: {} }),
+    json(200, { result: {} }),
+    json(200, { result: {} }),
+    json(200, { result: { networks: [{ ssid: "Home" }] } }),
+    json(200, { result: {} }),
   ]);
-  const result = await h.client.device.setVolume({ level: 35, muted: false });
+  const volume = await h.client.device.writeMhsStates({
+    states: [{ device_id: "speaker.main", state: "volume", value: 35 }],
+  });
   await h.client.device.playSound({ sound: "chime", duration_ms: 500 });
   await h.client.device.reboot();
   await h.client.device.reboot({ delay_ms: 3000 });
-  const wifi = await h.client.device.getWifi();
   const saved = await h.client.device.listSavedWifi();
   await h.client.device.forgetSavedWifi("Café Wi-Fi/5G #2");
-
-  assert.equal(result.status.volume, 35);
-  assert.equal(h.seen[0]!.method, "PUT");
-  assert.equal(h.seen[0]!.url.pathname, "/gizclaw/v1/device/volume");
-  assert.deepEqual(JSON.parse(h.seen[0]!.body), { level: 35, muted: false });
-  assert.equal(h.seen[1]!.method, "POST");
-  assert.equal(
-    h.seen[1]!.url.pathname,
-    "/gizclaw/v1/device/actions/play-sound",
-  );
-  assert.deepEqual(JSON.parse(h.seen[1]!.body), {
-    sound: "chime",
-    duration_ms: 500,
-  });
-  assert.equal(h.seen[2]!.url.pathname, "/gizclaw/v1/device/actions/reboot");
-  assert.deepEqual(JSON.parse(h.seen[2]!.body), {});
-  assert.deepEqual(JSON.parse(h.seen[3]!.body), { delay_ms: 3000 });
-  assert.equal(wifi.rssi_dbm, -50);
+  assert.equal(volume.states[0]!.value, 35);
   assert.equal(saved.networks[0]!.ssid, "Home");
-  assert.equal(h.seen[4]!.url.pathname, "/gizclaw/v1/device/wifi");
-  assert.equal(h.seen[5]!.url.pathname, "/gizclaw/v1/device/wifi/saved");
-  assert.equal(h.seen[6]!.method, "DELETE");
-  assert.equal(
-    h.seen[6]!.url.pathname,
-    "/gizclaw/v1/device/wifi/saved/Caf%C3%A9%20Wi-Fi%2F5G%20%232",
-  );
+  assert.equal(h.seen[0]!.url.pathname, "/gizclaw/v1/device/mhs/v0/states");
+  assert.deepEqual(JSON.parse(h.seen[1]!.body), {
+    tool: "sound.play",
+    args: { sound: "chime", duration_ms: 500 },
+  });
+  assert.deepEqual(JSON.parse(h.seen[2]!.body), {
+    tool: "device.reboot",
+    args: {},
+  });
+  assert.deepEqual(JSON.parse(h.seen[3]!.body), {
+    tool: "device.reboot",
+    args: { delay_ms: 3000 },
+  });
+  assert.deepEqual(JSON.parse(h.seen[5]!.body), {
+    tool: "wifi.saved.forget",
+    args: { ssid: "Café Wi-Fi/5G #2" },
+  });
 });
 
 test("device find: ring time and device default", async () => {
-  const h = harness([noContent(), noContent()]);
+  const h = harness([json(200, { result: {} }), json(200, { result: {} })]);
   await h.client.device.find({ duration_ms: 8000 });
   await h.client.device.find();
-
-  assert.equal(h.seen[0]!.method, "POST");
-  assert.equal(h.seen[0]!.url.pathname, "/gizclaw/v1/device/actions/find");
+  assert.equal(h.seen[0]!.url.pathname, "/gizclaw/v1/device/tool/v0/invoke");
   assert.equal(h.seen[0]!.headers.get("authorization"), `Bearer ${apiKey}`);
-  assert.deepEqual(JSON.parse(h.seen[0]!.body), { duration_ms: 8000 });
-  assert.equal(h.seen[1]!.url.pathname, "/gizclaw/v1/device/actions/find");
-  assert.deepEqual(JSON.parse(h.seen[1]!.body), {});
+  assert.deepEqual(JSON.parse(h.seen[0]!.body), {
+    tool: "device.find",
+    args: { duration_ms: 8000 },
+  });
+  assert.deepEqual(JSON.parse(h.seen[1]!.body), {
+    tool: "device.find",
+    args: {},
+  });
 });
 
 test("device find: an unsupported device surfaces DEVICE_UNSUPPORTED", async () => {
@@ -372,21 +370,22 @@ test("device find: an unsupported device surfaces DEVICE_UNSUPPORTED", async () 
   });
 });
 
-test("device wifi: scan and connect", async () => {
+test("device wifi: scan and connect through tool/v0", async () => {
   const h = harness([
     json(200, {
-      networks: [
-        {
-          ssid: "Office",
-          bssid: "aa:bb:cc:dd:ee:ff",
-          rssi_dbm: -42,
-          frequency_mhz: 5180,
-          security: "wpa3",
-        },
-      ],
+      result: {
+        networks: [
+          {
+            ssid: "Office",
+            rssi_dbm: -42,
+            frequency_mhz: 5180,
+            security: "wpa3",
+          },
+        ],
+      },
     }),
-    accepted(),
-    accepted(),
+    json(200, { result: {} }),
+    json(200, { result: {} }),
   ]);
   const scan = await h.client.device.scanWifi({ timeout_ms: 8000 });
   await h.client.device.connectWifi({
@@ -394,21 +393,21 @@ test("device wifi: scan and connect", async () => {
     passphrase: "correct-horse",
   });
   await h.client.device.connectWifi({ ssid: "Open Network" });
-
-  assert.equal(h.seen[0]!.method, "POST");
-  assert.equal(h.seen[0]!.url.pathname, "/gizclaw/v1/device/wifi/scan");
-  assert.deepEqual(JSON.parse(h.seen[0]!.body), { timeout_ms: 8000 });
   assert.equal(scan.networks[0]!.ssid, "Office");
   assert.equal(scan.networks[0]!.rssi_dbm, -42);
-  assert.equal(scan.networks[0]!.frequency_mhz, 5180);
-  assert.equal(scan.networks[0]!.security, "wpa3");
-  assert.equal(h.seen[1]!.method, "PUT");
-  assert.equal(h.seen[1]!.url.pathname, "/gizclaw/v1/device/wifi");
-  assert.deepEqual(JSON.parse(h.seen[1]!.body), {
-    ssid: "Office",
-    passphrase: "correct-horse",
+  assert.equal(h.seen[0]!.url.pathname, "/gizclaw/v1/device/tool/v0/invoke");
+  assert.deepEqual(JSON.parse(h.seen[0]!.body), {
+    tool: "wifi.scan",
+    args: { timeout_ms: 8000 },
   });
-  assert.deepEqual(JSON.parse(h.seen[2]!.body), { ssid: "Open Network" });
+  assert.deepEqual(JSON.parse(h.seen[1]!.body), {
+    tool: "wifi.connect",
+    args: { ssid: "Office", passphrase: "correct-horse" },
+  });
+  assert.deepEqual(JSON.parse(h.seen[2]!.body), {
+    tool: "wifi.connect",
+    args: { ssid: "Open Network" },
+  });
 });
 
 test("rejects an empty path parameter before sending", async () => {
@@ -646,14 +645,12 @@ for (const [status, code, kind] of cases) {
     const h = harness([
       errorResponse(status, code, "m", { "x-request-id": "req-1" }),
     ]);
-    const error = await failure(
-      h.client.device.setVolume({ level: 1, muted: false }),
-    );
+    const error = await failure(h.client.device.find());
     assert.equal(error.kind, kind);
     assert.equal(error.status, status);
     assert.equal(error.code, code);
     assert.equal(error.requestId, "req-1");
-    assert.equal(error.message, "setDeviceVolume: m");
+    assert.equal(error.message, "invokeClientTool: m");
     assert.equal(error.name, "GizClawControlError");
   });
 }
@@ -709,7 +706,7 @@ test("classifyGizClawControlError: device codes win over status", () => {
   assert.equal(classifyGizClawControlError(302), "unexpectedStatus");
 });
 
-test("audioplayer routes preserve playlist order and explicit zero index", async () => {
+test("audioplayer procedures preserve playlist order and explicit zero index", async () => {
   const status = {
     state: "buffering",
     current_index: 0,
@@ -727,9 +724,9 @@ test("audioplayer routes preserve playlist order and explicit zero index", async
     },
   ];
   const h = harness([
-    json(200, { status }),
-    json(200, { items, playlist_revision: 3 }),
-    ...Array.from({ length: 5 }, () => json(200, { status })),
+    json(200, { result: status }),
+    json(200, { result: { items, playlist_revision: 3 } }),
+    ...Array.from({ length: 5 }, () => json(200, { result: status })),
   ]);
   assert.deepEqual((await h.client.device.getAudioPlayer()).status, status);
   assert.deepEqual(
@@ -741,103 +738,75 @@ test("audioplayer routes preserve playlist order and explicit zero index", async
   await h.client.device.playAudioPlayer({ index: 0 });
   await h.client.device.stopAudioPlayer();
   await h.client.device.setAudioPlayerMode({ repeat: "all" });
-  assert.deepEqual(
-    h.seen.map((request) => [request.method, request.url.pathname]),
-    [
-      ["GET", "/gizclaw/v1/device/audioplayer"],
-      ["GET", "/gizclaw/v1/device/audioplayer/playlist"],
-      ["PUT", "/gizclaw/v1/device/audioplayer/playlist"],
-      ["POST", "/gizclaw/v1/device/audioplayer/playlist/append"],
-      ["POST", "/gizclaw/v1/device/audioplayer/actions/play"],
-      ["POST", "/gizclaw/v1/device/audioplayer/actions/stop"],
-      ["PUT", "/gizclaw/v1/device/audioplayer/mode"],
-    ],
+  assert.ok(
+    h.seen.every(
+      (request) => request.url.pathname === "/gizclaw/v1/device/tool/v0/invoke",
+    ),
   );
-  assert.deepEqual(JSON.parse(h.seen[2]!.body), { items });
-  assert.deepEqual(JSON.parse(h.seen[3]!.body), { items });
-  assert.deepEqual(JSON.parse(h.seen[4]!.body), { index: 0 });
+  assert.deepEqual(JSON.parse(h.seen[2]!.body), {
+    tool: "audioplayer.playlist.set",
+    args: { items },
+  });
+  assert.deepEqual(JSON.parse(h.seen[4]!.body), {
+    tool: "audioplayer.play",
+    args: { index: 0 },
+  });
 });
 
-test("device settings, reset, capabilities and Workspace switch", async () => {
+test("MHS states, reset, tool list and Workspace switch", async () => {
   const h = harness([
-    json(200, { screen_brightness: 40, alert_mode: "ring" }),
-    json(200, { screen_brightness: 40, alert_mode: "silent" }),
-    noContent(),
-    json(200, { methods: ["client.run.workspace.set"] }),
-    accepted(),
+    json(200, {
+      states: [{ device_id: "display.main", state: "brightness", value: 0 }],
+    }),
+    json(200, {
+      states: [{ device_id: "display.main", state: "enabled", value: false }],
+    }),
+    json(200, { result: {} }),
+    json(200, { tools: ["device.factory_reset", "run.workspace.set"] }),
+    json(200, { result: {} }),
   ]);
-  const settings = await h.client.device.getSettings();
-  assert.equal(settings.alert_mode, "ring");
-  const updated = await h.client.device.updateSettings({
-    alert_mode: "silent",
-    nfc_enabled: false,
+  const read = await h.client.device.readMhsStates({
+    states: [{ device_id: "display.main", state: "brightness" }],
   });
-  assert.equal(updated.alert_mode, "silent");
+  const written = await h.client.device.writeMhsStates({
+    states: [{ device_id: "display.main", state: "enabled", value: false }],
+  });
+  assert.equal(read.states[0]!.value, 0);
+  assert.equal(written.states[0]!.value, false);
   await h.client.device.factoryReset({ keep_network: true });
-  const methods = await h.client.device.listRpcMethods();
+  const tools = await h.client.device.listTools();
   await h.client.device.setRunWorkspace({
     collection: "stories",
     workflow_name: "bedtime",
     kickoff: true,
   });
-
-  assert.equal(h.seen[0]!.url.pathname, "/gizclaw/v1/device/settings");
-  assert.equal(h.seen[1]!.method, "PATCH");
-  assert.deepEqual(JSON.parse(h.seen[1]!.body), {
-    alert_mode: "silent",
-    nfc_enabled: false,
+  assert.deepEqual(tools.tools, ["device.factory_reset", "run.workspace.set"]);
+  assert.deepEqual(JSON.parse(h.seen[2]!.body), {
+    tool: "device.factory_reset",
+    args: { keep_network: true },
   });
-  assert.equal(
-    h.seen[2]!.url.pathname,
-    "/gizclaw/v1/device/actions/factory-reset",
-  );
-  assert.deepEqual(JSON.parse(h.seen[2]!.body), { keep_network: true });
-  assert.deepEqual(methods.methods, ["client.run.workspace.set"]);
-  assert.equal(h.seen[4]!.method, "PUT");
-  assert.equal(h.seen[4]!.url.pathname, "/gizclaw/v1/device/run/workspace");
   assert.deepEqual(JSON.parse(h.seen[4]!.body), {
-    collection: "stories",
-    workflow_name: "bedtime",
-    kickoff: true,
+    tool: "run.workspace.set",
+    args: { collection: "stories", workflow_name: "bedtime", kickoff: true },
   });
 });
 
-test("device tools: list and invoke", async () => {
+test("device tools: list installed procedures and invoke a typed tool", async () => {
   const h = harness([
-    json(200, {
-      items: [
-        {
-          name: "usage limit",
-          control_access: "owner",
-          i18n: { en: { display_name: "Usage limit" } },
-          input_schema: { type: "object" },
-        },
-      ],
-    }),
-    json(200, { data_json: '{"ok":true}' }),
-    errorResponse(404, "TOOL_NOT_FOUND", "tool not found"),
+    json(200, { tools: ["device.find"] }),
+    json(200, { result: {} }),
+    errorResponse(501, "DEVICE_UNSUPPORTED"),
   ]);
   const tools = await h.client.device.listTools();
-  assert.equal(tools.items[0]!.control_access, "owner");
-  const result = await h.client.device.invokeTool("usage limit", {
-    args: { minutes: 30 },
+  assert.deepEqual(tools.tools, ["device.find"]);
+  await h.client.device.find({ duration_ms: 8000 });
+  assert.equal(h.seen[0]!.url.pathname, "/gizclaw/v1/device/tool/v0/tools");
+  assert.deepEqual(JSON.parse(h.seen[1]!.body), {
+    tool: "device.find",
+    args: { duration_ms: 8000 },
   });
-  assert.equal(JSON.parse(result.data_json).ok, true);
-  assert.equal(h.seen[0]!.url.pathname, "/gizclaw/v1/device/tools");
-  assert.equal(
-    h.seen[1]!.url.pathname,
-    "/gizclaw/v1/device/tools/usage%20limit/actions/invoke",
-  );
-  assert.deepEqual(JSON.parse(h.seen[1]!.body), { args: { minutes: 30 } });
-  await assert.rejects(
-    h.client.device.invokeTool("hidden"),
-    (error: unknown) => {
-      assert.ok(error instanceof GizClawControlError);
-      assert.equal(error.kind, "notFound");
-      return true;
-    },
-  );
-  await assert.rejects(h.client.device.invokeTool(""), TypeError);
+  const error = await failure(h.client.device.playSound({ sound: "chime" }));
+  assert.equal(error.kind, "deviceUnsupported");
 });
 
 test("MHS control uses generated routes, plain values and device errors", async () => {

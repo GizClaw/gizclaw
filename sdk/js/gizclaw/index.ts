@@ -1,5 +1,11 @@
 import type { CreateGiznetWebRtcOfferData } from "./generated/peerhttp/types.gen.ts";
-import { RPC_METHOD_IDS, CLIENT_TOOL_IDS, CLIENT_TOOL_NAMES, type ClientToolMap, type ClientToolID } from "./generated/rpc/method-map.ts";
+import {
+  RPC_METHOD_IDS,
+  CLIENT_TOOL_IDS,
+  CLIENT_TOOL_NAMES,
+  type ClientToolMap,
+  type ClientToolID,
+} from "./generated/rpc/method-map.ts";
 import {
   decodeClientToolRequestPayload,
   encodeClientToolResponsePayload,
@@ -347,11 +353,21 @@ export type GizClawPeerRPCHandlers = {
   // handler unset on a device that cannot alert its user.
   socialPing?: (request: ClientSocialPingRequest) => Promise<void> | void;
   /** Predefined tool providers, keyed by ClientTool number. */
-  tools?: { [T in ClientToolID]?: (request: ClientToolMap[T]["request"]) => ClientToolMap[T]["response"] | Promise<ClientToolMap[T]["response"]> };
+  tools?: {
+    [T in ClientToolID]?: (
+      request: ClientToolMap[T]["request"],
+    ) => ClientToolMap[T]["response"] | Promise<ClientToolMap[T]["response"]>;
+  };
 };
 
-export { CLIENT_TOOL_IDS, CLIENT_TOOL_NAMES } from "./generated/rpc/method-map.ts";
-export type { ClientToolMap, ClientToolID } from "./generated/rpc/method-map.ts";
+export {
+  CLIENT_TOOL_IDS,
+  CLIENT_TOOL_NAMES,
+} from "./generated/rpc/method-map.ts";
+export type {
+  ClientToolMap,
+  ClientToolID,
+} from "./generated/rpc/method-map.ts";
 
 // GizClawDeviceControlError makes a device control handler answer one specific
 // RPC error code instead of the default internal error.
@@ -2514,7 +2530,14 @@ function supportedDeviceTools(
   const methods = present
     .filter(([, handler]) => handler != null)
     .map(([method]) => method);
-  for (const key of Object.keys(handlers?.tools ?? {})) { const id = Number(key); if (CLIENT_TOOL_NAMES[id] != null && handlers?.tools?.[id as ClientToolID] != null) methods.push(id as ClientToolID); }
+  for (const key of Object.keys(handlers?.tools ?? {})) {
+    const id = Number(key);
+    if (
+      CLIENT_TOOL_NAMES[id] != null &&
+      handlers?.tools?.[id as ClientToolID] != null
+    )
+      methods.push(id as ClientToolID);
+  }
   return [...new Set(methods)].sort((a, b) => a - b);
 }
 
@@ -2550,62 +2573,132 @@ function validSocialPingParams(value: unknown): ClientSocialPingRequest | null {
 // caller installed. An unhandled method answers METHOD_NOT_FOUND so the server
 // maps it to 501 DEVICE_UNSUPPORTED, matching the Go and Dart SDKs.
 
-function withToolProviders(handlers: GizClawPeerRPCHandlers | undefined): GizClawPeerRPCHandlers | undefined {
+function withToolProviders(
+  handlers: GizClawPeerRPCHandlers | undefined,
+): GizClawPeerRPCHandlers | undefined {
   if (handlers?.tools == null) return handlers;
-  const out = { ...handlers, deviceControl: { ...handlers.deviceControl, audioplayer: {...handlers.deviceControl?.audioplayer} } };
+  const out = {
+    ...handlers,
+    deviceControl: {
+      ...handlers.deviceControl,
+      audioplayer: { ...handlers.deviceControl?.audioplayer },
+    },
+  };
   const tools = handlers.tools;
   const info_get = tools[CLIENT_TOOL_IDS["info.get"]];
   if (info_get != null) out.deviceInfo = async () => info_get({});
   const identifiers_get = tools[CLIENT_TOOL_IDS["identifiers.get"]];
-  if (identifiers_get != null) out.deviceIdentifiers = async () => identifiers_get({});
+  if (identifiers_get != null)
+    out.deviceIdentifiers = async () => identifiers_get({});
   const social_ping = tools[CLIENT_TOOL_IDS["social.ping"]];
-  if (social_ping != null) out.socialPing = async (request) => { await social_ping(request); };
+  if (social_ping != null)
+    out.socialPing = async (request) => {
+      await social_ping(request);
+    };
   const device_status_get = tools[CLIENT_TOOL_IDS["device.status.get"]];
-  if (device_status_get != null) out.deviceControl.status = async () => device_status_get({});
+  if (device_status_get != null)
+    out.deviceControl.status = async () => device_status_get({});
   const sound_play = tools[CLIENT_TOOL_IDS["sound.play"]];
-  if (sound_play != null) out.deviceControl.playSound = async (sound, duration_ms) => { await sound_play({sound, duration_ms}); };
+  if (sound_play != null)
+    out.deviceControl.playSound = async (sound, duration_ms) => {
+      await sound_play({ sound, duration_ms });
+    };
   const device_find = tools[CLIENT_TOOL_IDS["device.find"]];
-  if (device_find != null) out.deviceControl.find = async (duration_ms) => { await device_find({duration_ms}); };
+  if (device_find != null)
+    out.deviceControl.find = async (duration_ms) => {
+      await device_find({ duration_ms });
+    };
   const device_reboot = tools[CLIENT_TOOL_IDS["device.reboot"]];
-  if (device_reboot != null) out.deviceControl.reboot = async (delay_ms) => { await device_reboot({delay_ms}); };
+  if (device_reboot != null)
+    out.deviceControl.reboot = async (delay_ms) => {
+      await device_reboot({ delay_ms });
+    };
   const device_factory_reset = tools[CLIENT_TOOL_IDS["device.factory_reset"]];
-  if (device_factory_reset != null) out.deviceControl.factoryReset = async (keep_network) => { await device_factory_reset({keep_network}); };
+  if (device_factory_reset != null)
+    out.deviceControl.factoryReset = async (keep_network) => {
+      await device_factory_reset({ keep_network });
+    };
   const run_workspace_set = tools[CLIENT_TOOL_IDS["run.workspace.set"]];
-  if (run_workspace_set != null) out.deviceControl.setRunWorkspace = async (request) => { await run_workspace_set(request); };
+  if (run_workspace_set != null)
+    out.deviceControl.setRunWorkspace = async (request) => {
+      await run_workspace_set(request);
+    };
   const firmware_update = tools[CLIENT_TOOL_IDS["firmware.update"]];
-  if (firmware_update != null) out.deviceControl.updateFirmware = async (channel, sha256) => { await firmware_update({channel, sha256}); };
+  if (firmware_update != null)
+    out.deviceControl.updateFirmware = async (channel, sha256) => {
+      await firmware_update({ channel, sha256 });
+    };
   const wifi_saved_list = tools[CLIENT_TOOL_IDS["wifi.saved.list"]];
-  if (wifi_saved_list != null) out.deviceControl.savedWifi = async () => (await wifi_saved_list({})).networks;
+  if (wifi_saved_list != null)
+    out.deviceControl.savedWifi = async () =>
+      (await wifi_saved_list({})).networks;
   const wifi_saved_forget = tools[CLIENT_TOOL_IDS["wifi.saved.forget"]];
-  if (wifi_saved_forget != null) out.deviceControl.forgetWifi = async (ssid) => { await wifi_saved_forget({ssid}); };
+  if (wifi_saved_forget != null)
+    out.deviceControl.forgetWifi = async (ssid) => {
+      await wifi_saved_forget({ ssid });
+    };
   const wifi_scan = tools[CLIENT_TOOL_IDS["wifi.scan"]];
-  if (wifi_scan != null) out.deviceControl.scanWifi = async (timeout_ms) => (await wifi_scan({timeout_ms})).networks;
+  if (wifi_scan != null)
+    out.deviceControl.scanWifi = async (timeout_ms) =>
+      (await wifi_scan({ timeout_ms })).networks;
   const wifi_connect = tools[CLIENT_TOOL_IDS["wifi.connect"]];
-  if (wifi_connect != null) out.deviceControl.connectWifi = async (ssid, passphrase) => { await wifi_connect({ssid, passphrase}); };
-  if (tools[CLIENT_TOOL_IDS["audioplayer.get"]] != null) out.deviceControl.audioplayer.get = tools[CLIENT_TOOL_IDS["audioplayer.get"]];
-  if (tools[CLIENT_TOOL_IDS["audioplayer.playlist.get"]] != null) out.deviceControl.audioplayer.playlistGet = tools[CLIENT_TOOL_IDS["audioplayer.playlist.get"]];
-  if (tools[CLIENT_TOOL_IDS["audioplayer.playlist.set"]] != null) out.deviceControl.audioplayer.playlistSet = tools[CLIENT_TOOL_IDS["audioplayer.playlist.set"]];
-  if (tools[CLIENT_TOOL_IDS["audioplayer.playlist.append"]] != null) out.deviceControl.audioplayer.playlistAppend = tools[CLIENT_TOOL_IDS["audioplayer.playlist.append"]];
-  if (tools[CLIENT_TOOL_IDS["audioplayer.play"]] != null) out.deviceControl.audioplayer.play = tools[CLIENT_TOOL_IDS["audioplayer.play"]];
-  if (tools[CLIENT_TOOL_IDS["audioplayer.stop"]] != null) out.deviceControl.audioplayer.stop = tools[CLIENT_TOOL_IDS["audioplayer.stop"]];
-  if (tools[CLIENT_TOOL_IDS["audioplayer.mode.set"]] != null) out.deviceControl.audioplayer.modeSet = tools[CLIENT_TOOL_IDS["audioplayer.mode.set"]];
+  if (wifi_connect != null)
+    out.deviceControl.connectWifi = async (ssid, passphrase) => {
+      await wifi_connect({ ssid, passphrase });
+    };
+  if (tools[CLIENT_TOOL_IDS["audioplayer.get"]] != null)
+    out.deviceControl.audioplayer.get =
+      tools[CLIENT_TOOL_IDS["audioplayer.get"]];
+  if (tools[CLIENT_TOOL_IDS["audioplayer.playlist.get"]] != null)
+    out.deviceControl.audioplayer.playlistGet =
+      tools[CLIENT_TOOL_IDS["audioplayer.playlist.get"]];
+  if (tools[CLIENT_TOOL_IDS["audioplayer.playlist.set"]] != null)
+    out.deviceControl.audioplayer.playlistSet =
+      tools[CLIENT_TOOL_IDS["audioplayer.playlist.set"]];
+  if (tools[CLIENT_TOOL_IDS["audioplayer.playlist.append"]] != null)
+    out.deviceControl.audioplayer.playlistAppend =
+      tools[CLIENT_TOOL_IDS["audioplayer.playlist.append"]];
+  if (tools[CLIENT_TOOL_IDS["audioplayer.play"]] != null)
+    out.deviceControl.audioplayer.play =
+      tools[CLIENT_TOOL_IDS["audioplayer.play"]];
+  if (tools[CLIENT_TOOL_IDS["audioplayer.stop"]] != null)
+    out.deviceControl.audioplayer.stop =
+      tools[CLIENT_TOOL_IDS["audioplayer.stop"]];
+  if (tools[CLIENT_TOOL_IDS["audioplayer.mode.set"]] != null)
+    out.deviceControl.audioplayer.modeSet =
+      tools[CLIENT_TOOL_IDS["audioplayer.mode.set"]];
   return out;
 }
-async function answerClientRequest(request: RPCRequest, handlers: GizClawPeerRPCHandlers | undefined): Promise<RPCResponse> {
-  const unsupported = (): RPCResponse => rpcErrorResponse(request.id, RPC_ERROR_METHOD_NOT_FOUND, "unsupported method");
-  const invalid = (): RPCResponse => rpcErrorResponse(request.id, RPC_ERROR_INVALID_PARAMS, "invalid params");
-  const ok = (result: unknown): RPCResponse => ({ id: request.id, result, v: RPC_VERSION });
+async function answerClientRequest(
+  request: RPCRequest,
+  handlers: GizClawPeerRPCHandlers | undefined,
+): Promise<RPCResponse> {
+  const unsupported = (): RPCResponse =>
+    rpcErrorResponse(
+      request.id,
+      RPC_ERROR_METHOD_NOT_FOUND,
+      "unsupported method",
+    );
+  const invalid = (): RPCResponse =>
+    rpcErrorResponse(request.id, RPC_ERROR_INVALID_PARAMS, "invalid params");
+  const ok = (result: unknown): RPCResponse => ({
+    id: request.id,
+    result,
+    v: RPC_VERSION,
+  });
   const control = handlers?.deviceControl;
   try {
-    if (request.method !== "client.tool.v0.invoke") handlers?.observe?.(request.method);
+    if (request.method !== "client.tool.v0.invoke")
+      handlers?.observe?.(request.method);
     switch (request.method) {
       case "client.rpc.methods.list": {
         const methods = [1, 2, 135, 136, 137];
         if (control?.readMhsStates != null) methods.push(133);
         if (control?.writeMhsStates != null) methods.push(134);
-        return ok({methods: methods.sort((a,b) => a-b)});
+        return ok({ methods: methods.sort((a, b) => a - b) });
       }
-      case "client.tool.v0.list": return ok({tools: supportedDeviceTools(handlers)});
+      case "client.tool.v0.list":
+        return ok({ tools: supportedDeviceTools(handlers) });
       case "client.mhs.v0.read": {
         const handler = control?.readMhsStates;
         if (handler == null) return unsupported();
@@ -2630,18 +2723,44 @@ async function answerClientRequest(request: RPCRequest, handlers: GizClawPeerRPC
         if (invoke == null || !Number.isInteger(invoke.tool)) return invalid();
         if (CLIENT_TOOL_NAMES[invoke.tool] == null) return unsupported();
         let params: unknown;
-        try { params = decodeClientToolRequestPayload(invoke.tool, Uint8Array.from(atob(invoke.payload ?? ""), ch => ch.charCodeAt(0))); } catch { return invalid(); }
+        try {
+          params = decodeClientToolRequestPayload(
+            invoke.tool,
+            Uint8Array.from(atob(invoke.payload ?? ""), (ch) =>
+              ch.charCodeAt(0),
+            ),
+          );
+        } catch {
+          return invalid();
+        }
         handlers?.observe?.(request.method, invoke.tool);
-        const response = await answerDeviceProcedure({...request, params}, invoke.tool as ClientToolID, withToolProviders(handlers));
+        const response = await answerDeviceProcedure(
+          { ...request, params },
+          invoke.tool as ClientToolID,
+          withToolProviders(handlers),
+        );
         if (response.error != null) return response;
-        const payload = encodeClientToolResponsePayload(invoke.tool, response.result);
-        return ok({payload: btoa(Array.from(payload, byte => String.fromCharCode(byte)).join(""))});
+        const payload = encodeClientToolResponsePayload(
+          invoke.tool,
+          response.result,
+        );
+        return ok({
+          payload: btoa(
+            Array.from(payload, (byte) => String.fromCharCode(byte)).join(""),
+          ),
+        });
       }
-      default: return unsupported();
+      default:
+        return unsupported();
     }
   } catch (error) {
-    if (error instanceof GizClawDeviceControlError) return rpcErrorResponse(request.id, error.code, error.message);
-    return rpcErrorResponse(request.id, RPC_ERROR_INTERNAL, "device control handler failed");
+    if (error instanceof GizClawDeviceControlError)
+      return rpcErrorResponse(request.id, error.code, error.message);
+    return rpcErrorResponse(
+      request.id,
+      RPC_ERROR_INTERNAL,
+      "device control handler failed",
+    );
   }
 }
 
