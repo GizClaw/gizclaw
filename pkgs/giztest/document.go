@@ -29,6 +29,13 @@ var (
 )
 
 type Document struct {
+	// StartJitter and Stagger add random and repeat-index-based start offsets.
+	StartJitter string `json:"start_jitter,omitempty" yaml:"start_jitter,omitempty"`
+	Stagger     string `json:"stagger,omitempty" yaml:"stagger,omitempty"`
+	// StepJitter is the exclusive upper bound of think time after the first step.
+	StepJitter string `json:"step_jitter,omitempty" yaml:"step_jitter,omitempty"`
+	// Seed controls scheduling only. Nil uses the run seed; zero is a valid seed.
+	Seed      *int64                  `json:"seed,omitempty" yaml:"seed,omitempty"`
 	Path      string                  `json:"-" yaml:"-"`
 	Version   string                  `json:"version" yaml:"version"`
 	Name      string                  `json:"name" yaml:"name"`
@@ -419,6 +426,10 @@ func nonEmptyList(v string) []string {
 // check only the document-level contract; pass the driver that will execute
 // the document to also check operation support and driver-specific details.
 func LoadDocument(path string, driver Driver) (*Document, error) {
+	return loadDocument(path, driver, TimingOverrides{})
+}
+
+func loadDocument(path string, driver Driver, timing TimingOverrides) (*Document, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -447,6 +458,9 @@ func LoadDocument(path string, driver Driver) (*Document, error) {
 	doc.Path = path
 	if doc.Repeat == 0 {
 		doc.Repeat = 1
+	}
+	if _, err := doc.timing(timing); err != nil {
+		return nil, err
 	}
 	if err := doc.validateSemantics(); err != nil {
 		return nil, err

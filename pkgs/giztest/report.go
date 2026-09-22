@@ -10,6 +10,8 @@ import (
 )
 
 type Report struct {
+	// Seed is the generated or CLI-supplied run seed. Tasks record their effective seed.
+	Seed       int64        `json:"seed"`
 	Version    string       `json:"version"`
 	Status     string       `json:"status"`
 	StartedAt  time.Time    `json:"started_at"`
@@ -17,38 +19,51 @@ type Report struct {
 	Tasks      []TaskReport `json:"tasks"`
 }
 type TaskReport struct {
-	Path        string            `json:"path"`
-	Name        string            `json:"name"`
-	TaskID      string            `json:"task_id"`
-	Status      string            `json:"status"`
-	RepeatIndex int               `json:"repeat_index"`
-	DurationMS  int64             `json:"duration_ms"`
-	Clients     map[string]string `json:"clients,omitempty"`
-	Steps       []StepReport      `json:"steps"`
-	Cleanup     []StepReport      `json:"cleanup,omitempty"`
-	Error       string            `json:"error,omitempty"`
+	Seed                 int64   `json:"seed"`
+	StartJitter          string  `json:"start_jitter"`
+	Stagger              string  `json:"stagger"`
+	StepJitter           string  `json:"step_jitter"`
+	PlannedStartOffsetMS float64 `json:"planned_start_offset_ms"`
+	// ActualStartOffsetMS is nil when cancelled before client setup starts.
+	ActualStartOffsetMS *float64          `json:"actual_start_offset_ms"`
+	StartedAt           *time.Time        `json:"started_at,omitempty"`
+	Path                string            `json:"path"`
+	Name                string            `json:"name"`
+	TaskID              string            `json:"task_id"`
+	Status              string            `json:"status"`
+	RepeatIndex         int               `json:"repeat_index"`
+	DurationMS          int64             `json:"duration_ms"`
+	Clients             map[string]string `json:"clients,omitempty"`
+	Steps               []StepReport      `json:"steps"`
+	Cleanup             []StepReport      `json:"cleanup,omitempty"`
+	Error               string            `json:"error,omitempty"`
 }
 type StepReport struct {
-	ID         string          `json:"id"`
-	Operation  string          `json:"operation"`
-	Client     string          `json:"client,omitempty"`
-	Status     string          `json:"status"`
-	Stage      string          `json:"stage"`
-	DurationMS int64           `json:"duration_ms"`
-	Error      string          `json:"error,omitempty"`
-	Evidence   map[string]any  `json:"evidence,omitempty"`
-	Attempts   []AttemptReport `json:"attempts,omitempty"`
+	StartedAt      *time.Time      `json:"started_at,omitempty"`
+	StartOffsetMS  *float64        `json:"start_offset_ms"`
+	PlannedDelayMS float64         `json:"planned_delay_ms"`
+	ID             string          `json:"id"`
+	Operation      string          `json:"operation"`
+	Client         string          `json:"client,omitempty"`
+	Status         string          `json:"status"`
+	Stage          string          `json:"stage"`
+	DurationMS     int64           `json:"duration_ms"`
+	Error          string          `json:"error,omitempty"`
+	Evidence       map[string]any  `json:"evidence,omitempty"`
+	Attempts       []AttemptReport `json:"attempts,omitempty"`
 	// Children reports the outcome of every child of a parallel step, so one
 	// child's failure stays visible next to the siblings that succeeded.
 	Children []StepReport `json:"children,omitempty"`
 }
 type AttemptReport struct {
-	Attempt     int            `json:"attempt"`
-	Status      string         `json:"status"`
-	FailureKind string         `json:"failure_kind,omitempty"`
-	DurationMS  int64          `json:"duration_ms"`
-	Error       string         `json:"error,omitempty"`
-	Evidence    map[string]any `json:"evidence,omitempty"`
+	StartedAt     *time.Time     `json:"started_at,omitempty"`
+	StartOffsetMS *float64       `json:"start_offset_ms"`
+	Attempt       int            `json:"attempt"`
+	Status        string         `json:"status"`
+	FailureKind   string         `json:"failure_kind,omitempty"`
+	DurationMS    int64          `json:"duration_ms"`
+	Error         string         `json:"error,omitempty"`
+	Evidence      map[string]any `json:"evidence,omitempty"`
 }
 
 func (r *Report) finish(start time.Time) {

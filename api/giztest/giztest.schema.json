@@ -78,6 +78,20 @@
           }
         }
       }
+    },
+    "start_jitter": {
+      "$ref": "#/$defs/timing_duration"
+    },
+    "stagger": {
+      "$ref": "#/$defs/timing_duration"
+    },
+    "step_jitter": {
+      "$ref": "#/$defs/timing_duration"
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
     }
   },
   "$defs": {
@@ -1212,6 +1226,10 @@
           ]
         }
       ]
+    },
+    "timing_duration": {
+      "type": "string",
+      "pattern": "^(0|([0-9]+(\\.[0-9]+)?(ns|us|µs|μs|ms|s|m|h))+)$"
     }
   }
 }

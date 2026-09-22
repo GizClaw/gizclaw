@@ -2,8 +2,15 @@ package giztestcmd
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
+
 	"strings"
 	"testing"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 )
 
 func TestValidateCommandHasNoRuntimeSideEffects(t *testing.T) {
@@ -74,6 +81,95 @@ func TestPlayCommandRequiresOneFile(t *testing.T) {
 			coded, ok := err.(interface{ ExitCode() int })
 			if !ok || coded.ExitCode() != exitValidation {
 				t.Fatalf("error = %#v", err)
+			}
+		})
+	}
+}
+
+func TestTimingFlagPresence(t *testing.T) {
+	for _, args := range [][]string{nil, {"--start-jitter=0", "--stagger=0", "--step-jitter=0", "--seed=0"}} {
+		cmd := newRunCmd()
+		if err := cmd.ParseFlags(args); err != nil {
+			t.Fatal(err)
+		}
+		timing := commandTiming(cmd)
+		if args == nil {
+			if timing.StartJitter != nil || timing.Stagger != nil || timing.StepJitter != nil || timing.Seed != nil {
+				t.Fatalf("defaults became overrides: %+v", timing)
+			}
+		} else if timing.StartJitter == nil || *timing.StartJitter != "0" || timing.Stagger == nil || *timing.Stagger != "0" || timing.StepJitter == nil || *timing.StepJitter != "0" || timing.Seed == nil || *timing.Seed != 0 {
+			t.Fatalf("explicit zeros lost: %+v", timing)
+		}
+	}
+}
+
+func TestRunRejectsInvalidTimingBeforeConnect(t *testing.T) {
+	for _, flag := range []string{"--start-jitter=-1s", "--stagger=later", "--step-jitter=0..3s", "--seed=-1"} {
+		cmd := NewCmd()
+		cmd.SetArgs([]string{"run", flag, writeTestDocument(t, validDocument)})
+		err := cmd.Execute()
+		if coded, ok := err.(interface{ ExitCode() int }); !ok || coded.ExitCode() != exitValidation {
+			t.Fatalf("%s error = %#v", flag, err)
+		}
+	}
+}
+
+func TestRunCanceledContextWritesUnstartedTaskReport(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	path := writeTestDocument(t, strings.Replace(validDocument, "clients:\n", "start_jitter: 1h\nclients:\n", 1))
+	output := filepath.Join(t.TempDir(), "report.json")
+	cmd := NewCmd()
+	cmd.SetContext(ctx)
+	cmd.SetArgs([]string{"run", path, "--seed=0", "--output", output})
+	err := cmd.Execute()
+	if coded, ok := err.(interface{ ExitCode() int }); !ok || coded.ExitCode() != exitExecution {
+		t.Fatalf("error = %#v", err)
+	}
+	data, err := os.ReadFile(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var report giztest.Report
+	if err := json.Unmarshal(data, &report); err != nil {
+		t.Fatal(err)
+	}
+	if report.Status != "failed" || report.Seed != 0 || len(report.Tasks) != 1 || report.Tasks[0].ActualStartOffsetMS != nil || report.Tasks[0].Error != "context canceled" {
+		t.Fatalf("report = %+v", report)
+	}
+}
+
+func TestRunBarrierTimingZeroOverrides(t *testing.T) {
+	for _, field := range []string{"start_jitter", "stagger", "step_jitter"} {
+		t.Run(field, func(t *testing.T) {
+			document := strings.Split(validDocument, "steps:\n")[0] + field + ": 1s\nsteps:\n  - id: sync\n    barrier: {}\n"
+			path := writeTestDocument(t, document)
+			cmd := NewCmd()
+			cmd.SetArgs([]string{"run", path})
+			err := cmd.Execute()
+			if coded, ok := err.(interface{ ExitCode() int }); !ok || coded.ExitCode() != exitValidation {
+				t.Fatalf("unmodified document error = %#v", err)
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			output := filepath.Join(t.TempDir(), "report.json")
+			cmd = NewCmd()
+			cmd.SetContext(ctx)
+			cmd.SetArgs([]string{"run", path, "--" + strings.ReplaceAll(field, "_", "-") + "=0", "--output", output})
+			err = cmd.Execute()
+			if coded, ok := err.(interface{ ExitCode() int }); !ok || coded.ExitCode() != exitExecution {
+				t.Fatalf("zero override did not reach execution: %#v", err)
+			}
+			data, err := os.ReadFile(output)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var report giztest.Report
+			if err := json.Unmarshal(data, &report); err != nil {
+				t.Fatal(err)
+			}
+			if len(report.Tasks) != 1 || report.Tasks[0].Error != "context canceled" || report.Tasks[0].StartJitter != "0s" || report.Tasks[0].Stagger != "0s" || report.Tasks[0].StepJitter != "0s" {
+				t.Fatalf("report = %+v", report)
 			}
 		})
 	}

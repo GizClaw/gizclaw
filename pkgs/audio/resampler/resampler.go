@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"io"
 	"sync"
-
-	"github.com/tphakala/go-audio-resampling"
 )
 
 // Resampler wraps an io.Reader and resamples audio from srcFmt to dstFmt.
@@ -20,7 +18,8 @@ type Resampler interface {
 }
 
 // Soxr wraps an io.Reader and resamples audio from srcFmt to dstFmt using
-// a pure Go resampler (no CGO/FFI dependencies).
+// a pure Go polyphase FIR (no CGO/FFI dependencies). The historical type name
+// is retained for source compatibility; it does not link libsoxr.
 type Soxr struct {
 	srcFmt Format
 	src    io.Reader
@@ -30,7 +29,7 @@ type Soxr struct {
 
 	mu            sync.Mutex
 	closeErr      error
-	resampler     resampling.Resampler
+	resampler     sampleEngine
 	leftover      []byte
 	needsResample bool
 	sourceDone    bool
@@ -40,23 +39,22 @@ type Soxr struct {
 
 // New creates a new Resampler that resamples audio from srcFmt to dstFmt. It
 // supports sample rate conversion and channel conversion (mono↔stereo). The
-// formats must use 16-bit signed integer samples.
+// formats must use 16-bit signed integer samples. Sample rates must be positive
+// signed 32-bit integers, with output/input ratio in [1/256, 256].
 func New(src io.Reader, srcFmt, dstFmt Format) (Resampler, error) {
+	// Bound rates before computing buffer sizes or advancing the integer clock.
+	if srcFmt.SampleRate <= 0 || dstFmt.SampleRate <= 0 || srcFmt.SampleRate > 1<<31-1 || dstFmt.SampleRate > 1<<31-1 {
+		return nil, fmt.Errorf("resampler: sample rates must be in [1, 2147483647]")
+	}
+	ratio := float64(dstFmt.SampleRate) / float64(srcFmt.SampleRate)
+	if ratio < 1.0/256 || ratio > 256 {
+		return nil, fmt.Errorf("resampler: sample rate ratio must be in [1/256, 256]")
+	}
 	needsResample := srcFmt.SampleRate != dstFmt.SampleRate
 
-	var rs resampling.Resampler
+	var rs sampleEngine
 	if needsResample {
-		config := &resampling.Config{
-			InputRate:  float64(srcFmt.SampleRate),
-			OutputRate: float64(dstFmt.SampleRate),
-			Channels:   dstFmt.channels(),
-			Quality:    resampling.QualitySpec{Preset: resampling.QualityHigh},
-		}
-		var err error
-		rs, err = resampling.New(config)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create resampler: %w", err)
-		}
+		rs = newFIR(srcFmt.SampleRate, dstFmt.SampleRate, dstFmt.channels())
 	}
 
 	r := &Soxr{
@@ -319,4 +317,10 @@ func monoToStereo(b []byte) int {
 		b[j+2], b[j+3] = s0, s1
 	}
 	return stereoLen
+}
+
+// sampleEngine consumes interleaved frames at the destination channel count.
+type sampleEngine interface {
+	Process([]float64) ([]float64, error)
+	Flush() ([]float64, error)
 }

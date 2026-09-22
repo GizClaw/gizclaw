@@ -475,6 +475,14 @@ supplies a `giztest.Driver` and its per-task `giztest.Session` while the runner
 keeps `barrier`, `output`, and `review`. `api/giztest/giztest.schema.json` is
 the cross-language document contract every runner validates against.
 
+See [Start offsets and think time](/en/using/cli#start-offsets-and-think-time)
+for scheduling and report fields. Go/C share seeded start jitter, stagger and
+step think time. JavaScript/Flutter validate and accept these top-level fields
+but ignore scheduling and record `timing_mode: ignored`, so SDK contract checks
+do not replace Go/C load measurements. Existing concurrency benchmarks retain
+explicit zero delays; the realistic concurrency-16 scenario defaults to jitter.
+Explicit zero CLI overrides provide a lockstep control with the same document.
+
 The Flutter runner is a desktop binary rather than a plain Dart CLI because the
 device side needs the `flutter_webrtc` platform implementation. `run_tests.sh`
 builds and runs it on macOS and Linux and skips it on other hosts.

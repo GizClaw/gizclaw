@@ -5,6 +5,9 @@
 version: gizclaw.test/v1alpha1
 name: benchmark.volc-ast-translate.realtime-concurrency-10
 repeat: 10
+start_jitter: 0s # Lockstep worst case; use CLI overrides for realistic load.
+stagger: 0s
+step_jitter: 0s
 clients:
   peer:
     identity: ephemeral

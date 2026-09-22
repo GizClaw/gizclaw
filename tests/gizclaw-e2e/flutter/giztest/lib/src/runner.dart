@@ -88,6 +88,7 @@ class Report {
     'version': 'v1',
     'status': status,
     'started_at': startedAt.toIso8601String(),
+    'timing_mode': 'ignored',
     'duration_ms': durationMs,
     'tasks': tasks.map((task) => task.toJson()).toList(),
   };
