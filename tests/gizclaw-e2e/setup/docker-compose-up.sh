@@ -23,6 +23,12 @@ stack_mode="standard"
 topology_mode="full"
 while (($# > 0)); do
   case "$1" in
+    --admission)
+      stack_mode="admission"
+      export GIZCLAW_E2E_ADMISSION_ONLY=1
+      export GIZCLAW_E2E_PEER_ADMISSION=registration-token
+      shift
+      ;;
     --volc-log)
       stack_mode="volc-log"
       shift
@@ -57,11 +63,17 @@ while (($# > 0)); do
       ;;
   esac
 done
+if [[ "$stack_mode" != "admission" ]]; then
+  unset GIZCLAW_E2E_ADMISSION_ONLY
+elif [[ "$topology_mode" != "full" ]]; then
+  echo "--admission only supports the standard Edge topology" >&2
+  exit 2
+fi
 if [[ "$stack_mode" == "observability" && "$topology_mode" != "full" ]]; then
   echo "--observability only supports the standard full Edge topology" >&2
   exit 2
 fi
-if [[ "$topology_mode" != "gateway-relay-recovery" ]]; then
+if [[ "$topology_mode" != "gateway-relay-recovery" && "$stack_mode" != "admission" ]]; then
   require_gizclaw_e2e_credentials "$env_file"
 fi
 if [[ "$stack_mode" == "volc-log" ]]; then
@@ -402,6 +414,9 @@ write_runtime_env() {
   local server_public_key="${4:-}"
 
   cat >"$state_dir/docker.env" <<EOF
+GIZCLAW_E2E_CREDENTIAL_FILE=$env_file
+GIZCLAW_E2E_ADMISSION_ONLY=${GIZCLAW_E2E_ADMISSION_ONLY:-}
+GIZCLAW_E2E_PEER_ADMISSION=${GIZCLAW_E2E_PEER_ADMISSION:-open}
 GIZCLAW_E2E_CONFIG_HOME=$config_home
 GIZCLAW_E2E_IDENTITIES_HOME=$identities_home
 GIZCLAW_E2E_JS_IDENTITY_DIR=$identities_home/peer
@@ -463,6 +478,9 @@ materialize_runtime_config() {
 
   rm -rf "$state_dir"
   mkdir -p "$state_dir"
+  if [[ "$stack_mode" == "admission" ]]; then
+    : > "$state_dir/credentials.env"
+  fi
   if [[ "$topology_mode" == "gateway-relay-recovery" ]]; then
     write_gateway_relay_credentials "$GIZCLAW_E2E_GATEWAY_RELAY_ENV_FILE"
   fi
@@ -699,6 +717,9 @@ export GIZCLAW_E2E_SERVER_ENDPOINT GIZCLAW_E2E_EDGE_ENDPOINT GIZCLAW_E2E_EDGE2_E
 export GIZCLAW_E2E_TURN_ENDPOINT GIZCLAW_E2E_TURN_RELAY_ADDRESS GIZCLAW_E2E_TURN_REALM GIZCLAW_E2E_TURN_USERNAME GIZCLAW_E2E_TURN_CREDENTIAL
 export GIZCLAW_E2E_TURN_RELAY_MIN_PORT GIZCLAW_E2E_TURN_RELAY_MAX_PORT
 export GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY
+if [[ "$stack_mode" == "admission" ]]; then
+  env_file="$state_root/$GIZCLAW_E2E_DOCKER_PROJECT/credentials.env"
+fi
 export GIZCLAW_E2E_CREDENTIAL_FILE="$env_file"
 export GIZCLAW_E2E_OBSERVABILITY
 export GIZCLAW_E2E_GATEWAY_RELAY_SUBNET GIZCLAW_E2E_GATEWAY_RELAY_SERVER_IP GIZCLAW_E2E_GATEWAY_RELAY_EDGE_IP GIZCLAW_E2E_GATEWAY_RELAY_EDGE2_IP

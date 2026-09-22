@@ -43,7 +43,9 @@ mkdir -p "$sfu_dir"
 # shellcheck source=../setup/credentials.sh
 # shellcheck disable=SC1091
 source "$repo_root/tests/gizclaw-e2e/setup/credentials.sh"
-require_gizclaw_e2e_credentials "$repo_root/tests/gizclaw-e2e/.env"
+if [[ "${GIZCLAW_E2E_ADMISSION_ONLY:-}" != "1" ]]; then
+  require_gizclaw_e2e_credentials "$repo_root/tests/gizclaw-e2e/.env"
+fi
 export GIZCLAW_E2E_CONFIG_HOME="$container_config_home"
 export GIZCLAW_E2E_SERVER_ENDPOINT="$container_server_endpoint"
 export GIZCLAW_E2E_TURN_ENDPOINT="$container_turn_endpoint"
@@ -147,7 +149,9 @@ skip_system_log { next }
   ' "$workspace_dir/config.yaml" > "$workspace_dir/config.yaml.tmp"
   mv "$workspace_dir/config.yaml.tmp" "$workspace_dir/config.yaml"
 fi
-if [[ "${GIZCLAW_E2E_CAPACITY_ONLY:-}" == "1" ]]; then
+# Admission tests use the advertised TCP ICE listener, avoiding unrelated TURN
+# gathering. The ordinary provider-backed topology keeps its relay configuration.
+if [[ "${GIZCLAW_E2E_CAPACITY_ONLY:-}" == "1" || "${GIZCLAW_E2E_ADMISSION_ONLY:-}" == "1" ]]; then
   awk '
     /^ice-servers:/ { skip = 1; next }
     skip && /^edge-nodes:/ { skip = 0 }
@@ -278,7 +282,7 @@ if ! edges_ready; then
   exit 1
 fi
 
-if [[ "${GIZCLAW_E2E_CAPACITY_ONLY:-}" != "1" && ( "$preserve_restart" != "1" || ! -f "$initialized_file" ) ]]; then
+if [[ "${GIZCLAW_E2E_ADMISSION_ONLY:-}" != "1" && "${GIZCLAW_E2E_CAPACITY_ONLY:-}" != "1" && ( "$preserve_restart" != "1" || ! -f "$initialized_file" ) ]]; then
   if "$setup_dir/reset_data.sh" init; then
     :
   else
