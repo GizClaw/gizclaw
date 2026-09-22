@@ -1562,8 +1562,25 @@ func historyPCMFormat(mimeType string) (pcm.Format, bool) {
 		params = nil
 	}
 	switch strings.ToLower(mediaType) {
-	case "audio/pcm", "audio/x-pcm":
+	case "audio/pcm":
 		return pcm.L16Mono16K, true
+	case "audio/x-pcm":
+		if len(params) == 0 {
+			return pcm.L16Mono16K, true
+		}
+		if params["format"] != "s16le" || params["channels"] != "1" {
+			return 0, false
+		}
+		switch params["rate"] {
+		case "16000":
+			return pcm.L16Mono16K, true
+		case "24000":
+			return pcm.L16Mono24K, true
+		case "48000":
+			return pcm.L16Mono48K, true
+		default:
+			return 0, false
+		}
 	case "audio/l16":
 		channels := 1
 		if raw := strings.TrimSpace(params["channels"]); raw != "" {

@@ -2270,7 +2270,7 @@ func (t *Transformer) mimeType() string {
 	case "ogg_opus":
 		return "audio/ogg"
 	case "pcm", "pcm_s16le":
-		return fmt.Sprintf("audio/L16; rate=%d; channels=%d", t.sampleRate, t.channels)
+		return fmt.Sprintf("audio/x-pcm; rate=%d; channels=%d; format=s16le", t.sampleRate, t.channels)
 	default:
 		return "audio/pcm"
 	}

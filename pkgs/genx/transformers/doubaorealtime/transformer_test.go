@@ -23,7 +23,7 @@ func TestNew(t *testing.T) {
 	if cfg := transformer.realtimeConfig().TTS.AudioConfig; cfg.Format != doubaospeech.FormatPCMS16LE || cfg.SampleRate != doubaospeech.SampleRate16000 || cfg.Channel != 1 {
 		t.Fatalf("default TTS audio config = %#v, want 16 kHz mono PCM16", cfg)
 	}
-	if got := transformer.outputMIMEType(); got != "audio/L16; rate=16000; channels=1" {
+	if got := transformer.outputMIMEType(); got != "audio/x-pcm; rate=16000; channels=1; format=s16le" {
 		t.Fatalf("default output MIME = %q", got)
 	}
 }

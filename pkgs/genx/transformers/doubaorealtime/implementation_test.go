@@ -149,7 +149,7 @@ func TestTransformerOutputAudioBlobsPassesPCM(t *testing.T) {
 	if err != nil {
 		t.Fatalf("outputAudioBlobs() error = %v", err)
 	}
-	if len(blobs) != 1 || blobs[0].MIMEType != "audio/L16; rate=16000; channels=1" || !bytes.Equal(blobs[0].Data, []byte{1, 2, 3}) {
+	if len(blobs) != 1 || blobs[0].MIMEType != "audio/x-pcm; rate=16000; channels=1; format=s16le" || !bytes.Equal(blobs[0].Data, []byte{1, 2, 3}) {
 		t.Fatalf("outputAudioBlobs() = %#v", blobs)
 	}
 }
@@ -631,7 +631,7 @@ func TestTransformerRealtimeAudioIdleProviderErrorClosesEveryOpenedRoute(t *test
 
 	transcript := routes[routeKey{role: genx.RoleUser, mimeType: "text/plain"}]
 	assistantText := routes[routeKey{role: genx.RoleModel, mimeType: "text/plain"}]
-	assistantAudio := routes[routeKey{role: genx.RoleModel, mimeType: "audio/l16; channels=1; rate=16000"}]
+	assistantAudio := routes[routeKey{role: genx.RoleModel, mimeType: "audio/x-pcm; channels=1; format=s16le; rate=16000"}]
 	for name, route := range map[string][]*genx.MessageChunk{
 		"transcript":      transcript,
 		"assistant text":  assistantText,
@@ -655,7 +655,7 @@ func TestTransformerRealtimeAudioIdleProviderErrorClosesEveryOpenedRoute(t *test
 	if !hasRealtimeTestText(assistantText, genx.RoleModel, "answer") {
 		t.Fatalf("assistant text route = %#v, want answer", assistantText)
 	}
-	if hasRealtimeTestBlob(assistantAudio, genx.RoleModel, "audio/L16; rate=16000; channels=1") {
+	if hasRealtimeTestBlob(assistantAudio, genx.RoleModel, "audio/x-pcm; rate=16000; channels=1; format=s16le") {
 		t.Fatalf("assistant audio route = %#v, want zero audio data before error EOS", assistantAudio)
 	}
 }
@@ -735,7 +735,7 @@ func TestTransformerRealtimeResponseDeadlineClosesEveryOpenedRoute(t *testing.T)
 
 	for name, key := range map[string]routeKey{
 		"assistant text":  {role: genx.RoleModel, mimeType: "text/plain"},
-		"assistant audio": {role: genx.RoleModel, mimeType: "audio/l16; channels=1; rate=16000"},
+		"assistant audio": {role: genx.RoleModel, mimeType: "audio/x-pcm; channels=1; format=s16le; rate=16000"},
 	} {
 		route := routes[key]
 		if len(route) < 2 || !route[0].IsBeginOfStream() || !route[len(route)-1].IsEndOfStream() {
@@ -1033,7 +1033,7 @@ func TestTransformerPTTOverlappingInputRoutesAnonymousAudioToCurrentTTS(t *testi
 			secondAudio = append(secondAudio, blob.Data...)
 		}
 	}
-	if terminals["text/plain"] != 1 || terminals["audio/l16; channels=1; rate=16000"] != 1 {
+	if terminals["text/plain"] != 1 || terminals["audio/x-pcm; channels=1; format=s16le; rate=16000"] != 1 {
 		t.Fatalf("second response terminals = %v, want one text and audio EOS", terminals)
 	}
 	if !bytes.Equal(secondAudio, []byte{2, 3}) {
@@ -1535,7 +1535,7 @@ func TestTransformerPTTEmptyASRCompletesImmediatelyAndReplacesProviderSession(t 
 	requireRealtimeOwnedRouteLifecycles(t, turnOne, genx.RoleModel, doubaoRealtimeAssistantLabel, 2)
 	if hasRealtimeTestText(turnOne, genx.RoleUser, "second transcript") ||
 		hasRealtimeTestText(turnOne, genx.RoleModel, "second answer") ||
-		hasRealtimeTestBlob(turnOne, genx.RoleModel, "audio/L16; rate=16000; channels=1") {
+		hasRealtimeTestBlob(turnOne, genx.RoleModel, "audio/x-pcm; rate=16000; channels=1; format=s16le") {
 		t.Fatalf("empty turn contains data chunks: %#v", turnOne)
 	}
 	if transcriptEOSIndex < 0 || assistantBOSIndex <= transcriptEOSIndex {
@@ -1937,7 +1937,7 @@ func TestTransformerTextDrainsFinalResponseAfterInputEOF(t *testing.T) {
 	if !hasRealtimeTestText(chunks, genx.RoleModel, "answer") {
 		t.Fatalf("output missing final assistant text: %#v", chunks)
 	}
-	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/L16; rate=16000; channels=1") {
+	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/x-pcm; rate=16000; channels=1; format=s16le") {
 		t.Fatalf("output missing final assistant audio: %#v", chunks)
 	}
 }
@@ -2082,7 +2082,7 @@ func TestTransformerTextProviderLossClosesPartialResponseRoutes(t *testing.T) {
 	if hasRealtimeTestText(chunks, genx.RoleModel, "partial answer") {
 		t.Fatalf("provider loss flushed buffered unspoken chat text: %#v", chunks)
 	}
-	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/L16; rate=16000; channels=1") {
+	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/x-pcm; rate=16000; channels=1; format=s16le") {
 		t.Fatalf("output missing partial assistant audio: %#v", chunks)
 	}
 	var textClosed, audioClosed bool
@@ -2159,7 +2159,7 @@ func TestTransformerTextReplacementSessionRestoresOutputAcceptance(t *testing.T)
 	if !hasRealtimeTestText(chunks, genx.RoleModel, "replacement answer") {
 		t.Fatalf("output missing replacement assistant text: %#v", chunks)
 	}
-	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/L16; rate=16000; channels=1") {
+	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/x-pcm; rate=16000; channels=1; format=s16le") {
 		t.Fatalf("output missing replacement assistant audio: %#v", chunks)
 	}
 }
@@ -2207,7 +2207,7 @@ func TestTransformerPTTDrainsFinalResponseAfterInputEOF(t *testing.T) {
 	if !hasRealtimeTestText(chunks, genx.RoleModel, "answer") {
 		t.Fatalf("output missing final assistant text: %#v", chunks)
 	}
-	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/L16; rate=16000; channels=1") {
+	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/x-pcm; rate=16000; channels=1; format=s16le") {
 		t.Fatalf("output missing final assistant audio: %#v", chunks)
 	}
 	if got := session.audioCount(); got != 2 {
@@ -2443,7 +2443,7 @@ func TestTransformerRealtimeInterruptHandsUnreadAudioToReplacementSession(t *tes
 	}
 	if !hasRealtimeTestText(chunks, genx.RoleUser, "second transcript") ||
 		!hasRealtimeTestText(chunks, genx.RoleModel, "second answer") ||
-		!hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/L16; rate=16000; channels=1") {
+		!hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/x-pcm; rate=16000; channels=1; format=s16le") {
 		t.Fatalf("replacement response did not complete: %#v", chunks)
 	}
 }
@@ -2665,7 +2665,7 @@ func TestTransformerMapsRealtimeEventsToStreamChunks(t *testing.T) {
 	if !hasRealtimeTestText(chunks, genx.RoleModel, "收到") {
 		t.Fatalf("output missing model text: %#v", chunks)
 	}
-	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/L16; rate=16000; channels=1") {
+	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/x-pcm; rate=16000; channels=1; format=s16le") {
 		t.Fatalf("output missing model audio: %#v", chunks)
 	}
 	routes := make(map[string][]*genx.MessageChunk)
@@ -2767,7 +2767,7 @@ func TestTransformerInterruptsPendingResponseBeforeTTS(t *testing.T) {
 		t.Fatalf("missing interrupted audio EOS for pending response: %#v", chunks)
 	}
 	requireRealtimeOwnedRouteLifecycles(t, chunks, genx.RoleModel, doubaoRealtimeAssistantLabel, 2)
-	if hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/L16; rate=16000; channels=1") {
+	if hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/x-pcm; rate=16000; channels=1; format=s16le") {
 		t.Fatalf("interrupted audio backlog leaked before Error EOS: %#v", chunks)
 	}
 }
@@ -3337,7 +3337,7 @@ func (s *fakeTransformerSession) isClosed() bool {
 
 func TestTransformerExplicitPCMRateMIME(t *testing.T) {
 	explicitRate := newTransformer(nil, withFormat("pcm"), withSampleRate(24000))
-	if got := explicitRate.outputMIMEType(); got != "audio/L16; rate=24000; channels=1" {
+	if got := explicitRate.outputMIMEType(); got != "audio/x-pcm; rate=24000; channels=1; format=s16le" {
 		t.Fatalf("explicit 24 kHz PCM output MIME = %q", got)
 	}
 }

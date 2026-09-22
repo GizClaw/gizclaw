@@ -1883,6 +1883,11 @@ func TestHistoryPCMFormatAndChunkNames(t *testing.T) {
 		rate int
 	}{
 		{mime: "audio/pcm", ok: true, rate: 16000},
+		{mime: "audio/x-pcm", ok: true, rate: 16000},
+		{mime: "audio/x-pcm; rate=16000; channels=1; format=s16le", ok: true, rate: 16000},
+		{mime: "audio/x-pcm; rate=24000; channels=1; format=s16le", ok: true, rate: 24000},
+		{mime: "audio/x-pcm; rate=16000; channels=1; format=s16be", ok: false},
+		{mime: "audio/x-pcm; rate=16000; channels=2; format=s16le", ok: false},
 		{mime: "audio/L16; rate=24000; channels=1", ok: true, rate: 24000},
 		{mime: "audio/L16; rate=48000; channels=1", ok: true, rate: 48000},
 		{mime: "audio/L16; rate=8000; channels=1", ok: false},
