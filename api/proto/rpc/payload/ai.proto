@@ -570,4 +570,3 @@ message ToolGetResponse {
   string runtime_profile_name = 2;
   string runtime_profile_revision = 3;
 }
-
