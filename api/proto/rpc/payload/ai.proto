@@ -571,11 +571,3 @@ message ToolGetResponse {
   string runtime_profile_revision = 3;
 }
 
-message ToolInvokeRequest {
-  google.protobuf.Struct args = 1;
-  string invoke_name = 2;
-}
-
-message ToolInvokeResponse {
-  string data_json = 1;
-}
