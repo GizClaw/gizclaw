@@ -11,6 +11,8 @@ import 'dart:io';
 
 import 'package:yaml/yaml.dart';
 
+import 'timing.dart';
+
 const documentVersion = 'gizclaw.test/v1alpha1';
 const maxDocumentBytes = 4 << 20;
 const defaultTaskTimeout = Duration(minutes: 5);
@@ -536,6 +538,7 @@ GiztestDocument parseDocument(String path, String text) {
   if (parsed is! Map<String, Object?>) {
     _fail(path, 'document is not a YAML mapping');
   }
+  validateTiming(parsed);
   final clients = <String, ClientSpec>{};
   for (final entry
       in (parsed['clients'] as Map<String, Object?>? ?? const {}).entries) {

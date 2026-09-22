@@ -57,6 +57,7 @@ export type TaskReport = {
 };
 
 export type Report = {
+  timing_mode: "ignored";
   version: "v1";
   status: "passed" | "failed";
   started_at: string;
@@ -636,6 +637,7 @@ export async function runDocuments(
   return {
     duration_ms: Date.now() - started.getTime(),
     started_at: started.toISOString(),
+    timing_mode: "ignored",
     status: tasks.every((task) => task.status === "passed")
       ? "passed"
       : "failed",

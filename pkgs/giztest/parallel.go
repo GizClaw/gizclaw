@@ -28,6 +28,9 @@ type parallelChild struct {
 	result     StepResult
 	err        error
 	durationMS int64
+	// started publishes the operation timestamp independently of completion.
+	// This also lets an unfinished child report its start without a data race.
+	started chan time.Time
 }
 
 /*
@@ -108,7 +111,7 @@ The value is an object keyed by child id, so the step's capture and expect
 declarations address a child result by JSON pointer. One failing child fails
 the step, and every child's own outcome is returned as its own step report.
 */
-func runParallel(ctx context.Context, documentPath string, step Step, session Session, vars *Variables, tracker *parallelTracker, redactions []string) (map[string]any, []StepReport, map[string]any, error) {
+func runParallel(ctx context.Context, documentPath string, step Step, session Session, vars *Variables, tracker *parallelTracker, redactions []string, runStart time.Time) (map[string]any, []StepReport, map[string]any, error) {
 	if session == nil {
 		return nil, nil, nil, fmt.Errorf("step %s parallel requires a connected session", step.ID)
 	}
@@ -141,7 +144,7 @@ func runParallel(ctx context.Context, documentPath string, step Step, session Se
 	children := make([]*parallelChild, len(runs))
 	finished := make(chan struct{})
 	for i, run := range runs {
-		child := &parallelChild{step: step.Parallel[i], done: make(chan struct{})}
+		child := &parallelChild{step: step.Parallel[i], done: make(chan struct{}), started: make(chan time.Time, 1)}
 		children[i] = child
 		delay := childDelay(child.step)
 		go func() {
@@ -158,6 +161,7 @@ func runParallel(ctx context.Context, documentPath string, step Step, session Se
 				}
 			}
 			started := time.Now()
+			child.started <- started
 			child.result, child.err = run.Run(childCtx)
 			child.durationMS = time.Since(started).Milliseconds()
 		}()
@@ -179,7 +183,7 @@ func runParallel(ctx context.Context, documentPath string, step Step, session Se
 		cancel()
 		unfinished = tracker.stopAll(children)
 	}
-	value, reports, failures := parallelReports(children, tracker.cancelGrace, redactions)
+	value, reports, failures := parallelReports(children, tracker.cancelGrace, redactions, runStart)
 	evidence := map[string]any{"parallel": len(children), "children": childIDs(children)}
 	if len(unfinished) != 0 {
 		evidence["unfinished"] = unfinished
@@ -189,7 +193,7 @@ func runParallel(ctx context.Context, documentPath string, step Step, session Se
 
 // parallelReports turns the finished children into the step value and one
 // report per child. A child is read only after its done channel is closed.
-func parallelReports(children []*parallelChild, cancelGrace time.Duration, redactions []string) (map[string]any, []StepReport, []string) {
+func parallelReports(children []*parallelChild, cancelGrace time.Duration, redactions []string, runStart time.Time) (map[string]any, []StepReport, []string) {
 	value := make(map[string]any, len(children))
 	reports := make([]StepReport, 0, len(children))
 	var failures []string
@@ -210,6 +214,11 @@ func parallelReports(children []*parallelChild, cancelGrace time.Duration, redac
 			report.Status = "failed"
 			report.Evidence = map[string]any{"unfinished": true}
 			report.Error = fmt.Sprintf("parallel child %s did not stop within %s after cancellation", child.step.ID, cancelGrace)
+		}
+		select {
+		case started := <-child.started:
+			setStepStart(&report, started, runStart)
+		default:
 		}
 		reports = append(reports, report)
 	}

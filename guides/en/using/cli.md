@@ -364,3 +364,88 @@ deployed target, provision resources first and set `GIZCLAW_TEST_ENDPOINT` and
 `GIZCLAW_TEST_REGISTRATION_TOKEN`; the command has no Admin authority.
 Interactive `review.*` scenarios require an attached terminal and
 `--parallel 1`.
+
+### Start offsets and think time
+
+Scheduling fields belong at document level and all delays default to zero:
+
+```yaml
+repeat: 16
+start_jitter: 30s
+stagger: 2s
+step_jitter: 3s
+seed: 42
+```
+
+For zero-based task index `i`, the planned start offset is
+`i × stagger + U[0,start_jitter)`, relative to the whole run's `started_at`.
+Each document starts indexing at zero. The terms add; random jitter may reorder
+starts. Tasks are admitted in planned order and acquire a worker slot only when
+due. A busy pool delays actual starts without adding the offset again after
+admission. Task start precedes variable initialization, connection and client
+registration; the first step has its own timestamp. Start waiting does not
+consume the document `timeout`, which begins at actual task start.
+
+`step_jitter: 3s` independently samples `U[0,3s)` before each top-level step
+after the first, measured from the preceding step's completion. This includes a
+`parallel` parent, but preserves child `delay` and relative timing. Retry
+attempts and `finally` receive no extra think time. Think time consumes the
+task timeout; a step's timeout begins after its wait. All scheduling waits honor
+caller context cancellation and introduce no additional fallback deadline.
+`test run` turns SIGINT (Ctrl-C)/SIGTERM into context cancellation, runs cleanup
+and writes the failed report.
+Because an explicit `barrier` deliberately realigns tasks, documents containing
+one require all three delays to be zero.
+
+Duration fields accept strings `"0"`, `0s`, or non-negative decimal components
+with `ns`, `us`/`µs`/`μs`, `ms`, `s`, `m`, `h` units, including compound values
+such as `1m2.5s`. Range syntax such as `0..3s`, negatives, empty values, unknown
+fields and combinations whose maximum planned offset overflows Go's duration
+range are rejected. Random offsets use integral nanoseconds with an exclusive
+upper bound.
+
+Only explicitly supplied flags override document values: CLI > document >
+default. An explicit `0` disables the corresponding document delay:
+
+```sh
+gizclaw test run scenario.giztest.yaml --parallel 16 \
+  --start-jitter 30s --stagger 0 --step-jitter 3s --seed 42 --output jitter.json
+gizclaw test run scenario.giztest.yaml --parallel 16 \
+  --start-jitter 0 --stagger 0 --step-jitter 0 --seed 42 --output lockstep.json
+```
+
+`seed` / `--seed` is an integer in `0..9007199254740991`; zero is a valid seed.
+Without a CLI seed, the run generates and records one; a document seed overrides
+that fallback. Each task derives separate start and step random streams from
+its effective seed, document `name` and repeat index. Worker completion order,
+other selected documents and start jitter cannot perturb its think times.
+The same document and effective seed reproduce planned offsets and waits.
+Actual starts still depend on worker availability, network and operation time.
+The seed does not control identities, tokens or provider output.
+
+The Go/C JSON report records the run `seed`. Each task records its effective
+`seed`, `start_jitter`, `stagger`, `step_jitter`, `planned_start_offset_ms`,
+`actual_start_offset_ms` and `started_at`. Cancellation before task start leaves
+the actual offset `null` and omits started_at. Executed steps, cleanup, retry
+attempts and started parallel children record `started_at` and
+`start_offset_ms` relative to the run; unstarted operations have no invented
+timestamp. Each step's `planned_delay_ms` records its think time, excluded from
+step `duration_ms`. Offsets are fractional milliseconds. Task duration excludes
+start waiting; run duration includes waits and cleanup. When documents use
+different seeds, preserve those document seeds on replay or run each with its
+task's effective seed.
+
+Go and C execute this schedule and both support the four CLI overrides.
+JavaScript/Flutter SDK runners validate, accept and ignore these document
+fields, recording `timing_mode: ignored` in their reports. They do not expose
+the scheduling flags and are not jitter load measurement runners.
+
+Existing `benchmark.*concurrency*` documents explicitly set `start_jitter: 0s`,
+`stagger: 0s`, `step_jitter: 0s` to retain simultaneous-start worst-case baselines.
+`benchmark.flowcraft-voice-assistant.realistic-concurrency-16.giztest.yaml`
+defaults to 30 seconds of start jitter and 3 seconds of think time, with sixteen
+tasks requesting three long voice replies each. It asserts completed text and
+audio and records `audio_pacing.underruns` and `minimum_buffer_ms` for separate
+analysis; passing completion does not imply starvation-free playback.
+Use the CLI overrides above to measure realistic load with other existing
+benchmarks without changing what their defaults measure.

@@ -13,6 +13,7 @@ import (
 	"io"
 	"maps"
 	"math"
+	"math/rand/v2"
 	"reflect"
 	"regexp"
 	"slices"
@@ -27,6 +28,9 @@ import (
 
 // Options configures one Run.
 type Options struct {
+	// Timing overrides the selected documents, including explicit zero values.
+	Timing   TimingOverrides
+	runStart time.Time
 	// Driver executes every client-facing step. Required.
 	Driver Driver
 	// Parallel bounds concurrent tasks across all selected documents.
@@ -44,30 +48,51 @@ type Options struct {
 }
 
 type task struct {
-	doc     *Document
-	index   int
-	barrier *TaskBarrier
+	timing      timingConfig
+	seed        int64
+	startOffset time.Duration
+	doc         *Document
+	index       int
+	barrier     *TaskBarrier
 }
 
 func Run(ctx context.Context, docs []*Document, opts Options) Report {
 	started := time.Now()
-	report := Report{Version: "v1", StartedAt: started}
+	seed := rand.Int64N(maxTimingSeed + 1)
+	if opts.Timing.Seed != nil {
+		seed = *opts.Timing.Seed
+	}
+	report := Report{Version: "v1", StartedAt: started, Seed: seed}
+	opts.runStart = started
 	var groups [][]task
 	taskCount := 0
 	for _, doc := range docs {
+		timing, timingErr := doc.timing(opts.Timing)
+		if timingErr != nil || opts.Parallel < 1 {
+			if timingErr == nil {
+				timingErr = fmt.Errorf("parallel must be positive")
+			}
+			result := taskReport(task{doc: doc, seed: seed})
+			result.Error = timingErr.Error()
+			report.Tasks = append(report.Tasks, result)
+			continue
+		}
 		var barrier *TaskBarrier
 		if documentHasBarrier(doc) {
 			barrier = NewTaskBarrier(doc.Repeat)
 			if opts.Parallel < doc.Repeat {
 				for i := range doc.Repeat {
-					report.Tasks = append(report.Tasks, TaskReport{Path: doc.Path, Name: doc.Name, TaskID: fmt.Sprintf("%s-%04d", doc.Name, i), RepeatIndex: i, Status: "failed", Error: fmt.Sprintf("parallelism %d is below barrier group %d", opts.Parallel, doc.Repeat)})
+					result := taskReport(timing.plan(doc, i, seed))
+					result.Error = fmt.Sprintf("parallelism %d is below barrier group %d", opts.Parallel, doc.Repeat)
+					report.Tasks = append(report.Tasks, result)
 				}
 				continue
 			}
 		}
 		group := make([]task, 0, doc.Repeat)
 		for i := range doc.Repeat {
-			item := task{doc: doc, index: i, barrier: barrier}
+			item := timing.plan(doc, i, seed)
+			item.barrier = barrier
 			if barrier == nil {
 				groups = append(groups, []task{item})
 			} else {
@@ -79,8 +104,18 @@ func Run(ctx context.Context, docs []*Document, opts Options) Report {
 			groups = append(groups, group)
 		}
 	}
+	// Admit due tasks in planned order; waiting tasks do not occupy worker slots.
+	slices.SortStableFunc(groups, func(a, b []task) int {
+		if a[0].startOffset < b[0].startOffset {
+			return -1
+		}
+		if a[0].startOffset > b[0].startOffset {
+			return 1
+		}
+		return 0
+	})
 	results := make(chan TaskReport, taskCount)
-	slots := make(chan struct{}, opts.Parallel)
+	slots := make(chan struct{}, max(opts.Parallel, 1))
 	var wg sync.WaitGroup
 	go func() {
 		defer func() {
@@ -88,6 +123,14 @@ func Run(ctx context.Context, docs []*Document, opts Options) Report {
 			close(results)
 		}()
 		for groupIndex, group := range groups {
+			if err := waitTiming(ctx, time.Until(started.Add(group[0].startOffset))); err != nil {
+				for _, remaining := range groups[groupIndex:] {
+					for _, item := range remaining {
+						results <- cancelledTaskReport(item, ctx)
+					}
+				}
+				return
+			}
 			acquired := 0
 			for acquired < len(group) {
 				if ctx.Err() != nil {
@@ -130,11 +173,9 @@ func cancelledTaskReport(item task, ctx context.Context) TaskReport {
 	if err == nil {
 		err = ctx.Err()
 	}
-	return TaskReport{
-		Path: item.doc.Path, Name: item.doc.Name,
-		TaskID:      fmt.Sprintf("%s-%04d", item.doc.Name, item.index),
-		RepeatIndex: item.index, Status: "failed", Error: SafeError(err),
-	}
+	result := taskReport(item)
+	result.Error = SafeError(err)
+	return result
 }
 
 // HasBarrier reports whether the document synchronizes its repeated tasks.
@@ -151,7 +192,17 @@ func documentHasBarrier(doc *Document) bool {
 
 func runTask(parent context.Context, item task, opts Options) TaskReport {
 	started := time.Now()
-	result := TaskReport{Path: item.doc.Path, Name: item.doc.Name, TaskID: fmt.Sprintf("%s-%04d", item.doc.Name, item.index), RepeatIndex: item.index, Status: "failed"}
+	result := taskReport(item)
+	if err := context.Cause(parent); err != nil {
+		item.barrier.Abort(err)
+		result.Error = SafeError(err)
+		return result
+	}
+	result.StartedAt = &started
+	if !opts.runStart.IsZero() {
+		offset := milliseconds(started.Sub(opts.runStart))
+		result.ActualStartOffsetMS = &offset
+	}
 	timeout, _ := item.doc.taskTimeout()
 	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
@@ -185,8 +236,21 @@ func runTask(parent context.Context, item task, opts Options) TaskReport {
 	}
 	opts.parallel = newParallelTracker(opts.parallelCancelGrace)
 	failed := false
-	for _, step := range item.doc.Steps {
+	random := timingRandom(item.seed, item.doc.Name, item.index, "steps")
+	for index, step := range item.doc.Steps {
+		var delay time.Duration
+		if index > 0 {
+			delay = sampleJitter(random, item.timing.stepJitter)
+		}
+		if err := waitTiming(ctx, delay); err != nil {
+			item.barrier.Abort(err)
+			result.Error = SafeError(err, redactions...)
+			result.Steps = append(result.Steps, StepReport{ID: step.ID, Operation: step.Operation(), Client: step.Client, Status: "failed", Stage: "step_jitter", PlannedDelayMS: milliseconds(delay), Error: result.Error})
+			failed = true
+			break
+		}
 		stepResult, err := RunStep(ctx, item.doc.Path, step, session, vars, item.barrier, opts, redactions)
+		stepResult.PlannedDelayMS = milliseconds(delay)
 		result.Steps = append(result.Steps, stepResult)
 		if err != nil {
 			item.barrier.Abort(err)
@@ -299,6 +363,7 @@ func runStepWithRetry(ctx context.Context, documentPath string, step Step, sessi
 		kind := failureKind(err)
 		attempts = append(attempts, AttemptReport{
 			Attempt: attempt, Status: attemptReport.Status, FailureKind: kind,
+			StartedAt: attemptReport.StartedAt, StartOffsetMS: attemptReport.StartOffsetMS,
 			DurationMS: attemptReport.DurationMS, Error: attemptReport.Error,
 			Evidence: maps.Clone(attemptReport.Evidence),
 		})
@@ -314,6 +379,7 @@ func runStepWithRetry(ctx context.Context, documentPath string, step Step, sessi
 			}
 		}
 	}
+	setStepStart(&report, started, opts.runStart)
 	report.Attempts = attempts
 	report.DurationMS = time.Since(started).Milliseconds()
 	return report, finalErr
@@ -457,6 +523,7 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, session Se
 	started := time.Now()
 	op := step.Operation()
 	report := StepReport{ID: step.ID, Operation: op, Client: step.Client, Status: "failed", Stage: op}
+	setStepStart(&report, started, opts.runStart)
 	stepCtx, cancel := context.WithCancel(ctx)
 	if step.Timeout != "" {
 		duration, err := time.ParseDuration(step.Timeout)
@@ -485,7 +552,7 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, session Se
 	case "parallel":
 		var children []StepReport
 		var childValues map[string]any
-		childValues, children, evidence, err = runParallel(stepCtx, documentPath, step, session, vars, opts.parallel, redactions)
+		childValues, children, evidence, err = runParallel(stepCtx, documentPath, step, session, vars, opts.parallel, redactions, opts.runStart)
 		report.Children = children
 		if childValues != nil {
 			value = childValues

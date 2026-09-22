@@ -29,6 +29,13 @@ var (
 )
 
 type Document struct {
+	// StartJitter and Stagger add random and repeat-index-based start offsets.
+	StartJitter string `json:"start_jitter,omitempty" yaml:"start_jitter,omitempty"`
+	Stagger     string `json:"stagger,omitempty" yaml:"stagger,omitempty"`
+	// StepJitter is the exclusive upper bound of think time after the first step.
+	StepJitter string `json:"step_jitter,omitempty" yaml:"step_jitter,omitempty"`
+	// Seed controls scheduling only. Nil uses the run seed; zero is a valid seed.
+	Seed      *int64                  `json:"seed,omitempty" yaml:"seed,omitempty"`
 	Path      string                  `json:"-" yaml:"-"`
 	Version   string                  `json:"version" yaml:"version"`
 	Name      string                  `json:"name" yaml:"name"`
@@ -487,6 +494,9 @@ func validateUserStory(data []byte) error {
 }
 
 func (d *Document) validateSemantics() error {
+	if _, err := d.timing(TimingOverrides{}); err != nil {
+		return err
+	}
 	if d.Version != "gizclaw.test/v1alpha1" || !namePattern.MatchString(d.Name) {
 		return fmt.Errorf("invalid version or name")
 	}

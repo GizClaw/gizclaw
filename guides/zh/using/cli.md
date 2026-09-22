@@ -304,3 +304,66 @@ client/turn、最后事件时间和已观察媒体，不包含内容。默认 re
 本地 Docker E2E 会先统一 Apply Admin resources。直接测试已部署环境时，预先准备资源并设置
 `GIZCLAW_TEST_ENDPOINT`、`GIZCLAW_TEST_REGISTRATION_TOKEN`；命令本身没有 Admin 权限。
 人工 `review.*` 场景要求 attached terminal 和 `--parallel 1`。
+
+### 启动偏移与 think time
+
+调度字段位于文档顶层，默认全部为零：
+
+```yaml
+repeat: 16
+start_jitter: 30s
+stagger: 2s
+step_jitter: 3s
+seed: 42
+```
+
+任务索引 `i` 从零开始，计划启动偏移为 `i × stagger + U[0,start_jitter)`，相对整个
+run 的 `started_at` 计算；每份文档重新从 `i = 0` 编号。二者相加，随机部分可能使任务
+启动顺序与索引不同。Runner 按计划时间调度，到期后才占并发槽；槽位不足时实际启动会
+推迟，不会在拿到槽位后再完整等待一次偏移。启动发生在创建变量、连接与注册客户端之前，
+首个 step 的时间另行记录。启动等待不消耗文档 `timeout`；timeout 从实际任务启动计算。
+
+`step_jitter: 3s` 表示首步之后、每个顶层 step 执行前独立抽取 `U[0,3s)` 的等待，
+上一步结束后开始计时。它包括顶层 `parallel`，但不改变其子步骤的 `delay` 或相对时序；
+retry attempt 和 `finally` 不增加 think time。think time 消耗任务 timeout，step timeout
+从等待结束后开始。所有调度等待均响应调用方 context 取消，不创建额外兜底 deadline。
+`test run` 把 SIGINT（Ctrl-C）/SIGTERM 转为 context 取消，执行清理并写出失败报告。
+显式 `barrier` 会主动重新对齐任务，因此有 barrier 的文档只允许这三个字段均为零。
+
+这些 duration 字段接受字符串 `"0"`、`0s`，或带 `ns`、`us`/`µs`/`μs`、`ms`、`s`、`m`、
+`h` 单位的非负十进制及组合（例如 `1m2.5s`）。范围写法 `0..3s`、负数、空值、未知字段
+和会导致最大计划偏移超过 Go duration 范围的组合均被拒绝。随机值为纳秒精度，右边界不包含。
+
+CLI 只覆盖显式给出的字段，优先级为 CLI > 文档 > 默认；显式 `0` 可以关闭文档中的延迟：
+
+```sh
+gizclaw test run scenario.giztest.yaml --parallel 16 \
+  --start-jitter 30s --stagger 0 --step-jitter 3s --seed 42 --output jitter.json
+gizclaw test run scenario.giztest.yaml --parallel 16 \
+  --start-jitter 0 --stagger 0 --step-jitter 0 --seed 42 --output lockstep.json
+```
+
+`seed` / `--seed` 是 `0..9007199254740991` 内的整数，零也是有效 seed。未提供 CLI seed 时
+run 生成并记录一个 seed；文档自己的 seed 可覆盖该回退值。每个任务以有效 seed、文档
+`name`、repeat index 派生独立的启动与步骤随机流，因此 worker 完成顺序、其他被选文档和
+启动 jitter 不会扰动该任务的 think time。相同文档和有效 seed 重现计划偏移与等待值；实际
+启动时间仍取决于 worker 可用性、网络与操作执行耗时。seed 不控制身份、token、provider 输出。
+
+Go/C JSON report 的 `seed` 记录 run seed。每个 task 记录有效 `seed`、`start_jitter`、
+`stagger`、`step_jitter`、`planned_start_offset_ms`、`actual_start_offset_ms` 和 `started_at`。
+实际启动前被取消的任务，actual offset 为 `null` 且不写 started_at。每个执行过的 step、
+cleanup、retry attempt 和已启动的 parallel child 都记录 `started_at` 与相对 run 的
+`start_offset_ms`；尚未开始的操作不伪造时间。step 的 `planned_delay_ms` 记录该次 think time，
+不计入 step `duration_ms`。偏移用可带小数的毫秒表示；task duration 不含启动等待，run duration
+包含等待和 cleanup。混合文档 seed 时，重放须保留各文档 seed，或分别使用 task 的有效 seed。
+
+Go 与 C runner 执行上述调度，且都支持四个 CLI 覆盖参数。JavaScript/Flutter SDK runner
+校验并接受这些文档字段，然后忽略调度，报告明确标为 `timing_mode: ignored`；它们不提供
+这些 CLI 覆盖参数，不用于 jitter 负载测量。
+
+现有 `benchmark.*concurrency*` 文档显式使用 `start_jitter: 0s`、`stagger: 0s`、
+`step_jitter: 0s`，保留同时启动的 worst-case 基准。
+`benchmark.flowcraft-voice-assistant.realistic-concurrency-16.giztest.yaml` 默认使用 30 秒启动
+jitter 和 3 秒 think time，16 个任务各请求三次长语音回复。它断言回复完成且包含文字、音频，
+并保留 `audio_pacing.underruns` 与 `minimum_buffer_ms` 供独立分析；完成通过不代表没有饥饿。
+其余原有基准可用上面的 CLI 参数执行 realistic load，不改变文件本身的默认测量含义。

@@ -3,6 +3,8 @@ package giztestcmd
 import (
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"github.com/spf13/cobra"
@@ -175,7 +177,15 @@ func newRunCmd() *cobra.Command {
 				return codedError(exitValidation, fmt.Errorf("review document %s requires --parallel 1", doc.Name))
 			}
 		}
-		report := giztest.Run(cmd.Context(), docs, giztest.Options{
+		timing := commandTiming(cmd)
+		if err := giztest.ValidateTiming(docs, timing); err != nil {
+			return codedError(exitValidation, err)
+		}
+		ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		fmt.Fprintf(cmd.OutOrStdout(), "Giztest starting: %d documents, parallel=%d\n", len(docs), parallel)
+		report := giztest.Run(ctx, docs, giztest.Options{
+			Timing:   timing,
 			Driver:   newDriver(fullEvidence, nil),
 			Parallel: parallel,
 			In:       os.Stdin,
@@ -196,6 +206,7 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().IntVar(&parallel, "parallel", 1, "maximum concurrent tasks across all selected documents")
 	cmd.Flags().StringVar(&output, "output", "", "write an atomic JSON report")
 	cmd.Flags().StringVar(&evidence, "evidence", "redacted", "report evidence mode: redacted or full (full may contain sensitive relay text)")
+	addTimingFlags(cmd)
 	return cmd
 }
 
@@ -221,4 +232,33 @@ func reportHasReviewFailure(report giztest.Report) bool {
 		}
 	}
 	return false
+}
+
+// addTimingFlags keeps flag presence separate from its value: --start-jitter=0
+// must override a non-zero document value, and --seed=0 is a real seed.
+func addTimingFlags(cmd *cobra.Command) {
+	cmd.Flags().String("start-jitter", "0", "override uniform task start jitter (exclusive upper bound)")
+	cmd.Flags().String("stagger", "0", "override repeat-index-based task start spacing")
+	cmd.Flags().String("step-jitter", "0", "override uniform think time before steps after the first")
+	cmd.Flags().Int64("seed", 0, "scheduling seed (0..9007199254740991); generated and reported when omitted")
+}
+
+func commandTiming(cmd *cobra.Command) giztest.TimingOverrides {
+	var result giztest.TimingOverrides
+	for _, field := range []struct {
+		name   string
+		target **string
+	}{
+		{"start-jitter", &result.StartJitter}, {"stagger", &result.Stagger}, {"step-jitter", &result.StepJitter},
+	} {
+		if cmd.Flags().Changed(field.name) {
+			value, _ := cmd.Flags().GetString(field.name)
+			*field.target = &value
+		}
+	}
+	if cmd.Flags().Changed("seed") {
+		value, _ := cmd.Flags().GetInt64("seed")
+		result.Seed = &value
+	}
+	return result
 }
