@@ -155,3 +155,23 @@ Firmware remains an independent Admin resource and is not part of the RuntimePro
 RuntimeProfile uses SQL `runtime_profiles`, `registration_tokens`, `registration_token_activations`, and `runtime_profile_owners`. Resource configuration remains JSON; identities, versions, limits, and bindings use separate columns. Lists push cursors and limits into SQL. Profile/token updates and deletes compare incarnation and row_version. Registration and snapshot publication serialize by owner within each process, while token write locks enforce capacity across processes.
 
 Admin creation and updates require registration-token input to fit within 512 UTF-8 bytes, rather than 512 characters, matching the admission value limit. Oversized input returns 400 before persistence.
+
+## Workspace safety fences
+
+The six AI Workspace parameter variants accept optional `safety_fence_level`: `off`, `general`, or `child`. Off injects no text; general targets NSFW content such as sexual, violent, and illegal content; child adds age-appropriate constraints. GizClaw defines only these levels and supplies no fence wording. Tenants provide complete prompts in RuntimeProfile `spec.safety_fences.general.prompt` and `spec.safety_fences.child.prompt`, each containing 1–4096 Unicode characters. Child neither inherits nor concatenates general: its own prompt must contain every applicable rule. There is no off entry.
+
+Omission preserves the stored Workspace value; never configured means off. Explicit changes apply on the next reload. Devices send the level alongside `input` in `server.run.workspace.reload-with-options.parameters`, with no extra call. Invalid enums are rejected on parameters.set, reload-with-options, create, and put (RPC `INVALID_ARGUMENT`, Admin HTTP put 400). SFU system Workspaces accept valid levels as a no-op without storing them or resolving a Profile.
+
+On a driver that supports system prompts, reload resolves non-off levels from the current snapshot of the Workspace owner's bound RuntimeProfile. A missing entry, invalid prompt, or unavailable Profile fails reload explicitly. Missing-entry errors identify the Workspace name, level, and Profile ID; there is no silent fallback to off. Parameter updates and reload are not one transaction: a reload failure leaves the stored level in place. Fix the Profile or explicitly set off before retrying.
+
+GizClaw never decides where a fence goes. It hands the selected level's text (an empty string for `off`) to the Workflow as one named variable, and the Workflow, including each Workflow in a raid, decides whether and where to use it. A Workflow that never references the variable is unaffected by the fence.
+
+| Driver | How a Workflow references the fence |
+| --- | --- |
+| Flowcraft | The Board variable `safety_fence`, written before every turn; reference it as `${board.safety_fence}` in an LLM node's `system_prompt`. It replaces a product Board input with the same name. |
+| Eino | The reserved `input.safety_fence` binding (`string`), inherited by batch, race, and subgraph runs; bind it into a prompt node with `inputs: {safety_fence: {from: input.safety_fence}}` and use it in the template. |
+| Doubao Realtime, Doubao Realtime Duplex, DashScope Realtime | The `${input.safety_fence}` placeholder in Workflow or Workspace `instructions`. The fence travels as the `safety_fence` transformer pattern parameter; peergenx replaces every placeholder and trims surrounding whitespace while building the transformer, and passes instructions without the placeholder to the provider unchanged. The dotted name keeps the `${NAME}` environment expansion of `gizclaw admin apply` and the Terraform provider from consuming it. |
+
+The current ASTTranslate provider path has no system-prompt entry point: valid levels are stored but provide no variable and never resolve the Profile, so a level the Profile does not define still reloads. SFU system Workspaces behave the same way, which lets a device send one level to every Workspace.
+
+A fence is a system prompt sent to the model. Its effectiveness depends on the selected model; this configuration does not implement a separate content moderator.

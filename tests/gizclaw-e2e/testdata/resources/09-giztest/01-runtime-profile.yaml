@@ -34,6 +34,16 @@ spec:
         flowcraft-speaker-voices: {resource_id: flowcraft-speaker-voices, i18n: {en: {display_name: Flowcraft Speaker Voices}, zh-CN: {display_name: Flowcraft 分段音色}}}
         eino-mixed-provider-voices: {resource_id: eino-mixed-provider-voices, i18n: {en: {display_name: Eino Mixed Provider Voices}, zh-CN: {display_name: Eino 跨厂商音色}}}
         flowcraft-mixed-provider-voices: {resource_id: flowcraft-mixed-provider-voices, i18n: {en: {display_name: Flowcraft Mixed Provider Voices}, zh-CN: {display_name: Flowcraft 跨厂商音色}}}
+        safety-fence-flowcraft: {resource_id: safety-fence-flowcraft, i18n: {en: {display_name: Safety Fence Flowcraft}, zh-CN: {display_name: 安全围栏 Flowcraft}}}
+        safety-fence-eino: {resource_id: safety-fence-eino, i18n: {en: {display_name: Safety Fence Eino}, zh-CN: {display_name: 安全围栏 Eino}}}
+        safety-fence-doubao-realtime: {resource_id: safety-fence-doubao-realtime, i18n: {en: {display_name: Safety Fence Doubao Realtime}, zh-CN: {display_name: 安全围栏豆包实时}}}
+        safety-fence-doubao-realtime-duplex: {resource_id: safety-fence-doubao-realtime-duplex, i18n: {en: {display_name: Safety Fence Doubao Duplex}, zh-CN: {display_name: 安全围栏豆包双工}}}
+        safety-fence-dashscope-realtime: {resource_id: safety-fence-dashscope-realtime, i18n: {en: {display_name: Safety Fence DashScope Realtime}, zh-CN: {display_name: 安全围栏百炼实时}}}
+  # Only general is defined: server.workspace.safety-fence.missing-profile relies
+  # on child being absent. The marker lets giztest observe the injected prompt.
+  safety_fences:
+    general:
+      prompt: 安全规则：你的每一次回复都必须以“安全模式已开启”这六个字开头，然后再正常回答。
   resources:
     models:
       asr: {resource_id: volc-bigasr-sauc, i18n: {en: {display_name: Speech Recognition}, zh-CN: {display_name: 语音识别}}}

@@ -1288,6 +1288,9 @@ func (s *Server) validateReferences(ctx context.Context, workspace adminhttp.Wor
 		return err
 	}
 	if workspace.Parameters != nil {
+		if _, err := workspace.Parameters.SafetyFenceLevel(); err != nil {
+			return invalidWorkspaceReference("workspace parameters: %v", err)
+		}
 		if _, err := workspace.Parameters.TTSSpeechRatePercent(); err != nil {
 			return invalidWorkspaceReference("workspace parameters: %v", err)
 		}

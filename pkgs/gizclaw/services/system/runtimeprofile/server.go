@@ -682,6 +682,23 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 		}
 		spec.AppConfig = &normalized
 	}
+	if spec.SafetyFences != nil {
+		fences := *spec.SafetyFences
+		for level, fence := range map[string]*apitypes.RuntimeProfileSafetyFence{"general": fences.General, "child": fences.Child} {
+			if fence != nil {
+				if err := apitypes.ValidateSafetyFencePrompt(fence.Prompt); err != nil {
+					return apitypes.RuntimeProfile{}, fmt.Errorf("safety_fences.%s: %w", level, err)
+				}
+			}
+		}
+		if fences.General != nil {
+			fences.General = new(*fences.General)
+		}
+		if fences.Child != nil {
+			fences.Child = new(*fences.Child)
+		}
+		spec.SafetyFences = &fences
+	}
 	item := apitypes.RuntimeProfile{Id: id, Spec: spec}
 	if err := setProfileRevision(&item); err != nil {
 		return apitypes.RuntimeProfile{}, err

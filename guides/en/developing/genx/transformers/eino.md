@@ -51,6 +51,7 @@ Bindings use this closed namespace:
 | `input.parts` | `list` | Defensively copied non-text input parts. |
 | `history.messages` | `messages` | Ordered prior History only. |
 | `memory.recalled` | `string` | Combined rendered recall results. |
+| `input.safety_fence` | `string` | Host safety fence text from `Config.SafetyFence`, empty when none is selected; batch, race, and subgraph runs inherit it. The transformer never places it itself, so a Graph that does not bind it is unaffected. |
 | Bare State field name | Declared type | Current invocation-local State value. |
 
 Node input maps use component port names as keys. Node output maps use node output-port names as keys and declared State fields as values. Unknown bindings, fields, ports, or incompatible types fail in `New`.

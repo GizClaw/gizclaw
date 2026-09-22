@@ -1492,3 +1492,5 @@ Three speech-rate scenarios also run in that phase. `server.run.workspace.reload
 tests/gizclaw-e2e/testdata/bin/gizclaw test run \
   tests/gizclaw-e2e/giztest/eino-mixed-provider-voices.tts-speech-rate.giztest.yaml
 ```
+
+Offline safety-fence tests cover parameters, RPC, Profile SQL/revisions, and driver injection. `server.workspace.safety-fence.roundtrip.giztest.yaml` covers all levels and invalid values. `server.workspace.safety-fence.missing-profile.giztest.yaml` requires `GIZCLAW_TEST_FENCE_MISSING_REGISTRATION_TOKEN` bound to a Profile exposing assistants/flowcraft-chat-assistant without a child fence. `sfu.workspace.switch.giztest.yaml` covers all three no-op levels. Workspace Go tests verify Admin put 400; Giztest ephemeral Peer connections have no Admin HTTP permission. Live runs require deployed fixtures; offline parsing does not prove provider content enforcement.

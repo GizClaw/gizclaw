@@ -21,6 +21,8 @@ type Spec struct {
 	AgentType   string
 	Runtime     workspace.Runtime
 	ToolInvoker genx.ToolInvoker
+	// SafetyFencePrompt is the complete selected RuntimeProfile prompt for this generation.
+	SafetyFencePrompt string
 	// Memory is the Workspace-bound provider-neutral Store selected through
 	// the current RuntimeProfile. MemoryCloser belongs to this Agent generation.
 	Memory       memory.Store

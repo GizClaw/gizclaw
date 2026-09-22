@@ -154,3 +154,23 @@ Firmware 仍是独立 Admin 资源，不进入 RuntimeProfile projection。Regis
 RuntimeProfile 使用 SQL `runtime_profiles`、`registration_tokens`、`registration_token_activations` 和 `runtime_profile_owners` 表。资源配置保留 JSON，身份、版本、限制和绑定分别保存为列。列表把游标与数量限制下推 SQL，Profile 与 token 更新/删除比较 incarnation 和 row_version。注册的事务与快照发布按同一 owner 串行，无关 owner 可并行；token 写锁保证跨进程限额一致。
 
 Admin 创建和更新 registration token 时，原始输入必须不超过 512 个 UTF-8 字节（不是 512 个字符），与 admission value 上限一致；超限返回 400，不能写入数据库。
+
+## Workspace 安全围栏
+
+Workspace 六个 AI driver 的可选 `safety_fence_level` 固定为 `off`、`general`、`child`。`off` 不注入文本；`general` 用于约束色情、暴力、违法等 NSFW 内容；`child` 进一步要求儿童适龄。GizClaw 只定义级别，不内置任何围栏文案。租户在 RuntimeProfile 的 `spec.safety_fences.general.prompt` 和 `spec.safety_fences.child.prompt` 分别配置完整文本，长度为 1–4096 个 Unicode 字符。`child` 不继承、也不拼接 `general`；儿童档需要的全部规则必须写在自己的 prompt 中。没有 `off` 配置项。
+
+参数缺省时保留 Workspace 已存值；从未设置等同于 `off`。显式修改从下一次 reload 生效。设备可以在 `server.run.workspace.reload-with-options.parameters` 中与 `input` 一起发送，无需额外调用。非法枚举在 parameters.set、reload-with-options、create 和 put 被拒绝（RPC `INVALID_ARGUMENT`，Admin HTTP put 为 400）。SFU system Workspace 接受合法值并 no-op，不保存、不解析 Profile。
+
+支持系统提示的 driver 在 reload 时，从 Workspace owner 绑定的 RuntimeProfile 当前快照解析非 off 档位。缺少所选条目、prompt 无效或 Profile 不可用时，reload 明确失败；缺档错误包含 Workspace 名、级别和 Profile ID，不会静默降级为 off。参数更新与 reload 并非同一事务：reload 失败不会撤销已经保存的级别，调用方需修复 Profile 或显式改为 off 后重试。
+
+GizClaw 从不自行决定围栏放在哪里：它只把所选档位的文案（`off` 时为空字符串）以一个具名变量交给 Workflow，是否使用、放在哪个提示词的哪个位置，都由 Workflow（包括 raid 中的各个 Workflow）自己决定。没有引用该变量的 Workflow 不受围栏影响。
+
+| Driver | Workflow 中的引用方式 |
+| --- | --- |
+| Flowcraft | 每轮执行前写入 Board 变量 `safety_fence`；在 LLM 节点的 `system_prompt` 中写 `${board.safety_fence}`。同名的产品 Board 输入会被覆盖。 |
+| Eino | 保留 binding `input.safety_fence`（`string`），batch、race 与子图继承同一值；prompt 节点通过 `inputs: {safety_fence: {from: input.safety_fence}}` 绑定后在模板中引用。 |
+| Doubao Realtime、Doubao Realtime Duplex、DashScope Realtime | 在 Workflow 或 Workspace 的 `instructions` 中写占位符 `${input.safety_fence}`。围栏以 `safety_fence` transformer pattern 参数下发，peergenx 构建 transformer 时替换全部占位符并去掉首尾空白；没有占位符的 instructions 原样传给 provider。占位符带点号，因此不会被 `gizclaw admin apply` 与 Terraform provider 的 `${NAME}` 环境变量展开误替换。 |
+
+ASTTranslate 的当前 provider 路径没有系统提示入口：合法级别被接受并保存，但不提供变量，也不解析 Profile；Profile 未配置该档同样不影响 reload。SFU system Workspace 同理。设备因此可以把同一个级别发给全部 Workspace。
+
+围栏是发给模型的系统提示，约束效果仍依赖所选模型；这项配置不提供独立的内容审核器。

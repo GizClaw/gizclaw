@@ -14,6 +14,33 @@ import 'dart:core' as $core;
 
 import 'package:protobuf/protobuf.dart' as $pb;
 
+/// Fixed strictness levels; prompt text belongs to the RuntimeProfile.
+class SafetyFenceLevel extends $pb.ProtobufEnum {
+  static const SafetyFenceLevel SAFETY_FENCE_LEVEL_UNSPECIFIED =
+      SafetyFenceLevel._(
+          0, _omitEnumNames ? '' : 'SAFETY_FENCE_LEVEL_UNSPECIFIED');
+  static const SafetyFenceLevel SAFETY_FENCE_LEVEL_OFF =
+      SafetyFenceLevel._(1, _omitEnumNames ? '' : 'SAFETY_FENCE_LEVEL_OFF');
+  static const SafetyFenceLevel SAFETY_FENCE_LEVEL_GENERAL =
+      SafetyFenceLevel._(2, _omitEnumNames ? '' : 'SAFETY_FENCE_LEVEL_GENERAL');
+  static const SafetyFenceLevel SAFETY_FENCE_LEVEL_CHILD =
+      SafetyFenceLevel._(3, _omitEnumNames ? '' : 'SAFETY_FENCE_LEVEL_CHILD');
+
+  static const $core.List<SafetyFenceLevel> values = <SafetyFenceLevel>[
+    SAFETY_FENCE_LEVEL_UNSPECIFIED,
+    SAFETY_FENCE_LEVEL_OFF,
+    SAFETY_FENCE_LEVEL_GENERAL,
+    SAFETY_FENCE_LEVEL_CHILD,
+  ];
+
+  static final $core.List<SafetyFenceLevel?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 3);
+  static SafetyFenceLevel? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const SafetyFenceLevel._(super.value, super.name);
+}
+
 class ModelProviderKind extends $pb.ProtobufEnum {
   static const ModelProviderKind MODEL_PROVIDER_KIND_UNSPECIFIED =
       ModelProviderKind._(

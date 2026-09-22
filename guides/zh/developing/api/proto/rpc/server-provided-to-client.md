@@ -52,3 +52,9 @@ Friend Group 消息是群组绑定 Workspace History 的只读投影。list/get/
 ## Server 发起的设备控制
 
 Public HTTP `/gizclaw/v1/device*` 的控制 route 由 Server 作为 caller，经 API Key owner 的在线 Peer connection 调用 `client.device.status.get`（100）、`client.device.volume.set`（101）、`client.device.sound.play`（102）、`client.device.find`（126）、`client.device.reboot`（103）、`client.wifi.status.get`（104）、`client.wifi.saved.list`（105）、`client.wifi.saved.forget`（106）、`client.wifi.scan`（108）、`client.wifi.connect`（109）与 `client.firmware.update`（111）。这些方法的 provider 责任、幂等要求与错误码见 [Client Provided to Server](./client-provided-to-server)。Server 侧规则：每个命令使用独立 RPC stream，通常超时 5 秒，扫描按请求夹取到 1–15 秒；同一 owner 的命令按到达顺序串行转发，不合并、不重放；`volume.set` 返回的 `PeerStatus` 以设备回报时间写入 owner 的 status，随后 `server.status.get` 与 `GET /device/status` 读到同一份数据；设备确认 `reboot`、`firmware.update` 或 `wifi.connect` 后，同一连接上的后续命令返回 `DEVICE_OFFLINE`，直到设备以新连接重连。
+
+`safety_fence_level` 可与 `input` 一起发送，按下一次 reload 生效；完整三档语义、缺档失败和 ASTTranslate 限制见 [RuntimeProfile 安全围栏](../../../gizclaw/services/runtime-profile#workspace-安全围栏)。
+
+```json
+{"workspace_name":"story-workspace","parameters":{"input":"WORKSPACE_INPUT_MODE_PUSH_TO_TALK","safety_fence_level":"SAFETY_FENCE_LEVEL_CHILD"}}
+```

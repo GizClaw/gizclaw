@@ -1570,9 +1570,22 @@ export type RuntimeProfileResources = {
     };
 };
 
+export type RuntimeProfileSafetyFence = {
+    prompt: string;
+};
+
+/**
+ * Tenant-defined complete prompts for each level. Child does not inherit or concatenate general. No built-in prompts or off entry exist. Reload fails when the selected level is missing.
+ */
+export type RuntimeProfileSafetyFences = {
+    general?: RuntimeProfileSafetyFence;
+    child?: RuntimeProfileSafetyFence;
+};
+
 export type RuntimeProfileSpec = {
     workflows: RuntimeProfileWorkflows;
     resources: RuntimeProfileResources;
+    safety_fences?: RuntimeProfileSafetyFences;
     app_config?: RuntimeProfileAppConfig;
 };
 
@@ -2760,6 +2773,7 @@ export type AstTranslateWorkspaceParameters = {
     voice?: WorkspaceParametersAstTranslateVoiceParameters;
     enable_source_language_detect?: boolean;
     denoise?: boolean;
+    safety_fence_level?: SafetyFenceLevel;
     /**
      * Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
      */
@@ -2794,6 +2808,7 @@ export type DashScopeRealtimeWorkspaceParameters = {
     asr_model?: string;
     input_audio_format?: 'pcm16' | 'mp3' | 'wav';
     output_audio_format?: 'pcm16' | 'mp3' | 'wav';
+    safety_fence_level?: SafetyFenceLevel;
     /**
      * Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
      */
@@ -2814,6 +2829,7 @@ export type DoubaoRealtimeDuplexWorkspaceParameters = {
     input_transcode?: boolean;
     output_speed?: number;
     output_loudness?: number;
+    safety_fence_level?: SafetyFenceLevel;
     /**
      * Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
      */
@@ -2833,6 +2849,7 @@ export type DoubaoRealtimeWorkspaceParameters = {
     audio?: DoubaoRealtimeAudio;
     tools?: Array<DoubaoRealtimeFunctionTool>;
     extension?: DoubaoRealtimeExtension;
+    safety_fence_level?: SafetyFenceLevel;
     /**
      * Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
      */
@@ -2847,6 +2864,7 @@ export type EinoWorkspaceParameters = {
     agent_type: 'eino';
     conversation?: ConversationParameters;
     input?: WorkspaceInputMode;
+    safety_fence_level?: SafetyFenceLevel;
     /**
      * Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
      */
@@ -2858,6 +2876,7 @@ export type FlowcraftWorkspaceParameters = {
     agent_type: 'flowcraft';
     input?: WorkspaceInputMode;
     conversation?: ConversationParameters;
+    safety_fence_level?: SafetyFenceLevel;
     /**
      * Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
      */
@@ -2867,6 +2886,11 @@ export type FlowcraftWorkspaceParameters = {
      */
     e2e?: boolean;
 };
+
+/**
+ * Safety strictness: off injects nothing; general restricts NSFW content; child adds age-appropriate constraints. GizClaw supplies no prompt text. The selected RuntimeProfile prompt is complete; child does not inherit general.
+ */
+export type SafetyFenceLevel = 'off' | 'general' | 'child';
 
 export type WorkspaceInputMode = 'push-to-talk' | 'realtime';
 

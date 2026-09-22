@@ -633,6 +633,7 @@ func (run *turnRun) runGraph() (*runState, string, error) {
 		Messages:      messages,
 		Parts:         run.parts,
 		History:       history,
+		SafetyFence:   config.SafetyFence,
 	}, initial, run)
 	if err != nil {
 		return nil, "", err

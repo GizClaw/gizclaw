@@ -15,6 +15,23 @@ import 'dart:convert' as $convert;
 import 'dart:core' as $core;
 import 'dart:typed_data' as $typed_data;
 
+@$core.Deprecated('Use safetyFenceLevelDescriptor instead')
+const SafetyFenceLevel$json = {
+  '1': 'SafetyFenceLevel',
+  '2': [
+    {'1': 'SAFETY_FENCE_LEVEL_UNSPECIFIED', '2': 0},
+    {'1': 'SAFETY_FENCE_LEVEL_OFF', '2': 1},
+    {'1': 'SAFETY_FENCE_LEVEL_GENERAL', '2': 2},
+    {'1': 'SAFETY_FENCE_LEVEL_CHILD', '2': 3},
+  ],
+};
+
+/// Descriptor for `SafetyFenceLevel`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List safetyFenceLevelDescriptor = $convert.base64Decode(
+    'ChBTYWZldHlGZW5jZUxldmVsEiIKHlNBRkVUWV9GRU5DRV9MRVZFTF9VTlNQRUNJRklFRBAAEh'
+    'oKFlNBRkVUWV9GRU5DRV9MRVZFTF9PRkYQARIeChpTQUZFVFlfRkVOQ0VfTEVWRUxfR0VORVJB'
+    'TBACEhwKGFNBRkVUWV9GRU5DRV9MRVZFTF9DSElMRBAD');
+
 @$core.Deprecated('Use modelProviderKindDescriptor instead')
 const ModelProviderKind$json = {
   '1': 'ModelProviderKind',
@@ -502,6 +519,16 @@ const ASTTranslateWorkspaceParameters$json = {
       '10': 'ttsSpeechRatePercent',
       '17': true
     },
+    {
+      '1': 'safety_fence_level',
+      '3': 11,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.SafetyFenceLevel',
+      '9': 9,
+      '10': 'safetyFenceLevel',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_denoise'},
@@ -513,6 +540,7 @@ const ASTTranslateWorkspaceParameters$json = {
     {'1': '_translation_model'},
     {'1': '_voice'},
     {'1': '_tts_speech_rate_percent'},
+    {'1': '_safety_fence_level'},
   ],
 };
 
@@ -528,10 +556,12 @@ final $typed_data.Uint8List aSTTranslateWorkspaceParametersDescriptor = $convert
     'VNb2RlSAVSBG1vZGWIAQESMAoRdHJhbnNsYXRpb25fbW9kZWwYCCABKAlIBlIQdHJhbnNsYXRp'
     'b25Nb2RlbIgBARJGCgV2b2ljZRgJIAEoCzIrLmdpemNsYXcucnBjLnYxLkFTVFRyYW5zbGF0ZV'
     'ZvaWNlUGFyYW1ldGVyc0gHUgV2b2ljZYgBARI6Chd0dHNfc3BlZWNoX3JhdGVfcGVyY2VudBgK'
-    'IAEoBUgIUhR0dHNTcGVlY2hSYXRlUGVyY2VudIgBAUIKCghfZGVub2lzZUIGCgRfZTJlQiAKHl'
-    '9lbmFibGVfc291cmNlX2xhbmd1YWdlX2RldGVjdEIICgZfaW5wdXRCDAoKX2xhbmdfcGFpckIH'
-    'CgVfbW9kZUIUChJfdHJhbnNsYXRpb25fbW9kZWxCCAoGX3ZvaWNlQhoKGF90dHNfc3BlZWNoX3'
-    'JhdGVfcGVyY2VudA==');
+    'IAEoBUgIUhR0dHNTcGVlY2hSYXRlUGVyY2VudIgBARJTChJzYWZldHlfZmVuY2VfbGV2ZWwYCy'
+    'ABKA4yIC5naXpjbGF3LnJwYy52MS5TYWZldHlGZW5jZUxldmVsSAlSEHNhZmV0eUZlbmNlTGV2'
+    'ZWyIAQFCCgoIX2Rlbm9pc2VCBgoEX2UyZUIgCh5fZW5hYmxlX3NvdXJjZV9sYW5ndWFnZV9kZX'
+    'RlY3RCCAoGX2lucHV0QgwKCl9sYW5nX3BhaXJCBwoFX21vZGVCFAoSX3RyYW5zbGF0aW9uX21v'
+    'ZGVsQggKBl92b2ljZUIaChhfdHRzX3NwZWVjaF9yYXRlX3BlcmNlbnRCFQoTX3NhZmV0eV9mZW'
+    '5jZV9sZXZlbA==');
 
 @$core.Deprecated('Use dashScopeRealtimeWorkflowSpecDescriptor instead')
 const DashScopeRealtimeWorkflowSpec$json = {
@@ -721,6 +751,16 @@ const DashScopeRealtimeWorkspaceParameters$json = {
       '10': 'ttsSpeechRatePercent',
       '17': true
     },
+    {
+      '1': 'safety_fence_level',
+      '3': 15,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.SafetyFenceLevel',
+      '9': 12,
+      '10': 'safetyFenceLevel',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_asr_model'},
@@ -735,6 +775,7 @@ const DashScopeRealtimeWorkspaceParameters$json = {
     {'1': '_vad'},
     {'1': '_voice'},
     {'1': '_tts_speech_rate_percent'},
+    {'1': '_safety_fence_level'},
   ],
 };
 
@@ -751,10 +792,12 @@ final $typed_data.Uint8List dashScopeRealtimeWorkspaceParametersDescriptor = $co
     'cm1hdBgKIAEoCUgHUhFvdXRwdXRBdWRpb0Zvcm1hdIgBARIlCgt0ZW1wZXJhdHVyZRgLIAEoAk'
     'gIUgt0ZW1wZXJhdHVyZYgBARIVCgN2YWQYDCABKAlICVIDdmFkiAEBEhkKBXZvaWNlGA0gASgJ'
     'SApSBXZvaWNliAEBEjoKF3R0c19zcGVlY2hfcmF0ZV9wZXJjZW50GA4gASgFSAtSFHR0c1NwZW'
-    'VjaFJhdGVQZXJjZW50iAEBQgwKCl9hc3JfbW9kZWxCBgoEX2UyZUINCgtfZW5hYmxlX2FzckIV'
-    'ChNfaW5wdXRfYXVkaW9fZm9ybWF0Qg8KDV9pbnN0cnVjdGlvbnNCFAoSX21heF9vdXRwdXRfdG'
-    '9rZW5zQggKBl9tb2RlbEIWChRfb3V0cHV0X2F1ZGlvX2Zvcm1hdEIOCgxfdGVtcGVyYXR1cmVC'
-    'BgoEX3ZhZEIICgZfdm9pY2VCGgoYX3R0c19zcGVlY2hfcmF0ZV9wZXJjZW50');
+    'VjaFJhdGVQZXJjZW50iAEBElMKEnNhZmV0eV9mZW5jZV9sZXZlbBgPIAEoDjIgLmdpemNsYXcu'
+    'cnBjLnYxLlNhZmV0eUZlbmNlTGV2ZWxIDFIQc2FmZXR5RmVuY2VMZXZlbIgBAUIMCgpfYXNyX2'
+    '1vZGVsQgYKBF9lMmVCDQoLX2VuYWJsZV9hc3JCFQoTX2lucHV0X2F1ZGlvX2Zvcm1hdEIPCg1f'
+    'aW5zdHJ1Y3Rpb25zQhQKEl9tYXhfb3V0cHV0X3Rva2Vuc0IICgZfbW9kZWxCFgoUX291dHB1dF'
+    '9hdWRpb19mb3JtYXRCDgoMX3RlbXBlcmF0dXJlQgYKBF92YWRCCAoGX3ZvaWNlQhoKGF90dHNf'
+    'c3BlZWNoX3JhdGVfcGVyY2VudEIVChNfc2FmZXR5X2ZlbmNlX2xldmVs');
 
 @$core.Deprecated('Use doubaoRealtimeDuplexWorkflowSpecDescriptor instead')
 const DoubaoRealtimeDuplexWorkflowSpec$json = {
@@ -963,6 +1006,16 @@ const DoubaoRealtimeDuplexWorkspaceParameters$json = {
       '10': 'ttsSpeechRatePercent',
       '17': true
     },
+    {
+      '1': 'safety_fence_level',
+      '3': 15,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.SafetyFenceLevel',
+      '9': 13,
+      '10': 'safetyFenceLevel',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_e2e'},
@@ -978,6 +1031,7 @@ const DoubaoRealtimeDuplexWorkspaceParameters$json = {
     {'1': '_sample_rate'},
     {'1': '_voice'},
     {'1': '_tts_speech_rate_percent'},
+    {'1': '_safety_fence_level'},
   ],
 };
 
@@ -994,11 +1048,13 @@ final $typed_data.Uint8List doubaoRealtimeDuplexWorkspaceParametersDescriptor = 
     'cHV0X2xvdWRuZXNzGAogASgDSAhSDm91dHB1dExvdWRuZXNziAEBEiYKDG91dHB1dF9zcGVlZB'
     'gLIAEoA0gJUgtvdXRwdXRTcGVlZIgBARIkCgtzYW1wbGVfcmF0ZRgMIAEoA0gKUgpzYW1wbGVS'
     'YXRliAEBEhkKBXZvaWNlGA0gASgJSAtSBXZvaWNliAEBEjoKF3R0c19zcGVlY2hfcmF0ZV9wZX'
-    'JjZW50GA4gASgFSAxSFHR0c1NwZWVjaFJhdGVQZXJjZW50iAEBQgYKBF9lMmVCCQoHX2Zvcm1h'
-    'dEIRCg9faW5wdXRfY2hhbm5lbHNCDwoNX2lucHV0X2Zvcm1hdEIUChJfaW5wdXRfc2FtcGxlX3'
-    'JhdGVCEgoQX2lucHV0X3RyYW5zY29kZUIPCg1faW5zdHJ1Y3Rpb25zQggKBl9tb2RlbEISChBf'
-    'b3V0cHV0X2xvdWRuZXNzQg8KDV9vdXRwdXRfc3BlZWRCDgoMX3NhbXBsZV9yYXRlQggKBl92b2'
-    'ljZUIaChhfdHRzX3NwZWVjaF9yYXRlX3BlcmNlbnQ=');
+    'JjZW50GA4gASgFSAxSFHR0c1NwZWVjaFJhdGVQZXJjZW50iAEBElMKEnNhZmV0eV9mZW5jZV9s'
+    'ZXZlbBgPIAEoDjIgLmdpemNsYXcucnBjLnYxLlNhZmV0eUZlbmNlTGV2ZWxIDVIQc2FmZXR5Rm'
+    'VuY2VMZXZlbIgBAUIGCgRfZTJlQgkKB19mb3JtYXRCEQoPX2lucHV0X2NoYW5uZWxzQg8KDV9p'
+    'bnB1dF9mb3JtYXRCFAoSX2lucHV0X3NhbXBsZV9yYXRlQhIKEF9pbnB1dF90cmFuc2NvZGVCDw'
+    'oNX2luc3RydWN0aW9uc0IICgZfbW9kZWxCEgoQX291dHB1dF9sb3VkbmVzc0IPCg1fb3V0cHV0'
+    'X3NwZWVkQg4KDF9zYW1wbGVfcmF0ZUIICgZfdm9pY2VCGgoYX3R0c19zcGVlY2hfcmF0ZV9wZX'
+    'JjZW50QhUKE19zYWZldHlfZmVuY2VfbGV2ZWw=');
 
 @$core.Deprecated('Use einoWorkflowSpecDescriptor instead')
 const EinoWorkflowSpec$json = {
@@ -1101,12 +1157,23 @@ const EinoWorkspaceParameters$json = {
       '10': 'ttsSpeechRatePercent',
       '17': true
     },
+    {
+      '1': 'safety_fence_level',
+      '3': 6,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.SafetyFenceLevel',
+      '9': 4,
+      '10': 'safetyFenceLevel',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_e2e'},
     {'1': '_conversation'},
     {'1': '_input'},
     {'1': '_tts_speech_rate_percent'},
+    {'1': '_safety_fence_level'},
   ],
 };
 
@@ -1118,8 +1185,10 @@ final $typed_data.Uint8List einoWorkspaceParametersDescriptor = $convert.base64D
     'YxLkNvbnZlcnNhdGlvblBhcmFtZXRlcnNIAVIMY29udmVyc2F0aW9uiAEBEj0KBWlucHV0GAQg'
     'ASgOMiIuZ2l6Y2xhdy5ycGMudjEuV29ya3NwYWNlSW5wdXRNb2RlSAJSBWlucHV0iAEBEjoKF3'
     'R0c19zcGVlY2hfcmF0ZV9wZXJjZW50GAUgASgFSANSFHR0c1NwZWVjaFJhdGVQZXJjZW50iAEB'
-    'QgYKBF9lMmVCDwoNX2NvbnZlcnNhdGlvbkIICgZfaW5wdXRCGgoYX3R0c19zcGVlY2hfcmF0ZV'
-    '9wZXJjZW50');
+    'ElMKEnNhZmV0eV9mZW5jZV9sZXZlbBgGIAEoDjIgLmdpemNsYXcucnBjLnYxLlNhZmV0eUZlbm'
+    'NlTGV2ZWxIBFIQc2FmZXR5RmVuY2VMZXZlbIgBAUIGCgRfZTJlQg8KDV9jb252ZXJzYXRpb25C'
+    'CAoGX2lucHV0QhoKGF90dHNfc3BlZWNoX3JhdGVfcGVyY2VudEIVChNfc2FmZXR5X2ZlbmNlX2'
+    'xldmVs');
 
 @$core.Deprecated('Use doubaoRealtimeAIGCMetadataDescriptor instead')
 const DoubaoRealtimeAIGCMetadata$json = {
@@ -2129,6 +2198,16 @@ const DoubaoRealtimeWorkspaceParameters$json = {
       '10': 'ttsSpeechRatePercent',
       '17': true
     },
+    {
+      '1': 'safety_fence_level',
+      '3': 11,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.SafetyFenceLevel',
+      '9': 8,
+      '10': 'safetyFenceLevel',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_audio'},
@@ -2139,6 +2218,7 @@ const DoubaoRealtimeWorkspaceParameters$json = {
     {'1': '_model'},
     {'1': '_conversation'},
     {'1': '_tts_speech_rate_percent'},
+    {'1': '_safety_fence_level'},
   ],
 };
 
@@ -2155,9 +2235,11 @@ final $typed_data.Uint8List doubaoRealtimeWorkspaceParametersDescriptor = $conve
     'dy5ycGMudjEuRG91YmFvUmVhbHRpbWVGdW5jdGlvblRvb2xSBXRvb2xzEk8KDGNvbnZlcnNhdG'
     'lvbhgJIAEoCzImLmdpemNsYXcucnBjLnYxLkNvbnZlcnNhdGlvblBhcmFtZXRlcnNIBlIMY29u'
     'dmVyc2F0aW9uiAEBEjoKF3R0c19zcGVlY2hfcmF0ZV9wZXJjZW50GAogASgFSAdSFHR0c1NwZW'
-    'VjaFJhdGVQZXJjZW50iAEBQggKBl9hdWRpb0IGCgRfZTJlQgwKCl9leHRlbnNpb25CCAoGX2lu'
-    'cHV0Qg8KDV9pbnN0cnVjdGlvbnNCCAoGX21vZGVsQg8KDV9jb252ZXJzYXRpb25CGgoYX3R0c1'
-    '9zcGVlY2hfcmF0ZV9wZXJjZW50');
+    'VjaFJhdGVQZXJjZW50iAEBElMKEnNhZmV0eV9mZW5jZV9sZXZlbBgLIAEoDjIgLmdpemNsYXcu'
+    'cnBjLnYxLlNhZmV0eUZlbmNlTGV2ZWxICFIQc2FmZXR5RmVuY2VMZXZlbIgBAUIICgZfYXVkaW'
+    '9CBgoEX2UyZUIMCgpfZXh0ZW5zaW9uQggKBl9pbnB1dEIPCg1faW5zdHJ1Y3Rpb25zQggKBl9t'
+    'b2RlbEIPCg1fY29udmVyc2F0aW9uQhoKGF90dHNfc3BlZWNoX3JhdGVfcGVyY2VudEIVChNfc2'
+    'FmZXR5X2ZlbmNlX2xldmVs');
 
 @$core.Deprecated('Use conversationParametersDescriptor instead')
 const ConversationParameters$json = {
@@ -2260,12 +2342,23 @@ const FlowcraftWorkspaceParameters$json = {
       '10': 'ttsSpeechRatePercent',
       '17': true
     },
+    {
+      '1': 'safety_fence_level',
+      '3': 6,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.SafetyFenceLevel',
+      '9': 4,
+      '10': 'safetyFenceLevel',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_conversation'},
     {'1': '_e2e'},
     {'1': '_input'},
     {'1': '_tts_speech_rate_percent'},
+    {'1': '_safety_fence_level'},
   ],
 };
 
@@ -2277,8 +2370,10 @@ final $typed_data.Uint8List flowcraftWorkspaceParametersDescriptor = $convert.ba
     '9uUGFyYW1ldGVyc0gAUgxjb252ZXJzYXRpb26IAQESFQoDZTJlGAMgASgISAFSA2UyZYgBARI9'
     'CgVpbnB1dBgEIAEoDjIiLmdpemNsYXcucnBjLnYxLldvcmtzcGFjZUlucHV0TW9kZUgCUgVpbn'
     'B1dIgBARI6Chd0dHNfc3BlZWNoX3JhdGVfcGVyY2VudBgFIAEoBUgDUhR0dHNTcGVlY2hSYXRl'
-    'UGVyY2VudIgBAUIPCg1fY29udmVyc2F0aW9uQgYKBF9lMmVCCAoGX2lucHV0QhoKGF90dHNfc3'
-    'BlZWNoX3JhdGVfcGVyY2VudA==');
+    'UGVyY2VudIgBARJTChJzYWZldHlfZmVuY2VfbGV2ZWwYBiABKA4yIC5naXpjbGF3LnJwYy52MS'
+    '5TYWZldHlGZW5jZUxldmVsSARSEHNhZmV0eUZlbmNlTGV2ZWyIAQFCDwoNX2NvbnZlcnNhdGlv'
+    'bkIGCgRfZTJlQggKBl9pbnB1dEIaChhfdHRzX3NwZWVjaF9yYXRlX3BlcmNlbnRCFQoTX3NhZm'
+    'V0eV9mZW5jZV9sZXZlbA==');
 
 @$core.Deprecated('Use modelDescriptor instead')
 const Model$json = {

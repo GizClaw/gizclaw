@@ -63,7 +63,7 @@ Firmware 不属于 RuntimeProfile catalog。RegistrationToken 可以为 Peer 绑
 | 31 | `server.workspace.history.audio.download` | 返回 history 音频 metadata，并通过 binary frames 传输音频 bytes。 |
 | 88 | `server.workspace.icon.download` | 按 Workspace name 和格式返回 icon metadata，并通过 binary frames 传输图片 bytes。 |
 
-`server.workspace.parameters.set` 的 `parameters` 是局部更新：当前支持 `input`、`conversation.initiative`、`conversation.agent_initiative_policy`（`eino`、`flowcraft` 和 `doubao_realtime` driver）以及 `tts_speech_rate_percent`，未提供的字段保持不变。`tts_speech_rate_percent` 是合成语音的语速，按 provider 正常语速的百分比表示（50..200，100 为正常），适用于所有会合成语音的 driver（`flowcraft`、`eino`、`doubao_realtime`、`doubao_realtime_duplex`、`dash_scope_realtime`、`asttranslate`）；缺省沿用 Workflow 自己的配置，设置后覆盖 Workflow 中各 provider 的静态语速，从下一次 reload 起生效，超出范围返回 `INVALID_ARGUMENT`。请求不接受 `agent_type`；Server 根据 Workspace 绑定的 Workflow driver 选择参数类型。合法但不受该 driver 或 system Workspace 领域支持的字段忽略；枚举值无效或 patch 为空仍返回 `INVALID_ARGUMENT`。共享 SFU Workspace 校验当前成员身份后接受 no-op，不改变输入模式或共享配置。
+`server.workspace.parameters.set` 的 `parameters` 是局部更新：当前支持 `input`、`conversation.initiative`、`conversation.agent_initiative_policy`（`eino`、`flowcraft` 和 `doubao_realtime` driver）以及 `tts_speech_rate_percent`、`safety_fence_level`，未提供的字段保持不变。`tts_speech_rate_percent` 是合成语音的语速，按 provider 正常语速的百分比表示（50..200，100 为正常），适用于所有会合成语音的 driver（`flowcraft`、`eino`、`doubao_realtime`、`doubao_realtime_duplex`、`dash_scope_realtime`、`asttranslate`）；缺省沿用 Workflow 自己的配置，设置后覆盖 Workflow 中各 provider 的静态语速，从下一次 reload 起生效，超出范围返回 `INVALID_ARGUMENT`。请求不接受 `agent_type`；Server 根据 Workspace 绑定的 Workflow driver 选择参数类型。合法但不受该 driver 或 system Workspace 领域支持的字段忽略；枚举值无效或 patch 为空仍返回 `INVALID_ARGUMENT`。共享 SFU Workspace 校验当前成员身份后接受 no-op，不改变输入模式或共享配置。
 
 ## Workflow、Model 与 Voice catalog
 
@@ -213,3 +213,16 @@ ID `0` 是 unspecified，不能调用。调用方遇到未知 method 时应按 m
 设备把用户的语速偏好与 `input` 一起在每次 `reload-with-options` 中带上即可，SFU Workspace 接受同样的请求并忽略语速。语速只在服务端合成时生效：支持原生语速的 provider 直接换算（Volc TTS `speed_ratio = p/100`，MiniMax `speed = p/100`，Doubao realtime、realtime duplex 和 AST `speech_rate = p - 100`），没有原生语速的 DashScope realtime 由 transformer 对输出 PCM 做保持音高的时间伸缩。`server.run.say` 使用当前激活 Workspace 的语速；Workspace history 回放保持录制时的音频。
 
 `server.run.workspace.set` 仅负责选择（SFU 会立即激活）；`server.run.workspace.reload` 保持空请求，只重载当前选择。Workspace 配置仍可独立通过 `server.workspace.put` 和 `server.workspace.parameters.set` 更新。
+
+`safety_fence_level` 的 JSON 值为 `off | general | child`，Protobuf JSON 使用 `SAFETY_FENCE_LEVEL_OFF/GENERAL/CHILD`，显式 UNSPECIFIED 非法。完整解析、注入与 reload 失败语义见 [RuntimeProfile 安全围栏](/zh/developing/gizclaw/services/runtime-profile#workspace-安全围栏)。
+
+C nanopb 调用方通过 `has_safety_fence_level` 区分省略与显式档位，例如设置 general：
+
+```c
+gizclaw_rpc_v1_WorkspaceParametersPatch parameters =
+    gizclaw_rpc_v1_WorkspaceParametersPatch_init_zero;
+parameters.has_safety_fence_level = true;
+parameters.safety_fence_level = gizclaw_rpc_v1_SafetyFenceLevel_SAFETY_FENCE_LEVEL_GENERAL;
+```
+
+设置 off 也需要将 `has_safety_fence_level` 置为 true；保持 false 则保留服务端已存值。字段描述由生成头文件中的 `WorkspaceParametersPatch_FIELDLIST` 提供，配套 `workspace.pb.c` 的 `PB_BIND` 在编译时引用它，因此新增字段不一定改变 `.pb.c` 的文件内容。修改 Proto 后仍须重新生成并校验完整 C 生成目录。

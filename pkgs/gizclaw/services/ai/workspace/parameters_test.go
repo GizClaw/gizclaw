@@ -114,7 +114,7 @@ func TestWorkspaceParametersWithPatchDerivesEino(t *testing.T) {
 	updated, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverEino, &realtime, &apitypes.ConversationParameters{
 		Initiative:            &agent,
 		AgentInitiativePolicy: &policy,
-	}, nil)
+	}, nil, nil)
 	if err != nil {
 		t.Fatalf("workspaceParametersWithPatch() error = %v", err)
 	}
@@ -139,7 +139,7 @@ func TestWorkspaceParametersWithPatchDerivesDoubaoRealtime(t *testing.T) {
 	updated, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverDoubaoRealtime, &pushToTalk, &apitypes.ConversationParameters{
 		Initiative:            &agent,
 		AgentInitiativePolicy: &policy,
-	}, nil)
+	}, nil, nil)
 	if err != nil {
 		t.Fatalf("workspaceParametersWithPatch() error = %v", err)
 	}
@@ -164,7 +164,7 @@ func TestWorkspaceParametersWithPatchDerivesDoubaoRealtime(t *testing.T) {
 		t.Fatal(err)
 	}
 	peer := apitypes.ConversationParametersInitiativePeer
-	updated, err = workspaceParametersWithPatch(existing, apitypes.WorkflowDriverDoubaoRealtime, nil, &apitypes.ConversationParameters{Initiative: &peer}, nil)
+	updated, err = workspaceParametersWithPatch(existing, apitypes.WorkflowDriverDoubaoRealtime, nil, &apitypes.ConversationParameters{Initiative: &peer}, nil, nil)
 	if err != nil {
 		t.Fatalf("workspaceParametersWithPatch(existing) error = %v", err)
 	}
@@ -188,7 +188,7 @@ func TestWorkspaceParametersPatchSupportsEveryDriver(t *testing.T) {
 		t.Run(string(driver), func(t *testing.T) {
 			realtime := apitypes.WorkspaceInputModeRealtime
 			conversation := &apitypes.ConversationParameters{Initiative: new(apitypes.ConversationParametersInitiativeAgent)}
-			updated, err := workspaceParametersWithPatch(nil, driver, &realtime, conversation, nil)
+			updated, err := workspaceParametersWithPatch(nil, driver, &realtime, conversation, nil, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -284,7 +284,7 @@ func TestWorkspaceParametersPatchStoresTTSSpeechRateForVoiceDrivers(t *testing.T
 		apitypes.WorkflowDriverDashscopeRealtime, apitypes.WorkflowDriverDoubaoRealtimeDuplex,
 	} {
 		t.Run(string(driver), func(t *testing.T) {
-			updated, err := workspaceParametersWithPatch(nil, driver, nil, nil, new(150))
+			updated, err := workspaceParametersWithPatch(nil, driver, nil, nil, new(150), nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -304,7 +304,7 @@ func TestWorkspaceParametersPatchStoresTTSSpeechRateForVoiceDrivers(t *testing.T
 }
 
 func TestWorkspaceParametersPatchIgnoresTTSSpeechRateForSFU(t *testing.T) {
-	updated, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverSfu, nil, nil, new(70))
+	updated, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverSfu, nil, nil, new(70), nil)
 	if err != nil {
 		t.Fatalf("workspaceParametersWithPatch(sfu) error = %v", err)
 	}

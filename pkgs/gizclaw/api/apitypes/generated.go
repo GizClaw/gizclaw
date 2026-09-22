@@ -2443,6 +2443,27 @@ func (e SFUWorkflowVariantDriver) Valid() bool {
 	}
 }
 
+// Defines values for SafetyFenceLevel.
+const (
+	SafetyFenceLevelChild   SafetyFenceLevel = "child"
+	SafetyFenceLevelGeneral SafetyFenceLevel = "general"
+	SafetyFenceLevelOff     SafetyFenceLevel = "off"
+)
+
+// Valid indicates whether the value is a known member of the SafetyFenceLevel enum.
+func (e SafetyFenceLevel) Valid() bool {
+	switch e {
+	case SafetyFenceLevelChild:
+		return true
+	case SafetyFenceLevelGeneral:
+		return true
+	case SafetyFenceLevelOff:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ServerInfoTransportMode.
 const (
 	ServerInfoTransportModeEdgeGateway ServerInfoTransportMode = "edge-gateway"
@@ -2889,8 +2910,11 @@ type ASTTranslateWorkspaceParameters struct {
 	Input                      *WorkspaceInputMode `json:"input,omitempty"`
 
 	// LangPair AST language pair, for example zh/en or en/zh. Use auto for automatic Chinese/English mode.
-	LangPair         *string           `json:"lang_pair,omitempty"`
-	Mode             *ASTTranslateMode `json:"mode,omitempty"`
+	LangPair *string           `json:"lang_pair,omitempty"`
+	Mode     *ASTTranslateMode `json:"mode,omitempty"`
+
+	// SafetyFenceLevel Safety strictness: off injects nothing; general restricts NSFW content; child adds age-appropriate constraints. GizClaw supplies no prompt text. The selected RuntimeProfile prompt is complete; child does not inherit general.
+	SafetyFenceLevel *SafetyFenceLevel `json:"safety_fence_level,omitempty"`
 	TranslationModel *string           `json:"translation_model,omitempty"`
 
 	// TtsSpeechRatePercent Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
@@ -3179,7 +3203,10 @@ type DashScopeRealtimeWorkspaceParameters struct {
 	Modalities        *[]DashScopeRealtimeWorkspaceParametersModalities      `json:"modalities,omitempty"`
 	Model             *string                                                `json:"model,omitempty"`
 	OutputAudioFormat *DashScopeRealtimeWorkspaceParametersOutputAudioFormat `json:"output_audio_format,omitempty"`
-	Temperature       *float32                                               `json:"temperature,omitempty"`
+
+	// SafetyFenceLevel Safety strictness: off injects nothing; general restricts NSFW content; child adds age-appropriate constraints. GizClaw supplies no prompt text. The selected RuntimeProfile prompt is complete; child does not inherit general.
+	SafetyFenceLevel *SafetyFenceLevel `json:"safety_fence_level,omitempty"`
+	Temperature      *float32          `json:"temperature,omitempty"`
 
 	// TtsSpeechRatePercent Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
 	TtsSpeechRatePercent *int                                     `json:"tts_speech_rate_percent,omitempty"`
@@ -3481,7 +3508,10 @@ type DoubaoRealtimeDuplexWorkspaceParameters struct {
 	Model           *string                                             `json:"model,omitempty"`
 	OutputLoudness  *int                                                `json:"output_loudness,omitempty"`
 	OutputSpeed     *int                                                `json:"output_speed,omitempty"`
-	SampleRate      *DoubaoRealtimeDuplexWorkspaceParametersSampleRate  `json:"sample_rate,omitempty"`
+
+	// SafetyFenceLevel Safety strictness: off injects nothing; general restricts NSFW content; child adds age-appropriate constraints. GizClaw supplies no prompt text. The selected RuntimeProfile prompt is complete; child does not inherit general.
+	SafetyFenceLevel *SafetyFenceLevel                                  `json:"safety_fence_level,omitempty"`
+	SampleRate       *DoubaoRealtimeDuplexWorkspaceParametersSampleRate `json:"sample_rate,omitempty"`
 
 	// TtsSpeechRatePercent Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
 	TtsSpeechRatePercent *int    `json:"tts_speech_rate_percent,omitempty"`
@@ -3583,8 +3613,11 @@ type DoubaoRealtimeWorkspaceParameters struct {
 	Instructions *string                  `json:"instructions,omitempty"`
 
 	// Model RuntimeProfile Model alias. Defaults to Workflow.spec.doubao_realtime.model.
-	Model *string                       `json:"model,omitempty"`
-	Tools *[]DoubaoRealtimeFunctionTool `json:"tools,omitempty"`
+	Model *string `json:"model,omitempty"`
+
+	// SafetyFenceLevel Safety strictness: off injects nothing; general restricts NSFW content; child adds age-appropriate constraints. GizClaw supplies no prompt text. The selected RuntimeProfile prompt is complete; child does not inherit general.
+	SafetyFenceLevel *SafetyFenceLevel             `json:"safety_fence_level,omitempty"`
+	Tools            *[]DoubaoRealtimeFunctionTool `json:"tools,omitempty"`
 
 	// TtsSpeechRatePercent Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
 	TtsSpeechRatePercent *int `json:"tts_speech_rate_percent,omitempty"`
@@ -3927,6 +3960,9 @@ type EinoWorkspaceParameters struct {
 	Conversation *ConversationParameters          `json:"conversation,omitempty"`
 	E2e          *bool                            `json:"e2e,omitempty"`
 	Input        *WorkspaceInputMode              `json:"input,omitempty"`
+
+	// SafetyFenceLevel Safety strictness: off injects nothing; general restricts NSFW content; child adds age-appropriate constraints. GizClaw supplies no prompt text. The selected RuntimeProfile prompt is complete; child does not inherit general.
+	SafetyFenceLevel *SafetyFenceLevel `json:"safety_fence_level,omitempty"`
 
 	// TtsSpeechRatePercent Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
 	TtsSpeechRatePercent *int `json:"tts_speech_rate_percent,omitempty"`
@@ -4297,6 +4333,9 @@ type FlowcraftWorkspaceParameters struct {
 	// E2e Marks seed resources used by the local e2e harness.
 	E2e   *bool               `json:"e2e,omitempty"`
 	Input *WorkspaceInputMode `json:"input,omitempty"`
+
+	// SafetyFenceLevel Safety strictness: off injects nothing; general restricts NSFW content; child adds age-appropriate constraints. GizClaw supplies no prompt text. The selected RuntimeProfile prompt is complete; child does not inherit general.
+	SafetyFenceLevel *SafetyFenceLevel `json:"safety_fence_level,omitempty"`
 
 	// TtsSpeechRatePercent Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
 	TtsSpeechRatePercent *int `json:"tts_speech_rate_percent,omitempty"`
@@ -5455,12 +5494,26 @@ type RuntimeProfileResources struct {
 	Voices   *map[string]RuntimeProfileBinding       `json:"voices,omitempty"`
 }
 
+// RuntimeProfileSafetyFence defines model for RuntimeProfileSafetyFence.
+type RuntimeProfileSafetyFence struct {
+	Prompt string `json:"prompt"`
+}
+
+// RuntimeProfileSafetyFences Tenant-defined complete prompts for each level. Child does not inherit or concatenate general. No built-in prompts or off entry exist. Reload fails when the selected level is missing.
+type RuntimeProfileSafetyFences struct {
+	Child   *RuntimeProfileSafetyFence `json:"child,omitempty"`
+	General *RuntimeProfileSafetyFence `json:"general,omitempty"`
+}
+
 // RuntimeProfileSpec defines model for RuntimeProfileSpec.
 type RuntimeProfileSpec struct {
 	// AppConfig Opaque device-defined configuration downlink. Keys use the RuntimeProfile alias syntax and values are bounded at 4096 UTF-8 bytes; both are enforced during Server-side normalization because OpenAPI 3.0 has no propertyNames keyword and expresses maxLength in characters. The Server stores and returns every value verbatim and never parses it. Clients read it through server.app_config.list and server.app_config.get and cannot write it. Any registered device bound to this RuntimeProfile can read every entry, so values must not contain credentials, API keys or other secrets.
 	AppConfig *RuntimeProfileAppConfig `json:"app_config,omitempty"`
 	Resources RuntimeProfileResources  `json:"resources"`
-	Workflows RuntimeProfileWorkflows  `json:"workflows"`
+
+	// SafetyFences Tenant-defined complete prompts for each level. Child does not inherit or concatenate general. No built-in prompts or off entry exist. Reload fails when the selected level is missing.
+	SafetyFences *RuntimeProfileSafetyFences `json:"safety_fences,omitempty"`
+	Workflows    RuntimeProfileWorkflows     `json:"workflows"`
 }
 
 // RuntimeProfileVolcMem0Connection defines model for RuntimeProfileVolcMem0Connection.
@@ -5498,6 +5551,9 @@ type SFUWorkflowVariant struct {
 
 // SFUWorkflowVariantDriver defines model for SFUWorkflowVariant.Driver.
 type SFUWorkflowVariantDriver string
+
+// SafetyFenceLevel Safety strictness: off injects nothing; general restricts NSFW content; child adds age-appropriate constraints. GizClaw supplies no prompt text. The selected RuntimeProfile prompt is complete; child does not inherit general.
+type SafetyFenceLevel string
 
 // ServerInfo defines model for ServerInfo.
 type ServerInfo struct {

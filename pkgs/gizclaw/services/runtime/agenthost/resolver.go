@@ -244,6 +244,10 @@ func (r ServiceResolver) resolveWorkspace(ctx context.Context, ws apitypes.Works
 	if err != nil {
 		return Spec{}, err
 	}
+	safetyFencePrompt, err := resolveSafetyFence(resolutionCtx, ws, workflow)
+	if err != nil {
+		return Spec{}, err
+	}
 	var runtime workspace.Runtime
 	if provider, ok := r.Workspaces.(workspaceRuntimeProvider); ok {
 		runtime, err = provider.GetWorkspaceRuntimeByID(ctx, ws.Id)
@@ -269,6 +273,7 @@ func (r ServiceResolver) resolveWorkspace(ctx context.Context, ws apitypes.Works
 		Workspace:             ws,
 		Workflow:              workflow,
 		AgentType:             agentType,
+		SafetyFencePrompt:     safetyFencePrompt,
 		Runtime:               runtime,
 		ToolInvoker:           tools,
 		MemoryName:            memoryName,

@@ -4956,12 +4956,14 @@ class WorkspaceParametersPatch extends $pb.GeneratedMessage {
     $4.WorkspaceInputMode? input,
     $2.ConversationParameters? conversation,
     $core.int? ttsSpeechRatePercent,
+    $2.SafetyFenceLevel? safetyFenceLevel,
   }) {
     final result = create();
     if (input != null) result.input = input;
     if (conversation != null) result.conversation = conversation;
     if (ttsSpeechRatePercent != null)
       result.ttsSpeechRatePercent = ttsSpeechRatePercent;
+    if (safetyFenceLevel != null) result.safetyFenceLevel = safetyFenceLevel;
     return result;
   }
 
@@ -4983,6 +4985,8 @@ class WorkspaceParametersPatch extends $pb.GeneratedMessage {
     ..aOM<$2.ConversationParameters>(2, _omitFieldNames ? '' : 'conversation',
         subBuilder: $2.ConversationParameters.create)
     ..aI(3, _omitFieldNames ? '' : 'ttsSpeechRatePercent')
+    ..aE<$2.SafetyFenceLevel>(4, _omitFieldNames ? '' : 'safetyFenceLevel',
+        enumValues: $2.SafetyFenceLevel.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -5034,6 +5038,15 @@ class WorkspaceParametersPatch extends $pb.GeneratedMessage {
   $core.bool hasTtsSpeechRatePercent() => $_has(2);
   @$pb.TagNumber(3)
   void clearTtsSpeechRatePercent() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $2.SafetyFenceLevel get safetyFenceLevel => $_getN(3);
+  @$pb.TagNumber(4)
+  set safetyFenceLevel($2.SafetyFenceLevel value) => $_setField(4, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSafetyFenceLevel() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSafetyFenceLevel() => $_clearField(4);
 }
 
 class WorkspaceParametersSetRequest extends $pb.GeneratedMessage {

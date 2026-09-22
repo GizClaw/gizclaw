@@ -51,6 +51,7 @@ Binding 只接受以下 namespace：
 | `input.parts` | `list` | defensive copy 后的非文本 input part。 |
 | `history.messages` | `messages` | 仅包含此前的有序 History。 |
 | `memory.recalled` | `string` | 合并后的 recall 渲染结果。 |
+| `input.safety_fence` | `string` | 宿主通过 `Config.SafetyFence` 提供的安全围栏文案，未选择时为空字符串；batch、race 与子图继承同一值。Transformer 不会自行放置它，未绑定的 Graph 不受影响。 |
 | State field 裸名称 | 声明类型 | 当前 invocation-local State value。 |
 
 Node input map 的 key 是 component input port；output map 的 key 是 node output port，value 是目标 State field。未知 binding、field、port 或类型不兼容都会在 `New` 失败。

@@ -1903,11 +1903,22 @@ const WorkspaceParametersPatch$json = {
       '10': 'ttsSpeechRatePercent',
       '17': true
     },
+    {
+      '1': 'safety_fence_level',
+      '3': 4,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.SafetyFenceLevel',
+      '9': 3,
+      '10': 'safetyFenceLevel',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_input'},
     {'1': '_conversation'},
     {'1': '_tts_speech_rate_percent'},
+    {'1': '_safety_fence_level'},
   ],
 };
 
@@ -1917,8 +1928,10 @@ final $typed_data.Uint8List workspaceParametersPatchDescriptor = $convert.base64
     '52MS5Xb3Jrc3BhY2VJbnB1dE1vZGVIAFIFaW5wdXSIAQESTwoMY29udmVyc2F0aW9uGAIgASgL'
     'MiYuZ2l6Y2xhdy5ycGMudjEuQ29udmVyc2F0aW9uUGFyYW1ldGVyc0gBUgxjb252ZXJzYXRpb2'
     '6IAQESOgoXdHRzX3NwZWVjaF9yYXRlX3BlcmNlbnQYAyABKAVIAlIUdHRzU3BlZWNoUmF0ZVBl'
-    'cmNlbnSIAQFCCAoGX2lucHV0Qg8KDV9jb252ZXJzYXRpb25CGgoYX3R0c19zcGVlY2hfcmF0ZV'
-    '9wZXJjZW50');
+    'cmNlbnSIAQESUwoSc2FmZXR5X2ZlbmNlX2xldmVsGAQgASgOMiAuZ2l6Y2xhdy5ycGMudjEuU2'
+    'FmZXR5RmVuY2VMZXZlbEgDUhBzYWZldHlGZW5jZUxldmVsiAEBQggKBl9pbnB1dEIPCg1fY29u'
+    'dmVyc2F0aW9uQhoKGF90dHNfc3BlZWNoX3JhdGVfcGVyY2VudEIVChNfc2FmZXR5X2ZlbmNlX2'
+    'xldmVs');
 
 @$core.Deprecated('Use workspaceParametersSetRequestDescriptor instead')
 const WorkspaceParametersSetRequest$json = {

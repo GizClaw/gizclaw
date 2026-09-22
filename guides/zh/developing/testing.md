@@ -1245,3 +1245,5 @@ tests/gizclaw-e2e/testdata/bin/gizclaw test run \
 tests/gizclaw-e2e/testdata/bin/gizclaw test run \
   tests/gizclaw-e2e/giztest/eino-mixed-provider-voices.tts-speech-rate.giztest.yaml
 ```
+
+安全围栏离线测试覆盖参数、RPC、Profile SQL/revision 和各 driver 的注入。`server.workspace.safety-fence.roundtrip.giztest.yaml` 验证三档往返和非法值；`server.workspace.safety-fence.missing-profile.giztest.yaml` 要求 `GIZCLAW_TEST_FENCE_MISSING_REGISTRATION_TOKEN` 绑定到有 assistants/flowcraft-chat-assistant、但未配置 child 围栏的 Profile；`sfu.workspace.switch.giztest.yaml` 包含三档 no-op。Admin put 400 在 Workspace Go 测试中验证：Giztest 的临时 Peer 连接不具备 Admin HTTP 权限。在线执行这些场景仍需要部署 fixture；离线解析不能证明 provider 内容约束效果。

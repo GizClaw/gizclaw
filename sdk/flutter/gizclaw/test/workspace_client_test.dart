@@ -154,6 +154,7 @@ void main() {
       workspaceName: 'voice-room',
       parameters: payload.WorkspaceParametersPatch(
         input: payload.WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
+        safetyFenceLevel: payload.SafetyFenceLevel.SAFETY_FENCE_LEVEL_CHILD,
       ),
     );
     final request = await _request(factory, 0);
@@ -167,6 +168,11 @@ void main() {
     expect(
       body.parameters.input,
       payload.WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
+    );
+    expect(body.parameters.hasSafetyFenceLevel(), isTrue);
+    expect(
+      body.parameters.safetyFenceLevel,
+      payload.SafetyFenceLevel.SAFETY_FENCE_LEVEL_CHILD,
     );
     expect(factory.channels, hasLength(1));
     _respond(

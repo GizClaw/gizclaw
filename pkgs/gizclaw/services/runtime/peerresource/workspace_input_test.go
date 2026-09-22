@@ -279,7 +279,7 @@ func TestWorkspaceParametersSetInputIgnoresSharedSFUParameters(t *testing.T) {
 	// Devices send the same speech rate to every Workspace; SFU accepts a
 	// rate-only patch as a no-op.
 	rateOnly := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
-		Name: sharedName, Parameters: rpcapi.WorkspaceParametersPatch{TtsSpeechRatePercent: new(70)},
+		Name: sharedName, Parameters: rpcapi.WorkspaceParametersPatch{TtsSpeechRatePercent: new(70), SafetyFenceLevel: new(apitypes.SafetyFenceLevelChild)},
 	})
 	if rateOnly.Error != nil {
 		t.Fatalf("shared SFU speech rate update: %+v", rateOnly.Error)
@@ -378,5 +378,30 @@ func TestWorkspaceParametersSetStoresTTSSpeechRate(t *testing.T) {
 	})
 	if rejected.Error == nil || rejected.Error.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("out-of-range response = %#v, want INVALID_ARGUMENT", rejected)
+	}
+}
+
+func TestWorkspaceParametersSetSafetyFenceRoundTrip(t *testing.T) {
+	ctx := t.Context()
+	server := newWorkspaceInputTestServer(t, ctx)
+	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{Name: "fenced-workspace", Collection: "story-teller", WorkflowName: "journey"})
+	for _, level := range []apitypes.SafetyFenceLevel{apitypes.SafetyFenceLevelGeneral, apitypes.SafetyFenceLevelChild, apitypes.SafetyFenceLevelOff} {
+		response := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{Name: "fenced-workspace", Parameters: rpcapi.WorkspaceParametersPatch{SafetyFenceLevel: &level}})
+		if response.Error != nil {
+			t.Fatal(response.Error)
+		}
+		value, err := response.Result.AsWorkspaceParametersSetResponse()
+		if err != nil {
+			t.Fatal(err)
+		}
+		parameters, err := value.Parameters.AsFlowcraftWorkspaceParameters()
+		if err != nil || parameters.SafetyFenceLevel == nil || *parameters.SafetyFenceLevel != level {
+			t.Fatalf("parameters = %+v, %v", parameters, err)
+		}
+	}
+	// UNSPECIFIED is a real wire value, but is invalid when explicitly supplied.
+	response := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{Name: "fenced-workspace", Parameters: rpcapi.WorkspaceParametersPatch{SafetyFenceLevel: new(apitypes.SafetyFenceLevel("unspecified"))}})
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInvalidArgument {
+		t.Fatalf("invalid level response = %+v", response)
 	}
 }

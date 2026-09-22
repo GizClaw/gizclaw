@@ -260,6 +260,23 @@
           "maxLength": 4096
         }
       },
+      "RuntimeProfileSafetyFences": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Tenant-defined complete prompts for each level. Child does not inherit or concatenate general. No built-in prompts or off entry exist. Reload fails when the selected level is missing.",
+        "properties": {
+          "general": { "$ref": "#/components/schemas/RuntimeProfileSafetyFence" },
+          "child": { "$ref": "#/components/schemas/RuntimeProfileSafetyFence" }
+        }
+      },
+      "RuntimeProfileSafetyFence": {
+        "type": "object",
+        "required": ["prompt"],
+        "additionalProperties": false,
+        "properties": {
+          "prompt": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        }
+      },
       "RuntimeProfileSpec": {
         "type": "object",
         "required": ["workflows", "resources"],
@@ -267,6 +284,7 @@
         "properties": {
           "workflows": { "$ref": "#/components/schemas/RuntimeProfileWorkflows" },
           "resources": { "$ref": "#/components/schemas/RuntimeProfileResources" },
+          "safety_fences": { "$ref": "#/components/schemas/RuntimeProfileSafetyFences" },
           "app_config": { "$ref": "#/components/schemas/RuntimeProfileAppConfig" }
         }
       }
