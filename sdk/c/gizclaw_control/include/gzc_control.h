@@ -17,7 +17,8 @@
  *     regions: `scratch` for the request URL and body, and `response` for the
  *     response body.
  *   - Decoded models borrow from `call->response`. They stay valid until the
- *     same `gzc_control_call_t` is reused for another call.
+ *     same `gzc_control_call_t` is reused for another call. MHS escaped strings
+ *     additionally borrow caller-owned gzc_control_mhs_v0_storage_t.
  */
 #ifndef GZC_CONTROL_H
 #define GZC_CONTROL_H
@@ -545,6 +546,121 @@ typedef struct {
   bool nfc_enabled;
 } gzc_control_device_settings_t;
 
+/* MHS-inspired pre-standard v0 limits, enforced by the MHS entry points. */
+#define GZC_CONTROL_MHS_V0_MAX_BATCH 32
+#define GZC_CONTROL_MHS_V0_MAX_NAME_BYTES 64
+#define GZC_CONTROL_MHS_V0_MAX_STRING_BYTES 256
+#define GZC_CONTROL_MHS_V0_MAX_INT INT64_C(9007199254740991)
+
+/* Manifest state type; string and enum values both use JSON strings. */
+typedef enum {
+  GZC_CONTROL_MHS_V0_TYPE_BOOL = 0,
+  GZC_CONTROL_MHS_V0_TYPE_INT,
+  GZC_CONTROL_MHS_V0_TYPE_DOUBLE,
+  GZC_CONTROL_MHS_V0_TYPE_STRING,
+  GZC_CONTROL_MHS_V0_TYPE_ENUM
+} gzc_control_mhs_v0_type_t;
+
+/* Manifest access mode. */
+typedef enum {
+  GZC_CONTROL_MHS_V0_ACCESS_READ = 0,
+  GZC_CONTROL_MHS_V0_ACCESS_READ_WRITE
+} gzc_control_mhs_v0_access_t;
+
+/* JSON value kind, NOT the manifest state type. INT is an integer token;
+ * DOUBLE is a fraction/exponent token (or an integer outside the safe range).
+ * Both numeric kinds have double_value. has_int_value marks an exact, JSON-safe
+ * int_value, including integral fraction/exponent tokens. Use the manifest to
+ * choose the view: a double state may arrive as the integer token `0`.
+ * On write, INT uses int_value and DOUBLE uses double_value; has_int_value is
+ * output metadata only. STRING uses string_value for both string/enum states. */
+typedef enum {
+  GZC_CONTROL_MHS_V0_VALUE_BOOL = 0,
+  GZC_CONTROL_MHS_V0_VALUE_INT,
+  GZC_CONTROL_MHS_V0_VALUE_DOUBLE,
+  GZC_CONTROL_MHS_V0_VALUE_STRING
+} gzc_control_mhs_v0_value_kind_t;
+
+typedef struct {
+  gzc_control_mhs_v0_value_kind_t kind;
+  bool bool_value;
+  bool has_int_value;
+  int64_t int_value;
+  double double_value;
+  /* Original token shape, independent of the safe-int view; ignored on write. */
+  bool number_is_integer_token;
+  /* Original numeric token, borrowed from the response; ignored on write. */
+  gzc_str_t number_json;
+  gzc_str_t string_value;
+} gzc_control_mhs_v0_value_t;
+
+/* Caller-owned storage for unescaping MHS strings. Plain strings borrow the
+ * response; escaped strings borrow data. Nothing allocates or grows. Initialize
+ * as {data, cap, 0}; use separate storage from call->scratch/response and input
+ * JSON. HTTP entry points reset used after sending, helpers append to it.
+ * Keep all three regions alive while reading models. cap >= response_cap is
+ * sufficient for one complete decode (including each nested list once).
+ * Exhaustion returns GZC_ERR_BUFFER_TOO_SMALL; output may be partially filled. */
+typedef struct {
+  char *data;
+  size_t cap;
+  size_t used;
+} gzc_control_mhs_v0_storage_t;
+
+/* One manifest device. tags/states retain raw JSON arrays in call->response;
+ * use the helpers below to decode into caller-owned arrays. */
+typedef struct {
+  gzc_str_t id;
+  gzc_str_t kind;
+  gzc_str_t description;
+  gzc_str_t tags;
+  gzc_str_t states;
+} gzc_control_mhs_v0_device_t;
+
+/* One manifest state. has_* distinguishes omitted constraints from zero.
+ * enum_values is a raw JSON array; use the helper below for its strings. */
+typedef struct {
+  gzc_str_t name;
+  gzc_control_mhs_v0_type_t type;
+  gzc_control_mhs_v0_access_t access;
+  bool has_min;
+  double min;
+  bool has_max;
+  double max;
+  bool has_step;
+  double step;
+  gzc_str_t enum_values;
+  gzc_str_t unit;
+  gzc_str_t description;
+} gzc_control_mhs_v0_state_t;
+
+/* A hardware key; names follow [a-z][a-z0-9]*([.-][a-z0-9]+)*, <=64 bytes. */
+typedef struct {
+  gzc_str_t device_id;
+  gzc_str_t state;
+} gzc_control_mhs_v0_state_ref_t;
+
+/* One requested or applied value. All input strings are borrowed for the call. */
+typedef struct {
+  gzc_str_t device_id;
+  gzc_str_t state;
+  gzc_control_mhs_v0_value_t value;
+} gzc_control_mhs_v0_state_value_t;
+
+/* Nested manifest decoders. count is the successfully decoded prefix. Return
+ * GZC_ERR_INVALID_ARGUMENT for bad pointers/storage, GZC_ERR_JSON for malformed
+ * data, GZC_ERR_UNSUPPORTED for codec limits, or GZC_ERR_BUFFER_TOO_SMALL when
+ * the array/string storage is exhausted. They do not change call->error. */
+int gzc_control_mhs_v0_device_states(
+    const gzc_control_mhs_v0_device_t *device, gzc_control_mhs_v0_storage_t *storage,
+    gzc_control_mhs_v0_state_t *out, size_t cap, size_t *out_count);
+int gzc_control_mhs_v0_device_tags(
+    const gzc_control_mhs_v0_device_t *device, gzc_control_mhs_v0_storage_t *storage,
+    gzc_str_t *out, size_t cap, size_t *out_count);
+int gzc_control_mhs_v0_state_enum_values(
+    const gzc_control_mhs_v0_state_t *state, gzc_control_mhs_v0_storage_t *storage,
+    gzc_str_t *out, size_t cap, size_t *out_count);
+
 /* Body of `POST /gizclaw/v1/device/actions/factory-reset`
  * (`DeviceFactoryResetRequest`). */
 typedef struct {
@@ -956,6 +1072,40 @@ int gzc_control_update_device_settings(
     gzc_control_call_t *call,
     const gzc_control_device_settings_t *patch,
     gzc_control_device_settings_t *out_settings);
+
+/* `GET /gizclaw/v1/device/mhs/v0/manifest`. Available offline; an unconfigured
+ * profile returns zero devices. Nested states/tags are decoded by the helpers.
+ * Outputs borrow call->response and storage until either is reused.
+ * These MHS HTTP entry points return the transport/status errors used by other
+ * control calls. Decode failures classify as MALFORMED_RESPONSE; insufficient
+ * output arrays/string storage as OUTPUT_TOO_SMALL (GZC_ERR_BUFFER_TOO_SMALL).
+ * Bad pointers return GZC_ERR_INVALID_ARGUMENT; invalid request values also set
+ * INVALID_REQUEST. Scratch exhaustion returns GZC_ERR_NO_MEMORY / NETWORK.
+ * Numeric state meaning, uniqueness, access, bounds and enum membership are
+ * validated by the Server against the manifest, preserving its HTTP errors. */
+int gzc_control_get_mhs_v0_manifest(
+    gzc_control_client_t *client, gzc_control_call_t *call,
+    gzc_control_mhs_v0_storage_t *storage,
+    gzc_control_mhs_v0_device_t *out_devices, size_t cap, size_t *out_count);
+
+/* `POST /gizclaw/v1/device/mhs/v0/read`. request_count must be 1..32.
+ * Output and string storage are caller-owned; error/lifetime rules are above. */
+int gzc_control_read_mhs_v0_states(
+    gzc_control_client_t *client, gzc_control_call_t *call,
+    const gzc_control_mhs_v0_state_ref_t *request, size_t request_count,
+    gzc_control_mhs_v0_storage_t *storage,
+    gzc_control_mhs_v0_state_value_t *out_states, size_t cap, size_t *out_count);
+
+/* `PATCH /gizclaw/v1/device/mhs/v0/states`. Atomically writes 1..32 keys and
+ * returns actual applied values. INT must fit +/-9007199254740991; DOUBLE must
+ * be finite; STRING must be valid UTF-8 without NUL, at most 256 bytes.
+ * A timeout does not establish whether the write took effect; read back.
+ * Output and string storage are caller-owned; error/lifetime rules are above. */
+int gzc_control_write_mhs_v0_states(
+    gzc_control_client_t *client, gzc_control_call_t *call,
+    const gzc_control_mhs_v0_state_value_t *request, size_t request_count,
+    gzc_control_mhs_v0_storage_t *storage,
+    gzc_control_mhs_v0_state_value_t *out_states, size_t cap, size_t *out_count);
 
 /*
  * `POST /gizclaw/v1/device/actions/factory-reset`.

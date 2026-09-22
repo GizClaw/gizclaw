@@ -16,6 +16,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/runtimealias"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/mhs"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
@@ -698,6 +699,11 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 			fences.Child = new(*fences.Child)
 		}
 		spec.SafetyFences = &fences
+	}
+	if spec.Mhs != nil && spec.Mhs.V0 != nil {
+		if err := mhs.ValidateManifest(*spec.Mhs.V0); err != nil {
+			return apitypes.RuntimeProfile{}, fmt.Errorf("mhs.v0: %w", err)
+		}
 	}
 	item := apitypes.RuntimeProfile{Id: id, Spec: spec}
 	if err := setProfileRevision(&item); err != nil {

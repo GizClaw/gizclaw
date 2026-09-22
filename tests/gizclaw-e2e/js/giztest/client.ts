@@ -35,6 +35,21 @@ type DeviceSettings = Awaited<
   >
 >;
 
+type MhsReadResponse = Awaited<
+  ReturnType<
+    NonNullable<
+      NonNullable<GizClawPeerRPCHandlers["deviceControl"]>["readMhsStates"]
+    >
+  >
+>;
+type MhsWriteResponse = Awaited<
+  ReturnType<
+    NonNullable<
+      NonNullable<GizClawPeerRPCHandlers["deviceControl"]>["writeMhsStates"]
+    >
+  >
+>;
+
 const CONNECT_TIMEOUT_MS = 30_000;
 const RPC_TIMEOUT_MS = 30_000;
 
@@ -553,6 +568,20 @@ function buildHandlers(
         control.factoryReset = () => {
           count(method);
           if (failure != null) throw failure;
+        };
+        break;
+      case "client.mhs.v0.read":
+        control.readMhsStates = () => {
+          count(method);
+          if (failure != null) throw failure;
+          return scriptedObject as MhsReadResponse;
+        };
+        break;
+      case "client.mhs.v0.write":
+        control.writeMhsStates = () => {
+          count(method);
+          if (failure != null) throw failure;
+          return scriptedObject as MhsWriteResponse;
         };
         break;
       case "client.run.workspace.set":

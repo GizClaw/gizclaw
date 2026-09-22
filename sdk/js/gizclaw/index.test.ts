@@ -4519,3 +4519,91 @@ test("endpoint connection seals optional admission credentials in the offer", as
   assert.equal(requests, 2);
   assert.equal(pc.closeCalls, 1);
 });
+
+test("MHS provider preserves typed defaults and discovers only installed handlers", async () => {
+  const values = [
+    { bool_value: false },
+    { int_value: 0 },
+    { double_value: 0 },
+    { string_value: "" },
+  ];
+  let calls = 0;
+  const handlers: GizClawPeerRPCHandlers = {
+    deviceControl: {
+      writeMhsStates: (request) => {
+        calls++;
+        return { states: request.states };
+      },
+    },
+  };
+  for (const value of values) {
+    const request = {
+      states: [{ device_id: "display.main", state: "state", value }],
+    };
+    const response = await serveInboundClientRPC(
+      "client.mhs.v0.write",
+      request,
+      handlers,
+    );
+    assert.equal(response.error, undefined);
+    assert.deepEqual(response.result, request);
+  }
+  const key = {
+    device_id: "display.main",
+    state: "state",
+    value: { int_value: 0 },
+  };
+  for (const states of [
+    [],
+    [key, key],
+    [{ ...key, state: "state\n" }],
+    [{ ...key, value: {} }],
+    [{ ...key, value: { string_value: "x".repeat(257) } }],
+  ]) {
+    const response = await serveInboundClientRPC(
+      "client.mhs.v0.write",
+      { states },
+      handlers,
+    );
+    assert.equal(response.error?.code, STATUS_CODE_INVALID_ARGUMENT);
+  }
+  assert.equal(calls, 4);
+  const response = await serveInboundClientRPC(
+    "client.rpc.methods.get",
+    {},
+    handlers,
+  );
+  const methods = (response.result as { methods: string[] }).methods;
+  assert.ok(methods.includes("client.mhs.v0.write"));
+  assert.ok(!methods.includes("client.mhs.v0.read"));
+  const absent = await serveInboundClientRPC(
+    "client.mhs.v0.read",
+    { states: [{ device_id: "display.main", state: "state" }] },
+    handlers,
+  );
+  assert.equal(absent.error?.code, STATUS_CODE_UNIMPLEMENTED);
+  const read = await serveInboundClientRPC(
+    "client.mhs.v0.read",
+    { states: [{ device_id: "display.main", state: "state" }] },
+    {
+      deviceControl: {
+        readMhsStates: (request) => ({
+          states: request.states.map((ref) => ({
+            ...ref,
+            value: { bool_value: false },
+          })),
+        }),
+      },
+    },
+  );
+  assert.equal(read.error, undefined);
+  assert.deepEqual(read.result, {
+    states: [
+      {
+        device_id: "display.main",
+        state: "state",
+        value: { bool_value: false },
+      },
+    ],
+  });
+});

@@ -120,3 +120,9 @@ closes, so cleanup remains safe after Server block. Observe
 `peerEventSessionForFlutterGiznetWebRtc(peerConnection)!.events` completion for the
 terminal event-session signal; reconnect creates a new Peer and session. New RPC
 channels are rejected once the old Peer starts closing.
+
+## MHS v0 hardware states
+
+Devices install `readMhsStates`/`writeMhsStates` in `GizClawDeviceControlHandlers`, using generated `ClientMhsV0*` and `MhsValue`. Controllers call `getMhsManifest()`, `readMhsStates(List<MhsStateRef>)` and `writeMhsStates(List<MhsStateValue>)`. Values are plain bool/int/double/String; writes return actual applied values. Render controls from `MhsState.type/access/min/max/step/enumValues/unit`.
+
+This is GizClaw's MHS-inspired pre-standard v0, with no official compatibility claim. Manifests work offline; reads/writes allow at most 32 unique keys. Drivers validate the whole batch and enforce safety limits. See [Public API](/en/developing/api/http/public) and the [provider contract](/en/developing/api/proto/rpc/client-provided-to-server).

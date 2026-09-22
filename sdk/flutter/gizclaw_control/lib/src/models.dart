@@ -1958,3 +1958,141 @@ class AudioPlayerPlaylist {
     );
   }
 }
+
+/// GizClaw's MHS-inspired pre-standard v0 manifest (no official compatibility).
+class MhsManifest {
+  MhsManifest({required List<MhsDevice> devices})
+    : devices = List.unmodifiable(devices);
+  factory MhsManifest.fromJson(Object? json) {
+    final object = asJsonObject(json, 'MhsManifest');
+    asJsonList(object['devices'], 'devices');
+    return MhsManifest(
+      devices: readList(object, 'devices', MhsDevice.fromJson),
+    );
+  }
+  final List<MhsDevice> devices;
+}
+
+class MhsDevice {
+  MhsDevice({
+    required this.id,
+    required this.kind,
+    this.description,
+    List<String>? tags,
+    required List<MhsState> states,
+  }) : tags = tags == null ? null : List.unmodifiable(tags),
+       states = List.unmodifiable(states);
+  factory MhsDevice.fromJson(Object? json) {
+    final object = asJsonObject(json, 'MhsDevice');
+    asJsonList(object['states'], 'states');
+    return MhsDevice(
+      id: readString(object, 'id'),
+      kind: readString(object, 'kind'),
+      description: readOptionalString(object, 'description'),
+      tags: object['tags'] == null
+          ? null
+          : readList(object, 'tags', _mhsString),
+      states: readList(object, 'states', MhsState.fromJson),
+    );
+  }
+  final String id;
+
+  /// Open product-defined kind; callers must accept unfamiliar kinds.
+  final String kind;
+  final String? description;
+  final List<String>? tags;
+  final List<MhsState> states;
+}
+
+class MhsState {
+  MhsState({
+    required this.name,
+    required this.type,
+    required this.access,
+    this.min,
+    this.max,
+    this.step,
+    List<String>? enumValues,
+    this.unit,
+    this.description,
+  }) : enumValues = enumValues == null ? null : List.unmodifiable(enumValues);
+  factory MhsState.fromJson(Object? json) {
+    final object = asJsonObject(json, 'MhsState');
+    final type = readString(object, 'type');
+    final access = readString(object, 'access');
+    if (!{'bool', 'int', 'double', 'string', 'enum'}.contains(type) ||
+        !{'read', 'read_write'}.contains(access)) {
+      throw const FormatException('invalid MHS type or access');
+    }
+    return MhsState(
+      name: readString(object, 'name'),
+      type: type,
+      access: access,
+      min: readOptionalDouble(object, 'min'),
+      max: readOptionalDouble(object, 'max'),
+      step: readOptionalDouble(object, 'step'),
+      enumValues: object['enum_values'] == null
+          ? null
+          : readList(object, 'enum_values', _mhsString),
+      unit: readOptionalString(object, 'unit'),
+      description: readOptionalString(object, 'description'),
+    );
+  }
+  final String name;
+  final String type;
+  final String access;
+  final double? min;
+  final double? max;
+  final double? step;
+  final List<String>? enumValues;
+  final String? unit;
+  final String? description;
+  bool get writable => access == 'read_write';
+}
+
+String _mhsString(Object? value) {
+  if (value is! String) throw const FormatException('expected MHS string');
+  return value;
+}
+
+class MhsStateRef {
+  const MhsStateRef({required this.deviceId, required this.state});
+  final String deviceId;
+  final String state;
+  JsonObject toJson() => {'device_id': deviceId, 'state': state};
+}
+
+class MhsStateValue {
+  MhsStateValue({
+    required this.deviceId,
+    required this.state,
+    required Object value,
+  }) : value = _mhsValue(value);
+  factory MhsStateValue.fromJson(Object? json) {
+    final object = asJsonObject(json, 'MhsStateValue');
+    return MhsStateValue(
+      deviceId: readString(object, 'device_id'),
+      state: readString(object, 'state'),
+      value: _mhsValue(object['value']),
+    );
+  }
+  final String deviceId;
+  final String state;
+
+  /// Plain bool, int, double or String; enum values are strings.
+  final Object value;
+  JsonObject toJson() => {
+    'device_id': deviceId,
+    'state': state,
+    'value': value,
+  };
+}
+
+Object _mhsValue(Object? value) {
+  if (value is bool || value is String || (value is num && value.isFinite)) {
+    return value!;
+  }
+  throw const FormatException(
+    'expected a finite MHS boolean, number or string',
+  );
+}

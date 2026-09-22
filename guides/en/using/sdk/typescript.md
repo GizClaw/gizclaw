@@ -108,3 +108,9 @@ closing the supplied PeerConnection. Operator settings are described in
 [Security Policy](../../developing/gizclaw/server/security-policy).
 
 The exported `REGISTRATION_TOKEN_CREDENTIAL_TYPE` constant defines the built-in type and is used by the helper. Values are limited to 512 UTF-8 bytes; construction returns an error or throws for larger input. Custom policies should use their own domain prefix; built-in types reserve `gizclaw.com/`.
+
+## MHS v0 hardware states
+
+Devices install `readMhsStates`/`writeMhsStates` on `deviceControl`; RPC values use `{bool_value:false}`, `{int_value:0}`, `{double_value:0}` or `{string_value:""}`. Controllers use `control.device.getMhsManifest()`, `readMhsStates({states:[{device_id,state}]})` and `writeMhsStates({states:[{device_id,state,value}]})`, with plain JSON values and generated Peer HTTP types.
+
+This is GizClaw's MHS-inspired pre-standard v0, with no official compatibility claim. Manifests work offline; reads/writes allow at most 32 unique keys. Drivers validate the whole batch and enforce safety limits. See [Public API](/en/developing/api/http/public) and the [provider contract](/en/developing/api/proto/rpc/client-provided-to-server).

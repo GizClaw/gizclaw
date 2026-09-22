@@ -369,7 +369,9 @@ function singleValueField(desc: MessageDesc): FieldDesc | undefined {
 
 function isOneofValueWrapper(desc: MessageDesc): boolean {
   const group = desc.fields[0]?.oneofGroup;
-  return group != null && desc.fields.every((field) => field.oneofGroup === group);
+  // Preserve field identity when distinct wire types share JavaScript's number.
+  const numeric = new Set(["double", "float", "int32", "int64", "uint32", "uint64"]);
+  return group != null && desc.fields.every((field) => field.oneofGroup === group) && desc.fields.filter((field) => numeric.has(field.type)).length < 2;
 }
 
 function withMessageDefaults(desc: MessageDesc, values: Record<string, unknown>): Record<string, unknown> {
@@ -1141,6 +1143,26 @@ function messageTypeExpression(name, parsed) {
   const single = singleValueTypeField(desc);
   if (single != null) {
     return tsFieldType(single, parsed);
+  }
+  if (
+    hasSingleOneofGroup(desc) &&
+    new Set(desc.fields.map((field) => tsFieldType(field, parsed))).size <
+      desc.fields.length
+  ) {
+    return desc.fields
+      .map(
+        (selected) =>
+          "{ " +
+          desc.fields
+            .map((field) =>
+              field === selected
+                ? JSON.stringify(field.name) + ": " + tsFieldType(field, parsed)
+                : JSON.stringify(field.name) + "?: never",
+            )
+            .join("; ") +
+          " }",
+      )
+      .join(" | ");
   }
   if (hasSingleOneofGroup(desc)) {
     return (

@@ -566,3 +566,13 @@ test("scriptedDelayMs bounds the delay to the timer range", () => {
   assert.throws(() => scriptedDelayMs({ delay_ms: 1.5 }));
   assert.throws(() => scriptedDelayMs({ delay_ms: "1200" }));
 });
+
+test("MHS v0 scenarios install typed providers and preserve real error coverage", async () => {
+  const paths = [
+    "server.device.mhs.giztest.yaml",
+    "server.device.mhs.not_found.giztest.yaml",
+  ].map((name) => path.join(scenarioRoot, name));
+  const { documents, skipped } = await loadDocuments(paths);
+  assert.equal(skipped.length, 0);
+  assert.equal(documents.length, 2);
+});

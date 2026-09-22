@@ -34,6 +34,9 @@ import {
   getDevice,
   getDeviceRuntime,
   getDeviceSettings,
+  getMhsManifest,
+  readMhsStates,
+  writeMhsStates,
   getDeviceStatus,
   getDeviceTelemetryLatest,
   getDeviceWifi,
@@ -102,6 +105,9 @@ import type {
   DeviceRpcMethods,
   DeviceRunWorkspaceSetRequest,
   DeviceSettings,
+  MhsV0Manifest,
+  MhsV0ReadRequest,
+  MhsV0States,
   DeviceToolInvokeRequest,
   DeviceToolInvokeResponse,
   DeviceToolList,
@@ -507,6 +513,11 @@ export interface GizClawControlDevice {
    * An absent member means the device does not support that option.
    */
   getSettings(): Promise<DeviceSettings>;
+  /** RuntimeProfile-owned MHS-inspired v0 manifest; available while offline. */
+  getMhsManifest(): Promise<MhsV0Manifest>;
+  readMhsStates(body: MhsV0ReadRequest): Promise<MhsV0States>;
+  /** Atomically writes a batch and returns the device's actual applied values. */
+  writeMhsStates(body: MhsV0States): Promise<MhsV0States>;
   /**
    * `PATCH /gizclaw/v1/device/settings`.
    *
@@ -858,6 +869,11 @@ export function createGizClawControlClient(
             path: { ssid: requireSegment("ssid", ssid) },
           }),
         ),
+      getMhsManifest: () => unwrap("getMhsManifest", getMhsManifest(common)),
+      readMhsStates: (body) =>
+        unwrap("readMhsStates", readMhsStates({ ...common, body })),
+      writeMhsStates: (body) =>
+        unwrap("writeMhsStates", writeMhsStates({ ...common, body })),
       getSettings: () => unwrap("getDeviceSettings", getDeviceSettings(common)),
       updateSettings: (body) =>
         unwrap(

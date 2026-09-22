@@ -192,3 +192,22 @@ func (r DeviceReads) DeviceTelemetryAggregate(ctx context.Context, field apitype
 	}
 	return r.Telemetry.Aggregate(ctx, r.Caller, field, start, end, bucket, aggregate)
 }
+
+// MhsManifest returns only the bound hardware manifest, including while offline.
+// RuntimeProfile resource bindings and credentials never enter this projection.
+func (r DeviceReads) MhsManifest(ctx context.Context) (apitypes.MhsV0Manifest, error) {
+	if r.Profiles == nil {
+		return apitypes.MhsV0Manifest{}, ErrDeviceServiceNotConfigured
+	}
+	profile, err := r.Profiles.ResolveOwnerProfile(ctx, r.Caller.String())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return apitypes.MhsV0Manifest{}, ErrDeviceRuntimeProfileNotBound
+		}
+		return apitypes.MhsV0Manifest{}, err
+	}
+	if profile.Spec.Mhs == nil || profile.Spec.Mhs.V0 == nil {
+		return apitypes.MhsV0Manifest{Devices: []apitypes.MhsV0Device{}}, nil
+	}
+	return *profile.Spec.Mhs.V0, nil
+}

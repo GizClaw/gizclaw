@@ -880,6 +880,12 @@ type SetDeviceAudioPlayerPlaylistJSONRequestBody = externalRef0.AudioPlayerPlayl
 // AppendDeviceAudioPlayerPlaylistJSONRequestBody defines body for AppendDeviceAudioPlayerPlaylist for application/json ContentType.
 type AppendDeviceAudioPlayerPlaylistJSONRequestBody = externalRef0.AudioPlayerPlaylistAppendRequest
 
+// ReadMhsStatesJSONRequestBody defines body for ReadMhsStates for application/json ContentType.
+type ReadMhsStatesJSONRequestBody = externalRef0.MhsV0ReadRequest
+
+// WriteMhsStatesJSONRequestBody defines body for WriteMhsStates for application/json ContentType.
+type WriteMhsStatesJSONRequestBody = externalRef0.MhsV0States
+
 // SetDeviceRunWorkspaceJSONRequestBody defines body for SetDeviceRunWorkspace for application/json ContentType.
 type SetDeviceRunWorkspaceJSONRequestBody = DeviceRunWorkspaceSetRequest
 
@@ -1108,6 +1114,19 @@ type ClientInterface interface {
 
 	// SearchDeviceLogs request
 	SearchDeviceLogs(ctx context.Context, params *SearchDeviceLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMhsManifest request
+	GetMhsManifest(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReadMhsStatesWithBody request with any body
+	ReadMhsStatesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ReadMhsStates(ctx context.Context, body ReadMhsStatesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// WriteMhsStatesWithBody request with any body
+	WriteMhsStatesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	WriteMhsStates(ctx context.Context, body WriteMhsStatesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListDeviceRPCMethods request
 	ListDeviceRPCMethods(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1785,6 +1804,66 @@ func (c *Client) GetDeviceFirmware(ctx context.Context, reqEditors ...RequestEdi
 
 func (c *Client) SearchDeviceLogs(ctx context.Context, params *SearchDeviceLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSearchDeviceLogsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetMhsManifest(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMhsManifestRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ReadMhsStatesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReadMhsStatesRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ReadMhsStates(ctx context.Context, body ReadMhsStatesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReadMhsStatesRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) WriteMhsStatesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewWriteMhsStatesRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) WriteMhsStates(ctx context.Context, body WriteMhsStatesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewWriteMhsStatesRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3661,6 +3740,113 @@ func NewSearchDeviceLogsRequest(server string, params *SearchDeviceLogsParams) (
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewGetMhsManifestRequest generates requests for GetMhsManifest
+func NewGetMhsManifestRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/mhs/v0/manifest")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewReadMhsStatesRequest calls the generic ReadMhsStates builder with application/json body
+func NewReadMhsStatesRequest(server string, body ReadMhsStatesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReadMhsStatesRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewReadMhsStatesRequestWithBody generates requests for ReadMhsStates with any type of body
+func NewReadMhsStatesRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/mhs/v0/read")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewWriteMhsStatesRequest calls the generic WriteMhsStates builder with application/json body
+func NewWriteMhsStatesRequest(server string, body WriteMhsStatesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewWriteMhsStatesRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewWriteMhsStatesRequestWithBody generates requests for WriteMhsStates with any type of body
+func NewWriteMhsStatesRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/mhs/v0/states")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -5894,6 +6080,19 @@ type ClientWithResponsesInterface interface {
 	// SearchDeviceLogsWithResponse request
 	SearchDeviceLogsWithResponse(ctx context.Context, params *SearchDeviceLogsParams, reqEditors ...RequestEditorFn) (*SearchDeviceLogsResponse, error)
 
+	// GetMhsManifestWithResponse request
+	GetMhsManifestWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMhsManifestResponse, error)
+
+	// ReadMhsStatesWithBodyWithResponse request with any body
+	ReadMhsStatesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReadMhsStatesResponse, error)
+
+	ReadMhsStatesWithResponse(ctx context.Context, body ReadMhsStatesJSONRequestBody, reqEditors ...RequestEditorFn) (*ReadMhsStatesResponse, error)
+
+	// WriteMhsStatesWithBodyWithResponse request with any body
+	WriteMhsStatesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*WriteMhsStatesResponse, error)
+
+	WriteMhsStatesWithResponse(ctx context.Context, body WriteMhsStatesJSONRequestBody, reqEditors ...RequestEditorFn) (*WriteMhsStatesResponse, error)
+
 	// ListDeviceRPCMethodsWithResponse request
 	ListDeviceRPCMethodsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDeviceRPCMethodsResponse, error)
 
@@ -7016,6 +7215,119 @@ func (r SearchDeviceLogsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r SearchDeviceLogsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetMhsManifestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.MhsV0Manifest
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMhsManifestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMhsManifestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetMhsManifestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ReadMhsStatesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.MhsV0States
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *externalRef0.ErrorResponse
+	JSON409      *DeviceOffline
+	JSON500      *InternalError
+	JSON501      *DeviceUnsupported
+	JSON502      *DeviceError
+	JSON504      *DeviceTimeout
+}
+
+// Status returns HTTPResponse.Status
+func (r ReadMhsStatesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReadMhsStatesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ReadMhsStatesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type WriteMhsStatesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.MhsV0States
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *externalRef0.ErrorResponse
+	JSON409      *DeviceOffline
+	JSON500      *InternalError
+	JSON501      *DeviceUnsupported
+	JSON502      *DeviceError
+	JSON504      *DeviceTimeout
+}
+
+// Status returns HTTPResponse.Status
+func (r WriteMhsStatesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r WriteMhsStatesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r WriteMhsStatesResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -9067,6 +9379,49 @@ func (c *ClientWithResponses) SearchDeviceLogsWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseSearchDeviceLogsResponse(rsp)
+}
+
+// GetMhsManifestWithResponse request returning *GetMhsManifestResponse
+func (c *ClientWithResponses) GetMhsManifestWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMhsManifestResponse, error) {
+	rsp, err := c.GetMhsManifest(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMhsManifestResponse(rsp)
+}
+
+// ReadMhsStatesWithBodyWithResponse request with arbitrary body returning *ReadMhsStatesResponse
+func (c *ClientWithResponses) ReadMhsStatesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReadMhsStatesResponse, error) {
+	rsp, err := c.ReadMhsStatesWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReadMhsStatesResponse(rsp)
+}
+
+func (c *ClientWithResponses) ReadMhsStatesWithResponse(ctx context.Context, body ReadMhsStatesJSONRequestBody, reqEditors ...RequestEditorFn) (*ReadMhsStatesResponse, error) {
+	rsp, err := c.ReadMhsStates(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReadMhsStatesResponse(rsp)
+}
+
+// WriteMhsStatesWithBodyWithResponse request with arbitrary body returning *WriteMhsStatesResponse
+func (c *ClientWithResponses) WriteMhsStatesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*WriteMhsStatesResponse, error) {
+	rsp, err := c.WriteMhsStatesWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseWriteMhsStatesResponse(rsp)
+}
+
+func (c *ClientWithResponses) WriteMhsStatesWithResponse(ctx context.Context, body WriteMhsStatesJSONRequestBody, reqEditors ...RequestEditorFn) (*WriteMhsStatesResponse, error) {
+	rsp, err := c.WriteMhsStates(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseWriteMhsStatesResponse(rsp)
 }
 
 // ListDeviceRPCMethodsWithResponse request returning *ListDeviceRPCMethodsResponse
@@ -11472,6 +11827,245 @@ func ParseSearchDeviceLogsResponse(rsp *http.Response) (*SearchDeviceLogsRespons
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetMhsManifestResponse parses an HTTP response from a GetMhsManifestWithResponse call
+func ParseGetMhsManifestResponse(rsp *http.Response) (*GetMhsManifestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMhsManifestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.MhsV0Manifest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseReadMhsStatesResponse parses an HTTP response from a ReadMhsStatesWithResponse call
+func ParseReadMhsStatesResponse(rsp *http.Response) (*ReadMhsStatesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReadMhsStatesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.MhsV0States
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest DeviceOffline
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest DeviceUnsupported
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest DeviceError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
+		var dest DeviceTimeout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON504 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseWriteMhsStatesResponse parses an HTTP response from a WriteMhsStatesWithResponse call
+func ParseWriteMhsStatesResponse(rsp *http.Response) (*WriteMhsStatesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &WriteMhsStatesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.MhsV0States
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest DeviceOffline
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest DeviceUnsupported
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest DeviceError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
+		var dest DeviceTimeout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON504 = &dest
 
 	}
 
@@ -14677,6 +15271,15 @@ type ServerInterface interface {
 	// Search persistent system logs scoped to the authenticated device
 	// (GET /gizclaw/v1/device/logs/search)
 	SearchDeviceLogs(c *fiber.Ctx, params SearchDeviceLogsParams) error
+	// Get the bound RuntimeProfile MHS v0 manifest
+	// (GET /gizclaw/v1/device/mhs/v0/manifest)
+	GetMhsManifest(c *fiber.Ctx) error
+	// Read MHS v0 hardware states
+	// (POST /gizclaw/v1/device/mhs/v0/read)
+	ReadMhsStates(c *fiber.Ctx) error
+	// Atomically write MHS v0 hardware states
+	// (PATCH /gizclaw/v1/device/mhs/v0/states)
+	WriteMhsStates(c *fiber.Ctx) error
 	// List the reverse RPC methods the bound device implements
 	// (GET /gizclaw/v1/device/rpc-methods)
 	ListDeviceRPCMethods(c *fiber.Ctx) error
@@ -15497,6 +16100,66 @@ func (siw *ServerInterfaceWrapper) SearchDeviceLogs(c *fiber.Ctx) error {
 
 	handler := func(c *fiber.Ctx) error {
 		return siw.Handler.SearchDeviceLogs(c, params)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// GetMhsManifest operation middleware
+func (siw *ServerInterfaceWrapper) GetMhsManifest(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.GetMhsManifest(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// ReadMhsStates operation middleware
+func (siw *ServerInterfaceWrapper) ReadMhsStates(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.ReadMhsStates(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// WriteMhsStates operation middleware
+func (siw *ServerInterfaceWrapper) WriteMhsStates(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.WriteMhsStates(c)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -17100,6 +17763,12 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Get(options.BaseURL+"/gizclaw/v1/device/firmware", wrapper.GetDeviceFirmware)
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device/logs/search", wrapper.SearchDeviceLogs)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/device/mhs/v0/manifest", wrapper.GetMhsManifest)
+
+	router.Post(options.BaseURL+"/gizclaw/v1/device/mhs/v0/read", wrapper.ReadMhsStates)
+
+	router.Patch(options.BaseURL+"/gizclaw/v1/device/mhs/v0/states", wrapper.WriteMhsStates)
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device/rpc-methods", wrapper.ListDeviceRPCMethods)
 
@@ -19221,6 +19890,263 @@ type SearchDeviceLogs500JSONResponse struct{ InternalErrorJSONResponse }
 func (response SearchDeviceLogs500JSONResponse) VisitSearchDeviceLogsResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetMhsManifestRequestObject struct {
+}
+
+type GetMhsManifestResponseObject interface {
+	VisitGetMhsManifestResponse(ctx *fiber.Ctx) error
+}
+
+type GetMhsManifest200JSONResponse externalRef0.MhsV0Manifest
+
+func (response GetMhsManifest200JSONResponse) VisitGetMhsManifestResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetMhsManifest400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetMhsManifest400JSONResponse) VisitGetMhsManifestResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type GetMhsManifest401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetMhsManifest401JSONResponse) VisitGetMhsManifestResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetMhsManifest403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetMhsManifest403JSONResponse) VisitGetMhsManifestResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type GetMhsManifest409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetMhsManifest409JSONResponse) VisitGetMhsManifestResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type GetMhsManifest500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetMhsManifest500JSONResponse) VisitGetMhsManifestResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type ReadMhsStatesRequestObject struct {
+	Body *ReadMhsStatesJSONRequestBody
+}
+
+type ReadMhsStatesResponseObject interface {
+	VisitReadMhsStatesResponse(ctx *fiber.Ctx) error
+}
+
+type ReadMhsStates200JSONResponse externalRef0.MhsV0States
+
+func (response ReadMhsStates200JSONResponse) VisitReadMhsStatesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ReadMhsStates400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ReadMhsStates400JSONResponse) VisitReadMhsStatesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type ReadMhsStates401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ReadMhsStates401JSONResponse) VisitReadMhsStatesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type ReadMhsStates403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ReadMhsStates403JSONResponse) VisitReadMhsStatesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type ReadMhsStates404JSONResponse externalRef0.ErrorResponse
+
+func (response ReadMhsStates404JSONResponse) VisitReadMhsStatesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type ReadMhsStates409JSONResponse struct{ DeviceOfflineJSONResponse }
+
+func (response ReadMhsStates409JSONResponse) VisitReadMhsStatesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type ReadMhsStates500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ReadMhsStates500JSONResponse) VisitReadMhsStatesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type ReadMhsStates501JSONResponse struct{ DeviceUnsupportedJSONResponse }
+
+func (response ReadMhsStates501JSONResponse) VisitReadMhsStatesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(501)
+
+	return ctx.JSON(&response)
+}
+
+type ReadMhsStates502JSONResponse struct{ DeviceErrorJSONResponse }
+
+func (response ReadMhsStates502JSONResponse) VisitReadMhsStatesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(502)
+
+	return ctx.JSON(&response)
+}
+
+type ReadMhsStates504JSONResponse struct{ DeviceTimeoutJSONResponse }
+
+func (response ReadMhsStates504JSONResponse) VisitReadMhsStatesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(504)
+
+	return ctx.JSON(&response)
+}
+
+type WriteMhsStatesRequestObject struct {
+	Body *WriteMhsStatesJSONRequestBody
+}
+
+type WriteMhsStatesResponseObject interface {
+	VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error
+}
+
+type WriteMhsStates200JSONResponse externalRef0.MhsV0States
+
+func (response WriteMhsStates200JSONResponse) VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type WriteMhsStates400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response WriteMhsStates400JSONResponse) VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type WriteMhsStates401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response WriteMhsStates401JSONResponse) VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type WriteMhsStates403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response WriteMhsStates403JSONResponse) VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type WriteMhsStates404JSONResponse externalRef0.ErrorResponse
+
+func (response WriteMhsStates404JSONResponse) VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type WriteMhsStates409JSONResponse struct{ DeviceOfflineJSONResponse }
+
+func (response WriteMhsStates409JSONResponse) VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type WriteMhsStates500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response WriteMhsStates500JSONResponse) VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type WriteMhsStates501JSONResponse struct{ DeviceUnsupportedJSONResponse }
+
+func (response WriteMhsStates501JSONResponse) VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(501)
+
+	return ctx.JSON(&response)
+}
+
+type WriteMhsStates502JSONResponse struct{ DeviceErrorJSONResponse }
+
+func (response WriteMhsStates502JSONResponse) VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(502)
+
+	return ctx.JSON(&response)
+}
+
+type WriteMhsStates504JSONResponse struct{ DeviceTimeoutJSONResponse }
+
+func (response WriteMhsStates504JSONResponse) VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(504)
 
 	return ctx.JSON(&response)
 }
@@ -22708,6 +23634,15 @@ type StrictServerInterface interface {
 	// Search persistent system logs scoped to the authenticated device
 	// (GET /gizclaw/v1/device/logs/search)
 	SearchDeviceLogs(ctx context.Context, request SearchDeviceLogsRequestObject) (SearchDeviceLogsResponseObject, error)
+	// Get the bound RuntimeProfile MHS v0 manifest
+	// (GET /gizclaw/v1/device/mhs/v0/manifest)
+	GetMhsManifest(ctx context.Context, request GetMhsManifestRequestObject) (GetMhsManifestResponseObject, error)
+	// Read MHS v0 hardware states
+	// (POST /gizclaw/v1/device/mhs/v0/read)
+	ReadMhsStates(ctx context.Context, request ReadMhsStatesRequestObject) (ReadMhsStatesResponseObject, error)
+	// Atomically write MHS v0 hardware states
+	// (PATCH /gizclaw/v1/device/mhs/v0/states)
+	WriteMhsStates(ctx context.Context, request WriteMhsStatesRequestObject) (WriteMhsStatesResponseObject, error)
 	// List the reverse RPC methods the bound device implements
 	// (GET /gizclaw/v1/device/rpc-methods)
 	ListDeviceRPCMethods(ctx context.Context, request ListDeviceRPCMethodsRequestObject) (ListDeviceRPCMethodsResponseObject, error)
@@ -23605,6 +24540,93 @@ func (sh *strictHandler) SearchDeviceLogs(ctx *fiber.Ctx, params SearchDeviceLog
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(SearchDeviceLogsResponseObject); ok {
 		if err := validResponse.VisitSearchDeviceLogsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetMhsManifest operation middleware
+func (sh *strictHandler) GetMhsManifest(ctx *fiber.Ctx) error {
+	var request GetMhsManifestRequestObject
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMhsManifest(ctx.UserContext(), request.(GetMhsManifestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMhsManifest")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetMhsManifestResponseObject); ok {
+		if err := validResponse.VisitGetMhsManifestResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ReadMhsStates operation middleware
+func (sh *strictHandler) ReadMhsStates(ctx *fiber.Ctx) error {
+	var request ReadMhsStatesRequestObject
+
+	var body ReadMhsStatesJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ReadMhsStates(ctx.UserContext(), request.(ReadMhsStatesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReadMhsStates")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ReadMhsStatesResponseObject); ok {
+		if err := validResponse.VisitReadMhsStatesResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// WriteMhsStates operation middleware
+func (sh *strictHandler) WriteMhsStates(ctx *fiber.Ctx) error {
+	var request WriteMhsStatesRequestObject
+
+	var body WriteMhsStatesJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.WriteMhsStates(ctx.UserContext(), request.(WriteMhsStatesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "WriteMhsStates")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(WriteMhsStatesResponseObject); ok {
+		if err := validResponse.VisitWriteMhsStatesResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

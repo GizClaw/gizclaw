@@ -186,6 +186,8 @@ enum RpcMethod {
   RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET = 130 [(rpc_method) = { name: "client.device.factory_reset" request: "ClientDeviceFactoryResetRequest" response: "ClientDeviceFactoryResetResponse" }];
   RPC_METHOD_CLIENT_RPC_METHODS_GET = 131 [(rpc_method) = { name: "client.rpc.methods.get" request: "ClientRpcMethodsGetRequest" response: "ClientRpcMethodsGetResponse" }];
   RPC_METHOD_CLIENT_RUN_WORKSPACE_SET = 132 [(rpc_method) = { name: "client.run.workspace.set" request: "ClientRunWorkspaceSetRequest" response: "ClientRunWorkspaceSetResponse" }];
+  RPC_METHOD_CLIENT_MHS_V0_READ = 133 [(rpc_method) = { name: "client.mhs.v0.read" request: "ClientMhsV0ReadRequest" response: "ClientMhsV0ReadResponse" }];
+  RPC_METHOD_CLIENT_MHS_V0_WRITE = 134 [(rpc_method) = { name: "client.mhs.v0.write" request: "ClientMhsV0WriteRequest" response: "ClientMhsV0WriteResponse" }];
   RPC_METHOD_SERVER_APP_CONFIG_LIST = 121 [(rpc_method) = { name: "server.app_config.list" request: "AppConfigListRequest" response: "AppConfigListResponse" }];
   RPC_METHOD_SERVER_APP_CONFIG_GET = 122 [(rpc_method) = { name: "server.app_config.get" request: "AppConfigGetRequest" response: "AppConfigGetResponse" }];
   RPC_METHOD_SERVER_FRIEND_PING = 123 [(rpc_method) = { name: "server.friend.ping" request: "FriendPingRequest" response: "FriendPingResponse" }];

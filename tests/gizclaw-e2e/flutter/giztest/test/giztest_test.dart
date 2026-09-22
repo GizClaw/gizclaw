@@ -8,6 +8,14 @@ import 'package:giztest/src/variables.dart';
 final scenarioRoot = Directory('../../giztest').absolute.path;
 
 void main() {
+  test('MHS v0 documents are executable by the Flutter provider', () async {
+    final result = await loadDocuments([
+      '$scenarioRoot/server.device.mhs.giztest.yaml',
+      '$scenarioRoot/server.device.mhs.not_found.giztest.yaml',
+    ]);
+    expect(result.skipped, isEmpty);
+    expect(result.documents, hasLength(2));
+  });
   group('jsonPointer', () {
     test('resolves objects, arrays and escapes', () {
       final input = {

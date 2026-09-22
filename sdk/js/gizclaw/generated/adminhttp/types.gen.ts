@@ -1098,6 +1098,33 @@ export type VolcMem0Strategy = {
     custom_instructions?: string;
 };
 
+export type MhsV0Device = {
+    id: string;
+    kind: string;
+    description?: string;
+    tags?: Array<string>;
+    states: Array<MhsV0State>;
+};
+
+/**
+ * GizClaw MHS-inspired pre-standard v0, not an official MHS protocol or compatibility claim. Only state read/write. IDs and names are unique within their parent; numeric constraints apply only to int/double, min <= max, step > 0 (grid origin min or zero). int constraints are integral JSON-safe integers. enum_values is required only for enum and forbidden otherwise. Server validation also enforces UTF-8 byte limits. A future official-compatible version would be v1.
+ */
+export type MhsV0Manifest = {
+    devices: Array<MhsV0Device>;
+};
+
+export type MhsV0State = {
+    name: string;
+    type: 'bool' | 'int' | 'double' | 'string' | 'enum';
+    access: 'read' | 'read_write';
+    min?: number;
+    max?: number;
+    step?: number;
+    enum_values?: Array<string>;
+    unit?: string;
+    description?: string;
+};
+
 export type MiniMaxTenant = {
     id: string;
     app_id?: string;
@@ -1555,6 +1582,10 @@ export type RuntimeProfileMemoryConnection = ({
 
 export type RuntimeProfileMemoryDriver = 'flowcraft' | 'mem0' | 'volc_mem0';
 
+export type RuntimeProfileMhs = {
+    v0?: MhsV0Manifest;
+};
+
 export type RuntimeProfileResources = {
     models?: {
         [key: string]: RuntimeProfileBinding;
@@ -1586,6 +1617,7 @@ export type RuntimeProfileSpec = {
     workflows: RuntimeProfileWorkflows;
     resources: RuntimeProfileResources;
     safety_fences?: RuntimeProfileSafetyFences;
+    mhs?: RuntimeProfileMhs;
     app_config?: RuntimeProfileAppConfig;
 };
 

@@ -269,6 +269,8 @@ func TestSocialResponsesRenderProtoJSON(t *testing.T) {
 func TestDeviceSettingsAndControlDocuments(t *testing.T) {
 	for _, name := range []string{
 		"server.device.settings.giztest.yaml",
+		"server.device.mhs.giztest.yaml",
+		"server.device.mhs.not_found.giztest.yaml",
 		"server.device.factory_reset.giztest.yaml",
 		"server.device.rpc_methods.giztest.yaml",
 		"server.device.run_workspace.set.giztest.yaml",

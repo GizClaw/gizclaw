@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 )
 
 type rpcClient struct{}
@@ -247,4 +248,28 @@ func (c *rpcClient) InvokeTool(ctx context.Context, conn net.Conn, id string, re
 		return nil, wrapRPCResultError("tool invoke", err)
 	}
 	return result, nil
+}
+
+func (c *rpcClient) ReadMhsStates(ctx context.Context, conn net.Conn, id string, request *rpcpb.ClientMhsV0ReadRequest) (*rpcpb.ClientMhsV0ReadResponse, error) {
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromClientMhsV0ReadRequest)
+	if err != nil {
+		return nil, err
+	}
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientMhsV0Read, params), rpcapi.RPCPayload.AsClientMhsV0ReadResponse)
+	if err != nil {
+		return nil, wrapRPCResultError("MHS states", err)
+	}
+	return *result, nil
+}
+
+func (c *rpcClient) WriteMhsStates(ctx context.Context, conn net.Conn, id string, request *rpcpb.ClientMhsV0WriteRequest) (*rpcpb.ClientMhsV0WriteResponse, error) {
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromClientMhsV0WriteRequest)
+	if err != nil {
+		return nil, err
+	}
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientMhsV0Write, params), rpcapi.RPCPayload.AsClientMhsV0WriteResponse)
+	if err != nil {
+		return nil, wrapRPCResultError("MHS states", err)
+	}
+	return *result, nil
 }

@@ -16,6 +16,190 @@
     {"name": "FriendGroups", "description": "Friend Groups the device bound to the API key belongs to"}
   ],
   "paths": {
+    "/gizclaw/v1/device/mhs/v0/manifest": {
+      "get": {
+        "operationId": "getMhsManifest",
+        "summary": "Get the bound RuntimeProfile MHS v0 manifest",
+        "tags": [
+          "DeviceControl"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "GizClaw MHS-inspired pre-standard v0; no official MHS compatibility claim. Returns the bound manifest while offline; devices is empty when unconfigured.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/MhsV0Manifest"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/gizclaw/v1/device/mhs/v0/read": {
+      "post": {
+        "operationId": "readMhsStates",
+        "summary": "Read MHS v0 hardware states",
+        "tags": [
+          "DeviceControl"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "GizClaw MHS-inspired pre-standard v0; no official MHS compatibility claim. Validates the entire unique 1-32 entry batch against the bound manifest before contacting the device. Returns exactly the requested keys. Device NOT_FOUND maps to 404 MHS_STATE_NOT_FOUND; FAILED_PRECONDITION maps to 502 DEVICE_ERROR; malformed device responses also return 502. A write is all-or-nothing and returns actual applied values.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./shared.json#/components/schemas/MhsV0ReadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/MhsV0States"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/DeviceOffline"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/DeviceUnsupported"
+          },
+          "502": {
+            "$ref": "#/components/responses/DeviceError"
+          },
+          "504": {
+            "$ref": "#/components/responses/DeviceTimeout"
+          },
+          "404": {
+            "description": "The device does not implement a requested hardware state (MHS_STATE_NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gizclaw/v1/device/mhs/v0/states": {
+      "patch": {
+        "operationId": "writeMhsStates",
+        "summary": "Atomically write MHS v0 hardware states",
+        "tags": [
+          "DeviceControl"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "GizClaw MHS-inspired pre-standard v0; no official MHS compatibility claim. Validates the entire unique 1-32 entry batch against the bound manifest before contacting the device. Returns exactly the requested keys. Device NOT_FOUND maps to 404 MHS_STATE_NOT_FOUND; FAILED_PRECONDITION maps to 502 DEVICE_ERROR; malformed device responses also return 502. A write is all-or-nothing and returns actual applied values.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./shared.json#/components/schemas/MhsV0States"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/MhsV0States"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/DeviceOffline"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/DeviceUnsupported"
+          },
+          "502": {
+            "$ref": "#/components/responses/DeviceError"
+          },
+          "504": {
+            "$ref": "#/components/responses/DeviceTimeout"
+          },
+          "404": {
+            "description": "The device does not implement a requested hardware state (MHS_STATE_NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/gizclaw/v1/device/audioplayer": {
       "get": {
         "operationId": "getDeviceAudioPlayer",

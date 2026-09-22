@@ -1,6 +1,6 @@
 # RPC API Reference
 
-本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 109 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
+本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 111 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
 
 `all.*` 由连接两端提供，`client.*` 由 Client/Device 提供，普通 `server.*` 与 `runtime.*` 由 Server 提供。最后一组 Edge RPC 使用独立 service `0x31`，只对 Edge-node 开放；其余方法使用 Peer RPC service `0x00`。
 
@@ -175,6 +175,8 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 | 130 | `client.device.factory_reset` | 设备清除本机状态并恢复出厂设置，设备侧不可撤销；可选 `keep_network` 保留已保存的 Wi‑Fi 与蜂窝配置，避免重新配网。Server 自身的 Peer 记录不受影响。 |
 | 131 | `client.rpc.methods.get` | 设备上报自己实现的 RPC method name 列表，调用方据此隐藏或跳过设备不支持的控制项。未知名称应忽略而不是拒绝。 |
 | 132 | `client.run.workspace.set` | 请设备切换到 `workspace_name` 指定的 Workspace，可选 `kickoff`；控制 App 的 workflow 目标由 Server 先解析为唯一名称。设备先应答再通过 `server.run.workspace.reload-with-options` 完成切换，应答只表示接受请求。 |
+| 133 | `client.mhs.v0.read` | 按 `(device_id, state)` 批量读取设备硬件 state 的当前值。可读的 key 由设备绑定的 RuntimeProfile `spec.mhs.v0` manifest 声明，Server 先按 manifest 校验；设备不实现的 key 返回 `NOT_FOUND`。这是 GizClaw 参照 MHS 思路自定的 v0 协议，不代表兼容官方 MHS。 |
+| 134 | `client.mhs.v0.write` | 按 `(device_id, state)` 批量写入 manifest 中声明为 `read_write` 的硬件 state，Server 先校验类型与范围。设备必须整批校验后再生效，拒绝时不应用任何一项；响应返回实际生效的值（driver 可以收敛取值并执行自身的安全限制）。 |
 
 ## 独立流式语音
 

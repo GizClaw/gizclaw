@@ -131,3 +131,14 @@ gizclaw.rpc.v1.ProfileGetResponse.items max_count:16
 gizclaw.rpc.v1.PublicProfile.peer_public_key max_size:65
 gizclaw.rpc.v1.PublicProfile.display_name max_size:257
 gizclaw.rpc.v1.PublicProfile.emoji max_size:65
+
+# MHS v0 capacities include the terminating NUL.
+gizclaw.rpc.v1.MhsStateRef.device_id max_size:65
+gizclaw.rpc.v1.MhsStateRef.state max_size:65
+gizclaw.rpc.v1.MhsStateValue.device_id max_size:65
+gizclaw.rpc.v1.MhsStateValue.state max_size:65
+gizclaw.rpc.v1.MhsValue.string_value max_size:257
+gizclaw.rpc.v1.ClientMhsV0ReadRequest.states max_count:32
+gizclaw.rpc.v1.ClientMhsV0ReadResponse.states max_count:32
+gizclaw.rpc.v1.ClientMhsV0WriteRequest.states max_count:32
+gizclaw.rpc.v1.ClientMhsV0WriteResponse.states max_count:32

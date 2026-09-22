@@ -82,3 +82,18 @@ spec:
     app.entrypoints: |
       {"home": "/tab/home", "settings": "/tab/settings"}
     feature.flags: beta-voice,beta-audio
+  mhs:
+    v0:
+      devices:
+      - id: display.main
+        kind: display
+        states:
+        - {name: brightness, type: int, access: read_write, min: 0, max: 100, step: 5}
+      - id: led.status
+        kind: led
+        states:
+        - {name: enabled, type: bool, access: read_write}
+      - id: battery.main
+        kind: battery
+        states:
+        - {name: level, type: int, access: read, min: 0, max: 100, unit: '%'}

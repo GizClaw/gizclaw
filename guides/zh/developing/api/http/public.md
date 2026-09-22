@@ -180,3 +180,17 @@ Admin IMEI 查询为 `/peers/@findPubKeysByImei/{tac}/{serial}`，CLI `admin pee
 | `POST /device/audioplayer/actions/play` | `client.device.audioplayer.play` |
 | `POST /device/audioplayer/actions/stop` | `client.device.audioplayer.stop` |
 | `PUT /device/audioplayer/mode` | `client.device.audioplayer.mode.set` |
+
+## MHS v0 硬件状态
+
+以下 API Key owner-scoped 路由提供 GizClaw 自有的 MHS-inspired 预标准 v0，不声称官方 MHS 兼容。清单定义见 [RuntimeProfile](/zh/developing/gizclaw/services/runtime-profile#mhs-v0-硬件清单)。
+
+| 路由 | 结果 |
+| --- | --- |
+| `GET /gizclaw/v1/device/mhs/v0/manifest` | 当前绑定 Profile 的 `{devices:[...]}`，离线可读，未配置时为空数组 |
+| `POST /gizclaw/v1/device/mhs/v0/read` | 请求 `{states:[{device_id,state}]}`，返回 `{states:[{device_id,state,value}]}` |
+| `PATCH /gizclaw/v1/device/mhs/v0/states` | 请求和返回均为 `{states:[{device_id,state,value}]}`，返回实际生效值 |
+
+HTTP value 是普通 JSON bool/整数/number/string，enum 使用 string。每批 1–32 个唯一 key；Server 在转发前校验所有 key、写权限、类型、整数精度、范围、step 网格、enum 成员和字符串字节上限。失败返回 `400 INVALID_REQUEST`，不联系设备。请求使用同一份 bound manifest 快照验证响应；设备响应必须恰好覆盖请求的全部 key，不能遗漏、重复或添加 key，值的类型必须与清单一致、enum 值必须在 enum_values 中；不合规返回 `502 DEVICE_ERROR`。min/max/step 只约束写入，设备上报的值反映真实硬件状态，超出范围或不在 step 网格上时照常返回。
+
+读写沿用 5 秒 device-control 路径和 owner 串行化：离线 `409 DEVICE_OFFLINE`，未安装 handler `501 DEVICE_UNSUPPORTED`，超时 `504 DEVICE_TIMEOUT`，设备 INVALID_ARGUMENT/OUT_OF_RANGE 为 `400 DEVICE_REJECTED`。设备可以因硬件版本缺少某个部件返回 NOT_FOUND，映射为 `404 MHS_STATE_NOT_FOUND`；FAILED_PRECONDITION 和其他设备错误映射为脱敏的 `502 DEVICE_ERROR`。设备必须先验证整批再修改，不能部分成功；驱动自行执行安全限制，可以 clamp/round，并返回实际值。超时不证明写入未发生，调用方应重新读取确认。

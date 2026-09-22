@@ -135,6 +135,8 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET = 130,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_GET = 131,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RUN_WORKSPACE_SET = 132,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_READ = 133,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_WRITE = 134,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_APP_CONFIG_LIST = 121,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_APP_CONFIG_GET = 122,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_PING = 123,
@@ -211,8 +213,8 @@ extern "C" {
 #define _gizclaw_rpc_v1_StatusCode_ARRAYSIZE ((gizclaw_rpc_v1_StatusCode)(gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNAUTHENTICATED+1))
 
 #define _gizclaw_rpc_v1_RpcMethod_MIN gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED
-#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RUN_WORKSPACE_SET
-#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RUN_WORKSPACE_SET+1))
+#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_WRITE
+#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_WRITE+1))
 
 
 

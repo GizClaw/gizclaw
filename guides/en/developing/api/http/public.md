@@ -182,3 +182,17 @@ These paths use the `/gizclaw/v1` prefix and existing device authorization. Set/
 | `POST /device/audioplayer/actions/play` | `client.device.audioplayer.play` |
 | `POST /device/audioplayer/actions/stop` | `client.device.audioplayer.stop` |
 | `PUT /device/audioplayer/mode` | `client.device.audioplayer.mode.set` |
+
+## MHS v0 hardware states
+
+These API-key owner-scoped routes expose GizClaw's own MHS-inspired pre-standard v0, with no official MHS compatibility claim. The manifest contract belongs to [RuntimeProfile](/en/developing/gizclaw/services/runtime-profile#mhs-v0-hardware-manifest).
+
+| Route | Result |
+| --- | --- |
+| `GET /gizclaw/v1/device/mhs/v0/manifest` | Bound Profile's `{devices:[...]}`, available offline; empty when unconfigured |
+| `POST /gizclaw/v1/device/mhs/v0/read` | Accepts `{states:[{device_id,state}]}`; returns `{states:[{device_id,state,value}]}` |
+| `PATCH /gizclaw/v1/device/mhs/v0/states` | Accepts and returns `{states:[{device_id,state,value}]}` with actual applied values |
+
+HTTP values are plain JSON booleans, integers, numbers or strings; enums use strings. Batches contain 1–32 unique keys. The Server validates every key, write access, type, integer precision, bounds, decimal step grid, enum member and string byte limit before forwarding. Rejection is `400 INVALID_REQUEST` without contacting the device. The response is checked against the same bound manifest snapshot: exactly the requested keys once each, each value of the manifest type and, for enums, listed in enum_values. Malformed device responses become `502 DEVICE_ERROR`. min/max/step bound writes only: reported values reflect real hardware state and pass through even when out of range or off the step grid.
+
+Reads/writes reuse the 5-second, owner-serialized device-control path: offline is `409 DEVICE_OFFLINE`, absent handlers `501 DEVICE_UNSUPPORTED`, timeout `504 DEVICE_TIMEOUT`, and device INVALID_ARGUMENT/OUT_OF_RANGE `400 DEVICE_REJECTED`. A hardware revision missing an advertised key returns NOT_FOUND, mapped to `404 MHS_STATE_NOT_FOUND`. FAILED_PRECONDITION and other device failures become redacted `502 DEVICE_ERROR`. Drivers validate the whole batch before modifying anything, enforce their own safety limits, and may clamp/round. A timeout does not establish whether a write took effect; callers should read back the state.

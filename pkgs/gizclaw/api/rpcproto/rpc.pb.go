@@ -220,6 +220,8 @@ const (
 	RpcMethod_RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET               RpcMethod = 130
 	RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_GET                    RpcMethod = 131
 	RpcMethod_RPC_METHOD_CLIENT_RUN_WORKSPACE_SET                  RpcMethod = 132
+	RpcMethod_RPC_METHOD_CLIENT_MHS_V0_READ                        RpcMethod = 133
+	RpcMethod_RPC_METHOD_CLIENT_MHS_V0_WRITE                       RpcMethod = 134
 	RpcMethod_RPC_METHOD_SERVER_APP_CONFIG_LIST                    RpcMethod = 121
 	RpcMethod_RPC_METHOD_SERVER_APP_CONFIG_GET                     RpcMethod = 122
 	RpcMethod_RPC_METHOD_SERVER_FRIEND_PING                        RpcMethod = 123
@@ -335,6 +337,8 @@ var (
 		130: "RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET",
 		131: "RPC_METHOD_CLIENT_RPC_METHODS_GET",
 		132: "RPC_METHOD_CLIENT_RUN_WORKSPACE_SET",
+		133: "RPC_METHOD_CLIENT_MHS_V0_READ",
+		134: "RPC_METHOD_CLIENT_MHS_V0_WRITE",
 		121: "RPC_METHOD_SERVER_APP_CONFIG_LIST",
 		122: "RPC_METHOD_SERVER_APP_CONFIG_GET",
 		123: "RPC_METHOD_SERVER_FRIEND_PING",
@@ -447,6 +451,8 @@ var (
 		"RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET":               130,
 		"RPC_METHOD_CLIENT_RPC_METHODS_GET":                    131,
 		"RPC_METHOD_CLIENT_RUN_WORKSPACE_SET":                  132,
+		"RPC_METHOD_CLIENT_MHS_V0_READ":                        133,
+		"RPC_METHOD_CLIENT_MHS_V0_WRITE":                       134,
 		"RPC_METHOD_SERVER_APP_CONFIG_LIST":                    121,
 		"RPC_METHOD_SERVER_APP_CONFIG_GET":                     122,
 		"RPC_METHOD_SERVER_FRIEND_PING":                        123,
@@ -1027,7 +1033,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x14STATUS_CODE_INTERNAL\x10\r\x12\x1b\n" +
 	"\x17STATUS_CODE_UNAVAILABLE\x10\x0e\x12\x19\n" +
 	"\x15STATUS_CODE_DATA_LOSS\x10\x0f\x12\x1f\n" +
-	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\xd0k\n" +
+	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\xb2m\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -1234,7 +1240,11 @@ const file_rpc_proto_rawDesc = "" +
 	"!RPC_METHOD_CLIENT_RPC_METHODS_GET\x10\x83\x01\x1aU\xc2\xf3\x18Q\n" +
 	"\x16client.rpc.methods.get\x12\x1aClientRpcMethodsGetRequest\x1a\x1bClientRpcMethodsGetResponse\x12\x85\x01\n" +
 	"#RPC_METHOD_CLIENT_RUN_WORKSPACE_SET\x10\x84\x01\x1a[\xc2\xf3\x18W\n" +
-	"\x18client.run.workspace.set\x12\x1cClientRunWorkspaceSetRequest\x1a\x1dClientRunWorkspaceSetResponse\x12p\n" +
+	"\x18client.run.workspace.set\x12\x1cClientRunWorkspaceSetRequest\x1a\x1dClientRunWorkspaceSetResponse\x12m\n" +
+	"\x1dRPC_METHOD_CLIENT_MHS_V0_READ\x10\x85\x01\x1aI\xc2\xf3\x18E\n" +
+	"\x12client.mhs.v0.read\x12\x16ClientMhsV0ReadRequest\x1a\x17ClientMhsV0ReadResponse\x12q\n" +
+	"\x1eRPC_METHOD_CLIENT_MHS_V0_WRITE\x10\x86\x01\x1aL\xc2\xf3\x18H\n" +
+	"\x13client.mhs.v0.write\x12\x17ClientMhsV0WriteRequest\x1a\x18ClientMhsV0WriteResponse\x12p\n" +
 	"!RPC_METHOD_SERVER_APP_CONFIG_LIST\x10y\x1aI\xc2\xf3\x18E\n" +
 	"\x16server.app_config.list\x12\x14AppConfigListRequest\x1a\x15AppConfigListResponse\x12l\n" +
 	" RPC_METHOD_SERVER_APP_CONFIG_GET\x10z\x1aF\xc2\xf3\x18B\n" +

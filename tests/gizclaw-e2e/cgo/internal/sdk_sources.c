@@ -7,6 +7,7 @@
 #include "../../../../sdk/c/gizclaw/generated/payload/enums.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/firmware.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/icon.pb.c"
+#include "../../../../sdk/c/gizclaw/generated/payload/mhs.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/social.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/system.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/workspace.pb.c"

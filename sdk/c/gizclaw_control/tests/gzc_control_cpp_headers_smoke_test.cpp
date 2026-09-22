@@ -16,11 +16,18 @@ static_assert(GZC_CONTROL_MAX_SOUND_BYTES == 32);
 static_assert(GZC_CONTROL_MAX_DISPLAY_NAME_BYTES == 80);
 static_assert(GZC_CONTROL_MAX_VOLUME_LEVEL == 100);
 
+static_assert(GZC_CONTROL_MHS_V0_MAX_BATCH == 32);
+static_assert(GZC_CONTROL_MHS_V0_MAX_NAME_BYTES == 64);
+static_assert(GZC_CONTROL_MHS_V0_MAX_STRING_BYTES == 256);
+static_assert(GZC_CONTROL_MHS_V0_MAX_INT == 9007199254740991LL);
+
 int main() {
+  gzc_control_mhs_v0_value_t mhs{};
+  gzc_control_mhs_v0_storage_t storage{};
   gzc_control_client_t client{};
   gzc_control_call_t call{};
   gzc_control_peer_status_t status{};
   gzc_control_device_info_t device{};
   return client.config.timeout_ms != 0 || call.status_code != 0 || status.has_volume ||
-         device.has_hardware;
+         device.has_hardware || mhs.has_int_value || storage.used != 0;
 }

@@ -594,6 +594,44 @@ class GizClawControlClient {
     );
   }
 
+  /// Bound RuntimeProfile manifest; available even while the device is offline.
+  Future<MhsManifest> getMhsManifest() => _json(
+    'GET',
+    '/device/mhs/v0/manifest',
+    MhsManifest.fromJson,
+    operation: 'getMhsManifest',
+  );
+
+  /// Reads a non-empty batch of at most 32 unique hardware keys.
+  Future<List<MhsStateValue>> readMhsStates(List<MhsStateRef> states) => _json(
+    'POST',
+    '/device/mhs/v0/read',
+    _mhsStates,
+    body: {
+      'states': [for (final state in states) state.toJson()],
+    },
+    operation: 'readMhsStates',
+  );
+
+  /// Atomically writes all keys and returns actual applied values.
+  Future<List<MhsStateValue>> writeMhsStates(List<MhsStateValue> states) =>
+      _json(
+        'PATCH',
+        '/device/mhs/v0/states',
+        _mhsStates,
+        body: {
+          'states': [for (final state in states) state.toJson()],
+        },
+        operation: 'writeMhsStates',
+      );
+
+  static List<MhsStateValue> _mhsStates(Object? json) => List.unmodifiable(
+    asJsonList(
+      asJsonObject(json, 'MhsStates')['states'],
+      'MhsStates.states',
+    ).map(MhsStateValue.fromJson),
+  );
+
   /// `GET /gizclaw/v1/device/settings`.
   ///
   /// A null member means the device does not support that option.

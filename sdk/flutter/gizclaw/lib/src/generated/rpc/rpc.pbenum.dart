@@ -336,6 +336,10 @@ class RpcMethod extends $pb.ProtobufEnum {
       131, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_RPC_METHODS_GET');
   static const RpcMethod RPC_METHOD_CLIENT_RUN_WORKSPACE_SET = RpcMethod._(
       132, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_RUN_WORKSPACE_SET');
+  static const RpcMethod RPC_METHOD_CLIENT_MHS_V0_READ =
+      RpcMethod._(133, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_MHS_V0_READ');
+  static const RpcMethod RPC_METHOD_CLIENT_MHS_V0_WRITE =
+      RpcMethod._(134, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_MHS_V0_WRITE');
   static const RpcMethod RPC_METHOD_SERVER_APP_CONFIG_LIST = RpcMethod._(
       121, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_APP_CONFIG_LIST');
   static const RpcMethod RPC_METHOD_SERVER_APP_CONFIG_GET = RpcMethod._(
@@ -455,6 +459,8 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET,
     RPC_METHOD_CLIENT_RPC_METHODS_GET,
     RPC_METHOD_CLIENT_RUN_WORKSPACE_SET,
+    RPC_METHOD_CLIENT_MHS_V0_READ,
+    RPC_METHOD_CLIENT_MHS_V0_WRITE,
     RPC_METHOD_SERVER_APP_CONFIG_LIST,
     RPC_METHOD_SERVER_APP_CONFIG_GET,
     RPC_METHOD_SERVER_FRIEND_PING,
@@ -465,7 +471,7 @@ class RpcMethod extends $pb.ProtobufEnum {
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 132);
+      $pb.ProtobufEnum.$_initByValueList(values, 134);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

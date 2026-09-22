@@ -117,3 +117,9 @@ try {
 通过 `peerEventSessionForFlutterGiznetWebRtc(peerConnection)!.events` 的完成通知
 观察 event session 终止；重连创建新的 Peer 与 session。旧 Peer 开始关闭后会拒绝
 创建新的 RPC 通道。
+
+## MHS v0 硬件状态
+
+设备端在 `GizClawDeviceControlHandlers` 安装 `readMhsStates`/`writeMhsStates`，使用生成的 `ClientMhsV0*` 与 `MhsValue`。控制端调用 `getMhsManifest()`、`readMhsStates(List<MhsStateRef>)`、`writeMhsStates(List<MhsStateValue>)`；`MhsStateValue.value` 是普通 bool/int/double/String，返回写入后的实际值。`MhsState` 的 type/access/min/max/step/enumValues/unit 用于渲染控件。
+
+这是 GizClaw 自有的 MHS-inspired 预标准 v0，不声称官方兼容。manifest 离线可读，每次读写最多 32 个唯一 key；写入必须整批验证且驱动执行安全限制。完整错误与边界见 [Public API](/zh/developing/api/http/public) 和 [provider contract](/zh/developing/api/proto/rpc/client-provided-to-server)。

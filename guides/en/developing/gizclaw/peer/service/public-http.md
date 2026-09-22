@@ -29,3 +29,7 @@ When a browser request carries `Origin`, Direct Server, Peer Public HTTP, and Ed
 | `allowEdgeClientPeer` | Determine whether the Peer is allowed to serve as an Edge client. |
 | `allowEdgeSignalingPeer` | Determine whether the Peer is allowed to initiate signaling through the Edge. |
 | `setPeerHTTPCORSHeaders` | Set the CORS headers of the Peer HTTP surface. |
+
+## MHS v0
+
+`peer_service_serve_peer_http_mhs.go` serves manifest/read/states. `peerresource.DeviceReads.MhsManifest` resolves the owner binding offline, `services/device/mhs` validates both directions, and `rpcClient.ReadMhsStates/WriteMhsStates` reuse the controller. See [Public API](/en/developing/api/http/public#mhs-v0-hardware-states).

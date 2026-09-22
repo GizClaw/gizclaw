@@ -143,4 +143,21 @@ int gzc_control_decode_device_workspace_item(gzc_str_t object_json, void *out);
 int gzc_control_decode_string_item(gzc_str_t raw_json, void *out);
 int gzc_control_decode_device_tool_item(gzc_str_t object_json, void *out);
 
+/* Shared string unescape; output is caller-owned, raw must be a string token. */
+int gzc_control_unescape_string(gzc_str_t raw, char *dst, size_t dst_cap, gzc_str_t *out);
+
+bool gzc_control_mhs_v0_storage_valid(const gzc_control_mhs_v0_storage_t *storage);
+bool gzc_control_mhs_v0_name_valid(gzc_str_t name);
+bool gzc_control_mhs_v0_string_valid(gzc_str_t value);
+int gzc_control_mhs_v0_decode_devices(
+    gzc_str_t object, gzc_control_mhs_v0_storage_t *storage,
+    gzc_control_mhs_v0_device_t *out, size_t cap, size_t *count);
+int gzc_control_mhs_v0_decode_states(
+    gzc_str_t object, gzc_control_mhs_v0_storage_t *storage,
+    gzc_control_mhs_v0_state_value_t *out, size_t cap, size_t *count);
+/* Bridge request parsing shares the same bounded codec as HTTP responses. */
+int gzc_control_mhs_v0_decode_refs(
+    gzc_str_t object, gzc_control_mhs_v0_storage_t *storage,
+    gzc_control_mhs_v0_state_ref_t *out, size_t cap, size_t *count);
+
 #endif

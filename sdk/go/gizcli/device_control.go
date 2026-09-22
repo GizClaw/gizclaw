@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 )
 
 var (
@@ -21,10 +22,15 @@ var (
 // client.wifi.* methods for this Client. A nil handler answers
 // METHOD_NOT_FOUND, which the Server maps to 501 DEVICE_UNSUPPORTED.
 type DeviceControlHandlers struct {
-	AudioPlayer AudioPlayerHandlers
-	Status      func(context.Context) (rpcapi.PeerStatus, error)
-	SetVolume   func(ctx context.Context, level int64, muted bool) (rpcapi.PeerStatus, error)
-	PlaySound   func(ctx context.Context, sound string, durationMs *int64) error
+	// ReadMhsStates returns exactly the requested hardware keys, or NOT_FOUND.
+	ReadMhsStates func(context.Context, *rpcpb.ClientMhsV0ReadRequest) (*rpcpb.ClientMhsV0ReadResponse, error)
+	// WriteMhsStates validates the whole batch and enforces driver safety limits
+	// before applying anything. Return actual values or reject the entire batch.
+	WriteMhsStates func(context.Context, *rpcpb.ClientMhsV0WriteRequest) (*rpcpb.ClientMhsV0WriteResponse, error)
+	AudioPlayer    AudioPlayerHandlers
+	Status         func(context.Context) (rpcapi.PeerStatus, error)
+	SetVolume      func(ctx context.Context, level int64, muted bool) (rpcapi.PeerStatus, error)
+	PlaySound      func(ctx context.Context, sound string, durationMs *int64) error
 	// Find rings the device's built-in find-me sound. durationMs is nil when
 	// the caller leaves the ring time to the device.
 	Find        func(ctx context.Context, durationMs *int64) error
@@ -79,6 +85,8 @@ func (h *DeviceControlHandlers) supportedDeviceMethods() []string {
 		method  rpcapi.RPCMethod
 		present bool
 	}{
+		{rpcapi.RPCMethodClientMhsV0Read, h.ReadMhsStates != nil},
+		{rpcapi.RPCMethodClientMhsV0Write, h.WriteMhsStates != nil},
 		{rpcapi.RPCMethodClientDeviceStatusGet, h.Status != nil},
 		{rpcapi.RPCMethodClientDeviceVolumeSet, h.SetVolume != nil},
 		{rpcapi.RPCMethodClientDeviceSoundPlay, h.PlaySound != nil},
@@ -173,6 +181,47 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 		return deviceControlUnsupported(req.Id, req.Method), nil
 	}
 	switch req.Method {
+	case rpcapi.RPCMethodClientMhsV0Read:
+		if handlers.ReadMhsStates == nil {
+			return deviceControlUnsupported(req.Id, req.Method), nil
+		}
+		if req.Params == nil {
+			return rpcInvalidParams(req.Id), nil
+		}
+		params, err := req.Params.AsClientMhsV0ReadRequest()
+		if err != nil || rpcapi.ValidateMhsRefs(params.GetStates()) != nil {
+			return rpcInvalidParams(req.Id), nil
+		}
+		c.peer.observeClientRPC(req.Method)
+		result, err := handlers.ReadMhsStates(ctx, params)
+		if err != nil {
+			return deviceControlError(req.Id, err), nil
+		}
+		if err := rpcapi.ValidateMhsStates(result.GetStates()); err != nil {
+			return deviceControlError(req.Id, err), nil
+		}
+		return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromClientMhsV0ReadResponse)
+	case rpcapi.RPCMethodClientMhsV0Write:
+		if handlers.WriteMhsStates == nil {
+			return deviceControlUnsupported(req.Id, req.Method), nil
+		}
+		if req.Params == nil {
+			return rpcInvalidParams(req.Id), nil
+		}
+		params, err := req.Params.AsClientMhsV0WriteRequest()
+		if err != nil || rpcapi.ValidateMhsStates(params.GetStates()) != nil {
+			return rpcInvalidParams(req.Id), nil
+		}
+		c.peer.observeClientRPC(req.Method)
+		result, err := handlers.WriteMhsStates(ctx, params)
+		if err != nil {
+			return deviceControlError(req.Id, err), nil
+		}
+		if err := rpcapi.ValidateMhsStates(result.GetStates()); err != nil {
+			return deviceControlError(req.Id, err), nil
+		}
+		return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromClientMhsV0WriteResponse)
+
 	case rpcapi.RPCMethodClientDeviceStatusGet:
 		if err := validateRPCParams(req.Params, rpcapi.RPCPayload.AsClientDeviceStatusGetRequest); err != nil {
 			return rpcInvalidParams(req.Id), nil

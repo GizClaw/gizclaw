@@ -41,7 +41,7 @@ if (gzc_control_get_device_status(&client, &call, &status) == GZC_OK && status.h
 }
 ```
 
-解码结果中的每个 `gzc_str_t` 都指向 `response`，在同一个 `gzc_control_call_t` 被复用前保持有效。列表路由由调用方提供数组与容量；数组不足时返回 `GZC_ERR_BUFFER_TOO_SMALL`。开放结构（`PeerStatus`、`DeviceInfo`）在 typed 字段之外提供 `raw`，与 Dart 和 TypeScript 控制侧 package 一致。
+解码字符串通常指向 `response`，在同一个 `gzc_control_call_t` 被复用前保持有效；MHS 转义字符串使用下文所述的额外调用方存储。列表路由由调用方提供数组与容量；数组不足时返回 `GZC_ERR_BUFFER_TOO_SMALL`。开放结构（`PeerStatus`、`DeviceInfo`）在 typed 字段之外提供 `raw`，与 Dart 和 TypeScript 控制侧 package 一致。
 
 Request 侧的字符串上限直接取自 contract：SSID 32 字节、sound 32 字节、display_name 80 字节，超限在发出请求前就返回 `GZC_ERR_INVALID_ARGUMENT`。
 
@@ -50,6 +50,32 @@ Request 侧的字符串上限直接取自 contract：SSID 32 字节、sound 32 �
 好友与群组 route 对应 `gzc_control_*_friend*` 与 `gzc_control_*_friend_group*` 函数，覆盖邀请码（`gzc_control_invite_token_request_t` 的可选 `ttl_seconds`）、加好友、列表、退群、解散与成员管理。群角色以字符串（`owner`、`admin`、`member`）返回，`info` 以 `has_info` 标记是否存在。
 
 成员列表的每项带可选的 `online`（Server 本地连接状态）与 `last_seen_at`（RFC 3339 UTC；未知或读取失败时省略），add、put、join 返回的成员不带这两个字段。C 使用 `has_online` + `online` 与 `last_seen_at`（`gzc_str_t`）。
+
+### MHS v0 控制侧 API
+
+`gzc_control_get_mhs_v0_manifest` 把离线清单解码到调用方提供的 `gzc_control_mhs_v0_device_t` 数组。嵌套列表使用 `gzc_control_mhs_v0_device_states`、`gzc_control_mhs_v0_device_tags` 和 `gzc_control_mhs_v0_state_enum_values` 解码；每个函数都接收输出数组、容量并返回已解码数量。状态类型与访问权限使用 C enum，`has_min` / `has_max` / `has_step` 区分缺省约束和零值。
+
+`gzc_control_read_mhs_v0_states` 接收 `gzc_control_mhs_v0_state_ref_t` key 数组；`gzc_control_write_mhs_v0_states` 接收 `gzc_control_mhs_v0_state_value_t` 数组，返回设备实际生效值。两者每批要求 1–32 项。ID 与名称遵循清单的 ASCII 语法，最多 64 字节；string/enum 值必须是无 NUL 的有效 UTF-8，最多 256 字节。非法输入在发送前返回 `GZC_ERR_INVALID_ARGUMENT`。重复 key、访问权限、清单类型、范围和 enum 成员由 Server 校验，保留正常 HTTP 错误，包括 `404 MHS_STATE_NOT_FOUND`。
+
+`gzc_control_mhs_v0_value_t.kind` 表示 JSON 表达形式，不表示清单类型。两种数值 kind 都提供 `double_value`；`has_int_value` 表示同时存在 ±9007199254740991 范围内精确的 `int_value`，也包括实际为整数的小数或指数 token。`number_is_integer_token` 区分原始整数 token 和小数/指数 token，即使超出安全整数范围也保留该信息；`number_json` 保留原始 token。清单中的 `double` 状态可能以 `0` 返回，kind 为 `GZC_CONTROL_MHS_V0_VALUE_INT`，此时仍使用 `double_value`。写入时 `VALUE_INT` 使用 `int_value`，`VALUE_DOUBLE` 使用有限的 `double_value`，`VALUE_STRING` 使用 `string_value` 承载 string/enum；解码元数据 `has_int_value`、`number_is_integer_token`、`number_json` 不参与编码。
+
+所有 MHS 调用及嵌套解码函数接收以 `{data, capacity, 0}` 初始化的 `gzc_control_mhs_v0_storage_t`。普通字符串及嵌套 JSON 数组借用 `call.response`，转义字符串解码到这块独立的调用方缓冲区。HTTP 调用在发送后重置 `used`，嵌套解码继续追加。两块存储都需保持有效，且不得与请求 scratch 或输入 JSON 重叠。每个嵌套列表只解码一次时，字符串存储容量不小于 `response_cap` 即可容纳完整结果。SDK 不分配、不扩容。数组或字符串存储不足返回 `GZC_ERR_BUFFER_TOO_SMALL`：HTTP 调用同时分类为 `GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL`，嵌套 helper 直接返回错误码；溢出后只有已解码的前缀有效。请求 scratch 应容纳整批数据及 JSON 转义，上文的 512 字节示例只适用于小请求。
+
+```c
+char mhs_strings[8192];
+gzc_control_mhs_v0_storage_t storage = {mhs_strings, sizeof(mhs_strings), 0};
+gzc_control_mhs_v0_state_ref_t key = {
+    gzc_str_from_cstr("display.main"), gzc_str_from_cstr("brightness")};
+gzc_control_mhs_v0_state_value_t applied[1];
+size_t count = 0;
+int rc = gzc_control_read_mhs_v0_states(
+    &client, &call, &key, 1, &storage, applied, 1, &count);
+if (rc != GZC_OK) {
+  return;
+}
+```
+
+原子写入和超时后重新读取的语义见 [MHS HTTP 契约](/zh/developing/api/http/public#mhs-v0-硬件状态)。
 
 ### 错误分类
 
@@ -197,3 +223,9 @@ exchange, request)` 只在调用内借用结构；`gzc_signaling_encode_admissio
 `server.register` 完成绑定，见 [Security Policy](../../developing/gizclaw/server/security-policy)。
 
 内置 type 由导出常量 `GZC_REGISTRATION_TOKEN_CREDENTIAL_TYPE` 定义，helper 引用该常量。value 最多 512 个 UTF-8 字节；超限在 helper 构造时返回错误或抛出异常。自定义 policy 应使用自己的域名前缀，内置类型保留 `gizclaw.com/` 前缀。
+
+## MHS v0 硬件状态
+
+`gzc_rpc.h` 导出 `payload/mhs.pb.h`。在 `rpc_provider` 中处理 `RPC_METHOD_CLIENT_MHS_V0_READ/WRITE`（133/134），使用生成的 `ClientMhsV0*` nanopb 编解码。provider 自行回答 `client.rpc.methods.get`，仅列出真实安装的方法；缺少 handler 返回 `GZC_ERR_UNSUPPORTED`。响应 bytes 在 respond callback 内借用，必须在返回前有效。
+
+这是 GizClaw 自有的 MHS-inspired 预标准 v0，不声称官方兼容。manifest 离线可读，每次读写最多 32 个唯一 key；写入必须整批验证且驱动执行安全限制。完整错误与边界见 [Public API](/zh/developing/api/http/public) 和 [provider contract](/zh/developing/api/proto/rpc/client-provided-to-server)。

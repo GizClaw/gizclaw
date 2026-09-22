@@ -41,7 +41,7 @@ func (c *rpcClient) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpca
 		rpcapi.RPCMethodClientDeviceFind, rpcapi.RPCMethodClientDeviceReboot, rpcapi.RPCMethodClientWifiStatusGet, rpcapi.RPCMethodClientWifiSavedList,
 		rpcapi.RPCMethodClientWifiSavedForget, rpcapi.RPCMethodClientWifiScan, rpcapi.RPCMethodClientWifiConnect,
 		rpcapi.RPCMethodClientFirmwareUpdate, rpcapi.RPCMethodClientDeviceSettingsGet, rpcapi.RPCMethodClientDeviceSettingsSet,
-		rpcapi.RPCMethodClientDeviceFactoryReset, rpcapi.RPCMethodClientRPCMethodsGet, rpcapi.RPCMethodClientRunWorkspaceSet:
+		rpcapi.RPCMethodClientDeviceFactoryReset, rpcapi.RPCMethodClientRPCMethodsGet, rpcapi.RPCMethodClientRunWorkspaceSet, rpcapi.RPCMethodClientMhsV0Read, rpcapi.RPCMethodClientMhsV0Write:
 		if c.peer == nil {
 			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer client not configured"}.RPCResponse(), nil
 		}

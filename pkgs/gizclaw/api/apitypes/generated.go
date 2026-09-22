@@ -1597,6 +1597,51 @@ func (e MemoryLayoutResourceKind) Valid() bool {
 	}
 }
 
+// Defines values for MhsV0StateAccess.
+const (
+	MhsV0StateAccessRead      MhsV0StateAccess = "read"
+	MhsV0StateAccessReadWrite MhsV0StateAccess = "read_write"
+)
+
+// Valid indicates whether the value is a known member of the MhsV0StateAccess enum.
+func (e MhsV0StateAccess) Valid() bool {
+	switch e {
+	case MhsV0StateAccessRead:
+		return true
+	case MhsV0StateAccessReadWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MhsV0StateType.
+const (
+	MhsV0StateTypeBool   MhsV0StateType = "bool"
+	MhsV0StateTypeDouble MhsV0StateType = "double"
+	MhsV0StateTypeEnum   MhsV0StateType = "enum"
+	MhsV0StateTypeInt    MhsV0StateType = "int"
+	MhsV0StateTypeString MhsV0StateType = "string"
+)
+
+// Valid indicates whether the value is a known member of the MhsV0StateType enum.
+func (e MhsV0StateType) Valid() bool {
+	switch e {
+	case MhsV0StateTypeBool:
+		return true
+	case MhsV0StateTypeDouble:
+		return true
+	case MhsV0StateTypeEnum:
+		return true
+	case MhsV0StateTypeInt:
+		return true
+	case MhsV0StateTypeString:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MiniMaxTenantModelProviderDataApiMode.
 const (
 	MiniMaxTenantModelProviderDataApiModeChatCompletions MiniMaxTenantModelProviderDataApiMode = "chat_completions"
@@ -4572,6 +4617,78 @@ type MemoryLayoutSpec struct {
 	VolcMem0  VolcMem0MemoryLayoutPolicy  `json:"volc_mem0"`
 }
 
+// MhsV0Device defines model for MhsV0Device.
+type MhsV0Device struct {
+	Description *string      `json:"description,omitempty"`
+	Id          string       `json:"id"`
+	Kind        string       `json:"kind"`
+	States      []MhsV0State `json:"states"`
+	Tags        *[]string    `json:"tags,omitempty"`
+}
+
+// MhsV0Manifest GizClaw MHS-inspired pre-standard v0, not an official MHS protocol or compatibility claim. Only state read/write. IDs and names are unique within their parent; numeric constraints apply only to int/double, min <= max, step > 0 (grid origin min or zero). int constraints are integral JSON-safe integers. enum_values is required only for enum and forbidden otherwise. Server validation also enforces UTF-8 byte limits. A future official-compatible version would be v1.
+type MhsV0Manifest struct {
+	Devices []MhsV0Device `json:"devices"`
+}
+
+// MhsV0ReadRequest defines model for MhsV0ReadRequest.
+type MhsV0ReadRequest struct {
+	States []MhsV0StateRef `json:"states"`
+}
+
+// MhsV0State defines model for MhsV0State.
+type MhsV0State struct {
+	Access      MhsV0StateAccess `json:"access"`
+	Description *string          `json:"description,omitempty"`
+	EnumValues  *[]string        `json:"enum_values,omitempty"`
+	Max         *float64         `json:"max,omitempty"`
+	Min         *float64         `json:"min,omitempty"`
+	Name        string           `json:"name"`
+	Step        *float64         `json:"step,omitempty"`
+	Type        MhsV0StateType   `json:"type"`
+	Unit        *string          `json:"unit,omitempty"`
+}
+
+// MhsV0StateAccess defines model for MhsV0State.Access.
+type MhsV0StateAccess string
+
+// MhsV0StateType defines model for MhsV0State.Type.
+type MhsV0StateType string
+
+// MhsV0StateRef defines model for MhsV0StateRef.
+type MhsV0StateRef struct {
+	DeviceId string `json:"device_id"`
+	State    string `json:"state"`
+}
+
+// MhsV0StateValue defines model for MhsV0StateValue.
+type MhsV0StateValue struct {
+	DeviceId string `json:"device_id"`
+	State    string `json:"state"`
+
+	// Value Plain JSON value interpreted by the manifest. int values must be integral within +/-9007199254740991. All numbers must be finite; strings and enum values must be valid UTF-8 without NUL, at most 256 bytes.
+	Value MhsV0Value `json:"value"`
+}
+
+// MhsV0States defines model for MhsV0States.
+type MhsV0States struct {
+	States []MhsV0StateValue `json:"states"`
+}
+
+// MhsV0Value Plain JSON value interpreted by the manifest. int values must be integral within +/-9007199254740991. All numbers must be finite; strings and enum values must be valid UTF-8 without NUL, at most 256 bytes.
+type MhsV0Value struct {
+	union json.RawMessage
+}
+
+// MhsV0Value0 defines model for .
+type MhsV0Value0 = bool
+
+// MhsV0Value1 defines model for .
+type MhsV0Value1 = float64
+
+// MhsV0Value2 defines model for .
+type MhsV0Value2 = string
+
 // MiniMaxCredentialBody defines model for MiniMaxCredentialBody.
 type MiniMaxCredentialBody struct {
 	ApiKey              *string `json:"api_key,omitempty"`
@@ -5474,6 +5591,12 @@ type RuntimeProfileMemoryConnection struct {
 // RuntimeProfileMemoryDriver defines model for RuntimeProfileMemoryDriver.
 type RuntimeProfileMemoryDriver string
 
+// RuntimeProfileMhs defines model for RuntimeProfileMhs.
+type RuntimeProfileMhs struct {
+	// V0 GizClaw MHS-inspired pre-standard v0, not an official MHS protocol or compatibility claim. Only state read/write. IDs and names are unique within their parent; numeric constraints apply only to int/double, min <= max, step > 0 (grid origin min or zero). int constraints are integral JSON-safe integers. enum_values is required only for enum and forbidden otherwise. Server validation also enforces UTF-8 byte limits. A future official-compatible version would be v1.
+	V0 *MhsV0Manifest `json:"v0,omitempty"`
+}
+
 // RuntimeProfileResource defines model for RuntimeProfileResource.
 type RuntimeProfileResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
@@ -5509,6 +5632,7 @@ type RuntimeProfileSafetyFences struct {
 type RuntimeProfileSpec struct {
 	// AppConfig Opaque device-defined configuration downlink. Keys use the RuntimeProfile alias syntax and values are bounded at 4096 UTF-8 bytes; both are enforced during Server-side normalization because OpenAPI 3.0 has no propertyNames keyword and expresses maxLength in characters. The Server stores and returns every value verbatim and never parses it. Clients read it through server.app_config.list and server.app_config.get and cannot write it. Any registered device bound to this RuntimeProfile can read every entry, so values must not contain credentials, API keys or other secrets.
 	AppConfig *RuntimeProfileAppConfig `json:"app_config,omitempty"`
+	Mhs       *RuntimeProfileMhs       `json:"mhs,omitempty"`
 	Resources RuntimeProfileResources  `json:"resources"`
 
 	// SafetyFences Tenant-defined complete prompts for each level. Child does not inherit or concatenate general. No built-in prompts or off entry exist. Reload fails when the selected level is missing.
@@ -8038,6 +8162,94 @@ func (t FlowcraftNode) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FlowcraftNode) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsMhsV0Value0 returns the union data inside the MhsV0Value as a MhsV0Value0
+func (t MhsV0Value) AsMhsV0Value0() (MhsV0Value0, error) {
+	var body MhsV0Value0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMhsV0Value0 overwrites any union data inside the MhsV0Value as the provided MhsV0Value0
+func (t *MhsV0Value) FromMhsV0Value0(v MhsV0Value0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMhsV0Value0 performs a merge with any union data inside the MhsV0Value, using the provided MhsV0Value0
+func (t *MhsV0Value) MergeMhsV0Value0(v MhsV0Value0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMhsV0Value1 returns the union data inside the MhsV0Value as a MhsV0Value1
+func (t MhsV0Value) AsMhsV0Value1() (MhsV0Value1, error) {
+	var body MhsV0Value1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMhsV0Value1 overwrites any union data inside the MhsV0Value as the provided MhsV0Value1
+func (t *MhsV0Value) FromMhsV0Value1(v MhsV0Value1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMhsV0Value1 performs a merge with any union data inside the MhsV0Value, using the provided MhsV0Value1
+func (t *MhsV0Value) MergeMhsV0Value1(v MhsV0Value1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMhsV0Value2 returns the union data inside the MhsV0Value as a MhsV0Value2
+func (t MhsV0Value) AsMhsV0Value2() (MhsV0Value2, error) {
+	var body MhsV0Value2
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMhsV0Value2 overwrites any union data inside the MhsV0Value as the provided MhsV0Value2
+func (t *MhsV0Value) FromMhsV0Value2(v MhsV0Value2) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMhsV0Value2 performs a merge with any union data inside the MhsV0Value, using the provided MhsV0Value2
+func (t *MhsV0Value) MergeMhsV0Value2(v MhsV0Value2) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t MhsV0Value) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *MhsV0Value) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
