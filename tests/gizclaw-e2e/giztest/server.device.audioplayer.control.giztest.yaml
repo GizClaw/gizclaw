@@ -63,9 +63,9 @@ steps:
               source_ref: catalog:b
       status: 200
     expect:
-      /result/value/playlist_length:
+      /result/playlist_length:
         equals: 2
-      /result/value/state:
+      /result/state:
         equals: stopped
   - id: append
     client: peer
@@ -84,9 +84,9 @@ steps:
               source_ref: catalog:c
       status: 200
     expect:
-      /result/value/playlist_length:
+      /result/playlist_length:
         equals: 3
-      /result/value/playlist_revision:
+      /result/playlist_revision:
         equals: 2
   - id: read_playlist
     client: peer
@@ -121,9 +121,9 @@ steps:
           index: 0
       status: 200
     expect:
-      /result/value/state:
+      /result/state:
         equals: playing
-      /result/value/current_index:
+      /result/current_index:
         equals: 0
   - id: repeat_one
     client: peer
@@ -138,7 +138,7 @@ steps:
           repeat: one
       status: 200
     expect:
-      /result/value/repeat:
+      /result/repeat:
         equals: one
   - id: stop
     client: peer
@@ -152,7 +152,7 @@ steps:
         args: {}
       status: 200
     expect:
-      /result/value/state:
+      /result/state:
         equals: stopped
   - id: stop_again
     client: peer
@@ -166,9 +166,9 @@ steps:
         args: {}
       status: 200
     expect:
-      /result/value/state:
+      /result/state:
         equals: stopped
-      /result/value/playlist_length:
+      /result/playlist_length:
         equals: 3
   - id: get_player
     client: peer
@@ -182,9 +182,9 @@ steps:
         tool: audioplayer.get
         args: {}
     expect:
-      /result/value/state:
+      /result/state:
         equals: stopped
-      /result/value/repeat:
+      /result/repeat:
         equals: one
   - id: read_snapshot
     client: peer

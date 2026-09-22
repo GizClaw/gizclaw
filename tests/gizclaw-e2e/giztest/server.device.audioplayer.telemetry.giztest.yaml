@@ -208,6 +208,21 @@ steps:
         equals: 35
       /states/1/value:
         equals: false
+  - id: read_volume
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/read
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        states:
+          - {device_id: speaker.main, state: volume}
+          - {device_id: speaker.main, state: muted}
+      status: 200
+    expect:
+      /states/0/value: {equals: 35}
+      /states/1/value: {equals: false}
   - id: preserved_snapshot
     client: peer
     http:
@@ -217,8 +232,6 @@ steps:
         Authorization: Bearer ${api_key}
       status: 200
     expect:
-      /volume:
-        equals: 35
       /audioplayer/error_code:
         equals: FETCH_FAILED
       /ota/download_percent:
@@ -237,6 +250,19 @@ steps:
             state: muted
             value:
               bool_value: false
+      expect_calls: 1
+  - id: provider_volume_read
+    client: peer
+    client_rpc:
+      method: client.mhs.v0.read
+      response:
+        states:
+          - device_id: speaker.main
+            state: volume
+            value: {int_value: 35}
+          - device_id: speaker.main
+            state: muted
+            value: {bool_value: false}
       expect_calls: 1
 finally:
   - id: cleanup_peer

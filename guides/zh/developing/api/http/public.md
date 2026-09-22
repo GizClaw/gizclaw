@@ -102,6 +102,8 @@ Server 为 API Key owner 提供两类设备接口：`mhs/v0` 处理硬件状态�
 
 调用体例如 `{ "tool": "device.find", "args": { "duration_ms": 8000 } }`。OpenAPI 对 `tool` 使用 `oneOf` 和 discriminator，各过程保持类型化的参数 Schema。工具包括 `device.status.get`、`sound.play`、`device.find`、`device.reboot`、`device.factory_reset`、Wi-Fi 过程、`firmware.update`、七个 `audioplayer.*` 过程及 `run.workspace.set`。`tool/v0` 使用 GizClaw 定义的封闭枚举。RuntimeProfile Tool 目录独立服务于 Server 侧 HTTP Tool；v0 不提供 Agent 调用产品自定义设备工具的能力。
 
+HTTP `result` 使用所选响应消息的 SDK JSON 投影。若 Protobuf 响应只含一个名为 `value` 的消息字段，该字段会被展开：`audioplayer.playlist.set` 的 `playlist_length` 位于 `result.playlist_length`，不再嵌套 `value`。`audioplayer.playlist.get` 等包含自身字段的响应则将这些字段保留在 `result` 下。
+
 非法工具参数、超过 32 UTF-8 bytes 的 sound 或 SSID、非法 Wi-Fi 密码、超过播放列表容量、错误的固件摘要和非法 MHS 写入，均在 Server 侧以 `400 INVALID_REQUEST` 拒绝，不发送设备 RPC。MHS key 必须在已绑定 manifest 中声明，写入还要求 `read_write`。找不到 Workspace 目标时，在设备调用前返回 `404 WORKSPACE_NOT_FOUND`。设备仍独立执行自身的安全限制。
 
 设备离线映射 `409 DEVICE_OFFLINE`；未安装的工具或 MHS handler 映射 `501 DEVICE_UNSUPPORTED`；超时映射 `504 DEVICE_TIMEOUT`；设备 `INVALID_PARAMS` 映射 `400 DEVICE_REJECTED`；其他设备错误脱敏后映射 `502 DEVICE_ERROR`。不存在的已保存 Wi-Fi 网络映射 `404 WIFI_NETWORK_NOT_FOUND`。重启、Wi-Fi 连接、恢复出厂设置或固件更新得到确认后可能断线，同一连接上的后续命令会返回离线，直到设备重连。异步过程的成功应答仅表示设备已接受操作。

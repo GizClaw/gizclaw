@@ -55,7 +55,7 @@ steps:
           items: []
       status: 200
     expect:
-      /result/value/playlist_length:
+      /result/playlist_length:
         equals: 0
   - id: read_empty
     client: peer

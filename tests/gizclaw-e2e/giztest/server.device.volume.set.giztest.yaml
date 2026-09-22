@@ -75,7 +75,7 @@ steps:
         args: {}
       status: 200
     expect:
-      /result/value/battery_percent:
+      /result/battery_percent:
         equals: 88
   - id: read_back
     client: peer
