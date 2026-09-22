@@ -1257,7 +1257,7 @@ func (r *inputRouter) ActivateEvents() []inputEvent {
 }
 
 func (r *inputRouter) TranscriptOutput() genx.Stream {
-	if r == nil {
+	if r == nil || r.transcript == nil {
 		return nil
 	}
 	return r.transcript
