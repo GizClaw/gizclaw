@@ -4,6 +4,8 @@
 
 `peer` Owns server-side persistent Peer resources and implements Peer CRUD, verification, indexing and connected-peer bootstrap required for Admin HTTP and Peer HTTP.
 
+Peer KV mutations derive CAS conditions and identifier indexes from the persisted snapshot without SQL projections. SQL owns the RegistrationToken Firmware binding, exposed through `RegistrationFirmware` on reads. Partial profile updates, device identifiers refresh, and approve/block operations neither compare that projection as the old KV value nor write it back into KV. Atomic CAS still rejects stale writes from another Server, with deletion fences and index changes in the same transaction.
+
 ## Core structure and main function
 
 | Structure or function | Function |
