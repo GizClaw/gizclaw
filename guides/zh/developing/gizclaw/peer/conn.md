@@ -69,7 +69,11 @@ identity 做非 owning 分发。单一调用方负责 `gzc_client_poll`，reques
 不存在“Peer 已 online 但没有 Event transport”的窗口，立即到达的
 `server.register` 也不会早于 connection activation。`server.peer.delete` 开始时，准确的 connection 会进入 retiring，其 Manager 条目会在 durable mutation 前进入 deleting。该 public key 的新工作、registration 与 replacement activation 会被拒绝，但 store 操作不会阻塞其他 Peer。mutation 成功后只条件摘除同一 generation；失败时也只在它仍是 current generation 时恢复。当前删除 RPC 的 transport 会保留到 acknowledgement 与 EOS 写入尝试结束；无论 response 或 EOS 写入是否成功，terminal action 都会关闭完整 Giznet connection。
 
-下行 encoder 是 `ApplicationAudio` 下的 16kHz mono libopus encoder，complexity 固定为最高档 10。Server 为每条连接的 Peer 各编码一路；complexity 不可配置，也不随负载调整。
+下行 encoder 是 `ApplicationAudio` 下的 16kHz mono libopus encoder，complexity 固定为 2。Server 为每条连接的 Peer 各编码一路；complexity 不可配置，也不随负载调整。
+
+`BenchmarkPeerConnOpusComplexity` 使用生产 encoder 构造函数和外部 16 kHz mono PCM16 语料，比较 0、1、2、3、4、5、6、8、10 档。76 秒中文语音、libopus 1.5.2、M4 Max 上的六轮测量显示，2 档相对 10 档节省约 65% 的编码 CPU；PESQ-WB 相对原始语音为 4.139（10 档 4.406、3 档 3.128、5 档 3.580）。这是以部分音质换取 CPU 余量的选择，客观指标不代替人工试听，也不证明 Linux E2E 容量。默认 `OPUS_AUTO` bitrate 在 20 ms 帧下为 19000 bit/s，VBR 和 signal 自动选择保持默认。该语料在 2 档走 SILK、3–6 档走 CELT，因此成本并非随 complexity 单调变化。SILK 在 2 档仍使用 delayed-decision quantizer，但不使用 warped LPC；只有 0–1 档关闭 delayed-decision。
+
+复测时通过 `GIZCLAW_OPUS_BENCH_PCM` 提供完整 20 ms 帧的真实语音，运行 `go test -run '^$' -bench '^BenchmarkPeerConnOpusComplexity$' -benchtime=3s -count=6 -cpu=1 ./pkgs/gizclaw`。共享机器上应在编译完成后用 `-exec` wrapper 为测量进程获取共同的 benchmark lock，记录每轮前后负载，并报告实际方差。
 
 `streamMixedAudio` 是生成音频唯一的发送 pacing owner。普通 Go ticker 迟到时继续读取下一帧，不丢弃、重排或批量补发 PCM，也不创建 provider epoch。Pion 在同一条 WebRTC track 生命周期内维护 SSRC、RTP sequence number 和 timestamp；每个 20ms Opus sample 在 48kHz RTP clock 上推进 960 ticks，新连接建立独立 RTP timeline。到达 jitter、adaptive playout delay、packet-loss concealment 与 Opus FEC 属于 WebRTC receiver。
 

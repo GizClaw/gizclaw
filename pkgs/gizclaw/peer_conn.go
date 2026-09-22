@@ -42,8 +42,12 @@ const (
 	inputRouteReloadedMessage = "input route reloaded"
 	peerConnMixerFormat       = pcm.L16Mono16K
 	peerConnOpusFrameDuration = 20 * time.Millisecond
-	// peerConnOpusComplexity sets the downlink encoder to maximum libopus complexity.
-	peerConnOpusComplexity          = 10
+	// peerConnOpusComplexity trades some speech quality for lower downlink CPU.
+	// BenchmarkPeerConnOpusComplexity (libopus 1.5.2, 76 s Mandarin, M4 Max)
+	// measured about 65% less encoder CPU at 2 than 10; see
+	// guides/zh/developing/gizclaw/peer/conn.md for the quality comparison.
+	// SILK retains delayed decision at 2 but omits warped LPC analysis.
+	peerConnOpusComplexity          = 2
 	peerConnPacingBufferTarget      = 500 * time.Millisecond
 	peerConnPacingMaxRecoveryPerPkt = 5 * time.Millisecond
 	peerConnPacingMinimumPeriod     = peerConnOpusFrameDuration - peerConnPacingMaxRecoveryPerPkt
