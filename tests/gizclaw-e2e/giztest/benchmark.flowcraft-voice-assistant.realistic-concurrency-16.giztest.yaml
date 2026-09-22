@@ -1,13 +1,14 @@
 # User Story:
 # As a registered device using the flowcraft-voice-assistant Workflow,
-# I want complete the independent benchmark.flowcraft-voice-assistant.concurrency-10 scenario,
-# So that conversation behavior and cleanup remain reproducible.
+# I want sixteen independently arriving devices to receive three long voice replies,
+# So that sustained audio playback can be measured with reproducible arrival and think-time jitter.
 version: gizclaw.test/v1alpha1
-name: benchmark.flowcraft-voice-assistant.concurrency-10
-repeat: 10
-start_jitter: 0s # Lockstep worst case; use CLI overrides for realistic load.
+name: benchmark.flowcraft-voice-assistant.realistic-concurrency-16
+repeat: 16
+timeout: 20m
+start_jitter: 30s # Realistic load: independent device arrivals.
 stagger: 0s
-step_jitter: 0s
+step_jitter: 3s
 clients:
   peer:
     identity: ephemeral
@@ -34,13 +35,7 @@ variables:
   prompt:
     direction: input
     type: string
-    value: Hello from an independent Giztest workflow task.
-  input_audio:
-    direction: output
-    type: audio
-    max_bytes: 16777216
-    media_type: audio/ogg
-    codec: opus
+    value: 请完整讲述一个适合孩子听的森林冒险故事，包含出发、三个困难、朋友合作和温暖的结局。请直接连续讲完整故事，约一千二百个汉字，不要分章节，不要提问，不要省略细节。
 steps:
   - id: register_peer
     client: peer
@@ -66,25 +61,39 @@ steps:
       method: server.run.workspace.set
       request:
         workspace_name: ${workspace_name}
-  - id: synthesize_input
+  - id: long_voice_turn_1
     client: peer
-    speech:
-      cache: run
-      method: server.speech.synthesize
-      request:
-        voice_name: narrator
-        text: Giztest audio input
-        accepted_content_types: [audio/ogg]
-    save_as: input_audio
-  - id: exercise_workflow
-    client: peer
+    timeout: 6m
     peer_stream:
-      mode: push-to-talk
-      input: ${input_audio}
-      pacing: 20ms
+      mode: text
+      input: ${prompt}
+      require_text: true
+      require_audio: true
     expect:
-      /events:
-        non_empty: true
+      /text: {non_empty: true}
+      /audio_bytes: {minimum: 1}
+  - id: long_voice_turn_2
+    client: peer
+    timeout: 6m
+    peer_stream:
+      mode: text
+      input: ${prompt}
+      require_text: true
+      require_audio: true
+    expect:
+      /text: {non_empty: true}
+      /audio_bytes: {minimum: 1}
+  - id: long_voice_turn_3
+    client: peer
+    timeout: 6m
+    peer_stream:
+      mode: text
+      input: ${prompt}
+      require_text: true
+      require_audio: true
+    expect:
+      /text: {non_empty: true}
+      /audio_bytes: {minimum: 1}
 finally:
   - client: peer
     rpc:

@@ -419,6 +419,12 @@ Go 与 C runner 共用 `pkgs/giztest`，由它拥有文档 schema、变量、cap
 `barrier`、`output`、`review` 仍由 runner 自身执行。
 `api/giztest/giztest.schema.json` 是所有 runner 共同校验的跨语言文档契约。
 
+调度格式和报告字段见 [启动偏移与 think time](/zh/using/cli#启动偏移与-think-time)。
+Go/C 共享基于 seed 的启动 jitter、stagger 与步骤 think time；JavaScript/Flutter 校验并
+接受这些顶层字段，但忽略调度并写入 `timing_mode: ignored`。因此 SDK contract 验证
+不能替代 Go/C 的负载调度测量。已有并发基准保留显式零延迟，realistic concurrency-16
+场景默认带 jitter；CLI 显式零覆盖用于同文档 lockstep 对照。
+
 Flutter runner 是桌面二进制而不是纯 Dart CLI，因为设备端需要 `flutter_webrtc` 的
 platform implementation。`run_tests.sh` 在 macOS 与 Linux 上构建并运行它，其他 host 跳过。
 

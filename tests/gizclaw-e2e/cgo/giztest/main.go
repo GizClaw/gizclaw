@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"github.com/spf13/cobra"
@@ -78,7 +80,7 @@ func newValidateCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			docs, skipped, err := load(cmd.ErrOrStderr(), files)
+			docs, skipped, err := load(cmd.ErrOrStderr(), files, giztest.TimingOverrides{})
 			if err != nil {
 				return codedError(exitValidation, err)
 			}
@@ -108,11 +110,19 @@ func newRunCmd() *cobra.Command {
 			if parallel < 1 {
 				return codedError(exitValidation, fmt.Errorf("parallel must be positive"))
 			}
-			docs, skipped, err := load(cmd.ErrOrStderr(), args)
+			timing := commandTiming(cmd)
+			docs, skipped, err := load(cmd.ErrOrStderr(), args, timing)
 			if err != nil {
 				return codedError(exitValidation, err)
 			}
-			report := giztest.Run(cmd.Context(), docs, giztest.Options{
+			if err := giztest.ValidateTiming(docs, timing); err != nil {
+				return codedError(exitValidation, err)
+			}
+			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+			defer stop()
+			fmt.Fprintf(cmd.OutOrStdout(), "Giztest starting: %d documents, parallel=%d\n", len(docs), parallel)
+			report := giztest.Run(ctx, docs, giztest.Options{
+				Timing:   timing,
 				Driver:   driver{},
 				Parallel: parallel,
 				In:       os.Stdin,
@@ -132,6 +142,7 @@ func newRunCmd() *cobra.Command {
 	}
 	cmd.Flags().IntVar(&parallel, "parallel", 1, "maximum concurrent tasks across all selected documents")
 	cmd.Flags().StringVar(&output, "output", "", "write an atomic JSON report")
+	addTimingFlags(cmd)
 	return cmd
 }
 
@@ -144,12 +155,12 @@ reported as skipped on stderr, naming the step and operation, the same way the
 JavaScript and Flutter runners do. They are never counted as passing, and a
 document that is malformed rather than merely unsupported is still an error.
 */
-func load(stderr io.Writer, inputs []string) ([]*giztest.Document, []giztest.SkippedDocument, error) {
+func load(stderr io.Writer, inputs []string, timing giztest.TimingOverrides) ([]*giztest.Document, []giztest.SkippedDocument, error) {
 	paths, err := giztest.Discover(inputs)
 	if err != nil {
 		return nil, nil, err
 	}
-	documents, skipped, err := giztest.LoadSupportedDocuments(paths, driver{})
+	documents, skipped, err := giztest.LoadSupportedDocumentsWithTiming(paths, driver{}, timing)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -157,4 +168,33 @@ func load(stderr io.Writer, inputs []string) ([]*giztest.Document, []giztest.Ski
 		fmt.Fprintf(stderr, "skipped %s: %s\n", entry.Path, entry.Reason)
 	}
 	return documents, skipped, nil
+}
+
+// addTimingFlags keeps flag presence separate from its value: --start-jitter=0
+// must override a non-zero document value, and --seed=0 is a real seed.
+func addTimingFlags(cmd *cobra.Command) {
+	cmd.Flags().String("start-jitter", "0", "override uniform task start jitter (exclusive upper bound)")
+	cmd.Flags().String("stagger", "0", "override repeat-index-based task start spacing")
+	cmd.Flags().String("step-jitter", "0", "override uniform think time before steps after the first")
+	cmd.Flags().Int64("seed", 0, "scheduling seed (0..9007199254740991); generated and reported when omitted")
+}
+
+func commandTiming(cmd *cobra.Command) giztest.TimingOverrides {
+	var result giztest.TimingOverrides
+	for _, field := range []struct {
+		name   string
+		target **string
+	}{
+		{"start-jitter", &result.StartJitter}, {"stagger", &result.Stagger}, {"step-jitter", &result.StepJitter},
+	} {
+		if cmd.Flags().Changed(field.name) {
+			value, _ := cmd.Flags().GetString(field.name)
+			*field.target = &value
+		}
+	}
+	if cmd.Flags().Changed("seed") {
+		value, _ := cmd.Flags().GetInt64("seed")
+		result.Seed = &value
+	}
+	return result
 }

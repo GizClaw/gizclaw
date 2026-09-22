@@ -29,3 +29,19 @@ func TestBenchmarkAndFirstResponseGiztestDocuments(t *testing.T) {
 		}
 	}
 }
+
+func TestConcurrencyBenchmarksDeclareTimingMode(t *testing.T) {
+	paths, err := filepath.Glob("../../../../tests/gizclaw-e2e/giztest/benchmark.*concurrency*.giztest.yaml")
+	if err != nil || len(paths) == 0 {
+		t.Fatalf("paths = %v, error = %v", paths, err)
+	}
+	for _, path := range paths {
+		doc, err := giztest.LoadDocument(path, newDriver(false, nil))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if doc.StartJitter == "" || doc.StepJitter == "" || doc.Stagger == "" {
+			t.Fatalf("%s lacks an explicit timing mode", path)
+		}
+	}
+}

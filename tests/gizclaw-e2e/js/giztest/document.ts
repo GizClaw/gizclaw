@@ -8,6 +8,7 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { parse as parseYAML } from "yaml";
+import { validateTiming, type TimingFields } from "./timing.ts";
 
 export const DOCUMENT_VERSION = "gizclaw.test/v1alpha1";
 export const MAX_DOCUMENT_BYTES = 4 << 20;
@@ -139,6 +140,7 @@ export type Expectation = {
 };
 
 export type Step = {
+  barrier?: { participants?: number };
   telemetry?: { frame: Record<string, unknown> };
   id: string;
   client?: string;
@@ -175,7 +177,7 @@ export const MAX_RETRY_DELAY_MS = 5 * 60 * 1000;
 // Of the kinds this runner executes, only rpc may retry, as in the Go runner.
 const RETRYABLE_OPERATIONS = new Set<string>(["rpc"]);
 
-export type GiztestDocument = {
+export type GiztestDocument = TimingFields & {
   path: string;
   version: string;
   name: string;
@@ -574,6 +576,11 @@ export async function loadDocument(filePath: string): Promise<GiztestDocument> {
   if (parsed == null || typeof parsed !== "object") {
     fail(filePath, "document is not a YAML mapping");
   }
+  validateTiming(
+    parsed,
+    parsed.repeat ?? 1,
+    (parsed.steps ?? []).some((step) => step.barrier != null),
+  );
   const finalizers = (parsed.finally ?? []).map((step, index) => ({
     ...step,
     id: step.id == null || step.id === "" ? `finally_${index + 1}` : step.id,
