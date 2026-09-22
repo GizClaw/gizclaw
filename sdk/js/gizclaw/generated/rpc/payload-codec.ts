@@ -8296,7 +8296,8 @@ function decodeType(reader: ProtoReader, tag: ProtoField, type: string): unknown
       return decodeValue(reader.bytes(tag));
     default:
       if (ENUM_DESCS[type] != null) {
-        return enumName(type, reader.int32(tag));
+        const value = reader.int32(tag);
+        return ENUM_DESCS[type].byNumber[value] ?? value;
       }
       return decodeMessage(type, reader.bytes(tag));
   }

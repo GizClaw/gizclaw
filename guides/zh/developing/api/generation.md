@@ -2,6 +2,8 @@
 
 API 变更必须从根 `api/` 的 source schema 开始。禁止直接修改由第三方工具生成的 `*.pb.go`、OpenAPI Go output、JavaScript generated client 或 C nanopb output。`rpcapi/generated.go` 是历史遗留的手工维护 wrapper，不属于第三方生成输出；修改时必须同时核对 source proto、`rpcproto` 和 codec tests。
 
+JavaScript RPC payload codec 将已知 enum 数字解码为现有领域字符串，未知 enum 数字原样保留，重新编码时仍发送相同数值。未知 symbolic string 仍被拒绝；proto3 optional 的省略不变。因此跨语言测试可以将非法数字送达 Server，验证领域层的 `INVALID_ARGUMENT`，而不会先把它变成空字符串。此行为由 `sdk/js/scripts/generate-rpc-payload-codec.mjs` 生成。
+
 ## 生成链路
 
 | Source | 主要输出 | 命令 |
