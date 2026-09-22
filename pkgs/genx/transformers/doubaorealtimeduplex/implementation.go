@@ -86,7 +86,12 @@ func (c doubaoRealtimeDuplexClient) OpenSession(ctx context.Context, cfg *doubao
 	if c.client == nil {
 		return nil, fmt.Errorf("doubao realtime duplex client is required")
 	}
-	return c.client.RealtimeDuplex.OpenSession(ctx, cfg)
+	session, err := c.client.RealtimeDuplex.OpenSession(ctx, cfg)
+	if session == nil {
+		// Avoid wrapping a nil *RealtimeDuplexSession in a non-nil interface.
+		return nil, err
+	}
+	return session, err
 }
 
 // option is a functional option for Transformer.
