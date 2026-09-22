@@ -5,6 +5,7 @@ x-build: &build
   dockerfile: tests/gizclaw-e2e/docker/Dockerfile.server
   args:
     BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
+    PREBUILD_CLI: "1"
 
 services:
   server:

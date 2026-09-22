@@ -19,6 +19,10 @@ cleanup() {
   local status=$?
   trap - EXIT
   if [[ "$stack_started" == 1 ]]; then
+    if ((status != 0)); then
+      docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$GIZCLAW_E2E_DOCKER_COMPOSE_FILE" \
+        logs --tail 200 >&2 || true
+    fi
     bash "$script_dir/setup/docker-compose-down.sh" || status=1
   fi
   rm -rf "$task_dir"

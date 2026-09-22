@@ -41,6 +41,9 @@ bash tests/gizclaw-e2e/run_admission_docker_tests.sh
 省略 SFU 配置和 provider 资源初始化；无需模型调用或 AI 凭据。
 此 lane 使用 Server 公布的 TCP ICE 入口，不验收 relay。标准 `run_tests.sh` 保留
 原有 Compose 文件、凭据 preflight、资源初始化与默认 `open` 行为。
+准入镜像通过 `PREBUILD_CLI=1` 在构建时编译一次 CLI，三个服务复用现有 prebuilt 入口，
+避免低配 CI runner 在就绪检查期间分别冷编译；标准镜像默认仍在启动时构建。
+失败时先输出三个服务的末尾日志，再按项目拆栈。
 
 入口先通过 Edge 登记配置的 Admin identity，再切回直连 Server 的 admin CLI context。
 这是 Edge logical connection 的现有部署边界，不是 Admin key 的准入豁免；所有被测设备

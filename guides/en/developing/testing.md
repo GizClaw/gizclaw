@@ -48,6 +48,11 @@ provider resource initialization. No model calls or AI credentials are needed.
 The lane uses the advertised Server TCP ICE listener; relay behavior is outside
 its acceptance scope. The standard `run_tests.sh` keeps its original Compose file,
 credential preflight, resource initialization and default `open` behavior.
+Admission sets `PREBUILD_CLI=1` to compile the CLI once during image construction;
+all three services reuse the existing prebuilt entrypoint. This keeps cold builds
+outside readiness checks on small CI runners. Standard images still build at
+startup by default. Failures print the tail of all three service logs before
+project-scoped cleanup.
 
 The entrypoint registers the configured Admin identity through Edge, then uses the
 direct-Server admin CLI context. This is the existing Edge logical-connection boundary,
