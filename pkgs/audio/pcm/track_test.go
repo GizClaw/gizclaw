@@ -49,6 +49,21 @@ func TestTrackCloseWritePreventsFurtherWrites(t *testing.T) {
 	}
 }
 
+func TestTrackMatchingFormatBypassesResampler(t *testing.T) {
+	mx := NewMixer(L16Mono16K)
+	tk := &track{mx: mx}
+	writer, err := tk.newWriter(L16Mono16K)
+	if err != nil {
+		t.Fatalf("newWriter(16 kHz) error: %v", err)
+	}
+	if writer.resampler != nil {
+		t.Fatal("newWriter(16 kHz) created a resampler for a matching mixer format")
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("Close() error: %v", err)
+	}
+}
+
 type dataEOFReader struct {
 	data []byte
 	read bool

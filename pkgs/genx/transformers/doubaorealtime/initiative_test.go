@@ -98,7 +98,7 @@ func TestTransformerInitiativeSendsHiddenQueryPerMode(t *testing.T) {
 			if !hasRealtimeTestText(chunks, genx.RoleModel, "你好呀") {
 				t.Fatalf("missing opening text: %#v", chunks)
 			}
-			if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/pcm") {
+			if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/L16; rate=16000; channels=1") {
 				t.Fatalf("missing opening audio: %#v", chunks)
 			}
 		})
@@ -166,7 +166,7 @@ func TestTransformerInitiativeResendsAfterLossBeforeResponse(t *testing.T) {
 		t.Fatalf("replacement session queries = %q, want the opening query again", got)
 	}
 	requireNoInitiativeLeak(t, chunks, DefaultInitiativeQuery)
-	if !hasRealtimeTestText(chunks, genx.RoleModel, "你好呀") || !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/pcm") {
+	if !hasRealtimeTestText(chunks, genx.RoleModel, "你好呀") || !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/L16; rate=16000; channels=1") {
 		t.Fatalf("replacement opening not published: %#v", chunks)
 	}
 	var successful int

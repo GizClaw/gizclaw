@@ -20,6 +20,12 @@ func TestNew(t *testing.T) {
 	if transformer == nil {
 		t.Fatal("New() returned nil")
 	}
+	if cfg := transformer.realtimeConfig().TTS.AudioConfig; cfg.Format != doubaospeech.FormatPCMS16LE || cfg.SampleRate != doubaospeech.SampleRate16000 || cfg.Channel != 1 {
+		t.Fatalf("default TTS audio config = %#v, want 16 kHz mono PCM16", cfg)
+	}
+	if got := transformer.outputMIMEType(); got != "audio/L16; rate=16000; channels=1" {
+		t.Fatalf("default output MIME = %q", got)
+	}
 }
 
 func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
@@ -77,6 +83,9 @@ func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
 		transformer.speakingStyle != "style" || transformer.characterManifest != "character" ||
 		transformer.dialogID != "dialog" || transformer.model != "O" || transformer.mode != ModeRealtime {
 		t.Fatalf("configured transformer = %#v", transformer)
+	}
+	if cfg := transformer.realtimeConfig().TTS.AudioConfig; cfg.Format != doubaospeech.FormatOGG || cfg.SampleRate != doubaospeech.SampleRate24000 {
+		t.Fatalf("explicit TTS audio config = %#v, want Ogg/Opus at 24 kHz", cfg)
 	}
 }
 

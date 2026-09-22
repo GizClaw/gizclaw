@@ -79,12 +79,12 @@ const (
 	// agent-initiative opening turn; the hidden query never enters output.
 	doubaoRealtimeInitiativeStreamID = "initiative"
 
-	doubaoRealtimeFixedInputFormat      = "speech_opus"
-	doubaoRealtimeFixedInputSampleRate  = 16000
-	doubaoRealtimeFixedInputChannels    = 1
-	doubaoRealtimeFixedOutputFormat     = "ogg_opus"
-	doubaoRealtimeFixedOutputSampleRate = 24000
-	doubaoRealtimeFixedOutputChannels   = 1
+	doubaoRealtimeFixedInputFormat        = "speech_opus"
+	doubaoRealtimeFixedInputSampleRate    = 16000
+	doubaoRealtimeFixedInputChannels      = 1
+	doubaoRealtimeDefaultOutputFormat     = "pcm_s16le"
+	doubaoRealtimeDefaultOutputSampleRate = 16000
+	doubaoRealtimeDefaultOutputChannels   = 1
 
 	doubaoRealtimePTTOutputLimit    = 2 * time.Minute
 	doubaoRealtimePTTOutputMaxBytes = 32 << 20
@@ -343,9 +343,9 @@ func newTransformer(client *doubaospeech.Client, opts ...option) *Transformer {
 	t := &Transformer{
 		client:           client,
 		speaker:          "zh_female_vv_jupiter_bigtts", // O version default voice
-		format:           doubaoRealtimeFixedOutputFormat,
-		sampleRate:       doubaoRealtimeFixedOutputSampleRate,
-		channels:         doubaoRealtimeFixedOutputChannels,
+		format:           doubaoRealtimeDefaultOutputFormat,
+		sampleRate:       doubaoRealtimeDefaultOutputSampleRate,
+		channels:         doubaoRealtimeDefaultOutputChannels,
 		inputFormat:      doubaoRealtimeFixedInputFormat,
 		inputSampleRate:  doubaoRealtimeFixedInputSampleRate,
 		inputChannels:    doubaoRealtimeFixedInputChannels,
@@ -2270,7 +2270,7 @@ func (t *Transformer) mimeType() string {
 	case "ogg_opus":
 		return "audio/ogg"
 	case "pcm", "pcm_s16le":
-		return "audio/pcm"
+		return fmt.Sprintf("audio/L16; rate=%d; channels=%d", t.sampleRate, t.channels)
 	default:
 		return "audio/pcm"
 	}
@@ -2288,10 +2288,10 @@ func realtimePTTOutputByteLimit(limit time.Duration, sampleRate, channels int) i
 		return 0
 	}
 	if sampleRate <= 0 {
-		sampleRate = doubaoRealtimeFixedOutputSampleRate
+		sampleRate = doubaoRealtimeDefaultOutputSampleRate
 	}
 	if channels <= 0 {
-		channels = doubaoRealtimeFixedOutputChannels
+		channels = doubaoRealtimeDefaultOutputChannels
 	}
 	const bytesPerSample = int64(2)
 	const maxInt64 = int64(^uint64(0) >> 1)
