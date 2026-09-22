@@ -425,6 +425,10 @@ func nonEmptyList(v string) []string {
 // check only the document-level contract; pass the driver that will execute
 // the document to also check operation support and driver-specific details.
 func LoadDocument(path string, driver Driver) (*Document, error) {
+	return loadDocument(path, driver, TimingOverrides{})
+}
+
+func loadDocument(path string, driver Driver, timing TimingOverrides) (*Document, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -453,6 +457,9 @@ func LoadDocument(path string, driver Driver) (*Document, error) {
 	doc.Path = path
 	if doc.Repeat == 0 {
 		doc.Repeat = 1
+	}
+	if _, err := doc.timing(timing); err != nil {
+		return nil, err
 	}
 	if err := doc.validateSemantics(); err != nil {
 		return nil, err
@@ -494,9 +501,6 @@ func validateUserStory(data []byte) error {
 }
 
 func (d *Document) validateSemantics() error {
-	if _, err := d.timing(TimingOverrides{}); err != nil {
-		return err
-	}
 	if d.Version != "gizclaw.test/v1alpha1" || !namePattern.MatchString(d.Name) {
 		return fmt.Errorf("invalid version or name")
 	}

@@ -345,3 +345,32 @@ func TestTimingUnfinishedParallelChildRetainsStart(t *testing.T) {
 		t.Fatalf("unfinished child = %+v", reports[0])
 	}
 }
+
+func TestTimingLoadUsesEffectiveValues(t *testing.T) {
+	body := strings.Split(validDocument, "steps:\n")[0] + "start_jitter: 1s\nstagger: 1s\nstep_jitter: 1s\nsteps:\n  - id: sync\n    barrier: {}\n"
+	path := writeTestDocument(t, body)
+	if _, err := LoadDocument(path, nil); err == nil {
+		t.Fatal("validation accepted nonzero barrier timing")
+	}
+	zero := "0"
+	partial := TimingOverrides{StartJitter: &zero}
+	if _, err := LoadDocumentsWithTiming([]string{path}, nil, partial); err == nil {
+		t.Fatal("partial override accepted remaining nonzero barrier delays")
+	}
+	timing := TimingOverrides{StartJitter: &zero, Stagger: &zero, StepJitter: &zero}
+	docs, err := LoadDocumentsWithTiming([]string{path}, nil, timing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if docs[0].StartJitter != "1s" || docs[0].Stagger != "1s" || docs[0].StepJitter != "1s" {
+		t.Fatal("load mutated declared timing")
+	}
+	supported, skipped, err := LoadSupportedDocumentsWithTiming([]string{path}, &stubDriver{}, timing)
+	if err != nil || len(supported) != 1 || len(skipped) != 0 {
+		t.Fatalf("supported=%d skipped=%d error=%v", len(supported), len(skipped), err)
+	}
+	bad := writeTestDocument(t, strings.Replace(body, "start_jitter: 1s", "start_jitter: -1s", 1))
+	if _, err := LoadDocumentsWithTiming([]string{bad}, nil, timing); err == nil {
+		t.Fatal("override bypassed document schema validation")
+	}
+}

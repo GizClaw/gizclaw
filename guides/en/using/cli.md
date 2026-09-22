@@ -395,7 +395,9 @@ caller context cancellation and introduce no additional fallback deadline.
 `test run` turns SIGINT (Ctrl-C)/SIGTERM into context cancellation, runs cleanup
 and writes the failed report.
 Because an explicit `barrier` deliberately realigns tasks, documents containing
-one require all three delays to be zero.
+one require all three effective delays to be zero. `test run` applies CLI
+overrides during loading, so explicit zero flags can disable a barrier
+document's delays. `test validate` checks the document's declared values.
 
 Duration fields accept strings `"0"`, `0s`, or non-negative decimal components
 with `ns`, `us`/`µs`/`μs`, `ms`, `s`, `m`, `h` units, including compound values

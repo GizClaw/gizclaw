@@ -7,9 +7,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"strings"
 	"testing"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 )
 
 func TestValidateCommandHasNoRuntimeSideEffects(t *testing.T) {
@@ -135,5 +136,41 @@ func TestRunCanceledContextWritesUnstartedTaskReport(t *testing.T) {
 	}
 	if report.Status != "failed" || report.Seed != 0 || len(report.Tasks) != 1 || report.Tasks[0].ActualStartOffsetMS != nil || report.Tasks[0].Error != "context canceled" {
 		t.Fatalf("report = %+v", report)
+	}
+}
+
+func TestRunBarrierTimingZeroOverrides(t *testing.T) {
+	for _, field := range []string{"start_jitter", "stagger", "step_jitter"} {
+		t.Run(field, func(t *testing.T) {
+			document := strings.Split(validDocument, "steps:\n")[0] + field + ": 1s\nsteps:\n  - id: sync\n    barrier: {}\n"
+			path := writeTestDocument(t, document)
+			cmd := NewCmd()
+			cmd.SetArgs([]string{"run", path})
+			err := cmd.Execute()
+			if coded, ok := err.(interface{ ExitCode() int }); !ok || coded.ExitCode() != exitValidation {
+				t.Fatalf("unmodified document error = %#v", err)
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			output := filepath.Join(t.TempDir(), "report.json")
+			cmd = NewCmd()
+			cmd.SetContext(ctx)
+			cmd.SetArgs([]string{"run", path, "--" + strings.ReplaceAll(field, "_", "-") + "=0", "--output", output})
+			err = cmd.Execute()
+			if coded, ok := err.(interface{ ExitCode() int }); !ok || coded.ExitCode() != exitExecution {
+				t.Fatalf("zero override did not reach execution: %#v", err)
+			}
+			data, err := os.ReadFile(output)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var report giztest.Report
+			if err := json.Unmarshal(data, &report); err != nil {
+				t.Fatal(err)
+			}
+			if len(report.Tasks) != 1 || report.Tasks[0].Error != "context canceled" || report.Tasks[0].StartJitter != "0s" || report.Tasks[0].Stagger != "0s" || report.Tasks[0].StepJitter != "0s" {
+				t.Fatalf("report = %+v", report)
+			}
+		})
 	}
 }

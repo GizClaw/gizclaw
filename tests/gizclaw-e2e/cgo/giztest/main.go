@@ -80,7 +80,7 @@ func newValidateCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			docs, skipped, err := load(cmd.ErrOrStderr(), files)
+			docs, skipped, err := load(cmd.ErrOrStderr(), files, giztest.TimingOverrides{})
 			if err != nil {
 				return codedError(exitValidation, err)
 			}
@@ -110,11 +110,11 @@ func newRunCmd() *cobra.Command {
 			if parallel < 1 {
 				return codedError(exitValidation, fmt.Errorf("parallel must be positive"))
 			}
-			docs, skipped, err := load(cmd.ErrOrStderr(), args)
+			timing := commandTiming(cmd)
+			docs, skipped, err := load(cmd.ErrOrStderr(), args, timing)
 			if err != nil {
 				return codedError(exitValidation, err)
 			}
-			timing := commandTiming(cmd)
 			if err := giztest.ValidateTiming(docs, timing); err != nil {
 				return codedError(exitValidation, err)
 			}
@@ -155,12 +155,12 @@ reported as skipped on stderr, naming the step and operation, the same way the
 JavaScript and Flutter runners do. They are never counted as passing, and a
 document that is malformed rather than merely unsupported is still an error.
 */
-func load(stderr io.Writer, inputs []string) ([]*giztest.Document, []giztest.SkippedDocument, error) {
+func load(stderr io.Writer, inputs []string, timing giztest.TimingOverrides) ([]*giztest.Document, []giztest.SkippedDocument, error) {
 	paths, err := giztest.Discover(inputs)
 	if err != nil {
 		return nil, nil, err
 	}
-	documents, skipped, err := giztest.LoadSupportedDocuments(paths, driver{})
+	documents, skipped, err := giztest.LoadSupportedDocumentsWithTiming(paths, driver{}, timing)
 	if err != nil {
 		return nil, nil, err
 	}

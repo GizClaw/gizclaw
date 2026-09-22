@@ -168,7 +168,8 @@ func newRunCmd() *cobra.Command {
 			return codedError(exitValidation, err)
 		}
 		fullEvidence := evidence == "full"
-		docs, err := giztest.LoadDocuments(paths, newDriver(fullEvidence, nil))
+		timing := commandTiming(cmd)
+		docs, err := giztest.LoadDocumentsWithTiming(paths, newDriver(fullEvidence, nil), timing)
 		if err != nil {
 			return codedError(exitValidation, err)
 		}
@@ -177,7 +178,6 @@ func newRunCmd() *cobra.Command {
 				return codedError(exitValidation, fmt.Errorf("review document %s requires --parallel 1", doc.Name))
 			}
 		}
-		timing := commandTiming(cmd)
 		if err := giztest.ValidateTiming(docs, timing); err != nil {
 			return codedError(exitValidation, err)
 		}

@@ -328,7 +328,9 @@ run 的 `started_at` 计算；每份文档重新从 `i = 0` 编号。二者相�
 retry attempt 和 `finally` 不增加 think time。think time 消耗任务 timeout，step timeout
 从等待结束后开始。所有调度等待均响应调用方 context 取消，不创建额外兜底 deadline。
 `test run` 把 SIGINT（Ctrl-C）/SIGTERM 转为 context 取消，执行清理并写出失败报告。
-显式 `barrier` 会主动重新对齐任务，因此有 barrier 的文档只允许这三个字段均为零。
+显式 `barrier` 会主动重新对齐任务，因此有 barrier 的文档要求三个有效延迟均为零。
+`test run` 加载时会应用 CLI 覆盖，显式零参数可以关闭 barrier 文档中的延迟；
+`test validate` 校验文档本身声明的值。
 
 这些 duration 字段接受字符串 `"0"`、`0s`，或带 `ns`、`us`/`µs`/`μs`、`ms`、`s`、`m`、
 `h` 单位的非负十进制及组合（例如 `1m2.5s`）。范围写法 `0..3s`、负数、空值、未知字段

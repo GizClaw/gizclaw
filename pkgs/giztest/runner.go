@@ -1011,7 +1011,13 @@ type SkippedDocument struct {
 // that violates the schema or the language's own rules, is still an error: a
 // broken document must never be reported as merely skipped.
 func LoadSupportedDocuments(paths []string, driver Driver) ([]*Document, []SkippedDocument, error) {
-	documents, err := LoadDocuments(paths, nil)
+	return LoadSupportedDocumentsWithTiming(paths, driver, TimingOverrides{})
+}
+
+// LoadSupportedDocumentsWithTiming applies timing overrides during document
+// validation, before separating supported documents from unsupported ones.
+func LoadSupportedDocumentsWithTiming(paths []string, driver Driver, timing TimingOverrides) ([]*Document, []SkippedDocument, error) {
+	documents, err := LoadDocumentsWithTiming(paths, nil, timing)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1031,10 +1037,20 @@ func LoadSupportedDocuments(paths []string, driver Driver) ([]*Document, []Skipp
 // returns the documents sorted by path. driver is passed through to
 // LoadDocument.
 func LoadDocuments(paths []string, driver Driver) ([]*Document, error) {
+	return LoadDocumentsWithTiming(paths, driver, TimingOverrides{})
+}
+
+// LoadDocumentsWithTiming validates documents using the effective timing values
+// without mutating their declared fields. Run must receive the same overrides.
+// Schema validation still rejects malformed document fields before overrides.
+func LoadDocumentsWithTiming(paths []string, driver Driver, timing TimingOverrides) ([]*Document, error) {
+	if err := ValidateTiming(nil, timing); err != nil {
+		return nil, err
+	}
 	docs := make([]*Document, 0, len(paths))
 	names := map[string]string{}
 	for _, path := range paths {
-		doc, err := LoadDocument(path, driver)
+		doc, err := loadDocument(path, driver, timing)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", path, err)
 		}
