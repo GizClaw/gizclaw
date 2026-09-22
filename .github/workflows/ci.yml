@@ -802,6 +802,15 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
+    env:
+      GIZCLAW_E2E_DOCKER_BASE_FROM: ubuntu:24.04
+      GIZCLAW_E2E_APT_MIRROR: http://archive.ubuntu.com/ubuntu
+      GIZCLAW_E2E_APT_PORTS_MIRROR: http://ports.ubuntu.com/ubuntu-ports
+      GIZCLAW_E2E_GO_MIRROR: https://go.dev/dl
+      GIZCLAW_E2E_NODE_MIRROR: https://nodejs.org/dist
+      GIZCLAW_E2E_GOPROXY: https://proxy.golang.org,direct
+      GIZCLAW_E2E_GOSUMDB: sum.golang.org
+      GIZCLAW_E2E_NPM_REGISTRY: https://registry.npmjs.org
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

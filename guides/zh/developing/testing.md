@@ -35,11 +35,12 @@ CI 的 Admission SDK E2E job 运行完整 lane；普通 Go 测试也运行 Go Gi
 bash tests/gizclaw-e2e/run_admission_docker_tests.sh
 ```
 
-这条固定 lane 在独立 Compose project 中启用 `peer-admission: registration-token`，
-复用标准栈的 Server 配置、TURN、Redis、LiveKit 与 Edge。它不读取 provider `.env`，
-只挂载 project 内的空凭据文件，并省略 provider 资源初始化；无需模型调用或 AI 凭据。
-此 lane 使用 Server 公布的 TCP ICE 入口，不配置 TURN candidate 收集，也不验收 relay。
-标准 `run_tests.sh` 的凭据 preflight、资源初始化与默认 `open` 保持不变。
+这条固定 lane 在独立 Compose project 中启用 `peer-admission: registration-token`。
+`docker/docker-compose.admission.yaml` 使用标准 Server 模板，只运行 Server 与两个 Edge，
+不启动 TURN、Redis、LiveKit 或 provider 服务。它不读取或挂载 provider `.env`，
+省略 SFU 配置和 provider 资源初始化；无需模型调用或 AI 凭据。
+此 lane 使用 Server 公布的 TCP ICE 入口，不验收 relay。标准 `run_tests.sh` 保留
+原有 Compose 文件、凭据 preflight、资源初始化与默认 `open` 行为。
 
 入口先通过 Edge 登记配置的 Admin identity，再切回直连 Server 的 admin CLI context。
 这是 Edge logical connection 的现有部署边界，不是 Admin key 的准入豁免；所有被测设备
@@ -52,7 +53,8 @@ Docker 与进程内 lane 共用 `testdata/admission/` 文档和 `admissiontest` 
 `403 peer_forbidden`，任意连接失败或 skipped 都不算通过。封禁文档先完成注册、RPC、
 API key 创建和真实 HTTP self 查询；驱动在返回该响应前通过 Admin block 检查在线 Peer
 变为 blocked/offline。断开文档在旧连接上再次调用 RPC，要求明确的连接关闭错误，超时不算通过。
-Flutter runner 在 RPC 步骤之间持续监听必需 event session 的关闭，重连后安装新的监听。
+Flutter SDK 在 native 清理前传播必需 event session 的终止，并与调用方共享一次 Peer
+关闭操作。runner 清理与重连使用 SDK close helper；Linux 原生实跑验证该事件顺序。
 拒绝用例要求同一公钥 reconnect 得到 `peer_forbidden`；恢复用例在 block 后 approve，再验证同一公钥无凭据重连及 app-config RPC。编排使用实际请求信号，
 不扩展 DSL，也不增加固定等待或整体兜底 deadline。Go/C 现有 ICE 建连重试仍被支持；
 重连请求按封禁 checkpoint 前后统计，被禁握手仍要求恰好一次明确拒绝。
@@ -66,6 +68,29 @@ Flutter runner 在 RPC 步骤之间持续监听必需 event session 的关闭，
 它只启动无 provider 资源的栈，Admin bootstrap 与完整验收由上述 lane 负责。
 普通栈仍可用 `GIZCLAW_E2E_PEER_ADMISSION=registration-token` 选择准入模式，但需自行
 登记 Admin，且该开关只约束 Server signaling，不保护 Edge 终止的客户端握手。
+
+`setup/docker-compose-up.sh` 与 `setup/build-linux-cgo.sh` 通过 `setup/docker-base.sh`
+共用基础镜像构建参数。不设置源覆盖变量时保留 `Dockerfile.cn.base` 的 CN 默认值和
+原有 CN 镜像 tag。设置覆盖变量时使用独立的 `custom-base` tag，并始终执行 Docker build，
+避免已有 CN 镜像掩盖源变化；仍可命中 Docker layer cache。
+`GIZCLAW_E2E_DOCKER_BASE_IMAGE` 可指定输出 tag。CI 使用以下官方源，APT 根据架构
+选择 amd64 的 `APT_MIRROR` 或 arm64 的 `APT_PORTS_MIRROR`：
+
+```sh
+GIZCLAW_E2E_DOCKER_BASE_FROM=ubuntu:24.04 \
+GIZCLAW_E2E_APT_MIRROR=http://archive.ubuntu.com/ubuntu \
+GIZCLAW_E2E_APT_PORTS_MIRROR=http://ports.ubuntu.com/ubuntu-ports \
+GIZCLAW_E2E_GO_MIRROR=https://go.dev/dl \
+GIZCLAW_E2E_NODE_MIRROR=https://nodejs.org/dist \
+GIZCLAW_E2E_GOPROXY=https://proxy.golang.org,direct \
+GIZCLAW_E2E_GOSUMDB=sum.golang.org \
+GIZCLAW_E2E_NPM_REGISTRY=https://registry.npmjs.org \
+  bash tests/gizclaw-e2e/run_admission_docker_tests.sh
+```
+
+准入 Compose 文件在缺少所有 provider 变量和 runtime env 文件时仍能解析和拆栈。
+lane 在 setup 前选定该文件，setup 在镜像构建前保存 runtime 状态，构建失败时也能
+按项目完成清理。
 
 ## RuntimeProfile 配置持久化回归
 

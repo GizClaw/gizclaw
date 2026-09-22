@@ -7,11 +7,14 @@ ARG GO_VERSION=1.26.4
 ARG GO_MIRROR=https://golang.google.cn/dl
 ARG NODE_VERSION=22.13.0
 ARG NODE_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/nodejs-release
+ARG GOPROXY=https://goproxy.cn,direct
+ARG GOSUMDB=sum.golang.google.cn
+ARG NPM_REGISTRY=https://registry.npmmirror.com
 
 ENV PATH=/usr/local/go/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-    GOPROXY=https://goproxy.cn,direct \
-    GOSUMDB=sum.golang.google.cn \
-    NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
+    GOPROXY=${GOPROXY} \
+    GOSUMDB=${GOSUMDB} \
+    NPM_CONFIG_REGISTRY=${NPM_REGISTRY}
 
 RUN set -eux; \
     . /etc/os-release; \
@@ -50,7 +53,7 @@ RUN set -eux; \
     curl -fsSL "${NODE_MIRROR}/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" -o /tmp/node.tar.xz; \
     tar -C /usr/local --strip-components=1 -xJf /tmp/node.tar.xz; \
     rm -f /tmp/node.tar.xz; \
-    go env -w GOPROXY=https://goproxy.cn,direct GOSUMDB=sum.golang.google.cn; \
+    go env -w GOPROXY="$GOPROXY" GOSUMDB="$GOSUMDB"; \
     npm config set registry "$NPM_CONFIG_REGISTRY"; \
     go version; \
     node --version; \

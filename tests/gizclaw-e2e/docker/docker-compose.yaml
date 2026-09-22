@@ -93,7 +93,6 @@ services:
       args:
         BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
     environment:
-      GIZCLAW_E2E_ADMISSION_ONLY: ${GIZCLAW_E2E_ADMISSION_ONLY:-}
       GIZCLAW_E2E_PEER_ADMISSION: ${GIZCLAW_E2E_PEER_ADMISSION:-open}
       GIZCLAW_E2E_LIVEKIT_API_KEY: ${GIZCLAW_E2E_LIVEKIT_API_KEY:?set by docker-compose-up.sh}
       GIZCLAW_E2E_LIVEKIT_API_SECRET: ${GIZCLAW_E2E_LIVEKIT_API_SECRET:?set by docker-compose-up.sh}

@@ -41,16 +41,11 @@ case "$docker_arch" in
     ;;
 esac
 
-platform_slug="${docker_platform//\//-}"
-base_image="${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:${platform_slug}-cn-base}"
-if ! docker image inspect "$base_image" >/dev/null 2>&1; then
-  echo "==> build missing e2e base image: image=$base_image platform=$docker_platform"
-  docker build \
-    --platform="$docker_platform" \
-    -f "$repo_root/build/Dockerfile.cn.base" \
-    -t "$base_image" \
-    "$repo_root/build"
-fi
+# shellcheck source=docker-base.sh
+# shellcheck disable=SC1091
+source "$script_dir/docker-base.sh"
+base_image=""
+build_gizclaw_e2e_base "$repo_root" "$docker_platform"
 
 module_cache="$(go env GOMODCACHE)"
 mkdir -p "$output_dir"

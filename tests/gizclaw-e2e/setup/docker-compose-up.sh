@@ -25,6 +25,7 @@ while (($# > 0)); do
   case "$1" in
     --admission)
       stack_mode="admission"
+      compose_file="$docker_dir/docker-compose.admission.yaml"
       export GIZCLAW_E2E_ADMISSION_ONLY=1
       export GIZCLAW_E2E_PEER_ADMISSION=registration-token
       shift
@@ -429,8 +430,8 @@ GIZCLAW_E2E_TURN_RELAY_ADDRESS=$GIZCLAW_E2E_TURN_RELAY_ADDRESS
 GIZCLAW_E2E_TURN_REALM=$GIZCLAW_E2E_TURN_REALM
 GIZCLAW_E2E_TURN_USERNAME=$GIZCLAW_E2E_TURN_USERNAME
 GIZCLAW_E2E_TURN_CREDENTIAL=$GIZCLAW_E2E_TURN_CREDENTIAL
-GIZCLAW_E2E_LIVEKIT_API_KEY=$GIZCLAW_E2E_LIVEKIT_API_KEY
-GIZCLAW_E2E_LIVEKIT_API_SECRET=$GIZCLAW_E2E_LIVEKIT_API_SECRET
+GIZCLAW_E2E_LIVEKIT_API_KEY=${GIZCLAW_E2E_LIVEKIT_API_KEY:-}
+GIZCLAW_E2E_LIVEKIT_API_SECRET=${GIZCLAW_E2E_LIVEKIT_API_SECRET:-}
 GIZCLAW_E2E_TURN_RELAY_MIN_PORT=$GIZCLAW_E2E_TURN_RELAY_MIN_PORT
 GIZCLAW_E2E_TURN_RELAY_MAX_PORT=$GIZCLAW_E2E_TURN_RELAY_MAX_PORT
 GIZCLAW_E2E_SERVER_PUBLIC_KEY=$server_public_key
@@ -653,9 +654,11 @@ GIZCLAW_E2E_GATEWAY_RELAY_RECOVERY=""
 GIZCLAW_E2E_GATEWAY_RELAY_MODE=""
 GIZCLAW_E2E_GATEWAY_UPSTREAM_PATH=""
 GIZCLAW_E2E_SINGLE_EDGE=""
-GIZCLAW_E2E_LIVEKIT_API_KEY="e2e$(random_gateway_relay_value)"
-GIZCLAW_E2E_LIVEKIT_API_SECRET="$(random_gateway_relay_value)"
-export GIZCLAW_E2E_LIVEKIT_API_KEY GIZCLAW_E2E_LIVEKIT_API_SECRET
+if [[ "$stack_mode" != "admission" ]]; then
+  GIZCLAW_E2E_LIVEKIT_API_KEY="e2e$(random_gateway_relay_value)"
+  GIZCLAW_E2E_LIVEKIT_API_SECRET="$(random_gateway_relay_value)"
+  export GIZCLAW_E2E_LIVEKIT_API_KEY GIZCLAW_E2E_LIVEKIT_API_SECRET
+fi
 if [[ -z "${GIZCLAW_TEST_REGISTRATION_TOKEN:-}" ]]; then
   GIZCLAW_TEST_REGISTRATION_TOKEN="giztest-$(random_gateway_relay_value)"
 fi
@@ -752,12 +755,14 @@ fi
 
 docker_platform="$(docker_native_platform)"
 export DOCKER_DEFAULT_PLATFORM="$docker_platform"
-platform_slug="${docker_platform//\//-}"
-base_image="${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:${platform_slug}-cn-base}"
-if ! docker image inspect "$base_image" >/dev/null 2>&1; then
-  echo "==> build e2e Docker base $base_image for $docker_platform"
-  docker build --platform="$docker_platform" -f "$repo_root/build/Dockerfile.cn.base" -t "$base_image" "$repo_root/build"
-fi
+# Persist the selected Compose file before builds, including failed builds.
+docker_env="$(materialize_runtime_config)"
+echo "==> docker e2e env: $docker_env"
+# shellcheck source=docker-base.sh
+# shellcheck disable=SC1091
+source "$script_dir/docker-base.sh"
+base_image=""
+build_gizclaw_e2e_base "$repo_root" "$docker_platform"
 export GIZCLAW_E2E_DOCKER_BASE_IMAGE="$base_image"
 
 if [[ "${capacity_build_required:-0}" == "1" ]]; then
@@ -773,8 +778,6 @@ if [[ "${capacity_build_required:-0}" == "1" ]]; then
   fi
 fi
 
-docker_env="$(materialize_runtime_config)"
-echo "==> docker e2e env: $docker_env"
 echo "==> start Docker e2e stack project=$GIZCLAW_E2E_DOCKER_PROJECT server=$GIZCLAW_E2E_SERVER_ENDPOINT edges=$GIZCLAW_E2E_EDGE_ENDPOINT,$GIZCLAW_E2E_EDGE2_ENDPOINT turn=$GIZCLAW_E2E_TURN_ENDPOINT relay=${GIZCLAW_E2E_TURN_RELAY_MIN_PORT}-${GIZCLAW_E2E_TURN_RELAY_MAX_PORT}"
 compose_files=(-f "$compose_file")
 if [[ "$stack_mode" == "volc-log" ]]; then

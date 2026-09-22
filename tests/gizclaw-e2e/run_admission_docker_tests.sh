@@ -11,6 +11,8 @@ task_dir="$(mktemp -d "${TMPDIR:-/tmp}/gizclaw-admission-docker.XXXXXX")"
 GIZCLAW_E2E_DOCKER_PROJECT="gizclaw-admission-$(date +%s)-$$"
 export GIZCLAW_E2E_DOCKER_PROJECT
 export GIZCLAW_E2E_DOCKER_ENV="$task_dir/docker.env"
+# Cleanup must also work if setup fails before it writes docker.env.
+export GIZCLAW_E2E_DOCKER_COMPOSE_FILE="$script_dir/docker/docker-compose.admission.yaml"
 stack_started=0
 # shellcheck disable=SC2329 # Invoked by traps.
 cleanup() {
@@ -25,7 +27,7 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
-unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy COMPOSE_PROFILES
+unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy COMPOSE_PROFILES GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY
 # shellcheck source=setup/build-admission-runners.sh
 # shellcheck disable=SC1091
 source "$script_dir/setup/build-admission-runners.sh"

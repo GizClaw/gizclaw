@@ -24,22 +24,26 @@ rm -f "$http_ready_file"
 
 export GIZCLAW_E2E_CONFIG_HOME="${GIZCLAW_E2E_CONFIG_HOME:-$repo_root/tests/gizclaw-e2e/testdata/cmd-config-home}"
 : "${GIZCLAW_E2E_SERVER_ENDPOINT:?missing GIZCLAW_E2E_SERVER_ENDPOINT}"
-: "${GIZCLAW_E2E_TURN_ENDPOINT:?missing GIZCLAW_E2E_TURN_ENDPOINT}"
-: "${GIZCLAW_E2E_TURN_USERNAME:?missing GIZCLAW_E2E_TURN_USERNAME}"
-: "${GIZCLAW_E2E_TURN_CREDENTIAL:?missing GIZCLAW_E2E_TURN_CREDENTIAL}"
+if [[ "${GIZCLAW_E2E_ADMISSION_ONLY:-}" != "1" ]]; then
+  : "${GIZCLAW_E2E_TURN_ENDPOINT:?missing GIZCLAW_E2E_TURN_ENDPOINT}"
+  : "${GIZCLAW_E2E_TURN_USERNAME:?missing GIZCLAW_E2E_TURN_USERNAME}"
+  : "${GIZCLAW_E2E_TURN_CREDENTIAL:?missing GIZCLAW_E2E_TURN_CREDENTIAL}"
+fi
 container_config_home="$GIZCLAW_E2E_CONFIG_HOME"
 container_server_endpoint="$GIZCLAW_E2E_SERVER_ENDPOINT"
-container_turn_endpoint="$GIZCLAW_E2E_TURN_ENDPOINT"
-container_turn_username="$GIZCLAW_E2E_TURN_USERNAME"
-container_turn_credential="$GIZCLAW_E2E_TURN_CREDENTIAL"
-# Keep generated SFU credentials outside data/, which fixture reset removes.
-sfu_dir="/tmp/gizclaw-e2e-sfu"
-mkdir -p "$sfu_dir"
-(
-  umask 077
-  printf '%s\n' "${GIZCLAW_E2E_LIVEKIT_API_KEY:?missing generated SFU key}" > "$sfu_dir/api_key"
-  printf '%s\n' "${GIZCLAW_E2E_LIVEKIT_API_SECRET:?missing generated SFU secret}" > "$sfu_dir/api_secret"
-)
+container_turn_endpoint="${GIZCLAW_E2E_TURN_ENDPOINT:-}"
+container_turn_username="${GIZCLAW_E2E_TURN_USERNAME:-}"
+container_turn_credential="${GIZCLAW_E2E_TURN_CREDENTIAL:-}"
+if [[ "${GIZCLAW_E2E_ADMISSION_ONLY:-}" != "1" ]]; then
+  # Keep generated SFU credentials outside data/, which fixture reset removes.
+  sfu_dir="/tmp/gizclaw-e2e-sfu"
+  mkdir -p "$sfu_dir"
+  (
+    umask 077
+    printf '%s\n' "${GIZCLAW_E2E_LIVEKIT_API_KEY:?missing generated SFU key}" > "$sfu_dir/api_key"
+    printf '%s\n' "${GIZCLAW_E2E_LIVEKIT_API_SECRET:?missing generated SFU secret}" > "$sfu_dir/api_secret"
+  )
+fi
 # shellcheck source=../setup/credentials.sh
 # shellcheck disable=SC1091
 source "$repo_root/tests/gizclaw-e2e/setup/credentials.sh"
@@ -60,7 +64,9 @@ esac
 envsubst '${GIZCLAW_E2E_PEER_ADMISSION} ${GIZCLAW_E2E_SERVER_ENDPOINT} ${GIZCLAW_E2E_TURN_ENDPOINT} ${GIZCLAW_E2E_TURN_USERNAME} ${GIZCLAW_E2E_TURN_CREDENTIAL}' \
   < "$repo_root/tests/gizclaw-e2e/testdata/server-workspace/config.yaml.template" \
   > "$workspace_dir/config.yaml"
-perl -0pi -e 's/^services:\n/services:\n  sfu:\n    url: ws:\/\/livekit:7880\n    api_key_file: \/tmp\/gizclaw-e2e-sfu\/api_key\n    api_secret_file: \/tmp\/gizclaw-e2e-sfu\/api_secret\n/m' "$workspace_dir/config.yaml"
+if [[ "${GIZCLAW_E2E_ADMISSION_ONLY:-}" != "1" ]]; then
+  perl -0pi -e 's/^services:\n/services:\n  sfu:\n    url: ws:\/\/livekit:7880\n    api_key_file: \/tmp\/gizclaw-e2e-sfu\/api_key\n    api_secret_file: \/tmp\/gizclaw-e2e-sfu\/api_secret\n/m' "$workspace_dir/config.yaml"
+fi
 if [[ "${GIZCLAW_E2E_PROFILING:-}" == "1" ]]; then
   awk '
 /^storage:/ {
