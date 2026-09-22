@@ -4,7 +4,7 @@
 
 `peer` 拥有 Server 侧持久化 Peer 资源，并实现 Admin HTTP 与 Peer HTTP 所需的 Peer CRUD、校验、索引和 connected-peer bootstrap。
 
-Peer 的 KV mutation 使用未叠加 SQL 字段的持久化快照生成 CAS 条件和标识符索引。RegistrationToken 的 Firmware 绑定由 SQL 持有，读取时通过 `RegistrationFirmware` 投影；profile、设备 identifiers 刷新、approve/block 等局部更新不会把该投影当作 KV 旧值或写回 KV。真实的跨 Server 旧快照写入仍由原子 CAS 拒绝，删除围栏和索引更新保持同一事务。
+Peer 的 KV mutation 使用未叠加 SQL 字段的持久化快照生成 CAS 条件和标识符索引。RegistrationToken 的 Firmware 绑定由 SQL 持有，读取时通过 `RegistrationFirmware` 投影；profile、设备 identifiers 刷新、approve/block 等局部更新不会把该投影当作 KV 旧值或写回 KV。Mutation 在提交前解析返回值的投影，因此 SQL 查询失败不会把已提交的写入报告为失败。真实的跨 Server 旧快照写入仍由原子 CAS 拒绝，删除围栏和索引更新保持同一事务。
 
 ## 核心结构与主函数
 

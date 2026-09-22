@@ -9,6 +9,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestRegistrationProjectionFailureDoesNotCommitProfile(t *testing.T) {
@@ -60,6 +61,47 @@ func TestRegistrationProjectionIsNotRetriedAfterCommit(t *testing.T) {
 	}
 	if updated.Device.Name == nil || *updated.Device.Name != "Alice" || updated.FirmwareId == nil || *updated.FirmwareId != "registered-firmware" {
 		t.Fatalf("committed profile or projection missing: %#v", updated)
+	}
+}
+
+func TestRegistrationProjectionFailureDoesNotCommitBlock(t *testing.T) {
+	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	key := giznet.PublicKey{75}
+	if _, err := server.EnsureConnectedPeer(t.Context(), key); err != nil {
+		t.Fatal(err)
+	}
+	before, err := server.Store.Get(t.Context(), peerKey(key.String()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	projectionErr := errors.New("registration lookup failed")
+	server.RegistrationFirmware = func(context.Context, string) (*string, error) {
+		return nil, projectionErr
+	}
+	if _, err := server.block(t.Context(), key); !errors.Is(err, projectionErr) {
+		t.Fatalf("block error = %v, want %v", err, projectionErr)
+	}
+	after, err := server.Store.Get(t.Context(), peerKey(key.String()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatal("block was committed despite registration lookup failure")
+	}
+}
+
+func TestRegistrationProjectionFailureDoesNotCommitConnectedPeer(t *testing.T) {
+	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	key := giznet.PublicKey{76}
+	projectionErr := errors.New("registration lookup failed")
+	server.RegistrationFirmware = func(context.Context, string) (*string, error) {
+		return nil, projectionErr
+	}
+	if _, err := server.EnsureConnectedPeer(t.Context(), key); !errors.Is(err, projectionErr) {
+		t.Fatalf("connected Peer creation error = %v, want %v", err, projectionErr)
+	}
+	if _, err := server.Store.Get(t.Context(), peerKey(key.String())); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("connected Peer was committed despite registration lookup failure: %v", err)
 	}
 }
 

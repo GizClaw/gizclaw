@@ -302,6 +302,11 @@ func (s *Server) block(ctx context.Context, publicKey giznet.PublicKey) (apitype
 	previous := item
 	item.Status = apitypes.PeerRegistrationStatusBlocked
 	item.UpdatedAt = time.Now()
+	projected, err := s.projectRegistrationFirmware(ctx, item)
+	if err != nil {
+		unlock()
+		return apitypes.Peer{}, err
+	}
 	if err := s.writePeerLocked(ctx, item, &previous); err != nil {
 		unlock()
 		return apitypes.Peer{}, err
@@ -320,7 +325,7 @@ func (s *Server) block(ctx context.Context, publicKey giznet.PublicKey) (apitype
 	}
 	// Blocking does not establish local runtime ownership. Return the
 	// committed snapshot without creating a local directory entry.
-	return s.projectRegistrationFirmware(ctx, item)
+	return projected, nil
 }
 
 func (s *Server) delete(ctx context.Context, publicKey giznet.PublicKey, reason pendingdeletion.Reason) (apitypes.Peer, error) {
@@ -491,10 +496,14 @@ func (s *Server) createLocked(ctx context.Context, publicKey giznet.PublicKey, p
 	now := time.Now()
 	peer.CreatedAt = now
 	peer.UpdatedAt = now
+	projected, err := s.projectRegistrationFirmware(ctx, peer)
+	if err != nil {
+		return apitypes.Peer{}, err
+	}
 	if err := s.writePeerLocked(ctx, peer, nil); err != nil {
 		return apitypes.Peer{}, err
 	}
-	return s.get(ctx, publicKey)
+	return projected, nil
 }
 
 func (s *Server) put(ctx context.Context, peer apitypes.Peer) (apitypes.Peer, error) {
