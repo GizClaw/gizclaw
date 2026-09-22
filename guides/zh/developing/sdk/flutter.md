@@ -34,6 +34,13 @@ WebRTC transport 是基于 `flutter_webrtc` 与各 native platform implementatio
 adapter。Generated Protobuf 与 method registry 提交到仓库，普通 App build 不需要
 `protoc`；regeneration 需要 package 的 `protoc_plugin` development dependency。
 
+`closeFlutterGiznetWebRtc(peerConnection)` 统一负责幂等的 Peer 清理。必需通道关闭和
+调用方清理共享同一个 close future；正在关闭的 Peer 会在调用 native plugin 前拒绝
+新的 RPC 通道。DataChannel 清理仍释放 plugin 的 Dart subscription。仅当已收到通道
+关闭事件或已开始清理所属 Peer 时，adapter 才将 Linux 已知的 `dataChannelCloseFailed`
+缺失 Peer/channel 结果视为已关闭；其他错误继续传播。event session 收到 EOS 或
+channel done 后，先向订阅者报告终止，再完成 native 清理，不增加断开计时器。
+
 ```sh
 cd sdk/flutter/gizclaw
 flutter pub get

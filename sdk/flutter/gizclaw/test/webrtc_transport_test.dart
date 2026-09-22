@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:fixnum/fixnum.dart' as fixnum;
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:gizclaw/src/generated/rpc/rpc.pb.dart' as rpc;
 import 'package:gizclaw/gizclaw.dart';
@@ -122,6 +123,127 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     expect(pc.closeCalls, 1);
+  });
+
+  test(
+    'remote close ends the session and caller cleanup closes the Peer once',
+    () async {
+      final pc = _FakePeerConnection(
+        channelInitialState: rtc.RTCDataChannelState.RTCDataChannelOpen,
+        stopAfterAudio: false,
+      );
+      await connectFlutterGiznetWebRtc(
+        peerConnection: pc,
+        prepareOffer: (_) async => _preparedOffer(answerSdp: 'answer-sdp'),
+        sendOffer: (_) async => [1, 2, 3],
+      );
+      final disconnected = peerEventSessionForFlutterGiznetWebRtc(
+        pc,
+      )!.events.drain<void>();
+      // Linux delivers packet closed before event closed. The first callback
+      // starts native Peer cleanup before the event-session cleanup runs.
+      pc.createdDataChannels.first.emitState(
+        rtc.RTCDataChannelState.RTCDataChannelClosed,
+      );
+      pc.createdDataChannels.last.emitState(
+        rtc.RTCDataChannelState.RTCDataChannelClosed,
+      );
+      await disconnected;
+      await closeFlutterGiznetWebRtc(pc);
+      await closeFlutterGiznetWebRtc(pc);
+      expect(pc.closeCalls, 1);
+      await expectLater(
+        FlutterWebRtcDataChannelFactory(
+          pc,
+        ).createDataChannel('giznet/v1/service/0'),
+        throwsStateError,
+      );
+      expect(pc.createdDataChannels, hasLength(2));
+    },
+  );
+
+  test('finishes RPC channel cleanup racing with owner Peer cleanup', () async {
+    final pc = _FakePeerConnection(
+      channelInitialState: rtc.RTCDataChannelState.RTCDataChannelOpen,
+      stopAfterAudio: false,
+    );
+    final channel = await FlutterWebRtcDataChannelFactory(
+      pc,
+    ).createDataChannel('giznet/v1/service/0');
+    final native = pc.createdDataChannels.single;
+    native.closeError = PlatformException(
+      code: 'dataChannelCloseFailed',
+      message: 'dataChannelClose() peerConnection is null',
+    );
+    final cleanup = native.closeGate = Completer<void>();
+    final closed = channel.close();
+    await closeFlutterGiznetWebRtc(pc);
+    cleanup.complete();
+    await closed;
+    expect(pc.closeCalls, 1);
+    expect(native.closeCalls, 1);
+  });
+
+  test('reports remote closure before native cleanup completes', () async {
+    final native = _FakeRtcDataChannel(
+      initialState: rtc.RTCDataChannelState.RTCDataChannelOpen,
+    );
+    final cleanup = native.closeGate = Completer<void>();
+    final channel = FlutterWebRtcDataChannel(native);
+    final session = WorkspaceEventSession.attach(channel);
+    final disconnected = session.events.drain<void>();
+    native.emitState(rtc.RTCDataChannelState.RTCDataChannelClosed);
+    await disconnected;
+    expect(cleanup.isCompleted, isFalse);
+    cleanup.complete();
+    await channel.close();
+    expect(native.closeCalls, 1);
+  });
+
+  for (final missing in ['peerConnection', 'data_channel']) {
+    test(
+      'releases a remotely closed channel after Linux removes $missing',
+      () async {
+        final native = _FakeRtcDataChannel(
+          initialState: rtc.RTCDataChannelState.RTCDataChannelOpen,
+        );
+        final channel = FlutterWebRtcDataChannel(native);
+        native.closeError = PlatformException(
+          code: 'dataChannelCloseFailed',
+          message: 'dataChannelClose() $missing is null',
+        );
+        native.emitState(rtc.RTCDataChannelState.RTCDataChannelClosed);
+        await channel.close();
+        await channel.close();
+        expect(channel.state, GizClawDataChannelState.closed);
+        expect(native.closeCalls, 1);
+      },
+    );
+  }
+
+  test(
+    'does not hide a native cleanup error without a remote closed event',
+    () async {
+      final native = _FakeRtcDataChannel(
+        initialState: rtc.RTCDataChannelState.RTCDataChannelOpen,
+      );
+      final channel = FlutterWebRtcDataChannel(native);
+      final error = native.closeError = PlatformException(
+        code: 'dataChannelCloseFailed',
+        message: 'dataChannelClose() peerConnection is null',
+      );
+      await expectLater(channel.close(), throwsA(same(error)));
+    },
+  );
+
+  test('does not hide an unrelated cleanup error after remote close', () async {
+    final native = _FakeRtcDataChannel(
+      initialState: rtc.RTCDataChannelState.RTCDataChannelOpen,
+    );
+    final channel = FlutterWebRtcDataChannel(native);
+    final error = native.closeError = PlatformException(code: 'unexpected');
+    native.emitState(rtc.RTCDataChannelState.RTCDataChannelClosed);
+    await expectLater(channel.close(), throwsA(same(error)));
   });
 
   test('rejects disabling either mandatory local transport', () async {
@@ -917,6 +1039,8 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
   rtc.RTCDataChannelState? _state;
   int bufferedAmountReads = 0;
   int closeCalls = 0;
+  Object? closeError;
+  Completer<void>? closeGate;
   int getBufferedAmountCalls = 0;
   int? bufferedAmountValue;
   final sent = <rtc.RTCDataChannelMessage>[];
@@ -958,6 +1082,9 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
   @override
   Future<void> close() async {
     closeCalls++;
+    await closeGate?.future;
+    final error = closeError;
+    if (error != null) throw error;
     _state = rtc.RTCDataChannelState.RTCDataChannelClosed;
   }
 

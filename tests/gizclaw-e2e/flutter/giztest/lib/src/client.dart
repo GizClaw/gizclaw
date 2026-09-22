@@ -257,9 +257,7 @@ class ScenarioClient {
     this.inbound,
     this._privateKey,
     this._handlers,
-  ) {
-    _watchConnection();
-  }
+  );
 
   final String name;
   final String endpoint;
@@ -278,36 +276,7 @@ class ScenarioClient {
 
   final _controlClients = <String, control.GizClawControlClient>{};
 
-  StreamSubscription<PeerStreamEvent>? _events;
-  Completer<Object> _connectionEnded = Completer<Object>();
-
-  void _watchConnection() {
-    final session = peerEventSessionForFlutterGiznetWebRtc(_peerConnection);
-    if (session == null) {
-      throw StateError('peer connection has no mandatory event session');
-    }
-    final ended = _connectionEnded = Completer<Object>();
-    void finish(Object error) {
-      if (!ended.isCompleted) ended.complete(error);
-    }
-
-    // The mandatory event channel closes when the Server disconnects this
-    // Peer. Observe it even between steps: a native createDataChannel call
-    // after remote close may otherwise wait until the RPC deadline.
-    _events = session.events.listen(
-      (_) {},
-      onError: (Object error) => finish(error),
-      onDone: () => finish(StateError('peer connection closed')),
-    );
-  }
-
-  Future<void> _closeConnection() async {
-    if (!_connectionEnded.isCompleted) {
-      _connectionEnded.complete(StateError('peer connection closed'));
-    }
-    await _events?.cancel();
-    await _peerConnection.close();
-  }
+  Future<void> _closeConnection() => closeFlutterGiznetWebRtc(_peerConnection);
 
   /// Brings up one ephemeral device peer with every `client.*` provider the
   /// document's steps script for it installed before signaling starts.
@@ -393,7 +362,6 @@ class ScenarioClient {
         timeout: await_,
       );
       _peerConnection = peerConnection;
-      _watchConnection();
       _client = GizClawClient(
         FlutterWebRtcDataChannelFactory(peerConnection),
         requestTimeout: _rpcTimeout,
@@ -408,7 +376,7 @@ class ScenarioClient {
         }
         await callRpc('all.ping', <String, Object?>{}).timeout(remaining);
       } catch (_) {
-        await peerConnection.close();
+        await closeFlutterGiznetWebRtc(peerConnection);
         rethrow;
       }
     } finally {
@@ -484,14 +452,10 @@ class ScenarioClient {
   Future<Object?> callRpc(String method, Object? params) async {
     final request = scenarioRequest(method, params);
     try {
-      final ended = _connectionEnded.future.then<GeneratedMessage>(
-        (error) => throw error,
+      final response = await _client.rpc.call<GeneratedMessage>(
+        method,
+        request,
       );
-      if (_connectionEnded.isCompleted) return await ended;
-      final response = await Future.any([
-        _client.rpc.call<GeneratedMessage>(method, request),
-        ended,
-      ]);
       return camelToSnakeKeys(unwrapValueMessage(response));
     } on RpcStatus catch (error) {
       throw ScenarioRpcError(error.code, error.message);

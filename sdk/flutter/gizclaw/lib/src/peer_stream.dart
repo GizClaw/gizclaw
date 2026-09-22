@@ -262,9 +262,15 @@ class WorkspaceEventSession {
       ready.completeError(StateError('workspace event session is closed'));
     }
     _pendingAudio.clear();
-    await _subscription.cancel();
-    await _channel.close();
-    await _events.close();
+    // A terminal frame or channel-done event is already sufficient evidence
+    // of disconnection. Native cleanup must not delay the terminal notification.
+    final eventsClosed = _events.close();
+    try {
+      await _subscription.cancel();
+      await _channel.close();
+    } finally {
+      await eventsClosed;
+    }
   }
 
   Future<void> _send(PeerStreamEvent event) async {

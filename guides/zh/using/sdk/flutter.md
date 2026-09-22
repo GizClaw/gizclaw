@@ -109,3 +109,11 @@ try {
 [Security Policy](../../developing/gizclaw/server/security-policy)。
 
 内置 type 由导出常量 `registrationTokenCredentialType` 定义，helper 引用该常量。value 最多 512 个 UTF-8 字节；超限在 helper 构造时返回错误或抛出异常。自定义 policy 应使用自己的域名前缀，内置类型保留 `gizclaw.com/` 前缀。
+
+## 设备连接清理
+
+设备退出或重新拨号前使用 `await closeFlutterGiznetWebRtc(peerConnection)`。
+它与必需通道关闭后的自动清理共用一次关闭操作，Server block 后也可安全调用。
+通过 `peerEventSessionForFlutterGiznetWebRtc(peerConnection)!.events` 的完成通知
+观察 event session 终止；重连创建新的 Peer 与 session。旧 Peer 开始关闭后会拒绝
+创建新的 RPC 通道。

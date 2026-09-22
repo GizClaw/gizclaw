@@ -111,3 +111,12 @@ on a copy to match Go/JS/C bytes, leaving the caller's message unchanged. See
 [Security Policy](../../developing/gizclaw/server/security-policy) for operator settings.
 
 The exported `registrationTokenCredentialType` constant defines the built-in type and is used by the helper. Values are limited to 512 UTF-8 bytes; construction returns an error or throws for larger input. Custom policies should use their own domain prefix; built-in types reserve `gizclaw.com/`.
+
+## Device connection cleanup
+
+Use `await closeFlutterGiznetWebRtc(peerConnection)` for device cleanup and before
+redialing. It shares ownership with automatic shutdown after a mandatory channel
+closes, so cleanup remains safe after Server block. Observe
+`peerEventSessionForFlutterGiznetWebRtc(peerConnection)!.events` completion for the
+terminal event-session signal; reconnect creates a new Peer and session. New RPC
+channels are rejected once the old Peer starts closing.
