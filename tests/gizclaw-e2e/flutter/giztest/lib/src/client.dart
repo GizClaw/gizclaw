@@ -767,6 +767,29 @@ _Handlers _buildHandlers(
             if (failure != null) throw failure;
           },
         );
+      case 'client.mhs.v0.read':
+        control = _copyControl(
+          control,
+          readMhsStates: (_) {
+            count(method);
+            if (failure != null) throw failure;
+            return ClientMhsV0ReadResponse()
+              ..mergeFromProto3Json(snakeToCamelKeys(object));
+          },
+        );
+        // Explicit for readers of this long switch; Dart 3 cases never fall through.
+        break;
+      case 'client.mhs.v0.write':
+        control = _copyControl(
+          control,
+          writeMhsStates: (_) {
+            count(method);
+            if (failure != null) throw failure;
+            return ClientMhsV0WriteResponse()
+              ..mergeFromProto3Json(snakeToCamelKeys(object));
+          },
+        );
+        break;
       case 'client.run.workspace.set':
         control = _copyControl(
           control,
@@ -908,6 +931,10 @@ PeerStatus _peerStatus(Map<String, Object?> json) =>
 
 GizClawDeviceControlHandlers _copyControl(
   GizClawDeviceControlHandlers base, {
+  ClientMhsV0ReadResponse Function(ClientMhsV0ReadRequest request)?
+  readMhsStates,
+  ClientMhsV0WriteResponse Function(ClientMhsV0WriteRequest request)?
+  writeMhsStates,
   GizClawAudioPlayerHandlers? audioplayer,
   PeerStatus Function()? status,
   PeerStatus Function(int level, bool muted)? setVolume,
@@ -925,18 +952,26 @@ GizClawDeviceControlHandlers _copyControl(
   void Function(ClientRunWorkspaceSetRequest request)? setRunWorkspace,
 }) {
   return GizClawDeviceControlHandlers(
+    readMhsStates: readMhsStates ?? base.readMhsStates,
+    writeMhsStates: writeMhsStates ?? base.writeMhsStates,
     audioplayer: audioplayer ?? base.audioplayer,
     connectWifi: connectWifi ?? base.connectWifi,
     factoryReset: factoryReset ?? base.factoryReset,
     find: find ?? base.find,
     forgetWifi: forgetWifi ?? base.forgetWifi,
+    // Keep the legacy RPC bridge covered for older devices and apps.
+    // ignore: deprecated_member_use
     getSettings: getSettings ?? base.getSettings,
     playSound: playSound ?? base.playSound,
     reboot: reboot ?? base.reboot,
     savedWifi: savedWifi ?? base.savedWifi,
     scanWifi: scanWifi ?? base.scanWifi,
     setRunWorkspace: setRunWorkspace ?? base.setRunWorkspace,
+    // Keep the legacy RPC bridge covered for older devices and apps.
+    // ignore: deprecated_member_use
     setSettings: setSettings ?? base.setSettings,
+    // Keep the legacy RPC bridge covered for older devices and apps.
+    // ignore: deprecated_member_use
     setVolume: setVolume ?? base.setVolume,
     status: status ?? base.status,
     updateFirmware: base.updateFirmware,

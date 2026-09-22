@@ -105,7 +105,7 @@ func configureClientRPC(client *gizcli.Client, clientName string, steps []giztes
 				return fmt.Errorf("step %s: client.rpc.methods.get is answered from the installed providers and takes no response", step.ID)
 			}
 		case "client.device.status.get", "client.device.volume.set", "client.device.sound.play", "client.device.find", "client.device.reboot",
-			"client.device.settings.get", "client.device.settings.set", "client.device.factory_reset", "client.run.workspace.set",
+			"client.device.settings.get", "client.device.settings.set", "client.device.factory_reset", "client.run.workspace.set", "client.mhs.v0.read", "client.mhs.v0.write",
 			"client.device.audioplayer.get", "client.device.audioplayer.playlist.get", "client.device.audioplayer.playlist.set", "client.device.audioplayer.playlist.append", "client.device.audioplayer.play", "client.device.audioplayer.stop", "client.device.audioplayer.mode.set",
 			"client.wifi.status.get", "client.wifi.saved.list", "client.wifi.saved.forget", "client.wifi.scan", "client.wifi.connect":
 			if err := installDeviceControl(&device, step.ClientRPC.Method, response); err != nil {
@@ -195,6 +195,9 @@ func scriptedErrorCode(raw any) (int32, error) {
 }
 
 func installDeviceControl(handlers *gizcli.DeviceControlHandlers, method string, response any) error {
+	if strings.HasPrefix(method, "client.mhs.v0.") {
+		return installMhs(handlers, method, response)
+	}
 	if strings.HasPrefix(method, "client.device.audioplayer.") {
 		return installAudioPlayer(handlers, method, response)
 	}

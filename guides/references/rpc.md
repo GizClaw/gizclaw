@@ -1,6 +1,6 @@
 # RPC API Reference
 
-本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 109 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
+本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 111 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
 
 `all.*` 由连接两端提供，`client.*` 由 Client/Device 提供，普通 `server.*` 与 `runtime.*` 由 Server 提供。最后一组 Edge RPC 使用独立 service `0x31`，只对 Edge-node 开放；其余方法使用 Peer RPC service `0x00`。
 
@@ -148,12 +148,14 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 
 ## 设备控制与 Wi‑Fi
 
+仅 volume.set 与 settings.get/set 已弃用；旧入口行为保持不变，其他方法不弃用。字段推荐约定见 [中文迁移表](/zh/developing/api/overview#mhs-v0-migration) / [English migration table](/en/developing/api/overview#mhs-v0-migration)。ID 由产品在 RuntimeProfile manifest 中定义。只有设备固件和控制 App 均迁移后才移除，尚未设定移除日期。
+
 这一组 `client.*` 方法由设备的 `rpc_provider` 实现，Server 在处理 Public HTTP `/gizclaw/v1/device*` 控制请求时经在线 Peer connection 调用。设备只返回自身可执行的结果：参数非法返回 `INVALID_PARAMS`，未实现返回 `METHOD_NOT_FOUND`，`saved.forget` 找不到 ssid 返回 `NOT_FOUND`。`sound` 与 `ssid` 按 UTF‑8 bytes 限制 32。
 
 | ID | Method | 作用 |
 | ---: | --- | --- |
 | 100 | `client.device.status.get` | Server 从设备读取实时 `PeerStatus`；用于控制响应回写，不由 `/device/status` 读取触发。 |
-| 101 | `client.device.volume.set` | 设置绝对音量 `level`（0–100）与 `muted`，返回设备应用后的 `PeerStatus`。 |
+| 101 | `client.device.volume.set` | **已弃用 / Deprecated**：改用 `client.mhs.v0.write`。设置绝对音量 `level`（0–100）与 `muted`，返回设备应用后的 `PeerStatus`。 |
 | 102 | `client.device.sound.play` | 播放设备自定义的提示音 `sound`，可选 `duration_ms`。 |
 | 126 | `client.device.find` | “找设备”：设备播放内置的本地找寻提示音并逐步增大音量，可选 `duration_ms`；不需要音频 URL 或曲目。 |
 | 103 | `client.device.reboot` | 设备在发出响应后重启，可选 `delay_ms`。 |
@@ -170,11 +172,13 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 | 117 | `client.device.audioplayer.play` | 按零起始 `index` 从所选歌曲开头播放，替换当前播放；响应只表示设备接受请求，实际播放由 telemetry 上报。 |
 | 118 | `client.device.audioplayer.stop` | 幂等停止播放，保留播放列表与循环模式。 |
 | 119 | `client.device.audioplayer.mode.set` | 设置循环模式 `repeat`：`off` 播完列表停止，`one` 单曲循环，`all` 列表循环；不打断当前歌曲。 |
-| 128 | `client.device.settings.get` | 读取设备自身配置 `DeviceSettings`：4G 开关、熄屏时间、屏幕与指示灯亮度、语言、默认交互模式、按键提示方式、提醒方式、自动休眠时间、NFC 开关。缺省的成员表示该设备没有这项配置。 |
-| 129 | `client.device.settings.set` | 只应用请求中出现的成员，未出现的保持不变；响应返回应用后的完整 `DeviceSettings`，调用方据此得知设备实际接受了哪些项。 |
+| 128 | `client.device.settings.get` | **已弃用 / Deprecated**：改用 `client.mhs.v0.read`。读取设备自身配置 `DeviceSettings`：4G 开关、熄屏时间、屏幕与指示灯亮度、语言、默认交互模式、按键提示方式、提醒方式、自动休眠时间、NFC 开关。缺省的成员表示该设备没有这项配置。 |
+| 129 | `client.device.settings.set` | **已弃用 / Deprecated**：改用 `client.mhs.v0.write`。只应用请求中出现的成员，未出现的保持不变；响应返回应用后的完整 `DeviceSettings`，调用方据此得知设备实际接受了哪些项。 |
 | 130 | `client.device.factory_reset` | 设备清除本机状态并恢复出厂设置，设备侧不可撤销；可选 `keep_network` 保留已保存的 Wi‑Fi 与蜂窝配置，避免重新配网。Server 自身的 Peer 记录不受影响。 |
 | 131 | `client.rpc.methods.get` | 设备上报自己实现的 RPC method name 列表，调用方据此隐藏或跳过设备不支持的控制项。未知名称应忽略而不是拒绝。 |
 | 132 | `client.run.workspace.set` | 请设备切换到 `workspace_name` 指定的 Workspace，可选 `kickoff`；控制 App 的 workflow 目标由 Server 先解析为唯一名称。设备先应答再通过 `server.run.workspace.reload-with-options` 完成切换，应答只表示接受请求。 |
+| 133 | `client.mhs.v0.read` | 按 `(device_id, state)` 批量读取设备硬件 state 的当前值。可读的 key 由设备绑定的 RuntimeProfile `spec.mhs.v0` manifest 声明，Server 先按 manifest 校验；设备不实现的 key 返回 `NOT_FOUND`。这是 GizClaw 参照 MHS 思路自定的 v0 协议，不代表兼容官方 MHS。 |
+| 134 | `client.mhs.v0.write` | 按 `(device_id, state)` 批量写入 manifest 中声明为 `read_write` 的硬件 state，Server 先校验类型与范围。设备必须整批校验后再生效，拒绝时不应用任何一项；响应返回实际生效的值（driver 可以收敛取值并执行自身的安全限制）。 |
 
 ## 独立流式语音
 

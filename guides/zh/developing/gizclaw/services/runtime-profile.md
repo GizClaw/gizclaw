@@ -174,3 +174,30 @@ GizClaw 从不自行决定围栏放在哪里：它只把所选档位的文案（
 ASTTranslate 的当前 provider 路径没有系统提示入口：合法级别被接受并保存，但不提供变量，也不解析 Profile；Profile 未配置该档同样不影响 reload。SFU system Workspace 同理。设备因此可以把同一个级别发给全部 Workspace。
 
 围栏是发给模型的系统提示，约束效果仍依赖所选模型；这项配置不提供独立的内容审核器。
+
+## MHS v0 硬件清单
+
+`spec.mhs.v0` 是 RuntimeProfile 拥有的硬件清单，不由设备上报。`mhs/v0` 是 GizClaw 自己的、受 MHS 启发的预标准协议，不声称与官方 Model Hardware Standard 兼容；未来官方兼容版本使用 `v1`。v0 仅有状态读写，不包含 procedure/invoke、变更通知、slot 或 stream，也不替代已有设备 RPC。
+
+```yaml
+spec:
+  mhs:
+    v0:
+      devices:
+      - id: display.main
+        kind: display
+        description: 主屏幕
+        tags: [正面显示]
+        states:
+        - {name: brightness, type: int, access: read_write, min: 0, max: 100, step: 5, unit: '%'}
+      - id: battery.main
+        kind: battery
+        states:
+        - {name: level, type: int, access: read, min: 0, max: 100, unit: '%'}
+```
+
+`devices[].id` 全局唯一，`states[].name` 在设备内唯一，均为 1–64 ASCII 字节，匹配 `^[a-z][a-z0-9]*([.-][a-z0-9]+)*$`。`kind` 是非空开放字符串；description、unit 与自然语言 tags 可选。state type 固定为 `bool`、`int`、`double`、`string` 或 `enum`，access 为 `read` 或 `read_write`。
+
+只有 int/double 可以声明有限的 min/max/step，min 不大于 max，step 必须为正；int 的约束和取值都是 ±9007199254740991 内的整数，以保证 JSON/JavaScript 精确表达。步进以 min（缺省为 0）为起点，按十进制值计算网格。enum 必须提供非空且不重复的 enum_values，其他类型禁止该字段。string/enum 值必须是无 NUL 的合法 UTF-8，最多 256 字节。创建、PUT 与 apply 在保存前验证整份清单，错误包含设备和状态位置。
+
+清单保存在 `runtime_profiles.mhs_json`，参与 spec revision；已有 SQL 表初始化时补列，旧记录缺省为 null。Admin 的 get/list/put/apply/show 使用同一 shared schema。省略 mhs 会清除旧清单。控制 App 的专用 manifest endpoint 只投影清单，不暴露 Profile 的资源绑定或凭据，设备离线时同样可读；未定义清单返回 `{"devices":[]}`。见 [Public API](/zh/developing/api/http/public#mhs-v0-硬件状态)。

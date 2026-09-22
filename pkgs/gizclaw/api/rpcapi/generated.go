@@ -606,6 +606,8 @@ const (
 	RPCMethodClientDeviceSettingsSet             RPCMethod = "client.device.settings.set"
 	RPCMethodClientDeviceFactoryReset            RPCMethod = "client.device.factory_reset"
 	RPCMethodClientRPCMethodsGet                 RPCMethod = "client.rpc.methods.get"
+	RPCMethodClientMhsV0Read                     RPCMethod = "client.mhs.v0.read"
+	RPCMethodClientMhsV0Write                    RPCMethod = "client.mhs.v0.write"
 	RPCMethodClientRunWorkspaceSet               RPCMethod = "client.run.workspace.set"
 	RPCMethodServerContactCreate                 RPCMethod = "server.contact.create"
 	RPCMethodServerContactDelete                 RPCMethod = "server.contact.delete"
@@ -717,6 +719,8 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodClientDeviceFactoryReset:
 		return true
 	case RPCMethodClientRPCMethodsGet:
+		return true
+	case RPCMethodClientMhsV0Read, RPCMethodClientMhsV0Write:
 		return true
 	case RPCMethodClientRunWorkspaceSet:
 		return true

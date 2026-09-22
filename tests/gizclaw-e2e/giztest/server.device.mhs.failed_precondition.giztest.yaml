@@ -1,0 +1,67 @@
+# User Story:
+# As a GizClaw API key holder controlling hardware through MHS v0,
+# I want a device precondition failure to surface as a redacted DEVICE_ERROR,
+# So that the Public HTTP MHS contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.device.mhs.failed_precondition
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+- id: primary_http
+  client: peer
+  http:
+    method: PATCH
+    path: /gizclaw/v1/device/mhs/v0/states
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {states: [{device_id: display.main, state: brightness, value: 50}]}
+    status: 502
+  expect:
+    /error/code: {equals: DEVICE_ERROR}
+- id: provider_write
+  client: peer
+  client_rpc:
+    method: client.mhs.v0.write
+    response: {error_code: 9}
+    expect_calls: 1
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

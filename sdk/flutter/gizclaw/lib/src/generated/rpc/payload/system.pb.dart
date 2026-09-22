@@ -318,6 +318,8 @@ class ClientDeviceStatusGetResponse extends $pb.GeneratedMessage {
   PeerStatus ensureValue() => $_ensure(0);
 }
 
+/// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
+@$core.Deprecated('This message is deprecated')
 class ClientDeviceVolumeSetRequest extends $pb.GeneratedMessage {
   factory ClientDeviceVolumeSetRequest({
     $fixnum.Int64? level,
@@ -387,6 +389,8 @@ class ClientDeviceVolumeSetRequest extends $pb.GeneratedMessage {
   void clearMuted() => $_clearField(2);
 }
 
+/// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
+@$core.Deprecated('This message is deprecated')
 class ClientDeviceVolumeSetResponse extends $pb.GeneratedMessage {
   factory ClientDeviceVolumeSetResponse({
     PeerStatus? value,
@@ -744,6 +748,8 @@ class DeviceSettings extends $pb.GeneratedMessage {
   void clearNfcEnabled() => $_clearField(10);
 }
 
+/// Deprecated: Use client.mhs.v0.read with RuntimeProfile manifest keys.
+@$core.Deprecated('This message is deprecated')
 class ClientDeviceSettingsGetRequest extends $pb.GeneratedMessage {
   factory ClientDeviceSettingsGetRequest() => create();
 
@@ -785,6 +791,8 @@ class ClientDeviceSettingsGetRequest extends $pb.GeneratedMessage {
   static ClientDeviceSettingsGetRequest? _defaultInstance;
 }
 
+/// Deprecated: Use client.mhs.v0.read with RuntimeProfile manifest keys.
+@$core.Deprecated('This message is deprecated')
 class ClientDeviceSettingsGetResponse extends $pb.GeneratedMessage {
   factory ClientDeviceSettingsGetResponse({
     DeviceSettings? value,
@@ -849,6 +857,8 @@ class ClientDeviceSettingsGetResponse extends $pb.GeneratedMessage {
 /// ClientDeviceSettingsSetRequest applies only the members it carries. The
 /// response is the device's full settings after the change, so a caller sees
 /// which options the device actually accepted.
+/// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
+@$core.Deprecated('This message is deprecated')
 class ClientDeviceSettingsSetRequest extends $pb.GeneratedMessage {
   factory ClientDeviceSettingsSetRequest({
     DeviceSettings? value,
@@ -909,6 +919,8 @@ class ClientDeviceSettingsSetRequest extends $pb.GeneratedMessage {
   DeviceSettings ensureValue() => $_ensure(0);
 }
 
+/// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
+@$core.Deprecated('This message is deprecated')
 class ClientDeviceSettingsSetResponse extends $pb.GeneratedMessage {
   factory ClientDeviceSettingsSetResponse({
     DeviceSettings? value,

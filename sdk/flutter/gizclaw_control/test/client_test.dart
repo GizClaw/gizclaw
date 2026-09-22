@@ -1,3 +1,6 @@
+// Covers the deprecated volume/settings routes, which stay supported until removal.
+// ignore_for_file: deprecated_member_use_from_same_package
+
 import 'dart:async';
 import 'dart:convert';
 

@@ -2566,7 +2566,46 @@ static int test_admission_signaling(const gzc_platform_t *platform, const gzc_pl
   return 0;
 }
 
+static int test_mhs_codec(void) {
+  gizclaw_rpc_v1_ClientMhsV0WriteRequest request = gizclaw_rpc_v1_ClientMhsV0WriteRequest_init_zero;
+  gizclaw_rpc_v1_ClientMhsV0WriteRequest decoded = gizclaw_rpc_v1_ClientMhsV0WriteRequest_init_zero;
+  uint8_t bytes[gizclaw_rpc_v1_ClientMhsV0WriteRequest_size];
+  request.states_count = 32;
+  for (size_t i = 0; i < 32; i++) {
+    memset(request.states[i].device_id, 'd', 64);
+    memset(request.states[i].state, 's', 64);
+    request.states[i].has_value = true;
+    request.states[i].value.which_value = gizclaw_rpc_v1_MhsValue_string_value_tag;
+    memset(request.states[i].value.value.string_value, 'v', 256);
+  }
+  pb_ostream_t out = pb_ostream_from_buffer(bytes, sizeof(bytes));
+  if (!pb_encode(&out, gizclaw_rpc_v1_ClientMhsV0WriteRequest_fields, &request))
+    return 1;
+  pb_istream_t in = pb_istream_from_buffer(bytes, out.bytes_written);
+  if (!pb_decode(&in, gizclaw_rpc_v1_ClientMhsV0WriteRequest_fields, &decoded) || decoded.states_count != 32 || strlen(decoded.states[31].device_id) != 64 || strlen(decoded.states[31].value.value.string_value) != 256)
+    return 1;
+  for (pb_size_t tag = gizclaw_rpc_v1_MhsValue_bool_value_tag; tag <= gizclaw_rpc_v1_MhsValue_string_value_tag; tag++) {
+    gizclaw_rpc_v1_MhsValue value = gizclaw_rpc_v1_MhsValue_init_zero;
+    gizclaw_rpc_v1_MhsValue result = gizclaw_rpc_v1_MhsValue_init_zero;
+    value.which_value = tag;
+    out = pb_ostream_from_buffer(bytes, sizeof(bytes));
+    if (!pb_encode(&out, gizclaw_rpc_v1_MhsValue_fields, &value))
+      return 1;
+    in = pb_istream_from_buffer(bytes, out.bytes_written);
+    if (!pb_decode(&in, gizclaw_rpc_v1_MhsValue_fields, &result) || result.which_value != tag)
+      return 1;
+  }
+  request.states_count = 33;
+  out = pb_ostream_from_buffer(bytes, sizeof(bytes));
+  if (pb_encode(&out, gizclaw_rpc_v1_ClientMhsV0WriteRequest_fields, &request))
+    return 1;
+  return 0;
+}
+
 int main(void) {
+  if (test_mhs_codec() != 0)
+    return 1;
+
   if (test_firmware_version() != 0) {
     return 1;
   }
@@ -5165,6 +5204,8 @@ int main(void) {
     }
     static const gizclaw_rpc_v1_RpcMethod control_methods[] = {
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_STATUS_GET,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_READ,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_WRITE,
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_VOLUME_SET,
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY,
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_REBOOT,
@@ -5181,7 +5222,7 @@ int main(void) {
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_GET,
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RUN_WORKSPACE_SET,
     };
-    static const int control_method_ids[] = {100, 101, 102, 103, 104, 105, 106, 108, 109, 126, 127, 128, 129, 130, 131, 132};
+    static const int control_method_ids[] = {100, 133, 134, 101, 102, 103, 104, 105, 106, 108, 109, 126, 127, 128, 129, 130, 131, 132};
     for (size_t i = 0; i < sizeof(control_methods) / sizeof(control_methods[0]); i++) {
       if (expect((int)control_methods[i] == control_method_ids[i],
                  "device control method id matches rpc.proto") != 0) {

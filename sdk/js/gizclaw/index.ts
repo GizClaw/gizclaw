@@ -32,6 +32,10 @@ import {
   type ClientDeviceRebootRequest,
   type ClientDeviceSettingsSetRequest,
   type ClientRunWorkspaceSetRequest,
+  type ClientMhsV0ReadRequest,
+  type ClientMhsV0ReadResponse,
+  type ClientMhsV0WriteRequest,
+  type ClientMhsV0WriteResponse,
   type ToolInvokeRequest,
   type DeviceSettings,
   type ClientDeviceSoundPlayRequest,
@@ -279,6 +283,14 @@ export type GizClawAudioPlayerHandlers = {
 // handler answers METHOD_NOT_FOUND, which the server maps to
 // 501 DEVICE_UNSUPPORTED.
 export type GizClawDeviceControlHandlers = {
+  /** Returns exactly the requested keys, or NOT_FOUND for unimplemented hardware. */
+  readMhsStates?: (
+    request: ClientMhsV0ReadRequest,
+  ) => Promise<ClientMhsV0ReadResponse> | ClientMhsV0ReadResponse;
+  /** Enforce safety limits and validate the entire batch before applying any entry. */
+  writeMhsStates?: (
+    request: ClientMhsV0WriteRequest,
+  ) => Promise<ClientMhsV0WriteResponse> | ClientMhsV0WriteResponse;
   audioplayer?: GizClawAudioPlayerHandlers;
   connectWifi?: (ssid: string, passphrase?: string) => Promise<void> | void;
   // find plays the device's own built-in find-me sound with a rising volume
@@ -301,6 +313,7 @@ export type GizClawDeviceControlHandlers = {
   scanWifi?: (
     timeoutMs?: number,
   ) => Promise<WifiScanResult[]> | WifiScanResult[];
+  /** @deprecated Use writeMhsStates with RuntimeProfile manifest keys. */
   setVolume?: (
     level: number,
     muted: boolean,
@@ -310,10 +323,12 @@ export type GizClawDeviceControlHandlers = {
   // getSettings reports every option this device supports. An option the
   // device has no hardware for stays absent rather than being reported with a
   // placeholder value, which is how a caller tells "off" from "not supported".
+  /** @deprecated Use readMhsStates with RuntimeProfile manifest keys. */
   getSettings?: () => Promise<DeviceSettings> | DeviceSettings;
   // setSettings applies only the options present in the patch and answers with
   // the device's full settings afterwards, so the caller sees what was
   // accepted. An option the device does not support is ignored, not an error.
+  /** @deprecated Use writeMhsStates with RuntimeProfile manifest keys. */
   setSettings?: (
     patch: DeviceSettings,
   ) => Promise<DeviceSettings> | DeviceSettings;
@@ -2559,6 +2574,8 @@ function supportedDeviceMethods(
     ["client.device.settings.set", control?.setSettings],
     ["client.device.factory_reset", control?.factoryReset],
     ["client.run.workspace.set", control?.setRunWorkspace],
+    ["client.mhs.v0.read", control?.readMhsStates],
+    ["client.mhs.v0.write", control?.writeMhsStates],
     ["client.firmware.update", control?.updateFirmware],
     ["client.wifi.status.get", control?.wifiStatus],
     ["client.wifi.saved.list", control?.savedWifi],
@@ -2830,6 +2847,24 @@ async function answerClientRequest(
         }
         await handler(request.params as ClientRunWorkspaceSetRequest);
         return ok({});
+      }
+      case "client.mhs.v0.read": {
+        const handler = control?.readMhsStates;
+        if (handler == null) return unsupported();
+        if (!validMhsBatch(request.params, false)) return invalid();
+        const result = await handler(request.params as ClientMhsV0ReadRequest);
+        if (!validMhsBatch(result, true))
+          throw new Error("invalid MHS handler response");
+        return ok(result);
+      }
+      case "client.mhs.v0.write": {
+        const handler = control?.writeMhsStates;
+        if (handler == null) return unsupported();
+        if (!validMhsBatch(request.params, true)) return invalid();
+        const result = await handler(request.params as ClientMhsV0WriteRequest);
+        if (!validMhsBatch(result, true))
+          throw new Error("invalid MHS handler response");
+        return ok(result);
       }
       case "client.rpc.methods.get": {
         // Derived from the handlers this device actually registered rather
@@ -4198,4 +4233,64 @@ function validAudioPlayerItems(items: unknown, append: boolean): boolean {
           new TextEncoder().encode(text).length <= 128),
     );
   });
+}
+
+// Wire bounds apply even when a device is called without the HTTP manifest adapter.
+function validMhsBatch(value: unknown, withValue: boolean): boolean {
+  if (
+    value == null ||
+    typeof value !== "object" ||
+    !("states" in value) ||
+    !Array.isArray(value.states) ||
+    value.states.length < 1 ||
+    value.states.length > 32
+  )
+    return false;
+  const keys = new Set<string>();
+  const keyValid = (v: unknown) =>
+    typeof v === "string" &&
+    v.length <= 64 &&
+    /^[a-z][a-z0-9]*([.-][a-z0-9]+)*$/.exec(v)?.[0] === v;
+  for (const entry of value.states) {
+    if (
+      entry == null ||
+      typeof entry !== "object" ||
+      !keyValid(entry.device_id) ||
+      !keyValid(entry.state)
+    )
+      return false;
+    const key = entry.device_id + "/" + entry.state;
+    if (keys.has(key)) return false;
+    keys.add(key);
+    if (!withValue) continue;
+    const v: unknown = entry.value;
+    if (v == null || typeof v !== "object") return false;
+    const fields = Object.entries(v).filter(([, item]) => item != null);
+    if (fields.length !== 1) return false;
+    const [name, item] = fields[0]!;
+    switch (name) {
+      case "bool_value":
+        if (typeof item !== "boolean") return false;
+        break;
+      case "int_value":
+        if (typeof item !== "number" || !Number.isSafeInteger(item))
+          return false;
+        break;
+      case "double_value":
+        if (typeof item !== "number" || !Number.isFinite(item)) return false;
+        break;
+      case "string_value":
+        if (
+          typeof item !== "string" ||
+          item.includes("\0") ||
+          !item.isWellFormed() ||
+          new TextEncoder().encode(item).length > 256
+        )
+          return false;
+        break;
+      default:
+        return false;
+    }
+  }
+  return true;
 }

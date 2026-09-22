@@ -11,6 +11,7 @@ API changes must start from the source schema of the root `api/`. Direct modific
 | `api/proto/giznet/admission.proto` | Dart protobuf | `cd sdk/flutter/gizclaw && dart run tool/generate_admission.dart` |
 | HTTP OpenAPI + shared schemas | Go HTTP server/client/models | `go generate ./pkgs/gizclaw/api/adminhttp ./pkgs/gizclaw/api/apitypes ./pkgs/gizclaw/api/peerhttp` |
 | `api/proto/rpc/**/*.proto` | Go Protobuf | `go generate ./pkgs/gizclaw/api/rpcproto` |
+| `api/proto/rpc/**/*.proto` | Dart protobuf / registry / codec | `cd sdk/flutter/gizclaw && dart run tool/generate_rpc.dart` |
 | RPC descriptors/wrappers | Manually maintained `rpcapi` committed surface | `go test ./pkgs/gizclaw/api/rpcapi` (currently `go generate` only performs this verification and will not regenerate the file) |
 | HTTP + RPC + Giznet schemas | JavaScript SDK | `npm --prefix sdk/js run gen:sdk` |
 | RPC + Events + Giznet Protobuf | C nanopb SDK | `go generate ./sdk/c/gizclaw` |
@@ -64,3 +65,15 @@ If a large number of irrelevant diffs appear after building, check tool version,
 Monitor OpenAPI (`api/http/monitor.json`) generates the strict Go server/client/models in `pkgs/monitor/api/generated.go` through `go generate ./pkgs/monitor/api`. The configuration lives in `pkgs/monitor/api/codegen_config.yaml`. `npm --prefix sdk/js run gen:sdk` uses `sdk/js/openapi-ts.config.ts` to generate the console client in `sdk/js/gizclaw-control/generated/monitor/`. These committed outputs belong to the Monitor surface and are consumed by `pkgs/monitor/monitor.go` and `web/console/src/lib/api.ts`; the `@gizclaw/gizclaw-control` package exports the Node Monitor client. Peer monitor methods reuse the generated Peer HTTP contract through the control SDK.
 
 Giznet credentials use `protoc-gen-go`, `@bufbuild/protobuf` / `protoc-gen-es`, Dart `protobuf` / `protoc_plugin`, and nanopb 0.4.9.1 pinned at `third_party/nanopb/upstream`. `nanopb.options` bounds strings; transport separately enforces the 4096-byte encoded limit. Commit all generated output with its source schema.
+
+## Deprecation convention
+
+Deprecation provides migration guidance without changing callability or the wire contract. Preserve method IDs, registrations, payload fields, HTTP operation IDs, routes, handlers, SDK signatures and compatibility tests.
+
+- Proto: append `, deprecated = true` after the existing `(rpc_method)` option on the `RpcMethod` value. Add `option deprecated = true;` to request/response messages exclusive to that interface. A `// Deprecated: Use ...` comment immediately before the declaration names the replacement. Shared types do not become deprecated merely because one consumer does.
+- OpenAPI: set `"deprecated": true` on the operation and name the replacement route in its description; do not deprecate an entire path or shared schema.
+- Regenerate every affected language; never hand-edit third-party outputs. Repository-owned parsers must retain methods carrying the deprecation option. JavaScript types and method maps emit `@deprecated` from source comments; Dart protobuf retains native annotations.
+- Handwritten SDKs: use a separate `// Deprecated:` paragraph in Go, `@deprecated` JSDoc in JS/TS and `@Deprecated('...')` in Dart. C uses only `Deprecated:` documentation comments, without compiler attributes, to keep `-Werror` callers and bridges compatible.
+- Internal compatibility paths, tests and giztest bridges continue using the old APIs. If a lint fires, add a reasoned suppression only at the affected call; do not weaken global gates or remove old tests.
+
+See the [MHS v0 migration table](./overview#mhs-v0-migration) for field mappings, replacement routes and retirement conditions.

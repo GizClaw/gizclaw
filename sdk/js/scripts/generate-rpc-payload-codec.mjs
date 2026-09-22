@@ -369,7 +369,9 @@ function singleValueField(desc: MessageDesc): FieldDesc | undefined {
 
 function isOneofValueWrapper(desc: MessageDesc): boolean {
   const group = desc.fields[0]?.oneofGroup;
-  return group != null && desc.fields.every((field) => field.oneofGroup === group);
+  // Preserve field identity when distinct wire types share JavaScript's number.
+  const numeric = new Set(["double", "float", "int32", "int64", "uint32", "uint64"]);
+  return group != null && desc.fields.every((field) => field.oneofGroup === group) && desc.fields.filter((field) => numeric.has(field.type)).length < 2;
 }
 
 function withMessageDefaults(desc: MessageDesc, values: Record<string, unknown>): Record<string, unknown> {
@@ -985,7 +987,7 @@ function parseRPCMethods(proto) {
   const methods = [];
   for (const line of lines) {
     const entry =
-      /^\s*RPC_METHOD_[A-Z0-9_]+\s*=\s*(\d+)\s*\[\(rpc_method\)\s*=\s*\{\s*name:\s*"([^"]+)"\s+request:\s*"(\w+)"\s+response:\s*"(\w+)"\s*\}\s*\]\s*;/.exec(
+      /^\s*RPC_METHOD_[A-Z0-9_]+\s*=\s*(\d+)\s*\[\(rpc_method\)\s*=\s*\{\s*name:\s*"([^"]+)"\s+request:\s*"(\w+)"\s+response:\s*"(\w+)"\s*\}\s*(?:,\s*deprecated\s*=\s*(true|false)\s*)?\]\s*;/.exec(
         line,
       );
     if (entry == null) {
@@ -1013,11 +1015,12 @@ function parsePayloadProto(proto) {
   const lines = proto.split(/\r?\n/);
   const messages = {};
   const enums = {};
+  const deprecations = {};
   let currentMessage = null;
   let currentEnum = null;
   let currentOneof = null;
 
-  for (const line of lines) {
+  for (const [index, line] of lines.entries()) {
     const enumStart = /^\s*enum\s+(\w+)\s*\{/.exec(line);
     if (enumStart != null) {
       currentEnum = { name: enumStart[1], values: [] };
@@ -1041,10 +1044,19 @@ function parsePayloadProto(proto) {
 
     const messageStart = /^\s*message\s+(\w+)\s*\{/.exec(line);
     if (messageStart != null) {
-      currentMessage = { name: messageStart[1], fields: [] };
+      currentMessage = {
+        name: messageStart[1],
+        fields: [],
+        comment: lines[index - 1]?.trim().replace(/^\/\/ Deprecated:\s*/, ""),
+      };
       continue;
     }
     if (currentMessage == null) {
+      continue;
+    }
+    if (/^\s*option deprecated = true;/.test(line)) {
+      deprecations[currentMessage.name] =
+        currentMessage.comment || "Deprecated message.";
       continue;
     }
     const oneofStart = /^\s*oneof\s+(\w+)\s*\{/.exec(line);
@@ -1066,7 +1078,7 @@ function parsePayloadProto(proto) {
       currentMessage.fields.push(field);
     }
   }
-  return { messages, enums };
+  return { messages, enums, deprecations };
 }
 
 function parseField(line, oneofGroup, messageName) {
@@ -1117,6 +1129,9 @@ function emitPayloadTypes(parsed) {
     );
   }
   for (const name of Object.keys(parsed.messages).sort()) {
+    if (parsed.deprecations[name] != null) {
+      out.push(`/** @deprecated ${parsed.deprecations[name]} */`);
+    }
     out.push(`export type ${name} = ${messageTypeExpression(name, parsed)};`);
   }
   return out.join("\n");
@@ -1141,6 +1156,26 @@ function messageTypeExpression(name, parsed) {
   const single = singleValueTypeField(desc);
   if (single != null) {
     return tsFieldType(single, parsed);
+  }
+  if (
+    hasSingleOneofGroup(desc) &&
+    new Set(desc.fields.map((field) => tsFieldType(field, parsed))).size <
+      desc.fields.length
+  ) {
+    return desc.fields
+      .map(
+        (selected) =>
+          "{ " +
+          desc.fields
+            .map((field) =>
+              field === selected
+                ? JSON.stringify(field.name) + ": " + tsFieldType(field, parsed)
+                : JSON.stringify(field.name) + "?: never",
+            )
+            .join("; ") +
+          " }",
+      )
+      .join(" | ");
   }
   if (hasSingleOneofGroup(desc)) {
     return (

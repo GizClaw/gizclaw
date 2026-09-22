@@ -41,7 +41,7 @@ if (gzc_control_get_device_status(&client, &call, &status) == GZC_OK && status.h
 }
 ```
 
-Every `gzc_str_t` in a decoded model points into `response` and stays valid until the same `gzc_control_call_t` is reused. List routes take a caller array and its capacity, and report `GZC_ERR_BUFFER_TOO_SMALL` when the page is larger. Open-ended schemas (`PeerStatus`, `DeviceInfo`) expose `raw` beside their typed fields, matching the Dart and TypeScript controller packages.
+Decoded strings normally point into `response` and stay valid until the same `gzc_control_call_t` is reused. MHS escaped strings use the additional caller-owned storage described below. List routes take a caller array and its capacity, and report `GZC_ERR_BUFFER_TOO_SMALL` when the page is larger. Open-ended schemas (`PeerStatus`, `DeviceInfo`) expose `raw` beside their typed fields, matching the Dart and TypeScript controller packages.
 
 Request string caps come straight from the contract: SSID 32 bytes, sound 32 bytes, display_name 80 bytes. An oversized value returns `GZC_ERR_INVALID_ARGUMENT` before any transport call.
 
@@ -50,6 +50,32 @@ Device settings and control-app routes map to `gzc_control_get_device_settings`,
 Friend and Friend Group routes map to the `gzc_control_*_friend*` and `gzc_control_*_friend_group*` functions, covering invite tokens (optional `ttl_seconds` in `gzc_control_invite_token_request_t`), befriending, listing, leaving, dissolving, and member management. Group roles are returned as strings (`owner`, `admin`, `member`), and `has_info` marks whether `info` is present.
 
 Each members-list item carries optional `online` (Server-local connection state) and `last_seen_at` (RFC 3339 UTC; absent when unknown or the read failed); members returned by add, put and join omit both. C uses `has_online` + `online` and `last_seen_at` (`gzc_str_t`).
+
+### MHS v0 controller API
+
+`gzc_control_get_mhs_v0_manifest` reads the offline manifest into a caller-owned array of `gzc_control_mhs_v0_device_t`. Decode nested arrays with `gzc_control_mhs_v0_device_states`, `gzc_control_mhs_v0_device_tags` and `gzc_control_mhs_v0_state_enum_values`; each takes an output array, capacity and decoded count. State types and access modes are C enums, and `has_min` / `has_max` / `has_step` distinguish absent constraints from zero.
+
+`gzc_control_read_mhs_v0_states` accepts `gzc_control_mhs_v0_state_ref_t` keys; `gzc_control_write_mhs_v0_states` accepts `gzc_control_mhs_v0_state_value_t` values and returns the device's actual applied values. Both require 1–32 entries. IDs and names follow the manifest's ASCII syntax and are at most 64 bytes; string/enum values are valid UTF-8 without NUL, at most 256 bytes. Invalid input returns `GZC_ERR_INVALID_ARGUMENT` before transport. The Server validates duplicate keys, access, manifest types, bounds and enum membership, retaining its normal HTTP errors, including `404 MHS_STATE_NOT_FOUND`.
+
+`gzc_control_mhs_v0_value_t.kind` describes the JSON representation, not the manifest type. Both numeric kinds provide `double_value`; `has_int_value` indicates an exact `int_value` within ±9007199254740991, including integral decimal/exponent tokens. `number_is_integer_token` preserves its integer versus decimal/exponent syntax, even outside the safe integer range; `number_json` retains the original token. A manifest `double` state can arrive as `0` with kind `GZC_CONTROL_MHS_V0_VALUE_INT`: use `double_value`. On write, `VALUE_INT` uses `int_value`, `VALUE_DOUBLE` uses finite `double_value`, and `VALUE_STRING` uses `string_value` for both string and enum states. The decoded metadata `has_int_value`, `number_is_integer_token` and `number_json` is ignored on write.
+
+All MHS calls and nested decoders take `gzc_control_mhs_v0_storage_t`, initialized as `{data, capacity, 0}`. Plain strings and nested JSON arrays borrow `call.response`; escaped strings are decoded into this separate caller-owned region. HTTP calls reset `used` after sending; nested decoders append. Keep both regions alive and distinct from request scratch/input JSON. A string region at least as large as `response_cap` is sufficient when decoding each nested list once. The SDK never allocates or grows either region. Array/string exhaustion returns `GZC_ERR_BUFFER_TOO_SMALL`; HTTP calls classify it as `GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL`, while nested helpers return the code directly. Only the decoded prefix is valid after overflow. Size request scratch for the full batch and JSON escaping; the 512-byte example above only covers small requests.
+
+```c
+char mhs_strings[8192];
+gzc_control_mhs_v0_storage_t storage = {mhs_strings, sizeof(mhs_strings), 0};
+gzc_control_mhs_v0_state_ref_t key = {
+    gzc_str_from_cstr("display.main"), gzc_str_from_cstr("brightness")};
+gzc_control_mhs_v0_state_value_t applied[1];
+size_t count = 0;
+int rc = gzc_control_read_mhs_v0_states(
+    &client, &call, &key, 1, &storage, applied, 1, &count);
+if (rc != GZC_OK) {
+  return;
+}
+```
+
+See [MHS HTTP semantics](/en/developing/api/http/public#mhs-v0-hardware-states) for atomic writes and timeout/read-back behavior.
 
 ### Error classification
 
@@ -204,3 +230,17 @@ allocation failure returns `GZC_ERR_NO_MEMORY`. Call `server.register` after con
 resources; see [Security Policy](../../developing/gizclaw/server/security-policy).
 
 The exported `GZC_REGISTRATION_TOKEN_CREDENTIAL_TYPE` constant defines the built-in type and is used by the helper. Values are limited to 512 UTF-8 bytes; construction returns an error or throws for larger input. Custom policies should use their own domain prefix; built-in types reserve `gizclaw.com/`.
+
+## MHS v0 hardware states
+
+`gzc_rpc.h` exposes `payload/mhs.pb.h`. Handle `RPC_METHOD_CLIENT_MHS_V0_READ/WRITE` (133/134) in `rpc_provider` with generated `ClientMhsV0*` nanopb codecs. The provider answers `client.rpc.methods.get` with only implemented methods; absent handlers return `GZC_ERR_UNSUPPORTED`. Response bytes are borrowed during the respond callback and must remain valid until it returns.
+
+This is GizClaw's MHS-inspired pre-standard v0, with no official compatibility claim. Manifests work offline; reads/writes allow at most 32 unique keys. Drivers validate the whole batch and enforce safety limits. See [Public API](/en/developing/api/http/public) and the [provider contract](/en/developing/api/proto/rpc/client-provided-to-server).
+
+## Deprecated hardware-state interfaces
+
+`client.device.volume.set` (101), `client.device.settings.get` (128) and `client.device.settings.set` (129) are deprecated in favor of `client.mhs.v0.write`, `client.mhs.v0.read` and `client.mhs.v0.write`, respectively. Legacy entry points remain compatible. The [migration table](/en/developing/api/overview#mhs-v0-migration) lists recommended product manifest keys. Removal waits for both firmware and control apps to migrate; no date is set.
+
+Device providers: `rpc_provider`: `client.device.volume.set`, `client.device.settings.get/set` → `client.mhs.v0.read/write`.
+
+Controllers: `gzc_control_set_device_volume`, `gzc_control_get_device_settings`, `gzc_control_update_device_settings` → `gzc_control_write_mhs_v0_states`, `gzc_control_read_mhs_v0_states`, `gzc_control_write_mhs_v0_states`.

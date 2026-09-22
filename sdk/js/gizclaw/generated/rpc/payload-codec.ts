@@ -192,9 +192,13 @@ export type ClientDeviceRebootRequest = {
   "delay_ms"?: number;
 };
 export type ClientDeviceRebootResponse = Record<string, never>;
+/** @deprecated Use client.mhs.v0.read with RuntimeProfile manifest keys. */
 export type ClientDeviceSettingsGetRequest = Record<string, never>;
+/** @deprecated Use client.mhs.v0.read with RuntimeProfile manifest keys. */
 export type ClientDeviceSettingsGetResponse = DeviceSettings;
+/** @deprecated Use client.mhs.v0.write with RuntimeProfile manifest keys. */
 export type ClientDeviceSettingsSetRequest = DeviceSettings;
+/** @deprecated Use client.mhs.v0.write with RuntimeProfile manifest keys. */
 export type ClientDeviceSettingsSetResponse = DeviceSettings;
 export type ClientDeviceSoundPlayRequest = {
   "sound": string;
@@ -203,10 +207,12 @@ export type ClientDeviceSoundPlayRequest = {
 export type ClientDeviceSoundPlayResponse = Record<string, never>;
 export type ClientDeviceStatusGetRequest = Record<string, never>;
 export type ClientDeviceStatusGetResponse = PeerStatus;
+/** @deprecated Use client.mhs.v0.write with RuntimeProfile manifest keys. */
 export type ClientDeviceVolumeSetRequest = {
   "level": number;
   "muted": boolean;
 };
+/** @deprecated Use client.mhs.v0.write with RuntimeProfile manifest keys. */
 export type ClientDeviceVolumeSetResponse = PeerStatus;
 export type ClientFirmwareUpdateRequest = {
   "channel"?: FirmwareChannelName;
@@ -217,6 +223,18 @@ export type ClientGetIdentifiersRequest = Record<string, never>;
 export type ClientGetIdentifiersResponse = DeviceIdentifiers;
 export type ClientGetInfoRequest = Record<string, never>;
 export type ClientGetInfoResponse = HardwareInfo;
+export type ClientMhsV0ReadRequest = {
+  "states": MhsStateRef[];
+};
+export type ClientMhsV0ReadResponse = {
+  "states": MhsStateValue[];
+};
+export type ClientMhsV0WriteRequest = {
+  "states": MhsStateValue[];
+};
+export type ClientMhsV0WriteResponse = {
+  "states": MhsStateValue[];
+};
 export type ClientRpcMethodsGetRequest = Record<string, never>;
 export type ClientRpcMethodsGetResponse = {
   "methods": string[];
@@ -755,6 +773,16 @@ export type Icon = {
   "pixa"?: string;
   "png"?: string;
 };
+export type MhsStateRef = {
+  "device_id": string;
+  "state": string;
+};
+export type MhsStateValue = {
+  "device_id": string;
+  "state": string;
+  "value": MhsValue;
+};
+export type MhsValue = { "bool_value": boolean; "int_value"?: never; "double_value"?: never; "string_value"?: never } | { "bool_value"?: never; "int_value": number; "double_value"?: never; "string_value"?: never } | { "bool_value"?: never; "int_value"?: never; "double_value": number; "string_value"?: never } | { "bool_value"?: never; "int_value"?: never; "double_value"?: never; "string_value": string };
 export type MiniMaxTenantModelProviderData = {
   "upstream_model": string;
   "api_mode": string;
@@ -1359,6 +1387,8 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.firmware.update": "ClientFirmwareUpdateRequest",
   "client.identifiers.get": "ClientGetIdentifiersRequest",
   "client.info.get": "ClientGetInfoRequest",
+  "client.mhs.v0.read": "ClientMhsV0ReadRequest",
+  "client.mhs.v0.write": "ClientMhsV0WriteRequest",
   "client.rpc.methods.get": "ClientRpcMethodsGetRequest",
   "client.run.workspace.set": "ClientRunWorkspaceSetRequest",
   "client.social.ping": "ClientSocialPingRequest",
@@ -1470,6 +1500,8 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.firmware.update": "ClientFirmwareUpdateResponse",
   "client.identifiers.get": "ClientGetIdentifiersResponse",
   "client.info.get": "ClientGetInfoResponse",
+  "client.mhs.v0.read": "ClientMhsV0ReadResponse",
+  "client.mhs.v0.write": "ClientMhsV0WriteResponse",
   "client.rpc.methods.get": "ClientRpcMethodsGetResponse",
   "client.run.workspace.set": "ClientRunWorkspaceSetResponse",
   "client.social.ping": "ClientSocialPingResponse",
@@ -2277,6 +2309,46 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "HardwareInfo"
+      }
+    ]
+  },
+  "ClientMhsV0ReadRequest": {
+    "fields": [
+      {
+        "name": "states",
+        "number": 1,
+        "repeated": true,
+        "type": "MhsStateRef"
+      }
+    ]
+  },
+  "ClientMhsV0ReadResponse": {
+    "fields": [
+      {
+        "name": "states",
+        "number": 1,
+        "repeated": true,
+        "type": "MhsStateValue"
+      }
+    ]
+  },
+  "ClientMhsV0WriteRequest": {
+    "fields": [
+      {
+        "name": "states",
+        "number": 1,
+        "repeated": true,
+        "type": "MhsStateValue"
+      }
+    ]
+  },
+  "ClientMhsV0WriteResponse": {
+    "fields": [
+      {
+        "name": "states",
+        "number": 1,
+        "repeated": true,
+        "type": "MhsStateValue"
       }
     ]
   },
@@ -4735,6 +4807,71 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "png",
         "number": 2,
         "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "MhsStateRef": {
+    "fields": [
+      {
+        "name": "device_id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "state",
+        "number": 2,
+        "type": "string"
+      }
+    ]
+  },
+  "MhsStateValue": {
+    "fields": [
+      {
+        "name": "device_id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "state",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "value",
+        "number": 3,
+        "type": "MhsValue"
+      }
+    ]
+  },
+  "MhsValue": {
+    "fields": [
+      {
+        "name": "bool_value",
+        "number": 1,
+        "oneof": true,
+        "oneofGroup": "value",
+        "type": "bool"
+      },
+      {
+        "name": "int_value",
+        "number": 2,
+        "oneof": true,
+        "oneofGroup": "value",
+        "type": "int64"
+      },
+      {
+        "name": "double_value",
+        "number": 3,
+        "oneof": true,
+        "oneofGroup": "value",
+        "type": "double"
+      },
+      {
+        "name": "string_value",
+        "number": 4,
+        "oneof": true,
+        "oneofGroup": "value",
         "type": "string"
       }
     ]
@@ -8179,7 +8316,9 @@ function singleValueField(desc: MessageDesc): FieldDesc | undefined {
 
 function isOneofValueWrapper(desc: MessageDesc): boolean {
   const group = desc.fields[0]?.oneofGroup;
-  return group != null && desc.fields.every((field) => field.oneofGroup === group);
+  // Preserve field identity when distinct wire types share JavaScript's number.
+  const numeric = new Set(["double", "float", "int32", "int64", "uint32", "uint64"]);
+  return group != null && desc.fields.every((field) => field.oneofGroup === group) && desc.fields.filter((field) => numeric.has(field.type)).length < 2;
 }
 
 function withMessageDefaults(desc: MessageDesc, values: Record<string, unknown>): Record<string, unknown> {

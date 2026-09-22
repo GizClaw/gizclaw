@@ -37,6 +37,7 @@ final client = GizClawControlClient(
 );
 
 final status = await client.getDeviceStatus();
+// Legacy-device compatibility example; deprecated. New integrations use MHS v0.
 final applied = await client.setDeviceVolume(level: 35, muted: false);
 print('${status.volume} -> ${applied.status.volume}');
 
@@ -120,3 +121,17 @@ closes, so cleanup remains safe after Server block. Observe
 `peerEventSessionForFlutterGiznetWebRtc(peerConnection)!.events` completion for the
 terminal event-session signal; reconnect creates a new Peer and session. New RPC
 channels are rejected once the old Peer starts closing.
+
+## MHS v0 hardware states
+
+Devices install `readMhsStates`/`writeMhsStates` in `GizClawDeviceControlHandlers`, using generated `ClientMhsV0*` and `MhsValue`. Controllers call `getMhsManifest()`, `readMhsStates(List<MhsStateRef>)` and `writeMhsStates(List<MhsStateValue>)`. Values are plain bool/int/double/String; writes return actual applied values. Render controls from `MhsState.type/access/min/max/step/enumValues/unit`.
+
+This is GizClaw's MHS-inspired pre-standard v0, with no official compatibility claim. Manifests work offline; reads/writes allow at most 32 unique keys. Drivers validate the whole batch and enforce safety limits. See [Public API](/en/developing/api/http/public) and the [provider contract](/en/developing/api/proto/rpc/client-provided-to-server).
+
+## Deprecated hardware-state interfaces
+
+`client.device.volume.set` (101), `client.device.settings.get` (128) and `client.device.settings.set` (129) are deprecated in favor of `client.mhs.v0.write`, `client.mhs.v0.read` and `client.mhs.v0.write`, respectively. Legacy entry points remain compatible. The [migration table](/en/developing/api/overview#mhs-v0-migration) lists recommended product manifest keys. Removal waits for both firmware and control apps to migrate; no date is set.
+
+Device providers: `GizClawDeviceControlHandlers.setVolume`, `getSettings`, `setSettings` → `writeMhsStates`, `readMhsStates`, `writeMhsStates`.
+
+Controllers: `GizClawControlClient.setDeviceVolume`, `getDeviceSettings`, `updateDeviceSettings` → `writeMhsStates`, `readMhsStates`, `writeMhsStates`.

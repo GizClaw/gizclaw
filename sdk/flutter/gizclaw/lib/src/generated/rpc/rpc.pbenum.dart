@@ -274,6 +274,9 @@ class RpcMethod extends $pb.ProtobufEnum {
       99, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_API_KEY_RESOLVE');
   static const RpcMethod RPC_METHOD_CLIENT_DEVICE_STATUS_GET = RpcMethod._(
       100, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_STATUS_GET');
+
+  /// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
+  @$core.Deprecated('This enum value is deprecated')
   static const RpcMethod RPC_METHOD_CLIENT_DEVICE_VOLUME_SET = RpcMethod._(
       101, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_VOLUME_SET');
   static const RpcMethod RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY = RpcMethod._(
@@ -326,8 +329,14 @@ class RpcMethod extends $pb.ProtobufEnum {
           _omitEnumNames
               ? ''
               : 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET');
+
+  /// Deprecated: Use client.mhs.v0.read with RuntimeProfile manifest keys.
+  @$core.Deprecated('This enum value is deprecated')
   static const RpcMethod RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET = RpcMethod._(
       128, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET');
+
+  /// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
+  @$core.Deprecated('This enum value is deprecated')
   static const RpcMethod RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET = RpcMethod._(
       129, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET');
   static const RpcMethod RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET = RpcMethod._(
@@ -336,6 +345,10 @@ class RpcMethod extends $pb.ProtobufEnum {
       131, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_RPC_METHODS_GET');
   static const RpcMethod RPC_METHOD_CLIENT_RUN_WORKSPACE_SET = RpcMethod._(
       132, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_RUN_WORKSPACE_SET');
+  static const RpcMethod RPC_METHOD_CLIENT_MHS_V0_READ =
+      RpcMethod._(133, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_MHS_V0_READ');
+  static const RpcMethod RPC_METHOD_CLIENT_MHS_V0_WRITE =
+      RpcMethod._(134, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_MHS_V0_WRITE');
   static const RpcMethod RPC_METHOD_SERVER_APP_CONFIG_LIST = RpcMethod._(
       121, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_APP_CONFIG_LIST');
   static const RpcMethod RPC_METHOD_SERVER_APP_CONFIG_GET = RpcMethod._(
@@ -455,6 +468,8 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET,
     RPC_METHOD_CLIENT_RPC_METHODS_GET,
     RPC_METHOD_CLIENT_RUN_WORKSPACE_SET,
+    RPC_METHOD_CLIENT_MHS_V0_READ,
+    RPC_METHOD_CLIENT_MHS_V0_WRITE,
     RPC_METHOD_SERVER_APP_CONFIG_LIST,
     RPC_METHOD_SERVER_APP_CONFIG_GET,
     RPC_METHOD_SERVER_FRIEND_PING,
@@ -465,7 +480,7 @@ class RpcMethod extends $pb.ProtobufEnum {
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 132);
+      $pb.ProtobufEnum.$_initByValueList(values, 134);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

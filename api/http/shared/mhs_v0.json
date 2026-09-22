@@ -1,0 +1,226 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "MHS v0",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "MhsV0State": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "type",
+          "access"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "bool",
+              "int",
+              "double",
+              "string",
+              "enum"
+            ]
+          },
+          "access": {
+            "type": "string",
+            "enum": [
+              "read",
+              "read_write"
+            ]
+          },
+          "min": {
+            "type": "number",
+            "format": "double"
+          },
+          "max": {
+            "type": "number",
+            "format": "double"
+          },
+          "step": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "enum_values": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          "unit": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "MhsV0Device": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "states"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          },
+          "kind": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "states": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/MhsV0State"
+            }
+          }
+        }
+      },
+      "MhsV0Manifest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "devices"
+        ],
+        "properties": {
+          "devices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MhsV0Device"
+            }
+          }
+        },
+        "description": "GizClaw MHS-inspired pre-standard v0, not an official MHS protocol or compatibility claim. Only state read/write. IDs and names are unique within their parent; numeric constraints apply only to int/double, min <= max, step > 0 (grid origin min or zero). int constraints are integral JSON-safe integers. enum_values is required only for enum and forbidden otherwise. Server validation also enforces UTF-8 byte limits. A future official-compatible version would be v1."
+      },
+      "MhsV0StateRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "device_id",
+          "state"
+        ],
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          },
+          "state": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          }
+        }
+      },
+      "MhsV0Value": {
+        "oneOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "number",
+            "format": "double"
+          },
+          {
+            "type": "string",
+            "maxLength": 256
+          }
+        ],
+        "description": "Plain JSON value interpreted by the manifest. int values must be integral within +/-9007199254740991. All numbers must be finite; strings and enum values must be valid UTF-8 without NUL, at most 256 bytes."
+      },
+      "MhsV0StateValue": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "device_id",
+          "state",
+          "value"
+        ],
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          },
+          "state": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          },
+          "value": {
+            "$ref": "#/components/schemas/MhsV0Value"
+          }
+        }
+      },
+      "MhsV0ReadRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "states"
+        ],
+        "properties": {
+          "states": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "$ref": "#/components/schemas/MhsV0StateRef"
+            }
+          }
+        }
+      },
+      "MhsV0States": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "states"
+        ],
+        "properties": {
+          "states": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "$ref": "#/components/schemas/MhsV0StateValue"
+            }
+          }
+        }
+      }
+    }
+  }
+}

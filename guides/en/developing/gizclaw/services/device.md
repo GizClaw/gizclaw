@@ -1,11 +1,12 @@
 # services/device
 
-`pkgs/gizclaw/services/device` saves server resources owned by the device domain. Currently, the directory only has `firmware/`, which is responsible for the Firmware catalog and OTA channel configuration.
+`pkgs/gizclaw/services/device` saves server resources owned by the device domain. It owns Firmware catalog and OTA channel configuration, plus MHS v0 hardware-state validation.
 
 ## Directory structure
 
 ```text
 services/device/
+├── mhs/         # MHS v0 manifest and state validation
 └── firmware/    # Firmware metadata and external channel packages
 ```
 
@@ -46,3 +47,7 @@ When adding device domain services in the future, you should first confirm wheth
 The Firmware catalog uses the `firmwares` business table. ID is the primary key; description and creation/update timestamps have separate columns, while channel configuration remains JSON. Server startup initializes the schema using the configured shared SQL pool; requests never execute DDL. Lists use ID range queries and SQL limits, and updates/deletes use `RETURNING` without KV enumeration.
 
 Package `version` is required on create, put and resource apply: strict SemVer 2.0.0 of at most 128 ASCII characters, including prerelease/build metadata, without a leading `v`, whitespace or illegal numeric leading zeros. Rejected writes preserve the stored configuration. The shared package schema and SDK models make version optional because reads also serve stored packages without versions: Admin get/list/resource show, device HTTP and RPC continue to return the package and omit `version`. Reading never backfills or infers a version. Updating such a package requires its real version; deletion remains supported. A present but invalid stored version remains an internal error, and deletion rolls back if returned-record validation fails. Empty channels may omit package. Channels may select lower versions for rollback; build metadata does not affect SemVer precedence, and SHA-256 identifies exact archive bytes.
+
+## mhs
+
+`mhs` validates RuntimeProfile hardware manifests, complete HTTP state batches and device responses using generated shared DTOs and original rpcpb messages. RuntimeProfile owns storage; Peer HTTP forwards through the existing device-control path.

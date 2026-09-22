@@ -11,6 +11,7 @@ API 变更必须从根 `api/` 的 source schema 开始。禁止直接修改由�
 | `api/proto/giznet/admission.proto` | Dart protobuf | `cd sdk/flutter/gizclaw && dart run tool/generate_admission.dart` |
 | HTTP OpenAPI + shared schemas | Go HTTP server/client/models | `go generate ./pkgs/gizclaw/api/adminhttp ./pkgs/gizclaw/api/apitypes ./pkgs/gizclaw/api/peerhttp` |
 | `api/proto/rpc/**/*.proto` | Go Protobuf | `go generate ./pkgs/gizclaw/api/rpcproto` |
+| `api/proto/rpc/**/*.proto` | Dart protobuf / registry / codec | `cd sdk/flutter/gizclaw && dart run tool/generate_rpc.dart` |
 | RPC descriptors/wrappers | 手工维护的 `rpcapi` committed surface | `go test ./pkgs/gizclaw/api/rpcapi`（当前 `go generate` 也只执行该验证，不会重新生成文件） |
 | HTTP + RPC + Giznet schemas | JavaScript SDK | `npm --prefix sdk/js run gen:sdk` |
 | RPC + Events + Giznet Protobuf | C nanopb SDK | `go generate ./sdk/c/gizclaw` |
@@ -64,3 +65,15 @@ RPC/C surface 变化时增加 C generation/build tests；管理资源变化时�
 Monitor OpenAPI（`api/http/monitor.json`）通过 `go generate ./pkgs/monitor/api` 生成 `pkgs/monitor/api/generated.go` 中的 strict Go server/client/models，配置位于 `pkgs/monitor/api/codegen_config.yaml`。`npm --prefix sdk/js run gen:sdk` 依据 `sdk/js/openapi-ts.config.ts` 生成 `sdk/js/gizclaw-control/generated/monitor/` 中的控制台 client。这些已提交输出归 Monitor surface 所有，由 `pkgs/monitor/monitor.go` 和 `web/console/src/lib/api.ts` 使用，通过 `@gizclaw/gizclaw-control` 导出 Node Monitor client；Peer Monitor 方法在 control SDK 中复用生成的 Peer HTTP 契约。
 
 Giznet 凭证使用 `protoc-gen-go`、`@bufbuild/protobuf` / `protoc-gen-es`、Dart `protobuf` / `protoc_plugin` 和固定于 `third_party/nanopb/upstream` 的 nanopb 0.4.9.1。`nanopb.options` 设置字符串上限，编码后的 4096-byte 总长度由 transport 单独校验。生成物与 source schema 同时提交。
+
+## 弃用约定
+
+弃用只提供迁移提示，不改变可调用性或 wire contract。保留 method ID、注册、payload 字段、HTTP operation ID、路由、处理逻辑、SDK 签名和兼容性测试。
+
+- Proto：在 `RpcMethod` 值的现有 `(rpc_method)` option 后添加 `, deprecated = true`；独属于该接口的 request/response message 添加 `option deprecated = true;`。紧邻定义的 `// Deprecated: Use ...` 注释说明替代方法。共享类型不因一个调用方弃用而连带弃用。
+- OpenAPI：在 operation 上设置 `"deprecated": true`，description 写明替代 route；不弃用整个 path 或共享 schema。
+- 重新生成所有受影响语言，不能手改第三方生成结果。仓库自有解析器必须保留带弃用 option 的方法；JavaScript 类型与 method map 从 source 注释生成 `@deprecated`，Dart protobuf 保留原生标记。
+- 手写 SDK：Go 使用独立 `// Deprecated:` 段落，JS/TS 使用 `@deprecated` JSDoc，Dart 使用 `@Deprecated('...')`。C 只在文档注释中写 `Deprecated:`，不用 compiler attribute，以保留 `-Werror` 调用方与 bridge 的兼容性。
+- 内部兼容路径、tests 和 giztest bridge 继续调用旧接口。若 lint 报错，只在实际调用行添加有原因说明的局部 suppression；不全局降低门禁，不删除旧测试。
+
+迁移字段、替代入口和退役条件见 [MHS v0 迁移表](./overview#mhs-v0-migration)。

@@ -5,6 +5,7 @@ export 'payload/audioplayer.pb.dart';
 export 'payload/edge.pb.dart';
 export 'payload/enums.pb.dart';
 export 'payload/firmware.pb.dart';
+export 'payload/mhs.pb.dart';
 export 'payload/social.pb.dart';
 export 'payload/system.pb.dart';
 export 'payload/workspace.pb.dart';

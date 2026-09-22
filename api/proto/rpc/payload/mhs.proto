@@ -1,0 +1,51 @@
+// GizClaw MHS-inspired pre-standard v0. No official MHS compatibility claim.
+syntax = "proto3";
+package gizclaw.rpc.v1;
+option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
+
+// Exactly one value must be present, including false, zero and empty string.
+// Enum states use string_value. Strings are UTF-8, without NUL, at most 256
+// bytes. Integers are restricted to the JSON safe range +/-9007199254740991.
+message MhsValue {
+  oneof value {
+    bool bool_value = 1;
+    int64 int_value = 2;
+    double double_value = 3;
+    string string_value = 4;
+  }
+}
+
+// Keys are case-sensitive and at most 64 ASCII bytes each.
+message MhsStateRef {
+  string device_id = 1;
+  string state = 2;
+}
+message MhsStateValue {
+  string device_id = 1;
+  string state = 2;
+  MhsValue value = 3;
+}
+
+// Requests contain 1-32 unique keys. An unimplemented key returns NOT_FOUND,
+// even if the shared RuntimeProfile advertises it. Invalid requests return
+// INVALID_ARGUMENT. Responses contain exactly the requested keys, once each.
+message ClientMhsV0ReadRequest {
+  repeated MhsStateRef states = 1;
+}
+message ClientMhsV0ReadResponse {
+  repeated MhsStateValue states = 1;
+}
+
+// A write is all-or-nothing from the caller's view: validate every entry and
+// precondition before applying any. Reject the whole batch with INVALID_ARGUMENT,
+// NOT_FOUND or FAILED_PRECONDITION rather than applying a partial batch. Drivers
+// enforce their own safety limits and may clamp/round within the manifest bounds.
+// No procedures, notifications, slots or streams are part of this protocol.
+message ClientMhsV0WriteRequest {
+  repeated MhsStateValue states = 1;
+}
+// Return exactly the requested keys and the values actually in effect after
+// the write, once each. A successful response never omits a rejected entry.
+message ClientMhsV0WriteResponse {
+  repeated MhsStateValue states = 1;
+}

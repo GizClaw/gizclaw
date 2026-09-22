@@ -839,3 +839,42 @@ test("device tools: list and invoke", async () => {
   );
   await assert.rejects(h.client.device.invokeTool(""), TypeError);
 });
+
+test("MHS control uses generated routes, plain values and device errors", async () => {
+  const states = [{ device_id: "led.status", state: "enabled", value: false }];
+  const { client, seen } = harness([
+    json(200, { devices: [] }),
+    json(200, { states }),
+    json(200, { states }),
+    errorResponse(404, "MHS_STATE_NOT_FOUND"),
+  ]);
+  assert.deepEqual(await client.device.getMhsManifest(), { devices: [] });
+  assert.deepEqual(
+    await client.device.readMhsStates({
+      states: [{ device_id: "led.status", state: "enabled" }],
+    }),
+    { states },
+  );
+  assert.deepEqual(await client.device.writeMhsStates({ states }), { states });
+  assert.deepEqual(
+    seen.map((r) => [r.method, r.url.pathname]),
+    [
+      ["GET", "/gizclaw/v1/device/mhs/v0/manifest"],
+      ["POST", "/gizclaw/v1/device/mhs/v0/read"],
+      ["PATCH", "/gizclaw/v1/device/mhs/v0/states"],
+    ],
+  );
+  assert.deepEqual(JSON.parse(seen[2]!.body), { states });
+  assert.ok(
+    seen.every((r) => r.headers.get("Authorization") === `Bearer ${apiKey}`),
+  );
+  await assert.rejects(
+    client.device.readMhsStates({
+      states: [{ device_id: "led.status", state: "missing" }],
+    }),
+    (error: unknown) =>
+      error instanceof GizClawControlError &&
+      error.kind === "notFound" &&
+      error.code === "MHS_STATE_NOT_FOUND",
+  );
+});

@@ -634,6 +634,57 @@ export type HardwareInfo = {
     hardware_revision?: string;
 };
 
+export type MhsV0Device = {
+    id: string;
+    kind: string;
+    description?: string;
+    tags?: Array<string>;
+    states: Array<MhsV0State>;
+};
+
+/**
+ * GizClaw MHS-inspired pre-standard v0, not an official MHS protocol or compatibility claim. Only state read/write. IDs and names are unique within their parent; numeric constraints apply only to int/double, min <= max, step > 0 (grid origin min or zero). int constraints are integral JSON-safe integers. enum_values is required only for enum and forbidden otherwise. Server validation also enforces UTF-8 byte limits. A future official-compatible version would be v1.
+ */
+export type MhsV0Manifest = {
+    devices: Array<MhsV0Device>;
+};
+
+export type MhsV0ReadRequest = {
+    states: Array<MhsV0StateRef>;
+};
+
+export type MhsV0State = {
+    name: string;
+    type: 'bool' | 'int' | 'double' | 'string' | 'enum';
+    access: 'read' | 'read_write';
+    min?: number;
+    max?: number;
+    step?: number;
+    enum_values?: Array<string>;
+    unit?: string;
+    description?: string;
+};
+
+export type MhsV0StateRef = {
+    device_id: string;
+    state: string;
+};
+
+export type MhsV0StateValue = {
+    device_id: string;
+    state: string;
+    value: MhsV0Value;
+};
+
+export type MhsV0States = {
+    states: Array<MhsV0StateValue>;
+};
+
+/**
+ * Plain JSON value interpreted by the manifest. int values must be integral within +/-9007199254740991. All numbers must be finite; strings and enum values must be valid UTF-8 without NUL, at most 256 bytes.
+ */
+export type MhsV0Value = boolean | number | string;
+
 export type PeerImei = {
     name?: string;
     tac: string;
@@ -928,6 +979,161 @@ export type ServerLogStreamEnd = {
      */
     next_cursor?: string;
 };
+
+export type GetMhsManifestData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/mhs/v0/manifest';
+};
+
+export type GetMhsManifestErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type GetMhsManifestError = GetMhsManifestErrors[keyof GetMhsManifestErrors];
+
+export type GetMhsManifestResponses = {
+    /**
+     * Success
+     */
+    200: MhsV0Manifest;
+};
+
+export type GetMhsManifestResponse = GetMhsManifestResponses[keyof GetMhsManifestResponses];
+
+export type ReadMhsStatesData = {
+    body: MhsV0ReadRequest;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/mhs/v0/read';
+};
+
+export type ReadMhsStatesErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device does not implement a requested hardware state (MHS_STATE_NOT_FOUND).
+     */
+    404: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type ReadMhsStatesError = ReadMhsStatesErrors[keyof ReadMhsStatesErrors];
+
+export type ReadMhsStatesResponses = {
+    /**
+     * Success
+     */
+    200: MhsV0States;
+};
+
+export type ReadMhsStatesResponse = ReadMhsStatesResponses[keyof ReadMhsStatesResponses];
+
+export type WriteMhsStatesData = {
+    body: MhsV0States;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/mhs/v0/states';
+};
+
+export type WriteMhsStatesErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device does not implement a requested hardware state (MHS_STATE_NOT_FOUND).
+     */
+    404: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type WriteMhsStatesError = WriteMhsStatesErrors[keyof WriteMhsStatesErrors];
+
+export type WriteMhsStatesResponses = {
+    /**
+     * Success
+     */
+    200: MhsV0States;
+};
+
+export type WriteMhsStatesResponse = WriteMhsStatesResponses[keyof WriteMhsStatesResponses];
 
 export type GetDeviceAudioPlayerData = {
     body?: never;

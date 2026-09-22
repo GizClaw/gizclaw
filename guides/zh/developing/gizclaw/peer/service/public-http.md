@@ -29,3 +29,9 @@ Direct Server HTTP（`server.go` 的 mux，`serve-to-clients=true` 时开放）�
 | `allowEdgeClientPeer` | 判断 Peer 是否允许作为 Edge client。 |
 | `allowEdgeSignalingPeer` | 判断 Peer 是否允许通过 Edge 发起 signaling。 |
 | `setPeerHTTPCORSHeaders` | 设置 Peer HTTP surface 的 CORS headers。 |
+
+## MHS v0
+
+`peer_service_serve_peer_http_mhs.go` 提供 manifest/read/states 路由；`peerresource.DeviceReads.MhsManifest` 离线读取当前 owner 绑定，`services/device/mhs` 校验请求与响应，`rpcClient.ReadMhsStates/WriteMhsStates` 复用 controller。完整 contract 见 [Public API](/zh/developing/api/http/public#mhs-v0-硬件状态)。
+
+`PUT /gizclaw/v1/device/volume`、`GET /gizclaw/v1/device/settings` 和 `PATCH /gizclaw/v1/device/settings` 已弃用。写入改用 `PATCH /gizclaw/v1/device/mhs/v0/states`，读取改用 `POST /gizclaw/v1/device/mhs/v0/read`，key 先从 `GET /gizclaw/v1/device/mhs/v0/manifest` 获取。旧接口行为不变；[迁移表与退役条件](/zh/developing/api/overview#mhs-v0-migration) 说明推荐 key。只有固件和控制 App 均迁移后才移除，目前没有移除日期。

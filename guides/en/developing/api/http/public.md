@@ -90,6 +90,8 @@ Error codes:
 
 ## Device control flow
 
+`PUT /gizclaw/v1/device/volume`, `GET /gizclaw/v1/device/settings` and `PATCH /gizclaw/v1/device/settings` are deprecated. Use `PATCH /gizclaw/v1/device/mhs/v0/states` for writes and `POST /gizclaw/v1/device/mhs/v0/read` for reads, discovering keys via `GET /gizclaw/v1/device/mhs/v0/manifest`. Legacy behavior is unchanged. See the [migration table and retirement conditions](/en/developing/api/overview#mhs-v0-migration) for recommended keys. Removal waits for firmware and control apps to migrate, with no removal date set.
+
 Control routes are forwarded as Server-to-device RPCs (see [Client Provided to Server](../proto/rpc/client-provided-to-server)):
 
 ```text
@@ -103,7 +105,7 @@ PUT /gizclaw/v1/device/volume { level: 0..100, muted }
 
 | Route | RPC | Success |
 | --- | --- | --- |
-| `PUT /device/volume` | `client.device.volume.set` | `200 { status }` |
+| `PUT /device/volume` (deprecated) | `client.device.volume.set` | `200 { status }` |
 | `POST /device/actions/play-sound` `{ sound, duration_ms? }` | `client.device.sound.play` | `204` |
 | `POST /device/actions/find` `{ duration_ms? }` | `client.device.find` | `204` |
 | `POST /device/actions/reboot` `{ delay_ms? }` | `client.device.reboot` | `204` |
@@ -113,8 +115,8 @@ PUT /gizclaw/v1/device/volume { level: 0..100, muted }
 | `DELETE /device/wifi/saved/{ssid}` | `client.wifi.saved.forget` | `204`; unknown ssid → `404 WIFI_NETWORK_NOT_FOUND` |
 | `POST /device/wifi/scan` `{ timeout_ms? }` | `client.wifi.scan` | `200 { networks }` |
 | `PUT /device/wifi` `{ ssid, passphrase? }` | `client.wifi.connect` | `202` |
-| `GET /device/settings` | `client.device.settings.get` | `200 DeviceSettings` |
-| `PATCH /device/settings` `DeviceSettings` | `client.device.settings.set` | `200 DeviceSettings` |
+| `GET /device/settings` (deprecated) | `client.device.settings.get` | `200 DeviceSettings` |
+| `PATCH /device/settings` (deprecated) `DeviceSettings` | `client.device.settings.set` | `200 DeviceSettings` |
 | `POST /device/actions/factory-reset` `{ keep_network? }` | `client.device.factory_reset` | `204` |
 | `GET /device/rpc-methods` | `client.rpc.methods.get` | `200 { methods }` |
 | `PUT /device/run/workspace` `{ workspace_name \| collection + workflow_name, kickoff? }` | `client.run.workspace.set` | `202` |
@@ -182,3 +184,17 @@ These paths use the `/gizclaw/v1` prefix and existing device authorization. Set/
 | `POST /device/audioplayer/actions/play` | `client.device.audioplayer.play` |
 | `POST /device/audioplayer/actions/stop` | `client.device.audioplayer.stop` |
 | `PUT /device/audioplayer/mode` | `client.device.audioplayer.mode.set` |
+
+## MHS v0 hardware states
+
+These API-key owner-scoped routes expose GizClaw's own MHS-inspired pre-standard v0, with no official MHS compatibility claim. The manifest contract belongs to [RuntimeProfile](/en/developing/gizclaw/services/runtime-profile#mhs-v0-hardware-manifest).
+
+| Route | Result |
+| --- | --- |
+| `GET /gizclaw/v1/device/mhs/v0/manifest` | Bound Profile's `{devices:[...]}`, available offline; empty when unconfigured |
+| `POST /gizclaw/v1/device/mhs/v0/read` | Accepts `{states:[{device_id,state}]}`; returns `{states:[{device_id,state,value}]}` |
+| `PATCH /gizclaw/v1/device/mhs/v0/states` | Accepts and returns `{states:[{device_id,state,value}]}` with actual applied values |
+
+HTTP values are plain JSON booleans, integers, numbers or strings; enums use strings. Batches contain 1–32 unique keys. The Server validates every key, write access, type, integer precision, bounds, decimal step grid, enum member and string byte limit before forwarding. Rejection is `400 INVALID_REQUEST` without contacting the device. The response is checked against the same bound manifest snapshot: exactly the requested keys once each, each value of the manifest type and, for enums, listed in enum_values. Malformed device responses become `502 DEVICE_ERROR`. min/max/step bound writes only: reported values reflect real hardware state and pass through even when out of range or off the step grid.
+
+Reads/writes reuse the 5-second, owner-serialized device-control path: offline is `409 DEVICE_OFFLINE`, absent handlers `501 DEVICE_UNSUPPORTED`, timeout `504 DEVICE_TIMEOUT`, and device INVALID_ARGUMENT/OUT_OF_RANGE `400 DEVICE_REJECTED`. A hardware revision missing an advertised key returns NOT_FOUND, mapped to `404 MHS_STATE_NOT_FOUND`. FAILED_PRECONDITION and other device failures become redacted `502 DEVICE_ERROR`. Drivers validate the whole batch before modifying anything, enforce their own safety limits, and may clamp/round. A timeout does not establish whether a write took effect; callers should read back the state.

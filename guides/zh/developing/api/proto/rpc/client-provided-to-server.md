@@ -19,6 +19,8 @@ Client provider 只能返回该 Client 拥有或可执行的数据。Server reso
 
 ## 设备控制 provider
 
+`client.device.volume.set`（101）、`client.device.settings.get`（128）和 `client.device.settings.set`（129）已弃用，分别改用 `client.mhs.v0.write`、`client.mhs.v0.read` 和 `client.mhs.v0.write`。旧入口继续兼容；[迁移表](/zh/developing/api/overview#mhs-v0-migration) 列出产品 manifest 的推荐 key。仅在固件和控制 App 均完成迁移后移除，本次不设日期。
+
 `client.device.status.get`（100）、`client.device.volume.set`（101）、`client.device.sound.play`（102）、`client.device.find`（126）、`client.device.reboot`（103）、`client.wifi.status.get`（104）、`client.wifi.saved.list`（105）、`client.wifi.saved.forget`（106）、`client.wifi.scan`（108）、`client.wifi.connect`（109）与 `client.firmware.update`（111）由设备 `rpc_provider` 实现；Server 在处理 Public HTTP `/gizclaw/v1/device*` 控制请求时调用它们。除扫描使用请求中 1–15 秒的上界外，控制超时为 5 秒。Provider 责任：
 
 - `volume.set` 设置绝对 `level`（0–100）与 `muted`，并在响应中返回应用后的完整 `PeerStatus`；`status.get` 返回当前 `PeerStatus`。相同输入重复调用结果相同。
@@ -118,3 +120,13 @@ Server 把状态写入现有 KV `PeerStatus.audioplayer` 快照，按观察时�
 `client.social.ping`（127）通知设备有好友呼叫（`server.friend.ping`）或 Friend Group 成员发起集结（`server.friend_group.ping`）。请求携带 `from_peer_public_key`、发起方自己设置的可选 `from_display_name`，集结时还携带 `friend_group_name`——它是接收设备自己对该群的本地 name，与该设备 `server.friend_group.list` 中的 name 一致。设备提醒用户后应尽快返回空的 `ClientSocialPingResponse`：Server 最多等待 3 秒，超时、`METHOD_NOT_FOUND` 或其他错误都计为未送达，不重试。Server 只推送调用方有权发出的提醒，设备无需再校验关系。
 
 C SDK 的 `inbound_is_client_method` 接受 `client.device.find` 与 `client.social.ping` 并分发到 `rpc_provider`，nanopb 消息有界（`from_display_name` 256 bytes、`friend_group_name` 255 bytes）。Go SDK 提供 `DeviceControlHandlers.Find` 与 `gizcli.Client.HandleSocialPing`；JavaScript 使用 `deviceControl.find` 与顶层 `socialPing` handler；Flutter 使用 `GizClawDeviceControlHandlers.find` 与 `GizClawPeerRpcHandlers.socialPing`。各 SDK 在 handler 未设置时回复 `METHOD_NOT_FOUND`，`duration_ms` 为负或 `from_peer_public_key` 为空时回复 `INVALID_PARAMS`。“找设备”在控制 SDK 中分别是 `device.find`（JavaScript）、`findDevice`（Flutter）与 `gzc_control_find_device`（C）。
+
+## MHS v0 provider
+
+`client.mhs.v0.read`（133）和 `client.mhs.v0.write`（134）的 source 为 `payload/mhs.proto`。这是 GizClaw 自有的 MHS-inspired 预标准 v0，不声明官方 MHS 兼容。只有状态读写；旧 settings/volume 已弃用但仍兼容，sound、find、Wi-Fi、audioplayer 等其他方法不弃用。
+
+`MhsValue` 必须设置恰好一个 oneof：bool_value、int_value、double_value 或 string_value；false、0 和空字符串也必须保留 presence，enum 使用 string_value。key 最多 64 ASCII bytes，字符串最多 256 UTF-8 bytes 且无 NUL；nanopb 分别分配 65/257 字节（含结尾 NUL）。请求和响应每批最多 32 个状态，至少 1 个。整数为 JSON-safe 范围，double 必须有限。
+
+read 返回全部请求 key 的当前值。write 对调用方是整批成功或失败：修改任何状态前验证全部 key、参数与前置条件，否则返回 INVALID_ARGUMENT、NOT_FOUND 或 FAILED_PRECONDITION；驱动必须执行自身安全限制，响应返回 clamp/round 后实际值。Profile 可以被不同硬件版本共享，未实现的 key 返回 NOT_FOUND。响应必须恰好包含请求的 key，每个一次。
+
+Go 的 `DeviceControlHandlers.ReadMhsStates/WriteMhsStates` 使用原始 `rpcpb` message；JS 和 Flutter 的 `GizClawDeviceControlHandlers.readMhsStates/writeMhsStates` 安装 handler。三者的 `client.rpc.methods.get` 仅列出已安装方法。JS value 使用显式 `{int_value: 0}` 或 `{double_value: 0}`，避免丢失 wire 类型；HTTP 控制侧仍使用普通 JSON value。C 通过既有 `gzc_client_config_t.rpc_provider` 接收有界 nanopb 请求，provider 的能力列表必须只包含真正实现的方法。

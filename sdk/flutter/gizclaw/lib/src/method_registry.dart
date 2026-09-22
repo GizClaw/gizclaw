@@ -627,6 +627,18 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ClientRunWorkspaceSetRequest',
     responseType: 'ClientRunWorkspaceSetResponse',
   ),
+  'client.mhs.v0.read': RpcMethodDescriptor(
+    id: 133,
+    name: 'client.mhs.v0.read',
+    requestType: 'ClientMhsV0ReadRequest',
+    responseType: 'ClientMhsV0ReadResponse',
+  ),
+  'client.mhs.v0.write': RpcMethodDescriptor(
+    id: 134,
+    name: 'client.mhs.v0.write',
+    requestType: 'ClientMhsV0WriteRequest',
+    responseType: 'ClientMhsV0WriteResponse',
+  ),
   'server.app_config.list': RpcMethodDescriptor(
     id: 121,
     name: 'server.app_config.list',
@@ -774,6 +786,8 @@ const rpcMethodNamesById = <int, String>{
   130: 'client.device.factory_reset',
   131: 'client.rpc.methods.get',
   132: 'client.run.workspace.set',
+  133: 'client.mhs.v0.read',
+  134: 'client.mhs.v0.write',
   121: 'server.app_config.list',
   122: 'server.app_config.get',
   123: 'server.friend.ping',

@@ -3,6 +3,7 @@
 #include "../../../../sdk/c/gizclaw/cgobackend/gzc_cgo_backend.h"
 #include "gzc.h"
 #include "gzc_control.h"
+#include "gzc_control_internal.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -445,6 +446,9 @@ static void split_route(gzc_str_t path, gzt_route_t *out) {
       "/device/runtime-profile",
       "/device/run/workspace",
       "/device/rpc-methods",
+      "/device/mhs/v0/manifest",
+      "/device/mhs/v0/read",
+      "/device/mhs/v0/states",
       "/device/workspaces",
       "/device/actions/reboot",
       "/device/actions/find",
@@ -667,6 +671,47 @@ static int friend_group_request(
   return GZC_ERR_UNSUPPORTED;
 }
 
+/* Decode nested manifest data too: a successful raw HTTP body alone must not
+ * hide a missing or broken typed C surface. Bounds belong to this test bridge,
+ * not to the manifest contract; overflow is an explicit runner failure. */
+static int mhs_control_request(
+    gzc_control_client_t *control, gzc_control_call_t *call,
+    bool manifest, bool read, gzc_str_t body) {
+  char strings[64 * 1024];
+  gzc_control_mhs_v0_storage_t storage = {strings, sizeof(strings), 0};
+  size_t count = 0;
+  if (manifest) {
+    gzc_control_mhs_v0_device_t devices[64];
+    int rc = gzc_control_get_mhs_v0_manifest(control, call, &storage, devices, 64, &count);
+    for (size_t i = 0; rc == GZC_OK && i < count; i++) {
+      gzc_str_t tags[128];
+      size_t tag_count = 0;
+      rc = gzc_control_mhs_v0_device_tags(&devices[i], &storage, tags, 128, &tag_count);
+      gzc_control_mhs_v0_state_t states[128];
+      size_t state_count = 0;
+      if (rc == GZC_OK) {
+        rc = gzc_control_mhs_v0_device_states(&devices[i], &storage, states, 128, &state_count);
+      }
+      for (size_t j = 0; rc == GZC_OK && j < state_count; j++) {
+        gzc_str_t values[128];
+        size_t value_count = 0;
+        rc = gzc_control_mhs_v0_state_enum_values(&states[j], &storage, values, 128, &value_count);
+      }
+    }
+    return rc;
+  }
+  gzc_control_mhs_v0_state_value_t out[GZC_CONTROL_MHS_V0_MAX_BATCH];
+  size_t out_count = 0;
+  if (read) {
+    gzc_control_mhs_v0_state_ref_t refs[GZC_CONTROL_MHS_V0_MAX_BATCH];
+    int rc = gzc_control_mhs_v0_decode_refs(body, &storage, refs, GZC_CONTROL_MHS_V0_MAX_BATCH, &count);
+    return rc == GZC_OK ? gzc_control_read_mhs_v0_states(control, call, refs, count, &storage, out, GZC_CONTROL_MHS_V0_MAX_BATCH, &out_count) : rc;
+  }
+  gzc_control_mhs_v0_state_value_t values[GZC_CONTROL_MHS_V0_MAX_BATCH];
+  int rc = gzc_control_mhs_v0_decode_states(body, &storage, values, GZC_CONTROL_MHS_V0_MAX_BATCH, &count);
+  return rc == GZC_OK ? gzc_control_write_mhs_v0_states(control, call, values, count, &storage, out, GZC_CONTROL_MHS_V0_MAX_BATCH, &out_count) : rc;
+}
+
 int gzt_control_request(
     gzt_control_t *control_host,
     const char *base_url,
@@ -726,7 +771,8 @@ int gzt_control_request(
     return fail(errbuf, errbuf_len, "control client init", rc);
   }
 
-  uint8_t scratch[1024];
+  /* 32 values with 256 control bytes can expand to six JSON bytes each. */
+  uint8_t scratch[64 * 1024];
   uint8_t response[64 * 1024];
   gzc_control_call_t call;
   rc = gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response));
@@ -773,7 +819,14 @@ int gzt_control_request(
   size_t count = 0;
   bool has_next = false;
 
-  if (get && route_is(&route, "/device/audioplayer", false)) {
+  if ((get && route_is(&route, "/device/mhs/v0/manifest", false)) ||
+      (post && route_is(&route, "/device/mhs/v0/read", false)) ||
+      (patch && route_is(&route, "/device/mhs/v0/states", false))) {
+    rc = mhs_control_request(&control, &call, get, post, body);
+    if (rc != GZC_OK && rc != GZC_ERR_HTTP) {
+      return fail(errbuf, errbuf_len, "MHS control encode/decode", rc);
+    }
+  } else if (get && route_is(&route, "/device/audioplayer", false)) {
     rc = gzc_control_get_device_audioplayer(&control, &call, &player);
   } else if (get && route_is(&route, "/device/audioplayer/playlist", false)) {
     rc = gzc_control_get_device_audioplayer_playlist(&control, &call, player_list, 64, &count, &player_revision);

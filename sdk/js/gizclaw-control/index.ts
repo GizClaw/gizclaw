@@ -34,6 +34,9 @@ import {
   getDevice,
   getDeviceRuntime,
   getDeviceSettings,
+  getMhsManifest,
+  readMhsStates,
+  writeMhsStates,
   getDeviceStatus,
   getDeviceTelemetryLatest,
   getDeviceWifi,
@@ -102,6 +105,9 @@ import type {
   DeviceRpcMethods,
   DeviceRunWorkspaceSetRequest,
   DeviceSettings,
+  MhsV0Manifest,
+  MhsV0ReadRequest,
+  MhsV0States,
   DeviceToolInvokeRequest,
   DeviceToolInvokeResponse,
   DeviceToolList,
@@ -471,7 +477,10 @@ export interface GizClawControlDevice {
     bucket_ms: number;
     aggregate: PeerTelemetryAggregate;
   }): Promise<PeerTelemetryAggregateResponse>;
-  /** `PUT /gizclaw/v1/device/volume`. */
+  /**
+   * `PUT /gizclaw/v1/device/volume`.
+   * @deprecated Use writeMhsStates with keys from getMhsManifest.
+   */
   setVolume(body: DeviceVolumeSetRequest): Promise<DeviceControlStatus>;
   /** `POST /gizclaw/v1/device/actions/play-sound`. */
   playSound(body: DevicePlaySoundRequest): Promise<void>;
@@ -505,14 +514,21 @@ export interface GizClawControlDevice {
    * `GET /gizclaw/v1/device/settings`.
    *
    * An absent member means the device does not support that option.
+   * @deprecated Use readMhsStates with keys from getMhsManifest.
    */
   getSettings(): Promise<DeviceSettings>;
+  /** RuntimeProfile-owned MHS-inspired v0 manifest; available while offline. */
+  getMhsManifest(): Promise<MhsV0Manifest>;
+  readMhsStates(body: MhsV0ReadRequest): Promise<MhsV0States>;
+  /** Atomically writes a batch and returns the device's actual applied values. */
+  writeMhsStates(body: MhsV0States): Promise<MhsV0States>;
   /**
    * `PATCH /gizclaw/v1/device/settings`.
    *
    * Changes only the members present. A value outside its range rejects the
    * whole patch before any member is applied. Resolves with every setting
    * after the change.
+   * @deprecated Use writeMhsStates with keys from getMhsManifest.
    */
   updateSettings(patch: DeviceSettings): Promise<DeviceSettings>;
   /**
@@ -858,6 +874,11 @@ export function createGizClawControlClient(
             path: { ssid: requireSegment("ssid", ssid) },
           }),
         ),
+      getMhsManifest: () => unwrap("getMhsManifest", getMhsManifest(common)),
+      readMhsStates: (body) =>
+        unwrap("readMhsStates", readMhsStates({ ...common, body })),
+      writeMhsStates: (body) =>
+        unwrap("writeMhsStates", writeMhsStates({ ...common, body })),
       getSettings: () => unwrap("getDeviceSettings", getDeviceSettings(common)),
       updateSettings: (body) =>
         unwrap(

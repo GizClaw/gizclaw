@@ -1,3 +1,6 @@
+// The server still dispatches the deprecated volume/settings RPCs so existing devices keep working.
+// ignore_for_file: deprecated_member_use_from_same_package
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -88,6 +91,7 @@ class GizClawDeviceControlHandlers {
   const GizClawDeviceControlHandlers({
     this.audioplayer,
     this.status,
+    @Deprecated('Use writeMhsStates with RuntimeProfile manifest keys.')
     this.setVolume,
     this.playSound,
     this.find,
@@ -98,14 +102,32 @@ class GizClawDeviceControlHandlers {
     this.scanWifi,
     this.connectWifi,
     this.updateFirmware,
+    @Deprecated('Use readMhsStates with RuntimeProfile manifest keys.')
     this.getSettings,
+    @Deprecated('Use writeMhsStates with RuntimeProfile manifest keys.')
     this.setSettings,
     this.factoryReset,
     this.setRunWorkspace,
+    this.readMhsStates,
+    this.writeMhsStates,
   });
+
+  /// Reads exactly the requested keys; absent hardware returns NOT_FOUND.
+  final FutureOr<payload.ClientMhsV0ReadResponse> Function(
+    payload.ClientMhsV0ReadRequest request,
+  )?
+  readMhsStates;
+
+  /// Validate every entry and driver safety limit before applying anything.
+  /// Reject the whole batch on error; return the values actually in effect.
+  final FutureOr<payload.ClientMhsV0WriteResponse> Function(
+    payload.ClientMhsV0WriteRequest request,
+  )?
+  writeMhsStates;
 
   final GizClawAudioPlayerHandlers? audioplayer;
   final FutureOr<payload.PeerStatus> Function()? status;
+  @Deprecated('Use writeMhsStates with RuntimeProfile manifest keys.')
   final FutureOr<payload.PeerStatus> Function(int level, bool muted)? setVolume;
   final FutureOr<void> Function(String sound, int? durationMs)? playSound;
 
@@ -135,6 +157,7 @@ class GizClawDeviceControlHandlers {
   /// `client.device.settings.get`. An option the device has no hardware for
   /// stays unset rather than carrying a placeholder, which is how a caller
   /// tells "unsupported" from "off".
+  @Deprecated('Use readMhsStates with RuntimeProfile manifest keys.')
   final FutureOr<payload.DeviceSettings> Function()? getSettings;
 
   /// Applies only the members present in [patch] for
@@ -142,6 +165,7 @@ class GizClawDeviceControlHandlers {
   /// afterwards, so the caller sees what was accepted. An unsupported member is
   /// ignored rather than rejected. An out-of-range member is rejected before
   /// this handler runs.
+  @Deprecated('Use writeMhsStates with RuntimeProfile manifest keys.')
   final FutureOr<payload.DeviceSettings> Function(payload.DeviceSettings patch)?
   setSettings;
 
@@ -212,6 +236,8 @@ const _deviceControlMethods = {
   'client.device.settings.set',
   'client.device.factory_reset',
   'client.run.workspace.set',
+  'client.mhs.v0.read',
+  'client.mhs.v0.write',
 };
 const _deviceControlMaxBytes = 32;
 
@@ -413,6 +439,8 @@ class _InboundPeerRpcChannel {
       case 'client.device.settings.set':
       case 'client.device.factory_reset':
       case 'client.run.workspace.set':
+      case 'client.mhs.v0.read':
+      case 'client.mhs.v0.write':
       case 'client.rpc.methods.get':
       case 'client.social.ping':
         return;
@@ -599,6 +627,8 @@ class _InboundPeerRpcChannel {
       'client.device.settings.set': control?.setSettings,
       'client.device.factory_reset': control?.factoryReset,
       'client.run.workspace.set': control?.setRunWorkspace,
+      'client.mhs.v0.read': control?.readMhsStates,
+      'client.mhs.v0.write': control?.writeMhsStates,
       'client.firmware.update': control?.updateFirmware,
       'client.wifi.status.get': control?.wifiStatus,
       'client.wifi.saved.list': control?.savedWifi,
@@ -827,6 +857,26 @@ class _InboundPeerRpcChannel {
           methodName,
           payload.ClientDeviceRebootResponse(),
         );
+      case 'client.mhs.v0.read':
+        final handler = handlers?.readMhsStates;
+        if (handler == null) return unsupported();
+        final batch = params as payload.ClientMhsV0ReadRequest;
+        if (!_validMhsRefs(batch.states)) return invalid();
+        final result = await handler(batch);
+        if (!_validMhsStates(result.states)) {
+          throw StateError('invalid MHS handler response');
+        }
+        return _rpcPayloadResponse(request.id, methodName, result);
+      case 'client.mhs.v0.write':
+        final handler = handlers?.writeMhsStates;
+        if (handler == null) return unsupported();
+        final batch = params as payload.ClientMhsV0WriteRequest;
+        if (!_validMhsStates(batch.states)) return invalid();
+        final result = await handler(batch);
+        if (!_validMhsStates(result.states)) {
+          throw StateError('invalid MHS handler response');
+        }
+        return _rpcPayloadResponse(request.id, methodName, result);
       case 'client.device.settings.get':
         final handler = handlers?.getSettings;
         if (handler == null) return unsupported();
@@ -1178,4 +1228,52 @@ const _runWorkspaceTargetMaxBytes = 256;
 bool _validRunWorkspaceRequest(payload.ClientRunWorkspaceSetRequest request) {
   return request.workspaceName.isNotEmpty &&
       utf8.encode(request.workspaceName).length <= _runWorkspaceTargetMaxBytes;
+}
+
+final _mhsKeyPattern = RegExp(r'^[a-z][a-z0-9]*([.-][a-z0-9]+)*$');
+bool _validMhsKey(String value) =>
+    value.length <= 64 &&
+    _mhsKeyPattern.matchAsPrefix(value)?.end == value.length;
+bool _validMhsRefs(List<payload.MhsStateRef> states) {
+  if (states.isEmpty || states.length > 32) return false;
+  final keys = <String>{};
+  for (final state in states) {
+    if (!_validMhsKey(state.deviceId) ||
+        !_validMhsKey(state.state) ||
+        !keys.add('${state.deviceId}/${state.state}')) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool _validMhsString(String text) {
+  final bytes = utf8.encode(text);
+  return !text.contains('\u0000') &&
+      bytes.length <= 256 &&
+      utf8.decode(bytes) == text;
+}
+
+bool _validMhsStates(List<payload.MhsStateValue> states) {
+  if (!_validMhsRefs([
+    for (final state in states)
+      payload.MhsStateRef(deviceId: state.deviceId, state: state.state),
+  ])) {
+    return false;
+  }
+  for (final state in states) {
+    if (!state.hasValue()) return false;
+    final value = state.value;
+    final valid = switch (value.whichValue()) {
+      payload.MhsValue_Value.boolValue => true,
+      payload.MhsValue_Value.intValue =>
+        value.intValue.toInt() >= -9007199254740991 &&
+            value.intValue.toInt() <= 9007199254740991,
+      payload.MhsValue_Value.doubleValue => value.doubleValue.isFinite,
+      payload.MhsValue_Value.stringValue => _validMhsString(value.stringValue),
+      payload.MhsValue_Value.notSet => false,
+    };
+    if (!valid) return false;
+  }
+  return true;
 }

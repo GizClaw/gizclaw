@@ -31,12 +31,16 @@ message ClientDeviceStatusGetResponse {
   PeerStatus value = 1;
 }
 
+// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
 message ClientDeviceVolumeSetRequest {
+  option deprecated = true;
   int64 level = 1;
   bool muted = 2;
 }
 
+// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
 message ClientDeviceVolumeSetResponse {
+  option deprecated = true;
   PeerStatus value = 1;
 }
 
@@ -78,21 +82,29 @@ message DeviceSettings {
   optional bool nfc_enabled = 10;
 }
 
+// Deprecated: Use client.mhs.v0.read with RuntimeProfile manifest keys.
 message ClientDeviceSettingsGetRequest {
+  option deprecated = true;
 }
 
+// Deprecated: Use client.mhs.v0.read with RuntimeProfile manifest keys.
 message ClientDeviceSettingsGetResponse {
+  option deprecated = true;
   DeviceSettings value = 1;
 }
 
 // ClientDeviceSettingsSetRequest applies only the members it carries. The
 // response is the device's full settings after the change, so a caller sees
 // which options the device actually accepted.
+// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
 message ClientDeviceSettingsSetRequest {
+  option deprecated = true;
   DeviceSettings value = 1;
 }
 
+// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
 message ClientDeviceSettingsSetResponse {
+  option deprecated = true;
   DeviceSettings value = 1;
 }
 

@@ -456,6 +456,7 @@ class GizClawControlClient {
   /// `PUT /gizclaw/v1/device/volume`.
   ///
   /// Returns the `PeerStatus` the device reported after applying the volume.
+  @Deprecated('Use writeMhsStates with keys from getMhsManifest.')
   Future<DeviceControlStatus> setDeviceVolume({
     required int level,
     required bool muted,
@@ -594,9 +595,48 @@ class GizClawControlClient {
     );
   }
 
+  /// Bound RuntimeProfile manifest; available even while the device is offline.
+  Future<MhsManifest> getMhsManifest() => _json(
+    'GET',
+    '/device/mhs/v0/manifest',
+    MhsManifest.fromJson,
+    operation: 'getMhsManifest',
+  );
+
+  /// Reads a non-empty batch of at most 32 unique hardware keys.
+  Future<List<MhsStateValue>> readMhsStates(List<MhsStateRef> states) => _json(
+    'POST',
+    '/device/mhs/v0/read',
+    _mhsStates,
+    body: {
+      'states': [for (final state in states) state.toJson()],
+    },
+    operation: 'readMhsStates',
+  );
+
+  /// Atomically writes all keys and returns actual applied values.
+  Future<List<MhsStateValue>> writeMhsStates(List<MhsStateValue> states) =>
+      _json(
+        'PATCH',
+        '/device/mhs/v0/states',
+        _mhsStates,
+        body: {
+          'states': [for (final state in states) state.toJson()],
+        },
+        operation: 'writeMhsStates',
+      );
+
+  static List<MhsStateValue> _mhsStates(Object? json) => List.unmodifiable(
+    asJsonList(
+      asJsonObject(json, 'MhsStates')['states'],
+      'MhsStates.states',
+    ).map(MhsStateValue.fromJson),
+  );
+
   /// `GET /gizclaw/v1/device/settings`.
   ///
   /// A null member means the device does not support that option.
+  @Deprecated('Use readMhsStates with keys from getMhsManifest.')
   Future<DeviceSettings> getDeviceSettings() {
     return _json(
       'GET',
@@ -611,6 +651,7 @@ class GizClawControlClient {
   /// Changes only the non-null members of [patch]. A value outside its range
   /// rejects the whole patch before any member is applied. Returns every
   /// setting after the change.
+  @Deprecated('Use writeMhsStates with keys from getMhsManifest.')
   Future<DeviceSettings> updateDeviceSettings(DeviceSettings patch) {
     return _json(
       'PATCH',

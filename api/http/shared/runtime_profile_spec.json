@@ -277,6 +277,13 @@
           "prompt": { "type": "string", "minLength": 1, "maxLength": 4096 }
         }
       },
+      "RuntimeProfileMhs": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "v0": { "$ref": "./mhs_v0.json#/components/schemas/MhsV0Manifest" }
+        }
+      },
       "RuntimeProfileSpec": {
         "type": "object",
         "required": ["workflows", "resources"],
@@ -285,6 +292,7 @@
           "workflows": { "$ref": "#/components/schemas/RuntimeProfileWorkflows" },
           "resources": { "$ref": "#/components/schemas/RuntimeProfileResources" },
           "safety_fences": { "$ref": "#/components/schemas/RuntimeProfileSafetyFences" },
+          "mhs": { "$ref": "#/components/schemas/RuntimeProfileMhs" },
           "app_config": { "$ref": "#/components/schemas/RuntimeProfileAppConfig" }
         }
       }

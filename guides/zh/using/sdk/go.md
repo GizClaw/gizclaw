@@ -11,3 +11,15 @@
 仍需 `server.register`；准入条件见 [Security Policy](../../developing/gizclaw/server/security-policy)。
 
 `RegistrationTokenCredential` 返回 `(credential, error)`；先处理错误，再把结构传给 Dial。`gizcli.RegistrationTokenCredentialType` 是内置 type 的导出常量。512 UTF-8 字节的 value 可用，513 字节在 helper 构造时失败。
+
+## MHS v0 硬件状态
+
+通过 `gizcli.Client.HandleDeviceControl` 安装 `DeviceControlHandlers.ReadMhsStates` 和 `WriteMhsStates`，参数/响应直接使用 `rpcpb.ClientMhsV0*`。handler 返回 `ErrDeviceResourceNotFound` 表示硬件未实现该 key；返回 `rpcapi.Error{Code: rpcapi.StatusCodeFailedPrecondition}` 表示当前不能写入。
+
+这是 GizClaw 自有的 MHS-inspired 预标准 v0，不声称官方兼容。manifest 离线可读，每次读写最多 32 个唯一 key；写入必须整批验证且驱动执行安全限制。完整错误与边界见 [Public API](/zh/developing/api/http/public) 和 [provider contract](/zh/developing/api/proto/rpc/client-provided-to-server)。
+
+## 已弃用的硬件状态接口
+
+`client.device.volume.set`（101）、`client.device.settings.get`（128）和 `client.device.settings.set`（129）已弃用，分别改用 `client.mhs.v0.write`、`client.mhs.v0.read` 和 `client.mhs.v0.write`。旧入口继续兼容；[迁移表](/zh/developing/api/overview#mhs-v0-migration) 列出产品 manifest 的推荐 key。仅在固件和控制 App 均完成迁移后移除，本次不设日期。
+
+设备端：`DeviceControlHandlers.SetVolume`、`GetSettings`、`SetSettings` → `WriteMhsStates`、`ReadMhsStates`、`WriteMhsStates`.

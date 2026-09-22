@@ -175,3 +175,30 @@ GizClaw never decides where a fence goes. It hands the selected level's text (an
 The current ASTTranslate provider path has no system-prompt entry point: valid levels are stored but provide no variable and never resolve the Profile, so a level the Profile does not define still reloads. SFU system Workspaces behave the same way, which lets a device send one level to every Workspace.
 
 A fence is a system prompt sent to the model. Its effectiveness depends on the selected model; this configuration does not implement a separate content moderator.
+
+## MHS v0 hardware manifest
+
+`spec.mhs.v0` belongs to the RuntimeProfile and is not reported by devices. `mhs/v0` is GizClaw's own MHS-inspired pre-standard protocol, with no claim of compatibility with the official Model Hardware Standard. A future official-compatible version would use `v1`. v0 supports only state reads and writes: no procedures/invoke, notifications, slots or streams. Existing device RPCs remain supported.
+
+```yaml
+spec:
+  mhs:
+    v0:
+      devices:
+      - id: display.main
+        kind: display
+        description: Main display
+        tags: [front screen]
+        states:
+        - {name: brightness, type: int, access: read_write, min: 0, max: 100, step: 5, unit: '%'}
+      - id: battery.main
+        kind: battery
+        states:
+        - {name: level, type: int, access: read, min: 0, max: 100, unit: '%'}
+```
+
+Device IDs are unique across the manifest; state names are unique within a device. Both contain 1–64 ASCII bytes matching `^[a-z][a-z0-9]*([.-][a-z0-9]+)*$`. `kind` is an open, nonempty string. Descriptions, units and natural-language tags are optional. State types are `bool`, `int`, `double`, `string` and `enum`; access is `read` or `read_write`.
+
+Only numeric states accept finite min/max/step constraints: min <= max and step > 0. Integer values and constraints are integral JSON-safe numbers within ±9007199254740991. The decimal step grid starts at min, or zero when min is absent. Enum states require a nonempty, unique enum_values list; other types forbid it. String and enum values must be valid UTF-8 without NUL, at most 256 bytes. Create, PUT and apply validate the entire manifest before storage and report the offending device/state.
+
+The manifest is stored in `runtime_profiles.mhs_json` and contributes to the spec revision. SQL initialization adds the column to existing tables with null defaults. Admin get/list/put/apply/show use the shared schema. Omitting mhs clears the previous manifest. The control manifest endpoint projects only this public hardware catalog, works offline, and returns `{"devices":[]}` when unconfigured. See [Public API](/en/developing/api/http/public#mhs-v0-hardware-states).
