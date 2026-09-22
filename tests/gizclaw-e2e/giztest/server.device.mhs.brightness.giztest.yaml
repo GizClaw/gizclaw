@@ -1,0 +1,86 @@
+# User Story:
+# As a GizClaw API key holder controlling hardware through MHS v0,
+# I want the control app to read and adjust screen and indicator light brightness in one batch,
+# So that the Public HTTP MHS contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.device.mhs.brightness
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+- id: read_brightness
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/read
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {states: [{device_id: display.main, state: brightness}, {device_id: led.status, state: brightness}]}
+    status: 200
+  expect:
+    /states/0/value: {equals: 70}
+    /states/1/value: {equals: 50}
+- id: set_brightness
+  client: peer
+  http:
+    method: PATCH
+    path: /gizclaw/v1/device/mhs/v0/states
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {states: [{device_id: display.main, state: brightness, value: 80}, {device_id: led.status, state: brightness, value: 20}]}
+    status: 200
+  expect:
+    /states/0/value: {equals: 80}
+    /states/1/value: {equals: 20}
+- id: provider_read
+  client: peer
+  client_rpc:
+    method: client.mhs.v0.read
+    response: {states: [{device_id: display.main, state: brightness, value: {int_value: 70}}, {device_id: led.status, state: brightness, value: {int_value: 50}}]}
+    expect_calls: 1
+- id: provider_write
+  client: peer
+  client_rpc:
+    method: client.mhs.v0.write
+    response: {states: [{device_id: display.main, state: brightness, value: {int_value: 80}}, {device_id: led.status, state: brightness, value: {int_value: 20}}]}
+    expect_calls: 1
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

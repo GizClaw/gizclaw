@@ -93,7 +93,15 @@ spec:
         kind: led
         states:
         - {name: enabled, type: bool, access: read_write}
+        - {name: brightness, type: int, access: read_write, min: 0, max: 100, unit: '%'}
       - id: battery.main
         kind: battery
         states:
         - {name: level, type: int, access: read, min: 0, max: 100, unit: '%'}
+      - id: speaker.main
+        kind: speaker
+        states:
+        - {name: mode, type: enum, access: read_write, enum_values: [normal, night]}
+        - {name: gain, type: double, access: read_write, min: 0, max: 1, step: 0.25}
+        - {name: volume, type: int, access: read_write, min: 0, max: 100, unit: '%'}
+        - {name: muted, type: bool, access: read_write}

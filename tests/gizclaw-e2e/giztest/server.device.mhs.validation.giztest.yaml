@@ -1,0 +1,213 @@
+# User Story:
+# As a GizClaw API key holder controlling hardware through MHS v0,
+# I want invalid reads and writes to be rejected by the Server before any device RPC,
+# So that the Public HTTP MHS contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.device.mhs.validation
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+- id: manifest
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/mhs/v0/manifest
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  expect:
+    /devices/3/id: {equals: speaker.main}
+    /devices/3/states/0/type: {equals: enum}
+    /devices/3/states/0/enum_values/1: {equals: night}
+    /devices/3/states/1/step: {equals: 0.25}
+- id: unknown_device
+  client: peer
+  http:
+    method: PATCH
+    path: /gizclaw/v1/device/mhs/v0/states
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {states: [{device_id: fan.main, state: speed, value: 1}]}
+    status: 400
+  expect:
+    /error/code: {equals: INVALID_REQUEST}
+- id: unknown_state
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/read
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {states: [{device_id: display.main, state: contrast}]}
+    status: 400
+  expect:
+    /error/code: {equals: INVALID_REQUEST}
+- id: read_only
+  client: peer
+  http:
+    method: PATCH
+    path: /gizclaw/v1/device/mhs/v0/states
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {states: [{device_id: battery.main, state: level, value: 50}]}
+    status: 400
+  expect:
+    /error/code: {equals: INVALID_REQUEST}
+- id: int_as_string
+  client: peer
+  http:
+    method: PATCH
+    path: /gizclaw/v1/device/mhs/v0/states
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {states: [{device_id: display.main, state: brightness, value: "50"}]}
+    status: 400
+  expect:
+    /error/code: {equals: INVALID_REQUEST}
+- id: int_fraction
+  client: peer
+  http:
+    method: PATCH
+    path: /gizclaw/v1/device/mhs/v0/states
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {states: [{device_id: display.main, state: brightness, value: 1.5}]}
+    status: 400
+  expect:
+    /error/code: {equals: INVALID_REQUEST}
+- id: above_max
+  client: peer
+  http:
+    method: PATCH
+    path: /gizclaw/v1/device/mhs/v0/states
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {states: [{device_id: display.main, state: brightness, value: 105}]}
+    status: 400
+  expect:
+    /error/code: {equals: INVALID_REQUEST}
+- id: off_grid
+  client: peer
+  http:
+    method: PATCH
+    path: /gizclaw/v1/device/mhs/v0/states
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {states: [{device_id: display.main, state: brightness, value: 52}]}
+    status: 400
+  expect:
+    /error/code: {equals: INVALID_REQUEST}
+- id: bool_as_number
+  client: peer
+  http:
+    method: PATCH
+    path: /gizclaw/v1/device/mhs/v0/states
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {states: [{device_id: led.status, state: enabled, value: 1}]}
+    status: 400
+  expect:
+    /error/code: {equals: INVALID_REQUEST}
+- id: enum_unlisted
+  client: peer
+  http:
+    method: PATCH
+    path: /gizclaw/v1/device/mhs/v0/states
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {states: [{device_id: speaker.main, state: mode, value: loud}]}
+    status: 400
+  expect:
+    /error/code: {equals: INVALID_REQUEST}
+- id: double_off_grid
+  client: peer
+  http:
+    method: PATCH
+    path: /gizclaw/v1/device/mhs/v0/states
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {states: [{device_id: speaker.main, state: gain, value: 0.3}]}
+    status: 400
+  expect:
+    /error/code: {equals: INVALID_REQUEST}
+- id: double_below_min
+  client: peer
+  http:
+    method: PATCH
+    path: /gizclaw/v1/device/mhs/v0/states
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {states: [{device_id: speaker.main, state: gain, value: -0.25}]}
+    status: 400
+  expect:
+    /error/code: {equals: INVALID_REQUEST}
+- id: mixed_batch
+  client: peer
+  http:
+    method: PATCH
+    path: /gizclaw/v1/device/mhs/v0/states
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {states: [{device_id: speaker.main, state: mode, value: night}, {device_id: display.main, state: brightness, value: 101}]}
+    status: 400
+  expect:
+    /error/code: {equals: INVALID_REQUEST}
+- id: valid_write
+  client: peer
+  http:
+    method: PATCH
+    path: /gizclaw/v1/device/mhs/v0/states
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {states: [{device_id: speaker.main, state: mode, value: night}, {device_id: speaker.main, state: gain, value: 0.75}]}
+    status: 200
+  expect:
+    /states/0/value: {equals: night}
+    /states/1/value: {equals: 0.75}
+- id: provider_write
+  client: peer
+  client_rpc:
+    method: client.mhs.v0.write
+    response: {states: [{device_id: speaker.main, state: mode, value: {string_value: night}}, {device_id: speaker.main, state: gain, value: {double_value: 0.75}}]}
+    expect_calls: 1
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

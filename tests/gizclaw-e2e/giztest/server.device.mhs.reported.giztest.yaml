@@ -1,0 +1,69 @@
+# User Story:
+# As a GizClaw API key holder controlling hardware through MHS v0,
+# I want values the device reports outside min/max or off the step grid to pass through unchanged,
+# So that the Public HTTP MHS contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.device.mhs.reported
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+- id: read_reported
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/read
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {states: [{device_id: display.main, state: brightness}, {device_id: battery.main, state: level}, {device_id: speaker.main, state: gain}]}
+    status: 200
+  expect:
+    /states/0/value: {equals: 37}
+    /states/1/value: {equals: 120}
+    /states/2/value: {equals: 0.3}
+- id: provider_read
+  client: peer
+  client_rpc:
+    method: client.mhs.v0.read
+    response: {states: [{device_id: display.main, state: brightness, value: {int_value: 37}}, {device_id: battery.main, state: level, value: {int_value: 120}}, {device_id: speaker.main, state: gain, value: {double_value: 0.3}}]}
+    expect_calls: 1
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}
