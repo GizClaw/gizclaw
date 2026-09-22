@@ -46,6 +46,10 @@ type HistoryStore struct {
 	Workspace    string
 	ObjectPrefix string
 	Now          func() time.Time
+	// RecordActivity, when set, runs after each durable Append so the owning
+	// Workspace can advance its user-visible activity time. An error is
+	// returned from Append together with the already stored entry.
+	RecordActivity func(context.Context, HistoryEntry) error
 }
 
 // HistoryEntry is the internal persisted history shape.
@@ -97,6 +101,7 @@ func NewHistoryStore(records logstore.MutableRecordStore, objects objectstore.Ob
 	}
 }
 
+// Append durably stores one entry and then reports it through RecordActivity.
 func (s *HistoryStore) Append(ctx context.Context, req AppendHistoryRequest) (HistoryEntry, error) {
 	if err := ctxErr(ctx); err != nil {
 		return HistoryEntry{}, err
@@ -161,6 +166,11 @@ func (s *HistoryStore) Append(ctx context.Context, req AppendHistoryRequest) (Hi
 			_ = s.Objects.Delete(name)
 		}
 		return HistoryEntry{}, fmt.Errorf("workspace history: LogStore accepted %d of 1 records", len(keys))
+	}
+	if s.RecordActivity != nil {
+		if err := s.RecordActivity(ctx, entry); err != nil {
+			return entry, fmt.Errorf("workspace history: record activity: %w", err)
+		}
 	}
 	return entry, nil
 }
