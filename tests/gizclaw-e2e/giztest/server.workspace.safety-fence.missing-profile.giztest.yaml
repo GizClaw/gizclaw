@@ -2,7 +2,8 @@
 # As a GizClaw Peer API consumer,
 # I want exercise the server.run.workspace.reload behavior through its real transport,
 # So that the generated RPC contract is verified end to end.
-# Fixture: token binds a Profile with assistants/flowcraft-chat-assistant and no child fence.
+# Fixture: the e2e-giztest RuntimeProfile defines safety_fences.general only, so
+# child is the missing level this scenario selects.
 version: gizclaw.test/v1alpha1
 name: server.workspace.safety-fence.missing-profile
 clients:
@@ -18,7 +19,7 @@ variables:
   registration_token:
     direction: input
     type: string
-    env: GIZCLAW_TEST_FENCE_MISSING_REGISTRATION_TOKEN
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
     secret: true
   resource_name:
     direction: input

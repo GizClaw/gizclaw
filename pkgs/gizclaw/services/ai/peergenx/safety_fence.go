@@ -9,8 +9,10 @@ const SafetyFenceParam = "safety_fence"
 
 // SafetyFencePlaceholder marks where realtime instructions take the safety
 // fence. Realtime Workflows have no Graph, so their instructions template is
-// the only place a Workflow decides whether and where the fence applies.
-const SafetyFencePlaceholder = "${safety_fence}"
+// the only place a Workflow decides whether and where the fence applies. The
+// dotted name matches the Eino binding and, unlike ${name}, is left alone by
+// the environment expansion of admin apply and the Terraform provider.
+const SafetyFencePlaceholder = "${input.safety_fence}"
 
 // fencedInstructions replaces every SafetyFencePlaceholder in the pattern
 // instructions with the safety fence, or with nothing when no fence is

@@ -170,7 +170,7 @@ GizClaw never decides where a fence goes. It hands the selected level's text (an
 | --- | --- |
 | Flowcraft | The Board variable `safety_fence`, written before every turn; reference it as `${board.safety_fence}` in an LLM node's `system_prompt`. It replaces a product Board input with the same name. |
 | Eino | The reserved `input.safety_fence` binding (`string`), inherited by batch, race, and subgraph runs; bind it into a prompt node with `inputs: {safety_fence: {from: input.safety_fence}}` and use it in the template. |
-| Doubao Realtime, Doubao Realtime Duplex, DashScope Realtime | The `${safety_fence}` placeholder in Workflow or Workspace `instructions`. The fence travels as the `safety_fence` transformer pattern parameter; peergenx replaces every placeholder and trims surrounding whitespace while building the transformer, and passes instructions without the placeholder to the provider unchanged. |
+| Doubao Realtime, Doubao Realtime Duplex, DashScope Realtime | The `${input.safety_fence}` placeholder in Workflow or Workspace `instructions`. The fence travels as the `safety_fence` transformer pattern parameter; peergenx replaces every placeholder and trims surrounding whitespace while building the transformer, and passes instructions without the placeholder to the provider unchanged. The dotted name keeps the `${NAME}` environment expansion of `gizclaw admin apply` and the Terraform provider from consuming it. |
 
 The current ASTTranslate provider path has no system-prompt entry point: valid levels are stored but provide no variable and never resolve the Profile, so a level the Profile does not define still reloads. SFU system Workspaces behave the same way, which lets a device send one level to every Workspace.
 

@@ -1,0 +1,146 @@
+# One Workflow per driver that supports a Workspace safety fence. Each places
+# the fence the way a raid would: GizClaw only provides the variable, so these
+# fixtures reference it explicitly at the front of their system prompt.
+apiVersion: gizclaw.admin/v1alpha1
+kind: ResourceList
+spec:
+  items:
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Workflow
+    metadata:
+      id: safety-fence-flowcraft
+    spec:
+      toolkit: {tool_ids: []}
+      driver: flowcraft
+      flowcraft:
+        graph:
+          edges:
+          - from: answer
+            to: __end__
+          entry: answer
+          name: SafetyFence
+          nodes:
+          - config:
+              max_tokens: 256
+              model: llm
+              system_prompt: "${board.safety_fence}\n\n你是一个简短、自然的中文聊天助手。"
+            id: answer
+            publish: true
+            type: llm
+        max_iterations: 2
+        conversation:
+          starts: peer
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Workflow
+    metadata:
+      id: safety-fence-eino
+    spec:
+      toolkit: {tool_ids: []}
+      driver: eino
+      eino:
+        graph:
+          name: safety-fence-eino
+          compile:
+            node_trigger_mode: any_predecessor
+            max_run_steps: 6
+          state:
+            fields:
+            - name: messages
+              type: messages
+              merge: replace
+            - name: answer
+              type: string
+              merge: replace
+          nodes:
+          - id: prompt
+            type: prompt
+            inputs:
+              text:
+                from: input.text
+              safety_fence:
+                from: input.safety_fence
+            outputs:
+              messages: messages
+            format: f_string
+            messages:
+            - role: system
+              template: "{safety_fence}\n\n你是一个简短、自然的中文聊天助手。"
+            - role: user
+              template: "{text}"
+          - id: model
+            type: chat_model
+            inputs:
+              messages:
+                from: messages
+            outputs:
+              text: answer
+            model: llm
+            max_tokens: 256
+          edges:
+          - from: start
+            to: prompt
+          - from: prompt
+            to: model
+          - from: model
+            to: end
+          branches: []
+          outputs:
+          - node: model
+            field: answer
+            name: assistant
+            mime_type: text/plain
+            primary: true
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Workflow
+    metadata:
+      id: safety-fence-doubao-realtime
+    spec:
+      driver: doubao-realtime
+      doubao_realtime:
+        model: realtime
+        instructions: "${input.safety_fence}\n\n你是一个简短、自然的中文语音聊天助手。"
+        audio:
+          input:
+            format:
+              type: speech_opus
+              rate: 16000
+          output:
+            format:
+              type: ogg_opus
+              rate: 24000
+            voice: doubao-assistant
+            speed: 0
+            loudness: 0
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Workflow
+    metadata:
+      id: safety-fence-doubao-realtime-duplex
+    spec:
+      driver: doubao-realtime-duplex
+      doubao_realtime_duplex:
+        model: realtime-duplex
+        instructions: "${input.safety_fence}\n\n你是一个简短、自然的中文语音聊天助手。"
+        format: ogg_opus
+        sample_rate: 24000
+        input_format: speech_opus
+        input_sample_rate: 16000
+        input_channels: 1
+        input_transcode: false
+        output_speed: 0
+        output_loudness: 0
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Workflow
+    metadata:
+      id: safety-fence-dashscope-realtime
+    spec:
+      driver: dashscope-realtime
+      dashscope_realtime:
+        model: dash-realtime
+        instructions: "${input.safety_fence}\n\n你是一个简短、自然的中文语音聊天助手。"
+        modalities:
+        - text
+        - audio
+        enable_asr: true
+        asr_model: qwen3-asr-flash-realtime
+        input_audio_format: pcm16
+        output_audio_format: pcm16

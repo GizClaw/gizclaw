@@ -169,7 +169,7 @@ GizClaw 从不自行决定围栏放在哪里：它只把所选档位的文案（
 | --- | --- |
 | Flowcraft | 每轮执行前写入 Board 变量 `safety_fence`；在 LLM 节点的 `system_prompt` 中写 `${board.safety_fence}`。同名的产品 Board 输入会被覆盖。 |
 | Eino | 保留 binding `input.safety_fence`（`string`），batch、race 与子图继承同一值；prompt 节点通过 `inputs: {safety_fence: {from: input.safety_fence}}` 绑定后在模板中引用。 |
-| Doubao Realtime、Doubao Realtime Duplex、DashScope Realtime | 在 Workflow 或 Workspace 的 `instructions` 中写占位符 `${safety_fence}`。围栏以 `safety_fence` transformer pattern 参数下发，peergenx 构建 transformer 时替换全部占位符并去掉首尾空白；没有占位符的 instructions 原样传给 provider。 |
+| Doubao Realtime、Doubao Realtime Duplex、DashScope Realtime | 在 Workflow 或 Workspace 的 `instructions` 中写占位符 `${input.safety_fence}`。围栏以 `safety_fence` transformer pattern 参数下发，peergenx 构建 transformer 时替换全部占位符并去掉首尾空白；没有占位符的 instructions 原样传给 provider。占位符带点号，因此不会被 `gizclaw admin apply` 与 Terraform provider 的 `${NAME}` 环境变量展开误替换。 |
 
 ASTTranslate 的当前 provider 路径没有系统提示入口：合法级别被接受并保存，但不提供变量，也不解析 Profile；Profile 未配置该档同样不影响 reload。SFU system Workspace 同理。设备因此可以把同一个级别发给全部 Workspace。
 
