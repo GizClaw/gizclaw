@@ -34,6 +34,11 @@ type Conn struct {
 	pc     *webrtc.PeerConnection
 	policy giznet.SecurityPolicy
 
+	statsMu      sync.Mutex
+	statsReaders int
+	statsClosed  bool
+	statsIdle    chan struct{}
+
 	localAddr  net.Addr
 	remoteAddr net.Addr
 
@@ -132,7 +137,7 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 	})
 	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
 		if peerConnectionStateIsTerminal(state) {
-			_ = c.closeWithError(peerConnectionTerminalCause(pc, state))
+			_ = c.closeWithError(c.peerConnectionTerminalCause(state))
 		}
 	})
 	return c, nil
@@ -154,19 +159,19 @@ func peerConnectionStateIsTerminal(state webrtc.PeerConnectionState) bool {
 	return state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateClosed
 }
 
-func peerConnectionTerminalCause(pc *webrtc.PeerConnection, state webrtc.PeerConnectionState) error {
-	cause := peerConnectionCloseError(pc, state)
+func (c *Conn) peerConnectionTerminalCause(state webrtc.PeerConnectionState) error {
+	cause := c.peerConnectionCloseError(state)
 	if state == webrtc.PeerConnectionStateFailed {
 		return errors.Join(giznet.ErrConnFailed, cause)
 	}
 	return cause
 }
 
-func peerConnectionCloseError(pc *webrtc.PeerConnection, state webrtc.PeerConnectionState) error {
-	if pc == nil || state != webrtc.PeerConnectionStateFailed {
+func (c *Conn) peerConnectionCloseError(state webrtc.PeerConnectionState) error {
+	if c == nil || c.pc == nil || state != webrtc.PeerConnectionStateFailed {
 		return fmt.Errorf("gizwebrtc: peer connection state %s", state)
 	}
-	report := pc.GetStats()
+	report := c.collectStats()
 	pair, ok := selectedICECandidatePair(report)
 	if !ok {
 		return fmt.Errorf("gizwebrtc: peer connection state %s", state)
@@ -505,6 +510,9 @@ func (c *Conn) close(cause error) error {
 			_ = c.packetRaw.Close()
 		}
 		c.packetMu.Unlock()
+		if statsDone := c.stopStats(); statsDone != nil {
+			<-statsDone
+		}
 		closeErr = c.pc.Close()
 	})
 	return closeErr

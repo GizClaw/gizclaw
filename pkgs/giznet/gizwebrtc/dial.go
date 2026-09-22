@@ -396,7 +396,7 @@ func dialAttempt(
 	}
 	defer cancelPacketWait()
 	if err := waitForPacketChannel(packetCtx, conn.readyCh); err != nil {
-		err = fmt.Errorf("%w: %w: %s", errDialICEAttempt, err, peerConnectionStateDetails(pc))
+		err = fmt.Errorf("%w: %w: %s", errDialICEAttempt, err, conn.peerConnectionStateDetails())
 		_ = conn.Close()
 		_ = l.Close()
 		return nil, nil, err
@@ -411,7 +411,7 @@ func dialAttempt(
 	dataChannelReady := timing.sinceRemote()
 	timing.update(func(t *DialTiming) {
 		t.DataChannelReady = dataChannelReady
-		t.SelectedCandidatePair = selectedICEObservation(pc)
+		t.SelectedCandidatePair = conn.selectedICEObservation()
 	})
 	l.enqueueConn(conn)
 	return l, conn, nil
@@ -450,10 +450,11 @@ func waitForPacketChannel(ctx context.Context, ready <-chan struct{}) error {
 	}
 }
 
-func peerConnectionStateDetails(pc *webrtc.PeerConnection) string {
-	if pc == nil {
+func (c *Conn) peerConnectionStateDetails() string {
+	if c == nil || c.pc == nil {
 		return "peer_connection_state=unavailable"
 	}
+	pc := c.pc
 	dtlsState := "unavailable"
 	sctpState := "unavailable"
 	if sctp := pc.SCTP(); sctp != nil {
@@ -471,7 +472,7 @@ func peerConnectionStateDetails(pc *webrtc.PeerConnection) string {
 		dtlsState,
 		sctpState,
 	)
-	pair, ok := selectedICECandidatePair(pc.GetStats())
+	pair, ok := selectedICECandidatePair(c.collectStats())
 	if !ok {
 		return detail + " ice_pair=unavailable"
 	}

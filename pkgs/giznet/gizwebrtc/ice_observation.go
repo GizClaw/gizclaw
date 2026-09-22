@@ -38,7 +38,11 @@ type ICECandidatePairObservation struct {
 	BytesDiscardedOnSend    uint32
 }
 
-func selectedICEObservation(pc *webrtc.PeerConnection) *ICECandidatePairObservation {
+func (c *Conn) selectedICEObservation() *ICECandidatePairObservation {
+	if c == nil {
+		return nil
+	}
+	pc := c.pc
 	if pc == nil || pc.SCTP() == nil || pc.SCTP().Transport() == nil ||
 		pc.SCTP().Transport().ICETransport() == nil {
 		return nil
@@ -53,7 +57,7 @@ func selectedICEObservation(pc *webrtc.PeerConnection) *ICECandidatePairObservat
 		State:     "selected",
 		Nominated: true,
 	}
-	if stats, ok := selectedICECandidatePairStats(pc.GetStats(), pair); ok {
+	if stats, ok := selectedICECandidatePairStats(c.collectStats(), pair); ok {
 		observation.State = string(stats.State)
 		observation.Nominated = observation.Nominated || stats.Nominated
 		observation.CountersSupported = true

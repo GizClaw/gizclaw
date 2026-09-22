@@ -55,6 +55,10 @@ SDP 或 credential；可选 counter 缺失时保持 unsupported，不伪造数�
 仍只是 transport diagnostics；`giznet.Conn` 不暴露 Pion object，也不引入 Edge-specific
 contract。
 
+连接、拨号失败和终止诊断由 Conn 登记正在进行的 Pion stats 读取。关闭时停止接收
+新的读取，等已有读取完成后再释放 PeerConnection；读取和等待都在登记状态锁外执行。
+该生命周期约束保留全部 ICE candidate-pair 计数，并避免 stats collector 与关闭并发释放。
+
 2026-08-04 的 same-head 因果诊断只使用这层 public Giznet transport，不包含产品 Edge 或
 Server。每方向三次 32 MiB 测得 direct 818/798 Mbps、REST Coturn 488/526 Mbps
 （relay/direct 为 0.597 和 0.659），Coturn receive/send counter 同时增长约 220/219 MB。
