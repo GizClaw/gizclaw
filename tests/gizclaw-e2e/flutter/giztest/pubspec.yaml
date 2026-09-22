@@ -8,6 +8,7 @@ environment:
 
 dependencies:
   args: ^2.6.0
+  fixnum: ^1.1.1
   flutter:
     sdk: flutter
   flutter_webrtc: ^1.5.2

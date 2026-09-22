@@ -4,6 +4,8 @@ API 变更必须从根 `api/` 的 source schema 开始。禁止直接修改由�
 
 JavaScript RPC payload codec 将已知 enum 数字解码为现有领域字符串，未知 enum 数字原样保留，重新编码时仍发送相同数值。未知 symbolic string 仍被拒绝；proto3 optional 的省略不变。因此跨语言测试可以将非法数字送达 Server，验证领域层的 `INVALID_ARGUMENT`，而不会先把它变成空字符串。此行为由 `sdk/js/scripts/generate-rpc-payload-codec.mjs` 生成。
 
+Flutter Giztest 的 request adapter 遵循相同的数字 wire contract。Dart protobuf 的 proto3 JSON parser 会拒绝未知 enum 数字，因此 adapter 仍由该 parser 校验其他 JSON 字段和 symbolic name，再将未知 int32 enum 数字保留为 protobuf unknown varint。非法领域值仍由 Server 拒绝。
+
 ## 生成链路
 
 | Source | 主要输出 | 命令 |

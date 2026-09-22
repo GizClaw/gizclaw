@@ -4,6 +4,8 @@ API changes must start from the source schema of the root `api/`. Direct modific
 
 The JavaScript RPC payload codec decodes known enum numbers to their existing domain strings and preserves unknown enum numbers for lossless re-encoding. Unknown symbolic strings remain errors, and omitted proto3 optional fields remain absent. Cross-language tests can therefore send invalid numbers to the Server and verify its domain-level `INVALID_ARGUMENT`, without first converting those numbers to empty strings. `sdk/js/scripts/generate-rpc-payload-codec.mjs` owns this generated behavior.
 
+The Flutter Giztest request adapter applies the same numeric wire contract. Dart protobuf's proto3 JSON parser rejects unknown enum numbers, so the adapter validates all other JSON fields and symbolic names through that parser, then preserves unknown int32 enum numbers as protobuf unknown varints. The Server remains responsible for rejecting invalid domain values.
+
 ## Generate link
 
 | Source | Main Output | Commands |
