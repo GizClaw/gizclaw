@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"io"
 	"iter"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -261,5 +264,45 @@ func (s *establishedConnectSession) Events() iter.Seq2[*dashscope.RealtimeEvent,
 		case <-s.ctx.Done():
 			yield(nil, s.ctx.Err())
 		}
+	}
+}
+
+func TestConnectFailureThroughSDKClientReturnsError(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		apiKey       string
+		wantRequests int32
+	}{
+		{name: "empty_api_key", apiKey: "", wantRequests: 0},
+		{name: "rejected_dial", apiKey: "test", wantRequests: 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var requests atomic.Int32
+			rejecting := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				requests.Add(1)
+				http.Error(w, `{"code":"InvalidApiKey","message":"rejected"}`, http.StatusUnauthorized)
+			}))
+			t.Cleanup(rejecting.Close)
+			client := dashscope.NewClient(tc.apiKey, dashscope.WithBaseURL("ws"+strings.TrimPrefix(rejecting.URL, "http")))
+			transformer, err := New(Config{Client: client, Model: dashscope.ModelQwenOmniTurboRealtimeLatest})
+			if err != nil {
+				t.Fatalf("New() error = %v", err)
+			}
+			transformer.retryWait = func(context.Context, time.Duration) error { t.Fatal("unexpected retry"); return nil }
+			session, err := transformer.connectOnce(t.Context(), &dashscope.SessionConfig{})
+			if err == nil || session != nil {
+				t.Fatalf("connectOnce() session=%v err=%v, want nil session and error", session, err)
+			}
+			output, err := transformer.Transform(t.Context(), emptyDashScopeStream{})
+			if err == nil || output != nil {
+				t.Fatalf("Transform() output=%v err=%v, want nil output and error", output, err)
+			}
+			if apiErr, ok := errors.AsType[*dashscope.Error](err); !ok || apiErr.HTTPStatus != http.StatusUnauthorized {
+				t.Fatalf("Transform() error = %v, want DashScope 401", err)
+			}
+			if got := requests.Load(); got != tc.wantRequests {
+				t.Fatalf("local endpoint requests = %d, want %d", got, tc.wantRequests)
+			}
+		})
 	}
 }

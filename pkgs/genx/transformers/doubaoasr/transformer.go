@@ -298,10 +298,11 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		if t.newSession != nil {
 			openSession = t.newSession
 		}
-		session, err = openSession(ctx, cfg)
+		next, err := openSession(ctx, cfg)
 		if err != nil {
 			return err
 		}
+		session = next
 		sessionConfig = cfg
 		packetBuffer.reset(t.audioChunkSize(cfg))
 		sessionStartedAt = time.Time{}
@@ -774,7 +775,12 @@ func (t *Transformer) openSession(ctx context.Context, cfg doubaoASRSessionConfi
 			ForceToSpeechTime:  t.forceToSpeechTime,
 		}
 	}
-	return t.client.ASRV2.OpenStreamSession(ctx, config)
+	session, err := t.client.ASRV2.OpenStreamSession(ctx, config)
+	if session == nil {
+		// Avoid wrapping a nil *ASRV2Session in a non-nil interface.
+		return nil, err
+	}
+	return session, err
 }
 
 func (t *Transformer) audioChunkSize(cfg doubaoASRSessionConfig) int {

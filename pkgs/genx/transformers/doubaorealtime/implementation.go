@@ -117,7 +117,12 @@ func (c doubaoRealtimeClient) OpenSession(ctx context.Context, cfg *doubaospeech
 	if c.client == nil {
 		return nil, fmt.Errorf("doubao realtime client is required")
 	}
-	return c.client.Realtime.Connect(ctx, cfg)
+	session, err := c.client.Realtime.Connect(ctx, cfg)
+	if session == nil {
+		// Avoid wrapping a nil *RealtimeSession in a non-nil interface.
+		return nil, err
+	}
+	return session, err
 }
 
 // option is a functional option for Transformer.

@@ -75,7 +75,12 @@ type dashScopeRealtimeClient struct {
 }
 
 func (c dashScopeRealtimeClient) Connect(ctx context.Context, config *dashscope.RealtimeConfig) (dashScopeRealtimeSession, error) {
-	return c.client.Realtime.Connect(ctx, config)
+	session, err := c.client.Realtime.Connect(ctx, config)
+	if session == nil {
+		// Avoid wrapping a nil *RealtimeSession in a non-nil interface.
+		return nil, err
+	}
+	return session, err
 }
 
 type dashScopeStreamIDs struct {

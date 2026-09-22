@@ -762,7 +762,12 @@ func (t *Transformer) sessionConfig() doubaospeech.ASTTranslateConfig {
 }
 
 func (t *Transformer) openSession(ctx context.Context, cfg doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
-	return t.client.ASTTranslate.OpenSession(ctx, &cfg)
+	session, err := t.client.ASTTranslate.OpenSession(ctx, &cfg)
+	if session == nil {
+		// Avoid wrapping a nil *ASTTranslateSession in a non-nil interface.
+		return nil, err
+	}
+	return session, err
 }
 
 func (t *Transformer) prepareAudioBlob(blob *genx.Blob, rawOpusDecoder **opus.Decoder) ([]byte, error) {
