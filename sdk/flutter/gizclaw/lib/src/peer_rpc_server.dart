@@ -1,3 +1,6 @@
+// The server still dispatches the deprecated volume/settings RPCs so existing devices keep working.
+// ignore_for_file: deprecated_member_use_from_same_package
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';

@@ -1,3 +1,6 @@
+// Covers the deprecated volume/settings RPCs, which stay supported until removal.
+// ignore_for_file: deprecated_member_use_from_same_package
+
 import 'package:fixnum/fixnum.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:protobuf/protobuf.dart';
