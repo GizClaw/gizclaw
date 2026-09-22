@@ -58,7 +58,6 @@ type DeviceReads struct {
 	Telemetry  *peertelemetry.AdminService
 	Workspaces deviceWorkspaceService
 	RunAgents  deviceRunAgentService
-	Tools      deviceToolService
 }
 
 // DeviceInfo returns the caller's authoritative device identity.

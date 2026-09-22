@@ -1,14 +1,14 @@
 # User Story:
 # As a GizClaw API key holder,
 # I want to factory reset my bound device through its real transport,
-# So that the reset reaches client.device.factory_reset and later commands wait for the device to reconnect.
+# So that the reset reaches device.factory_reset through tool/v0 and later commands wait for the device to reconnect.
 version: gizclaw.test/v1alpha1
 name: server.device.factory_reset
 clients:
   peer:
     identity: ephemeral
     connection: webrtc
-    access_point: "${endpoint}"
+    access_point: ${endpoint}
 variables:
   endpoint:
     direction: input
@@ -28,67 +28,82 @@ variables:
     type: string
     secret: true
 steps:
-- id: register_peer
-  client: peer
-  rpc:
-    method: server.register
-    request:
-      token: "${registration_token}"
-- id: create_api_key
-  client: peer
-  rpc:
-    method: server.api_key.create
-    request:
-      display_name: "${resource_name}"
-  capture:
-    api_key: /api_key
-- id: before_reset
-  client: peer
-  http:
-    method: GET
-    path: /gizclaw/v1/device/settings
-    headers:
-      Authorization: "Bearer ${api_key}"
-    status: 200
-  expect:
-    /screen_brightness:
-      equals: 60
-- id: factory_reset
-  client: peer
-  http:
-    method: POST
-    path: /gizclaw/v1/device/actions/factory-reset
-    headers:
-      Authorization: "Bearer ${api_key}"
-    body:
-      keep_network: true
-    status: 204
-- id: after_reset
-  client: peer
-  http:
-    method: GET
-    path: /gizclaw/v1/device/settings
-    headers:
-      Authorization: "Bearer ${api_key}"
-    status: 409
-  expect:
-    /error/code:
-      equals: DEVICE_OFFLINE
-- id: provider_factory_reset
-  client: peer
-  client_rpc:
-    method: client.device.factory_reset
-    expect_calls: 1
-- id: provider_settings_get
-  client: peer
-  client_rpc:
-    method: client.device.settings.get
-    response:
-      screen_brightness: 60
-    expect_calls: 1
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: before_reset
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/read
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+      body:
+        states:
+          - device_id: device.main
+            state: screen-brightness
+    expect:
+      /states/0/value:
+        equals: 60
+  - id: factory_reset
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: device.factory_reset
+        args:
+          keep_network: true
+      status: 200
+  - id: after_reset
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/read
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 409
+      body:
+        states:
+          - device_id: device.main
+            state: screen-brightness
+    expect:
+      /error/code:
+        equals: DEVICE_OFFLINE
+  - id: provider_factory_reset
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      expect_calls: 1
+      tool: device.factory_reset
+  - id: provider_settings_get
+    client: peer
+    client_rpc:
+      method: client.mhs.v0.read
+      response:
+        states:
+          - device_id: device.main
+            state: screen-brightness
+            value:
+              int_value: 60
+      expect_calls: 1
 finally:
-- id: cleanup_peer
-  client: peer
-  rpc:
-    method: server.peer.delete
-    request: {}
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

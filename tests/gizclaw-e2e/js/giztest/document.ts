@@ -1,3 +1,4 @@
+import { CLIENT_TOOL_IDS } from "../../../../sdk/js/gizclaw/generated/rpc/method-map.ts";
 // Giztest scenario documents, loaded and validated for the subset of the
 // `gizclaw.test/v1alpha1` contract this runner executes.
 //
@@ -37,71 +38,8 @@ export const ALL_OPERATIONS = [
   "workspace_relay",
 ] as const;
 
-export const CLIENT_RPC_METHODS = [
-  "client.info.get",
-  "client.identifiers.get",
-  "client.tool.invoke",
-  "client.device.status.get",
-  "client.device.volume.set",
-  "client.device.sound.play",
-  "client.device.find",
-  "client.device.reboot",
-  "client.device.settings.get",
-  "client.device.settings.set",
-  "client.device.factory_reset",
-  "client.rpc.methods.get",
-  "client.run.workspace.set",
-  "client.mhs.v0.read",
-  "client.mhs.v0.write",
-  "client.social.ping",
-  "client.device.audioplayer.get",
-  "client.device.audioplayer.playlist.get",
-  "client.device.audioplayer.playlist.set",
-  "client.device.audioplayer.playlist.append",
-  "client.device.audioplayer.play",
-  "client.device.audioplayer.stop",
-  "client.device.audioplayer.mode.set",
-  "client.wifi.status.get",
-  "client.wifi.saved.list",
-  "client.wifi.saved.forget",
-  "client.wifi.scan",
-  "client.wifi.connect",
-] as const;
-
-// Methods this runner can install a provider for. `client.rpc.methods.get` is
-// answered by the SDK itself with no hook that would let this runner count the
-// Server's calls. `client.tool.invoke` is supported for a scripted
-// `{name, result}` Tool; `unavailable: true` is not, because the SDK answers an
-// absent Tool without a hook to count the call.
-export const SUPPORTED_CLIENT_RPC_METHODS = new Set<string>([
-  "client.info.get",
-  "client.tool.invoke",
-  "client.identifiers.get",
-  "client.device.status.get",
-  "client.device.volume.set",
-  "client.device.sound.play",
-  "client.device.find",
-  "client.device.reboot",
-  "client.device.settings.get",
-  "client.device.settings.set",
-  "client.device.factory_reset",
-  "client.run.workspace.set",
-  "client.mhs.v0.read",
-  "client.mhs.v0.write",
-  "client.social.ping",
-  "client.device.audioplayer.get",
-  "client.device.audioplayer.playlist.get",
-  "client.device.audioplayer.playlist.set",
-  "client.device.audioplayer.playlist.append",
-  "client.device.audioplayer.play",
-  "client.device.audioplayer.stop",
-  "client.device.audioplayer.mode.set",
-  "client.wifi.status.get",
-  "client.wifi.saved.list",
-  "client.wifi.saved.forget",
-  "client.wifi.scan",
-  "client.wifi.connect",
-]);
+export const CLIENT_RPC_METHODS = ["client.mhs.v0.read", "client.mhs.v0.write", "client.tool.v0.invoke", "client.tool.v0.list", "client.rpc.methods.list"] as const;
+export const SUPPORTED_CLIENT_RPC_METHODS = new Set<string>(CLIENT_RPC_METHODS);
 
 export type Operation = (typeof ALL_OPERATIONS)[number];
 
@@ -148,7 +86,7 @@ export type Step = {
   expect?: Record<string, Expectation>;
   expect_error?: { code: number; message_contains?: string };
   rpc?: { method: string; request: unknown };
-  client_rpc?: { method: string; response?: unknown; expect_calls?: number };
+  client_rpc?: { method: string; tool?: string; response?: unknown; expect_calls?: number };
   http?: {
     method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
     path: string;
@@ -432,20 +370,14 @@ function validateStep(
     if (!SUPPORTED_CLIENT_RPC_METHODS.has(method)) {
       throw new UnsupportedStepError(documentPath, `client_rpc:${method}`);
     }
-    const response = step.client_rpc.response as
-      { unavailable?: unknown } | undefined;
-    if (method === "client.tool.invoke" && response?.unavailable === true) {
-      throw new UnsupportedStepError(
-        documentPath,
-        `client_rpc:${method}:unavailable`,
-      );
-    }
+    const tool = step.client_rpc.tool;
+    if (method === "client.tool.v0.invoke" ? typeof tool !== "string" || !Object.hasOwn(CLIENT_TOOL_IDS, tool) : tool != null) fail(documentPath, `step ${step.id} invalid tool selector`);
     const calls = step.client_rpc.expect_calls;
     if (
       calls != null &&
-      (!Number.isInteger(calls) || calls < 1 || calls > 1024)
+      (!Number.isInteger(calls) || calls < 0 || calls > 1024)
     ) {
-      fail(documentPath, `step ${step.id} expect_calls must be 1..1024`);
+      fail(documentPath, `step ${step.id} expect_calls must be 0..1024`);
     }
   }
   if (step.retry != null) {

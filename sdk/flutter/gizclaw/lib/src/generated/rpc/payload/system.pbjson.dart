@@ -104,44 +104,6 @@ final $typed_data.Uint8List clientDeviceStatusGetResponseDescriptor =
         'Ch1DbGllbnREZXZpY2VTdGF0dXNHZXRSZXNwb25zZRIwCgV2YWx1ZRgBIAEoCzIaLmdpemNsYX'
         'cucnBjLnYxLlBlZXJTdGF0dXNSBXZhbHVl');
 
-@$core.Deprecated('Use clientDeviceVolumeSetRequestDescriptor instead')
-const ClientDeviceVolumeSetRequest$json = {
-  '1': 'ClientDeviceVolumeSetRequest',
-  '2': [
-    {'1': 'level', '3': 1, '4': 1, '5': 3, '10': 'level'},
-    {'1': 'muted', '3': 2, '4': 1, '5': 8, '10': 'muted'},
-  ],
-  '7': {'3': true},
-};
-
-/// Descriptor for `ClientDeviceVolumeSetRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List clientDeviceVolumeSetRequestDescriptor =
-    $convert.base64Decode(
-        'ChxDbGllbnREZXZpY2VWb2x1bWVTZXRSZXF1ZXN0EhQKBWxldmVsGAEgASgDUgVsZXZlbBIUCg'
-        'VtdXRlZBgCIAEoCFIFbXV0ZWQ6AhgB');
-
-@$core.Deprecated('Use clientDeviceVolumeSetResponseDescriptor instead')
-const ClientDeviceVolumeSetResponse$json = {
-  '1': 'ClientDeviceVolumeSetResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.PeerStatus',
-      '10': 'value'
-    },
-  ],
-  '7': {'3': true},
-};
-
-/// Descriptor for `ClientDeviceVolumeSetResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List clientDeviceVolumeSetResponseDescriptor =
-    $convert.base64Decode(
-        'Ch1DbGllbnREZXZpY2VWb2x1bWVTZXRSZXNwb25zZRIwCgV2YWx1ZRgBIAEoCzIaLmdpemNsYX'
-        'cucnBjLnYxLlBlZXJTdGF0dXNSBXZhbHVlOgIYAQ==');
-
 @$core.Deprecated('Use clientDeviceSoundPlayRequestDescriptor instead')
 const ClientDeviceSoundPlayRequest$json = {
   '1': 'ClientDeviceSoundPlayRequest',
@@ -176,204 +138,6 @@ const ClientDeviceSoundPlayResponse$json = {
 /// Descriptor for `ClientDeviceSoundPlayResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List clientDeviceSoundPlayResponseDescriptor =
     $convert.base64Decode('Ch1DbGllbnREZXZpY2VTb3VuZFBsYXlSZXNwb25zZQ==');
-
-@$core.Deprecated('Use deviceSettingsDescriptor instead')
-const DeviceSettings$json = {
-  '1': 'DeviceSettings',
-  '2': [
-    {
-      '1': 'cellular_enabled',
-      '3': 1,
-      '4': 1,
-      '5': 8,
-      '9': 0,
-      '10': 'cellularEnabled',
-      '17': true
-    },
-    {
-      '1': 'screen_off_timeout_ms',
-      '3': 2,
-      '4': 1,
-      '5': 3,
-      '9': 1,
-      '10': 'screenOffTimeoutMs',
-      '17': true
-    },
-    {
-      '1': 'screen_brightness',
-      '3': 3,
-      '4': 1,
-      '5': 3,
-      '9': 2,
-      '10': 'screenBrightness',
-      '17': true
-    },
-    {
-      '1': 'led_brightness',
-      '3': 4,
-      '4': 1,
-      '5': 3,
-      '9': 3,
-      '10': 'ledBrightness',
-      '17': true
-    },
-    {'1': 'locale', '3': 5, '4': 1, '5': 9, '9': 4, '10': 'locale', '17': true},
-    {
-      '1': 'default_interaction_mode',
-      '3': 6,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.DeviceInteractionMode',
-      '9': 5,
-      '10': 'defaultInteractionMode',
-      '17': true
-    },
-    {
-      '1': 'key_feedback',
-      '3': 7,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.DeviceKeyFeedback',
-      '9': 6,
-      '10': 'keyFeedback',
-      '17': true
-    },
-    {
-      '1': 'alert_mode',
-      '3': 8,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.DeviceAlertMode',
-      '9': 7,
-      '10': 'alertMode',
-      '17': true
-    },
-    {
-      '1': 'auto_sleep_timeout_ms',
-      '3': 9,
-      '4': 1,
-      '5': 3,
-      '9': 8,
-      '10': 'autoSleepTimeoutMs',
-      '17': true
-    },
-    {
-      '1': 'nfc_enabled',
-      '3': 10,
-      '4': 1,
-      '5': 8,
-      '9': 9,
-      '10': 'nfcEnabled',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_cellular_enabled'},
-    {'1': '_screen_off_timeout_ms'},
-    {'1': '_screen_brightness'},
-    {'1': '_led_brightness'},
-    {'1': '_locale'},
-    {'1': '_default_interaction_mode'},
-    {'1': '_key_feedback'},
-    {'1': '_alert_mode'},
-    {'1': '_auto_sleep_timeout_ms'},
-    {'1': '_nfc_enabled'},
-  ],
-};
-
-/// Descriptor for `DeviceSettings`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List deviceSettingsDescriptor = $convert.base64Decode(
-    'Cg5EZXZpY2VTZXR0aW5ncxIuChBjZWxsdWxhcl9lbmFibGVkGAEgASgISABSD2NlbGx1bGFyRW'
-    '5hYmxlZIgBARI2ChVzY3JlZW5fb2ZmX3RpbWVvdXRfbXMYAiABKANIAVISc2NyZWVuT2ZmVGlt'
-    'ZW91dE1ziAEBEjAKEXNjcmVlbl9icmlnaHRuZXNzGAMgASgDSAJSEHNjcmVlbkJyaWdodG5lc3'
-    'OIAQESKgoObGVkX2JyaWdodG5lc3MYBCABKANIA1INbGVkQnJpZ2h0bmVzc4gBARIbCgZsb2Nh'
-    'bGUYBSABKAlIBFIGbG9jYWxliAEBEmQKGGRlZmF1bHRfaW50ZXJhY3Rpb25fbW9kZRgGIAEoDj'
-    'IlLmdpemNsYXcucnBjLnYxLkRldmljZUludGVyYWN0aW9uTW9kZUgFUhZkZWZhdWx0SW50ZXJh'
-    'Y3Rpb25Nb2RliAEBEkkKDGtleV9mZWVkYmFjaxgHIAEoDjIhLmdpemNsYXcucnBjLnYxLkRldm'
-    'ljZUtleUZlZWRiYWNrSAZSC2tleUZlZWRiYWNriAEBEkMKCmFsZXJ0X21vZGUYCCABKA4yHy5n'
-    'aXpjbGF3LnJwYy52MS5EZXZpY2VBbGVydE1vZGVIB1IJYWxlcnRNb2RliAEBEjYKFWF1dG9fc2'
-    'xlZXBfdGltZW91dF9tcxgJIAEoA0gIUhJhdXRvU2xlZXBUaW1lb3V0TXOIAQESJAoLbmZjX2Vu'
-    'YWJsZWQYCiABKAhICVIKbmZjRW5hYmxlZIgBAUITChFfY2VsbHVsYXJfZW5hYmxlZEIYChZfc2'
-    'NyZWVuX29mZl90aW1lb3V0X21zQhQKEl9zY3JlZW5fYnJpZ2h0bmVzc0IRCg9fbGVkX2JyaWdo'
-    'dG5lc3NCCQoHX2xvY2FsZUIbChlfZGVmYXVsdF9pbnRlcmFjdGlvbl9tb2RlQg8KDV9rZXlfZm'
-    'VlZGJhY2tCDQoLX2FsZXJ0X21vZGVCGAoWX2F1dG9fc2xlZXBfdGltZW91dF9tc0IOCgxfbmZj'
-    'X2VuYWJsZWQ=');
-
-@$core.Deprecated('Use clientDeviceSettingsGetRequestDescriptor instead')
-const ClientDeviceSettingsGetRequest$json = {
-  '1': 'ClientDeviceSettingsGetRequest',
-  '7': {'3': true},
-};
-
-/// Descriptor for `ClientDeviceSettingsGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List clientDeviceSettingsGetRequestDescriptor =
-    $convert.base64Decode('Ch5DbGllbnREZXZpY2VTZXR0aW5nc0dldFJlcXVlc3Q6AhgB');
-
-@$core.Deprecated('Use clientDeviceSettingsGetResponseDescriptor instead')
-const ClientDeviceSettingsGetResponse$json = {
-  '1': 'ClientDeviceSettingsGetResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.DeviceSettings',
-      '10': 'value'
-    },
-  ],
-  '7': {'3': true},
-};
-
-/// Descriptor for `ClientDeviceSettingsGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List clientDeviceSettingsGetResponseDescriptor =
-    $convert.base64Decode(
-        'Ch9DbGllbnREZXZpY2VTZXR0aW5nc0dldFJlc3BvbnNlEjQKBXZhbHVlGAEgASgLMh4uZ2l6Y2'
-        'xhdy5ycGMudjEuRGV2aWNlU2V0dGluZ3NSBXZhbHVlOgIYAQ==');
-
-@$core.Deprecated('Use clientDeviceSettingsSetRequestDescriptor instead')
-const ClientDeviceSettingsSetRequest$json = {
-  '1': 'ClientDeviceSettingsSetRequest',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.DeviceSettings',
-      '10': 'value'
-    },
-  ],
-  '7': {'3': true},
-};
-
-/// Descriptor for `ClientDeviceSettingsSetRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List clientDeviceSettingsSetRequestDescriptor =
-    $convert.base64Decode(
-        'Ch5DbGllbnREZXZpY2VTZXR0aW5nc1NldFJlcXVlc3QSNAoFdmFsdWUYASABKAsyHi5naXpjbG'
-        'F3LnJwYy52MS5EZXZpY2VTZXR0aW5nc1IFdmFsdWU6AhgB');
-
-@$core.Deprecated('Use clientDeviceSettingsSetResponseDescriptor instead')
-const ClientDeviceSettingsSetResponse$json = {
-  '1': 'ClientDeviceSettingsSetResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.DeviceSettings',
-      '10': 'value'
-    },
-  ],
-  '7': {'3': true},
-};
-
-/// Descriptor for `ClientDeviceSettingsSetResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List clientDeviceSettingsSetResponseDescriptor =
-    $convert.base64Decode(
-        'Ch9DbGllbnREZXZpY2VTZXR0aW5nc1NldFJlc3BvbnNlEjQKBXZhbHVlGAEgASgLMh4uZ2l6Y2'
-        'xhdy5ycGMudjEuRGV2aWNlU2V0dGluZ3NSBXZhbHVlOgIYAQ==');
 
 @$core.Deprecated('Use clientDeviceFactoryResetRequestDescriptor instead')
 const ClientDeviceFactoryResetRequest$json = {
@@ -445,28 +209,35 @@ const ClientRunWorkspaceSetResponse$json = {
 final $typed_data.Uint8List clientRunWorkspaceSetResponseDescriptor =
     $convert.base64Decode('Ch1DbGllbnRSdW5Xb3Jrc3BhY2VTZXRSZXNwb25zZQ==');
 
-@$core.Deprecated('Use clientRpcMethodsGetRequestDescriptor instead')
-const ClientRpcMethodsGetRequest$json = {
-  '1': 'ClientRpcMethodsGetRequest',
+@$core.Deprecated('Use clientRpcMethodsListRequestDescriptor instead')
+const ClientRpcMethodsListRequest$json = {
+  '1': 'ClientRpcMethodsListRequest',
 };
 
-/// Descriptor for `ClientRpcMethodsGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List clientRpcMethodsGetRequestDescriptor =
-    $convert.base64Decode('ChpDbGllbnRScGNNZXRob2RzR2V0UmVxdWVzdA==');
+/// Descriptor for `ClientRpcMethodsListRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientRpcMethodsListRequestDescriptor =
+    $convert.base64Decode('ChtDbGllbnRScGNNZXRob2RzTGlzdFJlcXVlc3Q=');
 
-@$core.Deprecated('Use clientRpcMethodsGetResponseDescriptor instead')
-const ClientRpcMethodsGetResponse$json = {
-  '1': 'ClientRpcMethodsGetResponse',
+@$core.Deprecated('Use clientRpcMethodsListResponseDescriptor instead')
+const ClientRpcMethodsListResponse$json = {
+  '1': 'ClientRpcMethodsListResponse',
   '2': [
-    {'1': 'methods', '3': 1, '4': 3, '5': 9, '10': 'methods'},
+    {
+      '1': 'methods',
+      '3': 1,
+      '4': 3,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.RpcMethod',
+      '10': 'methods'
+    },
   ],
 };
 
-/// Descriptor for `ClientRpcMethodsGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List clientRpcMethodsGetResponseDescriptor =
+/// Descriptor for `ClientRpcMethodsListResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientRpcMethodsListResponseDescriptor =
     $convert.base64Decode(
-        'ChtDbGllbnRScGNNZXRob2RzR2V0UmVzcG9uc2USGAoHbWV0aG9kcxgBIAMoCVIHbWV0aG9kcw'
-        '==');
+        'ChxDbGllbnRScGNNZXRob2RzTGlzdFJlc3BvbnNlEjMKB21ldGhvZHMYASADKA4yGS5naXpjbG'
+        'F3LnJwYy52MS5ScGNNZXRob2RSB21ldGhvZHM=');
 
 @$core.Deprecated('Use clientDeviceFindRequestDescriptor instead')
 const ClientDeviceFindRequest$json = {
@@ -536,39 +307,6 @@ const ClientDeviceRebootResponse$json = {
 final $typed_data.Uint8List clientDeviceRebootResponseDescriptor =
     $convert.base64Decode('ChpDbGllbnREZXZpY2VSZWJvb3RSZXNwb25zZQ==');
 
-@$core.Deprecated('Use wifiStatusDescriptor instead')
-const WifiStatus$json = {
-  '1': 'WifiStatus',
-  '2': [
-    {'1': 'connected', '3': 1, '4': 1, '5': 8, '10': 'connected'},
-    {'1': 'ssid', '3': 2, '4': 1, '5': 9, '9': 0, '10': 'ssid', '17': true},
-    {
-      '1': 'rssi_dbm',
-      '3': 3,
-      '4': 1,
-      '5': 3,
-      '9': 1,
-      '10': 'rssiDbm',
-      '17': true
-    },
-    {'1': 'ip', '3': 4, '4': 1, '5': 9, '9': 2, '10': 'ip', '17': true},
-    {'1': 'bssid', '3': 5, '4': 1, '5': 9, '9': 3, '10': 'bssid', '17': true},
-  ],
-  '8': [
-    {'1': '_ssid'},
-    {'1': '_rssi_dbm'},
-    {'1': '_ip'},
-    {'1': '_bssid'},
-  ],
-};
-
-/// Descriptor for `WifiStatus`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List wifiStatusDescriptor = $convert.base64Decode(
-    'CgpXaWZpU3RhdHVzEhwKCWNvbm5lY3RlZBgBIAEoCFIJY29ubmVjdGVkEhcKBHNzaWQYAiABKA'
-    'lIAFIEc3NpZIgBARIeCghyc3NpX2RibRgDIAEoA0gBUgdyc3NpRGJtiAEBEhMKAmlwGAQgASgJ'
-    'SAJSAmlwiAEBEhkKBWJzc2lkGAUgASgJSANSBWJzc2lkiAEBQgcKBV9zc2lkQgsKCV9yc3NpX2'
-    'RibUIFCgNfaXBCCAoGX2Jzc2lk');
-
 @$core.Deprecated('Use wifiSavedNetworkDescriptor instead')
 const WifiSavedNetwork$json = {
   '1': 'WifiSavedNetwork',
@@ -580,36 +318,6 @@ const WifiSavedNetwork$json = {
 /// Descriptor for `WifiSavedNetwork`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List wifiSavedNetworkDescriptor = $convert
     .base64Decode('ChBXaWZpU2F2ZWROZXR3b3JrEhIKBHNzaWQYASABKAlSBHNzaWQ=');
-
-@$core.Deprecated('Use clientWifiStatusGetRequestDescriptor instead')
-const ClientWifiStatusGetRequest$json = {
-  '1': 'ClientWifiStatusGetRequest',
-};
-
-/// Descriptor for `ClientWifiStatusGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List clientWifiStatusGetRequestDescriptor =
-    $convert.base64Decode('ChpDbGllbnRXaWZpU3RhdHVzR2V0UmVxdWVzdA==');
-
-@$core.Deprecated('Use clientWifiStatusGetResponseDescriptor instead')
-const ClientWifiStatusGetResponse$json = {
-  '1': 'ClientWifiStatusGetResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.WifiStatus',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `ClientWifiStatusGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List clientWifiStatusGetResponseDescriptor =
-    $convert.base64Decode(
-        'ChtDbGllbnRXaWZpU3RhdHVzR2V0UmVzcG9uc2USMAoFdmFsdWUYASABKAsyGi5naXpjbGF3Ln'
-        'JwYy52MS5XaWZpU3RhdHVzUgV2YWx1ZQ==');
 
 @$core.Deprecated('Use clientWifiSavedListRequestDescriptor instead')
 const ClientWifiSavedListRequest$json = {

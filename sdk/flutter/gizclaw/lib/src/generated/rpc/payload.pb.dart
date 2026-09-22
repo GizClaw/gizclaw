@@ -8,4 +8,5 @@ export 'payload/firmware.pb.dart';
 export 'payload/mhs.pb.dart';
 export 'payload/social.pb.dart';
 export 'payload/system.pb.dart';
+export 'payload/tool.pb.dart';
 export 'payload/workspace.pb.dart';

@@ -612,9 +612,6 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 		if err != nil {
 			return apitypes.RuntimeProfile{}, fmt.Errorf("workflows.collections.%s: %w", collection, err)
 		}
-		if err := rejectControlAccess(normalized); err != nil {
-			return apitypes.RuntimeProfile{}, fmt.Errorf("workflows.collections.%s: %w", collection, err)
-		}
 		for alias := range normalized {
 			if previous, exists := workflowAliases[alias]; exists {
 				return apitypes.RuntimeProfile{}, fmt.Errorf("workflow alias %q is duplicated in collections %q and %q", alias, previous, collection)
@@ -642,11 +639,6 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 		normalized, err := normalizeBindingMap(*resourceMap.values)
 		if err != nil {
 			return apitypes.RuntimeProfile{}, err
-		}
-		if resourceMap.name != "tool" {
-			if err := rejectControlAccess(normalized); err != nil {
-				return apitypes.RuntimeProfile{}, fmt.Errorf("resources.%ss: %w", resourceMap.name, err)
-			}
 		}
 		for alias := range normalized {
 			if err := registerProfileAlias(allAliases, alias, resourceMap.name); err != nil {
@@ -1325,18 +1317,6 @@ func validateEinoRuntimeAliases(path string, graph apitypes.EinoGraph, requireMo
 	return nil
 }
 
-// rejectControlAccess refuses control_access outside resources.tools: only a
-// Tool can be invoked by the control app, so the marker anywhere else would
-// promise an exposure that does not exist.
-func rejectControlAccess(bindings map[string]apitypes.RuntimeProfileBinding) error {
-	for alias, binding := range bindings {
-		if binding.ControlAccess != nil {
-			return fmt.Errorf("runtime profile binding %q: control_access is only valid under resources.tools", alias)
-		}
-	}
-	return nil
-}
-
 func normalizeBindingMap(values map[string]apitypes.RuntimeProfileBinding) (map[string]apitypes.RuntimeProfileBinding, error) {
 	out := make(map[string]apitypes.RuntimeProfileBinding, len(values))
 	for alias, binding := range values {
@@ -1367,9 +1347,6 @@ func normalizeBindingMap(values map[string]apitypes.RuntimeProfileBinding) (map[
 			i18n[locale] = text
 		}
 		binding.I18n = i18n
-		if binding.ControlAccess != nil && !binding.ControlAccess.Valid() {
-			return nil, fmt.Errorf("runtime profile binding %q has unknown control_access %q", alias, *binding.ControlAccess)
-		}
 		for _, required := range []string{"en", "zh-CN"} {
 			if _, ok := binding.I18n[required]; !ok {
 				return nil, fmt.Errorf("runtime profile binding %q requires i18n.%s", alias, required)

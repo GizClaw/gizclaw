@@ -23,8 +23,8 @@ typedef struct gzt_control gzt_control_t;
  *
  * provider_handle is the cgo.Handle the C provider passes back to Go when the
  * Server calls a client.* method; pass 0 to answer every client.* method with
- * METHOD_NOT_FOUND. tool_name, when non-empty, registers that client_rpc Tool
- * so client.tool.invoke for it reaches the same provider.
+ * METHOD_NOT_FOUND. tool_mask selects ClientTool values; mhs_mask selects
+ * read (bit 0) and write (bit 1) providers.
  */
 int gzt_session_open(
     const char *endpoint,
@@ -33,7 +33,8 @@ int gzt_session_open(
     const char *credential_type,
     const char *credential_value,
     unsigned long long provider_handle,
-    const char *tool_name,
+    unsigned int tool_mask,
+    unsigned int mhs_mask,
     gzt_session_t **out_session,
     char *errbuf,
     unsigned long errbuf_len);

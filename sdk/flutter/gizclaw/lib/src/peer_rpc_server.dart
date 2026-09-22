@@ -1,6 +1,3 @@
-// The server still dispatches the deprecated volume/settings RPCs so existing devices keep working.
-// ignore_for_file: deprecated_member_use_from_same_package
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -22,9 +19,9 @@ typedef GizClawDeviceInfoProvider = FutureOr<payload.DeviceInfo> Function();
 typedef GizClawDeviceIdentifiersProvider =
     FutureOr<payload.DeviceIdentifiers> Function();
 typedef GizClawToolHandler =
-    FutureOr<Object?> Function(Map<String, Object?> arguments);
+    FutureOr<GeneratedMessage> Function(GeneratedMessage request);
 
-/// Receives `client.social.ping`: a Friend pinged this device, or a Friend
+/// Receives `social.ping`: a Friend pinged this device, or a Friend
 /// Group member rallied the group when `friendGroupName` is set. It should
 /// alert the user and return promptly; the Server counts an error or a late
 /// acknowledgement as not delivered.
@@ -84,28 +81,21 @@ class GizClawAudioPlayerHandlers {
   modeSet;
 }
 
-/// Implements the Server-initiated `client.device.*` and `client.wifi.*`
+/// Implements the Server-initiated `device.*` and `wifi.*`
 /// methods. A null handler answers `METHOD_NOT_FOUND`, which the Server maps
 /// to `501 DEVICE_UNSUPPORTED`.
 class GizClawDeviceControlHandlers {
   const GizClawDeviceControlHandlers({
     this.audioplayer,
     this.status,
-    @Deprecated('Use writeMhsStates with RuntimeProfile manifest keys.')
-    this.setVolume,
     this.playSound,
     this.find,
     this.reboot,
-    this.wifiStatus,
     this.savedWifi,
     this.forgetWifi,
     this.scanWifi,
     this.connectWifi,
     this.updateFirmware,
-    @Deprecated('Use readMhsStates with RuntimeProfile manifest keys.')
-    this.getSettings,
-    @Deprecated('Use writeMhsStates with RuntimeProfile manifest keys.')
-    this.setSettings,
     this.factoryReset,
     this.setRunWorkspace,
     this.readMhsStates,
@@ -127,22 +117,19 @@ class GizClawDeviceControlHandlers {
 
   final GizClawAudioPlayerHandlers? audioplayer;
   final FutureOr<payload.PeerStatus> Function()? status;
-  @Deprecated('Use writeMhsStates with RuntimeProfile manifest keys.')
-  final FutureOr<payload.PeerStatus> Function(int level, bool muted)? setVolume;
   final FutureOr<void> Function(String sound, int? durationMs)? playSound;
 
-  /// Rings the built-in find-me sound for `client.device.find`. `durationMs`
+  /// Rings the built-in find-me sound for `device.find`. `durationMs`
   /// is null when the caller leaves the ring time to the device.
   final FutureOr<void> Function(int? durationMs)? find;
   final FutureOr<void> Function(int? delayMs)? reboot;
-  final FutureOr<payload.WifiStatus> Function()? wifiStatus;
   final FutureOr<List<payload.WifiSavedNetwork>> Function()? savedWifi;
   final FutureOr<void> Function(String ssid)? forgetWifi;
   final FutureOr<List<payload.WifiScanResult>> Function(int? timeoutMs)?
   scanWifi;
   final FutureOr<void> Function(String ssid, String? passphrase)? connectWifi;
 
-  /// Runs one OTA for `client.firmware.update`. `channel` is null when the
+  /// Runs one OTA for `firmware.update`. `channel` is null when the
   /// caller leaves the choice to the device; `sha256` is the package digest the
   /// caller resolved, and the handler throws
   /// [GizClawDeviceControlException] with `STATUS_CODE_INVALID_ARGUMENT` when it
@@ -153,23 +140,7 @@ class GizClawDeviceControlHandlers {
   )?
   updateFirmware;
 
-  /// Reports every option this device supports for
-  /// `client.device.settings.get`. An option the device has no hardware for
-  /// stays unset rather than carrying a placeholder, which is how a caller
-  /// tells "unsupported" from "off".
-  @Deprecated('Use readMhsStates with RuntimeProfile manifest keys.')
-  final FutureOr<payload.DeviceSettings> Function()? getSettings;
-
-  /// Applies only the members present in [patch] for
-  /// `client.device.settings.set` and returns the device's full settings
-  /// afterwards, so the caller sees what was accepted. An unsupported member is
-  /// ignored rather than rejected. An out-of-range member is rejected before
-  /// this handler runs.
-  @Deprecated('Use writeMhsStates with RuntimeProfile manifest keys.')
-  final FutureOr<payload.DeviceSettings> Function(payload.DeviceSettings patch)?
-  setSettings;
-
-  /// Erases device-local state for `client.device.factory_reset`.
+  /// Erases device-local state for `device.factory_reset`.
   /// `keepNetwork` retains saved Wi-Fi and cellular configuration.
   ///
   /// Like [reboot], the handler must complete promptly and only then perform
@@ -178,7 +149,7 @@ class GizClawDeviceControlHandlers {
   /// response the method promises. Schedule the reset and return.
   final FutureOr<void> Function(bool keepNetwork)? factoryReset;
 
-  /// Switches the Workspace the device runs for `client.run.workspace.set` to
+  /// Switches the Workspace the device runs for `run.workspace.set` to
   /// `request.workspaceName`, already validated; the Server has resolved any
   /// workflow target to this one name.
   ///
@@ -191,64 +162,31 @@ class GizClawDeviceControlHandlers {
 class GizClawPeerRpcHandlers {
   GizClawPeerRpcHandlers({
     required this.deviceInfo,
-    Map<String, GizClawToolHandler> tools = const {},
+    this.observe,
+    Map<payload.ClientTool, GizClawToolHandler> tools = const {},
     this.deviceControl,
     this.deviceIdentifiers,
     this.socialPing,
   }) : tools = Map.unmodifiable(tools);
 
+  /// Observes decoded requests, including a tool with no installed provider.
+  final void Function(String method, payload.ClientTool? tool)? observe;
   final GizClawDeviceInfoProvider deviceInfo;
-  final Map<String, GizClawToolHandler> tools;
+  final Map<payload.ClientTool, GizClawToolHandler> tools;
   final GizClawDeviceControlHandlers? deviceControl;
 
-  /// Answers `client.identifiers.get`. When null the identifiers reported by
+  /// Answers `identifiers.get`. When null the identifiers reported by
   /// [deviceInfo] are used, so a device that already reports them there needs
   /// no separate provider.
   final GizClawDeviceIdentifiersProvider? deviceIdentifiers;
 
-  /// Answers `client.social.ping`. When null the device answers
+  /// Answers `social.ping`. When null the device answers
   /// `METHOD_NOT_FOUND`, which the Server counts as not delivered. Throw
   /// [GizClawDeviceControlException] to answer a specific RPC error code.
   final GizClawSocialPingHandler? socialPing;
 }
 
-const _deviceControlMethods = {
-  'client.device.audioplayer.get',
-  'client.device.audioplayer.playlist.get',
-  'client.device.audioplayer.playlist.set',
-  'client.device.audioplayer.playlist.append',
-  'client.device.audioplayer.play',
-  'client.device.audioplayer.stop',
-  'client.device.audioplayer.mode.set',
-
-  'client.device.status.get',
-  'client.device.volume.set',
-  'client.device.sound.play',
-  'client.device.find',
-  'client.device.reboot',
-  'client.wifi.status.get',
-  'client.wifi.saved.list',
-  'client.wifi.saved.forget',
-  'client.wifi.scan',
-  'client.wifi.connect',
-  'client.firmware.update',
-  'client.device.settings.get',
-  'client.device.settings.set',
-  'client.device.factory_reset',
-  'client.run.workspace.set',
-  'client.mhs.v0.read',
-  'client.mhs.v0.write',
-};
 const _deviceControlMaxBytes = 32;
-
-// Mirrors the DeviceSettings.locale bound in api/proto/rpc/nanopb.options.
-const _deviceSettingsLocaleMaxBytes = 35;
-
-// BCP 47 well-formedness at the subtag level: a 2-8 letter primary subtag and
-// hyphen-separated 1-8 character alphanumeric subtags, e.g. "zh-Hant-TW".
-final _deviceSettingsLocalePattern = RegExp(
-  r'^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$',
-);
 
 void serveGizClawPeerRpcChannel(
   GizClawDataChannel channel, {
@@ -414,35 +352,11 @@ class _InboundPeerRpcChannel {
           ).catchError((_) => _close()),
         );
         return;
-      case 'client.info.get':
-      case 'client.identifiers.get':
-      case 'client.tool.invoke':
-      case 'client.device.audioplayer.get':
-      case 'client.device.audioplayer.playlist.get':
-      case 'client.device.audioplayer.playlist.set':
-      case 'client.device.audioplayer.playlist.append':
-      case 'client.device.audioplayer.play':
-      case 'client.device.audioplayer.stop':
-      case 'client.device.audioplayer.mode.set':
-      case 'client.device.status.get':
-      case 'client.device.volume.set':
-      case 'client.device.sound.play':
-      case 'client.device.find':
-      case 'client.device.reboot':
-      case 'client.wifi.status.get':
-      case 'client.wifi.saved.list':
-      case 'client.wifi.saved.forget':
-      case 'client.wifi.scan':
-      case 'client.wifi.connect':
-      case 'client.firmware.update':
-      case 'client.device.settings.get':
-      case 'client.device.settings.set':
-      case 'client.device.factory_reset':
-      case 'client.run.workspace.set':
+      case 'client.tool.v0.invoke':
+      case 'client.tool.v0.list':
+      case 'client.rpc.methods.list':
       case 'client.mhs.v0.read':
       case 'client.mhs.v0.write':
-      case 'client.rpc.methods.get':
-      case 'client.social.ping':
         return;
       default:
         _ignoreBody = true;
@@ -462,14 +376,12 @@ class _InboundPeerRpcChannel {
     final methodName = _methodName(request);
     late rpc.RpcResponse response;
     try {
+      if (methodName != 'client.tool.v0.invoke') handlers?.observe?.call(methodName, null);
       response = switch (methodName) {
-        'client.info.get' => await _getClientInfo(request),
-        'client.identifiers.get' => await _getClientIdentifiers(request),
-        'client.tool.invoke' => await _invokeClientTool(request),
-        'client.social.ping' => await _serveSocialPing(request),
-        'client.rpc.methods.get' => _serveRpcMethods(request),
-        _ when _deviceControlMethods.contains(methodName) =>
-          await _serveDeviceControl(request, methodName),
+        'client.tool.v0.invoke' => await _invokeClientTool(request),
+        'client.tool.v0.list' => _serveToolList(request),
+        'client.rpc.methods.list' => _serveRpcMethods(request),
+        'client.mhs.v0.read' || 'client.mhs.v0.write' => await _serveDeviceControl(request, methodName),
         _ => throw StateError('unsupported client method: $methodName'),
       };
     } on GizClawDeviceControlException catch (error) {
@@ -490,7 +402,7 @@ class _InboundPeerRpcChannel {
   }
 
   Future<rpc.RpcResponse> _getClientInfo(rpc.RpcRequest request) async {
-    final invalid = _validateClientRequest(request, 'client.info.get');
+    final invalid = _validateClientRequest(request, 'info.get');
     if (invalid != null) return invalid;
     final provider = handlers?.deviceInfo;
     if (provider == null) {
@@ -514,13 +426,13 @@ class _InboundPeerRpcChannel {
     }
     return _rpcPayloadResponse(
       request.id,
-      'client.info.get',
+      'info.get',
       payload.ClientGetInfoResponse(value: info),
     );
   }
 
   Future<rpc.RpcResponse> _getClientIdentifiers(rpc.RpcRequest request) async {
-    final invalid = _validateClientRequest(request, 'client.identifiers.get');
+    final invalid = _validateClientRequest(request, 'identifiers.get');
     if (invalid != null) return invalid;
     final identifiersProvider = handlers?.deviceIdentifiers;
     final provider = handlers?.deviceInfo;
@@ -540,130 +452,98 @@ class _InboundPeerRpcChannel {
     identifiers.labels.addAll(source.labels);
     return _rpcPayloadResponse(
       request.id,
-      'client.identifiers.get',
+      'identifiers.get',
       payload.ClientGetIdentifiersResponse(value: identifiers),
     );
   }
 
   Future<rpc.RpcResponse> _invokeClientTool(rpc.RpcRequest request) async {
-    if (!request.hasPayload()) {
-      return _rpcErrorResponse(
-        request.id,
-        rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
-        'invalid params',
-      );
-    }
-    late payload.ToolInvokeRequest params;
+    late payload.ClientToolV0InvokeRequest invocation;
+    late GeneratedMessage arguments;
     try {
-      params =
-          decodeRpcRequestPayload('client.tool.invoke', request.payload)
-              as payload.ToolInvokeRequest;
-    } catch (_) {
-      return _rpcErrorResponse(
-        request.id,
-        rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
-        'invalid params',
-      );
-    }
-    final name = params.invokeName.trim();
-    if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_-]{0,63}$').hasMatch(name)) {
-      return _rpcErrorResponse(
-        request.id,
-        rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
-        'invalid Tool name',
-      );
-    }
-    final handler = handlers?.tools[name];
-    if (handler == null) {
-      return _rpcErrorResponse(
-        request.id,
-        rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED,
-        'Tool unavailable',
-      );
-    }
-    try {
-      final rawArguments = params.hasArgs()
-          ? params.args.toProto3Json()
-          : <String, Object?>{};
-      if (rawArguments is! Map) {
-        throw const FormatException('Tool arguments must be an object');
+      invocation = payload.ClientToolV0InvokeRequest.fromBuffer(request.payload);
+      if (!clientToolNamesById.containsKey(invocation.tool.value)) {
+        return _rpcErrorResponse(request.id, rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED, 'unsupported tool');
       }
-      final arguments = rawArguments.map(
-        (key, value) => MapEntry(key.toString(), value),
-      );
-      final encoded = jsonEncode(await handler(arguments));
-      if (utf8.encode(encoded).length > 64 * 1024) {
-        throw const FormatException('Tool result is too large');
-      }
-      return _rpcPayloadResponse(
-        request.id,
-        'client.tool.invoke',
-        payload.ToolInvokeResponse(dataJson: encoded),
-      );
+      arguments = decodeClientToolRequestPayload(invocation.tool.value, invocation.payload);
+      if (!_validToolArguments(arguments)) { throw const FormatException('invalid tool arguments'); }
     } catch (_) {
-      return _rpcErrorResponse(
-        request.id,
-        rpc.StatusCode.STATUS_CODE_INTERNAL,
-        'Tool handler failed',
-      );
+      return _rpcErrorResponse(request.id, rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT, 'invalid params');
     }
+    handlers?.observe?.call('client.tool.v0.invoke', invocation.tool);
+    final name = clientToolById(invocation.tool.value).name;
+    final inner = rpc.RpcRequest(id: request.id, payload: invocation.payload);
+    final handler = handlers?.tools[invocation.tool];
+    final rpc.RpcResponse result;
+    if (handler != null) {
+      result = _rpcPayloadResponse(request.id, name, await handler(arguments));
+    } else {
+      result = switch (name) {
+        'info.get' => await _getClientInfo(inner),
+        'identifiers.get' => await _getClientIdentifiers(inner),
+        'social.ping' => await _serveSocialPing(inner),
+        _ => await _serveDeviceControl(inner, name),
+      };
+    }
+    if (result.hasStatus()) return result;
+    return _rpcPayloadResponse(request.id, 'client.tool.v0.invoke', payload.ClientToolV0InvokeResponse(payload: result.payload));
   }
 
-  /// Answers `client.rpc.methods.get` from the handlers actually installed, so
-  /// the list cannot drift from what this device accepts. `client.info.get`
-  /// and `client.identifiers.get` are always answered, the latter falling back
-  /// to [GizClawPeerRpcHandlers.deviceInfo].
   rpc.RpcResponse _serveRpcMethods(rpc.RpcRequest request) {
+    final invalid = _validateClientRequest(request, 'client.rpc.methods.list');
+    if (invalid != null) return invalid;
+    final methods = <rpc.RpcMethod>[
+      rpc.RpcMethod.RPC_METHOD_ALL_PING, rpc.RpcMethod.RPC_METHOD_ALL_SPEED_TEST_RUN,
+      if (handlers?.deviceControl?.readMhsStates != null) rpc.RpcMethod.RPC_METHOD_CLIENT_MHS_V0_READ,
+      if (handlers?.deviceControl?.writeMhsStates != null) rpc.RpcMethod.RPC_METHOD_CLIENT_MHS_V0_WRITE,
+      rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE, rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_LIST,
+      rpc.RpcMethod.RPC_METHOD_CLIENT_RPC_METHODS_LIST,
+    ];
+    return _rpcPayloadResponse(request.id, 'client.rpc.methods.list', payload.ClientRpcMethodsListResponse(methods: methods));
+  }
+
+  rpc.RpcResponse _serveToolList(rpc.RpcRequest request) {
+    final invalid = _validateClientRequest(request, 'client.tool.v0.list');
+    if (invalid != null) return invalid;
     final control = handlers?.deviceControl;
     final player = control?.audioplayer;
     final installed = <String, Object?>{
-      'client.social.ping': handlers?.socialPing,
-      'client.device.status.get': control?.status,
-      'client.device.volume.set': control?.setVolume,
-      'client.device.sound.play': control?.playSound,
-      'client.device.find': control?.find,
-      'client.device.reboot': control?.reboot,
-      'client.device.settings.get': control?.getSettings,
-      'client.device.settings.set': control?.setSettings,
-      'client.device.factory_reset': control?.factoryReset,
-      'client.run.workspace.set': control?.setRunWorkspace,
-      'client.mhs.v0.read': control?.readMhsStates,
-      'client.mhs.v0.write': control?.writeMhsStates,
-      'client.firmware.update': control?.updateFirmware,
-      'client.wifi.status.get': control?.wifiStatus,
-      'client.wifi.saved.list': control?.savedWifi,
-      'client.wifi.saved.forget': control?.forgetWifi,
-      'client.wifi.scan': control?.scanWifi,
-      'client.wifi.connect': control?.connectWifi,
-      'client.device.audioplayer.get': player?.get,
-      'client.device.audioplayer.playlist.get': player?.playlistGet,
-      'client.device.audioplayer.playlist.set': player?.playlistSet,
-      'client.device.audioplayer.playlist.append': player?.playlistAppend,
-      'client.device.audioplayer.play': player?.play,
-      'client.device.audioplayer.stop': player?.stop,
-      'client.device.audioplayer.mode.set': player?.modeSet,
+      'social.ping': handlers?.socialPing,
+      'device.status.get': control?.status,
+      'sound.play': control?.playSound,
+      'device.find': control?.find,
+      'device.reboot': control?.reboot,
+      'device.factory_reset': control?.factoryReset,
+      'run.workspace.set': control?.setRunWorkspace,
+      'firmware.update': control?.updateFirmware,
+      'wifi.saved.list': control?.savedWifi,
+      'wifi.saved.forget': control?.forgetWifi,
+      'wifi.scan': control?.scanWifi,
+      'wifi.connect': control?.connectWifi,
+      'audioplayer.get': player?.get,
+      'audioplayer.playlist.get': player?.playlistGet,
+      'audioplayer.playlist.set': player?.playlistSet,
+      'audioplayer.playlist.append': player?.playlistAppend,
+      'audioplayer.play': player?.play,
+      'audioplayer.stop': player?.stop,
+      'audioplayer.mode.set': player?.modeSet,
     };
-    return _rpcPayloadResponse(
-      request.id,
-      'client.rpc.methods.get',
-      payload.ClientRpcMethodsGetResponse(
-        methods: [
-          'client.info.get',
-          'client.identifiers.get',
-          for (final entry in installed.entries)
-            if (entry.value != null) entry.key,
-          'client.rpc.methods.get',
-        ],
-      ),
-    );
+    final tools = <payload.ClientTool>{
+      if (handlers != null) payload.ClientTool.CLIENT_TOOL_INFO_GET,
+      if (handlers != null) payload.ClientTool.CLIENT_TOOL_IDENTIFIERS_GET,
+      for (final entry in installed.entries)
+        if (entry.value != null) payload.ClientTool.valueOf(clientToolByName(entry.key).id)!,
+      ...?handlers?.tools.keys,
+    }.toList()..sort((a,b) => a.value.compareTo(b.value));
+    return _rpcPayloadResponse(request.id, 'client.tool.v0.list', payload.ClientToolV0ListResponse(tools: tools));
   }
 
   Future<rpc.RpcResponse> _serveSocialPing(rpc.RpcRequest request) async {
-    const methodName = 'client.social.ping';
+    const methodName = 'social.ping';
     late payload.ClientSocialPingRequest params;
     try {
       params =
-          decodeRpcRequestPayload(
+          _decodeProviderRequest(
                 methodName,
                 request.hasPayload() ? request.payload : const [],
               )
@@ -715,7 +595,7 @@ class _InboundPeerRpcChannel {
     );
     GeneratedMessage? params;
     try {
-      params = decodeRpcRequestPayload(
+      params = _decodeProviderRequest(
         methodName,
         request.hasPayload() ? request.payload : const [],
       );
@@ -723,7 +603,7 @@ class _InboundPeerRpcChannel {
       return invalid();
     }
     switch (methodName) {
-      case 'client.device.audioplayer.get':
+      case 'audioplayer.get':
         final handler = handlers?.audioplayer?.get;
         if (handler == null) return unsupported();
         final player = params as payload.ClientDeviceAudioPlayerGetRequest;
@@ -732,7 +612,7 @@ class _InboundPeerRpcChannel {
           methodName,
           await handler(player),
         );
-      case 'client.device.audioplayer.playlist.get':
+      case 'audioplayer.playlist.get':
         final handler = handlers?.audioplayer?.playlistGet;
         if (handler == null) return unsupported();
         final player =
@@ -742,7 +622,7 @@ class _InboundPeerRpcChannel {
           methodName,
           await handler(player),
         );
-      case 'client.device.audioplayer.playlist.set':
+      case 'audioplayer.playlist.set':
         final handler = handlers?.audioplayer?.playlistSet;
         if (handler == null) return unsupported();
         final player =
@@ -753,7 +633,7 @@ class _InboundPeerRpcChannel {
           methodName,
           await handler(player),
         );
-      case 'client.device.audioplayer.playlist.append':
+      case 'audioplayer.playlist.append':
         final handler = handlers?.audioplayer?.playlistAppend;
         if (handler == null) return unsupported();
         final player =
@@ -764,7 +644,7 @@ class _InboundPeerRpcChannel {
           methodName,
           await handler(player),
         );
-      case 'client.device.audioplayer.play':
+      case 'audioplayer.play':
         final handler = handlers?.audioplayer?.play;
         if (handler == null) return unsupported();
         final player = params as payload.ClientDeviceAudioPlayerPlayRequest;
@@ -774,7 +654,7 @@ class _InboundPeerRpcChannel {
           methodName,
           await handler(player),
         );
-      case 'client.device.audioplayer.stop':
+      case 'audioplayer.stop':
         final handler = handlers?.audioplayer?.stop;
         if (handler == null) return unsupported();
         final player = params as payload.ClientDeviceAudioPlayerStopRequest;
@@ -783,7 +663,7 @@ class _InboundPeerRpcChannel {
           methodName,
           await handler(player),
         );
-      case 'client.device.audioplayer.mode.set':
+      case 'audioplayer.mode.set':
         final handler = handlers?.audioplayer?.modeSet;
         if (handler == null) return unsupported();
         final player = params as payload.ClientDeviceAudioPlayerModeSetRequest;
@@ -795,7 +675,7 @@ class _InboundPeerRpcChannel {
           methodName,
           await handler(player),
         );
-      case 'client.device.status.get':
+      case 'device.status.get':
         final handler = handlers?.status;
         if (handler == null) return unsupported();
         return _rpcPayloadResponse(
@@ -803,20 +683,7 @@ class _InboundPeerRpcChannel {
           methodName,
           payload.ClientDeviceStatusGetResponse(value: await handler()),
         );
-      case 'client.device.volume.set':
-        final handler = handlers?.setVolume;
-        if (handler == null) return unsupported();
-        final volume = params as payload.ClientDeviceVolumeSetRequest;
-        final level = volume.level.toInt();
-        if (level < 0 || level > 100) return invalid();
-        return _rpcPayloadResponse(
-          request.id,
-          methodName,
-          payload.ClientDeviceVolumeSetResponse(
-            value: await handler(level, volume.muted),
-          ),
-        );
-      case 'client.device.sound.play':
+      case 'sound.play':
         final handler = handlers?.playSound;
         if (handler == null) return unsupported();
         final sound = params as payload.ClientDeviceSoundPlayRequest;
@@ -833,7 +700,7 @@ class _InboundPeerRpcChannel {
           methodName,
           payload.ClientDeviceSoundPlayResponse(),
         );
-      case 'client.device.find':
+      case 'device.find':
         final handler = handlers?.find;
         if (handler == null) return unsupported();
         final find = params as payload.ClientDeviceFindRequest;
@@ -847,7 +714,7 @@ class _InboundPeerRpcChannel {
           methodName,
           payload.ClientDeviceFindResponse(),
         );
-      case 'client.device.reboot':
+      case 'device.reboot':
         final handler = handlers?.reboot;
         if (handler == null) return unsupported();
         final reboot = params as payload.ClientDeviceRebootRequest;
@@ -877,27 +744,7 @@ class _InboundPeerRpcChannel {
           throw StateError('invalid MHS handler response');
         }
         return _rpcPayloadResponse(request.id, methodName, result);
-      case 'client.device.settings.get':
-        final handler = handlers?.getSettings;
-        if (handler == null) return unsupported();
-        return _rpcPayloadResponse(
-          request.id,
-          methodName,
-          payload.ClientDeviceSettingsGetResponse(value: await handler()),
-        );
-      case 'client.device.settings.set':
-        final handler = handlers?.setSettings;
-        if (handler == null) return unsupported();
-        final patch = (params as payload.ClientDeviceSettingsSetRequest).value;
-        // Reject the whole patch before applying any of it, so a bad member
-        // cannot leave the device half-configured.
-        if (!_validDeviceSettingsPatch(patch)) return invalid();
-        return _rpcPayloadResponse(
-          request.id,
-          methodName,
-          payload.ClientDeviceSettingsSetResponse(value: await handler(patch)),
-        );
-      case 'client.device.factory_reset':
+      case 'device.factory_reset':
         final handler = handlers?.factoryReset;
         if (handler == null) return unsupported();
         final reset = params as payload.ClientDeviceFactoryResetRequest;
@@ -907,7 +754,7 @@ class _InboundPeerRpcChannel {
           methodName,
           payload.ClientDeviceFactoryResetResponse(),
         );
-      case 'client.run.workspace.set':
+      case 'run.workspace.set':
         final handler = handlers?.setRunWorkspace;
         if (handler == null) return unsupported();
         final target = params as payload.ClientRunWorkspaceSetRequest;
@@ -918,7 +765,7 @@ class _InboundPeerRpcChannel {
           methodName,
           payload.ClientRunWorkspaceSetResponse(),
         );
-      case 'client.firmware.update':
+      case 'firmware.update':
         final handler = handlers?.updateFirmware;
         if (handler == null) return unsupported();
         final update = params as payload.ClientFirmwareUpdateRequest;
@@ -931,15 +778,7 @@ class _InboundPeerRpcChannel {
           methodName,
           payload.ClientFirmwareUpdateResponse(),
         );
-      case 'client.wifi.status.get':
-        final handler = handlers?.wifiStatus;
-        if (handler == null) return unsupported();
-        return _rpcPayloadResponse(
-          request.id,
-          methodName,
-          payload.ClientWifiStatusGetResponse(value: await handler()),
-        );
-      case 'client.wifi.saved.list':
+      case 'wifi.saved.list':
         final handler = handlers?.savedWifi;
         if (handler == null) return unsupported();
         return _rpcPayloadResponse(
@@ -947,7 +786,7 @@ class _InboundPeerRpcChannel {
           methodName,
           payload.ClientWifiSavedListResponse(networks: await handler()),
         );
-      case 'client.wifi.saved.forget':
+      case 'wifi.saved.forget':
         final handler = handlers?.forgetWifi;
         if (handler == null) return unsupported();
         final forget = params as payload.ClientWifiSavedForgetRequest;
@@ -961,7 +800,7 @@ class _InboundPeerRpcChannel {
           methodName,
           payload.ClientWifiSavedForgetResponse(),
         );
-      case 'client.wifi.scan':
+      case 'wifi.scan':
         final handler = handlers?.scanWifi;
         if (handler == null) return unsupported();
         final scan = params as payload.ClientWifiScanRequest;
@@ -974,7 +813,7 @@ class _InboundPeerRpcChannel {
           methodName,
           payload.ClientWifiScanResponse(networks: await handler(timeoutMs)),
         );
-      case 'client.wifi.connect':
+      case 'wifi.connect':
         final handler = handlers?.connectWifi;
         if (handler == null) return unsupported();
         final connect = params as payload.ClientWifiConnectRequest;
@@ -1005,7 +844,7 @@ class _InboundPeerRpcChannel {
     String methodName,
   ) {
     try {
-      decodeRpcRequestPayload(
+      _decodeProviderRequest(
         methodName,
         request.hasPayload() ? request.payload : const [],
       );
@@ -1026,7 +865,9 @@ class _InboundPeerRpcChannel {
   ) {
     return rpc.RpcResponse(
       id: id,
-      payload: encodeRpcResponsePayload(methodName, response),
+      payload: clientToolsByName.containsKey(methodName)
+        ? encodeClientToolResponsePayload(clientToolByName(methodName).id, response)
+        : encodeRpcResponsePayload(methodName, response),
     );
   }
 
@@ -1143,12 +984,7 @@ class _InboundPeerRpcChannel {
   }
 
   bool _isClientMethod(String methodName) {
-    return methodName == 'client.info.get' ||
-        methodName == 'client.identifiers.get' ||
-        methodName == 'client.tool.invoke' ||
-        methodName == 'client.social.ping' ||
-        methodName == 'client.rpc.methods.get' ||
-        _deviceControlMethods.contains(methodName);
+    return const {'client.tool.v0.invoke', 'client.tool.v0.list', 'client.rpc.methods.list', 'client.mhs.v0.read', 'client.mhs.v0.write'}.contains(methodName);
   }
 
   void _close() {
@@ -1179,45 +1015,6 @@ bool _validAudioPlayerItems(List<payload.AudioPlayerItem> items, bool append) {
     return utf8.encode(item.title).length <= 128 &&
         utf8.encode(item.sourceRef).length <= 128;
   });
-}
-
-/// Mirrors the DeviceSettings ranges in api/proto/rpc/payload/system.proto. An
-/// unset member leaves that option unchanged; an explicitly unspecified enum is
-/// rejected.
-bool _validDeviceSettingsPatch(payload.DeviceSettings patch) {
-  bool percent(bool present, fixnum.Int64 value) =>
-      !present || (value >= 0 && value <= 100);
-  if (!percent(patch.hasScreenBrightness(), patch.screenBrightness) ||
-      !percent(patch.hasLedBrightness(), patch.ledBrightness)) {
-    return false;
-  }
-  if (patch.hasScreenOffTimeoutMs() && patch.screenOffTimeoutMs < 0) {
-    return false;
-  }
-  if (patch.hasLocale() &&
-      (utf8.encode(patch.locale).length > _deviceSettingsLocaleMaxBytes ||
-          !_deviceSettingsLocalePattern.hasMatch(patch.locale))) {
-    return false;
-  }
-  if (patch.hasDefaultInteractionMode() &&
-      patch.defaultInteractionMode ==
-          payload.DeviceInteractionMode.DEVICE_INTERACTION_MODE_UNSPECIFIED) {
-    return false;
-  }
-  if (patch.hasKeyFeedback() &&
-      patch.keyFeedback ==
-          payload.DeviceKeyFeedback.DEVICE_KEY_FEEDBACK_UNSPECIFIED) {
-    return false;
-  }
-  if (patch.hasAlertMode() &&
-      patch.alertMode ==
-          payload.DeviceAlertMode.DEVICE_ALERT_MODE_UNSPECIFIED) {
-    return false;
-  }
-  if (patch.hasAutoSleepTimeoutMs() && patch.autoSleepTimeoutMs < 0) {
-    return false;
-  }
-  return true;
 }
 
 // Mirrors the ClientRunWorkspaceSetRequest name bound in
@@ -1276,4 +1073,26 @@ bool _validMhsStates(List<payload.MhsStateValue> states) {
     if (!valid) return false;
   }
   return true;
+}
+
+GeneratedMessage _decodeProviderRequest(String name, List<int> bytes) => clientToolsByName.containsKey(name) ? decodeClientToolRequestPayload(clientToolByName(name).id, bytes) : decodeRpcRequestPayload(name, bytes);
+
+bool _validToolArguments(GeneratedMessage request) {
+  bool text(String value, int max) => value.isNotEmpty && utf8.encode(value).length <= max && !value.contains('\u0000');
+  return switch (request) {
+    payload.ClientDeviceSoundPlayRequest r => text(r.sound, 32) && (!r.hasDurationMs() || r.durationMs >= 0),
+    payload.ClientDeviceFindRequest r => !r.hasDurationMs() || r.durationMs >= 0,
+    payload.ClientDeviceRebootRequest r => !r.hasDelayMs() || r.delayMs >= 0,
+    payload.ClientWifiConnectRequest r => text(r.ssid, 32) && (!r.hasPassphrase() || (text(r.passphrase, 63) && utf8.encode(r.passphrase).length >= 8)),
+    payload.ClientWifiSavedForgetRequest r => text(r.ssid, 32),
+    payload.ClientWifiScanRequest r => !r.hasTimeoutMs() || (r.timeoutMs >= 1000 && r.timeoutMs <= 15000),
+    payload.ClientFirmwareUpdateRequest r => (!r.hasSha256() || RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(r.sha256)) && (!r.hasChannel() || r.channel.value >= 1 && r.channel.value <= 3),
+    payload.ClientDeviceAudioPlayerPlaylistSetRequest r => _validAudioPlayerItems(r.items, false),
+    payload.ClientDeviceAudioPlayerPlaylistAppendRequest r => _validAudioPlayerItems(r.items, true),
+    payload.ClientDeviceAudioPlayerPlayRequest r => r.index >= 0 && r.index < 32,
+    payload.ClientDeviceAudioPlayerModeSetRequest r => const ['off', 'one', 'all'].contains(r.repeat),
+    payload.ClientRunWorkspaceSetRequest r => _validRunWorkspaceRequest(r),
+    payload.ClientSocialPingRequest r => text(r.fromPeerPublicKey, 128),
+    _ => true,
+  };
 }

@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -32,7 +31,6 @@ type ServiceResolver struct {
 	ToolBuilder            *toolkit.Builder
 	ToolCredentials        toolCredentialResolver
 	HTTPTools              giztools.HTTPExecutor
-	ClientToolTimeout      time.Duration
 }
 
 type workspaceRuntimeProvider interface {
@@ -402,10 +400,9 @@ func (r ServiceResolver) resolveToolkit(_ context.Context, ws apitypes.Workspace
 		ids = workspaceIDs
 	}
 	return &ToolkitInvoker{
-		Builder:       r.ToolBuilder,
-		Credentials:   r.ToolCredentials,
-		HTTP:          r.HTTPTools,
-		ClientTimeout: r.ClientToolTimeout,
+		Builder:     r.ToolBuilder,
+		Credentials: r.ToolCredentials,
+		HTTP:        r.HTTPTools,
 		Request: toolkit.BuildRequest{
 			AllowedTools:  ids,
 			RestrictTools: restrict,

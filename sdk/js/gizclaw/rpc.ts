@@ -1,3 +1,4 @@
+import { decodeClientToolResponsePayload, encodeClientToolResponsePayload } from "./generated/rpc/payload-codec.ts";
 import {
   GIZCLAW_SERVICE_EDGE_RPC,
   GIZCLAW_SERVICE_PEER_RPC,
@@ -17,7 +18,7 @@ import type {
 import type * as RPCPayload from "./generated/rpc/payload-codec.ts";
 
 export type * from "./generated/rpc/payload-codec.ts";
-export { RPC_METHODS } from "./generated/rpc/method-map.ts";
+export { RPC_METHODS, CLIENT_TOOL_IDS, CLIENT_TOOL_NAMES } from "./generated/rpc/method-map.ts";
 
 type Override<T, U> = Omit<T, keyof U> & U;
 
@@ -241,4 +242,13 @@ function isEdgeRPCCaller(
     "callBinary" in value &&
     typeof value.callBinary === "function"
   );
+}
+
+export type { ClientToolMap, ClientToolID } from "./generated/rpc/method-map.ts";
+
+// Decode a JSON tool result through its registered protobuf codec. The numeric
+// registry binds the runtime descriptor to the request/response TypeScript map.
+export function decodeClientToolResult<T extends import("./generated/rpc/method-map.ts").ClientToolID>(tool: T, result: Record<string, unknown>): import("./generated/rpc/method-map.ts").ClientToolMap[T]["response"] {
+  const value = Object.hasOwn(result, "value") ? result.value : result;
+  return decodeClientToolResponsePayload(tool, encodeClientToolResponsePayload(tool, value)) as import("./generated/rpc/method-map.ts").ClientToolMap[T]["response"];
 }

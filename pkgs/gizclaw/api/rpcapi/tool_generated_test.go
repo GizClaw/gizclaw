@@ -18,7 +18,7 @@ func TestSafeToolPayloadRoundTripAndMethodRegistry(t *testing.T) {
 		Name:        "play-music",
 		I18n:        map[string]ResourceI18nText{"en": {DisplayName: "Play Music"}, "zh-CN": {DisplayName: "播放音乐"}},
 		InputSchema: jsonschema.Schema{Type: "object", Required: []string{"query"}, Properties: map[string]*jsonschema.Schema{"query": {Type: "string"}}},
-		InvokeName:  "client_play_music",
+		InvokeName:  "search_music",
 	}
 	response := ToolGetResponse{Value: tool, RuntimeProfileName: "default", RuntimeProfileRevision: "revision"}
 	var payload RPCPayload
@@ -33,12 +33,4 @@ func TestSafeToolPayloadRoundTripAndMethodRegistry(t *testing.T) {
 		t.Fatalf("Tool round trip = %#v", got)
 	}
 
-	invoke := ToolInvokeResponse{DataJson: `{"ok":true}`}
-	if err := payload.FromToolInvokeResponse(invoke); err != nil {
-		t.Fatalf("FromToolInvokeResponse() error = %v", err)
-	}
-	decoded, err := payload.AsToolInvokeResponse()
-	if err != nil || string(decoded.DataJson) != `{"ok":true}` {
-		t.Fatalf("AsToolInvokeResponse() = %s, %v", decoded.DataJson, err)
-	}
 }

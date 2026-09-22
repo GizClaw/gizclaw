@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -75,7 +76,7 @@ func TestWorkspaceRPCToolkitResolution(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			toolCtx, err := agenthost.WithToolExecution(ctx, &bindings, nil)
+			toolCtx, err := agenthost.WithToolExecution(ctx, &bindings)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -101,7 +102,7 @@ func newWorkspaceToolkitTestServer(t *testing.T) *Server {
 	server.Tools = toolkittest.New(t)
 	bindings := map[string]apitypes.RuntimeProfileBinding{}
 	for _, entry := range []struct{ id, alias, invoke string }{{"echo-id", "echo-alias", "giztest_echo"}, {"other-id", "other-alias", "other"}} {
-		_, err := server.Tools.CreateTool(ctx, toolkit.Tool{ID: entry.id, InvokeName: entry.invoke, Type: toolkit.ToolTypeClientRPC, Enabled: true, InputSchema: jsonschema.Schema{Type: "object"}})
+		_, err := server.Tools.CreateTool(ctx, toolkit.Tool{ID: entry.id, InvokeName: entry.invoke, Type: toolkit.ToolTypeHTTPRequest, Enabled: true, HTTP: &toolkit.HTTPRequest{URL: "https://example.com/tool", Method: "GET", Auth: toolkit.HTTPAuth{Method: "none"}, Timeout: time.Second, MaxResponseBytes: 1024}, InputSchema: jsonschema.Schema{Type: "object"}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -208,7 +209,7 @@ func TestWorkspaceRPCToolkitPutAndWorkflowIntersection(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			toolCtx, err := agenthost.WithToolExecution(ctx, server.RuntimeProfile().Spec.Resources.Tools, nil)
+			toolCtx, err := agenthost.WithToolExecution(ctx, server.RuntimeProfile().Spec.Resources.Tools)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -295,7 +296,7 @@ func TestWorkspaceToolkitProjectionAfterProfileChange(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		toolCtx, err := agenthost.WithToolExecution(ctx, bindings, nil)
+		toolCtx, err := agenthost.WithToolExecution(ctx, bindings)
 		if err != nil {
 			t.Fatal(err)
 		}

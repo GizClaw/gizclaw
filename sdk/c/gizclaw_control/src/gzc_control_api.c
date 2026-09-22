@@ -16,6 +16,7 @@ typedef struct {
   gzc_buf_t buf;
   size_t url_len;
   bool query_started;
+  const char *tool;
   int rc;
 } gzc_control_builder_t;
 
@@ -40,6 +41,13 @@ static void builder_begin(
   if (builder->rc == GZC_OK) {
     builder->rc = gzc_buf_append_cstr(&builder->buf, builder->platform, route);
   }
+}
+
+static void builder_tool_begin(gzc_control_builder_t *builder,
+                               gzc_control_client_t *client,
+                               gzc_control_call_t *call, const char *tool) {
+  builder_begin(builder, client, call, "/device/tool/v0/invoke");
+  builder->tool = tool;
 }
 
 /* Appends one percent-encoded path segment, preceded by a slash. */
@@ -114,11 +122,21 @@ static void builder_body_begin(gzc_control_builder_t *builder, gzc_json_writer_t
   builder->url_len = builder->buf.len;
   gzc_json_writer_init(writer, builder->platform, &builder->buf);
   builder->rc = gzc_json_object_begin(writer);
+  if (builder->rc == GZC_OK && builder->tool != NULL) {
+    builder->rc = gzc_json_field_str(writer, "tool", gzc_str_from_cstr(builder->tool));
+    if (builder->rc == GZC_OK)
+      builder->rc = gzc_buf_append_cstr(&builder->buf, builder->platform, ",\"args\":");
+    if (builder->rc == GZC_OK)
+      builder->rc = gzc_json_object_begin(writer);
+  }
 }
 
 static gzc_str_t builder_body(gzc_control_builder_t *builder, gzc_json_writer_t *writer) {
   if (builder->rc == GZC_OK) {
     builder->rc = gzc_json_object_end(writer);
+    if (builder->rc == GZC_OK && builder->tool != NULL) {
+      builder->rc = gzc_json_object_end(writer);
+    }
   }
   if (builder->rc != GZC_OK) {
     return gzc_str_from_parts(NULL, 0);
@@ -150,6 +168,16 @@ static int builder_send(
     gzc_str_t body) {
   if (builder->rc != GZC_OK) {
     return gzc_control_fail(call, GZC_CONTROL_ERROR_NETWORK, builder->rc);
+  }
+  if (builder->tool != NULL) {
+    method = GZC_HTTP_METHOD_POST;
+    if (body.len == 0u) {
+      gzc_json_writer_t writer;
+      builder_body_begin(builder, &writer);
+      body = builder_body(builder, &writer);
+      if (builder->rc != GZC_OK)
+        return gzc_control_fail(call, GZC_CONTROL_ERROR_NETWORK, builder->rc);
+    }
   }
   gzc_control_request_t request;
   request.method = method;
@@ -183,6 +211,17 @@ static int decode_failed(gzc_control_call_t *call, int rc) {
                                                     : GZC_CONTROL_ERROR_MALFORMED_RESPONSE;
   call->error.status_code = call->status_code;
   return rc;
+}
+
+static int decoded_tool_result(gzc_control_call_t *call, gzc_str_t *out) {
+  gzc_str_t object;
+  int rc = decoded_object(call, &object);
+  bool present = false;
+  if (rc == GZC_OK)
+    rc = gzc_control_field(object, "result", out, &present);
+  if (rc == GZC_OK && (!present || gzc_json_validate_object(*out) != GZC_OK))
+    rc = GZC_ERR_JSON;
+  return rc == GZC_OK ? rc : decode_failed(call, rc);
 }
 
 static int check_args(gzc_control_client_t *client, gzc_control_call_t *call) {
@@ -686,47 +725,6 @@ int gzc_control_aggregate_device_telemetry(
 
 /* --- Device control ----------------------------------------------------- */
 
-int gzc_control_set_device_volume(
-    gzc_control_client_t *client,
-    gzc_control_call_t *call,
-    const gzc_control_volume_request_t *request,
-    gzc_control_peer_status_t *out_status) {
-  int rc = check_args(client, call);
-  if (rc != GZC_OK || request == NULL || out_status == NULL) {
-    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
-  }
-  gzc_control_builder_t builder;
-  builder_begin(&builder, client, call, "/device/volume");
-  gzc_str_t url = builder_url(&builder);
-  gzc_json_writer_t writer;
-  builder_body_begin(&builder, &writer);
-  if (builder.rc == GZC_OK) {
-    builder.rc = gzc_json_field_i32(&writer, "level", request->level);
-  }
-  if (builder.rc == GZC_OK) {
-    builder.rc = gzc_json_field_bool(&writer, "muted", request->muted);
-  }
-  gzc_str_t body = builder_body(&builder, &writer);
-  rc = builder_send(&builder, client, call, GZC_HTTP_METHOD_PUT, url, body);
-  if (rc != GZC_OK) {
-    return rc;
-  }
-  gzc_str_t object;
-  rc = decoded_object(call, &object);
-  if (rc != GZC_OK) {
-    return rc;
-  }
-  gzc_str_t status_raw = gzc_str_from_parts(NULL, 0);
-  rc = gzc_control_opt_raw(object, "status", &status_raw);
-  if (rc == GZC_OK && gzc_control_str_empty(status_raw)) {
-    rc = GZC_ERR_JSON;
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_control_decode_peer_status(status_raw, out_status);
-  }
-  return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
-}
-
 int gzc_control_play_device_sound(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
@@ -740,7 +738,7 @@ int gzc_control_play_device_sound(
     return gzc_control_fail(call, GZC_CONTROL_ERROR_INVALID_REQUEST, rc);
   }
   gzc_control_builder_t builder;
-  builder_begin(&builder, client, call, "/device/actions/play-sound");
+  builder_tool_begin(&builder, client, call, "sound.play");
   gzc_str_t url = builder_url(&builder);
   gzc_json_writer_t writer;
   builder_body_begin(&builder, &writer);
@@ -763,7 +761,7 @@ int gzc_control_find_device(
     return rc;
   }
   gzc_control_builder_t builder;
-  builder_begin(&builder, client, call, "/device/actions/find");
+  builder_tool_begin(&builder, client, call, "device.find");
   gzc_str_t url = builder_url(&builder);
   gzc_json_writer_t writer;
   builder_body_begin(&builder, &writer);
@@ -783,7 +781,7 @@ int gzc_control_reboot_device(
     return rc;
   }
   gzc_control_builder_t builder;
-  builder_begin(&builder, client, call, "/device/actions/reboot");
+  builder_tool_begin(&builder, client, call, "device.reboot");
   gzc_str_t url = builder_url(&builder);
   gzc_json_writer_t writer;
   builder_body_begin(&builder, &writer);
@@ -792,30 +790,6 @@ int gzc_control_reboot_device(
   }
   gzc_str_t body = builder_body(&builder, &writer);
   return builder_send(&builder, client, call, GZC_HTTP_METHOD_POST, url, body);
-}
-
-int gzc_control_get_device_wifi(
-    gzc_control_client_t *client,
-    gzc_control_call_t *call,
-    gzc_control_wifi_status_t *out_status) {
-  int rc = check_args(client, call);
-  if (rc != GZC_OK || out_status == NULL) {
-    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
-  }
-  gzc_control_builder_t builder;
-  builder_begin(&builder, client, call, "/device/wifi");
-  gzc_str_t url = builder_url(&builder);
-  rc = builder_send(&builder, client, call, GZC_HTTP_METHOD_GET, url, gzc_str_from_parts(NULL, 0));
-  if (rc != GZC_OK) {
-    return rc;
-  }
-  gzc_str_t object;
-  rc = decoded_object(call, &object);
-  if (rc != GZC_OK) {
-    return rc;
-  }
-  rc = gzc_control_decode_wifi_status(object, out_status);
-  return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
 }
 
 int gzc_control_scan_device_wifi(
@@ -831,7 +805,7 @@ int gzc_control_scan_device_wifi(
   }
   *out_count = 0;
   gzc_control_builder_t builder;
-  builder_begin(&builder, client, call, "/device/wifi/scan");
+  builder_tool_begin(&builder, client, call, "wifi.scan");
   gzc_str_t url = builder_url(&builder);
   gzc_json_writer_t writer;
   builder_body_begin(&builder, &writer);
@@ -844,7 +818,7 @@ int gzc_control_scan_device_wifi(
     return rc;
   }
   gzc_str_t object;
-  rc = decoded_object(call, &object);
+  rc = decoded_tool_result(call, &object);
   if (rc != GZC_OK) {
     return rc;
   }
@@ -875,7 +849,7 @@ int gzc_control_connect_device_wifi(
     return gzc_control_fail(call, GZC_CONTROL_ERROR_INVALID_REQUEST, rc);
   }
   gzc_control_builder_t builder;
-  builder_begin(&builder, client, call, "/device/wifi");
+  builder_tool_begin(&builder, client, call, "wifi.connect");
   gzc_str_t url = builder_url(&builder);
   gzc_json_writer_t writer;
   builder_body_begin(&builder, &writer);
@@ -901,14 +875,14 @@ int gzc_control_list_device_saved_wifi(
   }
   *out_count = 0;
   gzc_control_builder_t builder;
-  builder_begin(&builder, client, call, "/device/wifi/saved");
+  builder_tool_begin(&builder, client, call, "wifi.saved.list");
   gzc_str_t url = builder_url(&builder);
   rc = builder_send(&builder, client, call, GZC_HTTP_METHOD_GET, url, gzc_str_from_parts(NULL, 0));
   if (rc != GZC_OK) {
     return rc;
   }
   gzc_str_t object;
-  rc = decoded_object(call, &object);
+  rc = decoded_tool_result(call, &object);
   if (rc != GZC_OK) {
     return rc;
   }
@@ -921,15 +895,20 @@ int gzc_control_list_device_saved_wifi(
   return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
 }
 
-int gzc_control_forget_device_saved_wifi(
-    gzc_control_client_t *client,
-    gzc_control_call_t *call,
-    gzc_str_t ssid) {
-  int rc = check_required(ssid);
-  if (rc != GZC_OK) {
-    return rc;
-  }
-  return delete_route(client, call, "/device/wifi/saved", ssid);
+int gzc_control_forget_device_saved_wifi(gzc_control_client_t *client,
+                                         gzc_control_call_t *call, gzc_str_t ssid) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || check_required(ssid) != GZC_OK)
+    return GZC_ERR_INVALID_ARGUMENT;
+  gzc_control_builder_t builder;
+  builder_tool_begin(&builder, client, call, "wifi.saved.forget");
+  gzc_str_t url = builder_url(&builder);
+  gzc_json_writer_t writer;
+  builder_body_begin(&builder, &writer);
+  if (builder.rc == GZC_OK)
+    builder.rc = gzc_json_field_str(&writer, "ssid", ssid);
+  gzc_str_t body = builder_body(&builder, &writer);
+  return builder_send(&builder, client, call, GZC_HTTP_METHOD_POST, url, body);
 }
 
 /* --- Contacts ----------------------------------------------------------- */
@@ -1671,10 +1650,10 @@ int gzc_control_delete_friend_group_member(
 
 static int audioplayer_decode_response(gzc_control_call_t *call, gzc_control_audioplayer_status_t *out_status) {
   gzc_str_t object, status;
-  int rc = decoded_object(call, &object);
+  int rc = decoded_tool_result(call, &object);
   bool present = false;
   if (rc == GZC_OK)
-    rc = gzc_control_field(object, "status", &status, &present);
+    rc = gzc_control_field(object, "value", &status, &present);
   if (rc == GZC_OK && !present)
     rc = GZC_ERR_JSON;
   if (rc == GZC_OK)
@@ -1682,12 +1661,12 @@ static int audioplayer_decode_response(gzc_control_call_t *call, gzc_control_aud
   return rc == GZC_OK ? rc : decode_failed(call, rc);
 }
 
-static int audioplayer_status_route(gzc_control_client_t *client, gzc_control_call_t *call, const char *route, gzc_http_method_t method, const uint32_t *index, const gzc_str_t *repeat, gzc_control_audioplayer_status_t *out_status) {
+static int audioplayer_status_route(gzc_control_client_t *client, gzc_control_call_t *call, const char *tool, const uint32_t *index, const gzc_str_t *repeat, gzc_control_audioplayer_status_t *out_status) {
   int rc = check_args(client, call);
   if (rc != GZC_OK || out_status == NULL)
     return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
   gzc_control_builder_t builder;
-  builder_begin(&builder, client, call, route);
+  builder_tool_begin(&builder, client, call, tool);
   gzc_str_t url = builder_url(&builder);
   gzc_str_t body = gzc_str_from_parts(NULL, 0);
   if (index != NULL || repeat != NULL) {
@@ -1699,24 +1678,24 @@ static int audioplayer_status_route(gzc_control_client_t *client, gzc_control_ca
       builder.rc = gzc_json_field_str(&writer, "repeat", *repeat);
     body = builder_body(&builder, &writer);
   }
-  rc = builder_send(&builder, client, call, method, url, body);
+  rc = builder_send(&builder, client, call, GZC_HTTP_METHOD_POST, url, body);
   return rc == GZC_OK ? audioplayer_decode_response(call, out_status) : rc;
 }
 
 int gzc_control_get_device_audioplayer(gzc_control_client_t *client, gzc_control_call_t *call, gzc_control_audioplayer_status_t *out_status) {
-  return audioplayer_status_route(client, call, "/device/audioplayer", GZC_HTTP_METHOD_GET, NULL, NULL, out_status);
+  return audioplayer_status_route(client, call, "audioplayer.get", NULL, NULL, out_status);
 }
 
 int gzc_control_stop_device_audioplayer(gzc_control_client_t *client, gzc_control_call_t *call, gzc_control_audioplayer_status_t *out_status) {
-  return audioplayer_status_route(client, call, "/device/audioplayer/actions/stop", GZC_HTTP_METHOD_POST, NULL, NULL, out_status);
+  return audioplayer_status_route(client, call, "audioplayer.stop", NULL, NULL, out_status);
 }
 
 int gzc_control_play_device_audioplayer(gzc_control_client_t *client, gzc_control_call_t *call, uint32_t index, gzc_control_audioplayer_status_t *out_status) {
-  return audioplayer_status_route(client, call, "/device/audioplayer/actions/play", GZC_HTTP_METHOD_POST, &index, NULL, out_status);
+  return audioplayer_status_route(client, call, "audioplayer.play", &index, NULL, out_status);
 }
 
 int gzc_control_set_device_audioplayer_mode(gzc_control_client_t *client, gzc_control_call_t *call, gzc_str_t repeat, gzc_control_audioplayer_status_t *out_status) {
-  return audioplayer_status_route(client, call, "/device/audioplayer/mode", GZC_HTTP_METHOD_PUT, NULL, &repeat, out_status);
+  return audioplayer_status_route(client, call, "audioplayer.mode.set", NULL, &repeat, out_status);
 }
 
 static int audioplayer_playlist_write(gzc_control_client_t *client, gzc_control_call_t *call, const gzc_control_audioplayer_item_t *items, size_t count, bool append, gzc_control_audioplayer_status_t *out_status) {
@@ -1724,7 +1703,7 @@ static int audioplayer_playlist_write(gzc_control_client_t *client, gzc_control_
   if (rc != GZC_OK || out_status == NULL || (items == NULL && count != 0))
     return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
   gzc_control_builder_t builder;
-  builder_begin(&builder, client, call, append ? "/device/audioplayer/playlist/append" : "/device/audioplayer/playlist");
+  builder_tool_begin(&builder, client, call, append ? "audioplayer.playlist.append" : "audioplayer.playlist.set");
   gzc_str_t url = builder_url(&builder);
   gzc_json_writer_t writer;
   builder_body_begin(&builder, &writer);
@@ -1768,13 +1747,13 @@ int gzc_control_get_device_audioplayer_playlist(gzc_control_client_t *client, gz
   *out_count = 0;
   *out_revision = 0;
   gzc_control_builder_t builder;
-  builder_begin(&builder, client, call, "/device/audioplayer/playlist");
+  builder_tool_begin(&builder, client, call, "audioplayer.playlist.get");
   gzc_str_t url = builder_url(&builder);
   rc = builder_send(&builder, client, call, GZC_HTTP_METHOD_GET, url, gzc_str_from_parts(NULL, 0));
   if (rc != GZC_OK)
     return rc;
   gzc_str_t object, items;
-  rc = decoded_object(call, &object);
+  rc = decoded_tool_result(call, &object);
   if (rc == GZC_OK)
     rc = gzc_control_req_i64(object, "playlist_revision", out_revision);
   bool present = false;
@@ -1798,87 +1777,8 @@ static int get_object(
   return send_for_object(&builder, client, call, GZC_HTTP_METHOD_GET, url, gzc_str_from_parts(NULL, 0), out_object);
 }
 
-int gzc_control_get_device_settings(
-    gzc_control_client_t *client,
-    gzc_control_call_t *call,
-    gzc_control_device_settings_t *out_settings) {
-  int rc = check_args(client, call);
-  if (rc != GZC_OK || out_settings == NULL) {
-    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
-  }
-  gzc_str_t object;
-  rc = get_object(client, call, "/device/settings", &object);
-  if (rc != GZC_OK) {
-    return rc;
-  }
-  rc = gzc_control_decode_device_settings(object, out_settings);
-  return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
-}
-
 static int write_optional_str(gzc_json_writer_t *writer, const char *name, gzc_str_t value) {
   return gzc_control_str_empty(value) ? GZC_OK : gzc_json_field_str(writer, name, value);
-}
-
-static int write_device_settings(gzc_json_writer_t *writer, const gzc_control_device_settings_t *patch) {
-  int rc = GZC_OK;
-  if (rc == GZC_OK && patch->has_cellular_enabled) {
-    rc = gzc_json_field_bool(writer, "cellular_enabled", patch->cellular_enabled);
-  }
-  if (rc == GZC_OK && patch->has_screen_off_timeout_ms) {
-    rc = gzc_json_field_i64(writer, "screen_off_timeout_ms", patch->screen_off_timeout_ms);
-  }
-  if (rc == GZC_OK && patch->has_screen_brightness) {
-    rc = gzc_json_field_i64(writer, "screen_brightness", patch->screen_brightness);
-  }
-  if (rc == GZC_OK && patch->has_led_brightness) {
-    rc = gzc_json_field_i64(writer, "led_brightness", patch->led_brightness);
-  }
-  if (rc == GZC_OK) {
-    rc = write_optional_str(writer, "locale", patch->locale);
-  }
-  if (rc == GZC_OK) {
-    rc = write_optional_str(writer, "default_interaction_mode", patch->default_interaction_mode);
-  }
-  if (rc == GZC_OK) {
-    rc = write_optional_str(writer, "key_feedback", patch->key_feedback);
-  }
-  if (rc == GZC_OK) {
-    rc = write_optional_str(writer, "alert_mode", patch->alert_mode);
-  }
-  if (rc == GZC_OK && patch->has_auto_sleep_timeout_ms) {
-    rc = gzc_json_field_i64(writer, "auto_sleep_timeout_ms", patch->auto_sleep_timeout_ms);
-  }
-  if (rc == GZC_OK && patch->has_nfc_enabled) {
-    rc = gzc_json_field_bool(writer, "nfc_enabled", patch->nfc_enabled);
-  }
-  return rc;
-}
-
-int gzc_control_update_device_settings(
-    gzc_control_client_t *client,
-    gzc_control_call_t *call,
-    const gzc_control_device_settings_t *patch,
-    gzc_control_device_settings_t *out_settings) {
-  int rc = check_args(client, call);
-  if (rc != GZC_OK || patch == NULL) {
-    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
-  }
-  gzc_control_builder_t builder;
-  builder_begin(&builder, client, call, "/device/settings");
-  gzc_str_t url = builder_url(&builder);
-  gzc_json_writer_t writer;
-  builder_body_begin(&builder, &writer);
-  if (builder.rc == GZC_OK) {
-    builder.rc = write_device_settings(&writer, patch);
-  }
-  gzc_str_t body = builder_body(&builder, &writer);
-  gzc_str_t object;
-  rc = send_for_object(&builder, client, call, GZC_HTTP_METHOD_PATCH, url, body, &object);
-  if (rc != GZC_OK || out_settings == NULL) {
-    return rc;
-  }
-  rc = gzc_control_decode_device_settings(object, out_settings);
-  return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
 }
 
 int gzc_control_factory_reset_device(
@@ -1890,7 +1790,7 @@ int gzc_control_factory_reset_device(
     return rc;
   }
   gzc_control_builder_t builder;
-  builder_begin(&builder, client, call, "/device/actions/factory-reset");
+  builder_tool_begin(&builder, client, call, "device.factory_reset");
   gzc_str_t url = builder_url(&builder);
   gzc_json_writer_t writer;
   builder_body_begin(&builder, &writer);
@@ -1899,31 +1799,6 @@ int gzc_control_factory_reset_device(
   }
   gzc_str_t body = builder_body(&builder, &writer);
   return builder_send(&builder, client, call, GZC_HTTP_METHOD_POST, url, body);
-}
-
-int gzc_control_list_device_rpc_methods(
-    gzc_control_client_t *client,
-    gzc_control_call_t *call,
-    gzc_str_t *out_methods,
-    size_t cap,
-    size_t *out_count) {
-  int rc = check_args(client, call);
-  if (rc != GZC_OK || out_count == NULL || (out_methods == NULL && cap != 0)) {
-    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
-  }
-  *out_count = 0;
-  gzc_str_t object;
-  rc = get_object(client, call, "/device/rpc-methods", &object);
-  if (rc != GZC_OK) {
-    return rc;
-  }
-  gzc_str_t methods = gzc_str_from_parts(NULL, 0);
-  rc = gzc_control_opt_raw(object, "methods", &methods);
-  if (rc == GZC_OK) {
-    rc = gzc_control_decode_array(
-        methods, out_methods, sizeof(*out_methods), cap, out_count, gzc_control_decode_string_item);
-  }
-  return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
 }
 
 int gzc_control_set_device_run_workspace(
@@ -1935,7 +1810,7 @@ int gzc_control_set_device_run_workspace(
     return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
   }
   gzc_control_builder_t builder;
-  builder_begin(&builder, client, call, "/device/run/workspace");
+  builder_tool_begin(&builder, client, call, "run.workspace.set");
   gzc_str_t url = builder_url(&builder);
   gzc_json_writer_t writer;
   builder_body_begin(&builder, &writer);
@@ -1958,7 +1833,7 @@ int gzc_control_set_device_run_workspace(
 int gzc_control_list_device_tools(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
-    gzc_control_device_tool_t *out_tools,
+    gzc_str_t *out_tools,
     size_t cap,
     size_t *out_count) {
   int rc = check_args(client, call);
@@ -1967,68 +1842,18 @@ int gzc_control_list_device_tools(
   }
   *out_count = 0;
   gzc_str_t object;
-  rc = get_object(client, call, "/device/tools", &object);
+  rc = get_object(client, call, "/device/tool/v0/tools", &object);
   if (rc != GZC_OK) {
     return rc;
   }
   gzc_str_t items = gzc_str_from_parts(NULL, 0);
   bool present = false;
-  rc = gzc_control_field(object, "items", &items, &present);
+  rc = gzc_control_field(object, "tools", &items, &present);
   if (rc == GZC_OK && !present) {
     rc = GZC_ERR_JSON;
   }
   if (rc == GZC_OK) {
-    rc = gzc_control_decode_array(items, out_tools, sizeof(*out_tools), cap, out_count, gzc_control_decode_device_tool_item);
-  }
-  return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
-}
-
-int gzc_control_invoke_device_tool(
-    gzc_control_client_t *client,
-    gzc_control_call_t *call,
-    gzc_str_t name,
-    gzc_str_t args_json,
-    gzc_str_t *out_data_json) {
-  int rc = check_args(client, call);
-  if (rc != GZC_OK || out_data_json == NULL) {
-    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
-  }
-  *out_data_json = gzc_str_from_parts(NULL, 0);
-  rc = check_required(name);
-  if (rc != GZC_OK) {
-    return gzc_control_fail(call, GZC_CONTROL_ERROR_INVALID_REQUEST, rc);
-  }
-  if (!gzc_control_str_empty(args_json) && gzc_json_validate_object(args_json) != GZC_OK) {
-    return gzc_control_fail(call, GZC_CONTROL_ERROR_INVALID_REQUEST, GZC_ERR_INVALID_ARGUMENT);
-  }
-  gzc_control_builder_t builder;
-  builder_begin(&builder, client, call, "/device/tools");
-  builder_segment(&builder, name);
-  builder_path(&builder, "/actions/invoke");
-  gzc_str_t url = builder_url(&builder);
-  gzc_json_writer_t writer;
-  builder_body_begin(&builder, &writer);
-  if (builder.rc == GZC_OK && !gzc_control_str_empty(args_json)) {
-    builder.rc = gzc_json_field_raw(&writer, "args", args_json);
-  }
-  gzc_str_t body = builder_body(&builder, &writer);
-  gzc_str_t object;
-  rc = send_for_object(&builder, client, call, GZC_HTTP_METHOD_POST, url, body, &object);
-  if (rc != GZC_OK) {
-    return rc;
-  }
-  /* data_json is JSON text carried in a JSON string, so it is escaped on the
-   * wire and the shared string parser keeps escaped strings as unsupported.
-   * It is unescaped into the scratch region, which the sent request no longer
-   * needs, so call->body stays the exact response for any later reader. */
-  gzc_str_t raw = gzc_str_from_parts(NULL, 0);
-  bool present = false;
-  rc = gzc_control_field(object, "data_json", &raw, &present);
-  if (rc == GZC_OK && !present) {
-    rc = GZC_ERR_JSON;
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_control_unescape_string(raw, (char *)call->scratch, call->scratch_cap, out_data_json);
+    rc = gzc_control_decode_array(items, out_tools, sizeof(*out_tools), cap, out_count, gzc_control_decode_string_item);
   }
   return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
 }
@@ -2170,4 +1995,111 @@ int gzc_control_write_mhs_v0_states(
     return GZC_ERR_INVALID_ARGUMENT;
   }
   return mhs_states_request(client, call, NULL, request, request_count, storage, out_states, cap, out_count);
+}
+
+static int read_tool_value(gzc_control_client_t *client, gzc_control_call_t *call,
+                           const char *tool, gzc_str_t *value) {
+  gzc_control_builder_t builder;
+  builder_tool_begin(&builder, client, call, tool);
+  gzc_str_t url = builder_url(&builder);
+  int rc = builder_send(&builder, client, call, GZC_HTTP_METHOD_POST, url, gzc_str_from_parts(NULL, 0));
+  if (rc != GZC_OK)
+    return rc;
+  gzc_str_t result;
+  rc = decoded_tool_result(call, &result);
+  bool present = false;
+  if (rc == GZC_OK)
+    rc = gzc_control_field(result, "value", value, &present);
+  if (rc == GZC_OK && (!present || gzc_json_validate_object(*value) != GZC_OK))
+    rc = GZC_ERR_JSON;
+  return rc == GZC_OK ? rc : decode_failed(call, rc);
+}
+
+int gzc_control_get_device_hardware(gzc_control_client_t *client, gzc_control_call_t *call,
+                                    gzc_control_hardware_info_t *out) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out == NULL)
+    return GZC_ERR_INVALID_ARGUMENT;
+  memset(out, 0, sizeof(*out));
+  gzc_str_t value;
+  rc = read_tool_value(client, call, "info.get", &value);
+  if (rc != GZC_OK)
+    return rc;
+  rc = gzc_control_opt_str(value, "manufacturer", &out->manufacturer);
+  if (rc == GZC_OK)
+    rc = gzc_control_opt_str(value, "model", &out->model);
+  if (rc == GZC_OK)
+    rc = gzc_control_opt_str(value, "hardware_revision", &out->hardware_revision);
+  return rc == GZC_OK ? rc : decode_failed(call, rc);
+}
+
+int gzc_control_get_device_identifiers(gzc_control_client_t *client, gzc_control_call_t *call,
+                                       gzc_control_device_identifiers_t *out) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out == NULL)
+    return GZC_ERR_INVALID_ARGUMENT;
+  memset(out, 0, sizeof(*out));
+  gzc_str_t value;
+  rc = read_tool_value(client, call, "identifiers.get", &value);
+  if (rc != GZC_OK)
+    return rc;
+  rc = gzc_control_opt_str(value, "sn", &out->sn);
+  if (rc == GZC_OK)
+    rc = gzc_control_opt_raw(value, "imeis", &out->imeis);
+  if (rc == GZC_OK)
+    rc = gzc_control_opt_raw(value, "labels", &out->labels);
+  return rc == GZC_OK ? rc : decode_failed(call, rc);
+}
+
+int gzc_control_read_device_status(gzc_control_client_t *client, gzc_control_call_t *call,
+                                   gzc_control_peer_status_t *out) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out == NULL)
+    return GZC_ERR_INVALID_ARGUMENT;
+  gzc_str_t value;
+  rc = read_tool_value(client, call, "device.status.get", &value);
+  if (rc != GZC_OK)
+    return rc;
+  rc = gzc_control_decode_peer_status(value, out);
+  return rc == GZC_OK ? rc : decode_failed(call, rc);
+}
+
+int gzc_control_update_device_firmware(gzc_control_client_t *client, gzc_control_call_t *call,
+                                       const gzc_control_firmware_update_request_t *request) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK)
+    return rc;
+  gzc_control_builder_t builder;
+  builder_tool_begin(&builder, client, call, "firmware.update");
+  gzc_str_t url = builder_url(&builder);
+  gzc_json_writer_t writer;
+  builder_body_begin(&builder, &writer);
+  if (request != NULL) {
+    if (builder.rc == GZC_OK)
+      builder.rc = write_optional_str(&writer, "channel", request->channel);
+    if (builder.rc == GZC_OK)
+      builder.rc = write_optional_str(&writer, "sha256", request->sha256);
+  }
+  gzc_str_t body = builder_body(&builder, &writer);
+  return builder_send(&builder, client, call, GZC_HTTP_METHOD_POST, url, body);
+}
+
+int gzc_control_ping_device(gzc_control_client_t *client, gzc_control_call_t *call,
+                            const gzc_control_social_ping_request_t *request) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || request == NULL || check_required(request->from_peer_public_key) != GZC_OK)
+    return GZC_ERR_INVALID_ARGUMENT;
+  gzc_control_builder_t builder;
+  builder_tool_begin(&builder, client, call, "social.ping");
+  gzc_str_t url = builder_url(&builder);
+  gzc_json_writer_t writer;
+  builder_body_begin(&builder, &writer);
+  if (builder.rc == GZC_OK)
+    builder.rc = gzc_json_field_str(&writer, "from_peer_public_key", request->from_peer_public_key);
+  if (builder.rc == GZC_OK)
+    builder.rc = write_optional_str(&writer, "from_display_name", request->from_display_name);
+  if (builder.rc == GZC_OK)
+    builder.rc = write_optional_str(&writer, "friend_group_name", request->friend_group_name);
+  gzc_str_t body = builder_body(&builder, &writer);
+  return builder_send(&builder, client, call, GZC_HTTP_METHOD_POST, url, body);
 }

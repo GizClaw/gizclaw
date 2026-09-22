@@ -315,13 +315,16 @@ func (s *session) executeWorkspaceRelay(ctx context.Context, req giztest.StepReq
 }
 
 func (s *session) executeClientRPC(ctx context.Context, step giztest.Step) (giztest.StepResult, error) {
-	counter := s.clients.inbound[step.Client+":"+step.ClientRPC.Method]
+	counter := s.clients.inbound[step.Client+":"+step.ClientRPC.Key()]
 	if counter == nil {
 		return giztest.StepResult{}, fmt.Errorf("client RPC %s was not installed", step.ClientRPC.Method)
 	}
-	expected := int64(step.ClientRPC.ExpectCalls)
-	if expected == 0 {
-		expected = 1
+	expected := int64(1)
+	if step.ClientRPC.ExpectCalls != nil {
+		expected = int64(*step.ClientRPC.ExpectCalls)
+	}
+	if expected == 0 && counter.Load() != 0 {
+		return giztest.StepResult{}, fmt.Errorf("client RPC %s reached device %d times", step.ClientRPC.Key(), counter.Load())
 	}
 	calls, err := awaitInboundCalls(ctx, counter, expected, step.ClientRPC.Method)
 	if err != nil {

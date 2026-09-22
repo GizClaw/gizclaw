@@ -8,15 +8,12 @@ import (
 	"maps"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztools"
 )
-
-const clientToolTimeout = 10 * time.Second
 
 type toolCredentialResolver interface {
 	HTTPAuthorizer(context.Context, credential.HTTPAuthConfig) (giztools.HTTPAuthorizer, error)
@@ -26,11 +23,10 @@ type toolCredentialResolver interface {
 // Peer's RuntimeProfile on every call and keeps resource storage and transport
 // details out of workflow Transformers.
 type ToolkitInvoker struct {
-	Builder       *toolkit.Builder
-	Credentials   toolCredentialResolver
-	HTTP          giztools.HTTPExecutor
-	Request       toolkit.BuildRequest
-	ClientTimeout time.Duration
+	Builder     *toolkit.Builder
+	Credentials toolCredentialResolver
+	HTTP        giztools.HTTPExecutor
+	Request     toolkit.BuildRequest
 }
 
 var _ genx.ToolInvoker = (*ToolkitInvoker)(nil)
@@ -62,7 +58,7 @@ func (i *ToolkitInvoker) InvokeTool(
 	name string,
 	args json.RawMessage,
 ) (json.RawMessage, error) {
-	request, scope, err := i.requestForContext(ctx)
+	request, _, err := i.requestForContext(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -80,8 +76,6 @@ func (i *ToolkitInvoker) InvokeTool(
 	switch tool.Type {
 	case toolkit.ToolTypeHTTPRequest:
 		return i.invokeHTTP(ctx, tool, arguments)
-	case toolkit.ToolTypeClientRPC:
-		return invokeClientTool(ctx, scope.client, tool.InvokeName, arguments, i.ClientTimeout)
 	default:
 		return nil, fmt.Errorf("agenthost: unsupported Tool type %q", tool.Type)
 	}
@@ -151,44 +145,6 @@ func (i *ToolkitInvoker) httpAuthorizer(
 	default:
 		return nil, fmt.Errorf("unsupported auth method %q", auth.Method)
 	}
-}
-
-func invokeClientTool(
-	ctx context.Context,
-	client ClientToolInvoker,
-	name string,
-	args json.RawMessage,
-	timeout time.Duration,
-) (json.RawMessage, error) {
-	if client == nil {
-		return recoverableToolError("unavailable", "client tool is unavailable"), nil
-	}
-	if timeout <= 0 {
-		timeout = clientToolTimeout
-	}
-	callCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	result, err := client.InvokeClientTool(callCtx, name, args)
-	if err != nil {
-		switch {
-		case errors.Is(err, context.DeadlineExceeded), errors.Is(callCtx.Err(), context.DeadlineExceeded):
-			return recoverableToolError("timeout", "tool execution timed out"), nil
-		case errors.Is(err, giztools.ErrClientToolUnavailable):
-			return recoverableToolError("unavailable", "client tool is unavailable"), nil
-		default:
-			return nil, fmt.Errorf("agenthost: invoke client Tool %q: %w", name, err)
-		}
-	}
-	if len(result) == 0 {
-		return json.RawMessage(`null`), nil
-	}
-	if len(result) > 64<<10 {
-		return nil, fmt.Errorf("agenthost: client Tool %q result exceeds 65536 bytes", name)
-	}
-	if !json.Valid(result) {
-		return nil, fmt.Errorf("agenthost: client Tool %q returned invalid JSON", name)
-	}
-	return json.RawMessage(append([]byte(nil), result...)), nil
 }
 
 func recoverableToolError(code, message string) json.RawMessage {

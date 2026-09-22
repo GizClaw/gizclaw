@@ -78,18 +78,6 @@ export type ApiKeyList = {
     next_cursor?: string;
 };
 
-export type DeviceVolumeSetRequest = {
-    /**
-     * Absolute volume level.
-     */
-    level: number;
-    muted: boolean;
-};
-
-export type DeviceControlStatus = {
-    status: PeerStatus;
-};
-
 export type DevicePlaySoundRequest = {
     /**
      * Device-defined sound identifier; at most 32 UTF-8 bytes. The device validates the value.
@@ -164,14 +152,6 @@ export type DeviceFirmwareUpdateRequest = {
     sha256?: string;
 };
 
-export type DeviceWifiStatus = {
-    connected: boolean;
-    ssid?: string;
-    rssi_dbm?: number;
-    ip?: string;
-    bssid?: string;
-};
-
 export type DeviceWifiSavedNetwork = {
     ssid: string;
 };
@@ -199,64 +179,11 @@ export type DeviceWifiScanResponse = {
     networks: Array<DeviceWifiScanResult>;
 };
 
-/**
- * Device-owned configuration. Every member is optional: on PATCH an absent member leaves that option unchanged; in a response an absent member means the device does not support that option. Product-specific configuration, such as usage time limits, is exposed as a device Tool instead. Speech rate belongs to the Workspace parameters, not to the device.
- */
-export type DeviceSettings = {
-    /**
-     * Whether the cellular modem is enabled.
-     */
-    cellular_enabled?: boolean;
-    /**
-     * Idle time before the screen turns off; 0 keeps it on.
-     */
-    screen_off_timeout_ms?: number;
-    /**
-     * Screen brightness percent.
-     */
-    screen_brightness?: number;
-    /**
-     * Indicator light brightness percent.
-     */
-    led_brightness?: number;
-    /**
-     * BCP 47 language tag such as zh-CN.
-     */
-    locale?: string;
-    /**
-     * Interaction mode the device starts in.
-     */
-    default_interaction_mode?: 'push-to-talk' | 'realtime';
-    /**
-     * Feedback on a key press.
-     */
-    key_feedback?: 'none' | 'sound' | 'vibrate' | 'sound_and_vibrate';
-    /**
-     * How the device alerts the user to an incoming event such as a call or a notification.
-     */
-    alert_mode?: 'silent' | 'vibrate' | 'ring';
-    /**
-     * Idle time before the device sleeps; 0 disables automatic sleep.
-     */
-    auto_sleep_timeout_ms?: number;
-    /**
-     * Whether the NFC reader is powered.
-     */
-    nfc_enabled?: boolean;
-};
-
 export type DeviceFactoryResetRequest = {
     /**
      * Keep saved Wi-Fi and cellular configuration. Defaults to false.
      */
     keep_network?: boolean;
-};
-
-export type DeviceRpcMethods = {
-    /**
-     * Registry method names such as client.device.settings.get. Unknown names must be ignored.
-     */
-    methods: Array<string>;
 };
 
 /**
@@ -279,54 +206,6 @@ export type DeviceRunWorkspaceSetRequest = {
      * Let the agent speak first once the Workspace is ready. Defaults to false.
      */
     kickoff?: boolean;
-};
-
-export type DeviceToolI18nText = {
-    display_name: string;
-    description?: string;
-};
-
-export type DeviceTool = {
-    /**
-     * Tool name within the bound RuntimeProfile; the path parameter of the invoke route.
-     */
-    name: string;
-    /**
-     * Authorization the Tool's binding requires.
-     */
-    control_access: 'owner';
-    /**
-     * Display text keyed by locale.
-     */
-    i18n: {
-        [key: string]: DeviceToolI18nText;
-    };
-    /**
-     * JSON Schema the invoke args must satisfy.
-     */
-    input_schema: {
-        [key: string]: unknown;
-    };
-};
-
-export type DeviceToolList = {
-    items: Array<DeviceTool>;
-};
-
-export type DeviceToolInvokeRequest = {
-    /**
-     * Tool arguments; must satisfy the Tool's input_schema. Omitted means an empty object.
-     */
-    args?: {
-        [key: string]: unknown;
-    };
-};
-
-export type DeviceToolInvokeResponse = {
-    /**
-     * The result the device returned, as JSON text.
-     */
-    data_json: string;
 };
 
 export type DeviceWifiConnectRequest = {
@@ -517,6 +396,189 @@ export type PublicKeyList = {
     public_keys: Array<string>;
 };
 
+export type ClientToolWifiSavedForgetArgs = {
+    ssid: string;
+};
+
+export type ClientToolSocialPingArgs = {
+    from_peer_public_key: string;
+    from_display_name?: string;
+    friend_group_name?: string;
+};
+
+export type ClientToolInfoGetInvoke = {
+    tool: 'info.get';
+    args: {
+        [key: string]: never;
+    };
+};
+
+export type ClientToolIdentifiersGetInvoke = {
+    tool: 'identifiers.get';
+    args: {
+        [key: string]: never;
+    };
+};
+
+export type ClientToolDeviceStatusGetInvoke = {
+    tool: 'device.status.get';
+    args: {
+        [key: string]: never;
+    };
+};
+
+export type ClientToolDeviceRebootInvoke = {
+    tool: 'device.reboot';
+    args: DeviceRebootRequest;
+};
+
+export type ClientToolDeviceFactoryResetInvoke = {
+    tool: 'device.factory_reset';
+    args: DeviceFactoryResetRequest;
+};
+
+export type ClientToolDeviceFindInvoke = {
+    tool: 'device.find';
+    args: DeviceFindRequest;
+};
+
+export type ClientToolSoundPlayInvoke = {
+    tool: 'sound.play';
+    args: DevicePlaySoundRequest;
+};
+
+export type ClientToolWifiScanInvoke = {
+    tool: 'wifi.scan';
+    args: DeviceWifiScanRequest;
+};
+
+export type ClientToolWifiConnectInvoke = {
+    tool: 'wifi.connect';
+    args: DeviceWifiConnectRequest;
+};
+
+export type ClientToolWifiSavedListInvoke = {
+    tool: 'wifi.saved.list';
+    args: {
+        [key: string]: never;
+    };
+};
+
+export type ClientToolWifiSavedForgetInvoke = {
+    tool: 'wifi.saved.forget';
+    args: ClientToolWifiSavedForgetArgs;
+};
+
+export type ClientToolFirmwareUpdateInvoke = {
+    tool: 'firmware.update';
+    args: DeviceFirmwareUpdateRequest;
+};
+
+export type ClientToolAudioplayerGetInvoke = {
+    tool: 'audioplayer.get';
+    args: {
+        [key: string]: never;
+    };
+};
+
+export type ClientToolAudioplayerPlayInvoke = {
+    tool: 'audioplayer.play';
+    args: AudioPlayerPlayRequest;
+};
+
+export type ClientToolAudioplayerStopInvoke = {
+    tool: 'audioplayer.stop';
+    args: {
+        [key: string]: never;
+    };
+};
+
+export type ClientToolAudioplayerModeSetInvoke = {
+    tool: 'audioplayer.mode.set';
+    args: AudioPlayerModeSetRequest;
+};
+
+export type ClientToolAudioplayerPlaylistGetInvoke = {
+    tool: 'audioplayer.playlist.get';
+    args: {
+        [key: string]: never;
+    };
+};
+
+export type ClientToolAudioplayerPlaylistSetInvoke = {
+    tool: 'audioplayer.playlist.set';
+    args: AudioPlayerPlaylistSetRequest;
+};
+
+export type ClientToolAudioplayerPlaylistAppendInvoke = {
+    tool: 'audioplayer.playlist.append';
+    args: AudioPlayerPlaylistAppendRequest;
+};
+
+export type ClientToolRunWorkspaceSetInvoke = {
+    tool: 'run.workspace.set';
+    args: DeviceRunWorkspaceSetRequest;
+};
+
+export type ClientToolSocialPingInvoke = {
+    tool: 'social.ping';
+    args: ClientToolSocialPingArgs;
+};
+
+export type ClientToolV0InvokeRequest = ({
+    tool: 'info.get';
+} & ClientToolInfoGetInvoke) | ({
+    tool: 'identifiers.get';
+} & ClientToolIdentifiersGetInvoke) | ({
+    tool: 'device.status.get';
+} & ClientToolDeviceStatusGetInvoke) | ({
+    tool: 'device.reboot';
+} & ClientToolDeviceRebootInvoke) | ({
+    tool: 'device.factory_reset';
+} & ClientToolDeviceFactoryResetInvoke) | ({
+    tool: 'device.find';
+} & ClientToolDeviceFindInvoke) | ({
+    tool: 'sound.play';
+} & ClientToolSoundPlayInvoke) | ({
+    tool: 'wifi.scan';
+} & ClientToolWifiScanInvoke) | ({
+    tool: 'wifi.connect';
+} & ClientToolWifiConnectInvoke) | ({
+    tool: 'wifi.saved.list';
+} & ClientToolWifiSavedListInvoke) | ({
+    tool: 'wifi.saved.forget';
+} & ClientToolWifiSavedForgetInvoke) | ({
+    tool: 'firmware.update';
+} & ClientToolFirmwareUpdateInvoke) | ({
+    tool: 'audioplayer.get';
+} & ClientToolAudioplayerGetInvoke) | ({
+    tool: 'audioplayer.play';
+} & ClientToolAudioplayerPlayInvoke) | ({
+    tool: 'audioplayer.stop';
+} & ClientToolAudioplayerStopInvoke) | ({
+    tool: 'audioplayer.mode.set';
+} & ClientToolAudioplayerModeSetInvoke) | ({
+    tool: 'audioplayer.playlist.get';
+} & ClientToolAudioplayerPlaylistGetInvoke) | ({
+    tool: 'audioplayer.playlist.set';
+} & ClientToolAudioplayerPlaylistSetInvoke) | ({
+    tool: 'audioplayer.playlist.append';
+} & ClientToolAudioplayerPlaylistAppendInvoke) | ({
+    tool: 'run.workspace.set';
+} & ClientToolRunWorkspaceSetInvoke) | ({
+    tool: 'social.ping';
+} & ClientToolSocialPingInvoke);
+
+export type ClientToolV0ListResponse = {
+    tools: Array<'info.get' | 'identifiers.get' | 'device.status.get' | 'device.reboot' | 'device.factory_reset' | 'device.find' | 'sound.play' | 'wifi.scan' | 'wifi.connect' | 'wifi.saved.list' | 'wifi.saved.forget' | 'firmware.update' | 'audioplayer.get' | 'audioplayer.play' | 'audioplayer.stop' | 'audioplayer.mode.set' | 'audioplayer.playlist.get' | 'audioplayer.playlist.set' | 'audioplayer.playlist.append' | 'run.workspace.set' | 'social.ping'>;
+};
+
+export type ClientToolV0InvokeResponse = {
+    result: {
+        [key: string]: unknown;
+    };
+};
+
 export type AudioPlayerItem = {
     /**
      * HTTPS audio URL without embedded credentials; at most 1024 UTF-8 bytes.
@@ -534,21 +596,12 @@ export type AudioPlayerPlayRequest = {
     index: number;
 };
 
-export type AudioPlayerPlaylist = {
-    items: Array<AudioPlayerItem>;
-    playlist_revision: number;
-};
-
 export type AudioPlayerPlaylistAppendRequest = {
     items: Array<AudioPlayerItem>;
 };
 
 export type AudioPlayerPlaylistSetRequest = {
     items: Array<AudioPlayerItem>;
-};
-
-export type AudioPlayerResponse = {
-    status: AudioPlayerStatus;
 };
 
 export type AudioPlayerStatus = {
@@ -1134,405 +1187,6 @@ export type WriteMhsStatesResponses = {
 };
 
 export type WriteMhsStatesResponse = WriteMhsStatesResponses[keyof WriteMhsStatesResponses];
-
-export type GetDeviceAudioPlayerData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/audioplayer';
-};
-
-export type GetDeviceAudioPlayerErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no matching player resource.
-     */
-    404: ErrorResponse;
-    /**
-     * The API key owner is pending deletion.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type GetDeviceAudioPlayerError = GetDeviceAudioPlayerErrors[keyof GetDeviceAudioPlayerErrors];
-
-export type GetDeviceAudioPlayerResponses = {
-    /**
-     * Device-reported result. Playback acceptance does not imply audio has started.
-     */
-    200: AudioPlayerResponse;
-};
-
-export type GetDeviceAudioPlayerResponse = GetDeviceAudioPlayerResponses[keyof GetDeviceAudioPlayerResponses];
-
-export type GetDeviceAudioPlayerPlaylistData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/audioplayer/playlist';
-};
-
-export type GetDeviceAudioPlayerPlaylistErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no matching player resource.
-     */
-    404: ErrorResponse;
-    /**
-     * The API key owner is pending deletion.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type GetDeviceAudioPlayerPlaylistError = GetDeviceAudioPlayerPlaylistErrors[keyof GetDeviceAudioPlayerPlaylistErrors];
-
-export type GetDeviceAudioPlayerPlaylistResponses = {
-    /**
-     * Device-reported result. Playback acceptance does not imply audio has started.
-     */
-    200: AudioPlayerPlaylist;
-};
-
-export type GetDeviceAudioPlayerPlaylistResponse = GetDeviceAudioPlayerPlaylistResponses[keyof GetDeviceAudioPlayerPlaylistResponses];
-
-export type SetDeviceAudioPlayerPlaylistData = {
-    body: AudioPlayerPlaylistSetRequest;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/audioplayer/playlist';
-};
-
-export type SetDeviceAudioPlayerPlaylistErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no matching player resource.
-     */
-    404: ErrorResponse;
-    /**
-     * The API key owner is pending deletion.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type SetDeviceAudioPlayerPlaylistError = SetDeviceAudioPlayerPlaylistErrors[keyof SetDeviceAudioPlayerPlaylistErrors];
-
-export type SetDeviceAudioPlayerPlaylistResponses = {
-    /**
-     * Device-reported result. Playback acceptance does not imply audio has started.
-     */
-    200: AudioPlayerResponse;
-};
-
-export type SetDeviceAudioPlayerPlaylistResponse = SetDeviceAudioPlayerPlaylistResponses[keyof SetDeviceAudioPlayerPlaylistResponses];
-
-export type AppendDeviceAudioPlayerPlaylistData = {
-    body: AudioPlayerPlaylistAppendRequest;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/audioplayer/playlist/append';
-};
-
-export type AppendDeviceAudioPlayerPlaylistErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no matching player resource.
-     */
-    404: ErrorResponse;
-    /**
-     * The API key owner is pending deletion.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type AppendDeviceAudioPlayerPlaylistError = AppendDeviceAudioPlayerPlaylistErrors[keyof AppendDeviceAudioPlayerPlaylistErrors];
-
-export type AppendDeviceAudioPlayerPlaylistResponses = {
-    /**
-     * Device-reported result. Playback acceptance does not imply audio has started.
-     */
-    200: AudioPlayerResponse;
-};
-
-export type AppendDeviceAudioPlayerPlaylistResponse = AppendDeviceAudioPlayerPlaylistResponses[keyof AppendDeviceAudioPlayerPlaylistResponses];
-
-export type PlayDeviceAudioPlayerData = {
-    body: AudioPlayerPlayRequest;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/audioplayer/actions/play';
-};
-
-export type PlayDeviceAudioPlayerErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no matching player resource.
-     */
-    404: ErrorResponse;
-    /**
-     * The API key owner is pending deletion.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type PlayDeviceAudioPlayerError = PlayDeviceAudioPlayerErrors[keyof PlayDeviceAudioPlayerErrors];
-
-export type PlayDeviceAudioPlayerResponses = {
-    /**
-     * Device-reported result. Playback acceptance does not imply audio has started.
-     */
-    200: AudioPlayerResponse;
-};
-
-export type PlayDeviceAudioPlayerResponse = PlayDeviceAudioPlayerResponses[keyof PlayDeviceAudioPlayerResponses];
-
-export type StopDeviceAudioPlayerData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/audioplayer/actions/stop';
-};
-
-export type StopDeviceAudioPlayerErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no matching player resource.
-     */
-    404: ErrorResponse;
-    /**
-     * The API key owner is pending deletion.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type StopDeviceAudioPlayerError = StopDeviceAudioPlayerErrors[keyof StopDeviceAudioPlayerErrors];
-
-export type StopDeviceAudioPlayerResponses = {
-    /**
-     * Device-reported result. Playback acceptance does not imply audio has started.
-     */
-    200: AudioPlayerResponse;
-};
-
-export type StopDeviceAudioPlayerResponse = StopDeviceAudioPlayerResponses[keyof StopDeviceAudioPlayerResponses];
-
-export type SetDeviceAudioPlayerModeData = {
-    body: AudioPlayerModeSetRequest;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/audioplayer/mode';
-};
-
-export type SetDeviceAudioPlayerModeErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no matching player resource.
-     */
-    404: ErrorResponse;
-    /**
-     * The API key owner is pending deletion.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type SetDeviceAudioPlayerModeError = SetDeviceAudioPlayerModeErrors[keyof SetDeviceAudioPlayerModeErrors];
-
-export type SetDeviceAudioPlayerModeResponses = {
-    /**
-     * Device-reported result. Playback acceptance does not imply audio has started.
-     */
-    200: AudioPlayerResponse;
-};
-
-export type SetDeviceAudioPlayerModeResponse = SetDeviceAudioPlayerModeResponses[keyof SetDeviceAudioPlayerModeResponses];
 
 export type ListDeviceWorkspacesData = {
     body?: never;
@@ -2498,909 +2152,6 @@ export type GetDeviceRuntimeProfileResponses = {
 };
 
 export type GetDeviceRuntimeProfileResponse = GetDeviceRuntimeProfileResponses[keyof GetDeviceRuntimeProfileResponses];
-
-export type SetDeviceVolumeData = {
-    body: DeviceVolumeSetRequest;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/volume';
-};
-
-export type SetDeviceVolumeErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no active connection, or is rebooting and has not reconnected.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type SetDeviceVolumeError = SetDeviceVolumeErrors[keyof SetDeviceVolumeErrors];
-
-export type SetDeviceVolumeResponses = {
-    /**
-     * PeerStatus reported by the device after applying the volume.
-     */
-    200: DeviceControlStatus;
-};
-
-export type SetDeviceVolumeResponse = SetDeviceVolumeResponses[keyof SetDeviceVolumeResponses];
-
-export type PlayDeviceSoundData = {
-    body: DevicePlaySoundRequest;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/actions/play-sound';
-};
-
-export type PlayDeviceSoundErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no active connection, or is rebooting and has not reconnected.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type PlayDeviceSoundError = PlayDeviceSoundErrors[keyof PlayDeviceSoundErrors];
-
-export type PlayDeviceSoundResponses = {
-    /**
-     * The device accepted the playback request.
-     */
-    204: void;
-};
-
-export type PlayDeviceSoundResponse = PlayDeviceSoundResponses[keyof PlayDeviceSoundResponses];
-
-export type FindDeviceData = {
-    body?: DeviceFindRequest;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/actions/find';
-};
-
-export type FindDeviceErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no active connection, or is rebooting and has not reconnected.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type FindDeviceError = FindDeviceErrors[keyof FindDeviceErrors];
-
-export type FindDeviceResponses = {
-    /**
-     * The device accepted the find request.
-     */
-    204: void;
-};
-
-export type FindDeviceResponse = FindDeviceResponses[keyof FindDeviceResponses];
-
-export type RebootDeviceData = {
-    body?: DeviceRebootRequest;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/actions/reboot';
-};
-
-export type RebootDeviceErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no active connection, or is rebooting and has not reconnected.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type RebootDeviceError = RebootDeviceErrors[keyof RebootDeviceErrors];
-
-export type RebootDeviceResponses = {
-    /**
-     * The device accepted the reboot request.
-     */
-    204: void;
-};
-
-export type RebootDeviceResponse = RebootDeviceResponses[keyof RebootDeviceResponses];
-
-export type UpdateDeviceFirmwareData = {
-    body?: DeviceFirmwareUpdateRequest;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/actions/firmware-update';
-};
-
-export type UpdateDeviceFirmwareErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no active connection, or is rebooting and has not reconnected.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type UpdateDeviceFirmwareError = UpdateDeviceFirmwareErrors[keyof UpdateDeviceFirmwareErrors];
-
-export type UpdateDeviceFirmwareResponses = {
-    /**
-     * The device accepted the firmware update request.
-     */
-    204: void;
-};
-
-export type UpdateDeviceFirmwareResponse = UpdateDeviceFirmwareResponses[keyof UpdateDeviceFirmwareResponses];
-
-export type GetDeviceSettingsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/settings';
-};
-
-export type GetDeviceSettingsErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no active connection, or is rebooting and has not reconnected.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type GetDeviceSettingsError = GetDeviceSettingsErrors[keyof GetDeviceSettingsErrors];
-
-export type GetDeviceSettingsResponses = {
-    /**
-     * Every setting the device supports.
-     */
-    200: DeviceSettings;
-};
-
-export type GetDeviceSettingsResponse = GetDeviceSettingsResponses[keyof GetDeviceSettingsResponses];
-
-export type UpdateDeviceSettingsData = {
-    body: DeviceSettings;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/settings';
-};
-
-export type UpdateDeviceSettingsErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no active connection, or is rebooting and has not reconnected.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type UpdateDeviceSettingsError = UpdateDeviceSettingsErrors[keyof UpdateDeviceSettingsErrors];
-
-export type UpdateDeviceSettingsResponses = {
-    /**
-     * Every setting the device supports, after the change.
-     */
-    200: DeviceSettings;
-};
-
-export type UpdateDeviceSettingsResponse = UpdateDeviceSettingsResponses[keyof UpdateDeviceSettingsResponses];
-
-export type FactoryResetDeviceData = {
-    body?: DeviceFactoryResetRequest;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/actions/factory-reset';
-};
-
-export type FactoryResetDeviceErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no active connection, or is rebooting and has not reconnected.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type FactoryResetDeviceError = FactoryResetDeviceErrors[keyof FactoryResetDeviceErrors];
-
-export type FactoryResetDeviceResponses = {
-    /**
-     * The device accepted the factory reset request.
-     */
-    204: void;
-};
-
-export type FactoryResetDeviceResponse = FactoryResetDeviceResponses[keyof FactoryResetDeviceResponses];
-
-export type ListDeviceRpcMethodsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/rpc-methods';
-};
-
-export type ListDeviceRpcMethodsErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no active connection, or is rebooting and has not reconnected.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type ListDeviceRpcMethodsError = ListDeviceRpcMethodsErrors[keyof ListDeviceRpcMethodsErrors];
-
-export type ListDeviceRpcMethodsResponses = {
-    /**
-     * Registry names of the methods the device implements.
-     */
-    200: DeviceRpcMethods;
-};
-
-export type ListDeviceRpcMethodsResponse = ListDeviceRpcMethodsResponses[keyof ListDeviceRpcMethodsResponses];
-
-export type SetDeviceRunWorkspaceData = {
-    body: DeviceRunWorkspaceSetRequest;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/run/workspace';
-};
-
-export type SetDeviceRunWorkspaceErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * WORKSPACE_NOT_FOUND when no available Workspace owned by the caller matches the target.
-     */
-    404: ErrorResponse;
-    /**
-     * The device has no active connection, or is rebooting and has not reconnected.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type SetDeviceRunWorkspaceError = SetDeviceRunWorkspaceErrors[keyof SetDeviceRunWorkspaceErrors];
-
-export type SetDeviceRunWorkspaceResponses = {
-    /**
-     * The device accepted the request and started switching Workspaces.
-     */
-    202: unknown;
-};
-
-export type ListDeviceToolsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/tools';
-};
-
-export type ListDeviceToolsErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-};
-
-export type ListDeviceToolsError = ListDeviceToolsErrors[keyof ListDeviceToolsErrors];
-
-export type ListDeviceToolsResponses = {
-    /**
-     * Tools the control app may invoke.
-     */
-    200: DeviceToolList;
-};
-
-export type ListDeviceToolsResponse = ListDeviceToolsResponses[keyof ListDeviceToolsResponses];
-
-export type InvokeDeviceToolData = {
-    body?: DeviceToolInvokeRequest;
-    path: {
-        /**
-         * Tool name as listed by GET /gizclaw/v1/device/tools.
-         */
-        name: string;
-    };
-    query?: never;
-    url: '/gizclaw/v1/device/tools/{name}/actions/invoke';
-};
-
-export type InvokeDeviceToolErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * TOOL_NOT_FOUND when the bound RuntimeProfile does not expose this Tool to the control app.
-     */
-    404: ErrorResponse;
-    /**
-     * The device has no active connection, or is rebooting and has not reconnected.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type InvokeDeviceToolError = InvokeDeviceToolErrors[keyof InvokeDeviceToolErrors];
-
-export type InvokeDeviceToolResponses = {
-    /**
-     * The result the device returned.
-     */
-    200: DeviceToolInvokeResponse;
-};
-
-export type InvokeDeviceToolResponse = InvokeDeviceToolResponses[keyof InvokeDeviceToolResponses];
-
-export type GetDeviceWifiData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/wifi';
-};
-
-export type GetDeviceWifiErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no active connection, or is rebooting and has not reconnected.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type GetDeviceWifiError = GetDeviceWifiErrors[keyof GetDeviceWifiErrors];
-
-export type GetDeviceWifiResponses = {
-    /**
-     * Current device Wi-Fi status.
-     */
-    200: DeviceWifiStatus;
-};
-
-export type GetDeviceWifiResponse = GetDeviceWifiResponses[keyof GetDeviceWifiResponses];
-
-export type ConnectDeviceWifiData = {
-    body: DeviceWifiConnectRequest;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/wifi';
-};
-
-export type ConnectDeviceWifiErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no active connection, or is rebooting and has not reconnected.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type ConnectDeviceWifiError = ConnectDeviceWifiErrors[keyof ConnectDeviceWifiErrors];
-
-export type ConnectDeviceWifiResponses = {
-    /**
-     * The device accepted the credentials and started switching networks.
-     */
-    202: unknown;
-};
-
-export type ScanDeviceWifiData = {
-    body?: DeviceWifiScanRequest;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/wifi/scan';
-};
-
-export type ScanDeviceWifiErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no active connection, or is rebooting and has not reconnected.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type ScanDeviceWifiError = ScanDeviceWifiErrors[keyof ScanDeviceWifiErrors];
-
-export type ScanDeviceWifiResponses = {
-    /**
-     * Nearby Wi-Fi networks reported by the device.
-     */
-    200: DeviceWifiScanResponse;
-};
-
-export type ScanDeviceWifiResponse = ScanDeviceWifiResponses[keyof ScanDeviceWifiResponses];
-
-export type ListDeviceSavedWifiData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/wifi/saved';
-};
-
-export type ListDeviceSavedWifiErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no active connection, or is rebooting and has not reconnected.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type ListDeviceSavedWifiError = ListDeviceSavedWifiErrors[keyof ListDeviceSavedWifiErrors];
-
-export type ListDeviceSavedWifiResponses = {
-    /**
-     * Saved Wi-Fi networks.
-     */
-    200: DeviceWifiSavedList;
-};
-
-export type ListDeviceSavedWifiResponse = ListDeviceSavedWifiResponses[keyof ListDeviceSavedWifiResponses];
-
-export type ForgetDeviceSavedWifiData = {
-    body?: never;
-    path: {
-        /**
-         * Saved network SSID; at most 32 UTF-8 bytes.
-         */
-        ssid: string;
-    };
-    query?: never;
-    url: '/gizclaw/v1/device/wifi/saved/{ssid}';
-};
-
-export type ForgetDeviceSavedWifiErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The device has no saved network with this SSID.
-     */
-    404: ErrorResponse;
-    /**
-     * The device has no active connection, or is rebooting and has not reconnected.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-    /**
-     * The device does not implement this control method.
-     */
-    501: ErrorResponse;
-    /**
-     * The device answered with an unexpected RPC error.
-     */
-    502: ErrorResponse;
-    /**
-     * The device did not answer within the control timeout.
-     */
-    504: ErrorResponse;
-};
-
-export type ForgetDeviceSavedWifiError = ForgetDeviceSavedWifiErrors[keyof ForgetDeviceSavedWifiErrors];
-
-export type ForgetDeviceSavedWifiResponses = {
-    /**
-     * The device forgot the network.
-     */
-    204: void;
-};
-
-export type ForgetDeviceSavedWifiResponse = ForgetDeviceSavedWifiResponses[keyof ForgetDeviceSavedWifiResponses];
 
 export type ListContactsData = {
     body?: never;
@@ -4718,3 +3469,117 @@ export type FindPublicKeysByImeiResponses = {
 };
 
 export type FindPublicKeysByImeiResponse = FindPublicKeysByImeiResponses[keyof FindPublicKeysByImeiResponses];
+
+export type ListClientToolsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/tool/v0/tools';
+};
+
+export type ListClientToolsErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device does not implement a requested hardware state (MHS_STATE_NOT_FOUND).
+     */
+    404: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type ListClientToolsError = ListClientToolsErrors[keyof ListClientToolsErrors];
+
+export type ListClientToolsResponses = {
+    /**
+     * Successful device response
+     */
+    200: ClientToolV0ListResponse;
+};
+
+export type ListClientToolsResponse = ListClientToolsResponses[keyof ListClientToolsResponses];
+
+export type InvokeClientToolData = {
+    body: ClientToolV0InvokeRequest;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/tool/v0/invoke';
+};
+
+export type InvokeClientToolErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device does not implement a requested hardware state (MHS_STATE_NOT_FOUND).
+     */
+    404: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type InvokeClientToolError = InvokeClientToolErrors[keyof InvokeClientToolErrors];
+
+export type InvokeClientToolResponses = {
+    /**
+     * Successful device response
+     */
+    200: ClientToolV0InvokeResponse;
+};
+
+export type InvokeClientToolResponse = InvokeClientToolResponses[keyof InvokeClientToolResponses];

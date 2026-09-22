@@ -12,7 +12,7 @@ import (
 func TestResolveInvokeReauthorizesAndValidatesArguments(t *testing.T) {
 	t.Parallel()
 	server := &Server{DB: newTestDatabase(t)}
-	tool := testClientTool("volume_set")
+	tool := testCatalogTool("volume_set")
 	tool.InputSchema = jsonschema.Schema{
 		Type:       "object",
 		Required:   []string{"level"},
@@ -56,7 +56,7 @@ func TestResolveInvokeReauthorizesAndValidatesArguments(t *testing.T) {
 func TestResolveInvokeRejectsUnboundAliasAndSeesResourceUpdate(t *testing.T) {
 	t.Parallel()
 	server := &Server{DB: newTestDatabase(t)}
-	created, err := server.CreateTool(context.Background(), testClientTool("volume_set"))
+	created, err := server.CreateTool(context.Background(), testCatalogTool("volume_set"))
 	if err != nil {
 		t.Fatalf("PutTool(): %v", err)
 	}
@@ -68,7 +68,7 @@ func TestResolveInvokeRejectsUnboundAliasAndSeesResourceUpdate(t *testing.T) {
 	}); !errors.Is(err, ErrToolNotFound) {
 		t.Fatalf("alias invocation error = %v", err)
 	}
-	disabled := testClientTool("volume_set")
+	disabled := testCatalogTool("volume_set")
 	disabled.Enabled = false
 	if _, err := server.PutTool(context.Background(), created.ID, disabled); err != nil {
 		t.Fatalf("disable PutTool(): %v", err)

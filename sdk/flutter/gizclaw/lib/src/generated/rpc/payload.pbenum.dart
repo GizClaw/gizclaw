@@ -9,4 +9,5 @@ export 'payload/icon.pbenum.dart';
 export 'payload/mhs.pbenum.dart';
 export 'payload/social.pbenum.dart';
 export 'payload/system.pbenum.dart';
+export 'payload/tool.pbenum.dart';
 export 'payload/workspace.pbenum.dart';

@@ -15,7 +15,7 @@ func (c *rpcClient) GetClientInfo(ctx context.Context, conn net.Conn, id string)
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientInfoGet, params), rpcapi.RPCPayload.AsClientGetInfoResponse)
+	result, err := callClientToolResult(ctx, conn, id, rpcpb.ClientTool_CLIENT_TOOL_INFO_GET, params, rpcapi.RPCPayload.AsClientGetInfoResponse)
 	if err != nil {
 		return nil, wrapRPCResultError("device info", err)
 	}
@@ -27,7 +27,7 @@ func (c *rpcClient) GetClientIdentifiers(ctx context.Context, conn net.Conn, id 
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientIdentifiersGet, params), rpcapi.RPCPayload.AsClientGetIdentifiersResponse)
+	result, err := callClientToolResult(ctx, conn, id, rpcpb.ClientTool_CLIENT_TOOL_IDENTIFIERS_GET, params, rpcapi.RPCPayload.AsClientGetIdentifiersResponse)
 	if err != nil {
 		return nil, wrapRPCResultError("device identifiers", err)
 	}
@@ -39,21 +39,9 @@ func (c *rpcClient) GetDeviceStatus(ctx context.Context, conn net.Conn, id strin
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientDeviceStatusGet, params), rpcapi.RPCPayload.AsClientDeviceStatusGetResponse)
+	result, err := callClientToolResult(ctx, conn, id, rpcpb.ClientTool_CLIENT_TOOL_DEVICE_STATUS_GET, params, rpcapi.RPCPayload.AsClientDeviceStatusGetResponse)
 	if err != nil {
 		return nil, wrapRPCResultError("device status", err)
-	}
-	return result, nil
-}
-
-func (c *rpcClient) SetDeviceVolume(ctx context.Context, conn net.Conn, id string, request rpcapi.ClientDeviceVolumeSetRequest) (*rpcapi.ClientDeviceVolumeSetResponse, error) {
-	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromClientDeviceVolumeSetRequest)
-	if err != nil {
-		return nil, err
-	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientDeviceVolumeSet, params), rpcapi.RPCPayload.AsClientDeviceVolumeSetResponse)
-	if err != nil {
-		return nil, wrapRPCResultError("device volume", err)
 	}
 	return result, nil
 }
@@ -63,7 +51,7 @@ func (c *rpcClient) PlayDeviceSound(ctx context.Context, conn net.Conn, id strin
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientDeviceSoundPlay, params), rpcapi.RPCPayload.AsClientDeviceSoundPlayResponse)
+	result, err := callClientToolResult(ctx, conn, id, rpcpb.ClientTool_CLIENT_TOOL_SOUND_PLAY, params, rpcapi.RPCPayload.AsClientDeviceSoundPlayResponse)
 	if err != nil {
 		return nil, wrapRPCResultError("device sound", err)
 	}
@@ -75,7 +63,7 @@ func (c *rpcClient) FindDevice(ctx context.Context, conn net.Conn, id string, re
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientDeviceFind, params), rpcapi.RPCPayload.AsClientDeviceFindResponse)
+	result, err := callClientToolResult(ctx, conn, id, rpcpb.ClientTool_CLIENT_TOOL_DEVICE_FIND, params, rpcapi.RPCPayload.AsClientDeviceFindResponse)
 	if err != nil {
 		return nil, wrapRPCResultError("device find", err)
 	}
@@ -87,7 +75,7 @@ func (c *rpcClient) PingSocial(ctx context.Context, conn net.Conn, id string, re
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientSocialPing, params), rpcapi.RPCPayload.AsClientSocialPingResponse)
+	result, err := callClientToolResult(ctx, conn, id, rpcpb.ClientTool_CLIENT_TOOL_SOCIAL_PING, params, rpcapi.RPCPayload.AsClientSocialPingResponse)
 	if err != nil {
 		return nil, wrapRPCResultError("social ping", err)
 	}
@@ -99,7 +87,7 @@ func (c *rpcClient) RebootDevice(ctx context.Context, conn net.Conn, id string, 
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientDeviceReboot, params), rpcapi.RPCPayload.AsClientDeviceRebootResponse)
+	result, err := callClientToolResult(ctx, conn, id, rpcpb.ClientTool_CLIENT_TOOL_DEVICE_REBOOT, params, rpcapi.RPCPayload.AsClientDeviceRebootResponse)
 	if err != nil {
 		return nil, wrapRPCResultError("device reboot", err)
 	}
@@ -111,21 +99,9 @@ func (c *rpcClient) UpdateDeviceFirmware(ctx context.Context, conn net.Conn, id 
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientFirmwareUpdate, params), rpcapi.RPCPayload.AsClientFirmwareUpdateResponse)
+	result, err := callClientToolResult(ctx, conn, id, rpcpb.ClientTool_CLIENT_TOOL_FIRMWARE_UPDATE, params, rpcapi.RPCPayload.AsClientFirmwareUpdateResponse)
 	if err != nil {
 		return nil, wrapRPCResultError("device firmware update", err)
-	}
-	return result, nil
-}
-
-func (c *rpcClient) GetWifiStatus(ctx context.Context, conn net.Conn, id string) (*rpcapi.ClientWifiStatusGetResponse, error) {
-	params, err := newRPCRequestParams(rpcapi.ClientWifiStatusGetRequest{}, (*rpcapi.RPCPayload).FromClientWifiStatusGetRequest)
-	if err != nil {
-		return nil, err
-	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientWifiStatusGet, params), rpcapi.RPCPayload.AsClientWifiStatusGetResponse)
-	if err != nil {
-		return nil, wrapRPCResultError("wifi status", err)
 	}
 	return result, nil
 }
@@ -135,7 +111,7 @@ func (c *rpcClient) ListSavedWifi(ctx context.Context, conn net.Conn, id string)
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientWifiSavedList, params), rpcapi.RPCPayload.AsClientWifiSavedListResponse)
+	result, err := callClientToolResult(ctx, conn, id, rpcpb.ClientTool_CLIENT_TOOL_WIFI_SAVED_LIST, params, rpcapi.RPCPayload.AsClientWifiSavedListResponse)
 	if err != nil {
 		return nil, wrapRPCResultError("wifi saved list", err)
 	}
@@ -147,7 +123,7 @@ func (c *rpcClient) ForgetSavedWifi(ctx context.Context, conn net.Conn, id strin
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientWifiSavedForget, params), rpcapi.RPCPayload.AsClientWifiSavedForgetResponse)
+	result, err := callClientToolResult(ctx, conn, id, rpcpb.ClientTool_CLIENT_TOOL_WIFI_SAVED_FORGET, params, rpcapi.RPCPayload.AsClientWifiSavedForgetResponse)
 	if err != nil {
 		return nil, wrapRPCResultError("wifi saved forget", err)
 	}
@@ -159,7 +135,7 @@ func (c *rpcClient) ScanWifi(ctx context.Context, conn net.Conn, id string, requ
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientWifiScan, params), rpcapi.RPCPayload.AsClientWifiScanResponse)
+	result, err := callClientToolResult(ctx, conn, id, rpcpb.ClientTool_CLIENT_TOOL_WIFI_SCAN, params, rpcapi.RPCPayload.AsClientWifiScanResponse)
 	if err != nil {
 		return nil, wrapRPCResultError("wifi scan", err)
 	}
@@ -171,33 +147,9 @@ func (c *rpcClient) ConnectWifi(ctx context.Context, conn net.Conn, id string, r
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientWifiConnect, params), rpcapi.RPCPayload.AsClientWifiConnectResponse)
+	result, err := callClientToolResult(ctx, conn, id, rpcpb.ClientTool_CLIENT_TOOL_WIFI_CONNECT, params, rpcapi.RPCPayload.AsClientWifiConnectResponse)
 	if err != nil {
 		return nil, wrapRPCResultError("wifi connect", err)
-	}
-	return result, nil
-}
-
-func (c *rpcClient) GetDeviceSettings(ctx context.Context, conn net.Conn, id string) (*rpcapi.ClientDeviceSettingsGetResponse, error) {
-	params, err := newRPCRequestParams(rpcapi.ClientDeviceSettingsGetRequest{}, (*rpcapi.RPCPayload).FromClientDeviceSettingsGetRequest)
-	if err != nil {
-		return nil, err
-	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientDeviceSettingsGet, params), rpcapi.RPCPayload.AsClientDeviceSettingsGetResponse)
-	if err != nil {
-		return nil, wrapRPCResultError("device settings get", err)
-	}
-	return result, nil
-}
-
-func (c *rpcClient) SetDeviceSettings(ctx context.Context, conn net.Conn, id string, request rpcapi.ClientDeviceSettingsSetRequest) (*rpcapi.ClientDeviceSettingsSetResponse, error) {
-	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromClientDeviceSettingsSetRequest)
-	if err != nil {
-		return nil, err
-	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientDeviceSettingsSet, params), rpcapi.RPCPayload.AsClientDeviceSettingsSetResponse)
-	if err != nil {
-		return nil, wrapRPCResultError("device settings set", err)
 	}
 	return result, nil
 }
@@ -207,21 +159,9 @@ func (c *rpcClient) FactoryResetDevice(ctx context.Context, conn net.Conn, id st
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientDeviceFactoryReset, params), rpcapi.RPCPayload.AsClientDeviceFactoryResetResponse)
+	result, err := callClientToolResult(ctx, conn, id, rpcpb.ClientTool_CLIENT_TOOL_DEVICE_FACTORY_RESET, params, rpcapi.RPCPayload.AsClientDeviceFactoryResetResponse)
 	if err != nil {
 		return nil, wrapRPCResultError("device factory reset", err)
-	}
-	return result, nil
-}
-
-func (c *rpcClient) GetRPCMethods(ctx context.Context, conn net.Conn, id string) (*rpcapi.ClientRPCMethodsGetResponse, error) {
-	params, err := newRPCRequestParams(rpcapi.ClientRPCMethodsGetRequest{}, (*rpcapi.RPCPayload).FromClientRPCMethodsGetRequest)
-	if err != nil {
-		return nil, err
-	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientRPCMethodsGet, params), rpcapi.RPCPayload.AsClientRPCMethodsGetResponse)
-	if err != nil {
-		return nil, wrapRPCResultError("rpc methods get", err)
 	}
 	return result, nil
 }
@@ -231,21 +171,9 @@ func (c *rpcClient) SetRunWorkspace(ctx context.Context, conn net.Conn, id strin
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientRunWorkspaceSet, params), rpcapi.RPCPayload.AsClientRunWorkspaceSetResponse)
+	result, err := callClientToolResult(ctx, conn, id, rpcpb.ClientTool_CLIENT_TOOL_RUN_WORKSPACE_SET, params, rpcapi.RPCPayload.AsClientRunWorkspaceSetResponse)
 	if err != nil {
 		return nil, wrapRPCResultError("run workspace set", err)
-	}
-	return result, nil
-}
-
-func (c *rpcClient) InvokeTool(ctx context.Context, conn net.Conn, id string, request rpcapi.ToolInvokeRequest) (*rpcapi.ToolInvokeResponse, error) {
-	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromToolInvokeRequest)
-	if err != nil {
-		return nil, err
-	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientToolInvoke, params), rpcapi.RPCPayload.AsToolInvokeResponse)
-	if err != nil {
-		return nil, wrapRPCResultError("tool invoke", err)
 	}
 	return result, nil
 }

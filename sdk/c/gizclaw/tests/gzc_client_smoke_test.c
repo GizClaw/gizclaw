@@ -147,7 +147,8 @@ typedef struct {
 } fake_rpc_provider_t;
 
 typedef struct {
-  int call_count;
+  fake_rpc_provider_t *provider;
+  gizclaw_rpc_v1_ClientTool tool;
 } fake_tool_handler_t;
 
 static fake_webrtc_t *global_fake_webrtc;
@@ -174,40 +175,6 @@ static void *test_realloc(void *userdata, void *ptr, size_t size) {
   }
   const gzc_platform_t *platform = gzc_default_platform();
   return platform->realloc(platform->userdata, ptr, size);
-}
-
-static int test_tool_handler(
-    void *userdata,
-    gzc_str_t request_payload,
-    gzc_rpc_provider_respond_fn respond,
-    void *respond_userdata) {
-  fake_tool_handler_t *handler = (fake_tool_handler_t *)userdata;
-  if (handler == NULL || respond == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  gizclaw_rpc_v1_ToolInvokeRequest request =
-      gizclaw_rpc_v1_ToolInvokeRequest_init_zero;
-  pb_istream_t input =
-      pb_istream_from_buffer((const pb_byte_t *)request_payload.data,
-                             request_payload.len);
-  if (!pb_decode(&input, gizclaw_rpc_v1_ToolInvokeRequest_fields, &request) ||
-      strcmp(request.invoke_name, "volume_set") != 0) {
-    return GZC_ERR_RPC;
-  }
-  handler->call_count++;
-  gizclaw_rpc_v1_ToolInvokeResponse result =
-      gizclaw_rpc_v1_ToolInvokeResponse_init_zero;
-  strcpy(result.data_json, "{\"ok\":true}");
-  uint8_t payload[32];
-  pb_ostream_t output = pb_ostream_from_buffer(payload, sizeof(payload));
-  if (!pb_encode(&output, gizclaw_rpc_v1_ToolInvokeResponse_fields, &result)) {
-    return GZC_ERR_RPC;
-  }
-  const gzc_rpc_provider_response_t response = {
-      .payload = payload,
-      .payload_len = output.bytes_written,
-  };
-  return respond(respond_userdata, &response);
 }
 
 static int test_rpc_provider(
@@ -249,6 +216,20 @@ static int test_rpc_provider(
   int rc = respond(respond_userdata, &response);
   memset(response_payload, 0xff, sizeof(response_payload));
   return rc;
+}
+
+static int test_tool_handler(void *userdata, gzc_str_t payload,
+                             gzc_rpc_provider_respond_fn respond, void *out) {
+  fake_tool_handler_t *handler = (fake_tool_handler_t *)userdata;
+  if (handler->tool == gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_DEVICE_FIND) {
+    gizclaw_rpc_v1_ClientDeviceFindRequest find = gizclaw_rpc_v1_ClientDeviceFindRequest_init_zero;
+    pb_istream_t input = pb_istream_from_buffer((const pb_byte_t *)payload.data, payload.len);
+    if (!pb_decode(&input, gizclaw_rpc_v1_ClientDeviceFindRequest_fields, &find) ||
+        !find.has_duration_ms || find.duration_ms != 8000) {
+      return GZC_ERR_RPC;
+    }
+  }
+  return test_rpc_provider(handler->provider, (int)handler->tool, payload, respond, out);
 }
 
 static int64_t test_time_instant_ms(void *userdata) {
@@ -1863,22 +1844,22 @@ static int test_device_control_payload_bounds(void) {
     return 1;
   }
 
-  gizclaw_rpc_v1_ClientDeviceVolumeSetResponse volume =
-      gizclaw_rpc_v1_ClientDeviceVolumeSetResponse_init_zero;
+  gizclaw_rpc_v1_ClientDeviceStatusGetResponse volume =
+      gizclaw_rpc_v1_ClientDeviceStatusGetResponse_init_zero;
   volume.has_value = true;
   volume.value.has_volume = true;
   volume.value.volume = 35;
   volume.value.has_muted = true;
   volume.value.muted = true;
   output = pb_ostream_from_buffer(saved_buffer, sizeof(saved_buffer));
-  if (expect(pb_encode(&output, gizclaw_rpc_v1_ClientDeviceVolumeSetResponse_fields, &volume),
+  if (expect(pb_encode(&output, gizclaw_rpc_v1_ClientDeviceStatusGetResponse_fields, &volume),
              "volume response with PeerStatus encodes") != 0) {
     return 1;
   }
-  gizclaw_rpc_v1_ClientDeviceVolumeSetResponse decoded_volume =
-      gizclaw_rpc_v1_ClientDeviceVolumeSetResponse_init_zero;
+  gizclaw_rpc_v1_ClientDeviceStatusGetResponse decoded_volume =
+      gizclaw_rpc_v1_ClientDeviceStatusGetResponse_init_zero;
   input = pb_istream_from_buffer(saved_buffer, output.bytes_written);
-  if (expect(pb_decode(&input, gizclaw_rpc_v1_ClientDeviceVolumeSetResponse_fields, &decoded_volume) &&
+  if (expect(pb_decode(&input, gizclaw_rpc_v1_ClientDeviceStatusGetResponse_fields, &decoded_volume) &&
                  decoded_volume.has_value && decoded_volume.value.has_volume &&
                  decoded_volume.value.volume == 35 && decoded_volume.value.muted,
              "volume response round trips") != 0) {
@@ -2709,17 +2690,25 @@ int main(void) {
   config.write_timeout_ms = 1000;
   fake_rpc_provider_t rpc_provider;
   memset(&rpc_provider, 0, sizeof(rpc_provider));
-  config.rpc_provider = test_rpc_provider;
-  config.rpc_provider_userdata = &rpc_provider;
-  fake_tool_handler_t tool_handler;
-  memset(&tool_handler, 0, sizeof(tool_handler));
-  const gzc_tool_handler_t tool_handlers[] = {{
-      .name = {.data = "volume_set", .len = 10u},
-      .handler = test_tool_handler,
-      .userdata = &tool_handler,
-  }};
+  config.mhs_read = test_rpc_provider;
+  config.mhs_write = test_rpc_provider;
+  config.mhs_userdata = &rpc_provider;
+  fake_tool_handler_t tool_providers[21];
+  gzc_tool_handler_t tool_handlers[20];
+  size_t installed_count = 0u;
+  for (int tool = 1; tool <= 21; tool++) {
+    if (tool == gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_WIFI_SCAN)
+      continue;
+    tool_providers[tool - 1].provider = &rpc_provider;
+    tool_providers[tool - 1].tool = (gizclaw_rpc_v1_ClientTool)tool;
+    tool_handlers[installed_count++] = (gzc_tool_handler_t){
+        .tool = (gizclaw_rpc_v1_ClientTool)tool,
+        .handler = test_tool_handler,
+        .userdata = &tool_providers[tool - 1],
+    };
+  }
   config.tool_handlers = tool_handlers;
-  config.tool_handler_count = 1u;
+  config.tool_handler_count = installed_count;
 
   gzc_client_t *client = NULL;
   gzc_client_config_t invalid_config = config;
@@ -5109,8 +5098,8 @@ int main(void) {
   gzc_buf_reset(&inbound_framed);
   gzc_buf_reset(&fake_webrtc.sent);
   rc = gzc_rpc_encode_request_envelope(
-      platform, gzc_str_from_cstr("client-info"),
-      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_INFO_GET,
+      platform, gzc_str_from_cstr("mhs-read"),
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_READ,
       gzc_str_from_parts("", 0), &inbound_request);
   if (rc == GZC_OK) {
     rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_BINARY,
@@ -5120,7 +5109,7 @@ int main(void) {
     rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_EOS, NULL,
                            0);
   }
-  if (expect(rc == GZC_OK, "build inbound client-info request") != 0) {
+  if (expect(rc == GZC_OK, "build inbound mhs-read request") != 0) {
     return 1;
   }
   fake_webrtc.callbacks.on_channel_message(
@@ -5128,7 +5117,7 @@ int main(void) {
       &fake_webrtc.remote_channels[0], NULL, inbound_framed.data,
       inbound_framed.len, false);
   rc = gzc_client_poll(client, 0);
-  if (expect(rc == GZC_OK, "poll dispatches inbound client-info") != 0) {
+  if (expect(rc == GZC_OK, "poll dispatches inbound mhs-read") != 0) {
     return 1;
   }
   inbound_frame_size = first_frame_size(&fake_webrtc.sent);
@@ -5146,9 +5135,9 @@ int main(void) {
                  (uint8_t)inbound_response.result_payload.data[1] == 0x00u &&
                  rpc_provider.call_count == 1 &&
                  rpc_provider.method ==
-                     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_INFO_GET &&
+                     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_READ &&
                  rpc_provider.last_payload_len == 0u,
-             "inbound client-info dispatches configured provider") != 0) {
+             "inbound mhs-read dispatches configured provider") != 0) {
     return 1;
   }
   close_remote_rpc(&fake_webrtc, 0);
@@ -5159,257 +5148,158 @@ int main(void) {
   if (test_social_profile_payload_bounds() != 0) {
     return 1;
   }
-  {
-    gizclaw_rpc_v1_ClientDeviceVolumeSetRequest volume_request =
-        gizclaw_rpc_v1_ClientDeviceVolumeSetRequest_init_zero;
-    volume_request.level = 35;
-    volume_request.muted = true;
-    gzc_buf_t control_payload;
-    gzc_buf_init(&control_payload);
-    rc = encode_test_pb_message(
-        platform, gizclaw_rpc_v1_ClientDeviceVolumeSetRequest_fields,
-        &volume_request, &control_payload);
-    if (expect(rc == GZC_OK && control_payload.len > 0u,
-               "encode device volume request") != 0) {
-      return 1;
-    }
-    gizclaw_rpc_v1_ClientDeviceFindRequest find_request =
-        gizclaw_rpc_v1_ClientDeviceFindRequest_init_zero;
-    find_request.has_duration_ms = true;
-    find_request.duration_ms = 8000;
-    gzc_buf_t find_payload;
-    gzc_buf_init(&find_payload);
-    rc = encode_test_pb_message(
-        platform, gizclaw_rpc_v1_ClientDeviceFindRequest_fields,
-        &find_request, &find_payload);
-    if (expect(rc == GZC_OK && find_payload.len > 0u,
-               "encode device find request") != 0) {
-      return 1;
-    }
-    gizclaw_rpc_v1_ClientSocialPingRequest ping_request =
-        gizclaw_rpc_v1_ClientSocialPingRequest_init_zero;
-    memset(ping_request.from_peer_public_key, 'k', 64);
-    ping_request.has_from_display_name = true;
-    strcpy(ping_request.from_display_name, "Alice");
-    ping_request.has_friend_group_name = true;
-    strcpy(ping_request.friend_group_name, "my-team");
-    gzc_buf_t ping_payload;
-    gzc_buf_init(&ping_payload);
-    rc = encode_test_pb_message(
-        platform, gizclaw_rpc_v1_ClientSocialPingRequest_fields,
-        &ping_request, &ping_payload);
-    if (expect(rc == GZC_OK && ping_payload.len > 0u,
-               "encode social ping request") != 0) {
-      return 1;
-    }
-    static const gizclaw_rpc_v1_RpcMethod control_methods[] = {
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_STATUS_GET,
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_READ,
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_WRITE,
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_VOLUME_SET,
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY,
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_REBOOT,
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_STATUS_GET,
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_LIST,
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET,
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SCAN,
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_CONNECT,
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_FIND,
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_SOCIAL_PING,
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET,
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET,
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET,
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_GET,
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RUN_WORKSPACE_SET,
-    };
-    static const int control_method_ids[] = {100, 133, 134, 101, 102, 103, 104, 105, 106, 108, 109, 126, 127, 128, 129, 130, 131, 132};
-    for (size_t i = 0; i < sizeof(control_methods) / sizeof(control_methods[0]); i++) {
-      if (expect((int)control_methods[i] == control_method_ids[i],
-                 "device control method id matches rpc.proto") != 0) {
+  /* Every procedure keeps dispatch coverage; Wi-Fi scan is deliberately absent. */
+  for (int tool = 1; tool <= 21; tool++) {
+    gzc_buf_t params;
+    gzc_buf_t invoke;
+    gzc_buf_init(&params);
+    gzc_buf_init(&invoke);
+    if (tool == gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_DEVICE_FIND) {
+      rc = append_test_proto_varint(platform, &params, 1, 8000);
+      if (expect(rc == GZC_OK, "encode find duration") != 0)
         return 1;
-      }
-      gzc_str_t control_params = gzc_str_from_parts("", 0);
-      if (control_methods[i] ==
-          gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_VOLUME_SET) {
-        control_params = gzc_str_from_parts((const char *)control_payload.data,
-                                            control_payload.len);
-      }
-      if (control_methods[i] ==
-          gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_FIND) {
-        control_params = gzc_str_from_parts((const char *)find_payload.data,
-                                            find_payload.len);
-      }
-      if (control_methods[i] ==
-          gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_SOCIAL_PING) {
-        control_params = gzc_str_from_parts((const char *)ping_payload.data,
-                                            ping_payload.len);
-      }
-      announce_remote_rpc(&fake_webrtc, 0);
-      gzc_buf_reset(&inbound_request);
-      gzc_buf_reset(&inbound_framed);
-      gzc_buf_reset(&fake_webrtc.sent);
-      rc = gzc_rpc_encode_request_envelope(
-          platform, gzc_str_from_cstr("client-device-control"),
-          control_methods[i], control_params, &inbound_request);
-      if (rc == GZC_OK) {
-        rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_BINARY,
-                               inbound_request.data, inbound_request.len);
-      }
-      if (rc == GZC_OK) {
-        rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_EOS,
-                               NULL, 0);
-      }
-      if (expect(rc == GZC_OK, "build inbound device control request") != 0) {
+    }
+    rc = append_test_proto_varint(platform, &invoke, 1, (uint64_t)tool);
+    if (rc == GZC_OK)
+      rc = append_test_proto_bytes(platform, &invoke, 2, params.data, params.len);
+    if (expect(rc == GZC_OK, "encode tool invoke") != 0)
+      return 1;
+    announce_remote_rpc(&fake_webrtc, 0);
+    gzc_buf_reset(&inbound_request);
+    gzc_buf_reset(&inbound_framed);
+    gzc_buf_reset(&fake_webrtc.sent);
+    rc = gzc_rpc_encode_request_envelope(platform, gzc_str_from_cstr("tool"),
+                                         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+                                         gzc_str_from_parts((const char *)invoke.data, invoke.len), &inbound_request);
+    if (rc == GZC_OK)
+      rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_BINARY, inbound_request.data, inbound_request.len);
+    if (rc == GZC_OK)
+      rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_EOS, NULL, 0);
+    if (expect(rc == GZC_OK, "build invoke exchange") != 0)
+      return 1;
+    const int before = rpc_provider.call_count;
+    fake_webrtc.callbacks.on_channel_message(fake_webrtc.callbacks.userdata,
+                                             &fake_webrtc.peer, &fake_webrtc.remote_channels[0], NULL,
+                                             inbound_framed.data, inbound_framed.len, false);
+    rc = gzc_client_poll(client, 0);
+    if (rc == GZC_OK)
+      rc = gzc_rpc_frame_decode(fake_webrtc.sent.data, first_frame_size(&fake_webrtc.sent), &inbound_frame);
+    if (rc == GZC_OK)
+      rc = gzc_rpc_decode_response_envelope(
+          gzc_str_from_parts((const char *)inbound_frame.data, inbound_frame.len), &inbound_response);
+    if (tool == gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_WIFI_SCAN) {
+      if (expect(rc == GZC_OK && inbound_response.has_error &&
+                     inbound_response.error.code == gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNIMPLEMENTED &&
+                     rpc_provider.call_count == before,
+                 "uninstalled tool returns UNIMPLEMENTED") != 0)
         return 1;
-      }
-      int control_calls_before = rpc_provider.call_count;
-      fake_webrtc.callbacks.on_channel_message(
-          fake_webrtc.callbacks.userdata, &fake_webrtc.peer,
-          &fake_webrtc.remote_channels[0], NULL, inbound_framed.data,
-          inbound_framed.len, false);
-      rc = gzc_client_poll(client, 0);
-      if (expect(rc == GZC_OK, "poll dispatches inbound device control") != 0) {
-        return 1;
-      }
-      inbound_frame_size = first_frame_size(&fake_webrtc.sent);
-      rc = gzc_rpc_frame_decode(fake_webrtc.sent.data, inbound_frame_size,
-                                &inbound_frame);
-      if (rc == GZC_OK) {
-        rc = gzc_rpc_decode_response_envelope(
-            gzc_str_from_parts((const char *)inbound_frame.data,
-                               inbound_frame.len),
-            &inbound_response);
-      }
+    } else {
+      /* Outer payload contains the inner response bytes 0a 00, including after
+       * the provider overwrites its borrowed response buffer on return. */
+      const uint8_t expected[] = {0x0a, 0x02, 0x0a, 0x00};
       if (expect(rc == GZC_OK && !inbound_response.has_error &&
-                     rpc_provider.call_count == control_calls_before + 1 &&
-                     rpc_provider.method == (int)control_methods[i] &&
-                     rpc_provider.last_payload_len == control_params.len,
-                 "inbound device control dispatches configured provider") != 0) {
+                     rpc_provider.call_count == before + 1 && rpc_provider.method == tool &&
+                     rpc_provider.last_payload_len == params.len &&
+                     inbound_response.result_payload.len == sizeof(expected) &&
+                     memcmp(inbound_response.result_payload.data, expected, sizeof(expected)) == 0,
+                 "tool enum selects handler and wraps borrowed response") != 0)
         return 1;
-      }
-      close_remote_rpc(&fake_webrtc, 0);
     }
-    gzc_buf_free(&control_payload, platform);
-    gzc_buf_free(&find_payload, platform);
-    gzc_buf_free(&ping_payload, platform);
+    close_remote_rpc(&fake_webrtc, 0);
+    gzc_buf_free(&params, platform);
+    gzc_buf_free(&invoke, platform);
   }
 
-  gizclaw_rpc_v1_ToolInvokeRequest tool_request =
-      gizclaw_rpc_v1_ToolInvokeRequest_init_zero;
-  strcpy(tool_request.invoke_name, "volume_set");
-  gzc_buf_t tool_payload;
-  gzc_buf_init(&tool_payload);
-  rc = encode_test_pb_message(
-      platform, gizclaw_rpc_v1_ToolInvokeRequest_fields, &tool_request,
-      &tool_payload);
-  announce_remote_rpc(&fake_webrtc, 0);
-  gzc_buf_reset(&inbound_request);
-  gzc_buf_reset(&inbound_framed);
-  gzc_buf_reset(&fake_webrtc.sent);
-  if (rc == GZC_OK) {
-    rc = gzc_rpc_encode_request_envelope(
-        platform, gzc_str_from_cstr("client-tool"),
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE,
-        gzc_str_from_parts((const char *)tool_payload.data, tool_payload.len),
-        &inbound_request);
+  const gizclaw_rpc_v1_RpcMethod discovery[] = {
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_LIST,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_LIST,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_WRITE,
+  };
+  for (size_t i = 0; i < sizeof(discovery) / sizeof(discovery[0]); i++) {
+    announce_remote_rpc(&fake_webrtc, 0);
+    gzc_buf_reset(&inbound_request);
+    gzc_buf_reset(&inbound_framed);
+    gzc_buf_reset(&fake_webrtc.sent);
+    rc = gzc_rpc_encode_request_envelope(platform, gzc_str_from_cstr("discovery"),
+                                         discovery[i], gzc_str_from_parts("", 0), &inbound_request);
+    if (rc == GZC_OK)
+      rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_BINARY, inbound_request.data, inbound_request.len);
+    if (rc == GZC_OK)
+      rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_EOS, NULL, 0);
+    if (expect(rc == GZC_OK, "build discovery exchange") != 0)
+      return 1;
+    fake_webrtc.callbacks.on_channel_message(fake_webrtc.callbacks.userdata,
+                                             &fake_webrtc.peer, &fake_webrtc.remote_channels[0], NULL,
+                                             inbound_framed.data, inbound_framed.len, false);
+    rc = gzc_client_poll(client, 0);
+    if (rc == GZC_OK)
+      rc = gzc_rpc_frame_decode(fake_webrtc.sent.data, first_frame_size(&fake_webrtc.sent), &inbound_frame);
+    if (rc == GZC_OK)
+      rc = gzc_rpc_decode_response_envelope(
+          gzc_str_from_parts((const char *)inbound_frame.data, inbound_frame.len), &inbound_response);
+    if (expect(rc == GZC_OK && !inbound_response.has_error, "discovery response") != 0)
+      return 1;
+    if (discovery[i] == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_LIST) {
+      gizclaw_rpc_v1_ClientToolV0ListResponse list = gizclaw_rpc_v1_ClientToolV0ListResponse_init_zero;
+      rc = decode_test_pb_message(inbound_response.result_payload, gizclaw_rpc_v1_ClientToolV0ListResponse_fields, &list);
+      if (expect(rc == GZC_OK && list.tools_count == installed_count, "list size equals installed tools") != 0)
+        return 1;
+      for (size_t j = 0; j < installed_count; j++) {
+        if (expect(list.tools[j] == tool_handlers[j].tool, "list matches every installed handler") != 0)
+          return 1;
+      }
+    } else if (discovery[i] == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_LIST) {
+      gizclaw_rpc_v1_ClientRpcMethodsListResponse list = gizclaw_rpc_v1_ClientRpcMethodsListResponse_init_zero;
+      const int expected[] = {1, 2, 133, 134, 135, 136, 137};
+      rc = decode_test_pb_message(inbound_response.result_payload, gizclaw_rpc_v1_ClientRpcMethodsListResponse_fields, &list);
+      if (expect(rc == GZC_OK && list.methods_count == 7, "method discovery has seven base/family methods") != 0)
+        return 1;
+      for (size_t j = 0; j < 7; j++) {
+        if (expect((int)list.methods[j] == expected[j], "method discovery uses registry numbers") != 0)
+          return 1;
+      }
+    } else if (expect(rpc_provider.method == (int)discovery[i], "MHS write dispatches installed handler") != 0)
+      return 1;
+    close_remote_rpc(&fake_webrtc, 0);
   }
-  if (rc == GZC_OK) {
-    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_BINARY,
-                           inbound_request.data, inbound_request.len);
-  }
-  if (rc == GZC_OK) {
-    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_EOS, NULL,
-                           0);
-  }
-  if (expect(rc == GZC_OK, "build inbound client Tool request") != 0) {
-    return 1;
-  }
-  fake_webrtc.callbacks.on_channel_message(
-      fake_webrtc.callbacks.userdata, &fake_webrtc.peer,
-      &fake_webrtc.remote_channels[0], NULL, inbound_framed.data,
-      inbound_framed.len, false);
-  rc = gzc_client_poll(client, 0);
-  inbound_frame_size = first_frame_size(&fake_webrtc.sent);
-  if (rc == GZC_OK) {
-    rc = gzc_rpc_frame_decode(fake_webrtc.sent.data, inbound_frame_size,
-                              &inbound_frame);
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_rpc_decode_response_envelope(
-        gzc_str_from_parts((const char *)inbound_frame.data,
-                           inbound_frame.len),
-        &inbound_response);
-  }
-  gizclaw_rpc_v1_ToolInvokeResponse tool_response =
-      gizclaw_rpc_v1_ToolInvokeResponse_init_zero;
-  if (rc == GZC_OK) {
-    rc = decode_test_pb_message(
-        inbound_response.result_payload,
-        gizclaw_rpc_v1_ToolInvokeResponse_fields, &tool_response);
-  }
-  if (expect(rc == GZC_OK && !inbound_response.has_error &&
-                 strcmp(tool_response.data_json, "{\"ok\":true}") == 0 &&
-                 tool_handler.call_count == 1,
-             "inbound client Tool dispatches exact-name handler") != 0) {
-    return 1;
-  }
-  close_remote_rpc(&fake_webrtc, 0);
 
-  strcpy(tool_request.invoke_name, "brightness_set");
-  gzc_buf_reset(&tool_payload);
-  rc = encode_test_pb_message(
-      platform, gizclaw_rpc_v1_ToolInvokeRequest_fields, &tool_request,
-      &tool_payload);
-  announce_remote_rpc(&fake_webrtc, 0);
-  gzc_buf_reset(&inbound_request);
-  gzc_buf_reset(&inbound_framed);
-  gzc_buf_reset(&fake_webrtc.sent);
-  if (rc == GZC_OK) {
-    rc = gzc_rpc_encode_request_envelope(
-        platform, gzc_str_from_cstr("missing-client-tool"),
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE,
-        gzc_str_from_parts((const char *)tool_payload.data, tool_payload.len),
-        &inbound_request);
+  /* The inner payload is a truncated varint. It must never reach the handler. */
+  {
+    const uint8_t malformed[] = {0x08, 0x04, 0x12, 0x01, 0x80};
+    const int before = rpc_provider.call_count;
+    announce_remote_rpc(&fake_webrtc, 0);
+    gzc_buf_reset(&inbound_request);
+    gzc_buf_reset(&inbound_framed);
+    gzc_buf_reset(&fake_webrtc.sent);
+    rc = gzc_rpc_encode_request_envelope(platform, gzc_str_from_cstr("malformed-tool"),
+                                         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+                                         gzc_str_from_parts((const char *)malformed, sizeof(malformed)), &inbound_request);
+    if (rc == GZC_OK)
+      rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_BINARY, inbound_request.data, inbound_request.len);
+    if (rc == GZC_OK)
+      rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_EOS, NULL, 0);
+    if (expect(rc == GZC_OK, "build malformed invoke") != 0)
+      return 1;
+    fake_webrtc.callbacks.on_channel_message(fake_webrtc.callbacks.userdata,
+                                             &fake_webrtc.peer, &fake_webrtc.remote_channels[0], NULL, inbound_framed.data, inbound_framed.len, false);
+    rc = gzc_client_poll(client, 0);
+    if (rc == GZC_OK)
+      rc = gzc_rpc_frame_decode(fake_webrtc.sent.data, first_frame_size(&fake_webrtc.sent), &inbound_frame);
+    if (rc == GZC_OK)
+      rc = gzc_rpc_decode_response_envelope(gzc_str_from_parts((const char *)inbound_frame.data, inbound_frame.len), &inbound_response);
+    if (expect(rc == GZC_OK && inbound_response.has_error &&
+                   inbound_response.error.code == gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT &&
+                   rpc_provider.call_count == before,
+               "malformed invoke rejected before handler") != 0)
+      return 1;
+    close_remote_rpc(&fake_webrtc, 0);
   }
-  if (rc == GZC_OK) {
-    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_BINARY,
-                           inbound_request.data, inbound_request.len);
-  }
-  if (rc == GZC_OK) {
-    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_EOS, NULL,
-                           0);
-  }
-  fake_webrtc.callbacks.on_channel_message(
-      fake_webrtc.callbacks.userdata, &fake_webrtc.peer,
-      &fake_webrtc.remote_channels[0], NULL, inbound_framed.data,
-      inbound_framed.len, false);
-  rc = gzc_client_poll(client, 0);
-  inbound_frame_size = first_frame_size(&fake_webrtc.sent);
-  if (rc == GZC_OK) {
-    rc = gzc_rpc_frame_decode(fake_webrtc.sent.data, inbound_frame_size,
-                              &inbound_frame);
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_rpc_decode_response_envelope(
-        gzc_str_from_parts((const char *)inbound_frame.data,
-                           inbound_frame.len),
-        &inbound_response);
-  }
-  if (expect(rc == GZC_OK && inbound_response.has_error &&
-                 inbound_response.error.code ==
-                     gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNIMPLEMENTED &&
-                 tool_handler.call_count == 1,
-             "missing client Tool handler is unavailable") != 0) {
-    return 1;
-  }
-  gzc_buf_free(&tool_payload, platform);
-  close_remote_rpc(&fake_webrtc, 0);
 
   gzc_buf_reset(&inbound_request);
   gzc_buf_reset(&inbound_framed);
   rc = gzc_rpc_encode_request_envelope(
-      platform, gzc_str_from_cstr("client-info"),
-      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_INFO_GET,
+      platform, gzc_str_from_cstr("mhs-read"),
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_READ,
       gzc_str_from_parts("", 0), &inbound_request);
   if (rc == GZC_OK) {
     rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_BINARY,
@@ -5419,7 +5309,7 @@ int main(void) {
     rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_EOS, NULL,
                            0);
   }
-  if (expect(rc == GZC_OK, "restore inbound client-info request") != 0) {
+  if (expect(rc == GZC_OK, "restore inbound mhs-read request") != 0) {
     return 1;
   }
 
@@ -5696,7 +5586,7 @@ int main(void) {
   const gizclaw_rpc_v1_RpcMethod missing_payload_methods[] = {
       gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
       gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN,
-      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_INFO_GET,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_READ,
   };
   for (size_t i = 0; i < sizeof(missing_payload_methods) / sizeof(missing_payload_methods[0]); i++) {
     announce_remote_rpc(&fake_webrtc, 0);

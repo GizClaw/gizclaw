@@ -863,8 +863,8 @@ func TestPayloadCodecMapsProtobufDirectlyToGoDTOs(t *testing.T) {
 func TestRPCMethodValid(t *testing.T) {
 	for _, method := range []RPCMethod{
 		RPCMethodAllPing,
-		RPCMethodClientInfoGet,
-		RPCMethodClientIdentifiersGet,
+		RPCMethodClientToolV0Invoke,
+		RPCMethodClientToolV0List,
 		RPCMethodServerInfoGet,
 		RPCMethodServerInfoPut,
 		RPCMethodServerRegister,

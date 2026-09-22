@@ -169,7 +169,7 @@ async function runStep(
     if (client == null) {
       throw new Error(`step ${step.id} has no connected client`);
     }
-    const method = step.client_rpc.method;
+    const method = step.client_rpc.tool ?? step.client_rpc.method;
     if (!client.inbound.has(method)) {
       throw new Error(`client RPC ${method} was not installed`);
     }

@@ -2,6 +2,7 @@ package gizclaw
 
 import (
 	"context"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -23,13 +24,14 @@ type fakeDeviceConn struct {
 	dispatch func(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error)
 	calls    atomic.Int32
 	methods  chan rpcapi.RPCMethod
+	tools    chan rpcpb.ClientTool
 	// onDial runs before the RPC stream is returned, letting tests interleave
 	// a reconnect between connection lookup and RPC dispatch.
 	onDial func()
 }
 
 func newFakeDeviceConn(dispatch func(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error)) *fakeDeviceConn {
-	return &fakeDeviceConn{dispatch: dispatch, methods: make(chan rpcapi.RPCMethod, 16)}
+	return &fakeDeviceConn{dispatch: dispatch, methods: make(chan rpcapi.RPCMethod, 16), tools: make(chan rpcpb.ClientTool, 16)}
 }
 
 func (c *fakeDeviceConn) Dial(uint64) (net.Conn, error) {
@@ -51,105 +53,65 @@ func (c *fakeDeviceConn) Dial(uint64) (net.Conn, error) {
 }
 
 func deviceStatusResult(id string, status rpcapi.PeerStatus) (*rpcapi.RPCResponse, error) {
-	return newRPCResultResponse(id, rpcapi.ClientDeviceVolumeSetResponse{Value: status}, (*rpcapi.RPCPayload).FromClientDeviceVolumeSetResponse)
+	return newRPCResultResponse(id, rpcapi.ClientDeviceStatusGetResponse{Value: status}, (*rpcapi.RPCPayload).FromClientDeviceStatusGetResponse)
 }
 
-func TestDeviceControlVolumeRoundTripWritesStatus(t *testing.T) {
+func TestDeviceControlStatusRoundTripWritesSnapshot(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 	reportedAt := time.Date(2026, 9, 2, 9, 30, 0, 0, time.UTC)
-	var lastRequest rpcapi.ClientDeviceVolumeSetRequest
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-		switch req.Method {
-		case rpcapi.RPCMethodClientDeviceVolumeSet:
-			params, err := req.Params.AsClientDeviceVolumeSetRequest()
-			if err != nil {
-				return nil, err
-			}
-			lastRequest = params
-			level := int(params.Level)
-			return deviceStatusResult(req.Id, rpcapi.PeerStatus{Volume: &level, Muted: &params.Muted, BatteryPercent: new(58), ReportedAt: &reportedAt})
-		default:
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unsupported"}.RPCResponse(), nil
+	device := newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		if tool != rpcpb.ClientTool_CLIENT_TOOL_DEVICE_STATUS_GET {
+			t.Fatalf("tool %v", tool)
 		}
+		return deviceStatusResult(req.Id, rpcapi.PeerStatus{Volume: new(35), Muted: new(true), BatteryPercent: new(58), ReportedAt: &reportedAt})
 	})
 	f.manager.SetPeerUp(f.owner, device)
-
-	response := f.do(t, http.MethodPut, "/gizclaw/v1/device/volume", `{"level":35,"muted":true}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("PUT volume status = %d body=%s", response.Code, response.Body.String())
-	}
-	result := decodeJSON[peerhttp.DeviceControlStatus](t, response)
-	if result.Status.Volume == nil || *result.Status.Volume != 35 || result.Status.Muted == nil || !*result.Status.Muted || result.Status.BatteryPercent == nil || *result.Status.BatteryPercent != 58 {
-		t.Fatalf("control status = %+v", result.Status)
-	}
-	if result.Status.ReportedAt == nil || !result.Status.ReportedAt.Equal(reportedAt) {
-		t.Fatalf("reported_at = %v, want device time", result.Status.ReportedAt)
-	}
-	if lastRequest.Level != 35 || !lastRequest.Muted {
-		t.Fatalf("device received %+v", lastRequest)
-	}
-
-	response = f.do(t, http.MethodGet, "/gizclaw/v1/device/status", "")
-	if response.Code != http.StatusOK {
-		t.Fatalf("GET status = %d body=%s", response.Code, response.Body.String())
-	}
-	status := decodeJSON[apitypes.PeerStatus](t, response)
-	if status.Volume == nil || *status.Volume != 35 || status.Muted == nil || !*status.Muted || !status.ReportedAt.Equal(reportedAt) {
-		t.Fatalf("stored status after control = %+v", status)
-	}
-
-	// Equal inputs are forwarded again, never merged or replayed from cache.
-	if response := f.do(t, http.MethodPut, "/gizclaw/v1/device/volume", `{"level":35,"muted":true}`); response.Code != http.StatusOK {
-		t.Fatalf("repeated PUT volume status = %d", response.Code)
-	}
-	if device.calls.Load() != 2 {
-		t.Fatalf("device calls = %d, want 2", device.calls.Load())
-	}
-
-	for _, body := range []string{`{"level":101,"muted":false}`, `{"level":-1,"muted":false}`, ``} {
-		response := f.do(t, http.MethodPut, "/gizclaw/v1/device/volume", body)
-		if response.Code != http.StatusBadRequest {
-			t.Fatalf("PUT volume %q status = %d body=%s", body, response.Code, response.Body.String())
+	for range 2 {
+		response := f.invoke(t, "device.status.get", `{}`)
+		if response.Code != http.StatusOK {
+			t.Fatalf("status %d %s", response.Code, response.Body)
+		}
+		result := decodeJSON[struct {
+			Result struct {
+				Value apitypes.PeerStatus `json:"value"`
+			} `json:"result"`
+		}](t, response).Result.Value
+		if result.Volume == nil || *result.Volume != 35 || result.Muted == nil || !*result.Muted || result.BatteryPercent == nil || *result.BatteryPercent != 58 || result.ReportedAt == nil || !result.ReportedAt.Equal(reportedAt) {
+			t.Fatalf("status %+v", result)
 		}
 	}
+	stored := decodeJSON[apitypes.PeerStatus](t, f.do(t, "GET", "/gizclaw/v1/device/status", ""))
+	if stored.Volume == nil || *stored.Volume != 35 || stored.Muted == nil || !*stored.Muted || !stored.ReportedAt.Equal(reportedAt) {
+		t.Fatalf("stored %+v", stored)
+	}
 	if device.calls.Load() != 2 {
-		t.Fatalf("validation failures reached the device: calls = %d", device.calls.Load())
+		t.Fatal("snapshot contacted device")
 	}
 }
 
 func TestDeviceControlOfflineAndTimeout(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 
-	response := f.do(t, http.MethodPut, "/gizclaw/v1/device/volume", `{"level":10,"muted":false}`)
+	response := f.invoke(t, "device.status.get", `{}`)
 	if response.Code != http.StatusConflict || errorCode(t, response) != deviceOfflineCode {
 		t.Fatalf("offline PUT status = %d body=%s", response.Code, response.Body.String())
 	}
-	for _, route := range []struct{ method, path string }{
-		{http.MethodPost, "/gizclaw/v1/device/actions/play-sound"},
-		{http.MethodPost, "/gizclaw/v1/device/actions/find"},
-		{http.MethodPost, "/gizclaw/v1/device/actions/reboot"},
-		{http.MethodGet, "/gizclaw/v1/device/wifi"},
-		{http.MethodGet, "/gizclaw/v1/device/wifi/saved"},
-		{http.MethodDelete, "/gizclaw/v1/device/wifi/saved/home"},
-		{http.MethodPost, "/gizclaw/v1/device/wifi/scan"},
-		{http.MethodPut, "/gizclaw/v1/device/wifi"},
+	for _, route := range []struct{ tool, args string }{
+		{"sound.play", `{"sound":"chime"}`}, {"device.find", `{}`},
+		{"device.reboot", `{}`}, {"device.status.get", `{}`},
+		{"wifi.saved.list", `{}`}, {"wifi.saved.forget", `{"ssid":"home"}`},
+		{"wifi.scan", `{}`}, {"wifi.connect", `{"ssid":"home"}`},
 	} {
-		body := ""
-		if route.path == "/gizclaw/v1/device/actions/play-sound" {
-			body = `{"sound":"chime"}`
-		} else if route.path == "/gizclaw/v1/device/wifi" && route.method == http.MethodPut {
-			body = `{"ssid":"home"}`
-		}
-		response := f.do(t, route.method, route.path, body)
+		response := f.invoke(t, route.tool, route.args)
 		if response.Code != http.StatusConflict || errorCode(t, response) != deviceOfflineCode {
-			t.Fatalf("offline %s %s status = %d body=%s", route.method, route.path, response.Code, response.Body.String())
+			t.Fatalf("offline %s status = %d body=%s", route.tool, response.Code, response.Body.String())
 		}
 	}
 
 	f.control.timeout = 150 * time.Millisecond
 	released := make(chan struct{})
 	defer close(released)
-	device := newFakeDeviceConn(func(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+	device := newFakeToolConn(func(ctx context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 		select {
 		case <-ctx.Done():
 		case <-released:
@@ -158,7 +120,7 @@ func TestDeviceControlOfflineAndTimeout(t *testing.T) {
 	})
 	f.manager.SetPeerUp(f.owner, device)
 	started := time.Now()
-	response = f.do(t, http.MethodPut, "/gizclaw/v1/device/volume", `{"level":10,"muted":false}`)
+	response = f.invoke(t, "device.status.get", `{}`)
 	if response.Code != http.StatusGatewayTimeout || errorCode(t, response) != deviceTimeoutCode {
 		t.Fatalf("timeout PUT status = %d body=%s", response.Code, response.Body.String())
 	}
@@ -175,9 +137,9 @@ func TestDeviceWifiScanAndConnect(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 	var scanRequest rpcapi.ClientWifiScanRequest
 	var connectRequest rpcapi.ClientWifiConnectRequest
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-		switch req.Method {
-		case rpcapi.RPCMethodClientWifiScan:
+	device := newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		switch tool {
+		case rpcpb.ClientTool_CLIENT_TOOL_WIFI_SCAN:
 			params, err := req.Params.AsClientWifiScanRequest()
 			if err != nil {
 				return nil, err
@@ -186,7 +148,7 @@ func TestDeviceWifiScanAndConnect(t *testing.T) {
 			return newRPCResultResponse(req.Id, rpcapi.ClientWifiScanResponse{Networks: []rpcapi.WifiScanResult{{
 				Ssid: "office", Bssid: new("aa:bb:cc:dd:ee:ff"), RssiDbm: new(int64(-42)), FrequencyMhz: new(int64(5180)), Security: new("wpa3"),
 			}}}, (*rpcapi.RPCPayload).FromClientWifiScanResponse)
-		case rpcapi.RPCMethodClientWifiConnect:
+		case rpcpb.ClientTool_CLIENT_TOOL_WIFI_CONNECT:
 			params, err := req.Params.AsClientWifiConnectRequest()
 			if err != nil {
 				return nil, err
@@ -199,11 +161,11 @@ func TestDeviceWifiScanAndConnect(t *testing.T) {
 	})
 	f.manager.SetPeerUp(f.owner, device)
 
-	response := f.do(t, http.MethodPost, "/gizclaw/v1/device/wifi/scan", `{"timeout_ms":20000}`)
+	response := f.invoke(t, "wifi.scan", `{"timeout_ms":20000}`)
 	if response.Code != http.StatusOK {
 		t.Fatalf("scan status = %d body=%s", response.Code, response.Body.String())
 	}
-	scan := decodeJSON[peerhttp.DeviceWifiScanResponse](t, response)
+	scan := decodeToolResult[peerhttp.DeviceWifiScanResponse](t, response)
 	if len(scan.Networks) != 1 || scan.Networks[0].Ssid != "office" || scan.Networks[0].RssiDbm == nil || *scan.Networks[0].RssiDbm != -42 || scan.Networks[0].Security == nil || *scan.Networks[0].Security != "wpa3" {
 		t.Fatalf("scan response = %+v", scan)
 	}
@@ -212,8 +174,8 @@ func TestDeviceWifiScanAndConnect(t *testing.T) {
 	}
 
 	const secret = "correct-horse-battery-staple"
-	response = f.do(t, http.MethodPut, "/gizclaw/v1/device/wifi", `{"ssid":"office","passphrase":"`+secret+`"}`)
-	if response.Code != http.StatusAccepted || response.Body.Len() != 0 {
+	response = f.invoke(t, "wifi.connect", `{"ssid":"office","passphrase":"`+secret+`"}`)
+	if response.Code != http.StatusOK {
 		t.Fatalf("connect status = %d body=%s", response.Code, response.Body.String())
 	}
 	if connectRequest.Ssid != "office" || connectRequest.Passphrase == nil || *connectRequest.Passphrase != secret {
@@ -222,34 +184,29 @@ func TestDeviceWifiScanAndConnect(t *testing.T) {
 	if strings.Contains(response.Body.String(), secret) {
 		t.Fatal("connect response echoed the passphrase")
 	}
-	if response := f.do(t, http.MethodGet, "/gizclaw/v1/device/wifi", ""); response.Code != http.StatusConflict || errorCode(t, response) != deviceOfflineCode {
+	if response := f.invoke(t, "wifi.saved.list", `{}`); response.Code != http.StatusConflict || errorCode(t, response) != deviceOfflineCode {
 		t.Fatalf("status during switch = %d body=%s", response.Code, response.Body.String())
 	}
 
-	replacement := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-		switch req.Method {
-		case rpcapi.RPCMethodClientWifiStatusGet:
-			return newRPCResultResponse(req.Id, rpcapi.ClientWifiStatusGetResponse{Value: rpcapi.WifiStatus{Connected: true, Ssid: new("office")}}, (*rpcapi.RPCPayload).FromClientWifiStatusGetResponse)
-		case rpcapi.RPCMethodClientWifiSavedList:
+	replacement := newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		switch tool {
+		case rpcpb.ClientTool_CLIENT_TOOL_WIFI_SAVED_LIST:
 			return newRPCResultResponse(req.Id, rpcapi.ClientWifiSavedListResponse{Networks: []rpcapi.WifiSavedNetwork{{Ssid: "office"}}}, (*rpcapi.RPCPayload).FromClientWifiSavedListResponse)
 		default:
 			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unsupported"}.RPCResponse(), nil
 		}
 	})
 	f.manager.SetPeerUp(f.owner, replacement)
-	response = f.do(t, http.MethodGet, "/gizclaw/v1/device/wifi", "")
+	response = f.invoke(t, "wifi.saved.list", `{}`)
 	if response.Code != http.StatusOK {
 		t.Fatalf("status after reconnect = %d body=%s", response.Code, response.Body.String())
 	}
-	status := decodeJSON[peerhttp.DeviceWifiStatus](t, response)
-	if status.Ssid == nil || *status.Ssid != "office" {
-		t.Fatalf("status after reconnect = %+v", status)
-	}
-	response = f.do(t, http.MethodGet, "/gizclaw/v1/device/wifi/saved", "")
+
+	response = f.invoke(t, "wifi.saved.list", "")
 	if response.Code != http.StatusOK {
 		t.Fatalf("saved networks after reconnect = %d body=%s", response.Code, response.Body.String())
 	}
-	saved := decodeJSON[peerhttp.DeviceWifiSavedList](t, response)
+	saved := decodeToolResult[peerhttp.DeviceWifiSavedList](t, response)
 	if len(saved.Networks) != 1 || saved.Networks[0].Ssid != "office" {
 		t.Fatalf("saved networks after reconnect = %+v", saved)
 	}
@@ -274,8 +231,8 @@ func TestDeviceWifiScanClampsExtremeTimeouts(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			f := newDeviceHTTPFixture(t)
 			var scanRequest rpcapi.ClientWifiScanRequest
-			device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-				if req.Method != rpcapi.RPCMethodClientWifiScan {
+			device := newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+				if tool != rpcpb.ClientTool_CLIENT_TOOL_WIFI_SCAN {
 					return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unsupported"}.RPCResponse(), nil
 				}
 				params, err := req.Params.AsClientWifiScanRequest()
@@ -287,7 +244,7 @@ func TestDeviceWifiScanClampsExtremeTimeouts(t *testing.T) {
 			})
 			f.manager.SetPeerUp(f.owner, device)
 
-			response := f.do(t, http.MethodPost, "/gizclaw/v1/device/wifi/scan", test.body)
+			response := f.invoke(t, "wifi.scan", test.body)
 			if response.Code != http.StatusOK {
 				t.Fatalf("scan status = %d body=%s", response.Code, response.Body.String())
 			}
@@ -317,15 +274,15 @@ func TestDeviceWifiScanRejectsInvalidDeviceResults(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			f := newDeviceHTTPFixture(t)
 			networks := test.networks
-			device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-				if req.Method != rpcapi.RPCMethodClientWifiScan {
+			device := newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+				if tool != rpcpb.ClientTool_CLIENT_TOOL_WIFI_SCAN {
 					return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unsupported"}.RPCResponse(), nil
 				}
 				return newRPCResultResponse(req.Id, rpcapi.ClientWifiScanResponse{Networks: networks}, (*rpcapi.RPCPayload).FromClientWifiScanResponse)
 			})
 			f.manager.SetPeerUp(f.owner, device)
 
-			response := f.do(t, http.MethodPost, "/gizclaw/v1/device/wifi/scan", `{}`)
+			response := f.invoke(t, "wifi.scan", `{}`)
 			if response.Code != http.StatusBadGateway || errorCode(t, response) != deviceErrorCode {
 				t.Fatalf("scan status = %d body=%s", response.Code, response.Body.String())
 			}
@@ -347,19 +304,19 @@ func TestDeviceWifiScanAcceptsResultsAtTheBounds(t *testing.T) {
 			Security: new(strings.Repeat("w", maxWifiSecurityBytes)),
 		}
 	}
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-		if req.Method != rpcapi.RPCMethodClientWifiScan {
+	device := newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		if tool != rpcpb.ClientTool_CLIENT_TOOL_WIFI_SCAN {
 			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unsupported"}.RPCResponse(), nil
 		}
 		return newRPCResultResponse(req.Id, rpcapi.ClientWifiScanResponse{Networks: networks}, (*rpcapi.RPCPayload).FromClientWifiScanResponse)
 	})
 	f.manager.SetPeerUp(f.owner, device)
 
-	response := f.do(t, http.MethodPost, "/gizclaw/v1/device/wifi/scan", `{}`)
+	response := f.invoke(t, "wifi.scan", `{}`)
 	if response.Code != http.StatusOK {
 		t.Fatalf("scan status = %d body=%s", response.Code, response.Body.String())
 	}
-	scan := decodeJSON[peerhttp.DeviceWifiScanResponse](t, response)
+	scan := decodeToolResult[peerhttp.DeviceWifiScanResponse](t, response)
 	if len(scan.Networks) != maxWifiScanResults {
 		t.Fatalf("scan networks = %d, want %d", len(scan.Networks), maxWifiScanResults)
 	}
@@ -368,7 +325,7 @@ func TestDeviceWifiScanAcceptsResultsAtTheBounds(t *testing.T) {
 func TestDeviceWifiConnectValidationAndRedaction(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 	const secret = "never-log-this-password"
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+	device := newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: secret}.RPCResponse(), nil
 	})
 	f.manager.SetPeerUp(f.owner, device)
@@ -378,7 +335,7 @@ func TestDeviceWifiConnectValidationAndRedaction(t *testing.T) {
 		`{"ssid":"home","passphrase":""}`, `{"ssid":"home","passphrase":"short"}`,
 		`{"ssid":"home","passphrase":"1234567890123456789012345678901234567890123456789012345678901234"}`,
 	} {
-		response := f.do(t, http.MethodPut, "/gizclaw/v1/device/wifi", body)
+		response := f.invoke(t, "wifi.connect", body)
 		if response.Code != http.StatusBadRequest {
 			t.Fatalf("connect body %q status = %d body=%s", body, response.Code, response.Body.String())
 		}
@@ -387,7 +344,7 @@ func TestDeviceWifiConnectValidationAndRedaction(t *testing.T) {
 		t.Fatalf("invalid credentials reached device: calls=%d", device.calls.Load())
 	}
 
-	response := f.do(t, http.MethodPut, "/gizclaw/v1/device/wifi", `{"ssid":"home","passphrase":"`+secret+`"}`)
+	response := f.invoke(t, "wifi.connect", `{"ssid":"home","passphrase":"`+secret+`"}`)
 	if response.Code != http.StatusBadGateway || errorCode(t, response) != deviceErrorCode {
 		t.Fatalf("connect error status = %d body=%s", response.Code, response.Body.String())
 	}
@@ -395,7 +352,7 @@ func TestDeviceWifiConnectValidationAndRedaction(t *testing.T) {
 		t.Fatalf("connect error echoed passphrase: %s", response.Body.String())
 	}
 
-	response = f.do(t, http.MethodPut, "/gizclaw/v1/device/wifi", `{"ssid":"open-network"}`)
+	response = f.invoke(t, "wifi.connect", `{"ssid":"open-network"}`)
 	if response.Code != http.StatusBadGateway {
 		t.Fatalf("open network reached provider status = %d", response.Code)
 	}
@@ -404,7 +361,7 @@ func TestDeviceWifiConnectValidationAndRedaction(t *testing.T) {
 func TestDeviceControlMapsDeviceErrors(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 	var code rpcapi.StatusCode
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+	device := newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 		return rpcapi.Error{RequestID: req.Id, Code: code, Message: "device says no"}.RPCResponse(), nil
 	})
 	f.manager.SetPeerUp(f.owner, device)
@@ -420,7 +377,7 @@ func TestDeviceControlMapsDeviceErrors(t *testing.T) {
 		{rpcapi.StatusCodePermissionDenied, http.StatusBadGateway, deviceErrorCode},
 	} {
 		code = tc.code
-		response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/play-sound", `{"sound":"chime","duration_ms":500}`)
+		response := f.invoke(t, "sound.play", `{"sound":"chime","duration_ms":500}`)
 		if response.Code != tc.status {
 			t.Fatalf("code %d status = %d body=%s", tc.code, response.Code, response.Body.String())
 		}
@@ -431,7 +388,7 @@ func TestDeviceControlMapsDeviceErrors(t *testing.T) {
 	}
 
 	code = rpcapi.StatusCodeNotFound
-	response := f.do(t, http.MethodDelete, "/gizclaw/v1/device/wifi/saved/unknown", "")
+	response := f.invoke(t, "wifi.saved.forget", `{"ssid":"unknown"}`)
 	if response.Code != http.StatusNotFound || errorCode(t, response) != wifiNetworkNotFoundKey {
 		t.Fatalf("forget unknown status = %d body=%s", response.Code, response.Body.String())
 	}
@@ -441,13 +398,13 @@ func TestDeviceWifiRoutesMapDeviceErrors(t *testing.T) {
 	for _, route := range []struct {
 		name, method, path, body string
 	}{
-		{"scan", http.MethodPost, "/gizclaw/v1/device/wifi/scan", `{}`},
-		{"connect", http.MethodPut, "/gizclaw/v1/device/wifi", `{"ssid":"office","passphrase":"secret123"}`},
+		{"scan", http.MethodPost, "wifi.scan", `{}`},
+		{"connect", http.MethodPut, "wifi.connect", `{"ssid":"office","passphrase":"secret123"}`},
 	} {
 		t.Run(route.name, func(t *testing.T) {
 			f := newDeviceHTTPFixture(t)
 			var code rpcapi.StatusCode
-			device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+			device := newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 				return rpcapi.Error{RequestID: req.Id, Code: code, Message: "secret123 device detail"}.RPCResponse(), nil
 			})
 			f.manager.SetPeerUp(f.owner, device)
@@ -461,7 +418,7 @@ func TestDeviceWifiRoutesMapDeviceErrors(t *testing.T) {
 				{rpcapi.StatusCodeInternal, http.StatusBadGateway, deviceErrorCode},
 			} {
 				code = tc.code
-				response := f.do(t, route.method, route.path, route.body)
+				response := f.invoke(t, route.path, route.body)
 				if response.Code != tc.status || errorCode(t, response) != tc.public {
 					t.Fatalf("code %d status = %d body=%s", tc.code, response.Code, response.Body.String())
 				}
@@ -476,8 +433,8 @@ func TestDeviceWifiRoutesMapDeviceErrors(t *testing.T) {
 func TestDeviceControlFindForwardsFindNotSound(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 	var requests []rpcapi.ClientDeviceFindRequest
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-		if req.Method != rpcapi.RPCMethodClientDeviceFind {
+	device := newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		if tool != rpcpb.ClientTool_CLIENT_TOOL_DEVICE_FIND {
 			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unexpected " + string(req.Method)}.RPCResponse(), nil
 		}
 		params := rpcapi.ClientDeviceFindRequest{}
@@ -493,16 +450,16 @@ func TestDeviceControlFindForwardsFindNotSound(t *testing.T) {
 	})
 	f.manager.SetPeerUp(f.owner, device)
 
-	if response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/find", `{"duration_ms":8000}`); response.Code != http.StatusNoContent {
+	if response := f.invoke(t, "device.find", `{"duration_ms":8000}`); response.Code != http.StatusOK {
 		t.Fatalf("find status = %d body=%s", response.Code, response.Body.String())
 	}
-	if response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/find", ""); response.Code != http.StatusNoContent {
+	if response := f.invoke(t, "device.find", ""); response.Code != http.StatusOK {
 		t.Fatalf("find without body status = %d body=%s", response.Code, response.Body.String())
 	}
 	if len(requests) != 2 || requests[0].DurationMs == nil || *requests[0].DurationMs != 8000 || requests[1].DurationMs != nil {
 		t.Fatalf("find requests = %+v", requests)
 	}
-	if response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/find", `{"duration_ms":-1}`); response.Code != http.StatusBadRequest {
+	if response := f.invoke(t, "device.find", `{"duration_ms":-1}`); response.Code != http.StatusBadRequest {
 		t.Fatalf("negative duration status = %d body=%s", response.Code, response.Body.String())
 	}
 	if calls := device.calls.Load(); calls != 2 {
@@ -513,7 +470,7 @@ func TestDeviceControlFindForwardsFindNotSound(t *testing.T) {
 func TestDeviceControlFindMapsDeviceErrors(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 	var code rpcapi.StatusCode
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+	device := newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 		return rpcapi.Error{RequestID: req.Id, Code: code, Message: "private detail"}.RPCResponse(), nil
 	})
 	f.manager.SetPeerUp(f.owner, device)
@@ -527,7 +484,7 @@ func TestDeviceControlFindMapsDeviceErrors(t *testing.T) {
 		{rpcapi.StatusCodeInternal, http.StatusBadGateway, deviceErrorCode},
 	} {
 		code = tc.code
-		response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/find", `{}`)
+		response := f.invoke(t, "device.find", `{}`)
 		if response.Code != tc.status || errorCode(t, response) != tc.public || strings.Contains(response.Body.String(), "private detail") {
 			t.Fatalf("code %d status = %d body=%s", tc.code, response.Code, response.Body.String())
 		}
@@ -539,29 +496,25 @@ func TestDeviceControlSoundWifiAndRebootFlow(t *testing.T) {
 	var soundRequest rpcapi.ClientDeviceSoundPlayRequest
 	var rebootRequest rpcapi.ClientDeviceRebootRequest
 	var forgetRequest rpcapi.ClientWifiSavedForgetRequest
-	dispatch := func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-		switch req.Method {
-		case rpcapi.RPCMethodClientDeviceSoundPlay:
+	dispatch := func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		switch tool {
+		case rpcpb.ClientTool_CLIENT_TOOL_SOUND_PLAY:
 			params, err := req.Params.AsClientDeviceSoundPlayRequest()
 			if err != nil {
 				return nil, err
 			}
 			soundRequest = params
 			return newRPCResultResponse(req.Id, rpcapi.ClientDeviceSoundPlayResponse{}, (*rpcapi.RPCPayload).FromClientDeviceSoundPlayResponse)
-		case rpcapi.RPCMethodClientDeviceReboot:
+		case rpcpb.ClientTool_CLIENT_TOOL_DEVICE_REBOOT:
 			params, err := req.Params.AsClientDeviceRebootRequest()
 			if err != nil {
 				return nil, err
 			}
 			rebootRequest = params
 			return newRPCResultResponse(req.Id, rpcapi.ClientDeviceRebootResponse{}, (*rpcapi.RPCPayload).FromClientDeviceRebootResponse)
-		case rpcapi.RPCMethodClientWifiStatusGet:
-			return newRPCResultResponse(req.Id, rpcapi.ClientWifiStatusGetResponse{Value: rpcapi.WifiStatus{
-				Connected: true, Ssid: new("home"), RssiDbm: new(int64(-61)), Ip: new("192.0.2.20"), Bssid: new("aa:bb:cc:dd:ee:ff"),
-			}}, (*rpcapi.RPCPayload).FromClientWifiStatusGetResponse)
-		case rpcapi.RPCMethodClientWifiSavedList:
+		case rpcpb.ClientTool_CLIENT_TOOL_WIFI_SAVED_LIST:
 			return newRPCResultResponse(req.Id, rpcapi.ClientWifiSavedListResponse{Networks: []rpcapi.WifiSavedNetwork{{Ssid: "home"}, {Ssid: "office"}}}, (*rpcapi.RPCPayload).FromClientWifiSavedListResponse)
-		case rpcapi.RPCMethodClientWifiSavedForget:
+		case rpcpb.ClientTool_CLIENT_TOOL_WIFI_SAVED_FORGET:
 			params, err := req.Params.AsClientWifiSavedForgetRequest()
 			if err != nil {
 				return nil, err
@@ -572,60 +525,56 @@ func TestDeviceControlSoundWifiAndRebootFlow(t *testing.T) {
 			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unsupported"}.RPCResponse(), nil
 		}
 	}
-	device := newFakeDeviceConn(dispatch)
+	device := newFakeToolConn(dispatch)
 	f.manager.SetPeerUp(f.owner, device)
 
-	response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/play-sound", `{"sound":"chime","duration_ms":1500}`)
-	if response.Code != http.StatusNoContent {
+	response := f.invoke(t, "sound.play", `{"sound":"chime","duration_ms":1500}`)
+	if response.Code != http.StatusOK {
 		t.Fatalf("play-sound status = %d body=%s", response.Code, response.Body.String())
 	}
 	if soundRequest.Sound != "chime" || soundRequest.DurationMs == nil || *soundRequest.DurationMs != 1500 {
 		t.Fatalf("device sound request = %+v", soundRequest)
 	}
 	for _, body := range []string{`{"sound":""}`, `{"sound":"` + string(make([]byte, 33)) + `"}`, `{"sound":"chime","duration_ms":-1}`, `{"sound":"123456789012345678901234567890123"}`} {
-		if response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/play-sound", body); response.Code != http.StatusBadRequest {
+		if response := f.invoke(t, "sound.play", body); response.Code != http.StatusBadRequest {
 			t.Fatalf("play-sound %q status = %d body=%s", body, response.Code, response.Body.String())
 		}
 	}
-	if response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/play-sound", `{"sound":"12345678901234567890123456789012"}`); response.Code != http.StatusNoContent {
+	if response := f.invoke(t, "sound.play", `{"sound":"12345678901234567890123456789012"}`); response.Code != http.StatusOK {
 		t.Fatalf("play-sound 32-byte status = %d body=%s", response.Code, response.Body.String())
 	}
 
-	response = f.do(t, http.MethodGet, "/gizclaw/v1/device/wifi", "")
+	response = f.invoke(t, "wifi.saved.list", `{}`)
 	if response.Code != http.StatusOK {
 		t.Fatalf("wifi status = %d body=%s", response.Code, response.Body.String())
 	}
-	wifi := decodeJSON[peerhttp.DeviceWifiStatus](t, response)
-	if !wifi.Connected || wifi.Ssid == nil || *wifi.Ssid != "home" || wifi.RssiDbm == nil || *wifi.RssiDbm != -61 || wifi.Ip == nil || *wifi.Ip != "192.0.2.20" || wifi.Bssid == nil || *wifi.Bssid != "aa:bb:cc:dd:ee:ff" {
-		t.Fatalf("wifi = %+v", wifi)
-	}
-	response = f.do(t, http.MethodGet, "/gizclaw/v1/device/wifi/saved", "")
+
 	if response.Code != http.StatusOK {
 		t.Fatalf("wifi saved status = %d body=%s", response.Code, response.Body.String())
 	}
-	saved := decodeJSON[peerhttp.DeviceWifiSavedList](t, response)
+	saved := decodeToolResult[peerhttp.DeviceWifiSavedList](t, response)
 	if len(saved.Networks) != 2 || saved.Networks[1].Ssid != "office" {
 		t.Fatalf("saved = %+v", saved)
 	}
-	if response := f.do(t, http.MethodDelete, "/gizclaw/v1/device/wifi/saved/office", ""); response.Code != http.StatusNoContent {
+	if response := f.invoke(t, "wifi.saved.forget", `{"ssid":"office"}`); response.Code != http.StatusOK {
 		t.Fatalf("forget status = %d body=%s", response.Code, response.Body.String())
 	}
 	if forgetRequest.Ssid != "office" {
 		t.Fatalf("device forget request = %+v", forgetRequest)
 	}
-	if response := f.do(t, http.MethodDelete, "/gizclaw/v1/device/wifi/saved/123456789012345678901234567890123", ""); response.Code != http.StatusBadRequest {
+	if response := f.invoke(t, "wifi.saved.forget", `{"ssid":"123456789012345678901234567890123"}`); response.Code != http.StatusBadRequest {
 		t.Fatalf("forget oversized status = %d body=%s", response.Code, response.Body.String())
 	}
 
-	response = f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/reboot", `{"delay_ms":2000}`)
-	if response.Code != http.StatusNoContent {
+	response = f.invoke(t, "device.reboot", `{"delay_ms":2000}`)
+	if response.Code != http.StatusOK {
 		t.Fatalf("reboot status = %d body=%s", response.Code, response.Body.String())
 	}
 	if rebootRequest.DelayMs == nil || *rebootRequest.DelayMs != 2000 {
 		t.Fatalf("device reboot request = %+v", rebootRequest)
 	}
 	calls := device.calls.Load()
-	response = f.do(t, http.MethodGet, "/gizclaw/v1/device/wifi", "")
+	response = f.invoke(t, "wifi.saved.list", `{}`)
 	if response.Code != http.StatusConflict || errorCode(t, response) != deviceOfflineCode {
 		t.Fatalf("control after reboot status = %d body=%s", response.Code, response.Body.String())
 	}
@@ -634,16 +583,16 @@ func TestDeviceControlSoundWifiAndRebootFlow(t *testing.T) {
 	}
 
 	// A replacement connection clears the reboot marker.
-	replacement := newFakeDeviceConn(dispatch)
+	replacement := newFakeToolConn(dispatch)
 	f.manager.SetPeerUp(f.owner, replacement)
-	if response := f.do(t, http.MethodGet, "/gizclaw/v1/device/wifi", ""); response.Code != http.StatusOK {
+	if response := f.invoke(t, "wifi.saved.list", `{}`); response.Code != http.StatusOK {
 		t.Fatalf("control after reconnect status = %d body=%s", response.Code, response.Body.String())
 	}
-	if response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/reboot", ""); response.Code != http.StatusNoContent {
+	if response := f.invoke(t, "device.reboot", ""); response.Code != http.StatusOK {
 		t.Fatalf("reboot without body status = %d body=%s", response.Code, response.Body.String())
 	}
 	f.manager.SetPeerDown(f.owner, replacement)
-	if response := f.do(t, http.MethodGet, "/gizclaw/v1/device/wifi", ""); response.Code != http.StatusConflict {
+	if response := f.invoke(t, "wifi.saved.list", `{}`); response.Code != http.StatusConflict {
 		t.Fatalf("control after disconnect status = %d", response.Code)
 	}
 }
@@ -652,7 +601,7 @@ func TestDeviceControlSerializesCommandsPerOwner(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 	var active atomic.Int32
 	var overlap atomic.Bool
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+	device := newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 		if active.Add(1) > 1 {
 			overlap.Store(true)
 		}
@@ -664,11 +613,11 @@ func TestDeviceControlSerializesCommandsPerOwner(t *testing.T) {
 	done := make(chan int, 4)
 	for range 4 {
 		go func() {
-			done <- f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/play-sound", `{"sound":"chime"}`).Code
+			done <- f.invoke(t, "sound.play", `{"sound":"chime"}`).Code
 		}()
 	}
 	for range 4 {
-		if code := <-done; code != http.StatusNoContent {
+		if code := <-done; code != http.StatusOK {
 			t.Fatalf("concurrent play-sound status = %d", code)
 		}
 	}
@@ -685,14 +634,14 @@ var _ giznet.Conn = (*fakeDeviceConn)(nil)
 // rebootingDevice is a fake device whose reboot acknowledgement blocks until
 // release is closed, so tests can interleave other events deterministically.
 func rebootingDevice(release <-chan struct{}, entered chan<- struct{}) *fakeDeviceConn {
-	return newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-		switch req.Method {
-		case rpcapi.RPCMethodClientDeviceReboot:
+	return newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		switch tool {
+		case rpcpb.ClientTool_CLIENT_TOOL_DEVICE_REBOOT:
 			close(entered)
 			<-release
 			return newRPCResultResponse(req.Id, rpcapi.ClientDeviceRebootResponse{}, (*rpcapi.RPCPayload).FromClientDeviceRebootResponse)
-		case rpcapi.RPCMethodClientWifiStatusGet:
-			return newRPCResultResponse(req.Id, rpcapi.ClientWifiStatusGetResponse{Value: rpcapi.WifiStatus{Connected: true}}, (*rpcapi.RPCPayload).FromClientWifiStatusGetResponse)
+		case rpcpb.ClientTool_CLIENT_TOOL_WIFI_SAVED_LIST:
+			return newRPCResultResponse(req.Id, rpcapi.ClientWifiSavedListResponse{}, (*rpcapi.RPCPayload).FromClientWifiSavedListResponse)
 		default:
 			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unsupported"}.RPCResponse(), nil
 		}
@@ -711,14 +660,14 @@ func TestDeviceControlRebootMarkerHoldsOwnerLock(t *testing.T) {
 	f.manager.SetPeerUp(f.owner, device)
 
 	rebootDone := make(chan int, 1)
-	go func() { rebootDone <- f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/reboot", "").Code }()
+	go func() { rebootDone <- f.invoke(t, "device.reboot", "").Code }()
 	<-entered
 	// The reboot holds the owner lock, so this command queues behind it.
 	queuedDone := make(chan *httptest.ResponseRecorder, 1)
-	go func() { queuedDone <- f.do(t, http.MethodGet, "/gizclaw/v1/device/wifi", "") }()
+	go func() { queuedDone <- f.invoke(t, "wifi.saved.list", `{}`) }()
 	close(release)
 
-	if code := <-rebootDone; code != http.StatusNoContent {
+	if code := <-rebootDone; code != http.StatusOK {
 		t.Fatalf("reboot status = %d", code)
 	}
 	queued := <-queuedDone
@@ -743,17 +692,17 @@ func TestDeviceControlRebootMarkerIgnoresReconnectDuringAck(t *testing.T) {
 
 	rebootDone := make(chan int, 1)
 	go func() {
-		rebootDone <- f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/reboot", `{"delay_ms":10}`).Code
+		rebootDone <- f.invoke(t, "device.reboot", `{"delay_ms":10}`).Code
 	}()
 	<-entered
 	replacement := rebootingDevice(make(chan struct{}), make(chan struct{}))
 	f.manager.SetPeerUp(f.owner, replacement)
 	close(release)
-	if code := <-rebootDone; code != http.StatusNoContent {
+	if code := <-rebootDone; code != http.StatusOK {
 		t.Fatalf("reboot status = %d", code)
 	}
 
-	if response := f.do(t, http.MethodGet, "/gizclaw/v1/device/wifi", ""); response.Code != http.StatusOK {
+	if response := f.invoke(t, "wifi.saved.list", `{}`); response.Code != http.StatusOK {
 		t.Fatalf("control on replacement status = %d body=%s", response.Code, response.Body.String())
 	}
 	if old.calls.Load() != 1 || replacement.calls.Load() != 1 {
@@ -771,14 +720,14 @@ func TestDeviceControlRebootMarkerNamesAcknowledgingConnection(t *testing.T) {
 	old.onDial = func() { f.manager.SetPeerUp(f.owner, replacement) }
 	f.manager.SetPeerUp(f.owner, old)
 
-	if response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/reboot", ""); response.Code != http.StatusNoContent {
+	if response := f.invoke(t, "device.reboot", ""); response.Code != http.StatusOK {
 		t.Fatalf("reboot status = %d body=%s", response.Code, response.Body.String())
 	}
 	if old.calls.Load() != 1 || replacement.calls.Load() != 0 {
 		t.Fatalf("reboot reached old=%d replacement=%d, want the looked-up connection only", old.calls.Load(), replacement.calls.Load())
 	}
 	// The old connection acknowledged and is marked; the replacement is live.
-	if response := f.do(t, http.MethodGet, "/gizclaw/v1/device/wifi", ""); response.Code != http.StatusOK {
+	if response := f.invoke(t, "wifi.saved.list", `{}`); response.Code != http.StatusOK {
 		t.Fatalf("control on replacement status = %d body=%s", response.Code, response.Body.String())
 	}
 	if replacement.calls.Load() != 1 {
@@ -787,10 +736,10 @@ func TestDeviceControlRebootMarkerNamesAcknowledgingConnection(t *testing.T) {
 
 	// The acknowledging connection is what gets marked, whichever it is: a
 	// reboot answered by the replacement blocks the replacement.
-	if response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/reboot", ""); response.Code != http.StatusNoContent {
+	if response := f.invoke(t, "device.reboot", ""); response.Code != http.StatusOK {
 		t.Fatalf("second reboot status = %d", response.Code)
 	}
-	if response := f.do(t, http.MethodGet, "/gizclaw/v1/device/wifi", ""); response.Code != http.StatusConflict {
+	if response := f.invoke(t, "wifi.saved.list", `{}`); response.Code != http.StatusConflict {
 		t.Fatalf("control after replacement reboot status = %d body=%s", response.Code, response.Body.String())
 	}
 	if replacement.calls.Load() != 2 {
@@ -846,4 +795,47 @@ func TestMapDeviceControlErrorUsesTheCallingRouteNotFoundCode(t *testing.T) {
 	if wifi.Code != wifiNetworkNotFoundKey {
 		t.Fatalf("wifi not-found code = %q, want %q", wifi.Code, wifiNetworkNotFoundKey)
 	}
+}
+
+func newFakeToolConn(dispatch func(context.Context, rpcpb.ClientTool, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error)) *fakeDeviceConn {
+	var device *fakeDeviceConn
+	device = newFakeDeviceConn(func(ctx context.Context, request *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		if request.Method != rpcapi.RPCMethodClientToolV0Invoke || request.Params == nil {
+			return rpcapi.Error{RequestID: request.Id, Code: rpcapi.StatusCodeUnimplemented}.RPCResponse(), nil
+		}
+		invocation, err := request.Params.AsClientToolV0InvokeRequest()
+		if err != nil {
+			return nil, err
+		}
+		inner := *request
+		inner.Params, err = rpcapi.DecodeClientToolRequest(invocation)
+		if err != nil {
+			return nil, err
+		}
+		select {
+		case device.tools <- invocation.Tool:
+		default:
+		}
+		response, err := dispatch(ctx, invocation.Tool, &inner)
+		if err != nil || response == nil || response.Error != nil {
+			return response, err
+		}
+		response.Result, err = rpcapi.EncodeClientToolResponse(invocation.Tool, response.Result)
+		return response, err
+	})
+	return device
+}
+func (f *deviceHTTPFixture) invoke(t *testing.T, tool, args string) *httptest.ResponseRecorder {
+	t.Helper()
+	if args == "" {
+		args = `{}`
+	}
+	return f.do(t, http.MethodPost, "/gizclaw/v1/device/tool/v0/invoke", `{"tool":"`+tool+`","args":`+args+`}`)
+}
+
+func decodeToolResult[T any](t *testing.T, response *httptest.ResponseRecorder) T {
+	t.Helper()
+	return decodeJSON[struct {
+		Result T `json:"result"`
+	}](t, response).Result
 }

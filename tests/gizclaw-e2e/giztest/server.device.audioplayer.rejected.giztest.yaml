@@ -46,11 +46,13 @@ steps:
     client: peer
     http:
       method: POST
-      path: /gizclaw/v1/device/audioplayer/actions/play
+      path: /gizclaw/v1/device/tool/v0/invoke
       headers:
         Authorization: Bearer ${api_key}
       body:
-        index: 0
+        tool: audioplayer.play
+        args:
+          index: 0
       status: 400
     expect:
       /error/code:
@@ -58,11 +60,12 @@ steps:
   - id: provider_play
     client: peer
     client_rpc:
-      method: client.device.audioplayer.play
+      method: client.tool.v0.invoke
       response:
         error_code: 3
         error_message: playlist is empty
       expect_calls: 1
+      tool: audioplayer.play
 finally:
   - id: cleanup_peer
     client: peer

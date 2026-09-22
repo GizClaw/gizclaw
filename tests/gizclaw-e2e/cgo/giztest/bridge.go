@@ -59,14 +59,12 @@ func openSession(endpoint, privateKey string, provider *clientRPCProvider, crede
 
 	session := &cSession{}
 	var providerHandle C.ulonglong
-	var cTool *C.char
+	var toolMask, mhsMask C.uint
 	if provider != nil {
 		session.provider = cgo.NewHandle(provider)
 		providerHandle = C.ulonglong(session.provider)
-		if name := provider.toolName(); name != "" {
-			cTool = C.CString(name)
-			defer C.free(unsafe.Pointer(cTool))
-		}
+		tools, mhs := provider.installedMasks()
+		toolMask, mhsMask = C.uint(tools), C.uint(mhs)
 	}
 	var credentialType, credentialValue *C.char
 	var credentialVersion C.uint
@@ -82,7 +80,7 @@ func openSession(endpoint, privateKey string, provider *clientRPCProvider, crede
 		defer C.free(unsafe.Pointer(credentialValue))
 		credentialVersion = C.uint(credential.Version)
 	}
-	rc := C.gzt_session_open(cEndpoint, cKey, credentialVersion, credentialType, credentialValue, providerHandle, cTool, &session.handle, errbuf, errorBufferSize)
+	rc := C.gzt_session_open(cEndpoint, cKey, credentialVersion, credentialType, credentialValue, providerHandle, toolMask, mhsMask, &session.handle, errbuf, errorBufferSize)
 	if rc != 0 {
 		if session.provider != 0 {
 			session.provider.Delete()

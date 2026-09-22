@@ -90,7 +90,6 @@ type Server struct {
 	SFUURL                 string
 	MemoryRoot             string
 	SpeechLimits           SpeechLimits
-	ClientToolTimeout      time.Duration
 	ToolHTTPExecutor       giztools.HTTPExecutor
 	BuildVersion           string
 	BuildCommit            string
@@ -621,7 +620,6 @@ func (s *Server) init() error {
 		RuntimeProfileForOwner: manager.runtimeProfileForOwner,
 		ToolBuilder:            manager.ToolBuilder,
 		ToolCredentials:        credentialServer,
-		ClientToolTimeout:      s.ClientToolTimeout,
 		HTTPTools:              s.ToolHTTPExecutor,
 	}
 	manager.AgentHost = agenthost.New(agentResolver)

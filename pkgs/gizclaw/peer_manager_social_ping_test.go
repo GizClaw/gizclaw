@@ -3,6 +3,7 @@ package gizclaw
 import (
 	"context"
 	"errors"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -16,8 +17,8 @@ func TestManagerDeliversSocialPingOverTheActiveConnection(t *testing.T) {
 	target := giznet.PublicKey{7}
 	var received rpcapi.ClientSocialPingRequest
 	var reject bool
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-		if req.Method != rpcapi.RPCMethodClientSocialPing {
+	device := newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		if tool != rpcpb.ClientTool_CLIENT_TOOL_SOCIAL_PING {
 			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unexpected"}.RPCResponse(), nil
 		}
 		if reject {

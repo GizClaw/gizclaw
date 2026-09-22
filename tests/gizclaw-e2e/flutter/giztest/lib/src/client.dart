@@ -520,461 +520,69 @@ class _Handlers {
 
 /// Turns the document's client_rpc steps for one client into the device-side
 /// providers the SDK installs, and counts every inbound call.
-_Handlers _buildHandlers(
-  String clientName,
-  List<Step> steps,
-  Variables variables,
-) {
+_Handlers _buildHandlers(String clientName, List<Step> steps, Variables variables) {
   final inbound = <String, int>{};
-  void count(String method) => inbound[method] = (inbound[method] ?? 0) + 1;
-
-  Map<String, Object?> deviceInfo = const {};
-  Map<String, Object?>? identifiers;
-  var control = const GizClawDeviceControlHandlers();
-  GizClawSocialPingHandler? socialPing;
-  final tools = <String, GizClawToolHandler>{};
-
+  final tools = <ClientTool, GizClawToolHandler>{};
+  var deviceInfo = DeviceInfo();
+  FutureOr<ClientMhsV0ReadResponse> Function(ClientMhsV0ReadRequest)? readMhs;
+  FutureOr<ClientMhsV0WriteResponse> Function(ClientMhsV0WriteRequest)? writeMhs;
   for (final step in steps) {
-    final clientRpc = step.clientRpc;
-    if (step.client != clientName || clientRpc == null) {
+    final operation = step.clientRpc;
+    if (step.client != clientName || operation == null) continue;
+    final method = (operation['tool'] ?? operation['method']) as String;
+    final scripted = variables.resolve(operation['response']);
+    final object = _asObject(scripted);
+    final failure = _scriptedFailure(scripted);
+    inbound[method] = 0;
+    if (method == 'client.rpc.methods.list' || method == 'client.tool.v0.list') {
+      if (scripted != null) throw StateError('$method takes no response');
       continue;
     }
-    final method = clientRpc['method'] as String;
-    final scripted = variables.resolve(clientRpc['response']);
-    final failure = _scriptedFailure(scripted);
-    final object = _asObject(scripted);
-    inbound[method] = 0;
-
-    switch (method) {
-      case 'client.tool.invoke':
-        // Matches the Go runner: `{name, result}` installs a Tool that
-        // answers result as its JSON data.
-        final name = object['name'];
-        if (name is! String || name.trim().isEmpty) {
-          throw StateError('step ${step.id} tool response requires name');
-        }
-        final result = object['result'];
-        tools[name] = (_) {
-          count(method);
-          if (failure != null) throw failure;
-          return result;
-        };
-      case 'client.info.get':
-        deviceInfo = object;
-      case 'client.identifiers.get':
-        identifiers = object;
-      case 'client.device.audioplayer.get':
-        control = _copyControl(
-          control,
-          audioplayer: GizClawAudioPlayerHandlers(
-            playlistGet: control.audioplayer?.playlistGet,
-            playlistSet: control.audioplayer?.playlistSet,
-            playlistAppend: control.audioplayer?.playlistAppend,
-            play: control.audioplayer?.play,
-            stop: control.audioplayer?.stop,
-            modeSet: control.audioplayer?.modeSet,
-            get: (_) {
-              count(method);
-              if (failure != null) throw failure;
-              return ClientDeviceAudioPlayerGetResponse()
-                ..mergeFromProto3Json(snakeToCamelKeys({'value': object}));
-            },
-          ),
-        );
-      case 'client.device.audioplayer.playlist.get':
-        control = _copyControl(
-          control,
-          audioplayer: GizClawAudioPlayerHandlers(
-            get: control.audioplayer?.get,
-            playlistSet: control.audioplayer?.playlistSet,
-            playlistAppend: control.audioplayer?.playlistAppend,
-            play: control.audioplayer?.play,
-            stop: control.audioplayer?.stop,
-            modeSet: control.audioplayer?.modeSet,
-            playlistGet: (_) {
-              count(method);
-              if (failure != null) throw failure;
-              return ClientDeviceAudioPlayerPlaylistGetResponse()
-                ..mergeFromProto3Json(snakeToCamelKeys(object));
-            },
-          ),
-        );
-      case 'client.device.audioplayer.playlist.set':
-        control = _copyControl(
-          control,
-          audioplayer: GizClawAudioPlayerHandlers(
-            get: control.audioplayer?.get,
-            playlistGet: control.audioplayer?.playlistGet,
-            playlistAppend: control.audioplayer?.playlistAppend,
-            play: control.audioplayer?.play,
-            stop: control.audioplayer?.stop,
-            modeSet: control.audioplayer?.modeSet,
-            playlistSet: (_) {
-              count(method);
-              if (failure != null) throw failure;
-              return ClientDeviceAudioPlayerPlaylistSetResponse()
-                ..mergeFromProto3Json(snakeToCamelKeys({'value': object}));
-            },
-          ),
-        );
-      case 'client.device.audioplayer.playlist.append':
-        control = _copyControl(
-          control,
-          audioplayer: GizClawAudioPlayerHandlers(
-            get: control.audioplayer?.get,
-            playlistGet: control.audioplayer?.playlistGet,
-            playlistSet: control.audioplayer?.playlistSet,
-            play: control.audioplayer?.play,
-            stop: control.audioplayer?.stop,
-            modeSet: control.audioplayer?.modeSet,
-            playlistAppend: (_) {
-              count(method);
-              if (failure != null) throw failure;
-              return ClientDeviceAudioPlayerPlaylistAppendResponse()
-                ..mergeFromProto3Json(snakeToCamelKeys({'value': object}));
-            },
-          ),
-        );
-      case 'client.device.audioplayer.play':
-        control = _copyControl(
-          control,
-          audioplayer: GizClawAudioPlayerHandlers(
-            get: control.audioplayer?.get,
-            playlistGet: control.audioplayer?.playlistGet,
-            playlistSet: control.audioplayer?.playlistSet,
-            playlistAppend: control.audioplayer?.playlistAppend,
-            stop: control.audioplayer?.stop,
-            modeSet: control.audioplayer?.modeSet,
-            play: (_) {
-              count(method);
-              if (failure != null) throw failure;
-              return ClientDeviceAudioPlayerPlayResponse()
-                ..mergeFromProto3Json(snakeToCamelKeys({'value': object}));
-            },
-          ),
-        );
-      case 'client.device.audioplayer.stop':
-        control = _copyControl(
-          control,
-          audioplayer: GizClawAudioPlayerHandlers(
-            get: control.audioplayer?.get,
-            playlistGet: control.audioplayer?.playlistGet,
-            playlistSet: control.audioplayer?.playlistSet,
-            playlistAppend: control.audioplayer?.playlistAppend,
-            play: control.audioplayer?.play,
-            modeSet: control.audioplayer?.modeSet,
-            stop: (_) {
-              count(method);
-              if (failure != null) throw failure;
-              return ClientDeviceAudioPlayerStopResponse()
-                ..mergeFromProto3Json(snakeToCamelKeys({'value': object}));
-            },
-          ),
-        );
-      case 'client.device.audioplayer.mode.set':
-        control = _copyControl(
-          control,
-          audioplayer: GizClawAudioPlayerHandlers(
-            get: control.audioplayer?.get,
-            playlistGet: control.audioplayer?.playlistGet,
-            playlistSet: control.audioplayer?.playlistSet,
-            playlistAppend: control.audioplayer?.playlistAppend,
-            play: control.audioplayer?.play,
-            stop: control.audioplayer?.stop,
-            modeSet: (_) {
-              count(method);
-              if (failure != null) throw failure;
-              return ClientDeviceAudioPlayerModeSetResponse()
-                ..mergeFromProto3Json(snakeToCamelKeys({'value': object}));
-            },
-          ),
-        );
-      case 'client.device.status.get':
-        control = _copyControl(
-          control,
-          status: () {
-            count(method);
-            if (failure != null) throw failure;
-            return _peerStatus(object);
-          },
-        );
-      case 'client.device.volume.set':
-        // The scripted status is echoed with the requested level and mute
-        // state so an HTTP round trip can assert them.
-        control = _copyControl(
-          control,
-          setVolume: (level, muted) {
-            count(method);
-            if (failure != null) throw failure;
-            return _peerStatus({...object, 'volume': level, 'muted': muted});
-          },
-        );
-      case 'client.device.sound.play':
-        control = _copyControl(
-          control,
-          playSound: (_, _) {
-            count(method);
-            if (failure != null) throw failure;
-          },
-        );
-      case 'client.device.find':
-        control = _copyControl(
-          control,
-          find: (_) {
-            count(method);
-            if (failure != null) throw failure;
-          },
-        );
-      case 'client.social.ping':
-        socialPing = (_) {
-          count(method);
-          if (failure != null) throw failure;
-        };
-      case 'client.device.reboot':
-        control = _copyControl(
-          control,
-          reboot: (_) {
-            count(method);
-            if (failure != null) throw failure;
-          },
-        );
-      case 'client.device.settings.get':
-        control = _copyControl(
-          control,
-          getSettings: () {
-            count(method);
-            if (failure != null) throw failure;
-            return _deviceSettings(object);
-          },
-        );
-      case 'client.device.settings.set':
-        // The scripted settings are the device's state before the patch; the
-        // answer overlays the members the patch carries, so an HTTP round trip
-        // observes what it asked for next to what it left unchanged.
-        control = _copyControl(
-          control,
-          setSettings: (patch) {
-            count(method);
-            if (failure != null) throw failure;
-            return _deviceSettings(object)..mergeFromMessage(patch);
-          },
-        );
-      case 'client.device.factory_reset':
-        control = _copyControl(
-          control,
-          factoryReset: (_) {
-            count(method);
-            if (failure != null) throw failure;
-          },
-        );
-      case 'client.mhs.v0.read':
-        control = _copyControl(
-          control,
-          readMhsStates: (_) {
-            count(method);
-            if (failure != null) throw failure;
-            return ClientMhsV0ReadResponse()
-              ..mergeFromProto3Json(snakeToCamelKeys(object));
-          },
-        );
-        // Explicit for readers of this long switch; Dart 3 cases never fall through.
-        break;
-      case 'client.mhs.v0.write':
-        control = _copyControl(
-          control,
-          writeMhsStates: (_) {
-            count(method);
-            if (failure != null) throw failure;
-            return ClientMhsV0WriteResponse()
-              ..mergeFromProto3Json(snakeToCamelKeys(object));
-          },
-        );
-        break;
-      case 'client.run.workspace.set':
-        control = _copyControl(
-          control,
-          setRunWorkspace: (_) {
-            count(method);
-            if (failure != null) throw failure;
-          },
-        );
-      case 'client.wifi.status.get':
-        control = _copyControl(
-          control,
-          wifiStatus: () {
-            count(method);
-            if (failure != null) throw failure;
-            return WifiStatus()..mergeFromProto3Json(
-              snakeToCamelKeys(object),
-              ignoreUnknownFields: true,
-            );
-          },
-        );
-      case 'client.wifi.saved.list':
-        control = _copyControl(
-          control,
-          savedWifi: () {
-            count(method);
-            if (failure != null) throw failure;
-            final networks = object['networks'];
-            if (networks is! List) {
-              return const <WifiSavedNetwork>[];
-            }
-            return networks
-                .map(
-                  (item) => WifiSavedNetwork()
-                    ..mergeFromProto3Json(
-                      snakeToCamelKeys(item),
-                      ignoreUnknownFields: true,
-                    ),
-                )
-                .toList();
-          },
-        );
-      case 'client.wifi.saved.forget':
-        control = _copyControl(
-          control,
-          forgetWifi: (_) {
-            count(method);
-            if (failure != null) throw failure;
-          },
-        );
-      case 'client.wifi.scan':
-        control = _copyControl(
-          control,
-          scanWifi: (_) {
-            count(method);
-            if (failure != null) throw failure;
-            final delayMs = object['delay_ms'];
-            if (delayMs != null) {
-              if (delayMs is! int || delayMs < 0) {
-                throw StateError('delay_ms must be a non-negative integer');
-              }
-              if (delayMs > maxScriptedDelayMs) {
-                throw StateError(
-                  'delay_ms must be at most $maxScriptedDelayMs',
-                );
-              }
-              sleep(Duration(milliseconds: delayMs));
-            }
-            final networks = object['networks'];
-            if (networks is! List) return const <WifiScanResult>[];
-            return networks
-                .map(
-                  (item) => WifiScanResult()
-                    ..mergeFromProto3Json(
-                      snakeToCamelKeys(item),
-                      ignoreUnknownFields: true,
-                    ),
-                )
-                .toList();
-          },
-        );
-      case 'client.wifi.connect':
-        control = _copyControl(
-          control,
-          connectWifi: (_, _) {
-            count(method);
-            if (failure != null) throw failure;
-          },
-        );
-      default:
-        throw StateError('unsupported client RPC $method');
+    if (object['unavailable'] == true) {
+      if (object.containsKey('result')) throw StateError('unavailable tool cannot set result');
+      continue;
+    }
+    final delay = scriptedDelayMs(object);
+    final value = Map<String,Object?>.from(object)..remove('delay_ms');
+    Future<void> prepare() async {
+      if (failure != null) throw failure;
+      if (delay > 0) await Future<void>.delayed(Duration(milliseconds:delay));
+    }
+    if (method == 'info.get') {
+      deviceInfo = DeviceInfo()..mergeFromProto3Json(snakeToCamelKeys(value));
+    } else if (method == 'identifiers.get') {
+      deviceInfo.identifiers = DeviceIdentifiers()..mergeFromProto3Json(snakeToCamelKeys(value));
+    } else if (method == 'client.mhs.v0.read') {
+      readMhs = (_) async { await prepare(); return ClientMhsV0ReadResponse()..mergeFromProto3Json(snakeToCamelKeys(value)); };
+    } else if (method == 'client.mhs.v0.write') {
+      writeMhs = (_) async { await prepare(); return ClientMhsV0WriteResponse()..mergeFromProto3Json(snakeToCamelKeys(value)); };
+    } else {
+      final metadata = clientToolByName(method);
+      final tool = ClientTool.valueOf(metadata.id)!;
+      tools[tool] = (_) async {
+        await prepare();
+        final result = newPayloadMessage(metadata.responseType);
+        final fields = result.info_.fieldInfo.values;
+        final wrapped = fields.length == 1 && fields.single.name == 'value';
+        result.mergeFromProto3Json(snakeToCamelKeys(wrapped ? {'value':value} : value));
+        return result;
+      };
     }
   }
-
-  final info = DeviceInfo()
-    ..mergeFromProto3Json(
-      snakeToCamelKeys(deviceInfo),
-      ignoreUnknownFields: true,
-    );
-  final scriptedIdentifiers = identifiers;
-  if (scriptedIdentifiers != null) {
-    info.identifiers = DeviceIdentifiers()
-      ..mergeFromProto3Json(
-        snakeToCamelKeys(scriptedIdentifiers),
-        ignoreUnknownFields: true,
-      );
-  }
-  return _Handlers(
-    GizClawPeerRpcHandlers(
-      deviceInfo: () {
-        count('client.info.get');
-        return info;
-      },
-      // Installed only when a step scripts it, so client.identifiers.get keeps
-      // its own call count instead of being attributed to client.info.get.
-      deviceIdentifiers: scriptedIdentifiers == null
-          ? null
-          : () {
-              count('client.identifiers.get');
-              return DeviceIdentifiers()..mergeFromProto3Json(
-                snakeToCamelKeys(scriptedIdentifiers),
-                ignoreUnknownFields: true,
-              );
-            },
-      deviceControl: control,
-      socialPing: socialPing,
-      tools: tools,
-    ),
-    inbound,
-  );
+  return _Handlers(GizClawPeerRpcHandlers(
+    deviceInfo: () => deviceInfo,
+    tools: tools,
+    observe: (method, tool) {
+      final key = tool == null ? method : clientToolById(tool.value).name;
+      inbound[key] = (inbound[key] ?? 0) + 1;
+    },
+    deviceControl: GizClawDeviceControlHandlers(readMhsStates:readMhs,writeMhsStates:writeMhs),
+  ), inbound);
 }
 
-DeviceSettings _deviceSettings(Map<String, Object?> json) =>
-    DeviceSettings()
-      ..mergeFromProto3Json(snakeToCamelKeys(json), ignoreUnknownFields: true);
-
-PeerStatus _peerStatus(Map<String, Object?> json) =>
-    PeerStatus()
-      ..mergeFromProto3Json(snakeToCamelKeys(json), ignoreUnknownFields: true);
-
-GizClawDeviceControlHandlers _copyControl(
-  GizClawDeviceControlHandlers base, {
-  ClientMhsV0ReadResponse Function(ClientMhsV0ReadRequest request)?
-  readMhsStates,
-  ClientMhsV0WriteResponse Function(ClientMhsV0WriteRequest request)?
-  writeMhsStates,
-  GizClawAudioPlayerHandlers? audioplayer,
-  PeerStatus Function()? status,
-  PeerStatus Function(int level, bool muted)? setVolume,
-  void Function(String sound, int? durationMs)? playSound,
-  void Function(int? durationMs)? find,
-  void Function(int? delayMs)? reboot,
-  WifiStatus Function()? wifiStatus,
-  List<WifiSavedNetwork> Function()? savedWifi,
-  void Function(String ssid)? forgetWifi,
-  List<WifiScanResult> Function(int? timeoutMs)? scanWifi,
-  void Function(String ssid, String? passphrase)? connectWifi,
-  DeviceSettings Function()? getSettings,
-  DeviceSettings Function(DeviceSettings patch)? setSettings,
-  void Function(bool keepNetwork)? factoryReset,
-  void Function(ClientRunWorkspaceSetRequest request)? setRunWorkspace,
-}) {
-  return GizClawDeviceControlHandlers(
-    readMhsStates: readMhsStates ?? base.readMhsStates,
-    writeMhsStates: writeMhsStates ?? base.writeMhsStates,
-    audioplayer: audioplayer ?? base.audioplayer,
-    connectWifi: connectWifi ?? base.connectWifi,
-    factoryReset: factoryReset ?? base.factoryReset,
-    find: find ?? base.find,
-    forgetWifi: forgetWifi ?? base.forgetWifi,
-    // Keep the legacy RPC bridge covered for older devices and apps.
-    // ignore: deprecated_member_use
-    getSettings: getSettings ?? base.getSettings,
-    playSound: playSound ?? base.playSound,
-    reboot: reboot ?? base.reboot,
-    savedWifi: savedWifi ?? base.savedWifi,
-    scanWifi: scanWifi ?? base.scanWifi,
-    setRunWorkspace: setRunWorkspace ?? base.setRunWorkspace,
-    // Keep the legacy RPC bridge covered for older devices and apps.
-    // ignore: deprecated_member_use
-    setSettings: setSettings ?? base.setSettings,
-    // Keep the legacy RPC bridge covered for older devices and apps.
-    // ignore: deprecated_member_use
-    setVolume: setVolume ?? base.setVolume,
-    status: status ?? base.status,
-    updateFirmware: base.updateFirmware,
-    wifiStatus: wifiStatus ?? base.wifiStatus,
-  );
+int scriptedDelayMs(Map<String,Object?> value) {
+ final delay=value['delay_ms'];
+ if (delay==null) return 0;
+ if (delay is! int || delay<0 || delay>maxScriptedDelayMs) throw const FormatException('delay_ms must be an integer from 0 to 2147483647');
+ return delay;
 }

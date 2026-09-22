@@ -6,12 +6,13 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
-func testClientTool(name string) Tool {
+func testCatalogTool(name string) Tool {
 	return Tool{
 		ID:          name,
 		InvokeName:  name,
-		Type:        ToolTypeClientRPC,
-		Description: new("test client tool"),
+		Type:        ToolTypeHTTPRequest,
+		Description: new("test catalog tool"),
+		HTTP:        &HTTPRequest{URL: "https://example.com/tool", Method: "GET", Auth: HTTPAuth{Method: "none"}, Timeout: time.Second, MaxResponseBytes: 1024},
 		Enabled:     true,
 		InputSchema: jsonschema.Schema{
 			Type:                 "object",

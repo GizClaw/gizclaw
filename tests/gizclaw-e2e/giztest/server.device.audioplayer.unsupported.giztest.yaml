@@ -46,11 +46,13 @@ steps:
     client: peer
     http:
       method: POST
-      path: /gizclaw/v1/device/audioplayer/actions/play
+      path: /gizclaw/v1/device/tool/v0/invoke
       headers:
         Authorization: Bearer ${api_key}
       body:
-        index: 0
+        tool: audioplayer.play
+        args:
+          index: 0
       status: 501
     expect:
       /error/code:

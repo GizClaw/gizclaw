@@ -2,17 +2,6 @@ package rpcapi
 
 import rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 
-// Audio player methods are provided by the device's single player.
-const (
-	RPCMethodClientDeviceAudioPlayerGet            RPCMethod = "client.device.audioplayer.get"
-	RPCMethodClientDeviceAudioPlayerPlaylistGet    RPCMethod = "client.device.audioplayer.playlist.get"
-	RPCMethodClientDeviceAudioPlayerPlaylistSet    RPCMethod = "client.device.audioplayer.playlist.set"
-	RPCMethodClientDeviceAudioPlayerPlaylistAppend RPCMethod = "client.device.audioplayer.playlist.append"
-	RPCMethodClientDeviceAudioPlayerPlay           RPCMethod = "client.device.audioplayer.play"
-	RPCMethodClientDeviceAudioPlayerStop           RPCMethod = "client.device.audioplayer.stop"
-	RPCMethodClientDeviceAudioPlayerModeSet        RPCMethod = "client.device.audioplayer.mode.set"
-)
-
 // AsClientDeviceAudioPlayerGetRequest decodes the device audio player payload.
 func (p RPCPayload) AsClientDeviceAudioPlayerGetRequest() (*rpcpb.ClientDeviceAudioPlayerGetRequest, error) {
 	value := new(rpcpb.ClientDeviceAudioPlayerGetRequest)

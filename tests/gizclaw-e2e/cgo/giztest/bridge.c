@@ -13,6 +13,7 @@
 extern int gztGoProvider(
     unsigned long long handle,
     int method,
+    int tool,
     void *request_payload,
     size_t request_payload_len,
     void **out_payload,
@@ -21,6 +22,8 @@ extern int gztGoProvider(
     char *out_error_message,
     size_t out_error_message_cap);
 
+extern void gztGoObserve(unsigned long long handle, int method, int tool);
+struct gzt_tool_context { struct gzt_session *session; int tool; };
 struct gzt_session {
   gzc_cgo_backend_t backend;
   gzc_http_vtable_t http;
@@ -29,11 +32,8 @@ struct gzt_session {
   gzc_webrtc_media_vtable_t media;
   gzc_client_t *client;
   unsigned long long provider_handle;
-  /* The C SDK answers client.tool.invoke only through registered Tool
-   * handlers, never rpc_provider, so a scripted Tool is registered by name
-   * and forwarded to the same Go provider. */
-  char tool_name[65];
-  gzc_tool_handler_t tool_handler;
+  struct gzt_tool_context tool_contexts[21];
+  gzc_tool_handler_t tool_handlers[21];
 };
 
 static int fail(char *errbuf, unsigned long errbuf_len, const char *message, int rc) {
@@ -72,7 +72,7 @@ static int provider(
   char error_message[256];
   error_message[0] = 0;
   int rc = gztGoProvider(
-      session->provider_handle, method, (void *)request_payload.data, request_payload.len,
+      session->provider_handle, method, 0, (void *)request_payload.data, request_payload.len,
       &payload, &payload_len, &error_code, error_message, sizeof(error_message));
   if (rc != GZC_OK) {
     free(payload);
@@ -93,14 +93,19 @@ static int provider(
   return rc;
 }
 
-/* Answers the one scripted Tool through the Go provider. */
-static int tool_handler(
-    void *userdata,
-    gzc_str_t request_payload,
-    gzc_rpc_provider_respond_fn respond,
-    void *respond_userdata) {
-  return provider(
-      userdata, gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE, request_payload, respond, respond_userdata);
+static int tool_handler(void *userdata, gzc_str_t request_payload, gzc_rpc_provider_respond_fn respond, void *respond_userdata) {
+  struct gzt_tool_context *context = (struct gzt_tool_context *)userdata;
+  void *payload = NULL; size_t payload_len = 0; int code = 0; char message[256] = {0};
+  int rc = gztGoProvider(context->session->provider_handle, gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE, context->tool, (void *)request_payload.data, request_payload.len, &payload, &payload_len, &code, message, sizeof(message));
+  if (rc == GZC_OK) {
+    gzc_rpc_provider_response_t result = {.payload = payload, .payload_len = payload_len, .has_error = code != 0, .error_code = code, .error_message = gzc_str_from_cstr(message)};
+    rc = respond(respond_userdata, &result);
+  }
+  free(payload); return rc;
+}
+static void observer(void *userdata, int method, gizclaw_rpc_v1_ClientTool tool) {
+  gzt_session_t *session = (gzt_session_t *)userdata;
+  gztGoObserve(session->provider_handle, method, (int)tool);
 }
 
 int gzt_session_open(
@@ -110,7 +115,8 @@ int gzt_session_open(
     const char *credential_type,
     const char *credential_value,
     unsigned long long provider_handle,
-    const char *tool_name,
+    unsigned int tool_mask,
+    unsigned int mhs_mask,
     gzt_session_t **out_session,
     char *errbuf,
     unsigned long errbuf_len) {
@@ -146,15 +152,20 @@ int gzt_session_open(
   config.connect_timeout_ms = 15000;
   config.write_timeout_ms = 15000;
   if (provider_handle != 0) {
-    config.rpc_provider = provider;
-    config.rpc_provider_userdata = session;
-    if (tool_name != NULL && tool_name[0] != 0) {
-      (void)snprintf(session->tool_name, sizeof(session->tool_name), "%s", tool_name);
-      session->tool_handler.name = gzc_str_from_cstr(session->tool_name);
-      session->tool_handler.handler = tool_handler;
-      session->tool_handler.userdata = session;
-      config.tool_handlers = &session->tool_handler;
-      config.tool_handler_count = 1;
+    config.mhs_read = (mhs_mask & 1u) != 0u ? provider : NULL;
+    config.mhs_write = (mhs_mask & 2u) != 0u ? provider : NULL;
+    config.mhs_userdata = session;
+    config.rpc_observer = observer;
+    config.rpc_observer_userdata = session;
+    config.tool_handlers = session->tool_handlers;
+    for (unsigned int i = 1; i <= 21u; i++) {
+      if ((tool_mask & (1u << i)) == 0u) continue;
+      size_t index = config.tool_handler_count++;
+      session->tool_contexts[index].session = session;
+      session->tool_contexts[index].tool = (int)i;
+      session->tool_handlers[index].tool = (gizclaw_rpc_v1_ClientTool)i;
+      session->tool_handlers[index].handler = tool_handler;
+      session->tool_handlers[index].userdata = &session->tool_contexts[index];
     }
   }
 
@@ -434,37 +445,21 @@ static void split_route(gzc_str_t path, gzt_route_t *out) {
    * `/device/telemetry` plus an `aggregate` segment.
    */
   static const char *whole[] = {
-      "/device/audioplayer/playlist/append",
-      "/device/audioplayer/actions/play",
-      "/device/audioplayer/actions/stop",
-      "/device/audioplayer/playlist",
-      "/device/audioplayer/mode",
-      "/device/audioplayer",
       "/device/telemetry/aggregate",
-      "/device/actions/factory-reset",
-      "/device/actions/play-sound",
       "/device/runtime-profile",
-      "/device/run/workspace",
-      "/device/rpc-methods",
       "/device/mhs/v0/manifest",
       "/device/mhs/v0/read",
       "/device/mhs/v0/states",
       "/device/workspaces",
-      "/device/actions/reboot",
-      "/device/actions/find",
-      "/device/wifi/saved",
-      "/device/wifi/scan",
       "/device/telemetry",
-      "/device/settings",
       "/device/runtime",
       "/device/status",
-      "/device/volume",
-      "/device/tools",
+      "/device/tool/v0/tools",
+      "/device/tool/v0/invoke",
       "/friends/invite-token",
       "/friend-groups/@join",
       "/api-keys/self",
       "/friend-groups",
-      "/device/wifi",
       "/api-keys",
       "/contacts",
       "/friends",
@@ -551,21 +546,7 @@ static bool str_is(gzc_str_t text, const char *other) {
 
 /* Reads the members a `PATCH /device/settings` body carries; absent members
  * stay absent so the Server forwards only what the step sent. */
-static void read_device_settings(gzc_str_t body, gzc_control_device_settings_t *out) {
-  memset(out, 0, sizeof(*out));
-  out->has_cellular_enabled = body_bool(body, "cellular_enabled", &out->cellular_enabled);
-  out->has_screen_off_timeout_ms = body_i64(body, "screen_off_timeout_ms", &out->screen_off_timeout_ms);
-  out->has_screen_brightness = body_i64(body, "screen_brightness", &out->screen_brightness);
-  out->has_led_brightness = body_i64(body, "led_brightness", &out->led_brightness);
-  (void)body_str(body, "locale", &out->locale);
-  (void)body_str(body, "default_interaction_mode", &out->default_interaction_mode);
-  (void)body_str(body, "key_feedback", &out->key_feedback);
-  (void)body_str(body, "alert_mode", &out->alert_mode);
-  out->has_auto_sleep_timeout_ms = body_i64(body, "auto_sleep_timeout_ms", &out->auto_sleep_timeout_ms);
-  out->has_nfc_enabled = body_bool(body, "nfc_enabled", &out->nfc_enabled);
-}
 
-/* Reads the optional `ttl_seconds` of an invite token create body. */
 static void read_invite_token_request(gzc_str_t body, gzc_control_invite_token_request_t *out) {
   int64_t ttl = 0;
   memset(out, 0, sizeof(*out));
@@ -786,6 +767,14 @@ int gzt_control_request(
   bool patch = strcmp(method, "PATCH") == 0;
   bool del = strcmp(method, "DELETE") == 0;
 
+  bool invoke = post && route_is(&route, "/device/tool/v0/invoke", false);
+  gzc_str_t tool = {0};
+  if (invoke) {
+    gzc_str_t args = {0};
+    if (!body_str(body, "tool", &tool) || gzc_json_find_field(body, "args", &args) != GZC_OK) return GZC_ERR_INVALID_ARGUMENT;
+    body = args;
+  }
+
   /* Throwaway decode targets: the runner asserts on the raw body, while the
    * typed call is what proves the controller SDK covers the route. */
   gzc_control_api_key_t api_keys[32];
@@ -804,7 +793,6 @@ int gzt_control_request(
   gzc_control_runtime_profile_collection_t profile_collections[32];
   gzc_str_t profile_workflows[128];
   gzc_control_device_workspace_t workspaces[64];
-  gzc_control_wifi_status_t wifi;
   gzc_control_wifi_scan_result_t wifi_networks[32];
   gzc_control_contact_t contact;
   gzc_control_api_key_t api_key_value;
@@ -812,9 +800,7 @@ int gzt_control_request(
   gzc_control_friend_t friends[16];
   gzc_control_friend_t friend_value;
   gzc_control_friend_group_t friend_groups[16];
-  gzc_control_device_settings_t settings;
-  gzc_str_t rpc_methods[64];
-  gzc_control_device_tool_t tools[32];
+  gzc_str_t tools[32];
   gzc_str_t text;
   size_t count = 0;
   bool has_next = false;
@@ -826,29 +812,48 @@ int gzt_control_request(
     if (rc != GZC_OK && rc != GZC_ERR_HTTP) {
       return fail(errbuf, errbuf_len, "MHS control encode/decode", rc);
     }
-  } else if (get && route_is(&route, "/device/audioplayer", false)) {
+  } else if (invoke && str_is(tool, "audioplayer.get")) {
     rc = gzc_control_get_device_audioplayer(&control, &call, &player);
-  } else if (get && route_is(&route, "/device/audioplayer/playlist", false)) {
+  } else if (invoke && str_is(tool, "audioplayer.playlist.get")) {
     rc = gzc_control_get_device_audioplayer_playlist(&control, &call, player_list, 64, &count, &player_revision);
-  } else if ((put && route_is(&route, "/device/audioplayer/playlist", false)) ||
-             (post && route_is(&route, "/device/audioplayer/playlist/append", false))) {
+  } else if ((invoke && str_is(tool, "audioplayer.playlist.set")) ||
+             (invoke && str_is(tool, "audioplayer.playlist.append"))) {
     rc = player_items(body, player_list, 64, &count);
     if (rc == GZC_OK) {
-      rc = put ? gzc_control_set_device_audioplayer_playlist(&control, &call, player_list, count, &player)
+      rc = str_is(tool, "audioplayer.playlist.set") ? gzc_control_set_device_audioplayer_playlist(&control, &call, player_list, count, &player)
                : gzc_control_append_device_audioplayer_playlist(&control, &call, player_list, count, &player);
     }
-  } else if (post && route_is(&route, "/device/audioplayer/actions/play", false)) {
+  } else if (invoke && str_is(tool, "audioplayer.play")) {
     int64_t index = 0;
     if (!body_i64(body, "index", &index) || index < 0 || index > UINT32_MAX) {
       rc = GZC_ERR_INVALID_ARGUMENT;
     } else {
       rc = gzc_control_play_device_audioplayer(&control, &call, (uint32_t)index, &player);
     }
-  } else if (post && route_is(&route, "/device/audioplayer/actions/stop", false)) {
+  } else if (invoke && str_is(tool, "audioplayer.stop")) {
     rc = gzc_control_stop_device_audioplayer(&control, &call, &player);
-  } else if (put && route_is(&route, "/device/audioplayer/mode", false)) {
+  } else if (invoke && str_is(tool, "audioplayer.mode.set")) {
     gzc_str_t repeat = {0};
     rc = body_str(body, "repeat", &repeat) ? gzc_control_set_device_audioplayer_mode(&control, &call, repeat, &player) : GZC_ERR_INVALID_ARGUMENT;
+  } else if (invoke && str_is(tool, "info.get")) {
+    gzc_control_hardware_info_t result;
+    rc = gzc_control_get_device_hardware(&control, &call, &result);
+  } else if (invoke && str_is(tool, "identifiers.get")) {
+    gzc_control_device_identifiers_t result;
+    rc = gzc_control_get_device_identifiers(&control, &call, &result);
+  } else if (invoke && str_is(tool, "device.status.get")) {
+    rc = gzc_control_read_device_status(&control, &call, &status);
+  } else if (invoke && str_is(tool, "firmware.update")) {
+    gzc_control_firmware_update_request_t request = {0};
+    (void)body_str(body, "channel", &request.channel);
+    (void)body_str(body, "sha256", &request.sha256);
+    rc = gzc_control_update_device_firmware(&control, &call, &request);
+  } else if (invoke && str_is(tool, "social.ping")) {
+    gzc_control_social_ping_request_t request = {0};
+    (void)body_str(body, "from_peer_public_key", &request.from_peer_public_key);
+    (void)body_str(body, "from_display_name", &request.from_display_name);
+    (void)body_str(body, "friend_group_name", &request.friend_group_name);
+    rc = gzc_control_ping_device(&control, &call, &request);
   } else if (get && route_is(&route, "/device", false)) {
     rc = gzc_control_get_device(&control, &call, &device);
   } else if (get && route_is(&route, "/device/runtime", false)) {
@@ -945,15 +950,13 @@ int gzt_control_request(
     rc = gzc_control_aggregate_device_telemetry(
         &control, &call, &aggregate, telemetry_buckets,
         sizeof(telemetry_buckets) / sizeof(telemetry_buckets[0]), &count);
-  } else if (get && route_is(&route, "/device/wifi", false)) {
-    rc = gzc_control_get_device_wifi(&control, &call, &wifi);
-  } else if (put && route_is(&route, "/device/wifi", false)) {
+  } else if (invoke && str_is(tool, "wifi.connect")) {
     gzc_control_wifi_connect_request_t request;
     memset(&request, 0, sizeof(request));
     (void)body_str(body, "ssid", &request.ssid);
     (void)body_str(body, "passphrase", &request.passphrase);
     rc = gzc_control_connect_device_wifi(&control, &call, &request);
-  } else if (post && route_is(&route, "/device/wifi/scan", false)) {
+  } else if (invoke && str_is(tool, "wifi.scan")) {
     gzc_control_wifi_scan_request_t request;
     memset(&request, 0, sizeof(request));
     int64_t timeout = 0;
@@ -963,20 +966,13 @@ int gzt_control_request(
     }
     rc = gzc_control_scan_device_wifi(
         &control, &call, &request, wifi_networks, sizeof(wifi_networks) / sizeof(wifi_networks[0]), &count);
-  } else if (get && route_is(&route, "/device/wifi/saved", false)) {
+  } else if (invoke && str_is(tool, "wifi.saved.list")) {
     rc = gzc_control_list_device_saved_wifi(
         &control, &call, ssids, sizeof(ssids) / sizeof(ssids[0]), &count);
-  } else if (del && route_is(&route, "/device/wifi/saved", true)) {
-    rc = gzc_control_forget_device_saved_wifi(&control, &call, tail);
-  } else if (put && route_is(&route, "/device/volume", false)) {
-    gzc_control_volume_request_t request;
-    int64_t level = 0;
-    memset(&request, 0, sizeof(request));
-    (void)body_i64(body, "level", &level);
-    (void)body_bool(body, "muted", &request.muted);
-    request.level = (int32_t)level;
-    rc = gzc_control_set_device_volume(&control, &call, &request, &status);
-  } else if (post && route_is(&route, "/device/actions/play-sound", false)) {
+  } else if (invoke && str_is(tool, "wifi.saved.forget")) {
+    (void)body_str(body, "ssid", &text);
+    rc = gzc_control_forget_device_saved_wifi(&control, &call, text);
+  } else if (invoke && str_is(tool, "sound.play")) {
     gzc_control_play_sound_request_t request;
     int64_t duration = 0;
     memset(&request, 0, sizeof(request));
@@ -986,12 +982,12 @@ int gzt_control_request(
       request.duration_ms = (int32_t)duration;
     }
     rc = gzc_control_play_device_sound(&control, &call, &request);
-  } else if (post && route_is(&route, "/device/actions/find", false)) {
+  } else if (invoke && str_is(tool, "device.find")) {
     gzc_control_find_request_t request;
     memset(&request, 0, sizeof(request));
     request.has_duration_ms = body_i64(body, "duration_ms", &request.duration_ms);
     rc = gzc_control_find_device(&control, &call, &request);
-  } else if (post && route_is(&route, "/device/actions/reboot", false)) {
+  } else if (invoke && str_is(tool, "device.reboot")) {
     gzc_control_reboot_request_t request;
     int64_t delay = 0;
     memset(&request, 0, sizeof(request));
@@ -1000,21 +996,12 @@ int gzt_control_request(
       request.delay_ms = (int32_t)delay;
     }
     rc = gzc_control_reboot_device(&control, &call, &request);
-  } else if (get && route_is(&route, "/device/settings", false)) {
-    rc = gzc_control_get_device_settings(&control, &call, &settings);
-  } else if (patch && route_is(&route, "/device/settings", false)) {
-    gzc_control_device_settings_t request;
-    read_device_settings(body, &request);
-    rc = gzc_control_update_device_settings(&control, &call, &request, &settings);
-  } else if (post && route_is(&route, "/device/actions/factory-reset", false)) {
+  } else if (invoke && str_is(tool, "device.factory_reset")) {
     gzc_control_factory_reset_request_t request;
     memset(&request, 0, sizeof(request));
     request.has_keep_network = body_bool(body, "keep_network", &request.keep_network);
     rc = gzc_control_factory_reset_device(&control, &call, &request);
-  } else if (get && route_is(&route, "/device/rpc-methods", false)) {
-    rc = gzc_control_list_device_rpc_methods(
-        &control, &call, rpc_methods, sizeof(rpc_methods) / sizeof(rpc_methods[0]), &count);
-  } else if (put && route_is(&route, "/device/run/workspace", false)) {
+  } else if (invoke && str_is(tool, "run.workspace.set")) {
     gzc_control_run_workspace_request_t request;
     memset(&request, 0, sizeof(request));
     (void)body_str(body, "workspace_name", &request.workspace_name);
@@ -1022,19 +1009,8 @@ int gzt_control_request(
     (void)body_str(body, "workflow_name", &request.workflow_name);
     request.has_kickoff = body_bool(body, "kickoff", &request.kickoff);
     rc = gzc_control_set_device_run_workspace(&control, &call, &request);
-  } else if (get && route_is(&route, "/device/tools", false)) {
+  } else if (get && route_is(&route, "/device/tool/v0/tools", false)) {
     rc = gzc_control_list_device_tools(&control, &call, tools, sizeof(tools) / sizeof(tools[0]), &count);
-  } else if (post && route_is(&route, "/device/tools", true) &&
-             route.tail.len > 15 &&
-             memcmp(route.tail.data + route.tail.len - 15, "/actions/invoke", 15) == 0) {
-    char name_buf[256];
-    size_t name_len = decode_segment(
-        gzc_str_from_parts(route.tail.data, route.tail.len - 15), name_buf, sizeof(name_buf));
-    gzc_str_t args = gzc_str_from_parts(NULL, 0);
-    if (body.len > 0 && gzc_json_find_field(body, "args", &args) != GZC_OK) {
-      args = gzc_str_from_parts(NULL, 0);
-    }
-    rc = gzc_control_invoke_device_tool(&control, &call, gzc_str_from_parts(name_buf, name_len), args, &text);
   } else if (get && route_is(&route, "/api-keys", false)) {
     gzc_control_page_t page;
     read_page(query, &page);

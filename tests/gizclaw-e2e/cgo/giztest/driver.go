@@ -330,18 +330,21 @@ func (s *session) executeTelemetry(ctx context.Context, client *deviceClient, re
 // executeClientRPC waits for the Server to invoke the scripted provider the
 // document installed at connect time.
 func (s *session) executeClientRPC(ctx context.Context, client *deviceClient, req giztest.StepRequest) (giztest.StepResult, error) {
-	method := req.Step.ClientRPC.Method
+	method := clientRPCProviderName(req.Step.ClientRPC)
 	if !client.provider.installed(method) {
 		return giztest.StepResult{}, fmt.Errorf("client RPC %s was not installed", method)
 	}
-	want := int64(req.Step.ClientRPC.ExpectCalls)
-	if want == 0 {
-		want = 1
+	want := int64(1)
+	if req.Step.ClientRPC.ExpectCalls != nil {
+		want = int64(*req.Step.ClientRPC.ExpectCalls)
 	}
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 	for {
 		calls := client.provider.callCount(method)
+		if want == 0 && calls != 0 {
+			return giztest.StepResult{}, fmt.Errorf("client RPC %s reached device %d times", method, calls)
+		}
 		if calls >= want {
 			evidence := map[string]any{"method": method, "calls": calls}
 			return giztest.StepResult{Value: evidence, Saved: evidence, Evidence: evidence}, nil
@@ -471,7 +474,7 @@ func newDeviceClient(ctx context.Context, name, endpoint string, steps []giztest
 		if step.ClientRPC == nil || step.Client != name {
 			continue
 		}
-		if err := provider.install(step.ClientRPC.Method, step.ClientRPC.Response); err != nil {
+		if err := provider.install(clientRPCProviderName(step.ClientRPC), step.ClientRPC.Response); err != nil {
 			return nil, err
 		}
 	}
@@ -650,3 +653,10 @@ func controlBaseURL(endpoint string) (string, error) {
 }
 
 var _ = rpcpb.RpcMethod_RPC_METHOD_UNSPECIFIED
+
+func clientRPCProviderName(operation *giztest.ClientRPCOperation) string {
+	if operation.Tool != "" {
+		return operation.Tool
+	}
+	return operation.Method
+}

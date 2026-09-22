@@ -51,10 +51,6 @@ extern "C" {
  */
 #define GZC_CONTROL_MAX_REQUEST_ID_BYTES 64
 
-/* Volume level bounds the Server enforces for `PUT /gizclaw/v1/device/volume`. */
-#define GZC_CONTROL_MIN_VOLUME_LEVEL 0
-#define GZC_CONTROL_MAX_VOLUME_LEVEL 100
-
 /*
  * Stable classification of a failed `/gizclaw/v1` routes call.
  *
@@ -485,15 +481,7 @@ typedef struct {
   double value;
 } gzc_control_telemetry_bucket_t;
 
-/* Body of `PUT /gizclaw/v1/device/volume` (`DeviceVolumeSetRequest`). */
-typedef struct {
-  /* Absolute level; the Server accepts GZC_CONTROL_MIN_VOLUME_LEVEL through
-   * GZC_CONTROL_MAX_VOLUME_LEVEL and rejects anything else with 400. */
-  int32_t level;
-  bool muted;
-} gzc_control_volume_request_t;
-
-/* Body of `POST /gizclaw/v1/device/actions/play-sound`
+/* Body of `POST /gizclaw/v1/device/tool/v0/invoke`
  * (`DevicePlaySoundRequest`). */
 typedef struct {
   /* Device-defined identifier; the Server caps it at
@@ -503,7 +491,7 @@ typedef struct {
   int32_t duration_ms;
 } gzc_control_play_sound_request_t;
 
-/* Body of `POST /gizclaw/v1/device/actions/find` (`DeviceFindRequest`). */
+/* Body of `POST /gizclaw/v1/device/tool/v0/invoke` (`DeviceFindRequest`). */
 typedef struct {
   /* Requested ring time; the device picks its own default when absent. The
    * Server rejects a negative value with 400. */
@@ -511,40 +499,11 @@ typedef struct {
   int64_t duration_ms;
 } gzc_control_find_request_t;
 
-/* Body of `POST /gizclaw/v1/device/actions/reboot` (`DeviceRebootRequest`). */
+/* Body of `POST /gizclaw/v1/device/tool/v0/invoke` (`DeviceRebootRequest`). */
 typedef struct {
   bool has_delay_ms;
   int32_t delay_ms;
 } gzc_control_reboot_request_t;
-
-/*
- * Device-owned settings (`DeviceSettings`).
- *
- * Every member is optional. In a response an absent member means the device
- * does not support that option; in gzc_control_update_device_settings() an
- * absent member leaves it unchanged. Enum members are their wire strings:
- * default_interaction_mode is "push-to-talk" or "realtime"; key_feedback is
- * "none", "sound", "vibrate" or "sound_and_vibrate"; alert_mode is "silent",
- * "vibrate" or "ring". Empty strings are absent.
- */
-typedef struct {
-  bool has_cellular_enabled;
-  bool cellular_enabled;
-  bool has_screen_off_timeout_ms;
-  int64_t screen_off_timeout_ms;
-  bool has_screen_brightness;
-  int64_t screen_brightness;
-  bool has_led_brightness;
-  int64_t led_brightness;
-  gzc_str_t locale;
-  gzc_str_t default_interaction_mode;
-  gzc_str_t key_feedback;
-  gzc_str_t alert_mode;
-  bool has_auto_sleep_timeout_ms;
-  int64_t auto_sleep_timeout_ms;
-  bool has_nfc_enabled;
-  bool nfc_enabled;
-} gzc_control_device_settings_t;
 
 /* MHS-inspired pre-standard v0 limits, enforced by the MHS entry points. */
 #define GZC_CONTROL_MHS_V0_MAX_BATCH 32
@@ -661,14 +620,14 @@ int gzc_control_mhs_v0_state_enum_values(
     const gzc_control_mhs_v0_state_t *state, gzc_control_mhs_v0_storage_t *storage,
     gzc_str_t *out, size_t cap, size_t *out_count);
 
-/* Body of `POST /gizclaw/v1/device/actions/factory-reset`
+/* Body of `POST /gizclaw/v1/device/tool/v0/invoke`
  * (`DeviceFactoryResetRequest`). */
 typedef struct {
   bool has_keep_network;
   bool keep_network;
 } gzc_control_factory_reset_request_t;
 
-/* Body of `PUT /gizclaw/v1/device/run/workspace`
+/* Body of `POST /gizclaw/v1/device/tool/v0/invoke`
  * (`DeviceRunWorkspaceSetRequest`). Set exactly one target: workspace_name, or
  * collection with workflow_name. */
 typedef struct {
@@ -679,26 +638,7 @@ typedef struct {
   bool kickoff;
 } gzc_control_run_workspace_request_t;
 
-/* One Tool the control app may invoke on the device (`DeviceTool`). i18n and
- * input_schema are the raw JSON objects, borrowed from the response. */
-typedef struct {
-  gzc_str_t name;
-  gzc_str_t control_access;
-  gzc_str_t i18n;
-  gzc_str_t input_schema;
-} gzc_control_device_tool_t;
-
-/* Current Wi-Fi status of the device (`DeviceWifiStatus`). */
-typedef struct {
-  bool connected;
-  gzc_str_t ssid;
-  bool has_rssi_dbm;
-  int32_t rssi_dbm;
-  gzc_str_t ip;
-  gzc_str_t bssid;
-} gzc_control_wifi_status_t;
-
-/* Body of `POST /gizclaw/v1/device/wifi/scan` (`DeviceWifiScanRequest`). */
+/* Body of `POST /gizclaw/v1/device/tool/v0/invoke` (`DeviceWifiScanRequest`). */
 typedef struct {
   bool has_timeout_ms;
   int32_t timeout_ms;
@@ -715,7 +655,7 @@ typedef struct {
   gzc_str_t security;
 } gzc_control_wifi_scan_result_t;
 
-/* Body of `PUT /gizclaw/v1/device/wifi` (`DeviceWifiConnectRequest`). */
+/* Body of `POST /gizclaw/v1/device/tool/v0/invoke` (`DeviceWifiConnectRequest`). */
 typedef struct {
   gzc_str_t ssid;
   gzc_str_t passphrase;
@@ -1018,23 +958,14 @@ int gzc_control_aggregate_device_telemetry(
 
 /* --- Device control ----------------------------------------------------- */
 
-/* `PUT /gizclaw/v1/device/volume`. out_status is the `PeerStatus` the device
- * reported after applying the volume.
- * Deprecated: Use gzc_control_write_mhs_v0_states with manifest keys. */
-int gzc_control_set_device_volume(
-    gzc_control_client_t *client,
-    gzc_control_call_t *call,
-    const gzc_control_volume_request_t *request,
-    gzc_control_peer_status_t *out_status);
-
-/* `POST /gizclaw/v1/device/actions/play-sound`. */
+/* `POST /gizclaw/v1/device/tool/v0/invoke`. */
 int gzc_control_play_device_sound(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
     const gzc_control_play_sound_request_t *request);
 
 /*
- * `POST /gizclaw/v1/device/actions/find`.
+ * `POST /gizclaw/v1/device/tool/v0/invoke`.
  *
  * Rings the device's built-in find-me sound. request may be NULL to let the
  * device pick its own ring time.
@@ -1045,7 +976,7 @@ int gzc_control_find_device(
     const gzc_control_find_request_t *request);
 
 /*
- * `POST /gizclaw/v1/device/actions/reboot`.
+ * `POST /gizclaw/v1/device/tool/v0/invoke`.
  *
  * The device acknowledges before rebooting; later control calls fail with
  * GZC_CONTROL_ERROR_DEVICE_OFFLINE until it reconnects.
@@ -1054,27 +985,6 @@ int gzc_control_reboot_device(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
     const gzc_control_reboot_request_t *request);
-
-/* `GET /gizclaw/v1/device/settings`.
- * Deprecated: Use gzc_control_read_mhs_v0_states with manifest keys. */
-int gzc_control_get_device_settings(
-    gzc_control_client_t *client,
-    gzc_control_call_t *call,
-    gzc_control_device_settings_t *out_settings);
-
-/*
- * `PATCH /gizclaw/v1/device/settings`.
- *
- * Sends only the members present in patch. A value outside its range rejects
- * the whole patch before any member is applied. out_settings receives every
- * setting after the change and may be NULL.
- * Deprecated: Use gzc_control_write_mhs_v0_states with manifest keys.
- */
-int gzc_control_update_device_settings(
-    gzc_control_client_t *client,
-    gzc_control_call_t *call,
-    const gzc_control_device_settings_t *patch,
-    gzc_control_device_settings_t *out_settings);
 
 /* `GET /gizclaw/v1/device/mhs/v0/manifest`. Available offline; an unconfigured
  * profile returns zero devices. Nested states/tags are decoded by the helpers.
@@ -1111,7 +1021,7 @@ int gzc_control_write_mhs_v0_states(
     gzc_control_mhs_v0_state_value_t *out_states, size_t cap, size_t *out_count);
 
 /*
- * `POST /gizclaw/v1/device/actions/factory-reset`.
+ * `POST /gizclaw/v1/device/tool/v0/invoke`.
  *
  * Irreversible on the device. It acknowledges before erasing its state; later
  * control calls fail with GZC_CONTROL_ERROR_DEVICE_OFFLINE until it
@@ -1124,17 +1034,8 @@ int gzc_control_factory_reset_device(
     gzc_control_call_t *call,
     const gzc_control_factory_reset_request_t *request);
 
-/* `GET /gizclaw/v1/device/rpc-methods`. Decodes up to cap method names.
- * Ignore names this SDK does not know. */
-int gzc_control_list_device_rpc_methods(
-    gzc_control_client_t *client,
-    gzc_control_call_t *call,
-    gzc_str_t *out_methods,
-    size_t cap,
-    size_t *out_count);
-
 /*
- * `PUT /gizclaw/v1/device/run/workspace`.
+ * `POST /gizclaw/v1/device/tool/v0/invoke`.
  *
  * Success means the device accepted the request, not that the switch
  * finished; read gzc_control_get_device_runtime() to observe it.
@@ -1144,38 +1045,16 @@ int gzc_control_set_device_run_workspace(
     gzc_control_call_t *call,
     const gzc_control_run_workspace_request_t *request);
 
-/* `GET /gizclaw/v1/device/tools`. Decodes up to cap Tools. Answers while the
+/* `GET /gizclaw/v1/device/tool/v0/tools`. Decodes up to cap Tools. Answers while the
  * device is offline. */
 int gzc_control_list_device_tools(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
-    gzc_control_device_tool_t *out_tools,
+    gzc_str_t *out_tools,
     size_t cap,
     size_t *out_count);
 
-/*
- * `POST /gizclaw/v1/device/tools/{name}/actions/invoke`.
- *
- * args_json is one JSON object satisfying the Tool's input_schema, or empty
- * for `{}`. out_data_json receives the device's result as unescaped JSON text
- * written into the call's scratch region, valid until the next call on it;
- * call->body keeps the exact response. A result longer than scratch_cap fails
- * with GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL.
- */
-int gzc_control_invoke_device_tool(
-    gzc_control_client_t *client,
-    gzc_control_call_t *call,
-    gzc_str_t name,
-    gzc_str_t args_json,
-    gzc_str_t *out_data_json);
-
-/* `GET /gizclaw/v1/device/wifi`. */
-int gzc_control_get_device_wifi(
-    gzc_control_client_t *client,
-    gzc_control_call_t *call,
-    gzc_control_wifi_status_t *out_status);
-
-/* `POST /gizclaw/v1/device/wifi/scan`. Decodes up to cap networks.
+/* `POST /gizclaw/v1/device/tool/v0/invoke`. Decodes up to cap networks.
  *
  * request may be NULL to let the Server apply its default scan timeout.
  */
@@ -1188,7 +1067,7 @@ int gzc_control_scan_device_wifi(
     size_t *out_count);
 
 /*
- * `PUT /gizclaw/v1/device/wifi`.
+ * `POST /gizclaw/v1/device/tool/v0/invoke`.
  *
  * Success means the device accepted the credentials and started switching
  * networks, not that it joined them. The device goes offline during the
@@ -1201,7 +1080,7 @@ int gzc_control_connect_device_wifi(
     gzc_control_call_t *call,
     const gzc_control_wifi_connect_request_t *request);
 
-/* `GET /gizclaw/v1/device/wifi/saved`. Decodes up to cap SSIDs. */
+/* `POST /gizclaw/v1/device/tool/v0/invoke`. Decodes up to cap SSIDs. */
 int gzc_control_list_device_saved_wifi(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
@@ -1209,11 +1088,45 @@ int gzc_control_list_device_saved_wifi(
     size_t cap,
     size_t *out_count);
 
-/* `DELETE /gizclaw/v1/device/wifi/saved/{ssid}`. */
+/* `POST /gizclaw/v1/device/tool/v0/invoke`. */
 int gzc_control_forget_device_saved_wifi(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
     gzc_str_t ssid);
+
+/* Typed tool/v0 controls. Returned string/JSON views borrow call->response. */
+typedef struct {
+  gzc_str_t sn;
+  gzc_str_t imeis;
+  gzc_str_t labels;
+} gzc_control_device_identifiers_t;
+
+typedef struct {
+  gzc_str_t channel;
+  gzc_str_t sha256;
+} gzc_control_firmware_update_request_t;
+
+typedef struct {
+  gzc_str_t from_peer_public_key;
+  gzc_str_t from_display_name;
+  gzc_str_t friend_group_name;
+} gzc_control_social_ping_request_t;
+
+/* Reads live hardware information through info.get. */
+int gzc_control_get_device_hardware(gzc_control_client_t *client, gzc_control_call_t *call,
+                                    gzc_control_hardware_info_t *out);
+/* Reads live device identifiers through identifiers.get. */
+int gzc_control_get_device_identifiers(gzc_control_client_t *client, gzc_control_call_t *call,
+                                       gzc_control_device_identifiers_t *out);
+/* Reads live device state through device.status.get. get_device_status reads the stored snapshot. */
+int gzc_control_read_device_status(gzc_control_client_t *client, gzc_control_call_t *call,
+                                   gzc_control_peer_status_t *out);
+/* Requests firmware.update; acknowledgment precedes the device's OTA work. */
+int gzc_control_update_device_firmware(gzc_control_client_t *client, gzc_control_call_t *call,
+                                       const gzc_control_firmware_update_request_t *request);
+/* Delivers social.ping to the device. */
+int gzc_control_ping_device(gzc_control_client_t *client, gzc_control_call_t *call,
+                            const gzc_control_social_ping_request_t *request);
 
 /* --- Contacts ----------------------------------------------------------- */
 

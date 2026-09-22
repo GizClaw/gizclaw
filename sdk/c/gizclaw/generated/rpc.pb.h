@@ -35,8 +35,6 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED = 0,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING = 1,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN = 2,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_INFO_GET = 3,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_IDENTIFIERS_GET = 4,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_INFO_GET = 5,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_INFO_PUT = 6,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUNTIME_GET = 7,
@@ -97,7 +95,6 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE = 61,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_TOOL_LIST = 80,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_TOOL_GET = 81,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE = 82,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PEER_LOOKUP = 83,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PEER_ASSIGN = 84,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_ROUTE_RESOLVE = 85,
@@ -112,41 +109,17 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_LIST = 97,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_REVOKE = 98,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_RESOLVE = 99,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_STATUS_GET = 100,
-    /* Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys. */
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_VOLUME_SET = 101,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY = 102,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_REBOOT = 103,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_STATUS_GET = 104,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_LIST = 105,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET = 106,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SCAN = 108,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_CONNECT = 109,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_FIRMWARE_UPDATE = 111,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUNTIME_PUT = 112,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_GET = 113,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_GET = 114,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_SET = 115,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_APPEND = 116,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY = 117,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP = 118,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET = 119,
-    /* Deprecated: Use client.mhs.v0.read with RuntimeProfile manifest keys. */
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET = 128,
-    /* Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys. */
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET = 129,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET = 130,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_GET = 131,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RUN_WORKSPACE_SET = 132,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_READ = 133,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_WRITE = 134,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE = 135,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_LIST = 136,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_LIST = 137,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_APP_CONFIG_LIST = 121,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_APP_CONFIG_GET = 122,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_PING = 123,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_PING = 124,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PROFILE_GET = 125,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_FIND = 126,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_SOCIAL_PING = 127
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PROFILE_GET = 125
 } gizclaw_rpc_v1_RpcMethod;
 
 /* Struct definitions */
@@ -216,8 +189,8 @@ extern "C" {
 #define _gizclaw_rpc_v1_StatusCode_ARRAYSIZE ((gizclaw_rpc_v1_StatusCode)(gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNAUTHENTICATED+1))
 
 #define _gizclaw_rpc_v1_RpcMethod_MIN gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED
-#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_WRITE
-#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_WRITE+1))
+#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_LIST
+#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_LIST+1))
 
 
 

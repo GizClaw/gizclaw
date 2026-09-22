@@ -2,14 +2,14 @@
 # As a GizClaw API key holder,
 # I want to switch the Workspace my bound device runs through its real transport,
 # So that the Server resolves the target to one Workspace name, the request reaches
-# client.run.workspace.set, and the device switches on its own.
+# run.workspace.set through tool/v0, and the device switches on its own.
 version: gizclaw.test/v1alpha1
 name: server.device.run_workspace.set
 clients:
   peer:
     identity: ephemeral
     connection: webrtc
-    access_point: "${endpoint}"
+    access_point: ${endpoint}
 variables:
   endpoint:
     direction: input
@@ -29,130 +29,141 @@ variables:
     type: string
     secret: true
 steps:
-- id: register_peer
-  client: peer
-  rpc:
-    method: server.register
-    request:
-      token: "${registration_token}"
-- id: create_workspace
-  client: peer
-  rpc:
-    method: server.workspace.create
-    request:
-      name: "${resource_name}"
-      collection: assistants
-      workflow_name: flowcraft-chat-assistant
-      parameters:
-        flowcraft_workspace_parameters:
-          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
-          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
-- id: create_api_key
-  client: peer
-  rpc:
-    method: server.api_key.create
-    request:
-      display_name: "${resource_name}"
-  capture:
-    api_key: /api_key
-- id: switch_by_workspace_name
-  client: peer
-  http:
-    method: PUT
-    path: /gizclaw/v1/device/run/workspace
-    headers:
-      Authorization: "Bearer ${api_key}"
-    body:
-      workspace_name: "${resource_name}"
-    status: 202
-- id: switch_by_workflow
-  client: peer
-  http:
-    method: PUT
-    path: /gizclaw/v1/device/run/workspace
-    headers:
-      Authorization: "Bearer ${api_key}"
-    body:
-      collection: assistants
-      workflow_name: flowcraft-chat-assistant
-      kickoff: true
-    status: 202
-- id: select_workspace
-  client: peer
-  rpc:
-    method: server.run.workspace.set
-    request:
-      workspace_name: "${resource_name}"
-- id: runtime_reports_workspace
-  client: peer
-  http:
-    method: GET
-    path: /gizclaw/v1/device/runtime
-    headers:
-      Authorization: "Bearer ${api_key}"
-    status: 200
-  expect:
-    /pending_workspace_name:
-      equals: "${resource_name}"
-- id: unknown_workspace
-  client: peer
-  http:
-    method: PUT
-    path: /gizclaw/v1/device/run/workspace
-    headers:
-      Authorization: "Bearer ${api_key}"
-    body:
-      workspace_name: "${resource_name}-missing"
-    status: 404
-  expect:
-    /error/code:
-      equals: WORKSPACE_NOT_FOUND
-- id: two_targets
-  client: peer
-  http:
-    method: PUT
-    path: /gizclaw/v1/device/run/workspace
-    headers:
-      Authorization: "Bearer ${api_key}"
-    body:
-      workspace_name: "${resource_name}"
-      collection: assistants
-      workflow_name: flowcraft-chat-assistant
-    status: 400
-  expect:
-    /error/code:
-      equals: INVALID_REQUEST
-- id: no_target
-  client: peer
-  http:
-    method: PUT
-    path: /gizclaw/v1/device/run/workspace
-    headers:
-      Authorization: "Bearer ${api_key}"
-    body: {}
-    status: 400
-  expect:
-    /error/code:
-      equals: INVALID_REQUEST
-- id: provider_run_workspace
-  client: peer
-  client_rpc:
-    method: client.run.workspace.set
-    expect_calls: 2
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${resource_name}
+        collection: assistants
+        workflow_name: flowcraft-chat-assistant
+        parameters:
+          flowcraft_workspace_parameters:
+            agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: create_api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: switch_by_workspace_name
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: run.workspace.set
+        args:
+          workspace_name: ${resource_name}
+      status: 202
+  - id: switch_by_workflow
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: run.workspace.set
+        args:
+          collection: assistants
+          workflow_name: flowcraft-chat-assistant
+          kickoff: true
+      status: 202
+  - id: select_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${resource_name}
+  - id: runtime_reports_workspace
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/runtime
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /pending_workspace_name:
+        equals: ${resource_name}
+  - id: unknown_workspace
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: run.workspace.set
+        args:
+          workspace_name: ${resource_name}-missing
+      status: 404
+    expect:
+      /error/code:
+        equals: WORKSPACE_NOT_FOUND
+  - id: two_targets
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: run.workspace.set
+        args:
+          workspace_name: ${resource_name}
+          collection: assistants
+          workflow_name: flowcraft-chat-assistant
+      status: 400
+    expect:
+      /error/code:
+        equals: INVALID_REQUEST
+  - id: no_target
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: run.workspace.set
+        args: {}
+      status: 400
+    expect:
+      /error/code:
+        equals: INVALID_REQUEST
+  - id: provider_run_workspace
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      expect_calls: 2
+      tool: run.workspace.set
 finally:
-- id: cleanup_run
-  client: peer
-  rpc:
-    method: server.run.stop
-    request: {}
-- id: cleanup_workspace
-  client: peer
-  rpc:
-    method: server.workspace.delete
-    request:
-      name: "${resource_name}"
-- id: cleanup_peer
-  client: peer
-  rpc:
-    method: server.peer.delete
-    request: {}
+  - id: cleanup_run
+    client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - id: cleanup_workspace
+    client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${resource_name}
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

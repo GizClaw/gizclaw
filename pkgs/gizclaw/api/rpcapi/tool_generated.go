@@ -5,9 +5,8 @@ package rpcapi
 import "github.com/google/jsonschema-go/jsonschema"
 
 const (
-	RPCMethodClientToolInvoke RPCMethod = "client.tool.invoke"
-	RPCMethodServerToolGet    RPCMethod = "server.tool.get"
-	RPCMethodServerToolList   RPCMethod = "server.tool.list"
+	RPCMethodServerToolGet  RPCMethod = "server.tool.get"
+	RPCMethodServerToolList RPCMethod = "server.tool.list"
 )
 
 type ToolTriggerExample struct {
@@ -54,15 +53,6 @@ type ToolGetResponse struct {
 	RuntimeProfileRevision string `json:"runtime_profile_revision"`
 }
 
-type ToolInvokeRequest struct {
-	InvokeName string                 `json:"invoke_name"`
-	Args       map[string]interface{} `json:"args"`
-}
-
-type ToolInvokeResponse struct {
-	DataJson string `json:"data_json"`
-}
-
 func decodeToolPayload[T any](p RPCPayload, name string) (T, error) {
 	var out T
 	err := p.decode(name, &out)
@@ -83,15 +73,6 @@ func (p RPCPayload) AsToolGetRequest() (ToolGetRequest, error) {
 }
 func (p *RPCPayload) FromToolGetRequest(v ToolGetRequest) error  { return p.encode("ToolGetRequest", v) }
 func (p *RPCPayload) MergeToolGetRequest(v ToolGetRequest) error { return p.merge("ToolGetRequest", v) }
-func (p RPCPayload) AsToolInvokeRequest() (ToolInvokeRequest, error) {
-	return decodeToolPayload[ToolInvokeRequest](p, "ToolInvokeRequest")
-}
-func (p *RPCPayload) FromToolInvokeRequest(v ToolInvokeRequest) error {
-	return p.encode("ToolInvokeRequest", v)
-}
-func (p *RPCPayload) MergeToolInvokeRequest(v ToolInvokeRequest) error {
-	return p.merge("ToolInvokeRequest", v)
-}
 
 func (p RPCPayload) AsToolListResponse() (ToolListResponse, error) {
 	return decodeToolPayload[ToolListResponse](p, "ToolListResponse")
@@ -110,13 +91,4 @@ func (p *RPCPayload) FromToolGetResponse(v ToolGetResponse) error {
 }
 func (p *RPCPayload) MergeToolGetResponse(v ToolGetResponse) error {
 	return p.merge("ToolGetResponse", v)
-}
-func (p RPCPayload) AsToolInvokeResponse() (ToolInvokeResponse, error) {
-	return decodeToolPayload[ToolInvokeResponse](p, "ToolInvokeResponse")
-}
-func (p *RPCPayload) FromToolInvokeResponse(v ToolInvokeResponse) error {
-	return p.encode("ToolInvokeResponse", v)
-}
-func (p *RPCPayload) MergeToolInvokeResponse(v ToolInvokeResponse) error {
-	return p.merge("ToolInvokeResponse", v)
 }

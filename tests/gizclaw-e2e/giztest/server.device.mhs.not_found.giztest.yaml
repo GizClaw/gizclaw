@@ -5,45 +5,80 @@
 version: gizclaw.test/v1alpha1
 name: server.device.mhs.not_found
 clients:
-  peer: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}"}
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
 variables:
-  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
-  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
-  api_key: {direction: output, type: string, secret: true}
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  api_key:
+    direction: output
+    type: string
+    secret: true
 steps:
-- id: register
-  client: peer
-  rpc: {method: server.register, request: {token: "${registration_token}"}}
-- id: key
-  client: peer
-  rpc: {method: server.api_key.create, request: {display_name: mhs-test}}
-  capture: {api_key: /api_key}
-- id: missing_hardware
-  client: peer
-  http:
-    method: POST
-    path: /gizclaw/v1/device/mhs/v0/read
-    headers: {Authorization: "Bearer ${api_key}"}
-    body: {states: [{device_id: battery.main, state: level}]}
-    status: 404
-  expect:
-    /error/code: {equals: MHS_STATE_NOT_FOUND}
-- id: methods
-  client: peer
-  http:
-    method: GET
-    path: /gizclaw/v1/device/rpc-methods
-    headers: {Authorization: "Bearer ${api_key}"}
-    status: 200
-  expect:
-    /methods: {contains_all: [client.mhs.v0.read], not_contains: [client.mhs.v0.write]}
-- id: provider_read
-  client: peer
-  client_rpc:
-    method: client.mhs.v0.read
-    response: {error_code: 5}
-    expect_calls: 1
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: mhs-test
+    capture:
+      api_key: /api_key
+  - id: missing_hardware
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/read
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        states:
+          - device_id: battery.main
+            state: level
+      status: 404
+    expect:
+      /error/code:
+        equals: MHS_STATE_NOT_FOUND
+  - id: methods
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/tool/v0/tools
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /tools:
+        contains_all:
+          - info.get
+          - identifiers.get
+        not_contains:
+          - device.factory_reset
+          - run.workspace.set
+  - id: provider_read
+    client: peer
+    client_rpc:
+      method: client.mhs.v0.read
+      response:
+        error_code: 5
+      expect_calls: 1
 finally:
-- id: cleanup
-  client: peer
-  rpc: {method: server.peer.delete, request: {}}
+  - id: cleanup
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

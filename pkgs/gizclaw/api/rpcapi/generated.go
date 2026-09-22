@@ -179,57 +179,6 @@ func (e DoubaoRealtimeWorkspaceParametersAgentType) Valid() bool {
 	}
 }
 
-// Defines values for DeviceAlertMode.
-const (
-	DeviceAlertModeSilent  DeviceAlertMode = "silent"
-	DeviceAlertModeVibrate DeviceAlertMode = "vibrate"
-	DeviceAlertModeRing    DeviceAlertMode = "ring"
-)
-
-// Valid indicates whether the value is a known member of the DeviceAlertMode enum.
-func (e DeviceAlertMode) Valid() bool {
-	switch e {
-	case DeviceAlertModeSilent, DeviceAlertModeVibrate, DeviceAlertModeRing:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for DeviceInteractionMode.
-const (
-	DeviceInteractionModePushToTalk DeviceInteractionMode = "push-to-talk"
-	DeviceInteractionModeRealtime   DeviceInteractionMode = "realtime"
-)
-
-// Valid indicates whether the value is a known member of the DeviceInteractionMode enum.
-func (e DeviceInteractionMode) Valid() bool {
-	switch e {
-	case DeviceInteractionModePushToTalk, DeviceInteractionModeRealtime:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for DeviceKeyFeedback.
-const (
-	DeviceKeyFeedbackNone            DeviceKeyFeedback = "none"
-	DeviceKeyFeedbackSound           DeviceKeyFeedback = "sound"
-	DeviceKeyFeedbackVibrate         DeviceKeyFeedback = "vibrate"
-	DeviceKeyFeedbackSoundAndVibrate DeviceKeyFeedback = "sound_and_vibrate"
-)
-
-// Valid indicates whether the value is a known member of the DeviceKeyFeedback enum.
-func (e DeviceKeyFeedback) Valid() bool {
-	switch e {
-	case DeviceKeyFeedbackNone, DeviceKeyFeedbackSound, DeviceKeyFeedbackVibrate, DeviceKeyFeedbackSoundAndVibrate:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for FirmwareChannelName.
 const (
 	FirmwareChannelNameBeta    FirmwareChannelName = "beta"
@@ -588,27 +537,8 @@ func (e StatusCode) String() string {
 const (
 	RPCMethodAllPing                             RPCMethod = "all.ping"
 	RPCMethodAllSpeedTestRun                     RPCMethod = "all.speed_test.run"
-	RPCMethodClientDeviceReboot                  RPCMethod = "client.device.reboot"
-	RPCMethodClientFirmwareUpdate                RPCMethod = "client.firmware.update"
-	RPCMethodClientDeviceSoundPlay               RPCMethod = "client.device.sound.play"
-	RPCMethodClientDeviceFind                    RPCMethod = "client.device.find"
-	RPCMethodClientSocialPing                    RPCMethod = "client.social.ping"
-	RPCMethodClientDeviceStatusGet               RPCMethod = "client.device.status.get"
-	RPCMethodClientDeviceVolumeSet               RPCMethod = "client.device.volume.set"
-	RPCMethodClientIdentifiersGet                RPCMethod = "client.identifiers.get"
-	RPCMethodClientInfoGet                       RPCMethod = "client.info.get"
-	RPCMethodClientWifiSavedForget               RPCMethod = "client.wifi.saved.forget"
-	RPCMethodClientWifiSavedList                 RPCMethod = "client.wifi.saved.list"
-	RPCMethodClientWifiStatusGet                 RPCMethod = "client.wifi.status.get"
-	RPCMethodClientWifiScan                      RPCMethod = "client.wifi.scan"
-	RPCMethodClientWifiConnect                   RPCMethod = "client.wifi.connect"
-	RPCMethodClientDeviceSettingsGet             RPCMethod = "client.device.settings.get"
-	RPCMethodClientDeviceSettingsSet             RPCMethod = "client.device.settings.set"
-	RPCMethodClientDeviceFactoryReset            RPCMethod = "client.device.factory_reset"
-	RPCMethodClientRPCMethodsGet                 RPCMethod = "client.rpc.methods.get"
 	RPCMethodClientMhsV0Read                     RPCMethod = "client.mhs.v0.read"
 	RPCMethodClientMhsV0Write                    RPCMethod = "client.mhs.v0.write"
-	RPCMethodClientRunWorkspaceSet               RPCMethod = "client.run.workspace.set"
 	RPCMethodServerContactCreate                 RPCMethod = "server.contact.create"
 	RPCMethodServerContactDelete                 RPCMethod = "server.contact.delete"
 	RPCMethodServerContactGet                    RPCMethod = "server.contact.get"
@@ -690,53 +620,13 @@ const (
 // Valid indicates whether the value is a known member of the RPCMethod enum.
 func (e RPCMethod) Valid() bool {
 	switch e {
-	case RPCMethodClientDeviceAudioPlayerGet, RPCMethodClientDeviceAudioPlayerPlaylistGet, RPCMethodClientDeviceAudioPlayerPlaylistSet, RPCMethodClientDeviceAudioPlayerPlaylistAppend, RPCMethodClientDeviceAudioPlayerPlay, RPCMethodClientDeviceAudioPlayerStop, RPCMethodClientDeviceAudioPlayerModeSet:
+	case RPCMethodClientToolV0Invoke, RPCMethodClientToolV0List, RPCMethodClientRPCMethodsList:
 		return true
 	case RPCMethodAllPing:
 		return true
 	case RPCMethodAllSpeedTestRun:
 		return true
-	case RPCMethodClientIdentifiersGet:
-		return true
-	case RPCMethodClientInfoGet:
-		return true
-	case RPCMethodClientDeviceStatusGet:
-		return true
-	case RPCMethodClientDeviceVolumeSet:
-		return true
-	case RPCMethodClientDeviceSoundPlay:
-		return true
-	case RPCMethodClientDeviceFind:
-		return true
-	case RPCMethodClientSocialPing:
-		return true
-	case RPCMethodClientDeviceReboot:
-		return true
-	case RPCMethodClientDeviceSettingsGet:
-		return true
-	case RPCMethodClientDeviceSettingsSet:
-		return true
-	case RPCMethodClientDeviceFactoryReset:
-		return true
-	case RPCMethodClientRPCMethodsGet:
-		return true
 	case RPCMethodClientMhsV0Read, RPCMethodClientMhsV0Write:
-		return true
-	case RPCMethodClientRunWorkspaceSet:
-		return true
-	case RPCMethodClientWifiStatusGet:
-		return true
-	case RPCMethodClientWifiSavedList:
-		return true
-	case RPCMethodClientWifiSavedForget:
-		return true
-	case RPCMethodClientWifiScan:
-		return true
-	case RPCMethodClientWifiConnect:
-		return true
-	case RPCMethodClientFirmwareUpdate:
-		return true
-	case RPCMethodClientToolInvoke:
 		return true
 	case RPCMethodServerAppConfigList:
 		return true
@@ -1586,15 +1476,6 @@ type EinoWorkspaceParametersAgentType string
 
 // FirmwareChannelName defines model for FirmwareChannelName.
 type FirmwareChannelName string
-
-// DeviceAlertMode defines model for DeviceAlertMode.
-type DeviceAlertMode string
-
-// DeviceInteractionMode defines model for DeviceInteractionMode.
-type DeviceInteractionMode string
-
-// DeviceKeyFeedback defines model for DeviceKeyFeedback.
-type DeviceKeyFeedback string
 
 // FirmwareGetRequest defines model for FirmwareGetRequest.
 type FirmwareGetRequest struct {

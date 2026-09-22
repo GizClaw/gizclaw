@@ -1518,10 +1518,6 @@ export type RuntimeProfileBinding = {
     i18n: {
         [key: string]: RuntimeProfileI18nText;
     };
-    /**
-     * Only valid under resources.tools. Exposes this Tool to the device owner's control app through GET /gizclaw/v1/device/tools and POST /gizclaw/v1/device/tools/{name}/actions/invoke; owner means any API key of the Peer that owns the device. When omitted the control app can neither list nor invoke the Tool, which stays reachable only by AI and Workflow runtimes. Only enabled client_rpc Tools are ever exposed. Stricter levels, such as a guardian authorization, are added to this enum later.
-     */
-    control_access?: 'owner';
 };
 
 export type RuntimeProfileFlowcraftBbhConnection = {
@@ -1739,22 +1735,6 @@ export type ToolJsonSchema = {
     [key: string]: unknown;
 };
 
-export type ClientRpcToolSpec = {
-    /**
-     * Immutable runtime execution name, independent from the Admin resource ID and RuntimeProfile alias.
-     */
-    invoke_name: string;
-    type: 'client_rpc';
-    description?: string;
-    enabled?: boolean;
-    version?: string;
-    input_schema: ToolJsonSchema;
-    triggers?: Array<ToolTrigger>;
-    metadata?: {
-        [key: string]: unknown;
-    };
-};
-
 export type HttpToolSpec = {
     /**
      * Immutable runtime execution name, independent from the Admin resource ID and RuntimeProfile alias.
@@ -1858,11 +1838,7 @@ export type ToolHttpRequest = {
 /**
  * Strict Tool declaration selected by type. metadata.id is the Admin identity and invoke_name is the immutable runtime execution identity.
  */
-export type ToolSpec = ({
-    type: 'http_request';
-} & HttpToolSpec) | ({
-    type: 'client_rpc';
-} & ClientRpcToolSpec);
+export type ToolSpec = HttpToolSpec;
 
 export type ToolTrigger = {
     name: string;
@@ -3125,11 +3101,7 @@ export type ToolHttpRequestWritable = {
 /**
  * Strict Tool declaration selected by type. metadata.id is the Admin identity and invoke_name is the immutable runtime execution identity.
  */
-export type ToolSpecWritable = ({
-    type: 'http_request';
-} & HttpToolSpecWritable) | ({
-    type: 'client_rpc';
-} & ClientRpcToolSpec);
+export type ToolSpecWritable = HttpToolSpecWritable;
 
 /**
  * Empty SFU Workflow payload. The Workspace binds the current Peer to the SFU Room declared by its Social resource; the Workflow itself carries no configuration.

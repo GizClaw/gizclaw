@@ -3946,37 +3946,3 @@ final $typed_data.Uint8List toolGetResponseDescriptor = $convert.base64Decode(
     'V2YWx1ZRIwChRydW50aW1lX3Byb2ZpbGVfbmFtZRgCIAEoCVIScnVudGltZVByb2ZpbGVOYW1l'
     'EjgKGHJ1bnRpbWVfcHJvZmlsZV9yZXZpc2lvbhgDIAEoCVIWcnVudGltZVByb2ZpbGVSZXZpc2'
     'lvbg==');
-
-@$core.Deprecated('Use toolInvokeRequestDescriptor instead')
-const ToolInvokeRequest$json = {
-  '1': 'ToolInvokeRequest',
-  '2': [
-    {
-      '1': 'args',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.google.protobuf.Struct',
-      '10': 'args'
-    },
-    {'1': 'invoke_name', '3': 2, '4': 1, '5': 9, '10': 'invokeName'},
-  ],
-};
-
-/// Descriptor for `ToolInvokeRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List toolInvokeRequestDescriptor = $convert.base64Decode(
-    'ChFUb29sSW52b2tlUmVxdWVzdBIrCgRhcmdzGAEgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cn'
-    'VjdFIEYXJncxIfCgtpbnZva2VfbmFtZRgCIAEoCVIKaW52b2tlTmFtZQ==');
-
-@$core.Deprecated('Use toolInvokeResponseDescriptor instead')
-const ToolInvokeResponse$json = {
-  '1': 'ToolInvokeResponse',
-  '2': [
-    {'1': 'data_json', '3': 1, '4': 1, '5': 9, '10': 'dataJson'},
-  ],
-};
-
-/// Descriptor for `ToolInvokeResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List toolInvokeResponseDescriptor =
-    $convert.base64Decode(
-        'ChJUb29sSW52b2tlUmVzcG9uc2USGwoJZGF0YV9qc29uGAEgASgJUghkYXRhSnNvbg==');

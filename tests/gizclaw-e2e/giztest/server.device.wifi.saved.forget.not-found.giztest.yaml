@@ -8,7 +8,7 @@ clients:
   peer:
     identity: ephemeral
     connection: webrtc
-    access_point: "${endpoint}"
+    access_point: ${endpoint}
 variables:
   endpoint:
     direction: input
@@ -28,41 +28,46 @@ variables:
     type: string
     secret: true
 steps:
-- id: register_peer
-  client: peer
-  rpc:
-    method: server.register
-    request:
-      token: "${registration_token}"
-- id: create_api_key
-  client: peer
-  rpc:
-    method: server.api_key.create
-    request:
-      display_name: "${resource_name}"
-  capture:
-    api_key: /api_key
-- id: primary_http
-  client: peer
-  http:
-    method: DELETE
-    path: /gizclaw/v1/device/wifi/saved/unknown
-    headers:
-      Authorization: "Bearer ${api_key}"
-    status: 404
-  expect:
-    /error/code:
-      equals: WIFI_NETWORK_NOT_FOUND
-- id: provider_forget
-  client: peer
-  client_rpc:
-    method: client.wifi.saved.forget
-    response:
-      error_code: 5
-    expect_calls: 1
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: primary_http
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 404
+      body:
+        tool: wifi.saved.forget
+        args:
+          ssid: unknown
+    expect:
+      /error/code:
+        equals: WIFI_NETWORK_NOT_FOUND
+  - id: provider_forget
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      response:
+        error_code: 5
+      expect_calls: 1
+      tool: wifi.saved.forget
 finally:
-- id: cleanup_peer
-  client: peer
-  rpc:
-    method: server.peer.delete
-    request: {}
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

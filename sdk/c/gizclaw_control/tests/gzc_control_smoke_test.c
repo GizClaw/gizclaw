@@ -219,30 +219,33 @@ static void test_peer_status_labels_span_escapes(void) {
       "a small label array reports overflow");
 }
 
-static void test_set_volume_encodes_body(void) {
+static void test_mhs_volume_encodes_body(void) {
   stub_t stub;
   gzc_http_vtable_t http;
   gzc_control_client_t client;
   memset(&stub, 0, sizeof(stub));
   stub.status_code = 200;
-  stub.response_body = "{\"status\":{\"volume\":35,\"muted\":false}}";
+  stub.response_body = "{\"states\":[{\"device_id\":\"audio.main\",\"state\":\"volume\",\"value\":35},{\"device_id\":\"audio.main\",\"state\":\"muted\",\"value\":false}]}";
   init_client(&client, &stub, &http);
-
-  uint8_t scratch[512];
-  uint8_t response[512];
+  uint8_t scratch[1024], response[1024];
+  char strings[128];
+  gzc_control_mhs_v0_storage_t storage = {strings, sizeof(strings), 0};
   gzc_control_call_t call;
   check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "call init");
-
-  gzc_control_volume_request_t request;
-  request.level = 35;
-  request.muted = false;
-  gzc_control_peer_status_t status;
-  check(gzc_control_set_device_volume(&client, &call, &request, &status) == GZC_OK, "set volume");
-  check(stub.method == GZC_HTTP_METHOD_PUT, "volume method");
-  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/volume") == 0, "volume url");
-  check(strcmp(stub.body, "{\"level\":35,\"muted\":false}") == 0, "volume body");
+  gzc_control_mhs_v0_state_value_t request[2] = {0}, applied[2];
+  request[0].device_id = request[1].device_id = gzc_str_from_cstr("audio.main");
+  request[0].state = gzc_str_from_cstr("volume");
+  request[0].value.kind = GZC_CONTROL_MHS_V0_VALUE_INT;
+  request[0].value.int_value = 35;
+  request[1].state = gzc_str_from_cstr("muted");
+  request[1].value.kind = GZC_CONTROL_MHS_V0_VALUE_BOOL;
+  size_t count;
+  check(gzc_control_write_mhs_v0_states(&client, &call, request, 2, &storage, applied, 2, &count) == GZC_OK, "write volume states");
+  check(stub.method == GZC_HTTP_METHOD_PATCH, "volume method");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/mhs/v0/states") == 0, "volume route");
+  check(strcmp(stub.body, stub.response_body) == 0, "volume and mute encoded together");
   check(stub.saw_content_type, "body request sends Content-Type");
-  check(status.has_volume && status.volume == 35, "applied volume");
+  check(count == 2 && applied[0].value.int_value == 35 && !applied[1].value.bool_value, "applied states");
 }
 
 static void test_query_parameters_and_encoding(void) {
@@ -293,15 +296,16 @@ static void test_query_parameters_and_encoding(void) {
         "latest requires a field");
 
   /* A path segment with reserved characters is percent-encoded. */
-  stub.status_code = 204;
-  stub.response_body = "";
+  stub.status_code = 200;
+  stub.response_body = "{\"result\":{}}";
   check(
       gzc_control_forget_device_saved_wifi(&client, &call, gzc_str_from_cstr("home wifi/2G")) == GZC_OK,
       "forget saved wifi");
   check(
-      strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/wifi/saved/home%20wifi%2F2G") == 0,
+      strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/tool/v0/invoke") == 0,
       "encoded ssid segment");
-  check(stub.method == GZC_HTTP_METHOD_DELETE, "forget method");
+  check(stub.method == GZC_HTTP_METHOD_POST, "forget method");
+  check(strstr(stub.body, "home wifi/2G") != NULL, "SSID is carried in typed args");
 }
 
 /*
@@ -339,14 +343,17 @@ static void test_contract_caps_are_not_enforced_locally(void) {
       gzc_control_forget_device_saved_wifi(&client, &call, gzc_str_from_cstr(long_ssid)) == GZC_ERR_HTTP,
       "oversized ssid is sent");
 
-  gzc_control_volume_request_t volume;
-  gzc_control_peer_status_t status;
-  volume.level = 101;
-  volume.muted = false;
-  check(
-      gzc_control_set_device_volume(&client, &call, &volume, &status) == GZC_ERR_HTTP,
-      "out-of-range volume is sent");
-  check(call.error.kind == GZC_CONTROL_ERROR_INVALID_REQUEST, "out-of-range volume classifies on the response");
+  gzc_control_mhs_v0_state_value_t volume = {0}, applied;
+  volume.device_id = gzc_str_from_cstr("audio.main");
+  volume.state = gzc_str_from_cstr("volume");
+  volume.value.kind = GZC_CONTROL_MHS_V0_VALUE_INT;
+  volume.value.int_value = 101;
+  char strings[128];
+  gzc_control_mhs_v0_storage_t storage = {strings, sizeof(strings), 0};
+  size_t count;
+  check(gzc_control_write_mhs_v0_states(&client, &call, &volume, 1, &storage, &applied, 1, &count) == GZC_ERR_HTTP,
+        "out-of-range product volume is validated by Server");
+  check(call.error.kind == GZC_CONTROL_ERROR_INVALID_REQUEST, "invalid product value classified");
 
   /* A value that cannot form a request at all is still refused locally. */
   memset(&sound, 0, sizeof(sound));
@@ -358,13 +365,13 @@ static void test_contract_caps_are_not_enforced_locally(void) {
           GZC_ERR_INVALID_ARGUMENT,
       "an empty ssid segment is refused");
 
-  stub.status_code = 204;
-  stub.response_body = "";
+  stub.status_code = 200;
+  stub.response_body = "{\"result\":{}}";
   sound.sound = gzc_str_from_cstr("chime");
   sound.has_duration_ms = true;
   sound.duration_ms = 1200;
   check(gzc_control_play_device_sound(&client, &call, &sound) == GZC_OK, "play sound");
-  check(strcmp(stub.body, "{\"sound\":\"chime\",\"duration_ms\":1200}") == 0, "play sound body");
+  check(strcmp(stub.body, "{\"tool\":\"sound.play\",\"args\":{\"sound\":\"chime\",\"duration_ms\":1200}}") == 0, "play sound body");
 }
 
 /*
@@ -377,8 +384,8 @@ static void test_find_device(void) {
   gzc_http_vtable_t http;
   gzc_control_client_t client;
   memset(&stub, 0, sizeof(stub));
-  stub.status_code = 204;
-  stub.response_body = "";
+  stub.status_code = 200;
+  stub.response_body = "{\"result\":{}}";
   init_client(&client, &stub, &http);
 
   uint8_t scratch[512];
@@ -387,26 +394,26 @@ static void test_find_device(void) {
   check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "call init");
 
   check(gzc_control_find_device(&client, &call, NULL) == GZC_OK, "find with device default");
-  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/actions/find") == 0, "find path");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/tool/v0/invoke") == 0, "find path");
   check(stub.method == GZC_HTTP_METHOD_POST, "find method");
-  check(strcmp(stub.body, "{}") == 0, "find without request sends an empty object");
-  check(call.status_code == 204, "find status");
+  check(strcmp(stub.body, "{\"tool\":\"device.find\",\"args\":{}}") == 0, "find without request sends an empty object");
+  check(call.status_code == 200, "find status");
 
   gzc_control_find_request_t find;
   memset(&find, 0, sizeof(find));
   check(gzc_control_find_device(&client, &call, &find) == GZC_OK, "find without duration");
-  check(strcmp(stub.body, "{}") == 0, "absent duration is omitted");
+  check(strcmp(stub.body, "{\"tool\":\"device.find\",\"args\":{}}") == 0, "absent duration is omitted");
 
   find.has_duration_ms = true;
   find.duration_ms = 8000;
   check(gzc_control_find_device(&client, &call, &find) == GZC_OK, "find with duration");
-  check(strcmp(stub.body, "{\"duration_ms\":8000}") == 0, "find duration body");
+  check(strcmp(stub.body, "{\"tool\":\"device.find\",\"args\":{\"duration_ms\":8000}}") == 0, "find duration body");
 
   stub.status_code = 400;
   stub.response_body = "{\"error\":{\"code\":\"INVALID_REQUEST\",\"message\":\"duration_ms must be non-negative\"}}";
   find.duration_ms = -1;
   check(gzc_control_find_device(&client, &call, &find) == GZC_ERR_HTTP, "negative duration is sent");
-  check(strcmp(stub.body, "{\"duration_ms\":-1}") == 0, "negative duration body");
+  check(strcmp(stub.body, "{\"tool\":\"device.find\",\"args\":{\"duration_ms\":-1}}") == 0, "negative duration body");
   check(call.error.kind == GZC_CONTROL_ERROR_INVALID_REQUEST, "negative duration classifies on the response");
 
   stub.status_code = 501;
@@ -489,8 +496,8 @@ static void test_error_response_is_decoded(void) {
   gzc_control_call_t call;
   check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "call init");
 
-  gzc_control_wifi_status_t status;
-  check(gzc_control_get_device_wifi(&client, &call, &status) == GZC_ERR_HTTP, "offline call fails");
+  gzc_control_peer_status_t status;
+  check(gzc_control_read_device_status(&client, &call, &status) == GZC_ERR_HTTP, "offline call fails");
   check(call.error.kind == GZC_CONTROL_ERROR_DEVICE_OFFLINE, "offline kind");
   check(call.error.status_code == 409, "offline status");
   check_str(call.error.code, "DEVICE_OFFLINE", "offline code");
@@ -501,7 +508,7 @@ static void test_error_response_is_decoded(void) {
   /* A non-2xx body that is not an ErrorResponse still classifies by status. */
   stub.status_code = 502;
   stub.response_body = "upstream failure";
-  check(gzc_control_get_device_wifi(&client, &call, &status) == GZC_ERR_HTTP, "bad gateway fails");
+  check(gzc_control_read_device_status(&client, &call, &status) == GZC_ERR_HTTP, "bad gateway fails");
   check(call.error.kind == GZC_CONTROL_ERROR_SERVER, "bad gateway kind");
   check(call.error.code.len == 0, "bad gateway has no code");
 }
@@ -1015,10 +1022,7 @@ static void test_device_wifi_scan_and_connect(void) {
   gzc_control_client_t client;
   memset(&stub, 0, sizeof(stub));
   stub.status_code = 200;
-  stub.response_body =
-      "{\"networks\":[{\"ssid\":\"Office\",\"bssid\":\"aa:bb:cc:dd:ee:ff\","
-      "\"rssi_dbm\":-42,\"frequency_mhz\":5180,\"security\":\"wpa3\"},"
-      "{\"ssid\":\"Open Network\"}]}";
+  stub.response_body = "{\"result\":{\"networks\":[{\"ssid\":\"Office\",\"bssid\":\"aa:bb:cc:dd:ee:ff\",\"rssi_dbm\":-42,\"frequency_mhz\":5180,\"security\":\"wpa3\"},{\"ssid\":\"Open Network\"}]}}";
   init_client(&client, &stub, &http);
 
   uint8_t scratch[512];
@@ -1037,9 +1041,9 @@ static void test_device_wifi_scan_and_connect(void) {
       "scan device wifi");
   check(stub.method == GZC_HTTP_METHOD_POST, "scan method");
   check(
-      strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/wifi/scan") == 0,
+      strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/tool/v0/invoke") == 0,
       "scan url");
-  check(strcmp(stub.body, "{\"timeout_ms\":8000}") == 0, "scan body");
+  check(strcmp(stub.body, "{\"tool\":\"wifi.scan\",\"args\":{\"timeout_ms\":8000}}") == 0, "scan body");
   check(count == 2, "scan network count");
   check(
       networks[0].has_rssi_dbm && networks[0].rssi_dbm == -42 &&
@@ -1051,9 +1055,7 @@ static void test_device_wifi_scan_and_connect(void) {
 
   /* rssi_dbm and frequency_mhz are int64 on the wire, so a value the Go, JS
    * and Flutter SDKs can represent must not fail here either. */
-  stub.response_body =
-      "{\"networks\":[{\"ssid\":\"Wide\",\"rssi_dbm\":-2147483649,"
-      "\"frequency_mhz\":2147483648}]}";
+  stub.response_body = "{\"result\":{\"networks\":[{\"ssid\":\"Wide\",\"rssi_dbm\":-2147483649,\"frequency_mhz\":2147483648}]}}";
   check(
       gzc_control_scan_device_wifi(&client, &call, &scan, networks, 4, &count) == GZC_OK,
       "scan decodes out-of-int32 metrics");
@@ -1063,15 +1065,15 @@ static void test_device_wifi_scan_and_connect(void) {
       "scan metrics keep int64 range");
 
   /* Omitting the request lets the Server apply its own scan timeout. */
-  stub.response_body = "{\"networks\":[]}";
+  stub.response_body = "{\"result\":{\"networks\":[]}}";
   check(
       gzc_control_scan_device_wifi(&client, &call, NULL, networks, 4, &count) == GZC_OK,
       "scan without a request");
-  check(strcmp(stub.body, "{}") == 0, "default scan body");
+  check(strcmp(stub.body, "{\"tool\":\"wifi.scan\",\"args\":{}}") == 0, "default scan body");
 
   /* The join is accepted with 202; the device switches networks afterwards. */
-  stub.status_code = 202;
-  stub.response_body = "";
+  stub.status_code = 200;
+  stub.response_body = "{\"result\":{}}";
   gzc_control_wifi_connect_request_t connect;
   memset(&connect, 0, sizeof(connect));
   connect.ssid = gzc_str_from_cstr("Office");
@@ -1079,10 +1081,10 @@ static void test_device_wifi_scan_and_connect(void) {
   check(
       gzc_control_connect_device_wifi(&client, &call, &connect) == GZC_OK,
       "connect device wifi");
-  check(stub.method == GZC_HTTP_METHOD_PUT, "connect method");
-  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/wifi") == 0, "connect url");
+  check(stub.method == GZC_HTTP_METHOD_POST, "connect method");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/tool/v0/invoke") == 0, "connect url");
   check(
-      strcmp(stub.body, "{\"ssid\":\"Office\",\"passphrase\":\"correct-horse\"}") == 0,
+      strcmp(stub.body, "{\"tool\":\"wifi.connect\",\"args\":{\"ssid\":\"Office\",\"passphrase\":\"correct-horse\"}}") == 0,
       "connect body");
 
   /* An open network carries no passphrase field at all. */
@@ -1090,7 +1092,7 @@ static void test_device_wifi_scan_and_connect(void) {
   check(
       gzc_control_connect_device_wifi(&client, &call, &connect) == GZC_OK,
       "connect open network");
-  check(strcmp(stub.body, "{\"ssid\":\"Office\"}") == 0, "open network body");
+  check(strcmp(stub.body, "{\"tool\":\"wifi.connect\",\"args\":{\"ssid\":\"Office\"}}") == 0, "open network body");
 
   /* A missing SSID is rejected before anything reaches the transport. */
   connect.ssid = gzc_str_from_parts(NULL, 0);
@@ -1148,35 +1150,35 @@ static void test_audioplayer(void) {
   gzc_http_vtable_t http;
   gzc_control_client_t client;
   stub.status_code = 200;
-  stub.response_body = "{\"status\":{\"state\":\"buffering\",\"current_index\":0,\"position_ms\":0,\"repeat\":\"all\",\"playlist_length\":1,\"playlist_revision\":2,\"observed_at_unix_ms\":1700000000000}}";
+  stub.response_body = "{\"result\":{\"value\":{\"state\":\"buffering\",\"current_index\":0,\"position_ms\":0,\"repeat\":\"all\",\"playlist_length\":1,\"playlist_revision\":2,\"observed_at_unix_ms\":1700000000000}}}";
   init_client(&client, &stub, &http);
   uint8_t scratch[2048], response[2048];
   gzc_control_call_t call;
   check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "audio call init");
   gzc_control_audioplayer_status_t status;
   check(gzc_control_play_device_audioplayer(&client, &call, 0, &status) == GZC_OK, "audio play");
-  check(strcmp(stub.body, "{\"index\":0}") == 0, "explicit zero index");
+  check(strcmp(stub.body, "{\"tool\":\"audioplayer.play\",\"args\":{\"index\":0}}") == 0, "explicit zero index");
   check(status.has_current_index && status.current_index == 0 && status.position_ms == 0, "zero status fields");
   check_str(status.state, "buffering", "audio state");
   gzc_control_audioplayer_item_t item = {gzc_str_from_cstr("https://media.example/music.mp3"), gzc_str_from_cstr("a\"b"), {0}};
   check(gzc_control_set_device_audioplayer_playlist(&client, &call, &item, 1, &status) == GZC_OK, "audio set list");
-  check(strcmp(stub.body, "{\"items\":[{\"url\":\"https://media.example/music.mp3\",\"title\":\"a\\\"b\"}]}") == 0, "playlist JSON escaping");
+  check(strcmp(stub.body, "{\"tool\":\"audioplayer.playlist.set\",\"args\":{\"items\":[{\"url\":\"https://media.example/music.mp3\",\"title\":\"a\\\"b\"}]}}") == 0, "playlist JSON escaping");
   check(gzc_control_append_device_audioplayer_playlist(&client, &call, &item, 1, &status) == GZC_OK, "audio append");
   check(stub.method == GZC_HTTP_METHOD_POST, "append POST");
   check(gzc_control_set_device_audioplayer_mode(&client, &call, gzc_str_from_cstr("all"), &status) == GZC_OK, "audio mode");
   check(gzc_control_stop_device_audioplayer(&client, &call, &status) == GZC_OK, "audio stop");
-  stub.response_body = "{\"items\":[{\"url\":\"https://media.example/music.mp3\"}],\"playlist_revision\":2}";
+  stub.response_body = "{\"result\":{\"items\":[{\"url\":\"https://media.example/music.mp3\"}],\"playlist_revision\":2}}";
   size_t count;
   int64_t revision;
   check(gzc_control_get_device_audioplayer_playlist(&client, &call, &item, 1, &count, &revision) == GZC_OK, "audio get list");
   check(count == 1 && revision == 2, "audio list metadata");
-  stub.response_body = "{\"status\":{}}";
+  stub.response_body = "{\"result\":{\"value\":{}}}";
   check(gzc_control_get_device_audioplayer(&client, &call, &status) == GZC_ERR_JSON, "reject malformed audio status");
 }
 
 /* Settings, factory reset, the capability list, the Workspace switch and the
  * control-app Tools: request shape on the wire and decode of the answers. */
-static void test_device_settings_workspace_and_tools(void) {
+static void test_mhs_settings_workspace_and_tools(void) {
   stub_t stub;
   gzc_http_vtable_t http;
   gzc_control_client_t client;
@@ -1189,45 +1191,44 @@ static void test_device_settings_workspace_and_tools(void) {
   gzc_control_call_t call;
   check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "call init");
 
-  stub.response_body = "{\"screen_brightness\":40,\"alert_mode\":\"ring\",\"nfc_enabled\":true}";
-  gzc_control_device_settings_t settings;
-  check(gzc_control_get_device_settings(&client, &call, &settings) == GZC_OK, "get settings");
-  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/settings") == 0, "settings path");
-  check(stub.method == GZC_HTTP_METHOD_GET, "settings method");
-  check(settings.has_screen_brightness && settings.screen_brightness == 40, "settings brightness");
-  check_str(settings.alert_mode, "ring", "settings alert mode");
-  check(settings.has_nfc_enabled && settings.nfc_enabled, "settings nfc");
-  check(!settings.has_cellular_enabled && !settings.has_auto_sleep_timeout_ms, "absent settings stay absent");
+  stub.response_body = "{\"states\":[{\"device_id\":\"device\",\"state\":\"screen.brightness\",\"value\":40},{\"device_id\":\"device\",\"state\":\"alert.mode\",\"value\":\"ring\"},{\"device_id\":\"device\",\"state\":\"nfc.enabled\",\"value\":true}]}";
+  gzc_control_mhs_v0_state_ref_t refs[3] = {
+      {gzc_str_from_cstr("device"), gzc_str_from_cstr("screen.brightness")},
+      {gzc_str_from_cstr("device"), gzc_str_from_cstr("alert.mode")},
+      {gzc_str_from_cstr("device"), gzc_str_from_cstr("nfc.enabled")},
+  };
+  char strings[256];
+  gzc_control_mhs_v0_storage_t storage = {strings, sizeof(strings), 0};
+  gzc_control_mhs_v0_state_value_t states[3];
+  size_t count = 0;
+  check(gzc_control_read_mhs_v0_states(&client, &call, refs, 3, &storage, states, 3, &count) == GZC_OK, "read settings states");
+  check(count == 3 && states[0].value.int_value == 40 && states[2].value.bool_value, "typed settings states");
+  check_str(states[1].value.string_value, "ring", "settings enum");
+  check(strstr(stub.body, "cellular.enabled") == NULL, "unrequested settings absent");
+  gzc_control_mhs_v0_state_value_t patch[2] = {0};
+  patch[0].device_id = patch[1].device_id = gzc_str_from_cstr("device");
+  patch[0].state = gzc_str_from_cstr("alert.mode");
+  patch[0].value.kind = GZC_CONTROL_MHS_V0_VALUE_STRING;
+  patch[0].value.string_value = gzc_str_from_cstr("silent");
+  patch[1].state = gzc_str_from_cstr("sleep.timeout-ms");
+  patch[1].value.kind = GZC_CONTROL_MHS_V0_VALUE_INT;
+  stub.response_body = "{\"states\":[{\"device_id\":\"device\",\"state\":\"alert.mode\",\"value\":\"silent\"},{\"device_id\":\"device\",\"state\":\"sleep.timeout-ms\",\"value\":0}]}";
+  storage.used = 0;
+  check(gzc_control_write_mhs_v0_states(&client, &call, patch, 2, &storage, states, 3, &count) == GZC_OK, "patch settings states");
+  check(strcmp(stub.body, stub.response_body) == 0, "patch includes only selected settings and preserves zero");
 
-  gzc_control_device_settings_t patch;
-  memset(&patch, 0, sizeof(patch));
-  patch.alert_mode = gzc_str_from_cstr("silent");
-  patch.has_auto_sleep_timeout_ms = true;
-  patch.auto_sleep_timeout_ms = 0;
-  check(gzc_control_update_device_settings(&client, &call, &patch, &settings) == GZC_OK, "patch settings");
-  check(stub.method == GZC_HTTP_METHOD_PATCH, "patch method");
-  check(strcmp(stub.body, "{\"alert_mode\":\"silent\",\"auto_sleep_timeout_ms\":0}") == 0, "patch sends only present members");
-
-  stub.status_code = 204;
-  stub.response_body = "";
+  stub.status_code = 200;
+  stub.response_body = "{\"result\":{}}";
   gzc_control_factory_reset_request_t reset;
   memset(&reset, 0, sizeof(reset));
   reset.has_keep_network = true;
   reset.keep_network = true;
   check(gzc_control_factory_reset_device(&client, &call, &reset) == GZC_OK, "factory reset");
-  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/actions/factory-reset") == 0, "factory reset path");
-  check(strcmp(stub.body, "{\"keep_network\":true}") == 0, "factory reset body");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/tool/v0/invoke") == 0, "factory reset path");
+  check(strcmp(stub.body, "{\"tool\":\"device.factory_reset\",\"args\":{\"keep_network\":true}}") == 0, "factory reset body");
 
   stub.status_code = 200;
-  stub.response_body = "{\"methods\":[\"client.device.settings.get\",\"client.run.workspace.set\"]}";
-  gzc_str_t methods[4];
-  size_t count = 0;
-  check(gzc_control_list_device_rpc_methods(&client, &call, methods, 4, &count) == GZC_OK, "rpc methods");
-  check(count == 2, "rpc method count");
-  check_str(methods[1], "client.run.workspace.set", "rpc method name");
-
-  stub.status_code = 202;
-  stub.response_body = "";
+  stub.response_body = "{\"result\":{}}";
   gzc_control_run_workspace_request_t run;
   memset(&run, 0, sizeof(run));
   run.collection = gzc_str_from_cstr("stories");
@@ -1235,33 +1236,18 @@ static void test_device_settings_workspace_and_tools(void) {
   run.has_kickoff = true;
   run.kickoff = true;
   check(gzc_control_set_device_run_workspace(&client, &call, &run) == GZC_OK, "run workspace");
-  check(stub.method == GZC_HTTP_METHOD_PUT, "run workspace method");
-  check(strcmp(stub.body, "{\"collection\":\"stories\",\"workflow_name\":\"bedtime\",\"kickoff\":true}") == 0, "run workspace body");
+  check(stub.method == GZC_HTTP_METHOD_POST, "run workspace method");
+  check(strcmp(stub.body, "{\"tool\":\"run.workspace.set\",\"args\":{\"collection\":\"stories\",\"workflow_name\":\"bedtime\",\"kickoff\":true}}") == 0, "run workspace body");
 
   stub.status_code = 200;
-  stub.response_body =
-      "{\"items\":[{\"name\":\"usage_limit\",\"control_access\":\"owner\",\"i18n\":{\"en\":{\"display_name\":\"Usage\"}},"
-      "\"input_schema\":{\"type\":\"object\"}}]}";
-  gzc_control_device_tool_t tools[2];
+  stub.response_body = "{\"tools\":[\"device.find\",\"device.reboot\"]}";
+  gzc_str_t tools[2];
   check(gzc_control_list_device_tools(&client, &call, tools, 2, &count) == GZC_OK, "list tools");
-  check(count == 1, "tool count");
-  check_str(tools[0].name, "usage_limit", "tool name");
-  check_str(tools[0].control_access, "owner", "tool control access");
-  check_str(tools[0].input_schema, "{\"type\":\"object\"}", "tool input schema");
-
-  stub.response_body = "{\"data_json\":\"{\\\"ok\\\":true}\"}";
-  gzc_str_t data;
-  check(
-      gzc_control_invoke_device_tool(&client, &call, gzc_str_from_cstr("usage limit"), gzc_str_from_cstr("{\"minutes\":30}"), &data) == GZC_OK,
-      "invoke tool");
-  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/tools/usage%20limit/actions/invoke") == 0, "invoke path");
-  check(strcmp(stub.body, "{\"args\":{\"minutes\":30}}") == 0, "invoke body");
-  check_str(data, "{\"ok\":true}", "invoke data is unescaped");
-  check_str(call.body, "{\"data_json\":\"{\\\"ok\\\":true}\"}", "invoke leaves the response body intact");
-  check(
-      gzc_control_invoke_device_tool(&client, &call, gzc_str_from_cstr("usage_limit"), gzc_str_from_cstr("[1]"), &data) ==
-          GZC_ERR_INVALID_ARGUMENT,
-      "invoke args must be an object");
+  check(count == 2, "tool count");
+  check_str(tools[0], "device.find", "tool name");
+  check_str(tools[1], "device.reboot", "second tool name");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/tool/v0/tools") == 0, "list tool route");
+  check(gzc_control_list_device_tools(&client, &call, tools, 1, &count) == GZC_ERR_BUFFER_TOO_SMALL, "bounded tool list");
 }
 
 /* MHS uses the same offline transport as the other control routes. */
@@ -1526,13 +1512,50 @@ static void test_mhs_v0(void) {
   check(gzc_control_read_mhs_v0_states(&client, &call, refs, 1, &storage, values, 32, &count) == GZC_ERR_NO_MEMORY && call.error.kind == GZC_CONTROL_ERROR_NETWORK, "MHS scratch exhaustion");
 }
 
+static void test_additional_typed_tools(void) {
+  stub_t stub = {0};
+  gzc_http_vtable_t http;
+  gzc_control_client_t client;
+  init_client(&client, &stub, &http);
+  uint8_t scratch[2048], response[2048];
+  gzc_control_call_t call;
+  check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "typed tools init");
+  stub.status_code = 200;
+  stub.response_body = "{\"result\":{\"value\":{\"model\":\"speaker\",\"manufacturer\":\"maker\",\"hardware_revision\":\"2\"}}}";
+  gzc_control_hardware_info_t hardware;
+  check(gzc_control_get_device_hardware(&client, &call, &hardware) == GZC_OK, "hardware tool");
+  check_str(hardware.model, "speaker", "hardware model");
+  check(strcmp(stub.body, "{\"tool\":\"info.get\",\"args\":{}}") == 0, "info empty args");
+  stub.response_body = "{\"result\":{\"value\":{\"sn\":\"sn-1\",\"imeis\":[],\"labels\":[]}}}";
+  gzc_control_device_identifiers_t identifiers;
+  check(gzc_control_get_device_identifiers(&client, &call, &identifiers) == GZC_OK, "identifiers tool");
+  check_str(identifiers.sn, "sn-1", "device serial");
+  stub.response_body = "{\"result\":{\"value\":{\"volume\":20}}}";
+  gzc_control_peer_status_t status;
+  check(gzc_control_read_device_status(&client, &call, &status) == GZC_OK && status.has_volume && status.volume == 20, "live status tool");
+  stub.response_body = "{\"result\":{}}";
+  gzc_control_firmware_update_request_t firmware = {gzc_str_from_cstr("stable"), gzc_str_from_cstr("abcdef")};
+  check(gzc_control_update_device_firmware(&client, &call, &firmware) == GZC_OK, "firmware tool");
+  check(strcmp(stub.body, "{\"tool\":\"firmware.update\",\"args\":{\"channel\":\"stable\",\"sha256\":\"abcdef\"}}") == 0, "firmware typed args");
+  check(gzc_control_update_device_firmware(&client, &call, NULL) == GZC_OK, "firmware optional args");
+  gzc_control_social_ping_request_t ping = {gzc_str_from_cstr("key"), gzc_str_from_cstr("Alice"), {0}};
+  check(gzc_control_ping_device(&client, &call, &ping) == GZC_OK, "social ping tool");
+  check(strcmp(stub.body, "{\"tool\":\"social.ping\",\"args\":{\"from_peer_public_key\":\"key\",\"from_display_name\":\"Alice\"}}") == 0, "social ping typed args");
+  check(gzc_control_ping_device(&client, &call, NULL) == GZC_ERR_INVALID_ARGUMENT, "typed request required");
+  check(stub.method == GZC_HTTP_METHOD_POST && strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/tool/v0/invoke") == 0, "single invoke transport");
+  stub.response_body = "{\"result\":null}";
+  check(gzc_control_get_device_hardware(&client, &call, &hardware) == GZC_ERR_JSON, "missing typed tool result rejected");
+  check(call.error.kind == GZC_CONTROL_ERROR_MALFORMED_RESPONSE, "malformed result classified");
+}
+
 int main(void) {
   test_mhs_v0();
+  test_additional_typed_tools();
   test_audioplayer();
   test_client_init_rejects_bad_config();
   test_get_device_status();
   test_peer_status_labels_span_escapes();
-  test_set_volume_encodes_body();
+  test_mhs_volume_encodes_body();
   test_query_parameters_and_encoding();
   test_contract_caps_are_not_enforced_locally();
   test_find_device();
@@ -1548,7 +1571,7 @@ int main(void) {
   test_device_info_raw_and_identifiers();
   test_friends();
   test_friend_groups();
-  test_device_settings_workspace_and_tools();
+  test_mhs_settings_workspace_and_tools();
   if (failures != 0) {
     (void)fprintf(stderr, "%d control SDK smoke checks failed\n", failures);
     return 1;

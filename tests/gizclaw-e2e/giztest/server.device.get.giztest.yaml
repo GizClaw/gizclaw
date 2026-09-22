@@ -8,7 +8,7 @@ clients:
   peer:
     identity: ephemeral
     connection: webrtc
-    access_point: "${endpoint}"
+    access_point: ${endpoint}
 variables:
   endpoint:
     direction: input
@@ -28,43 +28,44 @@ variables:
     type: string
     secret: true
 steps:
-- id: register_peer
-  client: peer
-  rpc:
-    method: server.register
-    request:
-      token: "${registration_token}"
-- id: create_api_key
-  client: peer
-  rpc:
-    method: server.api_key.create
-    request:
-      display_name: "${resource_name}"
-  capture:
-    api_key: /api_key
-- id: provider_identifiers
-  client: peer
-  client_rpc:
-    method: client.identifiers.get
-    response:
-      sn: giztest-device-sn
-    expect_calls: 1
-- id: primary_http
-  client: peer
-  http:
-    method: GET
-    path: /gizclaw/v1/device
-    headers:
-      Authorization: "Bearer ${api_key}"
-    status: 200
-  expect:
-    /identifiers:
-      present: true
-    /identifiers/sn:
-      equals: giztest-device-sn
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: provider_identifiers
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      response:
+        sn: giztest-device-sn
+      expect_calls: 1
+      tool: identifiers.get
+  - id: primary_http
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /identifiers:
+        present: true
+      /identifiers/sn:
+        equals: giztest-device-sn
 finally:
-- id: cleanup_peer
-  client: peer
-  rpc:
-    method: server.peer.delete
-    request: {}
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

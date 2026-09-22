@@ -8,7 +8,7 @@ clients:
   peer:
     identity: ephemeral
     connection: webrtc
-    access_point: "${endpoint}"
+    access_point: ${endpoint}
 variables:
   endpoint:
     direction: input
@@ -28,88 +28,126 @@ variables:
     type: string
     secret: true
 steps:
-- id: register_peer
-  client: peer
-  rpc:
-    method: server.register
-    request:
-      token: "${registration_token}"
-- id: create_api_key
-  client: peer
-  rpc:
-    method: server.api_key.create
-    request:
-      display_name: "${resource_name}"
-  capture:
-    api_key: /api_key
-- id: primary_http
-  client: peer
-  http:
-    method: PUT
-    path: /gizclaw/v1/device/volume
-    headers:
-      Authorization: "Bearer ${api_key}"
-    body:
-      level: 35
-      muted: true
-    status: 200
-  expect:
-    /status/volume:
-      equals: 35
-    /status/muted:
-      equals: true
-    /status/battery_percent:
-      equals: 88
-- id: read_back
-  client: peer
-  http:
-    method: GET
-    path: /gizclaw/v1/device/status
-    headers:
-      Authorization: "Bearer ${api_key}"
-    status: 200
-  expect:
-    /volume:
-      equals: 35
-    /muted:
-      equals: true
-- id: rpc_read_back
-  client: peer
-  rpc:
-    method: server.status.get
-    request: {}
-  expect:
-    # volume is an int64, which proto3 JSON renders as a string. Numeric bounds
-    # assert the exact value across every runner's response projection.
-    /volume:
-      minimum: 35
-      maximum: 35
-    /muted:
-      equals: true
-- id: out_of_range
-  client: peer
-  http:
-    method: PUT
-    path: /gizclaw/v1/device/volume
-    headers:
-      Authorization: "Bearer ${api_key}"
-    body:
-      level: 101
-      muted: false
-    status: 400
-  expect:
-    /error/code:
-      equals: INVALID_REQUEST
-- id: provider_volume
-  client: peer
-  client_rpc:
-    method: client.device.volume.set
-    response:
-      battery_percent: 88
-    expect_calls: 1
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: primary_http
+    client: peer
+    http:
+      method: PATCH
+      path: /gizclaw/v1/device/mhs/v0/states
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        states:
+          - device_id: speaker.main
+            state: volume
+            value: 35
+          - device_id: speaker.main
+            state: muted
+            value: true
+      status: 200
+    expect:
+      /states/0/value:
+        equals: 35
+      /states/1/value:
+        equals: true
+  - id: read_device_status
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: device.status.get
+        args: {}
+      status: 200
+    expect:
+      /result/value/battery_percent:
+        equals: 88
+  - id: read_back
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/status
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /volume:
+        equals: 35
+      /muted:
+        equals: true
+  - id: rpc_read_back
+    client: peer
+    rpc:
+      method: server.status.get
+      request: {}
+    expect:
+      /volume:
+        minimum: 35
+        maximum: 35
+      /muted:
+        equals: true
+  - id: out_of_range
+    client: peer
+    http:
+      method: PATCH
+      path: /gizclaw/v1/device/mhs/v0/states
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        states:
+          - device_id: speaker.main
+            state: volume
+            value: 101
+          - device_id: speaker.main
+            state: muted
+            value: false
+      status: 400
+    expect:
+      /error/code:
+        equals: INVALID_REQUEST
+  - id: provider_volume
+    client: peer
+    client_rpc:
+      method: client.mhs.v0.write
+      response:
+        states:
+          - device_id: speaker.main
+            state: volume
+            value:
+              int_value: 35
+          - device_id: speaker.main
+            state: muted
+            value:
+              bool_value: true
+      expect_calls: 1
+  - id: provider_status
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: device.status.get
+      response:
+        volume: 35
+        muted: true
+        battery_percent: 88
+      expect_calls: 1
 finally:
-- id: cleanup_peer
-  client: peer
-  rpc:
-    method: server.peer.delete
-    request: {}
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

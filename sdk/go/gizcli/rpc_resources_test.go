@@ -3,6 +3,7 @@ package gizcli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -740,14 +741,32 @@ func TestPeerHTTPClientDeviceAndContactOperations(t *testing.T) {
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/gizclaw/v1/device/status":
 			_, _ = w.Write([]byte(`{"volume":35,"muted":true,"battery_percent":80}`))
-		case r.Method == http.MethodPut && r.URL.Path == "/gizclaw/v1/device/volume":
-			_, _ = w.Write([]byte(`{"status":{"volume":35,"muted":true}}`))
-		case r.Method == http.MethodPost && r.URL.Path == "/gizclaw/v1/device/actions/play-sound":
-			w.WriteHeader(http.StatusNoContent)
-		case r.Method == http.MethodGet && r.URL.Path == "/gizclaw/v1/device/wifi/saved":
-			_, _ = w.Write([]byte(`{"networks":[{"ssid":"home"}]}`))
-		case r.Method == http.MethodDelete && r.URL.Path == "/gizclaw/v1/device/wifi/saved/home":
-			w.WriteHeader(http.StatusNoContent)
+		case r.Method == http.MethodPatch && r.URL.Path == "/gizclaw/v1/device/mhs/v0/states":
+			_, _ = w.Write([]byte(`{"states":[{"device_id":"speaker.main","state":"volume","value":35},{"device_id":"speaker.main","state":"muted","value":true}]}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/gizclaw/v1/device/tool/v0/invoke":
+			var body struct {
+				Tool string         `json:"tool"`
+				Args map[string]any `json:"args"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Error(err)
+			}
+			switch body.Tool {
+			case "wifi.saved.list":
+				_, _ = w.Write([]byte(`{"result":{"networks":[{"ssid":"home"}]}}`))
+			case "sound.play":
+				if body.Args["sound"] != "chime" {
+					t.Error("sound payload changed")
+				}
+				_, _ = w.Write([]byte(`{"result":{}}`))
+			case "wifi.saved.forget":
+				if body.Args["ssid"] != "home" {
+					t.Error("forget payload changed")
+				}
+				_, _ = w.Write([]byte(`{"result":{}}`))
+			default:
+				w.WriteHeader(http.StatusBadRequest)
+			}
 		case r.Method == http.MethodPost && r.URL.Path == "/gizclaw/v1/contacts":
 			w.WriteHeader(http.StatusCreated)
 			_, _ = w.Write([]byte(`{"name":"mom","display_name":"Mom"}`))
@@ -775,21 +794,29 @@ func TestPeerHTTPClientDeviceAndContactOperations(t *testing.T) {
 	if err != nil || status.JSON200 == nil || status.JSON200.Volume == nil || *status.JSON200.Volume != 35 || !*status.JSON200.Muted {
 		t.Fatalf("GetDeviceStatus = %+v, %v", status, err)
 	}
-	volume, err := client.SetDeviceVolumeWithResponse(ctx, peerhttp.SetDeviceVolumeJSONRequestBody{Level: 35, Muted: true})
-	if err != nil || volume.JSON200 == nil || *volume.JSON200.Status.Volume != 35 {
-		t.Fatalf("SetDeviceVolume = %+v, %v", volume, err)
+	var volumeBody peerhttp.WriteMhsStatesJSONRequestBody
+	if err := json.Unmarshal([]byte(`{"states":[{"device_id":"speaker.main","state":"volume","value":35},{"device_id":"speaker.main","state":"muted","value":true}]}`), &volumeBody); err != nil {
+		t.Fatal(err)
 	}
-	sound, err := client.PlayDeviceSoundWithResponse(ctx, peerhttp.PlayDeviceSoundJSONRequestBody{Sound: "chime"})
-	if err != nil || sound.StatusCode() != http.StatusNoContent {
-		t.Fatalf("PlayDeviceSound = %+v, %v", sound, err)
+	volume, err := client.WriteMhsStatesWithResponse(ctx, volumeBody)
+	if err != nil || volume.JSON200 == nil || len(volume.JSON200.States) != 2 {
+		t.Fatalf("MHS write %v %v", volume, err)
 	}
-	saved, err := client.ListDeviceSavedWifiWithResponse(ctx)
-	if err != nil || saved.JSON200 == nil || len(saved.JSON200.Networks) != 1 || saved.JSON200.Networks[0].Ssid != "home" {
-		t.Fatalf("ListDeviceSavedWifi = %+v, %v", saved, err)
-	}
-	forget, err := client.ForgetDeviceSavedWifiWithResponse(ctx, "home")
-	if err != nil || forget.StatusCode() != http.StatusNoContent {
-		t.Fatalf("ForgetDeviceSavedWifi = %+v, %v", forget, err)
+	for _, body := range []string{`{"tool":"sound.play","args":{"sound":"chime"}}`, `{"tool":"wifi.saved.list","args":{}}`, `{"tool":"wifi.saved.forget","args":{"ssid":"home"}}`} {
+		var invoke peerhttp.InvokeClientToolJSONRequestBody
+		if err := json.Unmarshal([]byte(body), &invoke); err != nil {
+			t.Fatal(err)
+		}
+		response, err := client.InvokeClientToolWithResponse(ctx, invoke)
+		if err != nil || response.JSON200 == nil {
+			t.Fatalf("tool invoke %v %v", response, err)
+		}
+		if strings.Contains(body, "wifi.saved.list") {
+			networks, ok := response.JSON200.Result["networks"].([]any)
+			if !ok || len(networks) != 1 || networks[0].(map[string]any)["ssid"] != "home" {
+				t.Fatalf("saved wifi %v", response.JSON200.Result)
+			}
+		}
 	}
 	created, err := client.CreateContactWithResponse(ctx, peerhttp.CreateContactJSONRequestBody{Name: "mom", DisplayName: new("Mom")})
 	if err != nil || created.JSON201 == nil || created.JSON201.Name != "mom" {

@@ -190,19 +190,24 @@ steps:
   - id: set_volume
     client: peer
     http:
-      method: PUT
-      path: /gizclaw/v1/device/volume
+      method: PATCH
+      path: /gizclaw/v1/device/mhs/v0/states
       headers:
         Authorization: Bearer ${api_key}
       body:
-        level: 35
-        muted: false
+        states:
+          - device_id: speaker.main
+            state: volume
+            value: 35
+          - device_id: speaker.main
+            state: muted
+            value: false
       status: 200
     expect:
-      /status/audioplayer/error_code:
-        equals: FETCH_FAILED
-      /status/ota/state:
-        equals: downloading
+      /states/0/value:
+        equals: 35
+      /states/1/value:
+        equals: false
   - id: preserved_snapshot
     client: peer
     http:
@@ -221,8 +226,17 @@ steps:
   - id: provider_volume
     client: peer
     client_rpc:
-      method: client.device.volume.set
-      response: {}
+      method: client.mhs.v0.write
+      response:
+        states:
+          - device_id: speaker.main
+            state: volume
+            value:
+              int_value: 35
+          - device_id: speaker.main
+            state: muted
+            value:
+              bool_value: false
       expect_calls: 1
 finally:
   - id: cleanup_peer

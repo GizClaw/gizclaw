@@ -12,16 +12,12 @@
         "oneOf": [
           {
             "$ref": "#/components/schemas/HTTPToolSpec"
-          },
-          {
-            "$ref": "#/components/schemas/ClientRPCToolSpec"
           }
         ],
         "discriminator": {
           "propertyName": "type",
           "mapping": {
-            "http_request": "#/components/schemas/HTTPToolSpec",
-            "client_rpc": "#/components/schemas/ClientRPCToolSpec"
+            "http_request": "#/components/schemas/HTTPToolSpec"
           }
         }
       },
@@ -71,51 +67,6 @@
           },
           "http": {
             "$ref": "#/components/schemas/ToolHTTPRequest"
-          }
-        }
-      },
-      "ClientRPCToolSpec": {
-        "type": "object",
-        "required": [
-          "invoke_name",
-          "type",
-          "input_schema"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "invoke_name": {
-            "type": "string",
-            "pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,63}$",
-            "description": "Immutable runtime execution name, independent from the Admin resource ID and RuntimeProfile alias."
-          },
-          "type": {
-            "type": "string",
-            "enum": [
-              "client_rpc"
-            ]
-          },
-          "description": {
-            "type": "string"
-          },
-          "enabled": {
-            "type": "boolean",
-            "default": true
-          },
-          "version": {
-            "type": "string"
-          },
-          "input_schema": {
-            "$ref": "./tool_json_schema.json#/components/schemas/ToolJSONSchema"
-          },
-          "triggers": {
-            "type": "array",
-            "items": {
-              "$ref": "./tool_trigger.json#/components/schemas/ToolTrigger"
-            }
-          },
-          "metadata": {
-            "type": "object",
-            "additionalProperties": true
           }
         }
       },
