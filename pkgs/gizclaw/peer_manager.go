@@ -8,6 +8,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -59,6 +60,7 @@ type activePeer struct {
 	events         *peerStreamEventBroker
 	deleting       bool
 	retire         func()
+	retiring       *atomic.Bool
 }
 
 func (m *Manager) activateEdgeTransport(ctx context.Context, conn giznet.Conn) error {
@@ -69,6 +71,8 @@ func (m *Manager) activateEdgeTransport(ctx context.Context, conn giznet.Conn) e
 		return errors.New("gizclaw: nil conn")
 	}
 	publicKey := conn.PublicKey()
+	recordUnlock := m.Peers.IconLocks.LockRecord(publicKey.String())
+	defer recordUnlock()
 	if !m.allowActivePeerRole(ctx, publicKey, apitypes.PeerRoleEdgeNode) {
 		return ErrPeerConnNotActive
 	}
@@ -207,8 +211,10 @@ func (m *Manager) QuiescePeer(_ context.Context, publicKey giznet.PublicKey) err
 	return nil
 }
 
-func (m *Manager) RegisterPeerRetirer(publicKey giznet.PublicKey, conn giznet.Conn, retire func()) bool {
-	if m == nil || conn == nil || retire == nil {
+// RegisterPeerRetirer binds a generation's memory-only retirement flag and
+// deferred cleanup. Detachment sets the flag without invoking the callback.
+func (m *Manager) RegisterPeerRetirer(publicKey giznet.PublicKey, conn giznet.Conn, retiring *atomic.Bool, retire func()) bool {
+	if m == nil || conn == nil || retiring == nil || retire == nil {
 		return false
 	}
 	m.mu.Lock()
@@ -218,6 +224,7 @@ func (m *Manager) RegisterPeerRetirer(publicKey giznet.PublicKey, conn giznet.Co
 		return false
 	}
 	state.retire = retire
+	state.retiring = retiring
 	return true
 }
 
@@ -266,6 +273,9 @@ func (m *Manager) releaseTelemetryStatusLock(publicKey giznet.PublicKey) {
 func (m *Manager) allowService(ctx context.Context, publicKey giznet.PublicKey, service uint64) bool {
 	switch service {
 	case ServicePeerRPC, ServicePeerHTTP, ServicePeerOpenAI, EventStreamAgent:
+		// Event transport precedes activation. Keep ordinary service admission
+		// free of storage I/O; activation rejects blocked identities and Admin
+		// block detaches and closes every current connection/reservation.
 		return true
 	}
 	switch service {
@@ -682,6 +692,45 @@ func (m *Manager) SetPeerDown(publicKey giznet.PublicKey, conn giznet.Conn) {
 		return
 	}
 	delete(m.peers, publicKey)
+}
+
+// DetachPeerConnections removes every local connection and activation
+// reservation for an identity. The caller must invoke the returned cleanup
+// after releasing its record lock. It closes only captured transports, so a
+// later approved generation is unaffected and no permanent fence is retained.
+// Detachment marks the old generation retiring atomically with removal.
+// Cleanup invokes callbacks and closes transports outside locks.
+func (m *Manager) DetachPeerConnections(publicKey giznet.PublicKey) func() {
+	m.mu.Lock()
+	state := m.peers[publicKey]
+	connections := make(map[giznet.Conn]struct{})
+	var retire func()
+	if state != nil {
+		retire = state.retire
+		if state.retiring != nil {
+			state.retiring.Store(true)
+		}
+		if state.conn != nil {
+			connections[state.conn] = struct{}{}
+		}
+		if state.activating != nil {
+			connections[state.activating] = struct{}{}
+		}
+		for conn := range state.edgeTransports {
+			connections[conn] = struct{}{}
+		}
+		delete(m.peers, publicKey)
+	}
+	m.mu.Unlock()
+	return func() {
+		if retire != nil {
+			retire()
+		}
+		for conn := range connections {
+			_ = conn.Close()
+			m.recordPeerLastSeen(publicKey, conn)
+		}
+	}
 }
 
 func (m *Manager) ForcePeerDown(publicKey giznet.PublicKey) {

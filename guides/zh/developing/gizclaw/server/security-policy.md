@@ -37,6 +37,31 @@ admin 也需要先登记或携带有效 token；仅配置 `admin-public-key` 不
 该开关只约束本 Server 的 WebRTC signaling；Edge 自己终止客户端握手，随后创建的
 logical tunnel 不再进入这里，不受这个 Server 开关保护。部署边界见 [Gizedge](../../gizedge)。
 
+## 所有准入模式下的 blocked 强制执行
+
+`open` 只省略握手凭证预检，不解除 Peer 封禁。Peer activation 对已有 `blocked`
+记录返回 `ErrPeerBlocked`，关闭连接，不创建或替换 Peer 记录，也不写入新的
+PeerRoutes assignment 或 LocalRuns。该规则同样适用于 registration-token 模式以及
+Edge 转发到本 Server 的 logical Peer；Edge 自身的握手仍不受 Server 的准入开关约束。
+
+Admin block 会持久化状态，在同一 public key 的记录协调内摘除本 Server 当前持有的
+connection、Edge transport 和正在激活的 reservation；摘除时在 Manager 锁内直接
+设置旧 generation 的原子 retiring 标记，不执行回调或 I/O，再在锁外清理注册缓存
+并关闭 transport。已有 stream 随连接关闭；新的 connection 即使
+已经打开 Event transport，也必须通过 activation 才能开始服务。迟到的 activation
+不能发布已摘除的 reservation。Admin approve 恢复 active 后可重新连接。
+
+普通 `ServicePeerRPC`、`ServicePeerHTTP`、`ServicePeerOpenAI` 和
+`EventStreamAgent` 的 service 授权不读取存储，不增加 deadline。Event transport
+先于 activation 建立，所以 service label 被允许不代表 Peer 已激活或可以执行业务。
+blocked 强制由 activation 与 block 时的连接撤销共同完成，旧连接的 retiring 标记
+仅使用内存。共享存储变慢不会通过每次普通 service 打开传播成 transport 拒绝。
+
+Admin/Edge role service 保留原有的 `allowActivePeerRole` 查询及宿主 policy 回退。
+角色查询沿用调用方 context，DataChannel 回调沿用 `context.Background()`，不添加
+固定超时；Manager 角色授权仍要求 active 状态及匹配 role。宿主 Admin grant 不会
+让连接绕过 activation 的 blocked 检查。
+
 ## 内置 registration-token policy
 
 - 空凭证要求已存在 Peer 且 `Status != blocked`，并通过 `EnsureAvailable` 排除 pending
@@ -62,7 +87,7 @@ logical tunnel 不再进入这里，不受这个 Server 开关保护。部署边
 查询继承请求取消/deadline，并额外限制为 2 秒；锁内只有内存记账。所有判定都是只读
 存储查询，缓存和计数只存在内存中。预算或并发额度耗尽时，合法新 token 也会被暂时
 拒绝；调用方应退避重试，窗口到期后恢复。空凭证的已知 Peer 重连不占 token 查询预算。
-多进程部署的预算各自独立。默认 `open` 不执行这些查询与限制。
+多进程部署的预算各自独立。默认 `open` 不执行这些握手 token 查询与限制，但仍执行上面的 activation 检查与 block 时的连接撤销。
 
 管理员重新启用、延期或调高上限后，先前失败最多在负缓存中保留 1 秒；全局失败预算仍按原有 60 秒窗口恢复。已知 Peer 不带凭证重连不受 token 禁用、过期或降低限额影响。这些修改只阻止新的激活，不吊销已有设备；已有设备主动携带受限 token 时仍会被握手预检拒绝。激活定义与 admin 编辑见 [RuntimeProfile 与设备注册](../services/runtime-profile#registrationtoken)。
 

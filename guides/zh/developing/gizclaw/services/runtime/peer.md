@@ -24,3 +24,13 @@ Peer 删除会在 Peer KV 中创建或复用一条 `kind=peer` PendingDeletion�
 Production handler 保存绑定 marker fingerprint 的 immutable 且带版本的 retirement plan。旧版本写入的 plan 记录了当前 handler 已无法退役的 Workspace，因此会被判定为 terminal 拒绝而不是继续完成；由运维退役这些 Workspace 后重新删除该 Peer。该 plan 并通过 Social、Workspace、API Key 与 RuntimeProfile 的 narrow adapter 清除该 Peer 拥有或被计划选中的数据。API Key cleanup 会写入 owner retirement marker，阻止并发 create 在清理后复活 credential。Workspace cleanup 需要通过 owner RuntimeProfile 解析要清除的 memory binding，因此 handler 等所有 child Workspace deletion 完成后才删除 owner RuntimeProfile binding。全局 catalog/config、foreign resource、log 与 metrics 不参与删除。完成时同一 guarded KV mutation 删除 Peer payload、secondary index、plan、marker、locator 与 task，并在 `by-pubkey/<public-key>` 写入唯一的 `{"version":1,"state":"deleted"}` tombstone。Admin get/list 从该 sentinel 派生 `{public_key,status=deleted}`；其他入口返回 `PEER_DELETED`，同一 public key 永久不能重新注册。
 
 Edge bootstrap 对已是 active Edge 的记录不重复写入。多个 Server 同时初始化同一 Edge 时，CAS 冲突最多重读重试 8 次；每次从最新记录合并角色和状态，保留并发更新的元数据与标识符索引，删除围栏仍然生效。
+
+`blocked` 是可由 Admin approve 恢复为 active 的持久状态。`EnsureConnectedPeer` 与
+`EnsureConnectedPeerGuarded` 对已有 blocked 记录（包括并发创建获胜的记录）返回
+`ErrPeerBlocked`；不把它当作不存在，也不重建记录。Admin block 提交成功后先摘除
+本地所有连接 generation，在 Manager 锁内设置旧 generation 的原子 retiring 标记，
+再在锁外执行回调并关闭 transport。
+block 不会给远端或离线 Peer 新增本地运行目录记录，也不依赖该目录可用。
+持久化失败不踢下线。`EnsureAvailable` 保留删除围栏语义，
+使 Admin 仍可读取、修改和解封 blocked 记录。连接与 service 执行边界见
+[Management](../../peer/manager) 和 [Security Policy](../../server/security-policy)。

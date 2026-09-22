@@ -53,7 +53,8 @@ func (s *Server) BindFirmware(ctx context.Context, publicKey giznet.PublicKey, f
 }
 
 // EnsureConnectedPeer creates a default active peer record for a connected peer
-// when the peer has not been registered yet. Existing records are preserved.
+// when the peer has not been registered yet. Existing records are preserved;
+// blocked records are rejected.
 func (s *Server) EnsureConnectedPeer(ctx context.Context, publicKey giznet.PublicKey) (apitypes.Peer, error) {
 	record, err := s.EnsureConnectedPeerGuarded(ctx, publicKey, nil)
 	if err != nil {
@@ -82,6 +83,9 @@ func (s *Server) EnsureConnectedPeerGuarded(ctx context.Context, publicKey gizne
 	}
 	existing, err := s.get(ctx, publicKey)
 	if err == nil {
+		if existing.Status == apitypes.PeerRegistrationStatusBlocked {
+			return apitypes.Peer{}, ErrPeerBlocked
+		}
 		return existing, nil
 	}
 	if !errors.Is(err, ErrPeerNotFound) {
@@ -97,7 +101,10 @@ func (s *Server) EnsureConnectedPeerGuarded(ctx context.Context, publicKey gizne
 		AutoRegistered: &autoRegistered,
 	})
 	if errors.Is(err, ErrPeerAlreadyExists) {
-		return s.get(ctx, publicKey)
+		created, err = s.get(ctx, publicKey)
+	}
+	if err == nil && created.Status == apitypes.PeerRegistrationStatusBlocked {
+		return apitypes.Peer{}, ErrPeerBlocked
 	}
 	return created, err
 }
@@ -287,13 +294,33 @@ func (s *Server) approve(ctx context.Context, publicKey giznet.PublicKey, role a
 
 func (s *Server) block(ctx context.Context, publicKey giznet.PublicKey) (apitypes.Peer, error) {
 	unlock := s.IconLocks.LockRecord(publicKey.String())
-	defer unlock()
-	peer, err := s.get(ctx, publicKey)
+	item, err := s.get(ctx, publicKey)
 	if err != nil {
+		unlock()
 		return apitypes.Peer{}, err
 	}
-	peer.Status = apitypes.PeerRegistrationStatusBlocked
-	return s.putRecord(ctx, peer)
+	previous := item
+	item.Status = apitypes.PeerRegistrationStatusBlocked
+	item.UpdatedAt = time.Now()
+	if err := s.writePeerLocked(ctx, item, &previous); err != nil {
+		unlock()
+		return apitypes.Peer{}, err
+	}
+	// Detach under same-key coordination so approve cannot publish a new
+	// generation before this block captures the connections it must close.
+	var disconnect func()
+	if manager, ok := s.PeerManager.(interface {
+		DetachPeerConnections(giznet.PublicKey) func()
+	}); ok {
+		disconnect = manager.DetachPeerConnections(publicKey)
+	}
+	unlock()
+	if disconnect != nil {
+		disconnect()
+	}
+	// Blocking does not establish local runtime ownership. Return the
+	// committed snapshot without creating a local directory entry.
+	return item, nil
 }
 
 func (s *Server) delete(ctx context.Context, publicKey giznet.PublicKey, reason pendingdeletion.Reason) (apitypes.Peer, error) {

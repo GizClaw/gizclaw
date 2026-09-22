@@ -40,6 +40,38 @@ This setting governs only this Server's WebRTC signaling. Edge terminates client
 itself; subsequent logical tunnels do not enter this policy and are not protected by the Server
 setting. See [Gizedge](../../gizedge) for that deployment boundary.
 
+## Blocked enforcement in every admission mode
+
+`open` omits handshake credential preflight; it does not disable Peer blocking.
+Peer activation returns `ErrPeerBlocked` for an existing blocked record and closes
+the connection without creating/replacing the Peer record or writing new
+PeerRoutes assignments or LocalRuns. This also applies to registration-token
+mode and logical Peers forwarded through Edge to this Server. Edge's own
+handshake remains outside the Server admission setting.
+
+Admin block persists the status and detaches this Server's current connection,
+Edge transports, and activation reservation under same-key record coordination.
+Detachment sets the old generation's atomic retiring flag under the Manager
+lock without callbacks or I/O. Outside locks, cleanup clears cached registration
+and closes its transports. Existing streams close with their connection. A new connection
+must pass activation before serving work, even if its Event transport is already
+open. Late activation cannot publish a detached reservation. Admin approve
+restores active status and permits a fresh connection.
+
+Authorization for ordinary `ServicePeerRPC`, `ServicePeerHTTP`,
+`ServicePeerOpenAI`, and `EventStreamAgent` services performs no storage reads and
+adds no deadline. Event transport precedes activation, so an allowed service
+label does not mean the Peer is active or permitted to execute business work.
+Activation and connection revocation on block enforce blocked status; the old
+generation's retiring flag is memory-only. Slow shared storage therefore does
+not turn each ordinary service open into a transport denial.
+
+Admin/Edge role services retain their existing `allowActivePeerRole` lookup and
+host-policy fallback. Role queries preserve the caller's context, including
+`context.Background()` in DataChannel callbacks, without a fixed timeout.
+Manager role grants still require active status and a matching role. A host
+Admin grant cannot bypass the activation check for blocked status.
+
 ## Built-in registration-token policy
 
 - An empty credential requires an existing Peer with `Status != blocked`, and `EnsureAvailable`
@@ -71,7 +103,7 @@ cover only memory bookkeeping. Storage operations are read-only; cache and count
 in-memory. Exhausted budgets or capacity can temporarily deny valid new tokens too; callers
 should back off and retry after recovery. Known Peers reconnecting without credentials do not
 consume the token budget. Multiple processes have independent limits. Default `open` admission
-performs none of these queries or limits.
+performs none of these handshake token queries or limits, but still enforces activation and connection revocation on block as described above.
 
 After an administrator reenables, extends, or raises a token limit, a previous failure remains cached for at most one second; the global failure budget still recovers on its existing 60-second window. Known Peers reconnecting without credentials are unaffected by later token restrictions. These changes prevent new activations without revoking existing devices; presenting a restricted token still fails handshake preflight. See [RuntimeProfile and registration](../services/runtime-profile#registrationtoken) for activation and editing semantics.
 

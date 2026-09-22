@@ -24,3 +24,15 @@ Peer deletion creates or reuses one `kind=peer` PendingDeletion in the Peer KV a
 The production handler persists an immutable, versioned retirement plan bound to the marker fingerprint. A plan written by an earlier release records Workspaces this handler can no longer retire, so it is rejected as terminal instead of completing; the operator retires those Workspaces and deletes the Peer again. The plan and clears owned or selected state through narrow Social, Workspace, API key, and RuntimeProfile adapters. API key cleanup writes an owner retirement marker so a concurrent create cannot resurrect a credential after cleanup. Workspace cleanup resolves the memory binding it purges through the owner's RuntimeProfile, so the handler deletes the owner RuntimeProfile binding only after every child Workspace deletion completes. Global catalogs/configuration, foreign resources, logs, and metrics are outside deletion scope. Completion uses one guarded KV mutation to remove the Peer payload, secondary indexes, plan, marker, locator, and task and writes the sole `{"version":1,"state":"deleted"}` tombstone at `by-pubkey/<public-key>`. Admin get/list derive `{public_key,status=deleted}` from that sentinel. Every other entry point returns `PEER_DELETED`, and the public key can never register again.
 
 Edge bootstrap avoids rewriting an already active Edge. When Servers initialize the same Edge concurrently, CAS conflicts trigger at most eight attempts with a fresh record each time. Role and status are merged into the current record, preserving concurrent metadata and identifier indexes while retaining deletion fences.
+
+`blocked` is durable state that Admin approve can restore to active.
+`EnsureConnectedPeer` and `EnsureConnectedPeerGuarded` return `ErrPeerBlocked`
+for existing blocked records, including a concurrent create winner. They do not
+interpret them as missing or recreate them. After Admin block commits, all local
+connection generations are detached and the old generation's atomic retiring
+flag is set under the Manager lock. Callbacks and transport close run outside locks. Blocking does not create a local
+runtime-directory entry for a remote/offline Peer and does not depend on that
+directory being available. A failed durable write does not disconnect a healthy Peer. `EnsureAvailable` retains deletion-fence
+semantics so Admin can still read, edit, and approve blocked records. Connection
+and service enforcement belong to [Management](../../peer/manager) and
+[Security Policy](../../server/security-policy).

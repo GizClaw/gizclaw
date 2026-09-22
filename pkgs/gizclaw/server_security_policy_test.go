@@ -3,12 +3,14 @@ package gizclaw
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznetpb"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func testServerSecurityPolicy(peers *peer.Server) *ServerSecurityPolicy {
@@ -38,8 +40,8 @@ func TestServerSecurityPolicyRequiresAdminRoleForAdminService(t *testing.T) {
 	}
 }
 
-func TestServerSecurityPolicyAllowsPublicServicesWithoutPeerLookup(t *testing.T) {
-	policy := (*ServerSecurityPolicy)(&Server{manager: &Manager{}})
+func TestServerSecurityPolicyAllowsUnknownPeerBootstrapServices(t *testing.T) {
+	policy := testServerSecurityPolicy(&peer.Server{Store: kv.NewMemory(nil)})
 	if !policy.AllowService(giznet.PublicKey{}, ServicePeerRPC) {
 		t.Fatal("policy should allow rpc service")
 	}
@@ -127,6 +129,85 @@ func TestServerSecurityPolicyForwardsAdmission(t *testing.T) {
 		injected.result = want
 		if policy.AllowPeer(ctx, admission) != want || injected.ctx != ctx || injected.admission.PublicKey != admission.PublicKey || injected.admission.Credential != admission.Credential {
 			t.Fatal("admission was not delegated intact")
+		}
+	}
+}
+
+// Even a store whose next read is indefinitely blocked must not affect
+// ordinary service authorization, including logical Edge service admission.
+func TestOrdinaryPeerServicesDoNotReadSlowStore(t *testing.T) {
+	store := &blockingGetStore{Store: kv.NewMemory(nil), entered: make(chan struct{}), release: make(chan struct{})}
+	defer close(store.release)
+	manager := NewManager(&peer.Server{Store: store})
+	policy := (*ServerSecurityPolicy)(&Server{manager: manager})
+	done := make(chan bool, 1)
+	go func() {
+		for _, service := range []uint64{ServicePeerRPC, ServicePeerHTTP, ServicePeerOpenAI, EventStreamAgent} {
+			if !policy.AllowService(giznet.PublicKey{73}, service) || !manager.allowService(t.Context(), giznet.PublicKey{74}, service) {
+				done <- false
+				return
+			}
+		}
+		done <- true
+	}()
+	select {
+	case allowed := <-done:
+		if !allowed {
+			t.Fatal("slow store denied ordinary Peer service")
+		}
+	case <-store.entered:
+		t.Fatal("ordinary Peer service attempted a storage read")
+	case <-time.After(time.Second):
+		t.Fatal("ordinary Peer service did not make progress")
+	}
+	select {
+	case <-store.entered:
+		t.Fatal("ordinary service queried storage")
+	default:
+	}
+}
+
+type serviceContextStore struct {
+	kv.Store
+	readContext context.Context
+}
+
+func (s *serviceContextStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
+	s.readContext = ctx
+	return s.Store.Get(ctx, key)
+}
+
+func TestRoleServicesPreserveLookupContextAndBlockedDenial(t *testing.T) {
+	for _, test := range []struct {
+		service uint64
+		role    apitypes.PeerRole
+	}{
+		{ServiceAdminHTTP, apitypes.PeerRoleAdmin},
+		{ServiceEdgeHTTP, apitypes.PeerRoleEdgeNode},
+		{ServiceEdgeRPC, apitypes.PeerRoleEdgeNode},
+	} {
+		key := giznet.PublicKey{75}
+		base := kv.NewMemory(nil)
+		peers := &peer.Server{Store: base}
+		manager := NewManager(peers)
+		for _, status := range []apitypes.PeerRegistrationStatus{apitypes.PeerRegistrationStatusActive, apitypes.PeerRegistrationStatusBlocked} {
+			peers.Store = base
+			if _, err := peers.SavePeer(t.Context(), apitypes.Peer{PublicKey: key.String(), Role: test.role, Status: status}); err != nil {
+				t.Fatal(err)
+			}
+			store := &serviceContextStore{Store: base}
+			peers.Store = store
+			ctx := context.Background()
+			allowed := manager.allowService(ctx, key, test.service)
+			if allowed != (status == apitypes.PeerRegistrationStatusActive) {
+				t.Fatalf("role service %x with status %s: allowed=%v", test.service, status, allowed)
+			}
+			if store.readContext != ctx {
+				t.Fatal("role service replaced its original lookup context")
+			}
+			if _, hasDeadline := store.readContext.Deadline(); hasDeadline {
+				t.Fatal("role service added a deadline")
+			}
 		}
 	}
 }
