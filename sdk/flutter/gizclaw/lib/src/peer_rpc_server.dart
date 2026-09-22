@@ -1247,6 +1247,13 @@ bool _validMhsRefs(List<payload.MhsStateRef> states) {
   return true;
 }
 
+bool _validMhsString(String text) {
+  final bytes = utf8.encode(text);
+  return !text.contains('\u0000') &&
+      bytes.length <= 256 &&
+      utf8.decode(bytes) == text;
+}
+
 bool _validMhsStates(List<payload.MhsStateValue> states) {
   if (!_validMhsRefs([
     for (final state in states)
@@ -1257,27 +1264,16 @@ bool _validMhsStates(List<payload.MhsStateValue> states) {
   for (final state in states) {
     if (!state.hasValue()) return false;
     final value = state.value;
-    switch (value.whichValue()) {
-      case payload.MhsValue_Value.boolValue:
-        break;
-      case payload.MhsValue_Value.intValue:
-        if (value.intValue.toInt() < -9007199254740991 ||
-            value.intValue.toInt() > 9007199254740991) {
-          return false;
-        }
-      case payload.MhsValue_Value.doubleValue:
-        if (!value.doubleValue.isFinite) return false;
-      case payload.MhsValue_Value.stringValue:
-        final text = value.stringValue;
-        final bytes = utf8.encode(text);
-        if (text.contains('\u0000') ||
-            bytes.length > 256 ||
-            utf8.decode(bytes) != text) {
-          return false;
-        }
-      case payload.MhsValue_Value.notSet:
-        return false;
-    }
+    final valid = switch (value.whichValue()) {
+      payload.MhsValue_Value.boolValue => true,
+      payload.MhsValue_Value.intValue =>
+        value.intValue.toInt() >= -9007199254740991 &&
+            value.intValue.toInt() <= 9007199254740991,
+      payload.MhsValue_Value.doubleValue => value.doubleValue.isFinite,
+      payload.MhsValue_Value.stringValue => _validMhsString(value.stringValue),
+      payload.MhsValue_Value.notSet => false,
+    };
+    if (!valid) return false;
   }
   return true;
 }

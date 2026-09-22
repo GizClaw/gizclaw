@@ -777,6 +777,8 @@ _Handlers _buildHandlers(
               ..mergeFromProto3Json(snakeToCamelKeys(object));
           },
         );
+        // Explicit for readers of this long switch; Dart 3 cases never fall through.
+        break;
       case 'client.mhs.v0.write':
         control = _copyControl(
           control,
@@ -787,6 +789,7 @@ _Handlers _buildHandlers(
               ..mergeFromProto3Json(snakeToCamelKeys(object));
           },
         );
+        break;
       case 'client.run.workspace.set':
         control = _copyControl(
           control,
