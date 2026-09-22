@@ -41,9 +41,14 @@ const allOperations = [
   'workspace_relay',
 ];
 
-const clientRpcMethods = {'client.mhs.v0.read','client.mhs.v0.write','client.tool.v0.invoke','client.tool.v0.list','client.rpc.methods.list'};
+const clientRpcMethods = {
+  'client.mhs.v0.read',
+  'client.mhs.v0.write',
+  'client.tool.v0.invoke',
+  'client.tool.v0.list',
+  'client.rpc.methods.list',
+};
 const supportedClientRpcMethods = clientRpcMethods;
-
 
 final _namePattern = RegExp(r'^[a-z0-9][a-z0-9._-]{0,127}$');
 final _stepIdPattern = RegExp(r'^[A-Za-z_][A-Za-z0-9_-]{0,63}$');
@@ -366,7 +371,9 @@ void _validateStep(
       throw UnsupportedStepException('client_rpc:$method');
     }
     final tool = clientRpc['tool'];
-    if (method == 'client.tool.v0.invoke' ? tool is! String || !clientToolsByName.containsKey(tool) : tool != null) {
+    if (method == 'client.tool.v0.invoke'
+        ? tool is! String || !clientToolsByName.containsKey(tool)
+        : tool != null) {
       _fail(path, 'step ${step.id} invalid tool selector');
     }
     final calls = clientRpc['expect_calls'] as int?;

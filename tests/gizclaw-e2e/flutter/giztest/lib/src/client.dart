@@ -519,12 +519,17 @@ class _Handlers {
 
 /// Turns the document's client_rpc steps for one client into the device-side
 /// providers the SDK installs, and counts every inbound call.
-_Handlers _buildHandlers(String clientName, List<Step> steps, Variables variables) {
+_Handlers _buildHandlers(
+  String clientName,
+  List<Step> steps,
+  Variables variables,
+) {
   final inbound = <String, int>{};
   final tools = <ClientTool, GizClawToolHandler>{};
   var deviceInfo = DeviceInfo();
   FutureOr<ClientMhsV0ReadResponse> Function(ClientMhsV0ReadRequest)? readMhs;
-  FutureOr<ClientMhsV0WriteResponse> Function(ClientMhsV0WriteRequest)? writeMhs;
+  FutureOr<ClientMhsV0WriteResponse> Function(ClientMhsV0WriteRequest)?
+  writeMhs;
   for (final step in steps) {
     final operation = step.clientRpc;
     if (step.client != clientName || operation == null) continue;
@@ -533,28 +538,41 @@ _Handlers _buildHandlers(String clientName, List<Step> steps, Variables variable
     final object = _asObject(scripted);
     final failure = _scriptedFailure(scripted);
     inbound[method] = 0;
-    if (method == 'client.rpc.methods.list' || method == 'client.tool.v0.list') {
+    if (method == 'client.rpc.methods.list' ||
+        method == 'client.tool.v0.list') {
       if (scripted != null) throw StateError('$method takes no response');
       continue;
     }
     if (object['unavailable'] == true) {
-      if (object.containsKey('result')) throw StateError('unavailable tool cannot set result');
+      if (object.containsKey('result')) {
+        throw StateError('unavailable tool cannot set result');
+      }
       continue;
     }
     final delay = scriptedDelayMs(object);
-    final value = Map<String,Object?>.from(object)..remove('delay_ms');
+    final value = Map<String, Object?>.from(object)..remove('delay_ms');
     Future<void> prepare() async {
       if (failure != null) throw failure;
-      if (delay > 0) await Future<void>.delayed(Duration(milliseconds:delay));
+      if (delay > 0) await Future<void>.delayed(Duration(milliseconds: delay));
     }
+
     if (method == 'info.get') {
       deviceInfo = DeviceInfo()..mergeFromProto3Json(snakeToCamelKeys(value));
     } else if (method == 'identifiers.get') {
-      deviceInfo.identifiers = DeviceIdentifiers()..mergeFromProto3Json(snakeToCamelKeys(value));
+      deviceInfo.identifiers = DeviceIdentifiers()
+        ..mergeFromProto3Json(snakeToCamelKeys(value));
     } else if (method == 'client.mhs.v0.read') {
-      readMhs = (_) async { await prepare(); return ClientMhsV0ReadResponse()..mergeFromProto3Json(snakeToCamelKeys(value)); };
+      readMhs = (_) async {
+        await prepare();
+        return ClientMhsV0ReadResponse()
+          ..mergeFromProto3Json(snakeToCamelKeys(value));
+      };
     } else if (method == 'client.mhs.v0.write') {
-      writeMhs = (_) async { await prepare(); return ClientMhsV0WriteResponse()..mergeFromProto3Json(snakeToCamelKeys(value)); };
+      writeMhs = (_) async {
+        await prepare();
+        return ClientMhsV0WriteResponse()
+          ..mergeFromProto3Json(snakeToCamelKeys(value));
+      };
     } else {
       final metadata = clientToolByName(method);
       final tool = ClientTool.valueOf(metadata.id)!;
@@ -563,25 +581,37 @@ _Handlers _buildHandlers(String clientName, List<Step> steps, Variables variable
         final result = newPayloadMessage(metadata.responseType);
         final fields = result.info_.fieldInfo.values;
         final wrapped = fields.length == 1 && fields.single.name == 'value';
-        result.mergeFromProto3Json(snakeToCamelKeys(wrapped ? {'value':value} : value));
+        result.mergeFromProto3Json(
+          snakeToCamelKeys(wrapped ? {'value': value} : value),
+        );
         return result;
       };
     }
   }
-  return _Handlers(GizClawPeerRpcHandlers(
-    deviceInfo: () => deviceInfo,
-    tools: tools,
-    observe: (method, tool) {
-      final key = tool == null ? method : clientToolById(tool.value).name;
-      inbound[key] = (inbound[key] ?? 0) + 1;
-    },
-    deviceControl: GizClawDeviceControlHandlers(readMhsStates:readMhs,writeMhsStates:writeMhs),
-  ), inbound);
+  return _Handlers(
+    GizClawPeerRpcHandlers(
+      deviceInfo: () => deviceInfo,
+      tools: tools,
+      observe: (method, tool) {
+        final key = tool == null ? method : clientToolById(tool.value).name;
+        inbound[key] = (inbound[key] ?? 0) + 1;
+      },
+      deviceControl: GizClawDeviceControlHandlers(
+        readMhsStates: readMhs,
+        writeMhsStates: writeMhs,
+      ),
+    ),
+    inbound,
+  );
 }
 
-int scriptedDelayMs(Map<String,Object?> value) {
- final delay=value['delay_ms'];
- if (delay==null) return 0;
- if (delay is! int || delay<0 || delay>maxScriptedDelayMs) throw const FormatException('delay_ms must be an integer from 0 to 2147483647');
- return delay;
+int scriptedDelayMs(Map<String, Object?> value) {
+  final delay = value['delay_ms'];
+  if (delay == null) return 0;
+  if (delay is! int || delay < 0 || delay > maxScriptedDelayMs) {
+    throw const FormatException(
+      'delay_ms must be an integer from 0 to 2147483647',
+    );
+  }
+  return delay;
 }

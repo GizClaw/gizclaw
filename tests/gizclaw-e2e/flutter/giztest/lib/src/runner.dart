@@ -183,7 +183,9 @@ Future<_StepOutcome> _runStep(
       throw StateError('client RPC $method was not installed');
     }
     final expected = clientRpc['expect_calls'] as int? ?? 1;
- if (expected == 0 && (client.inbound[method] ?? 0) != 0) throw StateError('client RPC $method unexpectedly reached the device');
+    if (expected == 0 && (client.inbound[method] ?? 0) != 0) {
+      throw StateError('client RPC $method unexpectedly reached the device');
+    }
     // The counter is cumulative from connect time and the wait is "at least
     // N", matching the Go runner.
     while ((client.inbound[method] ?? 0) < expected) {

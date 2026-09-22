@@ -376,12 +376,15 @@ class _InboundPeerRpcChannel {
     final methodName = _methodName(request);
     late rpc.RpcResponse response;
     try {
-      if (methodName != 'client.tool.v0.invoke') handlers?.observe?.call(methodName, null);
+      if (methodName != 'client.tool.v0.invoke') {
+        handlers?.observe?.call(methodName, null);
+      }
       response = switch (methodName) {
         'client.tool.v0.invoke' => await _invokeClientTool(request),
         'client.tool.v0.list' => _serveToolList(request),
         'client.rpc.methods.list' => _serveRpcMethods(request),
-        'client.mhs.v0.read' || 'client.mhs.v0.write' => await _serveDeviceControl(request, methodName),
+        'client.mhs.v0.read' ||
+        'client.mhs.v0.write' => await _serveDeviceControl(request, methodName),
         _ => throw StateError('unsupported client method: $methodName'),
       };
     } on GizClawDeviceControlException catch (error) {
@@ -461,14 +464,29 @@ class _InboundPeerRpcChannel {
     late payload.ClientToolV0InvokeRequest invocation;
     late GeneratedMessage arguments;
     try {
-      invocation = payload.ClientToolV0InvokeRequest.fromBuffer(request.payload);
+      invocation = payload.ClientToolV0InvokeRequest.fromBuffer(
+        request.payload,
+      );
       if (!clientToolNamesById.containsKey(invocation.tool.value)) {
-        return _rpcErrorResponse(request.id, rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED, 'unsupported tool');
+        return _rpcErrorResponse(
+          request.id,
+          rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED,
+          'unsupported tool',
+        );
       }
-      arguments = decodeClientToolRequestPayload(invocation.tool.value, invocation.payload);
-      if (!_validToolArguments(arguments)) { throw const FormatException('invalid tool arguments'); }
+      arguments = decodeClientToolRequestPayload(
+        invocation.tool.value,
+        invocation.payload,
+      );
+      if (!_validToolArguments(arguments)) {
+        throw const FormatException('invalid tool arguments');
+      }
     } catch (_) {
-      return _rpcErrorResponse(request.id, rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT, 'invalid params');
+      return _rpcErrorResponse(
+        request.id,
+        rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
+        'invalid params',
+      );
     }
     handlers?.observe?.call('client.tool.v0.invoke', invocation.tool);
     final name = clientToolById(invocation.tool.value).name;
@@ -486,20 +504,32 @@ class _InboundPeerRpcChannel {
       };
     }
     if (result.hasStatus()) return result;
-    return _rpcPayloadResponse(request.id, 'client.tool.v0.invoke', payload.ClientToolV0InvokeResponse(payload: result.payload));
+    return _rpcPayloadResponse(
+      request.id,
+      'client.tool.v0.invoke',
+      payload.ClientToolV0InvokeResponse(payload: result.payload),
+    );
   }
 
   rpc.RpcResponse _serveRpcMethods(rpc.RpcRequest request) {
     final invalid = _validateClientRequest(request, 'client.rpc.methods.list');
     if (invalid != null) return invalid;
     final methods = <rpc.RpcMethod>[
-      rpc.RpcMethod.RPC_METHOD_ALL_PING, rpc.RpcMethod.RPC_METHOD_ALL_SPEED_TEST_RUN,
-      if (handlers?.deviceControl?.readMhsStates != null) rpc.RpcMethod.RPC_METHOD_CLIENT_MHS_V0_READ,
-      if (handlers?.deviceControl?.writeMhsStates != null) rpc.RpcMethod.RPC_METHOD_CLIENT_MHS_V0_WRITE,
-      rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE, rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_LIST,
+      rpc.RpcMethod.RPC_METHOD_ALL_PING,
+      rpc.RpcMethod.RPC_METHOD_ALL_SPEED_TEST_RUN,
+      if (handlers?.deviceControl?.readMhsStates != null)
+        rpc.RpcMethod.RPC_METHOD_CLIENT_MHS_V0_READ,
+      if (handlers?.deviceControl?.writeMhsStates != null)
+        rpc.RpcMethod.RPC_METHOD_CLIENT_MHS_V0_WRITE,
+      rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_LIST,
       rpc.RpcMethod.RPC_METHOD_CLIENT_RPC_METHODS_LIST,
     ];
-    return _rpcPayloadResponse(request.id, 'client.rpc.methods.list', payload.ClientRpcMethodsListResponse(methods: methods));
+    return _rpcPayloadResponse(
+      request.id,
+      'client.rpc.methods.list',
+      payload.ClientRpcMethodsListResponse(methods: methods),
+    );
   }
 
   rpc.RpcResponse _serveToolList(rpc.RpcRequest request) {
@@ -532,10 +562,15 @@ class _InboundPeerRpcChannel {
       if (handlers != null) payload.ClientTool.CLIENT_TOOL_INFO_GET,
       if (handlers != null) payload.ClientTool.CLIENT_TOOL_IDENTIFIERS_GET,
       for (final entry in installed.entries)
-        if (entry.value != null) payload.ClientTool.valueOf(clientToolByName(entry.key).id)!,
+        if (entry.value != null)
+          payload.ClientTool.valueOf(clientToolByName(entry.key).id)!,
       ...?handlers?.tools.keys,
-    }.toList()..sort((a,b) => a.value.compareTo(b.value));
-    return _rpcPayloadResponse(request.id, 'client.tool.v0.list', payload.ClientToolV0ListResponse(tools: tools));
+    }.toList()..sort((a, b) => a.value.compareTo(b.value));
+    return _rpcPayloadResponse(
+      request.id,
+      'client.tool.v0.list',
+      payload.ClientToolV0ListResponse(tools: tools),
+    );
   }
 
   Future<rpc.RpcResponse> _serveSocialPing(rpc.RpcRequest request) async {
@@ -866,8 +901,11 @@ class _InboundPeerRpcChannel {
     return rpc.RpcResponse(
       id: id,
       payload: clientToolsByName.containsKey(methodName)
-        ? encodeClientToolResponsePayload(clientToolByName(methodName).id, response)
-        : encodeRpcResponsePayload(methodName, response),
+          ? encodeClientToolResponsePayload(
+              clientToolByName(methodName).id,
+              response,
+            )
+          : encodeRpcResponsePayload(methodName, response),
     );
   }
 
@@ -984,7 +1022,13 @@ class _InboundPeerRpcChannel {
   }
 
   bool _isClientMethod(String methodName) {
-    return const {'client.tool.v0.invoke', 'client.tool.v0.list', 'client.rpc.methods.list', 'client.mhs.v0.read', 'client.mhs.v0.write'}.contains(methodName);
+    return const {
+      'client.tool.v0.invoke',
+      'client.tool.v0.list',
+      'client.rpc.methods.list',
+      'client.mhs.v0.read',
+      'client.mhs.v0.write',
+    }.contains(methodName);
   }
 
   void _close() {
@@ -1075,22 +1119,44 @@ bool _validMhsStates(List<payload.MhsStateValue> states) {
   return true;
 }
 
-GeneratedMessage _decodeProviderRequest(String name, List<int> bytes) => clientToolsByName.containsKey(name) ? decodeClientToolRequestPayload(clientToolByName(name).id, bytes) : decodeRpcRequestPayload(name, bytes);
+GeneratedMessage _decodeProviderRequest(String name, List<int> bytes) =>
+    clientToolsByName.containsKey(name)
+    ? decodeClientToolRequestPayload(clientToolByName(name).id, bytes)
+    : decodeRpcRequestPayload(name, bytes);
 
 bool _validToolArguments(GeneratedMessage request) {
-  bool text(String value, int max) => value.isNotEmpty && utf8.encode(value).length <= max && !value.contains('\u0000');
+  bool text(String value, int max) =>
+      value.isNotEmpty &&
+      utf8.encode(value).length <= max &&
+      !value.contains('\u0000');
   return switch (request) {
-    payload.ClientDeviceSoundPlayRequest r => text(r.sound, 32) && (!r.hasDurationMs() || r.durationMs >= 0),
-    payload.ClientDeviceFindRequest r => !r.hasDurationMs() || r.durationMs >= 0,
+    payload.ClientDeviceSoundPlayRequest r =>
+      text(r.sound, 32) && (!r.hasDurationMs() || r.durationMs >= 0),
+    payload.ClientDeviceFindRequest r =>
+      !r.hasDurationMs() || r.durationMs >= 0,
     payload.ClientDeviceRebootRequest r => !r.hasDelayMs() || r.delayMs >= 0,
-    payload.ClientWifiConnectRequest r => text(r.ssid, 32) && (!r.hasPassphrase() || (text(r.passphrase, 63) && utf8.encode(r.passphrase).length >= 8)),
+    payload.ClientWifiConnectRequest r =>
+      text(r.ssid, 32) &&
+          (!r.hasPassphrase() ||
+              (text(r.passphrase, 63) &&
+                  utf8.encode(r.passphrase).length >= 8)),
     payload.ClientWifiSavedForgetRequest r => text(r.ssid, 32),
-    payload.ClientWifiScanRequest r => !r.hasTimeoutMs() || (r.timeoutMs >= 1000 && r.timeoutMs <= 15000),
-    payload.ClientFirmwareUpdateRequest r => (!r.hasSha256() || RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(r.sha256)) && (!r.hasChannel() || r.channel.value >= 1 && r.channel.value <= 3),
-    payload.ClientDeviceAudioPlayerPlaylistSetRequest r => _validAudioPlayerItems(r.items, false),
-    payload.ClientDeviceAudioPlayerPlaylistAppendRequest r => _validAudioPlayerItems(r.items, true),
-    payload.ClientDeviceAudioPlayerPlayRequest r => r.index >= 0 && r.index < 32,
-    payload.ClientDeviceAudioPlayerModeSetRequest r => const ['off', 'one', 'all'].contains(r.repeat),
+    payload.ClientWifiScanRequest r =>
+      !r.hasTimeoutMs() || (r.timeoutMs >= 1000 && r.timeoutMs <= 15000),
+    payload.ClientFirmwareUpdateRequest r =>
+      (!r.hasSha256() || RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(r.sha256)) &&
+          (!r.hasChannel() || r.channel.value >= 1 && r.channel.value <= 3),
+    payload.ClientDeviceAudioPlayerPlaylistSetRequest r =>
+      _validAudioPlayerItems(r.items, false),
+    payload.ClientDeviceAudioPlayerPlaylistAppendRequest r =>
+      _validAudioPlayerItems(r.items, true),
+    payload.ClientDeviceAudioPlayerPlayRequest r =>
+      r.index >= 0 && r.index < 32,
+    payload.ClientDeviceAudioPlayerModeSetRequest r => const [
+      'off',
+      'one',
+      'all',
+    ].contains(r.repeat),
     payload.ClientRunWorkspaceSetRequest r => _validRunWorkspaceRequest(r),
     payload.ClientSocialPingRequest r => text(r.fromPeerPublicKey, 128),
     _ => true,
