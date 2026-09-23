@@ -208,7 +208,7 @@ func TestResolveEinoInputModeAndASRPattern(t *testing.T) {
 	}{
 		{name: "omitted defaults to push-to-talk", wantMode: apitypes.WorkspaceInputModePushToTalk, wantPattern: "model/speech.asr?realtime_pacing=false"},
 		{name: "push-to-talk", parameters: einoWorkspaceParameters(t, apitypes.WorkspaceInputModePushToTalk), wantMode: apitypes.WorkspaceInputModePushToTalk, wantPattern: "model/speech.asr?realtime_pacing=false"},
-		{name: "realtime", parameters: einoWorkspaceParameters(t, apitypes.WorkspaceInputModeRealtime), wantMode: apitypes.WorkspaceInputModeRealtime, wantPattern: "model/speech.asr?realtime_pacing=false&emit_interim=true"},
+		{name: "realtime", parameters: einoWorkspaceParameters(t, apitypes.WorkspaceInputModeRealtime), wantMode: apitypes.WorkspaceInputModeRealtime, wantPattern: "model/speech.asr?realtime_pacing=false&emit_interim=true&end_window_size=200&force_to_speech_time=1000"},
 		{name: "invalid", parameters: einoWorkspaceParameters(t, apitypes.WorkspaceInputMode("invalid")), wantErr: true},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
