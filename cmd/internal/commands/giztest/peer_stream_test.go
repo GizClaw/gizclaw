@@ -1514,6 +1514,9 @@ func TestPeerAudioPacingAcceptsGapsTheBufferCovers(t *testing.T) {
 	if summary["minimum_buffer_ms"] != float64(80) {
 		t.Fatalf("minimum buffer = %#v, want the 500ms buffer less the 420ms gap", summary["minimum_buffer_ms"])
 	}
+	if summary["buffer_surplus_ms"] != float64(-400) {
+		t.Fatalf("buffer surplus = %#v, want cumulative drift despite continuous playback", summary["buffer_surplus_ms"])
+	}
 	if _, present := summary["underrun_ms"]; !present {
 		t.Fatalf("continuous playback summary lacks underrun_ms: %#v", summary)
 	}

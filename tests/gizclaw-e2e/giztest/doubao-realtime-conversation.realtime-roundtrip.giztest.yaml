@@ -96,7 +96,6 @@ steps:
       /audio_pacing/minimum_buffer_ms:
         minimum: 1
       /audio_pacing/buffer_surplus_ms:
-        minimum: 450
         maximum: 550
 finally:
   - client: peer
