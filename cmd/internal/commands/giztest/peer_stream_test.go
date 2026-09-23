@@ -930,6 +930,47 @@ func TestInvokePeerStreamIdleTimeoutRearmsAfterInterrupt(t *testing.T) {
 	}
 }
 
+func TestInvokePeerStreamInterruptsAudioOnlyReply(t *testing.T) {
+	first := newFakeRelayStream()
+	second := newFakeRelayStream()
+	audio := testAudibleOpus(t)
+	go func() {
+		drainPushes(first, 3)
+		first.in <- assistantBlob("s1", audio, false)
+		drainPushes(second, 3)
+		finishAssistantTurn(second, "s2")
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	result, err := invokeFakePeerStream(ctx, giztest.PeerStreamOperation{
+		Mode: "text", InterruptAfter: "40ms", IdleTimeout: "200ms",
+	}, first, second)
+	if err != nil {
+		t.Fatalf("audio-only reply was not interrupted: %v", err)
+	}
+	if object, _ := result.assertion.(map[string]any); object["interrupted"] != true {
+		t.Fatalf("interrupt assertion = %#v", result.assertion)
+	}
+}
+
+func TestInvokePeerStreamSilentAudioDoesNotStartInterrupt(t *testing.T) {
+	first := newFakeRelayStream()
+	silence, err := appendRealtimeTailSilence(nil, 20*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		drainPushes(first, 3)
+		first.in <- assistantBlob("s1", silence[0], false)
+	}()
+	result, err := invokeFakePeerStream(context.Background(), giztest.PeerStreamOperation{
+		Mode: "text", InterruptAfter: "40ms", IdleTimeout: "100ms",
+	}, first)
+	if err == nil || !strings.Contains(err.Error(), "deadline=idle_timeout") || !strings.Contains(err.Error(), "interrupt_sent=false") {
+		t.Fatalf("silent audio result = %#v, error = %v", result, err)
+	}
+}
+
 func TestInvokePeerStreamIdleTimeoutSuspendedDuringInterruptReplacement(t *testing.T) {
 	first := newFakeRelayStream()
 	second := newFakeRelayStream()

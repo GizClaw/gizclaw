@@ -890,6 +890,12 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 		}()
 	}
+	armInterrupt := func() {
+		if interruptDelay > 0 && interruptTimer == nil {
+			interruptTimer = time.NewTimer(interruptDelay)
+			interrupt = interruptTimer.C
+		}
+	}
 	var texts []string
 	var assistantPackets [][]byte
 	var audioPacing peerAudioPacing
@@ -1315,10 +1321,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 						firstTextTimer.Stop()
 						firstTextDeadline = nil
 					}
-					if interruptDelay > 0 && interruptTimer == nil {
-						interruptTimer = time.NewTimer(interruptDelay)
-						interrupt = interruptTimer.C
-					}
+					armInterrupt()
 				}
 				texts = append(texts, string(part))
 			case *genx.Blob:
@@ -1356,6 +1359,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 					firstAudioObserved = true
 					firstAudioElapsed = eventElapsed
 					firstAudioMS = firstAudioElapsed.Milliseconds()
+					armInterrupt()
 					if firstAudioTimer != nil {
 						firstAudioTimer.Stop()
 						firstAudioDeadline = nil
