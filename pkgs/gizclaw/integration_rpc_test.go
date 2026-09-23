@@ -1,18 +1,111 @@
 package gizclaw_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
+
+type rpcPeerInfoConflictStore struct {
+	kv.Store
+	mu        sync.Mutex
+	name      string
+	before    func(context.Context) error
+	triggered bool
+}
+
+func (s *rpcPeerInfoConflictStore) CreateIfAbsent(ctx context.Context, guard kv.Entry, entries []kv.Entry) ([]byte, bool, error) {
+	return kv.CreateIfAbsent(ctx, s.Store, guard, entries)
+}
+
+func (s *rpcPeerInfoConflictStore) CompareAndMutate(ctx context.Context, guard kv.Key, expected []byte, entries []kv.Entry, keys []kv.Key) (bool, error) {
+	return kv.CompareAndMutate(ctx, s.Store, guard, expected, entries, keys)
+}
+
+func (s *rpcPeerInfoConflictStore) arm(name string, before func(context.Context) error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.name = name
+	s.before = before
+}
+
+func (s *rpcPeerInfoConflictStore) ApplyMutation(ctx context.Context, mutation kv.Mutation) (bool, error) {
+	s.mu.Lock()
+	var before func(context.Context) error
+	for _, entry := range mutation.Entries {
+		if s.before != nil && bytes.Contains(entry.Value, []byte(s.name)) {
+			before = s.before
+			s.before = nil
+			s.triggered = true
+			break
+		}
+	}
+	s.mu.Unlock()
+	if before != nil {
+		if err := before(ctx); err != nil {
+			return false, err
+		}
+	}
+	return s.Store.ApplyMutation(ctx, mutation)
+}
+
+func (s *rpcPeerInfoConflictStore) didTrigger() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.triggered
+}
+
+func TestIntegrationRPCPutServerInfoPreservesConcurrentFields(t *testing.T) {
+	var conflicting *rpcPeerInfoConflictStore
+	var underlying kv.Store
+	ts := startConfiguredTestServer(t, "", func(srv *gizclaw.Server) {
+		underlying = srv.PeerStore
+		conflicting = &rpcPeerInfoConflictStore{Store: underlying}
+		srv.PeerStore = conflicting
+	})
+	client := newTestClient(t, ts)
+	ctx, cancel := context.WithTimeout(context.Background(), testReadyTimeout)
+	defer cancel()
+	if err := waitUntil(testReadyTimeout, func() error {
+		_, err := client.PutServerInfo(ctx, "rpc-info-initial", rpcapi.ServerPutInfoRequest{Name: new("initial")})
+		return err
+	}); err != nil {
+		t.Fatalf("initial server.info.put: %v", err)
+	}
+
+	const updatedName = "rpc-concurrent-name"
+	const concurrentEmoji = "🦊"
+	conflicting.arm(updatedName, func(ctx context.Context) error {
+		other := &peer.Server{Store: kv.Prefixed(underlying, kv.Key{"records"})}
+		_, err := other.PutSelfInfo(ctx, client.KeyPair.Public, apitypes.DeviceInfo{Emoji: new(concurrentEmoji)})
+		return err
+	})
+	if _, err := client.PutServerInfo(ctx, "rpc-info-concurrent", rpcapi.ServerPutInfoRequest{Name: new(updatedName)}); err != nil {
+		t.Fatalf("concurrent server.info.put: %v", err)
+	}
+	if !conflicting.didTrigger() {
+		t.Fatal("concurrent record update was not injected")
+	}
+	info, err := client.GetServerInfo(ctx, "rpc-info-after-concurrent-update")
+	if err != nil {
+		t.Fatalf("server.info.get: %v", err)
+	}
+	if info.Name == nil || *info.Name != updatedName || info.Emoji == nil || *info.Emoji != concurrentEmoji {
+		t.Fatalf("server.info.get lost concurrent fields: %+v", info)
+	}
+}
 
 func TestIntegrationRPCDialAndPing(t *testing.T) {
 	const requests = 32
