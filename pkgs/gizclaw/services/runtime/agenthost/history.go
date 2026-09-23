@@ -1558,8 +1558,7 @@ func isRecordableHistoryAudioMIME(mimeType string) bool {
 func historyPCMFormat(mimeType string) (pcm.Format, bool) {
 	mediaType, params, err := mime.ParseMediaType(strings.TrimSpace(mimeType))
 	if err != nil {
-		mediaType = baseHistoryMIME(mimeType)
-		params = nil
+		return 0, false
 	}
 	switch strings.ToLower(mediaType) {
 	case "audio/pcm":
