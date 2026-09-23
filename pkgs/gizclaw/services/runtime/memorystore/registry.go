@@ -72,20 +72,23 @@ func (registry *Registry) Resolve(ctx context.Context, request Request) (Result,
 	select {
 	case <-entry.ready:
 	case <-ctx.Done():
-		return Result{}, ctx.Err()
+		backendToClose, drained := registry.finishFailedResolve(key, entry)
+		return Result{}, errors.Join(ctx.Err(), registry.closeDrained(key, backendToClose, drained))
 	}
 
 	registry.mu.Lock()
 	if entry.err != nil {
 		err := entry.err
 		registry.mu.Unlock()
+		backendToClose, drained := registry.finishFailedResolve(key, entry)
+		err = errors.Join(err, registry.closeDrained(key, backendToClose, drained))
 		return Result{}, err
 	}
 	if entry.closing || registry.entries[key] != entry {
 		registry.mu.Unlock()
-		return Result{}, errRegistryEntryClosed
+		backendToClose, drained := registry.finishFailedResolve(key, entry)
+		return Result{}, errors.Join(errRegistryEntryClosed, registry.closeDrained(key, backendToClose, drained))
 	}
-	entry.active++
 	backend := entry.backend
 	registry.mu.Unlock()
 
@@ -179,12 +182,13 @@ func (registry *Registry) reserve(key string) (*registryEntry, func(context.Cont
 		registry.entries = make(map[string]*registryEntry)
 	}
 	if entry := registry.entries[key]; entry != nil {
+		entry.active++
 		return entry, nil, nil
 	}
 	if drained := registry.draining[key]; drained != nil {
 		return nil, nil, drained
 	}
-	entry := &registryEntry{ready: make(chan struct{}), idle: make(chan struct{})}
+	entry := &registryEntry{ready: make(chan struct{}), idle: make(chan struct{}), active: 1}
 	registry.entries[key] = entry
 	opener := registry.open
 	if opener == nil {

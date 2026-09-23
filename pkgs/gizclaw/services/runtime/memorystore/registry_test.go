@@ -350,6 +350,41 @@ func TestRegistrySharesBindingUntilFinalRelease(t *testing.T) {
 	}
 }
 
+func TestRegistryReservationKeepsBackendAliveAcrossFinalLeaseRelease(t *testing.T) {
+	t.Parallel()
+	request := objectStoreTestRequest(t)
+	registry := NewRegistry()
+	t.Cleanup(func() { _ = registry.Close() })
+
+	first, err := registry.Resolve(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := registryKey(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, opener, drained := registry.reserve(key)
+	if entry == nil || opener != nil || drained != nil {
+		t.Fatal("reservation did not retain the live binding")
+	}
+	if err := first.Closer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	registry.mu.Lock()
+	retained := registry.entries[key] == entry && !entry.closing && entry.active == 1
+	registry.mu.Unlock()
+	if !retained {
+		t.Fatal("final lease closed the backend while a Resolve reservation was in flight")
+	}
+	if !registry.acceptResolve(key, entry) {
+		t.Fatal("reserved Resolve was rejected after the previous lease closed")
+	}
+	if err := (&registryLease{registry: registry, key: key, entry: entry}).Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRegistryConcurrentResolveConstructsOneStore(t *testing.T) {
 	t.Parallel()
 	request := objectStoreTestRequest(t)

@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:fixnum/fixnum.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:gizclaw/gizclaw.dart';
 import 'package:gizclaw_control/gizclaw_control.dart' as control;
@@ -214,11 +215,71 @@ GeneratedMessage scenarioRequest(String method, Object? params) {
   final value = wrapsValue && !(params is Map && params.containsKey('value'))
       ? <String, Object?>{'value': params ?? const <String, Object?>{}}
       : params ?? const <String, Object?>{};
+  final json = snakeToCamelKeys(value);
   request.mergeFromProto3Json(
-    snakeToCamelKeys(value),
+    _withoutUnknownEnumNumbers(request, json),
     ignoreUnknownFields: false,
   );
+  _restoreUnknownEnumNumbers(request, json);
   return request;
+}
+
+// The Dart proto3 JSON parser rejects unknown enum numbers, although the wire
+// format preserves them. Keep JSON's field and symbolic-name validation, then
+// carry singular unknown int32 enum values in the protobuf unknown field set.
+Object? _withoutUnknownEnumNumbers(GeneratedMessage message, Object? json) {
+  if (json is! Map) return json;
+  final sanitized = Map<String, Object?>.from(json);
+  for (final field in message.info_.byIndex) {
+    final value = sanitized[field.name];
+    if (field.isEnum && value is int && field.valueOf!(value) == null) {
+      if (value < -2147483648 || value > 2147483647) {
+        throw FormatException('enum number is outside int32: ${field.name}');
+      }
+      sanitized.remove(field.name);
+    } else if (field.isGroupOrMessage && !field.isMapField) {
+      if (field.isRepeated && value is List) {
+        sanitized[field.name] = [
+          for (final item in value)
+            _withoutUnknownEnumNumbers(field.subBuilder!(), item),
+        ];
+      } else if (value is Map) {
+        sanitized[field.name] = _withoutUnknownEnumNumbers(
+          field.subBuilder!(),
+          value,
+        );
+      }
+    }
+  }
+  return sanitized;
+}
+
+void _restoreUnknownEnumNumbers(GeneratedMessage message, Object? json) {
+  if (json is! Map) return;
+  for (final field in message.info_.byIndex) {
+    final value = json[field.name];
+    if (field.isEnum && value is int && field.valueOf!(value) == null) {
+      message.unknownFields.mergeVarintField(field.tagNumber, Int64(value));
+    } else if (field.isGroupOrMessage && !field.isMapField) {
+      if (field.isRepeated && value is List) {
+        final children = message.getField(field.tagNumber) as List;
+        for (var index = 0; index < children.length; index++) {
+          _restoreUnknownEnumNumbers(
+            children[index] as GeneratedMessage,
+            value[index],
+          );
+        }
+      } else if (value is Map) {
+        final child = message.hasField(field.tagNumber)
+            ? message.getField(field.tagNumber) as GeneratedMessage
+            : field.subBuilder!();
+        _restoreUnknownEnumNumbers(child, value);
+        if (!message.hasField(field.tagNumber)) {
+          message.setField(field.tagNumber, child);
+        }
+      }
+    }
+  }
 }
 
 /// Reads the `{error_code, error_message}` form a scenario uses to make a

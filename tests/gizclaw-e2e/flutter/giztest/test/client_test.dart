@@ -28,6 +28,59 @@ void main() {
     );
   });
 
+  test('unknown numeric safety fence levels reach the protobuf wire', () {
+    for (final level in [-2147483648, -1, 99, 2147483647]) {
+      final request = scenarioRequest('server.workspace.parameters.set', {
+        'name': 'x',
+        'parameters': {'safety_fence_level': level},
+      });
+      final wire = request.writeToBuffer();
+      expect(
+        (request.createEmptyInstance()..mergeFromBuffer(wire)).writeToBuffer(),
+        wire,
+      );
+      if (level == 99) {
+        expect(wire, [0x0a, 0x01, 0x78, 0x12, 0x02, 0x20, 0x63]);
+      }
+    }
+    for (final method in [
+      'server.run.workspace.reload-with-options',
+      'server.workspace.create',
+    ]) {
+      final parameters = method == 'server.workspace.create'
+          ? <String, Object?>{
+              'value': {
+                'name': 'x',
+                'parameters': {
+                  'flowcraft_workspace_parameters': {'safety_fence_level': 99},
+                },
+              },
+            }
+          : <String, Object?>{
+              'workspace_name': 'x',
+              'parameters': {'safety_fence_level': 99},
+            };
+      expect(
+        scenarioRequest(method, parameters).writeToBuffer(),
+        contains(0x63),
+      );
+    }
+    for (final value in ['', 'SAFETY_FENCE_LEVEL_UNKNOWN', 2147483648]) {
+      expect(
+        () => scenarioRequest('server.workspace.parameters.set', {
+          'parameters': {'safety_fence_level': value},
+        }),
+        throwsFormatException,
+      );
+    }
+    expect(
+      scenarioRequest('server.workspace.parameters.set', {
+        'name': 'x',
+      }).writeToBuffer(),
+      [0x0a, 0x01, 0x78],
+    );
+  });
+
   test('scenario requests encode find, social ping and profile methods', () {
     expect(
       scenarioRequest('client.device.find', {'duration_ms': 8000}),

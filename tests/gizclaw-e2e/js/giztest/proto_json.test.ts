@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { equals, fromBinary, fromJsonString } from "@bufbuild/protobuf";
 import { encodeTelemetryPacket } from "@gizclaw/gizclaw";
+import { encodeRPCRequestPayload } from "../../../../sdk/js/gizclaw/generated/rpc/payload-codec.ts";
 import {
   requestFromProtoJSON,
   responseToProtoJSON,
@@ -49,6 +50,35 @@ test("scenario enum conversion retains strict Protobuf JSON validation", () => {
     requestFromProtoJSON("server.firmware.get", {
       unknown_field: true,
     }),
+  );
+});
+
+test("invalid numeric safety fence values survive the SDK request encoder", () => {
+  const method = "server.workspace.parameters.set";
+  const request = requestFromProtoJSON(method, {
+    name: "x",
+    parameters: { safety_fence_level: 99 },
+  });
+  // WorkspaceParametersSetRequest.parameters is field 2; its optional
+  // safety_fence_level is field 4. The Server must receive 99, not an unset
+  // field or a locally rejected empty string.
+  assert.deepEqual(
+    encodeRPCRequestPayload(method, request),
+    new Uint8Array([0x0a, 0x01, 0x78, 0x12, 0x02, 0x20, 0x63]),
+  );
+  for (const value of ["", "SAFETY_FENCE_LEVEL_UNKNOWN"]) {
+    assert.throws(() =>
+      requestFromProtoJSON(method, {
+        parameters: { safety_fence_level: value },
+      }),
+    );
+  }
+  assert.deepEqual(
+    encodeRPCRequestPayload(
+      method,
+      requestFromProtoJSON(method, { name: "x" }),
+    ),
+    new Uint8Array([0x0a, 0x01, 0x78]),
   );
 });
 
