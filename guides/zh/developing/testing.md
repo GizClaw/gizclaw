@@ -642,7 +642,8 @@ reader 先记录时间再由另一条处理流程解码 Opus、判断是否可�
 保存或 PortAudio 播放耗时不会记到下一包的间隔里。`buffer_surplus_ms` 为正表示网络到包领先于 Opus 音频时钟。
 `max_interval_ms` 保留为诊断值：即使单次到包间隔超过 100 ms，500 ms 预缓冲仍可能让播放连续。
 Doubao realtime roundtrip 用零 underrun 和正的最小缓冲验收连续播放，同时保留均值、P95 节奏及缓冲余量断言，
-不再用单次最大间隔作硬性门槛。
+不再用单次最大间隔作硬性门槛。即使间隔被预缓冲覆盖，累计 `buffer_surplus_ms` 也可能低于 500 ms 目标，
+因此该场景只对这项诊断值保留上限，不用下限判定播放中断。
 所有 `*_ms` 字段的单位都是毫秒。`target_span_ms` 是除最后一包外各包时长之和，
 `drift_ms = receive_span_ms - target_span_ms`，`buffer_surplus_ms = -drift_ms`；P95 对到包
 间隔使用 nearest-rank。只有一包时仅提供 `packets` 与 `audio_ms`；没有 assistant Opus 时
@@ -705,6 +706,7 @@ tester Workflow 拥有测试意图、生成的用户行为、语义评判和最�
 `benchmark.workspace-relay.workflow-tester-20.giztest.yaml`），并保证清理。
 配套 tester Workflow 固定七轮提问和第八轮裁决；提问轮若模型提前输出孤立的 `PASS`/`FAIL` 或空文本，
 发布节点改发一条追问，终轮则按 brief 的逐轮标准原样发布模型裁决。
+若 brief 只要求主持人切题且非空，提问轮不强求指认凶手或完成故事；说明证据不足并给出相关后续调查也算切题回应。
 
 ### 广播场景：listen、parallel 与 input_sent
 

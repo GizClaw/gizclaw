@@ -727,7 +727,10 @@ the Opus media clock.
 `max_interval_ms` remains diagnostic: one arrival gap can exceed 100 ms while
 the 500 ms prebuffer still carries continuous playback. The Doubao realtime
 roundtrip gates playback with zero underruns and a positive minimum buffer,
-alongside mean/P95 cadence and buffer surplus, rather than a hard maximum gap.
+alongside mean/P95 cadence and an upper bound on buffer surplus, rather than
+a hard maximum gap. A covered arrival gap can lower cumulative buffer surplus
+below the 500 ms pacing target without interrupting playback, so the roundtrip
+does not impose a lower bound on that diagnostic value.
 All `*_ms` values use milliseconds. `target_span_ms` is the sum of every packet
 duration except the last, `drift_ms = receive_span_ms - target_span_ms`, and
 `buffer_surplus_ms = -drift_ms`. P95 uses nearest-rank selection over arrival
@@ -828,7 +831,10 @@ gates and the repeat-20 relay gate
 The paired tester Workflow uses seven probe turns and an eighth verdict turn.
 If the model emits a bare `PASS`/`FAIL` or empty text during a probe, the
 publisher asks a follow-up instead; the final model verdict is published as is
-against the brief's per-reply criteria.
+against the brief's per-reply criteria. Probe questions must not demand a
+definitive culprit or completed story when the brief only checks relevant,
+nonempty host replies; a reasoned statement that clues are insufficient is a
+responsive answer.
 
 ### Broadcast scenarios: listen, parallel, and input_sent
 
