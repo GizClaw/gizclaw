@@ -21,10 +21,13 @@ if (!Array.isArray(nodes)) {
   throw new Error("tester workflow has no graph nodes");
 }
 const publisher = nodes.find((node: unknown) => record(node).id === "publish_response");
-const source = record(record(publisher).config).source;
-if (typeof source !== "string") {
-  throw new Error("tester workflow has no publisher script");
-}
+const source = (() => {
+  const value = record(record(publisher).config).source;
+  if (typeof value !== "string") {
+    throw new Error("tester workflow has no publisher script");
+  }
+  return value;
+})();
 
 function publish(mode: string, response: string): string {
   const emitted: string[] = [];

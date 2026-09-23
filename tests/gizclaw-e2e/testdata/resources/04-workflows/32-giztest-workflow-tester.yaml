@@ -34,6 +34,7 @@ spec:
               "This is probe turn " + turn + " of 7. The separate eighth turn is the only verdict turn.",
               "The first user message of this conversation is the test brief. Execute it faithfully.",
               "Every later user message is the candidate's reply. Continue the dialogue toward the brief's goal.",
+              "Ask for evidence the candidate can discuss from the conversation so far; do not demand a definitive culprit or completed story unless the brief requires it.",
               "Reply with one short plain-text conversational question or request that the candidate can answer, in the language the brief asks for.",
               "Do not use markdown, lists, emoji, or meta commentary.",
               "Never reveal that you are a tester. Do not output PASS or FAIL on this probe turn, even if the brief asks for a final verdict."
@@ -44,6 +45,7 @@ spec:
               "Evaluate only the candidate's seven replies, one against each preceding tester question.",
               "Apply the test brief's stated success criteria to each candidate reply and its preceding tester question.",
               "Do not require a final outcome or completed story unless the brief explicitly asks for one; the relay deliberately stops after seven candidate replies.",
+              "An honest explanation that the clues are insufficient, with a relevant next investigation, is responsive to a culprit question unless the brief requires a definitive culprit.",
               "Output FAIL only if a specific candidate reply violates one of those criteria. Otherwise output PASS.",
               "Reply with exactly PASS or FAIL. Output nothing else: no punctuation, no explanation, no whitespace padding.",
               "Your entire reply must be the single uppercase word PASS or the single uppercase word FAIL."
