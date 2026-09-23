@@ -637,8 +637,12 @@ route 或 reload 后的响应断言。
 `target_span_ms`、`receive_span_ms`、`mean_packet_ms`、`mean_interval_ms`、
 `p95_interval_ms`、`max_interval_ms`、`drift_ms`、`absolute_drift_ms`、
 `buffer_surplus_ms`，以及连续播放模拟结果 `prebuffer_ms`、`underruns`、
-`underrun_ms`、`max_underrun_ms` 和 `minimum_buffer_ms`。间隔来自 stream reader 收到每包的 monotonic 时间，不包含后续断言、
-保存或 PortAudio 播放耗时；`buffer_surplus_ms` 为正表示网络到包领先于 Opus 音频时钟。
+`underrun_ms`、`max_underrun_ms` 和 `minimum_buffer_ms`。间隔来自 stream reader 收到每包的 monotonic 时间；
+reader 先记录时间再由另一条处理流程解码 Opus、判断是否可听和观察事件，因此这些处理以及后续断言、
+保存或 PortAudio 播放耗时不会记到下一包的间隔里。`buffer_surplus_ms` 为正表示网络到包领先于 Opus 音频时钟。
+`max_interval_ms` 保留为诊断值：即使单次到包间隔超过 100 ms，500 ms 预缓冲仍可能让播放连续。
+Doubao realtime roundtrip 用零 underrun 和正的最小缓冲验收连续播放，同时保留均值、P95 节奏及缓冲余量断言，
+不再用单次最大间隔作硬性门槛。
 所有 `*_ms` 字段的单位都是毫秒。`target_span_ms` 是除最后一包外各包时长之和，
 `drift_ms = receive_span_ms - target_span_ms`，`buffer_surplus_ms = -drift_ms`；P95 对到包
 间隔使用 nearest-rank。只有一包时仅提供 `packets` 与 `audio_ms`；没有 assistant Opus 时
@@ -699,6 +703,8 @@ tester Workflow 拥有测试意图、生成的用户行为、语义评判和最�
 验证多模态 candidate 的 text 转发和 audio EOS 完成；`run_workspace_relay_tests.sh` 启动
 一套隔离栈，先后运行两个 repeat-1 与 repeat-20 relay gate（后者以 `--parallel 20` 运行
 `benchmark.workspace-relay.workflow-tester-20.giztest.yaml`），并保证清理。
+配套 tester Workflow 固定七轮提问和第八轮裁决；提问轮若模型提前输出孤立的 `PASS`/`FAIL` 或空文本，
+发布节点改发一条追问，终轮则按 brief 的逐轮标准原样发布模型裁决。
 
 ### 广播场景：listen、parallel 与 input_sent
 
