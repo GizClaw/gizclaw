@@ -6,6 +6,8 @@ The JavaScript RPC payload codec decodes known enum numbers to their existing do
 
 The Flutter Giztest request adapter applies the same numeric wire contract. Dart protobuf's proto3 JSON parser rejects unknown enum numbers, so the adapter validates all other JSON fields and symbolic names through that parser, then preserves unknown int32 enum numbers as protobuf unknown varints. The Server remains responsible for rejecting invalid domain values.
 
+The internal macOS Flutter Giztest runner builds through CocoaPods with Swift Package Manager integration disabled. Its Runner and Pod deployment targets are macOS 12; this does not change the Flutter SDK deployment target.
+
 ## Generate link
 
 | Source | Main Output | Commands |

@@ -6,6 +6,8 @@ JavaScript RPC payload codec 将已知 enum 数字解码为现有领域字符串
 
 Flutter Giztest 的 request adapter 遵循相同的数字 wire contract。Dart protobuf 的 proto3 JSON parser 会拒绝未知 enum 数字，因此 adapter 仍由该 parser 校验其他 JSON 字段和 symbolic name，再将未知 int32 enum 数字保留为 protobuf unknown varint。非法领域值仍由 Server 拒绝。
 
+内部 macOS Flutter Giztest runner 通过 CocoaPods 构建，关闭 Swift Package Manager 集成。Runner 和 Pod 的 macOS 最低部署版本为 12；这不改变 Flutter SDK 的最低部署版本。
+
 ## 生成链路
 
 | Source | 主要输出 | 命令 |
