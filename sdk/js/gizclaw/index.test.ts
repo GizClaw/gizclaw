@@ -1091,6 +1091,30 @@ test("RPC payload codec rejects unknown enum strings", () => {
   );
 });
 
+test("RPC payload codec preserves unknown numeric enum values", () => {
+  for (const level of [-2147483648, -1, 99, 2147483647]) {
+    const method = "server.workspace.parameters.set";
+    const request = {
+      name: "example",
+      parameters: { safety_fence_level: level },
+    };
+    const payload = encodeRPCRequestPayload(method, request);
+    const decoded = decodeRPCRequestPayload(method, payload);
+    assert.deepEqual(decoded, request);
+    assert.deepEqual(encodeRPCRequestPayload(method, decoded), payload);
+
+    const response = { result: level, delivered_count: 0 };
+    const responsePayload = encodeRPCResponsePayload(
+      "server.friend.ping",
+      response,
+    );
+    assert.deepEqual(
+      decodeRPCResponsePayload("server.friend.ping", responsePayload),
+      response,
+    );
+  }
+});
+
 test("Firmware RPC generated contract round-trips every channel and field", () => {
   for (const channel of ["stable", "beta", "develop"] as const) {
     const request = { channel };

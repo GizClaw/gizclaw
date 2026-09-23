@@ -44,7 +44,7 @@ func (s *Server) BindFirmware(ctx context.Context, publicKey giznet.PublicKey, f
 	}
 	unlock := s.IconLocks.LockRecord(publicKey.String())
 	defer unlock()
-	peer, err := s.get(ctx, publicKey)
+	peer, err := s.getStored(ctx, publicKey)
 	if err != nil {
 		return apitypes.Peer{}, err
 	}
@@ -131,7 +131,7 @@ func (s *Server) putInfo(ctx context.Context, publicKey giznet.PublicKey, info a
 	}
 	unlock := s.IconLocks.LockRecord(publicKey.String())
 	defer unlock()
-	peer, err := s.get(ctx, publicKey)
+	peer, err := s.getStored(ctx, publicKey)
 	if err != nil {
 		return apitypes.Peer{}, err
 	}
@@ -168,7 +168,7 @@ func (s *Server) BootstrapEdgeNodes(ctx context.Context, publicKeys []giznet.Pub
 				if err := s.EnsureAvailable(ctx, publicKey); err != nil && !errors.Is(err, ErrPeerNotFound) {
 					return err
 				}
-				peer, err := s.get(ctx, publicKey)
+				peer, err := s.getStored(ctx, publicKey)
 				if err != nil && !errors.Is(err, ErrPeerNotFound) {
 					return err
 				}
@@ -218,7 +218,7 @@ func (s *Server) SaveRefreshedDeviceFields(
 ) (apitypes.Peer, error) {
 	unlock := s.IconLocks.LockRecord(publicKey.String())
 	defer unlock()
-	peer, err := s.get(ctx, publicKey)
+	peer, err := s.getStored(ctx, publicKey)
 	if err != nil {
 		return apitypes.Peer{}, err
 	}
@@ -281,7 +281,7 @@ func (s *Server) approve(ctx context.Context, publicKey giznet.PublicKey, role a
 	}
 	unlock := s.IconLocks.LockRecord(publicKey.String())
 	defer unlock()
-	peer, err := s.get(ctx, publicKey)
+	peer, err := s.getStored(ctx, publicKey)
 	if err != nil {
 		return apitypes.Peer{}, err
 	}
@@ -294,7 +294,7 @@ func (s *Server) approve(ctx context.Context, publicKey giznet.PublicKey, role a
 
 func (s *Server) block(ctx context.Context, publicKey giznet.PublicKey) (apitypes.Peer, error) {
 	unlock := s.IconLocks.LockRecord(publicKey.String())
-	item, err := s.get(ctx, publicKey)
+	item, err := s.getStored(ctx, publicKey)
 	if err != nil {
 		unlock()
 		return apitypes.Peer{}, err
@@ -302,6 +302,11 @@ func (s *Server) block(ctx context.Context, publicKey giznet.PublicKey) (apitype
 	previous := item
 	item.Status = apitypes.PeerRegistrationStatusBlocked
 	item.UpdatedAt = time.Now()
+	projected, err := s.projectRegistrationFirmware(ctx, item)
+	if err != nil {
+		unlock()
+		return apitypes.Peer{}, err
+	}
 	if err := s.writePeerLocked(ctx, item, &previous); err != nil {
 		unlock()
 		return apitypes.Peer{}, err
@@ -320,7 +325,7 @@ func (s *Server) block(ctx context.Context, publicKey giznet.PublicKey) (apitype
 	}
 	// Blocking does not establish local runtime ownership. Return the
 	// committed snapshot without creating a local directory entry.
-	return item, nil
+	return projected, nil
 }
 
 func (s *Server) delete(ctx context.Context, publicKey giznet.PublicKey, reason pendingdeletion.Reason) (apitypes.Peer, error) {
@@ -381,19 +386,32 @@ func (s *Server) DeleteSelf(ctx context.Context, publicKey giznet.PublicKey) err
 }
 
 func (s *Server) get(ctx context.Context, publicKey giznet.PublicKey) (apitypes.Peer, error) {
+	peer, err := s.getStored(ctx, publicKey)
+	if err != nil {
+		return apitypes.Peer{}, err
+	}
+	return s.projectRegistrationFirmware(ctx, peer)
+}
+
+// getStored reads the unprojected KV snapshot used by record mutations. SQL
+// registration fields belong to read projections, not the KV CAS condition.
+func (s *Server) getStored(ctx context.Context, publicKey giznet.PublicKey) (apitypes.Peer, error) {
 	store, err := s.store()
 	if err != nil {
 		return apitypes.Peer{}, err
 	}
-	publicKeyText := publicKey.String()
-	peer, err := s.getByPublicKeyText(ctx, store, publicKeyText)
-	if err != nil {
-		return apitypes.Peer{}, err
-	}
-	return peer, nil
+	return getStoredByPublicKeyText(ctx, store, publicKey.String())
 }
 
 func (s *Server) getByPublicKeyText(ctx context.Context, store kv.Store, publicKeyText string) (apitypes.Peer, error) {
+	peer, err := getStoredByPublicKeyText(ctx, store, publicKeyText)
+	if err != nil {
+		return apitypes.Peer{}, err
+	}
+	return s.projectRegistrationFirmware(ctx, peer)
+}
+
+func getStoredByPublicKeyText(ctx context.Context, store kv.Store, publicKeyText string) (apitypes.Peer, error) {
 	data, err := store.Get(ctx, peerKey(publicKeyText))
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
@@ -408,7 +426,7 @@ func (s *Server) getByPublicKeyText(ctx context.Context, store kv.Store, publicK
 	if err != nil {
 		return apitypes.Peer{}, fmt.Errorf("peer: decode %s: %w", publicKeyText, err)
 	}
-	return s.projectRegistrationFirmware(ctx, peer)
+	return peer, nil
 }
 
 func (s *Server) projectRegistrationFirmware(ctx context.Context, item apitypes.Peer) (apitypes.Peer, error) {
@@ -478,10 +496,14 @@ func (s *Server) createLocked(ctx context.Context, publicKey giznet.PublicKey, p
 	now := time.Now()
 	peer.CreatedAt = now
 	peer.UpdatedAt = now
+	projected, err := s.projectRegistrationFirmware(ctx, peer)
+	if err != nil {
+		return apitypes.Peer{}, err
+	}
 	if err := s.writePeerLocked(ctx, peer, nil); err != nil {
 		return apitypes.Peer{}, err
 	}
-	return s.get(ctx, publicKey)
+	return projected, nil
 }
 
 func (s *Server) put(ctx context.Context, peer apitypes.Peer) (apitypes.Peer, error) {
@@ -508,7 +530,7 @@ func (s *Server) putRecord(ctx context.Context, peer apitypes.Peer) (apitypes.Pe
 		return apitypes.Peer{}, err
 	}
 
-	old, err := s.get(ctx, publicKey)
+	old, err := s.getStored(ctx, publicKey)
 	if err != nil && !errors.Is(err, ErrPeerNotFound) {
 		return apitypes.Peer{}, err
 	}
@@ -520,13 +542,17 @@ func (s *Server) putRecord(ctx context.Context, peer apitypes.Peer) (apitypes.Pe
 		}
 	}
 	peer.UpdatedAt = time.Now()
+	projected, projectionErr := s.projectRegistrationFirmware(ctx, peer)
+	if projectionErr != nil {
+		return apitypes.Peer{}, projectionErr
+	}
 	if err := s.writePeerLocked(ctx, peer, optionalPeer(old, err)); err != nil {
 		return apitypes.Peer{}, err
 	}
 	if err := s.rememberPeer(ctx, peer); err != nil {
 		return apitypes.Peer{}, err
 	}
-	return s.get(ctx, publicKey)
+	return projected, nil
 }
 
 // EnsureAvailable rejects marker-time and permanent-tombstone activation.
