@@ -131,17 +131,40 @@ func (s *Server) putInfo(ctx context.Context, publicKey giznet.PublicKey, info a
 	}
 	unlock := s.IconLocks.LockRecord(publicKey.String())
 	defer unlock()
-	peer, err := s.getStored(ctx, publicKey)
-	if err != nil {
+	if err := s.EnsureAvailable(ctx, publicKey); err != nil && !errors.Is(err, ErrPeerNotFound) {
 		return apitypes.Peer{}, err
 	}
-	if info.Name != nil {
-		peer.Device.Name = info.Name
+	for range 3 {
+		previous, err := s.getStored(ctx, publicKey)
+		if err != nil {
+			return apitypes.Peer{}, err
+		}
+		peer := previous
+		if info.Name != nil {
+			peer.Device.Name = info.Name
+		}
+		if info.Emoji != nil {
+			peer.Device.Emoji = info.Emoji
+		}
+		peer.UpdatedAt = time.Now()
+		if err := validatePeer(peer); err != nil {
+			return apitypes.Peer{}, err
+		}
+		projected, err := s.projectRegistrationFirmware(ctx, peer)
+		if err != nil {
+			return apitypes.Peer{}, err
+		}
+		if err := s.writePeerLocked(ctx, peer, &previous); errors.Is(err, ErrPeerConcurrentUpdate) {
+			continue
+		} else if err != nil {
+			return apitypes.Peer{}, err
+		}
+		if err := s.rememberPeer(ctx, peer); err != nil {
+			return apitypes.Peer{}, err
+		}
+		return projected, nil
 	}
-	if info.Emoji != nil {
-		peer.Device.Emoji = info.Emoji
-	}
-	return s.putRecord(ctx, peer)
+	return apitypes.Peer{}, ErrPeerConcurrentUpdate
 }
 
 // LoadPeer returns the stored peer record for a public key.

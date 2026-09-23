@@ -151,6 +151,77 @@ func (s *bootstrapConflictStore) ApplyMutation(ctx context.Context, mutation kv.
 	return s.Store.ApplyMutation(ctx, mutation)
 }
 
+func TestPutSelfInfoRetriesConcurrentRecordAndPreservesOtherFields(t *testing.T) {
+	ctx := t.Context()
+	base := mustBadgerInMemory(t, nil)
+	key := giznet.PublicKey{38}
+	name := "original"
+	emoji := "🐈"
+	server := &Server{Store: base}
+	saveTestPeer(t, server, key, apitypes.DeviceInfo{Name: &name, Emoji: &emoji})
+
+	wrapped := &bootstrapConflictStore{Store: base}
+	server.Store = wrapped
+	concurrentEmoji := "🦊"
+	wrapped.before = func() {
+		other := &Server{Store: base}
+		peer, err := other.getStored(ctx, key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		peer.Device.Emoji = &concurrentEmoji
+		if _, err := other.putRecord(ctx, peer); err != nil {
+			t.Fatal(err)
+		}
+	}
+	updatedName := "updated"
+	updated, err := server.PutSelfInfo(ctx, key, apitypes.DeviceInfo{Name: &updatedName})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Name == nil || *updated.Name != updatedName ||
+		updated.Emoji == nil || *updated.Emoji != concurrentEmoji {
+		t.Fatalf("PutSelfInfo lost concurrent field: %+v", updated)
+	}
+	stored, err := server.getStored(ctx, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Device.Name == nil || *stored.Device.Name != updatedName ||
+		stored.Device.Emoji == nil || *stored.Device.Emoji != concurrentEmoji {
+		t.Fatalf("stored peer lost concurrent field: %+v", stored.Device)
+	}
+}
+
+type alwaysConflictStore struct {
+	kv.Store
+	attempts int
+}
+
+func (s *alwaysConflictStore) ApplyMutation(context.Context, kv.Mutation) (bool, error) {
+	s.attempts++
+	return false, nil
+}
+
+func TestPutSelfInfoStopsAfterRepeatedConflicts(t *testing.T) {
+	ctx := t.Context()
+	base := mustBadgerInMemory(t, nil)
+	key := giznet.PublicKey{39}
+	name := "original"
+	server := &Server{Store: base}
+	saveTestPeer(t, server, key, apitypes.DeviceInfo{Name: &name})
+
+	conflicts := &alwaysConflictStore{Store: base}
+	server.Store = conflicts
+	updatedName := "updated"
+	if _, err := server.PutSelfInfo(ctx, key, apitypes.DeviceInfo{Name: &updatedName}); !errors.Is(err, ErrPeerConcurrentUpdate) {
+		t.Fatalf("PutSelfInfo repeated conflict = %v", err)
+	}
+	if conflicts.attempts != 3 {
+		t.Fatalf("mutation attempts = %d, want 3", conflicts.attempts)
+	}
+}
+
 func TestEnsureConnectedPeerRejectsBlockedAndPreservesRecord(t *testing.T) {
 	s := &Server{Store: kv.NewMemory(nil)}
 	key := giznet.PublicKey{81}
