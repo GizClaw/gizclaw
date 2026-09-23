@@ -115,6 +115,9 @@ func TestPeerAudioPacingSummarizesPacketClockAndArrivalGaps(t *testing.T) {
 	if summary["mean_packet_ms"] != float64(20) || summary["mean_interval_ms"] != float64(20) || summary["p95_interval_ms"] != float64(21) || summary["max_interval_ms"] != float64(21) || summary["absolute_drift_ms"] != float64(0) {
 		t.Fatalf("pacing intervals = %#v", summary)
 	}
+	if summary["max_interval_after_packet"] != 2 || summary["max_interval_start_ms"] != float64(20) {
+		t.Fatalf("maximum interval location = %#v", summary)
+	}
 }
 
 func TestPeerAudioPacingOmitsUnavailableIntervals(t *testing.T) {

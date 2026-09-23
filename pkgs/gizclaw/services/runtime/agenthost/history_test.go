@@ -375,11 +375,14 @@ func TestHistoryAgentRecordsOutputHistoryPCMAudioAsOggOpus(t *testing.T) {
 		t.Skip("requires native opus runtime")
 	}
 	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
-	pcmFrame := historyTestPCMFrame(320)
+	// Ten 20 ms frames at the MIME's explicit 16 kHz rate. Decoding these
+	// bytes as 24 kHz would produce only seven Opus frames.
+	pcmFrame := historyTestPCMFrame(3200)
+	const pcmMIME = "audio/x-pcm; rate=16000; channels=1; format=s16le"
 	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(
-		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: &genx.Blob{MIMEType: "audio/pcm", Data: pcmFrame[:300]}, Ctrl: &genx.StreamCtrl{StreamID: "audio", Label: genx.HistoryUserAudioLabel}},
-		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: &genx.Blob{MIMEType: "audio/pcm", Data: pcmFrame[300:]}, Ctrl: &genx.StreamCtrl{StreamID: "audio", Label: genx.HistoryUserAudioLabel}},
-		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "audio", Label: genx.HistoryUserAudioLabel, EndOfStream: true}},
+		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: &genx.Blob{MIMEType: pcmMIME, Data: pcmFrame[:300]}, Ctrl: &genx.StreamCtrl{StreamID: "audio", Label: genx.HistoryUserAudioLabel}},
+		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: &genx.Blob{MIMEType: pcmMIME, Data: pcmFrame[300:]}, Ctrl: &genx.StreamCtrl{StreamID: "audio", Label: genx.HistoryUserAudioLabel}},
+		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: &genx.Blob{MIMEType: pcmMIME}, Ctrl: &genx.StreamCtrl{StreamID: "audio", Label: genx.HistoryUserAudioLabel, EndOfStream: true}},
 	)}, history)
 
 	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), historyStreamFromChunks())
@@ -417,7 +420,7 @@ func TestHistoryAgentRecordsOutputHistoryPCMAudioAsOggOpus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadAllPackets: %v", err)
 	}
-	if len(packets) != 3 || !codecconv.IsOpusHeadPacket(packets[0].Data) || !codecconv.IsOpusTagsPacket(packets[1].Data) || len(packets[2].Data) == 0 {
+	if len(packets) != 12 || !codecconv.IsOpusHeadPacket(packets[0].Data) || !codecconv.IsOpusTagsPacket(packets[1].Data) || len(packets[2].Data) == 0 {
 		t.Fatalf("ogg packets = %+v", packets)
 	}
 }
