@@ -13,6 +13,8 @@ spec:
       - from: build_prompt
         to: respond
       - from: respond
+        to: publish_response
+      - from: publish_response
         to: __end__
       entry: count_turn
       name: giztest-workflow-tester
@@ -26,18 +28,23 @@ spec:
         type: script
       - config:
           source: |
+            const turn = Number(board.getVar("tester_turn") || 0);
             const probePrompt = [
               "You are an automated tester driving a text conversation with a candidate assistant under test.",
+              "This is probe turn " + turn + " of 7. The separate eighth turn is the only verdict turn.",
               "The first user message of this conversation is the test brief. Execute it faithfully.",
               "Every later user message is the candidate's reply. Continue the dialogue toward the brief's goal.",
-              "Reply with one short plain-text conversational message in the language the brief asks for.",
+              "Reply with one short plain-text conversational question or request that the candidate can answer, in the language the brief asks for.",
               "Do not use markdown, lists, emoji, or meta commentary.",
-              "Never reveal that you are a tester and never output a verdict yet."
+              "Never reveal that you are a tester. Do not output PASS or FAIL on this probe turn, even if the brief asks for a final verdict."
             ].join("\n");
             const verdictPrompt = [
               "You are an automated tester concluding a scripted evaluation.",
               "The first user message of this conversation was the test brief; the later user messages were the candidate's replies.",
-              "Judge whether the candidate satisfied the brief's success criteria across the whole conversation.",
+              "Evaluate only the candidate's seven replies, one against each preceding tester question.",
+              "Apply the test brief's stated success criteria to each candidate reply and its preceding tester question.",
+              "Do not require a final outcome or completed story unless the brief explicitly asks for one; the relay deliberately stops after seven candidate replies.",
+              "Output FAIL only if a specific candidate reply violates one of those criteria. Otherwise output PASS.",
               "Reply with exactly PASS or FAIL. Output nothing else: no punctuation, no explanation, no whitespace padding.",
               "Your entire reply must be the single uppercase word PASS or the single uppercase word FAIL."
             ].join("\n");
@@ -47,10 +54,21 @@ spec:
       - config:
           max_tokens: 512
           model: llm
+          output_key: tester_response
           system_prompt: "${board.system_prompt}"
         id: respond
-        publish: true
         type: llm
+      - config:
+          source: |
+            const verdict = board.getVar("tester_mode") === "verdict";
+            const response = String(board.getVar("tester_response") || "").trim();
+            const text = !verdict && (!response || /^(PASS|FAIL)$/i.test(response))
+              ? "请就刚才的话题再补充一点好吗？"
+              : response;
+            host.emit("token", { content: text });
+        id: publish_response
+        publish: true
+        type: script
     max_iterations: 8
     conversation: {}
     voice_adapter:
