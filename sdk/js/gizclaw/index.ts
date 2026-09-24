@@ -1,6 +1,15 @@
 import type { CreateGiznetWebRtcOfferData } from "./generated/peerhttp/types.gen.ts";
-import { RPC_METHOD_IDS } from "./generated/rpc/method-map.ts";
 import {
+  RPC_METHOD_IDS,
+  CLIENT_TOOL_IDS,
+  CLIENT_TOOL_NAMES,
+  type ClientToolMap,
+  type ClientToolID,
+} from "./generated/rpc/method-map.ts";
+import {
+  decodeClientToolRequestPayload,
+  encodeClientToolResponsePayload,
+  type ClientToolV0InvokeRequest,
   decodeRPCRequestPayload,
   decodeRPCResponsePayload,
   encodeRPCRequestPayload,
@@ -30,16 +39,12 @@ import {
   type ClientDeviceFactoryResetRequest,
   type ClientDeviceFindRequest,
   type ClientDeviceRebootRequest,
-  type ClientDeviceSettingsSetRequest,
   type ClientRunWorkspaceSetRequest,
   type ClientMhsV0ReadRequest,
   type ClientMhsV0ReadResponse,
   type ClientMhsV0WriteRequest,
   type ClientMhsV0WriteResponse,
-  type ToolInvokeRequest,
-  type DeviceSettings,
   type ClientDeviceSoundPlayRequest,
-  type ClientDeviceVolumeSetRequest,
   type ClientFirmwareUpdateRequest,
   type FirmwareChannelName,
   type ClientGetIdentifiersResponse,
@@ -50,7 +55,6 @@ import {
   type ClientWifiScanRequest,
   type PeerStatus,
   type WifiSavedNetwork,
-  type WifiStatus,
   type WifiScanResult,
 } from "./generated/rpc/payload-codec.ts";
 import {
@@ -278,8 +282,7 @@ export type GizClawAudioPlayerHandlers = {
     | ClientDeviceAudioPlayerModeSetResponse;
 };
 
-// GizClawDeviceControlHandlers answers the client.device.* and client.wifi.*
-// RPCs the GizClaw server forwards on behalf of an API key holder. An omitted
+// GizClawDeviceControlHandlers answers the predefined tool/v0 procedures the GizClaw server forwards on behalf of an API key holder. An omitted
 // handler answers METHOD_NOT_FOUND, which the server maps to
 // 501 DEVICE_UNSUPPORTED.
 export type GizClawDeviceControlHandlers = {
@@ -313,25 +316,7 @@ export type GizClawDeviceControlHandlers = {
   scanWifi?: (
     timeoutMs?: number,
   ) => Promise<WifiScanResult[]> | WifiScanResult[];
-  /** @deprecated Use writeMhsStates with RuntimeProfile manifest keys. */
-  setVolume?: (
-    level: number,
-    muted: boolean,
-  ) => Promise<GizClawDeviceStatus> | GizClawDeviceStatus;
   status?: () => Promise<GizClawDeviceStatus> | GizClawDeviceStatus;
-  wifiStatus?: () => Promise<WifiStatus> | WifiStatus;
-  // getSettings reports every option this device supports. An option the
-  // device has no hardware for stays absent rather than being reported with a
-  // placeholder value, which is how a caller tells "off" from "not supported".
-  /** @deprecated Use readMhsStates with RuntimeProfile manifest keys. */
-  getSettings?: () => Promise<DeviceSettings> | DeviceSettings;
-  // setSettings applies only the options present in the patch and answers with
-  // the device's full settings afterwards, so the caller sees what was
-  // accepted. An option the device does not support is ignored, not an error.
-  /** @deprecated Use writeMhsStates with RuntimeProfile manifest keys. */
-  setSettings?: (
-    patch: DeviceSettings,
-  ) => Promise<DeviceSettings> | DeviceSettings;
   // factoryReset erases device-local state. keepNetwork retains saved Wi-Fi and
   // cellular configuration so the device can reconnect without provisioning.
   //
@@ -354,33 +339,35 @@ export type GizClawDeviceControlHandlers = {
 // GizClawPeerRPCHandlers answers the client.* RPCs a GizClaw server initiates.
 // Every group is optional; an unhandled method answers METHOD_NOT_FOUND.
 export type GizClawPeerRPCHandlers = {
+  /** Observes decoded requests, including an unimplemented tool. */
+  observe?: (method: string, tool?: number) => void;
   deviceControl?: GizClawDeviceControlHandlers;
   deviceIdentifiers?: () =>
     Promise<ClientGetIdentifiersResponse> | ClientGetIdentifiersResponse;
   deviceInfo?: () => Promise<ClientGetInfoResponse> | ClientGetInfoResponse;
-  // socialPing answers client.social.ping: a friend pinged this device, or a
+  // socialPing answers social.ping: a friend pinged this device, or a
   // Friend Group member rallied the group. friend_group_name is this device's
   // own name for the group and is absent for a friend ping. The Server counts
   // the device as reached only when the handler resolves within its short
   // push timeout, so alert the user without waiting on them, and leave the
   // handler unset on a device that cannot alert its user.
   socialPing?: (request: ClientSocialPingRequest) => Promise<void> | void;
-  // tools answers client.tool.invoke for the device's client_rpc Tools, keyed
-  // by the Tool's invoke name. The handler receives the arguments the Server
-  // already validated against the Tool's input_schema, and its result is
-  // returned to the caller as JSON (data_json). A name without a handler
-  // answers METHOD_NOT_FOUND. Tool availability is discovered through the Tool
-  // list, so tools are not advertised by client.rpc.methods.get.
-  tools?: Record<string, GizClawToolHandler>;
+  /** Predefined tool providers, keyed by ClientTool number. */
+  tools?: {
+    [T in ClientToolID]?: (
+      request: ClientToolMap[T]["request"],
+    ) => ClientToolMap[T]["response"] | Promise<ClientToolMap[T]["response"]>;
+  };
 };
 
-// GizClawToolHandler runs one client_rpc Tool and returns a JSON-serializable
-// result.
-export type GizClawToolHandler = (
-  args: Record<string, unknown>,
-) => Promise<unknown> | unknown;
-
-const TOOL_INVOKE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]{0,63}$/;
+export {
+  CLIENT_TOOL_IDS,
+  CLIENT_TOOL_NAMES,
+} from "./generated/rpc/method-map.ts";
+export type {
+  ClientToolMap,
+  ClientToolID,
+} from "./generated/rpc/method-map.ts";
 
 // GizClawDeviceControlError makes a device control handler answer one specific
 // RPC error code instead of the default internal error.
@@ -2494,47 +2481,6 @@ function deviceControlDuration(value: unknown): number | undefined | null {
   return value;
 }
 
-const DEVICE_INTERACTION_MODES = ["push-to-talk", "realtime"];
-// BCP 47 well-formedness at the subtag level: a 2-8 letter primary subtag and
-// hyphen-separated 1-8 character alphanumeric subtags, e.g. "zh-Hant-TW".
-const DEVICE_SETTINGS_LOCALE_PATTERN = /^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$/;
-const DEVICE_KEY_FEEDBACKS = ["none", "sound", "vibrate", "sound_and_vibrate"];
-const DEVICE_ALERT_MODES = ["silent", "vibrate", "ring"];
-
-// deviceSettingsPatchValid rejects a patch before the device applies any of it,
-// so a bad member cannot leave the device half-configured. Unknown members are
-// ignored rather than rejected, so a newer server can talk to an older device.
-function deviceSettingsPatchValid(patch: DeviceSettings): boolean {
-  const percent = (value: unknown): boolean =>
-    value === undefined ||
-    (typeof value === "number" &&
-      Number.isInteger(value) &&
-      value >= 0 &&
-      value <= 100);
-  const duration = (value: unknown): boolean =>
-    value === undefined ||
-    (typeof value === "number" && Number.isInteger(value) && value >= 0);
-  const member = (value: unknown, allowed: string[]): boolean =>
-    value === undefined ||
-    (typeof value === "string" && allowed.includes(value));
-  return (
-    (patch.cellular_enabled === undefined ||
-      typeof patch.cellular_enabled === "boolean") &&
-    duration(patch.screen_off_timeout_ms) &&
-    percent(patch.screen_brightness) &&
-    percent(patch.led_brightness) &&
-    (patch.locale === undefined ||
-      (typeof patch.locale === "string" &&
-        patch.locale.length <= 35 &&
-        DEVICE_SETTINGS_LOCALE_PATTERN.test(patch.locale))) &&
-    member(patch.default_interaction_mode, DEVICE_INTERACTION_MODES) &&
-    member(patch.key_feedback, DEVICE_KEY_FEEDBACKS) &&
-    member(patch.alert_mode, DEVICE_ALERT_MODES) &&
-    duration(patch.auto_sleep_timeout_ms) &&
-    (patch.nfc_enabled === undefined || typeof patch.nfc_enabled === "boolean")
-  );
-}
-
 const RUN_WORKSPACE_TARGET_MAX_BYTES = 256;
 
 // validRunWorkspaceRequest accepts a non-empty workspace_name within the
@@ -2553,51 +2499,49 @@ function validRunWorkspaceRequest(value: unknown): boolean {
   );
 }
 
-// supportedDeviceMethods lists the client.* methods this device answers, taken
-// from the handlers it registered. client.rpc.methods.get is always present
-// because answering it is what produced this list.
-function supportedDeviceMethods(
+function supportedDeviceTools(
   handlers: GizClawPeerRPCHandlers | undefined,
-): string[] {
+): number[] {
   const control = handlers?.deviceControl;
   const player = control?.audioplayer;
-  const present: [string, unknown][] = [
-    ["client.info.get", handlers?.deviceInfo],
-    ["client.identifiers.get", handlers?.deviceIdentifiers],
-    ["client.social.ping", handlers?.socialPing],
-    ["client.device.status.get", control?.status],
-    ["client.device.volume.set", control?.setVolume],
-    ["client.device.sound.play", control?.playSound],
-    ["client.device.reboot", control?.reboot],
-    ["client.device.find", control?.find],
-    ["client.device.settings.get", control?.getSettings],
-    ["client.device.settings.set", control?.setSettings],
-    ["client.device.factory_reset", control?.factoryReset],
-    ["client.run.workspace.set", control?.setRunWorkspace],
-    ["client.mhs.v0.read", control?.readMhsStates],
-    ["client.mhs.v0.write", control?.writeMhsStates],
-    ["client.firmware.update", control?.updateFirmware],
-    ["client.wifi.status.get", control?.wifiStatus],
-    ["client.wifi.saved.list", control?.savedWifi],
-    ["client.wifi.saved.forget", control?.forgetWifi],
-    ["client.wifi.scan", control?.scanWifi],
-    ["client.wifi.connect", control?.connectWifi],
-    ["client.device.audioplayer.get", player?.get],
-    ["client.device.audioplayer.playlist.get", player?.playlistGet],
-    ["client.device.audioplayer.playlist.set", player?.playlistSet],
-    ["client.device.audioplayer.playlist.append", player?.playlistAppend],
-    ["client.device.audioplayer.play", player?.play],
-    ["client.device.audioplayer.stop", player?.stop],
-    ["client.device.audioplayer.mode.set", player?.modeSet],
+  const present: [ClientToolID, unknown][] = [
+    [CLIENT_TOOL_IDS["info.get"], handlers?.deviceInfo],
+    [CLIENT_TOOL_IDS["identifiers.get"], handlers?.deviceIdentifiers],
+    [CLIENT_TOOL_IDS["social.ping"], handlers?.socialPing],
+    [CLIENT_TOOL_IDS["device.status.get"], control?.status],
+    [CLIENT_TOOL_IDS["sound.play"], control?.playSound],
+    [CLIENT_TOOL_IDS["device.reboot"], control?.reboot],
+    [CLIENT_TOOL_IDS["device.find"], control?.find],
+    [CLIENT_TOOL_IDS["device.factory_reset"], control?.factoryReset],
+    [CLIENT_TOOL_IDS["run.workspace.set"], control?.setRunWorkspace],
+    [CLIENT_TOOL_IDS["firmware.update"], control?.updateFirmware],
+    [CLIENT_TOOL_IDS["wifi.saved.list"], control?.savedWifi],
+    [CLIENT_TOOL_IDS["wifi.saved.forget"], control?.forgetWifi],
+    [CLIENT_TOOL_IDS["wifi.scan"], control?.scanWifi],
+    [CLIENT_TOOL_IDS["wifi.connect"], control?.connectWifi],
+    [CLIENT_TOOL_IDS["audioplayer.get"], player?.get],
+    [CLIENT_TOOL_IDS["audioplayer.playlist.get"], player?.playlistGet],
+    [CLIENT_TOOL_IDS["audioplayer.playlist.set"], player?.playlistSet],
+    [CLIENT_TOOL_IDS["audioplayer.playlist.append"], player?.playlistAppend],
+    [CLIENT_TOOL_IDS["audioplayer.play"], player?.play],
+    [CLIENT_TOOL_IDS["audioplayer.stop"], player?.stop],
+    [CLIENT_TOOL_IDS["audioplayer.mode.set"], player?.modeSet],
   ];
   const methods = present
     .filter(([, handler]) => handler != null)
     .map(([method]) => method);
-  methods.push("client.rpc.methods.get");
-  return methods;
+  for (const key of Object.keys(handlers?.tools ?? {})) {
+    const id = Number(key);
+    if (
+      CLIENT_TOOL_NAMES[id] != null &&
+      handlers?.tools?.[id as ClientToolID] != null
+    )
+      methods.push(id as ClientToolID);
+  }
+  return [...new Set(methods)].sort((a, b) => a - b);
 }
 
-// validSocialPingParams checks an inbound client.social.ping request. The
+// validSocialPingParams checks an inbound social.ping request. The
 // sender key is required; the display name and the group name are optional,
 // and an absent optional field stays absent rather than becoming "".
 function validSocialPingParams(value: unknown): ClientSocialPingRequest | null {
@@ -2628,8 +2572,201 @@ function validSocialPingParams(value: unknown): ClientSocialPingRequest | null {
 // answerClientRequest answers one inbound client.* RPC from the handlers the
 // caller installed. An unhandled method answers METHOD_NOT_FOUND so the server
 // maps it to 501 DEVICE_UNSUPPORTED, matching the Go and Dart SDKs.
+
+function withToolProviders(
+  handlers: GizClawPeerRPCHandlers | undefined,
+): GizClawPeerRPCHandlers | undefined {
+  if (handlers?.tools == null) return handlers;
+  const out = {
+    ...handlers,
+    deviceControl: {
+      ...handlers.deviceControl,
+      audioplayer: { ...handlers.deviceControl?.audioplayer },
+    },
+  };
+  const tools = handlers.tools;
+  const info_get = tools[CLIENT_TOOL_IDS["info.get"]];
+  if (info_get != null) out.deviceInfo = async () => info_get({});
+  const identifiers_get = tools[CLIENT_TOOL_IDS["identifiers.get"]];
+  if (identifiers_get != null)
+    out.deviceIdentifiers = async () => identifiers_get({});
+  const social_ping = tools[CLIENT_TOOL_IDS["social.ping"]];
+  if (social_ping != null)
+    out.socialPing = async (request) => {
+      await social_ping(request);
+    };
+  const device_status_get = tools[CLIENT_TOOL_IDS["device.status.get"]];
+  if (device_status_get != null)
+    out.deviceControl.status = async () => device_status_get({});
+  const sound_play = tools[CLIENT_TOOL_IDS["sound.play"]];
+  if (sound_play != null)
+    out.deviceControl.playSound = async (sound, duration_ms) => {
+      await sound_play({ sound, duration_ms });
+    };
+  const device_find = tools[CLIENT_TOOL_IDS["device.find"]];
+  if (device_find != null)
+    out.deviceControl.find = async (duration_ms) => {
+      await device_find({ duration_ms });
+    };
+  const device_reboot = tools[CLIENT_TOOL_IDS["device.reboot"]];
+  if (device_reboot != null)
+    out.deviceControl.reboot = async (delay_ms) => {
+      await device_reboot({ delay_ms });
+    };
+  const device_factory_reset = tools[CLIENT_TOOL_IDS["device.factory_reset"]];
+  if (device_factory_reset != null)
+    out.deviceControl.factoryReset = async (keep_network) => {
+      await device_factory_reset({ keep_network });
+    };
+  const run_workspace_set = tools[CLIENT_TOOL_IDS["run.workspace.set"]];
+  if (run_workspace_set != null)
+    out.deviceControl.setRunWorkspace = async (request) => {
+      await run_workspace_set(request);
+    };
+  const firmware_update = tools[CLIENT_TOOL_IDS["firmware.update"]];
+  if (firmware_update != null)
+    out.deviceControl.updateFirmware = async (channel, sha256) => {
+      await firmware_update({ channel, sha256 });
+    };
+  const wifi_saved_list = tools[CLIENT_TOOL_IDS["wifi.saved.list"]];
+  if (wifi_saved_list != null)
+    out.deviceControl.savedWifi = async () =>
+      (await wifi_saved_list({})).networks;
+  const wifi_saved_forget = tools[CLIENT_TOOL_IDS["wifi.saved.forget"]];
+  if (wifi_saved_forget != null)
+    out.deviceControl.forgetWifi = async (ssid) => {
+      await wifi_saved_forget({ ssid });
+    };
+  const wifi_scan = tools[CLIENT_TOOL_IDS["wifi.scan"]];
+  if (wifi_scan != null)
+    out.deviceControl.scanWifi = async (timeout_ms) =>
+      (await wifi_scan({ timeout_ms })).networks;
+  const wifi_connect = tools[CLIENT_TOOL_IDS["wifi.connect"]];
+  if (wifi_connect != null)
+    out.deviceControl.connectWifi = async (ssid, passphrase) => {
+      await wifi_connect({ ssid, passphrase });
+    };
+  if (tools[CLIENT_TOOL_IDS["audioplayer.get"]] != null)
+    out.deviceControl.audioplayer.get =
+      tools[CLIENT_TOOL_IDS["audioplayer.get"]];
+  if (tools[CLIENT_TOOL_IDS["audioplayer.playlist.get"]] != null)
+    out.deviceControl.audioplayer.playlistGet =
+      tools[CLIENT_TOOL_IDS["audioplayer.playlist.get"]];
+  if (tools[CLIENT_TOOL_IDS["audioplayer.playlist.set"]] != null)
+    out.deviceControl.audioplayer.playlistSet =
+      tools[CLIENT_TOOL_IDS["audioplayer.playlist.set"]];
+  if (tools[CLIENT_TOOL_IDS["audioplayer.playlist.append"]] != null)
+    out.deviceControl.audioplayer.playlistAppend =
+      tools[CLIENT_TOOL_IDS["audioplayer.playlist.append"]];
+  if (tools[CLIENT_TOOL_IDS["audioplayer.play"]] != null)
+    out.deviceControl.audioplayer.play =
+      tools[CLIENT_TOOL_IDS["audioplayer.play"]];
+  if (tools[CLIENT_TOOL_IDS["audioplayer.stop"]] != null)
+    out.deviceControl.audioplayer.stop =
+      tools[CLIENT_TOOL_IDS["audioplayer.stop"]];
+  if (tools[CLIENT_TOOL_IDS["audioplayer.mode.set"]] != null)
+    out.deviceControl.audioplayer.modeSet =
+      tools[CLIENT_TOOL_IDS["audioplayer.mode.set"]];
+  return out;
+}
 async function answerClientRequest(
   request: RPCRequest,
+  handlers: GizClawPeerRPCHandlers | undefined,
+): Promise<RPCResponse> {
+  const unsupported = (): RPCResponse =>
+    rpcErrorResponse(
+      request.id,
+      RPC_ERROR_METHOD_NOT_FOUND,
+      "unsupported method",
+    );
+  const invalid = (): RPCResponse =>
+    rpcErrorResponse(request.id, RPC_ERROR_INVALID_PARAMS, "invalid params");
+  const ok = (result: unknown): RPCResponse => ({
+    id: request.id,
+    result,
+    v: RPC_VERSION,
+  });
+  const control = handlers?.deviceControl;
+  try {
+    if (request.method !== "client.tool.v0.invoke")
+      handlers?.observe?.(request.method);
+    switch (request.method) {
+      case "client.rpc.methods.list": {
+        const methods = [1, 2, 135, 136, 137];
+        if (control?.readMhsStates != null) methods.push(133);
+        if (control?.writeMhsStates != null) methods.push(134);
+        return ok({ methods: methods.sort((a, b) => a - b) });
+      }
+      case "client.tool.v0.list":
+        return ok({ tools: supportedDeviceTools(handlers) });
+      case "client.mhs.v0.read": {
+        const handler = control?.readMhsStates;
+        if (handler == null) return unsupported();
+        if (!validMhsBatch(request.params, false)) return invalid();
+        const result = await handler(request.params as ClientMhsV0ReadRequest);
+        if (!validMhsBatch(result, true))
+          throw new Error("invalid MHS handler response");
+        return ok(result);
+      }
+      case "client.mhs.v0.write": {
+        const handler = control?.writeMhsStates;
+        if (handler == null) return unsupported();
+        if (!validMhsBatch(request.params, true)) return invalid();
+        const result = await handler(request.params as ClientMhsV0WriteRequest);
+        if (!validMhsBatch(result, true))
+          throw new Error("invalid MHS handler response");
+        return ok(result);
+      }
+
+      case "client.tool.v0.invoke": {
+        const invoke = request.params as ClientToolV0InvokeRequest | undefined;
+        if (invoke == null || !Number.isInteger(invoke.tool)) return invalid();
+        if (CLIENT_TOOL_NAMES[invoke.tool] == null) return unsupported();
+        let params: unknown;
+        try {
+          params = decodeClientToolRequestPayload(
+            invoke.tool,
+            Uint8Array.from(atob(invoke.payload ?? ""), (ch) =>
+              ch.charCodeAt(0),
+            ),
+          );
+        } catch {
+          return invalid();
+        }
+        handlers?.observe?.(request.method, invoke.tool);
+        const response = await answerDeviceProcedure(
+          { ...request, params },
+          invoke.tool as ClientToolID,
+          withToolProviders(handlers),
+        );
+        if (response.error != null) return response;
+        const payload = encodeClientToolResponsePayload(
+          invoke.tool,
+          response.result,
+        );
+        return ok({
+          payload: btoa(
+            Array.from(payload, (byte) => String.fromCharCode(byte)).join(""),
+          ),
+        });
+      }
+      default:
+        return unsupported();
+    }
+  } catch (error) {
+    if (error instanceof GizClawDeviceControlError)
+      return rpcErrorResponse(request.id, error.code, error.message);
+    return rpcErrorResponse(
+      request.id,
+      RPC_ERROR_INTERNAL,
+      "device control handler failed",
+    );
+  }
+}
+
+async function answerDeviceProcedure(
+  request: RPCRequest,
+  tool: ClientToolID,
   handlers: GizClawPeerRPCHandlers | undefined,
 ): Promise<RPCResponse> {
   const unsupported = (): RPCResponse =>
@@ -2645,50 +2782,29 @@ async function answerClientRequest(
   const control = handlers?.deviceControl;
 
   try {
-    switch (request.method) {
-      case "client.tool.invoke": {
-        const params = request.params as ToolInvokeRequest | undefined;
-        const name = params?.invoke_name?.trim() ?? "";
-        if (!TOOL_INVOKE_NAME_PATTERN.test(name)) {
-          return invalid();
-        }
-        const args = params?.args ?? {};
-        if (typeof args !== "object" || Array.isArray(args)) {
-          return invalid();
-        }
-        // Own keys only, so a Tool named after an Object prototype member
-        // is not answered by it.
-        const tools = handlers?.tools;
-        const handler =
-          tools != null && Object.hasOwn(tools, name) ? tools[name] : undefined;
-        if (handler == null) {
-          return unsupported();
-        }
-        const result = await handler(args as Record<string, unknown>);
-        return ok({ data_json: JSON.stringify(result ?? null) });
-      }
-      case "client.info.get": {
+    switch (tool) {
+      case CLIENT_TOOL_IDS["info.get"]: {
         const handler = handlers?.deviceInfo;
         return handler == null ? unsupported() : ok(await handler());
       }
-      case "client.identifiers.get": {
+      case CLIENT_TOOL_IDS["identifiers.get"]: {
         const handler = handlers?.deviceIdentifiers;
         return handler == null ? unsupported() : ok(await handler());
       }
-      case "client.device.audioplayer.get": {
+      case CLIENT_TOOL_IDS["audioplayer.get"]: {
         const handler = control?.audioplayer?.get;
         if (handler == null) return unsupported();
         const params = request.params as ClientDeviceAudioPlayerGetRequest;
         return ok(await handler(params ?? {}));
       }
-      case "client.device.audioplayer.playlist.get": {
+      case CLIENT_TOOL_IDS["audioplayer.playlist.get"]: {
         const handler = control?.audioplayer?.playlistGet;
         if (handler == null) return unsupported();
         const params =
           request.params as ClientDeviceAudioPlayerPlaylistGetRequest;
         return ok(await handler(params ?? {}));
       }
-      case "client.device.audioplayer.playlist.set": {
+      case CLIENT_TOOL_IDS["audioplayer.playlist.set"]: {
         const handler = control?.audioplayer?.playlistSet;
         if (handler == null) return unsupported();
         const params =
@@ -2696,7 +2812,7 @@ async function answerClientRequest(
         if (!validAudioPlayerItems(params?.items, false)) return invalid();
         return ok(await handler(params ?? {}));
       }
-      case "client.device.audioplayer.playlist.append": {
+      case CLIENT_TOOL_IDS["audioplayer.playlist.append"]: {
         const handler = control?.audioplayer?.playlistAppend;
         if (handler == null) return unsupported();
         const params =
@@ -2704,7 +2820,7 @@ async function answerClientRequest(
         if (!validAudioPlayerItems(params?.items, true)) return invalid();
         return ok(await handler(params ?? {}));
       }
-      case "client.device.audioplayer.play": {
+      case CLIENT_TOOL_IDS["audioplayer.play"]: {
         const handler = control?.audioplayer?.play;
         if (handler == null) return unsupported();
         const params = request.params as ClientDeviceAudioPlayerPlayRequest;
@@ -2716,41 +2832,24 @@ async function answerClientRequest(
           return invalid();
         return ok(await handler(params ?? {}));
       }
-      case "client.device.audioplayer.stop": {
+      case CLIENT_TOOL_IDS["audioplayer.stop"]: {
         const handler = control?.audioplayer?.stop;
         if (handler == null) return unsupported();
         const params = request.params as ClientDeviceAudioPlayerStopRequest;
         return ok(await handler(params ?? {}));
       }
-      case "client.device.audioplayer.mode.set": {
+      case CLIENT_TOOL_IDS["audioplayer.mode.set"]: {
         const handler = control?.audioplayer?.modeSet;
         if (handler == null) return unsupported();
         const params = request.params as ClientDeviceAudioPlayerModeSetRequest;
         if (!["off", "one", "all"].includes(params?.repeat)) return invalid();
         return ok(await handler(params ?? {}));
       }
-      case "client.device.status.get": {
+      case CLIENT_TOOL_IDS["device.status.get"]: {
         const handler = control?.status;
         return handler == null ? unsupported() : ok(await handler());
       }
-      case "client.device.volume.set": {
-        const handler = control?.setVolume;
-        if (handler == null) {
-          return unsupported();
-        }
-        const params = request.params as ClientDeviceVolumeSetRequest;
-        const level = Number(params?.level);
-        if (
-          !Number.isInteger(level) ||
-          level < 0 ||
-          level > 100 ||
-          typeof params?.muted !== "boolean"
-        ) {
-          return invalid();
-        }
-        return ok(await handler(level, params.muted));
-      }
-      case "client.device.sound.play": {
+      case CLIENT_TOOL_IDS["sound.play"]: {
         const handler = control?.playSound;
         if (handler == null) {
           return unsupported();
@@ -2771,7 +2870,7 @@ async function answerClientRequest(
         await handler(sound, durationMs);
         return ok({});
       }
-      case "client.device.find": {
+      case CLIENT_TOOL_IDS["device.find"]: {
         const handler = control?.find;
         if (handler == null) {
           return unsupported();
@@ -2784,7 +2883,7 @@ async function answerClientRequest(
         await handler(durationMs);
         return ok({});
       }
-      case "client.social.ping": {
+      case CLIENT_TOOL_IDS["social.ping"]: {
         const handler = handlers?.socialPing;
         if (handler == null) {
           return unsupported();
@@ -2796,7 +2895,7 @@ async function answerClientRequest(
         await handler(params);
         return ok({});
       }
-      case "client.device.reboot": {
+      case CLIENT_TOOL_IDS["device.reboot"]: {
         const handler = control?.reboot;
         if (handler == null) {
           return unsupported();
@@ -2809,25 +2908,7 @@ async function answerClientRequest(
         await handler(delayMs);
         return ok({});
       }
-      case "client.device.settings.get": {
-        const handler = control?.getSettings;
-        if (handler == null) {
-          return unsupported();
-        }
-        return ok(await handler());
-      }
-      case "client.device.settings.set": {
-        const handler = control?.setSettings;
-        if (handler == null) {
-          return unsupported();
-        }
-        const patch = (request.params ?? {}) as ClientDeviceSettingsSetRequest;
-        if (!deviceSettingsPatchValid(patch)) {
-          return invalid();
-        }
-        return ok(await handler(patch));
-      }
-      case "client.device.factory_reset": {
+      case CLIENT_TOOL_IDS["device.factory_reset"]: {
         const handler = control?.factoryReset;
         if (handler == null) {
           return unsupported();
@@ -2837,7 +2918,7 @@ async function answerClientRequest(
         await handler(params?.keep_network === true);
         return ok({});
       }
-      case "client.run.workspace.set": {
+      case CLIENT_TOOL_IDS["run.workspace.set"]: {
         const handler = control?.setRunWorkspace;
         if (handler == null) {
           return unsupported();
@@ -2848,31 +2929,7 @@ async function answerClientRequest(
         await handler(request.params as ClientRunWorkspaceSetRequest);
         return ok({});
       }
-      case "client.mhs.v0.read": {
-        const handler = control?.readMhsStates;
-        if (handler == null) return unsupported();
-        if (!validMhsBatch(request.params, false)) return invalid();
-        const result = await handler(request.params as ClientMhsV0ReadRequest);
-        if (!validMhsBatch(result, true))
-          throw new Error("invalid MHS handler response");
-        return ok(result);
-      }
-      case "client.mhs.v0.write": {
-        const handler = control?.writeMhsStates;
-        if (handler == null) return unsupported();
-        if (!validMhsBatch(request.params, true)) return invalid();
-        const result = await handler(request.params as ClientMhsV0WriteRequest);
-        if (!validMhsBatch(result, true))
-          throw new Error("invalid MHS handler response");
-        return ok(result);
-      }
-      case "client.rpc.methods.get": {
-        // Derived from the handlers this device actually registered rather
-        // than from a hand-kept list, so the answer cannot drift from what the
-        // device will really accept.
-        return ok({ methods: supportedDeviceMethods(handlers) });
-      }
-      case "client.firmware.update": {
+      case CLIENT_TOOL_IDS["firmware.update"]: {
         const handler = control?.updateFirmware;
         if (handler == null) {
           return unsupported();
@@ -2891,17 +2948,13 @@ async function answerClientRequest(
         await handler(channel, sha256);
         return ok({});
       }
-      case "client.wifi.status.get": {
-        const handler = control?.wifiStatus;
-        return handler == null ? unsupported() : ok(await handler());
-      }
-      case "client.wifi.saved.list": {
+      case CLIENT_TOOL_IDS["wifi.saved.list"]: {
         const handler = control?.savedWifi;
         return handler == null
           ? unsupported()
           : ok({ networks: await handler() });
       }
-      case "client.wifi.saved.forget": {
+      case CLIENT_TOOL_IDS["wifi.saved.forget"]: {
         const handler = control?.forgetWifi;
         if (handler == null) {
           return unsupported();
@@ -2918,7 +2971,7 @@ async function answerClientRequest(
         await handler(ssid);
         return ok({});
       }
-      case "client.wifi.scan": {
+      case CLIENT_TOOL_IDS["wifi.scan"]: {
         const handler = control?.scanWifi;
         if (handler == null) {
           return unsupported();
@@ -2935,7 +2988,7 @@ async function answerClientRequest(
         }
         return ok({ networks: await handler(timeoutMs) });
       }
-      case "client.wifi.connect": {
+      case CLIENT_TOOL_IDS["wifi.connect"]: {
         const handler = control?.connectWifi;
         if (handler == null) {
           return unsupported();

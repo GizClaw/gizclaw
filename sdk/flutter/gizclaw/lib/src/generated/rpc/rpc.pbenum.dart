@@ -86,10 +86,6 @@ class RpcMethod extends $pb.ProtobufEnum {
       RpcMethod._(1, _omitEnumNames ? '' : 'RPC_METHOD_ALL_PING');
   static const RpcMethod RPC_METHOD_ALL_SPEED_TEST_RUN =
       RpcMethod._(2, _omitEnumNames ? '' : 'RPC_METHOD_ALL_SPEED_TEST_RUN');
-  static const RpcMethod RPC_METHOD_CLIENT_INFO_GET =
-      RpcMethod._(3, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_INFO_GET');
-  static const RpcMethod RPC_METHOD_CLIENT_IDENTIFIERS_GET =
-      RpcMethod._(4, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_IDENTIFIERS_GET');
   static const RpcMethod RPC_METHOD_SERVER_INFO_GET =
       RpcMethod._(5, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_INFO_GET');
   static const RpcMethod RPC_METHOD_SERVER_INFO_PUT =
@@ -242,8 +238,6 @@ class RpcMethod extends $pb.ProtobufEnum {
       RpcMethod._(80, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_TOOL_LIST');
   static const RpcMethod RPC_METHOD_SERVER_TOOL_GET =
       RpcMethod._(81, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_TOOL_GET');
-  static const RpcMethod RPC_METHOD_CLIENT_TOOL_INVOKE =
-      RpcMethod._(82, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_TOOL_INVOKE');
   static const RpcMethod RPC_METHOD_SERVER_PEER_LOOKUP =
       RpcMethod._(83, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PEER_LOOKUP');
   static const RpcMethod RPC_METHOD_SERVER_PEER_ASSIGN =
@@ -272,83 +266,18 @@ class RpcMethod extends $pb.ProtobufEnum {
       RpcMethod._(98, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_API_KEY_REVOKE');
   static const RpcMethod RPC_METHOD_SERVER_API_KEY_RESOLVE = RpcMethod._(
       99, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_API_KEY_RESOLVE');
-  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_STATUS_GET = RpcMethod._(
-      100, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_STATUS_GET');
-
-  /// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
-  @$core.Deprecated('This enum value is deprecated')
-  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_VOLUME_SET = RpcMethod._(
-      101, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_VOLUME_SET');
-  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY = RpcMethod._(
-      102, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY');
-  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_REBOOT =
-      RpcMethod._(103, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_REBOOT');
-  static const RpcMethod RPC_METHOD_CLIENT_WIFI_STATUS_GET = RpcMethod._(
-      104, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_WIFI_STATUS_GET');
-  static const RpcMethod RPC_METHOD_CLIENT_WIFI_SAVED_LIST = RpcMethod._(
-      105, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_WIFI_SAVED_LIST');
-  static const RpcMethod RPC_METHOD_CLIENT_WIFI_SAVED_FORGET = RpcMethod._(
-      106, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_WIFI_SAVED_FORGET');
-  static const RpcMethod RPC_METHOD_CLIENT_WIFI_SCAN =
-      RpcMethod._(108, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_WIFI_SCAN');
-  static const RpcMethod RPC_METHOD_CLIENT_WIFI_CONNECT =
-      RpcMethod._(109, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_WIFI_CONNECT');
-  static const RpcMethod RPC_METHOD_CLIENT_FIRMWARE_UPDATE = RpcMethod._(
-      111, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_FIRMWARE_UPDATE');
   static const RpcMethod RPC_METHOD_SERVER_RUNTIME_PUT =
       RpcMethod._(112, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_RUNTIME_PUT');
-  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_GET = RpcMethod._(
-      113, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_GET');
-  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_GET =
-      RpcMethod._(
-          114,
-          _omitEnumNames
-              ? ''
-              : 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_GET');
-  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_SET =
-      RpcMethod._(
-          115,
-          _omitEnumNames
-              ? ''
-              : 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_SET');
-  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_APPEND =
-      RpcMethod._(
-          116,
-          _omitEnumNames
-              ? ''
-              : 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_APPEND');
-  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY =
-      RpcMethod._(117,
-          _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY');
-  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP =
-      RpcMethod._(118,
-          _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP');
-  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET =
-      RpcMethod._(
-          119,
-          _omitEnumNames
-              ? ''
-              : 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET');
-
-  /// Deprecated: Use client.mhs.v0.read with RuntimeProfile manifest keys.
-  @$core.Deprecated('This enum value is deprecated')
-  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET = RpcMethod._(
-      128, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET');
-
-  /// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
-  @$core.Deprecated('This enum value is deprecated')
-  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET = RpcMethod._(
-      129, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET');
-  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET = RpcMethod._(
-      130, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET');
-  static const RpcMethod RPC_METHOD_CLIENT_RPC_METHODS_GET = RpcMethod._(
-      131, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_RPC_METHODS_GET');
-  static const RpcMethod RPC_METHOD_CLIENT_RUN_WORKSPACE_SET = RpcMethod._(
-      132, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_RUN_WORKSPACE_SET');
   static const RpcMethod RPC_METHOD_CLIENT_MHS_V0_READ =
       RpcMethod._(133, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_MHS_V0_READ');
   static const RpcMethod RPC_METHOD_CLIENT_MHS_V0_WRITE =
       RpcMethod._(134, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_MHS_V0_WRITE');
+  static const RpcMethod RPC_METHOD_CLIENT_TOOL_V0_INVOKE = RpcMethod._(
+      135, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_TOOL_V0_INVOKE');
+  static const RpcMethod RPC_METHOD_CLIENT_TOOL_V0_LIST =
+      RpcMethod._(136, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_TOOL_V0_LIST');
+  static const RpcMethod RPC_METHOD_CLIENT_RPC_METHODS_LIST = RpcMethod._(
+      137, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_RPC_METHODS_LIST');
   static const RpcMethod RPC_METHOD_SERVER_APP_CONFIG_LIST = RpcMethod._(
       121, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_APP_CONFIG_LIST');
   static const RpcMethod RPC_METHOD_SERVER_APP_CONFIG_GET = RpcMethod._(
@@ -359,17 +288,11 @@ class RpcMethod extends $pb.ProtobufEnum {
       124, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_PING');
   static const RpcMethod RPC_METHOD_SERVER_PROFILE_GET =
       RpcMethod._(125, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PROFILE_GET');
-  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_FIND =
-      RpcMethod._(126, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_FIND');
-  static const RpcMethod RPC_METHOD_CLIENT_SOCIAL_PING =
-      RpcMethod._(127, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_SOCIAL_PING');
 
   static const $core.List<RpcMethod> values = <RpcMethod>[
     RPC_METHOD_UNSPECIFIED,
     RPC_METHOD_ALL_PING,
     RPC_METHOD_ALL_SPEED_TEST_RUN,
-    RPC_METHOD_CLIENT_INFO_GET,
-    RPC_METHOD_CLIENT_IDENTIFIERS_GET,
     RPC_METHOD_SERVER_INFO_GET,
     RPC_METHOD_SERVER_INFO_PUT,
     RPC_METHOD_SERVER_RUNTIME_GET,
@@ -430,7 +353,6 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE,
     RPC_METHOD_SERVER_TOOL_LIST,
     RPC_METHOD_SERVER_TOOL_GET,
-    RPC_METHOD_CLIENT_TOOL_INVOKE,
     RPC_METHOD_SERVER_PEER_LOOKUP,
     RPC_METHOD_SERVER_PEER_ASSIGN,
     RPC_METHOD_SERVER_ROUTE_RESOLVE,
@@ -445,44 +367,22 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_API_KEY_LIST,
     RPC_METHOD_SERVER_API_KEY_REVOKE,
     RPC_METHOD_SERVER_API_KEY_RESOLVE,
-    RPC_METHOD_CLIENT_DEVICE_STATUS_GET,
-    RPC_METHOD_CLIENT_DEVICE_VOLUME_SET,
-    RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY,
-    RPC_METHOD_CLIENT_DEVICE_REBOOT,
-    RPC_METHOD_CLIENT_WIFI_STATUS_GET,
-    RPC_METHOD_CLIENT_WIFI_SAVED_LIST,
-    RPC_METHOD_CLIENT_WIFI_SAVED_FORGET,
-    RPC_METHOD_CLIENT_WIFI_SCAN,
-    RPC_METHOD_CLIENT_WIFI_CONNECT,
-    RPC_METHOD_CLIENT_FIRMWARE_UPDATE,
     RPC_METHOD_SERVER_RUNTIME_PUT,
-    RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_GET,
-    RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_GET,
-    RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_SET,
-    RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_APPEND,
-    RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY,
-    RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP,
-    RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET,
-    RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET,
-    RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET,
-    RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET,
-    RPC_METHOD_CLIENT_RPC_METHODS_GET,
-    RPC_METHOD_CLIENT_RUN_WORKSPACE_SET,
     RPC_METHOD_CLIENT_MHS_V0_READ,
     RPC_METHOD_CLIENT_MHS_V0_WRITE,
+    RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+    RPC_METHOD_CLIENT_TOOL_V0_LIST,
+    RPC_METHOD_CLIENT_RPC_METHODS_LIST,
     RPC_METHOD_SERVER_APP_CONFIG_LIST,
     RPC_METHOD_SERVER_APP_CONFIG_GET,
     RPC_METHOD_SERVER_FRIEND_PING,
     RPC_METHOD_SERVER_FRIEND_GROUP_PING,
     RPC_METHOD_SERVER_PROFILE_GET,
-    RPC_METHOD_CLIENT_DEVICE_FIND,
-    RPC_METHOD_CLIENT_SOCIAL_PING,
   ];
 
-  static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 134);
-  static RpcMethod? valueOf($core.int value) =>
-      value < 0 || value >= _byValue.length ? null : _byValue[value];
+  static final $core.Map<$core.int, RpcMethod> _byValue =
+      $pb.ProtobufEnum.initByValue(values);
+  static RpcMethod? valueOf($core.int value) => _byValue[value];
 
   const RpcMethod._(super.value, super.name);
 }

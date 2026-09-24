@@ -12,7 +12,7 @@ func (c *rpcClient) AudioPlayerGet(ctx context.Context, conn net.Conn, request *
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest("audioplayer", rpcapi.RPCMethodClientDeviceAudioPlayerGet, params), rpcapi.RPCPayload.AsClientDeviceAudioPlayerGetResponse)
+	result, err := callClientToolResult(ctx, conn, "audioplayer", rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_GET, params, rpcapi.RPCPayload.AsClientDeviceAudioPlayerGetResponse)
 	if err != nil {
 		return nil, err
 	}
@@ -24,7 +24,7 @@ func (c *rpcClient) AudioPlayerPlaylistGet(ctx context.Context, conn net.Conn, r
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest("audioplayer", rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistGet, params), rpcapi.RPCPayload.AsClientDeviceAudioPlayerPlaylistGetResponse)
+	result, err := callClientToolResult(ctx, conn, "audioplayer", rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_GET, params, rpcapi.RPCPayload.AsClientDeviceAudioPlayerPlaylistGetResponse)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func (c *rpcClient) AudioPlayerPlaylistSet(ctx context.Context, conn net.Conn, r
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest("audioplayer", rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistSet, params), rpcapi.RPCPayload.AsClientDeviceAudioPlayerPlaylistSetResponse)
+	result, err := callClientToolResult(ctx, conn, "audioplayer", rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_SET, params, rpcapi.RPCPayload.AsClientDeviceAudioPlayerPlaylistSetResponse)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (c *rpcClient) AudioPlayerPlaylistAppend(ctx context.Context, conn net.Conn
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest("audioplayer", rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistAppend, params), rpcapi.RPCPayload.AsClientDeviceAudioPlayerPlaylistAppendResponse)
+	result, err := callClientToolResult(ctx, conn, "audioplayer", rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_APPEND, params, rpcapi.RPCPayload.AsClientDeviceAudioPlayerPlaylistAppendResponse)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (c *rpcClient) AudioPlayerPlay(ctx context.Context, conn net.Conn, request 
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest("audioplayer", rpcapi.RPCMethodClientDeviceAudioPlayerPlay, params), rpcapi.RPCPayload.AsClientDeviceAudioPlayerPlayResponse)
+	result, err := callClientToolResult(ctx, conn, "audioplayer", rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAY, params, rpcapi.RPCPayload.AsClientDeviceAudioPlayerPlayResponse)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func (c *rpcClient) AudioPlayerStop(ctx context.Context, conn net.Conn, request 
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest("audioplayer", rpcapi.RPCMethodClientDeviceAudioPlayerStop, params), rpcapi.RPCPayload.AsClientDeviceAudioPlayerStopResponse)
+	result, err := callClientToolResult(ctx, conn, "audioplayer", rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_STOP, params, rpcapi.RPCPayload.AsClientDeviceAudioPlayerStopResponse)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func (c *rpcClient) AudioPlayerModeSet(ctx context.Context, conn net.Conn, reque
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest("audioplayer", rpcapi.RPCMethodClientDeviceAudioPlayerModeSet, params), rpcapi.RPCPayload.AsClientDeviceAudioPlayerModeSetResponse)
+	result, err := callClientToolResult(ctx, conn, "audioplayer", rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_MODE_SET, params, rpcapi.RPCPayload.AsClientDeviceAudioPlayerModeSetResponse)
 	if err != nil {
 		return nil, err
 	}

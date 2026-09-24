@@ -303,8 +303,10 @@ void main() {
         'rpc',
         'http',
         'http',
+        'http',
         'rpc',
         'http',
+        'client_rpc',
         'client_rpc',
       ]);
       expect(document.finalizers.single.id, 'cleanup_peer');
@@ -355,56 +357,51 @@ void main() {
             if (step.clientRpc != null) step.clientRpc!['method'],
       ];
       expect(clientRpc, [
-        'client.device.find',
-        'client.device.find',
-        'client.social.ping',
-        'client.social.ping',
+        'client.tool.v0.invoke',
+        'client.tool.v0.invoke',
+        'client.tool.v0.invoke',
+        'client.tool.v0.invoke',
       ]);
     });
 
-    test(
-      'load the settings, reset, methods, workspace and tool scenarios',
-      () async {
-        final names = [
-          'server.device.factory_reset',
-          'server.device.rpc_methods',
-          'server.device.run_workspace.set',
-          'server.device.settings',
-          'server.device.tools',
-        ];
-        final result = await loadDocuments([
-          for (final name in names) '$scenarioRoot/$name.giztest.yaml',
-        ]);
-        expect(result.skipped, isEmpty);
-        expect(result.documents.map((document) => document.name), names);
-        final clientRpc = [
-          for (final document in result.documents)
-            for (final step in document.steps)
-              if (step.clientRpc != null) step.clientRpc!['method'],
-        ];
-        expect(clientRpc, [
-          'client.device.factory_reset',
-          'client.device.settings.get',
-          'client.device.settings.get',
-          'client.device.find',
-          'client.run.workspace.set',
-          'client.device.settings.get',
-          'client.device.settings.set',
-          'client.tool.invoke',
-        ]);
-        final httpMethods = {
-          for (final document in result.documents)
-            for (final step in document.steps)
-              if (step.http != null) step.http!['method'],
-        };
-        expect(httpMethods, contains('PATCH'));
-      },
-    );
+    test('load the settings, reset, methods and workspace scenarios', () async {
+      final names = [
+        'server.device.factory_reset',
+        'server.device.rpc_methods',
+        'server.device.run_workspace.set',
+        'server.device.settings',
+      ];
+      final result = await loadDocuments([
+        for (final name in names) '$scenarioRoot/$name.giztest.yaml',
+      ]);
+      expect(result.skipped, isEmpty);
+      expect(result.documents.map((document) => document.name), names);
+      final clientRpc = [
+        for (final document in result.documents)
+          for (final step in document.steps)
+            if (step.clientRpc != null) step.clientRpc!['method'],
+      ];
+      expect(clientRpc, [
+        'client.tool.v0.invoke',
+        'client.mhs.v0.read',
+        'client.mhs.v0.read',
+        'client.tool.v0.invoke',
+        'client.tool.v0.invoke',
+        'client.mhs.v0.read',
+        'client.mhs.v0.write',
+      ]);
+      final httpMethods = {
+        for (final document in result.documents)
+          for (final step in document.steps)
+            if (step.http != null) step.http!['method'],
+      };
+      expect(httpMethods, contains('PATCH'));
+    });
 
-    test('report a scripted client.rpc.methods.get step as unsupported', () {
+    test('reject a removed client RPC', () {
       const text = '''# User Story:
 # As a Giztest author,
-# I want a scripted client.rpc.methods.get step reported,
+# I want a removed client RPC rejected,
 # So that this runner does not wait on calls it cannot count.
 version: gizclaw.test/v1alpha1
 name: methods
@@ -418,10 +415,10 @@ steps:
       expect(
         () => parseDocument('methods.giztest.yaml', text),
         throwsA(
-          isA<UnsupportedStepException>().having(
-            (error) => error.operation,
-            'operation',
-            'client_rpc:client.rpc.methods.get',
+          isA<DocumentException>().having(
+            (error) => error.toString(),
+            'message',
+            contains('unknown client RPC client.rpc.methods.get'),
           ),
         ),
       );

@@ -1,3 +1,4 @@
+import { CLIENT_TOOL_NAMES } from "../../../../sdk/js/gizclaw/generated/rpc/method-map.ts";
 // Scenario clients: an ephemeral WebRTC device peer built on
 // `@gizclaw/gizclaw`, and the Public HTTP surface reached through
 // `@gizclaw/gizclaw-control`.
@@ -24,16 +25,6 @@ import {
 import type { ClientSpec, Step } from "./document.ts";
 import type { Variables } from "./variables.ts";
 import { requestFromProtoJSON, responseToProtoJSON } from "./proto_json.ts";
-
-// DeviceSettings is the settings value the device SDK's handlers exchange; the
-// SDK does not export the type by name.
-type DeviceSettings = Awaited<
-  ReturnType<
-    NonNullable<
-      NonNullable<GizClawPeerRPCHandlers["deviceControl"]>["getSettings"]
-    >
-  >
->;
 
 type MhsReadResponse = Awaited<
   ReturnType<
@@ -396,210 +387,146 @@ function buildHandlers(
   const count = (method: string): void => {
     inbound.set(method, (inbound.get(method) ?? 0) + 1);
   };
-  // A device always answers client.info.get, even when no step scripts it, so
-  // the server sees the same device surface as it does from the Go and Dart
-  // runners.
+  handlers.observe = (method, tool) =>
+    count(tool == null ? method : CLIENT_TOOL_NAMES[tool]);
+  handlers.deviceIdentifiers = () => ({});
   let deviceInfo: Record<string, unknown> = {};
   handlers.deviceInfo = () => {
-    count("client.info.get");
-    return deviceInfo as never;
+    return (deviceInfo.hardware ?? {}) as never;
   };
 
   for (const step of steps) {
     if (step.client !== clientName || step.client_rpc == null) {
       continue;
     }
-    const method = step.client_rpc.method;
+    const method = step.client_rpc.tool ?? step.client_rpc.method;
     const scripted = variables.resolve(step.client_rpc.response ?? null);
     const failure = scriptedDeviceControlError(scripted);
     const scriptedObject = asObject(scripted);
     inbound.set(method, 0);
 
+    if (scriptedObject.unavailable === true) {
+      if (Object.hasOwn(scriptedObject, "result"))
+        throw new Error("unavailable tool response cannot set result");
+      continue;
+    }
     switch (method) {
-      case "client.info.get":
+      case "client.rpc.methods.list":
+      case "client.tool.v0.list":
+        if (scripted != null) throw new Error(`${method} takes no response`);
+        break;
+      case "firmware.update":
+        control.updateFirmware = () => {
+          if (failure != null) throw failure;
+        };
+        break;
+      case "info.get":
         deviceInfo = scriptedObject;
         break;
-      case "client.identifiers.get":
+      case "identifiers.get":
         handlers.deviceIdentifiers = () => {
-          count(method);
           return scriptedObject as never;
         };
         break;
-      case "client.device.audioplayer.get":
+      case "audioplayer.get":
         control.audioplayer ??= {};
         control.audioplayer.get = () => {
-          count(method);
           if (failure != null) throw failure;
           return scriptedObject as never;
         };
         break;
-      case "client.device.audioplayer.playlist.get":
+      case "audioplayer.playlist.get":
         control.audioplayer ??= {};
         control.audioplayer.playlistGet = () => {
-          count(method);
           if (failure != null) throw failure;
           return scriptedObject as never;
         };
         break;
-      case "client.device.audioplayer.playlist.set":
+      case "audioplayer.playlist.set":
         control.audioplayer ??= {};
         control.audioplayer.playlistSet = () => {
-          count(method);
           if (failure != null) throw failure;
           return scriptedObject as never;
         };
         break;
-      case "client.device.audioplayer.playlist.append":
+      case "audioplayer.playlist.append":
         control.audioplayer ??= {};
         control.audioplayer.playlistAppend = () => {
-          count(method);
           if (failure != null) throw failure;
           return scriptedObject as never;
         };
         break;
-      case "client.device.audioplayer.play":
+      case "audioplayer.play":
         control.audioplayer ??= {};
         control.audioplayer.play = () => {
-          count(method);
           if (failure != null) throw failure;
           return scriptedObject as never;
         };
         break;
-      case "client.device.audioplayer.stop":
+      case "audioplayer.stop":
         control.audioplayer ??= {};
         control.audioplayer.stop = () => {
-          count(method);
           if (failure != null) throw failure;
           return scriptedObject as never;
         };
         break;
-      case "client.device.audioplayer.mode.set":
+      case "audioplayer.mode.set":
         control.audioplayer ??= {};
         control.audioplayer.modeSet = () => {
-          count(method);
           if (failure != null) throw failure;
           return scriptedObject as never;
         };
         break;
-      case "client.device.status.get":
+      case "device.status.get":
         control.status = () => {
-          count(method);
           if (failure != null) throw failure;
           return scriptedObject as GizClawDeviceStatus;
         };
         break;
-      case "client.device.volume.set":
-        // The scripted status is echoed with the requested level and mute
-        // state so an HTTP round trip can assert them.
-        control.setVolume = (level, muted) => {
-          count(method);
-          if (failure != null) throw failure;
-          return {
-            ...scriptedObject,
-            muted,
-            volume: level,
-          } as GizClawDeviceStatus;
-        };
-        break;
-      case "client.device.sound.play":
+      case "sound.play":
         control.playSound = () => {
-          count(method);
           if (failure != null) throw failure;
         };
         break;
-      case "client.device.find":
+      case "device.find":
         control.find = () => {
-          count(method);
           if (failure != null) throw failure;
         };
         break;
-      case "client.tool.invoke": {
-        // Matches the Go runner: `{name, result}` installs a Tool that
-        // answers result as its JSON data.
-        const name = (scriptedObject as { name?: unknown }).name;
-        if (typeof name !== "string" || name.trim() === "") {
-          throw new Error(`step ${step.id} tool response requires name`);
-        }
-        const result = (scriptedObject as { result?: unknown }).result;
-        handlers.tools ??= {};
-        handlers.tools[name] = () => {
-          count(method);
-          if (failure != null) throw failure;
-          return result;
-        };
-        break;
-      }
-      case "client.social.ping":
+      case "social.ping":
         handlers.socialPing = () => {
-          count(method);
           if (failure != null) throw failure;
         };
         break;
-      case "client.device.reboot":
+      case "device.reboot":
         control.reboot = () => {
-          count(method);
           if (failure != null) throw failure;
         };
         break;
-      case "client.device.settings.get":
-        control.getSettings = () => {
-          count(method);
-          if (failure != null) throw failure;
-          return scriptedObject as DeviceSettings;
-        };
-        break;
-      case "client.device.settings.set":
-        // The scripted settings are the device's state before the patch; the
-        // answer overlays the members the patch carries, so an HTTP round trip
-        // observes what it asked for next to what it left unchanged.
-        control.setSettings = (patch) => {
-          count(method);
-          if (failure != null) throw failure;
-          const present = Object.entries(patch).filter(
-            ([, value]) => value !== undefined,
-          );
-          return {
-            ...scriptedObject,
-            ...Object.fromEntries(present),
-          } as DeviceSettings;
-        };
-        break;
-      case "client.device.factory_reset":
+      case "device.factory_reset":
         control.factoryReset = () => {
-          count(method);
           if (failure != null) throw failure;
         };
         break;
       case "client.mhs.v0.read":
         control.readMhsStates = () => {
-          count(method);
           if (failure != null) throw failure;
           return scriptedObject as MhsReadResponse;
         };
         break;
       case "client.mhs.v0.write":
         control.writeMhsStates = () => {
-          count(method);
           if (failure != null) throw failure;
           return scriptedObject as MhsWriteResponse;
         };
         break;
-      case "client.run.workspace.set":
+      case "run.workspace.set":
         control.setRunWorkspace = () => {
-          count(method);
           if (failure != null) throw failure;
         };
         break;
-      case "client.wifi.status.get":
-        control.wifiStatus = () => {
-          count(method);
-          if (failure != null) throw failure;
-          return scriptedObject as { connected: boolean };
-        };
-        break;
-      case "client.wifi.saved.list":
+      case "wifi.saved.list":
         control.savedWifi = () => {
-          count(method);
           if (failure != null) throw failure;
           const networks = scriptedObject["networks"];
           return Array.isArray(networks)
@@ -607,15 +534,13 @@ function buildHandlers(
             : [];
         };
         break;
-      case "client.wifi.saved.forget":
+      case "wifi.saved.forget":
         control.forgetWifi = () => {
-          count(method);
           if (failure != null) throw failure;
         };
         break;
-      case "client.wifi.scan":
+      case "wifi.scan":
         control.scanWifi = async () => {
-          count(method);
           if (failure != null) throw failure;
           const delayMs = scriptedDelayMs(scriptedObject);
           if (delayMs > 0) {
@@ -625,9 +550,8 @@ function buildHandlers(
           return Array.isArray(networks) ? (networks as never[]) : [];
         };
         break;
-      case "client.wifi.connect":
+      case "wifi.connect":
         control.connectWifi = () => {
-          count(method);
           if (failure != null) throw failure;
         };
         break;

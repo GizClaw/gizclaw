@@ -15,7 +15,7 @@ func TestProjectToolExposesPeerNameDistinctFromInvocationName(t *testing.T) {
 		apitypes.RuntimeProfileBinding{},
 		toolkit.Tool{
 			InvokeName:  "client_volume_set",
-			Type:        toolkit.ToolTypeClientRPC,
+			Type:        toolkit.ToolTypeHTTPRequest,
 			InputSchema: jsonschema.Schema{Type: "object"},
 		},
 	)

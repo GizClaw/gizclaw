@@ -58,18 +58,10 @@ final _messageFactories = <String, MessageFactory>{
   'ClientDeviceFindResponse': payload.ClientDeviceFindResponse.new,
   'ClientDeviceRebootRequest': payload.ClientDeviceRebootRequest.new,
   'ClientDeviceRebootResponse': payload.ClientDeviceRebootResponse.new,
-  'ClientDeviceSettingsGetRequest': payload.ClientDeviceSettingsGetRequest.new,
-  'ClientDeviceSettingsGetResponse':
-      payload.ClientDeviceSettingsGetResponse.new,
-  'ClientDeviceSettingsSetRequest': payload.ClientDeviceSettingsSetRequest.new,
-  'ClientDeviceSettingsSetResponse':
-      payload.ClientDeviceSettingsSetResponse.new,
   'ClientDeviceSoundPlayRequest': payload.ClientDeviceSoundPlayRequest.new,
   'ClientDeviceSoundPlayResponse': payload.ClientDeviceSoundPlayResponse.new,
   'ClientDeviceStatusGetRequest': payload.ClientDeviceStatusGetRequest.new,
   'ClientDeviceStatusGetResponse': payload.ClientDeviceStatusGetResponse.new,
-  'ClientDeviceVolumeSetRequest': payload.ClientDeviceVolumeSetRequest.new,
-  'ClientDeviceVolumeSetResponse': payload.ClientDeviceVolumeSetResponse.new,
   'ClientFirmwareUpdateRequest': payload.ClientFirmwareUpdateRequest.new,
   'ClientFirmwareUpdateResponse': payload.ClientFirmwareUpdateResponse.new,
   'ClientGetIdentifiersRequest': payload.ClientGetIdentifiersRequest.new,
@@ -80,12 +72,16 @@ final _messageFactories = <String, MessageFactory>{
   'ClientMhsV0ReadResponse': payload.ClientMhsV0ReadResponse.new,
   'ClientMhsV0WriteRequest': payload.ClientMhsV0WriteRequest.new,
   'ClientMhsV0WriteResponse': payload.ClientMhsV0WriteResponse.new,
-  'ClientRpcMethodsGetRequest': payload.ClientRpcMethodsGetRequest.new,
-  'ClientRpcMethodsGetResponse': payload.ClientRpcMethodsGetResponse.new,
+  'ClientRpcMethodsListRequest': payload.ClientRpcMethodsListRequest.new,
+  'ClientRpcMethodsListResponse': payload.ClientRpcMethodsListResponse.new,
   'ClientRunWorkspaceSetRequest': payload.ClientRunWorkspaceSetRequest.new,
   'ClientRunWorkspaceSetResponse': payload.ClientRunWorkspaceSetResponse.new,
   'ClientSocialPingRequest': payload.ClientSocialPingRequest.new,
   'ClientSocialPingResponse': payload.ClientSocialPingResponse.new,
+  'ClientToolV0InvokeRequest': payload.ClientToolV0InvokeRequest.new,
+  'ClientToolV0InvokeResponse': payload.ClientToolV0InvokeResponse.new,
+  'ClientToolV0ListRequest': payload.ClientToolV0ListRequest.new,
+  'ClientToolV0ListResponse': payload.ClientToolV0ListResponse.new,
   'ClientWifiConnectRequest': payload.ClientWifiConnectRequest.new,
   'ClientWifiConnectResponse': payload.ClientWifiConnectResponse.new,
   'ClientWifiSavedForgetRequest': payload.ClientWifiSavedForgetRequest.new,
@@ -94,8 +90,6 @@ final _messageFactories = <String, MessageFactory>{
   'ClientWifiSavedListResponse': payload.ClientWifiSavedListResponse.new,
   'ClientWifiScanRequest': payload.ClientWifiScanRequest.new,
   'ClientWifiScanResponse': payload.ClientWifiScanResponse.new,
-  'ClientWifiStatusGetRequest': payload.ClientWifiStatusGetRequest.new,
-  'ClientWifiStatusGetResponse': payload.ClientWifiStatusGetResponse.new,
   'ContactCreateRequest': payload.ContactCreateRequest.new,
   'ContactCreateResponse': payload.ContactCreateResponse.new,
   'ContactDeleteRequest': payload.ContactDeleteRequest.new,
@@ -240,8 +234,6 @@ final _messageFactories = <String, MessageFactory>{
   'SpeedTestResponse': payload.SpeedTestResponse.new,
   'ToolGetRequest': payload.ToolGetRequest.new,
   'ToolGetResponse': payload.ToolGetResponse.new,
-  'ToolInvokeRequest': payload.ToolInvokeRequest.new,
-  'ToolInvokeResponse': payload.ToolInvokeResponse.new,
   'ToolListRequest': payload.ToolListRequest.new,
   'ToolListResponse': payload.ToolListResponse.new,
   'VoiceGetRequest': payload.VoiceGetRequest.new,
@@ -321,16 +313,10 @@ final _messageTypes = <String, Type>{
   'ClientDeviceFindResponse': payload.ClientDeviceFindResponse,
   'ClientDeviceRebootRequest': payload.ClientDeviceRebootRequest,
   'ClientDeviceRebootResponse': payload.ClientDeviceRebootResponse,
-  'ClientDeviceSettingsGetRequest': payload.ClientDeviceSettingsGetRequest,
-  'ClientDeviceSettingsGetResponse': payload.ClientDeviceSettingsGetResponse,
-  'ClientDeviceSettingsSetRequest': payload.ClientDeviceSettingsSetRequest,
-  'ClientDeviceSettingsSetResponse': payload.ClientDeviceSettingsSetResponse,
   'ClientDeviceSoundPlayRequest': payload.ClientDeviceSoundPlayRequest,
   'ClientDeviceSoundPlayResponse': payload.ClientDeviceSoundPlayResponse,
   'ClientDeviceStatusGetRequest': payload.ClientDeviceStatusGetRequest,
   'ClientDeviceStatusGetResponse': payload.ClientDeviceStatusGetResponse,
-  'ClientDeviceVolumeSetRequest': payload.ClientDeviceVolumeSetRequest,
-  'ClientDeviceVolumeSetResponse': payload.ClientDeviceVolumeSetResponse,
   'ClientFirmwareUpdateRequest': payload.ClientFirmwareUpdateRequest,
   'ClientFirmwareUpdateResponse': payload.ClientFirmwareUpdateResponse,
   'ClientGetIdentifiersRequest': payload.ClientGetIdentifiersRequest,
@@ -341,12 +327,16 @@ final _messageTypes = <String, Type>{
   'ClientMhsV0ReadResponse': payload.ClientMhsV0ReadResponse,
   'ClientMhsV0WriteRequest': payload.ClientMhsV0WriteRequest,
   'ClientMhsV0WriteResponse': payload.ClientMhsV0WriteResponse,
-  'ClientRpcMethodsGetRequest': payload.ClientRpcMethodsGetRequest,
-  'ClientRpcMethodsGetResponse': payload.ClientRpcMethodsGetResponse,
+  'ClientRpcMethodsListRequest': payload.ClientRpcMethodsListRequest,
+  'ClientRpcMethodsListResponse': payload.ClientRpcMethodsListResponse,
   'ClientRunWorkspaceSetRequest': payload.ClientRunWorkspaceSetRequest,
   'ClientRunWorkspaceSetResponse': payload.ClientRunWorkspaceSetResponse,
   'ClientSocialPingRequest': payload.ClientSocialPingRequest,
   'ClientSocialPingResponse': payload.ClientSocialPingResponse,
+  'ClientToolV0InvokeRequest': payload.ClientToolV0InvokeRequest,
+  'ClientToolV0InvokeResponse': payload.ClientToolV0InvokeResponse,
+  'ClientToolV0ListRequest': payload.ClientToolV0ListRequest,
+  'ClientToolV0ListResponse': payload.ClientToolV0ListResponse,
   'ClientWifiConnectRequest': payload.ClientWifiConnectRequest,
   'ClientWifiConnectResponse': payload.ClientWifiConnectResponse,
   'ClientWifiSavedForgetRequest': payload.ClientWifiSavedForgetRequest,
@@ -355,8 +345,6 @@ final _messageTypes = <String, Type>{
   'ClientWifiSavedListResponse': payload.ClientWifiSavedListResponse,
   'ClientWifiScanRequest': payload.ClientWifiScanRequest,
   'ClientWifiScanResponse': payload.ClientWifiScanResponse,
-  'ClientWifiStatusGetRequest': payload.ClientWifiStatusGetRequest,
-  'ClientWifiStatusGetResponse': payload.ClientWifiStatusGetResponse,
   'ContactCreateRequest': payload.ContactCreateRequest,
   'ContactCreateResponse': payload.ContactCreateResponse,
   'ContactDeleteRequest': payload.ContactDeleteRequest,
@@ -494,8 +482,6 @@ final _messageTypes = <String, Type>{
   'SpeedTestResponse': payload.SpeedTestResponse,
   'ToolGetRequest': payload.ToolGetRequest,
   'ToolGetResponse': payload.ToolGetResponse,
-  'ToolInvokeRequest': payload.ToolInvokeRequest,
-  'ToolInvokeResponse': payload.ToolInvokeResponse,
   'ToolListRequest': payload.ToolListRequest,
   'ToolListResponse': payload.ToolListResponse,
   'VoiceGetRequest': payload.VoiceGetRequest,
@@ -597,6 +583,8 @@ const _explicitPresenceFields = <String, Set<int>>{
   'gizclaw.rpc.v1.ClientFirmwareUpdateRequest': {1, 2},
   'gizclaw.rpc.v1.ClientRunWorkspaceSetRequest': {2},
   'gizclaw.rpc.v1.ClientSocialPingRequest': {2, 3},
+  'gizclaw.rpc.v1.ClientToolV0InvokeRequest': {2},
+  'gizclaw.rpc.v1.ClientToolV0InvokeResponse': {1},
   'gizclaw.rpc.v1.ClientWifiConnectRequest': {2},
   'gizclaw.rpc.v1.ClientWifiScanRequest': {1},
   'gizclaw.rpc.v1.ContactCreateRequest': {2, 3},
@@ -648,7 +636,6 @@ const _explicitPresenceFields = <String, Set<int>>{
   'gizclaw.rpc.v1.DeviceIdentifiers': {1},
   'gizclaw.rpc.v1.DeviceInfo': {1, 2, 4, 5},
   'gizclaw.rpc.v1.DeviceProfile': {1, 2},
-  'gizclaw.rpc.v1.DeviceSettings': {1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
   'gizclaw.rpc.v1.DoubaoRealtimeAIGCMetadata': {1, 2, 3, 4, 5},
   'gizclaw.rpc.v1.DoubaoRealtimeASRExtension': {1},
   'gizclaw.rpc.v1.DoubaoRealtimeASRExtra': {1, 2, 3, 4, 5, 6, 7, 8},
@@ -851,7 +838,6 @@ const _explicitPresenceFields = <String, Set<int>>{
     13,
   },
   'gizclaw.rpc.v1.WifiScanResult': {2, 3, 4, 5},
-  'gizclaw.rpc.v1.WifiStatus': {2, 3, 4, 5},
   'gizclaw.rpc.v1.Workflow': {5},
   'gizclaw.rpc.v1.WorkflowListRequest': {1, 2},
   'gizclaw.rpc.v1.WorkflowListResponse': {3},
@@ -891,4 +877,19 @@ void _expectPayloadType(String expected, GeneratedMessage message) {
       'RPC payload type mismatch: got $actualType, want $expected',
     );
   }
+}
+
+GeneratedMessage decodeClientToolRequestPayload(int tool, List<int> bytes) =>
+    newPayloadMessage(clientToolById(tool).requestType)..mergeFromBuffer(bytes);
+GeneratedMessage decodeClientToolResponsePayload(int tool, List<int> bytes) =>
+    newPayloadMessage(clientToolById(tool).responseType)
+      ..mergeFromBuffer(bytes);
+List<int> encodeClientToolRequestPayload(int tool, GeneratedMessage message) {
+  _expectPayloadType(clientToolById(tool).requestType, message);
+  return message.writeToBuffer();
+}
+
+List<int> encodeClientToolResponsePayload(int tool, GeneratedMessage message) {
+  _expectPayloadType(clientToolById(tool).responseType, message);
+  return message.writeToBuffer();
 }

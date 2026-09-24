@@ -1,3 +1,4 @@
+import { CLIENT_TOOL_IDS, decodeClientToolResult } from "@gizclaw/gizclaw/rpc";
 /**
  * Controller-side clients for GizClaw HTTP APIs and monitoring.
  *
@@ -8,55 +9,34 @@
  * additionally support device public keys, node tokens and public discovery.
  */
 import {
-  getDeviceAudioPlayer,
-  getDeviceAudioPlayerPlaylist,
-  setDeviceAudioPlayerPlaylist,
-  appendDeviceAudioPlayerPlaylist,
-  playDeviceAudioPlayer,
-  stopDeviceAudioPlayer,
-  setDeviceAudioPlayerMode,
   listDeviceWorkspaces,
   deleteDeviceWorkspace,
   listDeviceWorkspaceHistory,
   searchDeviceLogs,
   downloadDeviceHistoryAudio,
   aggregateDeviceTelemetry,
-  connectDeviceWifi,
   createApiKey,
   createContact,
   createPeerHTTPClient,
   deleteContact,
-  factoryResetDevice,
-  findDevice,
-  forgetDeviceSavedWifi,
   getApiKey,
   getContact,
+  invokeClientTool,
+  listClientTools,
   getDevice,
   getDeviceRuntime,
-  getDeviceSettings,
   getMhsManifest,
   readMhsStates,
   writeMhsStates,
   getDeviceStatus,
   getDeviceTelemetryLatest,
-  getDeviceWifi,
   getSelfApiKey,
   listApiKeys,
   listContacts,
-  invokeDeviceTool,
-  listDeviceRpcMethods,
-  listDeviceSavedWifi,
-  listDeviceTools,
-  playDeviceSound,
   putContact,
   queryDeviceTelemetry,
-  rebootDevice,
   revokeApiKey,
   revokeSelfApiKey,
-  scanDeviceWifi,
-  setDeviceRunWorkspace,
-  setDeviceVolume,
-  updateDeviceSettings,
   addFriend,
   addFriendGroupMember,
   clearFriendGroupInviteToken,
@@ -80,12 +60,17 @@ import {
   putFriendGroupMember,
 } from "@gizclaw/gizclaw/peerhttp";
 import type {
-  AudioPlayerResponse,
-  AudioPlayerPlaylist,
   AudioPlayerPlaylistSetRequest,
   AudioPlayerPlaylistAppendRequest,
   AudioPlayerPlayRequest,
   AudioPlayerModeSetRequest,
+  AudioPlayerStatus,
+  ClientToolV0InvokeRequest,
+  ClientToolV0ListResponse,
+  DeviceIdentifiers,
+  HardwareInfo,
+  DeviceFirmwareUpdateRequest,
+  ClientToolSocialPingArgs,
   DeviceWorkspace,
   DeviceLogPage,
   PeerRunHistoryListResponse,
@@ -100,27 +85,19 @@ import type {
   ContactCreateRequest,
   ContactList,
   ContactPutRequest,
-  DeviceControlStatus,
   DeviceFactoryResetRequest,
-  DeviceRpcMethods,
   DeviceRunWorkspaceSetRequest,
-  DeviceSettings,
   MhsV0Manifest,
   MhsV0ReadRequest,
   MhsV0States,
-  DeviceToolInvokeRequest,
-  DeviceToolInvokeResponse,
-  DeviceToolList,
   DeviceFindRequest,
   DeviceInfo,
   DevicePlaySoundRequest,
   DeviceRebootRequest,
-  DeviceVolumeSetRequest,
   DeviceWifiConnectRequest,
   DeviceWifiSavedList,
   DeviceWifiScanRequest,
   DeviceWifiScanResponse,
-  DeviceWifiStatus,
   ErrorResponse,
   PeerHTTPClient,
   PeerStatus,
@@ -151,8 +128,6 @@ import type {
 export type {
   AudioPlayerItem,
   AudioPlayerStatus,
-  AudioPlayerResponse,
-  AudioPlayerPlaylist,
   AudioPlayerPlaylistSetRequest,
   AudioPlayerPlaylistAppendRequest,
   AudioPlayerPlayRequest,
@@ -171,27 +146,17 @@ export type {
   ContactCreateRequest,
   ContactList,
   ContactPutRequest,
-  DeviceControlStatus,
   DeviceFactoryResetRequest,
-  DeviceRpcMethods,
   DeviceRunWorkspaceSetRequest,
-  DeviceSettings,
-  DeviceTool,
-  DeviceToolI18nText,
-  DeviceToolInvokeRequest,
-  DeviceToolInvokeResponse,
-  DeviceToolList,
   DeviceFindRequest,
   DeviceInfo,
   DevicePlaySoundRequest,
   DeviceRebootRequest,
-  DeviceVolumeSetRequest,
   DeviceWifiConnectRequest,
   DeviceWifiSavedList,
   DeviceWifiScanRequest,
   DeviceWifiScanResponse,
   DeviceWifiScanResult,
-  DeviceWifiStatus,
   ErrorPayload,
   ErrorResponse,
   PeerHTTPClient,
@@ -414,6 +379,12 @@ export interface GizClawControlApiKeys {
   revoke(apiKeyName: string): Promise<void>;
 }
 
+export type AudioPlayerResponse = { status: AudioPlayerStatus };
+export type AudioPlayerPlaylist = {
+  items: import("@gizclaw/gizclaw/peerhttp").AudioPlayerItem[];
+  playlist_revision: number;
+};
+
 export interface GizClawControlDevice {
   getAudioPlayer(): Promise<AudioPlayerResponse>;
   getAudioPlayerPlaylist(): Promise<AudioPlayerPlaylist>;
@@ -477,62 +448,38 @@ export interface GizClawControlDevice {
     bucket_ms: number;
     aggregate: PeerTelemetryAggregate;
   }): Promise<PeerTelemetryAggregateResponse>;
-  /**
-   * `PUT /gizclaw/v1/device/volume`.
-   * @deprecated Use writeMhsStates with keys from getMhsManifest.
-   */
-  setVolume(body: DeviceVolumeSetRequest): Promise<DeviceControlStatus>;
-  /** `POST /gizclaw/v1/device/actions/play-sound`. */
+  /** `POST /gizclaw/v1/device/tool/v0/invoke`. */
   playSound(body: DevicePlaySoundRequest): Promise<void>;
   /**
-   * `POST /gizclaw/v1/device/actions/find`.
+   * `POST /gizclaw/v1/device/tool/v0/invoke`.
    *
    * Rings the device's own built-in find-me sound with a rising volume ramp.
    * Omit `duration_ms` to let the device pick its default ring time.
    */
   find(body?: DeviceFindRequest): Promise<void>;
-  /** `POST /gizclaw/v1/device/actions/reboot`. */
+  /** `POST /gizclaw/v1/device/tool/v0/invoke`. */
   reboot(body?: DeviceRebootRequest): Promise<void>;
-  /** `GET /gizclaw/v1/device/wifi`. */
-  getWifi(): Promise<DeviceWifiStatus>;
-  /** `POST /gizclaw/v1/device/wifi/scan`. */
+  /** `POST /gizclaw/v1/device/tool/v0/invoke`. */
   scanWifi(body?: DeviceWifiScanRequest): Promise<DeviceWifiScanResponse>;
   /**
-   * `PUT /gizclaw/v1/device/wifi`.
+   * `POST /gizclaw/v1/device/tool/v0/invoke`.
    *
    * Resolving means the device accepted the credentials and began switching
    * networks, not that it joined them. The device goes offline during the
-   * switch; poll {@link GizClawControlDevice.getWifi} after it reconnects to
-   * observe the outcome.
+   * switch; read the manifest Wi-Fi states after it reconnects to observe the outcome.
    */
   connectWifi(body: DeviceWifiConnectRequest): Promise<void>;
-  /** `GET /gizclaw/v1/device/wifi/saved`. */
+  /** `POST /gizclaw/v1/device/tool/v0/invoke`. */
   listSavedWifi(): Promise<DeviceWifiSavedList>;
-  /** `DELETE /gizclaw/v1/device/wifi/saved/{ssid}`. */
+  /** `POST /gizclaw/v1/device/tool/v0/invoke`. */
   forgetSavedWifi(ssid: string): Promise<void>;
-  /**
-   * `GET /gizclaw/v1/device/settings`.
-   *
-   * An absent member means the device does not support that option.
-   * @deprecated Use readMhsStates with keys from getMhsManifest.
-   */
-  getSettings(): Promise<DeviceSettings>;
   /** RuntimeProfile-owned MHS-inspired v0 manifest; available while offline. */
   getMhsManifest(): Promise<MhsV0Manifest>;
   readMhsStates(body: MhsV0ReadRequest): Promise<MhsV0States>;
   /** Atomically writes a batch and returns the device's actual applied values. */
   writeMhsStates(body: MhsV0States): Promise<MhsV0States>;
   /**
-   * `PATCH /gizclaw/v1/device/settings`.
-   *
-   * Changes only the members present. A value outside its range rejects the
-   * whole patch before any member is applied. Resolves with every setting
-   * after the change.
-   * @deprecated Use writeMhsStates with keys from getMhsManifest.
-   */
-  updateSettings(patch: DeviceSettings): Promise<DeviceSettings>;
-  /**
-   * `POST /gizclaw/v1/device/actions/factory-reset`.
+   * `POST /gizclaw/v1/device/tool/v0/invoke`.
    *
    * Irreversible on the device. It acknowledges before erasing its state and
    * then goes offline. A device that deletes its Peer while resetting also
@@ -540,13 +487,7 @@ export interface GizClawControlDevice {
    */
   factoryReset(body?: DeviceFactoryResetRequest): Promise<void>;
   /**
-   * `GET /gizclaw/v1/device/rpc-methods`.
-   *
-   * Hide controls the device would only fail. Ignore unknown method names.
-   */
-  listRpcMethods(): Promise<DeviceRpcMethods>;
-  /**
-   * `PUT /gizclaw/v1/device/run/workspace`.
+   * `POST /gizclaw/v1/device/tool/v0/invoke`.
    *
    * Resolving means the device accepted the switch, not that it finished;
    * read `active_workspace_name` from {@link GizClawControlDevice.getRuntime}
@@ -554,22 +495,16 @@ export interface GizClawControlDevice {
    */
   setRunWorkspace(body: DeviceRunWorkspaceSetRequest): Promise<void>;
   /**
-   * `GET /gizclaw/v1/device/tools`.
+   * `GET /gizclaw/v1/device/tool/v0/tools`.
    *
-   * Tools the RuntimeProfile exposes to the control app. Answers while the
-   * device is offline.
+   * Predefined procedures the online device actually implements.
    */
-  listTools(): Promise<DeviceToolList>;
-  /**
-   * `POST /gizclaw/v1/device/tools/{name}/actions/invoke`.
-   *
-   * `args` must satisfy the Tool's `input_schema`. Resolves with the device's
-   * result as JSON text in `data_json`.
-   */
-  invokeTool(
-    name: string,
-    body?: DeviceToolInvokeRequest,
-  ): Promise<DeviceToolInvokeResponse>;
+  listTools(): Promise<ClientToolV0ListResponse>;
+  getHardware(): Promise<HardwareInfo>;
+  getIdentifiers(): Promise<DeviceIdentifiers>;
+  readStatus(): Promise<PeerStatus>;
+  updateFirmware(body?: DeviceFirmwareUpdateRequest): Promise<void>;
+  ping(body: ClientToolSocialPingArgs): Promise<void>;
 }
 
 export interface GizClawControlContacts {
@@ -731,6 +666,9 @@ export function createGizClawControlClient(
     throwOnError: false as const,
   };
 
+  const callTool = (body: ClientToolV0InvokeRequest) =>
+    unwrap("invokeClientTool", invokeClientTool({ ...common, body }));
+
   return {
     client,
     apiKeys: {
@@ -800,35 +738,50 @@ export function createGizClawControlClient(
       },
       get: () => unwrap("getDevice", getDevice(common)),
       getRuntime: () => unwrap("getDeviceRuntime", getDeviceRuntime(common)),
-      getAudioPlayer: () =>
-        unwrap("getDeviceAudioPlayer", getDeviceAudioPlayer(common)),
-      getAudioPlayerPlaylist: () =>
-        unwrap(
-          "getDeviceAudioPlayerPlaylist",
-          getDeviceAudioPlayerPlaylist(common),
+      getAudioPlayer: async () => ({
+        status: decodeClientToolResult(
+          CLIENT_TOOL_IDS["audioplayer.get"],
+          (await callTool({ tool: "audioplayer.get", args: {} })).result,
         ),
-      setAudioPlayerPlaylist: (body) =>
-        unwrap(
-          "setDeviceAudioPlayerPlaylist",
-          setDeviceAudioPlayerPlaylist({ ...common, body }),
+      }),
+      getAudioPlayerPlaylist: async () =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["audioplayer.playlist.get"],
+          (await callTool({ tool: "audioplayer.playlist.get", args: {} }))
+            .result,
         ),
-      appendAudioPlayerPlaylist: (body) =>
-        unwrap(
-          "appendDeviceAudioPlayerPlaylist",
-          appendDeviceAudioPlayerPlaylist({ ...common, body }),
+      setAudioPlayerPlaylist: async (body) => ({
+        status: decodeClientToolResult(
+          CLIENT_TOOL_IDS["audioplayer.playlist.set"],
+          (await callTool({ tool: "audioplayer.playlist.set", args: body }))
+            .result,
         ),
-      playAudioPlayer: (body) =>
-        unwrap(
-          "playDeviceAudioPlayer",
-          playDeviceAudioPlayer({ ...common, body }),
+      }),
+      appendAudioPlayerPlaylist: async (body) => ({
+        status: decodeClientToolResult(
+          CLIENT_TOOL_IDS["audioplayer.playlist.append"],
+          (await callTool({ tool: "audioplayer.playlist.append", args: body }))
+            .result,
         ),
-      stopAudioPlayer: () =>
-        unwrap("stopDeviceAudioPlayer", stopDeviceAudioPlayer(common)),
-      setAudioPlayerMode: (body) =>
-        unwrap(
-          "setDeviceAudioPlayerMode",
-          setDeviceAudioPlayerMode({ ...common, body }),
+      }),
+      playAudioPlayer: async (body) => ({
+        status: decodeClientToolResult(
+          CLIENT_TOOL_IDS["audioplayer.play"],
+          (await callTool({ tool: "audioplayer.play", args: body })).result,
         ),
+      }),
+      stopAudioPlayer: async () => ({
+        status: decodeClientToolResult(
+          CLIENT_TOOL_IDS["audioplayer.stop"],
+          (await callTool({ tool: "audioplayer.stop", args: {} })).result,
+        ),
+      }),
+      setAudioPlayerMode: async (body) => ({
+        status: decodeClientToolResult(
+          CLIENT_TOOL_IDS["audioplayer.mode.set"],
+          (await callTool({ tool: "audioplayer.mode.set", args: body })).result,
+        ),
+      }),
       getStatus: () => unwrap("getDeviceStatus", getDeviceStatus(common)),
       getTelemetryLatest: (field) =>
         unwrap(
@@ -848,65 +801,65 @@ export function createGizClawControlClient(
           "aggregateDeviceTelemetry",
           aggregateDeviceTelemetry({ ...common, query }),
         ),
-      setVolume: (body) =>
-        unwrap("setDeviceVolume", setDeviceVolume({ ...common, body })),
-      playSound: (body) =>
-        unwrapEmpty("playDeviceSound", playDeviceSound({ ...common, body })),
-      find: (body = {}) =>
-        unwrapEmpty("findDevice", findDevice({ ...common, body })),
-      reboot: (body = {}) =>
-        unwrapEmpty("rebootDevice", rebootDevice({ ...common, body })),
-      getWifi: () => unwrap("getDeviceWifi", getDeviceWifi(common)),
-      scanWifi: (body = {}) =>
-        unwrap("scanDeviceWifi", scanDeviceWifi({ ...common, body })),
-      connectWifi: (body) =>
-        unwrapEmpty(
-          "connectDeviceWifi",
-          connectDeviceWifi({ ...common, body }),
+      playSound: async (body) => {
+        await callTool({ tool: "sound.play", args: body });
+      },
+      find: async (body = {}) => {
+        await callTool({ tool: "device.find", args: body });
+      },
+      reboot: async (body = {}) => {
+        await callTool({ tool: "device.reboot", args: body });
+      },
+      scanWifi: async (body = {}) =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["wifi.scan"],
+          (await callTool({ tool: "wifi.scan", args: body })).result,
         ),
-      listSavedWifi: () =>
-        unwrap("listDeviceSavedWifi", listDeviceSavedWifi(common)),
-      forgetSavedWifi: async (ssid) =>
-        unwrapEmpty(
-          "forgetDeviceSavedWifi",
-          forgetDeviceSavedWifi({
-            ...common,
-            path: { ssid: requireSegment("ssid", ssid) },
-          }),
+      connectWifi: async (body) => {
+        await callTool({ tool: "wifi.connect", args: body });
+      },
+      listSavedWifi: async () =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["wifi.saved.list"],
+          (await callTool({ tool: "wifi.saved.list", args: {} })).result,
         ),
+      forgetSavedWifi: async (ssid) => {
+        if (ssid === "") throw new TypeError("ssid must not be empty");
+        await callTool({ tool: "wifi.saved.forget", args: { ssid } });
+      },
+      factoryReset: async (body = {}) => {
+        await callTool({ tool: "device.factory_reset", args: body });
+      },
+      setRunWorkspace: async (body) => {
+        await callTool({ tool: "run.workspace.set", args: body });
+      },
+      getHardware: async () =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["info.get"],
+          (await callTool({ tool: "info.get", args: {} })).result,
+        ),
+      getIdentifiers: async () =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["identifiers.get"],
+          (await callTool({ tool: "identifiers.get", args: {} })).result,
+        ),
+      readStatus: async () =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["device.status.get"],
+          (await callTool({ tool: "device.status.get", args: {} })).result,
+        ),
+      updateFirmware: async (body = {}) => {
+        await callTool({ tool: "firmware.update", args: body });
+      },
+      ping: async (body) => {
+        await callTool({ tool: "social.ping", args: body });
+      },
       getMhsManifest: () => unwrap("getMhsManifest", getMhsManifest(common)),
       readMhsStates: (body) =>
         unwrap("readMhsStates", readMhsStates({ ...common, body })),
       writeMhsStates: (body) =>
         unwrap("writeMhsStates", writeMhsStates({ ...common, body })),
-      getSettings: () => unwrap("getDeviceSettings", getDeviceSettings(common)),
-      updateSettings: (body) =>
-        unwrap(
-          "updateDeviceSettings",
-          updateDeviceSettings({ ...common, body }),
-        ),
-      factoryReset: (body = {}) =>
-        unwrapEmpty(
-          "factoryResetDevice",
-          factoryResetDevice({ ...common, body }),
-        ),
-      listRpcMethods: () =>
-        unwrap("listDeviceRpcMethods", listDeviceRpcMethods(common)),
-      setRunWorkspace: (body) =>
-        unwrapEmpty(
-          "setDeviceRunWorkspace",
-          setDeviceRunWorkspace({ ...common, body }),
-        ),
-      listTools: () => unwrap("listDeviceTools", listDeviceTools(common)),
-      invokeTool: async (name, body = {}) =>
-        unwrap(
-          "invokeDeviceTool",
-          invokeDeviceTool({
-            ...common,
-            path: { name: requireSegment("name", name) },
-            body,
-          }),
-        ),
+      listTools: () => unwrap("listClientTools", listClientTools(common)),
     },
     contacts: {
       list: (query) =>

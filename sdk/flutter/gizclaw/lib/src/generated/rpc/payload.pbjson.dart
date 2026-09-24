@@ -9,4 +9,5 @@ export 'payload/icon.pbjson.dart';
 export 'payload/mhs.pbjson.dart';
 export 'payload/social.pbjson.dart';
 export 'payload/system.pbjson.dart';
+export 'payload/tool.pbjson.dart';
 export 'payload/workspace.pbjson.dart';

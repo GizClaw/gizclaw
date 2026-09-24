@@ -24,31 +24,10 @@ PB_BIND(gizclaw_rpc_v1_ClientDeviceStatusGetRequest, gizclaw_rpc_v1_ClientDevice
 PB_BIND(gizclaw_rpc_v1_ClientDeviceStatusGetResponse, gizclaw_rpc_v1_ClientDeviceStatusGetResponse, 2)
 
 
-PB_BIND(gizclaw_rpc_v1_ClientDeviceVolumeSetRequest, gizclaw_rpc_v1_ClientDeviceVolumeSetRequest, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ClientDeviceVolumeSetResponse, gizclaw_rpc_v1_ClientDeviceVolumeSetResponse, 2)
-
-
 PB_BIND(gizclaw_rpc_v1_ClientDeviceSoundPlayRequest, gizclaw_rpc_v1_ClientDeviceSoundPlayRequest, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ClientDeviceSoundPlayResponse, gizclaw_rpc_v1_ClientDeviceSoundPlayResponse, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_DeviceSettings, gizclaw_rpc_v1_DeviceSettings, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ClientDeviceSettingsGetRequest, gizclaw_rpc_v1_ClientDeviceSettingsGetRequest, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ClientDeviceSettingsGetResponse, gizclaw_rpc_v1_ClientDeviceSettingsGetResponse, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ClientDeviceSettingsSetRequest, gizclaw_rpc_v1_ClientDeviceSettingsSetRequest, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ClientDeviceSettingsSetResponse, gizclaw_rpc_v1_ClientDeviceSettingsSetResponse, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ClientDeviceFactoryResetRequest, gizclaw_rpc_v1_ClientDeviceFactoryResetRequest, AUTO)
@@ -63,10 +42,10 @@ PB_BIND(gizclaw_rpc_v1_ClientRunWorkspaceSetRequest, gizclaw_rpc_v1_ClientRunWor
 PB_BIND(gizclaw_rpc_v1_ClientRunWorkspaceSetResponse, gizclaw_rpc_v1_ClientRunWorkspaceSetResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ClientRpcMethodsGetRequest, gizclaw_rpc_v1_ClientRpcMethodsGetRequest, AUTO)
+PB_BIND(gizclaw_rpc_v1_ClientRpcMethodsListRequest, gizclaw_rpc_v1_ClientRpcMethodsListRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ClientRpcMethodsGetResponse, gizclaw_rpc_v1_ClientRpcMethodsGetResponse, 4)
+PB_BIND(gizclaw_rpc_v1_ClientRpcMethodsListResponse, gizclaw_rpc_v1_ClientRpcMethodsListResponse, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ClientDeviceFindRequest, gizclaw_rpc_v1_ClientDeviceFindRequest, AUTO)
@@ -81,16 +60,7 @@ PB_BIND(gizclaw_rpc_v1_ClientDeviceRebootRequest, gizclaw_rpc_v1_ClientDeviceReb
 PB_BIND(gizclaw_rpc_v1_ClientDeviceRebootResponse, gizclaw_rpc_v1_ClientDeviceRebootResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_WifiStatus, gizclaw_rpc_v1_WifiStatus, AUTO)
-
-
 PB_BIND(gizclaw_rpc_v1_WifiSavedNetwork, gizclaw_rpc_v1_WifiSavedNetwork, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ClientWifiStatusGetRequest, gizclaw_rpc_v1_ClientWifiStatusGetRequest, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ClientWifiStatusGetResponse, gizclaw_rpc_v1_ClientWifiStatusGetResponse, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ClientWifiSavedListRequest, gizclaw_rpc_v1_ClientWifiSavedListRequest, AUTO)

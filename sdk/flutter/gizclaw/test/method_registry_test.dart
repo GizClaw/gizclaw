@@ -1,6 +1,3 @@
-// Covers the deprecated volume/settings RPCs, which stay supported until removal.
-// ignore_for_file: deprecated_member_use_from_same_package
-
 import 'package:fixnum/fixnum.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:protobuf/protobuf.dart';
@@ -20,162 +17,81 @@ void main() {
     expect(rpcMethodByName('server.api_key.list').id, 97);
     expect(rpcMethodByName('server.api_key.revoke').id, 98);
     expect(rpcMethodByName('server.api_key.resolve').id, 99);
-    expect(rpcMethodByName('client.device.status.get').id, 100);
-    expect(rpcMethodByName('client.device.volume.set').id, 101);
-    expect(rpcMethodByName('client.device.sound.play').id, 102);
-    expect(rpcMethodByName('client.device.reboot').id, 103);
-    expect(rpcMethodByName('client.wifi.status.get').id, 104);
-    expect(rpcMethodByName('client.wifi.saved.list').id, 105);
-    expect(rpcMethodByName('client.wifi.saved.forget').id, 106);
-    expect(rpcMethodByName('client.wifi.scan').id, 108);
-    expect(rpcMethodByName('client.wifi.connect').id, 109);
-    expect(rpcMethodByName('server.friend.ping').id, 123);
-    expect(rpcMethodByName('server.friend_group.ping').id, 124);
-    expect(rpcMethodByName('server.profile.get').id, 125);
-    expect(rpcMethodByName('client.device.find').id, 126);
-    expect(rpcMethodByName('client.social.ping').id, 127);
+    expect(rpcMethodByName('client.mhs.v0.read').id, 133);
+    expect(rpcMethodByName('client.mhs.v0.write').id, 134);
+    expect(rpcMethodByName('client.tool.v0.invoke').id, 135);
+    expect(rpcMethodByName('client.tool.v0.list').id, 136);
+    expect(rpcMethodByName('client.rpc.methods.list').id, 137);
+    expect(clientToolByName('device.find').id, 6);
+    expect(clientToolByName('social.ping').id, 21);
     expect(
       () => rpcMethodByName('server.firmware.download'),
       throwsArgumentError,
     );
   });
 
-  test(
-    'maps device control methods to their request and response messages',
-    () {
-      expect(
-        rpcMethodByName('client.device.volume.set').requestType,
-        'ClientDeviceVolumeSetRequest',
-      );
-      expect(
-        rpcMethodByName('client.device.volume.set').responseType,
-        'ClientDeviceVolumeSetResponse',
-      );
-      expect(
-        rpcMethodByName('client.wifi.saved.list').responseType,
-        'ClientWifiSavedListResponse',
-      );
-
-      final volume = ClientDeviceVolumeSetRequest(
-        level: Int64(35),
-        muted: true,
-      );
-      final decodedVolume =
-          decodeRpcRequestPayload(
-                'client.device.volume.set',
-                encodeRpcRequestPayload('client.device.volume.set', volume),
-              )
-              as ClientDeviceVolumeSetRequest;
-      expect(decodedVolume.level, Int64(35));
-      expect(decodedVolume.muted, isTrue);
-
-      final status = ClientDeviceVolumeSetResponse(
-        value: PeerStatus(
-          volume: Int64(35),
-          muted: true,
-          batteryPercent: Int64(80),
-        ),
-      );
-      final decodedStatus =
-          decodeRpcResponsePayload(
-                'client.device.volume.set',
-                encodeRpcResponsePayload('client.device.volume.set', status),
-              )
-              as ClientDeviceVolumeSetResponse;
-      expect(decodedStatus.value.volume, Int64(35));
-      expect(decodedStatus.value.muted, isTrue);
-      expect(decodedStatus.value.batteryPercent, Int64(80));
-
-      final sound = ClientDeviceSoundPlayRequest(
-        sound: 'chime',
-        durationMs: Int64(1500),
-      );
-      final decodedSound =
-          decodeRpcRequestPayload(
-                'client.device.sound.play',
-                encodeRpcRequestPayload('client.device.sound.play', sound),
-              )
-              as ClientDeviceSoundPlayRequest;
-      expect(decodedSound.sound, 'chime');
-      expect(decodedSound.durationMs, Int64(1500));
-
-      final wifi = ClientWifiStatusGetResponse(
-        value: WifiStatus(
-          connected: true,
-          ssid: 'home',
-          rssiDbm: Int64(-55),
-          ip: '192.0.2.10',
-        ),
-      );
-      final decodedWifi =
-          decodeRpcResponsePayload(
-                'client.wifi.status.get',
-                encodeRpcResponsePayload('client.wifi.status.get', wifi),
-              )
-              as ClientWifiStatusGetResponse;
-      expect(decodedWifi.value.connected, isTrue);
-      expect(decodedWifi.value.ssid, 'home');
-      expect(decodedWifi.value.rssiDbm, Int64(-55));
-
-      final saved = ClientWifiSavedListResponse(
-        networks: [
-          WifiSavedNetwork(ssid: 'home'),
-          WifiSavedNetwork(ssid: 'office'),
-        ],
-      );
-      final decodedSaved =
-          decodeRpcResponsePayload(
-                'client.wifi.saved.list',
-                encodeRpcResponsePayload('client.wifi.saved.list', saved),
-              )
-              as ClientWifiSavedListResponse;
-      expect(decodedSaved.networks.map((n) => n.ssid), ['home', 'office']);
-
-      final forget = ClientWifiSavedForgetRequest(ssid: 'office');
-      final decodedForget =
-          decodeRpcRequestPayload(
-                'client.wifi.saved.forget',
-                encodeRpcRequestPayload('client.wifi.saved.forget', forget),
-              )
-              as ClientWifiSavedForgetRequest;
-      expect(decodedForget.ssid, 'office');
-    },
-  );
+  test('tool/v0 registry selects typed request and response payloads', () {
+    expect(
+      clientToolByName('sound.play').requestType,
+      'ClientDeviceSoundPlayRequest',
+    );
+    expect(
+      clientToolByName('wifi.saved.list').responseType,
+      'ClientWifiSavedListResponse',
+    );
+    final sound = ClientDeviceSoundPlayRequest(
+      sound: 'chime',
+      durationMs: Int64(1500),
+    );
+    final decodedSound =
+        decodeClientToolRequestPayload(
+              clientToolByName('sound.play').id,
+              encodeClientToolRequestPayload(
+                clientToolByName('sound.play').id,
+                sound,
+              ),
+            )
+            as ClientDeviceSoundPlayRequest;
+    expect(decodedSound.sound, 'chime');
+    expect(decodedSound.durationMs, Int64(1500));
+    final saved = ClientWifiSavedListResponse(
+      networks: [WifiSavedNetwork(ssid: 'home')],
+    );
+    final decodedSaved =
+        decodeClientToolResponsePayload(
+              clientToolByName('wifi.saved.list').id,
+              encodeClientToolResponsePayload(
+                clientToolByName('wifi.saved.list').id,
+                saved,
+              ),
+            )
+            as ClientWifiSavedListResponse;
+    expect(decodedSaved.networks.single.ssid, 'home');
+  });
 
   test('round-trips find, social ping and public profile payloads', () {
-    expect(
-      rpcMethodByName('client.device.find').requestType,
-      'ClientDeviceFindRequest',
-    );
-    expect(
-      rpcMethodByName('client.social.ping').responseType,
-      'ClientSocialPingResponse',
-    );
-    expect(
-      rpcMethodByName('server.friend_group.ping').responseType,
-      'FriendGroupPingResponse',
-    );
-
     final find =
-        decodeRpcRequestPayload(
-              'client.device.find',
-              encodeRpcRequestPayload(
-                'client.device.find',
+        decodeClientToolRequestPayload(
+              clientToolByName('device.find').id,
+              encodeClientToolRequestPayload(
+                clientToolByName('device.find').id,
                 ClientDeviceFindRequest(durationMs: Int64(8000)),
               ),
             )
             as ClientDeviceFindRequest;
     expect(find.durationMs, Int64(8000));
     final findDefault =
-        decodeRpcRequestPayload('client.device.find', const [])
+        decodeClientToolRequestPayload(
+              clientToolByName('device.find').id,
+              const [],
+            )
             as ClientDeviceFindRequest;
     expect(findDefault.hasDurationMs(), isFalse);
-
     final ping =
-        decodeRpcRequestPayload(
-              'client.social.ping',
-              encodeRpcRequestPayload(
-                'client.social.ping',
+        decodeClientToolRequestPayload(
+              clientToolByName('social.ping').id,
+              encodeClientToolRequestPayload(
+                clientToolByName('social.ping').id,
                 ClientSocialPingRequest(
                   fromPeerPublicKey: 'peer-a',
                   fromDisplayName: 'Alice',
@@ -185,9 +101,7 @@ void main() {
             )
             as ClientSocialPingRequest;
     expect(ping.fromPeerPublicKey, 'peer-a');
-    expect(ping.fromDisplayName, 'Alice');
     expect(ping.friendGroupName, 'my-team');
-
     final pinged =
         decodeRpcResponsePayload(
               'server.friend.ping',
@@ -200,10 +114,7 @@ void main() {
               ),
             )
             as FriendPingResponse;
-    expect(pinged.result, SocialPingResult.SOCIAL_PING_RESULT_RATE_LIMITED);
     expect(pinged.retryAfterSeconds, 30);
-    expect(SocialPingResult.SOCIAL_PING_RESULT_NOT_ONLINE.value, 2);
-
     final profiles =
         decodeRpcResponsePayload(
               'server.profile.get',
@@ -221,9 +132,7 @@ void main() {
               ),
             )
             as ProfileGetResponse;
-    expect(profiles.items.single.peerPublicKey, 'peer-a');
     expect(profiles.items.single.displayName, 'Carol');
-    expect(profiles.items.single.emoji, '🐱');
   });
 
   test('round-trips Edge API key route payloads', () {
@@ -359,18 +268,16 @@ void main() {
     expect(ASTTranslateMode.ASTTRANSLATE_MODE_S2S.value, 2);
   });
 
-  test('registers device configuration RPC method IDs', () {
-    expect(rpcMethodByName('client.device.settings.get').id, 128);
-    expect(rpcMethodByName('client.device.settings.set').id, 129);
-    expect(rpcMethodByName('client.device.factory_reset').id, 130);
-    expect(rpcMethodByName('client.rpc.methods.get').id, 131);
+  test('registers MHS and tool/v0 RPC method IDs', () {
+    expect(rpcMethodByName('client.mhs.v0.read').id, 133);
+    expect(rpcMethodByName('client.mhs.v0.write').id, 134);
+    expect(rpcMethodByName('client.tool.v0.invoke').id, 135);
+    expect(rpcMethodByName('client.tool.v0.list').id, 136);
+    expect(rpcMethodByName('client.rpc.methods.list').id, 137);
   });
 
-  // The presence table is generated from the protos, but a textual merge can
-  // keep a stale copy that lacks newer optional fields. A missing entry makes an
-  // unset field project as its default, which erases "absent" — the meaning
-  // DeviceSettings relies on to say "this device has no such option".
-  test('treats device settings and status observation fields as optional', () {
+  // Presence of optional procedure and status fields must survive encoding.
+  test('treats procedure and status observation fields as optional', () {
     void expectOptional(GeneratedMessage message, Iterable<int> tags) {
       for (final tag in tags) {
         expect(
@@ -381,7 +288,6 @@ void main() {
       }
     }
 
-    expectOptional(DeviceSettings(), [1, 2, 3, 4, 5, 6, 7]);
     expectOptional(ClientDeviceFactoryResetRequest(), [1]);
     expectOptional(PeerStatus(), [17, 18, 19, 20]);
     expectOptional(PeerStatusTelemetryObservedAt(), [

@@ -64,9 +64,17 @@ import {
   decodeRPCResponsePayload,
   encodeRPCRequestPayload,
   encodeRPCResponsePayload,
+  encodeClientToolRequestPayload,
+  decodeClientToolResponsePayload,
+  decodeClientToolRequestPayload,
+  encodeClientToolResponsePayload,
   type ClientSocialPingRequest,
 } from "./generated/rpc/payload-codec.ts";
-import { RPC_METHOD_IDS, RPC_METHODS } from "./generated/rpc/method-map.ts";
+import {
+  RPC_METHOD_IDS,
+  RPC_METHODS,
+  CLIENT_TOOL_IDS,
+} from "./generated/rpc/method-map.ts";
 import * as peerhttp from "./peerhttp.ts";
 import { createEdgeRPCClient, createPeerRPCClient } from "./rpc.ts";
 import {
@@ -736,13 +744,13 @@ test("RPC API key root management methods preserve IDs and payloads", () => {
   assert.equal(RPC_METHOD_IDS["server.api_key.create"], 96);
   assert.equal(RPC_METHOD_IDS["server.api_key.list"], 97);
   assert.equal(RPC_METHOD_IDS["server.api_key.revoke"], 98);
-  assert.equal(RPC_METHOD_IDS["client.device.status.get"], 100);
-  assert.equal(RPC_METHOD_IDS["client.device.volume.set"], 101);
-  assert.equal(RPC_METHOD_IDS["client.device.sound.play"], 102);
-  assert.equal(RPC_METHOD_IDS["client.device.reboot"], 103);
-  assert.equal(RPC_METHOD_IDS["client.wifi.status.get"], 104);
-  assert.equal(RPC_METHOD_IDS["client.wifi.saved.list"], 105);
-  assert.equal(RPC_METHOD_IDS["client.wifi.saved.forget"], 106);
+  assert.equal(RPC_METHOD_IDS["client.mhs.v0.read"], 133);
+  assert.equal(RPC_METHOD_IDS["client.mhs.v0.write"], 134);
+  assert.equal(RPC_METHOD_IDS["client.tool.v0.invoke"], 135);
+  assert.equal(RPC_METHOD_IDS["client.tool.v0.list"], 136);
+  assert.equal(RPC_METHOD_IDS["client.rpc.methods.list"], 137);
+  assert.equal(CLIENT_TOOL_IDS["device.status.get"], 3);
+  assert.equal(CLIENT_TOOL_IDS["wifi.saved.forget"], 11);
 
   const list = { cursor: "key_cursor", limit: 25 };
   assert.deepEqual(
@@ -787,21 +795,21 @@ test("RPC find, social ping and profile methods preserve IDs and payloads", () =
   assert.equal(RPC_METHOD_IDS["server.friend.ping"], 123);
   assert.equal(RPC_METHOD_IDS["server.friend_group.ping"], 124);
   assert.equal(RPC_METHOD_IDS["server.profile.get"], 125);
-  assert.equal(RPC_METHOD_IDS["client.device.find"], 126);
-  assert.equal(RPC_METHOD_IDS["client.social.ping"], 127);
+  assert.equal(CLIENT_TOOL_IDS["device.find"], 6);
+  assert.equal(CLIENT_TOOL_IDS["social.ping"], 21);
 
   const find = { duration_ms: 8000 };
   assert.deepEqual(
-    decodeRPCRequestPayload(
-      "client.device.find",
-      encodeRPCRequestPayload("client.device.find", find),
+    decodeClientToolRequestPayload(
+      CLIENT_TOOL_IDS["device.find"],
+      encodeClientToolRequestPayload(CLIENT_TOOL_IDS["device.find"], find),
     ),
     find,
   );
   assert.deepEqual(
-    decodeRPCRequestPayload(
-      "client.device.find",
-      encodeRPCRequestPayload("client.device.find", {}),
+    decodeClientToolRequestPayload(
+      CLIENT_TOOL_IDS["device.find"],
+      encodeClientToolRequestPayload(CLIENT_TOOL_IDS["device.find"], {}),
     ),
     {},
   );
@@ -811,17 +819,20 @@ test("RPC find, social ping and profile methods preserve IDs and payloads", () =
     from_display_name: "Alice",
   };
   assert.deepEqual(
-    decodeRPCRequestPayload(
-      "client.social.ping",
-      encodeRPCRequestPayload("client.social.ping", friendPing),
+    decodeClientToolRequestPayload(
+      CLIENT_TOOL_IDS["social.ping"],
+      encodeClientToolRequestPayload(
+        CLIENT_TOOL_IDS["social.ping"],
+        friendPing,
+      ),
     ),
     friendPing,
   );
   const rally = { ...friendPing, friend_group_name: "my-team" };
   assert.deepEqual(
-    decodeRPCRequestPayload(
-      "client.social.ping",
-      encodeRPCRequestPayload("client.social.ping", rally),
+    decodeClientToolRequestPayload(
+      CLIENT_TOOL_IDS["social.ping"],
+      encodeClientToolRequestPayload(CLIENT_TOOL_IDS["social.ping"], rally),
     ),
     rally,
   );
@@ -906,63 +917,33 @@ test("RPC payload codec decodes omitted proto3 defaults", () => {
   );
 });
 
-test("RPC payload codec round-trips device control payloads", () => {
-  const volume = { level: 35, muted: true };
-  assert.deepEqual(
-    decodeRPCRequestPayload(
-      "client.device.volume.set",
-      encodeRPCRequestPayload("client.device.volume.set", volume),
-    ),
-    volume,
-  );
-  const status = { volume: 35, muted: true, battery_percent: 80 };
-  const decodedStatus = decodeRPCResponsePayload(
-    "client.device.volume.set",
-    encodeRPCResponsePayload("client.device.volume.set", status),
-  );
-  assert.equal(decodedStatus.volume, 35);
-  assert.equal(decodedStatus.muted, true);
-  assert.equal(decodedStatus.battery_percent, 80);
-
-  const sound = { sound: "chime", duration_ms: 1500 };
-  assert.deepEqual(
-    decodeRPCRequestPayload(
-      "client.device.sound.play",
-      encodeRPCRequestPayload("client.device.sound.play", sound),
-    ),
-    sound,
-  );
-  const wifi = {
-    connected: true,
-    ssid: "home",
-    rssi_dbm: -55,
-    ip: "192.0.2.10",
-  };
-  const decodedWifi = decodeRPCResponsePayload(
-    "client.wifi.status.get",
-    encodeRPCResponsePayload("client.wifi.status.get", wifi),
-  );
-  assert.equal(decodedWifi.connected, true);
-  assert.equal(decodedWifi.ssid, "home");
-  assert.equal(decodedWifi.rssi_dbm, -55);
+test("tool/v0 codec round-trips typed device procedures", () => {
+  for (const [name, request] of [
+    ["sound.play", { sound: "chime", duration_ms: 1500 }],
+    ["wifi.saved.forget", { ssid: "office" }],
+    ["wifi.connect", { ssid: "home", passphrase: "correct-horse" }],
+  ] as const) {
+    const tool = CLIENT_TOOL_IDS[name];
+    assert.deepEqual(
+      decodeClientToolRequestPayload(
+        tool,
+        encodeClientToolRequestPayload(tool, request),
+      ),
+      request,
+    );
+  }
+  const tool = CLIENT_TOOL_IDS["wifi.saved.list"];
   const saved = { networks: [{ ssid: "home" }, { ssid: "office" }] };
   assert.deepEqual(
-    decodeRPCResponsePayload(
-      "client.wifi.saved.list",
-      encodeRPCResponsePayload("client.wifi.saved.list", saved),
+    decodeClientToolResponsePayload(
+      tool,
+      encodeClientToolResponsePayload(tool, saved),
     ),
     saved,
   );
-  assert.deepEqual(
-    decodeRPCRequestPayload(
-      "client.wifi.saved.forget",
-      encodeRPCRequestPayload("client.wifi.saved.forget", { ssid: "office" }),
-    ),
-    { ssid: "office" },
-  );
 });
 
-test("peer HTTP SDK exposes device and contact operations", () => {
+test("peer HTTP SDK exposes tool/v0, MHS and contact operations", () => {
   for (const name of [
     "getDevice",
     "getDeviceRuntime",
@@ -970,13 +951,11 @@ test("peer HTTP SDK exposes device and contact operations", () => {
     "getDeviceTelemetryLatest",
     "queryDeviceTelemetry",
     "aggregateDeviceTelemetry",
-    "setDeviceVolume",
-    "playDeviceSound",
-    "findDevice",
-    "rebootDevice",
-    "getDeviceWifi",
-    "listDeviceSavedWifi",
-    "forgetDeviceSavedWifi",
+    "getMhsManifest",
+    "readMhsStates",
+    "writeMhsStates",
+    "listClientTools",
+    "invokeClientTool",
     "listContacts",
     "createContact",
     "getContact",
@@ -991,12 +970,13 @@ test("peer HTTP SDK exposes device and contact operations", () => {
   }
 });
 
-test("RPC payload codec preserves Tool invocation JSON strings", () => {
-  const value = { data_json: `{"ok":true}` };
-  const payload = encodeRPCResponsePayload("client.tool.invoke", value);
-
+test("tool/v0 invoke preserves encoded payload bytes", () => {
+  const value = { tool: CLIENT_TOOL_IDS["sound.play"], payload: "AAEC/w==" };
   assert.deepEqual(
-    decodeRPCResponsePayload("client.tool.invoke", payload),
+    decodeRPCRequestPayload(
+      "client.tool.v0.invoke",
+      encodeRPCRequestPayload("client.tool.v0.invoke", value),
+    ),
     value,
   );
 });
@@ -3610,6 +3590,19 @@ async function serveInboundClientRPC(
   params: unknown,
   handlers?: GizClawPeerRPCHandlers,
 ): Promise<RPCResponse> {
+  const tool = CLIENT_TOOL_IDS[method as keyof typeof CLIENT_TOOL_IDS];
+  const rpcMethod = tool == null ? method : "client.tool.v0.invoke";
+  const rpcParams =
+    tool == null
+      ? params
+      : {
+          tool,
+          payload: btoa(
+            Array.from(encodeClientToolRequestPayload(tool, params), (byte) =>
+              String.fromCharCode(byte),
+            ).join(""),
+          ),
+        };
   const sent: ArrayBuffer[] = [];
   const listeners = new Map<string, Set<(event: unknown) => void>>();
   const channel: FakeChannel = {
@@ -3646,7 +3639,12 @@ async function serveInboundClientRPC(
   openChannel({ channel });
   for (const listener of listeners.get("message") ?? []) {
     listener({
-      data: encodeRPCRequest({ id: "inbound-1", method, params, v: 1 }),
+      data: encodeRPCRequest({
+        id: "inbound-1",
+        method: rpcMethod,
+        params: rpcParams,
+        v: 1,
+      }),
     });
   }
   for (let tick = 0; tick < 50; tick++) {
@@ -3660,45 +3658,59 @@ async function serveInboundClientRPC(
     merged.set(new Uint8Array(frame), offset);
     offset += frame.byteLength;
   }
-  return parseRPCResponse(merged, method);
+  const response = parseRPCResponse(merged, rpcMethod);
+  if (tool == null || response.error != null) return response;
+  const encoded = (response.result as { payload?: string }).payload ?? "";
+  return {
+    ...response,
+    result: decodeClientToolResponsePayload(
+      tool,
+      Uint8Array.from(atob(encoded), (ch) => ch.charCodeAt(0)),
+    ),
+  };
 }
 
-test("inbound client.device.volume.set answers from the handler", async () => {
-  let seen: { level: number; muted: boolean } | undefined;
-  const response = await serveInboundClientRPC(
-    "client.device.volume.set",
-    { level: 35, muted: true },
+test("inbound mhs/v0 write applies volume state", async () => {
+  let seen: unknown;
+  const request = {
+    states: [
+      { device_id: "speaker.main", state: "volume", value: { int_value: 35 } },
+    ],
+  };
+  const response = await serveInboundClientRPC("client.mhs.v0.write", request, {
+    deviceControl: {
+      writeMhsStates: (value) => {
+        seen = value;
+        return value;
+      },
+    },
+  });
+  assert.equal(response.error, undefined);
+  assert.deepEqual(seen, request);
+  assert.deepEqual(response.result, request);
+});
+
+test("inbound mhs/v0 read and wifi.saved.list answer from handlers", async () => {
+  const states = [{ device_id: "wifi.main", state: "connected" }];
+  const status = await serveInboundClientRPC(
+    "client.mhs.v0.read",
+    { states },
     {
       deviceControl: {
-        setVolume: (level, muted) => {
-          seen = { level, muted };
-          return { battery_percent: 88, muted, volume: level };
-        },
+        readMhsStates: (request) => ({
+          states: request.states.map((ref) => ({
+            ...ref,
+            value: { bool_value: true },
+          })),
+        }),
       },
     },
   );
-  assert.deepEqual(seen, { level: 35, muted: true });
-  assert.equal(response.error, undefined);
-  assert.deepEqual(response.result, {
-    battery_percent: 88,
-    labels: {},
-    muted: true,
-    volume: 35,
-  });
-});
-
-test("inbound client.wifi.status.get and saved.list answer from handlers", async () => {
-  const status = await serveInboundClientRPC(
-    "client.wifi.status.get",
-    {},
-    {
-      deviceControl: { wifiStatus: () => ({ connected: true, ssid: "home" }) },
-    },
-  );
-  assert.deepEqual(status.result, { connected: true, ssid: "home" });
-
+  assert.deepEqual((status.result as { states: unknown[] }).states, [
+    { ...states[0], value: { bool_value: true } },
+  ]);
   const saved = await serveInboundClientRPC(
-    "client.wifi.saved.list",
+    "wifi.saved.list",
     {},
     {
       deviceControl: {
@@ -3711,10 +3723,10 @@ test("inbound client.wifi.status.get and saved.list answer from handlers", async
   });
 });
 
-test("inbound client.wifi.scan and connect answer from handlers", async () => {
+test("inbound wifi.scan and connect answer from handlers", async () => {
   let connected: { passphrase?: string; ssid: string } | undefined;
   const scan = await serveInboundClientRPC(
-    "client.wifi.scan",
+    "wifi.scan",
     { timeout_ms: 8000 },
     {
       deviceControl: {
@@ -3730,7 +3742,7 @@ test("inbound client.wifi.scan and connect answer from handlers", async () => {
   });
 
   const connect = await serveInboundClientRPC(
-    "client.wifi.connect",
+    "wifi.connect",
     { passphrase: "correct-horse", ssid: "office" },
     {
       deviceControl: {
@@ -3748,10 +3760,10 @@ test("inbound client.wifi.scan and connect answer from handlers", async () => {
   });
 });
 
-test("inbound client.* without a handler answers METHOD_NOT_FOUND", async () => {
+test("inbound unimplemented tool answers METHOD_NOT_FOUND", async () => {
   const response = await serveInboundClientRPC(
-    "client.device.volume.set",
-    { level: 1, muted: false },
+    "device.find",
+    {},
     { deviceControl: {} },
   );
   assert.equal(response.error?.code, STATUS_CODE_UNIMPLEMENTED);
@@ -3759,36 +3771,29 @@ test("inbound client.* without a handler answers METHOD_NOT_FOUND", async () => 
 });
 
 test("inbound device control rejects out-of-range and oversized params", async () => {
-  const volume = await serveInboundClientRPC(
-    "client.device.volume.set",
-    { level: 101, muted: false },
-    { deviceControl: { setVolume: () => ({ volume: 1 }) } },
-  );
-  assert.equal(volume.error?.code, STATUS_CODE_INVALID_ARGUMENT);
-
   const sound = await serveInboundClientRPC(
-    "client.device.sound.play",
+    "sound.play",
     { sound: "s".repeat(33) },
     { deviceControl: { playSound: () => {} } },
   );
   assert.equal(sound.error?.code, STATUS_CODE_INVALID_ARGUMENT);
 
   const forget = await serveInboundClientRPC(
-    "client.wifi.saved.forget",
+    "wifi.saved.forget",
     { ssid: "" },
     { deviceControl: { forgetWifi: () => {} } },
   );
   assert.equal(forget.error?.code, STATUS_CODE_INVALID_ARGUMENT);
 
   const scan = await serveInboundClientRPC(
-    "client.wifi.scan",
+    "wifi.scan",
     { timeout_ms: 999 },
     { deviceControl: { scanWifi: () => [] } },
   );
   assert.equal(scan.error?.code, STATUS_CODE_INVALID_ARGUMENT);
 
   const connect = await serveInboundClientRPC(
-    "client.wifi.connect",
+    "wifi.connect",
     { passphrase: "short", ssid: "home" },
     { deviceControl: { connectWifi: () => {} } },
   );
@@ -3800,21 +3805,21 @@ test("inbound device control rejects out-of-range and oversized params", async (
 // remaining reachable malformation is an out-of-range duration.
 test("inbound device control rejects out-of-range durations", async () => {
   const badDuration = await serveInboundClientRPC(
-    "client.device.sound.play",
+    "sound.play",
     { duration_ms: -1, sound: "chime" },
     { deviceControl: { playSound: () => {} } },
   );
   assert.equal(badDuration.error?.code, STATUS_CODE_INVALID_ARGUMENT);
 
   const badDelay = await serveInboundClientRPC(
-    "client.device.reboot",
+    "device.reboot",
     { delay_ms: -5 },
     { deviceControl: { reboot: () => {} } },
   );
   assert.equal(badDelay.error?.code, STATUS_CODE_INVALID_ARGUMENT);
 });
 
-test("inbound client.firmware.update forwards the channel and digest", async () => {
+test("inbound firmware.update forwards the channel and digest", async () => {
   const calls: string[] = [];
   const control = {
     updateFirmware: (channel?: string, sha256?: string) => {
@@ -3823,7 +3828,7 @@ test("inbound client.firmware.update forwards the channel and digest", async () 
   };
 
   const withoutParams = await serveInboundClientRPC(
-    "client.firmware.update",
+    "firmware.update",
     {},
     { deviceControl: control },
   );
@@ -3831,7 +3836,7 @@ test("inbound client.firmware.update forwards the channel and digest", async () 
 
   const digest = "a".repeat(64);
   const withParams = await serveInboundClientRPC(
-    "client.firmware.update",
+    "firmware.update",
     { channel: "beta", sha256: digest },
     { deviceControl: control },
   );
@@ -3840,14 +3845,14 @@ test("inbound client.firmware.update forwards the channel and digest", async () 
 
   // "unspecified" encodes on the wire but names no channel.
   const badChannel = await serveInboundClientRPC(
-    "client.firmware.update",
+    "firmware.update",
     { channel: "unspecified" },
     { deviceControl: control },
   );
   assert.equal(badChannel.error?.code, STATUS_CODE_INVALID_ARGUMENT);
 
   const badDigest = await serveInboundClientRPC(
-    "client.firmware.update",
+    "firmware.update",
     { sha256: "A".repeat(64) },
     { deviceControl: control },
   );
@@ -3856,7 +3861,7 @@ test("inbound client.firmware.update forwards the channel and digest", async () 
   // Firmware without the provider answers METHOD_NOT_FOUND, which the server
   // maps to 501 DEVICE_UNSUPPORTED rather than to a failed update.
   const unsupported = await serveInboundClientRPC(
-    "client.firmware.update",
+    "firmware.update",
     {},
     { deviceControl: {} },
   );
@@ -3865,7 +3870,7 @@ test("inbound client.firmware.update forwards the channel and digest", async () 
 
 test("inbound device control surfaces a scripted error code", async () => {
   const response = await serveInboundClientRPC(
-    "client.device.sound.play",
+    "sound.play",
     { sound: "nope" },
     {
       deviceControl: {
@@ -3882,10 +3887,10 @@ test("inbound device control surfaces a scripted error code", async () => {
   assert.equal(response.error?.message, "unknown sound");
 });
 
-test("inbound client.device.reboot and sound.play answer empty results", async () => {
+test("inbound device.reboot and sound.play answer empty results", async () => {
   const calls: string[] = [];
   const reboot = await serveInboundClientRPC(
-    "client.device.reboot",
+    "device.reboot",
     { delay_ms: 3000 },
     {
       deviceControl: {
@@ -3897,7 +3902,7 @@ test("inbound client.device.reboot and sound.play answer empty results", async (
   );
   assert.equal(reboot.error, undefined);
   const play = await serveInboundClientRPC(
-    "client.device.sound.play",
+    "sound.play",
     { duration_ms: 500, sound: "chime" },
     {
       deviceControl: {
@@ -3911,7 +3916,7 @@ test("inbound client.device.reboot and sound.play answer empty results", async (
   assert.deepEqual(calls, ["reboot:3000", "play:chime:500"]);
 });
 
-test("inbound client.device.find forwards the optional ring time", async () => {
+test("inbound device.find forwards the optional ring time", async () => {
   const calls: Array<number | undefined> = [];
   const control = {
     find: (durationMs?: number) => {
@@ -3920,7 +3925,7 @@ test("inbound client.device.find forwards the optional ring time", async () => {
   };
 
   const timed = await serveInboundClientRPC(
-    "client.device.find",
+    "device.find",
     { duration_ms: 8000 },
     { deviceControl: control },
   );
@@ -3928,7 +3933,7 @@ test("inbound client.device.find forwards the optional ring time", async () => {
   assert.deepEqual(timed.result, {});
 
   const deviceDefault = await serveInboundClientRPC(
-    "client.device.find",
+    "device.find",
     {},
     { deviceControl: control },
   );
@@ -3936,7 +3941,7 @@ test("inbound client.device.find forwards the optional ring time", async () => {
   assert.deepEqual(calls, [8000, undefined]);
 
   const negative = await serveInboundClientRPC(
-    "client.device.find",
+    "device.find",
     { duration_ms: -1 },
     { deviceControl: control },
   );
@@ -3946,14 +3951,14 @@ test("inbound client.device.find forwards the optional ring time", async () => {
   // A device without the provider answers METHOD_NOT_FOUND, which the server
   // maps to 501 DEVICE_UNSUPPORTED.
   const unsupported = await serveInboundClientRPC(
-    "client.device.find",
+    "device.find",
     { duration_ms: 8000 },
     { deviceControl: {} },
   );
   assert.equal(unsupported.error?.code, STATUS_CODE_UNIMPLEMENTED);
 
   const failed = await serveInboundClientRPC(
-    "client.device.find",
+    "device.find",
     {},
     {
       deviceControl: {
@@ -3970,7 +3975,7 @@ test("inbound client.device.find forwards the optional ring time", async () => {
   assert.equal(failed.error?.message, "speaker busy");
 });
 
-test("inbound client.social.ping forwards the sender and group", async () => {
+test("inbound social.ping forwards the sender and group", async () => {
   const seen: ClientSocialPingRequest[] = [];
   const handlers: GizClawPeerRPCHandlers = {
     socialPing: (request) => {
@@ -3979,7 +3984,7 @@ test("inbound client.social.ping forwards the sender and group", async () => {
   };
 
   const friend = await serveInboundClientRPC(
-    "client.social.ping",
+    "social.ping",
     { from_peer_public_key: "alice-key", from_display_name: "Alice" },
     handlers,
   );
@@ -3987,7 +3992,7 @@ test("inbound client.social.ping forwards the sender and group", async () => {
   assert.deepEqual(friend.result, {});
 
   const rally = await serveInboundClientRPC(
-    "client.social.ping",
+    "social.ping",
     { from_peer_public_key: "bob-key", friend_group_name: "my-team" },
     handlers,
   );
@@ -3998,16 +4003,12 @@ test("inbound client.social.ping forwards the sender and group", async () => {
   ]);
 
   // The codec decodes an absent proto3 string as "", which is not a sender.
-  const anonymous = await serveInboundClientRPC(
-    "client.social.ping",
-    {},
-    handlers,
-  );
+  const anonymous = await serveInboundClientRPC("social.ping", {}, handlers);
   assert.equal(anonymous.error?.code, STATUS_CODE_INVALID_ARGUMENT);
   assert.equal(seen.length, 2);
 
   const unsupported = await serveInboundClientRPC(
-    "client.social.ping",
+    "social.ping",
     { from_peer_public_key: "alice-key" },
     { deviceControl: {} },
   );
@@ -4015,7 +4016,7 @@ test("inbound client.social.ping forwards the sender and group", async () => {
   assert.match(unsupported.error?.message ?? "", /unsupported method/u);
 
   const failed = await serveInboundClientRPC(
-    "client.social.ping",
+    "social.ping",
     { from_peer_public_key: "alice-key" },
     {
       socialPing: () => {
@@ -4048,17 +4049,13 @@ test("inbound audioplayer forwards explicit zero index and rejects missing index
     },
   };
   const result = await serveInboundClientRPC(
-    "client.device.audioplayer.play",
+    "audioplayer.play",
     { index: 0 },
     handlers,
   );
   assert.equal(result.error, undefined);
   assert.equal((result.result as { current_index: number }).current_index, 0);
-  const invalid = await serveInboundClientRPC(
-    "client.device.audioplayer.play",
-    {},
-    handlers,
-  );
+  const invalid = await serveInboundClientRPC("audioplayer.play", {}, handlers);
   assert.equal(invalid.error?.code, STATUS_CODE_INVALID_ARGUMENT);
   assert.equal(calls, 1);
 });
@@ -4167,93 +4164,85 @@ test("app config requests and opaque values round-trip through protobuf", () => 
   );
 });
 
-test("inbound client.device.settings.set applies a patch and rejects bad members", async () => {
-  let applied: Record<string, unknown> | undefined;
-  const settings = {
-    cellular_enabled: false,
-    screen_brightness: 40,
-    locale: "zh-CN",
-    default_interaction_mode: "push-to-talk" as const,
-    key_feedback: "sound_and_vibrate" as const,
+test("inbound mhs/v0 write validates entire state batch", async () => {
+  let calls = 0;
+  const handlers: GizClawPeerRPCHandlers = {
+    deviceControl: {
+      writeMhsStates: (request) => {
+        calls++;
+        return request;
+      },
+    },
   };
-  const set = await serveInboundClientRPC(
-    "client.device.settings.set",
-    settings,
-    {
-      deviceControl: {
-        setSettings: (patch) => {
-          applied = patch;
-          return { ...patch, led_brightness: 10 };
-        },
+  const valid = {
+    states: [
+      {
+        device_id: "display.main",
+        state: "brightness",
+        value: { int_value: 40 },
       },
-    },
-  );
-  assert.equal(set.error, undefined);
-  assert.deepEqual(applied, settings);
-  // The response is the device's full settings, so the caller sees the option
-  // it never asked about.
+    ],
+  };
   assert.equal(
-    (set.result as { led_brightness?: number } | undefined)?.led_brightness,
-    10,
+    (await serveInboundClientRPC("client.mhs.v0.write", valid, handlers)).error,
+    undefined,
   );
-
-  // A member outside its range is rejected before the handler runs, so the
-  // device is never left half-configured.
-  let ran = false;
-  const bad = await serveInboundClientRPC(
-    "client.device.settings.set",
-    { screen_brightness: 140 },
-    {
-      deviceControl: {
-        setSettings: (patch) => {
-          ran = true;
-          return patch;
-        },
-      },
-    },
-  );
-  assert.equal(bad.error?.code, STATUS_CODE_INVALID_ARGUMENT);
-  assert.equal(ran, false);
-
-  // An unregistered handler answers METHOD_NOT_FOUND, which the server maps to
-  // 501 DEVICE_UNSUPPORTED.
+  for (const states of [
+    [],
+    [valid.states[0], valid.states[0]],
+    [{ ...valid.states[0], state: "bad\n" }],
+  ]) {
+    const bad = await serveInboundClientRPC(
+      "client.mhs.v0.write",
+      { states },
+      handlers,
+    );
+    assert.equal(bad.error?.code, STATUS_CODE_INVALID_ARGUMENT);
+  }
+  assert.equal(calls, 1);
   const missing = await serveInboundClientRPC(
-    "client.device.settings.get",
-    {},
-    { deviceControl: {} },
+    "client.mhs.v0.read",
+    { states: [{ device_id: "display.main", state: "brightness" }] },
+    handlers,
   );
   assert.equal(missing.error?.code, STATUS_CODE_UNIMPLEMENTED);
 });
 
-test("inbound client.rpc.methods.get reports only the registered handlers", async () => {
-  const response = await serveInboundClientRPC(
-    "client.rpc.methods.get",
-    {},
-    {
-      deviceControl: {
-        reboot: () => {},
-        getSettings: () => ({ screen_brightness: 50 }),
-        factoryReset: () => {},
-      },
+test("method and tool lists report their separate registries", async () => {
+  const handlers: GizClawPeerRPCHandlers = {
+    deviceControl: {
+      reboot: () => {},
+      factoryReset: () => {},
+      readMhsStates: (_request) => ({ states: [] }),
     },
+  };
+  const response = await serveInboundClientRPC(
+    "client.rpc.methods.list",
+    {},
+    handlers,
   );
   assert.equal(response.error, undefined);
-  const methods = (response.result as { methods: string[] }).methods;
-  assert.deepEqual(methods, [
-    "client.device.reboot",
-    "client.device.settings.get",
-    "client.device.factory_reset",
-    "client.rpc.methods.get",
+  assert.deepEqual(
+    (response.result as { methods: number[] }).methods,
+    [1, 2, 133, 135, 136, 137],
+  );
+  const tools = await serveInboundClientRPC(
+    "client.tool.v0.list",
+    {},
+    handlers,
+  );
+  assert.deepEqual((tools.result as { tools: number[] }).tools, [
+    CLIENT_TOOL_IDS["device.reboot"],
+    CLIENT_TOOL_IDS["device.factory_reset"],
   ]);
-  // A device with no control handlers still answers, listing only the method
-  // that produced the answer.
-  const bare = await serveInboundClientRPC("client.rpc.methods.get", {}, {});
-  assert.deepEqual((bare.result as { methods: string[] }).methods, [
-    "client.rpc.methods.get",
-  ]);
+  const bare = await serveInboundClientRPC("client.rpc.methods.list", {}, {});
+  assert.deepEqual(
+    (bare.result as { methods: number[] }).methods,
+    [1, 2, 135, 136, 137],
+  );
 });
 
-test("inbound client.device.factory_reset defaults keep_network to false", async () => {
+test("inbound device.factory_reset defaults keep_network to false", async () => {
   const seen: boolean[] = [];
   const handlers = {
     deviceControl: {
@@ -4263,14 +4252,13 @@ test("inbound client.device.factory_reset defaults keep_network to false", async
     },
   };
   assert.equal(
-    (await serveInboundClientRPC("client.device.factory_reset", {}, handlers))
-      .error,
+    (await serveInboundClientRPC("device.factory_reset", {}, handlers)).error,
     undefined,
   );
   assert.equal(
     (
       await serveInboundClientRPC(
-        "client.device.factory_reset",
+        "device.factory_reset",
         { keep_network: true },
         handlers,
       )
@@ -4280,55 +4268,45 @@ test("inbound client.device.factory_reset defaults keep_network to false", async
   assert.deepEqual(seen, [false, true]);
 });
 
-test("inbound client.rpc.methods.get includes find and social ping when registered", async () => {
+test("tool list includes find and social ping only when registered", async () => {
   const response = await serveInboundClientRPC(
-    "client.rpc.methods.get",
+    "client.tool.v0.list",
     {},
-    {
-      deviceControl: { find: () => {} },
-      socialPing: () => {},
-    },
+    { deviceControl: { find: () => {} }, socialPing: () => {} },
   );
   assert.equal(response.error, undefined);
-  const methods = (response.result as { methods: string[] }).methods;
-  assert.ok(methods.includes("client.device.find"), `${methods}`);
-  assert.ok(methods.includes("client.social.ping"), `${methods}`);
+  assert.deepEqual((response.result as { tools: number[] }).tools, [
+    CLIENT_TOOL_IDS["device.find"],
+    CLIENT_TOOL_IDS["social.ping"],
+  ]);
 });
 
-test("inbound client.device.settings.set rejects a malformed locale", async () => {
+test("mhs/v0 write rejects malformed state keys before handler", async () => {
   let ran = false;
-  const handlers = {
+  const handlers: GizClawPeerRPCHandlers = {
     deviceControl: {
-      setSettings: (patch: Record<string, unknown>) => {
+      writeMhsStates: (request) => {
         ran = true;
-        return patch;
+        return request;
       },
     },
   };
-  for (const locale of ["not a locale", "zh_CN", "-en", "en-"]) {
+  for (const state of ["bad key", "bad\n", "", "x".repeat(65)]) {
     const response = await serveInboundClientRPC(
-      "client.device.settings.set",
-      { locale },
+      "client.mhs.v0.write",
+      {
+        states: [
+          { device_id: "display.main", state, value: { string_value: "en" } },
+        ],
+      },
       handlers,
     );
-    assert.equal(
-      response.error?.code,
-      STATUS_CODE_INVALID_ARGUMENT,
-      `locale ${JSON.stringify(locale)}`,
-    );
+    assert.equal(response.error?.code, STATUS_CODE_INVALID_ARGUMENT, state);
   }
   assert.equal(ran, false);
-  for (const locale of ["zh-CN", "zh-Hant-TW", "es-419", "en"]) {
-    const response = await serveInboundClientRPC(
-      "client.device.settings.set",
-      { locale },
-      handlers,
-    );
-    assert.equal(response.error, undefined, `locale ${locale}`);
-  }
 });
 
-test("inbound client.run.workspace.set requires a workspace name", async () => {
+test("inbound run.workspace.set requires a workspace name", async () => {
   const seen: unknown[] = [];
   const handlers = {
     deviceControl: {
@@ -4338,125 +4316,80 @@ test("inbound client.run.workspace.set requires a workspace name", async () => {
     },
   };
   const accepted = await serveInboundClientRPC(
-    "client.run.workspace.set",
+    "run.workspace.set",
     { workspace_name: "bedtime", kickoff: true },
     handlers,
   );
   assert.equal(accepted.error, undefined);
   for (const params of [{}, { workspace_name: "" }]) {
     const rejected = await serveInboundClientRPC(
-      "client.run.workspace.set",
+      "run.workspace.set",
       params as never,
       handlers,
     );
     assert.equal(rejected.error?.code, STATUS_CODE_INVALID_ARGUMENT);
   }
   assert.deepEqual(seen, [{ workspace_name: "bedtime", kickoff: true }]);
-  const methods = await serveInboundClientRPC(
-    "client.rpc.methods.get",
+  const tools = await serveInboundClientRPC(
+    "client.tool.v0.list",
     {},
     handlers,
   );
   assert.ok(
-    (methods.result as { methods: string[] }).methods.includes(
-      "client.run.workspace.set",
+    (tools.result as { tools: number[] }).tools.includes(
+      CLIENT_TOOL_IDS["run.workspace.set"],
     ),
   );
 });
 
-test("inbound client.device.settings.set checks the new members", async () => {
-  // Wrong-typed and unknown enum values cannot be encoded on the wire, so the
-  // range check is what a device ever sees.
-  for (const patch of [{ auto_sleep_timeout_ms: -1 }]) {
-    const response = await serveInboundClientRPC(
-      "client.device.settings.set",
-      patch as never,
-      { deviceControl: { setSettings: (value) => value } },
-    );
-    assert.equal(response.error?.code, STATUS_CODE_INVALID_ARGUMENT);
-  }
-  const ok = await serveInboundClientRPC(
-    "client.device.settings.set",
-    { alert_mode: "vibrate", auto_sleep_timeout_ms: 0, nfc_enabled: false },
-    { deviceControl: { setSettings: (value) => value } },
-  );
-  assert.equal(ok.error, undefined);
-});
-
-test("inbound client.tool.invoke runs the named Tool and returns JSON", async () => {
-  const seen: unknown[] = [];
-  const handlers = {
-    tools: {
-      set_usage_limit: (args: Record<string, unknown>) => {
-        seen.push(args);
-        return { ok: true, minutes: args.minutes };
+test("mhs/v0 write preserves zero and false typed values", async () => {
+  const handlers: GizClawPeerRPCHandlers = {
+    deviceControl: { writeMhsStates: (request) => request },
+  };
+  const request = {
+    states: [
+      {
+        device_id: "display.main",
+        state: "brightness",
+        value: { int_value: 0 },
       },
-    },
+      {
+        device_id: "display.main",
+        state: "enabled",
+        value: { bool_value: false },
+      },
+    ],
   };
   const response = await serveInboundClientRPC(
-    "client.tool.invoke",
-    { invoke_name: "set_usage_limit", args: { minutes: 30 } },
+    "client.mhs.v0.write",
+    request,
     handlers,
   );
   assert.equal(response.error, undefined);
-  assert.deepEqual(
-    JSON.parse((response.result as { data_json: string }).data_json),
-    { ok: true, minutes: 30 },
-  );
-  assert.deepEqual(seen, [{ minutes: 30 }]);
-
-  // An unknown Tool, including an Object prototype member, is unimplemented.
-  for (const name of ["missing", "constructor"]) {
-    const missing = await serveInboundClientRPC(
-      "client.tool.invoke",
-      { invoke_name: name, args: {} },
-      handlers,
-    );
-    assert.equal(missing.error?.code, STATUS_CODE_UNIMPLEMENTED);
-  }
-  const bad = await serveInboundClientRPC(
-    "client.tool.invoke",
-    { invoke_name: "not a name", args: {} },
-    handlers,
-  );
-  assert.equal(bad.error?.code, STATUS_CODE_INVALID_ARGUMENT);
-  // Tools are discovered through the Tool list, not the method list.
-  const methods = await serveInboundClientRPC(
-    "client.rpc.methods.get",
-    {},
-    handlers,
-  );
-  assert.ok(
-    !(methods.result as { methods: string[] }).methods.includes(
-      "client.tool.invoke",
-    ),
-  );
+  assert.deepEqual(response.result, request);
 });
 
-for (const level of [undefined, "off", "general", "child"]) {
-  test(`safety fence ${level} preserves presence through protobuf`, () => {
-    const parameters =
-      level === undefined
-        ? { input: "realtime" }
-        : { input: "realtime", safety_fence_level: level };
-    for (const method of [
-      "server.run.workspace.reload-with-options",
-      "server.workspace.parameters.set",
-    ]) {
-      const request =
-        method === "server.workspace.parameters.set"
-          ? { name: "fenced-workspace", parameters }
-          : { workspace_name: "fenced-workspace", parameters };
-      assert.deepEqual(
-        decodeRPCRequestPayload(
-          method,
-          encodeRPCRequestPayload(method, request),
-        ),
-        request,
-      );
-    }
-  });
-}
+test("tool/v0 list, unimplemented invoke and malformed payload", async () => {
+  const handlers: GizClawPeerRPCHandlers = {
+    deviceControl: { find: () => {} },
+  };
+  const list = await serveInboundClientRPC("client.tool.v0.list", {}, handlers);
+  assert.deepEqual((list.result as { tools: number[] }).tools, [
+    CLIENT_TOOL_IDS["device.find"],
+  ]);
+  const missing = await serveInboundClientRPC(
+    "sound.play",
+    { sound: "chime" },
+    handlers,
+  );
+  assert.equal(missing.error?.code, STATUS_CODE_UNIMPLEMENTED);
+  const malformed = await serveInboundClientRPC(
+    "client.tool.v0.invoke",
+    { tool: CLIENT_TOOL_IDS["device.find"], payload: "////" },
+    handlers,
+  );
+  assert.equal(malformed.error?.code, STATUS_CODE_INVALID_ARGUMENT);
+});
 
 test("endpoint connection rejects oversized admission credentials before discovery", async () => {
   const pc = new FakePeerConnection();
@@ -4593,13 +4526,13 @@ test("MHS provider preserves typed defaults and discovers only installed handler
   }
   assert.equal(calls, 4);
   const response = await serveInboundClientRPC(
-    "client.rpc.methods.get",
+    "client.rpc.methods.list",
     {},
     handlers,
   );
-  const methods = (response.result as { methods: string[] }).methods;
-  assert.ok(methods.includes("client.mhs.v0.write"));
-  assert.ok(!methods.includes("client.mhs.v0.read"));
+  const methods = (response.result as { methods: number[] }).methods;
+  assert.ok(methods.includes(134));
+  assert.ok(!methods.includes(133));
   const absent = await serveInboundClientRPC(
     "client.mhs.v0.read",
     { states: [{ device_id: "display.main", state: "state" }] },

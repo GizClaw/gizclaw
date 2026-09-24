@@ -1,13 +1,14 @@
 import { GizClawControlError } from "@gizclaw/gizclaw-control";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { loadDeviceConfig, loadPeer, peerGlance } from "@/lib/peers";
+import { loadDeviceConfig, loadPeer, loadWifi, peerGlance } from "@/lib/peers";
 
 const device = {
   get: vi.fn(),
   getRuntime: vi.fn(),
   getStatus: vi.fn(),
-  getSettings: vi.fn(),
-  listRpcMethods: vi.fn(),
+  getMhsManifest: vi.fn(),
+  readMhsStates: vi.fn(),
+  listSavedWifi: vi.fn(),
   listTools: vi.fn(),
 };
 vi.mock("@gizclaw/gizclaw-control", async (importOriginal) => ({
@@ -18,11 +19,14 @@ vi.mock("@gizclaw/gizclaw-control", async (importOriginal) => ({
 const failure = (kind: GizClawControlError["kind"], status: number) =>
   new GizClawControlError(kind, `${kind} failure`, { status });
 
-const tool = {
-  name: "usage_limit",
-  control_access: "owner",
-  i18n: { "zh-CN": { display_name: "使用时长" } },
-  input_schema: { type: "object" },
+const manifest = {
+  devices: [
+    {
+      id: "speaker",
+      kind: "audio",
+      states: [{ name: "volume", type: "int", access: "read_write" }],
+    },
+  ],
 };
 
 describe("device config loader", () => {
@@ -31,56 +35,44 @@ describe("device config loader", () => {
   });
 
   it("returns every section when the device answers", async () => {
-    device.getSettings.mockResolvedValue({ nfc_enabled: true });
-    device.listRpcMethods.mockResolvedValue({
-      methods: ["client.device.settings.get", "client.device.actions.reboot"],
+    device.getMhsManifest.mockResolvedValue(manifest);
+    device.listTools.mockResolvedValue({
+      tools: ["sound.play", "device.find"],
     });
-    device.listTools.mockResolvedValue({ items: [tool] });
     const config = await loadDeviceConfig(
       "https://edge.example.com",
       "key",
       new AbortController().signal,
     );
     expect(config).toEqual({
-      settings: { state: "ok", data: { nfc_enabled: true } },
-      rpcMethods: {
-        state: "ok",
-        data: ["client.device.actions.reboot", "client.device.settings.get"],
-      },
-      tools: { state: "ok", data: [tool] },
+      manifest: { state: "ok", data: manifest },
+      tools: { state: "ok", data: ["device.find", "sound.play"] },
     });
   });
 
   it("maps each failure independently", async () => {
-    device.getSettings.mockRejectedValue(failure("deviceOffline", 409));
-    device.listRpcMethods.mockRejectedValue(failure("deviceUnsupported", 501));
-    device.listTools.mockResolvedValue({ items: [] });
+    device.getMhsManifest.mockRejectedValue(failure("deviceOffline", 409));
+    device.listTools.mockResolvedValue({ tools: [] });
     const config = await loadDeviceConfig(
       "https://edge.example.com",
       "key",
       new AbortController().signal,
     );
-    expect(config.settings).toEqual({ state: "offline" });
-    expect(config.rpcMethods).toEqual({ state: "unsupported" });
+    expect(config.manifest).toEqual({ state: "offline" });
     expect(config.tools).toEqual({ state: "ok", data: [] });
   });
 
   it("keeps the message of other failures", async () => {
-    device.getSettings.mockRejectedValue(failure("deviceTimeout", 504));
-    device.listRpcMethods.mockRejectedValue(failure("deviceError", 502));
+    device.getMhsManifest.mockRejectedValue(failure("deviceTimeout", 504));
     device.listTools.mockRejectedValue(failure("forbidden", 403));
     const config = await loadDeviceConfig(
       "https://edge.example.com",
       "key",
       new AbortController().signal,
     );
-    expect(config.settings).toEqual({
+    expect(config.manifest).toEqual({
       state: "error",
       message: "设备未在超时时间内响应 · 504 · deviceTimeout failure",
-    });
-    expect(config.rpcMethods).toEqual({
-      state: "error",
-      message: "502 · deviceError failure",
     });
     expect(config.tools).toEqual({
       state: "error",
@@ -90,15 +82,58 @@ describe("device config loader", () => {
 
   it("rejects instead of reporting a section once aborted", async () => {
     const controller = new AbortController();
-    device.getSettings.mockImplementation(() => {
+    device.getMhsManifest.mockImplementation(() => {
       controller.abort();
       return Promise.reject(new DOMException("aborted", "AbortError"));
     });
-    device.listRpcMethods.mockResolvedValue({ methods: [] });
-    device.listTools.mockResolvedValue({ items: [] });
+    device.listTools.mockResolvedValue({ tools: [] });
     await expect(
       loadDeviceConfig("https://edge.example.com", "key", controller.signal),
     ).rejects.toThrow("aborted");
+  });
+});
+
+describe("Wi-Fi diagnostics", () => {
+  it("reads the profile's Wi-Fi states and saved networks", async () => {
+    device.getMhsManifest.mockResolvedValue({
+      devices: [
+        {
+          id: "wifi.main",
+          kind: "wifi",
+          states: [
+            { name: "connected", type: "bool", access: "read" },
+            { name: "ssid", type: "string", access: "read" },
+            { name: "rssi-dbm", type: "int", access: "read" },
+            { name: "secret", type: "string", access: "write" },
+          ],
+        },
+      ],
+    });
+    device.readMhsStates.mockResolvedValue({
+      states: [
+        { device_id: "wifi.main", state: "connected", value: true },
+        { device_id: "wifi.main", state: "ssid", value: "Home" },
+        { device_id: "wifi.main", state: "rssi-dbm", value: -61 },
+      ],
+    });
+    device.listSavedWifi.mockResolvedValue({ networks: [{ ssid: "Home" }] });
+    expect(
+      await loadWifi(
+        "https://edge.example.com",
+        "key",
+        new AbortController().signal,
+      ),
+    ).toEqual({
+      status: { connected: true, ssid: "Home", rssi_dbm: -61 },
+      saved: ["Home"],
+    });
+    expect(device.readMhsStates).toHaveBeenCalledWith({
+      states: [
+        { device_id: "wifi.main", state: "connected" },
+        { device_id: "wifi.main", state: "ssid" },
+        { device_id: "wifi.main", state: "rssi-dbm" },
+      ],
+    });
   });
 });
 

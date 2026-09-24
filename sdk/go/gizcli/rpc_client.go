@@ -27,30 +27,17 @@ func (c *rpcClient) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpca
 		return rpcapi.Error{Code: rpcapi.StatusCodeInvalidArgument, Message: "nil request"}.RPCResponse(), nil
 	}
 	switch req.Method {
-	case rpcapi.RPCMethodClientInfoGet:
-		return c.handleGetClientInfo(ctx, req)
-	case rpcapi.RPCMethodClientIdentifiersGet:
-		return c.handleGetClientIdentifiers(ctx, req)
-	case rpcapi.RPCMethodClientToolInvoke:
-		return c.handleInvokeTool(ctx, req)
-	case rpcapi.RPCMethodClientDeviceAudioPlayerGet, rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistGet,
-		rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistSet, rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistAppend,
-		rpcapi.RPCMethodClientDeviceAudioPlayerPlay, rpcapi.RPCMethodClientDeviceAudioPlayerStop, rpcapi.RPCMethodClientDeviceAudioPlayerModeSet:
-		return c.handleAudioPlayer(ctx, req)
-	case rpcapi.RPCMethodClientDeviceStatusGet, rpcapi.RPCMethodClientDeviceVolumeSet, rpcapi.RPCMethodClientDeviceSoundPlay,
-		rpcapi.RPCMethodClientDeviceFind, rpcapi.RPCMethodClientDeviceReboot, rpcapi.RPCMethodClientWifiStatusGet, rpcapi.RPCMethodClientWifiSavedList,
-		rpcapi.RPCMethodClientWifiSavedForget, rpcapi.RPCMethodClientWifiScan, rpcapi.RPCMethodClientWifiConnect,
-		rpcapi.RPCMethodClientFirmwareUpdate, rpcapi.RPCMethodClientDeviceSettingsGet, rpcapi.RPCMethodClientDeviceSettingsSet,
-		rpcapi.RPCMethodClientDeviceFactoryReset, rpcapi.RPCMethodClientRPCMethodsGet, rpcapi.RPCMethodClientRunWorkspaceSet, rpcapi.RPCMethodClientMhsV0Read, rpcapi.RPCMethodClientMhsV0Write:
+
+	case rpcapi.RPCMethodClientMhsV0Read, rpcapi.RPCMethodClientMhsV0Write:
 		if c.peer == nil {
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer client not configured"}.RPCResponse(), nil
+			return deviceControlUnsupported(req.Id, req.Method), nil
 		}
 		return c.handleDeviceControl(ctx, req)
-	case rpcapi.RPCMethodClientSocialPing:
+	case rpcapi.RPCMethodClientToolV0Invoke, rpcapi.RPCMethodClientToolV0List, rpcapi.RPCMethodClientRPCMethodsList:
 		if c.peer == nil {
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer client not configured"}.RPCResponse(), nil
+			return deviceControlUnsupported(req.Id, req.Method), nil
 		}
-		return c.handleSocialPing(ctx, req)
+		return c.handleToolV0(ctx, req)
 	case rpcapi.RPCMethodAllPing:
 		return handleRPCPing(ctx, req)
 	default:

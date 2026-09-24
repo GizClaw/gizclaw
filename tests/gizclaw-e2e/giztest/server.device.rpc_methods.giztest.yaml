@@ -8,7 +8,7 @@ clients:
   peer:
     identity: ephemeral
     connection: webrtc
-    access_point: "${endpoint}"
+    access_point: ${endpoint}
 variables:
   endpoint:
     direction: input
@@ -28,81 +28,93 @@ variables:
     type: string
     secret: true
 steps:
-- id: register_peer
-  client: peer
-  rpc:
-    method: server.register
-    request:
-      token: "${registration_token}"
-- id: create_api_key
-  client: peer
-  rpc:
-    method: server.api_key.create
-    request:
-      display_name: "${resource_name}"
-  capture:
-    api_key: /api_key
-- id: list_rpc_methods
-  client: peer
-  http:
-    method: GET
-    path: /gizclaw/v1/device/rpc-methods
-    headers:
-      Authorization: "Bearer ${api_key}"
-    status: 200
-  expect:
-    /methods:
-      contains_all:
-      - client.device.settings.get
-      - client.device.find
-      - client.rpc.methods.get
-      not_contains:
-      - client.device.factory_reset
-      - client.run.workspace.set
-- id: get_settings
-  client: peer
-  http:
-    method: GET
-    path: /gizclaw/v1/device/settings
-    headers:
-      Authorization: "Bearer ${api_key}"
-    status: 200
-- id: find_device
-  client: peer
-  http:
-    method: POST
-    path: /gizclaw/v1/device/actions/find
-    headers:
-      Authorization: "Bearer ${api_key}"
-    body: {}
-    status: 204
-- id: unsupported_factory_reset
-  client: peer
-  http:
-    method: POST
-    path: /gizclaw/v1/device/actions/factory-reset
-    headers:
-      Authorization: "Bearer ${api_key}"
-    body: {}
-    status: 501
-  expect:
-    /error/code:
-      equals: DEVICE_UNSUPPORTED
-- id: provider_settings_get
-  client: peer
-  client_rpc:
-    method: client.device.settings.get
-    response:
-      locale: zh-CN
-    expect_calls: 1
-- id: provider_find
-  client: peer
-  client_rpc:
-    method: client.device.find
-    expect_calls: 1
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: list_rpc_methods
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/tool/v0/tools
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /tools:
+        contains_all:
+          - info.get
+          - identifiers.get
+        not_contains:
+          - device.factory_reset
+          - run.workspace.set
+  - id: get_settings
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/read
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+      body:
+        states:
+          - device_id: device.main
+            state: locale
+  - id: find_device
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: device.find
+        args: {}
+      status: 200
+  - id: unsupported_factory_reset
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: device.factory_reset
+        args: {}
+      status: 501
+    expect:
+      /error/code:
+        equals: DEVICE_UNSUPPORTED
+  - id: provider_settings_get
+    client: peer
+    client_rpc:
+      method: client.mhs.v0.read
+      response:
+        states:
+          - device_id: device.main
+            state: locale
+            value:
+              string_value: zh-CN
+      expect_calls: 1
+  - id: provider_find
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      expect_calls: 1
+      tool: device.find
 finally:
-- id: cleanup_peer
-  client: peer
-  rpc:
-    method: server.peer.delete
-    request: {}
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

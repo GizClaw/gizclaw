@@ -13,11 +13,11 @@ func TestConfigureClientRPCScopesDeviceResponse(t *testing.T) {
 	client := &gizcli.Client{}
 	vars := mustVariables(t, nil)
 	counts := map[string]*inboundCounter{}
-	steps := []giztest.Step{{ID: "info", Client: "alice", ClientRPC: &giztest.ClientRPCOperation{Method: "client.info.get", Response: map[string]any{"name": "Alice"}}}}
+	steps := []giztest.Step{{ID: "info", Client: "alice", ClientRPC: &giztest.ClientRPCOperation{Method: "client.tool.v0.invoke", Tool: "info.get", Response: map[string]any{"name": "Alice"}}}}
 	if err := configureClientRPC(client, "alice", steps, vars, counts); err != nil {
 		t.Fatal(err)
 	}
-	if client.Device.Name == nil || *client.Device.Name != "Alice" || counts["alice:client.info.get"] == nil {
+	if client.Device.Name == nil || *client.Device.Name != "Alice" || counts["alice:client.tool.v0.invoke:info.get"] == nil {
 		t.Fatalf("device=%#v counts=%#v", client.Device, counts)
 	}
 }
@@ -70,13 +70,13 @@ func TestScriptedDeviceDelayBounds(t *testing.T) {
 func TestConfigureClientRPCInstallsFindAndSocialPing(t *testing.T) {
 	ctx := t.Context()
 	var handlers gizcli.DeviceControlHandlers
-	if err := installDeviceControl(&handlers, "client.device.find", nil); err != nil {
+	if err := installDeviceControl(&handlers, "device.find", nil); err != nil {
 		t.Fatal(err)
 	}
 	if handlers.Find == nil || handlers.Find(ctx, nil) != nil {
 		t.Fatal("default find provider must acknowledge")
 	}
-	if err := installDeviceControl(&handlers, "client.device.find", map[string]any{"error_code": 12}); err != nil {
+	if err := installDeviceControl(&handlers, "device.find", map[string]any{"error_code": 12}); err != nil {
 		t.Fatal(err)
 	}
 	var rpcErr rpcapi.Error
@@ -85,81 +85,58 @@ func TestConfigureClientRPCInstallsFindAndSocialPing(t *testing.T) {
 	}
 
 	for _, response := range []any{nil, map[string]any{"error_code": 13}} {
-		steps := []giztest.Step{{ID: "ping", Client: "bob", ClientRPC: &giztest.ClientRPCOperation{Method: "client.social.ping", Response: response}}}
+		steps := []giztest.Step{{ID: "ping", Client: "bob", ClientRPC: &giztest.ClientRPCOperation{Method: "client.tool.v0.invoke", Tool: "social.ping", Response: response}}}
 		counts := map[string]*inboundCounter{}
 		if err := configureClientRPC(&gizcli.Client{}, "bob", steps, mustVariables(t, nil), counts); err != nil {
 			t.Fatalf("response %v: %v", response, err)
 		}
-		if counts["bob:client.social.ping"] == nil {
+		if counts["bob:client.tool.v0.invoke:social.ping"] == nil {
 			t.Fatalf("no call counter for client.social.ping: %#v", counts)
 		}
 	}
-	if err := configureClientRPC(&gizcli.Client{}, "bob", []giztest.Step{{ID: "ping", Client: "bob", ClientRPC: &giztest.ClientRPCOperation{Method: "client.social.ping", Response: map[string]any{"error_code": 0}}}}, mustVariables(t, nil), map[string]*inboundCounter{}); err == nil {
+	if err := configureClientRPC(&gizcli.Client{}, "bob", []giztest.Step{{ID: "ping", Client: "bob", ClientRPC: &giztest.ClientRPCOperation{Method: "client.tool.v0.invoke", Tool: "social.ping", Response: map[string]any{"error_code": 0}}}}, mustVariables(t, nil), map[string]*inboundCounter{}); err == nil {
 		t.Fatal("an OK error_code was accepted")
 	}
 }
 
-// An unavailable Tool installs no handler, so the SDK answers UNIMPLEMENTED,
+// An unavailable predefined tool installs no handler, so the SDK answers UNIMPLEMENTED,
 // but it still registers the call counter expect_calls reads.
 func TestConfigureClientRPCUnavailableTool(t *testing.T) {
 	steps := []giztest.Step{{ID: "tool", Client: "peer", ClientRPC: &giztest.ClientRPCOperation{
-		Method: "client.tool.invoke", Response: map[string]any{"name": "giztest_echo", "unavailable": true},
+		Method: "client.tool.v0.invoke", Tool: "device.find", Response: map[string]any{"unavailable": true},
 	}}}
 	counts := map[string]*inboundCounter{}
 	if err := configureClientRPC(&gizcli.Client{}, "peer", steps, mustVariables(t, nil), counts); err != nil {
 		t.Fatal(err)
 	}
-	if counts["peer:client.tool.invoke"] == nil {
+	if counts["peer:client.tool.v0.invoke:device.find"] == nil {
 		t.Fatalf("no call counter for an unavailable Tool: %#v", counts)
 	}
-	steps[0].ClientRPC.Response = map[string]any{"name": "giztest_echo", "unavailable": true, "result": map[string]any{"ok": true}}
+	steps[0].ClientRPC.Response = map[string]any{"unavailable": true, "result": map[string]any{"ok": true}}
 	if err := configureClientRPC(&gizcli.Client{}, "peer", steps, mustVariables(t, nil), map[string]*inboundCounter{}); err == nil {
 		t.Fatal("an unavailable Tool with a result was accepted")
 	}
 }
 
-func TestInstallDeviceControlScriptsSettingsResetAndWorkspace(t *testing.T) {
+func TestInstallDeviceControlScriptsResetAndWorkspace(t *testing.T) {
 	ctx := t.Context()
 	var handlers gizcli.DeviceControlHandlers
-	base := map[string]any{"cellular_enabled": true, "screen_brightness": 60, "locale": "zh-CN"}
-	for _, method := range []string{"client.device.settings.get", "client.device.settings.set"} {
-		if err := installDeviceControl(&handlers, method, base); err != nil {
-			t.Fatalf("%s: %v", method, err)
-		}
-	}
-	for _, method := range []string{"client.device.factory_reset", "client.run.workspace.set"} {
+	for _, method := range []string{"device.factory_reset", "run.workspace.set"} {
 		if err := installDeviceControl(&handlers, method, nil); err != nil {
 			t.Fatalf("%s: %v", method, err)
 		}
 	}
-	settings, err := handlers.GetSettings(ctx)
-	if err != nil || settings.ScreenBrightness == nil || *settings.ScreenBrightness != 60 || settings.NfcEnabled != nil {
-		t.Fatalf("scripted settings = %+v, %v", settings, err)
-	}
-	brightness, nfc := int64(80), false
-	updated, err := handlers.SetSettings(ctx, rpcapi.DeviceSettings{ScreenBrightness: &brightness, NfcEnabled: &nfc})
-	if err != nil || *updated.ScreenBrightness != 80 || *updated.Locale != "zh-CN" || !*updated.CellularEnabled ||
-		updated.NfcEnabled == nil || *updated.NfcEnabled || updated.LedBrightness != nil {
-		t.Fatalf("patched settings = %+v, %v", updated, err)
-	}
 	if handlers.FactoryReset(ctx, true) != nil || handlers.SetRunWorkspace(ctx, rpcapi.ClientRunWorkspaceSetRequest{}) != nil {
 		t.Fatal("default factory reset and workspace providers must acknowledge")
 	}
-	if err := installDeviceControl(&handlers, "client.device.settings.get", map[string]any{"screen_brightness": "bright"}); err == nil {
-		t.Fatal("malformed scripted settings accepted")
-	}
 
 	var rpcErr rpcapi.Error
-	for _, method := range []string{"client.device.settings.get", "client.device.settings.set", "client.device.factory_reset", "client.run.workspace.set"} {
+	for _, method := range []string{"device.factory_reset", "run.workspace.set"} {
 		if err := installDeviceControl(&handlers, method, map[string]any{"error_code": 3}); err != nil {
 			t.Fatalf("%s: %v", method, err)
 		}
 	}
-	_, getErr := handlers.GetSettings(ctx)
-	_, setErr := handlers.SetSettings(ctx, rpcapi.DeviceSettings{})
 	for name, err := range map[string]error{
-		"settings.get":  getErr,
-		"settings.set":  setErr,
 		"factory_reset": handlers.FactoryReset(ctx, false),
 		"workspace.set": handlers.SetRunWorkspace(ctx, rpcapi.ClientRunWorkspaceSetRequest{}),
 	} {
@@ -169,22 +146,22 @@ func TestInstallDeviceControlScriptsSettingsResetAndWorkspace(t *testing.T) {
 	}
 }
 
-// client.rpc.methods.get is answered by the SDK from the installed providers:
+// client.rpc.methods.list is answered by the SDK from the installed providers:
 // a step only counts the calls, and a scripted answer is rejected.
 func TestConfigureClientRPCCountsRPCMethods(t *testing.T) {
 	counts := map[string]*inboundCounter{}
 	steps := []giztest.Step{
-		{ID: "methods", Client: "bob", ClientRPC: &giztest.ClientRPCOperation{Method: "client.rpc.methods.get"}},
-		{ID: "settings", Client: "bob", ClientRPC: &giztest.ClientRPCOperation{Method: "client.device.settings.get"}},
+		{ID: "methods", Client: "bob", ClientRPC: &giztest.ClientRPCOperation{Method: "client.rpc.methods.list"}},
+		{ID: "tools", Client: "bob", ClientRPC: &giztest.ClientRPCOperation{Method: "client.tool.v0.list"}},
 	}
 	if err := configureClientRPC(&gizcli.Client{}, "bob", steps, mustVariables(t, nil), counts); err != nil {
 		t.Fatal(err)
 	}
-	if counts["bob:client.rpc.methods.get"] == nil || counts["bob:client.device.settings.get"] == nil {
+	if counts["bob:client.rpc.methods.list"] == nil || counts["bob:client.tool.v0.list"] == nil {
 		t.Fatalf("call counters = %#v", counts)
 	}
-	scripted := []giztest.Step{{ID: "methods", Client: "bob", ClientRPC: &giztest.ClientRPCOperation{Method: "client.rpc.methods.get", Response: map[string]any{"methods": []any{"client.info.get"}}}}}
+	scripted := []giztest.Step{{ID: "methods", Client: "bob", ClientRPC: &giztest.ClientRPCOperation{Method: "client.rpc.methods.list", Response: map[string]any{"methods": []any{135}}}}}
 	if err := configureClientRPC(&gizcli.Client{}, "bob", scripted, mustVariables(t, nil), map[string]*inboundCounter{}); err == nil {
-		t.Fatal("a scripted client.rpc.methods.get answer was accepted")
+		t.Fatal("a scripted client.rpc.methods.list answer was accepted")
 	}
 }

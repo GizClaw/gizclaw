@@ -1,132 +1,50 @@
 # Client Provided to Server
 
-这一组能力由 Client/Device 实现，由 Server 在 Peer connection 上调用。Server 使用它读取设备自身信息或请求设备执行本地能力。
-
-准确的 method ID、名称与用途由 [RPC API Reference](/references/rpc) 统一维护。本页只说明 `client.*` 的 provider 方向与 ownership。
-
-## 调用关系
+设备只提供少量基础 RPC 与两个带版本的 family：MHS v0 管硬件状态，tool/v0 管操作。[RPC Reference](/references/rpc) 列出全部 method 和预定义 `ClientTool`。这些调用经在线 Peer connection 执行；`GET /gizclaw/v1/device/status` 读取 Server 快照，不会触碰设备。
 
 ```mermaid
 sequenceDiagram
+    participant App as 控制 App
     participant Server
-    participant Client
-    Server->>Client: client.* request
-    Client->>Client: Read device state or invoke local tool
-    Client-->>Server: typed response / RPC error
+    participant Device as 设备
+    App->>Server: 已认证的 Peer HTTP 请求
+    Server->>Server: 校验 schema、所有者和参数
+    Server->>Device: client.mhs.v0.* 或 client.tool.v0.*
+    Device-->>Server: 有类型的结果或 RPC 错误
+    Server-->>App: 结果或映射后的 HTTP 错误
 ```
 
-Client provider 只能返回该 Client 拥有或可执行的数据。Server resource access decision、跨 Peer lookup 和持久化管理不能实现为 `client.*`。
+## 协议发现
 
-## 设备控制 provider
+`client.rpc.methods.list`（137）返回 `RpcMethod` 数字，其中 MHS 操作只包含设备实际安装的部分。它用于识别协议 family 和版本，不列举具体操作。`client.tool.v0.list`（136）只返回设备实际安装 handler 的 `ClientTool` 值。调用方忽略未知的未来枚举值；列表不含 `CLIENT_TOOL_UNSPECIFIED`。
 
-`client.device.volume.set`（101）、`client.device.settings.get`（128）和 `client.device.settings.set`（129）已弃用，分别改用 `client.mhs.v0.write`、`client.mhs.v0.read` 和 `client.mhs.v0.write`。旧入口继续兼容；[迁移表](/zh/developing/api/overview#mhs-v0-migration) 列出产品 manifest 的推荐 key。仅在固件和控制 App 均完成迁移后移除，本次不设日期。
+`client.tool.v0.invoke`（135）携带一个 `ClientTool` 枚举值，以及用 `payload/tool.proto` 中该枚举声明的请求消息编码的 protobuf `payload`。响应同理携带对应的响应消息。空消息使用空 payload。未安装的操作返回 `UNIMPLEMENTED`；畸形 payload 返回 `INVALID_PARAMS`。设备错误通过 RPC envelope 返回。
 
-`client.device.status.get`（100）、`client.device.volume.set`（101）、`client.device.sound.play`（102）、`client.device.find`（126）、`client.device.reboot`（103）、`client.wifi.status.get`（104）、`client.wifi.saved.list`（105）、`client.wifi.saved.forget`（106）、`client.wifi.scan`（108）、`client.wifi.connect`（109）与 `client.firmware.update`（111）由设备 `rpc_provider` 实现；Server 在处理 Public HTTP `/gizclaw/v1/device*` 控制请求时调用它们。除扫描使用请求中 1–15 秒的上界外，控制超时为 5 秒。Provider 责任：
+## MHS v0 状态
 
-- `volume.set` 设置绝对 `level`（0–100）与 `muted`，并在响应中返回应用后的完整 `PeerStatus`；`status.get` 返回当前 `PeerStatus`。相同输入重复调用结果相同。
-- `sound.play` 的 `sound` 是设备自定义字符串（最多 32 UTF‑8 bytes），由设备校验取值，未知取值返回 `INVALID_PARAMS`；`duration_ms` 可选。
-- `find` 让用户找到设备：设备播放内置的本地找寻提示音并逐步增大音量，不下载任何 URL 或曲目。`duration_ms` 可选且非负，省略时由设备决定响铃时长。设备开始响铃后即应答，重复调用重新开始响铃。
-- `reboot` 必须先发出响应再执行重启，可选 `delay_ms`。
-- `firmware.update` 必须先发出响应再执行 OTA。可选 `channel` 指定要安装的 channel，省略时沿用设备自身的 channel；可选 `sha256` 是调用方看到的目标包摘要，与设备解析出的包不一致时返回 `INVALID_PARAMS`。设备自行下载、校验、写入并重启；已经运行目标包时直接返回成功。设备通过 `PeerStatus.firmware_sha256` 上报当前运行的包，`status.get` 与 `volume.set` 的响应会把它写回 Server。
-- `wifi.status.get` 返回 `WifiStatus { connected, ssid, rssi_dbm, ip, bssid }`；`wifi.saved.list` 返回已保存网络的 `ssid`；`wifi.saved.forget` 对不存在的 `ssid` 返回 `NOT_FOUND`，删除已存在的网络后再次调用同样返回 `NOT_FOUND`。`ssid` 最多 32 UTF‑8 bytes，nanopb 设有界长度。
-- `wifi.scan` 在 `timeout_ms` 内返回按 `rssi_dbm` 降序且按 SSID 保留最强项的 `WifiScanResult` 列表；`security` 是设备上报的小写标识符，Server 不做枚举校验。
-- `wifi.connect` 接收开放网络或 8–63 bytes PSK。设备必须先返回 `ClientWifiConnectResponse`，再断开当前网络并切换；失败时回退原网络。密码不得持久化、记录日志或写入错误。
-- 设备只能返回自身可执行的结果：参数非法返回 `INVALID_PARAMS`，未实现的方法返回 `METHOD_NOT_FOUND`，其他失败返回 `INTERNAL_ERROR` 并附简短 message。Server 分别映射为 `400 DEVICE_REJECTED`、`501 DEVICE_UNSUPPORTED` 与脱敏的 `502 DEVICE_ERROR`。
+绑定的 RuntimeProfile `spec.mhs.v0` manifest 定义产品自有的 `(device_id, state)` key、类型、范围与权限。`client.mhs.v0.read`（133）读取指定 key；`client.mhs.v0.write`（134）写入声明为 `read_write` 的 key 并返回实际生效值。Server 在接触设备前按 manifest 校验整批输入。设备也必须先验证整批输入和自身安全限制，再应用任何一项。未知或未实现的 key 返回 `NOT_FOUND`；前提条件不满足或值非法时拒绝整批。
 
-C SDK 的 `inbound_is_client_method` 接受这些设备控制方法并分发到 `gzc_client_config_t.rpc_provider`；未注册 provider 或 provider 未处理的方法按 `METHOD_NOT_FOUND` 回复。Go SDK 通过 `gizcli.Client.HandleDeviceControl(gizcli.DeviceControlHandlers{...})` 安装 provider，handler 返回 `gizcli.ErrDeviceRejected` / `gizcli.ErrDeviceResourceNotFound` 映射为 `INVALID_PARAMS` / `NOT_FOUND`（OTA provider 是 `UpdateFirmware`）；Flutter SDK 通过 `GizClawPeerRpcHandlers.deviceControl`（`GizClawDeviceControlHandlers`）安装，handler 抛出 `GizClawDeviceControlException` 指定 RPC error code。两者对未安装的 handler 都回复 `METHOD_NOT_FOUND`。
+`MhsValue` 恰好设置 `bool_value`、`int_value`、`double_value` 或 `string_value` 之一。false、零和空字符串都保留 presence；枚举值用 `string_value` 中的语义字符串。每次请求或响应包含 1–32 个状态。key 最多 64 ASCII 字节，字符串最多 256 UTF-8 字节且不含 NUL；整数必须是 JSON 安全整数，浮点数必须有限。写入超时后应重新读取确认状态。
 
-Go Client 的 provider dispatch 位于 `sdk/go/gizcli` 的 RPC Client implementation；C Client 通过 `gzc_client_config_t.rpc_provider` 注册同一方向的 provider，callback 在返回前提供 borrowed Protobuf response bytes 或稳定的 RPC error。Server 侧通过在线 Peer connection 调用这些 methods。
+音量、亮度、语言、提醒模式、Wi-Fi 连接状态等产品硬件状态属于 manifest key。manifest 只声明 key，不会自动安装设备 handler。
 
-## 设备配置与能力发现
+## tool/v0 操作
 
-`client.device.settings.get`（128）、`client.device.settings.set`（129）、`client.device.factory_reset`（130）与
-`client.rpc.methods.get`（131）同样由设备 `rpc_provider` 实现，用于读取和修改设备自身的选项。
+21 个预定义操作是 `info.get`、`identifiers.get`、`device.status.get`、`device.reboot`、`device.factory_reset`、`device.find`、`sound.play`、`wifi.scan`、`wifi.connect`、`wifi.saved.list`、`wifi.saved.forget`、`firmware.update`、七个 `audioplayer.*`、`run.workspace.set` 与 `social.ping`。确切的枚举数字及请求、响应消息见 [RPC Reference](/references/rpc#clienttool-v0)。设备通过 `client.tool.v0.list` 只公布实际安装的子集。tool/v0 不允许 Agent 调用产品自定义的设备本地 Tool。
 
-`DeviceSettings` 的每个成员在两个方向上都是可选的，这正是它能用一个消息服务不同硬件、而不必为每个选项新增
-一个 RPC method 的原因：
-
-| 成员 | 类型 | 含义 |
-| --- | --- | --- |
-| `cellular_enabled` | `optional bool` | 蜂窝（4G）模块是否供电并允许承载流量。 |
-| `screen_off_timeout_ms` | `optional int64` | 无操作多久后熄屏；`0` 表示常亮。 |
-| `screen_brightness` | `optional int64` | 屏幕背光亮度，取值 0–100。 |
-| `led_brightness` | `optional int64` | 指示灯亮度，取值 0–100。 |
-| `locale` | `optional string` | 界面语言，格式正确的 BCP 47 标签，最多 35 字节：2–8 个字母的主子标签，后接用 `-` 分隔的 1–8 位字母数字子标签，例如 `zh-CN`、`zh-Hant-TW`、`es-419`；`zh_CN` 这类 POSIX 写法会被拒绝。 |
-| `default_interaction_mode` | `optional DeviceInteractionMode` | 默认交互模式：`push-to-talk` 或 `realtime`，与 `WorkspaceInputMode` 使用同一套取值。 |
-| `key_feedback` | `optional DeviceKeyFeedback` | 按键提示方式：`none`、`sound`、`vibrate`、`sound_and_vibrate`。 |
-| `alert_mode` | `optional DeviceAlertMode` | 来电、通知等事件的提醒方式：`silent`、`vibrate`、`ring`。 |
-| `auto_sleep_timeout_ms` | `optional int64` | 无操作多久后设备休眠；`0` 表示不自动休眠。 |
-| `nfc_enabled` | `optional bool` | NFC 读卡器是否供电。 |
-
-产品专属配置（如使用时长、功能限制）不进入 `DeviceSettings`：它们由设备实现为 `client_rpc` Tool，并在
-RuntimeProfile binding 上设置 `control_access`，控制 App 通过 `client.tool.invoke`（82）调用。语速也不是设备
-配置，它属于 Workspace 参数 `WorkspaceParametersPatch`，另行提供。
-
-Provider 责任：
-
-- `settings.get` 只上报本设备真正支持的成员。没有对应硬件的选项应当缺省，而不是填一个占位值——调用方正是靠
-  "缺省"与"存在但为关闭"来区分"不支持"和"已关闭"。
-- `settings.set` 只应用请求中出现的成员，未出现的保持不变；响应返回应用后的完整 `DeviceSettings`，调用方据此
-  得知设备实际接受了哪些项。设备不支持的成员应忽略而不是报错，这样新版 Server 可以对接旧设备。超出取值范围的
-  成员应在应用任何一项之前返回 `INVALID_PARAMS`，避免设备停在配置了一半的状态。
-- `factory_reset` 清除设备本机状态，设备侧不可撤销；可选 `keep_network` 保留已保存的 Wi‑Fi 与蜂窝配置，
-  使设备无需重新配网即可回连。Server 自身的 Peer 记录不受影响。与 `reboot` 一样必须先发出响应再执行。
-  若设备在重置流程中自行删除 Peer，该 Peer 的全部 API Key 随之失效，控制 App 需要重新绑定。
-- `rpc.methods.get` 返回设备实现的 method name 列表，调用方据此隐藏或跳过设备只会拒绝的控制项。名称使用
-  registry 名（例如 `client.device.reboot`）；读取方必须忽略未知名称而不是拒绝整个响应。
-
-Go SDK 通过 `gizcli.DeviceControlHandlers` 的 `GetSettings`、`SetSettings`、`FactoryReset`，JavaScript SDK 与
-Flutter SDK 通过 `GizClawDeviceControlHandlers` 的 `getSettings`、`setSettings`、`factoryReset` 安装 provider；
-C SDK 的 `inbound_is_client_method` 接受这些方法并交给 `gzc_client_config_t.rpc_provider`。Go、JavaScript 与
-Flutter SDK 直接从已注册的 handler 推导 `client.rpc.methods.get` 的返回值，因此这个列表不会与设备真正接受的方法
-脱节；即使没有安装任何设备控制 handler，它也照常应答。
-
-## 远程切换 Workspace
-
-`client.run.workspace.set`（132）由控制 App 经 `PUT /gizclaw/v1/device/run/workspace` 触发，请设备切换正在运行的
-Workspace。请求只携带 `workspace_name`（最多 256 字节）与可选 `kickoff`（让 agent 在 Workspace 就绪后先开口，
-缺省为 false）。控制 App 可以用 `collection` + `workflow_name` 指定目标，但 Server 在调用前已把它解析为唯一的
-Workspace 名称（最近活跃者优先，同时间按名称升序；无匹配时 HTTP 返回 `404` 且不访问设备），因为
-`server.run.workspace.reload-with-options` 只接受名称。
-
-设备校验名称后先应答 `ClientRunWorkspaceSetResponse`，再自行调用 `server.run.workspace.reload-with-options`
-完成切换；应答只表示接受请求，不表示切换已完成。已提交的 Workspace 以 Server 记录为准，控制 App 通过
-`GET /gizclaw/v1/device/runtime` 的 `active_workspace_name` / `pending_workspace_name` 观察。目标不合法返回
-`INVALID_PARAMS`。Go SDK 使用 `DeviceControlHandlers.SetRunWorkspace`，JavaScript 与 Flutter SDK 使用
-`setRunWorkspace`；SDK 在调用 handler 前已校验名称非空且不超过 256 字节。
+- `device.status.get` 返回实时 `PeerStatus` 并刷新 Server 快照。超出 MHS manifest 的设备标识与遥测字段仍在该状态中。
+- `sound.play` 接受最多 32 UTF-8 字节的设备自定义声音名和可选非负时长。`device.find` 用内置找寻提示音响铃，可选时长。`device.reboot` 先应答再重启。`device.factory_reset` 先应答再清除本机状态；`keep_network` 可保留 Wi-Fi 和蜂窝配置。设备若同时删除自身 Peer，相关 API Key 也会失效。
+- `wifi.scan` 的超时限于 1–15 秒，最多返回 32 个接入点。`wifi.connect` 接受最多 32 UTF-8 字节的 SSID 及可选 8–63 字节密码，先应答再切换网络，不能记录或回显密码。`wifi.saved.list` 列出保存的 SSID；`wifi.saved.forget` 对不存在的 SSID 返回 `NOT_FOUND`。
+- `firmware.update` 接受可选 channel 和 SHA-256 摘要，先应答再执行 OTA；摘要与设备解析出的包不符时拒绝。设备通过 `PeerStatus.firmware_sha256` 上报当前固件摘要。
+- `run.workspace.set` 接受已解析的 `workspace_name` 和可选 `kickoff`。Server 在调用设备前解析 collection/workflow 目标。设备先应答，再通过 `server.run.workspace.reload-with-options` 切换；应答不代表 Workspace 已就绪。
+- `social.ping` 通知设备好友呼叫或群组集结，携带发送方 public key 和可选昵称、群组名。设备应及时应答；Server 把超时或缺少 handler 计作未送达，不重试。
 
 ## 音乐播放器
 
-设备的单个播放器通过 `client.device.audioplayer.*` 提供七个方法：`get`（113）、`playlist.get`（114）、`playlist.set`（115）、`playlist.append`（116）、`play`（117）、`stop`（118）、`mode.set`（119）。无需 `play_id`；`playlist_revision` 标识设备列表版本，不能用于自动重试 append。
+单个设备播放器提供七个 `audioplayer.*` 操作：`get`、`playlist.get`、`playlist.set`、`playlist.append`、`play`、`stop` 和 `mode.set`。列表最多 32 项。`playlist.set` 整体验证后原子替换并停止播放；`playlist.append` 保留顺序与重复项，失败后不自动重试。`play` 要求从零开始的 index，应答仅表示接受，实际状态与进度由 audioplayer telemetry 上报。`stop` 幂等，`mode.set` 选择 `off`、`one` 或 `all`。列表项含不带凭证或 fragment 的 HTTPS 音频 URL，以及可选标题和来源引用。Server 不下载音频。列表变更更新 `playlist_revision`；重连后通过 `playlist.get` 读取设备真实列表。
 
-| 方法 | 设备行为 |
-| --- | --- |
-| `get` | 返回完整播放器状态 |
-| `playlist.get` | 返回设备当前列表和版本，不读取服务器缓存 |
-| `playlist.set` | 校验并原子替换列表，停止当前播放；空列表清空；失败保留原列表和播放 |
-| `playlist.append` | 原子追加，保留顺序和重复项，不中断或自动开始播放 |
-| `play` | 必填零起始 `index`；从所选歌曲开头播放，替换当前播放 |
-| `stop` | 幂等停止，保留列表和循环模式 |
-| `mode.set` | `off` 播完列表停止，`one` 单曲循环，`all` 列表循环；不打断当前歌曲 |
+## Provider 与错误契约
 
-列表最多 32 项。每项 `url` 是不含凭据和 fragment 的 HTTPS 音频地址，最多 1024 UTF-8 bytes；可选 `title` 和不透明 `source_ref` 各最多 128 bytes。Server 不解析 catalog，也不下载音频。设备负责下载、解码和播放，完整校验请求并预留容量后才修改列表；不支持的格式或下载错误通过播放状态报告。列表变更递增设备 `playlist_revision`，纯播放或模式变化不改变列表版本。列表持久化由设备决定，连接恢复后调用 `playlist.get` 确认实际列表。
+Go 设备通过 `gizcli.DeviceControlHandlers` 或逐个 `ClientTool` 安装 handler；JavaScript、Flutter 与 C 安装相应的有类型 handler。各 SDK 从实际安装的 handler 推导发现列表。C provider 用 nanopb callback 解码 invoke bytes，避免新增大型静态 payload 缓冲区。
 
-`play` 成功只表示接受请求。设备通过 telemetry 的 `audioplayer` observation（field 15）报告 `stopped`、`buffering`、`playing`、`ended` 或 `error`，包含当前索引、实际播放进度 `position_ms`、可选时长 `duration_ms`、循环模式、列表长度和版本。未知时长省略；毫秒整数不超过 JavaScript 安全整数上限。错误仅在 `error` 状态携带 `error_code`（128 bytes）和 `error_message`（512 bytes），不得包含 URL 凭据。设备应在状态切换时立即上报，并在播放中以适当间隔上报进度。
-
-Server 把状态写入现有 KV `PeerStatus.audioplayer` 快照，按观察时间拒绝旧状态覆盖新状态，不生成 Prometheus 播放器序列。RPC 状态响应也更新同一快照；未提供设备墙钟时使用服务器接收时间。应用读取 `/device/status` 查看快照，调用播放器 `get` 才联系在线设备。Go provider 位于 `DeviceControlHandlers.AudioPlayer`；JavaScript 和 Flutter 位于 `deviceControl.audioplayer`；C 使用已有 `rpc_provider` 和有界 nanopb 消息。Go、JavaScript、C 的 telemetry 接口均支持播放器 observation。
-
-## 社交提醒
-
-`client.social.ping`（127）通知设备有好友呼叫（`server.friend.ping`）或 Friend Group 成员发起集结（`server.friend_group.ping`）。请求携带 `from_peer_public_key`、发起方自己设置的可选 `from_display_name`，集结时还携带 `friend_group_name`——它是接收设备自己对该群的本地 name，与该设备 `server.friend_group.list` 中的 name 一致。设备提醒用户后应尽快返回空的 `ClientSocialPingResponse`：Server 最多等待 3 秒，超时、`METHOD_NOT_FOUND` 或其他错误都计为未送达，不重试。Server 只推送调用方有权发出的提醒，设备无需再校验关系。
-
-C SDK 的 `inbound_is_client_method` 接受 `client.device.find` 与 `client.social.ping` 并分发到 `rpc_provider`，nanopb 消息有界（`from_display_name` 256 bytes、`friend_group_name` 255 bytes）。Go SDK 提供 `DeviceControlHandlers.Find` 与 `gizcli.Client.HandleSocialPing`；JavaScript 使用 `deviceControl.find` 与顶层 `socialPing` handler；Flutter 使用 `GizClawDeviceControlHandlers.find` 与 `GizClawPeerRpcHandlers.socialPing`。各 SDK 在 handler 未设置时回复 `METHOD_NOT_FOUND`，`duration_ms` 为负或 `from_peer_public_key` 为空时回复 `INVALID_PARAMS`。“找设备”在控制 SDK 中分别是 `device.find`（JavaScript）、`findDevice`（Flutter）与 `gzc_control_find_device`（C）。
-
-## MHS v0 provider
-
-`client.mhs.v0.read`（133）和 `client.mhs.v0.write`（134）的 source 为 `payload/mhs.proto`。这是 GizClaw 自有的 MHS-inspired 预标准 v0，不声明官方 MHS 兼容。只有状态读写；旧 settings/volume 已弃用但仍兼容，sound、find、Wi-Fi、audioplayer 等其他方法不弃用。
-
-`MhsValue` 必须设置恰好一个 oneof：bool_value、int_value、double_value 或 string_value；false、0 和空字符串也必须保留 presence，enum 使用 string_value。key 最多 64 ASCII bytes，字符串最多 256 UTF-8 bytes 且无 NUL；nanopb 分别分配 65/257 字节（含结尾 NUL）。请求和响应每批最多 32 个状态，至少 1 个。整数为 JSON-safe 范围，double 必须有限。
-
-read 返回全部请求 key 的当前值。write 对调用方是整批成功或失败：修改任何状态前验证全部 key、参数与前置条件，否则返回 INVALID_ARGUMENT、NOT_FOUND 或 FAILED_PRECONDITION；驱动必须执行自身安全限制，响应返回 clamp/round 后实际值。Profile 可以被不同硬件版本共享，未实现的 key 返回 NOT_FOUND。响应必须恰好包含请求的 key，每个一次。
-
-Go 的 `DeviceControlHandlers.ReadMhsStates/WriteMhsStates` 使用原始 `rpcpb` message；JS 和 Flutter 的 `GizClawDeviceControlHandlers.readMhsStates/writeMhsStates` 安装 handler。三者的 `client.rpc.methods.get` 仅列出已安装方法。JS value 使用显式 `{int_value: 0}` 或 `{double_value: 0}`，避免丢失 wire 类型；HTTP 控制侧仍使用普通 JSON value。C 通过既有 `gzc_client_config_t.rpc_provider` 接收有界 nanopb 请求，provider 的能力列表必须只包含真正实现的方法。
+Server 在打开 RPC stream 前验证 Peer HTTP 的有类型参数。设备离线映射为 `409 DEVICE_OFFLINE`；未安装操作为 `501 DEVICE_UNSUPPORTED`；超时为 `504 DEVICE_TIMEOUT`；设备 `INVALID_PARAMS` 为 `400 DEVICE_REJECTED`；其他设备错误为隐去细节的 `502 DEVICE_ERROR`。保存的 SSID 不存在时使用路由对应的 not-found 映射。设备 handler 不得在状态或错误中泄露凭证。

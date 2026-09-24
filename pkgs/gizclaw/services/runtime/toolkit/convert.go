@@ -15,16 +15,6 @@ func FromSpec(id string, spec apitypes.ToolSpec) (Tool, error) {
 		return Tool{}, fmt.Errorf("%w: decode type: %v", ErrInvalidTool, err)
 	}
 	switch discriminator {
-	case string(ToolTypeClientRPC):
-		value, err := spec.AsClientRPCToolSpec()
-		if err != nil {
-			return Tool{}, fmt.Errorf("%w: decode client_rpc: %v", ErrInvalidTool, err)
-		}
-		tool, err := commonToolFromAPI(id, value.InvokeName, ToolTypeClientRPC, value.Description, value.Enabled, value.Version, value.InputSchema, value.Triggers, value.Metadata)
-		if err != nil {
-			return Tool{}, err
-		}
-		return normalizeToolDeclaration(tool)
 	case string(ToolTypeHTTPRequest):
 		value, err := spec.AsHTTPToolSpec()
 		if err != nil {
@@ -60,16 +50,6 @@ func ToSpec(tool Tool) (apitypes.ToolSpec, error) {
 	}
 	var spec apitypes.ToolSpec
 	switch tool.Type {
-	case ToolTypeClientRPC:
-		err = spec.FromClientRPCToolSpec(apitypes.ClientRPCToolSpec{
-			InvokeName:  tool.InvokeName,
-			Description: tool.Description,
-			Enabled:     &enabled,
-			InputSchema: tool.InputSchema,
-			Metadata:    metadata,
-			Triggers:    triggers,
-			Version:     tool.Version,
-		})
 	case ToolTypeHTTPRequest:
 		httpConfig, convertErr := httpRequestToAPI(*tool.HTTP, true)
 		if convertErr != nil {
@@ -115,16 +95,6 @@ func ToRedactedSpec(tool Tool) (apitypes.ToolSpec, error) {
 	}
 	var spec apitypes.ToolSpec
 	switch tool.Type {
-	case ToolTypeClientRPC:
-		err = spec.FromClientRPCToolSpec(apitypes.ClientRPCToolSpec{
-			InvokeName:  tool.InvokeName,
-			Description: tool.Description,
-			Enabled:     &enabled,
-			InputSchema: tool.InputSchema,
-			Metadata:    metadata,
-			Triggers:    triggers,
-			Version:     tool.Version,
-		})
 	case ToolTypeHTTPRequest:
 		httpConfig, convertErr := httpRequestToAPI(*tool.HTTP, false)
 		if convertErr != nil {

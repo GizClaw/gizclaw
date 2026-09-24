@@ -13,9 +13,9 @@ import (
 
 func TestBenchmarkWorkflowsExcludeProfileTools(t *testing.T) {
 	server := toolkittest.New(t)
-	echo := putAgentHostTool(t, server, agentHostClientTool("giztest_echo"))
+	echo := putAgentHostTool(t, server, agentHostBoundHTTPTool("giztest_echo"))
 	resolver := ServiceResolver{ToolBuilder: &toolkit.Builder{Tools: server}}
-	ctx := toolTestContext(t, map[string]string{"giztest-echo": echo.ID}, nil)
+	ctx := toolTestContext(t, map[string]string{"giztest-echo": echo.ID})
 	for _, name := range []string{
 		"05-flowcraft-basic.yaml",
 		"20-flowcraft-latency-comparison.yaml",

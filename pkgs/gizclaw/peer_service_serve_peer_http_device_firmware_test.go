@@ -10,6 +10,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 )
 
 const (
@@ -116,8 +117,8 @@ func TestGetDeviceFirmwareNotBound(t *testing.T) {
 func TestUpdateDeviceFirmwareForwardsToDevice(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 	var lastRequest rpcapi.ClientFirmwareUpdateRequest
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-		if req.Method != rpcapi.RPCMethodClientFirmwareUpdate {
+	device := newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		if tool != rpcpb.ClientTool_CLIENT_TOOL_FIRMWARE_UPDATE {
 			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unsupported"}.RPCResponse(), nil
 		}
 		params, err := req.Params.AsClientFirmwareUpdateRequest()
@@ -135,8 +136,8 @@ func TestUpdateDeviceFirmwareForwardsToDevice(t *testing.T) {
 	f.manager.SetPeerUp(f.owner, device)
 
 	beta := rpcapi.FirmwareChannelNameBeta
-	response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/firmware-update", `{"channel":"beta","sha256":"`+betaFirmwareSha256+`"}`)
-	if response.Code != http.StatusNoContent {
+	response := f.invoke(t, "firmware.update", `{"channel":"beta","sha256":"`+betaFirmwareSha256+`"}`)
+	if response.Code != http.StatusOK {
 		t.Fatalf("POST firmware-update status = %d body=%s", response.Code, response.Body.String())
 	}
 	if lastRequest.Channel == nil || *lastRequest.Channel != beta {
@@ -148,7 +149,7 @@ func TestUpdateDeviceFirmwareForwardsToDevice(t *testing.T) {
 
 	// The device restarts into the new image, so later commands answer
 	// DEVICE_OFFLINE on the same connection exactly like reboot.
-	response = f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/reboot", "")
+	response = f.invoke(t, "device.reboot", `{}`)
 	if response.Code != http.StatusConflict || errorCode(t, response) != deviceOfflineCode {
 		t.Fatalf("post-update reboot status = %d body=%s", response.Code, response.Body.String())
 	}
@@ -157,7 +158,7 @@ func TestUpdateDeviceFirmwareForwardsToDevice(t *testing.T) {
 func TestUpdateDeviceFirmwareWithoutBody(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 	var lastRequest rpcapi.ClientFirmwareUpdateRequest
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+	device := newFakeToolConn(func(_ context.Context, _ rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 		params, err := req.Params.AsClientFirmwareUpdateRequest()
 		if err != nil {
 			return nil, err
@@ -167,8 +168,8 @@ func TestUpdateDeviceFirmwareWithoutBody(t *testing.T) {
 	})
 	f.manager.SetPeerUp(f.owner, device)
 
-	response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/firmware-update", "")
-	if response.Code != http.StatusNoContent {
+	response := f.invoke(t, "firmware.update", `{}`)
+	if response.Code != http.StatusOK {
 		t.Fatalf("POST firmware-update status = %d body=%s", response.Code, response.Body.String())
 	}
 	if lastRequest.Channel != nil || lastRequest.Sha256 != nil {
@@ -178,13 +179,13 @@ func TestUpdateDeviceFirmwareWithoutBody(t *testing.T) {
 
 func TestUpdateDeviceFirmwareRejectsInvalidBody(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+	device := newFakeToolConn(func(_ context.Context, _ rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 		return newRPCResultResponse(req.Id, rpcapi.ClientFirmwareUpdateResponse{}, (*rpcapi.RPCPayload).FromClientFirmwareUpdateResponse)
 	})
 	f.manager.SetPeerUp(f.owner, device)
 
 	for _, body := range []string{`{"channel":"nightly"}`, `{"sha256":"abc"}`, `{"sha256":"` + strings.ToUpper(stableFirmwareSha256) + `"}`} {
-		response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/firmware-update", body)
+		response := f.invoke(t, "firmware.update", body)
 		if response.Code != http.StatusBadRequest {
 			t.Fatalf("POST firmware-update %s status = %d body=%s", body, response.Code, response.Body.String())
 		}
@@ -198,28 +199,28 @@ func TestUpdateDeviceFirmwareDeviceErrors(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 
 	// Offline before any device registers.
-	response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/firmware-update", "")
+	response := f.invoke(t, "firmware.update", `{}`)
 	if response.Code != http.StatusConflict || errorCode(t, response) != deviceOfflineCode {
 		t.Fatalf("offline POST firmware-update status = %d body=%s", response.Code, response.Body.String())
 	}
 
-	// Firmware that predates client.firmware.update answers UNIMPLEMENTED, and
+	// A device without firmware.update answers UNIMPLEMENTED, and
 	// callers must read that as unsupported rather than as a failed update.
-	unsupported := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+	unsupported := newFakeToolConn(func(_ context.Context, _ rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unsupported"}.RPCResponse(), nil
 	})
 	f.manager.SetPeerUp(f.owner, unsupported)
-	response = f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/firmware-update", "")
+	response = f.invoke(t, "firmware.update", `{}`)
 	if response.Code != http.StatusNotImplemented || errorCode(t, response) != deviceUnsupportedCode {
 		t.Fatalf("unsupported POST firmware-update status = %d body=%s", response.Code, response.Body.String())
 	}
 
 	// A device that refuses the declared digest surfaces as a 400.
-	rejecting := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+	rejecting := newFakeToolConn(func(_ context.Context, _ rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: "sha256 does not match the resolved package"}.RPCResponse(), nil
 	})
 	f.manager.SetPeerUp(f.owner, rejecting)
-	response = f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/firmware-update", `{"sha256":"`+unknownFirmwareSha256+`"}`)
+	response = f.invoke(t, "firmware.update", `{"sha256":"`+unknownFirmwareSha256+`"}`)
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("mismatched POST firmware-update status = %d body=%s", response.Code, response.Body.String())
 	}
@@ -227,16 +228,16 @@ func TestUpdateDeviceFirmwareDeviceErrors(t *testing.T) {
 
 func TestDeviceStatusCarriesReportedFirmwareDigest(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-		if req.Method != rpcapi.RPCMethodClientDeviceVolumeSet {
+	device := newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		if tool != rpcpb.ClientTool_CLIENT_TOOL_DEVICE_STATUS_GET {
 			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unsupported"}.RPCResponse(), nil
 		}
 		return deviceStatusResult(req.Id, rpcapi.PeerStatus{Volume: new(20), FirmwareSha256: new(stableFirmwareSha256)})
 	})
 	f.manager.SetPeerUp(f.owner, device)
 
-	if response := f.do(t, http.MethodPut, "/gizclaw/v1/device/volume", `{"level":20,"muted":false}`); response.Code != http.StatusOK {
-		t.Fatalf("PUT volume status = %d body=%s", response.Code, response.Body.String())
+	if response := f.invoke(t, "device.status.get", `{}`); response.Code != http.StatusOK {
+		t.Fatalf("status tool = %d body=%s", response.Code, response.Body.String())
 	}
 	response := f.do(t, http.MethodGet, "/gizclaw/v1/device/status", "")
 	if response.Code != http.StatusOK {

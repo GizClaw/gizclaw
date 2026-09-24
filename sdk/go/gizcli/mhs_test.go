@@ -33,9 +33,9 @@ func TestMhsProviderDispatchAndDiscovery(t *testing.T) {
 	if err != nil || len(result.States) != 1 || result.States[0].Value.Value == nil || result.States[0].Value.GetBoolValue() {
 		t.Fatalf("%v %v", result, err)
 	}
-	methods := deviceControlDispatch(t, device, rpcapi.RPCMethodClientRPCMethodsGet, nil)
-	list, err := methods.Result.AsClientRPCMethodsGetResponse()
-	if err != nil || !slices.Contains(list.Methods, "client.mhs.v0.write") || slices.Contains(list.Methods, "client.mhs.v0.read") {
+	methods := deviceControlDispatch(t, device, rpcapi.RPCMethodClientRPCMethodsList, nil)
+	list, err := methods.Result.AsClientRpcMethodsListResponse()
+	if err != nil || !slices.Contains(list.Methods, rpcpb.RpcMethod_RPC_METHOD_CLIENT_MHS_V0_WRITE) || slices.Contains(list.Methods, rpcpb.RpcMethod_RPC_METHOD_CLIENT_MHS_V0_READ) {
 		t.Fatalf("%v %v", list, err)
 	}
 	request.States = append(request.States, request.States[0])

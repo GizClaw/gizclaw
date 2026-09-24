@@ -16,19 +16,19 @@ import (
 func installAudioPlayer(handlers *gizcli.DeviceControlHandlers, method string, response any) error {
 	var err error
 	switch method {
-	case "client.device.audioplayer.get":
+	case "audioplayer.get":
 		handlers.AudioPlayer.Get, err = audioPlayerResponse[*rpcpb.ClientDeviceAudioPlayerGetRequest](response, new(rpcpb.ClientDeviceAudioPlayerGetResponse))
-	case "client.device.audioplayer.playlist.get":
+	case "audioplayer.playlist.get":
 		handlers.AudioPlayer.PlaylistGet, err = audioPlayerResponse[*rpcpb.ClientDeviceAudioPlayerPlaylistGetRequest](response, new(rpcpb.ClientDeviceAudioPlayerPlaylistGetResponse))
-	case "client.device.audioplayer.playlist.set":
+	case "audioplayer.playlist.set":
 		handlers.AudioPlayer.PlaylistSet, err = audioPlayerResponse[*rpcpb.ClientDeviceAudioPlayerPlaylistSetRequest](response, new(rpcpb.ClientDeviceAudioPlayerPlaylistSetResponse))
-	case "client.device.audioplayer.playlist.append":
+	case "audioplayer.playlist.append":
 		handlers.AudioPlayer.PlaylistAppend, err = audioPlayerResponse[*rpcpb.ClientDeviceAudioPlayerPlaylistAppendRequest](response, new(rpcpb.ClientDeviceAudioPlayerPlaylistAppendResponse))
-	case "client.device.audioplayer.play":
+	case "audioplayer.play":
 		handlers.AudioPlayer.Play, err = audioPlayerResponse[*rpcpb.ClientDeviceAudioPlayerPlayRequest](response, new(rpcpb.ClientDeviceAudioPlayerPlayResponse))
-	case "client.device.audioplayer.stop":
+	case "audioplayer.stop":
 		handlers.AudioPlayer.Stop, err = audioPlayerResponse[*rpcpb.ClientDeviceAudioPlayerStopRequest](response, new(rpcpb.ClientDeviceAudioPlayerStopResponse))
-	case "client.device.audioplayer.mode.set":
+	case "audioplayer.mode.set":
 		handlers.AudioPlayer.ModeSet, err = audioPlayerResponse[*rpcpb.ClientDeviceAudioPlayerModeSetRequest](response, new(rpcpb.ClientDeviceAudioPlayerModeSetResponse))
 	default:
 		return fmt.Errorf("unsupported audioplayer method %q", method)

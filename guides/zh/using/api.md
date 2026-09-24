@@ -143,27 +143,20 @@ Go SDK 把常用 RPC 暴露为 `gizcli.Client` 的 typed 方法。传入的 requ
 | `GET /gizclaw/v1/device/runtime-profile` | 设备绑定的 RuntimeProfile name、revision，以及各 collection 的 workflow name |
 | `GET /gizclaw/v1/device/workspaces`，`DELETE /device/workspaces/{workspaceId}` | 按 collection 与 workflow name 列出设备的 Workspace（如游戏存档），删除其中一个 |
 | `GET /gizclaw/v1/device/workspaces/{workspaceId}/history`、`/history/{historyId}/audio.ogg` | 读取 Workspace 的聊天历史与保存的音频 |
-| `PUT /gizclaw/v1/device/volume` | 设置音量与静音，返回设备实时回报的 status |
-| `POST /gizclaw/v1/device/actions/play-sound` | 播放设备自定义提示音 |
-| `POST /gizclaw/v1/device/actions/find` | 找设备：设备播放内置找寻提示音并逐步增大音量 |
-| `POST /gizclaw/v1/device/actions/reboot` | 重启设备 |
-| `GET /gizclaw/v1/device/firmware` | 设备绑定的 Firmware 配置的全部 channel 与各自的包 |
-| `POST /gizclaw/v1/device/actions/firmware-update` | 通知设备执行一次 OTA |
-| `GET /gizclaw/v1/device/wifi`、`/wifi/saved`，`DELETE /wifi/saved/{ssid}` | 查询 Wi‑Fi 状态、列出与清理已保存网络 |
-| `GET`、`PATCH /gizclaw/v1/device/settings` | 读取与修改设备配置（4G、熄屏、亮度、语言、交互模式、按键提示、提醒方式、自动休眠、NFC） |
-| `POST /gizclaw/v1/device/actions/factory-reset` | 恢复出厂设置（可选 `keep_network`） |
-| `GET /gizclaw/v1/device/rpc-methods` | 设备实现的控制方法，用来隐藏设备不支持的入口 |
-| `PUT /gizclaw/v1/device/run/workspace` | 远程切换设备正在运行的 Workspace |
-| `GET /gizclaw/v1/device/tools`，`POST /device/tools/{name}/actions/invoke` | 列出并调用 RuntimeProfile 开放给控制 App 的设备 Tool |
+| `GET /gizclaw/v1/device/firmware` | 设备绑定的 Firmware channel 与包 |
+| `GET /gizclaw/v1/device/mhs/v0/manifest` | manifest 定义的硬件状态 key |
+| `POST /gizclaw/v1/device/mhs/v0/read`、`PATCH /device/mhs/v0/states` | 读取和写入类型化硬件状态 |
+| `GET /gizclaw/v1/device/tool/v0/tools` | 设备已安装的预定义过程 |
+| `POST /gizclaw/v1/device/tool/v0/invoke` | 调用 `device.find`、`wifi.scan`、`firmware.update` 或播放器等类型化过程 |
 | `/gizclaw/v1/contacts`、`/contacts/{contactName}` | 设备联系人的 list/create/get/put/delete |
 | `/gizclaw/v1/friends/invite-token` | 读取、生成（可选 `ttl_seconds`，最长 7 天）或作废设备的好友邀请码 |
 | `/gizclaw/v1/friends`、`/friends/{friendName}` | 用邀请码加好友、列出（带对方名字与 emoji）、查看、删除好友 |
 | `/gizclaw/v1/friend-groups`、`/friend-groups/@join`、`/friend-groups/{friendGroupName}` | 列出、创建、用邀请码加入、查看、修改、解散群组 |
 | `/friend-groups/{friendGroupName}/@leave`、`/invite-token`、`/members`、`/members/{memberName}` | 退群、群邀请码、查看成员（带名字与 emoji）与成员管理 |
 
-读取 route 只投影 Server 已有数据，不会唤醒设备；控制 route 经 Server→设备 RPC 实时执行，设备离线返回 `409 DEVICE_OFFLINE`，5 秒无响应返回 `504 DEVICE_TIMEOUT`，设备未实现返回 `501 DEVICE_UNSUPPORTED`。状态变化通过轮询 `GET /device/status` 获取。设置、恢复出厂、Workspace 切换与 Tool 调用的规则见 [Public API](/zh/developing/api/http/public#设备控制流程)：恢复出厂不可撤销，设备若同时删除自己的 Peer，全部 API Key 随之失效；产品专属配置（如使用时长）作为 Tool 调用，不在设置里。Wi‑Fi 配网仍由设备本地 BLE 完成。
+存储读取不会唤醒设备。`mhs/v0` 处理已绑定的硬件状态，`tool/v0` 处理设备已安装的预定义过程。Server 在发送实时 RPC 前验证请求。离线返回 `409 DEVICE_OFFLINE`，超时返回 `504 DEVICE_TIMEOUT`，缺少 handler 返回 `501 DEVICE_UNSUPPORTED`。完整契约见 [Public API](/zh/developing/api/http/public#设备控制流程)。
 
-`GET /device/firmware` 一次返回 `stable`、`beta`、`develop` 三个 channel 及各自的 `package`（`version`、`url`、`sha256`、`size`）（已有包没有版本时省略 `version`，其余信息仍正常返回）；Server 不保存设备当前使用的 channel，选哪个由调用方决定，`POST /device/actions/firmware-update` 用 `channel` 指定，省略时设备沿用自身的 channel。要判断是否需要升级，把 `GET /device/status` 的 `firmware_sha256`（设备上报的当前运行包）与目标 channel 的 `package.sha256` 比较；请求里带上同一个 `sha256`，设备解析出不同的包时会拒绝，避免升到与界面显示不同的版本。设备固件太旧、未实现该 RPC 时返回 `501 DEVICE_UNSUPPORTED`，应据此隐藏升级入口，而不是提示升级失败。
+`GET /device/firmware` 返回全部已配置 channel。升级前将目标包摘要与 `GET /device/status` 已存储的摘要比较，然后通过 `POST /device/tool/v0/invoke` 调用 `firmware.update`，传入可选 `channel` 及相同的 `sha256`。
 
 `GET /device/runtime-profile` 只返回 RuntimeProfile 的 `name`、`revision` 与 `collections[].workflows[].name`，collection 与 workflow 均按 name 排序；workflow name 即设备调用 `server.workflow.*` 使用的 name，直接取自 RuntimeProfile binding、不校验对应 Workflow 资源是否仍存在；`name`/`revision` 等于 RPC 响应中的 `runtime_profile_name`/`runtime_profile_revision`。封面、描述、显示名称等展示信息不在响应中，调用方按 `<profile name>/<collection>` 与 `<profile name>/<workflow name>` 自行对应；展示顺序同样由调用方决定。
 
@@ -172,13 +165,13 @@ Go SDK 把常用 RPC 暴露为 `gizcli.Client` 的 typed 方法。传入的 requ
 好友与群组 route 只读写 Server 的社交数据，设备离线或丢失时同样可用。家长把邀请码发给对方时应带 `ttl_seconds`，默认 5 分钟的码往往来不及；已有有效码时只延长有效期，设备正在展示的码不受影响。群组以设备自己的群名寻址，群主不能退群（`409 FRIEND_GROUP_OWNER_CANNOT_LEAVE`），应改为解散；非群主解散返回 `403`。完整错误码见 [Public API](../developing/api/http/public#好友与群组-surface)。
 
 ```sh
-curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/volume" \
+curl -sS -X PATCH "$GIZCLAW_URL/gizclaw/v1/device/mhs/v0/states" \
   -H "Authorization: Bearer $GIZCLAW_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"level":35,"muted":false}'
+  -d '{"states":[{"device_id":"speaker.main","state":"volume","value":35}]}'
 ```
 
-TypeScript 使用 `@gizclaw/gizclaw/peerhttp` 生成的 `setDeviceVolume`、`getDeviceStatus`、`listContacts` 等 operation；Go 使用 `peerhttp.ClientWithResponses`（`gizcli.Client.PeerHTTPClient()` 返回同一类型）。完整 path、参数和 response 以 [`api/http/peer.json`](https://github.com/GizClaw/gizclaw/blob/main/api/http/peer.json) 为准。
+TypeScript 使用 `@gizclaw/gizclaw/peerhttp` 生成的 `writeMhsStates`、`getDeviceStatus`、`listContacts` 等 operation；Go 使用 `peerhttp.ClientWithResponses`（`gizcli.Client.PeerHTTPClient()` 返回同一类型）。完整 path、参数和 response 以 [`api/http/peer.json`](https://github.com/GizClaw/gizclaw/blob/main/api/http/peer.json) 为准。
 
 ## 错误处理与连接生命周期
 

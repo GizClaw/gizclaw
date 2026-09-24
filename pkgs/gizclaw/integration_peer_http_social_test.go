@@ -236,7 +236,11 @@ func TestIntegrationPeerHTTPFriendGroupsThroughGoSDK(t *testing.T) {
 		t.Fatalf("close bob: %v", err)
 	}
 	if err := waitUntil(testReadyTimeout, func() error {
-		response, err := carolAPI.FindDeviceWithResponse(ctx, bearer(bob.key))
+		var request peerhttp.ClientToolV0InvokeRequest
+		if err := request.FromClientToolDeviceFindInvoke(peerhttp.ClientToolDeviceFindInvoke{Tool: "device.find", Args: peerhttp.DeviceFindRequest{}}); err != nil {
+			return err
+		}
+		response, err := carolAPI.InvokeClientToolWithResponse(ctx, request, bearer(bob.key))
 		if err != nil {
 			return err
 		}

@@ -1,6 +1,6 @@
 # RPC API Reference
 
-本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 111 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
+本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 87 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
 
 `all.*` 由连接两端提供，`client.*` 由 Client/Device 提供，普通 `server.*` 与 `runtime.*` 由 Server 提供。最后一组 Edge RPC 使用独立 service `0x31`，只对 Edge-node 开放；其余方法使用 Peer RPC service `0x00`。
 
@@ -10,8 +10,6 @@
 | ---: | --- | --- |
 | 1 | `all.ping` | 验证 request/response 通路，并交换调用端发送时间与提供端当前时间。 |
 | 2 | `all.speed_test.run` | 按指定上下行长度在 RPC stream 上执行吞吐测试。 |
-| 3 | `client.info.get` | Server 从 Client 读取 manufacturer、model、hardware revision 等硬件信息。 |
-| 4 | `client.identifiers.get` | Server 从 Client 读取 SN、IMEI 和设备 labels。 |
 | 5 | `server.info.get` | 读取当前 Peer 在 Server 上的设备资料与标识信息。 |
 | 6 | `server.info.put` | 更新当前 Peer 的 name、emoji 等可编辑设备资料，并返回完整资料。 |
 | 125 | `server.profile.get` | 按 public key 批量（1–16 个）读取任意 Peer 的公开资料，只含 `display_name` 与 `emoji`；不要求好友关系，不暴露在线状态、SN、位置等其他字段。 |
@@ -94,8 +92,7 @@ Workflow、Model 与 Voice 由当前 RuntimeProfile 投影为 Peer name catalog�
 | 47 | `server.friend.list` | 分页列出当前 Peer 的好友关系；每项附带好友的 `online`、`last_seen_at`（从未见过时省略）、`display_name` 与 `emoji`。 |
 | 48 | `server.friend.delete` | 删除一条好友关系及其关联资源。 |
 | 89 | `server.friend.info.get` | 读取指定好友对当前 Peer 可见的 name 和 emoji。 |
-| 123 | `server.friend.ping` | 呼叫指定好友：好友设备在线则推送 `client.social.ping`，返回 `delivered`；不在线立即返回 `not_online`；同一好友对每分钟一次，超出返回 `rate_limited` 与剩余秒数。 |
-| 127 | `client.social.ping` | Server 调用设备：通知好友呼叫或 Friend Group 集结，携带发起方 public key、可选 `display_name` 与接收方自己的 `friend_group_name`。 |
+| 123 | `server.friend.ping` | 呼叫指定好友：好友设备在线则推送 `tool/v0 social.ping`，返回 `delivered`；不在线立即返回 `not_online`；同一好友对每分钟一次，超出返回 `rate_limited` 与剩余秒数。 |
 
 ## Friend Group
 
@@ -114,18 +111,17 @@ Workflow、Model 与 Voice 由当前 RuntimeProfile 投影为 Peer name catalog�
 | 59 | `server.friend_group.members.add` | 向 Friend Group 添加成员并设置 member/admin role。 |
 | 60 | `server.friend_group.members.put` | 修改 Friend Group 成员的 member/admin role。 |
 | 61 | `server.friend_group.members.delete` | 从 Friend Group 删除成员。 |
-| 124 | `server.friend_group.ping` | 任意成员集结 Friend Group：向除自己外所有在线成员推送 `client.social.ping`，返回送达数；无人在线返回 `not_online`；每个群每分钟一次，超出返回 `rate_limited` 与剩余秒数。 |
+| 124 | `server.friend_group.ping` | 任意成员集结 Friend Group：向除自己外所有在线成员推送 `tool/v0 social.ping`，返回送达数；无人在线返回 `not_online`；每个群每分钟一次，超出返回 `rate_limited` 与剩余秒数。 |
 
 
 ## Tool
 
-Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创建、修改或删除真实 Tool。
+RuntimeProfile 的 Tool catalog 仍向 Peer 投影名称，支持服务端 HTTP Tool；它与设备的预定义 `ClientTool` 是不同的目录。
 
 | ID | Method | 作用 |
 | ---: | --- | --- |
 | 80 | `server.tool.list` | 分页列出当前 RuntimeProfile 的 Tool names。 |
 | 81 | `server.tool.get` | 按 name 读取 RuntimeProfile Tool projection。 |
-| 82 | `client.tool.invoke` | Server 请求 Client 执行本地 Tool，并用 `call_id` 关联真实执行结果。 |
 
 ## App Config
 
@@ -146,39 +142,45 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 | 97 | `server.api_key.list` | 按 cursor 分页列出当前 Peer 拥有的 API Key。 |
 | 98 | `server.api_key.revoke` | 按 opaque name 撤销当前 Peer 拥有的一个 API Key。 |
 
-## 设备控制与 Wi‑Fi
+## 设备硬件状态与预定义操作
 
-仅 volume.set 与 settings.get/set 已弃用；旧入口行为保持不变，其他方法不弃用。字段推荐约定见 [中文迁移表](/zh/developing/api/overview#mhs-v0-migration) / [English migration table](/en/developing/api/overview#mhs-v0-migration)。ID 由产品在 RuntimeProfile manifest 中定义。只有设备固件和控制 App 均迁移后才移除，尚未设定移除日期。
-
-这一组 `client.*` 方法由设备的 `rpc_provider` 实现，Server 在处理 Public HTTP `/gizclaw/v1/device*` 控制请求时经在线 Peer connection 调用。设备只返回自身可执行的结果：参数非法返回 `INVALID_PARAMS`，未实现返回 `METHOD_NOT_FOUND`，`saved.forget` 找不到 ssid 返回 `NOT_FOUND`。`sound` 与 `ssid` 按 UTF‑8 bytes 限制 32。
+设备只提供 MHS v0 硬件状态与 tool/v0 操作。RuntimeProfile `spec.mhs.v0` manifest 声明产品自定义的 `(device_id, state)` key；Server 在发起 MHS 读写前按 manifest 校验。`client.rpc.methods.list` 返回协议方法编号，`client.tool.v0.list` 单独返回设备实际安装的操作编号。控制 App 通过 `GET /gizclaw/v1/device/tool/v0/tools` 与 `POST /gizclaw/v1/device/tool/v0/invoke` 使用预定义操作；Server 在接触设备前验证参数。
 
 | ID | Method | 作用 |
 | ---: | --- | --- |
-| 100 | `client.device.status.get` | Server 从设备读取实时 `PeerStatus`；用于控制响应回写，不由 `/device/status` 读取触发。 |
-| 101 | `client.device.volume.set` | **已弃用 / Deprecated**：改用 `client.mhs.v0.write`。设置绝对音量 `level`（0–100）与 `muted`，返回设备应用后的 `PeerStatus`。 |
-| 102 | `client.device.sound.play` | 播放设备自定义的提示音 `sound`，可选 `duration_ms`。 |
-| 126 | `client.device.find` | “找设备”：设备播放内置的本地找寻提示音并逐步增大音量，可选 `duration_ms`；不需要音频 URL 或曲目。 |
-| 103 | `client.device.reboot` | 设备在发出响应后重启，可选 `delay_ms`。 |
-| 104 | `client.wifi.status.get` | 读取设备当前 Wi‑Fi 连接状态（`connected`、`ssid`、`rssi_dbm`、`ip`、`bssid`）。 |
-| 105 | `client.wifi.saved.list` | 列出设备已保存的 Wi‑Fi 网络 `ssid`。 |
-| 106 | `client.wifi.saved.forget` | 按 `ssid` 删除设备已保存的 Wi‑Fi 网络。 |
-| 108 | `client.wifi.scan` | 在设备侧扫描周边 Wi‑Fi，按请求的有界 `timeout_ms` 返回接入点列表。 |
-| 109 | `client.wifi.connect` | 接受 Wi‑Fi 凭据并在应答 RPC 后切换网络。 |
-| 111 | `client.firmware.update` | 通知设备执行一次 OTA。可选 `channel` 指定要安装的 channel，省略时沿用设备自身的 channel；可选 `sha256` 声明调用方看到的目标包，与设备解析出的包不一致时设备拒绝。设备在应答后自行下载、校验、写入并重启。 |
-| 113 | `client.device.audioplayer.get` | 读取设备播放器的完整状态：播放状态、当前索引、实际进度、可选时长、循环模式、列表长度与版本。 |
-| 114 | `client.device.audioplayer.playlist.get` | 读取设备当前播放列表与 `playlist_revision`，不读取服务端缓存。 |
-| 115 | `client.device.audioplayer.playlist.set` | 校验并原子替换播放列表（最多 32 项），停止当前播放；空列表清空列表；失败保留原列表与播放。 |
-| 116 | `client.device.audioplayer.playlist.append` | 原子追加 1–32 项并保持总容量 32，保留顺序与重复项；不中断播放，也不自动开始播放，失败后不应自动重试。 |
-| 117 | `client.device.audioplayer.play` | 按零起始 `index` 从所选歌曲开头播放，替换当前播放；响应只表示设备接受请求，实际播放由 telemetry 上报。 |
-| 118 | `client.device.audioplayer.stop` | 幂等停止播放，保留播放列表与循环模式。 |
-| 119 | `client.device.audioplayer.mode.set` | 设置循环模式 `repeat`：`off` 播完列表停止，`one` 单曲循环，`all` 列表循环；不打断当前歌曲。 |
-| 128 | `client.device.settings.get` | **已弃用 / Deprecated**：改用 `client.mhs.v0.read`。读取设备自身配置 `DeviceSettings`：4G 开关、熄屏时间、屏幕与指示灯亮度、语言、默认交互模式、按键提示方式、提醒方式、自动休眠时间、NFC 开关。缺省的成员表示该设备没有这项配置。 |
-| 129 | `client.device.settings.set` | **已弃用 / Deprecated**：改用 `client.mhs.v0.write`。只应用请求中出现的成员，未出现的保持不变；响应返回应用后的完整 `DeviceSettings`，调用方据此得知设备实际接受了哪些项。 |
-| 130 | `client.device.factory_reset` | 设备清除本机状态并恢复出厂设置，设备侧不可撤销；可选 `keep_network` 保留已保存的 Wi‑Fi 与蜂窝配置，避免重新配网。Server 自身的 Peer 记录不受影响。 |
-| 131 | `client.rpc.methods.get` | 设备上报自己实现的 RPC method name 列表，调用方据此隐藏或跳过设备不支持的控制项。未知名称应忽略而不是拒绝。 |
-| 132 | `client.run.workspace.set` | 请设备切换到 `workspace_name` 指定的 Workspace，可选 `kickoff`；控制 App 的 workflow 目标由 Server 先解析为唯一名称。设备先应答再通过 `server.run.workspace.reload-with-options` 完成切换，应答只表示接受请求。 |
-| 133 | `client.mhs.v0.read` | 按 `(device_id, state)` 批量读取设备硬件 state 的当前值。可读的 key 由设备绑定的 RuntimeProfile `spec.mhs.v0` manifest 声明，Server 先按 manifest 校验；设备不实现的 key 返回 `NOT_FOUND`。这是 GizClaw 参照 MHS 思路自定的 v0 协议，不代表兼容官方 MHS。 |
-| 134 | `client.mhs.v0.write` | 按 `(device_id, state)` 批量写入 manifest 中声明为 `read_write` 的硬件 state，Server 先校验类型与范围。设备必须整批校验后再生效，拒绝时不应用任何一项；响应返回实际生效的值（driver 可以收敛取值并执行自身的安全限制）。 |
+| 133 | `client.mhs.v0.read` | 按 manifest 中的 `(device_id, state)` 批量读取硬件状态。 |
+| 134 | `client.mhs.v0.write` | 整批验证并写入 manifest 中声明为 `read_write` 的状态，返回实际生效的值。 |
+| 135 | `client.tool.v0.invoke` | 按 `ClientTool` 编号和该操作的 protobuf 请求 payload 执行预定义操作；未安装的操作返回 `UNIMPLEMENTED`。 |
+| 136 | `client.tool.v0.list` | 返回设备实际安装的 `ClientTool` 编号。 |
+| 137 | `client.rpc.methods.list` | 返回设备提供的 `RpcMethod` 编号，用于识别协议 family 与版本。 |
+
+### ClientTool v0
+
+下表是 `ClientTool` 的独立编号空间，不属于 `RpcMethod`。每个枚举值在 `api/proto/rpc/payload/tool.proto` 中绑定请求与响应消息；`client.tool.v0.invoke` 的 `payload` 使用对应 protobuf 消息编码。状态和操作的具体 HTTP 校验及错误映射见 [Public API](/zh/developing/api/http/public)。
+
+| ID | Tool | 作用 |
+| ---: | --- | --- |
+| 1 | `info.get` | Server 从 Client 读取 manufacturer、model、hardware revision 等硬件信息。 |
+| 2 | `identifiers.get` | Server 从 Client 读取 SN、IMEI 和设备 labels。 |
+| 3 | `device.status.get` | Server 从设备读取实时 `PeerStatus`；用于控制响应回写，不由 `/device/status` 读取触发。 |
+| 4 | `device.reboot` | 设备在发出响应后重启，可选 `delay_ms`。 |
+| 5 | `device.factory_reset` | 设备清除本机状态并恢复出厂设置，设备侧不可撤销；可选 `keep_network` 保留已保存的 Wi‑Fi 与蜂窝配置，避免重新配网。Server 自身的 Peer 记录不受影响。 |
+| 6 | `device.find` | “找设备”：设备播放内置的本地找寻提示音并逐步增大音量，可选 `duration_ms`；不需要音频 URL 或曲目。 |
+| 7 | `sound.play` | 播放设备自定义的提示音 `sound`，可选 `duration_ms`。 |
+| 8 | `wifi.scan` | 在设备侧扫描周边 Wi‑Fi，按请求的有界 `timeout_ms` 返回接入点列表。 |
+| 9 | `wifi.connect` | 接受 Wi‑Fi 凭据并在应答 RPC 后切换网络。 |
+| 10 | `wifi.saved.list` | 列出设备已保存的 Wi‑Fi 网络 `ssid`。 |
+| 11 | `wifi.saved.forget` | 按 `ssid` 删除设备已保存的 Wi‑Fi 网络。 |
+| 12 | `firmware.update` | 通知设备执行一次 OTA。可选 `channel` 指定要安装的 channel，省略时沿用设备自身的 channel；可选 `sha256` 声明调用方看到的目标包，与设备解析出的包不一致时设备拒绝。设备在应答后自行下载、校验、写入并重启。 |
+| 13 | `audioplayer.get` | 读取设备播放器的完整状态：播放状态、当前索引、实际进度、可选时长、循环模式、列表长度与版本。 |
+| 14 | `audioplayer.play` | 按零起始 `index` 从所选歌曲开头播放，替换当前播放；响应只表示设备接受请求，实际播放由 telemetry 上报。 |
+| 15 | `audioplayer.stop` | 幂等停止播放，保留播放列表与循环模式。 |
+| 16 | `audioplayer.mode.set` | 设置循环模式 `repeat`：`off` 播完列表停止，`one` 单曲循环，`all` 列表循环；不打断当前歌曲。 |
+| 17 | `audioplayer.playlist.get` | 读取设备当前播放列表与 `playlist_revision`，不读取服务端缓存。 |
+| 18 | `audioplayer.playlist.set` | 校验并原子替换播放列表（最多 32 项），停止当前播放；空列表清空列表；失败保留原列表与播放。 |
+| 19 | `audioplayer.playlist.append` | 原子追加 1–32 项并保持总容量 32，保留顺序与重复项；不中断播放，也不自动开始播放，失败后不应自动重试。 |
+| 20 | `run.workspace.set` | 请设备切换到 `workspace_name` 指定的 Workspace，可选 `kickoff`；控制 App 的 workflow 目标由 Server 先解析为唯一名称。设备先应答再通过 `server.run.workspace.reload-with-options` 完成切换，应答只表示接受请求。 |
+| 21 | `social.ping` | Server 调用设备：通知好友呼叫或 Friend Group 集结，携带发起方 public key、可选 `display_name` 与接收方自己的 `friend_group_name`。 |
 
 ## 独立流式语音
 

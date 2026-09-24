@@ -3,30 +3,19 @@
 #include "gzc_client_internal.h"
 #include "gzc_json.h"
 #include "gzc_rpc_frame.h"
-#include "payload/ai.pb.h"
+#include "payload/system.pb.h"
+#include "payload/tool.pb.h"
 #include "rpc.pb.h"
 
 #include <pb_decode.h>
+#include <pb_encode.h>
 
 #include <stdio.h>
 #include <string.h>
 
-static bool valid_tool_name(gzc_str_t name) {
-  if (name.data == NULL || name.len == 0u || name.len > 64u ||
-      !((name.data[0] >= 'A' && name.data[0] <= 'Z') ||
-        (name.data[0] >= 'a' && name.data[0] <= 'z') ||
-        name.data[0] == '_')) {
-    return false;
-  }
-  for (size_t i = 1; i < name.len; i++) {
-    const char value = name.data[i];
-    if (!((value >= 'A' && value <= 'Z') ||
-          (value >= 'a' && value <= 'z') ||
-          (value >= '0' && value <= '9') || value == '_' || value == '-')) {
-      return false;
-    }
-  }
-  return true;
+static bool valid_tool(gizclaw_rpc_v1_ClientTool tool) {
+  return tool > gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_UNSPECIFIED &&
+         tool <= _gizclaw_rpc_v1_ClientTool_MAX;
 }
 
 typedef struct gzc_rpc_inbound gzc_rpc_inbound_t;
@@ -1483,16 +1472,16 @@ int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_clie
       (config->tool_handlers != NULL && config->tool_handler_count == 0u)) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
+  if (config->tool_handler_count > (size_t)_gizclaw_rpc_v1_ClientTool_MAX) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
   for (size_t i = 0; i < config->tool_handler_count; i++) {
-    if (!valid_tool_name(config->tool_handlers[i].name) ||
+    if (!valid_tool(config->tool_handlers[i].tool) ||
         config->tool_handlers[i].handler == NULL) {
       return GZC_ERR_INVALID_ARGUMENT;
     }
     for (size_t j = 0; j < i; j++) {
-      if (config->tool_handlers[i].name.len == config->tool_handlers[j].name.len &&
-          memcmp(config->tool_handlers[i].name.data,
-                 config->tool_handlers[j].name.data,
-                 config->tool_handlers[i].name.len) == 0) {
+      if (config->tool_handlers[i].tool == config->tool_handlers[j].tool) {
         return GZC_ERR_INVALID_ARGUMENT;
       }
     }
@@ -1934,6 +1923,55 @@ int gzc_client_poll(gzc_client_t *client, int timeout_ms) {
   return GZC_OK;
 }
 
+static int provider_error(gzc_rpc_provider_respond_fn respond, void *userdata,
+                          int code, const char *message) {
+  const gzc_rpc_provider_response_t response = {
+      .has_error = true,
+      .error_code = code,
+      .error_message = {.data = message, .len = strlen(message)},
+  };
+  return respond(userdata, &response);
+}
+
+/* The envelope owns these bytes until the synchronous handler returns. */
+static bool decode_tool_payload(pb_istream_t *stream, const pb_field_t *field,
+                                void **arg) {
+  (void)field;
+  gzc_str_t *view = (gzc_str_t *)*arg;
+  *view = gzc_str_from_parts((const char *)stream->state, stream->bytes_left);
+  return pb_read(stream, NULL, stream->bytes_left);
+}
+
+static bool valid_protobuf(gzc_str_t payload) {
+  pb_istream_t stream = pb_istream_from_buffer((const pb_byte_t *)payload.data,
+                                               payload.len);
+  while (stream.bytes_left != 0u) {
+    pb_wire_type_t wire_type;
+    uint32_t tag;
+    bool eof;
+    if (!pb_decode_tag(&stream, &wire_type, &tag, &eof) || tag == 0u ||
+        !pb_skip_field(&stream, wire_type)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+static int respond_discovery(const pb_msgdesc_t *fields, const void *message,
+                             gzc_rpc_provider_respond_fn respond, void *userdata) {
+  /* Both discovery responses contain at most 32 enum values, never strings. */
+  uint8_t encoded[gizclaw_rpc_v1_ClientRpcMethodsListResponse_size];
+  pb_ostream_t stream = pb_ostream_from_buffer(encoded, sizeof(encoded));
+  if (!pb_encode(&stream, fields, message)) {
+    return GZC_ERR_RPC;
+  }
+  const gzc_rpc_provider_response_t response = {
+      .payload = encoded,
+      .payload_len = stream.bytes_written,
+  };
+  return respond(userdata, &response);
+}
+
 int gzc_client_dispatch_rpc_internal(
     gzc_client_t *client,
     int method,
@@ -1944,51 +1982,86 @@ int gzc_client_dispatch_rpc_internal(
       (request_payload.data == NULL && request_payload.len != 0u)) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  if (method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE) {
-    gizclaw_rpc_v1_ToolInvokeRequest request =
-        gizclaw_rpc_v1_ToolInvokeRequest_init_zero;
-    pb_istream_t stream =
-        pb_istream_from_buffer((const pb_byte_t *)request_payload.data,
-                               request_payload.len);
-    if (!pb_decode(&stream, gizclaw_rpc_v1_ToolInvokeRequest_fields, &request) ||
-        request.invoke_name[0] == '\0') {
-      const gzc_rpc_provider_response_t response = {
-          .has_error = true,
-          .error_code =
-              gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
-          .error_message = {.data = "invalid Tool request", .len = 20u},
-      };
-      return respond(respond_userdata, &response);
-    }
-    const size_t name_len = strlen(request.invoke_name);
+  if (!valid_protobuf(request_payload)) {
+    return provider_error(respond, respond_userdata,
+                          gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
+                          "invalid protobuf request");
+  }
+  if (client->config.rpc_observer != NULL && method != gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE) {
+    client->config.rpc_observer(client->config.rpc_observer_userdata, method, gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_UNSPECIFIED);
+  }
+  switch (method) {
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_LIST: {
+    gizclaw_rpc_v1_ClientToolV0ListResponse list =
+        gizclaw_rpc_v1_ClientToolV0ListResponse_init_zero;
     for (size_t i = 0; i < client->config.tool_handler_count; i++) {
-      const gzc_tool_handler_t *registered =
-          &client->config.tool_handlers[i];
-      if (registered->name.len == name_len &&
-          memcmp(registered->name.data, request.invoke_name, name_len) == 0) {
-        return registered->handler(registered->userdata,
-                                   request_payload,
-                                   respond,
-                                   respond_userdata);
+      list.tools[list.tools_count++] = client->config.tool_handlers[i].tool;
+    }
+    return respond_discovery(gizclaw_rpc_v1_ClientToolV0ListResponse_fields,
+                             &list, respond, respond_userdata);
+  }
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_LIST: {
+    gizclaw_rpc_v1_ClientRpcMethodsListResponse list =
+        gizclaw_rpc_v1_ClientRpcMethodsListResponse_init_zero;
+    list.methods[list.methods_count++] = gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING;
+    list.methods[list.methods_count++] = gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN;
+    if (client->config.mhs_read != NULL) {
+      list.methods[list.methods_count++] = gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_READ;
+    }
+    if (client->config.mhs_write != NULL) {
+      list.methods[list.methods_count++] = gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_WRITE;
+    }
+    list.methods[list.methods_count++] = gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE;
+    list.methods[list.methods_count++] = gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_LIST;
+    list.methods[list.methods_count++] = gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_LIST;
+    return respond_discovery(gizclaw_rpc_v1_ClientRpcMethodsListResponse_fields,
+                             &list, respond, respond_userdata);
+  }
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE: {
+    gizclaw_rpc_v1_ClientToolV0InvokeRequest request =
+        gizclaw_rpc_v1_ClientToolV0InvokeRequest_init_zero;
+    gzc_str_t payload = {NULL, 0};
+    request.payload.funcs.decode = decode_tool_payload;
+    request.payload.arg = &payload;
+    pb_istream_t stream = pb_istream_from_buffer(
+        (const pb_byte_t *)request_payload.data, request_payload.len);
+    if (!pb_decode(&stream, gizclaw_rpc_v1_ClientToolV0InvokeRequest_fields,
+                   &request) ||
+        !valid_protobuf(payload)) {
+      return provider_error(respond, respond_userdata,
+                            gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
+                            "invalid tool request");
+    }
+    if (client->config.rpc_observer != NULL) {
+      client->config.rpc_observer(client->config.rpc_observer_userdata, method, request.tool);
+    }
+    for (size_t i = 0; i < client->config.tool_handler_count; i++) {
+      const gzc_tool_handler_t *handler = &client->config.tool_handlers[i];
+      if (handler->tool == request.tool) {
+        return handler->handler(handler->userdata, payload, respond,
+                                respond_userdata);
       }
     }
-    const gzc_rpc_provider_response_t response = {
-        .has_error = true,
-        .error_code =
-            gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNIMPLEMENTED,
-        .error_message = {.data = "Tool unavailable", .len = 16u},
-    };
-    return respond(respond_userdata, &response);
+    return provider_error(respond, respond_userdata,
+                          gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNIMPLEMENTED,
+                          "tool unavailable");
   }
-  if (client->config.rpc_provider == NULL) {
-    return GZC_ERR_UNSUPPORTED;
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_READ:
+    if (client->config.mhs_read != NULL) {
+      return client->config.mhs_read(client->config.mhs_userdata, method,
+                                     request_payload, respond, respond_userdata);
+    }
+    break;
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_WRITE:
+    if (client->config.mhs_write != NULL) {
+      return client->config.mhs_write(client->config.mhs_userdata, method,
+                                      request_payload, respond, respond_userdata);
+    }
+    break;
+  default:
+    break;
   }
-  return client->config.rpc_provider(
-      client->config.rpc_provider_userdata,
-      method,
-      request_payload,
-      respond,
-      respond_userdata);
+  return GZC_ERR_UNSUPPORTED;
 }
 
 void gzc_client_destroy(gzc_client_t *client) {

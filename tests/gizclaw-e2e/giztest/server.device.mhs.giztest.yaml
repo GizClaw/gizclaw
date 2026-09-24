@@ -5,97 +5,174 @@
 version: gizclaw.test/v1alpha1
 name: server.device.mhs
 clients:
-  peer: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}"}
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
 variables:
-  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
-  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
-  api_key: {direction: output, type: string, secret: true}
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  api_key:
+    direction: output
+    type: string
+    secret: true
 steps:
-- id: register
-  client: peer
-  rpc: {method: server.register, request: {token: "${registration_token}"}}
-- id: key
-  client: peer
-  rpc: {method: server.api_key.create, request: {display_name: mhs-test}}
-  capture: {api_key: /api_key}
-- id: manifest
-  client: peer
-  http:
-    method: GET
-    path: /gizclaw/v1/device/mhs/v0/manifest
-    headers: {Authorization: "Bearer ${api_key}"}
-    status: 200
-  expect:
-    /devices/0/id: {equals: display.main}
-    /devices/0/states/0/type: {equals: int}
-- id: methods
-  client: peer
-  http:
-    method: GET
-    path: /gizclaw/v1/device/rpc-methods
-    headers: {Authorization: "Bearer ${api_key}"}
-    status: 200
-  expect:
-    /methods: {contains_all: [client.mhs.v0.read, client.mhs.v0.write], not_contains: [client.device.settings.set]}
-- id: read
-  client: peer
-  http:
-    method: POST
-    path: /gizclaw/v1/device/mhs/v0/read
-    headers: {Authorization: "Bearer ${api_key}"}
-    body: {states: [{device_id: display.main, state: brightness}, {device_id: led.status, state: enabled}]}
-    status: 200
-  expect:
-    /states/0/value: {equals: 35}
-    /states/1/value: {equals: false}
-- id: write
-  client: peer
-  http:
-    method: PATCH
-    path: /gizclaw/v1/device/mhs/v0/states
-    headers: {Authorization: "Bearer ${api_key}"}
-    body: {states: [{device_id: display.main, state: brightness, value: 50}, {device_id: led.status, state: enabled, value: true}]}
-    status: 200
-  expect:
-    /states/0/value: {equals: 40}
-    /states/1/value: {equals: true}
-- id: invalid_batch
-  client: peer
-  http:
-    method: PATCH
-    path: /gizclaw/v1/device/mhs/v0/states
-    headers: {Authorization: "Bearer ${api_key}"}
-    body: {states: [{device_id: display.main, state: brightness, value: 60}, {device_id: battery.main, state: level, value: 80}]}
-    status: 400
-  expect:
-    /error/code: {equals: INVALID_REQUEST}
-- id: duplicate_batch
-  client: peer
-  http:
-    method: POST
-    path: /gizclaw/v1/device/mhs/v0/read
-    headers: {Authorization: "Bearer ${api_key}"}
-    body: {states: [{device_id: display.main, state: brightness}, {device_id: display.main, state: brightness}]}
-    status: 400
-- id: provider_read
-  client: peer
-  client_rpc:
-    method: client.mhs.v0.read
-    response:
-      states:
-      - {device_id: display.main, state: brightness, value: {int_value: 35}}
-      - {device_id: led.status, state: enabled, value: {bool_value: false}}
-    expect_calls: 1
-- id: provider_write
-  client: peer
-  client_rpc:
-    method: client.mhs.v0.write
-    response:
-      states:
-      - {device_id: display.main, state: brightness, value: {int_value: 40}}
-      - {device_id: led.status, state: enabled, value: {bool_value: true}}
-    expect_calls: 1
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: mhs-test
+    capture:
+      api_key: /api_key
+  - id: manifest
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/mhs/v0/manifest
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /devices/0/id:
+        equals: display.main
+      /devices/0/states/0/type:
+        equals: int
+  - id: methods
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/tool/v0/tools
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /tools:
+        contains_all:
+          - info.get
+          - identifiers.get
+        not_contains:
+          - device.factory_reset
+          - run.workspace.set
+  - id: read
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/read
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        states:
+          - device_id: display.main
+            state: brightness
+          - device_id: led.status
+            state: enabled
+      status: 200
+    expect:
+      /states/0/value:
+        equals: 35
+      /states/1/value:
+        equals: false
+  - id: write
+    client: peer
+    http:
+      method: PATCH
+      path: /gizclaw/v1/device/mhs/v0/states
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        states:
+          - device_id: display.main
+            state: brightness
+            value: 50
+          - device_id: led.status
+            state: enabled
+            value: true
+      status: 200
+    expect:
+      /states/0/value:
+        equals: 40
+      /states/1/value:
+        equals: true
+  - id: invalid_batch
+    client: peer
+    http:
+      method: PATCH
+      path: /gizclaw/v1/device/mhs/v0/states
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        states:
+          - device_id: display.main
+            state: brightness
+            value: 60
+          - device_id: battery.main
+            state: level
+            value: 80
+      status: 400
+    expect:
+      /error/code:
+        equals: INVALID_REQUEST
+  - id: duplicate_batch
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/read
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        states:
+          - device_id: display.main
+            state: brightness
+          - device_id: display.main
+            state: brightness
+      status: 400
+  - id: provider_read
+    client: peer
+    client_rpc:
+      method: client.mhs.v0.read
+      response:
+        states:
+          - device_id: display.main
+            state: brightness
+            value:
+              int_value: 35
+          - device_id: led.status
+            state: enabled
+            value:
+              bool_value: false
+      expect_calls: 1
+  - id: provider_write
+    client: peer
+    client_rpc:
+      method: client.mhs.v0.write
+      response:
+        states:
+          - device_id: display.main
+            state: brightness
+            value:
+              int_value: 40
+          - device_id: led.status
+            state: enabled
+            value:
+              bool_value: true
+      expect_calls: 1
 finally:
-- id: cleanup
-  client: peer
-  rpc: {method: server.peer.delete, request: {}}
+  - id: cleanup
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

@@ -15,8 +15,8 @@ import 'dart:core' as $core;
 import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 
+import '../rpc.pbenum.dart' as $1;
 import 'audioplayer.pb.dart' as $0;
-import 'enums.pbenum.dart' as $1;
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
@@ -318,139 +318,6 @@ class ClientDeviceStatusGetResponse extends $pb.GeneratedMessage {
   PeerStatus ensureValue() => $_ensure(0);
 }
 
-/// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
-@$core.Deprecated('This message is deprecated')
-class ClientDeviceVolumeSetRequest extends $pb.GeneratedMessage {
-  factory ClientDeviceVolumeSetRequest({
-    $fixnum.Int64? level,
-    $core.bool? muted,
-  }) {
-    final result = create();
-    if (level != null) result.level = level;
-    if (muted != null) result.muted = muted;
-    return result;
-  }
-
-  ClientDeviceVolumeSetRequest._();
-
-  factory ClientDeviceVolumeSetRequest.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ClientDeviceVolumeSetRequest.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ClientDeviceVolumeSetRequest',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aInt64(1, _omitFieldNames ? '' : 'level')
-    ..aOB(2, _omitFieldNames ? '' : 'muted')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClientDeviceVolumeSetRequest clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClientDeviceVolumeSetRequest copyWith(
-          void Function(ClientDeviceVolumeSetRequest) updates) =>
-      super.copyWith(
-              (message) => updates(message as ClientDeviceVolumeSetRequest))
-          as ClientDeviceVolumeSetRequest;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ClientDeviceVolumeSetRequest create() =>
-      ClientDeviceVolumeSetRequest._();
-  @$core.override
-  ClientDeviceVolumeSetRequest createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ClientDeviceVolumeSetRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ClientDeviceVolumeSetRequest>(create);
-  static ClientDeviceVolumeSetRequest? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $fixnum.Int64 get level => $_getI64(0);
-  @$pb.TagNumber(1)
-  set level($fixnum.Int64 value) => $_setInt64(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasLevel() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearLevel() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.bool get muted => $_getBF(1);
-  @$pb.TagNumber(2)
-  set muted($core.bool value) => $_setBool(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasMuted() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearMuted() => $_clearField(2);
-}
-
-/// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
-@$core.Deprecated('This message is deprecated')
-class ClientDeviceVolumeSetResponse extends $pb.GeneratedMessage {
-  factory ClientDeviceVolumeSetResponse({
-    PeerStatus? value,
-  }) {
-    final result = create();
-    if (value != null) result.value = value;
-    return result;
-  }
-
-  ClientDeviceVolumeSetResponse._();
-
-  factory ClientDeviceVolumeSetResponse.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ClientDeviceVolumeSetResponse.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ClientDeviceVolumeSetResponse',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<PeerStatus>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: PeerStatus.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClientDeviceVolumeSetResponse clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClientDeviceVolumeSetResponse copyWith(
-          void Function(ClientDeviceVolumeSetResponse) updates) =>
-      super.copyWith(
-              (message) => updates(message as ClientDeviceVolumeSetResponse))
-          as ClientDeviceVolumeSetResponse;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ClientDeviceVolumeSetResponse create() =>
-      ClientDeviceVolumeSetResponse._();
-  @$core.override
-  ClientDeviceVolumeSetResponse createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ClientDeviceVolumeSetResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ClientDeviceVolumeSetResponse>(create);
-  static ClientDeviceVolumeSetResponse? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  PeerStatus get value => $_getN(0);
-  @$pb.TagNumber(1)
-  set value(PeerStatus value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasValue() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearValue() => $_clearField(1);
-  @$pb.TagNumber(1)
-  PeerStatus ensureValue() => $_ensure(0);
-}
-
 class ClientDeviceSoundPlayRequest extends $pb.GeneratedMessage {
   factory ClientDeviceSoundPlayRequest({
     $core.String? sound,
@@ -559,427 +426,6 @@ class ClientDeviceSoundPlayResponse extends $pb.GeneratedMessage {
   static ClientDeviceSoundPlayResponse getDefault() => _defaultInstance ??=
       $pb.GeneratedMessage.$_defaultFor<ClientDeviceSoundPlayResponse>(create);
   static ClientDeviceSoundPlayResponse? _defaultInstance;
-}
-
-/// DeviceSettings is the device's own configuration, readable and writable by
-/// the Server over reverse RPC. Every member is optional in both directions: on
-/// a set request an absent member leaves that option unchanged, and on any
-/// response an absent member means the device does not support that option.
-/// That is what lets one message serve devices with different hardware without
-/// a per-option RPC method.
-class DeviceSettings extends $pb.GeneratedMessage {
-  factory DeviceSettings({
-    $core.bool? cellularEnabled,
-    $fixnum.Int64? screenOffTimeoutMs,
-    $fixnum.Int64? screenBrightness,
-    $fixnum.Int64? ledBrightness,
-    $core.String? locale,
-    $1.DeviceInteractionMode? defaultInteractionMode,
-    $1.DeviceKeyFeedback? keyFeedback,
-    $1.DeviceAlertMode? alertMode,
-    $fixnum.Int64? autoSleepTimeoutMs,
-    $core.bool? nfcEnabled,
-  }) {
-    final result = create();
-    if (cellularEnabled != null) result.cellularEnabled = cellularEnabled;
-    if (screenOffTimeoutMs != null)
-      result.screenOffTimeoutMs = screenOffTimeoutMs;
-    if (screenBrightness != null) result.screenBrightness = screenBrightness;
-    if (ledBrightness != null) result.ledBrightness = ledBrightness;
-    if (locale != null) result.locale = locale;
-    if (defaultInteractionMode != null)
-      result.defaultInteractionMode = defaultInteractionMode;
-    if (keyFeedback != null) result.keyFeedback = keyFeedback;
-    if (alertMode != null) result.alertMode = alertMode;
-    if (autoSleepTimeoutMs != null)
-      result.autoSleepTimeoutMs = autoSleepTimeoutMs;
-    if (nfcEnabled != null) result.nfcEnabled = nfcEnabled;
-    return result;
-  }
-
-  DeviceSettings._();
-
-  factory DeviceSettings.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory DeviceSettings.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'DeviceSettings',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOB(1, _omitFieldNames ? '' : 'cellularEnabled')
-    ..aInt64(2, _omitFieldNames ? '' : 'screenOffTimeoutMs')
-    ..aInt64(3, _omitFieldNames ? '' : 'screenBrightness')
-    ..aInt64(4, _omitFieldNames ? '' : 'ledBrightness')
-    ..aOS(5, _omitFieldNames ? '' : 'locale')
-    ..aE<$1.DeviceInteractionMode>(
-        6, _omitFieldNames ? '' : 'defaultInteractionMode',
-        enumValues: $1.DeviceInteractionMode.values)
-    ..aE<$1.DeviceKeyFeedback>(7, _omitFieldNames ? '' : 'keyFeedback',
-        enumValues: $1.DeviceKeyFeedback.values)
-    ..aE<$1.DeviceAlertMode>(8, _omitFieldNames ? '' : 'alertMode',
-        enumValues: $1.DeviceAlertMode.values)
-    ..aInt64(9, _omitFieldNames ? '' : 'autoSleepTimeoutMs')
-    ..aOB(10, _omitFieldNames ? '' : 'nfcEnabled')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  DeviceSettings clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  DeviceSettings copyWith(void Function(DeviceSettings) updates) =>
-      super.copyWith((message) => updates(message as DeviceSettings))
-          as DeviceSettings;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static DeviceSettings create() => DeviceSettings._();
-  @$core.override
-  DeviceSettings createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static DeviceSettings getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DeviceSettings>(create);
-  static DeviceSettings? _defaultInstance;
-
-  /// Whether the cellular (4G) modem is powered and allowed to carry traffic.
-  @$pb.TagNumber(1)
-  $core.bool get cellularEnabled => $_getBF(0);
-  @$pb.TagNumber(1)
-  set cellularEnabled($core.bool value) => $_setBool(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasCellularEnabled() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearCellularEnabled() => $_clearField(1);
-
-  /// Idle time before the screen turns off; 0 keeps the screen always on.
-  @$pb.TagNumber(2)
-  $fixnum.Int64 get screenOffTimeoutMs => $_getI64(1);
-  @$pb.TagNumber(2)
-  set screenOffTimeoutMs($fixnum.Int64 value) => $_setInt64(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasScreenOffTimeoutMs() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearScreenOffTimeoutMs() => $_clearField(2);
-
-  /// Screen backlight level in [0, 100].
-  @$pb.TagNumber(3)
-  $fixnum.Int64 get screenBrightness => $_getI64(2);
-  @$pb.TagNumber(3)
-  set screenBrightness($fixnum.Int64 value) => $_setInt64(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasScreenBrightness() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearScreenBrightness() => $_clearField(3);
-
-  /// Indicator light level in [0, 100].
-  @$pb.TagNumber(4)
-  $fixnum.Int64 get ledBrightness => $_getI64(3);
-  @$pb.TagNumber(4)
-  set ledBrightness($fixnum.Int64 value) => $_setInt64(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasLedBrightness() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearLedBrightness() => $_clearField(4);
-
-  /// UI language as a well-formed BCP 47 tag of at most 35 bytes: a 2-8 letter
-  /// primary subtag followed by hyphen-separated 1-8 character alphanumeric
-  /// subtags, e.g. "zh-CN", "zh-Hant-TW" or "es-419". POSIX forms such as
-  /// "zh_CN" are rejected; whether the device offers the language is its own
-  /// decision.
-  @$pb.TagNumber(5)
-  $core.String get locale => $_getSZ(4);
-  @$pb.TagNumber(5)
-  set locale($core.String value) => $_setString(4, value);
-  @$pb.TagNumber(5)
-  $core.bool hasLocale() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearLocale() => $_clearField(5);
-
-  @$pb.TagNumber(6)
-  $1.DeviceInteractionMode get defaultInteractionMode => $_getN(5);
-  @$pb.TagNumber(6)
-  set defaultInteractionMode($1.DeviceInteractionMode value) =>
-      $_setField(6, value);
-  @$pb.TagNumber(6)
-  $core.bool hasDefaultInteractionMode() => $_has(5);
-  @$pb.TagNumber(6)
-  void clearDefaultInteractionMode() => $_clearField(6);
-
-  @$pb.TagNumber(7)
-  $1.DeviceKeyFeedback get keyFeedback => $_getN(6);
-  @$pb.TagNumber(7)
-  set keyFeedback($1.DeviceKeyFeedback value) => $_setField(7, value);
-  @$pb.TagNumber(7)
-  $core.bool hasKeyFeedback() => $_has(6);
-  @$pb.TagNumber(7)
-  void clearKeyFeedback() => $_clearField(7);
-
-  @$pb.TagNumber(8)
-  $1.DeviceAlertMode get alertMode => $_getN(7);
-  @$pb.TagNumber(8)
-  set alertMode($1.DeviceAlertMode value) => $_setField(8, value);
-  @$pb.TagNumber(8)
-  $core.bool hasAlertMode() => $_has(7);
-  @$pb.TagNumber(8)
-  void clearAlertMode() => $_clearField(8);
-
-  /// Idle time before the device sleeps; 0 disables automatic sleep.
-  @$pb.TagNumber(9)
-  $fixnum.Int64 get autoSleepTimeoutMs => $_getI64(8);
-  @$pb.TagNumber(9)
-  set autoSleepTimeoutMs($fixnum.Int64 value) => $_setInt64(8, value);
-  @$pb.TagNumber(9)
-  $core.bool hasAutoSleepTimeoutMs() => $_has(8);
-  @$pb.TagNumber(9)
-  void clearAutoSleepTimeoutMs() => $_clearField(9);
-
-  /// Whether the NFC reader is powered.
-  @$pb.TagNumber(10)
-  $core.bool get nfcEnabled => $_getBF(9);
-  @$pb.TagNumber(10)
-  set nfcEnabled($core.bool value) => $_setBool(9, value);
-  @$pb.TagNumber(10)
-  $core.bool hasNfcEnabled() => $_has(9);
-  @$pb.TagNumber(10)
-  void clearNfcEnabled() => $_clearField(10);
-}
-
-/// Deprecated: Use client.mhs.v0.read with RuntimeProfile manifest keys.
-@$core.Deprecated('This message is deprecated')
-class ClientDeviceSettingsGetRequest extends $pb.GeneratedMessage {
-  factory ClientDeviceSettingsGetRequest() => create();
-
-  ClientDeviceSettingsGetRequest._();
-
-  factory ClientDeviceSettingsGetRequest.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ClientDeviceSettingsGetRequest.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ClientDeviceSettingsGetRequest',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClientDeviceSettingsGetRequest clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClientDeviceSettingsGetRequest copyWith(
-          void Function(ClientDeviceSettingsGetRequest) updates) =>
-      super.copyWith(
-              (message) => updates(message as ClientDeviceSettingsGetRequest))
-          as ClientDeviceSettingsGetRequest;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ClientDeviceSettingsGetRequest create() =>
-      ClientDeviceSettingsGetRequest._();
-  @$core.override
-  ClientDeviceSettingsGetRequest createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ClientDeviceSettingsGetRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ClientDeviceSettingsGetRequest>(create);
-  static ClientDeviceSettingsGetRequest? _defaultInstance;
-}
-
-/// Deprecated: Use client.mhs.v0.read with RuntimeProfile manifest keys.
-@$core.Deprecated('This message is deprecated')
-class ClientDeviceSettingsGetResponse extends $pb.GeneratedMessage {
-  factory ClientDeviceSettingsGetResponse({
-    DeviceSettings? value,
-  }) {
-    final result = create();
-    if (value != null) result.value = value;
-    return result;
-  }
-
-  ClientDeviceSettingsGetResponse._();
-
-  factory ClientDeviceSettingsGetResponse.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ClientDeviceSettingsGetResponse.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ClientDeviceSettingsGetResponse',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<DeviceSettings>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: DeviceSettings.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClientDeviceSettingsGetResponse clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClientDeviceSettingsGetResponse copyWith(
-          void Function(ClientDeviceSettingsGetResponse) updates) =>
-      super.copyWith(
-              (message) => updates(message as ClientDeviceSettingsGetResponse))
-          as ClientDeviceSettingsGetResponse;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ClientDeviceSettingsGetResponse create() =>
-      ClientDeviceSettingsGetResponse._();
-  @$core.override
-  ClientDeviceSettingsGetResponse createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ClientDeviceSettingsGetResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ClientDeviceSettingsGetResponse>(
-          create);
-  static ClientDeviceSettingsGetResponse? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  DeviceSettings get value => $_getN(0);
-  @$pb.TagNumber(1)
-  set value(DeviceSettings value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasValue() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearValue() => $_clearField(1);
-  @$pb.TagNumber(1)
-  DeviceSettings ensureValue() => $_ensure(0);
-}
-
-/// ClientDeviceSettingsSetRequest applies only the members it carries. The
-/// response is the device's full settings after the change, so a caller sees
-/// which options the device actually accepted.
-/// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
-@$core.Deprecated('This message is deprecated')
-class ClientDeviceSettingsSetRequest extends $pb.GeneratedMessage {
-  factory ClientDeviceSettingsSetRequest({
-    DeviceSettings? value,
-  }) {
-    final result = create();
-    if (value != null) result.value = value;
-    return result;
-  }
-
-  ClientDeviceSettingsSetRequest._();
-
-  factory ClientDeviceSettingsSetRequest.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ClientDeviceSettingsSetRequest.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ClientDeviceSettingsSetRequest',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<DeviceSettings>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: DeviceSettings.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClientDeviceSettingsSetRequest clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClientDeviceSettingsSetRequest copyWith(
-          void Function(ClientDeviceSettingsSetRequest) updates) =>
-      super.copyWith(
-              (message) => updates(message as ClientDeviceSettingsSetRequest))
-          as ClientDeviceSettingsSetRequest;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ClientDeviceSettingsSetRequest create() =>
-      ClientDeviceSettingsSetRequest._();
-  @$core.override
-  ClientDeviceSettingsSetRequest createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ClientDeviceSettingsSetRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ClientDeviceSettingsSetRequest>(create);
-  static ClientDeviceSettingsSetRequest? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  DeviceSettings get value => $_getN(0);
-  @$pb.TagNumber(1)
-  set value(DeviceSettings value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasValue() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearValue() => $_clearField(1);
-  @$pb.TagNumber(1)
-  DeviceSettings ensureValue() => $_ensure(0);
-}
-
-/// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
-@$core.Deprecated('This message is deprecated')
-class ClientDeviceSettingsSetResponse extends $pb.GeneratedMessage {
-  factory ClientDeviceSettingsSetResponse({
-    DeviceSettings? value,
-  }) {
-    final result = create();
-    if (value != null) result.value = value;
-    return result;
-  }
-
-  ClientDeviceSettingsSetResponse._();
-
-  factory ClientDeviceSettingsSetResponse.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ClientDeviceSettingsSetResponse.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ClientDeviceSettingsSetResponse',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<DeviceSettings>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: DeviceSettings.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClientDeviceSettingsSetResponse clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClientDeviceSettingsSetResponse copyWith(
-          void Function(ClientDeviceSettingsSetResponse) updates) =>
-      super.copyWith(
-              (message) => updates(message as ClientDeviceSettingsSetResponse))
-          as ClientDeviceSettingsSetResponse;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ClientDeviceSettingsSetResponse create() =>
-      ClientDeviceSettingsSetResponse._();
-  @$core.override
-  ClientDeviceSettingsSetResponse createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ClientDeviceSettingsSetResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ClientDeviceSettingsSetResponse>(
-          create);
-  static ClientDeviceSettingsSetResponse? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  DeviceSettings get value => $_getN(0);
-  @$pb.TagNumber(1)
-  set value(DeviceSettings value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasValue() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearValue() => $_clearField(1);
-  @$pb.TagNumber(1)
-  DeviceSettings ensureValue() => $_ensure(0);
 }
 
 /// ClientDeviceFactoryResetRequest erases device-local state. It is
@@ -1204,99 +650,107 @@ class ClientRunWorkspaceSetResponse extends $pb.GeneratedMessage {
   static ClientRunWorkspaceSetResponse? _defaultInstance;
 }
 
-class ClientRpcMethodsGetRequest extends $pb.GeneratedMessage {
-  factory ClientRpcMethodsGetRequest() => create();
+class ClientRpcMethodsListRequest extends $pb.GeneratedMessage {
+  factory ClientRpcMethodsListRequest() => create();
 
-  ClientRpcMethodsGetRequest._();
+  ClientRpcMethodsListRequest._();
 
-  factory ClientRpcMethodsGetRequest.fromBuffer($core.List<$core.int> data,
+  factory ClientRpcMethodsListRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory ClientRpcMethodsGetRequest.fromJson($core.String json,
+  factory ClientRpcMethodsListRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ClientRpcMethodsGetRequest',
+      _omitMessageNames ? '' : 'ClientRpcMethodsListRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClientRpcMethodsGetRequest clone() => deepCopy();
+  ClientRpcMethodsListRequest clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClientRpcMethodsGetRequest copyWith(
-          void Function(ClientRpcMethodsGetRequest) updates) =>
+  ClientRpcMethodsListRequest copyWith(
+          void Function(ClientRpcMethodsListRequest) updates) =>
       super.copyWith(
-              (message) => updates(message as ClientRpcMethodsGetRequest))
-          as ClientRpcMethodsGetRequest;
+              (message) => updates(message as ClientRpcMethodsListRequest))
+          as ClientRpcMethodsListRequest;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static ClientRpcMethodsGetRequest create() => ClientRpcMethodsGetRequest._();
+  static ClientRpcMethodsListRequest create() =>
+      ClientRpcMethodsListRequest._();
   @$core.override
-  ClientRpcMethodsGetRequest createEmptyInstance() => create();
+  ClientRpcMethodsListRequest createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static ClientRpcMethodsGetRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ClientRpcMethodsGetRequest>(create);
-  static ClientRpcMethodsGetRequest? _defaultInstance;
+  static ClientRpcMethodsListRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientRpcMethodsListRequest>(create);
+  static ClientRpcMethodsListRequest? _defaultInstance;
 }
 
-/// ClientRpcMethodsGetResponse lists the RPC method names the device
-/// implements, so the Server can hide or reject a control it would only fail.
-/// Names are the registry names from RpcMethod, e.g. "client.device.reboot".
-/// Unknown names must be ignored rather than rejected.
-class ClientRpcMethodsGetResponse extends $pb.GeneratedMessage {
-  factory ClientRpcMethodsGetResponse({
-    $core.Iterable<$core.String>? methods,
+/// ClientRpcMethodsListResponse lists the RPC methods the device implements, as
+/// RpcMethod numbers rather than names: the set is small, fixed and numeric, so
+/// a constrained device answers from a handful of varints instead of a table of
+/// strings. It is how a caller learns which protocol families and versions the
+/// device speaks, for example mhs/v0 through 133 and 134 or tool/v0 through 135
+/// and 136; a later mhs/v1 or tool/v1 appears here as its own numbers. Which
+/// individual tools tool/v0 offers is a separate question, answered by
+/// client.tool.v0.list. Unknown numbers must be ignored rather than rejected.
+class ClientRpcMethodsListResponse extends $pb.GeneratedMessage {
+  factory ClientRpcMethodsListResponse({
+    $core.Iterable<$1.RpcMethod>? methods,
   }) {
     final result = create();
     if (methods != null) result.methods.addAll(methods);
     return result;
   }
 
-  ClientRpcMethodsGetResponse._();
+  ClientRpcMethodsListResponse._();
 
-  factory ClientRpcMethodsGetResponse.fromBuffer($core.List<$core.int> data,
+  factory ClientRpcMethodsListResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory ClientRpcMethodsGetResponse.fromJson($core.String json,
+  factory ClientRpcMethodsListResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ClientRpcMethodsGetResponse',
+      _omitMessageNames ? '' : 'ClientRpcMethodsListResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..pPS(1, _omitFieldNames ? '' : 'methods')
+    ..pc<$1.RpcMethod>(1, _omitFieldNames ? '' : 'methods', $pb.PbFieldType.KE,
+        valueOf: $1.RpcMethod.valueOf,
+        enumValues: $1.RpcMethod.values,
+        defaultEnumValue: $1.RpcMethod.RPC_METHOD_UNSPECIFIED)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClientRpcMethodsGetResponse clone() => deepCopy();
+  ClientRpcMethodsListResponse clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClientRpcMethodsGetResponse copyWith(
-          void Function(ClientRpcMethodsGetResponse) updates) =>
+  ClientRpcMethodsListResponse copyWith(
+          void Function(ClientRpcMethodsListResponse) updates) =>
       super.copyWith(
-              (message) => updates(message as ClientRpcMethodsGetResponse))
-          as ClientRpcMethodsGetResponse;
+              (message) => updates(message as ClientRpcMethodsListResponse))
+          as ClientRpcMethodsListResponse;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static ClientRpcMethodsGetResponse create() =>
-      ClientRpcMethodsGetResponse._();
+  static ClientRpcMethodsListResponse create() =>
+      ClientRpcMethodsListResponse._();
   @$core.override
-  ClientRpcMethodsGetResponse createEmptyInstance() => create();
+  ClientRpcMethodsListResponse createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static ClientRpcMethodsGetResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ClientRpcMethodsGetResponse>(create);
-  static ClientRpcMethodsGetResponse? _defaultInstance;
+  static ClientRpcMethodsListResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientRpcMethodsListResponse>(create);
+  static ClientRpcMethodsListResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $pb.PbList<$core.String> get methods => $_getList(0);
+  $pb.PbList<$1.RpcMethod> get methods => $_getList(0);
 }
 
 /// ClientDeviceFindRequest asks the device to play its built-in find-me sound.
@@ -1491,107 +945,6 @@ class ClientDeviceRebootResponse extends $pb.GeneratedMessage {
   static ClientDeviceRebootResponse? _defaultInstance;
 }
 
-class WifiStatus extends $pb.GeneratedMessage {
-  factory WifiStatus({
-    $core.bool? connected,
-    $core.String? ssid,
-    $fixnum.Int64? rssiDbm,
-    $core.String? ip,
-    $core.String? bssid,
-  }) {
-    final result = create();
-    if (connected != null) result.connected = connected;
-    if (ssid != null) result.ssid = ssid;
-    if (rssiDbm != null) result.rssiDbm = rssiDbm;
-    if (ip != null) result.ip = ip;
-    if (bssid != null) result.bssid = bssid;
-    return result;
-  }
-
-  WifiStatus._();
-
-  factory WifiStatus.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory WifiStatus.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'WifiStatus',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOB(1, _omitFieldNames ? '' : 'connected')
-    ..aOS(2, _omitFieldNames ? '' : 'ssid')
-    ..aInt64(3, _omitFieldNames ? '' : 'rssiDbm')
-    ..aOS(4, _omitFieldNames ? '' : 'ip')
-    ..aOS(5, _omitFieldNames ? '' : 'bssid')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WifiStatus clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WifiStatus copyWith(void Function(WifiStatus) updates) =>
-      super.copyWith((message) => updates(message as WifiStatus)) as WifiStatus;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static WifiStatus create() => WifiStatus._();
-  @$core.override
-  WifiStatus createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static WifiStatus getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WifiStatus>(create);
-  static WifiStatus? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.bool get connected => $_getBF(0);
-  @$pb.TagNumber(1)
-  set connected($core.bool value) => $_setBool(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasConnected() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearConnected() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get ssid => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set ssid($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasSsid() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearSsid() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $fixnum.Int64 get rssiDbm => $_getI64(2);
-  @$pb.TagNumber(3)
-  set rssiDbm($fixnum.Int64 value) => $_setInt64(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasRssiDbm() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearRssiDbm() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.String get ip => $_getSZ(3);
-  @$pb.TagNumber(4)
-  set ip($core.String value) => $_setString(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasIp() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearIp() => $_clearField(4);
-
-  @$pb.TagNumber(5)
-  $core.String get bssid => $_getSZ(4);
-  @$pb.TagNumber(5)
-  set bssid($core.String value) => $_setString(4, value);
-  @$pb.TagNumber(5)
-  $core.bool hasBssid() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearBssid() => $_clearField(5);
-}
-
 class WifiSavedNetwork extends $pb.GeneratedMessage {
   factory WifiSavedNetwork({
     $core.String? ssid,
@@ -1644,106 +997,6 @@ class WifiSavedNetwork extends $pb.GeneratedMessage {
   $core.bool hasSsid() => $_has(0);
   @$pb.TagNumber(1)
   void clearSsid() => $_clearField(1);
-}
-
-class ClientWifiStatusGetRequest extends $pb.GeneratedMessage {
-  factory ClientWifiStatusGetRequest() => create();
-
-  ClientWifiStatusGetRequest._();
-
-  factory ClientWifiStatusGetRequest.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ClientWifiStatusGetRequest.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ClientWifiStatusGetRequest',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClientWifiStatusGetRequest clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClientWifiStatusGetRequest copyWith(
-          void Function(ClientWifiStatusGetRequest) updates) =>
-      super.copyWith(
-              (message) => updates(message as ClientWifiStatusGetRequest))
-          as ClientWifiStatusGetRequest;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ClientWifiStatusGetRequest create() => ClientWifiStatusGetRequest._();
-  @$core.override
-  ClientWifiStatusGetRequest createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ClientWifiStatusGetRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ClientWifiStatusGetRequest>(create);
-  static ClientWifiStatusGetRequest? _defaultInstance;
-}
-
-class ClientWifiStatusGetResponse extends $pb.GeneratedMessage {
-  factory ClientWifiStatusGetResponse({
-    WifiStatus? value,
-  }) {
-    final result = create();
-    if (value != null) result.value = value;
-    return result;
-  }
-
-  ClientWifiStatusGetResponse._();
-
-  factory ClientWifiStatusGetResponse.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ClientWifiStatusGetResponse.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ClientWifiStatusGetResponse',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<WifiStatus>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: WifiStatus.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClientWifiStatusGetResponse clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClientWifiStatusGetResponse copyWith(
-          void Function(ClientWifiStatusGetResponse) updates) =>
-      super.copyWith(
-              (message) => updates(message as ClientWifiStatusGetResponse))
-          as ClientWifiStatusGetResponse;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ClientWifiStatusGetResponse create() =>
-      ClientWifiStatusGetResponse._();
-  @$core.override
-  ClientWifiStatusGetResponse createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ClientWifiStatusGetResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ClientWifiStatusGetResponse>(create);
-  static ClientWifiStatusGetResponse? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  WifiStatus get value => $_getN(0);
-  @$pb.TagNumber(1)
-  set value(WifiStatus value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasValue() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearValue() => $_clearField(1);
-  @$pb.TagNumber(1)
-  WifiStatus ensureValue() => $_ensure(0);
 }
 
 class ClientWifiSavedListRequest extends $pb.GeneratedMessage {

@@ -142,9 +142,10 @@ type HTTPOperation struct {
 	Status  int               `json:"status,omitempty" yaml:"status,omitempty"`
 }
 type ClientRPCOperation struct {
+	Tool        string `json:"tool,omitempty" yaml:"tool,omitempty"`
 	Method      string `json:"method" yaml:"method"`
 	Response    any    `json:"response,omitempty" yaml:"response,omitempty"`
-	ExpectCalls int    `json:"expect_calls,omitempty" yaml:"expect_calls,omitempty"`
+	ExpectCalls *int   `json:"expect_calls,omitempty" yaml:"expect_calls,omitempty"`
 }
 type SpeechOperation struct {
 	Method  string `json:"method" yaml:"method"`
@@ -1141,4 +1142,12 @@ func validatePeerStreamStep(step Step, finalizer bool) error {
 		return fmt.Errorf("step %s peer_stream must require text, audio, or both", step.ID)
 	}
 	return nil
+}
+
+// Key identifies an installed inbound procedure or base RPC provider.
+func (operation ClientRPCOperation) Key() string {
+	if operation.Tool != "" {
+		return operation.Method + ":" + operation.Tool
+	}
+	return operation.Method
 }

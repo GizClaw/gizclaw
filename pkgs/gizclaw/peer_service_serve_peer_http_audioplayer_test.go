@@ -15,9 +15,9 @@ func TestAudioPlayerHTTPRoundTrip(t *testing.T) {
 	at := time.Now().UnixMilli()
 	status := &rpcpb.AudioPlayerStatus{State: "playing", CurrentIndex: new(uint32(0)), PositionMs: 1200, Repeat: "all", PlaylistLength: 1, PlaylistRevision: 2, ObservedAtUnixMs: at}
 	item := &rpcpb.AudioPlayerItem{Url: "https://media.example/music.mp3", Title: new("music")}
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-		switch req.Method {
-		case rpcapi.RPCMethodClientDeviceAudioPlayerGet:
+	device := newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		switch tool {
+		case rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_GET:
 			params, err := req.Params.AsClientDeviceAudioPlayerGetRequest()
 			if err != nil {
 				return nil, err
@@ -26,7 +26,7 @@ func TestAudioPlayerHTTPRoundTrip(t *testing.T) {
 				return nil, err
 			}
 			return newRPCResultResponse(req.Id, &rpcpb.ClientDeviceAudioPlayerGetResponse{Value: status}, (*rpcapi.RPCPayload).FromClientDeviceAudioPlayerGetResponse)
-		case rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistGet:
+		case rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_GET:
 			params, err := req.Params.AsClientDeviceAudioPlayerPlaylistGetRequest()
 			if err != nil {
 				return nil, err
@@ -35,7 +35,7 @@ func TestAudioPlayerHTTPRoundTrip(t *testing.T) {
 				return nil, err
 			}
 			return newRPCResultResponse(req.Id, &rpcpb.ClientDeviceAudioPlayerPlaylistGetResponse{Items: []*rpcpb.AudioPlayerItem{item}, PlaylistRevision: 2}, (*rpcapi.RPCPayload).FromClientDeviceAudioPlayerPlaylistGetResponse)
-		case rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistSet:
+		case rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_SET:
 			params, err := req.Params.AsClientDeviceAudioPlayerPlaylistSetRequest()
 			if err != nil {
 				return nil, err
@@ -47,7 +47,7 @@ func TestAudioPlayerHTTPRoundTrip(t *testing.T) {
 				t.Error("playlist payload changed")
 			}
 			return newRPCResultResponse(req.Id, &rpcpb.ClientDeviceAudioPlayerPlaylistSetResponse{Value: status}, (*rpcapi.RPCPayload).FromClientDeviceAudioPlayerPlaylistSetResponse)
-		case rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistAppend:
+		case rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_APPEND:
 			params, err := req.Params.AsClientDeviceAudioPlayerPlaylistAppendRequest()
 			if err != nil {
 				return nil, err
@@ -59,7 +59,7 @@ func TestAudioPlayerHTTPRoundTrip(t *testing.T) {
 				t.Error("playlist payload changed")
 			}
 			return newRPCResultResponse(req.Id, &rpcpb.ClientDeviceAudioPlayerPlaylistAppendResponse{Value: status}, (*rpcapi.RPCPayload).FromClientDeviceAudioPlayerPlaylistAppendResponse)
-		case rpcapi.RPCMethodClientDeviceAudioPlayerPlay:
+		case rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAY:
 			params, err := req.Params.AsClientDeviceAudioPlayerPlayRequest()
 			if err != nil {
 				return nil, err
@@ -71,7 +71,7 @@ func TestAudioPlayerHTTPRoundTrip(t *testing.T) {
 				t.Error("index zero was lost")
 			}
 			return newRPCResultResponse(req.Id, &rpcpb.ClientDeviceAudioPlayerPlayResponse{Value: status}, (*rpcapi.RPCPayload).FromClientDeviceAudioPlayerPlayResponse)
-		case rpcapi.RPCMethodClientDeviceAudioPlayerStop:
+		case rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_STOP:
 			params, err := req.Params.AsClientDeviceAudioPlayerStopRequest()
 			if err != nil {
 				return nil, err
@@ -80,7 +80,7 @@ func TestAudioPlayerHTTPRoundTrip(t *testing.T) {
 				return nil, err
 			}
 			return newRPCResultResponse(req.Id, &rpcpb.ClientDeviceAudioPlayerStopResponse{Value: status}, (*rpcapi.RPCPayload).FromClientDeviceAudioPlayerStopResponse)
-		case rpcapi.RPCMethodClientDeviceAudioPlayerModeSet:
+		case rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_MODE_SET:
 			params, err := req.Params.AsClientDeviceAudioPlayerModeSetRequest()
 			if err != nil {
 				return nil, err
@@ -100,31 +100,31 @@ func TestAudioPlayerHTTPRoundTrip(t *testing.T) {
 	f.manager.SetPeerUp(f.owner, device)
 	for _, test := range []struct {
 		method, path, body string
-		rpc                rpcapi.RPCMethod
+		rpc                rpcpb.ClientTool
 	}{
-		{"GET", "/gizclaw/v1/device/audioplayer", ``, rpcapi.RPCMethodClientDeviceAudioPlayerGet},
-		{"GET", "/gizclaw/v1/device/audioplayer/playlist", ``, rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistGet},
-		{"PUT", "/gizclaw/v1/device/audioplayer/playlist", `{"items":[{"url":"https://media.example/music.mp3","title":"music"}]}`, rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistSet},
-		{"POST", "/gizclaw/v1/device/audioplayer/playlist/append", `{"items":[{"url":"https://media.example/music.mp3","title":"music"}]}`, rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistAppend},
-		{"POST", "/gizclaw/v1/device/audioplayer/actions/play", `{"index":0}`, rpcapi.RPCMethodClientDeviceAudioPlayerPlay},
-		{"POST", "/gizclaw/v1/device/audioplayer/actions/stop", ``, rpcapi.RPCMethodClientDeviceAudioPlayerStop},
-		{"PUT", "/gizclaw/v1/device/audioplayer/mode", `{"repeat":"all"}`, rpcapi.RPCMethodClientDeviceAudioPlayerModeSet},
+		{"GET", "audioplayer.get", ``, rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_GET},
+		{"GET", "audioplayer.playlist.get", ``, rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_GET},
+		{"PUT", "audioplayer.playlist.set", `{"items":[{"url":"https://media.example/music.mp3","title":"music"}]}`, rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_SET},
+		{"POST", "audioplayer.playlist.append", `{"items":[{"url":"https://media.example/music.mp3","title":"music"}]}`, rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_APPEND},
+		{"POST", "audioplayer.play", `{"index":0}`, rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAY},
+		{"POST", "audioplayer.stop", ``, rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_STOP},
+		{"PUT", "audioplayer.mode.set", `{"repeat":"all"}`, rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_MODE_SET},
 	} {
-		t.Run(string(test.rpc), func(t *testing.T) {
-			response := f.do(t, test.method, test.path, test.body)
+		t.Run(test.rpc.String(), func(t *testing.T) {
+			response := f.invoke(t, test.path, test.body)
 			if response.Code != http.StatusOK {
 				t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
 			}
-			if got := <-device.methods; got != test.rpc {
+			if got := <-device.tools; got != test.rpc {
 				t.Fatalf("method=%s", got)
 			}
-			if test.rpc == rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistGet {
-				list := decodeJSON[apitypes.AudioPlayerPlaylist](t, response)
+			if test.rpc == rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_GET {
+				list := decodeToolResult[apitypes.AudioPlayerPlaylist](t, response)
 				if len(list.Items) != 1 || list.Items[0].Url != item.Url || list.PlaylistRevision != 2 {
 					t.Fatalf("playlist=%+v", list)
 				}
 			} else {
-				player := decodeJSON[apitypes.AudioPlayerResponse](t, response).Status
+				player := decodeToolResult[apitypes.AudioPlayerStatus](t, response)
 				if player.State != "playing" || player.PositionMs != 1200 || player.CurrentIndex == nil || *player.CurrentIndex != 0 {
 					t.Fatalf("status=%+v", player)
 				}
@@ -143,21 +143,21 @@ func TestAudioPlayerHTTPRoundTrip(t *testing.T) {
 func TestAudioPlayerHTTPRejectsInvalidRequests(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 	for _, test := range []struct{ method, path, body string }{
-		{"POST", "/actions/play", `{}`},
-		{"POST", "/actions/play", `{"index":-1}`},
-		{"POST", "/actions/play", `{"index":32}`},
-		{"PUT", "/playlist", `{}`},
-		{"PUT", "/playlist", `{"items":[{"url":"http://example.com/music"}]}`},
-		{"PUT", "/playlist", `{"items":[{"url":"https://user:secret@example.com/music"}]}`},
-		{"POST", "/playlist/append", `{"items":[]}`},
-		{"PUT", "/mode", `{"repeat":"random"}`},
+		{"POST", "audioplayer.play", `{}`},
+		{"POST", "audioplayer.play", `{"index":-1}`},
+		{"POST", "audioplayer.play", `{"index":32}`},
+		{"PUT", "audioplayer.playlist.set", `{}`},
+		{"PUT", "audioplayer.playlist.set", `{"items":[{"url":"http://example.com/music"}]}`},
+		{"PUT", "audioplayer.playlist.set", `{"items":[{"url":"https://user:secret@example.com/music"}]}`},
+		{"POST", "audioplayer.playlist.append", `{"items":[]}`},
+		{"PUT", "audioplayer.mode.set", `{"repeat":"random"}`},
 	} {
-		response := f.do(t, test.method, "/gizclaw/v1/device/audioplayer"+test.path, test.body)
+		response := f.invoke(t, test.path, test.body)
 		if response.Code != http.StatusBadRequest {
 			t.Errorf("%s %s: %d %s", test.path, test.body, response.Code, response.Body.String())
 		}
 	}
-	response := f.do(t, "GET", "/gizclaw/v1/device/audioplayer", "")
+	response := f.invoke(t, "audioplayer.get", "")
 	if response.Code != http.StatusConflict {
 		t.Fatalf("offline status=%d", response.Code)
 	}
@@ -165,11 +165,11 @@ func TestAudioPlayerHTTPRejectsInvalidRequests(t *testing.T) {
 
 func TestAudioPlayerHTTPRejectsMalformedDeviceStatus(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+	device := newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 		return newRPCResultResponse(req.Id, &rpcpb.ClientDeviceAudioPlayerGetResponse{Value: &rpcpb.AudioPlayerStatus{State: "playing", Repeat: "off", PlaylistLength: 1}}, (*rpcapi.RPCPayload).FromClientDeviceAudioPlayerGetResponse)
 	})
 	f.manager.SetPeerUp(f.owner, device)
-	response := f.do(t, "GET", "/gizclaw/v1/device/audioplayer", "")
+	response := f.invoke(t, "audioplayer.get", "")
 	if response.Code != http.StatusBadGateway {
 		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
 	}

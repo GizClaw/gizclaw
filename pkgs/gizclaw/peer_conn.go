@@ -496,7 +496,6 @@ func (h *PeerConn) initAgentHost() {
 		PublicKey:      h.Conn.PublicKey(),
 		SessionID:      gizlog.SessionID(h.logContext()),
 		RuntimeProfile: h.currentRuntimeProfile,
-		ClientTools:    peerClientToolInvoker{conn: h.Conn},
 		ValidateWorkspaceSelection: func(ctx context.Context, name string) (string, error) {
 			canonicalName, rpcErr := resources.ValidateRunWorkspaceSelection(ctx, name)
 			if rpcErr != nil {

@@ -111,3 +111,75 @@ spec:
         - {name: gain, type: double, access: read_write, min: 0, max: 1, step: 0.25}
         - {name: volume, type: int, access: read_write, min: 0, max: 100, unit: '%'}
         - {name: muted, type: bool, access: read_write}
+      - id: device.main
+        kind: device
+        states:
+          - name: cellular-enabled
+            type: bool
+            access: read_write
+          - name: screen-off-timeout-ms
+            type: int
+            access: read_write
+            min: 0
+          - name: screen-brightness
+            type: int
+            access: read_write
+            min: 0
+            max: 100
+          - name: led-brightness
+            type: int
+            access: read_write
+            min: 0
+            max: 100
+          - name: locale
+            type: enum
+            access: read_write
+            enum_values:
+              - zh-CN
+              - en-US
+          - name: default-interaction-mode
+            type: enum
+            access: read_write
+            enum_values:
+              - push-to-talk
+              - realtime
+          - name: key-feedback
+            type: enum
+            access: read_write
+            enum_values:
+              - none
+              - sound
+              - vibrate
+              - sound_and_vibrate
+          - name: alert-mode
+            type: enum
+            access: read_write
+            enum_values:
+              - silent
+              - vibrate
+              - ring
+          - name: auto-sleep-timeout-ms
+            type: int
+            access: read_write
+            min: 0
+          - name: nfc-enabled
+            type: bool
+            access: read_write
+      - id: wifi.main
+        kind: wifi
+        states:
+          - name: connected
+            type: bool
+            access: read
+          - name: ssid
+            type: string
+            access: read
+          - name: rssi-dbm
+            type: int
+            access: read
+          - name: ip
+            type: string
+            access: read
+          - name: bssid
+            type: string
+            access: read

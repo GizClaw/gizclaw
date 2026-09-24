@@ -383,6 +383,18 @@ static bool encode_pb_bytes(pb_ostream_t *stream, const pb_field_t *field, void 
   return pb_encode_tag_for_field(stream, field) && pb_encode_string(stream, data, len);
 }
 
+/* Encode the nested invoke result straight into the existing response buffer. */
+static bool encode_tool_response(pb_ostream_t *stream, const pb_field_t *field,
+                                 void *const *arg) {
+  gizclaw_rpc_v1_ClientToolV0InvokeResponse response =
+      gizclaw_rpc_v1_ClientToolV0InvokeResponse_init_zero;
+  response.payload.funcs.encode = encode_pb_bytes;
+  response.payload.arg = *arg;
+  return pb_encode_tag_for_field(stream, field) &&
+         pb_encode_submessage(stream, gizclaw_rpc_v1_ClientToolV0InvokeResponse_fields,
+                              &response);
+}
+
 static int encode_pb_message(
     const gzc_platform_t *platform,
     const pb_msgdesc_t *fields,
@@ -871,7 +883,10 @@ static int inbound_encode_response(
     response.status.message.funcs.encode = encode_pb_bytes;
     response.status.message.arg = &message_arg;
   } else {
-    response.payload.funcs.encode = encode_pb_bytes;
+    response.payload.funcs.encode =
+        inbound->method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE
+            ? encode_tool_response
+            : encode_pb_bytes;
     response.payload.arg = &payload_arg;
   }
   gzc_buf_reset(out);
@@ -972,35 +987,11 @@ static int inbound_error(
 
 static bool inbound_is_client_method(gizclaw_rpc_v1_RpcMethod method) {
   switch (method) {
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_INFO_GET:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_IDENTIFIERS_GET:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_GET:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_GET:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_SET:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_APPEND:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_STATUS_GET:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_VOLUME_SET:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_REBOOT:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_FIND:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_SOCIAL_PING:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_STATUS_GET:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_LIST:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SCAN:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_CONNECT:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_FIRMWARE_UPDATE:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_GET:
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_READ:
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_WRITE:
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RUN_WORKSPACE_SET:
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE:
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_LIST:
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_LIST:
     return true;
   default:
     return false;

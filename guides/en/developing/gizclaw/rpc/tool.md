@@ -1,16 +1,5 @@
-# Tool Invocation
+# Device procedures
 
-`Implementation file: rpc_tool.go`
+Device procedures use the closed `ClientTool` registry in `api/proto/rpc/payload/tool.proto`. The Server invokes one installed procedure through `client.tool.v0.invoke`; the request contains the enum value and encoded request message selected by that value. `client.tool.v0.list` reports the subset installed on the device. The protocol family and version appear as numeric `RpcMethod` values in `client.rpc.methods.list`.
 
-Implement the link for Server to call Peer tool: parse target Peer ID, confirm online status, open RPC connection, send ToolInvoke request and decode response.
-
-Tool resource, policy and actual execution semantics belong to `services/runtime/toolkit`.
-
-## Core structure and main function
-
-| Symbol | Function |
-| --- | --- |
-| `Manager.ToolPeerAvailable` | Determine whether the target Peer is online and can accept tool invocation. |
-| `Manager.InvokePeerTool` | Parse the Peer ID, open the RPC stream and call the target Peer tool. |
-| `rpcClient.InvokeTool` | Construct ToolInvoke request and decode typed response. |
-| `parseToolPeerID` | Convert product peer ID to Giznet public key. |
+`pkgs/gizclaw/peer_service_serve_peer_http_tool.go` implements the owner-scoped HTTP list and invoke routes. It validates typed JSON arguments before opening the RPC stream, serializes commands per owner, decodes the registered response type and maps device errors to the public HTTP contract. RuntimeProfile Admin Tools remain Server-side HTTP resources for AI and Workflow runtimes; they are separate from the predefined device procedures.

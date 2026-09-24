@@ -14,13 +14,11 @@ Workspace 选择在 binding 移除后仍保留可读取的调用名投影；不�
 现有 Schema 无法在该响应中区别失效引用与显式禁用；已存 ID 不变，投影列表不是
 无损备份。有效工具始终受当前 Peer Profile 限制。没有选择字段的策略统一按 nil 继承处理，显式空数组仍表示禁用。
 
-目前支持两种 Tool：
+目前支持一种 Tool：
 
 - `http_request` 声明一个固定 HTTPS `GET` 或 JSON `POST` 操作。参数通过
   RFC 6901 pointer 映射到 query 或 body field；status、response pointer、
   timeout 与 response size 都由 Resource 固定。
-- `client_rpc` 调用当前已连接 Peer SDK 中按 canonical name 挂载的 handler。
-  该分支没有 method、handler ID、Peer ID、endpoint 或 Credential 配置。
 
 Resource contract 中不存在 `source`、`builtin`、executor registry、第二套 Tool
 identity、`output_schema` 或 provider ToolCall ID。
@@ -36,9 +34,8 @@ secret。Admin read、RuntimeProfile projection、model definition、日志与�
 
 Provider auth 在每次调用时解析一个 `volc` 或 `aliyun` Credential。Volc
 Ark/Search 使用固定 API-key field；Volc OpenAPI 与阿里云 OpenAPI V3 对最终
-request 签名；阿里云市场使用 AppCode。`pkgs/giztools` 只包含无状态执行 helper：
-有界 HTTP request mapper/executor，以及针对当前 connection 的
-`client.tool.invoke` wire client；它不解析 Resource、policy、RuntimeProfile，
+request 签名；阿里云市场使用 AppCode。`pkgs/giztools` 只包含有界 HTTP request
+mapper/executor；它不解析 Resource、policy、RuntimeProfile，
 不选择 Peer，也不实现 `genx.ToolInvoker`。
 
 HTTP 仅允许 HTTPS，关闭 redirect 与环境 proxy；每次连接都检查全部 DNS 结果，
@@ -54,9 +51,7 @@ flowchart LR
     Profile --> Policy["Peer scoped Tool name"]
     Policy --> Invoker["context-scoped AgentHost ToolInvoker"]
     Invoker --> HTTP["http_request 走 giztools"]
-    Invoker --> Client["client_rpc 走当前 Peer connection"]
     HTTP --> Continue["Transformer 或 Graph continuation"]
-    Client --> Continue
 ```
 
 Disabled Tool 不会被声明；dangling Resource 或同一 canonical ID 的重复 binding
@@ -64,8 +59,8 @@ Disabled Tool 不会被声明；dangling Resource 或同一 canonical ID 的重�
 arguments，再严格按 `spec.type` 分发；不会回退到另一类型、name、owner Profile
 或其他在线 Peer。
 
-Client 的 `timeout` 与 `unavailable` 会成为有界 JSON Tool result，交回模型继续
-执行；原始 handler、transport、Peer 与 Credential 信息会被隐藏。ToolCall 与
+HTTP 的 `timeout` 与 `unavailable` 会成为有界 JSON Tool result，交回模型继续
+执行；原始 transport 与 Credential 信息会被隐藏。ToolCall 与
 ToolResult 始终是 Transformer/Graph 内部控制，不会作为 public assistant stream
 control message 发给 Peer。
 

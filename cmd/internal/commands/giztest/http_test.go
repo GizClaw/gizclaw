@@ -36,7 +36,7 @@ func TestInvokeHTTPSendsBearerBodyAndDecodesJSON(t *testing.T) {
 		"level":   {Direction: "input", Type: "number", Value: float64(35)},
 	})
 	step := giztest.Step{ID: "volume", Client: "peer", HTTP: &giztest.HTTPOperation{
-		Method: http.MethodPut, Path: "/gizclaw/v1/device/volume?x=1",
+		Method: http.MethodPatch, Path: "/gizclaw/v1/device/mhs/v0/states?x=1",
 		Headers: map[string]string{"Authorization": "Bearer ${api_key}"},
 		Body:    map[string]any{"level": "${level}", "muted": true},
 		Status:  http.StatusOK,
@@ -45,7 +45,7 @@ func TestInvokeHTTPSendsBearerBodyAndDecodesJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.method != http.MethodPut || got.path != "/gizclaw/v1/device/volume?x=1" || got.auth != "Bearer gizclaw_sk_v1_test" || got.contentType != "application/json" {
+	if got.method != http.MethodPatch || got.path != "/gizclaw/v1/device/mhs/v0/states?x=1" || got.auth != "Bearer gizclaw_sk_v1_test" || got.contentType != "application/json" {
 		t.Fatalf("request = %+v", got)
 	}
 	if got.body["level"] != float64(35) || got.body["muted"] != true {
@@ -73,7 +73,7 @@ func TestInvokeHTTPStatusExpectations(t *testing.T) {
 	vars := mustVariables(t, nil)
 	endpoint := strings.TrimPrefix(server.URL, "http://")
 
-	result, err := invokeHTTP(context.Background(), endpoint, giztest.Step{HTTP: &giztest.HTTPOperation{Method: http.MethodGet, Path: "/gizclaw/v1/device/wifi"}}, vars)
+	result, err := invokeHTTP(context.Background(), endpoint, giztest.Step{HTTP: &giztest.HTTPOperation{Method: http.MethodGet, Path: "/gizclaw/v1/device/tool/v0/tools"}}, vars)
 	var failure *giztest.AssertionError
 	if !errors.As(err, &failure) {
 		t.Fatalf("unexpected 4xx without status expectation must be an assertion failure: %v", err)
@@ -81,10 +81,10 @@ func TestInvokeHTTPStatusExpectations(t *testing.T) {
 	if value, ok := giztest.JSONPointer(result.body, "/error/code"); !ok || value != "DEVICE_OFFLINE" {
 		t.Fatalf("error body kept for evidence: %#v", result.body)
 	}
-	if _, err := invokeHTTP(context.Background(), endpoint, giztest.Step{HTTP: &giztest.HTTPOperation{Method: http.MethodGet, Path: "/gizclaw/v1/device/wifi", Status: http.StatusConflict}}, vars); err != nil {
+	if _, err := invokeHTTP(context.Background(), endpoint, giztest.Step{HTTP: &giztest.HTTPOperation{Method: http.MethodGet, Path: "/gizclaw/v1/device/tool/v0/tools", Status: http.StatusConflict}}, vars); err != nil {
 		t.Fatalf("expected status must pass: %v", err)
 	}
-	if _, err := invokeHTTP(context.Background(), endpoint, giztest.Step{HTTP: &giztest.HTTPOperation{Method: http.MethodGet, Path: "/gizclaw/v1/device/wifi", Status: http.StatusOK}}, vars); !errors.As(err, &failure) {
+	if _, err := invokeHTTP(context.Background(), endpoint, giztest.Step{HTTP: &giztest.HTTPOperation{Method: http.MethodGet, Path: "/gizclaw/v1/device/tool/v0/tools", Status: http.StatusOK}}, vars); !errors.As(err, &failure) {
 		t.Fatalf("mismatched status must fail: %v", err)
 	}
 	if _, err := invokeHTTP(context.Background(), "", giztest.Step{HTTP: &giztest.HTTPOperation{Method: http.MethodGet, Path: "/x"}}, vars); err == nil {
@@ -127,7 +127,8 @@ steps:
   - id: volume_provider
     client: peer
     client_rpc:
-      method: client.device.volume.set
+      method: client.tool.v0.invoke
+      tool: device.status.get
       response: {battery_percent: 88}
       expect_calls: 1
 `
@@ -164,13 +165,13 @@ steps:
 	for name, mutated := range map[string]string{
 		"relative path":      strings.Replace(doc, "path: /gizclaw/v1/device/status", "path: gizclaw/v1/device/status", 1),
 		"unknown method":     strings.Replace(doc, "method: GET", "method: TRACE", 1),
-		"unknown client rpc": strings.Replace(doc, "method: client.device.volume.set", "method: client.device.unknown", 1),
+		"unknown client rpc": strings.Replace(doc, "method: client.tool.v0.invoke", "method: client.device.unknown", 1),
 	} {
 		if _, err := load(mutated); err == nil {
 			t.Fatalf("%s accepted", name)
 		}
 	}
-	// PATCH /device/settings needs the method in the http step contract.
+	// PATCH remains a valid HTTP step method for MHS writes.
 	if _, err := load(strings.Replace(doc, "method: GET", "method: PATCH", 1)); err != nil {
 		t.Fatalf("PATCH http step rejected: %v", err)
 	}
@@ -178,24 +179,24 @@ steps:
 
 func TestInstallDeviceControlScriptsProviders(t *testing.T) {
 	var handlers gizcli.DeviceControlHandlers
-	if err := installDeviceControl(&handlers, "client.device.volume.set", map[string]any{"battery_percent": 88}); err != nil {
+	if err := installDeviceControl(&handlers, "device.status.get", map[string]any{"battery_percent": 88}); err != nil {
 		t.Fatal(err)
 	}
-	if err := installDeviceControl(&handlers, "client.wifi.saved.list", map[string]any{"networks": []any{map[string]any{"ssid": "home"}}}); err != nil {
+	if err := installDeviceControl(&handlers, "wifi.saved.list", map[string]any{"networks": []any{map[string]any{"ssid": "home"}}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := installDeviceControl(&handlers, "client.device.sound.play", map[string]any{"error_code": 3}); err != nil {
+	if err := installDeviceControl(&handlers, "sound.play", map[string]any{"error_code": 3}); err != nil {
 		t.Fatal(err)
 	}
-	if err := installDeviceControl(&handlers, "client.wifi.saved.forget", map[string]any{"error_code": 5, "error_message": "unknown"}); err != nil {
+	if err := installDeviceControl(&handlers, "wifi.saved.forget", map[string]any{"error_code": 5, "error_message": "unknown"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := installDeviceControl(&handlers, "client.device.status.get", map[string]any{"battery_percent": "eighty"}); err == nil {
+	if err := installDeviceControl(&handlers, "device.status.get", map[string]any{"battery_percent": "eighty"}); err == nil {
 		t.Fatal("malformed scripted status accepted")
 	}
-	status, err := handlers.SetVolume(context.Background(), 35, true)
-	if err != nil || *status.Volume != 35 || !*status.Muted || *status.BatteryPercent != 88 {
-		t.Fatalf("scripted volume = %+v, %v", status, err)
+	status, err := handlers.Status(context.Background())
+	if err != nil || status.BatteryPercent == nil || *status.BatteryPercent != 88 {
+		t.Fatalf("scripted status = %+v, %v", status, err)
 	}
 	networks, err := handlers.SavedWifi(context.Background())
 	if err != nil || len(networks) != 1 || networks[0].Ssid != "home" {
@@ -208,17 +209,17 @@ func TestInstallDeviceControlScriptsProviders(t *testing.T) {
 	if err := handlers.ForgetWifi(context.Background(), "x"); !errors.As(err, &rpcErr) || rpcErr.Code != rpcapi.StatusCodeNotFound || rpcErr.Message != "unknown" {
 		t.Fatalf("scripted forget error = %v", err)
 	}
-	if handlers.Reboot != nil || handlers.Status != nil {
+	if handlers.Reboot != nil || handlers.Find != nil {
 		t.Fatal("unscripted methods must stay unsupported")
 	}
 
 	client := &gizcli.Client{}
 	counts := map[string]*inboundCounter{}
-	steps := []giztest.Step{{ID: "volume", Client: "peer", ClientRPC: &giztest.ClientRPCOperation{Method: "client.device.volume.set"}}}
+	steps := []giztest.Step{{ID: "status", Client: "peer", ClientRPC: &giztest.ClientRPCOperation{Method: "client.tool.v0.invoke", Tool: "device.status.get"}}}
 	if err := configureClientRPC(client, "peer", steps, mustVariables(t, nil), counts); err != nil {
 		t.Fatal(err)
 	}
-	if counts["peer:client.device.volume.set"] == nil {
+	if counts["peer:client.tool.v0.invoke:device.status.get"] == nil {
 		t.Fatalf("counts = %v", counts)
 	}
 }

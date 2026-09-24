@@ -228,12 +228,6 @@ PB_BIND(gizclaw_rpc_v1_ToolGetRequest, gizclaw_rpc_v1_ToolGetRequest, AUTO)
 PB_BIND(gizclaw_rpc_v1_ToolGetResponse, gizclaw_rpc_v1_ToolGetResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ToolInvokeRequest, gizclaw_rpc_v1_ToolInvokeRequest, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ToolInvokeResponse, gizclaw_rpc_v1_ToolInvokeResponse, 4)
-
-
 
 
 

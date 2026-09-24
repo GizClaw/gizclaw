@@ -46,6 +46,11 @@ func (driver) ValidateStep(doc *giztest.Document, step giztest.Step) error {
 		if _, err := lookupMethod(step.ClientRPC.Method); err != nil {
 			return err
 		}
+		if step.ClientRPC.Tool != "" {
+			if _, err := lookupProvider(step.ClientRPC.Tool); err != nil {
+				return err
+			}
+		}
 	case "http":
 		return validateControlRoute(step)
 	}
@@ -62,30 +67,26 @@ is up.
 */
 var controlRoutes = map[string][]string{
 	http.MethodGet: {
-		"/device", "/device/runtime", "/device/runtime-profile", "/device/workspaces", "/device/status", "/device/audioplayer", "/device/audioplayer/playlist",
-		"/device/mhs/v0/manifest", "/device/settings", "/device/rpc-methods", "/device/tools",
+		"/device", "/device/runtime", "/device/runtime-profile", "/device/workspaces", "/device/status",
+		"/device/mhs/v0/manifest", "/device/tool/v0/tools",
 		"/device/telemetry", "/device/telemetry/*/latest", "/device/telemetry/aggregate",
-		"/device/wifi", "/device/wifi/saved",
 		"/api-keys", "/api-keys/self", "/api-keys/*",
 		"/contacts", "/contacts/*",
 		"/friends", "/friends/invite-token", "/friends/*",
 		"/friend-groups", "/friend-groups/*", "/friend-groups/*/invite-token", "/friend-groups/*/members",
 	},
 	http.MethodPost: {
-		"/device/mhs/v0/read",
-		"/device/audioplayer/actions/play", "/device/audioplayer/actions/stop", "/device/audioplayer/playlist/append",
-		"/device/actions/play-sound", "/device/actions/reboot", "/device/actions/find", "/device/actions/factory-reset",
-		"/device/tools/*/actions/invoke", "/device/wifi/scan", "/api-keys", "/contacts",
+		"/device/mhs/v0/read", "/device/tool/v0/invoke", "/api-keys", "/contacts",
 		"/friends", "/friends/invite-token",
 		"/friend-groups", "/friend-groups/@join", "/friend-groups/*/invite-token", "/friend-groups/*/@leave", "/friend-groups/*/members",
 	},
 	http.MethodPut: {
-		"/device/audioplayer/playlist", "/device/audioplayer/mode", "/device/volume", "/device/run/workspace", "/device/wifi", "/contacts/*",
+		"/contacts/*",
 		"/friend-groups/*", "/friend-groups/*/members/*",
 	},
-	http.MethodPatch: {"/device/settings", "/device/mhs/v0/states"},
+	http.MethodPatch: {"/device/mhs/v0/states"},
 	http.MethodDelete: {
-		"/device/wifi/saved/*", "/device/workspaces/*", "/api-keys/self", "/api-keys/*", "/contacts/*",
+		"/device/workspaces/*", "/api-keys/self", "/api-keys/*", "/contacts/*",
 		"/friends/invite-token", "/friends/*",
 		"/friend-groups/*", "/friend-groups/*/invite-token", "/friend-groups/*/members/*",
 	},
@@ -330,18 +331,21 @@ func (s *session) executeTelemetry(ctx context.Context, client *deviceClient, re
 // executeClientRPC waits for the Server to invoke the scripted provider the
 // document installed at connect time.
 func (s *session) executeClientRPC(ctx context.Context, client *deviceClient, req giztest.StepRequest) (giztest.StepResult, error) {
-	method := req.Step.ClientRPC.Method
+	method := clientRPCProviderName(req.Step.ClientRPC)
 	if !client.provider.installed(method) {
 		return giztest.StepResult{}, fmt.Errorf("client RPC %s was not installed", method)
 	}
-	want := int64(req.Step.ClientRPC.ExpectCalls)
-	if want == 0 {
-		want = 1
+	want := int64(1)
+	if req.Step.ClientRPC.ExpectCalls != nil {
+		want = int64(*req.Step.ClientRPC.ExpectCalls)
 	}
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 	for {
 		calls := client.provider.callCount(method)
+		if want == 0 && calls != 0 {
+			return giztest.StepResult{}, fmt.Errorf("client RPC %s reached device %d times", method, calls)
+		}
 		if calls >= want {
 			evidence := map[string]any{"method": method, "calls": calls}
 			return giztest.StepResult{Value: evidence, Saved: evidence, Evidence: evidence}, nil
@@ -471,7 +475,7 @@ func newDeviceClient(ctx context.Context, name, endpoint string, steps []giztest
 		if step.ClientRPC == nil || step.Client != name {
 			continue
 		}
-		if err := provider.install(step.ClientRPC.Method, step.ClientRPC.Response); err != nil {
+		if err := provider.install(clientRPCProviderName(step.ClientRPC), step.ClientRPC.Response); err != nil {
 			return nil, err
 		}
 	}
@@ -650,3 +654,10 @@ func controlBaseURL(endpoint string) (string, error) {
 }
 
 var _ = rpcpb.RpcMethod_RPC_METHOD_UNSPECIFIED
+
+func clientRPCProviderName(operation *giztest.ClientRPCOperation) string {
+	if operation.Tool != "" {
+		return operation.Tool
+	}
+	return operation.Method
+}

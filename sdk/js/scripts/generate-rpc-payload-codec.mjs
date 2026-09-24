@@ -1,3 +1,4 @@
+import { parseRegistry } from "./rpc-registry.mjs";
 import { readdirSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 
@@ -25,13 +26,20 @@ const OPTIONAL_REPEATED_FIELDS = new Set([
 
 const OPTIONAL_MAP_FIELDS = new Set(["DoubaoRealtimeASRContext.correct_words"]);
 
-const methods = parseRPCMethods(readFileSync(peerProtoURL, "utf8"));
+const methods = parseRegistry(
+  readFileSync(peerProtoURL, "utf8"),
+  "RPC_METHOD",
+  "rpc_method",
+);
 const payloadProtoText = readdirSync(payloadProtoDirURL)
   .filter((name) => name.endsWith(".proto"))
   .sort()
   .map((name) => readFileSync(new URL(name, payloadProtoDirURL), "utf8"))
   .join("\n");
-const parsed = parsePayloadProto(payloadProtoText);
+const parsed = parsePayloadProto(
+  readFileSync(peerProtoURL, "utf8") + "\n" + payloadProtoText,
+);
+const tools = parseRegistry(payloadProtoText, "CLIENT_TOOL", "client_tool");
 
 if (methods.length === 0) {
   throw new Error(
@@ -75,6 +83,8 @@ ${payloadTypes}
 
 const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = ${stableJSON(requestPayloadMessages)};
 const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = ${stableJSON(responsePayloadMessages)};
+const TOOL_REQUEST_MESSAGES: Record<string, string> = ${stableJSON(Object.fromEntries(tools.map((item) => [item.id, item.request])))};
+const TOOL_RESPONSE_MESSAGES: Record<string, string> = ${stableJSON(Object.fromEntries(tools.map((item) => [item.id, item.response])))};
 const MESSAGE_DESCS: Record<string, MessageDesc> = ${stableJSON(parsed.messages)};
 const ENUM_DESCS: Record<string, EnumDesc> = ${stableJSON(parsed.enums)};
 
@@ -93,6 +103,11 @@ export function encodeRPCResponsePayload(method: string, value: unknown): Uint8A
 export function decodeRPCResponsePayload(method: string, payload: Uint8Array): unknown {
   return decodePayload(RESPONSE_PAYLOAD_MESSAGES, method, payload);
 }
+
+export function encodeClientToolRequestPayload(tool: number, value: unknown): Uint8Array { return encodePayload(TOOL_REQUEST_MESSAGES, String(tool), value); }
+export function decodeClientToolRequestPayload(tool: number, payload: Uint8Array): unknown { return decodePayload(TOOL_REQUEST_MESSAGES, String(tool), payload); }
+export function encodeClientToolResponsePayload(tool: number, value: unknown): Uint8Array { return encodePayload(TOOL_RESPONSE_MESSAGES, String(tool), value); }
+export function decodeClientToolResponsePayload(tool: number, payload: Uint8Array): unknown { return decodePayload(TOOL_RESPONSE_MESSAGES, String(tool), payload); }
 
 function encodePayload(messages: Record<string, string>, method: string, value: unknown): Uint8Array {
   const message = messages[method];
@@ -350,7 +365,9 @@ function decodeType(reader: ProtoReader, tag: ProtoField, type: string): unknown
     default:
       if (ENUM_DESCS[type] != null) {
         const value = reader.int32(tag);
-        return ENUM_DESCS[type].byNumber[value] ?? value;
+        return type === "ClientTool" || type === "RpcMethod"
+          ? value
+          : (ENUM_DESCS[type].byNumber[value] ?? value);
       }
       return decodeMessage(type, reader.bytes(tag));
   }
@@ -983,35 +1000,6 @@ class ProtoReader {
 await mkdir(new URL(".", outputURL), { recursive: true });
 await writeFile(outputURL, text);
 
-function parseRPCMethods(proto) {
-  const lines = proto.split(/\r?\n/);
-  const methods = [];
-  for (const line of lines) {
-    const entry =
-      /^\s*RPC_METHOD_[A-Z0-9_]+\s*=\s*(\d+)\s*\[\(rpc_method\)\s*=\s*\{\s*name:\s*"([^"]+)"\s+request:\s*"(\w+)"\s+response:\s*"(\w+)"\s*\}\s*(?:,\s*deprecated\s*=\s*(true|false)\s*)?\]\s*;/.exec(
-        line,
-      );
-    if (entry == null) {
-      if (
-        /^\s*RPC_METHOD_[A-Z0-9_]+\s*=/.test(line) &&
-        !line.includes("RPC_METHOD_UNSPECIFIED")
-      ) {
-        throw new Error(
-          `RpcMethod entry missing rpc_method option: ${line.trim()}`,
-        );
-      }
-      continue;
-    }
-    methods.push({
-      id: Number(entry[1]),
-      method: entry[2],
-      request: entry[3],
-      response: entry[4],
-    });
-  }
-  return methods;
-}
-
 function parsePayloadProto(proto) {
   const lines = proto.split(/\r?\n/);
   const messages = {};
@@ -1036,7 +1024,8 @@ function parsePayloadProto(proto) {
         currentEnum = null;
         continue;
       }
-      const value = /^\s*([A-Z][A-Z0-9_]*)\s*=\s*(-?\d+)\s*;/.exec(line);
+      const value =
+        /^\s*([A-Z][A-Z0-9_]*)\s*=\s*(-?\d+)\s*(?:\[.*\])?\s*;/.exec(line);
       if (value != null) {
         currentEnum.values.push({ name: value[1], number: Number(value[2]) });
       }
@@ -1126,7 +1115,7 @@ function emitPayloadTypes(parsed) {
   const out = [];
   for (const name of Object.keys(parsed.enums).sort()) {
     out.push(
-      `export type ${name} = ${enumTypeExpression(parsed.enums[name])};`,
+      `export type ${name} = ${name === "ClientTool" || name === "RpcMethod" ? "number" : enumTypeExpression(parsed.enums[name])};`,
     );
   }
   for (const name of Object.keys(parsed.messages).sort()) {

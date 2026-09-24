@@ -64,10 +64,6 @@ func normalizeTool(tool Tool, requireDirectSecrets bool) (Tool, error) {
 		if err := normalizeHTTPRequest(tool.HTTP, requireDirectSecrets); err != nil {
 			return Tool{}, err
 		}
-	case ToolTypeClientRPC:
-		if tool.HTTP != nil {
-			return Tool{}, fmt.Errorf("%w: http is forbidden for type %q", ErrInvalidTool, tool.Type)
-		}
 	default:
 		return Tool{}, fmt.Errorf("%w: unsupported type %q", ErrInvalidTool, tool.Type)
 	}

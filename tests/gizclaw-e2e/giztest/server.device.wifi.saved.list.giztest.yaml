@@ -8,7 +8,7 @@ clients:
   peer:
     identity: ephemeral
     connection: webrtc
-    access_point: "${endpoint}"
+    access_point: ${endpoint}
 variables:
   endpoint:
     direction: input
@@ -28,45 +28,49 @@ variables:
     type: string
     secret: true
 steps:
-- id: register_peer
-  client: peer
-  rpc:
-    method: server.register
-    request:
-      token: "${registration_token}"
-- id: create_api_key
-  client: peer
-  rpc:
-    method: server.api_key.create
-    request:
-      display_name: "${resource_name}"
-  capture:
-    api_key: /api_key
-- id: primary_http
-  client: peer
-  http:
-    method: GET
-    path: /gizclaw/v1/device/wifi/saved
-    headers:
-      Authorization: "Bearer ${api_key}"
-    status: 200
-  expect:
-    /networks:
-      count: 2
-    /networks/1/ssid:
-      equals: office
-- id: provider_saved
-  client: peer
-  client_rpc:
-    method: client.wifi.saved.list
-    response:
-      networks:
-      - ssid: home
-      - ssid: office
-    expect_calls: 1
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: primary_http
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+      body:
+        tool: wifi.saved.list
+        args: {}
+    expect:
+      /result/networks:
+        count: 2
+      /result/networks/1/ssid:
+        equals: office
+  - id: provider_saved
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      response:
+        networks:
+          - ssid: home
+          - ssid: office
+      expect_calls: 1
+      tool: wifi.saved.list
 finally:
-- id: cleanup_peer
-  client: peer
-  rpc:
-    method: server.peer.delete
-    request: {}
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

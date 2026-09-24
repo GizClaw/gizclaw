@@ -46,11 +46,13 @@ steps:
     client: peer
     http:
       method: POST
-      path: /gizclaw/v1/device/audioplayer/actions/play
+      path: /gizclaw/v1/device/tool/v0/invoke
       headers:
         Authorization: Bearer ${api_key}
       body:
-        index: 32
+        tool: audioplayer.play
+        args:
+          index: 32
       status: 400
     expect:
       /error/code:
@@ -58,13 +60,15 @@ steps:
   - id: invalid_url
     client: peer
     http:
-      method: PUT
-      path: /gizclaw/v1/device/audioplayer/playlist
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
       headers:
         Authorization: Bearer ${api_key}
       body:
-        items:
-          - url: http://audio.example.test/a.mp3
+        tool: audioplayer.playlist.set
+        args:
+          items:
+            - url: http://audio.example.test/a.mp3
       status: 400
     expect:
       /error/code:
@@ -72,12 +76,14 @@ steps:
   - id: invalid_repeat
     client: peer
     http:
-      method: PUT
-      path: /gizclaw/v1/device/audioplayer/mode
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
       headers:
         Authorization: Bearer ${api_key}
       body:
-        repeat: shuffle
+        tool: audioplayer.mode.set
+        args:
+          repeat: shuffle
       status: 400
     expect:
       /error/code:
@@ -86,11 +92,13 @@ steps:
     client: peer
     http:
       method: POST
-      path: /gizclaw/v1/device/audioplayer/playlist/append
+      path: /gizclaw/v1/device/tool/v0/invoke
       headers:
         Authorization: Bearer ${api_key}
       body:
-        items: []
+        tool: audioplayer.playlist.append
+        args:
+          items: []
       status: 400
     expect:
       /error/code:

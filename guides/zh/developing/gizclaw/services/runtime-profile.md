@@ -67,7 +67,7 @@ spec:
 
 `resources` 下的 map 把环境 alias 绑定到管理员创建的真实资源 ID。Model alias 表示 `chat`、`extraction`、`embedding`、`asr`、`realtime`、`translation` 这类稳定用途，不包含 provider 或真实 Model 名。Model 和 Voice alias 是互相独立的环境变量，不属于 Workflow Collection。Workflow spec 和 Workspace 参数保存符号 alias；每次 Workspace reload 都从当前 RuntimeProfile 重新解析。因此同一个 App 或固件可以切换生产、调试 RuntimeProfile，而无需重新构建。
 
-`resources.tools` 的 binding 可以额外设置 `control_access`，把这个 Tool 开放给设备 owner 的控制 App（`GET /gizclaw/v1/device/tools` 与 `POST /gizclaw/v1/device/tools/{name}/actions/invoke`，见 [Public API](/zh/developing/api/http/public#设备控制流程)）。目前只有 `owner` 一个取值，表示该 Peer 的任意 API Key；更严格的级别以后加入同一枚举。省略时 Tool 只供 AI 与 Workflow runtime 使用，控制 App 既看不到也调不了；只有已启用的 `client_rpc` Tool 会被开放。`control_access` 写在 Model、Voice 或 Workflow binding 上时整次写入被拒绝。
+`resources.tools` 绑定供 AI 和 Workflow runtime 使用的 Admin HTTP Tool。设备过程调用使用预定义的 `tool/v0` 注册表，与这个目录互相独立。
 
 每个 RuntimeProfile alias 都是总长 1–63 字节、由 `.` 分隔的 lowercase kebab-case segment。`asr`、`extract` 等无点名称表示共享能力；`journey.model`、`journey.narrator`、`story.journey-center-earth` 等名称表示可独立绑定的 consumer 槽位。完整名称始终是平面 map 中的一个 opaque key；Server 原样保留，不按 segment 查找，不支持 prefix、wildcard，也不会从 `journey.narrator` fallback 到 `narrator`。`journey.narrator` 与 `journey-narrator` 是两个不同 alias。空 segment、下划线以及 segment 内的首尾连字符均不合法。
 
@@ -177,7 +177,7 @@ ASTTranslate 的当前 provider 路径没有系统提示入口：合法级别被
 
 ## MHS v0 硬件清单
 
-`spec.mhs.v0` 是 RuntimeProfile 拥有的硬件清单，不由设备上报。`mhs/v0` 是 GizClaw 自己的、受 MHS 启发的预标准协议，不声称与官方 Model Hardware Standard 兼容；未来官方兼容版本使用 `v1`。v0 仅有状态读写，不包含 procedure/invoke、变更通知、slot 或 stream，也不替代已有设备 RPC。
+`spec.mhs.v0` 是 RuntimeProfile 拥有的硬件清单，不由设备上报。`mhs/v0` 是 GizClaw 自己的、受 MHS 启发的预标准协议，不声称与官方 Model Hardware Standard 兼容；未来官方兼容版本使用 `v1`。`mhs/v0` 仅处理状态读写；预定义的设备过程调用由 `tool/v0` 承载。两者都不提供变更通知、slot 或 stream。
 
 ```yaml
 spec:

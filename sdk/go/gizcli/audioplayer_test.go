@@ -23,7 +23,7 @@ func TestAudioPlayerProviderValidationAndErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, index := range []*uint32{nil, new(uint32(32)), new(uint32(1)), new(uint32(0))} {
-		response := deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceAudioPlayerPlay, func(payload *rpcapi.RPCPayload) error {
+		response := deviceControlDispatch(t, device, rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAY, func(payload *rpcapi.RPCPayload) error {
 			return payload.FromClientDeviceAudioPlayerPlayRequest(&rpcpb.ClientDeviceAudioPlayerPlayRequest{Index: index})
 		})
 		if index != nil && *index == 0 {
@@ -41,7 +41,7 @@ func TestAudioPlayerProviderValidationAndErrors(t *testing.T) {
 	if calls != 2 {
 		t.Fatalf("calls=%d", calls)
 	}
-	response := deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceAudioPlayerStop, nil)
+	response := deviceControlDispatch(t, device, rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_STOP, nil)
 	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeUnimplemented {
 		t.Fatalf("unsupported=%+v", response)
 	}

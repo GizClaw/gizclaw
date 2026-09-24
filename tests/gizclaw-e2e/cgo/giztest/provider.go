@@ -7,13 +7,11 @@ package main
 import "C"
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
 	"math"
 	"runtime/cgo"
-	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -41,22 +39,17 @@ type clientRPCProvider struct {
 }
 
 func newClientRPCProvider() *clientRPCProvider {
-	return &clientRPCProvider{responses: map[string]any{}, calls: map[string]*atomic.Int64{}}
+	return &clientRPCProvider{responses: map[string]any{"info.get": map[string]any{}, "identifiers.get": map[string]any{}}, calls: map[string]*atomic.Int64{}}
 }
 
 // install scripts one method's response. A response carrying `error_code`
 // makes the provider answer with that structured RPC error.
 func (p *clientRPCProvider) install(method string, response any) error {
-	if _, err := lookupMethod(method); err != nil {
+	if _, err := lookupProvider(method); err != nil {
 		return err
 	}
-	if method == rpcMethodsGet && response != nil {
-		return fmt.Errorf("%s is answered from the installed providers and takes no response", rpcMethodsGet)
-	}
-	if method == toolInvoke {
-		if _, err := scriptedTool(response); err != nil {
-			return err
-		}
+	if (method == rpcMethodsList || method == toolList) && response != nil {
+		return fmt.Errorf("%s is answered from the installed providers and takes no response", method)
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -88,9 +81,6 @@ func (p *clientRPCProvider) lookup(method string) (any, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	response, ok := p.responses[method]
-	if ok {
-		p.calls[method].Add(1)
-	}
 	return response, ok
 }
 
@@ -163,76 +153,77 @@ func scriptedErrorCode(raw any) (int32, error) {
 	return int32(value), nil
 }
 
-// toolInvoke is answered through a registered C SDK Tool handler rather than
-// rpc_provider, and is not advertised by client.rpc.methods.get.
-const toolInvoke = "client.tool.invoke"
+const rpcMethodsList = "client.rpc.methods.list"
+const toolList = "client.tool.v0.list"
 
-// scriptedTool reads the Go runner's `{name, result}` Tool response form;
-// `unavailable: true` scripts a device without that Tool.
-func scriptedTool(response any) (map[string]any, error) {
-	object, ok := response.(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("tool response must be an object")
+func lookupProvider(name string) (methodInfo, error) {
+	if tool, err := rpcapi.ClientToolByName(name); err == nil {
+		meta, err := rpcapi.ClientToolMetadata(tool)
+		return methodInfo{request: meta.Request, response: meta.Response}, err
 	}
-	if name, _ := object["name"].(string); name == "" {
-		return nil, fmt.Errorf("tool response requires name")
-	}
-	if unavailable, _ := object["unavailable"].(bool); unavailable {
-		if _, hasResult := object["result"]; hasResult {
-			return nil, fmt.Errorf("unavailable tool response cannot set result")
-		}
-	}
-	return object, nil
+	return lookupMethod(name)
 }
-
-// toolName reports the scripted Tool name the C session must register, or ""
-// when the document scripts no Tool.
-func (p *clientRPCProvider) toolName() string {
+func (p *clientRPCProvider) installedMasks() (uint32, uint32) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	object, _ := p.responses[toolInvoke].(map[string]any)
-	name, _ := object["name"].(string)
-	return name
-}
-
-// rpcMethodsGet is answered from the scripted providers rather than from a
-// scripted response, the way every device SDK derives it.
-const rpcMethodsGet = "client.rpc.methods.get"
-
-// supportedMethods lists the client.* methods this provider answers, sorted,
-// ending with client.rpc.methods.get itself.
-func (p *clientRPCProvider) supportedMethods() []any {
-	p.mu.Lock()
-	names := make([]string, 0, len(p.responses))
-	for name := range p.responses {
-		if name != rpcMethodsGet && name != toolInvoke {
-			names = append(names, name)
+	var tools, mhs uint32
+	for name, response := range p.responses {
+		if object, ok := response.(map[string]any); ok {
+			if unavailable, _ := object["unavailable"].(bool); unavailable {
+				continue
+			}
+		}
+		if tool, err := rpcapi.ClientToolByName(name); err == nil {
+			tools |= 1 << uint32(tool)
+		}
+		if name == "client.mhs.v0.read" {
+			mhs |= 1
+		}
+		if name == "client.mhs.v0.write" {
+			mhs |= 2
 		}
 	}
-	p.mu.Unlock()
-	sort.Strings(names)
-	methods := make([]any, 0, len(names)+1)
-	for _, name := range names {
-		methods = append(methods, name)
+	return tools, mhs
+}
+func providerName(method rpcpb.RpcMethod, tool rpcpb.ClientTool) (string, methodInfo, error) {
+	if method == rpcpb.RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE {
+		meta, err := rpcapi.ClientToolMetadata(tool)
+		if err != nil {
+			return "", methodInfo{}, err
+		}
+		return meta.Name, methodInfo{request: meta.Request, response: meta.Response}, nil
 	}
-	return append(methods, rpcMethodsGet)
+	return lookupMethodByID(method)
+}
+
+//export gztGoObserve
+func gztGoObserve(handle C.ulonglong, method C.int, tool C.int) {
+	provider, ok := cgo.Handle(handle).Value().(*clientRPCProvider)
+	if !ok {
+		return
+	}
+	name, _, err := providerName(rpcpb.RpcMethod(method), rpcpb.ClientTool(tool))
+	if err != nil {
+		return
+	}
+	provider.mu.Lock()
+	counter := provider.calls[name]
+	provider.mu.Unlock()
+	if counter != nil {
+		counter.Add(1)
+	}
 }
 
 // answer builds the encoded response payload for one inbound client.* call.
-func (p *clientRPCProvider) answer(id rpcpb.RpcMethod, requestPayload []byte) ([]byte, int32, string, error) {
-	name, info, err := lookupMethodByID(id)
+func (p *clientRPCProvider) answer(id rpcpb.RpcMethod, tool rpcpb.ClientTool, requestPayload []byte) ([]byte, int32, string, error) {
+	name, info, err := providerName(id, tool)
 	if err != nil {
 		return nil, 0, "", err
 	}
-	if name == rpcMethodsGet {
-		// A real C device's provider answers this whether or not a document
-		// scripted it; a step only counts the calls.
-		_, _ = p.lookup(name)
-		payload, err := encodePayload(info.response, map[string]any{"methods": p.supportedMethods()})
-		if err != nil {
-			return nil, 0, "", err
+	if id == rpcpb.RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE {
+		if _, err := rpcapi.ClientToolRequestFromBytes(tool, requestPayload); err != nil {
+			return nil, int32(rpcpb.StatusCode_STATUS_CODE_INVALID_ARGUMENT), "invalid params", nil
 		}
-		return payload, 0, "", nil
 	}
 	response, ok := p.lookup(name)
 	if !ok {
@@ -254,25 +245,6 @@ func (p *clientRPCProvider) answer(id rpcpb.RpcMethod, requestPayload []byte) ([
 		// The Server is waiting on this RPC, so a slow device is a slow
 		// answer. Blocking the poll thread is what makes the wait observable.
 		time.Sleep(delay)
-	}
-	switch name {
-	case toolInvoke:
-		object, _ := value.(map[string]any)
-		if unavailable, _ := object["unavailable"].(bool); unavailable {
-			return nil, int32(rpcpb.StatusCode_STATUS_CODE_UNIMPLEMENTED), "Tool unavailable", nil
-		}
-		data, marshalErr := json.Marshal(object["result"])
-		if marshalErr != nil {
-			return nil, 0, "", marshalErr
-		}
-		value = map[string]any{"data_json": string(data)}
-	case "client.device.volume.set":
-		value, err = echoVolume(info.request, requestPayload, response)
-	case "client.device.settings.set":
-		value, err = overlaySettings(info.request, requestPayload, value)
-	}
-	if err != nil {
-		return nil, 0, "", err
 	}
 	payload, err := encodePayload(info.response, value)
 	if err != nil {
@@ -310,53 +282,12 @@ func scriptedDelay(response any) (any, time.Duration, error) {
 
 // echoVolume overlays the requested level and mute state onto the scripted
 // status, so an HTTP volume round trip observes what it asked for.
-func echoVolume(requestMessage string, requestPayload []byte, response any) (any, error) {
-	request, err := decodePayload(requestMessage, requestPayload)
-	if err != nil {
-		return nil, err
-	}
-	status := map[string]any{}
-	if object, ok := response.(map[string]any); ok {
-		maps.Copy(status, object)
-	}
-	if level, ok := request["level"]; ok {
-		status["volume"] = level
-	}
-	if muted, ok := request["muted"]; ok {
-		status["muted"] = muted
-	}
-	return status, nil
-}
-
-// overlaySettings applies the members a settings patch carries over the
-// scripted settings, so an HTTP PATCH round trip observes what it asked for
-// next to what it left unchanged. Absent optional members stay absent in the
-// decoded patch, so only the sent members replace scripted ones.
-func overlaySettings(requestMessage string, requestPayload []byte, response any) (any, error) {
-	patch, err := decodePayload(requestMessage, requestPayload)
-	if err != nil {
-		return nil, err
-	}
-	settings := map[string]any{}
-	if object, ok := response.(map[string]any); ok {
-		maps.Copy(settings, object)
-	}
-	// decodePayload unwraps a request that carries a value; an empty patch
-	// decodes to the wrapper with no value, which changes nothing.
-	if value, ok := patch["value"]; ok {
-		if value == nil {
-			return settings, nil
-		}
-		patch, _ = value.(map[string]any)
-	}
-	maps.Copy(settings, patch)
-	return settings, nil
-}
-
+//
 //export gztGoProvider
 func gztGoProvider(
 	handle C.ulonglong,
 	method C.int,
+	tool C.int,
 	requestPayload unsafe.Pointer,
 	requestPayloadLen C.size_t,
 	outPayload *unsafe.Pointer,
@@ -373,7 +304,7 @@ func gztGoProvider(
 	if requestPayload != nil && requestPayloadLen > 0 {
 		request = C.GoBytes(requestPayload, C.int(requestPayloadLen))
 	}
-	payload, code, message, err := provider.answer(rpcpb.RpcMethod(method), request)
+	payload, code, message, err := provider.answer(rpcpb.RpcMethod(method), rpcpb.ClientTool(tool), request)
 	if err != nil {
 		code = int32(rpcpb.StatusCode_STATUS_CODE_INTERNAL)
 		message = fmt.Sprintf("provider failed: %v", err)

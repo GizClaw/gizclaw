@@ -21,7 +21,7 @@ type AudioPlayerHandlers struct {
 	ModeSet        func(context.Context, *rpcpb.ClientDeviceAudioPlayerModeSetRequest) (*rpcpb.ClientDeviceAudioPlayerModeSetResponse, error)
 }
 
-func (c *rpcClient) handleAudioPlayer(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+func (c *rpcClient) handleAudioPlayer(ctx context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -29,20 +29,20 @@ func (c *rpcClient) handleAudioPlayer(ctx context.Context, req *rpcapi.RPCReques
 	if handlers == nil {
 		return deviceControlUnsupported(req.Id, req.Method), nil
 	}
-	switch req.Method {
-	case rpcapi.RPCMethodClientDeviceAudioPlayerGet:
+	switch tool {
+	case rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_GET:
 		return dispatchAudioPlayer(ctx, c, req, new(rpcpb.ClientDeviceAudioPlayerGetRequest), rpcapi.RPCPayload.AsClientDeviceAudioPlayerGetRequest, handlers.AudioPlayer.Get, (*rpcapi.RPCPayload).FromClientDeviceAudioPlayerGetResponse)
-	case rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistGet:
+	case rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_GET:
 		return dispatchAudioPlayer(ctx, c, req, new(rpcpb.ClientDeviceAudioPlayerPlaylistGetRequest), rpcapi.RPCPayload.AsClientDeviceAudioPlayerPlaylistGetRequest, handlers.AudioPlayer.PlaylistGet, (*rpcapi.RPCPayload).FromClientDeviceAudioPlayerPlaylistGetResponse)
-	case rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistSet:
+	case rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_SET:
 		return dispatchAudioPlayer(ctx, c, req, new(rpcpb.ClientDeviceAudioPlayerPlaylistSetRequest), rpcapi.RPCPayload.AsClientDeviceAudioPlayerPlaylistSetRequest, handlers.AudioPlayer.PlaylistSet, (*rpcapi.RPCPayload).FromClientDeviceAudioPlayerPlaylistSetResponse)
-	case rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistAppend:
+	case rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_APPEND:
 		return dispatchAudioPlayer(ctx, c, req, new(rpcpb.ClientDeviceAudioPlayerPlaylistAppendRequest), rpcapi.RPCPayload.AsClientDeviceAudioPlayerPlaylistAppendRequest, handlers.AudioPlayer.PlaylistAppend, (*rpcapi.RPCPayload).FromClientDeviceAudioPlayerPlaylistAppendResponse)
-	case rpcapi.RPCMethodClientDeviceAudioPlayerPlay:
+	case rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAY:
 		return dispatchAudioPlayer(ctx, c, req, new(rpcpb.ClientDeviceAudioPlayerPlayRequest), rpcapi.RPCPayload.AsClientDeviceAudioPlayerPlayRequest, handlers.AudioPlayer.Play, (*rpcapi.RPCPayload).FromClientDeviceAudioPlayerPlayResponse)
-	case rpcapi.RPCMethodClientDeviceAudioPlayerStop:
+	case rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_STOP:
 		return dispatchAudioPlayer(ctx, c, req, new(rpcpb.ClientDeviceAudioPlayerStopRequest), rpcapi.RPCPayload.AsClientDeviceAudioPlayerStopRequest, handlers.AudioPlayer.Stop, (*rpcapi.RPCPayload).FromClientDeviceAudioPlayerStopResponse)
-	case rpcapi.RPCMethodClientDeviceAudioPlayerModeSet:
+	case rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_MODE_SET:
 		return dispatchAudioPlayer(ctx, c, req, new(rpcpb.ClientDeviceAudioPlayerModeSetRequest), rpcapi.RPCPayload.AsClientDeviceAudioPlayerModeSetRequest, handlers.AudioPlayer.ModeSet, (*rpcapi.RPCPayload).FromClientDeviceAudioPlayerModeSetResponse)
 	default:
 		return deviceControlUnsupported(req.Id, req.Method), nil

@@ -9,7 +9,7 @@ func TestBuilderResolvesCanonicalIDsAndAppliesPolicy(t *testing.T) {
 	t.Parallel()
 	server := &Server{DB: newTestDatabase(t)}
 	toolIDs := make(map[string]string)
-	for _, tool := range []Tool{testClientTool("volume_set"), testHTTPTool("get_weather")} {
+	for _, tool := range []Tool{testCatalogTool("volume_set"), testHTTPTool("get_weather")} {
 		created, err := server.CreateTool(context.Background(), tool)
 		if err != nil {
 			t.Fatalf("PutTool(%q): %v", tool.InvokeName, err)
@@ -35,7 +35,7 @@ func TestBuilderResolvesCanonicalIDsAndAppliesPolicy(t *testing.T) {
 func TestBuilderSkipsDisabledAndRejectsDanglingTools(t *testing.T) {
 	t.Parallel()
 	server := &Server{DB: newTestDatabase(t)}
-	disabled := testClientTool("volume_set")
+	disabled := testCatalogTool("volume_set")
 	disabled.Enabled = false
 	created, err := server.CreateTool(context.Background(), disabled)
 	if err != nil {
@@ -60,7 +60,7 @@ func TestBuilderSkipsDisabledAndRejectsDanglingTools(t *testing.T) {
 func TestBuilderReturnsDefensiveSnapshots(t *testing.T) {
 	t.Parallel()
 	server := &Server{DB: newTestDatabase(t)}
-	tool := testClientTool("volume_set")
+	tool := testCatalogTool("volume_set")
 	tool.Metadata = []byte(`{"category":"device"}`)
 	created, err := server.CreateTool(context.Background(), tool)
 	if err != nil {

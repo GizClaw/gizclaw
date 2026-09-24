@@ -505,6 +505,13 @@ func protoFieldValueFromGo(fd protoreflect.FieldDescriptor, value reflect.Value,
 			}
 			return protoreflect.ValueOfMessage(st.ProtoReflect()), nil
 		}
+		if messageType, err := protoregistry.GlobalTypes.FindMessageByName(fd.Message().FullName()); err == nil {
+			generated := messageType.New()
+			if err := fillProtoMessageFromGo(generated, value, parent); err != nil {
+				return protoreflect.Value{}, err
+			}
+			return protoreflect.ValueOfMessage(generated), nil
+		}
 		child := dynamicpb.NewMessage(fd.Message())
 		if err := fillProtoMessageFromGo(child, value, parent); err != nil {
 			return protoreflect.Value{}, err

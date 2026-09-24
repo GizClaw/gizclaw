@@ -48,35 +48,27 @@ api/
 
 Node Monitor API：Server 和 Edge 提供 `api/http/monitor.json` 定义的本进程 HTTP 契约；认证与生成 ownership 见 [Monitor](../monitor)。
 
-## MHS v0 硬件状态迁移 {#mhs-v0-migration}
+## 设备状态与操作 {#mhs-v0-migration}
 
-以下旧接口已弃用，但仍保持原有请求、响应、校验、错误和运行时行为，旧设备与 App 可继续使用：
+设备提供 MHS v0 硬件状态和预定义的 tool/v0 操作。绑定的 RuntimeProfile `spec.mhs.v0` manifest 声明产品自定的 `(device_id, state)` key。控制 App 先调用 `GET /gizclaw/v1/device/mhs/v0/manifest`，再通过 `POST /gizclaw/v1/device/mhs/v0/read` 或 `PATCH /gizclaw/v1/device/mhs/v0/states` 读写。下表只是命名建议，不会自动安装协议 ID；只能读取 manifest 声明且设备实现的 key，写入还需要 `read_write`。
 
-| 已弃用 RPC | 已弃用 Peer HTTP | MHS v0 替代入口 |
+| 状态示例 | 推荐 MHS v0 key | 类型与推荐约束 |
 | --- | --- | --- |
-| `client.device.volume.set`（101） | `PUT /gizclaw/v1/device/volume` | `client.mhs.v0.write`（134）；`PATCH /gizclaw/v1/device/mhs/v0/states` |
-| `client.device.settings.get`（128） | `GET /gizclaw/v1/device/settings` | `client.mhs.v0.read`（133）；`POST /gizclaw/v1/device/mhs/v0/read` |
-| `client.device.settings.set`（129） | `PATCH /gizclaw/v1/device/settings` | `client.mhs.v0.write`（134）；`PATCH /gizclaw/v1/device/mhs/v0/states` |
+| 扬声器音量 | `speaker.main/volume` | `int`，0–100 |
+| 扬声器静音 | `speaker.main/muted` | `bool` |
+| 设备 `screen_brightness` | `display.main/brightness` | `int`，0–100 |
+| 设备 `screen_off_timeout_ms` | `display.main/off_timeout_ms` | `int`，毫秒，≥0；0 表示常亮 |
+| 设备 `led_brightness` | `led.status/brightness` | `int`，0–100 |
+| 设备 `cellular_enabled` | `cellular.main/enabled` | `bool` |
+| 设备 `nfc_enabled` | `nfc.main/enabled` | `bool` |
+| 设备 `auto_sleep_timeout_ms` | `power.main/auto_sleep_timeout_ms` | `int`，毫秒，≥0；0 表示不自动休眠 |
+| 设备 `locale` | `system.main/locale` | `string`，保留 BCP 47 语言标签约定 |
+| 设备 `default_interaction_mode` | `system.main/default_interaction_mode` | `enum`：`push-to-talk`、`realtime` |
+| 设备 `key_feedback` | `system.main/key_feedback` | `enum`：`none`、`sound`、`vibrate`、`sound_and_vibrate` |
+| 设备 `alert_mode` | `system.main/alert_mode` | `enum`：`silent`、`vibrate`、`ring` |
 
-控制 App 先通过 `GET /gizclaw/v1/device/mhs/v0/manifest` 读取设备绑定的 RuntimeProfile `spec.mhs.v0`。`device_id` 与 state 名称由产品在 manifest 中定义；下表是**推荐命名约定**，不是协议固定的 ID，也不会自动为产品添加这些 key。`device_id/state` 表示请求中的两个独立字段。仅对 manifest 声明且设备实现的 key 发起读写；写入还要求 `read_write`。
+MHS enum 使用 `MhsValue.string_value` 中的语义字符串。读取显式列出所需 key；写入只包含要修改的 key 并返回实际生效的值。设备必须先整批校验再应用；未知或未实现的 key 返回错误。超时后应重新读取以确认状态。
 
-| 旧字段 | 推荐 MHS v0 key | 类型与推荐约束 |
-| --- | --- | --- |
-| volume.set `level` | `speaker.main/volume` | `int`，0–100 |
-| volume.set `muted` | `speaker.main/muted` | `bool` |
-| settings `screen_brightness` | `display.main/brightness` | `int`，0–100 |
-| settings `screen_off_timeout_ms` | `display.main/off_timeout_ms` | `int`，毫秒，≥0；0 表示常亮 |
-| settings `led_brightness` | `led.status/brightness` | `int`，0–100 |
-| settings `cellular_enabled` | `cellular.main/enabled` | `bool` |
-| settings `nfc_enabled` | `nfc.main/enabled` | `bool` |
-| settings `auto_sleep_timeout_ms` | `power.main/auto_sleep_timeout_ms` | `int`，毫秒，≥0；0 表示不自动休眠 |
-| settings `locale` | `system.main/locale` | `string`，保留 BCP 47 语言标签约定 |
-| settings `default_interaction_mode` | `system.main/default_interaction_mode` | `enum`：`push-to-talk`、`realtime` |
-| settings `key_feedback` | `system.main/key_feedback` | `enum`：`none`、`sound`、`vibrate`、`sound_and_vibrate` |
-| settings `alert_mode` | `system.main/alert_mode` | `enum`：`silent`、`vibrate`、`ring` |
+`tool/v0` 通过 `client.tool.v0.invoke`（135）承载操作。每次调用选择 21 个预定义 `ClientTool` 之一，并携带对应的 Protobuf 请求消息。设备通过 `client.tool.v0.list`（136）只公布实际安装的操作。`client.rpc.methods.list`（137）返回 `RpcMethod` 数字，用于识别协议 family 和版本。控制 App 使用 `GET /gizclaw/v1/device/tool/v0/tools` 与 `POST /gizclaw/v1/device/tool/v0/invoke`；Server 在接触设备前验证有类型的参数。详见 [Peer HTTP](./http/public)、[设备 provider](./proto/rpc/client-provided-to-server) 与 [RPC Reference](/references/rpc)。
 
-MHS enum 沿用旧设置的语义字符串值；RPC 中使用 `MhsValue.string_value`，不传旧 Protobuf enum 的整数或符号名。读取显式列出所需 key，写入只包含需要修改的 key；MHS write 返回本批次实际生效的值，不是完整 `DeviceSettings` 或 `PeerStatus`。未知或设备未实现的 key 返回错误，不沿用旧 settings 对不支持成员的忽略行为。超时后通过 read 确认当前值；完整规则见 [Peer HTTP](./http/public) 和 [设备 provider](./proto/rpc/client-provided-to-server)。
-
-`sound.play`、`find` 是动作，MHS v0 没有 procedures；`reboot`、`factory_reset`、`firmware.update`、Wi-Fi、audioplayer、`run.workspace.set`、tools 和 `rpc.methods.get` 均不弃用。`client.device.status.get` 与 `GET /gizclaw/v1/device/status` 继续提供超出硬件状态范围的设备标识与遥测快照，不由 MHS 替代。
-
-退役计划：只有在设备固件和控制 App 均完成迁移后才移除旧接口；本次变更不设移除日期。
+`GET /gizclaw/v1/device/status` 读取 Server 保存的标识与遥测快照；实时调用 `device.status.get` 工具可以刷新该快照。

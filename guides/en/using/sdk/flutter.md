@@ -37,9 +37,8 @@ final client = GizClawControlClient(
 );
 
 final status = await client.getDeviceStatus();
-// Legacy-device compatibility example; deprecated. New integrations use MHS v0.
-final applied = await client.setDeviceVolume(level: 35, muted: false);
-print('${status.volume} -> ${applied.status.volume}');
+final tools = await client.listDeviceTools();
+print('${status.volume} -> $tools');
 
 client.close();
 ```
@@ -53,7 +52,7 @@ server, which sends the credential in the clear.
 - API keys: `createApiKey`, `listApiKeys`, `getSelfApiKey`, `revokeSelfApiKey`, `getApiKey`, `revokeApiKey`.
 - Device reads: `getDevice`, `getDeviceRuntime`, `getDeviceStatus`, `getDeviceFirmware`, `getDeviceRuntimeProfile`, `getDeviceTelemetryLatest`, `queryDeviceTelemetry`, `aggregateDeviceTelemetry`.
 - Workspaces: `listDeviceWorkspaces` (optional `collection` and `workflowName` filters), `deleteDeviceWorkspace`, `listDeviceWorkspaceHistory`, `downloadDeviceHistoryAudio`, plus `deviceHistoryAudioUri` and `authorizationHeaders` for players that stream the audio themselves.
-- Device control: `setDeviceVolume`, `playDeviceSound`, `findDevice`, `rebootDevice`, `updateDeviceFirmware`, `getDeviceWifi`, `scanDeviceWifi`, `connectDeviceWifi`, `listDeviceSavedWifi`, `forgetDeviceSavedWifi`, `getDeviceSettings`, `updateDeviceSettings`, `factoryResetDevice`, `listDeviceRpcMethods`, `setDeviceRunWorkspace`, `listDeviceTools`, `invokeDeviceTool`.
+- Device control: `playDeviceSound`, `findDevice`, `rebootDevice`, `updateDeviceFirmware`, `scanDeviceWifi`, `connectDeviceWifi`, `listDeviceSavedWifi`, `forgetDeviceSavedWifi`, `factoryResetDevice`, `setDeviceRunWorkspace`, `listDeviceTools`, `getMhsManifest`, `readMhsStates`, `writeMhsStates`.
 - Contacts: `listContacts`, `createContact`, `getContact`, `putContact`, `deleteContact`.
 - Friends: `getFriendInviteToken`, `createFriendInviteToken` (optional `ttl`, 1 minute to 7 days), `clearFriendInviteToken`, `addFriend`, `listFriends`, `getFriend`, `deleteFriend`.
 - Friend Groups: `listFriendGroups`, `createFriendGroup`, `joinFriendGroup`, `getFriendGroup`, `putFriendGroup`, `deleteFriendGroup` (dissolve), `leaveFriendGroup`, `getFriendGroupInviteToken`, `createFriendGroupInviteToken`, `clearFriendGroupInviteToken`, `listFriendGroupMembers`, `addFriendGroupMember`, `putFriendGroupMember`, `deleteFriendGroupMember`. The `info` (`PeerProfileInfo`) of `Friend` and `FriendGroupMember` gives the other device's name and emoji; Groups are addressed by the device's own Group name, and roles are `FriendGroupRole`.
@@ -128,10 +127,6 @@ Devices install `readMhsStates`/`writeMhsStates` in `GizClawDeviceControlHandler
 
 This is GizClaw's MHS-inspired pre-standard v0, with no official compatibility claim. Manifests work offline; reads/writes allow at most 32 unique keys. Drivers validate the whole batch and enforce safety limits. See [Public API](/en/developing/api/http/public) and the [provider contract](/en/developing/api/proto/rpc/client-provided-to-server).
 
-## Deprecated hardware-state interfaces
+## tool/v0 procedures
 
-`client.device.volume.set` (101), `client.device.settings.get` (128) and `client.device.settings.set` (129) are deprecated in favor of `client.mhs.v0.write`, `client.mhs.v0.read` and `client.mhs.v0.write`, respectively. Legacy entry points remain compatible. The [migration table](/en/developing/api/overview#mhs-v0-migration) lists recommended product manifest keys. Removal waits for both firmware and control apps to migrate; no date is set.
-
-Device providers: `GizClawDeviceControlHandlers.setVolume`, `getSettings`, `setSettings` → `writeMhsStates`, `readMhsStates`, `writeMhsStates`.
-
-Controllers: `GizClawControlClient.setDeviceVolume`, `getDeviceSettings`, `updateDeviceSettings` → `writeMhsStates`, `readMhsStates`, `writeMhsStates`.
+Device providers install handlers for the predefined `ClientTool` values they implement. `client.tool.v0.list` reports that installed subset; typed control calls use the single `client.tool.v0.invoke` RPC. Hardware state uses the bound RuntimeProfile MHS v0 manifest and its read/write calls.

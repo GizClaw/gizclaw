@@ -178,11 +178,14 @@ Future<_StepOutcome> _runStep(
     if (client == null) {
       throw StateError('step ${step.id} has no connected client');
     }
-    final method = clientRpc['method'] as String;
+    final method = (clientRpc['tool'] ?? clientRpc['method']) as String;
     if (!client.inbound.containsKey(method)) {
       throw StateError('client RPC $method was not installed');
     }
     final expected = clientRpc['expect_calls'] as int? ?? 1;
+    if (expected == 0 && (client.inbound[method] ?? 0) != 0) {
+      throw StateError('client RPC $method unexpectedly reached the device');
+    }
     // The counter is cumulative from connect time and the wait is "at least
     // N", matching the Go runner.
     while ((client.inbound[method] ?? 0) < expected) {

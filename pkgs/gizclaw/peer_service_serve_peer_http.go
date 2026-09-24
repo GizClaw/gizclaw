@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -199,6 +200,12 @@ func (s *PeerService) publicHTTPHandlerWithOptions(apiKeys *apikey.Server, opts 
 		return ctx.Next()
 	})
 	app.Use(observeFiberRoute)
+	app.Use(func(ctx *fiber.Ctx) error {
+		if ctx.Method() == http.MethodPost && ctx.Path() == "/gizclaw/v1/device/tool/v0/invoke" && !utf8.Valid(ctx.Body()) {
+			return ctx.Status(http.StatusBadRequest).JSON(apitypes.NewErrorResponse(publicHTTPInvalidRequestCode, "invalid tool arguments"))
+		}
+		return ctx.Next()
+	})
 	peerhttp.RegisterHandlers(app, peerhttp.NewStrictHandler(s.public, nil))
 	return fiberHTTPHandler(app)
 }
@@ -273,11 +280,7 @@ func (s *PeerService) edgeSignalingPublicKey(ctx *fiber.Ctx) (giznet.PublicKey, 
 // optionalJSONBodyPaths lists the POST routes whose request body is optional in
 // api/http/peer.json. Every entry must stay in step with that schema.
 var optionalJSONBodyPaths = map[string]struct{}{
-	"/gizclaw/v1/device/actions/find":            {},
-	"/gizclaw/v1/device/actions/reboot":          {},
-	"/gizclaw/v1/device/actions/firmware-update": {},
-	"/gizclaw/v1/device/wifi/scan":               {},
-	"/gizclaw/v1/friends/invite-token":           {},
+	"/gizclaw/v1/friends/invite-token": {},
 }
 
 // hasOptionalJSONBody reports whether path is a POST route whose request body

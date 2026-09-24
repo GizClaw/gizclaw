@@ -522,10 +522,10 @@ void main() {
     channel.emitBinaryMessage(
       _rpcRequestBytes(
         id: 'srv-info',
-        method: rpc.RpcMethod.RPC_METHOD_CLIENT_INFO_GET,
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
         payloadBytes: encodeRpcRequestPayload(
-          'client.info.get',
-          ClientGetInfoRequest(),
+          'client.tool.v0.invoke',
+          ClientToolV0InvokeRequest(tool: ClientTool.CLIENT_TOOL_INFO_GET),
         ),
       ),
     );
@@ -538,7 +538,10 @@ void main() {
     );
     final response = rpc.RpcResponse.fromBuffer(frames.first.payload);
     final info =
-        decodeRpcResponsePayload('client.info.get', response.payload)
+        decodeClientToolResponsePayload(
+              clientToolByName('info.get').id,
+              ClientToolV0InvokeResponse.fromBuffer(response.payload).payload,
+            )
             as ClientGetInfoResponse;
     expect(info.value.hasModel(), isFalse);
   });

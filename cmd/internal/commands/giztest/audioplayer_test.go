@@ -24,7 +24,7 @@ func TestAudioPlayerGiztestDocuments(t *testing.T) {
 			var handlers gizcli.DeviceControlHandlers
 			for _, step := range doc.Steps {
 				if step.ClientRPC != nil {
-					if err := installDeviceControl(&handlers, step.ClientRPC.Method, step.ClientRPC.Response); err != nil {
+					if err := installDeviceControl(&handlers, step.ClientRPC.Tool, step.ClientRPC.Response); err != nil {
 						t.Fatal(err)
 					}
 				}
@@ -35,7 +35,7 @@ func TestAudioPlayerGiztestDocuments(t *testing.T) {
 
 func TestAudioPlayerScriptedResponseIsolation(t *testing.T) {
 	var handlers gizcli.DeviceControlHandlers
-	if err := installDeviceControl(&handlers, "client.device.audioplayer.play", map[string]any{"state": "playing", "repeat": "off", "playlist_length": 1, "current_index": 0}); err != nil {
+	if err := installDeviceControl(&handlers, "audioplayer.play", map[string]any{"state": "playing", "repeat": "off", "playlist_length": 1, "current_index": 0}); err != nil {
 		t.Fatal(err)
 	}
 	first, err := handlers.AudioPlayer.Play(context.Background(), &rpcpb.ClientDeviceAudioPlayerPlayRequest{Index: new(uint32(0))})
@@ -47,7 +47,7 @@ func TestAudioPlayerScriptedResponseIsolation(t *testing.T) {
 	if err != nil || second.Value.State != "playing" {
 		t.Fatalf("response=%v err=%v", second, err)
 	}
-	if err := installDeviceControl(&handlers, "client.device.audioplayer.stop", map[string]any{"error_code": 3}); err != nil {
+	if err := installDeviceControl(&handlers, "audioplayer.stop", map[string]any{"error_code": 3}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := handlers.AudioPlayer.Stop(context.Background(), new(rpcpb.ClientDeviceAudioPlayerStopRequest)); err == nil {

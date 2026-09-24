@@ -8,7 +8,7 @@ clients:
   peer:
     identity: ephemeral
     connection: webrtc
-    access_point: "${endpoint}"
+    access_point: ${endpoint}
 variables:
   endpoint:
     direction: input
@@ -28,52 +28,57 @@ variables:
     type: string
     secret: true
 steps:
-- id: register_peer
-  client: peer
-  rpc:
-    method: server.register
-    request:
-      token: "${registration_token}"
-- id: create_api_key
-  client: peer
-  rpc:
-    method: server.api_key.create
-    request:
-      display_name: "${resource_name}"
-  capture:
-    api_key: /api_key
-- id: primary_http
-  client: peer
-  http:
-    method: POST
-    path: /gizclaw/v1/device/actions/play-sound
-    headers:
-      Authorization: "Bearer ${api_key}"
-    body:
-      sound: chime
-      duration_ms: 1500
-    status: 204
-- id: too_long
-  client: peer
-  http:
-    method: POST
-    path: /gizclaw/v1/device/actions/play-sound
-    headers:
-      Authorization: "Bearer ${api_key}"
-    body:
-      sound: "123456789012345678901234567890123"
-    status: 400
-  expect:
-    /error/code:
-      equals: INVALID_REQUEST
-- id: provider_sound
-  client: peer
-  client_rpc:
-    method: client.device.sound.play
-    expect_calls: 1
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: primary_http
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: sound.play
+        args:
+          sound: chime
+          duration_ms: 1500
+      status: 200
+  - id: too_long
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: sound.play
+        args:
+          sound: "123456789012345678901234567890123"
+      status: 400
+    expect:
+      /error/code:
+        equals: INVALID_REQUEST
+  - id: provider_sound
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      expect_calls: 1
+      tool: sound.play
 finally:
-- id: cleanup_peer
-  client: peer
-  rpc:
-    method: server.peer.delete
-    request: {}
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

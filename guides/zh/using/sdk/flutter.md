@@ -37,9 +37,8 @@ final client = GizClawControlClient(
 );
 
 final status = await client.getDeviceStatus();
-// 旧设备兼容示例；此方法已弃用，新集成使用 MHS v0。
-final applied = await client.setDeviceVolume(level: 35, muted: false);
-print('${status.volume} -> ${applied.status.volume}');
+final tools = await client.listDeviceTools();
+print('${status.volume} -> $tools');
 
 client.close();
 ```
@@ -52,7 +51,7 @@ client.close();
 - API Key：`createApiKey`、`listApiKeys`、`getSelfApiKey`、`revokeSelfApiKey`、`getApiKey`、`revokeApiKey`。
 - 设备读取：`getDevice`、`getDeviceRuntime`、`getDeviceStatus`、`getDeviceFirmware`、`getDeviceRuntimeProfile`、`getDeviceTelemetryLatest`、`queryDeviceTelemetry`、`aggregateDeviceTelemetry`。
 - Workspace：`listDeviceWorkspaces`（可选 `collection`、`workflowName` 过滤）、`deleteDeviceWorkspace`、`listDeviceWorkspaceHistory`、`downloadDeviceHistoryAudio`，以及供自行拉流的播放器使用的 `deviceHistoryAudioUri` 与 `authorizationHeaders`。
-- 设备控制：`setDeviceVolume`、`playDeviceSound`、`findDevice`、`rebootDevice`、`updateDeviceFirmware`、`getDeviceWifi`、`scanDeviceWifi`、`connectDeviceWifi`、`listDeviceSavedWifi`、`forgetDeviceSavedWifi`、`getDeviceSettings`、`updateDeviceSettings`、`factoryResetDevice`、`listDeviceRpcMethods`、`setDeviceRunWorkspace`、`listDeviceTools`、`invokeDeviceTool`。
+- 设备控制：`playDeviceSound`、`findDevice`、`rebootDevice`、`updateDeviceFirmware`、`scanDeviceWifi`、`connectDeviceWifi`、`listDeviceSavedWifi`、`forgetDeviceSavedWifi`、`factoryResetDevice`、`setDeviceRunWorkspace`、`listDeviceTools`、`getMhsManifest`、`readMhsStates`、`writeMhsStates`。
 - Contact：`listContacts`、`createContact`、`getContact`、`putContact`、`deleteContact`。
 - 好友：`getFriendInviteToken`、`createFriendInviteToken`（可选 `ttl`，1 分钟到 7 天）、`clearFriendInviteToken`、`addFriend`、`listFriends`、`getFriend`、`deleteFriend`。
 - 群组：`listFriendGroups`、`createFriendGroup`、`joinFriendGroup`、`getFriendGroup`、`putFriendGroup`、`deleteFriendGroup`（解散）、`leaveFriendGroup`、`getFriendGroupInviteToken`、`createFriendGroupInviteToken`、`clearFriendGroupInviteToken`、`listFriendGroupMembers`、`addFriendGroupMember`、`putFriendGroupMember`、`deleteFriendGroupMember`。`Friend` 与 `FriendGroupMember` 的 `info`（`PeerProfileInfo`）给出对方设备的名字与 emoji；群组以设备自己的群名寻址，角色为 `FriendGroupRole`。
@@ -125,10 +124,6 @@ try {
 
 这是 GizClaw 自有的 MHS-inspired 预标准 v0，不声称官方兼容。manifest 离线可读，每次读写最多 32 个唯一 key；写入必须整批验证且驱动执行安全限制。完整错误与边界见 [Public API](/zh/developing/api/http/public) 和 [provider contract](/zh/developing/api/proto/rpc/client-provided-to-server)。
 
-## 已弃用的硬件状态接口
+## tool/v0 过程
 
-`client.device.volume.set`（101）、`client.device.settings.get`（128）和 `client.device.settings.set`（129）已弃用，分别改用 `client.mhs.v0.write`、`client.mhs.v0.read` 和 `client.mhs.v0.write`。旧入口继续兼容；[迁移表](/zh/developing/api/overview#mhs-v0-migration) 列出产品 manifest 的推荐 key。仅在固件和控制 App 均完成迁移后移除，本次不设日期。
-
-设备端：`GizClawDeviceControlHandlers.setVolume`、`getSettings`、`setSettings` → `writeMhsStates`、`readMhsStates`、`writeMhsStates`.
-
-控制端：`GizClawControlClient.setDeviceVolume`、`getDeviceSettings`、`updateDeviceSettings` → `writeMhsStates`、`readMhsStates`、`writeMhsStates`.
+设备端只为实际支持的预定义 `ClientTool` 安装 handler；`client.tool.v0.list` 仅返回已安装的子集。控制端的类型化调用统一使用 `client.tool.v0.invoke` RPC。硬件状态由已绑定 RuntimeProfile 的 MHS v0 manifest 声明，并通过 MHS 读写接口访问。

@@ -20,7 +20,7 @@ func TestServerPutGetListDeleteAndDefensiveCopies(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 9, 10, 0, 0, 0, time.UTC)
 	server := &Server{DB: newTestDatabase(t), Now: func() time.Time { return now }}
-	tool := testClientTool("volume_set")
+	tool := testCatalogTool("volume_set")
 	tool.Metadata = json.RawMessage(`{"category":"device"}`)
 	created, err := server.CreateTool(ctx, tool)
 	if err != nil {
@@ -64,7 +64,7 @@ func TestServerPutGetListDeleteAndDefensiveCopies(t *testing.T) {
 
 func TestServerAcceptsOpaqueToolID(t *testing.T) {
 	server := &Server{DB: newTestDatabase(t)}
-	tool := testClientTool("volume_set")
+	tool := testCatalogTool("volume_set")
 	tool.ID = "tenant:tool"
 	created, err := server.CreateTool(t.Context(), tool)
 	if err != nil {
@@ -79,18 +79,18 @@ func TestServerReportsToolIdentityConflicts(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	server := &Server{DB: newTestDatabase(t)}
-	created, err := server.CreateTool(ctx, testClientTool("volume_set"))
+	created, err := server.CreateTool(ctx, testCatalogTool("volume_set"))
 	if err != nil {
 		t.Fatalf("CreateTool() error = %v", err)
 	}
 
-	duplicateID := testClientTool("volume_get")
+	duplicateID := testCatalogTool("volume_get")
 	duplicateID.ID = created.ID
 	if _, err := server.CreateTool(ctx, duplicateID); !errors.Is(err, ErrToolConflict) {
 		t.Fatalf("CreateTool(duplicate ID) error = %v, want %v", err, ErrToolConflict)
 	}
 
-	duplicateName := testClientTool(created.InvokeName)
+	duplicateName := testCatalogTool(created.InvokeName)
 	duplicateName.ID = "different-id"
 	if _, err := server.CreateTool(ctx, duplicateName); !errors.Is(err, ErrToolConflict) {
 		t.Fatalf("CreateTool(duplicate invoke_name) error = %v, want %v", err, ErrToolConflict)
@@ -108,7 +108,7 @@ func TestCreateToolAtomicallyClaimsIDAndInvokeNameAcrossServers(t *testing.T) {
 
 	db := newTestDatabase(t)
 	servers := []*Server{{DB: db}, {DB: db}}
-	tools := []Tool{testClientTool("shared_tool"), testClientTool("shared_tool")}
+	tools := []Tool{testCatalogTool("shared_tool"), testCatalogTool("shared_tool")}
 	tools[0].ID = "tool-alpha"
 	tools[1].ID = "tool-beta"
 	type result struct {
@@ -201,13 +201,13 @@ func TestServerRetainsRotatesAndDropsDirectSecrets(t *testing.T) {
 func TestNormalizeToolRejectsInvalidNamesTypesSchemasAndHTTP(t *testing.T) {
 	t.Parallel()
 	for _, name := range []string{"", " volume", "volume ", "1volume", "音量", "a.b", string(make([]byte, 65))} {
-		tool := testClientTool(name)
+		tool := testCatalogTool(name)
 		if _, err := NormalizeTool(tool); err == nil {
 			t.Fatalf("NormalizeTool(name=%q) succeeded", name)
 		}
 	}
 	for _, schema := range []jsonschema.Schema{{}, {Type: "string"}, {Types: []string{"string", "null"}}} {
-		tool := testClientTool("volume_set")
+		tool := testCatalogTool("volume_set")
 		tool.InputSchema = schema
 		if _, err := NormalizeTool(tool); err == nil {
 			t.Fatalf("NormalizeTool(schema=%#v) succeeded", schema)
@@ -249,7 +249,7 @@ func TestNormalizeToolRejectsInvalidNamesTypesSchemasAndHTTP(t *testing.T) {
 
 func TestNormalizeToolValidatesTriggers(t *testing.T) {
 	t.Parallel()
-	tool := testClientTool("volume_set")
+	tool := testCatalogTool("volume_set")
 	tool.Triggers = []ToolTrigger{{
 		Name:     "set volume",
 		Patterns: []string{"set volume to {level}"},
@@ -276,7 +276,7 @@ func TestServerInvalidStateAndConfigErrors(t *testing.T) {
 	if _, err := server.GetTool(ctx, "bad:name"); !errors.Is(err, ErrInvalidTool) {
 		t.Fatalf("GetTool(invalid name) = %v", err)
 	}
-	tool, err := server.CreateTool(ctx, testClientTool("bad_json"))
+	tool, err := server.CreateTool(ctx, testCatalogTool("bad_json"))
 	if err != nil {
 		t.Fatal(err)
 	}

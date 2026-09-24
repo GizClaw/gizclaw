@@ -152,9 +152,6 @@ func (s *PeerService) deviceReadsForAPIKey(publicKey giznet.PublicKey) peerresou
 		reads.Status = s.manager.PeerRun
 		reads.RunAgents = s.manager.PeerRun
 	}
-	if s.manager.Tools != nil {
-		reads.Tools = s.manager.Tools
-	}
 	if s.manager.Peers != nil {
 		reads.Peers = s.manager.Peers
 	}

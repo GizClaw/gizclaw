@@ -30,7 +30,7 @@ func (s *Server) Initialize(ctx context.Context) error {
 	_, err = db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS tools (
  id TEXT PRIMARY KEY CHECK(length(id)>0),
  invoke_name TEXT NOT NULL UNIQUE CHECK(length(invoke_name)>0),
- type TEXT NOT NULL CHECK(type IN ('http_request','client_rpc')),
+ type TEXT NOT NULL CHECK(type IN ('http_request')),
  description TEXT,
  enabled BOOLEAN NOT NULL,
  version TEXT,

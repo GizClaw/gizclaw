@@ -16,6 +16,8 @@ import {
 import { FileDescriptorSetSchema } from "@bufbuild/protobuf/wkt";
 import type { TelemetryFrame } from "@gizclaw/gizclaw";
 import {
+  decodeClientToolRequestPayload,
+  encodeClientToolResponsePayload,
   decodeRPCRequestPayload,
   encodeRPCResponsePayload,
 } from "../../../../sdk/js/gizclaw/generated/rpc/payload-codec.ts";
@@ -28,33 +30,48 @@ const registry = createFileRegistry(
 );
 const methods = new Map<
   string,
-  { request: DescMessage; response: DescMessage }
+  { request: DescMessage; response: DescMessage; id: number }
 >();
-const methodEnum = registry.getEnum("gizclaw.rpc.v1.RpcMethod");
-const methodOption = registry.getExtension("gizclaw.rpc.v1.rpc_method");
-if (methodEnum == null || methodOption?.fieldKind !== "message") {
-  throw new Error("RPC descriptor set is missing method metadata");
-}
-for (const value of methodEnum.values) {
-  if (!hasOption(value, methodOption)) continue;
-  const option = getOption(value, methodOption);
-  if (!isMessage(option)) throw new Error("invalid RPC method option");
-  const meta = toJson(methodOption.message, option);
-  if (
-    meta == null ||
-    typeof meta !== "object" ||
-    Array.isArray(meta) ||
-    typeof meta.name !== "string" ||
-    typeof meta.request !== "string" ||
-    typeof meta.response !== "string"
-  ) {
-    throw new Error("invalid RPC method metadata");
+const tools = new Map<
+  string,
+  { request: DescMessage; response: DescMessage; id: number }
+>();
+loadRegistry("RpcMethod", "rpc_method", methods);
+loadRegistry("ClientTool", "client_tool", tools);
+function loadRegistry(
+  enumName: string,
+  optionName: string,
+  index: Map<
+    string,
+    { request: DescMessage; response: DescMessage; id: number }
+  >,
+): void {
+  const methodEnum = registry.getEnum(`gizclaw.rpc.v1.${enumName}`);
+  const methodOption = registry.getExtension(`gizclaw.rpc.v1.${optionName}`);
+  if (methodEnum == null || methodOption?.fieldKind !== "message") {
+    throw new Error("RPC descriptor set is missing method metadata");
   }
-  const request = registry.getMessage(`gizclaw.rpc.v1.${meta.request}`);
-  const response = registry.getMessage(`gizclaw.rpc.v1.${meta.response}`);
-  if (request == null || response == null)
-    throw new Error(`missing payload for ${meta.name}`);
-  methods.set(meta.name, { request, response });
+  for (const value of methodEnum.values) {
+    if (!hasOption(value, methodOption)) continue;
+    const option = getOption(value, methodOption);
+    if (!isMessage(option)) throw new Error("invalid RPC method option");
+    const meta = toJson(methodOption.message, option);
+    if (
+      meta == null ||
+      typeof meta !== "object" ||
+      Array.isArray(meta) ||
+      typeof meta.name !== "string" ||
+      typeof meta.request !== "string" ||
+      typeof meta.response !== "string"
+    ) {
+      throw new Error("invalid RPC method metadata");
+    }
+    const request = registry.getMessage(`gizclaw.rpc.v1.${meta.request}`);
+    const response = registry.getMessage(`gizclaw.rpc.v1.${meta.response}`);
+    if (request == null || response == null)
+      throw new Error(`missing payload for ${meta.name}`);
+    index.set(meta.name, { request, response, id: value.number });
+  }
 }
 
 function payloadSchema(
@@ -183,4 +200,26 @@ function sdkValue(field: DescField, value: unknown): unknown {
 
 function sdkScalar(value: unknown): unknown {
   return typeof value === "bigint" ? Number(value) : value;
+}
+
+export function toolRequestFromProtoJSON(
+  tool: string,
+  input: unknown,
+): unknown {
+  const info = tools.get(tool);
+  if (info == null) throw new Error(`unknown tool ${tool}`);
+  const message = fromJsonString(info.request, JSON.stringify(input ?? {}));
+  return decodeClientToolRequestPayload(
+    info.id,
+    toBinary(info.request, message),
+  );
+}
+export function toolResponseToProtoJSON(tool: string, input: unknown): unknown {
+  const info = tools.get(tool);
+  if (info == null) throw new Error(`unknown tool ${tool}`);
+  return toJson(
+    info.response,
+    fromBinary(info.response, encodeClientToolResponsePayload(info.id, input)),
+    { useProtoFieldName: true, alwaysEmitImplicit: true },
+  );
 }

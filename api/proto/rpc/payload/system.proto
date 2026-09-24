@@ -3,7 +3,7 @@
 syntax = "proto3";
 
 import "payload/audioplayer.proto";
-import "payload/enums.proto";
+import "rpc.proto";
 
 package gizclaw.rpc.v1;
 
@@ -31,81 +31,12 @@ message ClientDeviceStatusGetResponse {
   PeerStatus value = 1;
 }
 
-// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
-message ClientDeviceVolumeSetRequest {
-  option deprecated = true;
-  int64 level = 1;
-  bool muted = 2;
-}
-
-// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
-message ClientDeviceVolumeSetResponse {
-  option deprecated = true;
-  PeerStatus value = 1;
-}
-
 message ClientDeviceSoundPlayRequest {
   string sound = 1;
   optional int64 duration_ms = 2;
 }
 
 message ClientDeviceSoundPlayResponse {
-}
-
-// DeviceSettings is the device's own configuration, readable and writable by
-// the Server over reverse RPC. Every member is optional in both directions: on
-// a set request an absent member leaves that option unchanged, and on any
-// response an absent member means the device does not support that option.
-// That is what lets one message serve devices with different hardware without
-// a per-option RPC method.
-message DeviceSettings {
-  // Whether the cellular (4G) modem is powered and allowed to carry traffic.
-  optional bool cellular_enabled = 1;
-  // Idle time before the screen turns off; 0 keeps the screen always on.
-  optional int64 screen_off_timeout_ms = 2;
-  // Screen backlight level in [0, 100].
-  optional int64 screen_brightness = 3;
-  // Indicator light level in [0, 100].
-  optional int64 led_brightness = 4;
-  // UI language as a well-formed BCP 47 tag of at most 35 bytes: a 2-8 letter
-  // primary subtag followed by hyphen-separated 1-8 character alphanumeric
-  // subtags, e.g. "zh-CN", "zh-Hant-TW" or "es-419". POSIX forms such as
-  // "zh_CN" are rejected; whether the device offers the language is its own
-  // decision.
-  optional string locale = 5;
-  optional DeviceInteractionMode default_interaction_mode = 6;
-  optional DeviceKeyFeedback key_feedback = 7;
-  optional DeviceAlertMode alert_mode = 8;
-  // Idle time before the device sleeps; 0 disables automatic sleep.
-  optional int64 auto_sleep_timeout_ms = 9;
-  // Whether the NFC reader is powered.
-  optional bool nfc_enabled = 10;
-}
-
-// Deprecated: Use client.mhs.v0.read with RuntimeProfile manifest keys.
-message ClientDeviceSettingsGetRequest {
-  option deprecated = true;
-}
-
-// Deprecated: Use client.mhs.v0.read with RuntimeProfile manifest keys.
-message ClientDeviceSettingsGetResponse {
-  option deprecated = true;
-  DeviceSettings value = 1;
-}
-
-// ClientDeviceSettingsSetRequest applies only the members it carries. The
-// response is the device's full settings after the change, so a caller sees
-// which options the device actually accepted.
-// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
-message ClientDeviceSettingsSetRequest {
-  option deprecated = true;
-  DeviceSettings value = 1;
-}
-
-// Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
-message ClientDeviceSettingsSetResponse {
-  option deprecated = true;
-  DeviceSettings value = 1;
 }
 
 // ClientDeviceFactoryResetRequest erases device-local state. It is
@@ -134,15 +65,19 @@ message ClientRunWorkspaceSetRequest {
 message ClientRunWorkspaceSetResponse {
 }
 
-message ClientRpcMethodsGetRequest {
+message ClientRpcMethodsListRequest {
 }
 
-// ClientRpcMethodsGetResponse lists the RPC method names the device
-// implements, so the Server can hide or reject a control it would only fail.
-// Names are the registry names from RpcMethod, e.g. "client.device.reboot".
-// Unknown names must be ignored rather than rejected.
-message ClientRpcMethodsGetResponse {
-  repeated string methods = 1;
+// ClientRpcMethodsListResponse lists the RPC methods the device implements, as
+// RpcMethod numbers rather than names: the set is small, fixed and numeric, so
+// a constrained device answers from a handful of varints instead of a table of
+// strings. It is how a caller learns which protocol families and versions the
+// device speaks, for example mhs/v0 through 133 and 134 or tool/v0 through 135
+// and 136; a later mhs/v1 or tool/v1 appears here as its own numbers. Which
+// individual tools tool/v0 offers is a separate question, answered by
+// client.tool.v0.list. Unknown numbers must be ignored rather than rejected.
+message ClientRpcMethodsListResponse {
+  repeated RpcMethod methods = 1;
 }
 
 // ClientDeviceFindRequest asks the device to play its built-in find-me sound.
@@ -162,23 +97,8 @@ message ClientDeviceRebootRequest {
 message ClientDeviceRebootResponse {
 }
 
-message WifiStatus {
-  bool connected = 1;
-  optional string ssid = 2;
-  optional int64 rssi_dbm = 3;
-  optional string ip = 4;
-  optional string bssid = 5;
-}
-
 message WifiSavedNetwork {
   string ssid = 1;
-}
-
-message ClientWifiStatusGetRequest {
-}
-
-message ClientWifiStatusGetResponse {
-  WifiStatus value = 1;
 }
 
 message ClientWifiSavedListRequest {

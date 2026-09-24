@@ -10,30 +10,41 @@
     "schemas": {
       "RuntimeProfileI18nText": {
         "type": "object",
-        "required": ["display_name"],
+        "required": [
+          "display_name"
+        ],
         "additionalProperties": false,
         "properties": {
-          "display_name": { "type": "string", "minLength": 1 },
-          "description": { "type": "string" }
+          "display_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          }
         }
       },
       "RuntimeProfileBinding": {
         "type": "object",
-        "required": ["resource_id", "i18n"],
+        "required": [
+          "resource_id",
+          "i18n"
+        ],
         "additionalProperties": false,
         "properties": {
-          "resource_id": { "type": "string", "minLength": 1 },
+          "resource_id": {
+            "type": "string",
+            "minLength": 1
+          },
           "i18n": {
             "type": "object",
-            "required": ["en", "zh-CN"],
+            "required": [
+              "en",
+              "zh-CN"
+            ],
             "additionalProperties": {
               "$ref": "#/components/schemas/RuntimeProfileI18nText"
             }
-          },
-          "control_access": {
-            "type": "string",
-            "enum": ["owner"],
-            "description": "Only valid under resources.tools. Exposes this Tool to the device owner's control app through GET /gizclaw/v1/device/tools and POST /gizclaw/v1/device/tools/{name}/actions/invoke; owner means any API key of the Peer that owns the device. When omitted the control app can neither list nor invoke the Tool, which stays reachable only by AI and Workflow runtimes. Only enabled client_rpc Tools are ever exposed. Stricter levels, such as a guardian authorization, are added to this enum later."
           }
         }
       },
@@ -48,7 +59,9 @@
       },
       "RuntimeProfileWorkflows": {
         "type": "object",
-        "required": ["collections"],
+        "required": [
+          "collections"
+        ],
         "additionalProperties": false,
         "properties": {
           "collections": {
@@ -58,11 +71,19 @@
       },
       "RuntimeProfileMemoryDriver": {
         "type": "string",
-        "enum": ["flowcraft", "mem0", "volc_mem0"]
+        "enum": [
+          "flowcraft",
+          "mem0",
+          "volc_mem0"
+        ]
       },
       "RuntimeProfileMemoryBinding": {
         "type": "object",
-        "required": ["layout_id", "driver", "connection"],
+        "required": [
+          "layout_id",
+          "driver",
+          "connection"
+        ],
         "additionalProperties": false,
         "properties": {
           "layout_id": {
@@ -112,23 +133,32 @@
       },
       "RuntimeProfileFlowcraftBBHConnection": {
         "type": "object",
-        "required": ["type"],
+        "required": [
+          "type"
+        ],
         "additionalProperties": false,
         "properties": {
           "type": {
             "type": "string",
-            "enum": ["flowcraft_bbh"]
+            "enum": [
+              "flowcraft_bbh"
+            ]
           }
         }
       },
       "RuntimeProfileFlowcraftObjectStoreConnection": {
         "type": "object",
-        "required": ["type", "directory"],
+        "required": [
+          "type",
+          "directory"
+        ],
         "additionalProperties": false,
         "properties": {
           "type": {
             "type": "string",
-            "enum": ["flowcraft_object_store"]
+            "enum": [
+              "flowcraft_object_store"
+            ]
           },
           "directory": {
             "type": "string",
@@ -138,12 +168,17 @@
       },
       "RuntimeProfileFlowcraftPostgreSQLConnection": {
         "type": "object",
-        "required": ["type", "dsn"],
+        "required": [
+          "type",
+          "dsn"
+        ],
         "additionalProperties": false,
         "properties": {
           "type": {
             "type": "string",
-            "enum": ["flowcraft_postgresql"]
+            "enum": [
+              "flowcraft_postgresql"
+            ]
           },
           "dsn": {
             "type": "string",
@@ -153,12 +188,17 @@
       },
       "RuntimeProfileFlowcraftRedis8Connection": {
         "type": "object",
-        "required": ["type", "url"],
+        "required": [
+          "type",
+          "url"
+        ],
         "additionalProperties": false,
         "properties": {
           "type": {
             "type": "string",
-            "enum": ["flowcraft_redis8"]
+            "enum": [
+              "flowcraft_redis8"
+            ]
           },
           "url": {
             "type": "string",
@@ -173,12 +213,19 @@
       },
       "RuntimeProfileMem0Connection": {
         "type": "object",
-        "required": ["type", "project_id", "endpoint", "api_key"],
+        "required": [
+          "type",
+          "project_id",
+          "endpoint",
+          "api_key"
+        ],
         "additionalProperties": false,
         "properties": {
           "type": {
             "type": "string",
-            "enum": ["mem0"]
+            "enum": [
+              "mem0"
+            ]
           },
           "project_id": {
             "type": "string",
@@ -202,12 +249,19 @@
       },
       "RuntimeProfileVolcMem0Connection": {
         "type": "object",
-        "required": ["type", "memory_project_id", "endpoint", "api_key"],
+        "required": [
+          "type",
+          "memory_project_id",
+          "endpoint",
+          "api_key"
+        ],
         "additionalProperties": false,
         "properties": {
           "type": {
             "type": "string",
-            "enum": ["volc_mem0"]
+            "enum": [
+              "volc_mem0"
+            ]
           },
           "memory_project_id": {
             "type": "string",
@@ -235,19 +289,27 @@
         "properties": {
           "models": {
             "type": "object",
-            "additionalProperties": { "$ref": "#/components/schemas/RuntimeProfileBinding" }
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RuntimeProfileBinding"
+            }
           },
           "voices": {
             "type": "object",
-            "additionalProperties": { "$ref": "#/components/schemas/RuntimeProfileBinding" }
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RuntimeProfileBinding"
+            }
           },
           "tools": {
             "type": "object",
-            "additionalProperties": { "$ref": "#/components/schemas/RuntimeProfileBinding" }
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RuntimeProfileBinding"
+            }
           },
           "memories": {
             "type": "object",
-            "additionalProperties": { "$ref": "#/components/schemas/RuntimeProfileMemoryBinding" }
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RuntimeProfileMemoryBinding"
+            }
           }
         }
       },
@@ -265,35 +327,60 @@
         "additionalProperties": false,
         "description": "Tenant-defined complete prompts for each level. Child does not inherit or concatenate general. No built-in prompts or off entry exist. Reload fails when the selected level is missing.",
         "properties": {
-          "general": { "$ref": "#/components/schemas/RuntimeProfileSafetyFence" },
-          "child": { "$ref": "#/components/schemas/RuntimeProfileSafetyFence" }
+          "general": {
+            "$ref": "#/components/schemas/RuntimeProfileSafetyFence"
+          },
+          "child": {
+            "$ref": "#/components/schemas/RuntimeProfileSafetyFence"
+          }
         }
       },
       "RuntimeProfileSafetyFence": {
         "type": "object",
-        "required": ["prompt"],
+        "required": [
+          "prompt"
+        ],
         "additionalProperties": false,
         "properties": {
-          "prompt": { "type": "string", "minLength": 1, "maxLength": 4096 }
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
         }
       },
       "RuntimeProfileMhs": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "v0": { "$ref": "./mhs_v0.json#/components/schemas/MhsV0Manifest" }
+          "v0": {
+            "$ref": "./mhs_v0.json#/components/schemas/MhsV0Manifest"
+          }
         }
       },
       "RuntimeProfileSpec": {
         "type": "object",
-        "required": ["workflows", "resources"],
+        "required": [
+          "workflows",
+          "resources"
+        ],
         "additionalProperties": false,
         "properties": {
-          "workflows": { "$ref": "#/components/schemas/RuntimeProfileWorkflows" },
-          "resources": { "$ref": "#/components/schemas/RuntimeProfileResources" },
-          "safety_fences": { "$ref": "#/components/schemas/RuntimeProfileSafetyFences" },
-          "mhs": { "$ref": "#/components/schemas/RuntimeProfileMhs" },
-          "app_config": { "$ref": "#/components/schemas/RuntimeProfileAppConfig" }
+          "workflows": {
+            "$ref": "#/components/schemas/RuntimeProfileWorkflows"
+          },
+          "resources": {
+            "$ref": "#/components/schemas/RuntimeProfileResources"
+          },
+          "safety_fences": {
+            "$ref": "#/components/schemas/RuntimeProfileSafetyFences"
+          },
+          "mhs": {
+            "$ref": "#/components/schemas/RuntimeProfileMhs"
+          },
+          "app_config": {
+            "$ref": "#/components/schemas/RuntimeProfileAppConfig"
+          }
         }
       }
     }

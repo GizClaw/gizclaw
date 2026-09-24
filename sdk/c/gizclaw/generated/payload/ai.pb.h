@@ -757,16 +757,6 @@ typedef struct _gizclaw_rpc_v1_ToolGetResponse {
     pb_callback_t runtime_profile_revision;
 } gizclaw_rpc_v1_ToolGetResponse;
 
-typedef struct _gizclaw_rpc_v1_ToolInvokeRequest {
-    bool has_args;
-    google_protobuf_Struct args;
-    char invoke_name[65];
-} gizclaw_rpc_v1_ToolInvokeRequest;
-
-typedef struct _gizclaw_rpc_v1_ToolInvokeResponse {
-    char data_json[65400];
-} gizclaw_rpc_v1_ToolInvokeResponse;
-
 
 #ifdef __cplusplus
 extern "C" {
@@ -882,8 +872,6 @@ extern "C" {
 
 
 
-
-
 /* Initializer values for message structs */
 #define gizclaw_rpc_v1_ResourceI18nText_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_SpeechTranscribeRequest_init_default {"", "", false, ""}
@@ -959,8 +947,6 @@ extern "C" {
 #define gizclaw_rpc_v1_ToolListResponse_init_default {{{NULL}, NULL}, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolGetRequest_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolGetResponse_init_default {false, gizclaw_rpc_v1_Tool_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ToolInvokeRequest_init_default {false, google_protobuf_Struct_init_default, ""}
-#define gizclaw_rpc_v1_ToolInvokeResponse_init_default {""}
 #define gizclaw_rpc_v1_ResourceI18nText_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_SpeechTranscribeRequest_init_zero {"", "", false, ""}
 #define gizclaw_rpc_v1_SpeechTranscribeResponse_init_zero {""}
@@ -1035,8 +1021,6 @@ extern "C" {
 #define gizclaw_rpc_v1_ToolListResponse_init_zero {{{NULL}, NULL}, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolGetRequest_init_zero  {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolGetResponse_init_zero {false, gizclaw_rpc_v1_Tool_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ToolInvokeRequest_init_zero {false, google_protobuf_Struct_init_zero, ""}
-#define gizclaw_rpc_v1_ToolInvokeResponse_init_zero {""}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define gizclaw_rpc_v1_ResourceI18nText_display_name_tag 1
@@ -1387,9 +1371,6 @@ extern "C" {
 #define gizclaw_rpc_v1_ToolGetResponse_value_tag 1
 #define gizclaw_rpc_v1_ToolGetResponse_runtime_profile_name_tag 2
 #define gizclaw_rpc_v1_ToolGetResponse_runtime_profile_revision_tag 3
-#define gizclaw_rpc_v1_ToolInvokeRequest_args_tag 1
-#define gizclaw_rpc_v1_ToolInvokeRequest_invoke_name_tag 2
-#define gizclaw_rpc_v1_ToolInvokeResponse_data_json_tag 1
 
 /* Struct field encoding specification for nanopb */
 #define gizclaw_rpc_v1_ResourceI18nText_FIELDLIST(X, a) \
@@ -2098,18 +2079,6 @@ X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   3)
 #define gizclaw_rpc_v1_ToolGetResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_ToolGetResponse_value_MSGTYPE gizclaw_rpc_v1_Tool
 
-#define gizclaw_rpc_v1_ToolInvokeRequest_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  args,              1) \
-X(a, STATIC,   SINGULAR, STRING,   invoke_name,       2)
-#define gizclaw_rpc_v1_ToolInvokeRequest_CALLBACK NULL
-#define gizclaw_rpc_v1_ToolInvokeRequest_DEFAULT NULL
-#define gizclaw_rpc_v1_ToolInvokeRequest_args_MSGTYPE google_protobuf_Struct
-
-#define gizclaw_rpc_v1_ToolInvokeResponse_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, STRING,   data_json,         1)
-#define gizclaw_rpc_v1_ToolInvokeResponse_CALLBACK NULL
-#define gizclaw_rpc_v1_ToolInvokeResponse_DEFAULT NULL
-
 extern const pb_msgdesc_t gizclaw_rpc_v1_ResourceI18nText_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_SpeechTranscribeRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_SpeechTranscribeResponse_msg;
@@ -2184,8 +2153,6 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolListRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ToolListResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ToolGetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ToolGetResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define gizclaw_rpc_v1_ResourceI18nText_fields &gizclaw_rpc_v1_ResourceI18nText_msg
@@ -2262,8 +2229,6 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 #define gizclaw_rpc_v1_ToolListResponse_fields &gizclaw_rpc_v1_ToolListResponse_msg
 #define gizclaw_rpc_v1_ToolGetRequest_fields &gizclaw_rpc_v1_ToolGetRequest_msg
 #define gizclaw_rpc_v1_ToolGetResponse_fields &gizclaw_rpc_v1_ToolGetResponse_msg
-#define gizclaw_rpc_v1_ToolInvokeRequest_fields &gizclaw_rpc_v1_ToolInvokeRequest_msg
-#define gizclaw_rpc_v1_ToolInvokeResponse_fields &gizclaw_rpc_v1_ToolInvokeResponse_msg
 
 /* Maximum encoded size of messages (where known) */
 /* gizclaw_rpc_v1_ResourceI18nText_size depends on runtime parameters */
@@ -2327,7 +2292,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 /* gizclaw_rpc_v1_ToolListResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ToolGetRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ToolGetResponse_size depends on runtime parameters */
-#define GIZCLAW_RPC_V1_PAYLOAD_AI_PB_H_MAX_SIZE  gizclaw_rpc_v1_ToolInvokeResponse_size
+#define GIZCLAW_RPC_V1_PAYLOAD_AI_PB_H_MAX_SIZE  gizclaw_rpc_v1_SpeechExtractResponse_size
 #define gizclaw_rpc_v1_ConversationParameters_size 4
 #define gizclaw_rpc_v1_DoubaoRealtimeAudioFormat_size 13
 #define gizclaw_rpc_v1_DoubaoRealtimeAudioInput_size 15
@@ -2339,13 +2304,11 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 #define gizclaw_rpc_v1_SpeechSynthesizeResponse_size 153
 #define gizclaw_rpc_v1_SpeechTranscribeRequest_size 230
 #define gizclaw_rpc_v1_SpeechTranscribeResponse_size 8195
-#define gizclaw_rpc_v1_ToolInvokeResponse_size   65403
 #if defined(google_protobuf_Struct_size) && defined(google_protobuf_Struct_size) && defined(google_protobuf_Struct_size) && defined(google_protobuf_Struct_size)
 #define gizclaw_rpc_v1_EinoWorkflowSpec_size     (24 + google_protobuf_Struct_size + google_protobuf_Struct_size + google_protobuf_Struct_size + google_protobuf_Struct_size)
 #endif
 #if defined(google_protobuf_Struct_size)
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_size (6 + google_protobuf_Struct_size)
-#define gizclaw_rpc_v1_ToolInvokeRequest_size    (72 + google_protobuf_Struct_size)
 #endif
 
 #ifdef __cplusplus

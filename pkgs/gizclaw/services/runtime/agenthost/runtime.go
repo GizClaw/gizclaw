@@ -87,7 +87,6 @@ type Service struct {
 	Host                       genx.TransformerMux
 	PeerRun                    PeerRunStore
 	RuntimeProfile             func() *apitypes.RuntimeProfile
-	ClientTools                ClientToolInvoker
 	ValidateWorkspaceSelection WorkspaceSelectionValidatorFunc
 	AllowRestrictedReload      func(context.Context, string) bool
 	PublicKey                  giznet.PublicKey
@@ -201,7 +200,7 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	if profileSnapshot != nil {
 		baseCtx = withRuntimeProfile(baseCtx, *profileSnapshot)
 	}
-	baseCtx, err = WithToolExecution(baseCtx, profileTools(profileSnapshot), s.ClientTools)
+	baseCtx, err = WithToolExecution(baseCtx, profileTools(profileSnapshot))
 	if err != nil {
 		_ = input.CloseWithError(err)
 		return s.reloadFailure(ctx, workspaceName, err)

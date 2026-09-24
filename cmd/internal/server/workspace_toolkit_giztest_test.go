@@ -90,7 +90,7 @@ func TestWorkspaceToolkitGiztest(t *testing.T) {
 
 	tools := &toolkit.Server{DB: server.ToolDB}
 	for _, entry := range []struct{ id, name string }{{"giztest-client-echo", "giztest_echo"}, {"giztest-client-other", "giztest_other"}} {
-		if _, err := tools.CreateTool(ctx, toolkit.Tool{ID: entry.id, InvokeName: entry.name, Type: toolkit.ToolTypeClientRPC, Enabled: true, InputSchema: jsonschema.Schema{Type: "object"}}); err != nil {
+		if _, err := tools.CreateTool(ctx, toolkit.Tool{ID: entry.id, InvokeName: entry.name, Type: toolkit.ToolTypeHTTPRequest, Enabled: true, InputSchema: jsonschema.Schema{Type: "object"}, HTTP: &toolkit.HTTPRequest{URL: "https://example.com/tool", Method: "GET", Auth: toolkit.HTTPAuth{Method: "none"}, Timeout: time.Second, MaxResponseBytes: 1024}}); err != nil {
 			t.Fatal(err)
 		}
 	}

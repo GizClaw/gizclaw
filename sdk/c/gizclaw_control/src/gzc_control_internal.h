@@ -93,8 +93,6 @@ int gzc_control_decode_api_key(gzc_str_t object_json, gzc_control_api_key_t *out
 int gzc_control_decode_device_info(gzc_str_t object_json, gzc_control_device_info_t *out);
 int gzc_control_decode_device_runtime(gzc_str_t object_json, gzc_control_device_runtime_t *out);
 int gzc_control_decode_peer_status(gzc_str_t object_json, gzc_control_peer_status_t *out);
-int gzc_control_decode_wifi_status(gzc_str_t object_json, gzc_control_wifi_status_t *out);
-int gzc_control_decode_device_settings(gzc_str_t object_json, gzc_control_device_settings_t *out);
 int gzc_control_decode_wifi_scan_result(
     gzc_str_t object_json,
     gzc_control_wifi_scan_result_t *out);
@@ -141,7 +139,6 @@ int gzc_control_decode_wifi_scan_result_item(gzc_str_t object_json, void *out);
 int gzc_control_decode_runtime_profile_collection_item(gzc_str_t object_json, void *out);
 int gzc_control_decode_device_workspace_item(gzc_str_t object_json, void *out);
 int gzc_control_decode_string_item(gzc_str_t raw_json, void *out);
-int gzc_control_decode_device_tool_item(gzc_str_t object_json, void *out);
 
 /* Shared string unescape; output is caller-owned, raw must be a string token. */
 int gzc_control_unescape_string(gzc_str_t raw, char *dst, size_t dst_cap, gzc_str_t *out);

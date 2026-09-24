@@ -5,6 +5,7 @@
 #include "gzc_rpc_frame.h"
 #include "gzc_signaling.h"
 #include "gzc_webrtc.h"
+#include "payload/tool.pb.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -31,7 +32,7 @@ typedef int (*gzc_rpc_provider_respond_fn)(
     const gzc_rpc_provider_response_t *response);
 
 /*
- * Handles server-initiated client.* methods. Request and response payloads are
+ * Handles an installed MHS read or write method. Request and response payloads are
  * protobuf message bytes. request_payload is borrowed until this callback
  * returns. The provider must call respond exactly once before returning GZC_OK.
  */
@@ -43,9 +44,10 @@ typedef int (*gzc_rpc_provider_fn)(
     void *respond_userdata);
 
 /*
- * Handles one canonically named client_rpc Tool. request_payload is the
- * encoded ToolInvokeRequest and the response payload must be an encoded
- * ToolInvokeResponse. Views are borrowed for the synchronous call.
+ * Handles one ClientTool. request_payload and the response payload are the
+ * encoded messages selected by ClientTool, without the invoke envelope.
+ * Views are borrowed for the synchronous call. Validate all arguments before
+ * changing hardware; return INVALID_ARGUMENT for rejected arguments.
  */
 typedef int (*gzc_tool_handler_fn)(
     void *userdata,
@@ -54,7 +56,7 @@ typedef int (*gzc_tool_handler_fn)(
     void *respond_userdata);
 
 typedef struct {
-  gzc_str_t name;
+  gizclaw_rpc_v1_ClientTool tool;
   gzc_tool_handler_fn handler;
   void *userdata;
 } gzc_tool_handler_t;
@@ -91,8 +93,14 @@ typedef struct {
   size_t service_write_high_water_bytes;
   size_t service_write_low_water_bytes;
   void *userdata;
-  gzc_rpc_provider_fn rpc_provider;
-  void *rpc_provider_userdata;
+  /* Called synchronously after decoding, including unimplemented tools.
+   * tool is UNSPECIFIED for a base or MHS method. No SDK mutex is held. */
+  void (*rpc_observer)(void *userdata, int method, gizclaw_rpc_v1_ClientTool tool);
+  void *rpc_observer_userdata;
+  gzc_rpc_provider_fn mhs_read;
+  gzc_rpc_provider_fn mhs_write;
+  void *mhs_userdata;
+  /* Borrowed for the client's lifetime. Only these tools are advertised. */
   const gzc_tool_handler_t *tool_handlers;
   size_t tool_handler_count;
 } gzc_client_config_t;

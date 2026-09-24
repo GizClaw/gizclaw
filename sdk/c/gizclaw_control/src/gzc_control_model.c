@@ -611,30 +611,6 @@ int gzc_control_peer_status_labels(
   }
 }
 
-int gzc_control_decode_wifi_status(gzc_str_t object_json, gzc_control_wifi_status_t *out) {
-  if (out == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  memset(out, 0, sizeof(*out));
-  int rc = gzc_json_validate_object(object_json);
-  if (rc == GZC_OK) {
-    rc = gzc_control_req_bool(object_json, "connected", &out->connected);
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_control_opt_str(object_json, "ssid", &out->ssid);
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_control_opt_i32(object_json, "rssi_dbm", &out->rssi_dbm, &out->has_rssi_dbm);
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_control_opt_str(object_json, "ip", &out->ip);
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_control_opt_str(object_json, "bssid", &out->bssid);
-  }
-  return rc;
-}
-
 int gzc_control_decode_wifi_scan_result(
     gzc_str_t object_json,
     gzc_control_wifi_scan_result_t *out) {
@@ -948,68 +924,8 @@ int gzc_control_decode_audioplayer_status(gzc_str_t object_json, gzc_control_aud
   return rc;
 }
 
-int gzc_control_decode_device_settings(gzc_str_t object_json, gzc_control_device_settings_t *out) {
-  if (out == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  memset(out, 0, sizeof(*out));
-  int rc = gzc_json_validate_object(object_json);
-  if (rc == GZC_OK) {
-    rc = gzc_control_opt_bool(object_json, "cellular_enabled", &out->cellular_enabled, &out->has_cellular_enabled);
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_control_opt_i64(
-        object_json, "screen_off_timeout_ms", &out->screen_off_timeout_ms, &out->has_screen_off_timeout_ms);
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_control_opt_i64(object_json, "screen_brightness", &out->screen_brightness, &out->has_screen_brightness);
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_control_opt_i64(object_json, "led_brightness", &out->led_brightness, &out->has_led_brightness);
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_control_opt_str(object_json, "locale", &out->locale);
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_control_opt_str(object_json, "default_interaction_mode", &out->default_interaction_mode);
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_control_opt_str(object_json, "key_feedback", &out->key_feedback);
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_control_opt_str(object_json, "alert_mode", &out->alert_mode);
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_control_opt_i64(
-        object_json, "auto_sleep_timeout_ms", &out->auto_sleep_timeout_ms, &out->has_auto_sleep_timeout_ms);
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_control_opt_bool(object_json, "nfc_enabled", &out->nfc_enabled, &out->has_nfc_enabled);
-  }
-  return rc;
-}
-
 int gzc_control_decode_string_item(gzc_str_t raw_json, void *out) {
   return gzc_json_parse_string(raw_json, (gzc_str_t *)out);
-}
-
-int gzc_control_decode_device_tool_item(gzc_str_t object_json, void *result) {
-  gzc_control_device_tool_t *out = result;
-  memset(out, 0, sizeof(*out));
-  int rc = gzc_json_validate_object(object_json);
-  if (rc == GZC_OK) {
-    rc = gzc_control_req_str(object_json, "name", &out->name);
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_control_req_str(object_json, "control_access", &out->control_access);
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_control_opt_raw(object_json, "i18n", &out->i18n);
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_control_opt_raw(object_json, "input_schema", &out->input_schema);
-  }
-  return rc;
 }
 
 static int hex_digit(char c) {

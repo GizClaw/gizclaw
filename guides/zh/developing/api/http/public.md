@@ -21,7 +21,7 @@ API Key 的鉴权和管理契约见 [Peer HTTP · API Key](../../gizclaw/peer/se
 
 - `GET /device` 返回 `DeviceInfo`（name、emoji、`HardwareInfo`、`DeviceIdentifiers`），与 `server.info.get` 同源。
 - `GET /device/runtime` 返回 `Runtime`（online、last seen、address、RX/TX），读取不刷新在线状态。`active_workspace_name` 是设备通过 `server.run.workspace.reload-with-options` 最近一次提交的 Workspace，`pending_workspace_name` 是已选中但设备尚未提交的 Workspace（例如 `PUT /device/run/workspace` 切换进行中）；两者读自 Server 的 `peer_runs` 记录，设备离线时同样可读，未设置时省略。
-- `GET /device/status` 返回最近一次 authoritative `PeerStatus` snapshot；不提供 `fresh` 参数，`client.device.status.get` 只用于控制响应回写。
+- `GET /device/status` 返回最近一次 authoritative `PeerStatus` snapshot；不提供 `fresh` 参数，`device.status.get` 工具用于实时查询并回写。
 - `GET /device/telemetry/{field}/latest`、`/device/telemetry`、`/device/telemetry/aggregate` 保留 Admin telemetry 的字段枚举、采样时间、查询边界、排序与 aggregate 语义，只把 Peer 固定为 owner。
 - `GET /device/firmware` 返回 owner 绑定的 Firmware 配置的全部 channel（`stable`、`beta`、`develop`），每个 channel 携带可选的 `description` 与 `package`（`version`、`url`、`sha256`、`size`）（已有包没有版本时省略 `version`，其余信息仍正常返回），与 `server.firmware.get` 同源。Channel 选择归调用方：Server 不保存设备当前使用的 channel，本 route 一次返回全部 channel，由调用方自行选择。未绑定 `firmware_id` 或绑定的配置已不存在返回 `404 FIRMWARE_NOT_FOUND`；某个 channel 未配置包时该 slot 省略 `package`，不报错。
 - `GET /device/runtime-profile` 返回 owner 当前绑定的 RuntimeProfile 的 `name`、`revision`，以及 `collections[].workflows[].name`，直接投影 `workflows.collections`，collection 与 workflow 均按 name 排序。`name`/`revision` 与 Peer RPC 响应的 `runtime_profile_name`/`runtime_profile_revision` 同源，workflow name 即 `server.workflow.*` 使用的 alias。`resource_id`、i18n、driver、models、voices、memory、pet 定义与 `app_config` 都不返回；binding 指向的 Workflow 资源是否仍存在不在读取时校验。绑定在鉴权后消失同样返回 `403 API_KEY_OWNER_UNAVAILABLE`。
@@ -90,58 +90,27 @@ API Key 的鉴权和管理契约见 [Peer HTTP · API Key](../../gizclaw/peer/se
 
 ## 设备控制流程
 
-`PUT /gizclaw/v1/device/volume`、`GET /gizclaw/v1/device/settings` 和 `PATCH /gizclaw/v1/device/settings` 已弃用。写入改用 `PATCH /gizclaw/v1/device/mhs/v0/states`，读取改用 `POST /gizclaw/v1/device/mhs/v0/read`，key 先从 `GET /gizclaw/v1/device/mhs/v0/manifest` 获取。旧接口行为不变；[迁移表与退役条件](/zh/developing/api/overview#mhs-v0-migration) 说明推荐 key。只有固件和控制 App 均迁移后才移除，目前没有移除日期。
+Server 为 API Key owner 提供两类设备接口：`mhs/v0` 处理硬件状态，`tool/v0` 处理预定义过程。下表路径均加 `/gizclaw/v1` 前缀。`GET /device/status` 读取存储的快照；实时调用需要设备在线。Server 在打开 RPC stream 前验证完整的类型化请求，并按 owner 串行转发。见 [设备 provider](../proto/rpc/client-provided-to-server) 和 [RPC 参考](/references/rpc)。
 
-控制 route 由 Server 转发为 Server→设备 RPC（见 [Client Provided to Server](../proto/rpc/client-provided-to-server)）：
-
-```text
-PUT /gizclaw/v1/device/volume { level: 0..100, muted }
-  → 解析 API Key owner
-  → 查找 owner 的活动连接；无连接 → 409 DEVICE_OFFLINE
-  → client.device.volume.set，超时 5s → 504 DEVICE_TIMEOUT
-  → 设备返回 PeerStatus → 写入 owner 的 PeerStatus（reported_at 取设备回报时间）
-  → 200 { status: PeerStatus }
-```
-
-| Route | RPC | 成功响应 |
+| 路由 | 设备 RPC | 结果 |
 | --- | --- | --- |
-| `PUT /device/volume`（已弃用） | `client.device.volume.set` | `200 { status }` |
-| `POST /device/actions/play-sound` `{ sound, duration_ms? }` | `client.device.sound.play` | `204` |
-| `POST /device/actions/find` `{ duration_ms? }` | `client.device.find` | `204` |
-| `POST /device/actions/reboot` `{ delay_ms? }` | `client.device.reboot` | `204` |
-| `POST /device/actions/firmware-update` `{ channel?, sha256? }` | `client.firmware.update` | `204` |
-| `GET /device/wifi` | `client.wifi.status.get` | `200 DeviceWifiStatus` |
-| `GET /device/wifi/saved` | `client.wifi.saved.list` | `200 DeviceWifiSavedList` |
-| `DELETE /device/wifi/saved/{ssid}` | `client.wifi.saved.forget` | `204`；未知 ssid → `404 WIFI_NETWORK_NOT_FOUND` |
-| `POST /device/wifi/scan` `{ timeout_ms? }` | `client.wifi.scan` | `200 { networks }` |
-| `PUT /device/wifi` `{ ssid, passphrase? }` | `client.wifi.connect` | `202` |
-| `GET /device/settings`（已弃用） | `client.device.settings.get` | `200 DeviceSettings` |
-| `PATCH /device/settings`（已弃用） `DeviceSettings` | `client.device.settings.set` | `200 DeviceSettings` |
-| `POST /device/actions/factory-reset` `{ keep_network? }` | `client.device.factory_reset` | `204` |
-| `GET /device/rpc-methods` | `client.rpc.methods.get` | `200 { methods }` |
-| `PUT /device/run/workspace` `{ workspace_name \| collection + workflow_name, kickoff? }` | `client.run.workspace.set` | `202` |
-| `GET /device/tools` | 不访问设备 | `200 { items }` |
-| `POST /device/tools/{name}/actions/invoke` `{ args? }` | `client.tool.invoke` | `200 { data_json }`；未开放的 Tool → `404 TOOL_NOT_FOUND` |
+| `GET /device/mhs/v0/manifest` | 无 | 已绑定 RuntimeProfile 的硬件清单，离线可读 |
+| `POST /device/mhs/v0/read` | `client.mhs.v0.read` | 请求的硬件状态 |
+| `PATCH /device/mhs/v0/states` | `client.mhs.v0.write` | 整批实际写入的值 |
+| `GET /device/tool/v0/tools` | `client.tool.v0.list` | 设备已安装的预定义工具名称 |
+| `POST /device/tool/v0/invoke` | `client.tool.v0.invoke` | 一个预定义工具的 `{ "result": ... }` |
 
-`settings` 读写设备自身配置（成员含义见 [Client Provided to Server](../proto/rpc/client-provided-to-server#设备配置与能力发现)）：`GET` 中缺省的成员表示设备不支持该项；`PATCH` 只转发出现的成员，任一成员越界（亮度不在 0–100、时长为负、`locale` 不是 BCP 47、未知枚举值）时整包 `400 INVALID_REQUEST`，不会到达设备。响应是设备应用后的完整配置。产品专属配置（如使用时长、功能限制）不放进 `DeviceSettings`，而是作为下文的设备 Tool 调用；语速属于 Workspace 参数（`WorkspaceParametersPatch`），不是设备配置。
+调用体例如 `{ "tool": "device.find", "args": { "duration_ms": 8000 } }`。OpenAPI 对 `tool` 使用 `oneOf` 和 discriminator，各过程保持类型化的参数 Schema。工具包括 `device.status.get`、`sound.play`、`device.find`、`device.reboot`、`device.factory_reset`、Wi-Fi 过程、`firmware.update`、七个 `audioplayer.*` 过程及 `run.workspace.set`。`tool/v0` 使用 GizClaw 定义的封闭枚举。RuntimeProfile Tool 目录独立服务于 Server 侧 HTTP Tool；v0 不提供 Agent 调用产品自定义设备工具的能力。
 
-`factory-reset` 让设备清除本机状态，设备侧不可撤销；设备先应答再执行，此后控制 route 返回 `409 DEVICE_OFFLINE` 直到设备重连。`keep_network` 保留已保存的 Wi‑Fi 与蜂窝配置。Server 自身的记录不受影响；但若设备在重置流程中删除自己的 Peer，该 Peer 的全部 API Key（包括发起本次调用的那个）随之失效，控制 App 需要重新绑定。
+HTTP `result` 使用所选响应消息的 SDK JSON 投影。若 Protobuf 响应只含一个名为 `value` 的消息字段，该字段会被展开：`audioplayer.playlist.set` 的 `playlist_length` 位于 `result.playlist_length`，不再嵌套 `value`。`audioplayer.playlist.get` 等包含自身字段的响应则将这些字段保留在 `result` 下。
 
-`rpc-methods` 返回设备实现的 reverse RPC 名称，App 据此隐藏设备只会拒绝的控制项，未知名称应忽略；早于该方法的设备返回 `501 DEVICE_UNSUPPORTED`。
+非法工具参数、超过 32 UTF-8 bytes 的 sound 或 SSID、非法 Wi-Fi 密码、超过播放列表容量、错误的固件摘要和非法 MHS 写入，均在 Server 侧以 `400 INVALID_REQUEST` 拒绝，不发送设备 RPC。MHS key 必须在已绑定 manifest 中声明，写入还要求 `read_write`。找不到 Workspace 目标时，在设备调用前返回 `404 WORKSPACE_NOT_FOUND`。设备仍独立执行自身的安全限制。
 
-`run/workspace` 请求设备切换正在运行的 Workspace：`workspace_name` 指定已有 Workspace，或用 `collection` + `workflow_name` 指定 RuntimeProfile 中的 workflow，两者恰好选一，否则 `400 INVALID_REQUEST`；`kickoff` 缺省为 false。`server.run.workspace.reload-with-options` 只接受 Workspace 名称，因此 Server 先把目标解析为唯一名称再转发：`workspace_name` 必须是调用方拥有且可用的 Workspace；workflow 目标在调用方该 collection 与 workflow 下可用的 Workspace 中选最近活跃的一个，同时间按名称升序。没有匹配时返回 `404 WORKSPACE_NOT_FOUND` 且不访问设备——控制 App 不能创建 Workspace。`202` 只表示设备接受了请求，设备随后自行调用 `server.run.workspace.reload-with-options` 完成切换；结果通过 `GET /device/runtime` 的 `active_workspace_name` / `pending_workspace_name` 观察。
+设备离线映射 `409 DEVICE_OFFLINE`；未安装的工具或 MHS handler 映射 `501 DEVICE_UNSUPPORTED`；超时映射 `504 DEVICE_TIMEOUT`；设备 `INVALID_PARAMS` 映射 `400 DEVICE_REJECTED`；其他设备错误脱敏后映射 `502 DEVICE_ERROR`。不存在的已保存 Wi-Fi 网络映射 `404 WIFI_NETWORK_NOT_FOUND`。重启、Wi-Fi 连接、恢复出厂设置或固件更新得到确认后可能断线，同一连接上的后续命令会返回离线，直到设备重连。异步过程的成功应答仅表示设备已接受操作。
 
-`tools` 让控制 App 调用设备 Tool。只有 RuntimeProfile 中 `resources.tools` 的 binding 设置了 `control_access`、且 Tool 为已启用的 `client_rpc` 类型时才对 App 可见；未设置时既不能列出也不能调用，只供 AI 与 Workflow runtime 使用。`control_access` 目前只有 `owner`（该 Peer 的任意 API Key），更严格的级别（如家长授权）以后加入同一枚举。列表只读 Server 配置，设备离线时也可用，未绑定 RuntimeProfile 时返回空列表。`invoke` 先按 Tool 的 `input_schema` 校验 `args`（省略即 `{}`），不通过返回 `400 INVALID_REQUEST` 且不访问设备；通过后转发 `client.tool.invoke`，把设备返回的 JSON 文本原样放在 `data_json`，不是合法 JSON 的应答按 `502 DEVICE_ERROR` 拒绝。
+`run.workspace.set` 在 `args` 中接受 `workspace_name`，或 `collection` 加 `workflow_name`，并可附带 `kickoff`。Server 在分发前解析为一个可用 Workspace；设备随后通过 `server.run.workspace.reload-with-options` 切换。已提交状态通过 `GET /device/runtime` 观察。`firmware.update` 接受可选的 `channel` 和 64 位小写十六进制 `sha256`；设备在 OTA 前核对自身解析出的包摘要。
 
-`firmware-update` 通知设备执行一次 OTA，设备应答后自行下载、校验、写入并重启。`channel` 取自 `GET /device/firmware` 返回的 channel，省略时设备沿用自身的 channel；`sha256` 是调用方看到的目标包摘要，Server 只校验它是 64 位小写 hex，是否与设备解析出的包一致由设备判断，不一致时设备返回 `INVALID_PARAMS`，映射为 `400 DEVICE_REJECTED`。设备当前运行的包由 `PeerStatus.firmware_sha256` 上报，调用方与目标 channel 的 `package.sha256` 比较即可判断是否需要升级。
-
-`find` 是“找设备”：设备播放内置的本地找寻提示音并逐步增大音量，不涉及音频 URL、曲库或 `sound` 取值；body 可省略，`duration_ms` 必须非负，省略时由设备决定时长。App 的“找设备”入口应调用 `find`，不应借用 `play-sound` 播放曲目。
-
-`sound` 是设备自定义字符串，Server 只检查非空且不超过 32 UTF‑8 bytes，由设备 provider 校验取值；`ssid` 同样限制 32 bytes。扫描 `timeout_ms` 缺省为 8000，并夹取到 1000–15000；它不复用其他控制 route 的 5 秒超时。加入开放网络时省略 `passphrase`，PSK 长度为 8–63 bytes。`202` 只表示设备接受凭据：设备先应答 RPC 再切网，随后必然掉线；掉线期间控制 route 返回 `409 DEVICE_OFFLINE`，客户端在设备重连后轮询 `GET /device/wifi`，以 `ssid` 是否变为目标网络判断成功或回退。密码只经过转发路径，不持久化、不记录日志、不回显。扫描结果由设备提供，Server 在返回前重新校验：最多 32 条，`ssid` 非空且不超过 32 bytes，`bssid` 不超过 17 bytes，`security` 不超过 5 bytes，越界的应答整体按 `502 DEVICE_ERROR` 拒绝而不回显越界值。
-
-设备返回 `INVALID_PARAMS` 映射 `400 DEVICE_REJECTED`，`METHOD_NOT_FOUND`（设备未实现 provider）映射 `501 DEVICE_UNSUPPORTED`，其余 RPC 错误映射脱敏的 `502 DEVICE_ERROR`；响应体只携带稳定 `code` 与脱敏 `message`。同一 owner 的并发控制命令按到达顺序串行转发，不合并、不重放；`reboot`、`firmware.update` 或 `wifi.connect` 得到设备确认后，同一连接上的后续控制命令返回 `409 DEVICE_OFFLINE`，直到设备以新连接重连。Server 转发控制命令时自身不改变 PeerRun、Workspace 或 Agent 状态；`run/workspace` 也只是请求设备，由设备通过自己的 RPC 完成切换。
-
-`/server-info` 在连接前返回 authoritative Server 的 `public_key`、软件 `version`、`build_commit` 与 transport 能力。Server identity 仍只由密码学 `public_key` 表达。经过 Edge 时这些构建字段保持 authoritative Server 的值，Edge transport 选择只由 `transport` 说明。
+连接前 `/server-info` 返回 authoritative Server 的 `public_key`、软件 `version`、`build_commit` 和传输能力。经过 Edge 时构建字段仍属于 authoritative Server，`transport` 描述 Edge 路由。
 
 ## 设备调试访问与匿名标识查询
 
@@ -171,17 +140,7 @@ Admin IMEI 查询为 `/peers/@findPubKeysByImei/{tac}/{serial}`，CLI `admin pee
 
 ## 音乐点播
 
-以下路径均使用 `/gizclaw/v1` 前缀和现有设备访问授权。set/append 接收 `{ "items": [...] }`，play 接收 `{ "index": 0 }`，mode 接收 `{ "repeat": "all" }`。除 playlist.get 返回 `{ "items": [...], "playlist_revision": 1 }` 外，成功返回 `{ "status": ... }`，HTTP 200。错误沿用设备控制错误映射；append 不自动重试。点播单个 URL 时先设置单项列表，再播放索引 0。完整语义见 [播放器 provider](../proto/rpc/client-provided-to-server#音乐播放器)。
-
-| HTTP | RPC |
-| --- | --- |
-| `GET /device/audioplayer` | `client.device.audioplayer.get` |
-| `GET /device/audioplayer/playlist` | `client.device.audioplayer.playlist.get` |
-| `PUT /device/audioplayer/playlist` | `client.device.audioplayer.playlist.set` |
-| `POST /device/audioplayer/playlist/append` | `client.device.audioplayer.playlist.append` |
-| `POST /device/audioplayer/actions/play` | `client.device.audioplayer.play` |
-| `POST /device/audioplayer/actions/stop` | `client.device.audioplayer.stop` |
-| `PUT /device/audioplayer/mode` | `client.device.audioplayer.mode.set` |
+七个播放器过程统一使用 `POST /gizclaw/v1/device/tool/v0/invoke`，工具名称为 `audioplayer.get`、`audioplayer.playlist.get`、`audioplayer.playlist.set`、`audioplayer.playlist.append`、`audioplayer.play`、`audioplayer.stop` 和 `audioplayer.mode.set`。`args` 保持各过程的类型化字段：set/append 接收 `items`，play 要求从零开始的 `index`，mode 接收 `repeat`。列表最多 32 项。set 原子替换，append 保留顺序和重复项且不会自动重试。通过遥测和 `GET /device/status` 观察播放状态；见 [播放器 provider](../proto/rpc/client-provided-to-server#音乐播放器)。
 
 ## MHS v0 硬件状态
 

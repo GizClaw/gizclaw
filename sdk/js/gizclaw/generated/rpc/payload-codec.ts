@@ -25,13 +25,11 @@ type EnumDesc = {
 
 export type ASTTranslateMode = "" | "s2s" | "s2t" | "unspecified" | number;
 export type ASTTranslateWorkspaceParametersAgentType = "" | "ast-translate" | "unspecified" | number;
+export type ClientTool = number;
 export type ConversationParametersAgentInitiativePolicy = "" | "on_reload" | "once_when_empty" | "unspecified" | number;
 export type ConversationParametersInitiative = "" | "agent" | "peer" | "unspecified" | number;
 export type DashScopeRealtimeWorkspaceParametersAgentType = "" | "dashscope-realtime" | "unspecified" | number;
 export type DashScopeTenantModelProviderDataApiMode = "" | "chat_completions" | "realtime" | "unspecified" | number;
-export type DeviceAlertMode = "" | "ring" | "silent" | "unspecified" | "vibrate" | number;
-export type DeviceInteractionMode = "" | "push-to-talk" | "realtime" | "unspecified" | number;
-export type DeviceKeyFeedback = "" | "none" | "sound" | "sound_and_vibrate" | "unspecified" | "vibrate" | number;
 export type DoubaoRealtimeAudioFormatType = "" | "ogg_opus" | "pcm" | "pcm_s16le" | "speech_opus" | "unspecified" | number;
 export type DoubaoRealtimeDialogExtraVolcWebsearchType = "" | "unspecified" | "web" | "web_agent" | "web_summary" | number;
 export type DoubaoRealtimeDuplexWorkspaceParametersAgentType = "" | "doubao-realtime-duplex" | "unspecified" | number;
@@ -50,8 +48,10 @@ export type PeerRunHistoryEntryType = "" | "agent" | "gear" | "unspecified" | nu
 export type PeerRunHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type PeerRunStatusState = "" | "error" | "running" | "starting" | "stopped" | "stopping" | "unspecified" | number;
 export type ReusableWorkflowDriver = "" | "ast-translate" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "unspecified" | number;
+export type RpcMethod = number;
 export type SafetyFenceLevel = "" | "child" | "general" | "off" | "unspecified" | number;
 export type SocialPingResult = "" | "delivered" | "not_online" | "rate_limited" | "unspecified" | number;
+export type StatusCode = "" | "aborted" | "already_exists" | "cancelled" | "data_loss" | "deadline_exceeded" | "failed_precondition" | "internal" | "invalid_argument" | "not_found" | "ok" | "out_of_range" | "permission_denied" | "resource_exhausted" | "unauthenticated" | "unavailable" | "unimplemented" | "unknown" | number;
 export type VolcTenantModelProviderDataApiMode = "" | "asr" | "chat_completions" | "embedding" | "realtime" | "realtime_duplex" | "translation" | "tts" | "unspecified" | number;
 export type WorkflowDriver = "" | "ast-translate" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "sfu" | "unspecified" | number;
 export type WorkspaceHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
@@ -192,14 +192,6 @@ export type ClientDeviceRebootRequest = {
   "delay_ms"?: number;
 };
 export type ClientDeviceRebootResponse = Record<string, never>;
-/** @deprecated Use client.mhs.v0.read with RuntimeProfile manifest keys. */
-export type ClientDeviceSettingsGetRequest = Record<string, never>;
-/** @deprecated Use client.mhs.v0.read with RuntimeProfile manifest keys. */
-export type ClientDeviceSettingsGetResponse = DeviceSettings;
-/** @deprecated Use client.mhs.v0.write with RuntimeProfile manifest keys. */
-export type ClientDeviceSettingsSetRequest = DeviceSettings;
-/** @deprecated Use client.mhs.v0.write with RuntimeProfile manifest keys. */
-export type ClientDeviceSettingsSetResponse = DeviceSettings;
 export type ClientDeviceSoundPlayRequest = {
   "sound": string;
   "duration_ms"?: number;
@@ -207,13 +199,6 @@ export type ClientDeviceSoundPlayRequest = {
 export type ClientDeviceSoundPlayResponse = Record<string, never>;
 export type ClientDeviceStatusGetRequest = Record<string, never>;
 export type ClientDeviceStatusGetResponse = PeerStatus;
-/** @deprecated Use client.mhs.v0.write with RuntimeProfile manifest keys. */
-export type ClientDeviceVolumeSetRequest = {
-  "level": number;
-  "muted": boolean;
-};
-/** @deprecated Use client.mhs.v0.write with RuntimeProfile manifest keys. */
-export type ClientDeviceVolumeSetResponse = PeerStatus;
 export type ClientFirmwareUpdateRequest = {
   "channel"?: FirmwareChannelName;
   "sha256"?: string;
@@ -235,9 +220,9 @@ export type ClientMhsV0WriteRequest = {
 export type ClientMhsV0WriteResponse = {
   "states": MhsStateValue[];
 };
-export type ClientRpcMethodsGetRequest = Record<string, never>;
-export type ClientRpcMethodsGetResponse = {
-  "methods": string[];
+export type ClientRpcMethodsListRequest = Record<string, never>;
+export type ClientRpcMethodsListResponse = {
+  "methods": RpcMethod[];
 };
 export type ClientRunWorkspaceSetRequest = {
   "workspace_name": string;
@@ -250,6 +235,22 @@ export type ClientSocialPingRequest = {
   "friend_group_name"?: string;
 };
 export type ClientSocialPingResponse = Record<string, never>;
+export type ClientToolOptions = {
+  "name": string;
+  "request": string;
+  "response": string;
+};
+export type ClientToolV0InvokeRequest = {
+  "tool": ClientTool;
+  "payload"?: string;
+};
+export type ClientToolV0InvokeResponse = {
+  "payload"?: string;
+};
+export type ClientToolV0ListRequest = Record<string, never>;
+export type ClientToolV0ListResponse = {
+  "tools": ClientTool[];
+};
 export type ClientWifiConnectRequest = {
   "ssid": string;
   "passphrase"?: string;
@@ -269,8 +270,6 @@ export type ClientWifiScanRequest = {
 export type ClientWifiScanResponse = {
   "networks": WifiScanResult[];
 };
-export type ClientWifiStatusGetRequest = Record<string, never>;
-export type ClientWifiStatusGetResponse = WifiStatus;
 export type ContactCreateRequest = {
   "name": string;
   "display_name"?: string;
@@ -383,18 +382,6 @@ export type DeviceInfo = {
 export type DeviceProfile = {
   "name"?: string;
   "emoji"?: string;
-};
-export type DeviceSettings = {
-  "cellular_enabled"?: boolean;
-  "screen_off_timeout_ms"?: number;
-  "screen_brightness"?: number;
-  "led_brightness"?: number;
-  "locale"?: string;
-  "default_interaction_mode"?: DeviceInteractionMode;
-  "key_feedback"?: DeviceKeyFeedback;
-  "alert_mode"?: DeviceAlertMode;
-  "auto_sleep_timeout_ms"?: number;
-  "nfc_enabled"?: boolean;
 };
 export type DoubaoRealtimeAIGCMetadata = {
   "content_producer"?: string;
@@ -558,6 +545,10 @@ export type EinoWorkspaceParameters = {
   "input"?: WorkspaceInputMode;
   "tts_speech_rate_percent"?: number;
   "safety_fence_level"?: SafetyFenceLevel;
+};
+export type ErrorInfo = {
+  "reason": string;
+  "domain": string;
 };
 export type FirmwareGetRequest = {
   "channel": FirmwareChannelName;
@@ -1016,6 +1007,32 @@ export type ResourceI18nText = {
   "display_name": string;
   "description"?: string;
 };
+export type RpcMethodOptions = {
+  "name": string;
+  "request": string;
+  "response": string;
+};
+export type RpcRequest = {
+  "id": string;
+  "method": RpcMethod;
+  "payload"?: string;
+};
+export type RpcResponse = {
+  "id": string;
+  "payload"?: string;
+  "status"?: RpcStatus;
+};
+export type RpcStatus = {
+  "code": StatusCode;
+  "message": string;
+  "info": ErrorInfo;
+};
+export type RpcStreamFrame = {
+  "id": string;
+  "payload"?: string;
+  "status"?: RpcStatus;
+  "end"?: unknown;
+};
 export type Runtime = {
   "debug_mode"?: string;
   "last_addr"?: string;
@@ -1161,13 +1178,6 @@ export type ToolGetResponse = {
   "runtime_profile_name": string;
   "runtime_profile_revision": string;
 };
-export type ToolInvokeRequest = {
-  "args": Record<string, unknown>;
-  "invoke_name": string;
-};
-export type ToolInvokeResponse = {
-  "data_json": string;
-};
 export type ToolListRequest = {
   "cursor"?: string;
   "limit"?: number;
@@ -1230,13 +1240,6 @@ export type WifiScanResult = {
   "rssi_dbm"?: number;
   "frequency_mhz"?: number;
   "security"?: string;
-};
-export type WifiStatus = {
-  "connected": boolean;
-  "ssid"?: string;
-  "rssi_dbm"?: number;
-  "ip"?: string;
-  "bssid"?: string;
 };
 export type Workflow = {
   "name": string;
@@ -1369,35 +1372,11 @@ export type WorkspacePutResponse = Workspace;
 const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "all.ping": "PingRequest",
   "all.speed_test.run": "SpeedTestRequest",
-  "client.device.audioplayer.get": "ClientDeviceAudioPlayerGetRequest",
-  "client.device.audioplayer.mode.set": "ClientDeviceAudioPlayerModeSetRequest",
-  "client.device.audioplayer.play": "ClientDeviceAudioPlayerPlayRequest",
-  "client.device.audioplayer.playlist.append": "ClientDeviceAudioPlayerPlaylistAppendRequest",
-  "client.device.audioplayer.playlist.get": "ClientDeviceAudioPlayerPlaylistGetRequest",
-  "client.device.audioplayer.playlist.set": "ClientDeviceAudioPlayerPlaylistSetRequest",
-  "client.device.audioplayer.stop": "ClientDeviceAudioPlayerStopRequest",
-  "client.device.factory_reset": "ClientDeviceFactoryResetRequest",
-  "client.device.find": "ClientDeviceFindRequest",
-  "client.device.reboot": "ClientDeviceRebootRequest",
-  "client.device.settings.get": "ClientDeviceSettingsGetRequest",
-  "client.device.settings.set": "ClientDeviceSettingsSetRequest",
-  "client.device.sound.play": "ClientDeviceSoundPlayRequest",
-  "client.device.status.get": "ClientDeviceStatusGetRequest",
-  "client.device.volume.set": "ClientDeviceVolumeSetRequest",
-  "client.firmware.update": "ClientFirmwareUpdateRequest",
-  "client.identifiers.get": "ClientGetIdentifiersRequest",
-  "client.info.get": "ClientGetInfoRequest",
   "client.mhs.v0.read": "ClientMhsV0ReadRequest",
   "client.mhs.v0.write": "ClientMhsV0WriteRequest",
-  "client.rpc.methods.get": "ClientRpcMethodsGetRequest",
-  "client.run.workspace.set": "ClientRunWorkspaceSetRequest",
-  "client.social.ping": "ClientSocialPingRequest",
-  "client.tool.invoke": "ToolInvokeRequest",
-  "client.wifi.connect": "ClientWifiConnectRequest",
-  "client.wifi.saved.forget": "ClientWifiSavedForgetRequest",
-  "client.wifi.saved.list": "ClientWifiSavedListRequest",
-  "client.wifi.scan": "ClientWifiScanRequest",
-  "client.wifi.status.get": "ClientWifiStatusGetRequest",
+  "client.rpc.methods.list": "ClientRpcMethodsListRequest",
+  "client.tool.v0.invoke": "ClientToolV0InvokeRequest",
+  "client.tool.v0.list": "ClientToolV0ListRequest",
   "server.api_key.create": "APIKeyCreateRequest",
   "server.api_key.list": "APIKeyListRequest",
   "server.api_key.resolve": "ServerAPIKeyResolveRequest",
@@ -1482,35 +1461,11 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
 const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "all.ping": "PingResponse",
   "all.speed_test.run": "SpeedTestResponse",
-  "client.device.audioplayer.get": "ClientDeviceAudioPlayerGetResponse",
-  "client.device.audioplayer.mode.set": "ClientDeviceAudioPlayerModeSetResponse",
-  "client.device.audioplayer.play": "ClientDeviceAudioPlayerPlayResponse",
-  "client.device.audioplayer.playlist.append": "ClientDeviceAudioPlayerPlaylistAppendResponse",
-  "client.device.audioplayer.playlist.get": "ClientDeviceAudioPlayerPlaylistGetResponse",
-  "client.device.audioplayer.playlist.set": "ClientDeviceAudioPlayerPlaylistSetResponse",
-  "client.device.audioplayer.stop": "ClientDeviceAudioPlayerStopResponse",
-  "client.device.factory_reset": "ClientDeviceFactoryResetResponse",
-  "client.device.find": "ClientDeviceFindResponse",
-  "client.device.reboot": "ClientDeviceRebootResponse",
-  "client.device.settings.get": "ClientDeviceSettingsGetResponse",
-  "client.device.settings.set": "ClientDeviceSettingsSetResponse",
-  "client.device.sound.play": "ClientDeviceSoundPlayResponse",
-  "client.device.status.get": "ClientDeviceStatusGetResponse",
-  "client.device.volume.set": "ClientDeviceVolumeSetResponse",
-  "client.firmware.update": "ClientFirmwareUpdateResponse",
-  "client.identifiers.get": "ClientGetIdentifiersResponse",
-  "client.info.get": "ClientGetInfoResponse",
   "client.mhs.v0.read": "ClientMhsV0ReadResponse",
   "client.mhs.v0.write": "ClientMhsV0WriteResponse",
-  "client.rpc.methods.get": "ClientRpcMethodsGetResponse",
-  "client.run.workspace.set": "ClientRunWorkspaceSetResponse",
-  "client.social.ping": "ClientSocialPingResponse",
-  "client.tool.invoke": "ToolInvokeResponse",
-  "client.wifi.connect": "ClientWifiConnectResponse",
-  "client.wifi.saved.forget": "ClientWifiSavedForgetResponse",
-  "client.wifi.saved.list": "ClientWifiSavedListResponse",
-  "client.wifi.scan": "ClientWifiScanResponse",
-  "client.wifi.status.get": "ClientWifiStatusGetResponse",
+  "client.rpc.methods.list": "ClientRpcMethodsListResponse",
+  "client.tool.v0.invoke": "ClientToolV0InvokeResponse",
+  "client.tool.v0.list": "ClientToolV0ListResponse",
   "server.api_key.create": "APIKeyCreateResponse",
   "server.api_key.list": "APIKeyListResponse",
   "server.api_key.resolve": "ServerAPIKeyResolveResponse",
@@ -1591,6 +1546,52 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.workspace.list": "WorkspaceListResponse",
   "server.workspace.parameters.set": "WorkspaceParametersSetResponse",
   "server.workspace.put": "WorkspacePutResponse"
+};
+const TOOL_REQUEST_MESSAGES: Record<string, string> = {
+  "1": "ClientGetInfoRequest",
+  "2": "ClientGetIdentifiersRequest",
+  "3": "ClientDeviceStatusGetRequest",
+  "4": "ClientDeviceRebootRequest",
+  "5": "ClientDeviceFactoryResetRequest",
+  "6": "ClientDeviceFindRequest",
+  "7": "ClientDeviceSoundPlayRequest",
+  "8": "ClientWifiScanRequest",
+  "9": "ClientWifiConnectRequest",
+  "10": "ClientWifiSavedListRequest",
+  "11": "ClientWifiSavedForgetRequest",
+  "12": "ClientFirmwareUpdateRequest",
+  "13": "ClientDeviceAudioPlayerGetRequest",
+  "14": "ClientDeviceAudioPlayerPlayRequest",
+  "15": "ClientDeviceAudioPlayerStopRequest",
+  "16": "ClientDeviceAudioPlayerModeSetRequest",
+  "17": "ClientDeviceAudioPlayerPlaylistGetRequest",
+  "18": "ClientDeviceAudioPlayerPlaylistSetRequest",
+  "19": "ClientDeviceAudioPlayerPlaylistAppendRequest",
+  "20": "ClientRunWorkspaceSetRequest",
+  "21": "ClientSocialPingRequest"
+};
+const TOOL_RESPONSE_MESSAGES: Record<string, string> = {
+  "1": "ClientGetInfoResponse",
+  "2": "ClientGetIdentifiersResponse",
+  "3": "ClientDeviceStatusGetResponse",
+  "4": "ClientDeviceRebootResponse",
+  "5": "ClientDeviceFactoryResetResponse",
+  "6": "ClientDeviceFindResponse",
+  "7": "ClientDeviceSoundPlayResponse",
+  "8": "ClientWifiScanResponse",
+  "9": "ClientWifiConnectResponse",
+  "10": "ClientWifiSavedListResponse",
+  "11": "ClientWifiSavedForgetResponse",
+  "12": "ClientFirmwareUpdateResponse",
+  "13": "ClientDeviceAudioPlayerGetResponse",
+  "14": "ClientDeviceAudioPlayerPlayResponse",
+  "15": "ClientDeviceAudioPlayerStopResponse",
+  "16": "ClientDeviceAudioPlayerModeSetResponse",
+  "17": "ClientDeviceAudioPlayerPlaylistGetResponse",
+  "18": "ClientDeviceAudioPlayerPlaylistSetResponse",
+  "19": "ClientDeviceAudioPlayerPlaylistAppendResponse",
+  "20": "ClientRunWorkspaceSetResponse",
+  "21": "ClientSocialPingResponse"
 };
 const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "AgentSelection": {
@@ -2186,36 +2187,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "ClientDeviceRebootResponse": {
     "fields": []
   },
-  "ClientDeviceSettingsGetRequest": {
-    "fields": []
-  },
-  "ClientDeviceSettingsGetResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "DeviceSettings"
-      }
-    ]
-  },
-  "ClientDeviceSettingsSetRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "DeviceSettings"
-      }
-    ]
-  },
-  "ClientDeviceSettingsSetResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "DeviceSettings"
-      }
-    ]
-  },
   "ClientDeviceSoundPlayRequest": {
     "fields": [
       {
@@ -2238,29 +2209,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
     "fields": []
   },
   "ClientDeviceStatusGetResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "PeerStatus"
-      }
-    ]
-  },
-  "ClientDeviceVolumeSetRequest": {
-    "fields": [
-      {
-        "name": "level",
-        "number": 1,
-        "type": "int64"
-      },
-      {
-        "name": "muted",
-        "number": 2,
-        "type": "bool"
-      }
-    ]
-  },
-  "ClientDeviceVolumeSetResponse": {
     "fields": [
       {
         "name": "value",
@@ -2352,16 +2300,16 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "ClientRpcMethodsGetRequest": {
+  "ClientRpcMethodsListRequest": {
     "fields": []
   },
-  "ClientRpcMethodsGetResponse": {
+  "ClientRpcMethodsListResponse": {
     "fields": [
       {
         "name": "methods",
         "number": 1,
         "repeated": true,
-        "type": "string"
+        "type": "RpcMethod"
       }
     ]
   },
@@ -2406,6 +2354,63 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   },
   "ClientSocialPingResponse": {
     "fields": []
+  },
+  "ClientToolOptions": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "request",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "response",
+        "number": 3,
+        "type": "string"
+      }
+    ]
+  },
+  "ClientToolV0InvokeRequest": {
+    "fields": [
+      {
+        "name": "tool",
+        "number": 1,
+        "type": "ClientTool"
+      },
+      {
+        "name": "payload",
+        "number": 2,
+        "optional": true,
+        "type": "bytes"
+      }
+    ]
+  },
+  "ClientToolV0InvokeResponse": {
+    "fields": [
+      {
+        "name": "payload",
+        "number": 1,
+        "optional": true,
+        "type": "bytes"
+      }
+    ]
+  },
+  "ClientToolV0ListRequest": {
+    "fields": []
+  },
+  "ClientToolV0ListResponse": {
+    "fields": [
+      {
+        "name": "tools",
+        "number": 1,
+        "repeated": true,
+        "type": "ClientTool"
+      }
+    ]
   },
   "ClientWifiConnectRequest": {
     "fields": [
@@ -2467,18 +2472,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 1,
         "repeated": true,
         "type": "WifiScanResult"
-      }
-    ]
-  },
-  "ClientWifiStatusGetRequest": {
-    "fields": []
-  },
-  "ClientWifiStatusGetResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "WifiStatus"
       }
     ]
   },
@@ -3041,70 +3034,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 2,
         "optional": true,
         "type": "string"
-      }
-    ]
-  },
-  "DeviceSettings": {
-    "fields": [
-      {
-        "name": "cellular_enabled",
-        "number": 1,
-        "optional": true,
-        "type": "bool"
-      },
-      {
-        "name": "screen_off_timeout_ms",
-        "number": 2,
-        "optional": true,
-        "type": "int64"
-      },
-      {
-        "name": "screen_brightness",
-        "number": 3,
-        "optional": true,
-        "type": "int64"
-      },
-      {
-        "name": "led_brightness",
-        "number": 4,
-        "optional": true,
-        "type": "int64"
-      },
-      {
-        "name": "locale",
-        "number": 5,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "default_interaction_mode",
-        "number": 6,
-        "optional": true,
-        "type": "DeviceInteractionMode"
-      },
-      {
-        "name": "key_feedback",
-        "number": 7,
-        "optional": true,
-        "type": "DeviceKeyFeedback"
-      },
-      {
-        "name": "alert_mode",
-        "number": 8,
-        "optional": true,
-        "type": "DeviceAlertMode"
-      },
-      {
-        "name": "auto_sleep_timeout_ms",
-        "number": 9,
-        "optional": true,
-        "type": "int64"
-      },
-      {
-        "name": "nfc_enabled",
-        "number": 10,
-        "optional": true,
-        "type": "bool"
       }
     ]
   },
@@ -3888,6 +3817,20 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 6,
         "optional": true,
         "type": "SafetyFenceLevel"
+      }
+    ]
+  },
+  "ErrorInfo": {
+    "fields": [
+      {
+        "name": "reason",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "domain",
+        "number": 2,
+        "type": "string"
       }
     ]
   },
@@ -5974,6 +5917,117 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "RpcMethodOptions": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "request",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "response",
+        "number": 3,
+        "type": "string"
+      }
+    ]
+  },
+  "RpcRequest": {
+    "fields": [
+      {
+        "name": "id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "method",
+        "number": 2,
+        "type": "RpcMethod"
+      },
+      {
+        "name": "payload",
+        "number": 3,
+        "optional": true,
+        "type": "bytes"
+      }
+    ]
+  },
+  "RpcResponse": {
+    "fields": [
+      {
+        "name": "id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "payload",
+        "number": 2,
+        "oneof": true,
+        "oneofGroup": "body",
+        "type": "bytes"
+      },
+      {
+        "name": "status",
+        "number": 3,
+        "oneof": true,
+        "oneofGroup": "body",
+        "type": "RpcStatus"
+      }
+    ]
+  },
+  "RpcStatus": {
+    "fields": [
+      {
+        "name": "code",
+        "number": 1,
+        "type": "StatusCode"
+      },
+      {
+        "name": "message",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "info",
+        "number": 3,
+        "type": "ErrorInfo"
+      }
+    ]
+  },
+  "RpcStreamFrame": {
+    "fields": [
+      {
+        "name": "id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "payload",
+        "number": 2,
+        "oneof": true,
+        "oneofGroup": "body",
+        "type": "bytes"
+      },
+      {
+        "name": "status",
+        "number": 3,
+        "oneof": true,
+        "oneofGroup": "body",
+        "type": "RpcStatus"
+      },
+      {
+        "name": "end",
+        "number": 4,
+        "oneof": true,
+        "oneofGroup": "body",
+        "type": "RpcStreamEnd"
+      }
+    ]
+  },
   "Runtime": {
     "fields": [
       {
@@ -6627,29 +6681,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "ToolInvokeRequest": {
-    "fields": [
-      {
-        "name": "args",
-        "number": 1,
-        "type": "google.protobuf.Struct"
-      },
-      {
-        "name": "invoke_name",
-        "number": 2,
-        "type": "string"
-      }
-    ]
-  },
-  "ToolInvokeResponse": {
-    "fields": [
-      {
-        "name": "data_json",
-        "number": 1,
-        "type": "string"
-      }
-    ]
-  },
   "ToolkitPolicy": {
     "fields": [
       {
@@ -6925,39 +6956,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       },
       {
         "name": "security",
-        "number": 5,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "WifiStatus": {
-    "fields": [
-      {
-        "name": "connected",
-        "number": 1,
-        "type": "bool"
-      },
-      {
-        "name": "ssid",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "rssi_dbm",
-        "number": 3,
-        "optional": true,
-        "type": "int64"
-      },
-      {
-        "name": "ip",
-        "number": 4,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "bssid",
         "number": 5,
         "optional": true,
         "type": "string"
@@ -7587,6 +7585,56 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "1": "ast-translate"
     }
   },
+  "ClientTool": {
+    "byName": {
+      "audioplayer_get": 13,
+      "audioplayer_mode_set": 16,
+      "audioplayer_play": 14,
+      "audioplayer_playlist_append": 19,
+      "audioplayer_playlist_get": 17,
+      "audioplayer_playlist_set": 18,
+      "audioplayer_stop": 15,
+      "device_factory_reset": 5,
+      "device_find": 6,
+      "device_reboot": 4,
+      "device_status_get": 3,
+      "firmware_update": 12,
+      "identifiers_get": 2,
+      "info_get": 1,
+      "run_workspace_set": 20,
+      "social_ping": 21,
+      "sound_play": 7,
+      "unspecified": 0,
+      "wifi_connect": 9,
+      "wifi_saved_forget": 11,
+      "wifi_saved_list": 10,
+      "wifi_scan": 8
+    },
+    "byNumber": {
+      "0": "",
+      "1": "info_get",
+      "2": "identifiers_get",
+      "3": "device_status_get",
+      "4": "device_reboot",
+      "5": "device_factory_reset",
+      "6": "device_find",
+      "7": "sound_play",
+      "8": "wifi_scan",
+      "9": "wifi_connect",
+      "10": "wifi_saved_list",
+      "11": "wifi_saved_forget",
+      "12": "firmware_update",
+      "13": "audioplayer_get",
+      "14": "audioplayer_play",
+      "15": "audioplayer_stop",
+      "16": "audioplayer_mode_set",
+      "17": "audioplayer_playlist_get",
+      "18": "audioplayer_playlist_set",
+      "19": "audioplayer_playlist_append",
+      "20": "run_workspace_set",
+      "21": "social_ping"
+    }
+  },
   "ConversationParametersAgentInitiativePolicy": {
     "byName": {
       "on_reload": 2,
@@ -7631,48 +7679,6 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "0": "",
       "1": "chat_completions",
       "2": "realtime"
-    }
-  },
-  "DeviceAlertMode": {
-    "byName": {
-      "ring": 3,
-      "silent": 1,
-      "unspecified": 0,
-      "vibrate": 2
-    },
-    "byNumber": {
-      "0": "",
-      "1": "silent",
-      "2": "vibrate",
-      "3": "ring"
-    }
-  },
-  "DeviceInteractionMode": {
-    "byName": {
-      "push-to-talk": 1,
-      "realtime": 2,
-      "unspecified": 0
-    },
-    "byNumber": {
-      "0": "",
-      "1": "push-to-talk",
-      "2": "realtime"
-    }
-  },
-  "DeviceKeyFeedback": {
-    "byName": {
-      "none": 1,
-      "sound": 2,
-      "sound_and_vibrate": 4,
-      "unspecified": 0,
-      "vibrate": 3
-    },
-    "byNumber": {
-      "0": "",
-      "1": "none",
-      "2": "sound",
-      "3": "vibrate",
-      "4": "sound_and_vibrate"
     }
   },
   "DoubaoRealtimeAudioFormatType": {
@@ -7927,6 +7933,188 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "7": "eino"
     }
   },
+  "RpcMethod": {
+    "byName": {
+      "all_ping": 1,
+      "all_speed_test_run": 2,
+      "client_mhs_v0_read": 133,
+      "client_mhs_v0_write": 134,
+      "client_rpc_methods_list": 137,
+      "client_tool_v0_invoke": 135,
+      "client_tool_v0_list": 136,
+      "server_api_key_create": 96,
+      "server_api_key_list": 97,
+      "server_api_key_resolve": 99,
+      "server_api_key_revoke": 98,
+      "server_app_config_get": 122,
+      "server_app_config_list": 121,
+      "server_contact_create": 40,
+      "server_contact_delete": 42,
+      "server_contact_get": 39,
+      "server_contact_list": 38,
+      "server_contact_put": 41,
+      "server_firmware_get": 22,
+      "server_friend_add": 46,
+      "server_friend_delete": 48,
+      "server_friend_group_create": 51,
+      "server_friend_group_delete": 53,
+      "server_friend_group_get": 50,
+      "server_friend_group_invite_token_clear": 56,
+      "server_friend_group_invite_token_create": 55,
+      "server_friend_group_invite_token_get": 54,
+      "server_friend_group_join": 57,
+      "server_friend_group_list": 49,
+      "server_friend_group_members_add": 59,
+      "server_friend_group_members_delete": 61,
+      "server_friend_group_members_list": 58,
+      "server_friend_group_members_put": 60,
+      "server_friend_group_ping": 124,
+      "server_friend_group_put": 52,
+      "server_friend_info_get": 89,
+      "server_friend_invite_token_clear": 45,
+      "server_friend_invite_token_create": 44,
+      "server_friend_invite_token_get": 43,
+      "server_friend_list": 47,
+      "server_friend_ping": 123,
+      "server_info_get": 5,
+      "server_info_put": 6,
+      "server_model_get": 35,
+      "server_model_list": 34,
+      "server_peer_assign": 84,
+      "server_peer_delete": 93,
+      "server_peer_lookup": 83,
+      "server_profile_get": 125,
+      "server_register": 90,
+      "server_route_resolve": 85,
+      "server_run_agent_get": 9,
+      "server_run_agent_set": 10,
+      "server_run_reload": 18,
+      "server_run_say": 21,
+      "server_run_status": 19,
+      "server_run_stop": 20,
+      "server_run_workspace_get": 11,
+      "server_run_workspace_history": 14,
+      "server_run_workspace_history_play": 15,
+      "server_run_workspace_memory_stats": 16,
+      "server_run_workspace_recall": 17,
+      "server_run_workspace_reload": 13,
+      "server_run_workspace_reload_with_options": 120,
+      "server_run_workspace_set": 12,
+      "server_runtime_get": 7,
+      "server_runtime_put": 112,
+      "server_speech_extract": 94,
+      "server_speech_synthesize": 92,
+      "server_speech_transcribe": 91,
+      "server_status_get": 8,
+      "server_tool_get": 81,
+      "server_tool_list": 80,
+      "server_voice_get": 37,
+      "server_voice_list": 36,
+      "server_workflow_get": 33,
+      "server_workflow_list": 32,
+      "server_workspace_create": 26,
+      "server_workspace_delete": 28,
+      "server_workspace_get": 25,
+      "server_workspace_history_audio_download": 31,
+      "server_workspace_history_get": 30,
+      "server_workspace_history_list": 29,
+      "server_workspace_icon_download": 88,
+      "server_workspace_list": 24,
+      "server_workspace_parameters_set": 110,
+      "server_workspace_put": 27,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "all_ping",
+      "2": "all_speed_test_run",
+      "5": "server_info_get",
+      "6": "server_info_put",
+      "7": "server_runtime_get",
+      "8": "server_status_get",
+      "9": "server_run_agent_get",
+      "10": "server_run_agent_set",
+      "11": "server_run_workspace_get",
+      "12": "server_run_workspace_set",
+      "13": "server_run_workspace_reload",
+      "14": "server_run_workspace_history",
+      "15": "server_run_workspace_history_play",
+      "16": "server_run_workspace_memory_stats",
+      "17": "server_run_workspace_recall",
+      "18": "server_run_reload",
+      "19": "server_run_status",
+      "20": "server_run_stop",
+      "21": "server_run_say",
+      "22": "server_firmware_get",
+      "24": "server_workspace_list",
+      "25": "server_workspace_get",
+      "26": "server_workspace_create",
+      "27": "server_workspace_put",
+      "28": "server_workspace_delete",
+      "29": "server_workspace_history_list",
+      "30": "server_workspace_history_get",
+      "31": "server_workspace_history_audio_download",
+      "32": "server_workflow_list",
+      "33": "server_workflow_get",
+      "34": "server_model_list",
+      "35": "server_model_get",
+      "36": "server_voice_list",
+      "37": "server_voice_get",
+      "38": "server_contact_list",
+      "39": "server_contact_get",
+      "40": "server_contact_create",
+      "41": "server_contact_put",
+      "42": "server_contact_delete",
+      "43": "server_friend_invite_token_get",
+      "44": "server_friend_invite_token_create",
+      "45": "server_friend_invite_token_clear",
+      "46": "server_friend_add",
+      "47": "server_friend_list",
+      "48": "server_friend_delete",
+      "49": "server_friend_group_list",
+      "50": "server_friend_group_get",
+      "51": "server_friend_group_create",
+      "52": "server_friend_group_put",
+      "53": "server_friend_group_delete",
+      "54": "server_friend_group_invite_token_get",
+      "55": "server_friend_group_invite_token_create",
+      "56": "server_friend_group_invite_token_clear",
+      "57": "server_friend_group_join",
+      "58": "server_friend_group_members_list",
+      "59": "server_friend_group_members_add",
+      "60": "server_friend_group_members_put",
+      "61": "server_friend_group_members_delete",
+      "80": "server_tool_list",
+      "81": "server_tool_get",
+      "83": "server_peer_lookup",
+      "84": "server_peer_assign",
+      "85": "server_route_resolve",
+      "88": "server_workspace_icon_download",
+      "89": "server_friend_info_get",
+      "90": "server_register",
+      "91": "server_speech_transcribe",
+      "92": "server_speech_synthesize",
+      "93": "server_peer_delete",
+      "94": "server_speech_extract",
+      "96": "server_api_key_create",
+      "97": "server_api_key_list",
+      "98": "server_api_key_revoke",
+      "99": "server_api_key_resolve",
+      "110": "server_workspace_parameters_set",
+      "112": "server_runtime_put",
+      "120": "server_run_workspace_reload_with_options",
+      "121": "server_app_config_list",
+      "122": "server_app_config_get",
+      "123": "server_friend_ping",
+      "124": "server_friend_group_ping",
+      "125": "server_profile_get",
+      "133": "client_mhs_v0_read",
+      "134": "client_mhs_v0_write",
+      "135": "client_tool_v0_invoke",
+      "136": "client_tool_v0_list",
+      "137": "client_rpc_methods_list"
+    }
+  },
   "SafetyFenceLevel": {
     "byName": {
       "child": 3,
@@ -7953,6 +8141,46 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "1": "delivered",
       "2": "not_online",
       "3": "rate_limited"
+    }
+  },
+  "StatusCode": {
+    "byName": {
+      "aborted": 10,
+      "already_exists": 6,
+      "cancelled": 1,
+      "data_loss": 15,
+      "deadline_exceeded": 4,
+      "failed_precondition": 9,
+      "internal": 13,
+      "invalid_argument": 3,
+      "not_found": 5,
+      "ok": 0,
+      "out_of_range": 11,
+      "permission_denied": 7,
+      "resource_exhausted": 8,
+      "unauthenticated": 16,
+      "unavailable": 14,
+      "unimplemented": 12,
+      "unknown": 2
+    },
+    "byNumber": {
+      "0": "",
+      "1": "cancelled",
+      "2": "unknown",
+      "3": "invalid_argument",
+      "4": "deadline_exceeded",
+      "5": "not_found",
+      "6": "already_exists",
+      "7": "permission_denied",
+      "8": "resource_exhausted",
+      "9": "failed_precondition",
+      "10": "aborted",
+      "11": "out_of_range",
+      "12": "unimplemented",
+      "13": "internal",
+      "14": "unavailable",
+      "15": "data_loss",
+      "16": "unauthenticated"
     }
   },
   "VolcTenantModelProviderDataApiMode": {
@@ -8040,6 +8268,11 @@ export function encodeRPCResponsePayload(method: string, value: unknown): Uint8A
 export function decodeRPCResponsePayload(method: string, payload: Uint8Array): unknown {
   return decodePayload(RESPONSE_PAYLOAD_MESSAGES, method, payload);
 }
+
+export function encodeClientToolRequestPayload(tool: number, value: unknown): Uint8Array { return encodePayload(TOOL_REQUEST_MESSAGES, String(tool), value); }
+export function decodeClientToolRequestPayload(tool: number, payload: Uint8Array): unknown { return decodePayload(TOOL_REQUEST_MESSAGES, String(tool), payload); }
+export function encodeClientToolResponsePayload(tool: number, value: unknown): Uint8Array { return encodePayload(TOOL_RESPONSE_MESSAGES, String(tool), value); }
+export function decodeClientToolResponsePayload(tool: number, payload: Uint8Array): unknown { return decodePayload(TOOL_RESPONSE_MESSAGES, String(tool), payload); }
 
 function encodePayload(messages: Record<string, string>, method: string, value: unknown): Uint8Array {
   const message = messages[method];
@@ -8297,7 +8530,9 @@ function decodeType(reader: ProtoReader, tag: ProtoField, type: string): unknown
     default:
       if (ENUM_DESCS[type] != null) {
         const value = reader.int32(tag);
-        return ENUM_DESCS[type].byNumber[value] ?? value;
+        return type === "ClientTool" || type === "RpcMethod"
+          ? value
+          : (ENUM_DESCS[type].byNumber[value] ?? value);
       }
       return decodeMessage(type, reader.bytes(tag));
   }

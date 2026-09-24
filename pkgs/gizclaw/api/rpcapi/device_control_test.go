@@ -11,22 +11,15 @@ import (
 )
 
 func TestDeviceControlMethodRegistry(t *testing.T) {
-	want := map[RPCMethod]int32{
-		RPCMethodClientDeviceStatusGet: 100, RPCMethodClientDeviceVolumeSet: 101, RPCMethodClientDeviceSoundPlay: 102,
-		RPCMethodClientDeviceReboot: 103, RPCMethodClientWifiStatusGet: 104, RPCMethodClientWifiSavedList: 105,
-		RPCMethodClientWifiSavedForget:   106,
-		RPCMethodClientWifiScan:          108,
-		RPCMethodClientWifiConnect:       109,
-		RPCMethodClientDeviceSettingsGet: 128, RPCMethodClientDeviceSettingsSet: 129,
-		RPCMethodClientDeviceFactoryReset: 130, RPCMethodClientRPCMethodsGet: 131,
-		RPCMethodClientRunWorkspaceSet: 132,
-	}
+	want := map[RPCMethod]int32{RPCMethodClientMhsV0Read: 133, RPCMethodClientMhsV0Write: 134, RPCMethodClientToolV0Invoke: 135, RPCMethodClientToolV0List: 136, RPCMethodClientRPCMethodsList: 137}
 	for method, id := range want {
-		if !method.Valid() {
-			t.Fatalf("%s is not a valid method", method)
+		if !method.Valid() || int32(rpcMethodToProto[method]) != id {
+			t.Fatalf("%s does not map to %d", method, id)
 		}
-		if got := int32(rpcMethodToProto[method]); got != id {
-			t.Fatalf("%s id = %d, want %d", method, got, id)
+	}
+	for _, id := range []int32{3, 4, 82, 100, 101, 102, 103, 104, 105, 106, 108, 109, 111, 113, 114, 115, 116, 117, 118, 119, 126, 127, 128, 129, 130, 131, 132} {
+		if _, err := MethodFromProto(rpcpb.RpcMethod(id)); err == nil {
+			t.Fatalf("retired method %d accepted", id)
 		}
 	}
 }
@@ -36,34 +29,11 @@ func TestDeviceControlPayloadRoundTrip(t *testing.T) {
 	status := PeerStatus{Volume: new(35), Muted: new(true), BatteryPercent: new(80), ReportedAt: &reportedAt}
 
 	var payload RPCPayload
-	if err := payload.FromClientDeviceVolumeSetRequest(ClientDeviceVolumeSetRequest{Level: 35, Muted: true}); err != nil {
-		t.Fatal(err)
-	}
-	var wire rpcpb.ClientDeviceVolumeSetRequest
-	if err := proto.Unmarshal(payload.payload, &wire); err != nil {
-		t.Fatal(err)
-	}
-	if wire.GetLevel() != 35 || !wire.GetMuted() {
-		t.Fatalf("wire volume request = %+v", &wire)
-	}
-	request, err := payload.AsClientDeviceVolumeSetRequest()
-	if err != nil || request.Level != 35 || !request.Muted {
-		t.Fatalf("volume request round trip = %+v, %v", request, err)
-	}
-
-	if err := payload.FromClientDeviceVolumeSetResponse(ClientDeviceVolumeSetResponse{Value: status}); err != nil {
-		t.Fatal(err)
-	}
-	volumeResponse, err := payload.AsClientDeviceVolumeSetResponse()
-	if err != nil || *volumeResponse.Value.Volume != 35 || !*volumeResponse.Value.Muted || *volumeResponse.Value.BatteryPercent != 80 || !volumeResponse.Value.ReportedAt.Equal(reportedAt) {
-		t.Fatalf("volume response round trip = %+v, %v", volumeResponse, err)
-	}
-
 	if err := payload.FromClientDeviceStatusGetResponse(ClientDeviceStatusGetResponse{Value: status}); err != nil {
 		t.Fatal(err)
 	}
 	statusResponse, err := payload.AsClientDeviceStatusGetResponse()
-	if err != nil || *statusResponse.Value.Volume != 35 {
+	if err != nil || *statusResponse.Value.Volume != 35 || !*statusResponse.Value.Muted || *statusResponse.Value.BatteryPercent != 80 || !statusResponse.Value.ReportedAt.Equal(reportedAt) {
 		t.Fatalf("status response round trip = %+v, %v", statusResponse, err)
 	}
 
@@ -87,15 +57,6 @@ func TestDeviceControlPayloadRoundTrip(t *testing.T) {
 	reboot, err := payload.AsClientDeviceRebootRequest()
 	if err != nil || reboot.DelayMs == nil || *reboot.DelayMs != 2000 {
 		t.Fatalf("reboot request round trip = %+v, %v", reboot, err)
-	}
-
-	wifi := WifiStatus{Connected: true, Ssid: new("home"), RssiDbm: new(int64(-55)), Ip: new("192.0.2.10"), Bssid: new("aa:bb:cc:dd:ee:ff")}
-	if err := payload.FromClientWifiStatusGetResponse(ClientWifiStatusGetResponse{Value: wifi}); err != nil {
-		t.Fatal(err)
-	}
-	wifiResponse, err := payload.AsClientWifiStatusGetResponse()
-	if err != nil || !wifiResponse.Value.Connected || *wifiResponse.Value.Ssid != "home" || *wifiResponse.Value.RssiDbm != -55 || *wifiResponse.Value.Ip != "192.0.2.10" || *wifiResponse.Value.Bssid != "aa:bb:cc:dd:ee:ff" {
-		t.Fatalf("wifi status round trip = %+v, %v", wifiResponse, err)
 	}
 
 	if err := payload.FromClientWifiSavedListResponse(ClientWifiSavedListResponse{Networks: []WifiSavedNetwork{{Ssid: "home"}, {Ssid: "office"}}}); err != nil {
@@ -147,7 +108,6 @@ func TestDeviceControlPayloadRoundTrip(t *testing.T) {
 		{"status request", func() error { return payload.FromClientDeviceStatusGetRequest(ClientDeviceStatusGetRequest{}) }, func() error { _, err := payload.AsClientDeviceStatusGetRequest(); return err }},
 		{"sound response", func() error { return payload.FromClientDeviceSoundPlayResponse(ClientDeviceSoundPlayResponse{}) }, func() error { _, err := payload.AsClientDeviceSoundPlayResponse(); return err }},
 		{"reboot response", func() error { return payload.FromClientDeviceRebootResponse(ClientDeviceRebootResponse{}) }, func() error { _, err := payload.AsClientDeviceRebootResponse(); return err }},
-		{"wifi request", func() error { return payload.FromClientWifiStatusGetRequest(ClientWifiStatusGetRequest{}) }, func() error { _, err := payload.AsClientWifiStatusGetRequest(); return err }},
 		{"saved request", func() error { return payload.FromClientWifiSavedListRequest(ClientWifiSavedListRequest{}) }, func() error { _, err := payload.AsClientWifiSavedListRequest(); return err }},
 		{"forget response", func() error { return payload.FromClientWifiSavedForgetResponse(ClientWifiSavedForgetResponse{}) }, func() error { _, err := payload.AsClientWifiSavedForgetResponse(); return err }},
 		{"connect response", func() error { return payload.FromClientWifiConnectResponse(ClientWifiConnectResponse{}) }, func() error { _, err := payload.AsClientWifiConnectResponse(); return err }},
@@ -162,39 +122,68 @@ func TestDeviceControlPayloadRoundTrip(t *testing.T) {
 	}
 }
 
-func TestDeviceControlMethodPayloadNames(t *testing.T) {
-	want := map[RPCMethod][2]string{
-		RPCMethodClientDeviceStatusGet: {"ClientDeviceStatusGetRequest", "ClientDeviceStatusGetResponse"},
-		RPCMethodClientDeviceVolumeSet: {"ClientDeviceVolumeSetRequest", "ClientDeviceVolumeSetResponse"},
-		RPCMethodClientDeviceSoundPlay: {"ClientDeviceSoundPlayRequest", "ClientDeviceSoundPlayResponse"},
-		RPCMethodClientDeviceReboot:    {"ClientDeviceRebootRequest", "ClientDeviceRebootResponse"},
-		RPCMethodClientWifiStatusGet:   {"ClientWifiStatusGetRequest", "ClientWifiStatusGetResponse"},
-		RPCMethodClientWifiSavedList:   {"ClientWifiSavedListRequest", "ClientWifiSavedListResponse"},
-		RPCMethodClientWifiSavedForget: {"ClientWifiSavedForgetRequest", "ClientWifiSavedForgetResponse"},
-		RPCMethodClientWifiScan:        {"ClientWifiScanRequest", "ClientWifiScanResponse"},
-		RPCMethodClientWifiConnect:     {"ClientWifiConnectRequest", "ClientWifiConnectResponse"},
-	}
-	for method, names := range want {
-		if got := rpcRequestPayloadMessages[method]; got != names[0] {
-			t.Fatalf("%s request message = %q, want %q", method, got, names[0])
+func TestDeviceControlToolPayloadNames(t *testing.T) {
+	values := rpcpb.ClientTool(0).Descriptor().Values()
+	for i := 1; i < values.Len(); i++ {
+		tool := rpcpb.ClientTool(values.Get(i).Number())
+		metadata, err := ClientToolMetadata(tool)
+		if err != nil {
+			t.Fatal(err)
 		}
-		if got := rpcResponsePayloadMessages[method]; got != names[1] {
-			t.Fatalf("%s response message = %q, want %q", method, got, names[1])
-		}
-		// Every registered message must be resolvable by the dynamic codec.
-		for _, name := range names {
+		for _, name := range []string{metadata.Request, metadata.Response} {
 			if _, err := newRPCPayloadMessage(name); err != nil {
-				t.Fatalf("message %s: %v", name, err)
+				t.Fatal(err)
 			}
 		}
+		request, err := ClientToolRequestFromBytes(tool, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var inner RPCPayload
+		inner = *newRPCPayload(metadata.Request, nil, false)
+		wrapped, err := EncodeClientToolRequest(tool, &inner)
+		if err != nil {
+			t.Fatal(err)
+		}
+		invocation, err := wrapped.AsClientToolV0InvokeRequest()
+		if err != nil || invocation.Tool != tool {
+			t.Fatalf("tool %v envelope: %v %v", tool, invocation, err)
+		}
+		decoded, err := ClientToolRequestFromBytes(invocation.Tool, invocation.Payload)
+		if err != nil || !proto.Equal(request, decoded) {
+			t.Fatalf("tool %v request: %v", tool, err)
+		}
+		response, err := ClientToolResponseMessage(tool, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		inner = *newRPCPayload(metadata.Response, nil, true)
+		result, err := EncodeClientToolResponse(tool, &inner)
+		if err != nil {
+			t.Fatal(err)
+		}
+		unwrapped, err := DecodeClientToolResponse(tool, result)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := unwrapped.bytesForMessage(metadata.Response)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := ClientToolResponseMessage(tool, data)
+		if err != nil || !proto.Equal(response, got) {
+			t.Fatalf("tool %v response: %v", tool, err)
+		}
 	}
-	// A payload encoded for one message is rejected when decoded as another.
-	var payload RPCPayload
-	if err := payload.FromClientDeviceVolumeSetRequest(ClientDeviceVolumeSetRequest{Level: 1}); err != nil {
+	var inner RPCPayload
+	if err := inner.FromClientDeviceSoundPlayRequest(ClientDeviceSoundPlayRequest{Sound: "chime"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := payload.AsClientWifiSavedForgetRequest(); err == nil {
-		t.Fatal("decoding a volume request as a forget request must fail")
+	if _, err := inner.AsClientWifiSavedForgetRequest(); err == nil {
+		t.Fatal("mismatched payload type accepted")
+	}
+	if _, err := ClientToolRequestFromBytes(rpcpb.ClientTool_CLIENT_TOOL_DEVICE_FIND, []byte{8, 128}); err == nil {
+		t.Fatal("malformed tool payload accepted")
 	}
 }
 
@@ -210,58 +199,7 @@ func TestOTAStatusRPCRoundTrip(t *testing.T) {
 	}
 }
 
-// The four device-configuration methods round-trip through the dynamic payload
-// codec, which is what proves their proto messages and registry names agree.
-func TestDeviceSettingsAndCapabilityPayloadRoundTrip(t *testing.T) {
-	mode := DeviceInteractionModePushToTalk
-	feedback := DeviceKeyFeedbackSoundAndVibrate
-	settings := DeviceSettings{
-		CellularEnabled:        new(true),
-		ScreenOffTimeoutMs:     new(int64(30000)),
-		ScreenBrightness:       new(int64(60)),
-		LedBrightness:          new(int64(20)),
-		Locale:                 new("zh-CN"),
-		DefaultInteractionMode: &mode,
-		KeyFeedback:            &feedback,
-	}
-
-	var setReq RPCPayload
-	if err := setReq.FromClientDeviceSettingsSetRequest(ClientDeviceSettingsSetRequest{Value: settings}); err != nil {
-		t.Fatalf("FromClientDeviceSettingsSetRequest() error = %v", err)
-	}
-	gotSet, err := setReq.AsClientDeviceSettingsSetRequest()
-	if err != nil {
-		t.Fatalf("AsClientDeviceSettingsSetRequest() error = %v", err)
-	}
-	if gotSet.Value.Locale == nil || *gotSet.Value.Locale != "zh-CN" {
-		t.Fatalf("Locale = %#v, want zh-CN", gotSet.Value.Locale)
-	}
-	if gotSet.Value.CellularEnabled == nil || !*gotSet.Value.CellularEnabled {
-		t.Fatalf("CellularEnabled = %#v, want true", gotSet.Value.CellularEnabled)
-	}
-	if gotSet.Value.DefaultInteractionMode == nil || *gotSet.Value.DefaultInteractionMode != mode {
-		t.Fatalf("DefaultInteractionMode = %#v, want %v", gotSet.Value.DefaultInteractionMode, mode)
-	}
-	if gotSet.Value.KeyFeedback == nil || *gotSet.Value.KeyFeedback != feedback {
-		t.Fatalf("KeyFeedback = %#v, want %v", gotSet.Value.KeyFeedback, feedback)
-	}
-
-	// An absent member stays absent, which is how a set request says "leave
-	// this option alone" and a response says "this device has no such option".
-	var getResp RPCPayload
-	if err := getResp.FromClientDeviceSettingsGetResponse(ClientDeviceSettingsGetResponse{
-		Value: DeviceSettings{ScreenBrightness: new(int64(10))},
-	}); err != nil {
-		t.Fatalf("FromClientDeviceSettingsGetResponse() error = %v", err)
-	}
-	gotGet, err := getResp.AsClientDeviceSettingsGetResponse()
-	if err != nil {
-		t.Fatalf("AsClientDeviceSettingsGetResponse() error = %v", err)
-	}
-	if gotGet.Value.Locale != nil || gotGet.Value.CellularEnabled != nil {
-		t.Fatalf("absent members decoded as present: %+v", gotGet.Value)
-	}
-
+func TestDeviceCapabilityPayloadRoundTrip(t *testing.T) {
 	var reset RPCPayload
 	if err := reset.FromClientDeviceFactoryResetRequest(ClientDeviceFactoryResetRequest{KeepNetwork: new(true)}); err != nil {
 		t.Fatalf("FromClientDeviceFactoryResetRequest() error = %v", err)
@@ -275,16 +213,13 @@ func TestDeviceSettingsAndCapabilityPayloadRoundTrip(t *testing.T) {
 	}
 
 	var methods RPCPayload
-	want := []string{string(RPCMethodClientDeviceReboot), string(RPCMethodClientDeviceSettingsGet)}
-	if err := methods.FromClientRPCMethodsGetResponse(ClientRPCMethodsGetResponse{Methods: want}); err != nil {
-		t.Fatalf("FromClientRPCMethodsGetResponse() error = %v", err)
+	want := []rpcpb.RpcMethod{rpcpb.RpcMethod_RPC_METHOD_CLIENT_MHS_V0_READ, rpcpb.RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE}
+	if err := methods.FromClientRpcMethodsListResponse(&rpcpb.ClientRpcMethodsListResponse{Methods: want}); err != nil {
+		t.Fatal(err)
 	}
-	gotMethods, err := methods.AsClientRPCMethodsGetResponse()
-	if err != nil {
-		t.Fatalf("AsClientRPCMethodsGetResponse() error = %v", err)
-	}
-	if !reflect.DeepEqual(gotMethods.Methods, want) {
-		t.Fatalf("Methods = %#v, want %#v", gotMethods.Methods, want)
+	got, err := methods.AsClientRpcMethodsListResponse()
+	if err != nil || !reflect.DeepEqual(got.Methods, want) {
+		t.Fatalf("methods: %v %v", got, err)
 	}
 }
 
@@ -313,30 +248,37 @@ func TestClientRunWorkspaceSetRequestValid(t *testing.T) {
 	}
 }
 
-func TestDeviceSettingsValidAndNewMembersRoundTrip(t *testing.T) {
-	alert := DeviceAlertModeVibrate
-	settings := DeviceSettings{AlertMode: &alert, AutoSleepTimeoutMs: new(int64(0)), NfcEnabled: new(false)}
-	if !settings.Valid() {
-		t.Fatal("valid settings rejected")
+// Product-defined settings retain explicit false, zero, string and integer values.
+func TestMhsSettingsAndWifiPayloadRoundTrip(t *testing.T) {
+	values := []*rpcpb.MhsStateValue{}
+	for key, value := range map[string]*rpcpb.MhsValue{
+		"volume":                {Value: &rpcpb.MhsValue_IntValue{IntValue: 35}},
+		"muted":                 {Value: &rpcpb.MhsValue_BoolValue{BoolValue: true}},
+		"cellular.enabled":      {Value: &rpcpb.MhsValue_BoolValue{BoolValue: true}},
+		"screen.off-timeout-ms": {Value: &rpcpb.MhsValue_IntValue{IntValue: 30000}},
+		"screen.brightness":     {Value: &rpcpb.MhsValue_IntValue{IntValue: 60}},
+		"led.brightness":        {Value: &rpcpb.MhsValue_IntValue{IntValue: 20}},
+		"locale":                {Value: &rpcpb.MhsValue_StringValue{StringValue: "zh-CN"}},
+		"interaction.mode":      {Value: &rpcpb.MhsValue_StringValue{StringValue: "push-to-talk"}},
+		"key.feedback":          {Value: &rpcpb.MhsValue_StringValue{StringValue: "sound-and-vibrate"}},
+		"alert.mode":            {Value: &rpcpb.MhsValue_StringValue{StringValue: "vibrate"}},
+		"sleep.timeout-ms":      {Value: &rpcpb.MhsValue_IntValue{IntValue: 0}},
+		"nfc.enabled":           {Value: &rpcpb.MhsValue_BoolValue{BoolValue: false}},
+		"wifi.connected":        {Value: &rpcpb.MhsValue_BoolValue{BoolValue: true}},
+		"wifi.ssid":             {Value: &rpcpb.MhsValue_StringValue{StringValue: "home"}},
+		"wifi.rssi-dbm":         {Value: &rpcpb.MhsValue_IntValue{IntValue: -55}},
+		"wifi.ip":               {Value: &rpcpb.MhsValue_StringValue{StringValue: "192.0.2.10"}},
+		"wifi.bssid":            {Value: &rpcpb.MhsValue_StringValue{StringValue: "aa:bb:cc:dd:ee:ff"}},
+	} {
+		values = append(values, &rpcpb.MhsStateValue{DeviceId: "device.main", State: key, Value: value})
 	}
+	request := &rpcpb.ClientMhsV0WriteRequest{States: values}
 	var payload RPCPayload
-	if err := payload.FromClientDeviceSettingsSetRequest(ClientDeviceSettingsSetRequest{Value: settings}); err != nil {
+	if err := payload.FromClientMhsV0WriteRequest(request); err != nil {
 		t.Fatal(err)
 	}
-	got, err := payload.AsClientDeviceSettingsSetRequest()
-	if err != nil || got.Value.AlertMode == nil || *got.Value.AlertMode != alert || got.Value.NfcEnabled == nil || *got.Value.NfcEnabled ||
-		got.Value.AutoSleepTimeoutMs == nil || *got.Value.AutoSleepTimeoutMs != 0 {
-		t.Fatalf("round trip = %+v, %v", got.Value, err)
-	}
-	unknown := DeviceAlertMode("loud")
-	for name, bad := range map[string]DeviceSettings{
-		"alert":      {AlertMode: &unknown},
-		"sleep":      {AutoSleepTimeoutMs: new(int64(-1))},
-		"brightness": {ScreenBrightness: new(int64(101))},
-		"locale":     {Locale: new("zh_CN")},
-	} {
-		if bad.Valid() {
-			t.Fatalf("%s: invalid settings accepted", name)
-		}
+	got, err := payload.AsClientMhsV0WriteRequest()
+	if err != nil || !proto.Equal(request, got) {
+		t.Fatalf("MHS values: %v %v", got, err)
 	}
 }

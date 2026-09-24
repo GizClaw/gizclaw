@@ -14,12 +14,11 @@ var (
 	// which the Server maps to 400 DEVICE_REJECTED.
 	ErrDeviceRejected = errors.New("gizclaw: device rejected the request")
 	// ErrDeviceResourceNotFound makes a device control handler answer
-	// NOT_FOUND, used by client.wifi.saved.forget for an unknown ssid.
+	// NOT_FOUND, used by wifi.saved.forget for an unknown ssid.
 	ErrDeviceResourceNotFound = errors.New("gizclaw: device resource not found")
 )
 
-// DeviceControlHandlers implements the Server-initiated client.device.* and
-// client.wifi.* methods for this Client. A nil handler answers
+// DeviceControlHandlers installs MHS state handlers and predefined tool/v0 procedures. A nil handler answers
 // METHOD_NOT_FOUND, which the Server maps to 501 DEVICE_UNSUPPORTED.
 type DeviceControlHandlers struct {
 	// ReadMhsStates returns exactly the requested hardware keys, or NOT_FOUND.
@@ -29,16 +28,11 @@ type DeviceControlHandlers struct {
 	WriteMhsStates func(context.Context, *rpcpb.ClientMhsV0WriteRequest) (*rpcpb.ClientMhsV0WriteResponse, error)
 	AudioPlayer    AudioPlayerHandlers
 	Status         func(context.Context) (rpcapi.PeerStatus, error)
-	// SetVolume handles the legacy absolute volume control.
-	//
-	// Deprecated: Use WriteMhsStates with RuntimeProfile manifest keys.
-	SetVolume func(ctx context.Context, level int64, muted bool) (rpcapi.PeerStatus, error)
-	PlaySound func(ctx context.Context, sound string, durationMs *int64) error
+	PlaySound      func(ctx context.Context, sound string, durationMs *int64) error
 	// Find rings the device's built-in find-me sound. durationMs is nil when
 	// the caller leaves the ring time to the device.
 	Find        func(ctx context.Context, durationMs *int64) error
 	Reboot      func(ctx context.Context, delayMs *int64) error
-	WifiStatus  func(context.Context) (rpcapi.WifiStatus, error)
 	SavedWifi   func(context.Context) ([]rpcapi.WifiSavedNetwork, error)
 	ForgetWifi  func(ctx context.Context, ssid string) error
 	ScanWifi    func(ctx context.Context, timeoutMs *int64) ([]rpcapi.WifiScanResult, error)
@@ -48,18 +42,6 @@ type DeviceControlHandlers struct {
 	// package digest the caller resolved, and the handler answers
 	// ErrDeviceRejected when it does not match the package the device resolves.
 	UpdateFirmware func(ctx context.Context, channel *rpcapi.FirmwareChannelName, sha256 *string) error
-	// GetSettings reports every option this device supports. An option the
-	// device has no hardware for stays absent rather than carrying a
-	// placeholder, which is how a caller tells "unsupported" from "off".
-	//
-	// Deprecated: Use ReadMhsStates with RuntimeProfile manifest keys.
-	GetSettings func(context.Context) (rpcapi.DeviceSettings, error)
-	// SetSettings applies only the members present in the patch and answers
-	// with the device's full settings afterwards, so the caller sees what was
-	// accepted. An unsupported member is ignored rather than rejected.
-	//
-	// Deprecated: Use WriteMhsStates with RuntimeProfile manifest keys.
-	SetSettings func(ctx context.Context, patch rpcapi.DeviceSettings) (rpcapi.DeviceSettings, error)
 	// FactoryReset erases device-local state. keepNetwork retains saved Wi-Fi
 	// and cellular configuration so the device can reconnect without being
 	// re-provisioned.
@@ -81,49 +63,41 @@ type DeviceControlHandlers struct {
 	SetRunWorkspace func(ctx context.Context, request rpcapi.ClientRunWorkspaceSetRequest) error
 }
 
-// supportedDeviceMethods lists the client.* methods these handlers answer. It
-// is derived from the installed handlers rather than a hand-kept list, so the
-// answer to client.rpc.methods.get cannot drift from what the device accepts.
-func (h *DeviceControlHandlers) supportedDeviceMethods() []string {
+// supportedTools is derived from installed procedure handlers.
+func (h *DeviceControlHandlers) supportedTools() []rpcpb.ClientTool {
 	if h == nil {
-		return []string{string(rpcapi.RPCMethodClientRPCMethodsGet)}
+		return nil
 	}
 	installed := []struct {
-		method  rpcapi.RPCMethod
+		tool    rpcpb.ClientTool
 		present bool
 	}{
-		{rpcapi.RPCMethodClientMhsV0Read, h.ReadMhsStates != nil},
-		{rpcapi.RPCMethodClientMhsV0Write, h.WriteMhsStates != nil},
-		{rpcapi.RPCMethodClientDeviceStatusGet, h.Status != nil},
-		{rpcapi.RPCMethodClientDeviceVolumeSet, h.SetVolume != nil},
-		{rpcapi.RPCMethodClientDeviceSoundPlay, h.PlaySound != nil},
-		{rpcapi.RPCMethodClientDeviceFind, h.Find != nil},
-		{rpcapi.RPCMethodClientDeviceReboot, h.Reboot != nil},
-		{rpcapi.RPCMethodClientDeviceSettingsGet, h.GetSettings != nil},
-		{rpcapi.RPCMethodClientDeviceSettingsSet, h.SetSettings != nil},
-		{rpcapi.RPCMethodClientDeviceFactoryReset, h.FactoryReset != nil},
-		{rpcapi.RPCMethodClientRunWorkspaceSet, h.SetRunWorkspace != nil},
-		{rpcapi.RPCMethodClientFirmwareUpdate, h.UpdateFirmware != nil},
-		{rpcapi.RPCMethodClientWifiStatusGet, h.WifiStatus != nil},
-		{rpcapi.RPCMethodClientWifiSavedList, h.SavedWifi != nil},
-		{rpcapi.RPCMethodClientWifiSavedForget, h.ForgetWifi != nil},
-		{rpcapi.RPCMethodClientWifiScan, h.ScanWifi != nil},
-		{rpcapi.RPCMethodClientWifiConnect, h.ConnectWifi != nil},
-		{rpcapi.RPCMethodClientDeviceAudioPlayerGet, h.AudioPlayer.Get != nil},
-		{rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistGet, h.AudioPlayer.PlaylistGet != nil},
-		{rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistSet, h.AudioPlayer.PlaylistSet != nil},
-		{rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistAppend, h.AudioPlayer.PlaylistAppend != nil},
-		{rpcapi.RPCMethodClientDeviceAudioPlayerPlay, h.AudioPlayer.Play != nil},
-		{rpcapi.RPCMethodClientDeviceAudioPlayerStop, h.AudioPlayer.Stop != nil},
-		{rpcapi.RPCMethodClientDeviceAudioPlayerModeSet, h.AudioPlayer.ModeSet != nil},
+		{rpcpb.ClientTool_CLIENT_TOOL_DEVICE_STATUS_GET, h.Status != nil},
+		{rpcpb.ClientTool_CLIENT_TOOL_SOUND_PLAY, h.PlaySound != nil},
+		{rpcpb.ClientTool_CLIENT_TOOL_DEVICE_FIND, h.Find != nil},
+		{rpcpb.ClientTool_CLIENT_TOOL_DEVICE_REBOOT, h.Reboot != nil},
+		{rpcpb.ClientTool_CLIENT_TOOL_DEVICE_FACTORY_RESET, h.FactoryReset != nil},
+		{rpcpb.ClientTool_CLIENT_TOOL_RUN_WORKSPACE_SET, h.SetRunWorkspace != nil},
+		{rpcpb.ClientTool_CLIENT_TOOL_FIRMWARE_UPDATE, h.UpdateFirmware != nil},
+		{rpcpb.ClientTool_CLIENT_TOOL_WIFI_SAVED_LIST, h.SavedWifi != nil},
+		{rpcpb.ClientTool_CLIENT_TOOL_WIFI_SAVED_FORGET, h.ForgetWifi != nil},
+		{rpcpb.ClientTool_CLIENT_TOOL_WIFI_SCAN, h.ScanWifi != nil},
+		{rpcpb.ClientTool_CLIENT_TOOL_WIFI_CONNECT, h.ConnectWifi != nil},
+		{rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_GET, h.AudioPlayer.Get != nil},
+		{rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_GET, h.AudioPlayer.PlaylistGet != nil},
+		{rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_SET, h.AudioPlayer.PlaylistSet != nil},
+		{rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_APPEND, h.AudioPlayer.PlaylistAppend != nil},
+		{rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAY, h.AudioPlayer.Play != nil},
+		{rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_STOP, h.AudioPlayer.Stop != nil},
+		{rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_MODE_SET, h.AudioPlayer.ModeSet != nil},
 	}
-	methods := make([]string, 0, len(installed)+1)
+	var tools []rpcpb.ClientTool
 	for _, entry := range installed {
 		if entry.present {
-			methods = append(methods, string(entry.method))
+			tools = append(tools, entry.tool)
 		}
 	}
-	return append(methods, string(rpcapi.RPCMethodClientRPCMethodsGet))
+	return tools
 }
 
 // HandleDeviceControl installs the device control providers for this Client.
@@ -169,21 +143,6 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 		return nil, err
 	}
 	handlers := c.peer.deviceControlHandlers()
-	// A device with no device control handlers still implements the methods the
-	// Client answers itself, so the capability list is answered before the
-	// missing-handlers check rather than reported as unsupported.
-	if req.Method == rpcapi.RPCMethodClientRPCMethodsGet {
-		c.peer.observeClientRPC(req.Method)
-		// client.info.get and client.identifiers.get are answered by the Client
-		// itself, and client.social.ping only once a handler is installed; the
-		// device control methods come from the installed handlers.
-		methods := []string{string(rpcapi.RPCMethodClientInfoGet), string(rpcapi.RPCMethodClientIdentifiersGet)}
-		if c.peer.socialPingHandler() != nil {
-			methods = append(methods, string(rpcapi.RPCMethodClientSocialPing))
-		}
-		methods = append(methods, handlers.supportedDeviceMethods()...)
-		return newRPCResultResponse(req.Id, rpcapi.ClientRPCMethodsGetResponse{Methods: methods}, (*rpcapi.RPCPayload).FromClientRPCMethodsGetResponse)
-	}
 	if handlers == nil {
 		return deviceControlUnsupported(req.Id, req.Method), nil
 	}
@@ -229,7 +188,21 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 		}
 		return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromClientMhsV0WriteResponse)
 
-	case rpcapi.RPCMethodClientDeviceStatusGet:
+	default:
+		return deviceControlUnsupported(req.Id, req.Method), nil
+	}
+}
+
+func (c *rpcClient) handleDeviceTool(ctx context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	handlers := c.peer.deviceControlHandlers()
+	if handlers == nil {
+		return deviceControlUnsupported(req.Id, req.Method), nil
+	}
+	switch tool {
+	case rpcpb.ClientTool_CLIENT_TOOL_DEVICE_STATUS_GET:
 		if err := validateRPCParams(req.Params, rpcapi.RPCPayload.AsClientDeviceStatusGetRequest); err != nil {
 			return rpcInvalidParams(req.Id), nil
 		}
@@ -242,24 +215,8 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 			return deviceControlError(req.Id, err), nil
 		}
 		return newRPCResultResponse(req.Id, rpcapi.ClientDeviceStatusGetResponse{Value: status}, (*rpcapi.RPCPayload).FromClientDeviceStatusGetResponse)
-	case rpcapi.RPCMethodClientDeviceVolumeSet:
-		if req.Params == nil {
-			return rpcInvalidParams(req.Id), nil
-		}
-		params, err := req.Params.AsClientDeviceVolumeSetRequest()
-		if err != nil || params.Level < 0 || params.Level > 100 {
-			return rpcInvalidParams(req.Id), nil
-		}
-		if handlers.SetVolume == nil {
-			return deviceControlUnsupported(req.Id, req.Method), nil
-		}
-		c.peer.observeClientRPC(req.Method)
-		status, err := handlers.SetVolume(ctx, params.Level, params.Muted)
-		if err != nil {
-			return deviceControlError(req.Id, err), nil
-		}
-		return newRPCResultResponse(req.Id, rpcapi.ClientDeviceVolumeSetResponse{Value: status}, (*rpcapi.RPCPayload).FromClientDeviceVolumeSetResponse)
-	case rpcapi.RPCMethodClientDeviceSoundPlay:
+
+	case rpcpb.ClientTool_CLIENT_TOOL_SOUND_PLAY:
 		if req.Params == nil {
 			return rpcInvalidParams(req.Id), nil
 		}
@@ -275,7 +232,7 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 			return deviceControlError(req.Id, err), nil
 		}
 		return newRPCResultResponse(req.Id, rpcapi.ClientDeviceSoundPlayResponse{}, (*rpcapi.RPCPayload).FromClientDeviceSoundPlayResponse)
-	case rpcapi.RPCMethodClientDeviceFind:
+	case rpcpb.ClientTool_CLIENT_TOOL_DEVICE_FIND:
 		params := rpcapi.ClientDeviceFindRequest{}
 		if req.Params != nil {
 			decoded, err := req.Params.AsClientDeviceFindRequest()
@@ -292,7 +249,7 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 			return deviceControlError(req.Id, err), nil
 		}
 		return newRPCResultResponse(req.Id, rpcapi.ClientDeviceFindResponse{}, (*rpcapi.RPCPayload).FromClientDeviceFindResponse)
-	case rpcapi.RPCMethodClientDeviceReboot:
+	case rpcpb.ClientTool_CLIENT_TOOL_DEVICE_REBOOT:
 		params := rpcapi.ClientDeviceRebootRequest{}
 		if req.Params != nil {
 			decoded, err := req.Params.AsClientDeviceRebootRequest()
@@ -309,40 +266,8 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 			return deviceControlError(req.Id, err), nil
 		}
 		return newRPCResultResponse(req.Id, rpcapi.ClientDeviceRebootResponse{}, (*rpcapi.RPCPayload).FromClientDeviceRebootResponse)
-	case rpcapi.RPCMethodClientDeviceSettingsGet:
-		if handlers.GetSettings == nil {
-			return deviceControlUnsupported(req.Id, req.Method), nil
-		}
-		c.peer.observeClientRPC(req.Method)
-		settings, err := handlers.GetSettings(ctx)
-		if err != nil {
-			return deviceControlError(req.Id, err), nil
-		}
-		return newRPCResultResponse(req.Id, rpcapi.ClientDeviceSettingsGetResponse{Value: settings}, (*rpcapi.RPCPayload).FromClientDeviceSettingsGetResponse)
-	case rpcapi.RPCMethodClientDeviceSettingsSet:
-		params := rpcapi.ClientDeviceSettingsSetRequest{}
-		if req.Params != nil {
-			decoded, err := req.Params.AsClientDeviceSettingsSetRequest()
-			if err != nil {
-				return rpcInvalidParams(req.Id), nil
-			}
-			params = decoded
-		}
-		if handlers.SetSettings == nil {
-			return deviceControlUnsupported(req.Id, req.Method), nil
-		}
-		// Reject the whole patch before applying any of it, so a bad member
-		// cannot leave the device half-configured.
-		if !validDeviceSettingsPatch(params.Value) {
-			return rpcInvalidParams(req.Id), nil
-		}
-		c.peer.observeClientRPC(req.Method)
-		settings, err := handlers.SetSettings(ctx, params.Value)
-		if err != nil {
-			return deviceControlError(req.Id, err), nil
-		}
-		return newRPCResultResponse(req.Id, rpcapi.ClientDeviceSettingsSetResponse{Value: settings}, (*rpcapi.RPCPayload).FromClientDeviceSettingsSetResponse)
-	case rpcapi.RPCMethodClientDeviceFactoryReset:
+
+	case rpcpb.ClientTool_CLIENT_TOOL_DEVICE_FACTORY_RESET:
 		params := rpcapi.ClientDeviceFactoryResetRequest{}
 		if req.Params != nil {
 			decoded, err := req.Params.AsClientDeviceFactoryResetRequest()
@@ -360,7 +285,7 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 			return deviceControlError(req.Id, err), nil
 		}
 		return newRPCResultResponse(req.Id, rpcapi.ClientDeviceFactoryResetResponse{}, (*rpcapi.RPCPayload).FromClientDeviceFactoryResetResponse)
-	case rpcapi.RPCMethodClientRunWorkspaceSet:
+	case rpcpb.ClientTool_CLIENT_TOOL_RUN_WORKSPACE_SET:
 		if req.Params == nil {
 			return rpcInvalidParams(req.Id), nil
 		}
@@ -376,7 +301,7 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 			return deviceControlError(req.Id, err), nil
 		}
 		return newRPCResultResponse(req.Id, rpcapi.ClientRunWorkspaceSetResponse{}, (*rpcapi.RPCPayload).FromClientRunWorkspaceSetResponse)
-	case rpcapi.RPCMethodClientFirmwareUpdate:
+	case rpcpb.ClientTool_CLIENT_TOOL_FIRMWARE_UPDATE:
 		params := rpcapi.ClientFirmwareUpdateRequest{}
 		if req.Params != nil {
 			decoded, err := req.Params.AsClientFirmwareUpdateRequest()
@@ -396,20 +321,8 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 			return deviceControlError(req.Id, err), nil
 		}
 		return newRPCResultResponse(req.Id, rpcapi.ClientFirmwareUpdateResponse{}, (*rpcapi.RPCPayload).FromClientFirmwareUpdateResponse)
-	case rpcapi.RPCMethodClientWifiStatusGet:
-		if err := validateRPCParams(req.Params, rpcapi.RPCPayload.AsClientWifiStatusGetRequest); err != nil {
-			return rpcInvalidParams(req.Id), nil
-		}
-		if handlers.WifiStatus == nil {
-			return deviceControlUnsupported(req.Id, req.Method), nil
-		}
-		c.peer.observeClientRPC(req.Method)
-		status, err := handlers.WifiStatus(ctx)
-		if err != nil {
-			return deviceControlError(req.Id, err), nil
-		}
-		return newRPCResultResponse(req.Id, rpcapi.ClientWifiStatusGetResponse{Value: status}, (*rpcapi.RPCPayload).FromClientWifiStatusGetResponse)
-	case rpcapi.RPCMethodClientWifiSavedList:
+
+	case rpcpb.ClientTool_CLIENT_TOOL_WIFI_SAVED_LIST:
 		if err := validateRPCParams(req.Params, rpcapi.RPCPayload.AsClientWifiSavedListRequest); err != nil {
 			return rpcInvalidParams(req.Id), nil
 		}
@@ -425,7 +338,7 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 			networks = []rpcapi.WifiSavedNetwork{}
 		}
 		return newRPCResultResponse(req.Id, rpcapi.ClientWifiSavedListResponse{Networks: networks}, (*rpcapi.RPCPayload).FromClientWifiSavedListResponse)
-	case rpcapi.RPCMethodClientWifiSavedForget:
+	case rpcpb.ClientTool_CLIENT_TOOL_WIFI_SAVED_FORGET:
 		if req.Params == nil {
 			return rpcInvalidParams(req.Id), nil
 		}
@@ -441,7 +354,7 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 			return deviceControlError(req.Id, err), nil
 		}
 		return newRPCResultResponse(req.Id, rpcapi.ClientWifiSavedForgetResponse{}, (*rpcapi.RPCPayload).FromClientWifiSavedForgetResponse)
-	case rpcapi.RPCMethodClientWifiScan:
+	case rpcpb.ClientTool_CLIENT_TOOL_WIFI_SCAN:
 		params := rpcapi.ClientWifiScanRequest{}
 		if req.Params != nil {
 			decoded, err := req.Params.AsClientWifiScanRequest()
@@ -465,7 +378,7 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 			networks = []rpcapi.WifiScanResult{}
 		}
 		return newRPCResultResponse(req.Id, rpcapi.ClientWifiScanResponse{Networks: networks}, (*rpcapi.RPCPayload).FromClientWifiScanResponse)
-	case rpcapi.RPCMethodClientWifiConnect:
+	case rpcpb.ClientTool_CLIENT_TOOL_WIFI_CONNECT:
 		if req.Params == nil {
 			return rpcInvalidParams(req.Id), nil
 		}
@@ -485,10 +398,4 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 	default:
 		return deviceControlUnsupported(req.Id, req.Method), nil
 	}
-}
-
-// validDeviceSettingsPatch rejects the whole patch when any present member is
-// outside its range, so the device is never left half-configured.
-func validDeviceSettingsPatch(patch rpcapi.DeviceSettings) bool {
-	return patch.Valid()
 }

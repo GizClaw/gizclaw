@@ -2,7 +2,6 @@ package giztestcmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
@@ -25,95 +25,87 @@ func configureClientRPC(client *gizcli.Client, clientName string, steps []giztes
 	}); err != nil {
 		return err
 	}
+	client.ObserveClientTool(func(tool rpcpb.ClientTool) {
+		metadata, err := rpcapi.ClientToolMetadata(tool)
+		if err == nil {
+			if counter := counts[clientName+":client.tool.v0.invoke:"+metadata.Name]; counter != nil {
+				counter.Add(1)
+			}
+		}
+	})
 	var device gizcli.DeviceControlHandlers
 	haveDevice := false
 	for _, step := range steps {
 		if step.Client != clientName || step.ClientRPC == nil {
 			continue
 		}
-		response, err := vars.Resolve(step.ClientRPC.Response)
-		if err != nil && step.ClientRPC.Response != nil {
+		operation := step.ClientRPC
+		response, err := vars.Resolve(operation.Response)
+		if err != nil && operation.Response != nil {
 			return fmt.Errorf("step %s client_rpc response: %w", step.ID, err)
 		}
-		key := clientName + ":" + step.ClientRPC.Method
-		// A reconnect reinstalls the providers on a new connection. Keep the
-		// counter the first connection registered so expect_calls still sees
-		// the total across both.
-		counter := counts[key]
-		if counter == nil {
-			counter = &inboundCounter{}
-			counts[key] = counter
+		key := clientName + ":" + operation.Key()
+		if counts[key] == nil {
+			counts[key] = &inboundCounter{}
 		}
-		switch step.ClientRPC.Method {
-		case "client.info.get":
-			var device apitypes.DeviceInfo
-			if response != nil {
-				if err := decodeRequest(response, &device); err != nil {
-					return fmt.Errorf("step %s response: %w", step.ID, err)
-				}
+		if operation.Method != "client.tool.v0.invoke" && operation.Tool != "" {
+			return fmt.Errorf("step %s: tool requires client.tool.v0.invoke", step.ID)
+		}
+		switch operation.Method {
+		case "client.rpc.methods.list", "client.tool.v0.list":
+			if operation.Response != nil {
+				return fmt.Errorf("step %s: %s is answered from the installed providers and takes no response", step.ID, operation.Method)
 			}
-			client.Device = device
-		case "client.identifiers.get":
-			var identifiers apitypes.DeviceIdentifiers
-			if response != nil {
-				if err := decodeRequest(response, &identifiers); err != nil {
-					return fmt.Errorf("step %s response: %w", step.ID, err)
-				}
-			}
-			client.Device.Identifiers = &identifiers
-		case "client.tool.invoke":
-			object, ok := response.(map[string]any)
-			if !ok {
-				return fmt.Errorf("step %s tool response must be an object", step.ID)
-			}
-			name, ok := object["name"].(string)
-			if !ok || strings.TrimSpace(name) == "" {
-				return fmt.Errorf("step %s tool response requires name", step.ID)
-			}
-			// unavailable scripts a device that does not provide the Tool: no
-			// handler is installed, so the SDK answers UNIMPLEMENTED while the
-			// call is still counted for expect_calls.
-			if unavailable, _ := object["unavailable"].(bool); unavailable {
-				if _, hasResult := object["result"]; hasResult {
-					return fmt.Errorf("step %s unavailable tool response cannot set result", step.ID)
-				}
-				continue
-			}
-			payload, err := json.Marshal(object["result"])
-			if err != nil {
-				return err
-			}
-			if err := client.HandleTool(name, func(context.Context, json.RawMessage) (json.RawMessage, error) {
-				return append(json.RawMessage(nil), payload...), nil
-			}); err != nil {
-				return err
-			}
-		case "client.social.ping":
-			scripted, err := deviceControlErrorResponse(response)
-			if err != nil {
-				return fmt.Errorf("step %s response: %w", step.ID, err)
-			}
-			if err := client.HandleSocialPing(func(context.Context, rpcapi.ClientSocialPingRequest) error { return scripted }); err != nil {
-				return err
-			}
-		case "client.rpc.methods.get":
-			// The SDK answers client.rpc.methods.get itself from the providers
-			// installed here, so a step only counts the Server's calls. A
-			// scripted answer could never be honored, so the document is
-			// rejected rather than silently ignoring it.
-			if step.ClientRPC.Response != nil {
-				return fmt.Errorf("step %s: client.rpc.methods.get is answered from the installed providers and takes no response", step.ID)
-			}
-		case "client.device.status.get", "client.device.volume.set", "client.device.sound.play", "client.device.find", "client.device.reboot",
-			"client.device.settings.get", "client.device.settings.set", "client.device.factory_reset", "client.run.workspace.set", "client.mhs.v0.read", "client.mhs.v0.write",
-			"client.device.audioplayer.get", "client.device.audioplayer.playlist.get", "client.device.audioplayer.playlist.set", "client.device.audioplayer.playlist.append", "client.device.audioplayer.play", "client.device.audioplayer.stop", "client.device.audioplayer.mode.set",
-			"client.wifi.status.get", "client.wifi.saved.list", "client.wifi.saved.forget", "client.wifi.scan", "client.wifi.connect":
-			if err := installDeviceControl(&device, step.ClientRPC.Method, response); err != nil {
+		case "client.mhs.v0.read", "client.mhs.v0.write":
+			if err := installMhs(&device, operation.Method, response); err != nil {
 				return fmt.Errorf("step %s response: %w", step.ID, err)
 			}
 			haveDevice = true
+		case "client.tool.v0.invoke":
+			if _, err := rpcapi.ClientToolByName(operation.Tool); err != nil {
+				return fmt.Errorf("step %s: %w", step.ID, err)
+			}
+			if object, ok := response.(map[string]any); ok {
+				if unavailable, _ := object["unavailable"].(bool); unavailable {
+					if _, hasResult := object["result"]; hasResult {
+						return fmt.Errorf("step %s unavailable tool response cannot set result", step.ID)
+					}
+					continue
+				}
+			}
+			switch operation.Tool {
+			case "info.get":
+				var info apitypes.DeviceInfo
+				if response != nil {
+					if err := decodeRequest(response, &info); err != nil {
+						return fmt.Errorf("step %s response: %w", step.ID, err)
+					}
+				}
+				client.Device = info
+			case "identifiers.get":
+				var identifiers apitypes.DeviceIdentifiers
+				if response != nil {
+					if err := decodeRequest(response, &identifiers); err != nil {
+						return fmt.Errorf("step %s response: %w", step.ID, err)
+					}
+				}
+				client.Device.Identifiers = &identifiers
+			case "social.ping":
+				scripted, err := deviceControlErrorResponse(response)
+				if err != nil {
+					return fmt.Errorf("step %s response: %w", step.ID, err)
+				}
+				if err := client.HandleSocialPing(func(context.Context, rpcapi.ClientSocialPingRequest) error { return scripted }); err != nil {
+					return err
+				}
+			default:
+				if err := installDeviceControl(&device, operation.Tool, response); err != nil {
+					return fmt.Errorf("step %s response: %w", step.ID, err)
+				}
+				haveDevice = true
+			}
 		default:
-			return fmt.Errorf("unsupported client RPC %q", step.ClientRPC.Method)
+			return fmt.Errorf("unsupported client RPC %q", operation.Method)
 		}
 	}
 	if haveDevice {
@@ -198,7 +190,7 @@ func installDeviceControl(handlers *gizcli.DeviceControlHandlers, method string,
 	if strings.HasPrefix(method, "client.mhs.v0.") {
 		return installMhs(handlers, method, response)
 	}
-	if strings.HasPrefix(method, "client.device.audioplayer.") {
+	if strings.HasPrefix(method, "audioplayer.") {
 		return installAudioPlayer(handlers, method, response)
 	}
 	scripted, scriptErr := deviceControlErrorResponse(response)
@@ -208,43 +200,33 @@ func installDeviceControl(handlers *gizcli.DeviceControlHandlers, method string,
 	if scripted != nil {
 		fail := func(context.Context) error { return scripted }
 		switch method {
-		case "client.device.status.get":
+		case "device.status.get":
 			handlers.Status = func(ctx context.Context) (rpcapi.PeerStatus, error) { return rpcapi.PeerStatus{}, fail(ctx) }
-		case "client.device.volume.set":
-			handlers.SetVolume = func(ctx context.Context, _ int64, _ bool) (rpcapi.PeerStatus, error) {
-				return rpcapi.PeerStatus{}, fail(ctx)
-			}
-		case "client.device.sound.play":
+		case "sound.play":
 			handlers.PlaySound = func(ctx context.Context, _ string, _ *int64) error { return fail(ctx) }
-		case "client.device.find":
+		case "device.find":
 			handlers.Find = func(ctx context.Context, _ *int64) error { return fail(ctx) }
-		case "client.device.reboot":
+		case "device.reboot":
 			handlers.Reboot = func(ctx context.Context, _ *int64) error { return fail(ctx) }
-		case "client.device.settings.get":
-			handlers.GetSettings = func(ctx context.Context) (rpcapi.DeviceSettings, error) { return rpcapi.DeviceSettings{}, fail(ctx) }
-		case "client.device.settings.set":
-			handlers.SetSettings = func(ctx context.Context, _ rpcapi.DeviceSettings) (rpcapi.DeviceSettings, error) {
-				return rpcapi.DeviceSettings{}, fail(ctx)
-			}
-		case "client.device.factory_reset":
+		case "device.factory_reset":
 			handlers.FactoryReset = func(ctx context.Context, _ bool) error { return fail(ctx) }
-		case "client.run.workspace.set":
+		case "run.workspace.set":
 			handlers.SetRunWorkspace = func(ctx context.Context, _ rpcapi.ClientRunWorkspaceSetRequest) error { return fail(ctx) }
-		case "client.wifi.status.get":
-			handlers.WifiStatus = func(ctx context.Context) (rpcapi.WifiStatus, error) { return rpcapi.WifiStatus{}, fail(ctx) }
-		case "client.wifi.saved.list":
+		case "wifi.saved.list":
 			handlers.SavedWifi = func(ctx context.Context) ([]rpcapi.WifiSavedNetwork, error) { return nil, fail(ctx) }
-		case "client.wifi.saved.forget":
+		case "wifi.saved.forget":
 			handlers.ForgetWifi = func(ctx context.Context, _ string) error { return fail(ctx) }
-		case "client.wifi.scan":
+		case "wifi.scan":
 			handlers.ScanWifi = func(ctx context.Context, _ *int64) ([]rpcapi.WifiScanResult, error) { return nil, fail(ctx) }
-		case "client.wifi.connect":
+		case "firmware.update":
+			handlers.UpdateFirmware = func(ctx context.Context, _ *rpcapi.FirmwareChannelName, _ *string) error { return fail(ctx) }
+		case "wifi.connect":
 			handlers.ConnectWifi = func(ctx context.Context, _ string, _ *string) error { return fail(ctx) }
 		}
 		return nil
 	}
 	switch method {
-	case "client.device.status.get":
+	case "device.status.get":
 		var status rpcapi.PeerStatus
 		if response != nil {
 			if err := decodeRequest(response, &status); err != nil {
@@ -252,62 +234,17 @@ func installDeviceControl(handlers *gizcli.DeviceControlHandlers, method string,
 			}
 		}
 		handlers.Status = func(context.Context) (rpcapi.PeerStatus, error) { return status, nil }
-	case "client.device.volume.set":
-		var status rpcapi.PeerStatus
-		if response != nil {
-			if err := decodeRequest(response, &status); err != nil {
-				return err
-			}
-		}
-		// The scripted status is echoed back with the requested level and
-		// mute state so the round trip can be asserted through HTTP.
-		handlers.SetVolume = func(_ context.Context, level int64, muted bool) (rpcapi.PeerStatus, error) {
-			applied := status
-			levelValue := int(level)
-			applied.Volume = &levelValue
-			applied.Muted = &muted
-			return applied, nil
-		}
-	case "client.device.sound.play":
+	case "sound.play":
 		handlers.PlaySound = func(context.Context, string, *int64) error { return nil }
-	case "client.device.find":
+	case "device.find":
 		handlers.Find = func(context.Context, *int64) error { return nil }
-	case "client.device.reboot":
+	case "device.reboot":
 		handlers.Reboot = func(context.Context, *int64) error { return nil }
-	case "client.device.settings.get":
-		var settings rpcapi.DeviceSettings
-		if response != nil {
-			if err := decodeRequest(response, &settings); err != nil {
-				return err
-			}
-		}
-		handlers.GetSettings = func(context.Context) (rpcapi.DeviceSettings, error) { return settings, nil }
-	case "client.device.settings.set":
-		// The scripted settings are the device's state before the patch; the
-		// answer overlays the members the patch carries, so an HTTP round trip
-		// observes what it asked for next to what it left unchanged.
-		var settings rpcapi.DeviceSettings
-		if response != nil {
-			if err := decodeRequest(response, &settings); err != nil {
-				return err
-			}
-		}
-		handlers.SetSettings = func(_ context.Context, patch rpcapi.DeviceSettings) (rpcapi.DeviceSettings, error) {
-			return overlayDeviceSettings(settings, patch)
-		}
-	case "client.device.factory_reset":
+	case "device.factory_reset":
 		handlers.FactoryReset = func(context.Context, bool) error { return nil }
-	case "client.run.workspace.set":
+	case "run.workspace.set":
 		handlers.SetRunWorkspace = func(context.Context, rpcapi.ClientRunWorkspaceSetRequest) error { return nil }
-	case "client.wifi.status.get":
-		var status rpcapi.WifiStatus
-		if response != nil {
-			if err := decodeRequest(response, &status); err != nil {
-				return err
-			}
-		}
-		handlers.WifiStatus = func(context.Context) (rpcapi.WifiStatus, error) { return status, nil }
-	case "client.wifi.saved.list":
+	case "wifi.saved.list":
 		var list rpcapi.ClientWifiSavedListResponse
 		if response != nil {
 			if err := decodeRequest(response, &list); err != nil {
@@ -315,9 +252,9 @@ func installDeviceControl(handlers *gizcli.DeviceControlHandlers, method string,
 			}
 		}
 		handlers.SavedWifi = func(context.Context) ([]rpcapi.WifiSavedNetwork, error) { return list.Networks, nil }
-	case "client.wifi.saved.forget":
+	case "wifi.saved.forget":
 		handlers.ForgetWifi = func(context.Context, string) error { return nil }
-	case "client.wifi.scan":
+	case "wifi.scan":
 		var result rpcapi.ClientWifiScanResponse
 		delay, err := scriptedDeviceDelay(response)
 		if err != nil {
@@ -340,31 +277,12 @@ func installDeviceControl(handlers *gizcli.DeviceControlHandlers, method string,
 			}
 			return result.Networks, nil
 		}
-	case "client.wifi.connect":
+	case "firmware.update":
+		handlers.UpdateFirmware = func(context.Context, *rpcapi.FirmwareChannelName, *string) error { return nil }
+	case "wifi.connect":
 		handlers.ConnectWifi = func(context.Context, string, *string) error { return nil }
 	}
 	return nil
-}
-
-// overlayDeviceSettings applies the members present in patch over base. Both
-// sides go through their JSON form, where an absent member is omitted, so only
-// the members the caller sent replace the scripted ones.
-func overlayDeviceSettings(base, patch rpcapi.DeviceSettings) (rpcapi.DeviceSettings, error) {
-	merged := map[string]any{}
-	for _, part := range []rpcapi.DeviceSettings{base, patch} {
-		encoded, err := json.Marshal(part)
-		if err != nil {
-			return rpcapi.DeviceSettings{}, err
-		}
-		if err := json.Unmarshal(encoded, &merged); err != nil {
-			return rpcapi.DeviceSettings{}, err
-		}
-	}
-	var out rpcapi.DeviceSettings
-	if err := decodeRequest(merged, &out); err != nil {
-		return rpcapi.DeviceSettings{}, err
-	}
-	return out, nil
 }
 
 // maxScriptedDelayMs bounds a scripted device delay across every runner. It is

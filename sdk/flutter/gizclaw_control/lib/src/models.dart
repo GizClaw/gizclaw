@@ -650,33 +650,7 @@ class PeerTelemetryAggregateResponse {
   };
 }
 
-/// Body of `PUT /gizclaw/v1/device/volume` (`DeviceVolumeSetRequest`).
-class DeviceVolumeSetRequest {
-  const DeviceVolumeSetRequest({required this.level, required this.muted});
-
-  /// Absolute volume level from 0 to 100.
-  final int level;
-  final bool muted;
-
-  JsonObject toJson() => {'level': level, 'muted': muted};
-}
-
-/// Status reported by the device after a control command
-/// (`DeviceControlStatus`).
-class DeviceControlStatus {
-  const DeviceControlStatus({required this.status});
-
-  factory DeviceControlStatus.fromJson(Object? json) {
-    final object = asJsonObject(json, 'DeviceControlStatus');
-    return DeviceControlStatus(status: PeerStatus.fromJson(object['status']));
-  }
-
-  final PeerStatus status;
-
-  JsonObject toJson() => {'status': status.toJson()};
-}
-
-/// Body of `POST /gizclaw/v1/device/actions/play-sound`
+/// Body of `POST /gizclaw/v1/device/tool/v0/invoke`
 /// (`DevicePlaySoundRequest`).
 class DevicePlaySoundRequest {
   const DevicePlaySoundRequest({required this.sound, this.durationMs});
@@ -689,7 +663,7 @@ class DevicePlaySoundRequest {
       withoutNulls({'sound': sound, 'duration_ms': durationMs});
 }
 
-/// Body of `POST /gizclaw/v1/device/actions/find` (`DeviceFindRequest`).
+/// Body of `POST /gizclaw/v1/device/tool/v0/invoke` (`DeviceFindRequest`).
 class DeviceFindRequest {
   const DeviceFindRequest({this.durationMs});
 
@@ -700,7 +674,7 @@ class DeviceFindRequest {
   JsonObject toJson() => withoutNulls({'duration_ms': durationMs});
 }
 
-/// Body of `POST /gizclaw/v1/device/actions/reboot` (`DeviceRebootRequest`).
+/// Body of `POST /gizclaw/v1/device/tool/v0/invoke` (`DeviceRebootRequest`).
 class DeviceRebootRequest {
   const DeviceRebootRequest({this.delayMs});
 
@@ -709,87 +683,7 @@ class DeviceRebootRequest {
   JsonObject toJson() => withoutNulls({'delay_ms': delayMs});
 }
 
-/// Device-owned settings (`DeviceSettings`).
-///
-/// Every member is optional. In a response a null member means the device
-/// does not support that option; in [GizClawControlClient.updateDeviceSettings]
-/// a null member leaves it unchanged. Enum members carry their wire strings so
-/// a value added later keeps decoding: [defaultInteractionMode] is
-/// `push-to-talk` or `realtime`; [keyFeedback] is `none`, `sound`, `vibrate`
-/// or `sound_and_vibrate`; [alertMode] is `silent`, `vibrate` or `ring`.
-///
-/// Product-specific configuration such as usage limits is a device Tool, see
-/// [GizClawControlClient.listDeviceTools]. Speech rate belongs to the
-/// Workspace parameters, not to the device.
-class DeviceSettings {
-  const DeviceSettings({
-    this.cellularEnabled,
-    this.screenOffTimeoutMs,
-    this.screenBrightness,
-    this.ledBrightness,
-    this.locale,
-    this.defaultInteractionMode,
-    this.keyFeedback,
-    this.alertMode,
-    this.autoSleepTimeoutMs,
-    this.nfcEnabled,
-  });
-
-  factory DeviceSettings.fromJson(Object? json) {
-    final object = asJsonObject(json, 'DeviceSettings');
-    return DeviceSettings(
-      cellularEnabled: readOptionalBool(object, 'cellular_enabled'),
-      screenOffTimeoutMs: readOptionalInt(object, 'screen_off_timeout_ms'),
-      screenBrightness: readOptionalInt(object, 'screen_brightness'),
-      ledBrightness: readOptionalInt(object, 'led_brightness'),
-      locale: readOptionalString(object, 'locale'),
-      defaultInteractionMode: readOptionalString(
-        object,
-        'default_interaction_mode',
-      ),
-      keyFeedback: readOptionalString(object, 'key_feedback'),
-      alertMode: readOptionalString(object, 'alert_mode'),
-      autoSleepTimeoutMs: readOptionalInt(object, 'auto_sleep_timeout_ms'),
-      nfcEnabled: readOptionalBool(object, 'nfc_enabled'),
-    );
-  }
-
-  final bool? cellularEnabled;
-
-  /// Idle time before the screen turns off; 0 keeps it on.
-  final int? screenOffTimeoutMs;
-
-  /// Percent, 0 to 100.
-  final int? screenBrightness;
-
-  /// Percent, 0 to 100.
-  final int? ledBrightness;
-
-  /// BCP 47 language tag such as `zh-CN`.
-  final String? locale;
-  final String? defaultInteractionMode;
-  final String? keyFeedback;
-  final String? alertMode;
-
-  /// Idle time before the device sleeps; 0 disables automatic sleep.
-  final int? autoSleepTimeoutMs;
-  final bool? nfcEnabled;
-
-  JsonObject toJson() => withoutNulls({
-    'cellular_enabled': cellularEnabled,
-    'screen_off_timeout_ms': screenOffTimeoutMs,
-    'screen_brightness': screenBrightness,
-    'led_brightness': ledBrightness,
-    'locale': locale,
-    'default_interaction_mode': defaultInteractionMode,
-    'key_feedback': keyFeedback,
-    'alert_mode': alertMode,
-    'auto_sleep_timeout_ms': autoSleepTimeoutMs,
-    'nfc_enabled': nfcEnabled,
-  });
-}
-
-/// Body of `PUT /gizclaw/v1/device/run/workspace`
+/// Body of `POST /gizclaw/v1/device/tool/v0/invoke`
 /// (`DeviceRunWorkspaceSetRequest`).
 ///
 /// Names exactly one target: [DeviceRunWorkspaceRequest.workspace], or
@@ -832,87 +726,6 @@ class DeviceRunWorkspaceRequest {
     'workflow_name': workflowName,
     'kickoff': kickoff,
   });
-}
-
-/// Display text of a [DeviceTool] in one locale (`DeviceToolI18nText`).
-class DeviceToolI18nText {
-  const DeviceToolI18nText({required this.displayName, this.description});
-
-  factory DeviceToolI18nText.fromJson(Object? json) {
-    final object = asJsonObject(json, 'DeviceToolI18nText');
-    return DeviceToolI18nText(
-      displayName: readString(object, 'display_name'),
-      description: readOptionalString(object, 'description'),
-    );
-  }
-
-  final String displayName;
-  final String? description;
-
-  JsonObject toJson() =>
-      withoutNulls({'display_name': displayName, 'description': description});
-}
-
-/// One Tool the control app may invoke on the device (`DeviceTool`).
-class DeviceTool {
-  const DeviceTool({
-    required this.name,
-    required this.controlAccess,
-    this.i18n = const {},
-    this.inputSchema = const {},
-  });
-
-  factory DeviceTool.fromJson(Object? json) {
-    final object = asJsonObject(json, 'DeviceTool');
-    final i18n = readOptionalObject(object, 'i18n') ?? const {};
-    return DeviceTool(
-      name: readString(object, 'name'),
-      controlAccess: readString(object, 'control_access'),
-      i18n: Map.unmodifiable(
-        i18n.map(
-          (locale, text) => MapEntry(locale, DeviceToolI18nText.fromJson(text)),
-        ),
-      ),
-      inputSchema: Map.unmodifiable(
-        readOptionalObject(object, 'input_schema') ?? const {},
-      ),
-    );
-  }
-
-  /// Path parameter of [GizClawControlClient.invokeDeviceTool].
-  final String name;
-
-  /// Authorization the Tool's binding requires, such as `owner`.
-  final String controlAccess;
-  final Map<String, DeviceToolI18nText> i18n;
-
-  /// JSON Schema the invoke arguments must satisfy.
-  final Map<String, Object?> inputSchema;
-
-  JsonObject toJson() => {
-    'name': name,
-    'control_access': controlAccess,
-    'i18n': i18n.map((locale, text) => MapEntry(locale, text.toJson())),
-    'input_schema': inputSchema,
-  };
-}
-
-/// Response of `GET /gizclaw/v1/device/tools` (`DeviceToolList`).
-class DeviceToolList {
-  const DeviceToolList({required this.items});
-
-  factory DeviceToolList.fromJson(Object? json) {
-    final object = asJsonObject(json, 'DeviceToolList');
-    return DeviceToolList(
-      items: readList(object, 'items', DeviceTool.fromJson),
-    );
-  }
-
-  final List<DeviceTool> items;
-
-  JsonObject toJson() => {
-    'items': items.map((item) => item.toJson()).toList(growable: false),
-  };
 }
 
 /// Firmware channel name (`FirmwareChannelName`).
@@ -1276,7 +1089,7 @@ class WorkspaceHistoryEntry {
   final bool replayAvailable;
 }
 
-/// Body of `POST /gizclaw/v1/device/actions/firmware-update`.
+/// Body of `POST /gizclaw/v1/device/tool/v0/invoke`.
 class DeviceFirmwareUpdateRequest {
   const DeviceFirmwareUpdateRequest({this.channel, this.sha256});
 
@@ -1288,42 +1101,6 @@ class DeviceFirmwareUpdateRequest {
 
   JsonObject toJson() =>
       withoutNulls({'channel': channel?.wireValue, 'sha256': sha256});
-}
-
-/// Current Wi-Fi status of the device (`DeviceWifiStatus`).
-class DeviceWifiStatus {
-  const DeviceWifiStatus({
-    required this.connected,
-    this.ssid,
-    this.rssiDbm,
-    this.ip,
-    this.bssid,
-  });
-
-  factory DeviceWifiStatus.fromJson(Object? json) {
-    final object = asJsonObject(json, 'DeviceWifiStatus');
-    return DeviceWifiStatus(
-      connected: readBool(object, 'connected'),
-      ssid: readOptionalString(object, 'ssid'),
-      rssiDbm: readOptionalInt(object, 'rssi_dbm'),
-      ip: readOptionalString(object, 'ip'),
-      bssid: readOptionalString(object, 'bssid'),
-    );
-  }
-
-  final bool connected;
-  final String? ssid;
-  final int? rssiDbm;
-  final String? ip;
-  final String? bssid;
-
-  JsonObject toJson() => withoutNulls({
-    'connected': connected,
-    'ssid': ssid,
-    'rssi_dbm': rssiDbm,
-    'ip': ip,
-    'bssid': bssid,
-  });
 }
 
 /// One Wi-Fi network saved on the device (`DeviceWifiSavedNetwork`).
@@ -1358,7 +1135,7 @@ class DeviceWifiSavedList {
   };
 }
 
-/// Body of `POST /gizclaw/v1/device/wifi/scan`.
+/// Body of `POST /gizclaw/v1/device/tool/v0/invoke`.
 class DeviceWifiScanRequest {
   const DeviceWifiScanRequest({this.timeoutMs});
 
@@ -1421,7 +1198,7 @@ class DeviceWifiScanResponse {
   };
 }
 
-/// Body of `PUT /gizclaw/v1/device/wifi`.
+/// Body of `POST /gizclaw/v1/device/tool/v0/invoke`.
 class DeviceWifiConnectRequest {
   const DeviceWifiConnectRequest({required this.ssid, this.passphrase});
 

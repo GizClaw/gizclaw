@@ -1,6 +1,3 @@
-// Covers the deprecated volume/settings RPCs, which stay supported until removal.
-// ignore_for_file: deprecated_member_use_from_same_package
-
 import 'dart:typed_data';
 
 import 'package:fixnum/fixnum.dart' as fixnum;
@@ -45,8 +42,8 @@ void main() {
         final response = await _callInbound(
           channel,
           id: 'player',
-          method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY,
-          methodName: 'client.device.audioplayer.play',
+          method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+          methodName: 'audioplayer.play',
           request: ClientDeviceAudioPlayerPlayRequest(index: index),
         );
         if (index == null) {
@@ -57,8 +54,8 @@ void main() {
         } else {
           expect(response.hasStatus(), isFalse);
           final result =
-              decodeRpcResponsePayload(
-                    'client.device.audioplayer.play',
+              decodeClientToolResponsePayload(
+                    clientToolByName('audioplayer.play').id,
                     response.payload,
                   )
                   as ClientDeviceAudioPlayerPlayResponse;
@@ -189,12 +186,15 @@ void main() {
     final infoResponse = await _callInbound(
       infoChannel,
       id: 'info-1',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_INFO_GET,
-      methodName: 'client.info.get',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'info.get',
       request: ClientGetInfoRequest(),
     );
     final info =
-        decodeRpcResponsePayload('client.info.get', infoResponse.payload)
+        decodeClientToolResponsePayload(
+              clientToolByName('info.get').id,
+              infoResponse.payload,
+            )
             as ClientGetInfoResponse;
     expect(info.value.hardwareRevision, 'revision-1');
     expect(info.value.manufacturer, 'GizClaw');
@@ -209,13 +209,13 @@ void main() {
     final identifiersResponse = await _callInbound(
       identifiersChannel,
       id: 'identifiers-1',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_IDENTIFIERS_GET,
-      methodName: 'client.identifiers.get',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'identifiers.get',
       request: ClientGetIdentifiersRequest(),
     );
     final identifiers =
-        decodeRpcResponsePayload(
-              'client.identifiers.get',
+        decodeClientToolResponsePayload(
+              clientToolByName('identifiers.get').id,
               identifiersResponse.payload,
             )
             as ClientGetIdentifiersResponse;
@@ -244,12 +244,15 @@ void main() {
     final response = await _callInbound(
       channel,
       id: 'identifiers-2',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_IDENTIFIERS_GET,
-      methodName: 'client.identifiers.get',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'identifiers.get',
       request: ClientGetIdentifiersRequest(),
     );
     final identifiers =
-        decodeRpcResponsePayload('client.identifiers.get', response.payload)
+        decodeClientToolResponsePayload(
+              clientToolByName('identifiers.get').id,
+              response.payload,
+            )
             as ClientGetIdentifiersResponse;
     expect(identifiersCalls, 1);
     expect(identifiers.value.sn, 'scripted-serial');
@@ -257,132 +260,130 @@ void main() {
     expect(identifiers.value.imeis, isEmpty);
   });
 
-  test('serves configured client tool invocations', () async {
+  test('serves a configured tool/v0 procedure', () async {
     final channel = FakeDataChannel('giznet/v1/service/0');
     addTearDown(channel.close);
-    Map<String, Object?>? invoked;
+    var calls = 0;
     serveGizClawPeerRpcChannel(
       channel,
       handlers: GizClawPeerRpcHandlers(
-        deviceInfo: () => device,
-        tools: {
-          'music_play': (arguments) {
-            invoked = arguments;
-            return {'ok': true};
+        deviceInfo: () => DeviceInfo(name: 'tool'),
+        deviceControl: GizClawDeviceControlHandlers(
+          find: (_) {
+            calls++;
           },
-        },
+        ),
       ),
     );
-
     final response = await _callInbound(
       channel,
-      id: 'tool-1',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_INVOKE,
-      methodName: 'client.tool.invoke',
-      request: ToolInvokeRequest(invokeName: 'music_play'),
+      id: 'find',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'device.find',
+      request: ClientDeviceFindRequest(),
     );
-    final result =
-        decodeRpcResponsePayload('client.tool.invoke', response.payload)
-            as ToolInvokeResponse;
-    expect(invoked, isEmpty);
-    expect(result.dataJson, '{"ok":true}');
+    expect(response.hasStatus(), isFalse);
+    expect(calls, 1);
+    expect(
+      decodeClientToolResponsePayload(
+        clientToolByName('device.find').id,
+        response.payload,
+      ),
+      isA<ClientDeviceFindResponse>(),
+    );
   });
 
-  test('waits for client request EOS before invoking a handler', () async {
+  test('waits for tool/v0 request EOS before invoking a handler', () async {
     final channel = FakeDataChannel('giznet/v1/service/0');
     addTearDown(channel.close);
-    var invocationCount = 0;
+    var calls = 0;
     serveGizClawPeerRpcChannel(
       channel,
       handlers: GizClawPeerRpcHandlers(
-        deviceInfo: () => device,
-        tools: {
-          'music_play': (arguments) {
-            invocationCount++;
-            return {'ok': true};
+        deviceInfo: () => DeviceInfo(name: 'tool'),
+        deviceControl: GizClawDeviceControlHandlers(
+          find: (_) {
+            calls++;
           },
-        },
+        ),
       ),
     );
-
     channel.addMessage(
       _rpcRequestEnvelopeBytes(
         id: 'tool-wait-eos',
-        method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_INVOKE,
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
         payloadBytes: encodeRpcRequestPayload(
-          'client.tool.invoke',
-          ToolInvokeRequest(invokeName: 'music_play'),
+          'client.tool.v0.invoke',
+          ClientToolV0InvokeRequest(
+            tool: ClientTool.CLIENT_TOOL_DEVICE_FIND,
+            payload: encodeClientToolRequestPayload(
+              clientToolByName('device.find').id,
+              ClientDeviceFindRequest(),
+            ),
+          ),
         ),
       ),
     );
     await Future<void>.delayed(Duration.zero);
-
-    expect(invocationCount, 0);
+    expect(calls, 0);
     expect(channel.sent, isEmpty);
-
     channel.addMessage(encodeFrame(rpcFrameTypeEos));
     for (var attempt = 0; channel.sent.length < 2; attempt++) {
       if (attempt == 20) fail('inbound RPC response was not sent');
       await Future<void>.delayed(Duration.zero);
     }
-
-    expect(invocationCount, 1);
-    expect(_singleEnvelopeResponse(channel).id, 'tool-wait-eos');
+    expect(calls, 1);
   });
 
-  test('rejects an unexpected client request body', () async {
+  test('rejects an unexpected tool/v0 request body', () async {
     final channel = FakeDataChannel('giznet/v1/service/0');
-    var invocationCount = 0;
+    var calls = 0;
     serveGizClawPeerRpcChannel(
       channel,
       handlers: GizClawPeerRpcHandlers(
-        deviceInfo: () => device,
-        tools: {
-          'music_play': (arguments) {
-            invocationCount++;
-            return null;
+        deviceInfo: () => DeviceInfo(name: 'tool'),
+        deviceControl: GizClawDeviceControlHandlers(
+          find: (_) {
+            calls++;
           },
-        },
+        ),
       ),
     );
-
     channel.addMessage(
       concatBytes([
         _rpcRequestEnvelopeBytes(
           id: 'tool-body',
-          method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_INVOKE,
+          method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
           payloadBytes: encodeRpcRequestPayload(
-            'client.tool.invoke',
-            ToolInvokeRequest(invokeName: 'music_play'),
+            'client.tool.v0.invoke',
+            ClientToolV0InvokeRequest(tool: ClientTool.CLIENT_TOOL_DEVICE_FIND),
           ),
         ),
         encodeFrame(rpcFrameTypeBinary, [1]),
       ]),
     );
     await Future<void>.delayed(Duration.zero);
-
-    expect(invocationCount, 0);
-    expect(channel.sent, isEmpty);
+    expect(calls, 0);
     expect(channel.state, GizClawDataChannelState.closed);
   });
 
-  test('reports an unconfigured client tool handler', () async {
+  test('reports an unconfigured tool/v0 handler', () async {
     final channel = FakeDataChannel('giznet/v1/service/0');
     addTearDown(channel.close);
     serveGizClawPeerRpcChannel(
       channel,
-      handlers: GizClawPeerRpcHandlers(deviceInfo: () => device),
+      handlers: GizClawPeerRpcHandlers(
+        deviceInfo: () => DeviceInfo(name: 'tool'),
+      ),
     );
-
     final response = await _callInbound(
       channel,
       id: 'tool-missing',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_INVOKE,
-      methodName: 'client.tool.invoke',
-      request: ToolInvokeRequest(invokeName: 'missing_tool'),
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'device.find',
+      request: ClientDeviceFindRequest(),
     );
     expect(response.status.code, rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED);
-    expect(response.status.message, 'Tool unavailable');
   });
 }
 
@@ -432,14 +433,27 @@ Future<rpc.RpcResponse> _callInbound(
   required String methodName,
   required GeneratedMessage request,
 }) async {
+  final tool = clientToolsByName[methodName];
+  final wireMethod = tool == null
+      ? method
+      : rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE;
+  final wirePayload = tool == null
+      ? encodeRpcRequestPayload(methodName, request)
+      : encodeRpcRequestPayload(
+          'client.tool.v0.invoke',
+          ClientToolV0InvokeRequest(
+            tool: ClientTool.valueOf(tool.id),
+            payload: encodeClientToolRequestPayload(tool.id, request),
+          ),
+        );
   final sentBefore = channel.sent.length;
   channel.addMessage(
     concatBytes([
       ...encodeEnvelopeFrames(
         rpc.RpcRequest(
           id: id,
-          method: method,
-          payload: encodeRpcRequestPayload(methodName, request),
+          method: wireMethod,
+          payload: wirePayload,
         ).writeToBuffer(),
       ),
       encodeFrame(rpcFrameTypeEos),
@@ -455,7 +469,13 @@ Future<rpc.RpcResponse> _callInbound(
     ),
   );
   expect(frames.last.type, rpcFrameTypeEos);
-  return rpc.RpcResponse.fromBuffer(frames.first.payload);
+  final response = rpc.RpcResponse.fromBuffer(frames.first.payload);
+  if (tool != null && !response.hasStatus()) {
+    response.payload = ClientToolV0InvokeResponse.fromBuffer(
+      response.payload,
+    ).payload;
+  }
+  return response;
 }
 
 void deviceControlTests() {
@@ -483,8 +503,6 @@ void deviceControlTests() {
   }
 
   test('serves configured device control providers', () async {
-    var volume = 50;
-    var muted = false;
     String? lastSound;
     int? lastDuration;
     final findDurations = <int?>[];
@@ -496,16 +514,7 @@ void deviceControlTests() {
     final handlers = GizClawPeerRpcHandlers(
       deviceInfo: () => device,
       deviceControl: GizClawDeviceControlHandlers(
-        status: () => PeerStatus(volume: Int64(volume), muted: muted),
-        setVolume: (level, isMuted) {
-          volume = level;
-          muted = isMuted;
-          return PeerStatus(
-            volume: Int64(level),
-            muted: isMuted,
-            batteryPercent: Int64(88),
-          );
-        },
+        status: () => PeerStatus(volume: Int64(35), muted: true),
         playSound: (sound, durationMs) {
           if (sound != 'chime') {
             throw const GizClawDeviceControlException(
@@ -526,8 +535,6 @@ void deviceControlTests() {
           findDurations.add(durationMs);
         },
         reboot: (delayMs) => lastDelay = delayMs,
-        wifiStatus: () =>
-            WifiStatus(connected: true, ssid: 'home', rssiDbm: Int64(-61)),
         savedWifi: () => [
           for (final ssid in saved) WifiSavedNetwork(ssid: ssid),
         ],
@@ -552,47 +559,24 @@ void deviceControlTests() {
 
     var response = await callDevice(
       handlers,
-      id: 'volume',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_VOLUME_SET,
-      methodName: 'client.device.volume.set',
-      request: ClientDeviceVolumeSetRequest(level: Int64(35), muted: true),
-    );
-    expect(response.hasStatus(), isFalse);
-    final applied =
-        decodeRpcResponsePayload('client.device.volume.set', response.payload)
-            as ClientDeviceVolumeSetResponse;
-    expect(applied.value.volume, Int64(35));
-    expect(applied.value.muted, isTrue);
-    expect(applied.value.batteryPercent, Int64(88));
-    expect(volume, 35);
-
-    response = await callDevice(
-      handlers,
-      id: 'volume-range',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_VOLUME_SET,
-      methodName: 'client.device.volume.set',
-      request: ClientDeviceVolumeSetRequest(level: Int64(101), muted: false),
-    );
-    expect(response.status.code, rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT);
-    expect(volume, 35);
-
-    response = await callDevice(
-      handlers,
       id: 'status',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_STATUS_GET,
-      methodName: 'client.device.status.get',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'device.status.get',
       request: ClientDeviceStatusGetRequest(),
     );
     final status =
-        decodeRpcResponsePayload('client.device.status.get', response.payload)
+        decodeClientToolResponsePayload(
+              clientToolByName('device.status.get').id,
+              response.payload,
+            )
             as ClientDeviceStatusGetResponse;
     expect(status.value.volume, Int64(35));
 
     response = await callDevice(
       handlers,
       id: 'sound',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY,
-      methodName: 'client.device.sound.play',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'sound.play',
       request: ClientDeviceSoundPlayRequest(
         sound: 'chime',
         durationMs: Int64(1500),
@@ -604,8 +588,8 @@ void deviceControlTests() {
     response = await callDevice(
       handlers,
       id: 'sound-rejected',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY,
-      methodName: 'client.device.sound.play',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'sound.play',
       request: ClientDeviceSoundPlayRequest(sound: 'unknown'),
     );
     expect(response.status.code, rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT);
@@ -613,8 +597,8 @@ void deviceControlTests() {
     response = await callDevice(
       handlers,
       id: 'sound-too-long',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY,
-      methodName: 'client.device.sound.play',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'sound.play',
       request: ClientDeviceSoundPlayRequest(sound: 'a' * 33),
     );
     expect(response.status.code, rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT);
@@ -623,15 +607,18 @@ void deviceControlTests() {
       response = await callDevice(
         handlers,
         id: 'find',
-        method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_FIND,
-        methodName: 'client.device.find',
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+        methodName: 'device.find',
         request: ClientDeviceFindRequest(
           durationMs: duration == null ? null : Int64(duration),
         ),
       );
       expect(response.hasStatus(), isFalse);
       expect(
-        decodeRpcResponsePayload('client.device.find', response.payload),
+        decodeClientToolResponsePayload(
+          clientToolByName('device.find').id,
+          response.payload,
+        ),
         isA<ClientDeviceFindResponse>(),
       );
     }
@@ -639,16 +626,16 @@ void deviceControlTests() {
     response = await callDevice(
       handlers,
       id: 'find-negative',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_FIND,
-      methodName: 'client.device.find',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'device.find',
       request: ClientDeviceFindRequest(durationMs: Int64(-1)),
     );
     expect(response.status.code, rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT);
     response = await callDevice(
       handlers,
       id: 'find-rejected',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_FIND,
-      methodName: 'client.device.find',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'device.find',
       request: ClientDeviceFindRequest(durationMs: Int64(1)),
     );
     expect(response.status.code, rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED);
@@ -658,8 +645,8 @@ void deviceControlTests() {
     response = await callDevice(
       handlers,
       id: 'reboot',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_REBOOT,
-      methodName: 'client.device.reboot',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'device.reboot',
       request: ClientDeviceRebootRequest(delayMs: Int64(2000)),
     );
     expect(response.hasStatus(), isFalse);
@@ -667,31 +654,17 @@ void deviceControlTests() {
 
     response = await callDevice(
       handlers,
-      id: 'wifi',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_WIFI_STATUS_GET,
-      methodName: 'client.wifi.status.get',
-      request: ClientWifiStatusGetRequest(),
-    );
-    final wifi =
-        decodeRpcResponsePayload('client.wifi.status.get', response.payload)
-            as ClientWifiStatusGetResponse;
-    expect(wifi.value.connected, isTrue);
-    expect(wifi.value.ssid, 'home');
-    expect(wifi.value.rssiDbm, Int64(-61));
-
-    response = await callDevice(
-      handlers,
       id: 'forget',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_WIFI_SAVED_FORGET,
-      methodName: 'client.wifi.saved.forget',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'wifi.saved.forget',
       request: ClientWifiSavedForgetRequest(ssid: 'office'),
     );
     expect(response.hasStatus(), isFalse);
     response = await callDevice(
       handlers,
       id: 'forget-missing',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_WIFI_SAVED_FORGET,
-      methodName: 'client.wifi.saved.forget',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'wifi.saved.forget',
       request: ClientWifiSavedForgetRequest(ssid: 'office'),
     );
     expect(response.status.code, rpc.StatusCode.STATUS_CODE_NOT_FOUND);
@@ -699,24 +672,30 @@ void deviceControlTests() {
     response = await callDevice(
       handlers,
       id: 'saved',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_WIFI_SAVED_LIST,
-      methodName: 'client.wifi.saved.list',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'wifi.saved.list',
       request: ClientWifiSavedListRequest(),
     );
     final list =
-        decodeRpcResponsePayload('client.wifi.saved.list', response.payload)
+        decodeClientToolResponsePayload(
+              clientToolByName('wifi.saved.list').id,
+              response.payload,
+            )
             as ClientWifiSavedListResponse;
     expect(list.networks.map((n) => n.ssid), ['home']);
 
     response = await callDevice(
       handlers,
       id: 'scan',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_WIFI_SCAN,
-      methodName: 'client.wifi.scan',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'wifi.scan',
       request: ClientWifiScanRequest(timeoutMs: Int64(8000)),
     );
     final scan =
-        decodeRpcResponsePayload('client.wifi.scan', response.payload)
+        decodeClientToolResponsePayload(
+              clientToolByName('wifi.scan').id,
+              response.payload,
+            )
             as ClientWifiScanResponse;
     expect(scan.networks.single.ssid, 'office');
     expect(scan.networks.single.rssiDbm, Int64(-42));
@@ -725,8 +704,8 @@ void deviceControlTests() {
     response = await callDevice(
       handlers,
       id: 'connect',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_WIFI_CONNECT,
-      methodName: 'client.wifi.connect',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'wifi.connect',
       request: ClientWifiConnectRequest(
         ssid: 'office',
         passphrase: 'correct-horse',
@@ -737,69 +716,36 @@ void deviceControlTests() {
     expect(lastPassphrase, 'correct-horse');
   });
 
-  test(
-    'answers METHOD_NOT_FOUND for device control without handlers',
-    () async {
-      final partial = GizClawPeerRpcHandlers(
-        deviceInfo: () => device,
-        deviceControl: GizClawDeviceControlHandlers(
-          wifiStatus: () => WifiStatus(connected: false),
-        ),
-      );
-      var response = await callDevice(
-        partial,
-        id: 'no-volume',
-        method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_VOLUME_SET,
-        methodName: 'client.device.volume.set',
-        request: ClientDeviceVolumeSetRequest(level: Int64(1), muted: false),
-      );
-      expect(response.status.code, rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED);
+  test('answers METHOD_NOT_FOUND for uninstalled tool handlers', () async {
+    final partial = GizClawPeerRpcHandlers(
+      deviceInfo: () => DeviceInfo(name: 'tool'),
+      deviceControl: GizClawDeviceControlHandlers(
+        status: () => PeerStatus(volume: Int64(20)),
+      ),
+    );
+    var response = await callDevice(
+      partial,
+      id: 'status',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'device.status.get',
+      request: ClientDeviceStatusGetRequest(),
+    );
+    expect(response.hasStatus(), isFalse);
+    for (final unsupported in [
+      ('wifi.scan', ClientWifiScanRequest()),
+      ('wifi.connect', ClientWifiConnectRequest(ssid: 'home')),
+      ('device.find', ClientDeviceFindRequest()),
+    ]) {
       response = await callDevice(
         partial,
-        id: 'wifi-ok',
-        method: rpc.RpcMethod.RPC_METHOD_CLIENT_WIFI_STATUS_GET,
-        methodName: 'client.wifi.status.get',
-        request: ClientWifiStatusGetRequest(),
-      );
-      expect(response.hasStatus(), isFalse);
-
-      for (final unsupported in [
-        (
-          rpc.RpcMethod.RPC_METHOD_CLIENT_WIFI_SCAN,
-          'client.wifi.scan',
-          ClientWifiScanRequest(),
-        ),
-        (
-          rpc.RpcMethod.RPC_METHOD_CLIENT_WIFI_CONNECT,
-          'client.wifi.connect',
-          ClientWifiConnectRequest(ssid: 'home'),
-        ),
-        (
-          rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_FIND,
-          'client.device.find',
-          ClientDeviceFindRequest(),
-        ),
-      ]) {
-        response = await callDevice(
-          partial,
-          id: 'unsupported-wifi',
-          method: unsupported.$1,
-          methodName: unsupported.$2,
-          request: unsupported.$3,
-        );
-        expect(response.status.code, rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED);
-      }
-
-      response = await callDevice(
-        null,
-        id: 'no-handlers',
-        method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_REBOOT,
-        methodName: 'client.device.reboot',
-        request: ClientDeviceRebootRequest(),
+        id: 'unsupported',
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+        methodName: unsupported.$1,
+        request: unsupported.$2,
       );
       expect(response.status.code, rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED);
-    },
-  );
+    }
+  });
 
   test('serves configured social ping handler', () async {
     final pings = <ClientSocialPingRequest>[];
@@ -819,8 +765,8 @@ void deviceControlTests() {
     var response = await callDevice(
       handlers,
       id: 'friend-ping',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_SOCIAL_PING,
-      methodName: 'client.social.ping',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'social.ping',
       request: ClientSocialPingRequest(
         fromPeerPublicKey: 'peer-a',
         fromDisplayName: 'Alice',
@@ -828,14 +774,17 @@ void deviceControlTests() {
     );
     expect(response.hasStatus(), isFalse);
     expect(
-      decodeRpcResponsePayload('client.social.ping', response.payload),
+      decodeClientToolResponsePayload(
+        clientToolByName('social.ping').id,
+        response.payload,
+      ),
       isA<ClientSocialPingResponse>(),
     );
     response = await callDevice(
       handlers,
       id: 'group-ping',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_SOCIAL_PING,
-      methodName: 'client.social.ping',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'social.ping',
       request: ClientSocialPingRequest(
         fromPeerPublicKey: 'peer-b',
         friendGroupName: 'my-team',
@@ -851,16 +800,16 @@ void deviceControlTests() {
     response = await callDevice(
       handlers,
       id: 'ping-missing-sender',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_SOCIAL_PING,
-      methodName: 'client.social.ping',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'social.ping',
       request: ClientSocialPingRequest(),
     );
     expect(response.status.code, rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT);
     response = await callDevice(
       handlers,
       id: 'ping-rejected',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_SOCIAL_PING,
-      methodName: 'client.social.ping',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'social.ping',
       request: ClientSocialPingRequest(fromPeerPublicKey: 'busy'),
     );
     expect(response.status.code, rpc.StatusCode.STATUS_CODE_UNAVAILABLE);
@@ -876,163 +825,97 @@ void deviceControlTests() {
       final response = await callDevice(
         handlers,
         id: 'no-social-ping',
-        method: rpc.RpcMethod.RPC_METHOD_CLIENT_SOCIAL_PING,
-        methodName: 'client.social.ping',
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+        methodName: 'social.ping',
         request: ClientSocialPingRequest(fromPeerPublicKey: 'peer-a'),
       );
       expect(response.status.code, rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED);
     }
   });
 
-  test(
-    'serves device settings, factory reset and the capability list',
-    () async {
-      DeviceSettings? applied;
-      bool? keepNetwork;
-      final handlers = GizClawPeerRpcHandlers(
-        deviceInfo: () => device,
-        socialPing: (_) {},
-        deviceControl: GizClawDeviceControlHandlers(
-          find: (_) {},
-          getSettings: () => DeviceSettings(screenBrightness: Int64(30)),
-          setSettings: (patch) {
-            applied = patch;
-            return DeviceSettings(ledBrightness: Int64(10))
-              ..mergeFromMessage(patch);
-          },
-          factoryReset: (keep) => keepNetwork = keep,
-        ),
-      );
+  test('serves factory reset and separate capability lists', () async {
+    bool? keepNetwork;
+    final handlers = GizClawPeerRpcHandlers(
+      deviceInfo: () => device,
+      socialPing: (_) {},
+      deviceControl: GizClawDeviceControlHandlers(
+        find: (_) {},
+        factoryReset: (keep) => keepNetwork = keep,
+        writeMhsStates: (request) =>
+            ClientMhsV0WriteResponse(states: request.states),
+      ),
+    );
+    var response = await callDevice(
+      handlers,
+      id: 'reset-default',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'device.factory_reset',
+      request: ClientDeviceFactoryResetRequest(),
+    );
+    expect(response.hasStatus(), isFalse);
+    expect(keepNetwork, isFalse);
+    response = await callDevice(
+      handlers,
+      id: 'reset-keep',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'device.factory_reset',
+      request: ClientDeviceFactoryResetRequest(keepNetwork: true),
+    );
+    expect(response.hasStatus(), isFalse);
+    expect(keepNetwork, isTrue);
+    response = await callDevice(
+      handlers,
+      id: 'methods',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_RPC_METHODS_LIST,
+      methodName: 'client.rpc.methods.list',
+      request: ClientRpcMethodsListRequest(),
+    );
+    expect(response.hasStatus(), isFalse);
+    final methods =
+        decodeRpcResponsePayload('client.rpc.methods.list', response.payload)
+            as ClientRpcMethodsListResponse;
+    expect(methods.methods.map((method) => method.value).toList(), [
+      1,
+      2,
+      134,
+      135,
+      136,
+      137,
+    ]);
+    response = await callDevice(
+      handlers,
+      id: 'tools',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_LIST,
+      methodName: 'client.tool.v0.list',
+      request: ClientToolV0ListRequest(),
+    );
+    final tools =
+        decodeRpcResponsePayload('client.tool.v0.list', response.payload)
+            as ClientToolV0ListResponse;
+    expect(tools.tools, contains(ClientTool.CLIENT_TOOL_DEVICE_FIND));
+    expect(tools.tools, contains(ClientTool.CLIENT_TOOL_DEVICE_FACTORY_RESET));
+    expect(tools.tools, contains(ClientTool.CLIENT_TOOL_SOCIAL_PING));
+  });
 
-      var response = await callDevice(
-        handlers,
-        id: 'settings-get',
-        method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET,
-        methodName: 'client.device.settings.get',
-        request: ClientDeviceSettingsGetRequest(),
-      );
-      expect(response.hasStatus(), isFalse);
-      final got =
-          decodeRpcResponsePayload(
-                'client.device.settings.get',
-                response.payload,
-              )
-              as ClientDeviceSettingsGetResponse;
-      expect(got.value.screenBrightness, Int64(30));
-      // An option the device did not report stays absent, meaning unsupported.
-      expect(got.value.hasLedBrightness(), isFalse);
-
-      response = await callDevice(
-        handlers,
-        id: 'settings-set',
-        method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET,
-        methodName: 'client.device.settings.set',
-        request: ClientDeviceSettingsSetRequest(
-          value: DeviceSettings(locale: 'zh-CN', cellularEnabled: false),
-        ),
-      );
-      expect(response.hasStatus(), isFalse);
-      expect(applied?.locale, 'zh-CN');
-      expect(applied?.hasCellularEnabled(), isTrue);
-      final set =
-          decodeRpcResponsePayload(
-                'client.device.settings.set',
-                response.payload,
-              )
-              as ClientDeviceSettingsSetResponse;
-      expect(set.value.ledBrightness, Int64(10));
-
-      // Out-of-range members are rejected before the handler sees any of them.
-      applied = null;
-      for (final bad in [
-        DeviceSettings(screenBrightness: Int64(101)),
-        DeviceSettings(ledBrightness: Int64(-1)),
-        DeviceSettings(screenOffTimeoutMs: Int64(-1)),
-        DeviceSettings(locale: ''),
-        DeviceSettings(locale: 'not a locale'),
-        DeviceSettings(locale: 'zh_CN'),
-        DeviceSettings(
-          defaultInteractionMode:
-              DeviceInteractionMode.DEVICE_INTERACTION_MODE_UNSPECIFIED,
-        ),
-        DeviceSettings(
-          alertMode: DeviceAlertMode.DEVICE_ALERT_MODE_UNSPECIFIED,
-        ),
-        DeviceSettings(autoSleepTimeoutMs: Int64(-1)),
-      ]) {
-        response = await callDevice(
-          handlers,
-          id: 'settings-bad',
-          method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET,
-          methodName: 'client.device.settings.set',
-          request: ClientDeviceSettingsSetRequest(value: bad),
-        );
-        expect(
-          response.status.code,
-          rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
-          reason: '$bad',
-        );
-      }
-      expect(applied, isNull);
-
-      response = await callDevice(
-        handlers,
-        id: 'reset-default',
-        method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET,
-        methodName: 'client.device.factory_reset',
-        request: ClientDeviceFactoryResetRequest(),
-      );
-      expect(response.hasStatus(), isFalse);
-      expect(keepNetwork, isFalse);
-      response = await callDevice(
-        handlers,
-        id: 'reset-keep',
-        method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET,
-        methodName: 'client.device.factory_reset',
-        request: ClientDeviceFactoryResetRequest(keepNetwork: true),
-      );
-      expect(keepNetwork, isTrue);
-
-      response = await callDevice(
-        handlers,
-        id: 'methods',
-        method: rpc.RpcMethod.RPC_METHOD_CLIENT_RPC_METHODS_GET,
-        methodName: 'client.rpc.methods.get',
-        request: ClientRpcMethodsGetRequest(),
-      );
-      expect(response.hasStatus(), isFalse);
-      final methods =
-          (decodeRpcResponsePayload('client.rpc.methods.get', response.payload)
-                  as ClientRpcMethodsGetResponse)
-              .methods;
-      expect(methods, [
-        'client.info.get',
-        'client.identifiers.get',
-        'client.social.ping',
-        'client.device.find',
-        'client.device.settings.get',
-        'client.device.settings.set',
-        'client.device.factory_reset',
-        'client.rpc.methods.get',
-      ]);
-    },
-  );
-
-  test('answers the capability list without device control handlers', () async {
+  test('answers method list without device control handlers', () async {
     final response = await callDevice(
       GizClawPeerRpcHandlers(deviceInfo: () => device),
       id: 'methods-bare',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_RPC_METHODS_GET,
-      methodName: 'client.rpc.methods.get',
-      request: ClientRpcMethodsGetRequest(),
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_RPC_METHODS_LIST,
+      methodName: 'client.rpc.methods.list',
+      request: ClientRpcMethodsListRequest(),
     );
     expect(response.hasStatus(), isFalse);
-    expect(
-      (decodeRpcResponsePayload('client.rpc.methods.get', response.payload)
-              as ClientRpcMethodsGetResponse)
-          .methods,
-      ['client.info.get', 'client.identifiers.get', 'client.rpc.methods.get'],
-    );
+    final methods =
+        decodeRpcResponsePayload('client.rpc.methods.list', response.payload)
+            as ClientRpcMethodsListResponse;
+    expect(methods.methods.map((method) => method.value).toList(), [
+      1,
+      2,
+      135,
+      136,
+      137,
+    ]);
   });
 
   test('serves client.run.workspace.set for a named Workspace', () async {
@@ -1044,8 +927,8 @@ void deviceControlTests() {
     var response = await callDevice(
       handlers,
       id: 'run-workflow',
-      method: rpc.RpcMethod.RPC_METHOD_CLIENT_RUN_WORKSPACE_SET,
-      methodName: 'client.run.workspace.set',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'run.workspace.set',
       request: ClientRunWorkspaceSetRequest(
         workspaceName: 'bedtime',
         kickoff: true,
@@ -1059,8 +942,8 @@ void deviceControlTests() {
       response = await callDevice(
         handlers,
         id: 'run-bad',
-        method: rpc.RpcMethod.RPC_METHOD_CLIENT_RUN_WORKSPACE_SET,
-        methodName: 'client.run.workspace.set',
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+        methodName: 'run.workspace.set',
         request: bad,
       );
       expect(
@@ -1122,16 +1005,16 @@ void mhsTests() {
       final response = await _callInbound(
         channel,
         id: 'methods',
-        method: rpc.RpcMethod.RPC_METHOD_CLIENT_RPC_METHODS_GET,
-        methodName: 'client.rpc.methods.get',
-        request: ClientRpcMethodsGetRequest(),
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_RPC_METHODS_LIST,
+        methodName: 'client.rpc.methods.list',
+        request: ClientRpcMethodsListRequest(),
       );
       final methods =
-          (decodeRpcResponsePayload('client.rpc.methods.get', response.payload)
-                  as ClientRpcMethodsGetResponse)
+          (decodeRpcResponsePayload('client.rpc.methods.list', response.payload)
+                  as ClientRpcMethodsListResponse)
               .methods;
-      expect(methods, contains('client.mhs.v0.write'));
-      expect(methods, isNot(contains('client.mhs.v0.read')));
+      expect(methods.map((method) => method.value), contains(134));
+      expect(methods.map((method) => method.value), isNot(contains(133)));
       expect(calls, 4);
     },
   );

@@ -3,8 +3,30 @@ package rpcapi
 import (
 	"testing"
 
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/google/jsonschema-go/jsonschema"
+	"google.golang.org/protobuf/proto"
 )
+
+func TestClientToolPlaylistItemsEncode(t *testing.T) {
+	request, err := ClientToolRequestMessage(rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_SET, map[string]any{
+		"items": []any{map[string]any{"url": "https://example.com/track.mp3", "title": "Track"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := proto.Marshal(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded := new(rpcpb.ClientDeviceAudioPlayerPlaylistSetRequest)
+	if err := proto.Unmarshal(encoded, decoded); err != nil {
+		t.Fatal(err)
+	}
+	if len(decoded.Items) != 1 || decoded.Items[0].Url != "https://example.com/track.mp3" {
+		t.Fatalf("playlist items: %+v", decoded.Items)
+	}
+}
 
 func TestSafeToolPayloadRoundTripAndMethodRegistry(t *testing.T) {
 	method, err := ProtoMethod(RPCMethodServerToolGet)
@@ -18,7 +40,7 @@ func TestSafeToolPayloadRoundTripAndMethodRegistry(t *testing.T) {
 		Name:        "play-music",
 		I18n:        map[string]ResourceI18nText{"en": {DisplayName: "Play Music"}, "zh-CN": {DisplayName: "播放音乐"}},
 		InputSchema: jsonschema.Schema{Type: "object", Required: []string{"query"}, Properties: map[string]*jsonschema.Schema{"query": {Type: "string"}}},
-		InvokeName:  "client_play_music",
+		InvokeName:  "search_music",
 	}
 	response := ToolGetResponse{Value: tool, RuntimeProfileName: "default", RuntimeProfileRevision: "revision"}
 	var payload RPCPayload
@@ -33,12 +55,4 @@ func TestSafeToolPayloadRoundTripAndMethodRegistry(t *testing.T) {
 		t.Fatalf("Tool round trip = %#v", got)
 	}
 
-	invoke := ToolInvokeResponse{DataJson: `{"ok":true}`}
-	if err := payload.FromToolInvokeResponse(invoke); err != nil {
-		t.Fatalf("FromToolInvokeResponse() error = %v", err)
-	}
-	decoded, err := payload.AsToolInvokeResponse()
-	if err != nil || string(decoded.DataJson) != `{"ok":true}` {
-		t.Fatalf("AsToolInvokeResponse() = %s, %v", decoded.DataJson, err)
-	}
 }

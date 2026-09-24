@@ -11,7 +11,6 @@ type ToolType string
 
 const (
 	ToolTypeHTTPRequest ToolType = "http_request"
-	ToolTypeClientRPC   ToolType = "client_rpc"
 )
 
 // Tool is the persisted configuration for one caller-identified capability.

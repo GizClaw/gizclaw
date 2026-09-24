@@ -91,21 +91,6 @@ func (e AudioPlayerModeSetRequestRepeat) Valid() bool {
 	}
 }
 
-// Defines values for ClientRPCToolSpecType.
-const (
-	ClientRPCToolSpecTypeClientRpc ClientRPCToolSpecType = "client_rpc"
-)
-
-// Valid indicates whether the value is a known member of the ClientRPCToolSpecType enum.
-func (e ClientRPCToolSpecType) Valid() bool {
-	switch e {
-	case ClientRPCToolSpecTypeClientRpc:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ContactResourceKind.
 const (
 	ContactResourceKindContact ContactResourceKind = "Contact"
@@ -2368,21 +2353,6 @@ func (e ReusableWorkflowDriver) Valid() bool {
 	}
 }
 
-// Defines values for RuntimeProfileBindingControlAccess.
-const (
-	RuntimeProfileBindingControlAccessOwner RuntimeProfileBindingControlAccess = "owner"
-)
-
-// Valid indicates whether the value is a known member of the RuntimeProfileBindingControlAccess enum.
-func (e RuntimeProfileBindingControlAccess) Valid() bool {
-	switch e {
-	case RuntimeProfileBindingControlAccessOwner:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for RuntimeProfileFlowcraftBBHConnectionType.
 const (
 	RuntimeProfileFlowcraftBBHConnectionTypeFlowcraftBbh RuntimeProfileFlowcraftBBHConnectionType = "flowcraft_bbh"
@@ -2715,15 +2685,12 @@ func (e ToolResourceKind) Valid() bool {
 
 // Defines values for ToolType.
 const (
-	ToolTypeClientRpc   ToolType = "client_rpc"
 	ToolTypeHttpRequest ToolType = "http_request"
 )
 
 // Valid indicates whether the value is a known member of the ToolType enum.
 func (e ToolType) Valid() bool {
 	switch e {
-	case ToolTypeClientRpc:
-		return true
 	case ToolTypeHttpRequest:
 		return true
 	default:
@@ -3122,25 +3089,6 @@ type AudioPlayerStatus struct {
 	// State Device state: stopped, buffering, playing, ended or error.
 	State string `json:"state"`
 }
-
-// ClientRPCToolSpec defines model for ClientRPCToolSpec.
-type ClientRPCToolSpec struct {
-	Description *string `json:"description,omitempty"`
-	Enabled     *bool   `json:"enabled,omitempty"`
-
-	// InputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
-	InputSchema ToolJSONSchema `json:"input_schema"`
-
-	// InvokeName Immutable runtime execution name, independent from the Admin resource ID and RuntimeProfile alias.
-	InvokeName string                  `json:"invoke_name"`
-	Metadata   *map[string]interface{} `json:"metadata,omitempty"`
-	Triggers   *[]ToolTrigger          `json:"triggers,omitempty"`
-	Type       ClientRPCToolSpecType   `json:"type"`
-	Version    *string                 `json:"version,omitempty"`
-}
-
-// ClientRPCToolSpecType defines model for ClientRPCToolSpec.Type.
-type ClientRPCToolSpecType string
 
 // ConcreteResource A concrete resource carrying metadata.id. ResourceList is excluded.
 type ConcreteResource struct {
@@ -5577,14 +5525,9 @@ type RuntimeProfileAppConfig map[string]string
 
 // RuntimeProfileBinding defines model for RuntimeProfileBinding.
 type RuntimeProfileBinding struct {
-	// ControlAccess Only valid under resources.tools. Exposes this Tool to the device owner's control app through GET /gizclaw/v1/device/tools and POST /gizclaw/v1/device/tools/{name}/actions/invoke; owner means any API key of the Peer that owns the device. When omitted the control app can neither list nor invoke the Tool, which stays reachable only by AI and Workflow runtimes. Only enabled client_rpc Tools are ever exposed. Stricter levels, such as a guardian authorization, are added to this enum later.
-	ControlAccess *RuntimeProfileBindingControlAccess `json:"control_access,omitempty"`
-	I18n          map[string]RuntimeProfileI18nText   `json:"i18n"`
-	ResourceId    string                              `json:"resource_id"`
+	I18n       map[string]RuntimeProfileI18nText `json:"i18n"`
+	ResourceId string                            `json:"resource_id"`
 }
-
-// RuntimeProfileBindingControlAccess Only valid under resources.tools. Exposes this Tool to the device owner's control app through GET /gizclaw/v1/device/tools and POST /gizclaw/v1/device/tools/{name}/actions/invoke; owner means any API key of the Peer that owns the device. When omitted the control app can neither list nor invoke the Tool, which stays reachable only by AI and Workflow runtimes. Only enabled client_rpc Tools are ever exposed. Stricter levels, such as a guardian authorization, are added to this enum later.
-type RuntimeProfileBindingControlAccess string
 
 // RuntimeProfileFlowcraftBBHConnection defines model for RuntimeProfileFlowcraftBBHConnection.
 type RuntimeProfileFlowcraftBBHConnection struct {
@@ -9686,34 +9629,6 @@ func (t *ToolSpec) MergeHTTPToolSpec(v HTTPToolSpec) error {
 	return err
 }
 
-// AsClientRPCToolSpec returns the union data inside the ToolSpec as a ClientRPCToolSpec
-func (t ToolSpec) AsClientRPCToolSpec() (ClientRPCToolSpec, error) {
-	var body ClientRPCToolSpec
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromClientRPCToolSpec overwrites any union data inside the ToolSpec as the provided ClientRPCToolSpec
-func (t *ToolSpec) FromClientRPCToolSpec(v ClientRPCToolSpec) error {
-	v.Type = "client_rpc"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeClientRPCToolSpec performs a merge with any union data inside the ToolSpec, using the provided ClientRPCToolSpec
-func (t *ToolSpec) MergeClientRPCToolSpec(v ClientRPCToolSpec) error {
-	v.Type = "client_rpc"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
 func (t ToolSpec) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -9728,8 +9643,6 @@ func (t ToolSpec) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
-	case "client_rpc":
-		return t.AsClientRPCToolSpec()
 	case "http_request":
 		return t.AsHTTPToolSpec()
 	default:

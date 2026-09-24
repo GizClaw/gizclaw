@@ -1,0 +1,84 @@
+// Peer RPC tool/v0 payload protobuf schema.
+//
+// tool/v0 is the procedure half of the device surface. MHS v0 owns hardware
+// state and has no procedures; every other device-provided procedure is a
+// ClientTool invoked through client.tool.v0.invoke. Tools are predefined by
+// GizClaw, so a device advertises the subset it implements through
+// client.tool.v0.list rather than naming tools of its own. A future version
+// that accepts product-defined tools would be tool/v1.
+
+syntax = "proto3";
+
+package gizclaw.rpc.v1;
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
+
+// ClientToolOptions binds a ClientTool to its stable name and to the payload
+// messages carried by invoke. It mirrors RpcMethodOptions so the same
+// generators read both registries.
+message ClientToolOptions {
+  string name = 1;
+  string request = 2;
+  string response = 3;
+}
+
+extend google.protobuf.EnumValueOptions {
+  ClientToolOptions client_tool = 51001;
+}
+
+// ClientTool identifies one device-provided procedure. The value selects both
+// payload messages, so a caller never guesses a type from a name. Numbers are
+// the wire identity and are never reused; names are the stable identifier in
+// documentation and SDK surfaces.
+enum ClientTool {
+  CLIENT_TOOL_UNSPECIFIED = 0;
+  CLIENT_TOOL_INFO_GET = 1 [(client_tool) = { name: "info.get" request: "ClientGetInfoRequest" response: "ClientGetInfoResponse" }];
+  CLIENT_TOOL_IDENTIFIERS_GET = 2 [(client_tool) = { name: "identifiers.get" request: "ClientGetIdentifiersRequest" response: "ClientGetIdentifiersResponse" }];
+  CLIENT_TOOL_DEVICE_STATUS_GET = 3 [(client_tool) = { name: "device.status.get" request: "ClientDeviceStatusGetRequest" response: "ClientDeviceStatusGetResponse" }];
+  CLIENT_TOOL_DEVICE_REBOOT = 4 [(client_tool) = { name: "device.reboot" request: "ClientDeviceRebootRequest" response: "ClientDeviceRebootResponse" }];
+  CLIENT_TOOL_DEVICE_FACTORY_RESET = 5 [(client_tool) = { name: "device.factory_reset" request: "ClientDeviceFactoryResetRequest" response: "ClientDeviceFactoryResetResponse" }];
+  CLIENT_TOOL_DEVICE_FIND = 6 [(client_tool) = { name: "device.find" request: "ClientDeviceFindRequest" response: "ClientDeviceFindResponse" }];
+  CLIENT_TOOL_SOUND_PLAY = 7 [(client_tool) = { name: "sound.play" request: "ClientDeviceSoundPlayRequest" response: "ClientDeviceSoundPlayResponse" }];
+  CLIENT_TOOL_WIFI_SCAN = 8 [(client_tool) = { name: "wifi.scan" request: "ClientWifiScanRequest" response: "ClientWifiScanResponse" }];
+  CLIENT_TOOL_WIFI_CONNECT = 9 [(client_tool) = { name: "wifi.connect" request: "ClientWifiConnectRequest" response: "ClientWifiConnectResponse" }];
+  CLIENT_TOOL_WIFI_SAVED_LIST = 10 [(client_tool) = { name: "wifi.saved.list" request: "ClientWifiSavedListRequest" response: "ClientWifiSavedListResponse" }];
+  CLIENT_TOOL_WIFI_SAVED_FORGET = 11 [(client_tool) = { name: "wifi.saved.forget" request: "ClientWifiSavedForgetRequest" response: "ClientWifiSavedForgetResponse" }];
+  CLIENT_TOOL_FIRMWARE_UPDATE = 12 [(client_tool) = { name: "firmware.update" request: "ClientFirmwareUpdateRequest" response: "ClientFirmwareUpdateResponse" }];
+  CLIENT_TOOL_AUDIOPLAYER_GET = 13 [(client_tool) = { name: "audioplayer.get" request: "ClientDeviceAudioPlayerGetRequest" response: "ClientDeviceAudioPlayerGetResponse" }];
+  CLIENT_TOOL_AUDIOPLAYER_PLAY = 14 [(client_tool) = { name: "audioplayer.play" request: "ClientDeviceAudioPlayerPlayRequest" response: "ClientDeviceAudioPlayerPlayResponse" }];
+  CLIENT_TOOL_AUDIOPLAYER_STOP = 15 [(client_tool) = { name: "audioplayer.stop" request: "ClientDeviceAudioPlayerStopRequest" response: "ClientDeviceAudioPlayerStopResponse" }];
+  CLIENT_TOOL_AUDIOPLAYER_MODE_SET = 16 [(client_tool) = { name: "audioplayer.mode.set" request: "ClientDeviceAudioPlayerModeSetRequest" response: "ClientDeviceAudioPlayerModeSetResponse" }];
+  CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_GET = 17 [(client_tool) = { name: "audioplayer.playlist.get" request: "ClientDeviceAudioPlayerPlaylistGetRequest" response: "ClientDeviceAudioPlayerPlaylistGetResponse" }];
+  CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_SET = 18 [(client_tool) = { name: "audioplayer.playlist.set" request: "ClientDeviceAudioPlayerPlaylistSetRequest" response: "ClientDeviceAudioPlayerPlaylistSetResponse" }];
+  CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_APPEND = 19 [(client_tool) = { name: "audioplayer.playlist.append" request: "ClientDeviceAudioPlayerPlaylistAppendRequest" response: "ClientDeviceAudioPlayerPlaylistAppendResponse" }];
+  CLIENT_TOOL_RUN_WORKSPACE_SET = 20 [(client_tool) = { name: "run.workspace.set" request: "ClientRunWorkspaceSetRequest" response: "ClientRunWorkspaceSetResponse" }];
+  CLIENT_TOOL_SOCIAL_PING = 21 [(client_tool) = { name: "social.ping" request: "ClientSocialPingRequest" response: "ClientSocialPingResponse" }];
+}
+
+// ClientToolV0InvokeRequest carries one tool call. payload is the encoded
+// request message the tool declares; it is absent when that message has no
+// fields. A tool the device does not implement answers UNIMPLEMENTED, matching
+// the method-not-found answer the removed per-tool methods used to give.
+message ClientToolV0InvokeRequest {
+  ClientTool tool = 1;
+  optional bytes payload = 2;
+}
+
+// ClientToolV0InvokeResponse carries the encoded response message the invoked
+// tool declares, absent when that message has no fields. Failures travel as an
+// RpcStatus on the envelope, not as a payload.
+message ClientToolV0InvokeResponse {
+  optional bytes payload = 1;
+}
+
+message ClientToolV0ListRequest {
+}
+
+// ClientToolV0ListResponse lists the tools the device actually implements, so
+// a caller hides or skips a control it would only fail. Unknown values must be
+// ignored rather than rejected, and the list never includes UNSPECIFIED.
+message ClientToolV0ListResponse {
+  repeated ClientTool tools = 1;
+}

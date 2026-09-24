@@ -25,78 +25,390 @@ const (
 	BearerAuthScopes bearerAuthContextKey = "BearerAuth.Scopes"
 )
 
-// Defines values for DeviceSettingsAlertMode.
+// Defines values for ClientToolAudioplayerGetInvokeTool.
 const (
-	DeviceSettingsAlertModeRing    DeviceSettingsAlertMode = "ring"
-	DeviceSettingsAlertModeSilent  DeviceSettingsAlertMode = "silent"
-	DeviceSettingsAlertModeVibrate DeviceSettingsAlertMode = "vibrate"
+	ClientToolAudioplayerGetInvokeToolAudioplayerGet ClientToolAudioplayerGetInvokeTool = "audioplayer.get"
 )
 
-// Valid indicates whether the value is a known member of the DeviceSettingsAlertMode enum.
-func (e DeviceSettingsAlertMode) Valid() bool {
+// Valid indicates whether the value is a known member of the ClientToolAudioplayerGetInvokeTool enum.
+func (e ClientToolAudioplayerGetInvokeTool) Valid() bool {
 	switch e {
-	case DeviceSettingsAlertModeRing:
-		return true
-	case DeviceSettingsAlertModeSilent:
-		return true
-	case DeviceSettingsAlertModeVibrate:
+	case ClientToolAudioplayerGetInvokeToolAudioplayerGet:
 		return true
 	default:
 		return false
 	}
 }
 
-// Defines values for DeviceSettingsDefaultInteractionMode.
+// Defines values for ClientToolAudioplayerModeSetInvokeTool.
 const (
-	PushToTalk DeviceSettingsDefaultInteractionMode = "push-to-talk"
-	Realtime   DeviceSettingsDefaultInteractionMode = "realtime"
+	AudioplayerModeSet ClientToolAudioplayerModeSetInvokeTool = "audioplayer.mode.set"
 )
 
-// Valid indicates whether the value is a known member of the DeviceSettingsDefaultInteractionMode enum.
-func (e DeviceSettingsDefaultInteractionMode) Valid() bool {
+// Valid indicates whether the value is a known member of the ClientToolAudioplayerModeSetInvokeTool enum.
+func (e ClientToolAudioplayerModeSetInvokeTool) Valid() bool {
 	switch e {
-	case PushToTalk:
-		return true
-	case Realtime:
+	case AudioplayerModeSet:
 		return true
 	default:
 		return false
 	}
 }
 
-// Defines values for DeviceSettingsKeyFeedback.
+// Defines values for ClientToolAudioplayerPlayInvokeTool.
 const (
-	DeviceSettingsKeyFeedbackNone            DeviceSettingsKeyFeedback = "none"
-	DeviceSettingsKeyFeedbackSound           DeviceSettingsKeyFeedback = "sound"
-	DeviceSettingsKeyFeedbackSoundAndVibrate DeviceSettingsKeyFeedback = "sound_and_vibrate"
-	DeviceSettingsKeyFeedbackVibrate         DeviceSettingsKeyFeedback = "vibrate"
+	AudioplayerPlay ClientToolAudioplayerPlayInvokeTool = "audioplayer.play"
 )
 
-// Valid indicates whether the value is a known member of the DeviceSettingsKeyFeedback enum.
-func (e DeviceSettingsKeyFeedback) Valid() bool {
+// Valid indicates whether the value is a known member of the ClientToolAudioplayerPlayInvokeTool enum.
+func (e ClientToolAudioplayerPlayInvokeTool) Valid() bool {
 	switch e {
-	case DeviceSettingsKeyFeedbackNone:
-		return true
-	case DeviceSettingsKeyFeedbackSound:
-		return true
-	case DeviceSettingsKeyFeedbackSoundAndVibrate:
-		return true
-	case DeviceSettingsKeyFeedbackVibrate:
+	case AudioplayerPlay:
 		return true
 	default:
 		return false
 	}
 }
 
-// Defines values for DeviceToolControlAccess.
+// Defines values for ClientToolAudioplayerPlaylistAppendInvokeTool.
 const (
-	DeviceToolControlAccessOwner DeviceToolControlAccess = "owner"
+	AudioplayerPlaylistAppend ClientToolAudioplayerPlaylistAppendInvokeTool = "audioplayer.playlist.append"
 )
 
-// Valid indicates whether the value is a known member of the DeviceToolControlAccess enum.
-func (e DeviceToolControlAccess) Valid() bool {
+// Valid indicates whether the value is a known member of the ClientToolAudioplayerPlaylistAppendInvokeTool enum.
+func (e ClientToolAudioplayerPlaylistAppendInvokeTool) Valid() bool {
 	switch e {
-	case DeviceToolControlAccessOwner:
+	case AudioplayerPlaylistAppend:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolAudioplayerPlaylistGetInvokeTool.
+const (
+	AudioplayerPlaylistGet ClientToolAudioplayerPlaylistGetInvokeTool = "audioplayer.playlist.get"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolAudioplayerPlaylistGetInvokeTool enum.
+func (e ClientToolAudioplayerPlaylistGetInvokeTool) Valid() bool {
+	switch e {
+	case AudioplayerPlaylistGet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolAudioplayerPlaylistSetInvokeTool.
+const (
+	AudioplayerPlaylistSet ClientToolAudioplayerPlaylistSetInvokeTool = "audioplayer.playlist.set"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolAudioplayerPlaylistSetInvokeTool enum.
+func (e ClientToolAudioplayerPlaylistSetInvokeTool) Valid() bool {
+	switch e {
+	case AudioplayerPlaylistSet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolAudioplayerStopInvokeTool.
+const (
+	AudioplayerStop ClientToolAudioplayerStopInvokeTool = "audioplayer.stop"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolAudioplayerStopInvokeTool enum.
+func (e ClientToolAudioplayerStopInvokeTool) Valid() bool {
+	switch e {
+	case AudioplayerStop:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolDeviceFactoryResetInvokeTool.
+const (
+	DeviceFactoryReset ClientToolDeviceFactoryResetInvokeTool = "device.factory_reset"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolDeviceFactoryResetInvokeTool enum.
+func (e ClientToolDeviceFactoryResetInvokeTool) Valid() bool {
+	switch e {
+	case DeviceFactoryReset:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolDeviceFindInvokeTool.
+const (
+	DeviceFind ClientToolDeviceFindInvokeTool = "device.find"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolDeviceFindInvokeTool enum.
+func (e ClientToolDeviceFindInvokeTool) Valid() bool {
+	switch e {
+	case DeviceFind:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolDeviceRebootInvokeTool.
+const (
+	DeviceReboot ClientToolDeviceRebootInvokeTool = "device.reboot"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolDeviceRebootInvokeTool enum.
+func (e ClientToolDeviceRebootInvokeTool) Valid() bool {
+	switch e {
+	case DeviceReboot:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolDeviceStatusGetInvokeTool.
+const (
+	DeviceStatusGet ClientToolDeviceStatusGetInvokeTool = "device.status.get"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolDeviceStatusGetInvokeTool enum.
+func (e ClientToolDeviceStatusGetInvokeTool) Valid() bool {
+	switch e {
+	case DeviceStatusGet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolFirmwareUpdateInvokeTool.
+const (
+	FirmwareUpdate ClientToolFirmwareUpdateInvokeTool = "firmware.update"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolFirmwareUpdateInvokeTool enum.
+func (e ClientToolFirmwareUpdateInvokeTool) Valid() bool {
+	switch e {
+	case FirmwareUpdate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolIdentifiersGetInvokeTool.
+const (
+	IdentifiersGet ClientToolIdentifiersGetInvokeTool = "identifiers.get"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolIdentifiersGetInvokeTool enum.
+func (e ClientToolIdentifiersGetInvokeTool) Valid() bool {
+	switch e {
+	case IdentifiersGet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolInfoGetInvokeTool.
+const (
+	InfoGet ClientToolInfoGetInvokeTool = "info.get"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolInfoGetInvokeTool enum.
+func (e ClientToolInfoGetInvokeTool) Valid() bool {
+	switch e {
+	case InfoGet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolRunWorkspaceSetInvokeTool.
+const (
+	RunWorkspaceSet ClientToolRunWorkspaceSetInvokeTool = "run.workspace.set"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolRunWorkspaceSetInvokeTool enum.
+func (e ClientToolRunWorkspaceSetInvokeTool) Valid() bool {
+	switch e {
+	case RunWorkspaceSet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolSocialPingInvokeTool.
+const (
+	SocialPing ClientToolSocialPingInvokeTool = "social.ping"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolSocialPingInvokeTool enum.
+func (e ClientToolSocialPingInvokeTool) Valid() bool {
+	switch e {
+	case SocialPing:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolSoundPlayInvokeTool.
+const (
+	SoundPlay ClientToolSoundPlayInvokeTool = "sound.play"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolSoundPlayInvokeTool enum.
+func (e ClientToolSoundPlayInvokeTool) Valid() bool {
+	switch e {
+	case SoundPlay:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolV0ListResponseTools.
+const (
+	ClientToolV0ListResponseToolsAudioplayerGet            ClientToolV0ListResponseTools = "audioplayer.get"
+	ClientToolV0ListResponseToolsAudioplayerModeSet        ClientToolV0ListResponseTools = "audioplayer.mode.set"
+	ClientToolV0ListResponseToolsAudioplayerPlay           ClientToolV0ListResponseTools = "audioplayer.play"
+	ClientToolV0ListResponseToolsAudioplayerPlaylistAppend ClientToolV0ListResponseTools = "audioplayer.playlist.append"
+	ClientToolV0ListResponseToolsAudioplayerPlaylistGet    ClientToolV0ListResponseTools = "audioplayer.playlist.get"
+	ClientToolV0ListResponseToolsAudioplayerPlaylistSet    ClientToolV0ListResponseTools = "audioplayer.playlist.set"
+	ClientToolV0ListResponseToolsAudioplayerStop           ClientToolV0ListResponseTools = "audioplayer.stop"
+	ClientToolV0ListResponseToolsDeviceFactoryReset        ClientToolV0ListResponseTools = "device.factory_reset"
+	ClientToolV0ListResponseToolsDeviceFind                ClientToolV0ListResponseTools = "device.find"
+	ClientToolV0ListResponseToolsDeviceReboot              ClientToolV0ListResponseTools = "device.reboot"
+	ClientToolV0ListResponseToolsDeviceStatusGet           ClientToolV0ListResponseTools = "device.status.get"
+	ClientToolV0ListResponseToolsFirmwareUpdate            ClientToolV0ListResponseTools = "firmware.update"
+	ClientToolV0ListResponseToolsIdentifiersGet            ClientToolV0ListResponseTools = "identifiers.get"
+	ClientToolV0ListResponseToolsInfoGet                   ClientToolV0ListResponseTools = "info.get"
+	ClientToolV0ListResponseToolsRunWorkspaceSet           ClientToolV0ListResponseTools = "run.workspace.set"
+	ClientToolV0ListResponseToolsSocialPing                ClientToolV0ListResponseTools = "social.ping"
+	ClientToolV0ListResponseToolsSoundPlay                 ClientToolV0ListResponseTools = "sound.play"
+	ClientToolV0ListResponseToolsWifiConnect               ClientToolV0ListResponseTools = "wifi.connect"
+	ClientToolV0ListResponseToolsWifiSavedForget           ClientToolV0ListResponseTools = "wifi.saved.forget"
+	ClientToolV0ListResponseToolsWifiSavedList             ClientToolV0ListResponseTools = "wifi.saved.list"
+	ClientToolV0ListResponseToolsWifiScan                  ClientToolV0ListResponseTools = "wifi.scan"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolV0ListResponseTools enum.
+func (e ClientToolV0ListResponseTools) Valid() bool {
+	switch e {
+	case ClientToolV0ListResponseToolsAudioplayerGet:
+		return true
+	case ClientToolV0ListResponseToolsAudioplayerModeSet:
+		return true
+	case ClientToolV0ListResponseToolsAudioplayerPlay:
+		return true
+	case ClientToolV0ListResponseToolsAudioplayerPlaylistAppend:
+		return true
+	case ClientToolV0ListResponseToolsAudioplayerPlaylistGet:
+		return true
+	case ClientToolV0ListResponseToolsAudioplayerPlaylistSet:
+		return true
+	case ClientToolV0ListResponseToolsAudioplayerStop:
+		return true
+	case ClientToolV0ListResponseToolsDeviceFactoryReset:
+		return true
+	case ClientToolV0ListResponseToolsDeviceFind:
+		return true
+	case ClientToolV0ListResponseToolsDeviceReboot:
+		return true
+	case ClientToolV0ListResponseToolsDeviceStatusGet:
+		return true
+	case ClientToolV0ListResponseToolsFirmwareUpdate:
+		return true
+	case ClientToolV0ListResponseToolsIdentifiersGet:
+		return true
+	case ClientToolV0ListResponseToolsInfoGet:
+		return true
+	case ClientToolV0ListResponseToolsRunWorkspaceSet:
+		return true
+	case ClientToolV0ListResponseToolsSocialPing:
+		return true
+	case ClientToolV0ListResponseToolsSoundPlay:
+		return true
+	case ClientToolV0ListResponseToolsWifiConnect:
+		return true
+	case ClientToolV0ListResponseToolsWifiSavedForget:
+		return true
+	case ClientToolV0ListResponseToolsWifiSavedList:
+		return true
+	case ClientToolV0ListResponseToolsWifiScan:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolWifiConnectInvokeTool.
+const (
+	WifiConnect ClientToolWifiConnectInvokeTool = "wifi.connect"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolWifiConnectInvokeTool enum.
+func (e ClientToolWifiConnectInvokeTool) Valid() bool {
+	switch e {
+	case WifiConnect:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolWifiSavedForgetInvokeTool.
+const (
+	WifiSavedForget ClientToolWifiSavedForgetInvokeTool = "wifi.saved.forget"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolWifiSavedForgetInvokeTool enum.
+func (e ClientToolWifiSavedForgetInvokeTool) Valid() bool {
+	switch e {
+	case WifiSavedForget:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolWifiSavedListInvokeTool.
+const (
+	WifiSavedList ClientToolWifiSavedListInvokeTool = "wifi.saved.list"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolWifiSavedListInvokeTool enum.
+func (e ClientToolWifiSavedListInvokeTool) Valid() bool {
+	switch e {
+	case WifiSavedList:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolWifiScanInvokeTool.
+const (
+	WifiScan ClientToolWifiScanInvokeTool = "wifi.scan"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolWifiScanInvokeTool enum.
+func (e ClientToolWifiScanInvokeTool) Valid() bool {
+	switch e {
+	case WifiScan:
 		return true
 	default:
 		return false
@@ -105,16 +417,16 @@ func (e DeviceToolControlAccess) Valid() bool {
 
 // Defines values for FriendGroupMutableRole.
 const (
-	Admin  FriendGroupMutableRole = "admin"
-	Member FriendGroupMutableRole = "member"
+	FriendGroupMutableRoleAdmin  FriendGroupMutableRole = "admin"
+	FriendGroupMutableRoleMember FriendGroupMutableRole = "member"
 )
 
 // Valid indicates whether the value is a known member of the FriendGroupMutableRole enum.
 func (e FriendGroupMutableRole) Valid() bool {
 	switch e {
-	case Admin:
+	case FriendGroupMutableRoleAdmin:
 		return true
-	case Member:
+	case FriendGroupMutableRoleMember:
 		return true
 	default:
 		return false
@@ -221,6 +533,226 @@ type APIKeyList struct {
 	NextCursor *string  `json:"next_cursor,omitempty"`
 }
 
+// ClientToolAudioplayerGetInvoke defines model for ClientToolAudioplayerGetInvoke.
+type ClientToolAudioplayerGetInvoke struct {
+	Args map[string]interface{}             `json:"args"`
+	Tool ClientToolAudioplayerGetInvokeTool `json:"tool"`
+}
+
+// ClientToolAudioplayerGetInvokeTool defines model for ClientToolAudioplayerGetInvoke.Tool.
+type ClientToolAudioplayerGetInvokeTool string
+
+// ClientToolAudioplayerModeSetInvoke defines model for ClientToolAudioplayerModeSetInvoke.
+type ClientToolAudioplayerModeSetInvoke struct {
+	Args externalRef0.AudioPlayerModeSetRequest `json:"args"`
+	Tool ClientToolAudioplayerModeSetInvokeTool `json:"tool"`
+}
+
+// ClientToolAudioplayerModeSetInvokeTool defines model for ClientToolAudioplayerModeSetInvoke.Tool.
+type ClientToolAudioplayerModeSetInvokeTool string
+
+// ClientToolAudioplayerPlayInvoke defines model for ClientToolAudioplayerPlayInvoke.
+type ClientToolAudioplayerPlayInvoke struct {
+	Args externalRef0.AudioPlayerPlayRequest `json:"args"`
+	Tool ClientToolAudioplayerPlayInvokeTool `json:"tool"`
+}
+
+// ClientToolAudioplayerPlayInvokeTool defines model for ClientToolAudioplayerPlayInvoke.Tool.
+type ClientToolAudioplayerPlayInvokeTool string
+
+// ClientToolAudioplayerPlaylistAppendInvoke defines model for ClientToolAudioplayerPlaylistAppendInvoke.
+type ClientToolAudioplayerPlaylistAppendInvoke struct {
+	Args externalRef0.AudioPlayerPlaylistAppendRequest `json:"args"`
+	Tool ClientToolAudioplayerPlaylistAppendInvokeTool `json:"tool"`
+}
+
+// ClientToolAudioplayerPlaylistAppendInvokeTool defines model for ClientToolAudioplayerPlaylistAppendInvoke.Tool.
+type ClientToolAudioplayerPlaylistAppendInvokeTool string
+
+// ClientToolAudioplayerPlaylistGetInvoke defines model for ClientToolAudioplayerPlaylistGetInvoke.
+type ClientToolAudioplayerPlaylistGetInvoke struct {
+	Args map[string]interface{}                     `json:"args"`
+	Tool ClientToolAudioplayerPlaylistGetInvokeTool `json:"tool"`
+}
+
+// ClientToolAudioplayerPlaylistGetInvokeTool defines model for ClientToolAudioplayerPlaylistGetInvoke.Tool.
+type ClientToolAudioplayerPlaylistGetInvokeTool string
+
+// ClientToolAudioplayerPlaylistSetInvoke defines model for ClientToolAudioplayerPlaylistSetInvoke.
+type ClientToolAudioplayerPlaylistSetInvoke struct {
+	Args externalRef0.AudioPlayerPlaylistSetRequest `json:"args"`
+	Tool ClientToolAudioplayerPlaylistSetInvokeTool `json:"tool"`
+}
+
+// ClientToolAudioplayerPlaylistSetInvokeTool defines model for ClientToolAudioplayerPlaylistSetInvoke.Tool.
+type ClientToolAudioplayerPlaylistSetInvokeTool string
+
+// ClientToolAudioplayerStopInvoke defines model for ClientToolAudioplayerStopInvoke.
+type ClientToolAudioplayerStopInvoke struct {
+	Args map[string]interface{}              `json:"args"`
+	Tool ClientToolAudioplayerStopInvokeTool `json:"tool"`
+}
+
+// ClientToolAudioplayerStopInvokeTool defines model for ClientToolAudioplayerStopInvoke.Tool.
+type ClientToolAudioplayerStopInvokeTool string
+
+// ClientToolDeviceFactoryResetInvoke defines model for ClientToolDeviceFactoryResetInvoke.
+type ClientToolDeviceFactoryResetInvoke struct {
+	Args DeviceFactoryResetRequest              `json:"args"`
+	Tool ClientToolDeviceFactoryResetInvokeTool `json:"tool"`
+}
+
+// ClientToolDeviceFactoryResetInvokeTool defines model for ClientToolDeviceFactoryResetInvoke.Tool.
+type ClientToolDeviceFactoryResetInvokeTool string
+
+// ClientToolDeviceFindInvoke defines model for ClientToolDeviceFindInvoke.
+type ClientToolDeviceFindInvoke struct {
+	Args DeviceFindRequest              `json:"args"`
+	Tool ClientToolDeviceFindInvokeTool `json:"tool"`
+}
+
+// ClientToolDeviceFindInvokeTool defines model for ClientToolDeviceFindInvoke.Tool.
+type ClientToolDeviceFindInvokeTool string
+
+// ClientToolDeviceRebootInvoke defines model for ClientToolDeviceRebootInvoke.
+type ClientToolDeviceRebootInvoke struct {
+	Args DeviceRebootRequest              `json:"args"`
+	Tool ClientToolDeviceRebootInvokeTool `json:"tool"`
+}
+
+// ClientToolDeviceRebootInvokeTool defines model for ClientToolDeviceRebootInvoke.Tool.
+type ClientToolDeviceRebootInvokeTool string
+
+// ClientToolDeviceStatusGetInvoke defines model for ClientToolDeviceStatusGetInvoke.
+type ClientToolDeviceStatusGetInvoke struct {
+	Args map[string]interface{}              `json:"args"`
+	Tool ClientToolDeviceStatusGetInvokeTool `json:"tool"`
+}
+
+// ClientToolDeviceStatusGetInvokeTool defines model for ClientToolDeviceStatusGetInvoke.Tool.
+type ClientToolDeviceStatusGetInvokeTool string
+
+// ClientToolFirmwareUpdateInvoke defines model for ClientToolFirmwareUpdateInvoke.
+type ClientToolFirmwareUpdateInvoke struct {
+	Args DeviceFirmwareUpdateRequest        `json:"args"`
+	Tool ClientToolFirmwareUpdateInvokeTool `json:"tool"`
+}
+
+// ClientToolFirmwareUpdateInvokeTool defines model for ClientToolFirmwareUpdateInvoke.Tool.
+type ClientToolFirmwareUpdateInvokeTool string
+
+// ClientToolIdentifiersGetInvoke defines model for ClientToolIdentifiersGetInvoke.
+type ClientToolIdentifiersGetInvoke struct {
+	Args map[string]interface{}             `json:"args"`
+	Tool ClientToolIdentifiersGetInvokeTool `json:"tool"`
+}
+
+// ClientToolIdentifiersGetInvokeTool defines model for ClientToolIdentifiersGetInvoke.Tool.
+type ClientToolIdentifiersGetInvokeTool string
+
+// ClientToolInfoGetInvoke defines model for ClientToolInfoGetInvoke.
+type ClientToolInfoGetInvoke struct {
+	Args map[string]interface{}      `json:"args"`
+	Tool ClientToolInfoGetInvokeTool `json:"tool"`
+}
+
+// ClientToolInfoGetInvokeTool defines model for ClientToolInfoGetInvoke.Tool.
+type ClientToolInfoGetInvokeTool string
+
+// ClientToolRunWorkspaceSetInvoke defines model for ClientToolRunWorkspaceSetInvoke.
+type ClientToolRunWorkspaceSetInvoke struct {
+	// Args Exactly one target: workspace_name, or collection together with workflow_name naming a workflow of the bound RuntimeProfile.
+	Args DeviceRunWorkspaceSetRequest        `json:"args"`
+	Tool ClientToolRunWorkspaceSetInvokeTool `json:"tool"`
+}
+
+// ClientToolRunWorkspaceSetInvokeTool defines model for ClientToolRunWorkspaceSetInvoke.Tool.
+type ClientToolRunWorkspaceSetInvokeTool string
+
+// ClientToolSocialPingArgs defines model for ClientToolSocialPingArgs.
+type ClientToolSocialPingArgs struct {
+	FriendGroupName   *string `json:"friend_group_name,omitempty"`
+	FromDisplayName   *string `json:"from_display_name,omitempty"`
+	FromPeerPublicKey string  `json:"from_peer_public_key"`
+}
+
+// ClientToolSocialPingInvoke defines model for ClientToolSocialPingInvoke.
+type ClientToolSocialPingInvoke struct {
+	Args ClientToolSocialPingArgs       `json:"args"`
+	Tool ClientToolSocialPingInvokeTool `json:"tool"`
+}
+
+// ClientToolSocialPingInvokeTool defines model for ClientToolSocialPingInvoke.Tool.
+type ClientToolSocialPingInvokeTool string
+
+// ClientToolSoundPlayInvoke defines model for ClientToolSoundPlayInvoke.
+type ClientToolSoundPlayInvoke struct {
+	Args DevicePlaySoundRequest        `json:"args"`
+	Tool ClientToolSoundPlayInvokeTool `json:"tool"`
+}
+
+// ClientToolSoundPlayInvokeTool defines model for ClientToolSoundPlayInvoke.Tool.
+type ClientToolSoundPlayInvokeTool string
+
+// ClientToolV0InvokeRequest defines model for ClientToolV0InvokeRequest.
+type ClientToolV0InvokeRequest struct {
+	union json.RawMessage
+}
+
+// ClientToolV0InvokeResponse defines model for ClientToolV0InvokeResponse.
+type ClientToolV0InvokeResponse struct {
+	Result map[string]interface{} `json:"result"`
+}
+
+// ClientToolV0ListResponse defines model for ClientToolV0ListResponse.
+type ClientToolV0ListResponse struct {
+	Tools []ClientToolV0ListResponseTools `json:"tools"`
+}
+
+// ClientToolV0ListResponseTools defines model for ClientToolV0ListResponse.Tools.
+type ClientToolV0ListResponseTools string
+
+// ClientToolWifiConnectInvoke defines model for ClientToolWifiConnectInvoke.
+type ClientToolWifiConnectInvoke struct {
+	Args DeviceWifiConnectRequest        `json:"args"`
+	Tool ClientToolWifiConnectInvokeTool `json:"tool"`
+}
+
+// ClientToolWifiConnectInvokeTool defines model for ClientToolWifiConnectInvoke.Tool.
+type ClientToolWifiConnectInvokeTool string
+
+// ClientToolWifiSavedForgetArgs defines model for ClientToolWifiSavedForgetArgs.
+type ClientToolWifiSavedForgetArgs struct {
+	Ssid string `json:"ssid"`
+}
+
+// ClientToolWifiSavedForgetInvoke defines model for ClientToolWifiSavedForgetInvoke.
+type ClientToolWifiSavedForgetInvoke struct {
+	Args ClientToolWifiSavedForgetArgs       `json:"args"`
+	Tool ClientToolWifiSavedForgetInvokeTool `json:"tool"`
+}
+
+// ClientToolWifiSavedForgetInvokeTool defines model for ClientToolWifiSavedForgetInvoke.Tool.
+type ClientToolWifiSavedForgetInvokeTool string
+
+// ClientToolWifiSavedListInvoke defines model for ClientToolWifiSavedListInvoke.
+type ClientToolWifiSavedListInvoke struct {
+	Args map[string]interface{}            `json:"args"`
+	Tool ClientToolWifiSavedListInvokeTool `json:"tool"`
+}
+
+// ClientToolWifiSavedListInvokeTool defines model for ClientToolWifiSavedListInvoke.Tool.
+type ClientToolWifiSavedListInvokeTool string
+
+// ClientToolWifiScanInvoke defines model for ClientToolWifiScanInvoke.
+type ClientToolWifiScanInvoke struct {
+	Args DeviceWifiScanRequest        `json:"args"`
+	Tool ClientToolWifiScanInvokeTool `json:"tool"`
+}
+
+// ClientToolWifiScanInvokeTool defines model for ClientToolWifiScanInvoke.Tool.
+type ClientToolWifiScanInvokeTool string
+
 // Contact defines model for Contact.
 type Contact struct {
 	CreatedAt   *time.Time `json:"created_at,omitempty"`
@@ -252,11 +784,6 @@ type ContactList struct {
 type ContactPutRequest struct {
 	DisplayName *string `json:"display_name,omitempty"`
 	PhoneNumber *string `json:"phone_number,omitempty"`
-}
-
-// DeviceControlStatus defines model for DeviceControlStatus.
-type DeviceControlStatus struct {
-	Status externalRef0.PeerStatus `json:"status"`
 }
 
 // DeviceFactoryResetRequest defines model for DeviceFactoryResetRequest.
@@ -299,12 +826,6 @@ type DevicePlaySoundRequest struct {
 
 	// Sound Device-defined sound identifier; at most 32 UTF-8 bytes. The device validates the value.
 	Sound string `json:"sound"`
-}
-
-// DeviceRPCMethods defines model for DeviceRPCMethods.
-type DeviceRPCMethods struct {
-	// Methods Registry method names such as client.device.settings.get. Unknown names must be ignored.
-	Methods []string `json:"methods"`
 }
 
 // DeviceRebootRequest defines model for DeviceRebootRequest.
@@ -355,96 +876,6 @@ type DeviceRuntimeProfileWorkflow struct {
 	Name string `json:"name"`
 }
 
-// DeviceSettings Device-owned configuration. Every member is optional: on PATCH an absent member leaves that option unchanged; in a response an absent member means the device does not support that option. Product-specific configuration, such as usage time limits, is exposed as a device Tool instead. Speech rate belongs to the Workspace parameters, not to the device.
-type DeviceSettings struct {
-	// AlertMode How the device alerts the user to an incoming event such as a call or a notification.
-	AlertMode *DeviceSettingsAlertMode `json:"alert_mode,omitempty"`
-
-	// AutoSleepTimeoutMs Idle time before the device sleeps; 0 disables automatic sleep.
-	AutoSleepTimeoutMs *int64 `json:"auto_sleep_timeout_ms,omitempty"`
-
-	// CellularEnabled Whether the cellular modem is enabled.
-	CellularEnabled *bool `json:"cellular_enabled,omitempty"`
-
-	// DefaultInteractionMode Interaction mode the device starts in.
-	DefaultInteractionMode *DeviceSettingsDefaultInteractionMode `json:"default_interaction_mode,omitempty"`
-
-	// KeyFeedback Feedback on a key press.
-	KeyFeedback *DeviceSettingsKeyFeedback `json:"key_feedback,omitempty"`
-
-	// LedBrightness Indicator light brightness percent.
-	LedBrightness *int64 `json:"led_brightness,omitempty"`
-
-	// Locale BCP 47 language tag such as zh-CN.
-	Locale *string `json:"locale,omitempty"`
-
-	// NfcEnabled Whether the NFC reader is powered.
-	NfcEnabled *bool `json:"nfc_enabled,omitempty"`
-
-	// ScreenBrightness Screen brightness percent.
-	ScreenBrightness *int64 `json:"screen_brightness,omitempty"`
-
-	// ScreenOffTimeoutMs Idle time before the screen turns off; 0 keeps it on.
-	ScreenOffTimeoutMs *int64 `json:"screen_off_timeout_ms,omitempty"`
-}
-
-// DeviceSettingsAlertMode How the device alerts the user to an incoming event such as a call or a notification.
-type DeviceSettingsAlertMode string
-
-// DeviceSettingsDefaultInteractionMode Interaction mode the device starts in.
-type DeviceSettingsDefaultInteractionMode string
-
-// DeviceSettingsKeyFeedback Feedback on a key press.
-type DeviceSettingsKeyFeedback string
-
-// DeviceTool defines model for DeviceTool.
-type DeviceTool struct {
-	// ControlAccess Authorization the Tool's binding requires.
-	ControlAccess DeviceToolControlAccess `json:"control_access"`
-
-	// I18n Display text keyed by locale.
-	I18n map[string]DeviceToolI18nText `json:"i18n"`
-
-	// InputSchema JSON Schema the invoke args must satisfy.
-	InputSchema map[string]interface{} `json:"input_schema"`
-
-	// Name Tool name within the bound RuntimeProfile; the path parameter of the invoke route.
-	Name string `json:"name"`
-}
-
-// DeviceToolControlAccess Authorization the Tool's binding requires.
-type DeviceToolControlAccess string
-
-// DeviceToolI18nText defines model for DeviceToolI18nText.
-type DeviceToolI18nText struct {
-	Description *string `json:"description,omitempty"`
-	DisplayName string  `json:"display_name"`
-}
-
-// DeviceToolInvokeRequest defines model for DeviceToolInvokeRequest.
-type DeviceToolInvokeRequest struct {
-	// Args Tool arguments; must satisfy the Tool's input_schema. Omitted means an empty object.
-	Args *map[string]interface{} `json:"args,omitempty"`
-}
-
-// DeviceToolInvokeResponse defines model for DeviceToolInvokeResponse.
-type DeviceToolInvokeResponse struct {
-	// DataJson The result the device returned, as JSON text.
-	DataJson string `json:"data_json"`
-}
-
-// DeviceToolList defines model for DeviceToolList.
-type DeviceToolList struct {
-	Items []DeviceTool `json:"items"`
-}
-
-// DeviceVolumeSetRequest defines model for DeviceVolumeSetRequest.
-type DeviceVolumeSetRequest struct {
-	// Level Absolute volume level.
-	Level int  `json:"level"`
-	Muted bool `json:"muted"`
-}
-
 // DeviceWifiConnectRequest defines model for DeviceWifiConnectRequest.
 type DeviceWifiConnectRequest struct {
 	Passphrase *string `json:"passphrase,omitempty"`
@@ -479,15 +910,6 @@ type DeviceWifiScanResult struct {
 	RssiDbm      *int64  `json:"rssi_dbm,omitempty"`
 	Security     *string `json:"security,omitempty"`
 	Ssid         string  `json:"ssid"`
-}
-
-// DeviceWifiStatus defines model for DeviceWifiStatus.
-type DeviceWifiStatus struct {
-	Bssid     *string `json:"bssid,omitempty"`
-	Connected bool    `json:"connected"`
-	Ip        *string `json:"ip,omitempty"`
-	RssiDbm   *int64  `json:"rssi_dbm,omitempty"`
-	Ssid      *string `json:"ssid,omitempty"`
 }
 
 // DeviceWorkspace defines model for DeviceWorkspace.
@@ -853,56 +1275,14 @@ type CreateContactJSONRequestBody = ContactCreateRequest
 // PutContactJSONRequestBody defines body for PutContact for application/json ContentType.
 type PutContactJSONRequestBody = ContactPutRequest
 
-// FactoryResetDeviceJSONRequestBody defines body for FactoryResetDevice for application/json ContentType.
-type FactoryResetDeviceJSONRequestBody = DeviceFactoryResetRequest
-
-// FindDeviceJSONRequestBody defines body for FindDevice for application/json ContentType.
-type FindDeviceJSONRequestBody = DeviceFindRequest
-
-// UpdateDeviceFirmwareJSONRequestBody defines body for UpdateDeviceFirmware for application/json ContentType.
-type UpdateDeviceFirmwareJSONRequestBody = DeviceFirmwareUpdateRequest
-
-// PlayDeviceSoundJSONRequestBody defines body for PlayDeviceSound for application/json ContentType.
-type PlayDeviceSoundJSONRequestBody = DevicePlaySoundRequest
-
-// RebootDeviceJSONRequestBody defines body for RebootDevice for application/json ContentType.
-type RebootDeviceJSONRequestBody = DeviceRebootRequest
-
-// PlayDeviceAudioPlayerJSONRequestBody defines body for PlayDeviceAudioPlayer for application/json ContentType.
-type PlayDeviceAudioPlayerJSONRequestBody = externalRef0.AudioPlayerPlayRequest
-
-// SetDeviceAudioPlayerModeJSONRequestBody defines body for SetDeviceAudioPlayerMode for application/json ContentType.
-type SetDeviceAudioPlayerModeJSONRequestBody = externalRef0.AudioPlayerModeSetRequest
-
-// SetDeviceAudioPlayerPlaylistJSONRequestBody defines body for SetDeviceAudioPlayerPlaylist for application/json ContentType.
-type SetDeviceAudioPlayerPlaylistJSONRequestBody = externalRef0.AudioPlayerPlaylistSetRequest
-
-// AppendDeviceAudioPlayerPlaylistJSONRequestBody defines body for AppendDeviceAudioPlayerPlaylist for application/json ContentType.
-type AppendDeviceAudioPlayerPlaylistJSONRequestBody = externalRef0.AudioPlayerPlaylistAppendRequest
-
 // ReadMhsStatesJSONRequestBody defines body for ReadMhsStates for application/json ContentType.
 type ReadMhsStatesJSONRequestBody = externalRef0.MhsV0ReadRequest
 
 // WriteMhsStatesJSONRequestBody defines body for WriteMhsStates for application/json ContentType.
 type WriteMhsStatesJSONRequestBody = externalRef0.MhsV0States
 
-// SetDeviceRunWorkspaceJSONRequestBody defines body for SetDeviceRunWorkspace for application/json ContentType.
-type SetDeviceRunWorkspaceJSONRequestBody = DeviceRunWorkspaceSetRequest
-
-// UpdateDeviceSettingsJSONRequestBody defines body for UpdateDeviceSettings for application/json ContentType.
-type UpdateDeviceSettingsJSONRequestBody = DeviceSettings
-
-// InvokeDeviceToolJSONRequestBody defines body for InvokeDeviceTool for application/json ContentType.
-type InvokeDeviceToolJSONRequestBody = DeviceToolInvokeRequest
-
-// SetDeviceVolumeJSONRequestBody defines body for SetDeviceVolume for application/json ContentType.
-type SetDeviceVolumeJSONRequestBody = DeviceVolumeSetRequest
-
-// ConnectDeviceWifiJSONRequestBody defines body for ConnectDeviceWifi for application/json ContentType.
-type ConnectDeviceWifiJSONRequestBody = DeviceWifiConnectRequest
-
-// ScanDeviceWifiJSONRequestBody defines body for ScanDeviceWifi for application/json ContentType.
-type ScanDeviceWifiJSONRequestBody = DeviceWifiScanRequest
+// InvokeClientToolJSONRequestBody defines body for InvokeClientTool for application/json ContentType.
+type InvokeClientToolJSONRequestBody = ClientToolV0InvokeRequest
 
 // CreateFriendGroupJSONRequestBody defines body for CreateFriendGroup for application/json ContentType.
 type CreateFriendGroupJSONRequestBody = FriendGroupCreateRequest
@@ -927,6 +1307,665 @@ type AddFriendJSONRequestBody = FriendAddRequest
 
 // CreateFriendInviteTokenJSONRequestBody defines body for CreateFriendInviteToken for application/json ContentType.
 type CreateFriendInviteTokenJSONRequestBody = InviteTokenCreateRequest
+
+// AsClientToolInfoGetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolInfoGetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolInfoGetInvoke() (ClientToolInfoGetInvoke, error) {
+	var body ClientToolInfoGetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolInfoGetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolInfoGetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolInfoGetInvoke(v ClientToolInfoGetInvoke) error {
+	v.Tool = "info.get"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolInfoGetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolInfoGetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolInfoGetInvoke(v ClientToolInfoGetInvoke) error {
+	v.Tool = "info.get"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolIdentifiersGetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolIdentifiersGetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolIdentifiersGetInvoke() (ClientToolIdentifiersGetInvoke, error) {
+	var body ClientToolIdentifiersGetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolIdentifiersGetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolIdentifiersGetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolIdentifiersGetInvoke(v ClientToolIdentifiersGetInvoke) error {
+	v.Tool = "identifiers.get"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolIdentifiersGetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolIdentifiersGetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolIdentifiersGetInvoke(v ClientToolIdentifiersGetInvoke) error {
+	v.Tool = "identifiers.get"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolDeviceStatusGetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolDeviceStatusGetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolDeviceStatusGetInvoke() (ClientToolDeviceStatusGetInvoke, error) {
+	var body ClientToolDeviceStatusGetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolDeviceStatusGetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolDeviceStatusGetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolDeviceStatusGetInvoke(v ClientToolDeviceStatusGetInvoke) error {
+	v.Tool = "device.status.get"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolDeviceStatusGetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolDeviceStatusGetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolDeviceStatusGetInvoke(v ClientToolDeviceStatusGetInvoke) error {
+	v.Tool = "device.status.get"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolDeviceRebootInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolDeviceRebootInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolDeviceRebootInvoke() (ClientToolDeviceRebootInvoke, error) {
+	var body ClientToolDeviceRebootInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolDeviceRebootInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolDeviceRebootInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolDeviceRebootInvoke(v ClientToolDeviceRebootInvoke) error {
+	v.Tool = "device.reboot"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolDeviceRebootInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolDeviceRebootInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolDeviceRebootInvoke(v ClientToolDeviceRebootInvoke) error {
+	v.Tool = "device.reboot"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolDeviceFactoryResetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolDeviceFactoryResetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolDeviceFactoryResetInvoke() (ClientToolDeviceFactoryResetInvoke, error) {
+	var body ClientToolDeviceFactoryResetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolDeviceFactoryResetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolDeviceFactoryResetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolDeviceFactoryResetInvoke(v ClientToolDeviceFactoryResetInvoke) error {
+	v.Tool = "device.factory_reset"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolDeviceFactoryResetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolDeviceFactoryResetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolDeviceFactoryResetInvoke(v ClientToolDeviceFactoryResetInvoke) error {
+	v.Tool = "device.factory_reset"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolDeviceFindInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolDeviceFindInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolDeviceFindInvoke() (ClientToolDeviceFindInvoke, error) {
+	var body ClientToolDeviceFindInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolDeviceFindInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolDeviceFindInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolDeviceFindInvoke(v ClientToolDeviceFindInvoke) error {
+	v.Tool = "device.find"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolDeviceFindInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolDeviceFindInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolDeviceFindInvoke(v ClientToolDeviceFindInvoke) error {
+	v.Tool = "device.find"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolSoundPlayInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolSoundPlayInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolSoundPlayInvoke() (ClientToolSoundPlayInvoke, error) {
+	var body ClientToolSoundPlayInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolSoundPlayInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolSoundPlayInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolSoundPlayInvoke(v ClientToolSoundPlayInvoke) error {
+	v.Tool = "sound.play"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolSoundPlayInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolSoundPlayInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolSoundPlayInvoke(v ClientToolSoundPlayInvoke) error {
+	v.Tool = "sound.play"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolWifiScanInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolWifiScanInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolWifiScanInvoke() (ClientToolWifiScanInvoke, error) {
+	var body ClientToolWifiScanInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolWifiScanInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolWifiScanInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolWifiScanInvoke(v ClientToolWifiScanInvoke) error {
+	v.Tool = "wifi.scan"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolWifiScanInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolWifiScanInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolWifiScanInvoke(v ClientToolWifiScanInvoke) error {
+	v.Tool = "wifi.scan"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolWifiConnectInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolWifiConnectInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolWifiConnectInvoke() (ClientToolWifiConnectInvoke, error) {
+	var body ClientToolWifiConnectInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolWifiConnectInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolWifiConnectInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolWifiConnectInvoke(v ClientToolWifiConnectInvoke) error {
+	v.Tool = "wifi.connect"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolWifiConnectInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolWifiConnectInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolWifiConnectInvoke(v ClientToolWifiConnectInvoke) error {
+	v.Tool = "wifi.connect"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolWifiSavedListInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolWifiSavedListInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolWifiSavedListInvoke() (ClientToolWifiSavedListInvoke, error) {
+	var body ClientToolWifiSavedListInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolWifiSavedListInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolWifiSavedListInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolWifiSavedListInvoke(v ClientToolWifiSavedListInvoke) error {
+	v.Tool = "wifi.saved.list"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolWifiSavedListInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolWifiSavedListInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolWifiSavedListInvoke(v ClientToolWifiSavedListInvoke) error {
+	v.Tool = "wifi.saved.list"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolWifiSavedForgetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolWifiSavedForgetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolWifiSavedForgetInvoke() (ClientToolWifiSavedForgetInvoke, error) {
+	var body ClientToolWifiSavedForgetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolWifiSavedForgetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolWifiSavedForgetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolWifiSavedForgetInvoke(v ClientToolWifiSavedForgetInvoke) error {
+	v.Tool = "wifi.saved.forget"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolWifiSavedForgetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolWifiSavedForgetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolWifiSavedForgetInvoke(v ClientToolWifiSavedForgetInvoke) error {
+	v.Tool = "wifi.saved.forget"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolFirmwareUpdateInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolFirmwareUpdateInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolFirmwareUpdateInvoke() (ClientToolFirmwareUpdateInvoke, error) {
+	var body ClientToolFirmwareUpdateInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolFirmwareUpdateInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolFirmwareUpdateInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolFirmwareUpdateInvoke(v ClientToolFirmwareUpdateInvoke) error {
+	v.Tool = "firmware.update"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolFirmwareUpdateInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolFirmwareUpdateInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolFirmwareUpdateInvoke(v ClientToolFirmwareUpdateInvoke) error {
+	v.Tool = "firmware.update"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolAudioplayerGetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolAudioplayerGetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolAudioplayerGetInvoke() (ClientToolAudioplayerGetInvoke, error) {
+	var body ClientToolAudioplayerGetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolAudioplayerGetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolAudioplayerGetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolAudioplayerGetInvoke(v ClientToolAudioplayerGetInvoke) error {
+	v.Tool = "audioplayer.get"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolAudioplayerGetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolAudioplayerGetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolAudioplayerGetInvoke(v ClientToolAudioplayerGetInvoke) error {
+	v.Tool = "audioplayer.get"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolAudioplayerPlayInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolAudioplayerPlayInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolAudioplayerPlayInvoke() (ClientToolAudioplayerPlayInvoke, error) {
+	var body ClientToolAudioplayerPlayInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolAudioplayerPlayInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolAudioplayerPlayInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolAudioplayerPlayInvoke(v ClientToolAudioplayerPlayInvoke) error {
+	v.Tool = "audioplayer.play"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolAudioplayerPlayInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolAudioplayerPlayInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolAudioplayerPlayInvoke(v ClientToolAudioplayerPlayInvoke) error {
+	v.Tool = "audioplayer.play"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolAudioplayerStopInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolAudioplayerStopInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolAudioplayerStopInvoke() (ClientToolAudioplayerStopInvoke, error) {
+	var body ClientToolAudioplayerStopInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolAudioplayerStopInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolAudioplayerStopInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolAudioplayerStopInvoke(v ClientToolAudioplayerStopInvoke) error {
+	v.Tool = "audioplayer.stop"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolAudioplayerStopInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolAudioplayerStopInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolAudioplayerStopInvoke(v ClientToolAudioplayerStopInvoke) error {
+	v.Tool = "audioplayer.stop"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolAudioplayerModeSetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolAudioplayerModeSetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolAudioplayerModeSetInvoke() (ClientToolAudioplayerModeSetInvoke, error) {
+	var body ClientToolAudioplayerModeSetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolAudioplayerModeSetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolAudioplayerModeSetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolAudioplayerModeSetInvoke(v ClientToolAudioplayerModeSetInvoke) error {
+	v.Tool = "audioplayer.mode.set"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolAudioplayerModeSetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolAudioplayerModeSetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolAudioplayerModeSetInvoke(v ClientToolAudioplayerModeSetInvoke) error {
+	v.Tool = "audioplayer.mode.set"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolAudioplayerPlaylistGetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolAudioplayerPlaylistGetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolAudioplayerPlaylistGetInvoke() (ClientToolAudioplayerPlaylistGetInvoke, error) {
+	var body ClientToolAudioplayerPlaylistGetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolAudioplayerPlaylistGetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolAudioplayerPlaylistGetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolAudioplayerPlaylistGetInvoke(v ClientToolAudioplayerPlaylistGetInvoke) error {
+	v.Tool = "audioplayer.playlist.get"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolAudioplayerPlaylistGetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolAudioplayerPlaylistGetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolAudioplayerPlaylistGetInvoke(v ClientToolAudioplayerPlaylistGetInvoke) error {
+	v.Tool = "audioplayer.playlist.get"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolAudioplayerPlaylistSetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolAudioplayerPlaylistSetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolAudioplayerPlaylistSetInvoke() (ClientToolAudioplayerPlaylistSetInvoke, error) {
+	var body ClientToolAudioplayerPlaylistSetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolAudioplayerPlaylistSetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolAudioplayerPlaylistSetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolAudioplayerPlaylistSetInvoke(v ClientToolAudioplayerPlaylistSetInvoke) error {
+	v.Tool = "audioplayer.playlist.set"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolAudioplayerPlaylistSetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolAudioplayerPlaylistSetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolAudioplayerPlaylistSetInvoke(v ClientToolAudioplayerPlaylistSetInvoke) error {
+	v.Tool = "audioplayer.playlist.set"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolAudioplayerPlaylistAppendInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolAudioplayerPlaylistAppendInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolAudioplayerPlaylistAppendInvoke() (ClientToolAudioplayerPlaylistAppendInvoke, error) {
+	var body ClientToolAudioplayerPlaylistAppendInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolAudioplayerPlaylistAppendInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolAudioplayerPlaylistAppendInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolAudioplayerPlaylistAppendInvoke(v ClientToolAudioplayerPlaylistAppendInvoke) error {
+	v.Tool = "audioplayer.playlist.append"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolAudioplayerPlaylistAppendInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolAudioplayerPlaylistAppendInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolAudioplayerPlaylistAppendInvoke(v ClientToolAudioplayerPlaylistAppendInvoke) error {
+	v.Tool = "audioplayer.playlist.append"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolRunWorkspaceSetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolRunWorkspaceSetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolRunWorkspaceSetInvoke() (ClientToolRunWorkspaceSetInvoke, error) {
+	var body ClientToolRunWorkspaceSetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolRunWorkspaceSetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolRunWorkspaceSetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolRunWorkspaceSetInvoke(v ClientToolRunWorkspaceSetInvoke) error {
+	v.Tool = "run.workspace.set"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolRunWorkspaceSetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolRunWorkspaceSetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolRunWorkspaceSetInvoke(v ClientToolRunWorkspaceSetInvoke) error {
+	v.Tool = "run.workspace.set"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolSocialPingInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolSocialPingInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolSocialPingInvoke() (ClientToolSocialPingInvoke, error) {
+	var body ClientToolSocialPingInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolSocialPingInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolSocialPingInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolSocialPingInvoke(v ClientToolSocialPingInvoke) error {
+	v.Tool = "social.ping"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolSocialPingInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolSocialPingInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolSocialPingInvoke(v ClientToolSocialPingInvoke) error {
+	v.Tool = "social.ping"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ClientToolV0InvokeRequest) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"tool"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t ClientToolV0InvokeRequest) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "audioplayer.get":
+		return t.AsClientToolAudioplayerGetInvoke()
+	case "audioplayer.mode.set":
+		return t.AsClientToolAudioplayerModeSetInvoke()
+	case "audioplayer.play":
+		return t.AsClientToolAudioplayerPlayInvoke()
+	case "audioplayer.playlist.append":
+		return t.AsClientToolAudioplayerPlaylistAppendInvoke()
+	case "audioplayer.playlist.get":
+		return t.AsClientToolAudioplayerPlaylistGetInvoke()
+	case "audioplayer.playlist.set":
+		return t.AsClientToolAudioplayerPlaylistSetInvoke()
+	case "audioplayer.stop":
+		return t.AsClientToolAudioplayerStopInvoke()
+	case "device.factory_reset":
+		return t.AsClientToolDeviceFactoryResetInvoke()
+	case "device.find":
+		return t.AsClientToolDeviceFindInvoke()
+	case "device.reboot":
+		return t.AsClientToolDeviceRebootInvoke()
+	case "device.status.get":
+		return t.AsClientToolDeviceStatusGetInvoke()
+	case "firmware.update":
+		return t.AsClientToolFirmwareUpdateInvoke()
+	case "identifiers.get":
+		return t.AsClientToolIdentifiersGetInvoke()
+	case "info.get":
+		return t.AsClientToolInfoGetInvoke()
+	case "run.workspace.set":
+		return t.AsClientToolRunWorkspaceSetInvoke()
+	case "social.ping":
+		return t.AsClientToolSocialPingInvoke()
+	case "sound.play":
+		return t.AsClientToolSoundPlayInvoke()
+	case "wifi.connect":
+		return t.AsClientToolWifiConnectInvoke()
+	case "wifi.saved.forget":
+		return t.AsClientToolWifiSavedForgetInvoke()
+	case "wifi.saved.list":
+		return t.AsClientToolWifiSavedListInvoke()
+	case "wifi.scan":
+		return t.AsClientToolWifiScanInvoke()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t ClientToolV0InvokeRequest) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ClientToolV0InvokeRequest) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -1043,72 +2082,6 @@ type ClientInterface interface {
 	// GetDevice request
 	GetDevice(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// FactoryResetDevice request without the optional body
-	FactoryResetDevice(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// FactoryResetDeviceWithBody request with any body
-	FactoryResetDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	FactoryResetDeviceWithJSONBody(ctx context.Context, body FactoryResetDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// FindDevice request without the optional body
-	FindDevice(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// FindDeviceWithBody request with any body
-	FindDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	FindDeviceWithJSONBody(ctx context.Context, body FindDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// UpdateDeviceFirmware request without the optional body
-	UpdateDeviceFirmware(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// UpdateDeviceFirmwareWithBody request with any body
-	UpdateDeviceFirmwareWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	UpdateDeviceFirmwareWithJSONBody(ctx context.Context, body UpdateDeviceFirmwareJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// PlayDeviceSoundWithBody request with any body
-	PlayDeviceSoundWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	PlayDeviceSound(ctx context.Context, body PlayDeviceSoundJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// RebootDevice request without the optional body
-	RebootDevice(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// RebootDeviceWithBody request with any body
-	RebootDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	RebootDeviceWithJSONBody(ctx context.Context, body RebootDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetDeviceAudioPlayer request
-	GetDeviceAudioPlayer(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// PlayDeviceAudioPlayerWithBody request with any body
-	PlayDeviceAudioPlayerWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	PlayDeviceAudioPlayer(ctx context.Context, body PlayDeviceAudioPlayerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// StopDeviceAudioPlayer request
-	StopDeviceAudioPlayer(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SetDeviceAudioPlayerModeWithBody request with any body
-	SetDeviceAudioPlayerModeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	SetDeviceAudioPlayerMode(ctx context.Context, body SetDeviceAudioPlayerModeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetDeviceAudioPlayerPlaylist request
-	GetDeviceAudioPlayerPlaylist(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SetDeviceAudioPlayerPlaylistWithBody request with any body
-	SetDeviceAudioPlayerPlaylistWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	SetDeviceAudioPlayerPlaylist(ctx context.Context, body SetDeviceAudioPlayerPlaylistJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// AppendDeviceAudioPlayerPlaylistWithBody request with any body
-	AppendDeviceAudioPlayerPlaylistWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	AppendDeviceAudioPlayerPlaylist(ctx context.Context, body AppendDeviceAudioPlayerPlaylistJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetDeviceFirmware request
 	GetDeviceFirmware(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1128,27 +2101,11 @@ type ClientInterface interface {
 
 	WriteMhsStates(ctx context.Context, body WriteMhsStatesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListDeviceRPCMethods request
-	ListDeviceRPCMethods(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SetDeviceRunWorkspaceWithBody request with any body
-	SetDeviceRunWorkspaceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	SetDeviceRunWorkspace(ctx context.Context, body SetDeviceRunWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetDeviceRuntime request
 	GetDeviceRuntime(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetDeviceRuntimeProfile request
 	GetDeviceRuntimeProfile(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetDeviceSettings request
-	GetDeviceSettings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// UpdateDeviceSettingsWithBody request with any body
-	UpdateDeviceSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	UpdateDeviceSettings(ctx context.Context, body UpdateDeviceSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetDeviceStatus request
 	GetDeviceStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1162,43 +2119,13 @@ type ClientInterface interface {
 	// GetDeviceTelemetryLatest request
 	GetDeviceTelemetryLatest(ctx context.Context, field externalRef0.PeerTelemetryField, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListDeviceTools request
-	ListDeviceTools(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// InvokeClientToolWithBody request with any body
+	InvokeClientToolWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// InvokeDeviceTool request without the optional body
-	InvokeDeviceTool(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	InvokeClientTool(ctx context.Context, body InvokeClientToolJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// InvokeDeviceToolWithBody request with any body
-	InvokeDeviceToolWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	InvokeDeviceToolWithJSONBody(ctx context.Context, name string, body InvokeDeviceToolJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SetDeviceVolumeWithBody request with any body
-	SetDeviceVolumeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	SetDeviceVolume(ctx context.Context, body SetDeviceVolumeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetDeviceWifi request
-	GetDeviceWifi(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ConnectDeviceWifiWithBody request with any body
-	ConnectDeviceWifiWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	ConnectDeviceWifi(ctx context.Context, body ConnectDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ListDeviceSavedWifi request
-	ListDeviceSavedWifi(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ForgetDeviceSavedWifi request
-	ForgetDeviceSavedWifi(ctx context.Context, ssid string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ScanDeviceWifi request without the optional body
-	ScanDeviceWifi(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ScanDeviceWifiWithBody request with any body
-	ScanDeviceWifiWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	ScanDeviceWifiWithJSONBody(ctx context.Context, body ScanDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListClientTools request
+	ListClientTools(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListDeviceWorkspaces request
 	ListDeviceWorkspaces(ctx context.Context, params *ListDeviceWorkspacesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1490,306 +2417,6 @@ func (c *Client) GetDevice(ctx context.Context, reqEditors ...RequestEditorFn) (
 	return c.Client.Do(req)
 }
 
-func (c *Client) FactoryResetDevice(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewFactoryResetDeviceRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) FactoryResetDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewFactoryResetDeviceRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) FactoryResetDeviceWithJSONBody(ctx context.Context, body FactoryResetDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewFactoryResetDeviceRequestWithJSONBody(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) FindDevice(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewFindDeviceRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) FindDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewFindDeviceRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) FindDeviceWithJSONBody(ctx context.Context, body FindDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewFindDeviceRequestWithJSONBody(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateDeviceFirmware(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateDeviceFirmwareRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateDeviceFirmwareWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateDeviceFirmwareRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateDeviceFirmwareWithJSONBody(ctx context.Context, body UpdateDeviceFirmwareJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateDeviceFirmwareRequestWithJSONBody(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PlayDeviceSoundWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPlayDeviceSoundRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PlayDeviceSound(ctx context.Context, body PlayDeviceSoundJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPlayDeviceSoundRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) RebootDevice(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRebootDeviceRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) RebootDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRebootDeviceRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) RebootDeviceWithJSONBody(ctx context.Context, body RebootDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRebootDeviceRequestWithJSONBody(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetDeviceAudioPlayer(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetDeviceAudioPlayerRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PlayDeviceAudioPlayerWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPlayDeviceAudioPlayerRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PlayDeviceAudioPlayer(ctx context.Context, body PlayDeviceAudioPlayerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPlayDeviceAudioPlayerRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) StopDeviceAudioPlayer(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStopDeviceAudioPlayerRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) SetDeviceAudioPlayerModeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSetDeviceAudioPlayerModeRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) SetDeviceAudioPlayerMode(ctx context.Context, body SetDeviceAudioPlayerModeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSetDeviceAudioPlayerModeRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetDeviceAudioPlayerPlaylist(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetDeviceAudioPlayerPlaylistRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) SetDeviceAudioPlayerPlaylistWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSetDeviceAudioPlayerPlaylistRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) SetDeviceAudioPlayerPlaylist(ctx context.Context, body SetDeviceAudioPlayerPlaylistJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSetDeviceAudioPlayerPlaylistRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) AppendDeviceAudioPlayerPlaylistWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAppendDeviceAudioPlayerPlaylistRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) AppendDeviceAudioPlayerPlaylist(ctx context.Context, body AppendDeviceAudioPlayerPlaylistJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAppendDeviceAudioPlayerPlaylistRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) GetDeviceFirmware(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetDeviceFirmwareRequest(c.Server)
 	if err != nil {
@@ -1874,42 +2501,6 @@ func (c *Client) WriteMhsStates(ctx context.Context, body WriteMhsStatesJSONRequ
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListDeviceRPCMethods(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListDeviceRPCMethodsRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) SetDeviceRunWorkspaceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSetDeviceRunWorkspaceRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) SetDeviceRunWorkspace(ctx context.Context, body SetDeviceRunWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSetDeviceRunWorkspaceRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) GetDeviceRuntime(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetDeviceRuntimeRequest(c.Server)
 	if err != nil {
@@ -1924,42 +2515,6 @@ func (c *Client) GetDeviceRuntime(ctx context.Context, reqEditors ...RequestEdit
 
 func (c *Client) GetDeviceRuntimeProfile(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetDeviceRuntimeProfileRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetDeviceSettings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetDeviceSettingsRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateDeviceSettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateDeviceSettingsRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateDeviceSettings(ctx context.Context, body UpdateDeviceSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateDeviceSettingsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2018,8 +2573,8 @@ func (c *Client) GetDeviceTelemetryLatest(ctx context.Context, field externalRef
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListDeviceTools(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListDeviceToolsRequest(c.Server)
+func (c *Client) InvokeClientToolWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInvokeClientToolRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2030,8 +2585,8 @@ func (c *Client) ListDeviceTools(ctx context.Context, reqEditors ...RequestEdito
 	return c.Client.Do(req)
 }
 
-func (c *Client) InvokeDeviceTool(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewInvokeDeviceToolRequest(c.Server, name)
+func (c *Client) InvokeClientTool(ctx context.Context, body InvokeClientToolJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInvokeClientToolRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2042,140 +2597,8 @@ func (c *Client) InvokeDeviceTool(ctx context.Context, name string, reqEditors .
 	return c.Client.Do(req)
 }
 
-func (c *Client) InvokeDeviceToolWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewInvokeDeviceToolRequestWithBody(c.Server, name, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) InvokeDeviceToolWithJSONBody(ctx context.Context, name string, body InvokeDeviceToolJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewInvokeDeviceToolRequestWithJSONBody(c.Server, name, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) SetDeviceVolumeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSetDeviceVolumeRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) SetDeviceVolume(ctx context.Context, body SetDeviceVolumeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSetDeviceVolumeRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetDeviceWifi(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetDeviceWifiRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ConnectDeviceWifiWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewConnectDeviceWifiRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ConnectDeviceWifi(ctx context.Context, body ConnectDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewConnectDeviceWifiRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ListDeviceSavedWifi(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListDeviceSavedWifiRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ForgetDeviceSavedWifi(ctx context.Context, ssid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewForgetDeviceSavedWifiRequest(c.Server, ssid)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ScanDeviceWifi(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewScanDeviceWifiRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ScanDeviceWifiWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewScanDeviceWifiRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ScanDeviceWifiWithJSONBody(ctx context.Context, body ScanDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewScanDeviceWifiRequestWithJSONBody(c.Server, body)
+func (c *Client) ListClientTools(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListClientToolsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -3130,487 +3553,6 @@ func NewGetDeviceRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewFactoryResetDeviceRequest generates a request without the optional body.
-func NewFactoryResetDeviceRequest(server string) (*http.Request, error) {
-	req, err := NewFactoryResetDeviceRequestWithBody(server, "", nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Del("Content-Type")
-	return req, nil
-}
-
-// NewFactoryResetDeviceRequestWithJSONBody calls the generic FactoryResetDevice builder with application/json body
-func NewFactoryResetDeviceRequestWithJSONBody(server string, body FactoryResetDeviceJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewFactoryResetDeviceRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewFactoryResetDeviceRequestWithBody generates requests for FactoryResetDevice with any type of body
-func NewFactoryResetDeviceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/actions/factory-reset")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewFindDeviceRequest generates a request without the optional body.
-func NewFindDeviceRequest(server string) (*http.Request, error) {
-	req, err := NewFindDeviceRequestWithBody(server, "", nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Del("Content-Type")
-	return req, nil
-}
-
-// NewFindDeviceRequestWithJSONBody calls the generic FindDevice builder with application/json body
-func NewFindDeviceRequestWithJSONBody(server string, body FindDeviceJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewFindDeviceRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewFindDeviceRequestWithBody generates requests for FindDevice with any type of body
-func NewFindDeviceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/actions/find")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewUpdateDeviceFirmwareRequest generates a request without the optional body.
-func NewUpdateDeviceFirmwareRequest(server string) (*http.Request, error) {
-	req, err := NewUpdateDeviceFirmwareRequestWithBody(server, "", nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Del("Content-Type")
-	return req, nil
-}
-
-// NewUpdateDeviceFirmwareRequestWithJSONBody calls the generic UpdateDeviceFirmware builder with application/json body
-func NewUpdateDeviceFirmwareRequestWithJSONBody(server string, body UpdateDeviceFirmwareJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdateDeviceFirmwareRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewUpdateDeviceFirmwareRequestWithBody generates requests for UpdateDeviceFirmware with any type of body
-func NewUpdateDeviceFirmwareRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/actions/firmware-update")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewPlayDeviceSoundRequest calls the generic PlayDeviceSound builder with application/json body
-func NewPlayDeviceSoundRequest(server string, body PlayDeviceSoundJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPlayDeviceSoundRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewPlayDeviceSoundRequestWithBody generates requests for PlayDeviceSound with any type of body
-func NewPlayDeviceSoundRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/actions/play-sound")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewRebootDeviceRequest generates a request without the optional body.
-func NewRebootDeviceRequest(server string) (*http.Request, error) {
-	req, err := NewRebootDeviceRequestWithBody(server, "", nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Del("Content-Type")
-	return req, nil
-}
-
-// NewRebootDeviceRequestWithJSONBody calls the generic RebootDevice builder with application/json body
-func NewRebootDeviceRequestWithJSONBody(server string, body RebootDeviceJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewRebootDeviceRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewRebootDeviceRequestWithBody generates requests for RebootDevice with any type of body
-func NewRebootDeviceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/actions/reboot")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewGetDeviceAudioPlayerRequest generates requests for GetDeviceAudioPlayer
-func NewGetDeviceAudioPlayerRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/audioplayer")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewPlayDeviceAudioPlayerRequest calls the generic PlayDeviceAudioPlayer builder with application/json body
-func NewPlayDeviceAudioPlayerRequest(server string, body PlayDeviceAudioPlayerJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPlayDeviceAudioPlayerRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewPlayDeviceAudioPlayerRequestWithBody generates requests for PlayDeviceAudioPlayer with any type of body
-func NewPlayDeviceAudioPlayerRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/audioplayer/actions/play")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewStopDeviceAudioPlayerRequest generates requests for StopDeviceAudioPlayer
-func NewStopDeviceAudioPlayerRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/audioplayer/actions/stop")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewSetDeviceAudioPlayerModeRequest calls the generic SetDeviceAudioPlayerMode builder with application/json body
-func NewSetDeviceAudioPlayerModeRequest(server string, body SetDeviceAudioPlayerModeJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewSetDeviceAudioPlayerModeRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewSetDeviceAudioPlayerModeRequestWithBody generates requests for SetDeviceAudioPlayerMode with any type of body
-func NewSetDeviceAudioPlayerModeRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/audioplayer/mode")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewGetDeviceAudioPlayerPlaylistRequest generates requests for GetDeviceAudioPlayerPlaylist
-func NewGetDeviceAudioPlayerPlaylistRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/audioplayer/playlist")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewSetDeviceAudioPlayerPlaylistRequest calls the generic SetDeviceAudioPlayerPlaylist builder with application/json body
-func NewSetDeviceAudioPlayerPlaylistRequest(server string, body SetDeviceAudioPlayerPlaylistJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewSetDeviceAudioPlayerPlaylistRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewSetDeviceAudioPlayerPlaylistRequestWithBody generates requests for SetDeviceAudioPlayerPlaylist with any type of body
-func NewSetDeviceAudioPlayerPlaylistRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/audioplayer/playlist")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewAppendDeviceAudioPlayerPlaylistRequest calls the generic AppendDeviceAudioPlayerPlaylist builder with application/json body
-func NewAppendDeviceAudioPlayerPlaylistRequest(server string, body AppendDeviceAudioPlayerPlaylistJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewAppendDeviceAudioPlayerPlaylistRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewAppendDeviceAudioPlayerPlaylistRequestWithBody generates requests for AppendDeviceAudioPlayerPlaylist with any type of body
-func NewAppendDeviceAudioPlayerPlaylistRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/audioplayer/playlist/append")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewGetDeviceFirmwareRequest generates requests for GetDeviceFirmware
 func NewGetDeviceFirmwareRequest(server string) (*http.Request, error) {
 	var err error
@@ -3851,73 +3793,6 @@ func NewWriteMhsStatesRequestWithBody(server string, contentType string, body io
 	return req, nil
 }
 
-// NewListDeviceRPCMethodsRequest generates requests for ListDeviceRPCMethods
-func NewListDeviceRPCMethodsRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/rpc-methods")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewSetDeviceRunWorkspaceRequest calls the generic SetDeviceRunWorkspace builder with application/json body
-func NewSetDeviceRunWorkspaceRequest(server string, body SetDeviceRunWorkspaceJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewSetDeviceRunWorkspaceRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewSetDeviceRunWorkspaceRequestWithBody generates requests for SetDeviceRunWorkspace with any type of body
-func NewSetDeviceRunWorkspaceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/run/workspace")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewGetDeviceRuntimeRequest generates requests for GetDeviceRuntime
 func NewGetDeviceRuntimeRequest(server string) (*http.Request, error) {
 	var err error
@@ -3968,73 +3843,6 @@ func NewGetDeviceRuntimeProfileRequest(server string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return req, nil
-}
-
-// NewGetDeviceSettingsRequest generates requests for GetDeviceSettings
-func NewGetDeviceSettingsRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/settings")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewUpdateDeviceSettingsRequest calls the generic UpdateDeviceSettings builder with application/json body
-func NewUpdateDeviceSettingsRequest(server string, body UpdateDeviceSettingsJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdateDeviceSettingsRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewUpdateDeviceSettingsRequestWithBody generates requests for UpdateDeviceSettings with any type of body
-func NewUpdateDeviceSettingsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/settings")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -4284,71 +4092,27 @@ func NewGetDeviceTelemetryLatestRequest(server string, field externalRef0.PeerTe
 	return req, nil
 }
 
-// NewListDeviceToolsRequest generates requests for ListDeviceTools
-func NewListDeviceToolsRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/tools")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewInvokeDeviceToolRequest generates a request without the optional body.
-func NewInvokeDeviceToolRequest(server string, name string) (*http.Request, error) {
-	req, err := NewInvokeDeviceToolRequestWithBody(server, name, "", nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Del("Content-Type")
-	return req, nil
-}
-
-// NewInvokeDeviceToolRequestWithJSONBody calls the generic InvokeDeviceTool builder with application/json body
-func NewInvokeDeviceToolRequestWithJSONBody(server string, name string, body InvokeDeviceToolJSONRequestBody) (*http.Request, error) {
+// NewInvokeClientToolRequest calls the generic InvokeClientTool builder with application/json body
+func NewInvokeClientToolRequest(server string, body InvokeClientToolJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewInvokeDeviceToolRequestWithBody(server, name, "application/json", bodyReader)
+	return NewInvokeClientToolRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewInvokeDeviceToolRequestWithBody generates requests for InvokeDeviceTool with any type of body
-func NewInvokeDeviceToolRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+// NewInvokeClientToolRequestWithBody generates requests for InvokeClientTool with any type of body
+func NewInvokeClientToolRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/tools/%s/actions/invoke", pathParam0)
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/tool/v0/invoke")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -4368,19 +4132,8 @@ func NewInvokeDeviceToolRequestWithBody(server string, name string, contentType 
 	return req, nil
 }
 
-// NewSetDeviceVolumeRequest calls the generic SetDeviceVolume builder with application/json body
-func NewSetDeviceVolumeRequest(server string, body SetDeviceVolumeJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewSetDeviceVolumeRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewSetDeviceVolumeRequestWithBody generates requests for SetDeviceVolume with any type of body
-func NewSetDeviceVolumeRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewListClientToolsRequest generates requests for ListClientTools
+func NewListClientToolsRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -4388,36 +4141,7 @@ func NewSetDeviceVolumeRequestWithBody(server string, contentType string, body i
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/volume")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewGetDeviceWifiRequest generates requests for GetDeviceWifi
-func NewGetDeviceWifiRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/wifi")
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/tool/v0/tools")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -4431,157 +4155,6 @@ func NewGetDeviceWifiRequest(server string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return req, nil
-}
-
-// NewConnectDeviceWifiRequest calls the generic ConnectDeviceWifi builder with application/json body
-func NewConnectDeviceWifiRequest(server string, body ConnectDeviceWifiJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewConnectDeviceWifiRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewConnectDeviceWifiRequestWithBody generates requests for ConnectDeviceWifi with any type of body
-func NewConnectDeviceWifiRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/wifi")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewListDeviceSavedWifiRequest generates requests for ListDeviceSavedWifi
-func NewListDeviceSavedWifiRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/wifi/saved")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewForgetDeviceSavedWifiRequest generates requests for ForgetDeviceSavedWifi
-func NewForgetDeviceSavedWifiRequest(server string, ssid string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "ssid", ssid, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/wifi/saved/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewScanDeviceWifiRequest generates a request without the optional body.
-func NewScanDeviceWifiRequest(server string) (*http.Request, error) {
-	req, err := NewScanDeviceWifiRequestWithBody(server, "", nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Del("Content-Type")
-	return req, nil
-}
-
-// NewScanDeviceWifiRequestWithJSONBody calls the generic ScanDeviceWifi builder with application/json body
-func NewScanDeviceWifiRequestWithJSONBody(server string, body ScanDeviceWifiJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewScanDeviceWifiRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewScanDeviceWifiRequestWithBody generates requests for ScanDeviceWifi with any type of body
-func NewScanDeviceWifiRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/wifi/scan")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -6008,72 +5581,6 @@ type ClientWithResponsesInterface interface {
 	// GetDeviceWithResponse request
 	GetDeviceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceResponse, error)
 
-	// FactoryResetDeviceWithResponse request without the optional body
-	FactoryResetDeviceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*FactoryResetDeviceResponse, error)
-
-	// FactoryResetDeviceWithBodyWithResponse request with any body
-	FactoryResetDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FactoryResetDeviceResponse, error)
-
-	FactoryResetDeviceWithJSONBodyWithResponse(ctx context.Context, body FactoryResetDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*FactoryResetDeviceResponse, error)
-
-	// FindDeviceWithResponse request without the optional body
-	FindDeviceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*FindDeviceResponse, error)
-
-	// FindDeviceWithBodyWithResponse request with any body
-	FindDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FindDeviceResponse, error)
-
-	FindDeviceWithJSONBodyWithResponse(ctx context.Context, body FindDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*FindDeviceResponse, error)
-
-	// UpdateDeviceFirmwareWithResponse request without the optional body
-	UpdateDeviceFirmwareWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*UpdateDeviceFirmwareResponse, error)
-
-	// UpdateDeviceFirmwareWithBodyWithResponse request with any body
-	UpdateDeviceFirmwareWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDeviceFirmwareResponse, error)
-
-	UpdateDeviceFirmwareWithJSONBodyWithResponse(ctx context.Context, body UpdateDeviceFirmwareJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDeviceFirmwareResponse, error)
-
-	// PlayDeviceSoundWithBodyWithResponse request with any body
-	PlayDeviceSoundWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PlayDeviceSoundResponse, error)
-
-	PlayDeviceSoundWithResponse(ctx context.Context, body PlayDeviceSoundJSONRequestBody, reqEditors ...RequestEditorFn) (*PlayDeviceSoundResponse, error)
-
-	// RebootDeviceWithResponse request without the optional body
-	RebootDeviceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RebootDeviceResponse, error)
-
-	// RebootDeviceWithBodyWithResponse request with any body
-	RebootDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RebootDeviceResponse, error)
-
-	RebootDeviceWithJSONBodyWithResponse(ctx context.Context, body RebootDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RebootDeviceResponse, error)
-
-	// GetDeviceAudioPlayerWithResponse request
-	GetDeviceAudioPlayerWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceAudioPlayerResponse, error)
-
-	// PlayDeviceAudioPlayerWithBodyWithResponse request with any body
-	PlayDeviceAudioPlayerWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PlayDeviceAudioPlayerResponse, error)
-
-	PlayDeviceAudioPlayerWithResponse(ctx context.Context, body PlayDeviceAudioPlayerJSONRequestBody, reqEditors ...RequestEditorFn) (*PlayDeviceAudioPlayerResponse, error)
-
-	// StopDeviceAudioPlayerWithResponse request
-	StopDeviceAudioPlayerWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*StopDeviceAudioPlayerResponse, error)
-
-	// SetDeviceAudioPlayerModeWithBodyWithResponse request with any body
-	SetDeviceAudioPlayerModeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetDeviceAudioPlayerModeResponse, error)
-
-	SetDeviceAudioPlayerModeWithResponse(ctx context.Context, body SetDeviceAudioPlayerModeJSONRequestBody, reqEditors ...RequestEditorFn) (*SetDeviceAudioPlayerModeResponse, error)
-
-	// GetDeviceAudioPlayerPlaylistWithResponse request
-	GetDeviceAudioPlayerPlaylistWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceAudioPlayerPlaylistResponse, error)
-
-	// SetDeviceAudioPlayerPlaylistWithBodyWithResponse request with any body
-	SetDeviceAudioPlayerPlaylistWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetDeviceAudioPlayerPlaylistResponse, error)
-
-	SetDeviceAudioPlayerPlaylistWithResponse(ctx context.Context, body SetDeviceAudioPlayerPlaylistJSONRequestBody, reqEditors ...RequestEditorFn) (*SetDeviceAudioPlayerPlaylistResponse, error)
-
-	// AppendDeviceAudioPlayerPlaylistWithBodyWithResponse request with any body
-	AppendDeviceAudioPlayerPlaylistWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AppendDeviceAudioPlayerPlaylistResponse, error)
-
-	AppendDeviceAudioPlayerPlaylistWithResponse(ctx context.Context, body AppendDeviceAudioPlayerPlaylistJSONRequestBody, reqEditors ...RequestEditorFn) (*AppendDeviceAudioPlayerPlaylistResponse, error)
-
 	// GetDeviceFirmwareWithResponse request
 	GetDeviceFirmwareWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceFirmwareResponse, error)
 
@@ -6093,27 +5600,11 @@ type ClientWithResponsesInterface interface {
 
 	WriteMhsStatesWithResponse(ctx context.Context, body WriteMhsStatesJSONRequestBody, reqEditors ...RequestEditorFn) (*WriteMhsStatesResponse, error)
 
-	// ListDeviceRPCMethodsWithResponse request
-	ListDeviceRPCMethodsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDeviceRPCMethodsResponse, error)
-
-	// SetDeviceRunWorkspaceWithBodyWithResponse request with any body
-	SetDeviceRunWorkspaceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetDeviceRunWorkspaceResponse, error)
-
-	SetDeviceRunWorkspaceWithResponse(ctx context.Context, body SetDeviceRunWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*SetDeviceRunWorkspaceResponse, error)
-
 	// GetDeviceRuntimeWithResponse request
 	GetDeviceRuntimeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceRuntimeResponse, error)
 
 	// GetDeviceRuntimeProfileWithResponse request
 	GetDeviceRuntimeProfileWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceRuntimeProfileResponse, error)
-
-	// GetDeviceSettingsWithResponse request
-	GetDeviceSettingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceSettingsResponse, error)
-
-	// UpdateDeviceSettingsWithBodyWithResponse request with any body
-	UpdateDeviceSettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDeviceSettingsResponse, error)
-
-	UpdateDeviceSettingsWithResponse(ctx context.Context, body UpdateDeviceSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDeviceSettingsResponse, error)
 
 	// GetDeviceStatusWithResponse request
 	GetDeviceStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceStatusResponse, error)
@@ -6127,43 +5618,13 @@ type ClientWithResponsesInterface interface {
 	// GetDeviceTelemetryLatestWithResponse request
 	GetDeviceTelemetryLatestWithResponse(ctx context.Context, field externalRef0.PeerTelemetryField, reqEditors ...RequestEditorFn) (*GetDeviceTelemetryLatestResponse, error)
 
-	// ListDeviceToolsWithResponse request
-	ListDeviceToolsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDeviceToolsResponse, error)
+	// InvokeClientToolWithBodyWithResponse request with any body
+	InvokeClientToolWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InvokeClientToolResponse, error)
 
-	// InvokeDeviceToolWithResponse request without the optional body
-	InvokeDeviceToolWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*InvokeDeviceToolResponse, error)
+	InvokeClientToolWithResponse(ctx context.Context, body InvokeClientToolJSONRequestBody, reqEditors ...RequestEditorFn) (*InvokeClientToolResponse, error)
 
-	// InvokeDeviceToolWithBodyWithResponse request with any body
-	InvokeDeviceToolWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InvokeDeviceToolResponse, error)
-
-	InvokeDeviceToolWithJSONBodyWithResponse(ctx context.Context, name string, body InvokeDeviceToolJSONRequestBody, reqEditors ...RequestEditorFn) (*InvokeDeviceToolResponse, error)
-
-	// SetDeviceVolumeWithBodyWithResponse request with any body
-	SetDeviceVolumeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetDeviceVolumeResponse, error)
-
-	SetDeviceVolumeWithResponse(ctx context.Context, body SetDeviceVolumeJSONRequestBody, reqEditors ...RequestEditorFn) (*SetDeviceVolumeResponse, error)
-
-	// GetDeviceWifiWithResponse request
-	GetDeviceWifiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceWifiResponse, error)
-
-	// ConnectDeviceWifiWithBodyWithResponse request with any body
-	ConnectDeviceWifiWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ConnectDeviceWifiResponse, error)
-
-	ConnectDeviceWifiWithResponse(ctx context.Context, body ConnectDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*ConnectDeviceWifiResponse, error)
-
-	// ListDeviceSavedWifiWithResponse request
-	ListDeviceSavedWifiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDeviceSavedWifiResponse, error)
-
-	// ForgetDeviceSavedWifiWithResponse request
-	ForgetDeviceSavedWifiWithResponse(ctx context.Context, ssid string, reqEditors ...RequestEditorFn) (*ForgetDeviceSavedWifiResponse, error)
-
-	// ScanDeviceWifiWithResponse request without the optional body
-	ScanDeviceWifiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ScanDeviceWifiResponse, error)
-
-	// ScanDeviceWifiWithBodyWithResponse request with any body
-	ScanDeviceWifiWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ScanDeviceWifiResponse, error)
-
-	ScanDeviceWifiWithJSONBodyWithResponse(ctx context.Context, body ScanDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*ScanDeviceWifiResponse, error)
+	// ListClientToolsWithResponse request
+	ListClientToolsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListClientToolsResponse, error)
 
 	// ListDeviceWorkspacesWithResponse request
 	ListDeviceWorkspacesWithResponse(ctx context.Context, params *ListDeviceWorkspacesParams, reqEditors ...RequestEditorFn) (*ListDeviceWorkspacesResponse, error)
@@ -6693,464 +6154,6 @@ func (r GetDeviceResponse) ContentType() string {
 	return ""
 }
 
-type FactoryResetDeviceResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON409      *DeviceOffline
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r FactoryResetDeviceResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r FactoryResetDeviceResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r FactoryResetDeviceResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type FindDeviceResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON409      *DeviceOffline
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r FindDeviceResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r FindDeviceResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r FindDeviceResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type UpdateDeviceFirmwareResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON409      *DeviceOffline
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r UpdateDeviceFirmwareResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r UpdateDeviceFirmwareResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r UpdateDeviceFirmwareResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type PlayDeviceSoundResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON409      *DeviceOffline
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r PlayDeviceSoundResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r PlayDeviceSoundResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r PlayDeviceSoundResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type RebootDeviceResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON409      *DeviceOffline
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r RebootDeviceResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r RebootDeviceResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r RebootDeviceResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type GetDeviceAudioPlayerResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.AudioPlayerResponse
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *externalRef0.ErrorResponse
-	JSON409      *Conflict
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r GetDeviceAudioPlayerResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetDeviceAudioPlayerResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetDeviceAudioPlayerResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type PlayDeviceAudioPlayerResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.AudioPlayerResponse
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *externalRef0.ErrorResponse
-	JSON409      *Conflict
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r PlayDeviceAudioPlayerResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r PlayDeviceAudioPlayerResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r PlayDeviceAudioPlayerResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type StopDeviceAudioPlayerResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.AudioPlayerResponse
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *externalRef0.ErrorResponse
-	JSON409      *Conflict
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r StopDeviceAudioPlayerResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r StopDeviceAudioPlayerResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r StopDeviceAudioPlayerResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type SetDeviceAudioPlayerModeResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.AudioPlayerResponse
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *externalRef0.ErrorResponse
-	JSON409      *Conflict
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r SetDeviceAudioPlayerModeResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r SetDeviceAudioPlayerModeResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r SetDeviceAudioPlayerModeResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type GetDeviceAudioPlayerPlaylistResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.AudioPlayerPlaylist
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *externalRef0.ErrorResponse
-	JSON409      *Conflict
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r GetDeviceAudioPlayerPlaylistResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetDeviceAudioPlayerPlaylistResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetDeviceAudioPlayerPlaylistResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type SetDeviceAudioPlayerPlaylistResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.AudioPlayerResponse
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *externalRef0.ErrorResponse
-	JSON409      *Conflict
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r SetDeviceAudioPlayerPlaylistResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r SetDeviceAudioPlayerPlaylistResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r SetDeviceAudioPlayerPlaylistResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type AppendDeviceAudioPlayerPlaylistResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.AudioPlayerResponse
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *externalRef0.ErrorResponse
-	JSON409      *Conflict
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r AppendDeviceAudioPlayerPlaylistResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r AppendDeviceAudioPlayerPlaylistResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r AppendDeviceAudioPlayerPlaylistResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
 type GetDeviceFirmwareResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -7334,82 +6337,6 @@ func (r WriteMhsStatesResponse) ContentType() string {
 	return ""
 }
 
-type ListDeviceRPCMethodsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *DeviceRPCMethods
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON409      *DeviceOffline
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r ListDeviceRPCMethodsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListDeviceRPCMethodsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r ListDeviceRPCMethodsResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type SetDeviceRunWorkspaceResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *WorkspaceNotFound
-	JSON409      *DeviceOffline
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r SetDeviceRunWorkspaceResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r SetDeviceRunWorkspaceResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r SetDeviceRunWorkspaceResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
 type GetDeviceRuntimeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -7474,82 +6401,6 @@ func (r GetDeviceRuntimeProfileResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetDeviceRuntimeProfileResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type GetDeviceSettingsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *DeviceSettings
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON409      *DeviceOffline
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r GetDeviceSettingsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetDeviceSettingsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetDeviceSettingsResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type UpdateDeviceSettingsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *DeviceSettings
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON409      *DeviceOffline
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r UpdateDeviceSettingsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r UpdateDeviceSettingsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r UpdateDeviceSettingsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -7696,233 +6547,10 @@ func (r GetDeviceTelemetryLatestResponse) ContentType() string {
 	return ""
 }
 
-type ListDeviceToolsResponse struct {
+type InvokeClientToolResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *DeviceToolList
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r ListDeviceToolsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListDeviceToolsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r ListDeviceToolsResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type InvokeDeviceToolResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *DeviceToolInvokeResponse
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *ToolNotFound
-	JSON409      *DeviceOffline
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r InvokeDeviceToolResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r InvokeDeviceToolResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r InvokeDeviceToolResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type SetDeviceVolumeResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *DeviceControlStatus
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON409      *DeviceOffline
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r SetDeviceVolumeResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r SetDeviceVolumeResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r SetDeviceVolumeResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type GetDeviceWifiResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *DeviceWifiStatus
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON409      *DeviceOffline
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r GetDeviceWifiResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetDeviceWifiResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetDeviceWifiResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type ConnectDeviceWifiResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON409      *DeviceOffline
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r ConnectDeviceWifiResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ConnectDeviceWifiResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r ConnectDeviceWifiResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type ListDeviceSavedWifiResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *DeviceWifiSavedList
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON409      *DeviceOffline
-	JSON500      *InternalError
-	JSON501      *DeviceUnsupported
-	JSON502      *DeviceError
-	JSON504      *DeviceTimeout
-}
-
-// Status returns HTTPResponse.Status
-func (r ListDeviceSavedWifiResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListDeviceSavedWifiResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r ListDeviceSavedWifiResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type ForgetDeviceSavedWifiResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
+	JSON200      *ClientToolV0InvokeResponse
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
@@ -7935,7 +6563,7 @@ type ForgetDeviceSavedWifiResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ForgetDeviceSavedWifiResponse) Status() string {
+func (r InvokeClientToolResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -7943,7 +6571,7 @@ func (r ForgetDeviceSavedWifiResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ForgetDeviceSavedWifiResponse) StatusCode() int {
+func (r InvokeClientToolResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -7951,20 +6579,21 @@ func (r ForgetDeviceSavedWifiResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r ForgetDeviceSavedWifiResponse) ContentType() string {
+func (r InvokeClientToolResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
 	return ""
 }
 
-type ScanDeviceWifiResponse struct {
+type ListClientToolsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *DeviceWifiScanResponse
+	JSON200      *ClientToolV0ListResponse
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
+	JSON404      *externalRef0.ErrorResponse
 	JSON409      *DeviceOffline
 	JSON500      *InternalError
 	JSON501      *DeviceUnsupported
@@ -7973,7 +6602,7 @@ type ScanDeviceWifiResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ScanDeviceWifiResponse) Status() string {
+func (r ListClientToolsResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -7981,7 +6610,7 @@ func (r ScanDeviceWifiResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ScanDeviceWifiResponse) StatusCode() int {
+func (r ListClientToolsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -7989,7 +6618,7 @@ func (r ScanDeviceWifiResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r ScanDeviceWifiResponse) ContentType() string {
+func (r ListClientToolsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -9147,222 +7776,6 @@ func (c *ClientWithResponses) GetDeviceWithResponse(ctx context.Context, reqEdit
 	return ParseGetDeviceResponse(rsp)
 }
 
-// FactoryResetDeviceWithResponse request without the optional body returning *FactoryResetDeviceResponse
-func (c *ClientWithResponses) FactoryResetDeviceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*FactoryResetDeviceResponse, error) {
-	rsp, err := c.FactoryResetDevice(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseFactoryResetDeviceResponse(rsp)
-}
-
-// FactoryResetDeviceWithBodyWithResponse request with arbitrary body returning *FactoryResetDeviceResponse
-func (c *ClientWithResponses) FactoryResetDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FactoryResetDeviceResponse, error) {
-	rsp, err := c.FactoryResetDeviceWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseFactoryResetDeviceResponse(rsp)
-}
-
-func (c *ClientWithResponses) FactoryResetDeviceWithJSONBodyWithResponse(ctx context.Context, body FactoryResetDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*FactoryResetDeviceResponse, error) {
-	rsp, err := c.FactoryResetDeviceWithJSONBody(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseFactoryResetDeviceResponse(rsp)
-}
-
-// FindDeviceWithResponse request without the optional body returning *FindDeviceResponse
-func (c *ClientWithResponses) FindDeviceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*FindDeviceResponse, error) {
-	rsp, err := c.FindDevice(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseFindDeviceResponse(rsp)
-}
-
-// FindDeviceWithBodyWithResponse request with arbitrary body returning *FindDeviceResponse
-func (c *ClientWithResponses) FindDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FindDeviceResponse, error) {
-	rsp, err := c.FindDeviceWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseFindDeviceResponse(rsp)
-}
-
-func (c *ClientWithResponses) FindDeviceWithJSONBodyWithResponse(ctx context.Context, body FindDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*FindDeviceResponse, error) {
-	rsp, err := c.FindDeviceWithJSONBody(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseFindDeviceResponse(rsp)
-}
-
-// UpdateDeviceFirmwareWithResponse request without the optional body returning *UpdateDeviceFirmwareResponse
-func (c *ClientWithResponses) UpdateDeviceFirmwareWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*UpdateDeviceFirmwareResponse, error) {
-	rsp, err := c.UpdateDeviceFirmware(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateDeviceFirmwareResponse(rsp)
-}
-
-// UpdateDeviceFirmwareWithBodyWithResponse request with arbitrary body returning *UpdateDeviceFirmwareResponse
-func (c *ClientWithResponses) UpdateDeviceFirmwareWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDeviceFirmwareResponse, error) {
-	rsp, err := c.UpdateDeviceFirmwareWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateDeviceFirmwareResponse(rsp)
-}
-
-func (c *ClientWithResponses) UpdateDeviceFirmwareWithJSONBodyWithResponse(ctx context.Context, body UpdateDeviceFirmwareJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDeviceFirmwareResponse, error) {
-	rsp, err := c.UpdateDeviceFirmwareWithJSONBody(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateDeviceFirmwareResponse(rsp)
-}
-
-// PlayDeviceSoundWithBodyWithResponse request with arbitrary body returning *PlayDeviceSoundResponse
-func (c *ClientWithResponses) PlayDeviceSoundWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PlayDeviceSoundResponse, error) {
-	rsp, err := c.PlayDeviceSoundWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePlayDeviceSoundResponse(rsp)
-}
-
-func (c *ClientWithResponses) PlayDeviceSoundWithResponse(ctx context.Context, body PlayDeviceSoundJSONRequestBody, reqEditors ...RequestEditorFn) (*PlayDeviceSoundResponse, error) {
-	rsp, err := c.PlayDeviceSound(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePlayDeviceSoundResponse(rsp)
-}
-
-// RebootDeviceWithResponse request without the optional body returning *RebootDeviceResponse
-func (c *ClientWithResponses) RebootDeviceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RebootDeviceResponse, error) {
-	rsp, err := c.RebootDevice(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRebootDeviceResponse(rsp)
-}
-
-// RebootDeviceWithBodyWithResponse request with arbitrary body returning *RebootDeviceResponse
-func (c *ClientWithResponses) RebootDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RebootDeviceResponse, error) {
-	rsp, err := c.RebootDeviceWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRebootDeviceResponse(rsp)
-}
-
-func (c *ClientWithResponses) RebootDeviceWithJSONBodyWithResponse(ctx context.Context, body RebootDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RebootDeviceResponse, error) {
-	rsp, err := c.RebootDeviceWithJSONBody(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRebootDeviceResponse(rsp)
-}
-
-// GetDeviceAudioPlayerWithResponse request returning *GetDeviceAudioPlayerResponse
-func (c *ClientWithResponses) GetDeviceAudioPlayerWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceAudioPlayerResponse, error) {
-	rsp, err := c.GetDeviceAudioPlayer(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetDeviceAudioPlayerResponse(rsp)
-}
-
-// PlayDeviceAudioPlayerWithBodyWithResponse request with arbitrary body returning *PlayDeviceAudioPlayerResponse
-func (c *ClientWithResponses) PlayDeviceAudioPlayerWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PlayDeviceAudioPlayerResponse, error) {
-	rsp, err := c.PlayDeviceAudioPlayerWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePlayDeviceAudioPlayerResponse(rsp)
-}
-
-func (c *ClientWithResponses) PlayDeviceAudioPlayerWithResponse(ctx context.Context, body PlayDeviceAudioPlayerJSONRequestBody, reqEditors ...RequestEditorFn) (*PlayDeviceAudioPlayerResponse, error) {
-	rsp, err := c.PlayDeviceAudioPlayer(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePlayDeviceAudioPlayerResponse(rsp)
-}
-
-// StopDeviceAudioPlayerWithResponse request returning *StopDeviceAudioPlayerResponse
-func (c *ClientWithResponses) StopDeviceAudioPlayerWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*StopDeviceAudioPlayerResponse, error) {
-	rsp, err := c.StopDeviceAudioPlayer(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseStopDeviceAudioPlayerResponse(rsp)
-}
-
-// SetDeviceAudioPlayerModeWithBodyWithResponse request with arbitrary body returning *SetDeviceAudioPlayerModeResponse
-func (c *ClientWithResponses) SetDeviceAudioPlayerModeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetDeviceAudioPlayerModeResponse, error) {
-	rsp, err := c.SetDeviceAudioPlayerModeWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSetDeviceAudioPlayerModeResponse(rsp)
-}
-
-func (c *ClientWithResponses) SetDeviceAudioPlayerModeWithResponse(ctx context.Context, body SetDeviceAudioPlayerModeJSONRequestBody, reqEditors ...RequestEditorFn) (*SetDeviceAudioPlayerModeResponse, error) {
-	rsp, err := c.SetDeviceAudioPlayerMode(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSetDeviceAudioPlayerModeResponse(rsp)
-}
-
-// GetDeviceAudioPlayerPlaylistWithResponse request returning *GetDeviceAudioPlayerPlaylistResponse
-func (c *ClientWithResponses) GetDeviceAudioPlayerPlaylistWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceAudioPlayerPlaylistResponse, error) {
-	rsp, err := c.GetDeviceAudioPlayerPlaylist(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetDeviceAudioPlayerPlaylistResponse(rsp)
-}
-
-// SetDeviceAudioPlayerPlaylistWithBodyWithResponse request with arbitrary body returning *SetDeviceAudioPlayerPlaylistResponse
-func (c *ClientWithResponses) SetDeviceAudioPlayerPlaylistWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetDeviceAudioPlayerPlaylistResponse, error) {
-	rsp, err := c.SetDeviceAudioPlayerPlaylistWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSetDeviceAudioPlayerPlaylistResponse(rsp)
-}
-
-func (c *ClientWithResponses) SetDeviceAudioPlayerPlaylistWithResponse(ctx context.Context, body SetDeviceAudioPlayerPlaylistJSONRequestBody, reqEditors ...RequestEditorFn) (*SetDeviceAudioPlayerPlaylistResponse, error) {
-	rsp, err := c.SetDeviceAudioPlayerPlaylist(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSetDeviceAudioPlayerPlaylistResponse(rsp)
-}
-
-// AppendDeviceAudioPlayerPlaylistWithBodyWithResponse request with arbitrary body returning *AppendDeviceAudioPlayerPlaylistResponse
-func (c *ClientWithResponses) AppendDeviceAudioPlayerPlaylistWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AppendDeviceAudioPlayerPlaylistResponse, error) {
-	rsp, err := c.AppendDeviceAudioPlayerPlaylistWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseAppendDeviceAudioPlayerPlaylistResponse(rsp)
-}
-
-func (c *ClientWithResponses) AppendDeviceAudioPlayerPlaylistWithResponse(ctx context.Context, body AppendDeviceAudioPlayerPlaylistJSONRequestBody, reqEditors ...RequestEditorFn) (*AppendDeviceAudioPlayerPlaylistResponse, error) {
-	rsp, err := c.AppendDeviceAudioPlayerPlaylist(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseAppendDeviceAudioPlayerPlaylistResponse(rsp)
-}
-
 // GetDeviceFirmwareWithResponse request returning *GetDeviceFirmwareResponse
 func (c *ClientWithResponses) GetDeviceFirmwareWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceFirmwareResponse, error) {
 	rsp, err := c.GetDeviceFirmware(ctx, reqEditors...)
@@ -9424,32 +7837,6 @@ func (c *ClientWithResponses) WriteMhsStatesWithResponse(ctx context.Context, bo
 	return ParseWriteMhsStatesResponse(rsp)
 }
 
-// ListDeviceRPCMethodsWithResponse request returning *ListDeviceRPCMethodsResponse
-func (c *ClientWithResponses) ListDeviceRPCMethodsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDeviceRPCMethodsResponse, error) {
-	rsp, err := c.ListDeviceRPCMethods(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListDeviceRPCMethodsResponse(rsp)
-}
-
-// SetDeviceRunWorkspaceWithBodyWithResponse request with arbitrary body returning *SetDeviceRunWorkspaceResponse
-func (c *ClientWithResponses) SetDeviceRunWorkspaceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetDeviceRunWorkspaceResponse, error) {
-	rsp, err := c.SetDeviceRunWorkspaceWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSetDeviceRunWorkspaceResponse(rsp)
-}
-
-func (c *ClientWithResponses) SetDeviceRunWorkspaceWithResponse(ctx context.Context, body SetDeviceRunWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*SetDeviceRunWorkspaceResponse, error) {
-	rsp, err := c.SetDeviceRunWorkspace(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSetDeviceRunWorkspaceResponse(rsp)
-}
-
 // GetDeviceRuntimeWithResponse request returning *GetDeviceRuntimeResponse
 func (c *ClientWithResponses) GetDeviceRuntimeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceRuntimeResponse, error) {
 	rsp, err := c.GetDeviceRuntime(ctx, reqEditors...)
@@ -9466,32 +7853,6 @@ func (c *ClientWithResponses) GetDeviceRuntimeProfileWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseGetDeviceRuntimeProfileResponse(rsp)
-}
-
-// GetDeviceSettingsWithResponse request returning *GetDeviceSettingsResponse
-func (c *ClientWithResponses) GetDeviceSettingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceSettingsResponse, error) {
-	rsp, err := c.GetDeviceSettings(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetDeviceSettingsResponse(rsp)
-}
-
-// UpdateDeviceSettingsWithBodyWithResponse request with arbitrary body returning *UpdateDeviceSettingsResponse
-func (c *ClientWithResponses) UpdateDeviceSettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDeviceSettingsResponse, error) {
-	rsp, err := c.UpdateDeviceSettingsWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateDeviceSettingsResponse(rsp)
-}
-
-func (c *ClientWithResponses) UpdateDeviceSettingsWithResponse(ctx context.Context, body UpdateDeviceSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDeviceSettingsResponse, error) {
-	rsp, err := c.UpdateDeviceSettings(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateDeviceSettingsResponse(rsp)
 }
 
 // GetDeviceStatusWithResponse request returning *GetDeviceStatusResponse
@@ -9530,126 +7891,30 @@ func (c *ClientWithResponses) GetDeviceTelemetryLatestWithResponse(ctx context.C
 	return ParseGetDeviceTelemetryLatestResponse(rsp)
 }
 
-// ListDeviceToolsWithResponse request returning *ListDeviceToolsResponse
-func (c *ClientWithResponses) ListDeviceToolsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDeviceToolsResponse, error) {
-	rsp, err := c.ListDeviceTools(ctx, reqEditors...)
+// InvokeClientToolWithBodyWithResponse request with arbitrary body returning *InvokeClientToolResponse
+func (c *ClientWithResponses) InvokeClientToolWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InvokeClientToolResponse, error) {
+	rsp, err := c.InvokeClientToolWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListDeviceToolsResponse(rsp)
+	return ParseInvokeClientToolResponse(rsp)
 }
 
-// InvokeDeviceToolWithResponse request without the optional body returning *InvokeDeviceToolResponse
-func (c *ClientWithResponses) InvokeDeviceToolWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*InvokeDeviceToolResponse, error) {
-	rsp, err := c.InvokeDeviceTool(ctx, name, reqEditors...)
+func (c *ClientWithResponses) InvokeClientToolWithResponse(ctx context.Context, body InvokeClientToolJSONRequestBody, reqEditors ...RequestEditorFn) (*InvokeClientToolResponse, error) {
+	rsp, err := c.InvokeClientTool(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseInvokeDeviceToolResponse(rsp)
+	return ParseInvokeClientToolResponse(rsp)
 }
 
-// InvokeDeviceToolWithBodyWithResponse request with arbitrary body returning *InvokeDeviceToolResponse
-func (c *ClientWithResponses) InvokeDeviceToolWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InvokeDeviceToolResponse, error) {
-	rsp, err := c.InvokeDeviceToolWithBody(ctx, name, contentType, body, reqEditors...)
+// ListClientToolsWithResponse request returning *ListClientToolsResponse
+func (c *ClientWithResponses) ListClientToolsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListClientToolsResponse, error) {
+	rsp, err := c.ListClientTools(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseInvokeDeviceToolResponse(rsp)
-}
-
-func (c *ClientWithResponses) InvokeDeviceToolWithJSONBodyWithResponse(ctx context.Context, name string, body InvokeDeviceToolJSONRequestBody, reqEditors ...RequestEditorFn) (*InvokeDeviceToolResponse, error) {
-	rsp, err := c.InvokeDeviceToolWithJSONBody(ctx, name, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseInvokeDeviceToolResponse(rsp)
-}
-
-// SetDeviceVolumeWithBodyWithResponse request with arbitrary body returning *SetDeviceVolumeResponse
-func (c *ClientWithResponses) SetDeviceVolumeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetDeviceVolumeResponse, error) {
-	rsp, err := c.SetDeviceVolumeWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSetDeviceVolumeResponse(rsp)
-}
-
-func (c *ClientWithResponses) SetDeviceVolumeWithResponse(ctx context.Context, body SetDeviceVolumeJSONRequestBody, reqEditors ...RequestEditorFn) (*SetDeviceVolumeResponse, error) {
-	rsp, err := c.SetDeviceVolume(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSetDeviceVolumeResponse(rsp)
-}
-
-// GetDeviceWifiWithResponse request returning *GetDeviceWifiResponse
-func (c *ClientWithResponses) GetDeviceWifiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceWifiResponse, error) {
-	rsp, err := c.GetDeviceWifi(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetDeviceWifiResponse(rsp)
-}
-
-// ConnectDeviceWifiWithBodyWithResponse request with arbitrary body returning *ConnectDeviceWifiResponse
-func (c *ClientWithResponses) ConnectDeviceWifiWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ConnectDeviceWifiResponse, error) {
-	rsp, err := c.ConnectDeviceWifiWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseConnectDeviceWifiResponse(rsp)
-}
-
-func (c *ClientWithResponses) ConnectDeviceWifiWithResponse(ctx context.Context, body ConnectDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*ConnectDeviceWifiResponse, error) {
-	rsp, err := c.ConnectDeviceWifi(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseConnectDeviceWifiResponse(rsp)
-}
-
-// ListDeviceSavedWifiWithResponse request returning *ListDeviceSavedWifiResponse
-func (c *ClientWithResponses) ListDeviceSavedWifiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDeviceSavedWifiResponse, error) {
-	rsp, err := c.ListDeviceSavedWifi(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListDeviceSavedWifiResponse(rsp)
-}
-
-// ForgetDeviceSavedWifiWithResponse request returning *ForgetDeviceSavedWifiResponse
-func (c *ClientWithResponses) ForgetDeviceSavedWifiWithResponse(ctx context.Context, ssid string, reqEditors ...RequestEditorFn) (*ForgetDeviceSavedWifiResponse, error) {
-	rsp, err := c.ForgetDeviceSavedWifi(ctx, ssid, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseForgetDeviceSavedWifiResponse(rsp)
-}
-
-// ScanDeviceWifiWithResponse request without the optional body returning *ScanDeviceWifiResponse
-func (c *ClientWithResponses) ScanDeviceWifiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ScanDeviceWifiResponse, error) {
-	rsp, err := c.ScanDeviceWifi(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseScanDeviceWifiResponse(rsp)
-}
-
-// ScanDeviceWifiWithBodyWithResponse request with arbitrary body returning *ScanDeviceWifiResponse
-func (c *ClientWithResponses) ScanDeviceWifiWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ScanDeviceWifiResponse, error) {
-	rsp, err := c.ScanDeviceWifiWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseScanDeviceWifiResponse(rsp)
-}
-
-func (c *ClientWithResponses) ScanDeviceWifiWithJSONBodyWithResponse(ctx context.Context, body ScanDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*ScanDeviceWifiResponse, error) {
-	rsp, err := c.ScanDeviceWifiWithJSONBody(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseScanDeviceWifiResponse(rsp)
+	return ParseListClientToolsResponse(rsp)
 }
 
 // ListDeviceWorkspacesWithResponse request returning *ListDeviceWorkspacesResponse
@@ -10713,1004 +8978,6 @@ func ParseGetDeviceResponse(rsp *http.Response) (*GetDeviceResponse, error) {
 	return response, nil
 }
 
-// ParseFactoryResetDeviceResponse parses an HTTP response from a FactoryResetDeviceWithResponse call
-func ParseFactoryResetDeviceResponse(rsp *http.Response) (*FactoryResetDeviceResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &FactoryResetDeviceResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest DeviceOffline
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseFindDeviceResponse parses an HTTP response from a FindDeviceWithResponse call
-func ParseFindDeviceResponse(rsp *http.Response) (*FindDeviceResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &FindDeviceResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest DeviceOffline
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseUpdateDeviceFirmwareResponse parses an HTTP response from a UpdateDeviceFirmwareWithResponse call
-func ParseUpdateDeviceFirmwareResponse(rsp *http.Response) (*UpdateDeviceFirmwareResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &UpdateDeviceFirmwareResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest DeviceOffline
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParsePlayDeviceSoundResponse parses an HTTP response from a PlayDeviceSoundWithResponse call
-func ParsePlayDeviceSoundResponse(rsp *http.Response) (*PlayDeviceSoundResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &PlayDeviceSoundResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest DeviceOffline
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseRebootDeviceResponse parses an HTTP response from a RebootDeviceWithResponse call
-func ParseRebootDeviceResponse(rsp *http.Response) (*RebootDeviceResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &RebootDeviceResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest DeviceOffline
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetDeviceAudioPlayerResponse parses an HTTP response from a GetDeviceAudioPlayerWithResponse call
-func ParseGetDeviceAudioPlayerResponse(rsp *http.Response) (*GetDeviceAudioPlayerResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetDeviceAudioPlayerResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.AudioPlayerResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParsePlayDeviceAudioPlayerResponse parses an HTTP response from a PlayDeviceAudioPlayerWithResponse call
-func ParsePlayDeviceAudioPlayerResponse(rsp *http.Response) (*PlayDeviceAudioPlayerResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &PlayDeviceAudioPlayerResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.AudioPlayerResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseStopDeviceAudioPlayerResponse parses an HTTP response from a StopDeviceAudioPlayerWithResponse call
-func ParseStopDeviceAudioPlayerResponse(rsp *http.Response) (*StopDeviceAudioPlayerResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &StopDeviceAudioPlayerResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.AudioPlayerResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseSetDeviceAudioPlayerModeResponse parses an HTTP response from a SetDeviceAudioPlayerModeWithResponse call
-func ParseSetDeviceAudioPlayerModeResponse(rsp *http.Response) (*SetDeviceAudioPlayerModeResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &SetDeviceAudioPlayerModeResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.AudioPlayerResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetDeviceAudioPlayerPlaylistResponse parses an HTTP response from a GetDeviceAudioPlayerPlaylistWithResponse call
-func ParseGetDeviceAudioPlayerPlaylistResponse(rsp *http.Response) (*GetDeviceAudioPlayerPlaylistResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetDeviceAudioPlayerPlaylistResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.AudioPlayerPlaylist
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseSetDeviceAudioPlayerPlaylistResponse parses an HTTP response from a SetDeviceAudioPlayerPlaylistWithResponse call
-func ParseSetDeviceAudioPlayerPlaylistResponse(rsp *http.Response) (*SetDeviceAudioPlayerPlaylistResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &SetDeviceAudioPlayerPlaylistResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.AudioPlayerResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseAppendDeviceAudioPlayerPlaylistResponse parses an HTTP response from a AppendDeviceAudioPlayerPlaylistWithResponse call
-func ParseAppendDeviceAudioPlayerPlaylistResponse(rsp *http.Response) (*AppendDeviceAudioPlayerPlaylistResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &AppendDeviceAudioPlayerPlaylistResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.AudioPlayerResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseGetDeviceFirmwareResponse parses an HTTP response from a GetDeviceFirmwareWithResponse call
 func ParseGetDeviceFirmwareResponse(rsp *http.Response) (*GetDeviceFirmwareResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -12072,170 +9339,6 @@ func ParseWriteMhsStatesResponse(rsp *http.Response) (*WriteMhsStatesResponse, e
 	return response, nil
 }
 
-// ParseListDeviceRPCMethodsResponse parses an HTTP response from a ListDeviceRPCMethodsWithResponse call
-func ParseListDeviceRPCMethodsResponse(rsp *http.Response) (*ListDeviceRPCMethodsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListDeviceRPCMethodsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest DeviceRPCMethods
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest DeviceOffline
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseSetDeviceRunWorkspaceResponse parses an HTTP response from a SetDeviceRunWorkspaceWithResponse call
-func ParseSetDeviceRunWorkspaceResponse(rsp *http.Response) (*SetDeviceRunWorkspaceResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &SetDeviceRunWorkspaceResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest WorkspaceNotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest DeviceOffline
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseGetDeviceRuntimeResponse parses an HTTP response from a GetDeviceRuntimeWithResponse call
 func ParseGetDeviceRuntimeResponse(rsp *http.Response) (*GetDeviceRuntimeResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -12352,170 +9455,6 @@ func ParseGetDeviceRuntimeProfileResponse(rsp *http.Response) (*GetDeviceRuntime
 			return nil, err
 		}
 		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetDeviceSettingsResponse parses an HTTP response from a GetDeviceSettingsWithResponse call
-func ParseGetDeviceSettingsResponse(rsp *http.Response) (*GetDeviceSettingsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetDeviceSettingsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest DeviceSettings
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest DeviceOffline
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseUpdateDeviceSettingsResponse parses an HTTP response from a UpdateDeviceSettingsWithResponse call
-func ParseUpdateDeviceSettingsResponse(rsp *http.Response) (*UpdateDeviceSettingsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &UpdateDeviceSettingsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest DeviceSettings
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest DeviceOffline
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
 
 	}
 
@@ -12766,484 +9705,27 @@ func ParseGetDeviceTelemetryLatestResponse(rsp *http.Response) (*GetDeviceTeleme
 	return response, nil
 }
 
-// ParseListDeviceToolsResponse parses an HTTP response from a ListDeviceToolsWithResponse call
-func ParseListDeviceToolsResponse(rsp *http.Response) (*ListDeviceToolsResponse, error) {
+// ParseInvokeClientToolResponse parses an HTTP response from a InvokeClientToolWithResponse call
+func ParseInvokeClientToolResponse(rsp *http.Response) (*InvokeClientToolResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListDeviceToolsResponse{
+	response := &InvokeClientToolResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest DeviceToolList
+		var dest ClientToolV0InvokeResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseInvokeDeviceToolResponse parses an HTTP response from a InvokeDeviceToolWithResponse call
-func ParseInvokeDeviceToolResponse(rsp *http.Response) (*InvokeDeviceToolResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &InvokeDeviceToolResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest DeviceToolInvokeResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest ToolNotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest DeviceOffline
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseSetDeviceVolumeResponse parses an HTTP response from a SetDeviceVolumeWithResponse call
-func ParseSetDeviceVolumeResponse(rsp *http.Response) (*SetDeviceVolumeResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &SetDeviceVolumeResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest DeviceControlStatus
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest DeviceOffline
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetDeviceWifiResponse parses an HTTP response from a GetDeviceWifiWithResponse call
-func ParseGetDeviceWifiResponse(rsp *http.Response) (*GetDeviceWifiResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetDeviceWifiResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest DeviceWifiStatus
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest DeviceOffline
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseConnectDeviceWifiResponse parses an HTTP response from a ConnectDeviceWifiWithResponse call
-func ParseConnectDeviceWifiResponse(rsp *http.Response) (*ConnectDeviceWifiResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ConnectDeviceWifiResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest DeviceOffline
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseListDeviceSavedWifiResponse parses an HTTP response from a ListDeviceSavedWifiWithResponse call
-func ParseListDeviceSavedWifiResponse(rsp *http.Response) (*ListDeviceSavedWifiResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListDeviceSavedWifiResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest DeviceWifiSavedList
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest DeviceOffline
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
-		var dest DeviceUnsupported
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON501 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest DeviceError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
-		var dest DeviceTimeout
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON504 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseForgetDeviceSavedWifiResponse parses an HTTP response from a ForgetDeviceSavedWifiWithResponse call
-func ParseForgetDeviceSavedWifiResponse(rsp *http.Response) (*ForgetDeviceSavedWifiResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ForgetDeviceSavedWifiResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest BadRequest
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -13312,22 +9794,22 @@ func ParseForgetDeviceSavedWifiResponse(rsp *http.Response) (*ForgetDeviceSavedW
 	return response, nil
 }
 
-// ParseScanDeviceWifiResponse parses an HTTP response from a ScanDeviceWifiWithResponse call
-func ParseScanDeviceWifiResponse(rsp *http.Response) (*ScanDeviceWifiResponse, error) {
+// ParseListClientToolsResponse parses an HTTP response from a ListClientToolsWithResponse call
+func ParseListClientToolsResponse(rsp *http.Response) (*ListClientToolsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ScanDeviceWifiResponse{
+	response := &ListClientToolsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest DeviceWifiScanResponse
+		var dest ClientToolV0ListResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -13353,6 +9835,13 @@ func ParseScanDeviceWifiResponse(rsp *http.Response) (*ScanDeviceWifiResponse, e
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest DeviceOffline
@@ -15229,42 +11718,6 @@ type ServerInterface interface {
 	// Get the device bound to the API key
 	// (GET /gizclaw/v1/device)
 	GetDevice(c *fiber.Ctx) error
-	// Factory reset the bound device
-	// (POST /gizclaw/v1/device/actions/factory-reset)
-	FactoryResetDevice(c *fiber.Ctx) error
-	// Ring the bound device so it can be found
-	// (POST /gizclaw/v1/device/actions/find)
-	FindDevice(c *fiber.Ctx) error
-	// Notify the bound device to run a firmware update
-	// (POST /gizclaw/v1/device/actions/firmware-update)
-	UpdateDeviceFirmware(c *fiber.Ctx) error
-	// Play a device-defined sound on the bound device
-	// (POST /gizclaw/v1/device/actions/play-sound)
-	PlayDeviceSound(c *fiber.Ctx) error
-	// Reboot the bound device
-	// (POST /gizclaw/v1/device/actions/reboot)
-	RebootDevice(c *fiber.Ctx) error
-	// Read the online device audio player snapshot
-	// (GET /gizclaw/v1/device/audioplayer)
-	GetDeviceAudioPlayer(c *fiber.Ctx) error
-	// Accept playback from the beginning of the selected track
-	// (POST /gizclaw/v1/device/audioplayer/actions/play)
-	PlayDeviceAudioPlayer(c *fiber.Ctx) error
-	// Stop playback and retain the playlist
-	// (POST /gizclaw/v1/device/audioplayer/actions/stop)
-	StopDeviceAudioPlayer(c *fiber.Ctx) error
-	// Set repeat mode without interrupting playback
-	// (PUT /gizclaw/v1/device/audioplayer/mode)
-	SetDeviceAudioPlayerMode(c *fiber.Ctx) error
-	// Read the online device playlist
-	// (GET /gizclaw/v1/device/audioplayer/playlist)
-	GetDeviceAudioPlayerPlaylist(c *fiber.Ctx) error
-	// Stop and atomically replace the playlist
-	// (PUT /gizclaw/v1/device/audioplayer/playlist)
-	SetDeviceAudioPlayerPlaylist(c *fiber.Ctx) error
-	// Atomically append without starting or interrupting playback
-	// (POST /gizclaw/v1/device/audioplayer/playlist/append)
-	AppendDeviceAudioPlayerPlaylist(c *fiber.Ctx) error
 	// Get the firmware channels configured for the bound device
 	// (GET /gizclaw/v1/device/firmware)
 	GetDeviceFirmware(c *fiber.Ctx) error
@@ -15280,24 +11733,12 @@ type ServerInterface interface {
 	// Atomically write MHS v0 hardware states
 	// (PATCH /gizclaw/v1/device/mhs/v0/states)
 	WriteMhsStates(c *fiber.Ctx) error
-	// List the reverse RPC methods the bound device implements
-	// (GET /gizclaw/v1/device/rpc-methods)
-	ListDeviceRPCMethods(c *fiber.Ctx) error
-	// Switch the Workspace the bound device runs
-	// (PUT /gizclaw/v1/device/run/workspace)
-	SetDeviceRunWorkspace(c *fiber.Ctx) error
 	// Get the online runtime of the bound device
 	// (GET /gizclaw/v1/device/runtime)
 	GetDeviceRuntime(c *fiber.Ctx) error
 	// Get the RuntimeProfile workflow catalog of the bound device
 	// (GET /gizclaw/v1/device/runtime-profile)
 	GetDeviceRuntimeProfile(c *fiber.Ctx) error
-	// Get the settings of the bound device
-	// (GET /gizclaw/v1/device/settings)
-	GetDeviceSettings(c *fiber.Ctx) error
-	// Change some settings of the bound device
-	// (PATCH /gizclaw/v1/device/settings)
-	UpdateDeviceSettings(c *fiber.Ctx) error
 	// Get the latest reported status of the bound device
 	// (GET /gizclaw/v1/device/status)
 	GetDeviceStatus(c *fiber.Ctx) error
@@ -15310,30 +11751,12 @@ type ServerInterface interface {
 	// Get the latest sample of one telemetry field for the bound device
 	// (GET /gizclaw/v1/device/telemetry/{field}/latest)
 	GetDeviceTelemetryLatest(c *fiber.Ctx, field externalRef0.PeerTelemetryField) error
-	// List the Tools the control app may invoke on the bound device
-	// (GET /gizclaw/v1/device/tools)
-	ListDeviceTools(c *fiber.Ctx) error
-	// Invoke a Tool on the bound device
-	// (POST /gizclaw/v1/device/tools/{name}/actions/invoke)
-	InvokeDeviceTool(c *fiber.Ctx, name string) error
-	// Set the absolute volume and mute state of the bound device
-	// (PUT /gizclaw/v1/device/volume)
-	SetDeviceVolume(c *fiber.Ctx) error
-	// Get the current Wi-Fi status of the bound device
-	// (GET /gizclaw/v1/device/wifi)
-	GetDeviceWifi(c *fiber.Ctx) error
-	// Connect the bound device to a Wi-Fi network
-	// (PUT /gizclaw/v1/device/wifi)
-	ConnectDeviceWifi(c *fiber.Ctx) error
-	// List Wi-Fi networks saved on the bound device
-	// (GET /gizclaw/v1/device/wifi/saved)
-	ListDeviceSavedWifi(c *fiber.Ctx) error
-	// Forget a Wi-Fi network saved on the bound device
-	// (DELETE /gizclaw/v1/device/wifi/saved/{ssid})
-	ForgetDeviceSavedWifi(c *fiber.Ctx, ssid string) error
-	// Scan for Wi-Fi networks near the bound device
-	// (POST /gizclaw/v1/device/wifi/scan)
-	ScanDeviceWifi(c *fiber.Ctx) error
+	// Invoke a predefined device procedure
+	// (POST /gizclaw/v1/device/tool/v0/invoke)
+	InvokeClientTool(c *fiber.Ctx) error
+	// List implemented device procedures
+	// (GET /gizclaw/v1/device/tool/v0/tools)
+	ListClientTools(c *fiber.Ctx) error
 	// List Workspaces owned by the authenticated device
 	// (GET /gizclaw/v1/device/workspaces)
 	ListDeviceWorkspaces(c *fiber.Ctx, params ListDeviceWorkspacesParams) error
@@ -15779,246 +12202,6 @@ func (siw *ServerInterfaceWrapper) GetDevice(c *fiber.Ctx) error {
 	return handler(c)
 }
 
-// FactoryResetDevice operation middleware
-func (siw *ServerInterfaceWrapper) FactoryResetDevice(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.FactoryResetDevice(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// FindDevice operation middleware
-func (siw *ServerInterfaceWrapper) FindDevice(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.FindDevice(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// UpdateDeviceFirmware operation middleware
-func (siw *ServerInterfaceWrapper) UpdateDeviceFirmware(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.UpdateDeviceFirmware(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// PlayDeviceSound operation middleware
-func (siw *ServerInterfaceWrapper) PlayDeviceSound(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.PlayDeviceSound(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// RebootDevice operation middleware
-func (siw *ServerInterfaceWrapper) RebootDevice(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.RebootDevice(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// GetDeviceAudioPlayer operation middleware
-func (siw *ServerInterfaceWrapper) GetDeviceAudioPlayer(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.GetDeviceAudioPlayer(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// PlayDeviceAudioPlayer operation middleware
-func (siw *ServerInterfaceWrapper) PlayDeviceAudioPlayer(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.PlayDeviceAudioPlayer(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// StopDeviceAudioPlayer operation middleware
-func (siw *ServerInterfaceWrapper) StopDeviceAudioPlayer(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.StopDeviceAudioPlayer(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// SetDeviceAudioPlayerMode operation middleware
-func (siw *ServerInterfaceWrapper) SetDeviceAudioPlayerMode(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.SetDeviceAudioPlayerMode(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// GetDeviceAudioPlayerPlaylist operation middleware
-func (siw *ServerInterfaceWrapper) GetDeviceAudioPlayerPlaylist(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.GetDeviceAudioPlayerPlaylist(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// SetDeviceAudioPlayerPlaylist operation middleware
-func (siw *ServerInterfaceWrapper) SetDeviceAudioPlayerPlaylist(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.SetDeviceAudioPlayerPlaylist(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// AppendDeviceAudioPlayerPlaylist operation middleware
-func (siw *ServerInterfaceWrapper) AppendDeviceAudioPlayerPlaylist(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.AppendDeviceAudioPlayerPlaylist(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
 // GetDeviceFirmware operation middleware
 func (siw *ServerInterfaceWrapper) GetDeviceFirmware(c *fiber.Ctx) error {
 
@@ -16173,46 +12356,6 @@ func (siw *ServerInterfaceWrapper) WriteMhsStates(c *fiber.Ctx) error {
 	return handler(c)
 }
 
-// ListDeviceRPCMethods operation middleware
-func (siw *ServerInterfaceWrapper) ListDeviceRPCMethods(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.ListDeviceRPCMethods(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// SetDeviceRunWorkspace operation middleware
-func (siw *ServerInterfaceWrapper) SetDeviceRunWorkspace(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.SetDeviceRunWorkspace(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
 // GetDeviceRuntime operation middleware
 func (siw *ServerInterfaceWrapper) GetDeviceRuntime(c *fiber.Ctx) error {
 
@@ -16240,46 +12383,6 @@ func (siw *ServerInterfaceWrapper) GetDeviceRuntimeProfile(c *fiber.Ctx) error {
 
 	handler := func(c *fiber.Ctx) error {
 		return siw.Handler.GetDeviceRuntimeProfile(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// GetDeviceSettings operation middleware
-func (siw *ServerInterfaceWrapper) GetDeviceSettings(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.GetDeviceSettings(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// UpdateDeviceSettings operation middleware
-func (siw *ServerInterfaceWrapper) UpdateDeviceSettings(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.UpdateDeviceSettings(c)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -16485,13 +12588,13 @@ func (siw *ServerInterfaceWrapper) GetDeviceTelemetryLatest(c *fiber.Ctx) error 
 	return handler(c)
 }
 
-// ListDeviceTools operation middleware
-func (siw *ServerInterfaceWrapper) ListDeviceTools(c *fiber.Ctx) error {
+// InvokeClientTool operation middleware
+func (siw *ServerInterfaceWrapper) InvokeClientTool(c *fiber.Ctx) error {
 
 	c.Context().SetUserValue((BearerAuthScopes), []string{})
 
 	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.ListDeviceTools(c)
+		return siw.Handler.InvokeClientTool(c)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -16505,155 +12608,13 @@ func (siw *ServerInterfaceWrapper) ListDeviceTools(c *fiber.Ctx) error {
 	return handler(c)
 }
 
-// InvokeDeviceTool operation middleware
-func (siw *ServerInterfaceWrapper) InvokeDeviceTool(c *fiber.Ctx) error {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "name" -------------
-	var name string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
-	}
+// ListClientTools operation middleware
+func (siw *ServerInterfaceWrapper) ListClientTools(c *fiber.Ctx) error {
 
 	c.Context().SetUserValue((BearerAuthScopes), []string{})
 
 	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.InvokeDeviceTool(c, name)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// SetDeviceVolume operation middleware
-func (siw *ServerInterfaceWrapper) SetDeviceVolume(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.SetDeviceVolume(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// GetDeviceWifi operation middleware
-func (siw *ServerInterfaceWrapper) GetDeviceWifi(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.GetDeviceWifi(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// ConnectDeviceWifi operation middleware
-func (siw *ServerInterfaceWrapper) ConnectDeviceWifi(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.ConnectDeviceWifi(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// ListDeviceSavedWifi operation middleware
-func (siw *ServerInterfaceWrapper) ListDeviceSavedWifi(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.ListDeviceSavedWifi(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// ForgetDeviceSavedWifi operation middleware
-func (siw *ServerInterfaceWrapper) ForgetDeviceSavedWifi(c *fiber.Ctx) error {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "ssid" -------------
-	var ssid string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "ssid", c.Params("ssid"), &ssid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter ssid: %w", err).Error())
-	}
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.ForgetDeviceSavedWifi(c, ssid)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// ScanDeviceWifi operation middleware
-func (siw *ServerInterfaceWrapper) ScanDeviceWifi(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.ScanDeviceWifi(c)
+		return siw.Handler.ListClientTools(c)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -17736,30 +13697,6 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device", wrapper.GetDevice)
 
-	router.Post(options.BaseURL+"/gizclaw/v1/device/actions/factory-reset", wrapper.FactoryResetDevice)
-
-	router.Post(options.BaseURL+"/gizclaw/v1/device/actions/find", wrapper.FindDevice)
-
-	router.Post(options.BaseURL+"/gizclaw/v1/device/actions/firmware-update", wrapper.UpdateDeviceFirmware)
-
-	router.Post(options.BaseURL+"/gizclaw/v1/device/actions/play-sound", wrapper.PlayDeviceSound)
-
-	router.Post(options.BaseURL+"/gizclaw/v1/device/actions/reboot", wrapper.RebootDevice)
-
-	router.Get(options.BaseURL+"/gizclaw/v1/device/audioplayer", wrapper.GetDeviceAudioPlayer)
-
-	router.Post(options.BaseURL+"/gizclaw/v1/device/audioplayer/actions/play", wrapper.PlayDeviceAudioPlayer)
-
-	router.Post(options.BaseURL+"/gizclaw/v1/device/audioplayer/actions/stop", wrapper.StopDeviceAudioPlayer)
-
-	router.Put(options.BaseURL+"/gizclaw/v1/device/audioplayer/mode", wrapper.SetDeviceAudioPlayerMode)
-
-	router.Get(options.BaseURL+"/gizclaw/v1/device/audioplayer/playlist", wrapper.GetDeviceAudioPlayerPlaylist)
-
-	router.Put(options.BaseURL+"/gizclaw/v1/device/audioplayer/playlist", wrapper.SetDeviceAudioPlayerPlaylist)
-
-	router.Post(options.BaseURL+"/gizclaw/v1/device/audioplayer/playlist/append", wrapper.AppendDeviceAudioPlayerPlaylist)
-
 	router.Get(options.BaseURL+"/gizclaw/v1/device/firmware", wrapper.GetDeviceFirmware)
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device/logs/search", wrapper.SearchDeviceLogs)
@@ -17770,17 +13707,9 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Patch(options.BaseURL+"/gizclaw/v1/device/mhs/v0/states", wrapper.WriteMhsStates)
 
-	router.Get(options.BaseURL+"/gizclaw/v1/device/rpc-methods", wrapper.ListDeviceRPCMethods)
-
-	router.Put(options.BaseURL+"/gizclaw/v1/device/run/workspace", wrapper.SetDeviceRunWorkspace)
-
 	router.Get(options.BaseURL+"/gizclaw/v1/device/runtime", wrapper.GetDeviceRuntime)
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device/runtime-profile", wrapper.GetDeviceRuntimeProfile)
-
-	router.Get(options.BaseURL+"/gizclaw/v1/device/settings", wrapper.GetDeviceSettings)
-
-	router.Patch(options.BaseURL+"/gizclaw/v1/device/settings", wrapper.UpdateDeviceSettings)
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device/status", wrapper.GetDeviceStatus)
 
@@ -17790,21 +13719,9 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device/telemetry/:field/latest", wrapper.GetDeviceTelemetryLatest)
 
-	router.Get(options.BaseURL+"/gizclaw/v1/device/tools", wrapper.ListDeviceTools)
+	router.Post(options.BaseURL+"/gizclaw/v1/device/tool/v0/invoke", wrapper.InvokeClientTool)
 
-	router.Post(options.BaseURL+"/gizclaw/v1/device/tools/:name/actions/invoke", wrapper.InvokeDeviceTool)
-
-	router.Put(options.BaseURL+"/gizclaw/v1/device/volume", wrapper.SetDeviceVolume)
-
-	router.Get(options.BaseURL+"/gizclaw/v1/device/wifi", wrapper.GetDeviceWifi)
-
-	router.Put(options.BaseURL+"/gizclaw/v1/device/wifi", wrapper.ConnectDeviceWifi)
-
-	router.Get(options.BaseURL+"/gizclaw/v1/device/wifi/saved", wrapper.ListDeviceSavedWifi)
-
-	router.Delete(options.BaseURL+"/gizclaw/v1/device/wifi/saved/:ssid", wrapper.ForgetDeviceSavedWifi)
-
-	router.Post(options.BaseURL+"/gizclaw/v1/device/wifi/scan", wrapper.ScanDeviceWifi)
+	router.Get(options.BaseURL+"/gizclaw/v1/device/tool/v0/tools", wrapper.ListClientTools)
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device/workspaces", wrapper.ListDeviceWorkspaces)
 
@@ -18648,1129 +14565,6 @@ func (response GetDevice500JSONResponse) VisitGetDeviceResponse(ctx *fiber.Ctx) 
 	return ctx.JSON(&response)
 }
 
-type FactoryResetDeviceRequestObject struct {
-	Body *FactoryResetDeviceJSONRequestBody
-}
-
-type FactoryResetDeviceResponseObject interface {
-	VisitFactoryResetDeviceResponse(ctx *fiber.Ctx) error
-}
-
-type FactoryResetDevice204Response struct {
-}
-
-func (response FactoryResetDevice204Response) VisitFactoryResetDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Status(204)
-	return nil
-}
-
-type FactoryResetDevice400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response FactoryResetDevice400JSONResponse) VisitFactoryResetDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type FactoryResetDevice401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response FactoryResetDevice401JSONResponse) VisitFactoryResetDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type FactoryResetDevice403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response FactoryResetDevice403JSONResponse) VisitFactoryResetDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type FactoryResetDevice409JSONResponse struct{ DeviceOfflineJSONResponse }
-
-func (response FactoryResetDevice409JSONResponse) VisitFactoryResetDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type FactoryResetDevice500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response FactoryResetDevice500JSONResponse) VisitFactoryResetDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type FactoryResetDevice501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response FactoryResetDevice501JSONResponse) VisitFactoryResetDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type FactoryResetDevice502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response FactoryResetDevice502JSONResponse) VisitFactoryResetDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type FactoryResetDevice504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response FactoryResetDevice504JSONResponse) VisitFactoryResetDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
-
-	return ctx.JSON(&response)
-}
-
-type FindDeviceRequestObject struct {
-	Body *FindDeviceJSONRequestBody
-}
-
-type FindDeviceResponseObject interface {
-	VisitFindDeviceResponse(ctx *fiber.Ctx) error
-}
-
-type FindDevice204Response struct {
-}
-
-func (response FindDevice204Response) VisitFindDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Status(204)
-	return nil
-}
-
-type FindDevice400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response FindDevice400JSONResponse) VisitFindDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type FindDevice401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response FindDevice401JSONResponse) VisitFindDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type FindDevice403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response FindDevice403JSONResponse) VisitFindDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type FindDevice409JSONResponse struct{ DeviceOfflineJSONResponse }
-
-func (response FindDevice409JSONResponse) VisitFindDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type FindDevice500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response FindDevice500JSONResponse) VisitFindDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type FindDevice501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response FindDevice501JSONResponse) VisitFindDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type FindDevice502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response FindDevice502JSONResponse) VisitFindDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type FindDevice504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response FindDevice504JSONResponse) VisitFindDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
-
-	return ctx.JSON(&response)
-}
-
-type UpdateDeviceFirmwareRequestObject struct {
-	Body *UpdateDeviceFirmwareJSONRequestBody
-}
-
-type UpdateDeviceFirmwareResponseObject interface {
-	VisitUpdateDeviceFirmwareResponse(ctx *fiber.Ctx) error
-}
-
-type UpdateDeviceFirmware204Response struct {
-}
-
-func (response UpdateDeviceFirmware204Response) VisitUpdateDeviceFirmwareResponse(ctx *fiber.Ctx) error {
-	ctx.Status(204)
-	return nil
-}
-
-type UpdateDeviceFirmware400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response UpdateDeviceFirmware400JSONResponse) VisitUpdateDeviceFirmwareResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type UpdateDeviceFirmware401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response UpdateDeviceFirmware401JSONResponse) VisitUpdateDeviceFirmwareResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type UpdateDeviceFirmware403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response UpdateDeviceFirmware403JSONResponse) VisitUpdateDeviceFirmwareResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type UpdateDeviceFirmware409JSONResponse struct{ DeviceOfflineJSONResponse }
-
-func (response UpdateDeviceFirmware409JSONResponse) VisitUpdateDeviceFirmwareResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type UpdateDeviceFirmware500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response UpdateDeviceFirmware500JSONResponse) VisitUpdateDeviceFirmwareResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type UpdateDeviceFirmware501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response UpdateDeviceFirmware501JSONResponse) VisitUpdateDeviceFirmwareResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type UpdateDeviceFirmware502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response UpdateDeviceFirmware502JSONResponse) VisitUpdateDeviceFirmwareResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type UpdateDeviceFirmware504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response UpdateDeviceFirmware504JSONResponse) VisitUpdateDeviceFirmwareResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
-
-	return ctx.JSON(&response)
-}
-
-type PlayDeviceSoundRequestObject struct {
-	Body *PlayDeviceSoundJSONRequestBody
-}
-
-type PlayDeviceSoundResponseObject interface {
-	VisitPlayDeviceSoundResponse(ctx *fiber.Ctx) error
-}
-
-type PlayDeviceSound204Response struct {
-}
-
-func (response PlayDeviceSound204Response) VisitPlayDeviceSoundResponse(ctx *fiber.Ctx) error {
-	ctx.Status(204)
-	return nil
-}
-
-type PlayDeviceSound400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response PlayDeviceSound400JSONResponse) VisitPlayDeviceSoundResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type PlayDeviceSound401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response PlayDeviceSound401JSONResponse) VisitPlayDeviceSoundResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type PlayDeviceSound403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response PlayDeviceSound403JSONResponse) VisitPlayDeviceSoundResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type PlayDeviceSound409JSONResponse struct{ DeviceOfflineJSONResponse }
-
-func (response PlayDeviceSound409JSONResponse) VisitPlayDeviceSoundResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type PlayDeviceSound500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response PlayDeviceSound500JSONResponse) VisitPlayDeviceSoundResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type PlayDeviceSound501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response PlayDeviceSound501JSONResponse) VisitPlayDeviceSoundResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type PlayDeviceSound502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response PlayDeviceSound502JSONResponse) VisitPlayDeviceSoundResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type PlayDeviceSound504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response PlayDeviceSound504JSONResponse) VisitPlayDeviceSoundResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
-
-	return ctx.JSON(&response)
-}
-
-type RebootDeviceRequestObject struct {
-	Body *RebootDeviceJSONRequestBody
-}
-
-type RebootDeviceResponseObject interface {
-	VisitRebootDeviceResponse(ctx *fiber.Ctx) error
-}
-
-type RebootDevice204Response struct {
-}
-
-func (response RebootDevice204Response) VisitRebootDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Status(204)
-	return nil
-}
-
-type RebootDevice400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response RebootDevice400JSONResponse) VisitRebootDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type RebootDevice401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response RebootDevice401JSONResponse) VisitRebootDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type RebootDevice403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response RebootDevice403JSONResponse) VisitRebootDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type RebootDevice409JSONResponse struct{ DeviceOfflineJSONResponse }
-
-func (response RebootDevice409JSONResponse) VisitRebootDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type RebootDevice500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response RebootDevice500JSONResponse) VisitRebootDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type RebootDevice501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response RebootDevice501JSONResponse) VisitRebootDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type RebootDevice502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response RebootDevice502JSONResponse) VisitRebootDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type RebootDevice504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response RebootDevice504JSONResponse) VisitRebootDeviceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceAudioPlayerRequestObject struct {
-}
-
-type GetDeviceAudioPlayerResponseObject interface {
-	VisitGetDeviceAudioPlayerResponse(ctx *fiber.Ctx) error
-}
-
-type GetDeviceAudioPlayer200JSONResponse externalRef0.AudioPlayerResponse
-
-func (response GetDeviceAudioPlayer200JSONResponse) VisitGetDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceAudioPlayer400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response GetDeviceAudioPlayer400JSONResponse) VisitGetDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceAudioPlayer401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response GetDeviceAudioPlayer401JSONResponse) VisitGetDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceAudioPlayer403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response GetDeviceAudioPlayer403JSONResponse) VisitGetDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceAudioPlayer404JSONResponse externalRef0.ErrorResponse
-
-func (response GetDeviceAudioPlayer404JSONResponse) VisitGetDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceAudioPlayer409JSONResponse struct{ ConflictJSONResponse }
-
-func (response GetDeviceAudioPlayer409JSONResponse) VisitGetDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceAudioPlayer500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response GetDeviceAudioPlayer500JSONResponse) VisitGetDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceAudioPlayer501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response GetDeviceAudioPlayer501JSONResponse) VisitGetDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceAudioPlayer502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response GetDeviceAudioPlayer502JSONResponse) VisitGetDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceAudioPlayer504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response GetDeviceAudioPlayer504JSONResponse) VisitGetDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
-
-	return ctx.JSON(&response)
-}
-
-type PlayDeviceAudioPlayerRequestObject struct {
-	Body *PlayDeviceAudioPlayerJSONRequestBody
-}
-
-type PlayDeviceAudioPlayerResponseObject interface {
-	VisitPlayDeviceAudioPlayerResponse(ctx *fiber.Ctx) error
-}
-
-type PlayDeviceAudioPlayer200JSONResponse externalRef0.AudioPlayerResponse
-
-func (response PlayDeviceAudioPlayer200JSONResponse) VisitPlayDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type PlayDeviceAudioPlayer400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response PlayDeviceAudioPlayer400JSONResponse) VisitPlayDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type PlayDeviceAudioPlayer401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response PlayDeviceAudioPlayer401JSONResponse) VisitPlayDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type PlayDeviceAudioPlayer403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response PlayDeviceAudioPlayer403JSONResponse) VisitPlayDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type PlayDeviceAudioPlayer404JSONResponse externalRef0.ErrorResponse
-
-func (response PlayDeviceAudioPlayer404JSONResponse) VisitPlayDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type PlayDeviceAudioPlayer409JSONResponse struct{ ConflictJSONResponse }
-
-func (response PlayDeviceAudioPlayer409JSONResponse) VisitPlayDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type PlayDeviceAudioPlayer500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response PlayDeviceAudioPlayer500JSONResponse) VisitPlayDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type PlayDeviceAudioPlayer501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response PlayDeviceAudioPlayer501JSONResponse) VisitPlayDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type PlayDeviceAudioPlayer502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response PlayDeviceAudioPlayer502JSONResponse) VisitPlayDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type PlayDeviceAudioPlayer504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response PlayDeviceAudioPlayer504JSONResponse) VisitPlayDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
-
-	return ctx.JSON(&response)
-}
-
-type StopDeviceAudioPlayerRequestObject struct {
-}
-
-type StopDeviceAudioPlayerResponseObject interface {
-	VisitStopDeviceAudioPlayerResponse(ctx *fiber.Ctx) error
-}
-
-type StopDeviceAudioPlayer200JSONResponse externalRef0.AudioPlayerResponse
-
-func (response StopDeviceAudioPlayer200JSONResponse) VisitStopDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type StopDeviceAudioPlayer400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response StopDeviceAudioPlayer400JSONResponse) VisitStopDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type StopDeviceAudioPlayer401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response StopDeviceAudioPlayer401JSONResponse) VisitStopDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type StopDeviceAudioPlayer403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response StopDeviceAudioPlayer403JSONResponse) VisitStopDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type StopDeviceAudioPlayer404JSONResponse externalRef0.ErrorResponse
-
-func (response StopDeviceAudioPlayer404JSONResponse) VisitStopDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type StopDeviceAudioPlayer409JSONResponse struct{ ConflictJSONResponse }
-
-func (response StopDeviceAudioPlayer409JSONResponse) VisitStopDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type StopDeviceAudioPlayer500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response StopDeviceAudioPlayer500JSONResponse) VisitStopDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type StopDeviceAudioPlayer501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response StopDeviceAudioPlayer501JSONResponse) VisitStopDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type StopDeviceAudioPlayer502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response StopDeviceAudioPlayer502JSONResponse) VisitStopDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type StopDeviceAudioPlayer504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response StopDeviceAudioPlayer504JSONResponse) VisitStopDeviceAudioPlayerResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceAudioPlayerModeRequestObject struct {
-	Body *SetDeviceAudioPlayerModeJSONRequestBody
-}
-
-type SetDeviceAudioPlayerModeResponseObject interface {
-	VisitSetDeviceAudioPlayerModeResponse(ctx *fiber.Ctx) error
-}
-
-type SetDeviceAudioPlayerMode200JSONResponse externalRef0.AudioPlayerResponse
-
-func (response SetDeviceAudioPlayerMode200JSONResponse) VisitSetDeviceAudioPlayerModeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceAudioPlayerMode400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response SetDeviceAudioPlayerMode400JSONResponse) VisitSetDeviceAudioPlayerModeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceAudioPlayerMode401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response SetDeviceAudioPlayerMode401JSONResponse) VisitSetDeviceAudioPlayerModeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceAudioPlayerMode403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response SetDeviceAudioPlayerMode403JSONResponse) VisitSetDeviceAudioPlayerModeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceAudioPlayerMode404JSONResponse externalRef0.ErrorResponse
-
-func (response SetDeviceAudioPlayerMode404JSONResponse) VisitSetDeviceAudioPlayerModeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceAudioPlayerMode409JSONResponse struct{ ConflictJSONResponse }
-
-func (response SetDeviceAudioPlayerMode409JSONResponse) VisitSetDeviceAudioPlayerModeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceAudioPlayerMode500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response SetDeviceAudioPlayerMode500JSONResponse) VisitSetDeviceAudioPlayerModeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceAudioPlayerMode501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response SetDeviceAudioPlayerMode501JSONResponse) VisitSetDeviceAudioPlayerModeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceAudioPlayerMode502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response SetDeviceAudioPlayerMode502JSONResponse) VisitSetDeviceAudioPlayerModeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceAudioPlayerMode504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response SetDeviceAudioPlayerMode504JSONResponse) VisitSetDeviceAudioPlayerModeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceAudioPlayerPlaylistRequestObject struct {
-}
-
-type GetDeviceAudioPlayerPlaylistResponseObject interface {
-	VisitGetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error
-}
-
-type GetDeviceAudioPlayerPlaylist200JSONResponse externalRef0.AudioPlayerPlaylist
-
-func (response GetDeviceAudioPlayerPlaylist200JSONResponse) VisitGetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceAudioPlayerPlaylist400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response GetDeviceAudioPlayerPlaylist400JSONResponse) VisitGetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceAudioPlayerPlaylist401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response GetDeviceAudioPlayerPlaylist401JSONResponse) VisitGetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceAudioPlayerPlaylist403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response GetDeviceAudioPlayerPlaylist403JSONResponse) VisitGetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceAudioPlayerPlaylist404JSONResponse externalRef0.ErrorResponse
-
-func (response GetDeviceAudioPlayerPlaylist404JSONResponse) VisitGetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceAudioPlayerPlaylist409JSONResponse struct{ ConflictJSONResponse }
-
-func (response GetDeviceAudioPlayerPlaylist409JSONResponse) VisitGetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceAudioPlayerPlaylist500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response GetDeviceAudioPlayerPlaylist500JSONResponse) VisitGetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceAudioPlayerPlaylist501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response GetDeviceAudioPlayerPlaylist501JSONResponse) VisitGetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceAudioPlayerPlaylist502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response GetDeviceAudioPlayerPlaylist502JSONResponse) VisitGetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceAudioPlayerPlaylist504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response GetDeviceAudioPlayerPlaylist504JSONResponse) VisitGetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceAudioPlayerPlaylistRequestObject struct {
-	Body *SetDeviceAudioPlayerPlaylistJSONRequestBody
-}
-
-type SetDeviceAudioPlayerPlaylistResponseObject interface {
-	VisitSetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error
-}
-
-type SetDeviceAudioPlayerPlaylist200JSONResponse externalRef0.AudioPlayerResponse
-
-func (response SetDeviceAudioPlayerPlaylist200JSONResponse) VisitSetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceAudioPlayerPlaylist400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response SetDeviceAudioPlayerPlaylist400JSONResponse) VisitSetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceAudioPlayerPlaylist401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response SetDeviceAudioPlayerPlaylist401JSONResponse) VisitSetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceAudioPlayerPlaylist403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response SetDeviceAudioPlayerPlaylist403JSONResponse) VisitSetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceAudioPlayerPlaylist404JSONResponse externalRef0.ErrorResponse
-
-func (response SetDeviceAudioPlayerPlaylist404JSONResponse) VisitSetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceAudioPlayerPlaylist409JSONResponse struct{ ConflictJSONResponse }
-
-func (response SetDeviceAudioPlayerPlaylist409JSONResponse) VisitSetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceAudioPlayerPlaylist500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response SetDeviceAudioPlayerPlaylist500JSONResponse) VisitSetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceAudioPlayerPlaylist501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response SetDeviceAudioPlayerPlaylist501JSONResponse) VisitSetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceAudioPlayerPlaylist502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response SetDeviceAudioPlayerPlaylist502JSONResponse) VisitSetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceAudioPlayerPlaylist504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response SetDeviceAudioPlayerPlaylist504JSONResponse) VisitSetDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
-
-	return ctx.JSON(&response)
-}
-
-type AppendDeviceAudioPlayerPlaylistRequestObject struct {
-	Body *AppendDeviceAudioPlayerPlaylistJSONRequestBody
-}
-
-type AppendDeviceAudioPlayerPlaylistResponseObject interface {
-	VisitAppendDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error
-}
-
-type AppendDeviceAudioPlayerPlaylist200JSONResponse externalRef0.AudioPlayerResponse
-
-func (response AppendDeviceAudioPlayerPlaylist200JSONResponse) VisitAppendDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type AppendDeviceAudioPlayerPlaylist400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response AppendDeviceAudioPlayerPlaylist400JSONResponse) VisitAppendDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type AppendDeviceAudioPlayerPlaylist401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response AppendDeviceAudioPlayerPlaylist401JSONResponse) VisitAppendDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type AppendDeviceAudioPlayerPlaylist403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response AppendDeviceAudioPlayerPlaylist403JSONResponse) VisitAppendDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type AppendDeviceAudioPlayerPlaylist404JSONResponse externalRef0.ErrorResponse
-
-func (response AppendDeviceAudioPlayerPlaylist404JSONResponse) VisitAppendDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type AppendDeviceAudioPlayerPlaylist409JSONResponse struct{ ConflictJSONResponse }
-
-func (response AppendDeviceAudioPlayerPlaylist409JSONResponse) VisitAppendDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type AppendDeviceAudioPlayerPlaylist500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response AppendDeviceAudioPlayerPlaylist500JSONResponse) VisitAppendDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type AppendDeviceAudioPlayerPlaylist501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response AppendDeviceAudioPlayerPlaylist501JSONResponse) VisitAppendDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type AppendDeviceAudioPlayerPlaylist502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response AppendDeviceAudioPlayerPlaylist502JSONResponse) VisitAppendDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type AppendDeviceAudioPlayerPlaylist504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response AppendDeviceAudioPlayerPlaylist504JSONResponse) VisitAppendDeviceAudioPlayerPlaylistResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
-
-	return ctx.JSON(&response)
-}
-
 type GetDeviceFirmwareRequestObject struct {
 }
 
@@ -20151,191 +14945,6 @@ func (response WriteMhsStates504JSONResponse) VisitWriteMhsStatesResponse(ctx *f
 	return ctx.JSON(&response)
 }
 
-type ListDeviceRPCMethodsRequestObject struct {
-}
-
-type ListDeviceRPCMethodsResponseObject interface {
-	VisitListDeviceRPCMethodsResponse(ctx *fiber.Ctx) error
-}
-
-type ListDeviceRPCMethods200JSONResponse DeviceRPCMethods
-
-func (response ListDeviceRPCMethods200JSONResponse) VisitListDeviceRPCMethodsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type ListDeviceRPCMethods400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response ListDeviceRPCMethods400JSONResponse) VisitListDeviceRPCMethodsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type ListDeviceRPCMethods401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response ListDeviceRPCMethods401JSONResponse) VisitListDeviceRPCMethodsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type ListDeviceRPCMethods403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response ListDeviceRPCMethods403JSONResponse) VisitListDeviceRPCMethodsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type ListDeviceRPCMethods409JSONResponse struct{ DeviceOfflineJSONResponse }
-
-func (response ListDeviceRPCMethods409JSONResponse) VisitListDeviceRPCMethodsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type ListDeviceRPCMethods500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response ListDeviceRPCMethods500JSONResponse) VisitListDeviceRPCMethodsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type ListDeviceRPCMethods501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response ListDeviceRPCMethods501JSONResponse) VisitListDeviceRPCMethodsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type ListDeviceRPCMethods502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response ListDeviceRPCMethods502JSONResponse) VisitListDeviceRPCMethodsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type ListDeviceRPCMethods504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response ListDeviceRPCMethods504JSONResponse) VisitListDeviceRPCMethodsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceRunWorkspaceRequestObject struct {
-	Body *SetDeviceRunWorkspaceJSONRequestBody
-}
-
-type SetDeviceRunWorkspaceResponseObject interface {
-	VisitSetDeviceRunWorkspaceResponse(ctx *fiber.Ctx) error
-}
-
-type SetDeviceRunWorkspace202Response struct {
-}
-
-func (response SetDeviceRunWorkspace202Response) VisitSetDeviceRunWorkspaceResponse(ctx *fiber.Ctx) error {
-	ctx.Status(202)
-	return nil
-}
-
-type SetDeviceRunWorkspace400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response SetDeviceRunWorkspace400JSONResponse) VisitSetDeviceRunWorkspaceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceRunWorkspace401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response SetDeviceRunWorkspace401JSONResponse) VisitSetDeviceRunWorkspaceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceRunWorkspace403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response SetDeviceRunWorkspace403JSONResponse) VisitSetDeviceRunWorkspaceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceRunWorkspace404JSONResponse struct{ WorkspaceNotFoundJSONResponse }
-
-func (response SetDeviceRunWorkspace404JSONResponse) VisitSetDeviceRunWorkspaceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceRunWorkspace409JSONResponse struct{ DeviceOfflineJSONResponse }
-
-func (response SetDeviceRunWorkspace409JSONResponse) VisitSetDeviceRunWorkspaceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceRunWorkspace500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response SetDeviceRunWorkspace500JSONResponse) VisitSetDeviceRunWorkspaceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceRunWorkspace501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response SetDeviceRunWorkspace501JSONResponse) VisitSetDeviceRunWorkspaceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceRunWorkspace502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response SetDeviceRunWorkspace502JSONResponse) VisitSetDeviceRunWorkspaceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceRunWorkspace504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response SetDeviceRunWorkspace504JSONResponse) VisitSetDeviceRunWorkspaceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
-
-	return ctx.JSON(&response)
-}
-
 type GetDeviceRuntimeRequestObject struct {
 }
 
@@ -20454,183 +15063,6 @@ type GetDeviceRuntimeProfile500JSONResponse struct{ InternalErrorJSONResponse }
 func (response GetDeviceRuntimeProfile500JSONResponse) VisitGetDeviceRuntimeProfileResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceSettingsRequestObject struct {
-}
-
-type GetDeviceSettingsResponseObject interface {
-	VisitGetDeviceSettingsResponse(ctx *fiber.Ctx) error
-}
-
-type GetDeviceSettings200JSONResponse DeviceSettings
-
-func (response GetDeviceSettings200JSONResponse) VisitGetDeviceSettingsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceSettings400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response GetDeviceSettings400JSONResponse) VisitGetDeviceSettingsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceSettings401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response GetDeviceSettings401JSONResponse) VisitGetDeviceSettingsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceSettings403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response GetDeviceSettings403JSONResponse) VisitGetDeviceSettingsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceSettings409JSONResponse struct{ DeviceOfflineJSONResponse }
-
-func (response GetDeviceSettings409JSONResponse) VisitGetDeviceSettingsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceSettings500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response GetDeviceSettings500JSONResponse) VisitGetDeviceSettingsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceSettings501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response GetDeviceSettings501JSONResponse) VisitGetDeviceSettingsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceSettings502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response GetDeviceSettings502JSONResponse) VisitGetDeviceSettingsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceSettings504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response GetDeviceSettings504JSONResponse) VisitGetDeviceSettingsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
-
-	return ctx.JSON(&response)
-}
-
-type UpdateDeviceSettingsRequestObject struct {
-	Body *UpdateDeviceSettingsJSONRequestBody
-}
-
-type UpdateDeviceSettingsResponseObject interface {
-	VisitUpdateDeviceSettingsResponse(ctx *fiber.Ctx) error
-}
-
-type UpdateDeviceSettings200JSONResponse DeviceSettings
-
-func (response UpdateDeviceSettings200JSONResponse) VisitUpdateDeviceSettingsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type UpdateDeviceSettings400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response UpdateDeviceSettings400JSONResponse) VisitUpdateDeviceSettingsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type UpdateDeviceSettings401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response UpdateDeviceSettings401JSONResponse) VisitUpdateDeviceSettingsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type UpdateDeviceSettings403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response UpdateDeviceSettings403JSONResponse) VisitUpdateDeviceSettingsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type UpdateDeviceSettings409JSONResponse struct{ DeviceOfflineJSONResponse }
-
-func (response UpdateDeviceSettings409JSONResponse) VisitUpdateDeviceSettingsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type UpdateDeviceSettings500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response UpdateDeviceSettings500JSONResponse) VisitUpdateDeviceSettingsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type UpdateDeviceSettings501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response UpdateDeviceSettings501JSONResponse) VisitUpdateDeviceSettingsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type UpdateDeviceSettings502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response UpdateDeviceSettings502JSONResponse) VisitUpdateDeviceSettingsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type UpdateDeviceSettings504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response UpdateDeviceSettings504JSONResponse) VisitUpdateDeviceSettingsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
 
 	return ctx.JSON(&response)
 }
@@ -20882,690 +15314,195 @@ func (response GetDeviceTelemetryLatest500JSONResponse) VisitGetDeviceTelemetryL
 	return ctx.JSON(&response)
 }
 
-type ListDeviceToolsRequestObject struct {
+type InvokeClientToolRequestObject struct {
+	Body *InvokeClientToolJSONRequestBody
 }
 
-type ListDeviceToolsResponseObject interface {
-	VisitListDeviceToolsResponse(ctx *fiber.Ctx) error
+type InvokeClientToolResponseObject interface {
+	VisitInvokeClientToolResponse(ctx *fiber.Ctx) error
 }
 
-type ListDeviceTools200JSONResponse DeviceToolList
+type InvokeClientTool200JSONResponse ClientToolV0InvokeResponse
 
-func (response ListDeviceTools200JSONResponse) VisitListDeviceToolsResponse(ctx *fiber.Ctx) error {
+func (response InvokeClientTool200JSONResponse) VisitInvokeClientToolResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(200)
 
 	return ctx.JSON(&response)
 }
 
-type ListDeviceTools400JSONResponse struct{ BadRequestJSONResponse }
+type InvokeClientTool400JSONResponse struct{ BadRequestJSONResponse }
 
-func (response ListDeviceTools400JSONResponse) VisitListDeviceToolsResponse(ctx *fiber.Ctx) error {
+func (response InvokeClientTool400JSONResponse) VisitInvokeClientToolResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(400)
 
 	return ctx.JSON(&response)
 }
 
-type ListDeviceTools401JSONResponse struct{ UnauthorizedJSONResponse }
+type InvokeClientTool401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response ListDeviceTools401JSONResponse) VisitListDeviceToolsResponse(ctx *fiber.Ctx) error {
+func (response InvokeClientTool401JSONResponse) VisitInvokeClientToolResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(401)
 
 	return ctx.JSON(&response)
 }
 
-type ListDeviceTools403JSONResponse struct{ ForbiddenJSONResponse }
+type InvokeClientTool403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response ListDeviceTools403JSONResponse) VisitListDeviceToolsResponse(ctx *fiber.Ctx) error {
+func (response InvokeClientTool403JSONResponse) VisitInvokeClientToolResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(403)
 
 	return ctx.JSON(&response)
 }
 
-type ListDeviceTools500JSONResponse struct{ InternalErrorJSONResponse }
+type InvokeClientTool404JSONResponse externalRef0.ErrorResponse
 
-func (response ListDeviceTools500JSONResponse) VisitListDeviceToolsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type InvokeDeviceToolRequestObject struct {
-	Name string `json:"name"`
-	Body *InvokeDeviceToolJSONRequestBody
-}
-
-type InvokeDeviceToolResponseObject interface {
-	VisitInvokeDeviceToolResponse(ctx *fiber.Ctx) error
-}
-
-type InvokeDeviceTool200JSONResponse DeviceToolInvokeResponse
-
-func (response InvokeDeviceTool200JSONResponse) VisitInvokeDeviceToolResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type InvokeDeviceTool400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response InvokeDeviceTool400JSONResponse) VisitInvokeDeviceToolResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type InvokeDeviceTool401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response InvokeDeviceTool401JSONResponse) VisitInvokeDeviceToolResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type InvokeDeviceTool403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response InvokeDeviceTool403JSONResponse) VisitInvokeDeviceToolResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type InvokeDeviceTool404JSONResponse struct{ ToolNotFoundJSONResponse }
-
-func (response InvokeDeviceTool404JSONResponse) VisitInvokeDeviceToolResponse(ctx *fiber.Ctx) error {
+func (response InvokeClientTool404JSONResponse) VisitInvokeClientToolResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }
 
-type InvokeDeviceTool409JSONResponse struct{ DeviceOfflineJSONResponse }
+type InvokeClientTool409JSONResponse struct{ DeviceOfflineJSONResponse }
 
-func (response InvokeDeviceTool409JSONResponse) VisitInvokeDeviceToolResponse(ctx *fiber.Ctx) error {
+func (response InvokeClientTool409JSONResponse) VisitInvokeClientToolResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
 
-type InvokeDeviceTool500JSONResponse struct{ InternalErrorJSONResponse }
+type InvokeClientTool500JSONResponse struct{ InternalErrorJSONResponse }
 
-func (response InvokeDeviceTool500JSONResponse) VisitInvokeDeviceToolResponse(ctx *fiber.Ctx) error {
+func (response InvokeClientTool500JSONResponse) VisitInvokeClientToolResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
 
 	return ctx.JSON(&response)
 }
 
-type InvokeDeviceTool501JSONResponse struct{ DeviceUnsupportedJSONResponse }
+type InvokeClientTool501JSONResponse struct{ DeviceUnsupportedJSONResponse }
 
-func (response InvokeDeviceTool501JSONResponse) VisitInvokeDeviceToolResponse(ctx *fiber.Ctx) error {
+func (response InvokeClientTool501JSONResponse) VisitInvokeClientToolResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(501)
 
 	return ctx.JSON(&response)
 }
 
-type InvokeDeviceTool502JSONResponse struct{ DeviceErrorJSONResponse }
+type InvokeClientTool502JSONResponse struct{ DeviceErrorJSONResponse }
 
-func (response InvokeDeviceTool502JSONResponse) VisitInvokeDeviceToolResponse(ctx *fiber.Ctx) error {
+func (response InvokeClientTool502JSONResponse) VisitInvokeClientToolResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(502)
 
 	return ctx.JSON(&response)
 }
 
-type InvokeDeviceTool504JSONResponse struct{ DeviceTimeoutJSONResponse }
+type InvokeClientTool504JSONResponse struct{ DeviceTimeoutJSONResponse }
 
-func (response InvokeDeviceTool504JSONResponse) VisitInvokeDeviceToolResponse(ctx *fiber.Ctx) error {
+func (response InvokeClientTool504JSONResponse) VisitInvokeClientToolResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(504)
 
 	return ctx.JSON(&response)
 }
 
-type SetDeviceVolumeRequestObject struct {
-	Body *SetDeviceVolumeJSONRequestBody
+type ListClientToolsRequestObject struct {
 }
 
-type SetDeviceVolumeResponseObject interface {
-	VisitSetDeviceVolumeResponse(ctx *fiber.Ctx) error
+type ListClientToolsResponseObject interface {
+	VisitListClientToolsResponse(ctx *fiber.Ctx) error
 }
 
-type SetDeviceVolume200JSONResponse DeviceControlStatus
+type ListClientTools200JSONResponse ClientToolV0ListResponse
 
-func (response SetDeviceVolume200JSONResponse) VisitSetDeviceVolumeResponse(ctx *fiber.Ctx) error {
+func (response ListClientTools200JSONResponse) VisitListClientToolsResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(200)
 
 	return ctx.JSON(&response)
 }
 
-type SetDeviceVolume400JSONResponse struct{ BadRequestJSONResponse }
+type ListClientTools400JSONResponse struct{ BadRequestJSONResponse }
 
-func (response SetDeviceVolume400JSONResponse) VisitSetDeviceVolumeResponse(ctx *fiber.Ctx) error {
+func (response ListClientTools400JSONResponse) VisitListClientToolsResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(400)
 
 	return ctx.JSON(&response)
 }
 
-type SetDeviceVolume401JSONResponse struct{ UnauthorizedJSONResponse }
+type ListClientTools401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response SetDeviceVolume401JSONResponse) VisitSetDeviceVolumeResponse(ctx *fiber.Ctx) error {
+func (response ListClientTools401JSONResponse) VisitListClientToolsResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(401)
 
 	return ctx.JSON(&response)
 }
 
-type SetDeviceVolume403JSONResponse struct{ ForbiddenJSONResponse }
+type ListClientTools403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response SetDeviceVolume403JSONResponse) VisitSetDeviceVolumeResponse(ctx *fiber.Ctx) error {
+func (response ListClientTools403JSONResponse) VisitListClientToolsResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(403)
 
 	return ctx.JSON(&response)
 }
 
-type SetDeviceVolume409JSONResponse struct{ DeviceOfflineJSONResponse }
+type ListClientTools404JSONResponse externalRef0.ErrorResponse
 
-func (response SetDeviceVolume409JSONResponse) VisitSetDeviceVolumeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceVolume500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response SetDeviceVolume500JSONResponse) VisitSetDeviceVolumeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceVolume501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response SetDeviceVolume501JSONResponse) VisitSetDeviceVolumeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceVolume502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response SetDeviceVolume502JSONResponse) VisitSetDeviceVolumeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type SetDeviceVolume504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response SetDeviceVolume504JSONResponse) VisitSetDeviceVolumeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceWifiRequestObject struct {
-}
-
-type GetDeviceWifiResponseObject interface {
-	VisitGetDeviceWifiResponse(ctx *fiber.Ctx) error
-}
-
-type GetDeviceWifi200JSONResponse DeviceWifiStatus
-
-func (response GetDeviceWifi200JSONResponse) VisitGetDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceWifi400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response GetDeviceWifi400JSONResponse) VisitGetDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceWifi401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response GetDeviceWifi401JSONResponse) VisitGetDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceWifi403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response GetDeviceWifi403JSONResponse) VisitGetDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceWifi409JSONResponse struct{ DeviceOfflineJSONResponse }
-
-func (response GetDeviceWifi409JSONResponse) VisitGetDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceWifi500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response GetDeviceWifi500JSONResponse) VisitGetDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceWifi501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response GetDeviceWifi501JSONResponse) VisitGetDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceWifi502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response GetDeviceWifi502JSONResponse) VisitGetDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type GetDeviceWifi504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response GetDeviceWifi504JSONResponse) VisitGetDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
-
-	return ctx.JSON(&response)
-}
-
-type ConnectDeviceWifiRequestObject struct {
-	Body *ConnectDeviceWifiJSONRequestBody
-}
-
-type ConnectDeviceWifiResponseObject interface {
-	VisitConnectDeviceWifiResponse(ctx *fiber.Ctx) error
-}
-
-type ConnectDeviceWifi202Response struct {
-}
-
-func (response ConnectDeviceWifi202Response) VisitConnectDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Status(202)
-	return nil
-}
-
-type ConnectDeviceWifi400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response ConnectDeviceWifi400JSONResponse) VisitConnectDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type ConnectDeviceWifi401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response ConnectDeviceWifi401JSONResponse) VisitConnectDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type ConnectDeviceWifi403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response ConnectDeviceWifi403JSONResponse) VisitConnectDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type ConnectDeviceWifi409JSONResponse struct{ DeviceOfflineJSONResponse }
-
-func (response ConnectDeviceWifi409JSONResponse) VisitConnectDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type ConnectDeviceWifi500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response ConnectDeviceWifi500JSONResponse) VisitConnectDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type ConnectDeviceWifi501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response ConnectDeviceWifi501JSONResponse) VisitConnectDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type ConnectDeviceWifi502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response ConnectDeviceWifi502JSONResponse) VisitConnectDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type ConnectDeviceWifi504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response ConnectDeviceWifi504JSONResponse) VisitConnectDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
-
-	return ctx.JSON(&response)
-}
-
-type ListDeviceSavedWifiRequestObject struct {
-}
-
-type ListDeviceSavedWifiResponseObject interface {
-	VisitListDeviceSavedWifiResponse(ctx *fiber.Ctx) error
-}
-
-type ListDeviceSavedWifi200JSONResponse DeviceWifiSavedList
-
-func (response ListDeviceSavedWifi200JSONResponse) VisitListDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type ListDeviceSavedWifi400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response ListDeviceSavedWifi400JSONResponse) VisitListDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type ListDeviceSavedWifi401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response ListDeviceSavedWifi401JSONResponse) VisitListDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type ListDeviceSavedWifi403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response ListDeviceSavedWifi403JSONResponse) VisitListDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type ListDeviceSavedWifi409JSONResponse struct{ DeviceOfflineJSONResponse }
-
-func (response ListDeviceSavedWifi409JSONResponse) VisitListDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type ListDeviceSavedWifi500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response ListDeviceSavedWifi500JSONResponse) VisitListDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type ListDeviceSavedWifi501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response ListDeviceSavedWifi501JSONResponse) VisitListDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type ListDeviceSavedWifi502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response ListDeviceSavedWifi502JSONResponse) VisitListDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type ListDeviceSavedWifi504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response ListDeviceSavedWifi504JSONResponse) VisitListDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
-
-	return ctx.JSON(&response)
-}
-
-type ForgetDeviceSavedWifiRequestObject struct {
-	Ssid string `json:"ssid"`
-}
-
-type ForgetDeviceSavedWifiResponseObject interface {
-	VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error
-}
-
-type ForgetDeviceSavedWifi204Response struct {
-}
-
-func (response ForgetDeviceSavedWifi204Response) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Status(204)
-	return nil
-}
-
-type ForgetDeviceSavedWifi400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response ForgetDeviceSavedWifi400JSONResponse) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type ForgetDeviceSavedWifi401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response ForgetDeviceSavedWifi401JSONResponse) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type ForgetDeviceSavedWifi403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response ForgetDeviceSavedWifi403JSONResponse) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type ForgetDeviceSavedWifi404JSONResponse externalRef0.ErrorResponse
-
-func (response ForgetDeviceSavedWifi404JSONResponse) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+func (response ListClientTools404JSONResponse) VisitListClientToolsResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }
 
-type ForgetDeviceSavedWifi409JSONResponse struct{ DeviceOfflineJSONResponse }
+type ListClientTools409JSONResponse struct{ DeviceOfflineJSONResponse }
 
-func (response ForgetDeviceSavedWifi409JSONResponse) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+func (response ListClientTools409JSONResponse) VisitListClientToolsResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
 
-type ForgetDeviceSavedWifi500JSONResponse struct{ InternalErrorJSONResponse }
+type ListClientTools500JSONResponse struct{ InternalErrorJSONResponse }
 
-func (response ForgetDeviceSavedWifi500JSONResponse) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+func (response ListClientTools500JSONResponse) VisitListClientToolsResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
 
 	return ctx.JSON(&response)
 }
 
-type ForgetDeviceSavedWifi501JSONResponse struct{ DeviceUnsupportedJSONResponse }
+type ListClientTools501JSONResponse struct{ DeviceUnsupportedJSONResponse }
 
-func (response ForgetDeviceSavedWifi501JSONResponse) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+func (response ListClientTools501JSONResponse) VisitListClientToolsResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(501)
 
 	return ctx.JSON(&response)
 }
 
-type ForgetDeviceSavedWifi502JSONResponse struct{ DeviceErrorJSONResponse }
+type ListClientTools502JSONResponse struct{ DeviceErrorJSONResponse }
 
-func (response ForgetDeviceSavedWifi502JSONResponse) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+func (response ListClientTools502JSONResponse) VisitListClientToolsResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(502)
 
 	return ctx.JSON(&response)
 }
 
-type ForgetDeviceSavedWifi504JSONResponse struct{ DeviceTimeoutJSONResponse }
+type ListClientTools504JSONResponse struct{ DeviceTimeoutJSONResponse }
 
-func (response ForgetDeviceSavedWifi504JSONResponse) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(504)
-
-	return ctx.JSON(&response)
-}
-
-type ScanDeviceWifiRequestObject struct {
-	Body *ScanDeviceWifiJSONRequestBody
-}
-
-type ScanDeviceWifiResponseObject interface {
-	VisitScanDeviceWifiResponse(ctx *fiber.Ctx) error
-}
-
-type ScanDeviceWifi200JSONResponse DeviceWifiScanResponse
-
-func (response ScanDeviceWifi200JSONResponse) VisitScanDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type ScanDeviceWifi400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response ScanDeviceWifi400JSONResponse) VisitScanDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type ScanDeviceWifi401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response ScanDeviceWifi401JSONResponse) VisitScanDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type ScanDeviceWifi403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response ScanDeviceWifi403JSONResponse) VisitScanDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type ScanDeviceWifi409JSONResponse struct{ DeviceOfflineJSONResponse }
-
-func (response ScanDeviceWifi409JSONResponse) VisitScanDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type ScanDeviceWifi500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response ScanDeviceWifi500JSONResponse) VisitScanDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type ScanDeviceWifi501JSONResponse struct{ DeviceUnsupportedJSONResponse }
-
-func (response ScanDeviceWifi501JSONResponse) VisitScanDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(501)
-
-	return ctx.JSON(&response)
-}
-
-type ScanDeviceWifi502JSONResponse struct{ DeviceErrorJSONResponse }
-
-func (response ScanDeviceWifi502JSONResponse) VisitScanDeviceWifiResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(502)
-
-	return ctx.JSON(&response)
-}
-
-type ScanDeviceWifi504JSONResponse struct{ DeviceTimeoutJSONResponse }
-
-func (response ScanDeviceWifi504JSONResponse) VisitScanDeviceWifiResponse(ctx *fiber.Ctx) error {
+func (response ListClientTools504JSONResponse) VisitListClientToolsResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(504)
 
@@ -23592,42 +17529,6 @@ type StrictServerInterface interface {
 	// Get the device bound to the API key
 	// (GET /gizclaw/v1/device)
 	GetDevice(ctx context.Context, request GetDeviceRequestObject) (GetDeviceResponseObject, error)
-	// Factory reset the bound device
-	// (POST /gizclaw/v1/device/actions/factory-reset)
-	FactoryResetDevice(ctx context.Context, request FactoryResetDeviceRequestObject) (FactoryResetDeviceResponseObject, error)
-	// Ring the bound device so it can be found
-	// (POST /gizclaw/v1/device/actions/find)
-	FindDevice(ctx context.Context, request FindDeviceRequestObject) (FindDeviceResponseObject, error)
-	// Notify the bound device to run a firmware update
-	// (POST /gizclaw/v1/device/actions/firmware-update)
-	UpdateDeviceFirmware(ctx context.Context, request UpdateDeviceFirmwareRequestObject) (UpdateDeviceFirmwareResponseObject, error)
-	// Play a device-defined sound on the bound device
-	// (POST /gizclaw/v1/device/actions/play-sound)
-	PlayDeviceSound(ctx context.Context, request PlayDeviceSoundRequestObject) (PlayDeviceSoundResponseObject, error)
-	// Reboot the bound device
-	// (POST /gizclaw/v1/device/actions/reboot)
-	RebootDevice(ctx context.Context, request RebootDeviceRequestObject) (RebootDeviceResponseObject, error)
-	// Read the online device audio player snapshot
-	// (GET /gizclaw/v1/device/audioplayer)
-	GetDeviceAudioPlayer(ctx context.Context, request GetDeviceAudioPlayerRequestObject) (GetDeviceAudioPlayerResponseObject, error)
-	// Accept playback from the beginning of the selected track
-	// (POST /gizclaw/v1/device/audioplayer/actions/play)
-	PlayDeviceAudioPlayer(ctx context.Context, request PlayDeviceAudioPlayerRequestObject) (PlayDeviceAudioPlayerResponseObject, error)
-	// Stop playback and retain the playlist
-	// (POST /gizclaw/v1/device/audioplayer/actions/stop)
-	StopDeviceAudioPlayer(ctx context.Context, request StopDeviceAudioPlayerRequestObject) (StopDeviceAudioPlayerResponseObject, error)
-	// Set repeat mode without interrupting playback
-	// (PUT /gizclaw/v1/device/audioplayer/mode)
-	SetDeviceAudioPlayerMode(ctx context.Context, request SetDeviceAudioPlayerModeRequestObject) (SetDeviceAudioPlayerModeResponseObject, error)
-	// Read the online device playlist
-	// (GET /gizclaw/v1/device/audioplayer/playlist)
-	GetDeviceAudioPlayerPlaylist(ctx context.Context, request GetDeviceAudioPlayerPlaylistRequestObject) (GetDeviceAudioPlayerPlaylistResponseObject, error)
-	// Stop and atomically replace the playlist
-	// (PUT /gizclaw/v1/device/audioplayer/playlist)
-	SetDeviceAudioPlayerPlaylist(ctx context.Context, request SetDeviceAudioPlayerPlaylistRequestObject) (SetDeviceAudioPlayerPlaylistResponseObject, error)
-	// Atomically append without starting or interrupting playback
-	// (POST /gizclaw/v1/device/audioplayer/playlist/append)
-	AppendDeviceAudioPlayerPlaylist(ctx context.Context, request AppendDeviceAudioPlayerPlaylistRequestObject) (AppendDeviceAudioPlayerPlaylistResponseObject, error)
 	// Get the firmware channels configured for the bound device
 	// (GET /gizclaw/v1/device/firmware)
 	GetDeviceFirmware(ctx context.Context, request GetDeviceFirmwareRequestObject) (GetDeviceFirmwareResponseObject, error)
@@ -23643,24 +17544,12 @@ type StrictServerInterface interface {
 	// Atomically write MHS v0 hardware states
 	// (PATCH /gizclaw/v1/device/mhs/v0/states)
 	WriteMhsStates(ctx context.Context, request WriteMhsStatesRequestObject) (WriteMhsStatesResponseObject, error)
-	// List the reverse RPC methods the bound device implements
-	// (GET /gizclaw/v1/device/rpc-methods)
-	ListDeviceRPCMethods(ctx context.Context, request ListDeviceRPCMethodsRequestObject) (ListDeviceRPCMethodsResponseObject, error)
-	// Switch the Workspace the bound device runs
-	// (PUT /gizclaw/v1/device/run/workspace)
-	SetDeviceRunWorkspace(ctx context.Context, request SetDeviceRunWorkspaceRequestObject) (SetDeviceRunWorkspaceResponseObject, error)
 	// Get the online runtime of the bound device
 	// (GET /gizclaw/v1/device/runtime)
 	GetDeviceRuntime(ctx context.Context, request GetDeviceRuntimeRequestObject) (GetDeviceRuntimeResponseObject, error)
 	// Get the RuntimeProfile workflow catalog of the bound device
 	// (GET /gizclaw/v1/device/runtime-profile)
 	GetDeviceRuntimeProfile(ctx context.Context, request GetDeviceRuntimeProfileRequestObject) (GetDeviceRuntimeProfileResponseObject, error)
-	// Get the settings of the bound device
-	// (GET /gizclaw/v1/device/settings)
-	GetDeviceSettings(ctx context.Context, request GetDeviceSettingsRequestObject) (GetDeviceSettingsResponseObject, error)
-	// Change some settings of the bound device
-	// (PATCH /gizclaw/v1/device/settings)
-	UpdateDeviceSettings(ctx context.Context, request UpdateDeviceSettingsRequestObject) (UpdateDeviceSettingsResponseObject, error)
 	// Get the latest reported status of the bound device
 	// (GET /gizclaw/v1/device/status)
 	GetDeviceStatus(ctx context.Context, request GetDeviceStatusRequestObject) (GetDeviceStatusResponseObject, error)
@@ -23673,30 +17562,12 @@ type StrictServerInterface interface {
 	// Get the latest sample of one telemetry field for the bound device
 	// (GET /gizclaw/v1/device/telemetry/{field}/latest)
 	GetDeviceTelemetryLatest(ctx context.Context, request GetDeviceTelemetryLatestRequestObject) (GetDeviceTelemetryLatestResponseObject, error)
-	// List the Tools the control app may invoke on the bound device
-	// (GET /gizclaw/v1/device/tools)
-	ListDeviceTools(ctx context.Context, request ListDeviceToolsRequestObject) (ListDeviceToolsResponseObject, error)
-	// Invoke a Tool on the bound device
-	// (POST /gizclaw/v1/device/tools/{name}/actions/invoke)
-	InvokeDeviceTool(ctx context.Context, request InvokeDeviceToolRequestObject) (InvokeDeviceToolResponseObject, error)
-	// Set the absolute volume and mute state of the bound device
-	// (PUT /gizclaw/v1/device/volume)
-	SetDeviceVolume(ctx context.Context, request SetDeviceVolumeRequestObject) (SetDeviceVolumeResponseObject, error)
-	// Get the current Wi-Fi status of the bound device
-	// (GET /gizclaw/v1/device/wifi)
-	GetDeviceWifi(ctx context.Context, request GetDeviceWifiRequestObject) (GetDeviceWifiResponseObject, error)
-	// Connect the bound device to a Wi-Fi network
-	// (PUT /gizclaw/v1/device/wifi)
-	ConnectDeviceWifi(ctx context.Context, request ConnectDeviceWifiRequestObject) (ConnectDeviceWifiResponseObject, error)
-	// List Wi-Fi networks saved on the bound device
-	// (GET /gizclaw/v1/device/wifi/saved)
-	ListDeviceSavedWifi(ctx context.Context, request ListDeviceSavedWifiRequestObject) (ListDeviceSavedWifiResponseObject, error)
-	// Forget a Wi-Fi network saved on the bound device
-	// (DELETE /gizclaw/v1/device/wifi/saved/{ssid})
-	ForgetDeviceSavedWifi(ctx context.Context, request ForgetDeviceSavedWifiRequestObject) (ForgetDeviceSavedWifiResponseObject, error)
-	// Scan for Wi-Fi networks near the bound device
-	// (POST /gizclaw/v1/device/wifi/scan)
-	ScanDeviceWifi(ctx context.Context, request ScanDeviceWifiRequestObject) (ScanDeviceWifiResponseObject, error)
+	// Invoke a predefined device procedure
+	// (POST /gizclaw/v1/device/tool/v0/invoke)
+	InvokeClientTool(ctx context.Context, request InvokeClientToolRequestObject) (InvokeClientToolResponseObject, error)
+	// List implemented device procedures
+	// (GET /gizclaw/v1/device/tool/v0/tools)
+	ListClientTools(ctx context.Context, request ListClientToolsRequestObject) (ListClientToolsResponseObject, error)
 	// List Workspaces owned by the authenticated device
 	// (GET /gizclaw/v1/device/workspaces)
 	ListDeviceWorkspaces(ctx context.Context, request ListDeviceWorkspacesRequestObject) (ListDeviceWorkspacesResponseObject, error)
@@ -24130,372 +18001,6 @@ func (sh *strictHandler) GetDevice(ctx *fiber.Ctx) error {
 	return nil
 }
 
-// FactoryResetDevice operation middleware
-func (sh *strictHandler) FactoryResetDevice(ctx *fiber.Ctx) error {
-	var request FactoryResetDeviceRequestObject
-
-	var body FactoryResetDeviceJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		if !errors.Is(err, io.EOF) {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else {
-		request.Body = &body
-	}
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.FactoryResetDevice(ctx.UserContext(), request.(FactoryResetDeviceRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "FactoryResetDevice")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(FactoryResetDeviceResponseObject); ok {
-		if err := validResponse.VisitFactoryResetDeviceResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// FindDevice operation middleware
-func (sh *strictHandler) FindDevice(ctx *fiber.Ctx) error {
-	var request FindDeviceRequestObject
-
-	var body FindDeviceJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		if !errors.Is(err, io.EOF) {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else {
-		request.Body = &body
-	}
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.FindDevice(ctx.UserContext(), request.(FindDeviceRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "FindDevice")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(FindDeviceResponseObject); ok {
-		if err := validResponse.VisitFindDeviceResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// UpdateDeviceFirmware operation middleware
-func (sh *strictHandler) UpdateDeviceFirmware(ctx *fiber.Ctx) error {
-	var request UpdateDeviceFirmwareRequestObject
-
-	var body UpdateDeviceFirmwareJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		if !errors.Is(err, io.EOF) {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else {
-		request.Body = &body
-	}
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.UpdateDeviceFirmware(ctx.UserContext(), request.(UpdateDeviceFirmwareRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UpdateDeviceFirmware")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(UpdateDeviceFirmwareResponseObject); ok {
-		if err := validResponse.VisitUpdateDeviceFirmwareResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// PlayDeviceSound operation middleware
-func (sh *strictHandler) PlayDeviceSound(ctx *fiber.Ctx) error {
-	var request PlayDeviceSoundRequestObject
-
-	var body PlayDeviceSoundJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	request.Body = &body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.PlayDeviceSound(ctx.UserContext(), request.(PlayDeviceSoundRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "PlayDeviceSound")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(PlayDeviceSoundResponseObject); ok {
-		if err := validResponse.VisitPlayDeviceSoundResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// RebootDevice operation middleware
-func (sh *strictHandler) RebootDevice(ctx *fiber.Ctx) error {
-	var request RebootDeviceRequestObject
-
-	var body RebootDeviceJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		if !errors.Is(err, io.EOF) {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else {
-		request.Body = &body
-	}
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.RebootDevice(ctx.UserContext(), request.(RebootDeviceRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "RebootDevice")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(RebootDeviceResponseObject); ok {
-		if err := validResponse.VisitRebootDeviceResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// GetDeviceAudioPlayer operation middleware
-func (sh *strictHandler) GetDeviceAudioPlayer(ctx *fiber.Ctx) error {
-	var request GetDeviceAudioPlayerRequestObject
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.GetDeviceAudioPlayer(ctx.UserContext(), request.(GetDeviceAudioPlayerRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetDeviceAudioPlayer")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(GetDeviceAudioPlayerResponseObject); ok {
-		if err := validResponse.VisitGetDeviceAudioPlayerResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// PlayDeviceAudioPlayer operation middleware
-func (sh *strictHandler) PlayDeviceAudioPlayer(ctx *fiber.Ctx) error {
-	var request PlayDeviceAudioPlayerRequestObject
-
-	var body PlayDeviceAudioPlayerJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	request.Body = &body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.PlayDeviceAudioPlayer(ctx.UserContext(), request.(PlayDeviceAudioPlayerRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "PlayDeviceAudioPlayer")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(PlayDeviceAudioPlayerResponseObject); ok {
-		if err := validResponse.VisitPlayDeviceAudioPlayerResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// StopDeviceAudioPlayer operation middleware
-func (sh *strictHandler) StopDeviceAudioPlayer(ctx *fiber.Ctx) error {
-	var request StopDeviceAudioPlayerRequestObject
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.StopDeviceAudioPlayer(ctx.UserContext(), request.(StopDeviceAudioPlayerRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "StopDeviceAudioPlayer")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(StopDeviceAudioPlayerResponseObject); ok {
-		if err := validResponse.VisitStopDeviceAudioPlayerResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// SetDeviceAudioPlayerMode operation middleware
-func (sh *strictHandler) SetDeviceAudioPlayerMode(ctx *fiber.Ctx) error {
-	var request SetDeviceAudioPlayerModeRequestObject
-
-	var body SetDeviceAudioPlayerModeJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	request.Body = &body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.SetDeviceAudioPlayerMode(ctx.UserContext(), request.(SetDeviceAudioPlayerModeRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "SetDeviceAudioPlayerMode")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(SetDeviceAudioPlayerModeResponseObject); ok {
-		if err := validResponse.VisitSetDeviceAudioPlayerModeResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// GetDeviceAudioPlayerPlaylist operation middleware
-func (sh *strictHandler) GetDeviceAudioPlayerPlaylist(ctx *fiber.Ctx) error {
-	var request GetDeviceAudioPlayerPlaylistRequestObject
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.GetDeviceAudioPlayerPlaylist(ctx.UserContext(), request.(GetDeviceAudioPlayerPlaylistRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetDeviceAudioPlayerPlaylist")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(GetDeviceAudioPlayerPlaylistResponseObject); ok {
-		if err := validResponse.VisitGetDeviceAudioPlayerPlaylistResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// SetDeviceAudioPlayerPlaylist operation middleware
-func (sh *strictHandler) SetDeviceAudioPlayerPlaylist(ctx *fiber.Ctx) error {
-	var request SetDeviceAudioPlayerPlaylistRequestObject
-
-	var body SetDeviceAudioPlayerPlaylistJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	request.Body = &body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.SetDeviceAudioPlayerPlaylist(ctx.UserContext(), request.(SetDeviceAudioPlayerPlaylistRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "SetDeviceAudioPlayerPlaylist")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(SetDeviceAudioPlayerPlaylistResponseObject); ok {
-		if err := validResponse.VisitSetDeviceAudioPlayerPlaylistResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// AppendDeviceAudioPlayerPlaylist operation middleware
-func (sh *strictHandler) AppendDeviceAudioPlayerPlaylist(ctx *fiber.Ctx) error {
-	var request AppendDeviceAudioPlayerPlaylistRequestObject
-
-	var body AppendDeviceAudioPlayerPlaylistJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	request.Body = &body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.AppendDeviceAudioPlayerPlaylist(ctx.UserContext(), request.(AppendDeviceAudioPlayerPlaylistRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "AppendDeviceAudioPlayerPlaylist")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(AppendDeviceAudioPlayerPlaylistResponseObject); ok {
-		if err := validResponse.VisitAppendDeviceAudioPlayerPlaylistResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
 // GetDeviceFirmware operation middleware
 func (sh *strictHandler) GetDeviceFirmware(ctx *fiber.Ctx) error {
 	var request GetDeviceFirmwareRequestObject
@@ -24635,62 +18140,6 @@ func (sh *strictHandler) WriteMhsStates(ctx *fiber.Ctx) error {
 	return nil
 }
 
-// ListDeviceRPCMethods operation middleware
-func (sh *strictHandler) ListDeviceRPCMethods(ctx *fiber.Ctx) error {
-	var request ListDeviceRPCMethodsRequestObject
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.ListDeviceRPCMethods(ctx.UserContext(), request.(ListDeviceRPCMethodsRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListDeviceRPCMethods")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(ListDeviceRPCMethodsResponseObject); ok {
-		if err := validResponse.VisitListDeviceRPCMethodsResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// SetDeviceRunWorkspace operation middleware
-func (sh *strictHandler) SetDeviceRunWorkspace(ctx *fiber.Ctx) error {
-	var request SetDeviceRunWorkspaceRequestObject
-
-	var body SetDeviceRunWorkspaceJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	request.Body = &body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.SetDeviceRunWorkspace(ctx.UserContext(), request.(SetDeviceRunWorkspaceRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "SetDeviceRunWorkspace")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(SetDeviceRunWorkspaceResponseObject); ok {
-		if err := validResponse.VisitSetDeviceRunWorkspaceResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
 // GetDeviceRuntime operation middleware
 func (sh *strictHandler) GetDeviceRuntime(ctx *fiber.Ctx) error {
 	var request GetDeviceRuntimeRequestObject
@@ -24733,62 +18182,6 @@ func (sh *strictHandler) GetDeviceRuntimeProfile(ctx *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(GetDeviceRuntimeProfileResponseObject); ok {
 		if err := validResponse.VisitGetDeviceRuntimeProfileResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// GetDeviceSettings operation middleware
-func (sh *strictHandler) GetDeviceSettings(ctx *fiber.Ctx) error {
-	var request GetDeviceSettingsRequestObject
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.GetDeviceSettings(ctx.UserContext(), request.(GetDeviceSettingsRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetDeviceSettings")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(GetDeviceSettingsResponseObject); ok {
-		if err := validResponse.VisitGetDeviceSettingsResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// UpdateDeviceSettings operation middleware
-func (sh *strictHandler) UpdateDeviceSettings(ctx *fiber.Ctx) error {
-	var request UpdateDeviceSettingsRequestObject
-
-	var body UpdateDeviceSettingsJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	request.Body = &body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.UpdateDeviceSettings(ctx.UserContext(), request.(UpdateDeviceSettingsRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UpdateDeviceSettings")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(UpdateDeviceSettingsResponseObject); ok {
-		if err := validResponse.VisitUpdateDeviceSettingsResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {
@@ -24903,90 +18296,29 @@ func (sh *strictHandler) GetDeviceTelemetryLatest(ctx *fiber.Ctx, field external
 	return nil
 }
 
-// ListDeviceTools operation middleware
-func (sh *strictHandler) ListDeviceTools(ctx *fiber.Ctx) error {
-	var request ListDeviceToolsRequestObject
+// InvokeClientTool operation middleware
+func (sh *strictHandler) InvokeClientTool(ctx *fiber.Ctx) error {
+	var request InvokeClientToolRequestObject
 
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.ListDeviceTools(ctx.UserContext(), request.(ListDeviceToolsRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListDeviceTools")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(ListDeviceToolsResponseObject); ok {
-		if err := validResponse.VisitListDeviceToolsResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// InvokeDeviceTool operation middleware
-func (sh *strictHandler) InvokeDeviceTool(ctx *fiber.Ctx, name string) error {
-	var request InvokeDeviceToolRequestObject
-
-	request.Name = name
-
-	var body InvokeDeviceToolJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		if !errors.Is(err, io.EOF) {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else {
-		request.Body = &body
-	}
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.InvokeDeviceTool(ctx.UserContext(), request.(InvokeDeviceToolRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "InvokeDeviceTool")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(InvokeDeviceToolResponseObject); ok {
-		if err := validResponse.VisitInvokeDeviceToolResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// SetDeviceVolume operation middleware
-func (sh *strictHandler) SetDeviceVolume(ctx *fiber.Ctx) error {
-	var request SetDeviceVolumeRequestObject
-
-	var body SetDeviceVolumeJSONRequestBody
+	var body InvokeClientToolJSONRequestBody
 	if err := ctx.BodyParser(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 	request.Body = &body
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.SetDeviceVolume(ctx.UserContext(), request.(SetDeviceVolumeRequestObject))
+		return sh.ssi.InvokeClientTool(ctx.UserContext(), request.(InvokeClientToolRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "SetDeviceVolume")
+		handler = middleware(handler, "InvokeClientTool")
 	}
 
 	response, err := handler(ctx, request)
 
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(SetDeviceVolumeResponseObject); ok {
-		if err := validResponse.VisitSetDeviceVolumeResponse(ctx); err != nil {
+	} else if validResponse, ok := response.(InvokeClientToolResponseObject); ok {
+		if err := validResponse.VisitInvokeClientToolResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {
@@ -24995,140 +18327,23 @@ func (sh *strictHandler) SetDeviceVolume(ctx *fiber.Ctx) error {
 	return nil
 }
 
-// GetDeviceWifi operation middleware
-func (sh *strictHandler) GetDeviceWifi(ctx *fiber.Ctx) error {
-	var request GetDeviceWifiRequestObject
+// ListClientTools operation middleware
+func (sh *strictHandler) ListClientTools(ctx *fiber.Ctx) error {
+	var request ListClientToolsRequestObject
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.GetDeviceWifi(ctx.UserContext(), request.(GetDeviceWifiRequestObject))
+		return sh.ssi.ListClientTools(ctx.UserContext(), request.(ListClientToolsRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetDeviceWifi")
+		handler = middleware(handler, "ListClientTools")
 	}
 
 	response, err := handler(ctx, request)
 
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(GetDeviceWifiResponseObject); ok {
-		if err := validResponse.VisitGetDeviceWifiResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// ConnectDeviceWifi operation middleware
-func (sh *strictHandler) ConnectDeviceWifi(ctx *fiber.Ctx) error {
-	var request ConnectDeviceWifiRequestObject
-
-	var body ConnectDeviceWifiJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	request.Body = &body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.ConnectDeviceWifi(ctx.UserContext(), request.(ConnectDeviceWifiRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ConnectDeviceWifi")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(ConnectDeviceWifiResponseObject); ok {
-		if err := validResponse.VisitConnectDeviceWifiResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// ListDeviceSavedWifi operation middleware
-func (sh *strictHandler) ListDeviceSavedWifi(ctx *fiber.Ctx) error {
-	var request ListDeviceSavedWifiRequestObject
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.ListDeviceSavedWifi(ctx.UserContext(), request.(ListDeviceSavedWifiRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListDeviceSavedWifi")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(ListDeviceSavedWifiResponseObject); ok {
-		if err := validResponse.VisitListDeviceSavedWifiResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// ForgetDeviceSavedWifi operation middleware
-func (sh *strictHandler) ForgetDeviceSavedWifi(ctx *fiber.Ctx, ssid string) error {
-	var request ForgetDeviceSavedWifiRequestObject
-
-	request.Ssid = ssid
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.ForgetDeviceSavedWifi(ctx.UserContext(), request.(ForgetDeviceSavedWifiRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ForgetDeviceSavedWifi")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(ForgetDeviceSavedWifiResponseObject); ok {
-		if err := validResponse.VisitForgetDeviceSavedWifiResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// ScanDeviceWifi operation middleware
-func (sh *strictHandler) ScanDeviceWifi(ctx *fiber.Ctx) error {
-	var request ScanDeviceWifiRequestObject
-
-	var body ScanDeviceWifiJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		if !errors.Is(err, io.EOF) {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else {
-		request.Body = &body
-	}
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.ScanDeviceWifi(ctx.UserContext(), request.(ScanDeviceWifiRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ScanDeviceWifi")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(ScanDeviceWifiResponseObject); ok {
-		if err := validResponse.VisitScanDeviceWifiResponse(ctx); err != nil {
+	} else if validResponse, ok := response.(ListClientToolsResponseObject); ok {
+		if err := validResponse.VisitListClientToolsResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

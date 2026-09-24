@@ -144,27 +144,20 @@ An API key bound to one device (see [API keys](./api-keys)) can reach `/gizclaw/
 | `GET /gizclaw/v1/device/runtime-profile` | Name and revision of the device's RuntimeProfile, with the workflow names of each collection |
 | `GET /gizclaw/v1/device/workspaces`, `DELETE /device/workspaces/{workspaceId}` | List the device's Workspaces (such as game saves) by collection and workflow name, and delete one |
 | `GET /gizclaw/v1/device/workspaces/{workspaceId}/history`, `/history/{historyId}/audio.ogg` | Read a Workspace's chat history and stored audio |
-| `PUT /gizclaw/v1/device/volume` | Set volume and mute; returns the status the device reports |
-| `POST /gizclaw/v1/device/actions/play-sound` | Play a device-defined sound |
-| `POST /gizclaw/v1/device/actions/find` | Find my device: the device rings its built-in find-me sound with a rising volume |
-| `POST /gizclaw/v1/device/actions/reboot` | Reboot the device |
-| `GET /gizclaw/v1/device/firmware` | Every channel of the Firmware configuration bound to the device, with its package |
-| `POST /gizclaw/v1/device/actions/firmware-update` | Notify the device to run one OTA |
-| `GET /gizclaw/v1/device/wifi`, `/wifi/saved`, `DELETE /wifi/saved/{ssid}` | Query Wi‑Fi status, list and forget saved networks |
-| `GET`, `PATCH /gizclaw/v1/device/settings` | Read and change device settings (4G, screen timeout, brightness, language, interaction mode, key feedback, alert mode, auto sleep, NFC) |
-| `POST /gizclaw/v1/device/actions/factory-reset` | Factory reset (optional `keep_network`) |
-| `GET /gizclaw/v1/device/rpc-methods` | Control methods the device implements, to hide entries it does not support |
-| `PUT /gizclaw/v1/device/run/workspace` | Switch the Workspace the device runs |
-| `GET /gizclaw/v1/device/tools`, `POST /device/tools/{name}/actions/invoke` | List and invoke device Tools the RuntimeProfile exposes to the control app |
+| `GET /gizclaw/v1/device/firmware` | Bound Firmware channels and packages |
+| `GET /gizclaw/v1/device/mhs/v0/manifest` | Manifest-defined hardware state keys |
+| `POST /gizclaw/v1/device/mhs/v0/read`, `PATCH /device/mhs/v0/states` | Read and write typed hardware states |
+| `GET /gizclaw/v1/device/tool/v0/tools` | Predefined procedures installed on the device |
+| `POST /gizclaw/v1/device/tool/v0/invoke` | Invoke one typed procedure, such as `device.find`, `wifi.scan`, `firmware.update`, or an audio player operation |
 | `/gizclaw/v1/contacts`, `/contacts/{contactName}` | List/create/get/put/delete the device's contacts |
 | `/gizclaw/v1/friends/invite-token` | Read, create (optional `ttl_seconds`, up to 7 days), or revoke the device's friend invite code |
 | `/gizclaw/v1/friends`, `/friends/{friendName}` | Befriend with an invite code, list (with the other device's name and emoji), read, and delete friends |
 | `/gizclaw/v1/friend-groups`, `/friend-groups/@join`, `/friend-groups/{friendGroupName}` | List, create, join by invite code, read, update, and dissolve Friend Groups |
 | `/friend-groups/{friendGroupName}/@leave`, `/invite-token`, `/members`, `/members/{memberName}` | Leave, Group invite codes, list members (with name and emoji), and manage members |
 
-Read routes project data the Server already holds and never wake the device. Control routes execute live over a Server-to-device RPC: an offline device answers `409 DEVICE_OFFLINE`, no answer within 5 seconds gives `504 DEVICE_TIMEOUT`, and a device without the provider gives `501 DEVICE_UNSUPPORTED`. Poll `GET /device/status` for state changes. Settings, factory reset, Workspace switch and Tool rules are in [Public API](/en/developing/api/http/public#device-control-flow): a factory reset is irreversible, and a device that also deletes its own Peer invalidates every API key; product-specific configuration such as usage time is a Tool, not a setting. Wi‑Fi provisioning stays on the device-local BLE channel.
+Stored reads do not wake the device. `mhs/v0` handles bound hardware state; `tool/v0` handles installed predefined procedures. The Server validates each request before sending a live RPC. Offline devices return `409 DEVICE_OFFLINE`, timeouts `504 DEVICE_TIMEOUT`, and absent handlers `501 DEVICE_UNSUPPORTED`. See [Public API](/en/developing/api/http/public#device-control-flow) for exact contracts.
 
-`GET /device/firmware` returns the `stable`, `beta`, and `develop` channels at once, each with its `package` (`version`, `url`, `sha256`, `size`) (stored packages without a version omit `version` and remain available). The Server does not store the channel the device uses, so the caller picks one and names it in `POST /device/actions/firmware-update` via `channel`; omitting it leaves the choice to the device. To tell whether an update is needed, compare `firmware_sha256` from `GET /device/status` — the package the device reports running — with the target channel's `package.sha256`, and pass that same `sha256` in the request so the device refuses when it resolves a different package than the one shown. Firmware too old to implement the RPC answers `501 DEVICE_UNSUPPORTED`; hide the update entry point in that case instead of reporting a failed update.
+`GET /device/firmware` returns all configured channels. To update, compare the target package digest with the stored `GET /device/status` digest, then invoke `firmware.update` with optional `channel` and matching `sha256` through `POST /device/tool/v0/invoke`.
 
 `GET /device/runtime-profile` returns only the RuntimeProfile `name`, `revision`, and `collections[].workflows[].name`, with collections and workflows sorted by name. Each workflow name is the name the device uses with `server.workflow.*`, taken directly from the RuntimeProfile bindings without checking that the Workflow resource still exists, and `name`/`revision` equal `runtime_profile_name`/`runtime_profile_revision` in RPC responses. Covers, descriptions, and display names are not part of the response: callers key their own metadata by `<profile name>/<collection>` and `<profile name>/<workflow name>`, and decide display order themselves.
 
@@ -173,13 +166,13 @@ Read routes project data the Server already holds and never wake the device. Con
 Friend and Friend Group routes only read and write the Server's social data, so they keep working while the device is offline or lost. When a parent sends an invite code to someone, pass `ttl_seconds`: the default 5 minute code is usually too short. An active code keeps its value and only gets a later expiry, so a code the device is showing stays valid. Groups are addressed by the device's own Group name; the owner cannot leave (`409 FRIEND_GROUP_OWNER_CANNOT_LEAVE`) and dissolves the Group instead, while a non-owner dissolving gets `403`. See [Public API](../developing/api/http/public#friend-and-friend-group-surface) for every error code.
 
 ```sh
-curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/volume" \
+curl -sS -X PATCH "$GIZCLAW_URL/gizclaw/v1/device/mhs/v0/states" \
   -H "Authorization: Bearer $GIZCLAW_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"level":35,"muted":false}'
+  -d '{"states":[{"device_id":"speaker.main","state":"volume","value":35}]}'
 ```
 
-TypeScript uses the generated `setDeviceVolume`, `getDeviceStatus`, `listContacts`, and related operations from `@gizclaw/gizclaw/peerhttp`; Go uses `peerhttp.ClientWithResponses` (the same type `gizcli.Client.PeerHTTPClient()` returns). The exact paths, parameters, and responses are defined by [`api/http/peer.json`](https://github.com/GizClaw/gizclaw/blob/main/api/http/peer.json).
+TypeScript uses the generated `writeMhsStates`, `getDeviceStatus`, `listContacts`, and related operations from `@gizclaw/gizclaw/peerhttp`; Go uses `peerhttp.ClientWithResponses` (the same type `gizcli.Client.PeerHTTPClient()` returns). The exact paths, parameters, and responses are defined by [`api/http/peer.json`](https://github.com/GizClaw/gizclaw/blob/main/api/http/peer.json).
 
 ## Errors and connection lifecycle
 

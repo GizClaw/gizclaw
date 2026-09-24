@@ -1,4 +1,11 @@
 #include "gzc.h"
+#include <type_traits>
+
+static_assert(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE == 135);
+static_assert(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_LIST == 136);
+static_assert(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_LIST == 137);
+static_assert(std::is_same_v<decltype(gizclaw_rpc_v1_ClientToolV0InvokeRequest::payload), pb_callback_t>);
+static_assert(std::is_same_v<decltype(gzc_tool_handler_t::tool), gizclaw_rpc_v1_ClientTool>);
 
 static_assert(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FIRMWARE_GET == 22);
 static_assert(sizeof(gizclaw_rpc_v1_FirmwareGetResponse::description) == 1025);

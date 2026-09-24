@@ -86,8 +86,6 @@ enum RpcMethod {
   RPC_METHOD_UNSPECIFIED = 0;
   RPC_METHOD_ALL_PING = 1 [(rpc_method) = { name: "all.ping" request: "PingRequest" response: "PingResponse" }];
   RPC_METHOD_ALL_SPEED_TEST_RUN = 2 [(rpc_method) = { name: "all.speed_test.run" request: "SpeedTestRequest" response: "SpeedTestResponse" }];
-  RPC_METHOD_CLIENT_INFO_GET = 3 [(rpc_method) = { name: "client.info.get" request: "ClientGetInfoRequest" response: "ClientGetInfoResponse" }];
-  RPC_METHOD_CLIENT_IDENTIFIERS_GET = 4 [(rpc_method) = { name: "client.identifiers.get" request: "ClientGetIdentifiersRequest" response: "ClientGetIdentifiersResponse" }];
   RPC_METHOD_SERVER_INFO_GET = 5 [(rpc_method) = { name: "server.info.get" request: "ServerGetInfoRequest" response: "ServerGetInfoResponse" }];
   RPC_METHOD_SERVER_INFO_PUT = 6 [(rpc_method) = { name: "server.info.put" request: "ServerPutInfoRequest" response: "ServerPutInfoResponse" }];
   RPC_METHOD_SERVER_RUNTIME_GET = 7 [(rpc_method) = { name: "server.runtime.get" request: "ServerGetRuntimeRequest" response: "ServerGetRuntimeResponse" }];
@@ -148,7 +146,6 @@ enum RpcMethod {
   RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE = 61 [(rpc_method) = { name: "server.friend_group.members.delete" request: "FriendGroupMemberDeleteRequest" response: "FriendGroupMemberDeleteResponse" }];
   RPC_METHOD_SERVER_TOOL_LIST = 80 [(rpc_method) = { name: "server.tool.list" request: "ToolListRequest" response: "ToolListResponse" }];
   RPC_METHOD_SERVER_TOOL_GET = 81 [(rpc_method) = { name: "server.tool.get" request: "ToolGetRequest" response: "ToolGetResponse" }];
-  RPC_METHOD_CLIENT_TOOL_INVOKE = 82 [(rpc_method) = { name: "client.tool.invoke" request: "ToolInvokeRequest" response: "ToolInvokeResponse" }];
   RPC_METHOD_SERVER_PEER_LOOKUP = 83 [(rpc_method) = { name: "server.peer.lookup" request: "ServerPeerLookupRequest" response: "ServerPeerLookupResponse" }];
   RPC_METHOD_SERVER_PEER_ASSIGN = 84 [(rpc_method) = { name: "server.peer.assign" request: "ServerPeerAssignRequest" response: "ServerPeerAssignResponse" }];
   RPC_METHOD_SERVER_ROUTE_RESOLVE = 85 [(rpc_method) = { name: "server.route.resolve" request: "ServerRouteResolveRequest" response: "ServerRouteResolveResponse" }];
@@ -163,39 +160,15 @@ enum RpcMethod {
   RPC_METHOD_SERVER_API_KEY_LIST = 97 [(rpc_method) = { name: "server.api_key.list" request: "APIKeyListRequest" response: "APIKeyListResponse" }];
   RPC_METHOD_SERVER_API_KEY_REVOKE = 98 [(rpc_method) = { name: "server.api_key.revoke" request: "APIKeyRevokeRequest" response: "APIKeyRevokeResponse" }];
   RPC_METHOD_SERVER_API_KEY_RESOLVE = 99 [(rpc_method) = { name: "server.api_key.resolve" request: "ServerAPIKeyResolveRequest" response: "ServerAPIKeyResolveResponse" }];
-  RPC_METHOD_CLIENT_DEVICE_STATUS_GET = 100 [(rpc_method) = { name: "client.device.status.get" request: "ClientDeviceStatusGetRequest" response: "ClientDeviceStatusGetResponse" }];
-  // Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
-  RPC_METHOD_CLIENT_DEVICE_VOLUME_SET = 101 [(rpc_method) = { name: "client.device.volume.set" request: "ClientDeviceVolumeSetRequest" response: "ClientDeviceVolumeSetResponse" }, deprecated = true];
-  RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY = 102 [(rpc_method) = { name: "client.device.sound.play" request: "ClientDeviceSoundPlayRequest" response: "ClientDeviceSoundPlayResponse" }];
-  RPC_METHOD_CLIENT_DEVICE_REBOOT = 103 [(rpc_method) = { name: "client.device.reboot" request: "ClientDeviceRebootRequest" response: "ClientDeviceRebootResponse" }];
-  RPC_METHOD_CLIENT_WIFI_STATUS_GET = 104 [(rpc_method) = { name: "client.wifi.status.get" request: "ClientWifiStatusGetRequest" response: "ClientWifiStatusGetResponse" }];
-  RPC_METHOD_CLIENT_WIFI_SAVED_LIST = 105 [(rpc_method) = { name: "client.wifi.saved.list" request: "ClientWifiSavedListRequest" response: "ClientWifiSavedListResponse" }];
-  RPC_METHOD_CLIENT_WIFI_SAVED_FORGET = 106 [(rpc_method) = { name: "client.wifi.saved.forget" request: "ClientWifiSavedForgetRequest" response: "ClientWifiSavedForgetResponse" }];
-  RPC_METHOD_CLIENT_WIFI_SCAN = 108 [(rpc_method) = { name: "client.wifi.scan" request: "ClientWifiScanRequest" response: "ClientWifiScanResponse" }];
-  RPC_METHOD_CLIENT_WIFI_CONNECT = 109 [(rpc_method) = { name: "client.wifi.connect" request: "ClientWifiConnectRequest" response: "ClientWifiConnectResponse" }];
-  RPC_METHOD_CLIENT_FIRMWARE_UPDATE = 111 [(rpc_method) = { name: "client.firmware.update" request: "ClientFirmwareUpdateRequest" response: "ClientFirmwareUpdateResponse" }];
   RPC_METHOD_SERVER_RUNTIME_PUT = 112 [(rpc_method) = { name: "server.runtime.put" request: "ServerPutRuntimeRequest" response: "ServerPutRuntimeResponse" }];
-  RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_GET = 113 [(rpc_method) = { name: "client.device.audioplayer.get" request: "ClientDeviceAudioPlayerGetRequest" response: "ClientDeviceAudioPlayerGetResponse" }];
-  RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_GET = 114 [(rpc_method) = { name: "client.device.audioplayer.playlist.get" request: "ClientDeviceAudioPlayerPlaylistGetRequest" response: "ClientDeviceAudioPlayerPlaylistGetResponse" }];
-  RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_SET = 115 [(rpc_method) = { name: "client.device.audioplayer.playlist.set" request: "ClientDeviceAudioPlayerPlaylistSetRequest" response: "ClientDeviceAudioPlayerPlaylistSetResponse" }];
-  RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_APPEND = 116 [(rpc_method) = { name: "client.device.audioplayer.playlist.append" request: "ClientDeviceAudioPlayerPlaylistAppendRequest" response: "ClientDeviceAudioPlayerPlaylistAppendResponse" }];
-  RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY = 117 [(rpc_method) = { name: "client.device.audioplayer.play" request: "ClientDeviceAudioPlayerPlayRequest" response: "ClientDeviceAudioPlayerPlayResponse" }];
-  RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP = 118 [(rpc_method) = { name: "client.device.audioplayer.stop" request: "ClientDeviceAudioPlayerStopRequest" response: "ClientDeviceAudioPlayerStopResponse" }];
-  RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET = 119 [(rpc_method) = { name: "client.device.audioplayer.mode.set" request: "ClientDeviceAudioPlayerModeSetRequest" response: "ClientDeviceAudioPlayerModeSetResponse" }];
-  // Deprecated: Use client.mhs.v0.read with RuntimeProfile manifest keys.
-  RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET = 128 [(rpc_method) = { name: "client.device.settings.get" request: "ClientDeviceSettingsGetRequest" response: "ClientDeviceSettingsGetResponse" }, deprecated = true];
-  // Deprecated: Use client.mhs.v0.write with RuntimeProfile manifest keys.
-  RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET = 129 [(rpc_method) = { name: "client.device.settings.set" request: "ClientDeviceSettingsSetRequest" response: "ClientDeviceSettingsSetResponse" }, deprecated = true];
-  RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET = 130 [(rpc_method) = { name: "client.device.factory_reset" request: "ClientDeviceFactoryResetRequest" response: "ClientDeviceFactoryResetResponse" }];
-  RPC_METHOD_CLIENT_RPC_METHODS_GET = 131 [(rpc_method) = { name: "client.rpc.methods.get" request: "ClientRpcMethodsGetRequest" response: "ClientRpcMethodsGetResponse" }];
-  RPC_METHOD_CLIENT_RUN_WORKSPACE_SET = 132 [(rpc_method) = { name: "client.run.workspace.set" request: "ClientRunWorkspaceSetRequest" response: "ClientRunWorkspaceSetResponse" }];
   RPC_METHOD_CLIENT_MHS_V0_READ = 133 [(rpc_method) = { name: "client.mhs.v0.read" request: "ClientMhsV0ReadRequest" response: "ClientMhsV0ReadResponse" }];
   RPC_METHOD_CLIENT_MHS_V0_WRITE = 134 [(rpc_method) = { name: "client.mhs.v0.write" request: "ClientMhsV0WriteRequest" response: "ClientMhsV0WriteResponse" }];
+  RPC_METHOD_CLIENT_TOOL_V0_INVOKE = 135 [(rpc_method) = { name: "client.tool.v0.invoke" request: "ClientToolV0InvokeRequest" response: "ClientToolV0InvokeResponse" }];
+  RPC_METHOD_CLIENT_TOOL_V0_LIST = 136 [(rpc_method) = { name: "client.tool.v0.list" request: "ClientToolV0ListRequest" response: "ClientToolV0ListResponse" }];
+  RPC_METHOD_CLIENT_RPC_METHODS_LIST = 137 [(rpc_method) = { name: "client.rpc.methods.list" request: "ClientRpcMethodsListRequest" response: "ClientRpcMethodsListResponse" }];
   RPC_METHOD_SERVER_APP_CONFIG_LIST = 121 [(rpc_method) = { name: "server.app_config.list" request: "AppConfigListRequest" response: "AppConfigListResponse" }];
   RPC_METHOD_SERVER_APP_CONFIG_GET = 122 [(rpc_method) = { name: "server.app_config.get" request: "AppConfigGetRequest" response: "AppConfigGetResponse" }];
   RPC_METHOD_SERVER_FRIEND_PING = 123 [(rpc_method) = { name: "server.friend.ping" request: "FriendPingRequest" response: "FriendPingResponse" }];
   RPC_METHOD_SERVER_FRIEND_GROUP_PING = 124 [(rpc_method) = { name: "server.friend_group.ping" request: "FriendGroupPingRequest" response: "FriendGroupPingResponse" }];
   RPC_METHOD_SERVER_PROFILE_GET = 125 [(rpc_method) = { name: "server.profile.get" request: "ProfileGetRequest" response: "ProfileGetResponse" }];
-  RPC_METHOD_CLIENT_DEVICE_FIND = 126 [(rpc_method) = { name: "client.device.find" request: "ClientDeviceFindRequest" response: "ClientDeviceFindResponse" }];
-  RPC_METHOD_CLIENT_SOCIAL_PING = 127 [(rpc_method) = { name: "client.social.ping" request: "ClientSocialPingRequest" response: "ClientSocialPingResponse" }];
 }

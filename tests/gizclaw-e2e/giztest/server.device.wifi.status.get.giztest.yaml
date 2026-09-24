@@ -8,7 +8,7 @@ clients:
   peer:
     identity: ephemeral
     connection: webrtc
-    access_point: "${endpoint}"
+    access_point: ${endpoint}
 variables:
   endpoint:
     direction: input
@@ -28,50 +28,73 @@ variables:
     type: string
     secret: true
 steps:
-- id: register_peer
-  client: peer
-  rpc:
-    method: server.register
-    request:
-      token: "${registration_token}"
-- id: create_api_key
-  client: peer
-  rpc:
-    method: server.api_key.create
-    request:
-      display_name: "${resource_name}"
-  capture:
-    api_key: /api_key
-- id: primary_http
-  client: peer
-  http:
-    method: GET
-    path: /gizclaw/v1/device/wifi
-    headers:
-      Authorization: "Bearer ${api_key}"
-    status: 200
-  expect:
-    /connected:
-      equals: true
-    /ssid:
-      equals: home
-    /rssi_dbm:
-      equals: -61
-    /ip:
-      equals: 192.0.2.20
-- id: provider_wifi
-  client: peer
-  client_rpc:
-    method: client.wifi.status.get
-    response:
-      connected: true
-      ssid: home
-      rssi_dbm: -61
-      ip: 192.0.2.20
-    expect_calls: 1
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: primary_http
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/read
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+      body:
+        states:
+          - device_id: wifi.main
+            state: connected
+          - device_id: wifi.main
+            state: ssid
+          - device_id: wifi.main
+            state: rssi-dbm
+          - device_id: wifi.main
+            state: ip
+    expect:
+      /states/0/value:
+        equals: true
+      /states/1/value:
+        equals: home
+      /states/2/value:
+        equals: -61
+      /states/3/value:
+        equals: 192.0.2.20
+  - id: provider_wifi
+    client: peer
+    client_rpc:
+      method: client.mhs.v0.read
+      response:
+        states:
+          - device_id: wifi.main
+            state: connected
+            value:
+              bool_value: true
+          - device_id: wifi.main
+            state: ssid
+            value:
+              string_value: home
+          - device_id: wifi.main
+            state: rssi-dbm
+            value:
+              int_value: -61
+          - device_id: wifi.main
+            state: ip
+            value:
+              string_value: 192.0.2.20
+      expect_calls: 1
 finally:
-- id: cleanup_peer
-  client: peer
-  rpc:
-    method: server.peer.delete
-    request: {}
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

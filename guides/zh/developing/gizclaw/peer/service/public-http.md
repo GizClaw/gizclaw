@@ -4,7 +4,7 @@
 
 提供普通 Peer Public HTTP 与 Edge Public HTTP，组装 API Key、CORS、OpenAI API、Edge signaling routes 以及 `/gizclaw/v1/device*`、`/gizclaw/v1/contacts*`、`/gizclaw/v1/friends*`、`/gizclaw/v1/friend-groups*` 设备扩展，并执行 Edge client/signaling Peer 的准入判断。
 
-该文件拥有 HTTP surface composition；API Key 状态属于 `services/system/apikey`，具体 API 行为属于对应领域 service。设备扩展 handler 分布在四个文件：`peer_service_serve_peer_http_device_api.go` 把 `/device`、`/device/runtime`、`/device/runtime-profile`、`/device/status`、`/device/telemetry*` 与 `/contacts*` 适配到 `peerresource.DeviceReads` 和 `services/social/contact`；`peer_service_serve_peer_http_device_control.go` 把 `PUT /device/volume`、`POST /device/actions/*` 与 `/device/wifi*` 经 `deviceController` 转发为 `client.device.*` / `client.wifi.*` RPC，并把设备回报的 `PeerStatus` 写回 `services/runtime/peertelemetry`；`peer_service_serve_peer_http_monitor.go` 把 `GET /device/workspaces` 与 `DELETE /device/workspaces/{workspaceId}` 适配到 `peerresource.DeviceReads`（按当前 RuntimeProfile 投影 alias、复用 Workspace 删除），并直接用 Workspace service 服务 History、音频与 `/device/logs/search`。`peer_service_serve_peer_http_social.go` 把 `/friends*` 与 `/friend-groups*` 适配到 `services/social/friend` 与 `services/social/friendgroup`，用 `Profiles`（Peer service）投影好友与群成员的 `info`，并把服务的 sentinel error 映射为稳定错误码；业务规则全部留在领域 service。Peer HTTP 的 fiber app 使用 `Immutable`，路径参数不会引用被复用的请求缓冲区，交给 service 作为 store key、锁 key 或通知内容后仍然有效。
+Peer HTTP 组合 owner 范围内的资源和设备控制：`peer_service_serve_peer_http_device_api.go` 提供设备、Runtime、状态和联系人的存储读取；`peer_service_serve_peer_http_tool.go` 处理预定义 `tool/v0` 的 list/invoke；`peer_service_serve_peer_http_mhs.go` 处理由 manifest 约束的 `mhs/v0` 状态读写。`peer_service_serve_peer_http_device_control.go` 集中处理在线检查、owner 串行化及设备错误映射。Workspace、遥测、社交和监控路由调用各自领域 service。Fiber app 启用 `Immutable`，保存的路径参数不会引用被复用的请求缓冲区。
 
 ## Owner binding 与 ingress
 
@@ -34,4 +34,4 @@ Direct Server HTTP（`server.go` 的 mux，`serve-to-clients=true` 时开放）�
 
 `peer_service_serve_peer_http_mhs.go` 提供 manifest/read/states 路由；`peerresource.DeviceReads.MhsManifest` 离线读取当前 owner 绑定，`services/device/mhs` 校验请求与响应，`rpcClient.ReadMhsStates/WriteMhsStates` 复用 controller。完整 contract 见 [Public API](/zh/developing/api/http/public#mhs-v0-硬件状态)。
 
-`PUT /gizclaw/v1/device/volume`、`GET /gizclaw/v1/device/settings` 和 `PATCH /gizclaw/v1/device/settings` 已弃用。写入改用 `PATCH /gizclaw/v1/device/mhs/v0/states`，读取改用 `POST /gizclaw/v1/device/mhs/v0/read`，key 先从 `GET /gizclaw/v1/device/mhs/v0/manifest` 获取。旧接口行为不变；[迁移表与退役条件](/zh/developing/api/overview#mhs-v0-migration) 说明推荐 key。只有固件和控制 App 均迁移后才移除，目前没有移除日期。
+设备控制接口使用 `mhs/v0` 处理 manifest 定义的状态，使用 `tool/v0` 处理预定义过程。两者都在联系设备前验证请求；见 [Public API](/zh/developing/api/http/public#设备控制流程)。

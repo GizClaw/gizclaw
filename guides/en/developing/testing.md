@@ -540,16 +540,8 @@ manages a disconnected device with its API key over another device's connection.
 is the step value for `expect`, `capture`, and `save_as`, and a 4xx/5xx without a declared `status` is
 an assertion failure. The API key comes from a `server.api_key.create` step with
 `capture: {api_key: /api_key}` and is sent as the `Authorization: "Bearer ${api_key}"` header.
-`client_rpc` may declare `client.device.status.get`, `client.device.volume.set`,
-`client.device.sound.play`, `client.device.find`, `client.device.reboot`, `client.social.ping`, `client.wifi.status.get`, `client.wifi.saved.list`,
-`client.wifi.saved.forget`, `client.wifi.scan`, and `client.wifi.connect`: the runner installs the scripted `response` as that client's device
-provider at connect time (`volume.set` echoes the requested `level`/`muted` into its response), and
-`response: {error_code: 3}` makes the provider answer a fixed canonical status code; undeclared methods stay
-`METHOD_NOT_FOUND`, which verifies `501 DEVICE_UNSUPPORTED`. A later `http` step triggers the
-Server-to-device RPC and the `client_rpc` step's `expect_calls` asserts the provider was invoked.
-`client.tool.invoke` takes `response: {name, result}` and mounts a Tool handler that returns `result`;
-`response: {name, unavailable: true}` mounts none, so the SDK answers `UNIMPLEMENTED` like a device
-without that Tool while `expect_calls` still counts the call.
+A `client_rpc` step names `client.mhs.v0.read/write`, `client.tool.v0.invoke/list`, or `client.rpc.methods.list`. For an invoke step, `tool` selects the predefined `ClientTool` payload. The runner installs the scripted provider response when the client connects; `response: {error_code: 3}` answers a canonical error. Uninstalled tools answer `UNIMPLEMENTED`, and `expect_calls` proves that a later HTTP call reached the provider. A Server-side validation case expects zero calls.
+
 
 A `reconnect` step drops that client's Peer connection and dials a replacement
 on the same identity, reproducing how a device reaches the Server again after a
