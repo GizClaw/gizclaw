@@ -661,7 +661,7 @@ type ClientToolInfoGetInvokeTool string
 
 // ClientToolRunWorkspaceSetInvoke defines model for ClientToolRunWorkspaceSetInvoke.
 type ClientToolRunWorkspaceSetInvoke struct {
-	// Args Exactly one target: workspace_name, or collection together with workflow_name naming a workflow of the bound RuntimeProfile.
+	// Args Exactly one target: workspace_name or workflow_name naming a workflow of the bound RuntimeProfile.
 	Args DeviceRunWorkspaceSetRequest        `json:"args"`
 	Tool ClientToolRunWorkspaceSetInvokeTool `json:"tool"`
 }
@@ -834,15 +834,12 @@ type DeviceRebootRequest struct {
 	DelayMs *int64 `json:"delay_ms,omitempty"`
 }
 
-// DeviceRunWorkspaceSetRequest Exactly one target: workspace_name, or collection together with workflow_name naming a workflow of the bound RuntimeProfile.
+// DeviceRunWorkspaceSetRequest Exactly one target: workspace_name or workflow_name naming a workflow of the bound RuntimeProfile.
 type DeviceRunWorkspaceSetRequest struct {
-	// Collection RuntimeProfile workflow collection; requires workflow_name.
-	Collection *string `json:"collection,omitempty"`
-
 	// Kickoff Let the agent speak first once the Workspace is ready. Defaults to false.
 	Kickoff *bool `json:"kickoff,omitempty"`
 
-	// WorkflowName Workflow in collection; the Server picks the caller's most recently active available Workspace of it.
+	// WorkflowName Workflow alias; the Server picks the caller's most recently active available Workspace of it.
 	WorkflowName *string `json:"workflow_name,omitempty"`
 
 	// WorkspaceName Existing Workspace to run.
@@ -851,22 +848,13 @@ type DeviceRunWorkspaceSetRequest struct {
 
 // DeviceRuntimeProfile defines model for DeviceRuntimeProfile.
 type DeviceRuntimeProfile struct {
-	// Collections Workflow collections sorted by name.
-	Collections []DeviceRuntimeProfileCollection `json:"collections"`
-
 	// Name RuntimeProfile name; equals runtime_profile_name in Peer RPC responses.
 	Name string `json:"name"`
 
 	// Revision Opaque RuntimeProfile revision; equals runtime_profile_revision in Peer RPC responses.
 	Revision string `json:"revision"`
-}
 
-// DeviceRuntimeProfileCollection defines model for DeviceRuntimeProfileCollection.
-type DeviceRuntimeProfileCollection struct {
-	// Name Collection name, as passed to server.workflow.list.
-	Name string `json:"name"`
-
-	// Workflows Workflows in the collection sorted by name.
+	// Workflows Workflows sorted by name.
 	Workflows []DeviceRuntimeProfileWorkflow `json:"workflows"`
 }
 
@@ -874,6 +862,9 @@ type DeviceRuntimeProfileCollection struct {
 type DeviceRuntimeProfileWorkflow struct {
 	// Name Workflow alias the device uses with server.workflow.*.
 	Name string `json:"name"`
+
+	// Tags Opaque Workflow tags.
+	Tags []string `json:"tags"`
 }
 
 // DeviceWifiConnectRequest defines model for DeviceWifiConnectRequest.
@@ -915,11 +906,8 @@ type DeviceWifiScanResult struct {
 // DeviceWorkspace defines model for DeviceWorkspace.
 type DeviceWorkspace struct {
 	// Available Whether workflow_name resolves in the current RuntimeProfile, like Peer RPC Workspace.available.
-	Available bool `json:"available"`
-
-	// Collection RuntimeProfile workflow collection the Workspace was created in. Omitted when the Workspace carries no collection, such as a system Workspace.
-	Collection *string   `json:"collection,omitempty"`
-	CreatedAt  time.Time `json:"created_at"`
+	Available bool      `json:"available"`
+	CreatedAt time.Time `json:"created_at"`
 
 	// Id Workspace ID addressed by the history, audio and delete routes.
 	Id           string    `json:"id"`
@@ -930,7 +918,7 @@ type DeviceWorkspace struct {
 	System    bool      `json:"system"`
 	UpdatedAt time.Time `json:"updated_at"`
 
-	// WorkflowName Workflow name of the Workspace in its collection of the current RuntimeProfile, as listed by GET /gizclaw/v1/device/runtime-profile. Omitted when the alias no longer resolves.
+	// WorkflowName Workflow name of the Workspace in the current RuntimeProfile. Omitted when the alias no longer resolves.
 	WorkflowName *string `json:"workflow_name,omitempty"`
 }
 
@@ -1172,6 +1160,11 @@ type SearchDeviceLogsParams struct {
 // SearchDeviceLogsParamsLevel defines parameters for SearchDeviceLogs.
 type SearchDeviceLogsParamsLevel string
 
+// GetDeviceRuntimeProfileParams defines parameters for GetDeviceRuntimeProfile.
+type GetDeviceRuntimeProfileParams struct {
+	Tags *[]string `form:"tags,omitempty" json:"tags,omitempty"`
+}
+
 // QueryDeviceTelemetryParams defines parameters for QueryDeviceTelemetry.
 type QueryDeviceTelemetryParams struct {
 	// Field Telemetry field name
@@ -1213,9 +1206,6 @@ type AggregateDeviceTelemetryParams struct {
 
 // ListDeviceWorkspacesParams defines parameters for ListDeviceWorkspaces.
 type ListDeviceWorkspacesParams struct {
-	// Collection Return only Workspaces created in this RuntimeProfile workflow collection.
-	Collection *string `form:"collection,omitempty" json:"collection,omitempty"`
-
 	// WorkflowName Return only Workspaces whose workflow name resolves to this RuntimeProfile alias.
 	WorkflowName *string `form:"workflow_name,omitempty" json:"workflow_name,omitempty"`
 }
@@ -2105,7 +2095,7 @@ type ClientInterface interface {
 	GetDeviceRuntime(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetDeviceRuntimeProfile request
-	GetDeviceRuntimeProfile(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetDeviceRuntimeProfile(ctx context.Context, params *GetDeviceRuntimeProfileParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetDeviceStatus request
 	GetDeviceStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2513,8 +2503,8 @@ func (c *Client) GetDeviceRuntime(ctx context.Context, reqEditors ...RequestEdit
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetDeviceRuntimeProfile(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetDeviceRuntimeProfileRequest(c.Server)
+func (c *Client) GetDeviceRuntimeProfile(ctx context.Context, params *GetDeviceRuntimeProfileParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeviceRuntimeProfileRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -3821,7 +3811,7 @@ func NewGetDeviceRuntimeRequest(server string) (*http.Request, error) {
 }
 
 // NewGetDeviceRuntimeProfileRequest generates requests for GetDeviceRuntimeProfile
-func NewGetDeviceRuntimeProfileRequest(server string) (*http.Request, error) {
+func NewGetDeviceRuntimeProfileRequest(server string, params *GetDeviceRuntimeProfileParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -3837,6 +3827,33 @@ func NewGetDeviceRuntimeProfileRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Tags != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "tags", *params.Tags, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -4186,18 +4203,6 @@ func NewListDeviceWorkspacesRequest(server string, params *ListDeviceWorkspacesP
 		// styled parameters, preserving literal commas as delimiters
 		// per the OpenAPI spec (e.g. "color=blue,black,brown").
 		var rawQueryFragments []string
-
-		if params.Collection != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "collection", *params.Collection, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
 
 		if params.WorkflowName != nil {
 
@@ -5604,7 +5609,7 @@ type ClientWithResponsesInterface interface {
 	GetDeviceRuntimeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceRuntimeResponse, error)
 
 	// GetDeviceRuntimeProfileWithResponse request
-	GetDeviceRuntimeProfileWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceRuntimeProfileResponse, error)
+	GetDeviceRuntimeProfileWithResponse(ctx context.Context, params *GetDeviceRuntimeProfileParams, reqEditors ...RequestEditorFn) (*GetDeviceRuntimeProfileResponse, error)
 
 	// GetDeviceStatusWithResponse request
 	GetDeviceStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceStatusResponse, error)
@@ -7847,8 +7852,8 @@ func (c *ClientWithResponses) GetDeviceRuntimeWithResponse(ctx context.Context, 
 }
 
 // GetDeviceRuntimeProfileWithResponse request returning *GetDeviceRuntimeProfileResponse
-func (c *ClientWithResponses) GetDeviceRuntimeProfileWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceRuntimeProfileResponse, error) {
-	rsp, err := c.GetDeviceRuntimeProfile(ctx, reqEditors...)
+func (c *ClientWithResponses) GetDeviceRuntimeProfileWithResponse(ctx context.Context, params *GetDeviceRuntimeProfileParams, reqEditors ...RequestEditorFn) (*GetDeviceRuntimeProfileResponse, error) {
+	rsp, err := c.GetDeviceRuntimeProfile(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -11738,7 +11743,7 @@ type ServerInterface interface {
 	GetDeviceRuntime(c *fiber.Ctx) error
 	// Get the RuntimeProfile workflow catalog of the bound device
 	// (GET /gizclaw/v1/device/runtime-profile)
-	GetDeviceRuntimeProfile(c *fiber.Ctx) error
+	GetDeviceRuntimeProfile(c *fiber.Ctx, params GetDeviceRuntimeProfileParams) error
 	// Get the latest reported status of the bound device
 	// (GET /gizclaw/v1/device/status)
 	GetDeviceStatus(c *fiber.Ctx) error
@@ -12379,10 +12384,29 @@ func (siw *ServerInterfaceWrapper) GetDeviceRuntime(c *fiber.Ctx) error {
 // GetDeviceRuntimeProfile operation middleware
 func (siw *ServerInterfaceWrapper) GetDeviceRuntimeProfile(c *fiber.Ctx) error {
 
+	var err error
+	_ = err
+
 	c.Context().SetUserValue((BearerAuthScopes), []string{})
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetDeviceRuntimeProfileParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "tags" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "tags", query, &params.Tags, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter tags: %w", err).Error())
+	}
+
 	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.GetDeviceRuntimeProfile(c)
+		return siw.Handler.GetDeviceRuntimeProfile(c, params)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -12643,13 +12667,6 @@ func (siw *ServerInterfaceWrapper) ListDeviceWorkspaces(c *fiber.Ctx) error {
 	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "collection" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "collection", query, &params.Collection, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter collection: %w", err).Error())
 	}
 
 	// ------------- Optional query parameter "workflow_name" -------------
@@ -15007,6 +15024,7 @@ func (response GetDeviceRuntime500JSONResponse) VisitGetDeviceRuntimeResponse(ct
 }
 
 type GetDeviceRuntimeProfileRequestObject struct {
+	Params GetDeviceRuntimeProfileParams
 }
 
 type GetDeviceRuntimeProfileResponseObject interface {
@@ -18166,8 +18184,10 @@ func (sh *strictHandler) GetDeviceRuntime(ctx *fiber.Ctx) error {
 }
 
 // GetDeviceRuntimeProfile operation middleware
-func (sh *strictHandler) GetDeviceRuntimeProfile(ctx *fiber.Ctx) error {
+func (sh *strictHandler) GetDeviceRuntimeProfile(ctx *fiber.Ctx, params GetDeviceRuntimeProfileParams) error {
 	var request GetDeviceRuntimeProfileRequestObject
+
+	request.Params = params
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.GetDeviceRuntimeProfile(ctx.UserContext(), request.(GetDeviceRuntimeProfileRequestObject))

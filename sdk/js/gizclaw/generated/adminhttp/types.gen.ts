@@ -1530,6 +1530,10 @@ export type RuntimeProfileBinding = {
     i18n: {
         [key: string]: RuntimeProfileI18nText;
     };
+    /**
+     * Only valid for Workflow bindings; opaque strings.
+     */
+    tags?: Array<string>;
 };
 
 export type RuntimeProfileFlowcraftBbhConnection = {
@@ -1640,14 +1644,8 @@ export type RuntimeProfileVolcMem0Connection = {
     poll_interval?: string;
 };
 
-export type RuntimeProfileWorkflowCollections = {
-    [key: string]: {
-        [key: string]: RuntimeProfileBinding;
-    };
-};
-
 export type RuntimeProfileWorkflows = {
-    collections: RuntimeProfileWorkflowCollections;
+    [key: string]: RuntimeProfileBinding;
 };
 
 export type FriendGroupInviteTokenClearResponse = {

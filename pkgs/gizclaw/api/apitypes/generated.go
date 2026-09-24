@@ -5527,6 +5527,9 @@ type RuntimeProfileAppConfig map[string]string
 type RuntimeProfileBinding struct {
 	I18n       map[string]RuntimeProfileI18nText `json:"i18n"`
 	ResourceId string                            `json:"resource_id"`
+
+	// Tags Only valid for Workflow bindings; opaque strings.
+	Tags *[]string `json:"tags,omitempty"`
 }
 
 // RuntimeProfileFlowcraftBBHConnection defines model for RuntimeProfileFlowcraftBBHConnection.
@@ -5663,13 +5666,8 @@ type RuntimeProfileVolcMem0Connection struct {
 // RuntimeProfileVolcMem0ConnectionType defines model for RuntimeProfileVolcMem0Connection.Type.
 type RuntimeProfileVolcMem0ConnectionType string
 
-// RuntimeProfileWorkflowCollections defines model for RuntimeProfileWorkflowCollections.
-type RuntimeProfileWorkflowCollections map[string]map[string]RuntimeProfileBinding
-
 // RuntimeProfileWorkflows defines model for RuntimeProfileWorkflows.
-type RuntimeProfileWorkflows struct {
-	Collections RuntimeProfileWorkflowCollections `json:"collections"`
-}
+type RuntimeProfileWorkflows map[string]RuntimeProfileBinding
 
 // SFUWorkflowSpec Empty SFU Workflow payload. The Workspace binds the current Peer to the SFU Room declared by its Social resource; the Workflow itself carries no configuration.
 type SFUWorkflowSpec = map[string]interface{}

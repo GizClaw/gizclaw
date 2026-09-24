@@ -512,6 +512,23 @@ static bool query_param(gzc_str_t query, const char *name, gzc_str_t *out) {
   return false;
 }
 
+static bool query_params(gzc_str_t query, const char *name, gzc_str_t *out, size_t cap, size_t *count) {
+  size_t name_len = strlen(name);
+  size_t i = 0;
+  *count = 0;
+  while (i < query.len) {
+    size_t start = i;
+    while (i < query.len && query.data[i] != '&') i++;
+    gzc_str_t pair = gzc_str_from_parts(query.data + start, i - start);
+    if (i < query.len) i++;
+    if (pair.len > name_len && memcmp(pair.data, name, name_len) == 0 && pair.data[name_len] == '=') {
+      if (*count == cap) return false;
+      out[(*count)++] = gzc_str_from_parts(pair.data + name_len + 1, pair.len - name_len - 1);
+    }
+  }
+  return true;
+}
+
 static bool query_i64(gzc_str_t query, const char *name, int64_t *out) {
   gzc_str_t raw;
   return query_param(query, name, &raw) && gzc_json_parse_i64(raw, out) == GZC_OK;
@@ -796,8 +813,8 @@ int gzt_control_request(
   gzc_control_device_info_t device;
   gzc_control_device_runtime_t runtime;
   gzc_control_device_runtime_profile_t runtime_profile;
-  gzc_control_runtime_profile_collection_t profile_collections[32];
-  gzc_str_t profile_workflows[128];
+  gzc_control_runtime_profile_workflow_t profile_workflows[128];
+  gzc_str_t profile_tags[32];
   gzc_control_device_workspace_t workspaces[64];
   gzc_control_wifi_scan_result_t wifi_networks[32];
   gzc_control_contact_t contact;
@@ -865,22 +882,24 @@ int gzt_control_request(
   } else if (get && route_is(&route, "/device/runtime", false)) {
     rc = gzc_control_get_device_runtime(&control, &call, &runtime);
   } else if (get && route_is(&route, "/device/runtime-profile", false)) {
+    size_t tag_count = 0;
+    if (!query_params(query, "tags", profile_tags, sizeof(profile_tags) / sizeof(profile_tags[0]), &tag_count))
+      return GZC_ERR_INVALID_ARGUMENT;
     rc = gzc_control_get_device_runtime_profile(
-        &control, &call, &runtime_profile, profile_collections,
-        sizeof(profile_collections) / sizeof(profile_collections[0]), &count);
+        &control, &call, profile_tags, tag_count, &runtime_profile, profile_workflows,
+        sizeof(profile_workflows) / sizeof(profile_workflows[0]), &count);
     for (size_t i = 0; rc == GZC_OK && i < count; i++) {
-      size_t workflow_count = 0;
-      int workflows_rc = gzc_control_runtime_profile_collection_workflows(
-          &profile_collections[i], profile_workflows,
-          sizeof(profile_workflows) / sizeof(profile_workflows[0]), &workflow_count);
-      if (workflows_rc != GZC_OK) {
-        return fail(errbuf, errbuf_len, "decode runtime profile workflows", workflows_rc);
+      size_t workflow_tag_count = 0;
+      int tags_rc = gzc_control_runtime_profile_workflow_tags(
+          &profile_workflows[i], profile_tags,
+          sizeof(profile_tags) / sizeof(profile_tags[0]), &workflow_tag_count);
+      if (tags_rc != GZC_OK) {
+        return fail(errbuf, errbuf_len, "decode runtime profile workflow tags", tags_rc);
       }
     }
   } else if (get && route_is(&route, "/device/workspaces", false)) {
     gzc_control_workspace_filter_t filter;
     memset(&filter, 0, sizeof(filter));
-    (void)query_param(query, "collection", &filter.collection);
     (void)query_param(query, "workflow_name", &filter.workflow_name);
     rc = gzc_control_list_device_workspaces(
         &control, &call, &filter, workspaces, sizeof(workspaces) / sizeof(workspaces[0]), &count);
@@ -1011,7 +1030,6 @@ int gzt_control_request(
     gzc_control_run_workspace_request_t request;
     memset(&request, 0, sizeof(request));
     (void)body_str(body, "workspace_name", &request.workspace_name);
-    (void)body_str(body, "collection", &request.collection);
     (void)body_str(body, "workflow_name", &request.workflow_name);
     request.has_kickoff = body_bool(body, "kickoff", &request.kickoff);
     rc = gzc_control_set_device_run_workspace(&control, &call, &request);

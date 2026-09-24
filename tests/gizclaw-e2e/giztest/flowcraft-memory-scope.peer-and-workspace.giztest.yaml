@@ -64,7 +64,6 @@ steps:
     method: server.workspace.create
     request:
       name: "${workspace_a}"
-      collection: assistants
       workflow_name: flowcraft-memory-peer-a
       parameters:
         flowcraft_workspace_parameters:
@@ -76,7 +75,6 @@ steps:
     method: server.workspace.create
     request:
       name: "${workspace_b}"
-      collection: assistants
       workflow_name: flowcraft-memory-peer-b
       parameters:
         flowcraft_workspace_parameters:
@@ -88,7 +86,6 @@ steps:
     method: server.workspace.create
     request:
       name: "${workspace_private}"
-      collection: assistants
       workflow_name: flowcraft-memory-workspace
       parameters:
         flowcraft_workspace_parameters:
@@ -100,7 +97,6 @@ steps:
     method: server.workspace.create
     request:
       name: "${workspace_other}"
-      collection: assistants
       workflow_name: flowcraft-memory-peer-b
       parameters:
         flowcraft_workspace_parameters:

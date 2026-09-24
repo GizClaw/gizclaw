@@ -87,7 +87,6 @@ async function main(): Promise<void> {
         assert.equal(registration.runtime_profile_name, expectedRuntimeProfile);
         await rpc.call("server.workspace.create", {
           name: workspaceName,
-          collection: "assistants",
           workflow_name: workflowName,
           parameters: {
             agent_type:

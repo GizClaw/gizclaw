@@ -1215,7 +1215,7 @@ static void test_mhs_settings_workspace_and_tools(void) {
   run.kickoff = true;
   check(gzc_control_set_device_run_workspace(&client, &call, &run) == GZC_OK, "run workspace");
   check(stub.method == GZC_HTTP_METHOD_POST, "run workspace method");
-  check(strcmp(stub.body, "{\"tool\":\"run.workspace.set\",\"args\":{\"collection\":\"stories\",\"workflow_name\":\"bedtime\",\"kickoff\":true}}") == 0, "run workspace body");
+  check(strcmp(stub.body, "{\"tool\":\"run.workspace.set\",\"args\":{\"workflow_name\":\"bedtime\",\"kickoff\":true}}") == 0, "run workspace body");
 
   stub.status_code = 200;
   stub.response_body = "{\"tools\":[\"device.find\",\"device.reboot\"]}";

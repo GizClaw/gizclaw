@@ -187,7 +187,7 @@ func createCSDKChatRegistrationToken(t *testing.T, h *clitest.Harness, scenario 
 	}
 	profile, err := clitest.UpsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{
 		Id:   profileName,
-		Spec: apitypes.RuntimeProfileSpec{Resources: resources, Workflows: apitypes.RuntimeProfileWorkflows{}},
+		Spec: apitypes.RuntimeProfileSpec{Resources: resources, Workflows: apitypes.RuntimeProfileWorkflows(runtimeBindings(workflowResources))},
 	})
 	if err != nil {
 		t.Fatalf("put C SDK chat RuntimeProfile: %v", err)

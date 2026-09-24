@@ -54,7 +54,6 @@ steps:
       method: server.workspace.create
       request:
         name: ${workspace_name}
-        collection: assistants
         workflow_name: doubao-realtime-tts-conversation
         parameters:
           doubao_realtime_workspace_parameters:

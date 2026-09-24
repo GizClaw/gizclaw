@@ -3819,7 +3819,7 @@
       "DeviceRunWorkspaceSetRequest": {
         "type": "object",
         "additionalProperties": false,
-        "description": "Exactly one target: workspace_name, or collection together with workflow_name naming a workflow of the bound RuntimeProfile.",
+        "description": "Exactly one target: workspace_name or workflow_name naming a workflow of the bound RuntimeProfile.",
         "properties": {
           "workspace_name": {
             "type": "string",
@@ -3827,17 +3827,11 @@
             "maxLength": 256,
             "description": "Existing Workspace to run."
           },
-          "collection": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 256,
-            "description": "RuntimeProfile workflow collection; requires workflow_name."
-          },
           "workflow_name": {
             "type": "string",
             "minLength": 1,
             "maxLength": 256,
-            "description": "Workflow in collection; the Server picks the caller's most recently active available Workspace of it."
+            "description": "Workflow alias; the Server picks the caller's most recently active available Workspace of it."
           },
           "kickoff": {
             "type": "boolean",

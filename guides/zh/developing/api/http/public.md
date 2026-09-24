@@ -108,7 +108,7 @@ HTTP `result` 使用所选响应消息的 SDK JSON 投影。若 Protobuf 响应�
 
 设备离线映射 `409 DEVICE_OFFLINE`；未安装的工具或 MHS handler 映射 `501 DEVICE_UNSUPPORTED`；超时映射 `504 DEVICE_TIMEOUT`；设备 `INVALID_PARAMS` 映射 `400 DEVICE_REJECTED`；其他设备错误脱敏后映射 `502 DEVICE_ERROR`。不存在的已保存 Wi-Fi 网络映射 `404 WIFI_NETWORK_NOT_FOUND`。重启、Wi-Fi 连接、恢复出厂设置或固件更新得到确认后可能断线，同一连接上的后续命令会返回离线，直到设备重连。异步过程的成功应答仅表示设备已接受操作。
 
-`run.workspace.set` 在 `args` 中接受 `workspace_name`，或 `collection` 加 `workflow_name`，并可附带 `kickoff`。Server 在分发前解析为一个可用 Workspace；设备随后通过 `server.run.workspace.reload-with-options` 切换。已提交状态通过 `GET /device/runtime` 观察。`firmware.update` 接受可选的 `channel` 和 64 位小写十六进制 `sha256`；设备在 OTA 前核对自身解析出的包摘要。
+`run.workspace.set` 在 `args` 中接受 `workspace_name`，或 `workflow_name`，并可附带 `kickoff`。Server 在分发前解析为一个可用 Workspace；设备随后通过 `server.run.workspace.reload-with-options` 切换。已提交状态通过 `GET /device/runtime` 观察。`firmware.update` 接受可选的 `channel` 和 64 位小写十六进制 `sha256`；设备在 OTA 前核对自身解析出的包摘要。
 
 连接前 `/server-info` 返回 authoritative Server 的 `public_key`、软件 `version`、`build_commit` 和传输能力。经过 Edge 时构建字段仍属于 authoritative Server，`transport` 描述 Edge 路由。
 

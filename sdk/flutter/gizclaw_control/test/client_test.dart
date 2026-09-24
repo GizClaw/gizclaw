@@ -1634,7 +1634,6 @@ void main() {
       expect(jsonDecode(recorder.requests[2].body), {
         'tool': 'run.workspace.set',
         'args': {
-          'collection': 'stories',
           'workflow_name': 'bedtime',
           'kickoff': true,
         },

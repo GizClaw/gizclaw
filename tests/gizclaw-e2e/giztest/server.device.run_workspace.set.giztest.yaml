@@ -41,7 +41,6 @@ steps:
       method: server.workspace.create
       request:
         name: ${resource_name}
-        collection: assistants
         workflow_name: flowcraft-chat-assistant
         parameters:
           flowcraft_workspace_parameters:
@@ -77,7 +76,6 @@ steps:
       body:
         tool: run.workspace.set
         args:
-          collection: assistants
           workflow_name: flowcraft-chat-assistant
           kickoff: true
       status: 202
@@ -124,7 +122,6 @@ steps:
         tool: run.workspace.set
         args:
           workspace_name: ${resource_name}
-          collection: assistants
           workflow_name: flowcraft-chat-assistant
       status: 400
     expect:
