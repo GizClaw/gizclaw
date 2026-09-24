@@ -511,6 +511,7 @@ type doubaoRealtimeSpokenTransition struct {
 
 type doubaoRealtimeSpokenResponse struct {
 	chatText     []string
+	ttsSegments  []string
 	ttsSelected  bool
 	chatFinished bool
 	ttsFinished  bool
@@ -531,6 +532,8 @@ func (r *doubaoRealtimeSpokenResponse) chat(text string) doubaoRealtimeSpokenTra
 	if r.textOnly {
 		return doubaoRealtimeSpokenTransition{text: []string{text}, openText: r.openText()}
 	}
+	// ChatResponse is preferred over deferred sentence-end text.
+	r.ttsSegments = nil
 	r.chatText = append(r.chatText, text)
 	return doubaoRealtimeSpokenTransition{}
 }
@@ -546,6 +549,7 @@ func (r *doubaoRealtimeSpokenResponse) ttsStarted(text string) doubaoRealtimeSpo
 	if !r.ttsSelected {
 		r.ttsSelected = true
 		r.chatText = nil
+		r.ttsSegments = nil
 	}
 	transition.text = []string{text}
 	transition.openText = r.openText()
@@ -554,6 +558,15 @@ func (r *doubaoRealtimeSpokenResponse) ttsStarted(text string) doubaoRealtimeSpo
 		transition.closeText = true
 	}
 	return transition
+}
+
+func (r *doubaoRealtimeSpokenResponse) ttsSegmentEnded(text string) {
+	if r == nil || r.textOnly || r.ttsSelected || r.ttsFinished || r.textFinished || len(r.chatText) > 0 || strings.TrimSpace(text) == "" {
+		return
+	}
+	// Defer sentence-end text until both preferred sources have had a chance
+	// to complete; publishing it now could duplicate a later ChatResponse.
+	r.ttsSegments = append(r.ttsSegments, text)
 }
 
 func (r *doubaoRealtimeSpokenResponse) audioStarted() doubaoRealtimeSpokenTransition {
@@ -632,10 +645,15 @@ func (r *doubaoRealtimeSpokenResponse) finishTextIfReady(transition *doubaoRealt
 	if !r.chatFinished {
 		return
 	}
-	transition.text = append(transition.text, r.chatText...)
+	if len(r.chatText) > 0 {
+		transition.text = append(transition.text, r.chatText...)
+	} else {
+		transition.text = append(transition.text, r.ttsSegments...)
+	}
 	transition.openText = r.openText()
 	r.textClosed = true
 	r.chatText = nil
+	r.ttsSegments = nil
 	r.textFinished = true
 	transition.closeText = true
 }
