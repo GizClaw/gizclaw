@@ -251,8 +251,14 @@ func (s *ResponseStream) responseID(upstream string, chunk *genx.MessageChunk) s
 	s.sequence++
 	state := s.responses[key]
 	mimeType, hasMIME := chunk.MIMEType()
-	if state != nil && !chunk.IsEndOfStream() &&
-		(state.terminal || hasMIME && !chunk.IsBeginOfStream() && responseRoutesComplete(state)) {
+	// A new BOS for an already completed MIME is a new response even when
+	// the provider reuses its StreamID. A BOS for a different MIME still
+	// belongs to the prior response (for example an empty audio sibling).
+	if state != nil &&
+		(state.terminal && !chunk.IsEndOfStream() ||
+			hasMIME && responseRoutesComplete(state) &&
+				(!chunk.IsEndOfStream() && !chunk.IsBeginOfStream() ||
+					chunk.IsBeginOfStream() && state.routes[mimeType])) {
 		state = nil
 	}
 	if state == nil {

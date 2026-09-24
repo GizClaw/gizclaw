@@ -1,0 +1,160 @@
+# User Story:
+# As a registered device using a doubao-realtime Workflow with external TTS,
+# I want three push-to-talk replies in one conversation that recalls the first turn,
+# So that text output and the configured Voice keep answering across turns.
+version: gizclaw.test/v1alpha1
+name: doubao-realtime-tts-conversation.push-to-talk-multiturn
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  first_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  second_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  third_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        collection: assistants
+        workflow_name: doubao-realtime-tts-conversation
+        parameters:
+          doubao_realtime_workspace_parameters:
+            agent_type: DOUBAO_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_DOUBAO_REALTIME
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  - id: synthesize_first
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 请记住我们的暗号是蓝色河马。请简单确认。
+        accepted_content_types: [audio/ogg]
+    save_as: first_audio
+  - id: synthesize_second
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 请用一句话介绍你自己。
+        accepted_content_types: [audio/ogg]
+    save_as: second_audio
+  - id: synthesize_third
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 第一轮我告诉你的暗号是什么？请用两句话回答，明确说出暗号。
+        accepted_content_types: [audio/ogg]
+    save_as: third_audio
+  - id: first_turn
+    client: peer
+    timeout: 60s
+    peer_stream:
+      mode: push-to-talk
+      input: ${first_audio}
+      pacing: 20ms
+      require_text: true
+      require_audio: true
+    expect:
+      /first_transcript_ms: {minimum: 1}
+      /text: {non_empty: true}
+      /text_eos: {equals: true}
+      /audio_eos: {equals: true}
+      /audio_bytes: {minimum: 2000}
+      /audio_pacing/underruns: {equals: 0}
+      /audio_pacing/minimum_buffer_ms: {minimum: 1}
+  - id: second_turn
+    client: peer
+    timeout: 60s
+    peer_stream:
+      mode: push-to-talk
+      input: ${second_audio}
+      pacing: 20ms
+      require_text: true
+      require_audio: true
+    expect:
+      /first_transcript_ms: {minimum: 1}
+      /text: {non_empty: true}
+      /text_eos: {equals: true}
+      /audio_eos: {equals: true}
+      /audio_bytes: {minimum: 2000}
+      /audio_pacing/underruns: {equals: 0}
+      /audio_pacing/minimum_buffer_ms: {minimum: 1}
+  - id: third_turn_recalls_first
+    client: peer
+    timeout: 60s
+    peer_stream:
+      mode: push-to-talk
+      input: ${third_audio}
+      pacing: 20ms
+      require_text: true
+      require_audio: true
+    expect:
+      /first_transcript_ms: {minimum: 1}
+      /text: {contains: 蓝色河马, normalize: [punctuation, whitespace]}
+      /text_eos: {equals: true}
+      /audio_eos: {equals: true}
+      /audio_bytes: {minimum: 2000}
+      /audio_pacing/underruns: {equals: 0}
+      /audio_pacing/minimum_buffer_ms: {minimum: 1}
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

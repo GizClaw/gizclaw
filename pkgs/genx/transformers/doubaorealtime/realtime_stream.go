@@ -1035,6 +1035,15 @@ func (t *doubaoRealtimePTTTurn) currentGeneration() uint64 {
 	return t.generation
 }
 
+func (t *doubaoRealtimePTTTurn) ownsResponse(response *doubaoRealtimePTTResponse) bool {
+	if t == nil || response == nil {
+		return false
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.active && t.assistantOut == response.output
+}
+
 func (q *doubaoRealtimePTTASRQueue) add(generation uint64) {
 	if q == nil || generation == 0 {
 		return
