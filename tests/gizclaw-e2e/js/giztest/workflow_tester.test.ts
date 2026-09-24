@@ -16,11 +16,15 @@ const fixture = new URL(
   import.meta.url,
 );
 const document: unknown = YAML.parse(readFileSync(fixture, "utf8"));
-const nodes = record(record(record(record(document).spec).flowcraft).graph).nodes;
+const nodes = record(
+  record(record(record(document).spec).flowcraft).graph,
+).nodes;
 if (!Array.isArray(nodes)) {
   throw new Error("tester workflow has no graph nodes");
 }
-const publisher = nodes.find((node: unknown) => record(node).id === "publish_response");
+const publisher = nodes.find(
+  (node: unknown) => record(node).id === "publish_response",
+);
 const source = (() => {
   const value = record(record(publisher).config).source;
   if (typeof value !== "string") {
