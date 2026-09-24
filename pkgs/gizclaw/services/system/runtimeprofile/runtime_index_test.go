@@ -50,7 +50,7 @@ func TestCommittedProfileWritesReturnSuccessWhenIndexRefreshFails(t *testing.T) 
 	if _, err := s.ResolveProfile(ctx, "durable"); err != nil {
 		t.Fatalf("committed profile is absent: %v", err)
 	}
-	request.Spec.AppConfig = new(apitypes.RuntimeProfileAppConfig{"theme": "dark"})
+	request.Spec.AppConfig = &apitypes.RuntimeProfileAppConfig{"theme": "dark"}
 	updated, err := s.PutRuntimeProfile(ctx, adminhttp.PutRuntimeProfileRequestObject{Id: "durable", Body: &request})
 	if err != nil {
 		t.Fatal(err)
