@@ -50,13 +50,13 @@ func storyTellerSpec() apitypes.RuntimeProfileSpec {
 	return apitypes.RuntimeProfileSpec{
 		AppConfig: &appConfig,
 		Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices},
-		Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{
-			"story-teller": {
-				"story.alice": runtimeProfileHTTPBinding("secret-workflow-alice", "Alice Display"),
-				"story.aesop": runtimeProfileHTTPBinding("secret-workflow-aesop", "Aesop Display"),
-			},
-			"games": {"game.riddle": runtimeProfileHTTPBinding("secret-workflow-riddle", "Riddle Display")},
-		}},
+		Workflows: apitypes.RuntimeProfileWorkflows{
+
+			"story.alice": runtimeProfileHTTPBinding("secret-workflow-alice", "Alice Display"),
+			"story.aesop": runtimeProfileHTTPBinding("secret-workflow-aesop", "Aesop Display"),
+
+			"game.riddle": runtimeProfileHTTPBinding("secret-workflow-riddle", "Riddle Display"),
+		},
 	}
 }
 
@@ -72,10 +72,7 @@ func TestGetDeviceRuntimeProfileReturnsSortedCatalogWhileOffline(t *testing.T) {
 	got := decodeJSON[peerhttp.DeviceRuntimeProfile](t, response)
 	want := peerhttp.DeviceRuntimeProfile{
 		Name: "h106-tiga", Revision: profile.Revision,
-		Collections: []peerhttp.DeviceRuntimeProfileCollection{
-			{Name: "games", Workflows: []peerhttp.DeviceRuntimeProfileWorkflow{{Name: "game.riddle"}}},
-			{Name: "story-teller", Workflows: []peerhttp.DeviceRuntimeProfileWorkflow{{Name: "story.aesop"}, {Name: "story.alice"}}},
-		},
+		Workflows: []peerhttp.DeviceRuntimeProfileWorkflow{{Name: "game.riddle", Tags: []string{}}, {Name: "story.aesop", Tags: []string{}}, {Name: "story.alice", Tags: []string{}}},
 	}
 	if profile.Revision == "" || !reflect.DeepEqual(got, want) {
 		t.Fatalf("runtime profile = %#v, want %#v", got, want)
@@ -100,20 +97,30 @@ func TestGetDeviceRuntimeProfileExposesOnlyNames(t *testing.T) {
 	if err := json.Unmarshal([]byte(body), &raw); err != nil {
 		t.Fatal(err)
 	}
-	assertJSONKeys(t, raw, "name", "revision", "collections")
-	var collections []map[string]json.RawMessage
-	if err := json.Unmarshal(raw["collections"], &collections); err != nil {
+	assertJSONKeys(t, raw, "name", "revision", "workflows")
+	var workflows []map[string]json.RawMessage
+	if err := json.Unmarshal(raw["workflows"], &workflows); err != nil {
 		t.Fatal(err)
 	}
-	for _, collection := range collections {
-		assertJSONKeys(t, collection, "name", "workflows")
-		var workflows []map[string]json.RawMessage
-		if err := json.Unmarshal(collection["workflows"], &workflows); err != nil {
-			t.Fatal(err)
-		}
-		for _, workflow := range workflows {
-			assertJSONKeys(t, workflow, "name")
-		}
+	for _, workflow := range workflows {
+		assertJSONKeys(t, workflow, "name", "tags")
+	}
+}
+
+func TestGetDeviceRuntimeProfileFiltersAllTags(t *testing.T) {
+	f := newDeviceHTTPFixture(t)
+	spec := storyTellerSpec()
+	alice := spec.Workflows["story.alice"]
+	alice.Tags = &[]string{"6-8", "stories"}
+	spec.Workflows["story.alice"] = alice
+	seedRuntimeProfile(t, f, f.owner, "h106-tiga", spec)
+	response := f.do(t, http.MethodGet, "/gizclaw/v1/device/runtime-profile?tags=6-8&tags=stories", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("filtered catalog status = %d body=%s", response.Code, response.Body.String())
+	}
+	got := decodeJSON[peerhttp.DeviceRuntimeProfile](t, response)
+	if !reflect.DeepEqual(got.Workflows, []peerhttp.DeviceRuntimeProfileWorkflow{{Name: "story.alice", Tags: []string{"6-8", "stories"}}}) {
+		t.Fatalf("filtered workflows = %#v", got.Workflows)
 	}
 }
 
@@ -145,9 +152,9 @@ func TestGetDeviceRuntimeProfileIsOwnerScoped(t *testing.T) {
 		t.Fatal(err)
 	}
 	otherProfile := seedRuntimeProfile(t, f, otherKey.Public, "other-profile", apitypes.RuntimeProfileSpec{
-		Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{
-			"other-collection": {"other.workflow": runtimeProfileHTTPBinding("other-workflow", "Other")},
-		}},
+		Workflows: apitypes.RuntimeProfileWorkflows{
+			"other.workflow": runtimeProfileHTTPBinding("other-workflow", "Other"),
+		},
 	})
 	otherSecret, err := f.apiKeys.Create(ctx, otherKey.Public.String(), "other-phone", true)
 	if err != nil {
@@ -159,7 +166,7 @@ func TestGetDeviceRuntimeProfileIsOwnerScoped(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("owner GET status = %d body=%s", response.Code, response.Body.String())
 	}
-	if got := decodeJSON[peerhttp.DeviceRuntimeProfile](t, response); got.Name != "h106-tiga" || len(got.Collections) != 2 {
+	if got := decodeJSON[peerhttp.DeviceRuntimeProfile](t, response); got.Name != "h106-tiga" || len(got.Workflows) != 3 {
 		t.Fatalf("owner runtime profile = %#v", got)
 	}
 	response = f.doWithSecret(t, otherSecret.Secret, http.MethodGet, "/gizclaw/v1/device/runtime-profile", "")
@@ -168,9 +175,7 @@ func TestGetDeviceRuntimeProfileIsOwnerScoped(t *testing.T) {
 	}
 	want := peerhttp.DeviceRuntimeProfile{
 		Name: "other-profile", Revision: otherProfile.Revision,
-		Collections: []peerhttp.DeviceRuntimeProfileCollection{
-			{Name: "other-collection", Workflows: []peerhttp.DeviceRuntimeProfileWorkflow{{Name: "other.workflow"}}},
-		},
+		Workflows: []peerhttp.DeviceRuntimeProfileWorkflow{{Name: "other.workflow", Tags: []string{}}},
 	}
 	if got := decodeJSON[peerhttp.DeviceRuntimeProfile](t, response); !reflect.DeepEqual(got, want) {
 		t.Fatalf("other runtime profile = %#v, want %#v", got, want)
@@ -187,8 +192,8 @@ func TestGetDeviceRuntimeProfileFollowsCurrentBinding(t *testing.T) {
 		t.Fatalf("GET runtime-profile status = %d body=%s", response.Code, response.Body.String())
 	}
 	got := decodeJSON[peerhttp.DeviceRuntimeProfile](t, response)
-	if got.Name != "h106-next" || got.Collections == nil || len(got.Collections) != 0 {
-		t.Fatalf("rebound runtime profile = %#v, want h106-next with no collections", got)
+	if got.Name != "h106-next" || got.Workflows == nil || len(got.Workflows) != 0 {
+		t.Fatalf("rebound runtime profile = %#v, want h106-next with no workflows", got)
 	}
 }
 

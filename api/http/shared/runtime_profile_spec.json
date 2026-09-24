@@ -45,28 +45,24 @@
             "additionalProperties": {
               "$ref": "#/components/schemas/RuntimeProfileI18nText"
             }
-          }
-        }
-      },
-      "RuntimeProfileWorkflowCollections": {
-        "type": "object",
-        "additionalProperties": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/components/schemas/RuntimeProfileBinding"
+          },
+          "tags": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "uniqueItems": true,
+            "description": "Only valid for Workflow bindings; opaque strings."
           }
         }
       },
       "RuntimeProfileWorkflows": {
         "type": "object",
-        "required": [
-          "collections"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "collections": {
-            "$ref": "#/components/schemas/RuntimeProfileWorkflowCollections"
-          }
+        "additionalProperties": {
+          "$ref": "#/components/schemas/RuntimeProfileBinding"
         }
       },
       "RuntimeProfileMemoryDriver": {

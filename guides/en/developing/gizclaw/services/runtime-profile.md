@@ -11,19 +11,18 @@ metadata:
   id: default
 spec:
   workflows:
-    collections:
-      assistants:
-        doubao-realtime:
-          resource_id: doubao-realtime-conversation
-          i18n:
-            en: {display_name: Doubao Assistant}
-            zh-CN: {display_name: 豆包助手}
-      raids:
-        journey:
-          resource_id: flowcraft-journey-guide
-          i18n:
-            en: {display_name: Journey Guide}
-            zh-CN: {display_name: 旅途向导}
+    doubao-realtime:
+      resource_id: doubao-realtime-conversation
+      tags: [6-8, assistant]
+      i18n:
+        en: {display_name: Doubao Assistant}
+        zh-CN: {display_name: 豆包助手}
+    journey:
+      resource_id: flowcraft-journey-guide
+      tags: [6-8, stories]
+      i18n:
+        en: {display_name: Journey Guide}
+        zh-CN: {display_name: 旅途向导}
   resources:
     models:
       chat:
@@ -61,9 +60,9 @@ spec:
           zh-CN: {display_name: 奶气萌宠}
 ```
 
-`workflows` contains only `collections`. RuntimeProfile create and update validate every referenced canonical Workflow ID, its driver, and the Model, Voice, and Tool aliases used inside the Workflow. Friend and Friend Group Workspaces are always bound to the built-in `system-sfu` Workflow and are not selected through RuntimeProfile; see [services/social](/en/developing/gizclaw/services/social#sfu-workspace).
+`workflows` is a flat map keyed by alias. Each binding can carry an array of opaque string `tags`. The Server matches tags exactly: multiple requested tags use AND, and an empty selector returns every Workflow. Tags do not define Workflow identity, so changing them does not change an existing Workspace's workflow name. RuntimeProfile create and update validate every referenced canonical Workflow ID, its driver, and the Model, Voice, and Tool aliases used inside the Workflow. Friend and Friend Group Workspaces remain bound to the built-in `system-sfu` Workflow.
 
-Optional Workflow aliases live under `workflows.collections.<collection>.<alias>`. Alias IDs are globally unique across Collections, while the client owns its fixed Collection navigation, ordering, icons, and Collection translations. RuntimeProfile supplies dynamic Workflow membership and alias-level `en` and `zh-CN` display text; it has no top-level locale or Collection presentation section.
+Workflow aliases live under `workflows.<alias>` and are unique within a RuntimeProfile. Clients own menu structure, ordering, icons, and tag display text. RuntimeProfile supplies Workflow membership, tags, and alias-level `en` and `zh-CN` display text.
 
 The maps under `resources` bind environment aliases to canonical Admin resource IDs. Model aliases name semantic roles such as `chat`, `extraction`, `embedding`, `asr`, `realtime`, and `translation`; they do not contain provider or canonical Model names. Model and Voice aliases are independent environment variables, not Workflow members. Workflow specs and Workspace parameters store symbolic aliases, so each Workspace reload resolves the latest active binding. The same binary can therefore use production or debug RuntimeProfiles without rebuilding.
 
@@ -145,14 +144,16 @@ CLI `admin registration-tokens create/put -f` accepts the corresponding JSON fie
 ## Peer surface and ownership
 
 - Workflow, Model, Voice, and Tool list/get return safe scoped-name projections only. An AST Workflow projection includes its Workspace language-pair default so a client never infers behavior from a dynamic name. Projections do not expose canonical IDs, providers, tenants, credentials, owners, or execution routing.
-- Workflow list requires a Collection. Workflow get uses the name projected by the current RuntimeProfile. There is no `source=runtime|owned` selector.
+- Workflow list accepts multiple tags as an AND filter. Workflow get uses the name projected by the current RuntimeProfile. There is no `source=runtime|owned` selector.
 - Workflow, Model, Credential, and Tool create/put/delete are not Peer RPC methods. Admin owns canonical resource management.
-- Workspace create requires `collection` and `workflow_name`; Workspace list requires `collection`. The Server stores Collection as an internal Workspace label and does not return generic labels through Peer RPC. The same typed create capability is used by OpenAI Conversation creation; Admin cannot create or apply a Workspace.
+- Workspace create requires `workflow_name`; Workspace list has no required filter. The Server stores the workflow name as an internal Workspace label and does not return generic labels through Peer RPC. The same typed create capability is used by OpenAI Conversation creation; Admin cannot create or apply a Workspace.
 - A removed Workflow binding does not hide or delete its Workspace. List/get still return it, while reload/run fails with not found until the same Peer name is restored.
 
 Firmware remains an independent Admin resource and is not part of the RuntimeProfile projection. A RegistrationToken may bind its Firmware ID independently of the RuntimeProfile, without binding a channel. Credentials and ProviderTenants remain Server-only dependencies of canonical Model and Voice resources.
 
 RuntimeProfile uses SQL `runtime_profiles`, `registration_tokens`, `registration_token_activations`, and `runtime_profile_owners`. Resource configuration remains JSON; identities, versions, limits, and bindings use separate columns. Lists push cursors and limits into SQL. Profile/token updates and deletes compare incarnation and row_version. Registration and snapshot publication serialize by owner within each process, while token write locks enforce capacity across processes.
+
+At initialization, `services/runtime/runtimeprofile` builds a pure in-memory SQLite index from every persisted RuntimeProfile. Persistent SQL remains authoritative and stores each complete Profile. The memory database splits each Workflow, Model, Voice, Tool, Memory, app_config, safety fence, and MHS v0 device into a separate `(runtime_profile_id, kind, name, value_json)` row, with Workflow tags in searchable rows. `Index.ListProfileIDs` enumerates all Profiles, `Index.GetEntry` resolves one Profile ID/kind/name, and `Index.ListEntries` reads entries across Profiles by kind, and `Index.ListWorkflowsByTags` uses AND semantics for opaque tag strings without disk access. The device Workflow catalog also filters through this SQLite snapshot at a matching Profile revision. These internal reads do not expose credential-bearing entries to Peers. A published memory SQLite instance is read-only. After a local RuntimeProfile commit, the Server builds and publishes a new instance; it also rebuilds every five minutes. Publication atomically switches readers to the new instance and closes the old one. Writes by other Servers appear on the next rotation, or earlier through `RefreshMemoryIndex`. Shutdown releases the memory database, and startup rebuilds it from persistent data.
 
 Admin creation and updates require registration-token input to fit within 512 UTF-8 bytes, rather than 512 characters, matching the admission value limit. Oversized input returns 400 before persistence.
 

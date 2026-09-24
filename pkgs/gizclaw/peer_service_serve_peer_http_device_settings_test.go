@@ -81,7 +81,7 @@ func TestDeviceToolRunWorkspace(t *testing.T) {
 		kickoff    bool
 	}{
 		{`{"workspace_name":"riddle-save"}`, "riddle-save", false},
-		{`{"collection":"story-teller","workflow_name":"story.aesop","kickoff":true}`, "aesop-later", true},
+		{`{"workflow_name":"story.aesop","kickoff":true}`, "aesop-later", true},
 	} {
 		sets = nil
 		if response := f.invoke(t, "run.workspace.set", tc.body); response.Code != http.StatusOK {
@@ -97,8 +97,8 @@ func TestDeviceToolRunWorkspace(t *testing.T) {
 		status int
 	}{
 		{`{}`, http.StatusBadRequest},
-		{`{"workspace_name":"a","collection":"b","workflow_name":"c"}`, http.StatusBadRequest},
-		{`{"collection":"stories"}`, http.StatusBadRequest},
+		{`{"workspace_name":"a","workflow_name":"c"}`, http.StatusBadRequest},
+		{`{"workflow_name":""}`, http.StatusBadRequest},
 		{`{"workspace_name":""}`, http.StatusBadRequest},
 		// Unknown, unavailable (dangling binding), system, and foreign
 		// Workspaces never reach the device.
@@ -106,7 +106,7 @@ func TestDeviceToolRunWorkspace(t *testing.T) {
 		{`{"workspace_name":"orphan-save"}`, http.StatusNotFound},
 		{`{"workspace_name":"pet"}`, http.StatusNotFound},
 		{`{"workspace_name":"system-aesop"}`, http.StatusNotFound},
-		{`{"collection":"games","workflow_name":"story.aesop"}`, http.StatusNotFound},
+		{`{"workflow_name":"missing"}`, http.StatusNotFound},
 	} {
 		response := f.invoke(t, "run.workspace.set", tc.body)
 		if response.Code != tc.status {

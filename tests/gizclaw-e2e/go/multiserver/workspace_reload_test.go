@@ -25,7 +25,7 @@ func TestWorkspaceReloadWithOptions(t *testing.T) {
 	defer cancel()
 	registerSocialPeer(t, ctx, client, server, "GIZCLAW_TEST_REGISTRATION_TOKEN_A")
 	created, err := client.CreateWorkspace(ctx, "reload-create", rpcapi.WorkspaceCreateRequest{
-		Name: "reload-workspace", Collection: "assistants", WorkflowName: "workspace-reload-echo",
+		Name: "reload-workspace", WorkflowName: "workspace-reload-echo",
 	})
 	if err != nil {
 		t.Fatal(err)

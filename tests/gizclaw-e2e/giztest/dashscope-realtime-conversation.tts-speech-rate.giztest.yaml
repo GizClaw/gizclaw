@@ -42,7 +42,6 @@ steps:
       method: server.workspace.create
       request:
         name: ${workspace_name}
-        collection: assistants
         workflow_name: dashscope-realtime-conversation
         parameters:
           dash_scope_realtime_workspace_parameters:

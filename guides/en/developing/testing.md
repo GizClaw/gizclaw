@@ -528,6 +528,8 @@ gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 \
   --output tests/gizclaw-e2e/testdata/giztest-report.json
 ```
 
+`server.runtime_profile.tags.giztest.yaml` uses real WebRTC RPC to verify unfiltered, single-tag, and multi-tag Workflow queries with AND semantics, no match or OR across age tags, invalid tags, list pagination with selector-bound cursors, get projection, and Workspace creation by alias. `server.device.runtime_profile.get.giztest.yaml` checks the corresponding Public HTTP filter. Local `go test ./cmd/internal/server -run '^TestRuntimeProfileAndWorkspaceToolkitGiztest$' -count=1` runs the RPC scenario and, after an Admin Profile update, `testdata/runtime-profile/updated.giztest.yaml` to confirm the rotated SQLite snapshot is visible over RPC. The Public HTTP scenario runs in the standard Giztest environment.
+
 The device control and Contact Public HTTP contract is covered by the `server.device.*` and
 `server.contacts.*` scenarios, and friends and Friend Groups by `server.friends.http` and
 `server.friend_groups.http` (two devices with their own API keys cover long-lived invite codes, a

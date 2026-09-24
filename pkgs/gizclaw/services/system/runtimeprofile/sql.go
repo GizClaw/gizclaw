@@ -215,7 +215,7 @@ func scanRuntimeProfileSQL(row profileScanner) (apitypes.RuntimeProfile, profile
 	if err := json.Unmarshal([]byte(j1), &item.Spec.Resources); err != nil {
 		return item, version, err
 	}
-	if err := json.Unmarshal([]byte(j2), &item.Spec.Workflows); err != nil {
+	if item.Spec.Workflows, err = decodeRuntimeProfileWorkflows([]byte(j2)); err != nil {
 		return item, version, err
 	}
 	if err := json.Unmarshal([]byte(j3), &item.Spec.AppConfig); err != nil {
@@ -228,6 +228,42 @@ func scanRuntimeProfileSQL(row profileScanner) (apitypes.RuntimeProfile, profile
 		return item, version, err
 	}
 	return item, version, nil
+}
+
+func decodeRuntimeProfileWorkflows(data []byte) (apitypes.RuntimeProfileWorkflows, error) {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, err
+	}
+	var collectionsValue map[string]json.RawMessage
+	if raw["collections"] != nil {
+		if err := json.Unmarshal(raw["collections"], &collectionsValue); err != nil {
+			return nil, err
+		}
+	}
+	if len(raw) == 1 && collectionsValue != nil && collectionsValue["resource_id"] == nil {
+		var collections map[string]map[string]apitypes.RuntimeProfileBinding
+		if err := json.Unmarshal(raw["collections"], &collections); err != nil {
+			return nil, err
+		}
+		workflows := make(apitypes.RuntimeProfileWorkflows)
+		for collection, bindings := range collections {
+			for alias, binding := range bindings {
+				if _, exists := workflows[alias]; exists {
+					return nil, fmt.Errorf("workflow alias %q is duplicated in stored collections", alias)
+				}
+				tags := []string{collection}
+				binding.Tags = &tags
+				workflows[alias] = binding
+			}
+		}
+		return workflows, nil
+	}
+	var workflows apitypes.RuntimeProfileWorkflows
+	if err := json.Unmarshal(data, &workflows); err != nil {
+		return nil, err
+	}
+	return workflows, nil
 }
 func insertRuntimeProfileSQL(ctx context.Context, db *sqlx.DB, item apitypes.RuntimeProfile) (bool, error) {
 	values, err := encodeRuntimeProfileSQL(item)

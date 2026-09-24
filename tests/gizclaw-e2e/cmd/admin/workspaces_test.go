@@ -42,15 +42,12 @@ func TestAdminWorkspacesUserStory(t *testing.T) {
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: resources,
 			Workflows: apitypes.RuntimeProfileWorkflows{
-				Collections: apitypes.RuntimeProfileWorkflowCollections{
-					"assistants": {
-						"voice": {
-							ResourceId: workflowName,
-							I18n: map[string]apitypes.RuntimeProfileI18nText{
-								"en":    {DisplayName: "Voice"},
-								"zh-CN": {DisplayName: "语音助手"},
-							},
-						},
+
+				"voice": {
+					ResourceId: workflowName,
+					I18n: map[string]apitypes.RuntimeProfileI18nText{
+						"en":    {DisplayName: "Voice"},
+						"zh-CN": {DisplayName: "语音助手"},
 					},
 				},
 			},
@@ -70,7 +67,7 @@ func TestAdminWorkspacesUserStory(t *testing.T) {
 	}
 	workspaceName := fmt.Sprintf("workspace-cli-%x", time.Now().UnixNano())
 	workspace, err := peer.CreateWorkspace(ctx, "admin.workspaces.create", rpcapi.WorkspaceCreateRequest{
-		Name: workspaceName, Collection: "assistants", WorkflowName: "voice",
+		Name: workspaceName, WorkflowName: "voice",
 	})
 	if err != nil {
 		t.Fatalf("Peer create Workspace: %v", err)

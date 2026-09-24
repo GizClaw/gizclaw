@@ -71,7 +71,7 @@ func run() error {
 		return err
 	}
 	name := "monitor-audio-" + key.Public.ShortString()
-	if _, err := client.CreateWorkspace(ctx, "monitor-fixture-workspace", rpcapi.WorkspaceCreateRequest{Name: name, Collection: "assistants", WorkflowName: "monitor-echo"}); err != nil {
+	if _, err := client.CreateWorkspace(ctx, "monitor-fixture-workspace", rpcapi.WorkspaceCreateRequest{Name: name, WorkflowName: "monitor-echo"}); err != nil {
 		return err
 	}
 	api, err := peerhttp.NewClientWithResponses("http://"+*endpoint, peerhttp.WithRequestEditorFn(func(_ context.Context, request *http.Request) error {

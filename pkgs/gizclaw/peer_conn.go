@@ -617,6 +617,9 @@ func (h *PeerConn) peerResources() *peerresource.Server {
 		Profiles:       manager.Peers,
 		RuntimeProfile: h.currentRuntimeProfile,
 	}
+	if manager.RuntimeProfiles != nil {
+		resources.Index = manager.RuntimeProfiles.RuntimeIndex()
+	}
 	return resources
 }
 

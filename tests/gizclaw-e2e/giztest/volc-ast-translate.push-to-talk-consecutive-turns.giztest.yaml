@@ -42,7 +42,6 @@ steps:
       method: server.workspace.create
       request:
         name: ${workspace_name}
-        collection: assistants
         workflow_name: volc-ast-translate
         parameters:
           asttranslate_workspace_parameters:

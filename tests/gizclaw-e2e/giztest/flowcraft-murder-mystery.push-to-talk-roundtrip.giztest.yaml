@@ -50,7 +50,6 @@ steps:
       method: server.workspace.create
       request:
         name: ${workspace_name}
-        collection: assistants
         workflow_name: flowcraft-murder-mystery
         parameters:
           flowcraft_workspace_parameters:

@@ -32,7 +32,9 @@ func seedRTPBOS(ctx context.Context, api *adminhttp.ClientWithResponses, profile
 		}
 		workflows[id] = binding(id, id, id)
 	}
-	spec.Workflows.Collections["assistants"] = workflows
+	for alias, workflow := range workflows {
+		spec.Workflows[alias] = workflow
+	}
 	if err := upsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{Id: profile, Spec: spec}); err != nil {
 		return err
 	}

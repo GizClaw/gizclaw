@@ -34,14 +34,14 @@ func TestListRuntimeWorkflowsUsesCollectionAliasesAndSkipsDanglingBindings(t *te
 		"story.missing":   collectionTestBinding("deleted-workflow", "Missing"),
 	}
 	server := &Server{Workflows: workflows}
-	items, err := server.listRuntimeWorkflows(ctx, "assistants", bindings, []string{"story-translate", "story.missing", "story.translate"})
+	items, err := server.listRuntimeWorkflows(ctx, apitypes.RuntimeProfileWorkflows(bindings), []string{"story-translate", "story.missing", "story.translate"})
 	if err != nil {
 		t.Fatalf("listRuntimeWorkflows() error = %v", err)
 	}
 	aliases := make([]string, len(items))
 	for i, item := range items {
 		aliases[i] = item.Name
-		if item.Collection != "assistants" || item.I18n["en"].DisplayName == "" {
+		if item.I18n["en"].DisplayName == "" {
 			t.Fatalf("workflow projection = %#v", item)
 		}
 		if item.Name == "story.translate" && (item.WorkspaceLangPair == nil || *item.WorkspaceLangPair != "zh/ja") {
@@ -53,10 +53,10 @@ func TestListRuntimeWorkflowsUsesCollectionAliasesAndSkipsDanglingBindings(t *te
 	}
 }
 
-func TestWorkflowListRequiresCollection(t *testing.T) {
+func TestWorkflowListRejectsEmptyTag(t *testing.T) {
 	server := &Server{Workflows: workflowtest.New(t)}
 	params := rpcapi.RPCPayload{}
-	if err := params.FromWorkflowListRequest(rpcapi.WorkflowListRequest{}); err != nil {
+	if err := params.FromWorkflowListRequest(rpcapi.WorkflowListRequest{Tags: []string{""}}); err != nil {
 		t.Fatal(err)
 	}
 	response := server.handleWorkflowList(context.Background(), &rpcapi.RPCRequest{Id: "request", Params: &params})
@@ -79,11 +79,10 @@ func TestAliasGetsHideDanglingCanonicalResourceIDs(t *testing.T) {
 		Id: "default", Revision: "r1",
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices},
-			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{
-				"assistants": {
-					"chat": collectionTestBinding("canonical-secret-workflow", "Chat"),
-				},
-			}},
+			Workflows: apitypes.RuntimeProfileWorkflows{
+
+				"chat": collectionTestBinding("canonical-secret-workflow", "Chat"),
+			},
 		},
 	}
 	server := &Server{

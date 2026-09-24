@@ -14,11 +14,7 @@ export type DeviceWorkspace = {
      */
     name: string;
     /**
-     * RuntimeProfile workflow collection the Workspace was created in. Omitted when the Workspace carries no collection, such as a system Workspace.
-     */
-    collection?: string;
-    /**
-     * Workflow name of the Workspace in its collection of the current RuntimeProfile, as listed by GET /gizclaw/v1/device/runtime-profile. Omitted when the alias no longer resolves.
+     * Workflow name of the Workspace in the current RuntimeProfile. Omitted when the alias no longer resolves.
      */
     workflow_name?: string;
     /**
@@ -121,18 +117,7 @@ export type DeviceRuntimeProfile = {
      */
     revision: string;
     /**
-     * Workflow collections sorted by name.
-     */
-    collections: Array<DeviceRuntimeProfileCollection>;
-};
-
-export type DeviceRuntimeProfileCollection = {
-    /**
-     * Collection name, as passed to server.workflow.list.
-     */
-    name: string;
-    /**
-     * Workflows in the collection sorted by name.
+     * Workflows sorted by name.
      */
     workflows: Array<DeviceRuntimeProfileWorkflow>;
 };
@@ -142,6 +127,10 @@ export type DeviceRuntimeProfileWorkflow = {
      * Workflow alias the device uses with server.workflow.*.
      */
     name: string;
+    /**
+     * Opaque Workflow tags.
+     */
+    tags: Array<string>;
 };
 
 export type DeviceFirmwareUpdateRequest = {
@@ -187,7 +176,7 @@ export type DeviceFactoryResetRequest = {
 };
 
 /**
- * Exactly one target: workspace_name, or collection together with workflow_name naming a workflow of the bound RuntimeProfile.
+ * Exactly one target: workspace_name or workflow_name naming a workflow of the bound RuntimeProfile.
  */
 export type DeviceRunWorkspaceSetRequest = {
     /**
@@ -195,11 +184,7 @@ export type DeviceRunWorkspaceSetRequest = {
      */
     workspace_name?: string;
     /**
-     * RuntimeProfile workflow collection; requires workflow_name.
-     */
-    collection?: string;
-    /**
-     * Workflow in collection; the Server picks the caller's most recently active available Workspace of it.
+     * Workflow alias; the Server picks the caller's most recently active available Workspace of it.
      */
     workflow_name?: string;
     /**
@@ -1193,10 +1178,6 @@ export type ListDeviceWorkspacesData = {
     path?: never;
     query?: {
         /**
-         * Return only Workspaces created in this RuntimeProfile workflow collection.
-         */
-        collection?: string;
-        /**
          * Return only Workspaces whose workflow name resolves to this RuntimeProfile alias.
          */
         workflow_name?: string;
@@ -2115,7 +2096,9 @@ export type GetDeviceFirmwareResponse = GetDeviceFirmwareResponses[keyof GetDevi
 export type GetDeviceRuntimeProfileData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        tags?: Array<string>;
+    };
     url: '/gizclaw/v1/device/runtime-profile';
 };
 

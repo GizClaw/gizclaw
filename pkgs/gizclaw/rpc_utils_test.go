@@ -204,12 +204,10 @@ func TestRPCServerLogsDomainFailureOnce(t *testing.T) {
 		serverResources: &peerresource.Server{
 			Caller: giznet.PublicKey{1},
 			RuntimeProfile: func() *apitypes.RuntimeProfile {
-				workflows := apitypes.RuntimeProfileWorkflowCollections{"assistants": {
+				workflows := apitypes.RuntimeProfileWorkflows{
 					"chat": {ResourceId: "workflow-a", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Chat"}, "zh-CN": {DisplayName: "聊天"}}},
-				}}
-				profileWorkflows := testRuntimeProfileWorkflows()
-				profileWorkflows.Collections = workflows
-				return &apitypes.RuntimeProfile{Id: "default", Revision: "revision", Spec: apitypes.RuntimeProfileSpec{Workflows: profileWorkflows}}
+				}
+				return &apitypes.RuntimeProfile{Id: "default", Revision: "revision", Spec: apitypes.RuntimeProfileSpec{Workflows: workflows}}
 			},
 			Workspaces: invalidWorkspaceAdminService{},
 			Workflows: fixedWorkflowAdminService{value: apitypes.Workflow{
@@ -227,7 +225,7 @@ func TestRPCServerLogsDomainFailureOnce(t *testing.T) {
 		Id:     "request-1",
 		Method: rpcapi.RPCMethodServerWorkspaceCreate,
 		Params: mustRPCParams(rpcapi.WorkspaceCreateRequest{
-			Name: "workspace-a", Collection: "assistants", WorkflowName: "chat",
+			Name: "workspace-a", WorkflowName: "chat",
 		}, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest),
 	})
 	if err != nil {

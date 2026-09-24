@@ -39,7 +39,7 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 
 	t.Run("workspace", func(t *testing.T) {
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceList, rpcapi.WorkspaceListResponse{}, (*rpcapi.RPCPayload).FromWorkspaceListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceListResponse, error) {
-			return client.ListWorkspaces(ctx, conn, "workspace-list", rpcapi.WorkspaceListRequest{Collection: "assistants"})
+			return client.ListWorkspaces(ctx, conn, "workspace-list", rpcapi.WorkspaceListRequest{})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceGet, rpcapi.WorkspaceGetResponse{}, (*rpcapi.RPCPayload).FromWorkspaceGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceGetResponse, error) {
 			return client.GetWorkspace(ctx, conn, "workspace-get", rpcapi.WorkspaceGetRequest{Name: "main"})
@@ -71,7 +71,7 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 	t.Run("workflow", func(t *testing.T) {
 		runWorkflowGetWrapperTest(t, client)
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowList, rpcapi.WorkflowListResponse{}, (*rpcapi.RPCPayload).FromWorkflowListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowListResponse, error) {
-			return client.ListWorkflows(ctx, conn, "workflow-list", rpcapi.WorkflowListRequest{Collection: "assistants"})
+			return client.ListWorkflows(ctx, conn, "workflow-list", rpcapi.WorkflowListRequest{})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowGet, rpcapi.WorkflowGetResponse{}, (*rpcapi.RPCPayload).FromWorkflowGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowGetResponse, error) {
 			return client.GetWorkflow(ctx, conn, "workflow-get", rpcapi.WorkflowGetRequest{Name: "flow"})
@@ -712,7 +712,7 @@ func resourceWorkspace(name string) rpcapi.Workspace {
 
 func resourceWorkflowDoc(alias string) rpcapi.WorkflowGetResponse {
 	return rpcapi.WorkflowGetResponse{
-		Value: rpcapi.Workflow{Name: alias, Collection: "assistants", Driver: rpcapi.WorkflowDriverFlowcraft,
+		Value: rpcapi.Workflow{Name: alias, Driver: rpcapi.WorkflowDriverFlowcraft,
 			I18n: map[string]rpcapi.ResourceI18nText{"en": {DisplayName: alias}, "zh-CN": {DisplayName: alias}}},
 		RuntimeProfileName: "default", RuntimeProfileRevision: "revision",
 	}

@@ -35,9 +35,7 @@ func EnsureMinimalRuntimeProfile(ctx context.Context, api *adminhttp.ClientWithR
 		Id: id,
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: apitypes.RuntimeProfileResources{},
-			Workflows: apitypes.RuntimeProfileWorkflows{
-				Collections: apitypes.RuntimeProfileWorkflowCollections{},
-			},
+			Workflows: apitypes.RuntimeProfileWorkflows{},
 		},
 	})
 }

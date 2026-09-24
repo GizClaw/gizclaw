@@ -38,7 +38,6 @@ steps:
     method: server.workspace.create
     request:
       name: "${resource_name}"
-      collection: assistants
       workflow_name: flowcraft-chat-assistant
       parameters:
         flowcraft_workspace_parameters:

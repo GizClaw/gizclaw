@@ -53,7 +53,6 @@ steps:
       method: server.workspace.create
       request:
         name: ${workspace_name}
-        collection: assistants
         workflow_name: safety-fence-dashscope-realtime
         parameters:
           dash_scope_realtime_workspace_parameters:

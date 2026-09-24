@@ -2,7 +2,9 @@ package peerresource
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,8 +14,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -23,6 +27,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	runtimeindex "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
@@ -45,6 +50,7 @@ type Server struct {
 	FriendGroups   *friendgroup.Server
 	Tools          *toolkit.Server
 	Profiles       publicProfileService
+	Index          *runtimeindex.Index
 	RuntimeProfile func() *apitypes.RuntimeProfile
 }
 
@@ -59,7 +65,6 @@ type WorkspaceHistoryService interface {
 // an ordinary Workspace through the shared Peer-owned domain capability.
 type WorkspaceCreateRequest struct {
 	Name         string
-	Collection   string
 	WorkflowName string
 	Parameters   *apitypes.WorkspaceParameters
 	Toolkit      *apitypes.ToolkitPolicy
@@ -85,30 +90,26 @@ func (s *Server) createWorkspace(ctx context.Context, request WorkspaceCreateReq
 	if s == nil || s.Workspaces == nil {
 		return WorkspaceCreateResult{}, errors.New("workspace service not configured")
 	}
-	collection := strings.TrimSpace(request.Collection)
 	alias := strings.TrimSpace(request.WorkflowName)
 	if profile == nil {
 		return WorkspaceCreateResult{}, errors.New("runtime profile not configured")
 	}
-	bindings, exists := profile.Spec.Workflows.Collections[collection]
-	if collection == "" || alias == "" || !exists {
-		return WorkspaceCreateResult{}, &workspace.PeerWorkspaceCreateError{Kind: workspace.PeerWorkspaceCreateInvalid, Err: errors.New("invalid Workflow collection")}
+	if alias == "" {
+		return WorkspaceCreateResult{}, &workspace.PeerWorkspaceCreateError{Kind: workspace.PeerWorkspaceCreateInvalid, Err: errors.New("workflow_name is required")}
 	}
-	binding, exists := bindings[alias]
+	binding, exists := profile.Spec.Workflows[alias]
 	if !exists {
 		return WorkspaceCreateResult{}, &workspace.PeerWorkspaceCreateError{Kind: workspace.PeerWorkspaceCreateNotFound, Err: errors.New("workflow not found")}
 	}
 	projectionProfile := apitypes.RuntimeProfile{
 		Id: profile.Id, Revision: profile.Revision,
 		Spec: apitypes.RuntimeProfileSpec{Resources: profile.Spec.Resources, Workflows: apitypes.RuntimeProfileWorkflows{
-			Collections: apitypes.RuntimeProfileWorkflowCollections{
-				collection: {alias: {ResourceId: binding.ResourceId}},
-			},
+			alias: binding,
 		}},
 	}
 	labels := make(map[string]string, len(request.Labels)+1)
 	maps.Copy(labels, request.Labels)
-	labels["collection"] = collection
+	labels["workflow_name"] = alias
 	workspaceCtx := workspace.WithRuntimeVoiceBindings(
 		workspace.WithRuntimeModelBindings(
 			workspace.WithRuntimeWorkflowBindings(s.ownerContext(ctx), profileBindingsFrom(profile, profileWorkflows)),
@@ -297,18 +298,14 @@ func (s *Server) handleWorkspaceList(ctx context.Context, req *rpcapi.RPCRequest
 		return internalError(req.Id, "workspace service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkspaceListRequest)
-	collection := strings.TrimSpace(params.Collection)
-	if !ok || collection == "" {
+	if !ok {
 		return invalidParams(req.Id)
 	}
 	profile := s.currentRuntimeProfile()
 	if profile == nil {
 		return internalError(req.Id, "runtime profile not configured")
 	}
-	if _, exists := profile.Spec.Workflows.Collections[collection]; !exists {
-		return statusError(req.Id, rpcapi.StatusCodeNotFound, "workflow collection not found")
-	}
-	items, err := s.effectiveWorkspacesByLabels(ctx, map[string]string{"collection": collection})
+	items, err := s.effectiveWorkspacesByLabels(ctx, nil)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -520,20 +517,37 @@ func workspaceWorkflowName(profile *apitypes.RuntimeProfile, item apitypes.Works
 	if profile == nil {
 		return "", false
 	}
-	if item.Labels == nil {
-		return "", false
-	}
-	collection := strings.TrimSpace((*item.Labels)["collection"])
-	bindings, ok := profile.Spec.Workflows.Collections[collection]
-	if !ok {
-		return "", false
-	}
-	for alias, binding := range bindings {
-		if binding.ResourceId == item.WorkflowId {
+	if item.Labels != nil {
+		alias := (*item.Labels)["workflow_name"]
+		if binding, ok := profile.Spec.Workflows[alias]; ok && binding.ResourceId == item.WorkflowId {
 			return alias, true
 		}
 	}
-	return "", false
+	legacyCollection := ""
+	if item.Labels != nil {
+		legacyCollection = (*item.Labels)["collection"]
+	}
+	var candidate string
+	var taggedCandidate string
+	ambiguous, taggedAmbiguous := false, false
+	for alias, binding := range profile.Spec.Workflows {
+		if binding.ResourceId == item.WorkflowId {
+			if legacyCollection != "" && slices.Contains(workflowTags(binding), legacyCollection) {
+				if taggedCandidate != "" {
+					taggedAmbiguous = true
+				}
+				taggedCandidate = alias
+			}
+			if candidate != "" {
+				ambiguous = true
+			}
+			candidate = alias
+		}
+	}
+	if taggedCandidate != "" {
+		return taggedCandidate, !taggedAmbiguous
+	}
+	return candidate, candidate != "" && !ambiguous
 }
 
 // ResolveAccessibleWorkspace resolves a Peer-visible name to the canonical
@@ -629,7 +643,6 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 	if !ok {
 		return invalidParams(req.Id), true, nil
 	}
-	collection := strings.TrimSpace(params.Collection)
 	alias := strings.TrimSpace(params.WorkflowName)
 	observability.Annotate(ctx, observability.AnnotationWorkspaceName, params.Name)
 	observability.Annotate(ctx, observability.AnnotationWorkflowName, alias)
@@ -643,7 +656,7 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 		return workspaceToolkitError(req.Id, err), true, nil
 	}
 	created, err := s.createWorkspace(ctx, WorkspaceCreateRequest{
-		Name: params.Name, Collection: collection, WorkflowName: alias,
+		Name: params.Name, WorkflowName: alias,
 		Parameters: parameters, Toolkit: toolkitPolicy,
 	}, profile)
 	if err != nil {
@@ -1017,23 +1030,47 @@ func (s *Server) handleWorkflowList(ctx context.Context, req *rpcapi.RPCRequest)
 		return internalError(req.Id, "workflow service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkflowListRequest)
-	if !ok || strings.TrimSpace(params.Collection) == "" {
+	if !ok {
+		return invalidParams(req.Id)
+	}
+	if !ValidWorkflowTagSelector(params.Tags) {
 		return invalidParams(req.Id)
 	}
 	profile := s.currentRuntimeProfile()
 	if profile == nil {
 		return internalError(req.Id, "runtime profile not configured")
 	}
-	bindings, exists := profile.Spec.Workflows.Collections[strings.TrimSpace(params.Collection)]
-	if !exists {
-		return statusError(req.Id, rpcapi.StatusCodeNotFound, "workflow collection not found")
+	bindings := profile.Spec.Workflows
+	var aliases []string
+	if s.Index != nil {
+		entries, err := s.Index.ListProfileWorkflowsByTags(ctx, profile.Id, profile.Revision, params.Tags)
+		if errors.Is(err, runtimeindex.ErrStale) {
+			return statusError(req.Id, rpcapi.StatusCodeAborted, err.Error())
+		}
+		if err != nil {
+			return internalError(req.Id, err.Error())
+		}
+		aliases = make([]string, 0, len(entries))
+		for _, entry := range entries {
+			aliases = append(aliases, entry.Name)
+		}
+	} else {
+		aliases = make([]string, 0, len(bindings))
+		for alias, binding := range bindings {
+			if hasAllTags(workflowTags(binding), params.Tags) {
+				aliases = append(aliases, alias)
+			}
+		}
+		sort.Strings(aliases)
 	}
-	aliases := sortedBindingAliases(bindings)
-	page, hasNext, nextCursor, conflict := pageAliases(aliases, params.Cursor, params.Limit, profile.Revision)
+	selector := append([]string(nil), params.Tags...)
+	sort.Strings(selector)
+	selectorHash := sha256.Sum256([]byte(strings.Join(selector, "\x00")))
+	page, hasNext, nextCursor, conflict := pageAliases(aliases, params.Cursor, params.Limit, profile.Revision+":"+hex.EncodeToString(selectorHash[:8]))
 	if conflict {
 		return statusError(req.Id, rpcapi.StatusCodeAborted, "runtime profile revision changed")
 	}
-	items, err := s.listRuntimeWorkflows(ctx, params.Collection, bindings, page)
+	items, err := s.listRuntimeWorkflows(ctx, bindings, page)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -1043,7 +1080,36 @@ func (s *Server) handleWorkflowList(ctx context.Context, req *rpcapi.RPCRequest)
 	}, (*rpcapi.RPCPayload).FromWorkflowListResponse)
 }
 
-func (s *Server) listRuntimeWorkflows(ctx context.Context, collection string, bindings map[string]apitypes.RuntimeProfileBinding, aliases []string) ([]rpcapi.Workflow, error) {
+func hasAllTags(workflowTags, requested []string) bool {
+	for _, tag := range requested {
+		if !slices.Contains(workflowTags, tag) {
+			return false
+		}
+	}
+	return true
+}
+
+// ValidWorkflowTagSelector checks bounded, opaque tag strings at caller boundaries.
+func ValidWorkflowTagSelector(tags []string) bool {
+	if len(tags) > 32 {
+		return false
+	}
+	for _, tag := range tags {
+		if !utf8.ValidString(tag) || len(tag) == 0 || len(tag) > 128 {
+			return false
+		}
+	}
+	return true
+}
+
+func workflowTags(binding apitypes.RuntimeProfileBinding) []string {
+	if binding.Tags == nil {
+		return []string{}
+	}
+	return *binding.Tags
+}
+
+func (s *Server) listRuntimeWorkflows(ctx context.Context, bindings apitypes.RuntimeProfileWorkflows, aliases []string) ([]rpcapi.Workflow, error) {
 	items := make([]rpcapi.Workflow, 0, len(aliases))
 	for _, alias := range aliases {
 		binding := bindings[alias]
@@ -1061,7 +1127,7 @@ func (s *Server) listRuntimeWorkflows(ctx context.Context, collection string, bi
 		if rpcResp != nil {
 			return nil, fmt.Errorf("get runtime Workflow %q: %s", alias, rpcResp.Error.Message)
 		}
-		items = append(items, workflowRPCProjection(item, alias, collection, binding))
+		items = append(items, workflowRPCProjection(item, alias, binding))
 	}
 	return items, nil
 }
@@ -1078,7 +1144,7 @@ func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) 
 	if profile == nil {
 		return internalError(req.Id, "runtime profile not configured")
 	}
-	collection, binding, exists := workflowBinding(profile, params.Name)
+	binding, exists := workflowBinding(profile, params.Name)
 	if !exists {
 		return statusError(req.Id, rpcapi.StatusCodeNotFound, "workflow not found")
 	}
@@ -1097,14 +1163,14 @@ func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) 
 		return withRequestID(req.Id, rpcResp)
 	}
 	return resultResponse(req.Id, rpcapi.WorkflowGetResponse{
-		Value:              workflowRPCProjection(result, params.Name, collection, binding),
+		Value:              workflowRPCProjection(result, params.Name, binding),
 		RuntimeProfileName: profile.Id, RuntimeProfileRevision: profile.Revision,
 	}, (*rpcapi.RPCPayload).FromWorkflowGetResponse)
 }
 
-func workflowRPCProjection(item apitypes.Workflow, alias, collection string, binding apitypes.RuntimeProfileBinding) rpcapi.Workflow {
+func workflowRPCProjection(item apitypes.Workflow, alias string, binding apitypes.RuntimeProfileBinding) rpcapi.Workflow {
 	result := rpcapi.Workflow{
-		Name: alias, Collection: collection, I18n: bindingI18n(binding),
+		Name: alias, Tags: workflowTags(binding), I18n: workflowBindingI18n(binding),
 		Driver: rpcapi.WorkflowDriver(item.Spec.Driver),
 	}
 	if item.Spec.AstTranslate != nil {

@@ -124,12 +124,9 @@ func TestServiceResolverUsesWorkspaceOwnerRuntimeProfile(t *testing.T) {
 		Id:       "owner-profile",
 		Revision: "revision-1",
 		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
-			Collections: apitypes.RuntimeProfileWorkflowCollections{
-				"assistants": {
-					"chat":               {ResourceId: "owner-workflow"},
-					"unavailable-helper": {ResourceId: "missing-workflow"},
-				},
-			},
+
+			"chat":               {ResourceId: "owner-workflow"},
+			"unavailable-helper": {ResourceId: "missing-workflow"},
 		}},
 	}
 	resolver := ServiceResolver{

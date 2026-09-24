@@ -26,13 +26,13 @@ func TestClientResourceMethodsRequireConnection(t *testing.T) {
 			return client.RevokeAPIKey(ctx, "api-key-revoke", rpcapi.APIKeyRevokeRequest{Name: "key-a"})
 		}},
 		{"workspace list", func() (any, error) {
-			return client.ListWorkspaces(ctx, "workspace-list", rpcapi.WorkspaceListRequest{Collection: "assistants"})
+			return client.ListWorkspaces(ctx, "workspace-list", rpcapi.WorkspaceListRequest{})
 		}},
 		{"workspace get", func() (any, error) {
 			return client.GetWorkspace(ctx, "workspace-get", rpcapi.WorkspaceGetRequest{Name: "workspace-a"})
 		}},
 		{"workspace create", func() (any, error) {
-			return client.CreateWorkspace(ctx, "workspace-create", rpcapi.WorkspaceCreateRequest{Name: "workspace-a", Collection: "assistants", WorkflowName: "flow-a"})
+			return client.CreateWorkspace(ctx, "workspace-create", rpcapi.WorkspaceCreateRequest{Name: "workspace-a", WorkflowName: "flow-a"})
 		}},
 		{"workspace put", func() (any, error) {
 			return client.PutWorkspace(ctx, "workspace-put", rpcapi.WorkspacePutRequest{Name: "workspace-a", Body: rpcapi.WorkspacePutBody{}})
@@ -51,7 +51,7 @@ func TestClientResourceMethodsRequireConnection(t *testing.T) {
 			return client.DownloadWorkspaceHistoryAudio(ctx, "workspace-history-audio-download", rpcapi.WorkspaceHistoryAudioDownloadRequest{WorkspaceName: "workspace-a", HistoryName: "history-a"}, &out)
 		}},
 		{"workflow list", func() (any, error) {
-			return client.ListWorkflows(ctx, "workflow-list", rpcapi.WorkflowListRequest{Collection: "assistants"})
+			return client.ListWorkflows(ctx, "workflow-list", rpcapi.WorkflowListRequest{})
 		}},
 		{"workflow get", func() (any, error) {
 			return client.GetWorkflow(ctx, "workflow-get", rpcapi.WorkflowGetRequest{Name: "flow-a"})

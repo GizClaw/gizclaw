@@ -43,7 +43,7 @@ func preparePushToTalkWorkspace(ctx context.Context, contextConfigPath, workflow
 	if err := client.CallRPC(
 		rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_CREATE,
 		&rpcpb.WorkspaceCreateRequest{Value: &rpcpb.WorkspaceCreateBody{
-			Name: name, Collection: "assistants", WorkflowName: workflow,
+			Name: name, WorkflowName: workflow,
 			Parameters: &rpcpb.WorkspaceParameters{Value: &rpcpb.WorkspaceParameters_DoubaoRealtimeWorkspaceParameters{
 				DoubaoRealtimeWorkspaceParameters: &rpcpb.DoubaoRealtimeWorkspaceParameters{
 					AgentType: rpcpb.DoubaoRealtimeWorkspaceParametersAgentType_DOUBAO_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_DOUBAO_REALTIME,

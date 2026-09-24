@@ -206,7 +206,7 @@ catalog source 可以包含 `credentials/`、`tenants/`、`voices/`、`models/`�
   source 重复定义同一 `<Kind>/<id>`，或 product source 定义已存在的 `<Kind>/<id>`，都会让读取失败。
 - 选择从所有产品 manifest 开始。RegistrationToken 选中 `spec.runtime_profile_id` 指向的
   RuntimeProfile（可以来自 catalog source），设置了 `spec.firmware_id` 时再选中对应 Firmware。
-  RuntimeProfile 选中 `spec.workflows.collections` 中绑定的 Workflow、`spec.resources.models` 与
+  RuntimeProfile 选中 `spec.workflows` 中绑定的 Workflow、`spec.resources.models` 与
   `spec.resources.voices` 中绑定的 Model 与 Voice，以及 `spec.resources.memories.*.layout_id`
   指向的 MemoryLayout。Workflow 选中 `spec.memory` 指向的 MemoryLayout，Model 或 Voice 选中
   `spec.provider.id` 指向的 Tenant，Tenant 选中 `spec.credential_id` 指向的 Credential。

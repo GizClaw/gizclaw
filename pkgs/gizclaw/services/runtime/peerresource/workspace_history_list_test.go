@@ -54,7 +54,7 @@ func TestWorkspaceHistoryListHonorsOrderAndTimeRange(t *testing.T) {
 		},
 	}
 	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
-		Name: "history-list", Collection: "story-teller", WorkflowName: "journey",
+		Name: "history-list", WorkflowName: "journey",
 	})
 	created, rpcErr := server.ResolveAccessibleWorkspace(ctx, "history-list")
 	if rpcErr != nil {

@@ -40,7 +40,6 @@ steps:
       method: server.workspace.create
       request:
         name: ${workspace_name}
-        collection: assistants
         workflow_name: safety-fence-eino
         parameters:
           eino_workspace_parameters:

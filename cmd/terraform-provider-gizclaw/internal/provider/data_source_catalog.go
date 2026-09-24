@@ -473,13 +473,9 @@ func readCatalogManifest(path string) (catalogManifest, string, error) {
 func runtimeProfileResourceIDs(spec map[string]any) []string {
 	ids := make(map[string]struct{})
 	workflows, _ := spec["workflows"].(map[string]any)
-	collections, _ := workflows["collections"].(map[string]any)
-	for _, rawCollection := range collections {
-		collection, _ := rawCollection.(map[string]any)
-		for _, rawEntry := range collection {
-			if name := bindingResourceID(rawEntry); name != "" {
-				ids["Workflow/"+name] = struct{}{}
-			}
+	for _, rawEntry := range workflows {
+		if name := bindingResourceID(rawEntry); name != "" {
+			ids["Workflow/"+name] = struct{}{}
 		}
 	}
 	resources, _ := spec["resources"].(map[string]any)

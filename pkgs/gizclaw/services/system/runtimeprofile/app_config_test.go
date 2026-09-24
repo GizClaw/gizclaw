@@ -12,9 +12,7 @@ func appConfigUpsert(config apitypes.RuntimeProfileAppConfig) adminhttp.RuntimeP
 	return adminhttp.RuntimeProfileUpsert{
 		Id: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{
-				Collections: apitypes.RuntimeProfileWorkflowCollections{},
-			},
+			Workflows: apitypes.RuntimeProfileWorkflows{},
 			AppConfig: &config,
 		},
 	}

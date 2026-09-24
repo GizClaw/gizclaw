@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -395,9 +396,9 @@ func TestDanglingRuntimeProfileResourceNamesAreRejected(t *testing.T) {
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Id: "pet-runtime",
 		Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{
-				"assistants": {"missing": runtimeProfileTestBinding("missing-workflow")},
-			}},
+			Workflows: apitypes.RuntimeProfileWorkflows{
+				"missing": runtimeProfileTestBinding("missing-workflow"),
+			},
 			Resources: apitypes.RuntimeProfileResources{Models: new(map[string]apitypes.RuntimeProfileBinding{"missing": runtimeProfileTestBinding("missing-model")})},
 		},
 	}})
@@ -427,7 +428,7 @@ func TestRuntimeProfileRejectsResolverReturningWrongResourceKind(t *testing.T) {
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Id: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{}},
+			Workflows: apitypes.RuntimeProfileWorkflows{},
 			Resources: apitypes.RuntimeProfileResources{Models: &models},
 		},
 	}})
@@ -449,13 +450,13 @@ func TestValidateFlowcraftRuntimeAliasesRejectsWrongModelKindAndMissingVoice(t *
 		Driver:    apitypes.WorkflowDriverFlowcraft,
 		Flowcraft: runtimeProfileTestFlowcraftSpec(t, "generate-model", "narrator"),
 	}
-	if err := validateWorkflowRuntimeAliases("workflows.collections.raids.demo", workflow, models, voices); err == nil || !strings.Contains(err.Error(), "want \"llm\"") {
+	if err := validateWorkflowRuntimeAliases("workflows.demo", workflow, models, voices); err == nil || !strings.Contains(err.Error(), "want \"llm\"") {
 		t.Fatalf("validateWorkflowRuntimeAliases(wrong model kind) error = %v", err)
 	}
 
 	models["generate-model"] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}}
 	workflow.Flowcraft = runtimeProfileTestFlowcraftSpec(t, "generate-model", "missing-voice")
-	if err := validateWorkflowRuntimeAliases("workflows.collections.raids.demo", workflow, models, voices); err == nil || !strings.Contains(err.Error(), "not declared in resources.voices") {
+	if err := validateWorkflowRuntimeAliases("workflows.demo", workflow, models, voices); err == nil || !strings.Contains(err.Error(), "not declared in resources.voices") {
 		t.Fatalf("validateWorkflowRuntimeAliases(missing voice) error = %v", err)
 	}
 }
@@ -482,7 +483,7 @@ func TestValidateDottedMemoryLayoutAndFlowcraftRuntimeAliases(t *testing.T) {
 		Driver:    apitypes.WorkflowDriverFlowcraft,
 		Flowcraft: runtimeProfileTestFlowcraftSpec(t, "pet-care.model", "pet-care.pet"),
 	}
-	if err := validateWorkflowRuntimeAliases("workflows.collections.pets.pet-care", workflow, models, voices); err != nil {
+	if err := validateWorkflowRuntimeAliases("workflows.pet-care", workflow, models, voices); err != nil {
 		t.Fatalf("validateWorkflowRuntimeAliases() error = %v", err)
 	}
 
@@ -492,7 +493,7 @@ func TestValidateDottedMemoryLayoutAndFlowcraftRuntimeAliases(t *testing.T) {
 		t.Fatalf("validateMemoryLayoutRuntimeAliases(missing dotted alias) error = %v", err)
 	}
 	delete(voices, "pet-care.pet")
-	if err := validateWorkflowRuntimeAliases("workflows.collections.pets.pet-care", workflow, models, voices); err == nil ||
+	if err := validateWorkflowRuntimeAliases("workflows.pet-care", workflow, models, voices); err == nil ||
 		!strings.Contains(err.Error(), `voice alias "pet-care.pet" is not declared`) {
 		t.Fatalf("validateWorkflowRuntimeAliases(missing dotted alias) error = %v", err)
 	}
@@ -517,11 +518,11 @@ func TestValidateVoiceProducingWorkflowsRequireRuntimeVoiceAliases(t *testing.T)
 		},
 	}
 	translation.AstTranslate.LangPair = nil
-	if err := validateWorkflowRuntimeAliases("workflows.collections.translates.demo", translation, models, voices); err == nil || !strings.Contains(err.Error(), "lang_pair is required") {
+	if err := validateWorkflowRuntimeAliases("workflows.demo", translation, models, voices); err == nil || !strings.Contains(err.Error(), "lang_pair is required") {
 		t.Fatalf("validateWorkflowRuntimeAliases(AST without lang_pair) error = %v", err)
 	}
 	translation.AstTranslate.LangPair = &langPair
-	if err := validateWorkflowRuntimeAliases("workflows.collections.translates.demo", translation, models, voices); err == nil || !strings.Contains(err.Error(), "RuntimeProfile Voice alias") {
+	if err := validateWorkflowRuntimeAliases("workflows.demo", translation, models, voices); err == nil || !strings.Contains(err.Error(), "RuntimeProfile Voice alias") {
 		t.Fatalf("validateWorkflowRuntimeAliases(AST without voice) error = %v", err)
 	}
 	internal := apitypes.ASTTranslateVoiceParameters{}
@@ -529,7 +530,7 @@ func TestValidateVoiceProducingWorkflowsRequireRuntimeVoiceAliases(t *testing.T)
 		t.Fatal(err)
 	}
 	translation.AstTranslate.Voice = &internal
-	if err := validateWorkflowRuntimeAliases("workflows.collections.translates.demo", translation, models, voices); err == nil || !strings.Contains(err.Error(), "voice.tts_voice") {
+	if err := validateWorkflowRuntimeAliases("workflows.demo", translation, models, voices); err == nil || !strings.Contains(err.Error(), "voice.tts_voice") {
 		t.Fatalf("validateWorkflowRuntimeAliases(AST provider speaker) error = %v", err)
 	}
 	external := apitypes.ASTTranslateVoiceParameters{}
@@ -537,7 +538,7 @@ func TestValidateVoiceProducingWorkflowsRequireRuntimeVoiceAliases(t *testing.T)
 		t.Fatal(err)
 	}
 	translation.AstTranslate.Voice = &external
-	if err := validateWorkflowRuntimeAliases("workflows.collections.translates.demo", translation, models, voices); err != nil {
+	if err := validateWorkflowRuntimeAliases("workflows.demo", translation, models, voices); err != nil {
 		t.Fatalf("validateWorkflowRuntimeAliases(AST alias) error = %v", err)
 	}
 
@@ -547,7 +548,7 @@ func TestValidateVoiceProducingWorkflowsRequireRuntimeVoiceAliases(t *testing.T)
 			Model: "realtime-model",
 		},
 	}
-	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.demo", realtime, models, voices); err == nil || !strings.Contains(err.Error(), "RuntimeProfile Voice alias") {
+	if err := validateWorkflowRuntimeAliases("workflows.demo", realtime, models, voices); err == nil || !strings.Contains(err.Error(), "RuntimeProfile Voice alias") {
 		t.Fatalf("validateWorkflowRuntimeAliases(Doubao without voice) error = %v", err)
 	}
 	voice := "assistant"
@@ -555,7 +556,7 @@ func TestValidateVoiceProducingWorkflowsRequireRuntimeVoiceAliases(t *testing.T)
 		Input:  apitypes.DoubaoRealtimeAudioInput{Format: apitypes.DoubaoRealtimeAudioFormat{Rate: 16000, Type: apitypes.DoubaoRealtimeAudioFormatTypePcm}},
 		Output: apitypes.DoubaoRealtimeAudioOutput{Format: apitypes.DoubaoRealtimeAudioFormat{Rate: 24000, Type: apitypes.DoubaoRealtimeAudioFormatTypePcm}, Voice: &voice},
 	}
-	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.demo", realtime, models, voices); err != nil {
+	if err := validateWorkflowRuntimeAliases("workflows.demo", realtime, models, voices); err != nil {
 		t.Fatalf("validateWorkflowRuntimeAliases(Doubao alias) error = %v", err)
 	}
 	voices[voice] = apitypes.VoiceResource{
@@ -566,17 +567,17 @@ func TestValidateVoiceProducingWorkflowsRequireRuntimeVoiceAliases(t *testing.T)
 			},
 		},
 	}
-	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.demo", realtime, models, voices); err == nil || !strings.Contains(err.Error(), "to match model alias") {
+	if err := validateWorkflowRuntimeAliases("workflows.demo", realtime, models, voices); err == nil || !strings.Contains(err.Error(), "to match model alias") {
 		t.Fatalf("validateWorkflowRuntimeAliases(Doubao incompatible voice) error = %v", err)
 	}
 	voices[voice] = apitypes.VoiceResource{}
 	realtime.DoubaoRealtime.Tts = &apitypes.DoubaoRealtimeTTS{Voice: "narrator"}
-	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.demo", realtime, models, voices); err == nil ||
+	if err := validateWorkflowRuntimeAliases("workflows.demo", realtime, models, voices); err == nil ||
 		!strings.Contains(err.Error(), `tts.voice voice alias "narrator" is not declared`) {
 		t.Fatalf("validateWorkflowRuntimeAliases(Doubao undeclared tts voice) error = %v", err)
 	}
 	realtime.DoubaoRealtime.Tts.Voice = "translator"
-	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.demo", realtime, models, voices); err != nil {
+	if err := validateWorkflowRuntimeAliases("workflows.demo", realtime, models, voices); err != nil {
 		t.Fatalf("validateWorkflowRuntimeAliases(Doubao tts voice) error = %v", err)
 	}
 	realtime.DoubaoRealtime.Tts = nil
@@ -585,7 +586,7 @@ func TestValidateVoiceProducingWorkflowsRequireRuntimeVoiceAliases(t *testing.T)
 		Name: "get_weather",
 	}}
 	realtime.DoubaoRealtime.Tools = &tools
-	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.demo", realtime, models, voices); err == nil || !strings.Contains(err.Error(), "tools are unsupported") {
+	if err := validateWorkflowRuntimeAliases("workflows.demo", realtime, models, voices); err == nil || !strings.Contains(err.Error(), "tools are unsupported") {
 		t.Fatalf("validateWorkflowRuntimeAliases(Doubao tools) error = %v", err)
 	}
 }
@@ -640,10 +641,10 @@ func TestValidateNewWorkflowRuntimeAliases(t *testing.T) {
 			Voice: &voice,
 		},
 	}
-	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.dash", dash, models, voices); err != nil {
+	if err := validateWorkflowRuntimeAliases("workflows.dash", dash, models, voices); err != nil {
 		t.Fatalf("validate DashScope realtime aliases: %v", err)
 	}
-	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.dash", dash, models, nil); err == nil || !strings.Contains(err.Error(), ".voice") {
+	if err := validateWorkflowRuntimeAliases("workflows.dash", dash, models, nil); err == nil || !strings.Contains(err.Error(), ".voice") {
 		t.Fatalf("validate DashScope missing voice alias error = %v", err)
 	}
 	voices[voice] = apitypes.VoiceResource{
@@ -654,7 +655,7 @@ func TestValidateNewWorkflowRuntimeAliases(t *testing.T) {
 			},
 		},
 	}
-	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.dash", dash, models, voices); err == nil || !strings.Contains(err.Error(), "to match model alias") {
+	if err := validateWorkflowRuntimeAliases("workflows.dash", dash, models, voices); err == nil || !strings.Contains(err.Error(), "to match model alias") {
 		t.Fatalf("validate DashScope incompatible voice error = %v", err)
 	}
 
@@ -665,7 +666,7 @@ func TestValidateNewWorkflowRuntimeAliases(t *testing.T) {
 			Voice: &voice,
 		},
 	}
-	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.duplex", duplex, models, voices); err != nil {
+	if err := validateWorkflowRuntimeAliases("workflows.duplex", duplex, models, voices); err != nil {
 		t.Fatalf("validate Doubao duplex aliases: %v", err)
 	}
 	voices[voice] = apitypes.VoiceResource{
@@ -676,7 +677,7 @@ func TestValidateNewWorkflowRuntimeAliases(t *testing.T) {
 			},
 		},
 	}
-	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.duplex", duplex, models, voices); err == nil || !strings.Contains(err.Error(), "to match model alias") {
+	if err := validateWorkflowRuntimeAliases("workflows.duplex", duplex, models, voices); err == nil || !strings.Contains(err.Error(), "to match model alias") {
 		t.Fatalf("validate Doubao duplex incompatible voice error = %v", err)
 	}
 
@@ -702,7 +703,7 @@ func TestValidateNewWorkflowRuntimeAliases(t *testing.T) {
 			},
 		},
 	}
-	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.eino", eino, models, voices); err != nil {
+	if err := validateWorkflowRuntimeAliases("workflows.eino", eino, models, voices); err != nil {
 		t.Fatalf("validate Eino aliases: %v", err)
 	}
 	asr, defaultVoice := "speech.asr", "speech.voice"
@@ -712,16 +713,16 @@ func TestValidateNewWorkflowRuntimeAliases(t *testing.T) {
 	}
 	models[asr] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}}
 	voices[defaultVoice] = apitypes.VoiceResource{}
-	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.eino", eino, models, voices); err == nil || !strings.Contains(err.Error(), `want "asr"`) {
+	if err := validateWorkflowRuntimeAliases("workflows.eino", eino, models, voices); err == nil || !strings.Contains(err.Error(), `want "asr"`) {
 		t.Fatalf("validate Eino wrong ASR kind error = %v", err)
 	}
 	models[asr] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindAsr}}
-	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.eino", eino, models, voices); err != nil {
+	if err := validateWorkflowRuntimeAliases("workflows.eino", eino, models, voices); err != nil {
 		t.Fatalf("validate Eino voice aliases: %v", err)
 	}
 
 	delete(voices, defaultVoice)
-	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.eino", eino, models, voices); err == nil || !strings.Contains(err.Error(), "not declared in resources.voices") {
+	if err := validateWorkflowRuntimeAliases("workflows.eino", eino, models, voices); err == nil || !strings.Contains(err.Error(), "not declared in resources.voices") {
 		t.Fatalf("validate Eino missing Voice error = %v", err)
 	}
 }
@@ -734,7 +735,7 @@ func TestRuntimeProfileRejectsAliasesSharedAcrossResourceKinds(t *testing.T) {
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Id: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{}},
+			Workflows: apitypes.RuntimeProfileWorkflows{},
 			Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices},
 		},
 	}})
@@ -846,11 +847,8 @@ func scopedAliasProfileForTest(t *testing.T) adminhttp.RuntimeProfileUpsert {
 		Id: "scoped-profile",
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{
-				Collections: apitypes.RuntimeProfileWorkflowCollections{
-					"story.catalog": {
-						"story.journey-center-earth": runtimeProfileTestBinding("journey-workflow"),
-					},
-				},
+
+				"story.journey-center-earth": runtimeProfileTestBinding("journey-workflow"),
 			},
 			Resources: apitypes.RuntimeProfileResources{
 				Models: &models, Voices: &voices, Tools: &tools, Memories: &memories,
@@ -861,8 +859,8 @@ func scopedAliasProfileForTest(t *testing.T) adminhttp.RuntimeProfileUpsert {
 
 func assertScopedProfileAliases(t *testing.T, spec apitypes.RuntimeProfileSpec) {
 	t.Helper()
-	if _, ok := spec.Workflows.Collections["story.catalog"]["story.journey-center-earth"]; !ok {
-		t.Fatalf("Workflow collections = %#v", spec.Workflows.Collections)
+	if _, ok := spec.Workflows["story.journey-center-earth"]; !ok {
+		t.Fatalf("Workflows = %#v", spec.Workflows)
 	}
 	for name, aliases := range map[string][]string{
 		"models": {"journey.model", "reward.evaluator", "game.reward-model"},
@@ -895,18 +893,51 @@ func assertScopedProfileAliases(t *testing.T, spec apitypes.RuntimeProfileSpec) 
 	}
 }
 
-func TestRuntimeProfileRejectsWorkflowCollectionsDuplicatedAfterNormalization(t *testing.T) {
+func TestRuntimeProfileRejectsWorkflowAliasesDuplicatedAfterNormalization(t *testing.T) {
 	t.Parallel()
 	_, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{
 		Id: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
-			Collections: apitypes.RuntimeProfileWorkflowCollections{
-				"assistants":   {},
-				" assistants ": {},
-			},
+			"chat":   runtimeProfileTestBinding("chat"),
+			" chat ": runtimeProfileTestBinding("other"),
 		}}}, "")
 	if err == nil || !strings.Contains(err.Error(), "duplicated after normalization") {
 		t.Fatalf("normalizeProfile() error = %v, want normalized collection collision", err)
+	}
+}
+
+func TestRuntimeProfileWorkflowTagsAreOpaqueAndCanonical(t *testing.T) {
+	binding := runtimeProfileTestBinding("chat")
+	binding.Tags = &[]string{"story", "6-8"}
+	item, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{Id: "test-profile", Spec: apitypes.RuntimeProfileSpec{
+		Workflows: apitypes.RuntimeProfileWorkflows{"chat": binding},
+	}}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := *item.Spec.Workflows["chat"].Tags; !slices.Equal(got, []string{"6-8", "story"}) {
+		t.Fatalf("tags = %#v", got)
+	}
+	binding.Tags = &[]string{"story", "story"}
+	if _, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{Id: "test-profile", Spec: apitypes.RuntimeProfileSpec{
+		Workflows: apitypes.RuntimeProfileWorkflows{"chat": binding},
+	}}, ""); err == nil || !strings.Contains(err.Error(), "duplicate tag") {
+		t.Fatalf("duplicate tags error = %v", err)
+	}
+}
+
+func TestDecodeStoredWorkflowCollections(t *testing.T) {
+	workflows, err := decodeRuntimeProfileWorkflows([]byte(`{"collections":{"stories":{"chat":{"resource_id":"chat-resource","i18n":{"en":{"display_name":"Chat"},"zh-CN":{"display_name":"聊天"}}}}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding, ok := workflows["chat"]
+	if !ok || binding.ResourceId != "chat-resource" || binding.Tags == nil || !slices.Equal(*binding.Tags, []string{"stories"}) {
+		t.Fatalf("migrated workflows = %#v", workflows)
+	}
+	flat, err := decodeRuntimeProfileWorkflows([]byte(`{"collections":{"resource_id":"modern-workflow","i18n":{"en":{"display_name":"Modern"},"zh-CN":{"display_name":"现代"}}}}`))
+	if err != nil || flat["collections"].ResourceId != "modern-workflow" {
+		t.Fatalf("flat alias named collections = %#v, %v", flat, err)
 	}
 }
 
@@ -916,9 +947,7 @@ func TestRuntimeProfileAcceptsDefaultName(t *testing.T) {
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Id: "default",
 		Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{
-				Collections: apitypes.RuntimeProfileWorkflowCollections{},
-			},
+			Workflows: apitypes.RuntimeProfileWorkflows{},
 		},
 	}})
 	if err != nil {
@@ -1032,9 +1061,7 @@ func TestOwnerProfileBindingSurvivesConnectionLifetimeAndLoadsCurrentRevision(t 
 		t.Fatalf("ResolveOwnerProfile() = %#v, %v", first, err)
 	}
 	updated := adminhttp.RuntimeProfileUpsert{Id: first.Id, Spec: first.Spec}
-	updated.Spec.Workflows.Collections = apitypes.RuntimeProfileWorkflowCollections{
-		"assistants": {"chat": runtimeProfileTestBinding("chat-v2")},
-	}
+	updated.Spec.Workflows = apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat-v2")}
 	response, err := s.PutRuntimeProfile(t.Context(), adminhttp.PutRuntimeProfileRequestObject{Id: first.Id, Body: &updated})
 	if err != nil {
 		t.Fatalf("PutRuntimeProfile() error = %v", err)
@@ -1046,7 +1073,7 @@ func TestOwnerProfileBindingSurvivesConnectionLifetimeAndLoadsCurrentRevision(t 
 	if err != nil {
 		t.Fatalf("ResolveOwnerProfile(updated) error = %v", err)
 	}
-	if current.Spec.Workflows.Collections["assistants"]["chat"].ResourceId != "chat-v2" || current.Revision == first.Revision {
+	if current.Spec.Workflows["chat"].ResourceId != "chat-v2" || current.Revision == first.Revision {
 		t.Fatalf("ResolveOwnerProfile(updated) = %#v, initial revision %q", current, first.Revision)
 	}
 }
@@ -1195,9 +1222,7 @@ func createProfile(t testing.TB, s *Server, name string, models map[string]strin
 	}
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Id: name, Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{
-				Collections: apitypes.RuntimeProfileWorkflowCollections{},
-			},
+			Workflows: apitypes.RuntimeProfileWorkflows{},
 			Resources: resources,
 		},
 	}})
@@ -1351,9 +1376,7 @@ func TestRuntimeProfileRejectsMissingMemoryLayoutWithoutPersistingRevision(t *te
 		Body: &adminhttp.RuntimeProfileUpsert{
 			Id: "default",
 			Spec: apitypes.RuntimeProfileSpec{
-				Workflows: apitypes.RuntimeProfileWorkflows{
-					Collections: apitypes.RuntimeProfileWorkflowCollections{},
-				},
+				Workflows: apitypes.RuntimeProfileWorkflows{},
 				Resources: apitypes.RuntimeProfileResources{Memories: &memories},
 			},
 		},

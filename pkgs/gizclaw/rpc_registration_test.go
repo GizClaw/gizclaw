@@ -462,9 +462,7 @@ func createRegistrationToken(t *testing.T, server *runtimeprofile.Server, profil
 }
 
 func testRuntimeProfileWorkflows() apitypes.RuntimeProfileWorkflows {
-	return apitypes.RuntimeProfileWorkflows{
-		Collections: apitypes.RuntimeProfileWorkflowCollections{},
-	}
+	return apitypes.RuntimeProfileWorkflows{}
 }
 
 func installTestSystemWorkflowResolver(server *runtimeprofile.Server) {

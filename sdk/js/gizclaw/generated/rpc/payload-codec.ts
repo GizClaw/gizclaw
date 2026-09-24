@@ -1244,7 +1244,7 @@ export type WifiScanResult = {
 export type Workflow = {
   "name": string;
   "i18n": Record<string, ResourceI18nText>;
-  "collection": string;
+  "tags": string[];
   "driver": WorkflowDriver;
   "workspace_lang_pair"?: string;
 };
@@ -1259,7 +1259,7 @@ export type WorkflowGetResponse = {
 export type WorkflowListRequest = {
   "cursor"?: string;
   "limit"?: number;
-  "collection": string;
+  "tags": string[];
 };
 export type WorkflowListResponse = {
   "has_next": boolean;
@@ -1285,7 +1285,6 @@ export type WorkspaceCreateBody = {
   "parameters"?: WorkspaceParameters;
   "workflow_name": string;
   "toolkit"?: ToolkitPolicy;
-  "collection": string;
 };
 export type WorkspaceCreateRequest = WorkspaceCreateBody;
 export type WorkspaceCreateResponse = Workspace;
@@ -1338,7 +1337,6 @@ export type WorkspaceListRequest = {
   "cursor"?: string;
   "limit"?: number;
   "prefix"?: string;
-  "collection": string;
 };
 export type WorkspaceListResponse = {
   "has_next": boolean;
@@ -6976,8 +6974,9 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "map"
       },
       {
-        "name": "collection",
+        "name": "tags",
         "number": 3,
+        "repeated": true,
         "type": "string"
       },
       {
@@ -7036,8 +7035,9 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "int64"
       },
       {
-        "name": "collection",
+        "name": "tags",
         "number": 3,
+        "repeated": true,
         "type": "string"
       }
     ]
@@ -7153,11 +7153,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 4,
         "optional": true,
         "type": "ToolkitPolicy"
-      },
-      {
-        "name": "collection",
-        "number": 5,
-        "type": "string"
       }
     ]
   },
@@ -7385,11 +7380,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "prefix",
         "number": 3,
         "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "collection",
-        "number": 4,
         "type": "string"
       }
     ]

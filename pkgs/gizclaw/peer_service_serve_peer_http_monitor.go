@@ -25,13 +25,10 @@ func (s *peerHTTP) ListDeviceWorkspaces(ctx context.Context, req peerhttp.ListDe
 		return peerhttp.ListDeviceWorkspaces500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(internalPublicHTTP())}, nil
 	}
 	var filter peerresource.DeviceWorkspaceFilter
-	if req.Params.Collection != nil {
-		filter.Collection = *req.Params.Collection
-	}
 	if req.Params.WorkflowName != nil {
 		filter.WorkflowName = *req.Params.WorkflowName
 	}
-	if (req.Params.Collection != nil && filter.Collection == "") || (req.Params.WorkflowName != nil && filter.WorkflowName == "") {
+	if req.Params.WorkflowName != nil && filter.WorkflowName == "" {
 		return peerhttp.ListDeviceWorkspaces400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(apiError(publicHTTPInvalidRequestCode, "empty workspace filter"))}, nil
 	}
 	items, err := reads.DeviceWorkspaces(ctx, filter)

@@ -13,6 +13,7 @@ services/runtime/
 ├── peerroute/       # Peer assignment 与 edge route 数据
 ├── peerrun/         # Peer 当前运行 Agent 的选择状态
 ├── peertelemetry/   # Telemetry 解码、映射、status 和 metrics
+├── runtimeprofile/  # 只读内存 SQLite 快照与跨 Profile 条目查询
 └── toolkit/         # Tool 资源、policy、执行器和 runtime view
 ```
 
@@ -35,6 +36,8 @@ services/runtime/
 ### [peerresource](./peerresource)
 
 聚合 peer 可以访问的 AI、social 和 tool 等领域资源，为 Peer-facing surface 提供一致入口。它只做跨领域协调，不重新拥有或复制各领域资源。Firmware 不属于 RuntimeProfile 或 peer resource projection；兼容 RPC 只返回空列表或 not found。
+
+`runtimeprofile/` 拥有从持久 RuntimeProfile 构建的只读内存 SQLite 快照、五分钟轮换与跨 Profile 条目查询。持久化资源及 owner 绑定仍由 `services/system/runtimeprofile` 拥有。
 
 ### [peerroute](./peerroute)
 

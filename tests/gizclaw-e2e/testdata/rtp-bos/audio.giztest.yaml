@@ -43,7 +43,6 @@ steps:
     method: server.workspace.create
     request:
       name: ${audio_workspace_name}
-      collection: assistants
       workflow_name: rtp-bos-eino
       parameters:
         eino_workspace_parameters:

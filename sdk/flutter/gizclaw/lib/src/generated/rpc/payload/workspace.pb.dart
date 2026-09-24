@@ -3266,14 +3266,12 @@ class WorkspaceCreateBody extends $pb.GeneratedMessage {
     WorkspaceParameters? parameters,
     $core.String? workflowName,
     $2.ToolkitPolicy? toolkit,
-    $core.String? collection,
   }) {
     final result = create();
     if (name != null) result.name = name;
     if (parameters != null) result.parameters = parameters;
     if (workflowName != null) result.workflowName = workflowName;
     if (toolkit != null) result.toolkit = toolkit;
-    if (collection != null) result.collection = collection;
     return result;
   }
 
@@ -3296,7 +3294,6 @@ class WorkspaceCreateBody extends $pb.GeneratedMessage {
     ..aOS(3, _omitFieldNames ? '' : 'workflowName')
     ..aOM<$2.ToolkitPolicy>(4, _omitFieldNames ? '' : 'toolkit',
         subBuilder: $2.ToolkitPolicy.create)
-    ..aOS(5, _omitFieldNames ? '' : 'collection')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3357,15 +3354,6 @@ class WorkspaceCreateBody extends $pb.GeneratedMessage {
   void clearToolkit() => $_clearField(4);
   @$pb.TagNumber(4)
   $2.ToolkitPolicy ensureToolkit() => $_ensure(3);
-
-  @$pb.TagNumber(5)
-  $core.String get collection => $_getSZ(4);
-  @$pb.TagNumber(5)
-  set collection($core.String value) => $_setString(4, value);
-  @$pb.TagNumber(5)
-  $core.bool hasCollection() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearCollection() => $_clearField(5);
 }
 
 class WorkspacePutBody extends $pb.GeneratedMessage {
@@ -4435,13 +4423,11 @@ class WorkspaceListRequest extends $pb.GeneratedMessage {
     $core.String? cursor,
     $fixnum.Int64? limit,
     $core.String? prefix,
-    $core.String? collection,
   }) {
     final result = create();
     if (cursor != null) result.cursor = cursor;
     if (limit != null) result.limit = limit;
     if (prefix != null) result.prefix = prefix;
-    if (collection != null) result.collection = collection;
     return result;
   }
 
@@ -4461,7 +4447,6 @@ class WorkspaceListRequest extends $pb.GeneratedMessage {
     ..aOS(1, _omitFieldNames ? '' : 'cursor')
     ..aInt64(2, _omitFieldNames ? '' : 'limit')
     ..aOS(3, _omitFieldNames ? '' : 'prefix')
-    ..aOS(4, _omitFieldNames ? '' : 'collection')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4509,15 +4494,6 @@ class WorkspaceListRequest extends $pb.GeneratedMessage {
   $core.bool hasPrefix() => $_has(2);
   @$pb.TagNumber(3)
   void clearPrefix() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.String get collection => $_getSZ(3);
-  @$pb.TagNumber(4)
-  set collection($core.String value) => $_setString(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasCollection() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearCollection() => $_clearField(4);
 }
 
 class WorkspaceListResponse extends $pb.GeneratedMessage {

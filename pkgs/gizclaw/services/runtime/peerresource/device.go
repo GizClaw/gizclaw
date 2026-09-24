@@ -3,6 +3,7 @@ package peerresource
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"slices"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
+	runtimeindex "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -55,6 +57,7 @@ type DeviceReads struct {
 	Peers      peerFirmwareBindingService
 	Firmwares  firmwarePeerService
 	Profiles   ownerProfileResolver
+	Index      *runtimeindex.Index
 	Telemetry  *peertelemetry.AdminService
 	Workspaces deviceWorkspaceService
 	RunAgents  deviceRunAgentService
@@ -134,9 +137,14 @@ func (r DeviceReads) DeviceFirmware(ctx context.Context) (apitypes.Firmware, err
 
 // DeviceRuntimeProfile returns the workflow catalog of the RuntimeProfile
 // currently bound to the caller: the profile name and revision, and the
-// workflow names of every collection, all sorted by name. Resource bindings
+// workflow names and tags, sorted by name. Resource bindings
 // and every other profile section stay on the Server.
 func (r DeviceReads) DeviceRuntimeProfile(ctx context.Context) (peerhttp.DeviceRuntimeProfile, error) {
+	return r.DeviceRuntimeProfileWithTags(ctx, nil)
+}
+
+// DeviceRuntimeProfileWithTags projects Workflows containing every requested tag.
+func (r DeviceReads) DeviceRuntimeProfileWithTags(ctx context.Context, tags []string) (peerhttp.DeviceRuntimeProfile, error) {
 	if r.Profiles == nil {
 		return peerhttp.DeviceRuntimeProfile{}, ErrDeviceServiceNotConfigured
 	}
@@ -147,23 +155,35 @@ func (r DeviceReads) DeviceRuntimeProfile(ctx context.Context) (peerhttp.DeviceR
 		}
 		return peerhttp.DeviceRuntimeProfile{}, err
 	}
-	collections := profile.Spec.Workflows.Collections
-	names := make([]string, 0, len(collections))
-	for name := range collections {
-		names = append(names, name)
+	if r.Index != nil {
+		entries, err := r.Index.ListProfileWorkflowsByTags(ctx, profile.Id, profile.Revision, tags)
+		if err != nil {
+			return peerhttp.DeviceRuntimeProfile{}, err
+		}
+		result := peerhttp.DeviceRuntimeProfile{Name: profile.Id, Revision: profile.Revision, Workflows: make([]peerhttp.DeviceRuntimeProfileWorkflow, 0, len(entries))}
+		for _, entry := range entries {
+			var binding apitypes.RuntimeProfileBinding
+			if err := json.Unmarshal(entry.Value, &binding); err != nil {
+				return peerhttp.DeviceRuntimeProfile{}, err
+			}
+			result.Workflows = append(result.Workflows, peerhttp.DeviceRuntimeProfileWorkflow{Name: entry.Name, Tags: workflowTags(binding)})
+		}
+		return result, nil
+	}
+	bindings := profile.Spec.Workflows
+	names := make([]string, 0, len(bindings))
+	for name, binding := range bindings {
+		if hasAllTags(workflowTags(binding), tags) {
+			names = append(names, name)
+		}
 	}
 	slices.Sort(names)
 	result := peerhttp.DeviceRuntimeProfile{
 		Name: profile.Id, Revision: profile.Revision,
-		Collections: make([]peerhttp.DeviceRuntimeProfileCollection, 0, len(names)),
+		Workflows: make([]peerhttp.DeviceRuntimeProfileWorkflow, 0, len(names)),
 	}
 	for _, name := range names {
-		aliases := sortedBindingAliases(collections[name])
-		workflows := make([]peerhttp.DeviceRuntimeProfileWorkflow, len(aliases))
-		for i, alias := range aliases {
-			workflows[i] = peerhttp.DeviceRuntimeProfileWorkflow{Name: alias}
-		}
-		result.Collections = append(result.Collections, peerhttp.DeviceRuntimeProfileCollection{Name: name, Workflows: workflows})
+		result.Workflows = append(result.Workflows, peerhttp.DeviceRuntimeProfileWorkflow{Name: name, Tags: workflowTags(bindings[name])})
 	}
 	return result, nil
 }

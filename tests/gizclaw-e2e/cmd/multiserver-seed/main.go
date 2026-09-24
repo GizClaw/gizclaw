@@ -138,9 +138,7 @@ func run() error {
 	}
 	profileSpec := runtimeProfileSpec(providerErr == nil)
 	if *monitorWorkflowID != "" {
-		profileSpec.Workflows.Collections["assistants"] = map[string]apitypes.RuntimeProfileBinding{
-			*monitorWorkflowID: binding(*monitorWorkflowID, "Monitor Echo", "监控回声测试"),
-		}
+		profileSpec.Workflows[*monitorWorkflowID] = binding(*monitorWorkflowID, "Monitor Echo", "监控回声测试")
 	}
 	if err := upsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{
 		Id:   *profileID,
@@ -291,9 +289,7 @@ func runtimeProfileSpec(provider bool) apitypes.RuntimeProfileSpec {
 				{Name: "muted", Type: apitypes.MhsV0StateTypeBool, Access: apitypes.MhsV0StateAccessReadWrite},
 			},
 		}}}},
-		Workflows: apitypes.RuntimeProfileWorkflows{
-			Collections: apitypes.RuntimeProfileWorkflowCollections{},
-		},
+		Workflows: apitypes.RuntimeProfileWorkflows{},
 	}
 	if provider {
 		spec.Resources.Models = &map[string]apitypes.RuntimeProfileBinding{

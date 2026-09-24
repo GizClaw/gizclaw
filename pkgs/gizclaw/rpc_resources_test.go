@@ -13,7 +13,7 @@ func TestRPCClientSafeResourceMethods(t *testing.T) {
 	client := &rpcClient{}
 
 	workspaceList := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.WorkspaceListResponse, error) {
-		return client.ListWorkspaces(context.Background(), conn, "workspace-list", rpcapi.WorkspaceListRequest{Collection: "assistants"})
+		return client.ListWorkspaces(context.Background(), conn, "workspace-list", rpcapi.WorkspaceListRequest{})
 	})
 	if len(workspaceList.Items) != 1 || workspaceList.Items[0].Name != "workspace-a" {
 		t.Fatalf("ListWorkspaces() = %+v", workspaceList)
@@ -25,7 +25,7 @@ func TestRPCClientSafeResourceMethods(t *testing.T) {
 		t.Fatalf("GetWorkspace() = %+v", workspace)
 	}
 	created := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.WorkspaceCreateResponse, error) {
-		return client.CreateWorkspace(context.Background(), conn, "workspace-create", rpcapi.WorkspaceCreateRequest{Name: "workspace-a", Collection: "assistants", WorkflowName: "flow-a"})
+		return client.CreateWorkspace(context.Background(), conn, "workspace-create", rpcapi.WorkspaceCreateRequest{Name: "workspace-a", WorkflowName: "flow-a"})
 	})
 	if created.WorkflowName != "flow-a" {
 		t.Fatalf("CreateWorkspace() = %+v", created)
@@ -38,7 +38,7 @@ func TestRPCClientSafeResourceMethods(t *testing.T) {
 	}
 
 	workflowList := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.WorkflowListResponse, error) {
-		return client.ListWorkflows(context.Background(), conn, "workflow-list", rpcapi.WorkflowListRequest{Collection: "assistants"})
+		return client.ListWorkflows(context.Background(), conn, "workflow-list", rpcapi.WorkflowListRequest{})
 	})
 	if len(workflowList.Items) != 1 || workflowList.Items[0].Name != "flow-a" {
 		t.Fatalf("ListWorkflows() = %+v", workflowList)
@@ -74,7 +74,7 @@ func (f *fakeRPCServerResourceService) Dispatch(_ context.Context, req *rpcapi.R
 	switch req.Method {
 	case rpcapi.RPCMethodServerWorkspaceList:
 		params, err := req.Params.AsWorkspaceListRequest()
-		if err != nil || params.Collection != "assistants" {
+		if err != nil {
 			f.t.Fatalf("workspace.list params = %+v, %v", params, err)
 		}
 		return resourceResponse(req.Id, rpcapi.WorkspaceListResponse{Items: []rpcapi.Workspace{resourceWorkspace("workspace-a")}, RuntimeProfileName: "default", RuntimeProfileRevision: "rev"}, (*rpcapi.RPCPayload).FromWorkspaceListResponse), true, nil
@@ -82,7 +82,7 @@ func (f *fakeRPCServerResourceService) Dispatch(_ context.Context, req *rpcapi.R
 		return resourceResponse(req.Id, rpcapi.WorkspaceGetResponse{Value: resourceWorkspace("workspace-a"), RuntimeProfileName: "default", RuntimeProfileRevision: "rev"}, (*rpcapi.RPCPayload).FromWorkspaceGetResponse), true, nil
 	case rpcapi.RPCMethodServerWorkspaceCreate:
 		params, err := req.Params.AsWorkspaceCreateRequest()
-		if err != nil || params.Collection != "assistants" || params.WorkflowName != "flow-a" {
+		if err != nil || params.WorkflowName != "flow-a" {
 			f.t.Fatalf("workspace.create params = %+v, %v", params, err)
 		}
 		return resourceResponse(req.Id, resourceWorkspace("workspace-a"), (*rpcapi.RPCPayload).FromWorkspaceCreateResponse), true, nil
@@ -115,7 +115,7 @@ func resourceWorkspace(name string) rpcapi.Workspace {
 }
 
 func resourceWorkflow(alias string) rpcapi.Workflow {
-	return rpcapi.Workflow{Name: alias, Collection: "assistants", Driver: rpcapi.WorkflowDriverFlowcraft, I18n: resourceI18n(alias)}
+	return rpcapi.Workflow{Name: alias, Driver: rpcapi.WorkflowDriverFlowcraft, I18n: resourceI18n(alias)}
 }
 
 func resourceModel(alias string) rpcapi.Model {

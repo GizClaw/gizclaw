@@ -59,7 +59,6 @@ steps:
       method: server.workspace.create
       request:
         name: "${candidate_workspace}"
-        collection: assistants
         workflow_name: doubao-realtime-conversation
         parameters:
           doubao_realtime_workspace_parameters:
@@ -71,7 +70,6 @@ steps:
       method: server.workspace.create
       request:
         name: "${tester_workspace}"
-        collection: assistants
         workflow_name: giztest-workflow-tester
         parameters:
           flowcraft_workspace_parameters:

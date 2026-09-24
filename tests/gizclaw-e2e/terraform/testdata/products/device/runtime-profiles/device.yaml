@@ -3,15 +3,14 @@ kind: RuntimeProfile
 metadata: {id: tf-device}
 spec:
   workflows:
-    collections:
-      assistants:
-        echo:
-          resource_id: tf-echo
-          i18n: {en: {display_name: Echo}, zh-CN: {display_name: 回声}}
-      raids:
-        demo:
-          resource_id: tf-raid-flowcraft
-          i18n: {en: {display_name: Demo raid}, zh-CN: {display_name: 演示}}
+    echo:
+      tags: [assistants]
+      resource_id: tf-echo
+      i18n: {en: {display_name: Echo}, zh-CN: {display_name: 回声}}
+    demo:
+      tags: [raids]
+      resource_id: tf-raid-flowcraft
+      i18n: {en: {display_name: Demo raid}, zh-CN: {display_name: 演示}}
   resources:
     models:
       chat:

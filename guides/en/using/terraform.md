@@ -222,7 +222,7 @@ Resolution:
 - Selection starts from every product manifest. A RegistrationToken selects the RuntimeProfile
   in `spec.runtime_profile_id`, which may come from a catalog source, and the Firmware in
   `spec.firmware_id` when set. A RuntimeProfile selects the Workflows bound in
-  `spec.workflows.collections`, the Models and Voices bound in `spec.resources.models` and
+  `spec.workflows`, the Models and Voices bound in `spec.resources.models` and
   `spec.resources.voices`, and the MemoryLayouts named by `spec.resources.memories.*.layout_id`.
   A Workflow selects the MemoryLayout in `spec.memory`, a Model or Voice selects the Tenant in
   `spec.provider.id`, and a Tenant selects the Credential in `spec.credential_id`.

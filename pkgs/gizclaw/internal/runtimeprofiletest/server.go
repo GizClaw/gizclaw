@@ -27,5 +27,10 @@ func New(t testing.TB) *runtimeprofile.Server {
 	if err := s.Initialize(t.Context()); err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		if err := s.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	return s
 }

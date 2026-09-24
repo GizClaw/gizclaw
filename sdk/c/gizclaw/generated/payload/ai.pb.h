@@ -672,7 +672,7 @@ typedef struct _gizclaw_rpc_v1_VoiceListResponse {
 typedef struct _gizclaw_rpc_v1_Workflow {
     pb_callback_t name;
     pb_callback_t i18n;
-    pb_callback_t collection;
+    pb_callback_t tags;
     gizclaw_rpc_v1_WorkflowDriver driver;
     pb_callback_t workspace_lang_pair;
 } gizclaw_rpc_v1_Workflow;
@@ -698,7 +698,7 @@ typedef struct _gizclaw_rpc_v1_WorkflowListRequest {
     pb_callback_t cursor;
     bool has_limit;
     int64_t limit;
-    pb_callback_t collection;
+    pb_callback_t tags;
 } gizclaw_rpc_v1_WorkflowListRequest;
 
 typedef struct _gizclaw_rpc_v1_WorkflowListResponse {
@@ -1335,7 +1335,7 @@ extern "C" {
 #define gizclaw_rpc_v1_VoiceListResponse_runtime_profile_revision_tag 5
 #define gizclaw_rpc_v1_Workflow_name_tag         1
 #define gizclaw_rpc_v1_Workflow_i18n_tag         2
-#define gizclaw_rpc_v1_Workflow_collection_tag   3
+#define gizclaw_rpc_v1_Workflow_tags_tag         3
 #define gizclaw_rpc_v1_Workflow_driver_tag       4
 #define gizclaw_rpc_v1_Workflow_workspace_lang_pair_tag 5
 #define gizclaw_rpc_v1_Workflow_I18nEntry_key_tag 1
@@ -1346,7 +1346,7 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkflowGetResponse_runtime_profile_revision_tag 3
 #define gizclaw_rpc_v1_WorkflowListRequest_cursor_tag 1
 #define gizclaw_rpc_v1_WorkflowListRequest_limit_tag 2
-#define gizclaw_rpc_v1_WorkflowListRequest_collection_tag 3
+#define gizclaw_rpc_v1_WorkflowListRequest_tags_tag 3
 #define gizclaw_rpc_v1_WorkflowListResponse_has_next_tag 1
 #define gizclaw_rpc_v1_WorkflowListResponse_items_tag 2
 #define gizclaw_rpc_v1_WorkflowListResponse_next_cursor_tag 3
@@ -1978,7 +1978,7 @@ X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   5)
 #define gizclaw_rpc_v1_Workflow_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
 X(a, CALLBACK, REPEATED, MESSAGE,  i18n,              2) \
-X(a, CALLBACK, SINGULAR, STRING,   collection,        3) \
+X(a, CALLBACK, REPEATED, STRING,   tags,              3) \
 X(a, STATIC,   SINGULAR, UENUM,    driver,            4) \
 X(a, CALLBACK, OPTIONAL, STRING,   workspace_lang_pair,   5)
 #define gizclaw_rpc_v1_Workflow_CALLBACK pb_default_field_callback
@@ -2008,7 +2008,7 @@ X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   3)
 #define gizclaw_rpc_v1_WorkflowListRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   cursor,            1) \
 X(a, STATIC,   OPTIONAL, INT64,    limit,             2) \
-X(a, CALLBACK, SINGULAR, STRING,   collection,        3)
+X(a, CALLBACK, REPEATED, STRING,   tags,              3)
 #define gizclaw_rpc_v1_WorkflowListRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_WorkflowListRequest_DEFAULT NULL
 

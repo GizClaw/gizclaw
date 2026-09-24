@@ -504,7 +504,7 @@ message VoiceListResponse {
 message Workflow {
   string name = 1;
   map<string, ResourceI18nText> i18n = 2;
-  string collection = 3;
+  repeated string tags = 3;
   WorkflowDriver driver = 4;
   optional string workspace_lang_pair = 5;
 }
@@ -522,7 +522,7 @@ message WorkflowGetResponse {
 message WorkflowListRequest {
   optional string cursor = 1;
   optional int64 limit = 2;
-  string collection = 3;
+  repeated string tags = 3;
 }
 
 message WorkflowListResponse {

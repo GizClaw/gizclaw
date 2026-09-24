@@ -66,7 +66,7 @@ func TestOpenAIConversationsResponsesTextAndAudioComposition(t *testing.T) {
 	started := time.Now()
 	createStarted := time.Now()
 	var conversation e2eConversation
-	if err := env.client.Post(env.ctx, "conversations", map[string]any{"metadata": map[string]string{"collection": "assistants", "workflow_name": "shared"}}, &conversation); err != nil {
+	if err := env.client.Post(env.ctx, "conversations", map[string]any{"metadata": map[string]string{"workflow_name": "shared"}}, &conversation); err != nil {
 		t.Fatalf("create Conversation: %v", err)
 	}
 	conversationCreateMS := elapsedMS(createStarted)
@@ -77,7 +77,7 @@ func TestOpenAIConversationsResponsesTextAndAudioComposition(t *testing.T) {
 	}
 	conversationGetMS := elapsedMS(getStarted)
 	var distinct e2eConversation
-	if err := env.client.Post(env.ctx, "conversations", map[string]any{"metadata": map[string]string{"collection": "assistants", "workflow_name": "shared"}}, &distinct); err != nil {
+	if err := env.client.Post(env.ctx, "conversations", map[string]any{"metadata": map[string]string{"workflow_name": "shared"}}, &distinct); err != nil {
 		t.Fatalf("create distinct Conversation: %v", err)
 	}
 	if distinct.ID == conversation.ID {

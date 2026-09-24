@@ -13,6 +13,7 @@ services/runtime/
 ├── peerroute/       # Peer assignment and edge-route data
 ├── peerrun/         # selection state for the Agent currently running on a Peer
 ├── peertelemetry/   # Telemetry decoding, mapping, status, and metrics
+├── runtimeprofile/  # Read-only in-memory SQLite snapshots and cross-Profile queries
 └── toolkit/         # Tool resources, policies, executors, and runtime views
 ```
 
@@ -33,6 +34,8 @@ Has server-side Peer resources, identity, registration and basic status. Transpo
 ### [peerresource](./peerresource)
 
 Aggregates domain resources such as AI, social, and tools that peers can access to provide a consistent entry point for the Peer-facing surface. It only performs cross-domain coordination and does not re-own or copy resources in each domain. Firmware is not part of RuntimeProfile or peer resource projection; compatibility RPCs return an empty list or not found.
+
+`runtimeprofile/` owns read-only in-memory SQLite snapshots, five-minute rotation, and cross-Profile entry queries. `services/system/runtimeprofile` retains ownership of persisted resources and owner bindings.
 
 ### [peerroute](./peerroute)
 

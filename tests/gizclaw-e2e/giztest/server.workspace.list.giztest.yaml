@@ -34,8 +34,7 @@ steps:
   client: peer
   rpc:
     method: server.workspace.list
-    request:
-      collection: assistants
+    request: {}
 finally:
 - id: cleanup_peer
   client: peer

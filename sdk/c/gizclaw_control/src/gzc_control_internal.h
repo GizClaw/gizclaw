@@ -136,7 +136,7 @@ int gzc_control_decode_telemetry_point_item(gzc_str_t object_json, void *out);
 int gzc_control_decode_telemetry_bucket_item(gzc_str_t object_json, void *out);
 int gzc_control_decode_saved_wifi_item(gzc_str_t object_json, void *out);
 int gzc_control_decode_wifi_scan_result_item(gzc_str_t object_json, void *out);
-int gzc_control_decode_runtime_profile_collection_item(gzc_str_t object_json, void *out);
+int gzc_control_decode_runtime_profile_workflow_item(gzc_str_t object_json, void *out);
 int gzc_control_decode_device_workspace_item(gzc_str_t object_json, void *out);
 int gzc_control_decode_string_item(gzc_str_t raw_json, void *out);
 

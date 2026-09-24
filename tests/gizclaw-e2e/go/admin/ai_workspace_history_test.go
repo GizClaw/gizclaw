@@ -135,7 +135,7 @@ func createAdminWorkflowWorkspaceHistory(t *testing.T, env *adminAPIHarness) (st
 	registerAdminHistoryPeers(t, env, writer)
 	workspaceName := fmt.Sprintf("admin-history-%d", time.Now().UnixNano())
 	created, err := writer.CreateWorkspace(ctx, "admin.history.workspace.create", rpcapi.WorkspaceCreateRequest{
-		Name: workspaceName, Collection: adminHistoryCollection, WorkflowName: adminHistoryWorkflowAlias,
+		Name: workspaceName, WorkflowName: adminHistoryWorkflowAlias,
 	})
 	if err != nil {
 		t.Fatalf("create Workflow Workspace %q: %v", workspaceName, err)
@@ -240,9 +240,8 @@ func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*giz
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: resources,
 			Workflows: apitypes.RuntimeProfileWorkflows{
-				Collections: apitypes.RuntimeProfileWorkflowCollections{
-					adminHistoryCollection: {adminHistoryWorkflowAlias: binding},
-				},
+
+				adminHistoryWorkflowAlias: binding,
 			},
 		},
 	})

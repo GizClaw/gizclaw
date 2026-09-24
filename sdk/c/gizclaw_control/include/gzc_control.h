@@ -308,39 +308,32 @@ typedef struct {
 } gzc_control_device_runtime_profile_t;
 
 /*
- * One workflow collection of the bound RuntimeProfile
- * (`DeviceRuntimeProfileCollection`). Iterate its workflow names with
- * gzc_control_runtime_profile_collection_workflows().
+ * One Workflow of the bound RuntimeProfile. Tags are opaque strings in a
+ * borrowed JSON array; use gzc_control_runtime_profile_workflow_tags().
  */
 typedef struct {
   gzc_str_t name;
-  /* Raw `workflows` JSON array. */
-  gzc_str_t workflows;
-} gzc_control_runtime_profile_collection_t;
+  gzc_str_t tags;
+} gzc_control_runtime_profile_workflow_t;
 
 /*
- * Decodes up to cap workflow names of collection into out and reports the
- * decoded count. Names arrive sorted and are the names the device uses with
- * `server.workflow.*`.
+ * Decodes up to cap opaque tags of a Workflow into out.
  */
-int gzc_control_runtime_profile_collection_workflows(
-    const gzc_control_runtime_profile_collection_t *collection,
+int gzc_control_runtime_profile_workflow_tags(
+    const gzc_control_runtime_profile_workflow_t *workflow,
     gzc_str_t *out,
     size_t cap,
     size_t *out_count);
 
 /*
  * One Workspace owned by the bound device (`DeviceWorkspace`), such as the
- * save of one game. The Workflow is identified only by `collection` and
- * `workflow_name`, the names gzc_control_get_device_runtime_profile() lists;
- * the Server never returns its Admin Workflow ID. `collection` is empty when
- * the Workspace carries none, and `workflow_name` is empty when the Workflow
+ * save of one game. The Workflow is identified by `workflow_name`; the
+ * Server never returns its Admin Workflow ID. `workflow_name` is empty when the Workflow
  * no longer resolves (`available` is then false).
  */
 typedef struct {
   gzc_str_t id;
   gzc_str_t name;
-  gzc_str_t collection;
   gzc_str_t workflow_name;
   bool available;
   bool system;
@@ -352,7 +345,6 @@ typedef struct {
 /* Exact filters of gzc_control_list_device_workspaces(). Empty fields are
  * left off the request. */
 typedef struct {
-  gzc_str_t collection;
   gzc_str_t workflow_name;
 } gzc_control_workspace_filter_t;
 
@@ -629,10 +621,9 @@ typedef struct {
 
 /* Body of `POST /gizclaw/v1/device/tool/v0/invoke`
  * (`DeviceRunWorkspaceSetRequest`). Set exactly one target: workspace_name, or
- * collection with workflow_name. */
+ * workflow_name. */
 typedef struct {
   gzc_str_t workspace_name;
-  gzc_str_t collection;
   gzc_str_t workflow_name;
   bool has_kickoff;
   bool kickoff;
@@ -856,15 +847,18 @@ int gzc_control_get_device_runtime(
 /*
  * `GET /gizclaw/v1/device/runtime-profile`.
  *
- * Fills out_profile and up to cap collections, sorted by name, into
- * out_collections. More collections than cap fail with
+ * Fills out_profile and up to cap Workflows, sorted by name, into
+ * out_workflows. The caller may pass tag_count opaque tags, all of which
+ * must match. More Workflows than cap fail with
  * GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL after filling the first cap.
  */
 int gzc_control_get_device_runtime_profile(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
+    const gzc_str_t *tags,
+    size_t tag_count,
     gzc_control_device_runtime_profile_t *out_profile,
-    gzc_control_runtime_profile_collection_t *out_collections,
+    gzc_control_runtime_profile_workflow_t *out_workflows,
     size_t cap,
     size_t *out_count);
 

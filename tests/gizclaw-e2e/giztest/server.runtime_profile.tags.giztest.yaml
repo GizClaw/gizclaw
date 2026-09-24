@@ -1,0 +1,177 @@
+# User Story:
+# As a registered device,
+# I want Workflow tags filtered with AND semantics through Peer RPC,
+# So that the same RuntimeProfile catalog and Workspace alias remain usable.
+version: gizclaw.test/v1alpha1
+name: server.runtime_profile.tags
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  page_cursor: {direction: output, type: string}
+  profile_name: {direction: output, type: string}
+  profile_revision: {direction: output, type: string}
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request: {token: "${registration_token}"}
+- id: rpc_unfiltered
+  client: peer
+  rpc:
+    method: server.workflow.list
+    request: {}
+  expect:
+    /items/0/name: {non_empty: true}
+- id: rpc_single_tag
+  client: peer
+  rpc:
+    method: server.workflow.list
+    request: {tags: ["6-8"]}
+  expect:
+    /items: {count: 1}
+    /items/0/name: {equals: flowcraft-chat-assistant}
+- id: rpc_and_filter
+  client: peer
+  rpc:
+    method: server.workflow.list
+    request: {tags: [assistants, "6-8"]}
+  capture:
+    profile_name: /runtime_profile_name
+    profile_revision: /runtime_profile_revision
+  expect:
+    /items: {count: 1}
+    /items/0/name: {equals: flowcraft-chat-assistant}
+    /items/0/tags: {count: 3}
+    /has_next: {equals: false}
+- id: rpc_reversed_tag_order
+  client: peer
+  rpc:
+    method: server.workflow.list
+    request: {tags: ["6-8", assistants]}
+  expect:
+    /items: {count: 1}
+    /items/0/name: {equals: flowcraft-chat-assistant}
+- id: rpc_workflow_get
+  client: peer
+  rpc:
+    method: server.workflow.get
+    request: {name: flowcraft-chat-assistant}
+  expect:
+    /value/name: {equals: flowcraft-chat-assistant}
+    /value/tags: {count: 3}
+    /runtime_profile_name: {equals: "${profile_name}"}
+    /runtime_profile_revision: {equals: "${profile_revision}"}
+- id: rpc_missing_workflow_get
+  client: peer
+  rpc:
+    method: server.workflow.get
+    request: {name: missing-workflow}
+  expect_error:
+    code: 5 # NOT_FOUND
+- id: rpc_other_age
+  client: peer
+  rpc:
+    method: server.workflow.list
+    request: {tags: [assistants, "9-12"]}
+  expect:
+    /items: {count: 1}
+    /items/0/name: {equals: flowcraft-voice-assistant}
+- id: rpc_and_not_or
+  client: peer
+  rpc:
+    method: server.workflow.list
+    request: {tags: ["6-8", "9-12"]}
+  expect:
+    /items: {count: 0}
+    /has_next: {equals: false}
+- id: rpc_no_matching_tag
+  client: peer
+  rpc:
+    method: server.workflow.list
+    request: {tags: [missing-tag]}
+  expect:
+    /items: {count: 0}
+- id: rpc_empty_tag_rejected
+  client: peer
+  rpc:
+    method: server.workflow.list
+    request: {tags: [""]}
+  expect_error:
+    code: 3 # INVALID_ARGUMENT
+- id: rpc_first_page
+  client: peer
+  rpc:
+    method: server.workflow.list
+    request: {tags: [assistants, catalog], limit: 1}
+  capture: {page_cursor: /next_cursor}
+  expect:
+    /items: {count: 1}
+    /items/0/name: {equals: flowcraft-chat-assistant}
+    /has_next: {equals: true}
+    /next_cursor: {non_empty: true}
+- id: rpc_cursor_selector_changed
+  client: peer
+  rpc:
+    method: server.workflow.list
+    request: {tags: [assistants, "6-8"], limit: 1, cursor: "${page_cursor}"}
+  expect_error:
+    code: 10 # ABORTED
+- id: rpc_second_page
+  client: peer
+  rpc:
+    method: server.workflow.list
+    request: {tags: [assistants, catalog], limit: 1, cursor: "${page_cursor}"}
+  expect:
+    /items: {count: 1}
+    /items/0/name: {equals: flowcraft-voice-assistant}
+    /has_next: {equals: false}
+- id: create_workspace_by_alias
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${resource_name}"
+      workflow_name: flowcraft-chat-assistant
+      parameters:
+        flowcraft_workspace_parameters:
+          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  expect:
+    /workflow_name: {equals: flowcraft-chat-assistant}
+    /available: {equals: true}
+- id: rpc_workspace_get
+  client: peer
+  rpc:
+    method: server.workspace.get
+    request: {name: "${resource_name}"}
+  expect:
+    /value/workflow_name: {equals: flowcraft-chat-assistant}
+    /value/available: {equals: true}
+finally:
+- id: cleanup_workspace
+  client: peer
+  rpc:
+    method: server.workspace.delete
+    request: {name: "${resource_name}"}
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

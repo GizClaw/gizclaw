@@ -40,7 +40,7 @@ func TestWorkspaceListSkipsWorkspacePendingDeletion(t *testing.T) {
 	}
 	for _, name := range []string{"journey-1", "journey-2"} {
 		callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
-			Name: name, Collection: "story-teller", WorkflowName: "journey",
+			Name: name, WorkflowName: "journey",
 		})
 	}
 
@@ -107,9 +107,9 @@ func TestWorkspaceListSkipsSharedWorkspacePendingDeletion(t *testing.T) {
 		},
 	}
 	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
-		Name: "journey-1", Collection: "story-teller", WorkflowName: "journey",
+		Name: "journey-1", WorkflowName: "journey",
 	})
-	if listed := callWorkspaceList(t, ctx, server, "story-teller"); len(listed.Items) != 1 || listed.Items[0].Name != "journey-1" {
+	if listed := callWorkspaceList(t, ctx, server, "story-teller"); len(listed.Items) != 2 {
 		t.Fatalf("workspace list before retirement = %#v", listed)
 	}
 

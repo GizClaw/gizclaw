@@ -4668,7 +4668,7 @@ type Workflow struct {
 	state             protoimpl.MessageState       `protogen:"open.v1"`
 	Name              string                       `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	I18N              map[string]*ResourceI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Collection        string                       `protobuf:"bytes,3,opt,name=collection,proto3" json:"collection,omitempty"`
+	Tags              []string                     `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty"`
 	Driver            WorkflowDriver               `protobuf:"varint,4,opt,name=driver,proto3,enum=gizclaw.rpc.v1.WorkflowDriver" json:"driver,omitempty"`
 	WorkspaceLangPair *string                      `protobuf:"bytes,5,opt,name=workspace_lang_pair,json=workspaceLangPair,proto3,oneof" json:"workspace_lang_pair,omitempty"`
 	unknownFields     protoimpl.UnknownFields
@@ -4719,11 +4719,11 @@ func (x *Workflow) GetI18N() map[string]*ResourceI18NText {
 	return nil
 }
 
-func (x *Workflow) GetCollection() string {
+func (x *Workflow) GetTags() []string {
 	if x != nil {
-		return x.Collection
+		return x.Tags
 	}
-	return ""
+	return nil
 }
 
 func (x *Workflow) GetDriver() WorkflowDriver {
@@ -4848,7 +4848,7 @@ type WorkflowListRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Cursor        *string                `protobuf:"bytes,1,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
 	Limit         *int64                 `protobuf:"varint,2,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
-	Collection    string                 `protobuf:"bytes,3,opt,name=collection,proto3" json:"collection,omitempty"`
+	Tags          []string               `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4897,11 +4897,11 @@ func (x *WorkflowListRequest) GetLimit() int64 {
 	return 0
 }
 
-func (x *WorkflowListRequest) GetCollection() string {
+func (x *WorkflowListRequest) GetTags() []string {
 	if x != nil {
-		return x.Collection
+		return x.Tags
 	}
-	return ""
+	return nil
 }
 
 type WorkflowListResponse struct {
@@ -6028,13 +6028,11 @@ const file_payload_ai_proto_rawDesc = "" +
 	"nextCursor\x88\x01\x01\x120\n" +
 	"\x14runtime_profile_name\x18\x04 \x01(\tR\x12runtimeProfileName\x128\n" +
 	"\x18runtime_profile_revision\x18\x05 \x01(\tR\x16runtimeProfileRevisionB\x0e\n" +
-	"\f_next_cursor\"\xd6\x02\n" +
+	"\f_next_cursor\"\xca\x02\n" +
 	"\bWorkflow\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x126\n" +
-	"\x04i18n\x18\x02 \x03(\v2\".gizclaw.rpc.v1.Workflow.I18nEntryR\x04i18n\x12\x1e\n" +
-	"\n" +
-	"collection\x18\x03 \x01(\tR\n" +
-	"collection\x126\n" +
+	"\x04i18n\x18\x02 \x03(\v2\".gizclaw.rpc.v1.Workflow.I18nEntryR\x04i18n\x12\x12\n" +
+	"\x04tags\x18\x03 \x03(\tR\x04tags\x126\n" +
 	"\x06driver\x18\x04 \x01(\x0e2\x1e.gizclaw.rpc.v1.WorkflowDriverR\x06driver\x123\n" +
 	"\x13workspace_lang_pair\x18\x05 \x01(\tH\x00R\x11workspaceLangPair\x88\x01\x01\x1aY\n" +
 	"\tI18nEntry\x12\x10\n" +
@@ -6046,13 +6044,11 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x13WorkflowGetResponse\x12.\n" +
 	"\x05value\x18\x01 \x01(\v2\x18.gizclaw.rpc.v1.WorkflowR\x05value\x120\n" +
 	"\x14runtime_profile_name\x18\x02 \x01(\tR\x12runtimeProfileName\x128\n" +
-	"\x18runtime_profile_revision\x18\x03 \x01(\tR\x16runtimeProfileRevision\"\x82\x01\n" +
+	"\x18runtime_profile_revision\x18\x03 \x01(\tR\x16runtimeProfileRevision\"v\n" +
 	"\x13WorkflowListRequest\x12\x1b\n" +
 	"\x06cursor\x18\x01 \x01(\tH\x00R\x06cursor\x88\x01\x01\x12\x19\n" +
-	"\x05limit\x18\x02 \x01(\x03H\x01R\x05limit\x88\x01\x01\x12\x1e\n" +
-	"\n" +
-	"collection\x18\x03 \x01(\tR\n" +
-	"collectionB\t\n" +
+	"\x05limit\x18\x02 \x01(\x03H\x01R\x05limit\x88\x01\x01\x12\x12\n" +
+	"\x04tags\x18\x03 \x03(\tR\x04tagsB\t\n" +
 	"\a_cursorB\b\n" +
 	"\x06_limit\"\x83\x02\n" +
 	"\x14WorkflowListResponse\x12\x19\n" +

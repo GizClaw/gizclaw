@@ -122,7 +122,7 @@ func newOpenAIHarness(t *testing.T) *openAIHarness {
 
 func openAIRuntimeProfile(t *testing.T) apitypes.RuntimeProfileSpec {
 	t.Helper()
-	workflows := apitypes.RuntimeProfileWorkflowCollections{"assistants": {"shared": binding("flowcraft-chat-assistant")}}
+	workflows := apitypes.RuntimeProfileWorkflows{"shared": binding("flowcraft-chat-assistant")}
 	models := map[string]apitypes.RuntimeProfileBinding{"llm": binding("doubao-mini-chat"), "asr": binding("volc-bigasr-sauc")}
 	voices := map[string]apitypes.RuntimeProfileBinding{"narrator": binding("volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts")}
 	connection := apitypes.RuntimeProfileMemoryConnection{}
@@ -133,7 +133,7 @@ func openAIRuntimeProfile(t *testing.T) apitypes.RuntimeProfileSpec {
 	}
 	memories := map[string]apitypes.RuntimeProfileMemoryBinding{"chat-memory": {LayoutId: "chat-memory", Driver: apitypes.RuntimeProfileMemoryDriverFlowcraft, Connection: connection}}
 	return apitypes.RuntimeProfileSpec{
-		Workflows: apitypes.RuntimeProfileWorkflows{Collections: workflows},
+		Workflows: workflows,
 		Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices, Memories: &memories},
 	}
 }

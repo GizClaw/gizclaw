@@ -88,7 +88,7 @@ func TestRuntimeProfileAppConfigGiztest(t *testing.T) {
 		"app.entrypoints": "{\"home\": \"/tab/home\", \"settings\": \"/tab/settings\"}\n",
 	}
 	request := adminhttp.RuntimeProfileUpsert{Id: "app-config-giztest", Spec: apitypes.RuntimeProfileSpec{
-		Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{}},
+		Workflows: apitypes.RuntimeProfileWorkflows{},
 		AppConfig: &config,
 	}}
 	created, err := adminapi.CreateRuntimeProfile(ctx, admin, request)

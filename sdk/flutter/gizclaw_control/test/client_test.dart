@@ -106,7 +106,6 @@ Future<GizClawControlException> failure(Future<Object?> future) async {
 const workspaceJson = {
   'id': 'ws-aesop',
   'name': 'aesop-save',
-  'collection': 'story-teller',
   'workflow_name': 'story.aesop',
   'available': true,
   'system': false,
@@ -136,7 +135,6 @@ void main() {
       ]);
       final client = clientWith(recorder);
       final items = await client.listDeviceWorkspaces(
-        collection: 'story-teller',
         workflowName: 'story.aesop',
       );
       await client.listDeviceWorkspaces();
@@ -144,15 +142,11 @@ void main() {
       final first = recorder.requests[0];
       expect(first.method, 'GET');
       expect(first.url.path, '/gizclaw/v1/device/workspaces');
-      expect(first.url.queryParameters, {
-        'collection': 'story-teller',
-        'workflow_name': 'story.aesop',
-      });
+      expect(first.url.queryParameters, {'workflow_name': 'story.aesop'});
       expect(recorder.requests[1].url.hasQuery, isFalse);
       expect(items, hasLength(2));
       final aesop = items.first;
       expect(aesop.id, 'ws-aesop');
-      expect(aesop.collection, 'story-teller');
       expect(aesop.workflowName, 'story.aesop');
       expect(aesop.available, isTrue);
       expect(aesop.lastActiveAt, DateTime.utc(2026, 9, 1, 10));
@@ -160,7 +154,6 @@ void main() {
       final pet = items.last;
       expect(pet.system, isTrue);
       expect(pet.available, isFalse);
-      expect(pet.collection, isNull);
       expect(pet.workflowName, isNull);
     });
 
@@ -171,10 +164,6 @@ void main() {
         ]),
       ]);
       final client = clientWith(recorder);
-      expect(
-        () => client.listDeviceWorkspaces(collection: ''),
-        throwsArgumentError,
-      );
       expect(
         () => client.listDeviceWorkspaces(workflowName: ''),
         throwsArgumentError,
@@ -435,9 +424,8 @@ void main() {
           'next_cursor': 'key_abcdefghijklmnopqrstuv',
         }),
       ]);
-      final list = await clientWith(
-        recorder,
-      ).listApiKeys(cursor: 'key_0123456789abcdefghijkl', limit: 10);
+      final list = await clientWith(recorder)
+          .listApiKeys(cursor: 'key_0123456789abcdefghijkl', limit: 10);
       final request = recorder.single;
       expect(request.method, 'GET');
       expect(request.url.path, '/gizclaw/v1/api-keys');
@@ -568,9 +556,8 @@ void main() {
           ],
         }),
       ]);
-      final latest = await clientWith(
-        recorder,
-      ).getDeviceTelemetryLatest(field: PeerTelemetryField.batteryPercent);
+      final latest = await clientWith(recorder)
+          .getDeviceTelemetryLatest(field: PeerTelemetryField.batteryPercent);
       expect(
         recorder.single.url.path,
         '/gizclaw/v1/device/telemetry/battery.percent/latest',
@@ -583,9 +570,8 @@ void main() {
       final recorder = Recorder([
         json(200, {'peer_public_key': 'pk', 'values': []}),
       ]);
-      await clientWith(
-        recorder,
-      ).getDeviceTelemetryLatest(field: 'invalid/field');
+      await clientWith(recorder)
+          .getDeviceTelemetryLatest(field: 'invalid/field');
       expect(recorder.single.url.hasQuery, isFalse);
     });
 
@@ -761,16 +747,14 @@ void main() {
               'package': {
                 'version': '1.5.0-beta.1+abc123',
                 'url': 'https://firmware.example.com/devkit/1.0.3.tar.zlib',
-                'sha256':
-                    'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
+                'sha256': 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
                 'size': 4096,
               },
             },
             'beta': {
               'package': {
                 'url': 'https://firmware.example.com/devkit/1.1.0.tar.zlib',
-                'sha256':
-                    'b1c2d3e4f5061728394a5b6c7d8e9f0ab1c2d3e4f5061728394a5b6c7d8e9f0a',
+                'sha256': 'b1c2d3e4f5061728394a5b6c7d8e9f0ab1c2d3e4f5061728394a5b6c7d8e9f0a',
                 'size': 8192,
               },
             },
@@ -808,44 +792,45 @@ void main() {
         json(200, {
           'name': 'h106-tiga',
           'revision': 'rev-1',
-          'collections': [
-            {'name': 'games', 'workflows': <Object?>[]},
+          'workflows': [
             {
-              'name': 'story-teller',
-              'workflows': [
-                {'name': 'story.aesop'},
-                {'name': 'story.alice', 'future_field': true},
-              ],
+              'name': 'story.aesop',
+              'tags': ['9-12', 'stories'],
+            },
+            {
+              'name': 'story.alice',
+              'tags': ['6-8', 'stories'],
+              'future_field': true,
             },
           ],
         }),
       ]);
-      final profile = await clientWith(recorder).getDeviceRuntimeProfile();
+      final profile = await clientWith(recorder)
+          .getDeviceRuntimeProfile(tags: ['6-8', 'stories']);
       expect(recorder.single.method, 'GET');
       expect(recorder.single.url.path, '/gizclaw/v1/device/runtime-profile');
+      expect(recorder.single.url.queryParametersAll['tags'], [
+        '6-8',
+        'stories',
+      ]);
       expect(recorder.single.headers['Authorization'], 'Bearer $apiKey');
       expect(profile.name, 'h106-tiga');
       expect(profile.revision, 'rev-1');
-      expect(profile.collections.map((item) => item.name), [
-        'games',
-        'story-teller',
-      ]);
-      expect(profile.collections.first.workflows, isEmpty);
-      expect(profile.collections.last.workflows.map((item) => item.name), [
+      expect(profile.workflows.map((item) => item.name), [
         'story.aesop',
         'story.alice',
       ]);
       expect(profile.toJson(), {
         'name': 'h106-tiga',
         'revision': 'rev-1',
-        'collections': [
-          {'name': 'games', 'workflows': <Object?>[]},
+        'workflows': [
           {
-            'name': 'story-teller',
-            'workflows': [
-              {'name': 'story.aesop'},
-              {'name': 'story.alice'},
-            ],
+            'name': 'story.aesop',
+            'tags': ['9-12', 'stories'],
+          },
+          {
+            'name': 'story.alice',
+            'tags': ['6-8', 'stories'],
           },
         ],
       });
@@ -856,13 +841,8 @@ void main() {
         json(200, {
           'name': 'h106-tiga',
           'revision': 'rev-1',
-          'collections': [
-            {
-              'name': 'games',
-              'workflows': [
-                {'name': 7},
-              ],
-            },
+          'workflows': [
+            {'name': 7, 'tags': <String>[]},
           ],
         }),
       ]);
@@ -1052,9 +1032,8 @@ void main() {
           'next_cursor': 'alice',
         }),
       ]);
-      final list = await clientWith(
-        recorder,
-      ).listContacts(cursor: 'aaron', limit: 1);
+      final list = await clientWith(recorder)
+          .listContacts(cursor: 'aaron', limit: 1);
       expect(recorder.single.url.path, '/gizclaw/v1/contacts');
       expect(recorder.single.url.queryParameters, {
         'cursor': 'aaron',
@@ -1488,9 +1467,8 @@ void main() {
       final recorder = Recorder([
         json(200, {'anything': true}),
       ]);
-      final response = await clientWith(
-        recorder,
-      ).send(method: 'GET', path: '/gizclaw/v1/device/future?limit=5');
+      final response = await clientWith(recorder)
+          .send(method: 'GET', path: '/gizclaw/v1/device/future?limit=5');
       expect(recorder.single.method, 'GET');
       expect(recorder.single.headers['Authorization'], 'Bearer $apiKey');
       expect(
@@ -1641,11 +1619,7 @@ void main() {
         'run.workspace.set',
       ]);
       await client.setDeviceRunWorkspace(
-        const DeviceRunWorkspaceRequest.workflow(
-          'stories',
-          'bedtime',
-          kickoff: true,
-        ),
+        const DeviceRunWorkspaceRequest.workflow('bedtime', kickoff: true),
       );
       expect(
         recorder.requests[0].url.path,

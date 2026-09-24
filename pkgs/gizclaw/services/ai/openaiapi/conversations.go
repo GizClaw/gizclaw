@@ -49,11 +49,7 @@ func (s *Server) createConversation(ctx context.Context, request backend.Request
 	if nonEmptyJSONArray(body.Items) {
 		return backend.Response{}, invalid("unsupported_option", "items", "Initial Conversation items are not supported by GizClaw.")
 	}
-	collection := strings.TrimSpace(body.Metadata["collection"])
 	workflowName := strings.TrimSpace(body.Metadata["workflow_name"])
-	if collection == "" {
-		return backend.Response{}, invalid("missing_required_parameter", "metadata.collection", "metadata.collection is required.")
-	}
 	if workflowName == "" {
 		return backend.Response{}, invalid("missing_required_parameter", "metadata.workflow_name", "metadata.workflow_name is required.")
 	}
@@ -65,7 +61,7 @@ func (s *Server) createConversation(ctx context.Context, request backend.Request
 	metadata := cloneStringMap(body.Metadata)
 	var conversation workspace.OpenAIConversation
 	_, err = s.Workspaces.CreateConversationWorkspace(ctx, ConversationWorkspaceRequest{
-		Name: name, Collection: collection, WorkflowName: workflowName, Metadata: metadata,
+		Name: name, WorkflowName: workflowName, Metadata: metadata,
 		Initialize: func(initCtx context.Context, runtime workspace.Runtime) error {
 			if runtime.OpenAI == nil {
 				return errors.New("OpenAI state store is unavailable")
