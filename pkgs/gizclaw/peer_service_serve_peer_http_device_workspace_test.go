@@ -78,7 +78,7 @@ func TestListDeviceWorkspacesIdentifiesWorkflowsByAlias(t *testing.T) {
 	}
 	for _, item := range raw {
 		for key := range item {
-			if !slices.Contains([]string{"id", "name", "collection", "workflow_name", "available", "system", "created_at", "updated_at", "last_active_at"}, key) {
+			if !slices.Contains([]string{"id", "name", "workflow_name", "available", "system", "created_at", "updated_at", "last_active_at"}, key) {
 				t.Fatalf("unexpected DeviceWorkspace key %q in %s", key, body)
 			}
 		}
@@ -97,19 +97,18 @@ func TestListDeviceWorkspacesIdentifiesWorkflowsByAlias(t *testing.T) {
 	}
 	aesop := byID["ws-aesop"]
 	if aesop.Name != "aesop-save" || !aesop.Available || aesop.System ||
-		aesop.Collection == nil || *aesop.Collection != "story-teller" ||
 		aesop.WorkflowName == nil || *aesop.WorkflowName != "story.aesop" ||
 		!aesop.CreatedAt.Equal(created) || !aesop.UpdatedAt.Equal(created.Add(time.Hour)) || !aesop.LastActiveAt.Equal(created.Add(2*time.Hour)) {
 		t.Fatalf("aesop = %#v", aesop)
 	}
-	if riddle := byID["ws-riddle"]; riddle.WorkflowName == nil || *riddle.WorkflowName != "game.riddle" || riddle.Collection == nil || *riddle.Collection != "games" {
+	if riddle := byID["ws-riddle"]; riddle.WorkflowName == nil || *riddle.WorkflowName != "game.riddle" {
 		t.Fatalf("riddle = %#v", riddle)
 	}
-	// A dangling binding keeps its collection but, like Peer RPC, loses the alias.
-	if orphan := byID["ws-orphan"]; orphan.Available || orphan.WorkflowName != nil || orphan.Collection == nil || *orphan.Collection != "story-teller" {
+	// A dangling binding loses its current alias.
+	if orphan := byID["ws-orphan"]; orphan.Available || orphan.WorkflowName != nil {
 		t.Fatalf("orphan = %#v", orphan)
 	}
-	if pet := byID["ws-pet"]; !pet.System || pet.Available || pet.WorkflowName != nil || pet.Collection != nil {
+	if pet := byID["ws-pet"]; !pet.System || pet.Available || pet.WorkflowName != nil {
 		t.Fatalf("pet = %#v", pet)
 	}
 }
@@ -123,11 +122,7 @@ func TestListDeviceWorkspacesFilters(t *testing.T) {
 		want  []string
 	}{
 		{"", []string{"aesop-save", "orphan-save", "pet", "riddle-save"}},
-		{"?collection=story-teller", []string{"aesop-save", "orphan-save"}},
 		{"?workflow_name=story.aesop", []string{"aesop-save"}},
-		{"?collection=story-teller&workflow_name=story.aesop", []string{"aesop-save"}},
-		{"?collection=games&workflow_name=story.aesop", []string{}},
-		{"?collection=missing", []string{}},
 		// The Admin Workflow ID is not a filter value.
 		{"?workflow_name=secret-workflow-aesop", []string{}},
 	} {
@@ -135,9 +130,9 @@ func TestListDeviceWorkspacesFilters(t *testing.T) {
 			t.Fatalf("GET workspaces%s = %v, want %v", tc.query, got, tc.want)
 		}
 	}
-	response := f.do(t, http.MethodGet, "/gizclaw/v1/device/workspaces?collection=", "")
+	response := f.do(t, http.MethodGet, "/gizclaw/v1/device/workspaces?workflow_name=", "")
 	if response.Code != http.StatusBadRequest {
-		t.Fatalf("empty collection filter status = %d body=%s", response.Code, response.Body.String())
+		t.Fatalf("empty workflow filter status = %d body=%s", response.Code, response.Body.String())
 	}
 }
 
@@ -145,11 +140,11 @@ func TestListDeviceWorkspacesFollowsCurrentProfile(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 	seedDeviceWorkspaces(t, f)
 	seedRuntimeProfile(t, f, f.owner, "h106-next", apitypes.RuntimeProfileSpec{
-		Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{
-			"story-teller": {"story.fables": runtimeProfileHTTPBinding("secret-workflow-aesop", "Fables")},
-		}},
+		Workflows: apitypes.RuntimeProfileWorkflows{
+			"story.fables": runtimeProfileHTTPBinding("secret-workflow-aesop", "Fables"),
+		},
 	})
-	response := f.do(t, http.MethodGet, "/gizclaw/v1/device/workspaces?collection=story-teller", "")
+	response := f.do(t, http.MethodGet, "/gizclaw/v1/device/workspaces", "")
 	if response.Code != http.StatusOK {
 		t.Fatalf("GET workspaces status = %d body=%s", response.Code, response.Body.String())
 	}

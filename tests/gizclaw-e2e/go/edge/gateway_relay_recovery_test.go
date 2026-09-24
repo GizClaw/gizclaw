@@ -151,9 +151,7 @@ func createGatewayRecoveryRuntimeProfile(
 		Id: name,
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: apitypes.RuntimeProfileResources{},
-			Workflows: apitypes.RuntimeProfileWorkflows{
-				Collections: apitypes.RuntimeProfileWorkflowCollections{},
-			},
+			Workflows: apitypes.RuntimeProfileWorkflows{},
 		},
 	})
 	if err != nil {

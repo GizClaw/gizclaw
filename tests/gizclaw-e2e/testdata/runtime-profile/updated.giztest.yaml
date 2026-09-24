@@ -1,0 +1,56 @@
+# User Story:
+# As a registered device,
+# I want the Workflow catalog to reflect an Admin RuntimeProfile update,
+# So that a replaced read-only SQLite snapshot is used by Peer RPC.
+version: gizclaw.test/v1alpha1
+name: server.runtime_profile.tags.updated
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request: {token: "${registration_token}"}
+- id: old_tag_no_longer_matches
+  client: peer
+  rpc:
+    method: server.workflow.list
+    request: {tags: [assistants, "6-8"]}
+  expect:
+    /items: {count: 0}
+- id: new_tag_matches
+  client: peer
+  rpc:
+    method: server.workflow.list
+    request: {tags: [assistants, "10-12"]}
+  expect:
+    /items: {count: 1}
+    /items/0/name: {equals: flowcraft-chat-assistant}
+- id: get_updated_workflow
+  client: peer
+  rpc:
+    method: server.workflow.get
+    request: {name: flowcraft-chat-assistant}
+  expect:
+    /value/name: {equals: flowcraft-chat-assistant}
+    /value/tags: {count: 3}
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

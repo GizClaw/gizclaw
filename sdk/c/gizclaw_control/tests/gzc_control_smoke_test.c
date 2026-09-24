@@ -617,9 +617,9 @@ static void test_device_runtime_profile(void) {
   memset(&stub, 0, sizeof(stub));
   stub.status_code = 200;
   stub.response_body =
-      "{\"name\":\"h106-tiga\",\"revision\":\"rev-1\",\"collections\":["
-      "{\"name\":\"games\",\"workflows\":[]},"
-      "{\"name\":\"story-teller\",\"workflows\":[{\"name\":\"story.aesop\"},{\"name\":\"story.alice\"}]}]}";
+      "{\"name\":\"h106-tiga\",\"revision\":\"rev-1\",\"workflows\":["
+      "{\"name\":\"story.aesop\",\"tags\":[\"9-12\",\"stories\"]},"
+      "{\"name\":\"story.alice\",\"tags\":[\"6-8\",\"stories\"]}]}";
   init_client(&client, &stub, &http);
 
   uint8_t scratch[512];
@@ -628,73 +628,55 @@ static void test_device_runtime_profile(void) {
   check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "call init");
 
   gzc_control_device_runtime_profile_t profile;
-  gzc_control_runtime_profile_collection_t collections[4];
+  gzc_control_runtime_profile_workflow_t workflows[4];
   size_t count = 0;
+  gzc_str_t selector[] = {gzc_str_from_cstr("6-8"), gzc_str_from_cstr("stories")};
   check(
-      gzc_control_get_device_runtime_profile(&client, &call, &profile, collections, 4, &count) == GZC_OK,
+      gzc_control_get_device_runtime_profile(&client, &call, selector, 2, &profile, workflows, 4, &count) == GZC_OK,
       "get runtime profile");
-  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/runtime-profile") == 0, "runtime profile url");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/runtime-profile?tags=6-8&tags=stories") == 0,
+        "runtime profile tag url");
   check_str(profile.name, "h106-tiga", "runtime profile name");
   check_str(profile.revision, "rev-1", "runtime profile revision");
-  check(count == 2, "runtime profile collection count");
-  check_str(collections[0].name, "games", "first collection");
-  check_str(collections[1].name, "story-teller", "second collection");
+  check(count == 2, "runtime profile workflow count");
+  check_str(workflows[0].name, "story.aesop", "first workflow");
+  check_str(workflows[1].name, "story.alice", "second workflow");
 
-  gzc_str_t workflows[4];
-  size_t workflow_count = 1;
-  check(
-      gzc_control_runtime_profile_collection_workflows(&collections[0], workflows, 4, &workflow_count) == GZC_OK &&
-          workflow_count == 0,
-      "empty collection has no workflows");
-  check(
-      gzc_control_runtime_profile_collection_workflows(&collections[1], workflows, 4, &workflow_count) == GZC_OK &&
-          workflow_count == 2,
-      "collection workflows");
-  check_str(workflows[0], "story.aesop", "first workflow");
-  check_str(workflows[1], "story.alice", "second workflow");
-  check(
-      gzc_control_runtime_profile_collection_workflows(&collections[1], workflows, 1, &workflow_count) ==
-          GZC_ERR_BUFFER_TOO_SMALL,
-      "small workflow array reports overflow");
-  check(
-      gzc_control_runtime_profile_collection_workflows(&collections[1], workflows, 4, NULL) ==
-          GZC_ERR_INVALID_ARGUMENT,
-      "null workflow count is rejected");
-  check(
-      gzc_control_runtime_profile_collection_workflows(&collections[1], NULL, 4, &workflow_count) ==
-          GZC_ERR_INVALID_ARGUMENT,
-      "null workflow array with capacity is rejected");
-  check(
-      gzc_control_runtime_profile_collection_workflows(NULL, workflows, 4, &workflow_count) ==
-          GZC_ERR_INVALID_ARGUMENT,
-      "null collection is rejected");
-  check(
-      gzc_control_get_device_runtime_profile(&client, &call, &profile, NULL, 4, &count) == GZC_ERR_INVALID_ARGUMENT,
-      "null collection array with capacity is rejected");
+  gzc_str_t tags[4];
+  size_t tag_count = 0;
+  check(gzc_control_runtime_profile_workflow_tags(&workflows[1], tags, 4, &tag_count) == GZC_OK && tag_count == 2,
+        "workflow tags");
+  check_str(tags[0], "6-8", "first tag");
+  check_str(tags[1], "stories", "second tag");
+  check(gzc_control_runtime_profile_workflow_tags(&workflows[1], tags, 1, &tag_count) == GZC_ERR_BUFFER_TOO_SMALL,
+        "small tag array reports overflow");
+  check(gzc_control_runtime_profile_workflow_tags(NULL, tags, 4, &tag_count) == GZC_ERR_INVALID_ARGUMENT,
+        "null workflow is rejected");
+  check(gzc_control_get_device_runtime_profile(&client, &call, NULL, 1, &profile, workflows, 4, &count) ==
+            GZC_ERR_INVALID_ARGUMENT,
+        "null tag array is rejected");
+  check(gzc_control_get_device_runtime_profile(&client, &call, NULL, 0, &profile, NULL, 4, &count) ==
+            GZC_ERR_INVALID_ARGUMENT,
+        "null workflow array with capacity is rejected");
+  check(gzc_control_get_device_runtime_profile(&client, &call, NULL, 0, &profile, workflows, 1, &count) ==
+            GZC_ERR_BUFFER_TOO_SMALL,
+        "small workflow array reports overflow");
+  check(call.error.kind == GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL, "workflow overflow kind");
 
-  check(
-      gzc_control_get_device_runtime_profile(&client, &call, &profile, collections, 1, &count) ==
-          GZC_ERR_BUFFER_TOO_SMALL,
-      "small collection array reports overflow");
-  check(call.error.kind == GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL, "collection overflow kind");
-
-  stub.response_body = "{\"name\":\"h106-tiga\",\"revision\":\"rev-1\",\"collections\":[{\"name\":\"games\"}]}";
-  check(
-      gzc_control_get_device_runtime_profile(&client, &call, &profile, collections, 4, &count) != GZC_OK,
-      "collection without workflows fails");
-  check(call.error.kind == GZC_CONTROL_ERROR_MALFORMED_RESPONSE, "missing workflows is malformed");
+  stub.response_body = "{\"name\":\"h106-tiga\",\"revision\":\"rev-1\",\"workflows\":[{\"name\":\"bad\"}]}";
+  check(gzc_control_get_device_runtime_profile(&client, &call, NULL, 0, &profile, workflows, 4, &count) != GZC_OK,
+        "workflow without tags fails");
+  check(call.error.kind == GZC_CONTROL_ERROR_MALFORMED_RESPONSE, "missing tags is malformed");
 
   stub.response_body = "{\"name\":\"h106-tiga\",\"revision\":\"rev-1\"}";
-  check(
-      gzc_control_get_device_runtime_profile(&client, &call, &profile, collections, 4, &count) != GZC_OK,
-      "missing collections fails");
-  check(call.error.kind == GZC_CONTROL_ERROR_MALFORMED_RESPONSE, "missing collections is malformed");
+  check(gzc_control_get_device_runtime_profile(&client, &call, NULL, 0, &profile, workflows, 4, &count) != GZC_OK,
+        "missing workflows fails");
+  check(call.error.kind == GZC_CONTROL_ERROR_MALFORMED_RESPONSE, "missing workflows is malformed");
 
   stub.status_code = 403;
   stub.response_body = "{\"error\":{\"code\":\"API_KEY_OWNER_UNAVAILABLE\",\"message\":\"Forbidden\"}}";
-  check(
-      gzc_control_get_device_runtime_profile(&client, &call, &profile, collections, 4, &count) != GZC_OK,
-      "unbound owner fails");
+  check(gzc_control_get_device_runtime_profile(&client, &call, NULL, 0, &profile, workflows, 4, &count) != GZC_OK,
+        "unbound owner fails");
   check(call.error.kind == GZC_CONTROL_ERROR_FORBIDDEN, "unbound owner is forbidden");
 }
 
@@ -705,7 +687,7 @@ static void test_device_workspaces(void) {
   memset(&stub, 0, sizeof(stub));
   stub.status_code = 200;
   stub.response_body =
-      "[{\"id\":\"ws-aesop\",\"name\":\"aesop-save\",\"collection\":\"story-teller\","
+      "[{\"id\":\"ws-aesop\",\"name\":\"aesop-save\","
       "\"workflow_name\":\"story.aesop\",\"available\":true,\"system\":false,"
       "\"created_at\":\"2026-09-01T08:00:00Z\",\"updated_at\":\"2026-09-01T09:00:00Z\","
       "\"last_active_at\":\"2026-09-01T10:00:00Z\"},"
@@ -720,7 +702,6 @@ static void test_device_workspaces(void) {
   check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "call init");
 
   gzc_control_workspace_filter_t filter = {
-      .collection = gzc_str_from_cstr("story teller"),
       .workflow_name = gzc_str_from_cstr("story.aesop"),
   };
   gzc_control_device_workspace_t items[4];
@@ -730,17 +711,15 @@ static void test_device_workspaces(void) {
   check(
       strcmp(
           stub.url,
-          "https://ap.gizclaw.com/gizclaw/v1/device/workspaces?collection=story%20teller&workflow_name=story.aesop") ==
+          "https://ap.gizclaw.com/gizclaw/v1/device/workspaces?workflow_name=story.aesop") ==
           0,
       "list workspaces url");
   check(count == 2, "workspace count");
   check_str(items[0].id, "ws-aesop", "workspace id");
-  check_str(items[0].collection, "story-teller", "workspace collection");
   check_str(items[0].workflow_name, "story.aesop", "workspace workflow name");
   check(items[0].available && !items[0].system, "workspace flags");
   check_str(items[0].last_active_at, "2026-09-01T10:00:00Z", "workspace last active");
   check(items[1].system && !items[1].available, "system workspace flags");
-  check(items[1].collection.len == 0, "system workspace has no collection");
   check(items[1].workflow_name.len == 0, "unresolved workflow name is empty");
 
   check(gzc_control_list_device_workspaces(&client, &call, NULL, items, 4, &count) == GZC_OK, "unfiltered list");
@@ -1231,13 +1210,12 @@ static void test_mhs_settings_workspace_and_tools(void) {
   stub.response_body = "{\"result\":{}}";
   gzc_control_run_workspace_request_t run;
   memset(&run, 0, sizeof(run));
-  run.collection = gzc_str_from_cstr("stories");
   run.workflow_name = gzc_str_from_cstr("bedtime");
   run.has_kickoff = true;
   run.kickoff = true;
   check(gzc_control_set_device_run_workspace(&client, &call, &run) == GZC_OK, "run workspace");
   check(stub.method == GZC_HTTP_METHOD_POST, "run workspace method");
-  check(strcmp(stub.body, "{\"tool\":\"run.workspace.set\",\"args\":{\"collection\":\"stories\",\"workflow_name\":\"bedtime\",\"kickoff\":true}}") == 0, "run workspace body");
+  check(strcmp(stub.body, "{\"tool\":\"run.workspace.set\",\"args\":{\"workflow_name\":\"bedtime\",\"kickoff\":true}}") == 0, "run workspace body");
 
   stub.status_code = 200;
   stub.response_body = "{\"tools\":[\"device.find\",\"device.reboot\"]}";

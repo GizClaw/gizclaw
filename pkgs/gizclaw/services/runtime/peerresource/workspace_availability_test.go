@@ -31,13 +31,13 @@ func TestWorkspaceRemainsVisibleWhenRuntimeAliasDisappears(t *testing.T) {
 	}
 
 	created := callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
-		Name: "journey-1", Collection: "story-teller", WorkflowName: "journey",
+		Name: "journey-1", WorkflowName: "journey",
 	})
 	if !created.Available {
 		t.Fatalf("created Workspace = %#v, want available", created)
 	}
 
-	profile.Spec.Workflows.Collections["story-teller"] = map[string]apitypes.RuntimeProfileBinding{}
+	delete(profile.Spec.Workflows, "journey")
 	profile.Revision = "r2"
 	listed := callWorkspaceList(t, ctx, server, "story-teller")
 	if len(listed.Items) != 1 || listed.Items[0].Name != "journey-1" || listed.Items[0].Available {
@@ -61,7 +61,7 @@ func TestWorkspaceRemainsVisibleWhenRuntimeAliasDisappears(t *testing.T) {
 	}
 }
 
-func TestWorkspaceListRejectsUnknownRuntimeCollection(t *testing.T) {
+func TestWorkspaceListDoesNotRequireCollection(t *testing.T) {
 	ctx := context.Background()
 	store := workspacetest.New(t).DB
 	profile := runtimeProfileWithWorkspaceAlias("r1")
@@ -75,12 +75,12 @@ func TestWorkspaceListRejectsUnknownRuntimeCollection(t *testing.T) {
 		},
 	}
 	var payload rpcapi.RPCPayload
-	if err := payload.FromWorkspaceListRequest(rpcapi.WorkspaceListRequest{Collection: "missing"}); err != nil {
+	if err := payload.FromWorkspaceListRequest(rpcapi.WorkspaceListRequest{}); err != nil {
 		t.Fatal(err)
 	}
 	response := server.handleWorkspaceList(ctx, &rpcapi.RPCRequest{Id: "list", Params: &payload})
-	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeNotFound || response.Result != nil {
-		t.Fatalf("workspace list response = %#v, want NOT_FOUND", response)
+	if response.Error != nil || response.Result == nil {
+		t.Fatalf("workspace list response = %#v, want result", response)
 	}
 }
 
@@ -99,7 +99,7 @@ func TestWorkspaceCreatePreservesNotFoundForUnknownWorkflowAlias(t *testing.T) {
 	}
 	var payload rpcapi.RPCPayload
 	if err := payload.FromWorkspaceCreateRequest(rpcapi.WorkspaceCreateRequest{
-		Name: "missing", Collection: "story-teller", WorkflowName: "missing",
+		Name: "missing", WorkflowName: "missing",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestWorkspaceCreateProjectsResolvedRuntimeProfileSnapshot(t *testing.T) {
 		Server: &workspace.Server{DB: store, Workflows: workflows},
 		afterCreate: func() {
 			resolved.Revision = "r2"
-			resolved.Spec.Workflows.Collections["story-teller"] = map[string]apitypes.RuntimeProfileBinding{}
+			delete(resolved.Spec.Workflows, "journey")
 		},
 	}
 	server := &Server{
@@ -134,7 +134,7 @@ func TestWorkspaceCreateProjectsResolvedRuntimeProfileSnapshot(t *testing.T) {
 	}
 
 	created := callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
-		Name: "snapshot", Collection: "story-teller", WorkflowName: "journey",
+		Name: "snapshot", WorkflowName: "journey",
 	})
 	if calls != 1 {
 		t.Fatalf("RuntimeProfile calls = %d, want 1", calls)
@@ -216,9 +216,8 @@ func runtimeProfileWithWorkspaceAlias(revision string) apitypes.RuntimeProfile {
 				"llm": collectionTestBinding("chat-model", "Chat"),
 			},
 		}, Workflows: apitypes.RuntimeProfileWorkflows{
-			Collections: apitypes.RuntimeProfileWorkflowCollections{
-				"story-teller": {"journey": collectionTestBinding("canonical-workflow", "Journey")},
-			},
+
+			"journey": collectionTestBinding("canonical-workflow", "Journey"),
 		}},
 	}
 }
@@ -244,10 +243,10 @@ func callWorkspaceCreate(t *testing.T, ctx context.Context, server *Server, body
 	return decoded
 }
 
-func callWorkspaceList(t *testing.T, ctx context.Context, server *Server, collection string) rpcapi.WorkspaceListResponse {
+func callWorkspaceList(t *testing.T, ctx context.Context, server *Server, _ string) rpcapi.WorkspaceListResponse {
 	t.Helper()
 	var payload rpcapi.RPCPayload
-	if err := payload.FromWorkspaceListRequest(rpcapi.WorkspaceListRequest{Collection: collection}); err != nil {
+	if err := payload.FromWorkspaceListRequest(rpcapi.WorkspaceListRequest{}); err != nil {
 		t.Fatal(err)
 	}
 	response := server.handleWorkspaceList(ctx, &rpcapi.RPCRequest{Id: "list", Params: &payload})

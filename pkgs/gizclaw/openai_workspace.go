@@ -36,7 +36,7 @@ func (a openAIWorkspaceAdapter) CreateConversationWorkspace(ctx context.Context,
 		return apitypes.Workspace{}, errors.New("OpenAI Workspace resources are unavailable")
 	}
 	created, err := a.resources.CreateWorkspace(ctx, peerresource.WorkspaceCreateRequest{
-		Name: request.Name, Collection: request.Collection, WorkflowName: request.WorkflowName,
+		Name: request.Name, WorkflowName: request.WorkflowName,
 		Labels: map[string]string{"openai.conversation": "true"}, Initialize: request.Initialize,
 	})
 	return created.Workspace, err

@@ -55,7 +55,6 @@ steps:
     method: server.workspace.create
     request:
       name: "${workspace_name}"
-      collection: assistants
       workflow_name: flowcraft-voice-assistant
       parameters:
         flowcraft_workspace_parameters:
@@ -73,7 +72,7 @@ steps:
   client: peer
   http:
     method: GET
-    path: /gizclaw/v1/device/workspaces?collection=assistants&workflow_name=flowcraft-voice-assistant
+    path: /gizclaw/v1/device/workspaces?workflow_name=flowcraft-voice-assistant
     headers:
       Authorization: "Bearer ${api_key}"
     status: 200
@@ -114,7 +113,7 @@ steps:
   client: peer
   http:
     method: GET
-    path: /gizclaw/v1/device/workspaces?collection=assistants&workflow_name=flowcraft-voice-assistant
+    path: /gizclaw/v1/device/workspaces?workflow_name=flowcraft-voice-assistant
     headers:
       Authorization: "Bearer ${api_key}"
     status: 200

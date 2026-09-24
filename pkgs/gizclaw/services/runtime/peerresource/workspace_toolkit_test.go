@@ -33,7 +33,7 @@ func TestWorkspaceRPCToolkitResolution(t *testing.T) {
 			server := newWorkspaceToolkitTestServer(t)
 			bindings := *server.RuntimeProfile().Spec.Resources.Tools
 			var body rpcapi.WorkspaceCreateBody
-			if err := json.Unmarshal([]byte(`{"name":"tool-selection","collection":"story-teller","workflow_name":"journey"`+test.policy+`}`), &body); err != nil {
+			if err := json.Unmarshal([]byte(`{"name":"tool-selection","workflow_name":"journey"`+test.policy+`}`), &body); err != nil {
 				t.Fatal(err)
 			}
 			var payload rpcapi.RPCPayload
@@ -156,7 +156,7 @@ func dispatchToolkitRPC(t *testing.T, server *Server, request *rpcapi.RPCRequest
 func TestWorkspaceRPCToolkitPutAndWorkflowIntersection(t *testing.T) {
 	server := newWorkspaceToolkitTestServer(t)
 	ctx := t.Context()
-	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{Name: "put-tools", Collection: "story-teller", WorkflowName: "journey"})
+	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{Name: "put-tools", WorkflowName: "journey"})
 	workflowResponse, err := server.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Id: "canonical-workflow"})
 	if err != nil {
 		t.Fatal(err)
@@ -234,7 +234,7 @@ func TestWorkspaceRPCToolkitRejectsUnavailableNames(t *testing.T) {
 	for _, name := range []string{"unknown", "other", "echo-id", ""} {
 		t.Run(name, func(t *testing.T) {
 			var payload rpcapi.RPCPayload
-			if err := payload.FromWorkspaceCreateRequest(rpcapi.WorkspaceCreateBody{Name: "rejected", Collection: "story-teller", WorkflowName: "journey", Toolkit: rpcToolkitPolicy(name)}); err != nil {
+			if err := payload.FromWorkspaceCreateRequest(rpcapi.WorkspaceCreateBody{Name: "rejected", WorkflowName: "journey", Toolkit: rpcToolkitPolicy(name)}); err != nil {
 				t.Fatal(err)
 			}
 			response := dispatchToolkitRPC(t, server, &rpcapi.RPCRequest{Id: "invalid", Method: rpcapi.RPCMethodServerWorkspaceCreate, Params: &payload})
@@ -261,7 +261,7 @@ func rpcToolkitPolicy(names ...string) *rpcapi.ToolkitPolicy {
 func TestWorkspaceToolkitProjectionAfterProfileChange(t *testing.T) {
 	server := newWorkspaceToolkitTestServer(t)
 	ctx := t.Context()
-	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{Name: "profile-change", Collection: "story-teller", WorkflowName: "journey", Toolkit: rpcToolkitPolicy("echo-alias", "other-alias")})
+	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{Name: "profile-change", WorkflowName: "journey", Toolkit: rpcToolkitPolicy("echo-alias", "other-alias")})
 	bindings := server.RuntimeProfile().Spec.Resources.Tools
 	for _, removed := range []string{"echo-alias", "other-alias"} {
 		delete(*bindings, removed)
@@ -336,8 +336,8 @@ func TestWorkspaceToolkitProjectionAfterProfileChange(t *testing.T) {
 func TestWorkspaceRPCStaleToolkitDoesNotFailReadsOrMutations(t *testing.T) {
 	server := newWorkspaceToolkitTestServer(t)
 	ctx := t.Context()
-	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{Name: "stale-workspace", Collection: "story-teller", WorkflowName: "journey", Toolkit: rpcToolkitPolicy("echo-alias")})
-	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{Name: "healthy-workspace", Collection: "story-teller", WorkflowName: "journey"})
+	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{Name: "stale-workspace", WorkflowName: "journey", Toolkit: rpcToolkitPolicy("echo-alias")})
+	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{Name: "healthy-workspace", WorkflowName: "journey"})
 	delete(*server.RuntimeProfile().Spec.Resources.Tools, "echo-alias")
 	if err := server.Tools.DeleteTool(ctx, "echo-id"); err != nil {
 		t.Fatal(err)
@@ -413,7 +413,7 @@ func TestWorkspaceRPCDeleteProjectsStaleToolkit(t *testing.T) {
 			server := newWorkspaceToolkitTestServer(t)
 			ctx := t.Context()
 			callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
-				Name: "delete-stale", Collection: "story-teller", WorkflowName: "journey",
+				Name: "delete-stale", WorkflowName: "journey",
 				Toolkit: rpcToolkitPolicy(test.selection...),
 			})
 			delete(*server.RuntimeProfile().Spec.Resources.Tools, "echo-alias")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -32,7 +33,7 @@ func seedRTPBOS(ctx context.Context, api *adminhttp.ClientWithResponses, profile
 		}
 		workflows[id] = binding(id, id, id)
 	}
-	spec.Workflows.Collections["assistants"] = workflows
+	maps.Copy(spec.Workflows, workflows)
 	if err := upsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{Id: profile, Spec: spec}); err != nil {
 		return err
 	}

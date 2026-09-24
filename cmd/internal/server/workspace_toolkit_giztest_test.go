@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -23,9 +24,9 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
-// TestWorkspaceToolkitGiztest executes the committed policy document against
-// real WebRTC Peer RPC and SQL storage, without an external endpoint or model.
-func TestWorkspaceToolkitGiztest(t *testing.T) {
+// TestRuntimeProfileAndWorkspaceToolkitGiztest runs committed Giztest documents
+// through real WebRTC Peer RPC and SQL storage without an external provider.
+func TestRuntimeProfileAndWorkspaceToolkitGiztest(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 90*time.Second)
 	defer cancel()
 	cfg := validLayeredConfig(t.TempDir())
@@ -105,7 +106,10 @@ func TestWorkspaceToolkitGiztest(t *testing.T) {
 	}
 	bindings := map[string]apitypes.RuntimeProfileBinding{"giztest-echo": {ResourceId: "giztest-client-echo", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Echo"}, "zh-CN": {DisplayName: "Echo"}}}, "giztest-other": {ResourceId: "giztest-client-other", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Other"}, "zh-CN": {DisplayName: "Other"}}}}
 	profile := adminhttp.RuntimeProfileUpsert{Id: "workspace-toolkit", Spec: apitypes.RuntimeProfileSpec{
-		Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{"assistants": {"flowcraft-chat-assistant": {ResourceId: "toolkit-workflow", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Toolkit"}, "zh-CN": {DisplayName: "Toolkit"}}}}}},
+		Workflows: apitypes.RuntimeProfileWorkflows{
+			"flowcraft-chat-assistant":  {ResourceId: "toolkit-workflow", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Toolkit Chat"}, "zh-CN": {DisplayName: "Toolkit Chat"}}, Tags: &[]string{"assistants", "6-8", "catalog"}},
+			"flowcraft-voice-assistant": {ResourceId: "toolkit-workflow", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Toolkit Voice"}, "zh-CN": {DisplayName: "Toolkit Voice"}}, Tags: &[]string{"assistants", "9-12", "catalog"}},
+		},
 		Resources: apitypes.RuntimeProfileResources{Tools: &bindings},
 	}}
 	if _, err := adminapi.CreateRuntimeProfile(ctx, admin, profile); err != nil {
@@ -115,13 +119,28 @@ func TestWorkspaceToolkitGiztest(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("GIZCLAW_TEST_REGISTRATION_TOKEN", "local-toolkit-test-token")
-	command := giztestcmd.NewCmd()
-	var output bytes.Buffer
-	command.SetOut(&output)
-	command.SetErr(&output)
-	command.SetArgs([]string{"run", "--parallel", "1", filepath.Join("..", "..", "..", "tests", "gizclaw-e2e", "giztest", "server.workspace.toolkit.roundtrip.giztest.yaml")})
-	if err := command.ExecuteContext(ctx); err != nil {
-		t.Fatalf("Giztest: %v\n%s", err, output.String())
+	run := func(path string) {
+		t.Helper()
+		command := giztestcmd.NewCmd()
+		var output bytes.Buffer
+		reportPath := filepath.Join(t.TempDir(), filepath.Base(path)+".report.json")
+		command.SetOut(&output)
+		command.SetErr(&output)
+		command.SetArgs([]string{"run", "--parallel", "1", "--output", reportPath, path})
+		if err := command.ExecuteContext(ctx); err != nil {
+			report, _ := os.ReadFile(reportPath)
+			t.Fatalf("Giztest %s: %v\n%s\n%s", path, err, output.String(), report)
+		}
+		t.Log(output.String())
 	}
-	t.Log(output.String())
+	root := filepath.Join("..", "..", "..", "tests", "gizclaw-e2e")
+	run(filepath.Join(root, "giztest", "server.workspace.toolkit.roundtrip.giztest.yaml"))
+	run(filepath.Join(root, "giztest", "server.runtime_profile.tags.giztest.yaml"))
+	chat := profile.Spec.Workflows["flowcraft-chat-assistant"]
+	chat.Tags = &[]string{"assistants", "10-12", "catalog"}
+	profile.Spec.Workflows["flowcraft-chat-assistant"] = chat
+	if _, err := adminapi.PutRuntimeProfile(ctx, admin, profile.Id, profile); err != nil {
+		t.Fatal(err)
+	}
+	run(filepath.Join(root, "testdata", "runtime-profile", "updated.giztest.yaml"))
 }

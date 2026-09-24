@@ -5,43 +5,41 @@ metadata:
   id: e2e-giztest
 spec:
   workflows:
-    collections:
-      assistants:
-        volc-ast-translate-tts: {resource_id: volc-ast-translate-tts, i18n: {en: {display_name: AST Translate TTS}, zh-CN: {display_name: AST 翻译 TTS}}}
-        volc-ast-translate-zh-jp: {resource_id: volc-ast-translate-zh-jp, i18n: {en: {display_name: Chinese Japanese Translate}, zh-CN: {display_name: 中日翻译}}}
-        volc-ast-translate: {resource_id: volc-ast-translate, i18n: {en: {display_name: AST Translate}, zh-CN: {display_name: AST 翻译}}}
-        doubao-realtime-conversation: {resource_id: doubao-realtime-conversation, i18n: {en: {display_name: Doubao Realtime}, zh-CN: {display_name: 豆包实时对话}}}
-        doubao-realtime-tts-conversation: {resource_id: doubao-realtime-tts-conversation, i18n: {en: {display_name: Doubao Realtime External TTS}, zh-CN: {display_name: 豆包实时对话外挂 TTS}}}
-        flowcraft-voice-assistant: {resource_id: flowcraft-voice-assistant, i18n: {en: {display_name: Flowcraft Voice Assistant}, zh-CN: {display_name: Flowcraft 语音助手}}}
-        flowcraft-chat-assistant: {resource_id: flowcraft-chat-assistant, i18n: {en: {display_name: Flowcraft Chat Assistant}, zh-CN: {display_name: Flowcraft 对话助手}}}
-        doubao-realtime-quality: {resource_id: doubao-realtime-quality, i18n: {en: {display_name: Doubao Quality}, zh-CN: {display_name: 豆包质量测试}}}
-        flowcraft-journey-guide: {resource_id: flowcraft-journey-guide, i18n: {en: {display_name: Journey Guide}, zh-CN: {display_name: 旅程向导}}}
-        flowcraft-multi-role-storyteller: {resource_id: flowcraft-multi-role-storyteller, i18n: {en: {display_name: Storyteller}, zh-CN: {display_name: 多角色故事}}}
-        flowcraft-murder-mystery: {resource_id: flowcraft-murder-mystery, i18n: {en: {display_name: Murder Mystery}, zh-CN: {display_name: 剧本杀}}}
-        flowcraft-poetry-adventure-li-bai: {resource_id: flowcraft-poetry-adventure-li-bai, i18n: {en: {display_name: Poetry Adventure}, zh-CN: {display_name: 李白诗词冒险}}}
-        flowcraft-werewolf-game: {resource_id: flowcraft-werewolf-game, i18n: {en: {display_name: Werewolf Game}, zh-CN: {display_name: 狼人杀}}}
-        volc-ast-translate-zh-en: {resource_id: volc-ast-translate-zh-en, i18n: {en: {display_name: Chinese English Translate}, zh-CN: {display_name: 中英翻译}}}
-        dashscope-realtime-conversation: {resource_id: dashscope-realtime-conversation, i18n: {en: {display_name: DashScope Realtime}, zh-CN: {display_name: 百炼实时对话}}}
-        doubao-realtime-duplex-conversation: {resource_id: doubao-realtime-duplex-conversation, i18n: {en: {display_name: Doubao Realtime Duplex}, zh-CN: {display_name: 豆包双工对话}}}
-        eino-memory-assistant: {resource_id: eino-memory-assistant, i18n: {en: {display_name: Eino Memory Assistant}, zh-CN: {display_name: Eino 记忆助手}}}
-        flowcraft-configured-memory: {resource_id: flowcraft-configured-memory, i18n: {en: {display_name: Configured Memory}, zh-CN: {display_name: 配置记忆}}}
-        flowcraft-memory-peer-a: {resource_id: flowcraft-memory-peer-a, i18n: {en: {display_name: Peer Memory A}, zh-CN: {display_name: Peer 记忆 A}}}
-        flowcraft-memory-peer-b: {resource_id: flowcraft-memory-peer-b, i18n: {en: {display_name: Peer Memory B}, zh-CN: {display_name: Peer 记忆 B}}}
-        flowcraft-memory-workspace: {resource_id: flowcraft-memory-workspace, i18n: {en: {display_name: Workspace Memory}, zh-CN: {display_name: Workspace 记忆}}}
-        flowcraft-realtime-chat: {resource_id: flowcraft-realtime-chat, i18n: {en: {display_name: Realtime Chat}, zh-CN: {display_name: 实时对话}}}
-        flowcraft-latency-comparison: {resource_id: flowcraft-latency-comparison, i18n: {en: {display_name: Flowcraft Latency}, zh-CN: {display_name: Flowcraft 延迟}}}
-        eino-latency-comparison: {resource_id: eino-latency-comparison, i18n: {en: {display_name: Eino Latency}, zh-CN: {display_name: Eino 延迟}}}
-        eino-concurrency-assistant: {resource_id: eino-concurrency-assistant, i18n: {en: {display_name: Eino Concurrency}, zh-CN: {display_name: Eino 并发}}}
-        giztest-workflow-tester: {resource_id: giztest-workflow-tester, i18n: {en: {display_name: Giztest Workflow Tester}, zh-CN: {display_name: Giztest 测试驱动}}}
-        eino-speaker-voices: {resource_id: eino-speaker-voices, i18n: {en: {display_name: Eino Speaker Voices}, zh-CN: {display_name: Eino 分段音色}}}
-        flowcraft-speaker-voices: {resource_id: flowcraft-speaker-voices, i18n: {en: {display_name: Flowcraft Speaker Voices}, zh-CN: {display_name: Flowcraft 分段音色}}}
-        eino-mixed-provider-voices: {resource_id: eino-mixed-provider-voices, i18n: {en: {display_name: Eino Mixed Provider Voices}, zh-CN: {display_name: Eino 跨厂商音色}}}
-        flowcraft-mixed-provider-voices: {resource_id: flowcraft-mixed-provider-voices, i18n: {en: {display_name: Flowcraft Mixed Provider Voices}, zh-CN: {display_name: Flowcraft 跨厂商音色}}}
-        safety-fence-flowcraft: {resource_id: safety-fence-flowcraft, i18n: {en: {display_name: Safety Fence Flowcraft}, zh-CN: {display_name: 安全围栏 Flowcraft}}}
-        safety-fence-eino: {resource_id: safety-fence-eino, i18n: {en: {display_name: Safety Fence Eino}, zh-CN: {display_name: 安全围栏 Eino}}}
-        safety-fence-doubao-realtime: {resource_id: safety-fence-doubao-realtime, i18n: {en: {display_name: Safety Fence Doubao Realtime}, zh-CN: {display_name: 安全围栏豆包实时}}}
-        safety-fence-doubao-realtime-duplex: {resource_id: safety-fence-doubao-realtime-duplex, i18n: {en: {display_name: Safety Fence Doubao Duplex}, zh-CN: {display_name: 安全围栏豆包双工}}}
-        safety-fence-dashscope-realtime: {resource_id: safety-fence-dashscope-realtime, i18n: {en: {display_name: Safety Fence DashScope Realtime}, zh-CN: {display_name: 安全围栏百炼实时}}}
+    volc-ast-translate-tts: {resource_id: volc-ast-translate-tts, i18n: {en: {display_name: AST Translate TTS}, zh-CN: {display_name: AST 翻译 TTS}}, tags: [assistants]}
+    volc-ast-translate-zh-jp: {resource_id: volc-ast-translate-zh-jp, i18n: {en: {display_name: Chinese Japanese Translate}, zh-CN: {display_name: 中日翻译}}, tags: [assistants]}
+    volc-ast-translate: {resource_id: volc-ast-translate, i18n: {en: {display_name: AST Translate}, zh-CN: {display_name: AST 翻译}}, tags: [assistants]}
+    doubao-realtime-conversation: {resource_id: doubao-realtime-conversation, i18n: {en: {display_name: Doubao Realtime}, zh-CN: {display_name: 豆包实时对话}}, tags: [assistants]}
+    doubao-realtime-tts-conversation: {resource_id: doubao-realtime-tts-conversation, i18n: {en: {display_name: Doubao Realtime External TTS}, zh-CN: {display_name: 豆包实时对话外挂 TTS}}, tags: [assistants]}
+    flowcraft-voice-assistant: {resource_id: flowcraft-voice-assistant, i18n: {en: {display_name: Flowcraft Voice Assistant}, zh-CN: {display_name: Flowcraft 语音助手}}, tags: [assistants, "9-12", catalog]}
+    flowcraft-chat-assistant: {resource_id: flowcraft-chat-assistant, i18n: {en: {display_name: Flowcraft Chat Assistant}, zh-CN: {display_name: Flowcraft 对话助手}}, tags: [assistants, "6-8", catalog]}
+    doubao-realtime-quality: {resource_id: doubao-realtime-quality, i18n: {en: {display_name: Doubao Quality}, zh-CN: {display_name: 豆包质量测试}}, tags: [assistants]}
+    flowcraft-journey-guide: {resource_id: flowcraft-journey-guide, i18n: {en: {display_name: Journey Guide}, zh-CN: {display_name: 旅程向导}}, tags: [assistants]}
+    flowcraft-multi-role-storyteller: {resource_id: flowcraft-multi-role-storyteller, i18n: {en: {display_name: Storyteller}, zh-CN: {display_name: 多角色故事}}, tags: [assistants]}
+    flowcraft-murder-mystery: {resource_id: flowcraft-murder-mystery, i18n: {en: {display_name: Murder Mystery}, zh-CN: {display_name: 剧本杀}}, tags: [assistants]}
+    flowcraft-poetry-adventure-li-bai: {resource_id: flowcraft-poetry-adventure-li-bai, i18n: {en: {display_name: Poetry Adventure}, zh-CN: {display_name: 李白诗词冒险}}, tags: [assistants]}
+    flowcraft-werewolf-game: {resource_id: flowcraft-werewolf-game, i18n: {en: {display_name: Werewolf Game}, zh-CN: {display_name: 狼人杀}}, tags: [assistants]}
+    volc-ast-translate-zh-en: {resource_id: volc-ast-translate-zh-en, i18n: {en: {display_name: Chinese English Translate}, zh-CN: {display_name: 中英翻译}}, tags: [assistants]}
+    dashscope-realtime-conversation: {resource_id: dashscope-realtime-conversation, i18n: {en: {display_name: DashScope Realtime}, zh-CN: {display_name: 百炼实时对话}}, tags: [assistants]}
+    doubao-realtime-duplex-conversation: {resource_id: doubao-realtime-duplex-conversation, i18n: {en: {display_name: Doubao Realtime Duplex}, zh-CN: {display_name: 豆包双工对话}}, tags: [assistants]}
+    eino-memory-assistant: {resource_id: eino-memory-assistant, i18n: {en: {display_name: Eino Memory Assistant}, zh-CN: {display_name: Eino 记忆助手}}, tags: [assistants]}
+    flowcraft-configured-memory: {resource_id: flowcraft-configured-memory, i18n: {en: {display_name: Configured Memory}, zh-CN: {display_name: 配置记忆}}, tags: [assistants]}
+    flowcraft-realtime-chat: {resource_id: flowcraft-realtime-chat, i18n: {en: {display_name: Realtime Chat}, zh-CN: {display_name: 实时对话}}, tags: [assistants]}
+    flowcraft-latency-comparison: {resource_id: flowcraft-latency-comparison, i18n: {en: {display_name: Flowcraft Latency}, zh-CN: {display_name: Flowcraft 延迟}}, tags: [assistants]}
+    eino-latency-comparison: {resource_id: eino-latency-comparison, i18n: {en: {display_name: Eino Latency}, zh-CN: {display_name: Eino 延迟}}, tags: [assistants]}
+    eino-concurrency-assistant: {resource_id: eino-concurrency-assistant, i18n: {en: {display_name: Eino Concurrency}, zh-CN: {display_name: Eino 并发}}, tags: [assistants]}
+    giztest-workflow-tester: {resource_id: giztest-workflow-tester, i18n: {en: {display_name: Giztest Workflow Tester}, zh-CN: {display_name: Giztest 测试驱动}}, tags: [assistants]}
+    eino-speaker-voices: {resource_id: eino-speaker-voices, i18n: {en: {display_name: Eino Speaker Voices}, zh-CN: {display_name: Eino 分段音色}}, tags: [assistants]}
+    flowcraft-speaker-voices: {resource_id: flowcraft-speaker-voices, i18n: {en: {display_name: Flowcraft Speaker Voices}, zh-CN: {display_name: Flowcraft 分段音色}}, tags: [assistants]}
+    eino-mixed-provider-voices: {resource_id: eino-mixed-provider-voices, i18n: {en: {display_name: Eino Mixed Provider Voices}, zh-CN: {display_name: Eino 跨厂商音色}}, tags: [assistants]}
+    flowcraft-mixed-provider-voices: {resource_id: flowcraft-mixed-provider-voices, i18n: {en: {display_name: Flowcraft Mixed Provider Voices}, zh-CN: {display_name: Flowcraft 跨厂商音色}}, tags: [assistants]}
+    safety-fence-flowcraft: {resource_id: safety-fence-flowcraft, i18n: {en: {display_name: Safety Fence Flowcraft}, zh-CN: {display_name: 安全围栏 Flowcraft}}, tags: [assistants]}
+    safety-fence-eino: {resource_id: safety-fence-eino, i18n: {en: {display_name: Safety Fence Eino}, zh-CN: {display_name: 安全围栏 Eino}}, tags: [assistants]}
+    safety-fence-doubao-realtime: {resource_id: safety-fence-doubao-realtime, i18n: {en: {display_name: Safety Fence Doubao Realtime}, zh-CN: {display_name: 安全围栏豆包实时}}, tags: [assistants]}
+    safety-fence-doubao-realtime-duplex: {resource_id: safety-fence-doubao-realtime-duplex, i18n: {en: {display_name: Safety Fence Doubao Duplex}, zh-CN: {display_name: 安全围栏豆包双工}}, tags: [assistants]}
+    safety-fence-dashscope-realtime: {resource_id: safety-fence-dashscope-realtime, i18n: {en: {display_name: Safety Fence DashScope Realtime}, zh-CN: {display_name: 安全围栏百炼实时}}, tags: [assistants]}
+    flowcraft-memory-peer-a: {resource_id: flowcraft-memory-peer-a, i18n: {en: {display_name: Peer Memory A}, zh-CN: {display_name: Peer 记忆 A}}, tags: [assistants]}
+    flowcraft-memory-peer-b: {resource_id: flowcraft-memory-peer-b, i18n: {en: {display_name: Peer Memory B}, zh-CN: {display_name: Peer 记忆 B}}, tags: [assistants]}
+    flowcraft-memory-workspace: {resource_id: flowcraft-memory-workspace, i18n: {en: {display_name: Workspace Memory}, zh-CN: {display_name: Workspace 记忆}}, tags: [assistants]}
   # Only general is defined: server.workspace.safety-fence.missing-profile relies
   # on child being absent. The marker lets giztest observe the injected prompt.
   safety_fences:

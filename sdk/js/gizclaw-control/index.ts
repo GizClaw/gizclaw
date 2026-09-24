@@ -402,7 +402,7 @@ export interface GizClawControlDevice {
 
   /**
    * Owned Workspaces, including system Workspaces. Workflows are identified by
-   * `collection` and `workflow_name`; the filters match exactly.
+   * `workflow_name`; the optional filter matches exactly.
    */
   listWorkspaces(
     query?: ListDeviceWorkspacesData["query"],

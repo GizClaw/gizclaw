@@ -21,7 +21,11 @@ func seedActivation(t *testing.T, db *sqlx.DB) *Server {
 	if err := s.Initialize(t.Context()); err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = s.Close() })
 	if _, err := insertRuntimeProfileSQL(t.Context(), db, apitypes.RuntimeProfile{Id: "profile", CreatedAt: s.now(), UpdatedAt: s.now()}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RefreshMemoryIndex(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := insertRegistrationTokenSQL(t.Context(), db, apitypes.RegistrationToken{Id: "token", Token: "value", RuntimeProfileId: "profile", Enabled: true, CreatedAt: s.now(), UpdatedAt: s.now()}); err != nil {

@@ -48,7 +48,7 @@ func TestAdminRuntimeProfileRegistrationTokenFlow(t *testing.T) {
   "id":"device-default",
   "spec":{
     "resources":{},
-    "workflows":{"collections":{"assistants":{"echo":{"resource_id":%q,"i18n":{"en":{"display_name":"Echo"},"zh-CN":{"display_name":"回声"}}}}}}
+    "workflows":{"echo":{"resource_id":%q,"tags":["assistants"],"i18n":{"en":{"display_name":"Echo"},"zh-CN":{"display_name":"回声"}}}}
   }
 }`, workflowID))
 	profile := h.RunCLI("admin", "runtime-profiles", "create", "-f", profilePath, "--context", "admin-a")

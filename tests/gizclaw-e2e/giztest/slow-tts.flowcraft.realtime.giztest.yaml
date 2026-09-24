@@ -51,7 +51,6 @@ steps:
     method: server.workspace.create
     request:
       name: ${workspace_name}
-      collection: assistants
       workflow_name: slow-tts-flowcraft
       parameters:
         flowcraft_workspace_parameters:
@@ -75,7 +74,6 @@ steps:
     method: server.workspace.create
     request:
       name: ${audio_workspace_name}
-      collection: assistants
       workflow_name: slow-tts-flowcraft
       parameters:
         flowcraft_workspace_parameters:

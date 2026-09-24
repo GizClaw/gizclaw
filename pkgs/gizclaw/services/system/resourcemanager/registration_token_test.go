@@ -24,10 +24,7 @@ func TestApplyRegistrationTokenCreatesReadsAndUpdatesOrdinaryResource(t *testing
 		"kind":"RuntimeProfile",
 		"metadata":{"id":"profile-a"},
 		"spec":{
-			"workflows":{
-				"system":{"pet":"pet-care"},
-				"collections":{}
-			},
+			"workflows":{},
 			"resources":{}
 		}
 	}`)); err != nil {
@@ -38,10 +35,7 @@ func TestApplyRegistrationTokenCreatesReadsAndUpdatesOrdinaryResource(t *testing
 		"kind":"RuntimeProfile",
 		"metadata":{"id":"profile-b"},
 		"spec":{
-			"workflows":{
-				"system":{"pet":"pet-care"},
-				"collections":{}
-			},
+			"workflows":{},
 			"resources":{}
 		}
 	}`)); err != nil {

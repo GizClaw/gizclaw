@@ -8,7 +8,7 @@
 
 真实 Workflow、Model、Credential、Voice 和 Tool 都由 Admin 管理。Peer RPC 不提供 Workflow、Model、Credential、Tool create/put/delete，也不存在 `source=runtime|owned` selector。
 
-RuntimeProfile binding alias 按 Collection 分组，但 Peer 边界把每个 binding 统一投影为不可变 `name`。`server.workflow.list` 必须传 Collection；Workflow、Model、Voice、Tool 的 get/list request 与 response 都只使用 name。响应使用 `runtime_profile_name`；RuntimeProfile 没有独立的 Peer alias，因此其值是 canonical RuntimeProfile ID 原样投影得到的 Peer name，并同时携带 revision。这是正常的 Peer 投影规则，不是兼容字段。其他 canonical ID、provider 配置、credential、ownership 和 executor routing 都留在 Server。
+RuntimeProfile 的 Workflow binding 是平面 map，Peer 边界把每个 binding 投影为不可变 `name` 与普通字符串 `tags`。`server.workflow.list` 可用多个 tags 取交集筛选；Workflow、Model、Voice、Tool 的 get/list request 与 response 都使用 name。响应使用 `runtime_profile_name`，并携带 revision。其他 canonical ID、provider 配置、credential、ownership 和 executor routing 都留在 Server。
 
 `server.workspace.parameters.set` 接受 Workspace `name` 和局部 `parameters`，由 Server 根据 Workflow driver 更新支持的字段，保留未提供的字段与 toolkit。合法但不支持的字段忽略，不写入配置；非法枚举、空 patch、失效 Workspace 和存储失败仍返回错误。普通 Workspace 保持 owner-only；共享 SFU Workspace 先验证当前好友／群成员身份，再接受参数 no-op，不改变 SFU 输入模式、共享配置或个人设置。系统 Workspace 仅应用其领域允许的参数，其他合法参数忽略。
 
@@ -18,7 +18,7 @@ RuntimeProfile binding alias 按 Collection 分组，但 Peer 边界把每个 bi
 
 `app_config` 是 RuntimeProfile 中唯一投影给 Peer 的非资源配置。`server.app_config.list` 分页返回 key，`server.app_config.get` 按 key 原样返回 value；两个响应同样携带 `runtime_profile_name` 与 `runtime_profile_revision`，list cursor 与 revision 绑定，revision 变化时返回 `ABORTED`。Server 不解析 value，也不提供任何写入方法；设备写入不属于这个通道。因为 value 上限 4096 字节、key 上限 64 个，list 只返回 key，避免单帧超过 RPC 帧上限。RuntimeProfile 的 memory connection 等其他字段仍只对 Admin 可读，不进入这个 projection。
 
-Workspace create 必须传 `collection` 与 `workflow_name`。Server 把该 Peer name 解析为当前 RuntimeProfile binding，并通过内部 Workspace label 保存 Collection。Workspace list 必须传 Collection 并做精确筛选，但 Peer 响应不包含通用 labels。删除 binding 不会隐藏或删除已有 Workspace；name 再次可解析前 reload/run 返回 not found。
+Workspace create 必须传 `workflow_name`。Server 把该 Peer name 解析为当前 RuntimeProfile binding，并通过内部 Workspace label 保存该 name。Workspace list 无必填筛选条件；Peer 响应不包含通用 labels。删除 binding 不会隐藏或删除已有 Workspace；name 再次可解析前 reload/run 返回 not found。
 
 ## 调用关系
 

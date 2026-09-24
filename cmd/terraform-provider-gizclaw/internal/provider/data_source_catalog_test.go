@@ -80,9 +80,7 @@ kind: RuntimeProfile
 metadata: {id: device}
 spec:
   workflows:
-    collections:
-      assistants:
-        chat: {resource_id: chat-workflow}
+    chat: {resource_id: chat-workflow}
   resources:
     models:
       chat: {resource_id: chat-model}
@@ -139,9 +137,7 @@ kind: RuntimeProfile
 metadata: {id: default}
 spec:
   workflows:
-    collections:
-      assistants:
-        missing: {resource_id: missing-workflow}
+    missing: {resource_id: missing-workflow}
   resources: {models: {}, voices: {}}
 `)
 	if _, err := resolveCatalog([]string{catalog}, []string{product}); err == nil {
@@ -191,7 +187,7 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: RuntimeProfile
 metadata: {id: default-profile}
 spec:
-  workflows: {collections: {}}
+  workflows: {}
   resources: {models: {}, voices: {}}
 `)
 	writeCatalogTestFile(t, product, "registration-tokens/default.yaml", `
@@ -216,9 +212,7 @@ kind: RuntimeProfile
 metadata: {id: default-profile}
 spec:
   workflows:
-    collections:
-      assistants:
-        invalid: {resource_id: " workflow-id "}
+    invalid: {resource_id: " workflow-id "}
   resources: {models: {}, voices: {}}
 `)
 
@@ -249,9 +243,7 @@ kind: RuntimeProfile
 metadata: {id: default}
 spec:
   workflows:
-    collections:
-      assistants:
-        chat: {resource_id: chat-workflow}
+    chat: {resource_id: chat-workflow}
   resources: {models: {}, voices: {}}
 `)
 
@@ -272,7 +264,7 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: RuntimeProfile
 metadata: {id: default}
 spec:
-  workflows: {collections: {}}
+  workflows: {}
   resources: {models: {}, voices: {}}
 `)
 	writeCatalogTestFile(t, product, "registration-tokens/default.yaml", `
@@ -336,7 +328,7 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: RuntimeProfile
 metadata: {id: default}
 spec:
-  workflows: {collections: {}}
+  workflows: {}
   resources: {models: {}, voices: {}}
 `)
 	writeCatalogTestFile(t, product, "registration-tokens/default.yaml", `
@@ -412,9 +404,7 @@ kind: RuntimeProfile
 metadata: {id: demo}
 spec:
   workflows:
-    collections:
-      raids:
-        adventure-demo: {resource_id: flowcraft-adventure-demo}
+    adventure-demo: {resource_id: flowcraft-adventure-demo}
   resources: {}
 `)
 
@@ -461,7 +451,7 @@ func TestResolveCatalogRejectsRemovedRuntimeProfileFields(t *testing.T) {
 func TestResolveCatalogRejectsSelectedPetDriver(t *testing.T) {
 	catalog, product := t.TempDir(), t.TempDir()
 	writeCatalogTestFile(t, catalog, "workflows/pet.yaml", "apiVersion: gizclaw.admin/v1alpha1\nkind: Workflow\nmetadata: {id: pet-care}\nspec: {driver: pet}\n")
-	writeCatalogTestFile(t, product, "runtime-profiles/old.yaml", "apiVersion: gizclaw.admin/v1alpha1\nkind: RuntimeProfile\nmetadata: {id: old}\nspec:\n  workflows: {collections: {assistants: {pet: {resource_id: pet-care}}}}\n")
+	writeCatalogTestFile(t, product, "runtime-profiles/old.yaml", "apiVersion: gizclaw.admin/v1alpha1\nkind: RuntimeProfile\nmetadata: {id: old}\nspec:\n  workflows: {pet: {resource_id: pet-care}}\n")
 	if _, err := resolveCatalog([]string{catalog}, []string{product}); err == nil || !strings.Contains(err.Error(), "pet driver removed") {
 		t.Fatalf("selected Pet driver must fail before Admin effects: %v", err)
 	}
@@ -489,7 +479,7 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: RuntimeProfile
 metadata: {id: demo}
 spec:
-  workflows: {collections: {raids: {demo: {resource_id: demo-flowcraft}}}}
+  workflows: {demo: {resource_id: demo-flowcraft, tags: [raids]}}
 `)
 
 	resolved, err := resolveCatalog([]string{catalog}, []string{product})
@@ -498,7 +488,7 @@ spec:
 	}
 	for got, want := range map[string]string{
 		resolved.byStage["workflows"]["Workflow/demo-flowcraft"]:    `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Workflow","metadata":{"id":"demo-flowcraft"},"spec":{"driver":"flowcraft","prompt":"${PROMPT:-hello}","zeta":{"enabled":true,"list":["b","a"],"ratio":0.5,"size":1048576}}}`,
-		resolved.byStage["runtime_profiles"]["RuntimeProfile/demo"]: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"RuntimeProfile","metadata":{"id":"demo"},"spec":{"workflows":{"collections":{"raids":{"demo":{"resource_id":"demo-flowcraft"}}}}}}`,
+		resolved.byStage["runtime_profiles"]["RuntimeProfile/demo"]: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"RuntimeProfile","metadata":{"id":"demo"},"spec":{"workflows":{"demo":{"resource_id":"demo-flowcraft","tags":["raids"]}}}}`,
 		resolved.raids["demo"]: raid,
 	} {
 		if got != want {
@@ -527,7 +517,7 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: RuntimeProfile
 metadata: {id: default}
 spec:
-  workflows: {collections: {assistants: {chat: {resource_id: chat}}}}
+  workflows: {chat: {resource_id: chat}}
 `)
 	writeCatalogTestFile(t, product, "registration-tokens/default.yaml", `
 apiVersion: gizclaw.admin/v1alpha1
@@ -609,7 +599,7 @@ func TestResolveCatalogSelectsRaidTesterMemoryLayout(t *testing.T) {
 	writeCatalogTestFile(t, catalog, "workflows/demo/flowcraft.yaml", "apiVersion: gizclaw.admin/v1alpha1\nkind: Workflow\nmetadata: {id: demo-flowcraft}\nspec: {driver: flowcraft}\n")
 	writeCatalogTestFile(t, catalog, "workflows/demo/test.yaml", "apiVersion: gizclaw.admin/v1alpha1\nkind: Workflow\nmetadata: {id: demo-test}\nspec: {driver: eino, memory: tester-memory}\n")
 	writeCatalogTestFile(t, catalog, "workflows/demo/raid.json", `{"id": "demo", "implementations": {"flowcraft": {"workflow_id": "demo-flowcraft"}}, "tester": {"workflow_id": "demo-test"}}`)
-	writeCatalogTestFile(t, product, "runtime-profiles/demo.yaml", "apiVersion: gizclaw.admin/v1alpha1\nkind: RuntimeProfile\nmetadata: {id: demo}\nspec:\n  workflows: {collections: {raids: {demo: {resource_id: demo-flowcraft}}}}\n")
+	writeCatalogTestFile(t, product, "runtime-profiles/demo.yaml", "apiVersion: gizclaw.admin/v1alpha1\nkind: RuntimeProfile\nmetadata: {id: demo}\nspec:\n  workflows: {demo: {resource_id: demo-flowcraft}}\n")
 
 	resolved, err := resolveCatalog([]string{catalog}, []string{product})
 	if err != nil {

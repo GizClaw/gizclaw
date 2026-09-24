@@ -11,19 +11,18 @@ metadata:
   id: default
 spec:
   workflows:
-    collections:
-      assistants:
-        doubao-realtime:
-          resource_id: doubao-realtime-conversation
-          i18n:
-            en: {display_name: Doubao Assistant}
-            zh-CN: {display_name: 豆包助手}
-      raids:
-        journey:
-          resource_id: flowcraft-journey-guide
-          i18n:
-            en: {display_name: Journey Guide}
-            zh-CN: {display_name: 旅途向导}
+    doubao-realtime:
+      resource_id: doubao-realtime-conversation
+      tags: [6-8岁, 助手]
+      i18n:
+        en: {display_name: Doubao Assistant}
+        zh-CN: {display_name: 豆包助手}
+    journey:
+      resource_id: flowcraft-journey-guide
+      tags: [6-8岁, 故事]
+      i18n:
+        en: {display_name: Journey Guide}
+        zh-CN: {display_name: 旅途向导}
   resources:
     models:
       chat:
@@ -61,11 +60,11 @@ spec:
           zh-CN: {display_name: 奶气萌宠}
 ```
 
-`workflows` 只包含 `collections`。RuntimeProfile 创建或更新时会验证每个引用的真实 Workflow ID、其 driver，以及 Workflow 内部使用的 Model、Voice、Tool alias。Friend 与 Friend Group 的 Workspace 固定绑定内置 `system-sfu` Workflow，不经 RuntimeProfile 选择，见 [services/social](/zh/developing/gizclaw/services/social#sfu-workspace)。
+`workflows` 是以 alias 为 key 的平面 map。每个 binding 可带 `tags` 字符串数组；Server 只做精确字符串匹配，不解析年龄或内容类别。查询传多个 tag 时取交集；不传 tag 返回全部。Tag 不参与 Workflow 身份，修改 tag 不改变已有 Workspace 的 workflow name。RuntimeProfile 创建或更新时会验证每个引用的真实 Workflow ID、其 driver，以及 Workflow 内部使用的 Model、Voice、Tool alias。Friend 与 Friend Group 的 Workspace 固定绑定内置 `system-sfu` Workflow，不经 RuntimeProfile 选择，见 [services/social](/zh/developing/gizclaw/services/social#sfu-workspace)。
 
-可选 Workflow alias 位于 `workflows.collections.<collection>.<alias>`。Alias ID 在所有 Collection 之间全局唯一；客户端拥有固定的 Collection 菜单、顺序、图标与 Collection 翻译。RuntimeProfile 只提供动态 Workflow 成员，以及 alias 自己的 `en`、`zh-CN` 显示文本，不包含顶层 locale 或 Collection 展示配置。
+Workflow alias 位于 `workflows.<alias>`，在 RuntimeProfile 内唯一。客户端自行决定菜单、顺序、图标和 tag 的展示文本；RuntimeProfile 提供 Workflow 成员、tags 以及 alias 自己的 `en`、`zh-CN` 显示文本。
 
-`resources` 下的 map 把环境 alias 绑定到管理员创建的真实资源 ID。Model alias 表示 `chat`、`extraction`、`embedding`、`asr`、`realtime`、`translation` 这类稳定用途，不包含 provider 或真实 Model 名。Model 和 Voice alias 是互相独立的环境变量，不属于 Workflow Collection。Workflow spec 和 Workspace 参数保存符号 alias；每次 Workspace reload 都从当前 RuntimeProfile 重新解析。因此同一个 App 或固件可以切换生产、调试 RuntimeProfile，而无需重新构建。
+`resources` 下的 map 把环境 alias 绑定到管理员创建的真实资源 ID。Model alias 表示 `chat`、`extraction`、`embedding`、`asr`、`realtime`、`translation` 这类稳定用途，不包含 provider 或真实 Model 名。Model 和 Voice alias 是互相独立的环境变量，不属于 Workflow tags。Workflow spec 和 Workspace 参数保存符号 alias；每次 Workspace reload 都从当前 RuntimeProfile 重新解析。因此同一个 App 或固件可以切换生产、调试 RuntimeProfile，而无需重新构建。
 
 `resources.tools` 绑定供 AI 和 Workflow runtime 使用的 Admin HTTP Tool。设备过程调用使用预定义的 `tool/v0` 注册表，与这个目录互相独立。
 
@@ -144,14 +143,16 @@ CLI 的 `admin registration-tokens create/put -f` 接受对应 JSON 字段；Ter
 ## Peer surface 与 ownership
 
 - Workflow、Model、Voice 和 Tool list/get 只返回安全的 scoped-name projection。AST Workflow projection 会携带 Workspace 默认语言对，客户端不再从动态 name 推断行为；projection 不暴露真实 ID、provider、tenant、credential、owner 或 executor routing。
-- Workflow list 必须传 Collection；Workflow get 只传当前 RuntimeProfile 投影出的 name；不存在 `source=runtime|owned`。
+- Workflow list 可传多个 `tags` 做交集筛选；Workflow get 只传当前 RuntimeProfile 投影出的 name；不存在 `source=runtime|owned`。
 - Peer RPC 不提供 Workflow、Model、Credential 和 Tool create/put/delete；真实资源统一由 Admin 管理。
-- Workspace create 必须传 `collection` 与 `workflow_name`，Workspace list 必须传 `collection`。Server 把 Collection 保存为内部 Workspace label，但 Peer RPC 不返回通用 labels。同一个 typed create capability 也供 OpenAI Conversation 创建使用；Admin 不能 create 或 apply Workspace。
+- Workspace create 必须传 `workflow_name`，Workspace list 不要求过滤条件。Server 在内部 Workspace label 中保存创建时的 workflow name；Peer RPC 不返回通用 labels。同一个 typed create capability 也供 OpenAI Conversation 创建使用；Admin 不能 create 或 apply Workspace。
 - Workflow binding 删除后，不隐藏也不删除 Workspace。list/get 仍返回 Workspace，reload/run 在相同 Peer name 恢复前返回 not found。
 
 Firmware 仍是独立 Admin 资源，不进入 RuntimeProfile projection。RegistrationToken 可以独立绑定 Firmware ID，但不绑定 channel。Credential 与 ProviderTenant 只是真实 Model、Voice 在 Server 侧使用的依赖，不会暴露给设备。
 
 RuntimeProfile 使用 SQL `runtime_profiles`、`registration_tokens`、`registration_token_activations` 和 `runtime_profile_owners` 表。资源配置保留 JSON，身份、版本、限制和绑定分别保存为列。列表把游标与数量限制下推 SQL，Profile 与 token 更新/删除比较 incarnation 和 row_version。注册的事务与快照发布按同一 owner 串行，无关 owner 可并行；token 写锁保证跨进程限额一致。
+
+`services/runtime/runtimeprofile` 在 Server 初始化时从持久 SQL 的所有 RuntimeProfile 构建一份纯内存 SQLite 索引。持久 SQL 仍保存完整 Profile 且是权威数据；内存库把每个 Workflow、Model、Voice、Tool、Memory、app_config、safety fence 与 MHS v0 device 拆成独立的 `(runtime_profile_id, kind, name, value_json)` 行，并把 Workflow tags 拆成可检索行。`Index.ListProfileIDs` 枚举全部 Profile，`Index.GetEntry` 按 Profile ID、kind 和 name 精确读取，`Index.ListEntries` 可跨 Profile 按 kind 读取条目，`Index.ListWorkflowsByTags` 对多个普通字符串 tag 做 AND 查询；设备 Workflow catalog 也按 Profile revision 从这个 SQLite 快照筛选；这些内部查询不读取磁盘，也不向 Peer 暴露包含凭证的条目。内存 SQLite 实例发布后设为只读。RuntimeProfile 在本 Server 持久提交后立即重建一个新实例，后台也每 5 分钟从持久 SQL 重建；新实例完成后原子切换，并关闭旧实例。持久写入提交后即返回成功；若随后的内存快照刷新失败，Server 记录告警，按 revision 读取时重试，后台五分钟轮换也会重试，不把已提交写入报成失败。其他 Server 的写入由下一次定时轮换纳入，也可调用 `RefreshMemoryIndex` 提前重建。进程关闭时释放内存库，重启后从持久数据重建。
 
 Admin 创建和更新 registration token 时，原始输入必须不超过 512 个 UTF-8 字节（不是 512 个字符），与 admission value 上限一致；超限返回 400，不能写入数据库。
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -33,16 +32,14 @@ type deviceWorkspaceService interface {
 	DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error)
 }
 
-// DeviceWorkspaceFilter narrows DeviceWorkspaces by exact collection and
-// workflow name. Empty fields do not filter.
+// DeviceWorkspaceFilter narrows DeviceWorkspaces by exact workflow name.
 type DeviceWorkspaceFilter struct {
-	Collection   string
 	WorkflowName string
 }
 
 // DeviceWorkspaces returns the Workspaces explicitly owned by the caller,
 // excluding those pending deletion. Workflows are identified by the
-// collection label and the alias it resolves to in the caller's current
+// alias it resolves to in the caller's current
 // RuntimeProfile, exactly like the Peer RPC Workspace projection; the Admin
 // Workflow ID never leaves the Server.
 func (r DeviceReads) DeviceWorkspaces(ctx context.Context, filter DeviceWorkspaceFilter) ([]peerhttp.DeviceWorkspace, error) {
@@ -57,9 +54,6 @@ func (r DeviceReads) DeviceWorkspaces(ctx context.Context, filter DeviceWorkspac
 	result := make([]peerhttp.DeviceWorkspace, 0, len(items))
 	for _, item := range items {
 		projected := deviceWorkspaceProjection(item, &profile)
-		if filter.Collection != "" && (projected.Collection == nil || *projected.Collection != filter.Collection) {
-			continue
-		}
 		if filter.WorkflowName != "" && (projected.WorkflowName == nil || *projected.WorkflowName != filter.WorkflowName) {
 			continue
 		}
@@ -136,11 +130,6 @@ func deviceWorkspaceProjection(item apitypes.Workspace, profile *apitypes.Runtim
 		Id: item.Id, Name: item.Name, System: item.System != nil && *item.System,
 		CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt, LastActiveAt: item.LastActiveAt,
 	}
-	if item.Labels != nil {
-		if collection := strings.TrimSpace((*item.Labels)["collection"]); collection != "" {
-			out.Collection = &collection
-		}
-	}
 	workflowName, available := workspaceWorkflowName(profile, item)
 	out.Available = available
 	if available && workflowName != "" {
@@ -154,16 +143,16 @@ var _ deviceWorkspaceService = (*workspace.Server)(nil)
 // ResolveRunWorkspace resolves a control-app Workspace switch target to the
 // one Workspace name the device reloads, because
 // server.run.workspace.reload-with-options takes a name only. Exactly one of
-// name, or collection with workflowName, is set.
+// name or workflowName is set.
 //
 // A name must be an available, non-system Workspace the caller owns. A workflow target
-// selects among the caller's available Workspaces of that collection and
-// workflow the most recently active one, ties broken by ascending name, so
+// selects among the caller's available Workspaces of that workflow the most
+// recently active one, ties broken by ascending name, so
 // several Workspaces of one workflow resolve deterministically. No match, or
 // no RuntimeProfile bound, is ErrDeviceWorkspaceNotFound; the control app
 // cannot create a Workspace, which stays the device's decision.
-func (r DeviceReads) ResolveRunWorkspace(ctx context.Context, name, collection, workflowName string) (string, error) {
-	filter := DeviceWorkspaceFilter{Collection: collection, WorkflowName: workflowName}
+func (r DeviceReads) ResolveRunWorkspace(ctx context.Context, name, workflowName string) (string, error) {
+	filter := DeviceWorkspaceFilter{WorkflowName: workflowName}
 	if name != "" {
 		filter = DeviceWorkspaceFilter{}
 	}

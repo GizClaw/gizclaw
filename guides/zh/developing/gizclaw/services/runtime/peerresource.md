@@ -11,9 +11,9 @@ flowchart LR
     Domain["Workspace / Friend / Pet state"] --> RPC
 ```
 
-Workflow list 必须传明确的 Collection，并保持 `workflows.collections` 中的动态成员关系。投影后的 Workflow name 在当前 RuntimeProfile 内唯一，因此 get 只需要 name。Model、Voice 和 Tool catalog 分别来自 RuntimeProfile 对应的 resource map。所有 catalog 响应都携带 `runtime_profile_name` 和内容 revision。RuntimeProfile 没有独立的 Peer alias，因此该 Peer name 是 canonical RuntimeProfile ID 的原样投影，不是兼容字段。
+Workflow list 从平面的 `workflows` map 投影，可用最多 32 个普通字符串 `tags` 取交集筛选；每个请求 tag 必须为有效 UTF-8、1–128 字节，重复 tag 折叠、顺序无关。分页 cursor 绑定 Profile revision 与排序去重后的 tags JSON 编码摘要，NUL 字符不会造成 selector 混淆；get 只需要唯一的 name。Model、Voice 和 Tool catalog 分别来自 RuntimeProfile 对应的 resource map。所有 catalog 响应都携带 `runtime_profile_name` 和内容 revision。RuntimeProfile 没有独立的 Peer alias，因此该 Peer name 是 canonical RuntimeProfile ID 的原样投影，不是兼容字段。
 
-Peer 侧只有 Workspace 状态支持 create/put/delete。真实 Workflow、Model、Credential 和 Tool 统一由 Admin 修改。Workspace create 校验 `collection` 与 `workflow_name`，把 Collection 写成内部 label；list 按 Collection 精确筛选，并跳过已进入 pending deletion 的 Workspace，因此同一 Collection 中其余 Workspace 在异步删除完成前仍可列出。通用 labels 只是 Admin/storage 细节，不进入 Peer DTO。
+Peer 侧只有 Workspace 状态支持 create/put/delete。真实 Workflow、Model、Credential 和 Tool 统一由 Admin 修改。Workspace create 校验 `workflow_name`，在内部 label 中保存它；list 跳过已进入 pending deletion 的 Workspace。通用 labels 只是 Admin/storage 细节，不进入 Peer DTO。
 
 Workspace create/put 的 `toolkit.tool_names` 在当前 RuntimeProfile 中解析为内部 Tool ID：优先匹配 Tool binding alias；没有同名 alias 时，可以使用该 Profile 已绑定 Tool 的 `invoke_name`。未绑定或不存在的名称返回 `NOT_FOUND`，空名称或带首尾空白的名称返回 `INVALID_ARGUMENT`，且不写入 Workspace。响应优先投影为当前 Profile 的 alias；没有 binding 但 Tool 仍可读取时使用 `invoke_name`。Tool 读取失败、目录不可用或回退调用名与另一个 Tool 的 alias 冲突时跳过该项，toolkit 数据不能让 Workspace list/get 或已成功写入后的 put/parameters-set/delete 响应失败。投影不修改已存 ID，也不授予工具权限，AgentHost 仍与当前连接的 Profile 和 Workflow 策略取交集。
 
@@ -21,7 +21,7 @@ Workspace create/put 的 `toolkit.tool_names` 在当前 RuntimeProfile 中解析
 
 创建时省略 `toolkit` 或提供没有 `tool_names` 的空对象完全等价：内部存储 nil 策略，响应省略 `toolkit`，继承产品默认集合；显式空列表表示不提供任何工具。Protobuf 用可选 `tool_names` message 包装 repeated `value`，空列表在 wire 上是存在的空 message；Go 和持久化 JSON 保留显式空数组，不能改为 `null`。put 省略 `toolkit` 保留原策略，提供 `toolkit: {}` 则清除已有选择并恢复同一个 nil 继承状态。Workspace 策略与 Workflow `spec.toolkit.tool_ids` 及当前连接的 RuntimeProfile 集合取交集，不能扩大工具权限。
 
-`server.workspace.toolkit.roundtrip.giztest.yaml` 覆盖 create/get/put 的选择、空列表、继承及未知名称。`go test ./cmd/internal/server -run '^TestWorkspaceToolkitGiztest$' -count=1` 在临时 SQLite Server 上通过真实 WebRTC 执行该文档，不需要外部服务。`client.tool.workspace.empty/subset/inherit.giztest.yaml` 使用标准 Giztest RuntimeProfile 中的 `giztest_echo` 和 `giztest_other`，覆盖禁用、子集与默认工具调用。三个调用场景需要已 provision 的端点、registration token 和模型/Memory 服务；完成回复后的精确累计 client RPC 计数证明被排除工具没有到达设备。empty 场景先在继承策略的控制 Workspace 中调用一次，再确认禁用 Workspace 没有增加计数。
+`server.workspace.toolkit.roundtrip.giztest.yaml` 覆盖 create/get/put 的选择、空列表、继承及未知名称。`go test ./cmd/internal/server -run '^TestRuntimeProfileAndWorkspaceToolkitGiztest$' -count=1` 在临时 SQLite Server 上通过真实 WebRTC 执行该文档与 RuntimeProfile tags 的 RPC Giztest，不需要外部服务。`client.tool.workspace.empty/subset/inherit.giztest.yaml` 使用标准 Giztest RuntimeProfile 中的 `giztest_echo` 和 `giztest_other`，覆盖禁用、子集与默认工具调用。三个调用场景需要已 provision 的端点、registration token 和模型/Memory 服务；完成回复后的精确累计 client RPC 计数证明被排除工具没有到达设备。empty 场景先在继承策略的控制 Workspace 中调用一次，再确认禁用 Workspace 没有增加计数。
 
 `server.app_config.list` 与 `server.app_config.get` 投影 `spec.app_config`，是 catalog 之外唯一的 RuntimeProfile 下发面。list 对 key 排序后复用与 Workflow、Model、Voice、Tool 相同的 revision-bound cursor 分页，revision 变化时返回 `ABORTED`；get 返回原样 value，key 不存在返回 `NOT_FOUND`，空 key 返回 `INVALID_ARGUMENT`。value 对本层不透明，不解析也不校验格式。list 只返回 key，因为 64 个 4096 字节 value 无法放进一个 RPC frame。
 

@@ -1,6 +1,6 @@
 # User Story:
 # As a GizClaw API key holder,
-# I want to list my device's Workspaces by collection and workflow name and delete one over Public HTTP,
+# I want to list my device's Workspaces by workflow name and delete one over Public HTTP,
 # So that a controller app can show each game's saves and restart a game without ever seeing Admin Workflow IDs.
 version: gizclaw.test/v1alpha1
 name: server.device.workspaces
@@ -51,7 +51,6 @@ steps:
     method: server.workspace.create
     request:
       name: "${resource_name}"
-      collection: assistants
       workflow_name: flowcraft-chat-assistant
       parameters:
         flowcraft_workspace_parameters:
@@ -69,7 +68,7 @@ steps:
   client: peer
   http:
     method: GET
-    path: /gizclaw/v1/device/workspaces?collection=assistants&workflow_name=flowcraft-chat-assistant
+    path: /gizclaw/v1/device/workspaces?workflow_name=flowcraft-chat-assistant
     headers:
       Authorization: "Bearer ${api_key}"
     status: 200
@@ -79,7 +78,6 @@ steps:
     "": {count: 1}
     /0/id: {non_empty: true}
     /0/name: {equals: "${resource_name}"}
-    /0/collection: {equals: assistants}
     /0/workflow_name: {equals: flowcraft-chat-assistant}
     /0/available: {equals: true}
     /0/system: {equals: false}
@@ -133,7 +131,7 @@ steps:
   client: peer
   http:
     method: GET
-    path: /gizclaw/v1/device/workspaces?collection=assistants&workflow_name=flowcraft-chat-assistant
+    path: /gizclaw/v1/device/workspaces?workflow_name=flowcraft-chat-assistant
     headers:
       Authorization: "Bearer ${api_key}"
     status: 200

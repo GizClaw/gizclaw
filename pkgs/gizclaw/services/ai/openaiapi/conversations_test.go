@@ -35,7 +35,7 @@ func TestConversationCreateReturnsNotFoundForUnknownWorkflowAlias(t *testing.T) 
 	}
 	server := &Server{Caller: key.Public, Workspaces: fake}
 	request := requestFor(key.Public, backend.CapabilityConversations, "createConversation", json.RawMessage(`{
-		"metadata":{"collection":"assistants","workflow_name":"missing"},"items":[]
+		"metadata":{"workflow_name":"missing"},"items":[]
 	}`))
 	_, err := server.Handle(t.Context(), request)
 	var backendErr *backend.Error
@@ -50,14 +50,14 @@ func TestConversationsResponsesThreeTurnsAndImmutableInputSnapshot(t *testing.T)
 	fake := &fakeConversationWorkspaces{runtimeStore: testOpenAIRuntimeStore(t, objects), items: map[string]apitypes.Workspace{}, runtimes: map[string]workspace.Runtime{}}
 	server := &Server{Caller: key.Public, Workspaces: fake, Executor: fake, Responses: NewResponseRuntime()}
 	created := handleJSON(t, server, key.Public, backend.CapabilityConversations, "createConversation", `{
-		"metadata":{"collection":"assistants","workflow_name":"story","purpose":"test"},"items":[]
+		"metadata":{"workflow_name":"story","purpose":"test"},"items":[]
 	}`, nil)
 	conversationID := jsonString(t, created, "id")
 	if conversationID == "" || jsonStringMap(t, created, "metadata")["purpose"] != "test" {
 		t.Fatalf("Conversation = %s", created)
 	}
 	second := handleJSON(t, server, key.Public, backend.CapabilityConversations, "createConversation", `{
-		"metadata":{"collection":"assistants","workflow_name":"story","purpose":"test"},"items":[]
+		"metadata":{"workflow_name":"story","purpose":"test"},"items":[]
 	}`, nil)
 	if secondID := jsonString(t, second, "id"); secondID == "" || secondID == conversationID {
 		t.Fatalf("identical Conversation creates returned %q and %q", conversationID, secondID)
@@ -131,7 +131,7 @@ func TestConversationResponseObjectsPassFrozenShellValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 	conversationRecorder := httptest.NewRecorder()
-	conversationRequest := httptest.NewRequest(http.MethodPost, "/v1/conversations", strings.NewReader(`{"metadata":{"collection":"assistants","workflow_name":"story"}}`))
+	conversationRequest := httptest.NewRequest(http.MethodPost, "/v1/conversations", strings.NewReader(`{"metadata":{"workflow_name":"story"}}`))
 	conversationRequest.Header.Set("Content-Type", "application/json")
 	conversationRequest.Header.Set("Authorization", "Bearer test")
 	handler.ServeHTTP(conversationRecorder, conversationRequest)
@@ -158,7 +158,7 @@ func TestResponsePreservesMultipleWorkspaceOutputsInHistoryOrder(t *testing.T) {
 	fake := &fakeConversationWorkspaces{runtimeStore: testOpenAIRuntimeStore(t, objects), items: map[string]apitypes.Workspace{}, runtimes: map[string]workspace.Runtime{}}
 	executor := &multipleOutputExecutor{workspaces: fake}
 	server := &Server{Caller: key.Public, Workspaces: fake, Executor: executor, Responses: NewResponseRuntime()}
-	created := handleJSON(t, server, key.Public, backend.CapabilityConversations, "createConversation", `{"metadata":{"collection":"assistants","workflow_name":"story"}}`, nil)
+	created := handleJSON(t, server, key.Public, backend.CapabilityConversations, "createConversation", `{"metadata":{"workflow_name":"story"}}`, nil)
 	conversationID := jsonString(t, created, "id")
 	response := handleJSON(t, server, key.Public, backend.CapabilityResponses, "createResponse", fmt.Sprintf(`{"conversation":%q,"input":"route"}`, conversationID), nil)
 	var object struct {
@@ -205,7 +205,7 @@ func TestBackgroundCancelAndStreamingAbortReleaseConversation(t *testing.T) {
 	fake := &fakeConversationWorkspaces{runtimeStore: testOpenAIRuntimeStore(t, objects), items: map[string]apitypes.Workspace{}, runtimes: map[string]workspace.Runtime{}}
 	blocker := &blockingWorkspaceExecutor{started: make(chan struct{}, 1)}
 	server := &Server{Caller: key.Public, Workspaces: fake, Executor: blocker, Responses: NewResponseRuntime()}
-	created := handleJSON(t, server, key.Public, backend.CapabilityConversations, "createConversation", `{"metadata":{"collection":"assistants","workflow_name":"story"}}`, nil)
+	created := handleJSON(t, server, key.Public, backend.CapabilityConversations, "createConversation", `{"metadata":{"workflow_name":"story"}}`, nil)
 	conversationID := jsonString(t, created, "id")
 	background := handleJSON(t, server, key.Public, backend.CapabilityResponses, "createResponse", fmt.Sprintf(`{"conversation":%q,"input":"cancel me","background":true}`, conversationID), nil)
 	responseID := jsonString(t, background, "id")
@@ -279,7 +279,7 @@ func TestResponseRetrieveRecoversStaleInProgressRecord(t *testing.T) {
 	objects := testOpenAIObjectStore(t)
 	fake := &fakeConversationWorkspaces{runtimeStore: testOpenAIRuntimeStore(t, objects), items: map[string]apitypes.Workspace{}, runtimes: map[string]workspace.Runtime{}}
 	server := &Server{Caller: key.Public, Workspaces: fake, Executor: fake, Responses: NewResponseRuntime()}
-	created := handleJSON(t, server, key.Public, backend.CapabilityConversations, "createConversation", `{"metadata":{"collection":"assistants","workflow_name":"story"}}`, nil)
+	created := handleJSON(t, server, key.Public, backend.CapabilityConversations, "createConversation", `{"metadata":{"workflow_name":"story"}}`, nil)
 	conversationID := jsonString(t, created, "id")
 	workspaceName := strings.TrimPrefix(conversationID, "conv_")
 	item, err := fake.GetConversationWorkspace(t.Context(), workspaceName)
@@ -322,7 +322,7 @@ func TestUnsupportedResponseInputsFailBeforeHistoryMutation(t *testing.T) {
 	objects := testOpenAIObjectStore(t)
 	fake := &fakeConversationWorkspaces{runtimeStore: testOpenAIRuntimeStore(t, objects), items: map[string]apitypes.Workspace{}, runtimes: map[string]workspace.Runtime{}}
 	server := &Server{Caller: key.Public, Workspaces: fake, Executor: fake, Responses: NewResponseRuntime()}
-	created := handleJSON(t, server, key.Public, backend.CapabilityConversations, "createConversation", `{"metadata":{"collection":"assistants","workflow_name":"story"}}`, nil)
+	created := handleJSON(t, server, key.Public, backend.CapabilityConversations, "createConversation", `{"metadata":{"workflow_name":"story"}}`, nil)
 	conversationID := jsonString(t, created, "id")
 	workspaceName := strings.TrimPrefix(conversationID, "conv_")
 	item, err := fake.GetConversationWorkspace(t.Context(), workspaceName)
@@ -418,7 +418,7 @@ func (f *fakeConversationWorkspaces) CreateConversationWorkspace(ctx context.Con
 		return apitypes.Workspace{}, err
 	}
 	system := false
-	labels := map[string]string{"collection": request.Collection, "openai.conversation": "true"}
+	labels := map[string]string{"workflow_name": request.WorkflowName, "openai.conversation": "true"}
 	item := apitypes.Workspace{Id: id, Name: request.Name, WorkflowId: request.WorkflowName, Labels: &labels, System: &system, CreatedAt: time.Now(), UpdatedAt: time.Now(), LastActiveAt: time.Now()}
 	f.items[item.Name] = item
 	f.runtimes[id] = runtime

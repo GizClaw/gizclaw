@@ -106,7 +106,6 @@ Future<GizClawControlException> failure(Future<Object?> future) async {
 const workspaceJson = {
   'id': 'ws-aesop',
   'name': 'aesop-save',
-  'collection': 'story-teller',
   'workflow_name': 'story.aesop',
   'available': true,
   'system': false,
@@ -136,7 +135,6 @@ void main() {
       ]);
       final client = clientWith(recorder);
       final items = await client.listDeviceWorkspaces(
-        collection: 'story-teller',
         workflowName: 'story.aesop',
       );
       await client.listDeviceWorkspaces();
@@ -144,15 +142,11 @@ void main() {
       final first = recorder.requests[0];
       expect(first.method, 'GET');
       expect(first.url.path, '/gizclaw/v1/device/workspaces');
-      expect(first.url.queryParameters, {
-        'collection': 'story-teller',
-        'workflow_name': 'story.aesop',
-      });
+      expect(first.url.queryParameters, {'workflow_name': 'story.aesop'});
       expect(recorder.requests[1].url.hasQuery, isFalse);
       expect(items, hasLength(2));
       final aesop = items.first;
       expect(aesop.id, 'ws-aesop');
-      expect(aesop.collection, 'story-teller');
       expect(aesop.workflowName, 'story.aesop');
       expect(aesop.available, isTrue);
       expect(aesop.lastActiveAt, DateTime.utc(2026, 9, 1, 10));
@@ -160,7 +154,6 @@ void main() {
       final pet = items.last;
       expect(pet.system, isTrue);
       expect(pet.available, isFalse);
-      expect(pet.collection, isNull);
       expect(pet.workflowName, isNull);
     });
 
@@ -171,10 +164,6 @@ void main() {
         ]),
       ]);
       final client = clientWith(recorder);
-      expect(
-        () => client.listDeviceWorkspaces(collection: ''),
-        throwsArgumentError,
-      );
       expect(
         () => client.listDeviceWorkspaces(workflowName: ''),
         throwsArgumentError,
@@ -808,44 +797,46 @@ void main() {
         json(200, {
           'name': 'h106-tiga',
           'revision': 'rev-1',
-          'collections': [
-            {'name': 'games', 'workflows': <Object?>[]},
+          'workflows': [
             {
-              'name': 'story-teller',
-              'workflows': [
-                {'name': 'story.aesop'},
-                {'name': 'story.alice', 'future_field': true},
-              ],
+              'name': 'story.aesop',
+              'tags': ['9-12', 'stories'],
+            },
+            {
+              'name': 'story.alice',
+              'tags': ['6-8', 'stories'],
+              'future_field': true,
             },
           ],
         }),
       ]);
-      final profile = await clientWith(recorder).getDeviceRuntimeProfile();
+      final profile = await clientWith(
+        recorder,
+      ).getDeviceRuntimeProfile(tags: ['6-8', 'stories']);
       expect(recorder.single.method, 'GET');
       expect(recorder.single.url.path, '/gizclaw/v1/device/runtime-profile');
+      expect(recorder.single.url.queryParametersAll['tags'], [
+        '6-8',
+        'stories',
+      ]);
       expect(recorder.single.headers['Authorization'], 'Bearer $apiKey');
       expect(profile.name, 'h106-tiga');
       expect(profile.revision, 'rev-1');
-      expect(profile.collections.map((item) => item.name), [
-        'games',
-        'story-teller',
-      ]);
-      expect(profile.collections.first.workflows, isEmpty);
-      expect(profile.collections.last.workflows.map((item) => item.name), [
+      expect(profile.workflows.map((item) => item.name), [
         'story.aesop',
         'story.alice',
       ]);
       expect(profile.toJson(), {
         'name': 'h106-tiga',
         'revision': 'rev-1',
-        'collections': [
-          {'name': 'games', 'workflows': <Object?>[]},
+        'workflows': [
           {
-            'name': 'story-teller',
-            'workflows': [
-              {'name': 'story.aesop'},
-              {'name': 'story.alice'},
-            ],
+            'name': 'story.aesop',
+            'tags': ['9-12', 'stories'],
+          },
+          {
+            'name': 'story.alice',
+            'tags': ['6-8', 'stories'],
           },
         ],
       });
@@ -856,13 +847,8 @@ void main() {
         json(200, {
           'name': 'h106-tiga',
           'revision': 'rev-1',
-          'collections': [
-            {
-              'name': 'games',
-              'workflows': [
-                {'name': 7},
-              ],
-            },
+          'workflows': [
+            {'name': 7, 'tags': <String>[]},
           ],
         }),
       ]);
@@ -1641,11 +1627,7 @@ void main() {
         'run.workspace.set',
       ]);
       await client.setDeviceRunWorkspace(
-        const DeviceRunWorkspaceRequest.workflow(
-          'stories',
-          'bedtime',
-          kickoff: true,
-        ),
+        const DeviceRunWorkspaceRequest.workflow('bedtime', kickoff: true),
       );
       expect(
         recorder.requests[0].url.path,
@@ -1659,11 +1641,7 @@ void main() {
       expect(recorder.requests[2].method, 'POST');
       expect(jsonDecode(recorder.requests[2].body), {
         'tool': 'run.workspace.set',
-        'args': {
-          'collection': 'stories',
-          'workflow_name': 'bedtime',
-          'kickoff': true,
-        },
+        'args': {'workflow_name': 'bedtime', 'kickoff': true},
       });
     });
 

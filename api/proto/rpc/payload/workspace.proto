@@ -254,7 +254,6 @@ message WorkspaceCreateBody {
   optional WorkspaceParameters parameters = 2;
   string workflow_name = 3;
   optional ToolkitPolicy toolkit = 4;
-  string collection = 5;
 }
 
 message WorkspacePutBody {
@@ -337,7 +336,6 @@ message WorkspaceListRequest {
   optional string cursor = 1;
   optional int64 limit = 2;
   optional string prefix = 3;
-  string collection = 4;
 }
 
 message WorkspaceListResponse {

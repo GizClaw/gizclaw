@@ -8,8 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"database/sql"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -17,6 +19,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/runtimealias"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/mhs"
+	runtimeindex "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
@@ -32,12 +35,14 @@ var errResourceResolverNotConfigured = errors.New("resource resolver not configu
 
 // Server owns RuntimeProfile and RegistrationToken state.
 type Server struct {
-	DB              *sqlx.DB
-	Now             func() time.Time
-	ResolveResource func(context.Context, apitypes.ResourceKind, string) (apitypes.Resource, error)
-	ownerLocks      keyedlock.Locker[string]
-	profileLocks    keyedlock.Locker[string]
-	tokenLocks      keyedlock.Locker[string]
+	DB                   *sqlx.DB
+	Now                  func() time.Time
+	ResolveResource      func(context.Context, apitypes.ResourceKind, string) (apitypes.Resource, error)
+	ownerLocks           keyedlock.Locker[string]
+	profileLocks         keyedlock.Locker[string]
+	tokenLocks           keyedlock.Locker[string]
+	runtimeIndex         *runtimeindex.Index
+	indexRefreshInterval time.Duration
 }
 
 type AdminService interface {
@@ -248,6 +253,7 @@ func (s *Server) CreateRuntimeProfile(ctx context.Context, request adminhttp.Cre
 	if !created {
 		return adminhttp.CreateRuntimeProfile409JSONResponse(conflict("runtime profile already exists")), nil
 	}
+	s.refreshIndexAfterCommit(ctx, item.Id)
 	return adminhttp.CreateRuntimeProfile200JSONResponse(item), nil
 }
 
@@ -309,6 +315,7 @@ func (s *Server) PutRuntimeProfile(ctx context.Context, request adminhttp.PutRun
 	if _, _, err := updateRuntimeProfileSQL(ctx, store, item, version); err != nil {
 		return adminhttp.PutRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
+	s.refreshIndexAfterCommit(ctx, item.Id)
 	return adminhttp.PutRuntimeProfile200JSONResponse(item), nil
 }
 
@@ -336,6 +343,7 @@ func (s *Server) DeleteRuntimeProfile(ctx context.Context, request adminhttp.Del
 	if _, _, err := deleteRuntimeProfileSQL(ctx, store, id, version); err != nil {
 		return adminhttp.DeleteRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
+	s.refreshIndexAfterCommit(ctx, id)
 	return adminhttp.DeleteRuntimeProfile200JSONResponse(item), nil
 }
 func (s *Server) ListRegistrationTokens(ctx context.Context, request adminhttp.ListRegistrationTokensRequestObject) (adminhttp.ListRegistrationTokensResponseObject, error) {
@@ -598,32 +606,38 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 	}
 	spec := in.Spec
 	allAliases := make(map[string]string)
-	workflowAliases := make(map[string]string)
-	collections := make(apitypes.RuntimeProfileWorkflowCollections, len(spec.Workflows.Collections))
-	for collection, bindings := range spec.Workflows.Collections {
-		collection = strings.TrimSpace(collection)
-		if err := ValidateAlias("workflow collection", collection); err != nil {
+	workflows := make(apitypes.RuntimeProfileWorkflows, len(spec.Workflows))
+	for rawAlias, binding := range spec.Workflows {
+		alias := strings.TrimSpace(rawAlias)
+		if err := ValidateAlias("workflow", alias); err != nil {
 			return apitypes.RuntimeProfile{}, err
 		}
-		if _, exists := collections[collection]; exists {
-			return apitypes.RuntimeProfile{}, fmt.Errorf("workflow collection %q is duplicated after normalization", collection)
+		if _, exists := workflows[alias]; exists {
+			return apitypes.RuntimeProfile{}, fmt.Errorf("workflow alias %q is duplicated after normalization", alias)
 		}
-		normalized, err := normalizeBindingMap(bindings)
+		if err := registerProfileAlias(allAliases, alias, "workflow"); err != nil {
+			return apitypes.RuntimeProfile{}, err
+		}
+		if err := customid.ValidateResourceID(binding.ResourceId); err != nil {
+			return apitypes.RuntimeProfile{}, fmt.Errorf("workflows.%s.resource_id: %w", alias, err)
+		}
+		if err := validateWorkflowTags(bindingTags(binding)); err != nil {
+			return apitypes.RuntimeProfile{}, fmt.Errorf("workflows.%s.tags: %w", alias, err)
+		}
+		if binding.Tags != nil {
+			tags := append([]string(nil), (*binding.Tags)...)
+			slices.Sort(tags)
+			binding.Tags = &tags
+		}
+		// Reuse the ordinary binding normalizer for the shared ID and i18n rules.
+		normalized, err := normalizeBindingMap(map[string]apitypes.RuntimeProfileBinding{alias: binding})
 		if err != nil {
-			return apitypes.RuntimeProfile{}, fmt.Errorf("workflows.collections.%s: %w", collection, err)
+			return apitypes.RuntimeProfile{}, fmt.Errorf("workflows.%s: %w", alias, err)
 		}
-		for alias := range normalized {
-			if previous, exists := workflowAliases[alias]; exists {
-				return apitypes.RuntimeProfile{}, fmt.Errorf("workflow alias %q is duplicated in collections %q and %q", alias, previous, collection)
-			}
-			workflowAliases[alias] = collection
-			if err := registerProfileAlias(allAliases, alias, "workflow"); err != nil {
-				return apitypes.RuntimeProfile{}, err
-			}
-		}
-		collections[collection] = normalized
+		binding.I18n = normalized[alias].I18n
+		workflows[alias] = binding
 	}
-	spec.Workflows.Collections = collections
+	spec.Workflows = workflows
 	resourceMaps := []struct {
 		name   string
 		values *map[string]apitypes.RuntimeProfileBinding
@@ -641,6 +655,9 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 			return apitypes.RuntimeProfile{}, err
 		}
 		for alias := range normalized {
+			if normalized[alias].Tags != nil {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("resources.%ss.%s: tags are only valid on workflows", resourceMap.name, alias)
+			}
 			if err := registerProfileAlias(allAliases, alias, resourceMap.name); err != nil {
 				return apitypes.RuntimeProfile{}, err
 			}
@@ -702,6 +719,30 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 		return apitypes.RuntimeProfile{}, err
 	}
 	return item, nil
+}
+
+func validateWorkflowTags(tags []string) error {
+	if len(tags) > 32 {
+		return errors.New("too many tags (maximum 32)")
+	}
+	seen := make(map[string]bool, len(tags))
+	for _, tag := range tags {
+		if !utf8.ValidString(tag) || len(tag) == 0 || len(tag) > 128 {
+			return fmt.Errorf("tag %q must be valid UTF-8 and 1-128 bytes", tag)
+		}
+		if seen[tag] {
+			return fmt.Errorf("duplicate tag %q", tag)
+		}
+		seen[tag] = true
+	}
+	return nil
+}
+
+func bindingTags(binding apitypes.RuntimeProfileBinding) []string {
+	if binding.Tags == nil {
+		return nil
+	}
+	return *binding.Tags
 }
 
 func normalizeMemoryBinding(binding apitypes.RuntimeProfileMemoryBinding) (apitypes.RuntimeProfileMemoryBinding, error) {
@@ -893,19 +934,17 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 		resource apitypes.WorkflowResource
 	}
 	workflows := make([]resolvedWorkflow, 0, 1)
-	for collection, bindings := range spec.Workflows.Collections {
-		for alias, binding := range bindings {
-			path := "workflows.collections." + collection + "." + alias
-			resource, err := resolve(path, apitypes.ResourceKindWorkflow, binding)
-			if err != nil {
-				return err
-			}
-			workflow, err := resource.AsWorkflowResource()
-			if err != nil {
-				return fmt.Errorf("%s.resource_id %q returned an invalid Workflow: %w", path, binding.ResourceId, err)
-			}
-			workflows = append(workflows, resolvedWorkflow{path: path, resource: workflow})
+	for alias, binding := range spec.Workflows {
+		path := "workflows." + alias
+		resource, err := resolve(path, apitypes.ResourceKindWorkflow, apitypes.RuntimeProfileBinding{ResourceId: binding.ResourceId, I18n: binding.I18n})
+		if err != nil {
+			return err
 		}
+		workflow, err := resource.AsWorkflowResource()
+		if err != nil {
+			return fmt.Errorf("%s.resource_id %q returned an invalid Workflow: %w", path, binding.ResourceId, err)
+		}
+		workflows = append(workflows, resolvedWorkflow{path: path, resource: workflow})
 	}
 	models := make(map[string]apitypes.ModelResource)
 	if spec.Resources.Models != nil {
@@ -1445,7 +1484,13 @@ func (s *Server) Initialize(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return initializeProfileSQL(ctx, db)
+	if err := initializeProfileSQL(ctx, db); err != nil {
+		return err
+	}
+	if s.runtimeIndex == nil {
+		s.runtimeIndex = runtimeindex.New(profileSource{db}, s.indexRefreshInterval)
+	}
+	return s.runtimeIndex.Initialize(ctx)
 }
 
 func (s *Server) now() time.Time {

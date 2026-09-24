@@ -44,7 +44,6 @@ steps:
     method: server.workspace.create
     request:
       name: "${workspace_name}"
-      collection: assistants
       workflow_name: flowcraft-chat-assistant
       toolkit:
         tool_names:
@@ -137,7 +136,6 @@ steps:
     method: server.workspace.create
     request:
       name: "${inherit_name}"
-      collection: assistants
       workflow_name: flowcraft-chat-assistant
   expect:
     "/toolkit":
@@ -157,7 +155,6 @@ steps:
     method: server.workspace.create
     request:
       name: "${empty_object_name}"
-      collection: assistants
       workflow_name: flowcraft-chat-assistant
       toolkit: {}
   expect:
@@ -178,7 +175,6 @@ steps:
     method: server.workspace.create
     request:
       name: "${workspace_name}-unknown"
-      collection: assistants
       workflow_name: flowcraft-chat-assistant
       toolkit:
         tool_names:

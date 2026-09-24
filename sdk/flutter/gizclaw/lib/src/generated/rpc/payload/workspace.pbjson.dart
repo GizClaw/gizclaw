@@ -1303,7 +1303,6 @@ const WorkspaceCreateBody$json = {
       '10': 'toolkit',
       '17': true
     },
-    {'1': 'collection', '3': 5, '4': 1, '5': 9, '10': 'collection'},
   ],
   '8': [
     {'1': '_parameters'},
@@ -1316,8 +1315,8 @@ final $typed_data.Uint8List workspaceCreateBodyDescriptor = $convert.base64Decod
     'ChNXb3Jrc3BhY2VDcmVhdGVCb2R5EhIKBG5hbWUYASABKAlSBG5hbWUSSAoKcGFyYW1ldGVycx'
     'gCIAEoCzIjLmdpemNsYXcucnBjLnYxLldvcmtzcGFjZVBhcmFtZXRlcnNIAFIKcGFyYW1ldGVy'
     'c4gBARIjCg13b3JrZmxvd19uYW1lGAMgASgJUgx3b3JrZmxvd05hbWUSPAoHdG9vbGtpdBgEIA'
-    'EoCzIdLmdpemNsYXcucnBjLnYxLlRvb2xraXRQb2xpY3lIAVIHdG9vbGtpdIgBARIeCgpjb2xs'
-    'ZWN0aW9uGAUgASgJUgpjb2xsZWN0aW9uQg0KC19wYXJhbWV0ZXJzQgoKCF90b29sa2l0');
+    'EoCzIdLmdpemNsYXcucnBjLnYxLlRvb2xraXRQb2xpY3lIAVIHdG9vbGtpdIgBAUINCgtfcGFy'
+    'YW1ldGVyc0IKCghfdG9vbGtpdA==');
 
 @$core.Deprecated('Use workspacePutBodyDescriptor instead')
 const WorkspacePutBody$json = {
@@ -1681,7 +1680,6 @@ const WorkspaceListRequest$json = {
     {'1': 'cursor', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'cursor', '17': true},
     {'1': 'limit', '3': 2, '4': 1, '5': 3, '9': 1, '10': 'limit', '17': true},
     {'1': 'prefix', '3': 3, '4': 1, '5': 9, '9': 2, '10': 'prefix', '17': true},
-    {'1': 'collection', '3': 4, '4': 1, '5': 9, '10': 'collection'},
   ],
   '8': [
     {'1': '_cursor'},
@@ -1693,9 +1691,8 @@ const WorkspaceListRequest$json = {
 /// Descriptor for `WorkspaceListRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workspaceListRequestDescriptor = $convert.base64Decode(
     'ChRXb3Jrc3BhY2VMaXN0UmVxdWVzdBIbCgZjdXJzb3IYASABKAlIAFIGY3Vyc29yiAEBEhkKBW'
-    'xpbWl0GAIgASgDSAFSBWxpbWl0iAEBEhsKBnByZWZpeBgDIAEoCUgCUgZwcmVmaXiIAQESHgoK'
-    'Y29sbGVjdGlvbhgEIAEoCVIKY29sbGVjdGlvbkIJCgdfY3Vyc29yQggKBl9saW1pdEIJCgdfcH'
-    'JlZml4');
+    'xpbWl0GAIgASgDSAFSBWxpbWl0iAEBEhsKBnByZWZpeBgDIAEoCUgCUgZwcmVmaXiIAQFCCQoH'
+    'X2N1cnNvckIICgZfbGltaXRCCQoHX3ByZWZpeA==');
 
 @$core.Deprecated('Use workspaceListResponseDescriptor instead')
 const WorkspaceListResponse$json = {

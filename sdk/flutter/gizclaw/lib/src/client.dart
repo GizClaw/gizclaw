@@ -126,11 +126,11 @@ class GizClawClient {
   }
 
   Future<payload.WorkflowListResponse> listWorkflows({
-    required String collection,
+    List<String> tags = const [],
     String? cursor,
     int? limit,
   }) {
-    final request = payload.WorkflowListRequest(collection: collection);
+    final request = payload.WorkflowListRequest(tags: tags);
     if (cursor != null) {
       request.cursor = cursor;
     }
@@ -188,12 +188,11 @@ class GizClawClient {
   }
 
   Future<payload.WorkspaceListResponse> listWorkspaces({
-    required String collection,
     String? cursor,
     int? limit,
     String? prefix,
   }) {
-    final request = payload.WorkspaceListRequest(collection: collection);
+    final request = payload.WorkspaceListRequest();
     if (cursor != null) {
       request.cursor = cursor;
     }

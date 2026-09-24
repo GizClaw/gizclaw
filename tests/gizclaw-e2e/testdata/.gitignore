@@ -48,3 +48,5 @@
 !speaker-segments/
 !speaker-segments/*.json
 !speaker-segments/*.giztest.yaml
+!runtime-profile/
+!runtime-profile/*.giztest.yaml

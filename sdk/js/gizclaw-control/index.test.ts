@@ -421,7 +421,6 @@ test("device workspaces: filters, alias identity, delete", async () => {
   const workspace = {
     id: "ws-aesop",
     name: "aesop-save",
-    collection: "story-teller",
     workflow_name: "story.aesop",
     available: true,
     system: false,
@@ -436,7 +435,6 @@ test("device workspaces: filters, alias identity, delete", async () => {
     errorResponse(409, "SYSTEM_WORKSPACE_DELETE_FORBIDDEN"),
   ]);
   const items = await h.client.device.listWorkspaces({
-    collection: "story-teller",
     workflow_name: "story.aesop",
   });
   await h.client.device.listWorkspaces();
@@ -446,7 +444,6 @@ test("device workspaces: filters, alias identity, delete", async () => {
   assert.deepEqual(items, [workspace]);
   assert.equal(h.seen[0]!.url.pathname, "/gizclaw/v1/device/workspaces");
   assert.deepEqual(Object.fromEntries(h.seen[0]!.url.searchParams), {
-    collection: "story-teller",
     workflow_name: "story.aesop",
   });
   assert.equal(h.seen[1]!.url.search, "");
@@ -776,7 +773,6 @@ test("MHS states, reset, tool list and Workspace switch", async () => {
   await h.client.device.factoryReset({ keep_network: true });
   const tools = await h.client.device.listTools();
   await h.client.device.setRunWorkspace({
-    collection: "stories",
     workflow_name: "bedtime",
     kickoff: true,
   });
@@ -787,7 +783,7 @@ test("MHS states, reset, tool list and Workspace switch", async () => {
   });
   assert.deepEqual(JSON.parse(h.seen[4]!.body), {
     tool: "run.workspace.set",
-    args: { collection: "stories", workflow_name: "bedtime", kickoff: true },
+    args: { workflow_name: "bedtime", kickoff: true },
   });
 });
 

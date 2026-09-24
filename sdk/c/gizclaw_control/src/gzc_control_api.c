@@ -460,25 +460,34 @@ int gzc_control_get_device_runtime(
 int gzc_control_get_device_runtime_profile(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
+    const gzc_str_t *tags,
+    size_t tag_count,
     gzc_control_device_runtime_profile_t *out_profile,
-    gzc_control_runtime_profile_collection_t *out_collections,
+    gzc_control_runtime_profile_workflow_t *out_workflows,
     size_t cap,
     size_t *out_count) {
   int rc = check_args(client, call);
-  if (rc != GZC_OK || out_profile == NULL || out_count == NULL || (out_collections == NULL && cap != 0)) {
+  if (rc != GZC_OK || out_profile == NULL || out_count == NULL || (out_workflows == NULL && cap != 0) ||
+      (tags == NULL && tag_count != 0) || tag_count > 32) {
     return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
   }
   memset(out_profile, 0, sizeof(*out_profile));
   *out_count = 0;
   gzc_control_builder_t builder;
   builder_begin(&builder, client, call, "/device/runtime-profile");
+  for (size_t i = 0; i < tag_count; ++i) {
+    if (tags[i].len == 0 || tags[i].len > 128) {
+      return GZC_ERR_INVALID_ARGUMENT;
+    }
+    builder_query_str(&builder, "tags", tags[i]);
+  }
   gzc_str_t url = builder_url(&builder);
   rc = builder_send(&builder, client, call, GZC_HTTP_METHOD_GET, url, gzc_str_from_parts(NULL, 0));
   if (rc != GZC_OK) {
     return rc;
   }
   gzc_str_t object;
-  gzc_str_t collections;
+  gzc_str_t workflows;
   bool present = false;
   rc = decoded_object(call, &object);
   if (rc == GZC_OK) {
@@ -488,15 +497,15 @@ int gzc_control_get_device_runtime_profile(
     rc = gzc_control_req_str(object, "revision", &out_profile->revision);
   }
   if (rc == GZC_OK) {
-    rc = gzc_control_field(object, "collections", &collections, &present);
+    rc = gzc_control_field(object, "workflows", &workflows, &present);
   }
   if (rc == GZC_OK && !present) {
     rc = GZC_ERR_JSON;
   }
   if (rc == GZC_OK) {
     rc = gzc_control_decode_array(
-        collections, out_collections, sizeof(*out_collections), cap, out_count,
-        gzc_control_decode_runtime_profile_collection_item);
+        workflows, out_workflows, sizeof(*out_workflows), cap, out_count,
+        gzc_control_decode_runtime_profile_workflow_item);
   }
   return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
 }
@@ -516,7 +525,6 @@ int gzc_control_list_device_workspaces(
   gzc_control_builder_t builder;
   builder_begin(&builder, client, call, "/device/workspaces");
   if (filter != NULL) {
-    builder_query_str(&builder, "collection", filter->collection);
     builder_query_str(&builder, "workflow_name", filter->workflow_name);
   }
   gzc_str_t url = builder_url(&builder);
@@ -1811,9 +1819,6 @@ int gzc_control_set_device_run_workspace(
   builder_body_begin(&builder, &writer);
   if (builder.rc == GZC_OK) {
     builder.rc = write_optional_str(&writer, "workspace_name", request->workspace_name);
-  }
-  if (builder.rc == GZC_OK) {
-    builder.rc = write_optional_str(&writer, "collection", request->collection);
   }
   if (builder.rc == GZC_OK) {
     builder.rc = write_optional_str(&writer, "workflow_name", request->workflow_name);

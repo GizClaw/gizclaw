@@ -208,7 +208,7 @@ func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
 		ID string `json:"id"`
 	}
 	requireNoOpenAISDKError(t, sdk.Post(ctx, "conversations", map[string]any{
-		"metadata": map[string]string{"collection": "assistants", "workflow_name": "story"},
+		"metadata": map[string]string{"workflow_name": "story"},
 	}, &conversation))
 	if conversation.ID == "" {
 		t.Fatal("generic SDK Conversation create returned no ID")
@@ -549,7 +549,7 @@ func (b *openAISDKConversationBackend) CreateConversationWorkspace(ctx context.C
 	}
 	system := false
 	now := time.Now()
-	labels := map[string]string{"collection": request.Collection, "openai.conversation": "true"}
+	labels := map[string]string{"workflow_name": request.WorkflowName, "openai.conversation": "true"}
 	item := apitypes.Workspace{Id: id, Name: request.Name, WorkflowId: request.WorkflowName, Labels: &labels, System: &system, CreatedAt: now, UpdatedAt: now, LastActiveAt: now}
 	b.items[item.Name] = item
 	b.runtimes[item.Id] = runtime

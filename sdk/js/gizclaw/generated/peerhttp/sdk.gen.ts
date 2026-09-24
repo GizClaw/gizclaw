@@ -62,7 +62,7 @@ export const writeMhsStates = <ThrowOnError extends boolean = false>(options: Op
 /**
  * List Workspaces owned by the authenticated device
  *
- * Return an unpaginated array of DeviceWorkspace explicitly owned by the authenticated Peer, including system Workspaces. Shared and ownerless Workspaces, and Workspaces whose asynchronous deletion is pending, are excluded. An empty owned set returns []. Workflows are identified only by the collection and RuntimeProfile workflow name that GET /gizclaw/v1/device/runtime-profile lists, resolved against the current RuntimeProfile exactly like Peer RPC Workspace.workflow_name; the Admin Workflow ID is never returned. When the alias no longer resolves, workflow_name is omitted and available is false. Optional collection and workflow_name filters match exactly; a workflow_name filter never matches a Workspace whose alias does not resolve. Uses existing Bearer owner/runtime authorization: 400 INVALID_REQUEST for a malformed public-key bearer, 401 INVALID_API_KEY, 403 DEBUG_ACCESS_FORBIDDEN or API_KEY_OWNER_UNAVAILABLE, 409 for conflicting routing or PEER_PENDING_DELETION when the owner's own deletion is pending, and 500 INTERNAL_ERROR for unavailable services or storage failures. An empty collection or workflow_name filter returns 400 INVALID_REQUEST. Errors use ErrorResponse with error.code and error.message.
+ * Return owned Workspaces, excluding pending deletion. workflow_name is the alias in the current RuntimeProfile; unavailable aliases are omitted. Optional workflow_name filters exactly. Errors use ErrorResponse.
  */
 export const listDeviceWorkspaces = <ThrowOnError extends boolean = false>(options?: Options<ListDeviceWorkspacesData, ThrowOnError>): RequestResult<ListDeviceWorkspacesResponses, ListDeviceWorkspacesErrors, ThrowOnError> => (options?.client ?? client).get<ListDeviceWorkspacesResponses, ListDeviceWorkspacesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
@@ -262,7 +262,7 @@ export const getDeviceFirmware = <ThrowOnError extends boolean = false>(options?
 /**
  * Get the RuntimeProfile workflow catalog of the bound device
  *
- * Returns the identity of the RuntimeProfile currently bound to the caller device together with its workflow collections and the workflow names in each collection. name and revision equal runtime_profile_name and runtime_profile_revision in Peer RPC responses, and each workflow name is the alias the device uses with server.workflow.*. The response is projected from the RuntimeProfile bindings only and does not check whether the Workflow resource behind a binding still exists: resource bindings, i18n text, drivers, models, voices, memory, pet definitions and app configuration are never returned. Collections and workflows are sorted by name. Reading never contacts the device.
+ * Returns the bound RuntimeProfile name, revision and Workflow aliases with opaque tags. Repeating tags filters Workflows that contain every requested string. Workflows are sorted by name. Reading never contacts the device.
  */
 export const getDeviceRuntimeProfile = <ThrowOnError extends boolean = false>(options?: Options<GetDeviceRuntimeProfileData, ThrowOnError>): RequestResult<GetDeviceRuntimeProfileResponses, GetDeviceRuntimeProfileErrors, ThrowOnError> => (options?.client ?? client).get<GetDeviceRuntimeProfileResponses, GetDeviceRuntimeProfileErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],

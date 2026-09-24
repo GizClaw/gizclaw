@@ -53,7 +53,6 @@ steps:
     method: server.workspace.create
     request:
       name: "${workspace_name}"
-      collection: assistants
       workflow_name: flowcraft-voice-assistant
       parameters:
         flowcraft_workspace_parameters:

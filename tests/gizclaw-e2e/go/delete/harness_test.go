@@ -95,15 +95,12 @@ func (e *deletionHarness) ensureRuntimeProfile(t *testing.T) {
 	spec := apitypes.RuntimeProfileSpec{
 		Resources: resources,
 		Workflows: apitypes.RuntimeProfileWorkflows{
-			Collections: apitypes.RuntimeProfileWorkflowCollections{
-				deleteCollection: {
-					deleteWorkflowName: {
-						ResourceId: deleteWorkflowID,
-						I18n: map[string]apitypes.RuntimeProfileI18nText{
-							"en":    {DisplayName: "Deletion Workspace"},
-							"zh-CN": {DisplayName: "删除工作区"},
-						},
-					},
+
+			deleteWorkflowName: {
+				ResourceId: deleteWorkflowID,
+				I18n: map[string]apitypes.RuntimeProfileI18nText{
+					"en":    {DisplayName: "Deletion Workspace"},
+					"zh-CN": {DisplayName: "删除工作区"},
 				},
 			},
 		},
@@ -177,7 +174,7 @@ func deletionWorkspaceParameters(t *testing.T) *rpcapi.WorkspaceParameters {
 func (e *deletionHarness) createWorkspace(t *testing.T, peer deletionPeer, name string) (rpcapi.Workspace, apitypes.Workspace) {
 	t.Helper()
 	created, err := peer.client.CreateWorkspace(e.ctx, "delete.workspace.create."+name, rpcapi.WorkspaceCreateRequest{
-		Name: name, Collection: deleteCollection, WorkflowName: deleteWorkflowName,
+		Name: name, WorkflowName: deleteWorkflowName,
 		Parameters: deletionWorkspaceParameters(t),
 	})
 	if err != nil {

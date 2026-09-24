@@ -2452,7 +2452,6 @@ type WorkspaceCreateBody struct {
 	Parameters    *WorkspaceParameters   `protobuf:"bytes,2,opt,name=parameters,proto3,oneof" json:"parameters,omitempty"`
 	WorkflowName  string                 `protobuf:"bytes,3,opt,name=workflow_name,json=workflowName,proto3" json:"workflow_name,omitempty"`
 	Toolkit       *ToolkitPolicy         `protobuf:"bytes,4,opt,name=toolkit,proto3,oneof" json:"toolkit,omitempty"`
-	Collection    string                 `protobuf:"bytes,5,opt,name=collection,proto3" json:"collection,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2513,13 +2512,6 @@ func (x *WorkspaceCreateBody) GetToolkit() *ToolkitPolicy {
 		return x.Toolkit
 	}
 	return nil
-}
-
-func (x *WorkspaceCreateBody) GetCollection() string {
-	if x != nil {
-		return x.Collection
-	}
-	return ""
 }
 
 type WorkspacePutBody struct {
@@ -3315,7 +3307,6 @@ type WorkspaceListRequest struct {
 	Cursor        *string                `protobuf:"bytes,1,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
 	Limit         *int64                 `protobuf:"varint,2,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	Prefix        *string                `protobuf:"bytes,3,opt,name=prefix,proto3,oneof" json:"prefix,omitempty"`
-	Collection    string                 `protobuf:"bytes,4,opt,name=collection,proto3" json:"collection,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3367,13 +3358,6 @@ func (x *WorkspaceListRequest) GetLimit() int64 {
 func (x *WorkspaceListRequest) GetPrefix() string {
 	if x != nil && x.Prefix != nil {
 		return *x.Prefix
-	}
-	return ""
-}
-
-func (x *WorkspaceListRequest) GetCollection() string {
-	if x != nil {
-		return x.Collection
 	}
 	return ""
 }
@@ -4084,17 +4068,14 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\v_parametersB\n" +
 	"\n" +
 	"\b_toolkitB\a\n" +
-	"\x05_icon\"\x91\x02\n" +
+	"\x05_icon\"\xf1\x01\n" +
 	"\x13WorkspaceCreateBody\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12H\n" +
 	"\n" +
 	"parameters\x18\x02 \x01(\v2#.gizclaw.rpc.v1.WorkspaceParametersH\x00R\n" +
 	"parameters\x88\x01\x01\x12#\n" +
 	"\rworkflow_name\x18\x03 \x01(\tR\fworkflowName\x12<\n" +
-	"\atoolkit\x18\x04 \x01(\v2\x1d.gizclaw.rpc.v1.ToolkitPolicyH\x01R\atoolkit\x88\x01\x01\x12\x1e\n" +
-	"\n" +
-	"collection\x18\x05 \x01(\tR\n" +
-	"collectionB\r\n" +
+	"\atoolkit\x18\x04 \x01(\v2\x1d.gizclaw.rpc.v1.ToolkitPolicyH\x01R\atoolkit\x88\x01\x01B\r\n" +
 	"\v_parametersB\n" +
 	"\n" +
 	"\b_toolkit\"\xb5\x01\n" +
@@ -4155,14 +4136,11 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x0e_start_time_msB\x0e\n" +
 	"\f_end_time_ms\"`\n" +
 	"\x1cWorkspaceHistoryListResponse\x12@\n" +
-	"\x05value\x18\x01 \x01(\v2*.gizclaw.rpc.v1.PeerRunHistoryListResponseR\x05value\"\xab\x01\n" +
+	"\x05value\x18\x01 \x01(\v2*.gizclaw.rpc.v1.PeerRunHistoryListResponseR\x05value\"\x8b\x01\n" +
 	"\x14WorkspaceListRequest\x12\x1b\n" +
 	"\x06cursor\x18\x01 \x01(\tH\x00R\x06cursor\x88\x01\x01\x12\x19\n" +
 	"\x05limit\x18\x02 \x01(\x03H\x01R\x05limit\x88\x01\x01\x12\x1b\n" +
-	"\x06prefix\x18\x03 \x01(\tH\x02R\x06prefix\x88\x01\x01\x12\x1e\n" +
-	"\n" +
-	"collection\x18\x04 \x01(\tR\n" +
-	"collectionB\t\n" +
+	"\x06prefix\x18\x03 \x01(\tH\x02R\x06prefix\x88\x01\x01B\t\n" +
 	"\a_cursorB\b\n" +
 	"\x06_limitB\t\n" +
 	"\a_prefix\"\x85\x02\n" +

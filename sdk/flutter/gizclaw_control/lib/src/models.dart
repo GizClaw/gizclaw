@@ -691,7 +691,6 @@ class DeviceRebootRequest {
 class DeviceRunWorkspaceRequest {
   const DeviceRunWorkspaceRequest._({
     this.workspaceName,
-    this.collection,
     this.workflowName,
     this.kickoff,
   });
@@ -702,19 +701,11 @@ class DeviceRunWorkspaceRequest {
     bool? kickoff,
   }) : this._(workspaceName: workspaceName, kickoff: kickoff);
 
-  /// Runs the RuntimeProfile workflow [workflowName] of [collection].
-  const DeviceRunWorkspaceRequest.workflow(
-    String collection,
-    String workflowName, {
-    bool? kickoff,
-  }) : this._(
-         collection: collection,
-         workflowName: workflowName,
-         kickoff: kickoff,
-       );
+  /// Runs the RuntimeProfile workflow [workflowName].
+  const DeviceRunWorkspaceRequest.workflow(String workflowName, {bool? kickoff})
+    : this._(workflowName: workflowName, kickoff: kickoff);
 
   final String? workspaceName;
-  final String? collection;
   final String? workflowName;
 
   /// Let the agent speak first once the Workspace is ready; false when null.
@@ -722,7 +713,6 @@ class DeviceRunWorkspaceRequest {
 
   JsonObject toJson() => withoutNulls({
     'workspace_name': workspaceName,
-    'collection': collection,
     'workflow_name': workflowName,
     'kickoff': kickoff,
   });
@@ -854,14 +844,14 @@ class DeviceFirmware {
 ///
 /// Read with [GizClawControlClient.getDeviceRuntimeProfile]. [name] and
 /// [revision] are the values Peer RPC responses carry as
-/// `runtime_profile_name` and `runtime_profile_revision`. Collections and
-/// workflows arrive sorted by name; display metadata is not part of the
+/// `runtime_profile_name` and `runtime_profile_revision`. Workflows arrive
+/// sorted by name; display metadata is not part of the
 /// response.
 class DeviceRuntimeProfile {
   const DeviceRuntimeProfile({
     required this.name,
     required this.revision,
-    required this.collections,
+    required this.workflows,
   });
 
   factory DeviceRuntimeProfile.fromJson(Object? json) {
@@ -869,10 +859,10 @@ class DeviceRuntimeProfile {
     return DeviceRuntimeProfile(
       name: readString(object, 'name'),
       revision: readString(object, 'revision'),
-      collections: readList(
+      workflows: readList(
         object,
-        'collections',
-        DeviceRuntimeProfileCollection.fromJson,
+        'workflows',
+        DeviceRuntimeProfileWorkflow.fromJson,
       ),
     );
   }
@@ -883,73 +873,46 @@ class DeviceRuntimeProfile {
   /// Opaque RuntimeProfile revision.
   final String revision;
 
-  final List<DeviceRuntimeProfileCollection> collections;
-
-  JsonObject toJson() => {
-    'name': name,
-    'revision': revision,
-    'collections': collections
-        .map((item) => item.toJson())
-        .toList(growable: false),
-  };
-}
-
-/// One workflow collection of a [DeviceRuntimeProfile].
-class DeviceRuntimeProfileCollection {
-  const DeviceRuntimeProfileCollection({
-    required this.name,
-    required this.workflows,
-  });
-
-  factory DeviceRuntimeProfileCollection.fromJson(Object? json) {
-    final object = asJsonObject(json, 'DeviceRuntimeProfileCollection');
-    return DeviceRuntimeProfileCollection(
-      name: readString(object, 'name'),
-      workflows: readList(
-        object,
-        'workflows',
-        DeviceRuntimeProfileWorkflow.fromJson,
-      ),
-    );
-  }
-
-  /// Collection name.
-  final String name;
-
   final List<DeviceRuntimeProfileWorkflow> workflows;
 
   JsonObject toJson() => {
     'name': name,
+    'revision': revision,
     'workflows': workflows.map((item) => item.toJson()).toList(growable: false),
   };
 }
 
-/// One workflow of a [DeviceRuntimeProfileCollection].
+/// One workflow of a [DeviceRuntimeProfile].
 class DeviceRuntimeProfileWorkflow {
-  const DeviceRuntimeProfileWorkflow({required this.name});
+  const DeviceRuntimeProfileWorkflow({required this.name, required this.tags});
 
   factory DeviceRuntimeProfileWorkflow.fromJson(Object? json) {
     final object = asJsonObject(json, 'DeviceRuntimeProfileWorkflow');
-    return DeviceRuntimeProfileWorkflow(name: readString(object, 'name'));
+    return DeviceRuntimeProfileWorkflow(
+      name: readString(object, 'name'),
+      tags: readList(object, 'tags', (value) => value as String),
+    );
   }
 
   /// Workflow name the device uses with `server.workflow.*`.
   final String name;
 
-  JsonObject toJson() => {'name': name};
+  /// Opaque string tags used for filtering.
+  final List<String> tags;
+
+  JsonObject toJson() => {'name': name, 'tags': tags};
 }
 
 /// One Workspace owned by the bound device (`DeviceWorkspace`), such as the
 /// save of one game.
 ///
-/// The Workflow is identified only by [collection] and [workflowName], the
+/// The Workflow is identified by [workflowName], the
 /// names [DeviceRuntimeProfile] lists; the Server never returns its Admin
 /// Workflow ID.
 class DeviceWorkspace {
   const DeviceWorkspace({
     required this.id,
     required this.name,
-    this.collection,
     this.workflowName,
     required this.available,
     required this.system,
@@ -963,7 +926,6 @@ class DeviceWorkspace {
     return DeviceWorkspace(
       id: readString(object, 'id'),
       name: readString(object, 'name'),
-      collection: readOptionalString(object, 'collection'),
       workflowName: readOptionalString(object, 'workflow_name'),
       available: readBool(object, 'available'),
       system: readBool(object, 'system'),
@@ -979,11 +941,7 @@ class DeviceWorkspace {
   /// Workspace name the device uses with `server.workspace.*`.
   final String name;
 
-  /// Workflow collection the Workspace was created in, or `null` when it
-  /// carries none, such as a system Workspace.
-  final String? collection;
-
-  /// Workflow name in [collection] of the current RuntimeProfile, or `null`
+  /// Workflow name in the current RuntimeProfile, or `null`
   /// when the Workflow no longer resolves.
   final String? workflowName;
 
@@ -998,7 +956,6 @@ class DeviceWorkspace {
   JsonObject toJson() => withoutNulls({
     'id': id,
     'name': name,
-    'collection': collection,
     'workflow_name': workflowName,
     'available': available,
     'system': system,

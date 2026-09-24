@@ -437,12 +437,12 @@ func lifecycleCases(adminKey, peerKey string) []lifecycleCase {
 				}
 			}},
 		{tier: 4, kind: "RuntimeProfile", id: "tf-lc-device",
-			probe: []string{"workflows", "collections", "assistants", "echo", "i18n", "en", "display_name"},
+			probe: []string{"workflows", "echo", "tags", "i18n", "en", "display_name"},
 			spec: func(v string) map[string]any {
 				return map[string]any{
-					"workflows": map[string]any{"collections": map[string]any{"assistants": map[string]any{
-						"echo": map[string]any{"resource_id": "tf-lc-echo", "i18n": i18n("Echo " + v)},
-					}}},
+					"workflows": map[string]any{
+						"echo": map[string]any{"resource_id": "tf-lc-echo", "tags": []string{"assistants"}, "i18n": i18n("Echo " + v)},
+					},
 					"resources": map[string]any{
 						"models": map[string]any{"chat": map[string]any{"resource_id": "tf-lc-chat", "i18n": i18n("Chat")}},
 						"voices": map[string]any{"assistant": map[string]any{"resource_id": "tf-lc-alloy", "i18n": i18n("Alloy")}},

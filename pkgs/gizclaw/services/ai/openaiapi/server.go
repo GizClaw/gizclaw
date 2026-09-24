@@ -41,7 +41,6 @@ type VoiceLister interface {
 // Initialize before publishing the Workspace.
 type ConversationWorkspaceRequest struct {
 	Name         string
-	Collection   string
 	WorkflowName string
 	Metadata     map[string]string
 	Initialize   func(context.Context, workspace.Runtime) error

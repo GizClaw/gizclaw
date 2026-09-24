@@ -46,7 +46,6 @@ steps:
       method: server.workspace.create
       request:
         name: ${workspace_name}
-        collection: assistants
         workflow_name: safety-fence-doubao-realtime-duplex
         parameters:
           doubao_realtime_duplex_workspace_parameters:

@@ -3572,7 +3572,7 @@ const Workflow$json = {
       '6': '.gizclaw.rpc.v1.Workflow.I18nEntry',
       '10': 'i18n'
     },
-    {'1': 'collection', '3': 3, '4': 1, '5': 9, '10': 'collection'},
+    {'1': 'tags', '3': 3, '4': 3, '5': 9, '10': 'tags'},
     {
       '1': 'driver',
       '3': 4,
@@ -3617,12 +3617,11 @@ const Workflow_I18nEntry$json = {
 /// Descriptor for `Workflow`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workflowDescriptor = $convert.base64Decode(
     'CghXb3JrZmxvdxISCgRuYW1lGAEgASgJUgRuYW1lEjYKBGkxOG4YAiADKAsyIi5naXpjbGF3Ln'
-    'JwYy52MS5Xb3JrZmxvdy5JMThuRW50cnlSBGkxOG4SHgoKY29sbGVjdGlvbhgDIAEoCVIKY29s'
-    'bGVjdGlvbhI2CgZkcml2ZXIYBCABKA4yHi5naXpjbGF3LnJwYy52MS5Xb3JrZmxvd0RyaXZlcl'
-    'IGZHJpdmVyEjMKE3dvcmtzcGFjZV9sYW5nX3BhaXIYBSABKAlIAFIRd29ya3NwYWNlTGFuZ1Bh'
-    'aXKIAQEaWQoJSTE4bkVudHJ5EhAKA2tleRgBIAEoCVIDa2V5EjYKBXZhbHVlGAIgASgLMiAuZ2'
-    'l6Y2xhdy5ycGMudjEuUmVzb3VyY2VJMThuVGV4dFIFdmFsdWU6AjgBQhYKFF93b3Jrc3BhY2Vf'
-    'bGFuZ19wYWly');
+    'JwYy52MS5Xb3JrZmxvdy5JMThuRW50cnlSBGkxOG4SEgoEdGFncxgDIAMoCVIEdGFncxI2CgZk'
+    'cml2ZXIYBCABKA4yHi5naXpjbGF3LnJwYy52MS5Xb3JrZmxvd0RyaXZlclIGZHJpdmVyEjMKE3'
+    'dvcmtzcGFjZV9sYW5nX3BhaXIYBSABKAlIAFIRd29ya3NwYWNlTGFuZ1BhaXKIAQEaWQoJSTE4'
+    'bkVudHJ5EhAKA2tleRgBIAEoCVIDa2V5EjYKBXZhbHVlGAIgASgLMiAuZ2l6Y2xhdy5ycGMudj'
+    'EuUmVzb3VyY2VJMThuVGV4dFIFdmFsdWU6AjgBQhYKFF93b3Jrc3BhY2VfbGFuZ19wYWly');
 
 @$core.Deprecated('Use workflowGetRequestDescriptor instead')
 const WorkflowGetRequest$json = {
@@ -3678,7 +3677,7 @@ const WorkflowListRequest$json = {
   '2': [
     {'1': 'cursor', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'cursor', '17': true},
     {'1': 'limit', '3': 2, '4': 1, '5': 3, '9': 1, '10': 'limit', '17': true},
-    {'1': 'collection', '3': 3, '4': 1, '5': 9, '10': 'collection'},
+    {'1': 'tags', '3': 3, '4': 3, '5': 9, '10': 'tags'},
   ],
   '8': [
     {'1': '_cursor'},
@@ -3689,8 +3688,8 @@ const WorkflowListRequest$json = {
 /// Descriptor for `WorkflowListRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workflowListRequestDescriptor = $convert.base64Decode(
     'ChNXb3JrZmxvd0xpc3RSZXF1ZXN0EhsKBmN1cnNvchgBIAEoCUgAUgZjdXJzb3KIAQESGQoFbG'
-    'ltaXQYAiABKANIAVIFbGltaXSIAQESHgoKY29sbGVjdGlvbhgDIAEoCVIKY29sbGVjdGlvbkIJ'
-    'CgdfY3Vyc29yQggKBl9saW1pdA==');
+    'ltaXQYAiABKANIAVIFbGltaXSIAQESEgoEdGFncxgDIAMoCVIEdGFnc0IJCgdfY3Vyc29yQggK'
+    'Bl9saW1pdA==');
 
 @$core.Deprecated('Use workflowListResponseDescriptor instead')
 const WorkflowListResponse$json = {

@@ -45,7 +45,6 @@ void main() {
     final workspace = payload.WorkspaceCreateBody(
       name: 'mobile-ast-device',
       workflowName: 'volc-ast-translate',
-      collection: 'translates',
     );
 
     final future = client.createWorkspace(workspace);
@@ -55,7 +54,6 @@ void main() {
             as payload.WorkspaceCreateRequest;
     expect(body.value.name, 'mobile-ast-device');
     expect(body.value.workflowName, 'volc-ast-translate');
-    expect(body.value.collection, 'translates');
 
     final responseWorkspace = payload.Workspace(
       name: workspace.name,

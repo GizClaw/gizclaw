@@ -6290,14 +6290,14 @@ class Workflow extends $pb.GeneratedMessage {
   factory Workflow({
     $core.String? name,
     $core.Iterable<$core.MapEntry<$core.String, ResourceI18nText>>? i18n,
-    $core.String? collection,
+    $core.Iterable<$core.String>? tags,
     $1.WorkflowDriver? driver,
     $core.String? workspaceLangPair,
   }) {
     final result = create();
     if (name != null) result.name = name;
     if (i18n != null) result.i18n.addEntries(i18n);
-    if (collection != null) result.collection = collection;
+    if (tags != null) result.tags.addAll(tags);
     if (driver != null) result.driver = driver;
     if (workspaceLangPair != null) result.workspaceLangPair = workspaceLangPair;
     return result;
@@ -6324,7 +6324,7 @@ class Workflow extends $pb.GeneratedMessage {
         valueCreator: ResourceI18nText.create,
         valueDefaultOrMaker: ResourceI18nText.getDefault,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
-    ..aOS(3, _omitFieldNames ? '' : 'collection')
+    ..pPS(3, _omitFieldNames ? '' : 'tags')
     ..aE<$1.WorkflowDriver>(4, _omitFieldNames ? '' : 'driver',
         enumValues: $1.WorkflowDriver.values)
     ..aOS(5, _omitFieldNames ? '' : 'workspaceLangPair')
@@ -6361,13 +6361,7 @@ class Workflow extends $pb.GeneratedMessage {
   $pb.PbMap<$core.String, ResourceI18nText> get i18n => $_getMap(1);
 
   @$pb.TagNumber(3)
-  $core.String get collection => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set collection($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasCollection() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearCollection() => $_clearField(3);
+  $pb.PbList<$core.String> get tags => $_getList(2);
 
   @$pb.TagNumber(4)
   $1.WorkflowDriver get driver => $_getN(3);
@@ -6529,12 +6523,12 @@ class WorkflowListRequest extends $pb.GeneratedMessage {
   factory WorkflowListRequest({
     $core.String? cursor,
     $fixnum.Int64? limit,
-    $core.String? collection,
+    $core.Iterable<$core.String>? tags,
   }) {
     final result = create();
     if (cursor != null) result.cursor = cursor;
     if (limit != null) result.limit = limit;
-    if (collection != null) result.collection = collection;
+    if (tags != null) result.tags.addAll(tags);
     return result;
   }
 
@@ -6553,7 +6547,7 @@ class WorkflowListRequest extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'cursor')
     ..aInt64(2, _omitFieldNames ? '' : 'limit')
-    ..aOS(3, _omitFieldNames ? '' : 'collection')
+    ..pPS(3, _omitFieldNames ? '' : 'tags')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -6594,13 +6588,7 @@ class WorkflowListRequest extends $pb.GeneratedMessage {
   void clearLimit() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.String get collection => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set collection($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasCollection() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearCollection() => $_clearField(3);
+  $pb.PbList<$core.String> get tags => $_getList(2);
 }
 
 class WorkflowListResponse extends $pb.GeneratedMessage {

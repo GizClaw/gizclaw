@@ -331,23 +331,23 @@ int gzc_control_device_info_labels(
       info->identifiers_labels, out, sizeof(*out), cap, out_count, decode_pair_item);
 }
 
-int gzc_control_decode_runtime_profile_collection_item(gzc_str_t object_json, void *out) {
-  gzc_control_runtime_profile_collection_t *collection = out;
-  memset(collection, 0, sizeof(*collection));
+int gzc_control_decode_runtime_profile_workflow_item(gzc_str_t object_json, void *out) {
+  gzc_control_runtime_profile_workflow_t *workflow = out;
+  memset(workflow, 0, sizeof(*workflow));
   int rc = gzc_json_validate_object(object_json);
   if (rc == GZC_OK) {
-    rc = gzc_control_req_str(object_json, "name", &collection->name);
+    rc = gzc_control_req_str(object_json, "name", &workflow->name);
   }
   bool present = false;
   if (rc == GZC_OK) {
-    rc = gzc_control_field(object_json, "workflows", &collection->workflows, &present);
+    rc = gzc_control_field(object_json, "tags", &workflow->tags, &present);
   }
   if (rc == GZC_OK && !present) {
     rc = GZC_ERR_JSON;
   }
   if (rc == GZC_OK) {
     gzc_json_array_iter_t iter;
-    rc = gzc_json_array_iter_init(collection->workflows, &iter);
+    rc = gzc_json_array_iter_init(workflow->tags, &iter);
   }
   return rc;
 }
@@ -361,9 +361,6 @@ int gzc_control_decode_device_workspace_item(gzc_str_t object_json, void *out) {
   }
   if (rc == GZC_OK) {
     rc = gzc_control_req_str(object_json, "name", &workspace->name);
-  }
-  if (rc == GZC_OK) {
-    rc = gzc_control_opt_str(object_json, "collection", &workspace->collection);
   }
   if (rc == GZC_OK) {
     rc = gzc_control_opt_str(object_json, "workflow_name", &workspace->workflow_name);
@@ -386,26 +383,16 @@ int gzc_control_decode_device_workspace_item(gzc_str_t object_json, void *out) {
   return rc;
 }
 
-static int decode_workflow_name_item(gzc_str_t object_json, void *out) {
-  gzc_str_t *name = out;
-  *name = gzc_str_from_parts(NULL, 0);
-  int rc = gzc_json_validate_object(object_json);
-  if (rc == GZC_OK) {
-    rc = gzc_control_req_str(object_json, "name", name);
-  }
-  return rc;
-}
-
-int gzc_control_runtime_profile_collection_workflows(
-    const gzc_control_runtime_profile_collection_t *collection,
+int gzc_control_runtime_profile_workflow_tags(
+    const gzc_control_runtime_profile_workflow_t *workflow,
     gzc_str_t *out,
     size_t cap,
     size_t *out_count) {
-  if (collection == NULL || out_count == NULL || (out == NULL && cap != 0)) {
+  if (workflow == NULL || out_count == NULL || (out == NULL && cap != 0)) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   return gzc_control_decode_array(
-      collection->workflows, out, sizeof(*out), cap, out_count, decode_workflow_name_item);
+      workflow->tags, out, sizeof(*out), cap, out_count, gzc_control_decode_string_item);
 }
 
 int gzc_control_decode_device_runtime(gzc_str_t object_json, gzc_control_device_runtime_t *out) {

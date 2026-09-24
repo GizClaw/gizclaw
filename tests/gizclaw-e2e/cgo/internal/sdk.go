@@ -935,8 +935,8 @@ func CSDKChatWorkspace(t *testing.T, identityDir, registrationToken string) {
 	var createResponse rpcpb.WorkspaceCreateResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_CREATE, &rpcpb.WorkspaceCreateRequest{
 		Value: &rpcpb.WorkspaceCreateBody{
-			Name:         workspaceName,
-			Collection:   "assistants",
+			Name: workspaceName,
+
 			WorkflowName: "flowcraft-chat-assistant",
 		},
 	}, &createResponse)

@@ -612,7 +612,7 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	var workspaceCreate RPCPayload
 	workspaceToolNames := []string{"echo"}
 	if err := workspaceCreate.FromWorkspaceCreateRequest(WorkspaceCreateRequest{
-		Name: "demo", Collection: "assistants", WorkflowName: "chat",
+		Name: "demo", WorkflowName: "chat",
 		Toolkit: &ToolkitPolicy{ToolNames: &workspaceToolNames},
 	}); err != nil {
 		t.Fatalf("FromWorkspaceCreateRequest() error = %v", err)
@@ -621,7 +621,7 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsWorkspaceCreateRequest() error = %v", err)
 	}
-	if workspaceCreateDecoded.Collection != "assistants" || workspaceCreateDecoded.WorkflowName != "chat" {
+	if workspaceCreateDecoded.WorkflowName != "chat" {
 		t.Fatalf("workspace create = %#v", workspaceCreateDecoded)
 	}
 
@@ -636,7 +636,7 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 
 	var workflowResponse RPCPayload
 	workflow := WorkflowGetResponse{
-		Value:              Workflow{Name: "flowcraft-toolkit", Collection: "assistants", Driver: WorkflowDriverFlowcraft, I18n: map[string]ResourceI18nText{"en": {DisplayName: "Flowcraft"}}},
+		Value:              Workflow{Name: "flowcraft-toolkit", Tags: []string{"assistant"}, Driver: WorkflowDriverFlowcraft, I18n: map[string]ResourceI18nText{"en": {DisplayName: "Flowcraft"}}},
 		RuntimeProfileName: "default", RuntimeProfileRevision: "revision",
 	}
 	if err := workflowResponse.FromWorkflowGetResponse(workflow); err != nil {

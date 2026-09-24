@@ -161,23 +161,21 @@ func (s *peerHTTP) InvokeClientTool(ctx context.Context, request peerhttp.Invoke
 
 func (s *peerHTTP) resolveToolWorkspace(ctx context.Context, owner giznet.PublicKey, args map[string]any) *deviceControlError {
 	name, _ := args["workspace_name"].(string)
-	collection, _ := args["collection"].(string)
 	workflow, _ := args["workflow_name"].(string)
-	if (name == "" && (collection == "" || workflow == "")) || (name != "" && (collection != "" || workflow != "")) || len(name) > 256 || len(collection) > 256 || len(workflow) > 256 {
-		return invalidDeviceRequest("set exactly one of workspace_name, or collection with workflow_name")
+	if (name == "") == (workflow == "") || len(name) > 256 || len(workflow) > 256 {
+		return invalidDeviceRequest("set exactly one of workspace_name or workflow_name")
 	}
 	reads, ok := s.deviceReads(owner)
 	if !ok {
 		return internalDeviceControlError()
 	}
-	resolved, err := reads.ResolveRunWorkspace(ctx, name, collection, workflow)
+	resolved, err := reads.ResolveRunWorkspace(ctx, name, workflow)
 	if errors.Is(err, peerresource.ErrDeviceWorkspaceNotFound) {
 		return &deviceControlError{http.StatusNotFound, "WORKSPACE_NOT_FOUND", "no available Workspace matches the target"}
 	}
 	if err != nil {
 		return internalDeviceControlError()
 	}
-	delete(args, "collection")
 	delete(args, "workflow_name")
 	args["workspace_name"] = resolved
 	return nil

@@ -121,7 +121,7 @@ node snapshots exclude logs. `go test ./pkgs/gizlog` covers configured log sinks
 
 `GET /gizclaw/v1/device/workspaces` lists explicitly Peer-owned Workspaces,
 including system Workspaces. Shared, ownerless, and pending-deletion
-Workspaces are excluded. Each item identifies its Workflow by `collection` and
+Workspaces are excluded. Each item identifies its Workflow by
 `workflow_name`, which the console shows instead of an Admin Workflow ID. `GET /gizclaw/v1/device/workspaces/{workspaceId}/history`
 searches persisted text with cursor pagination (up to 200 entries; the console
 uses 100). `order` defaults to `desc` (newest first) and also accepts `asc`;

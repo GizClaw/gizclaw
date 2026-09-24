@@ -682,7 +682,6 @@ test("RPC payload codec selects every new workflow workspace discriminator", () 
     "eino",
   ]) {
     const request = {
-      collection: "assistants",
       name: `workspace-${agentType}`,
       parameters: { agent_type: agentType },
       workflow_name: `workflow-${agentType}`,
@@ -1031,7 +1030,7 @@ test("RPC payload codec exposes only runtime workflow names", () => {
     runtime_profile_revision: "revision-1",
     value: {
       name: "assistant",
-      collection: "assistants",
+      tags: ["assistants", "6-8"],
       driver: "doubao-realtime",
       i18n: {
         en: { display_name: "Assistant" },
@@ -1042,14 +1041,14 @@ test("RPC payload codec exposes only runtime workflow names", () => {
   const decoded = decodeRPCResponsePayload("server.workflow.get", payload) as {
     value?: {
       name?: string;
-      collection?: string;
+      tags?: string[];
       owner_public_key?: string;
       spec?: unknown;
     };
   };
 
   assert.equal(decoded.value?.name, "assistant");
-  assert.equal(decoded.value?.collection, "assistants");
+  assert.deepEqual(decoded.value?.tags, ["assistants", "6-8"]);
   assert.equal(decoded.value?.owner_public_key, undefined);
   assert.equal(decoded.value?.spec, undefined);
 });

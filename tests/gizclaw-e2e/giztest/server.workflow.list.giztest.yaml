@@ -35,7 +35,7 @@ steps:
   rpc:
     method: server.workflow.list
     request:
-      collection: assistants
+      tags: [assistants]
 finally:
 - id: cleanup_peer
   client: peer

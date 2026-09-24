@@ -60,7 +60,7 @@ func TestWorkspaceParametersSetDerivesAgentTypeAndMergesFields(t *testing.T) {
 	ctx := context.Background()
 	server := newWorkspaceInputTestServer(t, ctx)
 	created := callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
-		Name: "journey-parameters", Collection: "story-teller", WorkflowName: "journey",
+		Name: "journey-parameters", WorkflowName: "journey",
 	})
 	if created.Parameters != nil {
 		t.Fatalf("created parameters = %#v, want inherited", created.Parameters)
@@ -101,7 +101,7 @@ func TestWorkspaceParametersSetRejectsEmptyPatch(t *testing.T) {
 	ctx := context.Background()
 	server := newWorkspaceInputTestServer(t, ctx)
 	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
-		Name: "journey-parameters-empty", Collection: "story-teller", WorkflowName: "journey",
+		Name: "journey-parameters-empty", WorkflowName: "journey",
 	})
 
 	response := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
@@ -128,7 +128,7 @@ func TestWorkspaceParametersSetInputKeepsParametersAndToolkit(t *testing.T) {
 	}
 	toolNames := []string{"echo-alias"}
 	created := callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
-		Name: "journey-1", Collection: "story-teller", WorkflowName: "journey",
+		Name: "journey-1", WorkflowName: "journey",
 		Parameters: &parameters,
 		Toolkit:    &rpcapi.ToolkitPolicy{ToolNames: &toolNames},
 	})
@@ -187,7 +187,7 @@ func TestWorkspaceParametersSetInputSetsInheritedParameters(t *testing.T) {
 	ctx := context.Background()
 	server := newWorkspaceInputTestServer(t, ctx)
 	created := callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
-		Name: "journey-1", Collection: "story-teller", WorkflowName: "journey",
+		Name: "journey-1", WorkflowName: "journey",
 	})
 	if created.Parameters != nil {
 		t.Fatalf("created Workspace parameters = %#v, want inherited", created.Parameters)
@@ -216,7 +216,7 @@ func TestWorkspaceParametersSetInputRejectsUnknownWorkspaceAndInput(t *testing.T
 	ctx := context.Background()
 	server := newWorkspaceInputTestServer(t, ctx)
 	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
-		Name: "journey-1", Collection: "story-teller", WorkflowName: "journey",
+		Name: "journey-1", WorkflowName: "journey",
 	})
 
 	missing := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
@@ -352,7 +352,7 @@ func TestWorkspaceParametersSetStoresTTSSpeechRate(t *testing.T) {
 	ctx := context.Background()
 	server := newWorkspaceInputTestServer(t, ctx)
 	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
-		Name: "journey-rate", Collection: "story-teller", WorkflowName: "journey",
+		Name: "journey-rate", WorkflowName: "journey",
 	})
 
 	response := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
@@ -384,7 +384,7 @@ func TestWorkspaceParametersSetStoresTTSSpeechRate(t *testing.T) {
 func TestWorkspaceParametersSetSafetyFenceRoundTrip(t *testing.T) {
 	ctx := t.Context()
 	server := newWorkspaceInputTestServer(t, ctx)
-	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{Name: "fenced-workspace", Collection: "story-teller", WorkflowName: "journey"})
+	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{Name: "fenced-workspace", WorkflowName: "journey"})
 	for _, level := range []apitypes.SafetyFenceLevel{apitypes.SafetyFenceLevelGeneral, apitypes.SafetyFenceLevelChild, apitypes.SafetyFenceLevelOff} {
 		response := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{Name: "fenced-workspace", Parameters: rpcapi.WorkspaceParametersPatch{SafetyFenceLevel: &level}})
 		if response.Error != nil {

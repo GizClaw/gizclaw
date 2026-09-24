@@ -20,8 +20,8 @@ func TestAdminAPIWorkspacesListGetPaginationAndMutation(t *testing.T) {
 	created := make([]*rpcapi.Workspace, 0, len(names))
 	for _, name := range names {
 		workspace, err := peer.CreateWorkspace(env.ctx, "admin.workspace.create."+name, rpcapi.WorkspaceCreateRequest{
-			Name:         name,
-			Collection:   adminHistoryCollection,
+			Name: name,
+
 			WorkflowName: adminHistoryWorkflowAlias,
 		})
 		if err != nil {

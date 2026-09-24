@@ -44,7 +44,6 @@ steps:
       method: server.workspace.create
       request:
         name: ${default_workspace}
-        collection: assistants
         workflow_name: eino-mixed-provider-voices
         parameters:
           eino_workspace_parameters:
@@ -56,7 +55,6 @@ steps:
       method: server.workspace.create
       request:
         name: ${slow_workspace}
-        collection: assistants
         workflow_name: eino-mixed-provider-voices
         parameters:
           eino_workspace_parameters:

@@ -313,13 +313,20 @@ class GizClawControlClient {
   /// `GET /gizclaw/v1/device/runtime-profile`.
   ///
   /// Returns the RuntimeProfile bound to the device with its workflow
-  /// collections and workflow names, sorted by name. The read never contacts
+  /// workflow names and tags, sorted by name. The read never contacts
   /// the device, so it works while the device is offline.
-  Future<DeviceRuntimeProfile> getDeviceRuntimeProfile() {
+  Future<DeviceRuntimeProfile> getDeviceRuntimeProfile({
+    List<String> tags = const [],
+  }) {
+    if (tags.any((tag) => tag.isEmpty || utf8.encode(tag).length > 128) ||
+        tags.length > 32) {
+      throw ArgumentError.value(tags, 'tags', 'contains an invalid tag');
+    }
     return _json(
       'GET',
       '/device/runtime-profile',
       DeviceRuntimeProfile.fromJson,
+      query: tags.isEmpty ? null : {'tags': tags},
       operation: 'getDeviceRuntimeProfile',
     );
   }
@@ -327,17 +334,11 @@ class GizClawControlClient {
   /// `GET /gizclaw/v1/device/workspaces`.
   ///
   /// Returns the Workspaces the device owns, including system Workspaces but
-  /// not those whose deletion is pending. [collection] and [workflowName]
-  /// filter exactly by the names [getDeviceRuntimeProfile] lists; a
+  /// not those whose deletion is pending. [workflowName]
+  /// filters exactly by the names [getDeviceRuntimeProfile] lists; a
   /// [workflowName] filter never matches a Workspace whose Workflow no longer
   /// resolves. Reading never contacts the device.
-  Future<List<DeviceWorkspace>> listDeviceWorkspaces({
-    String? collection,
-    String? workflowName,
-  }) {
-    if (collection != null && collection.isEmpty) {
-      throw ArgumentError.value(collection, 'collection', 'must not be empty');
-    }
+  Future<List<DeviceWorkspace>> listDeviceWorkspaces({String? workflowName}) {
     if (workflowName != null && workflowName.isEmpty) {
       throw ArgumentError.value(
         workflowName,
@@ -352,7 +353,7 @@ class GizClawControlClient {
         json,
         'DeviceWorkspace list',
       ).map(DeviceWorkspace.fromJson).toList(growable: false),
-      query: {'collection': collection, 'workflow_name': workflowName},
+      query: {'workflow_name': workflowName},
       operation: 'listDeviceWorkspaces',
     );
   }
@@ -1135,9 +1136,9 @@ class GizClawControlClient {
     return Uri.encodeComponent(value);
   }
 
-  Uri _uri(String route, Map<String, String?>? query) {
+  Uri _uri(String route, Map<String, Object?>? query) {
     final basePath = _baseUrl.path.replaceFirst(RegExp(r'/+$'), '');
-    final parameters = <String, String>{
+    final parameters = <String, Object>{
       if (query != null)
         for (final entry in query.entries)
           if (entry.value != null) entry.key: entry.value!,
@@ -1155,7 +1156,7 @@ class GizClawControlClient {
   Future<http.Response> _send(
     String method,
     String route, {
-    Map<String, String?>? query,
+    Map<String, Object?>? query,
     JsonObject? body,
     String accept = 'application/json',
     required String operation,
@@ -1202,7 +1203,7 @@ class GizClawControlClient {
     String method,
     String route,
     T Function(Object? json) decode, {
-    Map<String, String?>? query,
+    Map<String, Object?>? query,
     JsonObject? body,
     required String operation,
   }) async {

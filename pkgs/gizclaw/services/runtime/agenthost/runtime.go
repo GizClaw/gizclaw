@@ -591,10 +591,8 @@ func runtimeProfileFingerprint(profile apitypes.RuntimeProfile) string {
 
 func runtimeProfileWorkflowBindings(profile apitypes.RuntimeProfile) map[string]string {
 	bindings := make(map[string]string)
-	for _, workflows := range profile.Spec.Workflows.Collections {
-		for alias, binding := range workflows {
-			bindings[alias] = binding.ResourceId
-		}
+	for alias, binding := range profile.Spec.Workflows {
+		bindings[alias] = binding.ResourceId
 	}
 	return bindings
 }

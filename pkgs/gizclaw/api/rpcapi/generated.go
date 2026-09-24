@@ -2429,7 +2429,7 @@ type VolcTenantVoiceProviderData struct {
 type Workflow struct {
 	Name              string                      `json:"name"`
 	I18n              map[string]ResourceI18nText `json:"i18n"`
-	Collection        string                      `json:"collection"`
+	Tags              []string                    `json:"tags"`
 	Driver            WorkflowDriver              `json:"driver"`
 	WorkspaceLangPair *string                     `json:"workspace_lang_pair,omitempty"`
 }
@@ -2450,9 +2450,9 @@ type WorkflowGetResponse struct {
 
 // WorkflowListRequest defines model for WorkflowListRequest.
 type WorkflowListRequest struct {
-	Cursor     *string `json:"cursor,omitempty"`
-	Limit      *int    `json:"limit,omitempty"`
-	Collection string  `json:"collection"`
+	Cursor *string  `json:"cursor,omitempty"`
+	Limit  *int     `json:"limit,omitempty"`
+	Tags   []string `json:"tags,omitempty"`
 }
 
 // WorkflowListResponse defines model for WorkflowListResponse.
@@ -2508,8 +2508,7 @@ type Workspace struct {
 }
 
 type WorkspaceCreateBody struct {
-	Name       string `json:"name"`
-	Collection string `json:"collection"`
+	Name string `json:"name"`
 
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
 	Parameters   *WorkspaceParameters `json:"parameters,omitempty"`
@@ -2625,10 +2624,9 @@ type WorkspaceParametersSetResponse = Workspace
 
 // WorkspaceListRequest defines model for WorkspaceListRequest.
 type WorkspaceListRequest struct {
-	Cursor     *string `json:"cursor,omitempty"`
-	Limit      *int    `json:"limit,omitempty"`
-	Prefix     *string `json:"prefix,omitempty"`
-	Collection string  `json:"collection"`
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+	Prefix *string `json:"prefix,omitempty"`
 }
 
 // WorkspaceListResponse defines model for WorkspaceListResponse.

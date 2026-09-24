@@ -46,7 +46,6 @@ steps:
       method: server.workspace.create
       request:
         name: ${workspace_name}
-        collection: assistants
         workflow_name: eino-speaker-voices
         parameters:
           eino_workspace_parameters:

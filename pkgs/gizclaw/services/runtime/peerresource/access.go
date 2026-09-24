@@ -59,24 +59,28 @@ func bindingMap(values *map[string]apitypes.RuntimeProfileBinding) map[string]ap
 }
 
 func bindingI18n(binding apitypes.RuntimeProfileBinding) map[string]rpcapi.ResourceI18nText {
-	out := make(map[string]rpcapi.ResourceI18nText, len(binding.I18n))
-	for locale, text := range binding.I18n {
+	return projectBindingI18n(binding.I18n)
+}
+
+func workflowBindingI18n(binding apitypes.RuntimeProfileBinding) map[string]rpcapi.ResourceI18nText {
+	return projectBindingI18n(binding.I18n)
+}
+
+func projectBindingI18n(values map[string]apitypes.RuntimeProfileI18nText) map[string]rpcapi.ResourceI18nText {
+	out := make(map[string]rpcapi.ResourceI18nText, len(values))
+	for locale, text := range values {
 		out[locale] = rpcapi.ResourceI18nText{DisplayName: text.DisplayName, Description: text.Description}
 	}
 	return out
 }
 
-func workflowBinding(profile *apitypes.RuntimeProfile, alias string) (string, apitypes.RuntimeProfileBinding, bool) {
+func workflowBinding(profile *apitypes.RuntimeProfile, alias string) (apitypes.RuntimeProfileBinding, bool) {
 	if profile == nil {
-		return "", apitypes.RuntimeProfileBinding{}, false
+		return apitypes.RuntimeProfileBinding{}, false
 	}
 	alias = strings.TrimSpace(alias)
-	for collection, bindings := range profile.Spec.Workflows.Collections {
-		if binding, ok := bindings[alias]; ok {
-			return collection, binding, true
-		}
-	}
-	return "", apitypes.RuntimeProfileBinding{}, false
+	binding, ok := profile.Spec.Workflows[alias]
+	return binding, ok
 }
 
 func pageAliases(aliases []string, cursor *string, requested *int, revision string) ([]string, bool, *string, bool) {
@@ -134,13 +138,11 @@ func profileBindingsFrom(profile *apitypes.RuntimeProfile, kind profileResourceK
 	switch kind {
 	case profileWorkflows:
 		out := make(map[string]string)
-		for _, bindings := range profile.Spec.Workflows.Collections {
-			for alias, binding := range bindings {
-				alias = strings.TrimSpace(alias)
-				value := binding.ResourceId
-				if alias != "" && customid.ValidateResourceID(value) == nil {
-					out[alias] = value
-				}
+		for alias, binding := range profile.Spec.Workflows {
+			alias = strings.TrimSpace(alias)
+			value := binding.ResourceId
+			if alias != "" && customid.ValidateResourceID(value) == nil {
+				out[alias] = value
 			}
 		}
 		return out

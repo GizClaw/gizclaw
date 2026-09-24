@@ -140,8 +140,8 @@ Go SDK 把常用 RPC 暴露为 `gizcli.Client` 的 typed 方法。传入的 requ
 | `GET /gizclaw/v1/device/runtime` | 在线状态、最后在线时间、流量，以及当前运行与切换中的 Workspace |
 | `GET /gizclaw/v1/device/status` | 最近一次上报的电量、充电、音量、静音、GNSS、当前活动、固件版本与 Wi‑Fi / 蜂窝信号 |
 | `GET /gizclaw/v1/device/telemetry/{field}/latest`、`/telemetry`、`/telemetry/aggregate` | 与 Admin telemetry 相同语义的采样查询 |
-| `GET /gizclaw/v1/device/runtime-profile` | 设备绑定的 RuntimeProfile name、revision，以及各 collection 的 workflow name |
-| `GET /gizclaw/v1/device/workspaces`，`DELETE /device/workspaces/{workspaceId}` | 按 collection 与 workflow name 列出设备的 Workspace（如游戏存档），删除其中一个 |
+| `GET /gizclaw/v1/device/runtime-profile` | 设备绑定的 RuntimeProfile name、revision，以及可按 tags 筛选的 Workflow name |
+| `GET /gizclaw/v1/device/workspaces`，`DELETE /device/workspaces/{workspaceId}` | 按 workflow name 列出设备的 Workspace（如游戏存档），删除其中一个 |
 | `GET /gizclaw/v1/device/workspaces/{workspaceId}/history`、`/history/{historyId}/audio.ogg` | 读取 Workspace 的聊天历史与保存的音频 |
 | `GET /gizclaw/v1/device/firmware` | 设备绑定的 Firmware channel 与包 |
 | `GET /gizclaw/v1/device/mhs/v0/manifest` | manifest 定义的硬件状态 key |
@@ -158,9 +158,9 @@ Go SDK 把常用 RPC 暴露为 `gizcli.Client` 的 typed 方法。传入的 requ
 
 `GET /device/firmware` 返回全部已配置 channel。升级前将目标包摘要与 `GET /device/status` 已存储的摘要比较，然后通过 `POST /device/tool/v0/invoke` 调用 `firmware.update`，传入可选 `channel` 及相同的 `sha256`。
 
-`GET /device/runtime-profile` 只返回 RuntimeProfile 的 `name`、`revision` 与 `collections[].workflows[].name`，collection 与 workflow 均按 name 排序；workflow name 即设备调用 `server.workflow.*` 使用的 name，直接取自 RuntimeProfile binding、不校验对应 Workflow 资源是否仍存在；`name`/`revision` 等于 RPC 响应中的 `runtime_profile_name`/`runtime_profile_revision`。封面、描述、显示名称等展示信息不在响应中，调用方按 `<profile name>/<collection>` 与 `<profile name>/<workflow name>` 自行对应；展示顺序同样由调用方决定。
+`GET /device/runtime-profile` 返回 RuntimeProfile 的 `name`、`revision` 与 `workflows[]`（name、tags），Workflow 按 name 排序。可重复传 `tags` 查询参数，返回同时包含全部指定字符串的 Workflow；不传则返回全部。workflow name 即设备调用 `server.workflow.*` 使用的 name，直接取自 RuntimeProfile binding，不校验对应 Workflow 资源是否仍存在。封面、描述、显示名称等展示信息不在响应中。
 
-`GET /device/workspaces` 用同一套名字标识 Workflow：每个 Workspace 带 `collection` 与 `workflow_name`，可以用 `?collection=...&workflow_name=...` 只取某个游戏的存档，再用 `id` 读取 `/history`。响应不含 Admin Workflow ID；Workflow 已从当前 RuntimeProfile 移除时省略 `workflow_name`、`available` 为 `false`。`DELETE /device/workspaces/{workspaceId}` 返回 `202` 后该存档立即从列表消失，历史与状态在后台清理；清理完成前设备用同名重建会得到 `ALREADY_EXISTS`，稍后重试即可。系统 Workspace 不能删除（`409`），别的设备的 Workspace 返回 `404`。
+`GET /device/workspaces` 用 `workflow_name` 标识 Workflow，可以用 `?workflow_name=...` 只取指定 Workflow 的存档，再用 `id` 读取 `/history`。响应不含 Admin Workflow ID；Workflow 已从当前 RuntimeProfile 移除时省略 `workflow_name`、`available` 为 `false`。`DELETE /device/workspaces/{workspaceId}` 返回 `202` 后该存档立即从列表消失，历史与状态在后台清理；清理完成前设备用同名重建会得到 `ALREADY_EXISTS`，稍后重试即可。系统 Workspace 不能删除（`409`），别的设备的 Workspace 返回 `404`。
 
 好友与群组 route 只读写 Server 的社交数据，设备离线或丢失时同样可用。家长把邀请码发给对方时应带 `ttl_seconds`，默认 5 分钟的码往往来不及；已有有效码时只延长有效期，设备正在展示的码不受影响。群组以设备自己的群名寻址，群主不能退群（`409 FRIEND_GROUP_OWNER_CANNOT_LEAVE`），应改为解散；非群主解散返回 `403`。完整错误码见 [Public API](../developing/api/http/public#好友与群组-surface)。
 
