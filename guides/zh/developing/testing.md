@@ -565,6 +565,11 @@ wire type 原样上传，其他音频格式在 RPC 打开前失败；文档不�
 不参与完成判定，不同 StreamID 的文本和音频 EOS 不能拼成一次成功；
 以已持久化用户 transcript 为终止边界的场景显式设为 `transcript`。
 
+`peer_stream.interrupt_after` 从首个非空 assistant 文本或首个有声音频开始计时，
+以先到者为准，且只启动一次。音频 BOS、空 payload 和开头静音不启动计时器；
+到期后 runner 关闭旧 PeerStream、发送打断输入，并按原有 terminal 断言等待结果。
+即使 provider 只输出音频、不输出文字，声明了打断的步骤也会实际发送打断。
+
 `peer_stream.overlap_input: true` 在同一 PeerStream 重复发送声明的音频输入。
 支持 `push-to-talk` 和 `realtime`：第一轮输入发送完成（realtime 包括 VAD 尾部静音）且
 收到第一轮 assistant 有声音频后开始第二轮，不关闭流、不发送显式打断请求。第一轮音频已结束
