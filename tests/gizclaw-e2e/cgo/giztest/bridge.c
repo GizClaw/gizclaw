@@ -518,11 +518,14 @@ static bool query_params(gzc_str_t query, const char *name, gzc_str_t *out, size
   *count = 0;
   while (i < query.len) {
     size_t start = i;
-    while (i < query.len && query.data[i] != '&') i++;
+    while (i < query.len && query.data[i] != '&')
+      i++;
     gzc_str_t pair = gzc_str_from_parts(query.data + start, i - start);
-    if (i < query.len) i++;
+    if (i < query.len)
+      i++;
     if (pair.len > name_len && memcmp(pair.data, name, name_len) == 0 && pair.data[name_len] == '=') {
-      if (*count == cap) return false;
+      if (*count == cap)
+        return false;
       out[(*count)++] = gzc_str_from_parts(pair.data + name_len + 1, pair.len - name_len - 1);
     }
   }
