@@ -79,6 +79,43 @@ func TestWorkspaceMemoryCleanupPurgesCurrentBinding(t *testing.T) {
 	}
 }
 
+func TestWorkspaceMemoryCleanupLeavesPeerScope(t *testing.T) {
+	spec := objectStoreMemorySpec(t)
+	owner := "owner-a"
+	spec.Workspace.OwnerPublicKey = &owner
+	shared := apitypes.FlowcraftMemoryLayoutPolicyScopePeer
+	spec.MemoryLayout.Spec.Flowcraft.Scope = &shared
+	stores := memorystore.NewRegistry()
+	t.Cleanup(func() { _ = stores.Close() })
+	cleanup := workspaceMemoryCleanup{
+		Resolver: retainedMemoryResolverFunc(func(context.Context, string) (agenthost.Spec, error) { return spec, nil }),
+		Stores:   stores, ServerRoot: t.TempDir(),
+	}
+	request, ok, err := cleanup.request(t.Context(), "workspace-a")
+	if err != nil || !ok {
+		t.Fatalf("request = %v, %v", ok, err)
+	}
+	runtime, err := stores.Resolve(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runtime.Store.Observe(t.Context(), memory.Observation{ID: "peer-fact", Facts: []memory.FactCandidate{{Text: "shared"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := runtime.Closer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := cleanup.PurgeWorkspaceMemory(t.Context(), "workspace-a"); err != nil {
+		t.Fatal(err)
+	}
+	if absent, err := cleanup.WorkspaceMemoryAbsent(t.Context(), "workspace-a"); err != nil || !absent {
+		t.Fatalf("WorkspaceMemoryAbsent = %v, %v", absent, err)
+	}
+	if empty, err := stores.WorkspaceMemoryEmpty(t.Context(), request); err != nil || empty {
+		t.Fatalf("shared memory was removed: empty=%v, error=%v", empty, err)
+	}
+}
+
 func TestWorkspaceMemoryCleanupSkipsUnresolvableBindings(t *testing.T) {
 	t.Parallel()
 	for name, resolve := range map[string]func(context.Context, string) (agenthost.Spec, error){

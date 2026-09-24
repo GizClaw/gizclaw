@@ -43,6 +43,7 @@
         "required": ["extraction", "lanes", "write"],
         "additionalProperties": false,
         "properties": {
+          "scope": { "type": "string", "enum": ["workspace", "peer"], "default": "workspace", "description": "Maps Scope.AppID to the Workspace ID or the owner Peer identity (Flowcraft RuntimeID)." },
           "extraction": {
             "$ref": "#/components/schemas/FlowcraftMemoryExtractionPolicy"
           },
@@ -227,6 +228,7 @@
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
+          "scope": { "type": "string", "enum": ["workspace", "peer"], "default": "workspace", "description": "Maps Scope.AppID to the Workspace ID or the owner Peer identity (Mem0 app_id)." },
           "custom_instructions": {
             "type": "string"
           },
@@ -250,6 +252,7 @@
         "required": ["strategies"],
         "additionalProperties": false,
         "properties": {
+          "scope": { "type": "string", "enum": ["workspace", "peer"], "default": "workspace", "description": "Maps Scope.AppID to the Workspace ID or the owner Peer identity (Volc Mem0 app_id)." },
           "strategies": {
             "type": "array",
             "minItems": 1,

@@ -1,4 +1,4 @@
-// Package memorystore constructs one Workspace-owned provider-neutral Memory
+// Package memorystore constructs one Layout-scoped provider-neutral Memory
 // Store from a RuntimeProfile binding and its connection-free MemoryLayout.
 package memorystore
 
@@ -35,6 +35,7 @@ import (
 
 type Request struct {
 	WorkspaceID     string
+	OwnerPublicKey  string
 	ProfileID       string
 	ProfileRevision string
 	BindingName     string
@@ -141,7 +142,7 @@ func buildFlowcraft(ctx context.Context, request Request) (*memoryflowcraft.Stor
 	}
 	switch connectionType {
 	case "flowcraft_bbh":
-		dir, err := managedBindingRoot(request.ServerRoot, request.ProfileID, request.BindingName)
+		dir, err := flowcraftManagedRoot(request)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -158,7 +159,11 @@ func buildFlowcraft(ctx context.Context, request Request) (*memoryflowcraft.Stor
 		if err != nil {
 			return nil, nil, err
 		}
-		return openFlowcraftPostgres(ctx, connection.Dsn, request.WorkspaceID, policy, config)
+		scope, err := ScopeForRequest(request)
+		if err != nil {
+			return nil, nil, err
+		}
+		return openFlowcraftPostgres(ctx, connection.Dsn, scope, policy, config)
 	case "flowcraft_redis8":
 		connection, err := request.Binding.Connection.AsRuntimeProfileFlowcraftRedis8Connection()
 		if err != nil {
@@ -171,19 +176,30 @@ func buildFlowcraft(ctx context.Context, request Request) (*memoryflowcraft.Stor
 }
 
 func managedBindingRoot(serverRoot, profileID, bindingName string) (string, error) {
+	return managedMemoryRoot(serverRoot, "memory", profileID, bindingName)
+}
+
+func flowcraftManagedRoot(request Request) (string, error) {
+	if flowcraftPeerScope(request) {
+		return managedMemoryRoot(request.ServerRoot, "peer-memory", request.ProfileID, customid.OpaquePathSegment(request.Layout.Id))
+	}
+	return managedBindingRoot(request.ServerRoot, request.ProfileID, request.BindingName)
+}
+
+func managedMemoryRoot(serverRoot, namespace, profileID, name string) (string, error) {
 	serverRoot = strings.TrimSpace(serverRoot)
 	if serverRoot == "" {
 		return "", errors.New("memory store: flowcraft_bbh requires the Server Workspace root")
 	}
-	if strings.TrimSpace(profileID) == "" || strings.TrimSpace(profileID) != profileID || !safePathSegment(bindingName) {
+	if strings.TrimSpace(profileID) == "" || strings.TrimSpace(profileID) != profileID || !safePathSegment(name) {
 		return "", errors.New("memory store: RuntimeProfile ID is required and binding alias must be a safe path segment")
 	}
 	absoluteRoot, err := filepath.Abs(serverRoot)
 	if err != nil {
 		return "", fmt.Errorf("memory store: resolve Server Workspace root: %w", err)
 	}
-	base := filepath.Join(absoluteRoot, "data", "memory")
-	target := filepath.Join(base, customid.OpaquePathSegment(profileID), bindingName)
+	base := filepath.Join(absoluteRoot, "data", namespace)
+	target := filepath.Join(base, customid.OpaquePathSegment(profileID), name)
 	relative, err := filepath.Rel(base, target)
 	if err != nil || relative == "." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) {
 		return "", errors.New("memory store: managed binding path escapes the Server Workspace root")
@@ -223,8 +239,21 @@ func rejectSymlinkPath(root, target string) error {
 }
 
 func flowcraftRedis8Prefix(request Request) string {
-	sum := sha256.Sum256([]byte(request.ProfileID + "\x00" + request.BindingName))
-	return "gizclaw:flowcraft:redis8:" + hex.EncodeToString(sum[:16])
+	identity := request.BindingName
+	namespace := ""
+	if flowcraftPeerScope(request) {
+		identity = request.Layout.Id
+		namespace = "peer:"
+	}
+	sum := sha256.Sum256([]byte(request.ProfileID + "\x00" + identity))
+	return "gizclaw:flowcraft:redis8:" + namespace + hex.EncodeToString(sum[:16])
+}
+
+func flowcraftPeerScope(request Request) bool {
+	if scope := request.Layout.Spec.Flowcraft.Scope; scope != nil && *scope == apitypes.FlowcraftMemoryLayoutPolicyScopePeer {
+		return true
+	}
+	return false
 }
 
 func openFlowcraftRedis8(
@@ -369,7 +398,7 @@ func openFlowcraftLocal(ctx context.Context, dir string, policy apitypes.Flowcra
 	return store, multiCloser(append(owned, store)), nil
 }
 
-func openFlowcraftPostgres(ctx context.Context, dsn, workspaceID string, policy apitypes.FlowcraftMemoryLayoutPolicy, config memoryflowcraft.Config) (*memoryflowcraft.Store, io.Closer, error) {
+func openFlowcraftPostgres(ctx context.Context, dsn string, scope memory.Scope, policy apitypes.FlowcraftMemoryLayoutPolicy, config memoryflowcraft.Config) (*memoryflowcraft.Store, io.Closer, error) {
 	backend, err := flowpostgres.Open(ctx, dsn)
 	if err != nil {
 		return nil, nil, err
@@ -394,7 +423,7 @@ func openFlowcraftPostgres(ctx context.Context, dsn, workspaceID string, policy 
 	if err != nil {
 		return fail(err)
 	}
-	if err := store.Rebuild(ctx, memory.Scope{AppID: workspaceID}); err != nil {
+	if err := store.Rebuild(ctx, scope); err != nil {
 		return fail(errors.Join(err, store.Close()))
 	}
 	return store, multiCloser(append(owned, store)), nil

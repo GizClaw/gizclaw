@@ -36,6 +36,12 @@ type OwnerBindingCleanup interface {
 	DeleteOwnerProfileBinding(context.Context, string) error
 }
 
+// PeerMemoryCleanup removes shared memories after child Workspaces have retired.
+type PeerMemoryCleanup interface {
+	PurgePeerMemory(context.Context, string) error
+	PeerMemoryAbsent(context.Context, string) (bool, error)
+}
+
 type PeerQuiescer interface {
 	QuiescePeer(context.Context, giznet.PublicKey) error
 }
@@ -67,6 +73,7 @@ type DeletionHandler struct {
 	Workspaces        WorkspaceRetirement
 	APIKeys           PeerAPIKeyCleanup
 	RuntimeProfiles   OwnerBindingCleanup
+	Memory            PeerMemoryCleanup
 	Quiescer          PeerQuiescer
 	WorkspaceLookup   pendingdeletion.LookupSource
 	FriendGroupLookup pendingdeletion.LookupSource
@@ -80,7 +87,7 @@ func (h DeletionHandler) Handle(ctx context.Context, claim pendingdeletion.Claim
 	if err != nil {
 		return pendingdeletion.Terminal("invalid_peer_marker", "Peer deletion marker is invalid", err)
 	}
-	if h.Server == nil || h.Social == nil || h.Workspaces == nil || h.APIKeys == nil || h.RuntimeProfiles == nil || h.Quiescer == nil || h.WorkspaceLookup == nil || h.FriendGroupLookup == nil {
+	if h.Server == nil || h.Social == nil || h.Workspaces == nil || h.APIKeys == nil || h.RuntimeProfiles == nil || h.Memory == nil || h.Quiescer == nil || h.WorkspaceLookup == nil || h.FriendGroupLookup == nil {
 		return pendingdeletion.Retryable("service_unavailable", "Peer retirement adapter is unavailable", nil)
 	}
 	now := time.Now().UTC()
@@ -109,6 +116,16 @@ func (h DeletionHandler) Handle(ctx context.Context, claim pendingdeletion.Claim
 		return pendingdeletion.Retryable("workspace_verify_failed", "Peer Workspace cleanup could not be verified", err)
 	} else if pending {
 		return pendingdeletion.Deferred("workspace_cleanup_pending", "Peer Workspace cleanup is still completing", peerRetirementPollInterval)
+	}
+	if err := h.Memory.PurgePeerMemory(ctx, publicKey.String()); err != nil {
+		return pendingdeletion.Retryable("memory_cleanup_failed", "Peer shared memory could not be purged", err)
+	}
+	absent, err := h.Memory.PeerMemoryAbsent(ctx, publicKey.String())
+	if err != nil {
+		return pendingdeletion.Retryable("memory_verify_failed", "Peer shared memory cleanup could not be verified", err)
+	}
+	if !absent {
+		return pendingdeletion.Deferred("memory_cleanup_pending", "Peer shared memory cleanup is still completing", peerRetirementPollInterval)
 	}
 	if err := h.RuntimeProfiles.DeleteOwnerProfileBinding(ctx, publicKey.String()); err != nil {
 		return pendingdeletion.Retryable("binding_cleanup_failed", "Peer RuntimeProfile binding cleanup failed", err)

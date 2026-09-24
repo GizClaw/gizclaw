@@ -1050,6 +1050,10 @@ export type FlowcraftMemoryLanePolicy = {
 };
 
 export type FlowcraftMemoryLayoutPolicy = {
+    /**
+     * Maps Scope.AppID to the Workspace ID or the owner Peer identity (Flowcraft RuntimeID).
+     */
+    scope?: 'workspace' | 'peer';
     extraction: FlowcraftMemoryExtractionPolicy;
     embedding?: FlowcraftMemoryModelPolicy;
     rerank?: FlowcraftMemoryModelPolicy;
@@ -1069,6 +1073,10 @@ export type FlowcraftMemoryWritePolicy = {
 };
 
 export type Mem0MemoryLayoutPolicy = {
+    /**
+     * Maps Scope.AppID to the Workspace ID or the owner Peer identity (Mem0 app_id).
+     */
+    scope?: 'workspace' | 'peer';
     custom_instructions?: string;
     custom_categories?: {
         [key: string]: string;
@@ -1089,6 +1097,10 @@ export type MemoryLayoutSpec = {
 };
 
 export type VolcMem0MemoryLayoutPolicy = {
+    /**
+     * Maps Scope.AppID to the Workspace ID or the owner Peer identity (Volc Mem0 app_id).
+     */
+    scope?: 'workspace' | 'peer';
     strategies: Array<VolcMem0Strategy>;
 };
 

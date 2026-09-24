@@ -79,7 +79,7 @@ Host process 在启动时解析一次 `agent_host` Server Config 引用，并把
 
 `runtime_store` ObjectStore 持久化 Workspace runtime metadata 与 runtime object；Workspace History 的文本和结构化 metadata 由 `services.workspace.history_store` 持久化，二进制 replay asset 则使用独立的 `services.workspace.history_assets_store` ObjectStore。Flowcraft 接收相互独立且可选的 State、内部 History、Memory-object 与 provider-neutral Memory capability。Pet 委托给相同的已注册 inner-driver factory。Eino 只接收可选的 provider-neutral Memory capability；产品层不暴露持久化 Eino State 与 History。
 
-Flowcraft 与 Eino 在已配置的 Memory Store 上只绑定 Workspace 这一层 App 边界。通用 Scope 的各维度仍然独立：Agent 逻辑可以保留自己的 User、Agent 与 Run 值，AgentHost 绝不会用 Peer public key 替代 UserID。Flowcraft 优先选择已配置 Store，而不是内嵌 provider；Eino 只有在 Workflow 声明 Memory policy 时才强制要求该 Store。
+Flowcraft 与 Eino 在已配置的 Memory Store 上按当前 driver 的 MemoryLayout scope 策略绑定 Workspace 或 owner Peer App 边界。通用 Scope 的各维度仍然独立：Agent 逻辑可以保留自己的 User、Agent 与 Run 值，AgentHost 绝不会用 Peer public key 替代 UserID。Flowcraft 优先选择已配置 Store，而不是内嵌 provider；Eino 只有在 Workflow 声明 Memory policy 时才强制要求该 Store。
 
 这些绑定属于 process-start configuration。Reload 会根据当前 Workflow 与 Workspace resource 重建 Agent，但不会 hot-swap 共享 Store 依赖。修改绑定后必须重启 Server，已有数据不会自动移动。
 

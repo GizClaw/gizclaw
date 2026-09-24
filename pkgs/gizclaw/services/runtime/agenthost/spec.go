@@ -23,14 +23,14 @@ type Spec struct {
 	ToolInvoker genx.ToolInvoker
 	// SafetyFencePrompt is the complete selected RuntimeProfile prompt for this generation.
 	SafetyFencePrompt string
-	// Memory is the Workspace-bound provider-neutral Store selected through
+	// Memory is the Layout-bound provider-neutral Store selected through
 	// the current RuntimeProfile. MemoryCloser belongs to this Agent generation.
 	Memory       memory.Store
 	MemoryKind   string
 	MemoryCloser io.Closer
 	// MemoryBinding and MemoryLayout are the owner RuntimeProfile snapshot
 	// selected for Workflow.Spec.Memory. A peer-local factory turns them into
-	// one Workspace-bound Store generation.
+	// one Layout-bound Store generation.
 	MemoryBinding *apitypes.RuntimeProfileMemoryBinding
 	MemoryLayout  *apitypes.MemoryLayout
 	// MemoryName is the stable RuntimeProfile binding alias. It identifies the

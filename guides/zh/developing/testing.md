@@ -204,6 +204,23 @@ interoperability risk；只完成 tagged compile 不能算 live pass。
 
 ### Remote Memory scope purge
 
+`flowcraft-memory-scope.peer-and-workspace.giztest.yaml` 在 Docker Giztest 的真实
+Server/Peer/Redis 8 路径上创建同一 Peer 的两个共享 Workspace（两个 binding alias
+指向同一 Layout）、一个隔离 Workspace，以及另一 Peer 的共享 Workspace。它写入带
+随机标记的 direct Fact，并断言跨 alias 命中、双向隔离，以及删除一个共享 Workspace
+后另一个仍能命中；最终删除测试 Peer。单独的
+`TestFlowcraftPeerScopeRedis8CrossAlias` 可用 `FLOWCRAFT_REDIS8_URL` 对真实 Redis 8
+验证两个 alias 复用物理 namespace，并校验 purge。
+
+真实火山云项目的 `TestVolcMemoryLayoutScopeRouting` 使用产品 `memorystore.Registry`
+和带唯一运行标记的 direct Fact，验证当前 Layout 的 Peer/Workspace scope、另一 Peer
+隔离、跨 Workspace 召回与清理。它要求
+`GIZCLAW_MEMORY_PROVIDER=volc-mem0`、`GIZCLAW_VOLC_MEM0_PROJECT_ID`、
+`GIZCLAW_VOLC_MEM0_ENDPOINT` 和 `GIZCLAW_VOLC_MEM0_API_KEY`；project ID 必须与
+data-plane key 对应。测试 host 必须能解析并访问该项目的 VPC endpoint。测试通过
+`-tags=store_e2e -run '^TestVolcMemoryLayoutScopeRouting$'` 显式选择，不进入普通
+`go test ./...`。
+
 同一个 tagged package 包含 `TestMemoryScopePurge`，用真实的 Mem0 系 provider 校验
 Workspace 删除时的 memory purge。通过 `GIZCLAW_MEMORY_PROVIDER` 选择：
 

@@ -39,7 +39,7 @@ func TestPeerDeletionFinalizesExactPermanentTombstone(t *testing.T) {
 	adapters := &peerDeletionAdapters{publicKey: key.String()}
 	handler := DeletionHandler{
 		Server: server, Source: source, Social: adapters, Workspaces: adapters,
-		APIKeys: adapters, RuntimeProfiles: adapters, Quiescer: adapters,
+		APIKeys: adapters, RuntimeProfiles: adapters, Memory: adapters, Quiescer: adapters,
 		WorkspaceLookup: emptyPeerLookup{}, FriendGroupLookup: emptyPeerLookup{},
 		Now: func() time.Time { return claim.UpdatedAt.Add(time.Second) },
 	}
@@ -110,6 +110,16 @@ type peerDeletionAdapters struct {
 	sessionCalls int
 	bindingCalls int
 	quiesceCalls int
+	memoryAbsent *bool
+}
+
+func (*peerDeletionAdapters) PurgePeerMemory(context.Context, string) error { return nil }
+
+func (a *peerDeletionAdapters) PeerMemoryAbsent(context.Context, string) (bool, error) {
+	if a.memoryAbsent != nil {
+		return *a.memoryAbsent, nil
+	}
+	return true, nil
 }
 
 func (a *peerDeletionAdapters) SnapshotPeerSocial(context.Context, string) (social.PeerSnapshot, error) {
@@ -189,7 +199,7 @@ func TestPeerDeletionRejectsLegacyRetirementPlan(t *testing.T) {
 	adapters := &peerDeletionAdapters{publicKey: key.String()}
 	handler := DeletionHandler{
 		Server: server, Source: source, Social: adapters, Workspaces: adapters,
-		APIKeys: adapters, RuntimeProfiles: adapters, Quiescer: adapters,
+		APIKeys: adapters, RuntimeProfiles: adapters, Memory: adapters, Quiescer: adapters,
 		WorkspaceLookup: emptyPeerLookup{}, FriendGroupLookup: emptyPeerLookup{},
 		Now: func() time.Time { return claim.UpdatedAt.Add(time.Second) },
 	}
@@ -238,7 +248,7 @@ func TestPeerDeletionKeepsRuntimeProfileBindingWhileWorkspaceCleanupIsPending(t 
 	adapters := pendingWorkspaceAdapters{peerDeletionAdapters: base}
 	handler := DeletionHandler{
 		Server: server, Source: source, Social: base, Workspaces: adapters,
-		APIKeys: base, RuntimeProfiles: base, Quiescer: base,
+		APIKeys: base, RuntimeProfiles: base, Memory: base, Quiescer: base,
 		WorkspaceLookup: pendingWorkspaceLookup{}, FriendGroupLookup: emptyPeerLookup{},
 		Now: func() time.Time { return claim.UpdatedAt.Add(time.Second) },
 	}
@@ -249,5 +259,34 @@ func TestPeerDeletionKeepsRuntimeProfileBindingWhileWorkspaceCleanupIsPending(t 
 	}
 	if base.bindingCalls != 0 {
 		t.Fatalf("RuntimeProfile binding deleted %d times while Workspace cleanup was pending", base.bindingCalls)
+	}
+}
+
+func TestPeerDeletionKeepsBindingWhileSharedMemoryRemains(t *testing.T) {
+	ctx := t.Context()
+	store := kv.NewMemory(nil)
+	server := &Server{Store: store}
+	key := giznet.PublicKey{23}
+	saveTestPeer(t, server, key, apitypes.DeviceInfo{})
+	if err := server.DeleteSelf(ctx, key); err != nil {
+		t.Fatal(err)
+	}
+	source := PendingDeletionSource(store)
+	claim := claimPeerDeletion(t, source, time.Now().Add(time.Second))
+	remaining := false
+	adapters := &peerDeletionAdapters{publicKey: key.String(), memoryAbsent: &remaining}
+	handler := DeletionHandler{
+		Server: server, Source: source, Social: adapters, Workspaces: adapters,
+		APIKeys: adapters, RuntimeProfiles: adapters, Memory: adapters, Quiescer: adapters,
+		WorkspaceLookup: emptyPeerLookup{}, FriendGroupLookup: emptyPeerLookup{},
+		Now: func() time.Time { return claim.UpdatedAt.Add(time.Second) },
+	}
+	err := handler.Handle(ctx, claim)
+	var outcome *pendingdeletion.OutcomeError
+	if !errors.As(err, &outcome) || outcome.Code != "memory_cleanup_pending" {
+		t.Fatalf("Handle() error = %v, want pending shared memory", err)
+	}
+	if adapters.bindingCalls != 0 {
+		t.Fatalf("RuntimeProfile binding removed before shared memory: %d", adapters.bindingCalls)
 	}
 }

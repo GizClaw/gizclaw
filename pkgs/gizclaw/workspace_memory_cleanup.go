@@ -29,12 +29,20 @@ func (c workspaceMemoryCleanup) PurgeWorkspaceMemory(ctx context.Context, worksp
 	if err != nil || !ok {
 		return err
 	}
+	shared, err := memorystore.PeerScoped(request)
+	if err != nil || shared {
+		return err
+	}
 	return c.Stores.PurgeWorkspace(ctx, request)
 }
 
 func (c workspaceMemoryCleanup) WorkspaceMemoryAbsent(ctx context.Context, workspaceID string) (bool, error) {
 	request, ok, err := c.request(ctx, workspaceID)
 	if err != nil || !ok {
+		return err == nil, err
+	}
+	shared, err := memorystore.PeerScoped(request)
+	if err != nil || shared {
 		return err == nil, err
 	}
 	return c.Stores.WorkspaceMemoryEmpty(ctx, request)
@@ -56,6 +64,7 @@ func (c workspaceMemoryCleanup) request(ctx context.Context, workspaceID string)
 	}
 	return memorystore.Request{
 		WorkspaceID:     workspaceID,
+		OwnerPublicKey:  ownerPublicKey(spec.Workspace.OwnerPublicKey),
 		ProfileID:       spec.MemoryProfileID,
 		ProfileRevision: spec.MemoryProfileRevision,
 		BindingName:     spec.MemoryName,
@@ -63,4 +72,11 @@ func (c workspaceMemoryCleanup) request(ctx context.Context, workspaceID string)
 		Binding:         *spec.MemoryBinding,
 		ServerRoot:      c.ServerRoot,
 	}, true, nil
+}
+
+func ownerPublicKey(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }

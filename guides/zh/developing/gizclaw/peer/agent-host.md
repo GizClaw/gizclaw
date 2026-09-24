@@ -17,8 +17,7 @@
 Resolver 从 Workspace Workflow 顶层 `memory` 读取 alias，并在同一个 owner
 RuntimeProfile snapshot 中解析 `MemoryLayout`、driver 与 typed connection。
 Flowcraft 与 Eino factory 消费同一个 provider-neutral `memory.Store` contract；
-Graph node 决定 Recall/Observe 映射。Workspace ID 是 `Scope.AppID`，Peer
-identity 和 public key 不会替换成 `Scope.UserID`。
+Graph node 决定 Recall/Observe 映射。MemoryLayout 决定 `Scope.AppID` 映射到 Workspace ID 或 owner Peer 的共享身份；Peer identity 和 public key 不会替换成 `Scope.UserID`。
 
 Runtime Registry 只以 Workspace 为 live Agent identity。同一 Workspace 的多个
 stream 共用一个可并发 Agent；最后一个引用释放后关闭 generation，reload 后按新

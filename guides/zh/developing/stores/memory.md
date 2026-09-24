@@ -87,7 +87,7 @@ Eino `memory_observe` node 会为每个 Graph 写入的 direct Fact 分配由当
 
 Memory 不再是 Server Config 中的 `stores.kind: memory`。Portable policy、部署连接和 Graph 消费行为分属三个资源面：
 
-- Admin `MemoryLayout` 同时声明 Flowcraft、Mem0 和 `volc_mem0` 的 provider policy，不包含 endpoint、API key、DSN 或目录。
+- Admin `MemoryLayout` 同时声明 Flowcraft、Mem0 和 `volc_mem0` 的 provider policy，不包含 endpoint、API key、DSN 或目录。每种实现独立配置 `scope: workspace|peer`；省略时使用现有的 Workspace 隔离行为。
 - RuntimeProfile 的 `resources.memories.<alias>` 选择 Layout、实际 driver 和严格类型化 connection。Connection 中的 endpoint、API key、project ID、DSN 或目录直接属于该 RuntimeProfile，不引用 Credential 资源。
 - Workflow 顶层 `memory` 只引用 RuntimeProfile alias。Graph 的 `memory_recall` / `memory_observe` node 决定何时读写、query 从哪里来、结果写到哪里，以及如何从 turn 或 state 构造 fact；这些映射不属于 MemoryLayout。
 
@@ -98,6 +98,7 @@ metadata:
   name: pet-memory
 spec:
   flowcraft:
+    scope: peer
     extraction:
       enabled: true
       model: pet-care.extract
@@ -111,8 +112,10 @@ spec:
       mode: sync
       tier: general
   mem0:
+    scope: peer
     custom_instructions: Extract durable pet and owner facts.
   volc_mem0:
+    scope: peer
     strategies:
     - name: owner-profile
       type: user_preference
@@ -176,9 +179,9 @@ spec:
       - {from: observe-turn, to: __end__}
 ```
 
-同一 Workspace 的所有 stream 共用一个 Agent generation。数据可见性的稳定边界是同一 Workspace AppID、同一 memory driver 和同一 RuntimeProfile memory binding 指向的物理 connection。修改 extraction、recall、write、prompt、`top_k` 或 mode 不改变 canonical data；Flowcraft 派生索引 policy 改变时，从 canonical facts 在 staging index 中重建，成功后原子发布，失败不会发布部分或混合索引。切换 driver 或 binding 可以切换物理数据源，不自动迁移或删除；切回仍存在的原 connection 后可以重新访问原数据。
+同一 Workspace 的所有 stream 共用一个 Agent generation。MemoryLayout 中当前 driver 的 `scope` 决定长期记忆归属：`workspace` 将 Workspace ID 映射到公共 `Scope.AppID`；`peer` 将 Workspace owner Peer public key 派生为保留的 Peer AppID。Flowcraft 将 AppID 映射到 RuntimeID，Mem0 Platform 与火山云映射到 app_id；自托管 Mem0 将完整逻辑 Scope 编码到原生 user_id。读、写、统计与清理使用相同映射，Workflow Graph 和记忆节点不感知归属。不同 Workspace 要共享同一 Peer 记忆，还必须使用同一个物理数据空间：Flowcraft Peer scope 的同一 RuntimeProfile、同一 Layout 与同一连接会跨 binding alias 复用物理空间；托管本地目录放在独立的 `data/peer-memory` 根目录，Redis 8 使用独立的 `peer:` namespace，避免与同名 Workspace alias 冲突。Workspace scope 仍按 alias 隔离。Mem0/火山云须路由到同一 provider project；相同 Peer AppID 不会跨不同物理连接自动合并数据。切换 driver、binding 或 scope 不迁移旧数据。
 
-删除 Workspace 会不可逆地清除它在当前 memory binding 中的长期记忆。Workspace deletion handler 在 quiesce runtime 后，通过 retained Workspace row、Workflow `memory` alias 与 owner 当前 RuntimeProfile 解析 binding，调用 `Registry.PurgeWorkspace` 删除 `Scope{AppID: <Workspace ID>}`，只有 `Registry.WorkspaceMemoryEmpty` 确认为空后才 finalize；仍有残留时返回 retryable `memory_residual` 并在下次重试时再次 purge。该 purge 以 maintenance 模式打开与 runtime 共享的物理 backend：不加载 model，也不重建派生索引，因此 owner 的 model catalog 不可用时仍可 purge；本地派生索引 policy 过期时保留已发布的 manifest，由下一个 runtime Store 负责重建。Workspace、Workflow、owner RuntimeProfile、memory alias 或 MemoryLayout 已不存在时，没有可解析的当前 binding，handler 视为无需清除；resolver 或 provider 的临时失败保持 retryable；provider 无法表达的 scope 以 terminal `memory_cleanup_unsupported` 停止，交由运维处理。GizClaw 不记录 binding 历史，Workspace 在更早的 driver、connection 或 alias 下写入的数据不会被这次 purge 访问。
+删除 Workspace 时仅清除 `scope: workspace` 的长期记忆；`scope: peer` 的共享记忆在该 Peer 删除时清理并校验。Workspace deletion handler 在 quiesce runtime 后，通过 retained Workspace row、Workflow `memory` alias 与 owner 当前 RuntimeProfile 解析 binding，对于 `scope: workspace` 调用 `Registry.PurgeWorkspace` 删除 `Scope{AppID: <Workspace ID>}`，只有 `Registry.WorkspaceMemoryEmpty` 确认为空后才 finalize；`scope: peer` 的 Workspace 删除不触碰共享记忆；仍有残留时返回 retryable `memory_residual` 并在下次重试时再次 purge。该 purge 以 maintenance 模式打开与 runtime 共享的物理 backend：不加载 model，也不重建派生索引，因此 owner 的 model catalog 不可用时仍可 purge；本地派生索引 policy 过期时保留已发布的 manifest，由下一个 runtime Store 负责重建。Workspace、Workflow、owner RuntimeProfile、memory alias 或 MemoryLayout 已不存在时，没有可解析的当前 binding，handler 视为无需清除；resolver 或 provider 的临时失败保持 retryable；provider 无法表达的 scope 以 terminal `memory_cleanup_unsupported` 停止，交由运维处理。GizClaw 不记录 binding 历史，Workspace 在更早的 driver、connection 或 alias 下写入的数据不会被这次 purge 访问。
 
 ## Ownership 与错误
 
