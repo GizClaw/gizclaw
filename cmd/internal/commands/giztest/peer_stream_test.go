@@ -76,6 +76,9 @@ func TestAudioInputChunksKeepRealtimeOpen(t *testing.T) {
 	} {
 		t.Run(tc.mode, func(t *testing.T) {
 			chunks := audioInputChunks(tc.mode, "turn", "audio/opus", [][]byte{{1, 2, 3}})
+			if got := chunks[0].Ctrl.InputMode; got != tc.mode {
+				t.Fatalf("audio BOS input mode = %q, want %q", got, tc.mode)
+			}
 			last := chunks[len(chunks)-1]
 			if got := last.IsEndOfStream(); got != tc.wantEOS {
 				t.Fatalf("last chunk EndOfStream = %t, want %t", got, tc.wantEOS)
@@ -88,6 +91,10 @@ func TestPeerStreamTerminalErrorIsNotInterruption(t *testing.T) {
 	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{Error: "provider quota exceeded"}}
 	if got := peerStreamTerminalError(chunk); got != "provider quota exceeded" {
 		t.Fatalf("terminal error classification = %q", got)
+	}
+	chunk.Ctrl.ErrorCode = "PROVIDER_QUOTA_EXCEEDED"
+	if got := peerStreamTerminalError(chunk); got != "PROVIDER_QUOTA_EXCEEDED: provider quota exceeded" {
+		t.Fatalf("terminal error with code = %q", got)
 	}
 	chunk.Ctrl.Error = "interrupted"
 	if got := peerStreamTerminalError(chunk); got != "" {

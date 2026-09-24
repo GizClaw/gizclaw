@@ -1501,11 +1501,14 @@ func peerStreamTerminalError(chunk *genx.MessageChunk) string {
 	if strings.EqualFold(err, "interrupted") {
 		return ""
 	}
+	if code := strings.TrimSpace(chunk.Ctrl.ErrorCode); code != "" && !strings.Contains(err, code) {
+		return code + ": " + err
+	}
 	return err
 }
 
 func audioInputChunks(mode, streamID, mimeType string, packets [][]byte) []*genx.MessageChunk {
-	chunks := []*genx.MessageChunk{{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: mimeType}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "user", BeginOfStream: true}}}
+	chunks := []*genx.MessageChunk{{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: mimeType}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "user", InputMode: mode, BeginOfStream: true}}}
 	for _, packet := range packets {
 		chunks = append(chunks, &genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: mimeType, Data: packet}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "user"}})
 	}

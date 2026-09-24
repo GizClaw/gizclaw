@@ -47,3 +47,5 @@ PB_BIND(gizclaw_events_v1_FriendGroupUpdated, gizclaw_events_v1_FriendGroupUpdat
 
 
 
+
+

@@ -5,6 +5,7 @@ import {
   type MessageInitShape,
 } from "@bufbuild/protobuf";
 import {
+  AudioInputMode,
   PeerEventSchema,
   PeerEventType,
   StreamKind,
@@ -63,6 +64,7 @@ export function createPeerEvent(
 
 export function beginPeerStream(input: {
   kind: StreamKind;
+  inputMode?: AudioInputMode;
   label?: string;
   mimeType?: string;
   streamId: string;
@@ -77,6 +79,7 @@ export function beginPeerStream(input: {
         kind: input.kind,
         label: input.label ?? "",
         mimeType: input.mimeType ?? "",
+        inputMode: input.inputMode ?? AudioInputMode.UNSPECIFIED,
       },
     },
   });
@@ -294,6 +297,7 @@ export function beginPeerAudioInput(
 }
 
 export type ContinuousAudioRoute = {
+  inputMode?: AudioInputMode;
   label?: string;
   mimeType?: string;
   streamId: string;
@@ -413,7 +417,12 @@ function normalizeContinuousAudioRoute(
   if (!mimeType.startsWith("audio/")) {
     throw new Error("continuous audio route requires an audio MIME type");
   }
-  return { streamId, label, mimeType };
+  return {
+    streamId,
+    label,
+    mimeType,
+    inputMode: route.inputMode ?? AudioInputMode.UNSPECIFIED,
+  };
 }
 
 function normalizeMIMEType(value: string | undefined): string {

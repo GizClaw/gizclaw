@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:fixnum/fixnum.dart';
 
 import 'generated/events/peer_event.pb.dart' as events;
+import 'generated/events/peer_event.pbenum.dart' show AudioInputMode;
 import 'rpc_frame.dart';
 import 'transport.dart';
 
@@ -18,6 +19,7 @@ class PeerStreamEvent {
     this.errorCode,
     this.errorMessage,
     this.errorRetryable = false,
+    this.inputMode = events.AudioInputMode.AUDIO_INPUT_MODE_UNSPECIFIED,
     Object? kind,
     this.label,
     this.lastUpdatedAt,
@@ -33,6 +35,7 @@ class PeerStreamEvent {
          errorCode: errorCode,
          errorMessage: errorMessage,
          errorRetryable: errorRetryable,
+         inputMode: inputMode,
          kind: _streamKind(kind),
          label: label,
          lastUpdatedAt: lastUpdatedAt,
@@ -54,6 +57,9 @@ class PeerStreamEvent {
       errorRetryable = message.hasEos() && message.eos.hasError()
           ? message.eos.error.retryable
           : false,
+      inputMode = message.hasBos()
+          ? message.bos.inputMode
+          : events.AudioInputMode.AUDIO_INPUT_MODE_UNSPECIFIED,
       streamKind = message.hasBos()
           ? message.bos.kind
           : message.hasEos()
@@ -103,6 +109,7 @@ class PeerStreamEvent {
   final String? errorCode;
   final String? errorMessage;
   final bool errorRetryable;
+  final events.AudioInputMode inputMode;
   final events.FriendGroupUpdated? friendGroupUpdated;
   final events.FriendRelationshipUpdated? friendRelationshipUpdated;
   final events.PeerEventType eventType;
@@ -212,7 +219,10 @@ class WorkspaceEventSession {
 
   /// Completes only after the Server authorizes and installs the input route.
   /// Closing this session cancels a pending acknowledgement.
-  Future<void> beginAudio(String streamId) {
+  Future<void> beginAudio(
+    String streamId, {
+    AudioInputMode inputMode = AudioInputMode.AUDIO_INPUT_MODE_UNSPECIFIED,
+  }) {
     if (_closed) {
       throw StateError('workspace event session is closed');
     }
@@ -231,6 +241,7 @@ class WorkspaceEventSession {
           kind: _audioStreamKind,
           label: 'user',
           streamId: streamId,
+          inputMode: inputMode,
         ),
       ).catchError((Object error, StackTrace stackTrace) {
         _pendingAudio.remove(streamId)?.completeError(error, stackTrace);
@@ -340,6 +351,7 @@ events.PeerEvent _buildMessage({
   required String? errorCode,
   required String? errorMessage,
   required bool errorRetryable,
+  required events.AudioInputMode inputMode,
   required events.StreamKind kind,
   required String? label,
   required DateTime? lastUpdatedAt,
@@ -362,6 +374,7 @@ events.PeerEvent _buildMessage({
         mimeType: kind == events.StreamKind.STREAM_KIND_AUDIO
             ? 'audio/opus'
             : '',
+        inputMode: inputMode,
       );
     case events.PeerEventType.PEER_EVENT_TYPE_EOS:
       message.eos = events.StreamEnd(

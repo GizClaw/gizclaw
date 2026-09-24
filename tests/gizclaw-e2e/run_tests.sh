@@ -466,6 +466,28 @@ assert all(step["status"] == "passed" for step in failed["cleanup"])
 PY
 }
 
+run_input_mode_mismatch_giztest() {
+	local report="$script_dir/testdata/giztest-input-mode-mismatch-report.json"
+	if (cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run \
+		"$script_dir/negative/issue1330-realtime-mode-mismatch.giztest.yaml" \
+		--output "$report"); then
+		echo "realtime input on a push-to-talk Workspace unexpectedly passed" >&2
+		return 1
+	fi
+	python3 - "$report" <<'PY'
+import json, sys
+report = json.load(open(sys.argv[1], encoding="utf-8"))
+assert report["status"] == "failed" and len(report["tasks"]) == 1
+task = report["tasks"][0]
+assert task["status"] == "failed"
+assert "WORKSPACE_INPUT_MODE_MISMATCH" in task["error"], task["error"]
+turn = next(step for step in task["steps"] if step["id"] == "exercise_workflow")
+assert turn["status"] == "failed" and turn["duration_ms"] < 5000, turn
+assert len(task["cleanup"]) == 3
+assert all(step["status"] == "passed" for step in task["cleanup"])
+PY
+}
+
 validate_deadlines
 start_full_watchdog
 
@@ -498,6 +520,7 @@ run_timed "cli" run_pkg_serial "./tests/gizclaw-e2e/cmd/..."
 run_timed "terraform" bash "$script_dir/run_terraform_provider_tests.sh"
 run_timed "giztest:standard" run_standard_giztest
 run_timed "giztest:failure-cleanup" run_failure_cleanup_giztest
+run_timed "giztest:input-mode-mismatch" run_input_mode_mismatch_giztest
 run_timed "giztest:c-sdk" run_c_giztest
 
 run_timed "docker:standard-cleanup" bash "$setup_dir/docker-compose-down.sh"

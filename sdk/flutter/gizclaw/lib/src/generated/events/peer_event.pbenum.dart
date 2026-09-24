@@ -89,6 +89,29 @@ class StreamKind extends $pb.ProtobufEnum {
   const StreamKind._(super.value, super.name);
 }
 
+/// Optional on an audio input BOS. Unspecified preserves legacy clients.
+class AudioInputMode extends $pb.ProtobufEnum {
+  static const AudioInputMode AUDIO_INPUT_MODE_UNSPECIFIED =
+      AudioInputMode._(0, _omitEnumNames ? '' : 'AUDIO_INPUT_MODE_UNSPECIFIED');
+  static const AudioInputMode AUDIO_INPUT_MODE_PUSH_TO_TALK = AudioInputMode._(
+      1, _omitEnumNames ? '' : 'AUDIO_INPUT_MODE_PUSH_TO_TALK');
+  static const AudioInputMode AUDIO_INPUT_MODE_REALTIME =
+      AudioInputMode._(2, _omitEnumNames ? '' : 'AUDIO_INPUT_MODE_REALTIME');
+
+  static const $core.List<AudioInputMode> values = <AudioInputMode>[
+    AUDIO_INPUT_MODE_UNSPECIFIED,
+    AUDIO_INPUT_MODE_PUSH_TO_TALK,
+    AUDIO_INPUT_MODE_REALTIME,
+  ];
+
+  static final $core.List<AudioInputMode?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 2);
+  static AudioInputMode? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const AudioInputMode._(super.value, super.name);
+}
+
 class WorkspaceKind extends $pb.ProtobufEnum {
   static const WorkspaceKind WORKSPACE_KIND_UNSPECIFIED =
       WorkspaceKind._(0, _omitEnumNames ? '' : 'WORKSPACE_KIND_UNSPECIFIED');
