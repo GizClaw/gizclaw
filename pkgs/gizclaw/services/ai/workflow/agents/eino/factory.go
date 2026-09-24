@@ -281,7 +281,7 @@ func einoASRPattern(alias string, inputMode apitypes.WorkspaceInputMode) string 
 	// provider-session-open backlog after the PCM packetizer has aggregated it.
 	pattern := "model/" + strings.TrimSpace(alias) + "?realtime_pacing=false"
 	if inputMode == apitypes.WorkspaceInputModeRealtime {
-		return pattern + "&emit_interim=true"
+		return pattern + "&emit_interim=true&end_window_size=200&force_to_speech_time=1000"
 	}
 	return pattern
 }

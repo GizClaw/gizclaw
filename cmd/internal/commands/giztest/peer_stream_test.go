@@ -29,6 +29,43 @@ func testOggOpus(t *testing.T) ([]byte, [][]byte) {
 	return audio.Bytes(), packets
 }
 
+func TestReadPeerStreamTimestampsBeforeObservation(t *testing.T) {
+	stream := newFakeRelayStream()
+	defer func() { _ = stream.Close() }()
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	observingFirst := make(chan struct{})
+	var once sync.Once
+	next := readPeerStreamObserved(ctx, stream, func(*genx.MessageChunk, time.Time, peerAudioClass) {
+		once.Do(func() {
+			close(observingFirst)
+			time.Sleep(200 * time.Millisecond)
+		})
+	})
+	stream.in <- &genx.MessageChunk{Part: genx.Text("first")}
+	select {
+	case <-observingFirst:
+	case <-ctx.Done():
+		t.Fatal("first chunk was not observed")
+	}
+	time.Sleep(20 * time.Millisecond)
+	stream.in <- &genx.MessageChunk{Part: genx.Text("second")}
+	var first, second nextPeerStreamResult
+	select {
+	case first = <-next:
+	case <-ctx.Done():
+		t.Fatal("first chunk was not delivered")
+	}
+	select {
+	case second = <-next:
+	case <-ctx.Done():
+		t.Fatal("second chunk was not delivered")
+	}
+	if got := second.receivedAt.Sub(first.receivedAt); got >= 100*time.Millisecond {
+		t.Fatalf("read gap = %s, want less than 100ms despite slow observation", got)
+	}
+}
+
 func TestAudioInputChunksKeepRealtimeOpen(t *testing.T) {
 	for _, tc := range []struct {
 		mode    string
@@ -1517,6 +1554,9 @@ func TestPeerAudioPacingAcceptsGapsTheBufferCovers(t *testing.T) {
 	}
 	if summary["minimum_buffer_ms"] != float64(80) {
 		t.Fatalf("minimum buffer = %#v, want the 500ms buffer less the 420ms gap", summary["minimum_buffer_ms"])
+	}
+	if summary["buffer_surplus_ms"] != float64(-400) {
+		t.Fatalf("buffer surplus = %#v, want cumulative drift despite continuous playback", summary["buffer_surplus_ms"])
 	}
 	if _, present := summary["underrun_ms"]; !present {
 		t.Fatalf("continuous playback summary lacks underrun_ms: %#v", summary)

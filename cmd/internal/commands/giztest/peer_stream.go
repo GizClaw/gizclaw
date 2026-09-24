@@ -1688,24 +1688,51 @@ func readPeerStream(ctx context.Context, stream peerStream, arrivals *peerStream
 	return readPeerStreamObserved(ctx, stream, arrivals.observe)
 }
 
+// Timestamp reads before Opus audibility decoding and event observation. Those
+// can be delayed under parallel Giztest load; charging their work to the next
+// packet would report a receive gap that did not occur on the PeerStream.
 func readPeerStreamObserved(ctx context.Context, stream peerStream, observe func(*genx.MessageChunk, time.Time, peerAudioClass)) <-chan nextPeerStreamResult {
+	raw := make(chan nextPeerStreamResult, 64)
 	next := make(chan nextPeerStreamResult, 64)
 	go func() {
-		var audibility peerAudioAudibility
-		defer audibility.Close()
+		defer close(raw)
 		for {
 			chunk, err := stream.Next()
-			receivedAt := time.Now()
-			audio := audibility.classify(chunk)
-			if observe != nil {
-				observe(chunk, receivedAt, audio)
-			}
+			result := nextPeerStreamResult{chunk: chunk, err: err, receivedAt: time.Now()}
 			select {
-			case next <- nextPeerStreamResult{chunk: chunk, err: err, receivedAt: receivedAt, audio: audio}:
+			case raw <- result:
 			case <-ctx.Done():
 				return
 			}
 			if err != nil {
+				return
+			}
+		}
+	}()
+	go func() {
+		var audibility peerAudioAudibility
+		defer audibility.Close()
+		for {
+			var result nextPeerStreamResult
+			select {
+			case received, ok := <-raw:
+				if !ok {
+					return
+				}
+				result = received
+			case <-ctx.Done():
+				return
+			}
+			result.audio = audibility.classify(result.chunk)
+			if observe != nil {
+				observe(result.chunk, result.receivedAt, result.audio)
+			}
+			select {
+			case next <- result:
+			case <-ctx.Done():
+				return
+			}
+			if result.err != nil {
 				return
 			}
 		}
