@@ -1552,6 +1552,23 @@ func (t *Transformer) processSession(
 						return err
 					}
 
+				case doubaospeech.EventTTSSegmentEnd:
+					if t.textOutput {
+						continue
+					}
+					var response *doubaoRealtimePTTResponse
+					if pttEvents() {
+						response = pttResponses.matchAudio(doubaoRealtimeEventResponseIdentity(event))
+						if response == nil {
+							continue
+						}
+					} else if !assistant.acceptsOutput() {
+						continue
+					}
+					if state := spokenResponse(response); state != nil {
+						state.ttsSegmentEnded(event.Text)
+					}
+
 				case doubaospeech.EventChatResponse:
 					var response *doubaoRealtimePTTResponse
 					epoch := assistant.currentEpoch()

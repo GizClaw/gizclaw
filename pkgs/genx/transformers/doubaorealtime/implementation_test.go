@@ -1737,6 +1737,47 @@ func TestTransformerPTTEmptyASRHandoffStopsRetryOnCancellation(t *testing.T) {
 	}
 }
 
+func TestTransformerPTTUsesTTSSegmentTextWhenChatTextIsAbsent(t *testing.T) {
+	endASR := make(chan struct{})
+	session := &fakeTransformerSession{
+		beforeRecv: endASR,
+		endASR:     endASR,
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRResponse, Text: "question", QuestionID: "q-1"},
+			{Type: doubaospeech.EventASREnded, QuestionID: "q-1"},
+			{Type: doubaospeech.EventTTSStarted, QuestionID: "q-1", ReplyID: "r-1"},
+			{Type: doubaospeech.EventTTSSegmentEnd, Text: "spoken answer", QuestionID: "q-1", ReplyID: "r-1"},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{1, 2}, QuestionID: "q-1", ReplyID: "r-1"},
+			{Type: doubaospeech.EventChatEnded, QuestionID: "q-1", ReplyID: "r-1"},
+			{Type: doubaospeech.EventTTSFinished, QuestionID: "q-1", ReplyID: "r-1"},
+		},
+		blockAfterEvents: make(chan struct{}),
+	}
+	transformer := newTransformer(nil,
+		withDoubaoRealtimeOpener(&fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}),
+		withMode(ModePushToTalk), withInputFormat("pcm"), withInputTranscode(false), withFormat("pcm"),
+	)
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	input := newBufferStream(8)
+	output, err := transformer.transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	pushPTTTestTurn(t, input, "turn-1", 1)
+	if err := input.Close(); err != nil {
+		t.Fatalf("Close(input) error = %v", err)
+	}
+	chunks := drainRealtimeTestOutput(t, output)
+	if got := realtimeTestAssistantTexts(chunks); !slices.Equal(got, []string{"spoken answer"}) {
+		t.Fatalf("assistant texts = %q, want segment text", got)
+	}
+	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/x-pcm; rate=16000; channels=1; format=s16le") {
+		t.Fatalf("output missing assistant audio: %#v", chunks)
+	}
+	requireRealtimeOwnedRouteLifecycles(t, chunks, genx.RoleModel, doubaoRealtimeAssistantLabel, 2)
+}
+
 func TestTransformerPTTSemanticResponseDoesNotUseRealtimeDeadline(t *testing.T) {
 	endASR := make(chan struct{})
 	const idleTimeout = 20 * time.Millisecond
@@ -1942,6 +1983,128 @@ func TestTransformerTextDrainsFinalResponseAfterInputEOF(t *testing.T) {
 	}
 }
 
+func TestTransformerUsesTTSSegmentTextWhenChatTextIsAbsent(t *testing.T) {
+	for _, terminalOrder := range []struct {
+		name   string
+		events []*doubaospeech.RealtimeEvent
+	}{
+		{name: "chat ends first", events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventChatEnded},
+			{Type: doubaospeech.EventTTSFinished},
+		}},
+		{name: "tts ends first", events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventTTSFinished},
+			{Type: doubaospeech.EventChatEnded},
+		}},
+	} {
+		t.Run(terminalOrder.name, func(t *testing.T) {
+			textSent := make(chan struct{})
+			events := []*doubaospeech.RealtimeEvent{
+				{Type: doubaospeech.EventTTSStarted},
+				{Type: doubaospeech.EventTTSSegmentEnd, Text: "spoken sentence"},
+				{Type: doubaospeech.EventTTSAudioData, Audio: []byte{1, 2}},
+			}
+			events = append(events, terminalOrder.events...)
+			session := &fakeTransformerSession{
+				beforeRecv: textSent, firstTextSent: textSent,
+				blockAfterEvents: make(chan struct{}), events: events,
+			}
+			transformer := newTransformer(nil,
+				withDoubaoRealtimeOpener(&fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}),
+				withMode(ModeText), withFormat("pcm"),
+			)
+			ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+			defer cancel()
+			output, err := transformer.transform(ctx, &sliceRealtimeStream{chunks: []*genx.MessageChunk{{Part: genx.Text("question")}}})
+			if err != nil {
+				t.Fatalf("Transform() error = %v", err)
+			}
+			chunks := drainRealtimeTestOutput(t, output)
+			var texts []string
+			var textEOS, audioEOS int
+			streamID := ""
+			for _, chunk := range chunks {
+				if chunk == nil || chunk.Role != genx.RoleModel || chunk.Ctrl == nil || chunk.Ctrl.Label != doubaoRealtimeAssistantLabel {
+					continue
+				}
+				if streamID == "" {
+					streamID = chunk.Ctrl.StreamID
+				} else if chunk.Ctrl.StreamID != streamID {
+					t.Fatalf("assistant stream ID = %q, want %q", chunk.Ctrl.StreamID, streamID)
+				}
+				switch part := chunk.Part.(type) {
+				case genx.Text:
+					if part != "" {
+						texts = append(texts, string(part))
+					}
+					if chunk.IsEndOfStream() {
+						textEOS++
+					}
+				case *genx.Blob:
+					if chunk.IsEndOfStream() {
+						audioEOS++
+					}
+				}
+			}
+			if !slices.Equal(texts, []string{"spoken sentence"}) || textEOS != 1 || audioEOS != 1 {
+				t.Fatalf("assistant text=%q text EOS=%d audio EOS=%d, want segment text and one terminal per route", texts, textEOS, audioEOS)
+			}
+		})
+	}
+}
+
+func TestTransformerRealtimeUsesTTSSegmentTextWhenChatTextIsAbsent(t *testing.T) {
+	firstAudioSent := make(chan struct{})
+	eventsDrained := make(chan struct{})
+	session := &fakeTransformerSession{
+		beforeRecv:       firstAudioSent,
+		firstAudioSent:   firstAudioSent,
+		eventsDrained:    eventsDrained,
+		blockAfterEvents: make(chan struct{}),
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRResponse, Text: "question"},
+			{Type: doubaospeech.EventASREnded},
+			{Type: doubaospeech.EventTTSStarted},
+			{Type: doubaospeech.EventTTSSegmentEnd, Text: "spoken answer"},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{1, 2}},
+			{Type: doubaospeech.EventChatEnded},
+			{Type: doubaospeech.EventTTSFinished},
+		},
+	}
+	transformer := newTransformer(nil,
+		withDoubaoRealtimeOpener(&fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}),
+		withMode(ModeRealtime), withInputFormat("pcm"), withInputTranscode(false), withFormat("pcm"),
+	)
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	input := newBufferStream(8)
+	output, err := transformer.transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	for _, chunk := range pttTestTurn("turn-1", 1) {
+		if err := input.Push(chunk); err != nil {
+			t.Fatalf("Push(input) error = %v", err)
+		}
+	}
+	select {
+	case <-eventsDrained:
+	case <-ctx.Done():
+		t.Fatalf("provider response did not finish: %v", ctx.Err())
+	}
+	if err := input.Close(); err != nil {
+		t.Fatalf("Close(input) error = %v", err)
+	}
+	chunks := drainRealtimeTestOutput(t, output)
+	if got := realtimeTestAssistantTexts(chunks); !slices.Equal(got, []string{"spoken answer"}) {
+		t.Fatalf("assistant texts = %q, want segment text", got)
+	}
+	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/x-pcm; rate=16000; channels=1; format=s16le") {
+		t.Fatalf("output missing assistant audio: %#v", chunks)
+	}
+	requireRealtimeOwnedRouteLifecycles(t, chunks, genx.RoleModel, doubaoRealtimeAssistantLabel, 2)
+}
+
 func TestTransformerTextSubmitsOneMessageAtInputEOS(t *testing.T) {
 	textSent := make(chan struct{})
 	session := &fakeTransformerSession{
@@ -1981,6 +2144,7 @@ func TestTransformerTextPublishesTTSCanonicalTextWithSingleAudioRoute(t *testing
 		events: []*doubaospeech.RealtimeEvent{
 			{Type: doubaospeech.EventChatResponse, Text: "chat duplicate"},
 			{Type: doubaospeech.EventTTSStarted, Text: "first sentence"},
+			{Type: doubaospeech.EventTTSSegmentEnd, Text: "segment duplicate"},
 			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{1, 2}},
 			{Type: doubaospeech.EventTTSStarted, Text: "second sentence"},
 			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{3, 4}},

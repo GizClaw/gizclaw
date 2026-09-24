@@ -65,6 +65,7 @@ func TestTransformerTextOutputStreamsChatTextAndCompletesAtChatEnded(t *testing.
 			{Type: doubaospeech.EventUsageResponse},
 			{Type: doubaospeech.EventChatResponse, Text: "世界"},
 			// A provider that ignored output_modalities must not reopen audio.
+			{Type: doubaospeech.EventTTSSegmentEnd, Text: "ignored TTS segment"},
 			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{1, 2}},
 			{Type: doubaospeech.EventChatEnded},
 		},
