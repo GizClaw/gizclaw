@@ -4,6 +4,7 @@ import (
 	"context"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -125,6 +126,196 @@ func TestTransformerTextOutputPushToTalkCompletesWithoutTTS(t *testing.T) {
 	}
 	requireRealtimeTestNoModelAudio(t, chunks)
 	requireRealtimeOwnedRouteLifecycles(t, chunks, genx.RoleModel, doubaoRealtimeAssistantLabel, 1)
+	if got := session.interruptCount(); got != 1 {
+		t.Fatalf("ClientInterrupt calls after text-only ChatEnded = %d, want 1", got)
+	}
+}
+
+func TestTransformerTextOutputLateChatEndedDoesNotInterruptNextPTTTurn(t *testing.T) {
+	firstEndASR := make(chan struct{})
+	chatEndedPaused := make(chan struct{})
+	resumeChatEnded := make(chan struct{})
+	allowNextInput := make(chan struct{})
+	session := &fakeTransformerSession{
+		beforeRecv:       firstEndASR,
+		endASR:           firstEndASR,
+		pauseBeforeEvent: 3,
+		eventPaused:      chatEndedPaused,
+		resumeEvents:     resumeChatEnded,
+		blockAfterEvents: make(chan struct{}),
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRResponse, Text: "first question", QuestionID: "q-1"},
+			{Type: doubaospeech.EventASREnded, QuestionID: "q-1"},
+			{Type: doubaospeech.EventChatResponse, Text: "first answer", QuestionID: "q-1", ReplyID: "r-1"},
+			{Type: doubaospeech.EventChatEnded, QuestionID: "q-1", ReplyID: "r-1"},
+			{Type: doubaospeech.EventASRResponse, Text: "second question", QuestionID: "q-2"},
+			{Type: doubaospeech.EventASREnded, QuestionID: "q-2"},
+			{Type: doubaospeech.EventChatResponse, Text: "second answer", QuestionID: "q-2", ReplyID: "r-2"},
+			{Type: doubaospeech.EventChatEnded, QuestionID: "q-2", ReplyID: "r-2"},
+		},
+	}
+	tfr := newTransformer(nil,
+		withMode(ModePushToTalk),
+		withOutput(OutputText),
+		withInputFormat("pcm"),
+		withInputTranscode(false),
+	)
+	input := &gatedRealtimeStream{
+		first: pttTestTurn("turn-1", 1),
+		gate:  allowNextInput,
+		rest:  pttTestTurn("turn-2", 2),
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	output := newBufferStream(16)
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := tfr.processLoop(ctx, input, output, session)
+		_ = output.Close()
+		errCh <- err
+	}()
+
+	select {
+	case <-chatEndedPaused:
+	case <-ctx.Done():
+		t.Fatalf("first ChatEnded was not paused: %v", ctx.Err())
+	}
+	close(allowNextInput)
+	if !session.waitForEndASRCount(2, time.Second) {
+		t.Fatal("second PTT turn did not reach EndASR before the old ChatEnded")
+	}
+	close(resumeChatEnded)
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("processLoop() error = %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("processLoop() timed out: %v", ctx.Err())
+	}
+	if got := session.interruptCount(); got != 2 {
+		t.Fatalf("ClientInterrupt calls = %d, want barge-in and second response completion only", got)
+	}
+	chunks := drainRealtimeTestOutput(t, output)
+	if got := realtimeTestAssistantTexts(chunks); !slices.Contains(got, "second answer") {
+		t.Fatalf("assistant texts = %q, want second answer", got)
+	}
+}
+
+type blockingCompletionInterruptSession struct {
+	*fakeTransformerSession
+	entered  chan struct{}
+	canceled chan struct{}
+	release  <-chan struct{}
+	calls    atomic.Int32
+}
+
+func (s *blockingCompletionInterruptSession) Interrupt(ctx context.Context) error {
+	call := s.calls.Add(1)
+	if err := s.fakeTransformerSession.Interrupt(ctx); err != nil {
+		return err
+	}
+	if call != 1 {
+		return nil
+	}
+	close(s.entered)
+	<-ctx.Done()
+	close(s.canceled)
+	if s.release != nil {
+		<-s.release
+	}
+	return ctx.Err()
+}
+
+func TestTransformerTextOutputBlockedCompletionInterruptAllowsNextPTTTurn(t *testing.T) {
+	firstEndASR := make(chan struct{})
+	allowNextInput := make(chan struct{})
+	secondEventsPaused := make(chan struct{})
+	resumeSecondEvents := make(chan struct{})
+	releaseOldInterrupt := make(chan struct{})
+	session := &blockingCompletionInterruptSession{
+		fakeTransformerSession: &fakeTransformerSession{
+			beforeRecv:       firstEndASR,
+			endASR:           firstEndASR,
+			pauseBeforeEvent: 4,
+			eventPaused:      secondEventsPaused,
+			resumeEvents:     resumeSecondEvents,
+			blockAfterEvents: make(chan struct{}),
+			events: []*doubaospeech.RealtimeEvent{
+				{Type: doubaospeech.EventASRResponse, Text: "first question", QuestionID: "q-1"},
+				{Type: doubaospeech.EventASREnded, QuestionID: "q-1"},
+				{Type: doubaospeech.EventChatResponse, Text: "first answer", QuestionID: "q-1", ReplyID: "r-1"},
+				{Type: doubaospeech.EventChatEnded, QuestionID: "q-1", ReplyID: "r-1"},
+				{Type: doubaospeech.EventASRResponse, Text: "second question", QuestionID: "q-2"},
+				{Type: doubaospeech.EventASREnded, QuestionID: "q-2"},
+				{Type: doubaospeech.EventChatResponse, Text: "second answer", QuestionID: "q-2", ReplyID: "r-2"},
+				{Type: doubaospeech.EventChatEnded, QuestionID: "q-2", ReplyID: "r-2"},
+			},
+		},
+		entered:  make(chan struct{}),
+		canceled: make(chan struct{}),
+		release:  releaseOldInterrupt,
+	}
+	tfr := newTransformer(nil,
+		withMode(ModePushToTalk),
+		withOutput(OutputText),
+		withInputFormat("pcm"),
+		withInputTranscode(false),
+	)
+	input := &gatedRealtimeStream{
+		first: pttTestTurn("turn-1", 1),
+		gate:  allowNextInput,
+		rest:  pttTestTurn("turn-2", 2),
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	output := newBufferStream(16)
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := tfr.processLoop(ctx, input, output, session)
+		_ = output.Close()
+		errCh <- err
+	}()
+
+	select {
+	case <-session.entered:
+	case <-ctx.Done():
+		t.Fatalf("first completion interrupt did not begin: %v", ctx.Err())
+	}
+	close(allowNextInput)
+	select {
+	case <-session.canceled:
+	case <-ctx.Done():
+		t.Fatalf("old completion interrupt was not canceled: %v", ctx.Err())
+	}
+	if session.waitForEndASRCount(2, 50*time.Millisecond) {
+		t.Fatal("next PTT turn reached provider before the canceled completion interrupt stopped")
+	}
+	close(releaseOldInterrupt)
+	if !session.waitForEndASRCount(2, time.Second) {
+		t.Fatal("blocked completion interrupt prevented the next PTT input")
+	}
+	select {
+	case <-secondEventsPaused:
+	case <-ctx.Done():
+		t.Fatalf("provider did not reach the second response: %v", ctx.Err())
+	}
+	close(resumeSecondEvents)
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("processLoop() error = %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("processLoop() timed out: %v", ctx.Err())
+	}
+	if got := session.calls.Load(); got != 3 {
+		t.Fatalf("ClientInterrupt calls = %d, want canceled old completion, barge-in, and second completion", got)
+	}
+	chunks := drainRealtimeTestOutput(t, output)
+	if got := realtimeTestAssistantTexts(chunks); !slices.Contains(got, "second answer") {
+		t.Fatalf("assistant texts = %q, want second answer", got)
+	}
 }
 
 func TestTransformerTextOutputRealtimeFinishesResponseDeadlineAtChatEnded(t *testing.T) {

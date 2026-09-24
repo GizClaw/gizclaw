@@ -174,7 +174,7 @@ Workspace `conversation.initiative` 为 `agent` 时，`doubaorealtime.Transforme
 
 `Config.Output` 选择回复模态：默认 `audio`，由 provider 同时返回回复文本和 TTS 音频；`text`（pattern 参数 `output=text`）在 StartSession 中发送 `dialog.extra.output_modalities: ["text"]`，provider 不合成音频，也不发送 TTSSentenceStart、TTSSentenceEnd、TTSResponse 或 TTSEnded。该字段不在上游公开文档中，由 `doubao-speech-go` 的 live E2E 验证。Provider 仍要求 `tts.speaker`，所以 session 照常携带 speaker。
 
-Text 输出下，每个 response 只拥有一条 assistant text route：ChatResponse（event 550）的文本到达即发布，ChatEnded（event 559）关闭 text route 并完成 response，不再等待 TTS。Push-to-Talk turn、Text 模式排空、Realtime response deadline 和 assistant lifecycle 都以 ChatEnded 为完成点；没有回复文本的 response（包括空 Push-to-Talk turn）仍发布空 audio lifecycle，客户端照常看到 text 与 audio 两个 EOS；interruption 只关闭 text route。Provider 若仍发送 TTS event 或音频，transformer 忽略它们。
+Text 输出下，每个 response 只拥有一条 assistant text route：ChatResponse（event 550）的文本到达即发布，ChatEnded（event 559）关闭 text route 并完成 response，不再等待 TTS。Push-to-Talk 音频输入与 text-only 输出组合在同一 SC 2.0 session 中时，provider 在 ChatEnded 后仍需收到 ClientInterrupt（event 515）才接受下一轮音频；Transformer 在发布本轮 assistant EOS 前发送该事件，保留同一 provider session 和对话上下文。Text 输入模式不发送这个信号。Push-to-Talk turn、Text 模式排空、Realtime response deadline 和 assistant lifecycle 都以 ChatEnded 为完成点；没有回复文本的 response（包括空 Push-to-Talk turn）仍发布空 audio lifecycle，客户端照常看到 text 与 audio 两个 EOS；interruption 只关闭 text route。Provider 若仍发送 TTS event 或音频，transformer 忽略它们。
 
 Workflow `doubao_realtime.tts.voice` 配置后，factory 为 pattern 追加 `output=text`，在 reload 时校验该 RuntimeProfile Voice 可解析，并用 `audiodock` 把 assistant 回复文本流式送入 `voice/<alias>` 合成；用户音频仍直接进入 realtime 模型。`audio.output.voice` 保持必填，用于满足 provider 的 speaker 要求。
 

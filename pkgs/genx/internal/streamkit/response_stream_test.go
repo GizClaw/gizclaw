@@ -2,6 +2,7 @@ package streamkit
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"testing"
 	"time"
@@ -53,24 +54,31 @@ func TestResponseStreamAssignsFreshIDsToModelOutput(t *testing.T) {
 }
 
 func TestResponseStreamRotatesReusedCompletedRoute(t *testing.T) {
-	source := NewOutput(OutputConfig{})
-	for _, chunk := range []*genx.MessageChunk{
-		{Role: genx.RoleModel, Part: genx.Text("first"), Ctrl: &genx.StreamCtrl{StreamID: "reused"}},
-		{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "reused", EndOfStream: true}},
-		{Role: genx.RoleModel, Part: genx.Text("second"), Ctrl: &genx.StreamCtrl{StreamID: "reused"}},
-	} {
-		_ = source.Push(chunk)
-	}
-	_ = source.Close()
-	stream, _ := NewResponseStream(source)
-	first, _ := stream.Next()
-	firstEOS, _ := stream.Next()
-	second, _ := stream.Next()
-	if first.Ctrl.StreamID != firstEOS.Ctrl.StreamID {
-		t.Fatalf("first response IDs = %q and %q", first.Ctrl.StreamID, firstEOS.Ctrl.StreamID)
-	}
-	if second.Ctrl.StreamID == first.Ctrl.StreamID {
-		t.Fatalf("reused provider route kept response ID %q", second.Ctrl.StreamID)
+	for _, tc := range []struct {
+		begin bool
+		end   bool
+	}{{false, false}, {true, false}, {true, true}} {
+		t.Run(fmt.Sprintf("begin=%t/end=%t", tc.begin, tc.end), func(t *testing.T) {
+			source := NewOutput(OutputConfig{})
+			for _, chunk := range []*genx.MessageChunk{
+				{Role: genx.RoleModel, Part: genx.Text("first"), Ctrl: &genx.StreamCtrl{StreamID: "reused", BeginOfStream: tc.begin}},
+				{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "reused", EndOfStream: true}},
+				{Role: genx.RoleModel, Part: genx.Text("second"), Ctrl: &genx.StreamCtrl{StreamID: "reused", BeginOfStream: tc.begin, EndOfStream: tc.end}},
+			} {
+				_ = source.Push(chunk)
+			}
+			_ = source.Close()
+			stream, _ := NewResponseStream(source)
+			first, _ := stream.Next()
+			firstEOS, _ := stream.Next()
+			second, _ := stream.Next()
+			if first.Ctrl.StreamID != firstEOS.Ctrl.StreamID {
+				t.Fatalf("first response IDs = %q and %q", first.Ctrl.StreamID, firstEOS.Ctrl.StreamID)
+			}
+			if second.Ctrl.StreamID == first.Ctrl.StreamID {
+				t.Fatalf("reused provider route kept response ID %q", second.Ctrl.StreamID)
+			}
+		})
 	}
 }
 

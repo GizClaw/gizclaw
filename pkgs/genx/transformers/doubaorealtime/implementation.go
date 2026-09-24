@@ -1106,6 +1106,16 @@ func (t *Transformer) processSession(
 	pttASR := &doubaoRealtimePTTASRQueue{}
 	pttResponses := &doubaoRealtimePTTResponses{}
 	var pttControl sync.Mutex
+	// Order completion interrupts with PTT route replacement without holding a
+	// state mutex during provider I/O. A successor cancels its predecessor's
+	// pending completion call before accepting the new route.
+	var pttSessionControl sync.Mutex
+	type completionInterrupt struct {
+		ctx    context.Context
+		cancel context.CancelFunc
+		done   chan struct{}
+	}
+	var pendingCompletionInterrupt *completionInterrupt
 	textResponses := &doubaoRealtimeTextResponses{}
 	var realtimeSpoken *doubaoRealtimeSpokenResponse
 	var realtimeSpokenEpoch uint64
@@ -1697,6 +1707,36 @@ func (t *Transformer) processSession(
 						epoch = response.epoch
 						pushToTalk.chatEnded(streamID)
 						if t.textOutput {
+							// With push-to-talk and text-only output, SC 2.0 does
+							// not accept the next audio turn after ChatEnded alone.
+							// Release only the turn that still owns the session. A
+							// delayed ChatEnded from a replaced response must not
+							// interrupt its successor.
+							pttSessionControl.Lock()
+							var attempt *completionInterrupt
+							if pttTurn.ownsResponse(response) {
+								interruptCtx, cancel := context.WithCancel(ctx)
+								attempt = &completionInterrupt{ctx: interruptCtx, cancel: cancel, done: make(chan struct{})}
+								pendingCompletionInterrupt = attempt
+							}
+							pttSessionControl.Unlock()
+							var interruptErr error
+							if attempt != nil {
+								if attempt.ctx.Err() == nil {
+									interruptErr = session.Interrupt(attempt.ctx)
+								}
+								pttSessionControl.Lock()
+								superseded := pendingCompletionInterrupt != attempt
+								if !superseded {
+									pendingCompletionInterrupt = nil
+								}
+								pttSessionControl.Unlock()
+								attempt.cancel()
+								close(attempt.done)
+								if interruptErr != nil && !superseded {
+									return doubaoRealtimeRecoverable("finish text-only push-to-talk response", interruptErr)
+								}
+							}
 							// ChatEnded completes a text-only response. Record the
 							// provider completion before the text EOS can be observed.
 							pushToTalk.responseStarted(streamID, false)
@@ -1901,10 +1941,18 @@ func (t *Transformer) processSession(
 			// part-bearing BOS on the current route only declares that MIME
 			// channel and must not begin the route a second time.
 			if (newRoute || chunk.Part == nil) && t.mode == ModePushToTalk {
+				pttSessionControl.Lock()
+				var previousCompletionDone <-chan struct{}
+				if pendingCompletionInterrupt != nil {
+					pendingCompletionInterrupt.cancel()
+					previousCompletionDone = pendingCompletionInterrupt.done
+					pendingCompletionInterrupt = nil
+				}
 				pttControl.Lock()
 				bargeIn, previousStreamID, err := pushToTalk.begin(streamID)
 				if err != nil {
 					pttControl.Unlock()
+					pttSessionControl.Unlock()
 					return err
 				}
 				interruptStreamID := streamID
@@ -1924,6 +1972,12 @@ func (t *Transformer) processSession(
 					realtimePTTOutputByteLimit(doubaoRealtimePTTOutputLimit, t.sampleRate, t.channels),
 				)
 				pttControl.Unlock()
+				pttSessionControl.Unlock()
+				// Cancellation does not retract a provider write already in flight.
+				// Wait for it to stop before sending any operation for this turn.
+				if previousCompletionDone != nil {
+					<-previousCompletionDone
+				}
 				inputRouteID = streamID
 				inputAudioEnded = false
 				turnAudioSent = 0
