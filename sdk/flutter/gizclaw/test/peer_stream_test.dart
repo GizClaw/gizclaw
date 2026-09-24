@@ -29,9 +29,14 @@ void main() {
     final session = await WorkspaceEventSession.open(factory);
 
     var ready = false;
-    final opening = session.beginAudio('audio-1').then((_) {
-      ready = true;
-    });
+    final opening = session
+        .beginAudio(
+          'audio-1',
+          inputMode: AudioInputMode.AUDIO_INPUT_MODE_REALTIME,
+        )
+        .then((_) {
+          ready = true;
+        });
     await Future<void>.delayed(Duration.zero);
     expect(ready, isFalse);
     factory.channels.single.addMessage(
@@ -71,6 +76,7 @@ void main() {
     final done = PeerEvent.fromBuffer(doneFrame.payload);
     expect(bos.type, PeerEventType.PEER_EVENT_TYPE_BOS);
     expect(bos.bos.kind, StreamKind.STREAM_KIND_AUDIO);
+    expect(bos.bos.inputMode, AudioInputMode.AUDIO_INPUT_MODE_REALTIME);
     expect(done.type, PeerEventType.PEER_EVENT_TYPE_EOS);
     expect(done.eos.streamId, 'audio-1');
 

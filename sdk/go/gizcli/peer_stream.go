@@ -139,6 +139,9 @@ func (s *PeerStream) Push(ctx context.Context, chunk *genx.MessageChunk) error {
 	}
 	var ready *peerAudioInputReady
 	if chunk.IsBeginOfStream() && peerStreamChunkIsOpusControl(chunk) {
+		if chunk.Ctrl != nil && chunk.Ctrl.InputMode != "" && chunk.Ctrl.InputMode != "push-to-talk" && chunk.Ctrl.InputMode != "realtime" {
+			return fmt.Errorf("gizclaw: unsupported audio input mode %q", chunk.Ctrl.InputMode)
+		}
 		var err error
 		ready, err = s.beginAudioInput(chunk.Ctrl.StreamID)
 		if err != nil {
@@ -574,6 +577,15 @@ func peerStreamEventFromChunk(chunk *genx.MessageChunk, eventType eventpb.PeerEv
 	}
 	switch eventType {
 	case eventpb.PeerEventType_PEER_EVENT_TYPE_BOS:
+		inputMode := eventpb.AudioInputMode_AUDIO_INPUT_MODE_UNSPECIFIED
+		if peerStreamKindFromChunk(chunk) == eventpb.StreamKind_STREAM_KIND_AUDIO {
+			switch ctrl.InputMode {
+			case "push-to-talk":
+				inputMode = eventpb.AudioInputMode_AUDIO_INPUT_MODE_PUSH_TO_TALK
+			case "realtime":
+				inputMode = eventpb.AudioInputMode_AUDIO_INPUT_MODE_REALTIME
+			}
+		}
 		return &eventpb.PeerEvent{
 			Version: eventpb.Version,
 			Type:    eventType,
@@ -583,6 +595,7 @@ func peerStreamEventFromChunk(chunk *genx.MessageChunk, eventType eventpb.PeerEv
 				Kind:            peerStreamKindFromChunk(chunk),
 				Label:           ctrl.Label,
 				MimeType:        peerStreamChunkMIMEType(chunk),
+				InputMode:       inputMode,
 			}},
 		}
 	case eventpb.PeerEventType_PEER_EVENT_TYPE_EOS:

@@ -91,6 +91,8 @@ Friend 与 Friend Group 的 SFU Workspace 使用连接内的权限快照。首�
 
 Event stream 拥有后台刷新任务，默认每 5 秒刷新一次，每次查询最多 2 秒；旧结果最多使用 7 秒。刷新失败、撤权或结果过期时，本地拒绝输入，错误分别使用 `SFU_ACCESS_CHECK_FAILED`、`SFU_ACCESS_REVOKED` 或 `SFU_RUNTIME_NOT_ATTACHED`。过期事件不自行重试远程查询，由后台刷新恢复；连接或 Event stream 关闭时取消并回收任务。已经建立的 SFU participant 还会自行刷新 binding，停止已撤权音频的转发。普通 Workflow 的权限刷新不扫描共享 Redis。
 
+音频输入 BOS 可声明 `StreamBegin.input_mode` 为 `PUSH_TO_TALK` 或 `REALTIME`。Doubao realtime Workspace 未配置 `parameters.input` 时默认 Push-to-Talk；这类 Workspace 收到声明为 REALTIME 的 BOS 时，在接受音频包前返回带 `WORKSPACE_INPUT_MODE_MISMATCH` 的 EOS。显式 REALTIME Workspace 也接受 Push-to-Talk 输入，因为该路径可由 Provider 结束话轮。省略 `input_mode` 的旧客户端沿用原有行为，Server 无法从相同的 BOS 和音频包推断它原本打算使用哪种模式。Go PeerStream 的音频 BOS 会透传声明，Giztest 根据 `peer_stream.mode` 设置它；JavaScript `ContinuousAudioRoute.inputMode` 和 Flutter `WorkspaceEventSession.beginAudio(inputMode:)` 可供调用方显式声明，省略时仍发送 UNSPECIFIED。
+
 
 经 Edge 路由的 connection 由 `PeerConn` 持有 accepted tunnel lifecycle context，并保留 mandatory Event Stream、connection-level first event、Agent input open、first push 和 terminal record。Input event 只有在 authorization 成功后才进入观测；每个 BOS 分配单调递增的 logical turn，后续 input event 通过内部 stream route 关联，input EOS 记录该 turn 的 input terminal，realtime source 第一次成功 push 则证明同一个 turn 已到达 Agent input。Replacement BOS 或成功送达的内部 interrupt 会标记之前的 active turn，但不会改变原有 interruption 行为。Event Stream 关闭时，`PeerConn` 会先为每个仍保留的 incomplete turn 输出一次有界 terminal snapshot，再输出 connection-level terminal，因此后续 zero-output turn 可以被独立查询。
 

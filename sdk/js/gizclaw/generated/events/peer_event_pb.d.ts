@@ -147,6 +147,11 @@ export declare type StreamBegin = Message<"gizclaw.events.v1.StreamBegin"> & {
    * @generated from field: string mime_type = 6;
    */
   mimeType: string;
+
+  /**
+   * @generated from field: gizclaw.events.v1.AudioInputMode input_mode = 7;
+   */
+  inputMode: AudioInputMode;
 };
 
 /**
@@ -487,6 +492,33 @@ export enum StreamKind {
  * Describes the enum gizclaw.events.v1.StreamKind.
  */
 export declare const StreamKindSchema: GenEnum<StreamKind>;
+
+/**
+ * Optional on an audio input BOS. Unspecified preserves legacy clients.
+ *
+ * @generated from enum gizclaw.events.v1.AudioInputMode
+ */
+export enum AudioInputMode {
+  /**
+   * @generated from enum value: AUDIO_INPUT_MODE_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: AUDIO_INPUT_MODE_PUSH_TO_TALK = 1;
+   */
+  PUSH_TO_TALK = 1,
+
+  /**
+   * @generated from enum value: AUDIO_INPUT_MODE_REALTIME = 2;
+   */
+  REALTIME = 2,
+}
+
+/**
+ * Describes the enum gizclaw.events.v1.AudioInputMode.
+ */
+export declare const AudioInputModeSchema: GenEnum<AudioInputMode>;
 
 /**
  * @generated from enum gizclaw.events.v1.WorkspaceKind
