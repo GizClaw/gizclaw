@@ -24,7 +24,7 @@ func (o *liveProbeOpener) OpenSession(ctx context.Context, cfg *speech.RealtimeC
 	o.mu.Lock()
 	o.opens++
 	o.mu.Unlock()
-	return o.client.Realtime.OpenSession(ctx, cfg)
+	return o.client.Realtime.Connect(ctx, cfg)
 }
 
 func (o *liveProbeOpener) count() int { o.mu.Lock(); defer o.mu.Unlock(); return o.opens }
