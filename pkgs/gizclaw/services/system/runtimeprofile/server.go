@@ -253,9 +253,7 @@ func (s *Server) CreateRuntimeProfile(ctx context.Context, request adminhttp.Cre
 	if !created {
 		return adminhttp.CreateRuntimeProfile409JSONResponse(conflict("runtime profile already exists")), nil
 	}
-	if err := s.refreshIndexIfInitialized(ctx); err != nil {
-		return adminhttp.CreateRuntimeProfile500JSONResponse(internalError(err)), nil
-	}
+	s.refreshIndexAfterCommit(ctx, item.Id)
 	return adminhttp.CreateRuntimeProfile200JSONResponse(item), nil
 }
 
@@ -317,9 +315,7 @@ func (s *Server) PutRuntimeProfile(ctx context.Context, request adminhttp.PutRun
 	if _, _, err := updateRuntimeProfileSQL(ctx, store, item, version); err != nil {
 		return adminhttp.PutRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
-	if err := s.refreshIndexIfInitialized(ctx); err != nil {
-		return adminhttp.PutRuntimeProfile500JSONResponse(internalError(err)), nil
-	}
+	s.refreshIndexAfterCommit(ctx, item.Id)
 	return adminhttp.PutRuntimeProfile200JSONResponse(item), nil
 }
 
@@ -347,9 +343,7 @@ func (s *Server) DeleteRuntimeProfile(ctx context.Context, request adminhttp.Del
 	if _, _, err := deleteRuntimeProfileSQL(ctx, store, id, version); err != nil {
 		return adminhttp.DeleteRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
-	if err := s.refreshIndexIfInitialized(ctx); err != nil {
-		return adminhttp.DeleteRuntimeProfile500JSONResponse(internalError(err)), nil
-	}
+	s.refreshIndexAfterCommit(ctx, id)
 	return adminhttp.DeleteRuntimeProfile200JSONResponse(item), nil
 }
 func (s *Server) ListRegistrationTokens(ctx context.Context, request adminhttp.ListRegistrationTokensRequestObject) (adminhttp.ListRegistrationTokensResponseObject, error) {

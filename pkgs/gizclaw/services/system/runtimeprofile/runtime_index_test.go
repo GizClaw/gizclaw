@@ -2,7 +2,9 @@ package runtimeprofile
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"sync"
@@ -11,7 +13,66 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	runtimeindex "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/runtimeprofile"
+	"github.com/jmoiron/sqlx"
 )
+
+type failingProfileSource struct {
+	db   *sqlx.DB
+	fail bool
+}
+
+func (source *failingProfileSource) ForEachProfile(ctx context.Context, consume func(apitypes.RuntimeProfile) error) error {
+	if source.fail {
+		return errors.New("source temporarily unavailable")
+	}
+	return profileSource{source.db}.ForEachProfile(ctx, consume)
+}
+
+func TestCommittedProfileWritesReturnSuccessWhenIndexRefreshFails(t *testing.T) {
+	ctx := t.Context()
+	s := &Server{DB: profileSQLTestDB(t)}
+	source := &failingProfileSource{db: s.DB}
+	s.runtimeIndex = runtimeindex.New(source, time.Hour)
+	if err := s.runtimeIndex.Initialize(ctx); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+	source.fail = true
+	request := adminhttp.RuntimeProfileUpsert{Id: "durable", Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{}}}
+	created, err := s.CreateRuntimeProfile(ctx, adminhttp.CreateRuntimeProfileRequestObject{Body: &request})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := created.(adminhttp.CreateRuntimeProfile200JSONResponse); !ok {
+		t.Fatalf("committed create = %#v", created)
+	}
+	if _, err := s.ResolveProfile(ctx, "durable"); err != nil {
+		t.Fatalf("committed profile is absent: %v", err)
+	}
+	request.Spec.AppConfig = new(apitypes.RuntimeProfileAppConfig{"theme": "dark"})
+	updated, err := s.PutRuntimeProfile(ctx, adminhttp.PutRuntimeProfileRequestObject{Id: "durable", Body: &request})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := updated.(adminhttp.PutRuntimeProfile200JSONResponse); !ok {
+		t.Fatalf("committed update = %#v", updated)
+	}
+	profile, err := s.ResolveProfile(ctx, "durable")
+	if err != nil || profile.Spec.AppConfig == nil || (*profile.Spec.AppConfig)["theme"] != "dark" {
+		t.Fatalf("committed profile update = %#v, %v", profile, err)
+	}
+	deleted, err := s.DeleteRuntimeProfile(ctx, adminhttp.DeleteRuntimeProfileRequestObject{Id: "durable"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := deleted.(adminhttp.DeleteRuntimeProfile200JSONResponse); !ok {
+		t.Fatalf("committed delete = %#v", deleted)
+	}
+	if _, err := s.ResolveProfile(ctx, "durable"); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("deleted profile still resolves: %v", err)
+	}
+}
 
 func TestMemoryIndexDecomposesAllProfilesAndFiltersTags(t *testing.T) {
 	ctx := context.Background()

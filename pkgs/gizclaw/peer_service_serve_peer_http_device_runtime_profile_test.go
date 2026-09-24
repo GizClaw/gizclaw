@@ -122,6 +122,14 @@ func TestGetDeviceRuntimeProfileFiltersAllTags(t *testing.T) {
 	if !reflect.DeepEqual(got.Workflows, []peerhttp.DeviceRuntimeProfileWorkflow{{Name: "story.alice", Tags: []string{"6-8", "stories"}}}) {
 		t.Fatalf("filtered workflows = %#v", got.Workflows)
 	}
+	noMatch := f.do(t, http.MethodGet, "/gizclaw/v1/device/runtime-profile?tags=6-8&tags=missing", "")
+	if noMatch.Code != http.StatusOK || len(decodeJSON[peerhttp.DeviceRuntimeProfile](t, noMatch).Workflows) != 0 {
+		t.Fatalf("nonmatching AND status = %d body=%s", noMatch.Code, noMatch.Body.String())
+	}
+	tooMany := f.do(t, http.MethodGet, "/gizclaw/v1/device/runtime-profile?"+strings.Repeat("tags=stories&", 33), "")
+	if tooMany.Code != http.StatusBadRequest {
+		t.Fatalf("oversized tag selector status = %d body=%s", tooMany.Code, tooMany.Body.String())
+	}
 }
 
 func assertJSONKeys(t *testing.T, object map[string]json.RawMessage, want ...string) {

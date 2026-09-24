@@ -424,8 +424,9 @@ void main() {
           'next_cursor': 'key_abcdefghijklmnopqrstuv',
         }),
       ]);
-      final list = await clientWith(recorder)
-          .listApiKeys(cursor: 'key_0123456789abcdefghijkl', limit: 10);
+      final list = await clientWith(
+        recorder,
+      ).listApiKeys(cursor: 'key_0123456789abcdefghijkl', limit: 10);
       final request = recorder.single;
       expect(request.method, 'GET');
       expect(request.url.path, '/gizclaw/v1/api-keys');
@@ -556,8 +557,9 @@ void main() {
           ],
         }),
       ]);
-      final latest = await clientWith(recorder)
-          .getDeviceTelemetryLatest(field: PeerTelemetryField.batteryPercent);
+      final latest = await clientWith(
+        recorder,
+      ).getDeviceTelemetryLatest(field: PeerTelemetryField.batteryPercent);
       expect(
         recorder.single.url.path,
         '/gizclaw/v1/device/telemetry/battery.percent/latest',
@@ -570,8 +572,9 @@ void main() {
       final recorder = Recorder([
         json(200, {'peer_public_key': 'pk', 'values': []}),
       ]);
-      await clientWith(recorder)
-          .getDeviceTelemetryLatest(field: 'invalid/field');
+      await clientWith(
+        recorder,
+      ).getDeviceTelemetryLatest(field: 'invalid/field');
       expect(recorder.single.url.hasQuery, isFalse);
     });
 
@@ -747,14 +750,16 @@ void main() {
               'package': {
                 'version': '1.5.0-beta.1+abc123',
                 'url': 'https://firmware.example.com/devkit/1.0.3.tar.zlib',
-                'sha256': 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
+                'sha256':
+                    'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
                 'size': 4096,
               },
             },
             'beta': {
               'package': {
                 'url': 'https://firmware.example.com/devkit/1.1.0.tar.zlib',
-                'sha256': 'b1c2d3e4f5061728394a5b6c7d8e9f0ab1c2d3e4f5061728394a5b6c7d8e9f0a',
+                'sha256':
+                    'b1c2d3e4f5061728394a5b6c7d8e9f0ab1c2d3e4f5061728394a5b6c7d8e9f0a',
                 'size': 8192,
               },
             },
@@ -805,8 +810,9 @@ void main() {
           ],
         }),
       ]);
-      final profile = await clientWith(recorder)
-          .getDeviceRuntimeProfile(tags: ['6-8', 'stories']);
+      final profile = await clientWith(
+        recorder,
+      ).getDeviceRuntimeProfile(tags: ['6-8', 'stories']);
       expect(recorder.single.method, 'GET');
       expect(recorder.single.url.path, '/gizclaw/v1/device/runtime-profile');
       expect(recorder.single.url.queryParametersAll['tags'], [
@@ -1032,8 +1038,9 @@ void main() {
           'next_cursor': 'alice',
         }),
       ]);
-      final list = await clientWith(recorder)
-          .listContacts(cursor: 'aaron', limit: 1);
+      final list = await clientWith(
+        recorder,
+      ).listContacts(cursor: 'aaron', limit: 1);
       expect(recorder.single.url.path, '/gizclaw/v1/contacts');
       expect(recorder.single.url.queryParameters, {
         'cursor': 'aaron',
@@ -1467,8 +1474,9 @@ void main() {
       final recorder = Recorder([
         json(200, {'anything': true}),
       ]);
-      final response = await clientWith(recorder)
-          .send(method: 'GET', path: '/gizclaw/v1/device/future?limit=5');
+      final response = await clientWith(
+        recorder,
+      ).send(method: 'GET', path: '/gizclaw/v1/device/future?limit=5');
       expect(recorder.single.method, 'GET');
       expect(recorder.single.headers['Authorization'], 'Bearer $apiKey');
       expect(
@@ -1633,10 +1641,7 @@ void main() {
       expect(recorder.requests[2].method, 'POST');
       expect(jsonDecode(recorder.requests[2].body), {
         'tool': 'run.workspace.set',
-        'args': {
-          'workflow_name': 'bedtime',
-          'kickoff': true,
-        },
+        'args': {'workflow_name': 'bedtime', 'kickoff': true},
       });
     });
 

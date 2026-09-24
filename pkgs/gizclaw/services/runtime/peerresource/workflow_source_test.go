@@ -65,6 +65,36 @@ func TestWorkflowListRejectsEmptyTag(t *testing.T) {
 	}
 }
 
+func TestWorkflowTagSelectorRevisionUsesUnambiguousSetEncoding(t *testing.T) {
+	first := workflowTagSelectorRevision("revision", []string{"a", "b\x00c"})
+	second := workflowTagSelectorRevision("revision", []string{"a\x00b", "c"})
+	if first == second {
+		t.Fatal("distinct NUL-containing tag selectors share a cursor revision")
+	}
+	if got := workflowTagSelectorRevision("revision", []string{"b\x00c", "a", "a"}); got != first {
+		t.Fatalf("equivalent tag sets have different cursor revisions: %q != %q", got, first)
+	}
+	if got := workflowTagSelectorRevision("next-revision", []string{"a", "b\x00c"}); got == first {
+		t.Fatal("different RuntimeProfile revisions share a cursor revision")
+	}
+}
+
+func TestWorkflowTagSelectorRejectsUntrustedBounds(t *testing.T) {
+	for _, tags := range [][]string{
+		{""},
+		{strings.Repeat("x", 129)},
+		{string([]byte{0xff})},
+		make([]string, 33),
+	} {
+		if ValidWorkflowTagSelector(tags) {
+			t.Fatalf("invalid tag selector accepted: %#v", tags)
+		}
+	}
+	if !ValidWorkflowTagSelector([]string{"a\x00b", "6-8"}) {
+		t.Fatal("valid opaque tag selector was rejected")
+	}
+}
+
 func TestAliasGetsHideDanglingCanonicalResourceIDs(t *testing.T) {
 	t.Parallel()
 	store := kv.NewMemory(nil)

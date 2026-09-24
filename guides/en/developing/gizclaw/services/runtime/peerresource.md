@@ -11,7 +11,7 @@ flowchart LR
     Domain["Workspace / Friend / Pet state"] --> RPC
 ```
 
-Workflow list projects the flat `workflows` map and can filter by the intersection of opaque string tags. Projected Workflow names are unique within the current RuntimeProfile, so get uses the name alone. Model, Voice, and Tool catalogs come from their respective RuntimeProfile resource maps. Every catalog response includes `runtime_profile_name` and the content revision.
+Workflow list projects the flat `workflows` map and can filter by the intersection of up to 32 opaque string tags. Each requested tag must be valid UTF-8 and 1–128 bytes; duplicates collapse and order does not matter. A page cursor binds to the Profile revision and the digest of the sorted unique tags encoded as JSON, so NUL-containing strings remain distinct. Projected Workflow names are unique within the current RuntimeProfile, so get uses the name alone. Model, Voice, and Tool catalogs come from their respective RuntimeProfile resource maps. Every catalog response includes `runtime_profile_name` and the content revision.
 
 Peer resource create/put/delete exists only for Workspace state. Admin owns canonical Workflow, Model, Credential, and Tool mutation. Workspace create validates `workflow_name` and stores it as an internal label; list skips Workspaces whose deletion is already pending. Generic labels remain an Admin/storage detail and are not exposed in the Peer DTO.
 

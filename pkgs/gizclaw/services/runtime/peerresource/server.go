@@ -1063,10 +1063,7 @@ func (s *Server) handleWorkflowList(ctx context.Context, req *rpcapi.RPCRequest)
 		}
 		sort.Strings(aliases)
 	}
-	selector := append([]string(nil), params.Tags...)
-	sort.Strings(selector)
-	selectorHash := sha256.Sum256([]byte(strings.Join(selector, "\x00")))
-	page, hasNext, nextCursor, conflict := pageAliases(aliases, params.Cursor, params.Limit, profile.Revision+":"+hex.EncodeToString(selectorHash[:8]))
+	page, hasNext, nextCursor, conflict := pageAliases(aliases, params.Cursor, params.Limit, workflowTagSelectorRevision(profile.Revision, params.Tags))
 	if conflict {
 		return statusError(req.Id, rpcapi.StatusCodeAborted, "runtime profile revision changed")
 	}
@@ -1078,6 +1075,15 @@ func (s *Server) handleWorkflowList(ctx context.Context, req *rpcapi.RPCRequest)
 		Items: items, HasNext: hasNext, NextCursor: nextCursor,
 		RuntimeProfileName: profile.Id, RuntimeProfileRevision: profile.Revision,
 	}, (*rpcapi.RPCPayload).FromWorkflowListResponse)
+}
+
+func workflowTagSelectorRevision(revision string, tags []string) string {
+	canonical := append([]string(nil), tags...)
+	sort.Strings(canonical)
+	canonical = slices.Compact(canonical)
+	encoded, _ := json.Marshal(canonical) // A slice of strings always marshals.
+	hash := sha256.Sum256(encoded)
+	return revision + ":" + hex.EncodeToString(hash[:])
 }
 
 func hasAllTags(workflowTags, requested []string) bool {

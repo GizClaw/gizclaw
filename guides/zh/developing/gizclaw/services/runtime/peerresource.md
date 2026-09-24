@@ -11,7 +11,7 @@ flowchart LR
     Domain["Workspace / Friend / Pet state"] --> RPC
 ```
 
-Workflow list 从平面的 `workflows` map 投影，可用多个普通字符串 `tags` 取交集筛选；get 只需要唯一的 name。Model、Voice 和 Tool catalog 分别来自 RuntimeProfile 对应的 resource map。所有 catalog 响应都携带 `runtime_profile_name` 和内容 revision。RuntimeProfile 没有独立的 Peer alias，因此该 Peer name 是 canonical RuntimeProfile ID 的原样投影，不是兼容字段。
+Workflow list 从平面的 `workflows` map 投影，可用最多 32 个普通字符串 `tags` 取交集筛选；每个请求 tag 必须为有效 UTF-8、1–128 字节，重复 tag 折叠、顺序无关。分页 cursor 绑定 Profile revision 与排序去重后的 tags JSON 编码摘要，NUL 字符不会造成 selector 混淆；get 只需要唯一的 name。Model、Voice 和 Tool catalog 分别来自 RuntimeProfile 对应的 resource map。所有 catalog 响应都携带 `runtime_profile_name` 和内容 revision。RuntimeProfile 没有独立的 Peer alias，因此该 Peer name 是 canonical RuntimeProfile ID 的原样投影，不是兼容字段。
 
 Peer 侧只有 Workspace 状态支持 create/put/delete。真实 Workflow、Model、Credential 和 Tool 统一由 Admin 修改。Workspace create 校验 `workflow_name`，在内部 label 中保存它；list 跳过已进入 pending deletion 的 Workspace。通用 labels 只是 Admin/storage 细节，不进入 Peer DTO。
 

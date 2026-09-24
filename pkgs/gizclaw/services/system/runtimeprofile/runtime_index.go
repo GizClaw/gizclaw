@@ -3,6 +3,8 @@ package runtimeprofile
 import (
 	"context"
 	"errors"
+	"log/slog"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	runtimeindex "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/runtimeprofile"
@@ -41,6 +43,16 @@ func (s *Server) refreshIndexIfInitialized(ctx context.Context) error {
 		return nil
 	}
 	return s.runtimeIndex.Refresh(ctx)
+}
+
+func (s *Server) refreshIndexAfterCommit(ctx context.Context, profileID string) {
+	refreshCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	if err := s.refreshIndexIfInitialized(refreshCtx); err != nil {
+		// SQL has committed. Readers repair a stale profile revision on demand;
+		// the periodic rotation retries global catalog refreshes.
+		slog.WarnContext(ctx, "RuntimeProfile index refresh deferred after commit", "profile_id", profileID, "error", err)
+	}
 }
 
 // RefreshMemoryIndex rotates the read-only runtime SQLite snapshot.
