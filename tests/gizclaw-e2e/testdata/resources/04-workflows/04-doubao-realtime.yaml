@@ -15,8 +15,8 @@ spec:
           rate: 16000
       output:
         format:
-          type: ogg_opus
-          rate: 24000
+          type: pcm_s16le
+          rate: 16000
         voice: doubao-assistant
         speed: 0
         loudness: 0

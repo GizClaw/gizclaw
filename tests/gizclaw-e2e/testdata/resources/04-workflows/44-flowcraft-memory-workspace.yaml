@@ -1,0 +1,40 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  id: flowcraft-memory-workspace
+spec:
+  driver: flowcraft
+  memory: giztest-workspace-memory
+  flowcraft:
+    graph:
+      name: Workspace Memory
+      entry: recall-memory
+      nodes:
+      - id: recall-memory
+        type: memory_recall
+        config:
+          query: {text_from: input}
+          output: recalled_memory
+          top_k: 5
+      - id: answer
+        type: llm
+        publish: true
+        config:
+          model: llm
+          max_tokens: 2048
+          system_prompt: "Answer briefly. Relevant memory: ${board.recalled_memory}"
+      - id: observe-input
+        type: memory_observe
+        config:
+          observations:
+          - facts:
+            - text_from: input
+              attributes: {lane: owner-profile}
+          wait_for_completion: true
+      edges:
+      - {from: recall-memory, to: answer}
+      - {from: answer, to: observe-input}
+      - {from: observe-input, to: __end__}
+    max_iterations: 4
+    conversation: {starts: peer}

@@ -592,6 +592,7 @@ func (s *Server) init() error {
 			Social:     social.PeerRetirement{Contacts: contactServer, Friends: friendServer, FriendGroups: friendGroupServer},
 			Workspaces: workspaceServer,
 			APIKeys:    apiKeyServer, RuntimeProfiles: runtimeProfileServer, Quiescer: manager,
+			Memory:          peerMemoryCleanup{ProfileForOwner: runtimeProfileServer.ResolveOwnerProfile, Layouts: memoryLayoutServer, Stores: manager.MemoryStores, ServerRoot: manager.MemoryRoot},
 			WorkspaceLookup: workspacePendingDeletionSource, FriendGroupLookup: friendGroupPendingDeletionSource,
 		},
 	); err != nil {

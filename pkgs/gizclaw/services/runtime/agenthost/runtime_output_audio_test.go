@@ -138,6 +138,27 @@ func TestAudioOutputTracksRejectInvalidPCMWithContext(t *testing.T) {
 	}
 }
 
+func TestAudioOutputPCM16LEByteOrder(t *testing.T) {
+	decoder, err := newAudioPCMDecoder("audio/x-pcm; rate=16000; channels=1; format=s16le")
+	if err != nil {
+		t.Fatalf("newAudioPCMDecoder() error = %v", err)
+	}
+	chunks, err := decoder.Decode([]byte{0x34, 0x12})
+	if err != nil {
+		t.Fatalf("Decode() error = %v", err)
+	}
+	var decoded bytes.Buffer
+	if len(chunks) != 1 || chunks[0].Format() != pcm.L16Mono16K {
+		t.Fatalf("decoded chunks = %#v, want one 16 kHz mono PCM chunk", chunks)
+	}
+	if _, err := chunks[0].WriteTo(&decoded); err != nil || !bytes.Equal(decoded.Bytes(), []byte{0x34, 0x12}) {
+		t.Fatalf("decoded PCM bytes = %x, error = %v", decoded.Bytes(), err)
+	}
+	if _, err := newAudioPCMDecoder("audio/x-pcm; rate=16000; channels=1; format=s16be"); err == nil {
+		t.Fatal("big-endian PCM label was accepted as little-endian")
+	}
+}
+
 func TestAudioOutputTracksRejectMalformedAudioMIMEWithContext(t *testing.T) {
 	creator := newRecordingAudioTrackCreator()
 	tracks := newAudioOutputTracks(creator)

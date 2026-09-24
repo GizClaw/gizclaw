@@ -242,3 +242,11 @@ Runtime provider, Store, Script, component, cancellation, byte-limit, and optimi
 The Eino Transformer depends only on the GenX `ToolInvoker` interface and does not receive RuntimeProfile, Toolkit policy, resource, or executor-registry details. One root `Transform` invocation shares its call-ID set and `MaxToolCalls` budget across nested Graphs. Provider call IDs remain inside Eino and are associated with the raw JSON result returned by `InvokeTool`. Zero uses 32 and negative values are rejected. Independent invocations may execute the shared invoker concurrently and reuse provider call IDs; resolution, invocation, invalid-result JSON, cancellation, duplicate-ID, and exhaustion failures remain local to one invocation.
 
 For agent initiative, ChatModel omits content-free user messages rendered by Prompt while preserving system instructions, history, and multimodal input.
+
+## Realtime speech endpointing
+
+Eino realtime speech input explicitly sets Volc ASR `end_window_size=200` and
+`force_to_speech_time=1000`. The former shortens endpointing after speech while
+the latter preserves the minimum speech duration. Push-to-Talk keeps the ASR
+Builder defaults. The model still starts only after definite ASR text EOS;
+interim transcripts do not trigger a dialogue turn.

@@ -26,6 +26,13 @@ enum StreamKind {
   STREAM_KIND_MIXED = 4;
 }
 
+// Optional on an audio input BOS. Unspecified preserves legacy clients.
+enum AudioInputMode {
+  AUDIO_INPUT_MODE_UNSPECIFIED = 0;
+  AUDIO_INPUT_MODE_PUSH_TO_TALK = 1;
+  AUDIO_INPUT_MODE_REALTIME = 2;
+}
+
 enum WorkspaceKind {
   WORKSPACE_KIND_UNSPECIFIED = 0;
   WORKSPACE_KIND_WORKFLOW = 1;
@@ -74,6 +81,7 @@ message StreamBegin {
   StreamKind kind = 4;
   string label = 5;
   string mime_type = 6;
+  AudioInputMode input_mode = 7;
 }
 
 message StreamEnd {

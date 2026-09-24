@@ -37,6 +37,9 @@ variables:
     max_bytes: 16777216
     media_type: audio/ogg
     codec: opus
+  history_name:
+    direction: output
+    type: string
 steps:
   - id: register_peer
     client: peer
@@ -83,6 +86,21 @@ steps:
         non_empty: true
       /history_name:
         non_empty: true
+      /audio_eos:
+        equals: true
+      /audio_bytes:
+        minimum: 1000
+    capture:
+      history_name: /history_name
+  - id: replay_history
+    client: peer
+    rpc:
+      method: server.run.workspace.history.play
+      request:
+        history_name: ${history_name}
+    expect:
+      /accepted:
+        equals: true
 finally:
   - client: peer
     rpc:

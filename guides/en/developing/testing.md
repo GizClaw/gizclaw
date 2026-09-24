@@ -710,9 +710,19 @@ expose receiver-side pacing under `audio_pacing`: `packets`, `audio_ms`,
 `target_span_ms`, `receive_span_ms`, `mean_packet_ms`, `mean_interval_ms`,
 `p95_interval_ms`, `max_interval_ms`, `drift_ms`, `absolute_drift_ms`,
 `buffer_surplus_ms`, and the continuous-playback simulation `prebuffer_ms`,
-`underruns`, `underrun_ms`, `max_underrun_ms`, and `minimum_buffer_ms`. Intervals use the stream reader's monotonic receipt time,
-before assertions, persistence, or PortAudio playback; a positive
-`buffer_surplus_ms` means network delivery is ahead of the Opus media clock.
+`underruns`, `underrun_ms`, `max_underrun_ms`, and `minimum_buffer_ms`. Intervals
+use the stream reader's monotonic receipt time. A separate stage decodes Opus,
+classifies audibility, and observes events after that timestamp, so its work,
+assertions, persistence, and PortAudio playback cannot delay the next receipt
+measurement. A positive `buffer_surplus_ms` means network delivery is ahead of
+the Opus media clock.
+`max_interval_ms` remains diagnostic: one arrival gap can exceed 100 ms while
+the 500 ms prebuffer still carries continuous playback. The Doubao realtime
+roundtrip gates playback with zero underruns and a positive minimum buffer,
+alongside mean/P95 cadence and an upper bound on buffer surplus, rather than
+a hard maximum gap. A covered arrival gap can lower cumulative buffer surplus
+below the 500 ms pacing target without interrupting playback, so the roundtrip
+does not impose a lower bound on that diagnostic value.
 All `*_ms` values use milliseconds. `target_span_ms` is the sum of every packet
 duration except the last, `drift_ms = receive_span_ms - target_span_ms`, and
 `buffer_surplus_ms = -drift_ms`. P95 uses nearest-rank selection over arrival
@@ -810,6 +820,13 @@ forwarding with audio EOS completion against a multimodal candidate; and
 gates and the repeat-20 relay gate
 (`benchmark.workspace-relay.workflow-tester-20.giztest.yaml` with
 `--parallel 20`), and always cleans the stack up.
+The paired tester Workflow uses seven probe turns and an eighth verdict turn.
+If the model emits a bare `PASS`/`FAIL` or empty text during a probe, the
+publisher asks a follow-up instead; the final model verdict is published as is
+against the brief's per-reply criteria. Probe questions must not demand a
+definitive culprit or completed story when the brief only checks relevant,
+nonempty host replies; a reasoned statement that clues are insufficient is a
+responsive answer.
 
 ### Broadcast scenarios: listen, parallel, and input_sent
 

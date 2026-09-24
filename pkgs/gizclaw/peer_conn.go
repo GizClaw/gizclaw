@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
@@ -840,8 +841,69 @@ func (h *PeerConn) authorizeInputEvent(ctx context.Context, event *eventpb.PeerE
 	if permission.denial != nil {
 		return h.rejectInputEvent(ctx, event, streamID, permission.denial)
 	}
+	if denial := h.audioInputModeDenial(ctx, event, permission.run.workspaceName, permission.isSFU); denial != nil {
+		return h.rejectInputEvent(ctx, event, streamID, denial)
+	}
 	h.acceptInputEvent(event, streamID, permission.run.workspaceName, permission.isSFU, permission.revision)
 	return true, nil
+}
+
+// audioInputModeDenial checks an explicitly declared audio mode against the
+// selected Doubao realtime Workspace. Older clients omit input_mode and retain
+// their existing wire behavior; the server cannot infer their intended mode.
+func (h *PeerConn) audioInputModeDenial(ctx context.Context, event *eventpb.PeerEvent, workspaceName string, isSFU bool) *inputAccessError {
+	if event.Type != eventpb.PeerEventType_PEER_EVENT_TYPE_BOS ||
+		event.StreamKindValue() != eventpb.StreamKind_STREAM_KIND_AUDIO || isSFU {
+		return nil
+	}
+	declared := event.GetBos().GetInputMode()
+	if declared == eventpb.AudioInputMode_AUDIO_INPUT_MODE_UNSPECIFIED {
+		return nil
+	}
+	if declared != eventpb.AudioInputMode_AUDIO_INPUT_MODE_PUSH_TO_TALK &&
+		declared != eventpb.AudioInputMode_AUDIO_INPUT_MODE_REALTIME {
+		return &inputAccessError{Code: "INVALID_AUDIO_INPUT_MODE", Message: "audio input mode must be push-to-talk or realtime"}
+	}
+	manager := h.Service.manager
+	if manager.Workspaces == nil || manager.Workflows == nil {
+		return &inputAccessError{Code: "INPUT_MODE_CHECK_FAILED", Message: "workspace input mode could not be checked", Retryable: true}
+	}
+	resources := &peerresource.Server{Caller: h.Conn.PublicKey(), Workspaces: manager.Workspaces}
+	workspace, err := resources.ResolveWorkspaceForAccessCheck(ctx, workspaceName)
+	if err != nil {
+		return &inputAccessError{Code: "INPUT_MODE_CHECK_FAILED", Message: "workspace input mode could not be checked", Retryable: true}
+	}
+	response, err := manager.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Id: workspace.WorkflowId})
+	if err != nil {
+		return &inputAccessError{Code: "INPUT_MODE_CHECK_FAILED", Message: "workspace input mode could not be checked", Retryable: true}
+	}
+	workflow, ok := response.(adminhttp.GetWorkflow200JSONResponse)
+	if !ok {
+		return &inputAccessError{Code: "INPUT_MODE_CHECK_FAILED", Message: "workspace input mode could not be checked", Retryable: true}
+	}
+	if apitypes.Workflow(workflow).Spec.DoubaoRealtime == nil {
+		return nil
+	}
+	want := eventpb.AudioInputMode_AUDIO_INPUT_MODE_PUSH_TO_TALK
+	if workspace.Parameters != nil {
+		parameters, err := workspace.Parameters.AsDoubaoRealtimeWorkspaceParameters()
+		if err != nil {
+			return &inputAccessError{Code: "INPUT_MODE_CHECK_FAILED", Message: "workspace input mode could not be checked", Retryable: true}
+		}
+		if parameters.Input != nil && *parameters.Input == apitypes.WorkspaceInputModeRealtime {
+			want = eventpb.AudioInputMode_AUDIO_INPUT_MODE_REALTIME
+		}
+	}
+	// A realtime Workspace also handles an explicit push-to-talk turn: its
+	// provider can detect the end of speech, and the client may close input.
+	// A push-to-talk Workspace requires EOS, which realtime input never sends.
+	if declared == want || (want == eventpb.AudioInputMode_AUDIO_INPUT_MODE_REALTIME && declared == eventpb.AudioInputMode_AUDIO_INPUT_MODE_PUSH_TO_TALK) {
+		return nil
+	}
+	return &inputAccessError{
+		Code:    "WORKSPACE_INPUT_MODE_MISMATCH",
+		Message: "realtime audio input requires a REALTIME Workspace; the selected Doubao Workspace uses push-to-talk. Set doubao_realtime_workspace_parameters.input=WORKSPACE_INPUT_MODE_REALTIME",
+	}
 }
 
 func (h *PeerConn) rejectInputEvent(

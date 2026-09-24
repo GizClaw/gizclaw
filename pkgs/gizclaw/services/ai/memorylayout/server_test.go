@@ -77,6 +77,39 @@ func TestServerMemoryLayoutLifecycle(t *testing.T) {
 	}
 }
 
+func TestMemoryLayoutImplementationScopesPersistAndValidate(t *testing.T) {
+	server := newTestServer(t)
+	layout := testLayout(t, "scope-layout")
+	flowPeer := apitypes.FlowcraftMemoryLayoutPolicyScopePeer
+	memWorkspace := apitypes.Mem0MemoryLayoutPolicyScopeWorkspace
+	volcPeer := apitypes.VolcMem0MemoryLayoutPolicyScopePeer
+	layout.Spec.Flowcraft.Scope = &flowPeer
+	layout.Spec.Mem0.Scope = &memWorkspace
+	layout.Spec.VolcMem0.Scope = &volcPeer
+	created, err := server.CreateMemoryLayout(t.Context(), adminhttp.CreateMemoryLayoutRequestObject{Body: &layout})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := created.(adminhttp.CreateMemoryLayout200JSONResponse); !ok {
+		t.Fatalf("CreateMemoryLayout() = %T", created)
+	}
+	got, err := server.GetMemoryLayout(t.Context(), adminhttp.GetMemoryLayoutRequestObject{Id: layout.Id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, ok := got.(adminhttp.GetMemoryLayout200JSONResponse)
+	if !ok || stored.Spec.Flowcraft.Scope == nil || *stored.Spec.Flowcraft.Scope != flowPeer ||
+		stored.Spec.Mem0.Scope == nil || *stored.Spec.Mem0.Scope != memWorkspace ||
+		stored.Spec.VolcMem0.Scope == nil || *stored.Spec.VolcMem0.Scope != volcPeer {
+		t.Fatalf("stored scopes = %#v", got)
+	}
+	invalid := apitypes.Mem0MemoryLayoutPolicyScope("unknown")
+	layout.Spec.Mem0.Scope = &invalid
+	if _, _, err := validate(apitypes.MemoryLayout{Id: layout.Id, Spec: layout.Spec}, ""); err == nil {
+		t.Fatal("invalid Mem0 scope accepted")
+	}
+}
+
 func TestServerMemoryLayoutPreservesDottedRuntimeAliases(t *testing.T) {
 	server := newTestServer(t)
 	layout := testLayout(t, "pet-memory")

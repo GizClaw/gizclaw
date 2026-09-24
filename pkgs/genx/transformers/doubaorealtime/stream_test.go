@@ -42,6 +42,7 @@ func TestDoubaoRealtimeSpokenResponseSelectsTTSOnce(t *testing.T) {
 	if !first.openText || !first.openAudio || !reflect.DeepEqual(first.text, []string{"first sentence "}) {
 		t.Fatalf("first TTS transition = %#v", first)
 	}
+	response.ttsSegmentEnded("first sentence ")
 	second := response.ttsStarted("second sentence")
 	if second.openText || second.openAudio || !reflect.DeepEqual(second.text, []string{"second sentence"}) {
 		t.Fatalf("second TTS transition = %#v", second)
@@ -63,6 +64,7 @@ func TestDoubaoRealtimeSpokenResponseSelectsTTSOnce(t *testing.T) {
 
 func TestDoubaoRealtimeSpokenResponseFallsBackToChatAfterBothTerminals(t *testing.T) {
 	var response doubaoRealtimeSpokenResponse
+	response.ttsSegmentEnded("segment duplicate")
 	response.chat("first ")
 	response.chat("second")
 	if got := response.finishChat(); got.closeText || len(got.text) != 0 {
@@ -78,6 +80,39 @@ func TestDoubaoRealtimeSpokenResponseFallsBackToChatAfterBothTerminals(t *testin
 	}
 	if got := response.finishChat(); got.closeText || len(got.text) != 0 {
 		t.Fatalf("duplicate ChatEnded transition = %#v, want idempotent", got)
+	}
+}
+
+func TestDoubaoRealtimeSpokenResponseFallsBackToTTSSegmentsAfterBothTerminals(t *testing.T) {
+	for _, chatFirst := range []bool{true, false} {
+		name := "TTS ends first"
+		if chatFirst {
+			name = "chat ends first"
+		}
+		t.Run(name, func(t *testing.T) {
+			var response doubaoRealtimeSpokenResponse
+			if got := response.ttsStarted(""); !got.openAudio || got.openText {
+				t.Fatalf("empty TTS start = %#v", got)
+			}
+			response.ttsSegmentEnded("first ")
+			response.ttsSegmentEnded("second")
+			var first, last doubaoRealtimeSpokenTransition
+			if chatFirst {
+				first, last = response.finishChat(), response.finishTTS()
+			} else {
+				first, last = response.finishTTS(), response.finishChat()
+			}
+			if first.closeText || len(first.text) != 0 {
+				t.Fatalf("first terminal transition = %#v, want deferred text", first)
+			}
+			if !last.openText || !last.closeText || !reflect.DeepEqual(last.text, []string{"first ", "second"}) {
+				t.Fatalf("final transition = %#v, want two segment texts and text EOS", last)
+			}
+			response.ttsSegmentEnded("late")
+			if got := response.finishChat(); got.closeText || len(got.text) != 0 {
+				t.Fatalf("late segment changed completed reply: %#v", got)
+			}
+		})
 	}
 }
 

@@ -79,12 +79,12 @@ const (
 	// agent-initiative opening turn; the hidden query never enters output.
 	doubaoRealtimeInitiativeStreamID = "initiative"
 
-	doubaoRealtimeFixedInputFormat      = "speech_opus"
-	doubaoRealtimeFixedInputSampleRate  = 16000
-	doubaoRealtimeFixedInputChannels    = 1
-	doubaoRealtimeFixedOutputFormat     = "ogg_opus"
-	doubaoRealtimeFixedOutputSampleRate = 24000
-	doubaoRealtimeFixedOutputChannels   = 1
+	doubaoRealtimeFixedInputFormat        = "speech_opus"
+	doubaoRealtimeFixedInputSampleRate    = 16000
+	doubaoRealtimeFixedInputChannels      = 1
+	doubaoRealtimeDefaultOutputFormat     = "pcm_s16le"
+	doubaoRealtimeDefaultOutputSampleRate = 16000
+	doubaoRealtimeDefaultOutputChannels   = 1
 
 	doubaoRealtimePTTOutputLimit    = 2 * time.Minute
 	doubaoRealtimePTTOutputMaxBytes = 32 << 20
@@ -343,9 +343,9 @@ func newTransformer(client *doubaospeech.Client, opts ...option) *Transformer {
 	t := &Transformer{
 		client:           client,
 		speaker:          "zh_female_vv_jupiter_bigtts", // O version default voice
-		format:           doubaoRealtimeFixedOutputFormat,
-		sampleRate:       doubaoRealtimeFixedOutputSampleRate,
-		channels:         doubaoRealtimeFixedOutputChannels,
+		format:           doubaoRealtimeDefaultOutputFormat,
+		sampleRate:       doubaoRealtimeDefaultOutputSampleRate,
+		channels:         doubaoRealtimeDefaultOutputChannels,
 		inputFormat:      doubaoRealtimeFixedInputFormat,
 		inputSampleRate:  doubaoRealtimeFixedInputSampleRate,
 		inputChannels:    doubaoRealtimeFixedInputChannels,
@@ -1106,6 +1106,16 @@ func (t *Transformer) processSession(
 	pttASR := &doubaoRealtimePTTASRQueue{}
 	pttResponses := &doubaoRealtimePTTResponses{}
 	var pttControl sync.Mutex
+	// Order completion interrupts with PTT route replacement without holding a
+	// state mutex during provider I/O. A successor cancels its predecessor's
+	// pending completion call before accepting the new route.
+	var pttSessionControl sync.Mutex
+	type completionInterrupt struct {
+		ctx    context.Context
+		cancel context.CancelFunc
+		done   chan struct{}
+	}
+	var pendingCompletionInterrupt *completionInterrupt
 	textResponses := &doubaoRealtimeTextResponses{}
 	var realtimeSpoken *doubaoRealtimeSpokenResponse
 	var realtimeSpokenEpoch uint64
@@ -1552,6 +1562,23 @@ func (t *Transformer) processSession(
 						return err
 					}
 
+				case doubaospeech.EventTTSSegmentEnd:
+					if t.textOutput {
+						continue
+					}
+					var response *doubaoRealtimePTTResponse
+					if pttEvents() {
+						response = pttResponses.matchAudio(doubaoRealtimeEventResponseIdentity(event))
+						if response == nil {
+							continue
+						}
+					} else if !assistant.acceptsOutput() {
+						continue
+					}
+					if state := spokenResponse(response); state != nil {
+						state.ttsSegmentEnded(event.Text)
+					}
+
 				case doubaospeech.EventChatResponse:
 					var response *doubaoRealtimePTTResponse
 					epoch := assistant.currentEpoch()
@@ -1680,6 +1707,36 @@ func (t *Transformer) processSession(
 						epoch = response.epoch
 						pushToTalk.chatEnded(streamID)
 						if t.textOutput {
+							// With push-to-talk and text-only output, SC 2.0 does
+							// not accept the next audio turn after ChatEnded alone.
+							// Release only the turn that still owns the session. A
+							// delayed ChatEnded from a replaced response must not
+							// interrupt its successor.
+							pttSessionControl.Lock()
+							var attempt *completionInterrupt
+							if pttTurn.ownsResponse(response) {
+								interruptCtx, cancel := context.WithCancel(ctx)
+								attempt = &completionInterrupt{ctx: interruptCtx, cancel: cancel, done: make(chan struct{})}
+								pendingCompletionInterrupt = attempt
+							}
+							pttSessionControl.Unlock()
+							var interruptErr error
+							if attempt != nil {
+								if attempt.ctx.Err() == nil {
+									interruptErr = session.Interrupt(attempt.ctx)
+								}
+								pttSessionControl.Lock()
+								superseded := pendingCompletionInterrupt != attempt
+								if !superseded {
+									pendingCompletionInterrupt = nil
+								}
+								pttSessionControl.Unlock()
+								attempt.cancel()
+								close(attempt.done)
+								if interruptErr != nil && !superseded {
+									return doubaoRealtimeRecoverable("finish text-only push-to-talk response", interruptErr)
+								}
+							}
 							// ChatEnded completes a text-only response. Record the
 							// provider completion before the text EOS can be observed.
 							pushToTalk.responseStarted(streamID, false)
@@ -1884,10 +1941,18 @@ func (t *Transformer) processSession(
 			// part-bearing BOS on the current route only declares that MIME
 			// channel and must not begin the route a second time.
 			if (newRoute || chunk.Part == nil) && t.mode == ModePushToTalk {
+				pttSessionControl.Lock()
+				var previousCompletionDone <-chan struct{}
+				if pendingCompletionInterrupt != nil {
+					pendingCompletionInterrupt.cancel()
+					previousCompletionDone = pendingCompletionInterrupt.done
+					pendingCompletionInterrupt = nil
+				}
 				pttControl.Lock()
 				bargeIn, previousStreamID, err := pushToTalk.begin(streamID)
 				if err != nil {
 					pttControl.Unlock()
+					pttSessionControl.Unlock()
 					return err
 				}
 				interruptStreamID := streamID
@@ -1907,6 +1972,12 @@ func (t *Transformer) processSession(
 					realtimePTTOutputByteLimit(doubaoRealtimePTTOutputLimit, t.sampleRate, t.channels),
 				)
 				pttControl.Unlock()
+				pttSessionControl.Unlock()
+				// Cancellation does not retract a provider write already in flight.
+				// Wait for it to stop before sending any operation for this turn.
+				if previousCompletionDone != nil {
+					<-previousCompletionDone
+				}
 				inputRouteID = streamID
 				inputAudioEnded = false
 				turnAudioSent = 0
@@ -2270,7 +2341,7 @@ func (t *Transformer) mimeType() string {
 	case "ogg_opus":
 		return "audio/ogg"
 	case "pcm", "pcm_s16le":
-		return "audio/pcm"
+		return fmt.Sprintf("audio/x-pcm; rate=%d; channels=%d; format=s16le", t.sampleRate, t.channels)
 	default:
 		return "audio/pcm"
 	}
@@ -2288,10 +2359,10 @@ func realtimePTTOutputByteLimit(limit time.Duration, sampleRate, channels int) i
 		return 0
 	}
 	if sampleRate <= 0 {
-		sampleRate = doubaoRealtimeFixedOutputSampleRate
+		sampleRate = doubaoRealtimeDefaultOutputSampleRate
 	}
 	if channels <= 0 {
-		channels = doubaoRealtimeFixedOutputChannels
+		channels = doubaoRealtimeDefaultOutputChannels
 	}
 	const bytesPerSample = int64(2)
 	const maxInt64 = int64(^uint64(0) >> 1)

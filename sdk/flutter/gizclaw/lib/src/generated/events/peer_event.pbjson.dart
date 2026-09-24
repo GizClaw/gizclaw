@@ -59,6 +59,22 @@ final $typed_data.Uint8List streamKindDescriptor = $convert.base64Decode(
     'RfVEVYVBABEhUKEVNUUkVBTV9LSU5EX0FVRElPEAISFQoRU1RSRUFNX0tJTkRfVklERU8QAxIV'
     'ChFTVFJFQU1fS0lORF9NSVhFRBAE');
 
+@$core.Deprecated('Use audioInputModeDescriptor instead')
+const AudioInputMode$json = {
+  '1': 'AudioInputMode',
+  '2': [
+    {'1': 'AUDIO_INPUT_MODE_UNSPECIFIED', '2': 0},
+    {'1': 'AUDIO_INPUT_MODE_PUSH_TO_TALK', '2': 1},
+    {'1': 'AUDIO_INPUT_MODE_REALTIME', '2': 2},
+  ],
+};
+
+/// Descriptor for `AudioInputMode`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List audioInputModeDescriptor = $convert.base64Decode(
+    'Cg5BdWRpb0lucHV0TW9kZRIgChxBVURJT19JTlBVVF9NT0RFX1VOU1BFQ0lGSUVEEAASIQodQV'
+    'VESU9fSU5QVVRfTU9ERV9QVVNIX1RPX1RBTEsQARIdChlBVURJT19JTlBVVF9NT0RFX1JFQUxU'
+    'SU1FEAI=');
+
 @$core.Deprecated('Use workspaceKindDescriptor instead')
 const WorkspaceKind$json = {
   '1': 'WorkspaceKind',
@@ -248,6 +264,14 @@ const StreamBegin$json = {
     },
     {'1': 'label', '3': 5, '4': 1, '5': 9, '10': 'label'},
     {'1': 'mime_type', '3': 6, '4': 1, '5': 9, '10': 'mimeType'},
+    {
+      '1': 'input_mode',
+      '3': 7,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.events.v1.AudioInputMode',
+      '10': 'inputMode'
+    },
   ],
 };
 
@@ -256,7 +280,9 @@ final $typed_data.Uint8List streamBeginDescriptor = $convert.base64Decode(
     'CgtTdHJlYW1CZWdpbhIbCglzdHJlYW1faWQYASABKAlSCHN0cmVhbUlkEhoKCHNlcXVlbmNlGA'
     'IgASgEUghzZXF1ZW5jZRIqChF0aW1lc3RhbXBfdW5peF9tcxgDIAEoA1IPdGltZXN0YW1wVW5p'
     'eE1zEjEKBGtpbmQYBCABKA4yHS5naXpjbGF3LmV2ZW50cy52MS5TdHJlYW1LaW5kUgRraW5kEh'
-    'QKBWxhYmVsGAUgASgJUgVsYWJlbBIbCgltaW1lX3R5cGUYBiABKAlSCG1pbWVUeXBl');
+    'QKBWxhYmVsGAUgASgJUgVsYWJlbBIbCgltaW1lX3R5cGUYBiABKAlSCG1pbWVUeXBlEkAKCmlu'
+    'cHV0X21vZGUYByABKA4yIS5naXpjbGF3LmV2ZW50cy52MS5BdWRpb0lucHV0TW9kZVIJaW5wdX'
+    'RNb2Rl');
 
 @$core.Deprecated('Use streamEndDescriptor instead')
 const StreamEnd$json = {

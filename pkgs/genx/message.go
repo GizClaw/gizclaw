@@ -50,8 +50,12 @@ type StreamCtrl struct {
 	// StreamID. It is process-local logging metadata, not response ownership.
 	SourceStreamID string `json:"-"`
 
-	StreamID         string         `json:"stream_id,omitempty"`
-	Label            string         `json:"label,omitempty"`
+	StreamID string `json:"stream_id,omitempty"`
+	Label    string `json:"label,omitempty"`
+	// InputMode declares how an audio input route completes. Empty retains
+	// legacy behavior for clients that do not send an input mode on BOS. It is
+	// process-local and never belongs in persisted message content.
+	InputMode        string         `json:"-"`
 	Error            string         `json:"error,omitempty"`
 	ErrorCode        string         `json:"error_code,omitempty"`
 	ErrorRetryable   bool           `json:"error_retryable,omitempty"`

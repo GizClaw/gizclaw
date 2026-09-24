@@ -111,6 +111,8 @@ AST 接收循环发生错误时，会直接结束输出流并保留原始错误�
 
 这两个 Adapter 可以共用 GenX Stream、audio conversion、StreamID 和 lifecycle 基础设施，但不能合并 provider session interface 或 event mapping。Push-to-Talk 只属于 Realtime Dialogue API，不应由 Realtime Duplex Adapter 模拟。
 
+Realtime Dialogue 默认请求 `tts.audio_config` 为 16 kHz、单声道 `pcm_s16le`，输出 route 标记为 `audio/x-pcm; rate=16000; channels=1; format=s16le`。Peer mixer 同样使用 16 kHz 单声道 PCM，因此 track 直接接收样本，不创建重采样器；History 按 MIME 中的实际采样率把 PCM 编码成 Ogg/Opus 录音。显式的 `output_format` 和 `output_sample_rate` 仍覆盖默认值，包括原有的 `ogg_opus`、24 kHz 配置。Ogg/Opus 解码在 Peer 侧产生 48 kHz PCM，仍需转换为 mixer 的 16 kHz。Realtime Duplex 的上游输出固定为 24 kHz，保持其独立输出与重采样路径。
+
 ### Realtime Duplex Stream identity 与输入边界
 
 Realtime Duplex 使用 provider server VAD 连续划分 utterance。Control route BOS 与同 StreamID 的 audio MIME BOS 打开本地输入 segment；audio MIME EOS 和 control route EOS 只负责按各自边界关闭本地 codec/segment，不发送 `input_audio_buffer.commit`。BOS 或 EOS chunk 如果同时携带 audio data，Adapter 必须先发送该 payload，再完成对应边界转换；非 audio MIME 边界不能提前关闭 audio segment。
@@ -150,7 +152,7 @@ Transformer 自己管理 provider call ID、顺序、重复 ID 拒绝和 invocat
 
 `Config.Model` 是必填项，transformer 不会猜测默认 model。`Config.Instructions` 是初始音频对话的语义指令。GizClaw 将它原样交给 `doubao-speech-go`；SDK 在规范化 model 后，将其映射到 O20 的 `dialog.system_role` 或 SC20 的 `dialog.character_manifest`。精确的 `SystemRole`、`SpeakingStyle` 和 `CharacterManifest` 仍是独立高级字段，由 SDK 校验兼容性。Adapter 不会把语义指令复制到 `prompt.system`，也不会向 SC20 session 注入 O-only `BotName`。
 
-一个 provider response 只拥有一条 spoken-text route 和一条 audio route。TTS start event `350` 中的非空 sentence text 是 canonical source，每个合成句只发布一次；Chat event `550` text 先缓冲，只有整个 response 未出现任何 TTS sentence text 时才作为 fallback 发布。第一次 TTS start 或 audio payload 发送一次 audio BOS，后续 sentence start 复用同一 route，TTS finish 发送一次 audio EOS，选中的 text source 只发送一次 text EOS。Failure 和 interruption 会丢弃尚未朗读的 Chat buffer，不会把它作为成功回复发布。
+一个 provider response 只拥有一条 spoken-text route 和一条 audio route。TTS start event `350` 中的非空 sentence text 是 canonical source，每个合成句只发布一次；Chat event `550` text 先缓冲，只有整个 response 未出现任何 TTS sentence text 时才作为 fallback 发布。TTS segment-end event `351` 的非空 text 也会按到达顺序暂存：只有 `350` 和 `550` 都未提供非空文字时，才在 Chat 与 TTS 均完成后作为最后的文字来源发布，不会与前两种来源重复。第一次 TTS start 或 audio payload 发送一次 audio BOS，后续 sentence start 复用同一 route，TTS finish 发送一次 audio EOS，选中的 text source 只发送一次 text EOS。三种来源都没有文字时仍关闭空 text route；Failure 和 interruption 会丢弃尚未朗读的缓存，不会把它作为成功回复发布。
 
 长连接生命周期由 transformer 持有。`Transform` 启动后即开始连接，并在普通 input turn 和 BOS/EOS 边界之间复用同一个健康的 Realtime Dialogue session。Realtime 模式的 BOS 打断 active response 时，会在本地关闭该 provider session，并立即使用相同的 instructions、model 和 `DialogID` 打开 replacement session；不会发送只允许 Push-to-Talk 使用的 `ClientInterrupt` event。新 route 中尚未读取的 audio 只由 replacement 消费。`ASREnded` 绑定 Realtime response 时，该 response epoch 获得一个绝对的一分钟完成期限；partial ASR 不会启动期限，后续 Chat 或 TTS 进度也不会延长它。匹配 route 完成或 interruption 会解除期限；期限到期则向仍打开的 transcript 或 assistant route 发送带 error 的 EOS，关闭 stalled session 并开始重连。旧 epoch 不能取消或触发 replacement 的期限。Provider terminal event、transport error 或 session I/O error 同样走这条带上限指数退避的 replacement 路径；只要 transform context 和 output stream 尚未结束，就不限制尝试次数。
 
@@ -172,7 +174,7 @@ Workspace `conversation.initiative` 为 `agent` 时，`doubaorealtime.Transforme
 
 `Config.Output` 选择回复模态：默认 `audio`，由 provider 同时返回回复文本和 TTS 音频；`text`（pattern 参数 `output=text`）在 StartSession 中发送 `dialog.extra.output_modalities: ["text"]`，provider 不合成音频，也不发送 TTSSentenceStart、TTSSentenceEnd、TTSResponse 或 TTSEnded。该字段不在上游公开文档中，由 `doubao-speech-go` 的 live E2E 验证。Provider 仍要求 `tts.speaker`，所以 session 照常携带 speaker。
 
-Text 输出下，每个 response 只拥有一条 assistant text route：ChatResponse（event 550）的文本到达即发布，ChatEnded（event 559）关闭 text route 并完成 response，不再等待 TTS。Push-to-Talk turn、Text 模式排空、Realtime response deadline 和 assistant lifecycle 都以 ChatEnded 为完成点；没有回复文本的 response（包括空 Push-to-Talk turn）仍发布空 audio lifecycle，客户端照常看到 text 与 audio 两个 EOS；interruption 只关闭 text route。Provider 若仍发送 TTS event 或音频，transformer 忽略它们。
+Text 输出下，每个 response 只拥有一条 assistant text route：ChatResponse（event 550）的文本到达即发布，ChatEnded（event 559）关闭 text route 并完成 response，不再等待 TTS。Push-to-Talk 音频输入与 text-only 输出组合在同一 SC 2.0 session 中时，provider 在 ChatEnded 后仍需收到 ClientInterrupt（event 515）才接受下一轮音频；Transformer 在发布本轮 assistant EOS 前发送该事件，保留同一 provider session 和对话上下文。Text 输入模式不发送这个信号。Push-to-Talk turn、Text 模式排空、Realtime response deadline 和 assistant lifecycle 都以 ChatEnded 为完成点；没有回复文本的 response（包括空 Push-to-Talk turn）仍发布空 audio lifecycle，客户端照常看到 text 与 audio 两个 EOS；interruption 只关闭 text route。Provider 若仍发送 TTS event 或音频，transformer 忽略它们。
 
 Workflow `doubao_realtime.tts.voice` 配置后，factory 为 pattern 追加 `output=text`，在 reload 时校验该 RuntimeProfile Voice 可解析，并用 `audiodock` 把 assistant 回复文本流式送入 `voice/<alias>` 合成；用户音频仍直接进入 realtime 模型。`audio.output.voice` 保持必填，用于满足 provider 的 speaker 要求。
 

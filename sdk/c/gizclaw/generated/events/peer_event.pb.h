@@ -32,6 +32,13 @@ typedef enum _gizclaw_events_v1_StreamKind {
     gizclaw_events_v1_StreamKind_STREAM_KIND_MIXED = 4
 } gizclaw_events_v1_StreamKind;
 
+/* Optional on an audio input BOS. Unspecified preserves legacy clients. */
+typedef enum _gizclaw_events_v1_AudioInputMode {
+    gizclaw_events_v1_AudioInputMode_AUDIO_INPUT_MODE_UNSPECIFIED = 0,
+    gizclaw_events_v1_AudioInputMode_AUDIO_INPUT_MODE_PUSH_TO_TALK = 1,
+    gizclaw_events_v1_AudioInputMode_AUDIO_INPUT_MODE_REALTIME = 2
+} gizclaw_events_v1_AudioInputMode;
+
 typedef enum _gizclaw_events_v1_WorkspaceKind {
     gizclaw_events_v1_WorkspaceKind_WORKSPACE_KIND_UNSPECIFIED = 0,
     gizclaw_events_v1_WorkspaceKind_WORKSPACE_KIND_WORKFLOW = 1
@@ -65,6 +72,7 @@ typedef struct _gizclaw_events_v1_StreamBegin {
     gizclaw_events_v1_StreamKind kind;
     char label[65];
     char mime_type[129];
+    gizclaw_events_v1_AudioInputMode input_mode;
 } gizclaw_events_v1_StreamBegin;
 
 typedef struct _gizclaw_events_v1_EventError {
@@ -151,6 +159,10 @@ extern "C" {
 #define _gizclaw_events_v1_StreamKind_MAX gizclaw_events_v1_StreamKind_STREAM_KIND_MIXED
 #define _gizclaw_events_v1_StreamKind_ARRAYSIZE ((gizclaw_events_v1_StreamKind)(gizclaw_events_v1_StreamKind_STREAM_KIND_MIXED+1))
 
+#define _gizclaw_events_v1_AudioInputMode_MIN gizclaw_events_v1_AudioInputMode_AUDIO_INPUT_MODE_UNSPECIFIED
+#define _gizclaw_events_v1_AudioInputMode_MAX gizclaw_events_v1_AudioInputMode_AUDIO_INPUT_MODE_REALTIME
+#define _gizclaw_events_v1_AudioInputMode_ARRAYSIZE ((gizclaw_events_v1_AudioInputMode)(gizclaw_events_v1_AudioInputMode_AUDIO_INPUT_MODE_REALTIME+1))
+
 #define _gizclaw_events_v1_WorkspaceKind_MIN gizclaw_events_v1_WorkspaceKind_WORKSPACE_KIND_UNSPECIFIED
 #define _gizclaw_events_v1_WorkspaceKind_MAX gizclaw_events_v1_WorkspaceKind_WORKSPACE_KIND_WORKFLOW
 #define _gizclaw_events_v1_WorkspaceKind_ARRAYSIZE ((gizclaw_events_v1_WorkspaceKind)(gizclaw_events_v1_WorkspaceKind_WORKSPACE_KIND_WORKFLOW+1))
@@ -167,6 +179,7 @@ extern "C" {
 
 
 #define gizclaw_events_v1_StreamBegin_kind_ENUMTYPE gizclaw_events_v1_StreamKind
+#define gizclaw_events_v1_StreamBegin_input_mode_ENUMTYPE gizclaw_events_v1_AudioInputMode
 
 #define gizclaw_events_v1_StreamEnd_kind_ENUMTYPE gizclaw_events_v1_StreamKind
 
@@ -183,7 +196,7 @@ extern "C" {
 /* Initializer values for message structs */
 #define gizclaw_events_v1_PeerEvent_init_default {0, _gizclaw_events_v1_PeerEventType_MIN, 0, {gizclaw_events_v1_StreamBegin_init_default}}
 #define gizclaw_events_v1_AudioInputReady_init_default {""}
-#define gizclaw_events_v1_StreamBegin_init_default {"", 0, 0, _gizclaw_events_v1_StreamKind_MIN, "", ""}
+#define gizclaw_events_v1_StreamBegin_init_default {"", 0, 0, _gizclaw_events_v1_StreamKind_MIN, "", "", _gizclaw_events_v1_AudioInputMode_MIN}
 #define gizclaw_events_v1_StreamEnd_init_default {"", 0, 0, _gizclaw_events_v1_StreamKind_MIN, "", "", false, gizclaw_events_v1_EventError_init_default}
 #define gizclaw_events_v1_EventError_init_default {"", "", 0}
 #define gizclaw_events_v1_TextDelta_init_default {"", 0, 0, "", ""}
@@ -193,7 +206,7 @@ extern "C" {
 #define gizclaw_events_v1_FriendGroupUpdated_init_default {"", "", _gizclaw_events_v1_FriendGroupChange_MIN, 0, ""}
 #define gizclaw_events_v1_PeerEvent_init_zero    {0, _gizclaw_events_v1_PeerEventType_MIN, 0, {gizclaw_events_v1_StreamBegin_init_zero}}
 #define gizclaw_events_v1_AudioInputReady_init_zero {""}
-#define gizclaw_events_v1_StreamBegin_init_zero  {"", 0, 0, _gizclaw_events_v1_StreamKind_MIN, "", ""}
+#define gizclaw_events_v1_StreamBegin_init_zero  {"", 0, 0, _gizclaw_events_v1_StreamKind_MIN, "", "", _gizclaw_events_v1_AudioInputMode_MIN}
 #define gizclaw_events_v1_StreamEnd_init_zero    {"", 0, 0, _gizclaw_events_v1_StreamKind_MIN, "", "", false, gizclaw_events_v1_EventError_init_zero}
 #define gizclaw_events_v1_EventError_init_zero   {"", "", 0}
 #define gizclaw_events_v1_TextDelta_init_zero    {"", 0, 0, "", ""}
@@ -210,6 +223,7 @@ extern "C" {
 #define gizclaw_events_v1_StreamBegin_kind_tag   4
 #define gizclaw_events_v1_StreamBegin_label_tag  5
 #define gizclaw_events_v1_StreamBegin_mime_type_tag 6
+#define gizclaw_events_v1_StreamBegin_input_mode_tag 7
 #define gizclaw_events_v1_EventError_code_tag    1
 #define gizclaw_events_v1_EventError_message_tag 2
 #define gizclaw_events_v1_EventError_retryable_tag 3
@@ -287,7 +301,8 @@ X(a, STATIC,   SINGULAR, UINT64,   sequence,          2) \
 X(a, STATIC,   SINGULAR, INT64,    timestamp_unix_ms,   3) \
 X(a, STATIC,   SINGULAR, UENUM,    kind,              4) \
 X(a, STATIC,   SINGULAR, STRING,   label,             5) \
-X(a, STATIC,   SINGULAR, STRING,   mime_type,         6)
+X(a, STATIC,   SINGULAR, STRING,   mime_type,         6) \
+X(a, STATIC,   SINGULAR, UENUM,    input_mode,        7)
 #define gizclaw_events_v1_StreamBegin_CALLBACK NULL
 #define gizclaw_events_v1_StreamBegin_DEFAULT NULL
 
@@ -382,7 +397,7 @@ extern const pb_msgdesc_t gizclaw_events_v1_FriendGroupUpdated_msg;
 #define gizclaw_events_v1_FriendGroupUpdated_size 597
 #define gizclaw_events_v1_FriendRelationshipUpdated_size 338
 #define gizclaw_events_v1_PeerEvent_size         8425
-#define gizclaw_events_v1_StreamBegin_size       352
+#define gizclaw_events_v1_StreamBegin_size       354
 #define gizclaw_events_v1_StreamEnd_size         682
 #define gizclaw_events_v1_TextDelta_size         8414
 #define gizclaw_events_v1_TextDone_size          8414

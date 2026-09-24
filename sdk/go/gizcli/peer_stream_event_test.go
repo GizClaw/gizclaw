@@ -579,6 +579,37 @@ func TestPeerStreamPushSkipsNilAndOggDirectPacket(t *testing.T) {
 	}
 }
 
+func TestAudioBOSCarriesDeclaredInputMode(t *testing.T) {
+	for _, tc := range []struct {
+		mode string
+		want eventpb.AudioInputMode
+	}{
+		{mode: "", want: eventpb.AudioInputMode_AUDIO_INPUT_MODE_UNSPECIFIED},
+		{mode: "push-to-talk", want: eventpb.AudioInputMode_AUDIO_INPUT_MODE_PUSH_TO_TALK},
+		{mode: "realtime", want: eventpb.AudioInputMode_AUDIO_INPUT_MODE_REALTIME},
+	} {
+		t.Run(tc.mode, func(t *testing.T) {
+			chunk := &genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "turn", InputMode: tc.mode, BeginOfStream: true}}
+			got := peerStreamEventFromChunk(chunk, eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, nil)
+			if got.GetBos().GetInputMode() != tc.want {
+				t.Fatalf("BOS input mode = %s, want %s", got.GetBos().GetInputMode(), tc.want)
+			}
+		})
+	}
+}
+
+func TestAudioBOSRejectsUnknownInputMode(t *testing.T) {
+	stream := &PeerStream{done: make(chan struct{})}
+	err := stream.Push(t.Context(), &genx.MessageChunk{
+		Role: genx.RoleUser,
+		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{StreamID: "turn", InputMode: "unknown", BeginOfStream: true},
+	})
+	if err == nil || !strings.Contains(err.Error(), "unsupported audio input mode") {
+		t.Fatalf("Push() error = %v, want unsupported audio input mode", err)
+	}
+}
+
 func bosEvent(streamID, label, mimeType string) *eventpb.PeerEvent {
 	return &eventpb.PeerEvent{
 		Version: eventpb.Version,

@@ -145,6 +145,56 @@ func (StreamKind) EnumDescriptor() ([]byte, []int) {
 	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{1}
 }
 
+// Optional on an audio input BOS. Unspecified preserves legacy clients.
+type AudioInputMode int32
+
+const (
+	AudioInputMode_AUDIO_INPUT_MODE_UNSPECIFIED  AudioInputMode = 0
+	AudioInputMode_AUDIO_INPUT_MODE_PUSH_TO_TALK AudioInputMode = 1
+	AudioInputMode_AUDIO_INPUT_MODE_REALTIME     AudioInputMode = 2
+)
+
+// Enum value maps for AudioInputMode.
+var (
+	AudioInputMode_name = map[int32]string{
+		0: "AUDIO_INPUT_MODE_UNSPECIFIED",
+		1: "AUDIO_INPUT_MODE_PUSH_TO_TALK",
+		2: "AUDIO_INPUT_MODE_REALTIME",
+	}
+	AudioInputMode_value = map[string]int32{
+		"AUDIO_INPUT_MODE_UNSPECIFIED":  0,
+		"AUDIO_INPUT_MODE_PUSH_TO_TALK": 1,
+		"AUDIO_INPUT_MODE_REALTIME":     2,
+	}
+)
+
+func (x AudioInputMode) Enum() *AudioInputMode {
+	p := new(AudioInputMode)
+	*p = x
+	return p
+}
+
+func (x AudioInputMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AudioInputMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_proto_events_peer_event_proto_enumTypes[2].Descriptor()
+}
+
+func (AudioInputMode) Type() protoreflect.EnumType {
+	return &file_api_proto_events_peer_event_proto_enumTypes[2]
+}
+
+func (x AudioInputMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use AudioInputMode.Descriptor instead.
+func (AudioInputMode) EnumDescriptor() ([]byte, []int) {
+	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{2}
+}
+
 type WorkspaceKind int32
 
 const (
@@ -175,11 +225,11 @@ func (x WorkspaceKind) String() string {
 }
 
 func (WorkspaceKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_proto_events_peer_event_proto_enumTypes[2].Descriptor()
+	return file_api_proto_events_peer_event_proto_enumTypes[3].Descriptor()
 }
 
 func (WorkspaceKind) Type() protoreflect.EnumType {
-	return &file_api_proto_events_peer_event_proto_enumTypes[2]
+	return &file_api_proto_events_peer_event_proto_enumTypes[3]
 }
 
 func (x WorkspaceKind) Number() protoreflect.EnumNumber {
@@ -188,7 +238,7 @@ func (x WorkspaceKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WorkspaceKind.Descriptor instead.
 func (WorkspaceKind) EnumDescriptor() ([]byte, []int) {
-	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{2}
+	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{3}
 }
 
 type FriendRelationshipChange int32
@@ -224,11 +274,11 @@ func (x FriendRelationshipChange) String() string {
 }
 
 func (FriendRelationshipChange) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_proto_events_peer_event_proto_enumTypes[3].Descriptor()
+	return file_api_proto_events_peer_event_proto_enumTypes[4].Descriptor()
 }
 
 func (FriendRelationshipChange) Type() protoreflect.EnumType {
-	return &file_api_proto_events_peer_event_proto_enumTypes[3]
+	return &file_api_proto_events_peer_event_proto_enumTypes[4]
 }
 
 func (x FriendRelationshipChange) Number() protoreflect.EnumNumber {
@@ -237,7 +287,7 @@ func (x FriendRelationshipChange) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use FriendRelationshipChange.Descriptor instead.
 func (FriendRelationshipChange) EnumDescriptor() ([]byte, []int) {
-	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{3}
+	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{4}
 }
 
 type FriendGroupChange int32
@@ -285,11 +335,11 @@ func (x FriendGroupChange) String() string {
 }
 
 func (FriendGroupChange) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_proto_events_peer_event_proto_enumTypes[4].Descriptor()
+	return file_api_proto_events_peer_event_proto_enumTypes[5].Descriptor()
 }
 
 func (FriendGroupChange) Type() protoreflect.EnumType {
-	return &file_api_proto_events_peer_event_proto_enumTypes[4]
+	return &file_api_proto_events_peer_event_proto_enumTypes[5]
 }
 
 func (x FriendGroupChange) Number() protoreflect.EnumNumber {
@@ -298,7 +348,7 @@ func (x FriendGroupChange) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use FriendGroupChange.Descriptor instead.
 func (FriendGroupChange) EnumDescriptor() ([]byte, []int) {
-	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{4}
+	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{5}
 }
 
 type PeerEvent struct {
@@ -547,6 +597,7 @@ type StreamBegin struct {
 	Kind            StreamKind             `protobuf:"varint,4,opt,name=kind,proto3,enum=gizclaw.events.v1.StreamKind" json:"kind,omitempty"`
 	Label           string                 `protobuf:"bytes,5,opt,name=label,proto3" json:"label,omitempty"`
 	MimeType        string                 `protobuf:"bytes,6,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
+	InputMode       AudioInputMode         `protobuf:"varint,7,opt,name=input_mode,json=inputMode,proto3,enum=gizclaw.events.v1.AudioInputMode" json:"input_mode,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -621,6 +672,13 @@ func (x *StreamBegin) GetMimeType() string {
 		return x.MimeType
 	}
 	return ""
+}
+
+func (x *StreamBegin) GetInputMode() AudioInputMode {
+	if x != nil {
+		return x.InputMode
+	}
+	return AudioInputMode_AUDIO_INPUT_MODE_UNSPECIFIED
 }
 
 type StreamEnd struct {
@@ -1151,14 +1209,16 @@ const file_api_proto_events_peer_event_proto_rawDesc = "" +
 	"\x11audio_input_ready\x18\x12 \x01(\v2\".gizclaw.events.v1.AudioInputReadyH\x00R\x0faudioInputReadyB\t\n" +
 	"\apayload\".\n" +
 	"\x0fAudioInputReady\x12\x1b\n" +
-	"\tstream_id\x18\x01 \x01(\tR\bstreamId\"\xd8\x01\n" +
+	"\tstream_id\x18\x01 \x01(\tR\bstreamId\"\x9a\x02\n" +
 	"\vStreamBegin\x12\x1b\n" +
 	"\tstream_id\x18\x01 \x01(\tR\bstreamId\x12\x1a\n" +
 	"\bsequence\x18\x02 \x01(\x04R\bsequence\x12*\n" +
 	"\x11timestamp_unix_ms\x18\x03 \x01(\x03R\x0ftimestampUnixMs\x121\n" +
 	"\x04kind\x18\x04 \x01(\x0e2\x1d.gizclaw.events.v1.StreamKindR\x04kind\x12\x14\n" +
 	"\x05label\x18\x05 \x01(\tR\x05label\x12\x1b\n" +
-	"\tmime_type\x18\x06 \x01(\tR\bmimeType\"\x8b\x02\n" +
+	"\tmime_type\x18\x06 \x01(\tR\bmimeType\x12@\n" +
+	"\n" +
+	"input_mode\x18\a \x01(\x0e2!.gizclaw.events.v1.AudioInputModeR\tinputMode\"\x8b\x02\n" +
 	"\tStreamEnd\x12\x1b\n" +
 	"\tstream_id\x18\x01 \x01(\tR\bstreamId\x12\x1a\n" +
 	"\bsequence\x18\x02 \x01(\x04R\bsequence\x12*\n" +
@@ -1215,7 +1275,11 @@ const file_api_proto_events_peer_event_proto_rawDesc = "" +
 	"\x10STREAM_KIND_TEXT\x10\x01\x12\x15\n" +
 	"\x11STREAM_KIND_AUDIO\x10\x02\x12\x15\n" +
 	"\x11STREAM_KIND_VIDEO\x10\x03\x12\x15\n" +
-	"\x11STREAM_KIND_MIXED\x10\x04*L\n" +
+	"\x11STREAM_KIND_MIXED\x10\x04*t\n" +
+	"\x0eAudioInputMode\x12 \n" +
+	"\x1cAUDIO_INPUT_MODE_UNSPECIFIED\x10\x00\x12!\n" +
+	"\x1dAUDIO_INPUT_MODE_PUSH_TO_TALK\x10\x01\x12\x1d\n" +
+	"\x19AUDIO_INPUT_MODE_REALTIME\x10\x02*L\n" +
 	"\rWorkspaceKind\x12\x1e\n" +
 	"\x1aWORKSPACE_KIND_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17WORKSPACE_KIND_WORKFLOW\x10\x01*\x96\x01\n" +
@@ -1244,46 +1308,48 @@ func file_api_proto_events_peer_event_proto_rawDescGZIP() []byte {
 	return file_api_proto_events_peer_event_proto_rawDescData
 }
 
-var file_api_proto_events_peer_event_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
+var file_api_proto_events_peer_event_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
 var file_api_proto_events_peer_event_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_api_proto_events_peer_event_proto_goTypes = []any{
 	(PeerEventType)(0),                // 0: gizclaw.events.v1.PeerEventType
 	(StreamKind)(0),                   // 1: gizclaw.events.v1.StreamKind
-	(WorkspaceKind)(0),                // 2: gizclaw.events.v1.WorkspaceKind
-	(FriendRelationshipChange)(0),     // 3: gizclaw.events.v1.FriendRelationshipChange
-	(FriendGroupChange)(0),            // 4: gizclaw.events.v1.FriendGroupChange
-	(*PeerEvent)(nil),                 // 5: gizclaw.events.v1.PeerEvent
-	(*AudioInputReady)(nil),           // 6: gizclaw.events.v1.AudioInputReady
-	(*StreamBegin)(nil),               // 7: gizclaw.events.v1.StreamBegin
-	(*StreamEnd)(nil),                 // 8: gizclaw.events.v1.StreamEnd
-	(*EventError)(nil),                // 9: gizclaw.events.v1.EventError
-	(*TextDelta)(nil),                 // 10: gizclaw.events.v1.TextDelta
-	(*TextDone)(nil),                  // 11: gizclaw.events.v1.TextDone
-	(*WorkspaceHistoryUpdated)(nil),   // 12: gizclaw.events.v1.WorkspaceHistoryUpdated
-	(*FriendRelationshipUpdated)(nil), // 13: gizclaw.events.v1.FriendRelationshipUpdated
-	(*FriendGroupUpdated)(nil),        // 14: gizclaw.events.v1.FriendGroupUpdated
+	(AudioInputMode)(0),               // 2: gizclaw.events.v1.AudioInputMode
+	(WorkspaceKind)(0),                // 3: gizclaw.events.v1.WorkspaceKind
+	(FriendRelationshipChange)(0),     // 4: gizclaw.events.v1.FriendRelationshipChange
+	(FriendGroupChange)(0),            // 5: gizclaw.events.v1.FriendGroupChange
+	(*PeerEvent)(nil),                 // 6: gizclaw.events.v1.PeerEvent
+	(*AudioInputReady)(nil),           // 7: gizclaw.events.v1.AudioInputReady
+	(*StreamBegin)(nil),               // 8: gizclaw.events.v1.StreamBegin
+	(*StreamEnd)(nil),                 // 9: gizclaw.events.v1.StreamEnd
+	(*EventError)(nil),                // 10: gizclaw.events.v1.EventError
+	(*TextDelta)(nil),                 // 11: gizclaw.events.v1.TextDelta
+	(*TextDone)(nil),                  // 12: gizclaw.events.v1.TextDone
+	(*WorkspaceHistoryUpdated)(nil),   // 13: gizclaw.events.v1.WorkspaceHistoryUpdated
+	(*FriendRelationshipUpdated)(nil), // 14: gizclaw.events.v1.FriendRelationshipUpdated
+	(*FriendGroupUpdated)(nil),        // 15: gizclaw.events.v1.FriendGroupUpdated
 }
 var file_api_proto_events_peer_event_proto_depIdxs = []int32{
 	0,  // 0: gizclaw.events.v1.PeerEvent.type:type_name -> gizclaw.events.v1.PeerEventType
-	7,  // 1: gizclaw.events.v1.PeerEvent.bos:type_name -> gizclaw.events.v1.StreamBegin
-	8,  // 2: gizclaw.events.v1.PeerEvent.eos:type_name -> gizclaw.events.v1.StreamEnd
-	10, // 3: gizclaw.events.v1.PeerEvent.text_delta:type_name -> gizclaw.events.v1.TextDelta
-	11, // 4: gizclaw.events.v1.PeerEvent.text_done:type_name -> gizclaw.events.v1.TextDone
-	12, // 5: gizclaw.events.v1.PeerEvent.workspace_history_updated:type_name -> gizclaw.events.v1.WorkspaceHistoryUpdated
-	13, // 6: gizclaw.events.v1.PeerEvent.friend_relationship_updated:type_name -> gizclaw.events.v1.FriendRelationshipUpdated
-	14, // 7: gizclaw.events.v1.PeerEvent.friend_group_updated:type_name -> gizclaw.events.v1.FriendGroupUpdated
-	6,  // 8: gizclaw.events.v1.PeerEvent.audio_input_ready:type_name -> gizclaw.events.v1.AudioInputReady
+	8,  // 1: gizclaw.events.v1.PeerEvent.bos:type_name -> gizclaw.events.v1.StreamBegin
+	9,  // 2: gizclaw.events.v1.PeerEvent.eos:type_name -> gizclaw.events.v1.StreamEnd
+	11, // 3: gizclaw.events.v1.PeerEvent.text_delta:type_name -> gizclaw.events.v1.TextDelta
+	12, // 4: gizclaw.events.v1.PeerEvent.text_done:type_name -> gizclaw.events.v1.TextDone
+	13, // 5: gizclaw.events.v1.PeerEvent.workspace_history_updated:type_name -> gizclaw.events.v1.WorkspaceHistoryUpdated
+	14, // 6: gizclaw.events.v1.PeerEvent.friend_relationship_updated:type_name -> gizclaw.events.v1.FriendRelationshipUpdated
+	15, // 7: gizclaw.events.v1.PeerEvent.friend_group_updated:type_name -> gizclaw.events.v1.FriendGroupUpdated
+	7,  // 8: gizclaw.events.v1.PeerEvent.audio_input_ready:type_name -> gizclaw.events.v1.AudioInputReady
 	1,  // 9: gizclaw.events.v1.StreamBegin.kind:type_name -> gizclaw.events.v1.StreamKind
-	1,  // 10: gizclaw.events.v1.StreamEnd.kind:type_name -> gizclaw.events.v1.StreamKind
-	9,  // 11: gizclaw.events.v1.StreamEnd.error:type_name -> gizclaw.events.v1.EventError
-	2,  // 12: gizclaw.events.v1.WorkspaceHistoryUpdated.workspace_kind:type_name -> gizclaw.events.v1.WorkspaceKind
-	3,  // 13: gizclaw.events.v1.FriendRelationshipUpdated.change:type_name -> gizclaw.events.v1.FriendRelationshipChange
-	4,  // 14: gizclaw.events.v1.FriendGroupUpdated.change:type_name -> gizclaw.events.v1.FriendGroupChange
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	2,  // 10: gizclaw.events.v1.StreamBegin.input_mode:type_name -> gizclaw.events.v1.AudioInputMode
+	1,  // 11: gizclaw.events.v1.StreamEnd.kind:type_name -> gizclaw.events.v1.StreamKind
+	10, // 12: gizclaw.events.v1.StreamEnd.error:type_name -> gizclaw.events.v1.EventError
+	3,  // 13: gizclaw.events.v1.WorkspaceHistoryUpdated.workspace_kind:type_name -> gizclaw.events.v1.WorkspaceKind
+	4,  // 14: gizclaw.events.v1.FriendRelationshipUpdated.change:type_name -> gizclaw.events.v1.FriendRelationshipChange
+	5,  // 15: gizclaw.events.v1.FriendGroupUpdated.change:type_name -> gizclaw.events.v1.FriendGroupChange
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_events_peer_event_proto_init() }
@@ -1306,7 +1372,7 @@ func file_api_proto_events_peer_event_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_events_peer_event_proto_rawDesc), len(file_api_proto_events_peer_event_proto_rawDesc)),
-			NumEnums:      5,
+			NumEnums:      6,
 			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,

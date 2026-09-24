@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { create } from "@bufbuild/protobuf";
 import {
+  AudioInputMode,
   beginPeerAudioInput,
+  beginPeerStream,
   createContinuousAudioRouteRearm,
   decodePeerEvent,
   encodePeerEvent,
@@ -27,6 +29,17 @@ import {
   RPC_FRAME_TYPE_JSON,
   type WebRTCRPCDataChannel,
 } from "./index.ts";
+
+test("audio BOS carries the declared input mode", () => {
+  const event = beginPeerStream({
+    kind: StreamKind.AUDIO,
+    streamId: "turn",
+    mimeType: "audio/opus",
+    inputMode: AudioInputMode.REALTIME,
+  });
+  if (event.payload.case !== "bos") throw new Error("missing BOS");
+  assert.equal(event.payload.value.inputMode, AudioInputMode.REALTIME);
+});
 
 const events: PeerEvent[] = [
   peerEvent(PeerEventType.BOS, "bos", {
@@ -450,12 +463,15 @@ test("audio input waits for its own ready event", async () => {
   let ready = false;
   const opening = beginPeerAudioInput(
     channel as unknown as WebRTCRPCDataChannel,
-    { streamId: "turn" },
+    { streamId: "turn", inputMode: AudioInputMode.REALTIME },
   ).then(() => {
     ready = true;
   });
   await flushPeerEvents();
   assert.equal(channel.sent.length, 1);
+  const sent = decodePeerEvent(new Uint8Array(channel.sent[0]).subarray(4));
+  if (sent.payload.case !== "bos") throw new Error("missing audio BOS");
+  assert.equal(sent.payload.value.inputMode, AudioInputMode.REALTIME);
   assert.equal(ready, false);
   channel.receive(inputReadyFrame("stale"));
   await flushPeerEvents();

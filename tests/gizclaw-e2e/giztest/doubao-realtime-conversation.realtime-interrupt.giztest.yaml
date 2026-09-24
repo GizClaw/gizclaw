@@ -85,6 +85,8 @@ steps:
       non_empty: true
     "/interrupted":
       equals: true
+    "/audio_eos":
+      equals: true
 finally:
 - client: peer
   rpc:

@@ -233,8 +233,12 @@ func (p *peerAudioPacing) summary() map[string]any {
 	targetSpan := audioDuration - p.packetDurations[len(p.packetDurations)-1]
 	receiveSpan := p.lastAt.Sub(p.firstAt)
 	maximumGap := time.Duration(0)
-	for _, gap := range p.gaps {
-		maximumGap = max(maximumGap, gap)
+	maximumGapAfterPacket := 0
+	for index, gap := range p.gaps {
+		if index == 0 || gap > maximumGap {
+			maximumGap = gap
+			maximumGapAfterPacket = index + 1
+		}
 	}
 	sortedGaps := slices.Clone(p.gaps)
 	slices.Sort(sortedGaps)
@@ -248,6 +252,8 @@ func (p *peerAudioPacing) summary() map[string]any {
 	result["mean_interval_ms"] = float64(receiveSpan) / intervals / float64(time.Millisecond)
 	result["p95_interval_ms"] = float64(p95Gap) / float64(time.Millisecond)
 	result["max_interval_ms"] = float64(maximumGap) / float64(time.Millisecond)
+	result["max_interval_after_packet"] = maximumGapAfterPacket
+	result["max_interval_start_ms"] = float64(p.arrivals[maximumGapAfterPacket-1]) / float64(time.Millisecond)
 	result["drift_ms"] = float64(drift) / float64(time.Millisecond)
 	result["absolute_drift_ms"] = float64(absDrift) / float64(time.Millisecond)
 	result["buffer_surplus_ms"] = float64(-drift) / float64(time.Millisecond)
@@ -890,6 +896,12 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 		}()
 	}
+	armInterrupt := func() {
+		if interruptDelay > 0 && interruptTimer == nil {
+			interruptTimer = time.NewTimer(interruptDelay)
+			interrupt = interruptTimer.C
+		}
+	}
 	var texts []string
 	var assistantPackets [][]byte
 	var audioPacing peerAudioPacing
@@ -1315,10 +1327,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 						firstTextTimer.Stop()
 						firstTextDeadline = nil
 					}
-					if interruptDelay > 0 && interruptTimer == nil {
-						interruptTimer = time.NewTimer(interruptDelay)
-						interrupt = interruptTimer.C
-					}
+					armInterrupt()
 				}
 				texts = append(texts, string(part))
 			case *genx.Blob:
@@ -1356,6 +1365,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 					firstAudioObserved = true
 					firstAudioElapsed = eventElapsed
 					firstAudioMS = firstAudioElapsed.Milliseconds()
+					armInterrupt()
 					if firstAudioTimer != nil {
 						firstAudioTimer.Stop()
 						firstAudioDeadline = nil
@@ -1491,11 +1501,14 @@ func peerStreamTerminalError(chunk *genx.MessageChunk) string {
 	if strings.EqualFold(err, "interrupted") {
 		return ""
 	}
+	if code := strings.TrimSpace(chunk.Ctrl.ErrorCode); code != "" && !strings.Contains(err, code) {
+		return code + ": " + err
+	}
 	return err
 }
 
 func audioInputChunks(mode, streamID, mimeType string, packets [][]byte) []*genx.MessageChunk {
-	chunks := []*genx.MessageChunk{{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: mimeType}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "user", BeginOfStream: true}}}
+	chunks := []*genx.MessageChunk{{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: mimeType}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "user", InputMode: mode, BeginOfStream: true}}}
 	for _, packet := range packets {
 		chunks = append(chunks, &genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: mimeType, Data: packet}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "user"}})
 	}
@@ -1684,24 +1697,51 @@ func readPeerStream(ctx context.Context, stream peerStream, arrivals *peerStream
 	return readPeerStreamObserved(ctx, stream, arrivals.observe)
 }
 
+// Timestamp reads before Opus audibility decoding and event observation. Those
+// can be delayed under parallel Giztest load; charging their work to the next
+// packet would report a receive gap that did not occur on the PeerStream.
 func readPeerStreamObserved(ctx context.Context, stream peerStream, observe func(*genx.MessageChunk, time.Time, peerAudioClass)) <-chan nextPeerStreamResult {
+	raw := make(chan nextPeerStreamResult, 64)
 	next := make(chan nextPeerStreamResult, 64)
 	go func() {
-		var audibility peerAudioAudibility
-		defer audibility.Close()
+		defer close(raw)
 		for {
 			chunk, err := stream.Next()
-			receivedAt := time.Now()
-			audio := audibility.classify(chunk)
-			if observe != nil {
-				observe(chunk, receivedAt, audio)
-			}
+			result := nextPeerStreamResult{chunk: chunk, err: err, receivedAt: time.Now()}
 			select {
-			case next <- nextPeerStreamResult{chunk: chunk, err: err, receivedAt: receivedAt, audio: audio}:
+			case raw <- result:
 			case <-ctx.Done():
 				return
 			}
 			if err != nil {
+				return
+			}
+		}
+	}()
+	go func() {
+		var audibility peerAudioAudibility
+		defer audibility.Close()
+		for {
+			var result nextPeerStreamResult
+			select {
+			case received, ok := <-raw:
+				if !ok {
+					return
+				}
+				result = received
+			case <-ctx.Done():
+				return
+			}
+			result.audio = audibility.classify(result.chunk)
+			if observe != nil {
+				observe(result.chunk, result.receivedAt, result.audio)
+			}
+			select {
+			case next <- result:
+			case <-ctx.Done():
+				return
+			}
+			if result.err != nil {
 				return
 			}
 		}

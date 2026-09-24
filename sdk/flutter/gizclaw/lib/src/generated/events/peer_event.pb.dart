@@ -322,6 +322,7 @@ class StreamBegin extends $pb.GeneratedMessage {
     StreamKind? kind,
     $core.String? label,
     $core.String? mimeType,
+    AudioInputMode? inputMode,
   }) {
     final result = create();
     if (streamId != null) result.streamId = streamId;
@@ -330,6 +331,7 @@ class StreamBegin extends $pb.GeneratedMessage {
     if (kind != null) result.kind = kind;
     if (label != null) result.label = label;
     if (mimeType != null) result.mimeType = mimeType;
+    if (inputMode != null) result.inputMode = inputMode;
     return result;
   }
 
@@ -356,6 +358,8 @@ class StreamBegin extends $pb.GeneratedMessage {
         enumValues: StreamKind.values)
     ..aOS(5, _omitFieldNames ? '' : 'label')
     ..aOS(6, _omitFieldNames ? '' : 'mimeType')
+    ..aE<AudioInputMode>(7, _omitFieldNames ? '' : 'inputMode',
+        enumValues: AudioInputMode.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -430,6 +434,15 @@ class StreamBegin extends $pb.GeneratedMessage {
   $core.bool hasMimeType() => $_has(5);
   @$pb.TagNumber(6)
   void clearMimeType() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  AudioInputMode get inputMode => $_getN(6);
+  @$pb.TagNumber(7)
+  set inputMode(AudioInputMode value) => $_setField(7, value);
+  @$pb.TagNumber(7)
+  $core.bool hasInputMode() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearInputMode() => $_clearField(7);
 }
 
 class StreamEnd extends $pb.GeneratedMessage {

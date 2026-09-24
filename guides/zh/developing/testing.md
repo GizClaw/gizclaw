@@ -204,6 +204,23 @@ interoperability risk；只完成 tagged compile 不能算 live pass。
 
 ### Remote Memory scope purge
 
+`flowcraft-memory-scope.peer-and-workspace.giztest.yaml` 在 Docker Giztest 的真实
+Server/Peer/Redis 8 路径上创建同一 Peer 的两个共享 Workspace（两个 binding alias
+指向同一 Layout）、一个隔离 Workspace，以及另一 Peer 的共享 Workspace。它写入带
+随机标记的 direct Fact，并断言跨 alias 命中、双向隔离，以及删除一个共享 Workspace
+后另一个仍能命中；最终删除测试 Peer。单独的
+`TestFlowcraftPeerScopeRedis8CrossAlias` 可用 `FLOWCRAFT_REDIS8_URL` 对真实 Redis 8
+验证两个 alias 复用物理 namespace，并校验 purge。
+
+真实火山云项目的 `TestVolcMemoryLayoutScopeRouting` 使用产品 `memorystore.Registry`
+和带唯一运行标记的 direct Fact，验证当前 Layout 的 Peer/Workspace scope、另一 Peer
+隔离、跨 Workspace 召回与清理。它要求
+`GIZCLAW_MEMORY_PROVIDER=volc-mem0`、`GIZCLAW_VOLC_MEM0_PROJECT_ID`、
+`GIZCLAW_VOLC_MEM0_ENDPOINT` 和 `GIZCLAW_VOLC_MEM0_API_KEY`；project ID 必须与
+data-plane key 对应。测试 host 必须能解析并访问该项目的 VPC endpoint。测试通过
+`-tags=store_e2e -run '^TestVolcMemoryLayoutScopeRouting$'` 显式选择，不进入普通
+`go test ./...`。
+
 同一个 tagged package 包含 `TestMemoryScopePurge`，用真实的 Mem0 系 provider 校验
 Workspace 删除时的 memory purge。通过 `GIZCLAW_MEMORY_PROVIDER` 选择：
 
@@ -557,6 +574,11 @@ wire type 原样上传，其他音频格式在 RPC 打开前失败；文档不�
 不参与完成判定，不同 StreamID 的文本和音频 EOS 不能拼成一次成功；
 以已持久化用户 transcript 为终止边界的场景显式设为 `transcript`。
 
+`peer_stream.interrupt_after` 从首个非空 assistant 文本或首个有声音频开始计时，
+以先到者为准，且只启动一次。音频 BOS、空 payload 和开头静音不启动计时器；
+到期后 runner 关闭旧 PeerStream、发送打断输入，并按原有 terminal 断言等待结果。
+即使 provider 只输出音频、不输出文字，声明了打断的步骤也会实际发送打断。
+
 `peer_stream.overlap_input: true` 在同一 PeerStream 重复发送声明的音频输入。
 支持 `push-to-talk` 和 `realtime`：第一轮输入发送完成（realtime 包括 VAD 尾部静音）且
 收到第一轮 assistant 有声音频后开始第二轮，不关闭流、不发送显式打断请求。第一轮音频已结束
@@ -629,8 +651,13 @@ route 或 reload 后的响应断言。
 `target_span_ms`、`receive_span_ms`、`mean_packet_ms`、`mean_interval_ms`、
 `p95_interval_ms`、`max_interval_ms`、`drift_ms`、`absolute_drift_ms`、
 `buffer_surplus_ms`，以及连续播放模拟结果 `prebuffer_ms`、`underruns`、
-`underrun_ms`、`max_underrun_ms` 和 `minimum_buffer_ms`。间隔来自 stream reader 收到每包的 monotonic 时间，不包含后续断言、
-保存或 PortAudio 播放耗时；`buffer_surplus_ms` 为正表示网络到包领先于 Opus 音频时钟。
+`underrun_ms`、`max_underrun_ms` 和 `minimum_buffer_ms`。间隔来自 stream reader 收到每包的 monotonic 时间；
+reader 先记录时间再由另一条处理流程解码 Opus、判断是否可听和观察事件，因此这些处理以及后续断言、
+保存或 PortAudio 播放耗时不会记到下一包的间隔里。`buffer_surplus_ms` 为正表示网络到包领先于 Opus 音频时钟。
+`max_interval_ms` 保留为诊断值：即使单次到包间隔超过 100 ms，500 ms 预缓冲仍可能让播放连续。
+Doubao realtime roundtrip 用零 underrun 和正的最小缓冲验收连续播放，同时保留均值、P95 节奏及缓冲余量断言，
+不再用单次最大间隔作硬性门槛。即使间隔被预缓冲覆盖，累计 `buffer_surplus_ms` 也可能低于 500 ms 目标，
+因此该场景只对这项诊断值保留上限，不用下限判定播放中断。
 所有 `*_ms` 字段的单位都是毫秒。`target_span_ms` 是除最后一包外各包时长之和，
 `drift_ms = receive_span_ms - target_span_ms`，`buffer_surplus_ms = -drift_ms`；P95 对到包
 间隔使用 nearest-rank。只有一包时仅提供 `packets` 与 `audio_ms`；没有 assistant Opus 时
@@ -691,6 +718,9 @@ tester Workflow 拥有测试意图、生成的用户行为、语义评判和最�
 验证多模态 candidate 的 text 转发和 audio EOS 完成；`run_workspace_relay_tests.sh` 启动
 一套隔离栈，先后运行两个 repeat-1 与 repeat-20 relay gate（后者以 `--parallel 20` 运行
 `benchmark.workspace-relay.workflow-tester-20.giztest.yaml`），并保证清理。
+配套 tester Workflow 固定七轮提问和第八轮裁决；提问轮若模型提前输出孤立的 `PASS`/`FAIL` 或空文本，
+发布节点改发一条追问，终轮则按 brief 的逐轮标准原样发布模型裁决。
+若 brief 只要求主持人切题且非空，提问轮不强求指认凶手或完成故事；说明证据不足并给出相关后续调查也算切题回应。
 
 ### 广播场景：listen、parallel 与 input_sent
 

@@ -1,0 +1,122 @@
+# User Story:
+# As a registered device sending realtime audio to a default Push-to-Talk Workspace,
+# I want an immediate input-mode error,
+# So that the turn does not hang silently and cleanup remains bounded.
+# This is an expected-failure fixture. run_tests.sh asserts the immediate
+# WORKSPACE_INPUT_MODE_MISMATCH terminal error and successful cleanup.
+version: gizclaw.test/v1alpha1
+name: issue1330-realtime-mode-mismatch
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  prompt:
+    direction: input
+    type: string
+    value: Hello from an independent Giztest workflow task.
+  input_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        collection: assistants
+        workflow_name: doubao-realtime-conversation
+  - id: select_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  - id: synthesize_input
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: Explain in at least three complete sentences why realtime audio playback needs buffering.
+        accepted_content_types: [audio/ogg]
+    save_as: input_audio
+  - id: exercise_workflow
+    client: peer
+    timeout: 30s
+    peer_stream:
+      mode: realtime
+      input: ${input_audio}
+      pacing: 20ms
+    expect:
+      /events:
+        non_empty: true
+      /audio_eos:
+        equals: true
+      /audio_bytes:
+        minimum: 20000
+      /audio_integrity/max_active:
+        equals: 1
+      /audio_integrity/open:
+        equals: 0
+      /audio_integrity/violations:
+        equals: 0
+      /audio_pacing/packets:
+        minimum: 101
+      /audio_pacing/mean_packet_ms:
+        equals: 20
+      /audio_pacing/mean_interval_ms:
+        minimum: 12
+        maximum: 21
+      /audio_pacing/p95_interval_ms:
+        maximum: 30
+      /audio_pacing/underruns:
+        equals: 0
+      /audio_pacing/max_underrun_ms:
+        equals: 0
+      /audio_pacing/minimum_buffer_ms:
+        minimum: 1
+      /audio_pacing/buffer_surplus_ms:
+        maximum: 550
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

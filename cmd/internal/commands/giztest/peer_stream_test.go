@@ -29,6 +29,43 @@ func testOggOpus(t *testing.T) ([]byte, [][]byte) {
 	return audio.Bytes(), packets
 }
 
+func TestReadPeerStreamTimestampsBeforeObservation(t *testing.T) {
+	stream := newFakeRelayStream()
+	defer func() { _ = stream.Close() }()
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	observingFirst := make(chan struct{})
+	var once sync.Once
+	next := readPeerStreamObserved(ctx, stream, func(*genx.MessageChunk, time.Time, peerAudioClass) {
+		once.Do(func() {
+			close(observingFirst)
+			time.Sleep(200 * time.Millisecond)
+		})
+	})
+	stream.in <- &genx.MessageChunk{Part: genx.Text("first")}
+	select {
+	case <-observingFirst:
+	case <-ctx.Done():
+		t.Fatal("first chunk was not observed")
+	}
+	time.Sleep(20 * time.Millisecond)
+	stream.in <- &genx.MessageChunk{Part: genx.Text("second")}
+	var first, second nextPeerStreamResult
+	select {
+	case first = <-next:
+	case <-ctx.Done():
+		t.Fatal("first chunk was not delivered")
+	}
+	select {
+	case second = <-next:
+	case <-ctx.Done():
+		t.Fatal("second chunk was not delivered")
+	}
+	if got := second.receivedAt.Sub(first.receivedAt); got >= 100*time.Millisecond {
+		t.Fatalf("read gap = %s, want less than 100ms despite slow observation", got)
+	}
+}
+
 func TestAudioInputChunksKeepRealtimeOpen(t *testing.T) {
 	for _, tc := range []struct {
 		mode    string
@@ -39,6 +76,9 @@ func TestAudioInputChunksKeepRealtimeOpen(t *testing.T) {
 	} {
 		t.Run(tc.mode, func(t *testing.T) {
 			chunks := audioInputChunks(tc.mode, "turn", "audio/opus", [][]byte{{1, 2, 3}})
+			if got := chunks[0].Ctrl.InputMode; got != tc.mode {
+				t.Fatalf("audio BOS input mode = %q, want %q", got, tc.mode)
+			}
 			last := chunks[len(chunks)-1]
 			if got := last.IsEndOfStream(); got != tc.wantEOS {
 				t.Fatalf("last chunk EndOfStream = %t, want %t", got, tc.wantEOS)
@@ -51,6 +91,10 @@ func TestPeerStreamTerminalErrorIsNotInterruption(t *testing.T) {
 	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{Error: "provider quota exceeded"}}
 	if got := peerStreamTerminalError(chunk); got != "provider quota exceeded" {
 		t.Fatalf("terminal error classification = %q", got)
+	}
+	chunk.Ctrl.ErrorCode = "PROVIDER_QUOTA_EXCEEDED"
+	if got := peerStreamTerminalError(chunk); got != "PROVIDER_QUOTA_EXCEEDED: provider quota exceeded" {
+		t.Fatalf("terminal error with code = %q", got)
 	}
 	chunk.Ctrl.Error = "interrupted"
 	if got := peerStreamTerminalError(chunk); got != "" {
@@ -114,6 +158,9 @@ func TestPeerAudioPacingSummarizesPacketClockAndArrivalGaps(t *testing.T) {
 	}
 	if summary["mean_packet_ms"] != float64(20) || summary["mean_interval_ms"] != float64(20) || summary["p95_interval_ms"] != float64(21) || summary["max_interval_ms"] != float64(21) || summary["absolute_drift_ms"] != float64(0) {
 		t.Fatalf("pacing intervals = %#v", summary)
+	}
+	if summary["max_interval_after_packet"] != 2 || summary["max_interval_start_ms"] != float64(20) {
+		t.Fatalf("maximum interval location = %#v", summary)
 	}
 }
 
@@ -930,6 +977,47 @@ func TestInvokePeerStreamIdleTimeoutRearmsAfterInterrupt(t *testing.T) {
 	}
 }
 
+func TestInvokePeerStreamInterruptsAudioOnlyReply(t *testing.T) {
+	first := newFakeRelayStream()
+	second := newFakeRelayStream()
+	audio := testAudibleOpus(t)
+	go func() {
+		drainPushes(first, 3)
+		first.in <- assistantBlob("s1", audio, false)
+		drainPushes(second, 3)
+		finishAssistantTurn(second, "s2")
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	result, err := invokeFakePeerStream(ctx, giztest.PeerStreamOperation{
+		Mode: "text", InterruptAfter: "40ms", IdleTimeout: "200ms",
+	}, first, second)
+	if err != nil {
+		t.Fatalf("audio-only reply was not interrupted: %v", err)
+	}
+	if object, _ := result.assertion.(map[string]any); object["interrupted"] != true {
+		t.Fatalf("interrupt assertion = %#v", result.assertion)
+	}
+}
+
+func TestInvokePeerStreamSilentAudioDoesNotStartInterrupt(t *testing.T) {
+	first := newFakeRelayStream()
+	silence, err := appendRealtimeTailSilence(nil, 20*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		drainPushes(first, 3)
+		first.in <- assistantBlob("s1", silence[0], false)
+	}()
+	result, err := invokeFakePeerStream(context.Background(), giztest.PeerStreamOperation{
+		Mode: "text", InterruptAfter: "40ms", IdleTimeout: "100ms",
+	}, first)
+	if err == nil || !strings.Contains(err.Error(), "deadline=idle_timeout") || !strings.Contains(err.Error(), "interrupt_sent=false") {
+		t.Fatalf("silent audio result = %#v, error = %v", result, err)
+	}
+}
+
 func TestInvokePeerStreamIdleTimeoutSuspendedDuringInterruptReplacement(t *testing.T) {
 	first := newFakeRelayStream()
 	second := newFakeRelayStream()
@@ -1476,6 +1564,9 @@ func TestPeerAudioPacingAcceptsGapsTheBufferCovers(t *testing.T) {
 	}
 	if summary["minimum_buffer_ms"] != float64(80) {
 		t.Fatalf("minimum buffer = %#v, want the 500ms buffer less the 420ms gap", summary["minimum_buffer_ms"])
+	}
+	if summary["buffer_surplus_ms"] != float64(-400) {
+		t.Fatalf("buffer surplus = %#v, want cumulative drift despite continuous playback", summary["buffer_surplus_ms"])
 	}
 	if _, present := summary["underrun_ms"]; !present {
 		t.Fatalf("continuous playback summary lacks underrun_ms: %#v", summary)

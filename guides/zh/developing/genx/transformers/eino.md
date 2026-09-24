@@ -247,6 +247,11 @@ Agent 主动开场时，ChatModel 会省略 Prompt 渲染出的无内容 user me
 
 ## 本地首响测量
 
+Eino 的实时语音输入向 Volc ASR 显式传入 `end_window_size=200` 和
+`force_to_speech_time=1000`。前者在语音结束后缩短断句等待，后者保留最短语音时长；
+Push-to-Talk 仍使用 ASR Builder 的默认断句配置。模型仅在 ASR definite text EOS
+之后运行，中间识别结果不会提前触发对话。
+
 `go test ./pkgs/genx/transformers/eino -run '^TestRealtimeFirstResponseLatency$' -count=3 -v`
 以可控 ASR、ChatModel 和 TTS 替身，运行 server ingress `RealtimeStream.Push` →
 默认 80 ms 时间戳重排 → Audio Dock → Eino Prompt/ChatModel → Audio Dock 输出。
