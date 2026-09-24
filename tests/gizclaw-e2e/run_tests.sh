@@ -380,6 +380,23 @@ run_flutter_giztest() {
 run_standard_giztest() {
 	local giztest_dir="$script_dir/giztest"
 	local report="$script_dir/testdata/giztest-standard-report.json"
+	local workflow
+	for workflow in doubao-realtime-conversation doubao-realtime-quality; do
+		XDG_CONFIG_HOME="$GIZCLAW_E2E_CONFIG_HOME" \
+			"$script_dir/testdata/bin/gizclaw" admin workflows get "$workflow" \
+			--context "${GIZCLAW_E2E_ADMIN_CONTEXT:-admin}" |
+			python3 -c '
+import json
+import sys
+
+workflow = json.load(sys.stdin)
+name = workflow["id"]
+audio = workflow["spec"]["doubao_realtime"]["audio"]["output"]["format"]
+if audio != {"type": "pcm_s16le", "rate": 16000}:
+    raise SystemExit(f"{name}: expected 16 kHz PCM16LE output, got {audio!r}")
+print("{}: output format={} rate={}".format(name, audio["type"], audio["rate"]))
+'
+	done
 	local -a files=()
 	while IFS= read -r file; do files+=("$file"); done < <(
 		find "$giztest_dir" -maxdepth 1 -type f -name '*.giztest.yaml' \

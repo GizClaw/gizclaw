@@ -470,6 +470,9 @@ func newAudioPCMDecoder(mimeType string) (audioPCMDecoder, error) {
 	case "audio/mpeg", "audio/mp3", "audio/x-mpeg", "audio/x-mp3":
 		return &mp3PCMDecoder{}, nil
 	case "audio/l16", "audio/pcm", "audio/x-pcm":
+		if base == "audio/x-pcm" && params["format"] != "" && params["format"] != "s16le" {
+			return nil, fmt.Errorf("unsupported PCM format %q", params["format"])
+		}
 		format, err := audioPCMFormat(params, 16000, 1)
 		if err != nil {
 			return nil, err

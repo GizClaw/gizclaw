@@ -68,7 +68,7 @@ steps:
       method: server.speech.synthesize
       request:
         voice_name: narrator
-        text: Giztest audio input
+        text: Explain in at least three complete sentences why realtime audio playback needs buffering.
         accepted_content_types: [audio/ogg]
     save_as: input_audio
   - id: empty_push_to_talk_turn
@@ -93,6 +93,23 @@ steps:
     expect:
       /events:
         non_empty: true
+      /audio_eos:
+        equals: true
+      /audio_bytes:
+        minimum: 1000
+      /audio_integrity/violations:
+        equals: 0
+      /audio_pacing/underruns:
+        equals: 0
+      /audio_pacing/minimum_buffer_ms:
+        minimum: 1
+      /audio_pacing/p95_interval_ms:
+        maximum: 30
+      /audio_pacing/max_interval_ms:
+        maximum: 100
+      /audio_pacing/buffer_surplus_ms:
+        minimum: 450
+        maximum: 550
 finally:
   - client: peer
     rpc:

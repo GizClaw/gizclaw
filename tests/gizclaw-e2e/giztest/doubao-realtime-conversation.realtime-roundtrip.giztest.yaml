@@ -80,6 +80,16 @@ steps:
     expect:
       /events:
         non_empty: true
+      /audio_eos:
+        equals: true
+      /audio_bytes:
+        minimum: 20000
+      /audio_integrity/max_active:
+        equals: 1
+      /audio_integrity/open:
+        equals: 0
+      /audio_integrity/violations:
+        equals: 0
       /audio_pacing/packets:
         minimum: 101
       /audio_pacing/mean_packet_ms:

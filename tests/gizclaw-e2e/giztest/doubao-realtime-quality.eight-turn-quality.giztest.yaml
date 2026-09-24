@@ -68,7 +68,7 @@ steps:
     method: server.speech.synthesize
     request:
       voice_name: narrator
-      text: Giztest audio input
+      text: 请用一句中文说说养绿植时怎样浇水。
       accepted_content_types:
       - audio/ogg
   save_as: input_audio
@@ -81,6 +81,25 @@ steps:
   expect:
     "/events":
       non_empty: true
+    "/audio_eos":
+      equals: true
+    "/audio_integrity/streams":
+      equals: 1
+    "/audio_integrity/violations":
+      equals: 0
+    "/audio_pacing/packets":
+      minimum: 101
+    "/audio_pacing/underruns":
+      equals: 0
+    "/audio_pacing/minimum_buffer_ms":
+      minimum: 1
+    "/audio_pacing/p95_interval_ms":
+      maximum: 30
+    "/audio_pacing/max_interval_ms":
+      maximum: 100
+    "/audio_pacing/buffer_surplus_ms":
+      minimum: 450
+      maximum: 550
 - id: quality_turn_2
   client: peer
   peer_stream:
@@ -90,6 +109,25 @@ steps:
   expect:
     "/events":
       non_empty: true
+    "/audio_eos":
+      equals: true
+    "/audio_integrity/streams":
+      equals: 1
+    "/audio_integrity/violations":
+      equals: 0
+    "/audio_pacing/packets":
+      minimum: 101
+    "/audio_pacing/underruns":
+      equals: 0
+    "/audio_pacing/minimum_buffer_ms":
+      minimum: 1
+    "/audio_pacing/p95_interval_ms":
+      maximum: 30
+    "/audio_pacing/max_interval_ms":
+      maximum: 100
+    "/audio_pacing/buffer_surplus_ms":
+      minimum: 450
+      maximum: 550
 - id: quality_turn_3
   client: peer
   peer_stream:
@@ -99,6 +137,25 @@ steps:
   expect:
     "/events":
       non_empty: true
+    "/audio_eos":
+      equals: true
+    "/audio_integrity/streams":
+      equals: 1
+    "/audio_integrity/violations":
+      equals: 0
+    "/audio_pacing/packets":
+      minimum: 101
+    "/audio_pacing/underruns":
+      equals: 0
+    "/audio_pacing/minimum_buffer_ms":
+      minimum: 1
+    "/audio_pacing/p95_interval_ms":
+      maximum: 30
+    "/audio_pacing/max_interval_ms":
+      maximum: 100
+    "/audio_pacing/buffer_surplus_ms":
+      minimum: 450
+      maximum: 550
 - id: quality_turn_4
   client: peer
   peer_stream:
@@ -108,6 +165,25 @@ steps:
   expect:
     "/events":
       non_empty: true
+    "/audio_eos":
+      equals: true
+    "/audio_integrity/streams":
+      equals: 1
+    "/audio_integrity/violations":
+      equals: 0
+    "/audio_pacing/packets":
+      minimum: 101
+    "/audio_pacing/underruns":
+      equals: 0
+    "/audio_pacing/minimum_buffer_ms":
+      minimum: 1
+    "/audio_pacing/p95_interval_ms":
+      maximum: 30
+    "/audio_pacing/max_interval_ms":
+      maximum: 100
+    "/audio_pacing/buffer_surplus_ms":
+      minimum: 450
+      maximum: 550
 - id: quality_turn_5
   client: peer
   peer_stream:
@@ -117,6 +193,25 @@ steps:
   expect:
     "/events":
       non_empty: true
+    "/audio_eos":
+      equals: true
+    "/audio_integrity/streams":
+      equals: 1
+    "/audio_integrity/violations":
+      equals: 0
+    "/audio_pacing/packets":
+      minimum: 101
+    "/audio_pacing/underruns":
+      equals: 0
+    "/audio_pacing/minimum_buffer_ms":
+      minimum: 1
+    "/audio_pacing/p95_interval_ms":
+      maximum: 30
+    "/audio_pacing/max_interval_ms":
+      maximum: 100
+    "/audio_pacing/buffer_surplus_ms":
+      minimum: 450
+      maximum: 550
 - id: quality_turn_6
   client: peer
   peer_stream:
@@ -126,6 +221,25 @@ steps:
   expect:
     "/events":
       non_empty: true
+    "/audio_eos":
+      equals: true
+    "/audio_integrity/streams":
+      equals: 1
+    "/audio_integrity/violations":
+      equals: 0
+    "/audio_pacing/packets":
+      minimum: 101
+    "/audio_pacing/underruns":
+      equals: 0
+    "/audio_pacing/minimum_buffer_ms":
+      minimum: 1
+    "/audio_pacing/p95_interval_ms":
+      maximum: 30
+    "/audio_pacing/max_interval_ms":
+      maximum: 100
+    "/audio_pacing/buffer_surplus_ms":
+      minimum: 450
+      maximum: 550
 - id: quality_turn_7
   client: peer
   peer_stream:
@@ -135,6 +249,25 @@ steps:
   expect:
     "/events":
       non_empty: true
+    "/audio_eos":
+      equals: true
+    "/audio_integrity/streams":
+      equals: 1
+    "/audio_integrity/violations":
+      equals: 0
+    "/audio_pacing/packets":
+      minimum: 101
+    "/audio_pacing/underruns":
+      equals: 0
+    "/audio_pacing/minimum_buffer_ms":
+      minimum: 1
+    "/audio_pacing/p95_interval_ms":
+      maximum: 30
+    "/audio_pacing/max_interval_ms":
+      maximum: 100
+    "/audio_pacing/buffer_surplus_ms":
+      minimum: 450
+      maximum: 550
 - id: quality_turn_8
   client: peer
   peer_stream:
@@ -144,6 +277,25 @@ steps:
   expect:
     "/events":
       non_empty: true
+    "/audio_eos":
+      equals: true
+    "/audio_integrity/streams":
+      equals: 1
+    "/audio_integrity/violations":
+      equals: 0
+    "/audio_pacing/packets":
+      minimum: 101
+    "/audio_pacing/underruns":
+      equals: 0
+    "/audio_pacing/minimum_buffer_ms":
+      minimum: 1
+    "/audio_pacing/p95_interval_ms":
+      maximum: 30
+    "/audio_pacing/max_interval_ms":
+      maximum: 100
+    "/audio_pacing/buffer_surplus_ms":
+      minimum: 450
+      maximum: 550
 finally:
 - client: peer
   rpc:

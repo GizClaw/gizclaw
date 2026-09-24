@@ -233,8 +233,12 @@ func (p *peerAudioPacing) summary() map[string]any {
 	targetSpan := audioDuration - p.packetDurations[len(p.packetDurations)-1]
 	receiveSpan := p.lastAt.Sub(p.firstAt)
 	maximumGap := time.Duration(0)
-	for _, gap := range p.gaps {
-		maximumGap = max(maximumGap, gap)
+	maximumGapAfterPacket := 0
+	for index, gap := range p.gaps {
+		if index == 0 || gap > maximumGap {
+			maximumGap = gap
+			maximumGapAfterPacket = index + 1
+		}
 	}
 	sortedGaps := slices.Clone(p.gaps)
 	slices.Sort(sortedGaps)
@@ -248,6 +252,8 @@ func (p *peerAudioPacing) summary() map[string]any {
 	result["mean_interval_ms"] = float64(receiveSpan) / intervals / float64(time.Millisecond)
 	result["p95_interval_ms"] = float64(p95Gap) / float64(time.Millisecond)
 	result["max_interval_ms"] = float64(maximumGap) / float64(time.Millisecond)
+	result["max_interval_after_packet"] = maximumGapAfterPacket
+	result["max_interval_start_ms"] = float64(p.arrivals[maximumGapAfterPacket-1]) / float64(time.Millisecond)
 	result["drift_ms"] = float64(drift) / float64(time.Millisecond)
 	result["absolute_drift_ms"] = float64(absDrift) / float64(time.Millisecond)
 	result["buffer_surplus_ms"] = float64(-drift) / float64(time.Millisecond)

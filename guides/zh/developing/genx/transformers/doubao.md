@@ -111,6 +111,8 @@ AST 接收循环发生错误时，会直接结束输出流并保留原始错误�
 
 这两个 Adapter 可以共用 GenX Stream、audio conversion、StreamID 和 lifecycle 基础设施，但不能合并 provider session interface 或 event mapping。Push-to-Talk 只属于 Realtime Dialogue API，不应由 Realtime Duplex Adapter 模拟。
 
+Realtime Dialogue 默认请求 `tts.audio_config` 为 16 kHz、单声道 `pcm_s16le`，输出 route 标记为 `audio/x-pcm; rate=16000; channels=1; format=s16le`。Peer mixer 同样使用 16 kHz 单声道 PCM，因此 track 直接接收样本，不创建重采样器；History 按 MIME 中的实际采样率把 PCM 编码成 Ogg/Opus 录音。显式的 `output_format` 和 `output_sample_rate` 仍覆盖默认值，包括原有的 `ogg_opus`、24 kHz 配置。Ogg/Opus 解码在 Peer 侧产生 48 kHz PCM，仍需转换为 mixer 的 16 kHz。Realtime Duplex 的上游输出固定为 24 kHz，保持其独立输出与重采样路径。
+
 ### Realtime Duplex Stream identity 与输入边界
 
 Realtime Duplex 使用 provider server VAD 连续划分 utterance。Control route BOS 与同 StreamID 的 audio MIME BOS 打开本地输入 segment；audio MIME EOS 和 control route EOS 只负责按各自边界关闭本地 codec/segment，不发送 `input_audio_buffer.commit`。BOS 或 EOS chunk 如果同时携带 audio data，Adapter 必须先发送该 payload，再完成对应边界转换；非 audio MIME 边界不能提前关闭 audio segment。
