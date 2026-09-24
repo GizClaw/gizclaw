@@ -1,0 +1,27 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: MemoryLayout
+metadata:
+  id: giztest-scope-peer-memory
+spec:
+  flowcraft:
+    scope: peer
+    extraction:
+      enabled: false
+      model: llm
+      mode: single_pass
+    lanes:
+    - name: owner-profile
+      kind: preference
+      description: Facts explicitly supplied by the test Peer.
+      extract: Keep exact facts from the test input.
+      recall: Return the exact fact when queried.
+    graph_enabled: false
+    write: {mode: sync, tier: general}
+  mem0:
+    scope: peer
+    custom_instructions: Keep exact facts from the test input.
+  volc_mem0:
+    scope: peer
+    strategies:
+    - {name: owner-profile, type: semantic, custom_instructions: Keep exact facts from the test input.}

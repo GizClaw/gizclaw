@@ -69,6 +69,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		f.MemoryKind = spec.MemoryKind
 	}
 	owner := stringValue(spec.Workspace.OwnerPublicKey)
+	memoryScope := memory.Scope{AppID: workspaceID}
 	var checkpoint genxflowcraft.StateStore
 	if f.State != nil {
 		state, err := flowstate.OpenScope(ctx, f.State, owner, workspaceID, workspaceID)
@@ -120,6 +121,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		}
 		request := memorystore.Request{
 			WorkspaceID:     workspaceID,
+			OwnerPublicKey:  owner,
 			ProfileID:       spec.MemoryProfileID,
 			ProfileRevision: spec.MemoryProfileRevision,
 			BindingName:     spec.MemoryName,
@@ -127,6 +129,10 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 			Binding:         *spec.MemoryBinding,
 			ModelLoader:     NewRuntimeMemoryLoader(f.GenX),
 			ServerRoot:      f.ServerRoot,
+		}
+		memoryScope, err = memorystore.ScopeForRequest(request)
+		if err != nil {
+			return nil, err
 		}
 		var result memorystore.Result
 		var err error
@@ -145,10 +151,17 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if f.Memory != nil && f.MemoryKind == string(apitypes.RuntimeProfileMemoryDriverFlowcraft) && spec.MemoryLayout != nil {
 		f.MemoryLaneRecall = flowcraftLaneRecall(spec.MemoryLayout.Spec.Flowcraft.Lanes)
 	}
-	return f.newAgent(ctx, owner, workspaceID, spec.Workflow.Id, public, spec.ToolInvoker, spec.BoardInputs, initiativePolicy, inputMode, speechRatePercent, spec.SafetyFencePrompt, checkpoint, memoryCloser)
+	if f.Memory != nil {
+		bound, err := memory.BindApp(f.Memory, memoryScope.AppID)
+		if err != nil {
+			return nil, errors.Join(err, closeAll([]io.Closer{memoryCloser}))
+		}
+		f.Memory = bound
+	}
+	return f.newAgent(ctx, owner, workspaceID, spec.Workflow.Id, public, spec.ToolInvoker, spec.BoardInputs, initiativePolicy, inputMode, speechRatePercent, spec.SafetyFencePrompt, checkpoint, memoryCloser, memoryScope)
 }
 
-func (f Factory) newAgent(ctx context.Context, owner, workspaceID, workflowName string, public apitypes.FlowcraftWorkflowSpec, toolInvoker genx.ToolInvoker, inputs InputProvider, initiativePolicy string, inputMode apitypes.WorkspaceInputMode, speechRatePercent *int, safetyFencePrompt string, checkpoint genxflowcraft.StateStore, memoryCloser io.Closer) (agenthost.Agent, error) {
+func (f Factory) newAgent(ctx context.Context, owner, workspaceID, workflowName string, public apitypes.FlowcraftWorkflowSpec, toolInvoker genx.ToolInvoker, inputs InputProvider, initiativePolicy string, inputMode apitypes.WorkspaceInputMode, speechRatePercent *int, safetyFencePrompt string, checkpoint genxflowcraft.StateStore, memoryCloser io.Closer, memoryScope memory.Scope) (agenthost.Agent, error) {
 	if f.GenX == nil {
 		return nil, fmt.Errorf("flowcraft: peergenx service is required")
 	}
@@ -170,7 +183,6 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceID, workflowName 
 	}
 	agentID := workspaceID
 	scope := WorkspaceAgentScope(owner, workspaceID, agentID)
-	memoryScope := memory.Scope{AppID: workspaceID}
 	config := genxflowcraft.Config{
 		ID: agentID, Name: strings.TrimSpace(workflowName), Graph: graph,
 		MaxIterations: intValue(public.MaxIterations), PublishNodes: publishNodes,

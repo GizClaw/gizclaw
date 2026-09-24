@@ -102,6 +102,11 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		config.Limits.MaxOutputBytes = *public.Limits.MaxOutputBytes
 	}
 	store := spec.Memory
+	memoryScope := memory.Scope{AppID: workspaceID}
+	ownerPublicKey := ""
+	if spec.Workspace.OwnerPublicKey != nil {
+		ownerPublicKey = *spec.Workspace.OwnerPublicKey
+	}
 	backend := strings.TrimSpace(spec.MemoryKind)
 	memoryCloser := spec.MemoryCloser
 	if spec.MemoryBinding != nil || spec.MemoryLayout != nil {
@@ -110,6 +115,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		}
 		request := memorystore.Request{
 			WorkspaceID:     workspaceID,
+			OwnerPublicKey:  ownerPublicKey,
 			ProfileID:       spec.MemoryProfileID,
 			ProfileRevision: spec.MemoryProfileRevision,
 			BindingName:     spec.MemoryName,
@@ -117,6 +123,10 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 			Binding:         *spec.MemoryBinding,
 			ModelLoader:     flowcraftagent.NewRuntimeMemoryLoader(service),
 			ServerRoot:      f.ServerRoot,
+		}
+		memoryScope, err = memorystore.ScopeForRequest(request)
+		if err != nil {
+			return nil, err
 		}
 		var result memorystore.Result
 		var err error
@@ -133,13 +143,13 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		memoryCloser = result.Closer
 	}
 	if store != nil {
-		bound, err := memory.BindApp(store, workspaceID)
+		bound, err := memory.BindApp(store, memoryScope.AppID)
 		if err != nil {
-			return nil, errors.Join(fmt.Errorf("eino: bind workspace memory: %w", err), closeMemory(memoryCloser))
+			return nil, errors.Join(fmt.Errorf("eino: bind memory scope: %w", err), closeMemory(memoryCloser))
 		}
 		config.Memory = &genxeino.MemoryConfig{
 			Store: bound,
-			Scope: memory.Scope{AppID: workspaceID},
+			Scope: memoryScope,
 		}
 	}
 	transformer, err := genxeino.New(ctx, config)

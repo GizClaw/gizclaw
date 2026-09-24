@@ -25,6 +25,9 @@ spec:
         doubao-realtime-duplex-conversation: {resource_id: doubao-realtime-duplex-conversation, i18n: {en: {display_name: Doubao Realtime Duplex}, zh-CN: {display_name: 豆包双工对话}}}
         eino-memory-assistant: {resource_id: eino-memory-assistant, i18n: {en: {display_name: Eino Memory Assistant}, zh-CN: {display_name: Eino 记忆助手}}}
         flowcraft-configured-memory: {resource_id: flowcraft-configured-memory, i18n: {en: {display_name: Configured Memory}, zh-CN: {display_name: 配置记忆}}}
+        flowcraft-memory-peer-a: {resource_id: flowcraft-memory-peer-a, i18n: {en: {display_name: Peer Memory A}, zh-CN: {display_name: Peer 记忆 A}}}
+        flowcraft-memory-peer-b: {resource_id: flowcraft-memory-peer-b, i18n: {en: {display_name: Peer Memory B}, zh-CN: {display_name: Peer 记忆 B}}}
+        flowcraft-memory-workspace: {resource_id: flowcraft-memory-workspace, i18n: {en: {display_name: Workspace Memory}, zh-CN: {display_name: Workspace 记忆}}}
         flowcraft-realtime-chat: {resource_id: flowcraft-realtime-chat, i18n: {en: {display_name: Realtime Chat}, zh-CN: {display_name: 实时对话}}}
         flowcraft-latency-comparison: {resource_id: flowcraft-latency-comparison, i18n: {en: {display_name: Flowcraft Latency}, zh-CN: {display_name: Flowcraft 延迟}}}
         eino-latency-comparison: {resource_id: eino-latency-comparison, i18n: {en: {display_name: Eino Latency}, zh-CN: {display_name: Eino 延迟}}}
@@ -70,6 +73,9 @@ spec:
       giztest-echo: {resource_id: giztest-client-echo, control_access: owner, i18n: {en: {display_name: Giztest client echo}, zh-CN: {display_name: Giztest 客户端回显}}}
     memories:
       default-memory: {layout_id: default-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
+      giztest-peer-memory-a: {layout_id: giztest-scope-peer-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
+      giztest-peer-memory-b: {layout_id: giztest-scope-peer-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
+      giztest-workspace-memory: {layout_id: giztest-scope-workspace-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
       voice-assistant-memory: {layout_id: voice-assistant-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
       chat-memory: {layout_id: chat-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
       journey-memory: {layout_id: journey-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}

@@ -1318,6 +1318,24 @@ func (e FlowcraftMemoryLanePolicyKind) Valid() bool {
 	}
 }
 
+// Defines values for FlowcraftMemoryLayoutPolicyScope.
+const (
+	FlowcraftMemoryLayoutPolicyScopePeer      FlowcraftMemoryLayoutPolicyScope = "peer"
+	FlowcraftMemoryLayoutPolicyScopeWorkspace FlowcraftMemoryLayoutPolicyScope = "workspace"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftMemoryLayoutPolicyScope enum.
+func (e FlowcraftMemoryLayoutPolicyScope) Valid() bool {
+	switch e {
+	case FlowcraftMemoryLayoutPolicyScopePeer:
+		return true
+	case FlowcraftMemoryLayoutPolicyScopeWorkspace:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FlowcraftMemoryObserveNodeType.
 const (
 	FlowcraftMemoryObserveNodeTypeMemoryObserve FlowcraftMemoryObserveNodeType = "memory_observe"
@@ -1576,6 +1594,24 @@ const (
 func (e HTTPToolSpecType) Valid() bool {
 	switch e {
 	case HTTPToolSpecTypeHttpRequest:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Mem0MemoryLayoutPolicyScope.
+const (
+	Mem0MemoryLayoutPolicyScopePeer      Mem0MemoryLayoutPolicyScope = "peer"
+	Mem0MemoryLayoutPolicyScopeWorkspace Mem0MemoryLayoutPolicyScope = "workspace"
+)
+
+// Valid indicates whether the value is a known member of the Mem0MemoryLayoutPolicyScope enum.
+func (e Mem0MemoryLayoutPolicyScope) Valid() bool {
+	switch e {
+	case Mem0MemoryLayoutPolicyScopePeer:
+		return true
+	case Mem0MemoryLayoutPolicyScopeWorkspace:
 		return true
 	default:
 		return false
@@ -2749,6 +2785,24 @@ func (e VoiceSource) Valid() bool {
 	case VoiceSourceManual:
 		return true
 	case VoiceSourceSync:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VolcMem0MemoryLayoutPolicyScope.
+const (
+	VolcMem0MemoryLayoutPolicyScopePeer      VolcMem0MemoryLayoutPolicyScope = "peer"
+	VolcMem0MemoryLayoutPolicyScopeWorkspace VolcMem0MemoryLayoutPolicyScope = "workspace"
+)
+
+// Valid indicates whether the value is a known member of the VolcMem0MemoryLayoutPolicyScope enum.
+func (e VolcMem0MemoryLayoutPolicyScope) Valid() bool {
+	switch e {
+	case VolcMem0MemoryLayoutPolicyScopePeer:
+		return true
+	case VolcMem0MemoryLayoutPolicyScopeWorkspace:
 		return true
 	default:
 		return false
@@ -4238,8 +4292,14 @@ type FlowcraftMemoryLayoutPolicy struct {
 	GraphEnabled *bool                           `json:"graph_enabled,omitempty"`
 	Lanes        []FlowcraftMemoryLanePolicy     `json:"lanes"`
 	Rerank       *FlowcraftMemoryModelPolicy     `json:"rerank,omitempty"`
-	Write        FlowcraftMemoryWritePolicy      `json:"write"`
+
+	// Scope Maps Scope.AppID to the Workspace ID or the owner Peer identity (Flowcraft RuntimeID).
+	Scope *FlowcraftMemoryLayoutPolicyScope `json:"scope,omitempty"`
+	Write FlowcraftMemoryWritePolicy        `json:"write"`
 }
+
+// FlowcraftMemoryLayoutPolicyScope Maps Scope.AppID to the Workspace ID or the owner Peer identity (Flowcraft RuntimeID).
+type FlowcraftMemoryLayoutPolicyScope string
 
 // FlowcraftMemoryModelPolicy defines model for FlowcraftMemoryModelPolicy.
 type FlowcraftMemoryModelPolicy struct {
@@ -4590,7 +4650,13 @@ type Mem0MemoryLayoutPolicy struct {
 	CustomInstructions *string            `json:"custom_instructions,omitempty"`
 	Decay              *bool              `json:"decay,omitempty"`
 	Multilingual       *bool              `json:"multilingual,omitempty"`
+
+	// Scope Maps Scope.AppID to the Workspace ID or the owner Peer identity (Mem0 app_id).
+	Scope *Mem0MemoryLayoutPolicyScope `json:"scope,omitempty"`
 }
+
+// Mem0MemoryLayoutPolicyScope Maps Scope.AppID to the Workspace ID or the owner Peer identity (Mem0 app_id).
+type Mem0MemoryLayoutPolicyScope string
 
 // MemoryLayout defines model for MemoryLayout.
 type MemoryLayout struct {
@@ -6014,8 +6080,13 @@ type VolcCredentialBody struct {
 
 // VolcMem0MemoryLayoutPolicy defines model for VolcMem0MemoryLayoutPolicy.
 type VolcMem0MemoryLayoutPolicy struct {
-	Strategies []VolcMem0Strategy `json:"strategies"`
+	// Scope Maps Scope.AppID to the Workspace ID or the owner Peer identity (Volc Mem0 app_id).
+	Scope      *VolcMem0MemoryLayoutPolicyScope `json:"scope,omitempty"`
+	Strategies []VolcMem0Strategy               `json:"strategies"`
 }
+
+// VolcMem0MemoryLayoutPolicyScope Maps Scope.AppID to the Workspace ID or the owner Peer identity (Volc Mem0 app_id).
+type VolcMem0MemoryLayoutPolicyScope string
 
 // VolcMem0Strategy defines model for VolcMem0Strategy.
 type VolcMem0Strategy struct {

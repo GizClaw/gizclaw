@@ -175,6 +175,15 @@ func validate(item apitypes.MemoryLayout, expectedID string) (apitypes.MemoryLay
 	if expectedID != "" && item.Id != expectedID {
 		return apitypes.MemoryLayout{}, nil, fmt.Errorf("id %q must match path id %q", item.Id, expectedID)
 	}
+	if scope := item.Spec.Flowcraft.Scope; scope != nil && !scope.Valid() {
+		return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.flowcraft.scope %q is invalid", *scope)
+	}
+	if scope := item.Spec.Mem0.Scope; scope != nil && !scope.Valid() {
+		return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.mem0.scope %q is invalid", *scope)
+	}
+	if scope := item.Spec.VolcMem0.Scope; scope != nil && !scope.Valid() {
+		return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.volc_mem0.scope %q is invalid", *scope)
+	}
 	item.Spec.Flowcraft.Extraction.Model = strings.TrimSpace(item.Spec.Flowcraft.Extraction.Model)
 	if item.Spec.Flowcraft.Extraction.Model == "" {
 		return apitypes.MemoryLayout{}, nil, errors.New("spec.flowcraft.extraction.model is required")

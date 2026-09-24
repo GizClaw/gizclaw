@@ -1,0 +1,264 @@
+# User Story:
+# As a registered device with multiple Memory Workspaces,
+# I want Peer memories shared across Flowcraft aliases while private memories stay isolated,
+# So that Workspace deletion and another Peer cannot expose or erase the wrong facts.
+version: gizclaw.test/v1alpha1
+name: flowcraft-memory-scope.peer-and-workspace
+clients:
+  owner:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+  other:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  marker:
+    direction: input
+    type: string
+    generate: token
+  private_marker:
+    direction: input
+    type: string
+    generate: token
+  workspace_a:
+    direction: input
+    type: string
+    generate: token
+  workspace_b:
+    direction: input
+    type: string
+    generate: token
+  workspace_private:
+    direction: input
+    type: string
+    generate: token
+  workspace_other:
+    direction: input
+    type: string
+    generate: token
+steps:
+- id: register_owner
+  client: owner
+  rpc:
+    method: server.register
+    request: {token: "${registration_token}"}
+- id: register_other
+  client: other
+  rpc:
+    method: server.register
+    request: {token: "${registration_token}"}
+- id: create_shared_a
+  client: owner
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${workspace_a}"
+      collection: assistants
+      workflow_name: flowcraft-memory-peer-a
+      parameters:
+        flowcraft_workspace_parameters:
+          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+- id: create_shared_b
+  client: owner
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${workspace_b}"
+      collection: assistants
+      workflow_name: flowcraft-memory-peer-b
+      parameters:
+        flowcraft_workspace_parameters:
+          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+- id: create_private
+  client: owner
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${workspace_private}"
+      collection: assistants
+      workflow_name: flowcraft-memory-workspace
+      parameters:
+        flowcraft_workspace_parameters:
+          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+- id: create_other
+  client: other
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${workspace_other}"
+      collection: assistants
+      workflow_name: flowcraft-memory-peer-b
+      parameters:
+        flowcraft_workspace_parameters:
+          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+- id: select_a
+  client: owner
+  rpc:
+    method: server.run.workspace.set
+    request: {workspace_name: "${workspace_a}"}
+- id: activate_a
+  client: owner
+  rpc:
+    method: server.run.workspace.reload
+    request: {}
+- id: write_shared_fact
+  client: owner
+  peer_stream:
+    mode: text
+    input: "The Giztest shared memory marker is ${marker}."
+    require_audio: false
+  expect:
+    /events: {non_empty: true}
+- id: select_b
+  client: owner
+  rpc:
+    method: server.run.workspace.set
+    request: {workspace_name: "${workspace_b}"}
+- id: activate_b
+  client: owner
+  peer_stream:
+    mode: text
+    input: "The Giztest B probe is ${workspace_b}."
+    require_audio: false
+  expect:
+    /events: {non_empty: true}
+- id: read_shared_from_other_alias
+  client: owner
+  retry: {attempts: 10, on: [assertion], delay: 1s}
+  rpc:
+    method: server.run.workspace.recall
+    request: {query: "${marker}"}
+  expect:
+    /hits/0/snippet: {contains: "${marker}"}
+- id: select_private
+  client: owner
+  rpc:
+    method: server.run.workspace.set
+    request: {workspace_name: "${workspace_private}"}
+- id: activate_private
+  client: owner
+  rpc:
+    method: server.run.workspace.reload
+    request: {}
+- id: write_private_fact
+  client: owner
+  peer_stream:
+    mode: text
+    input: "The Giztest private memory marker is ${private_marker}."
+    require_audio: false
+  expect:
+    /events: {non_empty: true}
+- id: private_scope_stats
+  client: owner
+  rpc:
+    method: server.run.workspace.memory.stats
+    request: {}
+  expect:
+    /metadata/scope/app_id: {not_contains: 'peer:'}
+- id: read_private_here
+  client: owner
+  retry: {attempts: 10, on: [assertion], delay: 1s}
+  rpc:
+    method: server.run.workspace.recall
+    request: {query: "${private_marker}"}
+  expect:
+    /hits/0/snippet: {contains: "${private_marker}"}
+- id: private_cannot_read_peer
+  client: owner
+  rpc:
+    method: server.run.workspace.recall
+    request: {query: "${marker}"}
+  expect:
+    /hits: {count: 0}
+- id: select_b_again
+  client: owner
+  rpc:
+    method: server.run.workspace.set
+    request: {workspace_name: "${workspace_b}"}
+- id: activate_b_again
+  client: owner
+  rpc:
+    method: server.run.workspace.reload
+    request: {}
+- id: shared_scope_stats
+  client: owner
+  rpc:
+    method: server.run.workspace.memory.stats
+    request: {}
+  expect:
+    /metadata/scope/app_id: {contains: 'peer:'}
+- id: peer_cannot_read_private
+  client: owner
+  rpc:
+    method: server.run.workspace.recall
+    request: {query: "${private_marker}"}
+  expect:
+    /hits: {count: 0}
+- id: select_other_peer
+  client: other
+  rpc:
+    method: server.run.workspace.set
+    request: {workspace_name: "${workspace_other}"}
+- id: activate_other_peer
+  client: other
+  rpc:
+    method: server.run.workspace.reload
+    request: {}
+- id: other_peer_scope_stats
+  client: other
+  rpc:
+    method: server.run.workspace.memory.stats
+    request: {}
+  expect:
+    /metadata/scope/app_id: {contains: 'peer:'}
+- id: other_peer_cannot_read_shared
+  client: other
+  rpc:
+    method: server.run.workspace.recall
+    request: {query: "${marker}"}
+  expect:
+    /hits: {count: 0}
+- id: delete_a
+  client: owner
+  rpc:
+    method: server.workspace.delete
+    request: {name: "${workspace_a}"}
+- id: shared_survives_workspace_deletion
+  client: owner
+  rpc:
+    method: server.run.workspace.recall
+    request: {query: "${marker}"}
+  expect:
+    /hits/0/snippet: {contains: "${marker}"}
+finally:
+- client: owner
+  rpc:
+    method: server.run.stop
+    request: {}
+- client: other
+  rpc:
+    method: server.run.stop
+    request: {}
+- client: owner
+  rpc:
+    method: server.peer.delete
+    request: {}
+- client: other
+  rpc:
+    method: server.peer.delete
+    request: {}

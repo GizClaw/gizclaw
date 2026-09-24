@@ -16,7 +16,7 @@ import (
 var errRegistryEntryClosed = errors.New("memory store: registry entry closed")
 
 // Registry shares physical backends and transports by RuntimeProfile binding.
-// Every Resolve call constructs a Workspace-scoped logical Store and returns a
+// Every Resolve call constructs a Layout-scoped logical Store and returns a
 // reference-counted lease. The final lease closes the physical dependencies.
 type Registry struct {
 	mu      sync.Mutex
@@ -94,12 +94,17 @@ func (registry *Registry) Resolve(ctx context.Context, request Request) (Result,
 
 	result, logicalCloser, resolveErr := backend.NewStore(ctx, request)
 	if resolveErr == nil {
-		var bound memory.Store
-		bound, resolveErr = memory.BindApp(result.Store, request.WorkspaceID)
-		if resolveErr != nil {
-			resolveErr = fmt.Errorf("memory store: bind Workspace scope: %w", resolveErr)
+		scope, scopeErr := ScopeForRequest(request)
+		if scopeErr != nil {
+			resolveErr = scopeErr
 		} else {
-			result.Store = bound
+			var bound memory.Store
+			bound, resolveErr = memory.BindApp(result.Store, scope.AppID)
+			if resolveErr != nil {
+				resolveErr = fmt.Errorf("memory store: bind memory scope: %w", resolveErr)
+			} else {
+				result.Store = bound
+			}
 		}
 	}
 	if resolveErr != nil && logicalCloser != nil {
@@ -132,7 +137,7 @@ func (registry *Registry) Resolve(ctx context.Context, request Request) (Result,
 	return result, nil
 }
 
-// PurgeWorkspace irreversibly removes request.WorkspaceID's long-term memory
+// PurgeWorkspace irreversibly removes the request's selected long-term memory
 // from the physical backend its binding selects. The backend is shared with
 // runtime Stores of the same binding and is opened for maintenance: no model
 // is loaded and no derived index is rebuilt, so the purge does not depend on
@@ -145,7 +150,7 @@ func (registry *Registry) PurgeWorkspace(ctx context.Context, request Request) e
 }
 
 // WorkspaceMemoryEmpty reports whether the binding's physical backend still
-// holds any long-term memory of request.WorkspaceID.
+// holds long-term memory in the request's selected scope.
 func (registry *Registry) WorkspaceMemoryEmpty(ctx context.Context, request Request) (bool, error) {
 	var empty bool
 	err := registry.maintain(ctx, request, func(store memory.Store) error {
@@ -285,6 +290,15 @@ func registryKey(request Request) (string, error) {
 		return "", fmt.Errorf("memory store: encode binding identity: %w", err)
 	}
 	digest := sha256.Sum256(identity)
+	if request.Binding.Driver == "flowcraft" {
+		connectionType, err := request.Binding.Connection.Discriminator()
+		if err != nil {
+			return "", fmt.Errorf("memory store: decode Flowcraft connection: %w", err)
+		}
+		if (connectionType == "flowcraft_bbh" || connectionType == "flowcraft_redis8") && flowcraftPeerScope(request) {
+			return fmt.Sprintf("peer\x00%s\x00%s\x00%s\x00%x", request.ProfileID, request.Layout.Id, request.Binding.Driver, digest[:16]), nil
+		}
+	}
 	return fmt.Sprintf(
 		"%s\x00%s\x00%s\x00%x",
 		request.ProfileID,
