@@ -544,8 +544,9 @@ class ScenarioClient {
       }
       extra[entry.key] = entry.value;
     }
-    final response = await _controlFor(token)
-        .send(method: method, path: pathWithQuery, headers: extra, body: body);
+    final response = await _controlFor(
+      token,
+    ).send(method: method, path: pathWithQuery, headers: extra, body: body);
     return HttpStepResult(response.statusCode, response.json);
   }
 
