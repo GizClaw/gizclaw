@@ -257,9 +257,10 @@ func TestMemoryIndexSplitsEveryConfigurationKind(t *testing.T) {
 		t.Fatal(err)
 	}
 	memories := map[string]apitypes.RuntimeProfileMemoryBinding{"history": {LayoutId: "layout", Driver: apitypes.RuntimeProfileMemoryDriverFlowcraft, Connection: connection}}
+	fences := apitypes.RuntimeProfileSafetyFences{"general": {Prompt: "safe"}}
 	profile := apitypes.RuntimeProfile{Id: "all-kinds", Revision: "rev", Spec: apitypes.RuntimeProfileSpec{
 		Resources:    apitypes.RuntimeProfileResources{Tools: &tools, Memories: &memories},
-		SafetyFences: &apitypes.RuntimeProfileSafetyFences{General: &apitypes.RuntimeProfileSafetyFence{Prompt: "safe"}},
+		SafetyFences: &fences,
 		Mhs:          &apitypes.RuntimeProfileMhs{V0: &apitypes.MhsV0Manifest{Devices: []apitypes.MhsV0Device{{Id: "display", Kind: "display", States: []apitypes.MhsV0State{}}}}},
 	}}
 	profile.CreatedAt, profile.UpdatedAt = time.Now().UTC(), time.Now().UTC()

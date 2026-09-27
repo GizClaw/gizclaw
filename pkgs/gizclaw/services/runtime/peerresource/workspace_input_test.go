@@ -279,7 +279,7 @@ func TestWorkspaceParametersSetInputIgnoresSharedSFUParameters(t *testing.T) {
 	// Devices send the same speech rate to every Workspace; SFU accepts a
 	// rate-only patch as a no-op.
 	rateOnly := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
-		Name: sharedName, Parameters: rpcapi.WorkspaceParametersPatch{TtsSpeechRatePercent: new(70), SafetyFenceLevel: new(apitypes.SafetyFenceLevelChild)},
+		Name: sharedName, Parameters: rpcapi.WorkspaceParametersPatch{TtsSpeechRatePercent: new(70), SafetyFenceLevel: new(apitypes.SafetyFenceLevel("child"))},
 	})
 	if rateOnly.Error != nil {
 		t.Fatalf("shared SFU speech rate update: %+v", rateOnly.Error)
@@ -385,7 +385,7 @@ func TestWorkspaceParametersSetSafetyFenceRoundTrip(t *testing.T) {
 	ctx := t.Context()
 	server := newWorkspaceInputTestServer(t, ctx)
 	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{Name: "fenced-workspace", WorkflowName: "journey"})
-	for _, level := range []apitypes.SafetyFenceLevel{apitypes.SafetyFenceLevelGeneral, apitypes.SafetyFenceLevelChild, apitypes.SafetyFenceLevelOff} {
+	for _, level := range []apitypes.SafetyFenceLevel{apitypes.SafetyFenceLevel("general"), apitypes.SafetyFenceLevel("child"), apitypes.SafetyFenceLevel("off")} {
 		response := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{Name: "fenced-workspace", Parameters: rpcapi.WorkspaceParametersPatch{SafetyFenceLevel: &level}})
 		if response.Error != nil {
 			t.Fatal(response.Error)
@@ -399,8 +399,8 @@ func TestWorkspaceParametersSetSafetyFenceRoundTrip(t *testing.T) {
 			t.Fatalf("parameters = %+v, %v", parameters, err)
 		}
 	}
-	// UNSPECIFIED is a real wire value, but is invalid when explicitly supplied.
-	response := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{Name: "fenced-workspace", Parameters: rpcapi.WorkspaceParametersPatch{SafetyFenceLevel: new(apitypes.SafetyFenceLevel("unspecified"))}})
+	// An empty identifier is invalid even though arbitrary profile identifiers are allowed.
+	response := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{Name: "fenced-workspace", Parameters: rpcapi.WorkspaceParametersPatch{SafetyFenceLevel: new(apitypes.SafetyFenceLevel(""))}})
 	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("invalid level response = %+v", response)
 	}

@@ -3,7 +3,7 @@
 # I want the RuntimeProfile fence selected by safety_fence_level to reach the model through the ${input.safety_fence} placeholder in its instructions,
 # So that a device switching the level on reload changes what the agent is told.
 #
-# The e2e-giztest RuntimeProfile defines safety_fences.general as an instruction
+# The e2e-giztest RuntimeProfile defines safety_fences.alpha as an instruction
 # to open every reply with a fixed marker; the marker in the reply proves the
 # fence text was injected.
 version: gizclaw.test/v1alpha1
@@ -50,14 +50,14 @@ steps:
         parameters:
           doubao_realtime_duplex_workspace_parameters:
             agent_type: DOUBAO_REALTIME_DUPLEX_WORKSPACE_PARAMETERS_AGENT_TYPE_DOUBAO_REALTIME_DUPLEX
-  - id: reload_with_general_fence
+  - id: reload_with_alpha_fence
     client: peer
     rpc:
       method: server.run.workspace.reload-with-options
       request:
         workspace_name: ${workspace_name}
         parameters:
-          safety_fence_level: SAFETY_FENCE_LEVEL_GENERAL
+          safety_fence_level: alpha
     expect:
       /workspace_name:
         equals: ${workspace_name}

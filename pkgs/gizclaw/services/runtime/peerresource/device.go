@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -160,7 +161,7 @@ func (r DeviceReads) DeviceRuntimeProfileWithTags(ctx context.Context, tags []st
 		if err != nil {
 			return peerhttp.DeviceRuntimeProfile{}, err
 		}
-		result := peerhttp.DeviceRuntimeProfile{Name: profile.Id, Revision: profile.Revision, Workflows: make([]peerhttp.DeviceRuntimeProfileWorkflow, 0, len(entries))}
+		result := peerhttp.DeviceRuntimeProfile{Name: profile.Id, Revision: profile.Revision, SafetyFences: profileSafetyFenceCatalog(profile), Workflows: make([]peerhttp.DeviceRuntimeProfileWorkflow, 0, len(entries))}
 		for _, entry := range entries {
 			var binding apitypes.RuntimeProfileBinding
 			if err := json.Unmarshal(entry.Value, &binding); err != nil {
@@ -180,12 +181,25 @@ func (r DeviceReads) DeviceRuntimeProfileWithTags(ctx context.Context, tags []st
 	slices.Sort(names)
 	result := peerhttp.DeviceRuntimeProfile{
 		Name: profile.Id, Revision: profile.Revision,
-		Workflows: make([]peerhttp.DeviceRuntimeProfileWorkflow, 0, len(names)),
+		SafetyFences: profileSafetyFenceCatalog(profile),
+		Workflows:    make([]peerhttp.DeviceRuntimeProfileWorkflow, 0, len(names)),
 	}
 	for _, name := range names {
 		result.Workflows = append(result.Workflows, peerhttp.DeviceRuntimeProfileWorkflow{Name: name, Tags: workflowTags(bindings[name])})
 	}
 	return result, nil
+}
+
+func profileSafetyFenceCatalog(profile apitypes.RuntimeProfile) []peerhttp.DeviceRuntimeProfileSafetyFence {
+	result := make([]peerhttp.DeviceRuntimeProfileSafetyFence, 0)
+	if profile.Spec.SafetyFences == nil {
+		return result
+	}
+	for id, fence := range *profile.Spec.SafetyFences {
+		result = append(result, peerhttp.DeviceRuntimeProfileSafetyFence{Id: id, DisplayName: fence.DisplayName})
+	}
+	slices.SortFunc(result, func(a, b peerhttp.DeviceRuntimeProfileSafetyFence) int { return strings.Compare(a.Id, b.Id) })
+	return result
 }
 
 // DeviceTelemetryLatest returns the latest sampled telemetry values of the caller.

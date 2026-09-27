@@ -1902,10 +1902,9 @@ const WorkspaceParametersPatch$json = {
     },
     {
       '1': 'safety_fence_level',
-      '3': 4,
+      '3': 5,
       '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.SafetyFenceLevel',
+      '5': 9,
       '9': 3,
       '10': 'safetyFenceLevel',
       '17': true
@@ -1917,6 +1916,9 @@ const WorkspaceParametersPatch$json = {
     {'1': '_tts_speech_rate_percent'},
     {'1': '_safety_fence_level'},
   ],
+  '9': [
+    {'1': 4, '2': 5},
+  ],
 };
 
 /// Descriptor for `WorkspaceParametersPatch`. Decode as a `google.protobuf.DescriptorProto`.
@@ -1925,10 +1927,9 @@ final $typed_data.Uint8List workspaceParametersPatchDescriptor = $convert.base64
     '52MS5Xb3Jrc3BhY2VJbnB1dE1vZGVIAFIFaW5wdXSIAQESTwoMY29udmVyc2F0aW9uGAIgASgL'
     'MiYuZ2l6Y2xhdy5ycGMudjEuQ29udmVyc2F0aW9uUGFyYW1ldGVyc0gBUgxjb252ZXJzYXRpb2'
     '6IAQESOgoXdHRzX3NwZWVjaF9yYXRlX3BlcmNlbnQYAyABKAVIAlIUdHRzU3BlZWNoUmF0ZVBl'
-    'cmNlbnSIAQESUwoSc2FmZXR5X2ZlbmNlX2xldmVsGAQgASgOMiAuZ2l6Y2xhdy5ycGMudjEuU2'
-    'FmZXR5RmVuY2VMZXZlbEgDUhBzYWZldHlGZW5jZUxldmVsiAEBQggKBl9pbnB1dEIPCg1fY29u'
-    'dmVyc2F0aW9uQhoKGF90dHNfc3BlZWNoX3JhdGVfcGVyY2VudEIVChNfc2FmZXR5X2ZlbmNlX2'
-    'xldmVs');
+    'cmNlbnSIAQESMQoSc2FmZXR5X2ZlbmNlX2xldmVsGAUgASgJSANSEHNhZmV0eUZlbmNlTGV2ZW'
+    'yIAQFCCAoGX2lucHV0Qg8KDV9jb252ZXJzYXRpb25CGgoYX3R0c19zcGVlY2hfcmF0ZV9wZXJj'
+    'ZW50QhUKE19zYWZldHlfZmVuY2VfbGV2ZWxKBAgEEAU=');
 
 @$core.Deprecated('Use workspaceParametersSetRequestDescriptor instead')
 const WorkspaceParametersSetRequest$json = {

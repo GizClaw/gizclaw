@@ -854,8 +854,20 @@ type DeviceRuntimeProfile struct {
 	// Revision Opaque RuntimeProfile revision; equals runtime_profile_revision in Peer RPC responses.
 	Revision string `json:"revision"`
 
+	// SafetyFences Available profile-defined safety fence identifiers and optional display labels, sorted by identifier. Prompt text is not exposed.
+	SafetyFences []DeviceRuntimeProfileSafetyFence `json:"safety_fences"`
+
 	// Workflows Workflows sorted by name.
 	Workflows []DeviceRuntimeProfileWorkflow `json:"workflows"`
+}
+
+// DeviceRuntimeProfileSafetyFence defines model for DeviceRuntimeProfileSafetyFence.
+type DeviceRuntimeProfileSafetyFence struct {
+	// DisplayName Optional label from the RuntimeProfile.
+	DisplayName *string `json:"display_name,omitempty"`
+
+	// Id Stable identifier to send as safety_fence_level.
+	Id string `json:"id"`
 }
 
 // DeviceRuntimeProfileWorkflow defines model for DeviceRuntimeProfileWorkflow.

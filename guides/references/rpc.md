@@ -61,7 +61,7 @@ Firmware 不属于 RuntimeProfile catalog。RegistrationToken 可以为 Peer 绑
 | 31 | `server.workspace.history.audio.download` | 返回 history 音频 metadata，并通过 binary frames 传输音频 bytes。 |
 | 88 | `server.workspace.icon.download` | 按 Workspace name 和格式返回 icon metadata，并通过 binary frames 传输图片 bytes。 |
 
-`server.workspace.parameters.set` 的 `parameters` 是局部更新：当前支持 `input`、`conversation.initiative`、`conversation.agent_initiative_policy`（`eino`、`flowcraft` 和 `doubao_realtime` driver）以及 `tts_speech_rate_percent`、`safety_fence_level`，未提供的字段保持不变。`tts_speech_rate_percent` 是合成语音的语速，按 provider 正常语速的百分比表示（50..200，100 为正常），适用于所有会合成语音的 driver（`flowcraft`、`eino`、`doubao_realtime`、`doubao_realtime_duplex`、`dash_scope_realtime`、`asttranslate`）；缺省沿用 Workflow 自己的配置，设置后覆盖 Workflow 中各 provider 的静态语速，从下一次 reload 起生效，超出范围返回 `INVALID_ARGUMENT`。请求不接受 `agent_type`；Server 根据 Workspace 绑定的 Workflow driver 选择参数类型。合法但不受该 driver 或 system Workspace 领域支持的字段忽略；枚举值无效或 patch 为空仍返回 `INVALID_ARGUMENT`。共享 SFU Workspace 校验当前成员身份后接受 no-op，不改变输入模式或共享配置。
+`server.workspace.parameters.set` 的 `parameters` 是局部更新：当前支持 `input`、`conversation.initiative`、`conversation.agent_initiative_policy`（`eino`、`flowcraft` 和 `doubao_realtime` driver）以及 `tts_speech_rate_percent`、`safety_fence_level`，未提供的字段保持不变。`tts_speech_rate_percent` 是合成语音的语速，按 provider 正常语速的百分比表示（50..200，100 为正常），适用于所有会合成语音的 driver（`flowcraft`、`eino`、`doubao_realtime`、`doubao_realtime_duplex`、`dash_scope_realtime`、`asttranslate`）；缺省沿用 Workflow 自己的配置，设置后覆盖 Workflow 中各 provider 的静态语速，从下一次 reload 起生效，超出范围返回 `INVALID_ARGUMENT`。请求不接受 `agent_type`；Server 根据 Workspace 绑定的 Workflow driver 选择参数类型。合法但不受该 driver 或 system Workspace 领域支持的字段忽略；围栏标识符格式无效或 patch 为空仍返回 `INVALID_ARGUMENT`。共享 SFU Workspace 校验当前成员身份后接受 no-op，不改变输入模式或共享配置。
 
 ## Workflow、Model 与 Voice catalog
 
@@ -69,7 +69,7 @@ Workflow、Model 与 Voice 由当前 RuntimeProfile 投影为 Peer name catalog�
 
 | ID | Method | 作用 |
 | ---: | --- | --- |
-| 32 | `server.workflow.list` | 按必填 Collection 分页列出当前 RuntimeProfile 的 Workflow names。 |
+| 32 | `server.workflow.list` | 按可选 tags 分页列出当前 RuntimeProfile 的 Workflow names，并返回可选安全围栏 name 与展示名。 |
 | 33 | `server.workflow.get` | 按 name 读取 RuntimeProfile Workflow projection。 |
 | 34 | `server.model.list` | 分页列出当前 RuntimeProfile 的 Model names。 |
 | 35 | `server.model.get` | 按 name 读取 RuntimeProfile Model projection。 |
@@ -220,15 +220,18 @@ ID `0` 是 unspecified，不能调用。调用方遇到未知 method 时应按 m
 
 `server.run.workspace.set` 仅负责选择（SFU 会立即激活）；`server.run.workspace.reload` 保持空请求，只重载当前选择。Workspace 配置仍可独立通过 `server.workspace.put` 和 `server.workspace.parameters.set` 更新。
 
-`safety_fence_level` 的 JSON 值为 `off | general | child`，Protobuf JSON 使用 `SAFETY_FENCE_LEVEL_OFF/GENERAL/CHILD`，显式 UNSPECIFIED 非法。完整解析、注入与 reload 失败语义见 [RuntimeProfile 安全围栏](/zh/developing/gizclaw/services/runtime-profile#workspace-安全围栏)。
+`safety_fence_level` 是 RuntimeProfile `spec.safety_fences` 中的字符串标识符，不是平台枚举。设备通过 `server.workflow.list` 响应的 `safety_fences` 列表发现可选 name 和展示名；持有 API key 的调用方也可读取 `GET /gizclaw/v1/device/runtime-profile` 的 `safety_fences` 列表。两者都不返回 prompt。HTTP、RPC Proto JSON 和 SDK 均发送原始字符串，例如 `"alpha"`。旧 enum 的 Protobuf wire tag 已保留，新 string 字段为公共 patch 的 field 5、各 AI 参数变体的 field 50；旧版 varint 请求不会被误读成新选择。完整解析、注入、旧数据与 reload 失败语义见 [RuntimeProfile 安全围栏](/zh/developing/gizclaw/services/runtime-profile#workspace-安全围栏)。
 
-C nanopb 调用方通过 `has_safety_fence_level` 区分省略与显式档位，例如设置 general：
+C nanopb 调用方用 `has_safety_fence_level` 区分省略与显式选择，并复制不超过 64 字节的 ID：
 
 ```c
+#include <string.h>
 gizclaw_rpc_v1_WorkspaceParametersPatch parameters =
     gizclaw_rpc_v1_WorkspaceParametersPatch_init_zero;
 parameters.has_safety_fence_level = true;
-parameters.safety_fence_level = gizclaw_rpc_v1_SafetyFenceLevel_SAFETY_FENCE_LEVEL_GENERAL;
+memcpy(parameters.safety_fence_level, "alpha", sizeof("alpha"));
 ```
 
-设置 off 也需要将 `has_safety_fence_level` 置为 true；保持 false 则保留服务端已存值。字段描述由生成头文件中的 `WorkspaceParametersPatch_FIELDLIST` 提供，配套 `workspace.pb.c` 的 `PB_BIND` 在编译时引用它，因此新增字段不一定改变 `.pb.c` 的文件内容。修改 Proto 后仍须重新生成并校验完整 C 生成目录。
+`has_safety_fence_level = false` 保留服务端已存选择；空字符串不是清除操作。字段描述由生成头文件中的 `WorkspaceParametersPatch_FIELDLIST` 提供，配套 `workspace.pb.c` 的 `PB_BIND` 在编译时引用它。修改 Proto 后须重新生成并校验完整 C 生成目录。
+
+`WorkflowListResponse.safety_fences` 在 C nanopb 中使用 `pb_callback_t` 逐项解码；RuntimeProfile 的档位数量不受固定 C 数组容量限制。调用方应在解码前安装 callback，按每项的 `name` 保存可选字符串 ID。

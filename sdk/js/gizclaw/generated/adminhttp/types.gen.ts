@@ -1615,14 +1615,17 @@ export type RuntimeProfileResources = {
 
 export type RuntimeProfileSafetyFence = {
     prompt: string;
+    /**
+     * Optional label shown to callers discovering the available levels.
+     */
+    display_name?: string;
 };
 
 /**
- * Tenant-defined complete prompts for each level. Child does not inherit or concatenate general. No built-in prompts or off entry exist. Reload fails when the selected level is missing.
+ * Profile-defined identifiers mapped to independent complete prompts. No prompt inherits another. A selected identifier must exist at reload.
  */
 export type RuntimeProfileSafetyFences = {
-    general?: RuntimeProfileSafetyFence;
-    child?: RuntimeProfileSafetyFence;
+    [key: string]: RuntimeProfileSafetyFence;
 };
 
 export type RuntimeProfileSpec = {
@@ -2906,9 +2909,9 @@ export type FlowcraftWorkspaceParameters = {
 };
 
 /**
- * Safety strictness: off injects nothing; general restricts NSFW content; child adds age-appropriate constraints. GizClaw supplies no prompt text. The selected RuntimeProfile prompt is complete; child does not inherit general.
+ * Stable identifier of a complete safety fence prompt in the bound RuntimeProfile. The profile defines all available identifiers and prompts.
  */
-export type SafetyFenceLevel = 'off' | 'general' | 'child';
+export type SafetyFenceLevel = string;
 
 export type WorkspaceInputMode = 'push-to-talk' | 'realtime';
 

@@ -1090,8 +1090,8 @@ test("RPC payload codec rejects unknown enum strings", () => {
   );
 });
 
-test("RPC payload codec preserves unknown numeric enum values", () => {
-  for (const level of [-2147483648, -1, 99, 2147483647]) {
+test("RPC payload codec preserves profile-defined safety fence identifiers", () => {
+  for (const level of ["alpha", "bravo", "charlie", "delta"]) {
     const method = "server.workspace.parameters.set";
     const request = {
       name: "example",
@@ -1101,17 +1101,27 @@ test("RPC payload codec preserves unknown numeric enum values", () => {
     const decoded = decodeRPCRequestPayload(method, payload);
     assert.deepEqual(decoded, request);
     assert.deepEqual(encodeRPCRequestPayload(method, decoded), payload);
-
-    const response = { result: level, delivered_count: 0 };
-    const responsePayload = encodeRPCResponsePayload(
-      "server.friend.ping",
-      response,
-    );
-    assert.deepEqual(
-      decodeRPCResponsePayload("server.friend.ping", responsePayload),
-      response,
-    );
   }
+});
+
+test("workflow list exposes profile safety fence names without prompts", () => {
+  const response = {
+    has_next: false,
+    items: [],
+    runtime_profile_name: "profile",
+    runtime_profile_revision: "revision",
+    safety_fences: [
+      { name: "alpha" },
+      { name: "bravo", display_name: "Bravo" },
+    ],
+  };
+  assert.deepEqual(
+    decodeRPCResponsePayload(
+      "server.workflow.list",
+      encodeRPCResponsePayload("server.workflow.list", response),
+    ),
+    response,
+  );
 });
 
 test("Firmware RPC generated contract round-trips every channel and field", () => {

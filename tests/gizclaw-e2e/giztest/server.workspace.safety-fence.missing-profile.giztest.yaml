@@ -2,7 +2,7 @@
 # As a GizClaw Peer API consumer,
 # I want exercise the server.run.workspace.reload behavior through its real transport,
 # So that the generated RPC contract is verified end to end.
-# Fixture: the e2e-giztest RuntimeProfile defines safety_fences.general only, so
+# Fixture: the e2e-giztest RuntimeProfile defines alpha, bravo, charlie, and delta but no child, so
 # child is the missing level this scenario selects.
 version: gizclaw.test/v1alpha1
 name: server.workspace.safety-fence.missing-profile
@@ -50,7 +50,7 @@ steps:
     request:
       workspace_name: "${resource_name}"
       parameters:
-        safety_fence_level: SAFETY_FENCE_LEVEL_CHILD
+        safety_fence_level: child
   expect_error:
     code: 3
     message_contains: "has no safety_fences.child"

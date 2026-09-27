@@ -244,7 +244,11 @@ func testRuntimeProfileSQLAppConfigPersistence(t *testing.T, open func() *sqlx.D
 	if err != nil {
 		t.Fatal(err)
 	}
-	item.Spec.SafetyFences = &apitypes.RuntimeProfileSafetyFences{General: &apitypes.RuntimeProfileSafetyFence{Prompt: "一般规则"}, Child: &apitypes.RuntimeProfileSafetyFence{Prompt: "完整儿童规则"}}
+	fences := apitypes.RuntimeProfileSafetyFences{
+		"alpha": {Prompt: "完整规则 A"}, "bravo": {Prompt: "完整规则 B"},
+		"charlie": {Prompt: "完整规则 C"}, "delta": {Prompt: "完整规则 D", DisplayName: new("Delta")},
+	}
+	item.Spec.SafetyFences = &fences
 	if err := setProfileRevision(&item); err != nil {
 		t.Fatal(err)
 	}
@@ -304,7 +308,8 @@ func testRuntimeProfileSQLAppConfigPersistence(t *testing.T, open func() *sqlx.D
 		if config == nil {
 			item.Spec.SafetyFences = nil
 		} else {
-			item.Spec.SafetyFences = &apitypes.RuntimeProfileSafetyFences{Child: &apitypes.RuntimeProfileSafetyFence{Prompt: "updated child"}}
+			fences := apitypes.RuntimeProfileSafetyFences{"child": {Prompt: "updated child"}}
+			item.Spec.SafetyFences = &fences
 		}
 		if err := setProfileRevision(&item); err != nil {
 			t.Fatal(err)

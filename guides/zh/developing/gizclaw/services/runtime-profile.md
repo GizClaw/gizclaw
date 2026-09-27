@@ -158,13 +158,22 @@ Admin 创建和更新 registration token 时，原始输入必须不超过 512 �
 
 ## Workspace 安全围栏
 
-Workspace 六个 AI driver 的可选 `safety_fence_level` 固定为 `off`、`general`、`child`。`off` 不注入文本；`general` 用于约束色情、暴力、违法等 NSFW 内容；`child` 进一步要求儿童适龄。GizClaw 只定义级别，不内置任何围栏文案。租户在 RuntimeProfile 的 `spec.safety_fences.general.prompt` 和 `spec.safety_fences.child.prompt` 分别配置完整文本，长度为 1–4096 个 Unicode 字符。`child` 不继承、也不拼接 `general`；儿童档需要的全部规则必须写在自己的 prompt 中。没有 `off` 配置项。
+Workspace 六个 AI driver 使用可选的 `safety_fence_level` 字符串选择 RuntimeProfile `spec.safety_fences` 中的稳定标识符。标识符为小写字母开头的 1–64 位 ASCII 字母、数字、`_` 或 `-`；每个 Profile 定义非空的独立档位集合，GizClaw 不固定档位数量。GizClaw 不规定档位名称、顺序、严格程度或 prompt 内容，也不自动继承或拼接。每档 `prompt` 为 1–4096 个 Unicode 字符；可选 `display_name` 为 1–128 个字符。例子是测试配置，不是产品文案：
 
-参数缺省时保留 Workspace 已存值；从未设置等同于 `off`。显式修改从下一次 reload 生效。设备可以在 `server.run.workspace.reload-with-options.parameters` 中与 `input` 一起发送，无需额外调用。非法枚举在 parameters.set、reload-with-options、create 和 put 被拒绝（RPC `INVALID_ARGUMENT`，Admin HTTP put 为 400）。SFU system Workspace 接受合法值并 no-op，不保存、不解析 Profile。
+```yaml
+spec:
+  safety_fences:
+    alpha: {display_name: Alpha, prompt: 完整的 Alpha 测试规则}
+    bravo: {display_name: Bravo, prompt: 完整的 Bravo 测试规则}
+    charlie: {display_name: Charlie, prompt: 完整的 Charlie 测试规则}
+    delta: {display_name: Delta, prompt: 完整的 Delta 测试规则}
+```
 
-支持系统提示的 driver 在 reload 时，从 Workspace owner 绑定的 RuntimeProfile 当前快照解析非 off 档位。缺少所选条目、prompt 无效或 Profile 不可用时，reload 明确失败；缺档错误包含 Workspace 名、级别和 Profile ID，不会静默降级为 off。参数更新与 reload 并非同一事务：reload 失败不会撤销已经保存的级别，调用方需修复 Profile 或显式改为 off 后重试。
+设备通过 `server.workflow.list` 响应中的 `safety_fences` 列表发现当前绑定 Profile 可用的 name 与展示名；持有 API key 的调用方也可读取 `GET /gizclaw/v1/device/runtime-profile` 中的 ID 与展示名。两个入口均不返回 prompt，列表按标识符排序，Profile revision 随配置变更。选择在 Workspace 的 `safety_fence_level` 中保存并回读。`server.workspace.parameters.set` 和 `server.run.workspace.reload-with-options.parameters` 省略此字段时保留已存选择；显式空字符串或格式非法在写入时被拒绝。公共 patch 不提供清除操作；Admin `put` 删除参数属性可以清除已存选择，但若 Profile 已定义围栏，下一次 reload 会因缺少选择失败。旧 Profile 的 `general`、`child` 属性作为普通映射条目保留；旧 Workspace 的 `off` 也是普通 ID，只有 Profile 显式定义 `off` 才能解析。旧 Protobuf enum 的 varint 字段已保留编号，新客户端必须发送新的 string 字段；旧请求不会被解释为另一档。
 
-GizClaw 从不自行决定围栏放在哪里：它只把所选档位的文案（`off` 时为空字符串）以一个具名变量交给 Workflow，是否使用、放在哪个提示词的哪个位置，都由 Workflow（包括 raid 中的各个 Workflow）自己决定。没有引用该变量的 Workflow 不受围栏影响。
+Profile 定义围栏后，支持提示词的 Workspace 缺少选择或选中不存在的 ID 时，reload 明确失败，不会降级。错误包含 Workspace、档位和 Profile ID；Profile 不可用或 prompt 无效也失败。旧 Profile 完全未定义围栏、Workspace 也未选档时，继续提供空字符串以兼容原有运行。配置更新和 reload 均读取 owner 当前 Profile 快照；移除已选档位会让下一次 reload 失败。参数保存与 reload 不是同一事务：reload 失败保留已存选择，修复 Profile 或选择其现有 ID 后重试。
+
+GizClaw 只把当前档位的完整 prompt 作为具名变量提供给 Workflow。引用位置由 Workflow（包括 raid 内各 Workflow）决定；未引用变量的 Workflow 不会收到该文本。年龄标签是独立的 Workflow/内容属性，围栏选择不会重写 Raid 自身的 prompt。
 
 | Driver | Workflow 中的引用方式 |
 | --- | --- |
@@ -172,7 +181,7 @@ GizClaw 从不自行决定围栏放在哪里：它只把所选档位的文案（
 | Eino | 保留 binding `input.safety_fence`（`string`），batch、race 与子图继承同一值；prompt 节点通过 `inputs: {safety_fence: {from: input.safety_fence}}` 绑定后在模板中引用。 |
 | Doubao Realtime、Doubao Realtime Duplex、DashScope Realtime | 在 Workflow 或 Workspace 的 `instructions` 中写占位符 `${input.safety_fence}`。围栏以 `safety_fence` transformer pattern 参数下发，peergenx 构建 transformer 时替换全部占位符并去掉首尾空白；没有占位符的 instructions 原样传给 provider。占位符带点号，因此不会被 `gizclaw admin apply` 与 Terraform provider 的 `${NAME}` 环境变量展开误替换。 |
 
-ASTTranslate 的当前 provider 路径没有系统提示入口：合法级别被接受并保存，但不提供变量，也不解析 Profile；Profile 未配置该档同样不影响 reload。SFU system Workspace 同理。设备因此可以把同一个级别发给全部 Workspace。
+ASTTranslate 的当前 provider 路径没有系统提示入口：格式合法的标识符被保存，但不提供变量，也不解析 Profile；即使 Profile 未定义该 ID，reload 也不受影响。SFU system Workspace 接受格式合法的标识符但不保存或解析。
 
 围栏是发给模型的系统提示，约束效果仍依赖所选模型；这项配置不提供独立的内容审核器。
 

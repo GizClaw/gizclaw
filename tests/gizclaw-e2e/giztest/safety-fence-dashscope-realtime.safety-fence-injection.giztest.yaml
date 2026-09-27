@@ -3,7 +3,7 @@
 # I want the RuntimeProfile fence selected by safety_fence_level to reach the model through the ${input.safety_fence} placeholder in its instructions,
 # So that a device switching the level on reload changes what the agent is told.
 #
-# The e2e-giztest RuntimeProfile defines safety_fences.general as an instruction
+# The e2e-giztest RuntimeProfile defines safety_fences.alpha as an instruction
 # to open every reply with a fixed marker; the marker in the reply proves the
 # fence text was injected. DashScope's text route does not reliably carry the
 # spoken reply, so this scenario transcribes the reply audio instead.
@@ -57,14 +57,14 @@ steps:
         parameters:
           dash_scope_realtime_workspace_parameters:
             agent_type: DASH_SCOPE_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_DASH_SCOPE_REALTIME
-  - id: reload_with_general_fence
+  - id: reload_with_alpha_fence
     client: peer
     rpc:
       method: server.run.workspace.reload-with-options
       request:
         workspace_name: ${workspace_name}
         parameters:
-          safety_fence_level: SAFETY_FENCE_LEVEL_GENERAL
+          safety_fence_level: alpha
     expect:
       /workspace_name:
         equals: ${workspace_name}

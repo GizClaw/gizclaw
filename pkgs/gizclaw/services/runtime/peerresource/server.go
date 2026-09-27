@@ -1074,7 +1074,20 @@ func (s *Server) handleWorkflowList(ctx context.Context, req *rpcapi.RPCRequest)
 	return resultResponse(req.Id, rpcapi.WorkflowListResponse{
 		Items: items, HasNext: hasNext, NextCursor: nextCursor,
 		RuntimeProfileName: profile.Id, RuntimeProfileRevision: profile.Revision,
+		SafetyFences: workflowSafetyFenceOptions(*profile),
 	}, (*rpcapi.RPCPayload).FromWorkflowListResponse)
+}
+
+func workflowSafetyFenceOptions(profile apitypes.RuntimeProfile) []rpcapi.SafetyFenceOption {
+	if profile.Spec.SafetyFences == nil {
+		return nil
+	}
+	result := make([]rpcapi.SafetyFenceOption, 0, len(*profile.Spec.SafetyFences))
+	for name, fence := range *profile.Spec.SafetyFences {
+		result = append(result, rpcapi.SafetyFenceOption{Name: name, DisplayName: fence.DisplayName})
+	}
+	slices.SortFunc(result, func(a, b rpcapi.SafetyFenceOption) int { return strings.Compare(a.Name, b.Name) })
+	return result
 }
 
 func workflowTagSelectorRevision(revision string, tags []string) string {

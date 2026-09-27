@@ -45,13 +45,13 @@ PB_BIND(gizclaw_rpc_v1_ASTTranslateWorkspaceParameters, gizclaw_rpc_v1_ASTTransl
 PB_BIND(gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec, gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters, gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters, AUTO)
+PB_BIND(gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters, gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec, gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters, gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters, AUTO)
+PB_BIND(gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters, gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_EinoWorkflowSpec, gizclaw_rpc_v1_EinoWorkflowSpec, AUTO)
@@ -204,6 +204,9 @@ PB_BIND(gizclaw_rpc_v1_WorkflowListRequest, gizclaw_rpc_v1_WorkflowListRequest, 
 PB_BIND(gizclaw_rpc_v1_WorkflowListResponse, gizclaw_rpc_v1_WorkflowListResponse, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_SafetyFenceOption, gizclaw_rpc_v1_SafetyFenceOption, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_ToolkitPolicyToolNames, gizclaw_rpc_v1_ToolkitPolicyToolNames, AUTO)
 
 
@@ -226,8 +229,6 @@ PB_BIND(gizclaw_rpc_v1_ToolGetRequest, gizclaw_rpc_v1_ToolGetRequest, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ToolGetResponse, gizclaw_rpc_v1_ToolGetResponse, AUTO)
-
-
 
 
 

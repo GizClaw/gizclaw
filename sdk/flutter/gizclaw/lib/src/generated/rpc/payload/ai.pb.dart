@@ -966,7 +966,7 @@ class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
     $core.String? translationModel,
     ASTTranslateVoiceParameters? voice,
     $core.int? ttsSpeechRatePercent,
-    SafetyFenceLevel? safetyFenceLevel,
+    $core.String? safetyFenceLevel,
   }) {
     final result = create();
     if (agentType != null) result.agentType = agentType;
@@ -1013,8 +1013,7 @@ class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
     ..aOM<ASTTranslateVoiceParameters>(9, _omitFieldNames ? '' : 'voice',
         subBuilder: ASTTranslateVoiceParameters.create)
     ..aI(10, _omitFieldNames ? '' : 'ttsSpeechRatePercent')
-    ..aE<SafetyFenceLevel>(11, _omitFieldNames ? '' : 'safetyFenceLevel',
-        enumValues: SafetyFenceLevel.values)
+    ..aOS(50, _omitFieldNames ? '' : 'safetyFenceLevel')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1133,14 +1132,14 @@ class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
   @$pb.TagNumber(10)
   void clearTtsSpeechRatePercent() => $_clearField(10);
 
-  @$pb.TagNumber(11)
-  SafetyFenceLevel get safetyFenceLevel => $_getN(10);
-  @$pb.TagNumber(11)
-  set safetyFenceLevel(SafetyFenceLevel value) => $_setField(11, value);
-  @$pb.TagNumber(11)
+  @$pb.TagNumber(50)
+  $core.String get safetyFenceLevel => $_getSZ(10);
+  @$pb.TagNumber(50)
+  set safetyFenceLevel($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(50)
   $core.bool hasSafetyFenceLevel() => $_has(10);
-  @$pb.TagNumber(11)
-  void clearSafetyFenceLevel() => $_clearField(11);
+  @$pb.TagNumber(50)
+  void clearSafetyFenceLevel() => $_clearField(50);
 }
 
 class DashScopeRealtimeWorkflowSpec extends $pb.GeneratedMessage {
@@ -1330,7 +1329,7 @@ class DashScopeRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
     $core.String? vad,
     $core.String? voice,
     $core.int? ttsSpeechRatePercent,
-    SafetyFenceLevel? safetyFenceLevel,
+    $core.String? safetyFenceLevel,
   }) {
     final result = create();
     if (agentType != null) result.agentType = agentType;
@@ -1383,8 +1382,7 @@ class DashScopeRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
     ..aOS(12, _omitFieldNames ? '' : 'vad')
     ..aOS(13, _omitFieldNames ? '' : 'voice')
     ..aI(14, _omitFieldNames ? '' : 'ttsSpeechRatePercent')
-    ..aE<SafetyFenceLevel>(15, _omitFieldNames ? '' : 'safetyFenceLevel',
-        enumValues: SafetyFenceLevel.values)
+    ..aOS(50, _omitFieldNames ? '' : 'safetyFenceLevel')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1531,14 +1529,14 @@ class DashScopeRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
   @$pb.TagNumber(14)
   void clearTtsSpeechRatePercent() => $_clearField(14);
 
-  @$pb.TagNumber(15)
-  SafetyFenceLevel get safetyFenceLevel => $_getN(14);
-  @$pb.TagNumber(15)
-  set safetyFenceLevel(SafetyFenceLevel value) => $_setField(15, value);
-  @$pb.TagNumber(15)
+  @$pb.TagNumber(50)
+  $core.String get safetyFenceLevel => $_getSZ(14);
+  @$pb.TagNumber(50)
+  set safetyFenceLevel($core.String value) => $_setString(14, value);
+  @$pb.TagNumber(50)
   $core.bool hasSafetyFenceLevel() => $_has(14);
-  @$pb.TagNumber(15)
-  void clearSafetyFenceLevel() => $_clearField(15);
+  @$pb.TagNumber(50)
+  void clearSafetyFenceLevel() => $_clearField(50);
 }
 
 class DoubaoRealtimeDuplexWorkflowSpec extends $pb.GeneratedMessage {
@@ -1736,7 +1734,7 @@ class DoubaoRealtimeDuplexWorkspaceParameters extends $pb.GeneratedMessage {
     $fixnum.Int64? sampleRate,
     $core.String? voice,
     $core.int? ttsSpeechRatePercent,
-    SafetyFenceLevel? safetyFenceLevel,
+    $core.String? safetyFenceLevel,
   }) {
     final result = create();
     if (agentType != null) result.agentType = agentType;
@@ -1788,8 +1786,7 @@ class DoubaoRealtimeDuplexWorkspaceParameters extends $pb.GeneratedMessage {
     ..aInt64(12, _omitFieldNames ? '' : 'sampleRate')
     ..aOS(13, _omitFieldNames ? '' : 'voice')
     ..aI(14, _omitFieldNames ? '' : 'ttsSpeechRatePercent')
-    ..aE<SafetyFenceLevel>(15, _omitFieldNames ? '' : 'safetyFenceLevel',
-        enumValues: SafetyFenceLevel.values)
+    ..aOS(50, _omitFieldNames ? '' : 'safetyFenceLevel')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1943,14 +1940,14 @@ class DoubaoRealtimeDuplexWorkspaceParameters extends $pb.GeneratedMessage {
   @$pb.TagNumber(14)
   void clearTtsSpeechRatePercent() => $_clearField(14);
 
-  @$pb.TagNumber(15)
-  SafetyFenceLevel get safetyFenceLevel => $_getN(14);
-  @$pb.TagNumber(15)
-  set safetyFenceLevel(SafetyFenceLevel value) => $_setField(15, value);
-  @$pb.TagNumber(15)
+  @$pb.TagNumber(50)
+  $core.String get safetyFenceLevel => $_getSZ(14);
+  @$pb.TagNumber(50)
+  set safetyFenceLevel($core.String value) => $_setString(14, value);
+  @$pb.TagNumber(50)
   $core.bool hasSafetyFenceLevel() => $_has(14);
-  @$pb.TagNumber(15)
-  void clearSafetyFenceLevel() => $_clearField(15);
+  @$pb.TagNumber(50)
+  void clearSafetyFenceLevel() => $_clearField(50);
 }
 
 class EinoWorkflowSpec extends $pb.GeneratedMessage {
@@ -2062,7 +2059,7 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
     ConversationParameters? conversation,
     $1.WorkspaceInputMode? input,
     $core.int? ttsSpeechRatePercent,
-    SafetyFenceLevel? safetyFenceLevel,
+    $core.String? safetyFenceLevel,
   }) {
     final result = create();
     if (agentType != null) result.agentType = agentType;
@@ -2097,8 +2094,7 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
     ..aE<$1.WorkspaceInputMode>(4, _omitFieldNames ? '' : 'input',
         enumValues: $1.WorkspaceInputMode.values)
     ..aI(5, _omitFieldNames ? '' : 'ttsSpeechRatePercent')
-    ..aE<SafetyFenceLevel>(6, _omitFieldNames ? '' : 'safetyFenceLevel',
-        enumValues: SafetyFenceLevel.values)
+    ..aOS(50, _omitFieldNames ? '' : 'safetyFenceLevel')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2169,14 +2165,14 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   void clearTtsSpeechRatePercent() => $_clearField(5);
 
-  @$pb.TagNumber(6)
-  SafetyFenceLevel get safetyFenceLevel => $_getN(5);
-  @$pb.TagNumber(6)
-  set safetyFenceLevel(SafetyFenceLevel value) => $_setField(6, value);
-  @$pb.TagNumber(6)
+  @$pb.TagNumber(50)
+  $core.String get safetyFenceLevel => $_getSZ(5);
+  @$pb.TagNumber(50)
+  set safetyFenceLevel($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(50)
   $core.bool hasSafetyFenceLevel() => $_has(5);
-  @$pb.TagNumber(6)
-  void clearSafetyFenceLevel() => $_clearField(6);
+  @$pb.TagNumber(50)
+  void clearSafetyFenceLevel() => $_clearField(50);
 }
 
 class DoubaoRealtimeAIGCMetadata extends $pb.GeneratedMessage {
@@ -3851,7 +3847,7 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
     $core.Iterable<DoubaoRealtimeFunctionTool>? tools,
     ConversationParameters? conversation,
     $core.int? ttsSpeechRatePercent,
-    SafetyFenceLevel? safetyFenceLevel,
+    $core.String? safetyFenceLevel,
   }) {
     final result = create();
     if (agentType != null) result.agentType = agentType;
@@ -3900,8 +3896,7 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
     ..aOM<ConversationParameters>(9, _omitFieldNames ? '' : 'conversation',
         subBuilder: ConversationParameters.create)
     ..aI(10, _omitFieldNames ? '' : 'ttsSpeechRatePercent')
-    ..aE<SafetyFenceLevel>(11, _omitFieldNames ? '' : 'safetyFenceLevel',
-        enumValues: SafetyFenceLevel.values)
+    ..aOS(50, _omitFieldNames ? '' : 'safetyFenceLevel')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4018,14 +4013,14 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
   @$pb.TagNumber(10)
   void clearTtsSpeechRatePercent() => $_clearField(10);
 
-  @$pb.TagNumber(11)
-  SafetyFenceLevel get safetyFenceLevel => $_getN(10);
-  @$pb.TagNumber(11)
-  set safetyFenceLevel(SafetyFenceLevel value) => $_setField(11, value);
-  @$pb.TagNumber(11)
+  @$pb.TagNumber(50)
+  $core.String get safetyFenceLevel => $_getSZ(10);
+  @$pb.TagNumber(50)
+  set safetyFenceLevel($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(50)
   $core.bool hasSafetyFenceLevel() => $_has(10);
-  @$pb.TagNumber(11)
-  void clearSafetyFenceLevel() => $_clearField(11);
+  @$pb.TagNumber(50)
+  void clearSafetyFenceLevel() => $_clearField(50);
 }
 
 class ConversationParameters extends $pb.GeneratedMessage {
@@ -4169,7 +4164,7 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
     $core.bool? e2e,
     $1.WorkspaceInputMode? input,
     $core.int? ttsSpeechRatePercent,
-    SafetyFenceLevel? safetyFenceLevel,
+    $core.String? safetyFenceLevel,
   }) {
     final result = create();
     if (agentType != null) result.agentType = agentType;
@@ -4204,8 +4199,7 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
     ..aE<$1.WorkspaceInputMode>(4, _omitFieldNames ? '' : 'input',
         enumValues: $1.WorkspaceInputMode.values)
     ..aI(5, _omitFieldNames ? '' : 'ttsSpeechRatePercent')
-    ..aE<SafetyFenceLevel>(6, _omitFieldNames ? '' : 'safetyFenceLevel',
-        enumValues: SafetyFenceLevel.values)
+    ..aOS(50, _omitFieldNames ? '' : 'safetyFenceLevel')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4278,14 +4272,14 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   void clearTtsSpeechRatePercent() => $_clearField(5);
 
-  @$pb.TagNumber(6)
-  SafetyFenceLevel get safetyFenceLevel => $_getN(5);
-  @$pb.TagNumber(6)
-  set safetyFenceLevel(SafetyFenceLevel value) => $_setField(6, value);
-  @$pb.TagNumber(6)
+  @$pb.TagNumber(50)
+  $core.String get safetyFenceLevel => $_getSZ(5);
+  @$pb.TagNumber(50)
+  set safetyFenceLevel($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(50)
   $core.bool hasSafetyFenceLevel() => $_has(5);
-  @$pb.TagNumber(6)
-  void clearSafetyFenceLevel() => $_clearField(6);
+  @$pb.TagNumber(50)
+  void clearSafetyFenceLevel() => $_clearField(50);
 }
 
 enum Model_ProviderData {
@@ -6598,6 +6592,7 @@ class WorkflowListResponse extends $pb.GeneratedMessage {
     $core.String? nextCursor,
     $core.String? runtimeProfileName,
     $core.String? runtimeProfileRevision,
+    $core.Iterable<SafetyFenceOption>? safetyFences,
   }) {
     final result = create();
     if (hasNext != null) result.hasNext = hasNext;
@@ -6607,6 +6602,7 @@ class WorkflowListResponse extends $pb.GeneratedMessage {
       result.runtimeProfileName = runtimeProfileName;
     if (runtimeProfileRevision != null)
       result.runtimeProfileRevision = runtimeProfileRevision;
+    if (safetyFences != null) result.safetyFences.addAll(safetyFences);
     return result;
   }
 
@@ -6629,6 +6625,8 @@ class WorkflowListResponse extends $pb.GeneratedMessage {
     ..aOS(3, _omitFieldNames ? '' : 'nextCursor')
     ..aOS(4, _omitFieldNames ? '' : 'runtimeProfileName')
     ..aOS(5, _omitFieldNames ? '' : 'runtimeProfileRevision')
+    ..pPM<SafetyFenceOption>(6, _omitFieldNames ? '' : 'safetyFences',
+        subBuilder: SafetyFenceOption.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -6688,6 +6686,76 @@ class WorkflowListResponse extends $pb.GeneratedMessage {
   $core.bool hasRuntimeProfileRevision() => $_has(4);
   @$pb.TagNumber(5)
   void clearRuntimeProfileRevision() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $pb.PbList<SafetyFenceOption> get safetyFences => $_getList(5);
+}
+
+/// Public catalog metadata; prompt text remains private to the Server.
+class SafetyFenceOption extends $pb.GeneratedMessage {
+  factory SafetyFenceOption({
+    $core.String? name,
+    $core.String? displayName,
+  }) {
+    final result = create();
+    if (name != null) result.name = name;
+    if (displayName != null) result.displayName = displayName;
+    return result;
+  }
+
+  SafetyFenceOption._();
+
+  factory SafetyFenceOption.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SafetyFenceOption.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SafetyFenceOption',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOS(2, _omitFieldNames ? '' : 'displayName')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SafetyFenceOption clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SafetyFenceOption copyWith(void Function(SafetyFenceOption) updates) =>
+      super.copyWith((message) => updates(message as SafetyFenceOption))
+          as SafetyFenceOption;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SafetyFenceOption create() => SafetyFenceOption._();
+  @$core.override
+  SafetyFenceOption createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SafetyFenceOption getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SafetyFenceOption>(create);
+  static SafetyFenceOption? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get displayName => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set displayName($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDisplayName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDisplayName() => $_clearField(2);
 }
 
 class ToolkitPolicyToolNames extends $pb.GeneratedMessage {

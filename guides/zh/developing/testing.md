@@ -1349,4 +1349,13 @@ tests/gizclaw-e2e/testdata/bin/gizclaw test run \
   tests/gizclaw-e2e/giztest/eino-mixed-provider-voices.tts-speech-rate.giztest.yaml
 ```
 
-安全围栏离线测试覆盖参数、RPC、Profile SQL/revision 和各 driver 的注入。`server.workspace.safety-fence.roundtrip.giztest.yaml` 验证三档往返和非法值；`server.workspace.safety-fence.missing-profile.giztest.yaml` 要求 `GIZCLAW_TEST_FENCE_MISSING_REGISTRATION_TOKEN` 绑定到有 assistants/flowcraft-chat-assistant、但未配置 child 围栏的 Profile；`sfu.workspace.switch.giztest.yaml` 包含三档 no-op。Admin put 400 在 Workspace Go 测试中验证：Giztest 的临时 Peer 连接不具备 Admin HTTP 权限。在线执行这些场景仍需要部署 fixture；离线解析不能证明 provider 内容约束效果。
+安全围栏离线测试覆盖参数、RPC、Profile SQL/revision 和各 driver 的注入。E2E RuntimeProfile fixture 定义 `alpha`、`bravo`、`charlie`、`delta` 四个独立完整 prompt。`server.workspace.safety-fence.roundtrip.giztest.yaml` 验证 RPC 档位发现、缺少选择时报错、自定义 ID 往返和格式错误；`server.device.runtime_profile.get.giztest.yaml` 验证 HTTP 档位发现且不暴露 prompt；`server.workspace.safety-fence.missing-profile.giztest.yaml` 验证 Profile 未定义 `child` 时 reload 明确失败；`sfu.workspace.switch.giztest.yaml` 验证合法 ID no-op。Admin put 400 在 Workspace Go 测试中验证：Giztest 的临时 Peer 连接不具备 Admin HTTP 权限。五个 `safety-fence-*.giztest.yaml` 场景分别覆盖 Flowcraft、Eino 和三个 Realtime driver 的显式 prompt 注入。
+
+在线运行这九个场景使用专用的最小资源清单 `testdata/resources/safety-fence/` 和隔离 Docker project，需提供标准 E2E provider 凭据：
+
+```sh
+GIZCLAW_E2E_CREDENTIAL_FILE=tests/gizclaw-e2e/.env \
+  bash tests/gizclaw-e2e/run_safety_fence_tests.sh
+```
+
+脚本输出 RPC、provider、HTTP、SFU 四份 JSON 报告到 `tests/gizclaw-e2e/.testbench/`，退出时按 project 清理容器和临时凭据环境文件。标准全量资源清单目前包含 Server 不支持的 `client_rpc` Tool，因而不能用其启动成功来证明这九个场景；专用入口只选取围栏场景依赖的资源。离线解析不证明真实 provider 的效果。

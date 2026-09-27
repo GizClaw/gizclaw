@@ -159,13 +159,22 @@ Admin creation and updates require registration-token input to fit within 512 UT
 
 ## Workspace safety fences
 
-The six AI Workspace parameter variants accept optional `safety_fence_level`: `off`, `general`, or `child`. Off injects no text; general targets NSFW content such as sexual, violent, and illegal content; child adds age-appropriate constraints. GizClaw defines only these levels and supplies no fence wording. Tenants provide complete prompts in RuntimeProfile `spec.safety_fences.general.prompt` and `spec.safety_fences.child.prompt`, each containing 1–4096 Unicode characters. Child neither inherits nor concatenates general: its own prompt must contain every applicable rule. There is no off entry.
+The six AI Workspace parameter variants use the optional string `safety_fence_level` to select a stable identifier in RuntimeProfile `spec.safety_fences`. An identifier starts with a lowercase ASCII letter and contains 1–64 lowercase letters, digits, `_`, or `-`; each Profile defines a nonempty set of independent levels, with no fixed level count in GizClaw. GizClaw defines no names, ordering, strictness, or prompt text, and never inherits or concatenates prompts. Each complete `prompt` contains 1–4096 Unicode characters; optional `display_name` contains 1–128 characters. This synthetic example is not product wording:
 
-Omission preserves the stored Workspace value; never configured means off. Explicit changes apply on the next reload. Devices send the level alongside `input` in `server.run.workspace.reload-with-options.parameters`, with no extra call. Invalid enums are rejected on parameters.set, reload-with-options, create, and put (RPC `INVALID_ARGUMENT`, Admin HTTP put 400). SFU system Workspaces accept valid levels as a no-op without storing them or resolving a Profile.
+```yaml
+spec:
+  safety_fences:
+    alpha: {display_name: Alpha, prompt: Complete alpha test rule}
+    bravo: {display_name: Bravo, prompt: Complete bravo test rule}
+    charlie: {display_name: Charlie, prompt: Complete charlie test rule}
+    delta: {display_name: Delta, prompt: Complete delta test rule}
+```
 
-On a driver that supports system prompts, reload resolves non-off levels from the current snapshot of the Workspace owner's bound RuntimeProfile. A missing entry, invalid prompt, or unavailable Profile fails reload explicitly. Missing-entry errors identify the Workspace name, level, and Profile ID; there is no silent fallback to off. Parameter updates and reload are not one transaction: a reload failure leaves the stored level in place. Fix the Profile or explicitly set off before retrying.
+Devices discover the bound Profile's available names and display labels in `server.workflow.list`'s `safety_fences` response. API key holders can also read IDs and labels from `GET /gizclaw/v1/device/runtime-profile`. Both catalogs are sorted by identifier, carry the current Profile revision, and omit prompt text. The Workspace stores and returns the selected `safety_fence_level`. Omitting it from `server.workspace.parameters.set` or `server.run.workspace.reload-with-options.parameters` preserves the stored selection. An explicit empty string or malformed ID is rejected on write. The common patch has no clear operation; Admin `put` can remove the parameter property, but the next reload fails for a Profile with fences because selection is then missing. Old Profile `general` and `child` properties remain ordinary map entries. A stored `off` is an ordinary ID and resolves only if the Profile defines it. The old Protobuf enum varint tags are reserved; clients must send the new string fields, and old requests cannot be mistaken for another level.
 
-GizClaw never decides where a fence goes. It hands the selected level's text (an empty string for `off`) to the Workflow as one named variable, and the Workflow, including each Workflow in a raid, decides whether and where to use it. A Workflow that never references the variable is unaffected by the fence.
+Once a Profile defines fences, a system-prompt-capable Workspace with no selection or an unknown ID fails reload explicitly. Errors identify the Workspace, ID, and Profile; unavailable Profiles and invalid prompts also fail. An old Profile with no fences and a Workspace with no selection continues to provide an empty string for compatibility. Configuration changes and reload read the owner's current Profile snapshot: removing a selected ID causes the next reload to fail. Parameter persistence and reload are separate transactions; a failed reload retains the selection until the Profile is fixed or an available ID is selected.
+
+GizClaw provides the selected complete prompt as a named Workflow variable. Each Workflow, including one inside a raid, decides whether and where to use it. Age tags remain separate content metadata; choosing a fence does not rewrite a raid's own prompt.
 
 | Driver | How a Workflow references the fence |
 | --- | --- |
@@ -173,7 +182,7 @@ GizClaw never decides where a fence goes. It hands the selected level's text (an
 | Eino | The reserved `input.safety_fence` binding (`string`), inherited by batch, race, and subgraph runs; bind it into a prompt node with `inputs: {safety_fence: {from: input.safety_fence}}` and use it in the template. |
 | Doubao Realtime, Doubao Realtime Duplex, DashScope Realtime | The `${input.safety_fence}` placeholder in Workflow or Workspace `instructions`. The fence travels as the `safety_fence` transformer pattern parameter; peergenx replaces every placeholder and trims surrounding whitespace while building the transformer, and passes instructions without the placeholder to the provider unchanged. The dotted name keeps the `${NAME}` environment expansion of `gizclaw admin apply` and the Terraform provider from consuming it. |
 
-The current ASTTranslate provider path has no system-prompt entry point: valid levels are stored but provide no variable and never resolve the Profile, so a level the Profile does not define still reloads. SFU system Workspaces behave the same way, which lets a device send one level to every Workspace.
+The current ASTTranslate provider path has no system-prompt entry point: syntactically valid IDs are stored, but provide no variable and never resolve the Profile. SFU system Workspaces accept syntactically valid IDs without storing or resolving them.
 
 A fence is a system prompt sent to the model. Its effectiveness depends on the selected model; this configuration does not implement a separate content moderator.
 

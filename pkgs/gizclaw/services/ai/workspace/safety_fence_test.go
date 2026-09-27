@@ -12,7 +12,7 @@ func TestSafetyFencePatchRoundTripAndPreservation(t *testing.T) {
 	for _, driver := range []apitypes.WorkflowDriver{apitypes.WorkflowDriverFlowcraft, apitypes.WorkflowDriverEino, apitypes.WorkflowDriverDoubaoRealtime, apitypes.WorkflowDriverDoubaoRealtimeDuplex, apitypes.WorkflowDriverDashscopeRealtime, apitypes.WorkflowDriverAstTranslate} {
 		t.Run(string(driver), func(t *testing.T) {
 			var parameters *apitypes.WorkspaceParameters
-			for _, level := range []apitypes.SafetyFenceLevel{apitypes.SafetyFenceLevelGeneral, apitypes.SafetyFenceLevelChild, apitypes.SafetyFenceLevelOff} {
+			for _, level := range []apitypes.SafetyFenceLevel{apitypes.SafetyFenceLevel("general"), apitypes.SafetyFenceLevel("child"), apitypes.SafetyFenceLevel("off")} {
 				updated, err := workspaceParametersWithPatch(parameters, driver, nil, nil, nil, &level)
 				if err != nil {
 					t.Fatal(err)
@@ -34,12 +34,12 @@ func TestSafetyFencePatchRoundTripAndPreservation(t *testing.T) {
 			}
 		})
 	}
-	for _, level := range []apitypes.SafetyFenceLevel{"", "unknown", "GENERAL"} {
+	for _, level := range []apitypes.SafetyFenceLevel{"", "bad space", "GENERAL"} {
 		if err := validateWorkspaceParametersPatch(PeerWorkspaceParametersSetRequest{SafetyFenceLevel: &level}); err == nil {
 			t.Fatalf("accepted %q", level)
 		}
 	}
-	for _, level := range []apitypes.SafetyFenceLevel{apitypes.SafetyFenceLevelOff, apitypes.SafetyFenceLevelGeneral, apitypes.SafetyFenceLevelChild} {
+	for _, level := range []apitypes.SafetyFenceLevel{apitypes.SafetyFenceLevel("off"), apitypes.SafetyFenceLevel("general"), apitypes.SafetyFenceLevel("child")} {
 		got, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverSfu, nil, nil, nil, &level)
 		if err != nil || got != nil {
 			t.Fatalf("SFU patch = %v, %v", got, err)
@@ -52,7 +52,7 @@ func TestCreateAndPutRejectInvalidSafetyFence(t *testing.T) {
 	seedFlowcraftWorkflow(t, srv, "workflow-1", "model-1")
 	seedModel(t, srv, "model-1", apitypes.ModelKindLlm)
 	ctx := ownership.WithOwner(t.Context(), "peer-owner")
-	invalid := flowcraftInputParameters(t, apitypes.FlowcraftWorkspaceParameters{AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft, SafetyFenceLevel: new(apitypes.SafetyFenceLevel("invalid"))})
+	invalid := flowcraftInputParameters(t, apitypes.FlowcraftWorkspaceParameters{AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft, SafetyFenceLevel: new(apitypes.SafetyFenceLevel("bad space"))})
 	if _, err := srv.CreatePeerWorkspace(ctx, PeerWorkspaceCreateRequest{Name: "bad", WorkflowID: "workflow-1", Parameters: invalid}); err == nil {
 		t.Fatal("create accepted invalid level")
 	}

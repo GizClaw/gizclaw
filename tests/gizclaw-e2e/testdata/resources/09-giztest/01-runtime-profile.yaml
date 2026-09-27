@@ -40,11 +40,17 @@ spec:
     flowcraft-memory-peer-a: {resource_id: flowcraft-memory-peer-a, i18n: {en: {display_name: Peer Memory A}, zh-CN: {display_name: Peer 记忆 A}}, tags: [assistants]}
     flowcraft-memory-peer-b: {resource_id: flowcraft-memory-peer-b, i18n: {en: {display_name: Peer Memory B}, zh-CN: {display_name: Peer 记忆 B}}, tags: [assistants]}
     flowcraft-memory-workspace: {resource_id: flowcraft-memory-workspace, i18n: {en: {display_name: Workspace Memory}, zh-CN: {display_name: Workspace 记忆}}, tags: [assistants]}
-  # Only general is defined: server.workspace.safety-fence.missing-profile relies
-  # on child being absent. The marker lets giztest observe the injected prompt.
+  # Four arbitrary identifiers exercise Profile-owned levels. The test marker
+  # is synthetic, not product wording. "child" remains absent for the missing-level case.
   safety_fences:
-    general:
+    alpha:
       prompt: 安全规则：你的每一次回复都必须以“安全模式已开启”这六个字开头，然后再正常回答。
+    bravo:
+      prompt: 完整的测试规则 B。
+    charlie:
+      prompt: 完整的测试规则 C。
+    delta:
+      prompt: 完整的测试规则 D。
   resources:
     models:
       asr: {resource_id: volc-bigasr-sauc, i18n: {en: {display_name: Speech Recognition}, zh-CN: {display_name: 语音识别}}}

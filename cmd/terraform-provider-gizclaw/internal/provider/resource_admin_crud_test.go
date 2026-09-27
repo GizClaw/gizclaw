@@ -73,6 +73,24 @@ func plannedModel(spec string) adminResourceModel {
 	}
 }
 
+func TestRuntimeProfileCustomSafetyFencesPassThrough(t *testing.T) {
+	h := newCRUDHarness(t)
+	model := plannedModel(`{"resources":{},"workflows":{},"safety_fences":{"alpha":{"prompt":"alpha rule"},"bravo":{"prompt":"bravo rule"},"charlie":{"prompt":"charlie rule"},"delta":{"prompt":"delta rule"}}}`)
+	model.Kind = types.StringValue("RuntimeProfile")
+	model.ResourceID = types.StringValue("custom-fences")
+	response := resource.CreateResponse{State: h.emptyState()}
+	h.resource.Create(t.Context(), resource.CreateRequest{Plan: h.plan(model)}, &response)
+	if response.Diagnostics.HasError() {
+		t.Fatalf("create: %v", response.Diagnostics)
+	}
+	got := h.model(response.State).Spec.ValueString()
+	for _, id := range []string{"alpha", "bravo", "charlie", "delta"} {
+		if !strings.Contains(got, `"`+id+`"`) {
+			t.Fatalf("missing %s in stored spec %s", id, got)
+		}
+	}
+}
+
 func TestAdminResourceCRUDAgainstFakeServer(t *testing.T) {
 	h := newCRUDHarness(t)
 	ctx := context.Background()
