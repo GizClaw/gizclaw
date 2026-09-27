@@ -3685,8 +3685,8 @@ type WorkspaceParametersPatch struct {
 	Input        *WorkspaceInputMode     `protobuf:"varint,1,opt,name=input,proto3,enum=gizclaw.rpc.v1.WorkspaceInputMode,oneof" json:"input,omitempty"`
 	Conversation *ConversationParameters `protobuf:"bytes,2,opt,name=conversation,proto3,oneof" json:"conversation,omitempty"`
 	// Synthesized speech rate in percent of normal (50..200); absent keeps the Workflow default.
-	TtsSpeechRatePercent *int32            `protobuf:"varint,3,opt,name=tts_speech_rate_percent,json=ttsSpeechRatePercent,proto3,oneof" json:"tts_speech_rate_percent,omitempty"`
-	SafetyFenceLevel     *SafetyFenceLevel `protobuf:"varint,4,opt,name=safety_fence_level,json=safetyFenceLevel,proto3,enum=gizclaw.rpc.v1.SafetyFenceLevel,oneof" json:"safety_fence_level,omitempty"`
+	TtsSpeechRatePercent *int32  `protobuf:"varint,3,opt,name=tts_speech_rate_percent,json=ttsSpeechRatePercent,proto3,oneof" json:"tts_speech_rate_percent,omitempty"`
+	SafetyFenceLevel     *string `protobuf:"bytes,5,opt,name=safety_fence_level,json=safetyFenceLevel,proto3,oneof" json:"safety_fence_level,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -3742,11 +3742,11 @@ func (x *WorkspaceParametersPatch) GetTtsSpeechRatePercent() int32 {
 	return 0
 }
 
-func (x *WorkspaceParametersPatch) GetSafetyFenceLevel() SafetyFenceLevel {
+func (x *WorkspaceParametersPatch) GetSafetyFenceLevel() string {
 	if x != nil && x.SafetyFenceLevel != nil {
 		return *x.SafetyFenceLevel
 	}
-	return SafetyFenceLevel_SAFETY_FENCE_LEVEL_UNSPECIFIED
+	return ""
 }
 
 type WorkspaceParametersSetRequest struct {
@@ -4164,16 +4164,16 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x04body\x18\x01 \x01(\v2 .gizclaw.rpc.v1.WorkspacePutBodyR\x04body\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"G\n" +
 	"\x14WorkspacePutResponse\x12/\n" +
-	"\x05value\x18\x01 \x01(\v2\x19.gizclaw.rpc.v1.WorkspaceR\x05value\"\x89\x03\n" +
+	"\x05value\x18\x01 \x01(\v2\x19.gizclaw.rpc.v1.WorkspaceR\x05value\"\xed\x02\n" +
 	"\x18WorkspaceParametersPatch\x12=\n" +
 	"\x05input\x18\x01 \x01(\x0e2\".gizclaw.rpc.v1.WorkspaceInputModeH\x00R\x05input\x88\x01\x01\x12O\n" +
 	"\fconversation\x18\x02 \x01(\v2&.gizclaw.rpc.v1.ConversationParametersH\x01R\fconversation\x88\x01\x01\x12:\n" +
-	"\x17tts_speech_rate_percent\x18\x03 \x01(\x05H\x02R\x14ttsSpeechRatePercent\x88\x01\x01\x12S\n" +
-	"\x12safety_fence_level\x18\x04 \x01(\x0e2 .gizclaw.rpc.v1.SafetyFenceLevelH\x03R\x10safetyFenceLevel\x88\x01\x01B\b\n" +
+	"\x17tts_speech_rate_percent\x18\x03 \x01(\x05H\x02R\x14ttsSpeechRatePercent\x88\x01\x01\x121\n" +
+	"\x12safety_fence_level\x18\x05 \x01(\tH\x03R\x10safetyFenceLevel\x88\x01\x01B\b\n" +
 	"\x06_inputB\x0f\n" +
 	"\r_conversationB\x1a\n" +
 	"\x18_tts_speech_rate_percentB\x15\n" +
-	"\x13_safety_fence_level\"}\n" +
+	"\x13_safety_fence_levelJ\x04\b\x04\x10\x05\"}\n" +
 	"\x1dWorkspaceParametersSetRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12H\n" +
 	"\n" +
@@ -4282,7 +4282,6 @@ var file_payload_workspace_proto_goTypes = []any{
 	(*EinoWorkspaceParameters)(nil),                     // 83: gizclaw.rpc.v1.EinoWorkspaceParameters
 	(WorkspaceInputMode)(0),                             // 84: gizclaw.rpc.v1.WorkspaceInputMode
 	(*ConversationParameters)(nil),                      // 85: gizclaw.rpc.v1.ConversationParameters
-	(SafetyFenceLevel)(0),                               // 86: gizclaw.rpc.v1.SafetyFenceLevel
 }
 var file_payload_workspace_proto_depIdxs = []int32{
 	0,  // 0: gizclaw.rpc.v1.PeerRunAgent.active:type_name -> gizclaw.rpc.v1.AgentSelection
@@ -4344,14 +4343,13 @@ var file_payload_workspace_proto_depIdxs = []int32{
 	44, // 56: gizclaw.rpc.v1.WorkspacePutResponse.value:type_name -> gizclaw.rpc.v1.Workspace
 	84, // 57: gizclaw.rpc.v1.WorkspaceParametersPatch.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
 	85, // 58: gizclaw.rpc.v1.WorkspaceParametersPatch.conversation:type_name -> gizclaw.rpc.v1.ConversationParameters
-	86, // 59: gizclaw.rpc.v1.WorkspaceParametersPatch.safety_fence_level:type_name -> gizclaw.rpc.v1.SafetyFenceLevel
-	66, // 60: gizclaw.rpc.v1.WorkspaceParametersSetRequest.parameters:type_name -> gizclaw.rpc.v1.WorkspaceParametersPatch
-	44, // 61: gizclaw.rpc.v1.WorkspaceParametersSetResponse.value:type_name -> gizclaw.rpc.v1.Workspace
-	62, // [62:62] is the sub-list for method output_type
-	62, // [62:62] is the sub-list for method input_type
-	62, // [62:62] is the sub-list for extension type_name
-	62, // [62:62] is the sub-list for extension extendee
-	0,  // [0:62] is the sub-list for field type_name
+	66, // 59: gizclaw.rpc.v1.WorkspaceParametersSetRequest.parameters:type_name -> gizclaw.rpc.v1.WorkspaceParametersPatch
+	44, // 60: gizclaw.rpc.v1.WorkspaceParametersSetResponse.value:type_name -> gizclaw.rpc.v1.Workspace
+	61, // [61:61] is the sub-list for method output_type
+	61, // [61:61] is the sub-list for method input_type
+	61, // [61:61] is the sub-list for extension type_name
+	61, // [61:61] is the sub-list for extension extendee
+	0,  // [0:61] is the sub-list for field type_name
 }
 
 func init() { file_payload_workspace_proto_init() }

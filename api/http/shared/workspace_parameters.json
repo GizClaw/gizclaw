@@ -44,8 +44,8 @@
       },
       "SafetyFenceLevel": {
         "type": "string",
-        "enum": ["off", "general", "child"],
-        "description": "Safety strictness: off injects nothing; general restricts NSFW content; child adds age-appropriate constraints. GizClaw supplies no prompt text. The selected RuntimeProfile prompt is complete; child does not inherit general."
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "description": "Stable identifier of a complete safety fence prompt in the bound RuntimeProfile. The profile defines all available identifiers and prompts."
       },
       "WorkspaceInputMode": {
         "type": "string",

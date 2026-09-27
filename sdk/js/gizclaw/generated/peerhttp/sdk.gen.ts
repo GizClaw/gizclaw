@@ -262,7 +262,7 @@ export const getDeviceFirmware = <ThrowOnError extends boolean = false>(options?
 /**
  * Get the RuntimeProfile workflow catalog of the bound device
  *
- * Returns the bound RuntimeProfile name, revision and Workflow aliases with opaque tags. Repeating tags filters Workflows that contain every requested string. Workflows are sorted by name. Reading never contacts the device.
+ * Returns the bound RuntimeProfile name, revision, available safety fence identifiers and Workflow aliases with opaque tags. Repeating tags filters Workflows that contain every requested string. Entries are sorted by identifier or name. Reading never contacts the device.
  */
 export const getDeviceRuntimeProfile = <ThrowOnError extends boolean = false>(options?: Options<GetDeviceRuntimeProfileData, ThrowOnError>): RequestResult<GetDeviceRuntimeProfileResponses, GetDeviceRuntimeProfileErrors, ThrowOnError> => (options?.client ?? client).get<GetDeviceRuntimeProfileResponses, GetDeviceRuntimeProfileErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],

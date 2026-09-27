@@ -2457,11 +2457,18 @@ type WorkflowListRequest struct {
 
 // WorkflowListResponse defines model for WorkflowListResponse.
 type WorkflowListResponse struct {
-	HasNext                bool       `json:"has_next"`
-	Items                  []Workflow `json:"items"`
-	NextCursor             *string    `json:"next_cursor,omitempty"`
-	RuntimeProfileName     string     `json:"runtime_profile_name"`
-	RuntimeProfileRevision string     `json:"runtime_profile_revision"`
+	HasNext                bool                `json:"has_next"`
+	Items                  []Workflow          `json:"items"`
+	NextCursor             *string             `json:"next_cursor,omitempty"`
+	RuntimeProfileName     string              `json:"runtime_profile_name"`
+	RuntimeProfileRevision string              `json:"runtime_profile_revision"`
+	SafetyFences           []SafetyFenceOption `json:"safety_fences,omitempty"`
+}
+
+// SafetyFenceOption describes one selectable RuntimeProfile level without its prompt.
+type SafetyFenceOption struct {
+	Name        string  `json:"name"`
+	DisplayName *string `json:"display_name,omitempty"`
 }
 
 // SFUWorkflowSpec Empty SFU Workflow payload. The Workspace binds the current Peer to the SFU Room declared by its Social resource; the Workflow itself carries no configuration.

@@ -2494,27 +2494,6 @@ func (e SFUWorkflowVariantDriver) Valid() bool {
 	}
 }
 
-// Defines values for SafetyFenceLevel.
-const (
-	SafetyFenceLevelChild   SafetyFenceLevel = "child"
-	SafetyFenceLevelGeneral SafetyFenceLevel = "general"
-	SafetyFenceLevelOff     SafetyFenceLevel = "off"
-)
-
-// Valid indicates whether the value is a known member of the SafetyFenceLevel enum.
-func (e SafetyFenceLevel) Valid() bool {
-	switch e {
-	case SafetyFenceLevelChild:
-		return true
-	case SafetyFenceLevelGeneral:
-		return true
-	case SafetyFenceLevelOff:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ServerInfoTransportMode.
 const (
 	ServerInfoTransportModeEdgeGateway ServerInfoTransportMode = "edge-gateway"
@@ -2979,7 +2958,7 @@ type ASTTranslateWorkspaceParameters struct {
 	LangPair *string           `json:"lang_pair,omitempty"`
 	Mode     *ASTTranslateMode `json:"mode,omitempty"`
 
-	// SafetyFenceLevel Safety strictness: off injects nothing; general restricts NSFW content; child adds age-appropriate constraints. GizClaw supplies no prompt text. The selected RuntimeProfile prompt is complete; child does not inherit general.
+	// SafetyFenceLevel Stable identifier of a complete safety fence prompt in the bound RuntimeProfile. The profile defines all available identifiers and prompts.
 	SafetyFenceLevel *SafetyFenceLevel `json:"safety_fence_level,omitempty"`
 	TranslationModel *string           `json:"translation_model,omitempty"`
 
@@ -3251,7 +3230,7 @@ type DashScopeRealtimeWorkspaceParameters struct {
 	Model             *string                                                `json:"model,omitempty"`
 	OutputAudioFormat *DashScopeRealtimeWorkspaceParametersOutputAudioFormat `json:"output_audio_format,omitempty"`
 
-	// SafetyFenceLevel Safety strictness: off injects nothing; general restricts NSFW content; child adds age-appropriate constraints. GizClaw supplies no prompt text. The selected RuntimeProfile prompt is complete; child does not inherit general.
+	// SafetyFenceLevel Stable identifier of a complete safety fence prompt in the bound RuntimeProfile. The profile defines all available identifiers and prompts.
 	SafetyFenceLevel *SafetyFenceLevel `json:"safety_fence_level,omitempty"`
 	Temperature      *float32          `json:"temperature,omitempty"`
 
@@ -3556,7 +3535,7 @@ type DoubaoRealtimeDuplexWorkspaceParameters struct {
 	OutputLoudness  *int                                                `json:"output_loudness,omitempty"`
 	OutputSpeed     *int                                                `json:"output_speed,omitempty"`
 
-	// SafetyFenceLevel Safety strictness: off injects nothing; general restricts NSFW content; child adds age-appropriate constraints. GizClaw supplies no prompt text. The selected RuntimeProfile prompt is complete; child does not inherit general.
+	// SafetyFenceLevel Stable identifier of a complete safety fence prompt in the bound RuntimeProfile. The profile defines all available identifiers and prompts.
 	SafetyFenceLevel *SafetyFenceLevel                                  `json:"safety_fence_level,omitempty"`
 	SampleRate       *DoubaoRealtimeDuplexWorkspaceParametersSampleRate `json:"sample_rate,omitempty"`
 
@@ -3662,7 +3641,7 @@ type DoubaoRealtimeWorkspaceParameters struct {
 	// Model RuntimeProfile Model alias. Defaults to Workflow.spec.doubao_realtime.model.
 	Model *string `json:"model,omitempty"`
 
-	// SafetyFenceLevel Safety strictness: off injects nothing; general restricts NSFW content; child adds age-appropriate constraints. GizClaw supplies no prompt text. The selected RuntimeProfile prompt is complete; child does not inherit general.
+	// SafetyFenceLevel Stable identifier of a complete safety fence prompt in the bound RuntimeProfile. The profile defines all available identifiers and prompts.
 	SafetyFenceLevel *SafetyFenceLevel             `json:"safety_fence_level,omitempty"`
 	Tools            *[]DoubaoRealtimeFunctionTool `json:"tools,omitempty"`
 
@@ -4008,7 +3987,7 @@ type EinoWorkspaceParameters struct {
 	E2e          *bool                            `json:"e2e,omitempty"`
 	Input        *WorkspaceInputMode              `json:"input,omitempty"`
 
-	// SafetyFenceLevel Safety strictness: off injects nothing; general restricts NSFW content; child adds age-appropriate constraints. GizClaw supplies no prompt text. The selected RuntimeProfile prompt is complete; child does not inherit general.
+	// SafetyFenceLevel Stable identifier of a complete safety fence prompt in the bound RuntimeProfile. The profile defines all available identifiers and prompts.
 	SafetyFenceLevel *SafetyFenceLevel `json:"safety_fence_level,omitempty"`
 
 	// TtsSpeechRatePercent Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
@@ -4387,7 +4366,7 @@ type FlowcraftWorkspaceParameters struct {
 	E2e   *bool               `json:"e2e,omitempty"`
 	Input *WorkspaceInputMode `json:"input,omitempty"`
 
-	// SafetyFenceLevel Safety strictness: off injects nothing; general restricts NSFW content; child adds age-appropriate constraints. GizClaw supplies no prompt text. The selected RuntimeProfile prompt is complete; child does not inherit general.
+	// SafetyFenceLevel Stable identifier of a complete safety fence prompt in the bound RuntimeProfile. The profile defines all available identifiers and prompts.
 	SafetyFenceLevel *SafetyFenceLevel `json:"safety_fence_level,omitempty"`
 
 	// TtsSpeechRatePercent Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
@@ -5631,14 +5610,13 @@ type RuntimeProfileResources struct {
 
 // RuntimeProfileSafetyFence defines model for RuntimeProfileSafetyFence.
 type RuntimeProfileSafetyFence struct {
-	Prompt string `json:"prompt"`
+	// DisplayName Optional label shown to callers discovering the available levels.
+	DisplayName *string `json:"display_name,omitempty"`
+	Prompt      string  `json:"prompt"`
 }
 
-// RuntimeProfileSafetyFences Tenant-defined complete prompts for each level. Child does not inherit or concatenate general. No built-in prompts or off entry exist. Reload fails when the selected level is missing.
-type RuntimeProfileSafetyFences struct {
-	Child   *RuntimeProfileSafetyFence `json:"child,omitempty"`
-	General *RuntimeProfileSafetyFence `json:"general,omitempty"`
-}
+// RuntimeProfileSafetyFences Profile-defined identifiers mapped to independent complete prompts. No prompt inherits another. A selected identifier must exist at reload.
+type RuntimeProfileSafetyFences map[string]RuntimeProfileSafetyFence
 
 // RuntimeProfileSpec defines model for RuntimeProfileSpec.
 type RuntimeProfileSpec struct {
@@ -5647,7 +5625,7 @@ type RuntimeProfileSpec struct {
 	Mhs       *RuntimeProfileMhs       `json:"mhs,omitempty"`
 	Resources RuntimeProfileResources  `json:"resources"`
 
-	// SafetyFences Tenant-defined complete prompts for each level. Child does not inherit or concatenate general. No built-in prompts or off entry exist. Reload fails when the selected level is missing.
+	// SafetyFences Profile-defined identifiers mapped to independent complete prompts. No prompt inherits another. A selected identifier must exist at reload.
 	SafetyFences *RuntimeProfileSafetyFences `json:"safety_fences,omitempty"`
 	Workflows    RuntimeProfileWorkflows     `json:"workflows"`
 }
@@ -5683,8 +5661,8 @@ type SFUWorkflowVariant struct {
 // SFUWorkflowVariantDriver defines model for SFUWorkflowVariant.Driver.
 type SFUWorkflowVariantDriver string
 
-// SafetyFenceLevel Safety strictness: off injects nothing; general restricts NSFW content; child adds age-appropriate constraints. GizClaw supplies no prompt text. The selected RuntimeProfile prompt is complete; child does not inherit general.
-type SafetyFenceLevel string
+// SafetyFenceLevel Stable identifier of a complete safety fence prompt in the bound RuntimeProfile. The profile defines all available identifiers and prompts.
+type SafetyFenceLevel = string
 
 // ServerInfo defines model for ServerInfo.
 type ServerInfo struct {

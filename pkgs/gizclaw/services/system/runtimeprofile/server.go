@@ -693,19 +693,24 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 		spec.AppConfig = &normalized
 	}
 	if spec.SafetyFences != nil {
-		fences := *spec.SafetyFences
-		for level, fence := range map[string]*apitypes.RuntimeProfileSafetyFence{"general": fences.General, "child": fences.Child} {
-			if fence != nil {
-				if err := apitypes.ValidateSafetyFencePrompt(fence.Prompt); err != nil {
-					return apitypes.RuntimeProfile{}, fmt.Errorf("safety_fences.%s: %w", level, err)
-				}
+		if len(*spec.SafetyFences) == 0 || len(*spec.SafetyFences) > 64 {
+			return apitypes.RuntimeProfile{}, fmt.Errorf("safety_fences must contain 1..64 entries")
+		}
+		fences := make(apitypes.RuntimeProfileSafetyFences, len(*spec.SafetyFences))
+		for level, fence := range *spec.SafetyFences {
+			if err := apitypes.ValidateSafetyFenceID(level); err != nil {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("safety_fences: %w", err)
 			}
-		}
-		if fences.General != nil {
-			fences.General = new(*fences.General)
-		}
-		if fences.Child != nil {
-			fences.Child = new(*fences.Child)
+			if err := apitypes.ValidateSafetyFencePrompt(fence.Prompt); err != nil {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("safety_fences.%s: %w", level, err)
+			}
+			if fence.DisplayName != nil && (*fence.DisplayName == "" || utf8.RuneCountInString(*fence.DisplayName) > 128) {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("safety_fences.%s.display_name must contain 1..128 characters", level)
+			}
+			if fence.DisplayName != nil {
+				fence.DisplayName = new(*fence.DisplayName)
+			}
+			fences[level] = fence
 		}
 		spec.SafetyFences = &fences
 	}

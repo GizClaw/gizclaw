@@ -8,32 +8,37 @@ import (
 )
 
 func resolveSafetyFence(ctx context.Context, ws apitypes.Workspace, workflow apitypes.Workflow) (string, error) {
-	// A driver without a system prompt keeps a valid level as a no-op so one
-	// device payload can carry the same level to every Workspace.
-	if ws.Parameters == nil || workflow.Spec.Driver == apitypes.WorkflowDriverAstTranslate {
+	// ASTTranslate has no system-prompt input. It retains the selection but does
+	// not resolve a prompt or inject a variable.
+	if workflow.Spec.Driver == apitypes.WorkflowDriverAstTranslate {
 		return "", nil
 	}
-	level, err := ws.Parameters.SafetyFenceLevel()
-	if err != nil {
-		return "", fmt.Errorf("workspace %q: %w", ws.Name, err)
+	var level *apitypes.SafetyFenceLevel
+	if ws.Parameters != nil {
+		var err error
+		level, err = ws.Parameters.SafetyFenceLevel()
+		if err != nil {
+			return "", fmt.Errorf("workspace %q: %w", ws.Name, err)
+		}
 	}
-	if level == nil || *level == apitypes.SafetyFenceLevelOff {
-		return "", nil
+	if level == nil {
+		// Existing profiles without fences keep their pre-feature behavior.
+		// Once a profile defines levels, its Workspace must select one.
+		if profile, ok := ctx.Value(runtimeProfileContextKey{}).(apitypes.RuntimeProfile); !ok || profile.Spec.SafetyFences == nil {
+			return "", nil
+		}
+		return "", fmt.Errorf("workspace %q has no safety_fence_level selection", ws.Name)
 	}
 	profile, ok := ctx.Value(runtimeProfileContextKey{}).(apitypes.RuntimeProfile)
 	if !ok {
 		return "", fmt.Errorf("workspace %q safety_fence_level %q: bound RuntimeProfile is unavailable", ws.Name, *level)
 	}
-	var fence *apitypes.RuntimeProfileSafetyFence
+	var fence apitypes.RuntimeProfileSafetyFence
+	var found bool
 	if profile.Spec.SafetyFences != nil {
-		switch *level {
-		case apitypes.SafetyFenceLevelGeneral:
-			fence = profile.Spec.SafetyFences.General
-		case apitypes.SafetyFenceLevelChild:
-			fence = profile.Spec.SafetyFences.Child
-		}
+		fence, found = (*profile.Spec.SafetyFences)[*level]
 	}
-	if fence == nil {
+	if !found {
 		return "", fmt.Errorf("workspace %q safety_fence_level %q: RuntimeProfile %q has no safety_fences.%s", ws.Name, *level, profile.Id, *level)
 	}
 	if err := apitypes.ValidateSafetyFencePrompt(fence.Prompt); err != nil {

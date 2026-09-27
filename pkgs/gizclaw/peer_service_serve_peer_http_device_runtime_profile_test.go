@@ -72,7 +72,8 @@ func TestGetDeviceRuntimeProfileReturnsSortedCatalogWhileOffline(t *testing.T) {
 	got := decodeJSON[peerhttp.DeviceRuntimeProfile](t, response)
 	want := peerhttp.DeviceRuntimeProfile{
 		Name: "h106-tiga", Revision: profile.Revision,
-		Workflows: []peerhttp.DeviceRuntimeProfileWorkflow{{Name: "game.riddle", Tags: []string{}}, {Name: "story.aesop", Tags: []string{}}, {Name: "story.alice", Tags: []string{}}},
+		SafetyFences: []peerhttp.DeviceRuntimeProfileSafetyFence{},
+		Workflows:    []peerhttp.DeviceRuntimeProfileWorkflow{{Name: "game.riddle", Tags: []string{}}, {Name: "story.aesop", Tags: []string{}}, {Name: "story.alice", Tags: []string{}}},
 	}
 	if profile.Revision == "" || !reflect.DeepEqual(got, want) {
 		t.Fatalf("runtime profile = %#v, want %#v", got, want)
@@ -97,7 +98,7 @@ func TestGetDeviceRuntimeProfileExposesOnlyNames(t *testing.T) {
 	if err := json.Unmarshal([]byte(body), &raw); err != nil {
 		t.Fatal(err)
 	}
-	assertJSONKeys(t, raw, "name", "revision", "workflows")
+	assertJSONKeys(t, raw, "name", "revision", "safety_fences", "workflows")
 	var workflows []map[string]json.RawMessage
 	if err := json.Unmarshal(raw["workflows"], &workflows); err != nil {
 		t.Fatal(err)
@@ -183,7 +184,8 @@ func TestGetDeviceRuntimeProfileIsOwnerScoped(t *testing.T) {
 	}
 	want := peerhttp.DeviceRuntimeProfile{
 		Name: "other-profile", Revision: otherProfile.Revision,
-		Workflows: []peerhttp.DeviceRuntimeProfileWorkflow{{Name: "other.workflow", Tags: []string{}}},
+		SafetyFences: []peerhttp.DeviceRuntimeProfileSafetyFence{},
+		Workflows:    []peerhttp.DeviceRuntimeProfileWorkflow{{Name: "other.workflow", Tags: []string{}}},
 	}
 	if got := decodeJSON[peerhttp.DeviceRuntimeProfile](t, response); !reflect.DeepEqual(got, want) {
 		t.Fatalf("other runtime profile = %#v, want %#v", got, want)

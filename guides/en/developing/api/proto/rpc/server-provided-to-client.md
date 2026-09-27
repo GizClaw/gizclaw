@@ -53,8 +53,8 @@ Friend Group messages are a read-only projection of the group's bound Workspace 
 
 The Public HTTP device routes make the Server the caller on the API key owner's active Peer connection. State reads and writes use `client.mhs.v0.read/write`; predefined procedures use `client.tool.v0.list/invoke`. Each command uses its own RPC stream and is serialized per owner. The Server validates typed requests before dispatch, records reported device status, and marks a connection transitioning after acknowledged reboot, factory reset, firmware update or Wi-Fi connect. See [Client Provided to Server](./client-provided-to-server) for provider responsibilities and error mapping.
 
-`safety_fence_level` can be sent alongside `input` and applies on the next reload. See [RuntimeProfile safety fences](../../../gizclaw/services/runtime-profile#workspace-safety-fences) for levels, missing-entry failures, and the ASTTranslate limitation.
+`server.workflow.list` returns the current Profile's selectable `safety_fences` names and display labels without prompt text. Send one of those names as `safety_fence_level` alongside `input`; it applies on the next reload. See [RuntimeProfile safety fences](../../../gizclaw/services/runtime-profile#workspace-safety-fences) for missing-entry failures and the ASTTranslate limitation.
 
 ```json
-{"workspace_name":"story-workspace","parameters":{"input":"WORKSPACE_INPUT_MODE_PUSH_TO_TALK","safety_fence_level":"SAFETY_FENCE_LEVEL_CHILD"}}
+{"workspace_name":"story-workspace","parameters":{"input":"WORKSPACE_INPUT_MODE_PUSH_TO_TALK","safety_fence_level":"alpha"}}
 ```

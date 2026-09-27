@@ -15,23 +15,6 @@ import 'dart:convert' as $convert;
 import 'dart:core' as $core;
 import 'dart:typed_data' as $typed_data;
 
-@$core.Deprecated('Use safetyFenceLevelDescriptor instead')
-const SafetyFenceLevel$json = {
-  '1': 'SafetyFenceLevel',
-  '2': [
-    {'1': 'SAFETY_FENCE_LEVEL_UNSPECIFIED', '2': 0},
-    {'1': 'SAFETY_FENCE_LEVEL_OFF', '2': 1},
-    {'1': 'SAFETY_FENCE_LEVEL_GENERAL', '2': 2},
-    {'1': 'SAFETY_FENCE_LEVEL_CHILD', '2': 3},
-  ],
-};
-
-/// Descriptor for `SafetyFenceLevel`. Decode as a `google.protobuf.EnumDescriptorProto`.
-final $typed_data.Uint8List safetyFenceLevelDescriptor = $convert.base64Decode(
-    'ChBTYWZldHlGZW5jZUxldmVsEiIKHlNBRkVUWV9GRU5DRV9MRVZFTF9VTlNQRUNJRklFRBAAEh'
-    'oKFlNBRkVUWV9GRU5DRV9MRVZFTF9PRkYQARIeChpTQUZFVFlfRkVOQ0VfTEVWRUxfR0VORVJB'
-    'TBACEhwKGFNBRkVUWV9GRU5DRV9MRVZFTF9DSElMRBAD');
-
 @$core.Deprecated('Use modelProviderKindDescriptor instead')
 const ModelProviderKind$json = {
   '1': 'ModelProviderKind',
@@ -521,10 +504,9 @@ const ASTTranslateWorkspaceParameters$json = {
     },
     {
       '1': 'safety_fence_level',
-      '3': 11,
+      '3': 50,
       '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.SafetyFenceLevel',
+      '5': 9,
       '9': 9,
       '10': 'safetyFenceLevel',
       '17': true
@@ -542,6 +524,9 @@ const ASTTranslateWorkspaceParameters$json = {
     {'1': '_tts_speech_rate_percent'},
     {'1': '_safety_fence_level'},
   ],
+  '9': [
+    {'1': 11, '2': 12},
+  ],
 };
 
 /// Descriptor for `ASTTranslateWorkspaceParameters`. Decode as a `google.protobuf.DescriptorProto`.
@@ -556,12 +541,11 @@ final $typed_data.Uint8List aSTTranslateWorkspaceParametersDescriptor = $convert
     'VNb2RlSAVSBG1vZGWIAQESMAoRdHJhbnNsYXRpb25fbW9kZWwYCCABKAlIBlIQdHJhbnNsYXRp'
     'b25Nb2RlbIgBARJGCgV2b2ljZRgJIAEoCzIrLmdpemNsYXcucnBjLnYxLkFTVFRyYW5zbGF0ZV'
     'ZvaWNlUGFyYW1ldGVyc0gHUgV2b2ljZYgBARI6Chd0dHNfc3BlZWNoX3JhdGVfcGVyY2VudBgK'
-    'IAEoBUgIUhR0dHNTcGVlY2hSYXRlUGVyY2VudIgBARJTChJzYWZldHlfZmVuY2VfbGV2ZWwYCy'
-    'ABKA4yIC5naXpjbGF3LnJwYy52MS5TYWZldHlGZW5jZUxldmVsSAlSEHNhZmV0eUZlbmNlTGV2'
-    'ZWyIAQFCCgoIX2Rlbm9pc2VCBgoEX2UyZUIgCh5fZW5hYmxlX3NvdXJjZV9sYW5ndWFnZV9kZX'
-    'RlY3RCCAoGX2lucHV0QgwKCl9sYW5nX3BhaXJCBwoFX21vZGVCFAoSX3RyYW5zbGF0aW9uX21v'
-    'ZGVsQggKBl92b2ljZUIaChhfdHRzX3NwZWVjaF9yYXRlX3BlcmNlbnRCFQoTX3NhZmV0eV9mZW'
-    '5jZV9sZXZlbA==');
+    'IAEoBUgIUhR0dHNTcGVlY2hSYXRlUGVyY2VudIgBARIxChJzYWZldHlfZmVuY2VfbGV2ZWwYMi'
+    'ABKAlICVIQc2FmZXR5RmVuY2VMZXZlbIgBAUIKCghfZGVub2lzZUIGCgRfZTJlQiAKHl9lbmFi'
+    'bGVfc291cmNlX2xhbmd1YWdlX2RldGVjdEIICgZfaW5wdXRCDAoKX2xhbmdfcGFpckIHCgVfbW'
+    '9kZUIUChJfdHJhbnNsYXRpb25fbW9kZWxCCAoGX3ZvaWNlQhoKGF90dHNfc3BlZWNoX3JhdGVf'
+    'cGVyY2VudEIVChNfc2FmZXR5X2ZlbmNlX2xldmVsSgQICxAM');
 
 @$core.Deprecated('Use dashScopeRealtimeWorkflowSpecDescriptor instead')
 const DashScopeRealtimeWorkflowSpec$json = {
@@ -753,10 +737,9 @@ const DashScopeRealtimeWorkspaceParameters$json = {
     },
     {
       '1': 'safety_fence_level',
-      '3': 15,
+      '3': 50,
       '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.SafetyFenceLevel',
+      '5': 9,
       '9': 12,
       '10': 'safetyFenceLevel',
       '17': true
@@ -777,6 +760,9 @@ const DashScopeRealtimeWorkspaceParameters$json = {
     {'1': '_tts_speech_rate_percent'},
     {'1': '_safety_fence_level'},
   ],
+  '9': [
+    {'1': 15, '2': 16},
+  ],
 };
 
 /// Descriptor for `DashScopeRealtimeWorkspaceParameters`. Decode as a `google.protobuf.DescriptorProto`.
@@ -792,12 +778,12 @@ final $typed_data.Uint8List dashScopeRealtimeWorkspaceParametersDescriptor = $co
     'cm1hdBgKIAEoCUgHUhFvdXRwdXRBdWRpb0Zvcm1hdIgBARIlCgt0ZW1wZXJhdHVyZRgLIAEoAk'
     'gIUgt0ZW1wZXJhdHVyZYgBARIVCgN2YWQYDCABKAlICVIDdmFkiAEBEhkKBXZvaWNlGA0gASgJ'
     'SApSBXZvaWNliAEBEjoKF3R0c19zcGVlY2hfcmF0ZV9wZXJjZW50GA4gASgFSAtSFHR0c1NwZW'
-    'VjaFJhdGVQZXJjZW50iAEBElMKEnNhZmV0eV9mZW5jZV9sZXZlbBgPIAEoDjIgLmdpemNsYXcu'
-    'cnBjLnYxLlNhZmV0eUZlbmNlTGV2ZWxIDFIQc2FmZXR5RmVuY2VMZXZlbIgBAUIMCgpfYXNyX2'
-    '1vZGVsQgYKBF9lMmVCDQoLX2VuYWJsZV9hc3JCFQoTX2lucHV0X2F1ZGlvX2Zvcm1hdEIPCg1f'
-    'aW5zdHJ1Y3Rpb25zQhQKEl9tYXhfb3V0cHV0X3Rva2Vuc0IICgZfbW9kZWxCFgoUX291dHB1dF'
-    '9hdWRpb19mb3JtYXRCDgoMX3RlbXBlcmF0dXJlQgYKBF92YWRCCAoGX3ZvaWNlQhoKGF90dHNf'
-    'c3BlZWNoX3JhdGVfcGVyY2VudEIVChNfc2FmZXR5X2ZlbmNlX2xldmVs');
+    'VjaFJhdGVQZXJjZW50iAEBEjEKEnNhZmV0eV9mZW5jZV9sZXZlbBgyIAEoCUgMUhBzYWZldHlG'
+    'ZW5jZUxldmVsiAEBQgwKCl9hc3JfbW9kZWxCBgoEX2UyZUINCgtfZW5hYmxlX2FzckIVChNfaW'
+    '5wdXRfYXVkaW9fZm9ybWF0Qg8KDV9pbnN0cnVjdGlvbnNCFAoSX21heF9vdXRwdXRfdG9rZW5z'
+    'QggKBl9tb2RlbEIWChRfb3V0cHV0X2F1ZGlvX2Zvcm1hdEIOCgxfdGVtcGVyYXR1cmVCBgoEX3'
+    'ZhZEIICgZfdm9pY2VCGgoYX3R0c19zcGVlY2hfcmF0ZV9wZXJjZW50QhUKE19zYWZldHlfZmVu'
+    'Y2VfbGV2ZWxKBAgPEBA=');
 
 @$core.Deprecated('Use doubaoRealtimeDuplexWorkflowSpecDescriptor instead')
 const DoubaoRealtimeDuplexWorkflowSpec$json = {
@@ -1008,10 +994,9 @@ const DoubaoRealtimeDuplexWorkspaceParameters$json = {
     },
     {
       '1': 'safety_fence_level',
-      '3': 15,
+      '3': 50,
       '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.SafetyFenceLevel',
+      '5': 9,
       '9': 13,
       '10': 'safetyFenceLevel',
       '17': true
@@ -1033,6 +1018,9 @@ const DoubaoRealtimeDuplexWorkspaceParameters$json = {
     {'1': '_tts_speech_rate_percent'},
     {'1': '_safety_fence_level'},
   ],
+  '9': [
+    {'1': 15, '2': 16},
+  ],
 };
 
 /// Descriptor for `DoubaoRealtimeDuplexWorkspaceParameters`. Decode as a `google.protobuf.DescriptorProto`.
@@ -1048,13 +1036,13 @@ final $typed_data.Uint8List doubaoRealtimeDuplexWorkspaceParametersDescriptor = 
     'cHV0X2xvdWRuZXNzGAogASgDSAhSDm91dHB1dExvdWRuZXNziAEBEiYKDG91dHB1dF9zcGVlZB'
     'gLIAEoA0gJUgtvdXRwdXRTcGVlZIgBARIkCgtzYW1wbGVfcmF0ZRgMIAEoA0gKUgpzYW1wbGVS'
     'YXRliAEBEhkKBXZvaWNlGA0gASgJSAtSBXZvaWNliAEBEjoKF3R0c19zcGVlY2hfcmF0ZV9wZX'
-    'JjZW50GA4gASgFSAxSFHR0c1NwZWVjaFJhdGVQZXJjZW50iAEBElMKEnNhZmV0eV9mZW5jZV9s'
-    'ZXZlbBgPIAEoDjIgLmdpemNsYXcucnBjLnYxLlNhZmV0eUZlbmNlTGV2ZWxIDVIQc2FmZXR5Rm'
-    'VuY2VMZXZlbIgBAUIGCgRfZTJlQgkKB19mb3JtYXRCEQoPX2lucHV0X2NoYW5uZWxzQg8KDV9p'
-    'bnB1dF9mb3JtYXRCFAoSX2lucHV0X3NhbXBsZV9yYXRlQhIKEF9pbnB1dF90cmFuc2NvZGVCDw'
-    'oNX2luc3RydWN0aW9uc0IICgZfbW9kZWxCEgoQX291dHB1dF9sb3VkbmVzc0IPCg1fb3V0cHV0'
-    'X3NwZWVkQg4KDF9zYW1wbGVfcmF0ZUIICgZfdm9pY2VCGgoYX3R0c19zcGVlY2hfcmF0ZV9wZX'
-    'JjZW50QhUKE19zYWZldHlfZmVuY2VfbGV2ZWw=');
+    'JjZW50GA4gASgFSAxSFHR0c1NwZWVjaFJhdGVQZXJjZW50iAEBEjEKEnNhZmV0eV9mZW5jZV9s'
+    'ZXZlbBgyIAEoCUgNUhBzYWZldHlGZW5jZUxldmVsiAEBQgYKBF9lMmVCCQoHX2Zvcm1hdEIRCg'
+    '9faW5wdXRfY2hhbm5lbHNCDwoNX2lucHV0X2Zvcm1hdEIUChJfaW5wdXRfc2FtcGxlX3JhdGVC'
+    'EgoQX2lucHV0X3RyYW5zY29kZUIPCg1faW5zdHJ1Y3Rpb25zQggKBl9tb2RlbEISChBfb3V0cH'
+    'V0X2xvdWRuZXNzQg8KDV9vdXRwdXRfc3BlZWRCDgoMX3NhbXBsZV9yYXRlQggKBl92b2ljZUIa'
+    'ChhfdHRzX3NwZWVjaF9yYXRlX3BlcmNlbnRCFQoTX3NhZmV0eV9mZW5jZV9sZXZlbEoECA8QEA'
+    '==');
 
 @$core.Deprecated('Use einoWorkflowSpecDescriptor instead')
 const EinoWorkflowSpec$json = {
@@ -1159,10 +1147,9 @@ const EinoWorkspaceParameters$json = {
     },
     {
       '1': 'safety_fence_level',
-      '3': 6,
+      '3': 50,
       '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.SafetyFenceLevel',
+      '5': 9,
       '9': 4,
       '10': 'safetyFenceLevel',
       '17': true
@@ -1175,6 +1162,9 @@ const EinoWorkspaceParameters$json = {
     {'1': '_tts_speech_rate_percent'},
     {'1': '_safety_fence_level'},
   ],
+  '9': [
+    {'1': 6, '2': 7},
+  ],
 };
 
 /// Descriptor for `EinoWorkspaceParameters`. Decode as a `google.protobuf.DescriptorProto`.
@@ -1185,10 +1175,9 @@ final $typed_data.Uint8List einoWorkspaceParametersDescriptor = $convert.base64D
     'YxLkNvbnZlcnNhdGlvblBhcmFtZXRlcnNIAVIMY29udmVyc2F0aW9uiAEBEj0KBWlucHV0GAQg'
     'ASgOMiIuZ2l6Y2xhdy5ycGMudjEuV29ya3NwYWNlSW5wdXRNb2RlSAJSBWlucHV0iAEBEjoKF3'
     'R0c19zcGVlY2hfcmF0ZV9wZXJjZW50GAUgASgFSANSFHR0c1NwZWVjaFJhdGVQZXJjZW50iAEB'
-    'ElMKEnNhZmV0eV9mZW5jZV9sZXZlbBgGIAEoDjIgLmdpemNsYXcucnBjLnYxLlNhZmV0eUZlbm'
-    'NlTGV2ZWxIBFIQc2FmZXR5RmVuY2VMZXZlbIgBAUIGCgRfZTJlQg8KDV9jb252ZXJzYXRpb25C'
-    'CAoGX2lucHV0QhoKGF90dHNfc3BlZWNoX3JhdGVfcGVyY2VudEIVChNfc2FmZXR5X2ZlbmNlX2'
-    'xldmVs');
+    'EjEKEnNhZmV0eV9mZW5jZV9sZXZlbBgyIAEoCUgEUhBzYWZldHlGZW5jZUxldmVsiAEBQgYKBF'
+    '9lMmVCDwoNX2NvbnZlcnNhdGlvbkIICgZfaW5wdXRCGgoYX3R0c19zcGVlY2hfcmF0ZV9wZXJj'
+    'ZW50QhUKE19zYWZldHlfZmVuY2VfbGV2ZWxKBAgGEAc=');
 
 @$core.Deprecated('Use doubaoRealtimeAIGCMetadataDescriptor instead')
 const DoubaoRealtimeAIGCMetadata$json = {
@@ -2200,10 +2189,9 @@ const DoubaoRealtimeWorkspaceParameters$json = {
     },
     {
       '1': 'safety_fence_level',
-      '3': 11,
+      '3': 50,
       '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.SafetyFenceLevel',
+      '5': 9,
       '9': 8,
       '10': 'safetyFenceLevel',
       '17': true
@@ -2220,6 +2208,9 @@ const DoubaoRealtimeWorkspaceParameters$json = {
     {'1': '_tts_speech_rate_percent'},
     {'1': '_safety_fence_level'},
   ],
+  '9': [
+    {'1': 11, '2': 12},
+  ],
 };
 
 /// Descriptor for `DoubaoRealtimeWorkspaceParameters`. Decode as a `google.protobuf.DescriptorProto`.
@@ -2235,11 +2226,10 @@ final $typed_data.Uint8List doubaoRealtimeWorkspaceParametersDescriptor = $conve
     'dy5ycGMudjEuRG91YmFvUmVhbHRpbWVGdW5jdGlvblRvb2xSBXRvb2xzEk8KDGNvbnZlcnNhdG'
     'lvbhgJIAEoCzImLmdpemNsYXcucnBjLnYxLkNvbnZlcnNhdGlvblBhcmFtZXRlcnNIBlIMY29u'
     'dmVyc2F0aW9uiAEBEjoKF3R0c19zcGVlY2hfcmF0ZV9wZXJjZW50GAogASgFSAdSFHR0c1NwZW'
-    'VjaFJhdGVQZXJjZW50iAEBElMKEnNhZmV0eV9mZW5jZV9sZXZlbBgLIAEoDjIgLmdpemNsYXcu'
-    'cnBjLnYxLlNhZmV0eUZlbmNlTGV2ZWxICFIQc2FmZXR5RmVuY2VMZXZlbIgBAUIICgZfYXVkaW'
-    '9CBgoEX2UyZUIMCgpfZXh0ZW5zaW9uQggKBl9pbnB1dEIPCg1faW5zdHJ1Y3Rpb25zQggKBl9t'
-    'b2RlbEIPCg1fY29udmVyc2F0aW9uQhoKGF90dHNfc3BlZWNoX3JhdGVfcGVyY2VudEIVChNfc2'
-    'FmZXR5X2ZlbmNlX2xldmVs');
+    'VjaFJhdGVQZXJjZW50iAEBEjEKEnNhZmV0eV9mZW5jZV9sZXZlbBgyIAEoCUgIUhBzYWZldHlG'
+    'ZW5jZUxldmVsiAEBQggKBl9hdWRpb0IGCgRfZTJlQgwKCl9leHRlbnNpb25CCAoGX2lucHV0Qg'
+    '8KDV9pbnN0cnVjdGlvbnNCCAoGX21vZGVsQg8KDV9jb252ZXJzYXRpb25CGgoYX3R0c19zcGVl'
+    'Y2hfcmF0ZV9wZXJjZW50QhUKE19zYWZldHlfZmVuY2VfbGV2ZWxKBAgLEAw=');
 
 @$core.Deprecated('Use conversationParametersDescriptor instead')
 const ConversationParameters$json = {
@@ -2344,10 +2334,9 @@ const FlowcraftWorkspaceParameters$json = {
     },
     {
       '1': 'safety_fence_level',
-      '3': 6,
+      '3': 50,
       '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.SafetyFenceLevel',
+      '5': 9,
       '9': 4,
       '10': 'safetyFenceLevel',
       '17': true
@@ -2360,6 +2349,9 @@ const FlowcraftWorkspaceParameters$json = {
     {'1': '_tts_speech_rate_percent'},
     {'1': '_safety_fence_level'},
   ],
+  '9': [
+    {'1': 6, '2': 7},
+  ],
 };
 
 /// Descriptor for `FlowcraftWorkspaceParameters`. Decode as a `google.protobuf.DescriptorProto`.
@@ -2370,10 +2362,9 @@ final $typed_data.Uint8List flowcraftWorkspaceParametersDescriptor = $convert.ba
     '9uUGFyYW1ldGVyc0gAUgxjb252ZXJzYXRpb26IAQESFQoDZTJlGAMgASgISAFSA2UyZYgBARI9'
     'CgVpbnB1dBgEIAEoDjIiLmdpemNsYXcucnBjLnYxLldvcmtzcGFjZUlucHV0TW9kZUgCUgVpbn'
     'B1dIgBARI6Chd0dHNfc3BlZWNoX3JhdGVfcGVyY2VudBgFIAEoBUgDUhR0dHNTcGVlY2hSYXRl'
-    'UGVyY2VudIgBARJTChJzYWZldHlfZmVuY2VfbGV2ZWwYBiABKA4yIC5naXpjbGF3LnJwYy52MS'
-    '5TYWZldHlGZW5jZUxldmVsSARSEHNhZmV0eUZlbmNlTGV2ZWyIAQFCDwoNX2NvbnZlcnNhdGlv'
-    'bkIGCgRfZTJlQggKBl9pbnB1dEIaChhfdHRzX3NwZWVjaF9yYXRlX3BlcmNlbnRCFQoTX3NhZm'
-    'V0eV9mZW5jZV9sZXZlbA==');
+    'UGVyY2VudIgBARIxChJzYWZldHlfZmVuY2VfbGV2ZWwYMiABKAlIBFIQc2FmZXR5RmVuY2VMZX'
+    'ZlbIgBAUIPCg1fY29udmVyc2F0aW9uQgYKBF9lMmVCCAoGX2lucHV0QhoKGF90dHNfc3BlZWNo'
+    'X3JhdGVfcGVyY2VudEIVChNfc2FmZXR5X2ZlbmNlX2xldmVsSgQIBhAH');
 
 @$core.Deprecated('Use modelDescriptor instead')
 const Model$json = {
@@ -3727,6 +3718,14 @@ const WorkflowListResponse$json = {
       '5': 9,
       '10': 'runtimeProfileRevision'
     },
+    {
+      '1': 'safety_fences',
+      '3': 6,
+      '4': 3,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.SafetyFenceOption',
+      '10': 'safetyFences'
+    },
   ],
   '8': [
     {'1': '_next_cursor'},
@@ -3739,7 +3738,33 @@ final $typed_data.Uint8List workflowListResponseDescriptor = $convert.base64Deco
     'VtcxgCIAMoCzIYLmdpemNsYXcucnBjLnYxLldvcmtmbG93UgVpdGVtcxIkCgtuZXh0X2N1cnNv'
     'chgDIAEoCUgAUgpuZXh0Q3Vyc29yiAEBEjAKFHJ1bnRpbWVfcHJvZmlsZV9uYW1lGAQgASgJUh'
     'JydW50aW1lUHJvZmlsZU5hbWUSOAoYcnVudGltZV9wcm9maWxlX3JldmlzaW9uGAUgASgJUhZy'
-    'dW50aW1lUHJvZmlsZVJldmlzaW9uQg4KDF9uZXh0X2N1cnNvcg==');
+    'dW50aW1lUHJvZmlsZVJldmlzaW9uEkYKDXNhZmV0eV9mZW5jZXMYBiADKAsyIS5naXpjbGF3Ln'
+    'JwYy52MS5TYWZldHlGZW5jZU9wdGlvblIMc2FmZXR5RmVuY2VzQg4KDF9uZXh0X2N1cnNvcg==');
+
+@$core.Deprecated('Use safetyFenceOptionDescriptor instead')
+const SafetyFenceOption$json = {
+  '1': 'SafetyFenceOption',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {
+      '1': 'display_name',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'displayName',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_display_name'},
+  ],
+};
+
+/// Descriptor for `SafetyFenceOption`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List safetyFenceOptionDescriptor = $convert.base64Decode(
+    'ChFTYWZldHlGZW5jZU9wdGlvbhISCgRuYW1lGAEgASgJUgRuYW1lEiYKDGRpc3BsYXlfbmFtZR'
+    'gCIAEoCUgAUgtkaXNwbGF5TmFtZYgBAUIPCg1fZGlzcGxheV9uYW1l');
 
 @$core.Deprecated('Use toolkitPolicyToolNamesDescriptor instead')
 const ToolkitPolicyToolNames$json = {

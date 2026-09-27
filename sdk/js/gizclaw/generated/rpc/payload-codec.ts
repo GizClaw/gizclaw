@@ -49,7 +49,6 @@ export type PeerRunHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified"
 export type PeerRunStatusState = "" | "error" | "running" | "starting" | "stopped" | "stopping" | "unspecified" | number;
 export type ReusableWorkflowDriver = "" | "ast-translate" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "unspecified" | number;
 export type RpcMethod = number;
-export type SafetyFenceLevel = "" | "child" | "general" | "off" | "unspecified" | number;
 export type SocialPingResult = "" | "delivered" | "not_online" | "rate_limited" | "unspecified" | number;
 export type StatusCode = "" | "aborted" | "already_exists" | "cancelled" | "data_loss" | "deadline_exceeded" | "failed_precondition" | "internal" | "invalid_argument" | "not_found" | "ok" | "out_of_range" | "permission_denied" | "resource_exhausted" | "unauthenticated" | "unavailable" | "unimplemented" | "unknown" | number;
 export type VolcTenantModelProviderDataApiMode = "" | "asr" | "chat_completions" | "embedding" | "realtime" | "realtime_duplex" | "translation" | "tts" | "unspecified" | number;
@@ -114,7 +113,7 @@ export type ASTTranslateWorkspaceParameters = {
   "translation_model"?: string;
   "voice"?: ASTTranslateVoiceParameters;
   "tts_speech_rate_percent"?: number;
-  "safety_fence_level"?: SafetyFenceLevel;
+  "safety_fence_level"?: string;
 };
 export type AgentSelection = {
   "workspace_name": string;
@@ -338,7 +337,7 @@ export type DashScopeRealtimeWorkspaceParameters = {
   "vad"?: string;
   "voice"?: string;
   "tts_speech_rate_percent"?: number;
-  "safety_fence_level"?: SafetyFenceLevel;
+  "safety_fence_level"?: string;
 };
 export type DashScopeTenantModelProviderData = {
   "upstream_model"?: string;
@@ -471,7 +470,7 @@ export type DoubaoRealtimeDuplexWorkspaceParameters = {
   "sample_rate"?: number;
   "voice"?: string;
   "tts_speech_rate_percent"?: number;
-  "safety_fence_level"?: SafetyFenceLevel;
+  "safety_fence_level"?: string;
 };
 export type DoubaoRealtimeExtension = {
   "asr"?: DoubaoRealtimeASRExtension;
@@ -530,7 +529,7 @@ export type DoubaoRealtimeWorkspaceParameters = {
   "tools": DoubaoRealtimeFunctionTool[];
   "conversation"?: ConversationParameters;
   "tts_speech_rate_percent"?: number;
-  "safety_fence_level"?: SafetyFenceLevel;
+  "safety_fence_level"?: string;
 };
 export type EinoWorkflowSpec = {
   "graph": Record<string, unknown>;
@@ -544,7 +543,7 @@ export type EinoWorkspaceParameters = {
   "conversation"?: ConversationParameters;
   "input"?: WorkspaceInputMode;
   "tts_speech_rate_percent"?: number;
-  "safety_fence_level"?: SafetyFenceLevel;
+  "safety_fence_level"?: string;
 };
 export type ErrorInfo = {
   "reason": string;
@@ -570,7 +569,7 @@ export type FlowcraftWorkspaceParameters = {
   "e2e"?: boolean;
   "input"?: WorkspaceInputMode;
   "tts_speech_rate_percent"?: number;
-  "safety_fence_level"?: SafetyFenceLevel;
+  "safety_fence_level"?: string;
 };
 export type FriendAddRequest = {
   "invite_token": string;
@@ -1043,6 +1042,10 @@ export type Runtime = {
   "active_workspace_name"?: string;
   "pending_workspace_name"?: string;
 };
+export type SafetyFenceOption = {
+  "name": string;
+  "display_name"?: string;
+};
 export type ServerAPIKeyResolveRequest = {
   "api_key": string;
 };
@@ -1267,6 +1270,7 @@ export type WorkflowListResponse = {
   "next_cursor"?: string;
   "runtime_profile_name": string;
   "runtime_profile_revision": string;
+  "safety_fences": SafetyFenceOption[];
 };
 export type Workspace = {
   "created_at": string;
@@ -1350,7 +1354,7 @@ export type WorkspaceParametersPatch = {
   "input"?: WorkspaceInputMode;
   "conversation"?: ConversationParameters;
   "tts_speech_rate_percent"?: number;
-  "safety_fence_level"?: SafetyFenceLevel;
+  "safety_fence_level"?: string;
 };
 export type WorkspaceParametersSetRequest = {
   "name": string;
@@ -1944,9 +1948,9 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       },
       {
         "name": "safety_fence_level",
-        "number": 11,
+        "number": 50,
         "optional": true,
-        "type": "SafetyFenceLevel"
+        "type": "string"
       }
     ]
   },
@@ -2811,9 +2815,9 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       },
       {
         "name": "safety_fence_level",
-        "number": 15,
+        "number": 50,
         "optional": true,
-        "type": "SafetyFenceLevel"
+        "type": "string"
       }
     ]
   },
@@ -3458,9 +3462,9 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       },
       {
         "name": "safety_fence_level",
-        "number": 15,
+        "number": 50,
         "optional": true,
-        "type": "SafetyFenceLevel"
+        "type": "string"
       }
     ]
   },
@@ -3746,9 +3750,9 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       },
       {
         "name": "safety_fence_level",
-        "number": 11,
+        "number": 50,
         "optional": true,
-        "type": "SafetyFenceLevel"
+        "type": "string"
       }
     ]
   },
@@ -3812,9 +3816,9 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       },
       {
         "name": "safety_fence_level",
-        "number": 6,
+        "number": 50,
         "optional": true,
-        "type": "SafetyFenceLevel"
+        "type": "string"
       }
     ]
   },
@@ -3919,9 +3923,9 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       },
       {
         "name": "safety_fence_level",
-        "number": 6,
+        "number": 50,
         "optional": true,
-        "type": "SafetyFenceLevel"
+        "type": "string"
       }
     ]
   },
@@ -6076,6 +6080,21 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "SafetyFenceOption": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "display_name",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
   "ServerAPIKeyResolveRequest": {
     "fields": [
       {
@@ -7070,6 +7089,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "runtime_profile_revision",
         "number": 5,
         "type": "string"
+      },
+      {
+        "name": "safety_fences",
+        "number": 6,
+        "repeated": true,
+        "type": "SafetyFenceOption"
       }
     ]
   },
@@ -7483,9 +7508,9 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       },
       {
         "name": "safety_fence_level",
-        "number": 4,
+        "number": 5,
         "optional": true,
-        "type": "SafetyFenceLevel"
+        "type": "string"
       }
     ]
   },
@@ -8103,20 +8128,6 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "135": "client_tool_v0_invoke",
       "136": "client_tool_v0_list",
       "137": "client_rpc_methods_list"
-    }
-  },
-  "SafetyFenceLevel": {
-    "byName": {
-      "child": 3,
-      "general": 2,
-      "off": 1,
-      "unspecified": 0
-    },
-    "byNumber": {
-      "0": "",
-      "1": "off",
-      "2": "general",
-      "3": "child"
     }
   },
   "SocialPingResult": {

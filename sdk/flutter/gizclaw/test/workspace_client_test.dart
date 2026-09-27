@@ -12,6 +12,25 @@ import 'package:test/test.dart';
 import 'fake_transport.dart';
 
 void main() {
+  test('workflow catalog carries profile-defined safety fence names', () {
+    final response = payload.WorkflowListResponse(
+      runtimeProfileName: 'profile',
+      runtimeProfileRevision: 'revision',
+      safetyFences: [
+        payload.SafetyFenceOption(name: 'alpha'),
+        payload.SafetyFenceOption(name: 'bravo', displayName: 'Bravo'),
+      ],
+    );
+    final decoded = payload.WorkflowListResponse.fromBuffer(
+      response.writeToBuffer(),
+    );
+    expect(decoded.safetyFences.map((option) => option.name), [
+      'alpha',
+      'bravo',
+    ]);
+    expect(decoded.safetyFences.last.displayName, 'Bravo');
+  });
+
   test('lists visible models with pagination', () async {
     final factory = FakeDataChannelFactory();
     final client = GizClawClient(factory);
@@ -152,7 +171,7 @@ void main() {
       workspaceName: 'voice-room',
       parameters: payload.WorkspaceParametersPatch(
         input: payload.WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
-        safetyFenceLevel: payload.SafetyFenceLevel.SAFETY_FENCE_LEVEL_CHILD,
+        safetyFenceLevel: 'charlie',
       ),
     );
     final request = await _request(factory, 0);
@@ -168,10 +187,7 @@ void main() {
       payload.WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
     );
     expect(body.parameters.hasSafetyFenceLevel(), isTrue);
-    expect(
-      body.parameters.safetyFenceLevel,
-      payload.SafetyFenceLevel.SAFETY_FENCE_LEVEL_CHILD,
-    );
+    expect(body.parameters.safetyFenceLevel, 'charlie');
     expect(factory.channels, hasLength(1));
     _respond(
       factory.channels.single,

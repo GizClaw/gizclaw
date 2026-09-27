@@ -2,15 +2,24 @@ package apitypes
 
 import (
 	"fmt"
+	"regexp"
 	"unicode/utf8"
 )
 
-// ValidateSafetyFenceLevel rejects unknown levels; omission preserves the stored level.
+var safetyFenceIDPattern = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,63}$`)
+
+// ValidateSafetyFenceLevel checks identifier syntax. Membership belongs to the
+// bound RuntimeProfile and is checked when the Workspace is loaded.
 func ValidateSafetyFenceLevel(value *SafetyFenceLevel) error {
-	if value != nil && !value.Valid() {
-		return fmt.Errorf("unsupported safety_fence_level %q", *value)
+	if value != nil && !safetyFenceIDPattern.MatchString(*value) {
+		return fmt.Errorf("invalid safety_fence_level %q", *value)
 	}
 	return nil
+}
+
+// ValidateSafetyFenceID applies the same syntax to Profile map keys.
+func ValidateSafetyFenceID(id string) error {
+	return ValidateSafetyFenceLevel(&id)
 }
 
 // SafetyFenceLevel returns the validated level stored on an AI Workspace.

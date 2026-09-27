@@ -70,13 +70,41 @@ func TestDeviceRuntimeProfileSortsWorkflowNames(t *testing.T) {
 	}
 	want := peerhttp.DeviceRuntimeProfile{
 		Name: "h106-tiga", Revision: "rev-1",
-		Workflows: []peerhttp.DeviceRuntimeProfileWorkflow{{Name: "game.riddle", Tags: []string{"6-8", "games"}}, {Name: "story.aesop", Tags: []string{"9-12", "stories"}}, {Name: "story.alice", Tags: []string{"6-8", "stories"}}},
+		SafetyFences: []peerhttp.DeviceRuntimeProfileSafetyFence{},
+		Workflows:    []peerhttp.DeviceRuntimeProfileWorkflow{{Name: "game.riddle", Tags: []string{"6-8", "games"}}, {Name: "story.aesop", Tags: []string{"9-12", "stories"}}, {Name: "story.alice", Tags: []string{"6-8", "stories"}}},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("DeviceRuntimeProfile() = %#v, want %#v", got, want)
 	}
 	if !reflect.DeepEqual(profiles.calls, []string{owner.String()}) {
 		t.Fatalf("resolved owners = %#v, want only the caller", profiles.calls)
+	}
+}
+
+func TestDeviceRuntimeProfileListsFourCustomSafetyFences(t *testing.T) {
+	owner := giznet.PublicKey{31}
+	profile := runtimeProfileCatalogFixture()
+	fences := apitypes.RuntimeProfileSafetyFences{
+		"delta":   {Prompt: "private delta"},
+		"bravo":   {Prompt: "private bravo", DisplayName: new("Bravo")},
+		"alpha":   {Prompt: "private alpha"},
+		"charlie": {Prompt: "private charlie"},
+	}
+	profile.Spec.SafetyFences = &fences
+	got, err := DeviceReads{Caller: owner, Profiles: &ownerProfileStub{profiles: map[string]apitypes.RuntimeProfile{owner.String(): profile}}}.DeviceRuntimeProfile(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.SafetyFences) != 4 {
+		t.Fatalf("catalog = %#v", got.SafetyFences)
+	}
+	for i, id := range []string{"alpha", "bravo", "charlie", "delta"} {
+		if got.SafetyFences[i].Id != id {
+			t.Fatalf("catalog = %#v", got.SafetyFences)
+		}
+	}
+	if got.SafetyFences[1].DisplayName == nil || *got.SafetyFences[1].DisplayName != "Bravo" {
+		t.Fatalf("display label = %#v", got.SafetyFences[1])
 	}
 }
 
@@ -164,6 +192,11 @@ func TestDeviceRuntimeProfileMatchesWorkflowListRPC(t *testing.T) {
 		createWorkflowForCollectionTest(t, ctx, workflows, name)
 	}
 	profile := runtimeProfileCatalogFixture()
+	fences := apitypes.RuntimeProfileSafetyFences{
+		"delta": {Prompt: "private delta"}, "bravo": {Prompt: "private bravo", DisplayName: new("Bravo")},
+		"alpha": {Prompt: "private alpha"}, "charlie": {Prompt: "private charlie"},
+	}
+	profile.Spec.SafetyFences = &fences
 	catalog, err := DeviceReads{Caller: owner, Profiles: &ownerProfileStub{profiles: map[string]apitypes.RuntimeProfile{owner.String(): profile}}}.DeviceRuntimeProfile(ctx)
 	if err != nil {
 		t.Fatalf("DeviceRuntimeProfile() error = %v", err)
@@ -180,6 +213,12 @@ func TestDeviceRuntimeProfileMatchesWorkflowListRPC(t *testing.T) {
 	filtered, err := filteredResponse.Result.AsWorkflowListResponse()
 	if err != nil || len(filtered.Items) != 1 || filtered.Items[0].Name != "story.alice" {
 		t.Fatalf("filtered workflow list = %#v, %v", filtered, err)
+	}
+	if len(filtered.SafetyFences) != 4 || filtered.SafetyFences[0].Name != "alpha" || filtered.SafetyFences[3].Name != "delta" {
+		t.Fatalf("RPC safety fence catalog = %#v", filtered.SafetyFences)
+	}
+	if len(catalog.SafetyFences) != len(filtered.SafetyFences) {
+		t.Fatalf("HTTP and RPC safety fence catalogs differ: %#v, %#v", catalog.SafetyFences, filtered.SafetyFences)
 	}
 	limit := 1
 	pageRequest := rpcapi.RPCPayload{}

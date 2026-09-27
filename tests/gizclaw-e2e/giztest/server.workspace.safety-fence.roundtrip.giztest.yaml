@@ -1,6 +1,6 @@
 # User Story:
 # As a GizClaw Peer API consumer,
-# I want persist each safety fence level and reject invalid wire enum values,
+# I want persist Profile-defined safety fence identifiers and reject malformed values,
 # So that the generated RPC contract is verified end to end.
 version: gizclaw.test/v1alpha1
 name: server.workspace.safety-fence.roundtrip
@@ -30,6 +30,18 @@ steps:
     method: server.register
     request:
       token: "${registration_token}"
+- id: list_profile_fences
+  client: peer
+  rpc:
+    method: server.workflow.list
+    request: {}
+  expect:
+    /safety_fences: {count: 4}
+    /safety_fences/0/name: {equals: alpha}
+    /safety_fences/1/name: {equals: bravo}
+    /safety_fences/2/name: {equals: charlie}
+    /safety_fences/3/name: {equals: delta}
+    /safety_fences/0/prompt: {present: false}
 - id: create_workspace
   client: peer
   rpc:
@@ -41,18 +53,27 @@ steps:
         flowcraft_workspace_parameters:
           agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
           input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
-- id: set_general
+- id: missing_selection_reload
+  client: peer
+  rpc:
+    method: server.run.workspace.reload-with-options
+    request:
+      workspace_name: "${resource_name}"
+  expect_error:
+    code: 3
+    message_contains: "no safety_fence_level selection"
+- id: set_alpha
   client: peer
   rpc:
     method: server.workspace.parameters.set
     request:
       name: "${resource_name}"
       parameters:
-        safety_fence_level: SAFETY_FENCE_LEVEL_GENERAL
+        safety_fence_level: alpha
   expect:
     /parameters/flowcraft_workspace_parameters/safety_fence_level:
-      equals: SAFETY_FENCE_LEVEL_GENERAL
-- id: get_general
+      equals: alpha
+- id: get_alpha
   client: peer
   rpc:
     method: server.workspace.get
@@ -60,19 +81,19 @@ steps:
       name: "${resource_name}"
   expect:
     /value/parameters/flowcraft_workspace_parameters/safety_fence_level:
-      equals: SAFETY_FENCE_LEVEL_GENERAL
-- id: set_child
+      equals: alpha
+- id: set_bravo
   client: peer
   rpc:
     method: server.workspace.parameters.set
     request:
       name: "${resource_name}"
       parameters:
-        safety_fence_level: SAFETY_FENCE_LEVEL_CHILD
+        safety_fence_level: bravo
   expect:
     /parameters/flowcraft_workspace_parameters/safety_fence_level:
-      equals: SAFETY_FENCE_LEVEL_CHILD
-- id: get_child
+      equals: bravo
+- id: get_bravo
   client: peer
   rpc:
     method: server.workspace.get
@@ -80,19 +101,19 @@ steps:
       name: "${resource_name}"
   expect:
     /value/parameters/flowcraft_workspace_parameters/safety_fence_level:
-      equals: SAFETY_FENCE_LEVEL_CHILD
-- id: set_off
+      equals: bravo
+- id: set_delta
   client: peer
   rpc:
     method: server.workspace.parameters.set
     request:
       name: "${resource_name}"
       parameters:
-        safety_fence_level: SAFETY_FENCE_LEVEL_OFF
+        safety_fence_level: delta
   expect:
     /parameters/flowcraft_workspace_parameters/safety_fence_level:
-      equals: SAFETY_FENCE_LEVEL_OFF
-- id: get_off
+      equals: delta
+- id: get_delta
   client: peer
   rpc:
     method: server.workspace.get
@@ -100,7 +121,7 @@ steps:
       name: "${resource_name}"
   expect:
     /value/parameters/flowcraft_workspace_parameters/safety_fence_level:
-      equals: SAFETY_FENCE_LEVEL_OFF
+      equals: delta
 - id: invalid_patch
   client: peer
   rpc:
@@ -108,7 +129,7 @@ steps:
     request:
       name: "${resource_name}"
       parameters:
-        safety_fence_level: 99
+        safety_fence_level: BAD
   expect_error:
     code: 3
 - id: invalid_reload
@@ -118,7 +139,7 @@ steps:
     request:
       workspace_name: "${resource_name}"
       parameters:
-        safety_fence_level: 99
+        safety_fence_level: BAD
   expect_error:
     code: 3
 - id: invalid_create
@@ -131,10 +152,10 @@ steps:
       parameters:
         flowcraft_workspace_parameters:
           agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
-          safety_fence_level: 99
+          safety_fence_level: BAD
   expect_error:
     code: 3
-- id: reload_off
+- id: reload_delta
   client: peer
   rpc:
     method: server.run.workspace.reload-with-options
@@ -142,7 +163,7 @@ steps:
       workspace_name: "${resource_name}"
       parameters:
         input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
-        safety_fence_level: SAFETY_FENCE_LEVEL_OFF
+        safety_fence_level: delta
 finally:
 - id: cleanup_run
   client: peer

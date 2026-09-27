@@ -53,20 +53,22 @@ test("scenario enum conversion retains strict Protobuf JSON validation", () => {
   );
 });
 
-test("invalid numeric safety fence values survive the SDK request encoder", () => {
+test("profile-defined safety fence strings survive the SDK request encoder", () => {
   const method = "server.workspace.parameters.set";
   const request = requestFromProtoJSON(method, {
     name: "x",
-    parameters: { safety_fence_level: 99 },
+    parameters: { safety_fence_level: "alpha" },
   });
   // WorkspaceParametersSetRequest.parameters is field 2; its optional
-  // safety_fence_level is field 4. The Server must receive 99, not an unset
-  // field or a locally rejected empty string.
+  // safety_fence_level is the string field 5. The Server resolves the value
+  // against the bound RuntimeProfile.
   assert.deepEqual(
     encodeRPCRequestPayload(method, request),
-    new Uint8Array([0x0a, 0x01, 0x78, 0x12, 0x02, 0x20, 0x63]),
+    new Uint8Array([
+      0x0a, 0x01, 0x78, 0x12, 0x07, 0x2a, 0x05, 0x61, 0x6c, 0x70, 0x68, 0x61,
+    ]),
   );
-  for (const value of ["", "SAFETY_FENCE_LEVEL_UNKNOWN"]) {
+  for (const value of [99, true]) {
     assert.throws(() =>
       requestFromProtoJSON(method, {
         parameters: { safety_fence_level: value },

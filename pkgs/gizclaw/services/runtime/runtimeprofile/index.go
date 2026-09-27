@@ -275,13 +275,8 @@ func insertMemoryProfile(ctx context.Context, index *sqlx.DB, profile apitypes.R
 		}
 	}
 	if profile.Spec.SafetyFences != nil {
-		if profile.Spec.SafetyFences.General != nil {
-			if err := add("safety_fence", "general", profile.Spec.SafetyFences.General); err != nil {
-				return err
-			}
-		}
-		if profile.Spec.SafetyFences.Child != nil {
-			if err := add("safety_fence", "child", profile.Spec.SafetyFences.Child); err != nil {
+		for id, fence := range *profile.Spec.SafetyFences {
+			if err := add("safety_fence", id, fence); err != nil {
 				return err
 			}
 		}

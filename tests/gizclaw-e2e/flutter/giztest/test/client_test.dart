@@ -28,8 +28,8 @@ void main() {
     );
   });
 
-  test('unknown numeric safety fence levels reach the protobuf wire', () {
-    for (final level in [-2147483648, -1, 99, 2147483647]) {
+  test('profile-defined safety fence identifiers reach the protobuf wire', () {
+    for (final level in ['alpha', 'bravo', 'charlie', 'delta']) {
       final request = scenarioRequest('server.workspace.parameters.set', {
         'name': 'x',
         'parameters': {'safety_fence_level': level},
@@ -39,8 +39,21 @@ void main() {
         (request.createEmptyInstance()..mergeFromBuffer(wire)).writeToBuffer(),
         wire,
       );
-      if (level == 99) {
-        expect(wire, [0x0a, 0x01, 0x78, 0x12, 0x02, 0x20, 0x63]);
+      if (level == 'alpha') {
+        expect(wire, [
+          0x0a,
+          0x01,
+          0x78,
+          0x12,
+          0x07,
+          0x2a,
+          0x05,
+          0x61,
+          0x6c,
+          0x70,
+          0x68,
+          0x61,
+        ]);
       }
     }
     for (final method in [
@@ -52,20 +65,22 @@ void main() {
               'value': {
                 'name': 'x',
                 'parameters': {
-                  'flowcraft_workspace_parameters': {'safety_fence_level': 99},
+                  'flowcraft_workspace_parameters': {
+                    'safety_fence_level': 'alpha',
+                  },
                 },
               },
             }
           : <String, Object?>{
               'workspace_name': 'x',
-              'parameters': {'safety_fence_level': 99},
+              'parameters': {'safety_fence_level': 'alpha'},
             };
       expect(
         scenarioRequest(method, parameters).writeToBuffer(),
-        contains(0x63),
+        contains(0x61),
       );
     }
-    for (final value in ['', 'SAFETY_FENCE_LEVEL_UNKNOWN', 2147483648]) {
+    for (final value in [99, true]) {
       expect(
         () => scenarioRequest('server.workspace.parameters.set', {
           'parameters': {'safety_fence_level': value},

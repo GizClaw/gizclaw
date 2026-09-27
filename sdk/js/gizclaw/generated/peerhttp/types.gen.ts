@@ -117,9 +117,24 @@ export type DeviceRuntimeProfile = {
      */
     revision: string;
     /**
+     * Available profile-defined safety fence identifiers and optional display labels, sorted by identifier. Prompt text is not exposed.
+     */
+    safety_fences: Array<DeviceRuntimeProfileSafetyFence>;
+    /**
      * Workflows sorted by name.
      */
     workflows: Array<DeviceRuntimeProfileWorkflow>;
+};
+
+export type DeviceRuntimeProfileSafetyFence = {
+    /**
+     * Stable identifier to send as safety_fence_level.
+     */
+    id: string;
+    /**
+     * Optional label from the RuntimeProfile.
+     */
+    display_name?: string;
 };
 
 export type DeviceRuntimeProfileWorkflow = {

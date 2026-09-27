@@ -133,7 +133,7 @@ steps:
       request:
         name: ${friend_workspace}
         parameters:
-          safety_fence_level: SAFETY_FENCE_LEVEL_OFF
+          safety_fence_level: delta
     expect:
       /parameters: {present: false}
   - id: sfu_fence_general_noop
@@ -143,7 +143,7 @@ steps:
       request:
         name: ${friend_workspace}
         parameters:
-          safety_fence_level: SAFETY_FENCE_LEVEL_GENERAL
+          safety_fence_level: alpha
     expect:
       /parameters: {present: false}
   - id: sfu_fence_child_noop
@@ -153,7 +153,7 @@ steps:
       request:
         name: ${friend_workspace}
         parameters:
-          safety_fence_level: SAFETY_FENCE_LEVEL_CHILD
+          safety_fence_level: bravo
     expect:
       /parameters: {present: false}
   # Group Y: alice owns, carol joins from Server B.

@@ -1472,7 +1472,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "Returns the bound RuntimeProfile name, revision and Workflow aliases with opaque tags. Repeating tags filters Workflows that contain every requested string. Workflows are sorted by name. Reading never contacts the device.",
+        "description": "Returns the bound RuntimeProfile name, revision, available safety fence identifiers and Workflow aliases with opaque tags. Repeating tags filters Workflows that contain every requested string. Entries are sorted by identifier or name. Reading never contacts the device.",
         "parameters": [
           {
             "name": "tags",
@@ -3662,6 +3662,7 @@
         "required": [
           "name",
           "revision",
+          "safety_fences",
           "workflows"
         ],
         "properties": {
@@ -3675,12 +3676,34 @@
             "minLength": 1,
             "description": "Opaque RuntimeProfile revision; equals runtime_profile_revision in Peer RPC responses."
           },
+          "safety_fences": {
+            "type": "array",
+            "description": "Available profile-defined safety fence identifiers and optional display labels, sorted by identifier. Prompt text is not exposed.",
+            "items": {
+              "$ref": "#/components/schemas/DeviceRuntimeProfileSafetyFence"
+            }
+          },
           "workflows": {
             "type": "array",
             "description": "Workflows sorted by name.",
             "items": {
               "$ref": "#/components/schemas/DeviceRuntimeProfileWorkflow"
             }
+          }
+        }
+      },
+      "DeviceRuntimeProfileSafetyFence": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable identifier to send as safety_fence_level."
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Optional label from the RuntimeProfile."
           }
         }
       },

@@ -139,3 +139,14 @@ gizclaw.rpc.v1.ClientMhsV0WriteResponse.states max_count:32
 
 # tool/v0 advertises at most the whole ClientTool registry.
 gizclaw.rpc.v1.ClientToolV0ListResponse.tools max_count:32
+
+gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.safety_fence_level max_size:65
+gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParameters.safety_fence_level max_size:65
+gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParameters.safety_fence_level max_size:65
+gizclaw.rpc.v1.EinoWorkspaceParameters.safety_fence_level max_size:65
+gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.safety_fence_level max_size:65
+gizclaw.rpc.v1.FlowcraftWorkspaceParameters.safety_fence_level max_size:65
+gizclaw.rpc.v1.WorkspaceParametersPatch.safety_fence_level max_size:65
+gizclaw.rpc.v1.WorkflowListResponse.safety_fences max_count:64
+gizclaw.rpc.v1.SafetyFenceOption.name max_size:65
+gizclaw.rpc.v1.SafetyFenceOption.display_name max_size:129
