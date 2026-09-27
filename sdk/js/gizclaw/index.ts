@@ -4384,6 +4384,73 @@ function validMhsHwdEnvelope(value: unknown, write: boolean): boolean {
   }
 }
 
+const validMhsHwdBoolean = (value: unknown): boolean =>
+  typeof value === "boolean";
+const validMhsHwdUint32 = (value: unknown): boolean =>
+  typeof value === "number" &&
+  Number.isInteger(value) &&
+  value >= 0 &&
+  value <= 0xffffffff;
+const validMhsHwdInt32 = (value: unknown): boolean =>
+  typeof value === "number" &&
+  Number.isInteger(value) &&
+  value >= -0x80000000 &&
+  value <= 0x7fffffff;
+const validMhsHwdDouble = (value: unknown): boolean =>
+  typeof value === "number" && Number.isFinite(value);
+const validMhsHwdText = (value: unknown, maxBytes: number): boolean =>
+  typeof value === "string" &&
+  !value.includes("\0") &&
+  new TextEncoder().encode(value).length <= maxBytes;
+
+const mhsHwdReadFields: Record<
+  number,
+  Record<string, (value: unknown) => boolean>
+> = {
+  [CLIENT_HWD_IDS.wifi]: {
+    connected: validMhsHwdBoolean,
+    ssid: (value) => validMhsHwdText(value, 32),
+    bssid: (value) => validMhsHwdText(value, 17),
+    rssi_dbm: validMhsHwdInt32,
+    ip: (value) => validMhsHwdText(value, 45),
+  },
+  [CLIENT_HWD_IDS.ble]: {
+    powered: validMhsHwdBoolean,
+    advertising: validMhsHwdBoolean,
+    scanning: validMhsHwdBoolean,
+    connection_count: validMhsHwdUint32,
+  },
+  [CLIENT_HWD_IDS.modem]: {
+    sim_present: validMhsHwdBoolean,
+    registered: validMhsHwdBoolean,
+    rat: (value) => validMhsHwdText(value, 16),
+    rssi_dbm: validMhsHwdInt32,
+    signal_level: validMhsHwdUint32,
+  },
+  [CLIENT_HWD_IDS.battery]: {
+    percent: validMhsHwdDouble,
+    charging: validMhsHwdBoolean,
+    voltage_mv: validMhsHwdDouble,
+  },
+  [CLIENT_HWD_IDS.mic]: {
+    available: validMhsHwdBoolean,
+    capturing: validMhsHwdBoolean,
+  },
+  [CLIENT_HWD_IDS.display]: {
+    brightness_percent: validMhsHwdUint32,
+    enabled: validMhsHwdBoolean,
+    off_timeout_ms: validMhsHwdUint32,
+  },
+  [CLIENT_HWD_IDS.led]: {
+    enabled: validMhsHwdBoolean,
+    brightness_percent: validMhsHwdUint32,
+  },
+  [CLIENT_HWD_IDS.speaker]: {
+    volume_percent: validMhsHwdUint32,
+    muted: validMhsHwdBoolean,
+  },
+};
+
 function validMhsHwdResponse(
   hwd: number,
   value: unknown,
@@ -4401,10 +4468,13 @@ function validMhsHwdResponse(
     const result = write
       ? (decoded as Record<string, unknown>).applied
       : decoded;
+    if (result == null || typeof result !== "object") return false;
+    const fields = Object.entries(result);
+    const validators = mhsHwdReadFields[hwd];
     return (
-      result != null &&
-      typeof result === "object" &&
-      Object.keys(result).length > 0
+      validators != null &&
+      fields.length > 0 &&
+      fields.every(([name, field]) => validators[name]?.(field) === true)
     );
   } catch {
     return false;

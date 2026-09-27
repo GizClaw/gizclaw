@@ -3744,6 +3744,47 @@ test("inbound mhs/v0 read and wifi.saved.list answer from handlers", async () =>
   });
 });
 
+test("inbound mhs/v0 rejects malformed HWD response fields", async () => {
+  const cases = [
+    ["wifi", { ssid: "汉".repeat(11) }],
+    ["wifi", { bssid: "x".repeat(18) }],
+    ["wifi", { ip: "x".repeat(46) }],
+    ["wifi", { ssid: "home\0extra" }],
+    ["modem", { rat: "x".repeat(17) }],
+    ["battery", { percent: Number.NaN }],
+    ["battery", { voltage_mv: Number.POSITIVE_INFINITY }],
+  ] as const;
+  for (const [name, value] of cases) {
+    const hwd = CLIENT_HWD_IDS[name];
+    const payload = hwdPayload(encodeClientHwdReadResponsePayload(hwd, value));
+    const response = await serveInboundClientRPC(
+      "client.mhs.v0.read",
+      { id: `${name}.main`, hwd: name },
+      { deviceControl: { readMhsHwd: () => ({ payload }) } },
+    );
+    assert.equal(response.error?.code, STATUS_CODE_INTERNAL, name);
+  }
+  const emptyApplied = hwdPayload(
+    encodeClientHwdWriteResponsePayload(CLIENT_HWD_IDS.display, {
+      applied: {},
+    }),
+  );
+  const write = await serveInboundClientRPC(
+    "client.mhs.v0.write",
+    {
+      id: "display.main",
+      hwd: "display",
+      payload: hwdPayload(
+        encodeClientHwdWriteRequestPayload(CLIENT_HWD_IDS.display, {
+          brightness_percent: 50,
+        }),
+      ),
+    },
+    { deviceControl: { writeMhsHwd: () => ({ payload: emptyApplied }) } },
+  );
+  assert.equal(write.error?.code, STATUS_CODE_INTERNAL);
+});
+
 test("inbound wifi.scan and connect answer from handlers", async () => {
   let connected: { passphrase?: string; ssid: string } | undefined;
   const scan = await serveInboundClientRPC(

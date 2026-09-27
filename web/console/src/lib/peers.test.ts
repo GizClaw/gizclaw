@@ -20,7 +20,7 @@ const failure = (kind: GizClawControlError["kind"], status: number) =>
   new GizClawControlError(kind, `${kind} failure`, { status });
 
 const manifest = {
-  devices: [{ id: "speaker.main", hwd: "speaker" }],
+  devices: [{ id: "speaker.main", hwd: "speaker", tags: ["audio"] }],
 };
 
 describe("device config loader", () => {

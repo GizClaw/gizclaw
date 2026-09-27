@@ -527,11 +527,9 @@ const manifestSchema = z.object({
   devices: z.array(
     z.object({
       id: z.string(),
-      kind: z.string(),
+      hwd: z.string(),
       description: z.string().optional(),
-      states: z.array(
-        z.object({ name: z.string(), type: z.string(), access: z.string() }),
-      ),
+      tags: z.array(z.string()).optional(),
     }),
   ),
 });
