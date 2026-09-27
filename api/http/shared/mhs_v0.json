@@ -1,82 +1,18 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "MHS v0",
+    "title": "MHS v0 HWD",
     "version": "1.0.0"
   },
   "paths": {},
   "components": {
     "schemas": {
-      "MhsV0State": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "name",
-          "type",
-          "access"
-        ],
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64,
-            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
-          },
-          "type": {
-            "type": "string",
-            "enum": [
-              "bool",
-              "int",
-              "double",
-              "string",
-              "enum"
-            ]
-          },
-          "access": {
-            "type": "string",
-            "enum": [
-              "read",
-              "read_write"
-            ]
-          },
-          "min": {
-            "type": "number",
-            "format": "double"
-          },
-          "max": {
-            "type": "number",
-            "format": "double"
-          },
-          "step": {
-            "type": "number",
-            "format": "double",
-            "minimum": 0,
-            "exclusiveMinimum": true
-          },
-          "enum_values": {
-            "type": "array",
-            "minItems": 1,
-            "uniqueItems": true,
-            "items": {
-              "type": "string",
-              "maxLength": 256
-            }
-          },
-          "unit": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          }
-        }
-      },
       "MhsV0Device": {
         "type": "object",
         "additionalProperties": false,
         "required": [
           "id",
-          "kind",
-          "states"
+          "hwd"
         ],
         "properties": {
           "id": {
@@ -85,9 +21,18 @@
             "maxLength": 64,
             "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
           },
-          "kind": {
+          "hwd": {
             "type": "string",
-            "minLength": 1
+            "enum": [
+              "wifi",
+              "ble",
+              "modem",
+              "battery",
+              "mic",
+              "display",
+              "led",
+              "speaker"
+            ]
           },
           "description": {
             "type": "string"
@@ -96,13 +41,6 @@
             "type": "array",
             "items": {
               "type": "string"
-            }
-          },
-          "states": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "$ref": "#/components/schemas/MhsV0State"
             }
           }
         }
@@ -121,103 +59,616 @@
             }
           }
         },
-        "description": "GizClaw MHS-inspired pre-standard v0, not an official MHS protocol or compatibility claim. Only state read/write. IDs and names are unique within their parent; numeric constraints apply only to int/double, min <= max, step > 0 (grid origin min or zero). int constraints are integral JSON-safe integers. enum_values is required only for enum and forbidden otherwise. Server validation also enforces UTF-8 byte limits. A future official-compatible version would be v1."
-      },
-      "MhsV0StateRef": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "device_id",
-          "state"
-        ],
-        "properties": {
-          "device_id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64,
-            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
-          },
-          "state": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64,
-            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
-          }
-        }
-      },
-      "MhsV0Value": {
-        "oneOf": [
-          {
-            "type": "boolean"
-          },
-          {
-            "type": "number",
-            "format": "double"
-          },
-          {
-            "type": "string",
-            "maxLength": 256
-          }
-        ],
-        "description": "Plain JSON value interpreted by the manifest. int values must be integral within +/-9007199254740991. All numbers must be finite; strings and enum values must be valid UTF-8 without NUL, at most 256 bytes."
-      },
-      "MhsV0StateValue": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "device_id",
-          "state",
-          "value"
-        ],
-        "properties": {
-          "device_id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64,
-            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
-          },
-          "state": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64,
-            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
-          },
-          "value": {
-            "$ref": "#/components/schemas/MhsV0Value"
-          }
-        }
+        "description": "GizClaw-owned MHS v0. Each entry declares one hardware instance; its HWD selects the protobuf read/write shapes. An HWD may appear more than once with distinct IDs."
       },
       "MhsV0ReadRequest": {
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "states"
+          "id",
+          "hwd"
         ],
         "properties": {
-          "states": {
-            "type": "array",
-            "minItems": 1,
-            "maxItems": 32,
-            "items": {
-              "$ref": "#/components/schemas/MhsV0StateRef"
-            }
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          },
+          "hwd": {
+            "type": "string",
+            "enum": [
+              "wifi",
+              "ble",
+              "modem",
+              "battery",
+              "mic",
+              "display",
+              "led",
+              "speaker"
+            ]
           }
         }
       },
-      "MhsV0States": {
+      "WifiHwdReadResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "connected": {
+            "type": "boolean"
+          },
+          "ssid": {
+            "type": "string"
+          },
+          "bssid": {
+            "type": "string"
+          },
+          "rssi_dbm": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ip": {
+            "type": "string"
+          }
+        }
+      },
+      "MhsV0WifiReadResult": {
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "states"
+          "id",
+          "hwd",
+          "value"
         ],
         "properties": {
-          "states": {
-            "type": "array",
-            "minItems": 1,
-            "maxItems": 32,
-            "items": {
-              "$ref": "#/components/schemas/MhsV0StateValue"
-            }
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          },
+          "hwd": {
+            "type": "string",
+            "enum": [
+              "wifi"
+            ]
+          },
+          "value": {
+            "$ref": "#/components/schemas/WifiHwdReadResponse"
+          }
+        }
+      },
+      "BleHwdReadResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "powered": {
+            "type": "boolean"
+          },
+          "advertising": {
+            "type": "boolean"
+          },
+          "scanning": {
+            "type": "boolean"
+          },
+          "connection_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 4294967295
+          }
+        }
+      },
+      "MhsV0BleReadResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "hwd",
+          "value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          },
+          "hwd": {
+            "type": "string",
+            "enum": [
+              "ble"
+            ]
+          },
+          "value": {
+            "$ref": "#/components/schemas/BleHwdReadResponse"
+          }
+        }
+      },
+      "ModemHwdReadResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "sim_present": {
+            "type": "boolean"
+          },
+          "registered": {
+            "type": "boolean"
+          },
+          "rat": {
+            "type": "string"
+          },
+          "rssi_dbm": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "signal_level": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 4294967295
+          }
+        }
+      },
+      "MhsV0ModemReadResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "hwd",
+          "value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          },
+          "hwd": {
+            "type": "string",
+            "enum": [
+              "modem"
+            ]
+          },
+          "value": {
+            "$ref": "#/components/schemas/ModemHwdReadResponse"
+          }
+        }
+      },
+      "BatteryHwdReadResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "percent": {
+            "type": "number",
+            "format": "double"
+          },
+          "charging": {
+            "type": "boolean"
+          },
+          "voltage_mv": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "MhsV0BatteryReadResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "hwd",
+          "value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          },
+          "hwd": {
+            "type": "string",
+            "enum": [
+              "battery"
+            ]
+          },
+          "value": {
+            "$ref": "#/components/schemas/BatteryHwdReadResponse"
+          }
+        }
+      },
+      "MicHwdReadResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "capturing": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MhsV0MicReadResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "hwd",
+          "value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          },
+          "hwd": {
+            "type": "string",
+            "enum": [
+              "mic"
+            ]
+          },
+          "value": {
+            "$ref": "#/components/schemas/MicHwdReadResponse"
+          }
+        }
+      },
+      "DisplayHwdReadResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "brightness_percent": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "off_timeout_ms": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 4294967295
+          }
+        }
+      },
+      "MhsV0DisplayReadResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "hwd",
+          "value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          },
+          "hwd": {
+            "type": "string",
+            "enum": [
+              "display"
+            ]
+          },
+          "value": {
+            "$ref": "#/components/schemas/DisplayHwdReadResponse"
+          }
+        }
+      },
+      "DisplayHwdWriteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "brightness_percent": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "off_timeout_ms": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 4294967295
+          }
+        },
+        "minProperties": 1
+      },
+      "MhsV0DisplayWriteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "hwd",
+          "value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          },
+          "hwd": {
+            "type": "string",
+            "enum": [
+              "display"
+            ]
+          },
+          "value": {
+            "$ref": "#/components/schemas/DisplayHwdWriteRequest"
+          }
+        }
+      },
+      "LedHwdReadResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "brightness_percent": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 4294967295
+          }
+        }
+      },
+      "MhsV0LedReadResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "hwd",
+          "value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          },
+          "hwd": {
+            "type": "string",
+            "enum": [
+              "led"
+            ]
+          },
+          "value": {
+            "$ref": "#/components/schemas/LedHwdReadResponse"
+          }
+        }
+      },
+      "LedHwdWriteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "brightness_percent": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 100
+          }
+        },
+        "minProperties": 1
+      },
+      "MhsV0LedWriteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "hwd",
+          "value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          },
+          "hwd": {
+            "type": "string",
+            "enum": [
+              "led"
+            ]
+          },
+          "value": {
+            "$ref": "#/components/schemas/LedHwdWriteRequest"
+          }
+        }
+      },
+      "SpeakerHwdReadResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "volume_percent": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "muted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MhsV0SpeakerReadResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "hwd",
+          "value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          },
+          "hwd": {
+            "type": "string",
+            "enum": [
+              "speaker"
+            ]
+          },
+          "value": {
+            "$ref": "#/components/schemas/SpeakerHwdReadResponse"
+          }
+        }
+      },
+      "SpeakerHwdWriteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "volume_percent": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "muted": {
+            "type": "boolean"
+          }
+        },
+        "minProperties": 1
+      },
+      "MhsV0SpeakerWriteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "hwd",
+          "value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          },
+          "hwd": {
+            "type": "string",
+            "enum": [
+              "speaker"
+            ]
+          },
+          "value": {
+            "$ref": "#/components/schemas/SpeakerHwdWriteRequest"
+          }
+        }
+      },
+      "MhsV0ReadResult": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/MhsV0WifiReadResult"
+          },
+          {
+            "$ref": "#/components/schemas/MhsV0BleReadResult"
+          },
+          {
+            "$ref": "#/components/schemas/MhsV0ModemReadResult"
+          },
+          {
+            "$ref": "#/components/schemas/MhsV0BatteryReadResult"
+          },
+          {
+            "$ref": "#/components/schemas/MhsV0MicReadResult"
+          },
+          {
+            "$ref": "#/components/schemas/MhsV0DisplayReadResult"
+          },
+          {
+            "$ref": "#/components/schemas/MhsV0LedReadResult"
+          },
+          {
+            "$ref": "#/components/schemas/MhsV0SpeakerReadResult"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "hwd",
+          "mapping": {
+            "wifi": "#/components/schemas/MhsV0WifiReadResult",
+            "ble": "#/components/schemas/MhsV0BleReadResult",
+            "modem": "#/components/schemas/MhsV0ModemReadResult",
+            "battery": "#/components/schemas/MhsV0BatteryReadResult",
+            "mic": "#/components/schemas/MhsV0MicReadResult",
+            "display": "#/components/schemas/MhsV0DisplayReadResult",
+            "led": "#/components/schemas/MhsV0LedReadResult",
+            "speaker": "#/components/schemas/MhsV0SpeakerReadResult"
+          }
+        }
+      },
+      "MhsV0WriteRequest": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/MhsV0DisplayWriteRequest"
+          },
+          {
+            "$ref": "#/components/schemas/MhsV0LedWriteRequest"
+          },
+          {
+            "$ref": "#/components/schemas/MhsV0SpeakerWriteRequest"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "hwd",
+          "mapping": {
+            "display": "#/components/schemas/MhsV0DisplayWriteRequest",
+            "led": "#/components/schemas/MhsV0LedWriteRequest",
+            "speaker": "#/components/schemas/MhsV0SpeakerWriteRequest"
+          }
+        }
+      },
+      "MhsV0WriteResult": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/MhsV0DisplayReadResult"
+          },
+          {
+            "$ref": "#/components/schemas/MhsV0LedReadResult"
+          },
+          {
+            "$ref": "#/components/schemas/MhsV0SpeakerReadResult"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "hwd",
+          "mapping": {
+            "display": "#/components/schemas/MhsV0DisplayReadResult",
+            "led": "#/components/schemas/MhsV0LedReadResult",
+            "speaker": "#/components/schemas/MhsV0SpeakerReadResult"
           }
         }
       }

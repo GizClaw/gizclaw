@@ -9,12 +9,23 @@ final scenarioRoot = Directory('../../giztest').absolute.path;
 
 void main() {
   test('MHS v0 documents are executable by the Flutter provider', () async {
-    final result = await loadDocuments([
-      '$scenarioRoot/server.device.mhs.giztest.yaml',
-      '$scenarioRoot/server.device.mhs.not_found.giztest.yaml',
-    ]);
+    final paths = Directory(scenarioRoot)
+        .listSync()
+        .whereType<File>()
+        .map((file) => file.path)
+        .where(
+          (path) =>
+              path
+                  .split(Platform.pathSeparator)
+                  .last
+                  .startsWith('server.device.mhs') &&
+              path.endsWith('.giztest.yaml'),
+        )
+        .toList();
+    final result = await loadDocuments(paths);
     expect(result.skipped, isEmpty);
-    expect(result.documents, hasLength(2));
+    expect(result.documents, hasLength(paths.length));
+    expect(paths.length, greaterThanOrEqualTo(18));
   });
   group('jsonPointer', () {
     test('resolves objects, arrays and escapes', () {
@@ -387,15 +398,15 @@ void main() {
         'client.mhs.v0.read',
         'client.tool.v0.invoke',
         'client.tool.v0.invoke',
-        'client.mhs.v0.read',
         'client.mhs.v0.write',
+        'client.mhs.v0.read',
       ]);
       final httpMethods = {
         for (final document in result.documents)
           for (final step in document.steps)
             if (step.http != null) step.http!['method'],
       };
-      expect(httpMethods, contains('PATCH'));
+      expect(httpMethods, contains('POST'));
     });
 
     test('reject a removed client RPC', () {

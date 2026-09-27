@@ -1,7 +1,9 @@
 #include "gzc_client.h"
 #include "gzc_platform.h"
+#include "payload/mhs_v0.pb.h"
 
 _Static_assert(sizeof(((gizclaw_rpc_v1_ClientToolV0InvokeRequest *)0)->payload) == sizeof(pb_callback_t), "invoke payload must remain a callback");
+_Static_assert(sizeof(((gizclaw_rpc_v1_ClientMhsV0WriteRequest *)0)->payload) == sizeof(pb_callback_t), "HWD payload must remain a callback");
 
 #include <stdint.h>
 #include <stdio.h>

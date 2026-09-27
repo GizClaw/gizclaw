@@ -26,8 +26,8 @@ import {
   getDevice,
   getDeviceRuntime,
   getMhsManifest,
-  readMhsStates,
-  writeMhsStates,
+  readMhsHwd,
+  writeMhsHwd,
   getDeviceStatus,
   getDeviceTelemetryLatest,
   getSelfApiKey,
@@ -89,7 +89,9 @@ import type {
   DeviceRunWorkspaceSetRequest,
   MhsV0Manifest,
   MhsV0ReadRequest,
-  MhsV0States,
+  MhsV0ReadResult,
+  MhsV0WriteRequest,
+  MhsV0WriteResult,
   DeviceFindRequest,
   DeviceInfo,
   DevicePlaySoundRequest,
@@ -475,9 +477,9 @@ export interface GizClawControlDevice {
   forgetSavedWifi(ssid: string): Promise<void>;
   /** RuntimeProfile-owned MHS-inspired v0 manifest; available while offline. */
   getMhsManifest(): Promise<MhsV0Manifest>;
-  readMhsStates(body: MhsV0ReadRequest): Promise<MhsV0States>;
-  /** Atomically writes a batch and returns the device's actual applied values. */
-  writeMhsStates(body: MhsV0States): Promise<MhsV0States>;
+  readMhsHwd(body: MhsV0ReadRequest): Promise<MhsV0ReadResult>;
+  /** Writes one display, led or speaker instance and returns applied values. */
+  writeMhsHwd(body: MhsV0WriteRequest): Promise<MhsV0WriteResult>;
   /**
    * `POST /gizclaw/v1/device/tool/v0/invoke`.
    *
@@ -855,10 +857,10 @@ export function createGizClawControlClient(
         await callTool({ tool: "social.ping", args: body });
       },
       getMhsManifest: () => unwrap("getMhsManifest", getMhsManifest(common)),
-      readMhsStates: (body) =>
-        unwrap("readMhsStates", readMhsStates({ ...common, body })),
-      writeMhsStates: (body) =>
-        unwrap("writeMhsStates", writeMhsStates({ ...common, body })),
+      readMhsHwd: (body) =>
+        unwrap("readMhsHwd", readMhsHwd({ ...common, body })),
+      writeMhsHwd: (body) =>
+        unwrap("writeMhsHwd", writeMhsHwd({ ...common, body })),
       listTools: () => unwrap("listClientTools", listClientTools(common)),
     },
     contacts: {

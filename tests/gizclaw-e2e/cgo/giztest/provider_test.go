@@ -280,16 +280,22 @@ func TestSocialResponsesRenderProtoJSON(t *testing.T) {
 // The settings, factory reset, RPC methods, Workspace switch and Tool fixtures
 // must pass the C runner's validate and reach the controller route table.
 func TestDeviceSettingsAndControlDocuments(t *testing.T) {
-	for _, name := range []string{
+	mhsDocuments, err := filepath.Glob("../../giztest/server.device.mhs*.giztest.yaml")
+	if err != nil || len(mhsDocuments) < 18 {
+		t.Fatalf("MHS documents: %d, %v", len(mhsDocuments), err)
+	}
+	for _, name := range append([]string{
 		"server.device.settings.giztest.yaml",
-		"server.device.mhs.giztest.yaml",
-		"server.device.mhs.not_found.giztest.yaml",
 		"server.device.factory_reset.giztest.yaml",
 		"server.device.rpc_methods.giztest.yaml",
 		"server.device.run_workspace.set.giztest.yaml",
-	} {
+	}, mhsDocuments...) {
 		t.Run(name, func(t *testing.T) {
-			doc, err := giztest.LoadDocument(filepath.Join("../../giztest", name), driver{})
+			path := name
+			if !filepath.IsAbs(path) && !strings.HasPrefix(path, "../../giztest/") {
+				path = filepath.Join("../../giztest", path)
+			}
+			doc, err := giztest.LoadDocument(path, driver{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -303,7 +309,7 @@ func TestDeviceSettingsAndControlDocuments(t *testing.T) {
 		})
 	}
 	for _, route := range []struct{ method, path string }{
-		{"PATCH", "/gizclaw/v1/device/mhs/v0/states"},
+		{"POST", "/gizclaw/v1/device/mhs/v0/write"},
 		{"POST", "/gizclaw/v1/device/tool/v0/invoke"},
 		{"GET", "/gizclaw/v1/device/tool/v0/tools"},
 	} {
@@ -323,11 +329,11 @@ func TestDeviceSettingsAndControlDocuments(t *testing.T) {
 	}
 }
 
-// MHS writes return typed states, including explicit zero values, through the
+// MHS writes return typed HWD payloads, including explicit zero values, through the
 // same provider path used by the C harness.
 func TestMhsWriteReturnsTypedState(t *testing.T) {
 	provider := newClientRPCProvider()
-	state := map[string]any{"states": []any{map[string]any{"device_id": "display.main", "state": "brightness", "value": map[string]any{"int_value": 0}}}}
+	state := map[string]any{"payload": "CgIIAA=="}
 	if err := provider.install("client.mhs.v0.write", state); err != nil {
 		t.Fatal(err)
 	}
@@ -343,8 +349,9 @@ func TestMhsWriteReturnsTypedState(t *testing.T) {
 	if err := proto.Unmarshal(payload, response); err != nil {
 		t.Fatal(err)
 	}
-	if len(response.States) != 1 || response.States[0].Value.GetIntValue() != 0 || response.States[0].Value.Value == nil {
-		t.Fatalf("states = %v", response.States)
+	var value rpcpb.DisplayHwdWriteResponse
+	if err := proto.Unmarshal(response.Payload, &value); err != nil || value.Applied == nil || value.Applied.BrightnessPercent == nil || *value.Applied.BrightnessPercent != 0 {
+		t.Fatalf("applied = %v, %v", &value, err)
 	}
 }
 

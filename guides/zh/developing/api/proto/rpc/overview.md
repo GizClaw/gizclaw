@@ -15,6 +15,8 @@ api/proto/rpc/
     ├── edge.proto
     ├── enums.proto
     ├── firmware.proto
+    ├── mhs_v0.proto
+    ├── tool.proto
     ├── social.proto
     ├── system.proto
     └── workspace.proto

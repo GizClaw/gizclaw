@@ -1277,11 +1277,11 @@ type CreateContactJSONRequestBody = ContactCreateRequest
 // PutContactJSONRequestBody defines body for PutContact for application/json ContentType.
 type PutContactJSONRequestBody = ContactPutRequest
 
-// ReadMhsStatesJSONRequestBody defines body for ReadMhsStates for application/json ContentType.
-type ReadMhsStatesJSONRequestBody = externalRef0.MhsV0ReadRequest
+// ReadMhsHwdJSONRequestBody defines body for ReadMhsHwd for application/json ContentType.
+type ReadMhsHwdJSONRequestBody = externalRef0.MhsV0ReadRequest
 
-// WriteMhsStatesJSONRequestBody defines body for WriteMhsStates for application/json ContentType.
-type WriteMhsStatesJSONRequestBody = externalRef0.MhsV0States
+// WriteMhsHwdJSONRequestBody defines body for WriteMhsHwd for application/json ContentType.
+type WriteMhsHwdJSONRequestBody = externalRef0.MhsV0WriteRequest
 
 // InvokeClientToolJSONRequestBody defines body for InvokeClientTool for application/json ContentType.
 type InvokeClientToolJSONRequestBody = ClientToolV0InvokeRequest
@@ -2093,15 +2093,15 @@ type ClientInterface interface {
 	// GetMhsManifest request
 	GetMhsManifest(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ReadMhsStatesWithBody request with any body
-	ReadMhsStatesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ReadMhsHwdWithBody request with any body
+	ReadMhsHwdWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	ReadMhsStates(ctx context.Context, body ReadMhsStatesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ReadMhsHwd(ctx context.Context, body ReadMhsHwdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// WriteMhsStatesWithBody request with any body
-	WriteMhsStatesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// WriteMhsHwdWithBody request with any body
+	WriteMhsHwdWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	WriteMhsStates(ctx context.Context, body WriteMhsStatesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	WriteMhsHwd(ctx context.Context, body WriteMhsHwdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetDeviceRuntime request
 	GetDeviceRuntime(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2455,8 +2455,8 @@ func (c *Client) GetMhsManifest(ctx context.Context, reqEditors ...RequestEditor
 	return c.Client.Do(req)
 }
 
-func (c *Client) ReadMhsStatesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewReadMhsStatesRequestWithBody(c.Server, contentType, body)
+func (c *Client) ReadMhsHwdWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReadMhsHwdRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2467,8 +2467,8 @@ func (c *Client) ReadMhsStatesWithBody(ctx context.Context, contentType string, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) ReadMhsStates(ctx context.Context, body ReadMhsStatesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewReadMhsStatesRequest(c.Server, body)
+func (c *Client) ReadMhsHwd(ctx context.Context, body ReadMhsHwdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReadMhsHwdRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2479,8 +2479,8 @@ func (c *Client) ReadMhsStates(ctx context.Context, body ReadMhsStatesJSONReques
 	return c.Client.Do(req)
 }
 
-func (c *Client) WriteMhsStatesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewWriteMhsStatesRequestWithBody(c.Server, contentType, body)
+func (c *Client) WriteMhsHwdWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewWriteMhsHwdRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2491,8 +2491,8 @@ func (c *Client) WriteMhsStatesWithBody(ctx context.Context, contentType string,
 	return c.Client.Do(req)
 }
 
-func (c *Client) WriteMhsStates(ctx context.Context, body WriteMhsStatesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewWriteMhsStatesRequest(c.Server, body)
+func (c *Client) WriteMhsHwd(ctx context.Context, body WriteMhsHwdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewWriteMhsHwdRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3715,19 +3715,19 @@ func NewGetMhsManifestRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewReadMhsStatesRequest calls the generic ReadMhsStates builder with application/json body
-func NewReadMhsStatesRequest(server string, body ReadMhsStatesJSONRequestBody) (*http.Request, error) {
+// NewReadMhsHwdRequest calls the generic ReadMhsHwd builder with application/json body
+func NewReadMhsHwdRequest(server string, body ReadMhsHwdJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewReadMhsStatesRequestWithBody(server, "application/json", bodyReader)
+	return NewReadMhsHwdRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewReadMhsStatesRequestWithBody generates requests for ReadMhsStates with any type of body
-func NewReadMhsStatesRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewReadMhsHwdRequestWithBody generates requests for ReadMhsHwd with any type of body
+func NewReadMhsHwdRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -3755,19 +3755,19 @@ func NewReadMhsStatesRequestWithBody(server string, contentType string, body io.
 	return req, nil
 }
 
-// NewWriteMhsStatesRequest calls the generic WriteMhsStates builder with application/json body
-func NewWriteMhsStatesRequest(server string, body WriteMhsStatesJSONRequestBody) (*http.Request, error) {
+// NewWriteMhsHwdRequest calls the generic WriteMhsHwd builder with application/json body
+func NewWriteMhsHwdRequest(server string, body WriteMhsHwdJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewWriteMhsStatesRequestWithBody(server, "application/json", bodyReader)
+	return NewWriteMhsHwdRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewWriteMhsStatesRequestWithBody generates requests for WriteMhsStates with any type of body
-func NewWriteMhsStatesRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewWriteMhsHwdRequestWithBody generates requests for WriteMhsHwd with any type of body
+func NewWriteMhsHwdRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -3775,7 +3775,7 @@ func NewWriteMhsStatesRequestWithBody(server string, contentType string, body io
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/gizclaw/v1/device/mhs/v0/states")
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/mhs/v0/write")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -3785,7 +3785,7 @@ func NewWriteMhsStatesRequestWithBody(server string, contentType string, body io
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -5607,15 +5607,15 @@ type ClientWithResponsesInterface interface {
 	// GetMhsManifestWithResponse request
 	GetMhsManifestWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMhsManifestResponse, error)
 
-	// ReadMhsStatesWithBodyWithResponse request with any body
-	ReadMhsStatesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReadMhsStatesResponse, error)
+	// ReadMhsHwdWithBodyWithResponse request with any body
+	ReadMhsHwdWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReadMhsHwdResponse, error)
 
-	ReadMhsStatesWithResponse(ctx context.Context, body ReadMhsStatesJSONRequestBody, reqEditors ...RequestEditorFn) (*ReadMhsStatesResponse, error)
+	ReadMhsHwdWithResponse(ctx context.Context, body ReadMhsHwdJSONRequestBody, reqEditors ...RequestEditorFn) (*ReadMhsHwdResponse, error)
 
-	// WriteMhsStatesWithBodyWithResponse request with any body
-	WriteMhsStatesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*WriteMhsStatesResponse, error)
+	// WriteMhsHwdWithBodyWithResponse request with any body
+	WriteMhsHwdWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*WriteMhsHwdResponse, error)
 
-	WriteMhsStatesWithResponse(ctx context.Context, body WriteMhsStatesJSONRequestBody, reqEditors ...RequestEditorFn) (*WriteMhsStatesResponse, error)
+	WriteMhsHwdWithResponse(ctx context.Context, body WriteMhsHwdJSONRequestBody, reqEditors ...RequestEditorFn) (*WriteMhsHwdResponse, error)
 
 	// GetDeviceRuntimeWithResponse request
 	GetDeviceRuntimeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceRuntimeResponse, error)
@@ -6276,10 +6276,10 @@ func (r GetMhsManifestResponse) ContentType() string {
 	return ""
 }
 
-type ReadMhsStatesResponse struct {
+type ReadMhsHwdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef0.MhsV0States
+	JSON200      *externalRef0.MhsV0ReadResult
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
@@ -6292,7 +6292,7 @@ type ReadMhsStatesResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ReadMhsStatesResponse) Status() string {
+func (r ReadMhsHwdResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6300,7 +6300,7 @@ func (r ReadMhsStatesResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ReadMhsStatesResponse) StatusCode() int {
+func (r ReadMhsHwdResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -6308,17 +6308,17 @@ func (r ReadMhsStatesResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r ReadMhsStatesResponse) ContentType() string {
+func (r ReadMhsHwdResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
 	return ""
 }
 
-type WriteMhsStatesResponse struct {
+type WriteMhsHwdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef0.MhsV0States
+	JSON200      *externalRef0.MhsV0WriteResult
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
@@ -6331,7 +6331,7 @@ type WriteMhsStatesResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r WriteMhsStatesResponse) Status() string {
+func (r WriteMhsHwdResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6339,7 +6339,7 @@ func (r WriteMhsStatesResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r WriteMhsStatesResponse) StatusCode() int {
+func (r WriteMhsHwdResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -6347,7 +6347,7 @@ func (r WriteMhsStatesResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r WriteMhsStatesResponse) ContentType() string {
+func (r WriteMhsHwdResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -7820,38 +7820,38 @@ func (c *ClientWithResponses) GetMhsManifestWithResponse(ctx context.Context, re
 	return ParseGetMhsManifestResponse(rsp)
 }
 
-// ReadMhsStatesWithBodyWithResponse request with arbitrary body returning *ReadMhsStatesResponse
-func (c *ClientWithResponses) ReadMhsStatesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReadMhsStatesResponse, error) {
-	rsp, err := c.ReadMhsStatesWithBody(ctx, contentType, body, reqEditors...)
+// ReadMhsHwdWithBodyWithResponse request with arbitrary body returning *ReadMhsHwdResponse
+func (c *ClientWithResponses) ReadMhsHwdWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReadMhsHwdResponse, error) {
+	rsp, err := c.ReadMhsHwdWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseReadMhsStatesResponse(rsp)
+	return ParseReadMhsHwdResponse(rsp)
 }
 
-func (c *ClientWithResponses) ReadMhsStatesWithResponse(ctx context.Context, body ReadMhsStatesJSONRequestBody, reqEditors ...RequestEditorFn) (*ReadMhsStatesResponse, error) {
-	rsp, err := c.ReadMhsStates(ctx, body, reqEditors...)
+func (c *ClientWithResponses) ReadMhsHwdWithResponse(ctx context.Context, body ReadMhsHwdJSONRequestBody, reqEditors ...RequestEditorFn) (*ReadMhsHwdResponse, error) {
+	rsp, err := c.ReadMhsHwd(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseReadMhsStatesResponse(rsp)
+	return ParseReadMhsHwdResponse(rsp)
 }
 
-// WriteMhsStatesWithBodyWithResponse request with arbitrary body returning *WriteMhsStatesResponse
-func (c *ClientWithResponses) WriteMhsStatesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*WriteMhsStatesResponse, error) {
-	rsp, err := c.WriteMhsStatesWithBody(ctx, contentType, body, reqEditors...)
+// WriteMhsHwdWithBodyWithResponse request with arbitrary body returning *WriteMhsHwdResponse
+func (c *ClientWithResponses) WriteMhsHwdWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*WriteMhsHwdResponse, error) {
+	rsp, err := c.WriteMhsHwdWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseWriteMhsStatesResponse(rsp)
+	return ParseWriteMhsHwdResponse(rsp)
 }
 
-func (c *ClientWithResponses) WriteMhsStatesWithResponse(ctx context.Context, body WriteMhsStatesJSONRequestBody, reqEditors ...RequestEditorFn) (*WriteMhsStatesResponse, error) {
-	rsp, err := c.WriteMhsStates(ctx, body, reqEditors...)
+func (c *ClientWithResponses) WriteMhsHwdWithResponse(ctx context.Context, body WriteMhsHwdJSONRequestBody, reqEditors ...RequestEditorFn) (*WriteMhsHwdResponse, error) {
+	rsp, err := c.WriteMhsHwd(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseWriteMhsStatesResponse(rsp)
+	return ParseWriteMhsHwdResponse(rsp)
 }
 
 // GetDeviceRuntimeWithResponse request returning *GetDeviceRuntimeResponse
@@ -9178,22 +9178,22 @@ func ParseGetMhsManifestResponse(rsp *http.Response) (*GetMhsManifestResponse, e
 	return response, nil
 }
 
-// ParseReadMhsStatesResponse parses an HTTP response from a ReadMhsStatesWithResponse call
-func ParseReadMhsStatesResponse(rsp *http.Response) (*ReadMhsStatesResponse, error) {
+// ParseReadMhsHwdResponse parses an HTTP response from a ReadMhsHwdWithResponse call
+func ParseReadMhsHwdResponse(rsp *http.Response) (*ReadMhsHwdResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ReadMhsStatesResponse{
+	response := &ReadMhsHwdResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.MhsV0States
+		var dest externalRef0.MhsV0ReadResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -9267,22 +9267,22 @@ func ParseReadMhsStatesResponse(rsp *http.Response) (*ReadMhsStatesResponse, err
 	return response, nil
 }
 
-// ParseWriteMhsStatesResponse parses an HTTP response from a WriteMhsStatesWithResponse call
-func ParseWriteMhsStatesResponse(rsp *http.Response) (*WriteMhsStatesResponse, error) {
+// ParseWriteMhsHwdResponse parses an HTTP response from a WriteMhsHwdWithResponse call
+func ParseWriteMhsHwdResponse(rsp *http.Response) (*WriteMhsHwdResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &WriteMhsStatesResponse{
+	response := &WriteMhsHwdResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.MhsV0States
+		var dest externalRef0.MhsV0WriteResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -11744,12 +11744,12 @@ type ServerInterface interface {
 	// Get the bound RuntimeProfile MHS v0 manifest
 	// (GET /gizclaw/v1/device/mhs/v0/manifest)
 	GetMhsManifest(c *fiber.Ctx) error
-	// Read MHS v0 hardware states
+	// Read one MHS v0 HWD instance
 	// (POST /gizclaw/v1/device/mhs/v0/read)
-	ReadMhsStates(c *fiber.Ctx) error
-	// Atomically write MHS v0 hardware states
-	// (PATCH /gizclaw/v1/device/mhs/v0/states)
-	WriteMhsStates(c *fiber.Ctx) error
+	ReadMhsHwd(c *fiber.Ctx) error
+	// Write one MHS v0 HWD instance
+	// (POST /gizclaw/v1/device/mhs/v0/write)
+	WriteMhsHwd(c *fiber.Ctx) error
 	// Get the online runtime of the bound device
 	// (GET /gizclaw/v1/device/runtime)
 	GetDeviceRuntime(c *fiber.Ctx) error
@@ -12333,13 +12333,13 @@ func (siw *ServerInterfaceWrapper) GetMhsManifest(c *fiber.Ctx) error {
 	return handler(c)
 }
 
-// ReadMhsStates operation middleware
-func (siw *ServerInterfaceWrapper) ReadMhsStates(c *fiber.Ctx) error {
+// ReadMhsHwd operation middleware
+func (siw *ServerInterfaceWrapper) ReadMhsHwd(c *fiber.Ctx) error {
 
 	c.Context().SetUserValue((BearerAuthScopes), []string{})
 
 	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.ReadMhsStates(c)
+		return siw.Handler.ReadMhsHwd(c)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -12353,13 +12353,13 @@ func (siw *ServerInterfaceWrapper) ReadMhsStates(c *fiber.Ctx) error {
 	return handler(c)
 }
 
-// WriteMhsStates operation middleware
-func (siw *ServerInterfaceWrapper) WriteMhsStates(c *fiber.Ctx) error {
+// WriteMhsHwd operation middleware
+func (siw *ServerInterfaceWrapper) WriteMhsHwd(c *fiber.Ctx) error {
 
 	c.Context().SetUserValue((BearerAuthScopes), []string{})
 
 	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.WriteMhsStates(c)
+		return siw.Handler.WriteMhsHwd(c)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -13732,9 +13732,9 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device/mhs/v0/manifest", wrapper.GetMhsManifest)
 
-	router.Post(options.BaseURL+"/gizclaw/v1/device/mhs/v0/read", wrapper.ReadMhsStates)
+	router.Post(options.BaseURL+"/gizclaw/v1/device/mhs/v0/read", wrapper.ReadMhsHwd)
 
-	router.Patch(options.BaseURL+"/gizclaw/v1/device/mhs/v0/states", wrapper.WriteMhsStates)
+	router.Post(options.BaseURL+"/gizclaw/v1/device/mhs/v0/write", wrapper.WriteMhsHwd)
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device/runtime", wrapper.GetDeviceRuntime)
 
@@ -14778,196 +14778,212 @@ func (response GetMhsManifest500JSONResponse) VisitGetMhsManifestResponse(ctx *f
 	return ctx.JSON(&response)
 }
 
-type ReadMhsStatesRequestObject struct {
-	Body *ReadMhsStatesJSONRequestBody
+type ReadMhsHwdRequestObject struct {
+	Body *ReadMhsHwdJSONRequestBody
 }
 
-type ReadMhsStatesResponseObject interface {
-	VisitReadMhsStatesResponse(ctx *fiber.Ctx) error
+type ReadMhsHwdResponseObject interface {
+	VisitReadMhsHwdResponse(ctx *fiber.Ctx) error
 }
 
-type ReadMhsStates200JSONResponse externalRef0.MhsV0States
+type ReadMhsHwd200JSONResponse externalRef0.MhsV0ReadResult
 
-func (response ReadMhsStates200JSONResponse) VisitReadMhsStatesResponse(ctx *fiber.Ctx) error {
+func (t ReadMhsHwd200JSONResponse) MarshalJSON() ([]byte, error) {
+	return externalRef0.MhsV0ReadResult(t).MarshalJSON()
+}
+
+func (t *ReadMhsHwd200JSONResponse) UnmarshalJSON(b []byte) error {
+	return (*externalRef0.MhsV0ReadResult)(t).UnmarshalJSON(b)
+}
+
+func (response ReadMhsHwd200JSONResponse) VisitReadMhsHwdResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(200)
 
 	return ctx.JSON(&response)
 }
 
-type ReadMhsStates400JSONResponse struct{ BadRequestJSONResponse }
+type ReadMhsHwd400JSONResponse struct{ BadRequestJSONResponse }
 
-func (response ReadMhsStates400JSONResponse) VisitReadMhsStatesResponse(ctx *fiber.Ctx) error {
+func (response ReadMhsHwd400JSONResponse) VisitReadMhsHwdResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(400)
 
 	return ctx.JSON(&response)
 }
 
-type ReadMhsStates401JSONResponse struct{ UnauthorizedJSONResponse }
+type ReadMhsHwd401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response ReadMhsStates401JSONResponse) VisitReadMhsStatesResponse(ctx *fiber.Ctx) error {
+func (response ReadMhsHwd401JSONResponse) VisitReadMhsHwdResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(401)
 
 	return ctx.JSON(&response)
 }
 
-type ReadMhsStates403JSONResponse struct{ ForbiddenJSONResponse }
+type ReadMhsHwd403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response ReadMhsStates403JSONResponse) VisitReadMhsStatesResponse(ctx *fiber.Ctx) error {
+func (response ReadMhsHwd403JSONResponse) VisitReadMhsHwdResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(403)
 
 	return ctx.JSON(&response)
 }
 
-type ReadMhsStates404JSONResponse externalRef0.ErrorResponse
+type ReadMhsHwd404JSONResponse externalRef0.ErrorResponse
 
-func (response ReadMhsStates404JSONResponse) VisitReadMhsStatesResponse(ctx *fiber.Ctx) error {
+func (response ReadMhsHwd404JSONResponse) VisitReadMhsHwdResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }
 
-type ReadMhsStates409JSONResponse struct{ DeviceOfflineJSONResponse }
+type ReadMhsHwd409JSONResponse struct{ DeviceOfflineJSONResponse }
 
-func (response ReadMhsStates409JSONResponse) VisitReadMhsStatesResponse(ctx *fiber.Ctx) error {
+func (response ReadMhsHwd409JSONResponse) VisitReadMhsHwdResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
 
-type ReadMhsStates500JSONResponse struct{ InternalErrorJSONResponse }
+type ReadMhsHwd500JSONResponse struct{ InternalErrorJSONResponse }
 
-func (response ReadMhsStates500JSONResponse) VisitReadMhsStatesResponse(ctx *fiber.Ctx) error {
+func (response ReadMhsHwd500JSONResponse) VisitReadMhsHwdResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
 
 	return ctx.JSON(&response)
 }
 
-type ReadMhsStates501JSONResponse struct{ DeviceUnsupportedJSONResponse }
+type ReadMhsHwd501JSONResponse struct{ DeviceUnsupportedJSONResponse }
 
-func (response ReadMhsStates501JSONResponse) VisitReadMhsStatesResponse(ctx *fiber.Ctx) error {
+func (response ReadMhsHwd501JSONResponse) VisitReadMhsHwdResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(501)
 
 	return ctx.JSON(&response)
 }
 
-type ReadMhsStates502JSONResponse struct{ DeviceErrorJSONResponse }
+type ReadMhsHwd502JSONResponse struct{ DeviceErrorJSONResponse }
 
-func (response ReadMhsStates502JSONResponse) VisitReadMhsStatesResponse(ctx *fiber.Ctx) error {
+func (response ReadMhsHwd502JSONResponse) VisitReadMhsHwdResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(502)
 
 	return ctx.JSON(&response)
 }
 
-type ReadMhsStates504JSONResponse struct{ DeviceTimeoutJSONResponse }
+type ReadMhsHwd504JSONResponse struct{ DeviceTimeoutJSONResponse }
 
-func (response ReadMhsStates504JSONResponse) VisitReadMhsStatesResponse(ctx *fiber.Ctx) error {
+func (response ReadMhsHwd504JSONResponse) VisitReadMhsHwdResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(504)
 
 	return ctx.JSON(&response)
 }
 
-type WriteMhsStatesRequestObject struct {
-	Body *WriteMhsStatesJSONRequestBody
+type WriteMhsHwdRequestObject struct {
+	Body *WriteMhsHwdJSONRequestBody
 }
 
-type WriteMhsStatesResponseObject interface {
-	VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error
+type WriteMhsHwdResponseObject interface {
+	VisitWriteMhsHwdResponse(ctx *fiber.Ctx) error
 }
 
-type WriteMhsStates200JSONResponse externalRef0.MhsV0States
+type WriteMhsHwd200JSONResponse externalRef0.MhsV0WriteResult
 
-func (response WriteMhsStates200JSONResponse) VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error {
+func (t WriteMhsHwd200JSONResponse) MarshalJSON() ([]byte, error) {
+	return externalRef0.MhsV0WriteResult(t).MarshalJSON()
+}
+
+func (t *WriteMhsHwd200JSONResponse) UnmarshalJSON(b []byte) error {
+	return (*externalRef0.MhsV0WriteResult)(t).UnmarshalJSON(b)
+}
+
+func (response WriteMhsHwd200JSONResponse) VisitWriteMhsHwdResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(200)
 
 	return ctx.JSON(&response)
 }
 
-type WriteMhsStates400JSONResponse struct{ BadRequestJSONResponse }
+type WriteMhsHwd400JSONResponse struct{ BadRequestJSONResponse }
 
-func (response WriteMhsStates400JSONResponse) VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error {
+func (response WriteMhsHwd400JSONResponse) VisitWriteMhsHwdResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(400)
 
 	return ctx.JSON(&response)
 }
 
-type WriteMhsStates401JSONResponse struct{ UnauthorizedJSONResponse }
+type WriteMhsHwd401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response WriteMhsStates401JSONResponse) VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error {
+func (response WriteMhsHwd401JSONResponse) VisitWriteMhsHwdResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(401)
 
 	return ctx.JSON(&response)
 }
 
-type WriteMhsStates403JSONResponse struct{ ForbiddenJSONResponse }
+type WriteMhsHwd403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response WriteMhsStates403JSONResponse) VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error {
+func (response WriteMhsHwd403JSONResponse) VisitWriteMhsHwdResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(403)
 
 	return ctx.JSON(&response)
 }
 
-type WriteMhsStates404JSONResponse externalRef0.ErrorResponse
+type WriteMhsHwd404JSONResponse externalRef0.ErrorResponse
 
-func (response WriteMhsStates404JSONResponse) VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error {
+func (response WriteMhsHwd404JSONResponse) VisitWriteMhsHwdResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }
 
-type WriteMhsStates409JSONResponse struct{ DeviceOfflineJSONResponse }
+type WriteMhsHwd409JSONResponse struct{ DeviceOfflineJSONResponse }
 
-func (response WriteMhsStates409JSONResponse) VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error {
+func (response WriteMhsHwd409JSONResponse) VisitWriteMhsHwdResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
 
-type WriteMhsStates500JSONResponse struct{ InternalErrorJSONResponse }
+type WriteMhsHwd500JSONResponse struct{ InternalErrorJSONResponse }
 
-func (response WriteMhsStates500JSONResponse) VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error {
+func (response WriteMhsHwd500JSONResponse) VisitWriteMhsHwdResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
 
 	return ctx.JSON(&response)
 }
 
-type WriteMhsStates501JSONResponse struct{ DeviceUnsupportedJSONResponse }
+type WriteMhsHwd501JSONResponse struct{ DeviceUnsupportedJSONResponse }
 
-func (response WriteMhsStates501JSONResponse) VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error {
+func (response WriteMhsHwd501JSONResponse) VisitWriteMhsHwdResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(501)
 
 	return ctx.JSON(&response)
 }
 
-type WriteMhsStates502JSONResponse struct{ DeviceErrorJSONResponse }
+type WriteMhsHwd502JSONResponse struct{ DeviceErrorJSONResponse }
 
-func (response WriteMhsStates502JSONResponse) VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error {
+func (response WriteMhsHwd502JSONResponse) VisitWriteMhsHwdResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(502)
 
 	return ctx.JSON(&response)
 }
 
-type WriteMhsStates504JSONResponse struct{ DeviceTimeoutJSONResponse }
+type WriteMhsHwd504JSONResponse struct{ DeviceTimeoutJSONResponse }
 
-func (response WriteMhsStates504JSONResponse) VisitWriteMhsStatesResponse(ctx *fiber.Ctx) error {
+func (response WriteMhsHwd504JSONResponse) VisitWriteMhsHwdResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(504)
 
@@ -17568,12 +17584,12 @@ type StrictServerInterface interface {
 	// Get the bound RuntimeProfile MHS v0 manifest
 	// (GET /gizclaw/v1/device/mhs/v0/manifest)
 	GetMhsManifest(ctx context.Context, request GetMhsManifestRequestObject) (GetMhsManifestResponseObject, error)
-	// Read MHS v0 hardware states
+	// Read one MHS v0 HWD instance
 	// (POST /gizclaw/v1/device/mhs/v0/read)
-	ReadMhsStates(ctx context.Context, request ReadMhsStatesRequestObject) (ReadMhsStatesResponseObject, error)
-	// Atomically write MHS v0 hardware states
-	// (PATCH /gizclaw/v1/device/mhs/v0/states)
-	WriteMhsStates(ctx context.Context, request WriteMhsStatesRequestObject) (WriteMhsStatesResponseObject, error)
+	ReadMhsHwd(ctx context.Context, request ReadMhsHwdRequestObject) (ReadMhsHwdResponseObject, error)
+	// Write one MHS v0 HWD instance
+	// (POST /gizclaw/v1/device/mhs/v0/write)
+	WriteMhsHwd(ctx context.Context, request WriteMhsHwdRequestObject) (WriteMhsHwdResponseObject, error)
 	// Get the online runtime of the bound device
 	// (GET /gizclaw/v1/device/runtime)
 	GetDeviceRuntime(ctx context.Context, request GetDeviceRuntimeRequestObject) (GetDeviceRuntimeResponseObject, error)
@@ -18108,29 +18124,29 @@ func (sh *strictHandler) GetMhsManifest(ctx *fiber.Ctx) error {
 	return nil
 }
 
-// ReadMhsStates operation middleware
-func (sh *strictHandler) ReadMhsStates(ctx *fiber.Ctx) error {
-	var request ReadMhsStatesRequestObject
+// ReadMhsHwd operation middleware
+func (sh *strictHandler) ReadMhsHwd(ctx *fiber.Ctx) error {
+	var request ReadMhsHwdRequestObject
 
-	var body ReadMhsStatesJSONRequestBody
+	var body ReadMhsHwdJSONRequestBody
 	if err := ctx.BodyParser(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 	request.Body = &body
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.ReadMhsStates(ctx.UserContext(), request.(ReadMhsStatesRequestObject))
+		return sh.ssi.ReadMhsHwd(ctx.UserContext(), request.(ReadMhsHwdRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ReadMhsStates")
+		handler = middleware(handler, "ReadMhsHwd")
 	}
 
 	response, err := handler(ctx, request)
 
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(ReadMhsStatesResponseObject); ok {
-		if err := validResponse.VisitReadMhsStatesResponse(ctx); err != nil {
+	} else if validResponse, ok := response.(ReadMhsHwdResponseObject); ok {
+		if err := validResponse.VisitReadMhsHwdResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {
@@ -18139,29 +18155,29 @@ func (sh *strictHandler) ReadMhsStates(ctx *fiber.Ctx) error {
 	return nil
 }
 
-// WriteMhsStates operation middleware
-func (sh *strictHandler) WriteMhsStates(ctx *fiber.Ctx) error {
-	var request WriteMhsStatesRequestObject
+// WriteMhsHwd operation middleware
+func (sh *strictHandler) WriteMhsHwd(ctx *fiber.Ctx) error {
+	var request WriteMhsHwdRequestObject
 
-	var body WriteMhsStatesJSONRequestBody
+	var body WriteMhsHwdJSONRequestBody
 	if err := ctx.BodyParser(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 	request.Body = &body
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.WriteMhsStates(ctx.UserContext(), request.(WriteMhsStatesRequestObject))
+		return sh.ssi.WriteMhsHwd(ctx.UserContext(), request.(WriteMhsHwdRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "WriteMhsStates")
+		handler = middleware(handler, "WriteMhsHwd")
 	}
 
 	response, err := handler(ctx, request)
 
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(WriteMhsStatesResponseObject); ok {
-		if err := validResponse.VisitWriteMhsStatesResponse(ctx); err != nil {
+	} else if validResponse, ok := response.(WriteMhsHwdResponseObject); ok {
+		if err := validResponse.VisitWriteMhsHwdResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

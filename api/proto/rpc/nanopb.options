@@ -126,16 +126,14 @@ gizclaw.rpc.v1.PublicProfile.peer_public_key max_size:65
 gizclaw.rpc.v1.PublicProfile.display_name max_size:257
 gizclaw.rpc.v1.PublicProfile.emoji max_size:65
 
-# MHS v0 capacities include the terminating NUL.
-gizclaw.rpc.v1.MhsStateRef.device_id max_size:65
-gizclaw.rpc.v1.MhsStateRef.state max_size:65
-gizclaw.rpc.v1.MhsStateValue.device_id max_size:65
-gizclaw.rpc.v1.MhsStateValue.state max_size:65
-gizclaw.rpc.v1.MhsValue.string_value max_size:257
-gizclaw.rpc.v1.ClientMhsV0ReadRequest.states max_count:32
-gizclaw.rpc.v1.ClientMhsV0ReadResponse.states max_count:32
-gizclaw.rpc.v1.ClientMhsV0WriteRequest.states max_count:32
-gizclaw.rpc.v1.ClientMhsV0WriteResponse.states max_count:32
+# MHS v0 HWD instance IDs and reported strings include the terminating NUL.
+gizclaw.rpc.v1.ClientMhsV0ReadRequest.id max_size:65
+gizclaw.rpc.v1.ClientMhsV0WriteRequest.id max_size:65
+gizclaw.rpc.v1.WifiHwdReadResponse.ssid max_size:33
+gizclaw.rpc.v1.WifiHwdReadResponse.bssid max_size:18
+gizclaw.rpc.v1.WifiHwdReadResponse.ip max_size:46
+gizclaw.rpc.v1.ModemHwdReadResponse.rat max_size:17
+
 
 # tool/v0 advertises at most the whole ClientTool registry.
 gizclaw.rpc.v1.ClientToolV0ListResponse.tools max_count:32

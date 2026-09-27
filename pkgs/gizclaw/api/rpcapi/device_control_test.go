@@ -247,38 +247,3 @@ func TestClientRunWorkspaceSetRequestValid(t *testing.T) {
 		t.Fatalf("round trip = %+v, %v", got, err)
 	}
 }
-
-// Product-defined settings retain explicit false, zero, string and integer values.
-func TestMhsSettingsAndWifiPayloadRoundTrip(t *testing.T) {
-	values := []*rpcpb.MhsStateValue{}
-	for key, value := range map[string]*rpcpb.MhsValue{
-		"volume":                {Value: &rpcpb.MhsValue_IntValue{IntValue: 35}},
-		"muted":                 {Value: &rpcpb.MhsValue_BoolValue{BoolValue: true}},
-		"cellular.enabled":      {Value: &rpcpb.MhsValue_BoolValue{BoolValue: true}},
-		"screen.off-timeout-ms": {Value: &rpcpb.MhsValue_IntValue{IntValue: 30000}},
-		"screen.brightness":     {Value: &rpcpb.MhsValue_IntValue{IntValue: 60}},
-		"led.brightness":        {Value: &rpcpb.MhsValue_IntValue{IntValue: 20}},
-		"locale":                {Value: &rpcpb.MhsValue_StringValue{StringValue: "zh-CN"}},
-		"interaction.mode":      {Value: &rpcpb.MhsValue_StringValue{StringValue: "push-to-talk"}},
-		"key.feedback":          {Value: &rpcpb.MhsValue_StringValue{StringValue: "sound-and-vibrate"}},
-		"alert.mode":            {Value: &rpcpb.MhsValue_StringValue{StringValue: "vibrate"}},
-		"sleep.timeout-ms":      {Value: &rpcpb.MhsValue_IntValue{IntValue: 0}},
-		"nfc.enabled":           {Value: &rpcpb.MhsValue_BoolValue{BoolValue: false}},
-		"wifi.connected":        {Value: &rpcpb.MhsValue_BoolValue{BoolValue: true}},
-		"wifi.ssid":             {Value: &rpcpb.MhsValue_StringValue{StringValue: "home"}},
-		"wifi.rssi-dbm":         {Value: &rpcpb.MhsValue_IntValue{IntValue: -55}},
-		"wifi.ip":               {Value: &rpcpb.MhsValue_StringValue{StringValue: "192.0.2.10"}},
-		"wifi.bssid":            {Value: &rpcpb.MhsValue_StringValue{StringValue: "aa:bb:cc:dd:ee:ff"}},
-	} {
-		values = append(values, &rpcpb.MhsStateValue{DeviceId: "device.main", State: key, Value: value})
-	}
-	request := &rpcpb.ClientMhsV0WriteRequest{States: values}
-	var payload RPCPayload
-	if err := payload.FromClientMhsV0WriteRequest(request); err != nil {
-		t.Fatal(err)
-	}
-	got, err := payload.AsClientMhsV0WriteRequest()
-	if err != nil || !proto.Equal(request, got) {
-		t.Fatalf("MHS values: %v %v", got, err)
-	}
-}

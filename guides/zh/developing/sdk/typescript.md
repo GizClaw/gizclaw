@@ -31,7 +31,7 @@ transceiver；调用方注入 identity、crypto、fetch 等 runtime-specific pri
 `createWebRTCFetch` 是 generated client 的 fetch adapter boundary。当前 WebRTC bridge
 按 GizClaw RPC method 映射 HTTP request，并不是任意 HTTP proxy。
 
-`serveGiznetWebRTCRPC(pc, handlers)` 应答 Server 发起的设备 RPC。`GizClawPeerRPCHandlers` 安装 `mhs/v0` 状态 handler 和预定义的 `ClientTool` 过程。`client.rpc.methods.list` 声明支持的协议族，`client.tool.v0.list` 只列出实际安装的过程。未安装的工具应答 `METHOD_NOT_FOUND`，Server 映射为 `501 DEVICE_UNSUPPORTED`。handler 可抛出 `GizClawDeviceControlError` 指定 RPC 状态。`peerRPCHandlers` connect option 会在 signaling 前安装 handler。
+`serveGiznetWebRTCRPC(pc, handlers)` 应答 Server 发起的设备 RPC。`GizClawPeerRPCHandlers` 安装 `mhs/v0` HWD handler 和预定义的 `ClientTool` 过程。`client.rpc.methods.list` 声明支持的协议族，`client.tool.v0.list` 只列出实际安装的过程。未安装的工具应答 `METHOD_NOT_FOUND`，Server 映射为 `501 DEVICE_UNSUPPORTED`。handler 可抛出 `GizClawDeviceControlError` 指定 RPC 状态。`peerRPCHandlers` connect option 会在 signaling 前安装 handler。
 
 ## `@gizclaw/gizclaw-control`
 

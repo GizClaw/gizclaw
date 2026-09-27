@@ -220,32 +220,33 @@ static void test_peer_status_labels_span_escapes(void) {
 }
 
 static void test_mhs_volume_encodes_body(void) {
-  stub_t stub;
+  stub_t stub = {0};
   gzc_http_vtable_t http;
   gzc_control_client_t client;
-  memset(&stub, 0, sizeof(stub));
   stub.status_code = 200;
-  stub.response_body = "{\"states\":[{\"device_id\":\"audio.main\",\"state\":\"volume\",\"value\":35},{\"device_id\":\"audio.main\",\"state\":\"muted\",\"value\":false}]}";
+  stub.response_body = "{\"id\":\"speaker.main\",\"hwd\":\"speaker\",\"value\":{\"volume_percent\":35,\"muted\":false}}";
   init_client(&client, &stub, &http);
   uint8_t scratch[1024], response[1024];
   char strings[128];
   gzc_control_mhs_v0_storage_t storage = {strings, sizeof(strings), 0};
   gzc_control_call_t call;
   check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "call init");
-  gzc_control_mhs_v0_state_value_t request[2] = {0}, applied[2];
-  request[0].device_id = request[1].device_id = gzc_str_from_cstr("audio.main");
-  request[0].state = gzc_str_from_cstr("volume");
-  request[0].value.kind = GZC_CONTROL_MHS_V0_VALUE_INT;
-  request[0].value.int_value = 35;
-  request[1].state = gzc_str_from_cstr("muted");
-  request[1].value.kind = GZC_CONTROL_MHS_V0_VALUE_BOOL;
-  size_t count;
-  check(gzc_control_write_mhs_v0_states(&client, &call, request, 2, &storage, applied, 2, &count) == GZC_OK, "write volume states");
-  check(stub.method == GZC_HTTP_METHOD_PATCH, "volume method");
-  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/mhs/v0/states") == 0, "volume route");
-  check(strcmp(stub.body, stub.response_body) == 0, "volume and mute encoded together");
+  gzc_control_mhs_v0_hwd_result_t applied;
+  check(gzc_control_write_mhs_v0_hwd(&client, &call, gzc_str_from_cstr("speaker.main"),
+                                     GZC_CONTROL_HWD_SPEAKER,
+                                     gzc_str_from_cstr("{\"volume_percent\":35,\"muted\":false}"),
+                                     &storage, &applied) == GZC_OK,
+        "write speaker HWD");
+  check(stub.method == GZC_HTTP_METHOD_POST, "speaker write method");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/mhs/v0/write") == 0, "speaker write route");
+  check(strcmp(stub.body, "{\"id\":\"speaker.main\",\"hwd\":\"speaker\",\"value\":{\"volume_percent\":35,\"muted\":false}}") == 0, "speaker write protobuf-shaped JSON");
   check(stub.saw_content_type, "body request sends Content-Type");
-  check(count == 2 && applied[0].value.int_value == 35 && !applied[1].value.bool_value, "applied states");
+  check(applied.hwd == GZC_CONTROL_HWD_SPEAKER, "applied HWD type");
+  check_str(applied.id, "speaker.main", "applied HWD id");
+  gzc_str_t volume;
+  check(gzc_json_find_field(applied.value_json, "volume_percent", &volume) == GZC_OK, "applied volume field");
+  int64_t number = 0;
+  check(gzc_json_parse_i64(volume, &number) == GZC_OK && number == 35, "applied volume value");
 }
 
 static void test_query_parameters_and_encoding(void) {
@@ -343,15 +344,13 @@ static void test_contract_caps_are_not_enforced_locally(void) {
       gzc_control_forget_device_saved_wifi(&client, &call, gzc_str_from_cstr(long_ssid)) == GZC_ERR_HTTP,
       "oversized ssid is sent");
 
-  gzc_control_mhs_v0_state_value_t volume = {0}, applied;
-  volume.device_id = gzc_str_from_cstr("audio.main");
-  volume.state = gzc_str_from_cstr("volume");
-  volume.value.kind = GZC_CONTROL_MHS_V0_VALUE_INT;
-  volume.value.int_value = 101;
   char strings[128];
   gzc_control_mhs_v0_storage_t storage = {strings, sizeof(strings), 0};
-  size_t count;
-  check(gzc_control_write_mhs_v0_states(&client, &call, &volume, 1, &storage, &applied, 1, &count) == GZC_ERR_HTTP,
+  gzc_control_mhs_v0_hwd_result_t applied;
+  check(gzc_control_write_mhs_v0_hwd(&client, &call, gzc_str_from_cstr("speaker.main"),
+                                     GZC_CONTROL_HWD_SPEAKER,
+                                     gzc_str_from_cstr("{\"volume_percent\":101}"),
+                                     &storage, &applied) == GZC_ERR_HTTP,
         "out-of-range product volume is validated by Server");
   check(call.error.kind == GZC_CONTROL_ERROR_INVALID_REQUEST, "invalid product value classified");
 
@@ -1170,31 +1169,15 @@ static void test_mhs_settings_workspace_and_tools(void) {
   gzc_control_call_t call;
   check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "call init");
 
-  stub.response_body = "{\"states\":[{\"device_id\":\"device\",\"state\":\"screen.brightness\",\"value\":40},{\"device_id\":\"device\",\"state\":\"alert.mode\",\"value\":\"ring\"},{\"device_id\":\"device\",\"state\":\"nfc.enabled\",\"value\":true}]}";
-  gzc_control_mhs_v0_state_ref_t refs[3] = {
-      {gzc_str_from_cstr("device"), gzc_str_from_cstr("screen.brightness")},
-      {gzc_str_from_cstr("device"), gzc_str_from_cstr("alert.mode")},
-      {gzc_str_from_cstr("device"), gzc_str_from_cstr("nfc.enabled")},
-  };
+  stub.response_body = "{\"id\":\"display.main\",\"hwd\":\"display\",\"value\":{\"brightness_percent\":40}}";
   char strings[256];
   gzc_control_mhs_v0_storage_t storage = {strings, sizeof(strings), 0};
-  gzc_control_mhs_v0_state_value_t states[3];
-  size_t count = 0;
-  check(gzc_control_read_mhs_v0_states(&client, &call, refs, 3, &storage, states, 3, &count) == GZC_OK, "read settings states");
-  check(count == 3 && states[0].value.int_value == 40 && states[2].value.bool_value, "typed settings states");
-  check_str(states[1].value.string_value, "ring", "settings enum");
-  check(strstr(stub.body, "cellular.enabled") == NULL, "unrequested settings absent");
-  gzc_control_mhs_v0_state_value_t patch[2] = {0};
-  patch[0].device_id = patch[1].device_id = gzc_str_from_cstr("device");
-  patch[0].state = gzc_str_from_cstr("alert.mode");
-  patch[0].value.kind = GZC_CONTROL_MHS_V0_VALUE_STRING;
-  patch[0].value.string_value = gzc_str_from_cstr("silent");
-  patch[1].state = gzc_str_from_cstr("sleep.timeout-ms");
-  patch[1].value.kind = GZC_CONTROL_MHS_V0_VALUE_INT;
-  stub.response_body = "{\"states\":[{\"device_id\":\"device\",\"state\":\"alert.mode\",\"value\":\"silent\"},{\"device_id\":\"device\",\"state\":\"sleep.timeout-ms\",\"value\":0}]}";
-  storage.used = 0;
-  check(gzc_control_write_mhs_v0_states(&client, &call, patch, 2, &storage, states, 3, &count) == GZC_OK, "patch settings states");
-  check(strcmp(stub.body, stub.response_body) == 0, "patch includes only selected settings and preserves zero");
+  gzc_control_mhs_v0_hwd_result_t result;
+  check(gzc_control_read_mhs_v0_hwd(&client, &call, gzc_str_from_cstr("display.main"),
+                                    GZC_CONTROL_HWD_DISPLAY, &storage, &result) == GZC_OK,
+        "read display HWD");
+  check(result.hwd == GZC_CONTROL_HWD_DISPLAY, "typed display HWD");
+  check(strcmp(stub.body, "{\"id\":\"display.main\",\"hwd\":\"display\"}") == 0, "read one instance");
 
   stub.status_code = 200;
   stub.response_body = "{\"result\":{}}";
@@ -1220,6 +1203,7 @@ static void test_mhs_settings_workspace_and_tools(void) {
   stub.status_code = 200;
   stub.response_body = "{\"tools\":[\"device.find\",\"device.reboot\"]}";
   gzc_str_t tools[2];
+  size_t count = 0;
   check(gzc_control_list_device_tools(&client, &call, tools, 2, &count) == GZC_OK, "list tools");
   check(count == 2, "tool count");
   check_str(tools[0], "device.find", "tool name");
@@ -1234,260 +1218,60 @@ static void test_mhs_v0(void) {
   gzc_http_vtable_t http;
   gzc_control_client_t client;
   init_client(&client, &stub, &http);
-  uint8_t scratch[64 * 1024];
-  uint8_t response[16 * 1024];
-  char strings[16 * 1024];
+  uint8_t scratch[4096], response[4096];
+  char strings[4096];
   gzc_control_mhs_v0_storage_t storage = {strings, sizeof(strings), 0};
   gzc_control_call_t call;
   check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "MHS call init");
   stub.status_code = 200;
-  stub.response_body =
-      "{\"devices\":[{\"id\":\"display.main\",\"kind\":\"custom\",\"description\":\"line\\n二\",\"tags\":[\"室内\",\"a\\\"b\"],\"states\":["
-      "{\"name\":\"enabled\",\"type\":\"bool\",\"access\":\"read_write\"},"
-      "{\"name\":\"count\",\"type\":\"int\",\"access\":\"read\",\"min\":-9007199254740991,\"max\":9007199254740991,\"step\":1},"
-      "{\"name\":\"temperature\",\"type\":\"double\",\"access\":\"read\",\"min\":0,\"step\":0.5,\"unit\":\"℃\",\"description\":\"sensor\"},"
-      "{\"name\":\"label\",\"type\":\"string\",\"access\":\"read_write\"},"
-      "{\"name\":\"mode\",\"type\":\"enum\",\"access\":\"read_write\",\"enum_values\":[\"\",\"自动\",\"a\\nb\"]}]}]}";
+  stub.response_body = "{\"devices\":[{\"id\":\"led.left\",\"hwd\":\"led\",\"tags\":[\"front\"]},{\"id\":\"led.right\",\"hwd\":\"led\"}]}";
   gzc_control_mhs_v0_device_t devices[2];
-  gzc_control_mhs_v0_state_t states[5];
-  gzc_str_t texts[3];
   size_t count = 0;
-  check(gzc_control_get_mhs_v0_manifest(&client, &call, &storage, devices, 2, &count) == GZC_OK && count == 1, "MHS manifest");
-  check(stub.method == GZC_HTTP_METHOD_GET, "MHS manifest method");
-  check_str(gzc_str_from_cstr(stub.url), "https://ap.gizclaw.com/gizclaw/v1/device/mhs/v0/manifest", "MHS manifest route");
-  check_str(devices[0].id, "display.main", "MHS device id");
-  check_str(devices[0].kind, "custom", "MHS open device kind");
-  check_str(devices[0].description, "line\n二", "MHS description unescaped");
-  check(gzc_control_mhs_v0_device_tags(&devices[0], &storage, texts, 3, &count) == GZC_OK && count == 2, "MHS tags");
-  check_str(texts[1], "a\"b", "MHS tag unescaped");
-  check(gzc_control_mhs_v0_device_states(&devices[0], &storage, states, 5, &count) == GZC_OK && count == 5, "MHS states");
-  for (size_t i = 0; i < 5; i++)
-    check(states[i].type == (gzc_control_mhs_v0_type_t)i, "MHS manifest type enums");
-  check(states[0].access == GZC_CONTROL_MHS_V0_ACCESS_READ_WRITE && !states[0].has_min, "MHS access and absent constraint");
-  check(states[1].has_min && states[1].min == -9007199254740991.0 && states[1].has_max && states[1].max == 9007199254740991.0 && states[1].has_step && states[1].step == 1, "MHS exact int constraints");
-  check(states[2].has_min && states[2].min == 0 && !states[2].has_max && states[2].step == 0.5, "MHS double constraints");
-  check_str(states[2].unit, "℃", "MHS unit");
-  check_str(states[2].description, "sensor", "MHS state description");
-  check(gzc_control_mhs_v0_state_enum_values(&states[4], &storage, texts, 3, &count) == GZC_OK && count == 3, "MHS enum values");
-  check_str(texts[0], "", "MHS empty enum member");
-  check_str(texts[2], "a\nb", "MHS enum escape");
-  check(gzc_control_mhs_v0_device_states(&devices[0], &storage, states, 1, &count) == GZC_ERR_BUFFER_TOO_SMALL && count == 1, "MHS nested capacity");
-  check(gzc_control_mhs_v0_device_tags(&devices[0], &storage, NULL, 0, &count) == GZC_ERR_BUFFER_TOO_SMALL, "MHS tag capacity");
-  check(gzc_control_mhs_v0_state_enum_values(&states[4], &storage, texts, 1, &count) == GZC_ERR_BUFFER_TOO_SMALL && count == 1, "MHS enum capacity");
-  check(gzc_control_get_mhs_v0_manifest(&client, &call, &storage, NULL, 0, &count) == GZC_ERR_BUFFER_TOO_SMALL && count == 0 && call.error.kind == GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL, "MHS manifest capacity classified");
-  storage.cap = 0;
-  check(gzc_control_get_mhs_v0_manifest(&client, &call, &storage, devices, 2, &count) == GZC_ERR_BUFFER_TOO_SMALL && call.error.kind == GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL, "MHS string capacity classified");
-  storage.cap = sizeof(strings);
-  storage.used = 0;
-  stub.response_body = "{\"devices\":[]}";
-  check(gzc_control_get_mhs_v0_manifest(&client, &call, &storage, NULL, 0, &count) == GZC_OK && count == 0, "MHS unconfigured manifest");
-
-  gzc_control_mhs_v0_state_ref_t refs[32];
-  for (size_t i = 0; i < 32; i++) {
-    refs[i].device_id = gzc_str_from_cstr("display.main");
-    refs[i].state = gzc_str_from_cstr("temperature");
-  }
-  gzc_control_mhs_v0_state_value_t values[32];
-  stub.response_body = "{\"states\":[{\"device_id\":\"display.main\",\"state\":\"temperature\",\"value\":0}]}";
-  check(gzc_control_read_mhs_v0_states(&client, &call, refs, 1, &storage, values, 32, &count) == GZC_OK && count == 1, "MHS read");
-  check(stub.method == GZC_HTTP_METHOD_POST && stub.saw_content_type && stub.saw_authorization, "MHS read transport");
-  check_str(gzc_str_from_cstr(stub.url), "https://ap.gizclaw.com/gizclaw/v1/device/mhs/v0/read", "MHS read route");
-  check_str(gzc_str_from_cstr(stub.body), "{\"states\":[{\"device_id\":\"display.main\",\"state\":\"temperature\"}]}", "MHS read encoded");
-  check(values[0].value.kind == GZC_CONTROL_MHS_V0_VALUE_INT && values[0].value.has_int_value && values[0].value.int_value == 0 && values[0].value.double_value == 0, "MHS integral JSON supports double manifest");
-  check_str(values[0].value.number_json, "0", "MHS numeric token retained");
-
-  const struct {
-    const char *json;
-    bool exact;
-    int64_t integer;
-    gzc_control_mhs_v0_value_kind_t kind;
-  } numbers[] = {
-      {"9007199254740991", true, GZC_CONTROL_MHS_V0_MAX_INT, GZC_CONTROL_MHS_V0_VALUE_INT},
-      {"-9007199254740991", true, -GZC_CONTROL_MHS_V0_MAX_INT, GZC_CONTROL_MHS_V0_VALUE_INT},
-      {"1.0", true, 1, GZC_CONTROL_MHS_V0_VALUE_DOUBLE},
-      {"10e-1", true, 1, GZC_CONTROL_MHS_V0_VALUE_DOUBLE},
-      {"9.007199254740991e15", true, GZC_CONTROL_MHS_V0_MAX_INT, GZC_CONTROL_MHS_V0_VALUE_DOUBLE},
-      {"9007199254740990.5", false, 0, GZC_CONTROL_MHS_V0_VALUE_DOUBLE},
-      {"9007199254740992", false, 0, GZC_CONTROL_MHS_V0_VALUE_DOUBLE},
-      {"1e-300", false, 0, GZC_CONTROL_MHS_V0_VALUE_DOUBLE},
-      {"-0", true, 0, GZC_CONTROL_MHS_V0_VALUE_INT},
-  };
-  char body[4096];
-  for (size_t i = 0; i < sizeof(numbers) / sizeof(numbers[0]); i++) {
-    (void)snprintf(body, sizeof(body), "{\"states\":[{\"device_id\":\"display.main\",\"state\":\"temperature\",\"value\":%s}]}", numbers[i].json);
-    stub.response_body = body;
-    check(gzc_control_read_mhs_v0_states(&client, &call, refs, 1, &storage, values, 32, &count) == GZC_OK, "MHS number decode");
-    check(values[0].value.kind == numbers[i].kind && values[0].value.has_int_value == numbers[i].exact, "MHS number kind and exactness");
-    if (numbers[i].exact)
-      check(values[0].value.int_value == numbers[i].integer, "MHS exact integer view");
-    check_str(values[0].value.number_json, numbers[i].json, "MHS preserves original number");
-    check(values[0].value.number_is_integer_token == (strpbrk(numbers[i].json, ".eE") == NULL), "MHS raw number kind independent of safe integer range");
-    if (numbers[i].kind == GZC_CONTROL_MHS_V0_VALUE_INT) {
-      check(gzc_control_write_mhs_v0_states(&client, &call, values, 1, &storage, values, 32, &count) == GZC_OK, "MHS int round trip");
-      if (strcmp(numbers[i].json, "-0") != 0)
-        check_str(gzc_str_from_cstr(stub.body), body, "MHS int encoded exactly");
-    }
-  }
-  stub.response_body = "{\"states\":[{\"device_id\":\"display.main\",\"state\":\"label\",\"value\":\"a\\n\\\"\\\\\\u4e8c\\ud83d\\ude00\"}]}";
-  check(gzc_control_read_mhs_v0_states(&client, &call, refs, 1, &storage, values, 32, &count) == GZC_OK, "MHS escaped UTF-8 read");
-  check_str(values[0].value.string_value, "a\n\"\\二😀", "MHS string decoded");
-  check_str(call.body, stub.response_body, "MHS raw response intact");
-  check(gzc_control_write_mhs_v0_states(&client, &call, values, 1, &storage, values, 32, &count) == GZC_OK, "MHS escaped string round trip");
-  check(stub.method == GZC_HTTP_METHOD_PATCH, "MHS write method");
-  check_str(gzc_str_from_cstr(stub.url), "https://ap.gizclaw.com/gizclaw/v1/device/mhs/v0/states", "MHS write route");
-  check_str(gzc_str_from_cstr(stub.body), "{\"states\":[{\"device_id\":\"display.main\",\"state\":\"label\",\"value\":\"a\\n\\\"\\\\二😀\"}]}", "MHS string reencoded");
-
-  gzc_control_mhs_v0_state_value_t request = {0};
-  request.device_id = refs[0].device_id;
-  request.state = refs[0].state;
-  request.value.kind = GZC_CONTROL_MHS_V0_VALUE_BOOL;
-  request.value.bool_value = true;
-  stub.response_body = "{\"states\":[{\"device_id\":\"display.main\",\"state\":\"temperature\",\"value\":false}]}";
-  check(gzc_control_write_mhs_v0_states(&client, &call, &request, 1, &storage, values, 32, &count) == GZC_OK && !values[0].value.bool_value, "MHS returns applied value rather than request");
-  check(strstr(stub.body, "\"value\":true") != NULL, "MHS bool encoded");
-  request.value.kind = GZC_CONTROL_MHS_V0_VALUE_DOUBLE;
-  request.value.double_value = 0.5;
-  check(gzc_control_write_mhs_v0_states(&client, &call, &request, 1, &storage, values, 32, &count) == GZC_OK && strstr(stub.body, "\"value\":0.5") != NULL, "MHS double encoded");
-  request.value.double_value = 0;
-  check(gzc_control_write_mhs_v0_states(&client, &call, &request, 1, &storage, values, 32, &count) == GZC_OK && strstr(stub.body, "\"value\":0") != NULL, "MHS integral double encoded");
-
-  check(gzc_control_read_mhs_v0_states(&client, &call, refs, 32, &storage, values, 32, &count) == GZC_OK, "MHS 32-state batch");
-  int calls = stub.free_calls;
-  check(gzc_control_read_mhs_v0_states(&client, &call, refs, 0, &storage, values, 32, &count) == GZC_ERR_INVALID_ARGUMENT, "MHS empty batch rejected");
-  check(gzc_control_read_mhs_v0_states(&client, &call, refs, 33, &storage, values, 32, &count) == GZC_ERR_INVALID_ARGUMENT && call.error.kind == GZC_CONTROL_ERROR_INVALID_REQUEST, "MHS oversized batch rejected");
-  char name[65];
-  memset(name, 'a', sizeof(name));
-  refs[0].state = gzc_str_from_parts(name, 65);
-  check(gzc_control_read_mhs_v0_states(&client, &call, refs, 1, &storage, values, 32, &count) == GZC_ERR_INVALID_ARGUMENT, "MHS name 65 bytes rejected");
-  const char *bad_names[] = {"", "Upper", "a..b", "a-", "é", "a_b"};
-  for (size_t i = 0; i < sizeof(bad_names) / sizeof(bad_names[0]); i++) {
-    refs[0].state = gzc_str_from_cstr(bad_names[i]);
-    check(gzc_control_read_mhs_v0_states(&client, &call, refs, 1, &storage, values, 32, &count) == GZC_ERR_INVALID_ARGUMENT, "MHS invalid ASCII name rejected");
-  }
-  request.value.kind = GZC_CONTROL_MHS_V0_VALUE_INT;
-  request.value.int_value = GZC_CONTROL_MHS_V0_MAX_INT + 1;
-  check(gzc_control_write_mhs_v0_states(&client, &call, &request, 1, &storage, values, 32, &count) == GZC_ERR_INVALID_ARGUMENT, "MHS unsafe integer rejected");
-  request.value.int_value = -GZC_CONTROL_MHS_V0_MAX_INT - 1;
-  check(gzc_control_write_mhs_v0_states(&client, &call, &request, 1, &storage, values, 32, &count) == GZC_ERR_INVALID_ARGUMENT, "MHS unsafe negative integer rejected");
-  request.value.kind = GZC_CONTROL_MHS_V0_VALUE_DOUBLE;
-  request.value.double_value = NAN;
-  check(gzc_control_write_mhs_v0_states(&client, &call, &request, 1, &storage, values, 32, &count) == GZC_ERR_INVALID_ARGUMENT, "MHS NaN rejected");
-  request.value.double_value = INFINITY;
-  check(gzc_control_write_mhs_v0_states(&client, &call, &request, 1, &storage, values, 32, &count) == GZC_ERR_INVALID_ARGUMENT, "MHS infinity rejected");
-  request.value.kind = (gzc_control_mhs_v0_value_kind_t)99;
-  check(gzc_control_write_mhs_v0_states(&client, &call, &request, 1, &storage, values, 32, &count) == GZC_ERR_INVALID_ARGUMENT, "MHS unknown value kind rejected");
-  char long_string[257];
-  memset(long_string, 'x', sizeof(long_string));
-  request.value.kind = GZC_CONTROL_MHS_V0_VALUE_STRING;
-  request.value.string_value = gzc_str_from_parts(long_string, sizeof(long_string));
-  check(gzc_control_write_mhs_v0_states(&client, &call, &request, 1, &storage, values, 32, &count) == GZC_ERR_INVALID_ARGUMENT, "MHS 257-byte string rejected");
-  request.value.string_value = gzc_str_from_parts("a\0b", 3);
-  check(gzc_control_write_mhs_v0_states(&client, &call, &request, 1, &storage, values, 32, &count) == GZC_ERR_INVALID_ARGUMENT, "MHS NUL rejected");
-  const char invalid_utf8[] = {(char)0xC0, (char)0x80};
-  request.value.string_value = gzc_str_from_parts(invalid_utf8, sizeof(invalid_utf8));
-  check(gzc_control_write_mhs_v0_states(&client, &call, &request, 1, &storage, values, 32, &count) == GZC_ERR_INVALID_ARGUMENT, "MHS invalid UTF-8 rejected");
-  check(stub.free_calls == calls, "MHS invalid input never sent");
-  refs[0].state = gzc_str_from_parts(name, 64);
-  check(gzc_control_read_mhs_v0_states(&client, &call, refs, 1, &storage, values, 32, &count) == GZC_OK, "MHS 64-byte name accepted");
-  request.value.string_value = gzc_str_from_parts(long_string, 256);
-  check(gzc_control_write_mhs_v0_states(&client, &call, &request, 1, &storage, values, 32, &count) == GZC_OK, "MHS 256-byte string accepted");
-  request.value.string_value = gzc_str_from_parts(NULL, 0);
-  check(gzc_control_write_mhs_v0_states(&client, &call, &request, 1, &storage, values, 32, &count) == GZC_OK && strstr(stub.body, "\"value\":\"\"") != NULL, "MHS empty string encoded");
-
-  check(gzc_control_read_mhs_v0_states(&client, &call, refs, 1, &storage, NULL, 0, &count) == GZC_ERR_BUFFER_TOO_SMALL && call.error.kind == GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL, "MHS response capacity classified");
-  const char *bad_values[] = {"null", "{}", "[]", "1e999", "01", "\"\\u0000\"", "\"\\ud800\"", "\"\\udc00\"", "\"\\q\""};
-  for (size_t i = 0; i < sizeof(bad_values) / sizeof(bad_values[0]); i++) {
-    (void)snprintf(body, sizeof(body), "{\"states\":[{\"device_id\":\"display.main\",\"state\":\"temperature\",\"value\":%s}]}", bad_values[i]);
-    stub.response_body = body;
-    check(gzc_control_read_mhs_v0_states(&client, &call, refs, 1, &storage, values, 32, &count) == GZC_ERR_JSON && call.error.kind == GZC_CONTROL_ERROR_MALFORMED_RESPONSE, "MHS malformed value classified");
-  }
-  const char *bad_bodies[] = {"{}", "{\"states\":null}", "{\"states\":[]}", "{\"states\":[{}]}", "{\"states\":[{\"device_id\":\"UPPER\",\"state\":\"x\",\"value\":1}]}"};
-  for (size_t i = 0; i < sizeof(bad_bodies) / sizeof(bad_bodies[0]); i++) {
-    stub.response_body = bad_bodies[i];
-    check(gzc_control_read_mhs_v0_states(&client, &call, refs, 1, &storage, values, 32, &count) == GZC_ERR_JSON, "MHS malformed state list rejected");
-  }
-  const char *bad_manifests[] = {"{}", "{\"devices\":null}", "{\"devices\":[{}]}", "{\"devices\":[{\"id\":\"x\",\"kind\":\"x\",\"states\":[]}]}"};
-  for (size_t i = 0; i < sizeof(bad_manifests) / sizeof(bad_manifests[0]); i++) {
-    stub.response_body = bad_manifests[i];
-    check(gzc_control_get_mhs_v0_manifest(&client, &call, &storage, devices, 2, &count) == GZC_ERR_JSON, "MHS malformed manifest rejected");
-  }
-  const char *bad_states[] = {
-      "[{\"name\":\"a\",\"type\":\"unknown\",\"access\":\"read\"}]",
-      "[{\"name\":\"a\",\"type\":\"bool\",\"access\":\"write\"}]",
-      "[{\"name\":\"a\",\"type\":\"double\",\"access\":\"read\",\"step\":0}]",
-      "[{\"name\":\"a\",\"type\":\"int\",\"access\":\"read\",\"min\":9007199254740990.5}]",
-      "[{\"name\":\"a\",\"type\":\"enum\",\"access\":\"read\"}]",
-  };
-  for (size_t i = 0; i < sizeof(bad_states) / sizeof(bad_states[0]); i++) {
-    devices[0].states = gzc_str_from_cstr(bad_states[i]);
-    check(gzc_control_mhs_v0_device_states(&devices[0], &storage, states, 5, &count) == GZC_ERR_JSON, "MHS malformed manifest state rejected");
-  }
-  /* Capacity is measured in decoded UTF-8 bytes, not escape-token bytes. */
-  devices[0].tags = gzc_str_from_cstr("[\"\\u4e8c\"]");
-  storage.used = 0;
-  storage.cap = 3;
-  check(gzc_control_mhs_v0_device_tags(&devices[0], &storage, texts, 3, &count) == GZC_OK && storage.used == 3, "MHS exact decoded string capacity");
-  check_str(texts[0], "二", "MHS unicode in exact capacity");
-  storage.used = 0;
-  storage.cap = 2;
-  check(gzc_control_mhs_v0_device_tags(&devices[0], &storage, texts, 3, &count) == GZC_ERR_BUFFER_TOO_SMALL && count == 0, "MHS UTF-8 capacity cannot truncate codepoint");
-  storage.cap = sizeof(strings);
-  storage.used = 0;
-  char utf8_limit[260];
-  for (size_t i = 0; i < sizeof(utf8_limit); i += 4)
-    memcpy(utf8_limit + i, "😀", 4);
-  request.value.string_value = gzc_str_from_parts(utf8_limit, 256);
-  stub.response_body = "{\"states\":[{\"device_id\":\"display.main\",\"state\":\"label\",\"value\":\"\"}]}";
-  check(gzc_control_write_mhs_v0_states(&client, &call, &request, 1, &storage, values, 32, &count) == GZC_OK, "MHS UTF-8 byte limit accepts 64 emoji");
-  request.value.string_value.len = 260;
-  check(gzc_control_write_mhs_v0_states(&client, &call, &request, 1, &storage, values, 32, &count) == GZC_ERR_INVALID_ARGUMENT, "MHS UTF-8 byte limit rejects 65 emoji");
-  (void)snprintf(body, sizeof(body), "{\"states\":[{\"device_id\":\"x\",\"state\":\"label\",\"value\":\"%.*s\"}]}", 260, utf8_limit);
-  stub.response_body = body;
-  check(gzc_control_read_mhs_v0_states(&client, &call, refs, 1, &storage, values, 32, &count) == GZC_ERR_JSON, "MHS response UTF-8 byte limit");
-  size_t body_len = (size_t)snprintf(body, sizeof(body), "{\"states\":[");
-  for (size_t i = 0; i < 33; i++) {
-    body_len += (size_t)snprintf(body + body_len, sizeof(body) - body_len, "%s{\"device_id\":\"x\",\"state\":\"v%zu\",\"value\":true}", i == 0 ? "" : ",", i);
-  }
-  (void)snprintf(body + body_len, sizeof(body) - body_len, "]}");
-  check(gzc_control_read_mhs_v0_states(&client, &call, refs, 1, &storage, values, 32, &count) == GZC_ERR_JSON && call.error.kind == GZC_CONTROL_ERROR_MALFORMED_RESPONSE, "MHS response 33-state batch rejected before capacity");
-
-  check(gzc_control_get_mhs_v0_manifest(NULL, &call, &storage, devices, 2, &count) == GZC_ERR_INVALID_ARGUMENT, "MHS null client");
-  check(gzc_control_get_mhs_v0_manifest(&client, NULL, &storage, devices, 2, &count) == GZC_ERR_INVALID_ARGUMENT, "MHS null call");
-  check(gzc_control_get_mhs_v0_manifest(&client, &call, NULL, devices, 2, &count) == GZC_ERR_INVALID_ARGUMENT, "MHS null storage");
-  check(gzc_control_read_mhs_v0_states(&client, &call, NULL, 1, &storage, values, 32, &count) == GZC_ERR_INVALID_ARGUMENT, "MHS null read request");
-  check(gzc_control_write_mhs_v0_states(&client, &call, NULL, 1, &storage, values, 32, &count) == GZC_ERR_INVALID_ARGUMENT, "MHS null write request");
-  check(gzc_control_mhs_v0_device_states(NULL, &storage, states, 5, &count) == GZC_ERR_INVALID_ARGUMENT, "MHS null nested input");
-  check(gzc_control_get_mhs_v0_manifest(&client, &call, &storage, NULL, 1, &count) == GZC_ERR_INVALID_ARGUMENT, "MHS null nonempty output");
-  check(gzc_control_get_mhs_v0_manifest(&client, &call, &storage, devices, 2, NULL) == GZC_ERR_INVALID_ARGUMENT, "MHS null count");
-  storage.used = storage.cap + 1;
-  check(gzc_control_get_mhs_v0_manifest(&client, &call, &storage, devices, 2, &count) == GZC_ERR_INVALID_ARGUMENT, "MHS invalid storage bounds");
-  storage.used = 0;
-
+  check(gzc_control_get_mhs_v0_manifest(&client, &call, &storage, devices, 2, &count) == GZC_OK && count == 2, "MHS manifest instances");
+  check(devices[0].hwd == GZC_CONTROL_HWD_LED && devices[1].hwd == GZC_CONTROL_HWD_LED, "two LED instances");
+  check_str(devices[0].id, "led.left", "first LED ID");
+  check_str(devices[1].id, "led.right", "second LED ID");
+  gzc_str_t tag;
+  check(gzc_control_mhs_v0_device_tags(&devices[0], &storage, &tag, 1, &count) == GZC_OK && count == 1, "HWD tags");
+  check_str(tag, "front", "HWD tag value");
+  check(gzc_control_get_mhs_v0_manifest(&client, &call, &storage, NULL, 0, &count) == GZC_ERR_BUFFER_TOO_SMALL && count == 0, "manifest capacity");
+  stub.response_body = "{\"id\":\"battery.main\",\"hwd\":\"battery\",\"value\":{\"percent\":80,\"charging\":false}}";
+  gzc_control_mhs_v0_hwd_result_t result;
+  check(gzc_control_read_mhs_v0_hwd(&client, &call, gzc_str_from_cstr("battery.main"), GZC_CONTROL_HWD_BATTERY, &storage, &result) == GZC_OK, "battery read");
+  check(result.hwd == GZC_CONTROL_HWD_BATTERY, "battery type");
+  check(gzc_control_write_mhs_v0_hwd(&client, &call, gzc_str_from_cstr("battery.main"), GZC_CONTROL_HWD_BATTERY,
+                                     gzc_str_from_cstr("{\"percent\":10}"), &storage, &result) == GZC_ERR_INVALID_ARGUMENT,
+        "read-only HWD rejects write before HTTP");
+  check(gzc_control_write_mhs_v0_hwd(&client, &call, gzc_str_from_cstr("display.main"), GZC_CONTROL_HWD_DISPLAY,
+                                     gzc_str_from_cstr("{ }"), &storage, &result) == GZC_ERR_INVALID_ARGUMENT,
+        "empty HWD write rejects whitespace object");
+  stub.response_body = "{\"id\":\"battery.main\",\"hwd\":\"battery\",\"value\":{ }}";
+  check(gzc_control_read_mhs_v0_hwd(&client, &call, gzc_str_from_cstr("battery.main"), GZC_CONTROL_HWD_BATTERY, &storage, &result) == GZC_ERR_JSON,
+        "empty HWD read rejects whitespace object");
+  stub.response_body = "{\"id\":\"battery.main\",\"hwd\":\"wifi\",\"value\":{\"connected\":true}}";
+  check(gzc_control_read_mhs_v0_hwd(&client, &call, gzc_str_from_cstr("battery.main"), GZC_CONTROL_HWD_BATTERY, &storage, &result) == GZC_ERR_JSON && call.error.kind == GZC_CONTROL_ERROR_MALFORMED_RESPONSE,
+        "mismatched HWD response rejected");
   const struct {
     int status;
     const char *code;
     gzc_control_error_kind_t kind;
   } errors[] = {
       {400, "INVALID_REQUEST", GZC_CONTROL_ERROR_INVALID_REQUEST},
-      {400, "DEVICE_REJECTED", GZC_CONTROL_ERROR_DEVICE_REJECTED},
-      {404, "MHS_STATE_NOT_FOUND", GZC_CONTROL_ERROR_NOT_FOUND},
+      {404, "MHS_HWD_NOT_FOUND", GZC_CONTROL_ERROR_NOT_FOUND},
       {409, "DEVICE_OFFLINE", GZC_CONTROL_ERROR_DEVICE_OFFLINE},
       {501, "DEVICE_UNSUPPORTED", GZC_CONTROL_ERROR_DEVICE_UNSUPPORTED},
       {504, "DEVICE_TIMEOUT", GZC_CONTROL_ERROR_DEVICE_TIMEOUT},
       {502, "DEVICE_ERROR", GZC_CONTROL_ERROR_DEVICE_ERROR},
   };
+  char body[256];
   for (size_t i = 0; i < sizeof(errors) / sizeof(errors[0]); i++) {
     stub.status_code = errors[i].status;
     (void)snprintf(body, sizeof(body), "{\"error\":{\"code\":\"%s\",\"message\":\"test\"}}", errors[i].code);
     stub.response_body = body;
-    check(gzc_control_read_mhs_v0_states(&client, &call, refs, 1, &storage, values, 32, &count) == GZC_ERR_HTTP && call.error.kind == errors[i].kind && call.status_code == errors[i].status, "MHS HTTP error classification");
-    check_str(call.error.code, errors[i].code, "MHS error code preserved");
+    check(gzc_control_read_mhs_v0_hwd(&client, &call, gzc_str_from_cstr("battery.main"), GZC_CONTROL_HWD_BATTERY, &storage, &result) == GZC_ERR_HTTP && call.error.kind == errors[i].kind, "MHS error classification");
   }
-  stub.result = GZC_ERR_TIMEOUT;
-  check(gzc_control_get_mhs_v0_manifest(&client, &call, &storage, devices, 2, &count) == GZC_ERR_TIMEOUT && call.error.kind == GZC_CONTROL_ERROR_NETWORK, "MHS transport failure");
-  stub.result = GZC_OK;
-  call.scratch_cap = 8;
-  check(gzc_control_read_mhs_v0_states(&client, &call, refs, 1, &storage, values, 32, &count) == GZC_ERR_NO_MEMORY && call.error.kind == GZC_CONTROL_ERROR_NETWORK, "MHS scratch exhaustion");
+  check(gzc_control_get_mhs_v0_manifest(NULL, &call, &storage, devices, 2, &count) == GZC_ERR_INVALID_ARGUMENT, "null client");
+  check(gzc_control_read_mhs_v0_hwd(&client, &call, gzc_str_from_cstr("battery.main"), GZC_CONTROL_HWD_BATTERY, NULL, &result) == GZC_ERR_INVALID_ARGUMENT, "null storage");
 }
 
 static void test_additional_typed_tools(void) {

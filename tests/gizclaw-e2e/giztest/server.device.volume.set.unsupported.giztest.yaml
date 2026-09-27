@@ -45,22 +45,14 @@ steps:
   - id: primary_http
     client: peer
     http:
-      method: PATCH
-      path: /gizclaw/v1/device/mhs/v0/states
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/write
       headers:
         Authorization: Bearer ${api_key}
-      body:
-        states:
-          - device_id: speaker.main
-            state: volume
-            value: 35
-          - device_id: speaker.main
-            state: muted
-            value: false
+      body: {id: speaker.main, hwd: speaker, value: {volume_percent: 35, muted: false}}
       status: 501
     expect:
-      /error/code:
-        equals: DEVICE_UNSUPPORTED
+      /error/code: {equals: DEVICE_UNSUPPORTED}
 finally:
   - id: cleanup_peer
     client: peer

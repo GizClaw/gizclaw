@@ -1065,6 +1065,17 @@ bool gzc_control_mhs_v0_name_valid(gzc_str_t name) {
   return !separator;
 }
 
+bool gzc_control_mhs_v0_object_nonempty(gzc_str_t object) {
+  if (gzc_json_validate_object(object) != GZC_OK)
+    return false;
+  for (size_t i = 1; i + 1 < object.len; i++) {
+    char c = object.data[i];
+    if (c != ' ' && c != '\t' && c != '\n' && c != '\r')
+      return true;
+  }
+  return false;
+}
+
 /* Strict UTF-8, excluding NUL. The bound is applied separately to values. */
 static bool mhs_utf8_valid(gzc_str_t text) {
   if (text.data == NULL && text.len != 0) {
@@ -1112,10 +1123,6 @@ static bool mhs_utf8_valid(gzc_str_t text) {
   return true;
 }
 
-bool gzc_control_mhs_v0_string_valid(gzc_str_t value) {
-  return value.len <= GZC_CONTROL_MHS_V0_MAX_STRING_BYTES && mhs_utf8_valid(value);
-}
-
 static int mhs_string(gzc_str_t raw, gzc_control_mhs_v0_storage_t *storage, gzc_str_t *out) {
   if (raw.data == NULL || raw.len < 2) {
     return GZC_ERR_JSON;
@@ -1150,109 +1157,6 @@ static int mhs_field_string(
     return required ? rc : GZC_OK;
   }
   return mhs_string(raw, storage, out);
-}
-
-/* Validate exact decimal integrality before converting: strtod can round a
- * fraction next to 2^53 to an integer, so casting its result is not sufficient.
- * raw has already passed JSON validation and the shared f64 codec's size cap. */
-static bool mhs_exact_int(gzc_str_t raw, int64_t *out) {
-  char digits[128];
-  size_t n = 0;
-  size_t i = raw.data[0] == '-' ? 1 : 0;
-  bool negative = i != 0;
-  bool fraction = false;
-  int scale = 0;
-  for (; i < raw.len && raw.data[i] != 'e' && raw.data[i] != 'E'; i++) {
-    if (raw.data[i] == '.') {
-      fraction = true;
-      continue;
-    }
-    digits[n++] = raw.data[i];
-    if (fraction) {
-      scale--;
-    }
-  }
-  if (i < raw.len) {
-    i++;
-    bool exponent_negative = raw.data[i] == '-';
-    if (raw.data[i] == '-' || raw.data[i] == '+') {
-      i++;
-    }
-    int exponent = 0;
-    for (; i < raw.len; i++) {
-      if (exponent < 1000) {
-        exponent = exponent * 10 + raw.data[i] - '0';
-      }
-    }
-    scale += exponent_negative ? -exponent : exponent;
-  }
-  size_t first = 0;
-  while (first < n && digits[first] == '0') {
-    first++;
-  }
-  if (first == n) {
-    *out = 0;
-    return true;
-  }
-  while (scale < 0 && n > first && digits[n - 1] == '0') {
-    n--;
-    scale++;
-  }
-  if (scale < 0 || scale > 16 || n - first + (size_t)scale > 16) {
-    return false;
-  }
-  int64_t value = 0;
-  for (i = first; i < n; i++) {
-    value = value * 10 + digits[i] - '0';
-  }
-  while (scale-- > 0) {
-    value *= 10;
-  }
-  if (value > GZC_CONTROL_MHS_V0_MAX_INT) {
-    return false;
-  }
-  *out = negative ? -value : value;
-  return true;
-}
-
-static int mhs_value(gzc_str_t raw, gzc_control_mhs_v0_storage_t *storage, gzc_control_mhs_v0_value_t *out) {
-  memset(out, 0, sizeof(*out));
-  if (raw.data == NULL || raw.len == 0) {
-    return GZC_ERR_JSON;
-  }
-  if (raw.data[0] == '"') {
-    out->kind = GZC_CONTROL_MHS_V0_VALUE_STRING;
-    int rc = mhs_string(raw, storage, &out->string_value);
-    if (rc == GZC_OK && !gzc_control_mhs_v0_string_valid(out->string_value)) {
-      rc = GZC_ERR_JSON;
-    }
-    return rc;
-  }
-  if (raw.data[0] == 't' || raw.data[0] == 'f') {
-    out->kind = GZC_CONTROL_MHS_V0_VALUE_BOOL;
-    return gzc_json_parse_bool(raw, &out->bool_value);
-  }
-  size_t first = raw.data[0] == '-' ? 1 : 0;
-  if (first >= raw.len || raw.data[first] < '0' || raw.data[first] > '9' ||
-      (raw.data[first] == '0' && first + 1 < raw.len && raw.data[first + 1] >= '0' && raw.data[first + 1] <= '9')) {
-    return GZC_ERR_JSON;
-  }
-  int rc = gzc_json_parse_f64(raw, &out->double_value);
-  if (rc != GZC_OK) {
-    return rc;
-  }
-  if (!isfinite(out->double_value)) {
-    return GZC_ERR_JSON;
-  }
-  out->kind = GZC_CONTROL_MHS_V0_VALUE_DOUBLE;
-  out->number_json = raw;
-  out->has_int_value = mhs_exact_int(raw, &out->int_value);
-  out->number_is_integer_token = memchr(raw.data, '.', raw.len) == NULL &&
-                                 memchr(raw.data, 'e', raw.len) == NULL && memchr(raw.data, 'E', raw.len) == NULL;
-  if (out->has_int_value && out->number_is_integer_token) {
-    out->kind = GZC_CONTROL_MHS_V0_VALUE_INT;
-  }
-  return GZC_OK;
 }
 
 typedef int (*mhs_decode_fn)(gzc_str_t raw, gzc_control_mhs_v0_storage_t *storage, void *out);
@@ -1313,6 +1217,22 @@ static int mhs_array_field(gzc_str_t object, const char *name, bool required, gz
   return gzc_json_array_iter_init(*out, &iter);
 }
 
+static bool mhs_hwd_from_name(gzc_str_t name, gzc_control_mhs_v0_hwd_t *out) {
+  static const char *names[] = {NULL, "wifi", "ble", "modem", "battery", "mic", "display", "led", "speaker"};
+  for (size_t i = 1; i < sizeof(names) / sizeof(names[0]); i++) {
+    if (gzc_control_str_eq_cstr(name, names[i])) {
+      *out = (gzc_control_mhs_v0_hwd_t)i;
+      return true;
+    }
+  }
+  return false;
+}
+
+const char *gzc_control_mhs_v0_hwd_name(gzc_control_mhs_v0_hwd_t hwd) {
+  static const char *names[] = {NULL, "wifi", "ble", "modem", "battery", "mic", "display", "led", "speaker"};
+  return hwd >= GZC_CONTROL_HWD_WIFI && hwd <= GZC_CONTROL_HWD_SPEAKER ? names[hwd] : NULL;
+}
+
 static int mhs_device(gzc_str_t object, gzc_control_mhs_v0_storage_t *storage, void *out) {
   gzc_control_mhs_v0_device_t *device = out;
   memset(device, 0, sizeof(*device));
@@ -1321,138 +1241,20 @@ static int mhs_device(gzc_str_t object, gzc_control_mhs_v0_storage_t *storage, v
     rc = mhs_field_string(object, "id", true, storage, &device->id);
   if (rc == GZC_OK && !gzc_control_mhs_v0_name_valid(device->id))
     rc = GZC_ERR_JSON;
+  gzc_str_t hwd = {0};
   if (rc == GZC_OK)
-    rc = mhs_field_string(object, "kind", true, storage, &device->kind);
-  if (rc == GZC_OK && device->kind.len == 0)
+    rc = mhs_field_string(object, "hwd", true, storage, &hwd);
+  if (rc == GZC_OK && !mhs_hwd_from_name(hwd, &device->hwd))
     rc = GZC_ERR_JSON;
   if (rc == GZC_OK)
     rc = mhs_field_string(object, "description", false, storage, &device->description);
   if (rc == GZC_OK)
     rc = mhs_array_field(object, "tags", false, &device->tags);
-  if (rc == GZC_OK)
-    rc = mhs_array_field(object, "states", true, &device->states);
-  if (rc == GZC_OK) {
-    gzc_json_array_iter_t iter;
-    gzc_str_t first;
-    bool present = false;
-    rc = gzc_json_array_iter_init(device->states, &iter);
-    if (rc == GZC_OK)
-      rc = gzc_json_array_iter_next(&iter, &first, &present);
-    if (rc == GZC_OK && !present)
-      rc = GZC_ERR_JSON;
-  }
-  return rc;
-}
-
-static int mhs_constraint(gzc_str_t object, const char *name, bool integer, bool *present, double *out) {
-  gzc_str_t raw;
-  int rc = gzc_json_find_field(object, name, &raw);
-  if (rc != GZC_OK)
-    return GZC_OK;
-  gzc_control_mhs_v0_value_t value;
-  gzc_control_mhs_v0_storage_t storage = {0};
-  rc = mhs_value(raw, &storage, &value);
-  if (rc != GZC_OK)
-    return rc;
-  if ((value.kind != GZC_CONTROL_MHS_V0_VALUE_INT && value.kind != GZC_CONTROL_MHS_V0_VALUE_DOUBLE) ||
-      (integer && !value.has_int_value))
-    return GZC_ERR_JSON;
-  *present = true;
-  *out = value.double_value;
-  return GZC_OK;
-}
-
-static int mhs_state(gzc_str_t object, gzc_control_mhs_v0_storage_t *storage, void *out) {
-  gzc_control_mhs_v0_state_t *state = out;
-  memset(state, 0, sizeof(*state));
-  int rc = gzc_json_validate_object(object);
-  if (rc == GZC_OK)
-    rc = mhs_field_string(object, "name", true, storage, &state->name);
-  if (rc == GZC_OK && !gzc_control_mhs_v0_name_valid(state->name))
-    rc = GZC_ERR_JSON;
-  gzc_str_t type = {0};
-  gzc_str_t access = {0};
-  if (rc == GZC_OK)
-    rc = mhs_field_string(object, "type", true, storage, &type);
-  if (rc == GZC_OK) {
-    if (gzc_control_str_eq_cstr(type, "bool"))
-      state->type = GZC_CONTROL_MHS_V0_TYPE_BOOL;
-    else if (gzc_control_str_eq_cstr(type, "int"))
-      state->type = GZC_CONTROL_MHS_V0_TYPE_INT;
-    else if (gzc_control_str_eq_cstr(type, "double"))
-      state->type = GZC_CONTROL_MHS_V0_TYPE_DOUBLE;
-    else if (gzc_control_str_eq_cstr(type, "string"))
-      state->type = GZC_CONTROL_MHS_V0_TYPE_STRING;
-    else if (gzc_control_str_eq_cstr(type, "enum"))
-      state->type = GZC_CONTROL_MHS_V0_TYPE_ENUM;
-    else
-      rc = GZC_ERR_JSON;
-  }
-  if (rc == GZC_OK)
-    rc = mhs_field_string(object, "access", true, storage, &access);
-  if (rc == GZC_OK) {
-    if (gzc_control_str_eq_cstr(access, "read"))
-      state->access = GZC_CONTROL_MHS_V0_ACCESS_READ;
-    else if (gzc_control_str_eq_cstr(access, "read_write"))
-      state->access = GZC_CONTROL_MHS_V0_ACCESS_READ_WRITE;
-    else
-      rc = GZC_ERR_JSON;
-  }
-  bool integer = state->type == GZC_CONTROL_MHS_V0_TYPE_INT;
-  if (rc == GZC_OK)
-    rc = mhs_constraint(object, "min", integer, &state->has_min, &state->min);
-  if (rc == GZC_OK)
-    rc = mhs_constraint(object, "max", integer, &state->has_max, &state->max);
-  if (rc == GZC_OK)
-    rc = mhs_constraint(object, "step", integer, &state->has_step, &state->step);
-  if (rc == GZC_OK && ((!integer && state->type != GZC_CONTROL_MHS_V0_TYPE_DOUBLE && (state->has_min || state->has_max || state->has_step)) ||
-                       (state->has_min && state->has_max && state->min > state->max) || (state->has_step && state->step <= 0)))
-    rc = GZC_ERR_JSON;
-  if (rc == GZC_OK)
-    rc = mhs_array_field(object, "enum_values", state->type == GZC_CONTROL_MHS_V0_TYPE_ENUM, &state->enum_values);
-  if (rc == GZC_OK && state->enum_values.len != 0 && state->type != GZC_CONTROL_MHS_V0_TYPE_ENUM)
-    rc = GZC_ERR_JSON;
-  if (rc == GZC_OK)
-    rc = mhs_field_string(object, "unit", false, storage, &state->unit);
-  if (rc == GZC_OK)
-    rc = mhs_field_string(object, "description", false, storage, &state->description);
   return rc;
 }
 
 static int mhs_string_item(gzc_str_t raw, gzc_control_mhs_v0_storage_t *storage, void *out) {
   return mhs_string(raw, storage, out);
-}
-
-static int mhs_enum_item(gzc_str_t raw, gzc_control_mhs_v0_storage_t *storage, void *out) {
-  int rc = mhs_string(raw, storage, out);
-  return rc == GZC_OK && !gzc_control_mhs_v0_string_valid(*(gzc_str_t *)out) ? GZC_ERR_JSON : rc;
-}
-
-static int mhs_ref(gzc_str_t object, gzc_control_mhs_v0_storage_t *storage, void *out) {
-  gzc_control_mhs_v0_state_ref_t *ref = out;
-  memset(ref, 0, sizeof(*ref));
-  int rc = gzc_json_validate_object(object);
-  if (rc == GZC_OK)
-    rc = mhs_field_string(object, "device_id", true, storage, &ref->device_id);
-  if (rc == GZC_OK)
-    rc = mhs_field_string(object, "state", true, storage, &ref->state);
-  if (rc == GZC_OK && (!gzc_control_mhs_v0_name_valid(ref->device_id) || !gzc_control_mhs_v0_name_valid(ref->state)))
-    rc = GZC_ERR_JSON;
-  return rc;
-}
-
-static int mhs_state_value(gzc_str_t object, gzc_control_mhs_v0_storage_t *storage, void *out) {
-  gzc_control_mhs_v0_state_value_t *value = out;
-  memset(value, 0, sizeof(*value));
-  gzc_control_mhs_v0_state_ref_t ref;
-  int rc = mhs_ref(object, storage, &ref);
-  if (rc != GZC_OK)
-    return rc;
-  value->device_id = ref.device_id;
-  value->state = ref.state;
-  gzc_str_t raw;
-  rc = gzc_json_find_field(object, "value", &raw);
-  return rc == GZC_OK ? mhs_value(raw, storage, &value->value) : rc;
 }
 
 int gzc_control_mhs_v0_decode_devices(
@@ -1465,34 +1267,6 @@ int gzc_control_mhs_v0_decode_devices(
   return rc == GZC_OK ? mhs_array(raw, storage, out, sizeof(*out), cap, count, 0, SIZE_MAX, mhs_device) : rc;
 }
 
-int gzc_control_mhs_v0_decode_states(
-    gzc_str_t object, gzc_control_mhs_v0_storage_t *storage,
-    gzc_control_mhs_v0_state_value_t *out, size_t cap, size_t *count) {
-  gzc_str_t raw;
-  int rc = gzc_json_validate_object(object);
-  if (rc == GZC_OK)
-    rc = mhs_array_field(object, "states", true, &raw);
-  return rc == GZC_OK ? mhs_array(raw, storage, out, sizeof(*out), cap, count, 1, GZC_CONTROL_MHS_V0_MAX_BATCH, mhs_state_value) : rc;
-}
-
-int gzc_control_mhs_v0_decode_refs(
-    gzc_str_t object, gzc_control_mhs_v0_storage_t *storage,
-    gzc_control_mhs_v0_state_ref_t *out, size_t cap, size_t *count) {
-  gzc_str_t raw;
-  int rc = gzc_json_validate_object(object);
-  if (rc == GZC_OK)
-    rc = mhs_array_field(object, "states", true, &raw);
-  return rc == GZC_OK ? mhs_array(raw, storage, out, sizeof(*out), cap, count, 1, GZC_CONTROL_MHS_V0_MAX_BATCH, mhs_ref) : rc;
-}
-
-int gzc_control_mhs_v0_device_states(
-    const gzc_control_mhs_v0_device_t *device, gzc_control_mhs_v0_storage_t *storage,
-    gzc_control_mhs_v0_state_t *out, size_t cap, size_t *out_count) {
-  if (device == NULL)
-    return GZC_ERR_INVALID_ARGUMENT;
-  return mhs_array(device->states, storage, out, sizeof(*out), cap, out_count, 1, SIZE_MAX, mhs_state);
-}
-
 int gzc_control_mhs_v0_device_tags(
     const gzc_control_mhs_v0_device_t *device, gzc_control_mhs_v0_storage_t *storage,
     gzc_str_t *out, size_t cap, size_t *out_count) {
@@ -1501,11 +1275,25 @@ int gzc_control_mhs_v0_device_tags(
   return mhs_array(device->tags, storage, out, sizeof(*out), cap, out_count, 0, SIZE_MAX, mhs_string_item);
 }
 
-int gzc_control_mhs_v0_state_enum_values(
-    const gzc_control_mhs_v0_state_t *state, gzc_control_mhs_v0_storage_t *storage,
-    gzc_str_t *out, size_t cap, size_t *out_count) {
-  if (state == NULL)
+int gzc_control_mhs_v0_decode_result(
+    gzc_str_t object, gzc_control_mhs_v0_storage_t *storage,
+    gzc_control_mhs_v0_hwd_result_t *out) {
+  if (!gzc_control_mhs_v0_storage_valid(storage) || out == NULL)
     return GZC_ERR_INVALID_ARGUMENT;
-  return mhs_array(state->enum_values, storage, out, sizeof(*out), cap, out_count,
-                   state->type == GZC_CONTROL_MHS_V0_TYPE_ENUM ? 1 : 0, SIZE_MAX, mhs_enum_item);
+  memset(out, 0, sizeof(*out));
+  int rc = gzc_json_validate_object(object);
+  if (rc == GZC_OK)
+    rc = mhs_field_string(object, "id", true, storage, &out->id);
+  if (rc == GZC_OK && !gzc_control_mhs_v0_name_valid(out->id))
+    rc = GZC_ERR_JSON;
+  gzc_str_t hwd = {0};
+  if (rc == GZC_OK)
+    rc = mhs_field_string(object, "hwd", true, storage, &hwd);
+  if (rc == GZC_OK && !mhs_hwd_from_name(hwd, &out->hwd))
+    rc = GZC_ERR_JSON;
+  if (rc == GZC_OK)
+    rc = gzc_json_find_field(object, "value", &out->value_json);
+  if (rc == GZC_OK && !gzc_control_mhs_v0_object_nonempty(out->value_json))
+    rc = GZC_ERR_JSON;
+  return rc;
 }

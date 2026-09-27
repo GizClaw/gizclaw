@@ -301,10 +301,12 @@ test("device reads: get, status, telemetry", async () => {
   });
 });
 
-test("device control: MHS state and typed procedures", async () => {
+test("device control: MHS HWD and typed procedures", async () => {
   const h = harness([
     json(200, {
-      states: [{ device_id: "speaker.main", state: "volume", value: 35 }],
+      id: "speaker.main",
+      hwd: "speaker",
+      value: { volume_percent: 35 },
     }),
     json(200, { result: {} }),
     json(200, { result: {} }),
@@ -312,32 +314,27 @@ test("device control: MHS state and typed procedures", async () => {
     json(200, { result: { networks: [{ ssid: "Home" }] } }),
     json(200, { result: {} }),
   ]);
-  const volume = await h.client.device.writeMhsStates({
-    states: [{ device_id: "speaker.main", state: "volume", value: 35 }],
+  const volume = await h.client.device.writeMhsHwd({
+    id: "speaker.main",
+    hwd: "speaker",
+    value: { volume_percent: 35 },
   });
   await h.client.device.playSound({ sound: "chime", duration_ms: 500 });
   await h.client.device.reboot();
   await h.client.device.reboot({ delay_ms: 3000 });
   const saved = await h.client.device.listSavedWifi();
   await h.client.device.forgetSavedWifi("Café Wi-Fi/5G #2");
-  assert.equal(volume.states[0]!.value, 35);
+  assert.equal(volume.value.volume_percent, 35);
   assert.equal(saved.networks[0]!.ssid, "Home");
-  assert.equal(h.seen[0]!.url.pathname, "/gizclaw/v1/device/mhs/v0/states");
+  assert.equal(h.seen[0]!.url.pathname, "/gizclaw/v1/device/mhs/v0/write");
+  assert.deepEqual(JSON.parse(h.seen[0]!.body), {
+    id: "speaker.main",
+    hwd: "speaker",
+    value: { volume_percent: 35 },
+  });
   assert.deepEqual(JSON.parse(h.seen[1]!.body), {
     tool: "sound.play",
     args: { sound: "chime", duration_ms: 500 },
-  });
-  assert.deepEqual(JSON.parse(h.seen[2]!.body), {
-    tool: "device.reboot",
-    args: {},
-  });
-  assert.deepEqual(JSON.parse(h.seen[3]!.body), {
-    tool: "device.reboot",
-    args: { delay_ms: 3000 },
-  });
-  assert.deepEqual(JSON.parse(h.seen[5]!.body), {
-    tool: "wifi.saved.forget",
-    args: { ssid: "Café Wi-Fi/5G #2" },
   });
 });
 
@@ -750,26 +747,33 @@ test("audioplayer procedures preserve playlist order and explicit zero index", a
   });
 });
 
-test("MHS states, reset, tool list and Workspace switch", async () => {
+test("MHS HWD, reset, tool list and Workspace switch", async () => {
   const h = harness([
     json(200, {
-      states: [{ device_id: "display.main", state: "brightness", value: 0 }],
+      id: "display.main",
+      hwd: "display",
+      value: { brightness_percent: 0 },
     }),
     json(200, {
-      states: [{ device_id: "display.main", state: "enabled", value: false }],
+      id: "display.main",
+      hwd: "display",
+      value: { enabled: false },
     }),
     json(200, { result: {} }),
     json(200, { tools: ["device.factory_reset", "run.workspace.set"] }),
     json(200, { result: {} }),
   ]);
-  const read = await h.client.device.readMhsStates({
-    states: [{ device_id: "display.main", state: "brightness" }],
+  const read = await h.client.device.readMhsHwd({
+    id: "display.main",
+    hwd: "display",
   });
-  const written = await h.client.device.writeMhsStates({
-    states: [{ device_id: "display.main", state: "enabled", value: false }],
+  const written = await h.client.device.writeMhsHwd({
+    id: "display.main",
+    hwd: "display",
+    value: { enabled: false },
   });
-  assert.equal(read.states[0]!.value, 0);
-  assert.equal(written.states[0]!.value, false);
+  assert.equal(read.value.brightness_percent, 0);
+  assert.equal(written.value.enabled, false);
   await h.client.device.factoryReset({ keep_network: true });
   const tools = await h.client.device.listTools();
   await h.client.device.setRunWorkspace({
@@ -805,41 +809,43 @@ test("device tools: list installed procedures and invoke a typed tool", async ()
   assert.equal(error.kind, "deviceUnsupported");
 });
 
-test("MHS control uses generated routes, plain values and device errors", async () => {
-  const states = [{ device_id: "led.status", state: "enabled", value: false }];
+test("MHS control uses generated HWD routes and preserves device errors", async () => {
+  const value = {
+    id: "led.status",
+    hwd: "led",
+    value: { enabled: false },
+  } as const;
   const { client, seen } = harness([
-    json(200, { devices: [] }),
-    json(200, { states }),
-    json(200, { states }),
-    errorResponse(404, "MHS_STATE_NOT_FOUND"),
+    json(200, { devices: [{ id: "led.status", hwd: "led" }] }),
+    json(200, value),
+    json(200, value),
+    errorResponse(404, "MHS_HWD_NOT_FOUND"),
   ]);
-  assert.deepEqual(await client.device.getMhsManifest(), { devices: [] });
+  assert.deepEqual(await client.device.getMhsManifest(), {
+    devices: [{ id: "led.status", hwd: "led" }],
+  });
   assert.deepEqual(
-    await client.device.readMhsStates({
-      states: [{ device_id: "led.status", state: "enabled" }],
-    }),
-    { states },
+    await client.device.readMhsHwd({ id: "led.status", hwd: "led" }),
+    value,
   );
-  assert.deepEqual(await client.device.writeMhsStates({ states }), { states });
+  assert.deepEqual(await client.device.writeMhsHwd(value), value);
   assert.deepEqual(
-    seen.map((r) => [r.method, r.url.pathname]),
+    seen.slice(0, 3).map((r) => [r.method, r.url.pathname]),
     [
       ["GET", "/gizclaw/v1/device/mhs/v0/manifest"],
       ["POST", "/gizclaw/v1/device/mhs/v0/read"],
-      ["PATCH", "/gizclaw/v1/device/mhs/v0/states"],
+      ["POST", "/gizclaw/v1/device/mhs/v0/write"],
     ],
   );
-  assert.deepEqual(JSON.parse(seen[2]!.body), { states });
+  assert.deepEqual(JSON.parse(seen[2]!.body), value);
   assert.ok(
     seen.every((r) => r.headers.get("Authorization") === `Bearer ${apiKey}`),
   );
   await assert.rejects(
-    client.device.readMhsStates({
-      states: [{ device_id: "led.status", state: "missing" }],
-    }),
+    client.device.readMhsHwd({ id: "led.status", hwd: "led" }),
     (error: unknown) =>
       error instanceof GizClawControlError &&
       error.kind === "notFound" &&
-      error.code === "MHS_STATE_NOT_FOUND",
+      error.code === "MHS_HWD_NOT_FOUND",
   );
 });

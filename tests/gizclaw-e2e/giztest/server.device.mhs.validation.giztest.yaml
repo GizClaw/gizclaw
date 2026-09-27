@@ -1,7 +1,7 @@
 # User Story:
-# As a GizClaw API key holder controlling hardware through MHS v0,
-# I want invalid reads and writes to be rejected by the Server before any device RPC,
-# So that the Public HTTP MHS contract is verified end to end.
+# As a GizClaw API key holder,
+# I want to exercise server.device.mhs.validation through MHS v0,
+# So that the HWD contract is verified on real transports.
 version: gizclaw.test/v1alpha1
 name: server.device.mhs.validation
 clients:
@@ -42,169 +42,138 @@ steps:
       display_name: "${resource_name}"
   capture:
     api_key: /api_key
-- id: manifest
-  client: peer
-  http:
-    method: GET
-    path: /gizclaw/v1/device/mhs/v0/manifest
-    headers:
-      Authorization: "Bearer ${api_key}"
-    status: 200
-  expect:
-    /devices/3/id: {equals: speaker.main}
-    /devices/3/states/0/type: {equals: enum}
-    /devices/3/states/0/enum_values/1: {equals: night}
-    /devices/3/states/1/step: {equals: 0.25}
-- id: unknown_device
-  client: peer
-  http:
-    method: PATCH
-    path: /gizclaw/v1/device/mhs/v0/states
-    headers:
-      Authorization: "Bearer ${api_key}"
-    body: {states: [{device_id: fan.main, state: speed, value: 1}]}
-    status: 400
-  expect:
-    /error/code: {equals: INVALID_REQUEST}
-- id: unknown_state
+- id: unknown_instance
   client: peer
   http:
     method: POST
     path: /gizclaw/v1/device/mhs/v0/read
     headers:
       Authorization: "Bearer ${api_key}"
-    body: {states: [{device_id: display.main, state: contrast}]}
+    body: {id: fan.main, hwd: display}
     status: 400
   expect:
     /error/code: {equals: INVALID_REQUEST}
-- id: read_only
+- id: wrong_hwd
   client: peer
   http:
-    method: PATCH
-    path: /gizclaw/v1/device/mhs/v0/states
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/read
     headers:
       Authorization: "Bearer ${api_key}"
-    body: {states: [{device_id: battery.main, state: level, value: 50}]}
+    body: {id: display.main, hwd: battery}
     status: 400
   expect:
     /error/code: {equals: INVALID_REQUEST}
-- id: int_as_string
+- id: unknown_hwd
   client: peer
   http:
-    method: PATCH
-    path: /gizclaw/v1/device/mhs/v0/states
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/read
     headers:
       Authorization: "Bearer ${api_key}"
-    body: {states: [{device_id: display.main, state: brightness, value: "50"}]}
+    body: {id: display.main, hwd: device}
     status: 400
   expect:
     /error/code: {equals: INVALID_REQUEST}
-- id: int_fraction
+- id: read_only_wifi
   client: peer
   http:
-    method: PATCH
-    path: /gizclaw/v1/device/mhs/v0/states
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/write
     headers:
       Authorization: "Bearer ${api_key}"
-    body: {states: [{device_id: display.main, state: brightness, value: 1.5}]}
+    body: {id: wifi.main, hwd: wifi, value: {}}
     status: 400
   expect:
     /error/code: {equals: INVALID_REQUEST}
-- id: above_max
+- id: read_only_ble
   client: peer
   http:
-    method: PATCH
-    path: /gizclaw/v1/device/mhs/v0/states
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/write
     headers:
       Authorization: "Bearer ${api_key}"
-    body: {states: [{device_id: display.main, state: brightness, value: 105}]}
+    body: {id: ble.main, hwd: ble, value: {}}
     status: 400
   expect:
     /error/code: {equals: INVALID_REQUEST}
-- id: off_grid
+- id: read_only_modem
   client: peer
   http:
-    method: PATCH
-    path: /gizclaw/v1/device/mhs/v0/states
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/write
     headers:
       Authorization: "Bearer ${api_key}"
-    body: {states: [{device_id: display.main, state: brightness, value: 52}]}
+    body: {id: modem.main, hwd: modem, value: {}}
     status: 400
   expect:
     /error/code: {equals: INVALID_REQUEST}
-- id: bool_as_number
+- id: read_only_battery
   client: peer
   http:
-    method: PATCH
-    path: /gizclaw/v1/device/mhs/v0/states
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/write
     headers:
       Authorization: "Bearer ${api_key}"
-    body: {states: [{device_id: led.status, state: enabled, value: 1}]}
+    body: {id: battery.main, hwd: battery, value: {}}
     status: 400
   expect:
     /error/code: {equals: INVALID_REQUEST}
-- id: enum_unlisted
+- id: read_only_mic
   client: peer
   http:
-    method: PATCH
-    path: /gizclaw/v1/device/mhs/v0/states
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/write
     headers:
       Authorization: "Bearer ${api_key}"
-    body: {states: [{device_id: speaker.main, state: mode, value: loud}]}
+    body: {id: mic.main, hwd: mic, value: {}}
     status: 400
   expect:
     /error/code: {equals: INVALID_REQUEST}
-- id: double_off_grid
+- id: empty_display_write
   client: peer
   http:
-    method: PATCH
-    path: /gizclaw/v1/device/mhs/v0/states
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/write
     headers:
       Authorization: "Bearer ${api_key}"
-    body: {states: [{device_id: speaker.main, state: gain, value: 0.3}]}
+    body: {id: display.main, hwd: display, value: {}}
     status: 400
   expect:
     /error/code: {equals: INVALID_REQUEST}
-- id: double_below_min
+- id: display_over_max
   client: peer
   http:
-    method: PATCH
-    path: /gizclaw/v1/device/mhs/v0/states
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/write
     headers:
       Authorization: "Bearer ${api_key}"
-    body: {states: [{device_id: speaker.main, state: gain, value: -0.25}]}
+    body: {id: display.main, hwd: display, value: {brightness_percent: 101}}
     status: 400
   expect:
     /error/code: {equals: INVALID_REQUEST}
-- id: mixed_batch
+- id: led_wrong_type
   client: peer
   http:
-    method: PATCH
-    path: /gizclaw/v1/device/mhs/v0/states
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/write
     headers:
       Authorization: "Bearer ${api_key}"
-    body: {states: [{device_id: speaker.main, state: mode, value: night}, {device_id: display.main, state: brightness, value: 101}]}
+    body: {id: led.status, hwd: led, value: {brightness_percent: "50"}}
     status: 400
   expect:
     /error/code: {equals: INVALID_REQUEST}
-- id: valid_write
+- id: speaker_unknown_field
   client: peer
   http:
-    method: PATCH
-    path: /gizclaw/v1/device/mhs/v0/states
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/write
     headers:
       Authorization: "Bearer ${api_key}"
-    body: {states: [{device_id: speaker.main, state: mode, value: night}, {device_id: speaker.main, state: gain, value: 0.75}]}
-    status: 200
+    body: {id: speaker.main, hwd: speaker, value: {gain: 0.5}}
+    status: 400
   expect:
-    /states/0/value: {equals: night}
-    /states/1/value: {equals: 0.75}
-- id: provider_write
-  client: peer
-  client_rpc:
-    method: client.mhs.v0.write
-    response: {states: [{device_id: speaker.main, state: mode, value: {string_value: night}}, {device_id: speaker.main, state: gain, value: {double_value: 0.75}}]}
-    expect_calls: 1
+    /error/code: {equals: INVALID_REQUEST}
 finally:
 - id: cleanup_peer
   client: peer

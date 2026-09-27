@@ -34,7 +34,7 @@ primitives.
 WebRTC bridge maps HTTP requests to GizClaw RPC methods; it is not an arbitrary
 HTTP proxy.
 
-`serveGiznetWebRTCRPC(pc, handlers)` answers the Server's device RPCs. `GizClawPeerRPCHandlers` installs `mhs/v0` state handlers and predefined `ClientTool` procedures. `client.rpc.methods.list` advertises supported protocol families and `client.tool.v0.list` reports only installed procedures. An uninstalled tool answers `METHOD_NOT_FOUND`, which the Server maps to `501 DEVICE_UNSUPPORTED`. Handlers may throw `GizClawDeviceControlError` for a specific RPC status. The `peerRPCHandlers` connect option installs handlers before signaling.
+`serveGiznetWebRTCRPC(pc, handlers)` answers the Server's device RPCs. `GizClawPeerRPCHandlers` installs `mhs/v0` HWD handlers and predefined `ClientTool` procedures. `client.rpc.methods.list` advertises supported protocol families and `client.tool.v0.list` reports only installed procedures. An uninstalled tool answers `METHOD_NOT_FOUND`, which the Server maps to `501 DEVICE_UNSUPPORTED`. Handlers may throw `GizClawDeviceControlError` for a specific RPC status. The `peerRPCHandlers` connect option installs handlers before signaling.
 
 ## `@gizclaw/gizclaw-control`
 

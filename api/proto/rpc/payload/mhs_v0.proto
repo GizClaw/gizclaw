@@ -1,0 +1,132 @@
+// GizClaw-owned MHS v0 hardware device definitions (HWDs).
+syntax = "proto3";
+package gizclaw.rpc.v1;
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
+
+// An HWD identifies the shape of one hardware instance, not its instance ID.
+// A RuntimeProfile manifest lists the instances present on a product. Read-only
+// HWDs have no write messages. The message names are the source for SDK codecs.
+message ClientHwdOptions {
+  string name = 1;
+  string read_response = 2;
+  string write_request = 3;
+  string write_response = 4;
+}
+
+extend google.protobuf.EnumValueOptions {
+  ClientHwdOptions client_hwd = 51002;
+}
+
+enum ClientHwd {
+  CLIENT_HWD_UNSPECIFIED = 0;
+  CLIENT_HWD_WIFI = 1 [(client_hwd) = { name: "wifi" read_response: "WifiHwdReadResponse" }];
+  CLIENT_HWD_BLE = 2 [(client_hwd) = { name: "ble" read_response: "BleHwdReadResponse" }];
+  CLIENT_HWD_MODEM = 3 [(client_hwd) = { name: "modem" read_response: "ModemHwdReadResponse" }];
+  CLIENT_HWD_BATTERY = 4 [(client_hwd) = { name: "battery" read_response: "BatteryHwdReadResponse" }];
+  CLIENT_HWD_MIC = 5 [(client_hwd) = { name: "mic" read_response: "MicHwdReadResponse" }];
+  CLIENT_HWD_DISPLAY = 6 [(client_hwd) = { name: "display" read_response: "DisplayHwdReadResponse" write_request: "DisplayHwdWriteRequest" write_response: "DisplayHwdWriteResponse" }];
+  CLIENT_HWD_LED = 7 [(client_hwd) = { name: "led" read_response: "LedHwdReadResponse" write_request: "LedHwdWriteRequest" write_response: "LedHwdWriteResponse" }];
+  CLIENT_HWD_SPEAKER = 8 [(client_hwd) = { name: "speaker" read_response: "SpeakerHwdReadResponse" write_request: "SpeakerHwdWriteRequest" write_response: "SpeakerHwdWriteResponse" }];
+}
+
+// The Server checks the ID against the bound manifest and verifies the HWD
+// before forwarding. A device returns NOT_FOUND when the physical instance is
+// absent, even if the RuntimeProfile advertises it. Failures use RpcStatus.
+message ClientMhsV0ReadRequest {
+  string id = 1;
+  ClientHwd hwd = 2;
+}
+
+message ClientMhsV0ReadResponse {
+  bytes payload = 1; // Encoded read_response message declared by hwd.
+}
+
+message ClientMhsV0WriteRequest {
+  string id = 1;
+  ClientHwd hwd = 2;
+  bytes payload = 3; // Encoded write_request message declared by hwd.
+}
+
+message ClientMhsV0WriteResponse {
+  bytes payload = 1; // Encoded write_response message declared by hwd.
+}
+
+// Read-only HWDs. Optional fields distinguish a measured zero or false from
+// an observation unavailable on this hardware revision.
+message WifiHwdReadResponse {
+  optional bool connected = 1;
+  optional string ssid = 2;
+  optional string bssid = 3;
+  optional int32 rssi_dbm = 4;
+  optional string ip = 5;
+}
+
+message BleHwdReadResponse {
+  optional bool powered = 1;
+  optional bool advertising = 2;
+  optional bool scanning = 3;
+  optional uint32 connection_count = 4;
+}
+
+message ModemHwdReadResponse {
+  optional bool sim_present = 1;
+  optional bool registered = 2;
+  optional string rat = 3;
+  optional int32 rssi_dbm = 4;
+  optional uint32 signal_level = 5;
+}
+
+message BatteryHwdReadResponse {
+  optional double percent = 1;
+  optional bool charging = 2;
+  optional double voltage_mv = 3;
+}
+
+message MicHwdReadResponse {
+  optional bool available = 1;
+  optional bool capturing = 2;
+}
+
+// Write requests update the present fields only. An empty request is invalid.
+// Drivers enforce physical safety limits and return the values actually in
+// effect. A timeout does not prove a write was not applied; re-read the HWD.
+message DisplayHwdReadResponse {
+  optional uint32 brightness_percent = 1;
+  optional bool enabled = 2;
+  optional uint32 off_timeout_ms = 3;
+}
+message DisplayHwdWriteRequest {
+  optional uint32 brightness_percent = 1;
+  optional bool enabled = 2;
+  optional uint32 off_timeout_ms = 3;
+}
+message DisplayHwdWriteResponse {
+  DisplayHwdReadResponse applied = 1;
+}
+
+message LedHwdReadResponse {
+  optional bool enabled = 1;
+  optional uint32 brightness_percent = 2;
+}
+message LedHwdWriteRequest {
+  optional bool enabled = 1;
+  optional uint32 brightness_percent = 2;
+}
+message LedHwdWriteResponse {
+  LedHwdReadResponse applied = 1;
+}
+
+message SpeakerHwdReadResponse {
+  optional uint32 volume_percent = 1;
+  optional bool muted = 2;
+}
+message SpeakerHwdWriteRequest {
+  optional uint32 volume_percent = 1;
+  optional bool muted = 2;
+}
+message SpeakerHwdWriteResponse {
+  SpeakerHwdReadResponse applied = 1;
+}

@@ -82,4 +82,4 @@ Deprecation provides migration guidance without changing callability or the wire
 - Handwritten SDKs: use a separate `// Deprecated:` paragraph in Go, `@deprecated` JSDoc in JS/TS and `@Deprecated('...')` in Dart. C uses only `Deprecated:` documentation comments, without compiler attributes, to keep `-Werror` callers and bridges compatible.
 - Internal compatibility paths, tests and giztest bridges continue using the old APIs. If a lint fires, add a reasoned suppression only at the affected call; do not weaken global gates or remove old tests.
 
-See the [MHS v0 migration table](./overview#mhs-v0-migration) for field mappings, replacement routes and retirement conditions.
+See the [MHS v0 HWD design](./overview#mhs-v0-hwd) for instance and read/write contracts.

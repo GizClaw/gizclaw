@@ -178,7 +178,7 @@ func (c *rpcClient) SetRunWorkspace(ctx context.Context, conn net.Conn, id strin
 	return result, nil
 }
 
-func (c *rpcClient) ReadMhsStates(ctx context.Context, conn net.Conn, id string, request *rpcpb.ClientMhsV0ReadRequest) (*rpcpb.ClientMhsV0ReadResponse, error) {
+func (c *rpcClient) ReadMhsHwd(ctx context.Context, conn net.Conn, id string, request *rpcpb.ClientMhsV0ReadRequest) (*rpcpb.ClientMhsV0ReadResponse, error) {
 	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromClientMhsV0ReadRequest)
 	if err != nil {
 		return nil, err
@@ -190,7 +190,7 @@ func (c *rpcClient) ReadMhsStates(ctx context.Context, conn net.Conn, id string,
 	return *result, nil
 }
 
-func (c *rpcClient) WriteMhsStates(ctx context.Context, conn net.Conn, id string, request *rpcpb.ClientMhsV0WriteRequest) (*rpcpb.ClientMhsV0WriteResponse, error) {
+func (c *rpcClient) WriteMhsHwd(ctx context.Context, conn net.Conn, id string, request *rpcpb.ClientMhsV0WriteRequest) (*rpcpb.ClientMhsV0WriteResponse, error) {
 	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromClientMhsV0WriteRequest)
 	if err != nil {
 		return nil, err

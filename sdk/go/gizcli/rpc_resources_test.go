@@ -741,8 +741,8 @@ func TestPeerHTTPClientDeviceAndContactOperations(t *testing.T) {
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/gizclaw/v1/device/status":
 			_, _ = w.Write([]byte(`{"volume":35,"muted":true,"battery_percent":80}`))
-		case r.Method == http.MethodPatch && r.URL.Path == "/gizclaw/v1/device/mhs/v0/states":
-			_, _ = w.Write([]byte(`{"states":[{"device_id":"speaker.main","state":"volume","value":35},{"device_id":"speaker.main","state":"muted","value":true}]}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/gizclaw/v1/device/mhs/v0/write":
+			_, _ = w.Write([]byte(`{"id":"speaker.main","hwd":"speaker","value":{"volume_percent":35,"muted":true}}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/gizclaw/v1/device/tool/v0/invoke":
 			var body struct {
 				Tool string         `json:"tool"`
@@ -794,13 +794,16 @@ func TestPeerHTTPClientDeviceAndContactOperations(t *testing.T) {
 	if err != nil || status.JSON200 == nil || status.JSON200.Volume == nil || *status.JSON200.Volume != 35 || !*status.JSON200.Muted {
 		t.Fatalf("GetDeviceStatus = %+v, %v", status, err)
 	}
-	var volumeBody peerhttp.WriteMhsStatesJSONRequestBody
-	if err := json.Unmarshal([]byte(`{"states":[{"device_id":"speaker.main","state":"volume","value":35},{"device_id":"speaker.main","state":"muted","value":true}]}`), &volumeBody); err != nil {
+	var volumeBody peerhttp.WriteMhsHwdJSONRequestBody
+	if err := json.Unmarshal([]byte(`{"id":"speaker.main","hwd":"speaker","value":{"volume_percent":35,"muted":true}}`), &volumeBody); err != nil {
 		t.Fatal(err)
 	}
-	volume, err := client.WriteMhsStatesWithResponse(ctx, volumeBody)
-	if err != nil || volume.JSON200 == nil || len(volume.JSON200.States) != 2 {
+	volume, err := client.WriteMhsHwdWithResponse(ctx, volumeBody)
+	if err != nil || volume.JSON200 == nil {
 		t.Fatalf("MHS write %v %v", volume, err)
+	}
+	if result, err := volume.JSON200.AsMhsV0SpeakerReadResult(); err != nil || result.Value.VolumePercent == nil || *result.Value.VolumePercent != 35 {
+		t.Fatalf("MHS typed write %v %v", result, err)
 	}
 	for _, body := range []string{`{"tool":"sound.play","args":{"sound":"chime"}}`, `{"tool":"wifi.saved.list","args":{}}`, `{"tool":"wifi.saved.forget","args":{"ssid":"home"}}`} {
 		var invoke peerhttp.InvokeClientToolJSONRequestBody
@@ -834,7 +837,7 @@ func TestPeerHTTPClientDeviceAndContactOperations(t *testing.T) {
 
 	want := []call{
 		{http.MethodGet, "/gizclaw/v1/device/status", ""},
-		{http.MethodPatch, "/gizclaw/v1/device/mhs/v0/states", `{"states":[{"device_id":"speaker.main","state":"volume","value":35},{"device_id":"speaker.main","state":"muted","value":true}]}`},
+		{http.MethodPost, "/gizclaw/v1/device/mhs/v0/write", `{"id":"speaker.main","hwd":"speaker","value":{"volume_percent":35,"muted":true}}`},
 		{http.MethodPost, "/gizclaw/v1/device/tool/v0/invoke", `{"tool":"sound.play","args":{"sound":"chime"}}`},
 		{http.MethodPost, "/gizclaw/v1/device/tool/v0/invoke", `{"tool":"wifi.saved.list","args":{}}`},
 		{http.MethodPost, "/gizclaw/v1/device/tool/v0/invoke", `{"tool":"wifi.saved.forget","args":{"ssid":"home"}}`},

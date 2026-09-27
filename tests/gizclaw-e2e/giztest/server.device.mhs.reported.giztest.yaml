@@ -1,7 +1,7 @@
 # User Story:
-# As a GizClaw API key holder controlling hardware through MHS v0,
-# I want values the device reports outside min/max or off the step grid to pass through unchanged,
-# So that the Public HTTP MHS contract is verified end to end.
+# As a GizClaw API key holder,
+# I want to exercise server.device.mhs.reported through MHS v0,
+# So that the HWD contract is verified on real transports.
 version: gizclaw.test/v1alpha1
 name: server.device.mhs.reported
 clients:
@@ -42,24 +42,46 @@ steps:
       display_name: "${resource_name}"
   capture:
     api_key: /api_key
-- id: read_reported
+- id: manifest
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/mhs/v0/manifest
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  expect:
+    /devices/3/id: {equals: battery.main}
+    /devices/3/hwd: {equals: battery}
+- id: read_battery
   client: peer
   http:
     method: POST
     path: /gizclaw/v1/device/mhs/v0/read
     headers:
       Authorization: "Bearer ${api_key}"
-    body: {states: [{device_id: display.main, state: brightness}, {device_id: battery.main, state: level}, {device_id: speaker.main, state: gain}]}
+    body: {id: battery.main, hwd: battery}
     status: 200
   expect:
-    /states/0/value: {equals: 37}
-    /states/1/value: {equals: 120}
-    /states/2/value: {equals: 0.3}
+    /id: {equals: battery.main}
+    /hwd: {equals: battery}
+    /value/percent: {equals: 120}
+- id: reject_battery_write
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/write
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {id: battery.main, hwd: battery, value: {}}
+    status: 400
+  expect:
+    /error/code: {equals: INVALID_REQUEST}
 - id: provider_read
   client: peer
   client_rpc:
     method: client.mhs.v0.read
-    response: {states: [{device_id: display.main, state: brightness, value: {int_value: 37}}, {device_id: battery.main, state: level, value: {int_value: 120}}, {device_id: speaker.main, state: gain, value: {double_value: 0.3}}]}
+    response: {payload: CQAAAAAAAF5AEAEZAAAAAAAUrkA=}
     expect_calls: 1
 finally:
 - id: cleanup_peer

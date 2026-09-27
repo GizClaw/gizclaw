@@ -1,0 +1,18 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: RuntimeProfile
+metadata:
+  id: e2e-giztest
+spec:
+  mhs:
+    v0:
+      devices:
+      - {id: display.main, hwd: display}
+      - {id: led.status, hwd: led}
+      - {id: led.secondary, hwd: led}
+      - {id: battery.main, hwd: battery}
+      - {id: speaker.main, hwd: speaker}
+      - {id: wifi.main, hwd: wifi}
+      - {id: ble.main, hwd: ble}
+      - {id: modem.main, hwd: modem}
+      - {id: mic.main, hwd: mic}

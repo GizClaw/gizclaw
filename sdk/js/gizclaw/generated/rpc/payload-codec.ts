@@ -25,6 +25,7 @@ type EnumDesc = {
 
 export type ASTTranslateMode = "" | "s2s" | "s2t" | "unspecified" | number;
 export type ASTTranslateWorkspaceParametersAgentType = "" | "ast-translate" | "unspecified" | number;
+export type ClientHwd = "" | "battery" | "ble" | "display" | "led" | "mic" | "modem" | "speaker" | "unspecified" | "wifi" | number;
 export type ClientTool = number;
 export type ConversationParametersAgentInitiativePolicy = "" | "on_reload" | "once_when_empty" | "unspecified" | number;
 export type ConversationParametersInitiative = "" | "agent" | "peer" | "unspecified" | number;
@@ -154,6 +155,17 @@ export type AudioPlayerStatus = {
   "error_message"?: string;
   "observed_at_unix_ms": number;
 };
+export type BatteryHwdReadResponse = {
+  "percent"?: number;
+  "charging"?: boolean;
+  "voltage_mv"?: number;
+};
+export type BleHwdReadResponse = {
+  "powered"?: boolean;
+  "advertising"?: boolean;
+  "scanning"?: boolean;
+  "connection_count"?: number;
+};
 export type ClientDeviceAudioPlayerGetRequest = Record<string, never>;
 export type ClientDeviceAudioPlayerGetResponse = AudioPlayerStatus;
 export type ClientDeviceAudioPlayerModeSetRequest = {
@@ -207,17 +219,26 @@ export type ClientGetIdentifiersRequest = Record<string, never>;
 export type ClientGetIdentifiersResponse = DeviceIdentifiers;
 export type ClientGetInfoRequest = Record<string, never>;
 export type ClientGetInfoResponse = HardwareInfo;
+export type ClientHwdOptions = {
+  "name": string;
+  "read_response": string;
+  "write_request": string;
+  "write_response": string;
+};
 export type ClientMhsV0ReadRequest = {
-  "states": MhsStateRef[];
+  "id": string;
+  "hwd": ClientHwd;
 };
 export type ClientMhsV0ReadResponse = {
-  "states": MhsStateValue[];
+  "payload": string;
 };
 export type ClientMhsV0WriteRequest = {
-  "states": MhsStateValue[];
+  "id": string;
+  "hwd": ClientHwd;
+  "payload": string;
 };
 export type ClientMhsV0WriteResponse = {
-  "states": MhsStateValue[];
+  "payload": string;
 };
 export type ClientRpcMethodsListRequest = Record<string, never>;
 export type ClientRpcMethodsListResponse = {
@@ -381,6 +402,19 @@ export type DeviceInfo = {
 export type DeviceProfile = {
   "name"?: string;
   "emoji"?: string;
+};
+export type DisplayHwdReadResponse = {
+  "brightness_percent"?: number;
+  "enabled"?: boolean;
+  "off_timeout_ms"?: number;
+};
+export type DisplayHwdWriteRequest = {
+  "brightness_percent"?: number;
+  "enabled"?: boolean;
+  "off_timeout_ms"?: number;
+};
+export type DisplayHwdWriteResponse = {
+  "applied": DisplayHwdReadResponse;
 };
 export type DoubaoRealtimeAIGCMetadata = {
   "content_producer"?: string;
@@ -763,16 +797,21 @@ export type Icon = {
   "pixa"?: string;
   "png"?: string;
 };
-export type MhsStateRef = {
-  "device_id": string;
-  "state": string;
+export type LedHwdReadResponse = {
+  "enabled"?: boolean;
+  "brightness_percent"?: number;
 };
-export type MhsStateValue = {
-  "device_id": string;
-  "state": string;
-  "value": MhsValue;
+export type LedHwdWriteRequest = {
+  "enabled"?: boolean;
+  "brightness_percent"?: number;
 };
-export type MhsValue = { "bool_value": boolean; "int_value"?: never; "double_value"?: never; "string_value"?: never } | { "bool_value"?: never; "int_value": number; "double_value"?: never; "string_value"?: never } | { "bool_value"?: never; "int_value"?: never; "double_value": number; "string_value"?: never } | { "bool_value"?: never; "int_value"?: never; "double_value"?: never; "string_value": string };
+export type LedHwdWriteResponse = {
+  "applied": LedHwdReadResponse;
+};
+export type MicHwdReadResponse = {
+  "available"?: boolean;
+  "capturing"?: boolean;
+};
 export type MiniMaxTenantModelProviderData = {
   "upstream_model": string;
   "api_mode": string;
@@ -817,6 +856,13 @@ export type ModelListResponse = {
   "next_cursor"?: string;
   "runtime_profile_name": string;
   "runtime_profile_revision": string;
+};
+export type ModemHwdReadResponse = {
+  "sim_present"?: boolean;
+  "registered"?: boolean;
+  "rat"?: string;
+  "rssi_dbm"?: number;
+  "signal_level"?: number;
 };
 export type OpenAITenantModelProviderData = {
   "upstream_model"?: string;
@@ -1129,6 +1175,17 @@ export type ServerSetRunWorkspaceRequest = AgentSelection;
 export type ServerSetRunWorkspaceResponse = PeerRunWorkspaceState;
 export type ServerStopRunRequest = Record<string, never>;
 export type ServerStopRunResponse = PeerRunStatus;
+export type SpeakerHwdReadResponse = {
+  "volume_percent"?: number;
+  "muted"?: boolean;
+};
+export type SpeakerHwdWriteRequest = {
+  "volume_percent"?: number;
+  "muted"?: boolean;
+};
+export type SpeakerHwdWriteResponse = {
+  "applied": SpeakerHwdReadResponse;
+};
 export type SpeechExtractRequest = {
   "asr_model_name": string;
   "extract_model_name": string;
@@ -1233,6 +1290,13 @@ export type VolcTenantModelProviderData = {
   "thinking_level_param"?: string;
   "thinking_levels": string[];
   "default_thinking_level"?: string;
+};
+export type WifiHwdReadResponse = {
+  "connected"?: boolean;
+  "ssid"?: string;
+  "bssid"?: string;
+  "rssi_dbm"?: number;
+  "ip"?: string;
 };
 export type WifiSavedNetwork = {
   "ssid": string;
@@ -1594,6 +1658,26 @@ const TOOL_RESPONSE_MESSAGES: Record<string, string> = {
   "19": "ClientDeviceAudioPlayerPlaylistAppendResponse",
   "20": "ClientRunWorkspaceSetResponse",
   "21": "ClientSocialPingResponse"
+};
+const HWD_READ_RESPONSE_MESSAGES: Record<string, string> = {
+  "1": "WifiHwdReadResponse",
+  "2": "BleHwdReadResponse",
+  "3": "ModemHwdReadResponse",
+  "4": "BatteryHwdReadResponse",
+  "5": "MicHwdReadResponse",
+  "6": "DisplayHwdReadResponse",
+  "7": "LedHwdReadResponse",
+  "8": "SpeakerHwdReadResponse"
+};
+const HWD_WRITE_REQUEST_MESSAGES: Record<string, string> = {
+  "6": "DisplayHwdWriteRequest",
+  "7": "LedHwdWriteRequest",
+  "8": "SpeakerHwdWriteRequest"
+};
+const HWD_WRITE_RESPONSE_MESSAGES: Record<string, string> = {
+  "6": "DisplayHwdWriteResponse",
+  "7": "LedHwdWriteResponse",
+  "8": "SpeakerHwdWriteResponse"
 };
 const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "AgentSelection": {
@@ -2033,6 +2117,56 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "BatteryHwdReadResponse": {
+    "fields": [
+      {
+        "name": "percent",
+        "number": 1,
+        "optional": true,
+        "type": "double"
+      },
+      {
+        "name": "charging",
+        "number": 2,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "voltage_mv",
+        "number": 3,
+        "optional": true,
+        "type": "double"
+      }
+    ]
+  },
+  "BleHwdReadResponse": {
+    "fields": [
+      {
+        "name": "powered",
+        "number": 1,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "advertising",
+        "number": 2,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "scanning",
+        "number": 3,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "connection_count",
+        "number": 4,
+        "optional": true,
+        "type": "uint32"
+      }
+    ]
+  },
   "ClientDeviceAudioPlayerGetRequest": {
     "fields": []
   },
@@ -2262,43 +2396,78 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "ClientHwdOptions": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "read_response",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "write_request",
+        "number": 3,
+        "type": "string"
+      },
+      {
+        "name": "write_response",
+        "number": 4,
+        "type": "string"
+      }
+    ]
+  },
   "ClientMhsV0ReadRequest": {
     "fields": [
       {
-        "name": "states",
+        "name": "id",
         "number": 1,
-        "repeated": true,
-        "type": "MhsStateRef"
+        "type": "string"
+      },
+      {
+        "name": "hwd",
+        "number": 2,
+        "type": "ClientHwd"
       }
     ]
   },
   "ClientMhsV0ReadResponse": {
     "fields": [
       {
-        "name": "states",
+        "name": "payload",
         "number": 1,
-        "repeated": true,
-        "type": "MhsStateValue"
+        "type": "bytes"
       }
     ]
   },
   "ClientMhsV0WriteRequest": {
     "fields": [
       {
-        "name": "states",
+        "name": "id",
         "number": 1,
-        "repeated": true,
-        "type": "MhsStateValue"
+        "type": "string"
+      },
+      {
+        "name": "hwd",
+        "number": 2,
+        "type": "ClientHwd"
+      },
+      {
+        "name": "payload",
+        "number": 3,
+        "type": "bytes"
       }
     ]
   },
   "ClientMhsV0WriteResponse": {
     "fields": [
       {
-        "name": "states",
+        "name": "payload",
         "number": 1,
-        "repeated": true,
-        "type": "MhsStateValue"
+        "type": "bytes"
       }
     ]
   },
@@ -3036,6 +3205,59 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 2,
         "optional": true,
         "type": "string"
+      }
+    ]
+  },
+  "DisplayHwdReadResponse": {
+    "fields": [
+      {
+        "name": "brightness_percent",
+        "number": 1,
+        "optional": true,
+        "type": "uint32"
+      },
+      {
+        "name": "enabled",
+        "number": 2,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "off_timeout_ms",
+        "number": 3,
+        "optional": true,
+        "type": "uint32"
+      }
+    ]
+  },
+  "DisplayHwdWriteRequest": {
+    "fields": [
+      {
+        "name": "brightness_percent",
+        "number": 1,
+        "optional": true,
+        "type": "uint32"
+      },
+      {
+        "name": "enabled",
+        "number": 2,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "off_timeout_ms",
+        "number": 3,
+        "optional": true,
+        "type": "uint32"
+      }
+    ]
+  },
+  "DisplayHwdWriteResponse": {
+    "fields": [
+      {
+        "name": "applied",
+        "number": 1,
+        "type": "DisplayHwdReadResponse"
       }
     ]
   },
@@ -4756,68 +4978,60 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "MhsStateRef": {
+  "LedHwdReadResponse": {
     "fields": [
       {
-        "name": "device_id",
+        "name": "enabled",
         "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "state",
-        "number": 2,
-        "type": "string"
-      }
-    ]
-  },
-  "MhsStateValue": {
-    "fields": [
-      {
-        "name": "device_id",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "state",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "value",
-        "number": 3,
-        "type": "MhsValue"
-      }
-    ]
-  },
-  "MhsValue": {
-    "fields": [
-      {
-        "name": "bool_value",
-        "number": 1,
-        "oneof": true,
-        "oneofGroup": "value",
+        "optional": true,
         "type": "bool"
       },
       {
-        "name": "int_value",
+        "name": "brightness_percent",
         "number": 2,
-        "oneof": true,
-        "oneofGroup": "value",
-        "type": "int64"
+        "optional": true,
+        "type": "uint32"
+      }
+    ]
+  },
+  "LedHwdWriteRequest": {
+    "fields": [
+      {
+        "name": "enabled",
+        "number": 1,
+        "optional": true,
+        "type": "bool"
       },
       {
-        "name": "double_value",
-        "number": 3,
-        "oneof": true,
-        "oneofGroup": "value",
-        "type": "double"
+        "name": "brightness_percent",
+        "number": 2,
+        "optional": true,
+        "type": "uint32"
+      }
+    ]
+  },
+  "LedHwdWriteResponse": {
+    "fields": [
+      {
+        "name": "applied",
+        "number": 1,
+        "type": "LedHwdReadResponse"
+      }
+    ]
+  },
+  "MicHwdReadResponse": {
+    "fields": [
+      {
+        "name": "available",
+        "number": 1,
+        "optional": true,
+        "type": "bool"
       },
       {
-        "name": "string_value",
-        "number": 4,
-        "oneof": true,
-        "oneofGroup": "value",
-        "type": "string"
+        "name": "capturing",
+        "number": 2,
+        "optional": true,
+        "type": "bool"
       }
     ]
   },
@@ -5034,6 +5248,40 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "runtime_profile_revision",
         "number": 5,
         "type": "string"
+      }
+    ]
+  },
+  "ModemHwdReadResponse": {
+    "fields": [
+      {
+        "name": "sim_present",
+        "number": 1,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "registered",
+        "number": 2,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "rat",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "rssi_dbm",
+        "number": 4,
+        "optional": true,
+        "type": "int32"
+      },
+      {
+        "name": "signal_level",
+        "number": 5,
+        "optional": true,
+        "type": "uint32"
       }
     ]
   },
@@ -6497,6 +6745,47 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "SpeakerHwdReadResponse": {
+    "fields": [
+      {
+        "name": "volume_percent",
+        "number": 1,
+        "optional": true,
+        "type": "uint32"
+      },
+      {
+        "name": "muted",
+        "number": 2,
+        "optional": true,
+        "type": "bool"
+      }
+    ]
+  },
+  "SpeakerHwdWriteRequest": {
+    "fields": [
+      {
+        "name": "volume_percent",
+        "number": 1,
+        "optional": true,
+        "type": "uint32"
+      },
+      {
+        "name": "muted",
+        "number": 2,
+        "optional": true,
+        "type": "bool"
+      }
+    ]
+  },
+  "SpeakerHwdWriteResponse": {
+    "fields": [
+      {
+        "name": "applied",
+        "number": 1,
+        "type": "SpeakerHwdReadResponse"
+      }
+    ]
+  },
   "SpeechExtractRequest": {
     "fields": [
       {
@@ -6932,6 +7221,40 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "default_thinking_level",
         "number": 13,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "WifiHwdReadResponse": {
+    "fields": [
+      {
+        "name": "connected",
+        "number": 1,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "ssid",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "bssid",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "rssi_dbm",
+        "number": 4,
+        "optional": true,
+        "type": "int32"
+      },
+      {
+        "name": "ip",
+        "number": 5,
         "optional": true,
         "type": "string"
       }
@@ -7598,6 +7921,30 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
     "byNumber": {
       "0": "",
       "1": "ast-translate"
+    }
+  },
+  "ClientHwd": {
+    "byName": {
+      "battery": 4,
+      "ble": 2,
+      "display": 6,
+      "led": 7,
+      "mic": 5,
+      "modem": 3,
+      "speaker": 8,
+      "unspecified": 0,
+      "wifi": 1
+    },
+    "byNumber": {
+      "0": "",
+      "1": "wifi",
+      "2": "ble",
+      "3": "modem",
+      "4": "battery",
+      "5": "mic",
+      "6": "display",
+      "7": "led",
+      "8": "speaker"
     }
   },
   "ClientTool": {
@@ -8274,6 +8621,12 @@ export function encodeClientToolRequestPayload(tool: number, value: unknown): Ui
 export function decodeClientToolRequestPayload(tool: number, payload: Uint8Array): unknown { return decodePayload(TOOL_REQUEST_MESSAGES, String(tool), payload); }
 export function encodeClientToolResponsePayload(tool: number, value: unknown): Uint8Array { return encodePayload(TOOL_RESPONSE_MESSAGES, String(tool), value); }
 export function decodeClientToolResponsePayload(tool: number, payload: Uint8Array): unknown { return decodePayload(TOOL_RESPONSE_MESSAGES, String(tool), payload); }
+export function encodeClientHwdReadResponsePayload(hwd: number, value: unknown): Uint8Array { return encodePayload(HWD_READ_RESPONSE_MESSAGES, String(hwd), value); }
+export function decodeClientHwdReadResponsePayload(hwd: number, payload: Uint8Array): unknown { return decodePayload(HWD_READ_RESPONSE_MESSAGES, String(hwd), payload); }
+export function encodeClientHwdWriteRequestPayload(hwd: number, value: unknown): Uint8Array { return encodePayload(HWD_WRITE_REQUEST_MESSAGES, String(hwd), value); }
+export function decodeClientHwdWriteRequestPayload(hwd: number, payload: Uint8Array): unknown { return decodePayload(HWD_WRITE_REQUEST_MESSAGES, String(hwd), payload); }
+export function encodeClientHwdWriteResponsePayload(hwd: number, value: unknown): Uint8Array { return encodePayload(HWD_WRITE_RESPONSE_MESSAGES, String(hwd), value); }
+export function decodeClientHwdWriteResponsePayload(hwd: number, payload: Uint8Array): unknown { return decodePayload(HWD_WRITE_RESPONSE_MESSAGES, String(hwd), payload); }
 
 function encodePayload(messages: Record<string, string>, method: string, value: unknown): Uint8Array {
   const message = messages[method];

@@ -1,0 +1,111 @@
+# User Story:
+# As a GizClaw API key holder,
+# I want to exercise server.device.mhs.led through MHS v0,
+# So that the HWD contract is verified on real transports.
+version: gizclaw.test/v1alpha1
+name: server.device.mhs.led
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+- id: manifest
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/mhs/v0/manifest
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  expect:
+    /devices/1/id: {equals: led.status}
+    /devices/1/hwd: {equals: led}
+- id: read_led
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/read
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {id: led.status, hwd: led}
+    status: 200
+  expect:
+    /id: {equals: led.status}
+    /hwd: {equals: led}
+    /value/brightness_percent: {equals: 50}
+- id: read_second_led
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/read
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {id: led.secondary, hwd: led}
+    status: 200
+  expect:
+    /id: {equals: led.secondary}
+    /value/brightness_percent: {equals: 50}
+- id: write_led
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/write
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {id: led.status, hwd: led, value: {enabled: false, brightness_percent: 20}}
+    status: 200
+  expect:
+    /id: {equals: led.status}
+    /hwd: {equals: led}
+    /value/brightness_percent: {equals: 20}
+- id: provider_write
+  client: peer
+  client_rpc:
+    method: client.mhs.v0.write
+    response: {payload: CgQIABAU}
+    expect_calls: 1
+- id: provider_read
+  client: peer
+  client_rpc:
+    method: client.mhs.v0.read
+    response: {payload: CAEQMg==}
+    expect_calls: 2
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

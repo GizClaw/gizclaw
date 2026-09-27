@@ -2548,37 +2548,40 @@ static int test_admission_signaling(const gzc_platform_t *platform, const gzc_pl
 }
 
 static int test_mhs_codec(void) {
-  gizclaw_rpc_v1_ClientMhsV0WriteRequest request = gizclaw_rpc_v1_ClientMhsV0WriteRequest_init_zero;
-  gizclaw_rpc_v1_ClientMhsV0WriteRequest decoded = gizclaw_rpc_v1_ClientMhsV0WriteRequest_init_zero;
-  uint8_t bytes[gizclaw_rpc_v1_ClientMhsV0WriteRequest_size];
-  request.states_count = 32;
-  for (size_t i = 0; i < 32; i++) {
-    memset(request.states[i].device_id, 'd', 64);
-    memset(request.states[i].state, 's', 64);
-    request.states[i].has_value = true;
-    request.states[i].value.which_value = gizclaw_rpc_v1_MhsValue_string_value_tag;
-    memset(request.states[i].value.value.string_value, 'v', 256);
-  }
+  gizclaw_rpc_v1_ClientMhsV0ReadRequest request = gizclaw_rpc_v1_ClientMhsV0ReadRequest_init_zero;
+  gizclaw_rpc_v1_ClientMhsV0ReadRequest decoded = gizclaw_rpc_v1_ClientMhsV0ReadRequest_init_zero;
+  uint8_t bytes[512];
+  strcpy(request.id, "display.main");
+  request.hwd = gizclaw_rpc_v1_ClientHwd_CLIENT_HWD_DISPLAY;
   pb_ostream_t out = pb_ostream_from_buffer(bytes, sizeof(bytes));
-  if (!pb_encode(&out, gizclaw_rpc_v1_ClientMhsV0WriteRequest_fields, &request))
+  if (!pb_encode(&out, gizclaw_rpc_v1_ClientMhsV0ReadRequest_fields, &request))
     return 1;
   pb_istream_t in = pb_istream_from_buffer(bytes, out.bytes_written);
-  if (!pb_decode(&in, gizclaw_rpc_v1_ClientMhsV0WriteRequest_fields, &decoded) || decoded.states_count != 32 || strlen(decoded.states[31].device_id) != 64 || strlen(decoded.states[31].value.value.string_value) != 256)
+  if (!pb_decode(&in, gizclaw_rpc_v1_ClientMhsV0ReadRequest_fields, &decoded) ||
+      strcmp(decoded.id, "display.main") != 0 || decoded.hwd != gizclaw_rpc_v1_ClientHwd_CLIENT_HWD_DISPLAY)
     return 1;
-  for (pb_size_t tag = gizclaw_rpc_v1_MhsValue_bool_value_tag; tag <= gizclaw_rpc_v1_MhsValue_string_value_tag; tag++) {
-    gizclaw_rpc_v1_MhsValue value = gizclaw_rpc_v1_MhsValue_init_zero;
-    gizclaw_rpc_v1_MhsValue result = gizclaw_rpc_v1_MhsValue_init_zero;
-    value.which_value = tag;
-    out = pb_ostream_from_buffer(bytes, sizeof(bytes));
-    if (!pb_encode(&out, gizclaw_rpc_v1_MhsValue_fields, &value))
-      return 1;
-    in = pb_istream_from_buffer(bytes, out.bytes_written);
-    if (!pb_decode(&in, gizclaw_rpc_v1_MhsValue_fields, &result) || result.which_value != tag)
-      return 1;
-  }
-  request.states_count = 33;
+  gizclaw_rpc_v1_DisplayHwdWriteRequest write = gizclaw_rpc_v1_DisplayHwdWriteRequest_init_zero;
+  gizclaw_rpc_v1_DisplayHwdWriteRequest applied = gizclaw_rpc_v1_DisplayHwdWriteRequest_init_zero;
+  write.has_brightness_percent = true;
+  write.brightness_percent = 0;
+  write.has_enabled = true;
+  write.enabled = false;
   out = pb_ostream_from_buffer(bytes, sizeof(bytes));
-  if (pb_encode(&out, gizclaw_rpc_v1_ClientMhsV0WriteRequest_fields, &request))
+  if (!pb_encode(&out, gizclaw_rpc_v1_DisplayHwdWriteRequest_fields, &write))
+    return 1;
+  in = pb_istream_from_buffer(bytes, out.bytes_written);
+  if (!pb_decode(&in, gizclaw_rpc_v1_DisplayHwdWriteRequest_fields, &applied) ||
+      !applied.has_brightness_percent || applied.brightness_percent != 0 || !applied.has_enabled || applied.enabled)
+    return 1;
+  gizclaw_rpc_v1_BatteryHwdReadResponse battery = gizclaw_rpc_v1_BatteryHwdReadResponse_init_zero;
+  gizclaw_rpc_v1_BatteryHwdReadResponse observed = gizclaw_rpc_v1_BatteryHwdReadResponse_init_zero;
+  battery.has_percent = true;
+  battery.percent = 80.0;
+  out = pb_ostream_from_buffer(bytes, sizeof(bytes));
+  if (!pb_encode(&out, gizclaw_rpc_v1_BatteryHwdReadResponse_fields, &battery))
+    return 1;
+  in = pb_istream_from_buffer(bytes, out.bytes_written);
+  if (!pb_decode(&in, gizclaw_rpc_v1_BatteryHwdReadResponse_fields, &observed) || !observed.has_percent || observed.percent != 80.0)
     return 1;
   return 0;
 }

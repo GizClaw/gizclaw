@@ -76,7 +76,7 @@ var controlRoutes = map[string][]string{
 		"/friend-groups", "/friend-groups/*", "/friend-groups/*/invite-token", "/friend-groups/*/members",
 	},
 	http.MethodPost: {
-		"/device/mhs/v0/read", "/device/tool/v0/invoke", "/api-keys", "/contacts",
+		"/device/mhs/v0/read", "/device/mhs/v0/write", "/device/tool/v0/invoke", "/api-keys", "/contacts",
 		"/friends", "/friends/invite-token",
 		"/friend-groups", "/friend-groups/@join", "/friend-groups/*/invite-token", "/friend-groups/*/@leave", "/friend-groups/*/members",
 	},
@@ -84,7 +84,6 @@ var controlRoutes = map[string][]string{
 		"/contacts/*",
 		"/friend-groups/*", "/friend-groups/*/members/*",
 	},
-	http.MethodPatch: {"/device/mhs/v0/states"},
 	http.MethodDelete: {
 		"/device/workspaces/*", "/api-keys/self", "/api-keys/*", "/contacts/*",
 		"/friends/invite-token", "/friends/*",

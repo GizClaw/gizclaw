@@ -1,7 +1,7 @@
 # User Story:
-# As a GizClaw API key holder controlling hardware through MHS v0,
-# I want a device without MHS handlers to answer DEVICE_UNSUPPORTED,
-# So that the Public HTTP MHS contract is verified end to end.
+# As a GizClaw API key holder,
+# I want to exercise server.device.mhs.unsupported through MHS v0,
+# So that the HWD contract is verified on real transports.
 version: gizclaw.test/v1alpha1
 name: server.device.mhs.unsupported
 clients:
@@ -42,14 +42,14 @@ steps:
       display_name: "${resource_name}"
   capture:
     api_key: /api_key
-- id: primary_http
+- id: device_error
   client: peer
   http:
     method: POST
     path: /gizclaw/v1/device/mhs/v0/read
     headers:
       Authorization: "Bearer ${api_key}"
-    body: {states: [{device_id: display.main, state: brightness}]}
+    body: {id: display.main, hwd: display}
     status: 501
   expect:
     /error/code: {equals: DEVICE_UNSUPPORTED}

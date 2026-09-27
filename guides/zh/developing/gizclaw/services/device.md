@@ -1,12 +1,12 @@
 # services/device
 
-`pkgs/gizclaw/services/device` 保存由设备领域拥有的服务端资源。该目录拥有 Firmware catalog、OTA channel 配置与 MHS v0 硬件状态校验。
+`pkgs/gizclaw/services/device` 保存由设备领域拥有的服务端资源。该目录拥有 Firmware catalog、OTA channel 配置与 MHS v0 HWD 校验。
 
 ## 目录结构
 
 ```text
 services/device/
-├── mhs/         # MHS v0 manifest and state validation
+├── mhs/         # MHS v0 manifest and HWD validation
 └── firmware/    # Firmware metadata 和 external channel package
 ```
 
@@ -50,4 +50,4 @@ Package 的 `version` 在 create、put 和 resource apply 写入时必填：严�
 
 ## mhs
 
-`mhs` 校验 RuntimeProfile 硬件清单、整批 HTTP 读写请求和设备响应，使用生成的 shared DTO 与原始 rpcpb message，不拥有存储或连接。RuntimeProfile service 拥有清单持久化，Peer HTTP 通过现有 device-control 调用设备。
+`mhs` 校验 RuntimeProfile 硬件清单、单实例 HTTP 读写请求和设备的类型化 protobuf 响应，使用生成的 shared DTO 与原始 rpcpb message，不拥有存储或连接。RuntimeProfile service 拥有清单持久化，Peer HTTP 通过现有 device-control 调用设备。

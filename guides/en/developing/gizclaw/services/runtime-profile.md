@@ -188,27 +188,17 @@ A fence is a system prompt sent to the model. Its effectiveness depends on the s
 
 ## MHS v0 hardware manifest
 
-`spec.mhs.v0` belongs to the RuntimeProfile and is not reported by devices. `mhs/v0` is GizClaw's own MHS-inspired pre-standard protocol, with no claim of compatibility with the official Model Hardware Standard. A future official-compatible version would use `v1`. `mhs/v0` supports only state reads and writes; predefined device procedures use `tool/v0`. Neither family adds notifications, slots or streams.
+RuntimeProfile owns `spec.mhs.v0`, which declares HWD instances on a product rather than accepting a device report. Each entry has an `id` and an `hwd` type; one HWD may have multiple distinct IDs. `api/proto/rpc/payload/mhs_v0.proto` defines its read and write fields.
 
 ```yaml
 spec:
   mhs:
     v0:
       devices:
-      - id: display.main
-        kind: display
-        description: Main display
-        tags: [front screen]
-        states:
-        - {name: brightness, type: int, access: read_write, min: 0, max: 100, step: 5, unit: '%'}
-      - id: battery.main
-        kind: battery
-        states:
-        - {name: level, type: int, access: read, min: 0, max: 100, unit: '%'}
+      - {id: display.main, hwd: display}
+      - {id: led.left, hwd: led}
+      - {id: led.right, hwd: led}
+      - {id: battery.main, hwd: battery}
 ```
 
-Device IDs are unique across the manifest; state names are unique within a device. Both contain 1–64 ASCII bytes matching `^[a-z][a-z0-9]*([.-][a-z0-9]+)*$`. `kind` is an open, nonempty string. Descriptions, units and natural-language tags are optional. State types are `bool`, `int`, `double`, `string` and `enum`; access is `read` or `read_write`.
-
-Only numeric states accept finite min/max/step constraints: min <= max and step > 0. Integer values and constraints are integral JSON-safe numbers within ±9007199254740991. The decimal step grid starts at min, or zero when min is absent. Enum states require a nonempty, unique enum_values list; other types forbid it. String and enum values must be valid UTF-8 without NUL, at most 256 bytes. Create, PUT and apply validate the entire manifest before storage and report the offending device/state.
-
-The manifest is stored in `runtime_profiles.mhs_json` and contributes to the spec revision. SQL initialization adds the column to existing tables with null defaults. Admin get/list/put/apply/show use the shared schema. Omitting mhs clears the previous manifest. The control manifest endpoint projects only this public hardware catalog, works offline, and returns `{"devices":[]}` when unconfigured. See [Public API](/en/developing/api/http/public#mhs-v0-hardware-states).
+IDs are unique across the manifest, case-sensitive and at most 64 ASCII bytes matching `^[a-z][a-z0-9]*([.-][a-z0-9]+)*$`. HWD is one of wifi, ble, modem, battery, mic, display, led or speaker. Description and natural-language tags are optional. Create, PUT and apply validate the whole manifest before storage. `runtime_profiles.mhs_json` persists it and contributes to the spec revision. The control manifest endpoint projects only this hardware catalog, works offline and returns `{"devices":[]}` when unconfigured. See [Public API](/en/developing/api/http/public#mhs-v0-hwds).

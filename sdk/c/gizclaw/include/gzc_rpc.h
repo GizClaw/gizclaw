@@ -8,7 +8,7 @@
 #include "payload/edge.pb.h"
 #include "payload/enums.pb.h"
 #include "payload/firmware.pb.h"
-#include "payload/mhs.pb.h"
+#include "payload/mhs_v0.pb.h"
 #include "payload/social.pb.h"
 #include "payload/system.pb.h"
 #include "payload/tool.pb.h"

@@ -1,0 +1,91 @@
+# User Story:
+# As a GizClaw API key holder,
+# I want to exercise server.device.mhs.modem through MHS v0,
+# So that the HWD contract is verified on real transports.
+version: gizclaw.test/v1alpha1
+name: server.device.mhs.modem
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+- id: manifest
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/mhs/v0/manifest
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  expect:
+    /devices/7/id: {equals: modem.main}
+    /devices/7/hwd: {equals: modem}
+- id: read_modem
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/read
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {id: modem.main, hwd: modem}
+    status: 200
+  expect:
+    /id: {equals: modem.main}
+    /hwd: {equals: modem}
+    /value/registered: {equals: true}
+- id: reject_modem_write
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/write
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {id: modem.main, hwd: modem, value: {}}
+    status: 400
+  expect:
+    /error/code: {equals: INVALID_REQUEST}
+- id: provider_read
+  client: peer
+  client_rpc:
+    method: client.mhs.v0.read
+    response: {payload: CAEQARoDTFRF}
+    expect_calls: 1
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

@@ -1,70 +1,71 @@
 package rpcapi
 
 import (
+	"testing"
+
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"google.golang.org/protobuf/proto"
-	"strings"
-	"testing"
 )
 
-func TestMhsCodecPreservesOneofTypesAndDefaults(t *testing.T) {
-	for _, value := range []*rpcpb.MhsValue{
-		{Value: &rpcpb.MhsValue_BoolValue{BoolValue: false}},
-		{Value: &rpcpb.MhsValue_IntValue{IntValue: 0}},
-		{Value: &rpcpb.MhsValue_IntValue{IntValue: MaxMhsInt}},
-		{Value: &rpcpb.MhsValue_DoubleValue{DoubleValue: 0}},
-		{Value: &rpcpb.MhsValue_StringValue{StringValue: ""}},
-		{Value: &rpcpb.MhsValue_StringValue{StringValue: strings.Repeat("x", 256)}},
+func TestClientHwdRegistryAndPayloads(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		writable bool
+	}{
+		{"wifi", false}, {"ble", false}, {"modem", false}, {"battery", false},
+		{"mic", false}, {"display", true}, {"led", true}, {"speaker", true},
 	} {
-		request := &rpcpb.ClientMhsV0WriteRequest{States: []*rpcpb.MhsStateValue{{DeviceId: strings.Repeat("a", 64), State: "level", Value: value}}}
-		var payload RPCPayload
-		if err := payload.FromClientMhsV0WriteRequest(request); err != nil {
-			t.Fatal(err)
-		}
-		encoded, err := encodeRPCRequestPayload(RPCMethodClientMhsV0Write, &payload)
+		hwd, err := ClientHwdByName(tc.name)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("%s: %v", tc.name, err)
 		}
-		decoded, err := decodeRPCRequestPayload(RPCMethodClientMhsV0Write, encoded)
-		if err != nil {
-			t.Fatal(err)
+		meta, err := ClientHwdMetadata(hwd)
+		if err != nil || meta.Name != tc.name || meta.ReadResponse == "" || (meta.WriteRequest != "") != tc.writable {
+			t.Fatalf("%s: invalid metadata %+v, %v", tc.name, meta, err)
 		}
-		got, err := decoded.AsClientMhsV0WriteRequest()
-		if err != nil || !proto.Equal(got, request) {
-			t.Fatalf("got %v err %v", got, err)
+		if _, err := ClientHwdReadResponseMessage(hwd, nil); err != nil {
+			t.Fatalf("%s read codec: %v", tc.name, err)
 		}
-		for _, method := range []RPCMethod{RPCMethodClientMhsV0Read, RPCMethodClientMhsV0Write} {
-			var result RPCPayload
-			if method == RPCMethodClientMhsV0Read {
-				err = result.FromClientMhsV0ReadResponse(&rpcpb.ClientMhsV0ReadResponse{States: request.States})
-			} else {
-				err = result.FromClientMhsV0WriteResponse(&rpcpb.ClientMhsV0WriteResponse{States: request.States})
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
-			wire, err := encodeRPCResponsePayload(method, &result)
-			if err != nil {
-				t.Fatal(err)
-			}
-			response, err := decodeRPCResponsePayload(method, wire)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var states []*rpcpb.MhsStateValue
-			if method == RPCMethodClientMhsV0Read {
-				v, e := response.AsClientMhsV0ReadResponse()
-				err = e
-				states = v.GetStates()
-			} else {
-				v, e := response.AsClientMhsV0WriteResponse()
-				err = e
-				states = v.GetStates()
-			}
-			if err != nil || len(states) != 1 || !proto.Equal(states[0], request.States[0]) {
-				t.Fatalf("result %v %v", states, err)
-			}
+		if _, err := ClientHwdWriteRequestFromBytes(hwd, nil); (err == nil) != tc.writable {
+			t.Fatalf("%s writable=%v err=%v", tc.name, tc.writable, err)
 		}
+	}
+	if _, err := ClientHwdByName("device"); err == nil {
+		t.Fatal("accepted non-HWD device")
+	}
+	if _, err := ClientHwdMetadata(0); err == nil {
+		t.Fatal("accepted unspecified HWD")
+	}
+}
+
+func TestClientHwdRPCEnvelope(t *testing.T) {
+	request := &rpcpb.ClientMhsV0WriteRequest{
+		Id: "speaker.main", Hwd: rpcpb.ClientHwd_CLIENT_HWD_SPEAKER,
+	}
+	request.Payload, _ = proto.Marshal(&rpcpb.SpeakerHwdWriteRequest{VolumePercent: proto.Uint32(0), Muted: new(false)})
+	var payload RPCPayload
+	if err := payload.FromClientMhsV0WriteRequest(request); err != nil {
+		t.Fatal(err)
+	}
+	wire, err := encodeRPCRequestPayload(RPCMethodClientMhsV0Write, &payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := decodeRPCRequestPayload(RPCMethodClientMhsV0Write, wire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := decoded.AsClientMhsV0WriteRequest()
+	if err != nil || !proto.Equal(got, request) {
+		t.Fatalf("round trip: %+v, %v", got, err)
+	}
+	message, err := ClientHwdWriteRequestFromBytes(got.Hwd, got.Payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value := message.(*rpcpb.SpeakerHwdWriteRequest)
+	if value.VolumePercent == nil || *value.VolumePercent != 0 || value.Muted == nil || *value.Muted {
+		t.Fatalf("lost explicit defaults: %+v", value)
 	}
 	for method, id := range map[RPCMethod]int32{RPCMethodClientMhsV0Read: 133, RPCMethodClientMhsV0Write: 134} {
 		got, err := ProtoMethod(method)

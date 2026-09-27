@@ -20,13 +20,11 @@ sequenceDiagram
 
 `client.tool.v0.invoke`（135）携带一个 `ClientTool` 枚举值，以及用 `payload/tool.proto` 中该枚举声明的请求消息编码的 protobuf `payload`。响应同理携带对应的响应消息。空消息使用空 payload。未安装的操作返回 `UNIMPLEMENTED`；畸形 payload 返回 `INVALID_PARAMS`。设备错误通过 RPC envelope 返回。
 
-## MHS v0 状态
+## MHS v0 HWD
 
-绑定的 RuntimeProfile `spec.mhs.v0` manifest 定义产品自有的 `(device_id, state)` key、类型、范围与权限。`client.mhs.v0.read`（133）读取指定 key；`client.mhs.v0.write`（134）写入声明为 `read_write` 的 key 并返回实际生效值。Server 在接触设备前按 manifest 校验整批输入。设备也必须先验证整批输入和自身安全限制，再应用任何一项。未知或未实现的 key 返回 `NOT_FOUND`；前提条件不满足或值非法时拒绝整批。
+`payload/mhs_v0.proto` 的 `ClientHwd` 枚举把每种 HWD 绑定到一个 read 响应消息；display、led、speaker 还绑定 write 请求和实际生效响应消息。wifi、ble、modem、battery、mic 没有 write 消息。绑定的 RuntimeProfile manifest 只列出 `{id,hwd}` 实例。
 
-`MhsValue` 恰好设置 `bool_value`、`int_value`、`double_value` 或 `string_value` 之一。false、零和空字符串都保留 presence；枚举值用 `string_value` 中的语义字符串。每次请求或响应包含 1–32 个状态。key 最多 64 ASCII 字节，字符串最多 256 UTF-8 字节且不含 NUL；整数必须是 JSON 安全整数，浮点数必须有限。写入超时后应重新读取确认状态。
-
-音量、亮度、语言、提醒模式、Wi-Fi 连接状态等产品硬件状态属于 manifest key。manifest 只声明 key，不会自动安装设备 handler。
+`client.mhs.v0.read`（133）请求包含实例 `id` 与 HWD，响应 payload 是该 HWD 的 read protobuf。`client.mhs.v0.write`（134）还携带该 HWD 的 write protobuf，响应 payload 是实际生效值的 protobuf。每次只访问一个实例。Server 在转发前校验实例与类型；设备对不存在的物理实例返回 NOT_FOUND，对非法值返回 INVALID_ARGUMENT。协议错误走 RPC envelope。写入超时后应重新读取确认。
 
 ## tool/v0 操作
 

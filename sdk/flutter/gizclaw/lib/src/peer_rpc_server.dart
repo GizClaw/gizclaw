@@ -98,22 +98,21 @@ class GizClawDeviceControlHandlers {
     this.updateFirmware,
     this.factoryReset,
     this.setRunWorkspace,
-    this.readMhsStates,
-    this.writeMhsStates,
+    this.readMhsHwd,
+    this.writeMhsHwd,
   });
 
-  /// Reads exactly the requested keys; absent hardware returns NOT_FOUND.
+  /// Reads one HWD instance; absent hardware returns NOT_FOUND.
   final FutureOr<payload.ClientMhsV0ReadResponse> Function(
     payload.ClientMhsV0ReadRequest request,
   )?
-  readMhsStates;
+  readMhsHwd;
 
-  /// Validate every entry and driver safety limit before applying anything.
-  /// Reject the whole batch on error; return the values actually in effect.
+  /// Writes one display, led or speaker instance and returns applied values.
   final FutureOr<payload.ClientMhsV0WriteResponse> Function(
     payload.ClientMhsV0WriteRequest request,
   )?
-  writeMhsStates;
+  writeMhsHwd;
 
   final GizClawAudioPlayerHandlers? audioplayer;
   final FutureOr<payload.PeerStatus> Function()? status;
@@ -517,9 +516,9 @@ class _InboundPeerRpcChannel {
     final methods = <rpc.RpcMethod>[
       rpc.RpcMethod.RPC_METHOD_ALL_PING,
       rpc.RpcMethod.RPC_METHOD_ALL_SPEED_TEST_RUN,
-      if (handlers?.deviceControl?.readMhsStates != null)
+      if (handlers?.deviceControl?.readMhsHwd != null)
         rpc.RpcMethod.RPC_METHOD_CLIENT_MHS_V0_READ,
-      if (handlers?.deviceControl?.writeMhsStates != null)
+      if (handlers?.deviceControl?.writeMhsHwd != null)
         rpc.RpcMethod.RPC_METHOD_CLIENT_MHS_V0_WRITE,
       rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
       rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_LIST,
@@ -760,23 +759,23 @@ class _InboundPeerRpcChannel {
           payload.ClientDeviceRebootResponse(),
         );
       case 'client.mhs.v0.read':
-        final handler = handlers?.readMhsStates;
+        final handler = handlers?.readMhsHwd;
         if (handler == null) return unsupported();
-        final batch = params as payload.ClientMhsV0ReadRequest;
-        if (!_validMhsRefs(batch.states)) return invalid();
-        final result = await handler(batch);
-        if (!_validMhsStates(result.states)) {
-          throw StateError('invalid MHS handler response');
+        final entry = params as payload.ClientMhsV0ReadRequest;
+        if (!_validMhsRead(entry)) return invalid();
+        final result = await handler(entry);
+        if (!_validMhsReadResponse(entry.hwd, result)) {
+          throw StateError('invalid MHS HWD read response');
         }
         return _rpcPayloadResponse(request.id, methodName, result);
       case 'client.mhs.v0.write':
-        final handler = handlers?.writeMhsStates;
+        final handler = handlers?.writeMhsHwd;
         if (handler == null) return unsupported();
-        final batch = params as payload.ClientMhsV0WriteRequest;
-        if (!_validMhsStates(batch.states)) return invalid();
-        final result = await handler(batch);
-        if (!_validMhsStates(result.states)) {
-          throw StateError('invalid MHS handler response');
+        final entry = params as payload.ClientMhsV0WriteRequest;
+        if (!_validMhsWrite(entry)) return invalid();
+        final result = await handler(entry);
+        if (!_validMhsWriteResponse(entry.hwd, result)) {
+          throw StateError('invalid MHS HWD write response');
         }
         return _rpcPayloadResponse(request.id, methodName, result);
       case 'device.factory_reset':
@@ -1075,48 +1074,131 @@ final _mhsKeyPattern = RegExp(r'^[a-z][a-z0-9]*([.-][a-z0-9]+)*$');
 bool _validMhsKey(String value) =>
     value.length <= 64 &&
     _mhsKeyPattern.matchAsPrefix(value)?.end == value.length;
-bool _validMhsRefs(List<payload.MhsStateRef> states) {
-  if (states.isEmpty || states.length > 32) return false;
-  final keys = <String>{};
-  for (final state in states) {
-    if (!_validMhsKey(state.deviceId) ||
-        !_validMhsKey(state.state) ||
-        !keys.add('${state.deviceId}/${state.state}')) {
-      return false;
-    }
-  }
-  return true;
-}
+bool _validMhsRead(payload.ClientMhsV0ReadRequest request) =>
+    _validMhsKey(request.id) &&
+    request.hwd != payload.ClientHwd.CLIENT_HWD_UNSPECIFIED &&
+    payload.ClientHwd.valueOf(request.hwd.value) != null;
 
-bool _validMhsString(String text) {
-  final bytes = utf8.encode(text);
-  return !text.contains('\u0000') &&
-      bytes.length <= 256 &&
-      utf8.decode(bytes) == text;
-}
-
-bool _validMhsStates(List<payload.MhsStateValue> states) {
-  if (!_validMhsRefs([
-    for (final state in states)
-      payload.MhsStateRef(deviceId: state.deviceId, state: state.state),
-  ])) {
+bool _validMhsWrite(payload.ClientMhsV0WriteRequest request) {
+  if (!_validMhsKey(request.id) || request.payload.isEmpty) {
     return false;
   }
-  for (final state in states) {
-    if (!state.hasValue()) return false;
-    final value = state.value;
-    final valid = switch (value.whichValue()) {
-      payload.MhsValue_Value.boolValue => true,
-      payload.MhsValue_Value.intValue =>
-        value.intValue.toInt() >= -9007199254740991 &&
-            value.intValue.toInt() <= 9007199254740991,
-      payload.MhsValue_Value.doubleValue => value.doubleValue.isFinite,
-      payload.MhsValue_Value.stringValue => _validMhsString(value.stringValue),
-      payload.MhsValue_Value.notSet => false,
-    };
-    if (!valid) return false;
+  try {
+    switch (request.hwd) {
+      case payload.ClientHwd.CLIENT_HWD_DISPLAY:
+        final value = payload.DisplayHwdWriteRequest.fromBuffer(
+          request.payload,
+        );
+        return (value.hasBrightnessPercent() ||
+                value.hasEnabled() ||
+                value.hasOffTimeoutMs()) &&
+            (!value.hasBrightnessPercent() || value.brightnessPercent <= 100);
+      case payload.ClientHwd.CLIENT_HWD_LED:
+        final value = payload.LedHwdWriteRequest.fromBuffer(request.payload);
+        return (value.hasEnabled() || value.hasBrightnessPercent()) &&
+            (!value.hasBrightnessPercent() || value.brightnessPercent <= 100);
+      case payload.ClientHwd.CLIENT_HWD_SPEAKER:
+        final value = payload.SpeakerHwdWriteRequest.fromBuffer(
+          request.payload,
+        );
+        return (value.hasVolumePercent() || value.hasMuted()) &&
+            (!value.hasVolumePercent() || value.volumePercent <= 100);
+      default:
+        return false;
+    }
+  } on FormatException {
+    return false;
   }
-  return true;
+}
+
+bool _validMhsReadResponse(
+  payload.ClientHwd hwd,
+  payload.ClientMhsV0ReadResponse result,
+) {
+  if (result.payload.isEmpty) return false;
+  try {
+    switch (hwd) {
+      case payload.ClientHwd.CLIENT_HWD_WIFI:
+        final value = payload.WifiHwdReadResponse.fromBuffer(result.payload);
+        return (value.hasConnected() ||
+                value.hasSsid() ||
+                value.hasBssid() ||
+                value.hasRssiDbm() ||
+                value.hasIp()) &&
+            utf8.encode(value.ssid).length <= 32 &&
+            utf8.encode(value.bssid).length <= 17 &&
+            utf8.encode(value.ip).length <= 45;
+      case payload.ClientHwd.CLIENT_HWD_BLE:
+        final value = payload.BleHwdReadResponse.fromBuffer(result.payload);
+        return value.hasPowered() ||
+            value.hasAdvertising() ||
+            value.hasScanning() ||
+            value.hasConnectionCount();
+      case payload.ClientHwd.CLIENT_HWD_MODEM:
+        final value = payload.ModemHwdReadResponse.fromBuffer(result.payload);
+        return (value.hasSimPresent() ||
+                value.hasRegistered() ||
+                value.hasRat() ||
+                value.hasRssiDbm() ||
+                value.hasSignalLevel()) &&
+            utf8.encode(value.rat).length <= 16;
+      case payload.ClientHwd.CLIENT_HWD_BATTERY:
+        final value = payload.BatteryHwdReadResponse.fromBuffer(result.payload);
+        return (value.hasPercent() ||
+                value.hasCharging() ||
+                value.hasVoltageMv()) &&
+            value.percent.isFinite &&
+            value.voltageMv.isFinite;
+      case payload.ClientHwd.CLIENT_HWD_MIC:
+        final value = payload.MicHwdReadResponse.fromBuffer(result.payload);
+        return value.hasAvailable() || value.hasCapturing();
+      case payload.ClientHwd.CLIENT_HWD_DISPLAY:
+        final value = payload.DisplayHwdReadResponse.fromBuffer(result.payload);
+        return value.hasBrightnessPercent() ||
+            value.hasEnabled() ||
+            value.hasOffTimeoutMs();
+      case payload.ClientHwd.CLIENT_HWD_LED:
+        final value = payload.LedHwdReadResponse.fromBuffer(result.payload);
+        return value.hasEnabled() || value.hasBrightnessPercent();
+      case payload.ClientHwd.CLIENT_HWD_SPEAKER:
+        final value = payload.SpeakerHwdReadResponse.fromBuffer(result.payload);
+        return value.hasVolumePercent() || value.hasMuted();
+      default:
+        return false;
+    }
+  } on FormatException {
+    return false;
+  }
+}
+
+bool _validMhsWriteResponse(
+  payload.ClientHwd hwd,
+  payload.ClientMhsV0WriteResponse result,
+) {
+  if (result.payload.isEmpty) return false;
+  try {
+    final applied = switch (hwd) {
+      payload.ClientHwd.CLIENT_HWD_DISPLAY =>
+        payload.DisplayHwdWriteResponse.fromBuffer(
+          result.payload,
+        ).applied.writeToBuffer(),
+      payload.ClientHwd.CLIENT_HWD_LED =>
+        payload.LedHwdWriteResponse.fromBuffer(
+          result.payload,
+        ).applied.writeToBuffer(),
+      payload.ClientHwd.CLIENT_HWD_SPEAKER =>
+        payload.SpeakerHwdWriteResponse.fromBuffer(
+          result.payload,
+        ).applied.writeToBuffer(),
+      _ => <int>[],
+    };
+    return _validMhsReadResponse(
+      hwd,
+      payload.ClientMhsV0ReadResponse(payload: applied),
+    );
+  } on FormatException {
+    return false;
+  }
 }
 
 GeneratedMessage _decodeProviderRequest(String name, List<int> bytes) =>

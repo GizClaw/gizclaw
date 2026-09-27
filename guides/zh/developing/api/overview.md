@@ -48,26 +48,16 @@ api/
 
 Node Monitor API：Server 和 Edge 提供 `api/http/monitor.json` 定义的本进程 HTTP 契约；认证与生成 ownership 见 [Monitor](../monitor)。
 
-## 设备状态与操作 {#mhs-v0-migration}
+## HWD 与设备操作 {#mhs-v0-hwd}
 
-设备提供 MHS v0 硬件状态和预定义的 tool/v0 操作。绑定的 RuntimeProfile `spec.mhs.v0` manifest 声明产品自定的 `(device_id, state)` key。控制 App 先调用 `GET /gizclaw/v1/device/mhs/v0/manifest`，再通过 `POST /gizclaw/v1/device/mhs/v0/read` 或 `PATCH /gizclaw/v1/device/mhs/v0/states` 读写。下表只是命名建议，不会自动安装协议 ID；只能读取 manifest 声明且设备实现的 key，写入还需要 `read_write`。
+MHS v0 由 GizClaw 定义八种 HWD。`api/proto/rpc/payload/mhs_v0.proto` 规定每种 HWD 的 read 响应消息；display、led、speaker 还定义 write 请求及实际生效结果。RuntimeProfile 的 `spec.mhs.v0.devices` 只列出实例的 `id` 和 `hwd`，例如两条 LED 用两个 ID 引用同一 HWD。实例数由列表条目数决定，清单不定义字段类型或读写权限。
 
-| 状态示例 | 推荐 MHS v0 key | 类型与推荐约束 |
+| HWD | read | write |
 | --- | --- | --- |
-| 扬声器音量 | `speaker.main/volume` | `int`，0–100 |
-| 扬声器静音 | `speaker.main/muted` | `bool` |
-| 设备 `screen_brightness` | `display.main/brightness` | `int`，0–100 |
-| 设备 `screen_off_timeout_ms` | `display.main/off_timeout_ms` | `int`，毫秒，≥0；0 表示常亮 |
-| 设备 `led_brightness` | `led.status/brightness` | `int`，0–100 |
-| 设备 `cellular_enabled` | `cellular.main/enabled` | `bool` |
-| 设备 `nfc_enabled` | `nfc.main/enabled` | `bool` |
-| 设备 `auto_sleep_timeout_ms` | `power.main/auto_sleep_timeout_ms` | `int`，毫秒，≥0；0 表示不自动休眠 |
-| 设备 `locale` | `system.main/locale` | `string`，保留 BCP 47 语言标签约定 |
-| 设备 `default_interaction_mode` | `system.main/default_interaction_mode` | `enum`：`push-to-talk`、`realtime` |
-| 设备 `key_feedback` | `system.main/key_feedback` | `enum`：`none`、`sound`、`vibrate`、`sound_and_vibrate` |
-| 设备 `alert_mode` | `system.main/alert_mode` | `enum`：`silent`、`vibrate`、`ring` |
+| wifi、ble、modem、battery、mic | 支持 | 不支持 |
+| display、led、speaker | 支持 | 支持 |
 
-MHS enum 使用 `MhsValue.string_value` 中的语义字符串。读取显式列出所需 key；写入只包含要修改的 key 并返回实际生效的值。设备必须先整批校验再应用；未知或未实现的 key 返回错误。超时后应重新读取以确认状态。
+控制 App 从 `GET /gizclaw/v1/device/mhs/v0/manifest` 发现实例，然后通过 `POST /device/mhs/v0/read` 读取一个实例，或通过 `POST /device/mhs/v0/write` 写入一个可写实例。请求包含 `id`、`hwd`；写入另含 HWD 专属 `value` 对象。响应带同一实例及其类型化 `value`。设备的 Wi-Fi 扫描、连接等过程仍使用 tool/v0。写入超时后重新读取确认实际状态。
 
 `tool/v0` 通过 `client.tool.v0.invoke`（135）承载操作。每次调用选择 21 个预定义 `ClientTool` 之一，并携带对应的 Protobuf 请求消息。设备通过 `client.tool.v0.list`（136）只公布实际安装的操作。`client.rpc.methods.list`（137）返回 `RpcMethod` 数字，用于识别协议 family 和版本。控制 App 使用 `GET /gizclaw/v1/device/tool/v0/tools` 与 `POST /gizclaw/v1/device/tool/v0/invoke`；Server 在接触设备前验证有类型的参数。详见 [Peer HTTP](./http/public)、[设备 provider](./proto/rpc/client-provided-to-server) 与 [RPC Reference](/references/rpc)。
 

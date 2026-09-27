@@ -1,12 +1,12 @@
 # services/device
 
-`pkgs/gizclaw/services/device` saves server resources owned by the device domain. It owns Firmware catalog and OTA channel configuration, plus MHS v0 hardware-state validation.
+`pkgs/gizclaw/services/device` saves server resources owned by the device domain. It owns Firmware catalog and OTA channel configuration, plus MHS v0 HWD validation.
 
 ## Directory structure
 
 ```text
 services/device/
-├── mhs/         # MHS v0 manifest and state validation
+├── mhs/         # MHS v0 manifest and HWD validation
 └── firmware/    # Firmware metadata and external channel packages
 ```
 
@@ -50,4 +50,4 @@ Package `version` is required on create, put and resource apply: strict SemVer 2
 
 ## mhs
 
-`mhs` validates RuntimeProfile hardware manifests, complete HTTP state batches and device responses using generated shared DTOs and original rpcpb messages. RuntimeProfile owns storage; Peer HTTP forwards through the existing device-control path.
+`mhs` validates RuntimeProfile hardware manifests, single-instance HTTP requests and typed protobuf device responses using generated shared DTOs and original rpcpb messages. RuntimeProfile owns storage; Peer HTTP forwards through the existing device-control path.

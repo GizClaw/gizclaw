@@ -4,7 +4,7 @@
 
 提供普通 Peer Public HTTP 与 Edge Public HTTP，组装 API Key、CORS、OpenAI API、Edge signaling routes 以及 `/gizclaw/v1/device*`、`/gizclaw/v1/contacts*`、`/gizclaw/v1/friends*`、`/gizclaw/v1/friend-groups*` 设备扩展，并执行 Edge client/signaling Peer 的准入判断。
 
-Peer HTTP 组合 owner 范围内的资源和设备控制：`peer_service_serve_peer_http_device_api.go` 提供设备、Runtime、状态和联系人的存储读取；`peer_service_serve_peer_http_tool.go` 处理预定义 `tool/v0` 的 list/invoke；`peer_service_serve_peer_http_mhs.go` 处理由 manifest 约束的 `mhs/v0` 状态读写。`peer_service_serve_peer_http_device_control.go` 集中处理在线检查、owner 串行化及设备错误映射。Workspace、遥测、社交和监控路由调用各自领域 service。Fiber app 启用 `Immutable`，保存的路径参数不会引用被复用的请求缓冲区。
+Peer HTTP 组合 owner 范围内的资源和设备控制：`peer_service_serve_peer_http_device_api.go` 提供设备、Runtime、状态和联系人的存储读取；`peer_service_serve_peer_http_tool.go` 处理预定义 `tool/v0` 的 list/invoke；`peer_service_serve_peer_http_mhs.go` 处理由 manifest 约束的 `mhs/v0` HWD 读写。`peer_service_serve_peer_http_device_control.go` 集中处理在线检查、owner 串行化及设备错误映射。Workspace、遥测、社交和监控路由调用各自领域 service。Fiber app 启用 `Immutable`，保存的路径参数不会引用被复用的请求缓冲区。
 
 ## Owner binding 与 ingress
 
@@ -32,6 +32,6 @@ Direct Server HTTP（`server.go` 的 mux，`serve-to-clients=true` 时开放）�
 
 ## MHS v0
 
-`peer_service_serve_peer_http_mhs.go` 提供 manifest/read/states 路由；`peerresource.DeviceReads.MhsManifest` 离线读取当前 owner 绑定，`services/device/mhs` 校验请求与响应，`rpcClient.ReadMhsStates/WriteMhsStates` 复用 controller。完整 contract 见 [Public API](/zh/developing/api/http/public#mhs-v0-硬件状态)。
+`peer_service_serve_peer_http_mhs.go` 提供 manifest/read/write 路由；`peerresource.DeviceReads.MhsManifest` 离线读取当前 owner 绑定，`services/device/mhs` 校验请求与响应，`rpcClient.ReadMhsHwd/WriteMhsHwd` 复用 controller。完整 contract 见 [Public API](/zh/developing/api/http/public#mhs-v0-hwd)。
 
-设备控制接口使用 `mhs/v0` 处理 manifest 定义的状态，使用 `tool/v0` 处理预定义过程。两者都在联系设备前验证请求；见 [Public API](/zh/developing/api/http/public#设备控制流程)。
+设备控制接口使用 `mhs/v0` 处理 manifest 声明的 HWD 实例，使用 `tool/v0` 处理预定义过程。两者都在联系设备前验证请求；见 [Public API](/zh/developing/api/http/public#设备控制流程)。

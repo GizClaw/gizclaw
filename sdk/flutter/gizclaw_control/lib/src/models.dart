@@ -1693,13 +1693,12 @@ class AudioPlayerPlaylist {
   }
 }
 
-/// GizClaw's MHS-inspired pre-standard v0 manifest (no official compatibility).
+/// Instances declared by the RuntimeProfile MHS v0 manifest.
 class MhsManifest {
   MhsManifest({required List<MhsDevice> devices})
     : devices = List.unmodifiable(devices);
   factory MhsManifest.fromJson(Object? json) {
     final object = asJsonObject(json, 'MhsManifest');
-    asJsonList(object['devices'], 'devices');
     return MhsManifest(
       devices: readList(object, 'devices', MhsDevice.fromJson),
     );
@@ -1710,123 +1709,282 @@ class MhsManifest {
 class MhsDevice {
   MhsDevice({
     required this.id,
-    required this.kind,
+    required this.hwd,
     this.description,
     List<String>? tags,
-    required List<MhsState> states,
-  }) : tags = tags == null ? null : List.unmodifiable(tags),
-       states = List.unmodifiable(states);
+  }) : tags = tags == null ? null : List.unmodifiable(tags);
   factory MhsDevice.fromJson(Object? json) {
     final object = asJsonObject(json, 'MhsDevice');
-    asJsonList(object['states'], 'states');
+    final hwd = readString(object, 'hwd');
+    if (!mhsHwdNames.contains(hwd)) {
+      throw const FormatException('unknown MHS HWD');
+    }
     return MhsDevice(
       id: readString(object, 'id'),
-      kind: readString(object, 'kind'),
+      hwd: hwd,
       description: readOptionalString(object, 'description'),
       tags: object['tags'] == null
           ? null
           : readList(object, 'tags', _mhsString),
-      states: readList(object, 'states', MhsState.fromJson),
     );
   }
   final String id;
-
-  /// Open product-defined kind; callers must accept unfamiliar kinds.
-  final String kind;
+  final String hwd;
   final String? description;
   final List<String>? tags;
-  final List<MhsState> states;
 }
 
-class MhsState {
-  MhsState({
-    required this.name,
-    required this.type,
-    required this.access,
-    this.min,
-    this.max,
-    this.step,
-    List<String>? enumValues,
-    this.unit,
-    this.description,
-  }) : enumValues = enumValues == null ? null : List.unmodifiable(enumValues);
-  factory MhsState.fromJson(Object? json) {
-    final object = asJsonObject(json, 'MhsState');
-    final type = readString(object, 'type');
-    final access = readString(object, 'access');
-    if (!{'bool', 'int', 'double', 'string', 'enum'}.contains(type) ||
-        !{'read', 'read_write'}.contains(access)) {
-      throw const FormatException('invalid MHS type or access');
-    }
-    return MhsState(
-      name: readString(object, 'name'),
-      type: type,
-      access: access,
-      min: readOptionalDouble(object, 'min'),
-      max: readOptionalDouble(object, 'max'),
-      step: readOptionalDouble(object, 'step'),
-      enumValues: object['enum_values'] == null
-          ? null
-          : readList(object, 'enum_values', _mhsString),
-      unit: readOptionalString(object, 'unit'),
-      description: readOptionalString(object, 'description'),
-    );
-  }
-  final String name;
-  final String type;
-  final String access;
-  final double? min;
-  final double? max;
-  final double? step;
-  final List<String>? enumValues;
-  final String? unit;
-  final String? description;
-  bool get writable => access == 'read_write';
-}
-
+const mhsHwdNames = {
+  'wifi',
+  'ble',
+  'modem',
+  'battery',
+  'mic',
+  'display',
+  'led',
+  'speaker',
+};
 String _mhsString(Object? value) {
   if (value is! String) throw const FormatException('expected MHS string');
   return value;
 }
 
-class MhsStateRef {
-  const MhsStateRef({required this.deviceId, required this.state});
-  final String deviceId;
-  final String state;
-  JsonObject toJson() => {'device_id': deviceId, 'state': state};
+sealed class MhsHwdReadValue {
+  const MhsHwdReadValue();
 }
 
-class MhsStateValue {
-  MhsStateValue({
-    required this.deviceId,
-    required this.state,
-    required Object value,
-  }) : value = _mhsValue(value);
-  factory MhsStateValue.fromJson(Object? json) {
-    final object = asJsonObject(json, 'MhsStateValue');
-    return MhsStateValue(
-      deviceId: readString(object, 'device_id'),
-      state: readString(object, 'state'),
-      value: _mhsValue(object['value']),
+class MhsWifiReadValue extends MhsHwdReadValue {
+  const MhsWifiReadValue({
+    this.connected,
+    this.ssid,
+    this.bssid,
+    this.rssiDbm,
+    this.ip,
+  });
+  factory MhsWifiReadValue.fromJson(Object? json) {
+    final object = asJsonObject(json, 'MhsWifiReadValue');
+    return MhsWifiReadValue(
+      connected: readOptionalBool(object, 'connected'),
+      ssid: readOptionalString(object, 'ssid'),
+      bssid: readOptionalString(object, 'bssid'),
+      rssiDbm: readOptionalInt(object, 'rssi_dbm'),
+      ip: readOptionalString(object, 'ip'),
     );
   }
-  final String deviceId;
-  final String state;
-
-  /// Plain bool, int, double or String; enum values are strings.
-  final Object value;
-  JsonObject toJson() => {
-    'device_id': deviceId,
-    'state': state,
-    'value': value,
-  };
+  final bool? connected;
+  final String? ssid;
+  final String? bssid;
+  final int? rssiDbm;
+  final String? ip;
 }
 
-Object _mhsValue(Object? value) {
-  if (value is bool || value is String || (value is num && value.isFinite)) {
-    return value!;
+class MhsBleReadValue extends MhsHwdReadValue {
+  const MhsBleReadValue({
+    this.powered,
+    this.advertising,
+    this.scanning,
+    this.connectionCount,
+  });
+  factory MhsBleReadValue.fromJson(Object? json) {
+    final object = asJsonObject(json, 'MhsBleReadValue');
+    return MhsBleReadValue(
+      powered: readOptionalBool(object, 'powered'),
+      advertising: readOptionalBool(object, 'advertising'),
+      scanning: readOptionalBool(object, 'scanning'),
+      connectionCount: readOptionalInt(object, 'connection_count'),
+    );
   }
-  throw const FormatException(
-    'expected a finite MHS boolean, number or string',
-  );
+  final bool? powered;
+  final bool? advertising;
+  final bool? scanning;
+  final int? connectionCount;
+}
+
+class MhsModemReadValue extends MhsHwdReadValue {
+  const MhsModemReadValue({
+    this.simPresent,
+    this.registered,
+    this.rat,
+    this.rssiDbm,
+    this.signalLevel,
+  });
+  factory MhsModemReadValue.fromJson(Object? json) {
+    final object = asJsonObject(json, 'MhsModemReadValue');
+    return MhsModemReadValue(
+      simPresent: readOptionalBool(object, 'sim_present'),
+      registered: readOptionalBool(object, 'registered'),
+      rat: readOptionalString(object, 'rat'),
+      rssiDbm: readOptionalInt(object, 'rssi_dbm'),
+      signalLevel: readOptionalInt(object, 'signal_level'),
+    );
+  }
+  final bool? simPresent;
+  final bool? registered;
+  final String? rat;
+  final int? rssiDbm;
+  final int? signalLevel;
+}
+
+class MhsBatteryReadValue extends MhsHwdReadValue {
+  const MhsBatteryReadValue({this.percent, this.charging, this.voltageMv});
+  factory MhsBatteryReadValue.fromJson(Object? json) {
+    final object = asJsonObject(json, 'MhsBatteryReadValue');
+    return MhsBatteryReadValue(
+      percent: readOptionalDouble(object, 'percent'),
+      charging: readOptionalBool(object, 'charging'),
+      voltageMv: readOptionalDouble(object, 'voltage_mv'),
+    );
+  }
+  final double? percent;
+  final bool? charging;
+  final double? voltageMv;
+}
+
+class MhsMicReadValue extends MhsHwdReadValue {
+  const MhsMicReadValue({this.available, this.capturing});
+  factory MhsMicReadValue.fromJson(Object? json) {
+    final object = asJsonObject(json, 'MhsMicReadValue');
+    return MhsMicReadValue(
+      available: readOptionalBool(object, 'available'),
+      capturing: readOptionalBool(object, 'capturing'),
+    );
+  }
+  final bool? available;
+  final bool? capturing;
+}
+
+class MhsDisplayReadValue extends MhsHwdReadValue {
+  const MhsDisplayReadValue({
+    this.brightnessPercent,
+    this.enabled,
+    this.offTimeoutMs,
+  });
+  factory MhsDisplayReadValue.fromJson(Object? json) {
+    final object = asJsonObject(json, 'MhsDisplayReadValue');
+    return MhsDisplayReadValue(
+      brightnessPercent: readOptionalInt(object, 'brightness_percent'),
+      enabled: readOptionalBool(object, 'enabled'),
+      offTimeoutMs: readOptionalInt(object, 'off_timeout_ms'),
+    );
+  }
+  final int? brightnessPercent;
+  final bool? enabled;
+  final int? offTimeoutMs;
+}
+
+class MhsLedReadValue extends MhsHwdReadValue {
+  const MhsLedReadValue({this.enabled, this.brightnessPercent});
+  factory MhsLedReadValue.fromJson(Object? json) {
+    final object = asJsonObject(json, 'MhsLedReadValue');
+    return MhsLedReadValue(
+      enabled: readOptionalBool(object, 'enabled'),
+      brightnessPercent: readOptionalInt(object, 'brightness_percent'),
+    );
+  }
+  final bool? enabled;
+  final int? brightnessPercent;
+}
+
+class MhsSpeakerReadValue extends MhsHwdReadValue {
+  const MhsSpeakerReadValue({this.volumePercent, this.muted});
+  factory MhsSpeakerReadValue.fromJson(Object? json) {
+    final object = asJsonObject(json, 'MhsSpeakerReadValue');
+    return MhsSpeakerReadValue(
+      volumePercent: readOptionalInt(object, 'volume_percent'),
+      muted: readOptionalBool(object, 'muted'),
+    );
+  }
+  final int? volumePercent;
+  final bool? muted;
+}
+
+class MhsHwdReadResult {
+  const MhsHwdReadResult({
+    required this.id,
+    required this.hwd,
+    required this.value,
+  });
+  factory MhsHwdReadResult.fromJson(Object? json) {
+    final object = asJsonObject(json, 'MhsHwdReadResult');
+    final hwd = readString(object, 'hwd');
+    final rawValue = asJsonObject(object['value'], 'MhsHwdReadResult.value');
+    if (rawValue.isEmpty) {
+      throw const FormatException('empty MHS HWD value');
+    }
+    final value = switch (hwd) {
+      'wifi' => MhsWifiReadValue.fromJson(rawValue),
+      'ble' => MhsBleReadValue.fromJson(rawValue),
+      'modem' => MhsModemReadValue.fromJson(rawValue),
+      'battery' => MhsBatteryReadValue.fromJson(rawValue),
+      'mic' => MhsMicReadValue.fromJson(rawValue),
+      'display' => MhsDisplayReadValue.fromJson(rawValue),
+      'led' => MhsLedReadValue.fromJson(rawValue),
+      'speaker' => MhsSpeakerReadValue.fromJson(rawValue),
+      _ => throw const FormatException('unknown MHS HWD'),
+    };
+    return MhsHwdReadResult(
+      id: readString(object, 'id'),
+      hwd: hwd,
+      value: value,
+    );
+  }
+  final String id;
+  final String hwd;
+  final MhsHwdReadValue value;
+}
+
+sealed class MhsHwdWriteValue {
+  const MhsHwdWriteValue();
+  String get hwd;
+  JsonObject toJson();
+}
+
+class MhsDisplayWriteValue extends MhsHwdWriteValue {
+  const MhsDisplayWriteValue({
+    this.brightnessPercent,
+    this.enabled,
+    this.offTimeoutMs,
+  });
+  @override
+  String get hwd => 'display';
+  final int? brightnessPercent;
+  final bool? enabled;
+  final int? offTimeoutMs;
+  @override
+  JsonObject toJson() => withoutNulls({
+    'brightness_percent': brightnessPercent,
+    'enabled': enabled,
+    'off_timeout_ms': offTimeoutMs,
+  });
+}
+
+class MhsLedWriteValue extends MhsHwdWriteValue {
+  const MhsLedWriteValue({this.enabled, this.brightnessPercent});
+  @override
+  String get hwd => 'led';
+  final bool? enabled;
+  final int? brightnessPercent;
+  @override
+  JsonObject toJson() => withoutNulls({
+    'enabled': enabled,
+    'brightness_percent': brightnessPercent,
+  });
+}
+
+class MhsSpeakerWriteValue extends MhsHwdWriteValue {
+  const MhsSpeakerWriteValue({this.volumePercent, this.muted});
+  @override
+  String get hwd => 'speaker';
+  final int? volumePercent;
+  final bool? muted;
+  @override
+  JsonObject toJson() =>
+      withoutNulls({'volume_percent': volumePercent, 'muted': muted});
+}
+
+class MhsHwdWriteRequest {
+  const MhsHwdWriteRequest({required this.id, required this.value});
+  final String id;
+  final MhsHwdWriteValue value;
+  JsonObject toJson() => {'id': id, 'hwd': value.hwd, 'value': value.toJson()};
 }

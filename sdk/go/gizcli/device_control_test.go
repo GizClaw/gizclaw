@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
+	"google.golang.org/protobuf/proto"
 	"reflect"
 	"testing"
 
@@ -320,20 +321,26 @@ func TestRPCClientSocialPingHandler(t *testing.T) {
 	}
 }
 
-func TestRPCClientMhsSettingsDispatchAndDiscovery(t *testing.T) {
+func TestRPCClientMhsHwdDispatchAndDiscovery(t *testing.T) {
 	device := &Client{}
 	applied := 0
 	reset := false
 	if err := device.HandleDeviceControl(DeviceControlHandlers{
-		ReadMhsStates: func(_ context.Context, request *rpcpb.ClientMhsV0ReadRequest) (*rpcpb.ClientMhsV0ReadResponse, error) {
-			return &rpcpb.ClientMhsV0ReadResponse{States: []*rpcpb.MhsStateValue{{DeviceId: request.States[0].DeviceId, State: request.States[0].State, Value: &rpcpb.MhsValue{Value: &rpcpb.MhsValue_IntValue{IntValue: 30}}}}}, nil
+		ReadMhsHwd: func(_ context.Context, request *rpcpb.ClientMhsV0ReadRequest) (*rpcpb.ClientMhsV0ReadResponse, error) {
+			if request.Id != "display.main" || request.Hwd != rpcpb.ClientHwd_CLIENT_HWD_DISPLAY {
+				t.Fatalf("read request %+v", request)
+			}
+			value, _ := proto.Marshal(&rpcpb.DisplayHwdReadResponse{BrightnessPercent: proto.Uint32(30)})
+			return &rpcpb.ClientMhsV0ReadResponse{Payload: value}, nil
 		},
-		WriteMhsStates: func(_ context.Context, request *rpcpb.ClientMhsV0WriteRequest) (*rpcpb.ClientMhsV0WriteResponse, error) {
-			if request.States[0].Value.GetIntValue() > 100 {
-				return nil, ErrDeviceRejected
+		WriteMhsHwd: func(_ context.Context, request *rpcpb.ClientMhsV0WriteRequest) (*rpcpb.ClientMhsV0WriteResponse, error) {
+			var value rpcpb.DisplayHwdWriteRequest
+			if err := proto.Unmarshal(request.Payload, &value); err != nil {
+				return nil, err
 			}
 			applied++
-			return &rpcpb.ClientMhsV0WriteResponse{States: request.States}, nil
+			result, _ := proto.Marshal(&rpcpb.DisplayHwdWriteResponse{Applied: &rpcpb.DisplayHwdReadResponse{BrightnessPercent: value.BrightnessPercent}})
+			return &rpcpb.ClientMhsV0WriteResponse{Payload: result}, nil
 		},
 		FactoryReset: func(_ context.Context, keep bool) error { reset = keep; return nil },
 		Find:         func(context.Context, *int64) error { return nil },
@@ -341,15 +348,20 @@ func TestRPCClientMhsSettingsDispatchAndDiscovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	read := deviceControlDispatch(t, device, rpcapi.RPCMethodClientMhsV0Read, func(p *rpcapi.RPCPayload) error {
-		return p.FromClientMhsV0ReadRequest(&rpcpb.ClientMhsV0ReadRequest{States: []*rpcpb.MhsStateRef{{DeviceId: "display.main", State: "brightness"}}})
+		return p.FromClientMhsV0ReadRequest(&rpcpb.ClientMhsV0ReadRequest{Id: "display.main", Hwd: rpcpb.ClientHwd_CLIENT_HWD_DISPLAY})
 	})
 	got, err := read.Result.AsClientMhsV0ReadResponse()
-	if err != nil || got.States[0].Value.GetIntValue() != 30 {
-		t.Fatalf("read %v %v", got, err)
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, level := range []int64{0, 40, 140} {
+	var observed rpcpb.DisplayHwdReadResponse
+	if err := proto.Unmarshal(got.Payload, &observed); err != nil || observed.BrightnessPercent == nil || *observed.BrightnessPercent != 30 {
+		t.Fatalf("read %+v %v", &observed, err)
+	}
+	for _, level := range []uint32{0, 40, 140} {
+		value, _ := proto.Marshal(&rpcpb.DisplayHwdWriteRequest{BrightnessPercent: new(level)})
 		response := deviceControlDispatch(t, device, rpcapi.RPCMethodClientMhsV0Write, func(p *rpcapi.RPCPayload) error {
-			return p.FromClientMhsV0WriteRequest(&rpcpb.ClientMhsV0WriteRequest{States: []*rpcpb.MhsStateValue{{DeviceId: "display.main", State: "brightness", Value: &rpcpb.MhsValue{Value: &rpcpb.MhsValue_IntValue{IntValue: level}}}}})
+			return p.FromClientMhsV0WriteRequest(&rpcpb.ClientMhsV0WriteRequest{Id: "display.main", Hwd: rpcpb.ClientHwd_CLIENT_HWD_DISPLAY, Payload: value})
 		})
 		if level > 100 {
 			if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInvalidArgument {
@@ -370,8 +382,7 @@ func TestRPCClientMhsSettingsDispatchAndDiscovery(t *testing.T) {
 	}
 	list := deviceControlDispatch(t, device, rpcapi.RPCMethodClientToolV0List, nil)
 	tools, err := list.Result.AsClientToolV0ListResponse()
-	want := []rpcpb.ClientTool{1, 2, 5, 6}
-	if err != nil || !reflect.DeepEqual(tools.Tools, want) {
+	if err != nil || !reflect.DeepEqual(tools.Tools, []rpcpb.ClientTool{1, 2, 5, 6}) {
 		t.Fatalf("tools %v %v", tools, err)
 	}
 	methods := deviceControlDispatch(t, device, rpcapi.RPCMethodClientRPCMethodsList, nil)

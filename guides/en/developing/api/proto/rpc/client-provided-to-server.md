@@ -20,13 +20,11 @@ sequenceDiagram
 
 `client.tool.v0.invoke` (135) carries one `ClientTool` enum value and protobuf `payload` encoded as the request message declared on that enum value in `payload/tool.proto`. Its response carries the declared response message. Empty messages use an empty payload. An uninstalled tool returns `UNIMPLEMENTED`; a malformed payload returns `INVALID_PARAMS`. Device errors travel in the RPC envelope.
 
-## MHS v0 states
+## MHS v0 HWDs
 
-The bound RuntimeProfile's `spec.mhs.v0` manifest defines product-owned `(device_id, state)` keys, types, limits and access. `client.mhs.v0.read` (133) reads requested keys; `client.mhs.v0.write` (134) writes keys declared `read_write` and returns the actual applied values. The Server checks the manifest and the complete batch before contacting the device. The device validates the entire batch and its own safety limits before applying anything. An unknown or unimplemented key returns `NOT_FOUND`; a failed precondition or invalid value rejects the batch.
+`ClientHwd` in `payload/mhs_v0.proto` binds each HWD to one read response message. Display, led and speaker also bind a write request and applied-value response; wifi, ble, modem, battery and mic have no write messages. The bound RuntimeProfile manifest lists `{id,hwd}` instances only.
 
-`MhsValue` sets exactly one of `bool_value`, `int_value`, `double_value`, or `string_value`. False, zero and empty string retain presence. Enum values use semantic strings in `string_value`. Requests and responses contain 1–32 states. Keys are at most 64 ASCII bytes and strings at most 256 UTF-8 bytes without NUL. Integers are JSON safe and doubles finite. A timed-out write should be followed by a read to confirm state.
-
-Volume, brightness, locale, alert mode, Wi-Fi connection status, and other product hardware states belong in manifest keys. The manifest declares keys; it does not automatically install device handlers.
+`client.mhs.v0.read` (133) carries an instance ID and HWD; its payload is the HWD's read protobuf. `client.mhs.v0.write` (134) additionally carries that HWD's write protobuf and returns an applied-value protobuf. Each call addresses one instance. The Server verifies the manifest instance and type before forwarding. The device returns NOT_FOUND for absent physical hardware and INVALID_ARGUMENT for invalid values; errors use the RPC envelope. Read back after a timed-out write.
 
 ## tool/v0 procedures
 

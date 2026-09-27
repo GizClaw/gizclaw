@@ -343,7 +343,7 @@ const rangeSchema = z.object({
   ),
 });
 
-/** Wi-Fi states declared by the bound profile and saved networks. */
+/** Wi-Fi HWD observation from the bound profile and saved networks. */
 export async function loadWifi(
   endpoint: string,
   publicKey: string,
@@ -354,24 +354,16 @@ export async function loadWifi(
     peer.getMhsManifest(),
     peer.listSavedWifi(),
   ]);
-  const states = manifest.devices
-    .filter((device) => device.kind === "wifi")
-    .flatMap((device) =>
-      device.states
-        .filter(
-          (state) => state.access === "read" || state.access === "read_write",
-        )
-        .map((state) => ({ device_id: device.id, state: state.name })),
-    );
-  const readings =
-    states.length > 0 ? await peer.readMhsStates({ states }) : { states: [] };
-  const value = (name: string) =>
-    readings.states.find((state) => state.state === name)?.value;
-  const connected = value("connected");
-  const ssid = value("ssid");
-  const rssi = value("rssi-dbm");
-  const ip = value("ip");
-  const bssid = value("bssid");
+  const wifi = manifest.devices.find((device) => device.hwd === "wifi");
+  const reading = wifi
+    ? await peer.readMhsHwd({ id: wifi.id, hwd: "wifi" })
+    : undefined;
+  const value = reading?.hwd === "wifi" ? reading.value : undefined;
+  const connected = value?.connected;
+  const ssid = value?.ssid;
+  const rssi = value?.rssi_dbm;
+  const ip = value?.ip;
+  const bssid = value?.bssid;
   return {
     status: {
       connected: connected === true,
@@ -535,11 +527,9 @@ const manifestSchema = z.object({
   devices: z.array(
     z.object({
       id: z.string(),
-      kind: z.string(),
+      hwd: z.string(),
       description: z.string().optional(),
-      states: z.array(
-        z.object({ name: z.string(), type: z.string(), access: z.string() }),
-      ),
+      tags: z.array(z.string()).optional(),
     }),
   ),
 });

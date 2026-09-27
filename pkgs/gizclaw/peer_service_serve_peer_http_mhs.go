@@ -14,7 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
-const mhsStateNotFoundCode = "MHS_STATE_NOT_FOUND"
+const mhsHwdNotFoundCode = "MHS_HWD_NOT_FOUND"
 
 func (s *peerHTTP) mhsManifest(ctx context.Context, owner giznet.PublicKey) (apitypes.MhsV0Manifest, *deviceControlError) {
 	reads, ok := s.deviceReads(owner)
@@ -43,67 +43,62 @@ func (s *peerHTTP) GetMhsManifest(ctx context.Context, _ peerhttp.GetMhsManifest
 	return peerhttp.GetMhsManifest200JSONResponse(manifest), nil
 }
 
-func (s *peerHTTP) ReadMhsStates(ctx context.Context, request peerhttp.ReadMhsStatesRequestObject) (peerhttp.ReadMhsStatesResponseObject, error) {
+func (s *peerHTTP) ReadMhsHwd(ctx context.Context, request peerhttp.ReadMhsHwdRequestObject) (peerhttp.ReadMhsHwdResponseObject, error) {
 	owner, err := publicHTTPOwner(ctx)
 	if err != nil {
-		return peerhttp.ReadMhsStates401JSONResponse{UnauthorizedJSONResponse: peerhttp.UnauthorizedJSONResponse(unauthorizedPublicHTTP())}, nil
+		return peerhttp.ReadMhsHwd401JSONResponse{UnauthorizedJSONResponse: peerhttp.UnauthorizedJSONResponse(unauthorizedPublicHTTP())}, nil
 	}
 	if request.Body == nil {
-		return readMhsStatesError(invalidDeviceRequest("request body is required")), nil
+		return readMhsHwdError(invalidDeviceRequest("request body is required")), nil
 	}
 	manifest, controlErr := s.mhsManifest(ctx, owner)
 	if controlErr != nil {
-		return readMhsStatesError(controlErr), nil
+		return readMhsHwdError(controlErr), nil
 	}
 	params, err := mhs.ReadRequest(manifest, *request.Body)
 	if err != nil {
-		return readMhsStatesError(invalidDeviceRequest(err.Error())), nil
+		return readMhsHwdError(invalidDeviceRequest(err.Error())), nil
 	}
-	result, controlErr := callDeviceControl(ctx, s.DeviceControl, owner, deviceControlOptions{notFoundCode: mhsStateNotFoundCode}, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcpb.ClientMhsV0ReadResponse, error) {
-		return client.ReadMhsStates(ctx, conn, "client.mhs.v0.read", params)
+	result, controlErr := callDeviceControl(ctx, s.DeviceControl, owner, deviceControlOptions{notFoundCode: mhsHwdNotFoundCode}, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcpb.ClientMhsV0ReadResponse, error) {
+		return client.ReadMhsHwd(ctx, conn, "client.mhs.v0.read", params)
 	}, nil)
 	if controlErr != nil {
-		return readMhsStatesError(controlErr), nil
+		return readMhsHwdError(controlErr), nil
 	}
-	refs := params.States
-	response, err := mhs.Response(manifest, refs, result.GetStates())
+	response, err := mhs.ReadResponse(params, result)
 	if err != nil {
-		return readMhsStatesError(&deviceControlError{Status: http.StatusBadGateway, Code: deviceErrorCode, Message: "device returned invalid MHS states"}), nil
+		return readMhsHwdError(&deviceControlError{Status: http.StatusBadGateway, Code: deviceErrorCode, Message: "device returned invalid HWD payload"}), nil
 	}
-	return peerhttp.ReadMhsStates200JSONResponse(response), nil
+	return peerhttp.ReadMhsHwd200JSONResponse(response), nil
 }
 
-func (s *peerHTTP) WriteMhsStates(ctx context.Context, request peerhttp.WriteMhsStatesRequestObject) (peerhttp.WriteMhsStatesResponseObject, error) {
+func (s *peerHTTP) WriteMhsHwd(ctx context.Context, request peerhttp.WriteMhsHwdRequestObject) (peerhttp.WriteMhsHwdResponseObject, error) {
 	owner, err := publicHTTPOwner(ctx)
 	if err != nil {
-		return peerhttp.WriteMhsStates401JSONResponse{UnauthorizedJSONResponse: peerhttp.UnauthorizedJSONResponse(unauthorizedPublicHTTP())}, nil
+		return peerhttp.WriteMhsHwd401JSONResponse{UnauthorizedJSONResponse: peerhttp.UnauthorizedJSONResponse(unauthorizedPublicHTTP())}, nil
 	}
 	if request.Body == nil {
-		return writeMhsStatesError(invalidDeviceRequest("request body is required")), nil
+		return writeMhsHwdError(invalidDeviceRequest("request body is required")), nil
 	}
 	manifest, controlErr := s.mhsManifest(ctx, owner)
 	if controlErr != nil {
-		return writeMhsStatesError(controlErr), nil
+		return writeMhsHwdError(controlErr), nil
 	}
 	params, err := mhs.WriteRequest(manifest, *request.Body)
 	if err != nil {
-		return writeMhsStatesError(invalidDeviceRequest(err.Error())), nil
+		return writeMhsHwdError(invalidDeviceRequest(err.Error())), nil
 	}
-	result, controlErr := callDeviceControl(ctx, s.DeviceControl, owner, deviceControlOptions{notFoundCode: mhsStateNotFoundCode}, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcpb.ClientMhsV0WriteResponse, error) {
-		return client.WriteMhsStates(ctx, conn, "client.mhs.v0.write", params)
+	result, controlErr := callDeviceControl(ctx, s.DeviceControl, owner, deviceControlOptions{notFoundCode: mhsHwdNotFoundCode}, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcpb.ClientMhsV0WriteResponse, error) {
+		return client.WriteMhsHwd(ctx, conn, "client.mhs.v0.write", params)
 	}, nil)
 	if controlErr != nil {
-		return writeMhsStatesError(controlErr), nil
+		return writeMhsHwdError(controlErr), nil
 	}
-	refs := make([]*rpcpb.MhsStateRef, len(params.States))
-	for i, state := range params.States {
-		refs[i] = &rpcpb.MhsStateRef{DeviceId: state.DeviceId, State: state.State}
-	}
-	response, err := mhs.Response(manifest, refs, result.GetStates())
+	response, err := mhs.WriteResponse(params, result)
 	if err != nil {
-		return writeMhsStatesError(&deviceControlError{Status: http.StatusBadGateway, Code: deviceErrorCode, Message: "device returned invalid MHS states"}), nil
+		return writeMhsHwdError(&deviceControlError{Status: http.StatusBadGateway, Code: deviceErrorCode, Message: "device returned invalid HWD payload"}), nil
 	}
-	return peerhttp.WriteMhsStates200JSONResponse(response), nil
+	return peerhttp.WriteMhsHwd200JSONResponse(response), nil
 }
 
 func getMhsManifestError(e *deviceControlError) peerhttp.GetMhsManifestResponseObject {
@@ -120,46 +115,46 @@ func getMhsManifestError(e *deviceControlError) peerhttp.GetMhsManifestResponseO
 	}
 }
 
-func readMhsStatesError(e *deviceControlError) peerhttp.ReadMhsStatesResponseObject {
+func readMhsHwdError(e *deviceControlError) peerhttp.ReadMhsHwdResponseObject {
 	body := e.response()
 	switch e.Status {
 	case 400:
-		return peerhttp.ReadMhsStates400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(body)}
+		return peerhttp.ReadMhsHwd400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(body)}
 	case 403:
-		return peerhttp.ReadMhsStates403JSONResponse{ForbiddenJSONResponse: peerhttp.ForbiddenJSONResponse(body)}
+		return peerhttp.ReadMhsHwd403JSONResponse{ForbiddenJSONResponse: peerhttp.ForbiddenJSONResponse(body)}
 	case 409:
-		return peerhttp.ReadMhsStates409JSONResponse{DeviceOfflineJSONResponse: peerhttp.DeviceOfflineJSONResponse(body)}
+		return peerhttp.ReadMhsHwd409JSONResponse{DeviceOfflineJSONResponse: peerhttp.DeviceOfflineJSONResponse(body)}
 	case 501:
-		return peerhttp.ReadMhsStates501JSONResponse{DeviceUnsupportedJSONResponse: peerhttp.DeviceUnsupportedJSONResponse(body)}
+		return peerhttp.ReadMhsHwd501JSONResponse{DeviceUnsupportedJSONResponse: peerhttp.DeviceUnsupportedJSONResponse(body)}
 	case 504:
-		return peerhttp.ReadMhsStates504JSONResponse{DeviceTimeoutJSONResponse: peerhttp.DeviceTimeoutJSONResponse(body)}
+		return peerhttp.ReadMhsHwd504JSONResponse{DeviceTimeoutJSONResponse: peerhttp.DeviceTimeoutJSONResponse(body)}
 	case 500:
-		return peerhttp.ReadMhsStates500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(body)}
+		return peerhttp.ReadMhsHwd500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(body)}
 	case 404:
-		return peerhttp.ReadMhsStates404JSONResponse(body)
+		return peerhttp.ReadMhsHwd404JSONResponse(body)
 	default:
-		return peerhttp.ReadMhsStates502JSONResponse{DeviceErrorJSONResponse: peerhttp.DeviceErrorJSONResponse(body)}
+		return peerhttp.ReadMhsHwd502JSONResponse{DeviceErrorJSONResponse: peerhttp.DeviceErrorJSONResponse(body)}
 	}
 }
 
-func writeMhsStatesError(e *deviceControlError) peerhttp.WriteMhsStatesResponseObject {
+func writeMhsHwdError(e *deviceControlError) peerhttp.WriteMhsHwdResponseObject {
 	body := e.response()
 	switch e.Status {
 	case 400:
-		return peerhttp.WriteMhsStates400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(body)}
+		return peerhttp.WriteMhsHwd400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(body)}
 	case 403:
-		return peerhttp.WriteMhsStates403JSONResponse{ForbiddenJSONResponse: peerhttp.ForbiddenJSONResponse(body)}
+		return peerhttp.WriteMhsHwd403JSONResponse{ForbiddenJSONResponse: peerhttp.ForbiddenJSONResponse(body)}
 	case 409:
-		return peerhttp.WriteMhsStates409JSONResponse{DeviceOfflineJSONResponse: peerhttp.DeviceOfflineJSONResponse(body)}
+		return peerhttp.WriteMhsHwd409JSONResponse{DeviceOfflineJSONResponse: peerhttp.DeviceOfflineJSONResponse(body)}
 	case 501:
-		return peerhttp.WriteMhsStates501JSONResponse{DeviceUnsupportedJSONResponse: peerhttp.DeviceUnsupportedJSONResponse(body)}
+		return peerhttp.WriteMhsHwd501JSONResponse{DeviceUnsupportedJSONResponse: peerhttp.DeviceUnsupportedJSONResponse(body)}
 	case 504:
-		return peerhttp.WriteMhsStates504JSONResponse{DeviceTimeoutJSONResponse: peerhttp.DeviceTimeoutJSONResponse(body)}
+		return peerhttp.WriteMhsHwd504JSONResponse{DeviceTimeoutJSONResponse: peerhttp.DeviceTimeoutJSONResponse(body)}
 	case 500:
-		return peerhttp.WriteMhsStates500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(body)}
+		return peerhttp.WriteMhsHwd500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(body)}
 	case 404:
-		return peerhttp.WriteMhsStates404JSONResponse(body)
+		return peerhttp.WriteMhsHwd404JSONResponse(body)
 	default:
-		return peerhttp.WriteMhsStates502JSONResponse{DeviceErrorJSONResponse: peerhttp.DeviceErrorJSONResponse(body)}
+		return peerhttp.WriteMhsHwd502JSONResponse{DeviceErrorJSONResponse: peerhttp.DeviceErrorJSONResponse(body)}
 	}
 }

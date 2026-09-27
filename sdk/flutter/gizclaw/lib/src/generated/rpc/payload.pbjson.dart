@@ -6,7 +6,7 @@ export 'payload/edge.pbjson.dart';
 export 'payload/enums.pbjson.dart';
 export 'payload/firmware.pbjson.dart';
 export 'payload/icon.pbjson.dart';
-export 'payload/mhs.pbjson.dart';
+export 'payload/mhs_v0.pbjson.dart';
 export 'payload/social.pbjson.dart';
 export 'payload/system.pbjson.dart';
 export 'payload/tool.pbjson.dart';

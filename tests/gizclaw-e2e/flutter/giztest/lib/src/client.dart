@@ -658,8 +658,8 @@ _Handlers _buildHandlers(
         inbound[key] = (inbound[key] ?? 0) + 1;
       },
       deviceControl: GizClawDeviceControlHandlers(
-        readMhsStates: readMhs,
-        writeMhsStates: writeMhs,
+        readMhsHwd: readMhs,
+        writeMhsHwd: writeMhs,
       ),
     ),
     inbound,

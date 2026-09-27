@@ -83,9 +83,9 @@ export function PeerConfig({ peer }: { peer: WatchedPeer }) {
     <div className="flex flex-col gap-4">
       <Card>
         <CardHeader>
-          <CardTitle>硬件状态清单</CardTitle>
+          <CardTitle>硬件实例清单</CardTitle>
           <CardDescription>
-            当前 RuntimeProfile 声明的 MHS v0 设备与状态。
+            当前 RuntimeProfile 声明的 MHS v0 实例及 HWD 类型。
           </CardDescription>
           <CardAction>{refresh}</CardAction>
         </CardHeader>
@@ -96,7 +96,7 @@ export function PeerConfig({ peer }: { peer: WatchedPeer }) {
             render={(manifest) =>
               manifest.devices.length === 0 ? (
                 <p className="px-5 text-xs text-muted-foreground">
-                  未声明硬件状态。
+                  未声明硬件实例。
                 </p>
               ) : (
                 <div className="mx-5 divide-y divide-border rounded-md border border-border">
@@ -105,7 +105,7 @@ export function PeerConfig({ peer }: { peer: WatchedPeer }) {
                       <div className="font-medium">
                         {device.id}{" "}
                         <span className="text-muted-foreground">
-                          {device.kind}
+                          {device.hwd}
                         </span>
                       </div>
                       {device.description && (
@@ -113,16 +113,18 @@ export function PeerConfig({ peer }: { peer: WatchedPeer }) {
                           {device.description}
                         </p>
                       )}
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {device.states.map((state) => (
-                          <code
-                            key={state.name}
-                            className="rounded border px-1.5 py-0.5"
-                          >
-                            {state.name}: {state.type} · {state.access}
-                          </code>
-                        ))}
-                      </div>
+                      {device.tags && device.tags.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {device.tags.map((tag) => (
+                            <code
+                              key={tag}
+                              className="rounded border px-1.5 py-0.5"
+                            >
+                              {tag}
+                            </code>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

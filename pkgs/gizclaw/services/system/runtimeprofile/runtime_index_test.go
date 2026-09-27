@@ -261,7 +261,7 @@ func TestMemoryIndexSplitsEveryConfigurationKind(t *testing.T) {
 	profile := apitypes.RuntimeProfile{Id: "all-kinds", Revision: "rev", Spec: apitypes.RuntimeProfileSpec{
 		Resources:    apitypes.RuntimeProfileResources{Tools: &tools, Memories: &memories},
 		SafetyFences: &fences,
-		Mhs:          &apitypes.RuntimeProfileMhs{V0: &apitypes.MhsV0Manifest{Devices: []apitypes.MhsV0Device{{Id: "display", Kind: "display", States: []apitypes.MhsV0State{}}}}},
+		Mhs:          &apitypes.RuntimeProfileMhs{V0: &apitypes.MhsV0Manifest{Devices: []apitypes.MhsV0Device{{Id: "display", Hwd: "display"}}}},
 	}}
 	profile.CreatedAt, profile.UpdatedAt = time.Now().UTC(), time.Now().UTC()
 	if created, err := insertRuntimeProfileSQL(ctx, s.DB, profile); err != nil || !created {

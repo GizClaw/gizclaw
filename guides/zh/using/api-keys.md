@@ -14,10 +14,10 @@ Key 绑定的设备是所有 `/gizclaw/v1/device*`、`/gizclaw/v1/contacts*`、`
 curl -sS "$GIZCLAW_URL/gizclaw/v1/device/status" \
   -H "Authorization: Bearer $GIZCLAW_API_KEY"
 
-curl -sS -X PATCH "$GIZCLAW_URL/gizclaw/v1/device/mhs/v0/states" \
+curl -sS -X POST "$GIZCLAW_URL/gizclaw/v1/device/mhs/v0/write" \
   -H "Authorization: Bearer $GIZCLAW_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"states":[{"device_id":"speaker.main","state":"volume","value":35}]}'
+  -d '{"id":"speaker.main","hwd":"speaker","value":{"volume_percent":35}}'
 
 curl -sS -X POST "$GIZCLAW_URL/gizclaw/v1/device/tool/v0/invoke" \
   -H "Authorization: Bearer $GIZCLAW_API_KEY" \
@@ -31,7 +31,7 @@ curl -sS -X POST "$GIZCLAW_URL/gizclaw/v1/device/tool/v0/invoke" \
 
 ```
 
-有效的 MHS 写入返回实际状态。`tool/v0` 调用返回类型化的 `result`；`wifi.scan` 返回附近网络，`wifi.connect` 在切换网络前确认接收。展示控制入口前读取 manifest 和设备已安装的工具列表。Server 不保存、记录或回显 Wi-Fi 密码。
+有效的 MHS 写入返回实际生效的 HWD 值。`tool/v0` 调用返回类型化的 `result`；`wifi.scan` 返回附近网络，`wifi.connect` 在切换网络前确认接收。展示控制入口前读取 manifest 和设备已安装的工具列表。Server 不保存、记录或回显 Wi-Fi 密码。
 
 设备不在线时控制 route 返回 `409 DEVICE_OFFLINE`，普通控制在 5 秒内无响应、扫描在其请求上界内无响应返回 `504 DEVICE_TIMEOUT`，两者都不会改变已存储的 status；`reboot` 得到确认后，设备重连前的控制请求同样返回 `409`。设备拒绝参数返回 `400 DEVICE_REJECTED`，设备固件未实现对应能力返回 `501 DEVICE_UNSUPPORTED`。Key 被撤销或设备 Peer 被删除后，所有设备与 Contact 请求立即失败。
 

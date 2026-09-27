@@ -25,25 +25,20 @@ afterEach(cleanup);
 describe("device config tab", () => {
   beforeEach(() => loadDeviceConfig.mockReset());
 
-  it("shows manifest states and only installed procedures", async () => {
+  it("shows HWD instances and only installed procedures", async () => {
     loadDeviceConfig.mockResolvedValue({
       manifest: {
         state: "ok",
         data: {
-          devices: [
-            {
-              id: "speaker",
-              kind: "audio",
-              states: [{ name: "volume", type: "int", access: "read_write" }],
-            },
-          ],
+          devices: [{ id: "speaker.main", hwd: "speaker", tags: ["audio"] }],
         },
       },
       tools: { state: "ok", data: ["device.find", "sound.play"] },
     });
     render(<PeerConfig peer={peer} />);
     await screen.findByText("device.find");
-    expect(screen.getByText("volume: int · read_write")).toBeTruthy();
+    expect(screen.getByText("speaker")).toBeTruthy();
+    expect(screen.getByText("audio")).toBeTruthy();
     expect(screen.getByText("sound.play")).toBeTruthy();
     expect(
       screen.queryByRole("button", { name: /恢复出厂|调用|保存/ }),

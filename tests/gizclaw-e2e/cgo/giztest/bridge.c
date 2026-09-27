@@ -457,7 +457,7 @@ static void split_route(gzc_str_t path, gzt_route_t *out) {
       "/device/runtime-profile",
       "/device/mhs/v0/manifest",
       "/device/mhs/v0/read",
-      "/device/mhs/v0/states",
+      "/device/mhs/v0/write",
       "/device/workspaces",
       "/device/telemetry",
       "/device/runtime",
@@ -685,37 +685,36 @@ static int mhs_control_request(
     bool manifest, bool read, gzc_str_t body) {
   char strings[64 * 1024];
   gzc_control_mhs_v0_storage_t storage = {strings, sizeof(strings), 0};
-  size_t count = 0;
   if (manifest) {
     gzc_control_mhs_v0_device_t devices[64];
+    size_t count = 0;
     int rc = gzc_control_get_mhs_v0_manifest(control, call, &storage, devices, 64, &count);
     for (size_t i = 0; rc == GZC_OK && i < count; i++) {
       gzc_str_t tags[128];
       size_t tag_count = 0;
       rc = gzc_control_mhs_v0_device_tags(&devices[i], &storage, tags, 128, &tag_count);
-      gzc_control_mhs_v0_state_t states[128];
-      size_t state_count = 0;
-      if (rc == GZC_OK) {
-        rc = gzc_control_mhs_v0_device_states(&devices[i], &storage, states, 128, &state_count);
-      }
-      for (size_t j = 0; rc == GZC_OK && j < state_count; j++) {
-        gzc_str_t values[128];
-        size_t value_count = 0;
-        rc = gzc_control_mhs_v0_state_enum_values(&states[j], &storage, values, 128, &value_count);
-      }
     }
     return rc;
   }
-  gzc_control_mhs_v0_state_value_t out[GZC_CONTROL_MHS_V0_MAX_BATCH];
-  size_t out_count = 0;
-  if (read) {
-    gzc_control_mhs_v0_state_ref_t refs[GZC_CONTROL_MHS_V0_MAX_BATCH];
-    int rc = gzc_control_mhs_v0_decode_refs(body, &storage, refs, GZC_CONTROL_MHS_V0_MAX_BATCH, &count);
-    return rc == GZC_OK ? gzc_control_read_mhs_v0_states(control, call, refs, count, &storage, out, GZC_CONTROL_MHS_V0_MAX_BATCH, &out_count) : rc;
+  gzc_str_t id = {0}, hwd_name = {0}, value = {0};
+  if (!body_str(body, "id", &id) || !body_str(body, "hwd", &hwd_name))
+    return GZC_ERR_INVALID_ARGUMENT;
+  static const char *names[] = {NULL, "wifi", "ble", "modem", "battery", "mic", "display", "led", "speaker"};
+  gzc_control_mhs_v0_hwd_t hwd = 0;
+  for (size_t i = 1; i < sizeof(names) / sizeof(names[0]); i++) {
+    if (str_is(hwd_name, names[i])) {
+      hwd = (gzc_control_mhs_v0_hwd_t)i;
+      break;
+    }
   }
-  gzc_control_mhs_v0_state_value_t values[GZC_CONTROL_MHS_V0_MAX_BATCH];
-  int rc = gzc_control_mhs_v0_decode_states(body, &storage, values, GZC_CONTROL_MHS_V0_MAX_BATCH, &count);
-  return rc == GZC_OK ? gzc_control_write_mhs_v0_states(control, call, values, count, &storage, out, GZC_CONTROL_MHS_V0_MAX_BATCH, &out_count) : rc;
+  if (hwd == 0)
+    return GZC_ERR_INVALID_ARGUMENT;
+  gzc_control_mhs_v0_hwd_result_t out;
+  if (read)
+    return gzc_control_read_mhs_v0_hwd(control, call, id, hwd, &storage, &out);
+  if (gzc_json_find_field(body, "value", &value) != GZC_OK)
+    return GZC_ERR_INVALID_ARGUMENT;
+  return gzc_control_write_mhs_v0_hwd(control, call, id, hwd, value, &storage, &out);
 }
 
 int gzt_control_request(
@@ -833,8 +832,22 @@ int gzt_control_request(
 
   if ((get && route_is(&route, "/device/mhs/v0/manifest", false)) ||
       (post && route_is(&route, "/device/mhs/v0/read", false)) ||
-      (patch && route_is(&route, "/device/mhs/v0/states", false))) {
-    rc = mhs_control_request(&control, &call, get, post, body);
+      (post && route_is(&route, "/device/mhs/v0/write", false))) {
+    rc = mhs_control_request(&control, &call, get, route_is(&route, "/device/mhs/v0/read", false), body);
+    if (rc == GZC_ERR_INVALID_ARGUMENT && call.status_code == 0 && post) {
+      /* Deliberately invalid giztest requests must reach the Server so its
+       * schema boundary is exercised. Valid requests always use the typed C
+       * control API above. This uses the same C transport/classifier. */
+      char raw_url[2048];
+      size_t base_len = strlen(base_url);
+      if (base_len >= sizeof(raw_url))
+        return fail(errbuf, errbuf_len, "MHS raw request URL", GZC_ERR_INVALID_ARGUMENT);
+      int written = snprintf(raw_url, sizeof(raw_url), "%.*s%s", (int)(base_len > 0 && base_url[base_len - 1] == '/' ? base_len - 1 : base_len), base_url, path);
+      if (written < 0 || (size_t)written >= sizeof(raw_url))
+        return fail(errbuf, errbuf_len, "MHS raw request URL", GZC_ERR_INVALID_ARGUMENT);
+      gzc_control_request_t raw_request = {GZC_HTTP_METHOD_POST, gzc_str_from_cstr(raw_url), body};
+      rc = gzc_control_send(&control, &call, &raw_request);
+    }
     if (rc != GZC_OK && rc != GZC_ERR_HTTP) {
       return fail(errbuf, errbuf_len, "MHS control encode/decode", rc);
     }

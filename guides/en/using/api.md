@@ -145,8 +145,8 @@ An API key bound to one device (see [API keys](./api-keys)) can reach `/gizclaw/
 | `GET /gizclaw/v1/device/workspaces`, `DELETE /device/workspaces/{workspaceId}` | List the device's Workspaces (such as game saves) by workflow name, and delete one |
 | `GET /gizclaw/v1/device/workspaces/{workspaceId}/history`, `/history/{historyId}/audio.ogg` | Read a Workspace's chat history and stored audio |
 | `GET /gizclaw/v1/device/firmware` | Bound Firmware channels and packages |
-| `GET /gizclaw/v1/device/mhs/v0/manifest` | Manifest-defined hardware state keys |
-| `POST /gizclaw/v1/device/mhs/v0/read`, `PATCH /device/mhs/v0/states` | Read and write typed hardware states |
+| `GET /gizclaw/v1/device/mhs/v0/manifest` | Manifest-declared HWD instances |
+| `POST /gizclaw/v1/device/mhs/v0/read`, `POST /device/mhs/v0/write` | Read and write one typed HWD instance |
 | `GET /gizclaw/v1/device/tool/v0/tools` | Predefined procedures installed on the device |
 | `POST /gizclaw/v1/device/tool/v0/invoke` | Invoke one typed procedure, such as `device.find`, `wifi.scan`, `firmware.update`, or an audio player operation |
 | `/gizclaw/v1/contacts`, `/contacts/{contactName}` | List/create/get/put/delete the device's contacts |
@@ -155,7 +155,7 @@ An API key bound to one device (see [API keys](./api-keys)) can reach `/gizclaw/
 | `/gizclaw/v1/friend-groups`, `/friend-groups/@join`, `/friend-groups/{friendGroupName}` | List, create, join by invite code, read, update, and dissolve Friend Groups |
 | `/friend-groups/{friendGroupName}/@leave`, `/invite-token`, `/members`, `/members/{memberName}` | Leave, Group invite codes, list members (with name and emoji), and manage members |
 
-Stored reads do not wake the device. `mhs/v0` handles bound hardware state; `tool/v0` handles installed predefined procedures. The Server validates each request before sending a live RPC. Offline devices return `409 DEVICE_OFFLINE`, timeouts `504 DEVICE_TIMEOUT`, and absent handlers `501 DEVICE_UNSUPPORTED`. See [Public API](/en/developing/api/http/public#device-control-flow) for exact contracts.
+Stored reads do not wake the device. `mhs/v0` handles bound HWD instances; `tool/v0` handles installed predefined procedures. The Server validates each request before sending a live RPC. Offline devices return `409 DEVICE_OFFLINE`, timeouts `504 DEVICE_TIMEOUT`, and absent handlers `501 DEVICE_UNSUPPORTED`. See [Public API](/en/developing/api/http/public#device-control-flow) for exact contracts.
 
 `GET /device/firmware` returns all configured channels. To update, compare the target package digest with the stored `GET /device/status` digest, then invoke `firmware.update` with optional `channel` and matching `sha256` through `POST /device/tool/v0/invoke`.
 
@@ -166,13 +166,13 @@ Stored reads do not wake the device. `mhs/v0` handles bound hardware state; `too
 Friend and Friend Group routes only read and write the Server's social data, so they keep working while the device is offline or lost. When a parent sends an invite code to someone, pass `ttl_seconds`: the default 5 minute code is usually too short. An active code keeps its value and only gets a later expiry, so a code the device is showing stays valid. Groups are addressed by the device's own Group name; the owner cannot leave (`409 FRIEND_GROUP_OWNER_CANNOT_LEAVE`) and dissolves the Group instead, while a non-owner dissolving gets `403`. See [Public API](../developing/api/http/public#friend-and-friend-group-surface) for every error code.
 
 ```sh
-curl -sS -X PATCH "$GIZCLAW_URL/gizclaw/v1/device/mhs/v0/states" \
+curl -sS -X POST "$GIZCLAW_URL/gizclaw/v1/device/mhs/v0/write" \
   -H "Authorization: Bearer $GIZCLAW_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"states":[{"device_id":"speaker.main","state":"volume","value":35}]}'
+  -d '{"id":"speaker.main","hwd":"speaker","value":{"volume_percent":35}}'
 ```
 
-TypeScript uses the generated `writeMhsStates`, `getDeviceStatus`, `listContacts`, and related operations from `@gizclaw/gizclaw/peerhttp`; Go uses `peerhttp.ClientWithResponses` (the same type `gizcli.Client.PeerHTTPClient()` returns). The exact paths, parameters, and responses are defined by [`api/http/peer.json`](https://github.com/GizClaw/gizclaw/blob/main/api/http/peer.json).
+TypeScript uses the generated `writeMhsHwd`, `getDeviceStatus`, `listContacts`, and related operations from `@gizclaw/gizclaw/peerhttp`; Go uses `peerhttp.ClientWithResponses` (the same type `gizcli.Client.PeerHTTPClient()` returns). The exact paths, parameters, and responses are defined by [`api/http/peer.json`](https://github.com/GizClaw/gizclaw/blob/main/api/http/peer.json).
 
 ## Errors and connection lifecycle
 
