@@ -1,0 +1,29 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: RuntimeProfile
+metadata:
+  id: e2e-giztest
+spec:
+  workflows:
+    flowcraft-chat-assistant: {resource_id: safety-fence-flowcraft, tags: [assistants, "6-8", stories], i18n: {en: {display_name: Chat Assistant}, zh-CN: {display_name: 对话助手}}}
+    safety-fence-flowcraft: {resource_id: safety-fence-flowcraft, tags: [assistants], i18n: {en: {display_name: Flowcraft Fence}, zh-CN: {display_name: Flowcraft 围栏}}}
+    safety-fence-eino: {resource_id: safety-fence-eino, tags: [assistants], i18n: {en: {display_name: Eino Fence}, zh-CN: {display_name: Eino 围栏}}}
+    safety-fence-doubao-realtime: {resource_id: safety-fence-doubao-realtime, tags: [assistants], i18n: {en: {display_name: Doubao Realtime Fence}, zh-CN: {display_name: 豆包实时围栏}}}
+    safety-fence-doubao-realtime-duplex: {resource_id: safety-fence-doubao-realtime-duplex, tags: [assistants], i18n: {en: {display_name: Doubao Duplex Fence}, zh-CN: {display_name: 豆包双工围栏}}}
+    safety-fence-dashscope-realtime: {resource_id: safety-fence-dashscope-realtime, tags: [assistants], i18n: {en: {display_name: DashScope Fence}, zh-CN: {display_name: 百炼围栏}}}
+  safety_fences:
+    alpha: {prompt: '安全规则：你的每一次回复都必须以“安全模式已开启”这六个字开头，然后再正常回答。'}
+    bravo: {prompt: 完整的测试规则 B。}
+    charlie: {prompt: 完整的测试规则 C。}
+    delta: {prompt: 完整的测试规则 D。}
+  resources:
+    models:
+      asr: {resource_id: volc-bigasr-sauc, i18n: {en: {display_name: ASR}, zh-CN: {display_name: 语音识别}}}
+      llm: {resource_id: doubao-mini-chat, i18n: {en: {display_name: Chat}, zh-CN: {display_name: 对话}}}
+      tts: {resource_id: volc-bigtts, i18n: {en: {display_name: TTS}, zh-CN: {display_name: 语音合成}}}
+      realtime: {resource_id: doubao-realtime-dialog, i18n: {en: {display_name: Realtime}, zh-CN: {display_name: 实时}}}
+      realtime-duplex: {resource_id: doubao-realtime-duplex-dialog, i18n: {en: {display_name: Duplex}, zh-CN: {display_name: 双工}}}
+      dash-realtime: {resource_id: qwen-realtime-dialog, i18n: {en: {display_name: DashScope}, zh-CN: {display_name: 百炼}}}
+      qwen3-asr-flash-realtime: {resource_id: qwen-realtime-dialog, i18n: {en: {display_name: DashScope ASR}, zh-CN: {display_name: 百炼识别}}}
+    voices:
+      narrator: {resource_id: 'volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts', i18n: {en: {display_name: Narrator}, zh-CN: {display_name: 旁白}}}
+      doubao-assistant: {resource_id: 'volc-tenant:volc-main:zh_female_vv_jupiter_bigtts', i18n: {en: {display_name: Doubao Assistant}, zh-CN: {display_name: 豆包助手}}}

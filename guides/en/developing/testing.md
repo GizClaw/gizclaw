@@ -1604,4 +1604,13 @@ tests/gizclaw-e2e/testdata/bin/gizclaw test run \
   tests/gizclaw-e2e/giztest/eino-mixed-provider-voices.tts-speech-rate.giztest.yaml
 ```
 
-Offline safety-fence tests cover parameters, RPC, Profile SQL/revisions, and driver injection. The E2E RuntimeProfile fixture defines four independent complete prompts named `alpha`, `bravo`, `charlie`, and `delta`. `server.workspace.safety-fence.roundtrip.giztest.yaml` covers RPC discovery, missing-selection failure, custom identifier roundtrip, and malformed values; `server.device.runtime_profile.get.giztest.yaml` covers HTTP discovery without exposing prompts; `server.workspace.safety-fence.missing-profile.giztest.yaml` verifies that reload fails for an undefined `child` entry; and `sfu.workspace.switch.giztest.yaml` verifies valid-identifier no-op behavior. Workspace Go tests verify Admin put 400 because Giztest ephemeral Peer connections have no Admin HTTP permission. The five `safety-fence-*.giztest.yaml` scenarios cover explicit prompt injection for Flowcraft, Eino, and three Realtime drivers. Live runs require the standard Docker fixture and provider credentials; offline parsing does not prove real provider behavior.
+Offline safety-fence tests cover parameters, RPC, Profile SQL/revisions, and driver injection. The E2E RuntimeProfile fixture defines four independent complete prompts named `alpha`, `bravo`, `charlie`, and `delta`. `server.workspace.safety-fence.roundtrip.giztest.yaml` covers RPC discovery, missing-selection failure, custom identifier roundtrip, and malformed values; `server.device.runtime_profile.get.giztest.yaml` covers HTTP discovery without exposing prompts; `server.workspace.safety-fence.missing-profile.giztest.yaml` verifies that reload fails for an undefined `child` entry; and `sfu.workspace.switch.giztest.yaml` verifies valid-identifier no-op behavior. Workspace Go tests verify Admin put 400 because Giztest ephemeral Peer connections have no Admin HTTP permission. The five `safety-fence-*.giztest.yaml` scenarios cover explicit prompt injection for Flowcraft, Eino, and three Realtime drivers.
+
+Run these nine scenarios with the dedicated minimal resource catalog in `testdata/resources/safety-fence/`, an isolated Docker project, and standard E2E provider credentials:
+
+```sh
+GIZCLAW_E2E_CREDENTIAL_FILE=tests/gizclaw-e2e/.env \
+  bash tests/gizclaw-e2e/run_safety_fence_tests.sh
+```
+
+The script writes separate RPC, provider, HTTP, and SFU JSON reports under `tests/gizclaw-e2e/.testbench/` and removes its project containers and temporary credential environment on exit. The standard full resource catalog currently includes a `client_rpc` Tool unsupported by the Server, so it cannot serve as evidence for these nine runs; the dedicated entrypoint selects only their dependencies. Offline parsing does not prove real provider behavior.
