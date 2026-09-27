@@ -321,7 +321,6 @@
       "RuntimeProfileSafetyFences": {
         "type": "object",
         "minProperties": 1,
-        "maxProperties": 64,
         "description": "Profile-defined identifiers mapped to independent complete prompts. No prompt inherits another. A selected identifier must exist at reload.",
         "additionalProperties": {
           "$ref": "#/components/schemas/RuntimeProfileSafetyFence"

@@ -693,22 +693,21 @@ typedef struct _gizclaw_rpc_v1_WorkflowListRequest {
     pb_callback_t tags;
 } gizclaw_rpc_v1_WorkflowListRequest;
 
-/* Public catalog metadata; prompt text remains private to the Server. */
-typedef struct _gizclaw_rpc_v1_SafetyFenceOption {
-    char name[65];
-    bool has_display_name;
-    char display_name[129];
-} gizclaw_rpc_v1_SafetyFenceOption;
-
 typedef struct _gizclaw_rpc_v1_WorkflowListResponse {
     bool has_next;
     pb_callback_t items;
     pb_callback_t next_cursor;
     pb_callback_t runtime_profile_name;
     pb_callback_t runtime_profile_revision;
-    pb_size_t safety_fences_count;
-    gizclaw_rpc_v1_SafetyFenceOption safety_fences[64];
+    pb_callback_t safety_fences;
 } gizclaw_rpc_v1_WorkflowListResponse;
+
+/* Public catalog metadata; prompt text remains private to the Server. */
+typedef struct _gizclaw_rpc_v1_SafetyFenceOption {
+    char name[65];
+    bool has_display_name;
+    char display_name[129];
+} gizclaw_rpc_v1_SafetyFenceOption;
 
 typedef struct _gizclaw_rpc_v1_ToolkitPolicyToolNames {
     pb_callback_t value;
@@ -930,7 +929,7 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkflowGetRequest_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkflowGetResponse_init_default {false, gizclaw_rpc_v1_Workflow_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkflowListRequest_init_default {{{NULL}, NULL}, false, 0, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_WorkflowListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0, {gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default, gizclaw_rpc_v1_SafetyFenceOption_init_default}}
+#define gizclaw_rpc_v1_WorkflowListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_SafetyFenceOption_init_default {"", false, ""}
 #define gizclaw_rpc_v1_ToolkitPolicyToolNames_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolkitPolicy_init_default {false, gizclaw_rpc_v1_ToolkitPolicyToolNames_init_default}
@@ -1005,7 +1004,7 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkflowGetRequest_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkflowGetResponse_init_zero {false, gizclaw_rpc_v1_Workflow_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkflowListRequest_init_zero {{{NULL}, NULL}, false, 0, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_WorkflowListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0, {gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero, gizclaw_rpc_v1_SafetyFenceOption_init_zero}}
+#define gizclaw_rpc_v1_WorkflowListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_SafetyFenceOption_init_zero {"", false, ""}
 #define gizclaw_rpc_v1_ToolkitPolicyToolNames_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolkitPolicy_init_zero   {false, gizclaw_rpc_v1_ToolkitPolicyToolNames_init_zero}
@@ -1341,14 +1340,14 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkflowListRequest_cursor_tag 1
 #define gizclaw_rpc_v1_WorkflowListRequest_limit_tag 2
 #define gizclaw_rpc_v1_WorkflowListRequest_tags_tag 3
-#define gizclaw_rpc_v1_SafetyFenceOption_name_tag 1
-#define gizclaw_rpc_v1_SafetyFenceOption_display_name_tag 2
 #define gizclaw_rpc_v1_WorkflowListResponse_has_next_tag 1
 #define gizclaw_rpc_v1_WorkflowListResponse_items_tag 2
 #define gizclaw_rpc_v1_WorkflowListResponse_next_cursor_tag 3
 #define gizclaw_rpc_v1_WorkflowListResponse_runtime_profile_name_tag 4
 #define gizclaw_rpc_v1_WorkflowListResponse_runtime_profile_revision_tag 5
 #define gizclaw_rpc_v1_WorkflowListResponse_safety_fences_tag 6
+#define gizclaw_rpc_v1_SafetyFenceOption_name_tag 1
+#define gizclaw_rpc_v1_SafetyFenceOption_display_name_tag 2
 #define gizclaw_rpc_v1_ToolkitPolicyToolNames_value_tag 1
 #define gizclaw_rpc_v1_ToolkitPolicy_tool_names_tag 1
 #define gizclaw_rpc_v1_Tool_name_tag             1
@@ -2015,7 +2014,7 @@ X(a, CALLBACK, REPEATED, MESSAGE,  items,             2) \
 X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3) \
 X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_name,   4) \
 X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   5) \
-X(a, STATIC,   REPEATED, MESSAGE,  safety_fences,     6)
+X(a, CALLBACK, REPEATED, MESSAGE,  safety_fences,     6)
 #define gizclaw_rpc_v1_WorkflowListResponse_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_WorkflowListResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_WorkflowListResponse_items_MSGTYPE gizclaw_rpc_v1_Workflow

@@ -158,7 +158,7 @@ Admin 创建和更新 registration token 时，原始输入必须不超过 512 �
 
 ## Workspace 安全围栏
 
-Workspace 六个 AI driver 使用可选的 `safety_fence_level` 字符串选择 RuntimeProfile `spec.safety_fences` 中的稳定标识符。标识符为小写字母开头的 1–64 位 ASCII 字母、数字、`_` 或 `-`；每个 Profile 可以定义 1–64 个完全独立的档位。GizClaw 不规定档位名称、顺序、严格程度或 prompt 内容，也不自动继承或拼接。每档 `prompt` 为 1–4096 个 Unicode 字符；可选 `display_name` 为 1–128 个字符。例子是测试配置，不是产品文案：
+Workspace 六个 AI driver 使用可选的 `safety_fence_level` 字符串选择 RuntimeProfile `spec.safety_fences` 中的稳定标识符。标识符为小写字母开头的 1–64 位 ASCII 字母、数字、`_` 或 `-`；每个 Profile 定义非空的独立档位集合，GizClaw 不固定档位数量。GizClaw 不规定档位名称、顺序、严格程度或 prompt 内容，也不自动继承或拼接。每档 `prompt` 为 1–4096 个 Unicode 字符；可选 `display_name` 为 1–128 个字符。例子是测试配置，不是产品文案：
 
 ```yaml
 spec:

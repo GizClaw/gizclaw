@@ -159,7 +159,7 @@ Admin creation and updates require registration-token input to fit within 512 UT
 
 ## Workspace safety fences
 
-The six AI Workspace parameter variants use the optional string `safety_fence_level` to select a stable identifier in RuntimeProfile `spec.safety_fences`. An identifier starts with a lowercase ASCII letter and contains 1–64 lowercase letters, digits, `_`, or `-`; each Profile can define 1–64 independent levels. GizClaw defines no names, ordering, strictness, or prompt text, and never inherits or concatenates prompts. Each complete `prompt` contains 1–4096 Unicode characters; optional `display_name` contains 1–128 characters. This synthetic example is not product wording:
+The six AI Workspace parameter variants use the optional string `safety_fence_level` to select a stable identifier in RuntimeProfile `spec.safety_fences`. An identifier starts with a lowercase ASCII letter and contains 1–64 lowercase letters, digits, `_`, or `-`; each Profile defines a nonempty set of independent levels, with no fixed level count in GizClaw. GizClaw defines no names, ordering, strictness, or prompt text, and never inherits or concatenates prompts. Each complete `prompt` contains 1–4096 Unicode characters; optional `display_name` contains 1–128 characters. This synthetic example is not product wording:
 
 ```yaml
 spec:

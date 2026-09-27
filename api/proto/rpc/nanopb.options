@@ -147,6 +147,5 @@ gizclaw.rpc.v1.EinoWorkspaceParameters.safety_fence_level max_size:65
 gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.safety_fence_level max_size:65
 gizclaw.rpc.v1.FlowcraftWorkspaceParameters.safety_fence_level max_size:65
 gizclaw.rpc.v1.WorkspaceParametersPatch.safety_fence_level max_size:65
-gizclaw.rpc.v1.WorkflowListResponse.safety_fences max_count:64
 gizclaw.rpc.v1.SafetyFenceOption.name max_size:65
 gizclaw.rpc.v1.SafetyFenceOption.display_name max_size:129

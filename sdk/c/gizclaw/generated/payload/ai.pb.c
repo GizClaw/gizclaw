@@ -201,7 +201,7 @@ PB_BIND(gizclaw_rpc_v1_WorkflowGetResponse, gizclaw_rpc_v1_WorkflowGetResponse, 
 PB_BIND(gizclaw_rpc_v1_WorkflowListRequest, gizclaw_rpc_v1_WorkflowListRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_WorkflowListResponse, gizclaw_rpc_v1_WorkflowListResponse, 4)
+PB_BIND(gizclaw_rpc_v1_WorkflowListResponse, gizclaw_rpc_v1_WorkflowListResponse, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_SafetyFenceOption, gizclaw_rpc_v1_SafetyFenceOption, AUTO)

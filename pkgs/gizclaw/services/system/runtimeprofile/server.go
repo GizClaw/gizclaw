@@ -693,8 +693,8 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 		spec.AppConfig = &normalized
 	}
 	if spec.SafetyFences != nil {
-		if len(*spec.SafetyFences) == 0 || len(*spec.SafetyFences) > 64 {
-			return apitypes.RuntimeProfile{}, fmt.Errorf("safety_fences must contain 1..64 entries")
+		if len(*spec.SafetyFences) == 0 {
+			return apitypes.RuntimeProfile{}, fmt.Errorf("safety_fences must contain at least one entry")
 		}
 		fences := make(apitypes.RuntimeProfileSafetyFences, len(*spec.SafetyFences))
 		for level, fence := range *spec.SafetyFences {

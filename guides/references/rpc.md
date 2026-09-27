@@ -233,3 +233,5 @@ memcpy(parameters.safety_fence_level, "alpha", sizeof("alpha"));
 ```
 
 `has_safety_fence_level = false` 保留服务端已存选择；空字符串不是清除操作。字段描述由生成头文件中的 `WorkspaceParametersPatch_FIELDLIST` 提供，配套 `workspace.pb.c` 的 `PB_BIND` 在编译时引用它。修改 Proto 后须重新生成并校验完整 C 生成目录。
+
+`WorkflowListResponse.safety_fences` 在 C nanopb 中使用 `pb_callback_t` 逐项解码；RuntimeProfile 的档位数量不受固定 C 数组容量限制。调用方应在解码前安装 callback，按每项的 `name` 保存可选字符串 ID。

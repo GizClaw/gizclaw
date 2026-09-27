@@ -1,6 +1,7 @@
 package runtimeprofile
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -50,6 +51,22 @@ func TestSafetyFenceAcceptsFourProfileDefinedLevels(t *testing.T) {
 	}
 	if len(*item.Spec.SafetyFences) != 4 {
 		t.Fatalf("fence count = %d", len(*item.Spec.SafetyFences))
+	}
+	for i := range 80 {
+		fences["level-"+strconv.Itoa(i)] = apitypes.RuntimeProfileSafetyFence{Prompt: "Complete independent prompt"}
+	}
+	input.Spec.SafetyFences = &fences
+	item, err = normalizeProfile(input, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(*item.Spec.SafetyFences) != 84 {
+		t.Fatalf("profile with 84 levels = %d", len(*item.Spec.SafetyFences))
+	}
+	empty := apitypes.RuntimeProfileSafetyFences{}
+	input.Spec.SafetyFences = &empty
+	if _, err := normalizeProfile(input, ""); err == nil {
+		t.Fatal("accepted an empty safety fence catalog")
 	}
 	for _, id := range []string{"", "Bad", "two words"} {
 		bad := apitypes.RuntimeProfileSafetyFences{id: {Prompt: "complete"}}

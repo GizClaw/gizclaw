@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -105,6 +106,13 @@ func TestDeviceRuntimeProfileListsFourCustomSafetyFences(t *testing.T) {
 	}
 	if got.SafetyFences[1].DisplayName == nil || *got.SafetyFences[1].DisplayName != "Bravo" {
 		t.Fatalf("display label = %#v", got.SafetyFences[1])
+	}
+	for i := range 80 {
+		fences["level-"+strconv.Itoa(i)] = apitypes.RuntimeProfileSafetyFence{Prompt: "independent prompt"}
+	}
+	more, err := DeviceReads{Caller: owner, Profiles: &ownerProfileStub{profiles: map[string]apitypes.RuntimeProfile{owner.String(): profile}}}.DeviceRuntimeProfile(t.Context())
+	if err != nil || len(more.SafetyFences) != 84 {
+		t.Fatalf("catalog beyond 64 levels = %d levels, %v", len(more.SafetyFences), err)
 	}
 }
 
