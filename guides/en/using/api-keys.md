@@ -14,10 +14,10 @@ The key's bound device is the fixed target of every `/gizclaw/v1/device*`, `/giz
 curl -sS "$GIZCLAW_URL/gizclaw/v1/device/status" \
   -H "Authorization: Bearer $GIZCLAW_API_KEY"
 
-curl -sS -X PATCH "$GIZCLAW_URL/gizclaw/v1/device/mhs/v0/states" \
+curl -sS -X POST "$GIZCLAW_URL/gizclaw/v1/device/mhs/v0/write" \
   -H "Authorization: Bearer $GIZCLAW_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"states":[{"device_id":"speaker.main","state":"volume","value":35}]}'
+  -d '{"id":"speaker.main","hwd":"speaker","value":{"volume_percent":35}}'
 
 curl -sS -X POST "$GIZCLAW_URL/gizclaw/v1/device/tool/v0/invoke" \
   -H "Authorization: Bearer $GIZCLAW_API_KEY" \
@@ -31,7 +31,7 @@ curl -sS -X POST "$GIZCLAW_URL/gizclaw/v1/device/tool/v0/invoke" \
 
 ```
 
-A valid MHS write returns the applied states. `tool/v0` invokes return a typed `result`; `wifi.scan` returns nearby networks and `wifi.connect` acknowledges the request before switching networks. Check the manifest and installed tool list before showing controls. The Server never stores, logs or echoes the Wi-Fi passphrase.
+A valid MHS write returns the applied HWD value. `tool/v0` invokes return a typed `result`; `wifi.scan` returns nearby networks and `wifi.connect` acknowledges the request before switching networks. Check the manifest and installed tool list before showing controls. The Server never stores, logs or echoes the Wi-Fi passphrase.
 
 When the device is offline, control routes answer `409 DEVICE_OFFLINE`; normal controls that do not answer within 5 seconds and scans that exceed their requested bound answer `504 DEVICE_TIMEOUT`; neither changes the stored status. After a `reboot` is acknowledged, control requests answer `409` until the device reconnects. A device that rejects the parameters answers `400 DEVICE_REJECTED`, and firmware without the capability answers `501 DEVICE_UNSUPPORTED`. Once the key is revoked or the device Peer is deleted, every device and contact request fails immediately.
 

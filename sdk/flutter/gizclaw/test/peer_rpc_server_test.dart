@@ -841,8 +841,11 @@ void deviceControlTests() {
       deviceControl: GizClawDeviceControlHandlers(
         find: (_) {},
         factoryReset: (keep) => keepNetwork = keep,
-        writeMhsStates: (request) =>
-            ClientMhsV0WriteResponse(states: request.states),
+        writeMhsHwd: (_) => ClientMhsV0WriteResponse(
+          payload: LedHwdWriteResponse(
+            applied: LedHwdReadResponse(enabled: false),
+          ).writeToBuffer(),
+        ),
       ),
     );
     var response = await callDevice(
@@ -959,152 +962,228 @@ void deviceControlTests() {
 }
 
 void mhsTests() {
+  test('MHS rejects malformed provider read protobuf', () async {
+    final channel = FakeDataChannel('giznet/v1/service/0');
+    addTearDown(channel.close);
+    serveGizClawPeerRpcChannel(
+      channel,
+      handlers: GizClawPeerRpcHandlers(
+        deviceInfo: () => DeviceInfo(name: 'mhs'),
+        deviceControl: GizClawDeviceControlHandlers(
+          readMhsHwd: (_) => ClientMhsV0ReadResponse(payload: [0xff]),
+        ),
+      ),
+    );
+    final response = await _callInbound(
+      channel,
+      id: 'malformed-hwd',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_MHS_V0_READ,
+      methodName: 'client.mhs.v0.read',
+      request: ClientMhsV0ReadRequest(
+        id: 'display.main',
+        hwd: ClientHwd.CLIENT_HWD_DISPLAY,
+      ),
+    );
+    expect(response.status.code, rpc.StatusCode.STATUS_CODE_INTERNAL);
+  });
+
   test(
-    'MHS preserves oneof defaults and advertises installed providers',
+    'MHS HWD write preserves zero and false and advertises the provider',
     () async {
       var calls = 0;
       final handlers = GizClawPeerRpcHandlers(
         deviceInfo: () => DeviceInfo(name: 'mhs'),
         deviceControl: GizClawDeviceControlHandlers(
-          writeMhsStates: (request) {
+          writeMhsHwd: (request) {
             calls++;
-            return ClientMhsV0WriteResponse(states: request.states);
+            final value = DisplayHwdWriteRequest.fromBuffer(request.payload);
+            expect(value.hasBrightnessPercent(), isTrue);
+            expect(value.brightnessPercent, 0);
+            expect(value.hasEnabled(), isTrue);
+            expect(value.enabled, false);
+            return ClientMhsV0WriteResponse(
+              payload: DisplayHwdWriteResponse(
+                applied: DisplayHwdReadResponse(
+                  brightnessPercent: 0,
+                  enabled: false,
+                ),
+              ).writeToBuffer(),
+            );
           },
         ),
       );
-      for (final value in [
-        MhsValue(boolValue: false),
-        MhsValue(intValue: Int64.ZERO),
-        MhsValue(doubleValue: 0),
-        MhsValue(stringValue: ''),
-      ]) {
-        final channel = FakeDataChannel('giznet/v1/service/0');
-        addTearDown(channel.close);
-        serveGizClawPeerRpcChannel(channel, handlers: handlers);
-        final response = await _callInbound(
-          channel,
-          id: 'mhs',
-          method: rpc.RpcMethod.RPC_METHOD_CLIENT_MHS_V0_WRITE,
-          methodName: 'client.mhs.v0.write',
-          request: ClientMhsV0WriteRequest(
-            states: [
-              MhsStateValue(deviceId: 'led.main', state: 'state', value: value),
-            ],
-          ),
-        );
-        expect(response.hasStatus(), isFalse);
-        final result =
-            decodeRpcResponsePayload('client.mhs.v0.write', response.payload)
-                as ClientMhsV0WriteResponse;
-        expect(result.states.single.value.whichValue(), value.whichValue());
-        expect(result.states.single.value, value);
-      }
       final channel = FakeDataChannel('giznet/v1/service/0');
       addTearDown(channel.close);
       serveGizClawPeerRpcChannel(channel, handlers: handlers);
       final response = await _callInbound(
         channel,
+        id: 'write',
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_MHS_V0_WRITE,
+        methodName: 'client.mhs.v0.write',
+        request: ClientMhsV0WriteRequest(
+          id: 'display.main',
+          hwd: ClientHwd.CLIENT_HWD_DISPLAY,
+          payload: DisplayHwdWriteRequest(
+            brightnessPercent: 0,
+            enabled: false,
+          ).writeToBuffer(),
+        ),
+      );
+      expect(response.hasStatus(), isFalse);
+      final result =
+          decodeRpcResponsePayload('client.mhs.v0.write', response.payload)
+              as ClientMhsV0WriteResponse;
+      final applied = DisplayHwdWriteResponse.fromBuffer(
+        result.payload,
+      ).applied;
+      expect(applied.hasBrightnessPercent(), isTrue);
+      expect(applied.brightnessPercent, 0);
+      expect(applied.hasEnabled(), isTrue);
+      expect(applied.enabled, false);
+      final methodsChannel = FakeDataChannel('giznet/v1/service/0');
+      addTearDown(methodsChannel.close);
+      serveGizClawPeerRpcChannel(methodsChannel, handlers: handlers);
+      final methods = await _callInbound(
+        methodsChannel,
         id: 'methods',
         method: rpc.RpcMethod.RPC_METHOD_CLIENT_RPC_METHODS_LIST,
         methodName: 'client.rpc.methods.list',
         request: ClientRpcMethodsListRequest(),
       );
-      final methods =
-          (decodeRpcResponsePayload('client.rpc.methods.list', response.payload)
+      final listed =
+          (decodeRpcResponsePayload('client.rpc.methods.list', methods.payload)
                   as ClientRpcMethodsListResponse)
               .methods;
-      expect(methods.map((method) => method.value), contains(134));
-      expect(methods.map((method) => method.value), isNot(contains(133)));
-      expect(calls, 4);
+      expect(listed.map((method) => method.value), contains(134));
+      expect(listed.map((method) => method.value), isNot(contains(133)));
+      expect(calls, 1);
     },
   );
-  test('MHS rejects malformed batches before provider invocation', () async {
-    var calls = 0;
-    final handlers = GizClawPeerRpcHandlers(
-      deviceInfo: () => DeviceInfo(name: 'mhs'),
-      deviceControl: GizClawDeviceControlHandlers(
-        writeMhsStates: (request) {
-          calls++;
-          return ClientMhsV0WriteResponse(states: request.states);
-        },
-      ),
-    );
-    final key = MhsStateValue(
-      deviceId: 'led.main',
-      state: 'enabled',
-      value: MhsValue(boolValue: false),
-    );
-    for (final states in <List<MhsStateValue>>[
-      [],
-      [key, key],
-      [
-        MhsStateValue(
-          deviceId: 'led.main',
-          state: 'enabled\n',
-          value: MhsValue(boolValue: false),
+
+  test(
+    'MHS rejects malformed or read-only HWD writes before provider',
+    () async {
+      var calls = 0;
+      final handlers = GizClawPeerRpcHandlers(
+        deviceInfo: () => DeviceInfo(name: 'mhs'),
+        deviceControl: GizClawDeviceControlHandlers(
+          writeMhsHwd: (_) {
+            calls++;
+            return ClientMhsV0WriteResponse(
+              payload: LedHwdWriteResponse(
+                applied: LedHwdReadResponse(enabled: false),
+              ).writeToBuffer(),
+            );
+          },
         ),
-      ],
-      [MhsStateValue(deviceId: 'led.main', state: 'enabled')],
-      [
-        MhsStateValue(
-          deviceId: 'led.main',
-          state: 'enabled',
-          value: MhsValue(stringValue: 'x' * 257),
-        ),
-      ],
-    ]) {
-      final channel = FakeDataChannel('giznet/v1/service/0');
-      addTearDown(channel.close);
-      serveGizClawPeerRpcChannel(channel, handlers: handlers);
-      final response = await _callInbound(
-        channel,
-        id: 'invalid',
-        method: rpc.RpcMethod.RPC_METHOD_CLIENT_MHS_V0_WRITE,
-        methodName: 'client.mhs.v0.write',
-        request: ClientMhsV0WriteRequest(states: states),
       );
-      expect(response.status.code, rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT);
-    }
-    expect(calls, 0);
-  });
-  test('MHS read dispatches and absent handlers are unsupported', () async {
-    for (final installed in [false, true]) {
-      final channel = FakeDataChannel('giznet/v1/service/0');
-      addTearDown(channel.close);
+      final invalid = <ClientMhsV0WriteRequest>[
+        ClientMhsV0WriteRequest(
+          id: 'bad key',
+          hwd: ClientHwd.CLIENT_HWD_LED,
+          payload: LedHwdWriteRequest(enabled: false).writeToBuffer(),
+        ),
+        ClientMhsV0WriteRequest(
+          id: 'led.main',
+          hwd: ClientHwd.CLIENT_HWD_BATTERY,
+          payload: LedHwdWriteRequest(enabled: false).writeToBuffer(),
+        ),
+        ClientMhsV0WriteRequest(id: 'led.main', hwd: ClientHwd.CLIENT_HWD_LED),
+        ClientMhsV0WriteRequest(
+          id: 'led.main',
+          hwd: ClientHwd.CLIENT_HWD_LED,
+          payload: LedHwdWriteRequest(brightnessPercent: 101).writeToBuffer(),
+        ),
+      ];
+      for (final request in invalid) {
+        final channel = FakeDataChannel('giznet/v1/service/0');
+        addTearDown(channel.close);
+        serveGizClawPeerRpcChannel(channel, handlers: handlers);
+        final response = await _callInbound(
+          channel,
+          id: 'invalid',
+          method: rpc.RpcMethod.RPC_METHOD_CLIENT_MHS_V0_WRITE,
+          methodName: 'client.mhs.v0.write',
+          request: request,
+        );
+        expect(
+          response.status.code,
+          rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
+        );
+      }
+      expect(calls, 0);
+    },
+  );
+
+  test(
+    'MHS read dispatches all HWDs and absent handlers are unsupported',
+    () async {
+      final reads = <ClientHwd, List<int>>{
+        ClientHwd.CLIENT_HWD_WIFI: WifiHwdReadResponse(
+          connected: true,
+        ).writeToBuffer(),
+        ClientHwd.CLIENT_HWD_BLE: BleHwdReadResponse(
+          powered: true,
+        ).writeToBuffer(),
+        ClientHwd.CLIENT_HWD_MODEM: ModemHwdReadResponse(
+          registered: true,
+        ).writeToBuffer(),
+        ClientHwd.CLIENT_HWD_BATTERY: BatteryHwdReadResponse(
+          percent: 80,
+        ).writeToBuffer(),
+        ClientHwd.CLIENT_HWD_MIC: MicHwdReadResponse(
+          available: true,
+        ).writeToBuffer(),
+        ClientHwd.CLIENT_HWD_DISPLAY: DisplayHwdReadResponse(
+          brightnessPercent: 0,
+        ).writeToBuffer(),
+        ClientHwd.CLIENT_HWD_LED: LedHwdReadResponse(
+          enabled: false,
+        ).writeToBuffer(),
+        ClientHwd.CLIENT_HWD_SPEAKER: SpeakerHwdReadResponse(
+          volumePercent: 0,
+        ).writeToBuffer(),
+      };
+      for (final entry in reads.entries) {
+        final channel = FakeDataChannel('giznet/v1/service/0');
+        addTearDown(channel.close);
+        serveGizClawPeerRpcChannel(
+          channel,
+          handlers: GizClawPeerRpcHandlers(
+            deviceInfo: () => DeviceInfo(name: 'mhs'),
+            deviceControl: GizClawDeviceControlHandlers(
+              readMhsHwd: (_) => ClientMhsV0ReadResponse(payload: entry.value),
+            ),
+          ),
+        );
+        final response = await _callInbound(
+          channel,
+          id: 'read',
+          method: rpc.RpcMethod.RPC_METHOD_CLIENT_MHS_V0_READ,
+          methodName: 'client.mhs.v0.read',
+          request: ClientMhsV0ReadRequest(id: 'hwd.main', hwd: entry.key),
+        );
+        expect(response.hasStatus(), isFalse, reason: '${entry.key}');
+      }
+      final absentChannel = FakeDataChannel('giznet/v1/service/0');
+      addTearDown(absentChannel.close);
       serveGizClawPeerRpcChannel(
-        channel,
+        absentChannel,
         handlers: GizClawPeerRpcHandlers(
           deviceInfo: () => DeviceInfo(name: 'mhs'),
-          deviceControl: GizClawDeviceControlHandlers(
-            readMhsStates: installed
-                ? (request) => ClientMhsV0ReadResponse(
-                    states: [
-                      for (final ref in request.states)
-                        MhsStateValue(
-                          deviceId: ref.deviceId,
-                          state: ref.state,
-                          value: MhsValue(boolValue: false),
-                        ),
-                    ],
-                  )
-                : null,
-          ),
         ),
       );
-      final response = await _callInbound(
-        channel,
-        id: 'read',
+      final absent = await _callInbound(
+        absentChannel,
+        id: 'absent',
         method: rpc.RpcMethod.RPC_METHOD_CLIENT_MHS_V0_READ,
         methodName: 'client.mhs.v0.read',
         request: ClientMhsV0ReadRequest(
-          states: [MhsStateRef(deviceId: 'led.main', state: 'enabled')],
+          id: 'led.main',
+          hwd: ClientHwd.CLIENT_HWD_LED,
         ),
       );
-      if (!installed) {
-        expect(response.status.code, rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED);
-      } else {
-        expect(response.hasStatus(), isFalse);
-      }
-    }
-  });
+      expect(absent.status.code, rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED);
+    },
+  );
 }

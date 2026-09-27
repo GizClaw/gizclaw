@@ -648,25 +648,28 @@ void main() {
   });
 
   group('device control', () {
-    test('writeMhsStates patches typed hardware state', () async {
+    test('writeMhsHwd writes one typed hardware instance', () async {
       final recorder = Recorder([
         json(200, {
-          'states': [
-            {'device_id': 'speaker.main', 'state': 'volume', 'value': 35},
-          ],
+          'id': 'speaker.main',
+          'hwd': 'speaker',
+          'value': {'volume_percent': 35},
         }),
       ]);
-      final result = await clientWith(recorder).writeMhsStates([
-        MhsStateValue(deviceId: 'speaker.main', state: 'volume', value: 35),
-      ]);
-      expect(recorder.single.method, 'PATCH');
-      expect(recorder.single.url.path, '/gizclaw/v1/device/mhs/v0/states');
+      final result = await clientWith(recorder).writeMhsHwd(
+        const MhsHwdWriteRequest(
+          id: 'speaker.main',
+          value: MhsSpeakerWriteValue(volumePercent: 35),
+        ),
+      );
+      expect(recorder.single.method, 'POST');
+      expect(recorder.single.url.path, '/gizclaw/v1/device/mhs/v0/write');
       expect(jsonDecode(recorder.single.body), {
-        'states': [
-          {'device_id': 'speaker.main', 'state': 'volume', 'value': 35},
-        ],
+        'id': 'speaker.main',
+        'hwd': 'speaker',
+        'value': {'volume_percent': 35},
       });
-      expect(result.single.value, 35);
+      expect((result.value as MhsSpeakerReadValue).volumePercent, 35);
     });
 
     test('playDeviceSound invokes tool/v0 with duration', () async {
@@ -914,9 +917,9 @@ void main() {
     test('MHS Wi-Fi state and saved networks', () async {
       final recorder = Recorder([
         json(200, {
-          'states': [
-            {'device_id': 'wifi.main', 'state': 'connected', 'value': true},
-          ],
+          'id': 'wifi.main',
+          'hwd': 'wifi',
+          'value': {'connected': true},
         }),
         json(200, {
           'result': {
@@ -928,16 +931,14 @@ void main() {
         }),
       ]);
       final client = clientWith(recorder);
-      final states = await client.readMhsStates([
-        const MhsStateRef(deviceId: 'wifi.main', state: 'connected'),
-      ]);
+      final state = await client.readMhsHwd('wifi.main', 'wifi');
       final saved = await client.listDeviceSavedWifi();
       expect(recorder.requests[0].url.path, '/gizclaw/v1/device/mhs/v0/read');
       expect(
         recorder.requests[1].url.path,
         '/gizclaw/v1/device/tool/v0/invoke',
       );
-      expect(states.single.value, isTrue);
+      expect((state.value as MhsWifiReadValue).connected, isTrue);
       expect(saved.networks.map((n) => n.ssid), ['Home', 'Office']);
     });
 
@@ -1361,9 +1362,12 @@ void main() {
           error(status, code, message: 'm', headers: {'x-request-id': 'req-1'}),
         ]);
         final exception = await failure(
-          clientWith(recorder).writeMhsStates([
-            MhsStateValue(deviceId: 'speaker.main', state: 'volume', value: 1),
-          ]),
+          clientWith(recorder).writeMhsHwd(
+            const MhsHwdWriteRequest(
+              id: 'speaker.main',
+              value: MhsSpeakerWriteValue(volumePercent: 1),
+            ),
+          ),
         );
         expect(exception.kind, kind);
         expect(exception.statusCode, status);
@@ -1549,17 +1553,13 @@ void main() {
       expect(key.toJson(), apiKeyJson);
       final contact = Contact.fromJson({...contactJson, 'extra': 1});
       expect(contact.toJson(), contactJson);
-      final state = MhsStateValue.fromJson({
-        'device_id': 'wifi.main',
-        'state': 'connected',
-        'value': false,
+      final state = MhsHwdReadResult.fromJson({
+        'id': 'wifi.main',
+        'hwd': 'wifi',
+        'value': {'connected': false},
         'x': 1,
       });
-      expect(state.toJson(), {
-        'device_id': 'wifi.main',
-        'state': 'connected',
-        'value': false,
-      });
+      expect((state.value as MhsWifiReadValue).connected, false);
     });
 
     test('PeerStatus with no fields decodes to nulls', () {
@@ -1587,29 +1587,30 @@ void main() {
   });
 
   group('device settings, Workspace switch and Tools', () {
-    test('MHS state round trip preserves zero and false', () async {
+    test('MHS HWD round trip preserves zero and false', () async {
       final recorder = Recorder([
         json(200, {
-          'states': [
-            {'device_id': 'display.main', 'state': 'brightness', 'value': 0},
-          ],
+          'id': 'display.main',
+          'hwd': 'display',
+          'value': {'brightness_percent': 0},
         }),
         json(200, {
-          'states': [
-            {'device_id': 'display.main', 'state': 'enabled', 'value': false},
-          ],
+          'id': 'display.main',
+          'hwd': 'display',
+          'value': {'enabled': false},
         }),
       ]);
       final client = clientWith(recorder);
-      final read = await client.readMhsStates([
-        const MhsStateRef(deviceId: 'display.main', state: 'brightness'),
-      ]);
-      final written = await client.writeMhsStates([
-        MhsStateValue(deviceId: 'display.main', state: 'enabled', value: false),
-      ]);
-      expect(read.single.value, 0);
-      expect(written.single.value, false);
-      expect(recorder.requests[1].method, 'PATCH');
+      final read = await client.readMhsHwd('display.main', 'display');
+      final written = await client.writeMhsHwd(
+        const MhsHwdWriteRequest(
+          id: 'display.main',
+          value: MhsDisplayWriteValue(enabled: false),
+        ),
+      );
+      expect((read.value as MhsDisplayReadValue).brightnessPercent, 0);
+      expect((written.value as MhsDisplayReadValue).enabled, false);
+      expect(recorder.requests[1].method, 'POST');
     });
 
     test('factory reset, tool list and Workspace switch', () async {

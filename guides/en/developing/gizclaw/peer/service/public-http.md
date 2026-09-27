@@ -4,7 +4,7 @@
 
 Provides ordinary Peer Public HTTP and Edge Public HTTP, assembles API key, CORS, OpenAI API, Edge signaling routes, and the `/gizclaw/v1/device*`, `/gizclaw/v1/contacts*`, `/gizclaw/v1/friends*`, and `/gizclaw/v1/friend-groups*` device extension, and performs access judgment of Edge client/signaling Peer.
 
-Peer HTTP composes owner-scoped resources and device control. `peer_service_serve_peer_http_device_api.go` serves stored device, runtime, status and contact reads; `peer_service_serve_peer_http_tool.go` handles predefined `tool/v0` list/invoke; `peer_service_serve_peer_http_mhs.go` handles manifest-backed `mhs/v0` state reads and writes. `peer_service_serve_peer_http_device_control.go` centralizes online checks, owner serialization and device error mapping. Workspace, telemetry, social and monitoring routes use their corresponding domain services. The Fiber app uses `Immutable` so saved path parameters do not alias reused request buffers.
+Peer HTTP composes owner-scoped resources and device control. `peer_service_serve_peer_http_device_api.go` serves stored device, runtime, status and contact reads; `peer_service_serve_peer_http_tool.go` handles predefined `tool/v0` list/invoke; `peer_service_serve_peer_http_mhs.go` handles manifest-backed `mhs/v0` HWD reads and writes. `peer_service_serve_peer_http_device_control.go` centralizes online checks, owner serialization and device error mapping. Workspace, telemetry, social and monitoring routes use their corresponding domain services. The Fiber app uses `Immutable` so saved path parameters do not alias reused request buffers.
 
 ## Owner binding and ingress
 
@@ -32,6 +32,6 @@ When a browser request carries `Origin`, Direct Server, Peer Public HTTP, and Ed
 
 ## MHS v0
 
-`peer_service_serve_peer_http_mhs.go` serves manifest/read/states. `peerresource.DeviceReads.MhsManifest` resolves the owner binding offline, `services/device/mhs` validates both directions, and `rpcClient.ReadMhsStates/WriteMhsStates` reuse the controller. See [Public API](/en/developing/api/http/public#mhs-v0-hardware-states).
+`peer_service_serve_peer_http_mhs.go` serves manifest/read/write. `peerresource.DeviceReads.MhsManifest` resolves the owner binding offline, `services/device/mhs` validates both directions, and `rpcClient.ReadMhsHwd/WriteMhsHwd` reuse the controller. See [Public API](/en/developing/api/http/public#mhs-v0-hwds).
 
-The device control surface is `mhs/v0` for manifest-defined state and `tool/v0` for predefined procedures. Both validate requests before contacting the device; see [Public API](/en/developing/api/http/public#device-control-flow).
+The device control surface is `mhs/v0` for manifest-declared HWD instances and `tool/v0` for predefined procedures. Both validate requests before contacting the device; see [Public API](/en/developing/api/http/public#device-control-flow).

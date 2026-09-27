@@ -49,14 +49,10 @@ steps:
       path: /gizclaw/v1/device/mhs/v0/read
       headers:
         Authorization: Bearer ${api_key}
+      body: {id: display.main, hwd: display}
       status: 200
-      body:
-        states:
-          - device_id: device.main
-            state: screen-brightness
     expect:
-      /states/0/value:
-        equals: 60
+      /value/brightness_percent: {equals: 60}
   - id: factory_reset
     client: peer
     http:
@@ -76,14 +72,10 @@ steps:
       path: /gizclaw/v1/device/mhs/v0/read
       headers:
         Authorization: Bearer ${api_key}
+      body: {id: display.main, hwd: display}
       status: 409
-      body:
-        states:
-          - device_id: device.main
-            state: screen-brightness
     expect:
-      /error/code:
-        equals: DEVICE_OFFLINE
+      /error/code: {equals: DEVICE_OFFLINE}
   - id: provider_factory_reset
     client: peer
     client_rpc:
@@ -94,12 +86,7 @@ steps:
     client: peer
     client_rpc:
       method: client.mhs.v0.read
-      response:
-        states:
-          - device_id: device.main
-            state: screen-brightness
-            value:
-              int_value: 60
+      response: {payload: CDw=}
       expect_calls: 1
 finally:
   - id: cleanup_peer

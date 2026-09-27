@@ -85,8 +85,8 @@
     },
     "/gizclaw/v1/device/mhs/v0/read": {
       "post": {
-        "operationId": "readMhsStates",
-        "summary": "Read MHS v0 hardware states",
+        "operationId": "readMhsHwd",
+        "summary": "Read one MHS v0 HWD instance",
         "tags": [
           "DeviceControl"
         ],
@@ -95,7 +95,7 @@
             "BearerAuth": []
           }
         ],
-        "description": "GizClaw MHS-inspired pre-standard v0; no official MHS compatibility claim. Validates the entire unique 1-32 entry batch against the bound manifest before contacting the device. Returns exactly the requested keys. Device NOT_FOUND maps to 404 MHS_STATE_NOT_FOUND; FAILED_PRECONDITION maps to 502 DEVICE_ERROR; malformed device responses also return 502. A write is all-or-nothing and returns actual applied values.",
+        "description": "Reads one manifest-declared HWD instance. The HWD selects the typed protobuf response. Device NOT_FOUND maps to 404 MHS_HWD_NOT_FOUND; malformed device responses return 502.",
         "requestBody": {
           "required": true,
           "content": {
@@ -112,7 +112,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared.json#/components/schemas/MhsV0States"
+                  "$ref": "./shared.json#/components/schemas/MhsV0ReadResult"
                 }
               }
             }
@@ -142,7 +142,7 @@
             "$ref": "#/components/responses/DeviceTimeout"
           },
           "404": {
-            "description": "The device does not implement a requested hardware state (MHS_STATE_NOT_FOUND).",
+            "description": "The device does not implement the requested HWD instance (MHS_HWD_NOT_FOUND).",
             "content": {
               "application/json": {
                 "schema": {
@@ -154,10 +154,10 @@
         }
       }
     },
-    "/gizclaw/v1/device/mhs/v0/states": {
-      "patch": {
-        "operationId": "writeMhsStates",
-        "summary": "Atomically write MHS v0 hardware states",
+    "/gizclaw/v1/device/mhs/v0/write": {
+      "post": {
+        "operationId": "writeMhsHwd",
+        "summary": "Write one MHS v0 HWD instance",
         "tags": [
           "DeviceControl"
         ],
@@ -166,13 +166,13 @@
             "BearerAuth": []
           }
         ],
-        "description": "GizClaw MHS-inspired pre-standard v0; no official MHS compatibility claim. Validates the entire unique 1-32 entry batch against the bound manifest before contacting the device. Returns exactly the requested keys. Device NOT_FOUND maps to 404 MHS_STATE_NOT_FOUND; FAILED_PRECONDITION maps to 502 DEVICE_ERROR; malformed device responses also return 502. A write is all-or-nothing and returns actual applied values.",
+        "description": "Writes one manifest-declared display, led or speaker HWD instance. The HWD selects the typed protobuf request and applied-value response. Read-only HWDs and empty writes are rejected before device RPC.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./shared.json#/components/schemas/MhsV0States"
+                "$ref": "./shared.json#/components/schemas/MhsV0WriteRequest"
               }
             }
           }
@@ -183,7 +183,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared.json#/components/schemas/MhsV0States"
+                  "$ref": "./shared.json#/components/schemas/MhsV0WriteResult"
                 }
               }
             }
@@ -213,7 +213,7 @@
             "$ref": "#/components/responses/DeviceTimeout"
           },
           "404": {
-            "description": "The device does not implement a requested hardware state (MHS_STATE_NOT_FOUND).",
+            "description": "The device does not implement the requested HWD instance (MHS_HWD_NOT_FOUND).",
             "content": {
               "application/json": {
                 "schema": {
@@ -3155,7 +3155,7 @@
             "$ref": "#/components/responses/DeviceTimeout"
           },
           "404": {
-            "description": "The device does not implement a requested hardware state (MHS_STATE_NOT_FOUND).",
+            "description": "The requested device resource was not found.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3215,7 +3215,7 @@
             "$ref": "#/components/responses/DeviceTimeout"
           },
           "404": {
-            "description": "The device does not implement a requested hardware state (MHS_STATE_NOT_FOUND).",
+            "description": "The requested device resource was not found.",
             "content": {
               "application/json": {
                 "schema": {

@@ -49,16 +49,10 @@ steps:
       path: /gizclaw/v1/device/mhs/v0/read
       headers:
         Authorization: Bearer ${api_key}
+      body: {id: wifi.main, hwd: wifi}
       status: 200
-      body:
-        states:
-          - device_id: wifi.main
-            state: connected
-          - device_id: wifi.main
-            state: ssid
     expect:
-      /states/0/value:
-        equals: true
+      /value/connected: {equals: true}
   - id: connect
     client: peer
     http:
@@ -71,7 +65,7 @@ steps:
         args:
           ssid: Office
           passphrase: correct-horse
-      status: 202
+      status: 200
   - id: switching_is_offline
     client: peer
     http:
@@ -79,16 +73,10 @@ steps:
       path: /gizclaw/v1/device/mhs/v0/read
       headers:
         Authorization: Bearer ${api_key}
+      body: {id: wifi.main, hwd: wifi}
       status: 409
-      body:
-        states:
-          - device_id: wifi.main
-            state: connected
-          - device_id: wifi.main
-            state: ssid
     expect:
-      /error/code:
-        equals: DEVICE_OFFLINE
+      /error/code: {equals: DEVICE_OFFLINE}
   - id: switched_networks
     client: peer
     reconnect:
@@ -100,32 +88,16 @@ steps:
       path: /gizclaw/v1/device/mhs/v0/read
       headers:
         Authorization: Bearer ${api_key}
+      body: {id: wifi.main, hwd: wifi}
       status: 200
-      body:
-        states:
-          - device_id: wifi.main
-            state: connected
-          - device_id: wifi.main
-            state: ssid
     expect:
-      /states/1/value:
-        equals: Office
-      /states/0/value:
-        equals: true
+      /value/ssid: {equals: Office}
+      /value/connected: {equals: true}
   - id: provider_status
     client: peer
     client_rpc:
       method: client.mhs.v0.read
-      response:
-        states:
-          - device_id: wifi.main
-            state: connected
-            value:
-              bool_value: true
-          - device_id: wifi.main
-            state: ssid
-            value:
-              string_value: Office
+      response: {payload: CAESBk9mZmljZQ==}
       expect_calls: 2
   - id: provider_connect
     client: peer

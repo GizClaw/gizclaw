@@ -25,7 +25,17 @@ export {
   RPC_METHODS,
   CLIENT_TOOL_IDS,
   CLIENT_TOOL_NAMES,
+  CLIENT_HWD_IDS,
+  CLIENT_HWD_NAMES,
 } from "./generated/rpc/method-map.ts";
+export {
+  encodeClientHwdReadResponsePayload,
+  decodeClientHwdReadResponsePayload,
+  encodeClientHwdWriteRequestPayload,
+  decodeClientHwdWriteRequestPayload,
+  encodeClientHwdWriteResponsePayload,
+  decodeClientHwdWriteResponsePayload,
+} from "./generated/rpc/payload-codec.ts";
 
 type Override<T, U> = Omit<T, keyof U> & U;
 

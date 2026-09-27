@@ -44,7 +44,7 @@ func TestCmdServerRejectsDirectProtectedRoutesBeforeAuthentication(t *testing.T)
 
 	for _, route := range []struct{ method, path string }{
 		{http.MethodGet, "/gizclaw/v1/api-keys/self"}, {http.MethodGet, "/gizclaw/v1/device"}, {http.MethodGet, "/gizclaw/v1/device/status"},
-		{http.MethodPatch, "/gizclaw/v1/device/mhs/v0/states"}, {http.MethodPost, "/gizclaw/v1/device/tool/v0/invoke"},
+		{http.MethodPost, "/gizclaw/v1/device/mhs/v0/write"}, {http.MethodPost, "/gizclaw/v1/device/tool/v0/invoke"},
 		{http.MethodGet, "/gizclaw/v1/device/tool/v0/tools"}, {http.MethodGet, "/gizclaw/v1/contacts"},
 		{http.MethodPost, "/gizclaw/v1/contacts"}, {http.MethodGet, "/openai/v1/models"},
 	} {

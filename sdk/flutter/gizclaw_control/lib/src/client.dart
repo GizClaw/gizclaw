@@ -568,34 +568,22 @@ class GizClawControlClient {
     operation: 'getMhsManifest',
   );
 
-  /// Reads a non-empty batch of at most 32 unique hardware keys.
-  Future<List<MhsStateValue>> readMhsStates(List<MhsStateRef> states) => _json(
+  /// Reads one manifest-declared HWD instance.
+  Future<MhsHwdReadResult> readMhsHwd(String id, String hwd) => _json(
     'POST',
     '/device/mhs/v0/read',
-    _mhsStates,
-    body: {
-      'states': [for (final state in states) state.toJson()],
-    },
-    operation: 'readMhsStates',
+    MhsHwdReadResult.fromJson,
+    body: {'id': id, 'hwd': hwd},
+    operation: 'readMhsHwd',
   );
 
-  /// Atomically writes all keys and returns actual applied values.
-  Future<List<MhsStateValue>> writeMhsStates(List<MhsStateValue> states) =>
-      _json(
-        'PATCH',
-        '/device/mhs/v0/states',
-        _mhsStates,
-        body: {
-          'states': [for (final state in states) state.toJson()],
-        },
-        operation: 'writeMhsStates',
-      );
-
-  static List<MhsStateValue> _mhsStates(Object? json) => List.unmodifiable(
-    asJsonList(
-      asJsonObject(json, 'MhsStates')['states'],
-      'MhsStates.states',
-    ).map(MhsStateValue.fromJson),
+  /// Writes one display, led or speaker instance and returns applied values.
+  Future<MhsHwdReadResult> writeMhsHwd(MhsHwdWriteRequest request) => _json(
+    'POST',
+    '/device/mhs/v0/write',
+    MhsHwdReadResult.fromJson,
+    body: request.toJson(),
+    operation: 'writeMhsHwd',
   );
 
   /// `POST /gizclaw/v1/device/tool/v0/invoke`.

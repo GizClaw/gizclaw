@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -366,8 +366,8 @@ test("loadDocuments loads the device settings, reset, methods and workspace scen
     "client.mhs.v0.read",
     "client.tool.v0.invoke",
     "client.tool.v0.invoke",
-    "client.mhs.v0.read",
     "client.mhs.v0.write",
+    "client.mhs.v0.read",
   ]);
   const methods = new Set(
     documents.flatMap((document) =>
@@ -376,7 +376,7 @@ test("loadDocuments loads the device settings, reset, methods and workspace scen
       ),
     ),
   );
-  assert.ok(methods.has("PATCH"), [...methods].join(","));
+  assert.ok(methods.has("POST"), [...methods].join(","));
 });
 
 // loadRetryDocument loads a one-step rpc document whose step carries retry, or a
@@ -577,11 +577,14 @@ test("scriptedDelayMs bounds the delay to the timer range", () => {
 });
 
 test("MHS v0 scenarios install typed providers and preserve real error coverage", async () => {
-  const paths = [
-    "server.device.mhs.giztest.yaml",
-    "server.device.mhs.not_found.giztest.yaml",
-  ].map((name) => path.join(scenarioRoot, name));
+  const paths = (await readdir(scenarioRoot))
+    .filter(
+      (name) =>
+        name.startsWith("server.device.mhs") && name.endsWith(".giztest.yaml"),
+    )
+    .map((name) => path.join(scenarioRoot, name));
   const { documents, skipped } = await loadDocuments(paths);
   assert.equal(skipped.length, 0);
-  assert.equal(documents.length, 2);
+  assert.equal(documents.length, paths.length);
+  assert.ok(documents.length >= 18);
 });

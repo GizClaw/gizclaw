@@ -284,10 +284,7 @@ func runtimeProfileSpec(provider bool) apitypes.RuntimeProfileSpec {
 	spec := apitypes.RuntimeProfileSpec{
 		Resources: apitypes.RuntimeProfileResources{},
 		Mhs: &apitypes.RuntimeProfileMhs{V0: &apitypes.MhsV0Manifest{Devices: []apitypes.MhsV0Device{{
-			Id: "speaker.main", Kind: "speaker", States: []apitypes.MhsV0State{
-				{Name: "volume", Type: apitypes.MhsV0StateTypeInt, Access: apitypes.MhsV0StateAccessReadWrite, Min: new(0.0), Max: new(100.0), Unit: new("%")},
-				{Name: "muted", Type: apitypes.MhsV0StateTypeBool, Access: apitypes.MhsV0StateAccessReadWrite},
-			},
+			Id: "speaker.main", Hwd: "speaker",
 		}}}},
 		Workflows: apitypes.RuntimeProfileWorkflows{},
 	}

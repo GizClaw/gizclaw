@@ -51,7 +51,7 @@ Friend Group 消息是群组绑定 Workspace History 的只读投影。list/get/
 
 ## Server 发起的设备控制
 
-Public HTTP 设备接口让 Server 在 API Key owner 的活动 Peer 连接上发起调用。状态读写使用 `client.mhs.v0.read/write`，预定义过程使用 `client.tool.v0.list/invoke`。每个命令独占 RPC stream，并按 owner 串行。Server 在分发前验证类型化请求、保存设备回报状态，在确认重启、恢复出厂设置、固件更新或 Wi-Fi 连接后把连接标记为切换中。provider 责任和错误映射见 [Client Provided to Server](./client-provided-to-server)。
+Public HTTP 设备接口让 Server 在 API Key owner 的活动 Peer 连接上发起调用。HWD 实例读写使用 `client.mhs.v0.read/write`，预定义过程使用 `client.tool.v0.list/invoke`。每个命令独占 RPC stream，并按 owner 串行。Server 在分发前验证类型化请求、保存设备回报状态，在确认重启、恢复出厂设置、固件更新或 Wi-Fi 连接后把连接标记为切换中。provider 责任和错误映射见 [Client Provided to Server](./client-provided-to-server)。
 
 `server.workflow.list` 响应的 `safety_fences` 列出当前 Profile 可选的 name 与展示名，不返回 prompt。`safety_fence_level` 使用其中的 name，可与 `input` 一起发送，按下一次 reload 生效；缺档失败和 ASTTranslate 限制见 [RuntimeProfile 安全围栏](../../../gizclaw/services/runtime-profile#workspace-安全围栏)。
 

@@ -144,15 +144,30 @@ RuntimeProfile 的 Tool catalog 仍向 Peer 投影名称，支持服务端 HTTP 
 
 ## 设备硬件状态与预定义操作
 
-设备只提供 MHS v0 硬件状态与 tool/v0 操作。RuntimeProfile `spec.mhs.v0` manifest 声明产品自定义的 `(device_id, state)` key；Server 在发起 MHS 读写前按 manifest 校验。`client.rpc.methods.list` 返回协议方法编号，`client.tool.v0.list` 单独返回设备实际安装的操作编号。控制 App 通过 `GET /gizclaw/v1/device/tool/v0/tools` 与 `POST /gizclaw/v1/device/tool/v0/invoke` 使用预定义操作；Server 在接触设备前验证参数。
+设备提供 MHS v0 HWD 与 tool/v0 操作。RuntimeProfile `spec.mhs.v0` manifest 只声明 `{id,hwd}` 实例；`payload/mhs_v0.proto` 定义八种 HWD 的读结构，以及 display、led、speaker 的写结构。Server 在发起 MHS 读写前按 manifest 校验实例。`client.rpc.methods.list` 返回协议方法编号，`client.tool.v0.list` 单独返回设备实际安装的操作编号。控制 App 通过 `GET /gizclaw/v1/device/tool/v0/tools` 与 `POST /gizclaw/v1/device/tool/v0/invoke` 使用预定义操作；Server 在接触设备前验证参数。
 
 | ID | Method | 作用 |
 | ---: | --- | --- |
-| 133 | `client.mhs.v0.read` | 按 manifest 中的 `(device_id, state)` 批量读取硬件状态。 |
-| 134 | `client.mhs.v0.write` | 整批验证并写入 manifest 中声明为 `read_write` 的状态，返回实际生效的值。 |
+| 133 | `client.mhs.v0.read` | 读取一个 manifest 声明的 HWD 实例，payload 是该 HWD 的 protobuf 读结构。 |
+| 134 | `client.mhs.v0.write` | 写入一个 display、led 或 speaker 实例，返回实际生效值的 protobuf。 |
 | 135 | `client.tool.v0.invoke` | 按 `ClientTool` 编号和该操作的 protobuf 请求 payload 执行预定义操作；未安装的操作返回 `UNIMPLEMENTED`。 |
 | 136 | `client.tool.v0.list` | 返回设备实际安装的 `ClientTool` 编号。 |
 | 137 | `client.rpc.methods.list` | 返回设备提供的 `RpcMethod` 编号，用于识别协议 family 与版本。 |
+
+### ClientHwd v0
+
+`ClientHwd` 是独立编号空间。`api/proto/rpc/payload/mhs_v0.proto` 中的枚举 option 绑定各 HWD 的 protobuf 消息。RuntimeProfile manifest 可以用不同 ID 多次引用同一 HWD。
+
+| ID | HWD | read 响应 | write 请求与响应 |
+| ---: | --- | --- | --- |
+| 1 | wifi | `WifiHwdReadResponse` | 只读 |
+| 2 | ble | `BleHwdReadResponse` | 只读 |
+| 3 | modem | `ModemHwdReadResponse` | 只读 |
+| 4 | battery | `BatteryHwdReadResponse` | 只读 |
+| 5 | mic | `MicHwdReadResponse` | 只读 |
+| 6 | display | `DisplayHwdReadResponse` | `DisplayHwdWriteRequest` / `DisplayHwdWriteResponse` |
+| 7 | led | `LedHwdReadResponse` | `LedHwdWriteRequest` / `LedHwdWriteResponse` |
+| 8 | speaker | `SpeakerHwdReadResponse` | `SpeakerHwdWriteRequest` / `SpeakerHwdWriteResponse` |
 
 ### ClientTool v0
 

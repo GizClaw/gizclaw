@@ -10,14 +10,14 @@ import (
 )
 
 func TestMhsProfileValidationRevisionAndSQL(t *testing.T) {
-	manifest := apitypes.MhsV0Manifest{Devices: []apitypes.MhsV0Device{{Id: "led.status", Kind: "led", States: []apitypes.MhsV0State{{Name: "brightness", Type: "int", Access: "read_write"}}}}}
+	manifest := apitypes.MhsV0Manifest{Devices: []apitypes.MhsV0Device{{Id: "led.status", Hwd: "led"}}}
 	input := adminhttp.RuntimeProfileUpsert{Id: "mhs", Spec: apitypes.RuntimeProfileSpec{Mhs: &apitypes.RuntimeProfileMhs{V0: &manifest}}}
 	item, err := normalizeProfile(input, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	firstRevision := item.Revision
-	manifest.Devices[0].States[0].Max = new(100.0)
+	manifest.Devices[0].Description = new("Status LED")
 	item, err = normalizeProfile(input, "")
 	if err != nil || item.Revision == firstRevision {
 		t.Fatalf("revision unchanged: %v", err)

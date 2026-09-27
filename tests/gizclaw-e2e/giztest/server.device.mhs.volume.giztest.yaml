@@ -1,7 +1,7 @@
 # User Story:
-# As a GizClaw API key holder controlling hardware through MHS v0,
-# I want the control app to read and adjust speaker volume and mute through MHS v0,
-# So that the Public HTTP MHS contract is verified end to end.
+# As a GizClaw API key holder,
+# I want to exercise server.device.mhs.volume through MHS v0,
+# So that the HWD contract is verified on real transports.
 version: gizclaw.test/v1alpha1
 name: server.device.mhs.volume
 clients:
@@ -51,58 +51,45 @@ steps:
       Authorization: "Bearer ${api_key}"
     status: 200
   expect:
-    /devices/3/id: {equals: speaker.main}
-    /devices/3/states/2/name: {equals: volume}
-    /devices/3/states/2/max: {equals: 100}
-    /devices/3/states/3/type: {equals: bool}
-- id: read_volume
+    /devices/4/id: {equals: speaker.main}
+    /devices/4/hwd: {equals: speaker}
+- id: read_speaker
   client: peer
   http:
     method: POST
     path: /gizclaw/v1/device/mhs/v0/read
     headers:
       Authorization: "Bearer ${api_key}"
-    body: {states: [{device_id: speaker.main, state: volume}, {device_id: speaker.main, state: muted}]}
+    body: {id: speaker.main, hwd: speaker}
     status: 200
   expect:
-    /states/0/value: {equals: 30}
-    /states/1/value: {equals: true}
-- id: volume_above_max
+    /id: {equals: speaker.main}
+    /hwd: {equals: speaker}
+    /value/volume_percent: {equals: 30}
+- id: write_speaker
   client: peer
   http:
-    method: PATCH
-    path: /gizclaw/v1/device/mhs/v0/states
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/write
     headers:
       Authorization: "Bearer ${api_key}"
-    body: {states: [{device_id: speaker.main, state: volume, value: 101}]}
-    status: 400
-  expect:
-    /error/code: {equals: INVALID_REQUEST}
-- id: set_volume
-  client: peer
-  http:
-    method: PATCH
-    path: /gizclaw/v1/device/mhs/v0/states
-    headers:
-      Authorization: "Bearer ${api_key}"
-    body: {states: [{device_id: speaker.main, state: volume, value: 60}, {device_id: speaker.main, state: muted, value: false}]}
+    body: {id: speaker.main, hwd: speaker, value: {volume_percent: 60, muted: false}}
     status: 200
   expect:
-    /states/0/device_id: {equals: speaker.main}
-    /states/0/state: {equals: volume}
-    /states/0/value: {equals: 60}
-    /states/1/value: {equals: false}
-- id: provider_read
-  client: peer
-  client_rpc:
-    method: client.mhs.v0.read
-    response: {states: [{device_id: speaker.main, state: volume, value: {int_value: 30}}, {device_id: speaker.main, state: muted, value: {bool_value: true}}]}
-    expect_calls: 1
+    /id: {equals: speaker.main}
+    /hwd: {equals: speaker}
+    /value/volume_percent: {equals: 55}
 - id: provider_write
   client: peer
   client_rpc:
     method: client.mhs.v0.write
-    response: {states: [{device_id: speaker.main, state: volume, value: {int_value: 60}}, {device_id: speaker.main, state: muted, value: {bool_value: false}}]}
+    response: {payload: CgQINxAA}
+    expect_calls: 1
+- id: provider_read
+  client: peer
+  client_rpc:
+    method: client.mhs.v0.read
+    response: {payload: CB4QAQ==}
     expect_calls: 1
 finally:
 - id: cleanup_peer

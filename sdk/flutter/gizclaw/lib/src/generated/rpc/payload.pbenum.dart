@@ -6,7 +6,7 @@ export 'payload/edge.pbenum.dart';
 export 'payload/enums.pbenum.dart';
 export 'payload/firmware.pbenum.dart';
 export 'payload/icon.pbenum.dart';
-export 'payload/mhs.pbenum.dart';
+export 'payload/mhs_v0.pbenum.dart';
 export 'payload/social.pbenum.dart';
 export 'payload/system.pbenum.dart';
 export 'payload/tool.pbenum.dart';

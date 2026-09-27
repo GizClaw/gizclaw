@@ -9,20 +9,20 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
+	"google.golang.org/protobuf/proto"
 )
 
 func seedMhs(t *testing.T, f *deviceHTTPFixture) {
 	t.Helper()
-	seedRuntimeProfile(t, f, f.owner, "mhs", apitypes.RuntimeProfileSpec{Mhs: &apitypes.RuntimeProfileMhs{V0: &apitypes.MhsV0Manifest{Devices: []apitypes.MhsV0Device{{Id: "display.main", Kind: "display", States: []apitypes.MhsV0State{
-		{Name: "brightness", Type: "int", Access: "read_write", Min: new(0.0), Max: new(100.0), Step: new(5.0)},
-		{Name: "enabled", Type: "bool", Access: "read_write"},
-		{Name: "mode", Type: "enum", Access: "read_write", EnumValues: new([]string{"auto", "off"})},
-		{Name: "label", Type: "string", Access: "read_write"},
-		{Name: "voltage", Type: "double", Access: "read"},
-	}}}}}})
+	seedRuntimeProfile(t, f, f.owner, "mhs", apitypes.RuntimeProfileSpec{Mhs: &apitypes.RuntimeProfileMhs{V0: &apitypes.MhsV0Manifest{Devices: []apitypes.MhsV0Device{
+		{Id: "display.main", Hwd: "display"},
+		{Id: "battery.main", Hwd: "battery"},
+		{Id: "led.left", Hwd: "led"},
+		{Id: "led.right", Hwd: "led"},
+	}}}})
 }
 
-func TestMhsManifestOfflineAndNoConfiguration(t *testing.T) {
+func TestMhsManifestOfflineAndInstances(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 	response := f.do(t, http.MethodGet, "/gizclaw/v1/device/mhs/v0/manifest", "")
 	if response.Code != 200 || strings.TrimSpace(response.Body.String()) != `{"devices":[]}` {
@@ -30,11 +30,11 @@ func TestMhsManifestOfflineAndNoConfiguration(t *testing.T) {
 	}
 	seedMhs(t, f)
 	response = f.do(t, http.MethodGet, "/gizclaw/v1/device/mhs/v0/manifest", "")
-	if response.Code != 200 || !strings.Contains(response.Body.String(), `"id":"display.main"`) {
+	if response.Code != 200 || !strings.Contains(response.Body.String(), `"id":"led.left"`) || !strings.Contains(response.Body.String(), `"id":"led.right"`) || !strings.Contains(response.Body.String(), `"hwd":"led"`) {
 		t.Fatalf("%d %s", response.Code, response.Body)
 	}
-	if strings.Contains(response.Body.String(), "resources") {
-		t.Fatal("profile leaked")
+	if strings.Contains(response.Body.String(), "resources") || strings.Contains(response.Body.String(), "states") {
+		t.Fatalf("manifest leaked unrelated fields: %s", response.Body)
 	}
 }
 
@@ -42,68 +42,67 @@ func TestMhsHTTPValidationAndAppliedValues(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 	seedMhs(t, f)
 	calls := 0
-	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+	f.manager.SetPeerUp(f.owner, newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 		calls++
 		switch req.Method {
 		case rpcapi.RPCMethodClientMhsV0Read:
 			request, err := req.Params.AsClientMhsV0ReadRequest()
+			if err != nil || request.Id != "display.main" || request.Hwd != rpcpb.ClientHwd_CLIENT_HWD_DISPLAY {
+				t.Fatalf("read request %+v, %v", request, err)
+			}
+			payload, err := proto.Marshal(&rpcpb.DisplayHwdReadResponse{BrightnessPercent: proto.Uint32(40)})
 			if err != nil {
 				return nil, err
 			}
-			state := request.States[0]
-			return newRPCResultResponse(req.Id, &rpcpb.ClientMhsV0ReadResponse{States: []*rpcpb.MhsStateValue{{DeviceId: state.DeviceId, State: state.State, Value: &rpcpb.MhsValue{Value: &rpcpb.MhsValue_IntValue{IntValue: 40}}}}}, (*rpcapi.RPCPayload).FromClientMhsV0ReadResponse)
+			return newRPCResultResponse(req.Id, &rpcpb.ClientMhsV0ReadResponse{Payload: payload}, (*rpcapi.RPCPayload).FromClientMhsV0ReadResponse)
 		case rpcapi.RPCMethodClientMhsV0Write:
 			request, err := req.Params.AsClientMhsV0WriteRequest()
+			if err != nil || request.Id != "display.main" || request.Hwd != rpcpb.ClientHwd_CLIENT_HWD_DISPLAY {
+				t.Fatalf("write request %+v, %v", request, err)
+			}
+			var value rpcpb.DisplayHwdWriteRequest
+			if err := proto.Unmarshal(request.Payload, &value); err != nil || value.BrightnessPercent == nil || *value.BrightnessPercent != 50 {
+				t.Fatalf("write payload %+v, %v", &value, err)
+			}
+			payload, err := proto.Marshal(&rpcpb.DisplayHwdWriteResponse{Applied: &rpcpb.DisplayHwdReadResponse{BrightnessPercent: proto.Uint32(40)}})
 			if err != nil {
 				return nil, err
 			}
-			request.States[0].Value = &rpcpb.MhsValue{Value: &rpcpb.MhsValue_IntValue{IntValue: 40}}
-			return newRPCResultResponse(req.Id, &rpcpb.ClientMhsV0WriteResponse{States: request.States}, (*rpcapi.RPCPayload).FromClientMhsV0WriteResponse)
+			return newRPCResultResponse(req.Id, &rpcpb.ClientMhsV0WriteResponse{Payload: payload}, (*rpcapi.RPCPayload).FromClientMhsV0WriteResponse)
 		default:
 			t.Fatalf("unexpected %s", req.Method)
 			return nil, nil
 		}
-	})
-	f.manager.SetPeerUp(f.owner, device)
+	}))
 	for _, body := range []string{
-		``, `{}`, `{"states":[]}`, `{"states":null}`,
-		`{"states":[{"device_id":"display.main","state":"brightness"}]}`,
-		`{"states":[{"device_id":"missing","state":"brightness","value":50}]}`,
-		`{"states":[{"device_id":"display.main","state":"missing","value":50}]}`,
-		`{"states":[{"device_id":"display.main","state":"voltage","value":1}]}`,
-		`{"states":[{"device_id":"display.main","state":"brightness","value":50},{"device_id":"display.main","state":"brightness","value":60}]}`,
-		`{"states":[{"device_id":"display.main","state":"brightness","value":1.5}]}`,
-		`{"states":[{"device_id":"display.main","state":"brightness","value":101}]}`,
-		`{"states":[{"device_id":"display.main","state":"brightness","value":-1}]}`,
-		`{"states":[{"device_id":"display.main","state":"brightness","value":52}]}`,
-		`{"states":[{"device_id":"display.main","state":"brightness","value":"50"}]}`,
-		`{"states":[{"device_id":"display.main","state":"enabled","value":0}]}`,
-		`{"states":[{"device_id":"display.main","state":"mode","value":"bad"}]}`,
-		`{"states":[{"device_id":"display.main","state":"label","value":null}]}`,
-		`{"states":[{"device_id":"display.main","state":"label","value":"\u0000"}]}`,
-		`{"states":[{"device_id":"display.main","state":"label","value":"` + strings.Repeat("中", 86) + `"}]}`,
-		`{"states":[` + strings.TrimSuffix(strings.Repeat(`{"device_id":"display.main","state":"brightness","value":50},`, 33), ",") + `]}`,
+		``, `{}`, `{"id":"display.main","hwd":"battery","value":{"brightness_percent":50}}`,
+		`{"id":"battery.main","hwd":"battery","value":{"percent":50}}`,
+		`{"id":"missing","hwd":"display","value":{"brightness_percent":50}}`,
+		`{"id":"display.main","hwd":"display","value":{}}`,
+		`{"id":"display.main","hwd":"display","value":{"brightness_percent":101}}`,
+		`{"id":"display.main","hwd":"display","value":{"brightness_percent":"50"}}`,
+		`{"id":"display.main","hwd":"display","value":{"unexpected":true}}`,
 	} {
-		response := f.do(t, http.MethodPatch, "/gizclaw/v1/device/mhs/v0/states", body)
+		response := f.do(t, http.MethodPost, "/gizclaw/v1/device/mhs/v0/write", body)
 		if response.Code != 400 {
 			t.Fatalf("%s: %d %s", body, response.Code, response.Body)
 		}
 	}
-	for _, body := range []string{`{}`, `{"states":[]}`, `{"states":[{"device_id":"missing","state":"brightness"}]}`, `{"states":[{"device_id":"display.main","state":"brightness"},{"device_id":"display.main","state":"brightness"}]}`} {
+	for _, body := range []string{`{}`, `{"id":"missing","hwd":"display"}`, `{"id":"display.main","hwd":"battery"}`} {
 		response := f.do(t, http.MethodPost, "/gizclaw/v1/device/mhs/v0/read", body)
 		if response.Code != 400 {
-			t.Fatalf("%d %s", response.Code, response.Body)
+			t.Fatalf("%s: %d %s", body, response.Code, response.Body)
 		}
 	}
 	if calls != 0 {
 		t.Fatalf("invalid requests reached device %d times", calls)
 	}
-	for _, tc := range []struct{ method, path, body string }{
-		{http.MethodPost, "read", `{"states":[{"device_id":"display.main","state":"brightness"}]}`},
-		{http.MethodPatch, "states", `{"states":[{"device_id":"display.main","state":"brightness","value":50}]}`},
+	for _, tc := range []struct{ path, body string }{
+		{"read", `{"id":"display.main","hwd":"display"}`},
+		{"write", `{"id":"display.main","hwd":"display","value":{"brightness_percent":50}}`},
 	} {
-		response := f.do(t, tc.method, "/gizclaw/v1/device/mhs/v0/"+tc.path, tc.body)
-		if response.Code != 200 || !strings.Contains(response.Body.String(), `"value":40`) {
+		response := f.do(t, http.MethodPost, "/gizclaw/v1/device/mhs/v0/"+tc.path, tc.body)
+		if response.Code != 200 || !strings.Contains(response.Body.String(), `"brightness_percent":40`) {
 			t.Fatalf("%d %s", response.Code, response.Body)
 		}
 	}
@@ -118,7 +117,7 @@ func TestMhsHTTPDeviceErrors(t *testing.T) {
 		http int
 		name string
 	}{
-		{rpcapi.StatusCodeNotFound, 404, mhsStateNotFoundCode},
+		{rpcapi.StatusCodeNotFound, 404, mhsHwdNotFoundCode},
 		{rpcapi.StatusCodeInvalidArgument, 400, deviceRejectedCode},
 		{rpcapi.StatusCodeFailedPrecondition, 502, deviceErrorCode},
 		{rpcapi.StatusCodeUnimplemented, 501, deviceUnsupportedCode},
@@ -131,41 +130,35 @@ func TestMhsHTTPDeviceErrors(t *testing.T) {
 			f.manager.SetPeerUp(f.owner, newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 				return rpcapi.Error{RequestID: req.Id, Code: tc.code, Message: "device-private-detail"}.RPCResponse(), nil
 			}))
-			for _, verb := range []string{"read", "write"} {
-				method, path, body := http.MethodPost, "read", `{"states":[{"device_id":"display.main","state":"brightness"}]}`
-				if verb == "write" {
-					method, path, body = http.MethodPatch, "states", `{"states":[{"device_id":"display.main","state":"brightness","value":50}]}`
-				}
-				response := f.do(t, method, "/gizclaw/v1/device/mhs/v0/"+path, body)
+			for _, call := range []struct{ path, body string }{
+				{"read", `{"id":"display.main","hwd":"display"}`},
+				{"write", `{"id":"display.main","hwd":"display","value":{"brightness_percent":50}}`},
+			} {
+				response := f.do(t, http.MethodPost, "/gizclaw/v1/device/mhs/v0/"+call.path, call.body)
 				if response.Code != tc.http || errorCode(t, response) != tc.name || strings.Contains(response.Body.String(), "device-private-detail") {
 					t.Fatalf("%d %s", response.Code, response.Body)
 				}
 			}
 		})
 	}
-	f := newDeviceHTTPFixture(t)
-	seedMhs(t, f)
-	response := f.do(t, http.MethodPost, "/gizclaw/v1/device/mhs/v0/read", `{"states":[{"device_id":"display.main","state":"brightness"}]}`)
-	if response.Code != 409 {
-		t.Fatalf("%d %s", response.Code, response.Body)
-	}
 }
 
 func TestMhsHTTPMalformedResponse(t *testing.T) {
-	for _, states := range [][]*rpcpb.MhsStateValue{nil, {{DeviceId: "display.main", State: "brightness"}}, {{DeviceId: "display.main", State: "brightness", Value: &rpcpb.MhsValue{Value: &rpcpb.MhsValue_StringValue{StringValue: "50"}}}}} {
-		f := newDeviceHTTPFixture(t)
-		seedMhs(t, f)
-		f.manager.SetPeerUp(f.owner, newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-			if req.Method == rpcapi.RPCMethodClientMhsV0Read {
-				return newRPCResultResponse(req.Id, &rpcpb.ClientMhsV0ReadResponse{States: states}, (*rpcapi.RPCPayload).FromClientMhsV0ReadResponse)
-			}
-			return newRPCResultResponse(req.Id, &rpcpb.ClientMhsV0WriteResponse{States: states}, (*rpcapi.RPCPayload).FromClientMhsV0WriteResponse)
-		}))
-		for _, tc := range []struct{ method, path, body string }{{http.MethodPost, "read", `{"states":[{"device_id":"display.main","state":"brightness"}]}`}, {http.MethodPatch, "states", `{"states":[{"device_id":"display.main","state":"brightness","value":50}]}`}} {
-			response := f.do(t, tc.method, "/gizclaw/v1/device/mhs/v0/"+tc.path, tc.body)
-			if response.Code != 502 || errorCode(t, response) != deviceErrorCode {
-				t.Fatalf("%d %s", response.Code, response.Body)
-			}
+	f := newDeviceHTTPFixture(t)
+	seedMhs(t, f)
+	f.manager.SetPeerUp(f.owner, newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		if req.Method == rpcapi.RPCMethodClientMhsV0Read {
+			return newRPCResultResponse(req.Id, &rpcpb.ClientMhsV0ReadResponse{Payload: []byte{0xff}}, (*rpcapi.RPCPayload).FromClientMhsV0ReadResponse)
+		}
+		return newRPCResultResponse(req.Id, &rpcpb.ClientMhsV0WriteResponse{}, (*rpcapi.RPCPayload).FromClientMhsV0WriteResponse)
+	}))
+	for _, call := range []struct{ path, body string }{
+		{"read", `{"id":"display.main","hwd":"display"}`},
+		{"write", `{"id":"display.main","hwd":"display","value":{"brightness_percent":50}}`},
+	} {
+		response := f.do(t, http.MethodPost, "/gizclaw/v1/device/mhs/v0/"+call.path, call.body)
+		if response.Code != 502 || errorCode(t, response) != deviceErrorCode {
+			t.Fatalf("%d %s", response.Code, response.Body)
 		}
 	}
 }

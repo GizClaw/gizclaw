@@ -1880,121 +1880,58 @@ int gzc_control_get_mhs_v0_manifest(
   return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
 }
 
-static bool mhs_write_value_valid(const gzc_control_mhs_v0_value_t *value) {
-  switch (value->kind) {
-  case GZC_CONTROL_MHS_V0_VALUE_BOOL:
-    return true;
-  case GZC_CONTROL_MHS_V0_VALUE_INT:
-    return value->int_value >= -GZC_CONTROL_MHS_V0_MAX_INT && value->int_value <= GZC_CONTROL_MHS_V0_MAX_INT;
-  case GZC_CONTROL_MHS_V0_VALUE_DOUBLE:
-    return isfinite(value->double_value);
-  case GZC_CONTROL_MHS_V0_VALUE_STRING:
-    return gzc_control_mhs_v0_string_valid(value->string_value);
-  default:
-    return false;
-  }
-}
-
-static int mhs_write_value(gzc_json_writer_t *writer, const gzc_control_mhs_v0_value_t *value) {
-  switch (value->kind) {
-  case GZC_CONTROL_MHS_V0_VALUE_BOOL:
-    return gzc_json_field_bool(writer, "value", value->bool_value);
-  case GZC_CONTROL_MHS_V0_VALUE_INT:
-    return gzc_json_field_i64(writer, "value", value->int_value);
-  case GZC_CONTROL_MHS_V0_VALUE_DOUBLE:
-    return gzc_json_field_f64(writer, "value", value->double_value);
-  case GZC_CONTROL_MHS_V0_VALUE_STRING:
-    return gzc_json_field_str(writer, "value", value->string_value);
-  default:
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-}
-
-/* Exactly one of refs/values is set; the entry points check their pointers.
- * Validation does not depend on a cached manifest and leaves duplicate keys
- * and manifest-specific errors to the Server, like the sibling SDKs. */
-static int mhs_states_request(
+static int mhs_hwd_request(
     gzc_control_client_t *client, gzc_control_call_t *call,
-    const gzc_control_mhs_v0_state_ref_t *refs,
-    const gzc_control_mhs_v0_state_value_t *values, size_t request_count,
+    gzc_str_t id, gzc_control_mhs_v0_hwd_t hwd,
+    gzc_str_t value_json, bool writing,
     gzc_control_mhs_v0_storage_t *storage,
-    gzc_control_mhs_v0_state_value_t *out_states, size_t cap, size_t *out_count) {
+    gzc_control_mhs_v0_hwd_result_t *out) {
   int rc = check_args(client, call);
-  if (rc != GZC_OK || !gzc_control_mhs_v0_storage_valid(storage) || out_count == NULL ||
-      (out_states == NULL && cap != 0) || cap > SIZE_MAX / sizeof(*out_states)) {
+  const char *name = gzc_control_mhs_v0_hwd_name(hwd);
+  if (rc != GZC_OK || !gzc_control_mhs_v0_storage_valid(storage) || out == NULL ||
+      !gzc_control_mhs_v0_name_valid(id) || name == NULL ||
+      (writing && (hwd < GZC_CONTROL_HWD_DISPLAY || !gzc_control_mhs_v0_object_nonempty(value_json)))) {
     return GZC_ERR_INVALID_ARGUMENT;
-  }
-  *out_count = 0;
-  if (request_count == 0 || request_count > GZC_CONTROL_MHS_V0_MAX_BATCH) {
-    return gzc_control_fail(call, GZC_CONTROL_ERROR_INVALID_REQUEST, GZC_ERR_INVALID_ARGUMENT);
-  }
-  for (size_t i = 0; i < request_count; i++) {
-    gzc_str_t device_id = refs != NULL ? refs[i].device_id : values[i].device_id;
-    gzc_str_t state = refs != NULL ? refs[i].state : values[i].state;
-    if (!gzc_control_mhs_v0_name_valid(device_id) || !gzc_control_mhs_v0_name_valid(state) ||
-        (values != NULL && !mhs_write_value_valid(&values[i].value))) {
-      return gzc_control_fail(call, GZC_CONTROL_ERROR_INVALID_REQUEST, GZC_ERR_INVALID_ARGUMENT);
-    }
   }
   gzc_control_builder_t builder;
-  builder_begin(&builder, client, call, refs != NULL ? "/device/mhs/v0/read" : "/device/mhs/v0/states");
+  builder_begin(&builder, client, call, writing ? "/device/mhs/v0/write" : "/device/mhs/v0/read");
   gzc_str_t url = builder_url(&builder);
   gzc_json_writer_t writer;
   builder_body_begin(&builder, &writer);
-  if (builder.rc == GZC_OK) {
-    builder.rc = gzc_buf_append_cstr(&builder.buf, builder.platform, "\"states\":[");
-  }
-  for (size_t i = 0; builder.rc == GZC_OK && i < request_count; i++) {
-    if (i != 0) {
-      builder.rc = gzc_buf_append_cstr(&builder.buf, builder.platform, ",");
-    }
-    gzc_json_writer_t item;
-    gzc_json_writer_init(&item, builder.platform, &builder.buf);
-    if (builder.rc == GZC_OK)
-      builder.rc = gzc_json_object_begin(&item);
-    if (builder.rc == GZC_OK)
-      builder.rc = gzc_json_field_str(&item, "device_id", refs != NULL ? refs[i].device_id : values[i].device_id);
-    if (builder.rc == GZC_OK)
-      builder.rc = gzc_json_field_str(&item, "state", refs != NULL ? refs[i].state : values[i].state);
-    if (builder.rc == GZC_OK && values != NULL)
-      builder.rc = mhs_write_value(&item, &values[i].value);
-    if (builder.rc == GZC_OK)
-      builder.rc = gzc_json_object_end(&item);
-  }
-  if (builder.rc == GZC_OK) {
-    builder.rc = gzc_buf_append_cstr(&builder.buf, builder.platform, "]");
-  }
+  if (builder.rc == GZC_OK)
+    builder.rc = gzc_json_field_str(&writer, "id", id);
+  if (builder.rc == GZC_OK)
+    builder.rc = gzc_json_field_str(&writer, "hwd", gzc_str_from_cstr(name));
+  if (builder.rc == GZC_OK && writing)
+    builder.rc = gzc_buf_append_cstr(&builder.buf, builder.platform, ",\"value\":");
+  if (builder.rc == GZC_OK && writing)
+    builder.rc = gzc_buf_append(&builder.buf, builder.platform, value_json.data, value_json.len);
   gzc_str_t body = builder_body(&builder, &writer);
   gzc_str_t object;
-  rc = send_for_object(&builder, client, call, refs != NULL ? GZC_HTTP_METHOD_POST : GZC_HTTP_METHOD_PATCH, url, body, &object);
-  if (rc != GZC_OK) {
+  rc = send_for_object(&builder, client, call, GZC_HTTP_METHOD_POST, url, body, &object);
+  if (rc != GZC_OK)
     return rc;
-  }
   storage->used = 0;
-  rc = gzc_control_mhs_v0_decode_states(object, storage, out_states, cap, out_count);
+  rc = gzc_control_mhs_v0_decode_result(object, storage, out);
+  if (rc == GZC_OK && (out->id.len != id.len || memcmp(out->id.data, id.data, id.len) != 0 || out->hwd != hwd))
+    rc = GZC_ERR_JSON;
   return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
 }
 
-int gzc_control_read_mhs_v0_states(
+int gzc_control_read_mhs_v0_hwd(
     gzc_control_client_t *client, gzc_control_call_t *call,
-    const gzc_control_mhs_v0_state_ref_t *request, size_t request_count,
+    gzc_str_t id, gzc_control_mhs_v0_hwd_t hwd,
     gzc_control_mhs_v0_storage_t *storage,
-    gzc_control_mhs_v0_state_value_t *out_states, size_t cap, size_t *out_count) {
-  if (request == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  return mhs_states_request(client, call, request, NULL, request_count, storage, out_states, cap, out_count);
+    gzc_control_mhs_v0_hwd_result_t *out) {
+  return mhs_hwd_request(client, call, id, hwd, gzc_str_from_parts(NULL, 0), false, storage, out);
 }
 
-int gzc_control_write_mhs_v0_states(
+int gzc_control_write_mhs_v0_hwd(
     gzc_control_client_t *client, gzc_control_call_t *call,
-    const gzc_control_mhs_v0_state_value_t *request, size_t request_count,
+    gzc_str_t id, gzc_control_mhs_v0_hwd_t hwd, gzc_str_t value_json,
     gzc_control_mhs_v0_storage_t *storage,
-    gzc_control_mhs_v0_state_value_t *out_states, size_t cap, size_t *out_count) {
-  if (request == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  return mhs_states_request(client, call, NULL, request, request_count, storage, out_states, cap, out_count);
+    gzc_control_mhs_v0_hwd_result_t *out) {
+  return mhs_hwd_request(client, call, id, hwd, value_json, true, storage, out);
 }
 
 static int read_tool_value(gzc_control_client_t *client, gzc_control_call_t *call,

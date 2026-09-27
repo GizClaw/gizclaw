@@ -96,7 +96,7 @@ The Server offers an API-key owner-scoped state family and a procedure family. A
 | --- | --- | --- |
 | `GET /device/mhs/v0/manifest` | none | Bound RuntimeProfile hardware manifest, also available offline |
 | `POST /device/mhs/v0/read` | `client.mhs.v0.read` | Requested hardware states |
-| `PATCH /device/mhs/v0/states` | `client.mhs.v0.write` | Actual values applied to the whole batch |
+| `POST /device/mhs/v0/write` | `client.mhs.v0.write` | Actual value applied to one HWD instance |
 | `GET /device/tool/v0/tools` | `client.tool.v0.list` | Names of the device's installed predefined tools |
 | `POST /device/tool/v0/invoke` | `client.tool.v0.invoke` | `{ "result": ... }` for one predefined tool |
 
@@ -144,8 +144,16 @@ current records. Updates and deletes affect only that public key. Admin lookup i
 
 All seven player procedures use `POST /gizclaw/v1/device/tool/v0/invoke` with tool names `audioplayer.get`, `audioplayer.playlist.get`, `audioplayer.playlist.set`, `audioplayer.playlist.append`, `audioplayer.play`, `audioplayer.stop`, and `audioplayer.mode.set`. The `args` object keeps each procedure's typed fields: set/append accept `items`, play requires a zero-based `index`, and mode accepts `repeat`. The player holds at most 32 items. Set atomically replaces the list; append preserves order and duplicates and is never retried automatically. Playback status is observed through telemetry and `GET /device/status`. See [player providers](../proto/rpc/client-provided-to-server#music-player).
 
-## MHS v0 hardware states
+## MHS v0 HWDs
 
-These owner-scoped routes expose GizClaw's MHS-inspired v0 state protocol. The manifest contract belongs to [RuntimeProfile](/en/developing/gizclaw/services/runtime-profile#mhs-v0-hardware-manifest). `GET /gizclaw/v1/device/mhs/v0/manifest` is available offline. Read accepts `{ "states": [{ "device_id": "speaker.main", "state": "volume" }] }`; write adds a plain JSON `value` and returns the actual applied values.
+These owner-scoped routes expose GizClaw's HWD protocol. The bound [RuntimeProfile](/en/developing/gizclaw/services/runtime-profile#mhs-v0-hardware-manifest) lists instance IDs and HWD types only.
 
-Batches contain 1–32 unique keys. The Server validates keys, access, type, integer precision, bounds, decimal step grid, enum membership and string byte limits before forwarding. It checks responses against the same manifest snapshot. A malformed device answer becomes `502 DEVICE_ERROR`; a revision missing a declared key returns `404 MHS_STATE_NOT_FOUND`. A write timeout does not prove whether it took effect, so callers should read back.
+| Route | Request and result |
+| --- | --- |
+| `GET /gizclaw/v1/device/mhs/v0/manifest` | Returns `{devices:[{id,hwd,...}]}` offline; an unconfigured profile returns `{devices:[]}` |
+| `POST /gizclaw/v1/device/mhs/v0/read` | Takes `{id,hwd}` and returns `{id,hwd,value}` with that HWD's read shape |
+| `POST /gizclaw/v1/device/mhs/v0/write` | Takes `{id,hwd,value}` and returns the actual applied `{id,hwd,value}` |
+
+Each call addresses one instance. Wifi, ble, modem, battery and mic are read-only; display, led and speaker can be written. The Server validates instance identity, HWD type and typed write fields before RPC. A read-only HWD or invalid write returns `400 INVALID_REQUEST`. A malformed typed device result becomes `502 DEVICE_ERROR`.
+
+Calls use the five-second device-control timeout and owner serialization. Offline maps to `409 DEVICE_OFFLINE`, missing handlers to `501 DEVICE_UNSUPPORTED`, timeout to `504 DEVICE_TIMEOUT`, and device rejection to `400 DEVICE_REJECTED`. A physical instance missing despite the manifest maps to `404 MHS_HWD_NOT_FOUND`. A write returns actual applied values; read back after a timeout.

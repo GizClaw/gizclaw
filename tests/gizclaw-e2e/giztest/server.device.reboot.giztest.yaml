@@ -49,14 +49,10 @@ steps:
       path: /gizclaw/v1/device/mhs/v0/read
       headers:
         Authorization: Bearer ${api_key}
+      body: {id: wifi.main, hwd: wifi}
       status: 200
-      body:
-        states:
-          - device_id: wifi.main
-            state: connected
     expect:
-      /states/0/value:
-        equals: true
+      /value/connected: {equals: true}
   - id: primary_http
     client: peer
     http:
@@ -76,14 +72,10 @@ steps:
       path: /gizclaw/v1/device/mhs/v0/read
       headers:
         Authorization: Bearer ${api_key}
+      body: {id: wifi.main, hwd: wifi}
       status: 409
-      body:
-        states:
-          - device_id: wifi.main
-            state: connected
     expect:
-      /error/code:
-        equals: DEVICE_OFFLINE
+      /error/code: {equals: DEVICE_OFFLINE}
   - id: provider_reboot
     client: peer
     client_rpc:
@@ -94,12 +86,7 @@ steps:
     client: peer
     client_rpc:
       method: client.mhs.v0.read
-      response:
-        states:
-          - device_id: wifi.main
-            state: connected
-            value:
-              bool_value: true
+      response: {payload: CAE=}
       expect_calls: 1
 finally:
   - id: cleanup_peer

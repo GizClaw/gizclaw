@@ -3,12 +3,17 @@ import {
   RPC_METHOD_IDS,
   CLIENT_TOOL_IDS,
   CLIENT_TOOL_NAMES,
+  CLIENT_HWD_IDS,
+  CLIENT_HWD_NAMES,
   type ClientToolMap,
   type ClientToolID,
 } from "./generated/rpc/method-map.ts";
 import {
   decodeClientToolRequestPayload,
   encodeClientToolResponsePayload,
+  decodeClientHwdReadResponsePayload,
+  decodeClientHwdWriteRequestPayload,
+  decodeClientHwdWriteResponsePayload,
   type ClientToolV0InvokeRequest,
   decodeRPCRequestPayload,
   decodeRPCResponsePayload,
@@ -286,12 +291,12 @@ export type GizClawAudioPlayerHandlers = {
 // handler answers METHOD_NOT_FOUND, which the server maps to
 // 501 DEVICE_UNSUPPORTED.
 export type GizClawDeviceControlHandlers = {
-  /** Returns exactly the requested keys, or NOT_FOUND for unimplemented hardware. */
-  readMhsStates?: (
+  /** Reads one HWD instance; absent hardware returns NOT_FOUND. */
+  readMhsHwd?: (
     request: ClientMhsV0ReadRequest,
   ) => Promise<ClientMhsV0ReadResponse> | ClientMhsV0ReadResponse;
-  /** Enforce safety limits and validate the entire batch before applying any entry. */
-  writeMhsStates?: (
+  /** Writes one display, led or speaker instance and returns applied values. */
+  writeMhsHwd?: (
     request: ClientMhsV0WriteRequest,
   ) => Promise<ClientMhsV0WriteResponse> | ClientMhsV0WriteResponse;
   audioplayer?: GizClawAudioPlayerHandlers;
@@ -2693,27 +2698,39 @@ async function answerClientRequest(
     switch (request.method) {
       case "client.rpc.methods.list": {
         const methods = [1, 2, 135, 136, 137];
-        if (control?.readMhsStates != null) methods.push(133);
-        if (control?.writeMhsStates != null) methods.push(134);
+        if (control?.readMhsHwd != null) methods.push(133);
+        if (control?.writeMhsHwd != null) methods.push(134);
         return ok({ methods: methods.sort((a, b) => a - b) });
       }
       case "client.tool.v0.list":
         return ok({ tools: supportedDeviceTools(handlers) });
       case "client.mhs.v0.read": {
-        const handler = control?.readMhsStates;
+        const handler = control?.readMhsHwd;
         if (handler == null) return unsupported();
-        if (!validMhsBatch(request.params, false)) return invalid();
+        if (!validMhsHwdEnvelope(request.params, false)) return invalid();
         const result = await handler(request.params as ClientMhsV0ReadRequest);
-        if (!validMhsBatch(result, true))
+        if (
+          !validMhsHwdResponse(
+            mhsHwdId((request.params as ClientMhsV0ReadRequest).hwd)!,
+            result,
+            false,
+          )
+        )
           throw new Error("invalid MHS handler response");
         return ok(result);
       }
       case "client.mhs.v0.write": {
-        const handler = control?.writeMhsStates;
+        const handler = control?.writeMhsHwd;
         if (handler == null) return unsupported();
-        if (!validMhsBatch(request.params, true)) return invalid();
+        if (!validMhsHwdEnvelope(request.params, true)) return invalid();
         const result = await handler(request.params as ClientMhsV0WriteRequest);
-        if (!validMhsBatch(result, true))
+        if (
+          !validMhsHwdResponse(
+            mhsHwdId((request.params as ClientMhsV0WriteRequest).hwd)!,
+            result,
+            true,
+          )
+        )
           throw new Error("invalid MHS handler response");
         return ok(result);
       }
@@ -4288,62 +4305,108 @@ function validAudioPlayerItems(items: unknown, append: boolean): boolean {
   });
 }
 
-// Wire bounds apply even when a device is called without the HTTP manifest adapter.
-function validMhsBatch(value: unknown, withValue: boolean): boolean {
+// Wire bounds apply even when a device is called without the HTTP adapter.
+const mhsHwdKey = /^[a-z][a-z0-9]*([.-][a-z0-9]+)*$/u;
+function mhsHwdId(value: unknown): number | undefined {
   if (
-    value == null ||
-    typeof value !== "object" ||
-    !("states" in value) ||
-    !Array.isArray(value.states) ||
-    value.states.length < 1 ||
-    value.states.length > 32
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    CLIENT_HWD_NAMES[value] != null
+  )
+    return value;
+  if (
+    typeof value === "string" &&
+    Object.prototype.hasOwnProperty.call(CLIENT_HWD_IDS, value)
+  ) {
+    return CLIENT_HWD_IDS[value as keyof typeof CLIENT_HWD_IDS];
+  }
+  return undefined;
+}
+function mhsHwdBytes(value: unknown): Uint8Array | undefined {
+  if (typeof value !== "string" || value.length === 0) return undefined;
+  try {
+    return Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
+  } catch {
+    return undefined;
+  }
+}
+
+function validMhsHwdEnvelope(value: unknown, write: boolean): boolean {
+  if (value == null || typeof value !== "object") return false;
+  const request = value as Record<string, unknown>;
+  const id = request.id;
+  const hwd = mhsHwdId(request.hwd);
+  if (
+    typeof id !== "string" ||
+    id.length > 64 ||
+    !mhsHwdKey.test(id) ||
+    hwd == null
   )
     return false;
-  const keys = new Set<string>();
-  const keyValid = (v: unknown) =>
-    typeof v === "string" &&
-    v.length <= 64 &&
-    /^[a-z][a-z0-9]*([.-][a-z0-9]+)*$/.exec(v)?.[0] === v;
-  for (const entry of value.states) {
-    if (
-      entry == null ||
-      typeof entry !== "object" ||
-      !keyValid(entry.device_id) ||
-      !keyValid(entry.state)
-    )
-      return false;
-    const key = entry.device_id + "/" + entry.state;
-    if (keys.has(key)) return false;
-    keys.add(key);
-    if (!withValue) continue;
-    const v: unknown = entry.value;
-    if (v == null || typeof v !== "object") return false;
-    const fields = Object.entries(v).filter(([, item]) => item != null);
-    if (fields.length !== 1) return false;
-    const [name, item] = fields[0]!;
-    switch (name) {
-      case "bool_value":
-        if (typeof item !== "boolean") return false;
-        break;
-      case "int_value":
-        if (typeof item !== "number" || !Number.isSafeInteger(item))
-          return false;
-        break;
-      case "double_value":
-        if (typeof item !== "number" || !Number.isFinite(item)) return false;
-        break;
-      case "string_value":
+  if (!write) return request.payload == null;
+  if (
+    hwd !== CLIENT_HWD_IDS.display &&
+    hwd !== CLIENT_HWD_IDS.led &&
+    hwd !== CLIENT_HWD_IDS.speaker
+  )
+    return false;
+  const bytes = mhsHwdBytes(request.payload);
+  if (bytes == null || bytes.length === 0) return false;
+  try {
+    const decoded = decodeClientHwdWriteRequestPayload(hwd, bytes);
+    if (decoded == null || typeof decoded !== "object") return false;
+    const fields = Object.entries(decoded).filter(([, value]) => value != null);
+    if (fields.length === 0) return false;
+    for (const [name, field] of fields) {
+      if (name === "brightness_percent" || name === "volume_percent") {
         if (
-          typeof item !== "string" ||
-          item.includes("\0") ||
-          !item.isWellFormed() ||
-          new TextEncoder().encode(item).length > 256
+          typeof field !== "number" ||
+          !Number.isInteger(field) ||
+          field < 0 ||
+          field > 100
         )
           return false;
-        break;
-      default:
-        return false;
+      } else if (name === "off_timeout_ms") {
+        if (
+          typeof field !== "number" ||
+          !Number.isInteger(field) ||
+          field < 0 ||
+          field > 0xffffffff
+        )
+          return false;
+      } else if (name === "enabled" || name === "muted") {
+        if (typeof field !== "boolean") return false;
+      } else return false;
     }
+    return true;
+  } catch {
+    return false;
   }
-  return true;
+}
+
+function validMhsHwdResponse(
+  hwd: number,
+  value: unknown,
+  write: boolean,
+): boolean {
+  if (value == null || typeof value !== "object") return false;
+  const response = value as Record<string, unknown>;
+  const bytes = mhsHwdBytes(response.payload);
+  if (bytes == null || bytes.length === 0) return false;
+  try {
+    const decoded = write
+      ? decodeClientHwdWriteResponsePayload(hwd, bytes)
+      : decodeClientHwdReadResponsePayload(hwd, bytes);
+    if (decoded == null || typeof decoded !== "object") return false;
+    const result = write
+      ? (decoded as Record<string, unknown>).applied
+      : decoded;
+    return (
+      result != null &&
+      typeof result === "object" &&
+      Object.keys(result).length > 0
+    );
+  } catch {
+    return false;
+  }
 }

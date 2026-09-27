@@ -51,7 +51,7 @@ client.close();
 - API Key：`createApiKey`、`listApiKeys`、`getSelfApiKey`、`revokeSelfApiKey`、`getApiKey`、`revokeApiKey`。
 - 设备读取：`getDevice`、`getDeviceRuntime`、`getDeviceStatus`、`getDeviceFirmware`、`getDeviceRuntimeProfile`、`getDeviceTelemetryLatest`、`queryDeviceTelemetry`、`aggregateDeviceTelemetry`。
 - Workspace：`listDeviceWorkspaces`（可选 `collection`、`workflowName` 过滤）、`deleteDeviceWorkspace`、`listDeviceWorkspaceHistory`、`downloadDeviceHistoryAudio`，以及供自行拉流的播放器使用的 `deviceHistoryAudioUri` 与 `authorizationHeaders`。
-- 设备控制：`playDeviceSound`、`findDevice`、`rebootDevice`、`updateDeviceFirmware`、`scanDeviceWifi`、`connectDeviceWifi`、`listDeviceSavedWifi`、`forgetDeviceSavedWifi`、`factoryResetDevice`、`setDeviceRunWorkspace`、`listDeviceTools`、`getMhsManifest`、`readMhsStates`、`writeMhsStates`。
+- 设备控制：`playDeviceSound`、`findDevice`、`rebootDevice`、`updateDeviceFirmware`、`scanDeviceWifi`、`connectDeviceWifi`、`listDeviceSavedWifi`、`forgetDeviceSavedWifi`、`factoryResetDevice`、`setDeviceRunWorkspace`、`listDeviceTools`、`getMhsManifest`、`readMhsHwd`、`writeMhsHwd`。
 - Contact：`listContacts`、`createContact`、`getContact`、`putContact`、`deleteContact`。
 - 好友：`getFriendInviteToken`、`createFriendInviteToken`（可选 `ttl`，1 分钟到 7 天）、`clearFriendInviteToken`、`addFriend`、`listFriends`、`getFriend`、`deleteFriend`。
 - 群组：`listFriendGroups`、`createFriendGroup`、`joinFriendGroup`、`getFriendGroup`、`putFriendGroup`、`deleteFriendGroup`（解散）、`leaveFriendGroup`、`getFriendGroupInviteToken`、`createFriendGroupInviteToken`、`clearFriendGroupInviteToken`、`listFriendGroupMembers`、`addFriendGroupMember`、`putFriendGroupMember`、`deleteFriendGroupMember`。`Friend` 与 `FriendGroupMember` 的 `info`（`PeerProfileInfo`）给出对方设备的名字与 emoji；群组以设备自己的群名寻址，角色为 `FriendGroupRole`。
@@ -118,12 +118,12 @@ try {
 观察 event session 终止；重连创建新的 Peer 与 session。旧 Peer 开始关闭后会拒绝
 创建新的 RPC 通道。
 
-## MHS v0 硬件状态
+## MHS v0 HWD
 
-设备端在 `GizClawDeviceControlHandlers` 安装 `readMhsStates`/`writeMhsStates`，使用生成的 `ClientMhsV0*` 与 `MhsValue`。控制端调用 `getMhsManifest()`、`readMhsStates(List<MhsStateRef>)`、`writeMhsStates(List<MhsStateValue>)`；`MhsStateValue.value` 是普通 bool/int/double/String，返回写入后的实际值。`MhsState` 的 type/access/min/max/step/enumValues/unit 用于渲染控件。
+设备端在 `GizClawDeviceControlHandlers` 安装 `readMhsHwd` / `writeMhsHwd`，通过生成的 `ClientMhsV0*` 和各 HWD protobuf 消息处理一个实例。控制端 `getMhsManifest()` 返回实例 ID 和 HWD；`readMhsHwd(id,hwd)` 返回 `MhsHwdReadResult`（值按 HWD 解码为 `MhsWifiReadValue` 等），`writeMhsHwd(MhsHwdWriteRequest(...))` 只接受 display、led、speaker 的写结构并返回实际生效值。
 
-这是 GizClaw 自有的 MHS-inspired 预标准 v0，不声称官方兼容。manifest 离线可读，每次读写最多 32 个唯一 key；写入必须整批验证且驱动执行安全限制。完整错误与边界见 [Public API](/zh/developing/api/http/public) 和 [provider contract](/zh/developing/api/proto/rpc/client-provided-to-server)。
+每次调用只针对一个实例；wifi、ble、modem、battery、mic 只读。详见 [Public API](/zh/developing/api/http/public) 与 [provider contract](/zh/developing/api/proto/rpc/client-provided-to-server)。
 
 ## tool/v0 过程
 
-设备端只为实际支持的预定义 `ClientTool` 安装 handler；`client.tool.v0.list` 仅返回已安装的子集。控制端的类型化调用统一使用 `client.tool.v0.invoke` RPC。硬件状态由已绑定 RuntimeProfile 的 MHS v0 manifest 声明，并通过 MHS 读写接口访问。
+设备端只为实际支持的预定义 `ClientTool` 安装 handler；`client.tool.v0.list` 仅返回已安装的子集。控制端的类型化调用统一使用 `client.tool.v0.invoke` RPC。HWD 实例由已绑定 RuntimeProfile 的 MHS v0 manifest 声明，并通过 MHS 读写接口访问。

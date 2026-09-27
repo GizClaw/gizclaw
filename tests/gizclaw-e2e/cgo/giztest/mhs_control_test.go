@@ -2,15 +2,14 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
 )
 
-// mhsControlTransport replaces only the network boundary. Requests still pass
-// through bridge.c, the typed C control SDK and the real cgo HTTP backend.
+// mhsControlTransport replaces only the network boundary. Calls still use the
+// C control SDK and the cgo HTTP backend.
 type mhsControlTransport func(*http.Request) (*http.Response, error)
 
 func (f mhsControlTransport) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
@@ -23,37 +22,30 @@ func TestMhsControlRoutes(t *testing.T) {
 	defer control.Close()
 	previous := http.DefaultClient
 	t.Cleanup(func() { http.DefaultClient = previous })
-	const manifest = `{"devices":[{"id":"display.main","kind":"display","tags":["test"],"states":[{"name":"brightness","type":"int","access":"read_write","min":0,"max":100,"step":1},{"name":"mode","type":"enum","access":"read","enum_values":["auto","off"]}]}]}`
-	const read = `{"states":[{"device_id":"display.main","state":"brightness"},{"device_id":"led.status","state":"enabled"}]}`
-	const readResponse = `{"states":[{"device_id":"display.main","state":"brightness","value":35},{"device_id":"led.status","state":"enabled","value":false}]}`
-	const write = `{"states":[{"device_id":"display.main","state":"brightness","value":50},{"device_id":"led.status","state":"enabled","value":true}]}`
-	const applied = `{"states":[{"device_id":"display.main","state":"brightness","value":40},{"device_id":"led.status","state":"enabled","value":true}]}`
-	largeStates := make([]map[string]any, 32)
-	for i := range largeStates {
-		largeStates[i] = map[string]any{"device_id": "x", "state": fmt.Sprintf("value-%d", i), "value": strings.Repeat("\x01", 256)}
-	}
-	largeBatch, err := json.Marshal(map[string]any{"states": largeStates})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, tc := range []struct {
+	cases := []struct {
 		name, method, route, request, response string
 		status, kind                           int
 		decodeError                            bool
 	}{
-		{"manifest", "GET", "manifest", "", manifest, 200, 0, false},
+		{"manifest", "GET", "manifest", "", `{"devices":[{"id":"led.left","hwd":"led"},{"id":"led.right","hwd":"led"}]}`, 200, 0, false},
 		{"empty manifest", "GET", "manifest", "", `{"devices":[]}`, 200, 0, false},
-		{"read", "POST", "read", read, readResponse, 200, 0, false},
-		{"write applied", "PATCH", "states", write, applied, 200, 0, false},
-		{"maximum escaped batch", "PATCH", "states", string(largeBatch), string(largeBatch), 200, 0, false},
-		{"missing hardware", "POST", "read", `{"states":[{"device_id":"battery.main","state":"level"}]}`, `{"error":{"code":"MHS_STATE_NOT_FOUND"}}`, 404, 3, false},
-		{"invalid batch", "PATCH", "states", `{"states":[{"device_id":"battery.main","state":"level","value":80}]}`, `{"error":{"code":"INVALID_REQUEST"}}`, 400, 10, false},
-		{"duplicate batch reaches server", "POST", "read", `{"states":[{"device_id":"display.main","state":"brightness"},{"device_id":"display.main","state":"brightness"}]}`, `{"error":{"code":"INVALID_REQUEST"}}`, 400, 10, false},
-		{"exact integers", "PATCH", "states", `{"states":[{"device_id":"x","state":"value","value":9007199254740991},{"device_id":"x","state":"negative","value":-9007199254740991}]}`, `{"states":[{"device_id":"x","state":"value","value":9007199254740991}]}`, 200, 0, false},
-		{"escaped string", "PATCH", "states", `{"states":[{"device_id":"x","state":"label","value":"二\n\"\\😀"}]}`, `{"states":[{"device_id":"x","state":"label","value":"二\n\"\\😀"}]}`, 200, 0, false},
-		{"malformed response fails runner", "POST", "read", read, `{"states":[{"device_id":"x","state":"value","value":null}]}`, 200, 0, true},
-		{"malformed nested manifest fails runner", "GET", "manifest", "", `{"devices":[{"id":"x","kind":"x","states":[{"name":"x","type":"invalid","access":"read"}]}]}`, 200, 0, true},
-	} {
+		{"wifi", "POST", "read", `{"id":"wifi.main","hwd":"wifi"}`, `{"id":"wifi.main","hwd":"wifi","value":{"connected":true,"ssid":"home"}}`, 200, 0, false},
+		{"ble", "POST", "read", `{"id":"ble.main","hwd":"ble"}`, `{"id":"ble.main","hwd":"ble","value":{"powered":true}}`, 200, 0, false},
+		{"modem", "POST", "read", `{"id":"modem.main","hwd":"modem"}`, `{"id":"modem.main","hwd":"modem","value":{"registered":true}}`, 200, 0, false},
+		{"battery", "POST", "read", `{"id":"battery.main","hwd":"battery"}`, `{"id":"battery.main","hwd":"battery","value":{"percent":80}}`, 200, 0, false},
+		{"mic", "POST", "read", `{"id":"mic.main","hwd":"mic"}`, `{"id":"mic.main","hwd":"mic","value":{"available":true}}`, 200, 0, false},
+		{"display", "POST", "read", `{"id":"display.main","hwd":"display"}`, `{"id":"display.main","hwd":"display","value":{"brightness_percent":40}}`, 200, 0, false},
+		{"led", "POST", "read", `{"id":"led.left","hwd":"led"}`, `{"id":"led.left","hwd":"led","value":{"enabled":false}}`, 200, 0, false},
+		{"speaker", "POST", "read", `{"id":"speaker.main","hwd":"speaker"}`, `{"id":"speaker.main","hwd":"speaker","value":{"volume_percent":30}}`, 200, 0, false},
+		{"display write", "POST", "write", `{"id":"display.main","hwd":"display","value":{"brightness_percent":50}}`, `{"id":"display.main","hwd":"display","value":{"brightness_percent":45}}`, 200, 0, false},
+		{"led write", "POST", "write", `{"id":"led.left","hwd":"led","value":{"enabled":false}}`, `{"id":"led.left","hwd":"led","value":{"enabled":false}}`, 200, 0, false},
+		{"speaker write", "POST", "write", `{"id":"speaker.main","hwd":"speaker","value":{"volume_percent":50}}`, `{"id":"speaker.main","hwd":"speaker","value":{"volume_percent":45}}`, 200, 0, false},
+		{"read-only write reaches Server", "POST", "write", `{"id":"battery.main","hwd":"battery","value":{}}`, `{"error":{"code":"INVALID_REQUEST"}}`, 400, 10, false},
+		{"unknown HWD reaches Server", "POST", "read", `{"id":"device.main","hwd":"device"}`, `{"error":{"code":"INVALID_REQUEST"}}`, 400, 10, false},
+		{"missing HWD", "POST", "read", `{"id":"battery.main","hwd":"battery"}`, `{"error":{"code":"MHS_HWD_NOT_FOUND"}}`, 404, 3, false},
+		{"bad response type", "POST", "read", `{"id":"battery.main","hwd":"battery"}`, `{"id":"battery.main","hwd":"wifi","value":{"connected":true}}`, 200, 0, true},
+	}
+	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			calls := 0
 			http.DefaultClient = &http.Client{Transport: mhsControlTransport(func(req *http.Request) (*http.Response, error) {
@@ -70,26 +62,17 @@ func TestMhsControlRoutes(t *testing.T) {
 						t.Errorf("GET body=%s", body)
 					}
 				} else {
-					// Compact without converting numbers to float64.
-					var got, want strings.Builder
-					for _, pair := range []struct {
-						raw string
-						dst *strings.Builder
-					}{{string(body), &got}, {tc.request, &want}} {
-						decoder := json.NewDecoder(strings.NewReader(pair.raw))
-						decoder.UseNumber()
-						var value any
-						if err := decoder.Decode(&value); err != nil {
-							t.Error(err)
-						}
-						encoded, err := json.Marshal(value)
-						if err != nil {
-							t.Error(err)
-						}
-						pair.dst.Write(encoded)
+					var got, want any
+					if err := json.Unmarshal(body, &got); err != nil {
+						t.Error(err)
 					}
-					if got.String() != want.String() {
-						t.Errorf("request=%s want=%s", got.String(), want.String())
+					if err := json.Unmarshal([]byte(tc.request), &want); err != nil {
+						t.Error(err)
+					}
+					gotJSON, _ := json.Marshal(got)
+					wantJSON, _ := json.Marshal(want)
+					if string(gotJSON) != string(wantJSON) {
+						t.Errorf("request=%s want=%s", gotJSON, wantJSON)
 					}
 				}
 				return &http.Response{StatusCode: tc.status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(tc.response)), Request: req}, nil

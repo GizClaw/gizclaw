@@ -1,4 +1,4 @@
-import { parseRegistry } from "./rpc-registry.mjs";
+import { parseHwdRegistry, parseRegistry } from "./rpc-registry.mjs";
 import { readdirSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 
@@ -40,6 +40,7 @@ const parsed = parsePayloadProto(
   readFileSync(peerProtoURL, "utf8") + "\n" + payloadProtoText,
 );
 const tools = parseRegistry(payloadProtoText, "CLIENT_TOOL", "client_tool");
+const hwds = parseHwdRegistry(payloadProtoText);
 
 if (methods.length === 0) {
   throw new Error(
@@ -85,6 +86,9 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = ${stableJSON(requestPay
 const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = ${stableJSON(responsePayloadMessages)};
 const TOOL_REQUEST_MESSAGES: Record<string, string> = ${stableJSON(Object.fromEntries(tools.map((item) => [item.id, item.request])))};
 const TOOL_RESPONSE_MESSAGES: Record<string, string> = ${stableJSON(Object.fromEntries(tools.map((item) => [item.id, item.response])))};
+const HWD_READ_RESPONSE_MESSAGES: Record<string, string> = ${stableJSON(Object.fromEntries(hwds.map((item) => [item.id, item.readResponse])))};
+const HWD_WRITE_REQUEST_MESSAGES: Record<string, string> = ${stableJSON(Object.fromEntries(hwds.filter((item) => item.writeRequest).map((item) => [item.id, item.writeRequest])))};
+const HWD_WRITE_RESPONSE_MESSAGES: Record<string, string> = ${stableJSON(Object.fromEntries(hwds.filter((item) => item.writeResponse).map((item) => [item.id, item.writeResponse])))};
 const MESSAGE_DESCS: Record<string, MessageDesc> = ${stableJSON(parsed.messages)};
 const ENUM_DESCS: Record<string, EnumDesc> = ${stableJSON(parsed.enums)};
 
@@ -108,6 +112,12 @@ export function encodeClientToolRequestPayload(tool: number, value: unknown): Ui
 export function decodeClientToolRequestPayload(tool: number, payload: Uint8Array): unknown { return decodePayload(TOOL_REQUEST_MESSAGES, String(tool), payload); }
 export function encodeClientToolResponsePayload(tool: number, value: unknown): Uint8Array { return encodePayload(TOOL_RESPONSE_MESSAGES, String(tool), value); }
 export function decodeClientToolResponsePayload(tool: number, payload: Uint8Array): unknown { return decodePayload(TOOL_RESPONSE_MESSAGES, String(tool), payload); }
+export function encodeClientHwdReadResponsePayload(hwd: number, value: unknown): Uint8Array { return encodePayload(HWD_READ_RESPONSE_MESSAGES, String(hwd), value); }
+export function decodeClientHwdReadResponsePayload(hwd: number, payload: Uint8Array): unknown { return decodePayload(HWD_READ_RESPONSE_MESSAGES, String(hwd), payload); }
+export function encodeClientHwdWriteRequestPayload(hwd: number, value: unknown): Uint8Array { return encodePayload(HWD_WRITE_REQUEST_MESSAGES, String(hwd), value); }
+export function decodeClientHwdWriteRequestPayload(hwd: number, payload: Uint8Array): unknown { return decodePayload(HWD_WRITE_REQUEST_MESSAGES, String(hwd), payload); }
+export function encodeClientHwdWriteResponsePayload(hwd: number, value: unknown): Uint8Array { return encodePayload(HWD_WRITE_RESPONSE_MESSAGES, String(hwd), value); }
+export function decodeClientHwdWriteResponsePayload(hwd: number, payload: Uint8Array): unknown { return decodePayload(HWD_WRITE_RESPONSE_MESSAGES, String(hwd), payload); }
 
 function encodePayload(messages: Record<string, string>, method: string, value: unknown): Uint8Array {
   const message = messages[method];

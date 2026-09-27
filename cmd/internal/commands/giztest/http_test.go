@@ -36,19 +36,19 @@ func TestInvokeHTTPSendsBearerBodyAndDecodesJSON(t *testing.T) {
 		"level":   {Direction: "input", Type: "number", Value: float64(35)},
 	})
 	step := giztest.Step{ID: "volume", Client: "peer", HTTP: &giztest.HTTPOperation{
-		Method: http.MethodPatch, Path: "/gizclaw/v1/device/mhs/v0/states?x=1",
+		Method: http.MethodPost, Path: "/gizclaw/v1/device/mhs/v0/write?x=1",
 		Headers: map[string]string{"Authorization": "Bearer ${api_key}"},
-		Body:    map[string]any{"level": "${level}", "muted": true},
+		Body:    map[string]any{"id": "speaker.main", "hwd": "speaker", "value": map[string]any{"volume_percent": "${level}", "muted": true}},
 		Status:  http.StatusOK,
 	}}
 	result, err := invokeHTTP(context.Background(), strings.TrimPrefix(server.URL, "http://"), step, vars)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.method != http.MethodPatch || got.path != "/gizclaw/v1/device/mhs/v0/states?x=1" || got.auth != "Bearer gizclaw_sk_v1_test" || got.contentType != "application/json" {
+	if got.method != http.MethodPost || got.path != "/gizclaw/v1/device/mhs/v0/write?x=1" || got.auth != "Bearer gizclaw_sk_v1_test" || got.contentType != "application/json" {
 		t.Fatalf("request = %+v", got)
 	}
-	if got.body["level"] != float64(35) || got.body["muted"] != true {
+	if got.body["value"].(map[string]any)["volume_percent"] != float64(35) || got.body["value"].(map[string]any)["muted"] != true {
 		t.Fatalf("body = %v", got.body)
 	}
 	body, ok := result.body.(map[string]any)

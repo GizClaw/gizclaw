@@ -27,3 +27,28 @@ export function parseRegistry(proto, prefix, extension) {
   }
   return entries;
 }
+
+// HWD options bind a read result and, for writable HWDs, a write pair.
+export function parseHwdRegistry(proto) {
+  const entries = [];
+  const pattern =
+    /^\s*CLIENT_HWD_[A-Z0-9_]+\s*=\s*(\d+)\s*\[\(client_hwd\)\s*=\s*\{\s*name:\s*"([^"]+)"\s+read_response:\s*"(\w+)"(?:\s+write_request:\s*"(\w+)"\s+write_response:\s*"(\w+)")?\s*\}\s*\]\s*;/;
+  for (const line of proto.split(/\r?\n/)) {
+    const match = pattern.exec(line);
+    if (match != null) {
+      entries.push({
+        id: Number(match[1]),
+        name: match[2],
+        readResponse: match[3],
+        writeRequest: match[4],
+        writeResponse: match[5],
+      });
+    } else if (
+      /^\s*CLIENT_HWD_[A-Z0-9_]+\s*=/.test(line) &&
+      !line.includes("CLIENT_HWD_UNSPECIFIED")
+    ) {
+      throw new Error(`HWD registry entry missing client_hwd: ${line.trim()}`);
+    }
+  }
+  return entries;
+}

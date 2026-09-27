@@ -12,12 +12,12 @@
 
 `RegistrationTokenCredential` 返回 `(credential, error)`；先处理错误，再把结构传给 Dial。`gizcli.RegistrationTokenCredentialType` 是内置 type 的导出常量。512 UTF-8 字节的 value 可用，513 字节在 helper 构造时失败。
 
-## MHS v0 硬件状态
+## MHS v0 HWD
 
-通过 `gizcli.Client.HandleDeviceControl` 安装 `DeviceControlHandlers.ReadMhsStates` 和 `WriteMhsStates`，参数/响应直接使用 `rpcpb.ClientMhsV0*`。handler 返回 `ErrDeviceResourceNotFound` 表示硬件未实现该 key；返回 `rpcapi.Error{Code: rpcapi.StatusCodeFailedPrecondition}` 表示当前不能写入。
+通过 `gizcli.Client.HandleDeviceControl` 安装 `DeviceControlHandlers.ReadMhsHwd` 和 `WriteMhsHwd`。handler 收到 `rpcpb.ClientMhsV0ReadRequest` 或 `ClientMhsV0WriteRequest`，按 `ClientHwd` 用 `rpcapi.ClientHwdReadResponseMessage` / `ClientHwdWriteRequestFromBytes` 等注册表函数处理对应 protobuf。读写每次只针对一个 `id`；wifi、ble、modem、battery、mic 只读，display、led、speaker 可写。不存在的物理实例可返回 `ErrDeviceResourceNotFound`。
 
-这是 GizClaw 自有的 MHS-inspired 预标准 v0，不声称官方兼容。manifest 离线可读，每次读写最多 32 个唯一 key；写入必须整批验证且驱动执行安全限制。完整错误与边界见 [Public API](/zh/developing/api/http/public) 和 [provider contract](/zh/developing/api/proto/rpc/client-provided-to-server)。
+RuntimeProfile manifest 离线可读，只声明实例 ID 和 HWD 类型；设备端驱动执行安全限制并在写入响应中返回实际生效值。完整契约见 [Public API](/zh/developing/api/http/public) 与 [provider contract](/zh/developing/api/proto/rpc/client-provided-to-server)。
 
 ## tool/v0 过程
 
-设备端只为实际支持的预定义 `ClientTool` 安装 handler；`client.tool.v0.list` 仅返回已安装的子集。控制端的类型化调用统一使用 `client.tool.v0.invoke` RPC。硬件状态由已绑定 RuntimeProfile 的 MHS v0 manifest 声明，并通过 MHS 读写接口访问。
+设备端只为实际支持的预定义 `ClientTool` 安装 handler；`client.tool.v0.list` 仅返回已安装的子集。控制端的类型化调用统一使用 `client.tool.v0.invoke` RPC。HWD 实例由已绑定 RuntimeProfile 的 MHS v0 manifest 声明，并通过 MHS 读写接口访问。

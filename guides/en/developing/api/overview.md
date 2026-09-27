@@ -48,26 +48,16 @@ api/
 
 Node Monitor API: Server and Edge provide the process-local HTTP contract in `api/http/monitor.json`; see [Monitor](../monitor) for authentication and generation ownership.
 
-## Device state and procedures {#mhs-v0-migration}
+## HWDs and device procedures {#mhs-v0-hwd}
 
-A device exposes MHS v0 hardware states and predefined tool/v0 procedures. The bound RuntimeProfile's `spec.mhs.v0` manifest declares product-defined `(device_id, state)` keys. Control apps read that manifest through `GET /gizclaw/v1/device/mhs/v0/manifest`, then call `POST /gizclaw/v1/device/mhs/v0/read` or `PATCH /gizclaw/v1/device/mhs/v0/states`. The following names are recommendations, not automatically installed protocol IDs; only manifest-declared, device-implemented keys may be read, and writes require `read_write`.
+GizClaw defines eight HWDs in `api/proto/rpc/payload/mhs_v0.proto`. Each HWD has a typed read response; display, led and speaker also have typed write request and applied-value response messages. RuntimeProfile `spec.mhs.v0.devices` lists only the `id` and `hwd` of each instance. Two LED entries with different IDs are two instances of the same HWD. The manifest does not define fields or access modes.
 
-| Example state | Recommended MHS v0 key | Type and recommended constraints |
+| HWD | Read | Write |
 | --- | --- | --- |
-| speaker volume | `speaker.main/volume` | `int`, 0–100 |
-| speaker mute | `speaker.main/muted` | `bool` |
-| device `screen_brightness` | `display.main/brightness` | `int`, 0–100 |
-| device `screen_off_timeout_ms` | `display.main/off_timeout_ms` | `int`, milliseconds, ≥0; 0 keeps the screen on |
-| device `led_brightness` | `led.status/brightness` | `int`, 0–100 |
-| device `cellular_enabled` | `cellular.main/enabled` | `bool` |
-| device `nfc_enabled` | `nfc.main/enabled` | `bool` |
-| device `auto_sleep_timeout_ms` | `power.main/auto_sleep_timeout_ms` | `int`, milliseconds, ≥0; 0 disables automatic sleep |
-| device `locale` | `system.main/locale` | `string`, retaining the BCP 47 language-tag convention |
-| device `default_interaction_mode` | `system.main/default_interaction_mode` | `enum`: `push-to-talk`, `realtime` |
-| device `key_feedback` | `system.main/key_feedback` | `enum`: `none`, `sound`, `vibrate`, `sound_and_vibrate` |
-| device `alert_mode` | `system.main/alert_mode` | `enum`: `silent`, `vibrate`, `ring` |
+| wifi, ble, modem, battery, mic | Yes | No |
+| display, led, speaker | Yes | Yes |
 
-MHS enums use semantic strings in `MhsValue.string_value`. Reads name each requested key; writes include only changed keys and return the values actually applied. The device validates an entire write before applying it. Unknown or unimplemented keys return an error. Read back after a timeout to confirm state.
+Control apps discover instances with `GET /gizclaw/v1/device/mhs/v0/manifest`, then read one through `POST /device/mhs/v0/read` or write one through `POST /device/mhs/v0/write`. Requests carry `id` and `hwd`; a write also carries an HWD-specific `value` object. Responses identify the instance and return its typed `value`. Procedures such as Wi-Fi scan and connect remain in tool/v0. Read back after a write timeout to confirm the actual state.
 
 `tool/v0` carries procedures through `client.tool.v0.invoke` (135). Each request selects one of the 21 predefined `ClientTool` values and carries that tool's encoded request message. Devices advertise only installed tools through `client.tool.v0.list` (136). `client.rpc.methods.list` (137) returns numeric `RpcMethod` values to identify supported protocol families and versions. Control apps use `GET /gizclaw/v1/device/tool/v0/tools` and `POST /gizclaw/v1/device/tool/v0/invoke`; the Server validates typed arguments before contacting the device. See [Peer HTTP](./http/public), [device providers](./proto/rpc/client-provided-to-server), and [RPC reference](/references/rpc).
 

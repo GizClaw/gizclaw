@@ -1618,45 +1618,237 @@ func (e MemoryLayoutResourceKind) Valid() bool {
 	}
 }
 
-// Defines values for MhsV0StateAccess.
+// Defines values for MhsV0BatteryReadResultHwd.
 const (
-	MhsV0StateAccessRead      MhsV0StateAccess = "read"
-	MhsV0StateAccessReadWrite MhsV0StateAccess = "read_write"
+	MhsV0BatteryReadResultHwdBattery MhsV0BatteryReadResultHwd = "battery"
 )
 
-// Valid indicates whether the value is a known member of the MhsV0StateAccess enum.
-func (e MhsV0StateAccess) Valid() bool {
+// Valid indicates whether the value is a known member of the MhsV0BatteryReadResultHwd enum.
+func (e MhsV0BatteryReadResultHwd) Valid() bool {
 	switch e {
-	case MhsV0StateAccessRead:
-		return true
-	case MhsV0StateAccessReadWrite:
+	case MhsV0BatteryReadResultHwdBattery:
 		return true
 	default:
 		return false
 	}
 }
 
-// Defines values for MhsV0StateType.
+// Defines values for MhsV0BleReadResultHwd.
 const (
-	MhsV0StateTypeBool   MhsV0StateType = "bool"
-	MhsV0StateTypeDouble MhsV0StateType = "double"
-	MhsV0StateTypeEnum   MhsV0StateType = "enum"
-	MhsV0StateTypeInt    MhsV0StateType = "int"
-	MhsV0StateTypeString MhsV0StateType = "string"
+	MhsV0BleReadResultHwdBle MhsV0BleReadResultHwd = "ble"
 )
 
-// Valid indicates whether the value is a known member of the MhsV0StateType enum.
-func (e MhsV0StateType) Valid() bool {
+// Valid indicates whether the value is a known member of the MhsV0BleReadResultHwd enum.
+func (e MhsV0BleReadResultHwd) Valid() bool {
 	switch e {
-	case MhsV0StateTypeBool:
+	case MhsV0BleReadResultHwdBle:
 		return true
-	case MhsV0StateTypeDouble:
+	default:
+		return false
+	}
+}
+
+// Defines values for MhsV0DeviceHwd.
+const (
+	MhsV0DeviceHwdBattery MhsV0DeviceHwd = "battery"
+	MhsV0DeviceHwdBle     MhsV0DeviceHwd = "ble"
+	MhsV0DeviceHwdDisplay MhsV0DeviceHwd = "display"
+	MhsV0DeviceHwdLed     MhsV0DeviceHwd = "led"
+	MhsV0DeviceHwdMic     MhsV0DeviceHwd = "mic"
+	MhsV0DeviceHwdModem   MhsV0DeviceHwd = "modem"
+	MhsV0DeviceHwdSpeaker MhsV0DeviceHwd = "speaker"
+	MhsV0DeviceHwdWifi    MhsV0DeviceHwd = "wifi"
+)
+
+// Valid indicates whether the value is a known member of the MhsV0DeviceHwd enum.
+func (e MhsV0DeviceHwd) Valid() bool {
+	switch e {
+	case MhsV0DeviceHwdBattery:
 		return true
-	case MhsV0StateTypeEnum:
+	case MhsV0DeviceHwdBle:
 		return true
-	case MhsV0StateTypeInt:
+	case MhsV0DeviceHwdDisplay:
 		return true
-	case MhsV0StateTypeString:
+	case MhsV0DeviceHwdLed:
+		return true
+	case MhsV0DeviceHwdMic:
+		return true
+	case MhsV0DeviceHwdModem:
+		return true
+	case MhsV0DeviceHwdSpeaker:
+		return true
+	case MhsV0DeviceHwdWifi:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MhsV0DisplayReadResultHwd.
+const (
+	MhsV0DisplayReadResultHwdDisplay MhsV0DisplayReadResultHwd = "display"
+)
+
+// Valid indicates whether the value is a known member of the MhsV0DisplayReadResultHwd enum.
+func (e MhsV0DisplayReadResultHwd) Valid() bool {
+	switch e {
+	case MhsV0DisplayReadResultHwdDisplay:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MhsV0DisplayWriteRequestHwd.
+const (
+	MhsV0DisplayWriteRequestHwdDisplay MhsV0DisplayWriteRequestHwd = "display"
+)
+
+// Valid indicates whether the value is a known member of the MhsV0DisplayWriteRequestHwd enum.
+func (e MhsV0DisplayWriteRequestHwd) Valid() bool {
+	switch e {
+	case MhsV0DisplayWriteRequestHwdDisplay:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MhsV0LedReadResultHwd.
+const (
+	MhsV0LedReadResultHwdLed MhsV0LedReadResultHwd = "led"
+)
+
+// Valid indicates whether the value is a known member of the MhsV0LedReadResultHwd enum.
+func (e MhsV0LedReadResultHwd) Valid() bool {
+	switch e {
+	case MhsV0LedReadResultHwdLed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MhsV0LedWriteRequestHwd.
+const (
+	MhsV0LedWriteRequestHwdLed MhsV0LedWriteRequestHwd = "led"
+)
+
+// Valid indicates whether the value is a known member of the MhsV0LedWriteRequestHwd enum.
+func (e MhsV0LedWriteRequestHwd) Valid() bool {
+	switch e {
+	case MhsV0LedWriteRequestHwdLed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MhsV0MicReadResultHwd.
+const (
+	MhsV0MicReadResultHwdMic MhsV0MicReadResultHwd = "mic"
+)
+
+// Valid indicates whether the value is a known member of the MhsV0MicReadResultHwd enum.
+func (e MhsV0MicReadResultHwd) Valid() bool {
+	switch e {
+	case MhsV0MicReadResultHwdMic:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MhsV0ModemReadResultHwd.
+const (
+	MhsV0ModemReadResultHwdModem MhsV0ModemReadResultHwd = "modem"
+)
+
+// Valid indicates whether the value is a known member of the MhsV0ModemReadResultHwd enum.
+func (e MhsV0ModemReadResultHwd) Valid() bool {
+	switch e {
+	case MhsV0ModemReadResultHwdModem:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MhsV0ReadRequestHwd.
+const (
+	MhsV0ReadRequestHwdBattery MhsV0ReadRequestHwd = "battery"
+	MhsV0ReadRequestHwdBle     MhsV0ReadRequestHwd = "ble"
+	MhsV0ReadRequestHwdDisplay MhsV0ReadRequestHwd = "display"
+	MhsV0ReadRequestHwdLed     MhsV0ReadRequestHwd = "led"
+	MhsV0ReadRequestHwdMic     MhsV0ReadRequestHwd = "mic"
+	MhsV0ReadRequestHwdModem   MhsV0ReadRequestHwd = "modem"
+	MhsV0ReadRequestHwdSpeaker MhsV0ReadRequestHwd = "speaker"
+	MhsV0ReadRequestHwdWifi    MhsV0ReadRequestHwd = "wifi"
+)
+
+// Valid indicates whether the value is a known member of the MhsV0ReadRequestHwd enum.
+func (e MhsV0ReadRequestHwd) Valid() bool {
+	switch e {
+	case MhsV0ReadRequestHwdBattery:
+		return true
+	case MhsV0ReadRequestHwdBle:
+		return true
+	case MhsV0ReadRequestHwdDisplay:
+		return true
+	case MhsV0ReadRequestHwdLed:
+		return true
+	case MhsV0ReadRequestHwdMic:
+		return true
+	case MhsV0ReadRequestHwdModem:
+		return true
+	case MhsV0ReadRequestHwdSpeaker:
+		return true
+	case MhsV0ReadRequestHwdWifi:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MhsV0SpeakerReadResultHwd.
+const (
+	MhsV0SpeakerReadResultHwdSpeaker MhsV0SpeakerReadResultHwd = "speaker"
+)
+
+// Valid indicates whether the value is a known member of the MhsV0SpeakerReadResultHwd enum.
+func (e MhsV0SpeakerReadResultHwd) Valid() bool {
+	switch e {
+	case MhsV0SpeakerReadResultHwdSpeaker:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MhsV0SpeakerWriteRequestHwd.
+const (
+	MhsV0SpeakerWriteRequestHwdSpeaker MhsV0SpeakerWriteRequestHwd = "speaker"
+)
+
+// Valid indicates whether the value is a known member of the MhsV0SpeakerWriteRequestHwd enum.
+func (e MhsV0SpeakerWriteRequestHwd) Valid() bool {
+	switch e {
+	case MhsV0SpeakerWriteRequestHwdSpeaker:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MhsV0WifiReadResultHwd.
+const (
+	MhsV0WifiReadResultHwdWifi MhsV0WifiReadResultHwd = "wifi"
+)
+
+// Valid indicates whether the value is a known member of the MhsV0WifiReadResultHwd enum.
+func (e MhsV0WifiReadResultHwd) Valid() bool {
+	switch e {
+	case MhsV0WifiReadResultHwdWifi:
 		return true
 	default:
 		return false
@@ -3069,6 +3261,21 @@ type AudioPlayerStatus struct {
 	State string `json:"state"`
 }
 
+// BatteryHwdReadResponse defines model for BatteryHwdReadResponse.
+type BatteryHwdReadResponse struct {
+	Charging  *bool    `json:"charging,omitempty"`
+	Percent   *float64 `json:"percent,omitempty"`
+	VoltageMv *float64 `json:"voltage_mv,omitempty"`
+}
+
+// BleHwdReadResponse defines model for BleHwdReadResponse.
+type BleHwdReadResponse struct {
+	Advertising     *bool  `json:"advertising,omitempty"`
+	ConnectionCount *int64 `json:"connection_count,omitempty"`
+	Powered         *bool  `json:"powered,omitempty"`
+	Scanning        *bool  `json:"scanning,omitempty"`
+}
+
 // ConcreteResource A concrete resource carrying metadata.id. ResourceList is excluded.
 type ConcreteResource struct {
 	union json.RawMessage
@@ -3383,6 +3590,20 @@ type DeviceInfo struct {
 type DeviceProfile struct {
 	Emoji *string `json:"emoji,omitempty"`
 	Name  *string `json:"name,omitempty"`
+}
+
+// DisplayHwdReadResponse defines model for DisplayHwdReadResponse.
+type DisplayHwdReadResponse struct {
+	BrightnessPercent *int64 `json:"brightness_percent,omitempty"`
+	Enabled           *bool  `json:"enabled,omitempty"`
+	OffTimeoutMs      *int64 `json:"off_timeout_ms,omitempty"`
+}
+
+// DisplayHwdWriteRequest defines model for DisplayHwdWriteRequest.
+type DisplayHwdWriteRequest struct {
+	BrightnessPercent *int64 `json:"brightness_percent,omitempty"`
+	Enabled           *bool  `json:"enabled,omitempty"`
+	OffTimeoutMs      *int64 `json:"off_timeout_ms,omitempty"`
 }
 
 // DoubaoRealtimeAIGCMetadata defines model for DoubaoRealtimeAIGCMetadata.
@@ -4571,6 +4792,18 @@ type Icon struct {
 	Png *string `json:"png,omitempty"`
 }
 
+// LedHwdReadResponse defines model for LedHwdReadResponse.
+type LedHwdReadResponse struct {
+	BrightnessPercent *int64 `json:"brightness_percent,omitempty"`
+	Enabled           *bool  `json:"enabled,omitempty"`
+}
+
+// LedHwdWriteRequest defines model for LedHwdWriteRequest.
+type LedHwdWriteRequest struct {
+	BrightnessPercent *int64 `json:"brightness_percent,omitempty"`
+	Enabled           *bool  `json:"enabled,omitempty"`
+}
+
 // Mem0MemoryLayoutPolicy defines model for Mem0MemoryLayoutPolicy.
 type Mem0MemoryLayoutPolicy struct {
 	CustomCategories   *map[string]string `json:"custom_categories,omitempty"`
@@ -4610,77 +4843,161 @@ type MemoryLayoutSpec struct {
 	VolcMem0  VolcMem0MemoryLayoutPolicy  `json:"volc_mem0"`
 }
 
-// MhsV0Device defines model for MhsV0Device.
-type MhsV0Device struct {
-	Description *string      `json:"description,omitempty"`
-	Id          string       `json:"id"`
-	Kind        string       `json:"kind"`
-	States      []MhsV0State `json:"states"`
-	Tags        *[]string    `json:"tags,omitempty"`
+// MhsV0BatteryReadResult defines model for MhsV0BatteryReadResult.
+type MhsV0BatteryReadResult struct {
+	Hwd   MhsV0BatteryReadResultHwd `json:"hwd"`
+	Id    string                    `json:"id"`
+	Value BatteryHwdReadResponse    `json:"value"`
 }
 
-// MhsV0Manifest GizClaw MHS-inspired pre-standard v0, not an official MHS protocol or compatibility claim. Only state read/write. IDs and names are unique within their parent; numeric constraints apply only to int/double, min <= max, step > 0 (grid origin min or zero). int constraints are integral JSON-safe integers. enum_values is required only for enum and forbidden otherwise. Server validation also enforces UTF-8 byte limits. A future official-compatible version would be v1.
+// MhsV0BatteryReadResultHwd defines model for MhsV0BatteryReadResult.Hwd.
+type MhsV0BatteryReadResultHwd string
+
+// MhsV0BleReadResult defines model for MhsV0BleReadResult.
+type MhsV0BleReadResult struct {
+	Hwd   MhsV0BleReadResultHwd `json:"hwd"`
+	Id    string                `json:"id"`
+	Value BleHwdReadResponse    `json:"value"`
+}
+
+// MhsV0BleReadResultHwd defines model for MhsV0BleReadResult.Hwd.
+type MhsV0BleReadResultHwd string
+
+// MhsV0Device defines model for MhsV0Device.
+type MhsV0Device struct {
+	Description *string        `json:"description,omitempty"`
+	Hwd         MhsV0DeviceHwd `json:"hwd"`
+	Id          string         `json:"id"`
+	Tags        *[]string      `json:"tags,omitempty"`
+}
+
+// MhsV0DeviceHwd defines model for MhsV0Device.Hwd.
+type MhsV0DeviceHwd string
+
+// MhsV0DisplayReadResult defines model for MhsV0DisplayReadResult.
+type MhsV0DisplayReadResult struct {
+	Hwd   MhsV0DisplayReadResultHwd `json:"hwd"`
+	Id    string                    `json:"id"`
+	Value DisplayHwdReadResponse    `json:"value"`
+}
+
+// MhsV0DisplayReadResultHwd defines model for MhsV0DisplayReadResult.Hwd.
+type MhsV0DisplayReadResultHwd string
+
+// MhsV0DisplayWriteRequest defines model for MhsV0DisplayWriteRequest.
+type MhsV0DisplayWriteRequest struct {
+	Hwd   MhsV0DisplayWriteRequestHwd `json:"hwd"`
+	Id    string                      `json:"id"`
+	Value DisplayHwdWriteRequest      `json:"value"`
+}
+
+// MhsV0DisplayWriteRequestHwd defines model for MhsV0DisplayWriteRequest.Hwd.
+type MhsV0DisplayWriteRequestHwd string
+
+// MhsV0LedReadResult defines model for MhsV0LedReadResult.
+type MhsV0LedReadResult struct {
+	Hwd   MhsV0LedReadResultHwd `json:"hwd"`
+	Id    string                `json:"id"`
+	Value LedHwdReadResponse    `json:"value"`
+}
+
+// MhsV0LedReadResultHwd defines model for MhsV0LedReadResult.Hwd.
+type MhsV0LedReadResultHwd string
+
+// MhsV0LedWriteRequest defines model for MhsV0LedWriteRequest.
+type MhsV0LedWriteRequest struct {
+	Hwd   MhsV0LedWriteRequestHwd `json:"hwd"`
+	Id    string                  `json:"id"`
+	Value LedHwdWriteRequest      `json:"value"`
+}
+
+// MhsV0LedWriteRequestHwd defines model for MhsV0LedWriteRequest.Hwd.
+type MhsV0LedWriteRequestHwd string
+
+// MhsV0Manifest GizClaw-owned MHS v0. Each entry declares one hardware instance; its HWD selects the protobuf read/write shapes. An HWD may appear more than once with distinct IDs.
 type MhsV0Manifest struct {
 	Devices []MhsV0Device `json:"devices"`
 }
 
+// MhsV0MicReadResult defines model for MhsV0MicReadResult.
+type MhsV0MicReadResult struct {
+	Hwd   MhsV0MicReadResultHwd `json:"hwd"`
+	Id    string                `json:"id"`
+	Value MicHwdReadResponse    `json:"value"`
+}
+
+// MhsV0MicReadResultHwd defines model for MhsV0MicReadResult.Hwd.
+type MhsV0MicReadResultHwd string
+
+// MhsV0ModemReadResult defines model for MhsV0ModemReadResult.
+type MhsV0ModemReadResult struct {
+	Hwd   MhsV0ModemReadResultHwd `json:"hwd"`
+	Id    string                  `json:"id"`
+	Value ModemHwdReadResponse    `json:"value"`
+}
+
+// MhsV0ModemReadResultHwd defines model for MhsV0ModemReadResult.Hwd.
+type MhsV0ModemReadResultHwd string
+
 // MhsV0ReadRequest defines model for MhsV0ReadRequest.
 type MhsV0ReadRequest struct {
-	States []MhsV0StateRef `json:"states"`
+	Hwd MhsV0ReadRequestHwd `json:"hwd"`
+	Id  string              `json:"id"`
 }
 
-// MhsV0State defines model for MhsV0State.
-type MhsV0State struct {
-	Access      MhsV0StateAccess `json:"access"`
-	Description *string          `json:"description,omitempty"`
-	EnumValues  *[]string        `json:"enum_values,omitempty"`
-	Max         *float64         `json:"max,omitempty"`
-	Min         *float64         `json:"min,omitempty"`
-	Name        string           `json:"name"`
-	Step        *float64         `json:"step,omitempty"`
-	Type        MhsV0StateType   `json:"type"`
-	Unit        *string          `json:"unit,omitempty"`
-}
+// MhsV0ReadRequestHwd defines model for MhsV0ReadRequest.Hwd.
+type MhsV0ReadRequestHwd string
 
-// MhsV0StateAccess defines model for MhsV0State.Access.
-type MhsV0StateAccess string
-
-// MhsV0StateType defines model for MhsV0State.Type.
-type MhsV0StateType string
-
-// MhsV0StateRef defines model for MhsV0StateRef.
-type MhsV0StateRef struct {
-	DeviceId string `json:"device_id"`
-	State    string `json:"state"`
-}
-
-// MhsV0StateValue defines model for MhsV0StateValue.
-type MhsV0StateValue struct {
-	DeviceId string `json:"device_id"`
-	State    string `json:"state"`
-
-	// Value Plain JSON value interpreted by the manifest. int values must be integral within +/-9007199254740991. All numbers must be finite; strings and enum values must be valid UTF-8 without NUL, at most 256 bytes.
-	Value MhsV0Value `json:"value"`
-}
-
-// MhsV0States defines model for MhsV0States.
-type MhsV0States struct {
-	States []MhsV0StateValue `json:"states"`
-}
-
-// MhsV0Value Plain JSON value interpreted by the manifest. int values must be integral within +/-9007199254740991. All numbers must be finite; strings and enum values must be valid UTF-8 without NUL, at most 256 bytes.
-type MhsV0Value struct {
+// MhsV0ReadResult defines model for MhsV0ReadResult.
+type MhsV0ReadResult struct {
 	union json.RawMessage
 }
 
-// MhsV0Value0 defines model for .
-type MhsV0Value0 = bool
+// MhsV0SpeakerReadResult defines model for MhsV0SpeakerReadResult.
+type MhsV0SpeakerReadResult struct {
+	Hwd   MhsV0SpeakerReadResultHwd `json:"hwd"`
+	Id    string                    `json:"id"`
+	Value SpeakerHwdReadResponse    `json:"value"`
+}
 
-// MhsV0Value1 defines model for .
-type MhsV0Value1 = float64
+// MhsV0SpeakerReadResultHwd defines model for MhsV0SpeakerReadResult.Hwd.
+type MhsV0SpeakerReadResultHwd string
 
-// MhsV0Value2 defines model for .
-type MhsV0Value2 = string
+// MhsV0SpeakerWriteRequest defines model for MhsV0SpeakerWriteRequest.
+type MhsV0SpeakerWriteRequest struct {
+	Hwd   MhsV0SpeakerWriteRequestHwd `json:"hwd"`
+	Id    string                      `json:"id"`
+	Value SpeakerHwdWriteRequest      `json:"value"`
+}
+
+// MhsV0SpeakerWriteRequestHwd defines model for MhsV0SpeakerWriteRequest.Hwd.
+type MhsV0SpeakerWriteRequestHwd string
+
+// MhsV0WifiReadResult defines model for MhsV0WifiReadResult.
+type MhsV0WifiReadResult struct {
+	Hwd   MhsV0WifiReadResultHwd `json:"hwd"`
+	Id    string                 `json:"id"`
+	Value WifiHwdReadResponse    `json:"value"`
+}
+
+// MhsV0WifiReadResultHwd defines model for MhsV0WifiReadResult.Hwd.
+type MhsV0WifiReadResultHwd string
+
+// MhsV0WriteRequest defines model for MhsV0WriteRequest.
+type MhsV0WriteRequest struct {
+	union json.RawMessage
+}
+
+// MhsV0WriteResult defines model for MhsV0WriteResult.
+type MhsV0WriteResult struct {
+	union json.RawMessage
+}
+
+// MicHwdReadResponse defines model for MicHwdReadResponse.
+type MicHwdReadResponse struct {
+	Available *bool `json:"available,omitempty"`
+	Capturing *bool `json:"capturing,omitempty"`
+}
 
 // MiniMaxCredentialBody defines model for MiniMaxCredentialBody.
 type MiniMaxCredentialBody struct {
@@ -4822,6 +5139,15 @@ type ModelSpec struct {
 
 	// Source How the model entered the global catalog
 	Source ModelSource `json:"source"`
+}
+
+// ModemHwdReadResponse defines model for ModemHwdReadResponse.
+type ModemHwdReadResponse struct {
+	Rat         *string `json:"rat,omitempty"`
+	Registered  *bool   `json:"registered,omitempty"`
+	RssiDbm     *int32  `json:"rssi_dbm,omitempty"`
+	SignalLevel *int64  `json:"signal_level,omitempty"`
+	SimPresent  *bool   `json:"sim_present,omitempty"`
 }
 
 // OpenAICredentialBody defines model for OpenAICredentialBody.
@@ -5584,7 +5910,7 @@ type RuntimeProfileMemoryDriver string
 
 // RuntimeProfileMhs defines model for RuntimeProfileMhs.
 type RuntimeProfileMhs struct {
-	// V0 GizClaw MHS-inspired pre-standard v0, not an official MHS protocol or compatibility claim. Only state read/write. IDs and names are unique within their parent; numeric constraints apply only to int/double, min <= max, step > 0 (grid origin min or zero). int constraints are integral JSON-safe integers. enum_values is required only for enum and forbidden otherwise. Server validation also enforces UTF-8 byte limits. A future official-compatible version would be v1.
+	// V0 GizClaw-owned MHS v0. Each entry declares one hardware instance; its HWD selects the protobuf read/write shapes. An HWD may appear more than once with distinct IDs.
 	V0 *MhsV0Manifest `json:"v0,omitempty"`
 }
 
@@ -5742,6 +6068,18 @@ type ServerLogStreamEnd struct {
 
 	// NextCursor Opaque cursor for the next page.
 	NextCursor *string `json:"next_cursor,omitempty"`
+}
+
+// SpeakerHwdReadResponse defines model for SpeakerHwdReadResponse.
+type SpeakerHwdReadResponse struct {
+	Muted         *bool  `json:"muted,omitempty"`
+	VolumePercent *int64 `json:"volume_percent,omitempty"`
+}
+
+// SpeakerHwdWriteRequest defines model for SpeakerHwdWriteRequest.
+type SpeakerHwdWriteRequest struct {
+	Muted         *bool  `json:"muted,omitempty"`
+	VolumePercent *int64 `json:"volume_percent,omitempty"`
 }
 
 // Tool defines model for Tool.
@@ -6078,6 +6416,15 @@ type VolcTenantVoiceProviderData struct {
 	State      *string                 `json:"state,omitempty"`
 	Status     *string                 `json:"status,omitempty"`
 	VoiceId    *string                 `json:"voice_id,omitempty"`
+}
+
+// WifiHwdReadResponse defines model for WifiHwdReadResponse.
+type WifiHwdReadResponse struct {
+	Bssid     *string `json:"bssid,omitempty"`
+	Connected *bool   `json:"connected,omitempty"`
+	Ip        *string `json:"ip,omitempty"`
+	RssiDbm   *int32  `json:"rssi_dbm,omitempty"`
+	Ssid      *string `json:"ssid,omitempty"`
 }
 
 // Workflow defines model for Workflow.
@@ -8156,22 +8503,24 @@ func (t *FlowcraftNode) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-// AsMhsV0Value0 returns the union data inside the MhsV0Value as a MhsV0Value0
-func (t MhsV0Value) AsMhsV0Value0() (MhsV0Value0, error) {
-	var body MhsV0Value0
+// AsMhsV0WifiReadResult returns the union data inside the MhsV0ReadResult as a MhsV0WifiReadResult
+func (t MhsV0ReadResult) AsMhsV0WifiReadResult() (MhsV0WifiReadResult, error) {
+	var body MhsV0WifiReadResult
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromMhsV0Value0 overwrites any union data inside the MhsV0Value as the provided MhsV0Value0
-func (t *MhsV0Value) FromMhsV0Value0(v MhsV0Value0) error {
+// FromMhsV0WifiReadResult overwrites any union data inside the MhsV0ReadResult as the provided MhsV0WifiReadResult
+func (t *MhsV0ReadResult) FromMhsV0WifiReadResult(v MhsV0WifiReadResult) error {
+	v.Hwd = "wifi"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeMhsV0Value0 performs a merge with any union data inside the MhsV0Value, using the provided MhsV0Value0
-func (t *MhsV0Value) MergeMhsV0Value0(v MhsV0Value0) error {
+// MergeMhsV0WifiReadResult performs a merge with any union data inside the MhsV0ReadResult, using the provided MhsV0WifiReadResult
+func (t *MhsV0ReadResult) MergeMhsV0WifiReadResult(v MhsV0WifiReadResult) error {
+	v.Hwd = "wifi"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -8182,22 +8531,24 @@ func (t *MhsV0Value) MergeMhsV0Value0(v MhsV0Value0) error {
 	return err
 }
 
-// AsMhsV0Value1 returns the union data inside the MhsV0Value as a MhsV0Value1
-func (t MhsV0Value) AsMhsV0Value1() (MhsV0Value1, error) {
-	var body MhsV0Value1
+// AsMhsV0BleReadResult returns the union data inside the MhsV0ReadResult as a MhsV0BleReadResult
+func (t MhsV0ReadResult) AsMhsV0BleReadResult() (MhsV0BleReadResult, error) {
+	var body MhsV0BleReadResult
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromMhsV0Value1 overwrites any union data inside the MhsV0Value as the provided MhsV0Value1
-func (t *MhsV0Value) FromMhsV0Value1(v MhsV0Value1) error {
+// FromMhsV0BleReadResult overwrites any union data inside the MhsV0ReadResult as the provided MhsV0BleReadResult
+func (t *MhsV0ReadResult) FromMhsV0BleReadResult(v MhsV0BleReadResult) error {
+	v.Hwd = "ble"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeMhsV0Value1 performs a merge with any union data inside the MhsV0Value, using the provided MhsV0Value1
-func (t *MhsV0Value) MergeMhsV0Value1(v MhsV0Value1) error {
+// MergeMhsV0BleReadResult performs a merge with any union data inside the MhsV0ReadResult, using the provided MhsV0BleReadResult
+func (t *MhsV0ReadResult) MergeMhsV0BleReadResult(v MhsV0BleReadResult) error {
+	v.Hwd = "ble"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -8208,22 +8559,24 @@ func (t *MhsV0Value) MergeMhsV0Value1(v MhsV0Value1) error {
 	return err
 }
 
-// AsMhsV0Value2 returns the union data inside the MhsV0Value as a MhsV0Value2
-func (t MhsV0Value) AsMhsV0Value2() (MhsV0Value2, error) {
-	var body MhsV0Value2
+// AsMhsV0ModemReadResult returns the union data inside the MhsV0ReadResult as a MhsV0ModemReadResult
+func (t MhsV0ReadResult) AsMhsV0ModemReadResult() (MhsV0ModemReadResult, error) {
+	var body MhsV0ModemReadResult
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromMhsV0Value2 overwrites any union data inside the MhsV0Value as the provided MhsV0Value2
-func (t *MhsV0Value) FromMhsV0Value2(v MhsV0Value2) error {
+// FromMhsV0ModemReadResult overwrites any union data inside the MhsV0ReadResult as the provided MhsV0ModemReadResult
+func (t *MhsV0ReadResult) FromMhsV0ModemReadResult(v MhsV0ModemReadResult) error {
+	v.Hwd = "modem"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeMhsV0Value2 performs a merge with any union data inside the MhsV0Value, using the provided MhsV0Value2
-func (t *MhsV0Value) MergeMhsV0Value2(v MhsV0Value2) error {
+// MergeMhsV0ModemReadResult performs a merge with any union data inside the MhsV0ReadResult, using the provided MhsV0ModemReadResult
+func (t *MhsV0ReadResult) MergeMhsV0ModemReadResult(v MhsV0ModemReadResult) error {
+	v.Hwd = "modem"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -8234,12 +8587,425 @@ func (t *MhsV0Value) MergeMhsV0Value2(v MhsV0Value2) error {
 	return err
 }
 
-func (t MhsV0Value) MarshalJSON() ([]byte, error) {
+// AsMhsV0BatteryReadResult returns the union data inside the MhsV0ReadResult as a MhsV0BatteryReadResult
+func (t MhsV0ReadResult) AsMhsV0BatteryReadResult() (MhsV0BatteryReadResult, error) {
+	var body MhsV0BatteryReadResult
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMhsV0BatteryReadResult overwrites any union data inside the MhsV0ReadResult as the provided MhsV0BatteryReadResult
+func (t *MhsV0ReadResult) FromMhsV0BatteryReadResult(v MhsV0BatteryReadResult) error {
+	v.Hwd = "battery"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMhsV0BatteryReadResult performs a merge with any union data inside the MhsV0ReadResult, using the provided MhsV0BatteryReadResult
+func (t *MhsV0ReadResult) MergeMhsV0BatteryReadResult(v MhsV0BatteryReadResult) error {
+	v.Hwd = "battery"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMhsV0MicReadResult returns the union data inside the MhsV0ReadResult as a MhsV0MicReadResult
+func (t MhsV0ReadResult) AsMhsV0MicReadResult() (MhsV0MicReadResult, error) {
+	var body MhsV0MicReadResult
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMhsV0MicReadResult overwrites any union data inside the MhsV0ReadResult as the provided MhsV0MicReadResult
+func (t *MhsV0ReadResult) FromMhsV0MicReadResult(v MhsV0MicReadResult) error {
+	v.Hwd = "mic"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMhsV0MicReadResult performs a merge with any union data inside the MhsV0ReadResult, using the provided MhsV0MicReadResult
+func (t *MhsV0ReadResult) MergeMhsV0MicReadResult(v MhsV0MicReadResult) error {
+	v.Hwd = "mic"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMhsV0DisplayReadResult returns the union data inside the MhsV0ReadResult as a MhsV0DisplayReadResult
+func (t MhsV0ReadResult) AsMhsV0DisplayReadResult() (MhsV0DisplayReadResult, error) {
+	var body MhsV0DisplayReadResult
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMhsV0DisplayReadResult overwrites any union data inside the MhsV0ReadResult as the provided MhsV0DisplayReadResult
+func (t *MhsV0ReadResult) FromMhsV0DisplayReadResult(v MhsV0DisplayReadResult) error {
+	v.Hwd = "display"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMhsV0DisplayReadResult performs a merge with any union data inside the MhsV0ReadResult, using the provided MhsV0DisplayReadResult
+func (t *MhsV0ReadResult) MergeMhsV0DisplayReadResult(v MhsV0DisplayReadResult) error {
+	v.Hwd = "display"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMhsV0LedReadResult returns the union data inside the MhsV0ReadResult as a MhsV0LedReadResult
+func (t MhsV0ReadResult) AsMhsV0LedReadResult() (MhsV0LedReadResult, error) {
+	var body MhsV0LedReadResult
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMhsV0LedReadResult overwrites any union data inside the MhsV0ReadResult as the provided MhsV0LedReadResult
+func (t *MhsV0ReadResult) FromMhsV0LedReadResult(v MhsV0LedReadResult) error {
+	v.Hwd = "led"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMhsV0LedReadResult performs a merge with any union data inside the MhsV0ReadResult, using the provided MhsV0LedReadResult
+func (t *MhsV0ReadResult) MergeMhsV0LedReadResult(v MhsV0LedReadResult) error {
+	v.Hwd = "led"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMhsV0SpeakerReadResult returns the union data inside the MhsV0ReadResult as a MhsV0SpeakerReadResult
+func (t MhsV0ReadResult) AsMhsV0SpeakerReadResult() (MhsV0SpeakerReadResult, error) {
+	var body MhsV0SpeakerReadResult
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMhsV0SpeakerReadResult overwrites any union data inside the MhsV0ReadResult as the provided MhsV0SpeakerReadResult
+func (t *MhsV0ReadResult) FromMhsV0SpeakerReadResult(v MhsV0SpeakerReadResult) error {
+	v.Hwd = "speaker"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMhsV0SpeakerReadResult performs a merge with any union data inside the MhsV0ReadResult, using the provided MhsV0SpeakerReadResult
+func (t *MhsV0ReadResult) MergeMhsV0SpeakerReadResult(v MhsV0SpeakerReadResult) error {
+	v.Hwd = "speaker"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t MhsV0ReadResult) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"hwd"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t MhsV0ReadResult) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "battery":
+		return t.AsMhsV0BatteryReadResult()
+	case "ble":
+		return t.AsMhsV0BleReadResult()
+	case "display":
+		return t.AsMhsV0DisplayReadResult()
+	case "led":
+		return t.AsMhsV0LedReadResult()
+	case "mic":
+		return t.AsMhsV0MicReadResult()
+	case "modem":
+		return t.AsMhsV0ModemReadResult()
+	case "speaker":
+		return t.AsMhsV0SpeakerReadResult()
+	case "wifi":
+		return t.AsMhsV0WifiReadResult()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t MhsV0ReadResult) MarshalJSON() ([]byte, error) {
 	b, err := t.union.MarshalJSON()
 	return b, err
 }
 
-func (t *MhsV0Value) UnmarshalJSON(b []byte) error {
+func (t *MhsV0ReadResult) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsMhsV0DisplayWriteRequest returns the union data inside the MhsV0WriteRequest as a MhsV0DisplayWriteRequest
+func (t MhsV0WriteRequest) AsMhsV0DisplayWriteRequest() (MhsV0DisplayWriteRequest, error) {
+	var body MhsV0DisplayWriteRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMhsV0DisplayWriteRequest overwrites any union data inside the MhsV0WriteRequest as the provided MhsV0DisplayWriteRequest
+func (t *MhsV0WriteRequest) FromMhsV0DisplayWriteRequest(v MhsV0DisplayWriteRequest) error {
+	v.Hwd = "display"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMhsV0DisplayWriteRequest performs a merge with any union data inside the MhsV0WriteRequest, using the provided MhsV0DisplayWriteRequest
+func (t *MhsV0WriteRequest) MergeMhsV0DisplayWriteRequest(v MhsV0DisplayWriteRequest) error {
+	v.Hwd = "display"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMhsV0LedWriteRequest returns the union data inside the MhsV0WriteRequest as a MhsV0LedWriteRequest
+func (t MhsV0WriteRequest) AsMhsV0LedWriteRequest() (MhsV0LedWriteRequest, error) {
+	var body MhsV0LedWriteRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMhsV0LedWriteRequest overwrites any union data inside the MhsV0WriteRequest as the provided MhsV0LedWriteRequest
+func (t *MhsV0WriteRequest) FromMhsV0LedWriteRequest(v MhsV0LedWriteRequest) error {
+	v.Hwd = "led"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMhsV0LedWriteRequest performs a merge with any union data inside the MhsV0WriteRequest, using the provided MhsV0LedWriteRequest
+func (t *MhsV0WriteRequest) MergeMhsV0LedWriteRequest(v MhsV0LedWriteRequest) error {
+	v.Hwd = "led"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMhsV0SpeakerWriteRequest returns the union data inside the MhsV0WriteRequest as a MhsV0SpeakerWriteRequest
+func (t MhsV0WriteRequest) AsMhsV0SpeakerWriteRequest() (MhsV0SpeakerWriteRequest, error) {
+	var body MhsV0SpeakerWriteRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMhsV0SpeakerWriteRequest overwrites any union data inside the MhsV0WriteRequest as the provided MhsV0SpeakerWriteRequest
+func (t *MhsV0WriteRequest) FromMhsV0SpeakerWriteRequest(v MhsV0SpeakerWriteRequest) error {
+	v.Hwd = "speaker"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMhsV0SpeakerWriteRequest performs a merge with any union data inside the MhsV0WriteRequest, using the provided MhsV0SpeakerWriteRequest
+func (t *MhsV0WriteRequest) MergeMhsV0SpeakerWriteRequest(v MhsV0SpeakerWriteRequest) error {
+	v.Hwd = "speaker"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t MhsV0WriteRequest) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"hwd"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t MhsV0WriteRequest) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "display":
+		return t.AsMhsV0DisplayWriteRequest()
+	case "led":
+		return t.AsMhsV0LedWriteRequest()
+	case "speaker":
+		return t.AsMhsV0SpeakerWriteRequest()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t MhsV0WriteRequest) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *MhsV0WriteRequest) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsMhsV0DisplayReadResult returns the union data inside the MhsV0WriteResult as a MhsV0DisplayReadResult
+func (t MhsV0WriteResult) AsMhsV0DisplayReadResult() (MhsV0DisplayReadResult, error) {
+	var body MhsV0DisplayReadResult
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMhsV0DisplayReadResult overwrites any union data inside the MhsV0WriteResult as the provided MhsV0DisplayReadResult
+func (t *MhsV0WriteResult) FromMhsV0DisplayReadResult(v MhsV0DisplayReadResult) error {
+	v.Hwd = "display"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMhsV0DisplayReadResult performs a merge with any union data inside the MhsV0WriteResult, using the provided MhsV0DisplayReadResult
+func (t *MhsV0WriteResult) MergeMhsV0DisplayReadResult(v MhsV0DisplayReadResult) error {
+	v.Hwd = "display"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMhsV0LedReadResult returns the union data inside the MhsV0WriteResult as a MhsV0LedReadResult
+func (t MhsV0WriteResult) AsMhsV0LedReadResult() (MhsV0LedReadResult, error) {
+	var body MhsV0LedReadResult
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMhsV0LedReadResult overwrites any union data inside the MhsV0WriteResult as the provided MhsV0LedReadResult
+func (t *MhsV0WriteResult) FromMhsV0LedReadResult(v MhsV0LedReadResult) error {
+	v.Hwd = "led"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMhsV0LedReadResult performs a merge with any union data inside the MhsV0WriteResult, using the provided MhsV0LedReadResult
+func (t *MhsV0WriteResult) MergeMhsV0LedReadResult(v MhsV0LedReadResult) error {
+	v.Hwd = "led"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMhsV0SpeakerReadResult returns the union data inside the MhsV0WriteResult as a MhsV0SpeakerReadResult
+func (t MhsV0WriteResult) AsMhsV0SpeakerReadResult() (MhsV0SpeakerReadResult, error) {
+	var body MhsV0SpeakerReadResult
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMhsV0SpeakerReadResult overwrites any union data inside the MhsV0WriteResult as the provided MhsV0SpeakerReadResult
+func (t *MhsV0WriteResult) FromMhsV0SpeakerReadResult(v MhsV0SpeakerReadResult) error {
+	v.Hwd = "speaker"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMhsV0SpeakerReadResult performs a merge with any union data inside the MhsV0WriteResult, using the provided MhsV0SpeakerReadResult
+func (t *MhsV0WriteResult) MergeMhsV0SpeakerReadResult(v MhsV0SpeakerReadResult) error {
+	v.Hwd = "speaker"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t MhsV0WriteResult) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"hwd"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t MhsV0WriteResult) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "display":
+		return t.AsMhsV0DisplayReadResult()
+	case "led":
+		return t.AsMhsV0LedReadResult()
+	case "speaker":
+		return t.AsMhsV0SpeakerReadResult()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t MhsV0WriteResult) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *MhsV0WriteResult) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

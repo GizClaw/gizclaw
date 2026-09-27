@@ -1,7 +1,7 @@
 # User Story:
-# As a GizClaw API key holder controlling hardware through MHS v0,
-# I want device responses missing a requested key or carrying the wrong type to be rejected as DEVICE_ERROR,
-# So that the Public HTTP MHS contract is verified end to end.
+# As a GizClaw API key holder,
+# I want to exercise server.device.mhs.invalid_response through MHS v0,
+# So that the HWD contract is verified on real transports.
 version: gizclaw.test/v1alpha1
 name: server.device.mhs.invalid_response
 clients:
@@ -42,14 +42,25 @@ steps:
       display_name: "${resource_name}"
   capture:
     api_key: /api_key
-- id: missing_key
+- id: invalid_read_response
   client: peer
   http:
     method: POST
     path: /gizclaw/v1/device/mhs/v0/read
     headers:
       Authorization: "Bearer ${api_key}"
-    body: {states: [{device_id: display.main, state: brightness}, {device_id: led.status, state: enabled}]}
+    body: {id: display.main, hwd: display}
+    status: 502
+  expect:
+    /error/code: {equals: DEVICE_ERROR}
+- id: invalid_write_response
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/device/mhs/v0/write
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body: {id: display.main, hwd: display, value: {brightness_percent: 50}}
     status: 502
   expect:
     /error/code: {equals: DEVICE_ERROR}
@@ -57,24 +68,13 @@ steps:
   client: peer
   client_rpc:
     method: client.mhs.v0.read
-    response: {states: [{device_id: display.main, state: brightness, value: {int_value: 35}}]}
+    response: {payload: ////}
     expect_calls: 1
-- id: wrong_type
-  client: peer
-  http:
-    method: PATCH
-    path: /gizclaw/v1/device/mhs/v0/states
-    headers:
-      Authorization: "Bearer ${api_key}"
-    body: {states: [{device_id: display.main, state: brightness, value: 50}]}
-    status: 502
-  expect:
-    /error/code: {equals: DEVICE_ERROR}
 - id: provider_write
   client: peer
   client_rpc:
     method: client.mhs.v0.write
-    response: {states: [{device_id: display.main, state: brightness, value: {bool_value: true}}]}
+    response: {payload: CgA=}
     expect_calls: 1
 finally:
 - id: cleanup_peer

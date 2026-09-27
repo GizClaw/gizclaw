@@ -82,4 +82,4 @@ Giznet 凭证使用 `protoc-gen-go`、`@bufbuild/protobuf` / `protoc-gen-es`、D
 - 手写 SDK：Go 使用独立 `// Deprecated:` 段落，JS/TS 使用 `@deprecated` JSDoc，Dart 使用 `@Deprecated('...')`。C 只在文档注释中写 `Deprecated:`，不用 compiler attribute，以保留 `-Werror` 调用方与 bridge 的兼容性。
 - 内部兼容路径、tests 和 giztest bridge 继续调用旧接口。若 lint 报错，只在实际调用行添加有原因说明的局部 suppression；不全局降低门禁，不删除旧测试。
 
-迁移字段、替代入口和退役条件见 [MHS v0 迁移表](./overview#mhs-v0-migration)。
+HWD 实例与读写协议见 [MHS v0 设计](./overview#mhs-v0-hwd)。

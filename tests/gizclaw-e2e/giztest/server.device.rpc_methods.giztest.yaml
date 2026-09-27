@@ -65,11 +65,8 @@ steps:
       path: /gizclaw/v1/device/mhs/v0/read
       headers:
         Authorization: Bearer ${api_key}
+      body: {id: wifi.main, hwd: wifi}
       status: 200
-      body:
-        states:
-          - device_id: device.main
-            state: locale
   - id: find_device
     client: peer
     http:
@@ -99,12 +96,7 @@ steps:
     client: peer
     client_rpc:
       method: client.mhs.v0.read
-      response:
-        states:
-          - device_id: device.main
-            state: locale
-            value:
-              string_value: zh-CN
+      response: {payload: CAE=}
       expect_calls: 1
   - id: provider_find
     client: peer

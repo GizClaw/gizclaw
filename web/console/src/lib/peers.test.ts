@@ -7,7 +7,7 @@ const device = {
   getRuntime: vi.fn(),
   getStatus: vi.fn(),
   getMhsManifest: vi.fn(),
-  readMhsStates: vi.fn(),
+  readMhsHwd: vi.fn(),
   listSavedWifi: vi.fn(),
   listTools: vi.fn(),
 };
@@ -20,13 +20,7 @@ const failure = (kind: GizClawControlError["kind"], status: number) =>
   new GizClawControlError(kind, `${kind} failure`, { status });
 
 const manifest = {
-  devices: [
-    {
-      id: "speaker",
-      kind: "audio",
-      states: [{ name: "volume", type: "int", access: "read_write" }],
-    },
-  ],
+  devices: [{ id: "speaker.main", hwd: "speaker" }],
 };
 
 describe("device config loader", () => {
@@ -94,27 +88,19 @@ describe("device config loader", () => {
 });
 
 describe("Wi-Fi diagnostics", () => {
-  it("reads the profile's Wi-Fi states and saved networks", async () => {
+  it("reads the profile's Wi-Fi HWD and saved networks", async () => {
     device.getMhsManifest.mockResolvedValue({
       devices: [
         {
           id: "wifi.main",
-          kind: "wifi",
-          states: [
-            { name: "connected", type: "bool", access: "read" },
-            { name: "ssid", type: "string", access: "read" },
-            { name: "rssi-dbm", type: "int", access: "read" },
-            { name: "secret", type: "string", access: "write" },
-          ],
+          hwd: "wifi",
         },
       ],
     });
-    device.readMhsStates.mockResolvedValue({
-      states: [
-        { device_id: "wifi.main", state: "connected", value: true },
-        { device_id: "wifi.main", state: "ssid", value: "Home" },
-        { device_id: "wifi.main", state: "rssi-dbm", value: -61 },
-      ],
+    device.readMhsHwd.mockResolvedValue({
+      id: "wifi.main",
+      hwd: "wifi",
+      value: { connected: true, ssid: "Home", rssi_dbm: -61 },
     });
     device.listSavedWifi.mockResolvedValue({ networks: [{ ssid: "Home" }] });
     expect(
@@ -127,12 +113,9 @@ describe("Wi-Fi diagnostics", () => {
       status: { connected: true, ssid: "Home", rssi_dbm: -61 },
       saved: ["Home"],
     });
-    expect(device.readMhsStates).toHaveBeenCalledWith({
-      states: [
-        { device_id: "wifi.main", state: "connected" },
-        { device_id: "wifi.main", state: "ssid" },
-        { device_id: "wifi.main", state: "rssi-dbm" },
-      ],
+    expect(device.readMhsHwd).toHaveBeenCalledWith({
+      id: "wifi.main",
+      hwd: "wifi",
     });
   });
 });

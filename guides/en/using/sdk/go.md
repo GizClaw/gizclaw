@@ -13,12 +13,12 @@ Admission conditions belong to [Security Policy](../../developing/gizclaw/server
 
 `RegistrationTokenCredential` returns `(credential, error)`; handle the error before passing the structure to Dial. `gizcli.RegistrationTokenCredentialType` is the exported built-in type constant. A 512-byte UTF-8 value is accepted; 513 bytes fail during helper construction.
 
-## MHS v0 hardware states
+## MHS v0 HWDs
 
-Install `DeviceControlHandlers.ReadMhsStates` and `WriteMhsStates` with `gizcli.Client.HandleDeviceControl`; signatures use original `rpcpb.ClientMhsV0*` messages. Return `ErrDeviceResourceNotFound` for absent hardware or `rpcapi.Error{Code: rpcapi.StatusCodeFailedPrecondition}` when current conditions prohibit a write.
+Install `DeviceControlHandlers.ReadMhsHwd` and `WriteMhsHwd` with `gizcli.Client.HandleDeviceControl`. Handlers receive `rpcpb.ClientMhsV0ReadRequest` or `ClientMhsV0WriteRequest`; the `ClientHwd` registry and helpers such as `rpcapi.ClientHwdReadResponseMessage` / `ClientHwdWriteRequestFromBytes` select the HWD-specific protobuf. Each call addresses one `id`. Wifi, ble, modem, battery and mic are read-only; display, led and speaker can be written. Return `ErrDeviceResourceNotFound` for absent physical hardware.
 
-This is GizClaw's MHS-inspired pre-standard v0, with no official compatibility claim. Manifests work offline; reads/writes allow at most 32 unique keys. Drivers validate the whole batch and enforce safety limits. See [Public API](/en/developing/api/http/public) and the [provider contract](/en/developing/api/proto/rpc/client-provided-to-server).
+The RuntimeProfile manifest is readable offline and declares only instance IDs and HWD types. Drivers enforce safety limits and return actual applied values in write responses. See [Public API](/en/developing/api/http/public) and the [provider contract](/en/developing/api/proto/rpc/client-provided-to-server).
 
 ## tool/v0 procedures
 
-Device providers install handlers for the predefined `ClientTool` values they implement. `client.tool.v0.list` reports that installed subset; typed control calls use the single `client.tool.v0.invoke` RPC. Hardware state uses the bound RuntimeProfile MHS v0 manifest and its read/write calls.
+Device providers install handlers for the predefined `ClientTool` values they implement. `client.tool.v0.list` reports that installed subset; typed control calls use the single `client.tool.v0.invoke` RPC. HWD instances use the bound RuntimeProfile MHS v0 manifest and its read/write calls.

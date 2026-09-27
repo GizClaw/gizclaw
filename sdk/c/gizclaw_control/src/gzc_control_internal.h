@@ -145,16 +145,13 @@ int gzc_control_unescape_string(gzc_str_t raw, char *dst, size_t dst_cap, gzc_st
 
 bool gzc_control_mhs_v0_storage_valid(const gzc_control_mhs_v0_storage_t *storage);
 bool gzc_control_mhs_v0_name_valid(gzc_str_t name);
-bool gzc_control_mhs_v0_string_valid(gzc_str_t value);
+bool gzc_control_mhs_v0_object_nonempty(gzc_str_t object);
+const char *gzc_control_mhs_v0_hwd_name(gzc_control_mhs_v0_hwd_t hwd);
 int gzc_control_mhs_v0_decode_devices(
     gzc_str_t object, gzc_control_mhs_v0_storage_t *storage,
     gzc_control_mhs_v0_device_t *out, size_t cap, size_t *count);
-int gzc_control_mhs_v0_decode_states(
+int gzc_control_mhs_v0_decode_result(
     gzc_str_t object, gzc_control_mhs_v0_storage_t *storage,
-    gzc_control_mhs_v0_state_value_t *out, size_t cap, size_t *count);
-/* Bridge request parsing shares the same bounded codec as HTTP responses. */
-int gzc_control_mhs_v0_decode_refs(
-    gzc_str_t object, gzc_control_mhs_v0_storage_t *storage,
-    gzc_control_mhs_v0_state_ref_t *out, size_t cap, size_t *count);
+    gzc_control_mhs_v0_hwd_result_t *out);
 
 #endif

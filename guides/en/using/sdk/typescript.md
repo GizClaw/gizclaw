@@ -109,12 +109,12 @@ closing the supplied PeerConnection. Operator settings are described in
 
 The exported `REGISTRATION_TOKEN_CREDENTIAL_TYPE` constant defines the built-in type and is used by the helper. Values are limited to 512 UTF-8 bytes; construction returns an error or throws for larger input. Custom policies should use their own domain prefix; built-in types reserve `gizclaw.com/`.
 
-## MHS v0 hardware states
+## MHS v0 HWDs
 
-Devices install `readMhsStates`/`writeMhsStates` on `deviceControl`; RPC values use `{bool_value:false}`, `{int_value:0}`, `{double_value:0}` or `{string_value:""}`. Controllers use `control.device.getMhsManifest()`, `readMhsStates({states:[{device_id,state}]})` and `writeMhsStates({states:[{device_id,state,value}]})`, with plain JSON values and generated Peer HTTP types.
+Devices install `readMhsHwd` / `writeMhsHwd` on `deviceControl`. The outer RPC carries `id`, HWD and encoded protobuf `payload`; generated `CLIENT_HWD_IDS` and helpers such as `encodeClientHwdWriteRequestPayload` / `decodeClientHwdReadResponsePayload` select the message. Controllers first call `getMhsManifest()`, then `readMhsHwd({id:"speaker.main",hwd:"speaker"})` or `writeMhsHwd({id:"speaker.main",hwd:"speaker",value:{volume_percent:35}})`. Each call addresses one instance and writes return actual applied values.
 
-This is GizClaw's MHS-inspired pre-standard v0, with no official compatibility claim. Manifests work offline; reads/writes allow at most 32 unique keys. Drivers validate the whole batch and enforce safety limits. See [Public API](/en/developing/api/http/public) and the [provider contract](/en/developing/api/proto/rpc/client-provided-to-server).
+The manifest declares instances rather than field schemas. Wifi, ble, modem, battery and mic are read-only; display, led and speaker can be written. See [Public API](/en/developing/api/http/public) and the [provider contract](/en/developing/api/proto/rpc/client-provided-to-server).
 
 ## tool/v0 procedures
 
-Device providers install handlers for the predefined `ClientTool` values they implement. `client.tool.v0.list` reports that installed subset; typed control calls use the single `client.tool.v0.invoke` RPC. Hardware state uses the bound RuntimeProfile MHS v0 manifest and its read/write calls.
+Device providers install handlers for the predefined `ClientTool` values they implement. `client.tool.v0.list` reports that installed subset; typed control calls use the single `client.tool.v0.invoke` RPC. HWD instances use the bound RuntimeProfile MHS v0 manifest and its read/write calls.

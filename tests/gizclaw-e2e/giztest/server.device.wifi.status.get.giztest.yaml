@@ -49,48 +49,18 @@ steps:
       path: /gizclaw/v1/device/mhs/v0/read
       headers:
         Authorization: Bearer ${api_key}
+      body: {id: wifi.main, hwd: wifi}
       status: 200
-      body:
-        states:
-          - device_id: wifi.main
-            state: connected
-          - device_id: wifi.main
-            state: ssid
-          - device_id: wifi.main
-            state: rssi-dbm
-          - device_id: wifi.main
-            state: ip
     expect:
-      /states/0/value:
-        equals: true
-      /states/1/value:
-        equals: home
-      /states/2/value:
-        equals: -61
-      /states/3/value:
-        equals: 192.0.2.20
+      /value/connected: {equals: true}
+      /value/ssid: {equals: home}
+      /value/rssi_dbm: {equals: -61}
+      /value/ip: {equals: 192.0.2.20}
   - id: provider_wifi
     client: peer
     client_rpc:
       method: client.mhs.v0.read
-      response:
-        states:
-          - device_id: wifi.main
-            state: connected
-            value:
-              bool_value: true
-          - device_id: wifi.main
-            state: ssid
-            value:
-              string_value: home
-          - device_id: wifi.main
-            state: rssi-dbm
-            value:
-              int_value: -61
-          - device_id: wifi.main
-            state: ip
-            value:
-              string_value: 192.0.2.20
+      response: {payload: CAESBGhvbWUgw///////////ASoKMTkyLjAuMi4yMA==}
       expect_calls: 1
 finally:
   - id: cleanup_peer

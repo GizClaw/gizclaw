@@ -52,7 +52,7 @@ server, which sends the credential in the clear.
 - API keys: `createApiKey`, `listApiKeys`, `getSelfApiKey`, `revokeSelfApiKey`, `getApiKey`, `revokeApiKey`.
 - Device reads: `getDevice`, `getDeviceRuntime`, `getDeviceStatus`, `getDeviceFirmware`, `getDeviceRuntimeProfile`, `getDeviceTelemetryLatest`, `queryDeviceTelemetry`, `aggregateDeviceTelemetry`.
 - Workspaces: `listDeviceWorkspaces` (optional `collection` and `workflowName` filters), `deleteDeviceWorkspace`, `listDeviceWorkspaceHistory`, `downloadDeviceHistoryAudio`, plus `deviceHistoryAudioUri` and `authorizationHeaders` for players that stream the audio themselves.
-- Device control: `playDeviceSound`, `findDevice`, `rebootDevice`, `updateDeviceFirmware`, `scanDeviceWifi`, `connectDeviceWifi`, `listDeviceSavedWifi`, `forgetDeviceSavedWifi`, `factoryResetDevice`, `setDeviceRunWorkspace`, `listDeviceTools`, `getMhsManifest`, `readMhsStates`, `writeMhsStates`.
+- Device control: `playDeviceSound`, `findDevice`, `rebootDevice`, `updateDeviceFirmware`, `scanDeviceWifi`, `connectDeviceWifi`, `listDeviceSavedWifi`, `forgetDeviceSavedWifi`, `factoryResetDevice`, `setDeviceRunWorkspace`, `listDeviceTools`, `getMhsManifest`, `readMhsHwd`, `writeMhsHwd`.
 - Contacts: `listContacts`, `createContact`, `getContact`, `putContact`, `deleteContact`.
 - Friends: `getFriendInviteToken`, `createFriendInviteToken` (optional `ttl`, 1 minute to 7 days), `clearFriendInviteToken`, `addFriend`, `listFriends`, `getFriend`, `deleteFriend`.
 - Friend Groups: `listFriendGroups`, `createFriendGroup`, `joinFriendGroup`, `getFriendGroup`, `putFriendGroup`, `deleteFriendGroup` (dissolve), `leaveFriendGroup`, `getFriendGroupInviteToken`, `createFriendGroupInviteToken`, `clearFriendGroupInviteToken`, `listFriendGroupMembers`, `addFriendGroupMember`, `putFriendGroupMember`, `deleteFriendGroupMember`. The `info` (`PeerProfileInfo`) of `Friend` and `FriendGroupMember` gives the other device's name and emoji; Groups are addressed by the device's own Group name, and roles are `FriendGroupRole`.
@@ -121,12 +121,12 @@ closes, so cleanup remains safe after Server block. Observe
 terminal event-session signal; reconnect creates a new Peer and session. New RPC
 channels are rejected once the old Peer starts closing.
 
-## MHS v0 hardware states
+## MHS v0 HWDs
 
-Devices install `readMhsStates`/`writeMhsStates` in `GizClawDeviceControlHandlers`, using generated `ClientMhsV0*` and `MhsValue`. Controllers call `getMhsManifest()`, `readMhsStates(List<MhsStateRef>)` and `writeMhsStates(List<MhsStateValue>)`. Values are plain bool/int/double/String; writes return actual applied values. Render controls from `MhsState.type/access/min/max/step/enumValues/unit`.
+Devices install `readMhsHwd` / `writeMhsHwd` in `GizClawDeviceControlHandlers` and use generated `ClientMhsV0*` plus the HWD-specific protobuf messages for one instance. Controllers call `getMhsManifest()` for instance IDs and types, `readMhsHwd(id,hwd)` for an `MhsHwdReadResult` (with an HWD-specific value such as `MhsWifiReadValue`), and `writeMhsHwd(MhsHwdWriteRequest(...))` for display, led or speaker. Writes return actual applied values.
 
-This is GizClaw's MHS-inspired pre-standard v0, with no official compatibility claim. Manifests work offline; reads/writes allow at most 32 unique keys. Drivers validate the whole batch and enforce safety limits. See [Public API](/en/developing/api/http/public) and the [provider contract](/en/developing/api/proto/rpc/client-provided-to-server).
+Each call addresses one instance; wifi, ble, modem, battery and mic are read-only. See [Public API](/en/developing/api/http/public) and the [provider contract](/en/developing/api/proto/rpc/client-provided-to-server).
 
 ## tool/v0 procedures
 
-Device providers install handlers for the predefined `ClientTool` values they implement. `client.tool.v0.list` reports that installed subset; typed control calls use the single `client.tool.v0.invoke` RPC. Hardware state uses the bound RuntimeProfile MHS v0 manifest and its read/write calls.
+Device providers install handlers for the predefined `ClientTool` values they implement. `client.tool.v0.list` reports that installed subset; typed control calls use the single `client.tool.v0.invoke` RPC. HWD instances use the bound RuntimeProfile MHS v0 manifest and its read/write calls.

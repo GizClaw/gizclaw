@@ -29,14 +29,14 @@ import { requestFromProtoJSON, responseToProtoJSON } from "./proto_json.ts";
 type MhsReadResponse = Awaited<
   ReturnType<
     NonNullable<
-      NonNullable<GizClawPeerRPCHandlers["deviceControl"]>["readMhsStates"]
+      NonNullable<GizClawPeerRPCHandlers["deviceControl"]>["readMhsHwd"]
     >
   >
 >;
 type MhsWriteResponse = Awaited<
   ReturnType<
     NonNullable<
-      NonNullable<GizClawPeerRPCHandlers["deviceControl"]>["writeMhsStates"]
+      NonNullable<GizClawPeerRPCHandlers["deviceControl"]>["writeMhsHwd"]
     >
   >
 >;
@@ -509,13 +509,13 @@ function buildHandlers(
         };
         break;
       case "client.mhs.v0.read":
-        control.readMhsStates = () => {
+        control.readMhsHwd = () => {
           if (failure != null) throw failure;
           return scriptedObject as MhsReadResponse;
         };
         break;
       case "client.mhs.v0.write":
-        control.writeMhsStates = () => {
+        control.writeMhsHwd = () => {
           if (failure != null) throw failure;
           return scriptedObject as MhsWriteResponse;
         };

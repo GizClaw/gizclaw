@@ -68,12 +68,17 @@ import {
   decodeClientToolResponsePayload,
   decodeClientToolRequestPayload,
   encodeClientToolResponsePayload,
+  encodeClientHwdReadResponsePayload,
+  decodeClientHwdWriteRequestPayload,
+  encodeClientHwdWriteRequestPayload,
+  encodeClientHwdWriteResponsePayload,
   type ClientSocialPingRequest,
 } from "./generated/rpc/payload-codec.ts";
 import {
   RPC_METHOD_IDS,
   RPC_METHODS,
   CLIENT_TOOL_IDS,
+  CLIENT_HWD_IDS,
 } from "./generated/rpc/method-map.ts";
 import * as peerhttp from "./peerhttp.ts";
 import { createEdgeRPCClient, createPeerRPCClient } from "./rpc.ts";
@@ -951,8 +956,8 @@ test("peer HTTP SDK exposes tool/v0, MHS and contact operations", () => {
     "queryDeviceTelemetry",
     "aggregateDeviceTelemetry",
     "getMhsManifest",
-    "readMhsStates",
-    "writeMhsStates",
+    "readMhsHwd",
+    "writeMhsHwd",
     "listClientTools",
     "invokeClientTool",
     "listContacts",
@@ -3679,45 +3684,52 @@ async function serveInboundClientRPC(
   };
 }
 
-test("inbound mhs/v0 write applies volume state", async () => {
+test("inbound mhs/v0 write applies one speaker HWD", async () => {
   let seen: unknown;
   const request = {
-    states: [
-      { device_id: "speaker.main", state: "volume", value: { int_value: 35 } },
-    ],
+    id: "speaker.main",
+    hwd: "speaker",
+    payload: hwdPayload(
+      encodeClientHwdWriteRequestPayload(CLIENT_HWD_IDS.speaker, {
+        volume_percent: 35,
+      }),
+    ),
+  };
+  const result = {
+    payload: hwdPayload(
+      encodeClientHwdWriteResponsePayload(CLIENT_HWD_IDS.speaker, {
+        applied: { volume_percent: 35 },
+      }),
+    ),
   };
   const response = await serveInboundClientRPC("client.mhs.v0.write", request, {
     deviceControl: {
-      writeMhsStates: (value) => {
+      writeMhsHwd: (value) => {
         seen = value;
-        return value;
+        return result;
       },
     },
   });
   assert.equal(response.error, undefined);
   assert.deepEqual(seen, request);
-  assert.deepEqual(response.result, request);
+  assert.deepEqual(response.result, result);
 });
 
 test("inbound mhs/v0 read and wifi.saved.list answer from handlers", async () => {
-  const states = [{ device_id: "wifi.main", state: "connected" }];
-  const status = await serveInboundClientRPC(
-    "client.mhs.v0.read",
-    { states },
-    {
-      deviceControl: {
-        readMhsStates: (request) => ({
-          states: request.states.map((ref) => ({
-            ...ref,
-            value: { bool_value: true },
-          })),
-        }),
-      },
+  const hwd = { id: "wifi.main", hwd: "wifi" };
+  const observation = {
+    payload: hwdPayload(
+      encodeClientHwdReadResponsePayload(CLIENT_HWD_IDS.wifi, {
+        connected: true,
+      }),
+    ),
+  };
+  const status = await serveInboundClientRPC("client.mhs.v0.read", hwd, {
+    deviceControl: {
+      readMhsHwd: () => observation,
     },
-  );
-  assert.deepEqual((status.result as { states: unknown[] }).states, [
-    { ...states[0], value: { bool_value: true } },
-  ]);
+  });
+  assert.deepEqual(status.result, observation);
   const saved = await serveInboundClientRPC(
     "wifi.saved.list",
     {},
@@ -4173,45 +4185,56 @@ test("app config requests and opaque values round-trip through protobuf", () => 
   );
 });
 
-test("inbound mhs/v0 write validates entire state batch", async () => {
+function hwdPayload(bytes: Uint8Array): string {
+  return Buffer.from(bytes).toString("base64");
+}
+
+test("inbound mhs/v0 writes one typed HWD and rejects invalid envelopes", async () => {
   let calls = 0;
   const handlers: GizClawPeerRPCHandlers = {
     deviceControl: {
-      writeMhsStates: (request) => {
+      writeMhsHwd: () => {
         calls++;
-        return request;
+        return {
+          payload: hwdPayload(
+            encodeClientHwdWriteResponsePayload(CLIENT_HWD_IDS.display, {
+              applied: { brightness_percent: 40 },
+            }),
+          ),
+        };
       },
     },
   };
   const valid = {
-    states: [
-      {
-        device_id: "display.main",
-        state: "brightness",
-        value: { int_value: 40 },
-      },
-    ],
+    id: "display.main",
+    hwd: "display" as const,
+    payload: hwdPayload(
+      encodeClientHwdWriteRequestPayload(CLIENT_HWD_IDS.display, {
+        brightness_percent: 40,
+      }),
+    ),
   };
   assert.equal(
     (await serveInboundClientRPC("client.mhs.v0.write", valid, handlers)).error,
     undefined,
   );
-  for (const states of [
-    [],
-    [valid.states[0], valid.states[0]],
-    [{ ...valid.states[0], state: "bad\n" }],
+  for (const bad of [
+    { ...valid, id: "bad key" },
+    { ...valid, id: "" },
+    { ...valid, hwd: "battery" },
+    { ...valid, payload: "" },
   ]) {
-    const bad = await serveInboundClientRPC(
+    const response = await serveInboundClientRPC(
       "client.mhs.v0.write",
-      { states },
+      bad,
       handlers,
     );
-    assert.equal(bad.error?.code, STATUS_CODE_INVALID_ARGUMENT);
+    assert.equal(response.error?.code, STATUS_CODE_INVALID_ARGUMENT);
   }
   assert.equal(calls, 1);
   const missing = await serveInboundClientRPC(
     "client.mhs.v0.read",
-    { states: [{ device_id: "display.main", state: "brightness" }] },
+    { id: "display.main", hwd: "display" },
     handlers,
   );
   assert.equal(missing.error?.code, STATUS_CODE_UNIMPLEMENTED);
@@ -4222,7 +4245,7 @@ test("method and tool lists report their separate registries", async () => {
     deviceControl: {
       reboot: () => {},
       factoryReset: () => {},
-      readMhsStates: (_request) => ({ states: [] }),
+      readMhsHwd: (_request) => ({ payload: "CA==" }),
     },
   };
   const response = await serveInboundClientRPC(
@@ -4290,27 +4313,28 @@ test("tool list includes find and social ping only when registered", async () =>
   ]);
 });
 
-test("mhs/v0 write rejects malformed state keys before handler", async () => {
+test("mhs/v0 write rejects invalid instance IDs before handler", async () => {
   let ran = false;
   const handlers: GizClawPeerRPCHandlers = {
     deviceControl: {
-      writeMhsStates: (request) => {
+      writeMhsHwd: () => {
         ran = true;
-        return request;
+        return { payload: "CgIIKA==" };
       },
     },
   };
-  for (const state of ["bad key", "bad\n", "", "x".repeat(65)]) {
+  const payload = hwdPayload(
+    encodeClientHwdWriteRequestPayload(CLIENT_HWD_IDS.display, {
+      brightness_percent: 50,
+    }),
+  );
+  for (const id of ["bad key", "bad\n", "", "x".repeat(65)]) {
     const response = await serveInboundClientRPC(
       "client.mhs.v0.write",
-      {
-        states: [
-          { device_id: "display.main", state, value: { string_value: "en" } },
-        ],
-      },
+      { id, hwd: "display", payload },
       handlers,
     );
-    assert.equal(response.error?.code, STATUS_CODE_INVALID_ARGUMENT, state);
+    assert.equal(response.error?.code, STATUS_CODE_INVALID_ARGUMENT, id);
   }
   assert.equal(ran, false);
 });
@@ -4351,31 +4375,34 @@ test("inbound run.workspace.set requires a workspace name", async () => {
   );
 });
 
-test("mhs/v0 write preserves zero and false typed values", async () => {
+test("mhs/v0 HWD write preserves zero and false presence", async () => {
+  const payload = hwdPayload(
+    encodeClientHwdWriteRequestPayload(CLIENT_HWD_IDS.display, {
+      brightness_percent: 0,
+      enabled: false,
+    }),
+  );
+  const decoded = decodeClientHwdWriteRequestPayload(
+    CLIENT_HWD_IDS.display,
+    Buffer.from(payload, "base64"),
+  );
+  assert.deepEqual(decoded, { brightness_percent: 0, enabled: false });
+  const responsePayload = hwdPayload(
+    encodeClientHwdWriteResponsePayload(CLIENT_HWD_IDS.display, {
+      applied: { brightness_percent: 0, enabled: false },
+    }),
+  );
   const handlers: GizClawPeerRPCHandlers = {
-    deviceControl: { writeMhsStates: (request) => request },
+    deviceControl: { writeMhsHwd: () => ({ payload: responsePayload }) },
   };
-  const request = {
-    states: [
-      {
-        device_id: "display.main",
-        state: "brightness",
-        value: { int_value: 0 },
-      },
-      {
-        device_id: "display.main",
-        state: "enabled",
-        value: { bool_value: false },
-      },
-    ],
-  };
+  const request = { id: "display.main", hwd: "display", payload };
   const response = await serveInboundClientRPC(
     "client.mhs.v0.write",
     request,
     handlers,
   );
   assert.equal(response.error, undefined);
-  assert.deepEqual(response.result, request);
+  assert.deepEqual(response.result, { payload: responsePayload });
 });
 
 test("tool/v0 list, unimplemented invoke and malformed payload", async () => {
@@ -4486,90 +4513,62 @@ test("endpoint connection seals optional admission credentials in the offer", as
   assert.equal(pc.closeCalls, 1);
 });
 
-test("MHS provider preserves typed defaults and discovers only installed handlers", async () => {
+test("MHS provider reads all HWDs and discovers installed handlers", async () => {
   const values = [
-    { bool_value: false },
-    { int_value: 0 },
-    { double_value: 0 },
-    { string_value: "" },
-  ];
+    ["wifi", { connected: true }],
+    ["ble", { powered: true }],
+    ["modem", { registered: true }],
+    ["battery", { percent: 80 }],
+    ["mic", { available: true }],
+    ["display", { brightness_percent: 0 }],
+    ["led", { enabled: false }],
+    ["speaker", { volume_percent: 0 }],
+  ] as const;
   let calls = 0;
   const handlers: GizClawPeerRPCHandlers = {
     deviceControl: {
-      writeMhsStates: (request) => {
+      readMhsHwd: (request) => {
         calls++;
-        return { states: request.states };
+        const id =
+          typeof request.hwd === "string"
+            ? CLIENT_HWD_IDS[request.hwd as keyof typeof CLIENT_HWD_IDS]
+            : request.hwd;
+        const value = values.find(([name]) => CLIENT_HWD_IDS[name] === id)?.[1];
+        return {
+          payload: hwdPayload(encodeClientHwdReadResponsePayload(id, value)),
+        };
       },
     },
   };
-  for (const value of values) {
-    const request = {
-      states: [{ device_id: "display.main", state: "state", value }],
-    };
+  for (const [hwd] of values) {
     const response = await serveInboundClientRPC(
-      "client.mhs.v0.write",
-      request,
+      "client.mhs.v0.read",
+      { id: `${hwd}.main`, hwd },
       handlers,
     );
-    assert.equal(response.error, undefined);
-    assert.deepEqual(response.result, request);
+    assert.equal(response.error, undefined, hwd);
   }
-  const key = {
-    device_id: "display.main",
-    state: "state",
-    value: { int_value: 0 },
-  };
-  for (const states of [
-    [],
-    [key, key],
-    [{ ...key, state: "state\n" }],
-    [{ ...key, value: {} }],
-    [{ ...key, value: { string_value: "x".repeat(257) } }],
-  ]) {
-    const response = await serveInboundClientRPC(
-      "client.mhs.v0.write",
-      { states },
-      handlers,
-    );
-    assert.equal(response.error?.code, STATUS_CODE_INVALID_ARGUMENT);
-  }
-  assert.equal(calls, 4);
+  assert.equal(calls, 8);
   const response = await serveInboundClientRPC(
     "client.rpc.methods.list",
     {},
     handlers,
   );
   const methods = (response.result as { methods: number[] }).methods;
-  assert.ok(methods.includes(134));
-  assert.ok(!methods.includes(133));
+  assert.ok(methods.includes(133));
+  assert.ok(!methods.includes(134));
   const absent = await serveInboundClientRPC(
-    "client.mhs.v0.read",
-    { states: [{ device_id: "display.main", state: "state" }] },
+    "client.mhs.v0.write",
+    {
+      id: "display.main",
+      hwd: "display",
+      payload: hwdPayload(
+        encodeClientHwdWriteRequestPayload(CLIENT_HWD_IDS.display, {
+          brightness_percent: 50,
+        }),
+      ),
+    },
     handlers,
   );
   assert.equal(absent.error?.code, STATUS_CODE_UNIMPLEMENTED);
-  const read = await serveInboundClientRPC(
-    "client.mhs.v0.read",
-    { states: [{ device_id: "display.main", state: "state" }] },
-    {
-      deviceControl: {
-        readMhsStates: (request) => ({
-          states: request.states.map((ref) => ({
-            ...ref,
-            value: { bool_value: false },
-          })),
-        }),
-      },
-    },
-  );
-  assert.equal(read.error, undefined);
-  assert.deepEqual(read.result, {
-    states: [
-      {
-        device_id: "display.main",
-        state: "state",
-        value: { bool_value: false },
-      },
-    ],
-  });
 });

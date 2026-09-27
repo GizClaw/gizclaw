@@ -687,56 +687,190 @@ export type HardwareInfo = {
     hardware_revision?: string;
 };
 
+export type BatteryHwdReadResponse = {
+    percent?: number;
+    charging?: boolean;
+    voltage_mv?: number;
+};
+
+export type BleHwdReadResponse = {
+    powered?: boolean;
+    advertising?: boolean;
+    scanning?: boolean;
+    connection_count?: number;
+};
+
+export type DisplayHwdReadResponse = {
+    brightness_percent?: number;
+    enabled?: boolean;
+    off_timeout_ms?: number;
+};
+
+export type DisplayHwdWriteRequest = {
+    brightness_percent?: number;
+    enabled?: boolean;
+    off_timeout_ms?: number;
+};
+
+export type LedHwdReadResponse = {
+    enabled?: boolean;
+    brightness_percent?: number;
+};
+
+export type LedHwdWriteRequest = {
+    enabled?: boolean;
+    brightness_percent?: number;
+};
+
+export type MhsV0BatteryReadResult = {
+    id: string;
+    hwd: 'battery';
+    value: BatteryHwdReadResponse;
+};
+
+export type MhsV0BleReadResult = {
+    id: string;
+    hwd: 'ble';
+    value: BleHwdReadResponse;
+};
+
 export type MhsV0Device = {
     id: string;
-    kind: string;
+    hwd: 'wifi' | 'ble' | 'modem' | 'battery' | 'mic' | 'display' | 'led' | 'speaker';
     description?: string;
     tags?: Array<string>;
-    states: Array<MhsV0State>;
+};
+
+export type MhsV0DisplayReadResult = {
+    id: string;
+    hwd: 'display';
+    value: DisplayHwdReadResponse;
+};
+
+export type MhsV0DisplayWriteRequest = {
+    id: string;
+    hwd: 'display';
+    value: DisplayHwdWriteRequest;
+};
+
+export type MhsV0LedReadResult = {
+    id: string;
+    hwd: 'led';
+    value: LedHwdReadResponse;
+};
+
+export type MhsV0LedWriteRequest = {
+    id: string;
+    hwd: 'led';
+    value: LedHwdWriteRequest;
 };
 
 /**
- * GizClaw MHS-inspired pre-standard v0, not an official MHS protocol or compatibility claim. Only state read/write. IDs and names are unique within their parent; numeric constraints apply only to int/double, min <= max, step > 0 (grid origin min or zero). int constraints are integral JSON-safe integers. enum_values is required only for enum and forbidden otherwise. Server validation also enforces UTF-8 byte limits. A future official-compatible version would be v1.
+ * GizClaw-owned MHS v0. Each entry declares one hardware instance; its HWD selects the protobuf read/write shapes. An HWD may appear more than once with distinct IDs.
  */
 export type MhsV0Manifest = {
     devices: Array<MhsV0Device>;
 };
 
+export type MhsV0MicReadResult = {
+    id: string;
+    hwd: 'mic';
+    value: MicHwdReadResponse;
+};
+
+export type MhsV0ModemReadResult = {
+    id: string;
+    hwd: 'modem';
+    value: ModemHwdReadResponse;
+};
+
 export type MhsV0ReadRequest = {
-    states: Array<MhsV0StateRef>;
+    id: string;
+    hwd: 'wifi' | 'ble' | 'modem' | 'battery' | 'mic' | 'display' | 'led' | 'speaker';
 };
 
-export type MhsV0State = {
-    name: string;
-    type: 'bool' | 'int' | 'double' | 'string' | 'enum';
-    access: 'read' | 'read_write';
-    min?: number;
-    max?: number;
-    step?: number;
-    enum_values?: Array<string>;
-    unit?: string;
-    description?: string;
+export type MhsV0ReadResult = ({
+    hwd: 'wifi';
+} & MhsV0WifiReadResult) | ({
+    hwd: 'ble';
+} & MhsV0BleReadResult) | ({
+    hwd: 'modem';
+} & MhsV0ModemReadResult) | ({
+    hwd: 'battery';
+} & MhsV0BatteryReadResult) | ({
+    hwd: 'mic';
+} & MhsV0MicReadResult) | ({
+    hwd: 'display';
+} & MhsV0DisplayReadResult) | ({
+    hwd: 'led';
+} & MhsV0LedReadResult) | ({
+    hwd: 'speaker';
+} & MhsV0SpeakerReadResult);
+
+export type MhsV0SpeakerReadResult = {
+    id: string;
+    hwd: 'speaker';
+    value: SpeakerHwdReadResponse;
 };
 
-export type MhsV0StateRef = {
-    device_id: string;
-    state: string;
+export type MhsV0SpeakerWriteRequest = {
+    id: string;
+    hwd: 'speaker';
+    value: SpeakerHwdWriteRequest;
 };
 
-export type MhsV0StateValue = {
-    device_id: string;
-    state: string;
-    value: MhsV0Value;
+export type MhsV0WifiReadResult = {
+    id: string;
+    hwd: 'wifi';
+    value: WifiHwdReadResponse;
 };
 
-export type MhsV0States = {
-    states: Array<MhsV0StateValue>;
+export type MhsV0WriteRequest = ({
+    hwd: 'display';
+} & MhsV0DisplayWriteRequest) | ({
+    hwd: 'led';
+} & MhsV0LedWriteRequest) | ({
+    hwd: 'speaker';
+} & MhsV0SpeakerWriteRequest);
+
+export type MhsV0WriteResult = ({
+    hwd: 'display';
+} & MhsV0DisplayReadResult) | ({
+    hwd: 'led';
+} & MhsV0LedReadResult) | ({
+    hwd: 'speaker';
+} & MhsV0SpeakerReadResult);
+
+export type MicHwdReadResponse = {
+    available?: boolean;
+    capturing?: boolean;
 };
 
-/**
- * Plain JSON value interpreted by the manifest. int values must be integral within +/-9007199254740991. All numbers must be finite; strings and enum values must be valid UTF-8 without NUL, at most 256 bytes.
- */
-export type MhsV0Value = boolean | number | string;
+export type ModemHwdReadResponse = {
+    sim_present?: boolean;
+    registered?: boolean;
+    rat?: string;
+    rssi_dbm?: number;
+    signal_level?: number;
+};
+
+export type SpeakerHwdReadResponse = {
+    volume_percent?: number;
+    muted?: boolean;
+};
+
+export type SpeakerHwdWriteRequest = {
+    volume_percent?: number;
+    muted?: boolean;
+};
+
+export type WifiHwdReadResponse = {
+    connected?: boolean;
+    ssid?: string;
+    bssid?: string;
+    rssi_dbm?: number;
+    ip?: string;
+};
 
 export type PeerImei = {
     name?: string;
@@ -1074,14 +1208,14 @@ export type GetMhsManifestResponses = {
 
 export type GetMhsManifestResponse = GetMhsManifestResponses[keyof GetMhsManifestResponses];
 
-export type ReadMhsStatesData = {
+export type ReadMhsHwdData = {
     body: MhsV0ReadRequest;
     path?: never;
     query?: never;
     url: '/gizclaw/v1/device/mhs/v0/read';
 };
 
-export type ReadMhsStatesErrors = {
+export type ReadMhsHwdErrors = {
     /**
      * Invalid request.
      */
@@ -1095,7 +1229,7 @@ export type ReadMhsStatesErrors = {
      */
     403: ErrorResponse;
     /**
-     * The device does not implement a requested hardware state (MHS_STATE_NOT_FOUND).
+     * The device does not implement the requested HWD instance (MHS_HWD_NOT_FOUND).
      */
     404: ErrorResponse;
     /**
@@ -1120,25 +1254,25 @@ export type ReadMhsStatesErrors = {
     504: ErrorResponse;
 };
 
-export type ReadMhsStatesError = ReadMhsStatesErrors[keyof ReadMhsStatesErrors];
+export type ReadMhsHwdError = ReadMhsHwdErrors[keyof ReadMhsHwdErrors];
 
-export type ReadMhsStatesResponses = {
+export type ReadMhsHwdResponses = {
     /**
      * Success
      */
-    200: MhsV0States;
+    200: MhsV0ReadResult;
 };
 
-export type ReadMhsStatesResponse = ReadMhsStatesResponses[keyof ReadMhsStatesResponses];
+export type ReadMhsHwdResponse = ReadMhsHwdResponses[keyof ReadMhsHwdResponses];
 
-export type WriteMhsStatesData = {
-    body: MhsV0States;
+export type WriteMhsHwdData = {
+    body: MhsV0WriteRequest;
     path?: never;
     query?: never;
-    url: '/gizclaw/v1/device/mhs/v0/states';
+    url: '/gizclaw/v1/device/mhs/v0/write';
 };
 
-export type WriteMhsStatesErrors = {
+export type WriteMhsHwdErrors = {
     /**
      * Invalid request.
      */
@@ -1152,7 +1286,7 @@ export type WriteMhsStatesErrors = {
      */
     403: ErrorResponse;
     /**
-     * The device does not implement a requested hardware state (MHS_STATE_NOT_FOUND).
+     * The device does not implement the requested HWD instance (MHS_HWD_NOT_FOUND).
      */
     404: ErrorResponse;
     /**
@@ -1177,16 +1311,16 @@ export type WriteMhsStatesErrors = {
     504: ErrorResponse;
 };
 
-export type WriteMhsStatesError = WriteMhsStatesErrors[keyof WriteMhsStatesErrors];
+export type WriteMhsHwdError = WriteMhsHwdErrors[keyof WriteMhsHwdErrors];
 
-export type WriteMhsStatesResponses = {
+export type WriteMhsHwdResponses = {
     /**
      * Success
      */
-    200: MhsV0States;
+    200: MhsV0WriteResult;
 };
 
-export type WriteMhsStatesResponse = WriteMhsStatesResponses[keyof WriteMhsStatesResponses];
+export type WriteMhsHwdResponse = WriteMhsHwdResponses[keyof WriteMhsHwdResponses];
 
 export type ListDeviceWorkspacesData = {
     body?: never;
@@ -3489,7 +3623,7 @@ export type ListClientToolsErrors = {
      */
     403: ErrorResponse;
     /**
-     * The device does not implement a requested hardware state (MHS_STATE_NOT_FOUND).
+     * The requested device resource was not found.
      */
     404: ErrorResponse;
     /**
@@ -3546,7 +3680,7 @@ export type InvokeClientToolErrors = {
      */
     403: ErrorResponse;
     /**
-     * The device does not implement a requested hardware state (MHS_STATE_NOT_FOUND).
+     * The requested device resource was not found.
      */
     404: ErrorResponse;
     /**
