@@ -1,9 +1,10 @@
 ---
-# Tools bound by the e2e-giztest RuntimeProfile so Workspace toolkit selections
-# have real bindings to resolve (server.workspace.toolkit.roundtrip). Device
-# procedures are the predefined tool/v0 ClientTool set, not Admin Tools, so
-# these are ordinary http_request Tools. They stay disabled: no Workflow
-# declares them to a model, and the reserved .invalid host is never dialed.
+# Declaration-only Tools bound by the e2e-giztest RuntimeProfile. Workspace
+# toolkit selections resolve them (server.workspace.toolkit.roundtrip), and the
+# giztest-toolkit-probe-* Workflows opt into them so a real model can list their
+# declarations (server.workspace.toolkit.exposure). Workflows that do not list
+# them never receive them, and the reserved .invalid host is never dialed.
+# Device procedures are the predefined tool/v0 ClientTool set, not Admin Tools.
 apiVersion: gizclaw.admin/v1alpha1
 kind: ResourceList
 spec:
@@ -15,8 +16,7 @@ spec:
     spec:
       type: http_request
       invoke_name: giztest_echo
-      enabled: false
-      description: Workspace toolkit selection fixture.
+      description: Return a deterministic Giztest echo marker for a key.
       input_schema:
         type: object
         properties:
@@ -42,8 +42,7 @@ spec:
     spec:
       type: http_request
       invoke_name: giztest_other
-      enabled: false
-      description: Second Workspace toolkit selection fixture.
+      description: Return a second deterministic Giztest marker for a key.
       input_schema:
         type: object
         properties:

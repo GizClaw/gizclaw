@@ -74,7 +74,7 @@ func TestServiceResolverResolveWithoutToolsHasNilToolInvoker(t *testing.T) {
 	owner := "owner-public-key"
 	ws := systemWorkspace("demo", "workflow-1", nil)
 	ws.OwnerPublicKey = &owner
-	bindings := map[string]apitypes.RuntimeProfileBinding{"giztest-echo": {ResourceId: "giztest-client-echo"}}
+	bindings := map[string]apitypes.RuntimeProfileBinding{"giztest-echo": {ResourceId: "giztest-toolkit-echo"}}
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{"demo": ws}},
 		Workflows:  fakeWorkflowService{items: map[string]apitypes.Workflow{"workflow-1": mustWorkflow(t, "workflow-1")}},
@@ -93,7 +93,7 @@ func TestServiceResolverResolveWithoutToolsHasNilToolInvoker(t *testing.T) {
 	if spec.ToolInvoker != nil {
 		t.Fatalf("Resolve() ToolInvoker = %#v, want nil", spec.ToolInvoker)
 	}
-	ids := []string{"giztest-client-echo"}
+	ids := []string{"giztest-toolkit-echo"}
 	workflow := mustWorkflow(t, "workflow-1")
 	workflow.Spec.Toolkit = &apitypes.ToolkitPolicy{ToolIds: &ids}
 	resolver.Workflows = fakeWorkflowService{items: map[string]apitypes.Workflow{"workflow-1": workflow}}

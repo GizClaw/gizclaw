@@ -40,6 +40,9 @@ spec:
     flowcraft-memory-peer-a: {resource_id: flowcraft-memory-peer-a, i18n: {en: {display_name: Peer Memory A}, zh-CN: {display_name: Peer 记忆 A}}, tags: [assistants]}
     flowcraft-memory-peer-b: {resource_id: flowcraft-memory-peer-b, i18n: {en: {display_name: Peer Memory B}, zh-CN: {display_name: Peer 记忆 B}}, tags: [assistants]}
     flowcraft-memory-workspace: {resource_id: flowcraft-memory-workspace, i18n: {en: {display_name: Workspace Memory}, zh-CN: {display_name: Workspace 记忆}}, tags: [assistants]}
+    giztest-toolkit-probe-none: {resource_id: giztest-toolkit-probe-none, i18n: {en: {display_name: Toolkit Probe None}, zh-CN: {display_name: 工具探针 无}}, tags: [assistants]}
+    giztest-toolkit-probe-echo: {resource_id: giztest-toolkit-probe-echo, i18n: {en: {display_name: Toolkit Probe Echo}, zh-CN: {display_name: 工具探针 Echo}}, tags: [assistants]}
+    giztest-toolkit-probe-both: {resource_id: giztest-toolkit-probe-both, i18n: {en: {display_name: Toolkit Probe Both}, zh-CN: {display_name: 工具探针 全部}}, tags: [assistants]}
   # Four arbitrary identifiers exercise Profile-owned levels. The test marker
   # is synthetic, not product wording. "child" remains absent for the missing-level case.
   safety_fences:

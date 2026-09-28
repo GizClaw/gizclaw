@@ -38,6 +38,12 @@ Tool 只能由 Workflow 显式开启。RuntimeProfile `resources.tools` binding 
 - 交集为空时 AgentHost 不创建 ToolInvoker，Transformer 调用模型时不携带工具声明，
   也不读取 Tool Resource。
 
+标准 Giztest RuntimeProfile 绑定 `09-giztest/00-toolkit-tools.yaml` 中只用于声明的
+`giztest_echo` 与 `giztest_other`，它们的 host 是保留的 `.invalid`，不会被真正调用。
+`server.workspace.toolkit.exposure.giztest.yaml` 让真实模型只列出声明给它的工具名、
+不做调用；工具名不出现在任何 prompt 中，只能来自声明。该文档覆盖 Workflow 省略策略、
+完整列表、Workspace 收窄和 Workspace 无法放大四种组合。
+
 ## HTTP auth 与 transport
 
 HTTP auth 是封闭 union：`none`、`bearer`、`header_api_key`、`volc_ark`、

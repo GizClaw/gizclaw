@@ -36,6 +36,14 @@ decides which Tools the current Peer may use; it never hands them to a Workflow.
   Transformer calls the model without Tool declarations, and no Tool Resource is
   read.
 
+The standard Giztest RuntimeProfile binds the declaration-only `giztest_echo`
+and `giztest_other` Tools from `09-giztest/00-toolkit-tools.yaml`; their reserved
+`.invalid` host is never called. `server.workspace.toolkit.exposure.giztest.yaml`
+asks a real model to list, without invoking, the Tools declared to it. The Tool
+names appear in no prompt, so each listed name proves a declaration. It covers
+an omitted Workflow policy, a full Workflow list, Workspace narrowing, and a
+Workspace selection that cannot widen the Workflow list.
+
 ## HTTP authentication and transport
 
 HTTP auth is a closed union: `none`, `bearer`, `header_api_key`, `volc_ark`,

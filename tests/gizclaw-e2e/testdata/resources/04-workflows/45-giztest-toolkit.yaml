@@ -1,0 +1,84 @@
+# Toolkit exposure probes for server.workspace.toolkit.exposure.giztest.yaml.
+# The e2e-giztest RuntimeProfile binds both declaration-only Tools from
+# 09-giztest/00-toolkit-tools.yaml; each Workflow lists a different opt-in set.
+apiVersion: gizclaw.admin/v1alpha1
+kind: ResourceList
+spec:
+  items:
+  # Omits spec.toolkit, so it exposes no Tools.
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Workflow
+    metadata:
+      id: giztest-toolkit-probe-none
+    spec:
+      driver: flowcraft
+      flowcraft:
+        graph:
+          edges:
+          - from: answer
+            to: __end__
+          entry: answer
+          name: ToolkitProbe
+          nodes:
+          - config:
+              max_tokens: 128
+              model: llm
+              system_prompt: "You are a tool inventory probe for an automated test. Do not invoke any tool in this reply. Reply with one line that lists the exact name of every tool (function) declared to you in this request, in alphabetical order, separated by commas. If no tool is declared, reply exactly NO_TOOLS. Output nothing else."
+            id: answer
+            publish: true
+            type: llm
+        max_iterations: 2
+        conversation:
+          starts: peer
+  # Lists only the echo Tool.
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Workflow
+    metadata:
+      id: giztest-toolkit-probe-echo
+    spec:
+      toolkit: {tool_ids: [giztest-toolkit-echo]}
+      driver: flowcraft
+      flowcraft:
+        graph:
+          edges:
+          - from: answer
+            to: __end__
+          entry: answer
+          name: ToolkitProbe
+          nodes:
+          - config:
+              max_tokens: 128
+              model: llm
+              system_prompt: "You are a tool inventory probe for an automated test. Do not invoke any tool in this reply. Reply with one line that lists the exact name of every tool (function) declared to you in this request, in alphabetical order, separated by commas. If no tool is declared, reply exactly NO_TOOLS. Output nothing else."
+            id: answer
+            publish: true
+            type: llm
+        max_iterations: 2
+        conversation:
+          starts: peer
+  # Lists both Tools.
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Workflow
+    metadata:
+      id: giztest-toolkit-probe-both
+    spec:
+      toolkit: {tool_ids: [giztest-toolkit-echo, giztest-toolkit-other]}
+      driver: flowcraft
+      flowcraft:
+        graph:
+          edges:
+          - from: answer
+            to: __end__
+          entry: answer
+          name: ToolkitProbe
+          nodes:
+          - config:
+              max_tokens: 128
+              model: llm
+              system_prompt: "You are a tool inventory probe for an automated test. Do not invoke any tool in this reply. Reply with one line that lists the exact name of every tool (function) declared to you in this request, in alphabetical order, separated by commas. If no tool is declared, reply exactly NO_TOOLS. Output nothing else."
+            id: answer
+            publish: true
+            type: llm
+        max_iterations: 2
+        conversation:
+          starts: peer
