@@ -434,6 +434,13 @@ performs both. Only credential placeholders are expanded from `.env`; missing
 provider credentials fail before a partial setup can be treated as valid.
 Workspace history is runtime data and must not be seeded by the reset script.
 
+Server apply may silently ignore fields the Schema does not declare, so a
+successful reset does not prove the fixtures match the Schema.
+`go test ./cmd/internal/commands/admin -run '^TestAdminValidateE2EResourceFixtures$'`
+runs `admin validate` offline over every fixture under `testdata/resources/`,
+including the dedicated `mhs/` and `safety-fence/` catalogs, with placeholder
+values for `${...}` references.
+
 ### Suite ownership
 
 - `go/admin` validates typed contracts with the generated Admin HTTP client.

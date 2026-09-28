@@ -4,7 +4,6 @@ kind: Firmware
 metadata:
   id: devkit-voice-firmware
 spec:
-  name: Devkit Voice
   description: Voice devkit firmware resource entry
   slots:
     stable: {}

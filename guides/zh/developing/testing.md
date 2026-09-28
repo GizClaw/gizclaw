@@ -401,6 +401,11 @@ bash tests/gizclaw-e2e/setup/reset-data.sh reset --context remote-admin
 `.env` 展开 credential placeholders；provider credential 缺失时必须 fail fast。
 Workspace history 是运行时数据，不能由 reset 脚本直接 seed。
 
+Server apply 可能静默忽略 Schema 未声明的字段，因此 reset 成功不能证明 fixture 与 Schema 一致。
+`go test ./cmd/internal/commands/admin -run '^TestAdminValidateE2EResourceFixtures$'`
+对 `testdata/resources/` 下每个 fixture（包括 `mhs/` 与 `safety-fence/` 专用清单）离线执行
+`admin validate`，`${...}` placeholder 使用占位值。
+
 ### Suite ownership
 
 - `go/admin` 使用 generated Admin HTTP client 验证 typed contract。

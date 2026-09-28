@@ -4,6 +4,8 @@ kind: RuntimeProfile
 metadata:
   id: e2e-giztest
 spec:
+  workflows: {}
+  resources: {}
   mhs:
     v0:
       devices:
