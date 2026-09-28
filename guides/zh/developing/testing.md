@@ -1349,7 +1349,7 @@ tests/gizclaw-e2e/testdata/bin/gizclaw test run \
   tests/gizclaw-e2e/giztest/eino-mixed-provider-voices.tts-speech-rate.giztest.yaml
 ```
 
-安全围栏离线测试覆盖参数、RPC、Profile SQL/revision 和各 driver 的注入。E2E RuntimeProfile fixture 定义 `alpha`、`bravo`、`charlie`、`delta` 四个独立完整 prompt。`server.workspace.safety-fence.roundtrip.giztest.yaml` 验证 RPC 档位发现、缺少选择时报错、自定义 ID 往返和格式错误；`server.device.runtime_profile.get.giztest.yaml` 验证 HTTP 档位发现且不暴露 prompt；`server.workspace.safety-fence.missing-profile.giztest.yaml` 验证 Profile 未定义 `child` 时 reload 明确失败；`sfu.workspace.switch.giztest.yaml` 验证合法 ID no-op。Admin put 400 在 Workspace Go 测试中验证：Giztest 的临时 Peer 连接不具备 Admin HTTP 权限。五个 `safety-fence-*.giztest.yaml` 场景分别覆盖 Flowcraft、Eino 和三个 Realtime driver 的显式 prompt 注入。
+安全围栏离线测试覆盖参数、RPC、Profile SQL/revision 和各 driver 的注入。E2E RuntimeProfile fixture 定义 `alpha`、`bravo`、`charlie`、`delta` 四个独立完整 prompt。`server.workspace.safety-fence.roundtrip.giztest.yaml` 验证 RPC 档位发现、未选档时 reload 成功、自定义 ID 往返和格式错误；`server.device.runtime_profile.get.giztest.yaml` 验证 HTTP 档位发现且不暴露 prompt；`server.workspace.safety-fence.missing-profile.giztest.yaml` 验证 Profile 未定义 `child` 时 reload 明确失败；`sfu.workspace.switch.giztest.yaml` 验证合法 ID no-op。Admin put 400 在 Workspace Go 测试中验证：Giztest 的临时 Peer 连接不具备 Admin HTTP 权限。五个 `safety-fence-*.giztest.yaml` 场景分别覆盖 Flowcraft、Eino 和三个 Realtime driver 的显式 prompt 注入。
 
 在线运行这九个场景使用专用的最小资源清单 `testdata/resources/safety-fence/` 和隔离 Docker project，需提供标准 E2E provider 凭据：
 

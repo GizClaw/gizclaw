@@ -22,12 +22,9 @@ func resolveSafetyFence(ctx context.Context, ws apitypes.Workspace, workflow api
 		}
 	}
 	if level == nil {
-		// Existing profiles without fences keep their pre-feature behavior.
-		// Once a profile defines levels, its Workspace must select one.
-		if profile, ok := ctx.Value(runtimeProfileContextKey{}).(apitypes.RuntimeProfile); !ok || profile.Spec.SafetyFences == nil {
-			return "", nil
-		}
-		return "", fmt.Errorf("workspace %q has no safety_fence_level selection", ws.Name)
+		// Selection is optional: a Workspace without one runs unfenced even
+		// when its Profile defines levels.
+		return "", nil
 	}
 	profile, ok := ctx.Value(runtimeProfileContextKey{}).(apitypes.RuntimeProfile)
 	if !ok {

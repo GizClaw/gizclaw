@@ -169,9 +169,9 @@ spec:
     delta: {display_name: Delta, prompt: 完整的 Delta 测试规则}
 ```
 
-设备通过 `server.workflow.list` 响应中的 `safety_fences` 列表发现当前绑定 Profile 可用的 name 与展示名；持有 API key 的调用方也可读取 `GET /gizclaw/v1/device/runtime-profile` 中的 ID 与展示名。两个入口均不返回 prompt，列表按标识符排序，Profile revision 随配置变更。选择在 Workspace 的 `safety_fence_level` 中保存并回读。`server.workspace.parameters.set` 和 `server.run.workspace.reload-with-options.parameters` 省略此字段时保留已存选择；显式空字符串或格式非法在写入时被拒绝。公共 patch 不提供清除操作；Admin `put` 删除参数属性可以清除已存选择，但若 Profile 已定义围栏，下一次 reload 会因缺少选择失败。旧 Profile 的 `general`、`child` 属性作为普通映射条目保留；旧 Workspace 的 `off` 也是普通 ID，只有 Profile 显式定义 `off` 才能解析。旧 Protobuf enum 的 varint 字段已保留编号，新客户端必须发送新的 string 字段；旧请求不会被解释为另一档。
+设备通过 `server.workflow.list` 响应中的 `safety_fences` 列表发现当前绑定 Profile 可用的 name 与展示名；持有 API key 的调用方也可读取 `GET /gizclaw/v1/device/runtime-profile` 中的 ID 与展示名。两个入口均不返回 prompt，列表按标识符排序，Profile revision 随配置变更。选择在 Workspace 的 `safety_fence_level` 中保存并回读。`server.workspace.parameters.set` 和 `server.run.workspace.reload-with-options.parameters` 省略此字段时保留已存选择；显式空字符串或格式非法在写入时被拒绝。公共 patch 不提供清除操作；Admin `put` 删除参数属性可以清除已存选择，之后该 Workspace 不注入围栏。旧 Profile 的 `general`、`child` 属性作为普通映射条目保留；旧 Workspace 的 `off` 也是普通 ID，只有 Profile 显式定义 `off` 才能解析。旧 Protobuf enum 的 varint 字段已保留编号，新客户端必须发送新的 string 字段；旧请求不会被解释为另一档。
 
-Profile 定义围栏后，支持提示词的 Workspace 缺少选择或选中不存在的 ID 时，reload 明确失败，不会降级。错误包含 Workspace、档位和 Profile ID；Profile 不可用或 prompt 无效也失败。旧 Profile 完全未定义围栏、Workspace 也未选档时，继续提供空字符串以兼容原有运行。配置更新和 reload 均读取 owner 当前 Profile 快照；移除已选档位会让下一次 reload 失败。参数保存与 reload 不是同一事务：reload 失败保留已存选择，修复 Profile 或选择其现有 ID 后重试。
+选择是可选的：未选档的 Workspace 不注入围栏，Workflow 收到空字符串，无论 Profile 是否定义了围栏。支持提示词的 Workspace 选中 Profile 中不存在的 ID 时，reload 明确失败，不会降级为无围栏。错误包含 Workspace、档位和 Profile ID；已选档但 Profile 不可用或 prompt 无效也失败。配置更新和 reload 均读取 owner 当前 Profile 快照；移除已选档位会让下一次 reload 失败。参数保存与 reload 不是同一事务：reload 失败保留已存选择，修复 Profile 或选择其现有 ID 后重试。
 
 GizClaw 只把当前档位的完整 prompt 作为具名变量提供给 Workflow。引用位置由 Workflow（包括 raid 内各 Workflow）决定；未引用变量的 Workflow 不会收到该文本。年龄标签是独立的 Workflow/内容属性，围栏选择不会重写 Raid 自身的 prompt。
 

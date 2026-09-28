@@ -53,15 +53,13 @@ steps:
         flowcraft_workspace_parameters:
           agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
           input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
-- id: missing_selection_reload
+# No selection runs unfenced even though the Profile defines levels.
+- id: unselected_reload
   client: peer
   rpc:
     method: server.run.workspace.reload-with-options
     request:
       workspace_name: "${resource_name}"
-  expect_error:
-    code: 3
-    message_contains: "no safety_fence_level selection"
 - id: set_alpha
   client: peer
   rpc:
