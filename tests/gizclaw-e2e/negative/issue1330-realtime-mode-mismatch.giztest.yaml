@@ -52,7 +52,6 @@ steps:
       method: server.workspace.create
       request:
         name: ${workspace_name}
-        collection: assistants
         workflow_name: doubao-realtime-conversation
   - id: select_workspace
     client: peer
