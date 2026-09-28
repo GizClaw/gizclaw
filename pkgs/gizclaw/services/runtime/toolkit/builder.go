@@ -8,11 +8,14 @@ import (
 	"sort"
 )
 
+// BuildRequest selects Tools for one model call. ProfileTools are the
+// canonical IDs bound by the current Peer RuntimeProfile. AllowedTools is the
+// complete opt-in list of canonical IDs; Tools are never inherited, so an empty
+// list exposes no Tools.
 type BuildRequest struct {
 	CallerPublicKey string
 	ProfileTools    []string
 	AllowedTools    []string
-	RestrictTools   bool
 }
 
 type Builder struct {
@@ -36,13 +39,10 @@ func (b *Builder) Build(ctx context.Context, req BuildRequest) (ToolKit, error) 
 		tools = append(tools, tool)
 	}
 	sort.Slice(tools, func(i, j int) bool { return tools[i].InvokeName < tools[j].InvokeName })
-	allowedPolicy := toolIDSet(req.AllowedTools, req.RestrictTools || len(req.AllowedTools) > 0)
+	allowed := toolIDSet(req.AllowedTools)
 	out := make([]Tool, 0, len(tools))
 	for _, tool := range tools {
-		if !tool.Enabled {
-			continue
-		}
-		if allowedPolicy != nil && !allowedPolicy[tool.ID] {
+		if !tool.Enabled || !allowed[tool.ID] {
 			continue
 		}
 		out = append(out, tool)
@@ -66,10 +66,7 @@ func orderedToolIDs(profile []string) []string {
 	return out
 }
 
-func toolIDSet(ids []string, restrict bool) map[string]bool {
-	if !restrict {
-		return nil
-	}
+func toolIDSet(ids []string) map[string]bool {
 	out := make(map[string]bool, len(ids))
 	for _, id := range ids {
 		if id != "" {

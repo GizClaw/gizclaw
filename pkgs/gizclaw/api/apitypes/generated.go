@@ -5690,7 +5690,7 @@ type ReusableASTTranslateWorkflowVariant struct {
 	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
 	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
 
-	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
 
@@ -5705,7 +5705,7 @@ type ReusableDashScopeRealtimeWorkflowVariant struct {
 	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
 	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
 
-	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
 
@@ -5720,7 +5720,7 @@ type ReusableDoubaoRealtimeDuplexWorkflowVariant struct {
 	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
 	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
 
-	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
 
@@ -5735,7 +5735,7 @@ type ReusableDoubaoRealtimeWorkflowVariant struct {
 	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
 	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
 
-	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
 
@@ -5750,7 +5750,7 @@ type ReusableEinoWorkflowVariant struct {
 	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
 	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
 
-	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
 
@@ -5765,7 +5765,7 @@ type ReusableFlowcraftWorkflowVariant struct {
 	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
 	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
 
-	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
 
@@ -5791,7 +5791,7 @@ type ReusableWorkflowSpecObject struct {
 	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
 	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
 
-	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
 
@@ -6251,7 +6251,7 @@ type ToolTriggerExample struct {
 // ToolType defines model for ToolType.
 type ToolType string
 
-// ToolkitPolicy Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+// ToolkitPolicy Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
 type ToolkitPolicy struct {
 	// ToolIds Allowed canonical Tool resource IDs. RuntimeProfile aliases and Tool invoke names are not accepted.
 	ToolIds *[]string `json:"tool_ids,omitempty"`
@@ -6481,7 +6481,7 @@ type WorkflowSpecObject struct {
 	// Sfu Empty SFU Workflow payload. The Workspace binds the current Peer to the SFU Room declared by its Social resource; the Workflow itself carries no configuration.
 	Sfu *SFUWorkflowSpec `json:"sfu,omitempty"`
 
-	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
 
@@ -6507,7 +6507,7 @@ type Workspace struct {
 	// System Whether the Workspace lifecycle is owned by another domain service. System Workspaces cannot be deleted through generic Workspace operations.
 	System *bool `json:"system,omitempty"`
 
-	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
 	Toolkit    *ToolkitPolicy `json:"toolkit,omitempty"`
 	UpdatedAt  time.Time      `json:"updated_at"`
 	WorkflowId string         `json:"workflow_id"`
@@ -6544,7 +6544,7 @@ type WorkspaceSpec struct {
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
 	Parameters *WorkspaceParameters `json:"parameters,omitempty"`
 
-	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 
 	// WorkflowId Referenced Workflow canonical ID.

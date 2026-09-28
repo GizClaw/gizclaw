@@ -17,9 +17,8 @@ func TestBuilderResolvesCanonicalIDsAndAppliesPolicy(t *testing.T) {
 		toolIDs[tool.InvokeName] = created.ID
 	}
 	kit, err := (&Builder{Tools: server}).Build(context.Background(), BuildRequest{
-		ProfileTools:  []string{toolIDs["get_weather"], toolIDs["volume_set"], toolIDs["get_weather"]},
-		AllowedTools:  []string{toolIDs["volume_set"]},
-		RestrictTools: true,
+		ProfileTools: []string{toolIDs["get_weather"], toolIDs["volume_set"], toolIDs["get_weather"]},
+		AllowedTools: []string{toolIDs["volume_set"], "unbound-tool"},
 	})
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
@@ -29,6 +28,27 @@ func TestBuilderResolvesCanonicalIDsAndAppliesPolicy(t *testing.T) {
 	}
 	if _, ok := kit.Find("get_weather"); ok {
 		t.Fatal("policy-excluded Tool was returned")
+	}
+}
+
+func TestBuilderExposesNoToolsWithoutAllowedTools(t *testing.T) {
+	t.Parallel()
+	server := &Server{DB: newTestDatabase(t)}
+	created, err := server.CreateTool(context.Background(), testHTTPTool("get_weather"))
+	if err != nil {
+		t.Fatalf("PutTool(): %v", err)
+	}
+	for _, allowed := range [][]string{nil, {}} {
+		kit, err := (&Builder{Tools: server}).Build(context.Background(), BuildRequest{
+			ProfileTools: []string{created.ID},
+			AllowedTools: allowed,
+		})
+		if err != nil {
+			t.Fatalf("Build(%#v): %v", allowed, err)
+		}
+		if len(kit.Tools) != 0 {
+			t.Fatalf("Build(%#v) inherited RuntimeProfile tools: %#v", allowed, kit.Tools)
+		}
 	}
 }
 
@@ -43,6 +63,7 @@ func TestBuilderSkipsDisabledAndRejectsDanglingTools(t *testing.T) {
 	}
 	kit, err := (&Builder{Tools: server}).Build(context.Background(), BuildRequest{
 		ProfileTools: []string{created.ID},
+		AllowedTools: []string{created.ID},
 	})
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
@@ -67,12 +88,13 @@ func TestBuilderReturnsDefensiveSnapshots(t *testing.T) {
 		t.Fatalf("PutTool(): %v", err)
 	}
 	builder := &Builder{Tools: server}
-	first, err := builder.Build(context.Background(), BuildRequest{ProfileTools: []string{created.ID}})
+	request := BuildRequest{ProfileTools: []string{created.ID}, AllowedTools: []string{created.ID}}
+	first, err := builder.Build(context.Background(), request)
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
 	}
 	first.Tools[0].Metadata[0] = '['
-	second, err := builder.Build(context.Background(), BuildRequest{ProfileTools: []string{created.ID}})
+	second, err := builder.Build(context.Background(), request)
 	if err != nil {
 		t.Fatalf("Build() second: %v", err)
 	}

@@ -24,7 +24,7 @@ func TestToolkitInvokerUsesCanonicalCurrentPeerScope(t *testing.T) {
 	volume := putAgentHostTool(t, server, agentHostBoundHTTPTool("volume_set"))
 	brightness := putAgentHostTool(t, server, agentHostBoundHTTPTool("brightness_set"))
 	client := &recordingHTTPTools{result: json.RawMessage(`{"ok":true}`)}
-	invoker := &ToolkitInvoker{Builder: &toolkit.Builder{Tools: server}, HTTP: giztools.HTTPExecutor{Transport: client}}
+	invoker := &ToolkitInvoker{Builder: &toolkit.Builder{Tools: server}, HTTP: giztools.HTTPExecutor{Transport: client}, Request: toolkit.BuildRequest{AllowedTools: []string{brightness.ID, volume.ID}}}
 	ctx := toolTestContext(t, map[string]string{
 		"volume":     volume.ID,
 		"brightness": brightness.ID,
@@ -54,7 +54,7 @@ func TestToolkitInvokerReauthorizesResourceAtInvoke(t *testing.T) {
 	server := toolkittest.New(t)
 	tool := agentHostBoundHTTPTool("volume_set")
 	created := putAgentHostTool(t, server, tool)
-	invoker := &ToolkitInvoker{Builder: &toolkit.Builder{Tools: server}}
+	invoker := &ToolkitInvoker{Builder: &toolkit.Builder{Tools: server}, Request: toolkit.BuildRequest{AllowedTools: []string{created.ID}}}
 	ctx := toolTestContext(t, map[string]string{"volume": created.ID})
 	if _, err := invoker.ResolveTools(ctx); err != nil {
 		t.Fatal(err)
@@ -85,6 +85,7 @@ func TestToolkitInvokerHTTPDispatch(t *testing.T) {
 	invoker := &ToolkitInvoker{
 		Builder: &toolkit.Builder{Tools: server},
 		HTTP:    giztools.HTTPExecutor{Transport: transport},
+		Request: toolkit.BuildRequest{AllowedTools: []string{created.ID}},
 	}
 	ctx := toolTestContext(t, map[string]string{"weather": created.ID})
 	result, err := invoker.InvokeTool(ctx, "get_weather", json.RawMessage(`{"city":"Hangzhou"}`))
@@ -98,7 +99,7 @@ func TestToolkitInvokerConcurrentPeerScopesStayIsolated(t *testing.T) {
 	firstTool := putAgentHostTool(t, server, agentHostBoundHTTPTool("peer_a"))
 	secondTool := putAgentHostTool(t, server, agentHostBoundHTTPTool("peer_b"))
 	recorder := &recordingHTTPTools{result: json.RawMessage(`{"ok":true}`)}
-	invoker := &ToolkitInvoker{Builder: &toolkit.Builder{Tools: server}, HTTP: giztools.HTTPExecutor{Transport: recorder}}
+	invoker := &ToolkitInvoker{Builder: &toolkit.Builder{Tools: server}, HTTP: giztools.HTTPExecutor{Transport: recorder}, Request: toolkit.BuildRequest{AllowedTools: []string{firstTool.ID, secondTool.ID}}}
 	contexts := []context.Context{toolTestContext(t, map[string]string{"a": firstTool.ID}), toolTestContext(t, map[string]string{"b": secondTool.ID})}
 	names := []string{"peer_a", "peer_b"}
 	var wg sync.WaitGroup
@@ -233,7 +234,7 @@ func TestToolkitInvokerRejectsInvalidArgumentsBeforeHTTP(t *testing.T) {
 	server := toolkittest.New(t)
 	created := putAgentHostTool(t, server, agentHostBoundHTTPTool("volume_set"))
 	client := &recordingHTTPTools{}
-	invoker := &ToolkitInvoker{Builder: &toolkit.Builder{Tools: server}, HTTP: giztools.HTTPExecutor{Transport: client}}
+	invoker := &ToolkitInvoker{Builder: &toolkit.Builder{Tools: server}, HTTP: giztools.HTTPExecutor{Transport: client}, Request: toolkit.BuildRequest{AllowedTools: []string{created.ID}}}
 	ctx := toolTestContext(t, map[string]string{"volume": created.ID})
 	if _, err := invoker.InvokeTool(ctx, "volume_set", json.RawMessage(`{"level":"loud"}`)); !errors.Is(err, toolkit.ErrInvalidTool) {
 		t.Fatalf("InvokeTool() error = %v", err)

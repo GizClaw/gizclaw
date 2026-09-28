@@ -28,9 +28,8 @@ func TestResolveInvokeReauthorizesAndValidatesArguments(t *testing.T) {
 	builder := &Builder{Tools: server}
 	resolved, args, err := builder.ResolveInvoke(context.Background(), InvokeRequest{
 		Build: BuildRequest{
-			ProfileTools:  []string{created.ID},
-			AllowedTools:  []string{created.ID},
-			RestrictTools: true,
+			ProfileTools: []string{created.ID},
+			AllowedTools: []string{created.ID},
 		},
 		Name: "volume_set",
 		Args: json.RawMessage(`{"level":7}`),
@@ -44,7 +43,7 @@ func TestResolveInvokeReauthorizesAndValidatesArguments(t *testing.T) {
 
 	for _, bad := range []json.RawMessage{json.RawMessage(`[]`), json.RawMessage(`{"level":"loud"}`), json.RawMessage(`{"level":7,"extra":true}`)} {
 		if _, _, err := builder.ResolveInvoke(context.Background(), InvokeRequest{
-			Build: BuildRequest{ProfileTools: []string{created.ID}},
+			Build: BuildRequest{ProfileTools: []string{created.ID}, AllowedTools: []string{created.ID}},
 			Name:  "volume_set",
 			Args:  bad,
 		}); !errors.Is(err, ErrInvalidTool) {
@@ -61,7 +60,13 @@ func TestResolveInvokeRejectsUnboundAliasAndSeesResourceUpdate(t *testing.T) {
 		t.Fatalf("PutTool(): %v", err)
 	}
 	builder := &Builder{Tools: server}
-	request := BuildRequest{ProfileTools: []string{created.ID}}
+	request := BuildRequest{ProfileTools: []string{created.ID}, AllowedTools: []string{created.ID}}
+	if _, _, err := builder.ResolveInvoke(context.Background(), InvokeRequest{
+		Build: request,
+		Name:  "volume_set",
+	}); err != nil {
+		t.Fatalf("enabled invocation error = %v", err)
+	}
 	if _, _, err := builder.ResolveInvoke(context.Background(), InvokeRequest{
 		Build: request,
 		Name:  "device-volume",

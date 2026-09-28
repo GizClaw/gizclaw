@@ -12,7 +12,7 @@ policy 按 [Workspace 选择规则](./peerresource) 解析 scoped name 或已绑
 Workspace 选择在 binding 移除后仍保留可读取的调用名投影；不可读取或有 alias
 冲突的项被跳过，不能影响 Workspace 操作成功。全部项不可表示时返回空列表，
 现有 Schema 无法在该响应中区别失效引用与显式禁用；已存 ID 不变，投影列表不是
-无损备份。有效工具始终受当前 Peer Profile 限制。没有选择字段的策略统一按 nil 继承处理，显式空数组仍表示禁用。
+无损备份。模型实际可用的工具由下文“暴露策略”决定。
 
 目前支持一种 Tool：
 
@@ -22,6 +22,21 @@ Workspace 选择在 binding 移除后仍保留可读取的调用名投影；不�
 
 Resource contract 中不存在 `source`、`builtin`、executor registry、第二套 Tool
 identity、`output_schema` 或 provider ToolCall ID。
+
+## 暴露策略
+
+Tool 只能由 Workflow 显式开启。RuntimeProfile `resources.tools` binding 只决定
+当前 Peer 能使用哪些 Tool，不会自动交给任何 Workflow。
+
+- Workflow `spec.toolkit.tool_ids` 是该 Workflow 可用 canonical ID 的完整列表。
+  省略 `spec.toolkit`、省略 `tool_ids` 与 `tool_ids: []` 等价，都不提供任何工具。
+- Workspace `toolkit.tool_ids` 只与 Workflow 列表取交集，不能加入 Workflow 未列出
+  的工具。省略时不再收窄，显式空数组禁用全部工具。Peer 按名称选择的规则见
+  [Workspace 选择规则](./peerresource)。
+- 每次调用时，结果再与当前 Peer RuntimeProfile binding 取交集。列出但未被 Profile
+  绑定的 ID 只是不可用，不会报错。
+- 交集为空时 AgentHost 不创建 ToolInvoker，Transformer 调用模型时不携带工具声明，
+  也不读取 Tool Resource。
 
 ## HTTP auth 与 transport
 

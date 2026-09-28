@@ -34,22 +34,14 @@ func TestBenchmarkWorkflowsExcludeProfileTools(t *testing.T) {
 				t.Fatal(err)
 			}
 			invoker, err := resolver.resolveToolkit(ctx, apitypes.Workspace{}, apitypes.Workflow{Spec: resource.Spec})
-			if err != nil {
-				t.Fatal(err)
+			if err != nil || invoker != nil {
+				t.Fatalf("benchmark ToolInvoker = %#v, error = %v", invoker, err)
 			}
-			definitions, err := invoker.ResolveTools(ctx)
-			if err != nil || len(definitions) != 0 {
-				t.Fatalf("benchmark tools = %v, error = %v", definitions, err)
-			}
-			// Omission still inherits every RuntimeProfile Tool.
+			// Omission is the same opt-out; it never inherits RuntimeProfile Tools.
 			resource.Spec.Toolkit = nil
-			inherited, err := resolver.resolveToolkit(ctx, apitypes.Workspace{}, apitypes.Workflow{Spec: resource.Spec})
-			if err != nil {
-				t.Fatal(err)
-			}
-			definitions, err = inherited.ResolveTools(ctx)
-			if err != nil || len(definitions) != 1 || definitions[0].Name != "giztest_echo" {
-				t.Fatalf("inherited tools = %v, error = %v", definitions, err)
+			invoker, err = resolver.resolveToolkit(ctx, apitypes.Workspace{}, apitypes.Workflow{Spec: resource.Spec})
+			if err != nil || invoker != nil {
+				t.Fatalf("omitted-policy ToolInvoker = %#v, error = %v", invoker, err)
 			}
 		})
 	}

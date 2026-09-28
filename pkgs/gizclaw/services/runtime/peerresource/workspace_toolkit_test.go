@@ -18,19 +18,28 @@ import (
 )
 
 func TestWorkspaceRPCToolkitResolution(t *testing.T) {
+	both := []string{"echo-id", "other-id"}
 	for _, test := range []struct {
-		name, policy string
-		want         []string
+		name, policy  string
+		workflowTools []string
+		want          []string
 	}{
-		{"absent", ``, []string{"giztest_echo", "other"}},
-		{"absent_list", `,"toolkit":{}`, []string{"giztest_echo", "other"}},
-		{"empty", `,"toolkit":{"tool_names":[]}`, []string{}},
-		{"alias", `,"toolkit":{"tool_names":["echo-alias"]}`, []string{"giztest_echo"}},
-		{"invoke_name", `,"toolkit":{"tool_names":["giztest_echo"]}`, []string{"giztest_echo"}},
+		{"absent", ``, both, []string{"giztest_echo", "other"}},
+		{"absent_list", `,"toolkit":{}`, both, []string{"giztest_echo", "other"}},
+		{"empty", `,"toolkit":{"tool_names":[]}`, both, nil},
+		{"alias", `,"toolkit":{"tool_names":["echo-alias"]}`, both, []string{"giztest_echo"}},
+		{"invoke_name", `,"toolkit":{"tool_names":["giztest_echo"]}`, both, []string{"giztest_echo"}},
+		{"workspace_cannot_widen", `,"toolkit":{"tool_names":["echo-alias","other-alias"]}`, []string{"other-id"}, []string{"other"}},
+		{"workflow_omits_toolkit", `,"toolkit":{"tool_names":["echo-alias"]}`, nil, nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := t.Context()
 			server := newWorkspaceToolkitTestServer(t)
+			var workflowPolicy *apitypes.ToolkitPolicy
+			if test.workflowTools != nil {
+				workflowPolicy = &apitypes.ToolkitPolicy{ToolIds: &test.workflowTools}
+			}
+			setWorkflowToolkitForTest(t, server, workflowPolicy)
 			bindings := *server.RuntimeProfile().Spec.Resources.Tools
 			var body rpcapi.WorkspaceCreateBody
 			if err := json.Unmarshal([]byte(`{"name":"tool-selection","workflow_name":"journey"`+test.policy+`}`), &body); err != nil {
@@ -58,7 +67,7 @@ func TestWorkspaceRPCToolkitResolution(t *testing.T) {
 					t.Fatalf("inherit must omit policy: stored=%+v projected=%+v", ws.Toolkit, projected.Toolkit)
 				}
 			}
-			if test.name == "empty" || test.name == "alias" || test.name == "invoke_name" {
+			if test.name == "empty" || test.name == "alias" || test.name == "invoke_name" || test.name == "workflow_omits_toolkit" {
 				wantIDs, wantNames := []string{}, []string{}
 				if test.name != "empty" {
 					wantIDs = []string{"echo-id"}
@@ -75,6 +84,12 @@ func TestWorkspaceRPCToolkitResolution(t *testing.T) {
 			spec, err := resolver.ResolveByID(ctx, ws.Id)
 			if err != nil {
 				t.Fatal(err)
+			}
+			if test.want == nil {
+				if spec.ToolInvoker != nil {
+					t.Fatalf("resolved ToolInvoker = %#v, want nil", spec.ToolInvoker)
+				}
+				return
 			}
 			toolCtx, err := agenthost.WithToolExecution(ctx, &bindings)
 			if err != nil {
@@ -95,6 +110,9 @@ func TestWorkspaceRPCToolkitResolution(t *testing.T) {
 	}
 }
 
+// newWorkspaceToolkitTestServer binds two Tools in the RuntimeProfile. The
+// Workflow behind the "journey" alias opts into both so Workspace policies can
+// narrow them.
 func newWorkspaceToolkitTestServer(t *testing.T) *Server {
 	t.Helper()
 	ctx := t.Context()
@@ -109,7 +127,33 @@ func newWorkspaceToolkitTestServer(t *testing.T) *Server {
 		bindings[entry.alias] = apitypes.RuntimeProfileBinding{ResourceId: entry.id}
 	}
 	server.RuntimeProfile().Spec.Resources.Tools = &bindings
+	workflowIDs := []string{"echo-id", "other-id"}
+	setWorkflowToolkitForTest(t, server, &apitypes.ToolkitPolicy{ToolIds: &workflowIDs})
 	return server
+}
+
+// setWorkflowToolkitForTest replaces the toolkit policy of the Workflow behind
+// the "journey" alias.
+func setWorkflowToolkitForTest(t *testing.T, server *Server, policy *apitypes.ToolkitPolicy) {
+	t.Helper()
+	const id = "canonical-workflow"
+	response, err := server.Workflows.GetWorkflow(t.Context(), adminhttp.GetWorkflowRequestObject{Id: id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, ok := response.(adminhttp.GetWorkflow200JSONResponse)
+	if !ok {
+		t.Fatalf("GetWorkflow(%q) = %T", id, response)
+	}
+	spec := current.Spec
+	spec.Toolkit = policy
+	putResponse, err := server.Workflows.PutWorkflow(t.Context(), adminhttp.PutWorkflowRequestObject{Id: id, Body: &adminhttp.WorkflowUpsert{Id: id, Spec: spec}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := putResponse.(adminhttp.PutWorkflow200JSONResponse); !ok {
+		t.Fatalf("put workflow: %+v", putResponse)
+	}
 }
 
 func dispatchToolkitRPC(t *testing.T, server *Server, request *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -157,28 +201,16 @@ func TestWorkspaceRPCToolkitPutAndWorkflowIntersection(t *testing.T) {
 	server := newWorkspaceToolkitTestServer(t)
 	ctx := t.Context()
 	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{Name: "put-tools", WorkflowName: "journey"})
-	workflowResponse, err := server.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Id: "canonical-workflow"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	wf := apitypes.Workflow(workflowResponse.(adminhttp.GetWorkflow200JSONResponse))
 	workflowIDs := []string{"other-id"}
-	wf.Spec.Toolkit = &apitypes.ToolkitPolicy{ToolIds: &workflowIDs}
-	putResponse, err := server.Workflows.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Id: wf.Id, Body: &adminhttp.WorkflowUpsert{Id: wf.Id, Spec: wf.Spec}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := putResponse.(adminhttp.PutWorkflow200JSONResponse); !ok {
-		t.Fatalf("put workflow: %+v", putResponse)
-	}
+	setWorkflowToolkitForTest(t, server, &apitypes.ToolkitPolicy{ToolIds: &workflowIDs})
 	for _, test := range []struct {
 		name   string
 		policy *rpcapi.ToolkitPolicy
 		want   []string
 	}{
-		{"subset", rpcToolkitPolicy("echo-alias"), []string{}},
-		{"empty", rpcToolkitPolicy(), []string{}},
-		{"omit_keeps_empty", nil, []string{}},
+		{"subset", rpcToolkitPolicy("echo-alias"), nil},
+		{"empty", rpcToolkitPolicy(), nil},
+		{"omit_keeps_empty", nil, nil},
 		{"inherit", &rpcapi.ToolkitPolicy{}, []string{"other"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -208,6 +240,12 @@ func TestWorkspaceRPCToolkitPutAndWorkflowIntersection(t *testing.T) {
 			spec, err := resolver.ResolveByID(ctx, ws.Id)
 			if err != nil {
 				t.Fatal(err)
+			}
+			if test.want == nil {
+				if spec.ToolInvoker != nil {
+					t.Fatalf("resolved ToolInvoker = %#v, want nil", spec.ToolInvoker)
+				}
+				return
 			}
 			toolCtx, err := agenthost.WithToolExecution(ctx, server.RuntimeProfile().Spec.Resources.Tools)
 			if err != nil {

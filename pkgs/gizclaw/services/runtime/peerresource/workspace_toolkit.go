@@ -13,7 +13,8 @@ import (
 )
 
 // resolveWorkspaceToolkit translates Peer names at the adapter boundary. A
-// present empty list stays present so persistence cannot turn opt-out into inherit.
+// present empty list stays present so persistence cannot turn opt-out into the
+// omitted policy, which keeps the Workflow's full Tool list.
 func (s *Server) resolveWorkspaceToolkit(ctx context.Context, policy *rpcapi.ToolkitPolicy, profile *apitypes.RuntimeProfile) (*apitypes.ToolkitPolicy, error) {
 	if policy == nil || policy.ToolNames == nil {
 		return nil, nil
