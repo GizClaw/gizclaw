@@ -1064,7 +1064,7 @@ export type Runtime = {
      */
     active_workspace_name?: string;
     /**
-     * Workspace selected for the device that it has not committed yet, for example while a switch requested through PUT /gizclaw/v1/device/run/workspace is in progress. Omitted when no switch is pending.
+     * Workspace selected for the device that it has not committed yet, for example after server.run.workspace.set and before the device commits it through server.run.workspace.reload-with-options. Omitted when no switch is pending.
      */
     pending_workspace_name?: string;
 };
