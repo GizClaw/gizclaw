@@ -20,7 +20,7 @@ API Key 的鉴权和管理契约见 [Peer HTTP · API Key](../../gizclaw/peer/se
 读路径直接投影 authoritative service，不向设备发送 RPC：
 
 - `GET /device` 返回 `DeviceInfo`（name、emoji、`HardwareInfo`、`DeviceIdentifiers`），与 `server.info.get` 同源。
-- `GET /device/runtime` 返回 `Runtime`（online、last seen、address、RX/TX），读取不刷新在线状态。`active_workspace_name` 是设备通过 `server.run.workspace.reload-with-options` 最近一次提交的 Workspace，`pending_workspace_name` 是已选中但设备尚未提交的 Workspace（例如 `PUT /device/run/workspace` 切换进行中）；两者读自 Server 的 `peer_runs` 记录，设备离线时同样可读，未设置时省略。
+- `GET /device/runtime` 返回 `Runtime`（online、last seen、address、RX/TX），读取不刷新在线状态。`active_workspace_name` 是设备通过 `server.run.workspace.reload-with-options` 最近一次提交的 Workspace，`pending_workspace_name` 是已选中但设备尚未提交的 Workspace（例如 `server.run.workspace.set` 之后、设备 reload 之前）；两者读自 Server 的 `peer_runs` 记录，设备离线时同样可读，未设置时省略。
 - `GET /device/status` 返回最近一次 authoritative `PeerStatus` snapshot；不提供 `fresh` 参数，`device.status.get` 工具用于实时查询并回写。
 - `GET /device/telemetry/{field}/latest`、`/device/telemetry`、`/device/telemetry/aggregate` 保留 Admin telemetry 的字段枚举、采样时间、查询边界、排序与 aggregate 语义，只把 Peer 固定为 owner。
 - `GET /device/firmware` 返回 owner 绑定的 Firmware 配置的全部 channel（`stable`、`beta`、`develop`），每个 channel 携带可选的 `description` 与 `package`（`version`、`url`、`sha256`、`size`）（已有包没有版本时省略 `version`，其余信息仍正常返回），与 `server.firmware.get` 同源。Channel 选择归调用方：Server 不保存设备当前使用的 channel，本 route 一次返回全部 channel，由调用方自行选择。未绑定 `firmware_id` 或绑定的配置已不存在返回 `404 FIRMWARE_NOT_FOUND`；某个 channel 未配置包时该 slot 省略 `package`，不报错。

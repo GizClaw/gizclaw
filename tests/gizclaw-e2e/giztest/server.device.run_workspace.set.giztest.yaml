@@ -65,7 +65,7 @@ steps:
         tool: run.workspace.set
         args:
           workspace_name: ${resource_name}
-      status: 202
+      status: 200
   - id: switch_by_workflow
     client: peer
     http:
@@ -78,7 +78,7 @@ steps:
         args:
           workflow_name: flowcraft-chat-assistant
           kickoff: true
-      status: 202
+      status: 200
   - id: select_workspace
     client: peer
     rpc:
