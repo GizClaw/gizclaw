@@ -1585,6 +1585,9 @@ export type RuntimeProfileMhs = {
     v0?: MhsV0Manifest;
 };
 
+/**
+ * Model, Voice, Tool, and Memory bindings that Workflows reference by alias. Omitted means the RuntimeProfile binds none of them.
+ */
 export type RuntimeProfileResources = {
     models?: {
         [key: string]: RuntimeProfileBinding;
@@ -1616,8 +1619,8 @@ export type RuntimeProfileSafetyFences = {
 };
 
 export type RuntimeProfileSpec = {
-    workflows: RuntimeProfileWorkflows;
-    resources: RuntimeProfileResources;
+    workflows?: RuntimeProfileWorkflows;
+    resources?: RuntimeProfileResources;
     safety_fences?: RuntimeProfileSafetyFences;
     mhs?: RuntimeProfileMhs;
     app_config?: RuntimeProfileAppConfig;
@@ -1634,6 +1637,9 @@ export type RuntimeProfileVolcMem0Connection = {
     poll_interval?: string;
 };
 
+/**
+ * Workflow bindings keyed by Workflow name. Omitted means the RuntimeProfile binds no Workflows.
+ */
 export type RuntimeProfileWorkflows = {
     [key: string]: RuntimeProfileBinding;
 };

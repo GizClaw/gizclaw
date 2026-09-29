@@ -60,6 +60,8 @@ spec:
           zh-CN: {display_name: 奶气萌宠}
 ```
 
+`workflows` and `resources` are both optional, and omitting one means it is empty. For example, a Profile that only declares `mhs` devices does not need empty objects.
+
 `workflows` is a flat map keyed by alias. Each binding can carry an array of opaque string `tags`. The Server matches tags exactly: multiple requested tags use AND, and an empty selector returns every Workflow. Tags do not define Workflow identity, so changing them does not change an existing Workspace's workflow name. RuntimeProfile create and update validate every referenced canonical Workflow ID, its driver, and the Model, Voice, and Tool aliases used inside the Workflow. Friend and Friend Group Workspaces remain bound to the built-in `system-sfu` Workflow.
 
 Workflow aliases live under `workflows.<alias>` and are unique within a RuntimeProfile. Clients own menu structure, ordering, icons, and tag display text. RuntimeProfile supplies Workflow membership, tags, and alias-level `en` and `zh-CN` display text.

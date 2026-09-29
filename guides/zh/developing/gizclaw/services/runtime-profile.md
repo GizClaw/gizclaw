@@ -60,6 +60,8 @@ spec:
           zh-CN: {display_name: 奶气萌宠}
 ```
 
+`workflows` 与 `resources` 都可以省略，省略等同于空，例如只声明 `mhs` 设备的 Profile 不需要写空对象。
+
 `workflows` 是以 alias 为 key 的平面 map。每个 binding 可带 `tags` 字符串数组；Server 只做精确字符串匹配，不解析年龄或内容类别。查询传多个 tag 时取交集；不传 tag 返回全部。Tag 不参与 Workflow 身份，修改 tag 不改变已有 Workspace 的 workflow name。RuntimeProfile 创建或更新时会验证每个引用的真实 Workflow ID、其 driver，以及 Workflow 内部使用的 Model、Voice、Tool alias。Friend 与 Friend Group 的 Workspace 固定绑定内置 `system-sfu` Workflow，不经 RuntimeProfile 选择，见 [services/social](/zh/developing/gizclaw/services/social#sfu-workspace)。
 
 Workflow alias 位于 `workflows.<alias>`，在 RuntimeProfile 内唯一。客户端自行决定菜单、顺序、图标和 tag 的展示文本；RuntimeProfile 提供 Workflow 成员、tags 以及 alias 自己的 `en`、`zh-CN` 显示文本。
