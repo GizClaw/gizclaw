@@ -84,8 +84,15 @@ func TestResolveSafetyFenceUsesEachProfilesOwnIdentifiers(t *testing.T) {
 			t.Fatalf("unknown level error = %v", err)
 		}
 		ws.Parameters = nil
-		if _, err := resolveSafetyFence(withRuntimeProfile(t.Context(), profile), ws, workflow); err == nil || !strings.Contains(err.Error(), "no safety_fence_level") {
-			t.Fatalf("missing selection error = %v", err)
+		if got, err := resolveSafetyFence(withRuntimeProfile(t.Context(), profile), ws, workflow); err != nil || got != "" {
+			t.Fatalf("unselected level: prompt = %q, error = %v; want no prompt and no error", got, err)
+		}
+		ws.Parameters = &apitypes.WorkspaceParameters{}
+		if err := ws.Parameters.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft}); err != nil {
+			t.Fatal(err)
+		}
+		if got, err := resolveSafetyFence(withRuntimeProfile(t.Context(), profile), ws, workflow); err != nil || got != "" {
+			t.Fatalf("parameters without level: prompt = %q, error = %v; want no prompt and no error", got, err)
 		}
 	}
 }
