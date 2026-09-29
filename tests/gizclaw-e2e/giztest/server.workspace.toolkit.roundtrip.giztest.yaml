@@ -1,7 +1,7 @@
 # User Story:
 # As a Peer API consumer,
-# I want Workspace toolkit selections to survive RPC and control execution,
-# So that inheritance, explicit restrictions, and unavailable tools remain distinct.
+# I want Workspace toolkit selections to survive create, get, and put over RPC,
+# So that inheritance, explicit restrictions, and unknown tools remain distinct.
 version: gizclaw.test/v1alpha1
 name: server.workspace.toolkit.roundtrip
 clients:

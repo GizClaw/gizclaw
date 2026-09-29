@@ -1358,4 +1358,4 @@ GIZCLAW_E2E_CREDENTIAL_FILE=tests/gizclaw-e2e/.env \
   bash tests/gizclaw-e2e/run_safety_fence_tests.sh
 ```
 
-脚本输出 RPC、provider、HTTP、SFU 四份 JSON 报告到 `tests/gizclaw-e2e/.testbench/`，退出时按 project 清理容器和临时凭据环境文件。标准全量资源清单目前包含 Server 不支持的 `client_rpc` Tool，因而不能用其启动成功来证明这九个场景；专用入口只选取围栏场景依赖的资源。离线解析不证明真实 provider 的效果。
+脚本输出 RPC、provider、HTTP、SFU 四份 JSON 报告到 `tests/gizclaw-e2e/.testbench/`，退出时按 project 清理容器和临时凭据环境文件。专用入口只选取这九个场景依赖的资源，不启动标准全量资源清单。离线解析不证明真实 provider 的效果。

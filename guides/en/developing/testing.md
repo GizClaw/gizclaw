@@ -1613,4 +1613,4 @@ GIZCLAW_E2E_CREDENTIAL_FILE=tests/gizclaw-e2e/.env \
   bash tests/gizclaw-e2e/run_safety_fence_tests.sh
 ```
 
-The script writes separate RPC, provider, HTTP, and SFU JSON reports under `tests/gizclaw-e2e/.testbench/` and removes its project containers and temporary credential environment on exit. The standard full resource catalog currently includes a `client_rpc` Tool unsupported by the Server, so it cannot serve as evidence for these nine runs; the dedicated entrypoint selects only their dependencies. Offline parsing does not prove real provider behavior.
+The script writes separate RPC, provider, HTTP, and SFU JSON reports under `tests/gizclaw-e2e/.testbench/` and removes its project containers and temporary credential environment on exit. The dedicated entrypoint selects only the dependencies of these nine scenarios instead of the full standard resource catalog. Offline parsing does not prove real provider behavior.

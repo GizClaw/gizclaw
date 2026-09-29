@@ -41,7 +41,7 @@ func TestBenchmarkWorkflowsExcludeProfileTools(t *testing.T) {
 			if err != nil || len(definitions) != 0 {
 				t.Fatalf("benchmark tools = %v, error = %v", definitions, err)
 			}
-			// Omission still inherits the RuntimeProfile, including client tools.
+			// Omission still inherits every RuntimeProfile Tool.
 			resource.Spec.Toolkit = nil
 			inherited, err := resolver.resolveToolkit(ctx, apitypes.Workspace{}, apitypes.Workflow{Spec: resource.Spec})
 			if err != nil {

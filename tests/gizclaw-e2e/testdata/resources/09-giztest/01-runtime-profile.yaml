@@ -73,8 +73,8 @@ spec:
       story-bird: {resource_id: "volc-tenant:volc-main:zh_male_naiqimengwa_mars_bigtts", i18n: {en: {display_name: Story Bird}, zh-CN: {display_name: 故事小鸟}}}
       minimax-boy: {resource_id: "minimax-tenant:minimax-cn:Chinese (Mandarin)_Pure-hearted_Boy", i18n: {en: {display_name: MiniMax Boy}, zh-CN: {display_name: MiniMax 邻家弟弟}}}
     tools:
-      giztest-other: {resource_id: giztest-client-other, i18n: {en: {display_name: Giztest other tool}, zh-CN: {display_name: Giztest 另一工具}}}
-      giztest-echo: {resource_id: giztest-client-echo, control_access: owner, i18n: {en: {display_name: Giztest client echo}, zh-CN: {display_name: Giztest 客户端回显}}}
+      giztest-other: {resource_id: giztest-toolkit-other, i18n: {en: {display_name: Giztest other tool}, zh-CN: {display_name: Giztest 另一工具}}}
+      giztest-echo: {resource_id: giztest-toolkit-echo, i18n: {en: {display_name: Giztest echo tool}, zh-CN: {display_name: Giztest 回显工具}}}
     memories:
       default-memory: {layout_id: default-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
       giztest-peer-memory-a: {layout_id: giztest-scope-peer-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
