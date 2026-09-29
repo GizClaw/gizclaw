@@ -71,6 +71,7 @@ spec:
       multilingual-voice: {resource_id: "volc-tenant:volc-main:multi_female_shuangkuaisisi_moon_bigtts", i18n: {en: {display_name: Multilingual Assistant}, zh-CN: {display_name: 多语种助手}}}
       sichuanese-voice: {resource_id: "volc-tenant:volc-main:zh_female_daimengchuanmei_moon_bigtts", i18n: {en: {display_name: Sichuanese Speaker}, zh-CN: {display_name: 四川话}}}
       cantonese-voice: {resource_id: "volc-tenant:volc-main:zh_male_guozhoudege_moon_bigtts", i18n: {en: {display_name: Cantonese Speaker}, zh-CN: {display_name: 粤语}}}
+      spanish-voice: {resource_id: "volc-tenant:volc-main:multi_female_shuangkuaisisi_moon_bigtts", i18n: {en: {display_name: Spanish Speaker}, zh-CN: {display_name: 西班牙语}}}
       english-voice: {resource_id: "volc-tenant:volc-main:en_female_anna_mars_bigtts", i18n: {en: {display_name: English Speaker}, zh-CN: {display_name: 英语}}}
       doubao-assistant: {resource_id: "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts", i18n: {en: {display_name: Doubao Assistant}, zh-CN: {display_name: 豆包助手}}}
       sun-wukong: {resource_id: "volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts", i18n: {en: {display_name: Sun Wukong}, zh-CN: {display_name: 孙悟空}}}

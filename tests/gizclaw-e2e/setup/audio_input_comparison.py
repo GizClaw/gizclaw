@@ -26,7 +26,7 @@ SAMPLES = [
      "transcript": [["capital"], ["japan"]], "reply": [["tokyo", "东京", "東京"]]},
     {"id": "japanese", "language": "日本語", "voice": "japanese-voice", "text": "日本の首都はどこですか？",
      "transcript": [["首都", "しゅと"], ["日本", "にほん", "にっぽん"]], "reply": [["東京", "东京", "とうきょう", "tokyo"]]},
-    {"id": "spanish", "language": "Español", "voice": "japanese-voice", "text": "¿Cuántos días tiene una semana?",
+    {"id": "spanish", "language": "Español", "voice": "spanish-voice", "text": "¿Cuántos días tiene una semana?",
      "transcript": [["dias"], ["semana"]], "reply": [["7", "siete"]]},
 ]
 
