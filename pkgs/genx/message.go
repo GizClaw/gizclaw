@@ -19,7 +19,27 @@ const (
 	// HistoryUserAudioLabel marks user audio chunks that should be recorded by
 	// workspace history but should not be forwarded as regular peer output.
 	HistoryUserAudioLabel = "history.user_audio"
+	// InputTranscriptLabel marks the Generator stream chunk that reports the
+	// transcript of the user audio in the request. The chunk has RoleUser and a
+	// Text part; a stream carries at most one, anywhere among the reply chunks.
+	InputTranscriptLabel = "input.transcript"
 )
+
+// NewInputTranscriptChunk returns the Generator stream chunk that reports the
+// transcript of the request's user audio.
+func NewInputTranscriptChunk(text string) *MessageChunk {
+	return &MessageChunk{Role: RoleUser, Part: Text(text), Ctrl: &StreamCtrl{Label: InputTranscriptLabel}}
+}
+
+// InputTranscript returns the transcript carried by a chunk made with
+// NewInputTranscriptChunk.
+func InputTranscript(chunk *MessageChunk) (string, bool) {
+	if chunk == nil || chunk.Role != RoleUser || chunk.Ctrl == nil || chunk.Ctrl.Label != InputTranscriptLabel {
+		return "", false
+	}
+	text, ok := chunk.Part.(Text)
+	return string(text), ok
+}
 
 var (
 	_ Payload = (Contents)(nil)

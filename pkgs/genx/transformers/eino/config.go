@@ -124,6 +124,20 @@ type normalizedConfig struct {
 	outputs   map[string][]OutputDefinition
 	primary   OutputDefinition
 	graphCopy GraphDefinition
+	// audioTranscriptNode is the root ChatModel node that transcribes audio
+	// user turns. Empty means the Graph accepts text turns only.
+	audioTranscriptNode string
+}
+
+// AcceptsAudioInput reports whether source declares a root ChatModel node that
+// transcribes audio user turns, so ordinary user audio routes start turns.
+func AcceptsAudioInput(source Config) bool {
+	for _, node := range source.Graph.Nodes {
+		if node.ChatModel != nil && node.ChatModel.AudioTranscript {
+			return true
+		}
+	}
+	return false
 }
 
 // ValidateConfig validates one Config without resolving or compiling its
@@ -535,6 +549,15 @@ func (config *normalizedConfig) validateNode(node NodeDefinition, fields map[str
 		}
 		if node.ChatModel.MaxTokens != nil && *node.ChatModel.MaxTokens <= 0 {
 			return fmt.Errorf("eino: %s MaxTokens must be positive", nodePath)
+		}
+		if node.ChatModel.AudioTranscript {
+			if depth != 0 {
+				return fmt.Errorf("eino: %s AudioTranscript is only supported in the root Graph", nodePath)
+			}
+			if config.audioTranscriptNode != "" {
+				return fmt.Errorf("eino: %s AudioTranscript is already set on node %q", nodePath, config.audioTranscriptNode)
+			}
+			config.audioTranscriptNode = node.ID
 		}
 	case node.Transform != nil:
 		if node.Transform.Operation == "" {

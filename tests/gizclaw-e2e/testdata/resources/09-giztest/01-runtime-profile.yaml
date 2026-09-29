@@ -40,6 +40,8 @@ spec:
     flowcraft-memory-peer-a: {resource_id: flowcraft-memory-peer-a, i18n: {en: {display_name: Peer Memory A}, zh-CN: {display_name: Peer 记忆 A}}, tags: [assistants]}
     flowcraft-memory-peer-b: {resource_id: flowcraft-memory-peer-b, i18n: {en: {display_name: Peer Memory B}, zh-CN: {display_name: Peer 记忆 B}}, tags: [assistants]}
     flowcraft-memory-workspace: {resource_id: flowcraft-memory-workspace, i18n: {en: {display_name: Workspace Memory}, zh-CN: {display_name: Workspace 记忆}}, tags: [assistants]}
+    eino-audio-input: {resource_id: eino-audio-input, i18n: {en: {display_name: Eino Audio Input}, zh-CN: {display_name: Eino 音频输入}}, tags: [assistants]}
+    eino-audio-input-asr: {resource_id: eino-audio-input-asr, i18n: {en: {display_name: Eino Audio Input ASR}, zh-CN: {display_name: Eino 音频输入 ASR 对照}}, tags: [assistants]}
     giztest-toolkit-probe-none: {resource_id: giztest-toolkit-probe-none, i18n: {en: {display_name: Toolkit Probe None}, zh-CN: {display_name: 工具探针 无}}, tags: [assistants]}
     giztest-toolkit-probe-echo: {resource_id: giztest-toolkit-probe-echo, i18n: {en: {display_name: Toolkit Probe Echo}, zh-CN: {display_name: 工具探针 Echo}}, tags: [assistants]}
     giztest-toolkit-probe-both: {resource_id: giztest-toolkit-probe-both, i18n: {en: {display_name: Toolkit Probe Both}, zh-CN: {display_name: 工具探针 全部}}, tags: [assistants]}
@@ -58,6 +60,7 @@ spec:
     models:
       asr: {resource_id: volc-bigasr-sauc, i18n: {en: {display_name: Speech Recognition}, zh-CN: {display_name: 语音识别}}}
       llm: {resource_id: doubao-mini-chat, i18n: {en: {display_name: Chat Model}, zh-CN: {display_name: 对话模型}}}
+      audio-llm: {resource_id: doubao-lite-audio-chat, i18n: {en: {display_name: Audio Input Chat Model}, zh-CN: {display_name: 音频输入对话模型}}}
       tts: {resource_id: volc-bigtts, i18n: {en: {display_name: Speech Synthesis}, zh-CN: {display_name: 语音合成}}}
       translation: {resource_id: volc-ast-translate, i18n: {en: {display_name: Translation}, zh-CN: {display_name: 翻译}}}
       realtime: {resource_id: doubao-realtime-dialog, i18n: {en: {display_name: Realtime Conversation}, zh-CN: {display_name: 实时对话}}}
@@ -68,6 +71,11 @@ spec:
       narrator: {resource_id: "volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts", i18n: {en: {display_name: Narrator}, zh-CN: {display_name: 旁白}}}
       assistant-voice: {resource_id: "volc-tenant:volc-main:zh_female_vv_uranus_bigtts", i18n: {en: {display_name: Assistant}, zh-CN: {display_name: 助手}}}
       japanese-voice: {resource_id: "volc-tenant:volc-main:multi_female_shuangkuaisisi_moon_bigtts", i18n: {en: {display_name: Japanese Assistant}, zh-CN: {display_name: 日语助手}}}
+      multilingual-voice: {resource_id: "volc-tenant:volc-main:multi_female_shuangkuaisisi_moon_bigtts", i18n: {en: {display_name: Multilingual Assistant}, zh-CN: {display_name: 多语种助手}}}
+      sichuanese-voice: {resource_id: "volc-tenant:volc-main:zh_female_daimengchuanmei_moon_bigtts", i18n: {en: {display_name: Sichuanese Speaker}, zh-CN: {display_name: 四川话}}}
+      cantonese-voice: {resource_id: "volc-tenant:volc-main:zh_male_guozhoudege_moon_bigtts", i18n: {en: {display_name: Cantonese Speaker}, zh-CN: {display_name: 粤语}}}
+      spanish-voice: {resource_id: "volc-tenant:volc-main:multi_female_shuangkuaisisi_moon_bigtts", i18n: {en: {display_name: Spanish Speaker}, zh-CN: {display_name: 西班牙语}}}
+      english-voice: {resource_id: "volc-tenant:volc-main:en_female_anna_mars_bigtts", i18n: {en: {display_name: English Speaker}, zh-CN: {display_name: 英语}}}
       doubao-assistant: {resource_id: "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts", i18n: {en: {display_name: Doubao Assistant}, zh-CN: {display_name: 豆包助手}}}
       sun-wukong: {resource_id: "volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts", i18n: {en: {display_name: Sun Wukong}, zh-CN: {display_name: 孙悟空}}}
       tang-sanzang: {resource_id: "volc-tenant:volc-main:zh_female_vv_uranus_bigtts", i18n: {en: {display_name: Tang Sanzang}, zh-CN: {display_name: 唐三藏}}}

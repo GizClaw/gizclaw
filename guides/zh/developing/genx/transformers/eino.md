@@ -92,6 +92,12 @@ Prompt、ChatModel 和 Retriever 通过 Eino 原生 `AddChatTemplateNode`、`Add
 
 ChatModel 调用解析后的 Eino streaming interface。model node 直接拥有 declared text output 时，文本 chunk 会增量发布。配置 `ToolInvoker` 后，`ResolveTools` 取得的函数名、说明和 schema 会通过 Eino model option 传入；带关联 ID 的 ToolCall 按模型顺序通过 `InvokeTool(name, arguments)` 执行，native tool message 被追加后继续同一个 model node。内部 call/result 不公开输出；完成的 model turn 没有文本时，请求 `text` port 仍会失败。
 
+### 音频 turn
+
+`ChatModelNode.AudioTranscript` 让 root Graph 中的一个 ChatModel node 转写音频 user turn；在嵌套 Graph 中设置或由多个 node 设置都会在 `New` 失败。Graph 含该 node 时，普通 user `audio/*` route（不含 `history.user_audio` sideband）以第一个音频 chunk 开始、以 EOS 完成一轮：新的音频 route interrupt 上一轮，`interrupted` EOS 丢弃该 route，其他 EOS error 使 session 失败。每个 Blob 作为一个 audio part 留在当前 user message 中，因此该 node 必须通过 `input.messages` 收到它；该轮 `input.text` 为空，Memory recall 因 query 为空而跳过。没有该 node 的 Graph 仍只接受文本 turn。
+
+音频轮中，Transformer 先以音频 input 的 StreamID 发布 `history.user_audio` sideband，使 History 中的用户条目排在回复之前。该 node 调用的 ChatModel component 在回复流中任意位置用 `TranscriptMessage` 构造的 stream message 报告这段音频的 transcript；怎样得到 transcript 由 component 与其背后的 Model 负责（GizClaw 的 GenX 适配把 Generator 的 `genx.InputTranscriptLabel` chunk 转成该 message）。Node 把第一次报告的 transcript 作为本轮 user text 写入 History 与 Memory observe，并以同一 StreamID 发布 `transcript` label 的 user text route，形状与 ASR stage 相同；Tool round 重新报告的 transcript 被忽略。没有报告 transcript 的轮次照常发布回复，user text 为空，History 只保存用户音频和回复。History 不保存音频 part，后续轮次不再发送音频。
+
 ### Match
 
 `MatchNode` 在 `New` 中编译共享的 `pkgs/genx/match` rules，通过 `ComponentResolver.ResolveChatModel` 只解析一次 model alias，并向模型发送一个 system message 和一个 user string。它不声明或执行 tools。
@@ -213,7 +219,7 @@ Output buffer 不依赖 downstream pull，最多增长到 `Limits.MaxOutputBytes
 
 上游 text EOS 携带非空 StreamID 和精确错误 `interrupted` 时，只有当它匹配当前未完成 input route，或匹配被 replacement BOS 明确取代的 route，才表示 turn-scoped replacement terminal。Eino 对 active match 丢弃已缓冲的 text 和 part，并将已知 superseded route 的 terminal 作为 stale 忽略；未知或不匹配的 StreamID 仍保留原有校验错误。Session 最多跟踪 64 个等待 terminal 的 superseded route；超出边界时 session 失败，而不是让 replacement state 无界增长。合法 replacement 下 Transformer session 保持打开，只有 replacement BOS 负责 interrupt active Graph。其他非空 input terminal error 仍会使 session 失败。
 
-非文本 route 会原样 bypass。包含 blob 的 text turn 只有在 Graph 显式绑定 `input.parts` 时才接受，否则以 unsupported multimodal input 失败；如何解释这些 defensive copy 后的 part 由 component adapter 决定。
+除上述音频 turn 外，非文本 route 会原样 bypass。包含 blob 的 text turn 只有在 Graph 显式绑定 `input.parts` 时才接受，否则以 unsupported multimodal input 失败；如何解释这些 defensive copy 后的 part 由 component adapter 决定。
 
 ## State、History 与 Memory
 

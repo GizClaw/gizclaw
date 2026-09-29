@@ -241,7 +241,11 @@
               "outputs": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } },
               "model": { "type": "string", "minLength": 1 },
               "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
-              "max_tokens": { "type": "integer", "minimum": 1 }
+              "max_tokens": { "type": "integer", "minimum": 1 },
+              "audio_transcript": {
+                "type": "boolean",
+                "description": "Makes this root Graph node the transcriber of push-to-talk audio turns when voice_adapter has no asr_model. The node sends the user audio to its model, whose Generator reports the audio transcript anywhere in the reply stream; the transcript becomes the user text of the turn, and a turn without one keeps only its reply and user audio. At most one node may set it."
+              }
             }
           }
         ]

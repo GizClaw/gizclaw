@@ -428,6 +428,10 @@ type streamingChatModel struct {
 	toolInvoker genx.ToolInvoker
 }
 
+func (chatModel *streamingChatModel) transcribesAudio() bool {
+	return chatModel.node.ChatModel != nil && chatModel.node.ChatModel.AudioTranscript
+}
+
 func (chatModel *streamingChatModel) Generate(
 	ctx context.Context,
 	input []*schema.Message,
@@ -442,6 +446,16 @@ func (chatModel *streamingChatModel) Generate(
 		callState = toolrun.New(chatModel.toolInvoker, 0)
 	}
 	messages := cloneMessages(input)
+	var transcript *audioTranscript
+	if chatModel.transcribesAudio() {
+		publisher, audioTurn := state.transcriptPublisher()
+		if audioTurn {
+			if !messagesContainAudio(messages) {
+				return nil, fmt.Errorf("eino: audio turn did not reach AudioTranscript node %q messages", chatModel.node.ID)
+			}
+			transcript = &audioTranscript{publisher: publisher}
+		}
+	}
 	var content strings.Builder
 	textField := chatModel.node.Outputs["text"]
 	for {
@@ -457,7 +471,7 @@ func (chatModel *streamingChatModel) Generate(
 		if streamErr != nil {
 			return nil, streamErr
 		}
-		chunks, streamErr := chatModel.receiveRound(reader, state, textField, &content)
+		chunks, streamErr := chatModel.receiveRound(reader, state, textField, &content, transcript)
 		reader.Close()
 		if streamErr != nil {
 			return nil, streamErr
@@ -500,6 +514,7 @@ func (chatModel *streamingChatModel) receiveRound(
 	state *runState,
 	textField string,
 	content *strings.Builder,
+	transcript *audioTranscript,
 ) ([]*schema.Message, error) {
 	var chunks []*schema.Message
 	for {
@@ -513,19 +528,34 @@ func (chatModel *streamingChatModel) receiveRound(
 		if chunk == nil {
 			continue
 		}
-		chunks = append(chunks, chunk)
-		if chunk.Content == "" {
+		if text, ok := transcriptOf(chunk); ok {
+			if err := transcript.observe(text); err != nil {
+				return nil, err
+			}
 			continue
 		}
-		content.WriteString(chunk.Content)
-		for _, output := range chatModel.published {
-			if output.Field == textField {
-				if err := state.emit(output, chunk.Content); err != nil {
-					return nil, err
-				}
+		chunks = append(chunks, chunk)
+		if err := chatModel.publishText(state, textField, content, chunk.Content); err != nil {
+			return nil, err
+		}
+	}
+}
+
+// publishText appends reply text to the node content and streams it to the
+// outputs published from the node's text field.
+func (chatModel *streamingChatModel) publishText(state *runState, textField string, content *strings.Builder, text string) error {
+	if text == "" {
+		return nil
+	}
+	content.WriteString(text)
+	for _, output := range chatModel.published {
+		if output.Field == textField {
+			if err := state.emit(output, text); err != nil {
+				return err
 			}
 		}
 	}
+	return nil
 }
 
 func (chatModel *streamingChatModel) Stream(
@@ -533,7 +563,7 @@ func (chatModel *streamingChatModel) Stream(
 	input []*schema.Message,
 	options ...model.Option,
 ) (*schema.StreamReader[*schema.Message], error) {
-	if chatModel.toolInvoker == nil {
+	if chatModel.toolInvoker == nil && !chatModel.transcribesAudio() {
 		return chatModel.component.Stream(
 			ctx,
 			input,
