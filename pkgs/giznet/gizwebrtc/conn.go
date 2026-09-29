@@ -709,9 +709,11 @@ func (c *Conn) readPacketLoop(raw datachannel.ReadWriteCloserDeadliner) {
 }
 
 func (c *Conn) enqueuePacket(pkt directPacket) {
+	// Record the arrival before handing the packet over, so a reader that
+	// has returned it never sees the clock advance again for the same packet.
+	c.touch()
 	select {
 	case c.readCh <- pkt:
-		c.touch()
 	case <-c.closeCh:
 	}
 }
