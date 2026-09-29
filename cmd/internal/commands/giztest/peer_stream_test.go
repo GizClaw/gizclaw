@@ -1974,3 +1974,23 @@ func (s *replyDuringEOSStream) Push(ctx context.Context, chunk *genx.MessageChun
 	}
 	return nil
 }
+
+func TestPeerStreamTranscriptAndReplySeparateRoutes(t *testing.T) {
+	record := func(label, streamID, text string, interim bool) peerStreamOutputRecord {
+		return peerStreamOutputRecord{label: label, streamID: streamID, chunk: &genx.MessageChunk{
+			Part: genx.Text(text), Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: label, TextInterim: interim},
+		}}
+	}
+	records := []peerStreamOutputRecord{
+		record("transcript", "speech", "三加", true),
+		record("transcript", "speech", "三加五", false),
+		record("assistant", "abandoned", "partial", false),
+		record("assistant", "reply", "等于", false),
+		{label: "assistant", streamID: "reply", chunk: &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}}},
+		record("assistant", "reply", "八", false),
+	}
+	transcript, reply := peerStreamTranscriptAndReply(records, map[string]bool{"abandoned": true})
+	if transcript != "三加五" || reply != "等于八" {
+		t.Fatalf("transcript=%q reply=%q", transcript, reply)
+	}
+}

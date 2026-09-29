@@ -2310,6 +2310,10 @@ export type EinoChatModelNode = EinoNodeBase & {
     model: string;
     temperature?: number;
     max_tokens?: number;
+    /**
+     * Makes this root Graph node the transcriber of push-to-talk audio turns when voice_adapter has no asr_model. The node sends the user audio to its model, whose Generator reports the audio transcript anywhere in the reply stream; the transcript becomes the user text of the turn, and a turn without one keeps only its reply and user audio. At most one node may set it.
+     */
+    audio_transcript?: boolean;
 };
 
 export type EinoConversation = {

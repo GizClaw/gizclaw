@@ -493,6 +493,7 @@ start_full_watchdog
 
 run_timed "preflight:diagnostic-redaction" python3 -B "$setup_dir/redact_diagnostics_test.py"
 run_timed "preflight:js-process-isolation" python3 -B "$setup_dir/run_js_giztest_test.py"
+run_timed "preflight:audio-input-comparison" python3 -B "$setup_dir/audio_input_comparison_test.py"
 run_timed "preflight:npm-ci" prepare_node_dependencies
 run_timed "preflight:nanopb" prepare_nanopb
 

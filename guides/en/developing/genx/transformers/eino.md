@@ -92,6 +92,12 @@ Prompt, ChatModel, and Retriever components are added through Eino's native `Add
 
 ChatModel uses the resolved Eino streaming interface. Text chunks are published incrementally when the model node owns a declared text output. When a `ToolInvoker` is configured, `ResolveTools` supplies function names, descriptions, and schemas through Eino model options. Correlated ToolCalls execute in model order through `InvokeTool(name, arguments)`, native tool messages are appended, and the same model node continues. Internal calls and results are not published. A requested text port fails when the completed model turn contains no text.
 
+### Audio turns
+
+`ChatModelNode.AudioTranscript` makes one root Graph ChatModel node the transcriber of audio user turns; setting it in a nested Graph or on more than one node fails `New`. When the Graph has that node, an ordinary user `audio/*` route (never the `history.user_audio` sideband) starts a turn at its first audio chunk and completes it at EOS: a new audio route interrupts the previous turn, an `interrupted` EOS discards the route, and any other EOS error fails the session. Each Blob stays one audio part of the current user message, so the node must receive it through `input.messages`; `input.text` is empty for that turn and Memory recall is skipped for the empty query. A Graph without that node keeps accepting text turns only.
+
+For an audio turn, the Transformer first publishes a `history.user_audio` sideband under the audio input StreamID, so History orders the user entry before the reply. The ChatModel component the node calls reports the audio transcript anywhere in its reply stream as a stream message built with `TranscriptMessage`; how the transcript is obtained belongs to the component and the Model behind it (the GizClaw GenX adapter turns a Generator `genx.InputTranscriptLabel` chunk into that message). The node records the first reported transcript as the turn's user text for History and Memory observe, and publishes it as a `transcript`-labelled user text route under the same StreamID, the shape an ASR stage produces; transcripts reported again in Tool rounds are ignored. A turn without a reported transcript still publishes its reply with an empty user text, and History keeps only the user audio and the reply. History keeps no audio parts, so later turns do not resend the audio.
+
 ### Match
 
 `MatchNode` compiles the shared `pkgs/genx/match` rules during `New`, resolves its model alias once through `ComponentResolver.ResolveChatModel`, and sends exactly one system message and one user string to that model. It does not advertise or execute tools.
@@ -211,7 +217,7 @@ The output buffer grows independently of downstream pulls up to `Limits.MaxOutpu
 
 An upstream text EOS with a non-empty StreamID and the exact error `interrupted` is a turn-scoped replacement terminal only when it matches the active incomplete input route or a route that a replacement BOS explicitly superseded. Eino discards buffered text and parts for the active match and ignores a known superseded route's terminal as stale. Unknown or mismatched StreamIDs retain their validation errors. The session tracks at most 64 superseded routes awaiting terminals; exceeding that bound fails the session instead of growing replacement state without limit. The Transformer session stays open for valid replacements, and the replacement BOS remains the only owner of active-Graph interruption. Every other non-empty input terminal error remains fatal to the session.
 
-Non-text routes bypass the Transformer unchanged. A text turn containing blobs is accepted only when the Graph explicitly binds `input.parts`; otherwise it fails as unsupported multimodal input. Component-specific interpretation of those copied parts remains outside the package.
+Apart from the audio turns above, non-text routes bypass the Transformer unchanged. A text turn containing blobs is accepted only when the Graph explicitly binds `input.parts`; otherwise it fails as unsupported multimodal input. Component-specific interpretation of those copied parts remains outside the package.
 
 ## State, History, and Memory
 

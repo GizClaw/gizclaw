@@ -73,6 +73,12 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if err != nil {
 		return nil, err
 	}
+	acceptsAudio := genxeino.AcceptsAudioInput(genxeino.Config{Graph: graph})
+	if acceptsAudio && inputMode == apitypes.WorkspaceInputModeRealtime {
+		// A transcribing model receives a completed audio route; realtime
+		// endpointing still needs a streaming voice_adapter.asr_model.
+		return nil, fmt.Errorf("eino: chat_model audio_transcript requires push-to-talk input")
+	}
 	speechRatePercent, err := apitypes.WorkspaceTTSSpeechRatePercent(spec.Workspace.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("eino: %w", err)
@@ -163,7 +169,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 			return nil, errors.Join(err, transformer.Close(), closeMemory(memoryCloser))
 		}
 	}
-	if !einoVoiceAdapterHasASR(public.VoiceAdapter) {
+	if !einoVoiceAdapterHasASR(public.VoiceAdapter) && !acceptsAudio {
 		composed = einoAudioInputGuard{next: composed}
 	}
 	agent := agenthost.NewTransformerAgent(composed)
@@ -767,6 +773,12 @@ func (m genXChatModel) Stream(ctx context.Context, input []*schema.Message, opti
 				writer.Send(nil, fmt.Errorf("eino: model stream: %s", chunk.Ctrl.Error))
 				return
 			}
+			if text, ok := genx.InputTranscript(chunk); ok {
+				if writer.Send(genxeino.TranscriptMessage(text), nil) {
+					return
+				}
+				continue
+			}
 			if text, ok := chunk.Part.(genx.Text); ok && text != "" {
 				if writer.Send(schema.AssistantMessage(string(text), nil), nil) {
 					return
@@ -827,7 +839,16 @@ func genXModelContext(input []*schema.Message, options ...model.Option) (genx.Mo
 			if len(message.ToolCalls) != 0 || message.ToolCallID != "" {
 				return nil, fmt.Errorf("eino: user message contains Tool state")
 			}
-			builder.UserText(message.Name, message.Content)
+			audio, err := userAudioBlobs(message.UserInputMultiContent)
+			if err != nil {
+				return nil, err
+			}
+			if len(audio) == 0 || message.Content != "" {
+				builder.UserText(message.Name, message.Content)
+			}
+			for _, blob := range audio {
+				builder.UserBlob(message.Name, blob.MIMEType, blob.Data)
+			}
 		case schema.Assistant:
 			if message.ToolCallID != "" {
 				return nil, fmt.Errorf("eino: assistant message contains Tool result ID")

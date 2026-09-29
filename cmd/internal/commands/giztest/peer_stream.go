@@ -104,6 +104,30 @@ func rebuildPeerStreamOutput(records []peerStreamOutputRecord, skip map[string]b
 	return out, nil
 }
 
+// peerStreamTranscriptAndReply joins the definite user transcript text and
+// the kept assistant reply text, so documents can assert and capture each one
+// separately from the combined text array.
+func peerStreamTranscriptAndReply(records []peerStreamOutputRecord, skip map[string]bool) (string, string) {
+	var transcript, reply strings.Builder
+	for _, record := range records {
+		text, ok := record.chunk.Part.(genx.Text)
+		if !ok {
+			continue
+		}
+		switch record.label {
+		case "transcript":
+			if record.chunk.Ctrl == nil || !record.chunk.Ctrl.TextInterim {
+				transcript.WriteString(string(text))
+			}
+		case "assistant":
+			if !skip[record.streamID] {
+				reply.WriteString(string(text))
+			}
+		}
+	}
+	return transcript.String(), reply.String()
+}
+
 type peerStreamSession struct {
 	client   string
 	stream   peerStream
@@ -1005,7 +1029,8 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				return operationResult{}, fmt.Errorf("play assistant audio: %w", err)
 			}
 		}
-		object := map[string]any{"text": texts, "audio_bytes": audioBytes, "events": events, "text_eos": textEOS, "audio_eos": audioEOS, "interrupted": interrupted, "interrupt_observed": observedInterrupted, "first_transcript_ms": firstTranscriptMS, "first_text_ms": firstTextMS, "first_audio_ms": firstAudioMS, "text_eos_ms": textEOSMS, "audio_eos_ms": audioEOSMS}
+		transcript, reply := peerStreamTranscriptAndReply(outputRecords, abandonedResponses)
+		object := map[string]any{"text": texts, "transcript": transcript, "reply": reply, "audio_bytes": audioBytes, "events": events, "text_eos": textEOS, "audio_eos": audioEOS, "interrupted": interrupted, "interrupt_observed": observedInterrupted, "first_transcript_ms": firstTranscriptMS, "first_text_ms": firstTextMS, "first_audio_ms": firstAudioMS, "text_eos_ms": textEOSMS, "audio_eos_ms": audioEOSMS}
 		object["audio_integrity"] = audioIntegrity.summary()
 		maps.Copy(object, lead.fields())
 		if inputSent {

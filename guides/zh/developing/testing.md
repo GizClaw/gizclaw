@@ -729,6 +729,16 @@ tester Workflow 拥有测试意图、生成的用户行为、语义评判和最�
 发布节点改发一条追问，终轮则按 brief 的逐轮标准原样发布模型裁决。
 若 brief 只要求主持人切题且非空，提问轮不强求指认凶手或完成故事；说明证据不足并给出相关后续调查也算切题回应。
 
+### Eino 音频输入对比
+
+```sh
+bash tests/gizclaw-e2e/run_audio_input_comparison_tests.sh
+```
+
+`eino-audio-input` 与 `eino-audio-input-asr` 使用同一个 Graph 和 `audio-llm`（`doubao-lite-audio-chat`，上游 `doubao-seed-2-1-lite-260915`，关闭 thinking）：前者不配置 `asr_model`，由 `audio_transcript` chat_model node 在同一次回复中转写 Push-to-Talk 音频；后者先经 `asr`（`volc-bigasr-sauc`）识别再发送文本。两者都用 `multilingual-voice` 合成回复。脚本启动一套隔离 stack，对每个样本（普通话、四川话、粤语、英语、日语、西班牙语）运行一次 `benchmark.eino-audio-input-comparison`：同一段合成录音先后发给两个 Workspace，文档用 `output` step 打印两条路径的 transcript 与 reply。`setup/audio_input_comparison.py` 按关键词组给 transcript 和 reply 打分，把 `report.json`、`report.md` 以及每个样本的 report 与 log 写到 `testdata/audio-input-comparison/`，并附带 `first_transcript_ms`、`first_text_ms`、`first_audio_ms`。音频输入路径任一样本缺少期望的 transcript 或 reply 时脚本失败；ASR 路径只作为基线记录。`GIZCLAW_AUDIO_SAMPLES=mandarin,cantonese` 只运行所列样本。`run_tests.sh` preflight 运行 `setup/audio_input_comparison_test.py`，离线校验输出解析与打分。
+
+`peer_stream` result 的 `/transcript` 是非 interim 的 `transcript` label 文本，`/reply` 是保留下来的 `assistant` label 文本；`/text` 仍按到达顺序包含全部文本片段。常规阶段的 `eino-audio-input.push-to-talk-transcript` 用普通话问题断言 `/transcript`、`/reply` 和 History 写入。
+
 ### 广播场景：listen、parallel 与 input_sent
 
 SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而不是发送方自己。runner 为此提供
