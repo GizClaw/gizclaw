@@ -1,6 +1,7 @@
 package apitypes
 
 import (
+	"encoding/json"
 	"errors"
 	"net/url"
 	"slices"
@@ -100,6 +101,27 @@ func TestValidateResourceJSONCredentialBodyUsesWireShapeBoundary(t *testing.T) {
 }`
 	if err := ValidateResourceJSON([]byte(input)); err != nil {
 		t.Fatalf("ValidateResourceJSON() error = %v", err)
+	}
+}
+
+func TestValidateResourceJSONRuntimeProfileBindingsAreOptional(t *testing.T) {
+	input := `{
+  "apiVersion":"gizclaw.admin/v1alpha1",
+  "kind":"RuntimeProfile",
+  "metadata":{"id":"devices-only"},
+  "spec":{"mhs":{"v0":{"devices":[{"id":"led.status","hwd":"led"}]}}}
+}`
+	if err := ValidateResourceJSON([]byte(input)); err != nil {
+		t.Fatalf("ValidateResourceJSON(devices only) error = %v", err)
+	}
+	// The Server encodes a stored empty spec; the result must stay valid.
+	spec, err := json.Marshal(RuntimeProfileSpec{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded := `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"RuntimeProfile","metadata":{"id":"empty"},"spec":` + string(spec) + `}`
+	if err := ValidateResourceJSON([]byte(encoded)); err != nil {
+		t.Fatalf("ValidateResourceJSON(%s) error = %v", spec, err)
 	}
 }
 

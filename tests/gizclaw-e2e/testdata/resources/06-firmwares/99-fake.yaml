@@ -7,7 +7,6 @@ spec:
     metadata:
       id: devkit-firmware-000
     spec:
-      name: devkit-firmware-000
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -18,7 +17,6 @@ spec:
     metadata:
       id: devkit-firmware-001
     spec:
-      name: devkit-firmware-001
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -29,7 +27,6 @@ spec:
     metadata:
       id: devkit-firmware-002
     spec:
-      name: devkit-firmware-002
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -40,7 +37,6 @@ spec:
     metadata:
       id: devkit-firmware-003
     spec:
-      name: devkit-firmware-003
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -51,7 +47,6 @@ spec:
     metadata:
       id: devkit-firmware-004
     spec:
-      name: devkit-firmware-004
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -62,7 +57,6 @@ spec:
     metadata:
       id: devkit-firmware-005
     spec:
-      name: devkit-firmware-005
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -73,7 +67,6 @@ spec:
     metadata:
       id: devkit-firmware-006
     spec:
-      name: devkit-firmware-006
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -84,7 +77,6 @@ spec:
     metadata:
       id: devkit-firmware-007
     spec:
-      name: devkit-firmware-007
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -95,7 +87,6 @@ spec:
     metadata:
       id: devkit-firmware-008
     spec:
-      name: devkit-firmware-008
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -106,7 +97,6 @@ spec:
     metadata:
       id: devkit-firmware-009
     spec:
-      name: devkit-firmware-009
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -117,7 +107,6 @@ spec:
     metadata:
       id: devkit-firmware-010
     spec:
-      name: devkit-firmware-010
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -128,7 +117,6 @@ spec:
     metadata:
       id: devkit-firmware-011
     spec:
-      name: devkit-firmware-011
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -139,7 +127,6 @@ spec:
     metadata:
       id: devkit-firmware-012
     spec:
-      name: devkit-firmware-012
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -150,7 +137,6 @@ spec:
     metadata:
       id: devkit-firmware-013
     spec:
-      name: devkit-firmware-013
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -161,7 +147,6 @@ spec:
     metadata:
       id: devkit-firmware-014
     spec:
-      name: devkit-firmware-014
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -172,7 +157,6 @@ spec:
     metadata:
       id: devkit-firmware-015
     spec:
-      name: devkit-firmware-015
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -183,7 +167,6 @@ spec:
     metadata:
       id: devkit-firmware-016
     spec:
-      name: devkit-firmware-016
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -194,7 +177,6 @@ spec:
     metadata:
       id: devkit-firmware-017
     spec:
-      name: devkit-firmware-017
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -205,7 +187,6 @@ spec:
     metadata:
       id: devkit-firmware-018
     spec:
-      name: devkit-firmware-018
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -216,7 +197,6 @@ spec:
     metadata:
       id: devkit-firmware-019
     spec:
-      name: devkit-firmware-019
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -227,7 +207,6 @@ spec:
     metadata:
       id: devkit-firmware-020
     spec:
-      name: devkit-firmware-020
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -238,7 +217,6 @@ spec:
     metadata:
       id: devkit-firmware-021
     spec:
-      name: devkit-firmware-021
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -249,7 +227,6 @@ spec:
     metadata:
       id: devkit-firmware-022
     spec:
-      name: devkit-firmware-022
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -260,7 +237,6 @@ spec:
     metadata:
       id: devkit-firmware-023
     spec:
-      name: devkit-firmware-023
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -271,7 +247,6 @@ spec:
     metadata:
       id: devkit-firmware-024
     spec:
-      name: devkit-firmware-024
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -282,7 +257,6 @@ spec:
     metadata:
       id: devkit-firmware-025
     spec:
-      name: devkit-firmware-025
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -293,7 +267,6 @@ spec:
     metadata:
       id: devkit-firmware-026
     spec:
-      name: devkit-firmware-026
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -304,7 +277,6 @@ spec:
     metadata:
       id: devkit-firmware-027
     spec:
-      name: devkit-firmware-027
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -315,7 +287,6 @@ spec:
     metadata:
       id: devkit-firmware-028
     spec:
-      name: devkit-firmware-028
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -326,7 +297,6 @@ spec:
     metadata:
       id: devkit-firmware-029
     spec:
-      name: devkit-firmware-029
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -337,7 +307,6 @@ spec:
     metadata:
       id: devkit-firmware-030
     spec:
-      name: devkit-firmware-030
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -348,7 +317,6 @@ spec:
     metadata:
       id: devkit-firmware-031
     spec:
-      name: devkit-firmware-031
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -359,7 +327,6 @@ spec:
     metadata:
       id: devkit-firmware-032
     spec:
-      name: devkit-firmware-032
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -370,7 +337,6 @@ spec:
     metadata:
       id: devkit-firmware-033
     spec:
-      name: devkit-firmware-033
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -381,7 +347,6 @@ spec:
     metadata:
       id: devkit-firmware-034
     spec:
-      name: devkit-firmware-034
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -392,7 +357,6 @@ spec:
     metadata:
       id: devkit-firmware-035
     spec:
-      name: devkit-firmware-035
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -403,7 +367,6 @@ spec:
     metadata:
       id: devkit-firmware-036
     spec:
-      name: devkit-firmware-036
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -414,7 +377,6 @@ spec:
     metadata:
       id: devkit-firmware-037
     spec:
-      name: devkit-firmware-037
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -425,7 +387,6 @@ spec:
     metadata:
       id: devkit-firmware-038
     spec:
-      name: devkit-firmware-038
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -436,7 +397,6 @@ spec:
     metadata:
       id: devkit-firmware-039
     spec:
-      name: devkit-firmware-039
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -447,7 +407,6 @@ spec:
     metadata:
       id: devkit-firmware-040
     spec:
-      name: devkit-firmware-040
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -458,7 +417,6 @@ spec:
     metadata:
       id: devkit-firmware-041
     spec:
-      name: devkit-firmware-041
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -469,7 +427,6 @@ spec:
     metadata:
       id: devkit-firmware-042
     spec:
-      name: devkit-firmware-042
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -480,7 +437,6 @@ spec:
     metadata:
       id: devkit-firmware-043
     spec:
-      name: devkit-firmware-043
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -491,7 +447,6 @@ spec:
     metadata:
       id: devkit-firmware-044
     spec:
-      name: devkit-firmware-044
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -502,7 +457,6 @@ spec:
     metadata:
       id: devkit-firmware-045
     spec:
-      name: devkit-firmware-045
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -513,7 +467,6 @@ spec:
     metadata:
       id: devkit-firmware-046
     spec:
-      name: devkit-firmware-046
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -524,7 +477,6 @@ spec:
     metadata:
       id: devkit-firmware-047
     spec:
-      name: devkit-firmware-047
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -535,7 +487,6 @@ spec:
     metadata:
       id: devkit-firmware-048
     spec:
-      name: devkit-firmware-048
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -546,7 +497,6 @@ spec:
     metadata:
       id: devkit-firmware-049
     spec:
-      name: devkit-firmware-049
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -557,7 +507,6 @@ spec:
     metadata:
       id: devkit-firmware-050
     spec:
-      name: devkit-firmware-050
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -568,7 +517,6 @@ spec:
     metadata:
       id: devkit-firmware-051
     spec:
-      name: devkit-firmware-051
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -579,7 +527,6 @@ spec:
     metadata:
       id: devkit-firmware-052
     spec:
-      name: devkit-firmware-052
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -590,7 +537,6 @@ spec:
     metadata:
       id: devkit-firmware-053
     spec:
-      name: devkit-firmware-053
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -601,7 +547,6 @@ spec:
     metadata:
       id: devkit-firmware-054
     spec:
-      name: devkit-firmware-054
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -612,7 +557,6 @@ spec:
     metadata:
       id: devkit-firmware-055
     spec:
-      name: devkit-firmware-055
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -623,7 +567,6 @@ spec:
     metadata:
       id: devkit-firmware-056
     spec:
-      name: devkit-firmware-056
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -634,7 +577,6 @@ spec:
     metadata:
       id: devkit-firmware-057
     spec:
-      name: devkit-firmware-057
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -645,7 +587,6 @@ spec:
     metadata:
       id: devkit-firmware-058
     spec:
-      name: devkit-firmware-058
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -656,7 +597,6 @@ spec:
     metadata:
       id: devkit-firmware-059
     spec:
-      name: devkit-firmware-059
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -667,7 +607,6 @@ spec:
     metadata:
       id: devkit-firmware-060
     spec:
-      name: devkit-firmware-060
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -678,7 +617,6 @@ spec:
     metadata:
       id: devkit-firmware-061
     spec:
-      name: devkit-firmware-061
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -689,7 +627,6 @@ spec:
     metadata:
       id: devkit-firmware-062
     spec:
-      name: devkit-firmware-062
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -700,7 +637,6 @@ spec:
     metadata:
       id: devkit-firmware-063
     spec:
-      name: devkit-firmware-063
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -711,7 +647,6 @@ spec:
     metadata:
       id: devkit-firmware-064
     spec:
-      name: devkit-firmware-064
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -722,7 +657,6 @@ spec:
     metadata:
       id: devkit-firmware-065
     spec:
-      name: devkit-firmware-065
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -733,7 +667,6 @@ spec:
     metadata:
       id: devkit-firmware-066
     spec:
-      name: devkit-firmware-066
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -744,7 +677,6 @@ spec:
     metadata:
       id: devkit-firmware-067
     spec:
-      name: devkit-firmware-067
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -755,7 +687,6 @@ spec:
     metadata:
       id: devkit-firmware-068
     spec:
-      name: devkit-firmware-068
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -766,7 +697,6 @@ spec:
     metadata:
       id: devkit-firmware-069
     spec:
-      name: devkit-firmware-069
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -777,7 +707,6 @@ spec:
     metadata:
       id: devkit-firmware-070
     spec:
-      name: devkit-firmware-070
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -788,7 +717,6 @@ spec:
     metadata:
       id: devkit-firmware-071
     spec:
-      name: devkit-firmware-071
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -799,7 +727,6 @@ spec:
     metadata:
       id: devkit-firmware-072
     spec:
-      name: devkit-firmware-072
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -810,7 +737,6 @@ spec:
     metadata:
       id: devkit-firmware-073
     spec:
-      name: devkit-firmware-073
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -821,7 +747,6 @@ spec:
     metadata:
       id: devkit-firmware-074
     spec:
-      name: devkit-firmware-074
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -832,7 +757,6 @@ spec:
     metadata:
       id: devkit-firmware-075
     spec:
-      name: devkit-firmware-075
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -843,7 +767,6 @@ spec:
     metadata:
       id: devkit-firmware-076
     spec:
-      name: devkit-firmware-076
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -854,7 +777,6 @@ spec:
     metadata:
       id: devkit-firmware-077
     spec:
-      name: devkit-firmware-077
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -865,7 +787,6 @@ spec:
     metadata:
       id: devkit-firmware-078
     spec:
-      name: devkit-firmware-078
       description: Devkit firmware resource entry
       slots:
         beta: {}
@@ -876,7 +797,6 @@ spec:
     metadata:
       id: devkit-firmware-079
     spec:
-      name: devkit-firmware-079
       description: Devkit firmware resource entry
       slots:
         beta: {}

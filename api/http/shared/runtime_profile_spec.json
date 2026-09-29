@@ -61,6 +61,8 @@
       },
       "RuntimeProfileWorkflows": {
         "type": "object",
+        "description": "Workflow bindings keyed by Workflow name. Omitted means the RuntimeProfile binds no Workflows.",
+        "x-go-type-skip-optional-pointer": true,
         "additionalProperties": {
           "$ref": "#/components/schemas/RuntimeProfileBinding"
         }
@@ -281,6 +283,8 @@
       },
       "RuntimeProfileResources": {
         "type": "object",
+        "description": "Model, Voice, Tool, and Memory bindings that Workflows reference by alias. Omitted means the RuntimeProfile binds none of them.",
+        "x-go-type-skip-optional-pointer": true,
         "additionalProperties": false,
         "properties": {
           "models": {
@@ -357,10 +361,6 @@
       },
       "RuntimeProfileSpec": {
         "type": "object",
-        "required": [
-          "workflows",
-          "resources"
-        ],
         "additionalProperties": false,
         "properties": {
           "workflows": {

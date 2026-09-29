@@ -5926,7 +5926,7 @@ type RuntimeProfileResource struct {
 // RuntimeProfileResourceKind defines model for RuntimeProfileResource.Kind.
 type RuntimeProfileResourceKind string
 
-// RuntimeProfileResources defines model for RuntimeProfileResources.
+// RuntimeProfileResources Model, Voice, Tool, and Memory bindings that Workflows reference by alias. Omitted means the RuntimeProfile binds none of them.
 type RuntimeProfileResources struct {
 	Memories *map[string]RuntimeProfileMemoryBinding `json:"memories,omitempty"`
 	Models   *map[string]RuntimeProfileBinding       `json:"models,omitempty"`
@@ -5949,11 +5949,15 @@ type RuntimeProfileSpec struct {
 	// AppConfig Opaque device-defined configuration downlink. Keys use the RuntimeProfile alias syntax and values are bounded at 4096 UTF-8 bytes; both are enforced during Server-side normalization because OpenAPI 3.0 has no propertyNames keyword and expresses maxLength in characters. The Server stores and returns every value verbatim and never parses it. Clients read it through server.app_config.list and server.app_config.get and cannot write it. Any registered device bound to this RuntimeProfile can read every entry, so values must not contain credentials, API keys or other secrets.
 	AppConfig *RuntimeProfileAppConfig `json:"app_config,omitempty"`
 	Mhs       *RuntimeProfileMhs       `json:"mhs,omitempty"`
-	Resources RuntimeProfileResources  `json:"resources"`
+
+	// Resources Model, Voice, Tool, and Memory bindings that Workflows reference by alias. Omitted means the RuntimeProfile binds none of them.
+	Resources RuntimeProfileResources `json:"resources,omitempty"`
 
 	// SafetyFences Profile-defined identifiers mapped to independent complete prompts. No prompt inherits another. A selected identifier must exist at reload.
 	SafetyFences *RuntimeProfileSafetyFences `json:"safety_fences,omitempty"`
-	Workflows    RuntimeProfileWorkflows     `json:"workflows"`
+
+	// Workflows Workflow bindings keyed by Workflow name. Omitted means the RuntimeProfile binds no Workflows.
+	Workflows RuntimeProfileWorkflows `json:"workflows,omitempty"`
 }
 
 // RuntimeProfileVolcMem0Connection defines model for RuntimeProfileVolcMem0Connection.
@@ -5970,7 +5974,7 @@ type RuntimeProfileVolcMem0Connection struct {
 // RuntimeProfileVolcMem0ConnectionType defines model for RuntimeProfileVolcMem0Connection.Type.
 type RuntimeProfileVolcMem0ConnectionType string
 
-// RuntimeProfileWorkflows defines model for RuntimeProfileWorkflows.
+// RuntimeProfileWorkflows Workflow bindings keyed by Workflow name. Omitted means the RuntimeProfile binds no Workflows.
 type RuntimeProfileWorkflows map[string]RuntimeProfileBinding
 
 // SFUWorkflowSpec Empty SFU Workflow payload. The Workspace binds the current Peer to the SFU Room declared by its Social resource; the Workflow itself carries no configuration.
