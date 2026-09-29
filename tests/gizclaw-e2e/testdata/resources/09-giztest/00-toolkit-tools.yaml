@@ -1,0 +1,64 @@
+---
+# Tools bound by the e2e-giztest RuntimeProfile so Workspace toolkit selections
+# have real bindings to resolve (server.workspace.toolkit.roundtrip). Device
+# procedures are the predefined tool/v0 ClientTool set, not Admin Tools, so
+# these are ordinary http_request Tools. They stay disabled: no Workflow
+# declares them to a model, and the reserved .invalid host is never dialed.
+apiVersion: gizclaw.admin/v1alpha1
+kind: ResourceList
+spec:
+  items:
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Tool
+    metadata:
+      id: giztest-toolkit-echo
+    spec:
+      type: http_request
+      invoke_name: giztest_echo
+      enabled: false
+      description: Workspace toolkit selection fixture.
+      input_schema:
+        type: object
+        properties:
+          key:
+            type: string
+        required:
+        - key
+        additionalProperties: false
+      http:
+        url: https://giztest.invalid/echo
+        method: GET
+        auth:
+          method: none
+        query:
+        - argument_pointer: /key
+          target: key
+        timeout: 1s
+        max_response_bytes: 1024
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Tool
+    metadata:
+      id: giztest-toolkit-other
+    spec:
+      type: http_request
+      invoke_name: giztest_other
+      enabled: false
+      description: Second Workspace toolkit selection fixture.
+      input_schema:
+        type: object
+        properties:
+          key:
+            type: string
+        required:
+        - key
+        additionalProperties: false
+      http:
+        url: https://giztest.invalid/other
+        method: GET
+        auth:
+          method: none
+        query:
+        - argument_pointer: /key
+          target: key
+        timeout: 1s
+        max_response_bytes: 1024

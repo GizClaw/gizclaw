@@ -89,9 +89,11 @@ func TestRuntimeProfileAndWorkspaceToolkitGiztest(t *testing.T) {
 	start()
 	t.Cleanup(func() { stop() })
 
+	// Mirror the disabled e2e fixture Tools: Workspace selection resolves
+	// bindings whether or not a Tool is enabled.
 	tools := &toolkit.Server{DB: server.ToolDB}
-	for _, entry := range []struct{ id, name string }{{"giztest-client-echo", "giztest_echo"}, {"giztest-client-other", "giztest_other"}} {
-		if _, err := tools.CreateTool(ctx, toolkit.Tool{ID: entry.id, InvokeName: entry.name, Type: toolkit.ToolTypeHTTPRequest, Enabled: true, InputSchema: jsonschema.Schema{Type: "object"}, HTTP: &toolkit.HTTPRequest{URL: "https://example.com/tool", Method: "GET", Auth: toolkit.HTTPAuth{Method: "none"}, Timeout: time.Second, MaxResponseBytes: 1024}}); err != nil {
+	for _, entry := range []struct{ id, name string }{{"giztest-toolkit-echo", "giztest_echo"}, {"giztest-toolkit-other", "giztest_other"}} {
+		if _, err := tools.CreateTool(ctx, toolkit.Tool{ID: entry.id, InvokeName: entry.name, Type: toolkit.ToolTypeHTTPRequest, Enabled: false, InputSchema: jsonschema.Schema{Type: "object"}, HTTP: &toolkit.HTTPRequest{URL: "https://giztest.invalid/" + entry.name, Method: "GET", Auth: toolkit.HTTPAuth{Method: "none"}, Timeout: time.Second, MaxResponseBytes: 1024}}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -104,7 +106,7 @@ func TestRuntimeProfileAndWorkspaceToolkitGiztest(t *testing.T) {
 	if _, err := adminapi.CreateWorkflow(ctx, admin, apitypes.Workflow{Id: "toolkit-workflow", Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &graph}}); err != nil {
 		t.Fatal(err)
 	}
-	bindings := map[string]apitypes.RuntimeProfileBinding{"giztest-echo": {ResourceId: "giztest-client-echo", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Echo"}, "zh-CN": {DisplayName: "Echo"}}}, "giztest-other": {ResourceId: "giztest-client-other", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Other"}, "zh-CN": {DisplayName: "Other"}}}}
+	bindings := map[string]apitypes.RuntimeProfileBinding{"giztest-echo": {ResourceId: "giztest-toolkit-echo", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Echo"}, "zh-CN": {DisplayName: "Echo"}}}, "giztest-other": {ResourceId: "giztest-toolkit-other", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Other"}, "zh-CN": {DisplayName: "Other"}}}}
 	profile := adminhttp.RuntimeProfileUpsert{Id: "workspace-toolkit", Spec: apitypes.RuntimeProfileSpec{
 		Workflows: apitypes.RuntimeProfileWorkflows{
 			"flowcraft-chat-assistant":  {ResourceId: "toolkit-workflow", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Toolkit Chat"}, "zh-CN": {DisplayName: "Toolkit Chat"}}, Tags: &[]string{"assistants", "6-8", "catalog"}},
