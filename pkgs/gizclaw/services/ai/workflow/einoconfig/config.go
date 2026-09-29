@@ -30,6 +30,9 @@ func Validate(public apitypes.EinoWorkflowSpec) error {
 	if err != nil {
 		return fmt.Errorf("graph: %w", err)
 	}
+	if err := validateAudioInput(public, graph); err != nil {
+		return err
+	}
 	config := genxeino.Config{
 		Agent:      genxeino.AgentConfig{ID: "workflow-validation"},
 		Graph:      graph,
@@ -86,6 +89,18 @@ func validateVoiceAdapter(public apitypes.EinoWorkflowSpec) error {
 		if err := runtimealias.Validate("node Voice alias", strings.TrimSpace(alias)); err != nil {
 			return fmt.Errorf("node_voices.%s: %w", nodeID, err)
 		}
+	}
+	return nil
+}
+
+// validateAudioInput keeps one owner for live audio: either the voice_adapter
+// ASR model or a transcribing chat_model node.
+func validateAudioInput(public apitypes.EinoWorkflowSpec, graph genxeino.GraphDefinition) error {
+	if !genxeino.AcceptsAudioInput(genxeino.Config{Graph: graph}) || public.VoiceAdapter == nil {
+		return nil
+	}
+	if strings.TrimSpace(stringValue(public.VoiceAdapter.AsrModel)) != "" {
+		return fmt.Errorf("voice_adapter: asr_model cannot be combined with a chat_model audio_transcript node")
 	}
 	return nil
 }
@@ -210,6 +225,7 @@ func mapNode(public apitypes.EinoNode) (genxeino.NodeDefinition, error) {
 		node := nodeBase(value.Id, value.Inputs, value.Outputs)
 		node.ChatModel = &genxeino.ChatModelNode{
 			Model: value.Model, Temperature: value.Temperature, MaxTokens: value.MaxTokens,
+			AudioTranscript: boolValue(value.AudioTranscript),
 		}
 		return node, nil
 	case "transform":

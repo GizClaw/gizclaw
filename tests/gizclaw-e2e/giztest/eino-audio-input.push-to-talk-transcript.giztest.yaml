@@ -1,0 +1,104 @@
+# User Story:
+# As a registered device using the eino-audio-input Workflow,
+# I want one push-to-talk question answered by the audio-input chat Model without an ASR stage,
+# So that the same reply carries my transcript for the client, History, and the next turn.
+version: gizclaw.test/v1alpha1
+name: eino-audio-input.push-to-talk-transcript
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  input_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        workflow_name: eino-audio-input
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  - id: synthesize_question
+    client: peer
+    speech:
+      cache: run
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 三加五等于几？
+        accepted_content_types: [audio/ogg]
+    save_as: input_audio
+  - id: ask_by_voice
+    client: peer
+    timeout: 90s
+    peer_stream:
+      mode: push-to-talk
+      input: ${input_audio}
+      pacing: 20ms
+      trim_trailing_silence: true
+      wait_for_history: true
+    expect:
+      /first_transcript_ms:
+        minimum: 1
+      /first_text_ms:
+        minimum: 1
+      /first_audio_ms:
+        minimum: 1
+      /transcript:
+        contains_all: ["3", "5"]
+        normalize: [digits]
+      /reply:
+        contains: "8"
+        not_contains: ["<asr>", "</asr>"]
+        normalize: [digits]
+      /history_name:
+        non_empty: true
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

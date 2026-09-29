@@ -1,0 +1,169 @@
+# User Story:
+# As a GizClaw maintainer choosing a live-audio path for Eino,
+# I want one recording answered by the audio-input chat Model and by streaming ASR plus the same Model,
+# So that run_audio_input_comparison_tests.sh can score both transcripts and replies across languages and dialects.
+version: gizclaw.test/v1alpha1
+name: benchmark.eino-audio-input-comparison
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  sample_voice:
+    direction: input
+    type: string
+    env: GIZCLAW_AUDIO_SAMPLE_VOICE
+  sample_text:
+    direction: input
+    type: string
+    env: GIZCLAW_AUDIO_SAMPLE_TEXT
+  audio_workspace:
+    direction: input
+    type: string
+    generate: token
+  asr_workspace:
+    direction: input
+    type: string
+    generate: token
+  input_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  audio_transcript:
+    direction: output
+    type: string
+  audio_reply:
+    direction: output
+    type: string
+  asr_transcript:
+    direction: output
+    type: string
+  asr_reply:
+    direction: output
+    type: string
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_audio_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${audio_workspace}
+        workflow_name: eino-audio-input
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: create_asr_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${asr_workspace}
+        workflow_name: eino-audio-input-asr
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: synthesize_sample
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: ${sample_voice}
+        text: ${sample_text}
+        accepted_content_types: [audio/ogg]
+    save_as: input_audio
+  - id: select_audio
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${audio_workspace}
+  - id: ask_audio
+    client: peer
+    timeout: 90s
+    peer_stream:
+      mode: push-to-talk
+      input: ${input_audio}
+      pacing: 20ms
+      trim_trailing_silence: true
+    expect:
+      /first_text_ms:
+        minimum: 1
+    capture:
+      audio_transcript: /transcript
+      audio_reply: /reply
+  - id: print_audio_transcript
+    output:
+      variable: audio_transcript
+  - id: print_audio_reply
+    output:
+      variable: audio_reply
+  - id: select_asr
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${asr_workspace}
+  - id: reload_asr
+    client: peer
+    rpc:
+      method: server.run.workspace.reload
+      request: {}
+  - id: ask_asr
+    client: peer
+    timeout: 90s
+    peer_stream:
+      mode: push-to-talk
+      input: ${input_audio}
+      pacing: 20ms
+      trim_trailing_silence: true
+    expect:
+      /first_text_ms:
+        minimum: 1
+    capture:
+      asr_transcript: /transcript
+      asr_reply: /reply
+  - id: print_asr_transcript
+    output:
+      variable: asr_transcript
+  - id: print_asr_reply
+    output:
+      variable: asr_reply
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${audio_workspace}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${asr_workspace}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

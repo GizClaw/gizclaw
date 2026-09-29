@@ -837,6 +837,16 @@ definitive culprit or completed story when the brief only checks relevant,
 nonempty host replies; a reasoned statement that clues are insufficient is a
 responsive answer.
 
+### Eino audio input comparison
+
+```sh
+bash tests/gizclaw-e2e/run_audio_input_comparison_tests.sh
+```
+
+`eino-audio-input` and `eino-audio-input-asr` share one Graph and `audio-llm` (`doubao-lite-audio-chat`, upstream `doubao-seed-2-1-lite-260915`, thinking disabled). The first has no `asr_model`; its `audio_transcript` chat_model node transcribes Push-to-Talk audio in the same reply. The second recognizes speech with `asr` (`volc-bigasr-sauc`) first and sends text. Both synthesize replies with `multilingual-voice`. The script starts one isolated stack and runs `benchmark.eino-audio-input-comparison` once per sample (Mandarin, Sichuanese, Cantonese, English, Japanese, Spanish): the same synthesized recording goes to both Workspaces, and `output` steps print each path's transcript and reply. `setup/audio_input_comparison.py` scores transcripts and replies against keyword groups and writes `report.json`, `report.md`, and each sample's report and log to `testdata/audio-input-comparison/`, together with `first_transcript_ms`, `first_text_ms`, and `first_audio_ms`. The script fails when the audio-input path misses an expected transcript or reply for any sample; the ASR path is recorded as the baseline. `GIZCLAW_AUDIO_SAMPLES=mandarin,cantonese` runs only the listed samples. The `run_tests.sh` preflight runs `setup/audio_input_comparison_test.py` to check output parsing and scoring offline.
+
+A `peer_stream` result's `/transcript` is the non-interim `transcript`-labelled text and `/reply` is the kept `assistant`-labelled text; `/text` still holds every text fragment in arrival order. The regular-phase `eino-audio-input.push-to-talk-transcript` asserts `/transcript`, `/reply`, and the History write for a Mandarin question.
+
 ### Broadcast scenarios: listen, parallel, and input_sent
 
 In SFU Workspace broadcast scenarios the response appears on the other clients

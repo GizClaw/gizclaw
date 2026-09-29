@@ -3911,13 +3911,15 @@ type EinoBranchRoute struct {
 
 // EinoChatModelNode defines model for EinoChatModelNode.
 type EinoChatModelNode struct {
-	Id          string                  `json:"id"`
-	Inputs      *map[string]EinoBinding `json:"inputs,omitempty"`
-	MaxTokens   *int                    `json:"max_tokens,omitempty"`
-	Model       string                  `json:"model"`
-	Outputs     *map[string]string      `json:"outputs,omitempty"`
-	Temperature *float32                `json:"temperature,omitempty"`
-	Type        EinoChatModelNodeType   `json:"type"`
+	// AudioTranscript Makes this root Graph node the transcriber of push-to-talk audio turns when voice_adapter has no asr_model. The node sends the user audio to its model, whose Generator reports the audio transcript anywhere in the reply stream; the transcript becomes the user text of the turn, and a turn without one keeps only its reply and user audio. At most one node may set it.
+	AudioTranscript *bool                   `json:"audio_transcript,omitempty"`
+	Id              string                  `json:"id"`
+	Inputs          *map[string]EinoBinding `json:"inputs,omitempty"`
+	MaxTokens       *int                    `json:"max_tokens,omitempty"`
+	Model           string                  `json:"model"`
+	Outputs         *map[string]string      `json:"outputs,omitempty"`
+	Temperature     *float32                `json:"temperature,omitempty"`
+	Type            EinoChatModelNodeType   `json:"type"`
 }
 
 // EinoChatModelNodeType defines model for EinoChatModelNode.Type.

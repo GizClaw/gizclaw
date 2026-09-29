@@ -17,6 +17,7 @@ import (
 	"google.golang.org/genai"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/generators/doubaochat"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/dashscoperealtime"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaoasr"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaoast"
@@ -397,7 +398,7 @@ func (b DefaultBuilder) buildVolcArkGenerator(cfg GeneratorConfig) (genx.Generat
 	if modelName == "" {
 		return nil, fmt.Errorf("%w: model %q missing upstream model", ErrInvalid, cfg.Model.Id)
 	}
-	return &genx.OpenAIGenerator{
+	generator := &genx.OpenAIGenerator{
 		Provider:          strings.TrimSuffix(cfg.Tenant.Kind, "-tenant"),
 		Client:            &client,
 		Model:             modelName,
@@ -406,7 +407,13 @@ func (b DefaultBuilder) buildVolcArkGenerator(cfg GeneratorConfig) (genx.Generat
 		TextOnly:          boolValue(providerData.SupportTextOnly),
 		PromptRole:        openAIPromptRole(providerData.UseSystemRole),
 		ExtraFields:       openAIThinkingExtraFields(openAIData),
-	}, nil
+	}
+	if generator.TextOnly {
+		return generator, nil
+	}
+	// Doubao chat models that accept audio return no transcript of it; the
+	// adapter converts request audio and reports the transcript.
+	return doubaochat.New(generator), nil
 }
 
 func (b DefaultBuilder) buildGeminiGenerator(ctx context.Context, cfg GeneratorConfig) (genx.Generator, error) {
