@@ -605,16 +605,12 @@ func (run *turnRun) PublishTranscript(text string) error {
 	if !run.audioTurn() {
 		return fmt.Errorf("eino: transcript published for a non-audio turn")
 	}
-	run.mu.Lock()
-	defer run.mu.Unlock()
-	if !run.accepting {
-		return streamkit.ErrInactiveResponse
+	if err := run.claimTranscript(text); err != nil {
+		return err
 	}
-	if run.transcribed {
-		return fmt.Errorf("eino: audio turn transcript was already published")
-	}
-	run.transcribed = true
-	run.user = text
+	// Publication runs outside run.mu so interruption never waits on output.
+	// The transcript is the user's own utterance and stays valid when the
+	// reply is interrupted afterwards.
 	invocation := run.session.invocation
 	if strings.TrimSpace(text) == "" {
 		return nil
@@ -635,6 +631,22 @@ func (run *turnRun) PublishTranscript(text string) error {
 	if err := invocation.FinishResponse(response, ""); err != nil {
 		return fmt.Errorf("eino: finish transcript route: %w", err)
 	}
+	return nil
+}
+
+// claimTranscript records the transcript as the turn's user text once, while
+// the turn still accepts output.
+func (run *turnRun) claimTranscript(text string) error {
+	run.mu.Lock()
+	defer run.mu.Unlock()
+	if !run.accepting {
+		return streamkit.ErrInactiveResponse
+	}
+	if run.transcribed {
+		return fmt.Errorf("eino: audio turn transcript was already published")
+	}
+	run.transcribed = true
+	run.user = text
 	return nil
 }
 
