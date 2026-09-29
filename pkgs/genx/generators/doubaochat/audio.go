@@ -3,6 +3,7 @@ package doubaochat
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"mime"
 	"strconv"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/resampler"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
@@ -77,8 +79,8 @@ func isAudioMIME(mimeType string) bool {
 }
 
 // requestAudioBlob converts one user message's audio Blobs into one MP3 or WAV
-// Blob. Opus (raw packets or Ogg) and signed 16-bit PCM are decoded to 16 kHz
-// mono WAV; one WAV Blob and MP3 Blobs pass through.
+// Blob. Opus (raw packets or Ogg) and signed 16-bit PCM are converted to
+// 16 kHz mono WAV; one WAV Blob and MP3 Blobs pass through.
 func requestAudioBlob(audio []*genx.Blob) (*genx.Blob, error) {
 	var (
 		mediaType string
@@ -111,7 +113,11 @@ func requestAudioBlob(audio []*genx.Blob) (*genx.Blob, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &genx.Blob{MIMEType: "audio/wav", Data: format.WAV(bytes.Join(payloads, nil))}, nil
+		samples, err := resamplePCM(bytes.Join(payloads, nil), format)
+		if err != nil {
+			return nil, err
+		}
+		return &genx.Blob{MIMEType: "audio/wav", Data: requestAudioFormat.WAV(samples)}, nil
 	case "audio/ogg", "application/ogg", "audio/opus":
 		samples, err := decodeOpus(payloads)
 		if err != nil {
@@ -139,6 +145,25 @@ func pcmFormat(params map[string]string) (pcm.Format, error) {
 	return pcm.L16Format(rate, channels)
 }
 
+// resamplePCM converts signed 16-bit PCM in format to requestAudioFormat.
+func resamplePCM(data []byte, format pcm.Format) ([]byte, error) {
+	if format == requestAudioFormat {
+		return data, nil
+	}
+	converter, err := resampler.New(bytes.NewReader(data),
+		resampler.Format{SampleRate: format.SampleRate(), Stereo: format.Channels() == 2},
+		resampler.Format{SampleRate: requestAudioFormat.SampleRate(), Stereo: requestAudioFormat.Channels() == 2})
+	if err != nil {
+		return nil, fmt.Errorf("doubaochat: resample user PCM: %w", err)
+	}
+	defer converter.Close()
+	out, err := io.ReadAll(converter)
+	if err != nil {
+		return nil, fmt.Errorf("doubaochat: resample user PCM: %w", err)
+	}
+	return out, nil
+}
+
 // decodeOpus decodes one message's Opus payloads to mono PCM. Each payload is
 // either Ogg pages or one raw Opus packet; libopus downmixes stereo streams
 // for the mono decoder.
@@ -148,7 +173,8 @@ func decodeOpus(payloads [][]byte) ([]byte, error) {
 		return nil, fmt.Errorf("doubaochat: create Opus decoder: %w", err)
 	}
 	defer decoder.Close()
-	maxFrameSize := requestAudioFormat.SampleRate() * 3 / 50
+	// Opus packets carry at most 120 ms of audio.
+	maxFrameSize := requestAudioFormat.SampleRate() * 120 / 1000
 	var out bytes.Buffer
 	decode := func(packet []byte) error {
 		if len(packet) == 0 || codecconv.IsOpusHeadPacket(packet) || codecconv.IsOpusTagsPacket(packet) {

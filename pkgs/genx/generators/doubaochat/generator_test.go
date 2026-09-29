@@ -146,12 +146,25 @@ func TestRequestAudioBlobFormats(t *testing.T) {
 		}
 	}
 
-	pcmBlob, err := requestAudioBlob(blobs("audio/L16; rate=24000; channels=2", []byte{1, 0, 2, 0}, []byte{3, 0, 4, 0}))
+	// 100 ms of 24 kHz stereo PCM becomes about 100 ms of 16 kHz mono.
+	stereo := make([]byte, 2400*4)
+	for frame := range 2400 {
+		sample := int16(8000 * math.Sin(2*math.Pi*440*float64(frame)/24000))
+		for channel := range 2 {
+			binary.LittleEndian.PutUint16(stereo[frame*4+channel*2:], uint16(sample))
+		}
+	}
+	pcmBlob, err := requestAudioBlob(blobs("audio/L16; rate=24000; channels=2", stereo[:len(stereo)/2], stereo[len(stereo)/2:]))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if frames := assertWAV(t, pcmBlob, 24000, 2); frames != 2 || !bytes.Equal(pcmBlob.Data[44:], []byte{1, 0, 2, 0, 3, 0, 4, 0}) {
-		t.Fatalf("PCM frames = %d payload = % x", frames, pcmBlob.Data[44:])
+	if frames := assertWAV(t, pcmBlob, 16000, 1); frames < 1568 || frames > 1632 {
+		t.Fatalf("resampled PCM frames = %d, want about 1600", frames)
+	}
+	mono := []byte{1, 0, 2, 0}
+	passed16k, err := requestAudioBlob(blobs("audio/pcm", mono))
+	if err != nil || !bytes.Equal(passed16k.Data[44:], mono) {
+		t.Fatalf("16 kHz mono PCM = %#v, %v", passed16k, err)
 	}
 	mp3, err := requestAudioBlob(blobs("audio/mp3", []byte("ab"), []byte("cd")))
 	if err != nil || mp3.MIMEType != "audio/mpeg" || string(mp3.Data) != "abcd" {
@@ -161,6 +174,42 @@ func TestRequestAudioBlobFormats(t *testing.T) {
 	passed, err := requestAudioBlob(blobs("audio/wav", wav))
 	if err != nil || passed.MIMEType != "audio/wav" || !bytes.Equal(passed.Data, wav) {
 		t.Fatalf("WAV = %#v, %v", passed, err)
+	}
+}
+
+func TestRequestAudioBlobDecodesLongOpusPackets(t *testing.T) {
+	t.Parallel()
+	encoder, err := opus.NewEncoder(16000, 1, opus.ApplicationVoIP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer encoder.Close()
+	var frames [2][]byte
+	for index := range frames {
+		samples := make([]int16, 960)
+		for sample := range samples {
+			samples[sample] = int16(8000 * math.Sin(2*math.Pi*440*float64(index*960+sample)/16000))
+		}
+		packet, err := encoder.Encode(samples, len(samples))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if packet[0]&0x03 != 0 || len(packet)-1 >= 252 {
+			t.Fatalf("60 ms packet TOC %#x size %d is not one short frame", packet[0], len(packet))
+		}
+		frames[index] = packet
+	}
+	// RFC 6716 code 3: one TOC, a VBR frame-count byte for two frames, the
+	// first frame length, then both 60 ms frames: one 120 ms packet.
+	packet := []byte{frames[0][0] | 0x03, 0x80 | 2, byte(len(frames[0]) - 1)}
+	packet = append(packet, frames[0][1:]...)
+	packet = append(packet, frames[1][1:]...)
+	blob, err := requestAudioBlob(blobs("audio/opus", packet))
+	if err != nil {
+		t.Fatalf("120 ms packet: %v", err)
+	}
+	if decoded := assertWAV(t, blob, 16000, 1); decoded != 1920 {
+		t.Fatalf("decoded frames = %d, want 1920", decoded)
 	}
 }
 
