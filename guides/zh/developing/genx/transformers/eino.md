@@ -94,9 +94,23 @@ ChatModel 调用解析后的 Eino streaming interface。model node 直接拥有 
 
 ### 音频 turn
 
-`ChatModelNode.AudioTranscript` 让 root Graph 中的一个 ChatModel node 转写音频 user turn；在嵌套 Graph 中设置或由多个 node 设置都会在 `New` 失败。Graph 含该 node 时，普通 user `audio/*` route（不含 `history.user_audio` sideband）以第一个音频 chunk 开始、以 EOS 完成一轮：新的音频 route interrupt 上一轮，`interrupted` EOS 丢弃该 route，其他 EOS error 使 session 失败。每个 Blob 作为一个 audio part 留在当前 user message 中，因此该 node 必须通过 `input.messages` 收到它；该轮 `input.text` 为空，Memory recall 因 query 为空而跳过。没有该 node 的 Graph 仍只接受文本 turn。
+`ChatModelNode.AudioTranscript` 让 root Graph 中的一个 ChatModel node 转写音频 user turn；在嵌套 Graph 中设置或由多个 node 设置都会在 `New` 失败。Graph 含该 node 时，普通 user `audio/*` route（不含 `history.user_audio` sideband）以第一个音频 chunk 开始、以 EOS 完成一轮：新的音频 route interrupt 上一轮，`interrupted` EOS 丢弃该 route，其他 EOS error 使 session 失败。每个 Blob 作为一个 audio part 留在当前 user message 中，因此该 node 必须通过 `input.messages` 收到它；该轮 `input.text` 为空，以它为 query 的 Memory recall 被跳过（见下文）。没有该 node 的 Graph 仍只接受文本 turn。
 
 音频轮中，Transformer 先以音频 input 的 StreamID 发布 `history.user_audio` sideband，使 History 中的用户条目排在回复之前。该 node 调用的 ChatModel component 在回复流中任意位置用 `TranscriptMessage` 构造的 stream message 报告这段音频的 transcript；怎样得到 transcript 由 component 与其背后的 Model 负责（GizClaw 的 GenX 适配把 Generator 的 `genx.InputTranscriptLabel` chunk 转成该 message）。Node 把第一次报告的 transcript 作为本轮 user text 写入 History 与 Memory observe，并以同一 StreamID 发布 `transcript` label 的 user text route，形状与 ASR stage 相同；Tool round 重新报告的 transcript 被忽略。没有报告 transcript 的轮次照常发布回复，user text 为空，History 只保存用户音频和回复。History 不保存音频 part，后续轮次不再发送音频。
+
+Memory recall 在模型运行之前执行，此时音频轮的 transcript 还不存在。`QueryFrom` 为 `input.text` 的 recall（`Config.Memory.Recall` 与 `MemoryRecallNode`）在音频轮得到空 query，把 output 置为空字符串且不调用 Store，不会使该轮失败。需要在音频轮召回的 Graph 可以把 `QueryFrom` 指向一个 string State field，并在 recall node 之前用 Script 从 `history.messages` 推导 query，例如文本轮使用当前文本，音频轮回退到上一条 user 文本：
+
+```python
+def run(input):
+    query = input["text"]
+    if query == "":
+        for message in input["history"]:
+            if message["role"] == "user" and message["content"] != "":
+                query = message["content"]
+    return {"query": query}
+```
+
+该 Script node 绑定 `text: input.text`、`history: history.messages`，把 `query` 输出到 `MemoryRecallNode.QueryFrom` 引用的 field。这样召回依据的是上一轮的话题而不是当前这句话；第一轮音频没有可用的 History，仍然不召回。必须按当前话语召回的场景应在 Transformer 之前用 ASR 把音频转成文本轮。
 
 ### Match
 

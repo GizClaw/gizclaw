@@ -23,6 +23,10 @@ type Spec struct {
 	ToolInvoker genx.ToolInvoker
 	// SafetyFencePrompt is the complete selected RuntimeProfile prompt for this generation.
 	SafetyFencePrompt string
+	// AudioInput is the audio input path selected for an Eino Workspace: its
+	// own parameter, else the owner RuntimeProfile's Workflow binding. Nil
+	// leaves the Workflow default. The factory decides the effective path.
+	AudioInput *apitypes.AudioInputPath
 	// Memory is the Layout-bound provider-neutral Store selected through
 	// the current RuntimeProfile. MemoryCloser belongs to this Agent generation.
 	Memory       memory.Store

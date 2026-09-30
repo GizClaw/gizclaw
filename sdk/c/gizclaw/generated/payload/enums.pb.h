@@ -194,6 +194,15 @@ typedef enum _gizclaw_rpc_v1_WorkspaceInputMode {
     gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME = 2
 } gizclaw_rpc_v1_WorkspaceInputMode;
 
+/* AudioInputPath selects where the transcript of a user's audio turn comes from. */
+typedef enum _gizclaw_rpc_v1_AudioInputPath {
+    gizclaw_rpc_v1_AudioInputPath_AUDIO_INPUT_PATH_UNSPECIFIED = 0,
+    /* A streaming ASR stage transcribes the audio and the Graph receives text. */
+    gizclaw_rpc_v1_AudioInputPath_AUDIO_INPUT_PATH_ASR = 1,
+    /* The audio_transcript chat_model node receives the audio and its Model reports the transcript. */
+    gizclaw_rpc_v1_AudioInputPath_AUDIO_INPUT_PATH_MODEL = 2
+} gizclaw_rpc_v1_AudioInputPath;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -306,6 +315,10 @@ extern "C" {
 #define _gizclaw_rpc_v1_WorkspaceInputMode_MIN gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_UNSPECIFIED
 #define _gizclaw_rpc_v1_WorkspaceInputMode_MAX gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME
 #define _gizclaw_rpc_v1_WorkspaceInputMode_ARRAYSIZE ((gizclaw_rpc_v1_WorkspaceInputMode)(gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME+1))
+
+#define _gizclaw_rpc_v1_AudioInputPath_MIN gizclaw_rpc_v1_AudioInputPath_AUDIO_INPUT_PATH_UNSPECIFIED
+#define _gizclaw_rpc_v1_AudioInputPath_MAX gizclaw_rpc_v1_AudioInputPath_AUDIO_INPUT_PATH_MODEL
+#define _gizclaw_rpc_v1_AudioInputPath_ARRAYSIZE ((gizclaw_rpc_v1_AudioInputPath)(gizclaw_rpc_v1_AudioInputPath_AUDIO_INPUT_PATH_MODEL+1))
 
 
 #ifdef __cplusplus

@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/generators/doubaochat"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtime"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -1604,6 +1605,67 @@ func TestSupportsToolCallsReadsResolvedModelCapability(t *testing.T) {
 	}
 	if _, err := (*Service)(nil).SupportsToolCalls(context.Background(), "model/chat"); !errors.Is(err, ErrNotConfigured) {
 		t.Fatalf("nil SupportsToolCalls() error = %v", err)
+	}
+}
+
+func TestAcceptsAudioInputMatchesTheBuiltGenerator(t *testing.T) {
+	chatCompletions := apitypes.VolcTenantModelProviderDataApiModeChatCompletions
+	for _, tc := range []struct {
+		name         string
+		providerKind apitypes.ModelProviderKind
+		data         apitypes.ModelProviderData
+		want         bool
+	}{
+		{
+			name: "volc audio chat", providerKind: apitypes.ModelProviderKindVolcTenant, want: true,
+			data: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{ApiMode: chatCompletions, SupportTextOnly: new(false)}),
+		},
+		{
+			name: "volc unset", providerKind: apitypes.ModelProviderKindVolcTenant, want: true,
+			data: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{ApiMode: chatCompletions}),
+		},
+		{
+			name: "volc text only", providerKind: apitypes.ModelProviderKindVolcTenant,
+			data: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{ApiMode: chatCompletions, SupportTextOnly: new(true)}),
+		},
+		{
+			name: "openai without adapter", providerKind: apitypes.ModelProviderKindOpenaiTenant,
+			data: mustOpenAIModelProviderData(t, apitypes.OpenAITenantModelProviderData{SupportTextOnly: new(false)}),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			events := []string{}
+			svc := New(Service{
+				Peer:            newTestPeer(),
+				Models:          fakeModels{events: &events, providerKind: string(tc.providerKind), providerData: tc.data},
+				Credentials:     fakeCredentials{events: &events},
+				ProviderTenants: fakeTenants{events: &events},
+			})
+			got, err := svc.AcceptsAudioInput(context.Background(), "model/chat")
+			if err != nil || got != tc.want {
+				t.Fatalf("AcceptsAudioInput() = %v, %v; want %v", got, err, tc.want)
+			}
+			if tc.providerKind != apitypes.ModelProviderKindVolcTenant {
+				return
+			}
+			generator, err := (DefaultBuilder{}).BuildGenerator(context.Background(), GeneratorConfig{
+				Model:  apitypes.Model{Id: "chat", Kind: apitypes.ModelKindLlm, ProviderData: tc.data},
+				Tenant: Tenant{Kind: string(tc.providerKind), Volc: &apitypes.VolcTenant{Id: "main", CredentialId: "volc-key"}},
+				Credential: apitypes.Credential{
+					Id:   "volc-key",
+					Body: testVolcCredentialBodyFromStrings(map[string]string{"ark_api_key": "ark-test"}),
+				},
+			})
+			if err != nil {
+				t.Fatalf("BuildGenerator() error = %v", err)
+			}
+			if _, adapted := generator.(*doubaochat.Generator); adapted != tc.want {
+				t.Fatalf("BuildGenerator() = %T, want audio adapter %v", generator, tc.want)
+			}
+		})
+	}
+	if _, err := (*Service)(nil).AcceptsAudioInput(context.Background(), "model/chat"); !errors.Is(err, ErrNotConfigured) {
+		t.Fatalf("nil AcceptsAudioInput() error = %v", err)
 	}
 }
 

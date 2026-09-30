@@ -49,6 +49,14 @@
           "recall_available": {
             "type": "boolean"
           },
+          "audio_input": {
+            "allOf": [
+              {
+                "$ref": "./workspace_parameters.json#/components/schemas/AudioInputPath"
+              }
+            ],
+            "description": "Audio input path the running Eino Agent uses, after applying the Workspace and RuntimeProfile preference, the input mode, and the Model capability. Absent when the Agent accepts text turns only or the driver has no selectable path."
+          },
           "started_at": {
             "type": "string",
             "format": "date-time"

@@ -1,6 +1,6 @@
 # User Story:
 # As a GizClaw maintainer choosing a live-audio path for Eino,
-# I want one recording answered by the audio-input chat Model and by streaming ASR plus the same Model,
+# I want one recording answered by one Workflow on the model path and on the asr path,
 # So that run_audio_input_comparison_tests.sh can score both transcripts and replies across languages and dialects.
 version: gizclaw.test/v1alpha1
 name: benchmark.eino-audio-input-comparison
@@ -77,11 +77,12 @@ steps:
       method: server.workspace.create
       request:
         name: ${asr_workspace}
-        workflow_name: eino-audio-input-asr
+        workflow_name: eino-audio-input
         parameters:
           eino_workspace_parameters:
             agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
             input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+            audio_input: AUDIO_INPUT_PATH_ASR
   - id: synthesize_sample
     client: peer
     speech:
@@ -97,6 +98,15 @@ steps:
       method: server.run.workspace.set
       request:
         workspace_name: ${audio_workspace}
+  # The RuntimeProfile binding selects the model path for this Workflow.
+  - id: reload_audio
+    client: peer
+    rpc:
+      method: server.run.workspace.reload
+      request: {}
+    expect:
+      /audio_input:
+        equals: AUDIO_INPUT_PATH_MODEL
   - id: ask_audio
     client: peer
     timeout: 90s
@@ -123,11 +133,15 @@ steps:
       method: server.run.workspace.set
       request:
         workspace_name: ${asr_workspace}
+  # The Workspace parameter overrides the binding.
   - id: reload_asr
     client: peer
     rpc:
       method: server.run.workspace.reload
       request: {}
+    expect:
+      /audio_input:
+        equals: AUDIO_INPUT_PATH_ASR
   - id: ask_asr
     client: peer
     timeout: 90s

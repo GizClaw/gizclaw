@@ -187,6 +187,31 @@ ASTTranslate 的当前 provider 路径没有系统提示入口：格式合法的
 
 围栏是发给模型的系统提示，约束效果仍依赖所选模型；这项配置不提供独立的内容审核器。
 
+## Eino 音频输入路径
+
+Workflow binding 可带 `audio_input`，取值 `asr` 或 `model`，为运行该 Workflow 的 Eino Workspace 选择用户音频的转写来源：`asr` 由 Workflow 的 `voice_adapter.asr_model` 先转写再把文本交给 Graph，`model` 把音频直接交给设置了 `audio_transcript` 的 `chat_model` node，由其 Model 在回复中报告 transcript。
+
+```yaml
+spec:
+  workflows:
+    assistant:
+      resource_id: eino-assistant
+      audio_input: model
+      i18n:
+        en: {display_name: Assistant}
+        zh-CN: {display_name: 助手}
+```
+
+同一个 Workflow 因此可以在有音频输入 Model 的部署上走 `model`，在其他部署上走 `asr`，不需要修改 Workflow 或维护两份近似的副本。Workspace 自己的 `audio_input` 参数优先于 binding；两者都未设置时使用 Workflow 默认值。完整的选择与回落规则见 [Eino 音频输入路径](/zh/developing/gizclaw/services/ai#eino-音频输入路径)。
+
+创建或更新 RuntimeProfile 时校验：
+
+- `audio_input` 只能出现在 Workflow binding 上，取值必须是 `asr` 或 `model`；Model、Voice 与 Tool binding 带该字段会被拒绝。
+- 被绑定的 Workflow 必须是 `eino` driver，并且声明了所选路径：`asr` 需要 `voice_adapter.asr_model`，`model` 需要一个设置 `audio_transcript` 的 `chat_model` node。
+- Workspace 保存的是 Workflow ID 而不是创建时使用的 alias，因此指向同一个 Workflow 的多个 binding 不能选择不同路径；未设置的 binding 不参与比较。
+
+`audio_transcript` node 绑定的 Model 是否接受音频不在这里校验：Model 资源可以独立变更，该检查在每次 Workspace reload 时进行，不满足时回落到 `asr` 或使 reload 失败。`audio_input` 参与 revision 计算，不投影给 Peer；Peer 通过 `PeerRunWorkspaceState.audio_input` 读取实际生效的路径。
+
 ## MHS v0 硬件清单
 
 `spec.mhs.v0` 属于 RuntimeProfile，声明产品拥有的 HWD 实例，不由设备上报。它只列出每个实例的 `id` 与 `hwd` 类型；同一 HWD 可以有多个不同 ID。字段与读写结构由 `api/proto/rpc/payload/mhs_v0.proto` 定义。

@@ -13,7 +13,7 @@ func TestSafetyFencePatchRoundTripAndPreservation(t *testing.T) {
 		t.Run(string(driver), func(t *testing.T) {
 			var parameters *apitypes.WorkspaceParameters
 			for _, level := range []apitypes.SafetyFenceLevel{apitypes.SafetyFenceLevel("general"), apitypes.SafetyFenceLevel("child"), apitypes.SafetyFenceLevel("off")} {
-				updated, err := workspaceParametersWithPatch(parameters, driver, nil, nil, nil, &level)
+				updated, err := workspaceParametersWithPatch(parameters, driver, nil, nil, nil, &level, nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -23,7 +23,7 @@ func TestSafetyFencePatchRoundTripAndPreservation(t *testing.T) {
 						t.Fatalf("fence-only patch lost rate: %v, %v", rate, err)
 					}
 				}
-				parameters, err = workspaceParametersWithPatch(updated, driver, nil, nil, new(70), nil)
+				parameters, err = workspaceParametersWithPatch(updated, driver, nil, nil, new(70), nil, nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -40,7 +40,7 @@ func TestSafetyFencePatchRoundTripAndPreservation(t *testing.T) {
 		}
 	}
 	for _, level := range []apitypes.SafetyFenceLevel{apitypes.SafetyFenceLevel("off"), apitypes.SafetyFenceLevel("general"), apitypes.SafetyFenceLevel("child")} {
-		got, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverSfu, nil, nil, nil, &level)
+		got, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverSfu, nil, nil, nil, &level, nil)
 		if err != nil || got != nil {
 			t.Fatalf("SFU patch = %v, %v", got, err)
 		}

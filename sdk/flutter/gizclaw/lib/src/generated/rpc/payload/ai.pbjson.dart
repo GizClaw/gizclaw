@@ -1146,11 +1146,21 @@ const EinoWorkspaceParameters$json = {
       '17': true
     },
     {
+      '1': 'audio_input',
+      '3': 7,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.AudioInputPath',
+      '9': 4,
+      '10': 'audioInput',
+      '17': true
+    },
+    {
       '1': 'safety_fence_level',
       '3': 50,
       '4': 1,
       '5': 9,
-      '9': 4,
+      '9': 5,
       '10': 'safetyFenceLevel',
       '17': true
     },
@@ -1160,6 +1170,7 @@ const EinoWorkspaceParameters$json = {
     {'1': '_conversation'},
     {'1': '_input'},
     {'1': '_tts_speech_rate_percent'},
+    {'1': '_audio_input'},
     {'1': '_safety_fence_level'},
   ],
   '9': [
@@ -1175,9 +1186,11 @@ final $typed_data.Uint8List einoWorkspaceParametersDescriptor = $convert.base64D
     'YxLkNvbnZlcnNhdGlvblBhcmFtZXRlcnNIAVIMY29udmVyc2F0aW9uiAEBEj0KBWlucHV0GAQg'
     'ASgOMiIuZ2l6Y2xhdy5ycGMudjEuV29ya3NwYWNlSW5wdXRNb2RlSAJSBWlucHV0iAEBEjoKF3'
     'R0c19zcGVlY2hfcmF0ZV9wZXJjZW50GAUgASgFSANSFHR0c1NwZWVjaFJhdGVQZXJjZW50iAEB'
-    'EjEKEnNhZmV0eV9mZW5jZV9sZXZlbBgyIAEoCUgEUhBzYWZldHlGZW5jZUxldmVsiAEBQgYKBF'
-    '9lMmVCDwoNX2NvbnZlcnNhdGlvbkIICgZfaW5wdXRCGgoYX3R0c19zcGVlY2hfcmF0ZV9wZXJj'
-    'ZW50QhUKE19zYWZldHlfZmVuY2VfbGV2ZWxKBAgGEAc=');
+    'EkQKC2F1ZGlvX2lucHV0GAcgASgOMh4uZ2l6Y2xhdy5ycGMudjEuQXVkaW9JbnB1dFBhdGhIBF'
+    'IKYXVkaW9JbnB1dIgBARIxChJzYWZldHlfZmVuY2VfbGV2ZWwYMiABKAlIBVIQc2FmZXR5RmVu'
+    'Y2VMZXZlbIgBAUIGCgRfZTJlQg8KDV9jb252ZXJzYXRpb25CCAoGX2lucHV0QhoKGF90dHNfc3'
+    'BlZWNoX3JhdGVfcGVyY2VudEIOCgxfYXVkaW9faW5wdXRCFQoTX3NhZmV0eV9mZW5jZV9sZXZl'
+    'bEoECAYQBw==');
 
 @$core.Deprecated('Use doubaoRealtimeAIGCMetadataDescriptor instead')
 const DoubaoRealtimeAIGCMetadata$json = {

@@ -1412,6 +1412,58 @@ func (WorkspaceInputMode) EnumDescriptor() ([]byte, []int) {
 	return file_payload_enums_proto_rawDescGZIP(), []int{26}
 }
 
+// AudioInputPath selects where the transcript of a user's audio turn comes from.
+type AudioInputPath int32
+
+const (
+	AudioInputPath_AUDIO_INPUT_PATH_UNSPECIFIED AudioInputPath = 0
+	// A streaming ASR stage transcribes the audio and the Graph receives text.
+	AudioInputPath_AUDIO_INPUT_PATH_ASR AudioInputPath = 1
+	// The audio_transcript chat_model node receives the audio and its Model reports the transcript.
+	AudioInputPath_AUDIO_INPUT_PATH_MODEL AudioInputPath = 2
+)
+
+// Enum value maps for AudioInputPath.
+var (
+	AudioInputPath_name = map[int32]string{
+		0: "AUDIO_INPUT_PATH_UNSPECIFIED",
+		1: "AUDIO_INPUT_PATH_ASR",
+		2: "AUDIO_INPUT_PATH_MODEL",
+	}
+	AudioInputPath_value = map[string]int32{
+		"AUDIO_INPUT_PATH_UNSPECIFIED": 0,
+		"AUDIO_INPUT_PATH_ASR":         1,
+		"AUDIO_INPUT_PATH_MODEL":       2,
+	}
+)
+
+func (x AudioInputPath) Enum() *AudioInputPath {
+	p := new(AudioInputPath)
+	*p = x
+	return p
+}
+
+func (x AudioInputPath) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AudioInputPath) Descriptor() protoreflect.EnumDescriptor {
+	return file_payload_enums_proto_enumTypes[27].Descriptor()
+}
+
+func (AudioInputPath) Type() protoreflect.EnumType {
+	return &file_payload_enums_proto_enumTypes[27]
+}
+
+func (x AudioInputPath) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use AudioInputPath.Descriptor instead.
+func (AudioInputPath) EnumDescriptor() ([]byte, []int) {
+	return file_payload_enums_proto_rawDescGZIP(), []int{27}
+}
+
 var File_payload_enums_proto protoreflect.FileDescriptor
 
 const file_payload_enums_proto_rawDesc = "" +
@@ -1547,7 +1599,11 @@ const file_payload_enums_proto_rawDesc = "" +
 	"\x12WorkspaceInputMode\x12$\n" +
 	" WORKSPACE_INPUT_MODE_UNSPECIFIED\x10\x00\x12%\n" +
 	"!WORKSPACE_INPUT_MODE_PUSH_TO_TALK\x10\x01\x12!\n" +
-	"\x1dWORKSPACE_INPUT_MODE_REALTIME\x10\x02B?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
+	"\x1dWORKSPACE_INPUT_MODE_REALTIME\x10\x02*h\n" +
+	"\x0eAudioInputPath\x12 \n" +
+	"\x1cAUDIO_INPUT_PATH_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14AUDIO_INPUT_PATH_ASR\x10\x01\x12\x1a\n" +
+	"\x16AUDIO_INPUT_PATH_MODEL\x10\x02B?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 
 var (
 	file_payload_enums_proto_rawDescOnce sync.Once
@@ -1561,7 +1617,7 @@ func file_payload_enums_proto_rawDescGZIP() []byte {
 	return file_payload_enums_proto_rawDescData
 }
 
-var file_payload_enums_proto_enumTypes = make([]protoimpl.EnumInfo, 27)
+var file_payload_enums_proto_enumTypes = make([]protoimpl.EnumInfo, 28)
 var file_payload_enums_proto_goTypes = []any{
 	(IconFormat)(0),       // 0: gizclaw.rpc.v1.IconFormat
 	(ASTTranslateMode)(0), // 1: gizclaw.rpc.v1.ASTTranslateMode
@@ -1590,6 +1646,7 @@ var file_payload_enums_proto_goTypes = []any{
 	(ReusableWorkflowDriver)(0),                           // 24: gizclaw.rpc.v1.ReusableWorkflowDriver
 	(WorkspaceHistoryListRequestOrder)(0),                 // 25: gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
 	(WorkspaceInputMode)(0),                               // 26: gizclaw.rpc.v1.WorkspaceInputMode
+	(AudioInputPath)(0),                                   // 27: gizclaw.rpc.v1.AudioInputPath
 }
 var file_payload_enums_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -1609,7 +1666,7 @@ func file_payload_enums_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_enums_proto_rawDesc), len(file_payload_enums_proto_rawDesc)),
-			NumEnums:      27,
+			NumEnums:      28,
 			NumMessages:   0,
 			NumExtensions: 0,
 			NumServices:   0,

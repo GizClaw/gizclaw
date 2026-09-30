@@ -401,6 +401,9 @@
       "WorkspaceInputMode": {
         "$ref": "./shared/workspace_parameters.json#/components/schemas/WorkspaceInputMode"
       },
+      "AudioInputPath": {
+        "$ref": "./shared/workspace_parameters.json#/components/schemas/AudioInputPath"
+      },
       "Workflow": {
         "$ref": "./shared/workflow.json#/components/schemas/Workflow"
       },

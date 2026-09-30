@@ -177,6 +177,8 @@ message EinoWorkspaceParameters {
   optional int32 tts_speech_rate_percent = 5;
   // Legacy enum tag 6 is reserved: old clients must select a profile-defined identifier.
   reserved 6;
+  // Preferred audio input path for this Workspace; absent keeps the RuntimeProfile or Workflow default.
+  optional AudioInputPath audio_input = 7;
   optional string safety_fence_level = 50;
 }
 

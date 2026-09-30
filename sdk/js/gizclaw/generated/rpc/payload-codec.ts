@@ -25,6 +25,7 @@ type EnumDesc = {
 
 export type ASTTranslateMode = "" | "s2s" | "s2t" | "unspecified" | number;
 export type ASTTranslateWorkspaceParametersAgentType = "" | "ast-translate" | "unspecified" | number;
+export type AudioInputPath = "" | "asr" | "model" | "unspecified" | number;
 export type ClientHwd = "" | "battery" | "ble" | "display" | "led" | "mic" | "modem" | "speaker" | "unspecified" | "wifi" | number;
 export type ClientTool = number;
 export type ConversationParametersAgentInitiativePolicy = "" | "on_reload" | "once_when_empty" | "unspecified" | number;
@@ -577,6 +578,7 @@ export type EinoWorkspaceParameters = {
   "conversation"?: ConversationParameters;
   "input"?: WorkspaceInputMode;
   "tts_speech_rate_percent"?: number;
+  "audio_input"?: AudioInputPath;
   "safety_fence_level"?: string;
 };
 export type ErrorInfo = {
@@ -992,6 +994,7 @@ export type PeerRunWorkspaceState = {
   "updated_at"?: string;
   "workflow_name"?: string;
   "workspace_name": string;
+  "audio_input"?: AudioInputPath;
 };
 export type PeerStatus = {
   "ota"?: PeerOtaStatus;
@@ -1420,6 +1423,7 @@ export type WorkspaceParametersPatch = {
   "conversation"?: ConversationParameters;
   "tts_speech_rate_percent"?: number;
   "safety_fence_level"?: string;
+  "audio_input"?: AudioInputPath;
 };
 export type WorkspaceParametersSetRequest = {
   "name": string;
@@ -4038,6 +4042,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "int32"
       },
       {
+        "name": "audio_input",
+        "number": 7,
+        "optional": true,
+        "type": "AudioInputPath"
+      },
+      {
         "name": "safety_fence_level",
         "number": 50,
         "optional": true,
@@ -5879,6 +5889,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "workspace_name",
         "number": 13,
         "type": "string"
+      },
+      {
+        "name": "audio_input",
+        "number": 14,
+        "optional": true,
+        "type": "AudioInputPath"
       }
     ]
   },
@@ -7841,6 +7857,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 5,
         "optional": true,
         "type": "string"
+      },
+      {
+        "name": "audio_input",
+        "number": 6,
+        "optional": true,
+        "type": "AudioInputPath"
       }
     ]
   },
@@ -7928,6 +7950,18 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
     "byNumber": {
       "0": "",
       "1": "ast-translate"
+    }
+  },
+  "AudioInputPath": {
+    "byName": {
+      "asr": 1,
+      "model": 2,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "asr",
+      "2": "model"
     }
   },
   "ClientHwd": {

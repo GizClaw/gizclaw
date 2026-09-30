@@ -381,6 +381,33 @@ func TestWorkspaceParametersSetStoresTTSSpeechRate(t *testing.T) {
 	}
 }
 
+func TestWorkspaceParametersSetIgnoresAudioInputOutsideEino(t *testing.T) {
+	ctx := t.Context()
+	server := newWorkspaceInputTestServer(t, ctx)
+	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{Name: "journey-audio", WorkflowName: "journey"})
+	seeded := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
+		Name: "journey-audio", Parameters: rpcapi.WorkspaceParametersPatch{TtsSpeechRatePercent: new(70)},
+	})
+	if seeded.Error != nil {
+		t.Fatalf("seed parameters: %+v", seeded.Error)
+	}
+
+	response := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
+		Name: "journey-audio", Parameters: rpcapi.WorkspaceParametersPatch{AudioInput: new(apitypes.AudioInputPathModel)},
+	})
+	if response.Error != nil || response.Result == nil {
+		t.Fatalf("audio_input on a Flowcraft Workspace = %#v, want accepted no-op", response)
+	}
+	updated, err := response.Result.AsWorkspaceParametersSetResponse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	flowcraft, err := updated.Parameters.AsFlowcraftWorkspaceParameters()
+	if err != nil || flowcraft.TtsSpeechRatePercent == nil || *flowcraft.TtsSpeechRatePercent != 70 {
+		t.Fatalf("parameters after ignored audio_input = %+v, %v", flowcraft, err)
+	}
+}
+
 func TestWorkspaceParametersSetSafetyFenceRoundTrip(t *testing.T) {
 	ctx := t.Context()
 	server := newWorkspaceInputTestServer(t, ctx)
