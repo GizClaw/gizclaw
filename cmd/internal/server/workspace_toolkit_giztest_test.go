@@ -89,8 +89,8 @@ func TestRuntimeProfileAndWorkspaceToolkitGiztest(t *testing.T) {
 	start()
 	t.Cleanup(func() { stop() })
 
-	// Mirror the disabled e2e fixture Tools: Workspace selection resolves
-	// bindings whether or not a Tool is enabled.
+	// Keep these Tools disabled: Workspace selection resolves bindings whether
+	// or not a Tool is enabled.
 	tools := &toolkit.Server{DB: server.ToolDB}
 	for _, entry := range []struct{ id, name string }{{"giztest-toolkit-echo", "giztest_echo"}, {"giztest-toolkit-other", "giztest_other"}} {
 		if _, err := tools.CreateTool(ctx, toolkit.Tool{ID: entry.id, InvokeName: entry.name, Type: toolkit.ToolTypeHTTPRequest, Enabled: false, InputSchema: jsonschema.Schema{Type: "object"}, HTTP: &toolkit.HTTPRequest{URL: "https://giztest.invalid/" + entry.name, Method: "GET", Auth: toolkit.HTTPAuth{Method: "none"}, Timeout: time.Second, MaxResponseBytes: 1024}}); err != nil {

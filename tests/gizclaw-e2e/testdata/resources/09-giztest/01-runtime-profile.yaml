@@ -42,6 +42,9 @@ spec:
     flowcraft-memory-workspace: {resource_id: flowcraft-memory-workspace, i18n: {en: {display_name: Workspace Memory}, zh-CN: {display_name: Workspace 记忆}}, tags: [assistants]}
     eino-audio-input: {resource_id: eino-audio-input, i18n: {en: {display_name: Eino Audio Input}, zh-CN: {display_name: Eino 音频输入}}, tags: [assistants]}
     eino-audio-input-asr: {resource_id: eino-audio-input-asr, i18n: {en: {display_name: Eino Audio Input ASR}, zh-CN: {display_name: Eino 音频输入 ASR 对照}}, tags: [assistants]}
+    giztest-toolkit-probe-none: {resource_id: giztest-toolkit-probe-none, i18n: {en: {display_name: Toolkit Probe None}, zh-CN: {display_name: 工具探针 无}}, tags: [assistants]}
+    giztest-toolkit-probe-echo: {resource_id: giztest-toolkit-probe-echo, i18n: {en: {display_name: Toolkit Probe Echo}, zh-CN: {display_name: 工具探针 Echo}}, tags: [assistants]}
+    giztest-toolkit-probe-both: {resource_id: giztest-toolkit-probe-both, i18n: {en: {display_name: Toolkit Probe Both}, zh-CN: {display_name: 工具探针 全部}}, tags: [assistants]}
   # Four arbitrary identifiers exercise Profile-owned levels. The test marker
   # is synthetic, not product wording. "child" remains absent for the missing-level case.
   safety_fences:

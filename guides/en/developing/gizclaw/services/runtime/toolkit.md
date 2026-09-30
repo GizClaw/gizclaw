@@ -9,6 +9,7 @@ explicit immutable `spec.invoke_name`, not a second Admin identity.
 RuntimeProfile bindings and Admin `ToolkitPolicy.tool_ids` store canonical IDs.
 Peer RPC projects each binding key as a scoped Tool `name`; Peer Toolkit policy
 and invocation use only that scoped name and never expose the canonical ID.
+The Tools a model can use follow the exposure policy below.
 
 The supported Tool type is:
 
@@ -17,6 +18,31 @@ The supported Tool type is:
   fixes status, response pointer, timeout, and response-size limits.
 There is no `source`, `builtin`, executor registry, duplicate Tool identity,
 `output_schema`, or provider ToolCall ID in the Resource contract.
+
+## Exposure policy
+
+Tools are opt-in per Workflow. A RuntimeProfile `resources.tools` binding only
+decides which Tools the current Peer may use; it never hands them to a Workflow.
+
+- Workflow `spec.toolkit.tool_ids` is the complete list of canonical IDs that
+  Workflow can use. Omitting `spec.toolkit`, omitting `tool_ids`, and
+  `tool_ids: []` are equivalent and expose no Tools.
+- Workspace `toolkit.tool_ids` is intersected with the Workflow list and cannot
+  add a Tool the Workflow does not list. Omitting it applies no further
+  narrowing; an explicit empty list disables every Tool.
+- Every call intersects the result with the current Peer RuntimeProfile
+  bindings. A listed ID the Profile does not bind is unavailable, not an error.
+- When the intersection is empty, AgentHost creates no ToolInvoker, the
+  Transformer calls the model without Tool declarations, and no Tool Resource is
+  read.
+
+The standard Giztest RuntimeProfile binds the declaration-only `giztest_echo`
+and `giztest_other` Tools from `09-giztest/00-toolkit-tools.yaml`; their reserved
+`.invalid` host is never called. `server.workspace.toolkit.exposure.giztest.yaml`
+asks a real model to list, without invoking, the Tools declared to it. The Tool
+names appear in no prompt, so each listed name proves a declaration. It covers
+an omitted Workflow policy, a full Workflow list, Workspace narrowing, and a
+Workspace selection that cannot widen the Workflow list.
 
 ## HTTP authentication and transport
 

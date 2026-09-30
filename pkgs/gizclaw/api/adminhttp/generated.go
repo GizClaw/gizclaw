@@ -574,7 +574,7 @@ type WorkspaceUpsert struct {
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
 	Parameters *externalRef0.WorkspaceParameters `json:"parameters,omitempty"`
 
-	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
 	Toolkit    *externalRef0.ToolkitPolicy `json:"toolkit,omitempty"`
 	WorkflowId string                      `json:"workflow_id"`
 }

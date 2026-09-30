@@ -68,7 +68,7 @@ Workflow alias 位于 `workflows.<alias>`，在 RuntimeProfile 内唯一。客�
 
 `resources` 下的 map 把环境 alias 绑定到管理员创建的真实资源 ID。Model alias 表示 `chat`、`extraction`、`embedding`、`asr`、`realtime`、`translation` 这类稳定用途，不包含 provider 或真实 Model 名。Model 和 Voice alias 是互相独立的环境变量，不属于 Workflow tags。Workflow spec 和 Workspace 参数保存符号 alias；每次 Workspace reload 都从当前 RuntimeProfile 重新解析。因此同一个 App 或固件可以切换生产、调试 RuntimeProfile，而无需重新构建。
 
-`resources.tools` 绑定供 AI 和 Workflow runtime 使用的 Admin HTTP Tool。设备过程调用使用预定义的 `tool/v0` 注册表，与这个目录互相独立。
+`resources.tools` 绑定供 AI 和 Workflow runtime 使用的 Admin HTTP Tool。Binding 不会自动交给 Workflow；Workflow 必须在 `spec.toolkit.tool_ids` 中列出 canonical ID，见 [Tools 暴露策略](/zh/developing/gizclaw/services/runtime/toolkit#暴露策略)。设备过程调用使用预定义的 `tool/v0` 注册表，与这个目录互相独立。
 
 每个 RuntimeProfile alias 都是总长 1–63 字节、由 `.` 分隔的 lowercase kebab-case segment。`asr`、`extract` 等无点名称表示共享能力；`journey.model`、`journey.narrator`、`story.journey-center-earth` 等名称表示可独立绑定的 consumer 槽位。完整名称始终是平面 map 中的一个 opaque key；Server 原样保留，不按 segment 查找，不支持 prefix、wildcard，也不会从 `journey.narrator` fallback 到 `narrator`。`journey.narrator` 与 `journey-narrator` 是两个不同 alias。空 segment、下划线以及 segment 内的首尾连字符均不合法。
 

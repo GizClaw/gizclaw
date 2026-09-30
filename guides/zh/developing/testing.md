@@ -548,7 +548,7 @@ Giztest 共用该环境。远端目标可预先 provision 资源，再只提供
 bash tests/gizclaw-e2e/run_eino_first_response_tests.sh
 ```
 
-首响、并发和延迟测试使用的 `eino-concurrency-assistant`、`eino-latency-comparison`、`flowcraft-latency-comparison` 与 `flowcraft-voice-assistant` 测试 Workflow 均显式配置 `spec.toolkit: {tool_ids: []}`，因此这些 Workspace 不向模型提供工具。设备过程测试通过 `client.tool.v0.invoke` 和 `client.tool.v0.list` 验证预定义工具；产品自定义设备工具不属于 v0。首响入口的 text、Push-to-Talk、Realtime 与两个 roundtrip 文档都通过同一 Workflow 策略隔离工具。
+首响、并发和延迟测试使用的 `eino-concurrency-assistant`、`eino-latency-comparison`、`flowcraft-latency-comparison` 与 `flowcraft-voice-assistant` 测试 Workflow 均显式配置 `spec.toolkit: {tool_ids: []}`，与省略该策略一样不向模型提供工具，显式写出以固定隔离意图。设备过程测试通过 `client.tool.v0.invoke` 和 `client.tool.v0.list` 验证预定义工具；产品自定义设备工具不属于 v0。首响入口的 text、Push-to-Talk、Realtime 与两个 roundtrip 文档都通过同一 Workflow 策略隔离工具。
 
 Runner 只构建一个 CLI revision，启动一套隔离的 Server/Edge stack，然后把同样的十任务
 text-only、configured-ASR Push-to-Talk 与 Realtime 文档分别以 `--parallel 1` 和

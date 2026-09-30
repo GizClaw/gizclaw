@@ -717,6 +717,24 @@ static int mhs_control_request(
   return gzc_control_write_mhs_v0_hwd(control, call, id, hwd, value, &storage, &out);
 }
 
+/* Deliberately invalid giztest requests must reach the Server so its schema
+ * boundary is exercised. Valid requests always use the typed C control API;
+ * this sends the step's body unchanged through the same C transport and
+ * error classifier. */
+static int send_raw_post(
+    gzc_control_client_t *control, gzc_control_call_t *call,
+    const char *base_url, const char *path, gzc_str_t body) {
+  char raw_url[2048];
+  size_t base_len = strlen(base_url);
+  if (base_len > 0 && base_url[base_len - 1] == '/')
+    base_len--;
+  int written = snprintf(raw_url, sizeof(raw_url), "%.*s%s", (int)base_len, base_url, path);
+  if (written < 0 || (size_t)written >= sizeof(raw_url))
+    return GZC_ERR_INVALID_ARGUMENT;
+  gzc_control_request_t raw_request = {GZC_HTTP_METHOD_POST, gzc_str_from_cstr(raw_url), body};
+  return gzc_control_send(control, call, &raw_request);
+}
+
 int gzt_control_request(
     gzt_control_t *control_host,
     const char *base_url,
@@ -792,12 +810,19 @@ int gzt_control_request(
   bool del = strcmp(method, "DELETE") == 0;
 
   bool invoke = post && route_is(&route, "/device/tool/v0/invoke", false);
+  bool raw_invoke = false;
   gzc_str_t tool = {0};
   if (invoke) {
     gzc_str_t args = {0};
-    if (!body_str(body, "tool", &tool) || gzc_json_find_field(body, "args", &args) != GZC_OK)
-      return GZC_ERR_INVALID_ARGUMENT;
-    body = args;
+    /* The typed C API only encodes a named tool with object arguments, so any
+     * other invoke body is sent unchanged instead of being rebuilt as a valid
+     * request. */
+    if (body_str(body, "tool", &tool) && gzc_json_find_field(body, "args", &args) == GZC_OK &&
+        gzc_json_validate_object(args) == GZC_OK) {
+      body = args;
+    } else {
+      raw_invoke = true;
+    }
   }
 
   /* Throwaway decode targets: the runner asserts on the raw body, while the
@@ -830,23 +855,14 @@ int gzt_control_request(
   size_t count = 0;
   bool has_next = false;
 
-  if ((get && route_is(&route, "/device/mhs/v0/manifest", false)) ||
-      (post && route_is(&route, "/device/mhs/v0/read", false)) ||
-      (post && route_is(&route, "/device/mhs/v0/write", false))) {
+  if (raw_invoke) {
+    rc = send_raw_post(&control, &call, base_url, path, body);
+  } else if ((get && route_is(&route, "/device/mhs/v0/manifest", false)) ||
+             (post && route_is(&route, "/device/mhs/v0/read", false)) ||
+             (post && route_is(&route, "/device/mhs/v0/write", false))) {
     rc = mhs_control_request(&control, &call, get, route_is(&route, "/device/mhs/v0/read", false), body);
     if (rc == GZC_ERR_INVALID_ARGUMENT && call.status_code == 0 && post) {
-      /* Deliberately invalid giztest requests must reach the Server so its
-       * schema boundary is exercised. Valid requests always use the typed C
-       * control API above. This uses the same C transport/classifier. */
-      char raw_url[2048];
-      size_t base_len = strlen(base_url);
-      if (base_len >= sizeof(raw_url))
-        return fail(errbuf, errbuf_len, "MHS raw request URL", GZC_ERR_INVALID_ARGUMENT);
-      int written = snprintf(raw_url, sizeof(raw_url), "%.*s%s", (int)(base_len > 0 && base_url[base_len - 1] == '/' ? base_len - 1 : base_len), base_url, path);
-      if (written < 0 || (size_t)written >= sizeof(raw_url))
-        return fail(errbuf, errbuf_len, "MHS raw request URL", GZC_ERR_INVALID_ARGUMENT);
-      gzc_control_request_t raw_request = {GZC_HTTP_METHOD_POST, gzc_str_from_cstr(raw_url), body};
-      rc = gzc_control_send(&control, &call, &raw_request);
+      rc = send_raw_post(&control, &call, base_url, path, body);
     }
     if (rc != GZC_OK && rc != GZC_ERR_HTTP) {
       return fail(errbuf, errbuf_len, "MHS control encode/decode", rc);

@@ -252,6 +252,7 @@ func TestServiceResolverResolveMemorySkipsToolkitConstruction(t *testing.T) {
 	resolvedWorkflow := mustWorkflow(t, "workflow-1")
 	resolvedWorkflow.Spec.Memory = &alias
 	toolIDs := []string{"tool-a"}
+	resolvedWorkflow.Spec.Toolkit = &apitypes.ToolkitPolicy{ToolIds: &toolIDs}
 	ws := systemWorkspace("demo", "workflow-1", nil)
 	ws.Toolkit = &apitypes.ToolkitPolicy{ToolIds: &toolIDs}
 	bindings := map[string]apitypes.RuntimeProfileMemoryBinding{
@@ -311,12 +312,15 @@ func TestServiceResolverRejectsWorkspaceAgentTypeWorkflowDriverMismatch(t *testi
 
 func TestServiceResolverDefersCurrentPeerToolkitScopeUntilTransform(t *testing.T) {
 	workspace := systemWorkspace("demo", "workflow-1", nil)
+	workflow := mustWorkflow(t, "workflow-1")
+	toolIDs := []string{"tool-a"}
+	workflow.Spec.Toolkit = &apitypes.ToolkitPolicy{ToolIds: &toolIDs}
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
 			"demo": workspace,
 		}},
 		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
-			"workflow-1": mustWorkflow(t, "workflow-1"),
+			"workflow-1": workflow,
 		}},
 		ToolBuilder: &toolkit.Builder{},
 	}

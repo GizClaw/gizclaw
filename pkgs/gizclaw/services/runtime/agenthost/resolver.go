@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
@@ -362,62 +363,42 @@ func resolveWorkspaceWorkflowName(ctx context.Context, ws apitypes.Workspace) (s
 	return id, nil
 }
 
-func (r ServiceResolver) resolveToolkit(_ context.Context, ws apitypes.Workspace, workflow apitypes.Workflow) (*ToolkitInvoker, error) {
-	workflowPolicies := workflowToolkitPolicies(workflow.Spec)
-	if r.ToolBuilder == nil {
-		if ws.Toolkit == nil && len(workflowPolicies) == 0 {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("agenthost: toolkit services are required")
-	}
-	var workflowIDs []string
-	workflowRestrict := false
-	for _, policy := range workflowPolicies {
-		ids, restrict, err := policyToolIDs(policy)
-		if err != nil {
-			return nil, fmt.Errorf("agenthost: workflow toolkit policy: %w", err)
-		}
-		if !restrict {
-			continue
-		}
-		if workflowRestrict {
-			workflowIDs = intersectToolIDs(workflowIDs, ids)
-		} else {
-			workflowIDs = ids
-			workflowRestrict = true
-		}
+// resolveToolkit returns the ToolInvoker for one Workspace generation. Tools
+// are opt-in: only canonical IDs listed by the Workflow spec.toolkit.tool_ids
+// are candidates, and an omitted policy or tool_ids allows none. A Workspace
+// policy with tool_ids only narrows that list; an omitted one adds no further
+// narrowing. The current Peer RuntimeProfile bindings still filter the result
+// on every call. When nothing is allowed the invoker is nil, so models are
+// called without Tool declarations.
+func (r ServiceResolver) resolveToolkit(_ context.Context, ws apitypes.Workspace, workflow apitypes.Workflow) (genx.ToolInvoker, error) {
+	workflowIDs, _, err := policyToolIDs(workflow.Spec.Toolkit)
+	if err != nil {
+		return nil, fmt.Errorf("agenthost: workflow toolkit policy: %w", err)
 	}
 	workspaceIDs, workspaceRestrict, err := policyToolIDs(ws.Toolkit)
 	if err != nil {
 		return nil, fmt.Errorf("agenthost: workspace toolkit policy: %w", err)
 	}
-	restrict := workflowRestrict || workspaceRestrict
 	ids := workflowIDs
-	switch {
-	case workflowRestrict && workspaceRestrict:
+	if workspaceRestrict {
 		ids = intersectToolIDs(workflowIDs, workspaceIDs)
-	case workspaceRestrict:
-		ids = workspaceIDs
+	}
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	if r.ToolBuilder == nil {
+		return nil, fmt.Errorf("agenthost: toolkit services are required")
 	}
 	return &ToolkitInvoker{
 		Builder:     r.ToolBuilder,
 		Credentials: r.ToolCredentials,
 		HTTP:        r.HTTPTools,
-		Request: toolkit.BuildRequest{
-			AllowedTools:  ids,
-			RestrictTools: restrict,
-		},
+		Request:     toolkit.BuildRequest{AllowedTools: ids},
 	}, nil
 }
 
-func workflowToolkitPolicies(spec apitypes.WorkflowSpec) []*apitypes.ToolkitPolicy {
-	policies := make([]*apitypes.ToolkitPolicy, 0, 2)
-	if spec.Toolkit != nil {
-		policies = append(policies, spec.Toolkit)
-	}
-	return policies
-}
-
+// policyToolIDs returns the normalized canonical IDs of a policy and whether
+// the policy lists tool_ids at all.
 func policyToolIDs(policy *apitypes.ToolkitPolicy) ([]string, bool, error) {
 	if policy == nil || policy.ToolIds == nil {
 		return nil, false, nil
