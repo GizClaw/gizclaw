@@ -24,3 +24,20 @@ func PresenceFields(ctx context.Context, service PresenceService, peerPublicKey 
 	}
 	return &online, new(lastSeenAt.UTC())
 }
+
+// RoomPresenceService reports whether a Peer's device is running a Workspace
+// on this Server. Running a Friend Group's Workspace is what attaches the
+// device to the Group's SFU Room, so the answer implies the Peer is online.
+type RoomPresenceService interface {
+	PeerRunningWorkspace(ctx context.Context, peerPublicKey, workspaceName string) bool
+}
+
+// InRoomField returns the list-only in_room field for a member of the Social
+// resource bound to workspaceName. A nil service or an empty Workspace name
+// omits the field.
+func InRoomField(ctx context.Context, service RoomPresenceService, peerPublicKey, workspaceName string) *bool {
+	if service == nil || workspaceName == "" {
+		return nil
+	}
+	return new(service.PeerRunningWorkspace(ctx, peerPublicKey, workspaceName))
+}

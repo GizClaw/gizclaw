@@ -1475,6 +1475,7 @@ class FriendGroupMember {
     this.info,
     this.online,
     this.lastSeenAt,
+    this.inRoom,
   });
 
   factory FriendGroupMember.fromJson(Object? json) {
@@ -1488,6 +1489,7 @@ class FriendGroupMember {
       info: _readOptionalProfileInfo(object),
       online: readOptionalBool(object, 'online'),
       lastSeenAt: readOptionalDateTime(object, 'last_seen_at'),
+      inRoom: readOptionalBool(object, 'in_room'),
     );
   }
 
@@ -1508,6 +1510,11 @@ class FriendGroupMember {
   /// Last observed activity of the member's device; absent when the Server
   /// has never observed it and on non-list responses.
   final DateTime? lastSeenAt;
+
+  /// Whether the member's device runs the Group's Workspace on the answering
+  /// Server, which attaches it to the SFU Room. True implies [online]. Set
+  /// only by the members list.
+  final bool? inRoom;
 }
 
 /// One page of Friend Group members (`FriendGroupMemberList`).

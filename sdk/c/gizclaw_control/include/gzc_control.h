@@ -670,6 +670,10 @@ typedef struct {
   bool has_online;
   bool online;
   gzc_str_t last_seen_at;
+  /* Whether the member's device runs the Group's Workspace on the answering
+   * Server, which attaches it to the SFU Room; true implies online. */
+  bool has_in_room;
+  bool in_room;
 } gzc_control_friend_group_member_t;
 
 /* Body of `POST /gizclaw/v1/friend-groups` (`FriendGroupCreateRequest`) and

@@ -268,6 +268,10 @@ func TestIntegrationPeerHTTPFriendGroupsThroughGoSDK(t *testing.T) {
 			(member.PeerPublicKey != bob.publicKey() && !*member.Online) {
 			t.Fatalf("member presence = %s", members.Body)
 		}
+		// No device selected the Group Workspace, so nobody is in the Room.
+		if member.InRoom == nil || *member.InRoom {
+			t.Fatalf("member in_room = %s", members.Body)
+		}
 	}
 	if len(names) != 3 || names[alice.publicKey()] != alice.name || names[bob.publicKey()] != bob.name || names[carol.publicKey()] != carol.name {
 		t.Fatalf("member names = %v", names)
@@ -283,6 +287,9 @@ func TestIntegrationPeerHTTPFriendGroupsThroughGoSDK(t *testing.T) {
 	for _, member := range rpcMembers.Items {
 		if member.Online == nil || member.LastSeenAt == nil || (member.Name != bob.publicKey() && !*member.Online) {
 			t.Fatalf("RPC member presence = %+v", member)
+		}
+		if member.InRoom == nil || *member.InRoom {
+			t.Fatalf("RPC member in_room = %+v", member)
 		}
 	}
 	left, err := carolAPI.LeaveFriendGroupWithResponse(ctx, "home", bearer(bob.key))
