@@ -213,6 +213,9 @@ func (h *PeerConn) serve() error {
 			h.events,
 		)
 	}
+	if h.agentHost != nil {
+		_ = h.Service.manager.SetPeerRunStatus(h.Conn.PublicKey(), h.Conn, h.agentHost.Status)
+	}
 
 	var g errgroup.Group
 	g.Go(h.serveService)

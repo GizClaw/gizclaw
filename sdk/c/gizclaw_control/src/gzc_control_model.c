@@ -794,6 +794,9 @@ int gzc_control_decode_friend_group_member(
   if (rc == GZC_OK) {
     rc = gzc_control_opt_str(object_json, "last_seen_at", &out->last_seen_at);
   }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_bool(object_json, "in_room", &out->in_room, &out->has_in_room);
+  }
   return rc;
 }
 

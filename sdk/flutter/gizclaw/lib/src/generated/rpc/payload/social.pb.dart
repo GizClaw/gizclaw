@@ -2625,6 +2625,7 @@ class FriendGroupMemberObject extends $pb.GeneratedMessage {
     $core.String? updatedAt,
     $core.bool? online,
     $core.String? lastSeenAt,
+    $core.bool? inRoom,
   }) {
     final result = create();
     if (createdAt != null) result.createdAt = createdAt;
@@ -2635,6 +2636,7 @@ class FriendGroupMemberObject extends $pb.GeneratedMessage {
     if (updatedAt != null) result.updatedAt = updatedAt;
     if (online != null) result.online = online;
     if (lastSeenAt != null) result.lastSeenAt = lastSeenAt;
+    if (inRoom != null) result.inRoom = inRoom;
     return result;
   }
 
@@ -2660,6 +2662,7 @@ class FriendGroupMemberObject extends $pb.GeneratedMessage {
     ..aOS(6, _omitFieldNames ? '' : 'updatedAt')
     ..aOB(7, _omitFieldNames ? '' : 'online')
     ..aOS(8, _omitFieldNames ? '' : 'lastSeenAt')
+    ..aOB(9, _omitFieldNames ? '' : 'inRoom')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2758,6 +2761,18 @@ class FriendGroupMemberObject extends $pb.GeneratedMessage {
   $core.bool hasLastSeenAt() => $_has(7);
   @$pb.TagNumber(8)
   void clearLastSeenAt() => $_clearField(8);
+
+  /// Whether the member's device is running this Friend Group's Workspace on
+  /// the answering Server, which is what attaches it to the Group's SFU Room.
+  /// Set only by server.friend_group.members.list; true implies online.
+  @$pb.TagNumber(9)
+  $core.bool get inRoom => $_getBF(8);
+  @$pb.TagNumber(9)
+  set inRoom($core.bool value) => $_setBool(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasInRoom() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearInRoom() => $_clearField(9);
 }
 
 class FriendGroupMemberPutRequest extends $pb.GeneratedMessage {

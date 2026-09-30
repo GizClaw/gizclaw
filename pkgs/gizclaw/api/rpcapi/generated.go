@@ -1681,6 +1681,9 @@ type FriendGroupMemberObject struct {
 	CreatedAt       *time.Time `json:"created_at,omitempty"`
 	FriendGroupName *string    `json:"friend_group_name,omitempty"`
 
+	// InRoom Whether the member's device is running this Friend Group's Workspace on the answering Server, which is what attaches it to the Group's SFU Room. True implies online. Set only by server.friend_group.members.list.
+	InRoom *bool `json:"in_room,omitempty"`
+
 	// LastSeenAt Last observed activity of the member's device, as Runtime.last_seen_at reports it. Set only by server.friend_group.members.list and absent when the Server has never observed the member.
 	LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
 	Name       string     `json:"name"`

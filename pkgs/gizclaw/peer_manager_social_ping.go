@@ -8,12 +8,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
-var _ socialutil.PingDelivery = (*Manager)(nil)
+var (
+	_ socialutil.PingDelivery        = (*Manager)(nil)
+	_ socialutil.RoomPresenceService = (*Manager)(nil)
+)
 
 // socialPingTimeout bounds one client.social.ping push. A device that does not
 // acknowledge in time counts as not reached; the push is never retried.
@@ -28,6 +32,32 @@ func (m *Manager) PeerOnline(publicKey string) bool {
 	}
 	_, ok := m.Peer(key)
 	return ok
+}
+
+// PeerRunningWorkspace reports whether publicKey's active connection on this
+// Server is running workspaceName right now. A Peer that is offline, has no
+// running runtime, or runs another Workspace answers false, as does a runtime
+// that is starting, stopping or failed.
+func (m *Manager) PeerRunningWorkspace(ctx context.Context, publicKey, workspaceName string) bool {
+	workspaceName = strings.TrimSpace(workspaceName)
+	key, err := parseSocialPingPeer(publicKey)
+	if err != nil || workspaceName == "" {
+		return false
+	}
+	m.mu.RLock()
+	var status func(context.Context) (apitypes.PeerRunStatus, error)
+	if state := m.peers[key]; state != nil && state.conn != nil && !state.deleting {
+		status = state.runStatus
+	}
+	m.mu.RUnlock()
+	if status == nil {
+		return false
+	}
+	run, err := status(ctx)
+	if err != nil || run.State != apitypes.PeerRunStatusStateRunning || run.WorkspaceName == nil {
+		return false
+	}
+	return strings.TrimSpace(*run.WorkspaceName) == workspaceName
 }
 
 // DeliverSocialPing pushes one client.social.ping over the Peer's active

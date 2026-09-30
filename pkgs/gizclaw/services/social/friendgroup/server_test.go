@@ -1741,6 +1741,86 @@ func (s memberPresenceStub) PeerPresence(_ context.Context, key string) (bool, t
 	return value.online, value.lastSeenAt
 }
 
+// memberRoomStub answers in_room for the members running one Workspace and
+// records every Workspace name it was asked about.
+type memberRoomStub struct {
+	workspace string
+	running   map[string]bool
+	asked     map[string]bool
+}
+
+func (s *memberRoomStub) PeerRunningWorkspace(_ context.Context, key, workspaceName string) bool {
+	s.asked[workspaceName] = true
+	return workspaceName == s.workspace && s.running[key]
+}
+
+func TestListFriendGroupMembersCarriesInRoom(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer(t)
+	group, err := s.CreateFriendGroup(ctx, "owner", rpcapi.FriendGroupCreateRequest{Name: "room"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	workspace := socialutil.StringValue(group.WorkspaceName)
+	if workspace == "" {
+		t.Fatalf("group without Workspace = %+v", group)
+	}
+	rooms := &memberRoomStub{workspace: workspace, running: map[string]bool{"owner": true}, asked: map[string]bool{}}
+	s.Rooms = rooms
+	assertAbsent := func(item rpcapi.FriendGroupMemberObject, err error) {
+		t.Helper()
+		if err != nil || item.InRoom != nil {
+			t.Fatalf("undecorated member = %+v, %v", item, err)
+		}
+	}
+	item, err := s.AddFriendGroupMember(ctx, "owner", rpcapi.FriendGroupMemberAddRequest{FriendGroupName: group.Name, PeerPublicKey: "idle", MemberName: "room", Role: "member"})
+	assertAbsent(item, err)
+	req := rpcapi.FriendGroupMemberListRequest{FriendGroupName: new(group.Name)}
+	page, err := s.ListFriendGroupMembers(ctx, "owner", req)
+	if err != nil || len(page.Items) != 2 {
+		t.Fatalf("list = %+v, %v", page, err)
+	}
+	for _, item := range page.Items {
+		if item.InRoom == nil || *item.InRoom != rooms.running[item.Name] {
+			t.Fatalf("in_room = %+v", item)
+		}
+		// Presence is a separate service: in_room does not imply it was read.
+		if item.Online != nil || item.LastSeenAt != nil {
+			t.Fatalf("presence without Presence = %+v", item)
+		}
+	}
+	if len(rooms.asked) != 1 || !rooms.asked[workspace] {
+		t.Fatalf("asked Workspaces = %v, want only %q", rooms.asked, workspace)
+	}
+	admin, err := s.AdminListFriendGroupMembers(ctx, mustGroupID(t, s, "owner", group.Name), req)
+	if err != nil || len(admin.Items) != 2 {
+		t.Fatalf("admin list = %+v, %v", admin, err)
+	}
+	for _, item := range admin.Items {
+		assertAbsent(item, nil)
+	}
+	item, err = s.PutFriendGroupMember(ctx, "owner", rpcapi.FriendGroupMemberPutRequest{FriendGroupName: group.Name, Name: "idle", Role: "admin"})
+	assertAbsent(item, err)
+	item, err = s.DeleteFriendGroupMember(ctx, "owner", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: group.Name, Name: "idle"})
+	assertAbsent(item, err)
+	s.Rooms = nil
+	page, err = s.ListFriendGroupMembers(ctx, "owner", req)
+	if err != nil || len(page.Items) != 1 {
+		t.Fatalf("nil rooms list = %+v, %v", page, err)
+	}
+	assertAbsent(page.Items[0], nil)
+	// An unreadable Workspace binding omits in_room instead of failing the page.
+	s.Rooms = rooms
+	if err := s.RelationshipStore.Delete(ctx, workspaceBindingKey(mustGroupID(t, s, "owner", group.Name))); err != nil {
+		t.Fatal(err)
+	}
+	page, err = s.ListFriendGroupMembers(ctx, "owner", req)
+	if err != nil || len(page.Items) != 1 {
+		t.Fatalf("unbound list = %+v, %v", page, err)
+	}
+	assertAbsent(page.Items[0], nil)
+}
+
 func TestListFriendGroupMembersCarriesPresence(t *testing.T) {
 	ctx := t.Context()
 	s := newTestServer(t)

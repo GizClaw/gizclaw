@@ -99,8 +99,11 @@ Friend、Friend Group 与 Peer Store 通过共享 KV backend（multi-server 部�
 | --- | --- | --- |
 | `online` | `Manager.PeerPresence`，与 `Runtime.online` 读取同一份 Server 本地连接状态 | 未配置 Presence 时省略 |
 | `last_seen_at` | 同上，使用 RFC 3339 UTC；离线时回落到持久化的 Peer Run 活动记录 | 从未观察到成员、最后活动读取失败或未配置 Presence 时省略 |
+| `in_room` | `Manager.PeerRunningWorkspace`：该成员在本 Server 上的当前连接正在运行这个群绑定的 Workspace | 未配置 Rooms 或群的 Workspace 绑定读取失败时省略 |
 
-好友和群成员列表共用 `socialutil.PresenceService` 与 `PresenceFields`。最后活动读取失败不会让整页失败。连接在其他 Server 上的成员显示为离线。Admin 成员列表与 add、put、delete、join 响应均不携带这两个字段。
+好友和群成员列表共用 `socialutil.PresenceService` 与 `PresenceFields`。最后活动读取失败不会让整页失败。连接在其他 Server 上的成员显示为离线。Admin 成员列表与 add、put、delete、join 响应均不携带这三个字段。
+
+`online` 只表示设备与 Server 有连接，`in_room` 表示设备此刻在群的 SFU Room 里。设备通过运行群的 Workspace 加入 Room，所以 `in_room` 读取的是该连接的 Peer Run 运行状态：状态为 running 且 Workspace 名与群绑定的 Workspace 一致时为 true；runtime 处于 starting、stopping、error，运行的是其他 Workspace，`server.run.stop` 之后，或者设备离线时均为 false。它不读取 Server 持久化的 `Runtime.active_workspace_name`，后者在设备停止运行或离线后仍然保留。`in_room` 为 true 时 `online` 必为 true；它与 `online` 一样是 Server 本地的，连接在其他 Server 上的成员显示为 false。Room 内 SFU 连接的短暂重连不改变该值。
 
 ## 好友呼叫与群集结
 
