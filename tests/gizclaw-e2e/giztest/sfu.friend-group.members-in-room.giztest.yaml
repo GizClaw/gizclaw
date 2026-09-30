@@ -1,0 +1,328 @@
+# User Story:
+# As a child whose device shows who is in the team Room,
+# I want server.friend_group.members.list to mark a member as in_room only while that member's device runs the team's Workspace,
+# So that my device can tell members who will hear a push-to-talk turn from members who are merely online.
+# No audio is exchanged, so no TTS/ASR credentials are needed. Both clients are
+# homed on the same Server because in_room is local to the answering Server.
+# A list is sorted by member key, so steps that expect one value per member
+# only run while the Group has one member or every member is in the same state.
+version: gizclaw.test/v1alpha1
+name: sfu.friend-group.members-in-room
+timeout: 3m
+clients:
+  alice:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_a}
+    registration_token: ${token_a}
+  bob:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_a}
+    registration_token: ${token_a}
+variables:
+  edge_a:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_EDGE_A
+  token_a:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN_A
+    secret: true
+  team_name:
+    direction: input
+    type: string
+    generate: token
+  other_name:
+    direction: input
+    type: string
+    generate: token
+  team_workspace:
+    direction: output
+    type: string
+  other_workspace:
+    direction: output
+    type: string
+  team_invite:
+    direction: output
+    type: string
+    secret: true
+steps:
+  - id: create_team
+    client: alice
+    rpc:
+      method: server.friend_group.create
+      request: {name: '${team_name}'}
+    capture:
+      team_workspace: /workspace_name
+    expect:
+      /workspace_name: {non_empty: true}
+  - id: create_other
+    client: alice
+    rpc:
+      method: server.friend_group.create
+      request: {name: '${other_name}'}
+    capture:
+      other_workspace: /workspace_name
+    expect:
+      /workspace_name: {non_empty: true}
+  # Connected but running no Workspace: online, not in the Room.
+  - id: idle_team
+    client: alice
+    rpc:
+      method: server.friend_group.members.list
+      request: {friend_group_name: '${team_name}'}
+    expect:
+      /items: {count: 1}
+      /items/0/online: {equals: true}
+      /items/0/in_room: {equals: false}
+  # Selecting the team's Workspace joins its Room.
+  - id: alice_select_team
+    client: alice
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: '${team_workspace}'}
+    expect:
+      /selected_workspace_name: {equals: '${team_workspace}'}
+      /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$}
+  - id: alice_team_running
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+      /selected_workspace_name: {equals: '${team_workspace}'}
+  - id: in_team
+    client: alice
+    rpc:
+      method: server.friend_group.members.list
+      request: {friend_group_name: '${team_name}'}
+    expect:
+      /items: {count: 1}
+      /items/0/online: {equals: true}
+      /items/0/in_room: {equals: true}
+  # Running one Group's Workspace does not put the member in another Group's Room.
+  - id: not_in_other
+    client: alice
+    rpc:
+      method: server.friend_group.members.list
+      request: {friend_group_name: '${other_name}'}
+    expect:
+      /items: {count: 1}
+      /items/0/online: {equals: true}
+      /items/0/in_room: {equals: false}
+  # Switching Workspaces moves the member between Rooms.
+  - id: alice_select_other
+    client: alice
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: '${other_workspace}'}
+    expect:
+      /selected_workspace_name: {equals: '${other_workspace}'}
+      /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$}
+  - id: alice_other_running
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+      /selected_workspace_name: {equals: '${other_workspace}'}
+  - id: left_team_for_other
+    client: alice
+    rpc:
+      method: server.friend_group.members.list
+      request: {friend_group_name: '${team_name}'}
+    expect:
+      /items: {count: 1}
+      /items/0/online: {equals: true}
+      /items/0/in_room: {equals: false}
+  - id: in_other
+    client: alice
+    rpc:
+      method: server.friend_group.members.list
+      request: {friend_group_name: '${other_name}'}
+    expect:
+      /items: {count: 1}
+      /items/0/in_room: {equals: true}
+  # server.run.stop leaves the Room while the device stays online.
+  - id: alice_stop
+    client: alice
+    rpc:
+      method: server.run.stop
+      request: {}
+  - id: alice_stopped
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STOPPED|ERROR)$}
+  - id: stopped_other
+    client: alice
+    rpc:
+      method: server.friend_group.members.list
+      request: {friend_group_name: '${other_name}'}
+    expect:
+      /items: {count: 1}
+      /items/0/online: {equals: true}
+      /items/0/in_room: {equals: false}
+  # A second member on the same Server sees the same state for everyone.
+  - id: team_invite
+    client: alice
+    rpc:
+      method: server.friend_group.invite_token.create
+      request: {friend_group_name: '${team_name}'}
+    capture:
+      team_invite: /invite_token
+  - id: bob_join
+    client: bob
+    rpc:
+      method: server.friend_group.join
+      request: {invite_token: '${team_invite}', name: '${team_name}'}
+    expect:
+      /group/workspace_name: {equals: '${team_workspace}'}
+      /member/in_room: {present: false}
+  - id: bob_sees_nobody_in_team
+    client: bob
+    rpc:
+      method: server.friend_group.members.list
+      request: {friend_group_name: '${team_name}'}
+    expect:
+      /items: {count: 2}
+      /items/0/online: {equals: true}
+      /items/0/in_room: {equals: false}
+      /items/1/online: {equals: true}
+      /items/1/in_room: {equals: false}
+  - id: alice_rejoin_team
+    client: alice
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: '${team_workspace}'}
+    expect:
+      /selected_workspace_name: {equals: '${team_workspace}'}
+      /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$}
+  - id: alice_rejoin_running
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+      /selected_workspace_name: {equals: '${team_workspace}'}
+  - id: bob_select_team
+    client: bob
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: '${team_workspace}'}
+    expect:
+      /selected_workspace_name: {equals: '${team_workspace}'}
+      /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$}
+  - id: bob_team_running
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+      /selected_workspace_name: {equals: '${team_workspace}'}
+  - id: bob_sees_everyone_in_team
+    client: bob
+    rpc:
+      method: server.friend_group.members.list
+      request: {friend_group_name: '${team_name}'}
+    expect:
+      /items: {count: 2}
+      /items/0/online: {equals: true}
+      /items/0/in_room: {equals: true}
+      /items/1/online: {equals: true}
+      /items/1/in_room: {equals: true}
+  - id: alice_sees_everyone_in_team
+    client: alice
+    rpc:
+      method: server.friend_group.members.list
+      request: {friend_group_name: '${team_name}'}
+    expect:
+      /items: {count: 2}
+      /items/0/in_room: {equals: true}
+      /items/1/in_room: {equals: true}
+  # A reconnect starts a new connection without a runtime. The Server still
+  # remembers the selected Workspace, but the member is not in the Room until
+  # the device runs it again.
+  - id: bob_stop
+    client: bob
+    rpc:
+      method: server.run.stop
+      request: {}
+  - id: bob_stopped
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STOPPED|ERROR)$}
+  - id: alice_reconnect
+    client: alice
+    reconnect: {await_ms: 30000}
+  - id: alice_ping_after_reconnect
+    client: alice
+    rpc:
+      method: all.ping
+      request: {client_send_time: 0}
+  - id: alice_selection_survives_reconnect
+    client: alice
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /selected_workspace_name: {equals: '${team_workspace}'}
+      /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STOPPED|ERROR)$}
+  - id: nobody_in_team_after_reconnect
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.friend_group.members.list
+      request: {friend_group_name: '${team_name}'}
+    expect:
+      /items: {count: 2}
+      /items/0/online: {equals: true}
+      /items/0/in_room: {equals: false}
+      /items/1/online: {equals: true}
+      /items/1/in_room: {equals: false}
+finally:
+  - client: alice
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: bob
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: alice
+    rpc:
+      method: server.friend_group.delete
+      request: {name: '${team_name}'}
+  - client: alice
+    rpc:
+      method: server.friend_group.delete
+      request: {name: '${other_name}'}
+  - client: alice
+    rpc:
+      method: server.peer.delete
+      request: {}
+  - client: bob
+    rpc:
+      method: server.peer.delete
+      request: {}
+report:
+  redact:
+    - token_a
+    - team_invite

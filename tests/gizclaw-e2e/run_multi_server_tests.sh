@@ -185,6 +185,7 @@ scenarios=(
   "$giztest_dir/sfu.friend-group.delete-recreate.audio-bytes.giztest.yaml"
   "$giztest_dir/sfu.workspace.isolation-switch.audio-bytes.giztest.yaml"
   "$giztest_dir/sfu.workspace.stop-reconnect.audio-bytes.giztest.yaml"
+  "$giztest_dir/sfu.friend-group.members-in-room.giztest.yaml"
 )
 if [[ "$GIZCLAW_E2E_SFU_PROVIDER" == 1 ]]; then
   scenarios+=(

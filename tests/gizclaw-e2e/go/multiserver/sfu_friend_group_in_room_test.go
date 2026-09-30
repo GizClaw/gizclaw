@@ -17,6 +17,11 @@ import (
 // is in the Room only while its device runs the Group's Workspace on the
 // answering Server, so stopping the runtime takes it out of the Room while it
 // stays online.
+//
+// The file name sorts this test after multi_server_test.go on purpose:
+// deleting the Group queues asynchronous cleanup in the shared Redis, and
+// TestSharedAssignmentRoutesAcrossBothEdges requires that store to be
+// quiescent while it compares snapshots.
 func TestFriendGroupMembersReportInRoom(t *testing.T) {
 	serverA := fetchServer(t, requiredEnv(t, "GIZCLAW_E2E_SERVER_A"))
 	owner, err := giznet.GenerateKeyPair()
