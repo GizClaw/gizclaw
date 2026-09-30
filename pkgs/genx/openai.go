@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net/http"
 	"slices"
@@ -93,6 +94,14 @@ func (g *OpenAIGenerator) GenerateStream(ctx context.Context, _ string, mctx Mod
 			RecordUsage(ctx, oaiUsageRecords(provider, string(params.Model), usage)...)
 		}}
 		err := puller.pull(sb, g.Client.Chat.Completions.NewStreaming(ctx, params))
+		if err != nil && !puller.received && isStreamOptionsUnsupported(err) {
+			// Some OpenAI-compatible endpoints reject stream_options; stream
+			// without it, which reports no usage for this completion.
+			slog.WarnContext(ctx, "genx: provider rejected stream usage; streaming without usage",
+				"provider", provider, "model", string(params.Model), "error", err)
+			params.StreamOptions = openai.ChatCompletionStreamOptionsParam{}
+			err = puller.pull(sb, g.Client.Chat.Completions.NewStreaming(ctx, params))
+		}
 		timing.finish(err)
 		if err != nil {
 			sb.Abort(err)
@@ -206,6 +215,16 @@ func isToolCallFinishReason(reason string) bool {
 	default:
 		return false
 	}
+}
+
+// isStreamOptionsUnsupported reports an endpoint rejecting stream_options.
+func isStreamOptionsUnsupported(err error) bool {
+	var apiErr *openai.Error
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusBadRequest {
+		return false
+	}
+	text := strings.ToLower(apiErr.Message + " " + apiErr.Param + " " + apiErr.RawJSON())
+	return strings.Contains(text, "stream_options") || strings.Contains(text, "include_usage")
 }
 
 func isResponseFormatUnsupported(err error) bool {
@@ -325,6 +344,9 @@ type oaiPuller struct {
 	timing      *modelTiming
 	runningTool *openai.ChatCompletionChunkChoiceDeltaToolCall
 	record      func(openai.CompletionUsage)
+	// received reports whether any chunk arrived, after which a request can
+	// no longer be retried.
+	received bool
 }
 
 func (p *oaiPuller) commitTool(sb *StreamBuilder) error {
@@ -354,6 +376,7 @@ func (p *oaiPuller) pull(sb *StreamBuilder, stream *ssestream.Stream[openai.Chat
 	var finish func(Usage) error
 
 	for stream.Next() {
+		p.received = true
 		chunk := stream.Current()
 		if chunk.Usage.PromptTokens != 0 || chunk.Usage.CompletionTokens != 0 {
 			usage = chunk.Usage

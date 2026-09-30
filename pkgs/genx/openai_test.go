@@ -578,3 +578,51 @@ func TestOpenAIGeneratorReportsProviderUsage(t *testing.T) {
 		t.Fatalf("records = %+v, want %+v", records, want)
 	}
 }
+
+func TestOpenAIGenerateStreamRetriesWithoutRejectedStreamOptions(t *testing.T) {
+	var requests []map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		requests = append(requests, body)
+		if _, ok := body["stream_options"]; ok {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = io.WriteString(w, `{"error":{"message":"Unrecognized request argument supplied: stream_options","type":"invalid_request_error","param":null,"code":null}}`)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, strings.Join([]string{
+			`data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":""}]}`,
+			`data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`,
+			"data: [DONE]",
+			"",
+		}, "\n\n"))
+	}))
+	defer srv.Close()
+
+	var records []UsageRecord
+	ctx := WithUsageRecorder(context.Background(), func(record UsageRecord) { records = append(records, record) })
+	client := openai.NewClient(option.WithAPIKey("test"), option.WithBaseURL(srv.URL+"/"), option.WithMaxRetries(0))
+	g := &OpenAIGenerator{Client: &client, Provider: "legacy", Model: "chat-model"}
+
+	stream, err := g.GenerateStream(ctx, "", testOpenAIContext(false))
+	if err != nil {
+		t.Fatalf("GenerateStream failed: %v", err)
+	}
+	if chunk, err := stream.Next(); err != nil || chunk.Part.(Text) != "hi" {
+		t.Fatalf("first chunk = %#v, %v", chunk, err)
+	}
+	if _, err := stream.Next(); !errors.Is(err, ErrDone) {
+		t.Fatalf("terminal error = %v, want ErrDone", err)
+	}
+	if len(requests) != 2 {
+		t.Fatalf("requests = %d, want the rejected request and one retry", len(requests))
+	}
+	if _, ok := requests[1]["stream_options"]; ok {
+		t.Fatalf("retry sent stream_options: %v", requests[1]["stream_options"])
+	}
+	if len(records) != 0 {
+		t.Fatalf("records = %+v, want none when the endpoint reports no usage", records)
+	}
+}
