@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
@@ -52,13 +53,15 @@ func TestDoubaoSAUCASR(t *testing.T) {
 	}
 
 	realtimePacing := false
-	transformer, err := doubaoasr.New(doubaoasr.Config{
+	asr, err := doubaoasr.New(doubaoasr.Config{
 		Client:         doubaospeech.NewClient(appID, doubaospeech.WithAPIKey(apiKey)),
 		RealtimePacing: &realtimePacing,
 	})
 	if err != nil {
 		t.Fatalf("doubaoasr.New() failed: %v", err)
 	}
+	usage := newLiveUsage()
+	transformer := usage.wrap(asr)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
@@ -112,7 +115,12 @@ func TestDoubaoSAUCASR(t *testing.T) {
 	if transcriptRoute == nil || transcriptRoute.dataChunks == 0 {
 		t.Fatalf("Doubao SAUC transcript route = %#v, want BOS/data/EOS", transcriptRoute)
 	}
-	t.Logf("transcript=%q routes=%d chunks=%d", transcript.String(), len(tracker.routes), len(chunks))
+	// The session reports its billed audio before the transcript completes.
+	billed := sumUsage(t, usage.snapshot(), "volc", doubaospeech.ResourceASRStream, genx.UsageUnitMillisecond)
+	if len(billed) != 1 || billed[genx.UsageModalityAudio].Input < 1000 {
+		t.Fatalf("Doubao SAUC usage = %+v, want at least 1 s of billed audio", billed)
+	}
+	t.Logf("transcript=%q routes=%d chunks=%d billed_audio_ms=%d", transcript.String(), len(tracker.routes), len(chunks), billed[genx.UsageModalityAudio].Input)
 }
 
 // TestDoubaoSAUCLivePCMFrameAggregation exercises the device-facing cadence:
@@ -419,7 +427,10 @@ func TestDoubaoSeedV2TTS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("doubaotts.NewSeedV2() failed: %v", err)
 	}
-	runTTSE2E(t, transformer, "doubao-seed-v2-e2e", "你好，这是一条豆包语音合成端到端测试。", "audio/ogg")
+	usage := newLiveUsage()
+	text := "你好，这是一条豆包语音合成端到端测试。Hello 123."
+	runTTSE2E(t, usage.wrap(transformer), "doubao-seed-v2-e2e", text, "audio/ogg")
+	requireVolcTTSCharacters(t, usage, doubaospeech.ResourceTTSV2, text)
 }
 
 func TestMiniMaxTTS(t *testing.T) {
@@ -438,7 +449,14 @@ func TestMiniMaxTTS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("minimaxtts.New() failed: %v", err)
 	}
-	runTTSE2E(t, transformer, "minimax-tts-e2e", "你好，这是一条 MiniMax 语音合成端到端测试。", "audio/mpeg")
+	usage := newLiveUsage()
+	text := "你好，这是一条 MiniMax 语音合成端到端测试。"
+	runTTSE2E(t, usage.wrap(transformer), "minimax-tts-e2e", text, "audio/mpeg")
+	// MiniMax bills at least one character per Unicode character; CJK
+	// characters count as two.
+	if billed, runes := requireTTSCharacterUsage(t, usage, "minimax", miniMaxTTSModel), int64(utf8.RuneCountInString(text)); billed < runes {
+		t.Fatalf("MiniMax TTS billed %d characters, want at least %d", billed, runes)
+	}
 }
 
 // TestMiniMaxOggOpusTTS exercises the #933 path end to end against the live

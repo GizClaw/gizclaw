@@ -41,6 +41,7 @@ func (g *GeminiGenerator) Invoke(ctx context.Context, _ string, mctx ModelContex
 		}
 		return Usage{}, nil, err
 	}
+	RecordUsage(ctx, geminiUsageRecords(g.Model, resp.UsageMetadata)...)
 	if len(resp.Candidates) == 0 {
 		return Usage{}, nil, fmt.Errorf("no candidates")
 	}
@@ -57,7 +58,7 @@ func (g *GeminiGenerator) Invoke(ctx context.Context, _ string, mctx ModelContex
 			sb.WriteString(p.Text)
 		}
 	}
-	return Usage{}, fn.NewFuncCall(sb.String()), nil
+	return geminiConvUsage(resp.UsageMetadata), fn.NewFuncCall(sb.String()), nil
 }
 
 func (g *GeminiGenerator) GenerateStream(ctx context.Context, _ string, mctx ModelContext) (Stream, error) {
@@ -71,7 +72,10 @@ func (g *GeminiGenerator) GenerateStream(ctx context.Context, _ string, mctx Mod
 	sb := NewStreamBuilder(mctx, 32)
 	go func() {
 		timing := newModelTiming(ctx, "gemini", g.Model)
-		err := geminiPull(sb, g.Client.Models.GenerateContentStream(ctx, g.Model, contents, cfg), timing)
+		record := func(usage *genai.GenerateContentResponseUsageMetadata) {
+			RecordUsage(ctx, geminiUsageRecords(g.Model, usage)...)
+		}
+		err := geminiPull(sb, g.Client.Models.GenerateContentStream(ctx, g.Model, contents, cfg), record, timing)
 		timing.finish(err)
 		if err != nil {
 			sb.Abort(err)
@@ -80,7 +84,9 @@ func (g *GeminiGenerator) GenerateStream(ctx context.Context, _ string, mctx Mod
 	return sb.Stream(), nil
 }
 
-func geminiPull(builder *StreamBuilder, itr iter.Seq2[*genai.GenerateContentResponse, error], timings ...*modelTiming) error {
+// geminiPull forwards one streamed response. record, when set, receives the
+// usage of the chunk that ends the response.
+func geminiPull(builder *StreamBuilder, itr iter.Seq2[*genai.GenerateContentResponse, error], record func(*genai.GenerateContentResponseUsageMetadata), timings ...*modelTiming) error {
 	var selIdx int32
 	for chunk, err := range itr {
 		if err != nil {
@@ -159,6 +165,9 @@ func geminiPull(builder *StreamBuilder, itr iter.Seq2[*genai.GenerateContentResp
 		}
 		if err := builder.Add(chunks...); err != nil {
 			return err
+		}
+		if sel.FinishReason != genai.FinishReasonUnspecified && sel.FinishReason != "" && record != nil {
+			record(chunk.UsageMetadata)
 		}
 		switch sel.FinishReason {
 		default:
@@ -374,6 +383,34 @@ func geminiConvSchema(schema *jsonschema.Schema) *genai.Schema {
 		gs.Type = genai.TypeBoolean
 	}
 	return &gs
+}
+
+// geminiUsageRecords maps Gemini usage metadata. Tool-use prompt tokens bill as
+// input and thought tokens as output; cache details without a modality split
+// are attributed to text.
+func geminiUsageRecords(model string, usage *genai.GenerateContentResponseUsageMetadata) []UsageRecord {
+	if usage == nil {
+		return nil
+	}
+	report := TokenUsage{
+		InputTokens:       int64(usage.PromptTokenCount) + int64(usage.ToolUsePromptTokenCount),
+		InputAudioTokens:  geminiModalityTokens(usage.PromptTokensDetails, genai.MediaModalityAudio) + geminiModalityTokens(usage.ToolUsePromptTokensDetails, genai.MediaModalityAudio),
+		CachedAudioTokens: geminiModalityTokens(usage.CacheTokensDetails, genai.MediaModalityAudio),
+		OutputTokens:      int64(usage.CandidatesTokenCount) + int64(usage.ThoughtsTokenCount),
+		OutputAudioTokens: geminiModalityTokens(usage.CandidatesTokensDetails, genai.MediaModalityAudio),
+	}
+	report.CachedTextTokens = max(int64(usage.CachedContentTokenCount)-report.CachedAudioTokens, 0)
+	return report.Records("gemini", model)
+}
+
+func geminiModalityTokens(details []*genai.ModalityTokenCount, modality genai.MediaModality) int64 {
+	var total int64
+	for _, item := range details {
+		if item != nil && item.Modality == modality {
+			total += int64(item.TokenCount)
+		}
+	}
+	return total
 }
 
 func geminiConvUsage(usage *genai.GenerateContentResponseUsageMetadata) Usage {

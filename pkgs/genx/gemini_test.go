@@ -3,6 +3,7 @@ package genx
 import (
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -74,7 +75,7 @@ func TestGeminiPullHandlesFinishChunkWithoutContent(t *testing.T) {
 		}, nil)
 	}
 
-	if err := geminiPull(sb, seq); err != nil {
+	if err := geminiPull(sb, seq, nil); err != nil {
 		t.Fatalf("geminiPull failed: %v", err)
 	}
 
@@ -213,7 +214,7 @@ func TestGeminiPullBranches(t *testing.T) {
 			yield(&genai.GenerateContentResponse{Candidates: []*genai.Candidate{{Index: 0, FinishReason: genai.FinishReasonStop}}, UsageMetadata: &genai.GenerateContentResponseUsageMetadata{PromptTokenCount: 1, CandidatesTokenCount: 2}}, nil)
 		}
 
-		if err := geminiPull(sb, seq); err != nil {
+		if err := geminiPull(sb, seq, nil); err != nil {
 			t.Fatalf("geminiPull stop failed: %v", err)
 		}
 		if _, err := sb.Stream().Next(); err != nil {
@@ -226,7 +227,7 @@ func TestGeminiPullBranches(t *testing.T) {
 		maxSeq := func(yield func(*genai.GenerateContentResponse, error) bool) {
 			yield(&genai.GenerateContentResponse{Candidates: []*genai.Candidate{{Index: 0, FinishReason: genai.FinishReasonMaxTokens}}}, nil)
 		}
-		if err := geminiPull(sb, maxSeq); err != nil {
+		if err := geminiPull(sb, maxSeq, nil); err != nil {
 			t.Fatalf("geminiPull max tokens failed: %v", err)
 		}
 		if _, err := sb.Stream().Next(); err == nil || !strings.Contains(err.Error(), "truncated") {
@@ -237,7 +238,7 @@ func TestGeminiPullBranches(t *testing.T) {
 		safeSeq := func(yield func(*genai.GenerateContentResponse, error) bool) {
 			yield(&genai.GenerateContentResponse{Candidates: []*genai.Candidate{{Index: 0, FinishReason: genai.FinishReasonSafety, SafetyRatings: []*genai.SafetyRating{{Category: genai.HarmCategoryHarassment, Blocked: true}}}}}, nil)
 		}
-		if err := geminiPull(sb2, safeSeq); err != nil {
+		if err := geminiPull(sb2, safeSeq, nil); err != nil {
 			t.Fatalf("geminiPull safety failed: %v", err)
 		}
 		if _, err := sb2.Stream().Next(); err == nil || !strings.Contains(err.Error(), "blocked") {
@@ -248,7 +249,7 @@ func TestGeminiPullBranches(t *testing.T) {
 		unexpectedSeq := func(yield func(*genai.GenerateContentResponse, error) bool) {
 			yield(&genai.GenerateContentResponse{Candidates: []*genai.Candidate{{Index: 0, Content: &genai.Content{Parts: []*genai.Part{{}}}}}}, nil)
 		}
-		if err := geminiPull(sb3, unexpectedSeq); err == nil || !strings.Contains(err.Error(), "unexpected part type") {
+		if err := geminiPull(sb3, unexpectedSeq, nil); err == nil || !strings.Contains(err.Error(), "unexpected part type") {
 			t.Fatalf("expected unexpected part error, got: %v", err)
 		}
 	})
@@ -257,15 +258,55 @@ func TestGeminiPullBranches(t *testing.T) {
 		seqErr := func(yield func(*genai.GenerateContentResponse, error) bool) {
 			yield(nil, errors.New("stream err"))
 		}
-		if err := geminiPull(NewStreamBuilder(ctx, 2), seqErr); err == nil || !strings.Contains(err.Error(), "stream err") {
+		if err := geminiPull(NewStreamBuilder(ctx, 2), seqErr, nil); err == nil || !strings.Contains(err.Error(), "stream err") {
 			t.Fatalf("expected iterator error, got: %v", err)
 		}
 
 		noFinish := func(yield func(*genai.GenerateContentResponse, error) bool) {
 			yield(&genai.GenerateContentResponse{Candidates: []*genai.Candidate{{Index: 0}}}, nil)
 		}
-		if err := geminiPull(NewStreamBuilder(ctx, 2), noFinish); err == nil || !strings.Contains(err.Error(), "no finish reason") {
+		if err := geminiPull(NewStreamBuilder(ctx, 2), noFinish, nil); err == nil || !strings.Contains(err.Error(), "no finish reason") {
 			t.Fatalf("expected no finish reason error, got: %v", err)
 		}
 	})
+}
+
+func TestGeminiPullRecordsTerminalUsage(t *testing.T) {
+	usage := &genai.GenerateContentResponseUsageMetadata{
+		PromptTokenCount:        40,
+		ToolUsePromptTokenCount: 2,
+		PromptTokensDetails:     []*genai.ModalityTokenCount{{Modality: genai.MediaModalityText, TokenCount: 30}, {Modality: genai.MediaModalityAudio, TokenCount: 10}},
+		CachedContentTokenCount: 6,
+		CandidatesTokenCount:    5,
+		ThoughtsTokenCount:      3,
+	}
+	seq := func(yield func(*genai.GenerateContentResponse, error) bool) {
+		if !yield(&genai.GenerateContentResponse{Candidates: []*genai.Candidate{{Content: &genai.Content{Parts: []*genai.Part{{Text: "hi"}}}}}}, nil) {
+			return
+		}
+		yield(&genai.GenerateContentResponse{
+			Candidates:    []*genai.Candidate{{FinishReason: genai.FinishReasonStop}},
+			UsageMetadata: usage,
+		}, nil)
+	}
+	var reported []*genai.GenerateContentResponseUsageMetadata
+	if err := geminiPull(NewStreamBuilder((&ModelContextBuilder{}).Build(), 4), seq, func(u *genai.GenerateContentResponseUsageMetadata) {
+		reported = append(reported, u)
+	}); err != nil {
+		t.Fatalf("geminiPull failed: %v", err)
+	}
+	if len(reported) != 1 || reported[0] != usage {
+		t.Fatalf("reported usage = %v, want the terminal chunk usage once", reported)
+	}
+
+	want := []UsageRecord{
+		{Provider: "gemini", Model: "gemini-test", Modality: UsageModalityText, Unit: UsageUnitToken, Input: 26, CachedInput: 6, Output: 8},
+		{Provider: "gemini", Model: "gemini-test", Modality: UsageModalityAudio, Unit: UsageUnitToken, Input: 10},
+	}
+	if got := geminiUsageRecords("gemini-test", usage); !slices.Equal(got, want) {
+		t.Fatalf("geminiUsageRecords() = %+v, want %+v", got, want)
+	}
+	if got := geminiUsageRecords("gemini-test", nil); got != nil {
+		t.Fatalf("geminiUsageRecords(nil) = %+v, want nil", got)
+	}
 }

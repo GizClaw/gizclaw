@@ -310,7 +310,7 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 				return
 			case <-start:
 			}
-			err := t.forwardEvents(eventOutput, next, activeStreamID, historyAudio, markTerminal)
+			err := t.forwardEvents(ctx, eventOutput, next, activeStreamID, historyAudio, markTerminal)
 			if cause := context.Cause(ctx); cause != nil {
 				err = cause
 			}
@@ -1126,6 +1126,7 @@ func (o astTranslateGatedOutput) Push(chunk *genx.MessageChunk) error {
 }
 
 func (t *Transformer) forwardEvents(
+	ctx context.Context,
 	output astTranslateOutput,
 	session doubaoASTTranslateSession,
 	streamID string,
@@ -1263,6 +1264,8 @@ func (t *Transformer) forwardEvents(
 			} else if err := audio.finishDecoder(""); err != nil {
 				return failPTTGate(err)
 			}
+		case doubaospeech.ASTEventUsageResponse:
+			t.recordUsage(ctx, event.Usage)
 		case doubaospeech.ASTEventSessionFinished:
 			markTerminal()
 			if !segmentByProvider {

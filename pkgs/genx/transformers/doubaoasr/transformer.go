@@ -70,6 +70,9 @@ var _ genx.Transformer = (*Transformer)(nil)
 type doubaoASRSession interface {
 	SendAudio(context.Context, []byte, bool) error
 	Recv() iter.Seq2[*doubaospeech.ASRV2Result, error]
+	// AudioDuration is the audio duration the provider reported processing,
+	// including audio without text: the duration it bills for the session.
+	AudioDuration() time.Duration
 	Close() error
 }
 
@@ -317,7 +320,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		resultsCh = make(chan *genx.MessageChunk, 100)
 		resultsDone = make(chan error, 1)
 		resultsForwarded = make(chan struct{})
-		go t.receiveResults(session, sessionSourceChunk, sessionRoute, historyAudio, resultsCh, resultsDone)
+		go t.receiveResults(ctx, session, sessionSourceChunk, sessionRoute, historyAudio, resultsCh, resultsDone)
 		// Forward results to output as they arrive
 		forwarded := resultsForwarded
 		resultStream := resultsCh
@@ -1154,8 +1157,14 @@ func splitDoubaoASRAudio(data []byte, chunkSize int) iter.Seq[[]byte] {
 	}
 }
 
-func (t *Transformer) receiveResults(session doubaoASRSession, lastChunk *genx.MessageChunk, route *doubaoASRRouteState, historyAudio *doubaoASRHistoryAudioBuffer, resultsCh chan<- *genx.MessageChunk, done chan<- error) {
+func (t *Transformer) receiveResults(ctx context.Context, session doubaoASRSession, lastChunk *genx.MessageChunk, route *doubaoASRRouteState, historyAudio *doubaoASRHistoryAudioBuffer, resultsCh chan<- *genx.MessageChunk, done chan<- error) {
 	defer close(resultsCh)
+	// finish reports the session's billed audio before its completion, so
+	// callers that observe the completion also observe the usage.
+	finish := func(err error) {
+		t.recordUsage(ctx, session)
+		done <- err
+	}
 
 	// Track processed utterances by identity. SAUC utterance timestamps are not
 	// guaranteed to be globally monotonic across incremental frames.
@@ -1286,16 +1295,16 @@ func (t *Transformer) receiveResults(session doubaoASRSession, lastChunk *genx.M
 		if err != nil {
 			if interrupted := route.interruption(); interrupted != "" {
 				closeTranscript(interrupted)
-				done <- nil
+				finish(nil)
 				return
 			}
 			closeTranscript(err.Error())
-			done <- err
+			finish(err)
 			return
 		}
 		if interrupted := route.interruption(); interrupted != "" {
 			closeTranscript(interrupted)
-			done <- nil
+			finish(nil)
 			return
 		}
 		resultCount++
@@ -1349,21 +1358,21 @@ func (t *Transformer) receiveResults(session doubaoASRSession, lastChunk *genx.M
 	}
 	if interrupted := route.interruption(); interrupted != "" {
 		closeTranscript(interrupted)
-		done <- nil
+		finish(nil)
 		return
 	}
 	if textCount == 0 {
 		if !sawInterimText {
-			done <- nil
+			finish(nil)
 			return
 		}
 		err := fmt.Errorf("doubao asr returned no text: results=%d last_final=%t last_text=%q last_utterances=%d", resultCount, lastFinal, lastText, lastUtteranceCount)
 		closeTranscript(err.Error())
-		done <- err
+		finish(err)
 		return
 	}
 	closeTranscript("")
-	done <- nil
+	finish(nil)
 }
 
 func asrSegmentStreamID(base string, segment int) string {
@@ -1412,4 +1421,15 @@ func baseAudioMIME(mimeType string) string {
 		mimeType = strings.TrimSpace(mimeType[:i])
 	}
 	return mimeType
+}
+
+// recordUsage reports the audio duration the provider billed for one session.
+func (t *Transformer) recordUsage(ctx context.Context, session doubaoASRSession) {
+	genx.RecordUsage(ctx, genx.UsageRecord{
+		Provider: "volc",
+		Model:    t.resourceID,
+		Modality: genx.UsageModalityAudio,
+		Unit:     genx.UsageUnitMillisecond,
+		Input:    session.AudioDuration().Milliseconds(),
+	})
 }

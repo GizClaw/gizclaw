@@ -119,6 +119,22 @@ Composition layers may also attach a process-local response epoch to `StreamCtrl
 
 Provider call IDs never cross the `ToolInvoker` boundary. The consuming Transformer owns correlation, ordering, duplicate-ID rejection, and the call budget for one invocation. `Toolkit` is an immutable standalone implementation backed by executable `FuncTool` values; it snapshots declarations, validates arguments, executes the paired function, and serializes the result. Other implementations may resolve tools from product resources without exposing those internals to GenX Transformers.
 
+### Usage metering
+
+Provider adapters call [`RecordUsage`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#RecordUsage) as soon as the provider reports usage, handing a [`UsageRecord`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#UsageRecord) to the recorder that [`WithUsageRecorder`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#WithUsageRecorder) put in the context. Generators and Transformers call it from their own goroutines, so the recorder must be safe for concurrent use and must not block; without a recorder the records are dropped. The terminal `Usage` of a stream remains informational for the direct caller; metering uses `UsageRecord`.
+
+Each record carries the provider, the provider model, version, or resource ID, the modality (`text` or `audio`), and the billing unit. `Input`, `CachedInput`, and `Output` are disjoint: `CachedInput` is input billed at the cache rate and is not part of `Input`. A provider model always reports in the same unit; units of different provider models are not comparable and GenX does not convert them.
+
+| Provider capability | Unit | Source |
+| --- | --- | --- |
+| OpenAI-compatible and Gemini Generators | `token` | Response usage. Streaming requests set `stream_options.include_usage`, and the terminal state waits for the trailing usage chunk. Gemini tool-use prompt tokens count as input and thought tokens as output. |
+| Volc realtime dialog, realtime duplex, AST, DashScope realtime | `token`, split into text and audio | The per-response usage event or `response.done`. |
+| Volc Seed/ICL TTS | `character` | `text_words` of the final frame, one per Unicode character. |
+| MiniMax TTS | `character` | `extra_info.usage_characters` of the final frame; CJK characters count as two. |
+| Volc streaming ASR | `millisecond` | The largest `audio_info.duration` the provider reported for the session, including audio without recognized text. |
+
+Usage a provider never reports, such as a response the caller canceled before the provider's usage event, is not estimated.
+
 ## Core data structures
 
 | Structure | Responsibility |
@@ -126,7 +142,8 @@ Provider call IDs never cross the `ToolInvoker` boundary. The consuming Transfor
 | [`Message`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#Message) | Express a complete multi-modal input or output, consisting of role and contents. |
 | [`MessageChunk`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#MessageChunk) | Incremental messages passed in Stream, carrying content, tool calls, status or flow events. |
 | [`ModelParams`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#ModelParams) | Unify model parameters such as max tokens, temperature, top-p, and allow provider extra fields. |
-| [`Usage`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#Usage) | Record prompt, cache and generated token usage. |
+| [`Usage`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#Usage) | Prompt, cache, and generated token usage carried by a stream terminal state. |
+| [`UsageRecord`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#UsageRecord) | Billable usage of one provider response, request, or session, by provider, model, modality, and unit. |
 | [`State`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#State) | Generate final state such as expression completion, truncation, rejection or error. |
 
 ## Calling relationship

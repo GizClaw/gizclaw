@@ -109,6 +109,7 @@ func (t *ICLV2) synthesize(ctx context.Context, text string, _ streamkit.TTSMeta
 		if err != nil {
 			return err
 		}
+		recordUsage(ctx, doubaospeech.ResourceVoiceCloneV2, chunk)
 
 		if chunk.Audio != nil && len(chunk.Audio) > 0 {
 			if err := emit(normalizer.Normalize(chunk.Audio)); err != nil {

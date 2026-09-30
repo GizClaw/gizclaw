@@ -511,3 +511,70 @@ func TestOpenAIInvokeAndGenerateStreamWithHTTP(t *testing.T) {
 		}
 	})
 }
+
+func TestOpenAIGeneratorReportsProviderUsage(t *testing.T) {
+	var requests []map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		requests = append(requests, body)
+		if body["stream"] == true {
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = io.WriteString(w, strings.Join([]string{
+				`data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":""}]}`,
+				`data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`,
+				`data: {"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[],"usage":{"prompt_tokens":30,"completion_tokens":5,"total_tokens":35,"prompt_tokens_details":{"cached_tokens":10}}}`,
+				"data: [DONE]",
+				"",
+			}, "\n\n"))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"id":"2","object":"chat.completion","created":1,"model":"m","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"{\"a\":1}"}}],"usage":{"prompt_tokens":7,"completion_tokens":3,"total_tokens":10}}`)
+	}))
+	defer srv.Close()
+
+	var records []UsageRecord
+	ctx := WithUsageRecorder(context.Background(), func(record UsageRecord) { records = append(records, record) })
+	client := openai.NewClient(option.WithAPIKey("test"), option.WithBaseURL(srv.URL+"/"))
+	g := &OpenAIGenerator{Client: &client, Provider: "deepseek", Model: "chat-model", SupportJSONOutput: true}
+
+	stream, err := g.GenerateStream(ctx, "", testOpenAIContext(false))
+	if err != nil {
+		t.Fatalf("GenerateStream failed: %v", err)
+	}
+	if chunk, err := stream.Next(); err != nil || chunk.Part.(Text) != "hi" {
+		t.Fatalf("first chunk = %#v, %v", chunk, err)
+	}
+	_, err = stream.Next()
+	var state *State
+	if !errors.As(err, &state) || state.Status() != StatusDone {
+		t.Fatalf("terminal error = %v, want done state", err)
+	}
+	if want := (Usage{PromptTokenCount: 30, CachedContentTokenCount: 10, GeneratedTokenCount: 5}); state.Usage() != want {
+		t.Fatalf("terminal usage = %+v, want %+v", state.Usage(), want)
+	}
+	options, _ := requests[0]["stream_options"].(map[string]any)
+	if options["include_usage"] != true {
+		t.Fatalf("stream_options = %v, want include_usage", requests[0]["stream_options"])
+	}
+
+	fn := MustNewFuncTool[struct {
+		A int `json:"a"`
+	}]("fn", "desc")
+	usage, _, err := g.Invoke(ctx, "", testOpenAIContext(false), fn)
+	if err != nil {
+		t.Fatalf("Invoke failed: %v", err)
+	}
+	if want := (Usage{PromptTokenCount: 7, GeneratedTokenCount: 3}); usage != want {
+		t.Fatalf("Invoke usage = %+v, want %+v", usage, want)
+	}
+
+	want := []UsageRecord{
+		{Provider: "deepseek", Model: "chat-model", Modality: UsageModalityText, Unit: UsageUnitToken, Input: 20, CachedInput: 10, Output: 5},
+		{Provider: "deepseek", Model: "chat-model", Modality: UsageModalityText, Unit: UsageUnitToken, Input: 7, Output: 3},
+	}
+	if !slices.Equal(records, want) {
+		t.Fatalf("records = %+v, want %+v", records, want)
+	}
+}

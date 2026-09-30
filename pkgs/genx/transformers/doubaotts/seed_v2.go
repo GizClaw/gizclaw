@@ -142,6 +142,7 @@ func (t *SeedV2) synthesize(ctx context.Context, text string, meta streamkit.TTS
 			return seedV2SegmentFailure(ctx, meta, err, nil)
 		}
 		lastChunk = chunk
+		recordUsage(ctx, t.resourceID, chunk)
 
 		if chunk.Audio != nil && len(chunk.Audio) > 0 {
 			audio := normalizer.Normalize(chunk.Audio)

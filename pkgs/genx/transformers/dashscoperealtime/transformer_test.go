@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"iter"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -116,10 +117,22 @@ func TestTransformerOwnsEveryGeneratedRouteLifecycle(t *testing.T) {
 		{Type: dashscope.EventTypeResponseTranscriptDone, ResponseID: "response-1"},
 		{Type: dashscope.EventTypeResponseAudioDelta, ResponseID: "response-1", Audio: []byte{1, 2}},
 		{Type: dashscope.EventTypeResponseAudioDone, ResponseID: "response-1"},
+		{Type: dashscope.EventTypeResponseDone, ResponseID: "response-1", Usage: &dashscope.UsageStats{
+			TotalTokens: 491, InputTokens: 476, OutputTokens: 15,
+			InputTokenDetails:  &dashscope.TokenDetails{TextTokens: 476},
+			OutputTokenDetails: &dashscope.TokenDetails{TextTokens: 5, AudioTokens: 10},
+		}},
 	})
-	transformer := newTransformer(nil)
+	transformer := newTransformer(nil, withModel("qwen-realtime"))
 	transformer.realtime = &dashScopeFixedOpener{session: session}
-	output, err := transformer.Transform(t.Context(), dashScopeToolInput{done: session.eventsDrained})
+	var records []genx.UsageRecord
+	var recordsMu sync.Mutex
+	ctx := genx.WithUsageRecorder(t.Context(), func(record genx.UsageRecord) {
+		recordsMu.Lock()
+		defer recordsMu.Unlock()
+		records = append(records, record)
+	})
+	output, err := transformer.Transform(ctx, dashScopeToolInput{done: session.eventsDrained})
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -160,6 +173,15 @@ func TestTransformerOwnsEveryGeneratedRouteLifecycle(t *testing.T) {
 	if len(routes) != 4 {
 		t.Fatalf("generated MIME routes = %d, want input text, response text, response transcript, and response audio: %#v", len(routes), chunks)
 	}
+	recordsMu.Lock()
+	wantUsage := []genx.UsageRecord{
+		{Provider: "dashscope", Model: "qwen-realtime", Modality: genx.UsageModalityText, Unit: genx.UsageUnitToken, Input: 476, Output: 5},
+		{Provider: "dashscope", Model: "qwen-realtime", Modality: genx.UsageModalityAudio, Unit: genx.UsageUnitToken, Output: 10},
+	}
+	if !slices.Equal(records, wantUsage) {
+		t.Fatalf("usage records = %+v, want %+v", records, wantUsage)
+	}
+	recordsMu.Unlock()
 	for key, route := range routes {
 		if route[0].Ctrl.StreamID == "" {
 			t.Fatalf("route %q has empty StreamID: %#v", key, route)

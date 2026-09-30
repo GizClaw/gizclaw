@@ -1775,6 +1775,9 @@ func (t *Transformer) processSession(
 						initiativeActive.Store(false)
 					}
 
+				case doubaospeech.EventUsageResponse:
+					t.recordUsage(ctx, event.Usage)
+
 				case doubaospeech.EventSessionFinished:
 					slog.InfoContext(ctx, "doubao: session ended")
 					return doubaoRealtimeRecoverable("session finished", io.EOF)

@@ -183,8 +183,10 @@ func TestSynthesizeMapsTypedConfigToProviderRequest(t *testing.T) {
 	t.Cleanup(func() { slog.SetDefault(previousLogger) })
 
 	var audio []byte
+	var records []genx.UsageRecord
+	ctx := genx.WithUsageRecorder(context.Background(), func(record genx.UsageRecord) { records = append(records, record) })
 	emissions := 0
-	if err := transformer.synthesize(context.Background(), "hello", streamkit.TTSMeta{}, "audio/pcm", func(data []byte) error {
+	if err := transformer.synthesize(ctx, "hello", streamkit.TTSMeta{}, "audio/pcm", func(data []byte) error {
 		if len(data) > 0 {
 			emissions++
 		}
@@ -195,6 +197,10 @@ func TestSynthesizeMapsTypedConfigToProviderRequest(t *testing.T) {
 	}
 	if !bytes.Equal(audio, []byte{1, 2}) || emissions != 2 {
 		t.Fatalf("streamed audio = %v in %d emissions, want [1 2] in 2", audio, emissions)
+	}
+	wantUsage := genx.UsageRecord{Provider: "minimax", Model: "speech-model", Modality: genx.UsageModalityText, Unit: genx.UsageUnitCharacter, Input: 5}
+	if len(records) != 1 || records[0] != wantUsage {
+		t.Fatalf("usage records = %+v, want %+v", records, wantUsage)
 	}
 
 	body := <-requestBody
@@ -339,6 +345,16 @@ func newMiniMaxTTSTestServerWithAudio(t *testing.T, requests chan<- map[string]a
 				t.Errorf("write audio event: %v", err)
 				return
 			}
+		}
+		if err := writeMiniMaxWebSocketJSON(conn, map[string]any{
+			"event":      "task_continued",
+			"is_final":   true,
+			"data":       map[string]any{"audio": ""},
+			"extra_info": map[string]any{"usage_characters": 5},
+			"base_resp":  map[string]any{"status_code": 0, "status_msg": "success"},
+		}); err != nil {
+			t.Errorf("write final event: %v", err)
+			return
 		}
 		if err := writeMiniMaxWebSocketJSON(conn, map[string]any{
 			"event":     "task_finished",

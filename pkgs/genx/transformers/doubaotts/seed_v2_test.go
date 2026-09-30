@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
@@ -140,17 +141,20 @@ func TestSeedV2ReturnsEmptyAudioFailureOnStreamRoute(t *testing.T) {
 
 func TestDoubaoTTSTransformersEmitOwnedAudioLifecycle(t *testing.T) {
 	for _, test := range []struct {
-		name string
-		new  func(*testing.T, string) genx.Transformer
+		name  string
+		model string
+		new   func(*testing.T, string) genx.Transformer
 	}{
 		{
-			name: "Seed V2",
+			name:  "Seed V2",
+			model: doubaospeech.ResourceTTSV2,
 			new: func(t *testing.T, baseURL string) genx.Transformer {
 				return newSeedV2ForTest(t, baseURL, "pcm")
 			},
 		},
 		{
-			name: "ICL V2",
+			name:  "ICL V2",
+			model: doubaospeech.ResourceVoiceCloneV2,
 			new: func(t *testing.T, baseURL string) genx.Transformer {
 				transformer, err := NewICLV2(ICLV2Config{
 					Client: doubaospeech.NewClient(
@@ -172,11 +176,18 @@ func TestDoubaoTTSTransformersEmitOwnedAudioLifecycle(t *testing.T) {
 			audio := []byte("pcm audio")
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				_, _ = fmt.Fprintf(w, `{"reqid":"req-audio","code":0,"message":"","data":"%s"}`+"\n", base64.StdEncoding.EncodeToString(audio))
-				_, _ = fmt.Fprintln(w, `{"reqid":"req-audio","code":20000000,"message":"ok","data":null}`)
+				_, _ = fmt.Fprintln(w, `{"reqid":"req-audio","code":20000000,"message":"ok","data":null,"usage":{"text_words":13}}`)
 			}))
 			defer server.Close()
 
-			output, err := test.new(t, server.URL).Transform(t.Context(), &seedV2TestStream{chunks: []*genx.MessageChunk{
+			var records []genx.UsageRecord
+			var recordsMu sync.Mutex
+			ctx := genx.WithUsageRecorder(t.Context(), func(record genx.UsageRecord) {
+				recordsMu.Lock()
+				defer recordsMu.Unlock()
+				records = append(records, record)
+			})
+			output, err := test.new(t, server.URL).Transform(ctx, &seedV2TestStream{chunks: []*genx.MessageChunk{
 				{Role: genx.RoleModel, Name: "answer", Part: genx.Text("readable text"), Ctrl: &genx.StreamCtrl{StreamID: "response", Label: "assistant"}},
 				{Role: genx.RoleModel, Name: "answer", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "response", Label: "assistant", EndOfStream: true}},
 			}})
@@ -199,6 +210,12 @@ func TestDoubaoTTSTransformersEmitOwnedAudioLifecycle(t *testing.T) {
 			}
 			if blob := chunks[1].Part.(*genx.Blob); !bytes.Equal(blob.Data, audio) {
 				t.Fatalf("audio data = %q, want %q", blob.Data, audio)
+			}
+			recordsMu.Lock()
+			defer recordsMu.Unlock()
+			want := genx.UsageRecord{Provider: "volc", Model: test.model, Modality: genx.UsageModalityText, Unit: genx.UsageUnitCharacter, Input: 13}
+			if len(records) != 1 || records[0] != want {
+				t.Fatalf("usage records = %+v, want %+v", records, want)
 			}
 		})
 	}

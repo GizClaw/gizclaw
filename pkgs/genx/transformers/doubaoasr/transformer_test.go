@@ -28,12 +28,13 @@ type fakeDoubaoASRSend struct {
 }
 
 type fakeDoubaoASRSession struct {
-	sends     []fakeDoubaoASRSend
-	result    chan *doubaospeech.ASRV2Result
-	sendAudio func(context.Context, []byte, bool) error
-	recvDone  chan struct{}
-	recvErr   error
-	close     func() error
+	sends         []fakeDoubaoASRSend
+	result        chan *doubaospeech.ASRV2Result
+	sendAudio     func(context.Context, []byte, bool) error
+	recvDone      chan struct{}
+	recvErr       error
+	close         func() error
+	audioDuration time.Duration
 }
 
 type fakeDoubaoASROpen struct {
@@ -171,6 +172,8 @@ func (s *fakeDoubaoASRSession) Recv() iter.Seq2[*doubaospeech.ASRV2Result, error
 		}
 	}
 }
+
+func (s *fakeDoubaoASRSession) AudioDuration() time.Duration { return s.audioDuration }
 
 func (s *fakeDoubaoASRSession) Close() error {
 	if s.close != nil {
@@ -832,7 +835,10 @@ func TestTransformerRecognizesTurnAfterEmptyRecognition(t *testing.T) {
 		}
 		return nil
 	}
+	// Audio that produced no text is still billed.
+	emptySession.audioDuration = 1500 * time.Millisecond
 	recognizedSession := newFakeDoubaoASRSession()
+	recognizedSession.audioDuration = 2 * time.Second
 	sessions := []doubaoASRSession{emptySession, recognizedSession}
 	transformer := newTransformer(Config{
 		Format:         "pcm",
@@ -844,8 +850,15 @@ func TestTransformerRecognizesTurnAfterEmptyRecognition(t *testing.T) {
 		return session, nil
 	}
 
+	var records []genx.UsageRecord
+	var recordsMu sync.Mutex
+	ctx := genx.WithUsageRecorder(context.Background(), func(record genx.UsageRecord) {
+		recordsMu.Lock()
+		defer recordsMu.Unlock()
+		records = append(records, record)
+	})
 	input := newBufferStream(4)
-	output, err := transformer.Transform(context.Background(), input)
+	output, err := transformer.Transform(ctx, input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -882,6 +895,14 @@ func TestTransformerRecognizesTurnAfterEmptyRecognition(t *testing.T) {
 	}
 	if !chunks[3].IsEndOfStream() || chunks[3].Ctrl == nil || chunks[3].Ctrl.StreamID != "recognized-turn" {
 		t.Fatalf("recognized turn terminal chunk = %#v", chunks[3])
+	}
+	recordsMu.Lock()
+	defer recordsMu.Unlock()
+	usage := genx.UsageRecord{Provider: "volc", Model: doubaospeech.ResourceASRStream, Modality: genx.UsageModalityAudio, Unit: genx.UsageUnitMillisecond}
+	empty, recognized := usage, usage
+	empty.Input, recognized.Input = 1500, 2000
+	if !slices.Equal(records, []genx.UsageRecord{empty, recognized}) {
+		t.Fatalf("usage records = %+v, want billed durations of both sessions", records)
 	}
 }
 
