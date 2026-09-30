@@ -54,6 +54,14 @@
           "realtime"
         ]
       },
+      "AudioInputPath": {
+        "type": "string",
+        "enum": [
+          "asr",
+          "model"
+        ],
+        "description": "Where the transcript of a user's audio turn comes from. asr transcribes the audio with the Workflow's voice_adapter.asr_model and sends text to the Graph. model sends the audio to the chat_model node that sets audio_transcript, whose Model reports the transcript with its reply."
+      },
       "ConversationParameters": {
         "type": "object",
         "additionalProperties": false,
@@ -257,6 +265,10 @@
           },
           "input": {
             "$ref": "#/components/schemas/WorkspaceInputMode"
+          },
+          "audio_input": {
+            "allOf": [{ "$ref": "#/components/schemas/AudioInputPath" }],
+            "description": "Preferred audio input path for this Workspace. It overrides the audio_input of the owner's RuntimeProfile Workflow binding. Absent keeps the binding's selection, or the Workflow default when the binding selects none: asr when the Workflow sets voice_adapter.asr_model, otherwise model. The Agent uses the preferred path when the Workflow declares it and it can run, and the other declared path otherwise: realtime input always uses asr, and model needs an audio_transcript node whose Model accepts audio. Reload fails when no declared path can run. Workflows that declare no audio input ignore it."
           },
           "safety_fence_level": { "$ref": "#/components/schemas/SafetyFenceLevel" },
           "tts_speech_rate_percent": {

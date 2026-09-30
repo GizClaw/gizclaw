@@ -1,0 +1,140 @@
+# User Story:
+# As a registered device choosing how my Eino Workspace hears push-to-talk audio,
+# I want the running Workspace to report the audio input path it actually uses,
+# So that I can see the RuntimeProfile default, my own selection, and the ASR fallbacks take effect.
+version: gizclaw.test/v1alpha1
+name: eino-audio-input.path-selection
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  asr_only_workspace:
+    direction: input
+    type: string
+    generate: token
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        workflow_name: eino-audio-input
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  # Without a Workspace selection the RuntimeProfile binding decides.
+  - id: reload_profile_default
+    client: peer
+    rpc:
+      method: server.run.workspace.reload-with-options
+      request:
+        workspace_name: ${workspace_name}
+    expect:
+      /audio_input:
+        equals: AUDIO_INPUT_PATH_MODEL
+  - id: select_asr
+    client: peer
+    rpc:
+      method: server.workspace.parameters.set
+      request:
+        name: ${workspace_name}
+        parameters:
+          audio_input: AUDIO_INPUT_PATH_ASR
+    expect:
+      /parameters/eino_workspace_parameters/audio_input:
+        equals: AUDIO_INPUT_PATH_ASR
+  # The Workspace parameter overrides the binding.
+  - id: reload_workspace_selection
+    client: peer
+    rpc:
+      method: server.run.workspace.reload
+      request: {}
+    expect:
+      /audio_input:
+        equals: AUDIO_INPUT_PATH_ASR
+  # Realtime input is segmented by the ASR stage, so it keeps asr.
+  - id: reload_realtime
+    client: peer
+    rpc:
+      method: server.run.workspace.reload-with-options
+      request:
+        parameters:
+          input: WORKSPACE_INPUT_MODE_REALTIME
+          audio_input: AUDIO_INPUT_PATH_MODEL
+    expect:
+      /audio_input:
+        equals: AUDIO_INPUT_PATH_ASR
+  - id: reload_push_to_talk
+    client: peer
+    rpc:
+      method: server.run.workspace.reload-with-options
+      request:
+        parameters:
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+    expect:
+      /audio_input:
+        equals: AUDIO_INPUT_PATH_MODEL
+  # A Workflow that declares only asr_model keeps asr when model is preferred.
+  - id: create_asr_only_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${asr_only_workspace}
+        workflow_name: eino-concurrency-assistant
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+            audio_input: AUDIO_INPUT_PATH_MODEL
+  - id: reload_asr_only
+    client: peer
+    rpc:
+      method: server.run.workspace.reload-with-options
+      request:
+        workspace_name: ${asr_only_workspace}
+    expect:
+      /audio_input:
+        equals: AUDIO_INPUT_PATH_ASR
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${asr_only_workspace}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

@@ -880,6 +880,51 @@ func TestAdminValidateEinoWorkflowResource(t *testing.T) {
 	}
 }
 
+func TestAdminValidateAudioInputResources(t *testing.T) {
+	const resources = "../../../../tests/gizclaw-e2e/testdata/resources/"
+	for _, test := range []struct{ name, file, from, to, want string }{
+		// One Workflow may declare both the ASR Model and the audio_transcript node.
+		{name: "workflow with both paths", file: "04-workflows/45-eino-audio-input.yaml"},
+		{name: "profile selects a path", file: "09-giztest/01-runtime-profile.yaml"},
+		{
+			name: "profile selects an unknown path", file: "09-giztest/01-runtime-profile.yaml",
+			from: `"audio_input":"model"`, to: `"audio_input":"direct"`, want: "audio_input",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			fixture, err := os.ReadFile(resources + test.file)
+			if err != nil {
+				t.Fatal(err)
+			}
+			prepared, err := prepareResourceData(test.file, fixture)
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := string(prepared)
+			if test.from != "" {
+				if !strings.Contains(data, test.from) {
+					t.Fatalf("fixture %s has no %s", test.file, test.from)
+				}
+				data = strings.Replace(data, test.from, test.to, 1)
+			}
+			cmd := NewCmd()
+			var stdout, stderr bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+			cmd.SetIn(strings.NewReader(data))
+			cmd.SetArgs([]string{"validate", "-f", "-"})
+			err = cmd.Execute()
+			if test.want == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error = %v, want %s", err, test.want)
+			}
+		})
+	}
+}
+
 func TestAdminValidateSpeakerVoices(t *testing.T) {
 	for _, kind := range []string{"eino", "flowcraft"} {
 		spec, err := os.ReadFile("../../../../tests/gizclaw-e2e/testdata/speaker-segments/" + kind + ".json")

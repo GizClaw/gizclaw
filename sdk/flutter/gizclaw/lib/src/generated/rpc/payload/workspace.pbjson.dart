@@ -629,6 +629,16 @@ const PeerRunWorkspaceState$json = {
       '17': true
     },
     {'1': 'workspace_name', '3': 13, '4': 1, '5': 9, '10': 'workspaceName'},
+    {
+      '1': 'audio_input',
+      '3': 14,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.AudioInputPath',
+      '9': 11,
+      '10': 'audioInput',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_active_workspace_name'},
@@ -642,6 +652,7 @@ const PeerRunWorkspaceState$json = {
     {'1': '_started_at'},
     {'1': '_updated_at'},
     {'1': '_workflow_name'},
+    {'1': '_audio_input'},
   ],
 };
 
@@ -658,11 +669,13 @@ final $typed_data.Uint8List peerRunWorkspaceStateDescriptor = $convert.base64Dec
     'Y3RlZF93b3Jrc3BhY2VfbmFtZRgJIAEoCUgHUhVzZWxlY3RlZFdvcmtzcGFjZU5hbWWIAQESIg'
     'oKc3RhcnRlZF9hdBgKIAEoCUgIUglzdGFydGVkQXSIAQESIgoKdXBkYXRlZF9hdBgLIAEoCUgJ'
     'Ugl1cGRhdGVkQXSIAQESKAoNd29ya2Zsb3dfbmFtZRgMIAEoCUgKUgx3b3JrZmxvd05hbWWIAQ'
-    'ESJQoOd29ya3NwYWNlX25hbWUYDSABKAlSDXdvcmtzcGFjZU5hbWVCGAoWX2FjdGl2ZV93b3Jr'
-    'c3BhY2VfbmFtZUINCgtfYWdlbnRfdHlwZUIUChJfaGlzdG9yeV9hdmFpbGFibGVCGQoXX21lbW'
-    '9yeV9zdGF0c19hdmFpbGFibGVCCgoIX21lc3NhZ2VCGQoXX3BlbmRpbmdfd29ya3NwYWNlX25h'
-    'bWVCEwoRX3JlY2FsbF9hdmFpbGFibGVCGgoYX3NlbGVjdGVkX3dvcmtzcGFjZV9uYW1lQg0KC1'
-    '9zdGFydGVkX2F0Qg0KC191cGRhdGVkX2F0QhAKDl93b3JrZmxvd19uYW1l');
+    'ESJQoOd29ya3NwYWNlX25hbWUYDSABKAlSDXdvcmtzcGFjZU5hbWUSRAoLYXVkaW9faW5wdXQY'
+    'DiABKA4yHi5naXpjbGF3LnJwYy52MS5BdWRpb0lucHV0UGF0aEgLUgphdWRpb0lucHV0iAEBQh'
+    'gKFl9hY3RpdmVfd29ya3NwYWNlX25hbWVCDQoLX2FnZW50X3R5cGVCFAoSX2hpc3RvcnlfYXZh'
+    'aWxhYmxlQhkKF19tZW1vcnlfc3RhdHNfYXZhaWxhYmxlQgoKCF9tZXNzYWdlQhkKF19wZW5kaW'
+    '5nX3dvcmtzcGFjZV9uYW1lQhMKEV9yZWNhbGxfYXZhaWxhYmxlQhoKGF9zZWxlY3RlZF93b3Jr'
+    'c3BhY2VfbmFtZUINCgtfc3RhcnRlZF9hdEINCgtfdXBkYXRlZF9hdEIQCg5fd29ya2Zsb3dfbm'
+    'FtZUIOCgxfYXVkaW9faW5wdXQ=');
 
 @$core.Deprecated('Use serverGetRunAgentRequestDescriptor instead')
 const ServerGetRunAgentRequest$json = {
@@ -1909,12 +1922,23 @@ const WorkspaceParametersPatch$json = {
       '10': 'safetyFenceLevel',
       '17': true
     },
+    {
+      '1': 'audio_input',
+      '3': 6,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.AudioInputPath',
+      '9': 4,
+      '10': 'audioInput',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_input'},
     {'1': '_conversation'},
     {'1': '_tts_speech_rate_percent'},
     {'1': '_safety_fence_level'},
+    {'1': '_audio_input'},
   ],
   '9': [
     {'1': 4, '2': 5},
@@ -1928,8 +1952,10 @@ final $typed_data.Uint8List workspaceParametersPatchDescriptor = $convert.base64
     'MiYuZ2l6Y2xhdy5ycGMudjEuQ29udmVyc2F0aW9uUGFyYW1ldGVyc0gBUgxjb252ZXJzYXRpb2'
     '6IAQESOgoXdHRzX3NwZWVjaF9yYXRlX3BlcmNlbnQYAyABKAVIAlIUdHRzU3BlZWNoUmF0ZVBl'
     'cmNlbnSIAQESMQoSc2FmZXR5X2ZlbmNlX2xldmVsGAUgASgJSANSEHNhZmV0eUZlbmNlTGV2ZW'
-    'yIAQFCCAoGX2lucHV0Qg8KDV9jb252ZXJzYXRpb25CGgoYX3R0c19zcGVlY2hfcmF0ZV9wZXJj'
-    'ZW50QhUKE19zYWZldHlfZmVuY2VfbGV2ZWxKBAgEEAU=');
+    'yIAQESRAoLYXVkaW9faW5wdXQYBiABKA4yHi5naXpjbGF3LnJwYy52MS5BdWRpb0lucHV0UGF0'
+    'aEgEUgphdWRpb0lucHV0iAEBQggKBl9pbnB1dEIPCg1fY29udmVyc2F0aW9uQhoKGF90dHNfc3'
+    'BlZWNoX3JhdGVfcGVyY2VudEIVChNfc2FmZXR5X2ZlbmNlX2xldmVsQg4KDF9hdWRpb19pbnB1'
+    'dEoECAQQBQ==');
 
 @$core.Deprecated('Use workspaceParametersSetRequestDescriptor instead')
 const WorkspaceParametersSetRequest$json = {

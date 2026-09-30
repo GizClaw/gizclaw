@@ -117,6 +117,8 @@ message PeerRunWorkspaceState {
   optional string updated_at = 11;
   optional string workflow_name = 12;
   string workspace_name = 13;
+  // Audio input path the running Eino Agent uses; absent when it accepts text turns only.
+  optional AudioInputPath audio_input = 14;
 }
 
 message ServerGetRunAgentRequest {
@@ -373,6 +375,8 @@ message WorkspaceParametersPatch {
   optional int32 tts_speech_rate_percent = 3;
   reserved 4; // Legacy fixed enum wire field.
   optional string safety_fence_level = 5;
+  // Preferred audio input path for Eino Workspaces; other drivers ignore it.
+  optional AudioInputPath audio_input = 6;
 }
 
 message WorkspaceParametersSetRequest {

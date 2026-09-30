@@ -56,6 +56,14 @@
             },
             "uniqueItems": true,
             "description": "Only valid for Workflow bindings; opaque strings."
+          },
+          "audio_input": {
+            "allOf": [
+              {
+                "$ref": "./workspace_parameters.json#/components/schemas/AudioInputPath"
+              }
+            ],
+            "description": "Only valid for Eino Workflow bindings. Preferred audio input path for Workspaces that run this Workflow and set no audio_input parameter. The Workflow must declare the selected path: asr requires voice_adapter.asr_model and model requires a chat_model node that sets audio_transcript. Bindings of the same Workflow must not select different paths."
           }
         }
       },

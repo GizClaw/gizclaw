@@ -133,6 +133,9 @@ typedef struct _gizclaw_rpc_v1_PeerRunWorkspaceState {
     pb_callback_t updated_at;
     pb_callback_t workflow_name;
     pb_callback_t workspace_name;
+    /* Audio input path the running Eino Agent uses; absent when it accepts text turns only. */
+    bool has_audio_input;
+    gizclaw_rpc_v1_AudioInputPath audio_input;
 } gizclaw_rpc_v1_PeerRunWorkspaceState;
 
 typedef struct _gizclaw_rpc_v1_ServerGetRunAgentRequest {
@@ -433,6 +436,9 @@ typedef struct _gizclaw_rpc_v1_WorkspaceParametersPatch {
     int32_t tts_speech_rate_percent;
     bool has_safety_fence_level;
     char safety_fence_level[65];
+    /* Preferred audio input path for Eino Workspaces; other drivers ignore it. */
+    bool has_audio_input;
+    gizclaw_rpc_v1_AudioInputPath audio_input;
 } gizclaw_rpc_v1_WorkspaceParametersPatch;
 
 /* Reloads the selected Workspace, optionally selecting another Workspace and
@@ -474,7 +480,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerRunRecallRequest_init_default {false, google_protobuf_Struct_init_default, false, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerRunRecallResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerRunStatus_init_default {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_PeerRunStatusState_MIN, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PeerRunWorkspaceState_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, _gizclaw_rpc_v1_PeerRunStatusState_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_PeerRunWorkspaceState_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, _gizclaw_rpc_v1_PeerRunStatusState_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, _gizclaw_rpc_v1_AudioInputPath_MIN}
 #define gizclaw_rpc_v1_ServerGetRunAgentRequest_init_default {0}
 #define gizclaw_rpc_v1_ServerGetRunAgentResponse_init_default {false, gizclaw_rpc_v1_PeerRunAgent_init_default}
 #define gizclaw_rpc_v1_ServerGetRunStatusRequest_init_default {0}
@@ -527,7 +533,7 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceParameters_init_default {0, {gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_default}}
 #define gizclaw_rpc_v1_WorkspacePutRequest_init_default {false, gizclaw_rpc_v1_WorkspacePutBody_init_default, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspacePutResponse_init_default {false, gizclaw_rpc_v1_Workspace_init_default}
-#define gizclaw_rpc_v1_WorkspaceParametersPatch_init_default {false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_ConversationParameters_init_default, false, 0, false, ""}
+#define gizclaw_rpc_v1_WorkspaceParametersPatch_init_default {false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_ConversationParameters_init_default, false, 0, false, "", false, _gizclaw_rpc_v1_AudioInputPath_MIN}
 #define gizclaw_rpc_v1_WorkspaceParametersSetRequest_init_default {"", false, gizclaw_rpc_v1_WorkspaceParametersPatch_init_default}
 #define gizclaw_rpc_v1_WorkspaceParametersSetResponse_init_default {false, gizclaw_rpc_v1_Workspace_init_default}
 #define gizclaw_rpc_v1_AgentSelection_init_zero  {{{NULL}, NULL}}
@@ -543,7 +549,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerRunRecallRequest_init_zero {false, google_protobuf_Struct_init_zero, false, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerRunRecallResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerRunStatus_init_zero   {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_PeerRunStatusState_MIN, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PeerRunWorkspaceState_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, _gizclaw_rpc_v1_PeerRunStatusState_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_PeerRunWorkspaceState_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, _gizclaw_rpc_v1_PeerRunStatusState_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, _gizclaw_rpc_v1_AudioInputPath_MIN}
 #define gizclaw_rpc_v1_ServerGetRunAgentRequest_init_zero {0}
 #define gizclaw_rpc_v1_ServerGetRunAgentResponse_init_zero {false, gizclaw_rpc_v1_PeerRunAgent_init_zero}
 #define gizclaw_rpc_v1_ServerGetRunStatusRequest_init_zero {0}
@@ -596,7 +602,7 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceParameters_init_zero {0, {gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_zero}}
 #define gizclaw_rpc_v1_WorkspacePutRequest_init_zero {false, gizclaw_rpc_v1_WorkspacePutBody_init_zero, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspacePutResponse_init_zero {false, gizclaw_rpc_v1_Workspace_init_zero}
-#define gizclaw_rpc_v1_WorkspaceParametersPatch_init_zero {false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_ConversationParameters_init_zero, false, 0, false, ""}
+#define gizclaw_rpc_v1_WorkspaceParametersPatch_init_zero {false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_ConversationParameters_init_zero, false, 0, false, "", false, _gizclaw_rpc_v1_AudioInputPath_MIN}
 #define gizclaw_rpc_v1_WorkspaceParametersSetRequest_init_zero {"", false, gizclaw_rpc_v1_WorkspaceParametersPatch_init_zero}
 #define gizclaw_rpc_v1_WorkspaceParametersSetResponse_init_zero {false, gizclaw_rpc_v1_Workspace_init_zero}
 
@@ -666,6 +672,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerRunWorkspaceState_updated_at_tag 11
 #define gizclaw_rpc_v1_PeerRunWorkspaceState_workflow_name_tag 12
 #define gizclaw_rpc_v1_PeerRunWorkspaceState_workspace_name_tag 13
+#define gizclaw_rpc_v1_PeerRunWorkspaceState_audio_input_tag 14
 #define gizclaw_rpc_v1_ServerGetRunAgentResponse_value_tag 1
 #define gizclaw_rpc_v1_ServerGetRunStatusResponse_value_tag 1
 #define gizclaw_rpc_v1_ServerGetRunWorkspaceMemoryStatsRequest_value_tag 1
@@ -755,6 +762,7 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceParametersPatch_conversation_tag 2
 #define gizclaw_rpc_v1_WorkspaceParametersPatch_tts_speech_rate_percent_tag 3
 #define gizclaw_rpc_v1_WorkspaceParametersPatch_safety_fence_level_tag 5
+#define gizclaw_rpc_v1_WorkspaceParametersPatch_audio_input_tag 6
 #define gizclaw_rpc_v1_ServerReloadRunWorkspaceWithOptionsRequest_workspace_name_tag 1
 #define gizclaw_rpc_v1_ServerReloadRunWorkspaceWithOptionsRequest_parameters_tag 2
 #define gizclaw_rpc_v1_WorkspaceParametersSetRequest_name_tag 1
@@ -887,7 +895,8 @@ X(a, CALLBACK, OPTIONAL, STRING,   selected_workspace_name,   9) \
 X(a, CALLBACK, OPTIONAL, STRING,   started_at,       10) \
 X(a, CALLBACK, OPTIONAL, STRING,   updated_at,       11) \
 X(a, CALLBACK, OPTIONAL, STRING,   workflow_name,    12) \
-X(a, CALLBACK, SINGULAR, STRING,   workspace_name,   13)
+X(a, CALLBACK, SINGULAR, STRING,   workspace_name,   13) \
+X(a, STATIC,   OPTIONAL, UENUM,    audio_input,      14)
 #define gizclaw_rpc_v1_PeerRunWorkspaceState_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PeerRunWorkspaceState_DEFAULT NULL
 
@@ -1240,7 +1249,8 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 X(a, STATIC,   OPTIONAL, UENUM,    input,             1) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  conversation,      2) \
 X(a, STATIC,   OPTIONAL, INT32,    tts_speech_rate_percent,   3) \
-X(a, STATIC,   OPTIONAL, STRING,   safety_fence_level,   5)
+X(a, STATIC,   OPTIONAL, STRING,   safety_fence_level,   5) \
+X(a, STATIC,   OPTIONAL, UENUM,    audio_input,       6)
 #define gizclaw_rpc_v1_WorkspaceParametersPatch_CALLBACK NULL
 #define gizclaw_rpc_v1_WorkspaceParametersPatch_DEFAULT NULL
 #define gizclaw_rpc_v1_WorkspaceParametersPatch_conversation_MSGTYPE gizclaw_rpc_v1_ConversationParameters
@@ -1401,7 +1411,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspaceParametersSetResponse_msg;
 
 /* Maximum encoded size of messages (where known) */
 #if defined(gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size) && defined(gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_size)
-union gizclaw_rpc_v1_WorkspaceParameters_value_size_union {char f2[(6 + gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size)]; char f3[(6 + gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size)]; char f5[(6 + gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_size)]; char f6[(6 + gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_size)]; char f0[92];};
+union gizclaw_rpc_v1_WorkspaceParameters_value_size_union {char f2[(6 + gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size)]; char f3[(6 + gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size)]; char f5[(6 + gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_size)]; char f6[(6 + gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_size)]; char f0[94];};
 #endif
 /* gizclaw_rpc_v1_AgentSelection_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PeerRunAgent_size depends on runtime parameters */
@@ -1463,13 +1473,13 @@ union gizclaw_rpc_v1_WorkspaceParameters_value_size_union {char f2[(6 + gizclaw_
 #define gizclaw_rpc_v1_ServerGetRuntimeRequest_size 0
 #define gizclaw_rpc_v1_ServerReloadRunRequest_size 0
 #define gizclaw_rpc_v1_ServerReloadRunWorkspaceRequest_size 0
-#define gizclaw_rpc_v1_ServerReloadRunWorkspaceWithOptionsRequest_size 345
+#define gizclaw_rpc_v1_ServerReloadRunWorkspaceWithOptionsRequest_size 347
 #define gizclaw_rpc_v1_ServerRunSayResponse_size 2
 #define gizclaw_rpc_v1_ServerStopRunRequest_size 0
 #define gizclaw_rpc_v1_WorkspaceIconDownloadRequest_size 260
 #define gizclaw_rpc_v1_WorkspaceIconDownloadResponse_size 271
-#define gizclaw_rpc_v1_WorkspaceParametersPatch_size 85
-#define gizclaw_rpc_v1_WorkspaceParametersSetRequest_size 345
+#define gizclaw_rpc_v1_WorkspaceParametersPatch_size 87
+#define gizclaw_rpc_v1_WorkspaceParametersSetRequest_size 347
 #if defined(gizclaw_rpc_v1_Runtime_size)
 #define gizclaw_rpc_v1_ServerGetRuntimeResponse_size (6 + gizclaw_rpc_v1_Runtime_size)
 #endif

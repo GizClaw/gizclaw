@@ -347,29 +347,6 @@ func TestWrapAudioRequestsOneSegmentFormatFromSpeakerVoices(t *testing.T) {
 	}
 }
 
-func TestEinoVoiceAdapterHasASR(t *testing.T) {
-	t.Parallel()
-	asr, blank, voice := "speech.asr", "  ", "speech.default"
-	for _, testCase := range []struct {
-		name  string
-		voice *apitypes.VoiceAdapter
-		want  bool
-	}{
-		{name: "omitted"},
-		{name: "empty", voice: &apitypes.VoiceAdapter{}},
-		{name: "blank", voice: &apitypes.VoiceAdapter{AsrModel: &blank}},
-		{name: "tts only", voice: &apitypes.VoiceAdapter{DefaultVoice: &voice}},
-		{name: "asr", voice: &apitypes.VoiceAdapter{AsrModel: &asr}, want: true},
-	} {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-			if got := einoVoiceAdapterHasASR(testCase.voice); got != testCase.want {
-				t.Fatalf("einoVoiceAdapterHasASR() = %v, want %v", got, testCase.want)
-			}
-		})
-	}
-}
-
 func TestEinoAudioInputGuardRejectsLiveAudioBeforeEOS(t *testing.T) {
 	t.Parallel()
 	for _, mimeType := range []string{

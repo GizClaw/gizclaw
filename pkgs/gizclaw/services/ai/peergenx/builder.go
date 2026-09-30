@@ -408,7 +408,7 @@ func (b DefaultBuilder) buildVolcArkGenerator(cfg GeneratorConfig) (genx.Generat
 		PromptRole:        openAIPromptRole(providerData.UseSystemRole),
 		ExtraFields:       openAIThinkingExtraFields(openAIData),
 	}
-	if generator.TextOnly {
+	if !volcChatAcceptsAudio(providerData) {
 		return generator, nil
 	}
 	// Doubao chat models that accept audio return no transcript of it; the

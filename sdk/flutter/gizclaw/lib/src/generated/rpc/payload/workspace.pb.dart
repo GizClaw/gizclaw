@@ -1222,6 +1222,7 @@ class PeerRunWorkspaceState extends $pb.GeneratedMessage {
     $core.String? updatedAt,
     $core.String? workflowName,
     $core.String? workspaceName,
+    $4.AudioInputPath? audioInput,
   }) {
     final result = create();
     if (activeWorkspaceName != null)
@@ -1241,6 +1242,7 @@ class PeerRunWorkspaceState extends $pb.GeneratedMessage {
     if (updatedAt != null) result.updatedAt = updatedAt;
     if (workflowName != null) result.workflowName = workflowName;
     if (workspaceName != null) result.workspaceName = workspaceName;
+    if (audioInput != null) result.audioInput = audioInput;
     return result;
   }
 
@@ -1271,6 +1273,8 @@ class PeerRunWorkspaceState extends $pb.GeneratedMessage {
     ..aOS(11, _omitFieldNames ? '' : 'updatedAt')
     ..aOS(12, _omitFieldNames ? '' : 'workflowName')
     ..aOS(13, _omitFieldNames ? '' : 'workspaceName')
+    ..aE<$4.AudioInputPath>(14, _omitFieldNames ? '' : 'audioInput',
+        enumValues: $4.AudioInputPath.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1409,6 +1413,16 @@ class PeerRunWorkspaceState extends $pb.GeneratedMessage {
   $core.bool hasWorkspaceName() => $_has(12);
   @$pb.TagNumber(13)
   void clearWorkspaceName() => $_clearField(13);
+
+  /// Audio input path the running Eino Agent uses; absent when it accepts text turns only.
+  @$pb.TagNumber(14)
+  $4.AudioInputPath get audioInput => $_getN(13);
+  @$pb.TagNumber(14)
+  set audioInput($4.AudioInputPath value) => $_setField(14, value);
+  @$pb.TagNumber(14)
+  $core.bool hasAudioInput() => $_has(13);
+  @$pb.TagNumber(14)
+  void clearAudioInput() => $_clearField(14);
 }
 
 class ServerGetRunAgentRequest extends $pb.GeneratedMessage {
@@ -4933,6 +4947,7 @@ class WorkspaceParametersPatch extends $pb.GeneratedMessage {
     $2.ConversationParameters? conversation,
     $core.int? ttsSpeechRatePercent,
     $core.String? safetyFenceLevel,
+    $4.AudioInputPath? audioInput,
   }) {
     final result = create();
     if (input != null) result.input = input;
@@ -4940,6 +4955,7 @@ class WorkspaceParametersPatch extends $pb.GeneratedMessage {
     if (ttsSpeechRatePercent != null)
       result.ttsSpeechRatePercent = ttsSpeechRatePercent;
     if (safetyFenceLevel != null) result.safetyFenceLevel = safetyFenceLevel;
+    if (audioInput != null) result.audioInput = audioInput;
     return result;
   }
 
@@ -4962,6 +4978,8 @@ class WorkspaceParametersPatch extends $pb.GeneratedMessage {
         subBuilder: $2.ConversationParameters.create)
     ..aI(3, _omitFieldNames ? '' : 'ttsSpeechRatePercent')
     ..aOS(5, _omitFieldNames ? '' : 'safetyFenceLevel')
+    ..aE<$4.AudioInputPath>(6, _omitFieldNames ? '' : 'audioInput',
+        enumValues: $4.AudioInputPath.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -5022,6 +5040,16 @@ class WorkspaceParametersPatch extends $pb.GeneratedMessage {
   $core.bool hasSafetyFenceLevel() => $_has(3);
   @$pb.TagNumber(5)
   void clearSafetyFenceLevel() => $_clearField(5);
+
+  /// Preferred audio input path for Eino Workspaces; other drivers ignore it.
+  @$pb.TagNumber(6)
+  $4.AudioInputPath get audioInput => $_getN(4);
+  @$pb.TagNumber(6)
+  set audioInput($4.AudioInputPath value) => $_setField(6, value);
+  @$pb.TagNumber(6)
+  $core.bool hasAudioInput() => $_has(4);
+  @$pb.TagNumber(6)
+  void clearAudioInput() => $_clearField(6);
 }
 
 class WorkspaceParametersSetRequest extends $pb.GeneratedMessage {

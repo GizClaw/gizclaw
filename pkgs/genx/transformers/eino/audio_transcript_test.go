@@ -11,6 +11,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/cloudwego/eino/schema"
 )
 
@@ -306,6 +307,85 @@ func TestAudioInputFailureFailsSession(t *testing.T) {
 			t.Fatalf("session error = %v", err)
 		}
 		return
+	}
+}
+
+// An audio turn has no input.text when Memory recall runs. A recall bound to
+// input.text is skipped, while a Graph can still recall with a query it
+// derives from History.
+func TestAudioTurnRecallsWithAQueryDerivedFromHistory(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	chat := &fakeChatModel{chunks: []*schema.Message{
+		TranscriptMessage("我喜欢什么"),
+		schema.AssistantMessage("恐龙。", nil),
+	}}
+	memories := &recordingMemoryStore{events: &eventRecorder{}}
+	config := audioTranscriptConfig(&componentMapResolver{chat: chat})
+	config.Memory = &MemoryConfig{Store: memories, Scope: memory.Scope{AppID: "app"}}
+	config.Graph.State.Fields = append(config.Graph.State.Fields,
+		StateField{Name: "recall_query", Type: StateString, Merge: MergeReplace},
+		StateField{Name: "recalled", Type: StateString, Merge: MergeReplace},
+		StateField{Name: "recalled_by_text", Type: StateString, Merge: MergeReplace},
+	)
+	config.Graph.Nodes = append(config.Graph.Nodes,
+		NodeDefinition{
+			ID:      "query",
+			Inputs:  map[string]Binding{"text": {From: "input.text"}, "history": {From: "history.messages"}},
+			Outputs: map[string]string{"query": "recall_query"},
+			Script: &ScriptNode{
+				Language: ScriptStarlark,
+				Source: "def run(input):\n" +
+					"  query = input[\"text\"]\n" +
+					"  if query == \"\":\n" +
+					"    for message in input[\"history\"]:\n" +
+					"      if message[\"role\"] == \"user\" and message[\"content\"] != \"\":\n" +
+					"        query = message[\"content\"]\n" +
+					"  return {\"query\": query}\n",
+				Limits: ScriptLimits{
+					MaxExecutionSteps: 10_000, Timeout: time.Second,
+					MaxInputBytes: 64 << 10, MaxOutputBytes: 1 << 10,
+				},
+			},
+		},
+		NodeDefinition{ID: "recall", MemoryRecall: &MemoryRecallNode{QueryFrom: "recall_query", Output: "recalled", TopK: 2}},
+		NodeDefinition{ID: "recall_by_text", MemoryRecall: &MemoryRecallNode{QueryFrom: "input.text", Output: "recalled_by_text", TopK: 2}},
+	)
+	config.Graph.Edges = []EdgeDefinition{
+		{From: "start", To: "query"}, {From: "query", To: "recall"}, {From: "recall", To: "recall_by_text"},
+		{From: "recall_by_text", To: "prompt"}, {From: "prompt", To: "model"}, {From: "model", To: "end"},
+	}
+	core, err := New(ctx, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	queries := func() []string {
+		memories.mu.Lock()
+		defer memories.mu.Unlock()
+		texts := make([]string, len(memories.queries))
+		for index, query := range memories.queries {
+			texts[index] = query.Text
+		}
+		return texts
+	}
+
+	output, err := core.Transform(ctx, textInput("我喜欢恐龙"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	drain(t, output)
+	if got := queries(); !slices.Equal(got, []string{"我喜欢恐龙", "我喜欢恐龙"}) {
+		t.Fatalf("text turn recall queries = %q", got)
+	}
+
+	output, err = core.Transform(ctx, audioInput("speech", [][]byte{{0x01}}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	drain(t, output)
+	// Only the derived query recalls: it falls back to the previous user turn.
+	if got := queries(); !slices.Equal(got, []string{"我喜欢恐龙", "我喜欢恐龙", "我喜欢恐龙"}) {
+		t.Fatalf("recall queries after the audio turn = %q", got)
 	}
 }
 

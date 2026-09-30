@@ -1231,6 +1231,9 @@ func mergeWorkspaceState(dst *apitypes.PeerRunWorkspaceState, src apitypes.PeerR
 	if src.RecallAvailable != nil {
 		dst.RecallAvailable = src.RecallAvailable
 	}
+	if src.AudioInput != nil {
+		dst.AudioInput = src.AudioInput
+	}
 	if src.StartedAt != nil {
 		dst.StartedAt = src.StartedAt
 	}

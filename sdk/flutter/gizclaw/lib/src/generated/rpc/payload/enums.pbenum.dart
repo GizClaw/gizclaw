@@ -928,5 +928,32 @@ class WorkspaceInputMode extends $pb.ProtobufEnum {
   const WorkspaceInputMode._(super.value, super.name);
 }
 
+/// AudioInputPath selects where the transcript of a user's audio turn comes from.
+class AudioInputPath extends $pb.ProtobufEnum {
+  static const AudioInputPath AUDIO_INPUT_PATH_UNSPECIFIED =
+      AudioInputPath._(0, _omitEnumNames ? '' : 'AUDIO_INPUT_PATH_UNSPECIFIED');
+
+  /// A streaming ASR stage transcribes the audio and the Graph receives text.
+  static const AudioInputPath AUDIO_INPUT_PATH_ASR =
+      AudioInputPath._(1, _omitEnumNames ? '' : 'AUDIO_INPUT_PATH_ASR');
+
+  /// The audio_transcript chat_model node receives the audio and its Model reports the transcript.
+  static const AudioInputPath AUDIO_INPUT_PATH_MODEL =
+      AudioInputPath._(2, _omitEnumNames ? '' : 'AUDIO_INPUT_PATH_MODEL');
+
+  static const $core.List<AudioInputPath> values = <AudioInputPath>[
+    AUDIO_INPUT_PATH_UNSPECIFIED,
+    AUDIO_INPUT_PATH_ASR,
+    AUDIO_INPUT_PATH_MODEL,
+  ];
+
+  static final $core.List<AudioInputPath?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 2);
+  static AudioInputPath? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const AudioInputPath._(super.value, super.name);
+}
+
 const $core.bool _omitEnumNames =
     $core.bool.fromEnvironment('protobuf.omit_enum_names');

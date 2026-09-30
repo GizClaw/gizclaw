@@ -189,3 +189,12 @@ enum WorkspaceInputMode {
   WORKSPACE_INPUT_MODE_PUSH_TO_TALK = 1;
   WORKSPACE_INPUT_MODE_REALTIME = 2;
 }
+
+// AudioInputPath selects where the transcript of a user's audio turn comes from.
+enum AudioInputPath {
+  AUDIO_INPUT_PATH_UNSPECIFIED = 0;
+  // A streaming ASR stage transcribes the audio and the Graph receives text.
+  AUDIO_INPUT_PATH_ASR = 1;
+  // The audio_transcript chat_model node receives the audio and its Model reports the transcript.
+  AUDIO_INPUT_PATH_MODEL = 2;
+}

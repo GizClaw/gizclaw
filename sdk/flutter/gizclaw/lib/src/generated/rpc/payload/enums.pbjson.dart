@@ -560,3 +560,18 @@ final $typed_data.Uint8List workspaceInputModeDescriptor = $convert.base64Decode
     'ChJXb3Jrc3BhY2VJbnB1dE1vZGUSJAogV09SS1NQQUNFX0lOUFVUX01PREVfVU5TUEVDSUZJRU'
     'QQABIlCiFXT1JLU1BBQ0VfSU5QVVRfTU9ERV9QVVNIX1RPX1RBTEsQARIhCh1XT1JLU1BBQ0Vf'
     'SU5QVVRfTU9ERV9SRUFMVElNRRAC');
+
+@$core.Deprecated('Use audioInputPathDescriptor instead')
+const AudioInputPath$json = {
+  '1': 'AudioInputPath',
+  '2': [
+    {'1': 'AUDIO_INPUT_PATH_UNSPECIFIED', '2': 0},
+    {'1': 'AUDIO_INPUT_PATH_ASR', '2': 1},
+    {'1': 'AUDIO_INPUT_PATH_MODEL', '2': 2},
+  ],
+};
+
+/// Descriptor for `AudioInputPath`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List audioInputPathDescriptor = $convert.base64Decode(
+    'Cg5BdWRpb0lucHV0UGF0aBIgChxBVURJT19JTlBVVF9QQVRIX1VOU1BFQ0lGSUVEEAASGAoUQV'
+    'VESU9fSU5QVVRfUEFUSF9BU1IQARIaChZBVURJT19JTlBVVF9QQVRIX01PREVMEAI=');

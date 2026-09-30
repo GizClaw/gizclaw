@@ -14,6 +14,8 @@ RuntimeProfile 的 Workflow binding 是平面 map，Peer 边界把每个 binding
 
 `tts_speech_rate_percent` 设置服务端合成语音的语速，取值为 provider 正常语速的 50..200%（100 为正常），缺省沿用 Workflow 配置。它适用于所有会合成语音的 Workflow driver，设置后覆盖 Workflow 中各 provider 的静态语速，并从下一次 reload 起作用于该 Workspace 的每个 Voice（包括 Eino/Flowcraft 按轮选择的 speaker voice）和 `server.run.say`。超出范围返回 `INVALID_ARGUMENT`；SFU Workspace 接受合法值但不保存。语速只在合成时调整，不对下发音频做播放侧变速，history 回放保持录制时的语速。
 
+`audio_input`（`AUDIO_INPUT_PATH_ASR` 或 `AUDIO_INPUT_PATH_MODEL`）是 Eino Workspace 的音频输入路径偏好：`asr` 先由流式 ASR 转写，`model` 把 Push-to-Talk 音频直接交给音频输入 chat Model。它覆盖 RuntimeProfile Workflow binding 的选择，缺省沿用 binding 或 Workflow 默认值，从下一次 reload 起生效；其他 driver 的 Workspace 接受合法值但不保存，未知枚举值返回 `INVALID_ARGUMENT`。偏好不保证生效：`realtime` 输入、Workflow 未声明该路径或 Model 不接受音频时会回落到另一条已声明的路径，没有可用路径时 reload 返回错误。实际路径由 `PeerRunWorkspaceState.audio_input` 返回，纯文本 Agent 与其他 driver 不返回该字段。规则见 [Eino 音频输入路径](/zh/developing/gizclaw/services/ai#eino-音频输入路径)。
+
 `server.run.workspace.reload-with-options` 接受可选 `workspace_name` 与 `parameters`：先校验目标访问权和 Workflow 可用性、应用支持的参数，再保存选择并执行一次 reload，返回实际 `PeerRunWorkspaceState`。不传 `workspace_name` 时沿用当前选择；不传 `parameters` 时不更新参数。客户端可用一次 RPC 完成配置、选择与启动，SFU 不会先激活再重复 reload。参数更新失败时不改变选择、不执行 reload；后续选择或启动失败会返回错误，已经成功保存的配置不会回滚。
 
 `app_config` 是 RuntimeProfile 中唯一投影给 Peer 的非资源配置。`server.app_config.list` 分页返回 key，`server.app_config.get` 按 key 原样返回 value；两个响应同样携带 `runtime_profile_name` 与 `runtime_profile_revision`，list cursor 与 revision 绑定，revision 变化时返回 `ABORTED`。Server 不解析 value，也不提供任何写入方法；设备写入不属于这个通道。因为 value 上限 4096 字节、key 上限 64 个，list 只返回 key，避免单帧超过 RPC 帧上限。RuntimeProfile 的 memory connection 等其他字段仍只对 Admin 可读，不进入这个 projection。

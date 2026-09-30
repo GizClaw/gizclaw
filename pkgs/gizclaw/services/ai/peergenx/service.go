@@ -265,6 +265,38 @@ func modelSupportsToolCalls(model apitypes.Model) (bool, error) {
 	return boolValue(supported), nil
 }
 
+// AcceptsAudioInput reports whether the Generator of the LLM model selected
+// by pattern accepts user audio and reports its transcript. The pattern
+// resolves exactly as Generator does.
+func (s *Service) AcceptsAudioInput(ctx context.Context, pattern string) (bool, error) {
+	if s == nil {
+		return false, ErrNotConfigured
+	}
+	cfg, err := s.ResolveGenerator(ctx, pattern)
+	if err != nil {
+		return false, err
+	}
+	return modelAcceptsAudioInput(cfg.Model)
+}
+
+func modelAcceptsAudioInput(model apitypes.Model) (bool, error) {
+	if model.Provider.Kind != apitypes.ModelProviderKindVolcTenant {
+		return false, nil
+	}
+	data, err := model.ProviderData.AsVolcTenantModelProviderData()
+	if err != nil {
+		return false, fmt.Errorf("%w: decode %s model provider_data: %w", ErrInvalid, model.Provider.Kind, err)
+	}
+	return volcChatAcceptsAudio(data), nil
+}
+
+// volcChatAcceptsAudio reports whether a Volc Ark chat Model gets the Doubao
+// chat adapter, the only Generator that converts request audio and reports
+// its transcript.
+func volcChatAcceptsAudio(data apitypes.VolcTenantModelProviderData) bool {
+	return !boolValue(data.SupportTextOnly)
+}
+
 type modelThinkingConfig struct {
 	supported    bool
 	param        *string

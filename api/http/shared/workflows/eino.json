@@ -244,7 +244,7 @@
               "max_tokens": { "type": "integer", "minimum": 1 },
               "audio_transcript": {
                 "type": "boolean",
-                "description": "Makes this root Graph node the transcriber of push-to-talk audio turns when voice_adapter has no asr_model. The node sends the user audio to its model, whose Generator reports the audio transcript anywhere in the reply stream; the transcript becomes the user text of the turn, and a turn without one keeps only its reply and user audio. At most one node may set it."
+                "description": "Declares this root Graph node as the receiver of push-to-talk audio turns on the model audio input path. When that path is in effect the node sends the user audio to its model, whose Generator reports the audio transcript anywhere in the reply stream; the transcript becomes the user text of the turn, and a turn without one keeps only its reply and user audio. On the asr path the node receives the transcribed text like any other chat_model node. The Workspace audio_input parameter or the RuntimeProfile Workflow binding selects the path; without a selection the Workflow uses asr when voice_adapter.asr_model is set and model otherwise. At most one node may set it."
               }
             }
           }

@@ -73,11 +73,14 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if err != nil {
 		return nil, err
 	}
-	acceptsAudio := genxeino.AcceptsAudioInput(genxeino.Config{Graph: graph})
-	if acceptsAudio && inputMode == apitypes.WorkspaceInputModeRealtime {
-		// A transcribing model receives a completed audio route; realtime
-		// endpointing still needs a streaming voice_adapter.asr_model.
-		return nil, fmt.Errorf("eino: chat_model audio_transcript requires push-to-talk input")
+	audioInput, err := resolveAudioInput(ctx, service, *public, spec.AudioInput, inputMode)
+	if err != nil {
+		return nil, err
+	}
+	if audioInput != apitypes.AudioInputPathModel {
+		// Only the model path starts Eino audio turns. On the asr path the
+		// audio_transcript node receives ASR text like any other chat_model.
+		graph = withoutAudioTranscript(graph)
 	}
 	speechRatePercent, err := apitypes.WorkspaceTTSSpeechRatePercent(spec.Workspace.Parameters)
 	if err != nil {
@@ -164,15 +167,22 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	}
 	var composed genx.Transformer = transformer
 	if public.VoiceAdapter != nil {
-		composed, err = wrapAudio(service.Transformer(), transformer, *public.VoiceAdapter, public.Graph.Outputs, inputMode, speechRatePercent)
+		voice := *public.VoiceAdapter
+		if audioInput != apitypes.AudioInputPathAsr {
+			voice.AsrModel = nil
+		}
+		composed, err = wrapAudio(service.Transformer(), transformer, voice, public.Graph.Outputs, inputMode, speechRatePercent)
 		if err != nil {
 			return nil, errors.Join(err, transformer.Close(), closeMemory(memoryCloser))
 		}
 	}
-	if !einoVoiceAdapterHasASR(public.VoiceAdapter) && !acceptsAudio {
+	if audioInput == "" {
 		composed = einoAudioInputGuard{next: composed}
 	}
 	agent := agenthost.NewTransformerAgent(composed)
+	if audioInput != "" {
+		agent = audioInputAgent{Agent: agent, path: audioInput}
+	}
 	if config.Memory != nil {
 		agent = agenthost.NewMemoryAgent(agent, config.Memory.Store, config.Memory.Scope, backend)
 	}
@@ -199,6 +209,69 @@ func resolveEinoInputMode(parameters *apitypes.WorkspaceParameters) (apitypes.Wo
 		return "", fmt.Errorf("eino: unsupported workspace input %q", *value.Input)
 	}
 	return *value.Input, nil
+}
+
+// resolveAudioInput returns the audio input path of one Agent generation. An
+// empty path means the Workflow declares no live-audio path and the Agent
+// accepts text turns only.
+func resolveAudioInput(
+	ctx context.Context,
+	service *peergenx.Service,
+	public apitypes.EinoWorkflowSpec,
+	selected *apitypes.AudioInputPath,
+	inputMode apitypes.WorkspaceInputMode,
+) (apitypes.AudioInputPath, error) {
+	support, err := einoconfig.WorkflowAudioInput(public)
+	if err != nil {
+		return "", fmt.Errorf("eino: workflow %w", err)
+	}
+	request := einoconfig.AudioInputRequest{
+		Support: support, Selected: selected,
+		Realtime: inputMode == apitypes.WorkspaceInputModeRealtime,
+	}
+	// The Model capability only matters when the model path can be chosen.
+	canUseModel := !request.Realtime && support.TranscriptNode != "" && (request.PrefersModel() || support.ASRModel == "")
+	if canUseModel {
+		request.ModelAcceptsAudio, err = service.AcceptsAudioInput(ctx, "model/"+support.TranscriptModel)
+		if err != nil {
+			return "", fmt.Errorf("eino: resolve audio_transcript node %q model %q: %w", support.TranscriptNode, support.TranscriptModel, err)
+		}
+	}
+	path, err := einoconfig.ResolveAudioInput(request)
+	if err != nil {
+		return "", fmt.Errorf("eino: %w", err)
+	}
+	return path, nil
+}
+
+// withoutAudioTranscript returns graph with no transcribing chat_model node,
+// so the Eino Transformer starts turns from text only.
+func withoutAudioTranscript(graph genxeino.GraphDefinition) genxeino.GraphDefinition {
+	graph.Nodes = slices.Clone(graph.Nodes)
+	for index, node := range graph.Nodes {
+		if node.ChatModel == nil || !node.ChatModel.AudioTranscript {
+			continue
+		}
+		chatModel := *node.ChatModel
+		chatModel.AudioTranscript = false
+		graph.Nodes[index].ChatModel = &chatModel
+	}
+	return graph
+}
+
+// audioInputAgent reports the audio input path its Agent generation uses.
+type audioInputAgent struct {
+	agenthost.Agent
+	path apitypes.AudioInputPath
+}
+
+func (a audioInputAgent) Status(ctx context.Context) (apitypes.PeerRunWorkspaceState, error) {
+	state, err := a.Agent.Status(ctx)
+	if err != nil {
+		return state, err
+	}
+	state.AudioInput = new(a.path)
+	return state, nil
 }
 
 func preflightVoiceAdapter(ctx context.Context, service *peergenx.Service, voice apitypes.VoiceAdapter, inputMode apitypes.WorkspaceInputMode) error {
@@ -322,10 +395,6 @@ func stringPointerValue(value *string) string {
 		return ""
 	}
 	return strings.TrimSpace(*value)
-}
-
-func einoVoiceAdapterHasASR(voice *apitypes.VoiceAdapter) bool {
-	return voice != nil && stringPointerValue(voice.AsrModel) != ""
 }
 
 // einoAudioInputGuard keeps the product-level live-audio capability at the

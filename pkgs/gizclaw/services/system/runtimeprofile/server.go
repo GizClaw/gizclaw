@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/runtimealias"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/einoconfig"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/mhs"
 	runtimeindex "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -629,6 +630,12 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 			slices.Sort(tags)
 			binding.Tags = &tags
 		}
+		if err := apitypes.ValidateAudioInputPath(binding.AudioInput); err != nil {
+			return apitypes.RuntimeProfile{}, fmt.Errorf("workflows.%s: %w", alias, err)
+		}
+		if binding.AudioInput != nil {
+			binding.AudioInput = new(*binding.AudioInput)
+		}
 		// Reuse the ordinary binding normalizer for the shared ID and i18n rules.
 		normalized, err := normalizeBindingMap(map[string]apitypes.RuntimeProfileBinding{alias: binding})
 		if err != nil {
@@ -636,6 +643,9 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 		}
 		binding.I18n = normalized[alias].I18n
 		workflows[alias] = binding
+	}
+	if err := validateWorkflowAudioInputAgreement(workflows); err != nil {
+		return apitypes.RuntimeProfile{}, err
 	}
 	spec.Workflows = workflows
 	resourceMaps := []struct {
@@ -657,6 +667,9 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 		for alias := range normalized {
 			if normalized[alias].Tags != nil {
 				return apitypes.RuntimeProfile{}, fmt.Errorf("resources.%ss.%s: tags are only valid on workflows", resourceMap.name, alias)
+			}
+			if normalized[alias].AudioInput != nil {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("resources.%ss.%s: audio_input is only valid on workflows", resourceMap.name, alias)
 			}
 			if err := registerProfileAlias(allAliases, alias, resourceMap.name); err != nil {
 				return apitypes.RuntimeProfile{}, err
@@ -724,6 +737,51 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 		return apitypes.RuntimeProfile{}, err
 	}
 	return item, nil
+}
+
+// validateWorkflowAudioInputAgreement rejects bindings of one Workflow that
+// select different audio input paths. A Workspace stores the Workflow ID, not
+// the alias it was created through, so the selection must not depend on the
+// alias.
+func validateWorkflowAudioInputAgreement(workflows apitypes.RuntimeProfileWorkflows) error {
+	aliases := make([]string, 0, len(workflows))
+	for alias := range workflows {
+		aliases = append(aliases, alias)
+	}
+	slices.Sort(aliases)
+	selected := make(map[string]string, len(workflows))
+	for _, alias := range aliases {
+		binding := workflows[alias]
+		if binding.AudioInput == nil {
+			continue
+		}
+		previous, ok := selected[binding.ResourceId]
+		if ok && *workflows[previous].AudioInput != *binding.AudioInput {
+			return fmt.Errorf(
+				"workflows.%s.audio_input %q conflicts with workflows.%s.audio_input %q for Workflow %q",
+				alias, *binding.AudioInput, previous, *workflows[previous].AudioInput, binding.ResourceId,
+			)
+		}
+		selected[binding.ResourceId] = alias
+	}
+	return nil
+}
+
+// validateWorkflowAudioInput checks a binding's audio_input against the
+// Workflow it binds. The bound Model's audio capability is a reload-time
+// property and is not checked here.
+func validateWorkflowAudioInput(path string, workflow apitypes.WorkflowSpec, selected apitypes.AudioInputPath) error {
+	if workflow.Driver != apitypes.WorkflowDriverEino || workflow.Eino == nil {
+		return fmt.Errorf("%s.audio_input is only valid for Eino Workflows, got driver %q", path, workflow.Driver)
+	}
+	support, err := einoconfig.WorkflowAudioInput(*workflow.Eino)
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	if err := support.ValidateSelection(selected); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	return nil
 }
 
 func validateWorkflowTags(tags []string) error {
@@ -948,6 +1006,11 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 		workflow, err := resource.AsWorkflowResource()
 		if err != nil {
 			return fmt.Errorf("%s.resource_id %q returned an invalid Workflow: %w", path, binding.ResourceId, err)
+		}
+		if binding.AudioInput != nil {
+			if err := validateWorkflowAudioInput(path, workflow.Spec, *binding.AudioInput); err != nil {
+				return err
+			}
 		}
 		workflows = append(workflows, resolvedWorkflow{path: path, resource: workflow})
 	}

@@ -188,6 +188,31 @@ The current ASTTranslate provider path has no system-prompt entry point: syntact
 
 A fence is a system prompt sent to the model. Its effectiveness depends on the selected model; this configuration does not implement a separate content moderator.
 
+## Eino audio input path
+
+A Workflow binding may carry `audio_input`, `asr` or `model`, to choose where the transcript of user audio comes from for Eino Workspaces that run the Workflow. `asr` transcribes with the Workflow's `voice_adapter.asr_model` and hands text to the Graph. `model` sends the audio to the `chat_model` node that sets `audio_transcript`, whose Model reports the transcript in its reply.
+
+```yaml
+spec:
+  workflows:
+    assistant:
+      resource_id: eino-assistant
+      audio_input: model
+      i18n:
+        en: {display_name: Assistant}
+        zh-CN: {display_name: 助手}
+```
+
+One Workflow can therefore use `model` on a deployment that has an audio-input Model and `asr` elsewhere, without editing the Workflow or keeping two near-identical copies. A Workspace's own `audio_input` parameter takes precedence over the binding, and the Workflow default applies when neither is set. See [Eino audio input path](/en/developing/gizclaw/services/ai#eino-audio-input-path) for the complete selection and fallback rules.
+
+Creating or updating a RuntimeProfile validates that:
+
+- `audio_input` appears only on Workflow bindings and is `asr` or `model`. Model, Voice, and Tool bindings that carry it are rejected.
+- The bound Workflow uses the `eino` driver and declares the selected path: `asr` needs `voice_adapter.asr_model`, and `model` needs a `chat_model` node that sets `audio_transcript`.
+- A Workspace stores the Workflow ID, not the alias it was created through, so bindings of the same Workflow must not select different paths. Bindings without the field are not compared.
+
+Whether the Model bound to the `audio_transcript` node accepts audio is not checked here. Model resources change independently, so that check runs on every Workspace reload and either falls back to `asr` or fails the reload. `audio_input` participates in the revision and is not projected to Peers; a Peer reads the effective path from `PeerRunWorkspaceState.audio_input`.
+
 ## MHS v0 hardware manifest
 
 RuntimeProfile owns `spec.mhs.v0`, which declares HWD instances on a product rather than accepting a device report. Each entry has an `id` and an `hwd` type; one HWD may have multiple distinct IDs. `api/proto/rpc/payload/mhs_v0.proto` defines its read and write fields.

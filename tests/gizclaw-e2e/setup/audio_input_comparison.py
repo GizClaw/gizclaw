@@ -2,8 +2,9 @@
 """Run and score benchmark.eino-audio-input-comparison over a fixed sample set.
 
 Each sample is one synthesized question. The Giztest document sends the same
-recording to the audio-input Workflow and to the ASR Workflow, prints both
-transcripts and replies, and reports latency evidence. This script runs one
+recording to two Workspaces of one Workflow, one on the model audio input path
+and one on the asr path, prints both transcripts and replies, and reports
+latency evidence. This script runs one
 document per sample, scores every transcript and reply against keyword groups,
 and writes report.json and report.md to the artifact directory.
 """

@@ -70,6 +70,24 @@ func (e ApplyAction) Valid() bool {
 	}
 }
 
+// Defines values for AudioInputPath.
+const (
+	AudioInputPathAsr   AudioInputPath = "asr"
+	AudioInputPathModel AudioInputPath = "model"
+)
+
+// Valid indicates whether the value is a known member of the AudioInputPath enum.
+func (e AudioInputPath) Valid() bool {
+	switch e {
+	case AudioInputPathAsr:
+		return true
+	case AudioInputPathModel:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AudioPlayerModeSetRequestRepeat.
 const (
 	AudioPlayerModeSetRequestRepeatAll AudioPlayerModeSetRequestRepeat = "all"
@@ -3200,6 +3218,9 @@ type ApplyResult struct {
 	Message *string      `json:"message,omitempty"`
 }
 
+// AudioInputPath Where the transcript of a user's audio turn comes from. asr transcribes the audio with the Workflow's voice_adapter.asr_model and sends text to the Graph. model sends the audio to the chat_model node that sets audio_transcript, whose Model reports the transcript with its reply.
+type AudioInputPath string
+
 // AudioPlayerItem defines model for AudioPlayerItem.
 type AudioPlayerItem struct {
 	SourceRef *string `json:"source_ref,omitempty"`
@@ -3911,7 +3932,7 @@ type EinoBranchRoute struct {
 
 // EinoChatModelNode defines model for EinoChatModelNode.
 type EinoChatModelNode struct {
-	// AudioTranscript Makes this root Graph node the transcriber of push-to-talk audio turns when voice_adapter has no asr_model. The node sends the user audio to its model, whose Generator reports the audio transcript anywhere in the reply stream; the transcript becomes the user text of the turn, and a turn without one keeps only its reply and user audio. At most one node may set it.
+	// AudioTranscript Declares this root Graph node as the receiver of push-to-talk audio turns on the model audio input path. When that path is in effect the node sends the user audio to its model, whose Generator reports the audio transcript anywhere in the reply stream; the transcript becomes the user text of the turn, and a turn without one keeps only its reply and user audio. On the asr path the node receives the transcribed text like any other chat_model node. The Workspace audio_input parameter or the RuntimeProfile Workflow binding selects the path; without a selection the Workflow uses asr when voice_adapter.asr_model is set and model otherwise. At most one node may set it.
 	AudioTranscript *bool                   `json:"audio_transcript,omitempty"`
 	Id              string                  `json:"id"`
 	Inputs          *map[string]EinoBinding `json:"inputs,omitempty"`
@@ -4205,10 +4226,13 @@ type EinoWorkflowSpec struct {
 
 // EinoWorkspaceParameters defines model for EinoWorkspaceParameters.
 type EinoWorkspaceParameters struct {
-	AgentType    EinoWorkspaceParametersAgentType `json:"agent_type"`
-	Conversation *ConversationParameters          `json:"conversation,omitempty"`
-	E2e          *bool                            `json:"e2e,omitempty"`
-	Input        *WorkspaceInputMode              `json:"input,omitempty"`
+	AgentType EinoWorkspaceParametersAgentType `json:"agent_type"`
+
+	// AudioInput Preferred audio input path for this Workspace. It overrides the audio_input of the owner's RuntimeProfile Workflow binding. Absent keeps the binding's selection, or the Workflow default when the binding selects none: asr when the Workflow sets voice_adapter.asr_model, otherwise model. The Agent uses the preferred path when the Workflow declares it and it can run, and the other declared path otherwise: realtime input always uses asr, and model needs an audio_transcript node whose Model accepts audio. Reload fails when no declared path can run. Workflows that declare no audio input ignore it.
+	AudioInput   *AudioInputPath         `json:"audio_input,omitempty"`
+	Conversation *ConversationParameters `json:"conversation,omitempty"`
+	E2e          *bool                   `json:"e2e,omitempty"`
+	Input        *WorkspaceInputMode     `json:"input,omitempty"`
 
 	// SafetyFenceLevel Stable identifier of a complete safety fence prompt in the bound RuntimeProfile. The profile defines all available identifiers and prompts.
 	SafetyFenceLevel *SafetyFenceLevel `json:"safety_fence_level,omitempty"`
@@ -5395,8 +5419,11 @@ type PeerRunStatusState string
 
 // PeerRunWorkspaceState defines model for PeerRunWorkspaceState.
 type PeerRunWorkspaceState struct {
-	ActiveWorkspaceName   *string            `json:"active_workspace_name,omitempty"`
-	AgentType             *string            `json:"agent_type,omitempty"`
+	ActiveWorkspaceName *string `json:"active_workspace_name,omitempty"`
+	AgentType           *string `json:"agent_type,omitempty"`
+
+	// AudioInput Audio input path the running Eino Agent uses, after applying the Workspace and RuntimeProfile preference, the input mode, and the Model capability. Absent when the Agent accepts text turns only or the driver has no selectable path.
+	AudioInput            *AudioInputPath    `json:"audio_input,omitempty"`
 	HistoryAvailable      *bool              `json:"history_available,omitempty"`
 	MemoryStatsAvailable  *bool              `json:"memory_stats_available,omitempty"`
 	Message               *string            `json:"message,omitempty"`
@@ -5832,6 +5859,8 @@ type RuntimeProfileAppConfig map[string]string
 
 // RuntimeProfileBinding defines model for RuntimeProfileBinding.
 type RuntimeProfileBinding struct {
+	// AudioInput Only valid for Eino Workflow bindings. Preferred audio input path for Workspaces that run this Workflow and set no audio_input parameter. The Workflow must declare the selected path: asr requires voice_adapter.asr_model and model requires a chat_model node that sets audio_transcript. Bindings of the same Workflow must not select different paths.
+	AudioInput *AudioInputPath                   `json:"audio_input,omitempty"`
 	I18n       map[string]RuntimeProfileI18nText `json:"i18n"`
 	ResourceId string                            `json:"resource_id"`
 

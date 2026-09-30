@@ -1,5 +1,5 @@
 # User Story:
-# As a registered device using the eino-audio-input Workflow,
+# As a registered device using the eino-audio-input Workflow on a RuntimeProfile that selects the model audio input path,
 # I want one push-to-talk question answered by the audio-input chat Model without an ASR stage,
 # So that the same reply carries my transcript for the client, History, and the next turn.
 version: gizclaw.test/v1alpha1
@@ -53,6 +53,14 @@ steps:
       method: server.run.workspace.set
       request:
         workspace_name: ${workspace_name}
+  - id: reload_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.reload
+      request: {}
+    expect:
+      /audio_input:
+        equals: AUDIO_INPUT_PATH_MODEL
   - id: synthesize_question
     client: peer
     speech:
