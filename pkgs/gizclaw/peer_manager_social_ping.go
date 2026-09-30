@@ -44,12 +44,7 @@ func (m *Manager) PeerRunningWorkspace(ctx context.Context, publicKey, workspace
 	if err != nil || workspaceName == "" {
 		return false
 	}
-	m.mu.RLock()
-	var status func(context.Context) (apitypes.PeerRunStatus, error)
-	if state := m.peers[key]; state != nil && state.conn != nil && !state.deleting {
-		status = state.runStatus
-	}
-	m.mu.RUnlock()
+	conn, status := m.peerRunStatus(key)
 	if status == nil {
 		return false
 	}
@@ -57,7 +52,27 @@ func (m *Manager) PeerRunningWorkspace(ctx context.Context, publicKey, workspace
 	if err != nil || run.State != apitypes.PeerRunStatusStateRunning || run.WorkspaceName == nil {
 		return false
 	}
-	return strings.TrimSpace(*run.WorkspaceName) == workspaceName
+	if strings.TrimSpace(*run.WorkspaceName) != workspaceName {
+		return false
+	}
+	// The status was read outside m.mu. It only counts while the connection it
+	// belongs to is still the active one: a disconnect or a replacement that
+	// overlapped the read must not report the previous generation's runtime.
+	current, _ := m.peerRunStatus(key)
+	return current == conn
+}
+
+// peerRunStatus returns the active connection of publicKey together with its
+// registered run-state reader, or nil values when the Peer is offline, is
+// being deleted, or its connection has not registered a reader.
+func (m *Manager) peerRunStatus(publicKey giznet.PublicKey) (giznet.Conn, func(context.Context) (apitypes.PeerRunStatus, error)) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	state := m.peers[publicKey]
+	if state == nil || state.conn == nil || state.deleting || state.runStatus == nil {
+		return nil, nil
+	}
+	return state.conn, state.runStatus
 }
 
 // DeliverSocialPing pushes one client.social.ping over the Peer's active

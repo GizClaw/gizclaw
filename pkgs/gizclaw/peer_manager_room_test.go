@@ -97,3 +97,48 @@ func TestPeerRunningWorkspaceFollowsRuntime(t *testing.T) {
 		t.Fatal("offline Peer counted as in the Room")
 	}
 }
+
+// TestPeerRunningWorkspaceRechecksConnection covers a disconnect or a
+// replacement that overlaps the status read: the runtime of a connection that
+// is no longer the active one never counts as in the Room.
+func TestPeerRunningWorkspaceRechecksConnection(t *testing.T) {
+	ctx := context.Background()
+	key := giznet.PublicKey{8}
+	for name, overlap := range map[string]func(*Manager, giznet.Conn){
+		"disconnect": func(m *Manager, conn giznet.Conn) { m.SetPeerDown(key, conn) },
+		"replacement": func(m *Manager, _ giznet.Conn) {
+			next := &testGiznetConn{publicKey: key}
+			m.SetPeerUp(key, next)
+			_ = m.SetPeerRunStatus(key, next, func(context.Context) (apitypes.PeerRunStatus, error) {
+				return apitypes.PeerRunStatus{State: apitypes.PeerRunStatusStateStopped}, nil
+			})
+		},
+		"deletion": func(m *Manager, _ giznet.Conn) { _ = m.QuiescePeer(ctx, key) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			manager := &Manager{}
+			conn := &testGiznetConn{publicKey: key}
+			manager.SetPeerUp(key, conn)
+			workspace := "team"
+			overlapped := false
+			status := func(context.Context) (apitypes.PeerRunStatus, error) {
+				// The manager lock is released here, so the connection can
+				// change before the caller sees this running status.
+				if !overlapped {
+					overlapped = true
+					overlap(manager, conn)
+				}
+				return apitypes.PeerRunStatus{State: apitypes.PeerRunStatusStateRunning, WorkspaceName: &workspace}, nil
+			}
+			if err := manager.SetPeerRunStatus(key, conn, status); err != nil {
+				t.Fatalf("SetPeerRunStatus() error = %v", err)
+			}
+			if manager.PeerRunningWorkspace(ctx, key.String(), workspace) {
+				t.Fatal("runtime of a connection that is no longer active counted as in the Room")
+			}
+			if !overlapped {
+				t.Fatal("status reader was not called")
+			}
+		})
+	}
+}
