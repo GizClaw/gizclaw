@@ -362,6 +362,10 @@ export type FriendGroupMember = {
      * Last observed activity of the member's device in UTC, as Runtime.last_seen_at reports it. Set only by the members list; absent when never observed or the read failed, and on add, put, delete and join responses.
      */
     last_seen_at?: string;
+    /**
+     * Whether the member's device is running this Friend Group's Workspace on the answering Server, which is what attaches it to the Group's SFU Room. True implies online. Set only by the members list; absent on add, put, delete and join responses.
+     */
+    in_room?: boolean;
 };
 
 export type FriendGroupMemberList = {

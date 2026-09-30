@@ -1007,6 +1007,9 @@ type FriendGroupList struct {
 type FriendGroupMember struct {
 	CreatedAt *time.Time `json:"created_at,omitempty"`
 
+	// InRoom Whether the member's device is running this Friend Group's Workspace on the answering Server, which is what attaches it to the Group's SFU Room. True implies online. Set only by the members list; absent on add, put, delete and join responses.
+	InRoom *bool `json:"in_room,omitempty"`
+
 	// Info Public profile of another Peer, taken from its device name and emoji. Omitted when the Peer no longer exists.
 	Info *PeerProfileInfo `json:"info,omitempty"`
 

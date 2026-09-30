@@ -974,6 +974,15 @@ const FriendGroupMemberObject$json = {
       '10': 'lastSeenAt',
       '17': true
     },
+    {
+      '1': 'in_room',
+      '3': 9,
+      '4': 1,
+      '5': 8,
+      '9': 7,
+      '10': 'inRoom',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_created_at'},
@@ -983,6 +992,7 @@ const FriendGroupMemberObject$json = {
     {'1': '_updated_at'},
     {'1': '_online'},
     {'1': '_last_seen_at'},
+    {'1': '_in_room'},
   ],
 };
 
@@ -994,9 +1004,9 @@ final $typed_data.Uint8List friendGroupMemberObjectDescriptor = $convert.base64D
     'xpY0tleYgBARI+CgRyb2xlGAUgASgOMiUuZ2l6Y2xhdy5ycGMudjEuRnJpZW5kR3JvdXBNZW1i'
     'ZXJSb2xlSANSBHJvbGWIAQESIgoKdXBkYXRlZF9hdBgGIAEoCUgEUgl1cGRhdGVkQXSIAQESGw'
     'oGb25saW5lGAcgASgISAVSBm9ubGluZYgBARIlCgxsYXN0X3NlZW5fYXQYCCABKAlIBlIKbGFz'
-    'dFNlZW5BdIgBAUINCgtfY3JlYXRlZF9hdEIUChJfZnJpZW5kX2dyb3VwX25hbWVCEgoQX3BlZX'
-    'JfcHVibGljX2tleUIHCgVfcm9sZUINCgtfdXBkYXRlZF9hdEIJCgdfb25saW5lQg8KDV9sYXN0'
-    'X3NlZW5fYXQ=');
+    'dFNlZW5BdIgBARIcCgdpbl9yb29tGAkgASgISAdSBmluUm9vbYgBAUINCgtfY3JlYXRlZF9hdE'
+    'IUChJfZnJpZW5kX2dyb3VwX25hbWVCEgoQX3BlZXJfcHVibGljX2tleUIHCgVfcm9sZUINCgtf'
+    'dXBkYXRlZF9hdEIJCgdfb25saW5lQg8KDV9sYXN0X3NlZW5fYXRCCgoIX2luX3Jvb20=');
 
 @$core.Deprecated('Use friendGroupMemberPutRequestDescriptor instead')
 const FriendGroupMemberPutRequest$json = {

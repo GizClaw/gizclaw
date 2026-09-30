@@ -8,21 +8,33 @@ void main() {
       ...base,
       'online': true,
       'last_seen_at': '2026-09-12T00:30:00Z',
+      'in_room': true,
     });
+    expect(online.inRoom, isTrue);
     expect(online.online, isTrue);
     expect(online.lastSeenAt, DateTime.utc(2026, 9, 12, 0, 30));
-    final offline = FriendGroupMember.fromJson({...base, 'online': false});
+    final offline = FriendGroupMember.fromJson({
+      ...base,
+      'online': false,
+      'in_room': false,
+    });
+    expect(offline.inRoom, isFalse);
     expect(offline.online, isFalse);
     expect(offline.lastSeenAt, isNull);
     final added = FriendGroupMember.fromJson(base);
     expect(added.online, isNull);
     expect(added.lastSeenAt, isNull);
+    expect(added.inRoom, isNull);
     expect(
       () => FriendGroupMember.fromJson({...base, 'online': 'false'}),
       throwsFormatException,
     );
     expect(
       () => FriendGroupMember.fromJson({...base, 'last_seen_at': 42}),
+      throwsFormatException,
+    );
+    expect(
+      () => FriendGroupMember.fromJson({...base, 'in_room': 'true'}),
       throwsFormatException,
     );
   });

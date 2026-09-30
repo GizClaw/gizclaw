@@ -2086,7 +2086,11 @@ type FriendGroupMemberObject struct {
 	Online *bool `protobuf:"varint,7,opt,name=online,proto3,oneof" json:"online,omitempty"`
 	// Last observed activity of the member's device in the Runtime.last_seen_at
 	// format. Absent when the Server has never observed the member.
-	LastSeenAt    *string `protobuf:"bytes,8,opt,name=last_seen_at,json=lastSeenAt,proto3,oneof" json:"last_seen_at,omitempty"`
+	LastSeenAt *string `protobuf:"bytes,8,opt,name=last_seen_at,json=lastSeenAt,proto3,oneof" json:"last_seen_at,omitempty"`
+	// Whether the member's device is running this Friend Group's Workspace on
+	// the answering Server, which is what attaches it to the Group's SFU Room.
+	// Set only by server.friend_group.members.list; true implies online.
+	InRoom        *bool `protobuf:"varint,9,opt,name=in_room,json=inRoom,proto3,oneof" json:"in_room,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2175,6 +2179,13 @@ func (x *FriendGroupMemberObject) GetLastSeenAt() string {
 		return *x.LastSeenAt
 	}
 	return ""
+}
+
+func (x *FriendGroupMemberObject) GetInRoom() bool {
+	if x != nil && x.InRoom != nil {
+		return *x.InRoom
+	}
+	return false
 }
 
 type FriendGroupMemberPutRequest struct {
@@ -3420,7 +3431,7 @@ const file_payload_social_proto_rawDesc = "" +
 	"\x05items\x18\x02 \x03(\v2'.gizclaw.rpc.v1.FriendGroupMemberObjectR\x05items\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
 	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"\xc4\x03\n" +
+	"\f_next_cursor\"\xee\x03\n" +
 	"\x17FriendGroupMemberObject\x12\"\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tH\x00R\tcreatedAt\x88\x01\x01\x12/\n" +
@@ -3432,14 +3443,17 @@ const file_payload_social_proto_rawDesc = "" +
 	"updated_at\x18\x06 \x01(\tH\x04R\tupdatedAt\x88\x01\x01\x12\x1b\n" +
 	"\x06online\x18\a \x01(\bH\x05R\x06online\x88\x01\x01\x12%\n" +
 	"\flast_seen_at\x18\b \x01(\tH\x06R\n" +
-	"lastSeenAt\x88\x01\x01B\r\n" +
+	"lastSeenAt\x88\x01\x01\x12\x1c\n" +
+	"\ain_room\x18\t \x01(\bH\aR\x06inRoom\x88\x01\x01B\r\n" +
 	"\v_created_atB\x14\n" +
 	"\x12_friend_group_nameB\x12\n" +
 	"\x10_peer_public_keyB\a\n" +
 	"\x05_roleB\r\n" +
 	"\v_updated_atB\t\n" +
 	"\a_onlineB\x0f\n" +
-	"\r_last_seen_at\"\x9f\x01\n" +
+	"\r_last_seen_atB\n" +
+	"\n" +
+	"\b_in_room\"\x9f\x01\n" +
 	"\x1bFriendGroupMemberPutRequest\x12*\n" +
 	"\x11friend_group_name\x18\x01 \x01(\tR\x0ffriendGroupName\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12@\n" +

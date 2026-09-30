@@ -61,6 +61,9 @@ type activePeer struct {
 	deleting       bool
 	retire         func()
 	retiring       *atomic.Bool
+	// runStatus reads the run state of conn's generation; it is nil until that
+	// generation registers one and after conn changes or goes down.
+	runStatus func(context.Context) (apitypes.PeerRunStatus, error)
 }
 
 func (m *Manager) activateEdgeTransport(ctx context.Context, conn giznet.Conn) error {
@@ -318,6 +321,7 @@ func (m *Manager) setPeerUpLocked(publicKey giznet.PublicKey, conn giznet.Conn) 
 	if oldConn != conn {
 		state.registration = nil
 		state.events = nil
+		state.runStatus = nil
 	}
 	state.conn = conn
 	state.activating = nil
@@ -402,6 +406,26 @@ func (m *Manager) SetPeerEventBroker(
 		return ErrPeerConnNotActive
 	}
 	state.events = broker
+	return nil
+}
+
+// SetPeerRunStatus binds the run-state reader of the active connection
+// generation, so PeerRunningWorkspace can answer for this Peer.
+func (m *Manager) SetPeerRunStatus(
+	publicKey giznet.PublicKey,
+	conn giznet.Conn,
+	status func(context.Context) (apitypes.PeerRunStatus, error),
+) error {
+	if m == nil || conn == nil || status == nil {
+		return ErrPeerConnNotActive
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	state := m.peers[publicKey]
+	if state == nil || state.conn != conn || state.deleting {
+		return ErrPeerConnNotActive
+	}
+	state.runStatus = status
 	return nil
 }
 
@@ -689,6 +713,7 @@ func (m *Manager) SetPeerDown(publicKey giznet.PublicKey, conn giznet.Conn) {
 	if state.deleting || state.activating != nil {
 		state.conn = nil
 		state.registration = nil
+		state.runStatus = nil
 		return
 	}
 	delete(m.peers, publicKey)

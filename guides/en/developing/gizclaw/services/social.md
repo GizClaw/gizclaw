@@ -103,8 +103,11 @@ Presence is Server-local, like pings: a Friend connected to a different Server i
 | --- | --- | --- |
 | `online` | `Manager.PeerPresence`, the same Server-local connection state as `Runtime.online` | Presence is not configured |
 | `last_seen_at` | The same, in RFC 3339 UTC; offline members fall back to persisted Peer Run activity | Never observed, last-seen read failed, or presence is not configured |
+| `in_room` | `Manager.PeerRunningWorkspace`: the member's active connection on this Server is running the Workspace bound to the Group | Rooms is not configured, or the Group's Workspace binding cannot be read |
 
-Friend and Friend Group lists share `socialutil.PresenceService` and `PresenceFields`. A failed last-seen read never fails the page. Members connected to another Server are reported offline. Admin member lists and add, put, delete and join responses omit both fields.
+Friend and Friend Group lists share `socialutil.PresenceService` and `PresenceFields`. A failed last-seen read never fails the page. Members connected to another Server are reported offline. Admin member lists and add, put, delete and join responses omit all three fields.
+
+`online` only says the device has a connection to the Server; `in_room` says the device is in the Group's SFU Room right now. A device joins the Room by running the Group's Workspace, so `in_room` reads the Peer Run state of that connection: it is true while the state is running and the Workspace name matches the Workspace bound to the Group, and false while the runtime is starting, stopping or failed, runs another Workspace, after `server.run.stop`, or when the device is offline. It does not read the persisted `Runtime.active_workspace_name`, which survives a stopped runtime and a disconnect. `in_room` being true implies `online` is true; like `online` it is Server-local, so a member connected to another Server is reported false. A brief SFU reconnect inside the Room does not change it.
 
 ## Ping and rally
 

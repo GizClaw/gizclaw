@@ -1,7 +1,7 @@
 # User Story:
 # As a child with a GizClaw device,
-# I want my team's member list to show which members are online,
-# So that my device can draw a green dot next to each member from one server.friend_group.members.list call.
+# I want my team's member list to show which members are online and which are in the team Room,
+# So that my device can mark each member from one server.friend_group.members.list call.
 version: gizclaw.test/v1alpha1
 name: server.friend-group.members.list
 clients:
@@ -78,8 +78,10 @@ steps:
   expect:
     /member/online: {present: false}
     /member/last_seen_at: {present: false}
+    /member/in_room: {present: false}
 # alice and bob are both connected, so every member is online with a
-# last_seen_at timestamp.
+# last_seen_at timestamp. Neither device runs the Group's Workspace, so nobody
+# is in the Room.
 - id: primary_rpc
   client: alice
   rpc:
@@ -89,8 +91,10 @@ steps:
     /items: {count: 2}
     /items/0/online: {equals: true}
     /items/0/last_seen_at: {pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"}
+    /items/0/in_room: {equals: false}
     /items/1/online: {equals: true}
     /items/1/last_seen_at: {pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"}
+    /items/1/in_room: {equals: false}
 - id: bob_lists_members
   client: bob
   rpc:
@@ -100,8 +104,10 @@ steps:
     /items: {count: 2}
     /items/0/online: {equals: true}
     /items/0/last_seen_at: {pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"}
+    /items/0/in_room: {equals: false}
     /items/1/online: {equals: true}
     /items/1/last_seen_at: {pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"}
+    /items/1/in_room: {equals: false}
 # Presence is only visible to members: carol cannot list the Group before
 # she is added.
 - id: carol_cannot_list_before_joining
@@ -134,6 +140,7 @@ steps:
     /role: {equals: FRIEND_GROUP_MEMBER_ROLE_MEMBER}
     /online: {present: false}
     /last_seen_at: {present: false}
+    /in_room: {present: false}
 - id: carol_lists_members
   client: carol
   rpc:
@@ -143,10 +150,13 @@ steps:
     /items: {count: 3}
     /items/0/online: {equals: true}
     /items/0/last_seen_at: {pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"}
+    /items/0/in_room: {equals: false}
     /items/1/online: {equals: true}
     /items/1/last_seen_at: {pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"}
+    /items/1/in_room: {equals: false}
     /items/2/online: {equals: true}
     /items/2/last_seen_at: {pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"}
+    /items/2/in_room: {equals: false}
 - id: alice_promotes_carol
   client: alice
   rpc:
@@ -159,6 +169,7 @@ steps:
     /role: {equals: FRIEND_GROUP_MEMBER_ROLE_ADMIN}
     /online: {present: false}
     /last_seen_at: {present: false}
+    /in_room: {present: false}
 - id: alice_removes_carol
   client: alice
   rpc:
@@ -168,6 +179,7 @@ steps:
     /peer_public_key: {equals: "${carol_name}"}
     /online: {present: false}
     /last_seen_at: {present: false}
+    /in_room: {present: false}
 - id: carol_cannot_list_after_removal
   client: carol
   rpc:

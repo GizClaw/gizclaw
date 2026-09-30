@@ -55,7 +55,7 @@ The client is organized by route group, with method names that mirror the `gizcl
 - `friends`: `getInviteToken`, `createInviteToken` (optional `{ ttl_seconds }`), `clearInviteToken`, `add`, `list`, `get`, `delete`.
 - `friendGroups`: `list`, `create`, `join`, `get`, `put`, `delete` (dissolve), `leave`, `getInviteToken`, `createInviteToken`, `clearInviteToken`, `listMembers`, `addMember`, `putMember`, `deleteMember`.
 
-Each members-list item carries optional `online` (Server-local connection state) and `last_seen_at` (RFC 3339 UTC; absent when unknown or the read failed); members returned by add, put and join omit both.
+Each members-list item carries optional `online` (Server-local connection state), `last_seen_at` (RFC 3339 UTC; absent when unknown or the read failed) and `in_room` (whether the device is running the Group's Workspace on the answering Server, which is what attaches it to the Group's SFU Room; true implies online); members returned by add, put and join omit all three.
 
 Request and response types come straight from the generated types in `@gizclaw/gizclaw/peerhttp` (`PeerStatus`, `DeviceControlStatus`, `Contact`, and so on), so field names match the wire format. `204` routes resolve to `void`. `control.client` exposes the generated client already configured with the bearer token and `baseUrl`, ready to pass to other `@gizclaw/gizclaw/peerhttp` functions. The optional `fetch` option injects a custom or test fetch.
 

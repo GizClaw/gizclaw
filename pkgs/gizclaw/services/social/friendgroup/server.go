@@ -61,6 +61,10 @@ type Server struct {
 	// Presence reports member device presence for server.friend_group.members.list;
 	// nil leaves online and last_seen_at out of every listed member.
 	Presence socialutil.PresenceService
+	// Rooms reports which members run the Group's Workspace for
+	// server.friend_group.members.list; nil leaves in_room out of every
+	// listed member.
+	Rooms socialutil.RoomPresenceService
 	// SFUURL is the SFU endpoint recorded in every new Friend Group SFU binding.
 	SFUURL string
 
@@ -1343,11 +1347,28 @@ func (s *Server) ListFriendGroupMembers(ctx context.Context, owner string, req r
 	if err != nil {
 		return rpcapi.FriendGroupMemberListResponse{}, err
 	}
+	workspaceName := s.roomWorkspaceName(ctx, friendGroupID)
 	for i := range page.Items {
 		item := &page.Items[i]
-		item.Online, item.LastSeenAt = socialutil.PresenceFields(ctx, s.Presence, socialutil.StringValue(item.PeerPublicKey))
+		peerPublicKey := socialutil.StringValue(item.PeerPublicKey)
+		item.Online, item.LastSeenAt = socialutil.PresenceFields(ctx, s.Presence, peerPublicKey)
+		item.InRoom = socialutil.InRoomField(ctx, s.Rooms, peerPublicKey, workspaceName)
 	}
 	return page, nil
+}
+
+// roomWorkspaceName returns the Workspace whose runtime attaches a member to
+// the Group's SFU Room. It is empty when Rooms is nil or the binding cannot be
+// read, which omits in_room instead of failing the member page.
+func (s *Server) roomWorkspaceName(ctx context.Context, friendGroupID string) string {
+	if s.Rooms == nil {
+		return ""
+	}
+	binding, err := s.readWorkspaceBinding(ctx, friendGroupID)
+	if err != nil {
+		return ""
+	}
+	return binding.WorkspaceName
 }
 
 func (s *Server) AdminListFriendGroupMembers(ctx context.Context, friendGroupID string, req rpcapi.FriendGroupMemberListRequest) (rpcapi.FriendGroupMemberListResponse, error) {

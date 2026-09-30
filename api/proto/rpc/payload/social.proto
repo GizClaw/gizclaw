@@ -211,6 +211,10 @@ message FriendGroupMemberObject {
   // Last observed activity of the member's device in the Runtime.last_seen_at
   // format. Absent when the Server has never observed the member.
   optional string last_seen_at = 8;
+  // Whether the member's device is running this Friend Group's Workspace on
+  // the answering Server, which is what attaches it to the Group's SFU Room.
+  // Set only by server.friend_group.members.list; true implies online.
+  optional bool in_room = 9;
 }
 
 message FriendGroupMemberPutRequest {

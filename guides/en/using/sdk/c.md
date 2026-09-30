@@ -49,7 +49,7 @@ Device settings and control-app routes map to `gzc_control_get_device_settings`,
 
 Friend and Friend Group routes map to the `gzc_control_*_friend*` and `gzc_control_*_friend_group*` functions, covering invite tokens (optional `ttl_seconds` in `gzc_control_invite_token_request_t`), befriending, listing, leaving, dissolving, and member management. Group roles are returned as strings (`owner`, `admin`, `member`), and `has_info` marks whether `info` is present.
 
-Each members-list item carries optional `online` (Server-local connection state) and `last_seen_at` (RFC 3339 UTC; absent when unknown or the read failed); members returned by add, put and join omit both. C uses `has_online` + `online` and `last_seen_at` (`gzc_str_t`).
+Each members-list item carries optional `online` (Server-local connection state), `last_seen_at` (RFC 3339 UTC; absent when unknown or the read failed) and `in_room` (whether the device is running the Group's Workspace on the answering Server, which is what attaches it to the Group's SFU Room; true implies online); members returned by add, put and join omit all three. C uses `has_online` + `online`, `last_seen_at` (`gzc_str_t`) and `has_in_room` + `in_room`.
 
 ### MHS v0 HWDs
 

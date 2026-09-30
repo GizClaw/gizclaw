@@ -695,6 +695,7 @@ export type FriendGroupMemberObject = {
   "updated_at"?: string;
   "online"?: boolean;
   "last_seen_at"?: string;
+  "in_room"?: boolean;
 };
 export type FriendGroupMemberPutRequest = {
   "friend_group_name": string;
@@ -4535,6 +4536,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 8,
         "optional": true,
         "type": "string"
+      },
+      {
+        "name": "in_room",
+        "number": 9,
+        "optional": true,
+        "type": "bool"
       }
     ]
   },
