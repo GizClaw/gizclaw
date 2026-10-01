@@ -1164,8 +1164,69 @@ func TestEdgeCORSHandlerHandlesBrowserPreflight(t *testing.T) {
 	if got := rec.Header().Get("Access-Control-Expose-Headers"); !strings.Contains(got, "X-Request-ID") {
 		t.Fatalf("Access-Control-Expose-Headers = %q", got)
 	}
-	if got := rec.Header().Get("Access-Control-Allow-Methods"); got != "GET,POST,DELETE,OPTIONS" {
+	if got := rec.Header().Get("Access-Control-Allow-Methods"); got != "GET,POST,PUT,DELETE,OPTIONS" {
 		t.Fatalf("Access-Control-Allow-Methods = %q", got)
+	}
+}
+
+func TestEdgeCORSHandlerAllowsDevicePUTWithoutBypassingAuthorization(t *testing.T) {
+	const path = "/gizclaw/v1/device/volume"
+	const origin = "http://127.0.0.1:40000"
+	const body = `{"volume":50}`
+	forwarded := 0
+	handler := edgeIngressHandler(newPeerHTTPProxy("edge.example.com:9821", roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		forwarded++
+		if req.Method != http.MethodPut || req.URL.Path != path {
+			t.Fatalf("forwarded request = %s %s", req.Method, req.URL.Path)
+		}
+		payload, err := io.ReadAll(req.Body)
+		if err != nil || string(payload) != body {
+			t.Fatalf("forwarded body = %q, err=%v", payload, err)
+		}
+		if req.Header.Get("Authorization") != "" {
+			t.Fatal("Edge added an authorization credential")
+		}
+		return &http.Response{
+			StatusCode: http.StatusUnauthorized,
+			Header: http.Header{
+				"Access-Control-Allow-Origin":      []string{"https://upstream.invalid"},
+				"Access-Control-Allow-Methods":     []string{"GET"},
+				"Access-Control-Allow-Credentials": []string{"true"},
+			},
+			Body:    io.NopCloser(strings.NewReader("authentication required")),
+			Request: req,
+		}, nil
+	})), nil)
+	preflight := httptest.NewRequest(http.MethodOptions, path, nil)
+	preflight.Header.Set("Origin", origin)
+	preflight.Header.Set("Access-Control-Request-Method", http.MethodPut)
+	preflight.Header.Set("Access-Control-Request-Headers", "authorization,content-type")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, preflight)
+	if rec.Code != http.StatusNoContent || forwarded != 0 {
+		t.Fatalf("preflight = %d, forwarded=%d", rec.Code, forwarded)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(got, http.MethodPut) {
+		t.Fatalf("PUT absent from preflight methods: %q", got)
+	}
+	request := httptest.NewRequest(http.MethodPut, path, strings.NewReader(body))
+	request.Header.Set("Origin", origin)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, request)
+	if rec.Code != http.StatusUnauthorized || forwarded != 1 {
+		t.Fatalf("PUT = %d, forwarded=%d", rec.Code, forwarded)
+	}
+	if got := rec.Result().Header.Values("Access-Control-Allow-Origin"); len(got) != 1 || got[0] != origin {
+		t.Fatalf("unauthorized PUT CORS origin = %q", got)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(got, http.MethodPut) {
+		t.Fatalf("upstream replaced Edge PUT methods: %q", got)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Credentials"); got != "" {
+		t.Fatalf("upstream credential policy leaked: %q", got)
+	}
+	if got := rec.Body.String(); got != "authentication required" {
+		t.Fatalf("upstream unauthorized body changed: %q", got)
 	}
 }
 

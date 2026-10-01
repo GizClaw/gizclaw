@@ -919,7 +919,7 @@ func clearEdgeUpstreamCORSHeaders(header http.Header) {
 
 func setEdgeCORSHeaders(header http.Header, origin string) {
 	setEdgeCORSOrigin(header, origin)
-	header.Set("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
+	header.Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
 	header.Set("Access-Control-Allow-Headers", "Authorization,Content-Type,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp,X-Request-ID")
 	header.Set("Access-Control-Expose-Headers", "Content-Length,Content-Type,X-GizClaw-Gateway-Upstream,X-Request-ID")
 }
