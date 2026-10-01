@@ -231,7 +231,7 @@ mounts and Compose usage.
 
 Both native runners execute `build/check-runtime-image.sh`: CLI, `ldd`, CA,
 read-only config, SQLite/filesystem persistence, `/server-info` build identity,
-health, restart and graceful SIGTERM exit. They upload complete verified image
+health, restart, exclusive workspace ownership, graceful SIGTERM exit and forced-stop recovery. They upload complete verified image
 archives. Publication pushes these images without rebuilding the binary or
 runtime layers.
 

@@ -55,6 +55,7 @@ jobs:
           build/build-linux.sh
           build/build-runtime-image.sh
           build/check-runtime-image.sh
+          build/runtime-entrypoint.sh
           build/publish-runtime-image.sh
           build/check-container-receipt.sh
           build/check-release-source.sh

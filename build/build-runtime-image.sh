@@ -16,7 +16,8 @@ context="$(mktemp -d)"
 trap 'rm -rf "$context"' EXIT
 cp "$package" "$context/gizclaw.deb"
 cp "$repo_root/LICENSE" "$context/LICENSE"
+cp "$repo_root/build/runtime-entrypoint.sh" "$context/runtime-entrypoint.sh"
 created="$(date -u -d "@$source_epoch" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -r "$source_epoch" +%Y-%m-%dT%H:%M:%SZ)"
-docker build --platform "linux/$arch" -f "$repo_root/build/Dockerfile.runtime" \
+docker build --provenance=false --platform "linux/$arch" -f "$repo_root/build/Dockerfile.runtime" \
   --build-arg VERSION="$version" --build-arg SOURCE_COMMIT="$source_commit" \
   --build-arg CREATED="$created" -t "gizclaw-runtime:${source_commit}-${arch}" "$context"

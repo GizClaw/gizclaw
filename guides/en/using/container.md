@@ -26,9 +26,11 @@ no login for pulls. Publishing and first-package visibility are described in the
 
 ## Workspace and configuration
 
-The entrypoint is `/usr/bin/gizclaw`. Default arguments are
+The entrypoint is `/usr/local/bin/gizclaw-entrypoint`, which executes
+`/usr/bin/gizclaw`. Default arguments are
 `serve --force /var/lib/gizclaw`, which explicitly enables foreground serving
-inside the container. The process handles SIGTERM directly. It runs as UID/GID
+inside the container. The wrapper claims a workspace file lock, removes a stale
+`serve.pid` under that lock and executes the Server, which handles SIGTERM directly. It runs as UID/GID
 `10001:10001`; bind-mounted writable directories must belong to that account.
 A fresh named volume inherits the image workspace ownership.
 
@@ -91,10 +93,10 @@ their own checks. Adapt it if listener port or TLS changes.
 
 Stop with `docker compose stop gizclaw` or `docker stop --time 30 <container>`.
 Normal shutdown removes `serve.pid` and closes stores. Retain the data volume;
-avoid `docker compose down -v` when preserving state. After an ungraceful crash,
-if a stale PID prevents startup, stop all users of that workspace and remove only
-its `serve.pid` before restarting. Never share the same volume with concurrent
-Server instances.
+avoid `docker compose down -v` when preserving state. The default command recovers automatically after a forced stop; a concurrent
+container using the same workspace is rejected before modifying the PID file.
+Never share that workspace with a host Server. Custom CLI arguments execute
+directly without this default-workspace lock.
 
 ## Local runtime verification
 
@@ -110,5 +112,5 @@ build/check-runtime-image.sh "gizclaw-runtime:${SOURCE_COMMIT}-${ARCH}" \
 The gate uses temporary config, an isolated volume and no provider credentials;
 it removes its containers and volume on exit. It verifies CLI, runtime libraries,
 CA, non-root execution, config/data mounts, health, persistence, identity across
-restart and graceful stop. Publication repeats these checks after anonymous
+restart, graceful stop and forced-stop recovery. Publication repeats these checks after anonymous
 pulls by digest on both native runners.

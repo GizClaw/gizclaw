@@ -205,7 +205,7 @@ Mem0、LiveKit 与 PostgreSQL 由外部服务提供。启动、挂载与 Compose
 
 两个原生 runner 都运行 `build/check-runtime-image.sh`，校验 CLI、`ldd`、CA、
 read-only 配置、SQLite/filesystem 持久化、`/server-info` 构建身份、健康检查、重启和
-SIGTERM 退出。通过后上传完整 image archive；GHCR publisher 只推送这些已验证的
+SIGTERM 退出、workspace 独占和强制停止恢复。通过后上传完整 image archive；GHCR publisher 只推送这些已验证的
 镜像，不重建二进制或运行层。
 
 `ghcr.io/gizclaw/gizclaw:vMAJOR.MINOR.PATCH` 是两架构 index，仅含 `linux/amd64` 与

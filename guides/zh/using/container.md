@@ -22,8 +22,9 @@ Compose 固定 index digest，Docker 自动选择主机架构。OCI metadata 与
 
 ## Workspace 与配置
 
-ENTRYPOINT 为 `/usr/bin/gizclaw`，默认参数为
-`serve --force /var/lib/gizclaw`，显式允许在容器内前台运行；进程直接处理 SIGTERM。
+ENTRYPOINT 为 `/usr/local/bin/gizclaw-entrypoint`，最终执行 `/usr/bin/gizclaw`，默认参数为
+`serve --force /var/lib/gizclaw`，显式允许在容器内前台运行；入口先取得 workspace 文件锁，再清理 stale
+`serve.pid` 并 exec Server，进程直接处理 SIGTERM。
 运行账户为 UID/GID `10001:10001`，bind mount 的可写目录必须归该账户所有。
 新建 named volume 会继承镜像 workspace 的权限。
 
@@ -81,8 +82,9 @@ volumes:
 
 停止使用 `docker compose stop gizclaw` 或 `docker stop --time 30 <container>`。
 正常停止会删除 `serve.pid` 并关闭 stores。保留数据 volume，需保留状态时不要运行
-`docker compose down -v`。异常崩溃后若 stale PID 阻止启动，先停止该 workspace
-的全部使用者，再仅删除它的 `serve.pid` 后重启。不要让多个 Server 并发共享 volume。
+`docker compose down -v`。默认命令支持强制停止后的自动恢复；并发使用同一 workspace 的容器会在修改 PID 文件前
+被拒绝。不要将该 workspace 与主机 Server 共享。自定义 CLI 参数直接执行，
+不使用这个默认 workspace 锁。
 
 ## 本地验证
 
@@ -97,5 +99,5 @@ build/check-runtime-image.sh "gizclaw-runtime:${SOURCE_COMMIT}-${ARCH}" \
 
 Gate 使用临时配置和独立 volume，无需 provider credential，退出时清理容器与
 volume。验证 CLI、运行库、CA、非 root 执行、配置与数据挂载、健康检查、数据与
-identity 跨重启保留，以及优雅停止。发布后在两个原生 runner 上按 digest 匿名拉取，
+identity 跨重启保留、并发 workspace 拒绝、优雅停止与强制停止恢复。发布后在两个原生 runner 上按 digest 匿名拉取，
 重新执行这些验证。

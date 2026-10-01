@@ -9,7 +9,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 platform="linux/$arch"
 docker image inspect "$image" | jq -e --arg arch "$arch" --arg version "$version" --arg commit "$source_commit" '
   .[0] | .Os == "linux" and .Architecture == $arch and
-  .Config.User == "10001:10001" and .Config.Entrypoint == ["/usr/bin/gizclaw"] and
+  .Config.User == "10001:10001" and .Config.Entrypoint == ["/usr/local/bin/gizclaw-entrypoint"] and
   .Config.Labels["org.opencontainers.image.version"] == $version and
   .Config.Labels["org.opencontainers.image.revision"] == $commit
 ' >/dev/null
@@ -72,6 +72,12 @@ stop() {
   container=
 }
 start
+if docker run --rm --platform "$platform" --mount "type=volume,src=$volume,dst=/var/lib/gizclaw" \
+  "$image" >"$work/concurrent-start.log" 2>&1; then
+  echo 'concurrent Server claimed the same workspace' >&2
+  exit 1
+fi
+grep -Fq 'workspace already owned' "$work/concurrent-start.log"
 info="$(docker exec "$container" curl -fsS http://127.0.0.1:9820/server-info)"
 jq -e --arg version "$version" --arg commit "$source_commit" '.version == $version and .build_commit == $commit' <<<"$info" >/dev/null
 public_key="$(jq -er .public_key <<<"$info")"
@@ -81,5 +87,13 @@ start
 docker exec "$container" sh -ec 'test "$(cat data/runtime-image-check)" = persistence'
 info="$(docker exec "$container" curl -fsS http://127.0.0.1:9820/server-info)"
 jq -e --arg key "$public_key" '.public_key == $key' <<<"$info" >/dev/null
+docker kill "$container" >/dev/null
+[[ "$(docker inspect --format '{{.State.ExitCode}}' "$container")" == 137 ]]
+docker rm "$container" >/dev/null
+container=
+start
+docker exec "$container" sh -ec 'test "$(cat data/runtime-image-check)" = persistence'
+info="$(docker exec "$container" curl -fsS http://127.0.0.1:9820/server-info)"
+jq -e --arg key "$public_key" '.public_key == $key' <<<"$info" >/dev/null
 stop
-printf 'validated runtime linux/%s: CLI, libraries, mounted config/data, identity, health, restart, SIGTERM\n' "$arch"
+printf 'validated runtime linux/%s: CLI, libraries, mounted config/data, identity, health, exclusive workspace, restart, SIGTERM, crash recovery\n' "$arch"
