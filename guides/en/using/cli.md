@@ -164,8 +164,6 @@ Both deadlines begin after the complete input turn has been pushed. Once both
 first-response events arrive, the runner closes that logical stream immediately;
 text/audio EOS and the remainder of the response are outside this probe.
 
-Set `first_text_timeout_severity: warning` to continue waiting for required content after the first-text threshold. Warnings remain visible in the step evidence and CLI summary. Omit a fatal `/first_text_ms` maximum assertion for that threshold; first-audio and overall step deadlines still fail.
-
 A text-only Workflow disables the absent audio modality and declares only its
 text deadline:
 

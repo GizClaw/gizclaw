@@ -643,8 +643,6 @@ modes in the Go runner. JavaScript and Flutter runners skip the unsupported `pee
 
 Empty assistant BOS events do not establish response ownership; actual text or audio content does. The scenarios use a single Chinese counting request to reduce extra VAD turns caused by pauses within the recording.
 
-`eino-concurrency-assistant.workspace-reload-initiative` uses Chinese audio requesting a four-character reply. Its post-reload step retains the 30-second overall deadline and requires nonempty audio, both text and audio EOS, reuse of the same connection, the reload marker and a new input StreamID. The scenario verifies response completion after new input replaces an initiative opening.
-
 `peer_stream.completion: first_response` is the bounded deployment-probe
 alternative. `require_text` and `require_audio` select its required modalities
 and both default to true. Every required modality needs its corresponding
@@ -658,8 +656,6 @@ either EOS. A missing required modality fails with
 `deadline=first_text_timeout` or `deadline=first_audio_timeout`. This completion
 cannot be combined with `interrupt_after`, `terminal_label`, or
 `wait_for_history`.
-`first_text_timeout_severity: warning` records a late first text in the step evidence's `warnings` and prints it in the CLI summary, while continuing to wait for required content. The warning threshold is `first_text_timeout`; omit a fatal `/first_text_ms` maximum assertion for that threshold. First-audio deadlines, missing content, error EOS and the overall step deadline still fail. This option requires `completion: first_response`.
-
 `peer_stream.idle_timeout` (Go duration, optional) bounds inactivity instead of
 total length: the runner arms the timer after the turn input is pushed, resets
 it on every received chunk regardless of label, re-arms it after an
@@ -1594,7 +1590,7 @@ audio BOS, waits 200 ms for synthesis, then emits 80 valid 20 ms Opus frames. Co
 these delays.
 
 `slow-tts.*.giztest.yaml` covers Eino push-to-talk, Eino realtime and Flowcraft
-realtime. First-response steps report text latency above 2 seconds as a warning; a separate
+realtime. First-response steps retain the 2-second text deadline; a separate
 Peer with the same workflow checks text/audio EOS, nonempty audio, overlap and pacing. Realtime
 turns reuse the session to replace input during earlier TTS startup. CI runs this
 suite in the Audioplayer Giztest job. The standard provider-backed runner excludes

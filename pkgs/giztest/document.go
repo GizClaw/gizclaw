@@ -170,24 +170,21 @@ type PeerStreamOperation struct {
 	// frame is captured or a device whose gate emitted nothing. It replaces
 	// Input, and the step asserts that the turn completes with empty assistant
 	// routes instead of waiting for a response.
-	EmptyInput       bool   `json:"empty_input,omitempty" yaml:"empty_input,omitempty"`
-	Duration         string `json:"duration,omitempty" yaml:"duration,omitempty"`
-	Pacing           string `json:"pacing,omitempty" yaml:"pacing,omitempty"`
-	InterruptAfter   string `json:"interrupt_after,omitempty" yaml:"interrupt_after,omitempty"`
-	IdleTimeout      string `json:"idle_timeout,omitempty" yaml:"idle_timeout,omitempty"`
-	Completion       string `json:"completion,omitempty" yaml:"completion,omitempty"`
-	FirstTextTimeout string `json:"first_text_timeout,omitempty" yaml:"first_text_timeout,omitempty"`
-	// FirstTextTimeoutSeverity makes a missed first-text deadline a warning
-	// when set to warning. Required text and the step's total deadline remain.
-	FirstTextTimeoutSeverity string `json:"first_text_timeout_severity,omitempty" yaml:"first_text_timeout_severity,omitempty"`
-	FirstAudioTimeout        string `json:"first_audio_timeout,omitempty" yaml:"first_audio_timeout,omitempty"`
-	TerminalLabel            string `json:"terminal_label,omitempty" yaml:"terminal_label,omitempty"`
-	RequireText              *bool  `json:"require_text,omitempty" yaml:"require_text,omitempty"`
-	RequireAudio             *bool  `json:"require_audio,omitempty" yaml:"require_audio,omitempty"`
-	WaitForHistory           bool   `json:"wait_for_history,omitempty" yaml:"wait_for_history,omitempty"`
-	Session                  string `json:"session,omitempty" yaml:"session,omitempty"`
-	KeepOpen                 bool   `json:"keep_open,omitempty" yaml:"keep_open,omitempty"`
-	AwaitRearm               string `json:"await_rearm,omitempty" yaml:"await_rearm,omitempty"`
+	EmptyInput        bool   `json:"empty_input,omitempty" yaml:"empty_input,omitempty"`
+	Duration          string `json:"duration,omitempty" yaml:"duration,omitempty"`
+	Pacing            string `json:"pacing,omitempty" yaml:"pacing,omitempty"`
+	InterruptAfter    string `json:"interrupt_after,omitempty" yaml:"interrupt_after,omitempty"`
+	IdleTimeout       string `json:"idle_timeout,omitempty" yaml:"idle_timeout,omitempty"`
+	Completion        string `json:"completion,omitempty" yaml:"completion,omitempty"`
+	FirstTextTimeout  string `json:"first_text_timeout,omitempty" yaml:"first_text_timeout,omitempty"`
+	FirstAudioTimeout string `json:"first_audio_timeout,omitempty" yaml:"first_audio_timeout,omitempty"`
+	TerminalLabel     string `json:"terminal_label,omitempty" yaml:"terminal_label,omitempty"`
+	RequireText       *bool  `json:"require_text,omitempty" yaml:"require_text,omitempty"`
+	RequireAudio      *bool  `json:"require_audio,omitempty" yaml:"require_audio,omitempty"`
+	WaitForHistory    bool   `json:"wait_for_history,omitempty" yaml:"wait_for_history,omitempty"`
+	Session           string `json:"session,omitempty" yaml:"session,omitempty"`
+	KeepOpen          bool   `json:"keep_open,omitempty" yaml:"keep_open,omitempty"`
+	AwaitRearm        string `json:"await_rearm,omitempty" yaml:"await_rearm,omitempty"`
 
 	// TrimTrailingSilence drops the silent Opus packets that end the input
 	// audio before a push-to-talk turn is sent, so the EOS follows the last
@@ -675,7 +672,6 @@ func validateListenPeerStream(step Step) error {
 		{"idle_timeout", op.IdleTimeout != ""},
 		{"completion", op.Completion != ""},
 		{"first_text_timeout", op.FirstTextTimeout != ""},
-		{"first_text_timeout_severity", op.FirstTextTimeoutSeverity != ""},
 		{"first_audio_timeout", op.FirstAudioTimeout != ""},
 		{"terminal_label", op.TerminalLabel != ""},
 		{"require_text", op.RequireText != nil},
@@ -986,14 +982,6 @@ func collectReferences(v any) []string {
 // document's finally block.
 func validatePeerStreamStep(step Step, finalizer bool) error {
 	op := step.PeerStream
-	if severity := step.PeerStream.FirstTextTimeoutSeverity; severity != "" {
-		if severity != "warning" && severity != "error" {
-			return fmt.Errorf("step %s has invalid first_text_timeout_severity %q", step.ID, severity)
-		}
-		if step.PeerStream.Completion != "first_response" || step.PeerStream.FirstTextTimeout == "" {
-			return fmt.Errorf("step %s first_text_timeout_severity requires a first_response text deadline", step.ID)
-		}
-	}
 	if op.TextDone && op.Mode != "text" {
 		return fmt.Errorf("step %s text_done requires text mode", step.ID)
 	}
@@ -1103,7 +1091,6 @@ func validatePeerStreamStep(step Step, finalizer bool) error {
 			return fmt.Errorf("step %s has invalid idle_timeout %q", step.ID, step.PeerStream.IdleTimeout)
 		}
 	}
-
 	switch step.PeerStream.Completion {
 	case "", "terminal":
 		if step.PeerStream.FirstTextTimeout != "" || step.PeerStream.FirstAudioTimeout != "" {

@@ -2,7 +2,6 @@ package giztestcmd
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -195,11 +194,6 @@ func newRunCmd() *cobra.Command {
 		if err := giztest.WriteReport(output, report); err != nil {
 			return codedError(exitExecution, err)
 		}
-		for _, task := range report.Tasks {
-			for _, step := range task.Steps {
-				writeStepWarnings(cmd.OutOrStdout(), task.TaskID, step)
-			}
-		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Giztest %s: %d tasks in %dms\n", report.Status, len(report.Tasks), report.DurationMS)
 		if report.Status != "passed" {
 			if reportHasReviewFailure(report) {
@@ -227,17 +221,6 @@ func validateRunOptions(parallel int, output, evidence string) error {
 		return fmt.Errorf("full evidence requires --output")
 	}
 	return nil
-}
-
-func writeStepWarnings(out io.Writer, taskID string, step giztest.StepReport) {
-	if warnings, ok := step.Evidence["warnings"].([]string); ok {
-		for _, warning := range warnings {
-			fmt.Fprintf(out, "Giztest warning: task=%s step=%s %s\n", taskID, step.ID, warning)
-		}
-	}
-	for _, child := range step.Children {
-		writeStepWarnings(out, taskID, child)
-	}
 }
 
 func reportHasReviewFailure(report giztest.Report) bool {

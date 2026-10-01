@@ -136,8 +136,6 @@ model 和可选 language，不填写这个由 runner 拥有的 wire metadata。
 两个 deadline 都在完整输入 turn 推送完成后开始。两种首响应都到达后，runner 立即关闭该
 逻辑 stream；文本/音频 EOS 和剩余回复不属于这个探针。
 
-首字延迟可设置 `first_text_timeout_severity: warning`：超出 `first_text_timeout` 时继续等待必需内容，在步骤证据和 CLI 汇总中显示 warning。相应的 `/first_text_ms` 不再配置 fatal maximum 断言；首音频和步骤总超时继续失败。
-
 仅输出文本的 Workflow 禁用不存在的音频模态，并且只声明文本 deadline：
 
 ```yaml

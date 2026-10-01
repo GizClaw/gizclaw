@@ -439,12 +439,6 @@ func TestInvokePeerStreamRearmsRetainedRealtimeSession(t *testing.T) {
 	if newID == oldID || openCount != 1 || second.evidence["reload_eos_observed"] != true || second.evidence["replacement_bos_sent"] != true || second.evidence["stream_id_changed"] != true || second.evidence["session_connection_reused"] != true || second.evidence["session_retained"] != true {
 		t.Fatalf("old_id=%q new_id=%q open_count=%d evidence=%#v", oldID, newID, openCount, second.evidence)
 	}
-	object := second.assertion.(map[string]any)
-	for _, field := range []string{"reload_eos_observed", "replacement_bos_sent", "stream_id_changed", "session_connection_reused", "session_retained"} {
-		if object[field] != true {
-			t.Fatalf("rearm result field %s = %#v; want assertable true", field, object[field])
-		}
-	}
 	select {
 	case <-stream.closed:
 		t.Fatal("re-retained session closed after the second step")

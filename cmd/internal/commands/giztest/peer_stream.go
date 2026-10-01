@@ -612,9 +612,6 @@ func invokePeerStreamWithSessions(ctx context.Context, client *gizcli.Client, op
 		}
 	}
 	result.evidence = mapsWith(result.evidence, rearmEvidence)
-	if object, ok := result.assertion.(map[string]any); ok {
-		maps.Copy(object, rearmEvidence)
-	}
 	return result, invokeErr
 }
 
@@ -942,13 +939,6 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	assistantTextEvents, assistantAudioEvents, assistantEOS := 0, 0, 0
 	transcriptTextEvents, transcriptEOS, otherEOS := 0, 0, 0
 	var terminalErrors []string
-	var warnings []string
-	firstTextWarning := op.FirstTextTimeoutSeverity == "warning"
-	warnFirstText := func() {
-		if len(warnings) == 0 {
-			warnings = append(warnings, fmt.Sprintf("peer_stream first text exceeded %s; waiting for required content", op.FirstTextTimeout))
-		}
-	}
 	var firstTranscriptMS, firstTextMS, firstAudioMS, textEOSMS, audioEOSMS, lastEventMS int64
 	var firstTextElapsed, firstAudioElapsed time.Duration
 	var lead peerAudioLead
@@ -964,9 +954,6 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	}
 	baseEvidence := func() map[string]any {
 		evidence := map[string]any{"events": events, "first_transcript_ms": firstTranscriptMS, "last_event_ms": lastEventMS}
-		if len(warnings) != 0 {
-			evidence["warnings"] = slices.Clone(warnings)
-		}
 		if idleTimeout > 0 {
 			evidence["idle_timeout_ms"] = idleTimeout.Milliseconds()
 		}
@@ -974,15 +961,6 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	}
 	failedEvidence := func(deadline string) map[string]any {
 		evidence := baseEvidence()
-		progress := make(map[string]any, len(responses))
-		for id, response := range responses {
-			progress[id] = map[string]bool{
-				"text": response.textObserved, "audio": response.audioObserved,
-				"text_eos": response.textEOS, "audio_eos": response.audioEOS,
-				"interrupted": response.interrupted,
-			}
-		}
-		evidence["response_progress"] = progress
 		evidence["deadline"] = deadline
 		evidence["first_text_ms"] = firstTextMS
 		evidence["first_audio_ms"] = firstAudioMS
@@ -1227,11 +1205,6 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				firstTextDeadline = nil
 				continue
 			}
-			if firstTextWarning {
-				warnFirstText()
-				firstTextDeadline = nil
-				continue
-			}
 			return operationResult{evidence: failedEvidence("first_text_timeout")}, fmt.Errorf("peer_stream first text timeout exceeded after %s (deadline=first_text_timeout %s): %w", op.FirstTextTimeout, counters(), context.DeadlineExceeded)
 		case <-firstAudioDeadline:
 			if arrivals.firstAudioWithin(firstAudioTimeout) {
@@ -1433,11 +1406,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			// modality has been.
 			if firstResponse {
 				if requireText && firstTextObserved && firstTextElapsed > firstTextTimeout {
-					if firstTextWarning {
-						warnFirstText()
-					} else {
-						return operationResult{evidence: failedEvidence("first_text_timeout")}, fmt.Errorf("peer_stream first text timeout exceeded after %s (deadline=first_text_timeout %s): %w", op.FirstTextTimeout, counters(), context.DeadlineExceeded)
-					}
+					return operationResult{evidence: failedEvidence("first_text_timeout")}, fmt.Errorf("peer_stream first text timeout exceeded after %s (deadline=first_text_timeout %s): %w", op.FirstTextTimeout, counters(), context.DeadlineExceeded)
 				}
 				if requireAudio && firstAudioObserved && firstAudioElapsed > firstAudioTimeout {
 					return operationResult{evidence: failedEvidence("first_audio_timeout")}, fmt.Errorf("peer_stream first audio timeout exceeded after %s (deadline=first_audio_timeout %s): %w", op.FirstAudioTimeout, counters(), context.DeadlineExceeded)

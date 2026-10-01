@@ -613,12 +613,6 @@
         "first_text_timeout": {
           "type": "string"
         },
-        "first_text_timeout_severity": {
-          "enum": [
-            "error",
-            "warning"
-          ]
-        },
         "first_audio_timeout": {
           "type": "string"
         },
@@ -849,24 +843,6 @@
                   ]
                 }
               ]
-            }
-          }
-        },
-        {
-          "if": {
-            "required": [
-              "first_text_timeout_severity"
-            ]
-          },
-          "then": {
-            "required": [
-              "completion",
-              "first_text_timeout"
-            ],
-            "properties": {
-              "completion": {
-                "const": "first_response"
-              }
             }
           }
         }
