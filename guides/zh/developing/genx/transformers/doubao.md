@@ -164,6 +164,8 @@ Realtime 模式把普通 BOS、MIME EOS 和 route EOS 只视为本地 stream bou
 
 PTT 的二进制音频帧不携带 question/reply ID，归属由最近一次 TTS-start 事件确定。下一轮输入开始后，上一轮尚未完成的 Chat/TTS 记录仍用于匹配迟到的带 ID 事件，但不能抢占新一轮的无 ID 音频。旧响应的结束事件只关闭自己的 route。
 
+语义 ASR 输入、非空文字输入或主动开场对应的 provider response 如果正常结束却没有任何 assistant 文字或规范化音频，Transformer 在最后一个 assistant EOS 上报告 `doubao realtime response completed without assistant content`。调用方可以立即结束失败轮次；Transformer 与 provider session 保持可供后续轮次使用，不伪造内容、不重播输入。真正的空 Push-to-Talk ASR 继续使用成功的空 lifecycle 与既有 provider-session handoff。
+
 ### Realtime Dialogue Agent initiative
 
 Workspace `conversation.initiative` 为 `agent` 时，`doubaorealtime.Transformer` 让对话模型自己生成开场：第一个 provider session 建立后，Transformer 立即通过 ChatTextQuery（event 501，SDK `SendText`）发送一条隐藏 query，默认文本要求模型主动打招呼并开启话题，Workflow `doubao_realtime.initiative_query` 可覆盖。隐藏 query 永远不进入 output stream 和 Workspace History，只有模型的回复以 assistant text/audio route 发布；这条 route 的 StreamID 固定为 `initiative`（Realtime 模式下带 segment 后缀），不是任何 Peer 输入 route。`Config.Initiative` 只支持 `on_reload`：每个 `Transform` session 最多发送一次，同一个已配置 Transformer 服务的每个 Workspace 各自开场，reload 得到的新 Agent generation 会再次开场；`once_when_empty` 由 factory 在 Workspace History 为空时映射为 `on_reload`，History 非空时不启用。不发送 SayHello 或 ChatTTSText。
