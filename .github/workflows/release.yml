@@ -133,10 +133,34 @@ jobs:
             --source-commit "$SOURCE_COMMIT" \
             --architecture "${{ matrix.arch }}"
 
+      - name: Build and run production image from the verified Debian package
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+          SOURCE_EPOCH: ${{ needs.prepare.outputs.source_epoch }}
+          BINARY: ${{ runner.temp }}/gizclaw-linux-${{ matrix.arch }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          build/build-runtime-image.sh ".tmp/release/gizclaw_${VERSION}_${ARCH}.deb" "$VERSION" "$SOURCE_COMMIT" "$SOURCE_EPOCH" "$ARCH"
+          binary_digest="$(sha256sum "$BINARY" | cut -d ' ' -f1)"
+          image="gizclaw-runtime:${SOURCE_COMMIT}-${ARCH}"
+          build/check-runtime-image.sh "$image" "$VERSION" "$SOURCE_COMMIT" "$ARCH" "$binary_digest"
+          mkdir -p .tmp/runtime
+          docker save --output ".tmp/runtime/runtime-${ARCH}.tar" "$image"
+          printf '%s\n' "$binary_digest" >".tmp/runtime/binary-${ARCH}.sha256"
+
+      - name: Upload verified production image
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: runtime-${{ matrix.arch }}
+          path: .tmp/runtime/*
+          compression-level: 0
+          if-no-files-found: error
+
       - name: Upload Linux release asset
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: linux-${{ matrix.arch }}
+          name: assets-linux-${{ matrix.arch }}
           path: .tmp/release/*
           if-no-files-found: error
 
@@ -195,7 +219,7 @@ jobs:
       - name: Upload C SDK source release assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: c-sdk-source
+          name: assets-c-sdk-source
           path: |
             .tmp/release/gizclaw-c-sdk-*.tar.gz
             .tmp/release/gizclaw-c-sdk-*.tar.gz.sha256
@@ -251,7 +275,7 @@ jobs:
       - name: Upload Flutter SDK release assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: flutter-sdk
+          name: assets-flutter-sdk
           path: .tmp/release/flutter-*.tar.gz
           if-no-files-found: error
 
@@ -304,7 +328,7 @@ jobs:
       - name: Upload JavaScript SDK release assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: js-sdk
+          name: assets-js-sdk
           path: .tmp/release/npm-*.tgz
           if-no-files-found: error
 
@@ -342,9 +366,118 @@ jobs:
       - name: Upload Terraform provider release assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: terraform-provider
+          name: assets-terraform-provider
           path: .tmp/release/terraform-provider-gizclaw_*.zip
           if-no-files-found: error
+
+  container-image:
+    if: github.repository == 'GizClaw/gizclaw'
+    name: Publish Immutable GHCR Image
+    needs: [prepare, linux, c-sdk, flutter-sdk, js-sdk, terraform-provider]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      reference: ${{ steps.publish.outputs.reference }}
+    steps:
+      - name: Check out selected source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.prepare.outputs.source_commit }}
+
+      - name: Set up pinned Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+        with:
+          version: v0.33.0
+
+      - name: Verify current protected source and formal tag ruleset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+        run: build/check-release-source.sh "$GH_REPO" "$TAG" "$SOURCE_COMMIT"
+
+      - name: Log in to GHCR with the repository token
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download verified image archives
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: runtime-*
+          path: .tmp/runtime
+          merge-multiple: true
+
+      - name: Download matching Debian packages
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: assets-linux-*
+          path: .tmp/packages
+          merge-multiple: true
+
+      - name: Publish or verify the immutable version and record its digest
+        id: publish
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+        run: build/publish-runtime-image.sh .tmp/runtime .tmp/packages "$TAG" "$SOURCE_COMMIT"
+
+      - name: Upload registry receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: assets-container-image
+          path: .tmp/packages/container-image.json
+          if-no-files-found: error
+
+  container-pull:
+    name: GHCR Anonymous Runtime (${{ matrix.arch }})
+    needs: [prepare, container-image]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Check out selected source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.prepare.outputs.source_commit }}
+
+      - name: Download registry receipt
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: assets-container-image
+          path: .tmp/receipt
+
+      - name: Pull and run the published digest without registry credentials
+        env:
+          IMAGE: ${{ needs.container-image.outputs.reference }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          export DOCKER_CONFIG
+          DOCKER_CONFIG="$(mktemp -d)"
+          trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+          docker pull --platform "linux/$ARCH" "$IMAGE" || {
+            echo 'GHCR must allow anonymous pulls. For first publication, set the GizClaw package visibility to public and rerun failed jobs.' >&2
+            exit 1
+          }
+          binary_digest="$(jq -er --arg arch "$ARCH" '.platforms[] | select(.architecture == $arch) | .binary_sha256' .tmp/receipt/container-image.json)"
+          build/check-runtime-image.sh "$IMAGE" "$VERSION" "$SOURCE_COMMIT" "$ARCH" "$binary_digest"
 
   publish-semver:
     name: Publish Protected SemVer Release
@@ -355,6 +488,8 @@ jobs:
       - flutter-sdk
       - js-sdk
       - terraform-provider
+      - container-image
+      - container-pull
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -370,7 +505,7 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           path: .tmp/download
-          pattern: "*"
+          pattern: "assets-*"
           merge-multiple: true
 
       - name: Build and validate closed formal staging directory
@@ -399,65 +534,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.prepare.outputs.tag }}
           SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
-        run: |
-          set -euo pipefail
-          test "$(gh api "repos/$GH_REPO/branches/main" --jq .protected)" = true
-
-          ruleset_ok=false
-          creation_blocked=false
-          ruleset_ids=()
-          rulesets_page=1
-          while true; do
-            rulesets="$(curl \
-              --fail-with-body \
-              --silent \
-              --show-error \
-              --header 'Accept: application/vnd.github+json' \
-              --header 'X-GitHub-Api-Version: 2022-11-28' \
-              "$GITHUB_API_URL/repos/$GH_REPO/rulesets?includes_parents=true&per_page=100&page=$rulesets_page")"
-            while IFS= read -r ruleset_id; do
-              ruleset_ids+=("$ruleset_id")
-            done < <(jq -r '.[] | select(.target == "tag" and .enforcement == "active") | .id' <<<"$rulesets")
-            [[ "$(jq 'length' <<<"$rulesets")" -eq 100 ]] || break
-            ((rulesets_page += 1))
-          done
-          for ruleset_id in "${ruleset_ids[@]}"; do
-            ruleset="$(curl \
-              --fail-with-body \
-              --silent \
-              --show-error \
-              --header 'Accept: application/vnd.github+json' \
-              --header 'X-GitHub-Api-Version: 2022-11-28' \
-              "$GITHUB_API_URL/repos/$GH_REPO/rulesets/$ruleset_id")"
-            if jq -e '
-              (.conditions.ref_name.include | index("refs/tags/v*") != null) and
-              (.conditions.ref_name.exclude | length == 0) and
-              ([.rules[].type] | index("creation") != null)
-            ' <<<"$ruleset" >/dev/null; then
-              creation_blocked=true
-            fi
-            if jq -e '
-              (.conditions.ref_name.include | index("refs/tags/v*") != null) and
-              (.conditions.ref_name.exclude | length == 0) and
-              ([.rules[].type] | index("update") != null) and
-              ([.rules[].type] | index("deletion") != null) and
-              ([.rules[].type] | index("creation") == null)
-            ' <<<"$ruleset" >/dev/null; then
-              ruleset_ok=true
-            fi
-          done
-          if [[ "$ruleset_ok" != true || "$creation_blocked" != false ]]; then
-            echo "an active refs/tags/v* ruleset allowing creation and restricting update and deletion is required" >&2
-            exit 1
-          fi
-
-          remote_tag_commit="$(
-            git ls-remote origin "refs/tags/$TAG" "refs/tags/$TAG^{}" |
-              awk '$2 ~ /\^\{\}$/ { peeled=$1 } $2 !~ /\^\{\}$/ { direct=$1 } END { print peeled ? peeled : direct }'
-          )"
-          test "$remote_tag_commit" = "$SOURCE_COMMIT"
-          git fetch --force --no-tags origin refs/heads/main:refs/remotes/origin/main
-          git merge-base --is-ancestor "$SOURCE_COMMIT" refs/remotes/origin/main
+        run: build/check-release-source.sh "$GH_REPO" "$TAG" "$SOURCE_COMMIT"
 
       - name: Publish or verify formal Release without replacement
         env:
@@ -511,7 +588,7 @@ jobs:
               --verify-tag \
               --target "$SOURCE_COMMIT" \
               --title "$TAG" \
-              --notes "Formal GizClaw $TAG release from $SOURCE_COMMIT."
+              --notes "Formal GizClaw $TAG release from $SOURCE_COMMIT. Container: $(jq -r .reference .tmp/publish/container-image.json)."
             lookup_release
           elif [[ "$lookup_status" -ne 0 ]]; then
             exit "$lookup_status"

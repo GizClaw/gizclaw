@@ -112,7 +112,7 @@ publish a Release.
 Each Release contains exactly two Debian packages, four Terraform provider
 packages, one standalone C SDK source archive, its checksum sidecar, two
 Flutter SDK hosted pub archives, two npm SDK packages, `release-manifest.json`, and `SHA256SUMS`,
-fourteen files in total; it does not
+fifteen files in total, including the container receipt `container-image.json`; it does not
 publish raw Linux executables. The Debian packages use `<version>` from the tag
 in `gizclaw_<version>_{amd64,arm64}.deb`. The platform-neutral source payload is
 named `gizclaw-c-sdk-<version>.tar.gz`; its adjacent `.sha256` contains the
@@ -191,7 +191,7 @@ package name, version, and source commit; `npm-package` entries bind the full sc
 npm package name, version, and source commit. Debian entries also bind package metadata and
 `/usr/bin/gizclaw`; `terraform-provider` entries also bind provider `gizclaw`,
 the version, and the executable name inside the zip. A formal rerun accepts an
-existing published Release only when its metadata and all fourteen downloaded files
+existing published Release only when its metadata and all fifteen downloaded files
 match byte-for-byte. An
 exact-tag draft left by an interrupted first upload must pass the same metadata,
 inventory, digest, and byte-for-byte checks before the workflow publishes that
@@ -200,10 +200,10 @@ closed. The workflow never deletes, replaces, or overwrites a published SemVer
 Release. Downstream Homebrew and APT channels independently own their signing,
 hosting, retention, and live installation acceptance.
 
-`release-manifest.json` uses `schema_version: 6`. Its `assets` contains exactly
-11 payloads sorted by name with `LC_ALL=C`. The C SDK `.sha256` sidecar, manifest,
-and `SHA256SUMS` bring the Release inventory to 14 files. Consumers must explicitly
-validate schema 6 and the complete asset set; asset sets from different schemas
+`release-manifest.json` uses `schema_version: 7`. Its `assets` contains exactly
+12 payloads sorted by name with `LC_ALL=C`. The C SDK `.sha256` sidecar, manifest,
+and `SHA256SUMS` bring the Release inventory to 15 files. Consumers must explicitly
+validate schema 7 and the complete asset set; asset sets from different schemas
 cannot be mixed. Each npm entry has only these fields:
 
 | Field | Type and constraint |
@@ -219,6 +219,46 @@ cannot be mixed. Each npm entry has only these fields:
 Manifest generation and validation cross-check `name` and `version` read from
 `package/package.json` inside each tarball. npm entries have no `os`, `architecture`,
 `module`, `installed_path`, `provider`, or `executable` fields.
+
+### GHCR runtime image
+
+The native Linux jobs package the same verified Debian executable using
+`build/Dockerfile.runtime`; they do not compile a second executable. The runtime
+uses a pinned Ubuntu 24.04 base index, package-derived shared libraries, system
+CA certificates and curl, and runs as UID/GID 10001. Mem0, LiveKit and PostgreSQL
+remain external services. See [Container Image](/en/using/container) for startup,
+mounts and Compose usage.
+
+Both native runners execute `build/check-runtime-image.sh`: CLI, `ldd`, CA,
+read-only config, SQLite/filesystem persistence, `/server-info` build identity,
+health, restart and graceful SIGTERM exit. They upload complete verified image
+archives. Publication pushes these images without rebuilding the binary or
+runtime layers.
+
+`ghcr.io/gizclaw/gizclaw:vMAJOR.MINOR.PATCH` is an index containing exactly
+`linux/amd64` and `linux/arm64`. There is no floating `latest` tag.
+`build-<tag>-<source_commit>-<arch>` tags stage platform manifests. The publisher has
+only `contents: read` and `packages: write`, and logs in with the official
+`docker/login-action` and this repository's `GITHUB_TOKEN`. Existing version and
+staging tags must match the OCI source/version/base and packaged executable
+SHA-256; mismatches fail without overwriting. Reruns reuse the existing digest;
+runtime dependency updates require a new formal version.
+
+`container-image.json` is a `kind: container-image` payload in manifest schema 7
+and `SHA256SUMS`. Receipt schema 1 records image, tag, version, source_commit,
+base_image, index digest, a Compose-ready `reference`, and both platform digests
+and binary_sha256 values. `build/check-container-receipt.sh` recomputes binary
+hashes inside the Debian packages. Validate older releases with scripts from
+their source tag, rather than using schema 7 against another schema.
+
+The Package must be public so Deploy can pull without credentials. GitHub may
+initially create it as private: an administrator sets public visibility in Package
+settings and reruns failed jobs. Actions token permissions need no expansion.
+Both native `container-pull` jobs use empty Docker credential configuration to
+pull the actual index digest anonymously and repeat the runtime gate; only then
+can the formal GitHub Release publish. If later steps fail after upload, retain
+the existing tags/digests, fix or rerun, and never replace assets. Ordinary PR/main
+CI builds and runs both native architectures without Packages write permission.
 
 ## Mutex scope inventory
 

@@ -39,7 +39,9 @@ if grep -Fq 'immutable-releases' "$release_workflow"; then
   exit 1
 fi
 grep -Fq "\"\$GITHUB_API_URL/repos/\$GH_REPO/rulesets?includes_parents=true&per_page=100&page=\$rulesets_page\"" \
-  <<<"$semver_publisher"
+  "$repo_root/build/check-release-source.sh"
+# shellcheck disable=SC2016 # Match the workflow command, including its variables.
+grep -Fq 'build/check-release-source.sh "$GH_REPO" "$TAG" "$SOURCE_COMMIT"' <<<"$semver_publisher"
 draft_transition="gh api --method PATCH \"repos/\$GH_REPO/releases/\$release_id\""
 [[ "$(grep -Fc "$draft_transition" <<<"$semver_publisher")" -eq 1 ]] || {
   echo "SemVer publisher must contain exactly one draft-to-published transition" >&2
@@ -57,7 +59,14 @@ grep -Fq 'tools/flutter-sdk/package_archive.sh' "$release_workflow"
 grep -Fq 'tools/flutter-sdk/consume_archives.sh' "$release_workflow"
 grep -Fq 'build/build-terraform-provider.sh' "$release_workflow"
 grep -Fq 'build/build-terraform-provider.sh' "$ci_workflow"
-grep -Fq 'pattern: "*"' <<<"$semver_publisher"
+grep -Fq 'packages: write' "$release_workflow"
+grep -Fq 'build/check-runtime-image.sh' "$ci_workflow"
+grep -Fq -- '- container-pull' <<<"$semver_publisher"
+if grep -Eq 'packages: write|docker/login-action|docker push|--push' "$ci_workflow"; then
+  echo "PR CI must not publish container packages" >&2
+  exit 1
+fi
+grep -Fq 'pattern: "assets-*"' <<<"$semver_publisher"
 grep -Fq 'merge-multiple: true' <<<"$semver_publisher"
 if grep -Fq "releases/tags/\$TAG" <<<"$semver_publisher"; then
   echo "SemVer publisher must not use the published-only tag endpoint for draft lookup" >&2
@@ -207,6 +216,14 @@ make_formal_payloads() {
   directory="$(cd "$directory" && pwd)"
   make_fixture_deb amd64 "$directory/gizclaw_${version}_amd64.deb"
   make_fixture_deb arm64 "$directory/gizclaw_${version}_arm64.deb"
+  binary_digest="$(sha256sum "$fixture_binary" | cut -d ' ' -f1)"
+  jq -n --arg tag "$tag" --arg version "$version" --arg commit "$source_commit" --arg binary "$binary_digest" '
+    {schema_version:1,image:"ghcr.io/gizclaw/gizclaw",tag:$tag,version:$version,source_commit:$commit,
+     digest:("sha256:" + ("a" * 64)),reference:("ghcr.io/gizclaw/gizclaw@sha256:" + ("a" * 64)),
+     base_image:"ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3",
+     platforms:[{os:"linux",architecture:"amd64",digest:("sha256:" + ("b" * 64)),binary_sha256:$binary},
+                {os:"linux",architecture:"arm64",digest:("sha256:" + ("c" * 64)),binary_sha256:$binary}]}
+  ' >"$directory/container-image.json"
   make_fixture_dart_package gizclaw "$directory/flutter-gizclaw-${version}.tar.gz"
   make_fixture_dart_package gizclaw_control "$directory/flutter-gizclaw_control-${version}.tar.gz"
   make_fixture_npm_package gizclaw "$directory/npm-gizclaw-${version}.tgz"
@@ -325,7 +342,7 @@ mv "$formal_unstable/changed.json" "$formal_unstable/release-manifest.json"
 expect_failure "per-run manifest value" "$repo_root/build/check-release.sh" semver "$formal_unstable" "$tag" "$source_commit"
 
 jq -e --arg version "$version" --arg source_commit "$source_commit" '
-  .schema_version == 6 and
+  .schema_version == 7 and
   ([.assets[] | select(.kind == "terraform-provider")] | length == 4) and
   all(.assets[] | select(.kind == "terraform-provider");
     .provider == "gizclaw" and .version == $version and .source_commit == $source_commit and
@@ -413,13 +430,13 @@ expect_failure "Flutter SDK archive replaced after manifest" "$repo_root/build/c
   semver "$dart_tampered" "$tag" "$source_commit"
 
 jq -e --arg version "$version" --arg source_commit "$source_commit" '
-  .schema_version == 6 and (.assets | length == 11) and
+  .schema_version == 7 and (.assets | length == 12) and
   [.assets[] | select(.kind == "npm-package") | {name,package,version,source_commit}] == [
     {name:("npm-gizclaw-" + $version + ".tgz"),package:"@gizclaw/gizclaw",version:$version,source_commit:$source_commit},
     {name:("npm-gizclaw-control-" + $version + ".tgz"),package:"@gizclaw/gizclaw-control",version:$version,source_commit:$source_commit}
   ]
 ' "$payloads/release-manifest.json" >/dev/null
-jq -e '.assets | length == 14' "$published_json" >/dev/null
+jq -e '.assets | length == 15' "$published_json" >/dev/null
 
 npm_missing="$fixture_root/npm-missing"
 cp -a "$payloads" "$npm_missing"
@@ -457,7 +474,7 @@ expect_failure "npm manifest inside archive mismatches Release" "$repo_root/buil
   semver "$npm_tampered" "$tag" "$source_commit"
 grep -Fq 'npm package manifest does not match release identity' "$fixture_root/failure.stderr"
 
-for mutation in '.schema_version = 5' '.schema_version = 7' \
+for mutation in '.schema_version = 6' '.schema_version = 8' \
   '(.assets[] | select(.kind == "npm-package") | .package) = "gizclaw"' \
   '(.assets[] | select(.kind == "npm-package") | .version) = "0.0.1"' \
   '(.assets[] | select(.kind == "npm-package") | .source_commit) = "2222222222222222222222222222222222222222"' \
@@ -513,5 +530,52 @@ if [[ "$(uname -s)" == Linux && "$(dpkg --print-architecture)" == amd64 ]]; then
     --binary "$fixture_binary" --version "$version" --source-commit "$source_commit" --source-epoch 1 \
     --architecture amd64 --output "$package_one"
 fi
+
+
+for case_name in digest platform commit binary reference; do
+  receipt_invalid="$fixture_root/receipt-invalid-$case_name"
+  make_formal_payloads "$receipt_invalid"
+  case "$case_name" in
+    digest) filter='.digest = "sha256:short"' ;;
+    platform) filter='.platforms[1].architecture = "amd64"' ;;
+    commit) filter='.source_commit = "2222222222222222222222222222222222222222"' ;;
+    binary) filter='.platforms[0].binary_sha256 = ("d" * 64)' ;;
+    reference) filter='.reference = "ghcr.io/gizclaw/gizclaw:v0.0.0"' ;;
+  esac
+  jq "$filter" "$receipt_invalid/container-image.json" >"$fixture_root/receipt.json"
+  cp "$fixture_root/receipt.json" "$receipt_invalid/container-image.json"
+  expect_failure "invalid container receipt $case_name" "$repo_root/build/build-release-manifest.sh" \
+    --asset-dir "$receipt_invalid" --tag "$tag" --debian-version "$version" --source-commit "$source_commit"
+done
+
+# An existing version, denied login or network failure must never permit a push.
+cat >"$fake_bin/docker" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"$MOCK_DOCKER_LOG"
+[[ "$1 $2 $3" == 'buildx imagetools inspect' ]] || exit 1
+case "$MOCK_REGISTRY_STATE" in
+  denied) echo 'ERROR: denied: permission_denied' >&2; exit 1 ;;
+  network) echo 'ERROR: TLS handshake timeout' >&2; exit 1 ;;
+  existing)
+    if [[ "$*" == *--raw* ]]; then
+      printf '%s\n' '{"mediaType":"application/vnd.oci.image.index.v1+json","annotations":{"org.opencontainers.image.revision":"wrong-source","org.opencontainers.image.version":"0.0.0"},"manifests":[]}'
+    else
+      printf '%s\n' '{"digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'
+    fi
+    ;;
+esac
+EOF
+chmod 0755 "$fake_bin/docker"
+for registry_state in denied network existing; do
+  docker_log="$fixture_root/docker-$registry_state.log"
+  expect_failure "registry $registry_state must fail without replacing a version" env \
+    PATH="$fake_bin:$PATH" MOCK_REGISTRY_STATE="$registry_state" MOCK_DOCKER_LOG="$docker_log" \
+    "$repo_root/build/publish-runtime-image.sh" "$fixture_root/no-images" "$fixture_root/no-assets" "$tag" "$source_commit"
+  if grep -Eq '(^push |^tag |imagetools create)' "$docker_log"; then
+    echo "unexpected registry mutation: $registry_state" >&2
+    exit 1
+  fi
+done
 
 printf '%s\n' "release contract tests passed"

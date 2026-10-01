@@ -52,6 +52,7 @@ version="${tag#v}"
 [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source commit" >&2; exit 2; }
 release_expected="$(printf '%s\n' \
   SHA256SUMS \
+  container-image.json \
   "flutter-gizclaw-${version}.tar.gz" \
   "flutter-gizclaw_control-${version}.tar.gz" \
   "gizclaw-c-sdk-${version}.tar.gz" \
@@ -72,7 +73,7 @@ jq -e \
   --arg tag "$tag" \
   --arg version "$version" --arg source_commit "$source_commit" '
   keys == ["assets","debian_version","go_module","go_module_version","release_channel","repository","schema_version","source_commit","tag","workflow"] and
-  .schema_version == 6 and
+  .schema_version == 7 and
   .repository == "GizClaw/gizclaw" and
   .go_module == "github.com/GizClaw/gizclaw-go" and
   .release_channel == "stable" and
@@ -80,10 +81,11 @@ jq -e \
   .go_module_version == $tag and
   .debian_version == $version and
   .source_commit == $source_commit and .workflow == ".github/workflows/release.yml" and
-  (.assets | length == 11) and
+  (.assets | length == 12) and
   ([.assets[].name] == ([.assets[].name] | sort)) and
-  ([.assets[].name] | unique | length == 11) and
+  ([.assets[].name] | unique | length == 12) and
   ([.assets[] | {name,kind,os,architecture}] == [
+    {name:"container-image.json",kind:"container-image",os:null,architecture:null},
     {name:("flutter-gizclaw-" + $version + ".tar.gz"),kind:"dart-package",os:null,architecture:null},
     {name:("flutter-gizclaw_control-" + $version + ".tar.gz"),kind:"dart-package",os:null,architecture:null},
     {name:("gizclaw-c-sdk-" + $version + ".tar.gz"),kind:"source",os:null,architecture:null},
@@ -99,7 +101,7 @@ jq -e \
   all(.assets[];
     (keys | all(. == "architecture" or . == "executable" or . == "installed_path" or . == "kind" or . == "module" or . == "name" or . == "os" or . == "package" or . == "provider" or . == "sha256" or . == "size" or . == "source_commit" or . == "version")) and
     (.name | type == "string" and length > 0) and
-    (.kind == "deb" or .kind == "source" or .kind == "terraform-provider" or .kind == "dart-package" or .kind == "npm-package") and
+    (.kind == "container-image" or .kind == "deb" or .kind == "source" or .kind == "terraform-provider" or .kind == "dart-package" or .kind == "npm-package") and
     (.size | type == "number" and . > 0 and floor == .) and
     (.sha256 | test("^[0-9a-f]{64}$")) and
     (if .kind == "deb" then
@@ -120,6 +122,9 @@ jq -e \
       (.package == "gizclaw" or .package == "gizclaw_control") and
       .version == $version and .source_commit == $source_commit and
       ((has("os") or has("architecture") or has("module") or has("installed_path") or has("provider") or has("executable")) | not)
+     elif .kind == "container-image" then
+      .name == "container-image.json" and .version == $version and .source_commit == $source_commit and
+      (keys == ["kind","name","sha256","size","source_commit","version"])
      else
       .name == ("gizclaw-c-sdk-" + $version + ".tar.gz") and
       .module == "gizclaw_c_sdk" and .version == $version and .source_commit == $source_commit and
@@ -131,6 +136,7 @@ provider_platforms=(darwin_amd64 darwin_arm64 linux_amd64 linux_arm64)
 expected_payloads="$(
   {
     printf '%s\n' \
+      container-image.json \
       "flutter-gizclaw-${version}.tar.gz" "flutter-gizclaw_control-${version}.tar.gz" \
       "gizclaw-c-sdk-${version}.tar.gz" \
       "npm-gizclaw-${version}.tgz" "npm-gizclaw-control-${version}.tgz" \
@@ -252,8 +258,8 @@ if [[ "$requested_mode" == draft || "$requested_mode" == published ]]; then
       .target_commitish == $source_commit and
       .draft == $expected_draft and
       .prerelease == false and
-      (.assets | length == 14) and
-      ([.assets[].name] | unique | length == 14) and
+      (.assets | length == 15) and
+      ([.assets[].name] | unique | length == 15) and
       all(.assets[];
         (keys | all(. == "name" or . == "size")) and
         (.name | type == "string" and length > 0) and
@@ -267,5 +273,7 @@ if [[ "$requested_mode" == draft || "$requested_mode" == published ]]; then
   remote_inventory="$(jq -r '.assets[] | [.name, (.size | tostring)] | @tsv' "$release_json" | LC_ALL=C sort)"
   [[ "$remote_inventory" == "$local_inventory" ]] || { echo "remote Release inventory or sizes mismatch" >&2; exit 1; }
 fi
+
+"$(dirname "${BASH_SOURCE[0]}")/check-container-receipt.sh" "$asset_dir/container-image.json" "$tag" "$source_commit" "$asset_dir"
 
 printf '%s\n' "validated ${requested_mode} release $tag"
