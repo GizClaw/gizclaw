@@ -67,7 +67,11 @@ stop() {
   docker stop --time 30 "$container" >/dev/null
   [[ "$(docker inspect --format '{{.State.ExitCode}}' "$container")" == 0 ]]
   docker run --rm --platform "$platform" --mount "type=volume,src=$volume,dst=/var/lib/gizclaw" \
-    --entrypoint sh "$image" -ec 'test ! -e serve.pid; test -d data/database; test -d data/files'
+    --entrypoint sh "$image" -ec '
+      test ! -e serve.pid || { echo "PID survived graceful shutdown" >&2; exit 1; }
+      test -s data/database && test -s data/runtime.sqlite || { echo "SQLite data missing" >&2; exit 1; }
+      test -d data/files || { echo "Filesystem data missing" >&2; exit 1; }
+    '
   docker rm "$container" >/dev/null
   container=
 }
@@ -77,14 +81,14 @@ if docker run --rm --platform "$platform" --mount "type=volume,src=$volume,dst=/
   echo 'concurrent Server claimed the same workspace' >&2
   exit 1
 fi
-grep -Fq 'workspace already owned' "$work/concurrent-start.log"
+grep -Fq 'workspace already owned' "$work/concurrent-start.log" || { cat "$work/concurrent-start.log" >&2; exit 1; }
 info="$(docker exec "$container" curl -fsS http://127.0.0.1:9820/server-info)"
 jq -e --arg version "$version" --arg commit "$source_commit" '.version == $version and .build_commit == $commit' <<<"$info" >/dev/null
 public_key="$(jq -er .public_key <<<"$info")"
-docker exec "$container" sh -ec 'test -f serve.pid; printf persistence > data/runtime-image-check'
+docker exec "$container" sh -ec 'test -f serve.pid; mkdir -p data/files; printf persistence > data/files/runtime-image-check'
 stop
 start
-docker exec "$container" sh -ec 'test "$(cat data/runtime-image-check)" = persistence'
+docker exec "$container" sh -ec 'test "$(cat data/files/runtime-image-check)" = persistence'
 info="$(docker exec "$container" curl -fsS http://127.0.0.1:9820/server-info)"
 jq -e --arg key "$public_key" '.public_key == $key' <<<"$info" >/dev/null
 docker kill "$container" >/dev/null
@@ -92,7 +96,7 @@ docker kill "$container" >/dev/null
 docker rm "$container" >/dev/null
 container=
 start
-docker exec "$container" sh -ec 'test "$(cat data/runtime-image-check)" = persistence'
+docker exec "$container" sh -ec 'test "$(cat data/files/runtime-image-check)" = persistence'
 info="$(docker exec "$container" curl -fsS http://127.0.0.1:9820/server-info)"
 jq -e --arg key "$public_key" '.public_key == $key' <<<"$info" >/dev/null
 stop
