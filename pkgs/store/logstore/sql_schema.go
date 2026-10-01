@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
@@ -187,77 +186,20 @@ func (store *SQLStore) maintainPostgresPartitions(ctx context.Context) error {
 	return nil
 }
 
+func (store *SQLStore) dailyPartitions() storage.SQLDailyPartitions {
+	return storage.SQLDailyPartitions{Table: store.table, Column: "expires_at_unix_nano", Prefix: postgresAuxiliaryPrefix(store.table.Name())}
+}
+
 func (store *SQLStore) maintainPostgresPartitionsLocked(ctx context.Context, tx *sqlx.Tx, now, expiresAt time.Time) error {
-	partitions, err := store.postgresPartitions(ctx, tx)
-	if err != nil {
-		return err
-	}
-	for _, partition := range partitions {
-		if err := validatePostgresPartition(partition); err != nil {
-			return err
-		}
-		if partition.upper > now.UnixNano() {
-			continue
-		}
-		if _, err := tx.ExecContext(
-			ctx,
-			"DELETE FROM "+store.quotedKeys+" WHERE expires_at_unix_nano >= $1 AND expires_at_unix_nano < $2",
-			partition.lower,
-			partition.upper,
-		); err != nil {
-			return storage.ExternalSQLError("logstore: delete expired postgres partition keys", err)
-		}
-		quoted, err := storage.QuoteSQLIdentifier(storage.SQLDialectPostgreSQL, partition.name)
-		if err != nil {
-			return fmt.Errorf("logstore: quote postgres partition %q: %w", partition.name, err)
-		}
-		if _, err := tx.ExecContext(ctx, "DROP TABLE "+quoted); err != nil {
-			return storage.ExternalSQLError("logstore: drop expired postgres partition", err)
-		}
-	}
-	day := postgresPartitionDay(expiresAt)
-	for _, required := range []time.Time{day, day.AddDate(0, 0, 1)} {
-		if err := store.ensurePostgresPartition(ctx, tx, required); err != nil {
-			return err
-		}
-	}
-	return nil
+	return store.dailyPartitions().Maintain(ctx, tx, now, []time.Time{expiresAt}, func(partition storage.SQLDailyPartition) error {
+		_, err := tx.ExecContext(ctx, "DELETE FROM "+store.quotedKeys+" WHERE expires_at_unix_nano >= $1 AND expires_at_unix_nano < $2", partition.Lower, partition.Upper)
+		return storage.ExternalSQLError("logstore: delete expired postgres partition keys", err)
+	})
 }
 
 func postgresPartitionDay(value time.Time) time.Time {
 	value = value.UTC()
 	return time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, time.UTC)
-}
-
-func (store *SQLStore) ensurePostgresPartition(ctx context.Context, tx *sqlx.Tx, day time.Time) error {
-	partition, err := store.postgresPartition(day)
-	if err != nil {
-		return err
-	}
-	quoted, err := storage.QuoteSQLIdentifier(storage.SQLDialectPostgreSQL, partition.name)
-	if err != nil {
-		return fmt.Errorf("logstore: quote postgres partition %q: %w", partition.name, err)
-	}
-	statement := fmt.Sprintf(
-		"CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR VALUES FROM (%d) TO (%d)",
-		quoted,
-		store.quoted,
-		partition.lower,
-		partition.upper,
-	)
-	if _, err := tx.ExecContext(ctx, statement); err != nil {
-		return storage.ExternalSQLError("logstore: create postgres daily partition", err)
-	}
-	partitions, err := store.postgresPartitions(ctx, tx)
-	if err != nil {
-		return err
-	}
-	for _, existing := range partitions {
-		if existing.name == partition.name {
-			return validatePostgresPartition(existing)
-		}
-	}
-	return fmt.Errorf("logstore: postgres partition %q was not attached", partition.name)
 }
 
 func (store *SQLStore) postgresPartition(day time.Time) (postgresPartition, error) {
@@ -278,50 +220,15 @@ func (store *SQLStore) postgresPartition(day time.Time) (postgresPartition, erro
 }
 
 func (store *SQLStore) postgresPartitions(ctx context.Context, queryer sqlRowsQueryer) ([]postgresPartition, error) {
-	rows, err := queryer.QueryContext(ctx, `
-		SELECT child.relname, pg_get_expr(child.relpartbound, child.oid)
-		FROM pg_inherits inheritance
-		JOIN pg_class parent ON parent.oid = inheritance.inhparent
-		JOIN pg_namespace backend ON backend.oid = parent.relnamespace
-		JOIN pg_class child ON child.oid = inheritance.inhrelid
-		WHERE backend.nspname = current_schema() AND parent.relname = $1
-		ORDER BY child.relname`, store.table.Name())
+	children, err := store.dailyPartitions().List(ctx, queryer)
 	if err != nil {
-		return nil, storage.ExternalSQLError("logstore: list postgres partitions", err)
+		return nil, err
 	}
-	defer rows.Close()
-	prefix := postgresAuxiliaryPrefix(store.table.Name()) + "_p"
-	var partitions []postgresPartition
-	for rows.Next() {
-		var name, bound string
-		if err := rows.Scan(&name, &bound); err != nil {
-			return nil, storage.ExternalSQLError("logstore: scan postgres partition", err)
-		}
-		dateText := strings.TrimPrefix(name, prefix)
-		if dateText == name || len(dateText) != 8 {
-			return nil, fmt.Errorf("logstore: unmanaged postgres partition %q", name)
-		}
-		day, err := time.Parse("20060102", dateText)
-		if err != nil {
-			return nil, fmt.Errorf("logstore: invalid postgres partition %q: %w", name, err)
-		}
-		expected, err := store.postgresPartition(day)
-		if err != nil {
-			return nil, err
-		}
-		normalized := strings.ReplaceAll(bound, "::bigint", "")
-		normalized = strings.ReplaceAll(normalized, "'", "")
-		normalized = strings.ToLower(strings.Join(strings.Fields(normalized), " "))
-		want := strings.ToLower(fmt.Sprintf("for values from (%d) to (%d)", expected.lower, expected.upper))
-		if normalized != want {
-			return nil, fmt.Errorf("logstore: incompatible postgres partition %q bound %q, want %q", name, normalized, want)
-		}
-		partitions = append(partitions, expected)
+	out := make([]postgresPartition, 0, len(children))
+	for _, child := range children {
+		out = append(out, postgresPartition{name: child.Name, day: child.Day, lower: child.Lower, upper: child.Upper})
 	}
-	if err := rows.Err(); err != nil {
-		return nil, storage.ExternalSQLError("logstore: list postgres partition rows", err)
-	}
-	return partitions, nil
+	return out, nil
 }
 
 func validatePostgresPartition(partition postgresPartition) error {

@@ -194,3 +194,7 @@ Shouldn't be placed here:
 Workspace creation registers and drains in-flight work per owner. Runtime preparation and caller initialization run outside the coordinator mutex; retirement closes only the target owner's admission and waits for that owner's creations before snapshotting. MemoryLayout updates and deletes are atomic SQL statements, without service-level read-modify-write locks.
 
 MemoryLayout uses the `memory_layouts` business table with an ID primary key and separate JSON columns for Flowcraft, Mem0 and VolcMem0 policy. It stores neither Memory content nor runtime connections. Server startup initializes the schema using the configured SQL pool. Lists use ID range queries and SQL limits. Atomic updates replace only an existing row and cannot recreate a concurrently deleted layout; service-level read-modify-write locks are unnecessary.
+
+## Hourly Peer usage
+
+Optional `services.peer_usage.store` binds a SQL pool to hourly provider model/resource quantities. Shared SQL day maintenance and a worker drain before pool closure implement retention and lifecycle. See [Peer usage](/en/developing/gizclaw/services/runtime/peerusage).

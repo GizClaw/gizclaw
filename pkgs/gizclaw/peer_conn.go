@@ -588,6 +588,7 @@ func (h *PeerConn) initPeerGenX() {
 	}
 	resources := h.peerResources()
 	h.serverGenX = peergenx.New(peergenx.Service{
+		Usage:           manager.usageRecorder(h.Conn.PublicKey()),
 		Peer:            h.Conn,
 		Models:          resources,
 		Voices:          resources,

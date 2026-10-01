@@ -12,6 +12,7 @@ services/runtime/
 ├── peerresource/    # cross-domain resource aggregation for peers
 ├── peerroute/       # Peer assignment and edge-route data
 ├── peerrun/         # selection state for the Agent currently running on a Peer
+├── peerusage/       # Hourly Peer/model consumption and 90-day retention
 ├── peertelemetry/   # Telemetry decoding, mapping, status, and metrics
 ├── runtimeprofile/  # Read-only in-memory SQLite snapshots and cross-Profile queries
 └── toolkit/         # Tool resources, policies, executors, and runtime views
@@ -77,3 +78,7 @@ Shouldn't be placed here:
 - Catalog ownership of Workflow, workspace, model, voice and credential.
 - Domain rules for social or firmware.
 - CLI process, storage backend and listener creation.
+
+### [peerusage](./peerusage)
+
+Owns hourly Peer/model quantities, nonblocking reporting, idempotent cumulative snapshots and SQL day-partition retention.

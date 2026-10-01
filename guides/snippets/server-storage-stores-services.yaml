@@ -63,6 +63,10 @@ stores:
     storage: database
     prefix: peers
 
+  peer-usage:
+    kind: sql
+    storage: database
+
   peer-runs:
     kind: sql
     storage: local-runtime
@@ -141,6 +145,8 @@ stores:
 services:
   peer:
     store: peers
+  peer_usage:
+    store: peer-usage
   peer_run:
     store: peer-runs
   api_key:

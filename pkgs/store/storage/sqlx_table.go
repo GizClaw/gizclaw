@@ -56,7 +56,7 @@ func (table SQLTable) validate() error {
 	validateName := ValidateSQLIdentifier
 	if table.kind == "kv" {
 		validateName = ValidateSQLTableName
-	} else if table.kind != "metrics" && table.kind != "log" {
+	} else if table.kind != "metrics" && table.kind != "log" && table.kind != "sql" {
 		return errors.New("storage: sql table has invalid Store kind")
 	}
 	if err := validateName(table.name); err != nil {
@@ -102,7 +102,7 @@ func PrepareSQLTable(db *sqlx.DB, kind, table string) (SQLTable, error) {
 	if db == nil {
 		return SQLTable{}, errors.New("storage: sql db is nil")
 	}
-	if kind != "kv" && kind != "metrics" && kind != "log" {
+	if kind != "kv" && kind != "metrics" && kind != "log" && kind != "sql" {
 		return SQLTable{}, fmt.Errorf("storage: sql unsupported store kind %q", kind)
 	}
 	validateTable := ValidateSQLIdentifier
