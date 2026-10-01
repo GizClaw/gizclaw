@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"iter"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -49,6 +50,14 @@ func TestTransformerStreamsTranslationAndAudio(t *testing.T) {
 			{Type: doubaospeech.ASTEventTTSSentenceStart},
 			{Type: doubaospeech.ASTEventTTSResponse, Audio: buildASTTranslateOggPackets(t, astTranslateOpusHeadPacket(48000, 1), astTranslateOpusTagsPacket("test"), []byte{1, 2, 3})},
 			{Type: doubaospeech.ASTEventTTSSentenceEnd},
+			{Type: doubaospeech.ASTEventUsageResponse, Usage: &doubaospeech.ASTTranslateUsage{
+				DurationMS: 2560,
+				Items: []doubaospeech.ASTTranslateBillingItem{
+					{Unit: "output_text_tokens", Quantity: 34},
+					{Unit: "output_audio_tokens", Quantity: 67},
+					{Unit: "input_audio_tokens", Quantity: 16},
+				},
+			}},
 			{Type: doubaospeech.ASTEventSessionFinished},
 		},
 	}
@@ -58,7 +67,14 @@ func TestTransformerStreamsTranslationAndAudio(t *testing.T) {
 		}
 		return fake, nil
 	}
-	out, err := tr.transform(context.Background(), input)
+	var records []genx.UsageRecord
+	var recordsMu sync.Mutex
+	ctx := genx.WithUsageRecorder(context.Background(), func(record genx.UsageRecord) {
+		recordsMu.Lock()
+		defer recordsMu.Unlock()
+		records = append(records, record)
+	})
+	out, err := tr.transform(ctx, input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -91,6 +107,15 @@ func TestTransformerStreamsTranslationAndAudio(t *testing.T) {
 	if _, finished := fake.state(); !finished {
 		t.Fatalf("session was not finished")
 	}
+	recordsMu.Lock()
+	wantUsage := []genx.UsageRecord{
+		{Provider: "volc", Model: doubaospeech.ResourceASTTranslate, Modality: genx.UsageModalityText, Unit: genx.UsageUnitToken, Output: 34},
+		{Provider: "volc", Model: doubaospeech.ResourceASTTranslate, Modality: genx.UsageModalityAudio, Unit: genx.UsageUnitToken, Input: 16, Output: 67},
+	}
+	if !slices.Equal(records, wantUsage) {
+		t.Fatalf("usage records = %+v, want %+v", records, wantUsage)
+	}
+	recordsMu.Unlock()
 	assertASTTranslateTextChunk(t, chunks, genx.RoleUser, doubaoASTTranslateTranscriptLabel, "turn-1", "你好")
 	assertASTTranslateHistoryAudioChunk(t, chunks, "turn-1", sourcePacket)
 	assertASTTranslateTextChunk(t, chunks, genx.RoleModel, doubaoASTTranslateAssistantLabel, "turn-1", "こんにちは")

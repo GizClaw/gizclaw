@@ -9,6 +9,7 @@ import (
 	"io"
 	"iter"
 	"math"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -1087,7 +1088,15 @@ func TestDoubaoRealtimeDuplexMapsDuplexEventsToStreamChunks(t *testing.T) {
 			{Type: doubaospeech.RealtimeDuplexEventResponseOutputAudioStarted, ResponseID: "provider-audio-start"},
 			{Type: doubaospeech.RealtimeDuplexEventResponseOutputAudioDelta, ResponseID: "provider-audio-data", Audio: []byte{1, 2, 3}},
 			{Type: doubaospeech.RealtimeDuplexEventResponseOutputAudioDone, ResponseID: "provider-audio-done"},
-			{Type: doubaospeech.RealtimeDuplexEventResponseDone, ResponseID: "provider-response-done"},
+			{Type: doubaospeech.RealtimeDuplexEventResponseDone, ResponseID: "provider-response-done", Usage: &doubaospeech.RealtimeDuplexUsage{
+				// A live report: cached input is not part of InputTokens.
+				TotalTokens: 5822, InputTokens: 2915, OutputTokens: 216,
+				InputTokenDetails: doubaospeech.RealtimeDuplexInputTokenDetails{
+					TextTokens: 2735, AudioTokens: 180, CachedTokens: 2691,
+					CachedTokensDetails: doubaospeech.RealtimeDuplexTokenDetails{TextTokens: 2691},
+				},
+				OutputTokenDetails: doubaospeech.RealtimeDuplexTokenDetails{TextTokens: 91, AudioTokens: 125},
+			}},
 			{Type: doubaospeech.RealtimeDuplexEventSessionClosed},
 		},
 	}
@@ -1095,7 +1104,14 @@ func TestDoubaoRealtimeDuplexMapsDuplexEventsToStreamChunks(t *testing.T) {
 		withDoubaoRealtimeDuplexOpener(&fakeDoubaoRealtimeDuplexOpener{session: session}),
 		withFormat("pcm"),
 	)
-	stream, err := tfr.transform(context.Background(), emptyRealtimeStream{})
+	var records []genx.UsageRecord
+	var recordsMu sync.Mutex
+	ctx := genx.WithUsageRecorder(context.Background(), func(record genx.UsageRecord) {
+		recordsMu.Lock()
+		defer recordsMu.Unlock()
+		records = append(records, record)
+	})
+	stream, err := tfr.transform(ctx, emptyRealtimeStream{})
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -1148,6 +1164,15 @@ func TestDoubaoRealtimeDuplexMapsDuplexEventsToStreamChunks(t *testing.T) {
 	if got := transcriptText.String(); got != "你好" {
 		t.Fatalf("transcript text = %q, want one cumulative hypothesis", got)
 	}
+	recordsMu.Lock()
+	wantUsage := []genx.UsageRecord{
+		{Provider: "volc", Model: tfr.model, Modality: genx.UsageModalityText, Unit: genx.UsageUnitToken, Input: 2735, CachedInput: 2691, Output: 91},
+		{Provider: "volc", Model: tfr.model, Modality: genx.UsageModalityAudio, Unit: genx.UsageUnitToken, Input: 180, Output: 125},
+	}
+	if !slices.Equal(records, wantUsage) {
+		t.Fatalf("usage records = %+v, want %+v", records, wantUsage)
+	}
+	recordsMu.Unlock()
 	if len(routes) != 3 {
 		t.Fatalf("generated routes = %d, want transcript text, assistant text, and assistant audio: %#v", len(routes), chunks)
 	}

@@ -854,6 +854,7 @@ func (t *Transformer) processLoop(
 				completeAssistantStream(streamID)
 				assistant.setAccept(false)
 			case doubaospeech.RealtimeDuplexEventResponseDone:
+				t.recordUsage(ctx, event.Usage)
 				completeAssistantStream(streamID)
 			case doubaospeech.RealtimeDuplexEventSessionClosed:
 				slog.InfoContext(ctx, "doubao: realtime duplex session closed")

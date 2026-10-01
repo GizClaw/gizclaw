@@ -9,4 +9,4 @@ source "$script_dir/credentials.sh"
 require_genx_e2e_credentials "$env_file"
 
 cd "$repo_root"
-go test -count=1 -v -tags gizclaw_genx_e2e ./tests/genx-e2e/transformer
+go test -count=1 -v -timeout 0 -tags gizclaw_genx_e2e ./tests/genx-e2e/transformer

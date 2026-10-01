@@ -248,6 +248,17 @@ func (t *Transformer) synthesize(ctx context.Context, text string, _ streamkit.T
 			}
 			return nextErr
 		}
+		if chunk.UsageCharacters != nil {
+			// The final synthesis frame reports the characters MiniMax bills,
+			// counting each CJK character as two.
+			genx.RecordUsage(ctx, genx.UsageRecord{
+				Provider: "minimax",
+				Model:    t.model,
+				Modality: genx.UsageModalityText,
+				Unit:     genx.UsageUnitCharacter,
+				Input:    *chunk.UsageCharacters,
+			})
+		}
 		if len(chunk.Audio) > 0 {
 			if err := emitAudio(normalizer.Normalize(chunk.Audio)); err != nil {
 				return err

@@ -1076,6 +1076,12 @@ provider、网络、timeout 或 race 错误均使命令失败；测试选择不�
 MiniMax 的 API key 必须与同一区域的 voice base URL 成对配置；runner 不会用默认区域
 替代缺失的 `GIZCLAW_GENX_E2E_MINIMAX_BASE_URL`。
 
+Usage 计量由真实调用覆盖：`usage_test.go` 要求 OpenAI 与 Gemini（`GIZCLAW_GENX_E2E_GEMINI_API_KEY`）
+Generator 的流式与结构化调用、Volc 实时对话、实时双工、AST 与 DashScope 实时各报告带正确
+provider、model 与单位的 token 记录；实时类测试在收到 provider 用量后才关闭会话。Volc ASR、
+Seed V2 TTS 与 MiniMax TTS 的 provider 测试同时断言毫秒与字符计费记录，其中 Seed V2 计费字符数
+必须等于合成文本的 Unicode 字符数。
+
 Provider-free Match parity 与 deterministic duplex behavior 保持为普通测试，
 由 `go test ./...` 执行。
 

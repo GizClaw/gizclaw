@@ -12,12 +12,12 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.0
 	github.com/ClickHouse/clickhouse-go/v2 v2.48.0
-	github.com/GizClaw/dashscope-realtime-go v0.0.0-20260719062052-bf38cd23188e
-	github.com/GizClaw/doubao-speech-go v0.0.0-20260921154937-0c3e8f6dbc84
+	github.com/GizClaw/dashscope-realtime-go v0.0.0-20260930205933-50d45a88f66e
+	github.com/GizClaw/doubao-speech-go v0.0.0-20260930205927-014e9dcccdff
 	github.com/GizClaw/flowcraft/memory v0.1.7
 	github.com/GizClaw/flowcraft/sdk v0.4.8
 	github.com/GizClaw/flowcraft/sdkx v0.4.10
-	github.com/GizClaw/minimax-go v0.0.0-20260625231851-7a1c8a1f2111
+	github.com/GizClaw/minimax-go v0.0.0-20260930210119-8ef796d023e1
 	github.com/aliyun/aliyun-oss-go-sdk v3.0.2+incompatible
 	github.com/cloudwego/eino v0.9.13
 	github.com/coder/websocket v1.8.15

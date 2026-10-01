@@ -1274,6 +1274,15 @@ The MiniMax API key must be paired with the voice base URL for the same region;
 the runner does not substitute a default region when
 `GIZCLAW_GENX_E2E_MINIMAX_BASE_URL` is missing.
 
+Live calls cover usage metering: `usage_test.go` requires the OpenAI and Gemini
+(`GIZCLAW_GENX_E2E_GEMINI_API_KEY`) Generators' streamed and structured calls,
+Volc realtime dialog, realtime duplex, AST, and DashScope realtime to report
+token records with the correct provider, model, and unit; the realtime tests
+keep the session open until the provider's usage arrives. The Volc ASR, Seed V2
+TTS, and MiniMax TTS provider tests also assert the millisecond and character
+records, and Seed V2's billed characters must equal the Unicode character count
+of the synthesized text.
+
 Provider-free Match parity and deterministic duplex behavior remain ordinary
 tests and run under `go test ./...`.
 

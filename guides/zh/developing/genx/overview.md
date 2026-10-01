@@ -127,6 +127,22 @@ Composition layer 还可以在 `StreamCtrl` 上附加仅限进程内使用的 re
 
 Provider call ID 不会越过 `ToolInvoker` 边界。消费它的 Transformer 自己管理 invocation 内的关联、顺序、重复 ID 和调用额度。`Toolkit` 是基于可执行 `FuncTool` 的不可变 standalone 实现：它快照声明、校验参数、执行配对函数并序列化结果；其他实现可以从产品资源解析工具，而不向 GenX Transformer 暴露内部机制。
 
+### Usage 计量
+
+Provider adapter 在 provider 报告用量时调用 [`RecordUsage`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#RecordUsage)，把 [`UsageRecord`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#UsageRecord) 交给 context 中由 [`WithUsageRecorder`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#WithUsageRecorder) 设置的 recorder。Generator 与 Transformer 都从各自 goroutine 调用它，recorder 必须并发安全且不能阻塞；没有 recorder 时记录被丢弃。Stream 终态中的 `Usage` 仍只供直接调用方参考，计量以 `UsageRecord` 为准。
+
+每条记录带 provider、provider model/version/resource ID、modality（`text` 或 `audio`）和计费单位。`Input`、`CachedInput`、`Output` 互不包含：`CachedInput` 是按缓存价计费的输入，不计入 `Input`。同一 provider model 始终使用同一单位；不同 provider model 的单位不可比较，也不在 GenX 中换算。
+
+| Provider 能力 | 单位 | 来源 |
+| --- | --- | --- |
+| OpenAI-compatible、Gemini Generator | `token` | 响应 usage；流式请求附带 `stream_options.include_usage`，终态等流末尾的 usage chunk。Gemini 的 tool-use prompt 计入输入，thought 计入输出。 |
+| Volc 实时对话、实时双工、AST，DashScope 实时 | `token`，按 text/audio 分开 | 每次响应的 usage 事件或 `response.done`。 |
+| Volc Seed/ICL TTS | `character` | 最终帧的 `text_words`，每个 Unicode 字符计 1。 |
+| MiniMax TTS | `character` | 最终帧的 `extra_info.usage_characters`，CJK 字符计 2。 |
+| Volc 流式 ASR | `millisecond` | 会话中 provider 报告的最大 `audio_info.duration`，包含没有识别文本的音频。 |
+
+Provider 没有报告的用量不会被估算，例如调用方在 provider 发出 usage 之前取消的响应。
+
 ## 核心数据结构
 
 | 结构 | 职责 |
@@ -134,7 +150,8 @@ Provider call ID 不会越过 `ToolInvoker` 边界。消费它的 Transformer �
 | [`Message`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#Message) | 表达一次完整的多模态输入或输出，由 role 和 contents 组成。 |
 | [`MessageChunk`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#MessageChunk) | Stream 中传递的增量消息，承载内容、工具调用、状态或流事件。 |
 | [`ModelParams`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#ModelParams) | 统一 max tokens、temperature、top-p 等模型参数，并允许 provider extra fields。 |
-| [`Usage`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#Usage) | 记录 prompt、cache 与 generated token usage。 |
+| [`Usage`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#Usage) | Stream 终态附带的 prompt、cache 与 generated token usage。 |
+| [`UsageRecord`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#UsageRecord) | 一次 provider 响应、请求或会话按 provider、model、modality 和单位报告的计费用量。 |
 | [`State`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#State) | 表达完成、截断、拒绝或错误等生成终态。 |
 
 ## 调用关系

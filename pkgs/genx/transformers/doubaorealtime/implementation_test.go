@@ -3505,3 +3505,74 @@ func TestTransformerExplicitPCMRateMIME(t *testing.T) {
 		t.Fatalf("explicit 24 kHz PCM output MIME = %q", got)
 	}
 }
+
+func TestTransformerRealtimeRecordsProviderUsage(t *testing.T) {
+	firstAudioSent := make(chan struct{})
+	eventsDrained := make(chan struct{})
+	session := &fakeTransformerSession{
+		beforeRecv:       firstAudioSent,
+		firstAudioSent:   firstAudioSent,
+		eventsDrained:    eventsDrained,
+		blockAfterEvents: make(chan struct{}),
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRResponse, Text: "question"},
+			{Type: doubaospeech.EventASREnded},
+			{Type: doubaospeech.EventChatResponse, Text: "answer"},
+			{Type: doubaospeech.EventChatEnded},
+			{Type: doubaospeech.EventTTSStarted, Text: "answer"},
+			{Type: doubaospeech.EventTTSFinished},
+			{Type: doubaospeech.EventUsageResponse, Usage: &doubaospeech.RealtimeUsage{
+				InputTextTokens: 231, InputAudioTokens: 17, CachedTextTokens: 512,
+				OutputTextTokens: 11, OutputAudioTokens: 54,
+			}},
+		},
+	}
+	tfr := newTransformer(nil,
+		withDoubaoRealtimeOpener(&fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}),
+		withModel("1.2.1.1"),
+		withMode(ModeRealtime),
+		withInputFormat("pcm"),
+		withInputTranscode(false),
+		withFormat("pcm"),
+	)
+	var records []genx.UsageRecord
+	var recordsMu sync.Mutex
+	ctx := genx.WithUsageRecorder(t.Context(), func(record genx.UsageRecord) {
+		recordsMu.Lock()
+		defer recordsMu.Unlock()
+		records = append(records, record)
+	})
+	input := newBufferStream(4)
+	for _, chunk := range []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+		{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+		{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+	} {
+		if err := input.Push(chunk); err != nil {
+			t.Fatalf("Push(input) error = %v", err)
+		}
+	}
+	output, err := tfr.Transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	select {
+	case <-eventsDrained:
+	case <-time.After(2 * time.Second):
+		t.Fatal("provider events were not drained")
+	}
+	if err := input.Close(); err != nil {
+		t.Fatalf("Close(input) error = %v", err)
+	}
+	drainRealtimeTestOutput(t, output)
+
+	recordsMu.Lock()
+	defer recordsMu.Unlock()
+	want := []genx.UsageRecord{
+		{Provider: "volc", Model: "1.2.1.1", Modality: genx.UsageModalityText, Unit: genx.UsageUnitToken, Input: 231, CachedInput: 512, Output: 11},
+		{Provider: "volc", Model: "1.2.1.1", Modality: genx.UsageModalityAudio, Unit: genx.UsageUnitToken, Input: 17, Output: 54},
+	}
+	if !slices.Equal(records, want) {
+		t.Fatalf("usage records = %+v, want %+v", records, want)
+	}
+}

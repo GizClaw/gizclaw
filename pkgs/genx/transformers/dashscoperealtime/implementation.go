@@ -865,6 +865,9 @@ func (t *Transformer) processLoop(
 					return
 				}
 
+			case dashscope.EventTypeResponseDone:
+				t.recordUsage(ctx, event.Usage)
+
 			case dashscope.EventTypeError:
 				// Business error event - log but don't close session
 				// Examples: "Conversation has none active response" when CancelResponse

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net/http"
 	"slices"
@@ -82,14 +83,25 @@ func (g *OpenAIGenerator) GenerateStream(ctx context.Context, _ string, mctx Mod
 	if err != nil {
 		return nil, err
 	}
+	// The final usage chunk follows the finish chunk; without it the provider
+	// reports no usage for a streamed completion.
+	params.StreamOptions = openai.ChatCompletionStreamOptionsParam{IncludeUsage: param.NewOpt(true)}
 	sb := NewStreamBuilder(mctx, 32)
 	go func() {
-		provider := g.Provider
-		if provider == "" {
-			provider = "openai_compatible"
-		}
+		provider := g.provider()
 		timing := newModelTiming(ctx, provider, string(params.Model))
-		err := (&oaiPuller{timing: timing}).pull(sb, g.Client.Chat.Completions.NewStreaming(ctx, params))
+		puller := &oaiPuller{timing: timing, record: func(usage openai.CompletionUsage) {
+			RecordUsage(ctx, oaiUsageRecords(provider, string(params.Model), usage)...)
+		}}
+		err := puller.pull(sb, g.Client.Chat.Completions.NewStreaming(ctx, params))
+		if err != nil && !puller.received && isStreamOptionsUnsupported(err) {
+			// Some OpenAI-compatible endpoints reject stream_options; stream
+			// without it, which reports no usage for this completion.
+			slog.WarnContext(ctx, "genx: provider rejected stream usage; streaming without usage",
+				"provider", provider, "model", string(params.Model), "error", err)
+			params.StreamOptions = openai.ChatCompletionStreamOptionsParam{}
+			err = puller.pull(sb, g.Client.Chat.Completions.NewStreaming(ctx, params))
+		}
 		timing.finish(err)
 		if err != nil {
 			sb.Abort(err)
@@ -120,6 +132,7 @@ func (g *OpenAIGenerator) invokeJSONOutput(ctx context.Context, mctx ModelContex
 	if err != nil {
 		return Usage{}, nil, err
 	}
+	RecordUsage(ctx, oaiUsageRecords(g.provider(), string(params.Model), resp.Usage)...)
 	if len(resp.Choices) == 0 {
 		return Usage{}, nil, fmt.Errorf("no choices")
 	}
@@ -133,7 +146,7 @@ func (g *OpenAIGenerator) invokeJSONOutput(ctx context.Context, mctx ModelContex
 	if len(choice.Message.Content) == 0 {
 		return Usage{}, nil, fmt.Errorf("no content")
 	}
-	return Usage{}, fn.NewFuncCall(choice.Message.Content), nil
+	return oaiConvUsage(&resp.Usage), fn.NewFuncCall(choice.Message.Content), nil
 }
 
 func (g *OpenAIGenerator) invokeToolCalls(ctx context.Context, mctx ModelContext, fn *FuncTool) (Usage, *FuncCall, error) {
@@ -168,6 +181,7 @@ func (g *OpenAIGenerator) invokeToolCalls(ctx context.Context, mctx ModelContext
 	if err != nil {
 		return Usage{}, nil, err
 	}
+	RecordUsage(ctx, oaiUsageRecords(g.provider(), string(params.Model), resp.Usage)...)
 
 	if len(resp.Choices) == 0 {
 		return Usage{}, nil, fmt.Errorf("no choices")
@@ -183,7 +197,15 @@ func (g *OpenAIGenerator) invokeToolCalls(ctx context.Context, mctx ModelContext
 		return Usage{}, nil, fmt.Errorf("want tool calls, got unexpected finish reason: %s, %v", choice.FinishReason, choice)
 	}
 	toolCall := choice.Message.ToolCalls[0]
-	return Usage{}, fn.NewFuncCall(toolCall.Function.Arguments), nil
+	return oaiConvUsage(&resp.Usage), fn.NewFuncCall(toolCall.Function.Arguments), nil
+}
+
+// provider names the configured vendor for timing and usage records.
+func (g *OpenAIGenerator) provider() string {
+	if g.Provider == "" {
+		return "openai_compatible"
+	}
+	return g.Provider
 }
 
 func isToolCallFinishReason(reason string) bool {
@@ -193,6 +215,16 @@ func isToolCallFinishReason(reason string) bool {
 	default:
 		return false
 	}
+}
+
+// isStreamOptionsUnsupported reports an endpoint rejecting stream_options.
+func isStreamOptionsUnsupported(err error) bool {
+	var apiErr *openai.Error
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusBadRequest {
+		return false
+	}
+	text := strings.ToLower(apiErr.Message + " " + apiErr.Param + " " + apiErr.RawJSON())
+	return strings.Contains(text, "stream_options") || strings.Contains(text, "include_usage")
 }
 
 func isResponseFormatUnsupported(err error) bool {
@@ -311,6 +343,10 @@ func (g *OpenAIGenerator) promptRole() PromptRole {
 type oaiPuller struct {
 	timing      *modelTiming
 	runningTool *openai.ChatCompletionChunkChoiceDeltaToolCall
+	record      func(openai.CompletionUsage)
+	// received reports whether any chunk arrived, after which a request can
+	// no longer be retried.
+	received bool
 }
 
 func (p *oaiPuller) commitTool(sb *StreamBuilder) error {
@@ -334,10 +370,18 @@ func (p *oaiPuller) commitTool(sb *StreamBuilder) error {
 
 func (p *oaiPuller) pull(sb *StreamBuilder, stream *ssestream.Stream[openai.ChatCompletionChunk]) (re error) {
 	var index int64
+	var usage openai.CompletionUsage
+	// finish emits the terminal state once the stream ended, so the usage chunk
+	// that follows the finish chunk is included.
+	var finish func(Usage) error
 
 	for stream.Next() {
+		p.received = true
 		chunk := stream.Current()
-		if len(chunk.Choices) == 0 {
+		if chunk.Usage.PromptTokens != 0 || chunk.Usage.CompletionTokens != 0 {
+			usage = chunk.Usage
+		}
+		if finish != nil || len(chunk.Choices) == 0 {
 			continue
 		}
 		var sel *openai.ChatCompletionChunkChoice
@@ -388,19 +432,30 @@ func (p *oaiPuller) pull(sb *StreamBuilder, stream *ssestream.Stream[openai.Chat
 			if err := p.commitTool(sb); err != nil {
 				return err
 			}
-			return sb.Done(oaiConvUsage(&chunk.Usage))
+			finish = sb.Done
 		case oaiFinishReasonStop:
-			return sb.Done(oaiConvUsage(&chunk.Usage))
+			finish = sb.Done
 		case oaiFinishReasonLength:
-			return sb.Truncated(oaiConvUsage(&chunk.Usage))
+			finish = sb.Truncated
 		case oaiFinishReasonContentFilter:
-			return sb.Blocked(oaiConvUsage(&chunk.Usage), sel.Delta.Refusal)
+			finish = blockedFinish(sb, sel.Delta.Refusal)
 		}
-		if s := sel.Delta.Refusal; s != "" {
-			return sb.Blocked(oaiConvUsage(&chunk.Usage), s)
+		if finish == nil && sel.Delta.Refusal != "" {
+			finish = blockedFinish(sb, sel.Delta.Refusal)
 		}
 	}
-	return stream.Err()
+	if finish == nil {
+		return stream.Err()
+	}
+	// A failed read after the finish chunk loses only the trailing usage.
+	if p.record != nil {
+		p.record(usage)
+	}
+	return finish(oaiConvUsage(&usage))
+}
+
+func blockedFinish(sb *StreamBuilder, refusal string) func(Usage) error {
+	return func(usage Usage) error { return sb.Blocked(usage, refusal) }
 }
 
 func (g *OpenAIGenerator) convModelContext(mctx ModelContext) ([]openai.ChatCompletionMessageParamUnion, error) {
@@ -717,7 +772,20 @@ func (g *OpenAIGenerator) patchSchema(m *jsonschema.Schema) *jsonschema.Schema {
 
 func oaiConvUsage(usage *openai.CompletionUsage) Usage {
 	return Usage{
-		PromptTokenCount:    usage.PromptTokens,
-		GeneratedTokenCount: usage.CompletionTokens,
+		PromptTokenCount:        usage.PromptTokens,
+		CachedContentTokenCount: usage.PromptTokensDetails.CachedTokens,
+		GeneratedTokenCount:     usage.CompletionTokens,
 	}
+}
+
+// oaiUsageRecords maps a Chat Completions usage report. Cached prompt tokens
+// are attributed to text.
+func oaiUsageRecords(provider, model string, usage openai.CompletionUsage) []UsageRecord {
+	return TokenUsage{
+		InputTokens:       usage.PromptTokens,
+		InputAudioTokens:  usage.PromptTokensDetails.AudioTokens,
+		CachedTextTokens:  usage.PromptTokensDetails.CachedTokens,
+		OutputTokens:      usage.CompletionTokens,
+		OutputAudioTokens: usage.CompletionTokensDetails.AudioTokens,
+	}.Records(provider, model)
 }
