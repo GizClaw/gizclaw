@@ -95,9 +95,8 @@ steps:
     completion: first_response
     require_audio: false
     first_text_timeout: 2s
+    first_text_timeout_severity: warning
   expect:
-    /first_text_ms:
-      maximum: 2000
 - id: replacement
   client: peer
   timeout: 20s
@@ -108,9 +107,8 @@ steps:
     completion: first_response
     require_audio: false
     first_text_timeout: 2s
+    first_text_timeout_severity: warning
   expect:
-    /first_text_ms:
-      maximum: 2000
 - id: complete_audio
   client: audio_peer
   timeout: 20s

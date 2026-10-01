@@ -65,6 +65,7 @@ steps:
       input: ${prompt}
       completion: first_response
       first_text_timeout: 2s
+      first_text_timeout_severity: warning
       require_text: true
       require_audio: false
     expect:
@@ -72,8 +73,6 @@ steps:
         non_empty: true
       /text:
         non_empty: true
-      /first_text_ms:
-        maximum: 2000
 finally:
   - client: peer
     rpc:

@@ -126,8 +126,9 @@ func TestLoadDocumentValidatesPeerStreamFirstResponseCompletion(t *testing.T) {
 		t.Fatalf("peer_stream operation = %#v", op)
 	}
 	for name, extra := range map[string]string{
-		"text only":  "      completion: first_response\n      first_text_timeout: 2s\n      require_audio: false\n",
-		"audio only": "      completion: first_response\n      first_audio_timeout: 3s\n      require_text: false\n",
+		"text warning": "      completion: first_response\n      first_text_timeout: 2s\n      first_text_timeout_severity: warning\n      first_audio_timeout: 3s\n",
+		"text only":    "      completion: first_response\n      first_text_timeout: 2s\n      require_audio: false\n",
+		"audio only":   "      completion: first_response\n      first_audio_timeout: 3s\n      require_text: false\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := LoadDocument(writeTestDocument(t, peerStreamStep(extra)), nil); err != nil {
@@ -136,11 +137,14 @@ func TestLoadDocumentValidatesPeerStreamFirstResponseCompletion(t *testing.T) {
 		})
 	}
 	for name, extra := range map[string]string{
-		"missing text deadline":   "      completion: first_response\n      first_audio_timeout: 3s\n",
-		"invalid audio deadline":  "      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: soon\n",
-		"deadline without mode":   "      first_text_timeout: 2s\n",
-		"terminal dependency":     "      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: 3s\n      wait_for_history: true\n",
-		"disabled audio deadline": "      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: 3s\n      require_audio: false\n",
+		"missing text deadline":      "      completion: first_response\n      first_audio_timeout: 3s\n",
+		"warning without deadline":   "      completion: first_response\n      first_text_timeout_severity: warning\n      first_audio_timeout: 3s\n",
+		"warning without completion": "      first_text_timeout_severity: warning\n",
+		"unknown severity":           "      completion: first_response\n      first_text_timeout: 2s\n      first_text_timeout_severity: ignore\n      first_audio_timeout: 3s\n",
+		"invalid audio deadline":     "      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: soon\n",
+		"deadline without mode":      "      first_text_timeout: 2s\n",
+		"terminal dependency":        "      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: 3s\n      wait_for_history: true\n",
+		"disabled audio deadline":    "      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: 3s\n      require_audio: false\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := LoadDocument(writeTestDocument(t, peerStreamStep(extra)), nil); err == nil {

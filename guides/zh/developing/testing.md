@@ -601,6 +601,8 @@ Doubao、Eino、Flowcraft 的 `*-overlapping-input.giztest.yaml` 分别覆盖两
 
 空的 assistant BOS 不建立回复归属；只有实际文本或音频内容才确定第一轮和第二轮回复。用例使用单句中文数数请求，减少录音内部停顿造成的额外 VAD 轮次。
 
+`eino-concurrency-assistant.workspace-reload-initiative` 使用要求四字回复的中文语音输入。reload 后步骤保留 30 秒总时限，要求非空音频、文字和音频 EOS、同一连接复用，以及 reload 标记和新输入 StreamID。该场景验证主动开场被下一次输入替换后能完成回复。
+
 `peer_stream.completion: first_response` 是面向部署探针的有界替代模式。
 `require_text` 和 `require_audio` 选择必须等待的模态，二者都默认为 true；每个必需模态必须
 声明对应的正数 Go duration `first_text_timeout` 或 `first_audio_timeout`，禁用的模态不声明
@@ -611,6 +613,8 @@ realtime 在发送期间持续消费输出；所有必需模态的第一段 assi
 计时起点之前到达的内容按零延迟记录。interrupt 的替换输入也在发送期间持续消费输出。缺少必需模态时分别以 `deadline=first_text_timeout` 或
 `deadline=first_audio_timeout` 失败。该模式不能与 `interrupt_after`、`terminal_label` 或
 `wait_for_history` 组合。
+`first_text_timeout_severity: warning` 将首字超出阈值记入步骤证据的 `warnings` 并在 CLI 汇总中显示，继续等待必需内容。首字的数值阈值由该字段所属的 `first_text_timeout` 定义，不再同时配置 `/first_text_ms` 的 fatal maximum 断言。首音频 deadline、缺少内容、错误 EOS 和步骤总超时仍然失败；该选项只用于 `completion: first_response`。
+
 `peer_stream.idle_timeout`（Go duration，可选）限制的是不活动时长而不是总时长：runner 在
 turn 输入推送完成后启动计时器，每收到一个 chunk（不区分 label）就重置，`interrupt_after`
 的替换 turn 推送后重新启动，终止 EOS 被接受后停止。流停滞时步骤以
@@ -1332,7 +1336,7 @@ AudioDock、AgentHost、WebRTC、首响应计时与音频接收器均使用被�
 再输出 80 个有效的 20 毫秒 Opus 音频帧。延迟受 context 取消约束。
 
 `slow-tts.*.giztest.yaml` 覆盖 Eino push-to-talk、Eino realtime 和 Flowcraft realtime。
-`first_response` 步骤保持 2 秒首文本期限；使用相同 Workflow 的独立 Peer 检查 text/audio EOS、非空音频、
+`first_response` 步骤记录超过 2 秒的首文本 warning；使用相同 Workflow 的独立 Peer 检查 text/audio EOS、非空音频、
 无重叠和播放节拍。Realtime 在保留的 session 中连续发起输入，覆盖旧 TTS 启动期间的换轮。
 此套件接在 CI 的 Audioplayer Giztest job；标准 provider-backed runner 排除这些专用夹具。
 报告保留在 `.testbench/slow-tts-*/reports/`，退出时清理容器、镜像和临时运行状态。
