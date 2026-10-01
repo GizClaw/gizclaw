@@ -1241,12 +1241,14 @@ func (t *Transformer) processSession(
 		switch {
 		case response != nil:
 			state = &response.spoken
+			state.expectsContent = true
 		case t.mode == ModeText:
 			current := textResponses.current()
 			if current == nil {
 				return nil
 			}
 			state = &current.spoken
+			state.expectsContent = true
 		default:
 			if realtimeSpoken == nil || realtimeSpokenEpoch != assistant.currentEpoch() {
 				realtimeSpokenEpoch = assistant.currentEpoch()
@@ -1299,6 +1301,7 @@ func (t *Transformer) processSession(
 				Part: genx.Text(""),
 				Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true},
 			}
+			eos.Ctrl.Error = transition.errorText
 			if err := pushAssistantOutput(epoch, response, eos); err != nil {
 				return err
 			}
@@ -1309,6 +1312,7 @@ func (t *Transformer) processSession(
 				Part: &genx.Blob{MIMEType: t.outputMIMEType()},
 				Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true},
 			}
+			eos.Ctrl.Error = transition.errorText
 			if err := pushAssistantOutput(epoch, response, eos); err != nil {
 				return err
 			}
@@ -1321,6 +1325,7 @@ func (t *Transformer) processSession(
 		defer close(eventsDone)
 		defer responseDeadline.stop()
 		lastTranscriptText := ""
+		semanticASR := false
 		transcriptOpen := false
 		initiativeStarted := false
 		closeInputSegment := func(errText string) error {
@@ -1363,7 +1368,8 @@ func (t *Transformer) processSession(
 				responseStreamID := streamIDs.endInputSegment()
 				assistant.setAccept(true)
 				epoch := assistant.nextEpoch()
-				realtimeSpoken = &doubaoRealtimeSpokenResponse{}
+				realtimeSpoken = &doubaoRealtimeSpokenResponse{expectsContent: true}
+				realtimeSpokenEpoch = epoch
 				if t.mode == ModeText {
 					textResponses.begin()
 				}
@@ -1403,6 +1409,14 @@ func (t *Transformer) processSession(
 				case doubaospeech.EventASRInfo:
 					slog.InfoContext(ctx, "doubao: ASR speech detected", "stream_id", streamIDs.input())
 					if t.mode == ModeRealtime {
+						// Before assistant BOS this can be continued speech for an
+						// already submitted question. Keep the provider session so
+						// its buffered audio can reach the next ASREnded; there is
+						// no published assistant route to cut off yet.
+						if realtimeSpoken == nil || realtimeSpokenEpoch != assistant.currentEpoch() ||
+							(!realtimeSpoken.textOpen && !realtimeSpoken.audioOpen) {
+							continue
+						}
 						interrupted, err := interruptAssistant(streamID, false)
 						if err != nil {
 							return err
@@ -1424,6 +1438,7 @@ func (t *Transformer) processSession(
 						pttControl.Unlock()
 						continue
 					}
+					semanticASR = semanticASR || realtimeTextHasSemantic(text)
 					if text != "" {
 						delta := realtimeTextDelta(lastTranscriptText, text)
 						if delta == "" {
@@ -1507,7 +1522,9 @@ func (t *Transformer) processSession(
 					}
 					assistant.setAccept(true)
 					epoch := assistant.nextEpoch()
-					realtimeSpoken = &doubaoRealtimeSpokenResponse{}
+					realtimeSpoken = &doubaoRealtimeSpokenResponse{expectsContent: semanticASR || realtimeTextHasSemantic(event.Text) || realtimeTextHasSemantic(realtimeASRText(event.Payload))}
+					realtimeSpokenEpoch = epoch
+					semanticASR = false
 					responseStreamID := ""
 					switch {
 					case transcriptOpen:
@@ -1644,6 +1661,9 @@ func (t *Transformer) processSession(
 							return err
 						}
 						for _, blob := range blobs {
+							if len(blob.Data) > 0 {
+								state.contentEmitted = true
+							}
 							outChunk := &genx.MessageChunk{
 								Role: genx.RoleModel,
 								Part: blob,

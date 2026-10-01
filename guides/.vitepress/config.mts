@@ -418,6 +418,7 @@ export default withMermaid(
               { text: "总览", link: "/zh/using/" },
               { text: "API", link: "/zh/using/api" },
               { text: "CLI", link: "/zh/using/cli" },
+              { text: "容器镜像", link: "/zh/using/container" },
               { text: "Terraform Provider", link: "/zh/using/terraform" },
               {
                 text: "SDK",
@@ -438,6 +439,7 @@ export default withMermaid(
               { text: "Overview", link: "/en/using/" },
               { text: "API", link: "/en/using/api" },
               { text: "CLI", link: "/en/using/cli" },
+              { text: "Container Image", link: "/en/using/container" },
               { text: "Terraform Provider", link: "/en/using/terraform" },
               {
                 text: "SDK",
