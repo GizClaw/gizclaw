@@ -30,6 +30,7 @@ verify_binary() {
   docker pull --platform "linux/$arch" "$ref" >/dev/null
   docker image inspect "$ref" | jq -e --arg arch "$arch" --arg version "${tag#v}" --arg commit "$source_commit" '
     .[0] | .Os == "linux" and .Architecture == $arch and
+    .Config.User == "10001:10001" and .Config.Entrypoint == ["/usr/local/bin/gizclaw-entrypoint"] and
     .Config.Labels["org.opencontainers.image.version"] == $version and
     .Config.Labels["org.opencontainers.image.revision"] == $commit and
     .Config.Labels["org.opencontainers.image.base.digest"] == "sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3"
@@ -43,6 +44,14 @@ verify_binary() {
 
 status=0
 inspect_optional "$image:$tag" || status=$?
+for arch in amd64 arm64; do
+  expected="$(cat "$image_dir/binary-$arch.sha256")"
+  packaged="$(dpkg-deb --fsys-tarfile "$asset_dir/gizclaw_${tag#v}_${arch}.deb" | tar -xOf - ./usr/bin/gizclaw | sha256sum | cut -d ' ' -f1)"
+  [[ "$expected" =~ ^[0-9a-f]{64}$ && "$expected" == "$packaged" ]] || {
+    echo "verified image and Debian executable digests differ before publication: $arch" >&2
+    exit 1
+  }
+done
 if [[ "$status" == 3 ]]; then
   sources=()
   for arch in amd64 arm64; do

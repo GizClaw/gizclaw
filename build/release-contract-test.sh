@@ -567,11 +567,16 @@ case "$MOCK_REGISTRY_STATE" in
 esac
 EOF
 chmod 0755 "$fake_bin/docker"
+mock_image_dir="$fixture_root/mock-images"
+mkdir -p "$mock_image_dir"
+for arch in amd64 arm64; do
+  sha256sum "$fixture_binary" | cut -d ' ' -f1 >"$mock_image_dir/binary-$arch.sha256"
+done
 for registry_state in denied network existing; do
   docker_log="$fixture_root/docker-$registry_state.log"
   expect_failure "registry $registry_state must fail without replacing a version" env \
     PATH="$fake_bin:$PATH" MOCK_REGISTRY_STATE="$registry_state" MOCK_DOCKER_LOG="$docker_log" \
-    "$repo_root/build/publish-runtime-image.sh" "$fixture_root/no-images" "$fixture_root/no-assets" "$tag" "$source_commit"
+    "$repo_root/build/publish-runtime-image.sh" "$mock_image_dir" "$payloads" "$tag" "$source_commit"
   if grep -Eq '(^push |^tag |imagetools create)' "$docker_log"; then
     echo "unexpected registry mutation: $registry_state" >&2
     exit 1
