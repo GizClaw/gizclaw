@@ -160,7 +160,7 @@ Push-to-Talk 在匹配的 `ASREnded` 到达时，根据当前 turn 累积并 tri
 
 已经交给失败 session 的 input 不会重放；尚未读取的 input 保留在有界 stream backpressure 之后，由 replacement session 继续消费。Push-to-Talk 中 provider loss 会使当前 turn 失效：丢弃 retained transcript 和 assistant output，在本地持续消费该 turn 剩余 chunks 直到 audio EOS，下一次 BOS 再开始新 turn。
 
-Realtime 模式把普通 BOS、MIME EOS 和 route EOS 只视为本地 stream boundary；它们不会调用 `EndASR`、注入静音、commit audio 或发送 `ClientInterrupt`。唯一由 BOS 触发的 session replacement 是上述本地 interruption handoff。Input EOF 仍是 transform 终态：它停止重连，并在已提交的有限 Push-to-Talk 或 Text turn 排空匹配的 Chat/TTS response 后关闭当前 session；没有待完成 response 时直接关闭，且不会触发重建。Provider `ASRInfo` 在 response pending 时执行同样的本地 close-and-replace handoff；closed epoch 的重复或迟到 event 不能影响 replacement。Text 模式永不发送 `EndASR` 或 `ClientInterrupt`，只有 Push-to-Talk 使用这两个 provider operation。
+Realtime 模式把普通 BOS、MIME EOS 和 route EOS 只视为本地 stream boundary；它们不会调用 `EndASR`、注入静音、commit audio 或发送 `ClientInterrupt`。唯一由 BOS 触发的 session replacement 是上述本地 interruption handoff。Input EOF 仍是 transform 终态：它停止重连，并在已提交的有限 Push-to-Talk 或 Text turn 排空匹配的 Chat/TTS response 后关闭当前 session；没有待完成 response 时直接关闭，且不会触发重建。Provider `ASRInfo` 在 assistant MIME BOS 已发布后执行同样的本地 close-and-replace handoff；尚未发布 assistant BOS 时将它作为已提交问题的语音继续输入，保留 session，让 provider 已接收的音频继续进入后续 ASR/回复。closed epoch 的重复或迟到 event 不能影响 replacement。Text 模式永不发送 `EndASR` 或 `ClientInterrupt`，只有 Push-to-Talk 使用这两个 provider operation。
 
 PTT 的二进制音频帧不携带 question/reply ID，归属由最近一次 TTS-start 事件确定。下一轮输入开始后，上一轮尚未完成的 Chat/TTS 记录仍用于匹配迟到的带 ID 事件，但不能抢占新一轮的无 ID 音频。旧响应的结束事件只关闭自己的 route。
 

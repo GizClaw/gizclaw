@@ -1409,6 +1409,14 @@ func (t *Transformer) processSession(
 				case doubaospeech.EventASRInfo:
 					slog.InfoContext(ctx, "doubao: ASR speech detected", "stream_id", streamIDs.input())
 					if t.mode == ModeRealtime {
+						// Before assistant BOS this can be continued speech for an
+						// already submitted question. Keep the provider session so
+						// its buffered audio can reach the next ASREnded; there is
+						// no published assistant route to cut off yet.
+						if realtimeSpoken == nil || realtimeSpokenEpoch != assistant.currentEpoch() ||
+							(!realtimeSpoken.textOpen && !realtimeSpoken.audioOpen) {
+							continue
+						}
 						interrupted, err := interruptAssistant(streamID, false)
 						if err != nil {
 							return err
