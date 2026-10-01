@@ -1358,6 +1358,14 @@ func (r *inputRouter) forwardASR() {
 		if chunk == nil {
 			continue
 		}
+		// Continuous audio can produce another transcript route without a new
+		// caller audio BOS. Apply the same interruption barrier before exposing
+		// that utterance or letting its Agent response begin.
+		if chunk.IsBeginOfStream() && (chunk.Ctrl == nil || strings.TrimSpace(chunk.Ctrl.Label) != genx.HistoryUserAudioLabel) {
+			if !r.sendInputEvent(true, dockStreamID(chunk)) {
+				return
+			}
+		}
 		if err := r.transcript.Push(chunk.Clone()); err != nil {
 			if r.ctx.Err() == nil && !errors.Is(err, io.ErrClosedPipe) {
 				r.fail(fmt.Errorf("audiodock: expose ASR output: %w", err))

@@ -21,6 +21,8 @@ dock, err := audiodock.New(audiodock.Config{
 
 文本内容与音频时序独立：选音色、TTS session 初始化和合成都不阻塞后续模型文本。带正文的 text EOS 会拆成立即可读的正文和延后的空文本 EOS；response epoch 仅在所有 sibling route 完成或取消后结束。每个 publisher 的 TTS 输入按原顺序排队，新 input BOS 会取消仍在选音色或启动中的旧 TTS，迟到的 provider stream 会被关闭，不向新一轮输出旧音频。这个边界同样适用于 realtime/duplex 输入；ASR 的 definite transcript 决定模型何时开始，Audio Dock 不额外等待外层音频 EOS 或播放节拍。
 
+连续音频会在没有新 caller audio BOS 的情况下产生新的 ASR transcript BOS。这个 BOS 同样先执行旧 response 的取消与收尾屏障，再发布新 transcript 并转交 Agent；旧音频的 error EOS 因此在新回复开始前可见。History audio sideband 不触发这个边界。
+
 每个 child Transformer 仍然负责自己创建的 StreamID 或 MIME channel。Audio Dock 原样保留无关的透传 route，并按 child 原始的 `(StreamID, canonical MIME)` key 验证每个 child TTS lifecycle；data-before-BOS、duplicate BOS、EOS 后继续输出、missing EOS 或完全没有 MIME lifecycle 都是 route error。多个 publisher 为同一个最终 MIME channel 合成时，Audio Dock 把已验证的 child boundary 合并为一个最终 BOS 和一个最终 EOS；它只负责这个 remap 后的最终 route，不修补不合规的 child 生命周期。
 
 `ResolveVoice` 接收 response StreamID、输出 node/name 与 chunk metadata，返回交给 TTS mux 的 pattern。同一个 response 内的每个具名 publisher 都会独立解析，因此并行 Flowcraft publisher 可以共用 response StreamID、但使用不同 voice。返回空 pattern 时只保留该 publisher 的文本，不合成音频。RuntimeProfile alias 的解析属于产品 factory，不属于 Audio Dock。

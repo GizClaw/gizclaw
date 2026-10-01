@@ -507,19 +507,22 @@ type doubaoRealtimeSpokenTransition struct {
 	openAudio  bool
 	closeText  bool
 	closeAudio bool
+	errorText  string
 }
 
 type doubaoRealtimeSpokenResponse struct {
-	chatText     []string
-	ttsSegments  []string
-	ttsSelected  bool
-	chatFinished bool
-	ttsFinished  bool
-	textFinished bool
-	textOpen     bool
-	textClosed   bool
-	audioOpen    bool
-	audioClosed  bool
+	chatText       []string
+	ttsSegments    []string
+	ttsSelected    bool
+	chatFinished   bool
+	ttsFinished    bool
+	textFinished   bool
+	textOpen       bool
+	textClosed     bool
+	audioOpen      bool
+	audioClosed    bool
+	expectsContent bool
+	contentEmitted bool
 	// textOnly streams ChatResponse text as it arrives and completes the
 	// response at ChatEnded; the provider emits no TTS events in this mode.
 	textOnly bool
@@ -530,6 +533,7 @@ func (r *doubaoRealtimeSpokenResponse) chat(text string) doubaoRealtimeSpokenTra
 		return doubaoRealtimeSpokenTransition{}
 	}
 	if r.textOnly {
+		r.contentEmitted = true
 		return doubaoRealtimeSpokenTransition{text: []string{text}, openText: r.openText()}
 	}
 	// ChatResponse is preferred over deferred sentence-end text.
@@ -552,6 +556,7 @@ func (r *doubaoRealtimeSpokenResponse) ttsStarted(text string) doubaoRealtimeSpo
 		r.ttsSegments = nil
 	}
 	transition.text = []string{text}
+	r.contentEmitted = true
 	transition.openText = r.openText()
 	if r.ttsFinished {
 		r.textFinished = true
@@ -587,6 +592,7 @@ func (r *doubaoRealtimeSpokenResponse) finishTTS() doubaoRealtimeSpokenTransitio
 		transition.closeAudio = true
 	}
 	r.finishTextIfReady(&transition)
+	r.markEmptyResponse(&transition)
 	return transition
 }
 
@@ -608,7 +614,19 @@ func (r *doubaoRealtimeSpokenResponse) finishChat() doubaoRealtimeSpokenTransiti
 		}
 	}
 	r.finishTextIfReady(&transition)
+	r.markEmptyResponse(&transition)
 	return transition
+}
+
+func (r *doubaoRealtimeSpokenResponse) markEmptyResponse(transition *doubaoRealtimeSpokenTransition) {
+	if r.expectsContent && r.done() && !r.contentEmitted {
+		transition.errorText = "doubao realtime response completed without assistant content"
+		if !r.audioOpen && !r.audioClosed {
+			transition.openAudio = r.openAudio()
+			r.audioClosed = true
+			transition.closeAudio = true
+		}
+	}
 }
 
 func (r *doubaoRealtimeSpokenResponse) done() bool {
@@ -649,6 +667,12 @@ func (r *doubaoRealtimeSpokenResponse) finishTextIfReady(transition *doubaoRealt
 		transition.text = append(transition.text, r.chatText...)
 	} else {
 		transition.text = append(transition.text, r.ttsSegments...)
+	}
+	for _, text := range transition.text {
+		if strings.TrimSpace(text) != "" {
+			r.contentEmitted = true
+			break
+		}
 	}
 	transition.openText = r.openText()
 	r.textClosed = true

@@ -1283,6 +1283,7 @@ func TestTransformerASRInfoHandsRealtimeInterruptionToReplacementWithoutProvider
 	session := &fakeTransformerSession{
 		events: []*doubaospeech.RealtimeEvent{
 			{Type: doubaospeech.EventASREnded},
+			{Type: doubaospeech.EventTTSStarted},
 			{Type: doubaospeech.EventASRInfo},
 		},
 		blockAfterEvents: make(chan struct{}),
