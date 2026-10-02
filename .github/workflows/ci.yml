@@ -69,44 +69,6 @@ jobs:
           path: tests/locomo-e2e/reports/ci/*.json
           if-no-files-found: warn
 
-  mem0-giztest:
-    name: Mem0 Giztest
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    env:
-      GIZCLAW_E2E_VOLC_ARK_API_KEY: ${{ secrets.GIZCLAW_VOLC_ARK_API_KEY }}
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          lfs: true
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
-        with:
-          go-version-file: go.mod
-          cache: true
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: 26
-          cache: npm
-      - name: Run real self-hosted Mem0 and PostgreSQL Giztests
-        run: bash tests/gizclaw-e2e/run_mem0_tests.sh
-      - name: Preserve memory integration evidence
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: mem0-giztest
-          path: |
-            tests/gizclaw-e2e/.testbench/mem0-giztest-*/giztest.log
-            tests/gizclaw-e2e/.testbench/mem0-giztest-*/scope.log
-            tests/gizclaw-e2e/.testbench/mem0-giztest-*/containers.log
-          include-hidden-files: true
-          if-no-files-found: warn
-
   mem0-regression:
     name: Mem0 PGVector Regression
     runs-on: ubuntu-24.04

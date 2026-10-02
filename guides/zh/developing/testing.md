@@ -228,15 +228,16 @@ interoperability risk；只完成 tagged compile 不能算 live pass。
 与主栈共用 `docker/compose.memory.yaml`，启动等待 PostgreSQL 和 Mem0 就绪，退出
 使用现有 project 级容器、卷、网络清理。
 
-独立的真实链路回归通过 `bash tests/gizclaw-e2e/run_mem0_tests.sh` 执行；CI 的
-`Mem0 Giztest` job 使用同一 service、同一 PostgreSQL 分库结构。它通过真实 Server、
+本地独立的真实链路回归通过 `bash tests/gizclaw-e2e/run_mem0_tests.sh` 执行，
+与默认主栈使用同一 service 和 PostgreSQL 分库结构。它通过真实 Server、
 WebRTC Peer RPC 和 committed Giztest 验证独立 policy reload、原始文本模型提取、
 改写 query 的向量检索、Peer 共享与 Workspace 隔离，以及删除后的 pgvector 零残留。
 该回归只需要 Ark credential（可通过 `GIZCLAW_E2E_CREDENTIAL_FILE` 指定文件），
-没有 credential 时明确失败。其他 provider 的 Store contract 和 scope 测试继续独立运行。
+没有 credential 时明确失败。这条真实模型回归由本地显式执行，不加入 GitHub Actions。
+其他 provider 的 Store contract 和 scope 测试继续独立运行。
 
 `flowcraft-memory-scope.peer-and-workspace.giztest.yaml` 在 Docker Giztest 的真实
-Server/Peer/Redis 8 路径上创建同一 Peer 的两个共享 Workspace（两个 binding alias
+Server/Peer/Mem0 路径上创建同一 Peer 的两个共享 Workspace（两个 binding alias
 指向同一 Layout）、一个隔离 Workspace，以及另一 Peer 的共享 Workspace。它写入带
 随机标记的 direct Fact，并断言跨 alias 命中、双向隔离，以及删除一个共享 Workspace
 后另一个仍能命中；最终删除测试 Peer。单独的
