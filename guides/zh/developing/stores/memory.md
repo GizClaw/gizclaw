@@ -92,16 +92,17 @@ Release 使用同一份服务实现。提取模型和 Embedding 属于该服务�
 只保存 endpoint 与可选 API key。
 
 配置文件通过 `--config` 或 `MEM0_CONFIG` 选择。`memory` 对象使用 Mem0 原生模型/存储配置，拒绝全局业务 `custom_instructions`；
-`service` 支持 `api_key`、`thinking`、`embedding_protocol`、`max_concurrency` 和 `service_tier`。`${VARIABLE}` 从进程环境
+`service` 支持 `api_key`、`thinking`、`embedding_protocol` 和 `max_concurrency`。模型档位配置为 `memory.llm.config.service_tier`；wrapper 在构造原生 Mem0 config 前取出该扩展字段，再通过 OpenAI SDK 转发。`${VARIABLE}` 从进程环境
 展开，缺失或空值会阻止启动；配置文件模式下，模型/数据库配置以文件为准，不与对应的
 `MEM0_*` 环境配置混合。不传文件时保留环境配置入口。
 
 - `cmd/mem0/config.example.yaml` 使用 Seed 2.1 Lite、豆包 Vision Embedding、PGVector。
   `service.thinking: disabled` 通过 OpenAI-compatible Chat API 发送 Ark 参数。
-- 国内示例设置 `service_tier: fast`，通过 Chat API 请求火山低延迟档位；环境模式使用
+- 国内示例设置 `memory.llm.config.service_tier: fast`，通过 Chat API 请求火山低延迟档位；环境模式使用
   `MEM0_LLM_SERVICE_TIER=fast`。服务健康检查回显请求档位，提取诊断记录响应的实际
   `service_tier`。需要账户开通低延迟服务，额度不足或触发流量保护可能回退 default；
   fast 不绕过模型账户 TPM 限额。
+- OpenAI 也支持 Fast mode；支持的模型可设置 `service_tier: fast` 或 `priority`，具体账号和模型支持以[官方文档](https://developers.openai.com/api/docs/guides/fast-mode#configuring-fast-mode)为准。OpenAI 示例使用 `auto`。
 - `cmd/mem0/config.openai.example.yaml` 使用 `gpt-6-luna`、`text-embedding-3-small`、
   PGVector。Luna 的 `max_tokens` 被映射为 `max_completion_tokens`；使用
   `reasoning_effort: none`，其余 reasoning 模式省略不兼容的采样参数。请求格式已有

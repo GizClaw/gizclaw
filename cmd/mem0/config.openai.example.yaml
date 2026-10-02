@@ -10,6 +10,7 @@ memory:
     provider: openai
     config:
       model: gpt-6-luna
+      service_tier: auto
       api_key: "${OPENAI_API_KEY}"
       reasoning_effort: none
       max_tokens: 8192

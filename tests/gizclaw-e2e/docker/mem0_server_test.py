@@ -168,6 +168,29 @@ class ConfigurationTest(unittest.TestCase):
             "vector_store": {"provider": "pgvector", "config": {"connection_string": "${DATABASE_DSN}", "embedding_model_dims": 1024}},
         }
 
+    def test_model_tier_is_consumed_before_native_sdk_config(self):
+        for tier in ("fast", "priority"):
+            with self.subTest(tier=tier):
+                config = self.native_config()
+                config["llm"]["config"]["service_tier"] = tier
+                memory = SimpleNamespace(llm=SimpleNamespace(client=mock.Mock(), config={"model": "fixture", "api_key": "fixture"}))
+                with mock.patch.object(mem0_server.Memory, "from_config", return_value=memory) as constructor:
+                    result = mem0_server._configured_memory(config, "", "openai")
+                try:
+                    self.assertEqual(result.llm.service_tier, tier)
+                    self.assertNotIn("service_tier", constructor.call_args.args[0]["llm"]["config"])
+                    self.assertEqual(config["llm"]["config"]["service_tier"], tier)
+                finally:
+                    result.llm.client.close()
+
+    def test_invalid_model_tier_fails_before_native_sdk_initialization(self):
+        config = self.native_config()
+        config["llm"]["config"]["service_tier"] = "unsupported"
+        with mock.patch.object(mem0_server.Memory, "from_config") as constructor:
+            with self.assertRaisesRegex(RuntimeError, "llm.config.service_tier"):
+                mem0_server._configured_memory(config, "", "openai")
+            constructor.assert_not_called()
+
     def test_config_file_expands_secrets_and_passes_native_sdk_settings(self):
         document = {"memory": self.native_config(), "service": {"api_key": "${SERVICE_KEY}"}}
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json") as source:
@@ -189,6 +212,7 @@ class ConfigurationTest(unittest.TestCase):
             {"memory": self.native_config()},
             {"memory": self.native_config(), "service": {"api_key": 123}},
             {"memory": self.native_config(), "service": {"unsupported": True}},
+            {"memory": self.native_config(), "service": {"service_tier": "fast"}},
             {"memory": {**self.native_config(), "llm": []}},
             {"memory": {**self.native_config(), "embedder": {"provider": "unknown", "config": {}}}},
         ]
@@ -580,6 +604,28 @@ class AuthenticationTest(unittest.TestCase):
 
 
 class ThinkingRequestTest(unittest.TestCase):
+    def test_openai_fast_and_priority_tiers_use_the_sdk_request_parameter(self):
+        for tier in ("fast", "priority"):
+            with self.subTest(tier=tier):
+                requests = []
+
+                def respond(request):
+                    requests.append(json.loads(request.content))
+                    return httpx.Response(200, json={"id": "fixture", "object": "chat.completion", "created": 0,
+                        "model": "fixture", "service_tier": "priority", "choices": [{"index": 0,
+                        "finish_reason": "stop", "message": {"role": "assistant", "content": '{"memory":[]}'}}]})
+
+                llm = mem0_server.CompatibleOpenAILLM({"model": "fixture", "api_key": "fixture"}, tier)
+                llm.client.close()
+                llm.client = OpenAI(api_key="fixture", http_client=httpx.Client(transport=httpx.MockTransport(respond)))
+                try:
+                    self.assertEqual(llm._get_supported_params()["service_tier"], tier)
+                    llm.generate_response([{"role": "user", "content": "fixture"}], response_format={"type": "json_object"})
+                    self.assertEqual(requests[0]["service_tier"], tier)
+                    self.assertNotIn("thinking", requests[0])
+                finally:
+                    llm.client.close()
+
     def test_fast_tier_and_thinking_parameters_are_forwarded_together(self):
         requests = []
         def respond(request):

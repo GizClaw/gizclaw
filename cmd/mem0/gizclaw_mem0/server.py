@@ -67,7 +67,7 @@ class CompatibleOpenAILLM(OpenAILLM):
     def _get_supported_params(self, **kwargs: Any) -> dict[str, Any]:
         params = super()._get_supported_params(**kwargs)
         if self.service_tier:
-            params.setdefault("extra_body", {})["service_tier"] = self.service_tier
+            params["service_tier"] = self.service_tier
         if not _is_luna(self.config.model):
             return params
         params.pop("max_tokens", None)
@@ -344,7 +344,7 @@ def _build_memory() -> Memory:
         document = _expand_environment(document)
         config = document.get("memory")
         service = document.get("service", {})
-        if not isinstance(config, dict) or not isinstance(service, dict) or set(service) - {"api_key", "thinking", "embedding_protocol", "max_concurrency", "service_tier"}:
+        if not isinstance(config, dict) or not isinstance(service, dict) or set(service) - {"api_key", "thinking", "embedding_protocol", "max_concurrency"}:
             raise RuntimeError("Invalid Mem0 memory/service configuration")
         _service_api_key = service.get("api_key", _service_api_key)
         if not isinstance(_service_api_key, str):
@@ -352,7 +352,7 @@ def _build_memory() -> Memory:
         _operation_state.configured_concurrency = _validate_concurrency(service.get("max_concurrency", 160))
         config.setdefault("version", "v1.1")
         config.setdefault("history_db_path", os.environ.get("MEM0_HISTORY_DB_PATH", "/tmp/gizclaw-memory-history.db"))
-        return _configured_memory(config, service.get("thinking", ""), service.get("embedding_protocol", "openai"), service.get("service_tier", ""))
+        return _configured_memory(config, service.get("thinking", ""), service.get("embedding_protocol", "openai"))
     _operation_state.configured_concurrency = _validate_concurrency(int(os.environ.get("MEM0_MAX_CONCURRENCY", "160")))
     shared_api_key = os.environ.get("OPENAI_API_KEY", "").strip()
     if not shared_api_key and os.path.isfile(_CREDENTIAL_FILE):
@@ -441,7 +441,10 @@ def _build_memory() -> Memory:
             "history_db_path": os.environ.get("MEM0_HISTORY_DB_PATH", "/tmp/gizclaw-memory-history.db"),
         }
     )
-    return _configured_memory(config, thinking, embedding_protocol, os.environ.get("MEM0_LLM_SERVICE_TIER", "").strip())
+    service_tier = os.environ.get("MEM0_LLM_SERVICE_TIER", "").strip()
+    if service_tier:
+        config["llm"]["config"]["service_tier"] = service_tier
+    return _configured_memory(config, thinking, embedding_protocol)
 
 
 def _expand_environment(value: Any) -> Any:
@@ -459,9 +462,7 @@ def _expand_environment(value: Any) -> Any:
     return value
 
 
-def _configured_memory(config: dict[str, Any], thinking: str, embedding_protocol: str, service_tier: str = "") -> Memory:
-    if service_tier not in ("", "auto", "default", "fast", "flex"):
-        raise RuntimeError("Mem0 service_tier must be auto, default, fast, flex, or empty")
+def _configured_memory(config: dict[str, Any], thinking: str, embedding_protocol: str) -> Memory:
     if config.get("custom_instructions"):
         raise RuntimeError("Business instructions belong to MemoryLayout and request.prompt, not the service config")
     if thinking not in ("", "enabled", "disabled") or embedding_protocol not in ("openai", "ark_multimodal"):
@@ -474,6 +475,12 @@ def _configured_memory(config: dict[str, Any], thinking: str, embedding_protocol
         raise RuntimeError("This Mem0 service requires OpenAI-compatible LLM and embedder providers")
     if config["vector_store"].get("provider") not in ("qdrant", "pgvector"):
         raise RuntimeError("This Mem0 service supports qdrant or pgvector")
+    # The pinned native Mem0 config has no service_tier field. Keep the option
+    # with its LLM, then consume it before constructing the native SDK config.
+    config = {**config, "llm": {**config["llm"], "config": dict(config["llm"]["config"])}}
+    service_tier = config["llm"]["config"].pop("service_tier", "")
+    if service_tier not in ("", "auto", "default", "fast", "flex", "priority"):
+        raise RuntimeError("Mem0 llm.config.service_tier must be auto, default, fast, flex, priority, or empty")
     config["llm"]["config"]["response_callback"] = _report_llm_response
     luna = _is_luna(config["llm"]["config"].get("model", ""))
     if thinking and luna:

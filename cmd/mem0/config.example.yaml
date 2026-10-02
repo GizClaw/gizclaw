@@ -3,7 +3,6 @@ service:
   max_concurrency: 160
   api_key: "${MEM0_API_KEY}"
   thinking: disabled
-  service_tier: fast
   embedding_protocol: ark_multimodal
 memory:
   version: v1.1
@@ -16,6 +15,7 @@ memory:
       openai_base_url: https://ark.cn-beijing.volces.com/api/v3
       temperature: 0.1
       max_tokens: 8192
+      service_tier: fast
   embedder:
     provider: openai
     config:

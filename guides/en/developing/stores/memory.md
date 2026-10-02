@@ -94,7 +94,7 @@ RuntimeProfile stores only the endpoint and optional API key.
 
 Select a YAML/JSON file with `--config` or `MEM0_CONFIG`. Its `memory` object uses
 native Mem0 model/storage settings and rejects global business `custom_instructions`; `service` accepts `api_key`, `thinking` and
-`embedding_protocol`, `max_concurrency` and `service_tier`. `${VARIABLE}` substitutes process environment values and
+`embedding_protocol` and `max_concurrency`. Model QoS belongs to `memory.llm.config.service_tier`; the wrapper consumes this extension before constructing native Mem0 config and forwards it through the OpenAI SDK. `${VARIABLE}` substitutes process environment values and
 fails startup for missing/empty values. File mode takes its model/database
 configuration from that file instead of mixing in equivalent `MEM0_*` settings.
 Without a file, environment configuration remains available.
@@ -102,11 +102,12 @@ Without a file, environment configuration remains available.
 - `cmd/mem0/config.example.yaml` selects Seed 2.1 Lite, Doubao Vision Embedding
   and PGVector. `service.thinking: disabled` forwards Ark's parameter through
   the OpenAI-compatible Chat API.
-- The domestic example sets `service_tier: fast` for Ark's low-latency Chat tier.
+- The domestic example sets `memory.llm.config.service_tier: fast` for Ark's low-latency Chat tier.
   Environment mode uses `MEM0_LLM_SERVICE_TIER=fast`. Health reports the requested
   tier; extraction diagnostics record the actual response tier. The account must
   enable low-latency service. Quota/traffic protection can fall back to default;
   fast does not bypass model-account TPM limits.
+- OpenAI also supports Fast mode: supported models accept `service_tier: fast` or `priority`. Account/model support follows the [official documentation](https://developers.openai.com/api/docs/guides/fast-mode#configuring-fast-mode). The OpenAI example uses `auto`.
 - `cmd/mem0/config.openai.example.yaml` selects `gpt-6-luna`,
   `text-embedding-3-small` and PGVector. Luna maps `max_tokens` to
   `max_completion_tokens` and uses `reasoning_effort: none`; other reasoning
