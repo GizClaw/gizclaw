@@ -158,6 +158,19 @@ func TestModelProviderDataOneofRoundTripAndRejectsMultipleValues(t *testing.T) {
 	if dashScopeDecoded.Value.DashScopeTenant == nil || dashScopeDecoded.Value.DashScopeTenant.ApiMode == nil || *dashScopeDecoded.Value.DashScopeTenant.ApiMode != dashScopeMode {
 		t.Fatalf("AsModelGetResponse(DashScope) lost api_mode: %#v", dashScopeDecoded)
 	}
+	volcResponse := ModelGetResponse{Value: Model{
+		Name: "doubao", Kind: ModelKindLlm, ProviderKind: ModelProviderKindVolcTenant,
+		VolcTenant: &VolcTenantModelProviderData{
+			ApiMode: new(VolcTenantModelProviderDataApiModeChatCompletions), UpstreamModel: new("doubao-test"), ServiceTier: new("fast"),
+		},
+	}}
+	if err := payload.FromModelGetResponse(volcResponse); err != nil {
+		t.Fatalf("FromModelGetResponse(Volc): %v", err)
+	}
+	volcDecoded, err := payload.AsModelGetResponse()
+	if err != nil || volcDecoded.Value.VolcTenant == nil || volcDecoded.Value.VolcTenant.ServiceTier == nil || *volcDecoded.Value.VolcTenant.ServiceTier != "fast" {
+		t.Fatalf("AsModelGetResponse(Volc) lost service_tier: %#v, %v", volcDecoded, err)
+	}
 
 	response.Value.OpenAITenant = &OpenAITenantModelProviderData{UpstreamModel: new("gpt-test")}
 	if err := payload.FromModelGetResponse(response); err == nil {

@@ -424,6 +424,8 @@ message VolcTenantModelProviderData {
   optional string thinking_level_param = 11;
   repeated string thinking_levels = 12;
   optional string default_thinking_level = 13;
+  // Volc Ark chat_completions inference tier: auto, default, fast, or flex.
+  optional string service_tier = 14;
 }
 
 message MiniMaxTenantModelProviderData {

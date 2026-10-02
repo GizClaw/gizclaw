@@ -5073,6 +5073,7 @@ class VolcTenantModelProviderData extends $pb.GeneratedMessage {
     $core.String? thinkingLevelParam,
     $core.Iterable<$core.String>? thinkingLevels,
     $core.String? defaultThinkingLevel,
+    $core.String? serviceTier,
   }) {
     final result = create();
     if (upstreamModel != null) result.upstreamModel = upstreamModel;
@@ -5091,6 +5092,7 @@ class VolcTenantModelProviderData extends $pb.GeneratedMessage {
     if (thinkingLevels != null) result.thinkingLevels.addAll(thinkingLevels);
     if (defaultThinkingLevel != null)
       result.defaultThinkingLevel = defaultThinkingLevel;
+    if (serviceTier != null) result.serviceTier = serviceTier;
     return result;
   }
 
@@ -5120,6 +5122,7 @@ class VolcTenantModelProviderData extends $pb.GeneratedMessage {
     ..aOS(11, _omitFieldNames ? '' : 'thinkingLevelParam')
     ..pPS(12, _omitFieldNames ? '' : 'thinkingLevels')
     ..aOS(13, _omitFieldNames ? '' : 'defaultThinkingLevel')
+    ..aOS(14, _omitFieldNames ? '' : 'serviceTier')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -5254,6 +5257,16 @@ class VolcTenantModelProviderData extends $pb.GeneratedMessage {
   $core.bool hasDefaultThinkingLevel() => $_has(12);
   @$pb.TagNumber(13)
   void clearDefaultThinkingLevel() => $_clearField(13);
+
+  /// Volc Ark chat_completions inference tier: auto, default, fast, or flex.
+  @$pb.TagNumber(14)
+  $core.String get serviceTier => $_getSZ(13);
+  @$pb.TagNumber(14)
+  set serviceTier($core.String value) => $_setString(13, value);
+  @$pb.TagNumber(14)
+  $core.bool hasServiceTier() => $_has(13);
+  @$pb.TagNumber(14)
+  void clearServiceTier() => $_clearField(14);
 }
 
 class MiniMaxTenantModelProviderData extends $pb.GeneratedMessage {

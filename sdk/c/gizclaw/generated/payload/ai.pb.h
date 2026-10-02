@@ -543,6 +543,8 @@ typedef struct _gizclaw_rpc_v1_VolcTenantModelProviderData {
     pb_callback_t thinking_level_param;
     pb_callback_t thinking_levels;
     pb_callback_t default_thinking_level;
+    /* Volc Ark chat_completions inference tier: auto, default, fast, or flex. */
+    pb_callback_t service_tier;
 } gizclaw_rpc_v1_VolcTenantModelProviderData;
 
 typedef struct _gizclaw_rpc_v1_MiniMaxTenantModelProviderData {
@@ -915,7 +917,7 @@ extern "C" {
 #define gizclaw_rpc_v1_OpenAITenantModelProviderData_init_default {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_GeminiTenantModelProviderData_init_default {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DashScopeTenantModelProviderData_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DeepSeekTenantModelProviderData_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ModelGetRequest_init_default {{{NULL}, NULL}}
@@ -990,7 +992,7 @@ extern "C" {
 #define gizclaw_rpc_v1_OpenAITenantModelProviderData_init_zero {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_GeminiTenantModelProviderData_init_zero {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DashScopeTenantModelProviderData_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DeepSeekTenantModelProviderData_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ModelGetRequest_init_zero {{{NULL}, NULL}}
@@ -1271,6 +1273,7 @@ extern "C" {
 #define gizclaw_rpc_v1_VolcTenantModelProviderData_thinking_level_param_tag 11
 #define gizclaw_rpc_v1_VolcTenantModelProviderData_thinking_levels_tag 12
 #define gizclaw_rpc_v1_VolcTenantModelProviderData_default_thinking_level_tag 13
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_service_tier_tag 14
 #define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_upstream_model_tag 1
 #define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_api_mode_tag 2
 #define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_support_json_output_tag 3
@@ -1869,7 +1872,8 @@ X(a, STATIC,   OPTIONAL, BOOL,     use_system_role,   9) \
 X(a, CALLBACK, OPTIONAL, STRING,   thinking_param,   10) \
 X(a, CALLBACK, OPTIONAL, STRING,   thinking_level_param,  11) \
 X(a, CALLBACK, REPEATED, STRING,   thinking_levels,  12) \
-X(a, CALLBACK, OPTIONAL, STRING,   default_thinking_level,  13)
+X(a, CALLBACK, OPTIONAL, STRING,   default_thinking_level,  13) \
+X(a, CALLBACK, OPTIONAL, STRING,   service_tier,     14)
 #define gizclaw_rpc_v1_VolcTenantModelProviderData_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_VolcTenantModelProviderData_DEFAULT NULL
 

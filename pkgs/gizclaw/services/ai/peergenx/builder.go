@@ -394,6 +394,13 @@ func (b DefaultBuilder) buildVolcArkGenerator(cfg GeneratorConfig) (genx.Generat
 		return nil, fmt.Errorf("%w: decode volc model provider_data: %w", ErrInvalid, err)
 	}
 	openAIData := openAIProviderDataFromVolc(providerData)
+	extraFields := openAIThinkingExtraFields(openAIData)
+	if providerData.ServiceTier != nil {
+		if extraFields == nil {
+			extraFields = map[string]any{}
+		}
+		extraFields["service_tier"] = string(*providerData.ServiceTier)
+	}
 	modelName := firstString(providerData.UpstreamModel, string(cfg.Model.Id))
 	if modelName == "" {
 		return nil, fmt.Errorf("%w: model %q missing upstream model", ErrInvalid, cfg.Model.Id)
@@ -406,7 +413,7 @@ func (b DefaultBuilder) buildVolcArkGenerator(cfg GeneratorConfig) (genx.Generat
 		SupportToolCalls:  boolValue(providerData.SupportToolCalls),
 		TextOnly:          boolValue(providerData.SupportTextOnly),
 		PromptRole:        openAIPromptRole(providerData.UseSystemRole),
-		ExtraFields:       openAIThinkingExtraFields(openAIData),
+		ExtraFields:       extraFields,
 	}
 	if !volcChatAcceptsAudio(providerData) {
 		return generator, nil

@@ -32,6 +32,27 @@ Owns the GizClaw model catalog and has the ability to parse persistent model def
 
 Model uses the local SQL `models` table. ID, model kind, source, Provider kind and ID, display fields, and timestamps have separate columns; Provider configuration remains JSON. Tables and source/Provider indexes are initialized at startup. Lists apply the cursor, all filters, ordering, and limit in SQL and fetch complete records in one query. Updates preserve creation and synchronization timestamps, conditionally reject synchronized models, and cannot recreate deleted records.
 
+Volc Ark `chat_completions` Models accept an optional `provider_data.service_tier`: `fast` requests low-latency inference, `auto` prefers a TPM guarantee package, `default` uses regular inference, and `flex` uses lower-priority inference. Omitting the field leaves the upstream default unchanged. Resource validation rejects invalid values and use outside `kind: llm`, `provider.kind: volc-tenant`, and `api_mode: chat_completions`. Streaming generation and structured `Invoke` both send the tier, including through the audio-input adapter.
+
+```yaml
+apiVersion: gizclaw.admin/v1alpha1
+kind: Model
+metadata:
+  id: doubao-fast
+spec:
+  kind: llm
+  source: manual
+  provider:
+    kind: volc-tenant
+    id: volc-main
+  provider_data:
+    upstream_model: doubao-seed-2-0-lite-260215
+    api_mode: chat_completions
+    service_tier: fast
+```
+
+Enable low-latency service for the selected model and inference endpoint in the Volc console. See the [official low-latency inference documentation](https://docs.volcengine.com/docs/ark/online-inference-low-latency?lang=zh) for supported models. Ark can fall back to regular inference when fast limits or traffic protection are triggered; `fast` does not guarantee low-latency resources for every request.
+
 ### memorylayout
 
 Owns the connection-free `MemoryLayout` Admin resource. One Layout declares Flowcraft, Mem0, and `volc_mem0` policy together. The RuntimeProfile memory binding selects the concrete driver, endpoint, API key, project, DSN, or directory. See [Memory Store](/en/developing/stores/memory).

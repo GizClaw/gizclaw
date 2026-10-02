@@ -619,6 +619,27 @@ test("RPC payload codec enforces typed model provider-data oneof", () => {
     duplexResponse,
   );
 
+  const fastResponse = {
+    ...duplexResponse,
+    value: {
+      ...duplexResponse.value,
+      kind: "llm",
+      volc_tenant: {
+        api_mode: "chat_completions",
+        thinking_levels: [],
+        upstream_model: "doubao-test",
+        service_tier: "fast",
+      },
+    },
+  };
+  assert.deepEqual(
+    decodeRPCResponsePayload(
+      "server.model.get",
+      encodeRPCResponsePayload("server.model.get", fastResponse),
+    ),
+    fastResponse,
+  );
+
   assert.throws(
     () =>
       encodeRPCResponsePayload("server.model.get", {

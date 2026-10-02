@@ -31,6 +31,8 @@
 !text-input/*.giztest.yaml
 !text-input/live/
 !text-input/live/*.giztest.yaml
+!doubao-service-tier/
+!doubao-service-tier/*.giztest.yaml
 !eino-voices/
 !eino-voices/*.json
 !eino-voices/*.yaml

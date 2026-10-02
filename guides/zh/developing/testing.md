@@ -15,6 +15,21 @@ Docker、真实 provider 或人工判断的套件必须显式启动，不能把�
 后者还要求握手返回 `peer_forbidden`。该测试没有 build tag，随普通 Go CI 运行，
 无需 AI provider、外部凭据或 Docker。
 
+## Doubao 低延迟真实 Giztest
+
+设置真实的 `GIZCLAW_E2E_VOLC_ARK_API_KEY` 后运行：
+
+```sh
+GIZCLAW_E2E_DOUBAO_FAST_MODEL=doubao-seed-2-1-lite-260915 \
+GIZCLAW_E2E_SERVICE_TIER_REPORT_DIR="$(mktemp -d)" \
+  go test -tags=gizclaw_provider_e2e ./cmd/internal/server \
+  -run '^TestDoubaoServiceTierGiztest$' -count=1 -timeout=5m -v
+```
+
+该测试通过 Admin HTTP 创建 Credential、Volc Tenant、`service_tier: fast` Model、Flowcraft Workflow、RuntimeProfile 和 RegistrationToken，在临时状态上启动真实 Server，再执行 `testdata/doubao-service-tier/fast.giztest.yaml` 的三轮 WebRTC 文本对话。默认模型为 `doubao-seed-2-0-mini-260428`；`GIZCLAW_E2E_DOUBAO_FAST_MODEL` 可指定已开通低延迟服务的其他 Model ID 或 Endpoint ID。
+
+请求通过透明观察器转发到真实 Ark HTTPS API，不替换上游响应。测试要求三轮都得到正确文本与 EOS、请求档位为 `fast`、上游 HTTP 200 且回显实际档位为 `fast`；降级到 `default` 或未回显档位不能通过。报告目录保存脱敏的 `giztest.json` 和只含档位、状态、时延、token 数及失败错误码的 `ark-tiers.json`。缺少凭据会明确失败；测试产生真实 provider 用量，普通无标签 Go 测试不运行它。
+
 ## RegistrationToken 准入与生命周期
 
 ```sh

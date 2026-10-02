@@ -345,6 +345,14 @@ func validateModelProviderData(modelKind apitypes.ModelKind, providerKind apityp
 		if value.ApiMode != expectedMode {
 			return fmt.Errorf("provider_data for %s/%s requires api_mode %q", providerKind, modelKind, expectedMode)
 		}
+		if value.ServiceTier != nil {
+			if !value.ServiceTier.Valid() {
+				return fmt.Errorf("provider_data for %s has unsupported service_tier %q", providerKind, *value.ServiceTier)
+			}
+			if value.ApiMode != apitypes.VolcTenantModelProviderDataApiModeChatCompletions {
+				return fmt.Errorf("provider_data for %s/%s only supports service_tier with api_mode %q", providerKind, modelKind, apitypes.VolcTenantModelProviderDataApiModeChatCompletions)
+			}
+		}
 		if modelKind == apitypes.ModelKindLlm {
 			if err := validateLLMThinking(providerKind, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
 				return err
