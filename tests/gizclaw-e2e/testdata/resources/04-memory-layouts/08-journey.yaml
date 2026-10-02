@@ -47,6 +47,8 @@ spec:
       story-questions: Answered story questions.
     multilingual: true
     decay: false
+  mem0_self_hosted:
+    custom_instructions: Extract durable narrated facts, user storytelling preferences, and answered questions; do not infer story progress.
   volc_mem0:
     strategies:
     - name: story-progress

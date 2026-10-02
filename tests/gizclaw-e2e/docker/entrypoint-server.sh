@@ -67,6 +67,11 @@ envsubst '${GIZCLAW_E2E_PEER_ADMISSION} ${GIZCLAW_E2E_SERVER_ENDPOINT} ${GIZCLAW
 if [[ "${GIZCLAW_E2E_ADMISSION_ONLY:-}" != "1" ]]; then
   perl -0pi -e 's/^services:\n/services:\n  sfu:\n    url: ws:\/\/livekit:7880\n    api_key_file: \/tmp\/gizclaw-e2e-sfu\/api_key\n    api_secret_file: \/tmp\/gizclaw-e2e-sfu\/api_secret\n/m' "$workspace_dir/config.yaml"
 fi
+if [[ -n "${GIZCLAW_E2E_POSTGRES_DSN:-}" ]]; then
+  # The main stack shares one PostgreSQL instance with Mem0, using separate
+  # databases and non-superuser application roles.
+  perl -0pi -e 's/    kind: sqlite\n    dir: data\/business.sqlite/    kind: postgresql\n    dsn: $ENV{GIZCLAW_E2E_POSTGRES_DSN}/' "$workspace_dir/config.yaml"
+fi
 if [[ "${GIZCLAW_E2E_PROFILING:-}" == "1" ]]; then
   awk '
 /^storage:/ {
@@ -245,7 +250,9 @@ nohup "$bin_path" serve --force "$workspace_dir" >"$log_file" 2>&1 </dev/null &
 pid="$!"
 echo "$pid" >"$pid_file"
 
-for _ in {1..300}; do
+# Cold PostgreSQL schema initialization shares the Compose startup budget.
+startup_deadline=$((SECONDS + 180))
+while ((SECONDS < startup_deadline)); do
   if ! kill -0 "$pid" 2>/dev/null; then
     echo "gizclaw server exited before becoming ready; log=$log_file" >&2
     tail -80 "$log_file" >&2 || true

@@ -23,6 +23,11 @@ func TestScopeForRequestUsesSelectedImplementation(t *testing.T) {
 			VolcMem0:  apitypes.VolcMem0MemoryLayoutPolicy{Scope: &volcPeer},
 		}},
 	}
+	if err := request.Binding.Connection.FromRuntimeProfileMem0Connection(apitypes.RuntimeProfileMem0Connection{
+		Type: apitypes.RuntimeProfileMem0ConnectionTypeMem0, Endpoint: "https://api.mem0.ai", ApiKey: "test", ProjectId: "test",
+	}); err != nil {
+		t.Fatal(err)
+	}
 	for _, test := range []struct {
 		driver apitypes.RuntimeProfileMemoryDriver
 		shared bool
@@ -48,6 +53,20 @@ func TestScopeForRequestUsesSelectedImplementation(t *testing.T) {
 	scope, err := ScopeForRequest(request)
 	if err != nil || scope.AppID != request.WorkspaceID {
 		t.Fatalf("omitted scope = %#v, %v", scope, err)
+	}
+	selfHostedPeer := apitypes.Mem0SelfHostedMemoryLayoutPolicyScopePeer
+	request.Layout.Spec.Mem0SelfHosted = &apitypes.Mem0SelfHostedMemoryLayoutPolicy{Scope: &selfHostedPeer}
+	if err := request.Binding.Connection.FromRuntimeProfileMem0SelfHostedConnection(apitypes.RuntimeProfileMem0SelfHostedConnection{
+		Type: apitypes.RuntimeProfileMem0SelfHostedConnectionTypeMem0SelfHosted, Endpoint: "http://localhost:8000",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if scope, err := ScopeForRequest(request); err != nil || !strings.HasPrefix(scope.AppID, "peer:") {
+		t.Fatalf("independent self-hosted scope = %#v, %v", scope, err)
+	}
+	request.Layout.Spec.Mem0SelfHosted.Scope = nil
+	if scope, err := ScopeForRequest(request); err != nil || scope.AppID != request.WorkspaceID {
+		t.Fatalf("omitted self-hosted scope = %#v, %v", scope, err)
 	}
 	request.Binding.Driver = apitypes.RuntimeProfileMemoryDriverFlowcraft
 	request.OwnerPublicKey = ""

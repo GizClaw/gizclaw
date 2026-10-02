@@ -151,6 +151,13 @@ steps:
   rpc:
     method: server.run.workspace.reload
     request: {}
+- id: private_cannot_read_peer
+  client: owner
+  rpc:
+    method: server.run.workspace.recall
+    request: {query: "${marker}"}
+  expect:
+    /hits: {count: 0}
 - id: write_private_fact
   client: owner
   peer_stream:
@@ -174,13 +181,6 @@ steps:
     request: {query: "${private_marker}"}
   expect:
     /hits/0/snippet: {contains: "${private_marker}"}
-- id: private_cannot_read_peer
-  client: owner
-  rpc:
-    method: server.run.workspace.recall
-    request: {query: "${marker}"}
-  expect:
-    /hits: {count: 0}
 - id: select_b_again
   client: owner
   rpc:
@@ -198,13 +198,6 @@ steps:
     request: {}
   expect:
     /metadata/scope/app_id: {contains: 'peer:'}
-- id: peer_cannot_read_private
-  client: owner
-  rpc:
-    method: server.run.workspace.recall
-    request: {query: "${private_marker}"}
-  expect:
-    /hits: {count: 0}
 - id: select_other_peer
   client: other
   rpc:
@@ -227,6 +220,13 @@ steps:
   rpc:
     method: server.run.workspace.recall
     request: {query: "${marker}"}
+  expect:
+    /hits: {count: 0}
+- id: other_peer_cannot_read_private
+  client: other
+  rpc:
+    method: server.run.workspace.recall
+    request: {query: "${private_marker}"}
   expect:
     /hits: {count: 0}
 - id: delete_a

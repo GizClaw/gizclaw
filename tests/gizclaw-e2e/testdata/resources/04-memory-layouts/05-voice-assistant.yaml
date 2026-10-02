@@ -26,6 +26,8 @@ spec:
       conversation-memory: Durable facts extracted from voice conversations.
     multilingual: true
     decay: false
+  mem0_self_hosted:
+    custom_instructions: Extract durable identity, preference, relationship, and long-term context facts from voice conversations.
   volc_mem0:
     strategies:
     - name: conversation-memory

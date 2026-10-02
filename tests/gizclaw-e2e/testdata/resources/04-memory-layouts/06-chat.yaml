@@ -27,6 +27,8 @@ spec:
       owner-profile: Durable facts about the user.
     multilingual: true
     decay: false
+  mem0_self_hosted:
+    custom_instructions: Extract durable user identity, preference, relationship, and long-term goal facts.
   volc_mem0:
     strategies:
     - name: owner-profile

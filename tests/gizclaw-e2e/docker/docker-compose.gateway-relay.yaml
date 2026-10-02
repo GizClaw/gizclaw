@@ -54,7 +54,11 @@ x-relay-edge: &relay-edge
         create_host_path: false
 
 services:
+  mem0:
+    profiles: ["memory"]
   server:
+    depends_on:
+      mem0: {condition: service_healthy, required: false}
     image: ${GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE:?set by docker-compose-up.sh}
     build:
       context: ../../..
@@ -63,6 +67,7 @@ services:
         BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
     environment:
       GIZCLAW_E2E_PREBUILT_CLI: "1"
+      GIZCLAW_E2E_POSTGRES_DSN: ""
       GIZCLAW_E2E_SINGLE_EDGE: ${GIZCLAW_E2E_SINGLE_EDGE:-}
       GIZCLAW_E2E_CAPACITY_ONLY: "1"
       GIZCLAW_E2E_GATEWAY_RELAY: ${GIZCLAW_E2E_GATEWAY_RELAY_MODE:-1}

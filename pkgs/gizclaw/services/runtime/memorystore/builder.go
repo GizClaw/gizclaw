@@ -73,7 +73,7 @@ func Build(ctx context.Context, request Request) (Result, error) {
 		}
 		return Result{Store: store, Driver: string(request.Binding.Driver), Closer: closer}, nil
 	case apitypes.RuntimeProfileMemoryDriverMem0:
-		store, err := buildMem0(request.Binding.Connection, request.Layout.Spec.Mem0)
+		store, err := buildMem0(request.Binding.Connection, request.Layout.Spec)
 		if err != nil {
 			return Result{}, fmt.Errorf("memory store: construct mem0: %w", err)
 		}
@@ -105,7 +105,7 @@ func Build(ctx context.Context, request Request) (Result, error) {
 	}
 }
 
-func buildMem0(connection apitypes.RuntimeProfileMemoryConnection, policy apitypes.Mem0MemoryLayoutPolicy) (*memorymem0.Store, error) {
+func buildMem0(connection apitypes.RuntimeProfileMemoryConnection, policy apitypes.MemoryLayoutSpec) (*memorymem0.Store, error) {
 	connectionType, err := connection.Discriminator()
 	if err != nil {
 		return nil, fmt.Errorf("decode Mem0 connection: %w", err)
@@ -130,7 +130,7 @@ func buildMem0(connection apitypes.RuntimeProfileMemoryConnection, policy apityp
 			return nil, err
 		}
 		config = memorymem0.Config{Endpoint: value.Endpoint, Flavor: memorymem0.SelfHosted}
-		config.CustomInstructions, err = selfHostedInstructions(policy)
+		config.CustomInstructions, err = selfHostedInstructions(policy.Mem0SelfHosted)
 		if err != nil {
 			return nil, err
 		}
@@ -143,10 +143,9 @@ func buildMem0(connection apitypes.RuntimeProfileMemoryConnection, policy apityp
 	return memorymem0.New(config)
 }
 
-func selfHostedInstructions(policy apitypes.Mem0MemoryLayoutPolicy) (string, error) {
-	if (policy.CustomCategories != nil && len(*policy.CustomCategories) > 0) ||
-		(policy.Decay != nil && *policy.Decay) || (policy.Multilingual != nil && *policy.Multilingual) {
-		return "", errors.New("self-hosted mem0 supports custom_instructions and scope; custom_categories, decay and multilingual flags are unsupported")
+func selfHostedInstructions(policy *apitypes.Mem0SelfHostedMemoryLayoutPolicy) (string, error) {
+	if policy == nil {
+		return "", errors.New("memory store: spec.mem0_self_hosted is required for a mem0_self_hosted connection")
 	}
 	if policy.CustomInstructions != nil {
 		return *policy.CustomInstructions, nil

@@ -34,6 +34,8 @@ spec:
       resolution-log: Resolution event audit.
     multilingual: true
     decay: false
+  mem0_self_hosted:
+    custom_instructions: Do not infer game state from conversation; accept only Graph-written werewolf game facts.
   volc_mem0:
     strategies:
     - {name: game-progress, type: summary, custom_instructions: Retain Graph-written game progress facts.}

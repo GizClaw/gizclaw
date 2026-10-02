@@ -555,6 +555,8 @@ func TestMemoryLayoutCatalogFixturesDecodeAllProviders(t *testing.T) {
 				t.Fatal(err)
 			}
 			if layout.Spec.Flowcraft.Extraction.Model == "" ||
+				layout.Spec.Mem0SelfHosted == nil ||
+				layout.Spec.Mem0SelfHosted.CustomInstructions == nil ||
 				layout.Spec.Mem0.CustomInstructions == nil ||
 				strings.TrimSpace(*layout.Spec.Mem0.CustomInstructions) == "" ||
 				len(layout.Spec.VolcMem0.Strategies) == 0 {

@@ -1085,6 +1085,20 @@ export type Mem0MemoryLayoutPolicy = {
     decay?: boolean;
 };
 
+/**
+ * Mem0 OSS extraction policy, selected only by a mem0_self_hosted connection. Model and pgvector configuration belong to the self-hosted service.
+ */
+export type Mem0SelfHostedMemoryLayoutPolicy = {
+    /**
+     * Maps Scope.AppID to the Workspace ID or owner Peer identity, encoded with the complete logical scope into native user_id.
+     */
+    scope?: 'workspace' | 'peer';
+    /**
+     * Instructions passed to the self-hosted service for memory extraction.
+     */
+    custom_instructions?: string;
+};
+
 export type MemoryLayout = {
     id: string;
     spec: MemoryLayoutSpec;
@@ -1093,6 +1107,7 @@ export type MemoryLayout = {
 export type MemoryLayoutSpec = {
     flowcraft: FlowcraftMemoryLayoutPolicy;
     mem0: Mem0MemoryLayoutPolicy;
+    mem0_self_hosted?: Mem0SelfHostedMemoryLayoutPolicy;
     volc_mem0: VolcMem0MemoryLayoutPolicy;
 };
 

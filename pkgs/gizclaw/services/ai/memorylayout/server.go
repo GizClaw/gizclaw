@@ -73,7 +73,7 @@ func (s *Server) CreateMemoryLayout(ctx context.Context, request adminhttp.Creat
 		return adminhttp.CreateMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	args := append([]any{item.Id}, values...)
-	result, err := s.DB.ExecContext(ctx, s.DB.Rebind(`INSERT INTO memory_layouts(id,flowcraft_json,mem0_json,volc_mem0_json) VALUES (?,?,?,?) ON CONFLICT(id) DO NOTHING`), args...)
+	result, err := s.DB.ExecContext(ctx, s.DB.Rebind(`INSERT INTO memory_layouts(id,flowcraft_json,mem0_json,volc_mem0_json,mem0_self_hosted_json) VALUES (?,?,?,?,?) ON CONFLICT(id) DO NOTHING`), args...)
 	if err != nil {
 		return adminhttp.CreateMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -125,7 +125,7 @@ func (s *Server) PutMemoryLayout(ctx context.Context, request adminhttp.PutMemor
 	if err != nil {
 		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	result, err := s.DB.ExecContext(ctx, s.DB.Rebind(`UPDATE memory_layouts SET flowcraft_json=?,mem0_json=?,volc_mem0_json=? WHERE id=?`), append(values, id)...)
+	result, err := s.DB.ExecContext(ctx, s.DB.Rebind(`UPDATE memory_layouts SET flowcraft_json=?,mem0_json=?,volc_mem0_json=?,mem0_self_hosted_json=? WHERE id=?`), append(values, id)...)
 	if err != nil {
 		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -180,6 +180,15 @@ func validate(item apitypes.MemoryLayout, expectedID string) (apitypes.MemoryLay
 	}
 	if scope := item.Spec.Mem0.Scope; scope != nil && !scope.Valid() {
 		return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.mem0.scope %q is invalid", *scope)
+	}
+	if policy := item.Spec.Mem0SelfHosted; policy != nil {
+		if scope := policy.Scope; scope != nil && !scope.Valid() {
+			return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.mem0_self_hosted.scope %q is invalid", *scope)
+		}
+		if policy.CustomInstructions != nil {
+			normalized := strings.TrimSpace(*policy.CustomInstructions)
+			policy.CustomInstructions = &normalized
+		}
 	}
 	if scope := item.Spec.VolcMem0.Scope; scope != nil && !scope.Valid() {
 		return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.volc_mem0.scope %q is invalid", *scope)
@@ -355,7 +364,7 @@ func normalizeListParams(cursor *string, limit *int32) (string, int) {
 	return cursorValue, limitValue
 }
 
-const layoutColumns = "id,flowcraft_json,mem0_json,volc_mem0_json"
+const layoutColumns = "id,flowcraft_json,mem0_json,volc_mem0_json,mem0_self_hosted_json"
 
 // Initialize creates the layout schema at Server startup using the shared pool.
 func (s *Server) Initialize(ctx context.Context) error {
@@ -371,14 +380,29 @@ func (s *Server) Initialize(ctx context.Context) error {
  id TEXT PRIMARY KEY CHECK(length(id)>0),
  flowcraft_json TEXT NOT NULL,
  mem0_json TEXT NOT NULL,
- volc_mem0_json TEXT NOT NULL
+ volc_mem0_json TEXT NOT NULL,
+ mem0_self_hosted_json TEXT NOT NULL DEFAULT 'null'
  )`)
+	if err != nil {
+		return err
+	}
+	if s.DB.DriverName() == "postgres" {
+		_, err = s.DB.ExecContext(ctx, "ALTER TABLE memory_layouts ADD COLUMN IF NOT EXISTS mem0_self_hosted_json TEXT NOT NULL DEFAULT 'null'")
+		return err
+	}
+	var count int
+	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM pragma_table_info('memory_layouts') WHERE name='mem0_self_hosted_json'`).Scan(&count); err != nil {
+		return err
+	}
+	if count == 0 {
+		_, err = s.DB.ExecContext(ctx, "ALTER TABLE memory_layouts ADD COLUMN mem0_self_hosted_json TEXT NOT NULL DEFAULT 'null'")
+	}
 	return err
 }
 
 func layoutPolicyValues(spec apitypes.MemoryLayoutSpec) ([]any, error) {
-	values := make([]any, 0, 3)
-	for _, policy := range []any{spec.Flowcraft, spec.Mem0, spec.VolcMem0} {
+	values := make([]any, 0, 4)
+	for _, policy := range []any{spec.Flowcraft, spec.Mem0, spec.VolcMem0, spec.Mem0SelfHosted} {
 		data, err := json.Marshal(policy)
 		if err != nil {
 			return nil, err
@@ -390,14 +414,14 @@ func layoutPolicyValues(spec apitypes.MemoryLayoutSpec) ([]any, error) {
 
 func scanLayout(row interface{ Scan(...any) error }) (apitypes.MemoryLayout, error) {
 	var item apitypes.MemoryLayout
-	var flowcraft, mem0, volc string
-	if err := row.Scan(&item.Id, &flowcraft, &mem0, &volc); err != nil {
+	var flowcraft, mem0, volc, selfHosted string
+	if err := row.Scan(&item.Id, &flowcraft, &mem0, &volc, &selfHosted); err != nil {
 		return item, err
 	}
 	for _, policy := range []struct {
 		raw    string
 		target any
-	}{{flowcraft, &item.Spec.Flowcraft}, {mem0, &item.Spec.Mem0}, {volc, &item.Spec.VolcMem0}} {
+	}{{flowcraft, &item.Spec.Flowcraft}, {mem0, &item.Spec.Mem0}, {volc, &item.Spec.VolcMem0}, {selfHosted, &item.Spec.Mem0SelfHosted}} {
 		if err := json.Unmarshal([]byte(policy.raw), policy.target); err != nil {
 			return item, err
 		}

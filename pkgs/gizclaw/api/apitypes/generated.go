@@ -1621,6 +1621,24 @@ func (e Mem0MemoryLayoutPolicyScope) Valid() bool {
 	}
 }
 
+// Defines values for Mem0SelfHostedMemoryLayoutPolicyScope.
+const (
+	Mem0SelfHostedMemoryLayoutPolicyScopePeer      Mem0SelfHostedMemoryLayoutPolicyScope = "peer"
+	Mem0SelfHostedMemoryLayoutPolicyScopeWorkspace Mem0SelfHostedMemoryLayoutPolicyScope = "workspace"
+)
+
+// Valid indicates whether the value is a known member of the Mem0SelfHostedMemoryLayoutPolicyScope enum.
+func (e Mem0SelfHostedMemoryLayoutPolicyScope) Valid() bool {
+	switch e {
+	case Mem0SelfHostedMemoryLayoutPolicyScopePeer:
+		return true
+	case Mem0SelfHostedMemoryLayoutPolicyScopeWorkspace:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MemoryLayoutResourceKind.
 const (
 	MemoryLayoutResourceKindMemoryLayout MemoryLayoutResourceKind = "MemoryLayout"
@@ -4883,6 +4901,18 @@ type Mem0MemoryLayoutPolicy struct {
 // Mem0MemoryLayoutPolicyScope Maps Scope.AppID to the Workspace ID or the owner Peer identity (Mem0 app_id).
 type Mem0MemoryLayoutPolicyScope string
 
+// Mem0SelfHostedMemoryLayoutPolicy Mem0 OSS extraction policy, selected only by a mem0_self_hosted connection. Model and pgvector configuration belong to the self-hosted service.
+type Mem0SelfHostedMemoryLayoutPolicy struct {
+	// CustomInstructions Instructions passed to the self-hosted service for memory extraction.
+	CustomInstructions *string `json:"custom_instructions,omitempty"`
+
+	// Scope Maps Scope.AppID to the Workspace ID or owner Peer identity, encoded with the complete logical scope into native user_id.
+	Scope *Mem0SelfHostedMemoryLayoutPolicyScope `json:"scope,omitempty"`
+}
+
+// Mem0SelfHostedMemoryLayoutPolicyScope Maps Scope.AppID to the Workspace ID or owner Peer identity, encoded with the complete logical scope into native user_id.
+type Mem0SelfHostedMemoryLayoutPolicyScope string
+
 // MemoryLayout defines model for MemoryLayout.
 type MemoryLayout struct {
 	Id   string           `json:"id"`
@@ -4905,7 +4935,10 @@ type MemoryLayoutResourceKind string
 type MemoryLayoutSpec struct {
 	Flowcraft FlowcraftMemoryLayoutPolicy `json:"flowcraft"`
 	Mem0      Mem0MemoryLayoutPolicy      `json:"mem0"`
-	VolcMem0  VolcMem0MemoryLayoutPolicy  `json:"volc_mem0"`
+
+	// Mem0SelfHosted Mem0 OSS extraction policy, selected only by a mem0_self_hosted connection. Model and pgvector configuration belong to the self-hosted service.
+	Mem0SelfHosted *Mem0SelfHostedMemoryLayoutPolicy `json:"mem0_self_hosted,omitempty"`
+	VolcMem0       VolcMem0MemoryLayoutPolicy        `json:"volc_mem0"`
 }
 
 // MhsV0BatteryReadResult defines model for MhsV0BatteryReadResult.

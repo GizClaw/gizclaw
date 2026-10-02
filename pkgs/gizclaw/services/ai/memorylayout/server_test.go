@@ -77,6 +77,54 @@ func TestServerMemoryLayoutLifecycle(t *testing.T) {
 	}
 }
 
+func TestSelfHostedPolicyLifecycleAndLegacySchema(t *testing.T) {
+	server := newTestServer(t)
+	// Simulate a 0.24.0 table and prove startup preserves its Cloud declaration.
+	if _, err := server.DB.Exec(`ALTER TABLE memory_layouts DROP COLUMN mem0_self_hosted_json`); err != nil {
+		t.Fatal(err)
+	}
+	layout := testLayout(t, "legacy-cloud")
+	values, err := layoutPolicyValues(layout.Spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.DB.Exec(`INSERT INTO memory_layouts(id,flowcraft_json,mem0_json,volc_mem0_json) VALUES(?,?,?,?)`, append([]any{layout.Id}, values[:3]...)...); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err := server.Initialize(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := server.GetMemoryLayout(t.Context(), adminhttp.GetMemoryLayoutRequestObject{Id: layout.Id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored := got.(adminhttp.GetMemoryLayout200JSONResponse)
+	if stored.Spec.Mem0SelfHosted != nil || stored.Spec.Mem0.CustomCategories == nil {
+		t.Fatalf("legacy policy changed: %#v", stored.Spec)
+	}
+	layout.Spec.Mem0SelfHosted = &apitypes.Mem0SelfHostedMemoryLayoutPolicy{
+		Scope: new(apitypes.Mem0SelfHostedMemoryLayoutPolicyScopePeer), CustomInstructions: new("  extract self-hosted facts  "),
+	}
+	if _, err := server.PutMemoryLayout(t.Context(), adminhttp.PutMemoryLayoutRequestObject{Id: layout.Id, Body: &layout}); err != nil {
+		t.Fatal(err)
+	}
+	got, err = server.GetMemoryLayout(t.Context(), adminhttp.GetMemoryLayoutRequestObject{Id: layout.Id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored = got.(adminhttp.GetMemoryLayout200JSONResponse)
+	if stored.Spec.Mem0SelfHosted == nil || *stored.Spec.Mem0SelfHosted.CustomInstructions != "extract self-hosted facts" ||
+		*stored.Spec.Mem0SelfHosted.Scope != apitypes.Mem0SelfHostedMemoryLayoutPolicyScopePeer || stored.Spec.Mem0.CustomCategories == nil {
+		t.Fatalf("independent policy did not persist: %#v", stored.Spec)
+	}
+	layout.Spec.Mem0SelfHosted.Scope = new(apitypes.Mem0SelfHostedMemoryLayoutPolicyScope("invalid"))
+	if _, err := NormalizeSpec(layout.Id, layout.Spec); err == nil {
+		t.Fatal("invalid self-hosted scope accepted")
+	}
+}
+
 func TestMemoryLayoutImplementationScopesPersistAndValidate(t *testing.T) {
 	server := newTestServer(t)
 	layout := testLayout(t, "scope-layout")

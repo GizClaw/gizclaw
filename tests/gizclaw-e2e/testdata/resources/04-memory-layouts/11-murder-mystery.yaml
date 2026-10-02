@@ -24,6 +24,8 @@ spec:
       progress-badges: Deterministic progress badge audit.
     multilingual: true
     decay: false
+  mem0_self_hosted:
+    custom_instructions: Do not extract conversational facts; accept only Graph-written case audit facts.
   volc_mem0:
     strategies:
     - {name: case-state, type: summary, custom_instructions: Retain Graph-written case state facts.}

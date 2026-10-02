@@ -5,6 +5,7 @@ metadata:
   id: e2e-giztest
 spec:
   workflows:
+    mem0-extraction: {resource_id: mem0-extraction, i18n: {en: {display_name: Mem0 Extraction}, zh-CN: {display_name: Mem0 提取}}}
     volc-ast-translate-tts: {resource_id: volc-ast-translate-tts, i18n: {en: {display_name: AST Translate TTS}, zh-CN: {display_name: AST 翻译 TTS}}, tags: [assistants]}
     volc-ast-translate-zh-jp: {resource_id: volc-ast-translate-zh-jp, i18n: {en: {display_name: Chinese Japanese Translate}, zh-CN: {display_name: 中日翻译}}, tags: [assistants]}
     volc-ast-translate: {resource_id: volc-ast-translate, i18n: {en: {display_name: AST Translate}, zh-CN: {display_name: AST 翻译}}, tags: [assistants]}
@@ -86,17 +87,17 @@ spec:
       giztest-other: {resource_id: giztest-toolkit-other, i18n: {en: {display_name: Giztest other tool}, zh-CN: {display_name: Giztest 另一工具}}}
       giztest-echo: {resource_id: giztest-toolkit-echo, i18n: {en: {display_name: Giztest echo tool}, zh-CN: {display_name: Giztest 回显工具}}}
     memories:
-      default-memory: {layout_id: default-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
-      giztest-peer-memory-a: {layout_id: giztest-scope-peer-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
-      giztest-peer-memory-b: {layout_id: giztest-scope-peer-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
-      giztest-workspace-memory: {layout_id: giztest-scope-workspace-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
-      voice-assistant-memory: {layout_id: voice-assistant-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
-      chat-memory: {layout_id: chat-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
-      journey-memory: {layout_id: journey-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
-      storyteller-memory: {layout_id: storyteller-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
-      murder-mystery-memory: {layout_id: murder-mystery-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
-      poetry-memory: {layout_id: poetry-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
-      werewolf-memory: {layout_id: werewolf-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
+      default-memory: {layout_id: default-memory, driver: mem0, connection: {type: mem0_self_hosted, endpoint: "http://mem0:8000", api_key: "${GIZCLAW_E2E_MEM0_API_KEY}"}}
+      giztest-peer-memory-a: {layout_id: giztest-scope-peer-memory, driver: mem0, connection: {type: mem0_self_hosted, endpoint: "http://mem0:8000", api_key: "${GIZCLAW_E2E_MEM0_API_KEY}"}}
+      giztest-peer-memory-b: {layout_id: giztest-scope-peer-memory, driver: mem0, connection: {type: mem0_self_hosted, endpoint: "http://mem0:8000", api_key: "${GIZCLAW_E2E_MEM0_API_KEY}"}}
+      giztest-workspace-memory: {layout_id: giztest-scope-workspace-memory, driver: mem0, connection: {type: mem0_self_hosted, endpoint: "http://mem0:8000", api_key: "${GIZCLAW_E2E_MEM0_API_KEY}"}}
+      voice-assistant-memory: {layout_id: voice-assistant-memory, driver: mem0, connection: {type: mem0_self_hosted, endpoint: "http://mem0:8000", api_key: "${GIZCLAW_E2E_MEM0_API_KEY}"}}
+      chat-memory: {layout_id: chat-memory, driver: mem0, connection: {type: mem0_self_hosted, endpoint: "http://mem0:8000", api_key: "${GIZCLAW_E2E_MEM0_API_KEY}"}}
+      journey-memory: {layout_id: journey-memory, driver: mem0, connection: {type: mem0_self_hosted, endpoint: "http://mem0:8000", api_key: "${GIZCLAW_E2E_MEM0_API_KEY}"}}
+      storyteller-memory: {layout_id: storyteller-memory, driver: mem0, connection: {type: mem0_self_hosted, endpoint: "http://mem0:8000", api_key: "${GIZCLAW_E2E_MEM0_API_KEY}"}}
+      murder-mystery-memory: {layout_id: murder-mystery-memory, driver: mem0, connection: {type: mem0_self_hosted, endpoint: "http://mem0:8000", api_key: "${GIZCLAW_E2E_MEM0_API_KEY}"}}
+      poetry-memory: {layout_id: poetry-memory, driver: mem0, connection: {type: mem0_self_hosted, endpoint: "http://mem0:8000", api_key: "${GIZCLAW_E2E_MEM0_API_KEY}"}}
+      werewolf-memory: {layout_id: werewolf-memory, driver: mem0, connection: {type: mem0_self_hosted, endpoint: "http://mem0:8000", api_key: "${GIZCLAW_E2E_MEM0_API_KEY}"}}
   app_config:
     ui.theme: dark
     app.entrypoints: |

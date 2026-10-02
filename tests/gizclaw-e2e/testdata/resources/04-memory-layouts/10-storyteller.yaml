@@ -32,6 +32,8 @@ spec:
       ending-state: Ending policy audit.
     multilingual: true
     decay: false
+  mem0_self_hosted:
+    custom_instructions: Do not extract conversational facts; accept only Graph-written audit facts.
   volc_mem0:
     strategies:
     - {name: story-state, type: summary, custom_instructions: Retain Graph-written story state facts.}

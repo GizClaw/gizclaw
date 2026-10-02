@@ -409,3 +409,20 @@ func TestMergeResourceValidationPath(t *testing.T) {
 		})
 	}
 }
+
+func TestSelfHostedMemoryLayoutContract(t *testing.T) {
+	input := `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"MemoryLayout","metadata":{"id":"independent-memory"},"spec":{
+		"flowcraft":{"extraction":{"model":"extract","mode":"single_pass"},"lanes":[],"write":{"mode":"sync","tier":"general"}},
+		"mem0":{"custom_categories":{"pet":"Cloud category"},"multilingual":true,"decay":true},
+		"mem0_self_hosted":{"scope":"peer","custom_instructions":"Extract pet facts"},
+		"volc_mem0":{"strategies":[{"name":"pet","type":"semantic"}]}}}`
+	if err := ValidateResourceJSON([]byte(input)); err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range []string{`"custom_categories":{"pet":"wrong"}`, `"multilingual":true`, `"decay":true`, `"scope":"invalid"`} {
+		invalid := strings.Replace(input, `"scope":"peer"`, field, 1)
+		if err := ValidateResourceJSON([]byte(invalid)); err == nil {
+			t.Fatalf("self-hosted unsupported field accepted: %s", field)
+		}
+	}
+}
