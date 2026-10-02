@@ -67,6 +67,11 @@ envsubst '${GIZCLAW_E2E_PEER_ADMISSION} ${GIZCLAW_E2E_SERVER_ENDPOINT} ${GIZCLAW
 if [[ "${GIZCLAW_E2E_ADMISSION_ONLY:-}" != "1" ]]; then
   perl -0pi -e 's/^services:\n/services:\n  sfu:\n    url: ws:\/\/livekit:7880\n    api_key_file: \/tmp\/gizclaw-e2e-sfu\/api_key\n    api_secret_file: \/tmp\/gizclaw-e2e-sfu\/api_secret\n/m' "$workspace_dir/config.yaml"
 fi
+if [[ -n "${GIZCLAW_E2E_POSTGRES_DSN:-}" ]]; then
+  # The main stack shares one PostgreSQL instance with Mem0, using separate
+  # databases and non-superuser application roles.
+  perl -0pi -e 's/    kind: sqlite\n    dir: data\/business.sqlite/    kind: postgresql\n    dsn: $ENV{GIZCLAW_E2E_POSTGRES_DSN}/' "$workspace_dir/config.yaml"
+fi
 if [[ "${GIZCLAW_E2E_PROFILING:-}" == "1" ]]; then
   awk '
 /^storage:/ {

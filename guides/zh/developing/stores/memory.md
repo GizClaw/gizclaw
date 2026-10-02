@@ -173,7 +173,7 @@ Store 保留为该 Layout generation 的独立 policy，Observe 时通过 HTTP `
 
 Memory 不再是 Server Config 中的 `stores.kind: memory`。Portable policy、部署连接和 Graph 消费行为分属三个资源面：
 
-- Admin `MemoryLayout` 同时声明 Flowcraft、Mem0 和 `volc_mem0` 的 provider policy，不包含 endpoint、API key、DSN 或目录。每种实现独立配置 `scope: workspace|peer`；省略时使用现有的 Workspace 隔离行为。
+- Admin `MemoryLayout` 同时声明 Flowcraft、Mem0 Cloud、自托管 `mem0_self_hosted` 和 `volc_mem0` 的 provider policy，不包含 endpoint、API key、DSN 或目录。每种实现独立配置 `scope: workspace|peer`；省略时使用现有的 Workspace 隔离行为。
 - RuntimeProfile 的 `resources.memories.<alias>` 选择 Layout、实际 driver 和严格类型化 connection。Connection 中的 endpoint、API key、project ID、DSN 或目录直接属于该 RuntimeProfile，不引用 Credential 资源。
 - Workflow 顶层 `memory` 只引用 RuntimeProfile alias。Graph 的 `memory_recall` / `memory_observe` node 决定何时读写、query 从哪里来、结果写到哪里，以及如何从 turn 或 state 构造 fact；这些映射不属于 MemoryLayout。
 
@@ -200,6 +200,9 @@ spec:
   mem0:
     scope: peer
     custom_instructions: Extract durable pet and owner facts.
+  mem0_self_hosted:
+    scope: peer
+    custom_instructions: Extract durable pet and owner facts.
   volc_mem0:
     scope: peer
     strategies:
@@ -208,7 +211,14 @@ spec:
       custom_instructions: Extract durable pet and owner facts.
 ```
 
-`MemoryLayout` 的三个 provider block 都必须存在。Flowcraft block 中的 extraction、embedding 和 rerank model 是 RuntimeProfile model alias，使用与 RuntimeProfile binding 相同的总长 1–63 字节、由 `.` 分隔的 lowercase kebab-case segment 语法。每个完整 alias 都是平面 map 中的 opaque key，只做精确解析，不支持 prefix、segment 或 fallback lookup；只有实际选择 `driver: flowcraft` 时才解析这些 alias。`extraction.enabled` 默认为 `true`；设为 `false` 时不运行模型提取，但 Graph 写入的 direct Facts 仍然可用。
+`MemoryLayout` 的 `flowcraft`、`mem0` 和 `volc_mem0` block 必须存在。
+`mem0_self_hosted` 是独立的可选 block；选择 `connection.type: mem0_self_hosted`
+时必须显式声明它（允许 `{}`，默认 Workspace scope 和服务默认提取指令）。它只支持
+`scope` 与 `custom_instructions`，不接受 Cloud 的 `custom_categories`、`multilingual`
+或 `decay`。`connection.type: mem0` 继续只读取 Cloud `mem0` policy，其他 provider
+同样独立。构造、reload、读写、统计、Workspace/Peer 清理及 purge 都按连接类型选取
+同一个 policy；不会从 Cloud block 转换、继承或回退。自托管服务的模型、embedding
+和 pgvector 配置由服务的部署配置提供。Flowcraft block 中的 extraction、embedding 和 rerank model 是 RuntimeProfile model alias，使用与 RuntimeProfile binding 相同的总长 1–63 字节、由 `.` 分隔的 lowercase kebab-case segment 语法。每个完整 alias 都是平面 map 中的 opaque key，只做精确解析，不支持 prefix、segment 或 fallback lookup；只有实际选择 `driver: flowcraft` 时才解析这些 alias。`extraction.enabled` 默认为 `true`；设为 `false` 时不运行模型提取，但 Graph 写入的 direct Facts 仍然可用。
 
 ```yaml
 spec:

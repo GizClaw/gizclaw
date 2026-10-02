@@ -432,6 +432,8 @@ GIZCLAW_E2E_TURN_USERNAME=$GIZCLAW_E2E_TURN_USERNAME
 GIZCLAW_E2E_TURN_CREDENTIAL=$GIZCLAW_E2E_TURN_CREDENTIAL
 GIZCLAW_E2E_LIVEKIT_API_KEY=${GIZCLAW_E2E_LIVEKIT_API_KEY:-}
 GIZCLAW_E2E_LIVEKIT_API_SECRET=${GIZCLAW_E2E_LIVEKIT_API_SECRET:-}
+GIZCLAW_E2E_MEM0_API_KEY=${GIZCLAW_E2E_MEM0_API_KEY:-}
+GIZCLAW_E2E_MEM0_BASE_IMAGE=${GIZCLAW_E2E_MEM0_BASE_IMAGE:-}
 GIZCLAW_E2E_TURN_RELAY_MIN_PORT=$GIZCLAW_E2E_TURN_RELAY_MIN_PORT
 GIZCLAW_E2E_TURN_RELAY_MAX_PORT=$GIZCLAW_E2E_TURN_RELAY_MAX_PORT
 GIZCLAW_E2E_SERVER_PUBLIC_KEY=$server_public_key
@@ -657,7 +659,8 @@ GIZCLAW_E2E_SINGLE_EDGE=""
 if [[ "$stack_mode" != "admission" ]]; then
   GIZCLAW_E2E_LIVEKIT_API_KEY="e2e$(random_gateway_relay_value)"
   GIZCLAW_E2E_LIVEKIT_API_SECRET="$(random_gateway_relay_value)"
-  export GIZCLAW_E2E_LIVEKIT_API_KEY GIZCLAW_E2E_LIVEKIT_API_SECRET
+  GIZCLAW_E2E_MEM0_API_KEY="e2e-$(random_gateway_relay_value)"
+  export GIZCLAW_E2E_LIVEKIT_API_KEY GIZCLAW_E2E_LIVEKIT_API_SECRET GIZCLAW_E2E_MEM0_API_KEY
 fi
 if [[ -z "${GIZCLAW_TEST_REGISTRATION_TOKEN:-}" ]]; then
   GIZCLAW_TEST_REGISTRATION_TOKEN="giztest-$(random_gateway_relay_value)"
@@ -766,6 +769,7 @@ build_gizclaw_e2e_base "$repo_root" "$docker_platform"
 export GIZCLAW_E2E_DOCKER_BASE_IMAGE="$base_image"
 
 mem0_selected=0
+if [[ "$stack_mode" != "admission" && "$topology_mode" == "full" ]]; then mem0_selected=1; fi
 if [[ ",${COMPOSE_PROFILES:-}," == *,memory,* ]]; then mem0_selected=1; fi
 for argument in "$@"; do
   if [[ "$argument" == mem0 ]]; then mem0_selected=1; fi

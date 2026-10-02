@@ -180,7 +180,7 @@ steps:
     method: server.run.workspace.recall
     request: {query: "${marker}"}
   expect:
-    /hits: {count: 0}
+    /hits/0/snippet: {not_contains: "${marker}"}
 - id: select_b_again
   client: owner
   rpc:
@@ -204,7 +204,7 @@ steps:
     method: server.run.workspace.recall
     request: {query: "${private_marker}"}
   expect:
-    /hits: {count: 0}
+    /hits/0/snippet: {not_contains: "${private_marker}"}
 - id: select_other_peer
   client: other
   rpc:

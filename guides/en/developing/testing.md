@@ -10,6 +10,15 @@ and build the embedded console before Go compilation, including container builds
 No manual asset or manifest copy is required; standalone build prerequisites are
 documented in [Monitor](monitor).
 
+The default Docker Giztest stack uses real self-hosted GizClaw Mem0 with pgvector.
+Server and Mem0 share one PostgreSQL instance using separate databases and
+non-superuser roles. `bash tests/gizclaw-e2e/run_mem0_tests.sh` runs real model
+extraction, semantic vector recall, independent policy reload, Peer/Workspace
+isolation and cleanup through Server and WebRTC RPC. The CI Mem0 Giztest job uses
+the same services and requires `GIZCLAW_VOLC_ARK_API_KEY`; it does not use Mem0
+Cloud quota. Compose waits for service readiness and cleans its own containers,
+volumes and network on exit.
+
 ## Real WebRTC Peer blocking regression
 
 `go test ./cmd/internal/server -run '^TestPeerBlockedSDKWebRTC$' -count=1 -v`

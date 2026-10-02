@@ -220,6 +220,21 @@ interoperability risk；只完成 tagged compile 不能算 live pass。
 
 ### Remote Memory scope purge
 
+默认 Docker Giztest 使用真实 GizClaw Mem0 与 PostgreSQL/pgvector。Server 与 Mem0
+共用 `postgres` 实例，分别使用 `gizclaw_server` 与 `gizclaw_mem0` 数据库和非 superuser
+角色；两个角色不能连接对方数据库。Mem0 使用与 Dev Server Node 相同的 Doubao
+提取模型、Ark multimodal embedding、1024 维 pgvector 和 HNSW；标准 `.env` 的
+`GIZCLAW_E2E_VOLC_ARK_API_KEY` 提供模型凭据，不需要 Mem0 Cloud 配额。Mem0 service
+与主栈共用 `docker/compose.memory.yaml`，启动等待 PostgreSQL 和 Mem0 就绪，退出
+使用现有 project 级容器、卷、网络清理。
+
+独立的真实链路回归通过 `bash tests/gizclaw-e2e/run_mem0_tests.sh` 执行；CI 的
+`Mem0 Giztest` job 使用同一 service、同一 PostgreSQL 分库结构。它通过真实 Server、
+WebRTC Peer RPC 和 committed Giztest 验证独立 policy reload、原始文本模型提取、
+改写 query 的向量检索、Peer 共享与 Workspace 隔离，以及删除后的 pgvector 零残留。
+该回归只需要 Ark credential（可通过 `GIZCLAW_E2E_CREDENTIAL_FILE` 指定文件），
+没有 credential 时明确失败。其他 provider 的 Store contract 和 scope 测试继续独立运行。
+
 `flowcraft-memory-scope.peer-and-workspace.giztest.yaml` 在 Docker Giztest 的真实
 Server/Peer/Redis 8 路径上创建同一 Peer 的两个共享 Workspace（两个 binding alias
 指向同一 Layout）、一个隔离 Workspace，以及另一 Peer 的共享 Workspace。它写入带

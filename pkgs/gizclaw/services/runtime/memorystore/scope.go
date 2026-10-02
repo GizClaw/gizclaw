@@ -20,8 +20,25 @@ func ScopeForRequest(request Request) (memory.Scope, error) {
 			selected = string(*request.Layout.Spec.Flowcraft.Scope)
 		}
 	case apitypes.RuntimeProfileMemoryDriverMem0:
-		if request.Layout.Spec.Mem0.Scope != nil {
-			selected = string(*request.Layout.Spec.Mem0.Scope)
+		connectionType, err := request.Binding.Connection.Discriminator()
+		if err != nil {
+			return memory.Scope{}, fmt.Errorf("memory store: decode Mem0 connection: %w", err)
+		}
+		switch connectionType {
+		case "mem0":
+			if request.Layout.Spec.Mem0.Scope != nil {
+				selected = string(*request.Layout.Spec.Mem0.Scope)
+			}
+		case "mem0_self_hosted":
+			policy := request.Layout.Spec.Mem0SelfHosted
+			if _, err := selfHostedInstructions(policy); err != nil {
+				return memory.Scope{}, err
+			}
+			if policy.Scope != nil {
+				selected = string(*policy.Scope)
+			}
+		default:
+			return memory.Scope{}, fmt.Errorf("memory store: unsupported Mem0 connection type %q", connectionType)
 		}
 	case apitypes.RuntimeProfileMemoryDriverVolcMem0:
 		if request.Layout.Spec.VolcMem0.Scope != nil {

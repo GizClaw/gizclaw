@@ -2,6 +2,14 @@
 
 [`pkgs/store/memory`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/memory) is the provider-neutral long-term memory boundary used by Agent runtimes. Provider adapters live in the `flowcraft`, `mem0`, and `volc` subpackages.
 
+MemoryLayout exposes a separate optional `mem0_self_hosted` policy containing
+`scope: workspace|peer` and `custom_instructions`. A `mem0_self_hosted` connection
+requires this block explicitly; `{}` uses Workspace scope and the service default
+instructions. Construction, reload, scope routing, recall, observation and cleanup
+select it by connection type. Cloud `mem0` categories, multilingual and decay
+options remain independent. Self-hosted model/embedding/pgvector configuration
+belongs to the service deployment. Existing Cloud-only layouts remain valid.
+
 ## Contract
 
 Every operation carries a structured `Scope`. `AppID`, `UserID`, `AgentID`, and `RunID` are four independent optional routing dimensions. The common contract does not define an App→User→Agent→Run hierarchy and does not interpret `RunID` as a universal Conversation. An empty field means that dimension was not selected; it is not a wildcard, inherited value, or global-visibility marker.

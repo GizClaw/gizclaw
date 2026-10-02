@@ -36,6 +36,9 @@ func TestBuildSelfHostedMem0UsesOSSProtocolAndOptionalAuthentication(t *testing.
 						t.Error(err)
 					}
 					if r.URL.Path == "/memories" {
+						if body["prompt"] != "self-hosted instructions" {
+							t.Errorf("self-hosted prompt = %v", body["prompt"])
+						}
 						entity, _ = body["user_id"].(string)
 						if entity == "" || body["app_id"] != nil {
 							t.Error("write did not use the self-hosted scope encoding")
@@ -57,6 +60,11 @@ func TestBuildSelfHostedMem0UsesOSSProtocolAndOptionalAuthentication(t *testing.
 			defer server.Close()
 			request := objectStoreTestRequest(t)
 			request.Binding.Driver = apitypes.RuntimeProfileMemoryDriverMem0
+			request.Layout.Spec.Mem0 = apitypes.Mem0MemoryLayoutPolicy{
+				CustomInstructions: new("Cloud instructions"), CustomCategories: &map[string]string{"pet": "Cloud category"},
+				Multilingual: new(true), Decay: new(true),
+			}
+			request.Layout.Spec.Mem0SelfHosted = &apitypes.Mem0SelfHostedMemoryLayoutPolicy{CustomInstructions: new("self-hosted instructions")}
 			connection := apitypes.RuntimeProfileMem0SelfHostedConnection{
 				Type: apitypes.RuntimeProfileMem0SelfHostedConnectionTypeMem0SelfHosted, Endpoint: server.URL,
 			}
@@ -117,7 +125,7 @@ func TestSharedSelfHostedMem0KeepsEachLayoutGenerationPolicy(t *testing.T) {
 	defer registry.Close()
 	var stores []Result
 	for _, instructions := range []string{"pet policy", "calendar policy"} {
-		request.Layout.Spec.Mem0.CustomInstructions = &instructions
+		request.Layout.Spec.Mem0SelfHosted = &apitypes.Mem0SelfHostedMemoryLayoutPolicy{CustomInstructions: &instructions}
 		result, err := registry.Resolve(t.Context(), request)
 		if err != nil {
 			t.Fatal(err)
@@ -135,12 +143,22 @@ func TestSharedSelfHostedMem0KeepsEachLayoutGenerationPolicy(t *testing.T) {
 	}
 }
 
-func TestSelfHostedMem0RejectsUnsupportedLayoutFlags(t *testing.T) {
+func TestSelfHostedMem0RequiresIndependentPolicy(t *testing.T) {
 	t.Parallel()
-	value := true
-	for _, policy := range []apitypes.Mem0MemoryLayoutPolicy{{Decay: &value}, {Multilingual: &value}} {
-		if _, err := selfHostedInstructions(policy); err == nil {
-			t.Fatal("unsupported Layout policy was silently accepted")
+	request := objectStoreTestRequest(t)
+	request.Binding.Driver = apitypes.RuntimeProfileMemoryDriverMem0
+	if err := request.Binding.Connection.FromRuntimeProfileMem0SelfHostedConnection(apitypes.RuntimeProfileMem0SelfHostedConnection{
+		Type: apitypes.RuntimeProfileMem0SelfHostedConnectionTypeMem0SelfHosted, Endpoint: "http://localhost:8000",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	request.Layout.Spec.Mem0.CustomInstructions = new("cloud instructions")
+	for _, build := range []func() error{
+		func() error { _, err := Build(t.Context(), request); return err },
+		func() error { _, err := ScopeForRequest(request); return err },
+	} {
+		if err := build(); err == nil || !strings.Contains(err.Error(), "spec.mem0_self_hosted is required") {
+			t.Fatalf("missing policy error = %v", err)
 		}
 	}
 }

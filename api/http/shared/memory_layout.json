@@ -33,6 +33,9 @@
           "mem0": {
             "$ref": "#/components/schemas/Mem0MemoryLayoutPolicy"
           },
+          "mem0_self_hosted": {
+            "$ref": "#/components/schemas/Mem0SelfHostedMemoryLayoutPolicy"
+          },
           "volc_mem0": {
             "$ref": "#/components/schemas/VolcMem0MemoryLayoutPolicy"
           }
@@ -244,6 +247,18 @@
           },
           "decay": {
             "type": "boolean"
+          }
+        }
+      },
+      "Mem0SelfHostedMemoryLayoutPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Mem0 OSS extraction policy, selected only by a mem0_self_hosted connection. Model and pgvector configuration belong to the self-hosted service.",
+        "properties": {
+          "scope": { "type": "string", "enum": ["workspace", "peer"], "default": "workspace", "description": "Maps Scope.AppID to the Workspace ID or owner Peer identity, encoded with the complete logical scope into native user_id." },
+          "custom_instructions": {
+            "type": "string",
+            "description": "Instructions passed to the self-hosted service for memory extraction."
           }
         }
       },

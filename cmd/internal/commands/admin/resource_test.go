@@ -881,6 +881,7 @@ func TestAdminValidateEinoWorkflowResource(t *testing.T) {
 }
 
 func TestAdminValidateAudioInputResources(t *testing.T) {
+	t.Setenv("GIZCLAW_E2E_MEM0_API_KEY", "giztest-offline-key")
 	const resources = "../../../../tests/gizclaw-e2e/testdata/resources/"
 	for _, test := range []struct{ name, file, from, to, want string }{
 		// One Workflow may declare both the ASR Model and the audio_transcript node.

@@ -1,0 +1,55 @@
+# User Story:
+# As a device using a complete Cloud and self-hosted MemoryLayout,
+# I want reload and raw memory extraction to use my self-hosted policy,
+# So that a different semantic query recalls my fact after reload.
+version: gizclaw.test/v1alpha1
+name: mem0-self-hosted.extraction
+clients:
+  owner: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}"}
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+  workspace: {direction: input, type: string, generate: token}
+steps:
+- id: register_owner
+  client: owner
+  rpc: {method: server.register, request: {token: "${registration_token}"}}
+- id: create_workspace
+  client: owner
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${workspace}"
+      workflow_name: mem0-extraction
+      parameters:
+        flowcraft_workspace_parameters:
+          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+- id: select_workspace
+  client: owner
+  rpc: {method: server.run.workspace.set, request: {workspace_name: "${workspace}"}}
+- id: reload_cloud_complete_layout
+  client: owner
+  rpc: {method: server.run.workspace.reload, request: {}}
+- id: extract_raw_text
+  client: owner
+  peer_stream:
+    mode: text
+    input: My rescued cat Marzipan loves eating dried salmon as her favorite snack.
+    require_audio: false
+  expect:
+    /events: {non_empty: true}
+- id: reload_after_extraction
+  client: owner
+  rpc: {method: server.run.workspace.reload, request: {}}
+- id: semantic_recall_after_reload
+  client: owner
+  retry: {attempts: 10, on: [assertion], delay: 1s}
+  rpc: {method: server.run.workspace.recall, request: {query: What does Marzipan prefer to eat?}}
+  expect:
+    /hits/0/snippet: {contains: salmon}
+finally:
+- client: owner
+  rpc: {method: server.run.stop, request: {}}
+- client: owner
+  rpc: {method: server.peer.delete, request: {}}

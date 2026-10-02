@@ -46,6 +46,43 @@ func TestVolcMemoryLayoutScopeRouting(t *testing.T) {
 			Connection: connection,
 		},
 	}
+	private := request
+	private.Layout.Spec.VolcMem0.Scope = &privateScope
+	testMemoryLayoutScopeRouting(t, run, request, private)
+}
+
+func TestSelfHostedMemoryLayoutScopeRouting(t *testing.T) {
+	if strings.TrimSpace(os.Getenv("GIZCLAW_MEMORY_PROVIDER")) != "mem0-self-hosted" {
+		t.Skip("select mem0-self-hosted for this real provider test")
+	}
+	var connection apitypes.RuntimeProfileMemoryConnection
+	if err := connection.FromRuntimeProfileMem0SelfHostedConnection(apitypes.RuntimeProfileMem0SelfHostedConnection{
+		Type:     apitypes.RuntimeProfileMem0SelfHostedConnectionTypeMem0SelfHosted,
+		Endpoint: requiredEnvironment(t, "GIZCLAW_MEM0_SELF_HOSTED_URL"),
+		ApiKey:   new(requiredEnvironment(t, "GIZCLAW_MEM0_SELF_HOSTED_API_KEY")),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	run := fmt.Sprintf("scope-%x", time.Now().UnixNano())
+	request := memorystore.Request{
+		WorkspaceID: "ws-a-" + run, OwnerPublicKey: "owner-" + run,
+		ProfileID: "profile-" + run, BindingName: "memory-a",
+		Layout: apitypes.MemoryLayout{Id: "scope-layout", Spec: apitypes.MemoryLayoutSpec{
+			Mem0: apitypes.Mem0MemoryLayoutPolicy{Scope: new(apitypes.Mem0MemoryLayoutPolicyScopeWorkspace),
+				CustomCategories: &map[string]string{"pet": "Cloud only"}, Multilingual: new(true), Decay: new(true)},
+			Mem0SelfHosted: &apitypes.Mem0SelfHostedMemoryLayoutPolicy{Scope: new(apitypes.Mem0SelfHostedMemoryLayoutPolicyScopePeer)},
+		}},
+		Binding: apitypes.RuntimeProfileMemoryBinding{
+			LayoutId: "scope-layout", Driver: apitypes.RuntimeProfileMemoryDriverMem0, Connection: connection,
+		},
+	}
+	private := request
+	private.Layout.Spec.Mem0SelfHosted = &apitypes.Mem0SelfHostedMemoryLayoutPolicy{Scope: new(apitypes.Mem0SelfHostedMemoryLayoutPolicyScopeWorkspace)}
+	testMemoryLayoutScopeRouting(t, run, request, private)
+}
+
+func testMemoryLayoutScopeRouting(t *testing.T, run string, request, private memorystore.Request) {
+	t.Helper()
 	registry := memorystore.NewRegistry()
 	t.Cleanup(func() { _ = registry.Close() })
 	sharedA := request
@@ -55,9 +92,7 @@ func TestVolcMemoryLayoutScopeRouting(t *testing.T) {
 	foreign := request
 	foreign.WorkspaceID = "ws-c-" + run
 	foreign.OwnerPublicKey = "other-" + run
-	private := request
 	private.WorkspaceID = "ws-d-" + run
-	private.Layout.Spec.VolcMem0.Scope = &privateScope
 	requests := []memorystore.Request{sharedA, sharedB, foreign, private}
 	results := make([]memorystore.Result, len(requests))
 	for i, item := range requests {

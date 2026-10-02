@@ -59,7 +59,7 @@ func (backend *sharedRemoteBackend) NewStore(_ context.Context, request Request)
 			return Result{}, nil, err
 		}
 		if connectionType == "mem0_self_hosted" {
-			instructions, err := selfHostedInstructions(request.Layout.Spec.Mem0)
+			instructions, err := selfHostedInstructions(request.Layout.Spec.Mem0SelfHosted)
 			if err != nil {
 				return Result{}, nil, err
 			}

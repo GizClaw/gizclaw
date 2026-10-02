@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17@sha256:cf134a767f474095eeba57e0117be8e568e011a63f33fbf252f14c9b760f8e6f
+    environment:
+      POSTGRES_USER: gizclaw_bootstrap
+      POSTGRES_PASSWORD: gizclaw_bootstrap
+      POSTGRES_DB: postgres
+    volumes:
+      - ./postgres-init.sql:/docker-entrypoint-initdb.d/01-applications.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U gizclaw_bootstrap -d postgres"]
+      interval: 1s
+      timeout: 2s
+      retries: 60
+
+  mem0:
+    build:
+      context: ../../..
+      dockerfile: build/mem0/Dockerfile
+      target: test
+      args:
+        BASE_IMAGE: ${GIZCLAW_E2E_MEM0_BASE_IMAGE:-gizclaw-mem0:linux-amd64-cn-base}
+    environment:
+      MEM0_CREDENTIAL_FILE: /run/gizclaw-e2e.env
+      MEM0_CONFIG: /run/mem0-config.yaml
+      MEM0_API_KEY: ${GIZCLAW_E2E_MEM0_API_KEY:?set by docker-compose-up.sh}
+      MEM0_POSTGRES_DSN: postgres://gizclaw_mem0:gizclaw_mem0@postgres:5432/gizclaw_mem0?sslmode=disable
+    entrypoint: ["python", "/run/entrypoint-mem0.py"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../../../cmd/mem0/config.example.yaml:/run/mem0-config.yaml:ro
+      - ./entrypoint-mem0.py:/run/entrypoint-mem0.py:ro
+      - type: bind
+        source: ${GIZCLAW_E2E_CREDENTIAL_FILE:-../.env}
+        target: /run/gizclaw-e2e.env
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=1).read()"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+      start_period: 30s

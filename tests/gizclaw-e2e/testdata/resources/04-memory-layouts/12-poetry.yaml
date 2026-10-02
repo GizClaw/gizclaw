@@ -26,6 +26,8 @@ spec:
       badge-events: Awarded badge and point audit.
     multilingual: true
     decay: false
+  mem0_self_hosted:
+    custom_instructions: Do not extract conversational facts; accept only Graph-written poetry audit facts.
   volc_mem0:
     strategies:
     - {name: checkpoint-progress, type: summary, custom_instructions: Retain Graph-written checkpoint progress facts.}

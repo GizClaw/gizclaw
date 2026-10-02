@@ -21,6 +21,9 @@ spec:
   mem0:
     scope: workspace
     custom_instructions: Keep exact facts from the test input.
+  mem0_self_hosted:
+    scope: workspace
+    custom_instructions: Keep exact facts from the test input.
   volc_mem0:
     scope: workspace
     strategies:

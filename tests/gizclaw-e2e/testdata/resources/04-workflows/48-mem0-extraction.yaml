@@ -1,0 +1,26 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata: {id: mem0-extraction}
+spec:
+  driver: flowcraft
+  memory: default-memory
+  flowcraft:
+    graph:
+      name: Mem0 raw text extraction
+      entry: observe
+      nodes:
+      - id: observe
+        type: memory_observe
+        config:
+          observations: [{text_from: input}]
+          wait_for_completion: true
+      - id: echo
+        type: script
+        publish: true
+        config:
+          source: 'host.emit("token", {content: "Memory observation accepted."});'
+      edges:
+      - {from: observe, to: echo}
+      - {from: echo, to: __end__}
+    conversation: {starts: peer}

@@ -37,29 +37,11 @@ services:
       timeout: 2s
       retries: 60
 
+  postgres:
+    extends: {file: compose.memory.yaml, service: postgres}
+
   mem0:
-    profiles: ["memory"]
-    build:
-      context: ../../..
-      dockerfile: build/mem0/Dockerfile
-      target: test
-      args:
-        BASE_IMAGE: ${GIZCLAW_E2E_MEM0_BASE_IMAGE:-gizclaw-mem0:linux-amd64-cn-base}
-    environment:
-      MEM0_CREDENTIAL_FILE: /run/gizclaw-e2e.env
-    volumes:
-      - type: bind
-        source: ${GIZCLAW_E2E_CREDENTIAL_FILE:-../.env}
-        target: /run/gizclaw-e2e.env
-        read_only: true
-        bind:
-          create_host_path: false
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=1).read()"]
-      interval: 2s
-      timeout: 2s
-      retries: 60
-      start_period: 30s
+    extends: {file: compose.memory.yaml, service: mem0}
 
   turn:
     image: coturn/coturn:4.7.0-r0@sha256:99bf5bf6ab1c119862d0c3d2dfb2bbf805a86a131492cab18c148be64ae7d978
@@ -98,6 +80,8 @@ services:
       args:
         BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
     environment:
+      GIZCLAW_E2E_MEM0_API_KEY: ${GIZCLAW_E2E_MEM0_API_KEY:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_POSTGRES_DSN: postgres://gizclaw_server:gizclaw_server@postgres:5432/gizclaw_server?sslmode=disable
       GIZCLAW_E2E_PEER_ADMISSION: ${GIZCLAW_E2E_PEER_ADMISSION:-open}
       GIZCLAW_E2E_LIVEKIT_API_KEY: ${GIZCLAW_E2E_LIVEKIT_API_KEY:?set by docker-compose-up.sh}
       GIZCLAW_E2E_LIVEKIT_API_SECRET: ${GIZCLAW_E2E_LIVEKIT_API_SECRET:?set by docker-compose-up.sh}
@@ -119,7 +103,6 @@ services:
         condition: service_healthy
       mem0:
         condition: service_healthy
-        required: false
       redis:
         condition: service_healthy
       turn:
