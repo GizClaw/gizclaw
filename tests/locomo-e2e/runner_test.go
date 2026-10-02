@@ -28,18 +28,22 @@ type llmAnswerer struct {
 	model llm.LLM
 }
 
+const answerSystemPrompt = "Answer using only the recalled memory evidence. Check that facts concern the person in the question. Combine relevant facts across memories, preserve negation, and calculate relative dates from the source conversation time rather than today's date. For lists and counts, include all supported distinct items. Return only a concise answer. If evidence is insufficient, return unknown."
+
+const answerMaxTokens = 512
+
 func (a llmAnswerer) Answer(ctx context.Context, question string, matches []memorystore.Match) (string, error) {
 	var evidence strings.Builder
 	for index, match := range matches {
 		fmt.Fprintf(&evidence, "[%d] %s\n", index+1, strings.TrimSpace(match.Fact.Text))
 	}
 	messages := []llm.Message{
-		llm.NewTextMessage(llm.RoleSystem, "Answer the question using only the recalled memory evidence. Return only the concise answer. If the evidence is insufficient, return unknown."),
+		llm.NewTextMessage(llm.RoleSystem, answerSystemPrompt),
 		llm.NewTextMessage(llm.RoleUser, "Memory evidence:\n"+evidence.String()+"\nQuestion: "+question),
 	}
 	message, _, err := a.model.Generate(ctx, messages,
 		llm.WithTemperature(0),
-		llm.WithMaxTokens(256),
+		llm.WithMaxTokens(answerMaxTokens),
 		llm.WithThinking(false),
 	)
 	if err != nil {
@@ -53,26 +57,45 @@ func (a llmAnswerer) Answer(ctx context.Context, question string, matches []memo
 }
 
 type reportEnvelope struct {
-	Profile           string           `json:"profile"`
-	ConfigFingerprint string           `json:"config_fingerprint"`
-	DatasetIdentity   string           `json:"dataset_identity"`
-	Models            reportModels     `json:"models"`
-	StartedAt         time.Time        `json:"started_at"`
-	FinishedAt        time.Time        `json:"finished_at"`
-	Duration          time.Duration    `json:"duration_ns"`
-	Ingest            []ingestResult   `json:"ingest"`
-	Questions         []questionResult `json:"questions"`
-	Aggregate         aggregateResult  `json:"aggregate"`
-	QualityGate       qualityGate      `json:"quality_gate"`
+	Profile           string                  `json:"profile"`
+	ConfigFingerprint string                  `json:"config_fingerprint"`
+	DatasetIdentity   string                  `json:"dataset_identity"`
+	Models            reportModels            `json:"models"`
+	StartedAt         time.Time               `json:"started_at"`
+	FinishedAt        time.Time               `json:"finished_at"`
+	Duration          time.Duration           `json:"duration_ns"`
+	Ingest            []ingestResult          `json:"ingest"`
+	Questions         []questionResult        `json:"questions"`
+	Aggregate         aggregateResult         `json:"aggregate"`
+	ByCategory        map[int]aggregateResult `json:"by_category"`
+	Protocol          reportProtocol          `json:"protocol"`
+	QualityGate       qualityGate             `json:"quality_gate"`
+	Cleanup           []scopeCleanupResult    `json:"cleanup,omitempty"`
 }
 
 type reportModels struct {
-	Provider            string `json:"provider,omitempty"`
-	Extraction          string `json:"extraction,omitempty"`
-	Embedding           string `json:"embedding,omitempty"`
-	EmbeddingDimensions int    `json:"embedding_dimensions,omitempty"`
-	Rerank              string `json:"rerank,omitempty"`
-	Answer              string `json:"answer"`
+	ExtractionPolicyFingerprint string `json:"extraction_policy_fingerprint,omitempty"`
+	SDKVersion                  string `json:"sdk_version,omitempty"`
+	Provider                    string `json:"provider,omitempty"`
+	Extraction                  string `json:"extraction,omitempty"`
+	ExtractionProvider          string `json:"extraction_provider,omitempty"`
+	ExtractionThinking          string `json:"extraction_thinking,omitempty"`
+	ExtractionServiceTier       string `json:"extraction_service_tier,omitempty"`
+	ExtractionMaxTokens         int    `json:"extraction_max_tokens,omitempty"`
+	Embedding                   string `json:"embedding,omitempty"`
+	EmbeddingDimensions         int    `json:"embedding_dimensions,omitempty"`
+	EmbeddingProtocol           string `json:"embedding_protocol,omitempty"`
+	EmbeddingPolicyFingerprint  string `json:"embedding_policy_fingerprint,omitempty"`
+	Rerank                      string `json:"rerank,omitempty"`
+	Answer                      string `json:"answer"`
+}
+
+type reportProtocol struct {
+	Version                 string `json:"version"`
+	ObservationGranularity  string `json:"observation_granularity"`
+	TopK                    int    `json:"top_k"`
+	AnswerMaxTokens         int    `json:"answer_max_tokens"`
+	AnswerPromptFingerprint string `json:"answer_prompt_fingerprint"`
 }
 
 type ingestResult struct {
@@ -127,6 +150,12 @@ type qualityGate struct {
 	MinimumEvidenceHitRate float64 `json:"minimum_evidence_hit_rate"`
 }
 
+type scopeCleanupResult struct {
+	AppID         string `json:"app_id"`
+	VerifiedEmpty bool   `json:"verified_empty"`
+	Error         string `json:"error,omitempty"`
+}
+
 func runLiveProfile(t *testing.T, settings liveSettings, profile, fingerprint string, models reportModels, store memorystore.Store, closer io.Closer) {
 	t.Helper()
 	t.Cleanup(func() {
@@ -147,17 +176,46 @@ func runLiveProfile(t *testing.T, settings liveSettings, profile, fingerprint st
 	if models.Embedding != "" {
 		models.EmbeddingDimensions = settings.embeddingDims
 	}
-	envelope, err := runBenchmark(context.Background(), benchmarkOptions{
-		Profile:            profile,
-		ConfigFingerprint:  fingerprint,
-		DatasetIdentity:    identity,
-		Models:             models,
-		TopK:               settings.topK,
-		IngestTimeout:      settings.ingestTimeout,
-		QATimeout:          settings.qaTimeout,
-		MinimumF1:          settings.minF1,
-		MinimumEvidenceHit: settings.minEvidenceHit,
-		Logf:               t.Logf,
+	var envelope *reportEnvelope
+	var onScope func(memorystore.Scope)
+	if settings.cleanupScopes {
+		if _, ok := store.(memorystore.ScopePurger); !ok {
+			t.Fatal("remote LoCoMo profile requires scoped purge and empty verification")
+		}
+		onScope = func(scope memorystore.Scope) {
+			t.Cleanup(func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+				defer cancel()
+				err := purgeBenchmarkScope(ctx, store, scope, 2*time.Second)
+				result := scopeCleanupResult{AppID: scope.AppID, VerifiedEmpty: err == nil}
+				if err != nil {
+					result.Error = err.Error()
+					t.Errorf("purge LoCoMo scope %s: %v", scope.AppID, err)
+				} else {
+					t.Logf("purged LoCoMo scope %s: verified empty", scope.AppID)
+				}
+				if envelope != nil {
+					envelope.Cleanup = append(envelope.Cleanup, result)
+					if err := writeReport(settings.reportDir, *envelope); err != nil {
+						t.Errorf("write LoCoMo cleanup receipt: %v", err)
+					}
+				}
+			})
+		}
+	}
+	envelope, err = runBenchmark(context.Background(), benchmarkOptions{
+		Profile:                profile,
+		ConfigFingerprint:      fingerprint,
+		DatasetIdentity:        identity,
+		Models:                 models,
+		TopK:                   settings.topK,
+		IngestTimeout:          settings.ingestTimeout,
+		QATimeout:              settings.qaTimeout,
+		MinimumF1:              settings.minF1,
+		MinimumEvidenceHit:     settings.minEvidenceHit,
+		Logf:                   t.Logf,
+		ObservationGranularity: settings.observationGranularity,
+		OnScope:                onScope,
 	}, store, dataset, llmAnswerer{model: answerModel})
 	if envelope != nil {
 		if writeErr := writeReport(settings.reportDir, *envelope); writeErr != nil {
@@ -167,6 +225,11 @@ func runLiveProfile(t *testing.T, settings liveSettings, profile, fingerprint st
 	if err != nil {
 		t.Fatal(err)
 	}
+	if settings.baselineReport != "" {
+		if err := compareBaseline(settings.baselineReport, *envelope, settings.maxF1Drop, settings.maxEvidenceDrop); err != nil {
+			t.Fatal(err)
+		}
+	}
 	t.Logf("%s: n=%d em=%.4f f1=%.4f evidence_hit=%.4f adversarial=%.4f duration=%s", profile,
 		envelope.Aggregate.Questions, envelope.Aggregate.ExactMatch,
 		envelope.Aggregate.F1, envelope.Aggregate.EvidenceHitRate,
@@ -174,24 +237,32 @@ func runLiveProfile(t *testing.T, settings liveSettings, profile, fingerprint st
 }
 
 type benchmarkOptions struct {
-	Profile            string
-	ConfigFingerprint  string
-	DatasetIdentity    string
-	Models             reportModels
-	TopK               int
-	IngestTimeout      time.Duration
-	QATimeout          time.Duration
-	MinimumF1          float64
-	MinimumEvidenceHit float64
-	Logf               func(string, ...any)
+	OnScope                func(memorystore.Scope)
+	ObservationGranularity string
+	Profile                string
+	ConfigFingerprint      string
+	DatasetIdentity        string
+	Models                 reportModels
+	TopK                   int
+	IngestTimeout          time.Duration
+	QATimeout              time.Duration
+	MinimumF1              float64
+	MinimumEvidenceHit     float64
+	Logf                   func(string, ...any)
 }
 
 func runBenchmark(ctx context.Context, options benchmarkOptions, store memorystore.Store, dataset *benchmarkDataset, answerer benchmarkAnswerer) (*reportEnvelope, error) {
 	started := time.Now().UTC()
+	granularity := options.ObservationGranularity
+	if granularity == "" {
+		granularity = "session"
+	}
 	envelope := &reportEnvelope{
 		Profile: options.Profile, ConfigFingerprint: options.ConfigFingerprint,
 		DatasetIdentity: options.DatasetIdentity, StartedAt: started,
 		Models: options.Models,
+		Protocol: reportProtocol{Version: "gizclaw-locomo-v2", ObservationGranularity: granularity,
+			TopK: options.TopK, AnswerMaxTokens: answerMaxTokens, AnswerPromptFingerprint: configFingerprint(answerSystemPrompt)},
 		QualityGate: qualityGate{
 			MinimumF1:              options.MinimumF1,
 			MinimumEvidenceHitRate: options.MinimumEvidenceHit,
@@ -202,7 +273,10 @@ func runBenchmark(ctx context.Context, options benchmarkOptions, store memorysto
 	for _, conversation := range dataset.Conversations {
 		scope := memorystore.Scope{AppID: "locomo-" + runID + "-" + conversation.ID}
 		scopes[conversation.ID] = scope
-		result, err := ingestConversation(ctx, store, scope, conversation, options.IngestTimeout, options.Logf)
+		if options.OnScope != nil {
+			options.OnScope(scope)
+		}
+		result, err := ingestConversationMode(ctx, store, scope, conversation, options.IngestTimeout, options.Logf, granularity)
 		envelope.Ingest = append(envelope.Ingest, result)
 		if err != nil {
 			finishReport(envelope)
@@ -218,6 +292,14 @@ func runBenchmark(ctx context.Context, options benchmarkOptions, store memorysto
 		}
 	}
 	envelope.Aggregate = aggregateQuestions(envelope.Questions)
+	envelope.ByCategory = make(map[int]aggregateResult)
+	groups := make(map[int][]questionResult)
+	for _, question := range envelope.Questions {
+		groups[question.Category] = append(groups[question.Category], question)
+	}
+	for category, questions := range groups {
+		envelope.ByCategory[category] = aggregateQuestions(questions)
+	}
 	finishReport(envelope)
 	if envelope.Aggregate.Failed > 0 {
 		return envelope, fmt.Errorf("%d of %d LoCoMo questions failed", envelope.Aggregate.Failed, envelope.Aggregate.Questions)
@@ -237,31 +319,51 @@ func finishReport(envelope *reportEnvelope) {
 }
 
 func ingestConversation(ctx context.Context, store memorystore.Store, scope memorystore.Scope, conversation benchmarkConversation, timeout time.Duration, logf func(string, ...any)) (ingestResult, error) {
+	return ingestConversationMode(ctx, store, scope, conversation, timeout, logf, "session")
+}
+
+func ingestConversationMode(ctx context.Context, store memorystore.Store, scope memorystore.Scope, conversation benchmarkConversation, timeout time.Duration, logf func(string, ...any), granularity string) (ingestResult, error) {
 	result := ingestResult{ConversationID: conversation.ID}
 	started := time.Now()
 	observations := sessionObservations(scope, conversation)
-	for index, observation := range observations {
-		operationCtx, cancel := context.WithTimeout(ctx, timeout)
-		observed, err := store.Observe(operationCtx, observation)
-		if err == nil {
-			observed, err = awaitObservation(operationCtx, store, observation.Scope, observed)
+	completed := 0
+	for index, session := range observations {
+		batch := []memorystore.Observation{session}
+		if granularity == "turn" {
+			batch = make([]memorystore.Observation, len(session.Turns))
+			for turnIndex, turn := range session.Turns {
+				batch[turnIndex] = memorystore.Observation{Scope: scope, ID: turn.ID, ObservedAt: turn.ObservedAt, Turns: []memorystore.Turn{turn}}
+			}
 		}
-		cancel()
-		if err != nil {
-			result.Duration = time.Since(started)
-			return result, err
+		sessionFacts := 0
+		for _, observation := range batch {
+			operationCtx, cancel := context.WithTimeout(ctx, timeout)
+			observed, err := store.Observe(operationCtx, observation)
+			if err == nil {
+				observed, err = awaitObservation(operationCtx, store, observation.Scope, observed)
+			}
+			cancel()
+			if err != nil {
+				result.Duration = time.Since(started)
+				return result, err
+			}
+			result.Observations++
+			result.Turns += len(observation.Turns)
+			result.Facts += len(observed.Facts)
+			sessionFacts += len(observed.Facts)
+			completed++
+			if logf != nil {
+				logf("ingest %s observation %d complete: turns=%d facts=%d", conversation.ID,
+					completed, len(observation.Turns), len(observed.Facts))
+			}
 		}
-		result.Observations++
-		result.Turns += len(observation.Turns)
-		result.Facts += len(observed.Facts)
-		if logf != nil {
-			logf("ingest %s session %d/%d complete: turns=%d facts=%d", conversation.ID,
-				index+1, len(observations), len(observation.Turns), len(observed.Facts))
-		}
-		if len(observed.Facts) < conversation.MinimumFactsPerSession {
+		if sessionFacts < conversation.MinimumFactsPerSession {
 			result.Duration = time.Since(started)
 			return result, fmt.Errorf("session %q materialized %d facts, below dataset minimum %d",
-				observation.ID, len(observed.Facts), conversation.MinimumFactsPerSession)
+				session.ID, sessionFacts, conversation.MinimumFactsPerSession)
+		}
+		if logf != nil {
+			logf("ingest %s session %d/%d complete: turns=%d facts=%d", conversation.ID, index+1, len(observations), len(session.Turns), sessionFacts)
 		}
 	}
 	result.Duration = time.Since(started)

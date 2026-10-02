@@ -39,9 +39,11 @@ type sourceSample struct {
 }
 
 type sourceTurn struct {
-	Speaker string `json:"speaker"`
-	ID      string `json:"dia_id"`
-	Text    string `json:"text"`
+	Speaker    string `json:"speaker"`
+	ID         string `json:"dia_id"`
+	Text       string `json:"text"`
+	Caption    string `json:"blip_caption"`
+	ImageQuery string `json:"query"`
 }
 
 type sourceQuestion struct {
@@ -201,6 +203,16 @@ func selectSample(samples []sourceSample, conversationID string) (sourceSample, 
 }
 
 func convertSample(sample sourceSample) ([]byte, manifest, error) {
+	var speakerA, speakerB string
+	if err := json.Unmarshal(sample.Conversation["speaker_a"], &speakerA); err != nil {
+		return nil, manifest{}, fmt.Errorf("conversation %q speaker_a: %w", sample.SampleID, err)
+	}
+	if err := json.Unmarshal(sample.Conversation["speaker_b"], &speakerB); err != nil {
+		return nil, manifest{}, fmt.Errorf("conversation %q speaker_b: %w", sample.SampleID, err)
+	}
+	if strings.TrimSpace(speakerA) == "" || strings.TrimSpace(speakerB) == "" || speakerA == speakerB {
+		return nil, manifest{}, errors.New("conversation requires two distinct nonempty speakers")
+	}
 	sessionNumbers := make([]int, 0)
 	for key := range sample.Conversation {
 		if !strings.HasPrefix(key, "session_") || strings.HasSuffix(key, "_date_time") {
@@ -229,13 +241,21 @@ func convertSample(sample sourceSample) ([]byte, manifest, error) {
 		if err := json.Unmarshal(sample.Conversation[sessionID], &turns); err != nil {
 			return nil, manifest{}, fmt.Errorf("conversation %q %s turns: %w", sample.SampleID, sessionID, err)
 		}
-		for index, turn := range turns {
-			role := "assistant"
-			if index%2 == 1 {
-				role = "user"
+		for _, turn := range turns {
+			role := "user"
+			switch turn.Speaker {
+			case speakerA:
+			case speakerB:
+				role = "assistant"
+			default:
+				return nil, manifest{}, fmt.Errorf("conversation %q has unknown speaker %q", sample.SampleID, turn.Speaker)
+			}
+			content := turn.Text
+			if turn.Caption != "" || turn.ImageQuery != "" {
+				content += " [Shared image: " + strings.TrimSpace(turn.ImageQuery+" "+turn.Caption) + "]"
 			}
 			conversation.Turns = append(conversation.Turns, fixtureTurn{
-				Role: role, Speaker: turn.Speaker, Content: turn.Text,
+				Role: role, Speaker: turn.Speaker, Content: content,
 				EvidenceID: sample.SampleID + ":" + turn.ID, SessionID: sessionID,
 				ObservedAt: observedAt.UTC(),
 			})
@@ -280,7 +300,7 @@ func convertSample(sample sourceSample) ([]byte, manifest, error) {
 		questionIDs = append(questionIDs, questionID)
 	}
 	metadata := manifest{Derived: manifestDerived{
-		Changes:         "Selected the complete " + sample.SampleID + " conversation and all of its QA records. Category 5 is represented explicitly as unanswerable with no gold answer. Source speaker names and session wall-clock timestamps are preserved on every turn; timezone-free source values are mapped onto UTC only for deterministic Go timestamps. Roles preserve the existing fixture convention of alternating from assistant at the start of each session. Each session requires at least one materialized fact. Image metadata and generated summaries are excluded.",
+		Changes:         "Selected the complete " + sample.SampleID + " conversation and all of its QA records. Category 5 is represented explicitly as unanswerable with no gold answer. Source speaker names and session wall-clock timestamps are preserved on every turn; timezone-free source values are mapped onto UTC only for deterministic Go timestamps. Roles are assigned consistently by source speaker_a (user) and speaker_b (assistant). Image queries and captions are included in message text; generated summaries are excluded. Each session requires at least one materialized fact.",
 		ConversationIDs: []string{sample.SampleID}, QuestionIDs: questionIDs,
 		SessionIDs: sessionIDs, TurnCount: len(conversation.Turns),
 	}}

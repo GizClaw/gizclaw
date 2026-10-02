@@ -41,7 +41,12 @@ services:
     profiles: ["memory"]
     build:
       context: ../../..
-      dockerfile: tests/gizclaw-e2e/docker/Dockerfile.mem0
+      dockerfile: build/mem0/Dockerfile
+      target: test
+      args:
+        BASE_IMAGE: ${GIZCLAW_E2E_MEM0_BASE_IMAGE:-gizclaw-mem0:linux-amd64-cn-base}
+    environment:
+      MEM0_CREDENTIAL_FILE: /run/gizclaw-e2e.env
     volumes:
       - type: bind
         source: ${GIZCLAW_E2E_CREDENTIAL_FILE:-../.env}

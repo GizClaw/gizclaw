@@ -18,6 +18,7 @@ func TestLoCoMoMem0SelfHosted(t *testing.T) {
 	}, "GIZCLAW_LOCOMO_E2E_MEM0_SELF_HOSTED_URL"); err != nil {
 		t.Fatal(err)
 	}
+	health := requireSelfHostedHealth(t, endpoint, "qdrant")
 	store, err := memorymem0.New(memorymem0.Config{
 		Endpoint: endpoint,
 		Flavor:   memorymem0.SelfHosted,
@@ -26,10 +27,12 @@ func TestLoCoMoMem0SelfHosted(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile := "mem0_self_hosted"
-	fingerprint := configFingerprint(profile, endpoint, "mem0ai-2.0.3", settings.modelProvider,
+	fingerprint := configFingerprint(profile, endpoint, health.SdkVersion, settings.modelProvider,
 		settings.extractionModel, settings.embeddingModel, strconv.Itoa(settings.embeddingDims))
 	runLiveProfile(t, settings, profile, fingerprint, reportModels{
-		Extraction: settings.extractionModel,
-		Embedding:  settings.embeddingModel,
+		Extraction:         health.LlmModel,
+		ExtractionProvider: health.LlmProvider,
+		SDKVersion:         health.SdkVersion,
+		Embedding:          settings.embeddingModel,
 	}, store, nil)
 }

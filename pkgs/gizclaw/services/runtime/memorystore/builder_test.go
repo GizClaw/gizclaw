@@ -2,6 +2,7 @@ package memorystore
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,135 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
+
+func TestBuildSelfHostedMem0UsesOSSProtocolAndOptionalAuthentication(t *testing.T) {
+	t.Parallel()
+	for _, key := range []string{"", "test-key"} {
+		t.Run("api-key="+key, func(t *testing.T) {
+			var requests []string
+			var entity string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer r.Body.Close()
+				requests = append(requests, r.Method+" "+r.URL.Path)
+				if r.Header.Get("X-API-Key") != key || r.Header.Get("Authorization") != "" {
+					t.Errorf("unexpected authentication headers")
+				}
+				w.Header().Set("Content-Type", "application/json")
+				switch r.Method + " " + r.URL.Path {
+				case "POST /memories", "POST /search":
+					var body map[string]any
+					if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+						t.Error(err)
+					}
+					if r.URL.Path == "/memories" {
+						entity, _ = body["user_id"].(string)
+						if entity == "" || body["app_id"] != nil {
+							t.Error("write did not use the self-hosted scope encoding")
+						}
+					} else if body["filters"].(map[string]any)["user_id"] != entity {
+						t.Error("recall scope differs from write scope")
+					}
+					_, _ = io.WriteString(w, `{"results":[]}`)
+				case "DELETE /memories", "GET /memories":
+					if r.URL.Query().Get("user_id") != entity {
+						t.Error("purge scope differs from write scope")
+					}
+					_, _ = io.WriteString(w, `{"results":[]}`)
+				default:
+					t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer server.Close()
+			request := objectStoreTestRequest(t)
+			request.Binding.Driver = apitypes.RuntimeProfileMemoryDriverMem0
+			connection := apitypes.RuntimeProfileMem0SelfHostedConnection{
+				Type: apitypes.RuntimeProfileMem0SelfHostedConnectionTypeMem0SelfHosted, Endpoint: server.URL,
+			}
+			if key != "" {
+				connection.ApiKey = &key
+			}
+			if err := request.Binding.Connection.FromRuntimeProfileMem0SelfHostedConnection(connection); err != nil {
+				t.Fatal(err)
+			}
+			result, err := Build(t.Context(), request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			scope := memory.Scope{AppID: request.WorkspaceID}
+			if _, err := result.Store.Observe(t.Context(), memory.Observation{Scope: scope, Text: "remember Mochi"}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := result.Store.Recall(t.Context(), memory.Query{Scope: scope, Text: "Mochi", Limit: 5}); err != nil {
+				t.Fatal(err)
+			}
+			if err := memory.PurgeScope(t.Context(), result.Store, scope); err != nil {
+				t.Fatal(err)
+			}
+			if empty, err := memory.ScopeEmpty(t.Context(), result.Store, scope); err != nil || !empty {
+				t.Fatalf("ScopeEmpty() = %v, %v", empty, err)
+			}
+			if got := strings.Join(requests, ","); got != "POST /memories,POST /search,DELETE /memories,GET /memories" {
+				t.Fatalf("requests = %s", got)
+			}
+		})
+	}
+}
+
+func TestSharedSelfHostedMem0KeepsEachLayoutGenerationPolicy(t *testing.T) {
+	t.Parallel()
+	var received []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		var payload struct {
+			Prompt string `json:"prompt"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Error(err)
+		}
+		received = append(received, payload.Prompt)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"results":[]}`)
+	}))
+	defer server.Close()
+	request := objectStoreTestRequest(t)
+	request.Binding.Driver = apitypes.RuntimeProfileMemoryDriverMem0
+	if err := request.Binding.Connection.FromRuntimeProfileMem0SelfHostedConnection(apitypes.RuntimeProfileMem0SelfHostedConnection{
+		Type: apitypes.RuntimeProfileMem0SelfHostedConnectionTypeMem0SelfHosted, Endpoint: server.URL,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	registry := NewRegistry()
+	defer registry.Close()
+	var stores []Result
+	for _, instructions := range []string{"pet policy", "calendar policy"} {
+		request.Layout.Spec.Mem0.CustomInstructions = &instructions
+		result, err := registry.Resolve(t.Context(), request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer result.Closer.Close()
+		stores = append(stores, result)
+	}
+	for _, index := range []int{0, 1, 0} {
+		if _, err := stores[index].Store.Observe(t.Context(), memory.Observation{Text: "fixture"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := strings.Join(received, ","); got != "pet policy,calendar policy,pet policy" {
+		t.Fatalf("logical Layout policies leaked: %q", got)
+	}
+}
+
+func TestSelfHostedMem0RejectsUnsupportedLayoutFlags(t *testing.T) {
+	t.Parallel()
+	value := true
+	for _, policy := range []apitypes.Mem0MemoryLayoutPolicy{{Decay: &value}, {Multilingual: &value}} {
+		if _, err := selfHostedInstructions(policy); err == nil {
+			t.Fatal("unsupported Layout policy was silently accepted")
+		}
+	}
+}
 
 func TestManagedBindingRootUsesServerWorkspaceProfileAndAlias(t *testing.T) {
 	root := t.TempDir()

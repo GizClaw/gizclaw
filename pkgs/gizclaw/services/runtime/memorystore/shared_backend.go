@@ -20,6 +20,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	memoryflowcraft "github.com/GizClaw/gizclaw-go/pkgs/store/memory/flowcraft"
 	flowcraftredis8 "github.com/GizClaw/gizclaw-go/pkgs/store/memory/flowcraft/redis8"
+	memorymem0 "github.com/GizClaw/gizclaw-go/pkgs/store/memory/mem0"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 )
 
@@ -51,7 +52,25 @@ type sharedRemoteBackend struct {
 	err    error
 }
 
-func (backend *sharedRemoteBackend) NewStore(context.Context, Request) (Result, io.Closer, error) {
+func (backend *sharedRemoteBackend) NewStore(_ context.Context, request Request) (Result, io.Closer, error) {
+	if request.Binding.Driver == apitypes.RuntimeProfileMemoryDriverMem0 {
+		connectionType, err := request.Binding.Connection.Discriminator()
+		if err != nil {
+			return Result{}, nil, err
+		}
+		if connectionType == "mem0_self_hosted" {
+			instructions, err := selfHostedInstructions(request.Layout.Spec.Mem0)
+			if err != nil {
+				return Result{}, nil, err
+			}
+			store, ok := backend.result.Store.(*memorymem0.Store)
+			if !ok {
+				return Result{}, nil, errors.New("self-hosted mem0 backend has an incompatible Store")
+			}
+			logical, err := store.WithCustomInstructions(instructions)
+			return Result{Store: logical, Driver: backend.result.Driver}, nil, err
+		}
+	}
 	return Result{Store: backend.result.Store, Driver: backend.result.Driver}, nil, nil
 }
 

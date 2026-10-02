@@ -68,7 +68,7 @@ if [[ -z "${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-}" ]]; then
 fi
 export GIZCLAW_E2E_DOCKER_BASE_IMAGE
 if ! docker image inspect "$GIZCLAW_E2E_DOCKER_BASE_IMAGE" >/dev/null 2>&1; then
-  base_dockerfile="${GIZCLAW_E2E_DOCKER_BASE_DOCKERFILE:-$repo_root/build/Dockerfile.cn.base}"
+  base_dockerfile="${GIZCLAW_E2E_DOCKER_BASE_DOCKERFILE:-$repo_root/build/gizclaw/Dockerfile.cn.base}"
   echo "==> build missing e2e base image $GIZCLAW_E2E_DOCKER_BASE_IMAGE from $base_dockerfile"
   docker build --platform="$docker_platform" -f "$base_dockerfile" -t "$GIZCLAW_E2E_DOCKER_BASE_IMAGE" "$repo_root/build"
 fi

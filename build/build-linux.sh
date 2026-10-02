@@ -38,11 +38,11 @@ export DOCKER_BUILDKIT="${DOCKER_BUILDKIT:-1}"
 
 case "$flavor" in
   "")
-    base_dockerfile="$repo_root/build/Dockerfile.base"
+    base_dockerfile="$repo_root/build/gizclaw/Dockerfile.base"
     base_image="${BASE_IMAGE:-gizclaw-go:${platform_slug}-base}"
     ;;
   cn)
-    base_dockerfile="$repo_root/build/Dockerfile.cn.base"
+    base_dockerfile="$repo_root/build/gizclaw/Dockerfile.cn.base"
     base_image="${BASE_IMAGE:-gizclaw-go:${platform_slug}-cn-base}"
     ;;
   *)
@@ -67,7 +67,7 @@ docker build \
   --build-arg BUILD_VERSION="$build_version" \
   --build-arg BUILD_COMMIT="$build_commit" \
   --target artifact \
-  -f "$repo_root/build/Dockerfile" \
+  -f "$repo_root/build/gizclaw/Dockerfile" \
   -t "$image" \
   "$repo_root"
 

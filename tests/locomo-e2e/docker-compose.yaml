@@ -11,19 +11,25 @@ services:
     tmpfs:
       - /data
 
-  mem0:
+  mem0: &mem0-service
     build:
       context: ../..
-      dockerfile: tests/gizclaw-e2e/docker/Dockerfile.mem0
-    entrypoint: ["uvicorn", "mem0_server:app", "--host", "0.0.0.0", "--port", "8000"]
-    environment:
-      MEM0_LLM_API_KEY: ${GIZCLAW_LOCOMO_E2E_MODEL_API_KEY:-}
-      MEM0_LLM_BASE_URL: ${GIZCLAW_LOCOMO_E2E_MODEL_BASE_URL:-https://api.deepseek.com}
+      dockerfile: build/mem0/Dockerfile
+      target: test
+      args:
+        BASE_IMAGE: ${GIZCLAW_LOCOMO_E2E_MEM0_BASE_IMAGE:-gizclaw-mem0:linux-amd64-base}
+    environment: &mem0-model-environment
+      MEM0_LLM_API_KEY: ${GIZCLAW_LOCOMO_E2E_MEM0_LLM_API_KEY:-${GIZCLAW_LOCOMO_E2E_MODEL_API_KEY:-}}
+      MEM0_LLM_BASE_URL: ${GIZCLAW_LOCOMO_E2E_MEM0_LLM_BASE_URL:-${GIZCLAW_LOCOMO_E2E_MODEL_BASE_URL:-https://api.deepseek.com}}
       MEM0_LLM_MODEL: ${GIZCLAW_LOCOMO_E2E_EXTRACTION_MODEL:-deepseek-v4-flash}
+      MEM0_LLM_THINKING: ${GIZCLAW_LOCOMO_E2E_MEM0_LLM_THINKING:-}
+      MEM0_LLM_SERVICE_TIER: ${GIZCLAW_LOCOMO_E2E_MEM0_LLM_SERVICE_TIER:-}
+      MEM0_MAX_CONCURRENCY: ${GIZCLAW_LOCOMO_E2E_MEM0_MAX_CONCURRENCY:-160}
       MEM0_EMBEDDING_API_KEY: ${GIZCLAW_LOCOMO_E2E_EMBEDDING_API_KEY:-}
       MEM0_EMBEDDING_BASE_URL: ${GIZCLAW_LOCOMO_E2E_EMBEDDING_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
       MEM0_EMBEDDING_MODEL: ${GIZCLAW_LOCOMO_E2E_EMBEDDING_MODEL:-qwen3.7-text-embedding}
       MEM0_EMBEDDING_DIMENSIONS: ${GIZCLAW_LOCOMO_E2E_EMBEDDING_DIMENSIONS:-1024}
+      MEM0_EMBEDDING_PROTOCOL: ${GIZCLAW_LOCOMO_E2E_MEM0_EMBEDDING_PROTOCOL:-openai}
     ports:
       - "127.0.0.1:${GIZCLAW_LOCOMO_E2E_MEM0_PORT:-18000}:8000"
     healthcheck:
@@ -34,3 +40,37 @@ services:
       start_period: 30s
     tmpfs:
       - /tmp
+
+  pgvector:
+    image: pgvector/pgvector:pg17@sha256:cf134a767f474095eeba57e0117be8e568e011a63f33fbf252f14c9b760f8e6f
+    environment:
+      POSTGRES_DB: mem0_locomo
+      POSTGRES_USER: gizclaw_test
+      POSTGRES_PASSWORD: gizclaw_test
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U gizclaw_test -d mem0_locomo"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  mem0_pgvector:
+    <<: *mem0-service
+    build:
+      context: ../..
+      dockerfile: build/mem0/Dockerfile
+      target: test
+      args:
+        BASE_IMAGE: ${GIZCLAW_LOCOMO_E2E_MEM0_BASE_IMAGE:-gizclaw-mem0:linux-amd64-base}
+    environment:
+      <<: *mem0-model-environment
+      MEM0_VECTOR_STORE: pgvector
+      MEM0_LLM_MAX_TOKENS: ${GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_MAX_TOKENS:-8192}
+      MEM0_COLLECTION_NAME: gizclaw_locomo
+      MEM0_POSTGRES_DSN: postgresql://gizclaw_test:gizclaw_test@pgvector:5432/mem0_locomo?sslmode=disable
+    ports:
+      - "127.0.0.1:${GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_PORT:-18001}:8000"
+    depends_on:
+      pgvector:
+        condition: service_healthy

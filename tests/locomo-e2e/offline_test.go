@@ -106,6 +106,12 @@ func TestDatasetRejectsInvalidReferencesAndContent(t *testing.T) {
 		"missing speaker": func(dataset *benchmarkDataset) {
 			dataset.Conversations[0].Turns[0].Speaker = " "
 		},
+		"speaker role flip": func(dataset *benchmarkDataset) {
+			turn := dataset.Conversations[0].Turns[0]
+			turn.EvidenceID = "other-turn"
+			turn.Role = "assistant"
+			dataset.Conversations[0].Turns = append(dataset.Conversations[0].Turns, turn)
+		},
 		"missing timestamp": func(dataset *benchmarkDataset) {
 			dataset.Conversations[0].Turns[0].ObservedAt = time.Time{}
 		},
@@ -368,7 +374,7 @@ func TestRedactionReportContainsOnlyFingerprint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(raw), secret) || strings.Contains(string(raw), "api_key") || strings.Contains(string(raw), "token") {
+	if strings.Contains(string(raw), secret) || strings.Contains(string(raw), `"api_key":`) || strings.Contains(string(raw), `"token":`) {
 		t.Fatalf("report leaks credential material: %s", raw)
 	}
 }

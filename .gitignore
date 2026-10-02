@@ -29,6 +29,8 @@ coverage.out
 
 # Local build scratch
 .tmp/
+__pycache__/
+*.pyc
 
 # Local e2e runtime
 tests/gizclaw-e2e/.env

@@ -132,11 +132,16 @@ func validateDataset(dataset *benchmarkDataset) error {
 			return fmt.Errorf("duplicate conversation ID %q", conversation.ID)
 		}
 		evidence := make(map[string]struct{}, len(conversation.Turns))
+		speakerRoles := make(map[string]string)
 		sessionTimes := make(map[string]time.Time)
 		for index, turn := range conversation.Turns {
 			if turn.Role != "user" && turn.Role != "assistant" {
 				return fmt.Errorf("conversation %q turn %d has invalid role %q", conversation.ID, index, turn.Role)
 			}
+			if role, exists := speakerRoles[turn.Speaker]; exists && role != turn.Role {
+				return fmt.Errorf("conversation %q changes role for speaker %q", conversation.ID, turn.Speaker)
+			}
+			speakerRoles[turn.Speaker] = turn.Role
 			if strings.TrimSpace(turn.Speaker) == "" || strings.TrimSpace(turn.Content) == "" || strings.TrimSpace(turn.EvidenceID) == "" || strings.TrimSpace(turn.SessionID) == "" || turn.ObservedAt.IsZero() {
 				return fmt.Errorf("conversation %q turn %d requires speaker, content, evidence_id, session_id, and observed_at", conversation.ID, index)
 			}

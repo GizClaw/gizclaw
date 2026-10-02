@@ -79,9 +79,110 @@ store, err := flowcraft.New(ctx, flowcraft.Config{
 
 Mem0 is constructed with one `mem0.Config`. `FlavorPlatform` uses `Authorization: Token` and maps every selected dimension to the matching `app_id`, `user_id`, `agent_id`, or `run_id`. Mem0 OSS does not expose `app_id`, so `FlavorSelfHosted` encodes the complete four-dimensional Scope into one reserved native `user_id`; it uses `X-API-Key` when a key is supplied. This keeps Workspace App isolation exact without overwriting the caller's logical User, Agent, or Run dimensions. Update and delete retrieve the provider record and verify its complete encoded scope before performing the ID mutation. Direct import currently accepts one Fact with a non-empty Observation ID per call; multiple direct candidates return `ErrUnsupported` instead of silently merging attributes.
 
-Volcengine AgentKit/Viking MEM0 is constructed with one `volc.Config`. It accepts either an explicit Mem0 data-plane key or a credential resolver. The adapter explicitly selects Volc's v1 add/search routes, extracts one authoritative job ID from `results`, and makes `Wait` poll `/v1/job/{id}/`. If a successful job omits facts, it lists only the same scope and selects records owned by the observation ID. The Volc v1 service requires `user_id`, so an App-, Agent-, or Run-only logical scope receives a reserved encoded transport user while retaining every original native field; returned records are decoded and checked against the unchanged logical scope. Generic Mem0 Platform continues to use v3 add/search, its top-level event ID, and `/v1/event/{id}/`. Endpoint hostnames are never used to infer the protocol. A Volc data-plane endpoint is mandatory.
+Volcengine AgentKit/Viking MEM0 is constructed with one `volc.Config`. It accepts either an explicit Mem0 data-plane key or a credential resolver. The adapter explicitly selects Volc's v1 add/search routes, extracts one authoritative job ID from `results`, and makes `Wait` poll `/v1/job/{id}/`. If a successful job omits facts, it lists only the same scope and selects records using the per-operation reconciliation marker. Successful extraction may return zero facts, for example for a greeting; older memories are not returned as this job's results, and missing or malformed list responses still fail. The Volc v1 service requires `user_id`, so an App-, Agent-, or Run-only logical scope receives a reserved encoded transport user while retaining every original native field; returned records are decoded and checked against the unchanged logical scope. Generic Mem0 Platform continues to use v3 add/search, its top-level event ID, and `/v1/event/{id}/`. Endpoint hostnames are never used to infer the protocol. A Volc data-plane endpoint is mandatory.
 
 An Eino `memory_observe` node assigns each Graph-authored direct Fact a stable observation identity derived from the current turn and Graph node. A following `memory_recall` node in the same Workspace therefore reads the Fact through the same complete `Scope.AppID`, including with `volc_mem0`. Volc search results must have a native Fact ID and a compatible encoded scope; provider routing metadata such as project and strategy bookkeeping is not returned as business attributes.
+
+### Self-hosted Mem0 service
+
+`cmd/mem0/gizclaw_mem0` is a standalone Python HTTP entry point using the official
+`mem0ai 2.2.1` SDK. It supports OpenAI-compatible LLM/embedding providers with
+PGVector or local Qdrant. `build/mem0/Dockerfile` provides `test` and non-root
+`runtime` targets. Docker E2E, LoCoMo and Release share this implementation.
+Extraction and embedding models belong to the service configuration;
+RuntimeProfile stores only the endpoint and optional API key.
+
+Select a YAML/JSON file with `--config` or `MEM0_CONFIG`. Its `memory` object uses
+native Mem0 model/storage settings and rejects global business `custom_instructions`; `service` accepts `api_key`, `thinking` and
+`embedding_protocol`, `max_concurrency` and `service_tier`. `${VARIABLE}` substitutes process environment values and
+fails startup for missing/empty values. File mode takes its model/database
+configuration from that file instead of mixing in equivalent `MEM0_*` settings.
+Without a file, environment configuration remains available.
+
+- `cmd/mem0/config.example.yaml` selects Seed 2.1 Lite, Doubao Vision Embedding
+  and PGVector. `service.thinking: disabled` forwards Ark's parameter through
+  the OpenAI-compatible Chat API.
+- The domestic example sets `service_tier: fast` for Ark's low-latency Chat tier.
+  Environment mode uses `MEM0_LLM_SERVICE_TIER=fast`. Health reports the requested
+  tier; extraction diagnostics record the actual response tier. The account must
+  enable low-latency service. Quota/traffic protection can fall back to default;
+  fast does not bypass model-account TPM limits.
+- `cmd/mem0/config.openai.example.yaml` selects `gpt-6-luna`,
+  `text-embedding-3-small` and PGVector. Luna maps `max_tokens` to
+  `max_completion_tokens` and uses `reasoning_effort: none`; other reasoning
+  modes omit incompatible sampling parameters. Request formatting is tested
+  locally; account access and actual model quality still require live validation.
+- `embedding_protocol: openai` uses standard `/embeddings`; `ark_multimodal`
+  uses `/embeddings/multimodal`, produces one 1024/2048-dimensional vector per
+  text and distinguishes corpus/query instructions. A model or dimension change
+  requires a new collection and reingestion.
+
+Run Python from the repository root after injecting the example's model key,
+`MEM0_POSTGRES_DSN` and `MEM0_API_KEY`. PostgreSQL must support the `vector`
+extension:
+
+```sh
+python3 -m venv .tmp/mem0-venv
+.tmp/mem0-venv/bin/pip install -r cmd/mem0/requirements.txt
+mkdir -p .tmp/mem0
+export MEM0_HISTORY_DB_PATH="$PWD/.tmp/mem0/memory-history.db"
+PYTHONPATH=cmd/mem0 .tmp/mem0-venv/bin/python -m gizclaw_mem0 \
+  --config cmd/mem0/config.example.yaml --host 127.0.0.1 --port 8000
+```
+
+Build/run the container from the repository root with credentials already in the
+process environment. With managed PostgreSQL, records and vector indexes live in
+PG; `/data` holds the SDK's SQLite history and needs a persistent volume:
+
+```sh
+PLATFORM=linux/amd64 IMAGE=gizclaw-mem0 build/build-mem0.sh
+# Domestic dependency source, same application Dockerfile with a CN base
+PLATFORM=linux/amd64 IMAGE=gizclaw-mem0 build/build-mem0.sh cn
+docker run --rm --name gizclaw-mem0 -p 127.0.0.1:8000:8000 \
+  -e VOLC_ARK_API_KEY -e MEM0_POSTGRES_DSN -e MEM0_API_KEY \
+  -v "$PWD/cmd/mem0/config.example.yaml:/app/config.yaml:ro" \
+  -v gizclaw-mem0-history:/data gizclaw-mem0 --config /app/config.yaml --host 0.0.0.0
+```
+
+Python binds loopback by default. The container binds `0.0.0.0` internally, while
+this example publishes only host loopback. When an API key is configured, every
+route except `/health` requires `X-API-Key`. Local mode without a key belongs on
+a trusted network. Shutdown closes model clients, the vector store and history
+connections. Model/database settings cannot be changed through HTTP. PG operations can overlap across complete Scopes, while writes within one Scope
+remain serialized. Extraction diagnostics and embedding failures are isolated by
+request thread. Local Qdrant remains serialized. `max_concurrency` is the write budget, defaulting to 160. Reads reserve a separate
+`max(16, max_concurrency/4)` budget. Excess requests return 503; health bypasses
+admission. Provider rate limits return structured HTTP 429; other model request
+failures return 502 without forwarding provider credentials. The PG pool defaults to min 4 / max 32. Environment mode supports
+`MEM0_MAX_CONCURRENCY`, `MEM0_POSTGRES_MIN_CONNECTIONS` and
+`MEM0_POSTGRES_MAX_CONNECTIONS`. LoCoMo validates quality; the separate load
+test validates throughput.
+
+`api/http/mem0.json` owns the HTTP contract, served at `/openapi.json`. Python
+contract tests compare the actual request/response models, parameters, routes and
+operation IDs. The root module pins `oapi-codegen` for the generated
+`sdk/go/mem0` client:
+
+```sh
+go generate ./sdk/go/mem0
+go test ./sdk/go/mem0 ./pkgs/store/memory/mem0
+```
+
+The self-hosted adapter uses its generated client and request DTOs. Platform/Volc
+keep their own protocols. The SDK preserves extra Mem0 record metadata.
+
+Multiple MemoryLayouts can share one service. The Go logical Store retains
+`MemoryLayout.mem0.custom_instructions` for that Layout generation and sends it
+as HTTP `prompt` to native `Memory.add(prompt=...)`. It does not mutate the
+shared SDK instruction. Updating a Layout leaves existing generations unchanged.
+Direct Facts with `infer=false` carry no extraction instruction. The service needs
+no separate Layout registry. `scope: workspace|peer` keeps the existing Scope
+contract; a Layout itself adds no partition, so the same endpoint/collection and
+complete Scope share memory. OSS bindings reject `custom_categories`, enabled
+`decay` and enabled `multilingual` flags.
+
+See [repository publication](../tooling#repository-publication) for versioned
+amd64/arm64 images.
 
 ## MemoryLayout, RuntimeProfile, and Workflow
 
@@ -142,6 +243,24 @@ Flowcraft 0.1.7 defines `(runtime_id, user_id)` as the canonical hard partition.
 There is no automatic migration from the removed `flowcraft_bbh` connection. Persisted legacy profiles fail closed with an operator-actionable replacement error, while mutation paths still allow the profile to be replaced with a supported connection. The old managed directory and its canonical data are retained unchanged; profile replacement and deletion do not remove them. `flowcraft_object_store` may continue using its local derived index internally, but BBH is not a public deployment connection or policy surface.
 
 For Mem0 and Volc, the Project ID records the deployment/control-plane identity paired with the selected data-plane API key. Runtime fact requests authenticate with that key; they do not send a separate Project ID field.
+
+Self-hosted Mem0 uses `driver: mem0` with `connection.type: mem0_self_hosted` to explicitly select the OSS HTTP protocol. Only `endpoint` is required. When the service enables authentication, supply the optional `api_key`, sent through `X-API-Key`; omit it for a local service without authentication. A self-hosted connection does not accept `project_id`, a database DSN, or model configuration. The Mem0 service owns its vector store, models, and persistence. The existing `connection.type: mem0` still selects the Platform protocol and requires `project_id` and `api_key`; endpoint hostnames never select the protocol.
+
+```yaml
+spec:
+  resources:
+    memories:
+      assistant-memory:
+        layout_id: assistant-memory
+        driver: mem0
+        connection:
+          type: mem0_self_hosted
+          endpoint: http://127.0.0.1:18000
+```
+
+Self-hosted extraction includes `Turn.Speaker` and UTC `ObservedAt` in message content because the OSS parser ignores OpenAI message names. Missing turn time falls back to the Observation time. Platform/Volc content and `infer=false` direct Facts retain their original text.
+
+This binding uses the MemoryLayout's `mem0.scope` for Workspace or Peer ownership and retains the OSS adapter's complete Scope encoding, reads, writes, updates, deletes, and purge verification.
 
 ```yaml
 spec:

@@ -1,6 +1,7 @@
 package runtimeprofile
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -895,6 +896,31 @@ func normalizeMemoryBinding(binding apitypes.RuntimeProfileMemoryBinding) (apity
 			return binding, err
 		}
 		if err := binding.Connection.FromRuntimeProfileMem0Connection(value); err != nil {
+			return binding, err
+		}
+	case "mem0_self_hosted":
+		if binding.Driver != apitypes.RuntimeProfileMemoryDriverMem0 {
+			return binding, fmt.Errorf("driver %q cannot use connection type %q", binding.Driver, connectionType)
+		}
+		raw, err := binding.Connection.MarshalJSON()
+		if err != nil {
+			return binding, err
+		}
+		var value apitypes.RuntimeProfileMem0SelfHostedConnection
+		decoder := json.NewDecoder(bytes.NewReader(raw))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&value); err != nil {
+			return binding, fmt.Errorf("mem0_self_hosted connection: %w", err)
+		}
+		value.Endpoint = strings.TrimSpace(value.Endpoint)
+		value.ApiKey = trimOptionalString(value.ApiKey)
+		if value.ApiKey != nil && *value.ApiKey == "" {
+			return binding, errors.New("mem0_self_hosted api_key must be non-empty when provided")
+		}
+		if err := validateMemoryEndpoint(value.Endpoint); err != nil {
+			return binding, err
+		}
+		if err := binding.Connection.FromRuntimeProfileMem0SelfHostedConnection(value); err != nil {
 			return binding, err
 		}
 	case "volc_mem0":

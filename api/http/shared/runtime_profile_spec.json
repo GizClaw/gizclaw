@@ -122,6 +122,9 @@
             "$ref": "#/components/schemas/RuntimeProfileMem0Connection"
           },
           {
+            "$ref": "#/components/schemas/RuntimeProfileMem0SelfHostedConnection"
+          },
+          {
             "$ref": "#/components/schemas/RuntimeProfileVolcMem0Connection"
           }
         ],
@@ -133,6 +136,7 @@
             "flowcraft_postgresql": "#/components/schemas/RuntimeProfileFlowcraftPostgreSQLConnection",
             "flowcraft_redis8": "#/components/schemas/RuntimeProfileFlowcraftRedis8Connection",
             "mem0": "#/components/schemas/RuntimeProfileMem0Connection",
+            "mem0_self_hosted": "#/components/schemas/RuntimeProfileMem0SelfHostedConnection",
             "volc_mem0": "#/components/schemas/RuntimeProfileVolcMem0Connection"
           }
         }
@@ -250,6 +254,33 @@
           "poll_interval": {
             "type": "string",
             "minLength": 1
+          }
+        }
+      },
+      "RuntimeProfileMem0SelfHostedConnection": {
+        "type": "object",
+        "description": "Mem0 OSS HTTP connection. The Mem0 service owns its database and model configuration.",
+        "required": [
+          "type",
+          "endpoint"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "mem0_self_hosted"
+            ]
+          },
+          "endpoint": {
+            "type": "string",
+            "format": "uri",
+            "minLength": 1
+          },
+          "api_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Optional X-API-Key authentication. Omit for a trusted local service without authentication."
           }
         }
       },

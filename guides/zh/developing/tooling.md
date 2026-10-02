@@ -112,6 +112,27 @@ Linux raw executable。Debian package 的 `gizclaw_<version>_{amd64,arm64}.deb` 
 `terraform-provider-gizclaw_<version>_{darwin,linux}_{amd64,arm64}.zip`，provider 版本与
 Release 版本相同；安装与使用见 [Terraform Provider](/zh/using/terraform)。
 
+Mem0 服务另以 GHCR Docker package 发布：`ghcr.io/gizclaw/gizclaw-mem0:<tag>`，
+包含 Linux amd64/arm64，架构 tag 为 `<tag>-amd64` 与 `<tag>-arm64`。镜像来自同一
+source commit，OCI label 记录 Release version/revision；构建文件为
+`build/mem0/Dockerfile`，Python 入口为 `cmd/mem0/gizclaw_mem0`。服务的测试 target
+通过后才构建 runtime 镜像。此 package 在 protected SemVer Release 成功后发布，
+不加入 Release 的十四个文件或 `release-manifest.json`。重新运行仅接受 source/version
+相同的架构镜像和 digest/platform 相同的 multiarch tag；不覆盖已有版本。GHCR 发布
+失败会使 workflow 失败，已创建的 Release 可在重跑时通过原有完整性校验后继续发布。
+使用方法见[自托管 Mem0 服务](./stores/memory#自托管-mem0-服务)。
+
+`build/build-mem0.sh [cn]` 选择 `build/mem0/Dockerfile.base` 或
+`Dockerfile.cn.base`，然后构建统一的应用 Dockerfile。两个 base 使用相同固定 Python
+image digest 和 SDK dependency 版本；标准源为 PyPI，CN 源为清华 PyPI mirror。
+`PYTHON_BASE_IMAGE` 可覆盖 Python 镜像仓库，CN 的 `PIP_INDEX_URL` 可覆盖包源。
+`PLATFORM` 选择 `linux/amd64|linux/arm64`；`TARGET=base|test|runtime`，
+`IMAGE`、`BUILD_VERSION` 与 `BUILD_COMMIT` 控制应用镜像及身份。Release 使用标准
+base；CN 是构建源选择，不改变模型、API 或镜像运行行为。
+
+Go 程序和基础镜像的 Dockerfile 位于 `build/gizclaw/`；
+`build/build-linux.sh` 选择标准或 CN 基础镜像并导出 `gizclaw` executable。
+
 Flutter SDK 包命名为 `flutter-gizclaw-<version>.tar.gz` 与
 `flutter-gizclaw_control-<version>.tar.gz`，采用 pub hosted archive 布局：archive 根目录直接是
 package 根，只包含 `pubspec.yaml`、`LICENSE` 与 Git 跟踪的 `lib/**/*.dart`。
@@ -198,7 +219,7 @@ Release 文件总数为 15。消费者必须显式校验 schema 7 和完整资�
 ### GHCR 运行镜像
 
 正式 tag 的 Linux jobs 从同一份通过 Debian 校验的 package 构建
-`build/Dockerfile.runtime`，不再次编译可执行程序。固定 Ubuntu 24.04 base index，
+`build/gizclaw/Dockerfile.runtime`，不再次编译可执行程序。固定 Ubuntu 24.04 base index，
 安装 package 声明的 shared libraries、系统 CA 与 curl；镜像以 UID/GID 10001 运行。
 Mem0、LiveKit 与 PostgreSQL 由外部服务提供。启动、挂载与 Compose 示例见
 [容器镜像](/zh/using/container)。

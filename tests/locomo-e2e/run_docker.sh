@@ -7,7 +7,9 @@ compose_file="$script_dir/docker-compose.yaml"
 project_name="${GIZCLAW_LOCOMO_E2E_DOCKER_PROJECT:-gizclaw-locomo}"
 redis_port="${GIZCLAW_LOCOMO_E2E_REDIS8_PORT:-16380}"
 mem0_port="${GIZCLAW_LOCOMO_E2E_MEM0_PORT:-18000}"
+mem0_pgvector_port="${GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_PORT:-18001}"
 group="${1:-all}"
+test_timeout="${GIZCLAW_LOCOMO_E2E_TEST_TIMEOUT:-60m}"
 
 case "$group" in
   flowcraft)
@@ -18,12 +20,16 @@ case "$group" in
     services=(mem0)
     test_pattern='^TestLoCoMoMem0SelfHosted$'
     ;;
+  mem0-pgvector)
+    services=(mem0_pgvector)
+    test_pattern='^TestLoCoMoMem0SelfHostedPGVector$'
+    ;;
   all)
-    services=(redis8 mem0)
+    services=(redis8 mem0 mem0_pgvector)
     test_pattern='^TestLoCoMo(Flowcraft|Mem0SelfHosted)'
     ;;
   *)
-    echo "usage: $0 [all|flowcraft|mem0]" >&2
+    echo "usage: $0 [all|flowcraft|mem0|mem0-pgvector]" >&2
     exit 2
     ;;
 esac
@@ -31,7 +37,6 @@ esac
 if [[ "$group" != "flowcraft" ]]; then
   required=(
     GIZCLAW_LOCOMO_E2E_MODEL_API_KEY
-    GIZCLAW_LOCOMO_E2E_MODEL_BASE_URL
     GIZCLAW_LOCOMO_E2E_EMBEDDING_API_KEY
   )
   for name in "${required[@]}"; do
@@ -40,6 +45,10 @@ if [[ "$group" != "flowcraft" ]]; then
       exit 2
     fi
   done
+  if [[ -z "${GIZCLAW_LOCOMO_E2E_MEM0_LLM_BASE_URL:-${GIZCLAW_LOCOMO_E2E_MODEL_BASE_URL:-}}" ]]; then
+    echo "GIZCLAW_LOCOMO_E2E_MEM0_LLM_BASE_URL or GIZCLAW_LOCOMO_E2E_MODEL_BASE_URL is required for self-hosted Mem0" >&2
+    exit 2
+  fi
 fi
 
 cleanup() {
@@ -47,10 +56,27 @@ cleanup() {
 }
 trap cleanup EXIT
 
+if [[ "$group" != flowcraft ]]; then
+  platform="$(docker version --format '{{.Server.Os}}/{{.Server.Arch}}')"
+  base_flavor=()
+  suffix=base
+  if [[ "${GIZCLAW_LOCOMO_E2E_MEM0_BASE_FLAVOR:-}" == cn ]]; then
+    base_flavor=(cn)
+    suffix=cn-base
+  elif [[ -n "${GIZCLAW_LOCOMO_E2E_MEM0_BASE_FLAVOR:-}" ]]; then
+    echo "GIZCLAW_LOCOMO_E2E_MEM0_BASE_FLAVOR must be cn or empty" >&2
+    exit 2
+  fi
+  export GIZCLAW_LOCOMO_E2E_MEM0_BASE_IMAGE="${GIZCLAW_LOCOMO_E2E_MEM0_BASE_IMAGE:-gizclaw-mem0:${platform//\//-}-$suffix}"
+  TARGET=base PLATFORM="$platform" BASE_IMAGE="$GIZCLAW_LOCOMO_E2E_MEM0_BASE_IMAGE" \
+    "$repo_root/build/build-mem0.sh" ${base_flavor[@]+"${base_flavor[@]}"}
+fi
+
 docker compose --project-name "$project_name" --file "$compose_file" up --detach --build --wait "${services[@]}"
 export GIZCLAW_LOCOMO_E2E_FLOWCRAFT_REDIS8_URL="redis://127.0.0.1:${redis_port}/0"
 export GIZCLAW_LOCOMO_E2E_MEM0_SELF_HOSTED_URL="http://127.0.0.1:${mem0_port}"
+export GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_URL="http://127.0.0.1:${mem0_pgvector_port}"
 
 cd "$repo_root"
-go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
+go test -count=1 -timeout "$test_timeout" -v -tags gizclaw_locomo_e2e \
   -run "$test_pattern" ./tests/locomo-e2e

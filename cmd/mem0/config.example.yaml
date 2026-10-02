@@ -1,0 +1,34 @@
+# Supply secrets in process environment; missing substitutions fail startup.
+service:
+  max_concurrency: 160
+  api_key: "${MEM0_API_KEY}"
+  thinking: disabled
+  service_tier: fast
+  embedding_protocol: ark_multimodal
+memory:
+  version: v1.1
+  history_db_path: "${MEM0_HISTORY_DB_PATH}"
+  llm:
+    provider: openai
+    config:
+      model: doubao-seed-2-1-lite-260915
+      api_key: "${VOLC_ARK_API_KEY}"
+      openai_base_url: https://ark.cn-beijing.volces.com/api/v3
+      temperature: 0.1
+      max_tokens: 8192
+  embedder:
+    provider: openai
+    config:
+      model: doubao-embedding-vision-251215
+      api_key: "${VOLC_ARK_API_KEY}"
+      openai_base_url: https://ark.cn-beijing.volces.com/api/v3
+      embedding_dims: 1024
+  vector_store:
+    provider: pgvector
+    config:
+      connection_string: "${MEM0_POSTGRES_DSN}"
+      collection_name: gizclaw_memory_doubao_v1
+      embedding_model_dims: 1024
+      hnsw: true
+      minconn: 4
+      maxconn: 32

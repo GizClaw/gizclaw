@@ -1,6 +1,6 @@
 {
   "derived": {
-    "changes": "Selected the complete conv-30 conversation and all of its QA records. Category 5 is represented explicitly as unanswerable with no gold answer. Source speaker names and session wall-clock timestamps are preserved on every turn; timezone-free source values are mapped onto UTC only for deterministic Go timestamps. Roles preserve the existing fixture convention of alternating from assistant at the start of each session. Each session requires at least one materialized fact. Image metadata and generated summaries are excluded.",
+    "changes": "Selected the complete conv-30 conversation and all of its QA records. Category 5 is represented explicitly as unanswerable with no gold answer. Source speaker names and session wall-clock timestamps are preserved on every turn; timezone-free source values are mapped onto UTC only for deterministic Go timestamps. Roles are assigned consistently by source speaker_a (user) and speaker_b (assistant). Image queries and captions are included in message text; generated summaries are excluded. Each session requires at least one materialized fact.",
     "conversation_ids": [
       "conv-30"
     ],
@@ -133,7 +133,7 @@
       "conv-30:session_18",
       "conv-30:session_19"
     ],
-    "sha256": "fbe78194b8c90acff0ba6aca54f5a91a0a72c3333195d6d1efbaaaa7e29ec80f",
+    "sha256": "965a67b64f8147735795123c5cb9f8238b2ceb94cd6d66fa55804331d02e6d44",
     "turn_count": 369
   },
   "license": {

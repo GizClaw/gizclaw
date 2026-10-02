@@ -23,7 +23,7 @@ arch=amd64
 case "$(docker info --format '{{.Architecture}}')" in arm64 | aarch64) arch=arm64 ;; esac
 base="${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-$arch-cn-base}"
 if ! docker image inspect "$base" >/dev/null 2>&1; then
-  docker build -f "$repo_dir/build/Dockerfile.cn.base" -t "$base" "$repo_dir/build"
+  docker build -f "$repo_dir/build/gizclaw/Dockerfile.cn.base" -t "$base" "$repo_dir/build"
 fi
 # Build the browser assets on the host and native Linux binaries with persistent
 # caches. Only binaries, contracts and fixtures enter the runtime image.

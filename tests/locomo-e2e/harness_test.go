@@ -37,24 +37,29 @@ const (
 )
 
 type liveSettings struct {
-	datasetPath      string
-	reportDir        string
-	apiKey           string
-	baseURL          string
-	region           string
-	modelProvider    string
-	extractionModel  string
-	embeddingModel   string
-	embeddingDims    int
-	embeddingAPIKey  string
-	embeddingBaseURL string
-	rerankModel      string
-	answerModel      string
-	topK             int
-	ingestTimeout    time.Duration
-	qaTimeout        time.Duration
-	minF1            float64
-	minEvidenceHit   float64
+	cleanupScopes          bool
+	datasetPath            string
+	reportDir              string
+	apiKey                 string
+	baseURL                string
+	region                 string
+	modelProvider          string
+	extractionModel        string
+	embeddingModel         string
+	embeddingDims          int
+	embeddingAPIKey        string
+	embeddingBaseURL       string
+	rerankModel            string
+	answerModel            string
+	topK                   int
+	ingestTimeout          time.Duration
+	qaTimeout              time.Duration
+	minF1                  float64
+	minEvidenceHit         float64
+	observationGranularity string
+	baselineReport         string
+	maxF1Drop              float64
+	maxEvidenceDrop        float64
 }
 
 type liveNeeds struct {
@@ -68,23 +73,27 @@ func requireLiveSettings(t *testing.T, needs liveNeeds) liveSettings {
 	}
 	required := []string{"GIZCLAW_LOCOMO_E2E_MODEL_API_KEY"}
 	settings := liveSettings{
-		datasetPath:      envOr("GIZCLAW_LOCOMO_E2E_DATASET", defaultDatasetPath),
-		reportDir:        envOr("GIZCLAW_LOCOMO_E2E_REPORT_DIR", "tests/locomo-e2e/reports"),
-		apiKey:           values["GIZCLAW_LOCOMO_E2E_MODEL_API_KEY"],
-		baseURL:          envOr("GIZCLAW_LOCOMO_E2E_MODEL_BASE_URL", defaultModelURL),
-		region:           envOr("GIZCLAW_LOCOMO_E2E_MODEL_REGION", "cn-beijing"),
-		modelProvider:    envOr("GIZCLAW_LOCOMO_E2E_MODEL_PROVIDER", defaultModelProvider),
-		extractionModel:  envOr("GIZCLAW_LOCOMO_E2E_EXTRACTION_MODEL", defaultModel),
-		embeddingModel:   envOr("GIZCLAW_LOCOMO_E2E_EMBEDDING_MODEL", defaultEmbedding),
-		embeddingAPIKey:  os.Getenv("GIZCLAW_LOCOMO_E2E_EMBEDDING_API_KEY"),
-		embeddingBaseURL: envOr("GIZCLAW_LOCOMO_E2E_EMBEDDING_BASE_URL", defaultEmbeddingURL),
-		rerankModel:      os.Getenv("GIZCLAW_LOCOMO_E2E_RERANK_MODEL"),
-		answerModel:      envOr("GIZCLAW_LOCOMO_E2E_ANSWER_MODEL", defaultModel),
-		topK:             envInt(t, "GIZCLAW_LOCOMO_E2E_TOP_K", 10),
-		ingestTimeout:    envDuration(t, "GIZCLAW_LOCOMO_E2E_INGEST_TIMEOUT", 10*time.Minute),
-		qaTimeout:        envDuration(t, "GIZCLAW_LOCOMO_E2E_QA_TIMEOUT", 2*time.Minute),
-		minF1:            envRatio(t, "GIZCLAW_LOCOMO_E2E_MIN_F1", 0.05),
-		minEvidenceHit:   envRatio(t, "GIZCLAW_LOCOMO_E2E_MIN_EVIDENCE_HIT_RATE", 0.50),
+		datasetPath:            envOr("GIZCLAW_LOCOMO_E2E_DATASET", defaultDatasetPath),
+		reportDir:              envOr("GIZCLAW_LOCOMO_E2E_REPORT_DIR", "tests/locomo-e2e/reports"),
+		apiKey:                 values["GIZCLAW_LOCOMO_E2E_MODEL_API_KEY"],
+		baseURL:                envOr("GIZCLAW_LOCOMO_E2E_MODEL_BASE_URL", defaultModelURL),
+		region:                 envOr("GIZCLAW_LOCOMO_E2E_MODEL_REGION", "cn-beijing"),
+		modelProvider:          envOr("GIZCLAW_LOCOMO_E2E_MODEL_PROVIDER", defaultModelProvider),
+		extractionModel:        envOr("GIZCLAW_LOCOMO_E2E_EXTRACTION_MODEL", defaultModel),
+		embeddingModel:         envOr("GIZCLAW_LOCOMO_E2E_EMBEDDING_MODEL", defaultEmbedding),
+		embeddingAPIKey:        os.Getenv("GIZCLAW_LOCOMO_E2E_EMBEDDING_API_KEY"),
+		embeddingBaseURL:       envOr("GIZCLAW_LOCOMO_E2E_EMBEDDING_BASE_URL", defaultEmbeddingURL),
+		rerankModel:            os.Getenv("GIZCLAW_LOCOMO_E2E_RERANK_MODEL"),
+		answerModel:            envOr("GIZCLAW_LOCOMO_E2E_ANSWER_MODEL", defaultModel),
+		topK:                   envInt(t, "GIZCLAW_LOCOMO_E2E_TOP_K", 10),
+		ingestTimeout:          envDuration(t, "GIZCLAW_LOCOMO_E2E_INGEST_TIMEOUT", 10*time.Minute),
+		qaTimeout:              envDuration(t, "GIZCLAW_LOCOMO_E2E_QA_TIMEOUT", 2*time.Minute),
+		minF1:                  envRatio(t, "GIZCLAW_LOCOMO_E2E_MIN_F1", 0.05),
+		minEvidenceHit:         envRatio(t, "GIZCLAW_LOCOMO_E2E_MIN_EVIDENCE_HIT_RATE", 0.50),
+		observationGranularity: envOr("GIZCLAW_LOCOMO_E2E_OBSERVATION_GRANULARITY", "session"),
+		baselineReport:         os.Getenv("GIZCLAW_LOCOMO_E2E_BASELINE_REPORT"),
+		maxF1Drop:              envRatio(t, "GIZCLAW_LOCOMO_E2E_MAX_F1_DROP", 0.02),
+		maxEvidenceDrop:        envRatio(t, "GIZCLAW_LOCOMO_E2E_MAX_EVIDENCE_DROP", 0.05),
 	}
 	if needs.embedding {
 		settings.embeddingDims = envInt(t, "GIZCLAW_LOCOMO_E2E_EMBEDDING_DIMENSIONS", 1024)
@@ -102,6 +111,9 @@ func requireLiveSettings(t *testing.T, needs liveNeeds) liveSettings {
 	}
 	if err := validateRequired(values, required...); err != nil {
 		t.Fatal(err)
+	}
+	if settings.observationGranularity != "session" && settings.observationGranularity != "turn" {
+		t.Fatal("GIZCLAW_LOCOMO_E2E_OBSERVATION_GRANULARITY must be session or turn")
 	}
 	return settings
 }

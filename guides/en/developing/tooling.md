@@ -121,6 +121,32 @@ archive digest and canonical filename. The Terraform provider packages are named
 provider version equals the Release version; see
 [Terraform Provider](/en/using/terraform) for installation and usage.
 
+The Mem0 service is also published as a GHCR Docker package:
+`ghcr.io/gizclaw/gizclaw-mem0:<tag>` for Linux amd64/arm64, with architecture tags
+`<tag>-amd64` and `<tag>-arm64`. It uses the same source commit and records Release
+version/revision in OCI labels. The build definition is `build/mem0/Dockerfile`
+and the Python entry point is `cmd/mem0/gizclaw_mem0`. The test target must pass
+before building the runtime image. Publication follows a successful protected
+SemVer Release; this package is separate from its fourteen files and
+`release-manifest.json`. Reruns accept only matching source/version architecture
+images and matching digest/platform multiarch tags, without replacing existing
+versions. A GHCR failure fails the workflow; a rerun verifies the existing
+Release's integrity before continuing package publication. See the
+[self-hosted Mem0 service](./stores/memory#self-hosted-mem0-service) for usage.
+
+`build/build-mem0.sh [cn]` selects `build/mem0/Dockerfile.base` or
+`Dockerfile.cn.base` before building the common application Dockerfile. Both use
+the same pinned Python image digest and SDK dependencies. Standard uses PyPI; CN
+uses the Tsinghua PyPI mirror. `PYTHON_BASE_IMAGE` overrides the Python registry
+and CN permits a `PIP_INDEX_URL` override. `PLATFORM` selects
+`linux/amd64|linux/arm64`; `TARGET=base|test|runtime`, `IMAGE`, `BUILD_VERSION`
+and `BUILD_COMMIT` select the target/image identity. Release uses the standard
+base. CN changes build sources while keeping model, API and runtime behavior.
+
+Go build and base-image Dockerfiles live in `build/gizclaw/`.
+`build/build-linux.sh` chooses the standard/CN base and exports the `gizclaw`
+executable.
+
 The Flutter SDK archives are named `flutter-gizclaw-<version>.tar.gz` and
 `flutter-gizclaw_control-<version>.tar.gz` and use the pub hosted archive
 layout: the archive root is the package root and contains only `pubspec.yaml`,
@@ -223,7 +249,7 @@ Manifest generation and validation cross-check `name` and `version` read from
 ### GHCR runtime image
 
 The native Linux jobs package the same verified Debian executable using
-`build/Dockerfile.runtime`; they do not compile a second executable. The runtime
+`build/gizclaw/Dockerfile.runtime`; they do not compile a second executable. The runtime
 uses a pinned Ubuntu 24.04 base index, package-derived shared libraries, system
 CA certificates and curl, and runs as UID/GID 10001. Mem0, LiveKit and PostgreSQL
 remain external services. See [Container Image](/en/using/container) for startup,

@@ -266,14 +266,15 @@ GIZCLAW_VOLC_MEM0_ENDPOINT=https://... GIZCLAW_VOLC_MEM0_API_KEY=... \
 
 The Volc data-plane key selects the memory project, so use a key of a dedicated
 test project; no project ID or AccessKey is needed. The self-hosted lane targets
-the repository's Mem0 OSS service (`tests/gizclaw-e2e/docker/Dockerfile.mem0`,
-`mem0ai 2.0.3`), which serves the standard entity-scoped `GET /memories` and
+the repository's Mem0 OSS service (`build/mem0/Dockerfile`,
+`mem0ai 2.2.1`), which serves the standard entity-scoped `GET /memories` and
 `DELETE /memories` routes and reads its model key from a mounted
 `tests/gizclaw-e2e/.env`:
 
 ```sh
-docker build -f tests/gizclaw-e2e/docker/Dockerfile.mem0 -t gizclaw-mem0 .
+PLATFORM=linux/amd64 IMAGE=gizclaw-mem0 build/build-mem0.sh
 docker run -d --rm -p 127.0.0.1:18000:8000 \
+  -e MEM0_CREDENTIAL_FILE=/run/gizclaw-e2e.env \
   -v "$PWD/tests/gizclaw-e2e/.env:/run/gizclaw-e2e.env:ro" gizclaw-mem0
 GIZCLAW_MEMORY_PROVIDER=mem0-self-hosted GIZCLAW_MEM0_SELF_HOSTED_URL=http://127.0.0.1:18000 \
   go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
@@ -1387,9 +1388,9 @@ Volc remote project configuration remains deployment state and the harness
 does not mutate it.
 
 Current lanes cover Flowcraft Redis 8 BM25 single-pass, hybrid single/two-pass,
-self-hosted Mem0, Mem0 Platform default/custom-instructions, and Volc AgentKit
-Memory default. LoCoMo is a tagged Go test package. The Docker runner starts the
-pinned Redis 8 service, self-hosted Mem0, or both for the selected group, runs
+self-hosted Mem0 with Qdrant/pgvector, Mem0 Platform default/custom-instructions, and Volc AgentKit
+Memory default/request custom instructions. LoCoMo is a tagged Go test package. The Docker runner starts the
+pinned Redis 8 service, self-hosted Mem0 and its backend for the selected group, runs
 the tagged Go tests from the host against those containers, and always removes
 their containers and volumes. The Mem0 Platform and Volc groups continue to use
 standard `go test -run` against their remote providers.
@@ -1398,42 +1399,140 @@ or placeholder values fail, and unselected backend variables are not inspected:
 
 ```sh
 go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
-  -run '^TestLoCoMoVolcAgentKit' ./tests/locomo-e2e
+  -run '^TestLoCoMoVolcAgentKit(Default|ProtocolSmoke)$' ./tests/locomo-e2e
 go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
   -run '^TestLoCoMoMem0Platform' ./tests/locomo-e2e
 tests/locomo-e2e/run_docker.sh mem0
+tests/locomo-e2e/run_docker.sh mem0-pgvector
 tests/locomo-e2e/run_docker.sh flowcraft
 tests/locomo-e2e/run_docker.sh all
 ```
 
 Use `.env.example` as a variable inventory and inject values through the
 process environment; the test package and runner do not read `.env` files.
+For a controlled Volc comparison, select `TestLoCoMoVolcAgentKitCustomInstructions`
+and set `GIZCLAW_LOCOMO_E2E_VOLC_CUSTOM_INSTRUCTIONS` to the same business extraction
+instructions as the self-hosted service. Each inferred write sends request-local
+`custom_instructions` and the same speaker/time text. Defaults are turn ingestion,
+Top-K 50 and minimum F1 0.20. The managed backend's internal models, base templates
+and extraction token budget remain provider-controlled. Every Volc benchmark
+registers cleanup before writing, purges only its independent Scope after success
+or failure, verifies it empty three consecutive times, and records cleanup in the
+redacted report. Shared project strategies are not modified. VPC-only endpoints
+require verified access through the project's VPC.
+
 The Mem0 group uses the same extraction and embedding model/key/base-URL
-environment variables as Flowcraft. Its container pins `mem0ai 2.0.3` and
+environment variables as Flowcraft. Both Qdrant and PGVector containers use the `cmd/mem0` service pinned to `mem0ai 2.2.1`, and
 defaults to the domestic `deepseek-v4-flash` extractor/answer model through
 `https://api.deepseek.com`
 and `qwen3.7-text-embedding` with 1024 dimensions. Select the LLM adapter with
 `GIZCLAW_LOCOMO_E2E_MODEL_PROVIDER`; supported values are `deepseek` and
 `bytedance`. Keep `GIZCLAW_LOCOMO_E2E_EMBEDDING_DIMENSIONS` aligned with the
-selected embedding service because Mem0 must create its Qdrant collection with
+selected embedding service because Mem0 must create its Qdrant collection or PostgreSQL vector column with
 the exact vector width.
 Run a remote Mem0 Platform lane separately only when its endpoint, API key, and
 configuration fingerprint are available; those credentials are not required by
 the Docker groups. Direct Go test runs require the matching `GIZCLAW_LOCOMO_E2E_FLOWCRAFT_REDIS8_URL` or
 `GIZCLAW_LOCOMO_E2E_MEM0_SELF_HOSTED_URL`; the runner points both at its Docker
 services. Override `GIZCLAW_LOCOMO_E2E_REDIS8_PORT` or
-`GIZCLAW_LOCOMO_E2E_MEM0_PORT` when the default port is unavailable. Use a
-30-minute package timeout and bounded session and
-question stages. The runner calls `memory.Store.Observe` by official session,
+`GIZCLAW_LOCOMO_E2E_MEM0_PORT` when the default port is unavailable.
+
+The LoCoMo runner prepares a standard Mem0 base for the actual Docker architecture.
+Set `GIZCLAW_LOCOMO_E2E_MEM0_BASE_FLAVOR=cn` for the CN base. The PG lane sends
+its controlled business instruction through each Observe request as `prompt`,
+matching MemoryLayout delivery. Override it with
+`GIZCLAW_LOCOMO_E2E_MEM0_CUSTOM_INSTRUCTIONS`; reports fingerprint that request
+policy. The service owns model/storage configuration and no business Layout registry.
+
+The `mem0` group uses embedded Qdrant. `mem0-pgvector` starts Mem0 and an independent PostgreSQL 17/pgvector container, exposes only the Mem0 HTTP port on host loopback (default `18001`), and publishes no database port. Its test requires the health response's `vector_store` to be `pgvector` before running the same real extraction, recall, and question-answering evaluation. Missing database configuration or failed initialization never falls back to Qdrant. Direct Go tests use `GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_URL`; override the Docker HTTP port with `GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_PORT`. The report profile is `mem0_self_hosted_pgvector`. `all` includes both Mem0 backends and Flowcraft. Database credentials are fixed temporary Docker fixtures; database data and SQLite history are removed when the runner exits. This lane does not use cloud PostgreSQL.
+
+The PG lane defaults to an 8192-token extraction output budget, overridden by `GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_MAX_TOKENS`. The test reads the service's actual budget and includes it in its fingerprint and report. The service logs only response metadata such as finish reason, JSON validity, and candidate count to diagnose truncation or empty extraction without logging model content. The Qdrant lane retains its original 2000-token default.
+
+Model names must be available to the selected account. Override `GIZCLAW_LOCOMO_E2E_EXTRACTION_MODEL` and `GIZCLAW_LOCOMO_E2E_ANSWER_MODEL` separately. For an account supporting the non-thinking Flash compatibility alias `deepseek-chat`:
+
+```sh
+GIZCLAW_LOCOMO_E2E_EXTRACTION_MODEL=deepseek-chat \
+GIZCLAW_LOCOMO_E2E_ANSWER_MODEL=deepseek-flash \
+  tests/locomo-e2e/run_docker.sh mem0-pgvector
+```
+
+Set `GIZCLAW_LOCOMO_E2E_MEM0_LLM_API_KEY` and
+`GIZCLAW_LOCOMO_E2E_MEM0_LLM_BASE_URL` to override only Mem0 extraction. Empty
+values retain the shared model key/base URL. Answer generation continues to use
+`GIZCLAW_LOCOMO_E2E_MODEL_*`, allowing an extraction-only comparison.
+`GIZCLAW_LOCOMO_E2E_MEM0_LLM_THINKING` accepts `enabled`, `disabled`, or an empty
+value. Nonempty values are forwarded as `thinking.type` in the OpenAI-compatible
+request; empty values preserve the model's default behavior. Set this only when
+the model API supports the field. For example, use an enabled Doubao Seed 2.1
+Turbo endpoint for Mem0 extraction while retaining DeepSeek answers:
+
+```sh
+GIZCLAW_LOCOMO_E2E_MEM0_LLM_API_KEY="$GIZCLAW_VOLC_ARK_API_KEY" \
+GIZCLAW_LOCOMO_E2E_MEM0_LLM_BASE_URL=https://ark.cn-beijing.volces.com/api/v3 \
+GIZCLAW_LOCOMO_E2E_EXTRACTION_MODEL=doubao-seed-2-1-turbo-260628 \
+GIZCLAW_LOCOMO_E2E_MEM0_LLM_THINKING=disabled \
+GIZCLAW_LOCOMO_E2E_ANSWER_MODEL=deepseek-flash \
+  tests/locomo-e2e/run_docker.sh mem0-pgvector
+```
+
+The PG lane reads the actual extraction model, Mem0 LLM provider, thinking mode,
+and token budget from health, verifies the declared model, and records them in
+the report and fingerprint. The report's `provider` identifies the answer model
+adapter; `extraction_provider` identifies Mem0's LLM adapter (`openai` for an
+OpenAI-compatible API).
+
+The Docker runner defaults to a 60-minute package timeout (`GIZCLAW_LOCOMO_E2E_TEST_TIMEOUT`) and bounded observation and
+question stages. PGVector defaults to one production `memory.Store.Observe` per turn and Top-K 50; other lanes retain session ingestion and Top-K 10. Override these with `GIZCLAW_LOCOMO_E2E_OBSERVATION_GRANULARITY=turn|session` and `GIZCLAW_LOCOMO_E2E_TOP_K`. Empty turns are allowed, but each selected session must still satisfy the fixture fact minimum. The self-hosted adapter includes speaker names and UTC source times in extraction text. Fixtures assign roles consistently by speaker and retain image query/caption text. PGVector uses fixed two-person extraction instructions and records their hash. Extraction errors, incomplete/invalid JSON, and reported facts missing from storage fail instead of becoming valid empty writes. The runner
 recalls for every question, asks the configured model to answer, and computes
 EM, F1, evidence-hit, and adversarial-rejection metrics locally. Only answerable
 questions contribute to EM/F1 and evidence-hit. Category 5 accepts the exact
 normalized rejections `unknown`, `not mentioned`, and
-`no information available`. The default gate requires aggregate F1 of at least
-`0.05`, evidence hit rate of at least `0.50` for evidence-aware
+`no information available`. PGVector requires aggregate F1 of at least `0.20`; other lanes retain `0.05`, evidence hit rate of at least `0.50` for evidence-aware
 stores, and one materialized fact per selected session. Provider failures and
 timeouts remain failures. Ignored `reports/` output contains IDs, scores, and
 timings, but no conversation, question, answer, prediction, or recalled text.
+
+Regression checks have two layers. `tests/locomo-e2e/run_regression.sh` requires no model credentials: it runs Go fixture/scoring/regression tests, Python HTTP/config tests, and real PostgreSQL checks for known-vector similarity conversion, filtering/ranking, and scope isolation. CI runs this entrypoint as `Mem0 PGVector Regression`; passing it does not establish live model quality.
+
+Doubao `doubao-embedding-vision-251215` accepts text through Ark `/embeddings/multimodal`. Set `GIZCLAW_LOCOMO_E2E_MEM0_EMBEDDING_PROTOCOL=ark_multimodal` and explicitly provide the Ark embedding key/base URL, model, and 1024 or 2048 dimensions. Each text is one request, preserving one vector per batch input. Corpus/query instructions differ and their fingerprint enters reports. Provider errors or invalid vectors cannot become successful empty writes. Changing embedders requires regenerating vectors in a separate collection; Qwen and Doubao vectors cannot be mixed.
+
+Manual CI `workflow_dispatch` accepts `mem0_quality` to run complete conv-30 with real models and upload redacted JSON. It requires repository secrets `GIZCLAW_DEEPSEEK_API_KEY` and `GIZCLAW_VOLC_ARK_API_KEY`; missing credentials fail. Unselected runs make no model calls. This job fixes Lite extraction (requesting `service_tier: fast`), Doubao Vision embeddings (1024 dimensions), and DeepSeek answers; conv-30 is not the complete ten-conversation LoCoMo benchmark.
+
+Self-hosted LoCoMo uses `sdk/go/mem0` health checks and the production adapter
+with generated request DTOs/HTTP clients. PG instructions travel as request-local
+`prompt`. The separate load test requires real extraction, at least one persisted
+ADD and nonempty semantic reads; direct import or vector inserts do not qualify.
+Start a dedicated test Mem0/PG instance and set its URL:
+
+```sh
+GIZCLAW_MEM0_LOAD=1 \
+GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_URL=http://127.0.0.1:18001 \
+go test -tags gizclaw_locomo_e2e -timeout 20m -count=1 -v \
+  -run '^TestMem0SDKConcurrentLoad$' ./tests/locomo-e2e
+```
+
+Defaults offer 32 writes/s and 12 reads/s, warm up for 10 seconds and measure
+60 seconds. Acceptance counts actual successful completions within that window
+against 30 writes/s + 10 reads/s; errors in any phase fail. Override the matching
+`GIZCLAW_MEM0_LOAD_WRITE_RPS`, `READ_RPS`, `SECONDS` and `WARMUP_SECONDS`
+variables with the same prefix. Each write gets an independent synthetic
+Workspace Scope and approximately 1000 input tokens; reads use a preseeded scope.
+Reports contain timing, completion and fact counts without dialogue, model
+answers or credentials. Cleanup only purges this run's generated scopes and
+verifies they are empty. This qualifies aggregate throughput; one Scope's writes
+remain serialized. Model RPM/TPM, remote latency and PG pooling can limit capacity.
+
+Live reports record SDK/models, the requested service tier, extraction-policy and answer-prompt fingerprints, ingestion granularity, Top-K, category metrics, and question IDs. Set `GIZCLAW_LOCOMO_E2E_BASELINE_REPORT` to a prior redacted report to reject F1 drops greater than `0.02`, provenance-hit drops greater than `0.05`, or any adversarial-rejection decline. Category F1 drops cannot exceed `max(0.10, MAX_F1_DROP)`. Override tolerances through the matching `MAX_*_DROP` variables. Different datasets, models, prompts, budgets, or ingestion units, and incomplete/error-bearing reports are incompatible; SDK upgrades and service-tier changes remain comparable for quality. Throughput requires separate validation.
+
+```sh
+# Deterministic checks; no model credentials required.
+tests/locomo-e2e/run_regression.sh
+# Live quality regression; retain the baseline model settings.
+GIZCLAW_LOCOMO_E2E_BASELINE_REPORT=/path/to/prior-report.json \
+  tests/locomo-e2e/run_docker.sh mem0-pgvector
+```
+
+Token F1 and observation-provenance hit are repository metrics, not the official permissive LLM judge score. Provenance identifies the Observe input; Mem0 provides no exact per-fact citations, so this is not a manually verified evidence-recall rate.
 
 ### Dataset and license
 
@@ -1554,7 +1653,7 @@ playback.
 bash tests/gizclaw-e2e/run_monitor_tests.sh
 ```
 
-Requires Docker, Node/npm and Python 3. The runner uses `gizclaw-go:linux-<arch>-cn-base` for the Docker architecture, building it from `build/Dockerfile.cn.base` if absent. Override it with `GIZCLAW_E2E_DOCKER_BASE_IMAGE`. Go modules and build outputs use dedicated Docker cache volumes; `GIZCLAW_MONITOR_MODCACHE` and `GIZCLAW_MONITOR_BUILDCACHE` accept volume names or absolute paths.
+Requires Docker, Node/npm and Python 3. The runner uses `gizclaw-go:linux-<arch>-cn-base` for the Docker architecture, building it from `build/gizclaw/Dockerfile.cn.base` if absent. Override it with `GIZCLAW_E2E_DOCKER_BASE_IMAGE`. Go modules and build outputs use dedicated Docker cache volumes; `GIZCLAW_MONITOR_MODCACHE` and `GIZCLAW_MONITOR_BUILDCACHE` accept volume names or absolute paths.
 
 The runner generates identities, starts isolated Server/Edge processes, seeds a Workflow and runs `tests/gizclaw-e2e/giztest/server.monitor.*.giztest.yaml`:
 

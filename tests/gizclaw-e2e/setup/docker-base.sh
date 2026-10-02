@@ -32,6 +32,6 @@ build_gizclaw_e2e_base() {
     echo "==> build e2e Docker base $base_image for $docker_platform"
     docker build --platform="$docker_platform" \
       ${build_args[@]+"${build_args[@]}"} \
-      -f "$repo_root/build/Dockerfile.cn.base" -t "$base_image" "$repo_root/build"
+      -f "$repo_root/build/gizclaw/Dockerfile.cn.base" -t "$base_image" "$repo_root/build"
   fi
 }
