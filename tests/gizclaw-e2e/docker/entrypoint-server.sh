@@ -250,7 +250,9 @@ nohup "$bin_path" serve --force "$workspace_dir" >"$log_file" 2>&1 </dev/null &
 pid="$!"
 echo "$pid" >"$pid_file"
 
-for _ in {1..300}; do
+# Cold PostgreSQL schema initialization shares the Compose startup budget.
+startup_deadline=$((SECONDS + 180))
+while ((SECONDS < startup_deadline)); do
   if ! kill -0 "$pid" 2>/dev/null; then
     echo "gizclaw server exited before becoming ready; log=$log_file" >&2
     tail -80 "$log_file" >&2 || true
