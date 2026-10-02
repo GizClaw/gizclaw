@@ -2638,6 +2638,21 @@ func (e RuntimeProfileMem0ConnectionType) Valid() bool {
 	}
 }
 
+// Defines values for RuntimeProfileMem0SelfHostedConnectionType.
+const (
+	RuntimeProfileMem0SelfHostedConnectionTypeMem0SelfHosted RuntimeProfileMem0SelfHostedConnectionType = "mem0_self_hosted"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeProfileMem0SelfHostedConnectionType enum.
+func (e RuntimeProfileMem0SelfHostedConnectionType) Valid() bool {
+	switch e {
+	case RuntimeProfileMem0SelfHostedConnectionTypeMem0SelfHosted:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RuntimeProfileMemoryDriver.
 const (
 	RuntimeProfileMemoryDriverFlowcraft RuntimeProfileMemoryDriver = "flowcraft"
@@ -5947,6 +5962,17 @@ type RuntimeProfileMem0Connection struct {
 
 // RuntimeProfileMem0ConnectionType defines model for RuntimeProfileMem0Connection.Type.
 type RuntimeProfileMem0ConnectionType string
+
+// RuntimeProfileMem0SelfHostedConnection Mem0 OSS HTTP connection. The Mem0 service owns its database and model configuration.
+type RuntimeProfileMem0SelfHostedConnection struct {
+	// ApiKey Optional X-API-Key authentication. Omit for a trusted local service without authentication.
+	ApiKey   *string                                    `json:"api_key,omitempty"`
+	Endpoint string                                     `json:"endpoint"`
+	Type     RuntimeProfileMem0SelfHostedConnectionType `json:"type"`
+}
+
+// RuntimeProfileMem0SelfHostedConnectionType defines model for RuntimeProfileMem0SelfHostedConnection.Type.
+type RuntimeProfileMem0SelfHostedConnectionType string
 
 // RuntimeProfileMemoryBinding defines model for RuntimeProfileMemoryBinding.
 type RuntimeProfileMemoryBinding struct {
@@ -10070,6 +10096,34 @@ func (t *RuntimeProfileMemoryConnection) MergeRuntimeProfileMem0Connection(v Run
 	return err
 }
 
+// AsRuntimeProfileMem0SelfHostedConnection returns the union data inside the RuntimeProfileMemoryConnection as a RuntimeProfileMem0SelfHostedConnection
+func (t RuntimeProfileMemoryConnection) AsRuntimeProfileMem0SelfHostedConnection() (RuntimeProfileMem0SelfHostedConnection, error) {
+	var body RuntimeProfileMem0SelfHostedConnection
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRuntimeProfileMem0SelfHostedConnection overwrites any union data inside the RuntimeProfileMemoryConnection as the provided RuntimeProfileMem0SelfHostedConnection
+func (t *RuntimeProfileMemoryConnection) FromRuntimeProfileMem0SelfHostedConnection(v RuntimeProfileMem0SelfHostedConnection) error {
+	v.Type = "mem0_self_hosted"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRuntimeProfileMem0SelfHostedConnection performs a merge with any union data inside the RuntimeProfileMemoryConnection, using the provided RuntimeProfileMem0SelfHostedConnection
+func (t *RuntimeProfileMemoryConnection) MergeRuntimeProfileMem0SelfHostedConnection(v RuntimeProfileMem0SelfHostedConnection) error {
+	v.Type = "mem0_self_hosted"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsRuntimeProfileVolcMem0Connection returns the union data inside the RuntimeProfileMemoryConnection as a RuntimeProfileVolcMem0Connection
 func (t RuntimeProfileMemoryConnection) AsRuntimeProfileVolcMem0Connection() (RuntimeProfileVolcMem0Connection, error) {
 	var body RuntimeProfileVolcMem0Connection
@@ -10122,6 +10176,8 @@ func (t RuntimeProfileMemoryConnection) ValueByDiscriminator() (interface{}, err
 		return t.AsRuntimeProfileFlowcraftRedis8Connection()
 	case "mem0":
 		return t.AsRuntimeProfileMem0Connection()
+	case "mem0_self_hosted":
+		return t.AsRuntimeProfileMem0SelfHostedConnection()
 	case "volc_mem0":
 		return t.AsRuntimeProfileVolcMem0Connection()
 	default:

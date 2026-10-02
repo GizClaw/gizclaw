@@ -274,6 +274,12 @@ func TestStoreSelfHostedVerifiesEncodedScopeBeforeMutation(t *testing.T) {
 }
 
 func TestStoreDirectFactObservationIsIdempotent(t *testing.T) {
+	for _, flavor := range []Flavor{Platform, SelfHosted} {
+		t.Run(string(flavor), func(t *testing.T) { testStoreDirectFactObservationIsIdempotent(t, flavor) })
+	}
+}
+
+func testStoreDirectFactObservationIsIdempotent(t *testing.T, flavor Flavor) {
 	var (
 		mu        sync.Mutex
 		saved     *mem0Envelope
@@ -287,7 +293,7 @@ func TestStoreDirectFactObservationIsIdempotent(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		mu.Lock()
 		defer mu.Unlock()
-		if request.URL.Path == "/v3/memories/" {
+		if request.URL.Path == "/v3/memories/" || request.URL.Path == "/search" {
 			if saved == nil {
 				_, _ = io.WriteString(w, `{"results":[]}`)
 				return
@@ -302,10 +308,14 @@ func TestStoreDirectFactObservationIsIdempotent(t *testing.T) {
 			ID: "fact-1", Memory: "Pet completed care.", AppID: "workspace",
 			Metadata: metadata, CreatedAt: time.Now(), UpdatedAt: time.Now(),
 		}
+		if flavor == SelfHosted {
+			saved.AppID = ""
+			saved.UserID, _ = body["user_id"].(string)
+		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"results": []mem0Envelope{*saved}})
 	}))
 	defer server.Close()
-	store, err := New(Config{Endpoint: server.URL, APIKey: "secret", Flavor: Platform, HTTPClient: server.Client()})
+	store, err := New(Config{Endpoint: server.URL, APIKey: "secret", Flavor: flavor, HTTPClient: server.Client()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -321,8 +331,15 @@ func TestStoreDirectFactObservationIsIdempotent(t *testing.T) {
 	var wait sync.WaitGroup
 	errs := make(chan error, workers)
 	for range workers {
+		writer := store
+		if flavor == SelfHosted {
+			writer, err = store.WithCustomInstructions("logical layout policy")
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
 		wait.Go(func() {
-			result, err := store.Observe(context.Background(), observation)
+			result, err := writer.Observe(context.Background(), observation)
 			if err == nil && (len(result.Facts) != 1 ||
 				len(result.Facts[0].Sources) != 1 ||
 				result.Facts[0].Sources[0].ObservationID != observation.ID ||
@@ -343,7 +360,7 @@ func TestStoreDirectFactObservationIsIdempotent(t *testing.T) {
 	if addCalls != 1 {
 		t.Fatalf("add calls = %d, want 1", addCalls)
 	}
-	if len(addBodies) != 1 || addBodies[0]["infer"] != false {
+	if len(addBodies) != 1 || addBodies[0]["infer"] != false || addBodies[0]["prompt"] != nil {
 		t.Fatalf("direct add body = %#v", addBodies)
 	}
 	mu.Unlock()

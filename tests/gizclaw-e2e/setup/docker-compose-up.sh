@@ -765,6 +765,17 @@ base_image=""
 build_gizclaw_e2e_base "$repo_root" "$docker_platform"
 export GIZCLAW_E2E_DOCKER_BASE_IMAGE="$base_image"
 
+mem0_selected=0
+if [[ ",${COMPOSE_PROFILES:-}," == *,memory,* ]]; then mem0_selected=1; fi
+for argument in "$@"; do
+  if [[ "$argument" == mem0 ]]; then mem0_selected=1; fi
+done
+if [[ "$mem0_selected" == 1 ]]; then
+  export GIZCLAW_E2E_MEM0_BASE_IMAGE="${GIZCLAW_E2E_MEM0_BASE_IMAGE:-gizclaw-mem0:${docker_platform//\//-}-cn-base}"
+  TARGET=base PLATFORM="$docker_platform" BASE_IMAGE="$GIZCLAW_E2E_MEM0_BASE_IMAGE" \
+    "$repo_root/build/build-mem0.sh" cn
+fi
+
 if [[ "${capacity_build_required:-0}" == "1" ]]; then
   if [[ "${GIZCLAW_E2E_GATEWAY_LINUX_PREBUILT:-}" == "1" ]]; then
     if [[ ! -x "$e2e_dir/testdata/bin/gizclaw-linux" ]]; then

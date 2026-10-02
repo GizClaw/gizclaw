@@ -14,6 +14,7 @@ import (
 
 func TestLoCoMoVolcAgentKitDefault(t *testing.T) {
 	settings := requireLiveSettings(t, liveNeeds{})
+	settings.cleanupScopes = true
 	config, identity := requireVolcConfig(t)
 	store, err := memoryvolc.Open(context.Background(), config)
 	if err != nil {

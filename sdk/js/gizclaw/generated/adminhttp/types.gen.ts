@@ -1567,6 +1567,18 @@ export type RuntimeProfileMem0Connection = {
     poll_interval?: string;
 };
 
+/**
+ * Mem0 OSS HTTP connection. The Mem0 service owns its database and model configuration.
+ */
+export type RuntimeProfileMem0SelfHostedConnection = {
+    type: 'mem0_self_hosted';
+    endpoint: string;
+    /**
+     * Optional X-API-Key authentication. Omit for a trusted local service without authentication.
+     */
+    api_key?: string;
+};
+
 export type RuntimeProfileMemoryBinding = {
     layout_id: string;
     driver: RuntimeProfileMemoryDriver;
@@ -1584,6 +1596,8 @@ export type RuntimeProfileMemoryConnection = ({
 } & RuntimeProfileFlowcraftRedis8Connection) | ({
     type: 'mem0';
 } & RuntimeProfileMem0Connection) | ({
+    type: 'mem0_self_hosted';
+} & RuntimeProfileMem0SelfHostedConnection) | ({
     type: 'volc_mem0';
 } & RuntimeProfileVolcMem0Connection);
 

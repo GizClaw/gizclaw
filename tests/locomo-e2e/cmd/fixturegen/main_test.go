@@ -20,7 +20,9 @@ func TestRunConvertsFixtureAndManifest(t *testing.T) {
 	source, err := json.Marshal([]sourceSample{{
 		SampleID: "conv-test",
 		Conversation: map[string]json.RawMessage{
-			"session_2":           json.RawMessage(`[{"speaker":"Bob","dia_id":"D2:1","text":"Later"}]`),
+			"speaker_a":           json.RawMessage(`"Alice"`),
+			"speaker_b":           json.RawMessage(`"Bob"`),
+			"session_2":           json.RawMessage(`[{"speaker":"Bob","dia_id":"D2:1","text":"Later","blip_caption":"A blue boat","query":"holiday photo"}]`),
 			"session_2_date_time": json.RawMessage(`"2:30 pm on 3 January, 2024"`),
 			"session_1":           json.RawMessage(`[{"speaker":"Alice","dia_id":"D1:1","text":"Hello"},{"speaker":"Bob","dia_id":"D1:2","text":"Hi"}]`),
 			"session_1_date_time": json.RawMessage(`"1:00 pm on 2 January, 2024"`),
@@ -65,8 +67,11 @@ func TestRunConvertsFixtureAndManifest(t *testing.T) {
 	if len(conversation.Turns) != 3 || conversation.Turns[0].SessionID != "session_1" || conversation.Turns[2].SessionID != "session_2" {
 		t.Fatalf("turns are not ordered by session: %+v", conversation.Turns)
 	}
-	if conversation.Turns[0].Role != "assistant" || conversation.Turns[1].Role != "user" || conversation.Turns[1].EvidenceID != "conv-test:D1:2" {
+	if conversation.Turns[0].Role != "user" || conversation.Turns[1].Role != "assistant" || conversation.Turns[2].Role != "assistant" || conversation.Turns[1].EvidenceID != "conv-test:D1:2" {
 		t.Fatalf("converted turns = %+v", conversation.Turns[:2])
+	}
+	if !strings.Contains(conversation.Turns[2].Content, "holiday photo A blue boat") {
+		t.Fatal("image query and caption were lost")
 	}
 	if want := time.Date(2024, time.January, 2, 13, 0, 0, 0, time.UTC); !conversation.Turns[0].ObservedAt.Equal(want) {
 		t.Fatalf("observed_at=%s, want %s", conversation.Turns[0].ObservedAt, want)

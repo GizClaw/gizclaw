@@ -58,6 +58,94 @@ jobs:
             echo "version=$version"
           } >>"$GITHUB_OUTPUT"
 
+  mem0-image:
+    name: Mem0 Docker ${{ matrix.arch }}
+    needs: [prepare, publish-semver]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Check out released source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.prepare.outputs.source_commit }}
+      - name: Build, test and publish immutable architecture image
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${GITHUB_REPOSITORY,,}-mem0"
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          TARGET=test PLATFORM="linux/$ARCH" IMAGE=mem0-contract-test build/build-mem0.sh
+          docker run --rm mem0-contract-test --help
+          ref="$image:$RELEASE_TAG-$ARCH"
+          if docker manifest inspect "$ref" >/dev/null 2>manifest-error.txt; then
+            docker pull "$ref"
+            test "$(docker inspect --format '{{.Architecture}}' "$ref")" = "$ARCH"
+            test "$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$ref")" = "$SOURCE_COMMIT"
+            test "$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$ref")" = "$VERSION"
+            exit 0
+          fi
+          if ! grep -Eq 'manifest unknown|no such manifest' manifest-error.txt; then
+            cat manifest-error.txt >&2
+            exit 1
+          fi
+          PLATFORM="linux/$ARCH" IMAGE="$ref" BUILD_VERSION="$VERSION" BUILD_COMMIT="$SOURCE_COMMIT" build/build-mem0.sh
+          test "$(docker run --rm "$ref" --version)" = "$VERSION"
+          docker run --rm --entrypoint python "$ref" -c \
+            'import os; from gizclaw_mem0 import server; assert os.getuid() == 10001; assert server.app is not None'
+          docker push "$ref"
+
+  mem0-package:
+    name: Publish Mem0 Multiarch Docker Package
+    needs: [prepare, mem0-image]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Publish or verify the immutable release tag
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${GITHUB_REPOSITORY,,}-mem0"
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          amd64_digest="$(docker buildx imagetools inspect "$image:$RELEASE_TAG-amd64" --format '{{json .Manifest}}' | jq -er .digest)"
+          arm64_digest="$(docker buildx imagetools inspect "$image:$RELEASE_TAG-arm64" --format '{{json .Manifest}}' | jq -er .digest)"
+          if docker manifest inspect "$image:$RELEASE_TAG" > manifest.json 2>manifest-error.txt; then
+            jq -e --arg amd64 "$amd64_digest" --arg arm64 "$arm64_digest" '
+              [.manifests[] | {digest, platform: {os: .platform.os, architecture: .platform.architecture}}]
+              | sort_by(.platform.architecture) == [
+                {digest: $amd64, platform: {os: "linux", architecture: "amd64"}},
+                {digest: $arm64, platform: {os: "linux", architecture: "arm64"}}
+              ]
+            ' manifest.json
+          else
+            if ! grep -Eq 'manifest unknown|no such manifest' manifest-error.txt; then
+              cat manifest-error.txt >&2
+              exit 1
+            fi
+            docker buildx imagetools create --tag "$image:$RELEASE_TAG" \
+              "$image@$amd64_digest" "$image@$arm64_digest"
+          fi
+
   linux:
     name: Linux ${{ matrix.arch }} Release Asset
     needs: prepare

@@ -73,21 +73,7 @@ func Build(ctx context.Context, request Request) (Result, error) {
 		}
 		return Result{Store: store, Driver: string(request.Binding.Driver), Closer: closer}, nil
 	case apitypes.RuntimeProfileMemoryDriverMem0:
-		connection, err := request.Binding.Connection.AsRuntimeProfileMem0Connection()
-		if err != nil {
-			return Result{}, fmt.Errorf("memory store: decode mem0 connection: %w", err)
-		}
-		poll, err := parsePollInterval(connection.PollInterval)
-		if err != nil {
-			return Result{}, err
-		}
-		// ProjectId is the deployment identity paired with this key. Mem0's
-		// data plane selects the Project through the API key and has no
-		// project_id request field.
-		store, err := memorymem0.New(memorymem0.Config{
-			Endpoint: connection.Endpoint, APIKey: connection.ApiKey,
-			Flavor: memorymem0.Platform, PollInterval: poll,
-		})
+		store, err := buildMem0(request.Binding.Connection, request.Layout.Spec.Mem0)
 		if err != nil {
 			return Result{}, fmt.Errorf("memory store: construct mem0: %w", err)
 		}
@@ -117,6 +103,55 @@ func Build(ctx context.Context, request Request) (Result, error) {
 	default:
 		return Result{}, fmt.Errorf("memory store: unsupported driver %q", request.Binding.Driver)
 	}
+}
+
+func buildMem0(connection apitypes.RuntimeProfileMemoryConnection, policy apitypes.Mem0MemoryLayoutPolicy) (*memorymem0.Store, error) {
+	connectionType, err := connection.Discriminator()
+	if err != nil {
+		return nil, fmt.Errorf("decode Mem0 connection: %w", err)
+	}
+	var config memorymem0.Config
+	switch connectionType {
+	case "mem0":
+		value, err := connection.AsRuntimeProfileMem0Connection()
+		if err != nil {
+			return nil, err
+		}
+		poll, err := parsePollInterval(value.PollInterval)
+		if err != nil {
+			return nil, err
+		}
+		// The Platform API key selects its project; ProjectId is control-plane identity.
+		config = memorymem0.Config{Endpoint: value.Endpoint, APIKey: value.ApiKey,
+			Flavor: memorymem0.Platform, PollInterval: poll}
+	case "mem0_self_hosted":
+		value, err := connection.AsRuntimeProfileMem0SelfHostedConnection()
+		if err != nil {
+			return nil, err
+		}
+		config = memorymem0.Config{Endpoint: value.Endpoint, Flavor: memorymem0.SelfHosted}
+		config.CustomInstructions, err = selfHostedInstructions(policy)
+		if err != nil {
+			return nil, err
+		}
+		if value.ApiKey != nil {
+			config.APIKey = *value.ApiKey
+		}
+	default:
+		return nil, fmt.Errorf("unsupported Mem0 connection type %q", connectionType)
+	}
+	return memorymem0.New(config)
+}
+
+func selfHostedInstructions(policy apitypes.Mem0MemoryLayoutPolicy) (string, error) {
+	if (policy.CustomCategories != nil && len(*policy.CustomCategories) > 0) ||
+		(policy.Decay != nil && *policy.Decay) || (policy.Multilingual != nil && *policy.Multilingual) {
+		return "", errors.New("self-hosted mem0 supports custom_instructions and scope; custom_categories, decay and multilingual flags are unsupported")
+	}
+	if policy.CustomInstructions != nil {
+		return *policy.CustomInstructions, nil
+	}
+	return "", nil
 }
 
 func validateLayoutBinding(request Request) error {

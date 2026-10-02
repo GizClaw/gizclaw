@@ -254,13 +254,14 @@ GIZCLAW_VOLC_MEM0_ENDPOINT=https://... GIZCLAW_VOLC_MEM0_API_KEY=... \
 
 Volc data-plane key 决定 memory project，因此应使用专用测试 project 的 key，不需要
 project ID 或 AccessKey。Self-hosted lane 使用仓库的 Mem0 OSS 服务
-（`tests/gizclaw-e2e/docker/Dockerfile.mem0`，`mem0ai 2.0.3`），它提供标准的按 entity
+（`build/mem0/Dockerfile`，`mem0ai 2.2.1`），它提供标准的按 entity
 过滤的 `GET /memories` 与 `DELETE /memories`，并从挂载的 `tests/gizclaw-e2e/.env`
 读取模型 key：
 
 ```sh
-docker build -f tests/gizclaw-e2e/docker/Dockerfile.mem0 -t gizclaw-mem0 .
+PLATFORM=linux/amd64 IMAGE=gizclaw-mem0 build/build-mem0.sh
 docker run -d --rm -p 127.0.0.1:18000:8000 \
+  -e MEM0_CREDENTIAL_FILE=/run/gizclaw-e2e.env \
   -v "$PWD/tests/gizclaw-e2e/.env:/run/gizclaw-e2e.env:ro" gizclaw-mem0
 GIZCLAW_MEMORY_PROVIDER=mem0-self-hosted GIZCLAW_MEM0_SELF_HOSTED_URL=http://127.0.0.1:18000 \
   go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
@@ -1171,9 +1172,9 @@ Flowcraft LoCoMo evaluator，也不属于普通 `go test ./...`、Docker E2E 或
 每个 live test 在对应 Go 文件中完整定义 provider、memory lane 和 extraction config；
 Volc remote project 配置由部署拥有，harness 不修改它。
 
-当前 lane 包括 Flowcraft Redis 8 BM25 single-pass、hybrid single/two-pass、self-hosted Mem0、
-Mem0 Platform default/custom instructions 和 Volc AgentKit Memory default。LoCoMo 是 tagged Go
-测试包；Docker runner 会按所选 group 启动固定版本的 Redis 8、self-hosted Mem0 或两者，
+当前 lane 包括 Flowcraft Redis 8 BM25 single-pass、hybrid single/two-pass、self-hosted Mem0 Qdrant/pgvector、
+Mem0 Platform default/custom instructions 和 Volc AgentKit Memory default/request custom instructions。LoCoMo 是 tagged Go
+测试包；Docker runner 会按所选 group 启动固定版本的 Redis 8、self-hosted Mem0 和记忆后端，
 让宿主机上的 tagged Go test 连接容器，并在结束时删除容器和 volume。Mem0 Platform 和 Volc
 组继续使用标准 `go test -run` 连接远程 provider。
 被选择的测试只校验自己消费的环境变量，缺失或占位值会失败，未选择 backend 的变量
@@ -1181,34 +1182,126 @@ Mem0 Platform default/custom instructions 和 Volc AgentKit Memory default。LoC
 
 ```sh
 go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
-  -run '^TestLoCoMoVolcAgentKit' ./tests/locomo-e2e
+  -run '^TestLoCoMoVolcAgentKit(Default|ProtocolSmoke)$' ./tests/locomo-e2e
 go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
   -run '^TestLoCoMoMem0Platform' ./tests/locomo-e2e
 tests/locomo-e2e/run_docker.sh mem0
+tests/locomo-e2e/run_docker.sh mem0-pgvector
 tests/locomo-e2e/run_docker.sh flowcraft
 tests/locomo-e2e/run_docker.sh all
 ```
 
+LoCoMo runner 会先为 Docker 的实际架构准备标准 Mem0 base；设置
+`GIZCLAW_LOCOMO_E2E_MEM0_BASE_FLAVOR=cn` 可选择 CN base。PG lane 的受控业务
+instruction 由测试通过每次 `Observe` 的 `prompt` 发送，模拟 MemoryLayout，
+可用 `GIZCLAW_LOCOMO_E2E_MEM0_CUSTOM_INSTRUCTIONS` 覆盖；报告记录该请求 policy
+的 fingerprint。Mem0 服务只配置模型和存储，不维护业务 Layout。
+
 `.env.example` 只是变量清单；值通过进程环境注入，测试包和 runner 都不会读取 `.env`
-文件。Mem0 group 使用与 Flowcraft 相同的 extraction 和 embedding model/key/base URL 环境变量；
-容器内固定使用 `mem0ai 2.0.3`，默认通过 `https://api.deepseek.com` 使用国内的
+文件。受控 Volc 对照使用 `TestLoCoMoVolcAgentKitCustomInstructions`：设置
+`GIZCLAW_LOCOMO_E2E_VOLC_CUSTOM_INSTRUCTIONS` 为自建服务相同的业务提取指令，
+每次 inferred write 通过请求级 `custom_instructions` 传入，并使用同样的人物/时间正文。
+它默认逐轮 ingestion、Top-K 50、最低 F1 0.20；托管端内部模型、基础模板和提取 token
+预算不由 harness 控制。所有 Volc benchmark 在写入前登记独立 Scope 的清理，成功或失败后
+都执行 scoped purge 并连续三次验证为空，将清理结果写入 redacted report。
+该行为不修改共享项目策略。远程 endpoint 若仅在 VPC 可访问，需要通过已验证的 VPC 网络运行。
+
+Mem0 group 使用与 Flowcraft 相同的 extraction 和 embedding model/key/base URL 环境变量；
+Qdrant 与 PGVector 容器共用 `cmd/mem0` 服务和 `mem0ai 2.2.1`，默认通过 `https://api.deepseek.com` 使用国内的
 `deepseek-v4-flash` 提取/回答模型和
 1024 维的 `qwen3.7-text-embedding`。`GIZCLAW_LOCOMO_E2E_MODEL_PROVIDER` 选择 LLM adapter，
 支持 `deepseek` 和 `bytedance`。`GIZCLAW_LOCOMO_E2E_EMBEDDING_DIMENSIONS` 必须与 embedding
-服务实际返回的向量宽度一致，因为 Mem0 要用该值创建 Qdrant collection。远程 Mem0 Platform lane 仅在调用方拥有对应 endpoint、API key 和
+服务实际返回的向量宽度一致，因为 Mem0 要用该值创建 Qdrant collection 或 PostgreSQL vector 列。远程 Mem0 Platform lane 仅在调用方拥有对应 endpoint、API key 和
 配置 fingerprint 时单独运行，不是 Docker group 的依赖。直接运行 Go tests 时必须设置
 对应的 `GIZCLAW_LOCOMO_E2E_FLOWCRAFT_REDIS8_URL` 或
 `GIZCLAW_LOCOMO_E2E_MEM0_SELF_HOSTED_URL`；runner 会将它们指向自己启动的容器。如果默认
 端口不可用，可以覆盖 `GIZCLAW_LOCOMO_E2E_REDIS8_PORT` 或
 `GIZCLAW_LOCOMO_E2E_MEM0_PORT`。
-包级 timeout 使用 30 分钟，并分别限制 session 与 question。Runner 按官方 session
-调用 `memory.Store.Observe`，逐题 recall，再用配置模型回答并在本地计算 EM、F1 和
+
+`mem0` group 使用内嵌 Qdrant；`mem0-pgvector` group 启动 Mem0 和独立的 PostgreSQL 17/pgvector 容器，只在宿主机回环地址暴露 Mem0 HTTP 端口（默认 `18001`），数据库没有宿主机端口。测试先检查服务报告的 `vector_store` 是 `pgvector`，再执行相同的真实提取、召回和问答评测；缺失数据库配置或数据库初始化失败不会回退到 Qdrant。直接运行 Go test 时设置 `GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_URL`；Docker 端口可通过 `GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_PORT` 覆盖。报告 profile 为 `mem0_self_hosted_pgvector`。`all` 包含这两种 Mem0 后端和 Flowcraft。数据库账号是仅用于临时 Docker 测试的固定 fixture，数据与 SQLite history 随 runner 退出清理，不使用云端 PG。
+
+PG lane 的提取输出上限默认为 8192 tokens，可通过 `GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_MAX_TOKENS` 覆盖。测试读取服务实际 token 上限并纳入 fingerprint 和报告；服务仅输出 finish reason、JSON 有效性和候选数量等响应元数据，便于定位截断或空提取，不输出模型内容。Qdrant lane 保留原有 2000 token 默认值。
+
+模型名称必须是所选账号实际可用的名称，可分别覆盖 `GIZCLAW_LOCOMO_E2E_EXTRACTION_MODEL` 和 `GIZCLAW_LOCOMO_E2E_ANSWER_MODEL`。例如账号支持返回 Flash 非思考模式的 `deepseek-chat` 兼容别名时：
+
+```sh
+GIZCLAW_LOCOMO_E2E_EXTRACTION_MODEL=deepseek-chat \
+GIZCLAW_LOCOMO_E2E_ANSWER_MODEL=deepseek-flash \
+  tests/locomo-e2e/run_docker.sh mem0-pgvector
+```
+
+Mem0 提取可单独设置 `GIZCLAW_LOCOMO_E2E_MEM0_LLM_API_KEY` 和
+`GIZCLAW_LOCOMO_E2E_MEM0_LLM_BASE_URL`；为空时沿用共享 model key/base URL。
+回答模型仍使用 `GIZCLAW_LOCOMO_E2E_MODEL_*`，因此可以只替换提取模型进行对比。
+`GIZCLAW_LOCOMO_E2E_MEM0_LLM_THINKING` 接受 `enabled`、`disabled` 或空值；非空时通过
+OpenAI-compatible 请求的 `thinking.type` 转发，空值保留模型默认行为。仅在模型接口支持该字段时设置。
+例如将 Mem0 提取切换到已开通的 Doubao Seed 2.1 Turbo，同时保留 DeepSeek 回答：
+
+```sh
+GIZCLAW_LOCOMO_E2E_MEM0_LLM_API_KEY="$GIZCLAW_VOLC_ARK_API_KEY" \
+GIZCLAW_LOCOMO_E2E_MEM0_LLM_BASE_URL=https://ark.cn-beijing.volces.com/api/v3 \
+GIZCLAW_LOCOMO_E2E_EXTRACTION_MODEL=doubao-seed-2-1-turbo-260628 \
+GIZCLAW_LOCOMO_E2E_MEM0_LLM_THINKING=disabled \
+GIZCLAW_LOCOMO_E2E_ANSWER_MODEL=deepseek-flash \
+  tests/locomo-e2e/run_docker.sh mem0-pgvector
+```
+
+PG lane 从 health 读取实际提取模型、Mem0 LLM provider、thinking mode 和 token 上限，
+与测试声明的模型核对后写入报告及 fingerprint。报告的 `provider` 对应回答模型 adapter，
+`extraction_provider` 对应 Mem0 的 LLM adapter（OpenAI-compatible 接口为 `openai`）。
+
+Docker runner 的包级 timeout 默认为 60 分钟（`GIZCLAW_LOCOMO_E2E_TEST_TIMEOUT` 可覆盖），并分别限制 observation 与 question。PG lane 默认按 turn
+调用 production `memory.Store.Observe`，Top-K 默认为 50；其他 lane 保留 session 粒度与 Top-K 10。
+可用 `GIZCLAW_LOCOMO_E2E_OBSERVATION_GRANULARITY=turn|session` 和 `GIZCLAW_LOCOMO_E2E_TOP_K` 显式覆盖。
+单条寒暄允许零 facts，但每个选中 session 的总产出仍须满足 fixture 下限。
+自托管 adapter 将说话人及 UTC 会话时间放入提取正文；两个人的 role 始终由 source speaker 决定，
+图片 query/caption 作为文本保留。PG lane 使用固定的双人对话提取指令，其 hash 进入报告。
+服务将提取异常、截断/无效 JSON 和已声明却未落库的 fact 视为失败，不会伪装成正常空提取。
+Runner 逐题 recall，再用配置模型回答并在本地计算 EM、F1 和
 evidence-hit 和 adversarial rejection。只有 answerable 问题进入 EM/F1 和 evidence-hit；
 category 5 只接受规范化后精确等于 `unknown`、`not mentioned` 或
-`no information available` 的拒答。默认 gate 要求 aggregate F1 不低于 `0.05`，有 evidence 的 store 要求
+`no information available` 的拒答。PG lane 默认 gate 要求 aggregate F1 不低于 `0.20`，其他 lane 保留 `0.05`；有 evidence 的 store 要求
 hit rate 不低于 `0.50`，且每个选中 session 至少 materialize 一个 fact。Provider error
 或 timeout 是失败，不能降级成 skip/pass。报告写入 ignored `reports/`，只包含 ID、分数和耗时，
 不得包含 credential、conversation、question、answer、prediction 或 recalled text。
+
+回归检查分为两层：`tests/locomo-e2e/run_regression.sh` 无需模型凭据，运行 Go fixture/评分/回归测试、Python HTTP/config 测试，并对真实 PostgreSQL 执行已知向量的距离转换、过滤排序和 scope 隔离检查。CI 的 `Mem0 PGVector Regression` job 执行该入口；它不代表真实模型质量通过。
+
+Doubao `doubao-embedding-vision-251215` 支持纯文本，使用 Ark `/embeddings/multimodal`。设置 `GIZCLAW_LOCOMO_E2E_MEM0_EMBEDDING_PROTOCOL=ark_multimodal`，并明确提供 Ark embedding key/base URL、模型与 1024 或 2048 维。服务按每条文本发出一个请求，保持 batch 输入与向量一一对应，并为 corpus/query 设置不同的 instruction；instruction fingerprint 进入报告。错误或无效向量不能变成成功空写入。更换 Embedding 后必须在独立 collection 中重新生成向量，不能与 Qwen 向量混用。
+
+CI 的手动 `workflow_dispatch` 可选择 `mem0_quality`，运行完整 conv-30 的真实质量评测并上传 redacted JSON。它需要 repository secrets `GIZCLAW_DEEPSEEK_API_KEY`、`GIZCLAW_VOLC_ARK_API_KEY`；缺失则失败，未选择时不请求模型。此 job 使用固定 Lite extraction（请求 `service_tier: fast`）、Doubao Vision embedding（1024 维）与 DeepSeek answer 配置，不等于完整十对话 LoCoMo。
+
+LoCoMo 的 self-hosted lane 使用 `sdk/go/mem0` 的健康检查和 production adapter
+的生成请求 DTO/HTTP client；PG lane 的 instruction 通过每次请求 `prompt` 传递。
+以下负载测试单独验证真实提取、至少一条 ADD 落库和非空语义读取，不能用
+`infer=false` 或只测向量插入替代。先启动专用测试 Mem0/PG 实例并设置 URL：
+
+```sh
+GIZCLAW_MEM0_LOAD=1 \
+GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_URL=http://127.0.0.1:18001 \
+go test -tags gizclaw_locomo_e2e -timeout 20m -count=1 -v \
+  -run '^TestMem0SDKConcurrentLoad$' ./tests/locomo-e2e
+```
+
+默认提供 32 次写入/秒和 12 次读取/秒，warmup 10 秒后测量 60 秒。按测量窗口中
+实际完成的成功操作验收 30 writes/s + 10 reads/s；所有阶段的错误都会失败。可通过
+`GIZCLAW_MEM0_LOAD_WRITE_RPS`、`READ_RPS`、`SECONDS`、`WARMUP_SECONDS`
+同前缀变量调整。每次写入创建独立合成 Workspace Scope，输入约 1,000 tokens；
+读取使用预先入库的 scope。报告不保存对话、模型回答或凭据，记录每次延迟、完成时间
+和 fact count；退出时只清理本轮生成的 scopes 并校验为空。该负载验证聚合吞吐量，
+同一 Scope 的写入仍串行。模型 RPM/TPM、远程延迟和 PG pool 都可能成为容量限制。
+
+真实模型报告包含 SDK/model、请求的 service tier、提取指令和回答 prompt fingerprint、ingestion 粒度、Top-K、按 category 分数及完整题目 ID。设置 `GIZCLAW_LOCOMO_E2E_BASELINE_REPORT` 指向此前同协议的 redacted 报告，即可要求 F1 下降不超过 `0.02`、evidence-hit 下降不超过 `0.05`，拒答率不下降；category F1 下降不得超过 `max(0.10, MAX_F1_DROP)`。容差可由对应 `MAX_*_DROP` 环境变量覆盖。模型、输入集、prompt、预算或 ingestion 粒度不一致，以及不完整/带 error 的报告，会拒绝比较；SDK 升级或 service tier 变化允许质量比较，吞吐量需要单独验证。
+
+```sh
+# Deterministic checks; no model credentials required.
+tests/locomo-e2e/run_regression.sh
+# Real quality regression; use the same model settings as the baseline.
+GIZCLAW_LOCOMO_E2E_BASELINE_REPORT=/path/to/prior-report.json \
+  tests/locomo-e2e/run_docker.sh mem0-pgvector
+```
+
+F1 和 observation provenance hit 是本仓库指标，未使用官方宽松 LLM judge，不与官网 J-score 直接比较。每 turn 的 provenance 只标记该次 Observe 来源，Mem0 未提供逐 fact 的精确引用，因此该指标不是经过人工核对的证据召回率。
 
 ### Dataset 与许可
 
@@ -1300,7 +1393,7 @@ barge-in 契约。测试正向断言 A 的合法前缀和双路由中断 EOS、B
 bash tests/gizclaw-e2e/run_monitor_tests.sh
 ```
 
-需要 Docker、Node/npm 和 Python 3；默认使用当前 Docker 架构的 `gizclaw-go:linux-<arch>-cn-base`，缺失时从 `build/Dockerfile.cn.base` 构建。可用 `GIZCLAW_E2E_DOCKER_BASE_IMAGE` 指定基础镜像。Go module 和编译缓存使用独立 Docker volume，可用 `GIZCLAW_MONITOR_MODCACHE` 和 `GIZCLAW_MONITOR_BUILDCACHE` 指定 volume 名或绝对路径。
+需要 Docker、Node/npm 和 Python 3；默认使用当前 Docker 架构的 `gizclaw-go:linux-<arch>-cn-base`，缺失时从 `build/gizclaw/Dockerfile.cn.base` 构建。可用 `GIZCLAW_E2E_DOCKER_BASE_IMAGE` 指定基础镜像。Go module 和编译缓存使用独立 Docker volume，可用 `GIZCLAW_MONITOR_MODCACHE` 和 `GIZCLAW_MONITOR_BUILDCACHE` 指定 volume 名或绝对路径。
 
 入口自动生成身份，启动独立 Server/Edge，准备 Workflow，然后运行 `tests/gizclaw-e2e/giztest/server.monitor.*.giztest.yaml`：
 

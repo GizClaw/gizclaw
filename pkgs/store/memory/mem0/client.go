@@ -9,7 +9,10 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+
+	mem0sdk "github.com/GizClaw/gizclaw-go/sdk/go/mem0"
 )
 
 const maxMem0ResponseBytes = 8 << 20
@@ -20,10 +23,11 @@ type HTTPClient interface {
 }
 
 type mem0Client struct {
-	endpoint string
-	apiKey   string
-	flavor   Flavor
-	client   HTTPClient
+	endpoint   string
+	apiKey     string
+	flavor     Flavor
+	client     HTTPClient
+	selfHosted *mem0sdk.Client
 }
 
 func newMem0Client(endpoint, apiKey string, flavor Flavor, client HTTPClient) (*mem0Client, error) {
@@ -41,7 +45,20 @@ func newMem0Client(endpoint, apiKey string, flavor Flavor, client HTTPClient) (*
 	if client == nil {
 		client = http.DefaultClient
 	}
-	return &mem0Client{endpoint: endpoint, apiKey: apiKey, flavor: flavor, client: client}, nil
+	result := &mem0Client{endpoint: endpoint, apiKey: apiKey, flavor: flavor, client: client}
+	if flavor == SelfHosted {
+		result.selfHosted, err = mem0sdk.NewClient(endpoint, mem0sdk.WithHTTPClient(client), mem0sdk.WithRequestEditorFn(func(_ context.Context, request *http.Request) error {
+			request.Header.Set("Accept", "application/json")
+			if apiKey != "" {
+				request.Header.Set("X-API-Key", apiKey)
+			}
+			return nil
+		}))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
 }
 
 func (c *mem0Client) do(ctx context.Context, method, path string, requestBody any, responseBody any) error {
@@ -53,22 +70,7 @@ func (c *mem0Client) do(ctx context.Context, method, path string, requestBody an
 		}
 		body = bytes.NewReader(encoded)
 	}
-	request, err := http.NewRequestWithContext(ctx, method, c.endpoint+path, body)
-	if err != nil {
-		return fmt.Errorf("mem0 create request: %w", err)
-	}
-	request.Header.Set("Accept", "application/json")
-	if requestBody != nil {
-		request.Header.Set("Content-Type", "application/json")
-	}
-	if c.apiKey != "" {
-		if c.flavor == SelfHosted {
-			request.Header.Set("X-API-Key", c.apiKey)
-		} else {
-			request.Header.Set("Authorization", "Token "+c.apiKey)
-		}
-	}
-	response, err := c.client.Do(request)
+	response, err := c.request(ctx, method, path, body)
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return err
@@ -97,6 +99,67 @@ func (c *mem0Client) do(ctx context.Context, method, path string, requestBody an
 		return fmt.Errorf("%w: mem0 decode response", errUnavailable)
 	}
 	return nil
+}
+
+func (c *mem0Client) request(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+	if c.selfHosted != nil {
+		return c.requestSelfHosted(ctx, method, path, body)
+	}
+	request, err := http.NewRequestWithContext(ctx, method, c.endpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("mem0 create request: %w", err)
+	}
+	request.Header.Set("Accept", "application/json")
+	if body != nil {
+		request.Header.Set("Content-Type", "application/json")
+	}
+	if c.apiKey != "" {
+		request.Header.Set("Authorization", "Token "+c.apiKey)
+	}
+	return c.client.Do(request)
+}
+
+func (c *mem0Client) requestSelfHosted(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+	parsed, err := url.Parse(path)
+	if err != nil {
+		return nil, err
+	}
+	query := parsed.Query()
+	entity := func(name string) *string {
+		if value := query.Get(name); value != "" {
+			return &value
+		}
+		return nil
+	}
+	switch method + " " + parsed.Path {
+	case "POST /memories":
+		return c.selfHosted.AddMemoryWithBody(ctx, "application/json", body)
+	case "POST /search":
+		return c.selfHosted.SearchMemoriesWithBody(ctx, "application/json", body)
+	case "GET /memories":
+		params := &mem0sdk.ListMemoriesParams{UserId: entity("user_id"), AgentId: entity("agent_id"), RunId: entity("run_id")}
+		if value := query.Get("top_k"); value != "" {
+			limit, err := strconv.Atoi(value)
+			if err != nil {
+				return nil, err
+			}
+			params.TopK = &limit
+		}
+		return c.selfHosted.ListMemories(ctx, params)
+	case "DELETE /memories":
+		return c.selfHosted.DeleteMemories(ctx, &mem0sdk.DeleteMemoriesParams{UserId: entity("user_id"), AgentId: entity("agent_id"), RunId: entity("run_id")})
+	}
+	if id, found := strings.CutPrefix(parsed.Path, "/memories/"); found && id != "" {
+		switch method {
+		case http.MethodGet:
+			return c.selfHosted.GetMemory(ctx, id)
+		case http.MethodPut:
+			return c.selfHosted.UpdateMemoryWithBody(ctx, id, "application/json", body)
+		case http.MethodDelete:
+			return c.selfHosted.DeleteMemory(ctx, id)
+		}
+	}
+	return nil, fmt.Errorf("%w: unsupported self-hosted Mem0 operation", errUnsupported)
 }
 
 func mapMem0Status(status int) error {

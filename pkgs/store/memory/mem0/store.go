@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizmetrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+	mem0sdk "github.com/GizClaw/gizclaw-go/sdk/go/mem0"
 )
 
 // Flavor selects the remote Mem0 HTTP protocol variant.
@@ -34,13 +35,15 @@ type Config struct {
 	Flavor       Flavor
 	PollInterval time.Duration
 	HTTPClient   HTTPClient
+	// CustomInstructions applies to self-hosted extraction requests only.
+	CustomInstructions string
 }
 
 // Store adapts Mem0's fact-centric remote API to Store.
 type Store struct {
 	config      Config
 	client      *mem0Client
-	directLocks keyedlock.Locker[directObservationKey]
+	directLocks *keyedlock.Locker[directObservationKey]
 }
 
 type directObservationKey struct {
@@ -66,6 +69,9 @@ func New(config Config) (*Store, error) {
 	if config.Flavor != Platform && config.Flavor != SelfHosted && config.Flavor != VolcPlatform {
 		return nil, fmt.Errorf("%w: unknown mem0 flavor %q", errInvalidInput, config.Flavor)
 	}
+	if config.CustomInstructions != "" && config.Flavor != SelfHosted {
+		return nil, fmt.Errorf("%w: request instructions require self-hosted mem0", errInvalidInput)
+	}
 	if config.Flavor != SelfHosted && strings.TrimSpace(config.APIKey) == "" {
 		return nil, fmt.Errorf("%w: mem0 %s api_key is required", errInvalidInput, config.Flavor)
 	}
@@ -85,7 +91,18 @@ func New(config Config) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Store{config: config, client: transport}, nil
+	return &Store{config: config, client: transport, directLocks: &keyedlock.Locker[directObservationKey]{}}, nil
+}
+
+// WithCustomInstructions creates a logical self-hosted Store that shares this
+// transport and direct-fact locks, while keeping extraction policy immutable.
+func (s *Store) WithCustomInstructions(instructions string) (*Store, error) {
+	if s.config.Flavor != SelfHosted {
+		return nil, fmt.Errorf("%w: request instructions require self-hosted mem0", errInvalidInput)
+	}
+	config := s.config
+	config.CustomInstructions = instructions
+	return &Store{config: config, client: s.client, directLocks: s.directLocks}, nil
 }
 
 func (s *Store) usesPlatformAPI() bool { return s.config.Flavor != SelfHosted }
@@ -131,9 +148,12 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 		metadata[mem0TurnIDsMetadata] = turnIDs
 	}
 	payload := map[string]any{
-		"messages": mem0Messages(observation),
+		"messages": mem0Messages(observation, s.config.Flavor),
 		"metadata": metadata,
 		"infer":    true,
+	}
+	if s.config.Flavor == SelfHosted && s.config.CustomInstructions != "" {
+		payload["prompt"] = s.config.CustomInstructions
 	}
 	if s.config.Flavor == VolcPlatform {
 		payload["async_mode"] = true
@@ -149,7 +169,11 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 		path = "/v1/memories/"
 	}
 	var response mem0Envelope
-	if err := s.client.do(ctx, http.MethodPost, path, payload, &response); err != nil {
+	var body any = payload
+	if s.config.Flavor == SelfHosted {
+		body = s.selfHostedCreate(scope, mem0Messages(observation, SelfHosted), metadata, true)
+	}
+	if err := s.client.do(ctx, http.MethodPost, path, body, &response); err != nil {
 		return observeResult{}, err
 	}
 	operationNativeID, err := response.operationID(s.config.Flavor)
@@ -230,7 +254,11 @@ func (s *Store) observeDirectFact(ctx context.Context, scope scope, observation 
 		path = "/v1/memories/"
 	}
 	var response mem0Envelope
-	if err := s.client.do(ctx, http.MethodPost, path, payload, &response); err != nil {
+	var body any = payload
+	if s.config.Flavor == SelfHosted {
+		body = s.selfHostedCreate(scope, []mem0Message{{Role: roleUser, Content: strings.TrimSpace(observation.Facts[0].Text)}}, metadata, false)
+	}
+	if err := s.client.do(ctx, http.MethodPost, path, body, &response); err != nil {
 		if existing, found, reconcileErr := s.findDirectObservation(ctx, scope, observation.ID, digest); reconcileErr == nil && found {
 			return observeResult{Facts: existing}, nil
 		}
@@ -290,7 +318,11 @@ func (s *Store) findDirectObservation(ctx context.Context, scope scope, observat
 		payload = nil
 	}
 	var response mem0Envelope
-	if err := s.client.do(ctx, method, path, payload, &response); err != nil {
+	var body any = payload
+	if s.config.Flavor == SelfHosted {
+		body = mem0sdk.SearchRequest{Query: observationID, TopK: new(10), Filters: filters}
+	}
+	if err := s.client.do(ctx, method, path, body, &response); err != nil {
 		return nil, false, err
 	}
 	entries := response.entries()
@@ -365,7 +397,11 @@ func (s *Store) Recall(ctx context.Context, query memorystore.Query) (_ memoryst
 		}
 	}
 	var response mem0Envelope
-	if err := s.client.do(ctx, http.MethodPost, path, payload, &response); err != nil {
+	var body any = payload
+	if s.config.Flavor == SelfHosted {
+		body = mem0sdk.SearchRequest{Query: query.Text, TopK: &query.Limit, Filters: filters}
+	}
+	if err := s.client.do(ctx, http.MethodPost, path, body, &response); err != nil {
 		return recallResult{}, err
 	}
 	entries := response.entries()
@@ -623,7 +659,10 @@ func (s *Store) listVolcScopedFacts(ctx context.Context, scope scope, operationM
 	if err := s.client.do(ctx, http.MethodGet, "/v1/memories/?"+query.Encode(), nil, &response); err != nil {
 		return nil, err
 	}
-	entries := response.entries()
+	entries, err := decodeVolcSearchResults(response.Results)
+	if err != nil {
+		return nil, err
+	}
 	filtered := entries[:0]
 	for _, entry := range entries {
 		storedMarker, _ := entry.Metadata[mem0OperationMarkerMetadata].(string)
@@ -631,9 +670,8 @@ func (s *Store) listVolcScopedFacts(ctx context.Context, scope scope, operationM
 			filtered = append(filtered, entry)
 		}
 	}
-	if len(filtered) == 0 {
-		return nil, fmt.Errorf("%w: volc mem0 operation materialized no correlated facts", errUnavailable)
-	}
+	// A successful extraction can legitimately produce no facts (for example,
+	// a greeting). Older memories in the same scope are not this job's results.
 	return s.scopedFacts(filtered, scope)
 }
 
@@ -982,15 +1020,55 @@ type mem0Message struct {
 	Name    string `json:"name,omitempty"`
 }
 
-func mem0Messages(observation observation) []mem0Message {
+func (s *Store) selfHostedCreate(scope scope, messages []mem0Message, metadata map[string]any, infer bool) mem0sdk.MemoryCreate {
+	user := encodeSelfHostedScope(scope)
+	body := mem0sdk.MemoryCreate{Messages: make([]mem0sdk.Message, len(messages)), UserId: &user, Metadata: &metadata, Infer: &infer}
+	for index, message := range messages {
+		body.Messages[index] = mem0sdk.Message{Role: string(message.Role), Content: message.Content}
+		if message.Name != "" {
+			body.Messages[index].Name = &message.Name
+		}
+	}
+	if infer && s.config.CustomInstructions != "" {
+		body.Prompt = &s.config.CustomInstructions
+	}
+	return body
+}
+
+func mem0Messages(observation observation, flavor Flavor) []mem0Message {
 	messages := make([]mem0Message, 0, len(observation.Turns)+1)
 	if strings.TrimSpace(observation.Text) != "" {
-		messages = append(messages, mem0Message{Role: roleUser, Content: observation.Text})
+		content := observation.Text
+		if flavor == SelfHosted {
+			content = selfHostedContent(content, "", observation.ObservedAt)
+		}
+		messages = append(messages, mem0Message{Role: roleUser, Content: content})
 	}
 	for _, turn := range observation.Turns {
-		messages = append(messages, mem0Message{Role: turn.Role, Content: turn.Text, Name: turn.Speaker})
+		content := turn.Text
+		if flavor == SelfHosted {
+			observedAt := turn.ObservedAt
+			if observedAt.IsZero() {
+				observedAt = observation.ObservedAt
+			}
+			content = selfHostedContent(content, turn.Speaker, observedAt)
+		}
+		messages = append(messages, mem0Message{Role: turn.Role, Content: content, Name: turn.Speaker})
 	}
 	return messages
+}
+
+// OSS parses role/content rather than the OpenAI name field. Keep source time
+// and speaker in its extraction text without changing Platform payloads or
+// already-structured direct facts.
+func selfHostedContent(content, speaker string, observedAt time.Time) string {
+	if speaker = strings.TrimSpace(speaker); speaker != "" {
+		content = speaker + ": " + content
+	}
+	if !observedAt.IsZero() {
+		content = "[Conversation time: " + observedAt.UTC().Format(time.RFC3339) + "]\n" + content
+	}
+	return content
 }
 
 type mem0Envelope struct {

@@ -105,8 +105,12 @@ func TestEinoRealtimeTextDuringTTSStartup(t *testing.T) {
 				if firstDelay != 0 || delay != 0 {
 					t.Errorf("TTS delayed realtime text: first=%v replacement=%v", firstDelay, delay)
 				}
-				cancel()
+				// Finish the duplex input and drain output acknowledgements before
+				// cancellation so the Eino session can settle its deferred observers.
 				_ = input.Stream().Close()
+				for range replies {
+				}
+				cancel()
 			})
 		})
 	}

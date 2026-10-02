@@ -36,6 +36,7 @@ api/
 | Admin API | Server | HTTP / OpenAPI | [设计](./http/admin) · [API Reference](/api/) |
 | Public API | Server | HTTP / OpenAPI | [设计](./http/public) · [API Reference](/api/) |
 | OpenAI Compatible API | Server | AI Server Shell over HTTP | [设计](./http/openai-compatible) |
+| Mem0 API | 自托管 Mem0 服务 | HTTP / OpenAPI | [Memory Store](../stores/memory#自托管-mem0-服务) |
 | Peer RPC | Client、Server、Edge-node | Protobuf RPC over Giznet service stream | [设计](./proto/rpc/overview) · [Methods](/references/rpc) · [Streams](/references/streams#rpc-streams) |
 | Peer Events | Client、Server | Protobuf over Peer Event Stream | [Events](/references/events) · [Streams](/references/streams) |
 | Peer Telemetry | Client / Peer | Protobuf direct packet | [设计](./proto/telemetry) · [Transport](/references/streams#direct-packets) |

@@ -70,7 +70,7 @@ if [[ "$(go env GOOS)/$(go env GOARCH)" == "linux/$arch" ]]; then
 else
   base="${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-$arch-cn-base}"
   if ! docker image inspect "$base" >/dev/null 2>&1; then
-    docker build -f "$repo_dir/build/Dockerfile.cn.base" -t "$base" "$repo_dir/build"
+    docker build -f "$repo_dir/build/gizclaw/Dockerfile.cn.base" -t "$base" "$repo_dir/build"
   fi
   python3 "$script_dir/testdata/rtp-bos/overlay.py" "$repo_dir" "$image_dir/bin" docker
   docker run --rm --entrypoint /bin/bash \

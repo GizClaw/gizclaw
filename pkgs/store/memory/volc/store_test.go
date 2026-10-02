@@ -286,7 +286,7 @@ func TestStoreValidatesVolcSearchEnvelopes(t *testing.T) {
 	}
 }
 
-func TestStoreRejectsVolcJobWithoutCorrelatedFacts(t *testing.T) {
+func TestStoreCompletesEmptyVolcJobWithoutReturningOlderFacts(t *testing.T) {
 	t.Parallel()
 	var operationMarker string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -322,9 +322,42 @@ func TestStoreRejectsVolcJobWithoutCorrelatedFacts(t *testing.T) {
 	if err != nil || operationMarker == "" {
 		t.Fatalf("Observe() = %#v, marker = %q, error = %v", observed, operationMarker, err)
 	}
-	_, err = store.Wait(context.Background(), memorystore.OperationRequest{Scope: scope, ID: observed.Operation.ID})
-	if !errors.Is(err, memorystore.ErrUnavailable) {
-		t.Fatalf("Wait() error = %v", err)
+	completed, err := store.Wait(context.Background(), memorystore.OperationRequest{Scope: scope, ID: observed.Operation.ID})
+	if err != nil || completed.Operation == nil || completed.Operation.Status != memorystore.OperationSucceeded || len(completed.Facts) != 0 {
+		t.Fatalf("Wait() = %#v, %v; want successful empty extraction", completed, err)
+	}
+}
+
+func TestStoreRejectsMalformedVolcJobReconciliation(t *testing.T) {
+	t.Parallel()
+	for _, body := range []string{`{}`, `{"results":null}`, `{"results":{}}`, `{`} {
+		t.Run(body, func(t *testing.T) {
+			t.Parallel()
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				if r.Method == http.MethodPost {
+					_, _ = io.WriteString(w, `{"results":[{"event_id":"job"}]}`)
+				} else if r.URL.Path == "/v1/job/job/" {
+					_, _ = io.WriteString(w, `{"status":"SUCCEEDED","results":[]}`)
+				} else {
+					_, _ = io.WriteString(w, body)
+				}
+			}))
+			defer server.Close()
+			store, err := Open(t.Context(), Config{Mem0: mem0.Config{Endpoint: server.URL, APIKey: "fixture", HTTPClient: server.Client()}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			scope := memorystore.Scope{AppID: "test-only"}
+			observed, err := store.Observe(t.Context(), memorystore.Observation{Scope: scope, Text: "Hello."})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = store.Wait(t.Context(), memorystore.OperationRequest{Scope: scope, ID: observed.Operation.ID})
+			if !errors.Is(err, memorystore.ErrUnavailable) {
+				t.Fatalf("malformed list became an empty successful extraction: %v", err)
+			}
+		})
 	}
 }
 

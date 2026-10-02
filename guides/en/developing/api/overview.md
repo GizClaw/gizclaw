@@ -36,6 +36,7 @@ api/
 | Admin API | Server | HTTP / OpenAPI | [Design](./http/admin) · [API Reference](/api/) |
 | Public API | Server | HTTP / OpenAPI | [Design](./http/public) · [API Reference](/api/) |
 | OpenAI Compatible API | Server | AI Server Shell over HTTP | [Design](./http/openai-compatible) |
+| Mem0 API | Self-hosted Mem0 service | HTTP / OpenAPI | [Memory Store](../stores/memory#self-hosted-mem0-service) |
 | Peer RPC | Client, Server, Edge-node | Protobuf RPC over Giznet service stream | [Design](./proto/rpc/overview) · [Methods](/references/rpc) · [Streams](/references/streams#rpc-streams) |
 | Peer Events | Client, Server | Protobuf over Peer Event Stream | [Events](/references/events) · [Streams](/references/streams) |
 | Peer Telemetry | Client / Peer | Protobuf direct packet | [Design](./proto/telemetry) · [Transport](/references/streams#direct-packets) |

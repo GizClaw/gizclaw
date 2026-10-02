@@ -79,9 +79,95 @@ store, err := flowcraft.New(ctx, flowcraft.Config{
 
 Mem0 只通过一个 `mem0.Config` 构造。`FlavorPlatform` 使用 `Authorization: Token`，并将所有已选择的维度映射到对应的 `app_id`、`user_id`、`agent_id` 和 `run_id`。Mem0 OSS 不提供 `app_id`，因此 `FlavorSelfHosted` 会把完整四维 Scope 编码到一个保留的原生 `user_id` 中；配置 key 时使用 `X-API-Key`。这样既能精确保持 Workspace App 隔离，也不会改写调用方逻辑上的 User、Agent 或 Run 维度。Update/Delete 先读取 provider record 并校验完整编码 scope，再执行 ID mutation。Direct import 当前一次接受一个带非空 Observation ID 的 Fact；多个 direct candidates 返回 `ErrUnsupported`，不会静默合并 attributes。
 
-Volcengine AgentKit/Viking MEM0 只通过一个 `volc.Config` 构造。它接收显式的 Mem0 data-plane key 或 credential resolver。Adapter 显式选择火山云 v1 add/search 路径，从 `results` 读取唯一权威 job ID，并让 `Wait` 轮询 `/v1/job/{id}/`。成功 job 不带 facts 时，Adapter 只列出同一 scope，并按 observation ID 选择该次写入的记录。火山云 v1 服务要求 `user_id`，因此 App-only、Agent-only 或 Run-only 逻辑 scope 会得到一个保留的完整 scope 编码 transport user，同时仍保留所有原始 native 字段；读取后会还原并按未改变的逻辑 scope 校验。普通 Mem0 Platform 仍使用 v3 add/search、顶层 event ID 和 `/v1/event/{id}/`。不能根据 endpoint hostname 推断协议。火山云 data-plane endpoint 必填。
+Volcengine AgentKit/Viking MEM0 只通过一个 `volc.Config` 构造。它接收显式的 Mem0 data-plane key 或 credential resolver。Adapter 显式选择火山云 v1 add/search 路径，从 `results` 读取唯一权威 job ID，并让 `Wait` 轮询 `/v1/job/{id}/`。成功 job 不带 facts 时，Adapter 只列出同一 scope，并按该次 operation 的 reconciliation marker 选择记录。成功提取可返回零条 facts，例如纯问候；已有记忆不会作为本次结果返回，缺失或无效的列表响应仍会报错。火山云 v1 服务要求 `user_id`，因此 App-only、Agent-only 或 Run-only 逻辑 scope 会得到一个保留的完整 scope 编码 transport user，同时仍保留所有原始 native 字段；读取后会还原并按未改变的逻辑 scope 校验。普通 Mem0 Platform 仍使用 v3 add/search、顶层 event ID 和 `/v1/event/{id}/`。不能根据 endpoint hostname 推断协议。火山云 data-plane endpoint 必填。
 
 Eino `memory_observe` node 会为每个 Graph 写入的 direct Fact 分配由当前 turn 与 Graph node 派生的稳定 observation identity。因此，同一 Workspace 的后续 `memory_recall` node 会使用相同完整 `Scope.AppID` 读到该 Fact，`volc_mem0` 绑定也遵守这一保证。火山云 search result 必须带 native Fact ID，并与编码后的 scope 兼容；project、strategy 等 provider routing metadata 不会作为业务 attributes 返回。
+
+### 自托管 Mem0 服务
+
+`cmd/mem0/gizclaw_mem0` 是独立 Python HTTP 入口，使用官方 `mem0ai 2.2.1` SDK。
+服务支持 OpenAI-compatible LLM/Embedding，向量存储为 PGVector 或本地 Qdrant；
+`build/mem0/Dockerfile` 提供 `test` 与非 root `runtime` target。Docker E2E、LoCoMo 和
+Release 使用同一份服务实现。提取模型和 Embedding 属于该服务配置，RuntimeProfile
+只保存 endpoint 与可选 API key。
+
+配置文件通过 `--config` 或 `MEM0_CONFIG` 选择。`memory` 对象使用 Mem0 原生模型/存储配置，拒绝全局业务 `custom_instructions`；
+`service` 支持 `api_key`、`thinking`、`embedding_protocol` 和 `max_concurrency`。模型档位配置为 `memory.llm.config.service_tier`；wrapper 在构造原生 Mem0 config 前取出该扩展字段，再通过 OpenAI SDK 转发。`${VARIABLE}` 从进程环境
+展开，缺失或空值会阻止启动；配置文件模式下，模型/数据库配置以文件为准，不与对应的
+`MEM0_*` 环境配置混合。不传文件时保留环境配置入口。
+
+- `cmd/mem0/config.example.yaml` 使用 Seed 2.1 Lite、豆包 Vision Embedding、PGVector。
+  `service.thinking: disabled` 通过 OpenAI-compatible Chat API 发送 Ark 参数。
+- 国内示例设置 `memory.llm.config.service_tier: fast`，通过 Chat API 请求火山低延迟档位；环境模式使用
+  `MEM0_LLM_SERVICE_TIER=fast`。服务健康检查回显请求档位，提取诊断记录响应的实际
+  `service_tier`。需要账户开通低延迟服务，额度不足或触发流量保护可能回退 default；
+  fast 不绕过模型账户 TPM 限额。
+- OpenAI 也支持 Fast mode；支持的模型可设置 `service_tier: fast` 或 `priority`，具体账号和模型支持以[官方文档](https://developers.openai.com/api/docs/guides/fast-mode#configuring-fast-mode)为准。OpenAI 示例使用 `auto`。
+- `cmd/mem0/config.openai.example.yaml` 使用 `gpt-6-luna`、`text-embedding-3-small`、
+  PGVector。Luna 的 `max_tokens` 被映射为 `max_completion_tokens`；使用
+  `reasoning_effort: none`，其余 reasoning 模式省略不兼容的采样参数。请求格式已有
+  本地测试，账号可用性和真实模型质量须通过 live 测试验收。
+- `embedding_protocol: openai` 使用标准 `/embeddings`；`ark_multimodal` 使用
+  `/embeddings/multimodal`，为每条文本单独生成 1024 或 2048 维向量，并区分 Corpus/
+  Query instruction。切换 Embedding 模型或维度须使用新 collection 并重新入库。
+
+在仓库根目录启动 Python 服务；先注入示例所需的模型 key、`MEM0_POSTGRES_DSN` 和
+`MEM0_API_KEY`，目标 PostgreSQL 必须支持 `vector` extension：
+
+```sh
+python3 -m venv .tmp/mem0-venv
+.tmp/mem0-venv/bin/pip install -r cmd/mem0/requirements.txt
+mkdir -p .tmp/mem0
+export MEM0_HISTORY_DB_PATH="$PWD/.tmp/mem0/memory-history.db"
+PYTHONPATH=cmd/mem0 .tmp/mem0-venv/bin/python -m gizclaw_mem0 \
+  --config cmd/mem0/config.example.yaml --host 127.0.0.1 --port 8000
+```
+
+容器示例在仓库根目录执行，沿用已注入的凭据；连接托管 PG 时数据库数据与向量索引
+保存在 PG，本地 `/data` 保存 SDK 的 SQLite history。该 volume 应持久化：
+
+```sh
+PLATFORM=linux/amd64 IMAGE=gizclaw-mem0 build/build-mem0.sh
+# 国内依赖源：同一应用 Dockerfile，选择 CN base
+PLATFORM=linux/amd64 IMAGE=gizclaw-mem0 build/build-mem0.sh cn
+docker run --rm --name gizclaw-mem0 -p 127.0.0.1:8000:8000 \
+  -e VOLC_ARK_API_KEY -e MEM0_POSTGRES_DSN -e MEM0_API_KEY \
+  -v "$PWD/cmd/mem0/config.example.yaml:/app/config.yaml:ro" \
+  -v gizclaw-mem0-history:/data gizclaw-mem0 --config /app/config.yaml --host 0.0.0.0
+```
+
+Python 默认监听 loopback；容器内监听 `0.0.0.0`，示例仅映射宿主机 loopback。
+配置 API key 后，除 `/health` 外的请求都须携带 `X-API-Key`。省略 key 的本机模式应
+限定在可信网络。停止服务会关闭模型客户端、向量库和 history 连接；服务不提供在线
+修改模型/数据库配置的接口。PG 后端允许独立实体的 Observe 并发；本服务进程内，共用任一原生实体的写入与删除串行执行，覆盖复合实体写入和较宽范围的清理。Purge 与按 ID 更新/删除还共用解析协调锁，在读取 ID 记录前获取，防止解析实体到提交之间被清理；这些维护操作彼此串行，不阻塞独立实体的 Observe。LLM 提取结果在 SDK 持久化前校验，不完整或无效结果不能先落库再返回提取失败。提取诊断与
+Embedding 错误状态按请求线程隔离。Qdrant 本地状态仍串行访问。
+`max_concurrency` 是写入额度，默认为 160；读取另预留 `max(16, max_concurrency/4)`
+额度。超额请求返回 503，健康检查不占该额度。模型供应商的限流返回结构化 HTTP 429，
+其他模型请求失败返回 502；错误响应不透传供应商凭据。PG pool 默认 min 4 / max 32，环境模式可通过
+`MEM0_MAX_CONCURRENCY`、`MEM0_POSTGRES_MIN_CONNECTIONS`、
+`MEM0_POSTGRES_MAX_CONNECTIONS` 配置。LoCoMo 验证质量，吞吐量由独立 load test 验证。
+
+HTTP contract 由 `api/http/mem0.json` 定义，运行时 `/openapi.json` 返回该契约；
+Python contract test 校验实际请求/响应模型、参数、路由和 operation ID。
+`sdk/go/mem0` 由根 module 固定版本的 `oapi-codegen` 生成：
+
+```sh
+go generate ./sdk/go/mem0
+go test ./sdk/go/mem0 ./pkgs/store/memory/mem0
+```
+
+GizClaw 的 self-hosted adapter 使用生成的 client 和请求 DTO；Platform/Volc
+仍使用各自协议。SDK 保留 Mem0 record 的额外 metadata。
+
+多个 MemoryLayout 可共用同一服务。`MemoryLayout.mem0.custom_instructions` 由 Go logical
+Store 保留为该 Layout generation 的独立 policy，Observe 时通过 HTTP `prompt` 传给
+原生 `Memory.add(prompt=...)`；不修改共享 SDK 的全局 instruction。更新 Layout
+不会改写已有 generation 的 policy。`infer=false` direct Fact 不携带提取 instruction。
+服务无需另外注册 Layout；`scope: workspace|peer` 仍按现有 Scope 契约执行。Layout
+本身不增加数据分区；同 endpoint/collection 和完整 Scope 共享记忆。OSS binding 不支持
+`custom_categories`、启用 `decay` 或启用 `multilingual` flag，配置时会拒绝。
+
+同版本 amd64/arm64 镜像的发布规则见[仓库发布](../tooling#仓库发布)。
 
 ## MemoryLayout、RuntimeProfile 与 Workflow
 
@@ -145,6 +231,24 @@ Flowcraft 0.1.7 将 `(runtime_id, user_id)` 定义为 canonical hard partition�
 已删除的 `flowcraft_bbh` connection 不提供自动迁移。使用该 connection 的已持久化 legacy profile 会 fail closed 并返回可操作的替换错误，但 mutation path 仍允许管理员把 profile 替换为受支持的 connection。旧 managed directory 及其中的 canonical data 保持原样；替换或删除 profile 都不会删除该目录。`flowcraft_object_store` 可以继续在内部使用其本地 derived index，但 BBH 不再是公开的部署 connection 或 policy surface。
 
 对于 Mem0 和火山云，Project ID 记录与所选数据面 API key 配套的部署/控制面身份。运行时 Fact 请求通过该 key 完成 Project 路由，不会再发送独立的 Project ID 字段。
+
+自托管 Mem0 使用 `driver: mem0` 和 `connection.type: mem0_self_hosted`，显式选择 OSS HTTP 协议。只要求 `endpoint`；服务启用认证时可提供 `api_key`，Adapter 通过 `X-API-Key` 发送。未启用认证的本机服务省略该字段。Self-hosted connection 不接受 `project_id`、数据库 DSN 或模型配置；向量库、模型和持久化由 Mem0 服务管理。原有 `connection.type: mem0` 仍选择 Platform 协议，并要求 `project_id` 与 `api_key`；不会根据 endpoint 自动推断协议。
+
+```yaml
+spec:
+  resources:
+    memories:
+      assistant-memory:
+        layout_id: assistant-memory
+        driver: mem0
+        connection:
+          type: mem0_self_hosted
+          endpoint: http://127.0.0.1:18000
+```
+
+自托管提取会把 `Turn.Speaker` 与 UTC `ObservedAt` 放入消息正文，因为 OSS parser 不消费 OpenAI `name` 字段。turn 未提供时间时使用 Observation 时间。Platform/Volc 消息正文及 `infer=false` direct Fact 不做此变换。
+
+该绑定使用 MemoryLayout 的 `mem0.scope` 选择 Workspace 或 Peer 记忆归属，并复用 OSS Adapter 的完整 Scope 编码、读写、修改、删除与 purge 校验。
 
 ```yaml
 spec:

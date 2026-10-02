@@ -16,6 +16,7 @@ The internal macOS Flutter Giztest runner builds through CocoaPods with Swift Pa
 | `api/proto/giznet/admission.proto` | JavaScript protobuf-es | `npm --prefix sdk/js/gizclaw run generate:admission` |
 | `api/proto/giznet/admission.proto` | Dart protobuf | `cd sdk/flutter/gizclaw && dart run tool/generate_admission.dart` |
 | HTTP OpenAPI + shared schemas | Go HTTP server/client/models | `go generate ./pkgs/gizclaw/api/adminhttp ./pkgs/gizclaw/api/apitypes ./pkgs/gizclaw/api/peerhttp` |
+| `api/http/mem0.json` | Mem0 Go client/models | `go generate ./sdk/go/mem0` |
 | `api/proto/rpc/**/*.proto` | Go Protobuf | `go generate ./pkgs/gizclaw/api/rpcproto` |
 | `api/proto/rpc/**/*.proto` | Dart protobuf / registry / codec | `cd sdk/flutter/gizclaw && dart run tool/generate_rpc.dart` |
 | RPC descriptors/wrappers | Manually maintained `rpcapi` committed surface | `go test ./pkgs/gizclaw/api/rpcapi` (currently `go generate` only performs this verification and will not regenerate the file) |

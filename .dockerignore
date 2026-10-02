@@ -1,5 +1,9 @@
 .git
 .DS_Store
+**/__pycache__
+**/*.pyc
+tests/locomo-e2e/reports
+tests/locomo-e2e/.env
 
 node_modules
 **/node_modules

@@ -1,0 +1,6 @@
+package: mem0
+generate:
+  models: true
+  client: true
+output-options:
+  skip-prune: true
