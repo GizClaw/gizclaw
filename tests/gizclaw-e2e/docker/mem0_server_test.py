@@ -502,6 +502,7 @@ class ConcurrentOperationTest(unittest.TestCase):
                 mem0_server.update_memory("gone", mem0_server.MemoryUpdate(text="updated"))
             except mem0_server.HTTPException as error:
                 return error.status_code
+            return None
 
         memory.delete_all.side_effect = purge
         memory.get.side_effect = get
