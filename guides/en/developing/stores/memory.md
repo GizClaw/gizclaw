@@ -148,8 +148,7 @@ Python binds loopback by default. The container binds `0.0.0.0` internally, whil
 this example publishes only host loopback. When an API key is configured, every
 route except `/health` requires `X-API-Key`. Local mode without a key belongs on
 a trusted network. Shutdown closes model clients, the vector store and history
-connections. Model/database settings cannot be changed through HTTP. PG operations can overlap across complete Scopes, while writes within one Scope
-remain serialized. Extraction diagnostics and embedding failures are isolated by
+connections. Model/database settings cannot be changed through HTTP. PG operations can overlap across independent entities. Within this service process, writes and purges sharing any native entity are serialized, including compound writes and broader purges. LLM extraction is validated before SDK persistence, so invalid or incomplete extraction cannot commit memories before returning an extraction failure. Extraction diagnostics and embedding failures are isolated by
 request thread. Local Qdrant remains serialized. `max_concurrency` is the write budget, defaulting to 160. Reads reserve a separate
 `max(16, max_concurrency/4)` budget. Excess requests return 503; health bypasses
 admission. Provider rate limits return structured HTTP 429; other model request

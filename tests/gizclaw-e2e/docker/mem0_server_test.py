@@ -149,6 +149,7 @@ class ArkEmbeddingTest(unittest.TestCase):
             try:
                 embedding.embed("fact")
             except Exception:
+                # Intentionally mimic the SDK swallowing this provider error.
                 pass
             return {"results": []}
 
@@ -174,7 +175,9 @@ class ConfigurationTest(unittest.TestCase):
             source.flush()
             environment = {"MEM0_CONFIG": source.name, "MODEL_KEY": "fixture-model-key", "DATABASE_DSN": "postgresql://fixture", "SERVICE_KEY": "fixture-service-key"}
             with mock.patch.dict(os.environ, environment, clear=True), mock.patch.object(mem0_server.Memory, "from_config") as constructor:
-                mem0_server._build_memory()
+                constructor.return_value.llm.config = {"model": "fixture", "api_key": "fixture"}
+                memory = mem0_server._build_memory()
+                self.addCleanup(memory.llm.client.close)
                 self.assertEqual(mem0_server._service_api_key, "fixture-service-key")
         config = constructor.call_args.args[0]
         self.assertEqual(config["llm"]["config"]["api_key"], "fixture-model-key")
@@ -228,7 +231,7 @@ class ConfigurationTest(unittest.TestCase):
             "MEM0_EMBEDDING_MODEL": "embedding-model",
             "MEM0_EMBEDDING_DIMENSIONS": "1024",
         }
-        sentinel = object()
+        sentinel = SimpleNamespace(llm=SimpleNamespace(client=mock.Mock(), config={"model": "fixture", "api_key": "fixture"}))
         with mock.patch.dict(mem0_server.os.environ, environment, clear=True):
             with mock.patch.object(
                 mem0_server.Memory,
@@ -236,6 +239,7 @@ class ConfigurationTest(unittest.TestCase):
                 return_value=sentinel,
             ) as from_config:
                 self.assertIs(mem0_server._build_memory(), sentinel)
+                self.addCleanup(sentinel.llm.client.close)
 
         config = from_config.call_args.args[0]
         self.assertEqual(
@@ -305,7 +309,9 @@ class ConfigurationTest(unittest.TestCase):
         }
         with mock.patch.dict(mem0_server.os.environ, environment, clear=True):
             with mock.patch.object(mem0_server.Memory, "from_config") as constructor:
-                mem0_server._build_memory()
+                constructor.return_value.llm.config = {"model": "fixture", "api_key": "fixture"}
+                memory = mem0_server._build_memory()
+                self.addCleanup(memory.llm.client.close)
         self.assertEqual(constructor.call_args.args[0]["llm"]["config"]["max_tokens"], 8192)
 
     def test_invalid_thinking_mode_is_rejected_before_initialization(self):
@@ -408,6 +414,49 @@ class LayoutPolicyTest(unittest.TestCase):
 
 
 class ConcurrentOperationTest(unittest.TestCase):
+    def test_compound_entity_write_finishes_before_overlapping_purge(self):
+        for entity in mem0_server._ROUTING_FIELDS:
+            with self.subTest(entity=entity):
+                memory = mock.Mock()
+                memory.config.vector_store.provider = "pgvector"
+                entered, release, purge_started, purged = (threading.Event() for _ in range(4))
+                records = []
+
+                def add(**kwargs):
+                    entered.set()
+                    if not release.wait(3):
+                        raise RuntimeError("write was not released")
+                    records.append("fact")
+                    return {"results": [{"id": "fact", "event": "ADD"}]}
+
+                def purge(**kwargs):
+                    records.clear()
+                    purged.set()
+
+                def delete():
+                    purge_started.set()
+                    return mem0_server.delete_memories(**{entity: "shared"})
+
+                memory.add.side_effect = add
+                memory.delete_all.side_effect = purge
+                memory.get.return_value = {"id": "fact"}
+                request = mem0_server.MemoryCreate(messages=[{"role": "user", "content": "fixture"}],
+                                                  infer=False, user_id="shared", agent_id="shared", run_id="shared")
+                with mock.patch.object(mem0_server, "_memory", memory), ThreadPoolExecutor(max_workers=2) as pool:
+                    writer = pool.submit(mem0_server.add_memory, request)
+                    self.assertTrue(entered.wait(3))
+                    deleter = pool.submit(delete)
+                    try:
+                        self.assertTrue(purge_started.wait(3))
+                        self.assertFalse(purged.wait(0.1))
+                    finally:
+                        release.set()
+                    writer.result(timeout=3)
+                    deleter.result(timeout=3)
+                self.assertTrue(purged.is_set())
+                self.assertEqual(records, [])
+                self.assertEqual(mem0_server._scope_locks, {})
+
     def test_provider_rate_limit_is_typed_429_without_upstream_credentials(self):
         request = httpx.Request("POST", "https://provider.example/v1/chat/completions")
         upstream = APIStatusError("private-provider-key", response=httpx.Response(429, request=request), body={"code":"ModelAccountTpmRateLimitExceeded"})
@@ -619,6 +668,59 @@ class EntityBulkEndpointTest(unittest.TestCase):
 
 
 class ResponseMetadataTest(unittest.TestCase):
+    def test_native_sdk_validates_extraction_before_committing_partial_memories(self):
+        content = json.dumps({"memory": [{"text": "The favorite drink is tea."},
+                                        {"text": "The preferred sport is tennis."}]})
+        for thinking in ("", "disabled"):
+            for mode in ("truncated", "invalid_json", "missing_callback", "valid"):
+                with self.subTest(thinking=thinking, mode=mode), tempfile.TemporaryDirectory() as directory:
+                    config = {
+                        "version": "v1.1", "history_db_path": directory + "/history.db",
+                        "llm": {"provider": "openai", "config": {"model": "fixture", "api_key": "fixture"}},
+                        "embedder": {"provider": "openai", "config": {"model": "fixture", "api_key": "fixture", "embedding_dims": 2}},
+                        "vector_store": {"provider": "qdrant", "config": {"collection_name": "fixture", "path": directory + "/qdrant", "embedding_model_dims": 2}},
+                    }
+                    memory = mem0_server._configured_memory(config, thinking, "openai")
+
+                    def respond(request):
+                        return httpx.Response(200, json={
+                            "id": "fixture", "object": "chat.completion", "created": 0, "model": "fixture",
+                            "choices": [{"index": 0, "finish_reason": "length" if mode == "truncated" else "stop",
+                                         "message": {"role": "assistant", "content": "prefix " + content if mode == "invalid_json" else content}}],
+                        })
+
+                    memory.llm.client.close()
+                    memory.llm.client = OpenAI(api_key="fixture", http_client=httpx.Client(transport=httpx.MockTransport(respond)))
+                    if mode == "missing_callback":
+                        memory.llm.config.response_callback = None
+                    memory.embedding_model.client.close()
+                    memory.embedding_model = mock.Mock(embed=mock.Mock(return_value=[1.0, 0.0]),
+                                                       embed_batch=lambda texts, *args: [[1.0, 0.0] for _ in texts])
+                    try:
+                        with mock.patch.object(mem0_server, "_memory", memory), mock.patch.object(mem0_server, "_service_api_key", ""), contextlib.redirect_stdout(io.StringIO()):
+                            memory.add(messages=[{"role": "user", "content": "Existing memory."}], user_id="scope", infer=False)
+                            before = memory.get_all(filters={"user_id": "scope"})
+                            client = TestClient(mem0_server.app)
+                            try:
+                                with mock.patch.object(memory.db, "save_messages", wraps=memory.db.save_messages) as save_messages:
+                                    response = client.post("/memories", json={"messages": [{"role": "user", "content": "fixture"}], "user_id": "scope"})
+                            finally:
+                                client.close()
+                            after = memory.get_all(filters={"user_id": "scope"})
+                            if mode == "valid":
+                                self.assertEqual(response.status_code, 200)
+                                self.assertEqual(len(response.json()["results"]), 2)
+                                self.assertEqual(len(after["results"]), 3)
+                            else:
+                                self.assertEqual(response.status_code, 502)
+                                self.assertEqual(after, before)
+                                save_messages.assert_not_called()
+                            self.assertFalse(mem0_server._operation_state.extraction_required)
+                    finally:
+                        memory.llm.client.close()
+                        memory.vector_store.client.close()
+                        memory.close()
+
     def test_diagnostics_do_not_include_model_text_or_credentials(self):
         response = SimpleNamespace(
             choices=[SimpleNamespace(

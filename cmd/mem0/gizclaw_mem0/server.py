@@ -17,7 +17,7 @@ import re
 import os
 import threading
 import time
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import ExitStack, asynccontextmanager, contextmanager
 from importlib.metadata import version
 from typing import Any
 
@@ -57,7 +57,12 @@ class CompatibleOpenAILLM(OpenAILLM):
 
     def generate_response(self, *args, **kwargs):
         _operation_state.llm_started = time.perf_counter()
-        return super().generate_response(*args, **kwargs)
+        response = super().generate_response(*args, **kwargs)
+        # Mem0 swallows exceptions from response_callback. Validate here before
+        # its add pipeline can embed or persist the extracted candidates.
+        if getattr(_operation_state, "extraction_required", False):
+            _validate_extraction_response()
+        return response
 
     def _get_supported_params(self, **kwargs: Any) -> dict[str, Any]:
         params = super()._get_supported_params(**kwargs)
@@ -261,18 +266,24 @@ def _write_lock(routing: dict[str, str]):
         with _memory_lock:
             yield
         return
-    key = tuple(sorted(routing.items()))
+    # A broader purge must share locks with every matching compound entity.
+    # Acquire in one order so requests with multiple entities cannot deadlock.
+    keys = sorted(routing.items())
     with _scope_guard:
-        entry = _scope_locks.setdefault(key, [threading.RLock(), 0])
-        entry[1] += 1
+        entries = [_scope_locks.setdefault(key, [threading.RLock(), 0]) for key in keys]
+        for entry in entries:
+            entry[1] += 1
     try:
-        with entry[0]:
+        with ExitStack() as held:
+            for entry in entries:
+                held.enter_context(entry[0])
             yield
     finally:
         with _scope_guard:
-            entry[1] -= 1
-            if entry[1] == 0:
-                del _scope_locks[key]
+            for key, entry in zip(keys, entries):
+                entry[1] -= 1
+                if entry[1] == 0:
+                    del _scope_locks[key]
 
 
 @contextmanager
@@ -282,6 +293,12 @@ def _read_lock():
     else:
         with _memory_lock:
             yield
+
+
+def _validate_extraction_response():
+    extraction = getattr(_operation_state, "extraction_response", None)
+    if extraction is None or not extraction["valid_json"] or extraction["finish_reason"] != "stop":
+        raise HTTPException(status_code=502, detail="Mem0 extraction failed or returned incomplete/invalid memory JSON")
 
 
 def _report_llm_response(_: Any, response: Any, __: Any) -> None:
@@ -468,9 +485,8 @@ def _configured_memory(config: dict[str, Any], thinking: str, embedding_protocol
         if config["vector_store"]["config"].get("embedding_model_dims") != embedding["embedding_dims"]:
             raise RuntimeError("Mem0 vector store and Ark embedding dimensions must match")
     memory = Memory.from_config(config)
-    if thinking or luna or service_tier:
-        memory.llm.client.close()
-        memory.llm = ThinkingOpenAILLM(memory.llm.config, thinking, service_tier) if thinking else CompatibleOpenAILLM(memory.llm.config, service_tier)
+    memory.llm.client.close()
+    memory.llm = ThinkingOpenAILLM(memory.llm.config, thinking, service_tier) if thinking else CompatibleOpenAILLM(memory.llm.config, service_tier)
     if embedding_protocol == "ark_multimodal":
         memory.embedding_model.client.close()
         memory.embedding_model = ArkMultimodalEmbedding(memory.embedding_model.config)
@@ -598,23 +614,24 @@ def add_memory(request: MemoryCreate) -> dict[str, Any]:
             embedding = _get_memory().embedding_model
             if isinstance(embedding, ArkMultimodalEmbedding):
                 embedding.last_error = None
-            result = _get_memory().add(
-                messages=[message.model_dump(exclude_none=True) for message in request.messages],
-                metadata=request.metadata,
-                infer=request.infer,
-                prompt=request.prompt if request.infer else None,
-                **routing,
-            )
+            _operation_state.extraction_required = request.infer
+            try:
+                result = _get_memory().add(
+                    messages=[message.model_dump(exclude_none=True) for message in request.messages],
+                    metadata=request.metadata,
+                    infer=request.infer,
+                    prompt=request.prompt if request.infer else None,
+                    **routing,
+                )
+            finally:
+                _operation_state.extraction_required = False
             if isinstance(embedding, ArkMultimodalEmbedding) and embedding.last_error is not None:
                 raise HTTPException(status_code=502, detail="Mem0 embedding failed")
-            extraction = getattr(_operation_state, "extraction_response", None)
-            if request.infer and (
-                extraction is None
-                or not extraction["valid_json"]
-                or extraction["finish_reason"] != "stop"
-            ):
-                raise HTTPException(status_code=502, detail="Mem0 extraction failed or returned incomplete/invalid memory JSON")
             entries = _result_entries(result)
+            if request.infer and not entries:
+                # An empty result has no committed facts; still distinguish a
+                # valid empty extraction from an SDK path that skipped the LLM.
+                _validate_extraction_response()
             for entry in entries:
                 if entry.get("event") == "ADD" and not isinstance(_get_memory().get(entry["id"]), dict):
                     raise HTTPException(status_code=502, detail="Mem0 reported a fact that was not persisted")
