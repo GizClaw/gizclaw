@@ -60,8 +60,11 @@ objects or adopt an Edge-specific contract.
 Conn registers in-flight Pion stats reads for connection, dial-failure, and
 terminal diagnostics. Shutdown stops new reads and waits for admitted readers
 before releasing the PeerConnection. Both collection and waiting run outside
-the registration mutex. This preserves all ICE candidate-pair counters while
-preventing concurrent destruction of the stats collector.
+the registration mutex. Diagnostics read selected-pair statistics directly from
+the ICE transport and retain all available ICE candidate-pair counters. They do
+not invoke the full PeerConnection.GetStats RTP collector, including when Pion
+closes the connection internally. A changed selected pair or unavailable
+statistics suppresses the counter snapshot.
 
 The 2026-08-04 same-head causal diagnostic used this public Giznet transport
 without the product Edge or Server. Three 32 MiB runs per direction measured

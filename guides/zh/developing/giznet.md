@@ -57,7 +57,9 @@ contract。
 
 连接、拨号失败和终止诊断由 Conn 登记正在进行的 Pion stats 读取。关闭时停止接收
 新的读取，等已有读取完成后再释放 PeerConnection；读取和等待都在登记状态锁外执行。
-该生命周期约束保留全部 ICE candidate-pair 计数，并避免 stats collector 与关闭并发释放。
+诊断直接读取 ICE transport 的 selected-pair 统计，保留全部可用 ICE candidate-pair 计数。
+不调用完整 PeerConnection.GetStats 的 RTP collector，因此 Pion 内部自动关闭连接时也不会
+与该 collector 的释放竞争。读取期间选中的 pair 改变或统计不可用时，不发布混合的计数。
 
 2026-08-04 的 same-head 因果诊断只使用这层 public Giznet transport，不包含产品 Edge 或
 Server。每方向三次 32 MiB 测得 direct 818/798 Mbps、REST Coturn 488/526 Mbps
