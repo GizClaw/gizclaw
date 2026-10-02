@@ -39,6 +39,9 @@ _ROUTING_FIELDS = ("user_id", "agent_id", "run_id")
 _CREDENTIAL_FILE = os.environ.get("MEM0_CREDENTIAL_FILE", "")
 _memory: Memory | None = None
 _memory_lock = threading.RLock()
+# Purges and ID mutations coordinate before an ID's entity routing is known.
+# Routed adds keep using entity locks and remain concurrent across PG scopes.
+_purge_lock = threading.RLock()
 _operation_state = threading.local()
 _scope_guard = threading.Lock()
 _scope_locks: dict[tuple, list] = {}
@@ -689,7 +692,7 @@ def delete_memories(
         routing = _routing_kwargs(
             {"user_id": user_id, "agent_id": agent_id, "run_id": run_id}
         )
-        with _write_lock(routing):
+        with _purge_lock, _write_lock(routing):
             _get_memory().delete_all(**routing)
         return {"message": "Memories deleted successfully!"}
     except ValueError as error:
@@ -711,16 +714,17 @@ def get_memory(memory_id: str) -> dict[str, Any]:
 @app.put("/memories/{memory_id}", operation_id="updateMemory", response_model=MemoryResults, response_model_exclude_unset=True)
 def update_memory(memory_id: str, request: MemoryUpdate) -> dict[str, Any]:
     try:
-        with _read_lock():
-            existing = _get_memory().get(memory_id)
-        if not isinstance(existing, dict):
-            raise ValueError("Mem0 returned an invalid memory")
-        routing = _routing_kwargs(existing)
-        with _write_lock(routing):
-            _get_memory().update(memory_id=memory_id, data=request.text)
-            result = _get_memory().get(memory_id)
-        if not isinstance(result, dict):
-            raise ValueError("Mem0 returned an invalid memory")
+        with _purge_lock:
+            with _read_lock():
+                existing = _get_memory().get(memory_id)
+            if not isinstance(existing, dict):
+                raise ValueError("Mem0 returned an invalid memory")
+            routing = _routing_kwargs(existing)
+            with _write_lock(routing):
+                _get_memory().update(memory_id=memory_id, data=request.text)
+                result = _get_memory().get(memory_id)
+            if not isinstance(result, dict):
+                raise ValueError("Mem0 returned an invalid memory")
         return {"results": [result]}
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
@@ -729,12 +733,13 @@ def update_memory(memory_id: str, request: MemoryUpdate) -> dict[str, Any]:
 @app.delete("/memories/{memory_id}", operation_id="deleteMemory", status_code=204)
 def delete_memory(memory_id: str) -> Response:
     try:
-        with _read_lock():
-            existing = _get_memory().get(memory_id)
-        if not isinstance(existing, dict):
-            raise ValueError("Mem0 returned an invalid memory")
-        with _write_lock(_routing_kwargs(existing)):
-            _get_memory().delete(memory_id=memory_id)
+        with _purge_lock:
+            with _read_lock():
+                existing = _get_memory().get(memory_id)
+            if not isinstance(existing, dict):
+                raise ValueError("Mem0 returned an invalid memory")
+            with _write_lock(_routing_kwargs(existing)):
+                _get_memory().delete(memory_id=memory_id)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     return Response(status_code=204)

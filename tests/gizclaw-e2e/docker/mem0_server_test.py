@@ -438,6 +438,86 @@ class LayoutPolicyTest(unittest.TestCase):
 
 
 class ConcurrentOperationTest(unittest.TestCase):
+    def test_id_mutations_resolve_before_matching_purge_can_run(self):
+        for mutation in ("update", "delete"):
+            with self.subTest(mutation=mutation):
+                memory = mock.Mock()
+                memory.config.vector_store.provider = "pgvector"
+                looked_up, release, purge_started, purged = (threading.Event() for _ in range(4))
+                order = []
+                record = {"id": "fact", "user_id": "scope", "agent_id": "agent"}
+
+                def get(memory_id):
+                    if not looked_up.is_set():
+                        order.append("lookup")
+                        looked_up.set()
+                        if not release.wait(3):
+                            raise RuntimeError("lookup was not released")
+                    return record
+
+                def purge(**kwargs):
+                    order.append("purge")
+                    purged.set()
+
+                def remove_scope():
+                    purge_started.set()
+                    return mem0_server.delete_memories(user_id="scope")
+
+                memory.get.side_effect = get
+                memory.update.side_effect = lambda **kwargs: order.append("update")
+                memory.delete.side_effect = lambda **kwargs: order.append("delete")
+                memory.delete_all.side_effect = purge
+                call = (lambda: mem0_server.update_memory("fact", mem0_server.MemoryUpdate(text="updated"))) if mutation == "update" else (lambda: mem0_server.delete_memory("fact"))
+                with mock.patch.object(mem0_server, "_memory", memory), ThreadPoolExecutor(max_workers=2) as pool:
+                    writer = pool.submit(call)
+                    self.assertTrue(looked_up.wait(3))
+                    cleaner = pool.submit(remove_scope)
+                    try:
+                        self.assertTrue(purge_started.wait(3))
+                        self.assertFalse(purged.wait(0.1))
+                    finally:
+                        release.set()
+                    writer.result(timeout=3)
+                    cleaner.result(timeout=3)
+                self.assertEqual(order, ["lookup", mutation, "purge"])
+                self.assertEqual(mem0_server._scope_locks, {})
+
+    def test_id_lookup_waits_for_an_in_progress_purge(self):
+        memory = mock.Mock()
+        memory.config.vector_store.provider = "pgvector"
+        entered, release, lookup, started = (threading.Event() for _ in range(4))
+
+        def purge(**kwargs):
+            entered.set()
+            if not release.wait(3):
+                raise RuntimeError("purge was not released")
+
+        def get(memory_id):
+            lookup.set()
+            return None
+
+        def update():
+            started.set()
+            try:
+                mem0_server.update_memory("gone", mem0_server.MemoryUpdate(text="updated"))
+            except mem0_server.HTTPException as error:
+                return error.status_code
+
+        memory.delete_all.side_effect = purge
+        memory.get.side_effect = get
+        with mock.patch.object(mem0_server, "_memory", memory), ThreadPoolExecutor(max_workers=2) as pool:
+            cleaner = pool.submit(mem0_server.delete_memories, user_id="scope")
+            self.assertTrue(entered.wait(3))
+            writer = pool.submit(update)
+            try:
+                self.assertTrue(started.wait(3))
+                self.assertFalse(lookup.wait(0.1))
+            finally:
+                release.set()
+            cleaner.result(timeout=3)
+            self.assertEqual(writer.result(timeout=3), 400)
+        memory.update.assert_not_called()
+
     def test_compound_entity_write_finishes_before_overlapping_purge(self):
         for entity in mem0_server._ROUTING_FIELDS:
             with self.subTest(entity=entity):
