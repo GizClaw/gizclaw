@@ -202,7 +202,8 @@ func TestDeviceHTTPReadsAreOwnerBound(t *testing.T) {
 func TestDeviceHTTPTelemetryUsesOwnerAndValidatesQuery(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 	ctx := context.Background()
-	at := time.Date(2026, 9, 2, 8, 0, 0, 0, time.UTC)
+	// Keep the fixture inside the latest query's bounded 30-day lookback.
+	at := time.Now().UTC().Add(-time.Minute).Truncate(time.Millisecond)
 	other := giznet.PublicKey{5}
 	for key, value := range map[giznet.PublicKey]float64{f.owner: 61, other: 7} {
 		if err := f.metrics.Append(ctx, []metrics.Sample{{
