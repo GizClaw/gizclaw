@@ -3019,6 +3019,30 @@ func (e VolcTenantModelProviderDataApiMode) Valid() bool {
 	}
 }
 
+// Defines values for VolcTenantModelProviderDataServiceTier.
+const (
+	VolcTenantModelProviderDataServiceTierAuto    VolcTenantModelProviderDataServiceTier = "auto"
+	VolcTenantModelProviderDataServiceTierDefault VolcTenantModelProviderDataServiceTier = "default"
+	VolcTenantModelProviderDataServiceTierFast    VolcTenantModelProviderDataServiceTier = "fast"
+	VolcTenantModelProviderDataServiceTierFlex    VolcTenantModelProviderDataServiceTier = "flex"
+)
+
+// Valid indicates whether the value is a known member of the VolcTenantModelProviderDataServiceTier enum.
+func (e VolcTenantModelProviderDataServiceTier) Valid() bool {
+	switch e {
+	case VolcTenantModelProviderDataServiceTierAuto:
+		return true
+	case VolcTenantModelProviderDataServiceTierDefault:
+		return true
+	case VolcTenantModelProviderDataServiceTierFast:
+		return true
+	case VolcTenantModelProviderDataServiceTierFlex:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for VolcTenantResourceKind.
 const (
 	VolcTenantResourceKindVolcTenant VolcTenantResourceKind = "VolcTenant"
@@ -6408,20 +6432,26 @@ type VolcTenantModelProviderData struct {
 	ApiMode              VolcTenantModelProviderDataApiMode `json:"api_mode"`
 	DefaultThinkingLevel *string                            `json:"default_thinking_level,omitempty"`
 	ResourceId           *string                            `json:"resource_id,omitempty"`
-	SupportJsonOutput    *bool                              `json:"support_json_output,omitempty"`
-	SupportTemperature   *bool                              `json:"support_temperature,omitempty"`
-	SupportTextOnly      *bool                              `json:"support_text_only,omitempty"`
-	SupportThinking      *bool                              `json:"support_thinking,omitempty"`
-	SupportToolCalls     *bool                              `json:"support_tool_calls,omitempty"`
-	ThinkingLevelParam   *string                            `json:"thinking_level_param,omitempty"`
-	ThinkingLevels       *[]string                          `json:"thinking_levels,omitempty"`
-	ThinkingParam        *string                            `json:"thinking_param,omitempty"`
-	UpstreamModel        *string                            `json:"upstream_model,omitempty"`
-	UseSystemRole        *bool                              `json:"use_system_role,omitempty"`
+
+	// ServiceTier Volc Ark inference tier, only for chat_completions. fast requests low-latency inference; auto prefers a TPM guarantee package; default uses regular inference; flex uses lower-priority inference. Omitted values leave the upstream default unchanged. Low-latency service must be enabled for the selected model; Ark may fall back to regular inference.
+	ServiceTier        *VolcTenantModelProviderDataServiceTier `json:"service_tier,omitempty"`
+	SupportJsonOutput  *bool                                   `json:"support_json_output,omitempty"`
+	SupportTemperature *bool                                   `json:"support_temperature,omitempty"`
+	SupportTextOnly    *bool                                   `json:"support_text_only,omitempty"`
+	SupportThinking    *bool                                   `json:"support_thinking,omitempty"`
+	SupportToolCalls   *bool                                   `json:"support_tool_calls,omitempty"`
+	ThinkingLevelParam *string                                 `json:"thinking_level_param,omitempty"`
+	ThinkingLevels     *[]string                               `json:"thinking_levels,omitempty"`
+	ThinkingParam      *string                                 `json:"thinking_param,omitempty"`
+	UpstreamModel      *string                                 `json:"upstream_model,omitempty"`
+	UseSystemRole      *bool                                   `json:"use_system_role,omitempty"`
 }
 
 // VolcTenantModelProviderDataApiMode defines model for VolcTenantModelProviderData.ApiMode.
 type VolcTenantModelProviderDataApiMode string
+
+// VolcTenantModelProviderDataServiceTier Volc Ark inference tier, only for chat_completions. fast requests low-latency inference; auto prefers a TPM guarantee package; default uses regular inference; flex uses lower-priority inference. Omitted values leave the upstream default unchanged. Low-latency service must be enabled for the selected model; Ark may fall back to regular inference.
+type VolcTenantModelProviderDataServiceTier string
 
 // VolcTenantResource defines model for VolcTenantResource.
 type VolcTenantResource struct {

@@ -32,6 +32,27 @@ Credential 使用本地 SQL `credentials` 表，ID、Provider、描述、时间�
 
 Model 使用本地 SQL `models` 表。ID、模型类型、来源、Provider 类型与 ID、显示信息和时间分别保存为列，Provider 配置保留 JSON。启动阶段创建表及来源、Provider 查询索引；列表把游标、所有筛选条件、排序和数量限制下推 SQL，一次读取完整记录。更新保留创建时间和同步时间，通过 SQL 条件禁止修改同步模型，也不会重新创建已删除的记录。
 
+Volc 方舟 `chat_completions` Model 可在 `provider_data.service_tier` 配置推理档位：`fast` 请求低延迟推理，`auto` 优先使用 TPM 保障包，`default` 使用常规推理，`flex` 使用低优推理。省略时不发送该参数，沿用上游默认行为。该字段仅用于 `kind: llm`、`provider.kind: volc-tenant` 和 `api_mode: chat_completions`；其他模式和非法值会在资源校验时拒绝。流式回复与结构化 `Invoke` 都发送该档位，音频输入适配同样保留它。
+
+```yaml
+apiVersion: gizclaw.admin/v1alpha1
+kind: Model
+metadata:
+  id: doubao-fast
+spec:
+  kind: llm
+  source: manual
+  provider:
+    kind: volc-tenant
+    id: volc-main
+  provider_data:
+    upstream_model: doubao-seed-2-0-lite-260215
+    api_mode: chat_completions
+    service_tier: fast
+```
+
+低延迟服务需在火山控制台为所选模型及推理接入点开通；模型支持范围以[官方低延迟推理说明](https://docs.volcengine.com/docs/ark/online-inference-low-latency?lang=zh)为准。触发 fast 限流或突增流量保护时，上游可降级为常规推理；`fast` 不保证每次请求都使用低延迟资源。
+
 ### memorylayout
 
 拥有 connection-free `MemoryLayout` Admin 资源。一个 Layout 同时声明 Flowcraft、Mem0 与 `volc_mem0` policy；实际 driver、endpoint、API key、project、DSN 或目录由 RuntimeProfile memory binding 选择。详见 [Memory Store](/zh/developing/stores/memory)。

@@ -18,7 +18,7 @@ func TestModelRPCProjectionUsesExactlyTheSelectedProviderData(t *testing.T) {
 		{kind: apitypes.ModelProviderKindOpenaiTenant, data: testModelProviderData(t, apitypes.OpenAITenantModelProviderData{UpstreamModel: upstream})},
 		{kind: apitypes.ModelProviderKindGeminiTenant, data: testModelProviderData(t, apitypes.GeminiTenantModelProviderData{UpstreamModel: upstream})},
 		{kind: apitypes.ModelProviderKindDashscopeTenant, data: testModelProviderData(t, apitypes.DashScopeTenantModelProviderData{ApiMode: &dashScopeMode, UpstreamModel: &upstream})},
-		{kind: apitypes.ModelProviderKindVolcTenant, data: testModelProviderData(t, apitypes.VolcTenantModelProviderData{ApiMode: volcMode, UpstreamModel: &upstream})},
+		{kind: apitypes.ModelProviderKindVolcTenant, data: testModelProviderData(t, apitypes.VolcTenantModelProviderData{ApiMode: volcMode, UpstreamModel: &upstream, ServiceTier: new(apitypes.VolcTenantModelProviderDataServiceTierFast)})},
 		{kind: apitypes.ModelProviderKindMinimaxTenant, data: testModelProviderData(t, apitypes.MiniMaxTenantModelProviderData{ApiMode: apitypes.MiniMaxTenantModelProviderDataApiModeChatCompletions, UpstreamModel: upstream})},
 		{kind: apitypes.ModelProviderKindDeepseekTenant, data: testModelProviderData(t, apitypes.DeepSeekTenantModelProviderData{ApiMode: apitypes.DeepSeekTenantModelProviderDataApiModeChatCompletions, UpstreamModel: upstream})},
 	}
@@ -39,6 +39,10 @@ func TestModelRPCProjectionUsesExactlyTheSelectedProviderData(t *testing.T) {
 			if tt.kind == apitypes.ModelProviderKindDashscopeTenant &&
 				(got.DashScopeTenant == nil || got.DashScopeTenant.ApiMode == nil || string(*got.DashScopeTenant.ApiMode) != string(dashScopeMode)) {
 				t.Fatalf("modelRPCProjection() lost DashScope api_mode: %#v", got.DashScopeTenant)
+			}
+			if tt.kind == apitypes.ModelProviderKindVolcTenant &&
+				(got.VolcTenant == nil || got.VolcTenant.ServiceTier == nil || *got.VolcTenant.ServiceTier != "fast") {
+				t.Fatalf("modelRPCProjection() lost Volc service_tier: %#v", got.VolcTenant)
 			}
 		})
 	}

@@ -1,0 +1,102 @@
+# User Story:
+# As a device using a Doubao fast Model,
+# I want three real replies through GizClaw and WebRTC,
+# So that the configured service tier is verified across the runtime path.
+version: gizclaw.test/v1alpha1
+name: doubao-service-tier.fast
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request: {token: "${registration_token}"}
+  - id: get_fast_model
+    client: peer
+    rpc:
+      method: server.model.get
+      request: {name: llm}
+    expect:
+      /value/volc_tenant/service_tier: {equals: fast}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        workflow_name: doubao-fast
+        parameters:
+          flowcraft_workspace_parameters:
+            agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+  - id: select_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: "${workspace_name}"}
+  - id: apple
+    client: peer
+    timeout: 45s
+    peer_stream:
+      mode: text
+      text_done: true
+      input: 请只回答：苹果。
+      require_audio: false
+      idle_timeout: 30s
+    expect:
+      /text: {contains: 苹果}
+      /text_eos: {equals: true}
+  - id: moon
+    client: peer
+    timeout: 45s
+    peer_stream:
+      mode: text
+      text_done: true
+      input: 请只回答：月亮。
+      require_audio: false
+      idle_timeout: 30s
+    expect:
+      /text: {contains: 月亮}
+      /text_eos: {equals: true}
+  - id: ocean
+    client: peer
+    timeout: 45s
+    peer_stream:
+      mode: text
+      text_done: true
+      input: 请只回答：大海。
+      require_audio: false
+      idle_timeout: 30s
+    expect:
+      /text: {contains: 大海}
+      /text_eos: {equals: true}
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request: {name: "${workspace_name}"}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

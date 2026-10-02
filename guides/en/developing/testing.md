@@ -20,6 +20,21 @@ reconnect rejection, and successful reconnect/ping after approve. It covers omit
 `peer_forbidden`. It has no build tag and runs in normal Go CI without an AI
 provider, external credentials, or Docker.
 
+## Live Doubao low-latency Giztest
+
+Set a real `GIZCLAW_E2E_VOLC_ARK_API_KEY`, then run:
+
+```sh
+GIZCLAW_E2E_DOUBAO_FAST_MODEL=doubao-seed-2-1-lite-260915 \
+GIZCLAW_E2E_SERVICE_TIER_REPORT_DIR="$(mktemp -d)" \
+  go test -tags=gizclaw_provider_e2e ./cmd/internal/server \
+  -run '^TestDoubaoServiceTierGiztest$' -count=1 -timeout=5m -v
+```
+
+The test creates a Credential, Volc Tenant, `service_tier: fast` Model, Flowcraft Workflow, RuntimeProfile, and RegistrationToken through Admin HTTP. It starts a real Server with temporary state and runs three WebRTC text turns from `testdata/doubao-service-tier/fast.giztest.yaml`. The default model is `doubao-seed-2-0-mini-260428`; `GIZCLAW_E2E_DOUBAO_FAST_MODEL` can select another Model ID or Endpoint ID with low-latency service enabled.
+
+A transparent observer forwards requests to the real Ark HTTPS API without replacing upstream responses. All three turns must return the expected text and EOS, request `fast`, receive HTTP 200, and report actual upstream execution as `fast`. A fallback to `default` or an absent tier fails acceptance. The report directory contains redacted `giztest.json` and `ark-tiers.json` with only tier, status, timing, token metadata, and failure codes. Missing credentials fail explicitly. This test incurs real provider usage and is excluded from ordinary Go tests without the build tag.
+
 ## RegistrationToken admission and lifecycle
 
 ```sh

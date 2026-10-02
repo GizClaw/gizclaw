@@ -3013,6 +3013,15 @@ const VolcTenantModelProviderData$json = {
       '10': 'defaultThinkingLevel',
       '17': true
     },
+    {
+      '1': 'service_tier',
+      '3': 14,
+      '4': 1,
+      '5': 9,
+      '9': 12,
+      '10': 'serviceTier',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_upstream_model'},
@@ -3027,6 +3036,7 @@ const VolcTenantModelProviderData$json = {
     {'1': '_thinking_param'},
     {'1': '_thinking_level_param'},
     {'1': '_default_thinking_level'},
+    {'1': '_service_tier'},
   ],
 };
 
@@ -3043,12 +3053,13 @@ final $typed_data.Uint8List volcTenantModelProviderDataDescriptor = $convert.bas
     'KgoOdGhpbmtpbmdfcGFyYW0YCiABKAlICVINdGhpbmtpbmdQYXJhbYgBARI1ChR0aGlua2luZ1'
     '9sZXZlbF9wYXJhbRgLIAEoCUgKUhJ0aGlua2luZ0xldmVsUGFyYW2IAQESJwoPdGhpbmtpbmdf'
     'bGV2ZWxzGAwgAygJUg50aGlua2luZ0xldmVscxI5ChZkZWZhdWx0X3RoaW5raW5nX2xldmVsGA'
-    '0gASgJSAtSFGRlZmF1bHRUaGlua2luZ0xldmVsiAEBQhEKD191cHN0cmVhbV9tb2RlbEIOCgxf'
-    'cmVzb3VyY2VfaWRCCwoJX2FwaV9tb2RlQhYKFF9zdXBwb3J0X2pzb25fb3V0cHV0QhUKE19zdX'
-    'Bwb3J0X3Rvb2xfY2FsbHNCFAoSX3N1cHBvcnRfdGV4dF9vbmx5QhYKFF9zdXBwb3J0X3RlbXBl'
-    'cmF0dXJlQhMKEV9zdXBwb3J0X3RoaW5raW5nQhIKEF91c2Vfc3lzdGVtX3JvbGVCEQoPX3RoaW'
-    '5raW5nX3BhcmFtQhcKFV90aGlua2luZ19sZXZlbF9wYXJhbUIZChdfZGVmYXVsdF90aGlua2lu'
-    'Z19sZXZlbA==');
+    '0gASgJSAtSFGRlZmF1bHRUaGlua2luZ0xldmVsiAEBEiYKDHNlcnZpY2VfdGllchgOIAEoCUgM'
+    'UgtzZXJ2aWNlVGllcogBAUIRCg9fdXBzdHJlYW1fbW9kZWxCDgoMX3Jlc291cmNlX2lkQgsKCV'
+    '9hcGlfbW9kZUIWChRfc3VwcG9ydF9qc29uX291dHB1dEIVChNfc3VwcG9ydF90b29sX2NhbGxz'
+    'QhQKEl9zdXBwb3J0X3RleHRfb25seUIWChRfc3VwcG9ydF90ZW1wZXJhdHVyZUITChFfc3VwcG'
+    '9ydF90aGlua2luZ0ISChBfdXNlX3N5c3RlbV9yb2xlQhEKD190aGlua2luZ19wYXJhbUIXChVf'
+    'dGhpbmtpbmdfbGV2ZWxfcGFyYW1CGQoXX2RlZmF1bHRfdGhpbmtpbmdfbGV2ZWxCDwoNX3Nlcn'
+    'ZpY2VfdGllcg==');
 
 @$core.Deprecated('Use miniMaxTenantModelProviderDataDescriptor instead')
 const MiniMaxTenantModelProviderData$json = {

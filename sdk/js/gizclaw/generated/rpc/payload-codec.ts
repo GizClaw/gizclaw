@@ -1294,6 +1294,7 @@ export type VolcTenantModelProviderData = {
   "thinking_level_param"?: string;
   "thinking_levels": string[];
   "default_thinking_level"?: string;
+  "service_tier"?: string;
 };
 export type WifiHwdReadResponse = {
   "connected"?: boolean;
@@ -7244,6 +7245,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "default_thinking_level",
         "number": 13,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "service_tier",
+        "number": 14,
         "optional": true,
         "type": "string"
       }

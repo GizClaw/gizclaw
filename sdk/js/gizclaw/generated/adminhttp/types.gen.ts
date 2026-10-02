@@ -1248,6 +1248,10 @@ export type OpenAiTenantModelProviderData = {
 export type VolcTenantModelProviderData = {
     upstream_model?: string;
     api_mode: 'asr' | 'tts' | 'realtime' | 'realtime_duplex' | 'translation' | 'chat_completions' | 'embedding';
+    /**
+     * Volc Ark inference tier, only for chat_completions. fast requests low-latency inference; auto prefers a TPM guarantee package; default uses regular inference; flex uses lower-priority inference. Omitted values leave the upstream default unchanged. Low-latency service must be enabled for the selected model; Ark may fall back to regular inference.
+     */
+    service_tier?: 'auto' | 'default' | 'fast' | 'flex';
     resource_id?: string;
     support_json_output?: boolean;
     support_tool_calls?: boolean;

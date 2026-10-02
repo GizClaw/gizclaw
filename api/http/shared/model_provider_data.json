@@ -118,6 +118,11 @@
         "properties": {
           "upstream_model": { "type": "string" },
           "api_mode": { "type": "string", "enum": ["asr", "tts", "realtime", "realtime_duplex", "translation", "chat_completions", "embedding"] },
+          "service_tier": {
+            "type": "string",
+            "enum": ["auto", "default", "fast", "flex"],
+            "description": "Volc Ark inference tier, only for chat_completions. fast requests low-latency inference; auto prefers a TPM guarantee package; default uses regular inference; flex uses lower-priority inference. Omitted values leave the upstream default unchanged. Low-latency service must be enabled for the selected model; Ark may fall back to regular inference."
+          },
           "resource_id": { "type": "string" },
           "support_json_output": { "type": "boolean" },
           "support_tool_calls": { "type": "boolean" },

@@ -3715,8 +3715,10 @@ type VolcTenantModelProviderData struct {
 	ThinkingLevelParam   *string                `protobuf:"bytes,11,opt,name=thinking_level_param,json=thinkingLevelParam,proto3,oneof" json:"thinking_level_param,omitempty"`
 	ThinkingLevels       []string               `protobuf:"bytes,12,rep,name=thinking_levels,json=thinkingLevels,proto3" json:"thinking_levels,omitempty"`
 	DefaultThinkingLevel *string                `protobuf:"bytes,13,opt,name=default_thinking_level,json=defaultThinkingLevel,proto3,oneof" json:"default_thinking_level,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// Volc Ark chat_completions inference tier: auto, default, fast, or flex.
+	ServiceTier   *string `protobuf:"bytes,14,opt,name=service_tier,json=serviceTier,proto3,oneof" json:"service_tier,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *VolcTenantModelProviderData) Reset() {
@@ -3836,6 +3838,13 @@ func (x *VolcTenantModelProviderData) GetThinkingLevels() []string {
 func (x *VolcTenantModelProviderData) GetDefaultThinkingLevel() string {
 	if x != nil && x.DefaultThinkingLevel != nil {
 		return *x.DefaultThinkingLevel
+	}
+	return ""
+}
+
+func (x *VolcTenantModelProviderData) GetServiceTier() string {
+	if x != nil && x.ServiceTier != nil {
+		return *x.ServiceTier
 	}
 	return ""
 }
@@ -5929,7 +5938,7 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x10_use_system_roleB\x11\n" +
 	"\x0f_thinking_paramB\x17\n" +
 	"\x15_thinking_level_paramB\x19\n" +
-	"\x17_default_thinking_level\"\xff\x06\n" +
+	"\x17_default_thinking_level\"\xb8\a\n" +
 	"\x1bVolcTenantModelProviderData\x12*\n" +
 	"\x0eupstream_model\x18\x01 \x01(\tH\x00R\rupstreamModel\x88\x01\x01\x12$\n" +
 	"\vresource_id\x18\x02 \x01(\tH\x01R\n" +
@@ -5946,7 +5955,8 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x14thinking_level_param\x18\v \x01(\tH\n" +
 	"R\x12thinkingLevelParam\x88\x01\x01\x12'\n" +
 	"\x0fthinking_levels\x18\f \x03(\tR\x0ethinkingLevels\x129\n" +
-	"\x16default_thinking_level\x18\r \x01(\tH\vR\x14defaultThinkingLevel\x88\x01\x01B\x11\n" +
+	"\x16default_thinking_level\x18\r \x01(\tH\vR\x14defaultThinkingLevel\x88\x01\x01\x12&\n" +
+	"\fservice_tier\x18\x0e \x01(\tH\fR\vserviceTier\x88\x01\x01B\x11\n" +
 	"\x0f_upstream_modelB\x0e\n" +
 	"\f_resource_idB\v\n" +
 	"\t_api_modeB\x16\n" +
@@ -5958,7 +5968,8 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x10_use_system_roleB\x11\n" +
 	"\x0f_thinking_paramB\x17\n" +
 	"\x15_thinking_level_paramB\x19\n" +
-	"\x17_default_thinking_level\"\xa2\x06\n" +
+	"\x17_default_thinking_levelB\x0f\n" +
+	"\r_service_tier\"\xa2\x06\n" +
 	"\x1eMiniMaxTenantModelProviderData\x12%\n" +
 	"\x0eupstream_model\x18\x01 \x01(\tR\rupstreamModel\x12\x19\n" +
 	"\bapi_mode\x18\x02 \x01(\tR\aapiMode\x123\n" +

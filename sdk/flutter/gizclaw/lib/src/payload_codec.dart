@@ -860,6 +860,7 @@ const _explicitPresenceFields = <String, Set<int>>{
     10,
     11,
     13,
+    14,
   },
   'gizclaw.rpc.v1.WifiHwdReadResponse': {1, 2, 3, 4, 5},
   'gizclaw.rpc.v1.WifiScanResult': {2, 3, 4, 5},

@@ -2408,6 +2408,7 @@ type VolcTenantModelProviderData struct {
 	ApiMode              *VolcTenantModelProviderDataApiMode `json:"api_mode,omitempty"`
 	DefaultThinkingLevel *string                             `json:"default_thinking_level,omitempty"`
 	ResourceId           *string                             `json:"resource_id,omitempty"`
+	ServiceTier          *string                             `json:"service_tier,omitempty"`
 	SupportJsonOutput    *bool                               `json:"support_json_output,omitempty"`
 	SupportTemperature   *bool                               `json:"support_temperature,omitempty"`
 	SupportTextOnly      *bool                               `json:"support_text_only,omitempty"`

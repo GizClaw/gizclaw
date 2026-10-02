@@ -2586,7 +2586,54 @@ static int test_mhs_codec(void) {
   return 0;
 }
 
+static bool encode_service_tier(pb_ostream_t *stream, const pb_field_t *field,
+                                void *const *arg) {
+  const char *tier = (const char *)*arg;
+  return pb_encode_tag_for_field(stream, field) &&
+         pb_encode_string(stream, (const uint8_t *)tier, strlen(tier));
+}
+
+static bool decode_service_tier(pb_istream_t *stream, const pb_field_t *field,
+                                void **arg) {
+  (void)field;
+  char *tier = (char *)*arg;
+  size_t len = stream->bytes_left;
+  if (len >= 8 || !pb_read(stream, (uint8_t *)tier, len)) {
+    return false;
+  }
+  tier[len] = '\0';
+  return true;
+}
+
+static int test_model_service_tier(void) {
+  gizclaw_rpc_v1_VolcTenantModelProviderData data =
+      gizclaw_rpc_v1_VolcTenantModelProviderData_init_zero;
+  data.service_tier.funcs.encode = encode_service_tier;
+  data.service_tier.arg = (void *)"fast";
+  uint8_t bytes[32];
+  pb_ostream_t output = pb_ostream_from_buffer(bytes, sizeof(bytes));
+  const uint8_t expected[] = {0x72, 0x04, 'f', 'a', 's', 't'};
+  if (!pb_encode(&output, gizclaw_rpc_v1_VolcTenantModelProviderData_fields, &data) ||
+      output.bytes_written != sizeof(expected) ||
+      memcmp(bytes, expected, sizeof(expected)) != 0) {
+    return 1;
+  }
+  gizclaw_rpc_v1_VolcTenantModelProviderData decoded =
+      gizclaw_rpc_v1_VolcTenantModelProviderData_init_zero;
+  char tier[8] = {0};
+  decoded.service_tier.funcs.decode = decode_service_tier;
+  decoded.service_tier.arg = tier;
+  pb_istream_t input = pb_istream_from_buffer(bytes, output.bytes_written);
+  if (!pb_decode(&input, gizclaw_rpc_v1_VolcTenantModelProviderData_fields, &decoded) ||
+      strcmp(tier, "fast") != 0) {
+    return 1;
+  }
+  return 0;
+}
+
 int main(void) {
+  if (test_model_service_tier() != 0)
+    return 1;
   if (test_mhs_codec() != 0)
     return 1;
 
