@@ -113,6 +113,45 @@ func TestQuotaResponseStatesAndCompleteReport(t *testing.T) {
 	}
 }
 
+func TestQuotaPolicyIsolation(t *testing.T) {
+	svc, original := testService(t, func(w http.ResponseWriter, r *http.Request) {
+		decision := quota.QuotaResponse{ValidUntil: time.Now().Add(time.Minute)}
+		if r.Header.Get("Authorization") != "Bearer rotated-key" || r.URL.Path != "/custom/quota" {
+			decision.ExpiresAt = new(time.Now().Add(-time.Hour))
+		}
+		sendDecision(t, w, decision)
+	})
+	rotated := original
+	rotated.ApiKey = "rotated-key"
+	otherEndpoint := rotated
+	otherEndpoint.Endpoint += "/denied"
+	for _, tc := range []struct {
+		name   string
+		policy apitypes.RuntimeProfileQuota
+		denied bool
+	}{
+		{name: "original denied", policy: original, denied: true},
+		{name: "rotated allowed", policy: rotated},
+		{name: "other endpoint denied", policy: otherEndpoint, denied: true},
+		{name: "original still denied", policy: original, denied: true},
+		{name: "rotated still allowed", policy: rotated},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, release, err := svc.Authorize(t.Context(), giznet.PublicKey{7}, tc.policy)
+			if tc.denied {
+				if !errors.Is(err, ErrDenied) {
+					t.Fatalf("error = %v, want denied", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			release()
+		})
+	}
+}
+
 func TestUsableExpiryCancelsDuringBlockedRefresh(t *testing.T) {
 	var requests atomic.Int32
 	refreshStarted := make(chan struct{})

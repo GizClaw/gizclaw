@@ -3,7 +3,6 @@ package peerquota
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -33,9 +32,8 @@ type Reporter interface {
 }
 
 type entryKey struct {
-	peer     giznet.PublicKey
-	endpoint string
-	keyHash  [32]byte
+	peer   giznet.PublicKey
+	policy apitypes.RuntimeProfileQuota
 }
 
 // Service borrows its report source and owns lazy per-identity workers.
@@ -90,7 +88,9 @@ func (s *Service) Authorize(ctx context.Context, peer giznet.PublicKey, policy a
 	if peer.IsZero() || policy.Endpoint == "" || policy.ApiKey == "" {
 		return nil, nil, ErrUnavailable
 	}
-	key := entryKey{peer: peer, endpoint: policy.Endpoint, keyHash: sha256.Sum256([]byte(policy.ApiKey))}
+	// The policy is only an internal cache identity, never a stored verifier.
+	// Compare it exactly so endpoint and credential changes get distinct actors.
+	key := entryKey{peer: peer, policy: policy}
 	for {
 		s.mu.Lock()
 		if s.closed {
