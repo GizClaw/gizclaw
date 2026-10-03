@@ -242,9 +242,6 @@ func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*giz
 			Workflows: apitypes.RuntimeProfileWorkflows{
 
 				adminHistoryWorkflowAlias: binding,
-			}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-				ApiKey: "test-quota-key",
 			},
 		},
 	})

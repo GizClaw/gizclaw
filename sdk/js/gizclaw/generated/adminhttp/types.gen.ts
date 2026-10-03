@@ -1622,7 +1622,17 @@ export type RuntimeProfileMhs = {
     v0?: MhsV0Manifest;
 };
 
-export type RuntimeProfileQuota = {
+/**
+ * Optional provider-call policy. Omitted or null means unlimited. Only custom uses the external Quota HTTP API.
+ */
+export type RuntimeProfileQuota = ({
+    type: 'unlimited';
+} & RuntimeProfileQuotaUnlimited) | ({
+    type: 'custom';
+} & RuntimeProfileQuotaCustom);
+
+export type RuntimeProfileQuotaCustom = {
+    type: 'custom';
     /**
      * Full HTTP(S) endpoint implementing the Quota Service API.
      */
@@ -1631,6 +1641,10 @@ export type RuntimeProfileQuota = {
      * Server-only Bearer API key for the quota service.
      */
     api_key: string;
+};
+
+export type RuntimeProfileQuotaUnlimited = {
+    type: 'unlimited';
 };
 
 /**
@@ -1672,7 +1686,7 @@ export type RuntimeProfileSpec = {
     safety_fences?: RuntimeProfileSafetyFences;
     mhs?: RuntimeProfileMhs;
     app_config?: RuntimeProfileAppConfig;
-    quota: RuntimeProfileQuota;
+    quota?: RuntimeProfileQuota;
 };
 
 export type RuntimeProfileVolcMem0Connection = {

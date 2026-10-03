@@ -127,7 +127,7 @@ func ensureProfileMhsColumn(ctx context.Context, tx *sqlx.Tx) error {
 
 func ensureProfileQuotaColumn(ctx context.Context, tx *sqlx.Tx) error {
 	if tx.DriverName() == "postgres" || tx.DriverName() == "pgx" {
-		_, err := tx.ExecContext(ctx, "ALTER TABLE runtime_profiles ADD COLUMN IF NOT EXISTS quota_json TEXT NOT NULL DEFAULT '{}'")
+		_, err := tx.ExecContext(ctx, "ALTER TABLE runtime_profiles ADD COLUMN IF NOT EXISTS quota_json TEXT NOT NULL DEFAULT 'null'")
 		return err
 	}
 	columns, err := profileTableColumns(ctx, tx)
@@ -137,7 +137,7 @@ func ensureProfileQuotaColumn(ctx context.Context, tx *sqlx.Tx) error {
 	if slices.Contains(columns, "quota_json") {
 		return nil
 	}
-	_, err = tx.ExecContext(ctx, "ALTER TABLE runtime_profiles ADD COLUMN quota_json TEXT NOT NULL DEFAULT '{}'")
+	_, err = tx.ExecContext(ctx, "ALTER TABLE runtime_profiles ADD COLUMN quota_json TEXT NOT NULL DEFAULT 'null'")
 	return err
 }
 
@@ -251,10 +251,39 @@ func scanRuntimeProfileSQL(row profileScanner) (apitypes.RuntimeProfile, profile
 	if err := json.Unmarshal([]byte(j5), &item.Spec.Mhs); err != nil {
 		return item, version, err
 	}
-	if err := json.Unmarshal([]byte(j6), &item.Spec.Quota); err != nil {
+	if item.Spec.Quota, err = decodeRuntimeProfileQuota([]byte(j6)); err != nil {
 		return item, version, err
 	}
 	return item, version, nil
+}
+
+func decodeRuntimeProfileQuota(data []byte) (*apitypes.RuntimeProfileQuota, error) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return nil, fmt.Errorf("runtimeprofile: decode stored quota: %w", err)
+	}
+	// Earlier quota-column initialization stored {} for unconfigured rows.
+	// This compatibility rule applies only to persistence, never API input.
+	if len(fields) == 0 {
+		return nil, nil
+	}
+	if fields["type"] == nil {
+		// Preserve a previously stored HTTP binding as custom, not unlimited.
+		if len(fields) != 2 || fields["endpoint"] == nil || fields["api_key"] == nil {
+			return nil, errors.New("runtimeprofile: invalid stored legacy quota")
+		}
+		fields["type"] = json.RawMessage(`"custom"`)
+		var err error
+		data, err = json.Marshal(fields)
+		if err != nil {
+			return nil, err
+		}
+	}
+	var binding apitypes.RuntimeProfileQuota
+	if err := json.Unmarshal(data, &binding); err != nil {
+		return nil, err
+	}
+	return normalizeQuota(&binding)
 }
 
 func decodeRuntimeProfileWorkflows(data []byte) (apitypes.RuntimeProfileWorkflows, error) {

@@ -137,8 +137,21 @@ func seed() error {
 	binding := func(id string) apitypes.RuntimeProfileBinding {
 		return apitypes.RuntimeProfileBinding{ResourceId: id, I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: id}, "zh-CN": {DisplayName: id}}}
 	}
-	for _, mode := range modes {
-		spec := apitypes.RuntimeProfileSpec{Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://fixture:9825/v1/quota", ApiKey: mode}, Resources: apitypes.RuntimeProfileResources{Models: new(map[string]apitypes.RuntimeProfileBinding{"chat": binding("quota-chat")}), Voices: new(map[string]apitypes.RuntimeProfileBinding{"narrator": binding("quota-voice")})}}
+	for _, mode := range append(append([]string{}, modes...), "unconfigured", "unlimited") {
+		var policy *apitypes.RuntimeProfileQuota
+		if mode != "unconfigured" {
+			policy = &apitypes.RuntimeProfileQuota{}
+			var err error
+			if mode == "unlimited" {
+				err = policy.FromRuntimeProfileQuotaUnlimited(apitypes.RuntimeProfileQuotaUnlimited{Type: apitypes.RuntimeProfileQuotaUnlimitedTypeUnlimited})
+			} else {
+				err = policy.FromRuntimeProfileQuotaCustom(apitypes.RuntimeProfileQuotaCustom{Type: apitypes.RuntimeProfileQuotaCustomTypeCustom, Endpoint: "http://fixture:9825/v1/quota", ApiKey: mode})
+			}
+			if err != nil {
+				return err
+			}
+		}
+		spec := apitypes.RuntimeProfileSpec{Quota: policy, Resources: apitypes.RuntimeProfileResources{Models: new(map[string]apitypes.RuntimeProfileBinding{"chat": binding("quota-chat")}), Voices: new(map[string]apitypes.RuntimeProfileBinding{"narrator": binding("quota-voice")})}}
 		profile, err := api.CreateRuntimeProfileWithResponse(ctx, adminhttp.RuntimeProfileUpsert{Id: "quota-" + mode, Spec: spec})
 		if err != nil {
 			return err

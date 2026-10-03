@@ -4,9 +4,6 @@ kind: RuntimeProfile
 metadata:
   id: e2e-giztest
 spec:
-  quota:
-    endpoint: http://fixture:9825/v1/quota
-    api_key: omitted
   mhs:
     v0:
       devices:

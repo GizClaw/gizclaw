@@ -2692,6 +2692,36 @@ func (e RuntimeProfileMemoryDriver) Valid() bool {
 	}
 }
 
+// Defines values for RuntimeProfileQuotaCustomType.
+const (
+	RuntimeProfileQuotaCustomTypeCustom RuntimeProfileQuotaCustomType = "custom"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeProfileQuotaCustomType enum.
+func (e RuntimeProfileQuotaCustomType) Valid() bool {
+	switch e {
+	case RuntimeProfileQuotaCustomTypeCustom:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeProfileQuotaUnlimitedType.
+const (
+	RuntimeProfileQuotaUnlimitedTypeUnlimited RuntimeProfileQuotaUnlimitedType = "unlimited"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeProfileQuotaUnlimitedType enum.
+func (e RuntimeProfileQuotaUnlimitedType) Valid() bool {
+	switch e {
+	case RuntimeProfileQuotaUnlimitedTypeUnlimited:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RuntimeProfileResourceKind.
 const (
 	RuntimeProfileResourceKindRuntimeProfile RuntimeProfileResourceKind = "RuntimeProfile"
@@ -6028,14 +6058,31 @@ type RuntimeProfileMhs struct {
 	V0 *MhsV0Manifest `json:"v0,omitempty"`
 }
 
-// RuntimeProfileQuota defines model for RuntimeProfileQuota.
+// RuntimeProfileQuota Optional provider-call policy. Omitted or null means unlimited. Only custom uses the external Quota HTTP API.
 type RuntimeProfileQuota struct {
+	union json.RawMessage
+}
+
+// RuntimeProfileQuotaCustom defines model for RuntimeProfileQuotaCustom.
+type RuntimeProfileQuotaCustom struct {
 	// ApiKey Server-only Bearer API key for the quota service.
 	ApiKey string `json:"api_key"`
 
 	// Endpoint Full HTTP(S) endpoint implementing the Quota Service API.
-	Endpoint string `json:"endpoint"`
+	Endpoint string                        `json:"endpoint"`
+	Type     RuntimeProfileQuotaCustomType `json:"type"`
 }
+
+// RuntimeProfileQuotaCustomType defines model for RuntimeProfileQuotaCustom.Type.
+type RuntimeProfileQuotaCustomType string
+
+// RuntimeProfileQuotaUnlimited defines model for RuntimeProfileQuotaUnlimited.
+type RuntimeProfileQuotaUnlimited struct {
+	Type RuntimeProfileQuotaUnlimitedType `json:"type"`
+}
+
+// RuntimeProfileQuotaUnlimitedType defines model for RuntimeProfileQuotaUnlimited.Type.
+type RuntimeProfileQuotaUnlimitedType string
 
 // RuntimeProfileResource defines model for RuntimeProfileResource.
 type RuntimeProfileResource struct {
@@ -6072,7 +6119,9 @@ type RuntimeProfileSpec struct {
 	// AppConfig Opaque device-defined configuration downlink. Keys use the RuntimeProfile alias syntax and values are bounded at 4096 UTF-8 bytes; both are enforced during Server-side normalization because OpenAPI 3.0 has no propertyNames keyword and expresses maxLength in characters. The Server stores and returns every value verbatim and never parses it. Clients read it through server.app_config.list and server.app_config.get and cannot write it. Any registered device bound to this RuntimeProfile can read every entry, so values must not contain credentials, API keys or other secrets.
 	AppConfig *RuntimeProfileAppConfig `json:"app_config,omitempty"`
 	Mhs       *RuntimeProfileMhs       `json:"mhs,omitempty"`
-	Quota     RuntimeProfileQuota      `json:"quota"`
+
+	// Quota Optional provider-call policy. Omitted or null means unlimited. Only custom uses the external Quota HTTP API.
+	Quota *RuntimeProfileQuota `json:"quota,omitempty"`
 
 	// Resources Model, Voice, Tool, and Memory bindings that Workflows reference by alias. Omitted means the RuntimeProfile binds none of them.
 	Resources RuntimeProfileResources `json:"resources,omitempty"`
@@ -10234,6 +10283,95 @@ func (t RuntimeProfileMemoryConnection) MarshalJSON() ([]byte, error) {
 }
 
 func (t *RuntimeProfileMemoryConnection) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsRuntimeProfileQuotaUnlimited returns the union data inside the RuntimeProfileQuota as a RuntimeProfileQuotaUnlimited
+func (t RuntimeProfileQuota) AsRuntimeProfileQuotaUnlimited() (RuntimeProfileQuotaUnlimited, error) {
+	var body RuntimeProfileQuotaUnlimited
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRuntimeProfileQuotaUnlimited overwrites any union data inside the RuntimeProfileQuota as the provided RuntimeProfileQuotaUnlimited
+func (t *RuntimeProfileQuota) FromRuntimeProfileQuotaUnlimited(v RuntimeProfileQuotaUnlimited) error {
+	v.Type = "unlimited"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRuntimeProfileQuotaUnlimited performs a merge with any union data inside the RuntimeProfileQuota, using the provided RuntimeProfileQuotaUnlimited
+func (t *RuntimeProfileQuota) MergeRuntimeProfileQuotaUnlimited(v RuntimeProfileQuotaUnlimited) error {
+	v.Type = "unlimited"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRuntimeProfileQuotaCustom returns the union data inside the RuntimeProfileQuota as a RuntimeProfileQuotaCustom
+func (t RuntimeProfileQuota) AsRuntimeProfileQuotaCustom() (RuntimeProfileQuotaCustom, error) {
+	var body RuntimeProfileQuotaCustom
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRuntimeProfileQuotaCustom overwrites any union data inside the RuntimeProfileQuota as the provided RuntimeProfileQuotaCustom
+func (t *RuntimeProfileQuota) FromRuntimeProfileQuotaCustom(v RuntimeProfileQuotaCustom) error {
+	v.Type = "custom"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRuntimeProfileQuotaCustom performs a merge with any union data inside the RuntimeProfileQuota, using the provided RuntimeProfileQuotaCustom
+func (t *RuntimeProfileQuota) MergeRuntimeProfileQuotaCustom(v RuntimeProfileQuotaCustom) error {
+	v.Type = "custom"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t RuntimeProfileQuota) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t RuntimeProfileQuota) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "custom":
+		return t.AsRuntimeProfileQuotaCustom()
+	case "unlimited":
+		return t.AsRuntimeProfileQuotaUnlimited()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t RuntimeProfileQuota) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *RuntimeProfileQuota) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

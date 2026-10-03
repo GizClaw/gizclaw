@@ -88,4 +88,4 @@ flowchart TB
 
 ### [peerquota](/zh/developing/api/http/quota)
 
-拥有外部 quota 查询、缓存结果与活动 provider 调用的授权生命周期；计费策略由 RuntimeProfile 绑定的 HTTP 服务负责。
+拥有 custom HTTP quota 查询、缓存结果与活动 provider 调用的授权生命周期。RuntimeProfile 默认/unlimited 不经过该 controller，独立配置的 Peer 用量仍会记录；计费策略由绑定的外部 custom 服务负责。

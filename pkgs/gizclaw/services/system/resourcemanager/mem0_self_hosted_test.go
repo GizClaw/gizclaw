@@ -33,7 +33,7 @@ func TestSelfHostedMem0RuntimeProfileResourceLifecycle(t *testing.T) {
 	} {
 		resource := mustResource(t, `{
 			"apiVersion":"gizclaw.admin/v1alpha1","kind":"RuntimeProfile",
-			"metadata":{"id":"local-memory"},"spec":{"quota":{"endpoint":"http://quota.example.test/v1/quota","api_key":"test-quota-key"},"workflows":{},"resources":{"memories":{
+			"metadata":{"id":"local-memory"},"spec":{"workflows":{},"resources":{"memories":{
 				"assistant":{"layout_id":"assistant-memory","driver":"mem0","connection":{
 					"type":"mem0_self_hosted","endpoint":"http://127.0.0.1:18000"`+test.key+`}}
 			}}}}`)

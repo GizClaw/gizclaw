@@ -31,6 +31,7 @@ type fixture struct {
 	records map[string]record
 	first   map[string]time.Time
 	forced  map[string]bool
+	queries map[string]int
 	admin   *adminConnection
 }
 
@@ -53,11 +54,17 @@ func run() error {
 	if *seedFlag {
 		return seed()
 	}
-	f := &fixture{records: map[string]record{}, first: map[string]time.Time{}, forced: map[string]bool{}, admin: &adminConnection{}}
+	f := &fixture{records: map[string]record{}, first: map[string]time.Time{}, forced: map[string]bool{}, queries: map[string]int{}, admin: &adminConnection{}}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) })
 	mux.HandleFunc("POST /v1/quota", f.check)
 	mux.HandleFunc("GET /record/{mode}", f.report)
+	mux.HandleFunc("GET /queries/{peer}", func(w http.ResponseWriter, r *http.Request) {
+		f.mu.Lock()
+		queries := f.queries[r.PathValue("peer")]
+		f.mu.Unlock()
+		writeJSON(w, map[string]any{"queries": queries})
+	})
 	mux.HandleFunc("POST /deny/{mode}", func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		f.forced[r.PathValue("mode")] = true
@@ -102,10 +109,6 @@ func (f *fixture) check(w http.ResponseWriter, r *http.Request) {
 			known = true
 		}
 	}
-	if !known {
-		w.WriteHeader(401)
-		return
-	}
 	var report quota.QuotaRequest
 	if err := json.NewDecoder(io.LimitReader(r.Body, 4<<20)).Decode(&report); err != nil || report.PeerPublicKey == "" || report.Usage == nil {
 		http.Error(w, "invalid report", 400)
@@ -113,6 +116,12 @@ func (f *fixture) check(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 	f.mu.Lock()
+	f.queries[report.PeerPublicKey]++
+	if !known {
+		f.mu.Unlock()
+		w.WriteHeader(401)
+		return
+	}
 	key := mode + ":" + report.PeerPublicKey
 	item := f.records[mode]
 	item.Report = report

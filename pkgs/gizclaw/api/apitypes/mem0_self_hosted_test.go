@@ -21,7 +21,7 @@ func TestRuntimeProfileSelfHostedMem0ResourceContract(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			raw := []byte(`{"apiVersion":"gizclaw.admin/v1alpha1","kind":"RuntimeProfile",
-				"metadata":{"id":"self-hosted"},"spec":{"quota":{"endpoint":"http://quota.example.test/v1/quota","api_key":"test-quota-key"},"workflows":{},"resources":{"memories":{
+				"metadata":{"id":"self-hosted"},"spec":{"workflows":{},"resources":{"memories":{
 				"assistant":{"layout_id":"assistant-memory","driver":"mem0","connection":` + test.connection + `}}}}}`)
 			err := ValidateResourceJSON(raw)
 			if (err == nil) != test.valid {

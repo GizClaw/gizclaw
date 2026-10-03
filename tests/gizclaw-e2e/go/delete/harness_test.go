@@ -103,9 +103,6 @@ func (e *deletionHarness) ensureRuntimeProfile(t *testing.T) {
 					"zh-CN": {DisplayName: "删除工作区"},
 				},
 			},
-		}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-			ApiKey: "test-quota-key",
 		},
 	}
 	if _, err := clitest.UpsertRuntimeProfile(e.ctx, e.api, adminhttp.RuntimeProfileUpsert{Id: deleteProfileID, Spec: spec}); err != nil {

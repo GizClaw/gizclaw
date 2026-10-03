@@ -80,9 +80,7 @@ func TestServiceResolverResolveWithoutToolsHasNilToolInvoker(t *testing.T) {
 		Workflows:  fakeWorkflowService{items: map[string]apitypes.Workflow{"workflow-1": mustWorkflow(t, "workflow-1")}},
 		RuntimeProfileForOwner: func(context.Context, string) (apitypes.RuntimeProfile, error) {
 			return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{
-				Resources: apitypes.RuntimeProfileResources{Tools: &bindings}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-					ApiKey: "test-quota-key"},
+				Resources: apitypes.RuntimeProfileResources{Tools: &bindings},
 			}}, nil
 		},
 	}

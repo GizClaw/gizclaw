@@ -33,7 +33,7 @@ type Reporter interface {
 
 type entryKey struct {
 	peer   giznet.PublicKey
-	policy apitypes.RuntimeProfileQuota
+	policy apitypes.RuntimeProfileQuotaCustom
 }
 
 // Service borrows its report source and owns lazy per-identity workers.
@@ -73,7 +73,7 @@ type fetched struct {
 type entry struct {
 	service *Service
 	key     entryKey
-	policy  apitypes.RuntimeProfileQuota
+	policy  apitypes.RuntimeProfileQuotaCustom
 	ctx     context.Context
 	cancel  context.CancelFunc
 	acquire chan acquisition
@@ -84,8 +84,8 @@ type entry struct {
 // Authorize returns a context whose lifetime follows both quota deadlines.
 // Call release when the invocation/stream ends. Caller cancellation also
 // releases its lease. A denied result remains refreshable without active calls.
-func (s *Service) Authorize(ctx context.Context, peer giznet.PublicKey, policy apitypes.RuntimeProfileQuota) (context.Context, func(), error) {
-	if peer.IsZero() || policy.Endpoint == "" || policy.ApiKey == "" {
+func (s *Service) Authorize(ctx context.Context, peer giznet.PublicKey, policy apitypes.RuntimeProfileQuotaCustom) (context.Context, func(), error) {
+	if policy.Type != apitypes.RuntimeProfileQuotaCustomTypeCustom || peer.IsZero() || policy.Endpoint == "" || policy.ApiKey == "" {
 		return nil, nil, ErrUnavailable
 	}
 	// The policy is only an internal cache identity, never a stored verifier.

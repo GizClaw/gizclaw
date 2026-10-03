@@ -151,10 +151,7 @@ func createGatewayRecoveryRuntimeProfile(
 		Id: name,
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: apitypes.RuntimeProfileResources{},
-			Workflows: apitypes.RuntimeProfileWorkflows{}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-				ApiKey: "test-quota-key",
-			},
+			Workflows: apitypes.RuntimeProfileWorkflows{},
 		},
 	})
 	if err != nil {

@@ -19,10 +19,7 @@ func seedMhs(t *testing.T, f *deviceHTTPFixture) {
 		{Id: "battery.main", Hwd: "battery"},
 		{Id: "led.left", Hwd: "led"},
 		{Id: "led.right", Hwd: "led"},
-	}}}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-		ApiKey: "test-quota-key"},
-	})
+	}}}})
 }
 
 func TestMhsManifestOfflineAndInstances(t *testing.T) {

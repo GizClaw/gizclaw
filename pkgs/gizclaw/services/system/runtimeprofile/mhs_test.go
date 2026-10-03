@@ -11,10 +11,7 @@ import (
 
 func TestMhsProfileValidationRevisionAndSQL(t *testing.T) {
 	manifest := apitypes.MhsV0Manifest{Devices: []apitypes.MhsV0Device{{Id: "led.status", Hwd: "led"}}}
-	input := adminhttp.RuntimeProfileUpsert{Id: "mhs", Spec: apitypes.RuntimeProfileSpec{Mhs: &apitypes.RuntimeProfileMhs{V0: &manifest}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-		ApiKey: "test-quota-key"},
-	}}
+	input := adminhttp.RuntimeProfileUpsert{Id: "mhs", Spec: apitypes.RuntimeProfileSpec{Mhs: &apitypes.RuntimeProfileMhs{V0: &manifest}}}
 	item, err := normalizeProfile(input, "")
 	if err != nil {
 		t.Fatal(err)

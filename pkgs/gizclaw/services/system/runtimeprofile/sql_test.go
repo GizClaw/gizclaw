@@ -37,10 +37,12 @@ func TestRuntimeProfileSQLRoundTripAndConflict(t *testing.T) {
 	db := profileSQLTestDB(t)
 	ctx := t.Context()
 	now := time.Date(2026, 9, 6, 1, 2, 3, 4, time.UTC)
-	item := apitypes.RuntimeProfile{Id: "opaque/id", CreatedAt: now, UpdatedAt: now, Revision: "revision", Spec: apitypes.RuntimeProfileSpec{Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-		ApiKey: "test-quota-key"},
-	}}
+	item := apitypes.RuntimeProfile{Id: "opaque/id", CreatedAt: now, UpdatedAt: now, Revision: "revision", Spec: apitypes.RuntimeProfileSpec{Quota: testQuotaBinding(t, `{"type":"custom","endpoint":"http://quota.example.test/v1/quota","api_key":"test-quota-key"}`)}}
+	var err error
+	item.Spec.Quota, err = normalizeQuota(item.Spec.Quota)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if created, err := insertRuntimeProfileSQL(ctx, db, item); err != nil || !created {
 		t.Fatalf("insert = %v, %v", created, err)
 	}
@@ -73,6 +75,46 @@ func TestRuntimeProfileSQLRoundTripAndConflict(t *testing.T) {
 	}
 	if _, _, err := deleteRuntimeProfileSQL(ctx, db, item.Id, next); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("replacement delete = %v", err)
+	}
+}
+
+func TestRuntimeProfileQuotaSQLAbsenceAndUnlimited(t *testing.T) {
+	db := profileSQLTestDB(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+	for _, tc := range []struct {
+		id      string
+		binding *apitypes.RuntimeProfileQuota
+	}{
+		{id: "omitted"},
+		{id: "unlimited", binding: testQuotaBinding(t, `{"type":"unlimited"}`)},
+		{id: "custom", binding: testQuotaBinding(t, `{"type":"custom","endpoint":"http://quota.example.test/v1/quota","api_key":"test"}`)},
+	} {
+		item := apitypes.RuntimeProfile{Id: tc.id, Revision: "revision", CreatedAt: now, UpdatedAt: now, Spec: apitypes.RuntimeProfileSpec{Quota: tc.binding}}
+		if _, err := insertRuntimeProfileSQL(ctx, db, item); err != nil {
+			t.Fatal(err)
+		}
+		stored, version, err := getRuntimeProfileSQL(ctx, db, tc.id)
+		if err != nil || (stored.Spec.Quota == nil) != (tc.binding == nil) {
+			t.Fatalf("quota presence round-trip: %v", err)
+		}
+		policy, err := CustomQuotaPolicy(stored.Spec.Quota)
+		if err != nil || (policy != nil) != (tc.id == "custom") {
+			t.Fatalf("stored policy changed enforcement: %v", err)
+		}
+		item.Spec.Quota = nil
+		item.Revision = "cleared"
+		if _, _, err := updateRuntimeProfileSQL(ctx, db, item, version); err != nil {
+			t.Fatal(err)
+		}
+		var raw string
+		if err := db.GetContext(ctx, &raw, "SELECT quota_json FROM runtime_profiles WHERE id=?", tc.id); err != nil || raw != "null" {
+			t.Fatalf("cleared quota SQL=%q, error=%v", raw, err)
+		}
+		stored, _, err = getRuntimeProfileSQL(ctx, db, tc.id)
+		if err != nil || stored.Spec.Quota != nil {
+			t.Fatalf("cleared quota retained enforcement: %v", err)
+		}
 	}
 }
 
@@ -211,15 +253,12 @@ func TestInitializeProfileSQLUpgradesLegacyGameplayColumn(t *testing.T) {
 	if columns != 0 {
 		t.Fatalf("gameplay_json columns = %d, want 0", columns)
 	}
-	item := apitypes.RuntimeProfile{Id: "upgraded", CreatedAt: now, UpdatedAt: now, Revision: "revision", Spec: apitypes.RuntimeProfileSpec{Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-		ApiKey: "test-quota-key"},
-	}}
+	item := apitypes.RuntimeProfile{Id: "upgraded", CreatedAt: now, UpdatedAt: now, Revision: "revision", Spec: apitypes.RuntimeProfileSpec{Quota: testQuotaBinding(t, `{"type":"custom","endpoint":"http://quota.example.test/v1/quota","api_key":"test-quota-key"}`)}}
 	if created, err := insertRuntimeProfileSQL(ctx, db, item); err != nil || !created {
 		t.Fatalf("insert after upgrade = %v, %v", created, err)
 	}
 	retained, _, err := getRuntimeProfileSQL(ctx, db, "legacy")
-	if err != nil || retained.Id != "legacy" || retained.Revision != "revision" {
+	if err != nil || retained.Id != "legacy" || retained.Revision != "revision" || retained.Spec.Quota != nil {
 		t.Fatalf("retained legacy profile = %#v, %v", retained, err)
 	}
 }

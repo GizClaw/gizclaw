@@ -21,7 +21,6 @@ func seedVoiceFixture(ctx context.Context, api *adminhttp.ClientWithResponses, p
 		return err
 	}
 	spec := runtimeProfileSpec(true)
-	spec.Quota.Endpoint = "http://quota:9825/v1/quota"
 	if fixture == "speaker-segments" {
 		for _, name := range []string{"default", "fox", "bird"} {
 			id := "speaker-" + name

@@ -1,6 +1,6 @@
 # Quota HTTP 服务
 
-GizClaw 使用 RuntimeProfile 指定的外部 HTTP 服务决定 Peer 的可用有效期。计费和额度折算由该服务拥有。
+RuntimeProfile 可以为 Peer provider 调用选择 quota policy。当前支持 unlimited 和 custom；只有 custom 使用外部 HTTP 服务决定可用有效期，计费和额度折算由该服务拥有。
 
 ## 协议
 
@@ -25,19 +25,20 @@ Source contract 是 `api/http/quota.json`，Go client 由它生成至 `sdk/go/qu
 ```yaml
 spec:
   quota:
+    type: custom
     endpoint: https://quota.example.com/v1/quota
     api_key: ${QUOTA_API_KEY}
 ```
 
-`quota` 必填。endpoint 是完整的 HTTP(S) 地址，不接受 userinfo、query 或 fragment；API key 必须非空且不能包含换行。新写入的 RuntimeProfile 必须提供配置。既有 SQL 资源保留原数据；未配置 quota 的旧资源不能授权 provider 调用，必须由管理员更新。
+`spec.quota` 可省略或设为 null，默认使用 unlimited；显式 `quota: {type: unlimited}` 具有相同调用行为。它们不发起 quota HTTP 请求，不要求 quota 服务或 SQL 用量存储。独立配置的 `services.peer_usage.store` 仍然记录 provider 实际报告的用量。空对象或未知 policy type 会被拒绝。
 
-Server 还需要配置 `services.peer_usage.store` 的 SQL 用量存储。上报先 flush，再查询保留的小时记录；存储未配置或读取失败时不提交虚假的空用量。
+`type: custom` 必须提供 endpoint 和 api_key。endpoint 是完整的 HTTP(S) 地址，不接受 userinfo、query 或 fragment；API key 必须非空且不能包含换行。custom 还需要配置 `services.peer_usage.store` 的 SQL 用量存储。上报先 flush，再查询保留的小时记录；存储未配置或读取失败时拒绝 custom 调用，不提交虚假的空用量。SQL 将未配置 policy 保存为 JSON null，显式 policy 保存为带 type 的对象；既有未配置 Profile 继续使用 unlimited。
 
 ## 调用和生命周期
 
-真实 Generator、Transformer 和 speech provider 调用先获取 quota 授权。connected Peer、Workspace owner 和独立 OpenAI HTTP 都使用相应 Peer 的配置。
+配置 custom 时，真实 Generator、Transformer 和 speech provider 调用先获取 quota 授权。connected Peer、Workspace owner 和独立 OpenAI HTTP 都使用相应 Peer 的配置。
 
-Server 在查询结果有效期的中点刷新，保证在 `valid_until` 之前尝试重新查询；不限和拒绝的结果同样刷新。HTTP 尝试最长五秒，失败后按一秒间隔重试。失败不延长旧结果的任何时间；旧结果仍然有效时可以继续使用。
+custom policy 在 HTTP 查询结果有效期的中点刷新，保证在 `valid_until` 之前尝试重新查询；HTTP 响应省略/null 可用期限和拒绝的结果同样刷新。HTTP 尝试最长五秒，失败后按一秒间隔重试。失败不延长旧结果的任何时间；旧结果仍然有效时可以继续使用。
 
 可用有效期到期、新结果拒绝使用，或查询结果过期而未取得替代结果时，会取消正在执行的 provider 调用。成功刷新可以延长活动调用的授权。空闲状态五分钟后清理。Server 关闭先取消并 join quota worker，再关闭用量存储。
 
@@ -47,4 +48,4 @@ Quota 是时间授权，不保证逐 token 的预扣或数值硬上限。GenX pr
 
 ## Docker 验证
 
-`bash tests/gizclaw-e2e/setup/run-quota.sh` 构建真实 Linux GizClaw 与 HTTP fixture，在隔离 Docker stack 中通过 giztest 的真实 RPC/HTTP transport 验证协议。fixture 同时提供确定性的 OpenAI 和 MiniMax provider 数据，捕获 identifiers 和用量报告。该验证不代表云端 provider 资格验证。
+`bash tests/gizclaw-e2e/setup/run-quota.sh` 构建真实 Linux GizClaw 与 HTTP fixture，在隔离 Docker stack 中通过 giztest 的真实 RPC/HTTP transport 验证协议。fixture 同时提供确定性的 OpenAI 和 MiniMax provider 数据，捕获 identifiers 和用量报告。十二个场景包含原有十个 custom policy 的期限/上报场景，以及省略 policy 和显式 unlimited；两个 unlimited 场景都调用真实 provider adapter，并断言该 Peer 的 quota 请求为零。该验证不代表云端 provider 资格验证。

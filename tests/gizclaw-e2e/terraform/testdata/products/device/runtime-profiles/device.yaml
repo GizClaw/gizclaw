@@ -2,9 +2,6 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: RuntimeProfile
 metadata: {id: tf-device}
 spec:
-  quota:
-    endpoint: http://fixture:9825/v1/quota
-    api_key: omitted
   workflows:
     echo:
       tags: [assistants]

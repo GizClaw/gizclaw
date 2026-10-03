@@ -56,11 +56,7 @@ func startSocialTestServer(t *testing.T) (*testServer, string) {
 	ctx := context.Background()
 	profiles := ts.server.Manager().RuntimeProfiles
 	created, err := profiles.CreateRuntimeProfile(ctx, adminhttp.CreateRuntimeProfileRequestObject{
-		Body: &adminhttp.RuntimeProfileUpsert{Id: "profile-social", Spec: apitypes.RuntimeProfileSpec{Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-			ApiKey: "test-quota-key",
-		},
-		}},
+		Body: &adminhttp.RuntimeProfileUpsert{Id: "profile-social", Spec: apitypes.RuntimeProfileSpec{}},
 	})
 	if err != nil {
 		t.Fatalf("CreateRuntimeProfile: %v", err)

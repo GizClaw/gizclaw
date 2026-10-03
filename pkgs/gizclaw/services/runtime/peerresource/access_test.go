@@ -31,12 +31,8 @@ func TestProfileNamesUsesImmutableSnapshotAndUnregisteredHasNone(t *testing.T) {
 		"duplicate": {ResourceId: "profile-a"}, "empty": {ResourceId: " "},
 	}
 	profile := apitypes.RuntimeProfile{
-		Id: "device",
-		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &models}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-			ApiKey: "test-quota-key",
-		},
-		},
+		Id:   "device",
+		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &models}},
 	}
 	server := &Server{RuntimeProfile: func() *apitypes.RuntimeProfile { return &profile }}
 	got := server.profileNames(profileModels)

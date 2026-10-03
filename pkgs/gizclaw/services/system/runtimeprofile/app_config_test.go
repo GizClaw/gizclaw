@@ -13,9 +13,7 @@ func appConfigUpsert(config apitypes.RuntimeProfileAppConfig) adminhttp.RuntimeP
 		Id: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{},
-			AppConfig: &config, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-				ApiKey: "test-quota-key"},
+			AppConfig: &config,
 		},
 	}
 }

@@ -56,9 +56,6 @@ func storyTellerSpec() apitypes.RuntimeProfileSpec {
 			"story.aesop": runtimeProfileHTTPBinding("secret-workflow-aesop", "Aesop Display"),
 
 			"game.riddle": runtimeProfileHTTPBinding("secret-workflow-riddle", "Riddle Display"),
-		}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-			ApiKey: "test-quota-key",
 		},
 	}
 }
@@ -166,9 +163,6 @@ func TestGetDeviceRuntimeProfileIsOwnerScoped(t *testing.T) {
 	otherProfile := seedRuntimeProfile(t, f, otherKey.Public, "other-profile", apitypes.RuntimeProfileSpec{
 		Workflows: apitypes.RuntimeProfileWorkflows{
 			"other.workflow": runtimeProfileHTTPBinding("other-workflow", "Other"),
-		}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-			ApiKey: "test-quota-key",
 		},
 	})
 	otherSecret, err := f.apiKeys.Create(ctx, otherKey.Public.String(), "other-phone", true)
@@ -201,11 +195,7 @@ func TestGetDeviceRuntimeProfileIsOwnerScoped(t *testing.T) {
 func TestGetDeviceRuntimeProfileFollowsCurrentBinding(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 	seedRuntimeProfile(t, f, f.owner, "h106-tiga", storyTellerSpec())
-	seedRuntimeProfile(t, f, f.owner, "h106-next", apitypes.RuntimeProfileSpec{Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-		ApiKey: "test-quota-key",
-	},
-	})
+	seedRuntimeProfile(t, f, f.owner, "h106-next", apitypes.RuntimeProfileSpec{})
 
 	response := f.do(t, http.MethodGet, "/gizclaw/v1/device/runtime-profile", "")
 	if response.Code != http.StatusOK {

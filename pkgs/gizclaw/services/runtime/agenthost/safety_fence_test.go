@@ -10,10 +10,7 @@ import (
 
 func TestResolverSafetyFenceUsesOwnerProfileAndFailsClosed(t *testing.T) {
 	fences := apitypes.RuntimeProfileSafetyFences{"general": {Prompt: "general text"}, "child": {Prompt: "complete child text"}}
-	profile := apitypes.RuntimeProfile{Id: "owner-profile", Spec: apitypes.RuntimeProfileSpec{SafetyFences: &fences, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-		ApiKey: "test-quota-key"},
-	}}
+	profile := apitypes.RuntimeProfile{Id: "owner-profile", Spec: apitypes.RuntimeProfileSpec{SafetyFences: &fences}}
 	ws := systemWorkspace("fenced-workspace", "workflow", nil)
 	ws.OwnerPublicKey = new("owner")
 	resolver := ServiceResolver{Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{"workflow": mustWorkflow(t, "workflow")}}, RuntimeProfileForOwner: func(context.Context, string) (apitypes.RuntimeProfile, error) { return profile, nil }}
@@ -69,10 +66,7 @@ func TestResolveSafetyFenceUsesEachProfilesOwnIdentifiers(t *testing.T) {
 		{"profile-b", "bravo", "bravo prompt"},
 	} {
 		fences := apitypes.RuntimeProfileSafetyFences{tc.level: {Prompt: tc.prompt}}
-		profile := apitypes.RuntimeProfile{Id: tc.profile, Spec: apitypes.RuntimeProfileSpec{SafetyFences: &fences, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-			ApiKey: "test-quota-key"},
-		}}
+		profile := apitypes.RuntimeProfile{Id: tc.profile, Spec: apitypes.RuntimeProfileSpec{SafetyFences: &fences}}
 		level := apitypes.SafetyFenceLevel(tc.level)
 		ws.Parameters = &apitypes.WorkspaceParameters{}
 		if err := ws.Parameters.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft, SafetyFenceLevel: &level}); err != nil {

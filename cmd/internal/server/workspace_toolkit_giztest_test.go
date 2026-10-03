@@ -112,10 +112,7 @@ func TestRuntimeProfileAndWorkspaceToolkitGiztest(t *testing.T) {
 			"flowcraft-chat-assistant":  {ResourceId: "toolkit-workflow", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Toolkit Chat"}, "zh-CN": {DisplayName: "Toolkit Chat"}}, Tags: &[]string{"assistants", "6-8", "catalog"}},
 			"flowcraft-voice-assistant": {ResourceId: "toolkit-workflow", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Toolkit Voice"}, "zh-CN": {DisplayName: "Toolkit Voice"}}, Tags: &[]string{"assistants", "9-12", "catalog"}},
 		},
-		Resources: apitypes.RuntimeProfileResources{Tools: &bindings}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-			ApiKey: "test-quota-key",
-		},
+		Resources: apitypes.RuntimeProfileResources{Tools: &bindings},
 	}}
 	if _, err := adminapi.CreateRuntimeProfile(ctx, admin, profile); err != nil {
 		t.Fatal(err)

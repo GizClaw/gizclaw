@@ -8,23 +8,8 @@ x-build: &build
     PREBUILD_CLI: "1"
 
 services:
-  fixture:
-    build:
-      context: ../../..
-      dockerfile: tests/gizclaw-e2e/docker/Dockerfile.server
-      args:
-        BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
-    entrypoint: [go, run, ./tests/gizclaw-e2e/cmd/quota-fixture]
-    healthcheck:
-      test: [CMD, curl, -fsS, "http://127.0.0.1:9825/healthz"]
-      interval: 2s
-      timeout: 2s
-      retries: 90
-      start_period: 300s
   server:
     build: *build
-    depends_on:
-      fixture: {condition: service_healthy}
     environment:
       GIZCLAW_E2E_ADMISSION_ONLY: "1"
       GIZCLAW_E2E_PEER_ADMISSION: registration-token

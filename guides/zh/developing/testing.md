@@ -1507,6 +1507,4 @@ GIZCLAW_E2E_CREDENTIAL_FILE=tests/gizclaw-e2e/.env \
 脚本输出 RPC、provider、HTTP、SFU 四份 JSON 报告到 `tests/gizclaw-e2e/.testbench/`，退出时按 project 清理容器和临时凭据环境文件。专用入口只选取这九个场景依赖的资源，不启动标准全量资源清单。离线解析不证明真实 provider 的效果。
 
 
-RTP/BOS、慢 TTS 和说话人分段的 Docker 栈运行本地 quota fixture，并用 SQL 保存 Peer 用量。其 RuntimeProfile 绑定该 fixture，使 provider overlay 仍经过真实 quota 授权路径。
-
 Quota 的协议、RuntimeProfile 配置与 Docker fixture 验证见 [Quota](/zh/developing/api/http/quota).

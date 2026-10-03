@@ -231,4 +231,4 @@ spec:
 
 ## Quota
 
-RuntimeProfile 必须配置 `spec.quota.endpoint` 和 `spec.quota.api_key`，由该 HTTP 服务决定 provider 调用的可用有效期。配置保存在 `runtime_profiles.quota_json` 并参与 Profile revision；既有 SQL 表初始化时补上该列，未配置的旧 Profile 不能授权 provider 调用。协议、刷新、两个时间边界与 Docker fixture 验证见 [Quota](/zh/developing/api/http/quota)。
+`spec.quota` 是可选的带 discriminator 的 policy。省略/null 默认 unlimited；显式 `{type: unlimited}` 同样不执行 quota 检查。`{type: custom, endpoint: ..., api_key: ...}` 绑定外部 Quota HTTP API，两个字段都必须有效。显式空对象、不完整配置和未知类型均被拒绝。SQL `runtime_profiles.quota_json` 将省略配置保存为 null、显式 policy 保存为带 type 的对象，并参与 Profile revision。用量持久化独立可选，custom policy 则要求 SQL 用量用于上报。协议、刷新、两个时间边界与 Docker 验收见 [Quota](/zh/developing/api/http/quota)。

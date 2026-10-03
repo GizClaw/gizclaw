@@ -125,11 +125,7 @@ func runAdmissionGiztests(t *testing.T, run func(context.Context, string, string
 		},
 	})
 	if after != nil {
-		if _, err := adminapi.CreateRuntimeProfile(ctx, admin, adminhttp.RuntimeProfileUpsert{Id: "sdk", Spec: apitypes.RuntimeProfileSpec{AppConfig: new(apitypes.RuntimeProfileAppConfig{"admission.marker": "accepted"}), Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-			ApiKey: "test-quota-key",
-		},
-		}}); err != nil {
+		if _, err := adminapi.CreateRuntimeProfile(ctx, admin, adminhttp.RuntimeProfileUpsert{Id: "sdk", Spec: apitypes.RuntimeProfileSpec{AppConfig: new(apitypes.RuntimeProfileAppConfig{"admission.marker": "accepted"})}}); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := adminapi.CreateRegistrationToken(ctx, admin, adminhttp.RegistrationTokenUpsert{Id: "sdk", Token: "admission-sdk", RuntimeProfileId: "sdk"}); err != nil {

@@ -39,11 +39,7 @@ func memoryProfile(aliases ...string) apitypes.RuntimeProfile {
 	}
 	return apitypes.RuntimeProfile{
 		Id: "owner-profile", Revision: "revision-1",
-		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Memories: &bindings}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-			ApiKey: "test-quota-key",
-		},
-		},
+		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Memories: &bindings}},
 	}
 }
 

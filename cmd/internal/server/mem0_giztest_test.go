@@ -193,10 +193,7 @@ func TestSelfHostedMem0Giztest(t *testing.T) {
 		workflows[id] = apitypes.RuntimeProfileBinding{ResourceId: id, I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: id}, "zh-CN": {DisplayName: id}}}
 	}
 	profile := adminhttp.RuntimeProfileUpsert{Id: "mem0-giztest", Spec: apitypes.RuntimeProfileSpec{
-		Workflows: workflows, Resources: apitypes.RuntimeProfileResources{Memories: &memories}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-			ApiKey: "test-quota-key",
-		},
+		Workflows: workflows, Resources: apitypes.RuntimeProfileResources{Memories: &memories},
 	}}
 	if _, err := adminapi.CreateRuntimeProfile(ctx, admin, profile); err != nil {
 		t.Fatal(err)

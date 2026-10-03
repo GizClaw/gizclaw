@@ -4,9 +4,6 @@ kind: RuntimeProfile
 metadata:
   id: e2e-giztest
 spec:
-  quota:
-    endpoint: http://fixture:9825/v1/quota
-    api_key: omitted
   workflows:
     mem0-extraction: {resource_id: mem0-extraction, i18n: {en: {display_name: Mem0 Extraction}, zh-CN: {display_name: Mem0 提取}}}
     volc-ast-translate-tts: {resource_id: volc-ast-translate-tts, i18n: {en: {display_name: AST Translate TTS}, zh-CN: {display_name: AST 翻译 TTS}}, tags: [assistants]}

@@ -39,11 +39,7 @@ func TestCommittedProfileWritesReturnSuccessWhenIndexRefreshFails(t *testing.T) 
 	}
 	t.Cleanup(func() { _ = s.Close() })
 	source.fail = true
-	request := adminhttp.RuntimeProfileUpsert{Id: "durable", Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-		ApiKey: "test-quota-key",
-	},
-	}}
+	request := adminhttp.RuntimeProfileUpsert{Id: "durable", Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{}}}
 	created, err := s.CreateRuntimeProfile(ctx, adminhttp.CreateRuntimeProfileRequestObject{Body: &request})
 	if err != nil {
 		t.Fatal(err)
@@ -95,10 +91,7 @@ func TestMemoryIndexDecomposesAllProfilesAndFiltersTags(t *testing.T) {
 			Id: id, Spec: apitypes.RuntimeProfileSpec{
 				Workflows: apitypes.RuntimeProfileWorkflows{"journey": binding},
 				Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices},
-				AppConfig: &config, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-					ApiKey: "test-quota-key",
-				},
+				AppConfig: &config,
 			},
 		}})
 		if err != nil {
@@ -189,11 +182,7 @@ func TestMemoryIndexRotatesOnInterval(t *testing.T) {
 	t.Cleanup(func() { _ = s.Close() })
 	item := apitypes.RuntimeProfile{
 		Id: "external", Revision: "rev", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
-		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat")}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-			ApiKey: "test-quota-key",
-		},
-		},
+		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat")}},
 	}
 	if created, err := insertRuntimeProfileSQL(ctx, s.DB, item); err != nil || !created {
 		t.Fatalf("external insert = %v, %v", created, err)
@@ -222,11 +211,7 @@ func TestMemoryIndexRefreshesExternalProfileWrites(t *testing.T) {
 	t.Cleanup(func() { _ = s.Close() })
 	item := apitypes.RuntimeProfile{
 		Id: "external", Revision: "rev", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
-		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat")}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-			ApiKey: "test-quota-key",
-		},
-		},
+		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat")}},
 	}
 	if created, err := insertRuntimeProfileSQL(ctx, s.DB, item); err != nil || !created {
 		t.Fatalf("external insert = %v, %v", created, err)
@@ -276,10 +261,7 @@ func TestMemoryIndexSplitsEveryConfigurationKind(t *testing.T) {
 	profile := apitypes.RuntimeProfile{Id: "all-kinds", Revision: "rev", Spec: apitypes.RuntimeProfileSpec{
 		Resources:    apitypes.RuntimeProfileResources{Tools: &tools, Memories: &memories},
 		SafetyFences: &fences,
-		Mhs:          &apitypes.RuntimeProfileMhs{V0: &apitypes.MhsV0Manifest{Devices: []apitypes.MhsV0Device{{Id: "display", Hwd: "display"}}}}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-			ApiKey: "test-quota-key",
-		},
+		Mhs:          &apitypes.RuntimeProfileMhs{V0: &apitypes.MhsV0Manifest{Devices: []apitypes.MhsV0Device{{Id: "display", Hwd: "display"}}}},
 	}}
 	profile.CreatedAt, profile.UpdatedAt = time.Now().UTC(), time.Now().UTC()
 	if created, err := insertRuntimeProfileSQL(ctx, s.DB, profile); err != nil || !created {
@@ -304,11 +286,7 @@ func TestMemoryIndexRefreshAndWritesMakeProgress(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = s.Close() })
-	initial := apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat")}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-		ApiKey: "test-quota-key",
-	},
-	}
+	initial := apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat")}}
 	if response, err := s.CreateRuntimeProfile(ctx, adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{Id: "shared", Spec: initial}}); err != nil {
 		t.Fatal(err)
 	} else if _, ok := response.(adminhttp.CreateRuntimeProfile200JSONResponse); !ok {
@@ -329,11 +307,7 @@ func TestMemoryIndexRefreshAndWritesMakeProgress(t *testing.T) {
 	go func() {
 		defer group.Done()
 		for i := range 10 {
-			spec := apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat")}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-				ApiKey: "test-quota-key",
-			},
-			}
+			spec := apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat")}}
 			binding := spec.Workflows["chat"]
 			binding.Tags = &[]string{fmt.Sprintf("tag-%d", i)}
 			spec.Workflows["chat"] = binding
@@ -379,11 +353,7 @@ func TestMemoryIndexRemainsReadableWithoutPersistentDB(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = s.Close() })
 	response, err := s.CreateRuntimeProfile(ctx, adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
-		Id: "cached", Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat")}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-			ApiKey: "test-quota-key",
-		},
-		},
+		Id: "cached", Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat")}},
 	}})
 	if err != nil {
 		t.Fatal(err)

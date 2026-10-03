@@ -23,7 +23,7 @@ func (testReporter) QuotaReport(_ context.Context, peer giznet.PublicKey) (quota
 	return quota.QuotaRequest{PeerPublicKey: peer.String(), Identifiers: &apitypes.DeviceIdentifiers{Sn: new("device-sn"), Imeis: new([]apitypes.PeerIMEI{{Tac: "12345678", Serial: "123456"}}), Labels: new([]apitypes.PeerLabel{{Key: "hardware", Value: "test"}})}, Usage: []quota.QuotaUsage{{ModelId: "billing-model", Hour: time.Now().UTC().Truncate(time.Hour), Quantity: 12}}}, nil
 }
 
-func testService(t *testing.T, handler http.HandlerFunc) (*Service, apitypes.RuntimeProfileQuota) {
+func testService(t *testing.T, handler http.HandlerFunc) (*Service, apitypes.RuntimeProfileQuotaCustom) {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		body, err := io.ReadAll(request.Body)
@@ -44,7 +44,7 @@ func testService(t *testing.T, handler http.HandlerFunc) (*Service, apitypes.Run
 		}
 		server.Close()
 	})
-	return service, apitypes.RuntimeProfileQuota{Endpoint: server.URL + "/custom/quota", ApiKey: "test-key"}
+	return service, apitypes.RuntimeProfileQuotaCustom{Type: apitypes.RuntimeProfileQuotaCustomTypeCustom, Endpoint: server.URL + "/custom/quota", ApiKey: "test-key"}
 }
 
 func sendDecision(t *testing.T, w http.ResponseWriter, value any) {
@@ -127,7 +127,7 @@ func TestQuotaPolicyIsolation(t *testing.T) {
 	otherEndpoint.Endpoint += "/denied"
 	for _, tc := range []struct {
 		name   string
-		policy apitypes.RuntimeProfileQuota
+		policy apitypes.RuntimeProfileQuotaCustom
 		denied bool
 	}{
 		{name: "original denied", policy: original, denied: true},

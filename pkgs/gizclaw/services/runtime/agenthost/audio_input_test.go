@@ -20,10 +20,7 @@ func audioInputWorkspace(t *testing.T, workflowID string, path *apitypes.AudioIn
 }
 
 func audioInputProfile(bindings map[string]apitypes.RuntimeProfileBinding) apitypes.RuntimeProfile {
-	return apitypes.RuntimeProfile{Id: "owner-profile", Spec: apitypes.RuntimeProfileSpec{Workflows: bindings, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
-
-		ApiKey: "test-quota-key"},
-	}}
+	return apitypes.RuntimeProfile{Id: "owner-profile", Spec: apitypes.RuntimeProfileSpec{Workflows: bindings}}
 }
 
 func audioInputBinding(resourceID string, path *apitypes.AudioInputPath) apitypes.RuntimeProfileBinding {

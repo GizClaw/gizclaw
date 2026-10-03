@@ -420,19 +420,57 @@
           "quota": {
             "$ref": "#/components/schemas/RuntimeProfileQuota"
           }
-        },
-        "required": [
-          "quota"
-        ]
+        }
       },
       "RuntimeProfileQuota": {
+        "nullable": true,
+        "description": "Optional provider-call policy. Omitted or null means unlimited. Only custom uses the external Quota HTTP API.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/RuntimeProfileQuotaUnlimited"
+          },
+          {
+            "$ref": "#/components/schemas/RuntimeProfileQuotaCustom"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "unlimited": "#/components/schemas/RuntimeProfileQuotaUnlimited",
+            "custom": "#/components/schemas/RuntimeProfileQuotaCustom"
+          }
+        }
+      },
+      "RuntimeProfileQuotaUnlimited": {
         "type": "object",
         "additionalProperties": false,
         "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "unlimited"
+            ]
+          }
+        }
+      },
+      "RuntimeProfileQuotaCustom": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
           "endpoint",
           "api_key"
         ],
         "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "custom"
+            ]
+          },
           "endpoint": {
             "type": "string",
             "format": "uri",
