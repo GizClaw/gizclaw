@@ -14,7 +14,10 @@ func appConfigServer(t *testing.T, revision string, config apitypes.RuntimeProfi
 	profile := apitypes.RuntimeProfile{
 		Id:       "e2e-profile",
 		Revision: revision,
-		Spec:     apitypes.RuntimeProfileSpec{AppConfig: &config},
+		Spec: apitypes.RuntimeProfileSpec{AppConfig: &config, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+			ApiKey: "test-quota-key"},
+		},
 	}
 	return &Server{RuntimeProfile: func() *apitypes.RuntimeProfile { return &profile }}
 }

@@ -257,7 +257,10 @@ func TestDoubaoServiceTierGiztest(t *testing.T) {
 	}}
 	profile := adminhttp.RuntimeProfileUpsert{Id: "doubao-fast", Spec: apitypes.RuntimeProfileSpec{
 		Workflows: apitypes.RuntimeProfileWorkflows{"doubao-fast": {ResourceId: binding.ResourceId, I18n: binding.I18n}},
-		Resources: apitypes.RuntimeProfileResources{Models: new(map[string]apitypes.RuntimeProfileBinding{"llm": binding})},
+		Resources: apitypes.RuntimeProfileResources{Models: new(map[string]apitypes.RuntimeProfileBinding{"llm": binding})}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+			ApiKey: "test-quota-key",
+		},
 	}}
 	if _, err := adminapi.CreateRuntimeProfile(ctx, admin, profile); err != nil {
 		t.Fatal(err)

@@ -214,7 +214,10 @@ func TestRPCRegistrationPersistsAndReturnsFirmwareReleaseLine(t *testing.T) {
 	profileResponse, err := registrations.CreateRuntimeProfile(ctx, adminhttp.CreateRuntimeProfileRequestObject{
 		Body: &adminhttp.RuntimeProfileUpsert{Id: profileName, Spec: apitypes.RuntimeProfileSpec{
 			Workflows: testRuntimeProfileWorkflows(),
-			Resources: apitypes.RuntimeProfileResources{},
+			Resources: apitypes.RuntimeProfileResources{}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+				ApiKey: "test-quota-key",
+			},
 		}},
 	})
 	if err != nil {
@@ -408,7 +411,10 @@ func firmwareRegistrationServer(t *testing.T, profileName, firmwareID string) *r
 	response, err := server.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{
 		Body: &adminhttp.RuntimeProfileUpsert{Id: profileName, Spec: apitypes.RuntimeProfileSpec{
 			Workflows: testRuntimeProfileWorkflows(),
-			Resources: apitypes.RuntimeProfileResources{},
+			Resources: apitypes.RuntimeProfileResources{}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+				ApiKey: "test-quota-key",
+			},
 		}},
 	})
 	if err != nil {
@@ -434,7 +440,10 @@ func createRegistrationToken(t *testing.T, server *runtimeprofile.Server, profil
 			Id: profileName,
 			Spec: apitypes.RuntimeProfileSpec{
 				Workflows: testRuntimeProfileWorkflows(),
-				Resources: apitypes.RuntimeProfileResources{},
+				Resources: apitypes.RuntimeProfileResources{}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+					ApiKey: "test-quota-key",
+				},
 			},
 		},
 	})

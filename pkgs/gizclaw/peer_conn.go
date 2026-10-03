@@ -588,7 +588,13 @@ func (h *PeerConn) initPeerGenX() {
 	}
 	resources := h.peerResources()
 	h.serverGenX = peergenx.New(peergenx.Service{
-		Usage:           manager.usageRecorder(h.Conn.PublicKey()),
+		Usage: manager.usageRecorder(h.Conn.PublicKey()),
+		Authorize: manager.quotaAuthorizer(h.Conn.PublicKey(), func(context.Context) (apitypes.RuntimeProfile, error) {
+			if selected := h.currentRuntimeProfile(); selected != nil {
+				return *selected, nil
+			}
+			return apitypes.RuntimeProfile{}, errors.New("RuntimeProfile is unavailable")
+		}),
 		Peer:            h.Conn,
 		Models:          resources,
 		Voices:          resources,

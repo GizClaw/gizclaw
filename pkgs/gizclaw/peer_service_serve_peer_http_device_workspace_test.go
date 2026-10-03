@@ -142,6 +142,9 @@ func TestListDeviceWorkspacesFollowsCurrentProfile(t *testing.T) {
 	seedRuntimeProfile(t, f, f.owner, "h106-next", apitypes.RuntimeProfileSpec{
 		Workflows: apitypes.RuntimeProfileWorkflows{
 			"story.fables": runtimeProfileHTTPBinding("secret-workflow-aesop", "Fables"),
+		}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+			ApiKey: "test-quota-key",
 		},
 	})
 	response := f.do(t, http.MethodGet, "/gizclaw/v1/device/workspaces", "")

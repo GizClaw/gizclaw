@@ -24,6 +24,7 @@ func TestApplyRegistrationTokenCreatesReadsAndUpdatesOrdinaryResource(t *testing
 		"kind":"RuntimeProfile",
 		"metadata":{"id":"profile-a"},
 		"spec":{
+			"quota":{"endpoint":"http://quota.example.test/v1/quota","api_key":"test-quota-key"},
 			"workflows":{},
 			"resources":{}
 		}
@@ -35,6 +36,7 @@ func TestApplyRegistrationTokenCreatesReadsAndUpdatesOrdinaryResource(t *testing
 		"kind":"RuntimeProfile",
 		"metadata":{"id":"profile-b"},
 		"spec":{
+			"quota":{"endpoint":"http://quota.example.test/v1/quota","api_key":"test-quota-key"},
 			"workflows":{},
 			"resources":{}
 		}

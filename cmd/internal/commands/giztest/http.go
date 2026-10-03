@@ -35,6 +35,17 @@ func httpBaseURL(endpoint string) (string, error) {
 }
 
 func invokeHTTP(ctx context.Context, endpoint string, step giztest.Step, vars *giztest.Variables) (httpStepResult, error) {
+	if step.HTTP.Endpoint != "" {
+		resolved, err := vars.Resolve(step.HTTP.Endpoint)
+		if err != nil {
+			return httpStepResult{}, err
+		}
+		value, ok := resolved.(string)
+		if !ok {
+			return httpStepResult{}, fmt.Errorf("http endpoint must resolve to a string")
+		}
+		endpoint = value
+	}
 	base, err := httpBaseURL(endpoint)
 	if err != nil {
 		return httpStepResult{}, err
@@ -102,7 +113,15 @@ func invokeHTTP(ctx context.Context, endpoint string, step giztest.Step, vars *g
 		return result, giztest.NewAssertionError(fmt.Errorf("http status = %d, want %d", response.StatusCode, step.HTTP.Status))
 	}
 	if step.HTTP.Status == 0 && response.StatusCode >= http.StatusBadRequest {
-		return result, giztest.NewAssertionError(fmt.Errorf("http status = %d", response.StatusCode))
+		code := ""
+		if body, ok := result.body.(map[string]any); ok {
+			if payload, ok := body["error"].(map[string]any); ok {
+				if value, ok := payload["code"].(string); ok {
+					code = value
+				}
+			}
+		}
+		return result, giztest.NewAssertionError(fmt.Errorf("http status = %d, code = %s", response.StatusCode, code))
 	}
 	return result, nil
 }

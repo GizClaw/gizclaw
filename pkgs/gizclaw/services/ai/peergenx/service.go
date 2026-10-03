@@ -68,7 +68,9 @@ type Service struct {
 	ProviderTenants ProviderTenantGetter
 	Builder         Builder
 	Usage           genx.UsageRecorder
-	AudioOutput     AudioOutput
+	// Authorize returns a quota-bound context and a release function for each provider call.
+	Authorize   func(context.Context) (context.Context, func(), error)
+	AudioOutput AudioOutput
 }
 
 type Generator struct {
@@ -185,7 +187,10 @@ func (s *Service) builder() Builder {
 		builder = s.Builder
 	}
 	if s != nil && s.Usage != nil {
-		return usageBuilder{base: builder, record: s.Usage}
+		builder = usageBuilder{base: builder, record: s.Usage}
+	}
+	if s != nil && s.Authorize != nil {
+		builder = quotaBuilder{base: builder, authorize: s.Authorize}
 	}
 	return builder
 }

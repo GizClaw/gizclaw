@@ -1622,6 +1622,17 @@ export type RuntimeProfileMhs = {
     v0?: MhsV0Manifest;
 };
 
+export type RuntimeProfileQuota = {
+    /**
+     * Full HTTP(S) endpoint implementing the Quota Service API.
+     */
+    endpoint: string;
+    /**
+     * Server-only Bearer API key for the quota service.
+     */
+    api_key: string;
+};
+
 /**
  * Model, Voice, Tool, and Memory bindings that Workflows reference by alias. Omitted means the RuntimeProfile binds none of them.
  */
@@ -1661,6 +1672,7 @@ export type RuntimeProfileSpec = {
     safety_fences?: RuntimeProfileSafetyFences;
     mhs?: RuntimeProfileMhs;
     app_config?: RuntimeProfileAppConfig;
+    quota: RuntimeProfileQuota;
 };
 
 export type RuntimeProfileVolcMem0Connection = {

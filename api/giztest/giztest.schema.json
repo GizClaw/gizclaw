@@ -444,6 +444,11 @@
           "type": "integer",
           "minimum": 100,
           "maximum": 599
+        },
+        "endpoint": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional HTTP fixture access point; defaults to the selected client access point. Variables are resolved before the request."
         }
       }
     },

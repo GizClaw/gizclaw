@@ -282,6 +282,7 @@ func seedProvider(ctx context.Context, api *adminhttp.ClientWithResponses, creds
 
 func runtimeProfileSpec(provider bool) apitypes.RuntimeProfileSpec {
 	spec := apitypes.RuntimeProfileSpec{
+		Quota:     apitypes.RuntimeProfileQuota{Endpoint: "http://fixture:9825/v1/quota", ApiKey: "omitted"},
 		Resources: apitypes.RuntimeProfileResources{},
 		Mhs: &apitypes.RuntimeProfileMhs{V0: &apitypes.MhsV0Manifest{Devices: []apitypes.MhsV0Device{{
 			Id: "speaker.main", Hwd: "speaker",

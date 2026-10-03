@@ -27,7 +27,11 @@ func TestNormalizeProfileWorkflowAudioInput(t *testing.T) {
 		"assistant-again": audioInputTestBinding("assistant", apitypes.AudioInputPathModel),
 		"assistant-plain": runtimeProfileTestBinding("assistant"),
 		"other":           audioInputTestBinding("other", apitypes.AudioInputPathAsr),
-	}})
+	}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+		ApiKey: "test-quota-key",
+	},
+	})
 	if err != nil {
 		t.Fatalf("normalizeProfile() error = %v", err)
 	}
@@ -39,7 +43,11 @@ func TestNormalizeProfileWorkflowAudioInput(t *testing.T) {
 	}
 	without, err := normalize(apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
 		"assistant": runtimeProfileTestBinding("assistant"),
-	}})
+	}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+		ApiKey: "test-quota-key",
+	},
+	})
 	if err != nil {
 		t.Fatalf("normalizeProfile(without audio_input) error = %v", err)
 	}
@@ -54,26 +62,42 @@ func TestNormalizeProfileWorkflowAudioInput(t *testing.T) {
 		"unknown path": {
 			spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
 				"assistant": audioInputTestBinding("assistant", "direct"),
-			}},
+			}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+				ApiKey: "test-quota-key",
+			},
+			},
 			wantErr: `workflows.assistant: unsupported audio_input "direct"`,
 		},
 		"bindings of one Workflow disagree": {
 			spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
 				"assistant":    audioInputTestBinding("assistant", apitypes.AudioInputPathModel),
 				"assistant-v2": audioInputTestBinding("assistant", apitypes.AudioInputPathAsr),
-			}},
+			}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+				ApiKey: "test-quota-key",
+			},
+			},
 			wantErr: `workflows.assistant-v2.audio_input "asr" conflicts with workflows.assistant.audio_input "model" for Workflow "assistant"`,
 		},
 		"model binding": {
 			spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
 				Models: &map[string]apitypes.RuntimeProfileBinding{"llm": audioInputTestBinding("chat", apitypes.AudioInputPathModel)},
-			}},
+			}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+				ApiKey: "test-quota-key",
+			},
+			},
 			wantErr: "resources.models.llm: audio_input is only valid on workflows",
 		},
 		"voice binding": {
 			spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
 				Voices: &map[string]apitypes.RuntimeProfileBinding{"narrator": audioInputTestBinding("voice", apitypes.AudioInputPathAsr)},
-			}},
+			}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+				ApiKey: "test-quota-key",
+			},
+			},
 			wantErr: "resources.voices.narrator: audio_input is only valid on workflows",
 		},
 	} {
@@ -148,7 +172,10 @@ func TestRuntimeProfileStoresWorkflowAudioInputAndChecksTheWorkflow(t *testing.T
 	}
 	profile := adminhttp.RuntimeProfileUpsert{Id: "test-profile", Spec: apitypes.RuntimeProfileSpec{
 		Workflows: apitypes.RuntimeProfileWorkflows{"assistant": audioInputTestBinding("assistant", apitypes.AudioInputPathModel)},
-		Resources: apitypes.RuntimeProfileResources{Models: &map[string]apitypes.RuntimeProfileBinding{"llm": runtimeProfileTestBinding("chat")}},
+		Resources: apitypes.RuntimeProfileResources{Models: &map[string]apitypes.RuntimeProfileBinding{"llm": runtimeProfileTestBinding("chat")}}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+			ApiKey: "test-quota-key",
+		},
 	}}
 
 	rejecting := &Server{DB: profileSQLTestDB(t), ResolveResource: resolver("")}

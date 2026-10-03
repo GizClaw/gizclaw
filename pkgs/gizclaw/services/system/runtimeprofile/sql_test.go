@@ -37,7 +37,10 @@ func TestRuntimeProfileSQLRoundTripAndConflict(t *testing.T) {
 	db := profileSQLTestDB(t)
 	ctx := t.Context()
 	now := time.Date(2026, 9, 6, 1, 2, 3, 4, time.UTC)
-	item := apitypes.RuntimeProfile{Id: "opaque/id", CreatedAt: now, UpdatedAt: now, Revision: "revision", Spec: apitypes.RuntimeProfileSpec{}}
+	item := apitypes.RuntimeProfile{Id: "opaque/id", CreatedAt: now, UpdatedAt: now, Revision: "revision", Spec: apitypes.RuntimeProfileSpec{Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+		ApiKey: "test-quota-key"},
+	}}
 	if created, err := insertRuntimeProfileSQL(ctx, db, item); err != nil || !created {
 		t.Fatalf("insert = %v, %v", created, err)
 	}
@@ -208,7 +211,10 @@ func TestInitializeProfileSQLUpgradesLegacyGameplayColumn(t *testing.T) {
 	if columns != 0 {
 		t.Fatalf("gameplay_json columns = %d, want 0", columns)
 	}
-	item := apitypes.RuntimeProfile{Id: "upgraded", CreatedAt: now, UpdatedAt: now, Revision: "revision", Spec: apitypes.RuntimeProfileSpec{}}
+	item := apitypes.RuntimeProfile{Id: "upgraded", CreatedAt: now, UpdatedAt: now, Revision: "revision", Spec: apitypes.RuntimeProfileSpec{Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+		ApiKey: "test-quota-key"},
+	}}
 	if created, err := insertRuntimeProfileSQL(ctx, db, item); err != nil || !created {
 		t.Fatalf("insert after upgrade = %v, %v", created, err)
 	}

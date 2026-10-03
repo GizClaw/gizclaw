@@ -416,6 +416,33 @@
           },
           "app_config": {
             "$ref": "#/components/schemas/RuntimeProfileAppConfig"
+          },
+          "quota": {
+            "$ref": "#/components/schemas/RuntimeProfileQuota"
+          }
+        },
+        "required": [
+          "quota"
+        ]
+      },
+      "RuntimeProfileQuota": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "endpoint",
+          "api_key"
+        ],
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "format": "uri",
+            "minLength": 1,
+            "description": "Full HTTP(S) endpoint implementing the Quota Service API."
+          },
+          "api_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Server-only Bearer API key for the quota service."
           }
         }
       }

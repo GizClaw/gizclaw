@@ -58,6 +58,7 @@ func (s *PeerService) openAIHTTPHandlerForPeer(publicKey giznet.PublicKey, genxS
 		if genxSvc == nil && s.manager.Models != nil && s.manager.Voices != nil && s.manager.Credentials != nil && s.manager.ProviderTenants != nil {
 			genxSvc = peergenx.New(peergenx.Service{
 				Usage:           s.manager.usageRecorder(publicKey),
+				Authorize:       s.manager.quotaAuthorizer(publicKey, nil),
 				Peer:            peerPublicKey(publicKey),
 				Models:          resources,
 				Voices:          resources,

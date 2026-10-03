@@ -607,6 +607,14 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 		return apitypes.RuntimeProfile{}, fmt.Errorf("id %q must match path id %q", id, expectedID)
 	}
 	spec := in.Spec
+	spec.Quota.Endpoint = strings.TrimSpace(spec.Quota.Endpoint)
+	spec.Quota.ApiKey = strings.TrimSpace(spec.Quota.ApiKey)
+	if err := validateMemoryEndpoint(spec.Quota.Endpoint); err != nil {
+		return apitypes.RuntimeProfile{}, fmt.Errorf("quota.endpoint: %w", err)
+	}
+	if spec.Quota.ApiKey == "" || strings.ContainsAny(spec.Quota.ApiKey, "\r\n") {
+		return apitypes.RuntimeProfile{}, errors.New("quota.api_key must be non-empty and contain no newlines")
+	}
 	allAliases := make(map[string]string)
 	workflows := make(apitypes.RuntimeProfileWorkflows, len(spec.Workflows))
 	for rawAlias, binding := range spec.Workflows {

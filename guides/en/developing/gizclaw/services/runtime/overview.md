@@ -13,6 +13,7 @@ services/runtime/
 ├── peerroute/       # Peer assignment and edge-route data
 ├── peerrun/         # selection state for the Agent currently running on a Peer
 ├── peerusage/       # Hourly Peer/model consumption and 90-day retention
+├── peerquota/       # external quota decisions, refresh and active-call authorization
 ├── peertelemetry/   # Telemetry decoding, mapping, status, and metrics
 ├── runtimeprofile/  # Read-only in-memory SQLite snapshots and cross-Profile queries
 └── toolkit/         # Tool resources, policies, executors, and runtime views
@@ -82,3 +83,7 @@ Shouldn't be placed here:
 ### [peerusage](./peerusage)
 
 Owns hourly Peer/model quantities, nonblocking reporting, idempotent cumulative snapshots and SQL day-partition retention.
+
+### [peerquota](/en/developing/api/http/quota)
+
+Owns external quota queries, cached decisions and authorization lifetimes for active provider calls. The HTTP service bound by RuntimeProfile owns billing policy.

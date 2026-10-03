@@ -53,7 +53,7 @@ func Run(t *testing.T, host Host) {
 		t.Fatal(err)
 	}
 	prefix := "admission-" + key.Public.ShortString()
-	if err := host.CreateProfile(ctx, adminhttp.RuntimeProfileUpsert{Id: prefix, Spec: apitypes.RuntimeProfileSpec{AppConfig: new(apitypes.RuntimeProfileAppConfig{"admission.marker": "accepted"})}}); err != nil {
+	if err := host.CreateProfile(ctx, adminhttp.RuntimeProfileUpsert{Id: prefix, Spec: apitypes.RuntimeProfileSpec{Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://fixture:9825/v1/quota", ApiKey: "omitted"}, AppConfig: new(apitypes.RuntimeProfileAppConfig{"admission.marker": "accepted"})}}); err != nil {
 		t.Fatal(err)
 	}
 	for _, fixture := range []struct {

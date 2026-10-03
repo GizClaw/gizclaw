@@ -228,3 +228,7 @@ spec:
 ```
 
 `id` 全清单唯一、区分大小写，匹配 `^[a-z][a-z0-9]*([.-][a-z0-9]+)*$`，最多 64 ASCII 字节。`hwd` 只接受 wifi、ble、modem、battery、mic、display、led、speaker；description 与自然语言 tags 可选。创建、PUT 与 apply 在保存前验证整个清单。清单保存在 `runtime_profiles.mhs_json` 并参与 spec revision。控制 App 的 manifest endpoint 只投影这份硬件目录，设备离线时仍可读；未定义清单返回 `{"devices":[]}`。见 [Public API](/zh/developing/api/http/public#mhs-v0-hwd)。
+
+## Quota
+
+RuntimeProfile 必须配置 `spec.quota.endpoint` 和 `spec.quota.api_key`，由该 HTTP 服务决定 provider 调用的可用有效期。配置保存在 `runtime_profiles.quota_json` 并参与 Profile revision；既有 SQL 表初始化时补上该列，未配置的旧 Profile 不能授权 provider 调用。协议、刷新、两个时间边界与 Docker fixture 验证见 [Quota](/zh/developing/api/http/quota)。

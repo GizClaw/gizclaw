@@ -145,7 +145,15 @@ Future<_StepOutcome> _runStep(
         ? variables.resolve(http['body'])
         : null;
     final method = http['method'] as String;
-    final result = await client.callHttp(method, path, headers, body);
+    final result = await client.callHttp(
+      method,
+      path,
+      headers,
+      body,
+      accessPoint: http['endpoint'] == null
+          ? null
+          : variables.resolveString(http['endpoint'], 'http endpoint'),
+    );
     final evidence = <String, Object?>{
       'method': method,
       'path': path,

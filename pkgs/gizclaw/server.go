@@ -23,6 +23,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/flowstate"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerquota"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
@@ -279,6 +280,11 @@ func (s *Server) Close() error {
 		errs = append(errs, s.peerService.closeOpenAIResponses(ctx))
 		cancel()
 	}
+	if s.manager != nil && s.manager.PeerQuota != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		errs = append(errs, s.manager.PeerQuota.Close(ctx))
+		cancel()
+	}
 	if s.manager != nil && s.manager.MemoryStores != nil {
 		errs = append(errs, s.manager.MemoryStores.Close())
 	}
@@ -404,6 +410,7 @@ func (s *Server) init() error {
 		ICEServers:      s.ICEServers,
 	}
 	manager := NewManager(peersServer)
+	manager.PeerQuota = peerquota.New(quotaReporter{manager: manager})
 	if s.PeerUsageDB != nil {
 		usageStore, err := peerusage.NewStore(context.Background(), s.PeerUsageDB)
 		if err != nil {

@@ -399,7 +399,10 @@ func TestDanglingRuntimeProfileResourceNamesAreRejected(t *testing.T) {
 			Workflows: apitypes.RuntimeProfileWorkflows{
 				"missing": runtimeProfileTestBinding("missing-workflow"),
 			},
-			Resources: apitypes.RuntimeProfileResources{Models: new(map[string]apitypes.RuntimeProfileBinding{"missing": runtimeProfileTestBinding("missing-model")})},
+			Resources: apitypes.RuntimeProfileResources{Models: new(map[string]apitypes.RuntimeProfileBinding{"missing": runtimeProfileTestBinding("missing-model")})}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+				ApiKey: "test-quota-key",
+			},
 		},
 	}})
 	if err != nil {
@@ -429,7 +432,10 @@ func TestRuntimeProfileRejectsResolverReturningWrongResourceKind(t *testing.T) {
 		Id: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{},
-			Resources: apitypes.RuntimeProfileResources{Models: &models},
+			Resources: apitypes.RuntimeProfileResources{Models: &models}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+				ApiKey: "test-quota-key",
+			},
 		},
 	}})
 	if err != nil {
@@ -736,7 +742,10 @@ func TestRuntimeProfileRejectsAliasesSharedAcrossResourceKinds(t *testing.T) {
 		Id: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{},
-			Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices},
+			Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+				ApiKey: "test-quota-key",
+			},
 		},
 	}})
 	if err != nil {
@@ -852,6 +861,9 @@ func scopedAliasProfileForTest(t *testing.T) adminhttp.RuntimeProfileUpsert {
 			},
 			Resources: apitypes.RuntimeProfileResources{
 				Models: &models, Voices: &voices, Tools: &tools, Memories: &memories,
+			}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+				ApiKey: "test-quota-key",
 			},
 		},
 	}
@@ -900,7 +912,11 @@ func TestRuntimeProfileRejectsWorkflowAliasesDuplicatedAfterNormalization(t *tes
 		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
 			"chat":   runtimeProfileTestBinding("chat"),
 			" chat ": runtimeProfileTestBinding("other"),
-		}}}, "")
+		}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+			ApiKey: "test-quota-key",
+		},
+		}}, "")
 	if err == nil || !strings.Contains(err.Error(), "duplicated after normalization") {
 		t.Fatalf("normalizeProfile() error = %v, want normalized collection collision", err)
 	}
@@ -910,7 +926,10 @@ func TestRuntimeProfileWorkflowTagsAreOpaqueAndCanonical(t *testing.T) {
 	binding := runtimeProfileTestBinding("chat")
 	binding.Tags = &[]string{"story", "6-8"}
 	item, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{Id: "test-profile", Spec: apitypes.RuntimeProfileSpec{
-		Workflows: apitypes.RuntimeProfileWorkflows{"chat": binding},
+		Workflows: apitypes.RuntimeProfileWorkflows{"chat": binding}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+			ApiKey: "test-quota-key",
+		},
 	}}, "")
 	if err != nil {
 		t.Fatal(err)
@@ -920,7 +939,10 @@ func TestRuntimeProfileWorkflowTagsAreOpaqueAndCanonical(t *testing.T) {
 	}
 	binding.Tags = &[]string{"story", "story"}
 	if _, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{Id: "test-profile", Spec: apitypes.RuntimeProfileSpec{
-		Workflows: apitypes.RuntimeProfileWorkflows{"chat": binding},
+		Workflows: apitypes.RuntimeProfileWorkflows{"chat": binding}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+			ApiKey: "test-quota-key",
+		},
 	}}, ""); err == nil || !strings.Contains(err.Error(), "duplicate tag") {
 		t.Fatalf("duplicate tags error = %v", err)
 	}
@@ -947,7 +969,10 @@ func TestRuntimeProfileAcceptsDefaultName(t *testing.T) {
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Id: "default",
 		Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{},
+			Workflows: apitypes.RuntimeProfileWorkflows{}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+				ApiKey: "test-quota-key",
+			},
 		},
 	}})
 	if err != nil {
@@ -1223,7 +1248,10 @@ func createProfile(t testing.TB, s *Server, name string, models map[string]strin
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Id: name, Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{},
-			Resources: resources,
+			Resources: resources, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+				ApiKey: "test-quota-key",
+			},
 		},
 	}})
 	if err != nil {
@@ -1391,7 +1419,10 @@ func TestRuntimeProfileRejectsMissingMemoryLayoutWithoutPersistingRevision(t *te
 			Id: "default",
 			Spec: apitypes.RuntimeProfileSpec{
 				Workflows: apitypes.RuntimeProfileWorkflows{},
-				Resources: apitypes.RuntimeProfileResources{Memories: &memories},
+				Resources: apitypes.RuntimeProfileResources{Memories: &memories}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+					ApiKey: "test-quota-key",
+				},
 			},
 		},
 	})

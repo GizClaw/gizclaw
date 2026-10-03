@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerquota"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 )
 
@@ -505,6 +506,11 @@ func (s *rpcServer) handleSpeechSynthesize(ctx context.Context, stream *rpcStrea
 			if errors.Is(nextErr, genx.ErrDone) || errors.Is(nextErr, io.EOF) {
 				break
 			}
+			// Metadata has already been sent. Binary speech streams terminate
+			// with EOS; another response envelope would become audio bytes.
+			if errors.Is(nextErr, peerquota.ErrDenied) || errors.Is(nextErr, peerquota.ErrUnavailable) {
+				return callStream.WriteEOS()
+			}
 			return nextErr
 		}
 		if chunk == nil || chunk.IsEndOfStream() {
@@ -661,6 +667,8 @@ func validRuntimeAlias(value string) bool {
 
 func speechRPCError(err error) (rpcapi.StatusCode, string) {
 	switch {
+	case errors.Is(err, peergenx.ErrDenied), errors.Is(err, peerquota.ErrDenied), errors.Is(err, peerquota.ErrUnavailable):
+		return rpcapi.StatusCodePermissionDenied, "quota does not authorize speech"
 	case errors.Is(err, errSpeechBadRequest):
 		return rpcapi.StatusCodeInvalidArgument, err.Error()
 	case errors.Is(err, peergenx.ErrNotFound):
@@ -676,6 +684,8 @@ func speechRPCError(err error) (rpcapi.StatusCode, string) {
 
 func speechExtractRPCError(err error) (rpcapi.StatusCode, string) {
 	switch {
+	case errors.Is(err, peergenx.ErrDenied), errors.Is(err, peerquota.ErrDenied), errors.Is(err, peerquota.ErrUnavailable):
+		return rpcapi.StatusCodePermissionDenied, "quota does not authorize speech"
 	case errors.Is(err, errSpeechBadRequest):
 		return rpcapi.StatusCodeInvalidArgument, err.Error()
 	case errors.Is(err, peergenx.ErrNotFound):
