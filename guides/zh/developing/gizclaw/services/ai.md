@@ -215,3 +215,7 @@ flowchart LR
 Workspace 创建按 owner 注册并 drain in-flight 工作。Runtime preparation 与调用者 initializer 在 coordinator mutex 外执行；退休只关闭目标 owner 的 admission，并在快照前等待该 owner 的创建。MemoryLayout 使用 SQL 原子更新和删除，不在 service 中持有覆盖数据库 I/O 的读改写锁。
 
 MemoryLayout 保存于 `memory_layouts` 业务表。ID 为主键，Flowcraft、Mem0 和 VolcMem0 policy 分别存入独立 JSON 列；该表不存 Memory 内容或运行时连接。Server 启动时建表并复用 SQL 连接池，列表按 ID 使用范围查询和 `LIMIT` 分页，完整替换仅更新已存在的行，不能把并发删除的记录重新写回。
+
+## Peer 小时用量
+
+可选 `services.peer_usage.store` 绑定 SQL pool，保存 provider 实际 model/resource ID 的小时数量；使用共享 SQL 日分区维护，并在关闭 pool 前 flush worker。完整字段、保留与持久化边界见 [Peer usage](/zh/developing/gizclaw/services/runtime/peerusage)。

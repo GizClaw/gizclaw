@@ -67,6 +67,7 @@ type Service struct {
 	Credentials     CredentialGetter
 	ProviderTenants ProviderTenantGetter
 	Builder         Builder
+	Usage           genx.UsageRecorder
 	AudioOutput     AudioOutput
 }
 
@@ -179,10 +180,14 @@ func (t *Transformer) Transform(ctx context.Context, pattern string, input genx.
 }
 
 func (s *Service) builder() Builder {
+	var builder Builder = DefaultBuilder{}
 	if s != nil && s.Builder != nil {
-		return s.Builder
+		builder = s.Builder
 	}
-	return DefaultBuilder{}
+	if s != nil && s.Usage != nil {
+		return usageBuilder{base: builder, record: s.Usage}
+	}
+	return builder
 }
 
 type generatorModelContext struct {

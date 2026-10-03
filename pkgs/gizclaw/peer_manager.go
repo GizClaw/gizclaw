@@ -12,6 +12,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 
@@ -32,6 +33,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerusage"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
@@ -134,6 +136,7 @@ type telemetryStatusLock struct {
 type Manager struct {
 	Peers           *peer.Server
 	PeerRoutes      *peerroute.Server
+	PeerUsage       *peerusage.Recorder
 	PeerRun         *peerrun.Server
 	AgentHost       *agenthost.Host
 	RuntimeProfiles *runtimeprofile.Server
@@ -697,6 +700,7 @@ func (m *Manager) ownerGenXForProfile(
 		RuntimeProfile: func() *apitypes.RuntimeProfile { return &profile },
 	}
 	return peergenx.New(peergenx.Service{
+		Usage:  m.usageRecorder(publicKey),
 		Models: resources, Voices: resources, Credentials: m.Credentials,
 		ProviderTenants: m.ProviderTenants,
 	}), nil
@@ -1148,4 +1152,11 @@ func equalPeerLabelSlice(current *[]apitypes.PeerLabel, next []apitypes.PeerLabe
 		}
 	}
 	return true
+}
+
+func (m *Manager) usageRecorder(peer giznet.PublicKey) genx.UsageRecorder {
+	if m == nil || m.PeerUsage == nil {
+		return nil
+	}
+	return m.PeerUsage.Handler(peer)
 }

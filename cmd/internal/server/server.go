@@ -336,6 +336,12 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 	if err != nil {
 		return err
 	}
+	if cfg.PeerUsage != nil {
+		server.PeerUsageDB, err = resolveSQLStore(registry, "services.peer_usage.store", cfg.PeerUsage.Store)
+		if err != nil {
+			return err
+		}
+	}
 	server.ModelDB, err = resolveSQLStore(registry, "services.model.store", cfg.Model.Store)
 	if err != nil {
 		return err

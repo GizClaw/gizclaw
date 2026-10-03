@@ -26,6 +26,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerusage"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
@@ -59,6 +60,7 @@ type Server struct {
 	PeerListenerFactories []PeerListenerFactory
 
 	PeerStore              kv.Store
+	PeerUsageDB            *sqlx.DB
 	PeerRunDB              *sqlx.DB
 	CredentialDB           *sqlx.DB
 	FirmwareDB             *sqlx.DB
@@ -161,6 +163,9 @@ func (s *Server) Listen() error {
 	s.listenerMu.Unlock()
 	if s.pendingDeletionProcessor != nil {
 		s.pendingDeletionProcessor.Start(context.Background())
+	}
+	if s.manager != nil && s.manager.PeerUsage != nil {
+		s.manager.PeerUsage.Start(context.Background())
 	}
 	return nil
 }
@@ -280,6 +285,11 @@ func (s *Server) Close() error {
 	if s.manager != nil && s.manager.RuntimeProfiles != nil {
 		errs = append(errs, s.manager.RuntimeProfiles.Close())
 	}
+	if s.manager != nil && s.manager.PeerUsage != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		errs = append(errs, s.manager.PeerUsage.Close(ctx))
+		cancel()
+	}
 	return errors.Join(errs...)
 }
 
@@ -394,6 +404,13 @@ func (s *Server) init() error {
 		ICEServers:      s.ICEServers,
 	}
 	manager := NewManager(peersServer)
+	if s.PeerUsageDB != nil {
+		usageStore, err := peerusage.NewStore(context.Background(), s.PeerUsageDB)
+		if err != nil {
+			return fmt.Errorf("gizclaw: initialize peer usage: %w", err)
+		}
+		manager.PeerUsage = peerusage.NewRecorder(usageStore)
+	}
 	notifyPeer := func(_ context.Context, publicKey string, event *eventpb.PeerEvent) {
 		var recipient giznet.PublicKey
 		if err := recipient.UnmarshalText([]byte(publicKey)); err != nil || recipient.IsZero() {

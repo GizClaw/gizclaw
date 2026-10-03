@@ -131,3 +131,7 @@ Production registration 为 `source=workspace`（`kind=workspace`）、`source=f
 | `servePeerListener` | 接受单个 listener 上的 Peer connections。 |
 | `startCleanup` | 启动后台资源清理。 |
 | [`Server.Close`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Server.Close) | 停止 listeners、后台任务并关闭 Server 资源。 |
+
+## Peer 小时用量
+
+可选 `services.peer_usage.store` 绑定 SQL pool，保存 provider 实际 model/resource ID 的小时数量；使用共享 SQL 日分区维护，并在关闭 pool 前 flush worker。完整字段、保留与持久化边界见 [Peer usage](/zh/developing/gizclaw/services/runtime/peerusage)。

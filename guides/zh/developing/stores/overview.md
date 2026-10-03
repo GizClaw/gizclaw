@@ -125,3 +125,7 @@ modernc 参数。连接的 `busy_timeout`、WAL journal mode 和 foreign-key PRA
 ## 放置规则
 
 这里保存可跨领域复用的 storage interface、backend adapter 以及通用 key、query、index、expiration 与 persistence 语义。领域 resource schema、HTTP/RPC、authorization、进程配置和只属于单一领域的 repository 不应放入 `pkgs/store`。
+
+## Peer 小时用量
+
+可选 `services.peer_usage.store` 绑定 SQL pool，保存 provider 实际 model/resource ID 的小时数量；使用共享 SQL 日分区维护，并在关闭 pool 前 flush worker。完整字段、保留与持久化边界见 [Peer usage](/zh/developing/gizclaw/services/runtime/peerusage)。

@@ -12,6 +12,7 @@ services/runtime/
 ├── peerresource/    # 面向 peer 的跨领域资源聚合
 ├── peerroute/       # Peer assignment 与 edge route 数据
 ├── peerrun/         # Peer 当前运行 Agent 的选择状态
+├── peerusage/       # Peer/model 小时用量与 90 天保留
 ├── peertelemetry/   # Telemetry 解码、映射、status 和 metrics
 ├── runtimeprofile/  # 只读内存 SQLite 快照与跨 Profile 条目查询
 └── toolkit/         # Tool 资源、policy、执行器和 runtime view
@@ -79,3 +80,7 @@ flowchart TB
 - Workflow、workspace、model、voice 和 credential 的 catalog ownership。
 - Social 或 firmware 的领域规则。
 - CLI process、storage backend 和 listener 创建。
+
+### [peerusage](./peerusage)
+
+保存 Peer/model 的小时数量，负责非阻塞上报、幂等累计快照和 SQL 日分区保留。

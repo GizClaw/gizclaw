@@ -1210,6 +1210,9 @@ func assertCompleteServerConfigInventory(t *testing.T, cfg ConfigFile) {
 	expect("services.peer.store", services.Peer.Store, stores.KindKeyValue)
 	expect("services.workspace.store", services.Workspace.Store, stores.KindSQL)
 	expect("services.peer_run.store", services.PeerRun.Store, stores.KindSQL)
+	if services.PeerUsage != nil {
+		expect("services.peer_usage.store", services.PeerUsage.Store, stores.KindSQL)
+	}
 	expect("services.firmware.store", services.Firmware.Store, stores.KindSQL)
 	expect("services.toolkit.store", services.Toolkit.Store, stores.KindSQL)
 	expect("services.memory_layout.store", services.MemoryLayout.Store, stores.KindSQL)
@@ -1732,5 +1735,14 @@ func TestPeerAdmissionConfigurationAndAdminIndependence(t *testing.T) {
 	cfg.PeerAdmission = "typo"
 	if _, err := New(cfg); err == nil {
 		t.Fatal("programmatic invalid selection accepted")
+	}
+}
+
+func TestPeerUsageBindingValidation(t *testing.T) {
+	if err := validateServicesConfigShape(map[string]any{"peer_usage": map[string]any{"store": 1}}); err == nil {
+		t.Fatal("numeric usage Store accepted")
+	}
+	if _, err := parseConfigData([]byte("services:\n  peer_usage:\n    store: database\n    unexpected: x\n")); err == nil {
+		t.Fatal("unknown usage property accepted")
 	}
 }

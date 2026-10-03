@@ -107,6 +107,7 @@ type AgentHostFlowcraftConfig struct {
 // storage and stores registries, service names are not operator-defined.
 type ServicesConfig struct {
 	Peer            *SingleStoreConfig     `yaml:"peer"`
+	PeerUsage       *SingleStoreConfig     `yaml:"peer_usage"`
 	PeerRun         *SingleStoreConfig     `yaml:"peer_run"`
 	APIKey          *SingleStoreConfig     `yaml:"api_key"`
 	Credential      *SingleStoreConfig     `yaml:"credential"`
@@ -1210,6 +1211,9 @@ func validateServicesConfig(cfg *ServicesConfig) error {
 			}
 		}
 	}
+	if cfg.PeerUsage != nil && strings.TrimSpace(cfg.PeerUsage.Store) == "" {
+		return fmt.Errorf("server: services.peer_usage.store is required and must not be whitespace-only")
+	}
 	if cfg.Metrics != nil && strings.TrimSpace(cfg.Metrics.Store) == "" {
 		return fmt.Errorf("server: services.metrics.store is required and must not be whitespace-only")
 	}
@@ -1418,6 +1422,7 @@ func validateServicesConfigShape(services map[string]any) error {
 	stringFields := map[string][]string{
 		"peer":             {"store"},
 		"peer_run":         {"store"},
+		"peer_usage":       {"store"},
 		"api_key":          {"store"},
 		"credential":       {"store"},
 		"firmware":         {"store"},

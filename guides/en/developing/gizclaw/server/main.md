@@ -145,3 +145,7 @@ The optional top-level `pending_deletion` configuration defaults to `scan_interv
 | `servePeerListener` | Accepts Peer connections on a single listener. |
 | `startCleanup` | Start background resource cleanup. |
 | [`Server.Close`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Server.Close) | Stop listeners, background tasks and close Server resources. |
+
+## Hourly Peer usage
+
+Optional `services.peer_usage.store` binds a SQL pool to hourly provider model/resource quantities. Shared SQL day maintenance and a worker drain before pool closure implement retention and lifecycle. See [Peer usage](/en/developing/gizclaw/services/runtime/peerusage).
