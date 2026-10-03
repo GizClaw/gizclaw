@@ -1,0 +1,47 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata: {id: mem0-batch}
+spec:
+  driver: eino
+  memory: giztest-workspace-memory
+  eino:
+    graph:
+      name: Mem0 user and assistant batch
+      compile: {node_trigger_mode: any_predecessor, max_run_steps: 10}
+      state:
+        fields:
+        - {name: observation, type: string, merge: replace}
+        - {name: answer, type: string, merge: replace}
+      nodes:
+      - id: capture-observation
+        type: passthrough
+        inputs: {value: {from: input.text}}
+        outputs: {value: observation}
+      # A deterministic answer keeps the persistence assertion independent of
+      # answer-model phrasing. Mem0 still uses its real embedding provider.
+      - id: assistant
+        type: script
+        inputs: {text: {from: observation}}
+        outputs: {text: answer}
+        language: starlark
+        entrypoint: run
+        source: |
+          def run(input):
+            return {"text": "Assistant confirmed: " + input["text"]}
+        limits: {max_execution_steps: 1000, timeout: 1s, max_input_bytes: 4096, max_output_bytes: 8192}
+      - id: observe-memory
+        type: memory_observe
+        facts:
+        - {text_from: observation}
+        - {text_from: answer}
+        wait_for_completion: true
+      edges:
+      - {from: start, to: capture-observation}
+      - {from: capture-observation, to: assistant}
+      - {from: assistant, to: observe-memory}
+      - {from: observe-memory, to: end}
+      branches: []
+      outputs:
+      - {node: assistant, field: answer, name: assistant, mime_type: text/plain, primary: true}
+    conversation: {starts: peer}

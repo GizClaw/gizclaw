@@ -30,8 +30,9 @@ from openai import APIError, APIStatusError
 from mem0.llms.openai import OpenAILLM
 from mem0.embeddings.openai import OpenAIEmbedding
 from dotenv import dotenv_values
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from gizclaw_mem0.schema import contract
+from gizclaw_mem0 import direct
 import anyio.to_thread
 import anyio
 
@@ -163,6 +164,7 @@ class Message(BaseModel):
     role: str
     content: str
     name: str | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class MemoryCreate(BaseModel):
@@ -175,6 +177,32 @@ class MemoryCreate(BaseModel):
     user_id: str | None = None
     agent_id: str | None = None
     run_id: str | None = None
+    observation_id: str | None = Field(default=None, min_length=1)
+    observation_digest: str | None = Field(default=None, pattern="^[a-f0-9]{64}$")
+
+    @model_validator(mode="after")
+    def validate_direct(self):
+        keyed = self.observation_id is not None
+        if keyed != (self.observation_digest is not None):
+            raise ValueError("observation_id and observation_digest must be supplied together")
+        if keyed and (self.infer or self.prompt is not None or len(self.messages) > 1000):
+            raise ValueError("direct observations require infer=false, no prompt and at most 1000 messages")
+        if any(message.metadata is not None for message in self.messages) and not keyed:
+            raise ValueError("message metadata requires a keyed direct observation")
+        if keyed:
+            if not self.observation_id.strip():
+                raise ValueError("observation_id must not be blank")
+            reserved = {"data", "hash", "id", "created_at", "updated_at", "text_lemmatized",
+                        "user_id", "agent_id", "run_id", "role", "actor_id", "attributed_to", "expiration_date",
+                        direct.OBSERVATION, direct.DIGEST, direct.INDEX, "gizclaw.turn_ids",
+                        "gizclaw.entity_scope", "gizclaw.operation_marker"}
+            for message in self.messages:
+                if message.role not in ("user", "assistant") or not message.content.strip():
+                    raise ValueError("direct messages require a user/assistant role and nonempty content")
+                for key in {**(self.metadata or {}), **(message.metadata or {})}:
+                    if key in reserved:
+                        raise ValueError("direct metadata contains a provider-owned field")
+        return self
 
 
 class MemoryUpdate(BaseModel):
@@ -620,6 +648,8 @@ def add_memory(request: MemoryCreate) -> dict[str, Any]:
     try:
         routing = _routing_kwargs(request.model_dump())
         with _write_lock(routing):
+            if request.observation_id is not None:
+                return direct.observe(_get_memory(), request, routing)
             _operation_state.extraction_response = None
             embedding = _get_memory().embedding_model
             if isinstance(embedding, ArkMultimodalEmbedding):
@@ -627,7 +657,7 @@ def add_memory(request: MemoryCreate) -> dict[str, Any]:
             _operation_state.extraction_required = request.infer
             try:
                 result = _get_memory().add(
-                    messages=[message.model_dump(exclude_none=True) for message in request.messages],
+                    messages=[message.model_dump(exclude={"metadata"}, exclude_none=True) for message in request.messages],
                     metadata=request.metadata,
                     infer=request.infer,
                     prompt=request.prompt if request.infer else None,
@@ -692,7 +722,7 @@ def delete_memories(
         routing = _routing_kwargs(
             {"user_id": user_id, "agent_id": agent_id, "run_id": run_id}
         )
-        with _purge_lock, _write_lock(routing):
+        with _purge_lock, _write_lock(routing), direct.purge(_get_memory(), routing):
             _get_memory().delete_all(**routing)
         return {"message": "Memories deleted successfully!"}
     except ValueError as error:

@@ -44,13 +44,15 @@ type HealthStatus struct {
 
 // MemoryCreate defines model for MemoryCreate.
 type MemoryCreate struct {
-	AgentId  *string                 `json:"agent_id,omitempty"`
-	Infer    *bool                   `json:"infer,omitempty"`
-	Messages []Message               `json:"messages"`
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
-	Prompt   *string                 `json:"prompt,omitempty"`
-	RunId    *string                 `json:"run_id,omitempty"`
-	UserId   *string                 `json:"user_id,omitempty"`
+	AgentId           *string                 `json:"agent_id,omitempty"`
+	Infer             *bool                   `json:"infer,omitempty"`
+	Messages          []Message               `json:"messages"`
+	Metadata          *map[string]interface{} `json:"metadata,omitempty"`
+	ObservationDigest *string                 `json:"observation_digest,omitempty"`
+	ObservationId     *string                 `json:"observation_id,omitempty"`
+	Prompt            *string                 `json:"prompt,omitempty"`
+	RunId             *string                 `json:"run_id,omitempty"`
+	UserId            *string                 `json:"user_id,omitempty"`
 }
 
 // MemoryRecord defines model for MemoryRecord.
@@ -80,9 +82,10 @@ type MemoryUpdate struct {
 
 // Message defines model for Message.
 type Message struct {
-	Content string  `json:"content"`
-	Name    *string `json:"name,omitempty"`
-	Role    string  `json:"role"`
+	Content  string                  `json:"content"`
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Name     *string                 `json:"name,omitempty"`
+	Role     string                  `json:"role"`
 }
 
 // SearchRequest defines model for SearchRequest.
@@ -1137,6 +1140,7 @@ type AddMemoryResponse struct {
 	JSON200      *MemoryResults
 	JSON400      *ErrorResponse
 	JSON401      *ErrorResponse
+	JSON409      *ErrorResponse
 	JSON422      *ErrorResponse
 	JSON429      *ErrorResponse
 	JSON502      *ErrorResponse
@@ -1630,6 +1634,13 @@ func ParseAddMemoryResponse(rsp *http.Response) (*AddMemoryResponse, error) {
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
 		var dest ErrorResponse

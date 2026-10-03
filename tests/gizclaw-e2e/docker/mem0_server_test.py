@@ -438,6 +438,11 @@ class LayoutPolicyTest(unittest.TestCase):
 
 
 class ConcurrentOperationTest(unittest.TestCase):
+    def setUp(self):
+        patcher = mock.patch.object(mem0_server.direct, "purge", side_effect=lambda *_: contextlib.nullcontext())
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_id_mutations_resolve_before_matching_purge_can_run(self):
         for mutation in ("update", "delete"):
             with self.subTest(mutation=mutation):
@@ -758,6 +763,9 @@ class ThinkingRequestTest(unittest.TestCase):
 
 class EntityBulkEndpointTest(unittest.TestCase):
     def setUp(self):
+        patcher = mock.patch.object(mem0_server.direct, "purge", side_effect=lambda *_: contextlib.nullcontext())
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.memory = mock.Mock()
         patcher = mock.patch.object(mem0_server, "_memory", self.memory)
         patcher.start()
@@ -912,6 +920,123 @@ class ResponseMetadataTest(unittest.TestCase):
             with self.assertRaises(mem0_server.HTTPException) as raised:
                 mem0_server.add_memory(request)
         self.assertEqual(raised.exception.status_code, 502)
+
+
+
+class DirectObservationTest(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.records = {}
+        self.memory = mock.Mock()
+        self.memory.config = SimpleNamespace(
+            vector_store=SimpleNamespace(provider="qdrant", config=SimpleNamespace(collection_name="direct")),
+            history_db_path=directory.name + "/history.db")
+        self.memory.vector_store.list.side_effect = lambda filters, top_k: [[
+            SimpleNamespace(id=key, payload={**record["metadata"], "data":record["memory"], "user_id":record["user_id"]}) for key, record in self.records.items()
+            if all(record["metadata"].get(k, record.get(k)) == v for k, v in filters.items())][:top_k]]
+        self.memory.get.side_effect = self.records.get
+        self.memory.add.side_effect = self.add
+        self.memory.delete_all.side_effect = lambda **_: self.records.clear()
+        patcher = mock.patch.object(mem0_server, "_memory", self.memory)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def add(self, messages, metadata, infer, **routing):
+        key = str(len(self.records))
+        self.records[key] = {"id": key, "memory": messages[0]["content"], "metadata": metadata, **routing}
+        return {"results": [{"id": key}]}
+
+    def request(self, **overrides):
+        values = dict(user_id="scope", infer=False, observation_id="turn", observation_digest="a"*64,
+                      messages=[{"role": "user", "content": "user fact", "metadata": {"kind": "user"}},
+                                {"role": "assistant", "content": "assistant fact", "metadata": {"kind": "assistant"}}])
+        values.update(overrides)
+        return mem0_server.MemoryCreate(**values)
+
+    def test_concurrent_retries_preserve_two_distinct_facts(self):
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            results = list(pool.map(lambda _: mem0_server.add_memory(self.request()), range(8)))
+        self.assertEqual(self.memory.add.call_count, 2)
+        self.assertTrue(all(result == results[0] for result in results))
+        self.assertEqual([r["metadata"]["kind"] for r in results[0]["results"]], ["user", "assistant"])
+        with self.assertRaises(mem0_server.HTTPException) as raised:
+            mem0_server.add_memory(self.request(observation_digest="b"*64))
+        self.assertEqual(raised.exception.status_code, 409)
+
+    def test_partial_failure_and_lost_sdk_reply_resume_missing_items(self):
+        calls = 0
+        def failing_add(**values):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise RuntimeError("second embedding unavailable")
+            result = self.add(**values)
+            if calls == 3:
+                raise RuntimeError("reply lost after persistence")
+            return result
+        self.memory.add.side_effect = failing_add
+        for count in (1, 2):
+            with self.assertRaises(RuntimeError):
+                mem0_server.add_memory(self.request())
+            self.assertEqual(len(self.records), count)
+        result = mem0_server.add_memory(self.request())
+        self.assertEqual(len(result["results"]), 2)
+        self.assertEqual(calls, 3)
+        # Durable reservation survives recreating adapter/HTTP request state.
+        with self.assertRaises(mem0_server.HTTPException) as raised:
+            mem0_server.add_memory(self.request(messages=[{"role":"user", "content":"changed"}]))
+        self.assertEqual(raised.exception.status_code, 409)
+        mem0_server.delete_memories(user_id="scope")
+        result = mem0_server.add_memory(self.request(messages=[{"role":"user", "content":"new"}]))
+        self.assertEqual(len(result["results"]), 1)
+
+    def test_legacy_single_fact_is_adopted_without_another_write(self):
+        request = self.request(messages=[{"role":"user", "content":"legacy fact"}])
+        self.records["legacy"] = {"id":"legacy", "memory":"legacy fact", "user_id":"scope",
+                                  "metadata":{mem0_server.direct.OBSERVATION:"turn", mem0_server.direct.DIGEST:"a"*64}}
+        def update(vector_id, payload):
+            self.records[vector_id]["metadata"][mem0_server.direct.INDEX] = payload[mem0_server.direct.INDEX]
+        self.memory.vector_store.update.side_effect = update
+        result = mem0_server.add_memory(request)
+        self.assertEqual(result["results"][0]["id"], "legacy")
+        self.memory.add.assert_not_called()
+
+    def test_completed_deleted_fact_is_not_recreated(self):
+        result = mem0_server.add_memory(self.request())
+        del self.records[result["results"][0]["id"]]
+        with self.assertRaises(mem0_server.HTTPException) as raised:
+            mem0_server.add_memory(self.request())
+        self.assertEqual(raised.exception.status_code, 409)
+        self.assertEqual(self.memory.add.call_count, 2)
+
+    def test_reservation_conflicts_even_before_first_fact(self):
+        self.memory.add.side_effect = RuntimeError("embedding unavailable")
+        with self.assertRaises(RuntimeError):
+            mem0_server.add_memory(self.request())
+        with self.assertRaises(mem0_server.HTTPException) as raised:
+            mem0_server.add_memory(self.request(observation_digest="b"*64))
+        self.assertEqual(raised.exception.status_code, 409)
+
+    def test_incomplete_sdk_result_is_not_success(self):
+        self.memory.add.side_effect = lambda **_: {"results": []}
+        with self.assertRaises(mem0_server.HTTPException) as raised:
+            mem0_server.add_memory(self.request())
+        self.assertEqual(raised.exception.status_code, 502)
+
+    def test_invalid_direct_inputs_write_nothing(self):
+        invalid = [dict(infer=True), dict(prompt="extract"), dict(observation_id=" "),
+                   dict(observation_digest=None), dict(observation_digest="bad"),
+                   dict(messages=[{"role":"system", "content":"ignored"}]),
+                   dict(messages=[{"role":"user", "content":" "}]),
+                   dict(messages=[{"role":"user", "content":"ok", "metadata":{"user_id":"other"}}]),
+                   dict(messages=[{"role":"user", "content":"ok", "metadata":{"gizclaw.fact_index":0}}]),
+                   dict(messages=[{"role":"user", "content":"ok"}]*1001)]
+        for values in invalid:
+            with self.subTest(values=list(values)):
+                with self.assertRaises(ValueError):
+                    self.request(**values)
+        self.memory.add.assert_not_called()
 
 
 if __name__ == "__main__":

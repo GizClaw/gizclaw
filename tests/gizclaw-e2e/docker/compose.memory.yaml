@@ -11,7 +11,8 @@ services:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U gizclaw_bootstrap -d postgres"]
       interval: 1s
       timeout: 2s
-      retries: 60
+      retries: 120
+      start_period: 120s
 
   mem0:
     build:

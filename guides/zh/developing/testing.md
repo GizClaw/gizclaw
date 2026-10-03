@@ -236,6 +236,15 @@ WebRTC Peer RPC 和 committed Giztest 验证独立 policy reload、原始文本�
 没有 credential 时明确失败。这条真实模型回归由本地显式执行，不加入 GitHub Actions。
 其他 provider 的 Store contract 和 scope 测试继续独立运行。
 
+`mem0-self-hosted.batch.giztest.yaml` 使用真实 Eino Graph，在一个
+`memory_observe` 的 facts 数组中提交用户输入和助手输出两条 Fact，并在 reload
+前后都断言两条召回；另一 Workspace 与 Peer 均为空。助手文本由确定性的 Eino
+Starlark 节点生成，Mem0 embedding、SDK 和 PGVector 均为真实实现。
+同 runner 的 Store 回归覆盖响应丢失、六个独立 adapter 并发重试、payload conflict、
+鉴权拒绝、删除和 purge；Python integration 在真实 embedding/PGVector 上注入
+第二项写入前故障，再由三个新进程补齐，验证持久化恢复。最终同时检查 vector
+collection 和 observation reservation 零残留。
+
 `flowcraft-memory-scope.peer-and-workspace.giztest.yaml` 在 Docker Giztest 的真实
 Server/Peer/Mem0 路径上创建同一 Peer 的两个共享 Workspace（两个 binding alias
 指向同一 Layout）、一个隔离 Workspace，以及另一 Peer 的共享 Workspace。它写入带

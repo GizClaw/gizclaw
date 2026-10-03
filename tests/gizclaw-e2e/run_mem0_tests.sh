@@ -40,20 +40,25 @@ trap cleanup EXIT
 cd "$repo_root"
 TARGET=base PLATFORM="$platform" BASE_IMAGE="$GIZCLAW_E2E_MEM0_BASE_IMAGE" "$repo_root/build/build-mem0.sh"
 "${compose[@]}" build mem0
-"${compose[@]}" up --detach --wait --wait-timeout 180 mem0
+"${compose[@]}" up --detach --wait --wait-timeout 420 mem0
 GIZCLAW_TEST_MEM0_ENDPOINT="http://$("${compose[@]}" port mem0 8000)"
 GIZCLAW_TEST_POSTGRES_DSN="postgres://gizclaw_server:gizclaw_server@$("${compose[@]}" port postgres 5432)/gizclaw_server?sslmode=disable"
 export GIZCLAW_TEST_MEM0_ENDPOINT GIZCLAW_TEST_POSTGRES_DSN
+"${compose[@]}" exec -T mem0 python -m unittest -v mem0_direct_integration_test.py | tee "$run_dir/direct.log"
 npm ci
 npm run build:console
 go test -v -count=1 -timeout=10m -run '^TestSelfHostedMem0Giztest$' ./cmd/internal/server | tee "$run_dir/giztest.log"
-# Peer deletion must have emptied the exact vector collection used above.
-"${compose[@]}" exec -T postgres psql -U gizclaw_bootstrap -d gizclaw_mem0 -v ON_ERROR_STOP=1 -c \
-  "DO \$\$ BEGIN IF (SELECT count(*) FROM gizclaw_memory_doubao_v1) <> 0 THEN RAISE EXCEPTION 'memory residual after Peer cleanup'; END IF; END \$\$;"
+# Peer deletion must have emptied the exact vector collection and reservations.
+check_mem0_empty() {
+  "${compose[@]}" exec -T postgres psql -U gizclaw_bootstrap -d gizclaw_mem0 -v ON_ERROR_STOP=1 -c \
+  "DO \$\$ BEGIN IF (SELECT count(*) FROM gizclaw_memory_doubao_v1) <> 0 OR (SELECT count(*) FROM gizclaw_direct_observations) <> 0 THEN RAISE EXCEPTION 'memory or reservation residual after cleanup'; END IF; END \$\$;"
+}
+check_mem0_empty
 export GIZCLAW_MEMORY_PROVIDER=mem0-self-hosted
 export GIZCLAW_MEM0_SELF_HOSTED_URL="$GIZCLAW_TEST_MEM0_ENDPOINT"
 export GIZCLAW_MEM0_SELF_HOSTED_API_KEY="$GIZCLAW_E2E_MEM0_API_KEY"
-go test -v -tags=store_e2e -count=1 -timeout=5m -run '^TestSelfHostedMemoryLayoutScopeRouting$' ./tests/store-e2e | tee "$run_dir/scope.log"
+go test -v -tags=store_e2e -count=1 -timeout=5m -run '^(TestSelfHostedMemoryLayoutScopeRouting|TestSelfHostedMem0Batch)$' ./tests/store-e2e | tee "$run_dir/scope.log"
+check_mem0_empty
 # One PostgreSQL instance, two databases and distinct non-superuser roles.
 "${compose[@]}" exec -T postgres psql -U gizclaw_bootstrap -d postgres -v ON_ERROR_STOP=1 -c \
   "DO \$\$ BEGIN IF EXISTS (SELECT FROM pg_roles WHERE rolname IN ('gizclaw_server','gizclaw_mem0') AND rolsuper) OR has_database_privilege('gizclaw_server','gizclaw_mem0','CONNECT') OR has_database_privilege('gizclaw_mem0','gizclaw_server','CONNECT') THEN RAISE EXCEPTION 'application role isolation failed'; END IF; END \$\$;"

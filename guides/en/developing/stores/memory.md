@@ -85,7 +85,7 @@ store, err := flowcraft.New(ctx, flowcraft.Config{
 })
 ```
 
-Mem0 is constructed with one `mem0.Config`. `FlavorPlatform` uses `Authorization: Token` and maps every selected dimension to the matching `app_id`, `user_id`, `agent_id`, or `run_id`. Mem0 OSS does not expose `app_id`, so `FlavorSelfHosted` encodes the complete four-dimensional Scope into one reserved native `user_id`; it uses `X-API-Key` when a key is supplied. This keeps Workspace App isolation exact without overwriting the caller's logical User, Agent, or Run dimensions. Update and delete retrieve the provider record and verify its complete encoded scope before performing the ID mutation. Direct import currently accepts one Fact with a non-empty Observation ID per call; multiple direct candidates return `ErrUnsupported` instead of silently merging attributes.
+Mem0 is constructed with one `mem0.Config`. `FlavorPlatform` uses `Authorization: Token` and maps every selected dimension to the matching `app_id`, `user_id`, `agent_id`, or `run_id`. Mem0 OSS does not expose `app_id`, so `FlavorSelfHosted` encodes the complete four-dimensional Scope into one reserved native `user_id`; it uses `X-API-Key` when a key is supplied. This keeps Workspace App isolation exact without overwriting the caller's logical User, Agent, or Run dimensions. Update and delete retrieve the provider record and verify its complete encoded scope before performing the ID mutation. Self-hosted direct import accepts 1–1000 Facts with a non-empty Observation ID in one HTTP request, preserving each original text and attributes. Platform and Volc still accept one direct Fact and reject multiple candidates with `ErrUnsupported`.
 
 Volcengine AgentKit/Viking MEM0 is constructed with one `volc.Config`. It accepts either an explicit Mem0 data-plane key or a credential resolver. The adapter explicitly selects Volc's v1 add/search routes, extracts one authoritative job ID from `results`, and makes `Wait` poll `/v1/job/{id}/`. If a successful job omits facts, it lists only the same scope and selects records using the per-operation reconciliation marker. Successful extraction may return zero facts, for example for a greeting; older memories are not returned as this job's results, and missing or malformed list responses still fail. The Volc v1 service requires `user_id`, so an App-, Agent-, or Run-only logical scope receives a reserved encoded transport user while retaining every original native field; returned records are decoded and checked against the unchanged logical scope. Generic Mem0 Platform continues to use v3 add/search, its top-level event ID, and `/v1/event/{id}/`. Endpoint hostnames are never used to infer the protocol. A Volc data-plane endpoint is mandatory.
 
@@ -166,6 +166,27 @@ failures return 502 without forwarding provider credentials. The PG pool default
 `MEM0_POSTGRES_MAX_CONNECTIONS`. LoCoMo validates quality; the separate load
 test validates throughput.
 
+Keyed self-hosted `POST /memories` direct batches use paired `observation_id` and
+`observation_digest` plus per-message `metadata`, with `infer=false`. The adapter
+passes the canonical Observation digest, including text, attributes, order and
+`ObservedAt`. The service reserves the immutable wire payload before writing;
+changed payloads return HTTP 409 / `ErrConflict`. Legacy unkeyed direct HTTP calls
+and `infer=true` extraction retain their behavior. Per-message metadata requires
+a keyed direct request; provider-owned routing/history metadata cannot be overridden.
+
+PostgreSQL stores reservations and completed Fact IDs in
+`gizclaw_direct_observations`, keyed by collection, complete native routing and
+observation ID. Native entity advisory locks coordinate independent service
+processes. Embedded Qdrant remains owned by one process and stores reservations
+in an `.observations.db` sidecar beside history. Each missing candidate uses the
+official `Memory.add(infer=false)` with separate metadata. Exact vector listing
+by routing/observation/index verifies persistence without semantic ranking.
+Success requires every candidate to resolve uniquely. Lost replies, partial
+writes and process restarts resume only missing candidates. Legacy single direct records reconcile their existing observation/digest and retain their original Fact ID. Explicitly deleted
+completed facts are not recreated by retries; those retries conflict. Scope
+purge removes matching reservations as well as facts. Batches are resumable,
+not atomic: partial facts can be visible after an error until retry or purge.
+
 `api/http/mem0.json` owns the HTTP contract, served at `/openapi.json`. Python
 contract tests compare the actual request/response models, parameters, routes and
 operation IDs. The root module pins `oapi-codegen` for the generated
@@ -180,7 +201,7 @@ The self-hosted adapter uses its generated client and request DTOs. Platform/Vol
 keep their own protocols. The SDK preserves extra Mem0 record metadata.
 
 Multiple MemoryLayouts can share one service. The Go logical Store retains
-`MemoryLayout.mem0.custom_instructions` for that Layout generation and sends it
+`MemoryLayout.mem0_self_hosted.custom_instructions` for that Layout generation and sends it
 as HTTP `prompt` to native `Memory.add(prompt=...)`. It does not mutate the
 shared SDK instruction. Updating a Layout leaves existing generations unchanged.
 Direct Facts with `infer=false` carry no extraction instruction. The service needs
@@ -268,7 +289,7 @@ spec:
 
 Self-hosted extraction includes `Turn.Speaker` and UTC `ObservedAt` in message content because the OSS parser ignores OpenAI message names. Missing turn time falls back to the Observation time. Platform/Volc content and `infer=false` direct Facts retain their original text.
 
-This binding uses the MemoryLayout's `mem0.scope` for Workspace or Peer ownership and retains the OSS adapter's complete Scope encoding, reads, writes, updates, deletes, and purge verification.
+This binding uses the MemoryLayout's `mem0_self_hosted.scope` for Workspace or Peer ownership and retains the OSS adapter's complete Scope encoding, reads, writes, updates, deletes, and purge verification.
 
 ```yaml
 spec:

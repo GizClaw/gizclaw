@@ -109,8 +109,8 @@ func (s *Store) usesPlatformAPI() bool { return s.config.Flavor != SelfHosted }
 
 func (*Store) SupportsDirectFactObservation() bool { return true }
 
-// Observe submits raw messages for Mem0 extraction or one structured Fact
-// through Mem0 direct import.
+// Observe submits raw messages for Mem0 extraction or structured Facts through
+// direct import. Self-hosted Mem0 supports a resumable batch in one request.
 func (s *Store) Observe(ctx context.Context, observation memorystore.Observation) (memorystore.ObserveResult, error) {
 	if err := validateObservation(observation); err != nil {
 		return observeResult{}, err
@@ -195,6 +195,9 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 }
 
 func (s *Store) observeDirectFact(ctx context.Context, scope scope, observation observation) (observeResult, error) {
+	if s.config.Flavor == SelfHosted {
+		return s.observeSelfHostedFacts(ctx, scope, observation)
+	}
 	if len(observation.Facts) != 1 {
 		return observeResult{}, fmt.Errorf("%w: mem0 direct observation requires exactly one fact", errUnsupported)
 	}
@@ -286,6 +289,67 @@ func (s *Store) observeDirectFact(ctx context.Context, scope scope, observation 
 	}
 	if len(entries) != 1 {
 		return observeResult{}, fmt.Errorf("%w: mem0 direct import returned %d facts", errUnavailable, len(entries))
+	}
+	facts, err := s.scopedFacts(entries, scope)
+	if err != nil {
+		return observeResult{}, err
+	}
+	return observeResult{Facts: facts}, nil
+}
+
+func (s *Store) observeSelfHostedFacts(ctx context.Context, scope scope, observation observation) (observeResult, error) {
+	if strings.TrimSpace(observation.ID) == "" || len(observation.Facts) > 1000 {
+		return observeResult{}, fmt.Errorf("%w: self-hosted direct observation requires an id and at most 1000 facts", errInvalidInput)
+	}
+	if strings.TrimSpace(observation.Text) != "" || len(observation.Turns) > 0 || len(observation.Context) > 0 {
+		return observeResult{}, fmt.Errorf("%w: mem0 direct observation accepts only structured facts", errUnsupported)
+	}
+	for _, candidate := range observation.Facts {
+		if err := validateMem0Metadata(candidate.Attributes); err != nil {
+			return observeResult{}, err
+		}
+		for key := range candidate.Attributes {
+			switch key {
+			case "data", "hash", "id", "created_at", "updated_at", "text_lemmatized", "user_id", "agent_id", "run_id", "role", "actor_id", "attributed_to", "expiration_date", "gizclaw.fact_index":
+				return observeResult{}, fmt.Errorf("%w: mem0 metadata %q is provider-owned", errUnsupported, key)
+			}
+		}
+	}
+	digest, err := memorystore.ObservationPayloadDigest(observation)
+	if err != nil {
+		return observeResult{}, err
+	}
+	user := encodeSelfHostedScope(scope)
+	body := mem0sdk.MemoryCreate{UserId: &user, Infer: new(false), ObservationId: &observation.ID, ObservationDigest: &digest,
+		Messages: make([]mem0sdk.Message, len(observation.Facts))}
+	for index, candidate := range observation.Facts {
+		metadata := cloneMap(candidate.Attributes)
+		body.Messages[index] = mem0sdk.Message{Role: "user", Content: candidate.Text, Metadata: &metadata}
+	}
+	var response mem0Envelope
+	if err := s.client.do(ctx, http.MethodPost, "/memories", body, &response); err != nil {
+		return observeResult{}, err
+	}
+	entries := response.entries()
+	if len(entries) != len(observation.Facts) {
+		return observeResult{}, fmt.Errorf("%w: mem0 direct import returned %d facts, want %d", errUnavailable, len(entries), len(observation.Facts))
+	}
+	seen := make(map[string]bool, len(entries))
+	for index, entry := range entries {
+		if entry.ID == "" || seen[entry.ID] || entry.Memory != observation.Facts[index].Text ||
+			entry.Metadata[mem0ObservationIDMetadata] != observation.ID || entry.Metadata[mem0ObservationDigestMetadata] != digest ||
+			entry.Metadata["gizclaw.fact_index"] != float64(index) {
+			return observeResult{}, fmt.Errorf("%w: mem0 returned an incomplete direct observation", errUnavailable)
+		}
+		seen[entry.ID] = true
+		for key, expected := range observation.Facts[index].Attributes {
+			value, present := entry.Metadata[key]
+			actualJSON, actualErr := json.Marshal(value)
+			expectedJSON, expectedErr := json.Marshal(expected)
+			if !present || actualErr != nil || expectedErr != nil || string(actualJSON) != string(expectedJSON) {
+				return observeResult{}, fmt.Errorf("%w: mem0 returned incomplete direct attributes", errUnavailable)
+			}
+		}
 	}
 	facts, err := s.scopedFacts(entries, scope)
 	if err != nil {
@@ -880,6 +944,9 @@ func (s *Store) scopedFact(entry mem0Envelope, scope scope) (fact, error) {
 		return fact{}, err
 	}
 	result := entry.fact()
+	if s.config.Flavor == SelfHosted {
+		delete(result.Attributes, "gizclaw.fact_index")
+	}
 	if s.config.Flavor == VolcPlatform {
 		for _, key := range []string{"project_id", "__fraq__", "__freq__", "__strategy__"} {
 			delete(result.Attributes, key)
@@ -941,7 +1008,7 @@ func validateReturnedEnvelopeScope(entry mem0Envelope, expected scope, flavor Fl
 
 func (s *Store) mem0FilterClause(filter filter) (map[string]any, error) {
 	field := strings.TrimSpace(filter.Field)
-	if field == mem0ObservationIDMetadata || field == mem0TurnIDsMetadata || field == mem0ObservationDigestMetadata || field == mem0EntityScopeMetadata || field == mem0OperationMarkerMetadata || isMem0RoutingField(field) {
+	if (s.config.Flavor == SelfHosted && field == "gizclaw.fact_index") || field == mem0ObservationIDMetadata || field == mem0TurnIDsMetadata || field == mem0ObservationDigestMetadata || field == mem0EntityScopeMetadata || field == mem0OperationMarkerMetadata || isMem0RoutingField(field) {
 		return nil, fmt.Errorf("%w: mem0 filter field %q is provider-owned", errUnsupported, field)
 	}
 	if !isMem0NativeFilterField(field) {
