@@ -10,7 +10,7 @@ import uuid
 import unittest
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
-from unittest import mock
+import unittest.mock as mock
 
 from dotenv import dotenv_values
 from gizclaw_mem0 import server
