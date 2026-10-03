@@ -12,6 +12,7 @@ CMD ["--host", "0.0.0.0", "--port", "8000"]
 FROM base AS test
 COPY tests/gizclaw-e2e/docker/mem0_server_test.py /app/mem0_server_test.py
 COPY tests/gizclaw-e2e/docker/mem0_pgvector_regression_test.py /app/mem0_pgvector_regression_test.py
+COPY tests/gizclaw-e2e/docker/mem0_direct_integration_test.py /app/mem0_direct_integration_test.py
 RUN python -m unittest -v mem0_server_test.py
 
 FROM base AS runtime

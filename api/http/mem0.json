@@ -103,6 +103,16 @@
           "user_id": {
             "nullable": true,
             "type": "string"
+          },
+          "observation_id": {
+            "type": "string",
+            "minLength": 1,
+            "nullable": true
+          },
+          "observation_digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "nullable": true
           }
         },
         "required": [
@@ -196,6 +206,11 @@
           },
           "role": {
             "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
           }
         },
         "required": [
@@ -654,8 +669,19 @@
               }
             },
             "description": "Concurrency limit reached"
+          },
+          "409": {
+            "description": "Observation payload changed or a completed fact was deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
-        }
+        },
+        "description": "Keyed infer=false observations preserve per-message metadata. Identical retries resume missing facts; changed payload returns 409. Batches may partially persist before an error and are not atomic."
       }
     },
     "/memories/{memory_id}": {

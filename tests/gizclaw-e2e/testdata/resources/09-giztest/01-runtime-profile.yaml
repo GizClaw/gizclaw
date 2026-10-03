@@ -5,6 +5,7 @@ metadata:
   id: e2e-giztest
 spec:
   workflows:
+    mem0-batch: {resource_id: mem0-batch, i18n: {en: {display_name: Mem0 Batch}, zh-CN: {display_name: Mem0 批量记忆}}}
     mem0-extraction: {resource_id: mem0-extraction, i18n: {en: {display_name: Mem0 Extraction}, zh-CN: {display_name: Mem0 提取}}}
     volc-ast-translate-tts: {resource_id: volc-ast-translate-tts, i18n: {en: {display_name: AST Translate TTS}, zh-CN: {display_name: AST 翻译 TTS}}, tags: [assistants]}
     volc-ast-translate-zh-jp: {resource_id: volc-ast-translate-zh-jp, i18n: {en: {display_name: Chinese Japanese Translate}, zh-CN: {display_name: 中日翻译}}, tags: [assistants]}

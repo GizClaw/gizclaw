@@ -1,0 +1,106 @@
+# User Story:
+# As a Peer using self-hosted Mem0, I want one Eino memory_observe node to
+# persist user input and assistant output as two facts across reload.
+version: gizclaw.test/v1alpha1
+name: mem0-self-hosted.batch
+clients:
+  owner: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}"}
+  other: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}"}
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+  workspace: {direction: input, type: string, generate: token}
+  private: {direction: input, type: string, generate: token}
+  other_workspace: {direction: input, type: string, generate: token}
+  marker: {direction: input, type: string, generate: token}
+steps:
+- id: register_owner
+  client: owner
+  rpc: {method: server.register, request: {token: "${registration_token}"}}
+- id: register_other
+  client: other
+  rpc: {method: server.register, request: {token: "${registration_token}"}}
+- id: create_workspace
+  client: owner
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${workspace}"
+      workflow_name: mem0-batch
+      parameters:
+        eino_workspace_parameters: {agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO, input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK}
+- id: select_workspace
+  client: owner
+  rpc: {method: server.run.workspace.set, request: {workspace_name: "${workspace}"}}
+- id: activate_workspace
+  client: owner
+  rpc: {method: server.run.workspace.reload, request: {}}
+- id: observe_one_turn
+  client: owner
+  peer_stream:
+    mode: text
+    input: "My cat Marzipan prefers salmon. The batch marker is ${marker}."
+    require_audio: false
+  expect:
+    /events: {non_empty: true}
+- id: recall_both_facts
+  client: owner
+  retry: {attempts: 10, on: [assertion], delay: 1s}
+  rpc: {method: server.run.workspace.recall, request: {query: "Marzipan salmon ${marker}"}}
+  expect:
+    /hits: {count: 2}
+    /hits/0/snippet: {contains: "${marker}"}
+    /hits/1/snippet: {contains: "${marker}"}
+- id: reload
+  client: owner
+  rpc: {method: server.run.workspace.reload, request: {}}
+- id: recall_after_reload
+  client: owner
+  rpc: {method: server.run.workspace.recall, request: {query: "Marzipan salmon ${marker}"}}
+  expect:
+    /hits: {count: 2}
+    /hits/0/snippet: {contains: "${marker}"}
+    /hits/1/snippet: {contains: "${marker}"}
+- id: create_private_workspace
+  client: owner
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${private}"
+      workflow_name: mem0-batch
+      parameters:
+        eino_workspace_parameters: {agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO, input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK}
+- id: select_private
+  client: owner
+  rpc: {method: server.run.workspace.set, request: {workspace_name: "${private}"}}
+- id: other_workspace_cannot_recall_batch
+  client: owner
+  rpc: {method: server.run.workspace.recall, request: {query: "Marzipan salmon ${marker}"}}
+  expect:
+    /hits: {count: 0}
+- id: create_other_peer_workspace
+  client: other
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${other_workspace}"
+      workflow_name: mem0-batch
+      parameters:
+        eino_workspace_parameters: {agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO, input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK}
+- id: select_other_peer
+  client: other
+  rpc: {method: server.run.workspace.set, request: {workspace_name: "${other_workspace}"}}
+- id: other_peer_cannot_recall_batch
+  client: other
+  rpc: {method: server.run.workspace.recall, request: {query: "Marzipan salmon ${marker}"}}
+  expect:
+    /hits: {count: 0}
+finally:
+- client: owner
+  rpc: {method: server.run.stop, request: {}}
+- client: other
+  rpc: {method: server.run.stop, request: {}}
+- client: owner
+  rpc: {method: server.peer.delete, request: {}}
+- client: other
+  rpc: {method: server.peer.delete, request: {}}

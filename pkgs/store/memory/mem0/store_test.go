@@ -274,7 +274,7 @@ func TestStoreSelfHostedVerifiesEncodedScopeBeforeMutation(t *testing.T) {
 }
 
 func TestStoreDirectFactObservationIsIdempotent(t *testing.T) {
-	for _, flavor := range []Flavor{Platform, SelfHosted} {
+	for _, flavor := range []Flavor{Platform} {
 		t.Run(string(flavor), func(t *testing.T) { testStoreDirectFactObservationIsIdempotent(t, flavor) })
 	}
 }
@@ -778,16 +778,88 @@ func TestStoreSelfHostedKeepsEntityFilterAtTopLevel(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Observe(t.Context(), Observation{
-		Scope: scope, ID: "observation", Facts: []FactCandidate{{Text: "remembered"}},
-	}); err != nil {
-		t.Fatal(err)
-	}
 	want := []any{
 		map[string]any{"user_id": encoded, "AND": []any{map[string]any{"lane": "owner"}}},
-		map[string]any{"user_id": encoded, "AND": []any{map[string]any{mem0ObservationIDMetadata: "observation"}}},
 	}
 	if !reflect.DeepEqual(filters, want) {
 		t.Fatalf("search filters = %#v, want %#v", filters, want)
+	}
+}
+
+func TestSelfHostedDirectBatchContract(t *testing.T) {
+	observation := Observation{Scope: Scope{AppID: "workspace", UserID: "person"}, ID: "turn",
+		Facts: []FactCandidate{{Text: "User fact", Attributes: map[string]any{"kind": "user"}},
+			{Text: "Assistant fact", Attributes: map[string]any{"kind": "assistant"}}}}
+	for _, failure := range []string{"", "missing", "duplicate", "text", "attributes", "scope", "digest"} {
+		t.Run(failure, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+				if request.Method != http.MethodPost || request.URL.Path != "/memories" {
+					t.Errorf("unexpected request %s %s", request.Method, request.URL.Path)
+				}
+				var body struct {
+					Messages []struct {
+						Role, Content string
+						Metadata      map[string]any
+					}
+					UserID string `json:"user_id"`
+					ID     string `json:"observation_id"`
+					Digest string `json:"observation_digest"`
+					Infer  bool
+				}
+				if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+					t.Error(err)
+				}
+				if len(body.Messages) != 2 || body.Infer || body.ID != observation.ID {
+					t.Errorf("invalid batch %#v", body)
+				}
+				entries := make([]mem0Envelope, len(body.Messages))
+				for index, message := range body.Messages {
+					metadata := message.Metadata
+					metadata[mem0ObservationIDMetadata] = body.ID
+					metadata[mem0ObservationDigestMetadata] = body.Digest
+					metadata["gizclaw.fact_index"] = index
+					entries[index] = mem0Envelope{ID: fmt.Sprintf("fact-%d", index), Memory: message.Content, UserID: body.UserID, Metadata: metadata}
+				}
+				switch failure {
+				case "missing":
+					entries = entries[:1]
+				case "duplicate":
+					entries[1].ID = entries[0].ID
+				case "text":
+					entries[1].Memory = "wrong"
+				case "attributes":
+					delete(entries[1].Metadata, "kind")
+				case "scope":
+					entries[1].UserID = encodeSelfHostedScope(Scope{AppID: "other"})
+				case "digest":
+					entries[1].Metadata[mem0ObservationDigestMetadata] = "wrong"
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{"results": entries})
+			}))
+			defer server.Close()
+			store, err := New(Config{Endpoint: server.URL, Flavor: SelfHosted, HTTPClient: server.Client()})
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := store.Observe(t.Context(), observation)
+			if failure != "" {
+				if err == nil {
+					t.Fatalf("invalid response accepted: %#v", result)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(result.Facts) != 2 {
+				t.Fatalf("facts = %#v", result)
+			}
+			for index, fact := range result.Facts {
+				if fact.Text != observation.Facts[index].Text || !reflect.DeepEqual(fact.Attributes, observation.Facts[index].Attributes) ||
+					len(fact.Sources) != 1 || fact.Sources[0].ObservationID != observation.ID {
+					t.Fatalf("fact lost data: %#v", fact)
+				}
+			}
+		})
 	}
 }

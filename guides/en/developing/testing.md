@@ -20,6 +20,16 @@ uses the local E2E credential file and does not use Mem0 Cloud quota. Compose
 waits for service readiness and cleans its own containers,
 volumes and network on exit.
 
+`mem0-self-hosted.batch.giztest.yaml` submits user input and assistant output
+through one real Eino `memory_observe` node, asserting two recalled facts before
+and after reload and empty recall from another Workspace and Peer. A deterministic
+Eino Starlark node produces the answer; Mem0 SDK, embedding and PGVector are real.
+The same runner tests a lost committed HTTP reply, six independent adapters
+retrying concurrently, payload conflicts, authentication, delete and purge.
+Python integration injects failure before the second real candidate write, then
+uses three fresh processes to resume against real embedding/PGVector. Final
+cleanup checks both the vector collection and observation reservations are empty.
+
 ## Real WebRTC Peer blocking regression
 
 `go test ./cmd/internal/server -run '^TestPeerBlockedSDKWebRTC$' -count=1 -v`

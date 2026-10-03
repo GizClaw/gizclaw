@@ -42,7 +42,7 @@ Flowcraft 要求非空 `AppID`，允许空 `UserID` 形成 runtime-global Memory
 
 `Text` 和 `Turns` 是待提取的原始材料；`Facts` 是上层已经结构化的候选事实。Provider 必须保持候选事实的文本与其支持的 attributes，无法直接写入时返回 `ErrUnsupported`，不能把候选事实静默送回模型二次提取。Flowcraft、Mem0 和 Volc adapter 都支持 direct Fact；Flowcraft 把 `kind`、`subject`、`predicate`、`object` 和 `entities` 映射到 native fact 字段，Mem0/Volc 使用 `infer=false` direct import。
 
-对于包含 direct Facts 的 Observation，非空 `Observation.ID` 是完整 `Scope` 内的幂等键。相同 ID 和相同 canonical direct-Fact payload 的并发调用或重试返回原 logical Fact 或 durable operation；Fact 文本、attributes 或 `ObservedAt` 改变时返回 `ErrConflict`。Adapter 在 native record 中保存 payload digest，并在提交前先对账；因此 provider 已接受但 response 丢失后的重试不会创建第二个 logical Fact。返回的 `Fact.Sources` 保留 `ObservationID`。这些 provider-owned metadata 不会暴露为业务 attributes。模型 extraction 的 provider-native dedup 行为不属于这个 direct-Fact 保证。
+对于包含 direct Facts 的 Observation，非空 `Observation.ID` 是完整 `Scope` 内的幂等键。相同 ID 和相同 canonical direct-Fact payload 的并发调用或重试返回原 logical Fact 或 durable operation；Fact 文本、attributes 或 `ObservedAt` 改变时返回 `ErrConflict`。Adapter 在 native record 中保存 payload digest；self-hosted 的 durable reservation 和精确逐项对账由服务拥有，其他 Mem0 adapter 在提交前先对账；因此 provider 已接受但 response 丢失后的重试不会创建第二个 logical Fact。返回的 `Fact.Sources` 保留 `ObservationID`。这些 provider-owned metadata 不会暴露为业务 attributes。模型 extraction 的 provider-native dedup 行为不属于这个 direct-Fact 保证。
 
 `UpdateRequest`、`DeleteRequest` 和 `OperationRequest` 都必须重新携带调用方的 `Scope`，以及 Store 返回的不透明 fact、revision 或 operation locator。Locator 不是授权来源：Adapter 在 mutation 或完成异步操作前校验请求 Scope 与 locator、provider record 一致。原始 provider ID 不能绕过 App 边界。
 
@@ -77,7 +77,7 @@ store, err := flowcraft.New(ctx, flowcraft.Config{
 })
 ```
 
-Mem0 只通过一个 `mem0.Config` 构造。`FlavorPlatform` 使用 `Authorization: Token`，并将所有已选择的维度映射到对应的 `app_id`、`user_id`、`agent_id` 和 `run_id`。Mem0 OSS 不提供 `app_id`，因此 `FlavorSelfHosted` 会把完整四维 Scope 编码到一个保留的原生 `user_id` 中；配置 key 时使用 `X-API-Key`。这样既能精确保持 Workspace App 隔离，也不会改写调用方逻辑上的 User、Agent 或 Run 维度。Update/Delete 先读取 provider record 并校验完整编码 scope，再执行 ID mutation。Direct import 当前一次接受一个带非空 Observation ID 的 Fact；多个 direct candidates 返回 `ErrUnsupported`，不会静默合并 attributes。
+Mem0 只通过一个 `mem0.Config` 构造。`FlavorPlatform` 使用 `Authorization: Token`，并将所有已选择的维度映射到对应的 `app_id`、`user_id`、`agent_id` 和 `run_id`。Mem0 OSS 不提供 `app_id`，因此 `FlavorSelfHosted` 会把完整四维 Scope 编码到一个保留的原生 `user_id` 中；配置 key 时使用 `X-API-Key`。这样既能精确保持 Workspace App 隔离，也不会改写调用方逻辑上的 User、Agent 或 Run 维度。Update/Delete 先读取 provider record 并校验完整编码 scope，再执行 ID mutation。Self-hosted direct import 一次接受 1–1000 个带非空 Observation ID 的 Facts，通过一个 HTTP 请求提交；Platform 与 Volc 仍一次接受一个 Fact，多个 candidates 返回 `ErrUnsupported`。每条 Fact 的原始文本、attributes 和完整 Scope 独立保留。
 
 Volcengine AgentKit/Viking MEM0 只通过一个 `volc.Config` 构造。它接收显式的 Mem0 data-plane key 或 credential resolver。Adapter 显式选择火山云 v1 add/search 路径，从 `results` 读取唯一权威 job ID，并让 `Wait` 轮询 `/v1/job/{id}/`。成功 job 不带 facts 时，Adapter 只列出同一 scope，并按该次 operation 的 reconciliation marker 选择记录。成功提取可返回零条 facts，例如纯问候；已有记忆不会作为本次结果返回，缺失或无效的列表响应仍会报错。火山云 v1 服务要求 `user_id`，因此 App-only、Agent-only 或 Run-only 逻辑 scope 会得到一个保留的完整 scope 编码 transport user，同时仍保留所有原始 native 字段；读取后会还原并按未改变的逻辑 scope 校验。普通 Mem0 Platform 仍使用 v3 add/search、顶层 event ID 和 `/v1/event/{id}/`。不能根据 endpoint hostname 推断协议。火山云 data-plane endpoint 必填。
 
@@ -147,6 +147,27 @@ Embedding 错误状态按请求线程隔离。Qdrant 本地状态仍串行访问
 `MEM0_MAX_CONCURRENCY`、`MEM0_POSTGRES_MIN_CONNECTIONS`、
 `MEM0_POSTGRES_MAX_CONNECTIONS` 配置。LoCoMo 验证质量，吞吐量由独立 load test 验证。
 
+Self-hosted 的 `POST /memories` 在 `infer=false` 时支持成对的
+`observation_id`、`observation_digest` 和每条 message 的 `metadata`。Go adapter
+将整个 Observation 的 canonical digest（包含原始文本、attributes、顺序和
+`ObservedAt`）传给服务。服务在首次写入前保存完整 wire payload 的摘要，变更
+payload 返回 HTTP 409 / `ErrConflict`，同 payload 重试按原顺序返回全部 Facts。
+未提供 identity 的旧 HTTP direct 调用和 `infer=true` 提取保持原行为；message
+metadata 只用于带 identity 的 direct 调用。Provider-owned metadata 和原生
+routing/history 字段不接受业务覆盖。
+
+PostgreSQL 在 Mem0 数据库的 `gizclaw_direct_observations` 表中保存 reservation
+和完成后的 Fact IDs；以 collection、完整 native routing 和 observation ID
+为主键，并用 native entity 的 advisory locks 协调不同服务进程。Qdrant 保持
+单进程 ownership，在 history 文件旁的 `.observations.db` 保存 reservation。
+每个缺失项通过官方 `Memory.add(infer=false)` 使用独立 metadata 写入；通过精确
+routing/observation/index vector listing 确认，不依赖 embedding 相似度或搜索排名。
+只有全部候选唯一持久化才返回成功。写入后响应丢失、第二项失败或进程重启后，
+相同 payload 重试只补缺失项，不重复已存在的记录。旧单条记录通过原 observation/digest 精确对账并保留原 Fact ID。完成后被显式删除的 Fact
+不会被旧请求重建；重试返回 conflict。Scope purge 同时删除匹配的 reservation。
+批次不具备跨请求原子事务：失败前的部分 Facts 可以被召回，调用方应重试完成
+或 purge 清理。修改、删除和 purge 继续校验 Scope。
+
 HTTP contract 由 `api/http/mem0.json` 定义，运行时 `/openapi.json` 返回该契约；
 Python contract test 校验实际请求/响应模型、参数、路由和 operation ID。
 `sdk/go/mem0` 由根 module 固定版本的 `oapi-codegen` 生成：
@@ -159,7 +180,7 @@ go test ./sdk/go/mem0 ./pkgs/store/memory/mem0
 GizClaw 的 self-hosted adapter 使用生成的 client 和请求 DTO；Platform/Volc
 仍使用各自协议。SDK 保留 Mem0 record 的额外 metadata。
 
-多个 MemoryLayout 可共用同一服务。`MemoryLayout.mem0.custom_instructions` 由 Go logical
+多个 MemoryLayout 可共用同一服务。`MemoryLayout.mem0_self_hosted.custom_instructions` 由 Go logical
 Store 保留为该 Layout generation 的独立 policy，Observe 时通过 HTTP `prompt` 传给
 原生 `Memory.add(prompt=...)`；不修改共享 SDK 的全局 instruction。更新 Layout
 不会改写已有 generation 的 policy。`infer=false` direct Fact 不携带提取 instruction。
