@@ -201,7 +201,7 @@ The self-hosted adapter uses its generated client and request DTOs. Platform/Vol
 keep their own protocols. The SDK preserves extra Mem0 record metadata.
 
 Multiple MemoryLayouts can share one service. The Go logical Store retains
-`MemoryLayout.mem0.custom_instructions` for that Layout generation and sends it
+`MemoryLayout.mem0_self_hosted.custom_instructions` for that Layout generation and sends it
 as HTTP `prompt` to native `Memory.add(prompt=...)`. It does not mutate the
 shared SDK instruction. Updating a Layout leaves existing generations unchanged.
 Direct Facts with `infer=false` carry no extraction instruction. The service needs
@@ -289,7 +289,7 @@ spec:
 
 Self-hosted extraction includes `Turn.Speaker` and UTC `ObservedAt` in message content because the OSS parser ignores OpenAI message names. Missing turn time falls back to the Observation time. Platform/Volc content and `infer=false` direct Facts retain their original text.
 
-This binding uses the MemoryLayout's `mem0.scope` for Workspace or Peer ownership and retains the OSS adapter's complete Scope encoding, reads, writes, updates, deletes, and purge verification.
+This binding uses the MemoryLayout's `mem0_self_hosted.scope` for Workspace or Peer ownership and retains the OSS adapter's complete Scope encoding, reads, writes, updates, deletes, and purge verification.
 
 ```yaml
 spec:
