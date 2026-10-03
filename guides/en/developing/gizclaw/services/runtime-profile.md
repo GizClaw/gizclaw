@@ -229,3 +229,8 @@ spec:
 ```
 
 IDs are unique across the manifest, case-sensitive and at most 64 ASCII bytes matching `^[a-z][a-z0-9]*([.-][a-z0-9]+)*$`. HWD is one of wifi, ble, modem, battery, mic, display, led or speaker. Description and natural-language tags are optional. Create, PUT and apply validate the whole manifest before storage. `runtime_profiles.mhs_json` persists it and contributes to the spec revision. The control manifest endpoint projects only this hardware catalog, works offline and returns `{"devices":[]}` when unconfigured. See [Public API](/en/developing/api/http/public#mhs-v0-hwds).
+
+
+## Quota
+
+`spec.quota` is an optional discriminated policy. Omission/null defaults to unlimited; explicit `{type: unlimited}` also skips quota checks. `{type: custom, endpoint: ..., api_key: ...}` binds the external Quota HTTP API and requires both valid fields. Supplied empty, incomplete or unknown policies are rejected. SQL `runtime_profiles.quota_json` stores absence as null and explicit policies as tagged objects; quota participates in the Profile revision. Usage persistence is independently optional, while custom policy requires SQL usage for reports. See [Quota](/en/developing/api/http/quota) for the protocol, refresh, both deadlines and Docker acceptance.

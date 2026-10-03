@@ -13,6 +13,7 @@ services/runtime/
 ├── peerroute/       # Peer assignment 与 edge route 数据
 ├── peerrun/         # Peer 当前运行 Agent 的选择状态
 ├── peerusage/       # Peer/model 小时用量与 90 天保留
+├── peerquota/       # 外部 quota 查询、刷新与活动调用授权
 ├── peertelemetry/   # Telemetry 解码、映射、status 和 metrics
 ├── runtimeprofile/  # 只读内存 SQLite 快照与跨 Profile 条目查询
 └── toolkit/         # Tool 资源、policy、执行器和 runtime view
@@ -84,3 +85,7 @@ flowchart TB
 ### [peerusage](./peerusage)
 
 保存 Peer/model 的小时数量，负责非阻塞上报、幂等累计快照和 SQL 日分区保留。
+
+### [peerquota](/zh/developing/api/http/quota)
+
+拥有 custom HTTP quota 查询、缓存结果与活动 provider 调用的授权生命周期。RuntimeProfile 默认/unlimited 不经过该 controller，独立配置的 Peer 用量仍会记录；计费策略由绑定的外部 custom 服务负责。

@@ -53,3 +53,5 @@ sequenceDiagram
 设计资料：[Shared 与 Resources](./shared-resources) · [依赖规则](./type-dependencies)
 
 Monitor 的路由和生成 ownership 见 [Monitor](../../monitor)。
+
+Quota 的协议、RuntimeProfile 配置与 Docker fixture 验证见 [Quota](./quota).

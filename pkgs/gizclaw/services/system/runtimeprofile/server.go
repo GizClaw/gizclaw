@@ -607,6 +607,11 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 		return apitypes.RuntimeProfile{}, fmt.Errorf("id %q must match path id %q", id, expectedID)
 	}
 	spec := in.Spec
+	quota, err := normalizeQuota(spec.Quota)
+	if err != nil {
+		return apitypes.RuntimeProfile{}, err
+	}
+	spec.Quota = quota
 	allAliases := make(map[string]string)
 	workflows := make(apitypes.RuntimeProfileWorkflows, len(spec.Workflows))
 	for rawAlias, binding := range spec.Workflows {

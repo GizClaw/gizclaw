@@ -101,6 +101,7 @@ export type Step = {
     expect_calls?: number;
   };
   http?: {
+    endpoint?: string;
     method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
     path: string;
     headers?: Record<string, string>;

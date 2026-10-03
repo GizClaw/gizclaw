@@ -416,6 +416,78 @@
           },
           "app_config": {
             "$ref": "#/components/schemas/RuntimeProfileAppConfig"
+          },
+          "quota": {
+            "type": "object",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RuntimeProfileQuota"
+              }
+            ],
+            "description": "Optional provider-call policy. Omitted or null means unlimited. Only custom uses the external Quota HTTP API."
+          }
+        }
+      },
+      "RuntimeProfileQuota": {
+        "description": "Provider-call policy variants: unlimited or custom HTTP.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/RuntimeProfileQuotaUnlimited"
+          },
+          {
+            "$ref": "#/components/schemas/RuntimeProfileQuotaCustom"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "unlimited": "#/components/schemas/RuntimeProfileQuotaUnlimited",
+            "custom": "#/components/schemas/RuntimeProfileQuotaCustom"
+          }
+        },
+        "type": "object"
+      },
+      "RuntimeProfileQuotaUnlimited": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "unlimited"
+            ]
+          }
+        }
+      },
+      "RuntimeProfileQuotaCustom": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "endpoint",
+          "api_key"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "custom"
+            ]
+          },
+          "endpoint": {
+            "type": "string",
+            "format": "uri",
+            "minLength": 1,
+            "description": "Full HTTP(S) endpoint implementing the Quota Service API."
+          },
+          "api_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Server-only Bearer API key for the quota service."
           }
         }
       }

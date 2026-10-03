@@ -30,6 +30,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerquota"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
@@ -137,6 +138,7 @@ type Manager struct {
 	Peers           *peer.Server
 	PeerRoutes      *peerroute.Server
 	PeerUsage       *peerusage.Recorder
+	PeerQuota       *peerquota.Service
 	PeerRun         *peerrun.Server
 	AgentHost       *agenthost.Host
 	RuntimeProfiles *runtimeprofile.Server
@@ -700,8 +702,9 @@ func (m *Manager) ownerGenXForProfile(
 		RuntimeProfile: func() *apitypes.RuntimeProfile { return &profile },
 	}
 	return peergenx.New(peergenx.Service{
-		Usage:  m.usageRecorder(publicKey),
-		Models: resources, Voices: resources, Credentials: m.Credentials,
+		Usage:     m.usageRecorder(publicKey),
+		Authorize: m.quotaAuthorizer(publicKey, func(context.Context) (apitypes.RuntimeProfile, error) { return profile, nil }),
+		Models:    resources, Voices: resources, Credentials: m.Credentials,
 		ProviderTenants: m.ProviderTenants,
 	}), nil
 }

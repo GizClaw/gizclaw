@@ -1623,6 +1623,31 @@ export type RuntimeProfileMhs = {
 };
 
 /**
+ * Provider-call policy variants: unlimited or custom HTTP.
+ */
+export type RuntimeProfileQuota = ({
+    type: 'unlimited';
+} & RuntimeProfileQuotaUnlimited) | ({
+    type: 'custom';
+} & RuntimeProfileQuotaCustom);
+
+export type RuntimeProfileQuotaCustom = {
+    type: 'custom';
+    /**
+     * Full HTTP(S) endpoint implementing the Quota Service API.
+     */
+    endpoint: string;
+    /**
+     * Server-only Bearer API key for the quota service.
+     */
+    api_key: string;
+};
+
+export type RuntimeProfileQuotaUnlimited = {
+    type: 'unlimited';
+};
+
+/**
  * Model, Voice, Tool, and Memory bindings that Workflows reference by alias. Omitted means the RuntimeProfile binds none of them.
  */
 export type RuntimeProfileResources = {
@@ -1661,6 +1686,10 @@ export type RuntimeProfileSpec = {
     safety_fences?: RuntimeProfileSafetyFences;
     mhs?: RuntimeProfileMhs;
     app_config?: RuntimeProfileAppConfig;
+    /**
+     * Optional provider-call policy. Omitted or null means unlimited. Only custom uses the external Quota HTTP API.
+     */
+    quota?: RuntimeProfileQuota | null;
 };
 
 export type RuntimeProfileVolcMem0Connection = {

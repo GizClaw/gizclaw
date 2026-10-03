@@ -24,6 +24,9 @@ storage:
     kind: sqlite
     dir: data/business.sqlite
 stores:
+  peer-usage:
+    kind: sql
+    storage: business-db
   monitor-logs:
     kind: log.immutable
     storage: business-db
@@ -104,6 +107,8 @@ stores:
     kind: metrics
     storage: metrics-memory
 services:
+  peer_usage:
+    store: peer-usage
   peer:
     store: peers
   peer_run:

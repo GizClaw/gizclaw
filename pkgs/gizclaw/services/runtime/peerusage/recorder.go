@@ -35,6 +35,7 @@ type bucketCounter struct {
 // can lose reports in the one-second volatile window or during an outage.
 type Recorder struct {
 	store           snapshotWriter
+	reader          *Store
 	identity        string
 	Now             func() time.Time
 	mu              sync.Mutex
@@ -48,7 +49,23 @@ type Recorder struct {
 }
 
 // NewRecorder constructs an idle recorder. Start explicitly owns its worker.
-func NewRecorder(store *Store) *Recorder { return newRecorder(store) }
+func NewRecorder(store *Store) *Recorder {
+	r := newRecorder(store)
+	r.reader = store
+	return r
+}
+
+// Hourly flushes pending reports and returns this Peer's retained hourly usage.
+func (r *Recorder) Hourly(ctx context.Context, peer giznet.PublicKey) ([]HourlyUsage, error) {
+	if r == nil || r.reader == nil {
+		return nil, errors.New("peerusage: SQL reader is not configured")
+	}
+	if err := r.Flush(ctx); err != nil {
+		return nil, err
+	}
+	now := r.now().Truncate(time.Hour)
+	return r.reader.Query(ctx, peer, "", now.Add(-Retention), now.Add(time.Hour))
+}
 func newRecorder(store snapshotWriter) *Recorder {
 	return &Recorder{store: store, identity: rand.Text(), buckets: make(map[bucketKey]*bucketCounter), done: make(chan struct{}), gate: make(chan struct{}, 1)}
 }

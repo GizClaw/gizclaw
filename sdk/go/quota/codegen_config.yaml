@@ -1,0 +1,8 @@
+package: quota
+generate:
+  models: true
+  client: true
+output-options:
+  skip-prune: true
+import-mapping:
+  ./shared/device_identifiers.json: github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes

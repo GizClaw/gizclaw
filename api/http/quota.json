@@ -1,0 +1,133 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "GizClaw Quota Service API",
+    "version": "1.0.0",
+    "description": "External quota implementation called by GizClaw. Quota providers own billing policy."
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/v1/quota": {
+      "post": {
+        "operationId": "checkQuota",
+        "summary": "Report retained hourly Peer usage and obtain a quota decision",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuotaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Quota decision, including an elapsed expires_at for denial.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuotaResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid report."
+          },
+          "401": {
+            "description": "Invalid API key."
+          },
+          "500": {
+            "description": "Quota service unavailable."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "QuotaUsage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model_id",
+          "hour",
+          "quantity"
+        ],
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Provider billing model/version/resource ID."
+          },
+          "hour": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UTC hourly bucket start."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Cumulative hourly billed quantity; repeated Peer/model/hour reports take the maximum quantity."
+          }
+        }
+      },
+      "QuotaRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "peer_public_key",
+          "usage"
+        ],
+        "properties": {
+          "peer_public_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "identifiers": {
+            "$ref": "./shared/device_identifiers.json#/components/schemas/DeviceIdentifiers"
+          },
+          "usage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuotaUsage"
+            }
+          }
+        }
+      },
+      "QuotaResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "valid_until"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Usable deadline. Omitted or null means unlimited; an elapsed timestamp denies use."
+          },
+          "valid_until": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Required future deadline of this query result. Refresh before this time; expired results cannot authorize use."
+          }
+        }
+      }
+    }
+  }
+}

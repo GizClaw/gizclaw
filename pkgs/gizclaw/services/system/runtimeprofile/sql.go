@@ -54,6 +54,9 @@ func initializeProfileSQL(ctx context.Context, db *sqlx.DB) error {
 	if err := ensureProfileMhsColumn(ctx, tx); err != nil {
 		return err
 	}
+	if err := ensureProfileQuotaColumn(ctx, tx); err != nil {
+		return err
+	}
 	if err := dropLegacyProfileColumns(ctx, tx); err != nil {
 		return err
 	}
@@ -122,6 +125,22 @@ func ensureProfileMhsColumn(ctx context.Context, tx *sqlx.Tx) error {
 	return err
 }
 
+func ensureProfileQuotaColumn(ctx context.Context, tx *sqlx.Tx) error {
+	if tx.DriverName() == "postgres" || tx.DriverName() == "pgx" {
+		_, err := tx.ExecContext(ctx, "ALTER TABLE runtime_profiles ADD COLUMN IF NOT EXISTS quota_json TEXT NOT NULL DEFAULT 'null'")
+		return err
+	}
+	columns, err := profileTableColumns(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if slices.Contains(columns, "quota_json") {
+		return nil
+	}
+	_, err = tx.ExecContext(ctx, "ALTER TABLE runtime_profiles ADD COLUMN quota_json TEXT NOT NULL DEFAULT 'null'")
+	return err
+}
+
 func dropLegacyProfileColumns(ctx context.Context, tx *sqlx.Tx) error {
 	switch tx.DriverName() {
 	case "postgres", "pgx":
@@ -166,7 +185,7 @@ func profileTableColumns(ctx context.Context, tx *sqlx.Tx) ([]string, error) {
 	return columns, nil
 }
 
-const runtimeProfileColumns = "id,revision,resources_json,workflows_json,app_config_json,safety_fences_json,mhs_json,created_at,updated_at,incarnation,row_version"
+const runtimeProfileColumns = "id,revision,resources_json,workflows_json,app_config_json,safety_fences_json,mhs_json,quota_json,created_at,updated_at,incarnation,row_version"
 
 func encodeRuntimeProfileSQL(item apitypes.RuntimeProfile) ([]any, error) {
 	j1, err := json.Marshal(item.Spec.Resources)
@@ -189,7 +208,11 @@ func encodeRuntimeProfileSQL(item apitypes.RuntimeProfile) ([]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []any{item.Id, item.Revision, string(j1), string(j2), string(j3), string(j4), string(j5), item.CreatedAt.UTC().Format(time.RFC3339Nano), item.UpdatedAt.UTC().Format(time.RFC3339Nano)}, nil
+	j6, err := json.Marshal(item.Spec.Quota)
+	if err != nil {
+		return nil, err
+	}
+	return []any{item.Id, item.Revision, string(j1), string(j2), string(j3), string(j4), string(j5), string(j6), item.CreatedAt.UTC().Format(time.RFC3339Nano), item.UpdatedAt.UTC().Format(time.RFC3339Nano)}, nil
 }
 func scanRuntimeProfileSQL(row profileScanner) (apitypes.RuntimeProfile, profileRowVersion, error) {
 	var item apitypes.RuntimeProfile
@@ -200,7 +223,8 @@ func scanRuntimeProfileSQL(row profileScanner) (apitypes.RuntimeProfile, profile
 	var j3 string
 	var j4 string
 	var j5 string
-	if err := row.Scan(&item.Id, &item.Revision, &j1, &j2, &j3, &j4, &j5, &created, &updated, &version.incarnation, &version.revision); err != nil {
+	var j6 string
+	if err := row.Scan(&item.Id, &item.Revision, &j1, &j2, &j3, &j4, &j5, &j6, &created, &updated, &version.incarnation, &version.revision); err != nil {
 		return item, version, err
 	}
 	var err error
@@ -227,7 +251,39 @@ func scanRuntimeProfileSQL(row profileScanner) (apitypes.RuntimeProfile, profile
 	if err := json.Unmarshal([]byte(j5), &item.Spec.Mhs); err != nil {
 		return item, version, err
 	}
+	if item.Spec.Quota, err = decodeRuntimeProfileQuota([]byte(j6)); err != nil {
+		return item, version, err
+	}
 	return item, version, nil
+}
+
+func decodeRuntimeProfileQuota(data []byte) (*apitypes.RuntimeProfileQuota, error) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return nil, fmt.Errorf("runtimeprofile: decode stored quota: %w", err)
+	}
+	// Earlier quota-column initialization stored {} for unconfigured rows.
+	// This compatibility rule applies only to persistence, never API input.
+	if len(fields) == 0 {
+		return nil, nil
+	}
+	if fields["type"] == nil {
+		// Preserve a previously stored HTTP binding as custom, not unlimited.
+		if len(fields) != 2 || fields["endpoint"] == nil || fields["api_key"] == nil {
+			return nil, errors.New("runtimeprofile: invalid stored legacy quota")
+		}
+		fields["type"] = json.RawMessage(`"custom"`)
+		var err error
+		data, err = json.Marshal(fields)
+		if err != nil {
+			return nil, err
+		}
+	}
+	var binding apitypes.RuntimeProfileQuota
+	if err := json.Unmarshal(data, &binding); err != nil {
+		return nil, err
+	}
+	return normalizeQuota(&binding)
 }
 
 func decodeRuntimeProfileWorkflows(data []byte) (apitypes.RuntimeProfileWorkflows, error) {
@@ -287,7 +343,7 @@ func updateRuntimeProfileSQL(ctx context.Context, db *sqlx.DB, item apitypes.Run
 		return item, version, err
 	}
 	values = append(values[1:len(values)-2], values[len(values)-1], item.Id, version.incarnation, version.revision)
-	return scanRuntimeProfileSQL(db.QueryRowContext(ctx, db.Rebind("UPDATE runtime_profiles SET revision=?,resources_json=?,workflows_json=?,app_config_json=?,safety_fences_json=?,mhs_json=?,updated_at=?,row_version=row_version+1 WHERE id=? AND incarnation=? AND row_version=? RETURNING "+runtimeProfileColumns), values...))
+	return scanRuntimeProfileSQL(db.QueryRowContext(ctx, db.Rebind("UPDATE runtime_profiles SET revision=?,resources_json=?,workflows_json=?,app_config_json=?,safety_fences_json=?,mhs_json=?,quota_json=?,updated_at=?,row_version=row_version+1 WHERE id=? AND incarnation=? AND row_version=? RETURNING "+runtimeProfileColumns), values...))
 }
 func deleteRuntimeProfileSQL(ctx context.Context, db *sqlx.DB, id string, version profileRowVersion) (apitypes.RuntimeProfile, profileRowVersion, error) {
 	return scanRuntimeProfileSQL(db.QueryRowContext(ctx, db.Rebind("DELETE FROM runtime_profiles WHERE id=? AND incarnation=? AND row_version=? RETURNING "+runtimeProfileColumns), id, version.incarnation, version.revision))

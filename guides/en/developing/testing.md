@@ -1775,3 +1775,6 @@ GIZCLAW_E2E_CREDENTIAL_FILE=tests/gizclaw-e2e/.env \
 ```
 
 The script writes separate RPC, provider, HTTP, and SFU JSON reports under `tests/gizclaw-e2e/.testbench/` and removes its project containers and temporary credential environment on exit. The dedicated entrypoint selects only the dependencies of these nine scenarios instead of the full standard resource catalog. Offline parsing does not prove real provider behavior.
+
+
+For quota protocol, RuntimeProfile configuration and real Docker fixture acceptance, see [Quota](/en/developing/api/http/quota).

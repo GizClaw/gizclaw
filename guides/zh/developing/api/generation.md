@@ -17,6 +17,7 @@ Flutter Giztest 的 request adapter 遵循相同的数字 wire contract。Dart p
 | `api/proto/giznet/admission.proto` | Dart protobuf | `cd sdk/flutter/gizclaw && dart run tool/generate_admission.dart` |
 | HTTP OpenAPI + shared schemas | Go HTTP server/client/models | `go generate ./pkgs/gizclaw/api/adminhttp ./pkgs/gizclaw/api/apitypes ./pkgs/gizclaw/api/peerhttp` |
 | `api/http/mem0.json` | Mem0 Go client/models | `go generate ./sdk/go/mem0` |
+| `api/http/quota.json` | 外部 Quota Go client/models | `go generate ./sdk/go/quota` |
 | `api/proto/rpc/**/*.proto` | Go Protobuf | `go generate ./pkgs/gizclaw/api/rpcproto` |
 | `api/proto/rpc/**/*.proto` | Dart protobuf / registry / codec | `cd sdk/flutter/gizclaw && dart run tool/generate_rpc.dart` |
 | RPC descriptors/wrappers | 手工维护的 `rpcapi` committed surface | `go test ./pkgs/gizclaw/api/rpcapi`（当前 `go generate` 也只执行该验证，不会重新生成文件） |
