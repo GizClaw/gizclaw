@@ -127,7 +127,11 @@ func TestServiceResolverUsesWorkspaceOwnerRuntimeProfile(t *testing.T) {
 
 			"chat":               {ResourceId: "owner-workflow"},
 			"unavailable-helper": {ResourceId: "missing-workflow"},
-		}},
+		}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+			ApiKey: "test-quota-key",
+		},
+		},
 	}
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{"shared": ws}},
@@ -221,7 +225,10 @@ func TestServiceResolverUsesCallerRuntimeProfileMemoryForUnownedWorkspace(t *tes
 		Id:       "caller-profile",
 		Revision: "revision-1",
 		Spec: apitypes.RuntimeProfileSpec{
-			Resources: apitypes.RuntimeProfileResources{Memories: &bindings},
+			Resources: apitypes.RuntimeProfileResources{Memories: &bindings}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+				ApiKey: "test-quota-key",
+			},
 		},
 	}
 	resolver := ServiceResolver{
@@ -264,7 +271,10 @@ func TestServiceResolverResolveMemorySkipsToolkitConstruction(t *testing.T) {
 	profile := apitypes.RuntimeProfile{
 		Id: "profile", Revision: "revision",
 		Spec: apitypes.RuntimeProfileSpec{
-			Resources: apitypes.RuntimeProfileResources{Memories: &bindings},
+			Resources: apitypes.RuntimeProfileResources{Memories: &bindings}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+				ApiKey: "test-quota-key",
+			},
 		},
 	}
 	resolver := ServiceResolver{

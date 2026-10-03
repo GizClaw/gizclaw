@@ -588,3 +588,41 @@ test("MHS v0 scenarios install typed providers and preserve real error coverage"
   assert.equal(documents.length, paths.length);
   assert.ok(documents.length >= 18);
 });
+
+test("HTTP fixture endpoints resolve independently from the Peer access point", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "giztest-endpoint-"));
+  try {
+    const file = path.join(directory, "fixture.giztest.yaml");
+    await writeFile(
+      file,
+      [
+        "# User Story:",
+        "# As a Giztest author,",
+        "# I want to query a separate fixture endpoint,",
+        "# So that HTTP evidence uses the intended origin.",
+        "version: gizclaw.test/v1alpha1",
+        "name: fixture",
+        "clients:",
+        "  peer: {identity: ephemeral, connection: webrtc, access_point: '127.0.0.1:9821'}",
+        "variables:",
+        "  fixture: {direction: input, type: string, value: 'http://127.0.0.1:9825'}",
+        "steps:",
+        "- id: record",
+        "  client: peer",
+        "  http: {method: GET, path: /record, endpoint: '${fixture}'}",
+      ].join("\n"),
+    );
+    const document = await loadDocument(file);
+    const step = document.steps[0];
+    assert.ok(step?.http);
+    assert.deepEqual(collectReferences(step), ["fixture"]);
+    const variables = new Variables(document.variables);
+    assert.equal(
+      variables.resolveString(step.http.endpoint, "http endpoint"),
+      "http://127.0.0.1:9825",
+    );
+    assert.equal(document.clients.peer?.access_point, "127.0.0.1:9821");
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});

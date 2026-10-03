@@ -207,7 +207,11 @@ func TestRPCServerLogsDomainFailureOnce(t *testing.T) {
 				workflows := apitypes.RuntimeProfileWorkflows{
 					"chat": {ResourceId: "workflow-a", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Chat"}, "zh-CN": {DisplayName: "聊天"}}},
 				}
-				return &apitypes.RuntimeProfile{Id: "default", Revision: "revision", Spec: apitypes.RuntimeProfileSpec{Workflows: workflows}}
+				return &apitypes.RuntimeProfile{Id: "default", Revision: "revision", Spec: apitypes.RuntimeProfileSpec{Workflows: workflows, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+					ApiKey: "test-quota-key",
+				},
+				}}
 			},
 			Workspaces: invalidWorkspaceAdminService{},
 			Workflows: fixedWorkflowAdminService{value: apitypes.Workflow{

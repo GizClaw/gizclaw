@@ -145,7 +145,11 @@ func TestIndexRotatesReadOnlySQLiteInstances(t *testing.T) {
 	source := &testSource{profiles: []apitypes.RuntimeProfile{{
 		Id: "first", Revision: "r1", Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
 			"chat": {ResourceId: "chat", Tags: &[]string{"6-8", "stories"}},
-		}},
+		}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+			ApiKey: "test-quota-key",
+		},
+		},
 	}}}
 	index := New(source, time.Hour)
 	if err := index.Initialize(ctx); err != nil {

@@ -1,0 +1,172 @@
+# User Story:
+# As a registered Peer governed by an external quota service,
+# I want real provider calls to follow its quota decisions,
+# So that identifiers, usage and both deadlines are verified.
+version: gizclaw.test/v1alpha1
+name: server.quota.null
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  fixture:
+    direction: input
+    type: string
+    env: GIZCLAW_QUOTA_FIXTURE
+  name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+  peer_key:
+    direction: output
+    type: string
+  audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/pcm
+    codec: pcm_s16le
+steps:
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: quota-null
+  - id: debug
+    client: peer
+    rpc:
+      method: server.runtime.put
+      request:
+        debug_mode: fullcontrol
+  - id: key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: quota-test
+    capture:
+      api_key: /api_key
+  - id: refresh
+    client: peer
+    timeout: 15s
+    http:
+      method: POST
+      path: /prepare
+      endpoint: ${fixture}
+      body:
+        name: ${name}
+    capture:
+      peer_key: /public_key
+  - id: identifiers_provider
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: identifiers.get
+      response:
+        sn: ${name}
+        imeis:
+          - name: modem
+            tac: "12345678"
+            serial: "123456"
+        labels:
+          - key: hardware
+            value: fixture
+          - key: board
+            value: quota-test
+  - id: speech
+    client: peer
+    timeout: 10s
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: short
+        accepted_content_types:
+          - audio/pcm
+    save_as: audio
+    expect:
+      /bytes:
+        non_empty: true
+  - id: http_generator
+    client: peer
+    timeout: 15s
+    http:
+      method: POST
+      path: /openai/v1/chat/completions
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        model: chat
+        messages:
+          - role: user
+            content: hello
+        stream: false
+    expect:
+      /choices/0/message/content:
+        equals: quota fixture answer
+  - id: usage_report
+    client: peer
+    timeout: 15s
+    http:
+      method: GET
+      path: /record/null?usage=2
+      endpoint: ${fixture}
+    expect:
+      /report/peer_public_key:
+        equals: ${peer_key}
+      /report/identifiers/sn:
+        equals: ${name}
+      /report/identifiers/imeis:
+        count: 1
+      /report/identifiers/labels:
+        count: 2
+      /report/usage:
+        count: 2
+      /report/usage/0/model_id:
+        equals: billing-chat
+      /report/usage/0/quantity:
+        equals: 9
+      /report/usage/0/hour:
+        pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:00:00Z$'
+      /report/usage/1/model_id:
+        equals: billing-speech
+      /report/usage/1/quantity:
+        equals: 37
+      /report/usage/1/hour:
+        pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:00:00Z$'
+  - id: deny_again
+    client: peer
+    timeout: 15s
+    http:
+      method: POST
+      path: /deny/null
+      endpoint: ${fixture}
+      body: {}
+  - id: denied_after_refresh
+    client: peer
+    timeout: 10s
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: short
+        accepted_content_types:
+          - audio/pcm
+    expect_error:
+      code: 7
+finally:
+  - id: cleanup
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

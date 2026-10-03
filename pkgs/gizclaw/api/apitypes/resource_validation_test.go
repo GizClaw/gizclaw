@@ -109,13 +109,13 @@ func TestValidateResourceJSONRuntimeProfileBindingsAreOptional(t *testing.T) {
   "apiVersion":"gizclaw.admin/v1alpha1",
   "kind":"RuntimeProfile",
   "metadata":{"id":"devices-only"},
-  "spec":{"mhs":{"v0":{"devices":[{"id":"led.status","hwd":"led"}]}}}
+  "spec":{"quota":{"endpoint":"http://quota.example.test/v1/quota","api_key":"test-quota-key"},"mhs":{"v0":{"devices":[{"id":"led.status","hwd":"led"}]}}}
 }`
 	if err := ValidateResourceJSON([]byte(input)); err != nil {
 		t.Fatalf("ValidateResourceJSON(devices only) error = %v", err)
 	}
-	// The Server encodes a stored empty spec; the result must stay valid.
-	spec, err := json.Marshal(RuntimeProfileSpec{})
+	// Binding collections can be empty while the required quota binding stays valid.
+	spec, err := json.Marshal(RuntimeProfileSpec{Quota: RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota", ApiKey: "test-quota-key"}})
 	if err != nil {
 		t.Fatal(err)
 	}

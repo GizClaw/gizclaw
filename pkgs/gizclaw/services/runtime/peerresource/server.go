@@ -103,7 +103,7 @@ func (s *Server) createWorkspace(ctx context.Context, request WorkspaceCreateReq
 	}
 	projectionProfile := apitypes.RuntimeProfile{
 		Id: profile.Id, Revision: profile.Revision,
-		Spec: apitypes.RuntimeProfileSpec{Resources: profile.Spec.Resources, Workflows: apitypes.RuntimeProfileWorkflows{
+		Spec: apitypes.RuntimeProfileSpec{Quota: profile.Spec.Quota, Resources: profile.Spec.Resources, Workflows: apitypes.RuntimeProfileWorkflows{
 			alias: binding,
 		}},
 	}

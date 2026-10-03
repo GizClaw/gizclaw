@@ -53,3 +53,5 @@ For repository-owned surfaces, OpenAPI has path, method, parameters, wire DTO an
 Design information: [Shared and Resources](./shared-resources) · [Dependency Rules](./type-dependencies)
 
 Monitor routing and generation ownership: [Monitor](../../monitor).
+
+For quota protocol, RuntimeProfile configuration and real Docker fixture acceptance, see [Quota](./quota).

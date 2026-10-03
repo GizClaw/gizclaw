@@ -50,6 +50,9 @@ func TestAdminWorkspacesUserStory(t *testing.T) {
 						"zh-CN": {DisplayName: "语音助手"},
 					},
 				},
+			}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+				ApiKey: "test-quota-key",
 			},
 		},
 	})

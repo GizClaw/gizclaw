@@ -223,3 +223,28 @@ func TestInstallDeviceControlScriptsProviders(t *testing.T) {
 		t.Fatalf("counts = %v", counts)
 	}
 }
+
+func TestInvokeHTTPUsesExplicitFixtureEndpoint(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/captured-report" {
+			t.Errorf("path=%s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"captured":true}`))
+	}))
+	defer server.Close()
+	vars, err := giztest.NewVariables(map[string]giztest.VariableSpec{
+		"fixture": {Direction: "input", Type: "string", Value: server.URL},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := invokeHTTP(t.Context(), "127.0.0.1:1", giztest.Step{HTTP: &giztest.HTTPOperation{Endpoint: "${fixture}", Method: "GET", Path: "/captured-report"}}, vars)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, ok := result.body.(map[string]any)
+	if !ok || body["captured"] != true {
+		t.Fatalf("body=%+v", result.body)
+	}
+}

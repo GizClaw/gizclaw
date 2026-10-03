@@ -218,7 +218,10 @@ func runtimeProfileWithWorkspaceAlias(revision string) apitypes.RuntimeProfile {
 		}, Workflows: apitypes.RuntimeProfileWorkflows{
 
 			"journey": collectionTestBinding("canonical-workflow", "Journey"),
-		}},
+		}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+			ApiKey: "test-quota-key"},
+		},
 	}
 }
 

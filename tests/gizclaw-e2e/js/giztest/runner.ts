@@ -128,6 +128,9 @@ async function runStep(
       headers,
       body,
       signal,
+      step.http.endpoint == null
+        ? undefined
+        : variables.resolveString(step.http.endpoint, "http endpoint"),
     );
     const evidence = {
       method: step.http.method,

@@ -529,8 +529,9 @@ class ScenarioClient {
     String method,
     String pathWithQuery,
     Map<String, String> headers,
-    Object? body,
-  ) async {
+    Object? body, {
+    String? accessPoint,
+  }) async {
     String? token;
     final extra = <String, String>{};
     for (final entry in headers.entries) {
@@ -546,19 +547,23 @@ class ScenarioClient {
     }
     final response = await _controlFor(
       token,
+      accessPoint,
     ).send(method: method, path: pathWithQuery, headers: extra, body: body);
     return HttpStepResult(response.statusCode, response.json);
   }
 
-  control.GizClawControlClient _controlFor(String? token) {
-    final key = token ?? '';
+  control.GizClawControlClient _controlFor(
+    String? token, [
+    String? accessPoint,
+  ]) {
+    final key = '${accessPoint ?? endpoint}:${token ?? ''}';
     return _controlClients.putIfAbsent(
       key,
       () => control.GizClawControlClient(
         // The e2e stack serves plaintext HTTP on localhost.
         allowInsecureTransport: true,
-        apiKey: key.isEmpty ? 'unauthenticated' : key,
-        baseUrl: httpBaseUrl(endpoint),
+        apiKey: token == null || token.isEmpty ? 'unauthenticated' : token,
+        baseUrl: httpBaseUrl(accessPoint ?? endpoint),
       ),
     );
   }

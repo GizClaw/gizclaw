@@ -8,6 +8,44 @@ import 'package:giztest/src/variables.dart';
 final scenarioRoot = Directory('../../giztest').absolute.path;
 
 void main() {
+  test(
+    'HTTP fixture endpoints resolve independently from the Peer access point',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'giztest-endpoint-',
+      );
+      try {
+        final file = File('${directory.path}/fixture.giztest.yaml');
+        await file.writeAsString(r'''
+# User Story:
+# As a Giztest author,
+# I want to query a separate fixture endpoint,
+# So that HTTP evidence uses the intended origin.
+version: gizclaw.test/v1alpha1
+name: fixture
+clients:
+  peer: {identity: ephemeral, connection: webrtc, access_point: '127.0.0.1:9821'}
+variables:
+  fixture: {direction: input, type: string, value: 'http://127.0.0.1:9825'}
+steps:
+- id: record
+  client: peer
+  http: {method: GET, path: /record, endpoint: '${fixture}'}
+''');
+        final document = await loadDocument(file.path);
+        final step = document.steps.single;
+        expect(collectReferences(step), ['fixture']);
+        final variables = Variables(document.variables);
+        expect(
+          variables.resolveString(step.http?['endpoint'], 'http endpoint'),
+          'http://127.0.0.1:9825',
+        );
+        expect(document.clients['peer']?.accessPoint, '127.0.0.1:9821');
+      } finally {
+        await directory.delete(recursive: true);
+      }
+    },
+  );
   test('MHS v0 documents are executable by the Flutter provider', () async {
     final paths = Directory(scenarioRoot)
         .listSync()

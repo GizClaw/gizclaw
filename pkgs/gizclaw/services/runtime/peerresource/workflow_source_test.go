@@ -112,6 +112,9 @@ func TestAliasGetsHideDanglingCanonicalResourceIDs(t *testing.T) {
 			Workflows: apitypes.RuntimeProfileWorkflows{
 
 				"chat": collectionTestBinding("canonical-secret-workflow", "Chat"),
+			}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+				ApiKey: "test-quota-key",
 			},
 		},
 	}
@@ -154,7 +157,11 @@ func TestResolveAliasesKeepsDottedAndHyphenatedNamesDistinct(t *testing.T) {
 		"journey-narrator": collectionTestBinding("legacy-voice", "Legacy Voice"),
 	}
 	profile := apitypes.RuntimeProfile{
-		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices}},
+		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+			ApiKey: "test-quota-key",
+		},
+		},
 	}
 	server := &Server{RuntimeProfile: func() *apitypes.RuntimeProfile { return &profile }}
 
@@ -219,7 +226,11 @@ func TestListModelsProjectsRuntimeAliases(t *testing.T) {
 	}
 	profile := apitypes.RuntimeProfile{
 		Id: "default", Revision: "r1",
-		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &bindings}},
+		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &bindings}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+			ApiKey: "test-quota-key",
+		},
+		},
 	}
 	server := &Server{Models: models, RuntimeProfile: func() *apitypes.RuntimeProfile { return &profile }}
 
@@ -280,7 +291,11 @@ func TestListVoicesProjectsRuntimeAliases(t *testing.T) {
 	}
 	profile := apitypes.RuntimeProfile{
 		Id: "default", Revision: "r1",
-		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Voices: &bindings}},
+		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Voices: &bindings}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+			ApiKey: "test-quota-key",
+		},
+		},
 	}
 	server := &Server{Voices: voices, RuntimeProfile: func() *apitypes.RuntimeProfile { return &profile }}
 

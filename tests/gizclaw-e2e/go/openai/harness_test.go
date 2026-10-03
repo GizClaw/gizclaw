@@ -134,7 +134,10 @@ func openAIRuntimeProfile(t *testing.T) apitypes.RuntimeProfileSpec {
 	memories := map[string]apitypes.RuntimeProfileMemoryBinding{"chat-memory": {LayoutId: "chat-memory", Driver: apitypes.RuntimeProfileMemoryDriverFlowcraft, Connection: connection}}
 	return apitypes.RuntimeProfileSpec{
 		Workflows: workflows,
-		Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices, Memories: &memories},
+		Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices, Memories: &memories}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+			ApiKey: "test-quota-key",
+		},
 	}
 }
 

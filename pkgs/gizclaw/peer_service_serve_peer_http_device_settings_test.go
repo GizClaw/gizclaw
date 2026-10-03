@@ -139,6 +139,6 @@ type fakeControlProfiles struct {
 
 func (p fakeControlProfiles) ResolveOwnerProfile(context.Context, string) (apitypes.RuntimeProfile, error) {
 	return apitypes.RuntimeProfile{Id: "p", Revision: "1", Spec: apitypes.RuntimeProfileSpec{
-		Resources: apitypes.RuntimeProfileResources{Tools: &p.tools},
+		Resources: apitypes.RuntimeProfileResources{Tools: &p.tools}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota", ApiKey: "test-quota-key"},
 	}}, nil
 }

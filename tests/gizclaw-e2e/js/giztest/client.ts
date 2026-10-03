@@ -280,9 +280,10 @@ export class ScenarioClient {
     headers: Record<string, string>,
     body: unknown,
     signal?: AbortSignal,
+    endpoint?: string,
   ): Promise<HTTPStepResult> {
     const token = bearerToken(headers);
-    const control = this.controlFor(token);
+    const control = this.controlFor(token, endpoint);
     const extraHeaders = Object.fromEntries(
       Object.entries(headers).filter(
         ([name]) => name.toLowerCase() !== "authorization",
@@ -313,8 +314,11 @@ export class ScenarioClient {
     };
   }
 
-  private controlFor(token: string | undefined): GizClawControlClient {
-    const key = token ?? "";
+  private controlFor(
+    token: string | undefined,
+    endpoint?: string,
+  ): GizClawControlClient {
+    const key = `${endpoint ?? this.endpoint}:${token ?? ""}`;
     const existing = this.controlClients.get(key);
     if (existing != null) {
       return existing;
@@ -323,7 +327,7 @@ export class ScenarioClient {
       // The e2e stack serves plaintext HTTP on localhost.
       allowInsecureTransport: true,
       apiKey: token == null || token === "" ? "unauthenticated" : token,
-      baseUrl: httpBaseURL(this.endpoint),
+      baseUrl: httpBaseURL(endpoint ?? this.endpoint),
     });
     this.controlClients.set(key, created);
     return created;

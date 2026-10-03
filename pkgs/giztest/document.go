@@ -132,14 +132,15 @@ type RPCStreamOperation struct {
 	MaxBytes int    `json:"max_bytes,omitempty" yaml:"max_bytes,omitempty"`
 }
 
-// HTTPOperation sends one Public HTTP request to the client's access point.
+// HTTPOperation sends one HTTP request to the client's access point or Endpoint.
 // The response JSON body is the step value for expect, capture, and save_as.
 type HTTPOperation struct {
-	Method  string            `json:"method" yaml:"method"`
-	Path    string            `json:"path" yaml:"path"`
-	Headers map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
-	Body    any               `json:"body,omitempty" yaml:"body,omitempty"`
-	Status  int               `json:"status,omitempty" yaml:"status,omitempty"`
+	Endpoint string            `json:"endpoint,omitempty" yaml:"endpoint,omitempty"`
+	Method   string            `json:"method" yaml:"method"`
+	Path     string            `json:"path" yaml:"path"`
+	Headers  map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
+	Body     any               `json:"body,omitempty" yaml:"body,omitempty"`
+	Status   int               `json:"status,omitempty" yaml:"status,omitempty"`
 }
 type ClientRPCOperation struct {
 	Tool        string `json:"tool,omitempty" yaml:"tool,omitempty"`

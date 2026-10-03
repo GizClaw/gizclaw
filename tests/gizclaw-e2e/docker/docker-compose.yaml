@@ -1,4 +1,17 @@
 services:
+  fixture:
+    build:
+      context: ../../..
+      dockerfile: tests/gizclaw-e2e/docker/Dockerfile.server
+      args:
+        BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
+    entrypoint: [go, run, ./tests/gizclaw-e2e/cmd/quota-fixture]
+    healthcheck:
+      test: [CMD, curl, -fsS, "http://127.0.0.1:9825/healthz"]
+      interval: 2s
+      timeout: 2s
+      retries: 90
+      start_period: 300s
   redis:
     image: redis:8.4.6-alpine@sha256:12da49daa000c2be4d55118574f889c8cc298140ecf343d04f345c818f227823
     command: ["redis-server", "--save", "", "--appendonly", "no"]
@@ -99,6 +112,8 @@ services:
       GIZCLAW_E2E_TURN_CREDENTIAL: ${GIZCLAW_E2E_TURN_CREDENTIAL:?set by docker-compose-up.sh}
       GIZCLAW_TEST_REGISTRATION_TOKEN: ${GIZCLAW_TEST_REGISTRATION_TOKEN:?set by docker-compose-up.sh}
     depends_on:
+      fixture:
+        condition: service_healthy
       livekit:
         condition: service_healthy
       mem0:

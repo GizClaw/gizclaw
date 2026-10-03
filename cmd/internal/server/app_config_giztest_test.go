@@ -89,7 +89,10 @@ func TestRuntimeProfileAppConfigGiztest(t *testing.T) {
 	}
 	request := adminhttp.RuntimeProfileUpsert{Id: "app-config-giztest", Spec: apitypes.RuntimeProfileSpec{
 		Workflows: apitypes.RuntimeProfileWorkflows{},
-		AppConfig: &config,
+		AppConfig: &config, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+			ApiKey: "test-quota-key",
+		},
 	}}
 	created, err := adminapi.CreateRuntimeProfile(ctx, admin, request)
 	if err != nil {

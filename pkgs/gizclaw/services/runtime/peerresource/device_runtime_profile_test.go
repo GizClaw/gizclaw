@@ -54,7 +54,11 @@ func runtimeProfileCatalogFixture() apitypes.RuntimeProfile {
 			"story.alice": alice,
 			"story.aesop": aesop,
 			"game.riddle": riddle,
-		}},
+		}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+			ApiKey: "test-quota-key",
+		},
+		},
 	}
 }
 

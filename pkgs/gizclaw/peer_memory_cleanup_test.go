@@ -42,7 +42,10 @@ func TestPeerMemoryCleanupPurgesOnlySharedScope(t *testing.T) {
 	bindings := map[string]apitypes.RuntimeProfileMemoryBinding{spec.MemoryName: *spec.MemoryBinding}
 	profile := apitypes.RuntimeProfile{
 		Id: spec.MemoryProfileID, Revision: spec.MemoryProfileRevision,
-		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Memories: &bindings}},
+		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Memories: &bindings}, Quota: apitypes.RuntimeProfileQuota{Endpoint: "http://quota.example.test/v1/quota",
+
+			ApiKey: "test-quota-key"},
+		},
 	}
 	stores := memorystore.NewRegistry()
 	t.Cleanup(func() { _ = stores.Close() })
