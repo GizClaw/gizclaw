@@ -1,4 +1,12 @@
 services:
+  quota:
+    image: ${GIZCLAW_MONITOR_IMAGE:?}
+    entrypoint: [quota-fixture]
+    healthcheck:
+      test: [CMD, curl, -fsS, "http://127.0.0.1:9825/healthz"]
+      interval: 1s
+      timeout: 2s
+      retries: 30
   server:
     image: ${GIZCLAW_MONITOR_IMAGE:?}
     env_file: ["${GIZCLAW_MONITOR_STATE:?}/runtime.env"]

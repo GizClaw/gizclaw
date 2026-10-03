@@ -440,6 +440,7 @@ func lifecycleCases(adminKey, peerKey string) []lifecycleCase {
 			probe: []string{"workflows", "echo", "tags", "i18n", "en", "display_name"},
 			spec: func(v string) map[string]any {
 				return map[string]any{
+					"quota": map[string]any{"endpoint": "http://127.0.0.1:9825/v1/quota", "api_key": "fixture"},
 					"workflows": map[string]any{
 						"echo": map[string]any{"resource_id": "tf-lc-echo", "tags": []string{"assistants"}, "i18n": i18n("Echo " + v)},
 					},

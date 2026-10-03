@@ -17,6 +17,7 @@ func seedRTPBOS(ctx context.Context, api *adminhttp.ClientWithResponses, profile
 		return err
 	}
 	spec := runtimeProfileSpec(true)
+	spec.Quota.Endpoint = "http://quota:9825/v1/quota"
 	workflows := map[string]apitypes.RuntimeProfileBinding{}
 	for _, driver := range []string{"eino"} {
 		data, err := os.ReadFile("tests/gizclaw-e2e/testdata/rtp-bos/" + driver + ".json")

@@ -210,7 +210,7 @@ func (f *fixture) chat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_, _ = fmt.Fprint(w, `{"id":"fixture","object":"chat.completion","created":1,"model":"billing-chat","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"{\"ok\":true}"}}],`+usage+`}`)
+	_, _ = fmt.Fprint(w, `{"id":"fixture","object":"chat.completion","created":1,"model":"billing-chat","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"quota fixture answer"}}],`+usage+`}`)
 }
 func (f *fixture) speech(w http.ResponseWriter, r *http.Request) {
 	conn, err := websocket.Accept(w, r, nil)

@@ -215,8 +215,6 @@ func initialize(dir string) error {
 		return err
 	}
 	text := os.Expand(string(data), func(key string) string { return values[key] })
-	text = strings.Replace(text, "stores:\n", "stores:\n  peer-usage:\n    kind: sql\n    storage: business-db\n", 1)
-	text = strings.Replace(text, "services:\n", "services:\n  peer_usage:\n    store: peer-usage\n", 1)
 	if err = os.WriteFile(filepath.Join(dir, "server", "config.yaml"), []byte(text), 0600); err != nil {
 		return err
 	}

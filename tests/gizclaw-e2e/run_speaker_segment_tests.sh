@@ -65,6 +65,7 @@ if [[ "$(go env GOOS)/$(go env GOARCH)" == "linux/$arch" ]]; then
   go build -overlay "$image_dir/overlay.json" -o "$image_dir/bin/gizclaw" ./cmd/gizclaw
   go build -o "$image_dir/bin/monitor-seed" ./tests/gizclaw-e2e/cmd/multiserver-seed
   go build -o "$image_dir/bin/monitor-fixture" ./tests/gizclaw-e2e/cmd/monitor-fixture
+  go build -o "$image_dir/bin/quota-fixture" ./tests/gizclaw-e2e/cmd/quota-fixture
 else
   base="${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-$arch-cn-base}"
   if ! docker image inspect "$base" >/dev/null 2>&1; then
@@ -77,7 +78,8 @@ else
     -v "gizclaw-speaker-segments-buildcache:/root/.cache/go-build" "$base" -lc 'cd /src \
       && go build -overlay /out/overlay.json -o /out/gizclaw ./cmd/gizclaw \
       && go build -o /out/monitor-seed ./tests/gizclaw-e2e/cmd/multiserver-seed \
-      && go build -o /out/monitor-fixture ./tests/gizclaw-e2e/cmd/monitor-fixture'
+      && go build -o /out/monitor-fixture ./tests/gizclaw-e2e/cmd/monitor-fixture \
+      && go build -o /out/quota-fixture ./tests/gizclaw-e2e/cmd/quota-fixture'
 fi
 cp -R "$script_dir/docker/monitor" "$image_dir/tests/gizclaw-e2e/docker/"
 cp "$script_dir"/giztest/speaker-segments.*.giztest.yaml "$image_dir/tests/gizclaw-e2e/giztest/"
@@ -86,7 +88,7 @@ cp -R "$script_dir/testdata/speaker-segments" "$image_dir/tests/gizclaw-e2e/test
 docker build -f "$script_dir/docker/Dockerfile.audioplayer" -t "$GIZCLAW_MONITOR_IMAGE" "$image_dir"
 docker run --rm --user "$run_user" -v "$GIZCLAW_MONITOR_STATE:/state" --entrypoint monitor-fixture "$GIZCLAW_MONITOR_IMAGE" -init /state
 touch "$GIZCLAW_MONITOR_STATE/fixture.env"
-"${compose[@]}" up -d --wait server edge
+"${compose[@]}" up -d --wait quota server edge
 "${compose[@]}" run --rm seed -server server:9820 -profile-id speaker-segments -token-id speaker-segments -token monitor-test -speaker-segments
 "${compose[@]}" run --rm test \
   /src/tests/gizclaw-e2e/giztest/speaker-segments.eino.realtime.giztest.yaml \
