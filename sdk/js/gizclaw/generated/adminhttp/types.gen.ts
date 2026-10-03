@@ -1623,7 +1623,7 @@ export type RuntimeProfileMhs = {
 };
 
 /**
- * Optional provider-call policy. Omitted or null means unlimited. Only custom uses the external Quota HTTP API.
+ * Provider-call policy variants: unlimited or custom HTTP.
  */
 export type RuntimeProfileQuota = ({
     type: 'unlimited';
@@ -1686,7 +1686,10 @@ export type RuntimeProfileSpec = {
     safety_fences?: RuntimeProfileSafetyFences;
     mhs?: RuntimeProfileMhs;
     app_config?: RuntimeProfileAppConfig;
-    quota?: RuntimeProfileQuota;
+    /**
+     * Optional provider-call policy. Omitted or null means unlimited. Only custom uses the external Quota HTTP API.
+     */
+    quota?: RuntimeProfileQuota | null;
 };
 
 export type RuntimeProfileVolcMem0Connection = {

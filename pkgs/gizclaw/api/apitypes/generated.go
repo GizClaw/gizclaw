@@ -6058,7 +6058,7 @@ type RuntimeProfileMhs struct {
 	V0 *MhsV0Manifest `json:"v0,omitempty"`
 }
 
-// RuntimeProfileQuota Optional provider-call policy. Omitted or null means unlimited. Only custom uses the external Quota HTTP API.
+// RuntimeProfileQuota Provider-call policy variants: unlimited or custom HTTP.
 type RuntimeProfileQuota struct {
 	union json.RawMessage
 }

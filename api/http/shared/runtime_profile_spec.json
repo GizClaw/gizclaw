@@ -418,13 +418,19 @@
             "$ref": "#/components/schemas/RuntimeProfileAppConfig"
           },
           "quota": {
-            "$ref": "#/components/schemas/RuntimeProfileQuota"
+            "type": "object",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RuntimeProfileQuota"
+              }
+            ],
+            "description": "Optional provider-call policy. Omitted or null means unlimited. Only custom uses the external Quota HTTP API."
           }
         }
       },
       "RuntimeProfileQuota": {
-        "nullable": true,
-        "description": "Optional provider-call policy. Omitted or null means unlimited. Only custom uses the external Quota HTTP API.",
+        "description": "Provider-call policy variants: unlimited or custom HTTP.",
         "oneOf": [
           {
             "$ref": "#/components/schemas/RuntimeProfileQuotaUnlimited"
@@ -439,7 +445,8 @@
             "unlimited": "#/components/schemas/RuntimeProfileQuotaUnlimited",
             "custom": "#/components/schemas/RuntimeProfileQuotaCustom"
           }
-        }
+        },
+        "type": "object"
       },
       "RuntimeProfileQuotaUnlimited": {
         "type": "object",
