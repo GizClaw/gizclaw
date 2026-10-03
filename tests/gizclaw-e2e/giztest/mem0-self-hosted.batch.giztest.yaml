@@ -1,6 +1,7 @@
 # User Story:
-# As a Peer using self-hosted Mem0, I want one Eino memory_observe node to
-# persist user input and assistant output as two facts across reload.
+# As a Peer using self-hosted Mem0,
+# I want one Eino memory_observe node to persist user input and assistant output,
+# So that both facts remain recallable after reload in my isolated Scope.
 version: gizclaw.test/v1alpha1
 name: mem0-self-hosted.batch
 clients:
@@ -73,6 +74,9 @@ steps:
 - id: select_private
   client: owner
   rpc: {method: server.run.workspace.set, request: {workspace_name: "${private}"}}
+- id: activate_private_workspace
+  client: owner
+  rpc: {method: server.run.workspace.reload, request: {}}
 - id: other_workspace_cannot_recall_batch
   client: owner
   rpc: {method: server.run.workspace.recall, request: {query: "Marzipan salmon ${marker}"}}
@@ -90,6 +94,9 @@ steps:
 - id: select_other_peer
   client: other
   rpc: {method: server.run.workspace.set, request: {workspace_name: "${other_workspace}"}}
+- id: activate_other_peer
+  client: other
+  rpc: {method: server.run.workspace.reload, request: {}}
 - id: other_peer_cannot_recall_batch
   client: other
   rpc: {method: server.run.workspace.recall, request: {query: "Marzipan salmon ${marker}"}}
