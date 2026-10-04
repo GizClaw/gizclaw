@@ -276,13 +276,13 @@ func (s *session) assessRelayQuality(ctx context.Context, req giztest.StepReques
 		if s.driver.fullEvidence {
 			result.evidence["quality_judge_invalid_response"] = text
 		}
-		if _, citation := errors.AsType[*qualityCitationError](err); !citation || attempt == 3 {
+		if attempt == 3 {
 			return result, err
 		}
 		// Invalid evidence cannot establish a score. Request another assessment
 		// against the same original data; every response receives the full strict
 		// validator and the shared one-minute deadline still bounds all attempts.
-		corrected, err := json.Marshal(map[string]any{"reference": reference, "criteria": criteria, "dialogue": turns, "evidence_quotes": qualityEvidenceQuotes(turns), "citation_feedback": "Previous candidate evidence was invalid. Select only existing evidence_quotes IDs, keeping each entry's turn. Do not invent IDs or copy literal text."})
+		corrected, err := json.Marshal(map[string]any{"reference": reference, "criteria": criteria, "dialogue": turns, "evidence_quotes": qualityEvidenceQuotes(turns), "citation_feedback": "Previous structured assessment was invalid: " + err.Error() + ". Return every configured criterion exactly once with a 0-4 integer score, reason, and 1-3 existing evidence_quotes IDs, each keeping its entry turn. Do not invent IDs or copy literal text."})
 		if err != nil || len(corrected) > relayMaxTextBytes {
 			return result, errors.New("quality assessment request exceeds its text limit")
 		}

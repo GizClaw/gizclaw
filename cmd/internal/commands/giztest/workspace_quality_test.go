@@ -373,8 +373,9 @@ func TestQualityQuoteCatalogPreservesUnicodeAndCandidateBoundaries(t *testing.T)
 }
 
 func TestQualityCitationRetryIsBoundedAndDoesNotSeekPassingScores(t *testing.T) {
-	for _, repaired := range []bool{false, true} {
-		t.Run(fmt.Sprint(repaired), func(t *testing.T) {
+	for _, test := range []struct{ repaired, duplicate bool }{{false, false}, {true, false}, {true, true}} {
+		repaired := test.repaired
+		t.Run(fmt.Sprint(test), func(t *testing.T) {
 			d := newDriver(false, nil)
 			var opened []*fakeRelayStream
 			d.openPeerStream = func(*gizcli.Client) peerStreamOpener {
@@ -407,7 +408,11 @@ func TestQualityCitationRetryIsBoundedAndDoesNotSeekPassingScores(t *testing.T) 
 						if repaired && attempt == 2 {
 							id = "t2-q1"
 						}
-						stream.in <- assistantText("j", fmt.Sprintf(`{"criteria":[{"id":"progression","score":1,"reason":"No progress","evidence":[{"turn":2,"quote_id":%q}]}]}`, id), true)
+						reply := fmt.Sprintf(`{"criteria":[{"id":"progression","score":1,"reason":"No progress","evidence":[{"turn":2,"quote_id":%q}]}]}`, id)
+						if test.duplicate && attempt == 1 {
+							reply = `{"criteria":[]}`
+						}
+						stream.in <- assistantText("j", reply, true)
 					}()
 					return stream, nil
 				}
@@ -471,5 +476,12 @@ func TestQualityJudgeLargeInputKeepsExactUTF8AndOneTerminal(t *testing.T) {
 	<-done
 	if reconstructed.String() != text || begins != 1 || ends != 1 || !chunk.IsBeginOfStream() || !chunk.IsEndOfStream() {
 		t.Fatal("chunking altered content or controls")
+	}
+}
+
+func TestQualityMissingCriterionRemainsAValidationError(t *testing.T) {
+	_, _, err := validateQualityResponse(`{"criteria":[]}`, qualityTestSpec(), []qualityTurn{{Turn: 2, Role: "candidate", Text: "source"}}, false)
+	if err == nil {
+		t.Fatal("missing criterion accepted")
 	}
 }
