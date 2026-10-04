@@ -130,3 +130,24 @@ func TestConfiguredOrMalformedQuotaCannotBypassMissingController(t *testing.T) {
 		}
 	}
 }
+
+func TestQuotaAuthorizerPreservesUnavailableCauseAndResourceFailures(t *testing.T) {
+	profile := apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{Quota: managerQuotaBinding(t, `{"type":"custom","endpoint":"http://quota.example.test/v1/quota","api_key":"fixture"}`)}}
+	controller := peerquota.New(&quotaReportProbe{})
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = controller.Close(ctx)
+	}()
+	manager := &Manager{PeerQuota: controller}
+	_, _, err := manager.quotaAuthorizer(giznet.PublicKey{1}, func(context.Context) (apitypes.RuntimeProfile, error) { return profile, nil })(t.Context())
+	if !errors.Is(err, peerquota.ErrUnavailable) || !errors.Is(err, peergenx.ErrDenied) {
+		t.Fatalf("cause was lost: %v", err)
+	}
+	_, _, err = manager.quotaAuthorizer(giznet.PublicKey{1}, func(context.Context) (apitypes.RuntimeProfile, error) {
+		return apitypes.RuntimeProfile{}, errors.New("missing resource")
+	})(t.Context())
+	if _, _, _, quota := peerquota.ErrorDetails(err); quota {
+		t.Fatalf("resource failure mislabeled as quota: %v", err)
+	}
+}

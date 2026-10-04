@@ -155,7 +155,12 @@ func (j *responseJob) run(parent context.Context, delta func(string) error) (wor
 	result := j.record
 	result.CompletedAt = &now
 	if err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+		quota := quotaBackendError(err)
+		if quota != nil {
+			result.Status = "failed"
+			result.ErrorCode = quota.Code
+			result.ErrorMessage = quota.Message
+		} else if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
 			result.Status = "cancelled"
 		} else {
 			result.Status = "failed"
@@ -164,6 +169,9 @@ func (j *responseJob) run(parent context.Context, delta func(string) error) (wor
 		}
 		if persistErr := j.runtime.OpenAI.PutResponse(context.WithoutCancel(parent), result); persistErr != nil {
 			return result, fmt.Errorf("persist terminal Response: %w", persistErr)
+		}
+		if quota != nil {
+			return result, err
 		}
 		return result, nil
 	}
@@ -478,7 +486,7 @@ func (s *responseEventStream) produce(ctx context.Context, job *responseJob) {
 		}
 		return nil
 	})
-	if runErr != nil {
+	if runErr != nil && quotaBackendError(runErr) == nil {
 		return
 	}
 	if record.Status != "completed" {

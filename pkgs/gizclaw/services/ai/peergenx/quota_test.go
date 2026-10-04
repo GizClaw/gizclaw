@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerquota"
 )
 
 type quotaTestTransformer struct{ called *atomic.Int32 }
@@ -83,5 +84,90 @@ func TestQuotaClosesOutputThatDoesNotObserveProviderContext(t *testing.T) {
 	}
 	if releases.Load() != 1 {
 		t.Fatalf("releases=%d", releases.Load())
+	}
+}
+
+type openingQuotaProvider struct {
+	cancel context.CancelCauseFunc
+	cause  error
+	late   *openingQuotaStream
+}
+
+func (p openingQuotaProvider) GenerateStream(ctx context.Context, _ string, _ genx.ModelContext) (genx.Stream, error) {
+	p.cancel(p.cause)
+	<-ctx.Done()
+	if p.late != nil {
+		return p.late, nil
+	}
+	return nil, ctx.Err()
+}
+func (p openingQuotaProvider) Transform(ctx context.Context, _ genx.Stream) (genx.Stream, error) {
+	return p.GenerateStream(ctx, "", nil)
+}
+func (p openingQuotaProvider) Invoke(ctx context.Context, _ string, _ genx.ModelContext, _ *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
+	p.cancel(p.cause)
+	<-ctx.Done()
+	return genx.Usage{PromptTokenCount: 5}, &genx.FuncCall{Name: "late"}, ctx.Err()
+}
+
+type openingQuotaStream struct {
+	cause  error
+	closes int
+}
+
+func (*openingQuotaStream) Next() (*genx.MessageChunk, error) { return nil, io.EOF }
+func (s *openingQuotaStream) Close() error                    { s.closes++; return nil }
+func (s *openingQuotaStream) CloseWithError(cause error) error {
+	s.cause = cause
+	s.closes++
+	return nil
+}
+
+func TestQuotaPreservesCauseDuringProviderOpeningAndInvoke(t *testing.T) {
+	for _, cause := range []error{peerquota.ErrDenied, peerquota.ErrUnavailable, context.Canceled} {
+		for _, operation := range []string{"generate", "transform", "invoke", "late generate", "late transform"} {
+			t.Run(operation+cause.Error(), func(t *testing.T) {
+				ctx, cancel := context.WithCancelCause(t.Context())
+				defer cancel(context.Canceled)
+				releases := 0
+				authorize := func(context.Context) (context.Context, func(), error) {
+					return ctx, func() { releases++; cancel(context.Canceled) }, nil
+				}
+				provider := openingQuotaProvider{cancel: cancel, cause: cause}
+				if operation == "late generate" || operation == "late transform" {
+					provider.late = &openingQuotaStream{}
+				}
+				var output genx.Stream
+				var err error
+				switch operation {
+				case "generate", "late generate":
+					output, err = (quotaGenerator{Generator: provider, authorize: authorize}).GenerateStream(t.Context(), "", nil)
+				case "transform", "late transform":
+					output, err = (quotaTransformer{Transformer: provider, authorize: authorize}).Transform(t.Context(), nil)
+				case "invoke":
+					var usage genx.Usage
+					var call *genx.FuncCall
+					usage, call, err = (quotaGenerator{Generator: provider, authorize: authorize}).Invoke(t.Context(), "", nil, nil)
+					if usage.PromptTokenCount != 5 || call != nil {
+						t.Fatalf("usage=%+v call=%+v", usage, call)
+					}
+				}
+				if !errors.Is(err, cause) || output != nil || releases != 1 {
+					t.Fatalf("error=%v output=%T releases=%d", err, output, releases)
+				}
+				if provider.late != nil && (provider.late.closes != 1 || !errors.Is(provider.late.cause, cause)) {
+					t.Fatalf("late stream=%+v", provider.late)
+				}
+			})
+		}
+	}
+}
+
+func TestQuotaStartupDoesNotReplaceUnrelatedProviderFailureDuringRelease(t *testing.T) {
+	ctx, cancel := context.WithCancelCause(t.Context())
+	providerErr := errors.New("provider failure")
+	_, err := finishQuotaStartup(ctx, nil, providerErr, func() { cancel(context.Canceled) })
+	if !errors.Is(err, providerErr) {
+		t.Fatalf("provider error was replaced: %v", err)
 	}
 }

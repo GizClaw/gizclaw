@@ -75,7 +75,10 @@ type StreamCtrl struct {
 	// InputMode declares how an audio input route completes. Empty retains
 	// legacy behavior for clients that do not send an input mode on BOS. It is
 	// process-local and never belongs in persisted message content.
-	InputMode        string         `json:"-"`
+	InputMode string `json:"-"`
+	// ErrorCause retains the typed terminal cause within this process. Wire and
+	// persisted encoders must never expose it.
+	ErrorCause       error          `json:"-"`
 	Error            string         `json:"error,omitempty"`
 	ErrorCode        string         `json:"error_code,omitempty"`
 	ErrorRetryable   bool           `json:"error_retryable,omitempty"`

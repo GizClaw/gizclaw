@@ -34,6 +34,8 @@ JSON, binary, and ordered SSE responses are owned and framed by the Shell. GenX 
 
 The concrete Shell revision in `go.mod` and `go.sum` makes each build reproducible. Compatible updates advance through the normal weekly Go module Dependabot flow; GizClaw does not vendor, replace, or copy the upstream compatibility profile.
 
+Quota enforcement uses stable 403/503 error envelopes before headers and structured errors after streaming starts; Responses retain the same quota code/message in failed records. See [Quota client errors](/en/developing/api/http/quota#client-errors).
+
 ## Chat tool calls
 
 Chat Completions supports caller-executed function tools. `tools` accepts only `type: "function"`, whose `function` may carry `name`, `description`, `parameters`, and `strict`; the name must match `^[A-Za-z0-9_-]{1,64}$` and be unique within the request. `parameters` reaches the provider as sent, without GenX structured-output normalization. `tool_choice` accepts only `"auto"` and `parallel_tool_calls` accepts only `true`; other values are rejected.

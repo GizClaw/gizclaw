@@ -559,7 +559,11 @@ func (a *peerAudioRouteAggregator) abort(cause error) *eventpb.PeerEvent {
 			},
 		}},
 	}
-	if errors.Is(cause, context.Canceled) {
+	if code, safe, retryable, ok := genx.PublicErrorDetails(cause); ok {
+		event.GetEos().Error.Code = code
+		event.GetEos().Error.Message = safe
+		event.GetEos().Error.Retryable = retryable
+	} else if errors.Is(cause, context.Canceled) {
 		// Workspace replacement cancels the old consumer. Its audio still
 		// needs an EOS, but cancellation is not a device-visible failure.
 		event.GetEos().Error = nil

@@ -838,8 +838,8 @@ func (m genXChatModel) Stream(ctx context.Context, input []*schema.Message, opti
 			if chunk == nil {
 				continue
 			}
-			if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
-				writer.Send(nil, fmt.Errorf("eino: model stream: %s", chunk.Ctrl.Error))
+			if terminalErr := genx.StreamError(chunk.Ctrl); terminalErr != nil {
+				writer.Send(nil, fmt.Errorf("eino: model stream: %w", terminalErr))
 				return
 			}
 			if text, ok := genx.InputTranscript(chunk); ok {

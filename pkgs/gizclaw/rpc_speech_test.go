@@ -14,6 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerquota"
 )
 
 func TestNormalizedSpeechLimitsCannotRaiseExtractionWireBounds(t *testing.T) {
@@ -1121,5 +1122,106 @@ func readSpeechEOS(t *testing.T, stream *rpcStream) {
 	frame, err := stream.ReadFrame()
 	if err != nil || frame.Type != rpcapi.FrameTypeEOS {
 		t.Fatalf("response EOS = (%+v, %v)", frame, err)
+	}
+}
+
+func TestRPCSpeechQuotaStatusPreservesReason(t *testing.T) {
+	for _, test := range []struct {
+		cause           error
+		code            rpcapi.StatusCode
+		reason, message string
+	}{
+		{peerquota.ErrDenied, rpcapi.StatusCodePermissionDenied, "QUOTA_EXHAUSTED", "Quota exhausted."},
+		{peerquota.ErrUnavailable, rpcapi.StatusCodeUnavailable, "QUOTA_UNAVAILABLE", "Quota unavailable."},
+		{peerquota.ErrClosed, rpcapi.StatusCodeUnavailable, "QUOTA_UNAVAILABLE", "Quota unavailable."},
+		{peergenx.ErrDenied, rpcapi.StatusCodePermissionDenied, "", "speech is not authorized"},
+	} {
+		t.Run(test.reason+test.cause.Error(), func(t *testing.T) {
+			cause := fmt.Errorf("private provider endpoint: %w", fmt.Errorf("authorization: %w", test.cause))
+			service := speechServiceFuncs{synthesize: func(context.Context, string, string, []string) (peergenx.SpeechSynthesis, error) {
+				return peergenx.SpeechSynthesis{}, cause
+			}}
+			client, done := startSpeechRPCServer(t, service, SpeechLimits{})
+			defer finishSpeechRPCServer(t, client, done)
+			stream := newSpeechClientStream(t, client)
+			defer stream.Close()
+			writeSpeechRequest(t, stream, "quota", rpcapi.RPCMethodServerSpeechSynthesize, rpcapi.SpeechSynthesizeRequest{VoiceName: "narrator", Text: "hello", AcceptedContentTypes: []string{"audio/pcm"}}, (*rpcapi.RPCPayload).FromSpeechSynthesizeRequest)
+			if err := stream.WriteEOS(); err != nil {
+				t.Fatal(err)
+			}
+			response, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerSpeechSynthesize)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if response.Error == nil || response.Error.Code != test.code || response.Error.Reason != test.reason || response.Error.Message != test.message {
+				t.Fatalf("response = %+v", response.Error)
+			}
+			readSpeechEOS(t, stream)
+		})
+	}
+}
+
+type quotaSpeechControlStream struct{ chunks []*genx.MessageChunk }
+
+func (s *quotaSpeechControlStream) Next() (*genx.MessageChunk, error) {
+	if len(s.chunks) == 0 {
+		return nil, genx.Done(genx.Usage{})
+	}
+	chunk := s.chunks[0]
+	s.chunks = s.chunks[1:]
+	if chunk.IsEndOfStream() {
+		return chunk, genx.Done(genx.Usage{})
+	}
+	return chunk, nil
+}
+func (*quotaSpeechControlStream) Close() error               { return nil }
+func (*quotaSpeechControlStream) CloseWithError(error) error { return nil }
+
+func TestRPCSpeechQuotaControlEOSBeforeAndAfterMetadata(t *testing.T) {
+	for _, cause := range []error{peerquota.ErrDenied, peerquota.ErrUnavailable, peerquota.ErrClosed} {
+		for _, started := range []bool{false, true} {
+			t.Run(cause.Error()+fmt.Sprint(started), func(t *testing.T) {
+				terminal := genx.NewEndOfStream("audio/pcm")
+				genx.SetStreamError(terminal.Ctrl, fmt.Errorf("provider: %w", cause))
+				chunks := []*genx.MessageChunk{terminal}
+				if started {
+					chunks = append([]*genx.MessageChunk{{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 2}}}}, chunks...)
+				}
+				service := speechServiceFuncs{synthesize: func(context.Context, string, string, []string) (peergenx.SpeechSynthesis, error) {
+					return peergenx.SpeechSynthesis{Stream: &quotaSpeechControlStream{chunks: chunks}, ContentType: "audio/pcm", SampleRateHz: new(int32(16000)), Channels: new(int32(1))}, nil
+				}}
+				client, done := startSpeechRPCServer(t, service, SpeechLimits{})
+				defer finishSpeechRPCServer(t, client, done)
+				stream := newSpeechClientStream(t, client)
+				defer stream.Close()
+				writeSpeechRequest(t, stream, "quota-control", rpcapi.RPCMethodServerSpeechSynthesize, rpcapi.SpeechSynthesizeRequest{VoiceName: "narrator", Text: "hello", AcceptedContentTypes: []string{"audio/pcm"}}, (*rpcapi.RPCPayload).FromSpeechSynthesizeRequest)
+				if err := stream.WriteEOS(); err != nil {
+					t.Fatal(err)
+				}
+				response, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerSpeechSynthesize)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !started {
+					reason, message, retryable, _ := peerquota.ErrorDetails(cause)
+					code := rpcapi.StatusCodePermissionDenied
+					if retryable {
+						code = rpcapi.StatusCodeUnavailable
+					}
+					if response.Error == nil || response.Error.Code != code || response.Error.Reason != reason || response.Error.Message != message {
+						t.Fatalf("response = %+v", response.Error)
+					}
+				} else {
+					if response.Error != nil {
+						t.Fatalf("metadata = %+v", response.Error)
+					}
+					frame, err := stream.ReadFrame()
+					if err != nil || frame.Type != rpcapi.FrameTypeBinary || !bytes.Equal(frame.Payload, []byte{1, 2}) {
+						t.Fatalf("audio = %+v, %v", frame, err)
+					}
+				}
+				readSpeechEOS(t, stream)
+			})
+		}
 	}
 }

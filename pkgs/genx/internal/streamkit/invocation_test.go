@@ -408,3 +408,28 @@ func TestInvocationOutputLimitCancelsOnlyAffectedInvocation(t *testing.T) {
 		t.Fatalf("Next() error = %v, want ErrOutputLimit", err)
 	}
 }
+
+func TestFinishResponseErrorPreservesCauseOnAllCorrelatedRoutes(t *testing.T) {
+	invocation := NewInvocation(t.Context(), OutputConfig{})
+	defer invocation.Close()
+	response, err := invocation.StartResponse(ResponseConfig{StreamID: "response", ResponseEpoch: genx.NewResponseEpoch("input")}, "text/plain", "audio/pcm")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cause := errors.New("owned cause")
+	if err := invocation.FinishResponseError(response, cause); err != nil {
+		t.Fatal(err)
+	}
+	for n := range 2 {
+		chunk, err := invocation.Output().Next()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !chunk.IsEndOfStream() || chunk.Ctrl.StreamID != "response" || chunk.Ctrl.ResponseEpoch.InputStreamID() != "input" || !errors.Is(genx.StreamError(chunk.Ctrl), cause) {
+			t.Fatalf("terminal = %+v", chunk)
+		}
+		if chunk.Ctrl.ResponseEpochEnd != (n == 1) {
+			t.Fatalf("epoch end on terminal %d", n)
+		}
+	}
+}
