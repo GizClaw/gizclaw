@@ -1514,3 +1514,22 @@ GIZCLAW_E2E_CREDENTIAL_FILE=tests/gizclaw-e2e/.env \
 
 
 Quota 的协议、RuntimeProfile 配置与 Docker fixture 验证见 [Quota](/zh/developing/api/http/quota).
+
+## 剧本质量
+
+`script-quality.*.giztest.yaml` 对狼人杀、密室解谜、诗词闯关、旅程和多角色故事分别运行
+20 次被测回复，由独立玩家 Workspace 驱动、独立裁判 Workspace 按角色一致性、信息边界、
+针对性回应、剧情推进和结局收束评分，每项最低 3/4。规则测试与模型质量评审分别保留。
+
+```bash
+bash tests/gizclaw-e2e/run_script_quality_tests.sh
+# 只选指定剧本；凭据仍来自标准 credential 文件
+GIZCLAW_E2E_SCRIPT_QUALITY_CASES="werewolf murder-mystery" \
+  bash tests/gizclaw-e2e/run_script_quality_tests.sh
+```
+
+入口接受 `GIZCLAW_E2E_CREDENTIAL_FILE`，启动并清理独立 Docker project，使用真实 Provider；
+它不会合并或部署业务配置。每个选择的场景都运行并保留独立 JSON report，任何质量或
+执行失败均使入口非零退出。输出默认在 ignored `testdata/script-quality/`；终端汇总只含
+分数和轮次，完整 report 含对话和裁判引用，应按对话内容管理。新玩家/裁判采用 Eino
+原生 Prompt/ChatModel；裁判 `script-judge` alias 可在测试 Profile 单独选择模型。

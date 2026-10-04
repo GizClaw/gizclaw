@@ -82,6 +82,8 @@ spec:
                 answer = input["answer"].strip()
                 if input["turn"] >= 8:
                     answer = "PASS" if answer.upper().startswith("PASS") else "FAIL"
+                elif not answer or answer.upper() in ["PASS", "FAIL"]:
+                    answer = "请就刚才的话题再补充一点好吗？"
                 return {"text": answer}
           limits: *a1
           inputs:

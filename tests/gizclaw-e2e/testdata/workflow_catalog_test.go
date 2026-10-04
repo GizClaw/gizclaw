@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"github.com/goccy/go-yaml"
 )
 
@@ -273,6 +274,32 @@ func TestE2EServerConfigProvidesOwnerAssetStores(t *testing.T) {
 		}
 		if store.Kind != "objectstore" || store.Storage != "local-files" || store.Prefix != prefix {
 			t.Fatalf("owner asset store %q = %#v", name, store)
+		}
+	}
+}
+
+func TestScriptQualityDocumentsAssessAllBusinessScenarios(t *testing.T) {
+	paths, err := filepath.Glob("../giztest/script-quality.*.giztest.yaml")
+	if err != nil || len(paths) != 5 {
+		t.Fatalf("quality scenarios=%d, error=%v", len(paths), err)
+	}
+	for _, path := range paths {
+		doc, err := giztest.LoadDocument(path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assessments := 0
+		for _, step := range doc.Steps {
+			if step.WorkspaceRelay == nil || step.WorkspaceRelay.Quality == nil {
+				continue
+			}
+			assessments++
+			if step.WorkspaceRelay.MaxTurns != 40 || len(step.WorkspaceRelay.Quality.Criteria) != 5 || step.Expect["/quality/passed"].Equals != true {
+				t.Fatalf("%s has an incomplete quality gate", path)
+			}
+		}
+		if assessments != 1 || len(doc.Finally) != 9 {
+			t.Fatalf("%s lacks assessment or cleanup", path)
 		}
 	}
 }

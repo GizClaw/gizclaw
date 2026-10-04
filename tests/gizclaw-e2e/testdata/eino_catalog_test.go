@@ -471,3 +471,34 @@ func TestNativeMysteryRequiresBothMotiveClues(t *testing.T) {
 		}
 	}
 }
+
+func TestScriptQualityNativePlayerAndJudge(t *testing.T) {
+	for _, path := range []string{"resources/04-workflows/50-script-quality-player.yaml", "resources/04-workflows/51-script-quality-judge.yaml"} {
+		graph := fixtureGraph(t, path)
+		fields := runFixtureGraph(t, graph, nil)
+		if fields["answer"] != "fixture reply" {
+			t.Fatal("native quality graph did not execute")
+		}
+		transformer, err := genxeino.New(t.Context(), genxeino.Config{Agent: genxeino.AgentConfig{ID: "quality"}, Graph: graph, Components: fixtureComponents{}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = transformer.Close() })
+	}
+}
+
+func TestNativeWorkflowTesterRejectsPrematureVerdicts(t *testing.T) {
+	graph := fixtureGraph(t, "resources/04-workflows/32-giztest-workflow-tester.yaml")
+	for _, text := range []string{"PASS", "FAIL", "  pass  ", ""} {
+		result := runFixtureScript(t, graph, "publish", map[string]any{"turn": int64(1), "answer": text})
+		if result["published"] != "请就刚才的话题再补充一点好吗？" {
+			t.Fatalf("probe emitted premature verdict: %v", result["published"])
+		}
+	}
+	for _, text := range []string{"PASS", "FAIL"} {
+		result := runFixtureScript(t, graph, "publish", map[string]any{"turn": int64(8), "answer": text})
+		if result["published"] != text {
+			t.Fatalf("verdict changed: %v", result["published"])
+		}
+	}
+}

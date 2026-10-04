@@ -8,6 +8,23 @@ import 'package:giztest/src/variables.dart';
 final scenarioRoot = Directory('../../giztest').absolute.path;
 
 void main() {
+  test('script quality documents remain explicitly unsupported', () async {
+    final names = [
+      'werewolf',
+      'murder-mystery',
+      'poetry',
+      'journey',
+      'storyteller',
+    ];
+    final result = await loadDocuments(
+      names
+          .map((name) => '$scenarioRoot/script-quality.$name.giztest.yaml')
+          .toList(),
+    );
+    expect(result.documents, isEmpty);
+    expect(result.skipped, hasLength(names.length));
+  });
+
   test(
     'HTTP fixture endpoints resolve independently from the Peer access point',
     () async {

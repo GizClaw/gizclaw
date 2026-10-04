@@ -305,6 +305,38 @@ client/turn、最后事件时间和已观察媒体，不包含内容。默认 re
 `GIZCLAW_TEST_ENDPOINT`、`GIZCLAW_TEST_REGISTRATION_TOKEN`；命令本身没有 Admin 权限。
 人工 `review.*` 场景要求 attached terminal 和 `--parallel 1`。
 
+
+### 剧本质量验收
+
+Go CLI 的 `workspace_relay.quality` 在有界文字对话结束后调用第三个独立、已选中
+Workspace 的 client。JS、C 和 Flutter runner 仍明确不支持 `workspace_relay`。
+`candidate_client` 必须是参与对话的一侧，`judge_client` 必须与两侧不同，并提前完成
+`server.run.workspace.set`。原有 relay 文档可以省略 `quality`。
+
+```yaml
+quality:
+  judge_client: judge
+  candidate_client: candidate
+  reference: "本场剧本的固定人物、规则与完成目标，仅裁判可见"
+  criteria:
+    - id: role_consistency
+      instruction: "角色与已知事实保持一致，不编造未取得的进度"
+      min_score: 3
+```
+
+每项使用 0–4 的整数分数；Giztest 根据每项 `min_score` 计算 `/quality/passed`，
+模型不能直接宣告 PASS。标准要求 1–16 项、唯一的小写 ID 和非空说明。
+裁判须返回 `criteria` 数组，每项有 `id`、`score`、`reason`、`evidence`；证据包含
+实际全局对话轮次 `turn` 与该轮被测回复的逐字子串 `quote`。引用玩家的话、编造引用、
+缺项、重复 ID/JSON key、越界分数、Markdown、空响应和不完整对话都会使验收失败。
+裁判请求最多 1 MiB，回复最多 64 KiB、JSON 深度最多 8，评审最多一分钟。
+
+声明 `expect: {/quality/passed: {equals: true}}` 才是质量通过门槛；每项结果可从
+`/quality/criteria` 断言。默认 report 只记录分数、门槛、结果及证据轮次；
+`--evidence full --output <report.json>` 才保存原因和原文引用，不在终端自动打印它们。
+模型评分是启发式质量评估；格式与引用验证不等于评分已有人类背书。此能力评估文字
+剧情，音色、播放体验和设备效果仍使用对应音频/设备验收。
+
 ### 启动偏移与 think time
 
 调度字段位于文档顶层，默认全部为零：

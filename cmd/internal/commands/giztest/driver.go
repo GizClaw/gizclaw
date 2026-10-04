@@ -302,6 +302,9 @@ func (s *session) executeWorkspaceRelay(ctx context.Context, req giztest.StepReq
 	if s.driver.openRelayStreams == nil {
 		result, err := invokeWorkspaceRelay(
 			ctx, s.clients, step, input, audioCaptureMaxBytes, s.driver.fullEvidence, s.driver.audioObserver)
+		if err == nil {
+			result, err = s.assessRelayQuality(ctx, req, result)
+		}
 		return result.stepResult(), err
 	}
 	first, second, err := s.driver.openRelayStreams()
@@ -311,6 +314,9 @@ func (s *session) executeWorkspaceRelay(ctx context.Context, req giztest.StepReq
 	result, err := runWorkspaceRelayWithEvidence(
 		ctx, step.WorkspaceRelay, first, second, input, audioCaptureMaxBytes,
 		s.driver.fullEvidence, s.driver.audioObserver)
+	if err == nil {
+		result, err = s.assessRelayQuality(ctx, req, result)
+	}
 	return result.stepResult(), err
 }
 

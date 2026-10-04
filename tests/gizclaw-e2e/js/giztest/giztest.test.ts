@@ -626,3 +626,13 @@ test("HTTP fixture endpoints resolve independently from the Peer access point", 
     await rm(directory, { force: true, recursive: true });
   }
 });
+
+
+test("script quality documents validate but remain unsupported by this runner", async () => {
+  const names = ["werewolf", "murder-mystery", "poetry", "journey", "storyteller"];
+  const paths = names.map(name => path.join(scenarioRoot, `script-quality.${name}.giztest.yaml`));
+  const result = await loadDocuments(paths);
+  assert.equal(result.documents.length, 0);
+  assert.equal(result.skipped.length, names.length);
+  for (const skipped of result.skipped) assert.match(skipped.reason, /workspace_relay/u);
+});

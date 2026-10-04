@@ -1781,3 +1781,26 @@ The script writes separate RPC, provider, HTTP, and SFU JSON reports under `test
 
 
 For quota protocol, RuntimeProfile configuration and real Docker fixture acceptance, see [Quota](/en/developing/api/http/quota).
+
+## Screenplay quality
+
+`script-quality.*.giztest.yaml` runs 20 candidate replies for Werewolf, mystery,
+poetry, journey and multi-role storytelling. An independent player Workspace
+drives the dialogue; a separate judge rates character consistency, information
+boundaries, responsiveness, progression and closure. Each criterion requires
+3/4. Deterministic rule tests remain separate from model quality assessment.
+
+```bash
+bash tests/gizclaw-e2e/run_script_quality_tests.sh
+GIZCLAW_E2E_SCRIPT_QUALITY_CASES="werewolf murder-mystery" \
+  bash tests/gizclaw-e2e/run_script_quality_tests.sh
+```
+
+The runner accepts `GIZCLAW_E2E_CREDENTIAL_FILE`, starts and cleans its isolated
+Docker project, and calls real providers. It does not merge or deploy business
+configuration. Every selected case runs with its own JSON report; any quality or
+execution failure produces a nonzero exit. Default artifacts live under ignored
+`testdata/script-quality/`. The terminal summary contains scores and turns; full
+reports contain dialogue and quoted judgments and should be handled as dialogue
+content. Player/judge workflows use native Eino Prompt/ChatModel; the test
+Profile's `script-judge` alias independently selects the judge model.

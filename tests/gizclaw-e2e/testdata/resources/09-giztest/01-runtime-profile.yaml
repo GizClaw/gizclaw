@@ -29,6 +29,8 @@ spec:
     eino-planner-latency-comparison: {resource_id: eino-planner-latency-comparison, i18n: {en: {display_name: Eino Latency}, zh-CN: {display_name: Eino 延迟}}, tags: [assistants]}
     eino-latency-comparison: {resource_id: eino-latency-comparison, i18n: {en: {display_name: Eino Latency}, zh-CN: {display_name: Eino 延迟}}, tags: [assistants]}
     eino-concurrency-assistant: {resource_id: eino-concurrency-assistant, i18n: {en: {display_name: Eino Concurrency}, zh-CN: {display_name: Eino 并发}}, tags: [assistants]}
+    giztest-script-player: {resource_id: giztest-script-player, i18n: {en: {display_name: Script Player}, zh-CN: {display_name: 剧本玩家}}, tags: [giztest-quality]}
+    giztest-script-judge: {resource_id: giztest-script-judge, i18n: {en: {display_name: Script Judge}, zh-CN: {display_name: 剧本裁判}}, tags: [giztest-quality]}
     giztest-workflow-tester: {resource_id: giztest-workflow-tester, i18n: {en: {display_name: Giztest Workflow Tester}, zh-CN: {display_name: Giztest 测试驱动}}, tags: [assistants]}
     eino-speaker-voices: {resource_id: eino-speaker-voices, i18n: {en: {display_name: Eino Speaker Voices}, zh-CN: {display_name: Eino 分段音色}}, tags: [assistants]}
     eino-speaker-sequence: {resource_id: eino-speaker-sequence, i18n: {en: {display_name: Eino Speaker Voices}, zh-CN: {display_name: Eino 分段音色}}, tags: [assistants]}
@@ -61,6 +63,7 @@ spec:
     models:
       asr: {resource_id: volc-bigasr-sauc, i18n: {en: {display_name: Speech Recognition}, zh-CN: {display_name: 语音识别}}}
       llm: {resource_id: doubao-mini-chat, i18n: {en: {display_name: Chat Model}, zh-CN: {display_name: 对话模型}}}
+      script-judge: {resource_id: doubao-mini-chat, i18n: {en: {display_name: Script Judge Model}, zh-CN: {display_name: 剧本裁判模型}}}
       audio-llm: {resource_id: doubao-lite-audio-chat, i18n: {en: {display_name: Audio Input Chat Model}, zh-CN: {display_name: 音频输入对话模型}}}
       tts: {resource_id: volc-bigtts, i18n: {en: {display_name: Speech Synthesis}, zh-CN: {display_name: 语音合成}}}
       translation: {resource_id: volc-ast-translate, i18n: {en: {display_name: Translation}, zh-CN: {display_name: 翻译}}}

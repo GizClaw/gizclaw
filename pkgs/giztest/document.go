@@ -15,6 +15,8 @@ import (
 	"github.com/goccy/go-yaml"
 )
 
+var qualityCriterionID = regexp.MustCompile(`^[a-z][a-z0-9_]{0,47}$`)
+
 const (
 	defaultTaskTimeout = 5 * time.Minute
 	maxDocumentBytes   = 4 << 20
@@ -214,14 +216,30 @@ type ReconnectOperation struct {
 	AwaitMs int `json:"await_ms,omitempty" yaml:"await_ms,omitempty"`
 }
 type WorkspaceRelayOperation struct {
-	FirstClient    string `json:"first_client" yaml:"first_client"`
-	SecondClient   string `json:"second_client" yaml:"second_client"`
-	Input          any    `json:"input" yaml:"input"`
-	Media          string `json:"media" yaml:"media"`
-	TerminalMedia  string `json:"terminal_media,omitempty" yaml:"terminal_media,omitempty"`
-	IdleTimeout    string `json:"idle_timeout,omitempty" yaml:"idle_timeout,omitempty"`
-	MaxTurns       int    `json:"max_turns" yaml:"max_turns"`
-	TerminalClient string `json:"terminal_client" yaml:"terminal_client"`
+	FirstClient    string            `json:"first_client" yaml:"first_client"`
+	SecondClient   string            `json:"second_client" yaml:"second_client"`
+	Input          any               `json:"input" yaml:"input"`
+	Media          string            `json:"media" yaml:"media"`
+	TerminalMedia  string            `json:"terminal_media,omitempty" yaml:"terminal_media,omitempty"`
+	IdleTimeout    string            `json:"idle_timeout,omitempty" yaml:"idle_timeout,omitempty"`
+	MaxTurns       int               `json:"max_turns" yaml:"max_turns"`
+	TerminalClient string            `json:"terminal_client" yaml:"terminal_client"`
+	Quality        *RelayQualitySpec `json:"quality,omitempty" yaml:"quality,omitempty"`
+}
+
+// RelayQualitySpec selects an independent Workspace to assess the actual
+// conversation against author-defined criteria. The runner computes pass/fail.
+type RelayQualitySpec struct {
+	JudgeClient     string             `json:"judge_client" yaml:"judge_client"`
+	CandidateClient string             `json:"candidate_client" yaml:"candidate_client"`
+	Reference       string             `json:"reference,omitempty" yaml:"reference,omitempty"`
+	Criteria        []QualityCriterion `json:"criteria" yaml:"criteria"`
+}
+
+type QualityCriterion struct {
+	ID          string `json:"id" yaml:"id"`
+	Instruction string `json:"instruction" yaml:"instruction"`
+	MinScore    int    `json:"min_score" yaml:"min_score"`
 }
 type Expectation struct {
 	Equals      any      `json:"equals,omitempty" yaml:"equals,omitempty"`
@@ -890,6 +908,33 @@ func (d *Document) validateWorkspaceRelay(step Step, selected map[string]bool) e
 	}
 	if step.SaveAs != "" {
 		return fmt.Errorf("step %s workspace_relay does not support save_as", step.ID)
+	}
+	if quality := op.Quality; quality != nil {
+		if op.Media != "text" {
+			return fmt.Errorf("step %s quality requires a text workspace_relay", step.ID)
+		}
+		if quality.CandidateClient != op.FirstClient && quality.CandidateClient != op.SecondClient {
+			return fmt.Errorf("step %s quality candidate_client must participate in the relay", step.ID)
+		}
+		if quality.JudgeClient == op.FirstClient || quality.JudgeClient == op.SecondClient {
+			return fmt.Errorf("step %s quality requires an independent judge_client", step.ID)
+		}
+		if _, exists := d.Clients[quality.JudgeClient]; !exists || !selected[quality.JudgeClient] {
+			return fmt.Errorf("step %s quality requires a declared judge_client with a preceding server.run.workspace.set", step.ID)
+		}
+		if len(quality.Criteria) == 0 || len(quality.Criteria) > 16 {
+			return fmt.Errorf("step %s quality requires 1–16 criteria", step.ID)
+		}
+		seen := map[string]bool{}
+		for index, criterion := range quality.Criteria {
+			if !qualityCriterionID.MatchString(criterion.ID) || seen[criterion.ID] || strings.TrimSpace(criterion.Instruction) == "" || len(criterion.Instruction) > 4096 || criterion.MinScore < 0 || criterion.MinScore > 4 {
+				return fmt.Errorf("step %s quality criterion %d has an invalid/duplicate id, instruction or score", step.ID, index)
+			}
+			seen[criterion.ID] = true
+		}
+		if len(quality.Reference) > 16384 {
+			return fmt.Errorf("step %s quality reference exceeds 16384 bytes", step.ID)
+		}
 	}
 	for name, pointer := range step.Capture {
 		spec, ok := d.Variables[name]

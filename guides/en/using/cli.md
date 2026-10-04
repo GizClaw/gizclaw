@@ -365,6 +365,45 @@ deployed target, provision resources first and set `GIZCLAW_TEST_ENDPOINT` and
 Interactive `review.*` scenarios require an attached terminal and
 `--parallel 1`.
 
+
+### Screenplay quality acceptance
+
+The Go CLI's optional `workspace_relay.quality` assesses a completed, bounded text
+conversation through a third independently selected Workspace client. JS, C and
+Flutter runners still explicitly do not support `workspace_relay`. The
+`candidate_client` participates in the dialogue; `judge_client` differs from both
+participants and must have an earlier `server.run.workspace.set` step. Existing
+relay documents can omit `quality`.
+
+```yaml
+quality:
+  judge_client: judge
+  candidate_client: candidate
+  reference: "Fixed characters, rules and completion goals visible only to the judge"
+  criteria:
+    - id: role_consistency
+      instruction: "Keep identities and established facts consistent"
+      min_score: 3
+```
+
+Each criterion has an integer score from 0 to 4. Giztest computes
+`/quality/passed` against every `min_score`; the model cannot declare PASS.
+Configure 1–16 criteria with unique lowercase IDs and nonempty instructions.
+The judge returns a `criteria` array of `id`, `score`, `reason` and `evidence`.
+Each evidence item cites the original global dialogue `turn` and an exact
+nonempty substring `quote` from that candidate reply. Player quotes, invented
+citations, missing or duplicate criteria/JSON keys, invalid scores, Markdown,
+empty replies and incomplete conversations fail. Requests are bounded to 1 MiB;
+responses to 64 KiB and JSON depth 8; judging has a one-minute deadline.
+
+Use `expect: {/quality/passed: {equals: true}}` to enforce acceptance; individual
+results are available under `/quality/criteria`. Default reports retain scores,
+thresholds, verdicts and cited turn numbers. Only explicit
+`--evidence full --output <report.json>` records explanations and exact quotes;
+these are not automatically printed to the terminal. LLM scores are heuristic;
+format/citation validation is not human endorsement. This evaluates text
+storytelling; voice and device experience use their corresponding acceptance.
+
 ### Start offsets and think time
 
 Scheduling fields belong at document level and all delays default to zero:
