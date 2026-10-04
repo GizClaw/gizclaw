@@ -1,6 +1,12 @@
 """Real PGVector contract regressions, requiring no LLM credentials."""
 
 import os
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from types import SimpleNamespace
+from unittest import mock
+
+from gizclaw_mem0 import server as mem0_server
 import unittest
 import uuid
 
@@ -21,6 +27,23 @@ class PGVectorRegressionTest(unittest.TestCase):
         )
         self.addCleanup(self.store.connection_pool.close)
         self.addCleanup(self.store.delete_col)
+
+    def test_cold_collection_is_ready_before_parallel_search(self):
+        client = mock.Mock()
+        client.with_options.return_value = client
+        memory = SimpleNamespace(config=SimpleNamespace(vector_store=SimpleNamespace(provider="pgvector")),
+                                 llm=SimpleNamespace(client=client), embedding_model=SimpleNamespace(client=client),
+                                 vector_store=self.store, close=mock.Mock())
+
+        async def run():
+            with mock.patch.object(mem0_server, "_build_memory", return_value=memory), \
+                    mock.patch.object(self.store.connection_pool, "close"):
+                async with mem0_server._lifespan(mem0_server.app):
+                    self.assertTrue(self.store._collection_ensured)
+                    with ThreadPoolExecutor(max_workers=5) as pool:
+                        results = list(pool.map(lambda _: self.store.search(query="cold read", vectors=[1.0, 0.0]), range(5)))
+                    self.assertEqual(results, [[]] * 5)
+        asyncio.run(run())
 
     def test_nearest_vector_survives_mem0_threshold_and_ranking(self):
         nearest, unrelated = str(uuid.uuid4()), str(uuid.uuid4())

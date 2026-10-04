@@ -575,6 +575,11 @@ async def _lifespan(_: FastAPI):
     _memory.llm.client = _memory.llm.client.with_options(timeout=30, max_retries=1)
     _memory.embedding_model.client = _memory.embedding_model.client.with_options(timeout=30, max_retries=1)
     try:
+        # Mem0 2.2.1 lazily initializes PGVector collections without a lock.
+        # Complete that single startup operation before concurrent reads/writes
+        # can race CREATE TABLE and PostgreSQL's collection type registration.
+        if _memory.config.vector_store.provider == "pgvector":
+            _memory.vector_store._ensure_collection()
         yield
     finally:
         for client in (_memory.llm.client, _memory.embedding_model.client):

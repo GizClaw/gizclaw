@@ -87,6 +87,8 @@ PGVector or local Qdrant. `build/mem0/Dockerfile` provides `test` and non-root
 Extraction and embedding models belong to the service configuration;
 RuntimeProfile stores only the endpoint and optional API key.
 
+The service initializes the PGVector collection through the native SDK during startup, before accepting requests. This prevents concurrent cold search/add requests from racing table creation. A collection initialization failure aborts startup and closes constructed clients and connection pools.
+
 Select a YAML/JSON file with `--config` or `MEM0_CONFIG`. Its `memory` object uses
 native Mem0 model/storage settings and rejects global business `custom_instructions`; `service` accepts `api_key`, `thinking` and
 `embedding_protocol` and `max_concurrency`. Model QoS belongs to `memory.llm.config.service_tier`; the wrapper consumes this extension before constructing native Mem0 config and forwards it through the OpenAI SDK. `${VARIABLE}` substitutes process environment values and

@@ -77,6 +77,8 @@ Eino `memory_observe` node 会为每个 Graph 写入的 direct Fact 分配由当
 Release 使用同一份服务实现。提取模型和 Embedding 属于该服务配置，RuntimeProfile
 只保存 endpoint 与可选 API key。
 
+PGVector 集合在服务启动期间按原生 SDK 初始化，完成后才接受请求，避免冷启动时并发 search/add 竞争建表。集合初始化失败使服务启动失败，并关闭已构造的客户端与连接池。
+
 配置文件通过 `--config` 或 `MEM0_CONFIG` 选择。`memory` 对象使用 Mem0 原生模型/存储配置，拒绝全局业务 `custom_instructions`；
 `service` 支持 `api_key`、`thinking`、`embedding_protocol` 和 `max_concurrency`。模型档位配置为 `memory.llm.config.service_tier`；wrapper 在构造原生 Mem0 config 前取出该扩展字段，再通过 OpenAI SDK 转发。`${VARIABLE}` 从进程环境
 展开，缺失或空值会阻止启动；配置文件模式下，模型/数据库配置以文件为准，不与对应的
