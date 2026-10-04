@@ -51,7 +51,7 @@ GIZCLAW_E2E_SERVICE_TIER_REPORT_DIR="$(mktemp -d)" \
   -run '^TestDoubaoServiceTierGiztest$' -count=1 -timeout=5m -v
 ```
 
-The test creates a Credential, Volc Tenant, `service_tier: fast` Model, Eino Workflow, RuntimeProfile, and RegistrationToken through Admin HTTP. It starts a real Server with temporary state and runs three WebRTC text turns from `testdata/doubao-service-tier/fast.giztest.yaml`. The default model is `doubao-seed-2-0-mini-260428`; `GIZCLAW_E2E_DOUBAO_FAST_MODEL` can select another Model ID or Endpoint ID with low-latency service enabled.
+The test creates a Credential, Volc Tenant, `service_tier: fast` Model, Eino Workflow, RuntimeProfile, and RegistrationToken through Admin HTTP. It starts a real Server with temporary state and runs three WebRTC text turns from `testdata/doubao-service-tier/fast.giztest.yaml`. The default model is `doubao-seed-2-1-lite-260915`; `GIZCLAW_E2E_DOUBAO_FAST_MODEL` can select another Model ID or Endpoint ID with low-latency service enabled.
 
 A transparent observer forwards requests to the real Ark HTTPS API without replacing upstream responses. All three turns must return the expected text and EOS, request `fast`, receive HTTP 200, and report actual upstream execution as `fast`. A fallback to `default` or an absent tier fails acceptance. The report directory contains redacted `giztest.json` and `ark-tiers.json` with only tier, status, timing, token metadata, and failure codes. Missing credentials fail explicitly. This test incurs real provider usage and is excluded from ordinary Go tests without the build tag.
 
@@ -1608,7 +1608,7 @@ The standard GizClaw Docker runner owns a mandatory `go:openai` phase under `tes
 
 Successful runs write redacted monotonic timing evidence below ignored `tests/gizclaw-e2e/testdata/openai-compatibility/`. Artifacts contain only schema/version, target/case, bounded media sizes, numeric phase timings, and status; they must not contain credentials, IDs, prompts, transcripts, generated text, media, URLs, or provider errors. A tagged compile is diagnostic only and does not replace `bash tests/gizclaw-e2e/run_tests.sh`.
 
-`TestAssistantScenariosWithLiveModel` in the same phase reuses that harness's API key and `/openai/v1` to run `web/assistant/scripts/run-live-scenarios.ts` with `node --experimental-strip-types`: the Monitor diagnostic assistant's scenario set executes tools against `FakeRuntime` while every model call goes to the RuntimeProfile `llm` (`doubao-mini-chat`). Each scenario gets up to three attempts and is judged only on tool calls, the final route, and key facts in the reply; a scenario that fails all three fails the phase. A passing run prints only scenario names, attempts, and failed checks; the JSON report with generated replies and tool results is printed only on failure. The test needs the `web/assistant` dependencies installed by the root `npm ci`, which the runner's `preflight:npm-ci` phase provides.
+`TestAssistantScenariosWithLiveModel` in the same phase reuses that harness's API key and `/openai/v1` to run `web/assistant/scripts/run-live-scenarios.ts` with `node --experimental-strip-types`: the Monitor diagnostic assistant's scenario set executes tools against `FakeRuntime` while every model call goes to the RuntimeProfile `llm` (`doubao-lite-chat`). Each scenario gets up to three attempts and is judged only on tool calls, the final route, and key facts in the reply; a scenario that fails all three fails the phase. A passing run prints only scenario names, attempts, and failed checks; the JSON report with generated replies and tool results is printed only on failure. The test needs the `web/assistant` dependencies installed by the root `npm ci`, which the runner's `preflight:npm-ci` phase provides.
 
 ## Deterministic multi-role audio Giztest
 
@@ -1802,5 +1802,9 @@ configuration. Every selected case runs with its own JSON report; any quality or
 execution failure produces a nonzero exit. Default artifacts live under ignored
 `testdata/script-quality/`. The terminal summary contains scores and turns; full
 reports contain dialogue and quoted judgments and should be handled as dialogue
-content. Player/judge workflows use native Eino Prompt/ChatModel; the test
-Profile's `script-judge` alias independently selects the judge model.
+content. Player/judge workflows use native Eino Prompt/ChatModel; the
+Docker E2E Profile's text `llm`, judge `script-judge`, and audio `audio-llm`
+aliases all select Seed 2.1 Lite (`doubao-seed-2-1-lite-260915`), request
+`service_tier: fast`, and disable thinking by default. The `script-judge` alias
+can still select the judge model independently. The live low-latency Giztest
+and first-response matrix on this page verify the actual tier and latency.

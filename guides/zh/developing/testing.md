@@ -26,7 +26,7 @@ GIZCLAW_E2E_SERVICE_TIER_REPORT_DIR="$(mktemp -d)" \
   -run '^TestDoubaoServiceTierGiztest$' -count=1 -timeout=5m -v
 ```
 
-该测试通过 Admin HTTP 创建 Credential、Volc Tenant、`service_tier: fast` Model、Eino Workflow、RuntimeProfile 和 RegistrationToken，在临时状态上启动真实 Server，再执行 `testdata/doubao-service-tier/fast.giztest.yaml` 的三轮 WebRTC 文本对话。默认模型为 `doubao-seed-2-0-mini-260428`；`GIZCLAW_E2E_DOUBAO_FAST_MODEL` 可指定已开通低延迟服务的其他 Model ID 或 Endpoint ID。
+该测试通过 Admin HTTP 创建 Credential、Volc Tenant、`service_tier: fast` Model、Eino Workflow、RuntimeProfile 和 RegistrationToken，在临时状态上启动真实 Server，再执行 `testdata/doubao-service-tier/fast.giztest.yaml` 的三轮 WebRTC 文本对话。默认模型为 `doubao-seed-2-1-lite-260915`；`GIZCLAW_E2E_DOUBAO_FAST_MODEL` 可指定已开通低延迟服务的其他 Model ID 或 Endpoint ID。
 
 请求通过透明观察器转发到真实 Ark HTTPS API，不替换上游响应。测试要求三轮都得到正确文本与 EOS、请求档位为 `fast`、上游 HTTP 200 且回显实际档位为 `fast`；降级到 `default` 或未回显档位不能通过。报告目录保存脱敏的 `giztest.json` 和只含档位、状态、时延、token 数及失败错误码的 `ark-tiers.json`。缺少凭据会明确失败；测试产生真实 provider 用量，普通无标签 Go 测试不运行它。
 
@@ -884,7 +884,7 @@ steps:
 
 成功运行会在 ignored `tests/gizclaw-e2e/testdata/openai-compatibility/` 下写入脱敏 monotonic timing evidence。Artifact 只含 schema/version、target/case、受限 media size、数字 phase timing 与 status，不能包含 credential、ID、prompt、transcript、generated text、media、URL 或 provider error。仅做 tagged compile 只是诊断，不能代替 `bash tests/gizclaw-e2e/run_tests.sh`。
 
-同一 phase 的 `TestAssistantScenariosWithLiveModel` 复用该 harness 的 API Key 与 `/openai/v1`，用 `node --experimental-strip-types` 运行 `web/assistant/scripts/run-live-scenarios.ts`：Monitor 诊断助手的场景集在 `FakeRuntime` 上执行工具，每次模型调用都经 RuntimeProfile 的 `llm`（`doubao-mini-chat`）。每个场景最多尝试三次，只断言工具调用、最终路由和回复中的关键事实；任一场景三次都失败则该 phase 失败。成功时只输出场景名、尝试次数和失败的检查项，包含生成回复与工具结果的 JSON 报告只在失败时输出。该测试依赖根目录 `npm ci` 安装的 `web/assistant` 依赖，由 `run_tests.sh` 的 `preflight:npm-ci` 提供。
+同一 phase 的 `TestAssistantScenariosWithLiveModel` 复用该 harness 的 API Key 与 `/openai/v1`，用 `node --experimental-strip-types` 运行 `web/assistant/scripts/run-live-scenarios.ts`：Monitor 诊断助手的场景集在 `FakeRuntime` 上执行工具，每次模型调用都经 RuntimeProfile 的 `llm`（`doubao-lite-chat`）。每个场景最多尝试三次，只断言工具调用、最终路由和回复中的关键事实；任一场景三次都失败则该 phase 失败。成功时只输出场景名、尝试次数和失败的检查项，包含生成回复与工具结果的 JSON 报告只在失败时输出。该测试依赖根目录 `npm ci` 安装的 `web/assistant` 依赖，由 `run_tests.sh` 的 `preflight:npm-ci` 提供。
 
 ### Workflow 10 路和 20 路并发与打断
 
@@ -1532,4 +1532,7 @@ GIZCLAW_E2E_SCRIPT_QUALITY_CASES="werewolf murder-mystery" \
 它不会合并或部署业务配置。每个选择的场景都运行并保留独立 JSON report，任何质量或
 执行失败均使入口非零退出。输出默认在 ignored `testdata/script-quality/`；终端汇总只含
 分数和轮次，完整 report 含对话和裁判引用，应按对话内容管理。新玩家/裁判采用 Eino
-原生 Prompt/ChatModel；裁判 `script-judge` alias 可在测试 Profile 单独选择模型。
+原生 Prompt/ChatModel；整个 Docker E2E 的文本 `llm`、裁判 `script-judge` 和音频 `audio-llm`
+统一使用 Seed 2.1 Lite (`doubao-seed-2-1-lite-260915`)，设置 `service_tier: fast` 并默认关闭
+thinking。裁判 `script-judge` alias 仍可在测试 Profile 单独选择模型。实际 fast 档位与首响时延
+分别由本页的低延迟真实 Giztest 和首响验证矩阵验收。

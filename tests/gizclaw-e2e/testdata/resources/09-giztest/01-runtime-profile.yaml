@@ -62,8 +62,8 @@ spec:
   resources:
     models:
       asr: {resource_id: volc-bigasr-sauc, i18n: {en: {display_name: Speech Recognition}, zh-CN: {display_name: 语音识别}}}
-      llm: {resource_id: doubao-mini-chat, i18n: {en: {display_name: Chat Model}, zh-CN: {display_name: 对话模型}}}
-      script-judge: {resource_id: doubao-mini-chat, i18n: {en: {display_name: Script Judge Model}, zh-CN: {display_name: 剧本裁判模型}}}
+      llm: {resource_id: doubao-lite-chat, i18n: {en: {display_name: Chat Model}, zh-CN: {display_name: 对话模型}}}
+      script-judge: {resource_id: doubao-lite-chat, i18n: {en: {display_name: Script Judge Model}, zh-CN: {display_name: 剧本裁判模型}}}
       audio-llm: {resource_id: doubao-lite-audio-chat, i18n: {en: {display_name: Audio Input Chat Model}, zh-CN: {display_name: 音频输入对话模型}}}
       tts: {resource_id: volc-bigtts, i18n: {en: {display_name: Speech Synthesis}, zh-CN: {display_name: 语音合成}}}
       translation: {resource_id: volc-ast-translate, i18n: {en: {display_name: Translation}, zh-CN: {display_name: 翻译}}}

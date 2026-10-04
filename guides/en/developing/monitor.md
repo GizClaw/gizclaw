@@ -203,7 +203,7 @@ scenario set through the real Agents SDK runner with a `FakeRuntime` covering
 every source and a scripted model, proving tool wiring, argument validation,
 result handoff, and navigation. `TestAssistantScenariosWithLiveModel` in
 `tests/gizclaw-e2e/go/openai` runs the same scenarios against the Docker stack's
-RuntimeProfile `llm` (Volc Ark `doubao-mini-chat`), asserting only tool calls,
+RuntimeProfile `llm` (Volc Ark `doubao-lite-chat`), asserting only tool calls,
 the final route, and key facts in the reply, giving each scenario three
 attempts to separate a small model's variance from behavior the assistant
 cannot reach.

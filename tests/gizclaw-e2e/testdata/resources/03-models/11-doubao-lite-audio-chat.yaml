@@ -14,6 +14,7 @@ spec:
   provider_data:
     api_mode: chat_completions
     upstream_model: doubao-seed-2-1-lite-260915
+    service_tier: fast
     support_json_output: true
     support_text_only: false
     support_tool_calls: true

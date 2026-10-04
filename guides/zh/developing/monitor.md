@@ -147,7 +147,7 @@ agent 包，设计细节见 `web/assistant/DESIGN.md`。它通过 `@openai/agent
 验证分两层。`npm test --workspace @gizclaw/assistant` 用覆盖全部出口的 `FakeRuntime` 与脚本化
 模型，经真实 Agents SDK runner 跑完场景集，确认调用链路、参数校验、结果回传与跳转。
 `tests/gizclaw-e2e/go/openai` 中的 `TestAssistantScenariosWithLiveModel` 用同一场景集和 Docker
-栈上 RuntimeProfile 的 `llm`（Volc Ark `doubao-mini-chat`）运行，只断言工具调用、最终路由和回复
+栈上 RuntimeProfile 的 `llm`（Volc Ark `doubao-lite-chat`）运行，只断言工具调用、最终路由和回复
 中的关键事实，每个场景最多尝试三次，以区分小模型的波动和助手做不到的行为。
 
 ### 控制台聊天入口

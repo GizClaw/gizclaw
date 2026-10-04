@@ -50,7 +50,7 @@ func TestDoubaoServiceTierGiztest(t *testing.T) {
 	}
 	modelName := os.Getenv("GIZCLAW_E2E_DOUBAO_FAST_MODEL")
 	if modelName == "" {
-		modelName = "doubao-seed-2-0-mini-260428"
+		modelName = "doubao-seed-2-1-lite-260915"
 	}
 	reportDir := os.Getenv("GIZCLAW_E2E_SERVICE_TIER_REPORT_DIR")
 	if reportDir == "" {
@@ -246,7 +246,95 @@ func TestDoubaoServiceTierGiztest(t *testing.T) {
 		t.Fatalf("create Model: HTTP %d", model.StatusCode())
 	}
 	var graph apitypes.EinoWorkflowSpec
-	if err := json.Unmarshal([]byte(`{"graph":{"name":"Doubao fast acceptance","compile":{"node_trigger_mode":"any_predecessor","max_run_steps":16},"state":{"fields":[{"name":"values","type":"object","merge":"replace"},{"name":"channels","type":"object","merge":"replace"},{"name":"answer-messages","type":"messages","merge":"replace"},{"name":"answer-text","type":"string","merge":"replace"}]},"nodes":[{"id":"initialize-conversation","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"history":{"from":"input.messages"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer-prompt","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '按用户要求简短回答，不输出其他内容。'\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('main', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels","messages":"answer-messages"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer","type":"chat_model","model":"llm","inputs":{"messages":{"from":"answer-messages"}},"outputs":{"text":"answer-text"},"max_tokens":32},{"id":"answer-capture","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"answer":{"from":"answer-text"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}}],"edges":[{"from":"start","to":"initialize-conversation"},{"from":"answer-prompt","to":"answer"},{"from":"answer","to":"answer-capture"},{"from":"initialize-conversation","to":"answer-prompt"},{"from":"answer-capture","to":"end"}],"branches":[],"outputs":[{"node":"answer","field":"answer-text","name":"answer","mime_type":"text/plain","primary":true}]},"state_persistence":{"fields":["values","channels"]}}`), &graph); err != nil {
+	if err := json.Unmarshal([]byte(`{
+  "graph": {
+    "name": "Doubao fast acceptance",
+    "compile": {
+      "node_trigger_mode": "any_predecessor",
+      "max_run_steps": 16
+    },
+    "state": {
+      "fields": [
+        {
+          "name": "messages",
+          "type": "messages",
+          "merge": "replace"
+        },
+        {
+          "name": "answer",
+          "type": "string",
+          "merge": "replace"
+        }
+      ]
+    },
+    "nodes": [
+      {
+        "id": "prompt",
+        "type": "prompt",
+        "format": "f_string",
+        "inputs": {
+          "history": {
+            "from": "input.messages"
+          }
+        },
+        "outputs": {
+          "messages": "messages"
+        },
+        "messages": [
+          {
+            "role": "system",
+            "template": "按用户要求简短回答，不输出其他内容。"
+          },
+          {
+            "placeholder": "history",
+            "optional": true
+          }
+        ]
+      },
+      {
+        "id": "model",
+        "type": "chat_model",
+        "model": "llm",
+        "inputs": {
+          "messages": {
+            "from": "messages"
+          }
+        },
+        "outputs": {
+          "text": "answer"
+        },
+        "max_tokens": 32
+      }
+    ],
+    "edges": [
+      {
+        "from": "start",
+        "to": "prompt"
+      },
+      {
+        "from": "prompt",
+        "to": "model"
+      },
+      {
+        "from": "model",
+        "to": "end"
+      }
+    ],
+    "branches": [],
+    "outputs": [
+      {
+        "node": "model",
+        "field": "answer",
+        "name": "assistant",
+        "mime_type": "text/plain",
+        "primary": true
+      }
+    ]
+  },
+  "conversation": {
+    "starts": "peer"
+  }
+}`), &graph); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := adminapi.CreateWorkflow(ctx, admin, apitypes.Workflow{Id: "doubao-fast", Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverEino, Eino: &graph}}); err != nil {
