@@ -11,10 +11,41 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 )
 
 const maxQualityResponseBytes = 64 << 10
+
+var errQualityResponseLimit = errors.New("quality judge response exceeds its stream limit")
+
+// qualityLimitedStream rejects excessive text/events before the general
+// PeerStream collector retains them. Non-text media is unsupported by a judge.
+type qualityLimitedStream struct {
+	peerStream
+	bytes  int
+	events int
+}
+
+func (s *qualityLimitedStream) Next() (*genx.MessageChunk, error) {
+	chunk, err := s.peerStream.Next()
+	if err != nil || chunk == nil {
+		return chunk, err
+	}
+	s.events++
+	if text, ok := chunk.Part.(genx.Text); ok {
+		s.bytes += len(text)
+	}
+	if _, audio := chunk.Part.(*genx.Blob); audio {
+		_ = s.peerStream.Close()
+		return nil, errQualityResponseLimit
+	}
+	if s.bytes > maxQualityResponseBytes || s.events > relayMaxTurnEvents {
+		_ = s.peerStream.Close()
+		return nil, errQualityResponseLimit
+	}
+	return chunk, nil
+}
 
 type qualityTurn struct {
 	Turn int    `json:"turn"`
@@ -74,11 +105,21 @@ func (s *session) assessRelayQuality(ctx context.Context, req giztest.StepReques
 	if s.driver.openPeerStream != nil {
 		open = s.driver.openPeerStream(client)
 	}
-	invocation := peerStreamInvocation{client: client, open: open, step: step, input: string(payload)}
+	boundedOpen := func() (peerStream, error) {
+		stream, err := open()
+		if err != nil {
+			return nil, err
+		}
+		return &qualityLimitedStream{peerStream: stream}, nil
+	}
+	invocation := peerStreamInvocation{client: client, open: boundedOpen, step: step, input: string(payload)}
 	judgeCtx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 	judged, err := invocation.run(judgeCtx, nil)
 	if err != nil {
+		if errors.Is(err, errQualityResponseLimit) {
+			return result, errQualityResponseLimit
+		}
 		if errors.Is(err, context.DeadlineExceeded) {
 			return result, fmt.Errorf("quality judge timed out: %w", context.DeadlineExceeded)
 		}

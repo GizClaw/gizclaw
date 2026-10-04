@@ -216,3 +216,36 @@ func TestQualityJudgeCancellationClosesItsStream(t *testing.T) {
 		t.Fatal("judge stream not closed")
 	}
 }
+
+func TestQualityJudgeEnforcesLimitBeforeCollectingFullResponse(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		chunk *genx.MessageChunk
+		count int
+	}{
+		{"single oversized chunk", assistantText("j", strings.Repeat("a", maxQualityResponseBytes+1), false), 1},
+		{"aggregate chunks", assistantText("j", strings.Repeat("a", maxQualityResponseBytes/2+1), false), 2},
+		{"event flood", assistantText("j", "", false), relayMaxTurnEvents + 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			stream := newFakeRelayStream()
+			limited := &qualityLimitedStream{peerStream: stream}
+			for index := range test.count {
+				stream.in <- test.chunk
+				_, err := limited.Next()
+				if index == test.count-1 {
+					if err != errQualityResponseLimit {
+						t.Fatalf("limit error=%v", err)
+					}
+				} else if err != nil {
+					t.Fatal(err)
+				}
+			}
+			select {
+			case <-stream.closed:
+			default:
+				t.Fatal("bounded stream did not close its transport")
+			}
+		})
+	}
+}

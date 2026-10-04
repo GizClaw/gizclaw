@@ -47,8 +47,9 @@ collect_failure_logs() {
 		args+=("$arg")
 	done < <(compose_args)
 	docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${args[@]}" ps --all >&2 || true
-	docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${args[@]}" logs --no-color --tail=200 server edge edge2 2>&1 |
-		python3 "$setup_dir/redact_diagnostics.py" >&2 || true
+	docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${args[@]}" logs --no-color --tail=3000 server edge edge2 2>&1 |
+		python3 "$setup_dir/redact_diagnostics.py" > "$artifact_dir/bootstrap-failure.log" || true
+    echo "bootstrap diagnostics: $artifact_dir/bootstrap-failure.log" >&2
 }
 
 # EXIT/INT/TERM own this cleanup path.
