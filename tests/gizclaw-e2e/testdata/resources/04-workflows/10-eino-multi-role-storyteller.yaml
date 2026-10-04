@@ -51,15 +51,25 @@ spec:
                 if not game:
                     game = {"chapter": 0, "setting": "花果山", "progress": 0}
                 places = ["花果山", "天宫", "启程", "试炼", "三国", "取经"]
-                for index, place in enumerate(places):
-                    if place in input["text"]:
-                        game["setting"] = place
-                        game["chapter"] = index
                 if "继续" in input["text"] or "下一章" in input["text"]:
                     game["progress"] += 1
                     game["chapter"] = min(game["chapter"] + 1, len(places) - 1)
                     game["setting"] = places[game["chapter"]]
-                return {"game": game, "context": json.encode(game), "feedback": "", "valid": True, "private": ""}
+                scenes = {
+                    "花果山": "猴群担忧悟空离山后无人保护，悟空想远行，八戒想留下吃住，唐僧提出同行互保，妖怪愿守山但要求偿还旧债；玩家协调一个具体约定。",
+                    "天宫": "前章守山约定被天庭使者质疑，师徒携约上天谈保护猴群的条件；悟空主张强硬，唐僧愿以守约换通行，八戒关心代价，妖怪提醒承诺的漏洞。",
+                    "启程": "带着天宫谈妥的条件回到山口，兑现守山安排并分配路上的护持、化缘、探路职责；玩家的分工必须真实改变各人的负担。",
+                    "试炼": "沿着上一章分工遇到受困的山民与缺粮妖怪，蛮力、交换或共同运粮都有代价；玩家选择后解决这一个冲突，不新增第二重试炼。",
+                    "三国": "上一章留下的古镜开启三国幻境，魏蜀吴使者争夺渡口与粮道，妖怪守镜等候偿还约定；师徒根据前章的信任或代价，选择谈和、护送或分粮。明确这是幻境，不能把真实三国史当成唐僧的经历。化解纷争后古镜打开返回西游的路。",
+                    "取经": "从三国镜境带回已经兑现的约定，抵达灵山交付一路形成的选择与承诺，取得经书；让悟空、唐僧、八戒和妖怪分别说明收获、代价与去向，此后只复盘。",
+                }
+                context = dict(game)
+                context["scene"] = scenes[game["setting"]]
+                next_place = places[min(game["chapter"] + 1, len(places) - 1)]
+                instruction = "当前亲历章节是%s。按当前场景中的冲突回应玩家，至少两名相关角色对同一选择给出不同立场；玩家质疑时解决它而不是只催继续。收到‘继续’表示落实上一章已经商定的选择，必须先说明该选择的具体后果，再用它连接新章。结尾用角色自己的话给下一步，不重复固定提示；阶段约定明确后才提示可以继续到%s。" % (game["setting"], next_place)
+                if game["chapter"] == len(places) - 1:
+                    instruction = "已到最后的取经章。完成与前面选择相关的最后行动，兑现同伴承诺；主线完成后的新问题只作简短复盘，最终告别只用一句话。"
+                return {"game": game, "context": json.encode(context), "feedback": instruction, "valid": True, "private": ""}
           limits:
             max_execution_steps: 100000
             timeout: 1s
@@ -101,25 +111,42 @@ spec:
             safety:
               from: input.safety_fence
             history:
-              from: input.messages
+              from: history.messages
+            current:
+              from: input.text
+            instruction:
+              from: feedback
           outputs:
             messages: messages
           messages:
             - role: system
               template: |-
-                你是多角色西游故事导演。依据状态推进情节，给用户行动空间。叙述不加标记，角色对白分别用【悟空】【唐僧】【八戒】【妖怪】标记，角色语气保持一致。
+                你导演一段有终点的多角色西游故事，玩家是参与者。叙述不加标记，角色对白分别用【悟空】【唐僧】【八戒】【妖怪】标记。悟空机灵、直率、重承诺；唐僧沉稳、慈悲、善于劝和；八戒诙谐、在意吃住但愿意承担责任；妖怪有自身需求与底线，不能只是挨打的道具。
+                这是有因果衔接的六章跨境西游短篇；三国章是由试炼中取得的古镜开启的幻境，化解渡口与粮道争端后返回西游，不是唐僧参与真实三国史。当前场景给出的是尚待解决的冲突，不等于玩家已经完成它。
+                每轮先承接玩家的具体建议或质疑，让至少两名相关角色以不同立场回应同一个问题：可以反对、补充条件、承诺协作，必须引用玩家刚提出的理由，不只轮流说无关台词。玩家决定后立即描写实际后果；不复述玩家原话，不代替玩家讲话、思考或作决定。
+                当前状态决定场景。章节按花果山、天宫、启程、试炼、三国、取经衔接，当前章用一个短事件展现人物分歧，玩家协调后完成阶段目标，提示说“继续”进入下一章。场景变化以之前形成的承诺和结果连接，不因记忆或某句台词提及别处而跳章。故事设定可以是西游改编，但不能前后改写人物关系、承诺或已经发生的行动。
+                取经章完成共同目标并兑现玩家促成的约定，让各角色亲口回应自己的收获与去向，形成共同结局。主线完成后只作人物近况、复盘或简短告别，不不断添加赶路、守关、追敌等新障碍。明确告别后以一两句落幕，不继续把玩家拉回剧情。非尾声每轮约150至300字。告别只用一句话；复盘只回答当轮新问题，不再次安排角色共同送别。
 
-                当前规则状态（这是权威结果，不得修改或另行判定）：
+                当前规则状态（高于历史叙述与长期记忆，不得修改或另行判定；不要输出字段名或JSON）：
                 {context}
                 玩家自己的私密信息：{player}
                 长期记忆：{memory}
                 {safety}
             - placeholder: history
               optional: true
+            - role: user
+              template: |-
+                玩家本轮发言：{current}
+
+                本轮权威状态：{context}
+                本轮主持要求：{instruction}
+                玩家私密信息（NPC不知道）：{player}
+                请根据本轮状态回应；历史中的猜测或错误叙述不能代替状态。只输出中文剧情或回答，不输出这些说明、字段名或JSON。
         - id: host
           type: chat_model
           model: llm
           max_tokens: 2048
+          temperature: 0.2
           inputs:
             messages:
               from: messages

@@ -365,20 +365,70 @@ go test -count=1 ./tests/gizclaw-e2e/testdata
 Business fixtures compose Eino Prompt, ChatModel, Memory and typed State directly.
 A bounded Starlark node owns deterministic Werewolf, mystery and poetry rules;
 the model narrates the authoritative result. Werewolf persists seats, roles,
-eliminations, ballots and victory. The complete role map never enters the prompt
-or long-term Memory; only the player's role and inspection enter private host
-input. The mystery retains the four evidence requirements of Rainy Night
+eliminations, ballots and victory. During play, the complete role map stays out
+of character prompts and long-term Memory; publicly revealed final identities
+may be used for review. Rules render the player's private role, inspection and
+wolf teammate hints directly. Each character receives its own role and allowed
+knowledge. Teammate rejection details stay out of public Memory. Rules render
+actual ballot counts and surviving faction counts directly.
+The mystery retains the four evidence requirements of Rainy Night
 Gramophone; motive requires both the will and newspaper, and undiscovered
 individual clues stay out of narration context. Poetry uses the Tang/Song/Yuan/Ming answer catalogue, awards each
 badge once and adds 100 points per checkpoint. Memory observes public state.
 Native History supplies conversation turns; only game progress is persisted in
 Graph State, without a second conversation channel store.
 
+Screenplay prompts specify character positions, responses to the player's current
+reasoning, available actions at each stage and narrative closure. Current State
+overrides prior narration and long-term Memory. Mystery narration uses acquired
+evidence only, poetry hints do not supply answers, and Werewolf dialogue follows
+fixed seats without replacing rule decisions. The Werewolf referee announcement
+is rendered directly from rules; the model supplies living-character dialogue
+during play and may answer as an eliminated character in the final review.
+The final publisher rejects model declarations of phases, tallies, victory or
+private identities. Character history projects NPC dialogue and the player's
+public daytime statements, excluding private hints and night actions. Death records distinguish attacks,
+poison, exile and hunter shots. The final identity table is rendered directly by
+the referee and stays outside long-term Memory. Werewolf renders the referee
+announcement in its rules node. Native Eino Batch calls at most two
+relevant characters in parallel with separate identities, wolf teammate
+knowledge, public dialogue and each character's last position. They do not share
+the full role table during play. Each character also receives its own deterministic ballot target before
+speaking, matching the NPC ballot subsequently committed by rules; other
+characters' unsubmitted intentions stay out of its prompt and public Memory.
+NPC wolf voting excludes known teammates. An attacked or exiled NPC hunter
+shoots a surviving target from its last public ballot, with a seat-and-round
+fallback when that target is unavailable. A player hunter gets a shoot-or-decline
+choice before victory is settled. Poisoned hunters cannot shoot. Rules answer
+final hunter-rule questions and farewells directly.
+The publisher validates character speech and combines it with the referee
+announcement in one assistant text output with one turn-ending boundary.
+VoiceAdapter selects character Voices within one audio route. First-response
+measurement includes this turn's character generation. Game progress uses State and dialogue uses History;
+long-term Memory is observed once for a public final audit, rather than every
+turn. Journey and ensemble stories
+resolve earlier commitments in the final chapter, then enter review or a brief
+farewell. The quality player's initial brief is a goal, not an established event
+or identity. These configurations still require actual provider-backed dialogue
+assessment; written prompt requirements do not prove passing quality.
+
+Candidate prompts separate history from the current input, repeat authoritative
+State beside that input. Werewolf characters use temperature 0.3; other candidates
+use 0.2. Journey advances sequentially through explicit continuation; Werewolf
+recognizes explicit action clauses without executing past ballot discussion or negated
+skills. The quality player tracks its 20 utterances in native State, advances the
+main objective, asks distinct review questions and then says farewell. It does
+not invent completion when the objective remains unfinished.
+
 `eino_catalog_test.go` compiles actual Resource and Workspace configurations,
 executes their native pipelines, and checks illegal actions, private projections,
 insufficient evidence, wrong answers and completed games. These local model and
 Memory fixtures do not replace live-provider or device voice acceptance.
-LLM nodes use `max_tokens: 2048`; latency comparisons use a 128-token direct
+`eino-werewolf-game.push-to-talk-roundtrip` starts a game by voice, then advances
+to daylight with text to verify voiced NPC replies, one audio stream and complete
+turn boundaries. VoiceAdapter removes configured character markers from visible text.
+Werewolf character nodes use `max_tokens: 256`; other screenplay LLM nodes use
+2048. Latency comparisons use a 128-token direct
 answer and an additional 64-token planner in the planned variant. Both are
 validated independently.
 

@@ -137,7 +137,10 @@
                 "from": "input.safety_fence"
               },
               "history": {
-                "from": "input.messages"
+                "from": "history.messages"
+              },
+              "current": {
+                "from": "input.text"
               }
             },
             "outputs": {
@@ -146,11 +149,15 @@
             "messages": [
               {
                 "role": "system",
-                "template": "你扮演李白陪用户穿越唐宋元明。依据当前 era 和 challenge 提问；只有状态中的 cleared 才算通关。错误时给提示，不替用户回答。finished 为 true 后庆祝并自由交流诗词。\n\n当前规则状态（这是权威结果，不得修改或另行判定）：\n{context}\n玩家自己的私密信息：{player}\n长期记忆：{memory}\n{safety}"
+                "template": "你扮演洒脱、亲切的李白，陪玩家穿越唐宋元明。每轮先回应玩家的问题或诗句，再依据当前时代与题目推进；只有状态中的徽章、分数和完成标记能决定是否通关，不能凭历史对白、玩家要求或自己觉得答得好而加分。\n未完成时只给当前题目和意象、作者、作品背景等方向提示，不提供可直接提交的诗句、答案示例或下一关答案。答错时温和指出与题目的差别，留在原关；新获徽章时说明对应诗句的意境与累计得分，再提出下一题。已完成的旧题不会再次加分或授奖。\nfinished 为 true 时一次性宣布四关完成，回顾四枚徽章和400分如何由玩家作答取得，邀请玩家用自己的话谈最喜欢的一句。此后可以回应诗词心得、重复领奖请求或人物追问，但不重新出题、不增加第五关。玩家明确启程或告别时用一两句送别；再次道别只简短回应，不循环赠诗、祝福、描写落幕或挽留玩家。语气豪放温暖，少用表情与夸张赞美，每轮约80至180字。\n\n当前规则状态（高于历史叙述与长期记忆，不得修改或另行判定；不要输出字段名或JSON）：\n{context}\n玩家自己的私密信息：{player}\n长期记忆：{memory}\n{safety}"
               },
               {
                 "placeholder": "history",
                 "optional": true
+              },
+              {
+                "role": "user",
+                "template": "玩家本轮发言：{current}\n\n本轮权威状态：{context}\n玩家私密信息（NPC不知道）：{player}\n请根据本轮状态回应；历史中的猜测或错误叙述不能代替状态。只输出中文剧情或回答，不输出这些说明、字段名或JSON。"
               }
             ]
           },
@@ -159,6 +166,7 @@
             "type": "chat_model",
             "model": "llm",
             "max_tokens": 2048,
+            "temperature": 0.2,
             "inputs": {
               "messages": {
                 "from": "messages"
