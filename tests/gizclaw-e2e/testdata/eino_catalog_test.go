@@ -433,3 +433,41 @@ func TestNativeLatencyComparisonsRemainDistinct(t *testing.T) {
 		}
 	}
 }
+
+func TestNativeJourneyChapterOrder(t *testing.T) {
+	for _, name := range []string{"journey", "multi-role-storyteller"} {
+		game := runRules(t, name, "开始", map[string]any{})["game"].(map[string]any)
+		for _, setting := range []string{"天宫", "启程", "试炼", "三国", "取经"} {
+			game = runRules(t, name, "继续", game)["game"].(map[string]any)
+			if game["setting"] != setting {
+				t.Fatalf("%s chapter setting = %v, want %s", name, game["setting"], setting)
+			}
+		}
+	}
+}
+func TestNativeMysteryRequiresBothMotiveClues(t *testing.T) {
+	for _, partial := range []string{"遗嘱", "旧报纸"} {
+		game := runRules(t, "murder-mystery", "调查门锁、壁炉、留声机和后廊", map[string]any{})["game"].(map[string]any)
+		game = runRules(t, "murder-mystery", "查看"+partial, game)["game"].(map[string]any)
+		result := runRules(t, "murder-mystery", "指认沈知秋", game)
+		game = result["game"].(map[string]any)
+		if game["solved"] != false {
+			t.Fatalf("only %s completed the case", partial)
+		}
+		hidden := "生父"
+		remaining := "旧报纸"
+		if partial == "旧报纸" {
+			hidden, remaining = "遗产", "遗嘱"
+		}
+		if strings.Contains(result["context"].(string), "裙摆") {
+			t.Fatal("unexamined skirt clue leaked from footprint evidence")
+		}
+		if strings.Contains(result["context"].(string), hidden) {
+			t.Fatalf("undiscovered clue leaked: %v", result["context"])
+		}
+		game = runRules(t, "murder-mystery", "查看"+remaining, game)["game"].(map[string]any)
+		if runRules(t, "murder-mystery", "指认沈知秋", game)["game"].(map[string]any)["solved"] != true {
+			t.Fatal("complete motive evidence did not permit solution")
+		}
+	}
+}

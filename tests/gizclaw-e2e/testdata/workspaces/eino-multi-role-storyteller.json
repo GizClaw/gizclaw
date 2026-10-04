@@ -72,7 +72,7 @@
             "type": "script",
             "language": "starlark",
             "entrypoint": "run",
-            "source": "def run(input):\n    game = json.decode(json.encode(input[\"game\"]))\n    if not game:\n        game = {\"chapter\": 0, \"setting\": \"花果山\", \"progress\": 0}\n    places = [\"花果山\", \"天宫\", \"启程\", \"三国\", \"试炼\", \"取经\"]\n    for index, place in enumerate(places):\n        if place in input[\"text\"]:\n            game[\"setting\"] = place\n            game[\"chapter\"] = index\n    if \"继续\" in input[\"text\"] or \"下一章\" in input[\"text\"]:\n        game[\"progress\"] += 1\n        game[\"chapter\"] = min(game[\"chapter\"] + 1, len(places) - 1)\n        game[\"setting\"] = places[game[\"chapter\"]]\n    return {\"game\": game, \"context\": json.encode(game), \"feedback\": \"\", \"valid\": True, \"private\": \"\"}\n",
+            "source": "def run(input):\n    game = json.decode(json.encode(input[\"game\"]))\n    if not game:\n        game = {\"chapter\": 0, \"setting\": \"花果山\", \"progress\": 0}\n    places = [\"花果山\", \"天宫\", \"启程\", \"试炼\", \"三国\", \"取经\"]\n    for index, place in enumerate(places):\n        if place in input[\"text\"]:\n            game[\"setting\"] = place\n            game[\"chapter\"] = index\n    if \"继续\" in input[\"text\"] or \"下一章\" in input[\"text\"]:\n        game[\"progress\"] += 1\n        game[\"chapter\"] = min(game[\"chapter\"] + 1, len(places) - 1)\n        game[\"setting\"] = places[game[\"chapter\"]]\n    return {\"game\": game, \"context\": json.encode(game), \"feedback\": \"\", \"valid\": True, \"private\": \"\"}\n",
             "limits": {
               "max_execution_steps": 100000,
               "timeout": "1s",

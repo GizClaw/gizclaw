@@ -50,7 +50,7 @@ spec:
                 game = json.decode(json.encode(input["game"]))
                 if not game:
                     game = {"chapter": 0, "setting": "花果山", "progress": 0}
-                places = ["花果山", "天宫", "启程", "三国", "试炼", "取经"]
+                places = ["花果山", "天宫", "启程", "试炼", "三国", "取经"]
                 for index, place in enumerate(places):
                     if place in input["text"]:
                         game["setting"] = place

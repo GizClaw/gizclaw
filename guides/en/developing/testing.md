@@ -368,7 +368,8 @@ the model narrates the authoritative result. Werewolf persists seats, roles,
 eliminations, ballots and victory. The complete role map never enters the prompt
 or long-term Memory; only the player's role and inspection enter private host
 input. The mystery retains the four evidence requirements of Rainy Night
-Gramophone. Poetry uses the Tang/Song/Yuan/Ming answer catalogue, awards each
+Gramophone; motive requires both the will and newspaper, and undiscovered
+individual clues stay out of narration context. Poetry uses the Tang/Song/Yuan/Ming answer catalogue, awards each
 badge once and adds 100 points per checkpoint. Memory observes public state.
 Native History supplies conversation turns; only game progress is persisted in
 Graph State, without a second conversation channel store.
