@@ -41,7 +41,7 @@ spec:
                 if turn == 1:
                     plan = "只问初始场景、座位或身份，不自行编造角色或已发生事件。"
                 elif mode == "chapters" and turn <= 12:
-                    plan = "本轮只输出‘继续’，亲历下一章，不追问将来或回忆。" if turn % 2 == 1 else "刚进入一个新章节，请选择主持人给出的一个具体行动，说明一个理由，让相关角色回应；本轮不能直接说继续或只问回忆。"
+                    plan = "本轮只输出‘继续’，亲历下一章，不追问将来或回忆。" if turn % 2 == 1 else "刚进入一个新章节，请以‘我选择’开头，确认主持人给出的一个具体行动或约定，说明一个理由，让相关角色回应；本轮不能直接说继续或只问回忆。"
                 elif turn == 20:
                     plan = "这是最后一次发言：主线已完成则用一句自然告别；仍未完成则明确要求用合法动作完成主线，不能编造结局。"
                 if mode == "actions" and turn > 1 and turn < 20:
@@ -119,6 +119,8 @@ spec:
           mime_type: text/plain
           primary: true
     state_persistence:
-      fields: [turn, mode]
+      fields:
+        - turn
+        - mode
     conversation:
       starts: peer

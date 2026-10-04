@@ -451,11 +451,38 @@ func TestNativeJourneyChapterOrder(t *testing.T) {
 	for _, name := range []string{"journey", "multi-role-storyteller"} {
 		game := runRules(t, name, "开始", map[string]any{})["game"].(map[string]any)
 		for _, setting := range []string{"天宫", "启程", "试炼", "三国", "取经"} {
+			if name == "multi-role-storyteller" {
+				game = runRules(t, name, "我选择让同伴分工护送，并承诺履行本章约定", game)["game"].(map[string]any)
+			}
 			game = runRules(t, name, "继续", game)["game"].(map[string]any)
 			if game["setting"] != setting {
 				t.Fatalf("%s chapter setting = %v, want %s", name, game["setting"], setting)
 			}
 		}
+	}
+}
+
+func TestNativeChapterQuestionsAndObjectionsDoNotAdvance(t *testing.T) {
+	for _, name := range []string{"journey", "multi-role-storyteller"} {
+		game := runRules(t, name, "开始", map[string]any{})["game"].(map[string]any)
+		for _, text := range []string{"不要继续，先解释刚才的约定", "下一章是什么？", "请解释为什么需要继续", "继续？"} {
+			if got := runRules(t, name, text, game)["game"].(map[string]any); got["chapter"] != int64(0) || got["progress"] != int64(0) {
+				t.Fatalf("%s advanced on question or objection %q: %v", name, text, got)
+			}
+		}
+	}
+	game := runRules(t, "multi-role-storyteller", "开始", map[string]any{})["game"].(map[string]any)
+	if runRules(t, "multi-role-storyteller", "继续", game)["game"].(map[string]any)["chapter"] != int64(0) {
+		t.Fatal("chapter advanced without a confirmed agreement")
+	}
+	game = runRules(t, "multi-role-storyteller", "我选择让妖怪守山，取经后偿还旧债", game)["game"].(map[string]any)
+	objected := runRules(t, "multi-role-storyteller", "不同意，先解释守山如何保护猴群", game)["game"].(map[string]any)
+	if runRules(t, "multi-role-storyteller", "继续", objected)["game"].(map[string]any)["chapter"] != int64(0) {
+		t.Fatal("chapter advanced while the agreement was disputed")
+	}
+	confirmed := runRules(t, "multi-role-storyteller", "我确认师徒共同护山，妖怪负责巡逻", objected)["game"].(map[string]any)
+	if runRules(t, "multi-role-storyteller", "请继续", confirmed)["game"].(map[string]any)["chapter"] != int64(1) {
+		t.Fatal("confirmed agreement did not permit continuation")
 	}
 }
 func TestNativeMysteryRequiresBothMotiveClues(t *testing.T) {
@@ -610,6 +637,9 @@ func TestNativeJourneyFutureMentionDoesNotSkipChapters(t *testing.T) {
 		game = runRules(t, name, "我希望最终取得真经，先聊聊你大闹天宫的经历", game)["game"].(map[string]any)
 		if game["setting"] != "花果山" {
 			t.Fatalf("%s future goal changed the current chapter: %v", name, game)
+		}
+		if name == "multi-role-storyteller" {
+			game = runRules(t, name, "我确认由妖怪守山并在取经后偿债", game)["game"].(map[string]any)
 		}
 		game = runRules(t, name, "继续", game)["game"].(map[string]any)
 		if game["setting"] != "天宫" {

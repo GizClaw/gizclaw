@@ -51,7 +51,9 @@ spec:
                 if not game:
                     game = {"chapter": 0, "setting": "花果山", "progress": 0}
                 places = ["花果山", "天宫", "启程", "试炼", "三国", "取经"]
-                if "继续" in input["text"] or "下一章" in input["text"]:
+                text = input["text"].strip().rstrip("。！!")
+                continuing = text in ["继续", "下一章", "请继续", "请进入下一章", "继续下一章", "进入下一章", "好的，继续", "好，继续"]
+                if continuing and game["chapter"] < len(places) - 1:
                     game["progress"] += 1
                     game["chapter"] = min(game["chapter"] + 1, len(places) - 1)
                     game["setting"] = places[game["chapter"]]

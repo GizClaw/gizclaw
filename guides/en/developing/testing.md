@@ -414,7 +414,9 @@ assessment; written prompt requirements do not prove passing quality.
 
 Candidate prompts separate history from the current input, repeat authoritative
 State beside that input. Werewolf characters use temperature 0.3; other candidates
-use 0.2. Journey advances sequentially through explicit continuation; Werewolf
+use 0.2. Journey advances only through a complete affirmative continuation command;
+questions and negations leave the chapter unchanged. Ensemble stories also require
+an explicit current-chapter agreement, renewed after an objection, before advancing. Werewolf
 recognizes explicit action clauses without executing past ballot discussion or negated
 skills. The quality player tracks its 20 utterances in native State, advances the
 main objective, asks distinct review questions and then says farewell. It does
