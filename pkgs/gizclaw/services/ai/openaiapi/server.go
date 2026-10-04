@@ -25,6 +25,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerquota"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -382,7 +383,22 @@ func unavailable(code, message string, cause error) error {
 	return &backend.Error{Kind: backend.ErrorUnavailable, Code: code, Message: message, Cause: cause}
 }
 
+func quotaBackendError(cause error) *backend.Error {
+	code, message, retryable, ok := peerquota.ErrorDetails(cause)
+	if !ok {
+		return nil
+	}
+	kind := backend.ErrorForbidden
+	if retryable {
+		kind = backend.ErrorUnavailable
+	}
+	return &backend.Error{Kind: kind, Code: strings.ToLower(code), Message: message, Cause: cause}
+}
+
 func internal(cause error) error {
+	if quota := quotaBackendError(cause); quota != nil {
+		return quota
+	}
 	if errors.Is(cause, context.Canceled) {
 		return &backend.Error{Kind: backend.ErrorCanceled, Code: "request_canceled", Message: "The request was canceled.", Cause: cause}
 	}
@@ -843,6 +859,7 @@ func newChatEventStream(ctx context.Context, source genx.Stream, model string, n
 		var doneErr error
 		for {
 			chunk, err := source.Next()
+			err = streamReadError(chunk, err)
 			if streamDone(err) {
 				if streamCtx.Err() != nil {
 					return
@@ -851,7 +868,7 @@ func newChatEventStream(ctx context.Context, source genx.Stream, model string, n
 				break
 			}
 			if err != nil {
-				sendJSON(send, streamErrorEvent())
+				sendJSON(send, streamErrorEvent(err))
 				return
 			}
 			if chunk == nil {
@@ -900,14 +917,15 @@ func newSpeechEventStream(ctx context.Context, source genx.Stream, contentType s
 		var normalizer *audiostream.Normalizer
 		for {
 			chunk, err := source.Next()
+			err = streamReadError(chunk, err)
 			if streamDone(err) {
 				if streamCtx.Err() != nil {
 					return
 				}
 				break
 			}
-			if err != nil || chunk != nil && chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Error) != "" {
-				sendJSON(send, streamErrorEvent())
+			if err != nil {
+				sendJSON(send, streamErrorEvent(err))
 				return
 			}
 			if chunk == nil || chunk.IsEndOfStream() {
@@ -943,6 +961,7 @@ func newTranscriptionEventStream(ctx context.Context, source genx.Stream) backen
 		var full strings.Builder
 		for {
 			chunk, err := source.Next()
+			err = streamReadError(chunk, err)
 			if streamDone(err) {
 				if streamCtx.Err() != nil {
 					return
@@ -950,7 +969,7 @@ func newTranscriptionEventStream(ctx context.Context, source genx.Stream) backen
 				break
 			}
 			if err != nil {
-				sendJSON(send, streamErrorEvent())
+				sendJSON(send, streamErrorEvent(err))
 				return
 			}
 			if chunk == nil || chunk.IsEndOfStream() {
@@ -969,10 +988,27 @@ func newTranscriptionEventStream(ctx context.Context, source genx.Stream) backen
 	})
 }
 
-func streamErrorEvent() map[string]any {
+func streamErrorEvent(cause error) map[string]any {
+	if quota := quotaBackendError(cause); quota != nil {
+		return map[string]any{"error": map[string]string{"code": quota.Code, "message": quota.Message, "type": string(quota.Kind)}}
+	}
 	return map[string]any{"error": map[string]string{
 		"code": "stream_error", "message": "The GizClaw backend stream failed.", "type": "server_error",
 	}}
+}
+
+// streamReadError preserves control-chunk causes even when Next also reports
+// completion. A terminal control error must not be mistaken for a clean EOS.
+func streamReadError(chunk *genx.MessageChunk, nextErr error) error {
+	if nextErr != nil && !streamDone(nextErr) {
+		return nextErr
+	}
+	if chunk != nil {
+		if cause := genx.StreamError(chunk.Ctrl); cause != nil {
+			return cause
+		}
+	}
+	return nextErr
 }
 
 func streamDone(err error) bool {
@@ -984,6 +1020,7 @@ func readTextStream(stream genx.Stream) (string, error) {
 	var result strings.Builder
 	for {
 		chunk, err := stream.Next()
+		err = streamReadError(chunk, err)
 		if streamDone(err) {
 			return result.String(), nil
 		}
@@ -1009,6 +1046,7 @@ func readBlobStreamWithMIME(stream genx.Stream, contentType string) ([]byte, str
 	var normalizer *audiostream.Normalizer
 	for {
 		chunk, err := stream.Next()
+		err = streamReadError(chunk, err)
 		if streamDone(err) {
 			if normalizer != nil {
 				result.Write(normalizer.Flush())
@@ -1020,9 +1058,6 @@ func readBlobStreamWithMIME(stream genx.Stream, contentType string) ([]byte, str
 		}
 		if chunk == nil {
 			continue
-		}
-		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Error) != "" {
-			return nil, "", errors.New("audio stream failed")
 		}
 		if chunk.IsEndOfStream() {
 			continue

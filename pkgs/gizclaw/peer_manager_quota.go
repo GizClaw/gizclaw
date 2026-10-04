@@ -6,6 +6,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerquota"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/sdk/go/quota"
@@ -49,17 +50,17 @@ func (m *Manager) quotaAuthorizer(peer giznet.PublicKey, profile func(context.Co
 		}
 		policy, err := runtimeprofile.CustomQuotaPolicy(selected.Spec.Quota)
 		if err != nil {
-			return nil, nil, fmt.Errorf("%w: invalid quota policy", peergenx.ErrDenied)
+			return nil, nil, fmt.Errorf("%w: %w: invalid quota policy", peergenx.ErrDenied, peerquota.ErrUnavailable)
 		}
 		if policy == nil {
 			return ctx, func() {}, nil
 		}
 		if m == nil || m.PeerQuota == nil {
-			return nil, nil, fmt.Errorf("%w: quota service is unavailable", peergenx.ErrDenied)
+			return nil, nil, fmt.Errorf("%w: %w: quota service is unavailable", peergenx.ErrDenied, peerquota.ErrUnavailable)
 		}
 		callCtx, release, err := m.PeerQuota.Authorize(ctx, peer, *policy)
 		if err != nil {
-			return nil, nil, fmt.Errorf("%w: %v", peergenx.ErrDenied, err)
+			return nil, nil, fmt.Errorf("%w: %w", peergenx.ErrDenied, err)
 		}
 		return callCtx, release, nil
 	}

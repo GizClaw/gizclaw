@@ -45,6 +45,8 @@ Friend Group 消息是群组绑定 Workspace History 的只读投影。list/get/
 
 `server.peer.delete` 使用空 request/response message，不接受目标 public key。它会原子创建或复用 caller 的 pending-deletion handoff，同时保留 active Peer；随后 Server 立即把当前 connection 标为 retiring 并拒绝新工作，再尝试 flush response 和 EOS；即使任一写入失败也会关闭完整 connection。`server.workspace.delete` 只对 caller-owned 用户 Workspace 创建或复用同样透明的 handoff，system Workspace 始终不可通过该方法删除。`server.pet.delete` 保留 Pet，并写入或复用 Pet pending work，同时保留绑定的 system Workspace。
 
+新 speech 请求的 quota 错误保留 RPCStatus Reason：到期使用 PERMISSION_DENIED (7)、QUOTA_EXHAUSTED 和 `Quota exhausted.`；不可用使用 UNAVAILABLE (14)、QUOTA_UNAVAILABLE 和 `Quota unavailable.`。synthesis metadata 已发送后撤权，以提前 EOS 停止 binary audio。见 [Quota 客户端错误](/zh/developing/api/http/quota#客户端错误)。
+
 ## 社交提醒与公开资料
 
 `server.friend.ping`（123）接收调用方好友的 `name`；`server.friend_group.ping`（124）接收调用方自己对群的本地 `name`，任何成员都可以集结，不限 owner。两者对三种预期结果返回 typed response 而不是 RPC error：`result` 为 `SOCIAL_PING_RESULT_DELIVERED` 时携带 `delivered_count`（确认收到 `client.social.ping` 的目标设备数）；没有目标设备在线或无人确认时为 `SOCIAL_PING_RESULT_NOT_ONLINE`；限流时为 `SOCIAL_PING_RESULT_RATE_LIMITED`，并携带向上取整的 `retry_after_seconds`。未知好友或群、以及非成员调用仍返回 `NOT_FOUND`；Server 无法触达设备时返回 `UNAVAILABLE`。Server 读取与 `Runtime.online` 相同的连接状态，从不等待离线设备，也不排队补发。限流、推送与多 Server 边界见 [services/social](/zh/developing/gizclaw/services/social#好友呼叫与群集结)。

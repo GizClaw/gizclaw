@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -27,15 +28,16 @@ type record struct {
 	Queries int                `json:"queries"`
 }
 type fixture struct {
-	mu      sync.Mutex
-	records map[string]record
-	first   map[string]time.Time
-	forced  map[string]bool
-	queries map[string]int
-	admin   *adminConnection
+	mu            sync.Mutex
+	records       map[string]record
+	first         map[string]time.Time
+	forced        map[string]bool
+	queries       map[string]int
+	providerCalls atomic.Int64
+	admin         *adminConnection
 }
 
-var modes = []string{"allow", "omitted", "null", "deny", "expire", "renew", "stale", "failure", "malformed", "recover"}
+var modes = []string{"allow", "omitted", "null", "deny", "expire", "renew", "stale", "failure", "malformed", "recover", "dialogue-eino"}
 
 func main() {
 	if err := run(); err != nil {
@@ -73,6 +75,10 @@ func run() error {
 		writeJSON(w, map[string]any{"ok": true})
 	})
 	mux.HandleFunc("POST /prepare", f.prepare)
+	mux.HandleFunc("POST /dialogue/{driver}", f.dialogue)
+	mux.HandleFunc("GET /provider-calls", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{"calls": f.providerCalls.Load()})
+	})
 	mux.HandleFunc("POST /v1/chat/completions", f.chat)
 	mux.HandleFunc("GET /ws/v1/t2a_v2", f.speech)
 	server := &http.Server{Addr: *listen, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
@@ -143,6 +149,9 @@ func (f *fixture) check(w http.ResponseWriter, r *http.Request) {
 		body["expires_at"] = nil
 	case "deny":
 		body["expires_at"] = now.Add(-time.Hour)
+	case "dialogue-eino":
+		body["expires_at"] = first.Add(2 * time.Second)
+		body["valid_until"] = first.Add(10 * time.Second)
 	case "expire":
 		body["expires_at"] = first.Add(600 * time.Millisecond)
 		body["valid_until"] = first.Add(5 * time.Second)
@@ -206,6 +215,7 @@ func (f *fixture) report(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func (f *fixture) chat(w http.ResponseWriter, r *http.Request) {
+	f.providerCalls.Add(1)
 	var body map[string]any
 	if json.NewDecoder(r.Body).Decode(&body) != nil {
 		w.WriteHeader(400)
@@ -222,6 +232,7 @@ func (f *fixture) chat(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprint(w, `{"id":"fixture","object":"chat.completion","created":1,"model":"billing-chat","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"quota fixture answer"}}],`+usage+`}`)
 }
 func (f *fixture) speech(w http.ResponseWriter, r *http.Request) {
+	f.providerCalls.Add(1)
 	conn, err := websocket.Accept(w, r, nil)
 	if err != nil {
 		return

@@ -104,3 +104,5 @@ SFU 下行是零解码 passthrough：session 同一时刻只把 floor 持有者�
 Direct Workspace turn 可以安装 request-scoped History observer。它在 History 已持久化且 attachment 尚未释放时接收准确 entry，不按 timestamp 扫描，也不复制文本。取消与 callback synchronization 由请求 attachment 拥有，不改变普通 Peer-run capture。
 
 新路由的 BOS 可能在 reload 结束旧 route 后、replacement runtime 发布前到达。此时输入鉴权最多等待 2 秒的本地 transition 完成，再对发布后的 revision 做必要鉴权；等待取消或超时仍拒绝输入。这个等待不访问 Redis。旧 route 的音频包仍按原 revision 丢弃，不能借用新 route 的权限。
+
+Eino 与 Audio Dock 保留每个 turn 的 typed failure，并发布对应 response 的错误 EOS。Quota EOS 使用稳定 code/message/retryable，runtime 可以继续接收后续 turn。致命 consumer failure 仍然停止 runtime；存在公开错误 contract 时，status 使用安全 message 和 code。见 [Quota 客户端错误](/zh/developing/api/http/quota#客户端错误)。

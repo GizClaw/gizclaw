@@ -1227,13 +1227,17 @@ func (h *PeerConn) broadcastAgentOutputError(_ context.Context, _ string, err er
 	if h == nil || h.events == nil || err == nil {
 		return
 	}
+	errorEvent := &eventpb.EventError{Code: "AGENT_OUTPUT_ERROR", Message: err.Error(), Retryable: true}
+	if code, message, retryable, ok := genx.PublicErrorDetails(err); ok {
+		errorEvent.Code, errorEvent.Message, errorEvent.Retryable = code, message, retryable
+	}
 	_ = h.events.Broadcast(&eventpb.PeerEvent{
 		Version: eventpb.Version,
 		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
 		Payload: &eventpb.PeerEvent_Eos{Eos: &eventpb.StreamEnd{
 			StreamId: "agent-output-error",
 			Label:    "agent",
-			Error:    &eventpb.EventError{Code: "AGENT_OUTPUT_ERROR", Message: err.Error(), Retryable: true},
+			Error:    errorEvent,
 		}},
 	})
 }

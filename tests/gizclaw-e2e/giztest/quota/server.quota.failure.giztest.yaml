@@ -29,6 +29,12 @@ variables:
   peer_key:
     direction: output
     type: string
+  provider_calls:
+    direction: output
+    type: number
+  conversation:
+    direction: output
+    type: string
   audio:
     direction: output
     type: audio
@@ -83,6 +89,14 @@ steps:
             value: fixture
           - key: board
             value: quota-test
+  - id: provider_baseline
+    client: peer
+    http:
+      method: GET
+      endpoint: ${fixture}
+      path: /provider-calls
+    capture:
+      provider_calls: /calls
   - id: speech
     client: peer
     timeout: 10s
@@ -94,7 +108,66 @@ steps:
         accepted_content_types:
           - audio/pcm
     expect_error:
-      code: 7
+      code: 14
+      message_contains: Quota unavailable.
+  - id: denied_chat
+    client: peer
+    http:
+      method: POST
+      path: /openai/v1/chat/completions
+      status: 503
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        model: chat
+        messages: [{role: user, content: hello}]
+        stream: false
+    expect:
+      /error/code:
+        equals: quota_unavailable
+      /error/type:
+        equals: service_unavailable_error
+      /error/message:
+        equals: Quota unavailable.
+  - id: conversation
+    client: peer
+    http:
+      method: POST
+      path: /openai/v1/conversations
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        metadata:
+          workflow_name: quota-eino
+    capture:
+      conversation: /id
+  - id: denied_response
+    client: peer
+    http:
+      method: POST
+      path: /openai/v1/responses
+      status: 503
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        conversation: ${conversation}
+        input: hello
+    expect:
+      /error/code:
+        equals: quota_unavailable
+      /error/type:
+        equals: service_unavailable_error
+      /error/message:
+        equals: Quota unavailable.
+  - id: no_denied_provider_call
+    client: peer
+    http:
+      method: GET
+      endpoint: ${fixture}
+      path: /provider-calls
+    expect:
+      /calls:
+        equals: ${provider_calls}
 finally:
   - id: cleanup
     client: peer

@@ -19,6 +19,7 @@ import (
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerquota"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -1588,5 +1589,52 @@ func TestPeerAgentOutputPassthroughRequiresPacketWriter(t *testing.T) {
 	}
 	if tracks.created != 0 {
 		t.Fatalf("rejected passthrough created %d mixer tracks", tracks.created)
+	}
+}
+
+func TestQuotaTerminalEventHasSafeCorrelatedError(t *testing.T) {
+	for _, cause := range []error{peerquota.ErrDenied, peerquota.ErrUnavailable} {
+		chunk := genx.NewTextEndOfStream()
+		chunk.Ctrl.StreamID = "affected-response"
+		genx.SetStreamError(chunk.Ctrl, cause)
+		events := peerStreamEventsFromChunk(chunk)
+		if len(events) != 1 || events[0].GetEos() == nil {
+			t.Fatalf("events = %+v", events)
+		}
+		end := events[0].GetEos()
+		code, message, retryable, _ := peerquota.ErrorDetails(cause)
+		if end.StreamId != "affected-response" || end.Error == nil || end.Error.Code != code || end.Error.Message != message || end.Error.Retryable != retryable {
+			t.Fatalf("EOS = %+v", end)
+		}
+	}
+}
+
+func TestPeerAgentOutputQuotaFailureEndsActiveAudioWithSafeDetails(t *testing.T) {
+	for _, cause := range []error{peerquota.ErrDenied, peerquota.ErrUnavailable, peerquota.ErrClosed, errors.Join(context.Canceled, peerquota.ErrDenied), errors.Join(context.Canceled, peerquota.ErrUnavailable)} {
+		t.Run(cause.Error(), func(t *testing.T) {
+			var events bytes.Buffer
+			broker := newPeerStreamEventBroker()
+			unsubscribe, err := broker.Subscribe(&events)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer unsubscribe()
+			output := &peerStreamSliceStream{chunks: []*genx.MessageChunk{{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "affected-audio", Label: "assistant", BeginOfStream: true}}}, doneErr: fmt.Errorf("private endpoint details: %w", cause)}
+			if err := (peerAgentOutput{Events: broker}).ConsumeAgentOutput(t.Context(), output); !errors.Is(err, cause) {
+				t.Fatalf("consumer error=%v", err)
+			}
+			if _, err := readPeerStreamEvent(&events); err != nil {
+				t.Fatal(err)
+			}
+			eos, err := readPeerStreamEvent(&events)
+			if err != nil {
+				t.Fatal(err)
+			}
+			code, message, retryable, _ := peerquota.ErrorDetails(cause)
+			failure := eos.GetEos().GetError()
+			if eos.StreamID() != "affected-audio" || failure.GetCode() != code || failure.GetMessage() != message || failure.GetRetryable() != retryable {
+				t.Fatalf("audio EOS=%+v", eos)
+			}
+		})
 	}
 }

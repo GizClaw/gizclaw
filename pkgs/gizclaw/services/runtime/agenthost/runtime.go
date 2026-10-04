@@ -1052,6 +1052,9 @@ func (s *Service) consume(ctx context.Context, rt *runtime) {
 func (s *Service) failRuntime(rt *runtime, err error) bool {
 	now := s.now()
 	message := err.Error()
+	if code, safe, _, ok := genx.PublicErrorDetails(err); ok {
+		message = code + ": " + safe
+	}
 	if rt.failure != nil {
 		message = agentReloadFailedMessage
 	}
@@ -1076,6 +1079,9 @@ func (s *Service) setErrorStatus(workspace string, err error) apitypes.PeerRunSt
 	message := ""
 	if err != nil {
 		message = err.Error()
+		if code, safe, _, ok := genx.PublicErrorDetails(err); ok {
+			message = code + ": " + safe
+		}
 	}
 	return s.setStatus(apitypes.PeerRunStatusStateError, workspace, &message, nil)
 }

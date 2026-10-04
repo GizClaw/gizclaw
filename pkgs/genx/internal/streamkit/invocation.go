@@ -150,22 +150,53 @@ func (i *Invocation) EmitTracked(response *Response, chunk *genx.MessageChunk, o
 // FinishResponse emits EOS for each still-open MIME route and retires the
 // response. Already emitted per-route EOS chunks are not duplicated.
 func (i *Invocation) FinishResponse(response *Response, errorText string) error {
+	return i.finishResponse(response, &genx.StreamCtrl{Error: errorText})
+}
+
+// FinishResponseError preserves a typed cause and safe public details on every
+// terminal route. PublicError callbacks run before taking invocation locks.
+func (i *Invocation) FinishResponseError(response *Response, cause error) error {
+	ctrl := &genx.StreamCtrl{}
+	genx.SetStreamError(ctrl, cause)
+	return i.FinishResponseControl(response, ctrl)
+}
+
+// FinishResponseControl publishes already-projected terminal error fields.
+// Composition layers use it when holding an emission barrier: this method
+// invokes no error methods or caller-provided projection callbacks.
+func (i *Invocation) FinishResponseControl(response *Response, ctrl *genx.StreamCtrl) error {
+	if ctrl == nil {
+		ctrl = &genx.StreamCtrl{}
+	}
+	snapshot := *ctrl
+	return i.finishResponse(response, &snapshot)
+}
+
+func (i *Invocation) finishResponse(response *Response, ctrl *genx.StreamCtrl) error {
 	if i == nil || response == nil {
 		return ErrInactiveResponse
 	}
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	if i.closed {
+	if i.closed || i.responses[response.StreamID()] != response {
 		return ErrInactiveResponse
 	}
-	if active := i.responses[response.StreamID()]; active != response {
-		return ErrInactiveResponse
-	}
-	if err := i.pushTerminalLocked(response.End(errorText)); err != nil {
+	terminals := response.End(ctrl.Error)
+	setTerminalError(terminals, ctrl)
+	if err := i.pushTerminalLocked(terminals); err != nil {
 		return err
 	}
 	delete(i.responses, response.StreamID())
 	return nil
+}
+
+func setTerminalError(chunks []*genx.MessageChunk, ctrl *genx.StreamCtrl) {
+	for _, chunk := range chunks {
+		chunk.Ctrl.ErrorCause = ctrl.ErrorCause
+		chunk.Ctrl.Error = ctrl.Error
+		chunk.Ctrl.ErrorCode = ctrl.ErrorCode
+		chunk.Ctrl.ErrorRetryable = ctrl.ErrorRetryable
+	}
 }
 
 // Interrupt discards unpulled chunks for one response, emits terminal EOS for
@@ -202,6 +233,9 @@ func (i *Invocation) Interrupt(response *Response, errorText string) error {
 // the output reports cause instead of io.EOF so downstream stages and the
 // final consumer can name the failing stage rather than observing a clean end.
 func (i *Invocation) Fail(cause error) error {
+	errorCtrl := &genx.StreamCtrl{}
+	genx.SetStreamError(errorCtrl, cause)
+	class, _ := genx.FailureClassOf(cause)
 	if i == nil {
 		return nil
 	}
@@ -212,13 +246,13 @@ func (i *Invocation) Fail(cause error) error {
 	}
 	i.closed = true
 	i.cancel(cause)
-	errorText := "failed"
-	if cause != nil {
-		errorText = cause.Error()
+	if cause == nil {
+		errorCtrl.Error = "failed"
 	}
-	class, _ := genx.FailureClassOf(cause)
+	errorText := errorCtrl.Error
 	for _, response := range i.responses {
 		terminals := response.End(errorText)
+		setTerminalError(terminals, errorCtrl)
 		for _, terminal := range terminals {
 			if terminal != nil && terminal.Ctrl != nil {
 				terminal.Ctrl.FailureClass = class
@@ -235,6 +269,11 @@ func (i *Invocation) Fail(cause error) error {
 // Cancel terminates the complete invocation. Active responses receive
 // terminal EOS/error after unpulled output is discarded.
 func (i *Invocation) Cancel(cause error) error {
+	errorCtrl := &genx.StreamCtrl{}
+	genx.SetStreamError(errorCtrl, cause)
+	if cause == nil {
+		errorCtrl.Error = "cancelled"
+	}
 	if i == nil {
 		return nil
 	}
@@ -247,10 +286,7 @@ func (i *Invocation) Cancel(cause error) error {
 	i.cancel(cause)
 	i.output.AbandonDeferredObservations()
 	discarded := i.output.discardChunks(func(*genx.MessageChunk) bool { return true })
-	errorText := "cancelled"
-	if cause != nil {
-		errorText = cause.Error()
-	}
+	errorText := errorCtrl.Error
 	for _, response := range i.responses {
 		responseDiscarded := make([]*genx.MessageChunk, 0, len(discarded))
 		for _, chunk := range discarded {
@@ -258,7 +294,9 @@ func (i *Invocation) Cancel(cause error) error {
 				responseDiscarded = append(responseDiscarded, chunk)
 			}
 		}
-		if err := i.pushTerminalLocked(response.endAfterDiscard(errorText, responseDiscarded)); err != nil {
+		terminals := response.endAfterDiscard(errorText, responseDiscarded)
+		setTerminalError(terminals, errorCtrl)
+		if err := i.pushTerminalLocked(terminals); err != nil {
 			return err
 		}
 	}
