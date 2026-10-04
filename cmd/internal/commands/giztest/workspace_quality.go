@@ -84,9 +84,43 @@ type qualityTurn struct {
 	Text string `json:"text"`
 }
 type qualityQuote struct {
+	Turn    int    `json:"turn"`
+	Quote   string `json:"quote,omitempty"`
+	QuoteID string `json:"quote_id,omitempty"`
+}
+
+type qualityEvidenceQuote struct {
+	ID    string `json:"id"`
 	Turn  int    `json:"turn"`
 	Quote string `json:"quote"`
 }
+
+// qualityEvidenceQuotes lets the judge select exact original text without
+// reconstructing punctuation or Markdown. Every entry remains a candidate
+// substring and is resolved by the runner, never supplied by the model.
+func qualityEvidenceQuotes(turns []qualityTurn) []qualityEvidenceQuote {
+	var quotes []qualityEvidenceQuote
+	for _, turn := range turns {
+		if turn.Role != "candidate" || !utf8.ValidString(turn.Text) {
+			continue
+		}
+		part := 0
+		for start := 0; start < len(turn.Text); {
+			end := min(start+512, len(turn.Text))
+			for end < len(turn.Text) && !utf8.RuneStart(turn.Text[end]) {
+				end--
+			}
+			quote := strings.TrimSpace(turn.Text[start:end])
+			if quote != "" {
+				part++
+				quotes = append(quotes, qualityEvidenceQuote{ID: fmt.Sprintf("t%d-q%d", turn.Turn, part), Turn: turn.Turn, Quote: quote})
+			}
+			start = end
+		}
+	}
+	return quotes
+}
+
 type qualityRating struct {
 	ID       string         `json:"id"`
 	Score    *int           `json:"score"`
@@ -120,7 +154,7 @@ func (s *session) assessRelayQuality(ctx context.Context, req giztest.StepReques
 	if err != nil {
 		return result, err
 	}
-	payload, err := json.Marshal(map[string]any{"reference": reference, "criteria": criteria, "dialogue": turns})
+	payload, err := json.Marshal(map[string]any{"reference": reference, "criteria": criteria, "dialogue": turns, "evidence_quotes": qualityEvidenceQuotes(turns)})
 	if err != nil || len(payload) > relayMaxTextBytes {
 		return result, errors.New("quality assessment request exceeds its text limit")
 	}
@@ -211,7 +245,7 @@ func qualityTranscript(op *giztest.WorkspaceRelayOperation, value any) ([]qualit
 			name = op.SecondClient
 		}
 		offset := offsets[name]
-		if offset >= len(texts[name]) || strings.TrimSpace(texts[name][offset]) == "" {
+		if offset >= len(texts[name]) || strings.TrimSpace(texts[name][offset]) == "" || !utf8.ValidString(texts[name][offset]) {
 			return nil, errors.New("quality assessment cannot grade an incomplete or empty conversation")
 		}
 		role := "player"
@@ -252,6 +286,10 @@ func validateQualityResponse(text string, spec *giztest.RelayQualitySpec, turns 
 			candidates[turn.Turn] = turn.Text
 		}
 	}
+	quoteCatalog := map[string]qualityEvidenceQuote{}
+	for _, quote := range qualityEvidenceQuotes(turns) {
+		quoteCatalog[quote.ID] = quote
+	}
 	supplied := map[string]qualityRating{}
 	for index, rating := range response.Criteria {
 		if _, exists := expected[rating.ID]; !exists {
@@ -268,7 +306,15 @@ func validateQualityResponse(text string, spec *giztest.RelayQualitySpec, turns 
 			return nil, nil, fmt.Errorf("quality criterion %s has an invalid score, reason or evidence", criterion.ID)
 		}
 		references := make([]int, 0, len(rating.Evidence))
-		for _, quote := range rating.Evidence {
+		for index, quote := range rating.Evidence {
+			if quote.QuoteID != "" {
+				selected, exists := quoteCatalog[quote.QuoteID]
+				if !exists || selected.Turn != quote.Turn || quote.Quote != "" {
+					return nil, nil, fmt.Errorf("quality criterion %s cites an invalid candidate quote ID", criterion.ID)
+				}
+				quote.Quote, quote.QuoteID = selected.Quote, ""
+				rating.Evidence[index] = quote
+			}
 			source, exists := candidates[quote.Turn]
 			if !exists || strings.TrimSpace(quote.Quote) == "" || len(quote.Quote) > 512 || !strings.Contains(source, quote.Quote) {
 				return nil, nil, fmt.Errorf("quality criterion %s cites evidence absent from the candidate dialogue", criterion.ID)

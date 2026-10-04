@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
@@ -312,5 +313,53 @@ func TestQualityJudgeKeepaliveFailureCancelsRelayWithoutLeakingError(t *testing.
 	}
 	if t.Context().Err() != nil {
 		t.Fatal("keepalive canceled the task owner")
+	}
+}
+
+func TestQualityQuoteIDsResolveOnlyExactCandidateEvidence(t *testing.T) {
+	turns := []qualityTurn{{Turn: 1, Role: "player", Text: "player evidence"}, {Turn: 2, Role: "candidate", Text: "**李白**：先找到线索，再作结论。"}}
+	good := `{"criteria":[{"id":"progression","score":2,"reason":"Needs more progress","evidence":[{"turn":2,"quote_id":"t2-q1"}]}]}`
+	for _, test := range []struct {
+		name, text string
+		valid      bool
+	}{
+		{"catalog reference", good, true},
+		{"unknown reference", strings.Replace(good, "t2-q1", "t2-q99", 1), false},
+		{"player reference", strings.Replace(good, "t2-q1", "t1-q1", 1), false},
+		{"different turn", strings.Replace(good, `"turn":2`, `"turn":4`, 1), false},
+		{"ambiguous text and ID", strings.Replace(good, `"quote_id":`, `"quote":"altered text","quote_id":`, 1), false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result, report, err := validateQualityResponse(test.text, qualityTestSpec(), turns, true)
+			if (err == nil) != test.valid {
+				t.Fatalf("valid=%v, error=%v", test.valid, err)
+			}
+			if err != nil {
+				return
+			}
+			if result["passed"] != false {
+				t.Fatal("a valid citation changed the low-score verdict")
+			}
+			encoded, _ := json.Marshal(report)
+			if !strings.Contains(string(encoded), turns[1].Text) || strings.Contains(string(encoded), "quote_id") {
+				t.Fatalf("report did not resolve original evidence: %s", encoded)
+			}
+		})
+	}
+}
+
+func TestQualityQuoteCatalogPreservesUnicodeAndCandidateBoundaries(t *testing.T) {
+	source := strings.Repeat("李白🌙，", 180)
+	turns := []qualityTurn{{Turn: 1, Role: "player", Text: "do not cite me"}, {Turn: 2, Role: "candidate", Text: source}}
+	quotes := qualityEvidenceQuotes(turns)
+	var restored strings.Builder
+	for index, quote := range quotes {
+		if quote.Turn != 2 || len(quote.Quote) > 512 || !utf8.ValidString(quote.Quote) || !strings.Contains(source, quote.Quote) {
+			t.Fatalf("catalog contains invalid candidate evidence at %d", index)
+		}
+		restored.WriteString(quote.Quote)
+	}
+	if len(quotes) < 2 || restored.String() != source {
+		t.Fatal("catalog dropped or rewrote source text")
 	}
 }

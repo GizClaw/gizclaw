@@ -313,6 +313,8 @@ Workspace 的 client。JS、C 和 Flutter runner 仍明确不支持 `workspace_r
 `candidate_client` 必须是参与对话的一侧，`judge_client` 必须与两侧不同，并提前完成
 `server.run.workspace.set`。原有 relay 文档可以省略 `quality`。
 
+裁判输入还带 `evidence_quotes` 引用目录，只包含候选原文的非空片段，每条有 `id`、`turn` 和 `quote`。裁判可返回 `{turn, quote_id}`，Giztest 按目录还原逐字引用，拒绝不存在的 ID、轮次不匹配、玩家引用以及同时提交 ID 与文本。原有 `{turn, quote}` 仍执行严格子串校验；报告始终保存实际原文，不将引用格式修复视为质量达标。
+
 relay 期间裁判通过每分钟一次、单次最多 10 秒的 Ping 保持连接；保活失败会终止 relay，评分前取消并等待该 RPC 退出。
 
 ```yaml
